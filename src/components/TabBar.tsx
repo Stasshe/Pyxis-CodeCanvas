@@ -52,7 +52,7 @@ export default function TabBar({
       {/* Terminal Toggle Button - 画面右端に固定位置 */}
       <button
         className={clsx(
-          'fixed right-3 top-1 h-7 px-2 hover:bg-accent flex items-center justify-center border border-border bg-muted rounded text-xs',
+          'fixed right-3 top-1 h-6 px-2 hover:bg-accent flex items-center justify-center border border-border bg-muted rounded text-xs shadow-sm',
           isBottomPanelVisible && 'bg-accent text-primary'
         )}
         onClick={onToggleBottomPanel}

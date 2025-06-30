@@ -100,7 +100,7 @@ export default function Home() {
   };
 
   return (
-    <div className="h-full w-full flex overflow-hidden bg-background">
+    <div className="h-full w-full flex overflow-hidden bg-background" style={{ paddingTop: '2px' }}>
       <MenuBar 
         activeMenuTab={activeMenuTab}
         onMenuTabClick={handleMenuTabClick}
