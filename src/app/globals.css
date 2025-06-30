@@ -29,12 +29,16 @@
   border-color: hsl(var(--border));
 }
 
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
 body {
   color: hsl(var(--foreground));
   background: hsl(var(--background));
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  margin: 0;
-  padding: 0;
   overflow: hidden;
 }
 

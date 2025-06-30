@@ -1,15 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import MenuBar from '@/components/MenuBar';
 import LeftSidebar from '@/components/LeftSidebar';
 import TabBar from '@/components/TabBar';
 import CodeEditor from '@/components/CodeEditor';
 import BottomPanel from '@/components/BottomPanel';
+import ProjectModal from '@/components/ProjectModal';
 import { useLeftSidebarResize, useBottomPanelResize } from '@/utils/resize';
 import { openFile, closeTab, updateTabContent } from '@/utils/tabs';
-import { defaultTabs, defaultFiles } from '@/utils/data';
-import type { MenuTab, Tab } from '@/types';
+import { useProject } from '@/utils/project';
+import type { MenuTab, Tab, FileItem } from '@/types';
+import { Project } from '@/utils/database';
 
 export default function Home() {
   const [activeMenuTab, setActiveMenuTab] = useState<MenuTab>('files');
@@ -17,14 +19,41 @@ export default function Home() {
   const [bottomPanelHeight, setBottomPanelHeight] = useState(200);
   const [isLeftSidebarVisible, setIsLeftSidebarVisible] = useState(true);
   const [isBottomPanelVisible, setIsBottomPanelVisible] = useState(true);
+  const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   
-  const [tabs, setTabs] = useState<Tab[]>(defaultTabs);
-  const [activeTabId, setActiveTabId] = useState('1');
+  const [tabs, setTabs] = useState<Tab[]>([]);
+  const [activeTabId, setActiveTabId] = useState('');
+
+  // プロジェクト管理
+  const { 
+    currentProject, 
+    projectFiles, 
+    loading: projectLoading,
+    loadProject,
+    saveFile,
+  } = useProject();
 
   const handleLeftResize = useLeftSidebarResize(leftSidebarWidth, setLeftSidebarWidth);
   const handleBottomResize = useBottomPanelResize(bottomPanelHeight, setBottomPanelHeight);
 
   const activeTab = tabs.find(tab => tab.id === activeTabId);
+
+  // プロジェクトが変更された時にタブをリセット
+  useEffect(() => {
+    if (currentProject) {
+      // ウェルカムタブを作成
+      const welcomeTab: Tab = {
+        id: 'welcome',
+        name: 'README.md',
+        content: `# ${currentProject.name}\n\n${currentProject.description || ''}\n\nプロジェクトファイルはIndexedDBに保存されています。\n./${currentProject.name}/~$`,
+        isDirty: false,
+        path: '/README.md'
+      };
+      
+      setTabs([welcomeTab]);
+      setActiveTabId('welcome');
+    }
+  }, [currentProject]);
 
   const handleMenuTabClick = (tab: MenuTab) => {
     if (activeMenuTab === tab && isLeftSidebarVisible) {
@@ -39,7 +68,7 @@ export default function Home() {
     setIsBottomPanelVisible(!isBottomPanelVisible);
   };
 
-  const handleFileOpen = (file: any) => {
+  const handleFileOpen = (file: FileItem) => {
     openFile(file, tabs, setTabs, setActiveTabId);
   };
 
@@ -47,22 +76,42 @@ export default function Home() {
     closeTab(tabId, tabs, activeTabId, setTabs, setActiveTabId);
   };
 
-  const handleTabContentUpdate = (tabId: string, content: string) => {
+  const handleTabContentUpdate = async (tabId: string, content: string) => {
+    // ローカルタブを更新
     updateTabContent(tabId, content, tabs, setTabs);
+    
+    // ファイルをIndexedDBに保存
+    const tab = tabs.find(t => t.id === tabId);
+    if (tab && currentProject) {
+      try {
+        await saveFile(tab.path, content);
+      } catch (error) {
+        console.error('Failed to save file:', error);
+      }
+    }
+  };
+
+  const handleProjectSelect = async (project: Project) => {
+    await loadProject(project);
+  };
+
+  const handleProjectModalOpen = () => {
+    setIsProjectModalOpen(true);
   };
 
   return (
-    <div className="h-screen w-screen flex overflow-hidden bg-background">
+    <div className="h-full w-full flex overflow-hidden bg-background">
       <MenuBar 
         activeMenuTab={activeMenuTab}
         onMenuTabClick={handleMenuTabClick}
+        onProjectClick={handleProjectModalOpen}
       />
 
       {isLeftSidebarVisible && (
         <LeftSidebar
           activeMenuTab={activeMenuTab}
           leftSidebarWidth={leftSidebarWidth}
-          files={defaultFiles}
+          files={projectFiles}
           onFileOpen={handleFileOpen}
           onResize={handleLeftResize}
         />
@@ -92,6 +141,13 @@ export default function Home() {
           />
         )}
       </div>
+
+      <ProjectModal
+        isOpen={isProjectModalOpen}
+        onClose={() => setIsProjectModalOpen(false)}
+        onProjectSelect={handleProjectSelect}
+        currentProject={currentProject}
+      />
     </div>
   );
 }
