@@ -249,20 +249,6 @@ export default function Home() {
         }}
       />
 
-      {/* Explorer Panel */}
-      <div 
-        className="bg-card border-r border-border flex flex-col"
-        style={{ width: explorerWidth }}
-      >
-        <div className="h-8 bg-muted border-b border-border flex items-center px-3">
-          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            ファイル一覧
-          </span>
-        </div>
-        <div className="flex-1 overflow-auto p-2">
-          {renderFileTree(files)}
-        </div>
-      </div>
 
       {/* Explorer Resizer */}
       <div
