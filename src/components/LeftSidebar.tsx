@@ -30,7 +30,7 @@ export default function LeftSidebar({
       >
         <div className="h-8 bg-muted border-b border-border flex items-center px-3">
           <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            {activeMenuTab === 'files' && 'ファイル'}
+            {activeMenuTab === 'files' && 'エクスプローラー'}
             {activeMenuTab === 'search' && '検索'}
             {activeMenuTab === 'settings' && '設定'}
           </span>
@@ -40,7 +40,7 @@ export default function LeftSidebar({
             <div className="p-2">
               <div className="flex items-center gap-2 mb-2">
                 <FolderOpen size={14} />
-                <span className="text-xs font-medium">エクスプローラー</span>
+                <span className="text-xs font-medium">./</span>
               </div>
               <FileTree items={files} onFileOpen={onFileOpen} />
             </div>
