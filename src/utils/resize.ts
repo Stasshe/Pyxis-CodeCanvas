@@ -12,7 +12,7 @@ export const useLeftSidebarResize = (
     const initialWidth = leftSidebarWidth;
     
     // 最小幅と最大幅の設定
-    const minWidth = 200;
+    const minWidth = 120;
     const maxWidth = window.innerWidth * 0.7;
 
     const handleMove = (e: MouseEvent | TouchEvent) => {
