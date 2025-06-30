@@ -1,3 +1,5 @@
+import Terminal from './Terminal';
+
 interface BottomPanelProps {
   height: number;
   onResize: (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => void;
@@ -13,18 +15,18 @@ export default function BottomPanel({ height, onResize }: BottomPanelProps) {
         onTouchStart={onResize}
       />
 
-      {/* Bottom Panel (Terminal placeholder) */}
+      {/* Bottom Panel (Terminal) */}
       <div 
-        className="bg-card border-t border-border"
+        className="bg-card border-t border-border flex flex-col"
         style={{ height }}
       >
-        <div className="h-8 bg-muted border-b border-border flex items-center px-3">
+        <div className="h-8 bg-muted border-b border-border flex items-center px-3 flex-shrink-0">
           <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             ターミナル
           </span>
         </div>
-        <div className="h-full p-4 overflow-auto">
-          <p className="text-sm text-muted-foreground">ターミナル機能は準備中です</p>
+        <div className="flex-1 overflow-hidden">
+          <Terminal height={height} />
         </div>
       </div>
     </>
