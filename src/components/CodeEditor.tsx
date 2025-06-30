@@ -124,7 +124,7 @@ export default function CodeEditor({
       cursorBlinking: 'smooth',
       cursorSmoothCaretAnimation: 'on',
       mouseWheelZoom: true,
-      folding: true,
+      //folding: true,
       foldingStrategy: 'indentation',
       showFoldingControls: 'always',
       foldingHighlight: true,

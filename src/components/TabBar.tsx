@@ -52,14 +52,14 @@ export default function TabBar({
       {/* Terminal Toggle Button - 画面右端に固定位置 */}
       <button
         className={clsx(
-          'fixed right-2 top-2 h-8 px-2 hover:bg-accent flex items-center justify-center border border-border bg-muted rounded',
+          'fixed right-3 top-1 h-7 px-2 hover:bg-accent flex items-center justify-center border border-border bg-muted rounded text-xs',
           isBottomPanelVisible && 'bg-accent text-primary'
         )}
         onClick={onToggleBottomPanel}
         title="ターミナル表示/非表示"
         style={{ zIndex: 50 }}
       >
-        <TerminalSquare size={14} />
+        <TerminalSquare size={12} />
       </button>
     </div>
   );

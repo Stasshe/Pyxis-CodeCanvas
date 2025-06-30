@@ -1,6 +1,7 @@
 import { FolderOpen } from 'lucide-react';
 import { MenuTab, FileItem } from '../types';
 import FileTree from './FileTree';
+import SearchPanel from './SearchPanel';
 
 interface LeftSidebarProps {
   activeMenuTab: MenuTab;
@@ -46,8 +47,8 @@ export default function LeftSidebar({
             </div>
           )}
           {activeMenuTab === 'search' && (
-            <div className="p-4">
-              <p className="text-sm text-muted-foreground">検索機能は準備中です</p>
+            <div className="h-full">
+              <SearchPanel files={files} onFileOpen={onFileOpen} />
             </div>
           )}
           {activeMenuTab === 'settings' && (
