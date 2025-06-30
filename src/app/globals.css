@@ -54,20 +54,51 @@ body {
   background: hsl(var(--border));
   position: relative;
   user-select: none;
+  transition: background-color 0.2s ease;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  touch-action: none;
 }
 
-.resizer:hover {
+.resizer:hover,
+.resizer:active {
   background: hsl(var(--primary));
 }
 
 .resizer-vertical {
-  width: 4px;
+  width: 6px;
   cursor: col-resize;
+  flex-shrink: 0;
+  min-width: 6px;
 }
 
 .resizer-horizontal {
-  height: 4px;
+  height: 6px;
   cursor: row-resize;
+  flex-shrink: 0;
+  min-height: 6px;
+}
+
+/* iPad/タッチデバイス用の調整 */
+@media (hover: none) and (pointer: coarse) {
+  .resizer-vertical {
+    width: 12px;
+    min-width: 12px;
+  }
+  
+  .resizer-horizontal {
+    height: 12px;
+    min-height: 12px;
+  }
+  
+  .resizer {
+    background: hsl(var(--primary) / 0.3);
+  }
+  
+  .resizer:active {
+    background: hsl(var(--primary));
+  }
 }
 
 .tab-active {

@@ -34,7 +34,6 @@ interface Tab {
 export default function Home() {
   const [activeMenuTab, setActiveMenuTab] = useState<'files' | 'search' | 'settings'>('files');
   const [leftSidebarWidth, setLeftSidebarWidth] = useState(240);
-  const [explorerWidth, setExplorerWidth] = useState(240);
   const [bottomPanelHeight, setBottomPanelHeight] = useState(200);
   const [tabs, setTabs] = useState<Tab[]>([
     {
@@ -71,47 +70,79 @@ export default function Home() {
   ]);
 
   const leftResizerRef = useRef<HTMLDivElement>(null);
-  const explorerResizerRef = useRef<HTMLDivElement>(null);
   const bottomResizerRef = useRef<HTMLDivElement>(null);
 
-  const handleResize = useCallback((
-    setWidth: (width: number) => void,
-    initialX: number,
-    initialWidth: number
-  ) => {
-    const handleMouseMove = (e: MouseEvent) => {
-      const delta = e.clientX - initialX;
-      const newWidth = Math.max(200, Math.min(400, initialWidth + delta));
-      setWidth(newWidth);
+  const handleLeftResize = useCallback((e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    
+    const isTouch = 'touches' in e;
+    const startX = isTouch ? e.touches[0].clientX : e.clientX;
+    const startWidth = leftSidebarWidth;
+
+    const handleMove = (e: MouseEvent | TouchEvent) => {
+      e.preventDefault();
+      const currentX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const delta = currentX - startX;
+      const newWidth = Math.max(150, Math.min(500, startWidth + delta));
+      setLeftSidebarWidth(newWidth);
     };
 
-    const handleMouseUp = () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+    const handleEnd = () => {
+      document.removeEventListener('mousemove', handleMove as EventListener);
+      document.removeEventListener('mouseup', handleEnd);
+      document.removeEventListener('touchmove', handleMove as EventListener);
+      document.removeEventListener('touchend', handleEnd);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      document.body.style.touchAction = '';
     };
 
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-  }, []);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    document.body.style.touchAction = 'none';
+    
+    document.addEventListener('mousemove', handleMove as EventListener);
+    document.addEventListener('mouseup', handleEnd);
+    document.addEventListener('touchmove', handleMove as EventListener);
+    document.addEventListener('touchend', handleEnd);
+  }, [leftSidebarWidth]);
 
   const handleBottomResize = useCallback((
-    initialY: number,
-    initialHeight: number
+    e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>
   ) => {
-    const handleMouseMove = (e: MouseEvent) => {
-      const delta = initialY - e.clientY;
-      const newHeight = Math.max(100, Math.min(window.innerHeight * 0.5, initialHeight + delta));
+    e.preventDefault();
+    
+    const isTouch = 'touches' in e;
+    const startY = isTouch ? e.touches[0].clientY : e.clientY;
+    const startHeight = bottomPanelHeight;
+
+    const handleMove = (e: MouseEvent | TouchEvent) => {
+      e.preventDefault();
+      const currentY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+      const delta = startY - currentY;
+      const newHeight = Math.max(100, Math.min(window.innerHeight * 0.5, startHeight + delta));
       setBottomPanelHeight(newHeight);
     };
 
-    const handleMouseUp = () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+    const handleEnd = () => {
+      document.removeEventListener('mousemove', handleMove as EventListener);
+      document.removeEventListener('mouseup', handleEnd);
+      document.removeEventListener('touchmove', handleMove as EventListener);
+      document.removeEventListener('touchend', handleEnd);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      document.body.style.touchAction = '';
     };
 
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-  }, []);
+    document.body.style.cursor = 'row-resize';
+    document.body.style.userSelect = 'none';
+    document.body.style.touchAction = 'none';
+    
+    document.addEventListener('mousemove', handleMove as EventListener);
+    document.addEventListener('mouseup', handleEnd);
+    document.addEventListener('touchmove', handleMove as EventListener);
+    document.addEventListener('touchend', handleEnd);
+  }, [bottomPanelHeight]);
 
   const openFile = (file: FileItem) => {
     if (file.type === 'folder') return;
@@ -243,21 +274,8 @@ export default function Home() {
       <div
         ref={leftResizerRef}
         className="resizer resizer-vertical"
-        onMouseDown={(e) => {
-          e.preventDefault();
-          handleResize(setLeftSidebarWidth, e.clientX, leftSidebarWidth);
-        }}
-      />
-
-
-      {/* Explorer Resizer */}
-      <div
-        ref={explorerResizerRef}
-        className="resizer resizer-vertical"
-        onMouseDown={(e) => {
-          e.preventDefault();
-          handleResize(setExplorerWidth, e.clientX, explorerWidth);
-        }}
+        onMouseDown={handleLeftResize}
+        onTouchStart={handleLeftResize}
       />
 
       {/* Main Editor Area */}
@@ -326,10 +344,8 @@ export default function Home() {
         <div
           ref={bottomResizerRef}
           className="resizer resizer-horizontal"
-          onMouseDown={(e) => {
-            e.preventDefault();
-            handleBottomResize(e.clientY, bottomPanelHeight);
-          }}
+          onMouseDown={handleBottomResize}
+          onTouchStart={handleBottomResize}
         />
 
         {/* Bottom Panel (Terminal placeholder) */}
