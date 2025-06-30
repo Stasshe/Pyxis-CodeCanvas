@@ -31,11 +31,35 @@ export class UnixCommands {
   constructor(projectName: string) {
     this.fs = getFileSystem()!;
     this.currentDir = getProjectDir(projectName);
+    // プロジェクトディレクトリが存在しない場合は作成
+    this.ensureProjectDirectory();
+  }
+
+  // プロジェクトディレクトリの存在を確認し、なければ作成
+  private async ensureProjectDirectory(): Promise<void> {
+    try {
+      await this.fs.promises.stat(this.currentDir);
+    } catch {
+      // ディレクトリが存在しない場合は作成
+      await this.fs.promises.mkdir(this.currentDir, { recursive: true } as any);
+    }
   }
 
   // pwd - 現在のディレクトリを表示
   pwd(): string {
     return this.currentDir;
+  }
+
+  // 現在のディレクトリをワークスペース相対パスで取得
+  getRelativePath(): string {
+    const projectBase = this.currentDir.split('/')[2]; // /projects/{projectName}
+    const relativePath = this.currentDir.replace(`/projects/${projectBase}`, '');
+    return relativePath || '/';
+  }
+
+  // 現在のディレクトリを設定
+  setCurrentDir(dir: string): void {
+    this.currentDir = dir;
   }
 
   // cd - ディレクトリ変更
@@ -93,24 +117,52 @@ export class UnixCommands {
     try {
       if (recursive) {
         // 再帰的にディレクトリを作成
-        const parts = normalizedPath.split('/').filter(part => part);
-        let currentPath = '';
-        
-        for (const part of parts) {
-          currentPath += '/' + part;
+        await this.createDirectoryRecursive(normalizedPath);
+      } else {
+        // 親ディレクトリの存在確認
+        const parentDir = normalizedPath.substring(0, normalizedPath.lastIndexOf('/'));
+        if (parentDir && parentDir !== '/') {
           try {
-            await this.fs.promises.stat(currentPath);
+            await this.fs.promises.stat(parentDir);
           } catch {
-            // ディレクトリが存在しない場合は作成
-            await this.fs.promises.mkdir(currentPath);
+            throw new Error(`Parent directory does not exist: ${parentDir}`);
           }
         }
-      } else {
+        
+        // ディレクトリが既に存在するかチェック
+        try {
+          const stat = await this.fs.promises.stat(normalizedPath);
+          if (stat.isDirectory()) {
+            throw new Error(`Directory already exists: ${normalizedPath}`);
+          }
+        } catch {
+          // ディレクトリが存在しない場合は作成
+        }
+        
         await this.fs.promises.mkdir(normalizedPath);
       }
       return `Directory created: ${normalizedPath}`;
     } catch (error) {
       throw new Error(`mkdir: cannot create directory '${dirName}': ${(error as Error).message}`);
+    }
+  }
+
+  // 再帰的ディレクトリ作成のヘルパー
+  private async createDirectoryRecursive(path: string): Promise<void> {
+    const parts = path.split('/').filter(part => part);
+    let currentPath = '';
+    
+    for (const part of parts) {
+      currentPath += '/' + part;
+      try {
+        const stat = await this.fs.promises.stat(currentPath);
+        if (!stat.isDirectory()) {
+          throw new Error(`Path exists but is not a directory: ${currentPath}`);
+        }
+      } catch {
+        // ディレクトリが存在しない場合は作成
+        await this.fs.promises.mkdir(currentPath);
+      }
     }
   }
 
@@ -231,12 +283,42 @@ export class GitCommands {
   constructor(projectName: string) {
     this.fs = getFileSystem()!;
     this.dir = getProjectDir(projectName);
+    // プロジェクトディレクトリが存在しない場合は作成
+    this.ensureProjectDirectory();
+  }
+
+  // プロジェクトディレクトリの存在を確認し、なければ作成
+  private async ensureProjectDirectory(): Promise<void> {
+    try {
+      await this.fs.promises.stat(this.dir);
+    } catch {
+      // ディレクトリが存在しない場合は作成
+      await this.fs.promises.mkdir(this.dir, { recursive: true } as any);
+    }
+  }
+
+  // 現在のブランチ名を取得
+  async getCurrentBranch(): Promise<string> {
+    try {
+      // Gitリポジトリが初期化されているかチェック
+      await this.fs.promises.stat(`${this.dir}/.git`);
+      
+      try {
+        const branch = await git.currentBranch({ fs: this.fs, dir: this.dir });
+        return branch || 'main';
+      } catch {
+        return 'main';
+      }
+    } catch {
+      return '(no git)';
+    }
   }
 
   // git init - リポジトリ初期化
   async init(): Promise<string> {
     try {
-      await git.init({ fs: this.fs, dir: this.dir });
+      await this.ensureProjectDirectory();
+      await git.init({ fs: this.fs, dir: this.dir, defaultBranch: 'main' });
       return `Initialized empty Git repository in ${this.dir}`;
     } catch (error) {
       throw new Error(`git init failed: ${(error as Error).message}`);
@@ -246,29 +328,44 @@ export class GitCommands {
   // git status - ステータス確認
   async status(): Promise<string> {
     try {
+      // Gitリポジトリが初期化されているかチェック
+      try {
+        await this.fs.promises.stat(`${this.dir}/.git`);
+      } catch {
+        throw new Error('not a git repository (or any of the parent directories): .git');
+      }
+
       const status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
+      const currentBranch = await this.getCurrentBranch();
       
       if (status.length === 0) {
-        return 'On branch main\nnothing to commit, working tree clean';
+        return `On branch ${currentBranch}\nnothing to commit, working tree clean`;
       }
 
       const untracked: string[] = [];
       const modified: string[] = [];
       const staged: string[] = [];
 
-      status.forEach(([filepath, , worktreeStatus, stageStatus]) => {
-        if (worktreeStatus === 0) {
-          // deleted
-        } else if (stageStatus === 0) {
+      status.forEach(([filepath, HEAD, workdir, stage]) => {
+        // HEAD=1: ファイルがHEADに存在, workdir=1: ファイルがワーキングディレクトリに存在, stage=1: ファイルがステージングエリアに存在
+        if (HEAD === 1 && workdir === 1 && stage === 1) {
+          // ファイルに変更なし
+        } else if (HEAD === 0 && workdir === 1 && stage === 0) {
+          // 新しいファイル（未追跡）
           untracked.push(filepath);
-        } else if (worktreeStatus !== stageStatus) {
+        } else if (HEAD === 1 && workdir === 1 && stage === 0) {
+          // 変更されたファイル（未ステージ）
           modified.push(filepath);
-        } else if (stageStatus === 2) {
+        } else if ((HEAD === 0 || HEAD === 1) && stage === 3) {
+          // ステージされたファイル
+          staged.push(filepath);
+        } else if (HEAD === 0 && workdir === 1 && stage === 3) {
+          // 新しくステージされたファイル
           staged.push(filepath);
         }
       });
 
-      let result = 'On branch main\n';
+      let result = `On branch ${currentBranch}\n`;
       
       if (staged.length > 0) {
         result += '\nChanges to be committed:\n';
@@ -283,6 +380,11 @@ export class GitCommands {
       if (untracked.length > 0) {
         result += '\nUntracked files:\n';
         untracked.forEach(file => result += `  ${file}\n`);
+        result += '\nnothing added to commit but untracked files present (use "git add" to track)';
+      }
+
+      if (staged.length === 0 && modified.length === 0 && untracked.length === 0) {
+        result = `On branch ${currentBranch}\nnothing to commit, working tree clean`;
       }
 
       return result;
@@ -294,11 +396,92 @@ export class GitCommands {
   // git add - ファイルをステージング
   async add(filepath: string): Promise<string> {
     try {
-      await git.add({ fs: this.fs, dir: this.dir, filepath });
-      return `Added ${filepath} to staging area`;
+      if (filepath === '.') {
+        // カレントディレクトリの全ファイルを追加
+        const files = await this.getAllFiles(this.dir);
+        if (files.length === 0) {
+          return 'No files to add';
+        }
+        
+        for (const file of files) {
+          await git.add({ fs: this.fs, dir: this.dir, filepath: file });
+        }
+        
+        return `Added ${files.length} file(s) to staging area`;
+      } else if (filepath === '*' || filepath.includes('*')) {
+        // ワイルドカード対応
+        const files = await this.getMatchingFiles(this.dir, filepath);
+        if (files.length === 0) {
+          return `No files matching '${filepath}'`;
+        }
+        
+        for (const file of files) {
+          await git.add({ fs: this.fs, dir: this.dir, filepath: file });
+        }
+        
+        return `Added ${files.length} file(s) to staging area`;
+      } else {
+        // 個別ファイル
+        await git.add({ fs: this.fs, dir: this.dir, filepath });
+        return `Added ${filepath} to staging area`;
+      }
     } catch (error) {
       throw new Error(`git add failed: ${(error as Error).message}`);
     }
+  }
+
+  // すべてのファイルを取得（再帰的）
+  private async getAllFiles(dirPath: string): Promise<string[]> {
+    const files: string[] = [];
+    
+    const traverse = async (currentPath: string, relativePath: string = '') => {
+      try {
+        const entries = await this.fs.promises.readdir(currentPath);
+        
+        for (const entry of entries) {
+          // .gitディレクトリは除外
+          if (entry === '.git') continue;
+          
+          const fullPath = `${currentPath}/${entry}`;
+          const relativeFilePath = relativePath ? `${relativePath}/${entry}` : entry;
+          
+          try {
+            const stat = await this.fs.promises.stat(fullPath);
+            if (stat.isDirectory()) {
+              await traverse(fullPath, relativeFilePath);
+            } else {
+              files.push(relativeFilePath);
+            }
+          } catch {
+            // ファイルアクセスエラーは無視
+          }
+        }
+      } catch {
+        // ディレクトリアクセスエラーは無視
+      }
+    };
+    
+    await traverse(dirPath);
+    return files;
+  }
+
+  // パターンにマッチするファイルを取得
+  private async getMatchingFiles(dirPath: string, pattern: string): Promise<string[]> {
+    const allFiles = await this.getAllFiles(dirPath);
+    
+    if (pattern === '*') {
+      // カレントディレクトリの直接のファイルのみ
+      return allFiles.filter(file => !file.includes('/'));
+    }
+    
+    // 簡単なワイルドカードマッチング
+    const regexPattern = pattern
+      .replace(/\./g, '\\.')
+      .replace(/\*/g, '.*')
+      .replace(/\?/g, '.');
+    
+    const regex = new RegExp(`^${regexPattern}$`);
+    return allFiles.filter(file => regex.test(file));
   }
 
   // git commit - コミット

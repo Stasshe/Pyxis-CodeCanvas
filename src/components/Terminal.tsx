@@ -77,7 +77,21 @@ function ClientTerminal({ height, currentProject = 'default' }: TerminalProps) {
     term.writeln('Pyxis Terminal v1.0.0');
     term.writeln('UNIX-like commands and Git are available.');
     term.writeln('Type "help" for available commands.');
-    term.write('\r\n$ ');
+
+    // プロンプトを表示する関数
+    const showPrompt = async () => {
+      if (unixCommandsRef.current && gitCommandsRef.current) {
+        const relativePath = unixCommandsRef.current.getRelativePath();
+        const branch = await gitCommandsRef.current.getCurrentBranch();
+        const branchDisplay = branch !== '(no git)' ? ` (${branch})` : '';
+        term.write(`\r\n/workspaces/${currentProject}${relativePath}${branchDisplay} $ `);
+      } else {
+        term.write('\r\n$ ');
+      }
+    };
+
+    // 初期プロンプト表示
+    showPrompt();
 
     // コマンド処理
     let currentLine = '';
@@ -105,16 +119,18 @@ function ClientTerminal({ height, currentProject = 'default' }: TerminalProps) {
             term.writeln('  pwd       - 現在のディレクトリを表示');
             term.writeln('  ls [path] - ファイル一覧を表示');
             term.writeln('  cd <path> - ディレクトリを変更');
-            term.writeln('  mkdir <name> - ディレクトリを作成');
+            term.writeln('  mkdir <name> [-p] - ディレクトリを作成');
             term.writeln('  touch <file> - ファイルを作成');
-            term.writeln('  rm <file> - ファイルを削除');
+            term.writeln('  rm <file> [-r] - ファイルを削除');
             term.writeln('  cat <file> - ファイル内容を表示');
             term.writeln('  echo <text> [> file] - テキストを出力/ファイルに書き込み');
             term.writeln('');
             term.writeln('Git Commands:');
             term.writeln('  git init    - Gitリポジトリを初期化');
             term.writeln('  git status  - ステータスを確認');
-            term.writeln('  git add <file> - ファイルをステージング');
+            term.writeln('  git add <file|.|*> - ファイルをステージング');
+            term.writeln('    git add .     - 全ファイルを追加');
+            term.writeln('    git add *     - カレントディレクトリのファイルを追加');
             term.writeln('  git commit -m "message" - コミット');
             term.writeln('  git log     - コミット履歴を表示');
             break;
@@ -146,6 +162,11 @@ function ClientTerminal({ height, currentProject = 'default' }: TerminalProps) {
             if (unixCommandsRef.current && args[0]) {
               const result = await unixCommandsRef.current.cd(args[0]);
               term.writeln(`\r\n${result}`);
+            } else if (unixCommandsRef.current && !args[0]) {
+              // cdのみの場合はプロジェクトルートに移動
+              const projectRoot = `/projects/${currentProject}`;
+              unixCommandsRef.current.setCurrentDir(projectRoot);
+              term.writeln(`\r\nChanged directory to ${projectRoot}`);
             } else {
               term.writeln('\r\ncd: missing argument');
             }
@@ -275,10 +296,10 @@ function ClientTerminal({ height, currentProject = 'default' }: TerminalProps) {
           term.writeln('');
           if (currentLine.trim()) {
             processCommand(currentLine).then(() => {
-              term.write('$ ');
+              showPrompt();
             });
           } else {
-            term.write('$ ');
+            showPrompt();
           }
           currentLine = '';
           break;
@@ -291,7 +312,7 @@ function ClientTerminal({ height, currentProject = 'default' }: TerminalProps) {
         case '\u0003': // Ctrl+C
           term.writeln('^C');
           currentLine = '';
-          term.write('$ ');
+          showPrompt();
           break;
         default:
           if (data >= ' ' || data === '\t') {

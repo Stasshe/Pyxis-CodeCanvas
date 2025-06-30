@@ -33,6 +33,7 @@ export default function LeftSidebar({
           <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             {activeMenuTab === 'files' && 'エクスプローラー'}
             {activeMenuTab === 'search' && '検索'}
+            {activeMenuTab === 'git' && 'ソース管理'}
             {activeMenuTab === 'settings' && '設定'}
           </span>
         </div>
@@ -49,6 +50,14 @@ export default function LeftSidebar({
           {activeMenuTab === 'search' && (
             <div className="h-full">
               <SearchPanel files={files} onFileOpen={onFileOpen} />
+            </div>
+          )}
+          {activeMenuTab === 'git' && (
+            <div className="p-4">
+              <p className="text-sm text-muted-foreground">Gitパネルは準備中です</p>
+              <p className="text-xs text-muted-foreground mt-2">
+                ターミナルでGitコマンドを使用できます
+              </p>
             </div>
           )}
           {activeMenuTab === 'settings' && (

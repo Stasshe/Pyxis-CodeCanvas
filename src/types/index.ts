@@ -15,4 +15,4 @@ export interface Tab {
   path: string;
 }
 
-export type MenuTab = 'files' | 'search' | 'settings';
+export type MenuTab = 'files' | 'search' | 'git' | 'settings';

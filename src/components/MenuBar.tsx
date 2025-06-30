@@ -1,4 +1,4 @@
-import { FileText, Search, Settings, FolderOpen } from 'lucide-react';
+import { FileText, Search, GitBranch, Settings, FolderOpen } from 'lucide-react';
 import clsx from 'clsx';
 import { MenuTab } from '../types';
 
@@ -32,6 +32,16 @@ export default function MenuBar({ activeMenuTab, onMenuTabClick, onProjectClick 
           title="検索"
         >
           <Search size={20} />
+        </button>
+        <button
+          className={clsx(
+            'h-12 w-12 flex items-center justify-center hover:bg-accent',
+            activeMenuTab === 'git' && 'bg-accent text-primary'
+          )}
+          onClick={() => onMenuTabClick('git')}
+          title="Git"
+        >
+          <GitBranch size={20} />
         </button>
         <button
           className={clsx(
