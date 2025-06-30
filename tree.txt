@@ -14,19 +14,32 @@
 │   ├── vercel.svg
 │   └── window.svg
 ├── src
-│   └── app
-│       ├── favicon.ico
-│       ├── globals.css
-│       ├── layout.tsx
-│       └── page.tsx
+│   ├── app
+│   │   ├── favicon.ico
+│   │   ├── globals.css
+│   │   ├── layout.tsx
+│   │   └── page.tsx
+│   ├── components
+│   │   ├── BottomPanel.tsx
+│   │   ├── CodeEditor.tsx
+│   │   ├── FileTree.tsx
+│   │   ├── LeftSidebar.tsx
+│   │   ├── MenuBar.tsx
+│   │   └── TabBar.tsx
+│   ├── types
+│   │   └── index.ts
+│   └── utils
+│       ├── data.ts
+│       ├── resize.ts
+│       └── tabs.ts
 ├── tailwind.config.ts
 ├── tree.sh
 ├── tree.txt
 └── tsconfig.json
 
-4 directories, 21 files
+7 directories, 31 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 453
-合計文字数: 15456
-合計ファイルサイズ(bytes): 15818
+合計行数: 1007
+合計文字数: 32379
+合計ファイルサイズ(bytes): 33435

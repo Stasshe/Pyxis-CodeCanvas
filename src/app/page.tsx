@@ -306,7 +306,7 @@ export default function Home() {
               <div className="p-2">
                 <div className="flex items-center gap-2 mb-2">
                   <FolderOpen size={14} />
-                  <span className="text-xs font-medium">エクスプローラー</span>
+                  <span className="text-xs font-medium">./</span>
                 </div>
                 {renderFileTree(files)}
               </div>
