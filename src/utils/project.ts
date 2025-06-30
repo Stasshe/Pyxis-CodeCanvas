@@ -9,6 +9,7 @@ export const useProject = () => {
 
   // プロジェクトファイルをFileItem形式に変換
   const convertToFileItems = (files: ProjectFile[]): FileItem[] => {
+    console.log('Converting files:', files);
     const fileMap = new Map<string, FileItem>();
     const rootItems: FileItem[] = [];
 
@@ -30,15 +31,19 @@ export const useProject = () => {
       const item = fileMap.get(file.path);
       if (!item) return;
 
-      if (file.parentPath === '/' || !file.parentPath) {
+      if (file.parentPath === '/' || !file.parentPath || file.path === '/') {
         rootItems.push(item);
       } else {
         const parent = fileMap.get(file.parentPath);
         if (parent && parent.children) {
           parent.children.push(item);
+        } else {
+          console.warn(`Parent not found for ${file.path}, parentPath: ${file.parentPath}`);
         }
       }
     });
+
+    console.log('Root items:', rootItems);
 
     // フォルダを先に、ファイルを後にソート
     const sortItems = (items: FileItem[]): FileItem[] => {

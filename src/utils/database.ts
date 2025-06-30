@@ -71,6 +71,9 @@ class ProjectDB {
     // デフォルトファイルを作成
     await this.createFile(project.id, '/README.md', `# ${name}\n\nこのプロジェクトの説明をここに記入してください。`, 'file');
     await this.createFile(project.id, '/src', '', 'folder');
+    await this.createFile(project.id, '/src/index.js', 'console.log("Hello, World!");', 'file');
+    await this.createFile(project.id, '/src/components', '', 'folder');
+    await this.createFile(project.id, '/src/components/App.js', 'export default function App() {\n  return <div>Hello App</div>;\n}', 'file');
 
     return project;
   }

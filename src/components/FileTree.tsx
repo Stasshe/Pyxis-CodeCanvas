@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ChevronDown, ChevronRight, File, Folder } from 'lucide-react';
 import { FileItem } from '../types';
 
@@ -10,6 +10,15 @@ interface FileTreeProps {
 
 export default function FileTree({ items, onFileOpen, level = 0 }: FileTreeProps) {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+
+  // 初回読み込み時にルートレベルのフォルダを展開
+  useEffect(() => {
+    if (level === 0) {
+      const rootFolders = items.filter(item => item.type === 'folder');
+      const expandedIds = new Set(rootFolders.map(folder => folder.id));
+      setExpandedFolders(expandedIds);
+    }
+  }, [items, level]);
 
   const toggleFolder = (folderId: string) => {
     setExpandedFolders(prev => {

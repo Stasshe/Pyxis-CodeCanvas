@@ -21,7 +21,7 @@ export default function TabBar({
 }: TabBarProps) {
   return (
     <div className="h-10 bg-muted border-b border-border flex items-center relative">
-      <div className="flex items-center overflow-x-auto" style={{ paddingRight: '50px' }}>
+      <div className="flex items-center overflow-x-auto flex-1" style={{ paddingRight: '50px' }}>
         {tabs.map(tab => (
           <div
             key={tab.id}
@@ -49,15 +49,15 @@ export default function TabBar({
         </button>
       </div>
       
-      {/* Terminal Toggle Button - 絶対位置で右端に固定 */}
+      {/* Terminal Toggle Button - 画面右端に固定位置 */}
       <button
         className={clsx(
-          'absolute right-0 top-0 h-10 px-3 hover:bg-accent flex items-center justify-center border-l border-border bg-muted',
+          'fixed right-0 top-10 h-10 px-3 hover:bg-accent flex items-center justify-center border-l border-border bg-muted',
           isBottomPanelVisible && 'bg-accent text-primary'
         )}
         onClick={onToggleBottomPanel}
         title="ターミナル表示/非表示"
-        style={{ zIndex: 10 }}
+        style={{ zIndex: 50 }}
       >
         <TerminalSquare size={16} />
       </button>
