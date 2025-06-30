@@ -2,6 +2,88 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --background: 220 20% 14%;
+  --foreground: 220 10% 90%;
+  --card: 220 20% 16%;
+  --card-foreground: 220 10% 90%;
+  --popover: 220 20% 16%;
+  --popover-foreground: 220 10% 90%;
+  --primary: 210 100% 50%;
+  --primary-foreground: 220 10% 10%;
+  --secondary: 220 20% 20%;
+  --secondary-foreground: 220 10% 90%;
+  --muted: 220 20% 18%;
+  --muted-foreground: 220 10% 60%;
+  --accent: 220 20% 22%;
+  --accent-foreground: 220 10% 90%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 220 20% 24%;
+  --input: 220 20% 24%;
+  --ring: 210 100% 50%;
+  --radius: 0.5rem;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+body {
+  color: hsl(var(--foreground));
+  background: hsl(var(--background));
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.sidebar-width {
+  width: 240px;
+  min-width: 200px;
+  max-width: 400px;
+}
+
+.panel-height {
+  height: 200px;
+  min-height: 100px;
+  max-height: 50vh;
+}
+
+.resizer {
+  background: hsl(var(--border));
+  position: relative;
+  user-select: none;
+}
+
+.resizer:hover {
+  background: hsl(var(--primary));
+}
+
+.resizer-vertical {
+  width: 4px;
+  cursor: col-resize;
+}
+
+.resizer-horizontal {
+  height: 4px;
+  cursor: row-resize;
+}
+
+.tab-active {
+  background: hsl(var(--background));
+  border-bottom: 2px solid hsl(var(--primary));
+}
+
+.tab-inactive {
+  background: hsl(var(--muted));
+  border-bottom: 2px solid transparent;
+}
+
+.tab-inactive:hover {
+  background: hsl(var(--accent));
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;
