@@ -1,6 +1,10 @@
+/* xterm.js styles */
+@import '@xterm/xterm/css/xterm.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
 
 :root {
   --background: 220 20% 14%;
