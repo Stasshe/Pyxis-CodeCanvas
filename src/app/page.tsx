@@ -10,7 +10,9 @@ import {
   File,
   X,
   Plus,
-  Folder
+  Folder,
+  Terminal,
+  TerminalSquare
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -35,6 +37,9 @@ export default function Home() {
   const [activeMenuTab, setActiveMenuTab] = useState<'files' | 'search' | 'settings'>('files');
   const [leftSidebarWidth, setLeftSidebarWidth] = useState(240);
   const [bottomPanelHeight, setBottomPanelHeight] = useState(200);
+  const [isLeftSidebarVisible, setIsLeftSidebarVisible] = useState(true);
+  const [isBottomPanelVisible, setIsBottomPanelVisible] = useState(true);
+  
   const [tabs, setTabs] = useState<Tab[]>([
     {
       id: '1',
@@ -77,17 +82,41 @@ export default function Home() {
     
     const isTouch = 'touches' in e;
     const startX = isTouch ? e.touches[0].clientX : e.clientX;
-    const startWidth = leftSidebarWidth;
+    const initialWidth = leftSidebarWidth;
+    
+    console.log('🔧 Left Resize Start:', { startX, initialWidth, isLeftSidebarVisible });
+    
+    // 最小幅と最大幅の設定（ターミナルと同じパターン）
+    const minWidth = 200;
+    const maxWidth = window.innerWidth * 0.7;
 
     const handleMove = (e: MouseEvent | TouchEvent) => {
       e.preventDefault();
+      
       const currentX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-      const delta = currentX - startX;
-      const newWidth = Math.max(150, Math.min(500, startWidth + delta));
-      setLeftSidebarWidth(newWidth);
+      const deltaX = currentX - startX; // X軸は右向きが正（ターミナルのY軸計算と逆）
+      
+      // 初期幅 + 移動距離で新しい幅を計算（ターミナルと全く同じロジック）
+      const newWidth = initialWidth + deltaX;
+      
+      // 最小幅と最大幅の範囲内に制限（ターミナルと全く同じロジック）
+      const clampedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
+      
+      console.log('🔧 Left Resize Move:', { currentX, deltaX, newWidth, clampedWidth, minWidth, maxWidth });
+      
+      setLeftSidebarWidth(clampedWidth);
+      
+      // 強制的にレイアウト更新を促す
+      const sidebar = document.querySelector('[data-sidebar="left"]') as HTMLElement;
+      if (sidebar) {
+        sidebar.style.width = `${clampedWidth}px`;
+        // ブラウザに強制的な再描画を促す
+        sidebar.offsetHeight;
+      }
     };
 
     const handleEnd = () => {
+      console.log('🔧 Left Resize End');
       document.removeEventListener('mousemove', handleMove as EventListener);
       document.removeEventListener('mouseup', handleEnd);
       document.removeEventListener('touchmove', handleMove as EventListener);
@@ -114,14 +143,25 @@ export default function Home() {
     
     const isTouch = 'touches' in e;
     const startY = isTouch ? e.touches[0].clientY : e.clientY;
-    const startHeight = bottomPanelHeight;
+    const initialHeight = bottomPanelHeight;
+    
+    // 最小高さと最大高さの設定
+    const minHeight = 100;
+    const maxHeight = window.innerHeight * 0.6;
 
     const handleMove = (e: MouseEvent | TouchEvent) => {
       e.preventDefault();
+      
       const currentY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-      const delta = startY - currentY;
-      const newHeight = Math.max(100, Math.min(window.innerHeight * 0.5, startHeight + delta));
-      setBottomPanelHeight(newHeight);
+      const deltaY = startY - currentY; // Y軸は下向きが正なので反転
+      
+      // 初期高さ + 移動距離で新しい高さを計算
+      const newHeight = initialHeight + deltaY;
+      
+      // 最小高さと最大高さの範囲内に制限
+      const clampedHeight = Math.max(minHeight, Math.min(maxHeight, newHeight));
+      
+      setBottomPanelHeight(clampedHeight);
     };
 
     const handleEnd = () => {
@@ -202,16 +242,29 @@ export default function Home() {
 
   const activeTab = tabs.find(tab => tab.id === activeTabId);
 
+  const handleMenuTabClick = (tab: 'files' | 'search' | 'settings') => {
+    if (activeMenuTab === tab && isLeftSidebarVisible) {
+      setIsLeftSidebarVisible(false);
+    } else {
+      setActiveMenuTab(tab);
+      setIsLeftSidebarVisible(true);
+    }
+  };
+
+  const toggleBottomPanel = () => {
+    setIsBottomPanelVisible(!isBottomPanelVisible);
+  };
+
   return (
-    <div className="h-screen w-screen flex overflow-hidden bg-background">
+    <div className="h-screen w-screen flex overflow-hidden bg-background" style={{ display: 'flex', flexDirection: 'row' }}>
       {/* Left Menu Bar */}
-      <div className="w-12 bg-muted border-r border-border flex flex-col">
+      <div className="w-12 bg-muted border-r border-border flex flex-col flex-shrink-0">
         <button
           className={clsx(
             'h-12 w-12 flex items-center justify-center hover:bg-accent',
             activeMenuTab === 'files' && 'bg-accent text-primary'
           )}
-          onClick={() => setActiveMenuTab('files')}
+          onClick={() => handleMenuTabClick('files')}
         >
           <FileText size={20} />
         </button>
@@ -220,7 +273,7 @@ export default function Home() {
             'h-12 w-12 flex items-center justify-center hover:bg-accent',
             activeMenuTab === 'search' && 'bg-accent text-primary'
           )}
-          onClick={() => setActiveMenuTab('search')}
+          onClick={() => handleMenuTabClick('search')}
         >
           <Search size={20} />
         </button>
@@ -229,88 +282,111 @@ export default function Home() {
             'h-12 w-12 flex items-center justify-center hover:bg-accent',
             activeMenuTab === 'settings' && 'bg-accent text-primary'
           )}
-          onClick={() => setActiveMenuTab('settings')}
+          onClick={() => handleMenuTabClick('settings')}
         >
           <Settings size={20} />
         </button>
       </div>
 
       {/* Left Sidebar */}
-      <div 
-        className="bg-card border-r border-border flex flex-col"
-        style={{ width: leftSidebarWidth }}
-      >
-        <div className="h-8 bg-muted border-b border-border flex items-center px-3">
-          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            {activeMenuTab === 'files' && 'ファイル'}
-            {activeMenuTab === 'search' && '検索'}
-            {activeMenuTab === 'settings' && '設定'}
-          </span>
-        </div>
-        <div className="flex-1 overflow-auto">
-          {activeMenuTab === 'files' && (
-            <div className="p-2">
-              <div className="flex items-center gap-2 mb-2">
-                <FolderOpen size={14} />
-                <span className="text-xs font-medium">エクスプローラー</span>
+      {isLeftSidebarVisible && (
+        <div 
+          data-sidebar="left"
+          className="bg-card border-r border-border flex flex-col flex-shrink-0"
+          style={{ 
+            width: `${leftSidebarWidth}px`,
+            minWidth: `${leftSidebarWidth}px`,
+            maxWidth: `${leftSidebarWidth}px`,
+          }}
+        >
+          <div className="h-8 bg-muted border-b border-border flex items-center px-3">
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {activeMenuTab === 'files' && 'ファイル'}
+              {activeMenuTab === 'search' && '検索'}
+              {activeMenuTab === 'settings' && '設定'}
+            </span>
+          </div>
+          <div className="flex-1 overflow-auto">
+            {activeMenuTab === 'files' && (
+              <div className="p-2">
+                <div className="flex items-center gap-2 mb-2">
+                  <FolderOpen size={14} />
+                  <span className="text-xs font-medium">エクスプローラー</span>
+                </div>
+                {renderFileTree(files)}
               </div>
-              {renderFileTree(files)}
-            </div>
-          )}
-          {activeMenuTab === 'search' && (
-            <div className="p-4">
-              <p className="text-sm text-muted-foreground">検索機能は準備中です</p>
-            </div>
-          )}
-          {activeMenuTab === 'settings' && (
-            <div className="p-4">
-              <p className="text-sm text-muted-foreground">設定画面は準備中です</p>
-            </div>
-          )}
+            )}
+            {activeMenuTab === 'search' && (
+              <div className="p-4">
+                <p className="text-sm text-muted-foreground">検索機能は準備中です</p>
+              </div>
+            )}
+            {activeMenuTab === 'settings' && (
+              <div className="p-4">
+                <p className="text-sm text-muted-foreground">設定画面は準備中です</p>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Left Resizer */}
-      <div
-        ref={leftResizerRef}
-        className="resizer resizer-vertical"
-        onMouseDown={handleLeftResize}
-        onTouchStart={handleLeftResize}
-      />
+      {/* Left Resizer - 常に表示（左サイドバーが表示されている時のみ機能） */}
+      {isLeftSidebarVisible && (
+        <div
+          ref={leftResizerRef}
+          className="resizer resizer-vertical flex-shrink-0"
+          onMouseDown={handleLeftResize}
+          onTouchStart={handleLeftResize}
+        />
+      )}
 
       {/* Main Editor Area */}
       <div className="flex-1 flex flex-col">
         {/* Tab Bar */}
         <div className="h-10 bg-muted border-b border-border flex items-center overflow-x-auto">
-          {tabs.map(tab => (
-            <div
-              key={tab.id}
-              className={clsx(
-                'h-full flex items-center px-3 border-r border-border cursor-pointer min-w-0 flex-shrink-0',
-                tab.id === activeTabId ? 'tab-active' : 'tab-inactive'
-              )}
-              onClick={() => setActiveTabId(tab.id)}
-            >
-              <span className="text-sm truncate max-w-32">{tab.name}</span>
-              {tab.isDirty && <span className="ml-1 text-xs">●</span>}
-              <button
-                className="ml-2 p-1 hover:bg-accent rounded"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  closeTab(tab.id);
-                }}
+          <div className="flex items-center flex-1">
+            {tabs.map(tab => (
+              <div
+                key={tab.id}
+                className={clsx(
+                  'h-full flex items-center px-3 border-r border-border cursor-pointer min-w-0 flex-shrink-0',
+                  tab.id === activeTabId ? 'tab-active' : 'tab-inactive'
+                )}
+                onClick={() => setActiveTabId(tab.id)}
               >
-                <X size={12} />
-              </button>
-            </div>
-          ))}
-          <button className="h-full px-3 hover:bg-accent flex items-center justify-center">
-            <Plus size={16} />
+                <span className="text-sm truncate max-w-32">{tab.name}</span>
+                {tab.isDirty && <span className="ml-1 text-xs">●</span>}
+                <button
+                  className="ml-2 p-1 hover:bg-accent rounded"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    closeTab(tab.id);
+                  }}
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            ))}
+            <button className="h-full px-3 hover:bg-accent flex items-center justify-center">
+              <Plus size={16} />
+            </button>
+          </div>
+          
+          {/* Terminal Toggle Button */}
+          <button
+            className={clsx(
+              'h-full px-3 hover:bg-accent flex items-center justify-center border-l border-border',
+              isBottomPanelVisible && 'bg-accent text-primary'
+            )}
+            onClick={toggleBottomPanel}
+            title="ターミナル表示/非表示"
+          >
+            <TerminalSquare size={16} />
           </button>
         </div>
 
         {/* Editor */}
-        <div className="flex-1" style={{ height: `calc(100vh - 40px - ${bottomPanelHeight}px)` }}>
+        <div className="flex-1" style={{ height: isBottomPanelVisible ? `calc(100vh - 40px - ${bottomPanelHeight}px)` : 'calc(100vh - 40px)' }}>
           {activeTab ? (
             <Editor
               height="100%"
@@ -340,28 +416,33 @@ export default function Home() {
           )}
         </div>
 
-        {/* Bottom Resizer */}
-        <div
-          ref={bottomResizerRef}
-          className="resizer resizer-horizontal"
-          onMouseDown={handleBottomResize}
-          onTouchStart={handleBottomResize}
-        />
+        {/* Bottom Resizer and Panel */}
+        {isBottomPanelVisible && (
+          <>
+            {/* Bottom Resizer */}
+            <div
+              ref={bottomResizerRef}
+              className="resizer resizer-horizontal"
+              onMouseDown={handleBottomResize}
+              onTouchStart={handleBottomResize}
+            />
 
-        {/* Bottom Panel (Terminal placeholder) */}
-        <div 
-          className="bg-card border-t border-border"
-          style={{ height: bottomPanelHeight }}
-        >
-          <div className="h-8 bg-muted border-b border-border flex items-center px-3">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              ターミナル
-            </span>
-          </div>
-          <div className="h-full p-4 overflow-auto">
-            <p className="text-sm text-muted-foreground">ターミナル機能は準備中です</p>
-          </div>
-        </div>
+            {/* Bottom Panel (Terminal placeholder) */}
+            <div 
+              className="bg-card border-t border-border"
+              style={{ height: bottomPanelHeight }}
+            >
+              <div className="h-8 bg-muted border-b border-border flex items-center px-3">
+                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  ターミナル
+                </span>
+              </div>
+              <div className="h-full p-4 overflow-auto">
+                <p className="text-sm text-muted-foreground">ターミナル機能は準備中です</p>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

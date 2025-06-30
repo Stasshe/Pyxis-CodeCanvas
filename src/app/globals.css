@@ -54,11 +54,12 @@ body {
   background: hsl(var(--border));
   position: relative;
   user-select: none;
-  transition: background-color 0.2s ease;
+  /* transition: background-color 0.2s ease; 一時的に無効化 */
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
   touch-action: none;
+  z-index: 10;
 }
 
 .resizer:hover,
@@ -71,6 +72,7 @@ body {
   cursor: col-resize;
   flex-shrink: 0;
   min-width: 6px;
+  position: relative;
 }
 
 .resizer-horizontal {
@@ -78,6 +80,28 @@ body {
   cursor: row-resize;
   flex-shrink: 0;
   min-height: 6px;
+  position: relative;
+}
+
+/* リサイズ中のパフォーマンス改善 */
+.resizer-vertical::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -3px;
+  right: -3px;
+  bottom: 0;
+  background: transparent;
+}
+
+.resizer-horizontal::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: 0;
+  right: 0;
+  bottom: -3px;
+  background: transparent;
 }
 
 /* iPad/タッチデバイス用の調整 */
@@ -93,11 +117,21 @@ body {
   }
   
   .resizer {
-    background: hsl(var(--primary) / 0.3);
+    background: hsl(var(--primary) / 0.4);
   }
   
   .resizer:active {
-    background: hsl(var(--primary));
+    background: hsl(var(--primary) / 0.8);
+  }
+  
+  .resizer-vertical::before {
+    left: -6px;
+    right: -6px;
+  }
+  
+  .resizer-horizontal::before {
+    top: -6px;
+    bottom: -6px;
   }
 }
 
