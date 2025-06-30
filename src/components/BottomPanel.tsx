@@ -2,10 +2,11 @@ import Terminal from './Terminal';
 
 interface BottomPanelProps {
   height: number;
+  currentProject?: string;
   onResize: (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => void;
 }
 
-export default function BottomPanel({ height, onResize }: BottomPanelProps) {
+export default function BottomPanel({ height, currentProject, onResize }: BottomPanelProps) {
   return (
     <>
       {/* Bottom Resizer */}
@@ -24,9 +25,14 @@ export default function BottomPanel({ height, onResize }: BottomPanelProps) {
           <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             ターミナル
           </span>
+          {currentProject && (
+            <span className="ml-2 text-xs text-muted-foreground">
+              - {currentProject}
+            </span>
+          )}
         </div>
         <div className="flex-1 overflow-hidden">
-          <Terminal height={height} />
+          <Terminal height={height} currentProject={currentProject} />
         </div>
       </div>
     </>

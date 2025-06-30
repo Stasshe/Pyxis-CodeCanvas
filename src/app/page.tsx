@@ -137,6 +137,7 @@ export default function Home() {
         {isBottomPanelVisible && (
           <BottomPanel
             height={bottomPanelHeight}
+            currentProject={currentProject?.name}
             onResize={handleBottomResize}
           />
         )}
