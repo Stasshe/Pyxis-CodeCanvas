@@ -84,8 +84,6 @@ export default function Home() {
     const startX = isTouch ? e.touches[0].clientX : e.clientX;
     const initialWidth = leftSidebarWidth;
     
-    console.log('🔧 Left Resize Start:', { startX, initialWidth, isLeftSidebarVisible });
-    
     // 最小幅と最大幅の設定（ターミナルと同じパターン）
     const minWidth = 200;
     const maxWidth = window.innerWidth * 0.7;
@@ -102,8 +100,6 @@ export default function Home() {
       // 最小幅と最大幅の範囲内に制限（ターミナルと全く同じロジック）
       const clampedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
       
-      console.log('🔧 Left Resize Move:', { currentX, deltaX, newWidth, clampedWidth, minWidth, maxWidth });
-      
       setLeftSidebarWidth(clampedWidth);
       
       // 強制的にレイアウト更新を促す
@@ -116,7 +112,6 @@ export default function Home() {
     };
 
     const handleEnd = () => {
-      console.log('🔧 Left Resize End');
       document.removeEventListener('mousemove', handleMove as EventListener);
       document.removeEventListener('mouseup', handleEnd);
       document.removeEventListener('touchmove', handleMove as EventListener);
