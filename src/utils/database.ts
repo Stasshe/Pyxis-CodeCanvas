@@ -69,11 +69,12 @@ class ProjectDB {
     await this.saveProject(project);
 
     // デフォルトファイルを作成
-    await this.createFile(project.id, '/README.md', `# ${name}\n\nこのプロジェクトの説明をここに記入してください。`, 'file');
+    await this.createFile(project.id, '/README.md', `# ${name}\n\n${description || 'このプロジェクトの説明をここに記入してください。'}\n\n## セットアップ\n\n\`\`\`bash\n# プロジェクトの開始\ngit status\n\`\`\``, 'file');
     await this.createFile(project.id, '/src', '', 'folder');
-    await this.createFile(project.id, '/src/index.js', 'console.log("Hello, World!");', 'file');
+    await this.createFile(project.id, '/src/index.js', '// メインエントリーポイント\nconsole.log("Hello, World!");\n\n// プロジェクトのコードをここに記述してください', 'file');
     await this.createFile(project.id, '/src/components', '', 'folder');
-    await this.createFile(project.id, '/src/components/App.js', 'export default function App() {\n  return <div>Hello App</div>;\n}', 'file');
+    await this.createFile(project.id, '/src/components/App.js', '// Appコンポーネント\nexport default function App() {\n  return (\n    <div>\n      <h1>Hello App</h1>\n      <p>プロジェクト: ${name}</p>\n    </div>\n  );\n}', 'file');
+    await this.createFile(project.id, '/.gitignore', '# 依存関係\nnode_modules/\nnpm-debug.log*\nyarn-debug.log*\nyarn-error.log*\n\n# ビルド出力\ndist/\nbuild/\n\n# 環境変数\n.env\n.env.local\n.env.development.local\n.env.test.local\n.env.production.local\n\n# IDEファイル\n.vscode/\n.idea/\n\n# OS固有\n.DS_Store\nThumbs.db', 'file');
 
     return project;
   }

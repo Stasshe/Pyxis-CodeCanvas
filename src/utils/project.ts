@@ -1,6 +1,57 @@
 import { useState, useEffect } from 'react';
 import { Project, ProjectFile, projectDB } from './database';
 import { FileItem } from '@/types';
+import { GitCommands, syncProjectFiles } from './filesystem';
+
+// プロジェクト作成時のGit初期化とコミット
+const initializeProjectGit = async (project: Project, files: ProjectFile[], convertToFileItems: (files: ProjectFile[]) => FileItem[]) => {
+  try {
+    console.log('Initializing Git for project:', project.name);
+    
+    // ファイルをファイルシステムに同期
+    const fileItems = convertToFileItems(files);
+    const flatFiles = flattenFileItems(fileItems);
+    await syncProjectFiles(project.name, flatFiles);
+    
+    // Git初期化
+    const git = new GitCommands(project.name);
+    await git.init();
+    
+    // すべてのファイルをステージング
+    await git.add('.');
+    
+    // 初期コミット
+    await git.commit('Initial commit', {
+      name: 'Pyxis User',
+      email: 'user@pyxis.dev'
+    });
+    
+    console.log('Git initialization completed for project:', project.name);
+  } catch (error) {
+    console.error('Failed to initialize Git for project:', error);
+  }
+};
+
+// FileItemの階層構造をフラットな配列に変換
+const flattenFileItems = (items: FileItem[], basePath = ''): Array<{ path: string; content?: string; type: 'file' | 'folder' }> => {
+  const result: Array<{ path: string; content?: string; type: 'file' | 'folder' }> = [];
+  
+  for (const item of items) {
+    const fullPath = basePath === '' ? `/${item.name}` : `${basePath}/${item.name}`;
+    
+    result.push({
+      path: fullPath,
+      content: item.content,
+      type: item.type
+    });
+    
+    if (item.children && item.children.length > 0) {
+      result.push(...flattenFileItems(item.children, fullPath));
+    }
+  }
+  
+  return result;
+};
 
 export const useProject = () => {
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
@@ -128,6 +179,34 @@ export const useProject = () => {
     }
   };
 
+  // 新規プロジェクトを作成（Git初期化付き）
+  const createProject = async (name: string, description?: string) => {
+    try {
+      setLoading(true);
+      await projectDB.init();
+      
+      // プロジェクトを作成
+      const newProject = await projectDB.createProject(name, description);
+      
+      // ファイルを取得
+      const files = await projectDB.getProjectFiles(newProject.id);
+      
+      // プロジェクトを設定
+      setCurrentProject(newProject);
+      setProjectFiles(files);
+      
+      // Git初期化と初期コミット
+      await initializeProjectGit(newProject, files, convertToFileItems);
+      
+      return newProject;
+    } catch (error) {
+      console.error('Failed to create project:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // デフォルトプロジェクトを読み込み（初回起動時）
   useEffect(() => {
     const initProject = async () => {
@@ -161,5 +240,6 @@ export const useProject = () => {
     saveFile,
     createFile,
     deleteFile,
+    createProject,
   };
 };

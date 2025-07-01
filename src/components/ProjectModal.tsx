@@ -6,6 +6,7 @@ interface ProjectModalProps {
   isOpen: boolean;
   onClose: () => void;
   onProjectSelect: (project: Project) => void;
+  onProjectCreate?: (name: string, description?: string) => Promise<void>;
   currentProject: Project | null;
 }
 
@@ -13,6 +14,7 @@ export default function ProjectModal({
   isOpen, 
   onClose, 
   onProjectSelect, 
+  onProjectCreate,
   currentProject 
 }: ProjectModalProps) {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -45,16 +47,28 @@ export default function ProjectModal({
 
     setLoading(true);
     try {
-      const project = await projectDB.createProject(
-        newProjectName.trim(),
-        newProjectDescription.trim() || undefined
-      );
-      setProjects(prev => [project, ...prev]);
+      if (onProjectCreate) {
+        // 新しいcreateProject関数を使用（Git初期化付き）
+        await onProjectCreate(
+          newProjectName.trim(),
+          newProjectDescription.trim() || undefined
+        );
+      } else {
+        // フォールバック: 従来の方法
+        const project = await projectDB.createProject(
+          newProjectName.trim(),
+          newProjectDescription.trim() || undefined
+        );
+        onProjectSelect(project);
+      }
+      
       setNewProjectName('');
       setNewProjectDescription('');
       setIsCreating(false);
-      onProjectSelect(project);
       onClose();
+      
+      // プロジェクトリストを再読み込み
+      await loadProjects();
     } catch (error) {
       console.error('Failed to create project:', error);
     } finally {

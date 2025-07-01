@@ -1,15 +1,38 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { UnixCommands, GitCommands, initializeFileSystem } from '@/utils/filesystem';
+import { UnixCommands, GitCommands, initializeFileSystem, syncProjectFiles } from '@/utils/filesystem';
+import { FileItem } from '@/types';
+
+// FileItemの階層構造をフラットな配列に変換
+const flattenFileItems = (items: FileItem[], basePath = ''): Array<{ path: string; content?: string; type: 'file' | 'folder' }> => {
+  const result: Array<{ path: string; content?: string; type: 'file' | 'folder' }> = [];
+  
+  for (const item of items) {
+    const fullPath = basePath === '' ? `/${item.name}` : `${basePath}/${item.name}`;
+    
+    result.push({
+      path: fullPath,
+      content: item.content,
+      type: item.type
+    });
+    
+    if (item.children && item.children.length > 0) {
+      result.push(...flattenFileItems(item.children, fullPath));
+    }
+  }
+  
+  return result;
+};
 
 interface TerminalProps {
   height: number;
   currentProject?: string;
+  projectFiles?: FileItem[];
 }
 
 // クライアントサイド専用のターミナルコンポーネント
-function ClientTerminal({ height, currentProject = 'default' }: TerminalProps) {
+function ClientTerminal({ height, currentProject = 'default', projectFiles = [] }: TerminalProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<any>(null);
   const fitAddonRef = useRef<any>(null);
@@ -23,6 +46,18 @@ function ClientTerminal({ height, currentProject = 'default' }: TerminalProps) {
     initializeFileSystem();
     unixCommandsRef.current = new UnixCommands(currentProject);
     gitCommandsRef.current = new GitCommands(currentProject);
+
+    // プロジェクトファイルをターミナルファイルシステムに同期
+    const syncFiles = async () => {
+      if (projectFiles.length > 0) {
+        console.log('Syncing project files:', projectFiles);
+        const flatFiles = flattenFileItems(projectFiles);
+        console.log('Flattened files:', flatFiles);
+        await syncProjectFiles(currentProject, flatFiles);
+        console.log('Files synced to terminal filesystem');
+      }
+    };
+    syncFiles();
 
     // xterm関連のモジュールをrequire（クライアントサイドでのみ実行）
     const { Terminal: XTerm } = require('@xterm/xterm');
@@ -339,7 +374,19 @@ function ClientTerminal({ height, currentProject = 'default' }: TerminalProps) {
         fitAddonRef.current?.fit();
       }, 100);
     }
-  }, [height]);
+  }, [height, currentProject, projectFiles]);
+
+  // プロジェクトファイルが変更されたときの同期
+  useEffect(() => {
+    const syncFiles = async () => {
+      if (projectFiles.length > 0) {
+        console.log('Project files changed, syncing:', projectFiles);
+        const flatFiles = flattenFileItems(projectFiles);
+        await syncProjectFiles(currentProject, flatFiles);
+      }
+    };
+    syncFiles();
+  }, [projectFiles, currentProject]);
 
   return (
     <div 

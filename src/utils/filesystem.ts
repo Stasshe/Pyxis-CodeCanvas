@@ -23,6 +23,102 @@ export const getFileSystem = () => {
 // プロジェクトのベースディレクトリ
 export const getProjectDir = (projectName: string) => `/projects/${projectName}`;
 
+// プロジェクトファイルをターミナルファイルシステムに同期
+export const syncProjectFiles = async (projectName: string, files: Array<{ path: string; content?: string; type: 'file' | 'folder' }>) => {
+  const fs = getFileSystem();
+  if (!fs) return;
+
+  const projectDir = getProjectDir(projectName);
+  
+  try {
+    // プロジェクトディレクトリを作成
+    try {
+      await fs.promises.mkdir(projectDir, { recursive: true } as any);
+    } catch {
+      // ディレクトリが既に存在する場合は無視
+    }
+    
+    // 既存のファイルをクリア（.gitディレクトリは保持）
+    try {
+      const existingFiles = await fs.promises.readdir(projectDir);
+      for (const file of existingFiles) {
+        if (file !== '.git') {
+          const filePath = `${projectDir}/${file}`;
+          try {
+            const stat = await fs.promises.stat(filePath);
+            if (stat.isDirectory()) {
+              await removeDirectoryRecursive(fs, filePath);
+            } else {
+              await fs.promises.unlink(filePath);
+            }
+          } catch {
+            // ファイル削除エラーは無視
+          }
+        }
+      }
+    } catch {
+      // ディレクトリが存在しない場合は無視
+    }
+
+    // ディレクトリを先に作成
+    const directories = files.filter(f => f.type === 'folder').sort((a, b) => a.path.length - b.path.length);
+    for (const dir of directories) {
+      const fullPath = `${projectDir}${dir.path}`;
+      try {
+        await fs.promises.mkdir(fullPath, { recursive: true } as any);
+      } catch {
+        // ディレクトリ作成エラーは無視
+      }
+    }
+
+    // ファイルを作成
+    const fileItems = files.filter(f => f.type === 'file');
+    for (const file of fileItems) {
+      const fullPath = `${projectDir}${file.path}`;
+      
+      // 親ディレクトリが存在することを確認
+      const parentDir = fullPath.substring(0, fullPath.lastIndexOf('/'));
+      if (parentDir && parentDir !== projectDir) {
+        try {
+          await fs.promises.mkdir(parentDir, { recursive: true } as any);
+        } catch {
+          // ディレクトリ作成エラーは無視
+        }
+      }
+      
+      try {
+        await fs.promises.writeFile(fullPath, file.content || '');
+      } catch (error) {
+        console.warn(`Failed to sync file ${fullPath}:`, error);
+      }
+    }
+  } catch (error) {
+    console.error('Failed to sync project files:', error);
+  }
+};
+
+// ディレクトリを再帰的に削除するヘルパー関数
+const removeDirectoryRecursive = async (fs: any, dirPath: string): Promise<void> => {
+  try {
+    const files = await fs.promises.readdir(dirPath);
+    
+    for (const file of files) {
+      const filePath = `${dirPath}/${file}`;
+      const stat = await fs.promises.stat(filePath);
+      
+      if (stat.isDirectory()) {
+        await removeDirectoryRecursive(fs, filePath);
+      } else {
+        await fs.promises.unlink(filePath);
+      }
+    }
+    
+    await fs.promises.rmdir(dirPath);
+  } catch {
+    // エラーは無視
+  }
+};
+
 // UNIXライクなコマンド実装
 export class UnixCommands {
   private fs: FS;
@@ -118,6 +214,7 @@ export class UnixCommands {
       if (recursive) {
         // 再帰的にディレクトリを作成
         await this.createDirectoryRecursive(normalizedPath);
+        return `Directory created: ${normalizedPath}`;
       } else {
         // 親ディレクトリの存在確認
         const parentDir = normalizedPath.substring(0, normalizedPath.lastIndexOf('/'));
@@ -133,15 +230,16 @@ export class UnixCommands {
         try {
           const stat = await this.fs.promises.stat(normalizedPath);
           if (stat.isDirectory()) {
-            throw new Error(`Directory already exists: ${normalizedPath}`);
+            return `Directory already exists: ${normalizedPath}`;
+          } else {
+            throw new Error(`File exists and is not a directory: ${normalizedPath}`);
           }
         } catch {
           // ディレクトリが存在しない場合は作成
+          await this.fs.promises.mkdir(normalizedPath);
+          return `Directory created: ${normalizedPath}`;
         }
-        
-        await this.fs.promises.mkdir(normalizedPath);
       }
-      return `Directory created: ${normalizedPath}`;
     } catch (error) {
       throw new Error(`mkdir: cannot create directory '${dirName}': ${(error as Error).message}`);
     }
@@ -159,9 +257,19 @@ export class UnixCommands {
         if (!stat.isDirectory()) {
           throw new Error(`Path exists but is not a directory: ${currentPath}`);
         }
-      } catch {
+      } catch (error) {
         // ディレクトリが存在しない場合は作成
-        await this.fs.promises.mkdir(currentPath);
+        if ((error as any).code !== 'ENOENT') {
+          throw error;
+        }
+        try {
+          await this.fs.promises.mkdir(currentPath);
+        } catch (mkdirError) {
+          // EEXIST エラー（既に存在）は無視
+          if ((mkdirError as any).code !== 'EEXIST') {
+            throw mkdirError;
+          }
+        }
       }
     }
   }

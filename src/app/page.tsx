@@ -31,6 +31,7 @@ export default function Home() {
     loading: projectLoading,
     loadProject,
     saveFile,
+    createProject,
   } = useProject();
 
   const handleLeftResize = useLeftSidebarResize(leftSidebarWidth, setLeftSidebarWidth);
@@ -95,6 +96,12 @@ export default function Home() {
     await loadProject(project);
   };
 
+  const handleProjectCreate = async (name: string, description?: string) => {
+    if (createProject) {
+      await createProject(name, description);
+    }
+  };
+
   const handleProjectModalOpen = () => {
     setIsProjectModalOpen(true);
   };
@@ -138,6 +145,7 @@ export default function Home() {
           <BottomPanel
             height={bottomPanelHeight}
             currentProject={currentProject?.name}
+            projectFiles={projectFiles}
             onResize={handleBottomResize}
           />
         )}
@@ -147,6 +155,7 @@ export default function Home() {
         isOpen={isProjectModalOpen}
         onClose={() => setIsProjectModalOpen(false)}
         onProjectSelect={handleProjectSelect}
+        onProjectCreate={handleProjectCreate}
         currentProject={currentProject}
       />
     </div>

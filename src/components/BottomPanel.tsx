@@ -1,12 +1,14 @@
 import Terminal from './Terminal';
+import { FileItem } from '@/types';
 
 interface BottomPanelProps {
   height: number;
   currentProject?: string;
+  projectFiles?: FileItem[];
   onResize: (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => void;
 }
 
-export default function BottomPanel({ height, currentProject, onResize }: BottomPanelProps) {
+export default function BottomPanel({ height, currentProject, projectFiles, onResize }: BottomPanelProps) {
   return (
     <>
       {/* Bottom Resizer */}
@@ -32,7 +34,7 @@ export default function BottomPanel({ height, currentProject, onResize }: Bottom
           )}
         </div>
         <div className="flex-1 overflow-hidden">
-          <Terminal height={height} currentProject={currentProject} />
+          <Terminal height={height} currentProject={currentProject} projectFiles={projectFiles} />
         </div>
       </div>
     </>
