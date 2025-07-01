@@ -172,10 +172,9 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
 
     // 初期メッセージ
     term.writeln('Pyxis Terminal v1.0.0');
-    term.writeln('UNIX-like commands and Git are available.');
     term.writeln('Type "help" for available commands.');
 
-    // 確実な自動スクロール関数（少しオーバーしても確実に最下段へ）
+    // 確実な自動スクロール関数
     const scrollToBottom = (force = false) => {
       try {
         // まず標準的な方法でスクロール
@@ -195,7 +194,7 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
             // 現在のスクロール位置
             const currentScrollTop = buffer.viewportY;
             
-            // 確実に最下段に表示されるスクロール位置（+2〜3行の余裕を持つ）
+            // 確実に最下段に表示されるスクロール位置
             const targetScrollTop = Math.max(0, absoluteCursorLine - viewportHeight + 1);
             
             // 必要なスクロール量
@@ -226,9 +225,9 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
         const relativePath = unixCommandsRef.current.getRelativePath();
         const branch = await gitCommandsRef.current.getCurrentBranch();
         const branchDisplay = branch !== '(no git)' ? ` (${branch})` : '';
-        term.write(`\r\n/workspaces/${currentProject}${relativePath}${branchDisplay} $ `);
+        term.write(`\r/workspaces/${currentProject}${relativePath}${branchDisplay} $ `);
       } else {
-        term.write('\r\n$ ');
+        term.write('\r$ ');
       }
       
       // プロンプト表示後、1回だけスクロール
