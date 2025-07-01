@@ -84,7 +84,7 @@ jobs:
           body: |
             ## 🚀 Release v${{ steps.version.outputs.version }}
             
-            **リリース日:** `$(date '+%Y-%m-%d')`
+            **リリース日:** $(date '+%Y-%m-%d')
             
             ### 🔄 変更内容
             
