@@ -97,6 +97,56 @@ export const syncProjectFiles = async (projectName: string, files: Array<{ path:
   }
 };
 
+// 単一ファイルをファイルシステムに同期
+export const syncFileToFileSystem = async (projectName: string, filePath: string, content: string) => {
+  const fs = getFileSystem();
+  if (!fs) {
+    console.warn('FileSystem not available for sync');
+    return;
+  }
+
+  const projectDir = getProjectDir(projectName);
+  const fullPath = `${projectDir}${filePath}`;
+  
+  console.log('Syncing file to filesystem:', { projectName, filePath, fullPath });
+  
+  try {
+    // プロジェクトディレクトリの存在を確認
+    try {
+      await fs.promises.stat(projectDir);
+    } catch {
+      console.log('Creating project directory:', projectDir);
+      await fs.promises.mkdir(projectDir, { recursive: true } as any);
+    }
+    
+    // 親ディレクトリが存在することを確認
+    const parentDir = fullPath.substring(0, fullPath.lastIndexOf('/'));
+    if (parentDir && parentDir !== projectDir) {
+      try {
+        await fs.promises.stat(parentDir);
+      } catch {
+        console.log('Creating parent directory:', parentDir);
+        await fs.promises.mkdir(parentDir, { recursive: true } as any);
+      }
+    }
+    
+    // ファイルを書き込み
+    await fs.promises.writeFile(fullPath, content);
+    console.log('File synced to filesystem successfully:', fullPath);
+    
+    // ファイルが正しく書き込まれたか確認
+    const writtenContent = await fs.promises.readFile(fullPath, 'utf8');
+    if (writtenContent === content) {
+      console.log('File content verified');
+    } else {
+      console.warn('File content mismatch after write');
+    }
+  } catch (error) {
+    console.error('Failed to sync file to filesystem:', error);
+    throw error;
+  }
+};
+
 // ディレクトリを再帰的に削除するヘルパー関数
 const removeDirectoryRecursive = async (fs: any, dirPath: string): Promise<void> => {
   try {
@@ -664,21 +714,54 @@ export class GitCommands {
   async status(): Promise<string> {
     try {
       await this.ensureProjectDirectory();
+      console.log('Checking git status for directory:', this.dir);
+      
       // Gitリポジトリが初期化されているかチェック
       try {
         await this.fs.promises.stat(`${this.dir}/.git`);
+        console.log('Git repository found');
       } catch {
         throw new Error('not a git repository (or any of the parent directories): .git');
       }
 
+      // ワーキングディレクトリのファイルを確認
+      try {
+        const files = await this.fs.promises.readdir(this.dir);
+        console.log('Files in working directory:', files);
+      } catch (dirError) {
+        console.warn('Failed to read working directory:', dirError);
+      }
+
       let status: Array<[string, number, number, number]> = [];
       try {
+        console.log('Calling git.statusMatrix...');
         status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
+        console.log('statusMatrix result:', status);
       } catch (statusError) {
-        console.warn('statusMatrix failed, trying alternative approach:', statusError);
-        // statusMatrixが失敗した場合は、現在の状態をシンプルに返す
-        const currentBranch = await this.getCurrentBranch();
-        return `On branch ${currentBranch}\nnothing to commit, working tree clean`;
+        console.warn('statusMatrix failed, using fallback method:', statusError);
+        
+        // フォールバック: ファイルシステムを直接チェック
+        try {
+          const files = await this.fs.promises.readdir(this.dir);
+          const projectFiles = files.filter(file => !file.startsWith('.') && file !== '.git');
+          const currentBranch = await this.getCurrentBranch();
+          
+          if (projectFiles.length === 0) {
+            return `On branch ${currentBranch}\nnothing to commit, working tree clean`;
+          }
+
+          // 簡単な変更検知（最後のコミット以降のファイルを未追跡として扱う）
+          let result = `On branch ${currentBranch}\n`;
+          result += '\nUntracked files:\n';
+          projectFiles.forEach(file => result += `  ${file}\n`);
+          result += '\nnothing added to commit but untracked files present (use "git add" to track)';
+          
+          return result;
+        } catch (fallbackError) {
+          console.error('Fallback status check failed:', fallbackError);
+          const currentBranch = await this.getCurrentBranch();
+          return `On branch ${currentBranch}\nnothing to commit, working tree clean`;
+        }
       }
       
       const currentBranch = await this.getCurrentBranch();
@@ -692,22 +775,33 @@ export class GitCommands {
       const staged: string[] = [];
 
       status.forEach(([filepath, HEAD, workdir, stage]) => {
-        // HEAD=1: ファイルがHEADに存在, workdir=1: ファイルがワーキングディレクトリに存在, stage=1: ファイルがステージングエリアに存在
-        if (HEAD === 1 && workdir === 1 && stage === 1) {
-          // ファイルに変更なし
+        console.log(`File: ${filepath}, HEAD: ${HEAD}, workdir: ${workdir}, stage: ${stage}`);
+        
+        // isomorphic-gitのstatusMatrixの値の意味:
+        // HEAD: 0=ファイルなし, 1=ファイルあり
+        // workdir: 0=ファイルなし, 1=ファイルあり, 2=変更あり
+        // stage: 0=ステージなし, 1=ステージ済み（変更なし）, 2=ステージ済み（変更あり）, 3=ステージ済み（新規）
+        
+        if (HEAD === 1 && workdir === 2 && stage === 1) {
+          // 変更されたファイル（未ステージ）
+          modified.push(filepath);
+        } else if (HEAD === 1 && workdir === 2 && stage === 2) {
+          // 変更されてステージされたファイル
+          staged.push(filepath);
         } else if (HEAD === 0 && workdir === 1 && stage === 0) {
           // 新しいファイル（未追跡）
           untracked.push(filepath);
-        } else if (HEAD === 1 && workdir === 1 && stage === 0) {
-          // 変更されたファイル（未ステージ）
-          modified.push(filepath);
-        } else if ((HEAD === 0 || HEAD === 1) && stage === 3) {
-          // ステージされたファイル
-          staged.push(filepath);
         } else if (HEAD === 0 && workdir === 1 && stage === 3) {
           // 新しくステージされたファイル
           staged.push(filepath);
+        } else if (HEAD === 1 && workdir === 0 && stage === 0) {
+          // 削除されたファイル（未ステージ）
+          modified.push(filepath);
+        } else if (HEAD === 1 && workdir === 0 && stage === 3) {
+          // 削除されてステージされたファイル
+          staged.push(filepath);
         }
+        // その他のケース（HEAD === 1 && workdir === 1 && stage === 1など）は変更なし
       });
 
       let result = `On branch ${currentBranch}\n`;
@@ -847,6 +941,34 @@ export class GitCommands {
     }
   }
 
+  // git reset - ファイルをアンステージング
+  async reset(filepath?: string): Promise<string> {
+    try {
+      await this.ensureProjectDirectory();
+      
+      if (filepath) {
+        // 特定のファイルをアンステージング
+        await git.resetIndex({ fs: this.fs, dir: this.dir, filepath });
+        return `Unstaged ${filepath}`;
+      } else {
+        // 全ファイルをアンステージング - ステージングされたファイルを取得してそれぞれリセット
+        const status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
+        let unstagedCount = 0;
+        
+        for (const [filepath, HEAD, workdir, stage] of status) {
+          if (stage === 3) { // ステージングされたファイル
+            await git.resetIndex({ fs: this.fs, dir: this.dir, filepath });
+            unstagedCount++;
+          }
+        }
+        
+        return `Unstaged ${unstagedCount} file(s)`;
+      }
+    } catch (error) {
+      throw new Error(`git reset failed: ${(error as Error).message}`);
+    }
+  }
+
   // git log - ログ表示
   async log(depth = 10): Promise<string> {
     try {
@@ -873,26 +995,40 @@ export class GitCommands {
   async getFormattedLog(depth = 20): Promise<string> {
     try {
       await this.ensureProjectDirectory();
+      console.log('Getting formatted log for dir:', this.dir);
       
       // Gitリポジトリが初期化されているかチェック
       try {
         await this.fs.promises.stat(`${this.dir}/.git`);
+        console.log('.git directory exists');
       } catch {
+        console.log('.git directory does not exist');
         throw new Error('not a git repository (or any of the parent directories): .git');
       }
       
       const commits = await git.log({ fs: this.fs, dir: this.dir, depth });
+      console.log('Raw commits found:', commits.length);
       
       if (commits.length === 0) {
+        console.log('No commits found');
         return '';
       }
 
-      return commits.map(commit => {
+      const formattedCommits = [];
+      
+      for (const commit of commits) {
         const date = new Date(commit.commit.author.timestamp * 1000);
-        return `${commit.oid}|${commit.commit.message}|${commit.commit.author.name}|${date.toISOString()}`;
-      }).join('\n');
+        // パイプ文字がメッセージに含まれている場合は置き換える
+        const safeMessage = (commit.commit.message || 'No message').replace(/\|/g, '｜').replace(/\n/g, ' ');
+        const safeName = (commit.commit.author.name || 'Unknown').replace(/\|/g, '｜');
+        const safeDate = date.toISOString();
+        
+        const formatted = `${commit.oid}|${safeMessage}|${safeName}|${safeDate}`;
+        formattedCommits.push(formatted);
+      }
+      
+      return formattedCommits.join('\n');
     } catch (error) {
-      console.error('getFormattedLog error:', error);
       // Gitリポジトリが初期化されていない場合は空文字を返す
       if (error instanceof Error && error.message.includes('not a git repository')) {
         return '';

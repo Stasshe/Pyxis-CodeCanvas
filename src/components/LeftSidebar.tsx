@@ -12,6 +12,7 @@ interface LeftSidebarProps {
   onFileOpen: (file: FileItem) => void;
   onResize: (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => void;
   onGitRefresh?: () => void;
+  gitRefreshTrigger?: number;
 }
 
 export default function LeftSidebar({ 
@@ -21,7 +22,8 @@ export default function LeftSidebar({
   currentProject,
   onFileOpen,
   onResize,
-  onGitRefresh
+  onGitRefresh,
+  gitRefreshTrigger
 }: LeftSidebarProps) {
   return (
     <>
@@ -62,6 +64,7 @@ export default function LeftSidebar({
               <GitPanel 
                 currentProject={currentProject} 
                 onRefresh={onGitRefresh}
+                gitRefreshTrigger={gitRefreshTrigger}
               />
             </div>
           )}

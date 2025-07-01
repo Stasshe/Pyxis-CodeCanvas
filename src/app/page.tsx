@@ -20,6 +20,7 @@ export default function Home() {
   const [isLeftSidebarVisible, setIsLeftSidebarVisible] = useState(true);
   const [isBottomPanelVisible, setIsBottomPanelVisible] = useState(true);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+  const [gitRefreshTrigger, setGitRefreshTrigger] = useState(0);
   
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [activeTabId, setActiveTabId] = useState('');
@@ -87,6 +88,11 @@ export default function Home() {
     if (tab && currentProject) {
       try {
         await saveFile(tab.path, content);
+        console.log('File saved, triggering git refresh...');
+        // ファイル保存後にGitパネルを更新（少し遅延を入れる）
+        setTimeout(() => {
+          setGitRefreshTrigger(prev => prev + 1);
+        }, 200);
       } catch (error) {
         console.error('Failed to save file:', error);
       }
@@ -129,6 +135,7 @@ export default function Home() {
               loadProject(currentProject);
             }
           }}
+          gitRefreshTrigger={gitRefreshTrigger}
         />
       )}
 

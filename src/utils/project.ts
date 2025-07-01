@@ -21,17 +21,31 @@ const initializeProjectGit = async (project: Project, files: ProjectFile[], conv
       
       // すべてのファイルをステージング
       try {
-        await git.add('.');
-        console.log('Files staged');
+        const addResult = await git.add('.');
+        console.log('Files staged:', addResult);
+        
+        // ステージ状態を確認
+        const statusBeforeCommit = await git.status();
+        console.log('Status before commit:', statusBeforeCommit);
         
         // 初期コミット
-        await git.commit('Initial commit', {
+        const commitResult = await git.commit('Initial commit', {
           name: 'Pyxis User',
           email: 'user@pyxis.dev'
         });
-        console.log('Initial commit completed');
+        console.log('Initial commit completed:', commitResult);
+        
+        // コミット後の状態を確認
+        const statusAfterCommit = await git.status();
+        console.log('Status after commit:', statusAfterCommit);
+        
+        // ログを確認
+        const logResult = await git.getFormattedLog(5);
+        console.log('Log after commit:', logResult);
+        
       } catch (commitError) {
-        console.warn('Initial commit failed, but git is initialized:', commitError);
+        console.error('Initial commit failed:', commitError);
+        // エラーでも続行する
       }
     } catch (initError) {
       console.warn('Git initialization failed:', initError);
@@ -174,6 +188,16 @@ export const useProject = () => {
         // 新しいファイルを作成
         const newFile = await projectDB.createFile(currentProject.id, path, content, 'file');
         setProjectFiles(prev => [...prev, newFile]);
+      }
+
+      // ファイルシステムに同期（Git変更検知のため）
+      try {
+        console.log('[saveFile] Syncing to filesystem - Project:', currentProject.name, 'Path:', path, 'Content length:', content.length);
+        const { syncFileToFileSystem } = await import('./filesystem');
+        await syncFileToFileSystem(currentProject.name, path, content);
+        console.log('[saveFile] File synced to filesystem successfully:', path);
+      } catch (syncError) {
+        console.error('[saveFile] Failed to sync file to filesystem:', syncError);
       }
 
       // プロジェクトの更新日時を更新
