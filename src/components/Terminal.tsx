@@ -196,7 +196,7 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
             const currentScrollTop = buffer.viewportY;
             
             // 確実に最下段に表示されるスクロール位置（+2〜3行の余裕を持つ）
-            const targetScrollTop = Math.max(0, absoluteCursorLine - viewportHeight + 4);
+            const targetScrollTop = Math.max(0, absoluteCursorLine - viewportHeight + 1);
             
             // 必要なスクロール量
             const scrollDelta = targetScrollTop - currentScrollTop;

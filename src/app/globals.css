@@ -218,3 +218,25 @@ body {
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
+
+/* BottomPanel（ターミナルパネル）のはみ出し防止 */
+.bottom-panel-container {
+  position: relative !important;
+  overflow: hidden !important;
+  contain: layout style paint !important;
+  max-height: 60vh !important; /* 画面の60%を超えないように制限 */
+  min-height: 100px !important;
+}
+
+.bottom-panel-container > * {
+  max-width: 100% !important;
+  max-height: 100% !important;
+  overflow: hidden !important;
+}
+
+/* ターミナルコンテナの制御（軽微な調整のみ） */
+.terminal-container {
+  position: relative !important;
+  overflow: hidden !important;
+  contain: layout !important;
+}

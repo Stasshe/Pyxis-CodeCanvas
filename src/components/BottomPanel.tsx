@@ -21,7 +21,7 @@ export default function BottomPanel({ height, currentProject, projectFiles, onRe
 
       {/* Bottom Panel (Terminal) */}
       <div 
-        className="bg-card border-t border-border flex flex-col"
+        className="bg-card border-t border-border flex flex-col bottom-panel-container"
         style={{ height }}
       >
         <div className="h-8 bg-muted border-b border-border flex items-center px-3 flex-shrink-0">
@@ -34,7 +34,7 @@ export default function BottomPanel({ height, currentProject, projectFiles, onRe
             </span>
           )}
         </div>
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-hidden relative">
           <Terminal 
             height={height} 
             currentProject={currentProject} 
