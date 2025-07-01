@@ -1,17 +1,18 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { GitBranch, GitCommit, RefreshCw, Plus, Check, X, GitMerge, Clock, User, Minus } from 'lucide-react';
+import { GitBranch, GitCommit, RefreshCw, Plus, Check, X, GitMerge, Clock, User, Minus, RotateCcw } from 'lucide-react';
 import { GitRepository, GitCommit as GitCommitType, GitStatus } from '@/types/git';
-import { GitCommands } from '@/utils/filesystem';
+import { GitCommands } from '@/utils/cmd/git';
 
 interface GitPanelProps {
   currentProject?: string;
   onRefresh?: () => void;
   gitRefreshTrigger?: number;
+  onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string) => Promise<void>;
 }
 
-export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger }: GitPanelProps) {
+export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger, onFileOperation }: GitPanelProps) {
   const [gitRepo, setGitRepo] = useState<GitRepository | null>(null);
   const [commitMessage, setCommitMessage] = useState('');
   const [isCommitting, setIsCommitting] = useState(false);
@@ -19,7 +20,7 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger 
   const [error, setError] = useState<string | null>(null);
 
   // Git操作用のコマンドインスタンス
-  const gitCommands = currentProject ? new GitCommands(currentProject) : null;
+  const gitCommands = currentProject ? new GitCommands(currentProject, onFileOperation) : null;
 
   // Git状態を取得
   const fetchGitStatus = async () => {
@@ -190,7 +191,7 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger 
     if (!gitCommands) return;
     
     try {
-      await gitCommands.reset(file);
+      await gitCommands.reset({ filepath: file });
       fetchGitStatus();
     } catch (error) {
       console.error('Failed to unstage file:', error);
@@ -214,10 +215,32 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger 
     if (!gitCommands) return;
     
     try {
-      await gitCommands.reset('.');
+      await gitCommands.reset();
       fetchGitStatus();
     } catch (error) {
       console.error('Failed to unstage all files:', error);
+    }
+  };
+
+  // ファイルの変更を破棄
+  const handleDiscardChanges = async (file: string) => {
+    if (!gitCommands) return;
+    
+    try {
+      const result = await gitCommands.discardChanges(file);
+      
+      // 少し待ってからGit状態を更新（ファイルシステムの同期を待つ）
+      setTimeout(async () => {
+        await fetchGitStatus();
+        
+        // 親コンポーネントにも更新を通知
+        if (onRefresh) {
+          onRefresh();
+        }
+      }, 200);
+      
+    } catch (error) {
+      console.error('Failed to discard changes:', error);
     }
   };
 
@@ -251,7 +274,7 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger 
       // ファイル同期完了を待つために少し遅延
       const timer = setTimeout(() => {
         fetchGitStatus();
-      }, 100);
+      }, 300);
       return () => clearTimeout(timer);
     }
   }, [gitRefreshTrigger]);
@@ -384,13 +407,22 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger 
                   {gitRepo.status.unstaged.map((file) => (
                     <div key={`unstaged-${file}`} className="flex items-center justify-between text-xs py-1">
                       <span className="text-orange-600 flex-1 truncate">{file}</span>
-                      <button
-                        onClick={() => handleStageFile(file)}
-                        className="p-1 hover:bg-muted rounded ml-1"
-                        title="ステージング"
-                      >
-                        <Plus className="w-3 h-3" />
-                      </button>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => handleStageFile(file)}
+                          className="p-1 hover:bg-muted rounded"
+                          title="ステージング"
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => handleDiscardChanges(file)}
+                          className="p-1 hover:bg-muted rounded text-red-500"
+                          title="変更を破棄"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -403,13 +435,22 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger 
                   {gitRepo.status.untracked.map((file) => (
                     <div key={`untracked-${file}`} className="flex items-center justify-between text-xs py-1">
                       <span className="text-blue-600 flex-1 truncate">{file}</span>
-                      <button
-                        onClick={() => handleStageFile(file)}
-                        className="p-1 hover:bg-muted rounded ml-1"
-                        title="ステージング"
-                      >
-                        <Plus className="w-3 h-3" />
-                      </button>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => handleStageFile(file)}
+                          className="p-1 hover:bg-muted rounded"
+                          title="ステージング"
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => handleDiscardChanges(file)}
+                          className="p-1 hover:bg-muted rounded text-red-500"
+                          title="ファイルを削除"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>

@@ -317,6 +317,15 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
             term.writeln('    git checkout <name>   - ブランチ切り替え');
             term.writeln('    git checkout -b <name> - ブランチ作成&切り替え');
             term.writeln('  git revert <commit> - コミットを取り消し');
+            term.writeln('  git reset [file] - ファイルのアンステージング');
+            term.writeln('  git reset --hard <commit> - 指定コミットまでハードリセット');
+            term.writeln('    git reset         - 全ファイルをアンステージング');
+            term.writeln('    git reset <file>  - 特定ファイルをアンステージング');
+            term.writeln('    git reset --hard <hash> - 危険！すべて破棄してコミットに戻る');
+            term.writeln('  git diff [options] [file] - 変更差分を表示');
+            term.writeln('    git diff          - ワーキングディレクトリの変更');
+            term.writeln('    git diff --staged - ステージされた変更');
+            term.writeln('    git diff <commit1> <commit2> - コミット間の差分');
             term.writeln('');
             term.writeln('Note: Gitリポジトリの初期化は左下の「プロジェクト管理」から');
             term.writeln('新規プロジェクトを作成することで自動的に行われます。');
@@ -491,6 +500,46 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
                     await writeOutput(revertResult);
                   } else {
                     await writeOutput('git revert: missing commit hash');
+                  }
+                  break;
+                  
+                case 'reset':
+                  if (args.includes('--hard') && args[args.indexOf('--hard') + 1]) {
+                    // git reset --hard <commit>
+                    const commitHash = args[args.indexOf('--hard') + 1];
+                    const resetResult = await gitCommandsRef.current.reset({ hard: true, commit: commitHash });
+                    await writeOutput(resetResult);
+                  } else if (args[1]) {
+                    // git reset <filepath>
+                    const resetResult = await gitCommandsRef.current.reset({ filepath: args[1] });
+                    await writeOutput(resetResult);
+                  } else {
+                    // git reset (全ファイルをアンステージング)
+                    const resetResult = await gitCommandsRef.current.reset();
+                    await writeOutput(resetResult);
+                  }
+                  break;
+                  
+                case 'diff':
+                  if (args.includes('--staged') || args.includes('--cached')) {
+                    // git diff --staged
+                    const filepath = args.find(arg => !arg.startsWith('--'));
+                    const diffResult = await gitCommandsRef.current.diff({ staged: true, filepath });
+                    await writeOutput(diffResult);
+                  } else if (args.length >= 2 && !args[0].startsWith('-') && !args[1].startsWith('-')) {
+                    // git diff <commit1> <commit2>
+                    const filepath = args[2];
+                    const diffResult = await gitCommandsRef.current.diff({ 
+                      commit1: args[0], 
+                      commit2: args[1], 
+                      filepath 
+                    });
+                    await writeOutput(diffResult);
+                  } else {
+                    // git diff [filepath]
+                    const filepath = args.find(arg => !arg.startsWith('-'));
+                    const diffResult = await gitCommandsRef.current.diff({ filepath });
+                    await writeOutput(diffResult);
                   }
                   break;
                   

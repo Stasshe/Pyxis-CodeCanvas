@@ -13,6 +13,7 @@ interface LeftSidebarProps {
   onResize: (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => void;
   onGitRefresh?: () => void;
   gitRefreshTrigger?: number;
+  onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string) => Promise<void>;
 }
 
 export default function LeftSidebar({ 
@@ -23,7 +24,8 @@ export default function LeftSidebar({
   onFileOpen,
   onResize,
   onGitRefresh,
-  gitRefreshTrigger
+  gitRefreshTrigger,
+  onFileOperation
 }: LeftSidebarProps) {
   return (
     <>
@@ -65,6 +67,7 @@ export default function LeftSidebar({
                 currentProject={currentProject} 
                 onRefresh={onGitRefresh}
                 gitRefreshTrigger={gitRefreshTrigger}
+                onFileOperation={onFileOperation}
               />
             </div>
           )}

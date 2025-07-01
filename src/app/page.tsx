@@ -227,6 +227,62 @@ export default function Home() {
             }
           }}
           gitRefreshTrigger={gitRefreshTrigger}
+          onFileOperation={async (path: string, type: 'file' | 'folder' | 'delete', content?: string) => {
+            console.log('=== onFileOperation called ===');
+            console.log('path:', path);
+            console.log('type:', type);
+            console.log('content length:', content?.length || 'N/A');
+            
+            // Gitコマンドからのファイル操作をプロジェクトに反映
+            if (currentProject && loadProject) {
+              console.log('Reloading project:', currentProject.name);
+              
+              // 該当ファイルがタブで開かれている場合、その内容を更新
+              const normalizedPath = path.startsWith('/') ? path.substring(1) : path;
+              const openTab = tabs.find(tab => tab.path === `/${normalizedPath}` || tab.path === normalizedPath);
+              
+              if (openTab) {
+                console.log('Found open tab for file:', normalizedPath);
+                setTabs(prevTabs => 
+                  prevTabs.map(tab => {
+                    if (tab.id === openTab.id) {
+                      if (type === 'delete') {
+                        console.log('File deleted, closing tab');
+                        return { ...tab, isDirty: false };
+                      } else if (type === 'file' && content !== undefined) {
+                        console.log('Updating tab content with new content');
+                        return { 
+                          ...tab, 
+                          content: content,
+                          isDirty: false 
+                        };
+                      }
+                    }
+                    return tab;
+                  })
+                );
+                
+                // 削除された場合はタブも閉じる
+                if (type === 'delete') {
+                  setTimeout(() => {
+                    handleTabClose(openTab.id);
+                  }, 200);
+                }
+              }
+              
+              // 少し遅延させてファイルシステムの同期を待つ
+              setTimeout(() => {
+                loadProject(currentProject);
+                console.log('Project reload completed');
+                
+                // GitPanelの更新もトリガー
+                setGitRefreshTrigger(prev => prev + 1);
+                console.log('Git refresh trigger updated');
+              }, 100);
+            } else {
+              console.log('No current project or loadProject function');
+            }
+          }}
         />
       )}
 

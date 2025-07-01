@@ -166,7 +166,7 @@ export const useProject = () => {
       }
     });
 
-    console.log('Root items:', rootItems);
+    //console.log('Root items:', rootItems);
 
     // フォルダを先に、ファイルを後にソート
     const sortItems = (items: FileItem[]): FileItem[] => {
