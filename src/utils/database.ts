@@ -192,7 +192,12 @@ class ProjectDB {
   }
 
   async saveFile(file: ProjectFile): Promise<void> {
-    console.log('[DB] Saving file:', file);
+    console.log('[DB] Saving file:', { 
+      id: file.id, 
+      path: file.path, 
+      contentLength: file.content.length,
+      projectId: file.projectId 
+    });
     return new Promise((resolve, reject) => {
       if (!this.db) {
         console.error('[DB] Database not initialized');
@@ -200,16 +205,17 @@ class ProjectDB {
         return;
       }
 
+      const updatedFile = { ...file, updatedAt: new Date() };
       const transaction = this.db.transaction(['files'], 'readwrite');
       const store = transaction.objectStore('files');
-      const request = store.put({ ...file, updatedAt: new Date() });
+      const request = store.put(updatedFile);
 
       request.onerror = () => {
         console.error('[DB] Save failed:', request.error);
         reject(request.error);
       };
       request.onsuccess = () => {
-        console.log('[DB] Save successful');
+        console.log('[DB] Save successful for file:', file.path);
         resolve();
       };
     });

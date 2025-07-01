@@ -173,35 +173,57 @@ export const useProject = () => {
 
   // ファイルを保存
   const saveFile = async (path: string, content: string) => {
-    if (!currentProject) return;
+    if (!currentProject) {
+      console.error('[saveFile] No current project');
+      return;
+    }
+
+    console.log('[saveFile] Starting save:', { 
+      path, 
+      contentLength: content.length, 
+      projectId: currentProject.id,
+      projectName: currentProject.name 
+    });
 
     try {
+      // データベースが初期化されていることを確認
+      await projectDB.init();
+      
       // 既存ファイルを探す
       const existingFile = projectFiles.find(f => f.path === path);
+      console.log('[saveFile] Existing file found:', !!existingFile);
       
       if (existingFile) {
         // 既存ファイルを更新
-        const updatedFile = { ...existingFile, content };
+        const updatedFile = { ...existingFile, content, updatedAt: new Date() };
+        console.log('[saveFile] Updating existing file:', updatedFile.id);
         await projectDB.saveFile(updatedFile);
         setProjectFiles(prev => prev.map(f => f.id === existingFile.id ? updatedFile : f));
+        console.log('[saveFile] File updated successfully');
       } else {
         // 新しいファイルを作成
+        console.log('[saveFile] Creating new file');
         const newFile = await projectDB.createFile(currentProject.id, path, content, 'file');
         setProjectFiles(prev => [...prev, newFile]);
+        console.log('[saveFile] New file created:', newFile.id);
       }
 
       // ファイルシステムに同期（Git変更検知のため）
       try {
         const { syncFileToFileSystem } = await import('./filesystem');
         await syncFileToFileSystem(currentProject.name, path, content);
+        console.log('[saveFile] Synced to filesystem');
       } catch (syncError) {
-        // 同期エラーは無視
+        console.warn('[saveFile] Filesystem sync failed (non-critical):', syncError);
       }
 
       // プロジェクトの更新日時を更新
-      await projectDB.saveProject(currentProject);
+      const updatedProject = { ...currentProject, updatedAt: new Date() };
+      await projectDB.saveProject(updatedProject);
+      setCurrentProject(updatedProject);
+      console.log('[saveFile] Project updated');
     } catch (error) {
-      console.error('Failed to save file:', error);
+      console.error('[saveFile] Failed to save file:', error);
       throw error;
     }
   };

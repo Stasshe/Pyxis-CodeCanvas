@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useCallback } from 'react';
 import Editor, { Monaco } from '@monaco-editor/react';
 import { FileText } from 'lucide-react';
 import { Tab } from '../types';
@@ -9,6 +9,7 @@ interface CodeEditorProps {
   bottomPanelHeight: number;
   isBottomPanelVisible: boolean;
   onContentChange: (tabId: string, content: string) => void;
+  onContentChangeImmediate?: (tabId: string, content: string) => void;
 }
 
 const getLanguage = (filename: string): string => {
@@ -33,14 +34,37 @@ export default function CodeEditor({
   activeTab,
   bottomPanelHeight,
   isBottomPanelVisible,
-  onContentChange
+  onContentChange,
+  onContentChangeImmediate
 }: CodeEditorProps) {
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const editorHeight = isBottomPanelVisible 
     ? `calc(100vh - 40px - ${bottomPanelHeight}px)` 
     : 'calc(100vh - 40px)';
+
+  // デバウンス付きの保存関数
+  const debouncedSave = useCallback((tabId: string, content: string) => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    
+    saveTimeoutRef.current = setTimeout(() => {
+      console.log('[CodeEditor] Debounced save triggered for:', tabId);
+      onContentChange(tabId, content);
+    }, 1000); // 1秒後に保存
+  }, [onContentChange]);
+
+  // クリーンアップ
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleEditorDidMount = (editor: monaco.editor.IStandaloneCodeEditor, monaco: Monaco) => {
     editorRef.current = editor;
@@ -206,7 +230,17 @@ export default function CodeEditor({
         height="100%"
         language={getLanguage(activeTab.name)}
         value={activeTab.content}
-        onChange={(value) => value !== undefined && onContentChange(activeTab.id, value)}
+        onChange={(value) => {
+          if (value !== undefined) {
+            // 即座にローカル状態を更新（UI応答性のため）
+            if (onContentChangeImmediate) {
+              onContentChangeImmediate(activeTab.id, value);
+            }
+            
+            // デバウンス付きで保存（パフォーマンス向上のため）
+            debouncedSave(activeTab.id, value);
+          }
+        }}
         onMount={handleEditorDidMount}
         theme="pyxis-dark"
         loading={
