@@ -200,14 +200,10 @@ export class UnixCommands {
       (path.startsWith('/') ? path : `${this.currentDir}/${path}`) : 
       this.currentDir;
     
-    console.log('[ls] Listing directory:', { path, targetPath, currentDir: this.currentDir });
-    
     try {
       // 現在のディレクトリの内容を取得（.gitは除外）
       const files = await this.fs.promises.readdir(targetPath);
-      console.log('[ls] Raw files:', files);
       const filteredFiles = files.filter(file => file !== '.git');
-      console.log('[ls] Filtered files:', filteredFiles);
       
       if (filteredFiles.length === 0) {
         return '(empty directory)';
@@ -219,21 +215,16 @@ export class UnixCommands {
           try {
             const filePath = `${targetPath}/${file}`;
             const stat = await this.fs.promises.stat(filePath);
-            const detail = { 
+            return { 
               name: file, 
               isDirectory: stat.isDirectory(),
               path: filePath
             };
-            console.log('[ls] File detail:', detail);
-            return detail;
           } catch (error) {
-            console.log('[ls] Error getting file stats for:', file, error);
             return { name: file, isDirectory: false, path: `${targetPath}/${file}` };
           }
         })
       );
-
-      console.log('[ls] All file details:', fileDetails);
 
       // ディレクトリを先に、ファイルを後に並べ替え
       const sortedFiles = fileDetails.sort((a, b) => {
@@ -243,18 +234,15 @@ export class UnixCommands {
         return a.name.localeCompare(b.name);
       });
 
-      console.log('[ls] Sorted files:', sortedFiles);
-
       // ツリー形式で表示
-      return await this.generateSimpleTree(targetPath, sortedFiles);
+      return await this.generateSimpleTree(targetPath, sortedFiles, 0, '');
     } catch (error) {
-      console.error('[ls] Error:', error);
       throw new Error(`ls: ${path || this.currentDir}: No such directory`);
     }
   }
 
   // シンプルなツリー形式表示（.gitを除外）
-  private async generateSimpleTree(basePath: string, files: Array<{name: string, isDirectory: boolean, path: string}>, depth = 0): Promise<string> {
+  private async generateSimpleTree(basePath: string, files: Array<{name: string, isDirectory: boolean, path: string}>, depth = 0, prefix = ''): Promise<string> {
     let result = '';
     
     // 深度制限（無限ループ防止）
@@ -268,7 +256,7 @@ export class UnixCommands {
       const connector = isLast ? '└── ' : '├── ';
       
       if (file.isDirectory) {
-        result += `${connector}${file.name}/\n`;
+        result += `${prefix}${connector}${file.name}/\n`;
         
         // サブディレクトリの内容を取得（深度制限内で）
         if (depth < 1) {
@@ -296,20 +284,17 @@ export class UnixCommands {
                 return a.name.localeCompare(b.name);
               });
               
-              const subTree = await this.generateSimpleTree(file.path, sortedSubFiles, depth + 1);
-              if (subTree) {
-                const subPrefix = isLast ? '    ' : '│   ';
-                result += subTree.split('\n').filter(line => line.trim()).map(line => 
-                  subPrefix + line
-                ).join('\n') + '\n';
-              }
+              // 子要素のプレフィックスを計算
+              const nextPrefix = prefix + (isLast ? '    ' : '│   ');
+              const subTree = await this.generateSimpleTree(file.path, sortedSubFiles, depth + 1, nextPrefix);
+              result += subTree;
             }
           } catch {
             // サブディレクトリの読み取りに失敗した場合は無視
           }
         }
       } else {
-        result += `${connector}${file.name}\n`;
+        result += `${prefix}${connector}${file.name}\n`;
       }
     }
     
@@ -451,30 +436,104 @@ export class UnixCommands {
 
   // rm - ファイル削除
   async rm(fileName: string, recursive = false): Promise<string> {
-    const targetPath = fileName.startsWith('/') ? fileName : `${this.currentDir}/${fileName}`;
-    const normalizedPath = this.normalizePath(targetPath);
-    
     try {
-      const stat = await this.fs.promises.stat(normalizedPath);
-      
-      if (stat.isDirectory()) {
-        if (!recursive) {
-          throw new Error('Is a directory (use -r for recursive)');
+      if (fileName.includes('*')) {
+        // ワイルドカード対応
+        const files = await this.getMatchingFilesForDelete(fileName);
+        if (files.length === 0) {
+          return `No files matching '${fileName}'`;
         }
-        await this.rmdir(normalizedPath);
+        
+        let deletedCount = 0;
+        const deletedFiles: string[] = [];
+        
+        for (const file of files) {
+          try {
+            const targetPath = file.startsWith('/') ? file : `${this.currentDir}/${file}`;
+            const normalizedPath = this.normalizePath(targetPath);
+            
+            const stat = await this.fs.promises.stat(normalizedPath);
+            
+            if (stat.isDirectory()) {
+              if (!recursive) {
+                console.log(`[rm] Skipping directory ${file} (use -r for recursive)`);
+                continue;
+              }
+              await this.rmdir(normalizedPath);
+            } else {
+              await this.fs.promises.unlink(normalizedPath);
+            }
+            
+            // IndexedDBからも削除
+            if (this.onFileOperation) {
+              const relativePath = this.getRelativePathFromProject(normalizedPath);
+              await this.onFileOperation(relativePath, 'delete');
+            }
+            
+            deletedFiles.push(file);
+            deletedCount++;
+          } catch (error) {
+            console.log(`[rm] Failed to remove ${file}:`, error);
+          }
+        }
+        
+        if (deletedCount === 0) {
+          return `No files were removed`;
+        }
+        
+        return `Removed ${deletedCount} file(s): ${deletedFiles.join(', ')}`;
       } else {
-        await this.fs.promises.unlink(normalizedPath);
+        // 単一ファイル削除（既存の処理）
+        const targetPath = fileName.startsWith('/') ? fileName : `${this.currentDir}/${fileName}`;
+        const normalizedPath = this.normalizePath(targetPath);
+        
+        const stat = await this.fs.promises.stat(normalizedPath);
+        
+        if (stat.isDirectory()) {
+          if (!recursive) {
+            throw new Error('Is a directory (use -r for recursive)');
+          }
+          await this.rmdir(normalizedPath);
+        } else {
+          await this.fs.promises.unlink(normalizedPath);
+        }
+        
+        // IndexedDBからも削除
+        if (this.onFileOperation) {
+          const relativePath = this.getRelativePathFromProject(normalizedPath);
+          await this.onFileOperation(relativePath, 'delete');
+        }
+        
+        return `Removed: ${normalizedPath}`;
       }
-      
-      // IndexedDBからも削除
-      if (this.onFileOperation) {
-        const relativePath = this.getRelativePathFromProject(normalizedPath);
-        await this.onFileOperation(relativePath, 'delete');
-      }
-      
-      return `Removed: ${normalizedPath}`;
     } catch (error) {
       throw new Error(`rm: cannot remove '${fileName}': ${(error as Error).message}`);
+    }
+  }
+
+  // 削除用のパターンマッチング
+  private async getMatchingFilesForDelete(pattern: string): Promise<string[]> {
+    try {
+      // 現在のディレクトリの内容を取得
+      const files = await this.fs.promises.readdir(this.currentDir);
+      const filteredFiles = files.filter(file => file !== '.git');
+      
+      if (pattern === '*') {
+        // すべてのファイル
+        return filteredFiles;
+      }
+      
+      // ワイルドカードパターンをRegExpに変換
+      const regexPattern = pattern
+        .replace(/\./g, '\\.')  // . を \. にエスケープ
+        .replace(/\*/g, '.*')   // * を .* に変換
+        .replace(/\?/g, '.');   // ? を . に変換
+      
+      const regex = new RegExp(`^${regexPattern}$`);
+      return filteredFiles.filter(file => regex.test(file));
+    } catch (error) {
+      console.error('[rm] Error getting matching files:', error);
+      return [];
     }
   }
 

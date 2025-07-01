@@ -91,7 +91,9 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
       fontSize: 13,
       fontFamily: 'Menlo, Monaco, "Courier New", monospace',
       cursorBlink: true,
-      scrollback: 1000,
+      scrollback: 5000, // スクロールバッファを大幅に増加
+      allowTransparency: false,
+      bellStyle: 'none',
     });
 
     // アドオンの追加
@@ -152,15 +154,71 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
       terminalRef.current.addEventListener('wheel', handleWheel, { passive: false });
     }
     
-    // サイズを調整
+    // サイズを調整（複数段階で確実に）
     setTimeout(() => {
       fitAddon.fit();
+      
+      // 初期フィット後にスクロール位置を確認
+      setTimeout(() => {
+        term.scrollToBottom();
+        
+        // さらに確実にするため追加のフィットとスクロール
+        setTimeout(() => {
+          fitAddon.fit();
+          term.scrollToBottom();
+        }, 100);
+      }, 50);
     }, 100);
 
     // 初期メッセージ
     term.writeln('Pyxis Terminal v1.0.0');
     term.writeln('UNIX-like commands and Git are available.');
     term.writeln('Type "help" for available commands.');
+
+    // 確実な自動スクロール関数（少しオーバーしても確実に最下段へ）
+    const scrollToBottom = (force = false) => {
+      try {
+        // まず標準的な方法でスクロール
+        term.scrollToBottom();
+        
+        // 確実に最下段に行くため、少し余分にスクロール
+        setTimeout(() => {
+          try {
+            const buffer = term.buffer.active;
+            const viewportHeight = term.rows;
+            const baseY = buffer.baseY;
+            const cursorY = buffer.cursorY;
+            
+            // 実際のカーソル位置
+            const absoluteCursorLine = baseY + cursorY;
+            
+            // 現在のスクロール位置
+            const currentScrollTop = buffer.viewportY;
+            
+            // 確実に最下段に表示されるスクロール位置（+2〜3行の余裕を持つ）
+            const targetScrollTop = Math.max(0, absoluteCursorLine - viewportHeight + 4);
+            
+            // 必要なスクロール量
+            const scrollDelta = targetScrollTop - currentScrollTop;
+            
+            if (scrollDelta > 0) {
+              // 余分にスクロールして確実に最下段へ
+              term.scrollLines(scrollDelta);
+            }
+            
+            // 最終確認として標準メソッドも実行
+            term.scrollToBottom();
+            
+          } catch (error) {
+            // エラー時は標準メソッドにフォールバック
+            term.scrollToBottom();
+          }
+        }, 50);
+        
+      } catch (error) {
+        term.scrollToBottom();
+      }
+    };
 
     // プロンプトを表示する関数
     const showPrompt = async () => {
@@ -172,10 +230,45 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
       } else {
         term.write('\r\n$ ');
       }
+      
+      // プロンプト表示後、1回だけスクロール
+      scrollToBottom();
     };
 
     // 初期プロンプト表示
     showPrompt();
+
+    // 長い出力を段階的に処理する関数（シンプルで確実な処理）
+    const writeOutput = async (output: string) => {
+      const lines = output.split('\n');
+      const batchSize = 20; // バッチサイズを適度に戻す
+      
+      for (let i = 0; i < lines.length; i += batchSize) {
+        const batch = lines.slice(i, i + batchSize);
+        
+        for (const line of batch) {
+          if (line === '' && i === 0) {
+            // 最初の空行はスキップしない
+            term.writeln('\r');
+          } else if (line !== '' || i > 0) {
+            term.writeln(`\r${line}`);
+          }
+        }
+        
+        // バッチ処理の合間に短時間待機
+        if (i + batchSize < lines.length) {
+          await new Promise(resolve => setTimeout(resolve, 10));
+        }
+      }
+      
+      // 全出力完了後、1〜2回の確実なスクロール
+      scrollToBottom(true);
+      
+      // 最終確認のみ
+      setTimeout(() => {
+        scrollToBottom(true);
+      }, 100);
+    };
 
     // コマンド処理
     let currentLine = '';
@@ -206,7 +299,7 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
             term.writeln('  cd        - プロジェクトルートに戻る');
             term.writeln('  mkdir <name> [-p] - ディレクトリを作成');
             term.writeln('  touch <file> - ファイルを作成');
-            term.writeln('  rm <file> [-r] - ファイルを削除');
+            term.writeln('  rm <file> [-r] - ファイルを削除 (ワイルドカード対応: rm *.txt)');
             term.writeln('  cat <file> - ファイル内容を表示');
             term.writeln('  echo <text> [> file] - テキストを出力/ファイルに書き込み');
             term.writeln('');
@@ -231,39 +324,39 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
             break;
             
           case 'date':
-            term.writeln(`\r\n${new Date().toLocaleString('ja-JP')}`);
+            await writeOutput(new Date().toLocaleString('ja-JP'));
             break;
             
           case 'whoami':
-            term.writeln('\r\nuser');
+            await writeOutput('user');
             break;
             
           // Unix commands
           case 'pwd':
             if (unixCommandsRef.current) {
               const result = unixCommandsRef.current.pwd();
-              term.writeln(`\r\n${result}`);
+              await writeOutput(result);
             }
             break;
             
           case 'ls':
             if (unixCommandsRef.current) {
               const result = await unixCommandsRef.current.ls(args[0]);
-              term.writeln(`\r\n${result}`);
+              await writeOutput(result);
             }
             break;
             
           case 'cd':
             if (unixCommandsRef.current && args[0]) {
               const result = await unixCommandsRef.current.cd(args[0]);
-              term.writeln(`\r\n${result}`);
+              await writeOutput(result);
             } else if (unixCommandsRef.current && !args[0]) {
               // cdのみの場合はプロジェクトルートに移動
               const projectRoot = `/projects/${currentProject}`;
               unixCommandsRef.current.setCurrentDir(projectRoot);
-              term.writeln(`\r\nChanged directory to ${projectRoot}`);
+              await writeOutput(`Changed directory to ${projectRoot}`);
             } else {
-              term.writeln('\r\ncd: missing argument');
+              await writeOutput('cd: missing argument');
             }
             break;
             
@@ -272,18 +365,18 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
               const recursive = args.includes('-p');
               const dirName = args.find(arg => !arg.startsWith('-')) || args[0];
               const result = await unixCommandsRef.current.mkdir(dirName, recursive);
-              term.writeln(`\r\n${result}`);
+              await writeOutput(result);
             } else {
-              term.writeln('\r\nmkdir: missing argument');
+              await writeOutput('mkdir: missing argument');
             }
             break;
             
           case 'touch':
             if (unixCommandsRef.current && args[0]) {
               const result = await unixCommandsRef.current.touch(args[0]);
-              term.writeln(`\r\n${result}`);
+              await writeOutput(result);
             } else {
-              term.writeln('\r\ntouch: missing argument');
+              await writeOutput('touch: missing argument');
             }
             break;
             
@@ -292,18 +385,18 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
               const recursive = args.includes('-r') || args.includes('-rf');
               const fileName = args.find(arg => !arg.startsWith('-')) || args[args.length - 1];
               const result = await unixCommandsRef.current.rm(fileName, recursive);
-              term.writeln(`\r\n${result}`);
+              await writeOutput(result);
             } else {
-              term.writeln('\r\nrm: missing argument');
+              await writeOutput('rm: missing argument');
             }
             break;
             
           case 'cat':
             if (unixCommandsRef.current && args[0]) {
               const result = await unixCommandsRef.current.cat(args[0]);
-              term.writeln(`\r\n${result}`);
+              await writeOutput(result);
             } else {
-              term.writeln('\r\ncat: missing argument');
+              await writeOutput('cat: missing argument');
             }
             break;
             
@@ -314,11 +407,11 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
                 const text = args.slice(0, redirectIndex).join(' ');
                 const fileName = args[redirectIndex + 1];
                 const result = await unixCommandsRef.current.echo(text, fileName);
-                term.writeln(`\r\n${result}`);
+                await writeOutput(result);
               } else {
                 const text = args.join(' ');
                 const result = await unixCommandsRef.current.echo(text);
-                term.writeln(`\r\n${result}`);
+                await writeOutput(result);
               }
             }
             break;
@@ -329,23 +422,24 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
               const gitCmd = args[0];
               switch (gitCmd) {
                 case 'init':
-                  term.writeln('\r\ngit init: Command not available from terminal');
-                  term.writeln('プロジェクトの初期化は左下の「プロジェクト管理」ボタンから');
-                  term.writeln('新規プロジェクトを作成してください。');
-                  term.writeln('新規プロジェクトには自動でGitリポジトリが設定されます。');
+                  const initMessage = `git init: Command not available from terminal
+プロジェクトの初期化は左下の「プロジェクト管理」ボタンから
+新規プロジェクトを作成してください。
+新規プロジェクトには自動でGitリポジトリが設定されます。`;
+                  await writeOutput(initMessage);
                   break;
                   
                 case 'status':
                   const statusResult = await gitCommandsRef.current.status();
-                  term.writeln(`\r\n${statusResult}`);
+                  await writeOutput(statusResult);
                   break;
                   
                 case 'add':
                   if (args[1]) {
                     const addResult = await gitCommandsRef.current.add(args[1]);
-                    term.writeln(`\r\n${addResult}`);
+                    await writeOutput(addResult);
                   } else {
-                    term.writeln('\r\ngit add: missing file argument');
+                    await writeOutput('git add: missing file argument');
                   }
                   break;
                   
@@ -354,15 +448,15 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
                   if (messageIndex !== -1 && args[messageIndex + 1]) {
                     const message = args.slice(messageIndex + 1).join(' ').replace(/['"]/g, '');
                     const commitResult = await gitCommandsRef.current.commit(message);
-                    term.writeln(`\r\n${commitResult}`);
+                    await writeOutput(commitResult);
                   } else {
-                    term.writeln('\r\ngit commit: missing -m flag and message');
+                    await writeOutput('git commit: missing -m flag and message');
                   }
                   break;
                   
                 case 'log':
                   const logResult = await gitCommandsRef.current.log();
-                  term.writeln(`\r\n${logResult}`);
+                  await writeOutput(logResult);
                   break;
                   
                 case 'checkout':
@@ -370,9 +464,9 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
                     const createNew = args.includes('-b');
                     const branchName = args[args.indexOf('-b') + 1] || args[1];
                     const checkoutResult = await gitCommandsRef.current.checkout(branchName, createNew);
-                    term.writeln(`\r\n${checkoutResult}`);
+                    await writeOutput(checkoutResult);
                   } else {
-                    term.writeln('\r\ngit checkout: missing branch name');
+                    await writeOutput('git checkout: missing branch name');
                   }
                   break;
                   
@@ -382,31 +476,31 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
                     const branchName = args.find(arg => !arg.startsWith('-'));
                     if (branchName) {
                       const branchResult = await gitCommandsRef.current.branch(branchName, deleteFlag);
-                      term.writeln(`\r\n${branchResult}`);
+                      await writeOutput(branchResult);
                     } else {
-                      term.writeln('\r\ngit branch: missing branch name');
+                      await writeOutput('git branch: missing branch name');
                     }
                   } else {
                     const branchResult = await gitCommandsRef.current.branch();
-                    term.writeln(`\r\n${branchResult}`);
+                    await writeOutput(branchResult);
                   }
                   break;
                   
                 case 'revert':
                   if (args[1]) {
                     const revertResult = await gitCommandsRef.current.revert(args[1]);
-                    term.writeln(`\r\n${revertResult}`);
+                    await writeOutput(revertResult);
                   } else {
-                    term.writeln('\r\ngit revert: missing commit hash');
+                    await writeOutput('git revert: missing commit hash');
                   }
                   break;
                   
                 default:
-                  term.writeln(`\r\ngit: '${gitCmd}' is not a git command`);
+                  await writeOutput(`git: '${gitCmd}' is not a git command`);
                   break;
               }
             } else {
-              term.writeln('\r\ngit: missing command');
+              await writeOutput('git: missing command');
             }
             break;
             
@@ -414,19 +508,34 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
             if (cmd === '') {
               // 空のコマンドは何もしない
             } else {
-              term.writeln(`\r\ncommand not found: ${command}`);
+              await writeOutput(`command not found: ${command}`);
             }
             break;
         }
       } catch (error) {
-        term.writeln(`\r\n${(error as Error).message}`);
+        await writeOutput((error as Error).message);
       }
+      
+      // コマンド実行後に確実な自動スクロール
+      scrollToBottom();
+      
+      // 追加の安全策として複数回スクロールを実行
+      setTimeout(() => {
+        scrollToBottom();
+      }, 50);
+      
+      setTimeout(() => {
+        scrollToBottom();
+      }, 150);
     };
     
     term.onData((data: string) => {
       switch (data) {
         case '\r': // Enter
           term.writeln('');
+          // Enter押下時に1回スクロール
+          scrollToBottom();
+          
           if (currentLine.trim()) {
             processCommand(currentLine).then(() => {
               showPrompt();
@@ -474,9 +583,15 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
 
   // 高さが変更された時にサイズを再調整
   useEffect(() => {
-    if (fitAddonRef.current) {
+    if (fitAddonRef.current && xtermRef.current) {
+      // まずサイズを調整
       setTimeout(() => {
         fitAddonRef.current?.fit();
+        
+        // リサイズ後の正確なスクロール（1回のみ）
+        setTimeout(() => {
+          xtermRef.current?.scrollToBottom();
+        }, 100);
       }, 100);
     }
   }, [height, currentProject, projectFiles]);
@@ -496,12 +611,13 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
   return (
     <div 
       ref={terminalRef}
-      className="w-full h-full bg-[#1e1e1e] overflow-hidden"
+      className="w-full h-full bg-[#1e1e1e] overflow-hidden relative terminal-container"
       style={{ 
         height: `${height - 32}px`,
         maxHeight: `${height - 32}px`,
         minHeight: '100px',
-        touchAction: 'none'
+        touchAction: 'none',
+        contain: 'layout style paint' // CSS containment でレイアウトを制限
       }}
     />
   );
