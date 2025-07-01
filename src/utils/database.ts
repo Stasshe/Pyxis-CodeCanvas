@@ -1,5 +1,13 @@
 // IndexedDBを使ったプロジェクト管理システム
 
+// ユニークID生成関数
+const generateUniqueId = (prefix: string): string => {
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substr(2, 12);
+  const counter = Math.floor(Math.random() * 10000);
+  return `${prefix}_${timestamp}_${random}_${counter}`;
+};
+
 export interface Project {
   id: string;
   name: string;
@@ -59,7 +67,7 @@ class ProjectDB {
   // プロジェクト操作
   async createProject(name: string, description?: string): Promise<Project> {
     const project: Project = {
-      id: `project_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: generateUniqueId('project'),
       name,
       description,
       createdAt: new Date(),
@@ -153,8 +161,20 @@ class ProjectDB {
   async createFile(projectId: string, path: string, content: string, type: 'file' | 'folder'): Promise<ProjectFile> {
     console.log('[DB] Creating file:', { projectId, path, content, type });
     
+    // 既存ファイルをチェック
+    const existingFiles = await this.getProjectFiles(projectId);
+    const existingFile = existingFiles.find(f => f.path === path);
+    
+    if (existingFile) {
+      console.log('[DB] File already exists, updating:', path);
+      existingFile.content = content;
+      existingFile.updatedAt = new Date();
+      await this.saveFile(existingFile);
+      return existingFile;
+    }
+    
     const file: ProjectFile = {
-      id: `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: generateUniqueId('file'),
       projectId,
       path,
       name: path.split('/').pop() || '',

@@ -15,20 +15,32 @@ const initializeProjectGit = async (project: Project, files: ProjectFile[], conv
     
     // Git初期化
     const git = new GitCommands(project.name);
-    await git.init();
+    try {
+      await git.init();
+      console.log('Git init completed');
+      
+      // すべてのファイルをステージング
+      try {
+        await git.add('.');
+        console.log('Files staged');
+        
+        // 初期コミット
+        await git.commit('Initial commit', {
+          name: 'Pyxis User',
+          email: 'user@pyxis.dev'
+        });
+        console.log('Initial commit completed');
+      } catch (commitError) {
+        console.warn('Initial commit failed, but git is initialized:', commitError);
+      }
+    } catch (initError) {
+      console.warn('Git initialization failed:', initError);
+    }
     
-    // すべてのファイルをステージング
-    await git.add('.');
-    
-    // 初期コミット
-    await git.commit('Initial commit', {
-      name: 'Pyxis User',
-      email: 'user@pyxis.dev'
-    });
-    
-    console.log('Git initialization completed for project:', project.name);
+    console.log('Git initialization process completed for project:', project.name);
   } catch (error) {
     console.error('Failed to initialize Git for project:', error);
+    // Gitエラーでプロジェクト作成を失敗させない
   }
 };
 
@@ -61,11 +73,29 @@ export const useProject = () => {
   // プロジェクトファイルをFileItem形式に変換
   const convertToFileItems = (files: ProjectFile[]): FileItem[] => {
     console.log('Converting files:', files);
+    
+    // パスによる重複排除
+    const uniqueFiles = files.reduce((acc, file) => {
+      const existing = acc.find(f => f.path === file.path);
+      if (!existing) {
+        acc.push(file);
+      } else {
+        // より新しいファイルを保持
+        if (file.updatedAt > existing.updatedAt) {
+          const index = acc.indexOf(existing);
+          acc[index] = file;
+        }
+      }
+      return acc;
+    }, [] as ProjectFile[]);
+    
+    console.log('Unique files after deduplication:', uniqueFiles);
+    
     const fileMap = new Map<string, FileItem>();
     const rootItems: FileItem[] = [];
 
     // まずすべてのファイルをMapに登録
-    files.forEach(file => {
+    uniqueFiles.forEach(file => {
       const item: FileItem = {
         id: file.id,
         name: file.name,
@@ -78,7 +108,7 @@ export const useProject = () => {
     });
 
     // 階層構造を構築
-    files.forEach(file => {
+    uniqueFiles.forEach(file => {
       const item = fileMap.get(file.path);
       if (!item) return;
 

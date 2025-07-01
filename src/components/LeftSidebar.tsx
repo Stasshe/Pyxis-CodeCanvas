@@ -2,21 +2,26 @@ import { FolderOpen } from 'lucide-react';
 import { MenuTab, FileItem } from '../types';
 import FileTree from './FileTree';
 import SearchPanel from './SearchPanel';
+import GitPanel from './GitPanel';
 
 interface LeftSidebarProps {
   activeMenuTab: MenuTab;
   leftSidebarWidth: number;
   files: FileItem[];
+  currentProject?: string;
   onFileOpen: (file: FileItem) => void;
   onResize: (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => void;
+  onGitRefresh?: () => void;
 }
 
 export default function LeftSidebar({ 
   activeMenuTab, 
   leftSidebarWidth, 
   files, 
+  currentProject,
   onFileOpen,
-  onResize 
+  onResize,
+  onGitRefresh
 }: LeftSidebarProps) {
   return (
     <>
@@ -53,11 +58,11 @@ export default function LeftSidebar({
             </div>
           )}
           {activeMenuTab === 'git' && (
-            <div className="p-4">
-              <p className="text-sm text-muted-foreground">Gitパネルは準備中です</p>
-              <p className="text-xs text-muted-foreground mt-2">
-                ターミナルでGitコマンドを使用できます
-              </p>
+            <div className="h-full">
+              <GitPanel 
+                currentProject={currentProject} 
+                onRefresh={onGitRefresh}
+              />
             </div>
           )}
           {activeMenuTab === 'settings' && (

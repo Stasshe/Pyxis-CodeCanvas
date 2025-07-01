@@ -120,8 +120,15 @@ export default function Home() {
           activeMenuTab={activeMenuTab}
           leftSidebarWidth={leftSidebarWidth}
           files={projectFiles}
+          currentProject={currentProject?.name}
           onFileOpen={handleFileOpen}
           onResize={handleLeftResize}
+          onGitRefresh={() => {
+            // Git操作後にプロジェクトを再読み込み
+            if (currentProject && loadProject) {
+              loadProject(currentProject);
+            }
+          }}
         />
       )}
 

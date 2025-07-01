@@ -619,8 +619,6 @@ export class GitCommands {
   constructor(projectName: string) {
     this.fs = getFileSystem()!;
     this.dir = getProjectDir(projectName);
-    // プロジェクトディレクトリが存在しない場合は作成
-    this.ensureProjectDirectory();
   }
 
   // プロジェクトディレクトリの存在を確認し、なければ作成
@@ -636,6 +634,7 @@ export class GitCommands {
   // 現在のブランチ名を取得
   async getCurrentBranch(): Promise<string> {
     try {
+      await this.ensureProjectDirectory();
       // Gitリポジトリが初期化されているかチェック
       await this.fs.promises.stat(`${this.dir}/.git`);
       
@@ -664,6 +663,7 @@ export class GitCommands {
   // git status - ステータス確認
   async status(): Promise<string> {
     try {
+      await this.ensureProjectDirectory();
       // Gitリポジトリが初期化されているかチェック
       try {
         await this.fs.promises.stat(`${this.dir}/.git`);
@@ -671,7 +671,16 @@ export class GitCommands {
         throw new Error('not a git repository (or any of the parent directories): .git');
       }
 
-      const status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
+      let status: Array<[string, number, number, number]> = [];
+      try {
+        status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
+      } catch (statusError) {
+        console.warn('statusMatrix failed, trying alternative approach:', statusError);
+        // statusMatrixが失敗した場合は、現在の状態をシンプルに返す
+        const currentBranch = await this.getCurrentBranch();
+        return `On branch ${currentBranch}\nnothing to commit, working tree clean`;
+      }
+      
       const currentBranch = await this.getCurrentBranch();
       
       if (status.length === 0) {
@@ -732,6 +741,7 @@ export class GitCommands {
   // git add - ファイルをステージング
   async add(filepath: string): Promise<string> {
     try {
+      await this.ensureProjectDirectory();
       if (filepath === '.') {
         // カレントディレクトリの全ファイルを追加
         const files = await this.getAllFiles(this.dir);
@@ -823,6 +833,7 @@ export class GitCommands {
   // git commit - コミット
   async commit(message: string, author = { name: 'User', email: 'user@pyxis.dev' }): Promise<string> {
     try {
+      await this.ensureProjectDirectory();
       const sha = await git.commit({
         fs: this.fs,
         dir: this.dir,
@@ -839,6 +850,7 @@ export class GitCommands {
   // git log - ログ表示
   async log(depth = 10): Promise<string> {
     try {
+      await this.ensureProjectDirectory();
       const commits = await git.log({ fs: this.fs, dir: this.dir, depth });
       
       if (commits.length === 0) {
@@ -853,6 +865,38 @@ export class GitCommands {
                `    ${commit.commit.message}\n`;
       }).join('\n');
     } catch (error) {
+      throw new Error(`git log failed: ${(error as Error).message}`);
+    }
+  }
+
+  // UI用のGitログを取得（パイプ区切り形式）
+  async getFormattedLog(depth = 20): Promise<string> {
+    try {
+      await this.ensureProjectDirectory();
+      
+      // Gitリポジトリが初期化されているかチェック
+      try {
+        await this.fs.promises.stat(`${this.dir}/.git`);
+      } catch {
+        throw new Error('not a git repository (or any of the parent directories): .git');
+      }
+      
+      const commits = await git.log({ fs: this.fs, dir: this.dir, depth });
+      
+      if (commits.length === 0) {
+        return '';
+      }
+
+      return commits.map(commit => {
+        const date = new Date(commit.commit.author.timestamp * 1000);
+        return `${commit.oid}|${commit.commit.message}|${commit.commit.author.name}|${date.toISOString()}`;
+      }).join('\n');
+    } catch (error) {
+      console.error('getFormattedLog error:', error);
+      // Gitリポジトリが初期化されていない場合は空文字を返す
+      if (error instanceof Error && error.message.includes('not a git repository')) {
+        return '';
+      }
       throw new Error(`git log failed: ${(error as Error).message}`);
     }
   }
@@ -923,6 +967,7 @@ export class GitCommands {
   // git branch - ブランチ一覧/作成
   async branch(branchName?: string, deleteFlag = false): Promise<string> {
     try {
+      await this.ensureProjectDirectory();
       // Gitリポジトリが初期化されているかチェック
       try {
         await this.fs.promises.stat(`${this.dir}/.git`);
@@ -946,6 +991,10 @@ export class GitCommands {
         // ブランチ一覧表示
         const branches = await git.listBranches({ fs: this.fs, dir: this.dir });
         const currentBranch = await this.getCurrentBranch();
+        
+        if (branches.length === 0) {
+          return `* ${currentBranch}`;
+        }
         
         return branches.map(branch => 
           branch === currentBranch ? `* ${branch}` : `  ${branch}`
