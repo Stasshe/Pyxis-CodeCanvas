@@ -100,8 +100,8 @@ export const useProject = () => {
 
   // プロジェクトファイルをFileItem形式に変換
   const convertToFileItems = (files: ProjectFile[]): FileItem[] => {
-    console.log('[convertToFileItems] Input files:', files.length);
-    console.log('[convertToFileItems] Files detail:', files.map(f => ({ 
+    //console.log('[convertToFileItems] Input files:', files.length);
+    /*console.log('[convertToFileItems] Files detail:', files.map(f => ({ 
       id: f.id, 
       path: f.path, 
       name: f.name, 
@@ -109,7 +109,8 @@ export const useProject = () => {
       parentPath: f.parentPath,
       contentLength: f.content.length 
     })));
-    
+    */
+
     // パスによる重複排除
     const uniqueFiles = files.reduce((acc, file) => {
       const existing = acc.find(f => f.path === file.path);
@@ -125,11 +126,12 @@ export const useProject = () => {
       return acc;
     }, [] as ProjectFile[]);
     
-    console.log('[convertToFileItems] Unique files after deduplication:', uniqueFiles.length);
-    console.log('[convertToFileItems] Unique files detail:', uniqueFiles.map(f => ({ 
+    //console.log('[convertToFileItems] Unique files after deduplication:', uniqueFiles.length);
+    /*console.log('[convertToFileItems] Unique files detail:', uniqueFiles.map(f => ({ 
       path: f.path, 
       parentPath: f.parentPath 
     })));
+    */
     
     const fileMap = new Map<string, FileItem>();
     const rootItems: FileItem[] = [];
@@ -247,8 +249,14 @@ export const useProject = () => {
         const updatedFile = { ...existingFile, content, updatedAt: new Date() };
         console.log('[saveFile] Updating existing file:', updatedFile.id);
         await projectDB.saveFile(updatedFile);
-        setProjectFiles(prev => prev.map(f => f.id === existingFile.id ? updatedFile : f));
-        console.log('[saveFile] File updated successfully');
+        
+        // 内容が実際に変わった場合のみ状態を更新
+        if (existingFile.content !== content) {
+          setProjectFiles(prev => prev.map(f => f.id === existingFile.id ? updatedFile : f));
+          console.log('[saveFile] File state updated');
+        } else {
+          console.log('[saveFile] File content unchanged, skipping state update');
+        }
       } else {
         // 新しいファイルを作成
         console.log('[saveFile] Creating new file');
@@ -266,11 +274,7 @@ export const useProject = () => {
         console.warn('[saveFile] Filesystem sync failed (non-critical):', syncError);
       }
 
-      // プロジェクトの更新日時を更新
-      const updatedProject = { ...currentProject, updatedAt: new Date() };
-      await projectDB.saveProject(updatedProject);
-      setCurrentProject(updatedProject);
-      console.log('[saveFile] Project updated');
+      console.log('[saveFile] File save completed successfully');
     } catch (error) {
       console.error('[saveFile] Failed to save file:', error);
       throw error;

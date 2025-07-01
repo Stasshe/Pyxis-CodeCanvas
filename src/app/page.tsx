@@ -41,49 +41,71 @@ export default function Home() {
 
   const activeTab = tabs.find(tab => tab.id === activeTabId);
 
-  // プロジェクトが変更された時にタブをリセット
+  // タブの状態変化をデバッグ
+  useEffect(() => {
+    console.log('[DEBUG] Tabs state changed:', {
+      tabCount: tabs.length,
+      tabIds: tabs.map(t => t.id),
+      activeTabId,
+      currentProjectId: currentProject?.id
+    });
+  }, [tabs, activeTabId, currentProject?.id]);
+
+  // プロジェクトが変更された時にタブをリセット（プロジェクトIDが変わった場合のみ）
   useEffect(() => {
     if (currentProject) {
-      // ウェルカムタブを作成
-      const welcomeTab: Tab = {
-        id: 'welcome',
-        name: 'README.md',
-        content: `# ${currentProject.name}\n\n${currentProject.description || ''}\n\nプロジェクトファイルはIndexedDBに保存されています。\n./${currentProject.name}/~$`,
-        isDirty: false,
-        path: '/README.md'
-      };
-      
-      setTabs([welcomeTab]);
-      setActiveTabId('welcome');
+      // 初回読み込み時のみウェルカムタブを作成
+      if (tabs.length === 0) {
+        console.log('[useEffect] Creating welcome tab for new project:', currentProject.name);
+        // ウェルカムタブを作成
+        const welcomeTab: Tab = {
+          id: 'welcome',
+          name: 'README.md',
+          content: `# ${currentProject.name}\n\n${currentProject.description || ''}\n\nプロジェクトファイルはIndexedDBに保存されています。\n./${currentProject.name}/~$`,
+          isDirty: false,
+          path: '/README.md'
+        };
+        
+        setTabs([welcomeTab]);
+        setActiveTabId('welcome');
+      } else {
+        console.log('[useEffect] Project loaded, keeping existing tabs:', tabs.length);
+      }
     }
-  }, [currentProject]);
+  }, [currentProject?.id]); // currentProject.id のみを監視
 
   // プロジェクトファイルが更新された時に開いているタブの内容も同期
   useEffect(() => {
     if (projectFiles.length > 0 && tabs.length > 0) {
+      let hasRealChanges = false;
       const updatedTabs = tabs.map(tab => {
         const correspondingFile = projectFiles.find(f => f.path === tab.path);
-        if (correspondingFile && correspondingFile.content !== tab.content && !tab.isDirty) {
-          console.log('[useEffect] Syncing tab content from DB:', {
-            tabPath: tab.path,
-            oldContentLength: tab.content.length,
-            newContentLength: correspondingFile.content?.length || 0
-          });
-          return {
-            ...tab,
-            content: correspondingFile.content || ''
-          };
+        // ファイルが見つからない、または内容が同じ、またはタブが編集中の場合はスキップ
+        if (!correspondingFile || correspondingFile.content === tab.content || tab.isDirty) {
+          return tab;
         }
-        return tab;
+        
+        console.log('[useEffect] Syncing tab content from DB:', {
+          tabPath: tab.path,
+          oldContentLength: tab.content.length,
+          newContentLength: correspondingFile.content?.length || 0,
+          tabIsDirty: tab.isDirty
+        });
+        hasRealChanges = true;
+        return {
+          ...tab,
+          content: correspondingFile.content || '',
+          isDirty: false // DBから同期したので汚れていない状態にリセット
+        };
       });
       
-      // 内容が変更された場合のみ更新
-      const hasChanges = updatedTabs.some((tab, index) => tab.content !== tabs[index].content);
-      if (hasChanges) {
+      // 実際に内容が変更された場合のみ更新
+      if (hasRealChanges) {
+        console.log('[useEffect] Updating tabs with new content from DB');
         setTabs(updatedTabs);
       }
     }
-  }, [projectFiles]); // tabs を依存配列から除去してループを防ぐ
+  }, [projectFiles.length]); // ファイル数の変更のみを監視して、不要な実行を防ぐ
 
   const handleMenuTabClick = (tab: MenuTab) => {
     if (activeMenuTab === tab && isLeftSidebarVisible) {
@@ -142,6 +164,13 @@ export default function Home() {
       try {
         await saveFile(tab.path, content);
         console.log('[handleTabContentUpdate] File saved successfully');
+        
+        // 保存成功後にタブの isDirty 状態をクリア
+        setTabs(prevTabs => prevTabs.map(t => 
+          t.id === tabId ? { ...t, isDirty: false } : t
+        ));
+        console.log('[handleTabContentUpdate] Tab isDirty status cleared');
+        
         // ファイル保存後にGitパネルを更新（少し遅延を入れる）
         setTimeout(() => {
           setGitRefreshTrigger(prev => prev + 1);
