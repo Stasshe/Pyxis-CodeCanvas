@@ -179,6 +179,71 @@ export const useProject = () => {
     }
   };
 
+  // プロジェクトファイルをリフレッシュ（ターミナル操作後の同期用）
+  const refreshProjectFiles = async () => {
+    if (!currentProject) return;
+
+    try {
+      const files = await projectDB.getProjectFiles(currentProject.id);
+      setProjectFiles(files);
+    } catch (error) {
+      console.error('Failed to refresh project files:', error);
+    }
+  };
+
+  // ターミナルからのファイル操作を同期
+  const syncTerminalFileOperation = async (path: string, type: 'file' | 'folder' | 'delete', content = '') => {
+    if (!currentProject) {
+      console.log('[syncTerminalFileOperation] No current project');
+      return;
+    }
+
+    console.log('[syncTerminalFileOperation] Starting:', { path, type, content, projectName: currentProject.name });
+
+    try {
+      if (type === 'delete') {
+        // ファイルまたはフォルダを削除
+        const fileToDelete = projectFiles.find(f => f.path === path);
+        if (fileToDelete) {
+          console.log('[syncTerminalFileOperation] Deleting file:', fileToDelete);
+          await projectDB.deleteFile(fileToDelete.id);
+          
+          // 子ファイルも削除（フォルダの場合）
+          if (fileToDelete.type === 'folder') {
+            const childFiles = projectFiles.filter(f => f.path.startsWith(path + '/'));
+            console.log('[syncTerminalFileOperation] Deleting child files:', childFiles);
+            for (const child of childFiles) {
+              await projectDB.deleteFile(child.id);
+            }
+          }
+        }
+      } else {
+        // ファイルまたはフォルダを作成/更新
+        const existingFile = projectFiles.find(f => f.path === path);
+        
+        if (existingFile) {
+          // 既存ファイルを更新
+          console.log('[syncTerminalFileOperation] Updating existing file:', existingFile);
+          const updatedFile = { ...existingFile, content };
+          await projectDB.saveFile(updatedFile);
+        } else {
+          // 新しいファイル/フォルダを作成
+          console.log('[syncTerminalFileOperation] Creating new file/folder:', { path, type });
+          await projectDB.createFile(currentProject.id, path, content, type);
+          console.log('[syncTerminalFileOperation] File/folder created in DB');
+        }
+      }
+
+      // プロジェクトファイルをリフレッシュ
+      console.log('[syncTerminalFileOperation] Refreshing project files');
+      await refreshProjectFiles();
+      console.log('[syncTerminalFileOperation] Sync completed');
+      
+    } catch (error) {
+      console.error('[syncTerminalFileOperation] Failed to sync terminal file operation:', error);
+    }
+  };
+
   // 新規プロジェクトを作成（Git初期化付き）
   const createProject = async (name: string, description?: string) => {
     try {
@@ -241,5 +306,7 @@ export const useProject = () => {
     createFile,
     deleteFile,
     createProject,
+    refreshProjectFiles,
+    syncTerminalFileOperation,
   };
 };

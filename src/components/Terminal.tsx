@@ -29,10 +29,11 @@ interface TerminalProps {
   height: number;
   currentProject?: string;
   projectFiles?: FileItem[];
+  onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string) => Promise<void>;
 }
 
 // クライアントサイド専用のターミナルコンポーネント
-function ClientTerminal({ height, currentProject = 'default', projectFiles = [] }: TerminalProps) {
+function ClientTerminal({ height, currentProject = 'default', projectFiles = [], onFileOperation }: TerminalProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<any>(null);
   const fitAddonRef = useRef<any>(null);
@@ -44,7 +45,7 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [] 
 
     // ファイルシステムの初期化
     initializeFileSystem();
-    unixCommandsRef.current = new UnixCommands(currentProject);
+    unixCommandsRef.current = new UnixCommands(currentProject, onFileOperation);
     gitCommandsRef.current = new GitCommands(currentProject);
 
     // プロジェクトファイルをターミナルファイルシステムに同期
@@ -201,7 +202,8 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [] 
             term.writeln('File System Commands:');
             term.writeln('  pwd       - 現在のディレクトリを表示');
             term.writeln('  ls [path] - ワークスペースファイルをツリー形式で表示');
-            term.writeln('  cd <path> - ディレクトリを変更');
+            term.writeln('  cd <path> - ディレクトリを変更 (プロジェクト内のみ)');
+            term.writeln('  cd        - プロジェクトルートに戻る');
             term.writeln('  mkdir <name> [-p] - ディレクトリを作成');
             term.writeln('  touch <file> - ファイルを作成');
             term.writeln('  rm <file> [-r] - ファイルを削除');

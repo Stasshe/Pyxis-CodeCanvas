@@ -123,10 +123,12 @@ const removeDirectoryRecursive = async (fs: any, dirPath: string): Promise<void>
 export class UnixCommands {
   private fs: FS;
   private currentDir: string;
+  private onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string) => Promise<void>;
 
-  constructor(projectName: string) {
+  constructor(projectName: string, onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string) => Promise<void>) {
     this.fs = getFileSystem()!;
     this.currentDir = getProjectDir(projectName);
+    this.onFileOperation = onFileOperation;
     // プロジェクトディレクトリが存在しない場合は作成
     this.ensureProjectDirectory();
   }
@@ -158,10 +160,22 @@ export class UnixCommands {
     this.currentDir = dir;
   }
 
+  // プロジェクトディレクトリからの相対パスを取得
+  private getRelativePathFromProject(fullPath: string): string {
+    const projectBase = `/projects/${this.currentDir.split('/')[2]}`;
+    return fullPath.replace(projectBase, '') || '/';
+  }
+
   // cd - ディレクトリ変更
   async cd(path: string): Promise<string> {
+    const projectRoot = getProjectDir(this.currentDir.split('/')[2]); // プロジェクトのルートディレクトリ
     const newPath = path.startsWith('/') ? path : `${this.currentDir}/${path}`;
     const normalizedPath = this.normalizePath(newPath);
+    
+    // プロジェクトルートより上への移動を制限
+    if (!normalizedPath.startsWith(projectRoot)) {
+      throw new Error('cd: Permission denied - Cannot navigate outside project directory');
+    }
     
     try {
       const stat = await this.fs.promises.stat(normalizedPath);
@@ -172,6 +186,10 @@ export class UnixCommands {
         throw new Error('Not a directory');
       }
     } catch (error) {
+      // プロジェクトルート制限のエラーの場合は、そのメッセージを優先
+      if ((error as Error).message.includes('Permission denied')) {
+        throw error;
+      }
       throw new Error(`cd: ${path}: No such directory`);
     }
   }
@@ -291,10 +309,21 @@ export class UnixCommands {
     const targetPath = dirName.startsWith('/') ? dirName : `${this.currentDir}/${dirName}`;
     const normalizedPath = this.normalizePath(targetPath);
     
+    console.log('[mkdir] Starting:', { dirName, targetPath, normalizedPath, onFileOperation: !!this.onFileOperation });
+    
     try {
       if (recursive) {
         // 再帰的にディレクトリを作成
         await this.createDirectoryRecursive(normalizedPath);
+        
+        // IndexedDBにも同期
+        if (this.onFileOperation) {
+          const relativePath = this.getRelativePathFromProject(normalizedPath);
+          console.log('[mkdir] Syncing recursive:', { relativePath });
+          await this.onFileOperation(relativePath, 'folder');
+          console.log('[mkdir] Sync completed for recursive');
+        }
+        
         return `Directory created: ${normalizedPath}`;
       } else {
         // 親ディレクトリの存在確認
@@ -317,11 +346,25 @@ export class UnixCommands {
           }
         } catch {
           // ディレクトリが存在しない場合は作成
+          console.log('[mkdir] Creating directory:', normalizedPath);
           await this.fs.promises.mkdir(normalizedPath);
+          console.log('[mkdir] Directory created in FS');
+          
+          // IndexedDBにも同期
+          if (this.onFileOperation) {
+            const relativePath = this.getRelativePathFromProject(normalizedPath);
+            console.log('[mkdir] Syncing to IndexedDB:', { relativePath });
+            await this.onFileOperation(relativePath, 'folder');
+            console.log('[mkdir] Sync completed');
+          } else {
+            console.log('[mkdir] No onFileOperation callback available');
+          }
+          
           return `Directory created: ${normalizedPath}`;
         }
       }
     } catch (error) {
+      console.error('[mkdir] Error:', error);
       throw new Error(`mkdir: cannot create directory '${dirName}': ${(error as Error).message}`);
     }
   }
@@ -367,6 +410,13 @@ export class UnixCommands {
         return `File already exists: ${normalizedPath}`;
       } catch {
         await this.fs.promises.writeFile(normalizedPath, '');
+        
+        // IndexedDBにも同期
+        if (this.onFileOperation) {
+          const relativePath = this.getRelativePathFromProject(normalizedPath);
+          await this.onFileOperation(relativePath, 'file', '');
+        }
+        
         return `File created: ${normalizedPath}`;
       }
     } catch (error) {
@@ -389,6 +439,12 @@ export class UnixCommands {
         await this.rmdir(normalizedPath);
       } else {
         await this.fs.promises.unlink(normalizedPath);
+      }
+      
+      // IndexedDBからも削除
+      if (this.onFileOperation) {
+        const relativePath = this.getRelativePathFromProject(normalizedPath);
+        await this.onFileOperation(relativePath, 'delete');
       }
       
       return `Removed: ${normalizedPath}`;
@@ -418,6 +474,13 @@ export class UnixCommands {
       
       try {
         await this.fs.promises.writeFile(normalizedPath, text);
+        
+        // IndexedDBにも同期
+        if (this.onFileOperation) {
+          const relativePath = this.getRelativePathFromProject(normalizedPath);
+          await this.onFileOperation(relativePath, 'file', text);
+        }
+        
         return `Text written to: ${normalizedPath}`;
       } catch (error) {
         throw new Error(`echo: cannot write to '${fileName}': ${(error as Error).message}`);

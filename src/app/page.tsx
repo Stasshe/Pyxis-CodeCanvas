@@ -32,6 +32,7 @@ export default function Home() {
     loadProject,
     saveFile,
     createProject,
+    syncTerminalFileOperation,
   } = useProject();
 
   const handleLeftResize = useLeftSidebarResize(leftSidebarWidth, setLeftSidebarWidth);
@@ -147,6 +148,7 @@ export default function Home() {
             currentProject={currentProject?.name}
             projectFiles={projectFiles}
             onResize={handleBottomResize}
+            onTerminalFileOperation={syncTerminalFileOperation}
           />
         )}
       </div>

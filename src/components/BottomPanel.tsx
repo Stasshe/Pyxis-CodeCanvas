@@ -6,9 +6,10 @@ interface BottomPanelProps {
   currentProject?: string;
   projectFiles?: FileItem[];
   onResize: (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => void;
+  onTerminalFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string) => Promise<void>;
 }
 
-export default function BottomPanel({ height, currentProject, projectFiles, onResize }: BottomPanelProps) {
+export default function BottomPanel({ height, currentProject, projectFiles, onResize, onTerminalFileOperation }: BottomPanelProps) {
   return (
     <>
       {/* Bottom Resizer */}
@@ -34,7 +35,12 @@ export default function BottomPanel({ height, currentProject, projectFiles, onRe
           )}
         </div>
         <div className="flex-1 overflow-hidden">
-          <Terminal height={height} currentProject={currentProject} projectFiles={projectFiles} />
+          <Terminal 
+            height={height} 
+            currentProject={currentProject} 
+            projectFiles={projectFiles} 
+            onFileOperation={onTerminalFileOperation}
+          />
         </div>
       </div>
     </>
