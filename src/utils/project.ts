@@ -1,13 +1,22 @@
 import { useState, useEffect } from 'react';
 import { Project, ProjectFile, projectDB } from './database';
 import { FileItem } from '@/types';
-import { GitCommands, syncProjectFiles } from './filesystem';
+import { GitCommands, syncProjectFiles, initializeFileSystem, debugFileSystem } from './filesystem';
 
 // プロジェクト作成時のGit初期化とコミット
 const initializeProjectGit = async (project: Project, files: ProjectFile[], convertToFileItems: (files: ProjectFile[]) => FileItem[]) => {
   try {
     console.log('Initializing Git for project:', project.name);
     console.log('Files to sync:', files.length);
+    
+    // ファイルシステムを確実に初期化
+    initializeFileSystem();
+    
+    // 少し待機してファイルシステムの初期化を完了
+    await new Promise(resolve => setTimeout(resolve, 200));
+    
+    // デバッグ: ファイルシステムの状態を確認
+    await debugFileSystem();
     
     // ファイルをファイルシステムに同期
     const fileItems = convertToFileItems(files);
@@ -91,7 +100,15 @@ export const useProject = () => {
 
   // プロジェクトファイルをFileItem形式に変換
   const convertToFileItems = (files: ProjectFile[]): FileItem[] => {
-    console.log('Converting files:', files);
+    console.log('[convertToFileItems] Input files:', files.length);
+    console.log('[convertToFileItems] Files detail:', files.map(f => ({ 
+      id: f.id, 
+      path: f.path, 
+      name: f.name, 
+      type: f.type, 
+      parentPath: f.parentPath,
+      contentLength: f.content.length 
+    })));
     
     // パスによる重複排除
     const uniqueFiles = files.reduce((acc, file) => {
@@ -108,7 +125,11 @@ export const useProject = () => {
       return acc;
     }, [] as ProjectFile[]);
     
-    console.log('Unique files after deduplication:', uniqueFiles);
+    console.log('[convertToFileItems] Unique files after deduplication:', uniqueFiles.length);
+    console.log('[convertToFileItems] Unique files detail:', uniqueFiles.map(f => ({ 
+      path: f.path, 
+      parentPath: f.parentPath 
+    })));
     
     const fileMap = new Map<string, FileItem>();
     const rootItems: FileItem[] = [];
@@ -163,10 +184,14 @@ export const useProject = () => {
 
   // プロジェクトを読み込み
   const loadProject = async (project: Project) => {
+    console.log('[loadProject] Loading project:', project.name, 'ID:', project.id);
     setLoading(true);
     try {
       await projectDB.init();
+      console.log('[loadProject] Getting project files...');
       const files = await projectDB.getProjectFiles(project.id);
+      console.log('[loadProject] Received files:', files.length, files);
+      
       setCurrentProject(project);
       setProjectFiles(files);
 
@@ -349,10 +374,14 @@ export const useProject = () => {
       await projectDB.init();
       
       // プロジェクトを作成
+      console.log('[createProject] Creating new project:', name);
       const newProject = await projectDB.createProject(name, description);
+      console.log('[createProject] Project created:', newProject);
       
       // ファイルを取得
+      console.log('[createProject] Getting files for new project...');
       const files = await projectDB.getProjectFiles(newProject.id);
+      console.log('[createProject] Files retrieved:', files.length, files);
       
       // プロジェクトを設定
       setCurrentProject(newProject);
@@ -383,19 +412,24 @@ export const useProject = () => {
           // デフォルトプロジェクトを作成
           setLoading(true);
           try {
+            console.log('[initProject] Creating default project...');
             const defaultProject = await projectDB.createProject(
               'ウェルカムプロジェクト',
               'Pyxis エディターへようこそ！'
             );
+            console.log('[initProject] Default project created:', defaultProject);
             
             // ファイルを取得
+            console.log('[initProject] Getting files for default project...');
             const files = await projectDB.getProjectFiles(defaultProject.id);
+            console.log('[initProject] Default project files:', files.length, files);
             
             // プロジェクトを設定
             setCurrentProject(defaultProject);
             setProjectFiles(files);
             
             // Git初期化と初期コミット
+            console.log('[initProject] Starting Git initialization...');
             await initializeProjectGit(defaultProject, files, convertToFileItems);
           } finally {
             setLoading(false);

@@ -24,6 +24,7 @@
 │   │   ├── BottomPanel.tsx
 │   │   ├── CodeEditor.tsx
 │   │   ├── FileTree.tsx
+│   │   ├── GitPanel.tsx
 │   │   ├── LeftSidebar.tsx
 │   │   ├── MenuBar.tsx
 │   │   ├── ProjectModal.tsx
@@ -31,8 +32,12 @@
 │   │   ├── TabBar.tsx
 │   │   └── Terminal.tsx
 │   ├── types
+│   │   ├── git.ts
 │   │   └── index.ts
 │   └── utils
+│       ├── cmd
+│       │   ├── git.ts
+│       │   └── unix.ts
 │       ├── database.ts
 │       ├── filesystem.ts
 │       ├── project.ts
@@ -43,9 +48,9 @@
 ├── tree.txt
 └── tsconfig.json
 
-7 directories, 37 files
+8 directories, 41 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 3399
-合計文字数: 110031
-合計ファイルサイズ(bytes): 117343
+合計行数: 4908
+合計文字数: 160597
+合計ファイルサイズ(bytes): 172595

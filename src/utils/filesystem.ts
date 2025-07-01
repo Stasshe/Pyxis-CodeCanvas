@@ -7,6 +7,34 @@ let fs: FS | null = null;
 export const initializeFileSystem = () => {
   if (typeof window !== 'undefined' && !fs) {
     fs = new FS('pyxis-fs');
+    
+    // 基本ディレクトリ構造を非同期で作成
+    setTimeout(async () => {
+      try {
+        console.log('Initializing /projects directory...');
+        await fs!.promises.mkdir('/projects', { recursive: true } as any);
+        console.log('Successfully initialized /projects directory');
+      } catch (error) {
+        // EEXISTエラーは正常（既に存在する）
+        if ((error as any).code === 'EEXIST') {
+          console.log('/projects directory already exists');
+        } else {
+          console.warn('Failed to initialize /projects directory:', error);
+          
+          // フォールバック: 手動でディレクトリを作成
+          try {
+            await fs!.promises.mkdir('/projects');
+            console.log('Successfully created /projects directory (fallback)');
+          } catch (fallbackError) {
+            if ((fallbackError as any).code === 'EEXIST') {
+              console.log('/projects directory already exists (fallback check)');
+            } else {
+              console.error('Fallback directory creation failed:', fallbackError);
+            }
+          }
+        }
+      }
+    }, 0);
   }
   return fs;
 };
@@ -25,17 +53,22 @@ export const getProjectDir = (projectName: string) => `/projects/${projectName}`
 // プロジェクトファイルをターミナルファイルシステムに同期
 export const syncProjectFiles = async (projectName: string, files: Array<{ path: string; content?: string; type: 'file' | 'folder' }>) => {
   const fs = getFileSystem();
-  if (!fs) return;
+  if (!fs) {
+    console.error('FileSystem not available');
+    return;
+  }
 
   const projectDir = getProjectDir(projectName);
+  console.log('Syncing to project directory:', projectDir);
   
   try {
+    // まず/projectsディレクトリを確実に作成
+    console.log('Ensuring /projects directory exists...');
+    await ensureDirectoryExists(fs, '/projects');
+    
     // プロジェクトディレクトリを作成
-    try {
-      await fs.promises.mkdir(projectDir, { recursive: true } as any);
-    } catch {
-      // ディレクトリが既に存在する場合は無視
-    }
+    console.log('Ensuring project directory exists:', projectDir);
+    await ensureDirectoryExists(fs, projectDir);
     
     // 既存のファイルをクリア（.gitディレクトリは保持）
     try {
@@ -61,44 +94,68 @@ export const syncProjectFiles = async (projectName: string, files: Array<{ path:
 
     // ディレクトリを先に作成
     const directories = files.filter(f => f.type === 'folder').sort((a, b) => a.path.length - b.path.length);
+    console.log('Creating directories:', directories.map(d => d.path));
+    
     for (const dir of directories) {
       const fullPath = `${projectDir}${dir.path}`;
       try {
-        await fs.promises.mkdir(fullPath, { recursive: true } as any);
-      } catch {
-        // ディレクトリ作成エラーは無視
+        await ensureDirectoryExists(fs, fullPath);
+      } catch (error) {
+        console.warn(`Failed to create directory ${fullPath}:`, error);
       }
     }
 
     // ファイルを作成
     const fileItems = files.filter(f => f.type === 'file');
+    console.log('Creating files:', fileItems.map(f => f.path));
+    
     for (const file of fileItems) {
       const fullPath = `${projectDir}${file.path}`;
+      console.log(`Creating file: ${fullPath}`);
       
-      // 親ディレクトリが存在することを確認
+      // 親ディレクトリパスを取得
       const parentDir = fullPath.substring(0, fullPath.lastIndexOf('/'));
+      
+      // 親ディレクトリを確実に作成
       if (parentDir && parentDir !== projectDir) {
         try {
-          await fs.promises.mkdir(parentDir, { recursive: true } as any);
-        } catch {
-          // ディレクトリ作成エラーは無視
+          await ensureDirectoryExists(fs, parentDir);
+        } catch (error) {
+          console.warn(`Failed to ensure parent directory ${parentDir}:`, error);
         }
       }
       
       try {
         await fs.promises.writeFile(fullPath, file.content || '');
-        console.log(`Successfully synced file: ${fullPath}`);
+        //console.log(`Successfully synced file: ${fullPath}`);
       } catch (error) {
         console.error(`Failed to sync file ${fullPath}:`, error);
-        // ENOENTエラーの場合は親ディレクトリを再作成して再試行
+        
+        // ENOENTエラーの場合は再度ディレクトリ作成を試行
         if ((error as any).code === 'ENOENT') {
-          try {
-            const parentDir = fullPath.substring(0, fullPath.lastIndexOf('/'));
-            if (parentDir && parentDir !== projectDir) {
-              await fs.promises.mkdir(parentDir, { recursive: true } as any);
-              await fs.promises.writeFile(fullPath, file.content || '');
-              console.log(`Successfully synced file after retry: ${fullPath}`);
+          console.log(`Retrying file creation for: ${fullPath}`);
+          
+          // パス全体を再度作成
+          const allPathSegments = fullPath.split('/').filter(segment => segment !== '');
+          const fileName = allPathSegments.pop(); // ファイル名を除去
+          
+          let currentPath = '';
+          for (const segment of allPathSegments) {
+            currentPath += '/' + segment;
+            try {
+              await fs.promises.mkdir(currentPath);
+              console.log(`Retry - Created directory: ${currentPath}`);
+            } catch (mkdirError) {
+              if ((mkdirError as any).code !== 'EEXIST') {
+                console.warn(`Retry - Failed to create directory ${currentPath}:`, mkdirError);
+              }
             }
+          }
+          
+          // ファイル作成を再試行
+          try {
+            await fs.promises.writeFile(fullPath, file.content || '');
+            //console.log(`Successfully synced file after retry: ${fullPath}`);
           } catch (retryError) {
             console.error(`Failed to sync file after retry ${fullPath}:`, retryError);
           }
@@ -164,6 +221,67 @@ const removeDirectoryRecursive = async (fs: any, dirPath: string): Promise<void>
     await fs.promises.rmdir(dirPath);
   } catch {
     // エラーは無視
+  }
+};
+
+// 確実にディレクトリを作成する関数
+const ensureDirectoryExists = async (fs: FS, dirPath: string): Promise<void> => {
+  const pathSegments = dirPath.split('/').filter(segment => segment !== '');
+  let currentPath = '';
+  
+  for (const segment of pathSegments) {
+    currentPath += '/' + segment;
+    try {
+      await fs.promises.stat(currentPath);
+      // ディレクトリが存在する場合は次に進む（ログは出力しない）
+    } catch {
+      // ディレクトリが存在しない場合は作成
+      try {
+        await fs.promises.mkdir(currentPath);
+        console.log(`Created directory: ${currentPath}`);
+      } catch (error) {
+        if ((error as any).code === 'EEXIST') {
+          // ディレクトリが既に存在する場合は正常
+          console.log(`Directory already exists: ${currentPath}`);
+        } else {
+          console.warn(`Failed to create directory ${currentPath}:`, error);
+          throw error;
+        }
+      }
+    }
+  }
+};
+
+// デバッグ用: ファイルシステムの状態を確認
+export const debugFileSystem = async () => {
+  const fs = getFileSystem();
+  if (!fs) {
+    console.log('FileSystem not available');
+    return;
+  }
+
+  try {
+    console.log('=== FileSystem Debug ===');
+    
+    // ルートディレクトリの確認
+    try {
+      const rootFiles = await fs.promises.readdir('/');
+      console.log('Root directory contents:', rootFiles);
+    } catch (error) {
+      console.log('Failed to read root directory:', error);
+    }
+    
+    // /projectsディレクトリの確認
+    try {
+      const projectsFiles = await fs.promises.readdir('/projects');
+      console.log('/projects directory contents:', projectsFiles);
+    } catch (error) {
+      console.log('/projects directory does not exist or cannot be read:', error);
+    }
+    
+    console.log('=== End Debug ===');
+  } catch (error) {
+    console.error('Debug failed:', error);
   }
 };
 

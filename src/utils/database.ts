@@ -222,8 +222,10 @@ class ProjectDB {
   }
 
   async getProjectFiles(projectId: string): Promise<ProjectFile[]> {
+    console.log('[DB] Getting project files for projectId:', projectId);
     return new Promise((resolve, reject) => {
       if (!this.db) {
+        console.error('[DB] Database not initialized in getProjectFiles');
         reject(new Error('Database not initialized'));
         return;
       }
@@ -233,13 +235,18 @@ class ProjectDB {
       const index = store.index('projectId');
       const request = index.getAll(projectId);
 
-      request.onerror = () => reject(request.error);
+      request.onerror = () => {
+        console.error('[DB] Error getting project files:', request.error);
+        reject(request.error);
+      };
       request.onsuccess = () => {
+        console.log('[DB] Raw files from database:', request.result);
         const files = request.result.map(f => ({
           ...f,
           createdAt: new Date(f.createdAt),
           updatedAt: new Date(f.updatedAt),
         }));
+        console.log('[DB] Processed files:', files);
         resolve(files);
       };
     });
