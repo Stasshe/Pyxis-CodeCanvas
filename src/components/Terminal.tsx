@@ -521,23 +521,32 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
                   break;
                   
                 case 'diff':
-                  if (args.includes('--staged') || args.includes('--cached')) {
-                    // git diff --staged
-                    const filepath = args.find(arg => !arg.startsWith('--'));
+                  console.log('git diff args:', args);
+                  
+                  // argsから'diff'を除外してdiffArgsを作成
+                  const diffArgs = args.filter(arg => arg !== 'diff');
+                  console.log('filtered diff args:', diffArgs);
+                  
+                  if (diffArgs.includes('--staged') || diffArgs.includes('--cached')) {
+                    // git diff --staged [filepath]
+                    const filepath = diffArgs.find(arg => !arg.startsWith('--'));
+                    console.log('Staged diff for filepath:', filepath);
                     const diffResult = await gitCommandsRef.current.diff({ staged: true, filepath });
                     await writeOutput(diffResult);
-                  } else if (args.length >= 2 && !args[0].startsWith('-') && !args[1].startsWith('-')) {
-                    // git diff <commit1> <commit2>
-                    const filepath = args[2];
+                  } else if (diffArgs.length >= 2 && !diffArgs[0].startsWith('-') && !diffArgs[1].startsWith('-')) {
+                    // git diff <commit1> <commit2> [filepath]
+                    console.log('Commit diff:', diffArgs[0], 'vs', diffArgs[1]);
+                    const filepath = diffArgs[2]; // 3番目の引数がファイルパス（オプション）
                     const diffResult = await gitCommandsRef.current.diff({ 
-                      commit1: args[0], 
-                      commit2: args[1], 
+                      commit1: diffArgs[0], 
+                      commit2: diffArgs[1], 
                       filepath 
                     });
                     await writeOutput(diffResult);
                   } else {
-                    // git diff [filepath]
-                    const filepath = args.find(arg => !arg.startsWith('-'));
+                    // git diff [filepath] - ワーキングディレクトリの変更
+                    const filepath = diffArgs.find(arg => !arg.startsWith('-'));
+                    console.log('Working directory diff for filepath:', filepath);
                     const diffResult = await gitCommandsRef.current.diff({ filepath });
                     await writeOutput(diffResult);
                   }
