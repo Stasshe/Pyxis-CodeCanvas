@@ -103,6 +103,54 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [] 
     // DOMに接続
     term.open(terminalRef.current);
     
+    // タッチスクロール機能を追加
+    let startY = 0;
+    let scrolling = false;
+    
+    const handleTouchStart = (e: TouchEvent) => {
+      startY = e.touches[0].clientY;
+      scrolling = false;
+    };
+    
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!scrolling) {
+        const currentY = e.touches[0].clientY;
+        const deltaY = startY - currentY;
+        
+        if (Math.abs(deltaY) > 10) { // 最小スクロール距離
+          scrolling = true;
+          const scrollAmount = Math.round(deltaY / 20); // スクロール量を調整
+          
+          if (scrollAmount > 0) {
+            term.scrollLines(scrollAmount); // 上にスクロール
+          } else {
+            term.scrollLines(scrollAmount); // 下にスクロール
+          }
+          
+          startY = currentY;
+        }
+      }
+    };
+    
+    const handleTouchEnd = () => {
+      scrolling = false;
+    };
+    
+    // ホイールスクロール機能
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const scrollAmount = Math.round(e.deltaY / 100); // スクロール量を調整
+      term.scrollLines(scrollAmount);
+    };
+    
+    // タッチイベントリスナーを追加
+    if (terminalRef.current) {
+      terminalRef.current.addEventListener('touchstart', handleTouchStart, { passive: true });
+      terminalRef.current.addEventListener('touchmove', handleTouchMove, { passive: true });
+      terminalRef.current.addEventListener('touchend', handleTouchEnd, { passive: true });
+      terminalRef.current.addEventListener('wheel', handleWheel, { passive: false });
+    }
+    
     // サイズを調整
     setTimeout(() => {
       fitAddon.fit();
@@ -161,7 +209,6 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [] 
             term.writeln('  echo <text> [> file] - テキストを出力/ファイルに書き込み');
             term.writeln('');
             term.writeln('Git Commands:');
-            term.writeln('  git init    - Gitリポジトリを初期化');
             term.writeln('  git status  - ステータスを確認');
             term.writeln('  git add <file|.|*> - ファイルをステージング');
             term.writeln('    git add .     - 全ファイルを追加');
@@ -176,6 +223,9 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [] 
             term.writeln('    git checkout <name>   - ブランチ切り替え');
             term.writeln('    git checkout -b <name> - ブランチ作成&切り替え');
             term.writeln('  git revert <commit> - コミットを取り消し');
+            term.writeln('');
+            term.writeln('Note: Gitリポジトリの初期化は左下の「プロジェクト管理」から');
+            term.writeln('新規プロジェクトを作成することで自動的に行われます。');
             break;
             
           case 'date':
@@ -277,8 +327,10 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [] 
               const gitCmd = args[0];
               switch (gitCmd) {
                 case 'init':
-                  const initResult = await gitCommandsRef.current.init();
-                  term.writeln(`\r\n${initResult}`);
+                  term.writeln('\r\ngit init: Command not available from terminal');
+                  term.writeln('プロジェクトの初期化は左下の「プロジェクト管理」ボタンから');
+                  term.writeln('新規プロジェクトを作成してください。');
+                  term.writeln('新規プロジェクトには自動でGitリポジトリが設定されます。');
                   break;
                   
                 case 'status':
@@ -407,6 +459,13 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [] 
 
     // クリーンアップ
     return () => {
+      // イベントリスナーを削除
+      if (terminalRef.current) {
+        terminalRef.current.removeEventListener('touchstart', handleTouchStart);
+        terminalRef.current.removeEventListener('touchmove', handleTouchMove);
+        terminalRef.current.removeEventListener('touchend', handleTouchEnd);
+        terminalRef.current.removeEventListener('wheel', handleWheel);
+      }
       term.dispose();
     };
   }, [currentProject]);
@@ -439,7 +498,8 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [] 
       style={{ 
         height: `${height - 32}px`,
         maxHeight: `${height - 32}px`,
-        minHeight: '100px'
+        minHeight: '100px',
+        touchAction: 'none'
       }}
     />
   );
