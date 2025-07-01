@@ -177,107 +177,113 @@ export class UnixCommands {
   }
 
   // ls - ファイル一覧表示（ツリー形式）
-  async ls(path?: string, showTree = false): Promise<string> {
+  async ls(path?: string): Promise<string> {
     const targetPath = path ? 
       (path.startsWith('/') ? path : `${this.currentDir}/${path}`) : 
       this.currentDir;
     
     try {
-      if (showTree || !path) {
-        // ツリー形式で表示
-        return await this.generateTree(targetPath);
-      } else {
-        // 通常のリスト表示
-        const files = await this.fs.promises.readdir(targetPath);
-        if (files.length === 0) {
-          return '(empty directory)';
-        }
-        
-        const fileDetails = await Promise.all(
-          files.map(async (file) => {
-            try {
-              const stat = await this.fs.promises.stat(`${targetPath}/${file}`);
-              return stat.isDirectory() ? `${file}/` : file;
-            } catch {
-              return file;
-            }
-          })
-        );
-        
-        return fileDetails.join('\n');
+      // 現在のディレクトリの内容を取得（.gitは除外）
+      const files = await this.fs.promises.readdir(targetPath);
+      const filteredFiles = files.filter(file => file !== '.git');
+      
+      if (filteredFiles.length === 0) {
+        return '(empty directory)';
       }
+
+      // ファイルとディレクトリの情報を取得
+      const fileDetails = await Promise.all(
+        filteredFiles.map(async (file) => {
+          try {
+            const filePath = `${targetPath}/${file}`;
+            const stat = await this.fs.promises.stat(filePath);
+            return { 
+              name: file, 
+              isDirectory: stat.isDirectory(),
+              path: filePath
+            };
+          } catch {
+            return { name: file, isDirectory: false, path: `${targetPath}/${file}` };
+          }
+        })
+      );
+
+      // ディレクトリを先に、ファイルを後に並べ替え
+      const sortedFiles = fileDetails.sort((a, b) => {
+        if (a.isDirectory !== b.isDirectory) {
+          return a.isDirectory ? -1 : 1;
+        }
+        return a.name.localeCompare(b.name);
+      });
+
+      // ツリー形式で表示
+      return await this.generateSimpleTree(targetPath, sortedFiles);
     } catch (error) {
       throw new Error(`ls: ${path || this.currentDir}: No such directory`);
     }
   }
 
-  // ツリー形式でディレクトリ構造を表示
-  private async generateTree(dirPath: string, prefix = '', isLast = true): Promise<string> {
-    try {
-      const stat = await this.fs.promises.stat(dirPath);
-      if (!stat.isDirectory()) {
-        return '';
-      }
+  // シンプルなツリー形式表示（.gitを除外）
+  private async generateSimpleTree(basePath: string, files: Array<{name: string, isDirectory: boolean, path: string}>, depth = 0): Promise<string> {
+    let result = '';
+    
+    // 深度制限（無限ループ防止）
+    if (depth > 2) {
+      return '';
+    }
 
-      const dirName = dirPath.split('/').pop() || dirPath;
-      let result = '';
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const isLast = i === files.length - 1;
+      const connector = isLast ? '└── ' : '├── ';
       
-      if (prefix === '') {
-        result = `${dirName}/\n`;
-      }
-
-      const files = await this.fs.promises.readdir(dirPath);
-      const fileStats = await Promise.all(
-        files.map(async (file) => {
+      if (file.isDirectory) {
+        result += `${connector}${file.name}/\n`;
+        
+        // サブディレクトリの内容を取得（深度制限内で）
+        if (depth < 1) {
           try {
-            const stat = await this.fs.promises.stat(`${dirPath}/${file}`);
-            return { name: file, isDirectory: stat.isDirectory() };
-          } catch {
-            return { name: file, isDirectory: false };
-          }
-        })
-      );
-
-      const sortedFiles = fileStats
-        .sort((a, b) => {
-          // ディレクトリを先に、ファイルを後に
-          if (a.isDirectory !== b.isDirectory) {
-            return a.isDirectory ? -1 : 1;
-          }
-          return a.name.localeCompare(b.name);
-        })
-        .map(item => item.name);
-
-      for (let i = 0; i < sortedFiles.length; i++) {
-        const file = sortedFiles[i];
-        const filePath = `${dirPath}/${file}`;
-        const isLastFile = i === sortedFiles.length - 1;
-        const connector = isLastFile ? '└── ' : '├── ';
-        const newPrefix = prefix + (isLastFile ? '    ' : '│   ');
-
-        try {
-          const stat = await this.fs.promises.stat(filePath);
-          if (stat.isDirectory()) {
-            result += `${prefix}${connector}${file}/\n`;
-            // 再帰的にサブディレクトリを表示（深度制限あり）
-            if (prefix.length < 40) { // 深度制限
-              const subTree = await this.generateTree(filePath, newPrefix, isLastFile);
-              if (subTree && !subTree.startsWith(file)) {
-                result += subTree;
+            const subFiles = await this.fs.promises.readdir(file.path);
+            const filteredSubFiles = subFiles.filter(f => f !== '.git');
+            
+            if (filteredSubFiles.length > 0) {
+              const subDetails = await Promise.all(
+                filteredSubFiles.map(async (subFile) => {
+                  try {
+                    const subPath = `${file.path}/${subFile}`;
+                    const stat = await this.fs.promises.stat(subPath);
+                    return { name: subFile, isDirectory: stat.isDirectory(), path: subPath };
+                  } catch {
+                    return { name: subFile, isDirectory: false, path: `${file.path}/${subFile}` };
+                  }
+                })
+              );
+              
+              const sortedSubFiles = subDetails.sort((a, b) => {
+                if (a.isDirectory !== b.isDirectory) {
+                  return a.isDirectory ? -1 : 1;
+                }
+                return a.name.localeCompare(b.name);
+              });
+              
+              const subTree = await this.generateSimpleTree(file.path, sortedSubFiles, depth + 1);
+              if (subTree) {
+                const subPrefix = isLast ? '    ' : '│   ';
+                result += subTree.split('\n').filter(line => line.trim()).map(line => 
+                  subPrefix + line
+                ).join('\n') + '\n';
               }
             }
-          } else {
-            result += `${prefix}${connector}${file}\n`;
+          } catch {
+            // サブディレクトリの読み取りに失敗した場合は無視
           }
-        } catch {
-          result += `${prefix}${connector}${file} (inaccessible)\n`;
         }
+      } else {
+        result += `${connector}${file.name}\n`;
       }
-
-      return result;
-    } catch (error) {
-      return `Error reading directory: ${dirPath}\n`;
     }
+    
+    return result;
   }
 
   // mkdir - ディレクトリ作成

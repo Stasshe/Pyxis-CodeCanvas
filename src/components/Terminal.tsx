@@ -200,7 +200,7 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [] 
             term.writeln('');
             term.writeln('File System Commands:');
             term.writeln('  pwd       - 現在のディレクトリを表示');
-            term.writeln('  ls [path] - ファイル一覧をツリー形式で表示');
+            term.writeln('  ls [path] - ワークスペースファイルをツリー形式で表示');
             term.writeln('  cd <path> - ディレクトリを変更');
             term.writeln('  mkdir <name> [-p] - ディレクトリを作成');
             term.writeln('  touch <file> - ファイルを作成');
