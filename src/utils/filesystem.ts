@@ -728,7 +728,22 @@ export class GitCommands {
         // フォールバック: ファイルシステムを直接チェック
         try {
           const files = await this.fs.promises.readdir(this.dir);
-          const projectFiles = files.filter(file => !file.startsWith('.') && file !== '.git');
+          const projectFiles = [];
+          
+          // ファイルのみを追加（フォルダは除外）
+          for (const file of files) {
+            if (file.startsWith('.') || file === '.git') continue;
+            
+            try {
+              const stat = await this.fs.promises.stat(`${this.dir}/${file}`);
+              if (stat.isFile()) {
+                projectFiles.push(file);
+              }
+            } catch {
+              // stat取得に失敗した場合はスキップ
+            }
+          }
+          
           const currentBranch = await this.getCurrentBranch();
           
           if (projectFiles.length === 0) {

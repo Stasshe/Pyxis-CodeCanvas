@@ -163,7 +163,10 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger 
           }
         }
       } else if (inUntrackedFiles && trimmed && !trimmed.startsWith('(') && !trimmed.includes('git add')) {
-        status.untracked.push(trimmed);
+        // フォルダ（末尾に/があるもの）は除外
+        if (!trimmed.endsWith('/')) {
+          status.untracked.push(trimmed);
+        }
       }
     }
 
