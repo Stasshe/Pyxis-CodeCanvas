@@ -508,7 +508,7 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
 }
 
 // SSR対応のターミナルコンポーネント
-export default function Terminal({ height, currentProject, projectFiles }: TerminalProps) {
+export default function Terminal({ height, currentProject, projectFiles, onFileOperation }: TerminalProps) {
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -528,5 +528,5 @@ export default function Terminal({ height, currentProject, projectFiles }: Termi
   }
 
   // クライアントサイドでマウント後のみ実際のターミナルを表示
-  return <ClientTerminal height={height} currentProject={currentProject} projectFiles={projectFiles} />;
+  return <ClientTerminal height={height} currentProject={currentProject} projectFiles={projectFiles} onFileOperation={onFileOperation} />;
 }

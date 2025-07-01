@@ -151,6 +151,8 @@ class ProjectDB {
 
   // ファイル操作
   async createFile(projectId: string, path: string, content: string, type: 'file' | 'folder'): Promise<ProjectFile> {
+    console.log('[DB] Creating file:', { projectId, path, content, type });
+    
     const file: ProjectFile = {
       id: `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       projectId,
@@ -163,13 +165,17 @@ class ProjectDB {
       updatedAt: new Date(),
     };
 
+    console.log('[DB] File object created:', file);
     await this.saveFile(file);
+    console.log('[DB] File saved successfully');
     return file;
   }
 
   async saveFile(file: ProjectFile): Promise<void> {
+    console.log('[DB] Saving file:', file);
     return new Promise((resolve, reject) => {
       if (!this.db) {
+        console.error('[DB] Database not initialized');
         reject(new Error('Database not initialized'));
         return;
       }
@@ -178,8 +184,14 @@ class ProjectDB {
       const store = transaction.objectStore('files');
       const request = store.put({ ...file, updatedAt: new Date() });
 
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve();
+      request.onerror = () => {
+        console.error('[DB] Save failed:', request.error);
+        reject(request.error);
+      };
+      request.onsuccess = () => {
+        console.log('[DB] Save successful');
+        resolve();
+      };
     });
   }
 

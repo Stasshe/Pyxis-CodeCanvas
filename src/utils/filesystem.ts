@@ -200,10 +200,14 @@ export class UnixCommands {
       (path.startsWith('/') ? path : `${this.currentDir}/${path}`) : 
       this.currentDir;
     
+    console.log('[ls] Listing directory:', { path, targetPath, currentDir: this.currentDir });
+    
     try {
       // 現在のディレクトリの内容を取得（.gitは除外）
       const files = await this.fs.promises.readdir(targetPath);
+      console.log('[ls] Raw files:', files);
       const filteredFiles = files.filter(file => file !== '.git');
+      console.log('[ls] Filtered files:', filteredFiles);
       
       if (filteredFiles.length === 0) {
         return '(empty directory)';
@@ -215,16 +219,21 @@ export class UnixCommands {
           try {
             const filePath = `${targetPath}/${file}`;
             const stat = await this.fs.promises.stat(filePath);
-            return { 
+            const detail = { 
               name: file, 
               isDirectory: stat.isDirectory(),
               path: filePath
             };
-          } catch {
+            console.log('[ls] File detail:', detail);
+            return detail;
+          } catch (error) {
+            console.log('[ls] Error getting file stats for:', file, error);
             return { name: file, isDirectory: false, path: `${targetPath}/${file}` };
           }
         })
       );
+
+      console.log('[ls] All file details:', fileDetails);
 
       // ディレクトリを先に、ファイルを後に並べ替え
       const sortedFiles = fileDetails.sort((a, b) => {
@@ -234,9 +243,12 @@ export class UnixCommands {
         return a.name.localeCompare(b.name);
       });
 
+      console.log('[ls] Sorted files:', sortedFiles);
+
       // ツリー形式で表示
       return await this.generateSimpleTree(targetPath, sortedFiles);
     } catch (error) {
+      console.error('[ls] Error:', error);
       throw new Error(`ls: ${path || this.currentDir}: No such directory`);
     }
   }
@@ -347,15 +359,28 @@ export class UnixCommands {
         } catch {
           // ディレクトリが存在しない場合は作成
           console.log('[mkdir] Creating directory:', normalizedPath);
-          await this.fs.promises.mkdir(normalizedPath);
-          console.log('[mkdir] Directory created in FS');
+          try {
+            await this.fs.promises.mkdir(normalizedPath);
+            console.log('[mkdir] Directory created in FS successfully');
+            
+            // 作成後に確認
+            const stat = await this.fs.promises.stat(normalizedPath);
+            console.log('[mkdir] Verification:', { exists: true, isDirectory: stat.isDirectory() });
+          } catch (createError) {
+            console.error('[mkdir] Failed to create directory:', createError);
+            throw createError;
+          }
           
           // IndexedDBにも同期
           if (this.onFileOperation) {
             const relativePath = this.getRelativePathFromProject(normalizedPath);
             console.log('[mkdir] Syncing to IndexedDB:', { relativePath });
-            await this.onFileOperation(relativePath, 'folder');
-            console.log('[mkdir] Sync completed');
+            try {
+              await this.onFileOperation(relativePath, 'folder');
+              console.log('[mkdir] Sync completed successfully');
+            } catch (syncError) {
+              console.error('[mkdir] Sync failed:', syncError);
+            }
           } else {
             console.log('[mkdir] No onFileOperation callback available');
           }
