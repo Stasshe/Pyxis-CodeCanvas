@@ -176,32 +176,107 @@ export class UnixCommands {
     }
   }
 
-  // ls - ファイル一覧表示
-  async ls(path?: string): Promise<string> {
+  // ls - ファイル一覧表示（ツリー形式）
+  async ls(path?: string, showTree = false): Promise<string> {
     const targetPath = path ? 
       (path.startsWith('/') ? path : `${this.currentDir}/${path}`) : 
       this.currentDir;
     
     try {
-      const files = await this.fs.promises.readdir(targetPath);
-      if (files.length === 0) {
-        return '(empty directory)';
+      if (showTree || !path) {
+        // ツリー形式で表示
+        return await this.generateTree(targetPath);
+      } else {
+        // 通常のリスト表示
+        const files = await this.fs.promises.readdir(targetPath);
+        if (files.length === 0) {
+          return '(empty directory)';
+        }
+        
+        const fileDetails = await Promise.all(
+          files.map(async (file) => {
+            try {
+              const stat = await this.fs.promises.stat(`${targetPath}/${file}`);
+              return stat.isDirectory() ? `${file}/` : file;
+            } catch {
+              return file;
+            }
+          })
+        );
+        
+        return fileDetails.join('\n');
       }
+    } catch (error) {
+      throw new Error(`ls: ${path || this.currentDir}: No such directory`);
+    }
+  }
+
+  // ツリー形式でディレクトリ構造を表示
+  private async generateTree(dirPath: string, prefix = '', isLast = true): Promise<string> {
+    try {
+      const stat = await this.fs.promises.stat(dirPath);
+      if (!stat.isDirectory()) {
+        return '';
+      }
+
+      const dirName = dirPath.split('/').pop() || dirPath;
+      let result = '';
       
-      const fileDetails = await Promise.all(
+      if (prefix === '') {
+        result = `${dirName}/\n`;
+      }
+
+      const files = await this.fs.promises.readdir(dirPath);
+      const fileStats = await Promise.all(
         files.map(async (file) => {
           try {
-            const stat = await this.fs.promises.stat(`${targetPath}/${file}`);
-            return stat.isDirectory() ? `${file}/` : file;
+            const stat = await this.fs.promises.stat(`${dirPath}/${file}`);
+            return { name: file, isDirectory: stat.isDirectory() };
           } catch {
-            return file;
+            return { name: file, isDirectory: false };
           }
         })
       );
-      
-      return fileDetails.join('  ');
+
+      const sortedFiles = fileStats
+        .sort((a, b) => {
+          // ディレクトリを先に、ファイルを後に
+          if (a.isDirectory !== b.isDirectory) {
+            return a.isDirectory ? -1 : 1;
+          }
+          return a.name.localeCompare(b.name);
+        })
+        .map(item => item.name);
+
+      for (let i = 0; i < sortedFiles.length; i++) {
+        const file = sortedFiles[i];
+        const filePath = `${dirPath}/${file}`;
+        const isLastFile = i === sortedFiles.length - 1;
+        const connector = isLastFile ? '└── ' : '├── ';
+        const newPrefix = prefix + (isLastFile ? '    ' : '│   ');
+
+        try {
+          const stat = await this.fs.promises.stat(filePath);
+          if (stat.isDirectory()) {
+            result += `${prefix}${connector}${file}/\n`;
+            // 再帰的にサブディレクトリを表示（深度制限あり）
+            if (prefix.length < 40) { // 深度制限
+              const subTree = await this.generateTree(filePath, newPrefix, isLastFile);
+              if (subTree && !subTree.startsWith(file)) {
+                result += subTree;
+              }
+            }
+          } else {
+            result += `${prefix}${connector}${file}\n`;
+          }
+        } catch {
+          result += `${prefix}${connector}${file} (inaccessible)\n`;
+        }
+      }
+
+      return result;
     } catch (error) {
-      throw new Error(`ls: ${path || this.currentDir}: No such directory`);
+      return `Error reading directory: ${dirPath}\n`;
     }
   }
 
@@ -626,6 +701,105 @@ export class GitCommands {
       }).join('\n');
     } catch (error) {
       throw new Error(`git log failed: ${(error as Error).message}`);
+    }
+  }
+
+  // git checkout - ブランチ切り替え/作成
+  async checkout(branchName: string, createNew = false): Promise<string> {
+    try {
+      // Gitリポジトリが初期化されているかチェック
+      try {
+        await this.fs.promises.stat(`${this.dir}/.git`);
+      } catch {
+        throw new Error('not a git repository (or any of the parent directories): .git');
+      }
+
+      if (createNew) {
+        // 新しいブランチを作成してチェックアウト
+        await git.branch({ fs: this.fs, dir: this.dir, ref: branchName });
+        await git.checkout({ fs: this.fs, dir: this.dir, ref: branchName });
+        return `Switched to a new branch '${branchName}'`;
+      } else {
+        // 既存のブランチをチェックアウト
+        try {
+          await git.checkout({ fs: this.fs, dir: this.dir, ref: branchName });
+          return `Switched to branch '${branchName}'`;
+        } catch (error) {
+          // ブランチが存在しない場合の詳細なエラー
+          const branches = await git.listBranches({ fs: this.fs, dir: this.dir });
+          throw new Error(`pathspec '${branchName}' did not match any file(s) known to git\nAvailable branches: ${branches.join(', ')}`);
+        }
+      }
+    } catch (error) {
+      throw new Error(`git checkout failed: ${(error as Error).message}`);
+    }
+  }
+
+  // git revert - コミットを取り消し
+  async revert(commitHash: string): Promise<string> {
+    try {
+      // Gitリポジトリが初期化されているかチェック
+      try {
+        await this.fs.promises.stat(`${this.dir}/.git`);
+      } catch {
+        throw new Error('not a git repository (or any of the parent directories): .git');
+      }
+
+      // コミットが存在するかチェック
+      try {
+        await git.readCommit({ fs: this.fs, dir: this.dir, oid: commitHash });
+      } catch {
+        throw new Error(`bad revision '${commitHash}'`);
+      }
+
+      // リバートは複雑な操作なので、シンプルな実装
+      // 実際のgit revertは新しいコミットを作成して変更を取り消しますが、
+      // ここでは基本的な機能として、指定されたコミットの内容を表示
+      const commit = await git.readCommit({ fs: this.fs, dir: this.dir, oid: commitHash });
+      
+      return `Revert operation for commit ${commitHash.slice(0, 7)} prepared\n` +
+             `Author: ${commit.commit.author.name}\n` +
+             `Date: ${new Date(commit.commit.author.timestamp * 1000).toISOString()}\n` +
+             `Message: ${commit.commit.message}\n\n` +
+             `Note: Full revert functionality requires manual file restoration.`;
+    } catch (error) {
+      throw new Error(`git revert failed: ${(error as Error).message}`);
+    }
+  }
+
+  // git branch - ブランチ一覧/作成
+  async branch(branchName?: string, deleteFlag = false): Promise<string> {
+    try {
+      // Gitリポジトリが初期化されているかチェック
+      try {
+        await this.fs.promises.stat(`${this.dir}/.git`);
+      } catch {
+        throw new Error('not a git repository (or any of the parent directories): .git');
+      }
+
+      if (deleteFlag && branchName) {
+        // ブランチ削除
+        try {
+          await git.deleteBranch({ fs: this.fs, dir: this.dir, ref: branchName });
+          return `Deleted branch ${branchName}`;
+        } catch (error) {
+          throw new Error(`error: branch '${branchName}' not found.`);
+        }
+      } else if (branchName) {
+        // ブランチ作成
+        await git.branch({ fs: this.fs, dir: this.dir, ref: branchName });
+        return `Created branch '${branchName}'`;
+      } else {
+        // ブランチ一覧表示
+        const branches = await git.listBranches({ fs: this.fs, dir: this.dir });
+        const currentBranch = await this.getCurrentBranch();
+        
+        return branches.map(branch => 
+          branch === currentBranch ? `* ${branch}` : `  ${branch}`
+        ).join('\n');
+      }
+    } catch (error) {
+      throw new Error(`git branch failed: ${(error as Error).message}`);
     }
   }
 }

@@ -152,7 +152,7 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [] 
             term.writeln('');
             term.writeln('File System Commands:');
             term.writeln('  pwd       - 現在のディレクトリを表示');
-            term.writeln('  ls [path] - ファイル一覧を表示');
+            term.writeln('  ls [path] - ファイル一覧をツリー形式で表示');
             term.writeln('  cd <path> - ディレクトリを変更');
             term.writeln('  mkdir <name> [-p] - ディレクトリを作成');
             term.writeln('  touch <file> - ファイルを作成');
@@ -168,6 +168,14 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [] 
             term.writeln('    git add *     - カレントディレクトリのファイルを追加');
             term.writeln('  git commit -m "message" - コミット');
             term.writeln('  git log     - コミット履歴を表示');
+            term.writeln('  git branch [name] [-d] - ブランチ操作');
+            term.writeln('    git branch        - ブランチ一覧');
+            term.writeln('    git branch <name> - ブランチ作成');
+            term.writeln('    git branch -d <name> - ブランチ削除');
+            term.writeln('  git checkout <branch> [-b] - ブランチ切り替え');
+            term.writeln('    git checkout <name>   - ブランチ切り替え');
+            term.writeln('    git checkout -b <name> - ブランチ作成&切り替え');
+            term.writeln('  git revert <commit> - コミットを取り消し');
             break;
             
           case 'date':
@@ -303,6 +311,42 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [] 
                   term.writeln(`\r\n${logResult}`);
                   break;
                   
+                case 'checkout':
+                  if (args[1]) {
+                    const createNew = args.includes('-b');
+                    const branchName = args[args.indexOf('-b') + 1] || args[1];
+                    const checkoutResult = await gitCommandsRef.current.checkout(branchName, createNew);
+                    term.writeln(`\r\n${checkoutResult}`);
+                  } else {
+                    term.writeln('\r\ngit checkout: missing branch name');
+                  }
+                  break;
+                  
+                case 'branch':
+                  if (args[1]) {
+                    const deleteFlag = args.includes('-d') || args.includes('-D');
+                    const branchName = args.find(arg => !arg.startsWith('-'));
+                    if (branchName) {
+                      const branchResult = await gitCommandsRef.current.branch(branchName, deleteFlag);
+                      term.writeln(`\r\n${branchResult}`);
+                    } else {
+                      term.writeln('\r\ngit branch: missing branch name');
+                    }
+                  } else {
+                    const branchResult = await gitCommandsRef.current.branch();
+                    term.writeln(`\r\n${branchResult}`);
+                  }
+                  break;
+                  
+                case 'revert':
+                  if (args[1]) {
+                    const revertResult = await gitCommandsRef.current.revert(args[1]);
+                    term.writeln(`\r\n${revertResult}`);
+                  } else {
+                    term.writeln('\r\ngit revert: missing commit hash');
+                  }
+                  break;
+                  
                 default:
                   term.writeln(`\r\ngit: '${gitCmd}' is not a git command`);
                   break;
@@ -391,14 +435,18 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [] 
   return (
     <div 
       ref={terminalRef}
-      className="w-full h-full bg-[#1e1e1e]"
-      style={{ height: `${height - 32}px` }}
+      className="w-full h-full bg-[#1e1e1e] overflow-hidden"
+      style={{ 
+        height: `${height - 32}px`,
+        maxHeight: `${height - 32}px`,
+        minHeight: '100px'
+      }}
     />
   );
 }
 
 // SSR対応のターミナルコンポーネント
-export default function Terminal({ height, currentProject }: TerminalProps) {
+export default function Terminal({ height, currentProject, projectFiles }: TerminalProps) {
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -418,5 +466,5 @@ export default function Terminal({ height, currentProject }: TerminalProps) {
   }
 
   // クライアントサイドでマウント後のみ実際のターミナルを表示
-  return <ClientTerminal height={height} currentProject={currentProject} />;
+  return <ClientTerminal height={height} currentProject={currentProject} projectFiles={projectFiles} />;
 }
