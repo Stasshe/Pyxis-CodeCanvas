@@ -57,29 +57,17 @@ export class GitCommands {
   async status(): Promise<string> {
     try {
       await this.ensureProjectDirectory();
-      console.log('Checking git status for directory:', this.dir);
       
       // Gitリポジトリが初期化されているかチェック
       try {
         await this.fs.promises.stat(`${this.dir}/.git`);
-        console.log('Git repository found');
       } catch {
         throw new Error('not a git repository (or any of the parent directories): .git');
       }
 
-      // ワーキングディレクトリのファイルを確認
-      try {
-        const files = await this.fs.promises.readdir(this.dir);
-        console.log('Files in working directory:', files);
-      } catch (dirError) {
-        console.warn('Failed to read working directory:', dirError);
-      }
-
       let status: Array<[string, number, number, number]> = [];
       try {
-        console.log('Calling git.statusMatrix...');
         status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
-        console.log('statusMatrix result:', status);
       } catch (statusError) {
         console.warn('statusMatrix failed, using fallback method:', statusError);
         
@@ -133,8 +121,6 @@ export class GitCommands {
       const staged: string[] = [];
 
       status.forEach(([filepath, HEAD, workdir, stage]) => {
-        console.log(`File: ${filepath}, HEAD: ${HEAD}, workdir: ${workdir}, stage: ${stage}`);
-        
         // isomorphic-gitのstatusMatrixの値の意味:
         // HEAD: 0=ファイルなし, 1=ファイルあり
         // workdir: 0=ファイルなし, 1=ファイルあり, 2=変更あり

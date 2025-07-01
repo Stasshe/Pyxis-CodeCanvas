@@ -271,6 +271,8 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
 
     // コマンド処理
     let currentLine = '';
+    const commandHistory: string[] = [];
+    let historyIndex = -1;
     
     const processCommand = async (command: string) => {
       const parts = command.trim().split(/\s+/);
@@ -290,6 +292,10 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
             term.writeln('  help      - このヘルプを表示');
             term.writeln('  date      - 現在の日時を表示');
             term.writeln('  whoami    - ユーザー名を表示');
+            term.writeln('');
+            term.writeln('Navigation:');
+            term.writeln('  ↑/↓ 矢印キー - コマンド履歴を操作');
+            term.writeln('  Ctrl+C    - 現在のコマンドをキャンセル');
             term.writeln('');
             term.writeln('File System Commands:');
             term.writeln('  pwd       - 現在のディレクトリを表示');
@@ -594,6 +600,22 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
           scrollToBottom();
           
           if (currentLine.trim()) {
+            // コマンド履歴に追加（重複削除）
+            const command = currentLine.trim();
+            const existingIndex = commandHistory.indexOf(command);
+            if (existingIndex !== -1) {
+              commandHistory.splice(existingIndex, 1);
+            }
+            commandHistory.push(command);
+            
+            // 履歴サイズ制限（最大100コマンド）
+            if (commandHistory.length > 100) {
+              commandHistory.shift();
+            }
+            
+            // 履歴インデックスをリセット
+            historyIndex = -1;
+            
             processCommand(currentLine).then(() => {
               showPrompt();
             });
@@ -611,7 +633,55 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
         case '\u0003': // Ctrl+C
           term.writeln('^C');
           currentLine = '';
+          historyIndex = -1; // 履歴インデックスもリセット
           showPrompt();
+          break;
+        case '\u001b[A': // 上矢印キー
+          if (commandHistory.length > 0) {
+            if (historyIndex === -1) {
+              historyIndex = commandHistory.length - 1;
+            } else if (historyIndex > 0) {
+              historyIndex--;
+            }
+            
+            // 現在の行をクリア
+            const lineLength = currentLine.length;
+            for (let i = 0; i < lineLength; i++) {
+              term.write('\b \b');
+            }
+            
+            // 履歴からコマンドを復元
+            currentLine = commandHistory[historyIndex];
+            term.write(currentLine);
+          }
+          break;
+        case '\u001b[B': // 下矢印キー
+          if (commandHistory.length > 0 && historyIndex !== -1) {
+            if (historyIndex < commandHistory.length - 1) {
+              historyIndex++;
+              
+              // 現在の行をクリア
+              const lineLength = currentLine.length;
+              for (let i = 0; i < lineLength; i++) {
+                term.write('\b \b');
+              }
+              
+              // 履歴からコマンドを復元
+              currentLine = commandHistory[historyIndex];
+              term.write(currentLine);
+            } else {
+              // 最新の履歴より下に行く場合は空の行に戻る
+              historyIndex = -1;
+              
+              // 現在の行をクリア
+              const lineLength = currentLine.length;
+              for (let i = 0; i < lineLength; i++) {
+                term.write('\b \b');
+              }
+              
+              currentLine = '';
+            }
+          }
           break;
         default:
           if (data >= ' ' || data === '\t') {
