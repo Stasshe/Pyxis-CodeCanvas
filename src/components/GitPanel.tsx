@@ -28,7 +28,6 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger 
     try {
       setIsLoading(true);
       setError(null);
-      console.log('Fetching git status for project:', currentProject);
       
       // Git状態を並行して取得
       const [statusResult, logResult, branchResult] = await Promise.all([
@@ -36,8 +35,6 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger 
         gitCommands.getFormattedLog(20),
         gitCommands.branch()
       ]);
-
-      console.log('Git status result:', statusResult);
 
       // コミット履歴をパース
       const commits = parseGitLog(logResult);
@@ -248,7 +245,6 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger 
   // Git更新トリガーが変更されたときの更新
   useEffect(() => {
     if (currentProject && gitRefreshTrigger !== undefined && gitRefreshTrigger > 0) {
-      console.log('Git refresh triggered:', gitRefreshTrigger);
       // ファイル同期完了を待つために少し遅延
       const timer = setTimeout(() => {
         fetchGitStatus();

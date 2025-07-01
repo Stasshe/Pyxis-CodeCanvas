@@ -101,21 +101,17 @@ export const syncProjectFiles = async (projectName: string, files: Array<{ path:
 export const syncFileToFileSystem = async (projectName: string, filePath: string, content: string) => {
   const fs = getFileSystem();
   if (!fs) {
-    console.warn('FileSystem not available for sync');
     return;
   }
 
   const projectDir = getProjectDir(projectName);
   const fullPath = `${projectDir}${filePath}`;
   
-  console.log('Syncing file to filesystem:', { projectName, filePath, fullPath });
-  
   try {
     // プロジェクトディレクトリの存在を確認
     try {
       await fs.promises.stat(projectDir);
     } catch {
-      console.log('Creating project directory:', projectDir);
       await fs.promises.mkdir(projectDir, { recursive: true } as any);
     }
     
@@ -125,25 +121,14 @@ export const syncFileToFileSystem = async (projectName: string, filePath: string
       try {
         await fs.promises.stat(parentDir);
       } catch {
-        console.log('Creating parent directory:', parentDir);
         await fs.promises.mkdir(parentDir, { recursive: true } as any);
       }
     }
     
     // ファイルを書き込み
     await fs.promises.writeFile(fullPath, content);
-    console.log('File synced to filesystem successfully:', fullPath);
-    
-    // ファイルが正しく書き込まれたか確認
-    const writtenContent = await fs.promises.readFile(fullPath, 'utf8');
-    if (writtenContent === content) {
-      console.log('File content verified');
-    } else {
-      console.warn('File content mismatch after write');
-    }
   } catch (error) {
-    console.error('Failed to sync file to filesystem:', error);
-    throw error;
+    // ファイル同期エラーは無視（エラーログは表示しない）
   }
 };
 

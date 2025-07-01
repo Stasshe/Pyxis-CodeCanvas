@@ -192,12 +192,10 @@ export const useProject = () => {
 
       // ファイルシステムに同期（Git変更検知のため）
       try {
-        console.log('[saveFile] Syncing to filesystem - Project:', currentProject.name, 'Path:', path, 'Content length:', content.length);
         const { syncFileToFileSystem } = await import('./filesystem');
         await syncFileToFileSystem(currentProject.name, path, content);
-        console.log('[saveFile] File synced to filesystem successfully:', path);
       } catch (syncError) {
-        console.error('[saveFile] Failed to sync file to filesystem:', syncError);
+        // 同期エラーは無視
       }
 
       // プロジェクトの更新日時を更新
