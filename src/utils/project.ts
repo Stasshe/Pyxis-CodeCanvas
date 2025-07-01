@@ -7,10 +7,15 @@ import { GitCommands, syncProjectFiles } from './filesystem';
 const initializeProjectGit = async (project: Project, files: ProjectFile[], convertToFileItems: (files: ProjectFile[]) => FileItem[]) => {
   try {
     console.log('Initializing Git for project:', project.name);
+    console.log('Files to sync:', files.length);
     
     // ファイルをファイルシステムに同期
     const fileItems = convertToFileItems(files);
+    console.log('Converted file items:', fileItems.length);
+    
     const flatFiles = flattenFileItems(fileItems);
+    console.log('Flattened files:', flatFiles.length, flatFiles.map(f => f.path));
+    
     await syncProjectFiles(project.name, flatFiles);
     
     // Git初期化
@@ -164,6 +169,25 @@ export const useProject = () => {
       const files = await projectDB.getProjectFiles(project.id);
       setCurrentProject(project);
       setProjectFiles(files);
+
+      // Git初期化状態をチェック
+      try {
+        const git = new GitCommands(project.name);
+        const currentBranch = await git.getCurrentBranch();
+        
+        // Git初期化されていない場合は初期化を実行
+        if (currentBranch === '(no git)') {
+          console.log('Git not initialized for project:', project.name, 'Initializing...');
+          await initializeProjectGit(project, files, convertToFileItems);
+        }
+      } catch (gitError) {
+        console.warn('Git check failed, attempting initialization:', gitError);
+        try {
+          await initializeProjectGit(project, files, convertToFileItems);
+        } catch (initError) {
+          console.warn('Git initialization failed (non-critical):', initError);
+        }
+      }
     } catch (error) {
       console.error('Failed to load project:', error);
     } finally {
@@ -357,14 +381,29 @@ export const useProject = () => {
           await loadProject(projects[0]);
         } else {
           // デフォルトプロジェクトを作成
-          const defaultProject = await projectDB.createProject(
-            'ウェルカムプロジェクト',
-            'Pyxis エディターへようこそ！'
-          );
-          await loadProject(defaultProject);
+          setLoading(true);
+          try {
+            const defaultProject = await projectDB.createProject(
+              'ウェルカムプロジェクト',
+              'Pyxis エディターへようこそ！'
+            );
+            
+            // ファイルを取得
+            const files = await projectDB.getProjectFiles(defaultProject.id);
+            
+            // プロジェクトを設定
+            setCurrentProject(defaultProject);
+            setProjectFiles(files);
+            
+            // Git初期化と初期コミット
+            await initializeProjectGit(defaultProject, files, convertToFileItems);
+          } finally {
+            setLoading(false);
+          }
         }
       } catch (error) {
         console.error('Failed to initialize project:', error);
+        setLoading(false);
       }
     };
 

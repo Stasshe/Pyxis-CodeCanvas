@@ -87,8 +87,22 @@ export const syncProjectFiles = async (projectName: string, files: Array<{ path:
       
       try {
         await fs.promises.writeFile(fullPath, file.content || '');
+        console.log(`Successfully synced file: ${fullPath}`);
       } catch (error) {
-        console.warn(`Failed to sync file ${fullPath}:`, error);
+        console.error(`Failed to sync file ${fullPath}:`, error);
+        // ENOENTエラーの場合は親ディレクトリを再作成して再試行
+        if ((error as any).code === 'ENOENT') {
+          try {
+            const parentDir = fullPath.substring(0, fullPath.lastIndexOf('/'));
+            if (parentDir && parentDir !== projectDir) {
+              await fs.promises.mkdir(parentDir, { recursive: true } as any);
+              await fs.promises.writeFile(fullPath, file.content || '');
+              console.log(`Successfully synced file after retry: ${fullPath}`);
+            }
+          } catch (retryError) {
+            console.error(`Failed to sync file after retry ${fullPath}:`, retryError);
+          }
+        }
       }
     }
   } catch (error) {
