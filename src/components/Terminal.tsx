@@ -46,7 +46,7 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
     // ファイルシステムの初期化
     initializeFileSystem();
     unixCommandsRef.current = new UnixCommands(currentProject, onFileOperation);
-    gitCommandsRef.current = new GitCommands(currentProject);
+    gitCommandsRef.current = new GitCommands(currentProject, onFileOperation);
 
     // プロジェクトファイルをターミナルファイルシステムに同期
     const syncFiles = async () => {
