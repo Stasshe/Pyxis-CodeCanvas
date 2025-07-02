@@ -406,23 +406,29 @@ export const useProject = () => {
         if (existingFile) {
           // 既存ファイルを更新
           console.log('[syncTerminalFileOperation] Updating existing file:', existingFile);
-          const updatedFile = { ...existingFile, content };
+          const updatedFile = { ...existingFile, content, updatedAt: new Date() };
           await projectDB.saveFile(updatedFile);
+          console.log('[syncTerminalFileOperation] File updated in DB');
         } else {
           // 新しいファイル/フォルダを作成
           console.log('[syncTerminalFileOperation] Creating new file/folder:', { path, type });
-          await projectDB.createFile(currentProject.id, path, content, type);
-          console.log('[syncTerminalFileOperation] File/folder created in DB');
+          const newFileId = await projectDB.createFile(currentProject.id, path, content, type);
+          console.log('[syncTerminalFileOperation] File/folder created in DB with ID:', newFileId);
+          
+          // 作成を確認（プロジェクトファイル一覧から確認）
+          console.log('[syncTerminalFileOperation] Verifying file creation...');
         }
       }
 
-      // プロジェクトファイルをリフレッシュ
-      console.log('[syncTerminalFileOperation] Refreshing project files');
+      // プロジェクトファイルをリフレッシュ（少し遅延を追加）
+      console.log('[syncTerminalFileOperation] Refreshing project files...');
+      await new Promise(resolve => setTimeout(resolve, 100));
       await refreshProjectFiles();
-      console.log('[syncTerminalFileOperation] Sync completed');
+      console.log('[syncTerminalFileOperation] Sync completed, files count:', projectFiles.length);
       
     } catch (error) {
       console.error('[syncTerminalFileOperation] Failed to sync terminal file operation:', error);
+      throw error; // エラーを上位に伝播して問題を明確にする
     }
   };
 

@@ -150,7 +150,7 @@ export const syncProjectFiles = async (projectName: string, files: Array<{ path:
             currentPath += '/' + segment;
             try {
               await fs.promises.mkdir(currentPath);
-              console.log(`Retry - Created directory: ${currentPath}`);
+              //console.log(`Retry - Created directory: ${currentPath}`);
             } catch (mkdirError) {
               if ((mkdirError as any).code !== 'EEXIST') {
                 console.warn(`Retry - Failed to create directory ${currentPath}:`, mkdirError);
@@ -255,7 +255,7 @@ const ensureDirectoryExists = async (fs: FS, dirPath: string): Promise<void> => 
       // ディレクトリが存在しない場合は作成
       try {
         await fs.promises.mkdir(currentPath);
-        console.log(`Created directory: ${currentPath}`);
+        //console.log(`Created directory: ${currentPath}`);
       } catch (error) {
         if ((error as any).code === 'EEXIST') {
           // ディレクトリが既に存在する場合は正常

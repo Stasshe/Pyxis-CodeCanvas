@@ -78,7 +78,9 @@ export class GitCommands {
   async status(): Promise<string> {
     await this.ensureGitRepository();
     
-    // ファイルシステムの同期を確実にする
+    // ファイルシステムの同期を確実にする（強化版）
+    console.log('[git.status] Starting comprehensive filesystem sync...');
+    
     if ((this.fs as any).sync) {
       try {
         await (this.fs as any).sync();
@@ -87,6 +89,9 @@ export class GitCommands {
         console.warn('[git.status] FileSystem sync failed:', syncError);
       }
     }
+    
+    // ファイルシステムの変更反映のための十分な待機時間
+    await new Promise(resolve => setTimeout(resolve, 500));
     
     // まずファイルシステムの状態を確認
     let allFiles: string[] = [];
@@ -97,12 +102,23 @@ export class GitCommands {
       console.warn('[git.status] Failed to get all files:', error);
     }
     
+    // プロジェクトディレクトリの直接的な読み取りも実行
+    try {
+      const directoryContents = await this.fs.promises.readdir(this.dir);
+      console.log('[git.status] Direct directory read results:', directoryContents.filter(f => f !== '.git'));
+    } catch (dirError) {
+      console.warn('[git.status] Direct directory read failed:', dirError);
+    }
+    
     let status: Array<[string, number, number, number]> = [];
     try {
-      // ファイルシステムの準備ができるまで少し待機
+      // ファイルシステムの準備ができるまでさらに待機
       await new Promise(resolve => setTimeout(resolve, 300));
       status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
       console.log('[git.status] statusMatrix successful:', status.length, 'files');
+      console.log('[git.status] statusMatrix details:', status.map(([file, head, workdir, stage]) => ({
+        file, head, workdir, stage
+      })));
     } catch (statusError) {
       // This warning may occur when you open this site. (for the README.md file)
       // So, i don't have to fix this.
@@ -131,15 +147,20 @@ export class GitCommands {
         }
       }
       
+      // 追加の待機時間
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
       const files = await this.fs.promises.readdir(this.dir);
       console.log('[git.getStatusFallback] Found files in directory:', files);
       
+      // プロジェクトファイルの詳細な検査
       const projectFiles = await this.getProjectFiles(files);
       console.log('[git.getStatusFallback] Filtered project files:', projectFiles);
       
       const currentBranch = await this.getCurrentBranch();
       
       if (projectFiles.length === 0) {
+        console.log('[git.getStatusFallback] No project files found, returning clean status');
         return `On branch ${currentBranch}\nnothing to commit, working tree clean`;
       }
 
@@ -166,12 +187,37 @@ export class GitCommands {
       
       try {
         const filePath = `${this.dir}/${file}`;
+        console.log(`[git.getProjectFiles] Checking file: ${filePath}`);
+        
         const stat = await this.fs.promises.stat(filePath);
         if (stat.isFile()) {
           projectFiles.push(file);
           console.log(`[git.getProjectFiles] Found file: ${file} (size: ${stat.size})`);
         } else if (stat.isDirectory()) {
           console.log(`[git.getProjectFiles] Skipping directory: ${file}`);
+          
+          // ディレクトリ内のファイルも再帰的に検査
+          try {
+            const subFiles = await this.fs.promises.readdir(filePath);
+            console.log(`[git.getProjectFiles] Directory ${file} contains:`, subFiles);
+            
+            for (const subFile of subFiles) {
+              if (!subFile.startsWith('.')) {
+                const subFilePath = `${filePath}/${subFile}`;
+                try {
+                  const subStat = await this.fs.promises.stat(subFilePath);
+                  if (subStat.isFile()) {
+                    projectFiles.push(`${file}/${subFile}`);
+                    console.log(`[git.getProjectFiles] Found sub-file: ${file}/${subFile} (size: ${subStat.size})`);
+                  }
+                } catch (subStatError) {
+                  console.warn(`[git.getProjectFiles] Failed to stat sub-file ${file}/${subFile}:`, subStatError);
+                }
+              }
+            }
+          } catch (subDirError) {
+            console.warn(`[git.getProjectFiles] Failed to read subdirectory ${file}:`, subDirError);
+          }
         }
       } catch (statError) {
         console.warn(`[git.getProjectFiles] Failed to stat ${file}:`, statError);
@@ -337,13 +383,15 @@ export class GitCommands {
         if ((this.fs as any).sync) {
           try {
             await (this.fs as any).sync();
+            // 同期後の追加待機
+            await new Promise(resolve => setTimeout(resolve, 50));
           } catch (syncError) {
             console.warn(`[getAllFiles] Sync failed for ${currentPath}:`, syncError);
           }
         }
         
         const entries = await this.fs.promises.readdir(currentPath);
-        //console.log(`[getAllFiles] Reading directory ${currentPath}, found:`, entries);
+        console.log(`[getAllFiles] Reading directory ${currentPath}, found:`, entries);
         
         for (const entry of entries) {
           // .gitディレクトリは除外
@@ -354,11 +402,17 @@ export class GitCommands {
           
           try {
             const stat = await this.fs.promises.stat(fullPath);
+            console.log(`[getAllFiles] Stat for ${fullPath}:`, { 
+              isFile: stat.isFile(), 
+              isDirectory: stat.isDirectory(), 
+              size: stat.size 
+            });
+            
             if (stat.isDirectory()) {
               await traverse(fullPath, relativeFilePath);
-            } else {
+            } else if (stat.isFile()) {
               files.push(relativeFilePath);
-              //console.log(`[getAllFiles] Found file: ${relativeFilePath} (size: ${stat.size})`);
+              console.log(`[getAllFiles] Found file: ${relativeFilePath} (size: ${stat.size})`);
             }
           } catch (error) {
             console.warn(`[getAllFiles] Failed to stat ${fullPath}:`, error);
@@ -370,7 +424,7 @@ export class GitCommands {
     };
     
     await traverse(dirPath);
-    //console.log(`[getAllFiles] Total files found: ${files.length}`, files);
+    console.log(`[getAllFiles] Total files found: ${files.length}`, files);
     return files;
   }
 

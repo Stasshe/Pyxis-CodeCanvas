@@ -316,27 +316,36 @@ export class UnixCommands {
         
         // ファイルを作成
         await this.fs.promises.writeFile(normalizedPath, '');
-        
-        // ファイル作成の確認
-        try {
-          const stat = await this.fs.promises.stat(normalizedPath);
-          console.log(`[touch] File created successfully: ${normalizedPath}, size: ${stat.size}`);
-        } catch (verifyError) {
-          console.warn(`[touch] File verification failed: ${normalizedPath}`, verifyError);
-        }
+        console.log(`[touch] File created in filesystem: ${normalizedPath}`);
         
         // ファイルシステムのキャッシュをフラッシュ
         await this.flushFileSystemCache();
         
-        // IndexedDBにも同期
-        if (this.onFileOperation) {
-          const relativePath = this.getRelativePathFromProject(normalizedPath);
-          //console.log(`[touch] Syncing to IndexedDB: ${relativePath}`);
-          await this.onFileOperation(relativePath, 'file', '');
+        // ファイル作成の確認
+        try {
+          const stat = await this.fs.promises.stat(normalizedPath);
+          console.log(`[touch] File verified successfully: ${normalizedPath}, size: ${stat.size}`);
+        } catch (verifyError) {
+          console.warn(`[touch] File verification failed: ${normalizedPath}`, verifyError);
         }
         
-        // Git認識のための追加処理
+        // IndexedDBに同期（ファイルシステム操作の後に実行）
+        if (this.onFileOperation) {
+          const relativePath = this.getRelativePathFromProject(normalizedPath);
+          console.log(`[touch] Syncing to IndexedDB: ${relativePath}`);
+          try {
+            await this.onFileOperation(relativePath, 'file', '');
+            console.log(`[touch] IndexedDB sync completed: ${relativePath}`);
+          } catch (syncError) {
+            console.error(`[touch] IndexedDB sync failed: ${relativePath}`, syncError);
+          }
+        }
+        
+        // Git認識のための追加処理（さらに強化）
         await this.ensureGitRecognition(normalizedPath);
+        
+        // 最終的な確認のため、もう一度ファイルシステムを同期
+        await this.flushFileSystemCache();
         
         return `File created: ${normalizedPath}`;
       }
@@ -354,14 +363,14 @@ export class UnixCommands {
         console.log('[touch] FileSystem cache flushed');
       }
       
-      // 短い遅延を追加してファイルシステムの変更が確実に反映されるようにする
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // ファイルシステムの強制同期のため長めの遅延
+      await new Promise(resolve => setTimeout(resolve, 300));
     } catch (error) {
       console.warn('[touch] Failed to flush filesystem cache:', error);
     }
   }
 
-  // Gitがファイルを確実に認識するための追加処理
+  // Gitがファイルを確実に認識するための追加処理（強化版）
   private async ensureGitRecognition(filePath: string): Promise<void> {
     try {
       console.log('[touch] Ensuring Git recognition for:', filePath);
@@ -371,8 +380,25 @@ export class UnixCommands {
       const files = await this.fs.promises.readdir(dirPath);
       console.log('[touch] Directory contents after file creation:', files);
       
-      // Git用の追加の同期処理
-      await new Promise(resolve => setTimeout(resolve, 200));
+      // ファイルの存在を再確認
+      try {
+        const stat = await this.fs.promises.stat(filePath);
+        console.log('[touch] File exists and has size:', stat.size);
+      } catch {
+        console.warn('[touch] File verification failed during Git recognition');
+      }
+      
+      // プロジェクトルート全体の読み取りも強制
+      const projectRoot = this.currentDir.split('/').slice(0, 3).join('/'); // /projects/{projectName}
+      try {
+        const rootFiles = await this.fs.promises.readdir(projectRoot);
+        console.log('[touch] Project root contents:', rootFiles.filter(f => f !== '.git'));
+      } catch (rootError) {
+        console.warn('[touch] Failed to read project root:', rootError);
+      }
+      
+      // Git用の追加の同期処理（さらに長めの遅延）
+      await new Promise(resolve => setTimeout(resolve, 500));
       
     } catch (error) {
       console.warn('[touch] Git recognition process failed:', error);

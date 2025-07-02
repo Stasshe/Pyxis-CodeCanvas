@@ -741,7 +741,7 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
   useEffect(() => {
     const syncFiles = async () => {
       if (projectFiles.length > 0) {
-        console.log('Project files changed, syncing:', projectFiles);
+        //console.log('Project files changed, syncing:', projectFiles);
         const flatFiles = flattenFileItems(projectFiles);
         await syncProjectFiles(currentProject, flatFiles);
       }
