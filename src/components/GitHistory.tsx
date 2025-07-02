@@ -61,8 +61,9 @@ export default function GitHistory({ commits, currentProject, currentBranch, onF
 
     const branchMap = new Map<string, number>();
     let branchIndex = 0;
-    const ROW_HEIGHT = 60;
-    const BRANCH_WIDTH = 30;
+    const ROW_HEIGHT = 40; // コミット行の高さ
+    const BRANCH_WIDTH = 20; // ブランチ間の幅
+    const Y_OFFSET = 18; // テキストの中央に合わせるためのオフセット（36px minHeight / 2）
 
     const processedCommits: ExtendedCommit[] = commits.map((commit, index) => {
       // ブランチのインデックスを取得または作成
@@ -75,8 +76,8 @@ export default function GitHistory({ commits, currentProject, currentBranch, onF
 
       return {
         ...commit,
-        x: branchIdx * BRANCH_WIDTH + 20,
-        y: index * ROW_HEIGHT + 30,
+        x: branchIdx * BRANCH_WIDTH + 15,
+        y: index * ROW_HEIGHT + Y_OFFSET, // テキストの中央に位置するよう調整
         branchColor: branchColors[colorIndex]
       };
     });
@@ -192,21 +193,24 @@ export default function GitHistory({ commits, currentProject, currentBranch, onF
   // ファイルタイプのアイコンを取得
   const getFileIcon = (type: 'added' | 'modified' | 'deleted') => {
     switch (type) {
-      case 'added': return <FilePlus className="w-3 h-3 text-green-500" />;
-      case 'modified': return <FileText className="w-3 h-3 text-blue-500" />;
-      case 'deleted': return <FileMinus className="w-3 h-3 text-red-500" />;
+      case 'added': return <FilePlus className="w-2.5 h-2.5 text-green-500" />; // w-3 h-3 -> w-2.5 h-2.5
+      case 'modified': return <FileText className="w-2.5 h-2.5 text-blue-500" />; // w-3 h-3 -> w-2.5 h-2.5
+      case 'deleted': return <FileMinus className="w-2.5 h-2.5 text-red-500" />; // w-3 h-3 -> w-2.5 h-2.5
     }
   };
 
   return (
     <div className="h-full flex flex-col">
       <div className="flex-1 overflow-auto">
-        <div className="relative">
+        <div className="relative min-w-0 overflow-hidden"> {/* overflow-hiddenを追加 */}
           {/* SVG for git graph lines */}
           <svg
             ref={svgRef}
-            className="absolute top-0 left-0 w-full h-full pointer-events-none"
-            style={{ height: `${extendedCommits.length * 60 + 60}px` }}
+            className="absolute top-0 left-0 pointer-events-none flex-shrink-0"
+            style={{ 
+              height: `${extendedCommits.length * 40 + 40}px`,
+              width: '60px' // 固定幅を設定
+            }}
           >
             {/* Draw branch lines */}
             {extendedCommits.map((commit, index) => {
@@ -237,16 +241,16 @@ export default function GitHistory({ commits, currentProject, currentBranch, onF
                 <circle
                   cx={commit.x}
                   cy={commit.y}
-                  r="6"
+                  r="4" // 6 -> 4に縮小
                   fill={commit.branchColor}
                   stroke="white"
-                  strokeWidth="2"
+                  strokeWidth="1.5" // 2 -> 1.5に縮小
                 />
                 {commit.isMerge && (
                   <circle
                     cx={commit.x}
                     cy={commit.y}
-                    r="3"
+                    r="2" // 3 -> 2に縮小
                     fill="white"
                   />
                 )}
@@ -255,62 +259,84 @@ export default function GitHistory({ commits, currentProject, currentBranch, onF
           </svg>
 
           {/* Commit list */}
-          <div className="pl-16 space-y-1">
+          <div className="pl-12 space-y-0.5"> {/* pl-16 -> pl-12, space-y-1 -> space-y-0.5 */}
             {extendedCommits.map((commit) => (
               <div key={commit.hash} className="relative">
                 {/* Main commit row */}
                 <div 
-                  className="flex items-center py-2 px-3 hover:bg-muted/50 rounded-sm cursor-pointer group"
-                  style={{ minHeight: '56px' }}
+                  className="flex items-center py-1.5 px-2 hover:bg-muted/50 rounded-sm cursor-pointer group" // items-start -> items-center に戻す
+                  style={{ minHeight: '36px' }}
                   onClick={() => toggleCommitExpansion(commit.hash)}
                 >
                   {/* Branch indicator */}
                   <div 
-                    className="absolute left-0 w-1 h-full rounded-r"
+                    className="absolute left-0 w-0.5 h-full rounded-r"
                     style={{ backgroundColor: commit.branchColor }}
                   />
                   
-                  {/* Expand/collapse icon */}
-                  <div className="mr-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {/* Expand/collapse icon - SVGと同じ高さに配置 */}
+                  <div className="mr-1.5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center" style={{ height: '20px', width: '12px' }}> {/* 固定サイズでSVGと位置を合わせる */}
                     {expandedCommits.has(commit.hash) ? (
-                      <ChevronDown className="w-4 h-4" />
+                      <ChevronDown className="w-3 h-3" />
                     ) : (
-                      <ChevronRight className="w-4 h-4" />
+                      <ChevronRight className="w-3 h-3" />
                     )}
                   </div>
 
                   {/* Commit info */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between">
+                    <div className="flex items-center justify-between"> {/* items-start -> items-center */}
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate mb-1">
+                        <p className="text-xs font-medium truncate mb-0.5">
                           {commit.message}
                         </p>
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <User className="w-3 h-3" />
-                            {commit.author}
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground overflow-hidden">
+                          <span className="flex items-center gap-1 flex-shrink-0">
+                            <User className="w-2.5 h-2.5" />
+                            <span className="truncate max-w-12">{commit.author}</span>
                           </span>
-                          <span className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
-                            {getRelativeTime(commit.timestamp)}
+                          <span className="flex items-center gap-1 flex-shrink-0">
+                            <Calendar className="w-2.5 h-2.5" />
+                            <span className="whitespace-nowrap">{getRelativeTime(commit.timestamp)}</span>
                           </span>
-                          <span className="flex items-center gap-1">
-                            <Hash className="w-3 h-3" />
-                            {commit.shortHash}
+                          <span className="flex items-center gap-1 flex-shrink-0 hidden sm:flex">
+                            <Hash className="w-2.5 h-2.5" />
+                            <span className="font-mono">{commit.shortHash}</span>
                           </span>
-                          {commit.branch !== currentBranch && (
-                            <span className="flex items-center gap-1 px-1 bg-muted rounded text-xs">
-                              <GitBranch className="w-3 h-3" />
-                              {commit.branch}
-                            </span>
-                          )}
+                          {/* ブランチ表示：現在のブランチのHEADコミットのみに表示 */}
+                          {(() => {
+                            // 最初のコミット（現在のブランチのHEAD）のみにブランチ名を表示
+                            const isHeadCommit = commits.findIndex(c => c.hash === commit.hash) === 0;
+                            
+                            if (isHeadCommit) {
+                              return (
+                                <span className="flex items-center gap-1 px-1 bg-blue-500/20 text-blue-600 rounded text-xs font-medium flex-shrink-0 whitespace-nowrap">
+                                  <GitBranch className="w-2.5 h-2.5" />
+                                  {currentBranch}
+                                </span>
+                              );
+                            }
+                            
+                            // workブランチ固有のコミットを特別に処理（コミットメッセージやハッシュで判定）
+                            // これは一時的な解決策です
+                            const isWorkBranchCommit = currentBranch === 'work' && commit.branch !== 'main';
+                            if (isWorkBranchCommit) {
+                              return (
+                                <span className="flex items-center gap-1 px-1 bg-orange-500/20 text-orange-600 rounded text-xs font-medium flex-shrink-0 whitespace-nowrap">
+                                  <GitBranch className="w-2.5 h-2.5" />
+                                  work
+                                </span>
+                              );
+                            }
+                            
+                            return null;
+                          })()}
                         </div>
                       </div>
                       
                       {commit.isMerge && (
-                        <div className="ml-2 flex items-center text-purple-500">
-                          <GitCommit className="w-4 h-4" />
+                        <div className="ml-1.5 flex items-center text-purple-500"> {/* pt-0.5を削除 */}
+                          <GitCommit className="w-3 h-3" />
                         </div>
                       )}
                     </div>
@@ -319,10 +345,10 @@ export default function GitHistory({ commits, currentProject, currentBranch, onF
 
                 {/* Expanded commit changes */}
                 {expandedCommits.has(commit.hash) && (
-                  <div className="ml-6 mr-3 mb-2 p-3 bg-muted/30 rounded border-l-2 border-muted-foreground/20">
-                    <div className="text-xs text-muted-foreground mb-2">変更されたファイル:</div>
+                  <div className="ml-4 mr-2 mb-1.5 p-2 bg-muted/30 rounded border-l border-muted-foreground/20"> {/* ml-6 -> ml-4, mr-3 -> mr-2, mb-2 -> mb-1.5, p-3 -> p-2, border-l-2 -> border-l */}
+                    <div className="text-xs text-muted-foreground mb-1.5">変更されたファイル:</div> {/* mb-2 -> mb-1.5 */}
                     {commitChanges.has(commit.hash) ? (
-                      <div className="space-y-1">
+                      <div className="space-y-0.5"> {/* space-y-1 -> space-y-0.5 */}
                         {(() => {
                           const changes = commitChanges.get(commit.hash)!;
                           const allFiles = [
@@ -340,9 +366,9 @@ export default function GitHistory({ commits, currentProject, currentBranch, onF
                           }
 
                           return allFiles.map(({ file, type }, index) => (
-                            <div key={index} className="flex items-center gap-2 text-xs">
+                            <div key={index} className="flex items-center gap-1.5 text-xs"> {/* gap-2 -> gap-1.5 */}
                               {getFileIcon(type)}
-                              <span className="font-mono truncate">{file}</span>
+                              <span className="font-mono truncate text-xs">{file}</span> {/* text-xsを明示 */}
                             </div>
                           ));
                         })()}
