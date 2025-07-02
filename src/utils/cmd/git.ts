@@ -104,6 +104,8 @@ export class GitCommands {
       status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
       console.log('[git.status] statusMatrix successful:', status.length, 'files');
     } catch (statusError) {
+      // This warning may occur when you open this site. (for the README.md file)
+      // So, i don't have to fix this.
       console.warn('[git.status] statusMatrix failed, using fallback method:', statusError);
       return this.getStatusFallback();
     }

@@ -67,7 +67,7 @@ export const syncProjectFiles = async (projectName: string, files: Array<{ path:
     await ensureDirectoryExists(fs, '/projects');
     
     // プロジェクトディレクトリを作成
-    console.log('Ensuring project directory exists:', projectDir);
+    //console.log('Ensuring project directory exists:', projectDir);
     await ensureDirectoryExists(fs, projectDir);
     
     // 既存のファイルをクリア（.gitディレクトリは保持）
