@@ -10,6 +10,7 @@ import ProjectModal from '@/components/ProjectModal';
 import { useLeftSidebarResize, useBottomPanelResize } from '@/utils/resize';
 import { openFile, closeTab, updateTabContent } from '@/utils/tabs';
 import { useProject } from '@/utils/project';
+import { GitCommands } from '@/utils/cmd/git';
 import type { MenuTab, Tab, FileItem } from '@/types';
 import { Project } from '@/utils/database';
 
@@ -21,6 +22,7 @@ export default function Home() {
   const [isBottomPanelVisible, setIsBottomPanelVisible] = useState(true);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [gitRefreshTrigger, setGitRefreshTrigger] = useState(0);
+  const [gitChangesCount, setGitChangesCount] = useState(0); // Git変更ファイル数
   
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [activeTabId, setActiveTabId] = useState('');
@@ -40,7 +42,7 @@ export default function Home() {
   const handleBottomResize = useBottomPanelResize(bottomPanelHeight, setBottomPanelHeight);
 
   const activeTab = tabs.find(tab => tab.id === activeTabId);
-
+  /*
   // タブの状態変化をデバッグ
   useEffect(() => {
     console.log('[DEBUG] Tabs state changed:', {
@@ -50,6 +52,7 @@ export default function Home() {
       currentProjectId: currentProject?.id
     });
   }, [tabs, activeTabId, currentProject?.id]);
+  */
 
   // プロジェクトが変更された時にタブをリセット（プロジェクトIDが変わった場合のみ）
   useEffect(() => {
@@ -106,6 +109,68 @@ export default function Home() {
       }
     }
   }, [projectFiles]); // projectFilesの変更を監視（git操作でファイル内容が変わった時を検知）
+
+  // Git状態を独立して監視（GitPanelが表示されていない時でも動作）
+  useEffect(() => {
+    if (!currentProject) {
+      setGitChangesCount(0);
+      return;
+    }
+
+    const checkGitStatus = async () => {
+      try {
+        const gitCommands = new GitCommands(currentProject.name);
+        const statusResult = await gitCommands.status();
+        
+        // Git状態をパースして変更ファイル数を計算
+        const parseGitStatus = (statusOutput: string) => {
+          const lines = statusOutput.split('\n').map(line => line.trim()).filter(Boolean);
+          let staged = 0, unstaged = 0, untracked = 0;
+          let inChangesToBeCommitted = false;
+          let inChangesNotStaged = false;
+          let inUntrackedFiles = false;
+
+          for (const line of lines) {
+            if (line === 'Changes to be committed:') {
+              inChangesToBeCommitted = true;
+              inChangesNotStaged = false;
+              inUntrackedFiles = false;
+            } else if (line === 'Changes not staged for commit:') {
+              inChangesToBeCommitted = false;
+              inChangesNotStaged = true;
+              inUntrackedFiles = false;
+            } else if (line === 'Untracked files:') {
+              inChangesToBeCommitted = false;
+              inChangesNotStaged = false;
+              inUntrackedFiles = true;
+            } else if (line.startsWith('modified:') || line.startsWith('new file:') || line.startsWith('deleted:')) {
+              if (inChangesToBeCommitted) staged++;
+              else if (inChangesNotStaged) unstaged++;
+            } else if (inUntrackedFiles && !line.includes('use "git add"') && !line.includes('to include')) {
+              untracked++;
+            }
+          }
+
+          return staged + unstaged + untracked;
+        };
+
+        const changesCount = parseGitStatus(statusResult);
+        setGitChangesCount(changesCount);
+      } catch (error) {
+        // Git操作でエラーが発生した場合は変更ファイル数を0にリセット
+        setGitChangesCount(0);
+      }
+    };
+
+    // 初回チェック
+    checkGitStatus();
+
+    // 定期的にチェック（30秒ごと）
+    const interval = setInterval(checkGitStatus, 30000);
+
+    // クリーンアップ
+    return () => clearInterval(interval);
+  }, [currentProject, gitRefreshTrigger]); // プロジェクトやGit更新トリガーが変わった時に再チェック
 
   const handleMenuTabClick = (tab: MenuTab) => {
     if (activeMenuTab === tab && isLeftSidebarVisible) {
@@ -210,6 +275,7 @@ export default function Home() {
         activeMenuTab={activeMenuTab}
         onMenuTabClick={handleMenuTabClick}
         onProjectClick={handleProjectModalOpen}
+        gitChangesCount={gitChangesCount}
       />
 
       {isLeftSidebarVisible && (
@@ -227,6 +293,7 @@ export default function Home() {
             }
           }}
           gitRefreshTrigger={gitRefreshTrigger}
+          onGitStatusChange={setGitChangesCount}
           onFileOperation={async (path: string, type: 'file' | 'folder' | 'delete', content?: string) => {
             console.log('=== onFileOperation called ===');
             console.log('path:', path);

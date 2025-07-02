@@ -10,9 +10,10 @@ interface GitPanelProps {
   onRefresh?: () => void;
   gitRefreshTrigger?: number;
   onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string) => Promise<void>;
+  onGitStatusChange?: (changesCount: number) => void; // Git変更状態のコールバック
 }
 
-export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger, onFileOperation }: GitPanelProps) {
+export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger, onFileOperation, onGitStatusChange }: GitPanelProps) {
   const [gitRepo, setGitRepo] = useState<GitRepository | null>(null);
   const [commitMessage, setCommitMessage] = useState('');
   const [isCommitting, setIsCommitting] = useState(false);
@@ -53,10 +54,20 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
         status,
         currentBranch: status.branch
       });
+
+      // 変更ファイル数を計算してコールバックで通知
+      if (onGitStatusChange) {
+        const changesCount = status.staged.length + status.unstaged.length + status.untracked.length;
+        onGitStatusChange(changesCount);
+      }
     } catch (error) {
       console.error('Failed to fetch git status:', error);
       setError(error instanceof Error ? error.message : 'Git操作でエラーが発生しました');
       setGitRepo(null);
+      // エラー時は変更ファイル数を0にリセット
+      if (onGitStatusChange) {
+        onGitStatusChange(0);
+      }
     } finally {
       setIsLoading(false);
     }

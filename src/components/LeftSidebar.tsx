@@ -14,6 +14,7 @@ interface LeftSidebarProps {
   onGitRefresh?: () => void;
   gitRefreshTrigger?: number;
   onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string) => Promise<void>;
+  onGitStatusChange?: (changesCount: number) => void; // Git変更状態のコールバック
 }
 
 export default function LeftSidebar({ 
@@ -25,7 +26,8 @@ export default function LeftSidebar({
   onResize,
   onGitRefresh,
   gitRefreshTrigger,
-  onFileOperation
+  onFileOperation,
+  onGitStatusChange
 }: LeftSidebarProps) {
   return (
     <>
@@ -68,6 +70,7 @@ export default function LeftSidebar({
                 onRefresh={onGitRefresh}
                 gitRefreshTrigger={gitRefreshTrigger}
                 onFileOperation={onFileOperation}
+                onGitStatusChange={onGitStatusChange}
               />
             </div>
           )}
