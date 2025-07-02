@@ -85,7 +85,7 @@ export default function Home() {
           return tab;
         }
         
-        console.log('[useEffect] Syncing tab content from DB:', {
+        console.log('[useEffect] Syncing tab content from DB after git operation:', {
           tabPath: tab.path,
           oldContentLength: tab.content.length,
           newContentLength: correspondingFile.content?.length || 0,
@@ -101,11 +101,11 @@ export default function Home() {
       
       // 実際に内容が変更された場合のみ更新
       if (hasRealChanges) {
-        console.log('[useEffect] Updating tabs with new content from DB');
+        console.log('[useEffect] Updating tabs with new content from DB after git operation');
         setTabs(updatedTabs);
       }
     }
-  }, [projectFiles.length]); // ファイル数の変更のみを監視して、不要な実行を防ぐ
+  }, [projectFiles]); // projectFilesの変更を監視（git操作でファイル内容が変わった時を検知）
 
   const handleMenuTabClick = (tab: MenuTab) => {
     if (activeMenuTab === tab && isLeftSidebarVisible) {

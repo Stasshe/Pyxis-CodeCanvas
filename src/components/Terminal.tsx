@@ -476,7 +476,21 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
                 case 'checkout':
                   if (args[1]) {
                     const createNew = args.includes('-b');
-                    const branchName = args[args.indexOf('-b') + 1] || args[1];
+                    let branchName: string;
+                    
+                    if (createNew) {
+                      // -bフラグがある場合、-bの次の引数がブランチ名
+                      const bIndex = args.indexOf('-b');
+                      branchName = args[bIndex + 1];
+                      if (!branchName) {
+                        await writeOutput('git checkout: option requires an argument -- b');
+                        break;
+                      }
+                    } else {
+                      // -bフラグがない場合、最初の引数（git checkoutの後）がブランチ名
+                      branchName = args[1];
+                    }
+                    
                     const checkoutResult = await gitCommandsRef.current.checkout(branchName, createNew);
                     await writeOutput(checkoutResult);
                   } else {
