@@ -2,7 +2,10 @@ import FS from '@isomorphic-git/lightning-fs';
 import git from 'isomorphic-git';
 import { getFileSystem, getProjectDir } from '../filesystem';
 
-// Git操作クラス
+/**
+ * Git操作を管理するクラス
+ * isomorphic-gitを使用してブラウザ環境でGit操作を実現
+ */
 export class GitCommands {
   private fs: FS;
   private dir: string;
@@ -14,6 +17,10 @@ export class GitCommands {
     this.onFileOperation = onFileOperation;
   }
 
+  // ========================================
+  // ユーティリティメソッド
+  // ========================================
+
   // プロジェクトディレクトリの存在を確認し、なければ作成
   private async ensureProjectDirectory(): Promise<void> {
     try {
@@ -24,19 +31,35 @@ export class GitCommands {
     }
   }
 
+  // Gitリポジトリが初期化されているかチェック
+  private async ensureGitRepository(): Promise<void> {
+    await this.ensureProjectDirectory();
+    try {
+      await this.fs.promises.stat(`${this.dir}/.git`);
+    } catch {
+      throw new Error('not a git repository (or any of the parent directories): .git');
+    }
+  }
+
+  // エラーハンドリング付きのGit操作実行
+  private async executeGitOperation<T>(operation: () => Promise<T>, errorPrefix: string): Promise<T> {
+    try {
+      return await operation();
+    } catch (error) {
+      throw new Error(`${errorPrefix}: ${(error as Error).message}`);
+    }
+  }
+
+  // ========================================
+  // 基本的なGit操作
+  // ========================================
+
   // 現在のブランチ名を取得
   async getCurrentBranch(): Promise<string> {
     try {
-      await this.ensureProjectDirectory();
-      // Gitリポジトリが初期化されているかチェック
-      await this.fs.promises.stat(`${this.dir}/.git`);
-      
-      try {
-        const branch = await git.currentBranch({ fs: this.fs, dir: this.dir });
-        return branch || 'main';
-      } catch {
-        return 'main';
-      }
+      await this.ensureGitRepository();
+      const branch = await git.currentBranch({ fs: this.fs, dir: this.dir });
+      return branch || 'main';
     } catch {
       return '(no git)';
     }
@@ -44,137 +67,147 @@ export class GitCommands {
 
   // git init - リポジトリ初期化
   async init(): Promise<string> {
-    try {
+    return this.executeGitOperation(async () => {
       await this.ensureProjectDirectory();
       await git.init({ fs: this.fs, dir: this.dir, defaultBranch: 'main' });
       return `Initialized empty Git repository in ${this.dir}`;
-    } catch (error) {
-      throw new Error(`git init failed: ${(error as Error).message}`);
-    }
+    }, 'git init failed');
   }
 
   // git status - ステータス確認
   async status(): Promise<string> {
+    await this.ensureGitRepository();
+    
+    let status: Array<[string, number, number, number]> = [];
     try {
-      await this.ensureProjectDirectory();
-      
-      // Gitリポジトリが初期化されているかチェック
-      try {
-        await this.fs.promises.stat(`${this.dir}/.git`);
-      } catch {
-        throw new Error('not a git repository (or any of the parent directories): .git');
-      }
+      status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
+    } catch (statusError) {
+      console.warn('statusMatrix failed, using fallback method:', statusError);
+      return this.getStatusFallback();
+    }
+    
+    return this.formatStatusResult(status);
+  }
 
-      let status: Array<[string, number, number, number]> = [];
-      try {
-        status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
-      } catch (statusError) {
-        console.warn('statusMatrix failed, using fallback method:', statusError);
-        
-        // フォールバック: ファイルシステムを直接チェック
-        try {
-          const files = await this.fs.promises.readdir(this.dir);
-          const projectFiles = [];
-          
-          // ファイルのみを追加（フォルダは除外）
-          for (const file of files) {
-            if (file.startsWith('.') || file === '.git') continue;
-            
-            try {
-              const stat = await this.fs.promises.stat(`${this.dir}/${file}`);
-              if (stat.isFile()) {
-                projectFiles.push(file);
-              }
-            } catch {
-              // stat取得に失敗した場合はスキップ
-            }
-          }
-          
-          const currentBranch = await this.getCurrentBranch();
-          
-          if (projectFiles.length === 0) {
-            return `On branch ${currentBranch}\nnothing to commit, working tree clean`;
-          }
-
-          // 簡単な変更検知（最後のコミット以降のファイルを未追跡として扱う）
-          let result = `On branch ${currentBranch}\n`;
-          result += '\nUntracked files:\n';
-          projectFiles.forEach(file => result += `  ${file}\n`);
-          result += '\nnothing added to commit but untracked files present (use "git add" to track)';
-          
-          return result;
-        } catch (fallbackError) {
-          console.error('Fallback status check failed:', fallbackError);
-          const currentBranch = await this.getCurrentBranch();
-          return `On branch ${currentBranch}\nnothing to commit, working tree clean`;
-        }
-      }
-      
+  // ステータス取得のフォールバック処理
+  private async getStatusFallback(): Promise<string> {
+    try {
+      const files = await this.fs.promises.readdir(this.dir);
+      const projectFiles = await this.getProjectFiles(files);
       const currentBranch = await this.getCurrentBranch();
       
-      if (status.length === 0) {
+      if (projectFiles.length === 0) {
         return `On branch ${currentBranch}\nnothing to commit, working tree clean`;
       }
 
-      const untracked: string[] = [];
-      const modified: string[] = [];
-      const staged: string[] = [];
-
-      status.forEach(([filepath, HEAD, workdir, stage]) => {
-        // isomorphic-gitのstatusMatrixの値の意味:
-        // HEAD: 0=ファイルなし, 1=ファイルあり
-        // workdir: 0=ファイルなし, 1=ファイルあり, 2=変更あり
-        // stage: 0=ステージなし, 1=ステージ済み（変更なし）, 2=ステージ済み（変更あり）, 3=ステージ済み（新規）
-        
-        if (HEAD === 1 && workdir === 2 && stage === 1) {
-          // 変更されたファイル（未ステージ）
-          modified.push(filepath);
-        } else if (HEAD === 1 && workdir === 2 && stage === 2) {
-          // 変更されてステージされたファイル
-          staged.push(filepath);
-        } else if (HEAD === 0 && workdir === 1 && stage === 0) {
-          // 新しいファイル（未追跡）
-          untracked.push(filepath);
-        } else if (HEAD === 0 && workdir === 1 && stage === 3) {
-          // 新しくステージされたファイル
-          staged.push(filepath);
-        } else if (HEAD === 1 && workdir === 0 && stage === 0) {
-          // 削除されたファイル（未ステージ）
-          modified.push(filepath);
-        } else if (HEAD === 1 && workdir === 0 && stage === 3) {
-          // 削除されてステージされたファイル
-          staged.push(filepath);
-        }
-        // その他のケース（HEAD === 1 && workdir === 1 && stage === 1など）は変更なし
-      });
-
       let result = `On branch ${currentBranch}\n`;
+      result += '\nUntracked files:\n';
+      projectFiles.forEach(file => result += `  ${file}\n`);
+      result += '\nnothing added to commit but untracked files present (use "git add" to track)';
       
-      if (staged.length > 0) {
-        result += '\nChanges to be committed:\n';
-        staged.forEach(file => result += `  new file:   ${file}\n`);
-      }
-      
-      if (modified.length > 0) {
-        result += '\nChanges not staged for commit:\n';
-        modified.forEach(file => result += `  modified:   ${file}\n`);
-      }
-      
-      if (untracked.length > 0) {
-        result += '\nUntracked files:\n';
-        untracked.forEach(file => result += `  ${file}\n`);
-        result += '\nnothing added to commit but untracked files present (use "git add" to track)';
-      }
-
-      if (staged.length === 0 && modified.length === 0 && untracked.length === 0) {
-        result = `On branch ${currentBranch}\nnothing to commit, working tree clean`;
-      }
-
       return result;
-    } catch (error) {
-      throw new Error(`git status failed: ${(error as Error).message}`);
+    } catch (fallbackError) {
+      console.error('Fallback status check failed:', fallbackError);
+      const currentBranch = await this.getCurrentBranch();
+      return `On branch ${currentBranch}\nnothing to commit, working tree clean`;
     }
   }
+
+  // プロジェクトファイル一覧を取得（フォルダ除外）
+  private async getProjectFiles(files: string[]): Promise<string[]> {
+    const projectFiles = [];
+    for (const file of files) {
+      if (file.startsWith('.') || file === '.git') continue;
+      
+      try {
+        const stat = await this.fs.promises.stat(`${this.dir}/${file}`);
+        if (stat.isFile()) {
+          projectFiles.push(file);
+        }
+      } catch {
+        // stat取得に失敗した場合はスキップ
+      }
+    }
+    return projectFiles;
+  }
+
+  // ステータス結果をフォーマット
+  private async formatStatusResult(status: Array<[string, number, number, number]>): Promise<string> {
+    const currentBranch = await this.getCurrentBranch();
+    
+    if (status.length === 0) {
+      return `On branch ${currentBranch}\nnothing to commit, working tree clean`;
+    }
+
+    const { untracked, modified, staged } = this.categorizeStatusFiles(status);
+
+    let result = `On branch ${currentBranch}\n`;
+    
+    if (staged.length > 0) {
+      result += '\nChanges to be committed:\n';
+      staged.forEach(file => result += `  new file:   ${file}\n`);
+    }
+    
+    if (modified.length > 0) {
+      result += '\nChanges not staged for commit:\n';
+      modified.forEach(file => result += `  modified:   ${file}\n`);
+    }
+    
+    if (untracked.length > 0) {
+      result += '\nUntracked files:\n';
+      untracked.forEach(file => result += `  ${file}\n`);
+      result += '\nnothing added to commit but untracked files present (use "git add" to track)';
+    }
+
+    if (staged.length === 0 && modified.length === 0 && untracked.length === 0) {
+      result = `On branch ${currentBranch}\nnothing to commit, working tree clean`;
+    }
+
+    return result;
+  }
+
+  // ファイルのステータスを分類
+  private categorizeStatusFiles(status: Array<[string, number, number, number]>): {
+    untracked: string[], modified: string[], staged: string[]
+  } {
+    const untracked: string[] = [];
+    const modified: string[] = [];
+    const staged: string[] = [];
+
+    status.forEach(([filepath, HEAD, workdir, stage]) => {
+      // isomorphic-gitのstatusMatrixの値の意味:
+      // HEAD: 0=ファイルなし, 1=ファイルあり
+      // workdir: 0=ファイルなし, 1=ファイルあり, 2=変更あり
+      // stage: 0=ステージなし, 1=ステージ済み（変更なし）, 2=ステージ済み（変更あり）, 3=ステージ済み（新規）
+      
+      if (HEAD === 1 && workdir === 2 && stage === 1) {
+        // 変更されたファイル（未ステージ）
+        modified.push(filepath);
+      } else if (HEAD === 1 && workdir === 2 && stage === 2) {
+        // 変更されてステージされたファイル
+        staged.push(filepath);
+      } else if (HEAD === 0 && workdir === 1 && stage === 0) {
+        // 新しいファイル（未追跡）
+        untracked.push(filepath);
+      } else if (HEAD === 0 && workdir === 1 && stage === 3) {
+        // 新しくステージされたファイル
+        staged.push(filepath);
+      } else if (HEAD === 1 && workdir === 0 && stage === 0) {
+        // 削除されたファイル（未ステージ）
+        modified.push(filepath);
+      } else if (HEAD === 1 && workdir === 0 && stage === 3) {
+        // 削除されてステージされたファイル
+        staged.push(filepath);
+      }
+      // その他のケース（HEAD === 1 && workdir === 1 && stage === 1など）は変更なし
+    });
+
+    return { untracked, modified, staged };
+  }
+
+  // ========================================
+  // ファイルの追加・コミット操作
+  // ========================================
 
   // git add - ファイルをステージング
   async add(filepath: string): Promise<string> {
@@ -270,8 +303,8 @@ export class GitCommands {
 
   // git commit - コミット
   async commit(message: string, author = { name: 'User', email: 'user@pyxis.dev' }): Promise<string> {
-    try {
-      await this.ensureProjectDirectory();
+    return this.executeGitOperation(async () => {
+      await this.ensureGitRepository();
       const sha = await git.commit({
         fs: this.fs,
         dir: this.dir,
@@ -280,9 +313,7 @@ export class GitCommands {
         committer: author,
       });
       return `[main ${sha.slice(0, 7)}] ${message}`;
-    } catch (error) {
-      throw new Error(`git commit failed: ${(error as Error).message}`);
-    }
+    }, 'git commit failed');
   }
 
   // git reset - ファイルをアンステージング、またはハードリセット
@@ -1287,47 +1318,6 @@ export class GitCommands {
     return paths;
   }
 
-  // ファイルの差分を生成
-  private async generateFileDiff(filepath: string, fromCommit: string | null, to: string | null): Promise<string> {
-    let oldContent = '';
-    let newContent = '';
-
-    try {
-      // 元のファイル内容を取得
-      if (fromCommit) {
-        try {
-          const { blob } = await git.readBlob({ fs: this.fs, dir: this.dir, oid: fromCommit, filepath });
-          oldContent = new TextDecoder().decode(blob);
-        } catch {
-          // ファイルが存在しない場合（新規ファイル）
-          oldContent = '';
-        }
-      } else {
-        oldContent = '';
-      }
-
-      // 新しいファイル内容を取得
-      if (to === 'WORKDIR') {
-        try {
-          const content = await this.fs.promises.readFile(`${this.dir}/${filepath}`, 'utf8');
-          newContent = content;
-        } catch {
-          // ファイルが削除された場合
-          newContent = '';
-        }
-      } else if (to === null) {
-        // ファイルが削除された場合
-        newContent = '';
-      } else {
-        // その他の場合（INDEX等）
-        newContent = '';
-      }
-
-      return this.formatDiff(filepath, oldContent, newContent);
-    } catch (error) {
-      throw new Error(`Failed to generate file diff: ${(error as Error).message}`);
-    }
-  }
 
   // ステージされた差分を生成
   private async generateStagedDiff(filepath: string, headCommitHash: string): Promise<string> {
