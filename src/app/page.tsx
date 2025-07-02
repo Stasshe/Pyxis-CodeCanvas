@@ -130,6 +130,17 @@ export default function Home() {
       try {
         // onFileOperationコールバック付きでGitCommandsを作成
         const gitCommands = new GitCommands(currentProject.name, async (path: string, type: 'file' | 'folder' | 'delete', content?: string) => {
+          // 「.」パスはプロジェクト更新通知のためのダミー操作
+          if (path === '.') {
+            console.log('Git status monitoring: dummy refresh operation detected');
+            if (currentProject && loadProject) {
+              loadProject(currentProject);
+            }
+            // Git状態も再チェック
+            setTimeout(checkGitStatus, 200);
+            return;
+          }
+          
           // Git操作によるファイル変更をプロジェクトに即座に反映
           if (currentProject && loadProject) {
             loadProject(currentProject);
@@ -320,9 +331,21 @@ export default function Home() {
             console.log('type:', type);
             console.log('content length:', content?.length || 'N/A');
             
+            // 「.」パスはプロジェクト更新通知のためのダミー操作
+            // 実際のファイル作成は行わず、プロジェクトリロードのみ実行
+            if (path === '.') {
+              console.log('Dummy project refresh operation detected, skipping file operations');
+              if (currentProject && loadProject) {
+                console.log('Reloading project for refresh:', currentProject.name);
+                loadProject(currentProject);
+                setGitRefreshTrigger(prev => prev + 1);
+              }
+              return;
+            }
+            
             // Gitコマンドからのファイル操作をプロジェクトに反映
             if (currentProject && loadProject) {
-              console.log('Reloading project:', currentProject.name);
+              console.log('Processing real file operation for project:', currentProject.name);
               
               // 該当ファイルがタブで開かれている場合、その内容を更新
               const normalizedPath = path.startsWith('/') ? path.substring(1) : path;

@@ -382,6 +382,14 @@ export const useProject = () => {
 
     console.log('[syncTerminalFileOperation] Starting:', { path, type, content, projectName: currentProject.name });
 
+    // 「.」パスはプロジェクト更新通知のためのダミー操作
+    // 実際のファイル作成は行わず、プロジェクトリフレッシュのみ実行
+    if (path === '.') {
+      console.log('[syncTerminalFileOperation] Dummy project refresh operation detected, skipping file operations');
+      await refreshProjectFiles();
+      return;
+    }
+
     try {
       if (type === 'delete') {
         // ファイルまたはフォルダを削除

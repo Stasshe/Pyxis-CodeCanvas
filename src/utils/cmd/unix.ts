@@ -83,9 +83,14 @@ export class UnixCommands {
       this.currentDir;
     
     try {
-      // 現在のディレクトリの内容を取得（.gitは除外）
+      // 現在のディレクトリの内容を取得（.git、「.」フォルダは除外）
       const files = await this.fs.promises.readdir(targetPath);
-      const filteredFiles = files.filter(file => file !== '.git');
+      const filteredFiles = files.filter(file => 
+        file !== '.git' && 
+        file !== '.' && 
+        file !== '..' &&
+        !file.startsWith('.git')
+      );
       
       if (filteredFiles.length === 0) {
         return '(empty directory)';
@@ -123,7 +128,7 @@ export class UnixCommands {
     }
   }
 
-  // シンプルなツリー形式表示（.gitを除外）
+  // シンプルなツリー形式表示（.git、「.」フォルダを除外）
   private async generateSimpleTree(basePath: string, files: Array<{name: string, isDirectory: boolean, path: string}>, depth = 0, prefix = ''): Promise<string> {
     let result = '';
     
@@ -144,7 +149,13 @@ export class UnixCommands {
         if (depth < 1) {
           try {
             const subFiles = await this.fs.promises.readdir(file.path);
-            const filteredSubFiles = subFiles.filter(f => f !== '.git');
+            // .git関連と「.」フォルダを除外して安全性を確保
+            const filteredSubFiles = subFiles.filter(f => 
+              f !== '.git' && 
+              f !== '.' && 
+              f !== '..' &&
+              !f.startsWith('.git')
+            );
             
             if (filteredSubFiles.length > 0) {
               const subDetails = await Promise.all(
