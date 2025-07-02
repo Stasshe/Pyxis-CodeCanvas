@@ -90,6 +90,25 @@ export class GitCommands {
       }
     }
     
+    // プロジェクトディレクトリの内容を事前確認
+    try {
+      const projectFiles = await this.fs.promises.readdir(this.dir);
+      console.log('[git.status] Project directory files:', projectFiles.filter(f => f !== '.git'));
+      
+      // 各ファイルの詳細も確認
+      for (const file of projectFiles.filter(f => f !== '.git')) {
+        try {
+          const filePath = `${this.dir}/${file}`;
+          const stat = await this.fs.promises.stat(filePath);
+          console.log(`[git.status] File ${file}: size=${stat.size}, isFile=${stat.isFile()}, isDirectory=${stat.isDirectory()}`);
+        } catch (fileError) {
+          console.warn(`[git.status] Failed to stat file ${file}:`, fileError);
+        }
+      }
+    } catch (dirError) {
+      console.warn('[git.status] Failed to read project directory:', dirError);
+    }
+    
     // 最小限の待機時間
     await new Promise(resolve => setTimeout(resolve, 150));
     
@@ -97,13 +116,48 @@ export class GitCommands {
     try {
       status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
       console.log('[git.status] statusMatrix successful:', status.length, 'files');
-      console.log('[git.status] statusMatrix details:', status.map(([file, head, workdir, stage]) => ({
-        file, head, workdir, stage
-      })));
+      
+      // 詳細なステータス情報をログ出力
+      status.forEach(([file, head, workdir, stage]) => {
+        console.log(`[git.status] File: ${file} | HEAD: ${head} | Workdir: ${workdir} | Stage: ${stage}`);
+      });
+      
+      console.log('[git.status] statusMatrix raw details:', status);
     } catch (statusError) {
+      const error = statusError as Error;
+      console.error('[git.status] statusMatrix failed with detailed error:', {
+        name: error.name,
+        message: error.message,
+        code: (error as any).code,
+        caller: (error as any).caller,
+        stack: error.stack
+      });
+      
+      // より詳細な診断情報
+      try {
+        console.log('[git.status] Diagnostic info:');
+        console.log('- Current directory:', this.dir);
+        console.log('- FileSystem instance:', !!this.fs);
+        
+        // .gitディレクトリの存在確認
+        const gitDirStat = await this.fs.promises.stat(`${this.dir}/.git`);
+        console.log('- .git directory exists:', gitDirStat.isDirectory());
+        
+        // HEADファイルの存在確認
+        try {
+          const headContent = await this.fs.promises.readFile(`${this.dir}/.git/HEAD`, 'utf8');
+          console.log('- HEAD file content:', headContent.trim());
+        } catch (headError) {
+          const hError = headError as Error;
+          console.warn('- HEAD file read failed:', hError.message);
+        }
+      } catch (diagError) {
+        console.warn('[git.status] Diagnostic check failed:', diagError);
+      }
+      
       // This warning may occur when you open this site. (for the README.md file)
       // So, i don't have to fix this.
-      console.warn('[git.status] statusMatrix failed, using fallback method:', statusError);
+      console.warn('[git.status] statusMatrix failed, using fallback method:', error.message);
       return this.getStatusFallback();
     }
     
@@ -249,33 +303,50 @@ export class GitCommands {
     const modified: string[] = [];
     const staged: string[] = [];
 
+    console.log('[git.categorizeStatusFiles] Starting categorization...');
+
     status.forEach(([filepath, HEAD, workdir, stage]) => {
+      console.log(`[git.categorizeStatusFiles] Processing: ${filepath} (HEAD:${HEAD}, workdir:${workdir}, stage:${stage})`);
+      
       // isomorphic-gitのstatusMatrixの値の意味:
       // HEAD: 0=ファイルなし, 1=ファイルあり
       // workdir: 0=ファイルなし, 1=ファイルあり, 2=変更あり
       // stage: 0=ステージなし, 1=ステージ済み（変更なし）, 2=ステージ済み（変更あり）, 3=ステージ済み（新規）
       
-      if (HEAD === 1 && workdir === 2 && stage === 1) {
+      if (HEAD === 0 && (workdir === 1 || workdir === 2) && stage === 0) {
+        // 新しいファイル（未追跡）- workdir が 1 または 2 の場合
+        console.log(`[git.categorizeStatusFiles] Untracked file: ${filepath}`);
+        untracked.push(filepath);
+      } else if (HEAD === 0 && (workdir === 1 || workdir === 2) && stage === 3) {
+        // 新しくステージされたファイル - workdir が 1 または 2 の場合
+        console.log(`[git.categorizeStatusFiles] New staged file: ${filepath}`);
+        staged.push(filepath);
+      } else if (HEAD === 1 && workdir === 2 && stage === 1) {
         // 変更されたファイル（未ステージ）
+        console.log(`[git.categorizeStatusFiles] Modified file (unstaged): ${filepath}`);
         modified.push(filepath);
       } else if (HEAD === 1 && workdir === 2 && stage === 2) {
         // 変更されてステージされたファイル
-        staged.push(filepath);
-      } else if (HEAD === 0 && workdir === 1 && stage === 0) {
-        // 新しいファイル（未追跡）
-        untracked.push(filepath);
-      } else if (HEAD === 0 && workdir === 1 && stage === 3) {
-        // 新しくステージされたファイル
+        console.log(`[git.categorizeStatusFiles] Modified staged file: ${filepath}`);
         staged.push(filepath);
       } else if (HEAD === 1 && workdir === 0 && stage === 0) {
         // 削除されたファイル（未ステージ）
+        console.log(`[git.categorizeStatusFiles] Deleted file (unstaged): ${filepath}`);
         modified.push(filepath);
       } else if (HEAD === 1 && workdir === 0 && stage === 3) {
         // 削除されてステージされたファイル
+        console.log(`[git.categorizeStatusFiles] Deleted staged file: ${filepath}`);
         staged.push(filepath);
+      } else {
+        // その他のケース（HEAD === 1 && workdir === 1 && stage === 1など）は変更なし
+        console.log(`[git.categorizeStatusFiles] No changes: ${filepath} (HEAD:${HEAD}, workdir:${workdir}, stage:${stage})`);
       }
-      // その他のケース（HEAD === 1 && workdir === 1 && stage === 1など）は変更なし
     });
+
+    console.log(`[git.categorizeStatusFiles] Results - Untracked: ${untracked.length}, Modified: ${modified.length}, Staged: ${staged.length}`);
+    console.log(`[git.categorizeStatusFiles] Untracked files:`, untracked);
+    console.log(`[git.categorizeStatusFiles] Modified files:`, modified);
+    console.log(`[git.categorizeStatusFiles] Staged files:`, staged);
 
     return { untracked, modified, staged };
   }

@@ -321,6 +321,19 @@ export class UnixCommands {
         // ファイルシステムの同期処理を簡素化
         await this.flushFileSystemCache();
         
+        // ファイル作成後の検証
+        try {
+          const stat = await this.fs.promises.stat(normalizedPath);
+          console.log(`[touch] File verification successful: ${normalizedPath}, size: ${stat.size}`);
+          
+          // ディレクトリの内容も確認
+          const dirPath = normalizedPath.substring(0, normalizedPath.lastIndexOf('/'));
+          const dirContents = await this.fs.promises.readdir(dirPath);
+          console.log(`[touch] Directory contents after creation: ${dirPath}`, dirContents);
+        } catch (verifyError) {
+          console.warn(`[touch] File verification failed: ${normalizedPath}`, verifyError);
+        }
+        
         // IndexedDBに同期（最優先で実行）
         if (this.onFileOperation) {
           const relativePath = this.getRelativePathFromProject(normalizedPath);
