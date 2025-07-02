@@ -346,15 +346,13 @@ export default function Home() {
                 }
               }
               
-              // 少し遅延させてファイルシステムの同期を待つ
-              setTimeout(() => {
-                loadProject(currentProject);
-                console.log('Project reload completed');
-                
-                // GitPanelの更新もトリガー
-                setGitRefreshTrigger(prev => prev + 1);
-                console.log('Git refresh trigger updated');
-              }, 100);
+              // プロジェクトを即座にリロード（遅延を短縮）
+              loadProject(currentProject);
+              console.log('Project reload completed');
+              
+              // GitPanelの更新も即座にトリガー
+              setGitRefreshTrigger(prev => prev + 1);
+              console.log('Git refresh trigger updated');
             } else {
               console.log('No current project or loadProject function');
             }

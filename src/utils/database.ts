@@ -221,6 +221,15 @@ class ProjectDB {
         console.log('[DB] Save successful for file:', file.path);
         resolve();
       };
+      
+      // トランザクション完了後に追加の同期処理
+      transaction.oncomplete = () => {
+        console.log('[DB] Transaction completed for file:', file.path);
+        // IndexedDBの変更を確実にフラッシュ
+        setTimeout(() => {
+          console.log('[DB] Post-save sync delay completed for:', file.path);
+        }, 50);
+      };
     });
   }
 

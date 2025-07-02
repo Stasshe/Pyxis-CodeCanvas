@@ -78,8 +78,8 @@ export class GitCommands {
   async status(): Promise<string> {
     await this.ensureGitRepository();
     
-    // ファイルシステムの同期を確実にする（強化版）
-    console.log('[git.status] Starting comprehensive filesystem sync...');
+    // ファイルシステムの同期処理を簡素化
+    console.log('[git.status] Starting filesystem sync...');
     
     if ((this.fs as any).sync) {
       try {
@@ -90,30 +90,11 @@ export class GitCommands {
       }
     }
     
-    // ファイルシステムの変更反映のための十分な待機時間
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // まずファイルシステムの状態を確認
-    let allFiles: string[] = [];
-    try {
-      allFiles = await this.getAllFiles(this.dir);
-      console.log('[git.status] Found files in project:', allFiles);
-    } catch (error) {
-      console.warn('[git.status] Failed to get all files:', error);
-    }
-    
-    // プロジェクトディレクトリの直接的な読み取りも実行
-    try {
-      const directoryContents = await this.fs.promises.readdir(this.dir);
-      console.log('[git.status] Direct directory read results:', directoryContents.filter(f => f !== '.git'));
-    } catch (dirError) {
-      console.warn('[git.status] Direct directory read failed:', dirError);
-    }
+    // 最小限の待機時間
+    await new Promise(resolve => setTimeout(resolve, 150));
     
     let status: Array<[string, number, number, number]> = [];
     try {
-      // ファイルシステムの準備ができるまでさらに待機
-      await new Promise(resolve => setTimeout(resolve, 300));
       status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
       console.log('[git.status] statusMatrix successful:', status.length, 'files');
       console.log('[git.status] statusMatrix details:', status.map(([file, head, workdir, stage]) => ({
@@ -128,8 +109,6 @@ export class GitCommands {
     
     // 結果をフォーマット
     return await this.formatStatusResult(status);
-    
-    //return this.formatStatusResult(status);
   }
 
   // ステータス取得のフォールバック処理

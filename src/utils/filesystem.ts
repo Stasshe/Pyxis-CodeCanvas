@@ -214,8 +214,19 @@ export const syncFileToFileSystem = async (projectName: string, filePath: string
     
     // ファイルを書き込み
     await fs.promises.writeFile(fullPath, content);
+    console.log(`[syncFileToFileSystem] Successfully synced: ${fullPath}`);
+    
+    // ファイルシステムの同期を確実にする
+    if ((fs as any).sync) {
+      try {
+        await (fs as any).sync();
+        console.log(`[syncFileToFileSystem] FileSystem cache flushed for: ${fullPath}`);
+      } catch (syncError) {
+        console.warn(`[syncFileToFileSystem] FileSystem sync failed for: ${fullPath}`, syncError);
+      }
+    }
   } catch (error) {
-    // ファイル同期エラーは無視（エラーログは表示しない）
+    console.error(`[syncFileToFileSystem] Failed to sync file ${fullPath}:`, error);
   }
 };
 
