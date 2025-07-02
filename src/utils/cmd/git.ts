@@ -111,7 +111,7 @@ export class GitCommands {
     // 結果をフォーマット
     return await this.formatStatusResult(status);
     
-    return this.formatStatusResult(status);
+    //return this.formatStatusResult(status);
   }
 
   // ステータス取得のフォールバック処理
@@ -341,7 +341,7 @@ export class GitCommands {
         }
         
         const entries = await this.fs.promises.readdir(currentPath);
-        console.log(`[getAllFiles] Reading directory ${currentPath}, found:`, entries);
+        //console.log(`[getAllFiles] Reading directory ${currentPath}, found:`, entries);
         
         for (const entry of entries) {
           // .gitディレクトリは除外
@@ -356,7 +356,7 @@ export class GitCommands {
               await traverse(fullPath, relativeFilePath);
             } else {
               files.push(relativeFilePath);
-              console.log(`[getAllFiles] Found file: ${relativeFilePath} (size: ${stat.size})`);
+              //console.log(`[getAllFiles] Found file: ${relativeFilePath} (size: ${stat.size})`);
             }
           } catch (error) {
             console.warn(`[getAllFiles] Failed to stat ${fullPath}:`, error);
@@ -368,7 +368,7 @@ export class GitCommands {
     };
     
     await traverse(dirPath);
-    console.log(`[getAllFiles] Total files found: ${files.length}`, files);
+    //console.log(`[getAllFiles] Total files found: ${files.length}`, files);
     return files;
   }
 

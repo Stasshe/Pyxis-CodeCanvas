@@ -201,9 +201,9 @@ export class UnixCommands {
         // IndexedDBにも同期
         if (this.onFileOperation) {
           const relativePath = this.getRelativePathFromProject(normalizedPath);
-          console.log('[mkdir] Syncing recursive:', { relativePath });
+          //console.log('[mkdir] Syncing recursive:', { relativePath });
           await this.onFileOperation(relativePath, 'folder');
-          console.log('[mkdir] Sync completed for recursive');
+          //console.log('[mkdir] Sync completed for recursive');
         }
         
         return `Directory created: ${normalizedPath}`;
@@ -244,7 +244,7 @@ export class UnixCommands {
           // IndexedDBにも同期
           if (this.onFileOperation) {
             const relativePath = this.getRelativePathFromProject(normalizedPath);
-            console.log('[mkdir] Syncing to IndexedDB:', { relativePath });
+            //console.log('[mkdir] Syncing to IndexedDB:', { relativePath });
             try {
               await this.onFileOperation(relativePath, 'folder');
               console.log('[mkdir] Sync completed successfully');
@@ -331,7 +331,7 @@ export class UnixCommands {
         // IndexedDBにも同期
         if (this.onFileOperation) {
           const relativePath = this.getRelativePathFromProject(normalizedPath);
-          console.log(`[touch] Syncing to IndexedDB: ${relativePath}`);
+          //console.log(`[touch] Syncing to IndexedDB: ${relativePath}`);
           await this.onFileOperation(relativePath, 'file', '');
         }
         

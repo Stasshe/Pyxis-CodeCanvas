@@ -20,7 +20,7 @@ export const initializeFileSystem = () => {
           console.log('/projects directory already exists');
         } else {
           console.warn('Failed to initialize /projects directory:', error);
-          
+          /*
           // フォールバック: 手動でディレクトリを作成
           try {
             await fs!.promises.mkdir('/projects');
@@ -32,6 +32,7 @@ export const initializeFileSystem = () => {
               console.error('Fallback directory creation failed:', fallbackError);
             }
           }
+          */
         }
       }
     }, 0);
@@ -59,11 +60,10 @@ export const syncProjectFiles = async (projectName: string, files: Array<{ path:
   }
 
   const projectDir = getProjectDir(projectName);
-  console.log('Syncing to project directory:', projectDir);
   
   try {
     // まず/projectsディレクトリを確実に作成
-    console.log('Ensuring /projects directory exists...');
+    //console.log('Ensuring /projects directory exists...');
     await ensureDirectoryExists(fs, '/projects');
     
     // プロジェクトディレクトリを作成
@@ -107,11 +107,9 @@ export const syncProjectFiles = async (projectName: string, files: Array<{ path:
 
     // ファイルを作成
     const fileItems = files.filter(f => f.type === 'file');
-    console.log('Creating files:', fileItems.map(f => f.path));
     
     for (const file of fileItems) {
       const fullPath = `${projectDir}${file.path}`;
-      console.log(`Creating file: ${fullPath}`);
       
       // 親ディレクトリパスを取得
       const parentDir = fullPath.substring(0, fullPath.lastIndexOf('/'));
@@ -127,15 +125,15 @@ export const syncProjectFiles = async (projectName: string, files: Array<{ path:
       
       try {
         await fs.promises.writeFile(fullPath, file.content || '');
-        console.log(`Successfully synced file: ${fullPath}`);
+        // console.log(`Successfully synced file: ${fullPath}`);
         
-        // ファイル作成後に存在確認
-        try {
-          const stat = await fs.promises.stat(fullPath);
-          console.log(`File verified: ${fullPath}, size: ${stat.size}`);
-        } catch {
-          console.warn(`File verification failed: ${fullPath}`);
-        }
+        // // ファイル作成後に存在確認
+        // try {
+        //   const stat = await fs.promises.stat(fullPath);
+        //   console.log(`File verified: ${fullPath}, size: ${stat.size}`);
+        // } catch {
+        //   console.warn(`File verification failed: ${fullPath}`);
+        // }
       } catch (error) {
         console.error(`Failed to sync file ${fullPath}:`, error);
         
@@ -171,8 +169,8 @@ export const syncProjectFiles = async (projectName: string, files: Array<{ path:
       }
     }
     
-    console.log('File sync completed, verifying filesystem state...');
-    
+    //console.log('File sync completed, verifying filesystem state...');
+    /*
     // 最終的なファイルシステム状態を確認
     try {
       const finalFiles = await fs.promises.readdir(projectDir);
@@ -180,6 +178,7 @@ export const syncProjectFiles = async (projectName: string, files: Array<{ path:
     } catch (error) {
       console.warn('Failed to verify final filesystem state:', error);
     }
+    */
   } catch (error) {
     console.error('Failed to sync project files:', error);
   }

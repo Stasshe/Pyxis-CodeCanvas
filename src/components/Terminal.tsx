@@ -51,7 +51,7 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
     // プロジェクトファイルをターミナルファイルシステムに同期
     const syncFiles = async () => {
       if (projectFiles.length > 0) {
-        console.log('Syncing project files:', projectFiles);
+        console.log('[Terminal]Syncing project files:', projectFiles);
         const flatFiles = flattenFileItems(projectFiles);
         console.log('Flattened files:', flatFiles);
         await syncProjectFiles(currentProject, flatFiles);
