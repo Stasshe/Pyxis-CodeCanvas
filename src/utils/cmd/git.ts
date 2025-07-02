@@ -78,6 +78,16 @@ export class GitCommands {
   async status(): Promise<string> {
     await this.ensureGitRepository();
     
+    // ファイルシステムの同期を確実にする
+    if ((this.fs as any).sync) {
+      try {
+        await (this.fs as any).sync();
+        console.log('[git.status] FileSystem synced');
+      } catch (syncError) {
+        console.warn('[git.status] FileSystem sync failed:', syncError);
+      }
+    }
+    
     // まずファイルシステムの状態を確認
     let allFiles: string[] = [];
     try {
@@ -90,7 +100,7 @@ export class GitCommands {
     let status: Array<[string, number, number, number]> = [];
     try {
       // ファイルシステムの準備ができるまで少し待機
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 300));
       status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
       console.log('[git.status] statusMatrix successful:', status.length, 'files');
     } catch (statusError) {
@@ -98,14 +108,33 @@ export class GitCommands {
       return this.getStatusFallback();
     }
     
+    // 結果をフォーマット
+    return await this.formatStatusResult(status);
+    
     return this.formatStatusResult(status);
   }
 
   // ステータス取得のフォールバック処理
   private async getStatusFallback(): Promise<string> {
     try {
+      console.log('[git.getStatusFallback] Using fallback status method');
+      
+      // ファイルシステムの同期を確実にする
+      if ((this.fs as any).sync) {
+        try {
+          await (this.fs as any).sync();
+          console.log('[git.getStatusFallback] FileSystem synced');
+        } catch (syncError) {
+          console.warn('[git.getStatusFallback] FileSystem sync failed:', syncError);
+        }
+      }
+      
       const files = await this.fs.promises.readdir(this.dir);
+      console.log('[git.getStatusFallback] Found files in directory:', files);
+      
       const projectFiles = await this.getProjectFiles(files);
+      console.log('[git.getStatusFallback] Filtered project files:', projectFiles);
+      
       const currentBranch = await this.getCurrentBranch();
       
       if (projectFiles.length === 0) {
@@ -114,9 +143,11 @@ export class GitCommands {
 
       let result = `On branch ${currentBranch}\n`;
       result += '\nUntracked files:\n';
-      projectFiles.forEach(file => result += `  ${file}\n`);
+      result += '  (use "git add <file>..." to include in what will be committed)\n\n';
+      projectFiles.forEach(file => result += `\t${file}\n`);
       result += '\nnothing added to commit but untracked files present (use "git add" to track)';
       
+      console.log('[git.getStatusFallback] Generated fallback status:', result);
       return result;
     } catch (fallbackError) {
       console.error('Fallback status check failed:', fallbackError);
@@ -132,14 +163,19 @@ export class GitCommands {
       if (file.startsWith('.') || file === '.git') continue;
       
       try {
-        const stat = await this.fs.promises.stat(`${this.dir}/${file}`);
+        const filePath = `${this.dir}/${file}`;
+        const stat = await this.fs.promises.stat(filePath);
         if (stat.isFile()) {
           projectFiles.push(file);
+          console.log(`[git.getProjectFiles] Found file: ${file} (size: ${stat.size})`);
+        } else if (stat.isDirectory()) {
+          console.log(`[git.getProjectFiles] Skipping directory: ${file}`);
         }
-      } catch {
-        // stat取得に失敗した場合はスキップ
+      } catch (statError) {
+        console.warn(`[git.getProjectFiles] Failed to stat ${file}:`, statError);
       }
     }
+    console.log(`[git.getProjectFiles] Total project files: ${projectFiles.length}`, projectFiles);
     return projectFiles;
   }
 
@@ -225,6 +261,17 @@ export class GitCommands {
   async add(filepath: string): Promise<string> {
     try {
       await this.ensureProjectDirectory();
+      
+      // ファイルシステムの同期を確実にする
+      if ((this.fs as any).sync) {
+        try {
+          await (this.fs as any).sync();
+          console.log('[git.add] FileSystem synced');
+        } catch (syncError) {
+          console.warn('[git.add] FileSystem sync failed:', syncError);
+        }
+      }
+      
       if (filepath === '.') {
         // カレントディレクトリの全ファイルを追加
         const files = await this.getAllFiles(this.dir);
@@ -233,7 +280,12 @@ export class GitCommands {
         }
         
         for (const file of files) {
-          await git.add({ fs: this.fs, dir: this.dir, filepath: file });
+          try {
+            await git.add({ fs: this.fs, dir: this.dir, filepath: file });
+            console.log(`[git.add] Added file: ${file}`);
+          } catch (addError) {
+            console.warn(`[git.add] Failed to add ${file}:`, addError);
+          }
         }
         
         return `Added ${files.length} file(s) to staging area`;
@@ -245,13 +297,27 @@ export class GitCommands {
         }
         
         for (const file of files) {
-          await git.add({ fs: this.fs, dir: this.dir, filepath: file });
+          try {
+            await git.add({ fs: this.fs, dir: this.dir, filepath: file });
+            console.log(`[git.add] Added file: ${file}`);
+          } catch (addError) {
+            console.warn(`[git.add] Failed to add ${file}:`, addError);
+          }
         }
         
         return `Added ${files.length} file(s) to staging area`;
       } else {
-        // 個別ファイル
+        // 個別ファイル - まずファイルが存在することを確認
+        const fullPath = `${this.dir}/${filepath}`;
+        try {
+          const stat = await this.fs.promises.stat(fullPath);
+          console.log(`[git.add] File exists: ${filepath}, size: ${stat.size}`);
+        } catch (statError) {
+          throw new Error(`pathspec '${filepath}' did not match any files`);
+        }
+        
         await git.add({ fs: this.fs, dir: this.dir, filepath });
+        console.log(`[git.add] Added file: ${filepath}`);
         return `Added ${filepath} to staging area`;
       }
     } catch (error) {
@@ -265,7 +331,17 @@ export class GitCommands {
     
     const traverse = async (currentPath: string, relativePath: string = '') => {
       try {
+        // ファイルシステムの同期を確実にする
+        if ((this.fs as any).sync) {
+          try {
+            await (this.fs as any).sync();
+          } catch (syncError) {
+            console.warn(`[getAllFiles] Sync failed for ${currentPath}:`, syncError);
+          }
+        }
+        
         const entries = await this.fs.promises.readdir(currentPath);
+        console.log(`[getAllFiles] Reading directory ${currentPath}, found:`, entries);
         
         for (const entry of entries) {
           // .gitディレクトリは除外
@@ -280,6 +356,7 @@ export class GitCommands {
               await traverse(fullPath, relativeFilePath);
             } else {
               files.push(relativeFilePath);
+              console.log(`[getAllFiles] Found file: ${relativeFilePath} (size: ${stat.size})`);
             }
           } catch (error) {
             console.warn(`[getAllFiles] Failed to stat ${fullPath}:`, error);
@@ -291,6 +368,7 @@ export class GitCommands {
     };
     
     await traverse(dirPath);
+    console.log(`[getAllFiles] Total files found: ${files.length}`, files);
     return files;
   }
 

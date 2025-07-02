@@ -304,8 +304,22 @@ export const useProject = () => {
     if (!currentProject) return;
 
     try {
+      console.log('[createFile] Creating file:', { path, type, contentLength: content.length });
       const newFile = await projectDB.createFile(currentProject.id, path, content, type);
       setProjectFiles(prev => [...prev, newFile]);
+      
+      // ファイルシステムに同期（Git変更検知のため）
+      if (type === 'file') {
+        try {
+          const { syncFileToFileSystem } = await import('./filesystem');
+          await syncFileToFileSystem(currentProject.name, path, content);
+          console.log('[createFile] Synced to filesystem for Git detection');
+        } catch (syncError) {
+          console.warn('[createFile] Filesystem sync failed (non-critical):', syncError);
+        }
+      }
+      
+      console.log('[createFile] File created successfully:', newFile.id);
       return newFile;
     } catch (error) {
       console.error('Failed to create file:', error);
@@ -315,9 +329,32 @@ export const useProject = () => {
 
   // ファイルを削除
   const deleteFile = async (fileId: string) => {
+    if (!currentProject) return;
+
     try {
+      // 削除対象ファイルの情報を取得
+      const fileToDelete = projectFiles.find(f => f.id === fileId);
+      console.log('[deleteFile] Deleting file:', fileToDelete?.path);
+      
       await projectDB.deleteFile(fileId);
       setProjectFiles(prev => prev.filter(f => f.id !== fileId));
+      
+      // ファイルシステムからも削除（Git変更検知のため）
+      if (fileToDelete && fileToDelete.type === 'file') {
+        try {
+          const { getFileSystem, getProjectDir } = await import('./filesystem');
+          const fs = getFileSystem();
+          if (fs) {
+            const fullPath = `${getProjectDir(currentProject.name)}${fileToDelete.path}`;
+            await fs.promises.unlink(fullPath);
+            console.log('[deleteFile] Removed from filesystem for Git detection');
+          }
+        } catch (syncError) {
+          console.warn('[deleteFile] Filesystem removal failed (non-critical):', syncError);
+        }
+      }
+      
+      console.log('[deleteFile] File deleted successfully');
     } catch (error) {
       console.error('Failed to delete file:', error);
       throw error;

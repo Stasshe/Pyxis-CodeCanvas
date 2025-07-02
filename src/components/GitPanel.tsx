@@ -31,12 +31,30 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
       setIsLoading(true);
       setError(null);
       
+      console.log('[GitPanel] Fetching git status...');
+      
+      // ファイルシステムの同期を確実にする
+      const fs = (gitCommands as any).fs;
+      if (fs && (fs as any).sync) {
+        try {
+          await (fs as any).sync();
+          console.log('[GitPanel] FileSystem synced before status check');
+        } catch (syncError) {
+          console.warn('[GitPanel] FileSystem sync failed:', syncError);
+        }
+      }
+      
+      // ファイルシステムの変更が確実に反映されるまで待機
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       // Git状態を並行して取得
       const [statusResult, logResult, branchResult] = await Promise.all([
         gitCommands.status(),
         gitCommands.getFormattedLog(20),
         gitCommands.branch()
       ]);
+
+      console.log('[GitPanel] Git status result:', statusResult);
 
       // コミット履歴をパース
       const commits = parseGitLog(logResult);
@@ -46,6 +64,12 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
       
       // ステータス情報をパース
       const status = parseGitStatus(statusResult);
+      
+      console.log('[GitPanel] Parsed status:', {
+        staged: status.staged,
+        unstaged: status.unstaged,
+        untracked: status.untracked
+      });
 
       setGitRepo({
         initialized: true,
@@ -58,6 +82,7 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
       // 変更ファイル数を計算してコールバックで通知
       if (onGitStatusChange) {
         const changesCount = status.staged.length + status.unstaged.length + status.untracked.length;
+        console.log('[GitPanel] Notifying changes count:', changesCount);
         onGitStatusChange(changesCount);
       }
     } catch (error) {
@@ -134,6 +159,7 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
 
   // Git statusをパース
   const parseGitStatus = (statusOutput: string): GitStatus => {
+    console.log('[GitPanel] Parsing git status output:', statusOutput);
     const lines = statusOutput.split('\n');
     const status: GitStatus = {
       staged: [],
@@ -153,34 +179,52 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
       
       if (trimmed.includes('On branch')) {
         status.branch = trimmed.replace('On branch ', '').trim();
+        console.log('[GitPanel] Found branch:', status.branch);
       } else if (trimmed === 'Changes to be committed:') {
         inChangesToBeCommitted = true;
         inChangesNotStaged = false;
         inUntrackedFiles = false;
+        console.log('[GitPanel] Entering staged files section');
       } else if (trimmed === 'Changes not staged for commit:') {
         inChangesToBeCommitted = false;
         inChangesNotStaged = true;
         inUntrackedFiles = false;
+        console.log('[GitPanel] Entering unstaged files section');
       } else if (trimmed === 'Untracked files:') {
         inChangesToBeCommitted = false;
         inChangesNotStaged = false;
         inUntrackedFiles = true;
+        console.log('[GitPanel] Entering untracked files section');
       } else if (trimmed.startsWith('modified:') || trimmed.startsWith('new file:') || trimmed.startsWith('deleted:')) {
         const fileName = trimmed.split(':')[1]?.trim();
         if (fileName) {
           if (inChangesToBeCommitted) {
             status.staged.push(fileName);
+            console.log('[GitPanel] Found staged file:', fileName);
           } else if (inChangesNotStaged) {
             status.unstaged.push(fileName);
+            console.log('[GitPanel] Found unstaged file:', fileName);
           }
         }
-      } else if (inUntrackedFiles && trimmed && !trimmed.startsWith('(') && !trimmed.includes('git add')) {
+      } else if (inUntrackedFiles && trimmed && 
+                 !trimmed.startsWith('(') && 
+                 !trimmed.includes('git add') && 
+                 !trimmed.includes('use "git add"') &&
+                 !trimmed.includes('to include')) {
         // フォルダ（末尾に/があるもの）は除外
         if (!trimmed.endsWith('/')) {
           status.untracked.push(trimmed);
+          console.log('[GitPanel] Found untracked file:', trimmed);
         }
       }
     }
+
+    console.log('[GitPanel] Final parsed status:', {
+      staged: status.staged,
+      unstaged: status.unstaged,
+      untracked: status.untracked,
+      total: status.staged.length + status.unstaged.length + status.untracked.length
+    });
 
     return status;
   };
@@ -190,8 +234,14 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
     if (!gitCommands) return;
     
     try {
+      console.log('[GitPanel] Staging file:', file);
       await gitCommands.add(file);
-      fetchGitStatus(); // 状態を更新
+      
+      // ステージング後少し待ってから状態を更新
+      setTimeout(() => {
+        console.log('[GitPanel] Refreshing status after staging');
+        fetchGitStatus();
+      }, 200);
     } catch (error) {
       console.error('Failed to stage file:', error);
     }
@@ -214,8 +264,14 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
     if (!gitCommands) return;
     
     try {
+      console.log('[GitPanel] Staging all files');
       await gitCommands.add('.');
-      fetchGitStatus();
+      
+      // ステージング後少し待ってから状態を更新
+      setTimeout(() => {
+        console.log('[GitPanel] Refreshing status after staging all');
+        fetchGitStatus();
+      }, 300);
     } catch (error) {
       console.error('Failed to stage all files:', error);
     }
@@ -282,10 +338,12 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
   // Git更新トリガーが変更されたときの更新
   useEffect(() => {
     if (currentProject && gitRefreshTrigger !== undefined && gitRefreshTrigger > 0) {
-      // ファイル同期完了を待つために少し遅延
+      console.log('[GitPanel] Git refresh trigger fired:', gitRefreshTrigger);
+      // ファイル同期完了を待つために適度な遅延
       const timer = setTimeout(() => {
+        console.log('[GitPanel] Executing delayed git status fetch');
         fetchGitStatus();
-      }, 300);
+      }, 500);
       return () => clearTimeout(timer);
     }
   }, [gitRefreshTrigger]);

@@ -245,10 +245,10 @@ export default function Home() {
         ));
         console.log('[handleTabContentUpdate] Tab isDirty status cleared');
         
-        // ファイル保存後にGitパネルを更新（少し遅延を入れる）
+        // ファイル保存後にGitパネルを更新（ファイルシステム同期を待つ）
         setTimeout(() => {
           setGitRefreshTrigger(prev => prev + 1);
-        }, 200);
+        }, 500);
       } catch (error) {
         console.error('[handleTabContentUpdate] Failed to save file:', error);
         // エラーをユーザーに通知（今後の拡張用）
