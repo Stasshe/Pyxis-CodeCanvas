@@ -356,90 +356,151 @@ export class UnixCommands {
 
   // rm - ファイル削除
   async rm(fileName: string, recursive = false): Promise<string> {
-    try {
+    return this.executeFileOperation(async () => {
+      console.log('[rm] Starting file deletion:', { fileName, recursive, currentDir: this.currentDir });
+      
+      // プロジェクトディレクトリの確認
+      await this.ensureProjectDirectory();
+      
       if (fileName.includes('*')) {
         // ワイルドカード対応
         const files = await this.getMatchingFilesForDelete(fileName);
         if (files.length === 0) {
-          return `No files matching '${fileName}'`;
+          return `rm: no matches found: ${fileName}`;
         }
         
         let deletedCount = 0;
         const deletedFiles: string[] = [];
+        const errors: string[] = [];
         
         for (const file of files) {
           try {
-            const targetPath = file.startsWith('/') ? file : `${this.currentDir}/${file}`;
-            const normalizedPath = this.normalizePath(targetPath);
-            
-            const stat = await this.fs.promises.stat(normalizedPath);
-            
-            if (stat.isDirectory()) {
-              if (!recursive) {
-                console.log(`[rm] Skipping directory ${file} (use -r for recursive)`);
-                continue;
-              }
-              await this.rmdir(normalizedPath);
-            } else {
-              await this.fs.promises.unlink(normalizedPath);
+            const result = await this.removeFile(file, recursive);
+            if (result.success) {
+              deletedFiles.push(file);
+              deletedCount++;
+            } else if (result.error) {
+              errors.push(`${file}: ${result.error}`);
             }
-            
-            // IndexedDBからも削除
-            if (this.onFileOperation) {
-              const relativePath = this.getRelativePathFromProject(normalizedPath);
-              await this.onFileOperation(relativePath, 'delete');
-            }
-            
-            deletedFiles.push(file);
-            deletedCount++;
           } catch (error) {
-            console.log(`[rm] Failed to remove ${file}:`, error);
+            errors.push(`${file}: ${(error as Error).message}`);
           }
+        }
+        
+        // ファイルシステムキャッシュのフラッシュ
+        await this.flushFileSystemCache();
+        
+        // プロジェクト全体の更新を通知
+        if (this.onFileOperation && deletedCount > 0) {
+          console.log('[rm] Triggering project refresh after batch deletion');
+          await this.onFileOperation('.', 'folder');
         }
         
         if (deletedCount === 0) {
-          return `No files were removed`;
+          const errorMsg = errors.length > 0 ? `\nErrors:\n${errors.join('\n')}` : '';
+          return `rm: no files were removed${errorMsg}`;
         }
         
-        return `Removed ${deletedCount} file(s): ${deletedFiles.join(', ')}`;
+        const successMsg = `removed ${deletedCount} file(s): ${deletedFiles.join(', ')}`;
+        const errorMsg = errors.length > 0 ? `\nWarnings:\n${errors.join('\n')}` : '';
+        return successMsg + errorMsg;
       } else {
-        // 単一ファイル削除（既存の処理）
-        const targetPath = fileName.startsWith('/') ? fileName : `${this.currentDir}/${fileName}`;
-        const normalizedPath = this.normalizePath(targetPath);
+        // 単一ファイル削除
+        const result = await this.removeFile(fileName, recursive);
         
-        const stat = await this.fs.promises.stat(normalizedPath);
+        // ファイルシステムキャッシュのフラッシュ
+        await this.flushFileSystemCache();
         
-        if (stat.isDirectory()) {
-          if (!recursive) {
-            throw new Error('Is a directory (use -r for recursive)');
+        if (result.success) {
+          // プロジェクト全体の更新を通知
+          if (this.onFileOperation) {
+            console.log('[rm] Triggering project refresh after single file deletion');
+            await this.onFileOperation('.', 'folder');
           }
-          await this.rmdir(normalizedPath);
+          return result.message || `removed '${fileName}'`;
         } else {
-          await this.fs.promises.unlink(normalizedPath);
+          throw new Error(result.error || `cannot remove '${fileName}'`);
         }
-        
-        // IndexedDBからも削除
-        if (this.onFileOperation) {
-          const relativePath = this.getRelativePathFromProject(normalizedPath);
-          await this.onFileOperation(relativePath, 'delete');
-        }
-        
-        return `Removed: ${normalizedPath}`;
       }
+    }, `rm operation failed`);
+  }
+
+  // ファイル削除のヘルパーメソッド
+  private async removeFile(fileName: string, recursive: boolean): Promise<{ success: boolean; message?: string; error?: string }> {
+    try {
+      const targetPath = fileName.startsWith('/') ? fileName : `${this.currentDir}/${fileName}`;
+      const normalizedPath = this.normalizePath(targetPath);
+      
+      console.log('[rm] Processing file:', { fileName, targetPath, normalizedPath });
+      
+      // ファイル/ディレクトリの存在確認
+      let stat;
+      try {
+        stat = await this.fs.promises.stat(normalizedPath);
+      } catch {
+        return { success: false, error: 'No such file or directory' };
+      }
+      
+      if (stat.isDirectory()) {
+        if (!recursive) {
+          return { success: false, error: 'is a directory (use -r for recursive)' };
+        }
+        // ディレクトリの再帰削除
+        await this.rmdir(normalizedPath);
+        console.log('[rm] Directory removed successfully:', normalizedPath);
+      } else {
+        // ファイル削除
+        await this.fs.promises.unlink(normalizedPath);
+        console.log('[rm] File removed successfully:', normalizedPath);
+      }
+      
+      // IndexedDBからも削除
+      if (this.onFileOperation) {
+        const relativePath = this.getRelativePathFromProject(normalizedPath);
+        console.log('[rm] Notifying file operation callback:', relativePath);
+        await this.onFileOperation(relativePath, 'delete');
+      }
+      
+      return { 
+        success: true, 
+        message: `removed '${fileName}'`
+      };
     } catch (error) {
-      throw new Error(`rm: cannot remove '${fileName}': ${(error as Error).message}`);
+      console.error('[rm] Error removing file:', fileName, error);
+      return { 
+        success: false, 
+        error: (error as Error).message 
+      };
+    }
+  }
+
+  // エラーハンドリング付きのファイル操作実行
+  private async executeFileOperation<T>(operation: () => Promise<T>, errorPrefix: string): Promise<T> {
+    try {
+      return await operation();
+    } catch (error) {
+      console.error('[unix] File operation error:', error);
+      throw new Error(`${errorPrefix}: ${(error as Error).message}`);
     }
   }
 
   // 削除用のパターンマッチング
   private async getMatchingFilesForDelete(pattern: string): Promise<string[]> {
     try {
+      console.log('[rm] Pattern matching for deletion:', pattern);
+      
       // 現在のディレクトリの内容を取得
       const files = await this.fs.promises.readdir(this.currentDir);
-      const filteredFiles = files.filter(file => file !== '.git');
+      // .git関連のファイルは除外して安全性を確保
+      const filteredFiles = files.filter(file => 
+        file !== '.git' && 
+        !file.startsWith('.git')
+      );
+      
+      console.log('[rm] Available files for pattern matching:', filteredFiles);
       
       if (pattern === '*') {
-        // すべてのファイル
+        // すべてのファイル（.git関連を除く）
         return filteredFiles;
       }
       
@@ -450,7 +511,10 @@ export class UnixCommands {
         .replace(/\?/g, '.');   // ? を . に変換
       
       const regex = new RegExp(`^${regexPattern}$`);
-      return filteredFiles.filter(file => regex.test(file));
+      const matchedFiles = filteredFiles.filter(file => regex.test(file));
+      
+      console.log('[rm] Matched files:', matchedFiles);
+      return matchedFiles;
     } catch (error) {
       console.error('[rm] Error getting matching files:', error);
       return [];
@@ -514,19 +578,48 @@ export class UnixCommands {
 
   // ヘルパーメソッド: ディレクトリの再帰削除
   private async rmdir(dirPath: string): Promise<void> {
-    const files = await this.fs.promises.readdir(dirPath);
+    console.log('[rmdir] Starting recursive directory deletion:', dirPath);
     
-    for (const file of files) {
-      const filePath = `${dirPath}/${file}`;
-      const stat = await this.fs.promises.stat(filePath);
+    try {
+      const files = await this.fs.promises.readdir(dirPath);
+      console.log('[rmdir] Found files in directory:', files.length);
       
-      if (stat.isDirectory()) {
-        await this.rmdir(filePath);
-      } else {
-        await this.fs.promises.unlink(filePath);
+      // .gitディレクトリは除外（git関連の操作を避ける）
+      const filteredFiles = files.filter(file => file !== '.git');
+      
+      for (const file of filteredFiles) {
+        const filePath = `${dirPath}/${file}`;
+        
+        try {
+          const stat = await this.fs.promises.stat(filePath);
+          
+          if (stat.isDirectory()) {
+            console.log('[rmdir] Recursively deleting subdirectory:', filePath);
+            await this.rmdir(filePath);
+          } else {
+            console.log('[rmdir] Deleting file:', filePath);
+            await this.fs.promises.unlink(filePath);
+            
+            // 個別ファイル削除の通知
+            if (this.onFileOperation) {
+              const relativePath = this.getRelativePathFromProject(filePath);
+              await this.onFileOperation(relativePath, 'delete');
+            }
+          }
+        } catch (fileError) {
+          console.warn(`[rmdir] Failed to delete ${filePath}:`, fileError);
+          // 個別ファイルの削除に失敗しても続行
+        }
       }
+      
+      // ディレクトリ自体を削除
+      console.log('[rmdir] Removing directory:', dirPath);
+      await this.fs.promises.rmdir(dirPath);
+      
+      console.log('[rmdir] Successfully removed directory:', dirPath);
+    } catch (error) {
+      console.error('[rmdir] Error removing directory:', dirPath, error);
+      throw new Error(`Cannot remove directory '${dirPath}': ${(error as Error).message}`);
     }
-    
-    await this.fs.promises.rmdir(dirPath);
   }
 }
