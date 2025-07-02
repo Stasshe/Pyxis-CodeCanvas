@@ -78,35 +78,13 @@ export class GitCommands {
   async status(): Promise<string> {
     await this.ensureGitRepository();
     
-    // ファイルシステムの同期処理を簡素化
-    console.log('[git.status] Starting filesystem sync...');
-    
+    // ファイルシステムの同期処理
     if ((this.fs as any).sync) {
       try {
         await (this.fs as any).sync();
-        console.log('[git.status] FileSystem synced');
       } catch (syncError) {
         console.warn('[git.status] FileSystem sync failed:', syncError);
       }
-    }
-    
-    // プロジェクトディレクトリの内容を事前確認
-    try {
-      const projectFiles = await this.fs.promises.readdir(this.dir);
-      console.log('[git.status] Project directory files:', projectFiles.filter(f => f !== '.git'));
-      
-      // 各ファイルの詳細も確認
-      for (const file of projectFiles.filter(f => f !== '.git')) {
-        try {
-          const filePath = `${this.dir}/${file}`;
-          const stat = await this.fs.promises.stat(filePath);
-          console.log(`[git.status] File ${file}: size=${stat.size}, isFile=${stat.isFile()}, isDirectory=${stat.isDirectory()}`);
-        } catch (fileError) {
-          console.warn(`[git.status] Failed to stat file ${file}:`, fileError);
-        }
-      }
-    } catch (dirError) {
-      console.warn('[git.status] Failed to read project directory:', dirError);
     }
     
     // 最小限の待機時間
@@ -115,48 +93,8 @@ export class GitCommands {
     let status: Array<[string, number, number, number]> = [];
     try {
       status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
-      console.log('[git.status] statusMatrix successful:', status.length, 'files');
-      
-      // 詳細なステータス情報をログ出力
-      status.forEach(([file, head, workdir, stage]) => {
-        console.log(`[git.status] File: ${file} | HEAD: ${head} | Workdir: ${workdir} | Stage: ${stage}`);
-      });
-      
-      console.log('[git.status] statusMatrix raw details:', status);
     } catch (statusError) {
       const error = statusError as Error;
-      console.error('[git.status] statusMatrix failed with detailed error:', {
-        name: error.name,
-        message: error.message,
-        code: (error as any).code,
-        caller: (error as any).caller,
-        stack: error.stack
-      });
-      
-      // より詳細な診断情報
-      try {
-        console.log('[git.status] Diagnostic info:');
-        console.log('- Current directory:', this.dir);
-        console.log('- FileSystem instance:', !!this.fs);
-        
-        // .gitディレクトリの存在確認
-        const gitDirStat = await this.fs.promises.stat(`${this.dir}/.git`);
-        console.log('- .git directory exists:', gitDirStat.isDirectory());
-        
-        // HEADファイルの存在確認
-        try {
-          const headContent = await this.fs.promises.readFile(`${this.dir}/.git/HEAD`, 'utf8');
-          console.log('- HEAD file content:', headContent.trim());
-        } catch (headError) {
-          const hError = headError as Error;
-          console.warn('- HEAD file read failed:', hError.message);
-        }
-      } catch (diagError) {
-        console.warn('[git.status] Diagnostic check failed:', diagError);
-      }
-      
-      // This warning may occur when you open this site. (for the README.md file)
-      // So, i don't have to fix this.
       console.warn('[git.status] statusMatrix failed, using fallback method:', error.message);
       return this.getStatusFallback();
     }
@@ -168,13 +106,10 @@ export class GitCommands {
   // ステータス取得のフォールバック処理
   private async getStatusFallback(): Promise<string> {
     try {
-      console.log('[git.getStatusFallback] Using fallback status method');
-      
       // ファイルシステムの同期を確実にする
       if ((this.fs as any).sync) {
         try {
           await (this.fs as any).sync();
-          console.log('[git.getStatusFallback] FileSystem synced');
         } catch (syncError) {
           console.warn('[git.getStatusFallback] FileSystem sync failed:', syncError);
         }
@@ -184,16 +119,10 @@ export class GitCommands {
       await new Promise(resolve => setTimeout(resolve, 200));
       
       const files = await this.fs.promises.readdir(this.dir);
-      console.log('[git.getStatusFallback] Found files in directory:', files);
-      
-      // プロジェクトファイルの詳細な検査
       const projectFiles = await this.getProjectFiles(files);
-      console.log('[git.getStatusFallback] Filtered project files:', projectFiles);
-      
       const currentBranch = await this.getCurrentBranch();
       
       if (projectFiles.length === 0) {
-        console.log('[git.getStatusFallback] No project files found, returning clean status');
         return `On branch ${currentBranch}\nnothing to commit, working tree clean`;
       }
 
@@ -203,7 +132,6 @@ export class GitCommands {
       projectFiles.forEach(file => result += `\t${file}\n`);
       result += '\nnothing added to commit but untracked files present (use "git add" to track)';
       
-      console.log('[git.getStatusFallback] Generated fallback status:', result);
       return result;
     } catch (fallbackError) {
       console.error('Fallback status check failed:', fallbackError);
@@ -220,19 +148,13 @@ export class GitCommands {
       
       try {
         const filePath = `${this.dir}/${file}`;
-        console.log(`[git.getProjectFiles] Checking file: ${filePath}`);
-        
         const stat = await this.fs.promises.stat(filePath);
         if (stat.isFile()) {
           projectFiles.push(file);
-          console.log(`[git.getProjectFiles] Found file: ${file} (size: ${stat.size})`);
         } else if (stat.isDirectory()) {
-          console.log(`[git.getProjectFiles] Skipping directory: ${file}`);
-          
           // ディレクトリ内のファイルも再帰的に検査
           try {
             const subFiles = await this.fs.promises.readdir(filePath);
-            console.log(`[git.getProjectFiles] Directory ${file} contains:`, subFiles);
             
             for (const subFile of subFiles) {
               if (!subFile.startsWith('.')) {
@@ -241,22 +163,20 @@ export class GitCommands {
                   const subStat = await this.fs.promises.stat(subFilePath);
                   if (subStat.isFile()) {
                     projectFiles.push(`${file}/${subFile}`);
-                    console.log(`[git.getProjectFiles] Found sub-file: ${file}/${subFile} (size: ${subStat.size})`);
                   }
                 } catch (subStatError) {
-                  console.warn(`[git.getProjectFiles] Failed to stat sub-file ${file}/${subFile}:`, subStatError);
+                  // サブファイルのstat失敗は無視
                 }
               }
             }
           } catch (subDirError) {
-            console.warn(`[git.getProjectFiles] Failed to read subdirectory ${file}:`, subDirError);
+            // サブディレクトリの読み取り失敗は無視
           }
         }
       } catch (statError) {
-        console.warn(`[git.getProjectFiles] Failed to stat ${file}:`, statError);
+        // ファイルのstat失敗は無視
       }
     }
-    console.log(`[git.getProjectFiles] Total project files: ${projectFiles.length}`, projectFiles);
     return projectFiles;
   }
 
@@ -303,11 +223,7 @@ export class GitCommands {
     const modified: string[] = [];
     const staged: string[] = [];
 
-    console.log('[git.categorizeStatusFiles] Starting categorization...');
-
     status.forEach(([filepath, HEAD, workdir, stage]) => {
-      console.log(`[git.categorizeStatusFiles] Processing: ${filepath} (HEAD:${HEAD}, workdir:${workdir}, stage:${stage})`);
-      
       // isomorphic-gitのstatusMatrixの値の意味:
       // HEAD: 0=ファイルなし, 1=ファイルあり
       // workdir: 0=ファイルなし, 1=ファイルあり, 2=変更あり
@@ -315,38 +231,25 @@ export class GitCommands {
       
       if (HEAD === 0 && (workdir === 1 || workdir === 2) && stage === 0) {
         // 新しいファイル（未追跡）- workdir が 1 または 2 の場合
-        console.log(`[git.categorizeStatusFiles] Untracked file: ${filepath}`);
         untracked.push(filepath);
       } else if (HEAD === 0 && (workdir === 1 || workdir === 2) && stage === 3) {
         // 新しくステージされたファイル - workdir が 1 または 2 の場合
-        console.log(`[git.categorizeStatusFiles] New staged file: ${filepath}`);
         staged.push(filepath);
       } else if (HEAD === 1 && workdir === 2 && stage === 1) {
         // 変更されたファイル（未ステージ）
-        console.log(`[git.categorizeStatusFiles] Modified file (unstaged): ${filepath}`);
         modified.push(filepath);
       } else if (HEAD === 1 && workdir === 2 && stage === 2) {
         // 変更されてステージされたファイル
-        console.log(`[git.categorizeStatusFiles] Modified staged file: ${filepath}`);
         staged.push(filepath);
       } else if (HEAD === 1 && workdir === 0 && stage === 0) {
         // 削除されたファイル（未ステージ）
-        console.log(`[git.categorizeStatusFiles] Deleted file (unstaged): ${filepath}`);
         modified.push(filepath);
       } else if (HEAD === 1 && workdir === 0 && stage === 3) {
         // 削除されてステージされたファイル
-        console.log(`[git.categorizeStatusFiles] Deleted staged file: ${filepath}`);
         staged.push(filepath);
-      } else {
-        // その他のケース（HEAD === 1 && workdir === 1 && stage === 1など）は変更なし
-        console.log(`[git.categorizeStatusFiles] No changes: ${filepath} (HEAD:${HEAD}, workdir:${workdir}, stage:${stage})`);
       }
+      // その他のケース（HEAD === 1 && workdir === 1 && stage === 1など）は変更なし
     });
-
-    console.log(`[git.categorizeStatusFiles] Results - Untracked: ${untracked.length}, Modified: ${modified.length}, Staged: ${staged.length}`);
-    console.log(`[git.categorizeStatusFiles] Untracked files:`, untracked);
-    console.log(`[git.categorizeStatusFiles] Modified files:`, modified);
-    console.log(`[git.categorizeStatusFiles] Staged files:`, staged);
 
     return { untracked, modified, staged };
   }

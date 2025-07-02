@@ -316,31 +316,15 @@ export class UnixCommands {
         
         // ファイルを作成
         await this.fs.promises.writeFile(normalizedPath, '');
-        console.log(`[touch] File created in filesystem: ${normalizedPath}`);
         
         // ファイルシステムの同期処理を簡素化
         await this.flushFileSystemCache();
         
-        // ファイル作成後の検証
-        try {
-          const stat = await this.fs.promises.stat(normalizedPath);
-          console.log(`[touch] File verification successful: ${normalizedPath}, size: ${stat.size}`);
-          
-          // ディレクトリの内容も確認
-          const dirPath = normalizedPath.substring(0, normalizedPath.lastIndexOf('/'));
-          const dirContents = await this.fs.promises.readdir(dirPath);
-          console.log(`[touch] Directory contents after creation: ${dirPath}`, dirContents);
-        } catch (verifyError) {
-          console.warn(`[touch] File verification failed: ${normalizedPath}`, verifyError);
-        }
-        
         // IndexedDBに同期（最優先で実行）
         if (this.onFileOperation) {
           const relativePath = this.getRelativePathFromProject(normalizedPath);
-          console.log(`[touch] Syncing to IndexedDB: ${relativePath}`);
           try {
             await this.onFileOperation(relativePath, 'file', '');
-            console.log(`[touch] IndexedDB sync completed: ${relativePath}`);
           } catch (syncError) {
             console.error(`[touch] IndexedDB sync failed: ${relativePath}`, syncError);
           }
@@ -359,7 +343,6 @@ export class UnixCommands {
       // Lightning-FSのキャッシュをフラッシュ（バックエンドストレージと同期）
       if (this.fs && (this.fs as any).sync) {
         await (this.fs as any).sync();
-        console.log('[touch] FileSystem cache flushed');
       }
       
       // ファイルシステムの強制同期のため短縮した遅延
