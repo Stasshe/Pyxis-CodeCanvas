@@ -94,7 +94,7 @@ export const syncProjectFiles = async (projectName: string, files: Array<{ path:
 
     // ディレクトリを先に作成
     const directories = files.filter(f => f.type === 'folder').sort((a, b) => a.path.length - b.path.length);
-    console.log('Creating directories:', directories.map(d => d.path));
+    //console.log('Creating directories:', directories.map(d => d.path));
     
     for (const dir of directories) {
       const fullPath = `${projectDir}${dir.path}`;
@@ -127,7 +127,15 @@ export const syncProjectFiles = async (projectName: string, files: Array<{ path:
       
       try {
         await fs.promises.writeFile(fullPath, file.content || '');
-        //console.log(`Successfully synced file: ${fullPath}`);
+        console.log(`Successfully synced file: ${fullPath}`);
+        
+        // ファイル作成後に存在確認
+        try {
+          const stat = await fs.promises.stat(fullPath);
+          console.log(`File verified: ${fullPath}, size: ${stat.size}`);
+        } catch {
+          console.warn(`File verification failed: ${fullPath}`);
+        }
       } catch (error) {
         console.error(`Failed to sync file ${fullPath}:`, error);
         
@@ -155,12 +163,22 @@ export const syncProjectFiles = async (projectName: string, files: Array<{ path:
           // ファイル作成を再試行
           try {
             await fs.promises.writeFile(fullPath, file.content || '');
-            //console.log(`Successfully synced file after retry: ${fullPath}`);
+            console.log(`Successfully synced file after retry: ${fullPath}`);
           } catch (retryError) {
             console.error(`Failed to sync file after retry ${fullPath}:`, retryError);
           }
         }
       }
+    }
+    
+    console.log('File sync completed, verifying filesystem state...');
+    
+    // 最終的なファイルシステム状態を確認
+    try {
+      const finalFiles = await fs.promises.readdir(projectDir);
+      console.log('Final project directory contents:', finalFiles);
+    } catch (error) {
+      console.warn('Failed to verify final filesystem state:', error);
     }
   } catch (error) {
     console.error('Failed to sync project files:', error);

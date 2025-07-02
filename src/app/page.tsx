@@ -57,10 +57,14 @@ export default function Home() {
   // プロジェクトが変更された時にタブをリセット（プロジェクトIDが変わった場合のみ）
   useEffect(() => {
     if (currentProject) {
-      // 初回読み込み時のみウェルカムタブを作成
-      if (tabs.length === 0) {
-        console.log('[useEffect] Creating welcome tab for new project:', currentProject.name);
-        // ウェルカムタブを作成
+      console.log('[useEffect] Project changed, clearing all tabs and creating welcome tab:', currentProject.name);
+      
+      // プロジェクトが変更されたら全てのタブを閉じる
+      setTabs([]);
+      setActiveTabId('');
+      
+      // 少し遅延させてからウェルカムタブを作成（状態更新の競合を避ける）
+      setTimeout(() => {
         const welcomeTab: Tab = {
           id: 'welcome',
           name: 'README.md',
@@ -71,14 +75,19 @@ export default function Home() {
         
         setTabs([welcomeTab]);
         setActiveTabId('welcome');
-      } else {
-        console.log('[useEffect] Project loaded, keeping existing tabs:', tabs.length);
-      }
+      }, 50);
+    } else {
+      // プロジェクトがない場合はタブをクリア
+      setTabs([]);
+      setActiveTabId('');
     }
   }, [currentProject?.id]); // currentProject.id のみを監視
 
   // プロジェクトファイルが更新された時に開いているタブの内容も同期
   useEffect(() => {
+    // プロジェクトが変更されたときはタブ同期をスキップ
+    if (!currentProject || tabs.length === 0) return;
+    
     if (projectFiles.length > 0 && tabs.length > 0) {
       let hasRealChanges = false;
       const updatedTabs = tabs.map(tab => {
@@ -108,7 +117,7 @@ export default function Home() {
         setTabs(updatedTabs);
       }
     }
-  }, [projectFiles]); // projectFilesの変更を監視（git操作でファイル内容が変わった時を検知）
+  }, [projectFiles, currentProject?.id]); // currentProject.idも依存に追加
 
   // Git状態を独立して監視（GitPanelが表示されていない時でも動作）
   useEffect(() => {

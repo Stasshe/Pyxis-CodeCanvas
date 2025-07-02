@@ -78,11 +78,23 @@ export class GitCommands {
   async status(): Promise<string> {
     await this.ensureGitRepository();
     
+    // まずファイルシステムの状態を確認
+    let allFiles: string[] = [];
+    try {
+      allFiles = await this.getAllFiles(this.dir);
+      console.log('[git.status] Found files in project:', allFiles);
+    } catch (error) {
+      console.warn('[git.status] Failed to get all files:', error);
+    }
+    
     let status: Array<[string, number, number, number]> = [];
     try {
+      // ファイルシステムの準備ができるまで少し待機
+      await new Promise(resolve => setTimeout(resolve, 100));
       status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
+      console.log('[git.status] statusMatrix successful:', status.length, 'files');
     } catch (statusError) {
-      console.warn('statusMatrix failed, using fallback method:', statusError);
+      console.warn('[git.status] statusMatrix failed, using fallback method:', statusError);
       return this.getStatusFallback();
     }
     
@@ -269,12 +281,12 @@ export class GitCommands {
             } else {
               files.push(relativeFilePath);
             }
-          } catch {
-            // ファイルアクセスエラーは無視
+          } catch (error) {
+            console.warn(`[getAllFiles] Failed to stat ${fullPath}:`, error);
           }
         }
-      } catch {
-        // ディレクトリアクセスエラーは無視
+      } catch (error) {
+        console.warn(`[getAllFiles] Failed to read directory ${currentPath}:`, error);
       }
     };
     

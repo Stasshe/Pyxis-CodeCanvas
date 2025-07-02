@@ -27,16 +27,26 @@ const initializeProjectGit = async (project: Project, files: ProjectFile[], conv
     
     await syncProjectFiles(project.name, flatFiles);
     
+    // ファイル同期後に十分な待機時間を設ける
+    console.log('Waiting for filesystem sync to complete...');
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
     // Git初期化
     const git = new GitCommands(project.name);
     try {
       await git.init();
       console.log('Git init completed');
       
+      // Git初期化後も少し待機
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
       // すべてのファイルをステージング
       try {
         const addResult = await git.add('.');
         console.log('Files staged:', addResult);
+        
+        // ステージング後も少し待機
+        await new Promise(resolve => setTimeout(resolve, 200));
         
         // ステージ状態を確認
         const statusBeforeCommit = await git.status();
@@ -59,7 +69,15 @@ const initializeProjectGit = async (project: Project, files: ProjectFile[], conv
         
       } catch (commitError) {
         console.error('Initial commit failed:', commitError);
-        // エラーでも続行する
+        
+        // 詳細なエラー情報を表示
+        console.log('Attempting to debug the issue...');
+        try {
+          const statusDebug = await git.status();
+          console.log('Debug status:', statusDebug);
+        } catch (debugError) {
+          console.error('Status debug failed:', debugError);
+        }
       }
     } catch (initError) {
       console.warn('Git initialization failed:', initError);
