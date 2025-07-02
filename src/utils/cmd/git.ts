@@ -87,12 +87,13 @@ export class GitCommands {
       }
     }
     
-    // 最小限の待機時間
-    await new Promise(resolve => setTimeout(resolve, 150));
+    // git addの後に呼び出される場合、追加の待機時間を設ける
+    await new Promise(resolve => setTimeout(resolve, 200));
     
     let status: Array<[string, number, number, number]> = [];
     try {
       status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
+      console.log(`[git.status] statusMatrix successful with ${status.length} files`);
     } catch (statusError) {
       const error = statusError as Error;
       console.warn('[git.status] statusMatrix failed, using fallback method:', error.message);
@@ -184,11 +185,19 @@ export class GitCommands {
   private async formatStatusResult(status: Array<[string, number, number, number]>): Promise<string> {
     const currentBranch = await this.getCurrentBranch();
     
+    console.log(`[git.formatStatusResult] Processing ${status.length} files for formatting`);
+    console.log(`[git.formatStatusResult] Raw status matrix:`, status);
+    
     if (status.length === 0) {
       return `On branch ${currentBranch}\nnothing to commit, working tree clean`;
     }
 
     const { untracked, modified, staged } = this.categorizeStatusFiles(status);
+    
+    console.log(`[git.formatStatusResult] Categorized results:`);
+    console.log(`- Staged: ${staged.length} files`, staged);
+    console.log(`- Modified: ${modified.length} files`, modified);
+    console.log(`- Untracked: ${untracked.length} files`, untracked);
 
     let result = `On branch ${currentBranch}\n`;
     
@@ -209,9 +218,11 @@ export class GitCommands {
     }
 
     if (staged.length === 0 && modified.length === 0 && untracked.length === 0) {
+      console.log(`[git.formatStatusResult] No changes detected, returning clean status`);
       result = `On branch ${currentBranch}\nnothing to commit, working tree clean`;
     }
 
+    console.log(`[git.formatStatusResult] Final result:`, result);
     return result;
   }
 
@@ -223,7 +234,11 @@ export class GitCommands {
     const modified: string[] = [];
     const staged: string[] = [];
 
+    console.log(`[git.categorizeStatusFiles] Categorizing ${status.length} files...`);
+
     status.forEach(([filepath, HEAD, workdir, stage]) => {
+      console.log(`[git.categorizeStatusFiles] ${filepath}: HEAD=${HEAD}, workdir=${workdir}, stage=${stage}`);
+      
       // isomorphic-gitのstatusMatrixの値の意味:
       // HEAD: 0=ファイルなし, 1=ファイルあり
       // workdir: 0=ファイルなし, 1=ファイルあり, 2=変更あり
@@ -231,26 +246,39 @@ export class GitCommands {
       
       if (HEAD === 0 && (workdir === 1 || workdir === 2) && stage === 0) {
         // 新しいファイル（未追跡）- workdir が 1 または 2 の場合
+        console.log(`[git.categorizeStatusFiles] → Untracked: ${filepath}`);
         untracked.push(filepath);
-      } else if (HEAD === 0 && (workdir === 1 || workdir === 2) && stage === 3) {
-        // 新しくステージされたファイル - workdir が 1 または 2 の場合
+      } else if (HEAD === 0 && stage === 3) {
+        // 新しくステージされたファイル（stage=3の場合）
+        console.log(`[git.categorizeStatusFiles] → Staged (new, stage=3): ${filepath}`);
+        staged.push(filepath);
+      } else if (HEAD === 0 && stage === 2) {
+        // 新しくステージされたファイル（stage=2の場合）
+        console.log(`[git.categorizeStatusFiles] → Staged (new, stage=2): ${filepath}`);
         staged.push(filepath);
       } else if (HEAD === 1 && workdir === 2 && stage === 1) {
         // 変更されたファイル（未ステージ）
+        console.log(`[git.categorizeStatusFiles] → Modified (unstaged): ${filepath}`);
         modified.push(filepath);
       } else if (HEAD === 1 && workdir === 2 && stage === 2) {
         // 変更されてステージされたファイル
+        console.log(`[git.categorizeStatusFiles] → Staged (modified): ${filepath}`);
         staged.push(filepath);
       } else if (HEAD === 1 && workdir === 0 && stage === 0) {
         // 削除されたファイル（未ステージ）
+        console.log(`[git.categorizeStatusFiles] → Modified (deleted, unstaged): ${filepath}`);
         modified.push(filepath);
       } else if (HEAD === 1 && workdir === 0 && stage === 3) {
         // 削除されてステージされたファイル
+        console.log(`[git.categorizeStatusFiles] → Staged (deleted): ${filepath}`);
         staged.push(filepath);
+      } else {
+        // その他のケース（HEAD === 1 && workdir === 1 && stage === 1など）は変更なし
+        console.log(`[git.categorizeStatusFiles] → No changes: ${filepath}`);
       }
-      // その他のケース（HEAD === 1 && workdir === 1 && stage === 1など）は変更なし
     });
 
+    console.log(`[git.categorizeStatusFiles] Final counts - Untracked: ${untracked.length}, Modified: ${modified.length}, Staged: ${staged.length}`);
     return { untracked, modified, staged };
   }
 
@@ -289,6 +317,20 @@ export class GitCommands {
           }
         }
         
+        // ファイル追加後の状態確認
+        console.log(`[git.add] Verifying staging status after adding ${files.length} files...`);
+        try {
+          const verifyStatus = await git.statusMatrix({ fs: this.fs, dir: this.dir });
+          console.log(`[git.add] Post-add status matrix:`, verifyStatus);
+          
+          const stagedFiles = verifyStatus.filter(([file, head, workdir, stage]) => 
+            stage === 3 || stage === 2
+          );
+          console.log(`[git.add] Files in staging area:`, stagedFiles.map(([file]) => file));
+        } catch (verifyError) {
+          console.warn(`[git.add] Failed to verify status after add:`, verifyError);
+        }
+        
         return `Added ${files.length} file(s) to staging area`;
       } else if (filepath === '*' || filepath.includes('*')) {
         // ワイルドカード対応
@@ -319,6 +361,22 @@ export class GitCommands {
         
         await git.add({ fs: this.fs, dir: this.dir, filepath });
         console.log(`[git.add] Added file: ${filepath}`);
+        
+        // 個別ファイル追加後の状態確認
+        console.log(`[git.add] Verifying staging status for file: ${filepath}`);
+        try {
+          const verifyStatus = await git.statusMatrix({ fs: this.fs, dir: this.dir });
+          const fileStatus = verifyStatus.find(([file]) => file === filepath);
+          if (fileStatus) {
+            const [file, head, workdir, stage] = fileStatus;
+            console.log(`[git.add] File ${file} status: HEAD=${head}, workdir=${workdir}, stage=${stage}`);
+          } else {
+            console.warn(`[git.add] File ${filepath} not found in status matrix after add`);
+          }
+        } catch (verifyError) {
+          console.warn(`[git.add] Failed to verify status after add:`, verifyError);
+        }
+        
         return `Added ${filepath} to staging area`;
       }
     } catch (error) {

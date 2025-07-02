@@ -237,11 +237,11 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
       console.log('[GitPanel] Staging file:', file);
       await gitCommands.add(file);
       
-      // ステージング後少し待ってから状態を更新
+      // ステージング後十分な時間待ってから状態を更新
       setTimeout(() => {
         console.log('[GitPanel] Refreshing status after staging');
         fetchGitStatus();
-      }, 200);
+      }, 500);
     } catch (error) {
       console.error('Failed to stage file:', error);
     }
@@ -267,11 +267,11 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
       console.log('[GitPanel] Staging all files');
       await gitCommands.add('.');
       
-      // ステージング後少し待ってから状態を更新
+      // ステージング後十分な時間待ってから状態を更新
       setTimeout(() => {
         console.log('[GitPanel] Refreshing status after staging all');
         fetchGitStatus();
-      }, 300);
+      }, 600);
     } catch (error) {
       console.error('Failed to stage all files:', error);
     }
