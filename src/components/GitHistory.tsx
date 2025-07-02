@@ -303,33 +303,31 @@ export default function GitHistory({ commits, currentProject, currentBranch, onF
                             <Hash className="w-2.5 h-2.5" />
                             <span className="font-mono">{commit.shortHash}</span>
                           </span>
-                          {/* ブランチ表示：現在のブランチのHEADコミットのみに表示 */}
+                          {/* ブランチ表示：適切なロジックで各ブランチを表示 */}
                           {(() => {
-                            // 最初のコミット（現在のブランチのHEAD）のみにブランチ名を表示
-                            const isHeadCommit = commits.findIndex(c => c.hash === commit.hash) === 0;
+                            const currentIndex = commits.findIndex(c => c.hash === commit.hash);
                             
-                            if (isHeadCommit) {
-                              return (
-                                <span className="flex items-center gap-1 px-1 bg-blue-500/20 text-blue-600 rounded text-xs font-medium flex-shrink-0 whitespace-nowrap">
-                                  <GitBranch className="w-2.5 h-2.5" />
-                                  {currentBranch}
-                                </span>
-                              );
+                            // 現在のコミットより前に同じブランチのコミットがあるかチェック
+                            const hasPreviousSameBranch = commits.slice(0, currentIndex).some(c => c.branch === commit.branch);
+                            
+                            // 同じブランチの最初の出現でない場合は表示しない
+                            if (hasPreviousSameBranch) {
+                              return null;
                             }
                             
-                            // workブランチ固有のコミットを特別に処理（コミットメッセージやハッシュで判定）
-                            // これは一時的な解決策です
-                            const isWorkBranchCommit = currentBranch === 'work' && commit.branch !== 'main';
-                            if (isWorkBranchCommit) {
-                              return (
-                                <span className="flex items-center gap-1 px-1 bg-orange-500/20 text-orange-600 rounded text-xs font-medium flex-shrink-0 whitespace-nowrap">
-                                  <GitBranch className="w-2.5 h-2.5" />
-                                  work
-                                </span>
-                              );
-                            }
+                            // 現在のブランチかどうかを判定
+                            const isCurrentBranch = commit.branch === currentBranch;
                             
-                            return null;
+                            return (
+                              <span className={`flex items-center gap-1 px-1 rounded text-xs font-medium flex-shrink-0 whitespace-nowrap ${
+                                isCurrentBranch
+                                  ? 'bg-blue-500/20 text-blue-600' 
+                                  : 'bg-orange-500/20 text-orange-600'
+                              }`}>
+                                <GitBranch className="w-2.5 h-2.5" />
+                                {commit.branch}
+                              </span>
+                            );
                           })()}
                         </div>
                       </div>

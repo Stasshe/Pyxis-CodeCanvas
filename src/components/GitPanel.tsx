@@ -66,6 +66,9 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
       // ステータス情報をパース
       const status = parseGitStatus(statusResult);
       
+      // コミットにブランチ情報を適切に設定
+      const commitsWithBranches = await assignBranchesToCommits(commits, status.branch, gitCommands);
+      
       console.log('[GitPanel] Parsed status:', {
         staged: status.staged,
         unstaged: status.unstaged,
@@ -75,7 +78,7 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
       setGitRepo({
         initialized: true,
         branches,
-        commits,
+        commits: commitsWithBranches,
         status,
         currentBranch: status.branch
       });
@@ -96,6 +99,69 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
       }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // コミットにブランチ情報を割り当てる
+  const assignBranchesToCommits = async (
+    commits: GitCommitType[], 
+    currentBranch: string, 
+    gitCommands: GitCommands
+  ): Promise<GitCommitType[]> => {
+    // 現在のブランチで利用可能な全てのブランチを取得
+    try {
+      const branchList = await gitCommands.branch();
+      const allBranches = branchList.split('\n')
+        .map(line => line.replace(/^\*\s*/, '').trim())
+        .filter(line => line && !line.includes('remotes/'));
+      
+      console.log('[GitPanel] Available branches:', allBranches);
+      
+      // 各コミットに対してブランチを判定
+      const commitsWithBranches = await Promise.all(
+        commits.map(async (commit, index) => {
+          // 最初のコミット（最新）は現在のブランチに属する
+          if (index === 0) {
+            return { ...commit, branch: currentBranch };
+          }
+          
+          // 他のコミットについては、各ブランチでそのコミットが存在するかチェック
+          for (const branch of allBranches) {
+            if (branch === currentBranch) continue; // 既にチェック済み
+            
+            try {
+              // そのブランチでコミットが存在するかチェック
+              const branchCommits = await gitCommands.getFormattedLog(50); // より多くのコミットを取得
+              if (branchCommits.includes(commit.hash)) {
+                // このコミットが他のブランチにも存在する場合は、より詳細な判定が必要
+                // 簡単なヒューリスティック：現在のブランチ以外で最初に見つかったブランチを使用
+                const isMainBranch = branch === 'main' || branch === 'master';
+                const isCurrentBranchCommit = currentBranch !== 'main' && currentBranch !== 'master';
+                
+                // mainブランチのコミットは通常mainとして扱う
+                if (isMainBranch && !isCurrentBranchCommit) {
+                  return { ...commit, branch: branch };
+                }
+              }
+            } catch (error) {
+              // ブランチアクセスエラーは無視
+              console.warn(`Failed to check branch ${branch}:`, error);
+            }
+          }
+          
+          // どのブランチも特定できない場合は、現在のブランチまたはmainに設定
+          return { ...commit, branch: allBranches.includes('main') ? 'main' : currentBranch };
+        })
+      );
+      
+      return commitsWithBranches;
+    } catch (error) {
+      console.warn('Failed to assign branches to commits:', error);
+      // エラーの場合は、シンプルなロジックでブランチを設定
+      return commits.map((commit, index) => ({
+        ...commit,
+        branch: index === 0 ? currentBranch : 'main'
+      }));
     }
   };
 
@@ -137,7 +203,7 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
                 author: author.replace(/｜/g, '|'),
                 date,
                 timestamp,
-                branch: 'main',
+                branch: 'main', // 一時的にmainとして設定（後で修正）
                 isMerge: message.toLowerCase().includes('merge'),
                 parentHashes
               });
