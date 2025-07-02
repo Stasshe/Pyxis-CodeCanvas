@@ -185,8 +185,8 @@ export default function Home() {
     // 初回チェック
     checkGitStatus();
 
-    // より頻繁にチェック（10秒ごと）
-    const interval = setInterval(checkGitStatus, 10000);
+    // 定期的にチェック（1分ごと）
+    const interval = setInterval(checkGitStatus, 60000);
 
     // クリーンアップ
     return () => clearInterval(interval);
