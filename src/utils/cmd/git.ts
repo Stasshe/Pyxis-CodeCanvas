@@ -780,8 +780,10 @@ export class GitCommands {
         const safeMessage = (commit.commit.message || 'No message').replace(/\|/g, '｜').replace(/\n/g, ' ');
         const safeName = (commit.commit.author.name || 'Unknown').replace(/\|/g, '｜');
         const safeDate = date.toISOString();
+        // 親コミットのハッシュを追加（複数の親がある場合はカンマ区切り）
+        const parentHashes = commit.commit.parent.join(',');
         
-        const formatted = `${commit.oid}|${safeMessage}|${safeName}|${safeDate}`;
+        const formatted = `${commit.oid}|${safeMessage}|${safeName}|${safeDate}|${parentHashes}`;
         formattedCommits.push(formatted);
       }
       
@@ -1440,7 +1442,7 @@ export class GitCommands {
   }
 
   // 2つのコミット間の差分
-  private async diffCommits(commit1: string, commit2: string, filepath?: string): Promise<string> {
+  async diffCommits(commit1: string, commit2: string, filepath?: string): Promise<string> {
     try {
       console.log('diffCommits called with:', { commit1, commit2, filepath });
       

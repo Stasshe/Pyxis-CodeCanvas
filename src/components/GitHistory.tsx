@@ -89,7 +89,22 @@ export default function GitHistory({ commits, currentProject, currentBranch, onF
     if (!gitCommands || commitChanges.has(commitHash)) return;
 
     try {
-      const diffOutput = await gitCommands.getDiff(commitHash);
+      // 現在のコミットとその親コミットを比較
+      const currentCommit = commits.find(c => c.hash === commitHash);
+      if (!currentCommit || currentCommit.parentHashes.length === 0) {
+        // 親コミットがない場合（初回コミット）は空の変更として扱う
+        console.log('[GitHistory] No parent commits found for:', commitHash);
+        setCommitChanges(prev => new Map(prev).set(commitHash, { added: [], modified: [], deleted: [] }));
+        return;
+      }
+
+      // 最初の親コミットと比較（マージコミットの場合も最初の親を使用）
+      const parentHash = currentCommit.parentHashes[0];
+      console.log('[GitHistory] Comparing commits:', parentHash, 'vs', commitHash);
+      
+      const diffOutput = await gitCommands.diffCommits(parentHash, commitHash);
+      console.log('[GitHistory] Raw diff output:', diffOutput);
+      
       const changes = parseDiffOutput(diffOutput);
       setCommitChanges(prev => new Map(prev).set(commitHash, changes));
     } catch (error) {
@@ -105,28 +120,45 @@ export default function GitHistory({ commits, currentProject, currentBranch, onF
       deleted: []
     };
 
+    if (!diffOutput || diffOutput.trim() === '' || diffOutput === 'No differences between commits') {
+      return changes;
+    }
+
     const lines = diffOutput.split('\n');
+    let currentFile = '';
+    
     for (const line of lines) {
-      if (line.startsWith('+++')) {
-        const file = line.substring(4).replace(/^b\//, '');
-        if (file !== '/dev/null') {
-          changes.modified.push(file);
+      // diff --git a/file b/file の形式でファイル名を取得
+      if (line.startsWith('diff --git ')) {
+        const match = line.match(/diff --git a\/(.+) b\/(.+)/);
+        if (match) {
+          currentFile = match[2]; // b/file の部分
         }
-      } else if (line.startsWith('---')) {
-        const file = line.substring(4).replace(/^a\//, '');
-        if (file !== '/dev/null') {
-          // このファイルは削除または変更されている
+      }
+      // 新規ファイル
+      else if (line.startsWith('new file mode')) {
+        if (currentFile && !changes.added.includes(currentFile)) {
+          changes.added.push(currentFile);
         }
-      } else if (line.startsWith('new file mode')) {
-        // 新規ファイル（前のループで追加される）
-      } else if (line.startsWith('deleted file mode')) {
-        // 削除されたファイル（前のループで処理）
+      }
+      // 削除されたファイル
+      else if (line.startsWith('deleted file mode')) {
+        if (currentFile && !changes.deleted.includes(currentFile)) {
+          changes.deleted.push(currentFile);
+        }
+      }
+      // 変更されたファイル（新規・削除以外）
+      else if (line.startsWith('index ') && currentFile) {
+        // 新規ファイルでも削除ファイルでもない場合は変更されたファイル
+        if (!changes.added.includes(currentFile) && !changes.deleted.includes(currentFile)) {
+          if (!changes.modified.includes(currentFile)) {
+            changes.modified.push(currentFile);
+          }
+        }
       }
     }
 
-    // 重複を除去
-    changes.modified = [...new Set(changes.modified)];
-    
+    console.log('[GitHistory] Parsed diff changes:', changes);
     return changes;
   };
 

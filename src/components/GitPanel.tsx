@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { GitBranch, GitCommit, RefreshCw, Plus, Check, X, GitMerge, Clock, User, Minus, RotateCcw } from 'lucide-react';
 import { GitRepository, GitCommit as GitCommitType, GitStatus } from '@/types/git';
 import { GitCommands } from '@/utils/cmd/git';
+import GitHistory from './GitHistory';
 
 interface GitPanelProps {
   currentProject?: string;
@@ -111,18 +112,24 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
       const line = lines[i];
       const parts = line.split('|');
       
-      // 正確に4つのパーツがあることを確認
-      if (parts.length === 4) {
+      // 正確に5つのパーツがあることを確認（親コミット情報を含む）
+      if (parts.length === 5) {
         const hash = parts[0]?.trim();
         const message = parts[1]?.trim();
         const author = parts[2]?.trim();
         const date = parts[3]?.trim();
+        const parentHashesStr = parts[4]?.trim();
         
         // 全てのフィールドが有効であることを確認
         if (hash && hash.length >= 7 && message && author && date) {
           try {
             const timestamp = new Date(date).getTime();
             if (!isNaN(timestamp)) {
+              // 親コミットのハッシュをパース
+              const parentHashes = parentHashesStr && parentHashesStr !== '' 
+                ? parentHashesStr.split(',').filter(h => h.trim() !== '')
+                : [];
+              
               commits.push({
                 hash,
                 shortHash: hash.substring(0, 7),
@@ -132,7 +139,7 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
                 timestamp,
                 branch: 'main',
                 isMerge: message.toLowerCase().includes('merge'),
-                parentHashes: []
+                parentHashes
               });
             }
           } catch (dateError) {
@@ -554,40 +561,28 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
         )}
 
         {/* コミット履歴 */}
-        <div className="p-3">
-          <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-            <Clock className="w-4 h-4" />
-            履歴 ({gitRepo.commits.length})
-          </h4>
+        <div className="flex-1 flex flex-col">
+          <div className="p-3 border-b border-border">
+            <h4 className="text-sm font-medium flex items-center gap-2">
+              <Clock className="w-4 h-4" />
+              履歴 ({gitRepo.commits.length})
+            </h4>
+          </div>
           
-          {gitRepo.commits.length === 0 ? (
-            <p className="text-xs text-muted-foreground">コミット履歴がありません</p>
-          ) : (
-            <div className="space-y-2">
-              {gitRepo.commits.slice(0, 10).map((commit) => (
-                <div key={commit.hash} className="border border-border rounded p-2 bg-muted/30">
-                  <div className="flex items-start gap-2">
-                    {commit.isMerge ? (
-                      <GitMerge className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
-                    ) : (
-                      <GitCommit className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium truncate">{commit.message}</p>
-                      <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                        <User className="w-3 h-3" />
-                        <span>{commit.author}</span>
-                        <span>•</span>
-                        <span>{commit.shortHash}</span>
-                        <span>•</span>
-                        <span>{new Date(commit.timestamp).toLocaleDateString()}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="flex-1 overflow-hidden">
+            {gitRepo.commits.length === 0 ? (
+              <div className="p-3">
+                <p className="text-xs text-muted-foreground">コミット履歴がありません</p>
+              </div>
+            ) : (
+              <GitHistory
+                commits={gitRepo.commits}
+                currentProject={currentProject}
+                currentBranch={gitRepo.currentBranch}
+                onFileOperation={onFileOperation}
+              />
+            )}
+          </div>
         </div>
       </div>
     </div>
