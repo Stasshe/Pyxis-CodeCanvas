@@ -128,7 +128,16 @@ export default function Home() {
 
     const checkGitStatus = async () => {
       try {
-        const gitCommands = new GitCommands(currentProject.name);
+        // onFileOperationコールバック付きでGitCommandsを作成
+        const gitCommands = new GitCommands(currentProject.name, async (path: string, type: 'file' | 'folder' | 'delete', content?: string) => {
+          // Git操作によるファイル変更をプロジェクトに即座に反映
+          if (currentProject && loadProject) {
+            loadProject(currentProject);
+          }
+          // Git状態も再チェック
+          setTimeout(checkGitStatus, 200);
+        });
+        
         const statusResult = await gitCommands.status();
         
         // Git状態をパースして変更ファイル数を計算
@@ -155,7 +164,7 @@ export default function Home() {
             } else if (line.startsWith('modified:') || line.startsWith('new file:') || line.startsWith('deleted:')) {
               if (inChangesToBeCommitted) staged++;
               else if (inChangesNotStaged) unstaged++;
-            } else if (inUntrackedFiles && !line.includes('use "git add"') && !line.includes('to include')) {
+            } else if (inUntrackedFiles && !line.includes('use "git add"') && !line.includes('to include') && !line.endsWith('/')) {
               untracked++;
             }
           }
@@ -164,9 +173,11 @@ export default function Home() {
         };
 
         const changesCount = parseGitStatus(statusResult);
+        console.log('[Git Monitor] Changes count:', changesCount);
         setGitChangesCount(changesCount);
       } catch (error) {
         // Git操作でエラーが発生した場合は変更ファイル数を0にリセット
+        console.warn('[Git Monitor] Error checking status:', error);
         setGitChangesCount(0);
       }
     };
@@ -174,8 +185,8 @@ export default function Home() {
     // 初回チェック
     checkGitStatus();
 
-    // 定期的にチェック（30秒ごと）
-    const interval = setInterval(checkGitStatus, 30000);
+    // より頻繁にチェック（10秒ごと）
+    const interval = setInterval(checkGitStatus, 10000);
 
     // クリーンアップ
     return () => clearInterval(interval);
@@ -248,7 +259,7 @@ export default function Home() {
         // ファイル保存後にGitパネルを更新（ファイルシステム同期を待つ）
         setTimeout(() => {
           setGitRefreshTrigger(prev => prev + 1);
-        }, 500);
+        }, 200);
       } catch (error) {
         console.error('[handleTabContentUpdate] Failed to save file:', error);
         // エラーをユーザーに通知（今後の拡張用）
@@ -384,7 +395,15 @@ export default function Home() {
             currentProject={currentProject?.name}
             projectFiles={projectFiles}
             onResize={handleBottomResize}
-            onTerminalFileOperation={syncTerminalFileOperation}
+            onTerminalFileOperation={async (path: string, type: 'file' | 'folder' | 'delete', content?: string) => {
+              // ターミナルからのファイル操作を処理
+              if (syncTerminalFileOperation) {
+                await syncTerminalFileOperation(path, type, content);
+              }
+              
+              // Git状態も更新
+              setGitRefreshTrigger(prev => prev + 1);
+            }}
           />
         )}
       </div>

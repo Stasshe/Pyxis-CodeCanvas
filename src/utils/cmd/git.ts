@@ -234,11 +234,7 @@ export class GitCommands {
     const modified: string[] = [];
     const staged: string[] = [];
 
-    console.log(`[git.categorizeStatusFiles] Categorizing ${status.length} files...`);
-
     status.forEach(([filepath, HEAD, workdir, stage]) => {
-      console.log(`[git.categorizeStatusFiles] ${filepath}: HEAD=${HEAD}, workdir=${workdir}, stage=${stage}`);
-      
       // isomorphic-gitのstatusMatrixの値の意味:
       // HEAD: 0=ファイルなし, 1=ファイルあり
       // workdir: 0=ファイルなし, 1=ファイルあり, 2=変更あり
@@ -246,31 +242,31 @@ export class GitCommands {
       
       if (HEAD === 0 && (workdir === 1 || workdir === 2) && stage === 0) {
         // 新しいファイル（未追跡）- workdir が 1 または 2 の場合
-        console.log(`[git.categorizeStatusFiles] → Untracked: ${filepath}`);
+        //console.log(`[git.categorizeStatusFiles] → Untracked: ${filepath}`);
         untracked.push(filepath);
       } else if (HEAD === 0 && stage === 3) {
         // 新しくステージされたファイル（stage=3の場合）
-        console.log(`[git.categorizeStatusFiles] → Staged (new, stage=3): ${filepath}`);
+        //console.log(`[git.categorizeStatusFiles] → Staged (new, stage=3): ${filepath}`);
         staged.push(filepath);
       } else if (HEAD === 0 && stage === 2) {
         // 新しくステージされたファイル（stage=2の場合）
-        console.log(`[git.categorizeStatusFiles] → Staged (new, stage=2): ${filepath}`);
+        //console.log(`[git.categorizeStatusFiles] → Staged (new, stage=2): ${filepath}`);
         staged.push(filepath);
       } else if (HEAD === 1 && workdir === 2 && stage === 1) {
         // 変更されたファイル（未ステージ）
-        console.log(`[git.categorizeStatusFiles] → Modified (unstaged): ${filepath}`);
+        //console.log(`[git.categorizeStatusFiles] → Modified (unstaged): ${filepath}`);
         modified.push(filepath);
       } else if (HEAD === 1 && workdir === 2 && stage === 2) {
         // 変更されてステージされたファイル
-        console.log(`[git.categorizeStatusFiles] → Staged (modified): ${filepath}`);
+        //console.log(`[git.categorizeStatusFiles] → Staged (modified): ${filepath}`);
         staged.push(filepath);
       } else if (HEAD === 1 && workdir === 0 && stage === 0) {
         // 削除されたファイル（未ステージ）
-        console.log(`[git.categorizeStatusFiles] → Modified (deleted, unstaged): ${filepath}`);
+        //console.log(`[git.categorizeStatusFiles] → Modified (deleted, unstaged): ${filepath}`);
         modified.push(filepath);
       } else if (HEAD === 1 && workdir === 0 && stage === 3) {
         // 削除されてステージされたファイル
-        console.log(`[git.categorizeStatusFiles] → Staged (deleted): ${filepath}`);
+        //console.log(`[git.categorizeStatusFiles] → Staged (deleted): ${filepath}`);
         staged.push(filepath);
       } else {
         // その他のケース（HEAD === 1 && workdir === 1 && stage === 1など）は変更なし
@@ -331,6 +327,13 @@ export class GitCommands {
           console.warn(`[git.add] Failed to verify status after add:`, verifyError);
         }
         
+        // onFileOperationコールバックを呼び出してプロジェクトの更新を通知
+        if (this.onFileOperation) {
+          console.log('[git.add] Triggering project refresh after adding all files');
+          // ダミーのファイル操作として通知（プロジェクト全体の更新を促す）
+          await this.onFileOperation('.', 'folder');
+        }
+        
         return `Added ${files.length} file(s) to staging area`;
       } else if (filepath === '*' || filepath.includes('*')) {
         // ワイルドカード対応
@@ -348,6 +351,12 @@ export class GitCommands {
           }
         }
         
+        // onFileOperationコールバックを呼び出してプロジェクトの更新を通知
+        if (this.onFileOperation) {
+          console.log('[git.add] Triggering project refresh after adding wildcard files');
+          await this.onFileOperation('.', 'folder');
+        }
+        
         return `Added ${files.length} file(s) to staging area`;
       } else {
         // 個別ファイル - まずファイルが存在することを確認
@@ -361,6 +370,19 @@ export class GitCommands {
         
         await git.add({ fs: this.fs, dir: this.dir, filepath });
         console.log(`[git.add] Added file: ${filepath}`);
+        
+        // onFileOperationコールバックを呼び出してプロジェクトの更新を通知
+        if (this.onFileOperation) {
+          console.log('[git.add] Triggering project refresh after adding individual file:', filepath);
+          // ファイル内容を読み取って通知
+          try {
+            const content = await this.fs.promises.readFile(fullPath, 'utf8');
+            await this.onFileOperation(filepath, 'file', content);
+          } catch (readError) {
+            // ファイル読み取りに失敗した場合はファイルタイプのみで通知
+            await this.onFileOperation(filepath, 'file');
+          }
+        }
         
         // 個別ファイル追加後の状態確認
         console.log(`[git.add] Verifying staging status for file: ${filepath}`);
@@ -469,6 +491,14 @@ export class GitCommands {
         author,
         committer: author,
       });
+      
+      // onFileOperationコールバックを呼び出してプロジェクトの更新を通知
+      if (this.onFileOperation) {
+        console.log('[git.commit] Triggering project refresh after commit');
+        // ダミーのフォルダ操作として通知（プロジェクト全体の更新を促す）
+        await this.onFileOperation('.', 'folder');
+      }
+      
       return `[main ${sha.slice(0, 7)}] ${message}`;
     }, 'git commit failed');
   }
@@ -493,6 +523,13 @@ export class GitCommands {
       } else if (filepath) {
         // 特定のファイルをアンステージング
         await git.resetIndex({ fs: this.fs, dir: this.dir, filepath });
+        
+        // onFileOperationコールバックを呼び出してプロジェクトの更新を通知
+        if (this.onFileOperation) {
+          console.log('[git.reset] Triggering project refresh after unstaging file:', filepath);
+          await this.onFileOperation('.', 'folder');
+        }
+        
         return `Unstaged ${filepath}`;
       } else {
         // 全ファイルをアンステージング - ステージングされたファイルを取得してそれぞれリセット
@@ -504,6 +541,12 @@ export class GitCommands {
             await git.resetIndex({ fs: this.fs, dir: this.dir, filepath });
             unstagedCount++;
           }
+        }
+        
+        // onFileOperationコールバックを呼び出してプロジェクトの更新を通知
+        if (this.onFileOperation) {
+          console.log('[git.reset] Triggering project refresh after unstaging all files');
+          await this.onFileOperation('.', 'folder');
         }
         
         return `Unstaged ${unstagedCount} file(s)`;
