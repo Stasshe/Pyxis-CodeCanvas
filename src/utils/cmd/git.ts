@@ -790,21 +790,45 @@ export class GitCommands {
               // 新しいコミット：そのまま追加
               allCommits.set(commit.oid, { ...commit, sourceBranch: branch });
             } else {
-              // 重複コミット：より適切なブランチを選択
+              // 重複コミット：どのブランチに属するかをより適切に判定
               const existingCommit = allCommits.get(commit.oid);
               
-              // 現在のブランチを最優先
+              // 1. 現在のブランチを最優先
               if (branch === currentBranch) {
                 allCommits.set(commit.oid, { ...commit, sourceBranch: branch });
               } 
-              // 既存が現在のブランチでない場合のみ、アルファベット順で決定的な選択
+              // 2. そのブランチでそのコミットがHEAD（最新）かどうかをチェック
               else if (existingCommit.sourceBranch !== currentBranch) {
-                // より決定的な選択：アルファベット順で一貫性を保つ
-                if (branch < existingCommit.sourceBranch) {
-                  allCommits.set(commit.oid, { ...commit, sourceBranch: branch });
+                // そのブランチの最新コミットかどうかで判定
+                // インデックス0は最新コミット
+                const isHeadOfCurrentBranch = branchCommits[0]?.oid === commit.oid;
+                const wasHeadOfExistingBranch = existingCommit.isHeadOfBranch;
+                
+                if (isHeadOfCurrentBranch && !wasHeadOfExistingBranch) {
+                  // 現在のブランチのHEADで、既存のブランチのHEADでない場合
+                  allCommits.set(commit.oid, { 
+                    ...commit, 
+                    sourceBranch: branch,
+                    isHeadOfBranch: true 
+                  });
+                } else if (!isHeadOfCurrentBranch && !wasHeadOfExistingBranch) {
+                  // どちらもHEADでない場合は、より新しいタイムスタンプを優先
+                  if (commit.commit.author.timestamp >= existingCommit.commit.author.timestamp) {
+                    allCommits.set(commit.oid, { ...commit, sourceBranch: branch });
+                  }
                 }
               }
-              // 既存が現在のブランチの場合は変更しない
+              // 3. 既存が現在のブランチの場合は変更しない
+            }
+            
+            // 最初に追加する時にHEAD情報も記録
+            if (!allCommits.get(commit.oid)?.hasOwnProperty('isHeadOfBranch')) {
+              const isHead = branchCommits[0]?.oid === commit.oid;
+              const currentCommit = allCommits.get(commit.oid);
+              allCommits.set(commit.oid, { 
+                ...currentCommit, 
+                isHeadOfBranch: isHead 
+              });
             }
           }
         } catch (branchError) {
