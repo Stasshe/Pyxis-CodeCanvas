@@ -339,7 +339,7 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
             term.writeln('    git diff --staged - ステージされた変更');
             term.writeln('    git diff <commit1> <commit2> - コミット間の差分');
             term.writeln('');
-            term.writeln('NPM Commands:');
+            term.writeln('NPM Commands:開発中、利用できません');
             term.writeln('  npm init [--force] - package.jsonを作成');
             term.writeln('  npm install [package] [flags] - パッケージのインストール');
             term.writeln('    npm install        - 全依存関係をインストール');
