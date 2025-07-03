@@ -9,6 +9,8 @@ export class NodeJSRuntime {
   private console: any;
   private onOutput?: (output: string, type: 'log' | 'error') => void;
   private onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>;
+  private moduleCache: Map<string, any> = new Map(); // モジュールキャッシュ
+  private currentWorkingDirectory: string = '/'; // 現在の作業ディレクトリ
 
   constructor(
     projectName: string, 
@@ -53,6 +55,9 @@ export class NodeJSRuntime {
   // Node.js風のコードを実行
   async executeNodeJS(code: string): Promise<{ success: boolean; output?: string; error?: string }> {
     try {
+      // まず必要なモジュールを事前ロード
+      await this.preloadModules(code);
+      
       // Node.js風のグローバル環境を構築
       const nodeGlobals = this.createNodeGlobals();
       
@@ -70,6 +75,44 @@ export class NodeJSRuntime {
     }
   }
 
+  // コード内のrequire/importを解析して事前ロード
+  private async preloadModules(code: string): Promise<void> {
+    const moduleNames = new Set<string>();
+    
+    // require()文の検出
+    const requireMatches = code.match(/require\(['"`]([^'"`]+)['"`]\)/g);
+    if (requireMatches) {
+      requireMatches.forEach(match => {
+        const moduleName = match.match(/require\(['"`]([^'"`]+)['"`]\)/)?.[1];
+        if (moduleName && !this.isBuiltinModule(moduleName)) {
+          moduleNames.add(moduleName);
+        }
+      });
+    }
+    
+    // import文の検出
+    const importMatches = code.match(/from\s+['"`]([^'"`]+)['"`]/g);
+    if (importMatches) {
+      importMatches.forEach(match => {
+        const moduleName = match.match(/from\s+['"`]([^'"`]+)['"`]/)?.[1];
+        if (moduleName && !this.isBuiltinModule(moduleName)) {
+          moduleNames.add(moduleName);
+        }
+      });
+    }
+    
+    // 検出されたモジュールを事前ロード
+    for (const moduleName of moduleNames) {
+      try {
+        console.log(`[preloadModules] Preloading module: ${moduleName}`);
+        await this.resolveModule(moduleName);
+      } catch (error) {
+        console.warn(`[preloadModules] Failed to preload ${moduleName}:`, (error as Error).message);
+        // 事前ロードに失敗してもエラーにはしない
+      }
+    }
+  }
+
   // Node.js風のグローバル環境を作成
   private createNodeGlobals(): any {
     const self = this;
@@ -84,22 +127,27 @@ export class NodeJSRuntime {
         argv: ['node', 'script.js']
       },
       require: (moduleName: string) => {
-        // 基本的なNode.jsモジュールをエミュレート
-        switch (moduleName) {
-          case 'fs':
-            return this.createFSModule();
-          case 'path':
-            return this.createPathModule();
-          case 'os':
-            return this.createOSModule();
-          case 'util':
-            return this.createUtilModule();
-          default:
-            throw new Error(`Module '${moduleName}' not found`);
+        // キャッシュから取得（事前ロード済み）
+        if (this.moduleCache.has(moduleName)) {
+          return this.moduleCache.get(moduleName);
         }
+        
+        // 組み込みモジュールの場合は同期的に作成
+        if (this.isBuiltinModule(moduleName)) {
+          const module = this.createBuiltinModule(moduleName);
+          this.moduleCache.set(moduleName, module);
+          return module;
+        }
+        
+        // ファイルモジュールが事前ロードされていない場合
+        throw new Error(`Module '${moduleName}' not found. Make sure the module file exists and is accessible.`);
       },
       __filename: this.projectDir + '/script.js',
       __dirname: this.projectDir,
+      module: {
+        exports: {}
+      },
+      exports: {},
       Buffer: globalThis.Buffer || {
         from: (data: any) => new Uint8Array(typeof data === 'string' ? new TextEncoder().encode(data) : data),
         isBuffer: (obj: any) => obj instanceof Uint8Array
@@ -340,14 +388,17 @@ export class NodeJSRuntime {
 
   // コードを実行用にラップ
   private wrapCodeForExecution(code: string, globals: any): string {
+    // ES6 import/export を CommonJS require/module.exports に変換
+    const transformedCode = this.transformESModules(code);
+    
     // 確実に非同期関数として実行されるようにする
     return `
-      (async function() {
+      (async function(globals) {
         // グローバル変数を設定
-        ${Object.keys(globals).map(key => `const ${key} = arguments[0].${key};`).join('\n        ')}
+        const { console, process, require, module, exports, __filename, __dirname, Buffer, setTimeout, setInterval, clearTimeout, clearInterval } = globals;
         
         // ユーザーコードを実行
-        ${code}
+        ${transformedCode}
       })
     `;
   }
@@ -414,5 +465,366 @@ export class NodeJSRuntime {
     } catch (error) {
       console.warn('[nodeRuntime] Failed to flush filesystem cache:', error);
     }
+  }
+
+  // モジュール解決機能
+  private async resolveModule(moduleName: string): Promise<any> {
+    // キャッシュから取得
+    if (this.moduleCache.has(moduleName)) {
+      console.log(`[resolveModule] Loading from cache: ${moduleName}`);
+      return this.moduleCache.get(moduleName);
+    }
+
+    // 組み込みモジュールの場合
+    if (this.isBuiltinModule(moduleName)) {
+      const module = this.createBuiltinModule(moduleName);
+      this.moduleCache.set(moduleName, module);
+      return module;
+    }
+
+    // ローカルファイルモジュールの場合
+    try {
+      const moduleObj = await this.loadFileModule(moduleName);
+      this.moduleCache.set(moduleName, moduleObj);
+      return moduleObj;
+    } catch (error) {
+      throw new Error(`Cannot find module '${moduleName}'`);
+    }
+  }
+
+  // 組み込みモジュールかチェック
+  private isBuiltinModule(moduleName: string): boolean {
+    const builtinModules = ['fs', 'path', 'os', 'util', 'crypto', 'http', 'url', 'querystring'];
+    return builtinModules.includes(moduleName);
+  }
+
+  // 組み込みモジュールを作成
+  private createBuiltinModule(moduleName: string): any {
+    switch (moduleName) {
+      case 'fs':
+        return this.createFSModule();
+      case 'path':
+        return this.createPathModule();
+      case 'os':
+        return this.createOSModule();
+      case 'util':
+        return this.createUtilModule();
+      default:
+        throw new Error(`Built-in module '${moduleName}' not implemented`);
+    }
+  }
+
+  // ファイルモジュールをロード
+  private async loadFileModule(moduleName: string): Promise<any> {
+    const possiblePaths = this.resolveModulePath(moduleName);
+    
+    for (const filePath of possiblePaths) {
+      try {
+        console.log(`[loadFileModule] Trying to load: ${filePath}`);
+        
+        let fullPath;
+        if (filePath.startsWith('/')) {
+          fullPath = `${this.projectDir}${filePath}`;
+        } else {
+          fullPath = `${this.projectDir}/${filePath}`;
+        }
+
+        // ファイルの存在確認
+        await this.fs.promises.stat(fullPath);
+        
+        // ファイル内容を読み取り
+        const content = await this.fs.promises.readFile(fullPath, { encoding: 'utf8' });
+        
+        // package.jsonの場合はJSONとして解析
+        if (filePath.endsWith('package.json')) {
+          try {
+            const packageData = JSON.parse(content as string);
+            console.log(`[loadFileModule] Loaded package.json: ${moduleName}`);
+            return packageData;
+          } catch (error) {
+            throw new Error(`Invalid JSON in package.json: ${(error as Error).message}`);
+          }
+        }
+        
+        // .jsonファイルの場合もJSONとして解析
+        if (filePath.endsWith('.json')) {
+          try {
+            const jsonData = JSON.parse(content as string);
+            console.log(`[loadFileModule] Loaded JSON file: ${moduleName}`);
+            return jsonData;
+          } catch (error) {
+            throw new Error(`Invalid JSON in ${filePath}: ${(error as Error).message}`);
+          }
+        }
+        
+        // モジュールを実行して exports を取得
+        const moduleExports = await this.executeModuleCode(content as string, filePath);
+        
+        console.log(`[loadFileModule] Successfully loaded module: ${moduleName} from ${filePath}`);
+        return moduleExports;
+        
+      } catch (error) {
+        console.log(`[loadFileModule] Failed to load ${filePath}: ${(error as Error).message}`);
+        continue;
+      }
+    }
+    
+    throw new Error(`Module file not found for '${moduleName}'`);
+  }
+
+  // モジュールパスを解決
+  private resolveModulePath(moduleName: string): string[] {
+    const paths: string[] = [];
+    
+    // 相対パス / 絶対パスの場合
+    if (moduleName.startsWith('./') || moduleName.startsWith('../') || moduleName.startsWith('/')) {
+      const basePath = moduleName.startsWith('/') ? moduleName : this.currentWorkingDirectory + '/' + moduleName;
+      
+      // 拡張子の候補
+      paths.push(basePath);
+      if (!basePath.includes('.')) {
+        paths.push(basePath + '.js');
+        paths.push(basePath + '.json');
+        paths.push(basePath + '/index.js');
+        paths.push(basePath + '/package.json');
+      }
+    } else {
+      // node_modules風の解決（プロジェクトルートから検索）
+      paths.push(`/node_modules/${moduleName}`);
+      paths.push(`/node_modules/${moduleName}.js`);
+      paths.push(`/node_modules/${moduleName}/index.js`);
+      paths.push(`/node_modules/${moduleName}/package.json`);
+      
+      // プロジェクト内のファイルとしても検索
+      paths.push(`/${moduleName}`);
+      paths.push(`/${moduleName}.js`);
+      paths.push(`/${moduleName}.json`);
+    }
+    
+    return paths;
+  }
+
+  // モジュールコードを実行してexportsを取得（同期版）
+  private executeModuleCodeSync(code: string, filePath: string): any {
+    const moduleExports = {};
+    const moduleObject = { exports: moduleExports };
+    
+    // モジュール用のグローバル環境を作成
+    const moduleGlobals = {
+      ...this.createNodeGlobals(),
+      module: moduleObject,
+      exports: moduleExports,
+      __filename: filePath,
+      __dirname: filePath.substring(0, filePath.lastIndexOf('/')) || '/',
+      require: (reqModule: string) => {
+        // 組み込みモジュールのみサポート
+        if (this.isBuiltinModule(reqModule)) {
+          const oldCwd = this.currentWorkingDirectory;
+          this.currentWorkingDirectory = filePath.substring(0, filePath.lastIndexOf('/')) || '/';
+          try {
+            if (this.moduleCache.has(reqModule)) {
+              return this.moduleCache.get(reqModule);
+            }
+            const module = this.createBuiltinModule(reqModule);
+            this.moduleCache.set(reqModule, module);
+            return module;
+          } finally {
+            this.currentWorkingDirectory = oldCwd;
+          }
+        }
+        
+        throw new Error(`Module '${reqModule}' requires async loading in module context.`);
+      }
+    };
+
+    try {
+      // ES6 import/export を CommonJS require/module.exports に変換
+      const transformedCode = this.transformESModules(code);
+      
+      console.log(`[executeModuleCodeSync] Executing module code for: ${filePath}`);
+      
+      // Function コンストラクタを使用して同期実行
+      const moduleFunction = new Function(
+        'module', 'exports', 'require', '__filename', '__dirname', 'console', 'process', 'Buffer', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval',
+        transformedCode
+      );
+      
+      moduleFunction.call(
+        {},
+        moduleObject,
+        moduleExports,
+        moduleGlobals.require,
+        moduleGlobals.__filename,
+        moduleGlobals.__dirname,
+        moduleGlobals.console,
+        moduleGlobals.process,
+        moduleGlobals.Buffer,
+        moduleGlobals.setTimeout,
+        moduleGlobals.setInterval,
+        moduleGlobals.clearTimeout,
+        moduleGlobals.clearInterval
+      );
+      
+      // module.exportsまたはexportsを返す
+      return moduleObject.exports && Object.keys(moduleObject.exports).length > 0 
+        ? moduleObject.exports 
+        : moduleExports;
+        
+    } catch (error) {
+      console.error(`[executeModuleCodeSync] Error executing module ${filePath}:`, error);
+      throw new Error(`Failed to execute module '${filePath}': ${(error as Error).message}`);
+    }
+  }
+
+  // モジュールコードを実行してexportsを取得
+  private async executeModuleCode(code: string, filePath: string): Promise<any> {
+    const moduleExports = {};
+    const moduleObject = { exports: moduleExports };
+    
+    // モジュール用のグローバル環境を作成
+    const moduleGlobals = {
+      ...this.createNodeGlobals(),
+      module: moduleObject,
+      exports: moduleExports,
+      __filename: filePath,
+      __dirname: filePath.substring(0, filePath.lastIndexOf('/')) || '/',
+      require: async (reqModule: string) => {
+        // 相対パスの解決を現在のモジュールのディレクトリから行う
+        const oldCwd = this.currentWorkingDirectory;
+        this.currentWorkingDirectory = filePath.substring(0, filePath.lastIndexOf('/')) || '/';
+        try {
+          return await this.resolveModule(reqModule);
+        } finally {
+          this.currentWorkingDirectory = oldCwd;
+        }
+      }
+    };
+
+    try {
+      // ES6 import/export を CommonJS require/module.exports に変換
+      const transformedCode = this.transformESModules(code);
+      
+      // モジュールコードをラップして実行
+      const wrappedCode = this.wrapModuleCode(transformedCode, moduleGlobals);
+      
+      console.log(`[executeModuleCode] Executing module code for: ${filePath}`);
+      await this.executeInSandbox(wrappedCode, moduleGlobals);
+      
+      // module.exportsまたはexportsを返す
+      return moduleObject.exports && Object.keys(moduleObject.exports).length > 0 
+        ? moduleObject.exports 
+        : moduleExports;
+        
+    } catch (error) {
+      console.error(`[executeModuleCode] Error executing module ${filePath}:`, error);
+      throw new Error(`Failed to execute module '${filePath}': ${(error as Error).message}`);
+    }
+  }
+
+  // ES6 import/export を CommonJS に変換
+  private transformESModules(code: string): string {
+    let transformedCode = code;
+    
+    // import文を require に変換
+    // import { something } from 'module' → const { something } = require('module')
+    transformedCode = transformedCode.replace(
+      /import\s+\{([^}]+)\}\s+from\s+['"]([^'"]+)['"];?/g,
+      'const { $1 } = require(\'$2\');'
+    );
+    
+    // import something, { other } from 'module' → const something = require('module'); const { other } = require('module')
+    transformedCode = transformedCode.replace(
+      /import\s+(\w+)\s*,\s*\{([^}]+)\}\s+from\s+['"]([^'"]+)['"];?/g,
+      'const $1 = require(\'$3\'); const { $2 } = require(\'$3\');'
+    );
+    
+    // import something from 'module' → const something = require('module')
+    transformedCode = transformedCode.replace(
+      /import\s+(\w+)\s+from\s+['"]([^'"]+)['"];?/g,
+      'const $1 = require(\'$2\');'
+    );
+    
+    // import * as something from 'module' → const something = require('module')
+    transformedCode = transformedCode.replace(
+      /import\s+\*\s+as\s+(\w+)\s+from\s+['"]([^'"]+)['"];?/g,
+      'const $1 = require(\'$2\');'
+    );
+    
+    // import 'module' → require('module')
+    transformedCode = transformedCode.replace(
+      /import\s+['"]([^'"]+)['"];?/g,
+      'require(\'$1\');'
+    );
+    
+    // export default something → module.exports = something
+    transformedCode = transformedCode.replace(
+      /export\s+default\s+(.+);?$/gm,
+      'module.exports = $1;'
+    );
+    
+    // export { something } → module.exports.something = something
+    transformedCode = transformedCode.replace(
+      /export\s+\{([^}]+)\};?/g,
+      (match, exports) => {
+        const exportList = exports.split(',').map((exp: string) => exp.trim());
+        return exportList.map((exp: string) => `module.exports.${exp} = ${exp};`).join('\n');
+      }
+    );
+    
+    // export const/let/var something → const something = ...; module.exports.something = something
+    transformedCode = transformedCode.replace(
+      /export\s+(const|let|var)\s+(\w+)\s*=\s*([^;]+);?/g,
+      '$1 $2 = $3;\nmodule.exports.$2 = $2;'
+    );
+    
+    // export function name() {...} → function name() {...}; module.exports.name = name;
+    transformedCode = transformedCode.replace(
+      /export\s+function\s+(\w+)/g,
+      'function $1'
+    );
+    
+    // export class Name {...} → class Name {...}; module.exports.Name = Name;
+    transformedCode = transformedCode.replace(
+      /export\s+class\s+(\w+)/g,
+      'class $1'
+    );
+    
+    // 後処理：exportされた関数やクラスをmodule.exportsに追加
+    // function declarations
+    const functionMatches = transformedCode.match(/function\s+(\w+)/g);
+    if (functionMatches && code.includes('export')) {
+      functionMatches.forEach(match => {
+        const funcName = match.replace('function ', '');
+        if (code.includes(`export function ${funcName}`) || code.includes(`export { ${funcName}`)) {
+          transformedCode += `\nmodule.exports.${funcName} = ${funcName};`;
+        }
+      });
+    }
+    
+    // class declarations
+    const classMatches = transformedCode.match(/class\s+(\w+)/g);
+    if (classMatches && code.includes('export')) {
+      classMatches.forEach(match => {
+        const className = match.replace('class ', '');
+        if (code.includes(`export class ${className}`) || code.includes(`export { ${className}`)) {
+          transformedCode += `\nmodule.exports.${className} = ${className};`;
+        }
+      });
+    }
+    
+    return transformedCode;
+  }
+
+  // モジュールコードをラップ
+  private wrapModuleCode(code: string, globals: any): string {
+    return `
+      (async function(globals) {
+        const { console, process, require, module, exports, __filename, __dirname, Buffer, setTimeout, setInterval, clearTimeout, clearInterval } = globals;
+        
+        ${code}
+        
+        return module.exports;
+      })
+    `;
   }
 }
