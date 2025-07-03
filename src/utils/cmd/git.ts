@@ -7,6 +7,7 @@ import { GitFileSystemHelper } from './gitOperations/fileSystemHelper';
 import { GitLogOperations } from './gitOperations/log';
 import { GitResetOperations } from './gitOperations/reset';
 import { GitDiffOperations } from './gitOperations/diff';
+import { GitMergeOperations } from './gitOperations/merge';
 
 /**
  * Git操作を管理するクラス
@@ -521,6 +522,20 @@ export class GitCommands {
   async diffCommits(commit1: string, commit2: string, filepath?: string): Promise<string> {
     const diffOperations = new GitDiffOperations(this.fs, this.dir);
     return await diffOperations.diffCommits(commit1, commit2, filepath);
+  }
+
+  // git merge - ブランチをマージ
+  async merge(branchName: string, options: { noFf?: boolean; message?: string; abort?: boolean } = {}): Promise<string> {
+    const mergeOperations = new GitMergeOperations(this.fs, this.dir, this.onFileOperation);
+    
+    if (options.abort) {
+      return await mergeOperations.mergeAbort();
+    }
+    
+    return await mergeOperations.merge(branchName, { 
+      noFf: options.noFf, 
+      message: options.message 
+    });
   }
 
   // ワーキングディレクトリの変更を破棄

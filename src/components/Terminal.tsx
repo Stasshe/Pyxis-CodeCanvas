@@ -322,6 +322,10 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
             term.writeln('  git checkout <branch> [-b] - ブランチ切り替え');
             term.writeln('    git checkout <name>   - ブランチ切り替え');
             term.writeln('    git checkout -b <name> - ブランチ作成&切り替え');
+            term.writeln('  git merge <branch> - ブランチをマージ');
+            term.writeln('    git merge <name>      - 指定ブランチをマージ');
+            term.writeln('    git merge --no-ff <name> - Fast-forwardを無効にしてマージ');
+            term.writeln('    git merge --abort     - マージを中止');
             term.writeln('  git revert <commit> - コミットを取り消し');
             term.writeln('  git reset [file] - ファイルのアンステージング');
             term.writeln('  git reset --hard <commit> - 指定コミットまでハードリセット');
@@ -569,6 +573,38 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
                     console.log('Working directory diff for filepath:', filepath);
                     const diffResult = await gitCommandsRef.current.diff({ filepath });
                     await writeOutput(diffResult);
+                  }
+                  break;
+                  
+                case 'merge':
+                  if (args.includes('--abort')) {
+                    // git merge --abort
+                    const mergeAbortResult = await gitCommandsRef.current.merge('', { abort: true });
+                    await writeOutput(mergeAbortResult);
+                  } else if (args[1]) {
+                    // git merge <branch> [--no-ff] [-m "message"]
+                    const branchName = args.find(arg => !arg.startsWith('-'));
+                    if (!branchName) {
+                      await writeOutput('git merge: missing branch name');
+                      break;
+                    }
+                    
+                    const noFf = args.includes('--no-ff');
+                    let message: string | undefined;
+                    
+                    // -m フラグでメッセージを指定
+                    const messageIndex = args.indexOf('-m');
+                    if (messageIndex !== -1 && args[messageIndex + 1]) {
+                      message = args.slice(messageIndex + 1).join(' ').replace(/['"]/g, '');
+                    }
+                    
+                    const mergeResult = await gitCommandsRef.current.merge(branchName, { 
+                      noFf, 
+                      message 
+                    });
+                    await writeOutput(mergeResult);
+                  } else {
+                    await writeOutput('git merge: missing branch name');
                   }
                   break;
                   
