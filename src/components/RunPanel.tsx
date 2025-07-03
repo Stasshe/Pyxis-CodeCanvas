@@ -137,7 +137,7 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
 
 async function readFile() {
   try {
-    const content = await fs.readFile('package.json');
+    const content = await fs.readFile('trivia.json');
     console.log('File content:', content);
   } catch (error) {
     console.error('Error reading file:', error.message);

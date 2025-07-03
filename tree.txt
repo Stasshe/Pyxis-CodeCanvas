@@ -1,5 +1,6 @@
 .
 ├── DATABASE.md
+├── LICENSE
 ├── README.md
 ├── README_ja.md
 ├── SPECIFICATION.md
@@ -11,10 +12,17 @@
 ├── package.json
 ├── postcss.config.js
 ├── public
+│   ├── apple-touch-icon-precomposed.png
+│   ├── apple-touch-icon.png
+│   ├── favicon.ico
+│   ├── favicon.png
 │   ├── file.svg
 │   ├── globe.svg
-│   ├── next.svg
-│   ├── vercel.svg
+│   ├── icon0.svg
+│   ├── icon1.png
+│   ├── manifest.json
+│   ├── web-app-manifest-192x192.png
+│   ├── web-app-manifest-512x512.png
 │   └── window.svg
 ├── src
 │   ├── app
@@ -63,9 +71,9 @@
 ├── tree.txt
 └── tsconfig.json
 
-9 directories, 55 files
+9 directories, 63 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 10503
-合計文字数: 366966
-合計ファイルサイズ(bytes): 398916
+合計行数: 10608
+合計文字数: 371288
+合計ファイルサイズ(bytes): 403985
