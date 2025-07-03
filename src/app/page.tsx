@@ -23,6 +23,7 @@ export default function Home() {
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [gitRefreshTrigger, setGitRefreshTrigger] = useState(0);
   const [gitChangesCount, setGitChangesCount] = useState(0); // Git変更ファイル数
+  const [nodeRuntimeOperationInProgress, setNodeRuntimeOperationInProgress] = useState(false); // NodeRuntime操作中フラグ
   
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [activeTabId, setActiveTabId] = useState('');
@@ -92,16 +93,25 @@ export default function Home() {
       let hasRealChanges = false;
       const updatedTabs = tabs.map(tab => {
         const correspondingFile = projectFiles.find(f => f.path === tab.path);
-        // ファイルが見つからない、または内容が同じ、またはタブが編集中の場合はスキップ
-        if (!correspondingFile || correspondingFile.content === tab.content || tab.isDirty) {
+        // ファイルが見つからない、または内容が同じ場合はスキップ
+        // NodeRuntime操作中またはタブが編集中でない場合は強制更新
+        if (!correspondingFile || correspondingFile.content === tab.content) {
           return tab;
         }
         
-        console.log('[useEffect] Syncing tab content from DB after git operation:', {
+        // NodeRuntime操作中は強制的に更新、そうでなければisDirtyをチェック
+        const shouldUpdate = nodeRuntimeOperationInProgress || !tab.isDirty;
+        
+        if (!shouldUpdate) {
+          return tab;
+        }
+        
+        console.log('[useEffect] Syncing tab content from DB after external operation:', {
           tabPath: tab.path,
           oldContentLength: tab.content.length,
           newContentLength: correspondingFile.content?.length || 0,
-          tabIsDirty: tab.isDirty
+          tabIsDirty: tab.isDirty,
+          nodeRuntimeInProgress: nodeRuntimeOperationInProgress
         });
         hasRealChanges = true;
         return {
@@ -113,11 +123,11 @@ export default function Home() {
       
       // 実際に内容が変更された場合のみ更新
       if (hasRealChanges) {
-        console.log('[useEffect] Updating tabs with new content from DB after git operation');
+        console.log('[useEffect] Updating tabs with new content from DB after external operation');
         setTabs(updatedTabs);
       }
     }
-  }, [projectFiles, currentProject?.id]); // currentProject.idも依存に追加
+  }, [projectFiles, currentProject?.id, nodeRuntimeOperationInProgress]); // nodeRuntimeOperationInProgressも依存に追加
 
   // Git状態を独立して監視（GitPanelが表示されていない時でも動作）
   useEffect(() => {
@@ -325,11 +335,18 @@ export default function Home() {
           }}
           gitRefreshTrigger={gitRefreshTrigger}
           onGitStatusChange={setGitChangesCount}
-          onFileOperation={async (path: string, type: 'file' | 'folder' | 'delete', content?: string) => {
+          onFileOperation={async (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => {
             console.log('=== onFileOperation called ===');
             console.log('path:', path);
             console.log('type:', type);
             console.log('content length:', content?.length || 'N/A');
+            console.log('isNodeRuntime:', isNodeRuntime);
+            
+            // NodeRuntime操作の場合はフラグを設定
+            if (isNodeRuntime) {
+              console.log('NodeRuntime operation detected, setting flag');
+              setNodeRuntimeOperationInProgress(true);
+            }
             
             // 「.」パスはプロジェクト更新通知のためのダミー操作
             // 実際のファイル作成は行わず、プロジェクトリロードのみ実行
@@ -347,6 +364,50 @@ export default function Home() {
             if (currentProject && loadProject) {
               console.log('Processing real file operation for project:', currentProject.name);
               
+              // NodeRuntime操作の場合は、まずDBに保存してからタブを更新
+              if (isNodeRuntime) {
+                console.log('NodeRuntime operation: saving to DB first');
+                
+                // 該当ファイルがタブで開かれている場合、その内容を即座に更新
+                const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+                const openTab = tabs.find(tab => tab.path === normalizedPath);
+                
+                if (openTab && content !== undefined) {
+                  console.log('NodeRuntime: Immediately updating open tab content');
+                  setTabs(prevTabs => 
+                    prevTabs.map(tab => {
+                      if (tab.id === openTab.id) {
+                        return { 
+                          ...tab, 
+                          content: content,
+                          isDirty: false 
+                        };
+                      }
+                      return tab;
+                    })
+                  );
+                }
+                
+                // IndexedDBにも保存
+                if (saveFile) {
+                  try {
+                    await saveFile(normalizedPath, content || '');
+                    console.log('NodeRuntime: File saved to IndexedDB successfully');
+                  } catch (error) {
+                    console.error('NodeRuntime: Failed to save to IndexedDB:', error);
+                  }
+                }
+                
+                // Git状態を更新
+                setGitRefreshTrigger(prev => prev + 1);
+                
+                // NodeRuntime操作フラグをリセット
+                setNodeRuntimeOperationInProgress(false);
+                console.log('NodeRuntime operation completed');
+                return;
+              }
+              
+              // 通常のGit操作の場合
               // 該当ファイルがタブで開かれている場合、その内容を更新
               const normalizedPath = path.startsWith('/') ? path.substring(1) : path;
               const openTab = tabs.find(tab => tab.path === `/${normalizedPath}` || tab.path === normalizedPath);
@@ -380,11 +441,12 @@ export default function Home() {
                 }
               }
               
-              // プロジェクトを即座にリロード（遅延を短縮）
+              // プロジェクトリロードはGit操作の場合のみ（NodeRuntime操作では既に処理済み）
+              console.log('Git operation: reloading project');
               loadProject(currentProject);
               console.log('Project reload completed');
               
-              // GitPanelの更新も即座にトリガー
+              // GitPanelの更新もトリガー
               setGitRefreshTrigger(prev => prev + 1);
               console.log('Git refresh trigger updated');
             } else {
@@ -410,6 +472,7 @@ export default function Home() {
           onContentChangeImmediate={handleTabContentChangeImmediate}
           isBottomPanelVisible={isBottomPanelVisible}
           bottomPanelHeight={bottomPanelHeight}
+          nodeRuntimeOperationInProgress={nodeRuntimeOperationInProgress}
         />
 
         {isBottomPanelVisible && (
@@ -418,7 +481,12 @@ export default function Home() {
             currentProject={currentProject?.name}
             projectFiles={projectFiles}
             onResize={handleBottomResize}
-            onTerminalFileOperation={async (path: string, type: 'file' | 'folder' | 'delete', content?: string) => {
+            onTerminalFileOperation={async (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => {
+              // NodeRuntime操作の場合はフラグを設定
+              if (isNodeRuntime) {
+                setNodeRuntimeOperationInProgress(true);
+              }
+              
               // ターミナルからのファイル操作を処理
               if (syncTerminalFileOperation) {
                 await syncTerminalFileOperation(path, type, content);

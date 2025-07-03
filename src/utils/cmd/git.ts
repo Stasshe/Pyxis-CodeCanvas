@@ -15,9 +15,9 @@ import { GitDiffOperations } from './gitOperations/diff';
 export class GitCommands {
   private fs: FS;
   private dir: string;
-  private onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string) => Promise<void>;
+  private onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>;
 
-  constructor(projectName: string, onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string) => Promise<void>) {
+  constructor(projectName: string, onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>) {
     this.fs = getFileSystem()!;
     this.dir = getProjectDir(projectName);
     this.onFileOperation = onFileOperation;

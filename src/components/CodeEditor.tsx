@@ -10,6 +10,7 @@ interface CodeEditorProps {
   isBottomPanelVisible: boolean;
   onContentChange: (tabId: string, content: string) => void;
   onContentChangeImmediate?: (tabId: string, content: string) => void;
+  nodeRuntimeOperationInProgress?: boolean;
 }
 
 const getLanguage = (filename: string): string => {
@@ -35,7 +36,8 @@ export default function CodeEditor({
   bottomPanelHeight,
   isBottomPanelVisible,
   onContentChange,
-  onContentChangeImmediate
+  onContentChangeImmediate,
+  nodeRuntimeOperationInProgress = false
 }: CodeEditorProps) {
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
@@ -47,6 +49,12 @@ export default function CodeEditor({
 
   // デバウンス付きの保存関数
   const debouncedSave = useCallback((tabId: string, content: string) => {
+    // NodeRuntime操作中は保存を一時停止
+    if (nodeRuntimeOperationInProgress) {
+      console.log('[CodeEditor] Skipping debounced save during NodeRuntime operation');
+      return;
+    }
+    
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
@@ -55,7 +63,7 @@ export default function CodeEditor({
       console.log('[CodeEditor] Debounced save triggered for:', tabId);
       onContentChange(tabId, content);
     }, 1000); // 1秒後に保存
-  }, [onContentChange]);
+  }, [onContentChange, nodeRuntimeOperationInProgress]);
 
   // クリーンアップ
   useEffect(() => {

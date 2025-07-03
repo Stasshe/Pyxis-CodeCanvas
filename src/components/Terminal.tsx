@@ -29,7 +29,7 @@ interface TerminalProps {
   height: number;
   currentProject?: string;
   projectFiles?: FileItem[];
-  onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string) => Promise<void>;
+  onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>;
 }
 
 // クライアントサイド専用のターミナルコンポーネント

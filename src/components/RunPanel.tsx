@@ -6,7 +6,7 @@ import { NodeJSRuntime } from '../utils/nodeRuntime';
 interface RunPanelProps {
   currentProject: string | null;
   files: any[];
-  onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string) => Promise<void>;
+  onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>;
 }
 
 interface OutputEntry {

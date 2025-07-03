@@ -6,7 +6,7 @@ interface BottomPanelProps {
   currentProject?: string;
   projectFiles?: FileItem[];
   onResize: (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => void;
-  onTerminalFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string) => Promise<void>;
+  onTerminalFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>;
 }
 
 export default function BottomPanel({ height, currentProject, projectFiles, onResize, onTerminalFileOperation }: BottomPanelProps) {

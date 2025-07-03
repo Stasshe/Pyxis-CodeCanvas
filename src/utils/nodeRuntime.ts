@@ -8,12 +8,12 @@ export class NodeJSRuntime {
   private unixCommands: UnixCommands;
   private console: any;
   private onOutput?: (output: string, type: 'log' | 'error') => void;
-  private onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string) => Promise<void>;
+  private onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>;
 
   constructor(
     projectName: string, 
     onOutput?: (output: string, type: 'log' | 'error') => void,
-    onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string) => Promise<void>
+    onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>
   ) {
     this.fs = getFileSystem();
     this.projectDir = getProjectDir(projectName);
@@ -165,9 +165,13 @@ export class NodeJSRuntime {
           // ファイルシステムのキャッシュをフラッシュ（unix.tsと同様）
           await self.flushFileSystemCache();
           
+          console.log(`[nodeRuntime.fs.writeFile] File written to filesystem: ${fullPath}, content length: ${data.length}`);
+          
           // IndexedDBとの同期（unix.tsと同様）
           if (self.onFileOperation) {
-            await self.onFileOperation(relativePath, 'file', data);
+            console.log(`[nodeRuntime.fs.writeFile] Calling onFileOperation with isNodeRuntime=true`);
+            await self.onFileOperation(relativePath, 'file', data, true); // isNodeRuntime = true
+            console.log(`[nodeRuntime.fs.writeFile] onFileOperation completed`);
           }
           
           self.onOutput?.(`File written: ${path}`, 'log');

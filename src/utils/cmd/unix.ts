@@ -5,9 +5,9 @@ import { getFileSystem, getProjectDir } from '../filesystem';
 export class UnixCommands {
   private fs: FS;
   private currentDir: string;
-  private onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string) => Promise<void>;
+  private onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>;
 
-  constructor(projectName: string, onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string) => Promise<void>) {
+  constructor(projectName: string, onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>) {
     this.fs = getFileSystem()!;
     this.currentDir = getProjectDir(projectName);
     this.onFileOperation = onFileOperation;
