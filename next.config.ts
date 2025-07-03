@@ -17,6 +17,36 @@ const nextConfig = {
   // 共通設定を適用
   ...commonConfig,
   
+  // Webpack設定でNode.jsのpolyfillを追加
+  webpack: (config: any, { isServer }: { isServer: boolean }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        path: require.resolve('path-browserify'),
+        vm: require.resolve('vm-browserify'),
+        buffer: require.resolve('buffer'),
+        process: require.resolve('process/browser'),
+        util: require.resolve('util'),
+        stream: require.resolve('stream-browserify'),
+        crypto: require.resolve('crypto-browserify'),
+        os: require.resolve('os-browserify'),
+      };
+      
+      config.plugins = [
+        ...config.plugins,
+        new (require('webpack')).ProvidePlugin({
+          Buffer: ['buffer', 'Buffer'],
+          process: 'process/browser',
+        }),
+      ];
+      
+      // WebWorkerの設定
+      config.output.globalObject = 'globalThis';
+    }
+    return config;
+  },
+  
   // 本番ビルドモード時のみ静的エクスポートを有効化
   output: isProductionBuild ? 'export' : undefined,
   trailingSlash: isProductionBuild,

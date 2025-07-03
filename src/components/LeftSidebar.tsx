@@ -3,6 +3,7 @@ import { MenuTab, FileItem } from '../types';
 import FileTree from './FileTree';
 import SearchPanel from './SearchPanel';
 import GitPanel from './GitPanel';
+import RunPanel from './RunPanel';
 
 interface LeftSidebarProps {
   activeMenuTab: MenuTab;
@@ -45,6 +46,7 @@ export default function LeftSidebar({
             {activeMenuTab === 'files' && 'エクスプローラー'}
             {activeMenuTab === 'search' && '検索'}
             {activeMenuTab === 'git' && 'ソース管理'}
+            {activeMenuTab === 'run' && '実行'}
             {activeMenuTab === 'settings' && '設定'}
           </span>
         </div>
@@ -71,6 +73,15 @@ export default function LeftSidebar({
                 gitRefreshTrigger={gitRefreshTrigger}
                 onFileOperation={onFileOperation}
                 onGitStatusChange={onGitStatusChange}
+              />
+            </div>
+          )}
+          {activeMenuTab === 'run' && (
+            <div className="h-full">
+              <RunPanel 
+                currentProject={currentProject || null}
+                files={files}
+                onFileOperation={onFileOperation}
               />
             </div>
           )}
