@@ -6,6 +6,12 @@
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Web%20%7C%20iPad%20%7C%20Mobile-orange.svg)](README.md)
 
+<p align="center">
+    <a href="https://pyxis-code.onrender.com">
+        <img src="public/favicon.png" alt="Pyxis Favicon" width="128" height="128" />
+    </a>
+</p>
+
 Pyxis は革新的な**クライアントサイド IDE** で、完全な開発環境をブラウザに提供します。**Node.js ランタイム**、**Git バージョン管理**、**VS Code ライクな編集機能**の全てを、サーバー依存なしにローカルデバイス上で実現します。
 
 ## 🚀 Pyxis が革新的な理由

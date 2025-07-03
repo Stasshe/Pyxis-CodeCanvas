@@ -7,6 +7,12 @@
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Web%20%7C%20iPad%20%7C%20Mobile-orange.svg)](README.md)
 
+<p align="center">
+    <a href="https://pyxis-code.onrender.com">
+        <img src="public/favicon.png" alt="Pyxis Favicon" width="128" height="128" />
+    </a>
+</p>
+
 Pyxis is a revolutionary **client-side IDE** that brings the complete development environment to your browser. Experience the full power of **Node.js runtime**, **Git version control**, and **VS Code-like editing** - all running locally on your device without any server dependency.
 
 
