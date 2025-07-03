@@ -3,7 +3,7 @@ import { getFileSystem, getProjectDir } from '../filesystem';
 
 // UNIXライクなコマンド実装
 export class UnixCommands {
-  private fs: FS;
+  public fs: FS;
   private currentDir: string;
   private onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>;
 
@@ -43,7 +43,7 @@ export class UnixCommands {
   }
 
   // プロジェクトディレクトリからの相対パスを取得
-  private getRelativePathFromProject(fullPath: string): string {
+  public getRelativePathFromProject(fullPath: string): string {
     const projectBase = `/projects/${this.currentDir.split('/')[2]}`;
     return fullPath.replace(projectBase, '') || '/';
   }
@@ -133,7 +133,7 @@ export class UnixCommands {
     let result = '';
     
     // 深度制限（無限ループ防止）
-    if (depth > 2) {
+    if (depth > 5) {
       return '';
     }
 
@@ -548,21 +548,44 @@ export class UnixCommands {
   // echo - テキスト出力/ファイル書き込み
   async echo(text: string, fileName?: string): Promise<string> {
     if (fileName) {
-      const targetPath = fileName.startsWith('/') ? fileName : `${this.currentDir}/${fileName}`;
+      // '>>'（追記）対応
+      let append = false;
+      let actualFileName = fileName;
+      if (fileName.startsWith('>>')) {
+        append = true;
+        actualFileName = fileName.replace(/^>>\s*/, '');
+      }
+      // '>>'が途中にある場合（echo foo >> file.txt）
+      if (fileName.startsWith('>') && !fileName.startsWith('>>')) {
+        actualFileName = fileName.replace(/^>\s*/, '');
+      }
+      if (fileName.startsWith('>>')) {
+        append = true;
+        actualFileName = fileName.replace(/^>>\s*/, '');
+      }
+      const targetPath = actualFileName.startsWith('/') ? actualFileName : `${this.currentDir}/${actualFileName}`;
       const normalizedPath = this.normalizePath(targetPath);
-      
       try {
-        await this.fs.promises.writeFile(normalizedPath, text);
-        
+        let content = text;
+        if (append) {
+          // 既存内容を取得（なければ空）
+          try {
+            const prev = await this.fs.promises.readFile(normalizedPath, { encoding: 'utf8' });
+            content = (prev as string) + text;
+          } catch {
+            // ファイルがなければ新規作成
+            content = text;
+          }
+        }
+        await this.fs.promises.writeFile(normalizedPath, content);
         // IndexedDBにも同期
         if (this.onFileOperation) {
           const relativePath = this.getRelativePathFromProject(normalizedPath);
-          await this.onFileOperation(relativePath, 'file', text);
+          await this.onFileOperation(relativePath, 'file', content);
         }
-        
-        return `Text written to: ${normalizedPath}`;
+        return append ? `Appended to: ${normalizedPath}` : `Text written to: ${normalizedPath}`;
       } catch (error) {
-        throw new Error(`echo: cannot write to '${fileName}': ${(error as Error).message}`);
+        throw new Error(`echo: cannot write to '${actualFileName}': ${(error as Error).message}`);
       }
     } else {
       return text;
@@ -570,7 +593,7 @@ export class UnixCommands {
   }
 
   // ヘルパーメソッド: パスの正規化
-  private normalizePath(path: string): string {
+  public normalizePath(path: string): string {
     const parts = path.split('/').filter(part => part !== '' && part !== '.');
     const normalized: string[] = [];
     

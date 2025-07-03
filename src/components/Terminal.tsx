@@ -239,6 +239,8 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
     // 初期プロンプト表示
     showPrompt();
 
+    let cmdOutputs = '';
+
     // 長い出力を段階的に処理する関数（シンプルで確実な処理）
     const writeOutput = async (output: string) => {
       const lines = output.split('\n');
@@ -246,7 +248,7 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
       
       for (let i = 0; i < lines.length; i += batchSize) {
         const batch = lines.slice(i, i + batchSize);
-        
+        cmdOutputs += batch.join('\n');
         for (const line of batch) {
           if (line === '' && i === 0) {
             // 最初の空行はスキップしない
@@ -264,8 +266,6 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
       
       // 全出力完了後、1〜2回の確実なスクロール
       scrollToBottom(true);
-      
-      // 最終確認のみ
       setTimeout(() => {
         scrollToBottom(true);
       }, 100);
@@ -277,10 +277,24 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
     let historyIndex = -1;
     
     const processCommand = async (command: string) => {
-      const parts = command.trim().split(/\s+/);
+      // リダイレクト演算子のパース
+      let redirect = null;
+      let fileName = null;
+      let append = false;
+      let baseCommand = command;
+      // 末尾の >> file.txt または > file.txt を検出し、コマンド本体とファイル名に分離
+      const redirectMatch = command.match(/(.+?)\s*(>>|>)\s*([^>\s]+)\s*$/);
+      if (redirectMatch) {
+        baseCommand = redirectMatch[1].trim();
+        redirect = redirectMatch[2];
+        fileName = redirectMatch[3];
+        append = redirect === '>>';
+      }
+      const parts = baseCommand.trim().split(/\s+/);
       const cmd = parts[0].toLowerCase();
       const args = parts.slice(1);
       
+      let output = '';
       try {
         switch (cmd) {
           case 'clear':
@@ -288,69 +302,69 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
             break;
             
           case 'help':
-            term.writeln('\r\n=== 利用可能なコマンド ===');
-            term.writeln('Basic Commands:');
-            term.writeln('  clear     - 画面をクリア');
-            term.writeln('  help      - このヘルプを表示');
-            term.writeln('  date      - 現在の日時を表示');
-            term.writeln('  whoami    - ユーザー名を表示');
-            term.writeln('');
-            term.writeln('Navigation:');
-            term.writeln('  ↑/↓ 矢印キー - コマンド履歴を操作');
-            term.writeln('  Ctrl+C    - 現在のコマンドをキャンセル');
-            term.writeln('');
-            term.writeln('File System Commands:');
-            term.writeln('  pwd       - 現在のディレクトリを表示');
-            term.writeln('  ls [path] - ワークスペースファイルをツリー形式で表示');
-            term.writeln('  cd <path> - ディレクトリを変更 (プロジェクト内のみ)');
-            term.writeln('  cd        - プロジェクトルートに戻る');
-            term.writeln('  mkdir <name> [-p] - ディレクトリを作成');
-            term.writeln('  touch <file> - ファイルを作成');
-            term.writeln('  rm <file> [-r] - ファイルを削除 (ワイルドカード対応: rm *.txt)');
-            term.writeln('  cat <file> - ファイル内容を表示');
-            term.writeln('  echo <text> [> file] - テキストを出力/ファイルに書き込み');
-            term.writeln('');
-            term.writeln('Git Commands:');
-            term.writeln('  git status  - ステータスを確認');
-            term.writeln('  git add <file|.|*> - ファイルをステージング');
-            term.writeln('    git add .     - 全ファイルを追加');
-            term.writeln('    git add *     - カレントディレクトリのファイルを追加');
-            term.writeln('  git commit -m "message" - コミット');
-            term.writeln('  git log     - コミット履歴を表示');
-            term.writeln('  git branch [name] [-d] - ブランチ操作');
-            term.writeln('    git branch        - ブランチ一覧');
-            term.writeln('    git branch <name> - ブランチ作成');
-            term.writeln('    git branch -d <name> - ブランチ削除');
-            term.writeln('  git checkout <branch> [-b] - ブランチ切り替え');
-            term.writeln('    git checkout <name>   - ブランチ切り替え');
-            term.writeln('    git checkout -b <name> - ブランチ作成&切り替え');
-            term.writeln('  git merge <branch> - ブランチをマージ');
-            term.writeln('    git merge <name>      - 指定ブランチをマージ');
-            term.writeln('    git merge --no-ff <name> - Fast-forwardを無効にしてマージ');
-            term.writeln('    git merge --abort     - マージを中止');
-            term.writeln('  git revert <commit> - コミットを取り消し');
-            term.writeln('  git reset [file] - ファイルのアンステージング');
-            term.writeln('  git reset --hard <commit> - 指定コミットまでハードリセット');
-            term.writeln('    git reset         - 全ファイルをアンステージング');
-            term.writeln('    git reset <file>  - 特定ファイルをアンステージング');
-            term.writeln('    git reset --hard <hash> - 危険！すべて破棄してコミットに戻る');
-            term.writeln('  git diff [options] [file] - 変更差分を表示');
-            term.writeln('    git diff          - ワーキングディレクトリの変更');
-            term.writeln('    git diff --staged - ステージされた変更');
-            term.writeln('    git diff <commit1> <commit2> - コミット間の差分');
-            term.writeln('');
-            term.writeln('NPM Commands:開発中、利用できません');
-            term.writeln('  npm init [--force] - package.jsonを作成');
-            term.writeln('  npm install [package] [flags] - パッケージのインストール');
-            term.writeln('    npm install        - 全依存関係をインストール');
-            term.writeln('    npm install <pkg>  - パッケージをインストール');
-            term.writeln('    npm install <pkg> --save-dev - 開発依存関係としてインストール');
-            term.writeln('  npm uninstall <package> - パッケージをアンインストール');
-            term.writeln('  npm list           - インストール済みパッケージ一覧');
-            term.writeln('  npm run <script>   - package.jsonのスクリプトを実行');
-            term.writeln('');
-            term.writeln('Note: Gitリポジトリの初期化は左下の「プロジェクト管理」から');
-            term.writeln('新規プロジェクトを作成することで自動的に行われます。');
+            await writeOutput('\r\n=== 利用可能なコマンド ===');
+            await writeOutput('Basic Commands:');
+            await writeOutput('  clear     - 画面をクリア');
+            await writeOutput('  help      - このヘルプを表示');
+            await writeOutput('  date      - 現在の日時を表示');
+            await writeOutput('  whoami    - ユーザー名を表示');
+            await writeOutput('');
+            await writeOutput('Navigation:');
+            await writeOutput('  ↑/↓ 矢印キー - コマンド履歴を操作');
+            await writeOutput('  Ctrl+C    - 現在のコマンドをキャンセル');
+            await writeOutput('');
+            await writeOutput('File System Commands:');
+            await writeOutput('  pwd       - 現在のディレクトリを表示');
+            await writeOutput('  ls [path] - ワークスペースファイルをツリー形式で表示');
+            await writeOutput('  cd <path> - ディレクトリを変更 (プロジェクト内のみ)');
+            await writeOutput('  cd        - プロジェクトルートに戻る');
+            await writeOutput('  mkdir <name> [-p] - ディレクトリを作成');
+            await writeOutput('  touch <file> - ファイルを作成');
+            await writeOutput('  rm <file> [-r] - ファイルを削除 (ワイルドカード対応: rm *.txt)');
+            await writeOutput('  cat <file> - ファイル内容を表示');
+            await writeOutput('  echo <text> [> file] - テキストを出力/ファイルに書き込み');
+            await writeOutput('');
+            await writeOutput('Git Commands:');
+            await writeOutput('  git status  - ステータスを確認');
+            await writeOutput('  git add <file|.|*> - ファイルをステージング');
+            await writeOutput('    git add .     - 全ファイルを追加');
+            await writeOutput('    git add *     - カレントディレクトリのファイルを追加');
+            await writeOutput('  git commit -m "message" - コミット');
+            await writeOutput('  git log     - コミット履歴を表示');
+            await writeOutput('  git branch [name] [-d] - ブランチ操作');
+            await writeOutput('    git branch        - ブランチ一覧');
+            await writeOutput('    git branch <name> - ブランチ作成');
+            await writeOutput('    git branch -d <name> - ブランチ削除');
+            await writeOutput('  git checkout <branch> [-b] - ブランチ切り替え');
+            await writeOutput('    git checkout <name>   - ブランチ切り替え');
+            await writeOutput('    git checkout -b <name> - ブランチ作成&切り替え');
+            await writeOutput('  git merge <branch> - ブランチをマージ');
+            await writeOutput('    git merge <name>      - 指定ブランチをマージ');
+            await writeOutput('    git merge --no-ff <name> - Fast-forwardを無効にしてマージ');
+            await writeOutput('    git merge --abort     - マージを中止');
+            await writeOutput('  git revert <commit> - コミットを取り消し');
+            await writeOutput('  git reset [file] - ファイルのアンステージング');
+            await writeOutput('  git reset --hard <commit> - 指定コミットまでハードリセット');
+            await writeOutput('    git reset         - 全ファイルをアンステージング');
+            await writeOutput('    git reset <file>  - 特定ファイルをアンステージング');
+            await writeOutput('    git reset --hard <hash> - 危険！すべて破棄してコミットに戻る');
+            await writeOutput('  git diff [options] [file] - 変更差分を表示');
+            await writeOutput('    git diff          - ワーキングディレクトリの変更');
+            await writeOutput('    git diff --staged - ステージされた変更');
+            await writeOutput('    git diff <commit1> <commit2> - コミット間の差分');
+            await writeOutput('');
+            await writeOutput('NPM Commands:開発中、利用できません');
+            await writeOutput('  npm init [--force] - package.jsonを作成');
+            await writeOutput('  npm install [package] [flags] - パッケージのインストール');
+            await writeOutput('    npm install        - 全依存関係をインストール');
+            await writeOutput('    npm install <pkg>  - パッケージをインストール');
+            await writeOutput('    npm install <pkg> --save-dev - 開発依存関係としてインストール');
+            await writeOutput('  npm uninstall <package> - パッケージをアンインストール');
+            await writeOutput('  npm list           - インストール済みパッケージ一覧');
+            await writeOutput('  npm run <script>   - package.jsonのスクリプトを実行');
+            await writeOutput('');
+            await writeOutput('Note: Gitリポジトリの初期化は左下の「プロジェクト管理」から');
+            await writeOutput('新規プロジェクトを作成することで自動的に行われます。');
             break;
             
           case 'date':
@@ -698,18 +712,43 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
             }
             break;
         }
+        if (redirect && fileName && unixCommandsRef.current && cmdOutputs !== undefined && cmdOutputs !== null) {
+          const targetPath = fileName.startsWith('/') ? fileName : `${unixCommandsRef.current.pwd()}/${fileName}`;
+          const normalizedPath = unixCommandsRef.current.normalizePath(targetPath);
+          let content = String(cmdOutputs);
+          if (append) {
+            try {
+              const prev = await unixCommandsRef.current.fs.promises.readFile(normalizedPath, { encoding: 'utf8' });
+              content = (typeof prev === 'string' ? prev : String(prev)) + String(cmdOutputs);
+            } catch {
+              content = String(cmdOutputs);
+            }
+          }
+          // ファイル書き込みは try-catch でエラーを握りつぶさず通知
+          try {
+            await unixCommandsRef.current.fs.promises.writeFile(normalizedPath, content);
+            if (onFileOperation) {
+              const relativePath = unixCommandsRef.current.getRelativePathFromProject(normalizedPath);
+              await onFileOperation(relativePath, 'file', content);
+            }
+            cmdOutputs = ''; // 書き込み後は出力をリセット
+          } catch (e) {
+            await writeOutput(`ファイル書き込みエラー: ${(e as Error).message}`);
+          }
+          // ファイル出力時は画面出力しない
+          return;
+        }
+        if (output !== undefined && output !== null) {
+          await writeOutput(output);
+        }
       } catch (error) {
-        await writeOutput((error as Error).message);
+        cmdOutputs = (error as Error).message;
       }
-      
       // コマンド実行後に確実な自動スクロール
       scrollToBottom();
-      
-      // 追加の安全策として複数回スクロールを実行
       setTimeout(() => {
         scrollToBottom();
       }, 50);
-      
       setTimeout(() => {
         scrollToBottom();
       }, 150);
