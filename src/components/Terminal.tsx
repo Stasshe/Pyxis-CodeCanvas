@@ -257,18 +257,7 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
             term.writeln(`\r${line}`);
           }
         }
-        
-        // バッチ処理の合間に短時間待機
-        if (i + batchSize < lines.length) {
-          await new Promise(resolve => setTimeout(resolve, 10));
-        }
       }
-      
-      // 全出力完了後、1〜2回の確実なスクロール
-      scrollToBottom(true);
-      setTimeout(() => {
-        scrollToBottom(true);
-      }, 100);
     };
 
     // コマンド処理
