@@ -79,12 +79,16 @@ export class NodeJSRuntime {
   private async preloadModules(code: string): Promise<void> {
     const moduleNames = new Set<string>();
     
+    console.log('[preloadModules] Analyzing code for modules:', code);
+    
     // require()文の検出
-    const requireMatches = code.match(/require\(['"`]([^'"`]+)['"`]\)/g);
+    const requireMatches = code.match(/require\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/g);
     if (requireMatches) {
+      console.log('[preloadModules] Found require statements:', requireMatches);
       requireMatches.forEach(match => {
-        const moduleName = match.match(/require\(['"`]([^'"`]+)['"`]\)/)?.[1];
+        const moduleName = match.match(/require\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/)?.[1];
         if (moduleName && !this.isBuiltinModule(moduleName)) {
+          console.log(`[preloadModules] Adding module to preload: ${moduleName}`);
           moduleNames.add(moduleName);
         }
       });
@@ -93,24 +97,31 @@ export class NodeJSRuntime {
     // import文の検出
     const importMatches = code.match(/from\s+['"`]([^'"`]+)['"`]/g);
     if (importMatches) {
+      console.log('[preloadModules] Found import statements:', importMatches);
       importMatches.forEach(match => {
         const moduleName = match.match(/from\s+['"`]([^'"`]+)['"`]/)?.[1];
         if (moduleName && !this.isBuiltinModule(moduleName)) {
+          console.log(`[preloadModules] Adding module to preload: ${moduleName}`);
           moduleNames.add(moduleName);
         }
       });
     }
+    
+    console.log(`[preloadModules] Total modules to preload: ${Array.from(moduleNames)}`);
     
     // 検出されたモジュールを事前ロード
     for (const moduleName of moduleNames) {
       try {
         console.log(`[preloadModules] Preloading module: ${moduleName}`);
         await this.resolveModule(moduleName);
+        console.log(`[preloadModules] Successfully preloaded: ${moduleName}`);
       } catch (error) {
         console.warn(`[preloadModules] Failed to preload ${moduleName}:`, (error as Error).message);
         // 事前ロードに失敗してもエラーにはしない
       }
     }
+    
+    console.log(`[preloadModules] Preloading complete. Cache contents:`, Array.from(this.moduleCache.keys()));
   }
 
   // Node.js風のグローバル環境を作成
@@ -430,20 +441,36 @@ export class NodeJSRuntime {
     try {
       // ファイルパスの正規化（プロジェクトルート相対）
       let fullPath;
+      let relativePath;
       if (filePath.startsWith('/')) {
         // 絶対パスの場合、プロジェクトディレクトリを基準とする
         fullPath = `${this.projectDir}${filePath}`;
+        relativePath = filePath;
       } else {
         // 相対パスの場合
         fullPath = `${this.projectDir}/${filePath}`;
+        relativePath = `/${filePath}`;
       }
       
+      // 実行時の作業ディレクトリを設定（ファイルがあるディレクトリ）
+      const fileDir = relativePath.substring(0, relativePath.lastIndexOf('/')) || '/';
+      const oldCwd = this.currentWorkingDirectory;
+      this.currentWorkingDirectory = fileDir;
+      
       console.log(`[executeFile] Reading file: ${filePath} -> ${fullPath}`);
+      console.log(`[executeFile] Setting working directory to: ${fileDir}`);
       
-      const code = await this.fs.promises.readFile(fullPath, { encoding: 'utf8' });
-      
-      this.onOutput?.(`Executing: ${filePath}`, 'log');
-      return await this.executeNodeJS(code as string);
+      try {
+        const code = await this.fs.promises.readFile(fullPath, { encoding: 'utf8' });
+        
+        this.onOutput?.(`Executing: ${filePath}`, 'log');
+        const result = await this.executeNodeJS(code as string);
+        
+        return result;
+      } finally {
+        // 作業ディレクトリを元に戻す
+        this.currentWorkingDirectory = oldCwd;
+      }
     } catch (error) {
       const errorMessage = `Failed to execute file '${filePath}': ${(error as Error).message}`;
       console.error('[executeFile] Error:', error);
@@ -518,6 +545,9 @@ export class NodeJSRuntime {
   private async loadFileModule(moduleName: string): Promise<any> {
     const possiblePaths = this.resolveModulePath(moduleName);
     
+    console.log(`[loadFileModule] Loading module: ${moduleName}`);
+    console.log(`[loadFileModule] Project directory: ${this.projectDir}`);
+    
     for (const filePath of possiblePaths) {
       try {
         console.log(`[loadFileModule] Trying to load: ${filePath}`);
@@ -529,11 +559,15 @@ export class NodeJSRuntime {
           fullPath = `${this.projectDir}/${filePath}`;
         }
 
+        console.log(`[loadFileModule] Full path: ${fullPath}`);
+
         // ファイルの存在確認
         await this.fs.promises.stat(fullPath);
+        console.log(`[loadFileModule] File exists: ${fullPath}`);
         
         // ファイル内容を読み取り
         const content = await this.fs.promises.readFile(fullPath, { encoding: 'utf8' });
+        console.log(`[loadFileModule] File content read successfully, length: ${(content as string).length}`);
         
         // package.jsonの場合はJSONとして解析
         if (filePath.endsWith('package.json')) {
@@ -569,27 +603,74 @@ export class NodeJSRuntime {
       }
     }
     
-    throw new Error(`Module file not found for '${moduleName}'`);
+    // すべての候補パスを試行しても見つからない場合、利用可能なファイルを表示
+    try {
+      console.log(`[loadFileModule] Module not found. Listing available files in project directory:`);
+      const files = await this.fs.promises.readdir(this.projectDir);
+      console.log(`[loadFileModule] Available files:`, files);
+      
+      // サブディレクトリもチェック
+      for (const file of files) {
+        try {
+          const filePath = `${this.projectDir}/${file}`;
+          const stat = await this.fs.promises.stat(filePath);
+          if (stat.isDirectory()) {
+            const subFiles = await this.fs.promises.readdir(filePath);
+            console.log(`[loadFileModule] Files in ${file}/:`, subFiles);
+          }
+        } catch {
+          // ディレクトリ読み取りエラーは無視
+        }
+      }
+    } catch (error) {
+      console.log(`[loadFileModule] Could not list directory contents:`, error);
+    }
+    
+    throw new Error(`Module file not found for '${moduleName}'. Tried paths: ${possiblePaths.join(', ')}`);
   }
 
   // モジュールパスを解決
   private resolveModulePath(moduleName: string): string[] {
     const paths: string[] = [];
     
+    console.log(`[resolveModulePath] Resolving module: ${moduleName}`);
+    console.log(`[resolveModulePath] Current working directory: ${this.currentWorkingDirectory}`);
+    
     // 相対パス / 絶対パスの場合
     if (moduleName.startsWith('./') || moduleName.startsWith('../') || moduleName.startsWith('/')) {
-      const basePath = moduleName.startsWith('/') ? moduleName : this.currentWorkingDirectory + '/' + moduleName;
+      let basePath: string;
+      
+      if (moduleName.startsWith('/')) {
+        basePath = moduleName;
+      } else {
+        // 相対パスの解決
+        if (this.currentWorkingDirectory === '/') {
+          basePath = moduleName.substring(2); // './file' → 'file'
+        } else {
+          basePath = this.currentWorkingDirectory + '/' + moduleName.substring(2);
+        }
+      }
+      
+      console.log(`[resolveModulePath] Resolved base path: ${basePath}`);
+      
+      // パスの正規化
+      basePath = basePath.replace(/\/+/g, '/').replace(/\/$/, '');
       
       // 拡張子の候補
       paths.push(basePath);
-      if (!basePath.includes('.')) {
-        paths.push(basePath + '.js');
-        paths.push(basePath + '.json');
+      if (!basePath.includes('.') || basePath.endsWith('.js') === false) {
+        if (!basePath.endsWith('.js')) {
+          paths.push(basePath + '.js');
+        }
+        if (!basePath.endsWith('.json')) {
+          paths.push(basePath + '.json');
+        }
+        // ディレクトリの場合のindex.js
         paths.push(basePath + '/index.js');
         paths.push(basePath + '/package.json');
       }
     } else {
-      // node_modules風の解決（プロジェクトルートから検索）
+      // node_modules風の解決（プロジェクト内検索）
       paths.push(`/node_modules/${moduleName}`);
       paths.push(`/node_modules/${moduleName}.js`);
       paths.push(`/node_modules/${moduleName}/index.js`);
@@ -601,6 +682,7 @@ export class NodeJSRuntime {
       paths.push(`/${moduleName}.json`);
     }
     
+    console.log(`[resolveModulePath] Candidate paths:`, paths);
     return paths;
   }
 
@@ -642,6 +724,7 @@ export class NodeJSRuntime {
       const transformedCode = this.transformESModules(code);
       
       console.log(`[executeModuleCodeSync] Executing module code for: ${filePath}`);
+      console.log(`[executeModuleCodeSync] Transformed code:`, transformedCode);
       
       // Function コンストラクタを使用して同期実行
       const moduleFunction = new Function(
@@ -652,7 +735,7 @@ export class NodeJSRuntime {
       moduleFunction.call(
         {},
         moduleObject,
-        moduleExports,
+        moduleObject.exports, // exportsパラメータはmodule.exportsの参照
         moduleGlobals.require,
         moduleGlobals.__filename,
         moduleGlobals.__dirname,
@@ -665,10 +748,11 @@ export class NodeJSRuntime {
         moduleGlobals.clearInterval
       );
       
-      // module.exportsまたはexportsを返す
-      return moduleObject.exports && Object.keys(moduleObject.exports).length > 0 
-        ? moduleObject.exports 
-        : moduleExports;
+      console.log(`[executeModuleCodeSync] Module execution completed. module.exports:`, moduleObject.exports);
+      console.log(`[executeModuleCodeSync] Module exports keys:`, Object.keys(moduleObject.exports));
+      
+      // module.exportsを返す（CommonJSの標準的な動作）
+      return moduleObject.exports;
         
     } catch (error) {
       console.error(`[executeModuleCodeSync] Error executing module ${filePath}:`, error);
@@ -708,12 +792,14 @@ export class NodeJSRuntime {
       const wrappedCode = this.wrapModuleCode(transformedCode, moduleGlobals);
       
       console.log(`[executeModuleCode] Executing module code for: ${filePath}`);
+      console.log(`[executeModuleCode] Transformed code:`, transformedCode);
       await this.executeInSandbox(wrappedCode, moduleGlobals);
       
-      // module.exportsまたはexportsを返す
-      return moduleObject.exports && Object.keys(moduleObject.exports).length > 0 
-        ? moduleObject.exports 
-        : moduleExports;
+      console.log(`[executeModuleCode] Module execution completed. module.exports:`, moduleObject.exports);
+      console.log(`[executeModuleCode] Module exports keys:`, Object.keys(moduleObject.exports));
+      
+      // module.exportsを返す（CommonJSの標準的な動作）
+      return moduleObject.exports;
         
     } catch (error) {
       console.error(`[executeModuleCode] Error executing module ${filePath}:`, error);
@@ -726,22 +812,28 @@ export class NodeJSRuntime {
     let transformedCode = code;
     
     // import文を require に変換
+    // import Utils, { helper } from 'module' → const _temp = require('module'); const Utils = _temp.default || _temp; const { helper } = _temp;
+    transformedCode = transformedCode.replace(
+      /import\s+(\w+)\s*,\s*\{([^}]+)\}\s+from\s+['"]([^'"]+)['"];?/g,
+      (match, defaultImport, namedImports, modulePath) => {
+        const tempVar = `_temp_${Math.random().toString(36).substr(2, 9)}`;
+        return `const ${tempVar} = require('${modulePath}'); const ${defaultImport} = ${tempVar}.default || ${tempVar}; const { ${namedImports} } = ${tempVar};`;
+      }
+    );
+    
     // import { something } from 'module' → const { something } = require('module')
     transformedCode = transformedCode.replace(
       /import\s+\{([^}]+)\}\s+from\s+['"]([^'"]+)['"];?/g,
       'const { $1 } = require(\'$2\');'
     );
     
-    // import something, { other } from 'module' → const something = require('module'); const { other } = require('module')
-    transformedCode = transformedCode.replace(
-      /import\s+(\w+)\s*,\s*\{([^}]+)\}\s+from\s+['"]([^'"]+)['"];?/g,
-      'const $1 = require(\'$3\'); const { $2 } = require(\'$3\');'
-    );
-    
-    // import something from 'module' → const something = require('module')
+    // import something from 'module' → const something = require('module').default || require('module')
     transformedCode = transformedCode.replace(
       /import\s+(\w+)\s+from\s+['"]([^'"]+)['"];?/g,
-      'const $1 = require(\'$2\');'
+      (match, varName, modulePath) => {
+        const tempVar = `_temp_${Math.random().toString(36).substr(2, 9)}`;
+        return `const ${tempVar} = require('${modulePath}'); const ${varName} = ${tempVar}.default || ${tempVar};`;
+      }
     );
     
     // import * as something from 'module' → const something = require('module')
@@ -756,10 +848,10 @@ export class NodeJSRuntime {
       'require(\'$1\');'
     );
     
-    // export default something → module.exports = something
+    // export default something → module.exports = something; module.exports.default = something;
     transformedCode = transformedCode.replace(
       /export\s+default\s+(.+);?$/gm,
-      'module.exports = $1;'
+      'module.exports = $1; module.exports.default = $1;'
     );
     
     // export { something } → module.exports.something = something
@@ -783,34 +875,53 @@ export class NodeJSRuntime {
       'function $1'
     );
     
-    // export class Name {...} → class Name {...}; module.exports.Name = Name;
+    // export class Name {...} → class Name {...}; module.exports.Name = Name; module.exports.default = Name;
+    transformedCode = transformedCode.replace(
+      /export\s+default\s+class\s+(\w+)/g,
+      'class $1'
+    );
+    
     transformedCode = transformedCode.replace(
       /export\s+class\s+(\w+)/g,
       'class $1'
     );
     
     // 後処理：exportされた関数やクラスをmodule.exportsに追加
-    // function declarations
-    const functionMatches = transformedCode.match(/function\s+(\w+)/g);
-    if (functionMatches && code.includes('export')) {
-      functionMatches.forEach(match => {
-        const funcName = match.replace('function ', '');
-        if (code.includes(`export function ${funcName}`) || code.includes(`export { ${funcName}`)) {
+    // export function の後処理
+    const exportFunctionMatches = code.match(/export\s+function\s+(\w+)/g);
+    if (exportFunctionMatches) {
+      exportFunctionMatches.forEach(match => {
+        const funcName = match.replace(/export\s+function\s+/, '');
+        if (!transformedCode.includes(`module.exports.${funcName} = ${funcName}`)) {
           transformedCode += `\nmodule.exports.${funcName} = ${funcName};`;
         }
       });
     }
     
-    // class declarations
-    const classMatches = transformedCode.match(/class\s+(\w+)/g);
-    if (classMatches && code.includes('export')) {
-      classMatches.forEach(match => {
-        const className = match.replace('class ', '');
-        if (code.includes(`export class ${className}`) || code.includes(`export { ${className}`)) {
+    // export class の後処理
+    const exportClassMatches = code.match(/export\s+class\s+(\w+)/g);
+    if (exportClassMatches) {
+      exportClassMatches.forEach(match => {
+        const className = match.replace(/export\s+class\s+/, '');
+        if (!transformedCode.includes(`module.exports.${className} = ${className}`)) {
           transformedCode += `\nmodule.exports.${className} = ${className};`;
         }
       });
     }
+    
+    // export default class の後処理
+    const exportDefaultClassMatches = code.match(/export\s+default\s+class\s+(\w+)/g);
+    if (exportDefaultClassMatches) {
+      exportDefaultClassMatches.forEach(match => {
+        const className = match.replace(/export\s+default\s+class\s+/, '');
+        if (!transformedCode.includes(`module.exports = ${className}`)) {
+          transformedCode += `\nmodule.exports = ${className};\nmodule.exports.default = ${className};`;
+        }
+      });
+    }
+    
+    console.log('[transformESModules] Original code:', code);
+    console.log('[transformESModules] Transformed code:', transformedCode);
     
     return transformedCode;
   }
