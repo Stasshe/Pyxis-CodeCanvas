@@ -537,60 +537,119 @@ export class NpmCommands {
     }
   }
 
-  // パッケージの展開（簡易実装）
+  // パッケージの展開（実際のtar展開）
   private async extractPackage(packageDir: string, tarballData: ArrayBuffer, packageInfo: any): Promise<void> {
     try {
-      // 実際のtar展開は複雑なので、重要なファイルのみ作成
+      console.log(`[npm.extractPackage] Starting tar extraction to: ${packageDir}`);
       
-      // package.jsonの作成
-      const packageJsonPath = `${packageDir}/package.json`;
-      const packageJsonContent = JSON.stringify({
-        name: packageInfo.name,
-        version: packageInfo.version,
-        description: packageInfo.description,
-        main: packageInfo.main,
-        license: packageInfo.license,
-        dependencies: packageInfo.dependencies
-      }, null, 2);
+      // tarballはgzip圧縮されているので、まず解凍
+      const uint8Array = new Uint8Array(tarballData);
       
-      await this.fs.promises.writeFile(packageJsonPath, packageJsonContent);
+      // pakoライブラリを動的インポート
+      const pako = await import('pako');
+      let decompressedData: Uint8Array;
       
-      // メインファイルパスを正規化
-      let mainFile = packageInfo.main || 'index.js';
-      console.log(`[npm.extractPackage] Original main file: "${mainFile}"`);
-      
-      // より厳密な正規化
-      mainFile = mainFile.replace(/^\.+\/+/g, ''); // ./や../を削除
-      mainFile = mainFile.replace(/\/+/g, '/'); // 連続するスラッシュを1つにまとめる
-      mainFile = mainFile.replace(/^\/+/, ''); // 先頭のスラッシュを削除
-      
-      console.log(`[npm.extractPackage] Normalized main file: "${mainFile}"`);
-      
-      // メインファイルの作成
-      const mainFilePath = `${packageDir}/${mainFile}`;
-      console.log(`[npm.extractPackage] Main file path: "${mainFilePath}"`);
-      
-      const mainFileContent = this.generateMainFileContent(packageInfo);
-      
-      // メインファイルのディレクトリを作成
-      const mainFileDir = mainFilePath.substring(0, mainFilePath.lastIndexOf('/'));
-      console.log(`[npm.extractPackage] Main file directory: "${mainFileDir}"`);
-      console.log(`[npm.extractPackage] Package directory: "${packageDir}"`);
-      
-      if (mainFileDir !== packageDir && mainFileDir.length > packageDir.length) {
-        console.log(`[npm.extractPackage] Creating main file directory: "${mainFileDir}"`);
-        await this.fs.promises.mkdir(mainFileDir, { recursive: true } as any);
+      try {
+        decompressedData = pako.inflate(uint8Array);
+        console.log(`[npm.extractPackage] Gzip decompression successful, size: ${decompressedData.length}`);
+      } catch (error) {
+        // gzip圧縮されていない場合はそのまま使用
+        console.log(`[npm.extractPackage] Not gzip compressed, using raw data`);
+        decompressedData = uint8Array;
       }
       
-      await this.fs.promises.writeFile(mainFilePath, mainFileContent);
+      // tar-streamライブラリを動的インポート
+      const tarStream = await import('tar-stream');
+      const extract = tarStream.extract();
       
-      // READMEファイルの作成（オプション）
-      const readmePath = `${packageDir}/README.md`;
-      const readmeContent = `# ${packageInfo.name}\n\n${packageInfo.description || 'No description available.'}\n\nVersion: ${packageInfo.version}\nLicense: ${packageInfo.license || 'Unknown'}\n\nThis package was installed via Pyxis npm implementation.`;
-      await this.fs.promises.writeFile(readmePath, readmeContent);
+      const files: Array<{ name: string; data: Uint8Array; type: string }> = [];
+      
+      // tar エントリを処理
+      extract.on('entry', (header: any, stream: any, next: any) => {
+        const chunks: Uint8Array[] = [];
+        
+        stream.on('data', (chunk: Uint8Array) => {
+          chunks.push(chunk);
+        });
+        
+        stream.on('end', () => {
+          if (header.type === 'file') {
+            // チャンクを結合
+            const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+            const combined = new Uint8Array(totalLength);
+            let offset = 0;
+            for (const chunk of chunks) {
+              combined.set(chunk, offset);
+              offset += chunk.length;
+            }
+            
+            files.push({
+              name: header.name,
+              data: combined,
+              type: header.type
+            });
+          } else if (header.type === 'directory') {
+            files.push({
+              name: header.name,
+              data: new Uint8Array(0),
+              type: header.type
+            });
+          }
+          next();
+        });
+        
+        stream.resume();
+      });
+      
+      // tar展開完了時の処理
+      await new Promise<void>((resolve, reject) => {
+        extract.on('finish', () => {
+          console.log(`[npm.extractPackage] Tar extraction completed, found ${files.length} entries`);
+          resolve();
+        });
+        
+        extract.on('error', (error: Error) => {
+          console.error(`[npm.extractPackage] Tar extraction error:`, error);
+          reject(error);
+        });
+        
+        // decompressされたデータをtar-streamに送信
+        extract.write(decompressedData);
+        extract.end();
+      });
+      
+      // ファイルをファイルシステムに書き込み
+      for (const file of files) {
+        // パッケージ名のプレフィックスを削除 (例: "package/" -> "")
+        let relativePath = file.name;
+        if (relativePath.startsWith('package/')) {
+          relativePath = relativePath.substring(8);
+        }
+        
+        if (!relativePath) continue; // 空のパスはスキップ
+        
+        const fullPath = `${packageDir}/${relativePath}`;
+        
+        if (file.type === 'directory') {
+          console.log(`[npm.extractPackage] Creating directory: ${fullPath}`);
+          await this.fs.promises.mkdir(fullPath, { recursive: true } as any);
+        } else if (file.type === 'file') {
+          // ディレクトリを作成
+          const dirPath = fullPath.substring(0, fullPath.lastIndexOf('/'));
+          if (dirPath !== packageDir) {
+            await this.fs.promises.mkdir(dirPath, { recursive: true } as any);
+          }
+          
+          // ファイルを書き込み
+          console.log(`[npm.extractPackage] Writing file: ${fullPath} (${file.data.length} bytes)`);
+          await this.fs.promises.writeFile(fullPath, file.data);
+        }
+      }
+      
+      console.log(`[npm.extractPackage] Package extraction completed successfully`);
       
     } catch (error) {
-      console.error(`Failed to extract package:`, error);
+      console.error(`[npm.extractPackage] Failed to extract package:`, error);
       throw error;
     }
   }
