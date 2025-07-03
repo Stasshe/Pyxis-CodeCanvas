@@ -123,6 +123,14 @@ export class NpmCommands {
           const packageInfo = await this.fetchPackageInfo(packageName);
           const version = packageInfo.version;
           
+          // package.jsonの依存関係オブジェクトを確保
+          if (!packageJson.dependencies) {
+            packageJson.dependencies = {};
+          }
+          if (!packageJson.devDependencies) {
+            packageJson.devDependencies = {};
+          }
+          
           // package.jsonに依存関係を追加（既存でも更新）
           if (isDev) {
             packageJson.devDependencies[packageName] = `^${version}`;
@@ -166,6 +174,14 @@ export class NpmCommands {
       try {
         const packageJsonContent = await this.fs.promises.readFile(packageJsonPath, { encoding: 'utf8' });
         const packageJson = JSON.parse(packageJsonContent as string);
+        
+        // 依存関係オブジェクトが存在しない場合は作成
+        if (!packageJson.dependencies) {
+          packageJson.dependencies = {};
+        }
+        if (!packageJson.devDependencies) {
+          packageJson.devDependencies = {};
+        }
         
         const wasInDependencies = delete packageJson.dependencies[packageName];
         const wasInDevDependencies = delete packageJson.devDependencies[packageName];
@@ -328,6 +344,7 @@ export class NpmCommands {
   // 実際のnpmレジストリからパッケージ情報を取得
   private async fetchPackageInfo(packageName: string): Promise<any> {
     try {
+      console.log('fetching package info for:', packageName);
       // タイムアウト付きでfetch
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒タイムアウト
@@ -336,7 +353,6 @@ export class NpmCommands {
         signal: controller.signal,
         headers: {
           'Accept': 'application/json',
-          'User-Agent': 'Mozilla/5.0 (iPad; CPU OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1'
         }
       });
       
