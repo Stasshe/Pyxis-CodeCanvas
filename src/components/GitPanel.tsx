@@ -66,19 +66,18 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
       // ステータス情報をパース
       const status = parseGitStatus(statusResult);
       
-      // コミットにブランチ情報を適切に設定
-      const commitsWithBranches = await assignBranchesToCommits(commits, status.branch, gitCommands);
-      
       console.log('[GitPanel] Parsed status:', {
         staged: status.staged,
         unstaged: status.unstaged,
-        untracked: status.untracked
+        untracked: status.untracked,
+        commits: commits.length,
+        branches: branches.length
       });
 
       setGitRepo({
         initialized: true,
         branches,
-        commits: commitsWithBranches,
+        commits, // 直接パースしたコミットを使用（ブランチ情報含む）
         status,
         currentBranch: status.branch
       });
@@ -102,70 +101,7 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
     }
   };
 
-  // コミットにブランチ情報を割り当てる
-  const assignBranchesToCommits = async (
-    commits: GitCommitType[], 
-    currentBranch: string, 
-    gitCommands: GitCommands
-  ): Promise<GitCommitType[]> => {
-    // 現在のブランチで利用可能な全てのブランチを取得
-    try {
-      const branchList = await gitCommands.branch();
-      const allBranches = branchList.split('\n')
-        .map(line => line.replace(/^\*\s*/, '').trim())
-        .filter(line => line && !line.includes('remotes/'));
-      
-      console.log('[GitPanel] Available branches:', allBranches);
-      
-      // 各コミットに対してブランチを判定
-      const commitsWithBranches = await Promise.all(
-        commits.map(async (commit, index) => {
-          // 最初のコミット（最新）は現在のブランチに属する
-          if (index === 0) {
-            return { ...commit, branch: currentBranch };
-          }
-          
-          // 他のコミットについては、各ブランチでそのコミットが存在するかチェック
-          for (const branch of allBranches) {
-            if (branch === currentBranch) continue; // 既にチェック済み
-            
-            try {
-              // そのブランチでコミットが存在するかチェック
-              const branchCommits = await gitCommands.getFormattedLog(50); // より多くのコミットを取得
-              if (branchCommits.includes(commit.hash)) {
-                // このコミットが他のブランチにも存在する場合は、より詳細な判定が必要
-                // 簡単なヒューリスティック：現在のブランチ以外で最初に見つかったブランチを使用
-                const isMainBranch = branch === 'main' || branch === 'master';
-                const isCurrentBranchCommit = currentBranch !== 'main' && currentBranch !== 'master';
-                
-                // mainブランチのコミットは通常mainとして扱う
-                if (isMainBranch && !isCurrentBranchCommit) {
-                  return { ...commit, branch: branch };
-                }
-              }
-            } catch (error) {
-              // ブランチアクセスエラーは無視
-              console.warn(`Failed to check branch ${branch}:`, error);
-            }
-          }
-          
-          // どのブランチも特定できない場合は、現在のブランチまたはmainに設定
-          return { ...commit, branch: allBranches.includes('main') ? 'main' : currentBranch };
-        })
-      );
-      
-      return commitsWithBranches;
-    } catch (error) {
-      console.warn('Failed to assign branches to commits:', error);
-      // エラーの場合は、シンプルなロジックでブランチを設定
-      return commits.map((commit, index) => ({
-        ...commit,
-        branch: index === 0 ? currentBranch : 'main'
-      }));
-    }
-  };
-
-  // Git logをパースしてコミット配列に変換
+  // Git logをパースしてコミット配列に変換（ブランチ情報付き）
   const parseGitLog = (logOutput: string): GitCommitType[] => {
     if (!logOutput.trim()) {
       return [];
@@ -178,16 +114,17 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
       const line = lines[i];
       const parts = line.split('|');
       
-      // 正確に5つのパーツがあることを確認（親コミット情報を含む）
-      if (parts.length === 5) {
+      // 6つのパーツがあることを確認（ブランチ情報を含む）
+      if (parts.length === 6) {
         const hash = parts[0]?.trim();
         const message = parts[1]?.trim();
         const author = parts[2]?.trim();
         const date = parts[3]?.trim();
         const parentHashesStr = parts[4]?.trim();
+        const branch = parts[5]?.trim();
         
         // 全てのフィールドが有効であることを確認
-        if (hash && hash.length >= 7 && message && author && date) {
+        if (hash && hash.length >= 7 && message && author && date && branch) {
           try {
             const timestamp = new Date(date).getTime();
             if (!isNaN(timestamp)) {
@@ -203,7 +140,39 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
                 author: author.replace(/｜/g, '|'),
                 date,
                 timestamp,
-                branch: 'main', // 一時的にmainとして設定（後で修正）
+                branch: branch, // 実際のブランチ情報を使用
+                isMerge: message.toLowerCase().includes('merge'),
+                parentHashes
+              });
+            }
+          } catch (dateError) {
+            // Date parsing error, skip this commit
+          }
+        }
+      } else if (parts.length === 5) {
+        // 古いフォーマット（ブランチ情報なし）との互換性
+        const hash = parts[0]?.trim();
+        const message = parts[1]?.trim();
+        const author = parts[2]?.trim();
+        const date = parts[3]?.trim();
+        const parentHashesStr = parts[4]?.trim();
+        
+        if (hash && hash.length >= 7 && message && author && date) {
+          try {
+            const timestamp = new Date(date).getTime();
+            if (!isNaN(timestamp)) {
+              const parentHashes = parentHashesStr && parentHashesStr !== '' 
+                ? parentHashesStr.split(',').filter(h => h.trim() !== '')
+                : [];
+              
+              commits.push({
+                hash,
+                shortHash: hash.substring(0, 7),
+                message: message.replace(/｜/g, '|'),
+                author: author.replace(/｜/g, '|'),
+                date,
+                timestamp,
+                branch: 'main', // デフォルトはmain
                 isMerge: message.toLowerCase().includes('merge'),
                 parentHashes
               });

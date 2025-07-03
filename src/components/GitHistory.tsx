@@ -303,19 +303,14 @@ export default function GitHistory({ commits, currentProject, currentBranch, onF
                             <Hash className="w-2.5 h-2.5" />
                             <span className="font-mono">{commit.shortHash}</span>
                           </span>
-                          {/* ブランチ表示：適切なロジックで各ブランチを表示 */}
+                          {/* ブランチ表示：各ブランチの最新コミットに表示 */}
                           {(() => {
-                            const currentIndex = commits.findIndex(c => c.hash === commit.hash);
+                            // そのブランチの最新コミット（時系列的に最初に現れるコミット）かどうかを判定
+                            const branchCommits = commits.filter(c => c.branch === commit.branch);
+                            const isLatestOfBranch = branchCommits.length > 0 && branchCommits[0].hash === commit.hash;
                             
-                            // 現在のコミットより前に同じブランチのコミットがあるかチェック
-                            const hasPreviousSameBranch = commits.slice(0, currentIndex).some(c => c.branch === commit.branch);
+                            if (!isLatestOfBranch) return null;
                             
-                            // 同じブランチの最初の出現でない場合は表示しない
-                            if (hasPreviousSameBranch) {
-                              return null;
-                            }
-                            
-                            // 現在のブランチかどうかを判定
                             const isCurrentBranch = commit.branch === currentBranch;
                             
                             return (

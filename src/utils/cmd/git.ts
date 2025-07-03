@@ -749,7 +749,7 @@ export class GitCommands {
     }
   }
 
-  // UI用のGitログを取得（パイプ区切り形式）
+  // UI用のGitログを取得（パイプ区切り形式、ブランチ情報付き）
   async getFormattedLog(depth = 20): Promise<string> {
     try {
       await this.ensureProjectDirectory();
@@ -763,6 +763,12 @@ export class GitCommands {
         console.log('.git directory does not exist');
         throw new Error('not a git repository (or any of the parent directories): .git');
       }
+      
+      // 現在のブランチを取得
+      const currentBranch = await git.currentBranch({ fs: this.fs, dir: this.dir }) || 'main';
+      
+      // 全てのブランチを取得
+      const branches = await git.listBranches({ fs: this.fs, dir: this.dir });
       
       const commits = await git.log({ fs: this.fs, dir: this.dir, depth });
       console.log('Raw commits found:', commits.length);
@@ -783,7 +789,46 @@ export class GitCommands {
         // 親コミットのハッシュを追加（複数の親がある場合はカンマ区切り）
         const parentHashes = commit.commit.parent.join(',');
         
-        const formatted = `${commit.oid}|${safeMessage}|${safeName}|${safeDate}|${parentHashes}`;
+        // 各ブランチでこのコミットが含まれているかチェック
+        let commitBranch = currentBranch; // デフォルトは現在のブランチ
+        
+        // より公平なブランチ判定：コミットが複数のブランチに存在する場合の処理
+        const branchesContainingCommit: string[] = [];
+        
+        for (const branch of branches) {
+          try {
+            // 各ブランチでのコミット履歴を取得
+            const branchCommits = await git.log({ 
+              fs: this.fs, 
+              dir: this.dir, 
+              ref: branch,
+              depth: depth + 10
+            });
+            
+            // このコミットがそのブランチに含まれているかチェック
+            const foundInBranch = branchCommits.some(bc => bc.oid === commit.oid);
+            if (foundInBranch) {
+              branchesContainingCommit.push(branch);
+            }
+          } catch (branchError) {
+            // ブランチアクセスエラーは無視
+            console.warn(`Failed to check branch ${branch}:`, branchError);
+          }
+        }
+        
+        // ブランチ判定のロジック
+        if (branchesContainingCommit.length > 0) {
+          if (branchesContainingCommit.includes(currentBranch)) {
+            // 現在のブランチに含まれている場合は現在のブランチを優先
+            commitBranch = currentBranch;
+          } else {
+            // 現在のブランチに含まれていない場合は、最初に見つかったブランチを使用
+            commitBranch = branchesContainingCommit[0];
+          }
+        }
+        
+        // フォーマット: hash|message|author|date|parentHashes|branch
+        const formatted = `${commit.oid}|${safeMessage}|${safeName}|${safeDate}|${parentHashes}|${commitBranch}`;
         formattedCommits.push(formatted);
       }
       
