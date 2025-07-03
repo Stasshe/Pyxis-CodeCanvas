@@ -71,46 +71,83 @@ export class NpmCommands {
           return 'up to date, audited 0 packages in 0.1s\n\nfound 0 vulnerabilities';
         }
 
-        let output = `added ${packageNames.length} packages in 0.1s\n\n`;
-        output += `Installing packages:\n`;
+        let output = `Installing ${packageNames.length} packages...\n`;
+        let installedCount = 0;
+        let skippedCount = 0;
         
         for (const pkg of packageNames) {
-          const version = allDependencies[pkg];
-          output += `  ${pkg}@${version}\n`;
+          const versionSpec = allDependencies[pkg];
+          const version = versionSpec.replace(/[\^~]/, ''); // ^1.0.0 -> 1.0.0
           
-          // パッケージディレクトリを作成
+          // 既にインストール済みかチェック
           const packageDir = `${nodeModulesDir}/${pkg}`;
-          await this.createMockPackage(packageDir, pkg, version);
+          try {
+            await this.fs.promises.stat(packageDir);
+            output += `  ✓ ${pkg}@${version} (already installed)\n`;
+            skippedCount++;
+            continue;
+          } catch {
+            // パッケージが存在しない場合は新規インストール
+          }
+          
+          try {
+            await this.downloadAndInstallPackage(pkg, version);
+            installedCount++;
+            output += `  ✓ ${pkg}@${version}\n`;
+          } catch (error) {
+            output += `  ✗ ${pkg}@${version} - ${(error as Error).message}\n`;
+          }
         }
 
-        output += `\nfound 0 vulnerabilities`;
+        if (installedCount === 0 && skippedCount > 0) {
+          output += `\nup to date, audited ${packageNames.length} packages in ${Math.random() * 2 + 1}s\n\nfound 0 vulnerabilities`;
+        } else {
+          output += `\nadded ${installedCount} packages in ${Math.random() * 2 + 1}s\n\nfound 0 vulnerabilities`;
+        }
         return output;
       } else {
         // 特定パッケージのインストール
         const isDev = flags.includes('--save-dev') || flags.includes('-D');
-        const version = await this.getLatestVersion(packageName);
         
-        // package.jsonに依存関係を追加
-        if (isDev) {
-          packageJson.devDependencies[packageName] = version;
-        } else {
-          packageJson.dependencies[packageName] = version;
-        }
-
-        // package.jsonを更新
-        await this.fs.promises.writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2));
-        
-        // package.jsonをIndexedDBに同期
-        if (this.onFileOperation) {
-          await this.onFileOperation('/package.json', 'file', JSON.stringify(packageJson, null, 2));
-        }
-
-        // パッケージディレクトリを作成
+        // 既にインストール済みかチェック
         const packageDir = `${nodeModulesDir}/${packageName}`;
-        await this.createMockPackage(packageDir, packageName, version);
+        let isAlreadyInstalled = false;
+        try {
+          await this.fs.promises.stat(packageDir);
+          isAlreadyInstalled = true;
+        } catch {
+          // パッケージが存在しない場合は新規インストール
+        }
+        
+        try {
+          const packageInfo = await this.fetchPackageInfo(packageName);
+          const version = packageInfo.version;
+          
+          // package.jsonに依存関係を追加（既存でも更新）
+          if (isDev) {
+            packageJson.devDependencies[packageName] = `^${version}`;
+          } else {
+            packageJson.dependencies[packageName] = `^${version}`;
+          }
 
-        const depType = isDev ? 'devDependencies' : 'dependencies';
-        return `added 1 package in 0.1s\n\n+ ${packageName}@${version}\nadded 1 package from 1 contributor and audited 1 package in 0.1s\n\nfound 0 vulnerabilities`;
+          // package.jsonを更新
+          await this.fs.promises.writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2));
+          
+          // package.jsonをIndexedDBに同期
+          if (this.onFileOperation) {
+            await this.onFileOperation('/package.json', 'file', JSON.stringify(packageJson, null, 2));
+          }
+
+          if (isAlreadyInstalled) {
+            return `updated 1 package in ${Math.random() * 2 + 1}s\n\n~ ${packageName}@${version}\nupdated 1 package and audited 1 package in ${Math.random() * 0.5 + 0.5}s\n\nfound 0 vulnerabilities`;
+          } else {
+            // パッケージをダウンロードしてインストール
+            await this.downloadAndInstallPackage(packageName, version);
+            return `added 1 package in ${Math.random() * 2 + 1}s\n\n+ ${packageName}@${version}\nadded 1 package and audited 1 package in ${Math.random() * 0.5 + 0.5}s\n\nfound 0 vulnerabilities`;
+          }
+        } catch (error) {
+          throw new Error(`Failed to install ${packageName}: ${(error as Error).message}`);
+        }
       }
     } catch (error) {
       throw new Error(`npm install failed: ${(error as Error).message}`);
@@ -288,66 +325,330 @@ export class NpmCommands {
     }
   }
 
-  // モックパッケージの作成
-  private async createMockPackage(packageDir: string, packageName: string, version: string): Promise<void> {
+  // 実際のnpmレジストリからパッケージ情報を取得
+  private async fetchPackageInfo(packageName: string): Promise<any> {
     try {
-      await this.fs.promises.mkdir(packageDir, { recursive: true } as any);
+      // タイムアウト付きでfetch
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒タイムアウト
       
-      // package.jsonの作成
-      const mockPackageJson = {
-        name: packageName,
-        version: version,
-        description: `Mock package for ${packageName}`,
-        main: "index.js",
-        license: "MIT"
-      };
+      const response = await fetch(`https://registry.npmjs.org/${packageName}`, {
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (iPad; CPU OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1'
+        }
+      });
       
-      const packageJsonPath = `${packageDir}/package.json`;
-      await this.fs.promises.writeFile(packageJsonPath, JSON.stringify(mockPackageJson, null, 2));
+      clearTimeout(timeoutId);
       
-      // index.jsの作成
-      const indexJsPath = `${packageDir}/index.js`;
-      const mockIndexJs = `// Mock implementation of ${packageName}@${version}
-module.exports = {
-  name: '${packageName}',
-  version: '${version}',
-  mock: true,
-  // Add your custom implementation here
-};
-`;
-      await this.fs.promises.writeFile(indexJsPath, mockIndexJs);
-      
-      // IndexedDBに同期
-      if (this.onFileOperation) {
-        const relativePath = `/node_modules/${packageName}`;
-        await this.onFileOperation(relativePath, 'folder');
-        await this.onFileOperation(`${relativePath}/package.json`, 'file', JSON.stringify(mockPackageJson, null, 2));
-        await this.onFileOperation(`${relativePath}/index.js`, 'file', mockIndexJs);
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error(`Package '${packageName}' not found`);
+        } else {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
       }
+      
+      const data = await response.json();
+
+      console.dir(data, { depth: null, colors: true });
+      
+      // 必要なデータが存在するかチェック
+      if (!data.name || !data['dist-tags'] || !data['dist-tags'].latest) {
+        throw new Error(`Invalid package data for '${packageName}'`);
+      }
+      
+      const latestVersion = data['dist-tags'].latest;
+      const versionData = data.versions[latestVersion];
+      
+      if (!versionData || !versionData.dist || !versionData.dist.tarball) {
+        throw new Error(`No download URL found for '${packageName}@${latestVersion}'`);
+      }
+      
+      // メインファイルパスを正規化
+      let mainFile = versionData.main || 'index.js';
+      console.log(`[npm.fetchPackageInfo] Original main file: "${mainFile}"`);
+      
+      // より厳密な正規化
+      mainFile = mainFile.replace(/^\.+\/+/g, ''); // ./や../を削除
+      mainFile = mainFile.replace(/\/+/g, '/'); // 連続するスラッシュを1つにまとめる
+      mainFile = mainFile.replace(/^\/+/, ''); // 先頭のスラッシュを削除
+      
+      console.log(`[npm.fetchPackageInfo] Normalized main file: "${mainFile}"`);
+      
+      return {
+        name: data.name,
+        version: latestVersion,
+        description: data.description || '',
+        main: mainFile,
+        license: data.license || versionData.license || 'Unknown',
+        tarball: versionData.dist.tarball,
+        dependencies: versionData.dependencies || {}
+      };
     } catch (error) {
-      console.error(`Failed to create mock package ${packageName}:`, error);
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error(`Request timeout for package '${packageName}'`);
+      }
+      throw new Error(`Failed to fetch package info: ${(error as Error).message}`);
     }
   }
 
-  // 最新バージョンの取得（モック）
-  private async getLatestVersion(packageName: string): Promise<string> {
-    // 実際のnpmレジストリからは取得せず、モックバージョンを返す
-    const mockVersions: { [key: string]: string } = {
-      'react': '^18.2.0',
-      'react-dom': '^18.2.0',
-      'next': '^14.0.0',
-      'typescript': '^5.0.0',
-      'lodash': '^4.17.21',
-      'express': '^4.18.0',
-      'axios': '^1.6.0',
-      'moment': '^2.29.0',
-      'uuid': '^9.0.0',
-      'chalk': '^5.3.0',
-      'commander': '^11.0.0',
-      'inquirer': '^9.2.0'
+  // パッケージをダウンロードしてインストール
+  private async downloadAndInstallPackage(packageName: string, version: string): Promise<void> {
+    try {
+      const projectDir = getProjectDir(this.projectName);
+      const nodeModulesDir = `${projectDir}/node_modules`;
+      const packageDir = `${nodeModulesDir}/${packageName}`;
+
+      // パッケージ情報を取得
+      let packageInfo: any;
+      try {
+        packageInfo = await this.fetchPackageInfo(packageName);
+      } catch (error) {
+        throw new Error(`Package '${packageName}' not found in npm registry`);
+      }
+      
+      // パッケージディレクトリを作成
+      try {
+        await this.fs.promises.mkdir(packageDir, { recursive: true } as any);
+      } catch (error) {
+        throw new Error(`Failed to create package directory: ${(error as Error).message}`);
+      }
+      
+      // tarballをダウンロード（タイムアウト付き）
+      let tarballResponse: Response;
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒タイムアウト
+        
+        tarballResponse = await fetch(packageInfo.tarball, {
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        
+        if (!tarballResponse.ok) {
+          throw new Error(`HTTP ${tarballResponse.status}: ${tarballResponse.statusText}`);
+        }
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+          throw new Error(`Download timeout for ${packageName}`);
+        }
+        throw new Error(`Failed to download package: ${(error as Error).message}`);
+      }
+      
+      // tarballデータを取得
+      let tarballData: ArrayBuffer;
+      try {
+        tarballData = await tarballResponse.arrayBuffer();
+      } catch (error) {
+        throw new Error(`Failed to read package data: ${(error as Error).message}`);
+      }
+      
+      // tarballを展開
+      try {
+        await this.extractPackage(packageDir, tarballData, packageInfo);
+      } catch (error) {
+        // インストールに失敗した場合はディレクトリを削除
+        try {
+          await this.removeDirectory(packageDir);
+        } catch (cleanupError) {
+          console.warn(`Failed to cleanup failed installation: ${cleanupError}`);
+        }
+        throw new Error(`Failed to extract package: ${(error as Error).message}`);
+      }
+      
+      // IndexedDBに同期
+      if (this.onFileOperation) {
+        try {
+          const relativePath = `/node_modules/${packageName}`;
+          await this.onFileOperation(relativePath, 'folder');
+          
+          // package.jsonを同期
+          const packageJsonContent = JSON.stringify({
+            name: packageInfo.name,
+            version: packageInfo.version,
+            description: packageInfo.description,
+            main: packageInfo.main,
+            license: packageInfo.license,
+            dependencies: packageInfo.dependencies
+          }, null, 2);
+          
+          await this.onFileOperation(`${relativePath}/package.json`, 'file', packageJsonContent);
+          
+          // メインファイルを同期（パス正規化）
+          let mainFile = packageInfo.main || 'index.js';
+          console.log(`[npm.downloadAndInstallPackage] Original main file: "${mainFile}"`);
+          
+          // より厳密な正規化
+          mainFile = mainFile.replace(/^\.+\/+/g, ''); // ./や../を削除
+          mainFile = mainFile.replace(/\/+/g, '/'); // 連続するスラッシュを1つにまとめる
+          mainFile = mainFile.replace(/^\/+/, ''); // 先頭のスラッシュを削除
+          
+          console.log(`[npm.downloadAndInstallPackage] Normalized main file: "${mainFile}"`);
+          
+          // メインファイルの親ディレクトリが必要な場合は事前に作成
+          if (mainFile.includes('/')) {
+            const pathParts = mainFile.split('/');
+            let currentPath = relativePath;
+            
+            console.log(`[npm.downloadAndInstallPackage] Creating directories for path parts:`, pathParts);
+            
+            // 最後の要素（ファイル名）を除いて、ディレクトリを作成
+            for (let i = 0; i < pathParts.length - 1; i++) {
+              currentPath += `/${pathParts[i]}`;
+              console.log(`[npm.downloadAndInstallPackage] Creating directory: "${currentPath}"`);
+              await this.onFileOperation(currentPath, 'folder');
+            }
+          }
+          
+          const finalPath = `${relativePath}/${mainFile}`;
+          console.log(`[npm.downloadAndInstallPackage] Final file path: "${finalPath}"`);
+          
+          const mainContent = this.generateMainFileContent(packageInfo);
+          await this.onFileOperation(finalPath, 'file', mainContent);
+          
+          // README.mdを同期
+          const readmeContent = `# ${packageInfo.name}\n\n${packageInfo.description || 'No description available.'}\n\nVersion: ${packageInfo.version}\nLicense: ${packageInfo.license || 'Unknown'}\n\nThis package was installed via Pyxis npm implementation.`;
+          await this.onFileOperation(`${relativePath}/README.md`, 'file', readmeContent);
+        } catch (error) {
+          console.warn(`Failed to sync to IndexedDB: ${(error as Error).message}`);
+          // IndexedDB同期に失敗してもインストール自体は成功とする
+        }
+      }
+    } catch (error) {
+      throw new Error(`Installation failed for ${packageName}@${version}: ${(error as Error).message}`);
+    }
+  }
+
+  // パッケージの展開（簡易実装）
+  private async extractPackage(packageDir: string, tarballData: ArrayBuffer, packageInfo: any): Promise<void> {
+    try {
+      // 実際のtar展開は複雑なので、重要なファイルのみ作成
+      
+      // package.jsonの作成
+      const packageJsonPath = `${packageDir}/package.json`;
+      const packageJsonContent = JSON.stringify({
+        name: packageInfo.name,
+        version: packageInfo.version,
+        description: packageInfo.description,
+        main: packageInfo.main,
+        license: packageInfo.license,
+        dependencies: packageInfo.dependencies
+      }, null, 2);
+      
+      await this.fs.promises.writeFile(packageJsonPath, packageJsonContent);
+      
+      // メインファイルパスを正規化
+      let mainFile = packageInfo.main || 'index.js';
+      console.log(`[npm.extractPackage] Original main file: "${mainFile}"`);
+      
+      // より厳密な正規化
+      mainFile = mainFile.replace(/^\.+\/+/g, ''); // ./や../を削除
+      mainFile = mainFile.replace(/\/+/g, '/'); // 連続するスラッシュを1つにまとめる
+      mainFile = mainFile.replace(/^\/+/, ''); // 先頭のスラッシュを削除
+      
+      console.log(`[npm.extractPackage] Normalized main file: "${mainFile}"`);
+      
+      // メインファイルの作成
+      const mainFilePath = `${packageDir}/${mainFile}`;
+      console.log(`[npm.extractPackage] Main file path: "${mainFilePath}"`);
+      
+      const mainFileContent = this.generateMainFileContent(packageInfo);
+      
+      // メインファイルのディレクトリを作成
+      const mainFileDir = mainFilePath.substring(0, mainFilePath.lastIndexOf('/'));
+      console.log(`[npm.extractPackage] Main file directory: "${mainFileDir}"`);
+      console.log(`[npm.extractPackage] Package directory: "${packageDir}"`);
+      
+      if (mainFileDir !== packageDir && mainFileDir.length > packageDir.length) {
+        console.log(`[npm.extractPackage] Creating main file directory: "${mainFileDir}"`);
+        await this.fs.promises.mkdir(mainFileDir, { recursive: true } as any);
+      }
+      
+      await this.fs.promises.writeFile(mainFilePath, mainFileContent);
+      
+      // READMEファイルの作成（オプション）
+      const readmePath = `${packageDir}/README.md`;
+      const readmeContent = `# ${packageInfo.name}\n\n${packageInfo.description || 'No description available.'}\n\nVersion: ${packageInfo.version}\nLicense: ${packageInfo.license || 'Unknown'}\n\nThis package was installed via Pyxis npm implementation.`;
+      await this.fs.promises.writeFile(readmePath, readmeContent);
+      
+    } catch (error) {
+      console.error(`Failed to extract package:`, error);
+      throw error;
+    }
+  }
+
+  // メインファイルの内容を生成
+  private generateMainFileContent(packageInfo: any): string {
+    return `// ${packageInfo.name}@${packageInfo.version}
+// ${packageInfo.description || 'No description available.'}
+
+/**
+ * This is a browser-compatible implementation of ${packageInfo.name}
+ * Generated by Pyxis npm implementation
+ */
+
+// Export placeholder - replace with actual implementation
+module.exports = {
+  name: '${packageInfo.name}',
+  version: '${packageInfo.version}',
+  description: '${packageInfo.description || ''}',
+  
+  // Add your implementation here
+  // This is a basic wrapper for browser compatibility
+  
+  // Common utilities that might be needed
+  toString: function() {
+    return \`[\${this.name}@\${this.version}]\`;
+  },
+  
+  // Version info
+  getVersion: function() {
+    return this.version;
+  },
+  
+  // Package info
+  getInfo: function() {
+    return {
+      name: this.name,
+      version: this.version,
+      description: this.description
     };
-    
-    return mockVersions[packageName] || '^1.0.0';
+  }
+};
+
+// For ES6 modules compatibility
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports.default = module.exports;
+}
+`;
+  }
+
+  // 最新バージョンの取得（実際のレジストリから）
+  private async getLatestVersion(packageName: string): Promise<string> {
+    try {
+      const packageInfo = await this.fetchPackageInfo(packageName);
+      return packageInfo.version;
+    } catch {
+      // フォールバック: よく使われるパッケージのデフォルトバージョン
+      const fallbackVersions: { [key: string]: string } = {
+        'react': '18.2.0',
+        'react-dom': '18.2.0',
+        'next': '14.0.0',
+        'typescript': '5.0.0',
+        'lodash': '4.17.21',
+        'express': '4.18.0',
+        'axios': '1.6.0',
+        'moment': '2.29.0',
+        'uuid': '9.0.0',
+        'chalk': '5.3.0',
+        'commander': '11.0.0',
+        'inquirer': '9.2.0'
+      };
+      
+      return fallbackVersions[packageName] || '1.0.0';
+    }
   }
 
   // ディレクトリの再帰削除
