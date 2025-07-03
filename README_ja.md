@@ -1,6 +1,6 @@
 # 🌟 Pyxis - クライアントサイド IDE & ターミナル
 
-> **世界初の完全クライアントサイド IDE - Node.js ランタイムと Git サポートを完全内蔵！サーバー不要！**
+> **完全クライアントサイド IDE - Node.js ランタイムと Git サポートを完全内蔵！サーバー不要！**
 
 [![Version](https://img.shields.io/badge/version-0.2.0-blue.svg)](https://github.com/your-username/pyxis)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)

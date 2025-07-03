@@ -1,7 +1,7 @@
 # 🌟 Pyxis - Client-Side IDE & Terminal
 ## 日本語ver -> [README_ja.md](README_ja.md)
 
-> **The world's first truly client-side IDE with full Node.js runtime and Git support - No server required!**
+> **The truly client-side IDE with full Node.js runtime and Git support - No server required!**
 
 [![Version](https://img.shields.io/badge/version-0.2.0-blue.svg)](https://github.com/your-username/pyxis)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -9,7 +9,7 @@
 
 <p align="center">
     <a href="https://pyxis-code.onrender.com">
-        <img src="public/favicon.png" alt="Pyxis Favicon" width="128" height="128" />
+        <img src="public/favicon.png" alt="Pyxis Favicon" width="128" height="128" align="center"/>
     </a>
 </p>
 
