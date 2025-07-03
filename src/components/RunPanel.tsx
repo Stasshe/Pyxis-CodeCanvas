@@ -48,13 +48,18 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
   // 実行可能なファイルを取得（.js, .ts, .mjs ファイル）
   const getExecutableFiles = () => {
     const executableExtensions = ['.js', '.ts', '.mjs', '.cjs'];
-    const flattenFiles = (items: any[]): any[] => {
+    const flattenFiles = (items: any[], parentPath = ''): any[] => {
       return items.reduce((acc, item) => {
+        const fullPath = parentPath ? `${parentPath}/${item.name}` : item.name;
         if (item.type === 'file' && executableExtensions.some(ext => item.name.endsWith(ext))) {
-          acc.push(item);
+          acc.push({
+            ...item,
+            path: fullPath,
+            uniqueKey: `${fullPath}-${item.id || Math.random().toString(36).substr(2, 9)}`
+          });
         }
         if (item.children) {
-          acc.push(...flattenFiles(item.children));
+          acc.push(...flattenFiles(item.children, fullPath));
         }
         return acc;
       }, []);
@@ -65,7 +70,7 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
   // 出力を追加
   const addOutput = (content: string, type: 'log' | 'error' | 'input') => {
     setOutput(prev => [...prev, {
-      id: Date.now().toString(),
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       content,
       type,
       timestamp: new Date()
@@ -206,7 +211,7 @@ console.log('Joined path:', path.join('/users', 'documents', 'file.txt'));`
             >
               <option value="">実行するファイルを選択...</option>
               {executableFiles.map((file) => (
-                <option key={file.path} value={file.path}>
+                <option key={file.uniqueKey || file.path} value={file.path}>
                   {file.path}
                 </option>
               ))}

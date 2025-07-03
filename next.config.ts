@@ -17,6 +17,9 @@ const nextConfig = {
   // 共通設定を適用
   ...commonConfig,
   
+  // React Strict Modeを無効化（開発時の警告を減らすため）
+  reactStrictMode: false,
+  
   // Webpack設定でNode.jsのpolyfillを追加
   webpack: (config: any, { isServer }: { isServer: boolean }) => {
     if (!isServer) {
