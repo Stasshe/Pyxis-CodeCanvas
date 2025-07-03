@@ -316,3 +316,4 @@ export const debugFileSystem = async () => {
 // クラスのエクスポート
 export { UnixCommands } from './cmd/unix';
 export { GitCommands } from './cmd/git';
+export { NpmCommands } from './cmd/npm';

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { UnixCommands, GitCommands, initializeFileSystem, syncProjectFiles } from '@/utils/filesystem';
+import { UnixCommands, GitCommands, NpmCommands, initializeFileSystem, syncProjectFiles } from '@/utils/filesystem';
 import { FileItem } from '@/types';
 
 // FileItemの階層構造をフラットな配列に変換
@@ -39,6 +39,7 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
   const fitAddonRef = useRef<any>(null);
   const unixCommandsRef = useRef<UnixCommands | null>(null);
   const gitCommandsRef = useRef<GitCommands | null>(null);
+  const npmCommandsRef = useRef<NpmCommands | null>(null);
 
   useEffect(() => {
     if (!terminalRef.current) return;
@@ -47,6 +48,7 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
     initializeFileSystem();
     unixCommandsRef.current = new UnixCommands(currentProject, onFileOperation);
     gitCommandsRef.current = new GitCommands(currentProject, onFileOperation);
+    npmCommandsRef.current = new NpmCommands(currentProject, '/projects/' + currentProject, onFileOperation);
 
     // プロジェクトファイルをターミナルファイルシステムに同期
     const syncFiles = async () => {
@@ -337,6 +339,16 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
             term.writeln('    git diff --staged - ステージされた変更');
             term.writeln('    git diff <commit1> <commit2> - コミット間の差分');
             term.writeln('');
+            term.writeln('NPM Commands:');
+            term.writeln('  npm init [--force] - package.jsonを作成');
+            term.writeln('  npm install [package] [flags] - パッケージのインストール');
+            term.writeln('    npm install        - 全依存関係をインストール');
+            term.writeln('    npm install <pkg>  - パッケージをインストール');
+            term.writeln('    npm install <pkg> --save-dev - 開発依存関係としてインストール');
+            term.writeln('  npm uninstall <package> - パッケージをアンインストール');
+            term.writeln('  npm list           - インストール済みパッケージ一覧');
+            term.writeln('  npm run <script>   - package.jsonのスクリプトを実行');
+            term.writeln('');
             term.writeln('Note: Gitリポジトリの初期化は左下の「プロジェクト管理」から');
             term.writeln('新規プロジェクトを作成することで自動的に行われます。');
             break;
@@ -614,6 +626,67 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
               }
             } else {
               await writeOutput('git: missing command');
+            }
+            break;
+            
+          // NPM commands
+          case 'npm':
+            if (npmCommandsRef.current && args[0]) {
+              const npmCmd = args[0];
+              switch (npmCmd) {
+                case 'init':
+                  const force = args.includes('--force') || args.includes('-f');
+                  const initResult = await npmCommandsRef.current.init(force);
+                  await writeOutput(initResult);
+                  break;
+                  
+                case 'install':
+                case 'i':
+                  if (args[1]) {
+                    // npm install <package> [flags]
+                    const packageName = args[1];
+                    const flags = args.slice(2); // 2番目以降の引数をflagsとして渡す
+                    const installResult = await npmCommandsRef.current.install(packageName, flags);
+                    await writeOutput(installResult);
+                  } else {
+                    // npm install (install all dependencies)
+                    const installResult = await npmCommandsRef.current.install();
+                    await writeOutput(installResult);
+                  }
+                  break;
+                  
+                case 'uninstall':
+                case 'remove':
+                case 'rm':
+                  if (args[1]) {
+                    const uninstallResult = await npmCommandsRef.current.uninstall(args[1]);
+                    await writeOutput(uninstallResult);
+                  } else {
+                    await writeOutput('npm uninstall: missing package name');
+                  }
+                  break;
+                  
+                case 'list':
+                case 'ls':
+                  const listResult = await npmCommandsRef.current.list();
+                  await writeOutput(listResult);
+                  break;
+                  
+                case 'run':
+                  if (args[1]) {
+                    const runResult = await npmCommandsRef.current.run(args[1]);
+                    await writeOutput(runResult);
+                  } else {
+                    await writeOutput('npm run: missing script name');
+                  }
+                  break;
+                  
+                default:
+                  await writeOutput(`npm: '${npmCmd}' is not a supported npm command`);
+                  break;
+              }
+            } else {
+              await writeOutput('npm: missing command');
             }
             break;
             
