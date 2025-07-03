@@ -2,6 +2,7 @@
 ├── DATABASE.md
 ├── README.md
 ├── SPECIFICATION.md
+├── TODO.md
 ├── eslint.config.mjs
 ├── next-env.d.ts
 ├── next.config.ts
@@ -24,6 +25,7 @@
 │   │   ├── BottomPanel.tsx
 │   │   ├── CodeEditor.tsx
 │   │   ├── FileTree.tsx
+│   │   ├── GitHistory.tsx
 │   │   ├── GitPanel.tsx
 │   │   ├── LeftSidebar.tsx
 │   │   ├── MenuBar.tsx
@@ -37,6 +39,7 @@
 │   └── utils
 │       ├── cmd
 │       │   ├── git.ts
+│       │   ├── operations
 │       │   └── unix.ts
 │       ├── database.ts
 │       ├── filesystem.ts
@@ -48,9 +51,9 @@
 ├── tree.txt
 └── tsconfig.json
 
-8 directories, 41 files
+9 directories, 43 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 4908
-合計文字数: 160597
-合計ファイルサイズ(bytes): 172595
+合計行数: 7472
+合計文字数: 257921
+合計ファイルサイズ(bytes): 280529
