@@ -1,3 +1,3 @@
-git revert operations サブディレクトリ簡略化　修正
+npm installのpackage.jsonの後の、tar展開
 
-# javascript実行環境
+tar展開によるサブディレクトリの作成

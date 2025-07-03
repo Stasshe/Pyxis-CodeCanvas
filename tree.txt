@@ -1,6 +1,7 @@
 .
 ├── DATABASE.md
 ├── README.md
+├── README_ja.md
 ├── SPECIFICATION.md
 ├── TODO.md
 ├── eslint.config.mjs
@@ -30,6 +31,7 @@
 │   │   ├── LeftSidebar.tsx
 │   │   ├── MenuBar.tsx
 │   │   ├── ProjectModal.tsx
+│   │   ├── RunPanel.tsx
 │   │   ├── SearchPanel.tsx
 │   │   ├── TabBar.tsx
 │   │   └── Terminal.tsx
@@ -44,22 +46,26 @@
 │       │   │   ├── diff.ts
 │       │   │   ├── fileSystemHelper.ts
 │       │   │   ├── log.ts
+│       │   │   ├── merge.ts
 │       │   │   ├── reset.ts
 │       │   │   └── revert.ts
+│       │   ├── npm.ts
 │       │   └── unix.ts
 │       ├── database.ts
 │       ├── filesystem.ts
+│       ├── nodeRuntime.ts
 │       ├── project.ts
 │       ├── resize.ts
 │       └── tabs.ts
 ├── tailwind.config.ts
+├── test-npm.js
 ├── tree.sh
 ├── tree.txt
 └── tsconfig.json
 
-9 directories, 49 files
+9 directories, 55 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 7718
-合計文字数: 265687
-合計ファイルサイズ(bytes): 289267
+合計行数: 10503
+合計文字数: 366966
+合計ファイルサイズ(bytes): 398916

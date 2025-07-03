@@ -1,3 +1,8 @@
+//========
+まだ使えない
+//=======
+
+
 // util.promisifyのテスト
 const util = require('util');
 const fs = require('fs');

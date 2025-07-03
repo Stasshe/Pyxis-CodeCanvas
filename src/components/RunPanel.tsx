@@ -188,7 +188,7 @@ console.log('Joined path:', path.join('/users', 'documents', 'file.txt'));`
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-semibold flex items-center gap-2">
             <Code size={16} />
-            Node.js 実行環境
+            Node.js 実行環境(開発中)
           </h3>
           <div className="flex gap-2">
             <button
@@ -260,7 +260,7 @@ console.log('Joined path:', path.join('/users', 'documents', 'file.txt'));`
         >
           {output.length === 0 ? (
             <div className="text-muted-foreground">
-              Node.jsコードを実行すると、ここに結果が表示されます。
+              Node.jsコードを実行すると、ここに結果が表示されます。ただし、console.logやalertなどは、実際のブラウザネイティブのものに反映されます。
             </div>
           ) : (
             output.map((entry) => (
