@@ -1,5 +1,6 @@
 import FS from '@isomorphic-git/lightning-fs';
 import git from 'isomorphic-git';
+import { GitFileSystemHelper } from './fileSystemHelper';
 
 /**
  * Git checkout操作を管理するクラス
@@ -21,12 +22,7 @@ export class GitCheckoutOperations {
 
   // プロジェクトディレクトリの存在を確認し、なければ作成
   private async ensureProjectDirectory(): Promise<void> {
-    try {
-      await this.fs.promises.stat(this.dir);
-    } catch {
-      // ディレクトリが存在しない場合は作成
-      await this.fs.promises.mkdir(this.dir, { recursive: true } as any);
-    }
+    await GitFileSystemHelper.ensureDirectory(this.fs, this.dir);
   }
 
   // 現在のブランチを取得
@@ -39,30 +35,8 @@ export class GitCheckoutOperations {
   }
 
   // ディレクトリ内の全ファイルを再帰的に取得
-  private async getAllFiles(dirPath: string, basePath = ''): Promise<string[]> {
-    const files: string[] = [];
-    const entries = await this.fs.promises.readdir(dirPath);
-    
-    for (const entry of entries) {
-      if (entry === '.git') continue; // .gitディレクトリをスキップ
-      
-      const fullPath = `${dirPath}/${entry}`;
-      const relativePath = basePath ? `${basePath}/${entry}` : entry;
-      
-      try {
-        const stat = await this.fs.promises.stat(fullPath);
-        if (stat.isDirectory && stat.isDirectory()) {
-          const subFiles = await this.getAllFiles(fullPath, relativePath);
-          files.push(...subFiles);
-        } else {
-          files.push(relativePath);
-        }
-      } catch {
-        // エラーは無視
-      }
-    }
-    
-    return files;
+  private async getAllFiles(dirPath: string): Promise<string[]> {
+    return await GitFileSystemHelper.getAllFiles(this.fs, dirPath);
   }
 
   // git checkout - ブランチ切り替え/作成
@@ -199,15 +173,6 @@ export class GitCheckoutOperations {
       console.log('Total changed files:', changedFiles.size);
       console.log('Added:', addedFiles.length, 'Modified:', modifiedFiles.length, 'Deleted:', deletedFiles.length);
 
-      // プロジェクトディレクトリからの相対パスを取得するヘルパー関数
-      const getRelativePathFromProject = (fullPath: string): string => {
-        if (fullPath.startsWith(this.dir)) {
-          const relativePath = fullPath.replace(this.dir, '');
-          return relativePath.startsWith('/') ? relativePath : '/' + relativePath;
-        }
-        return fullPath;
-      };
-
       // ファイル操作のコールバックを実行（テキストエディターに反映）
       if (this.onFileOperation) {
         console.log('=== Git checkout: Starting file operations ===');
@@ -216,7 +181,7 @@ export class GitCheckoutOperations {
         
         for (const filePath of changedFiles) {
           try {
-            const relativePath = getRelativePathFromProject(`${this.dir}/${filePath}`);
+            const relativePath = GitFileSystemHelper.getRelativePathFromProject(`${this.dir}/${filePath}`, this.dir);
             console.log('Processing file:', filePath, '-> relativePath:', relativePath);
             
             if (newFiles.has(filePath)) {

@@ -3,6 +3,7 @@ import git from 'isomorphic-git';
 import { getFileSystem, getProjectDir } from '../filesystem';
 import { GitRevertOperations } from './gitOperations/revert';
 import { GitCheckoutOperations } from './gitOperations/checkout';
+import { GitFileSystemHelper } from './gitOperations/fileSystemHelper';
 
 /**
  * Git操作を管理するクラス
@@ -25,12 +26,7 @@ export class GitCommands {
 
   // プロジェクトディレクトリの存在を確認し、なければ作成
   private async ensureProjectDirectory(): Promise<void> {
-    try {
-      await this.fs.promises.stat(this.dir);
-    } catch {
-      // ディレクトリが存在しない場合は作成
-      await this.fs.promises.mkdir(this.dir, { recursive: true } as any);
-    }
+    await GitFileSystemHelper.ensureDirectory(this.fs, this.dir);
   }
 
   // Gitリポジトリが初期化されているかチェック
@@ -410,76 +406,12 @@ export class GitCommands {
 
   // すべてのファイルを取得（再帰的）
   private async getAllFiles(dirPath: string): Promise<string[]> {
-    const files: string[] = [];
-    
-    const traverse = async (currentPath: string, relativePath: string = '') => {
-      try {
-        // ファイルシステムの同期を確実にする
-        if ((this.fs as any).sync) {
-          try {
-            await (this.fs as any).sync();
-            // 同期後の追加待機
-            await new Promise(resolve => setTimeout(resolve, 50));
-          } catch (syncError) {
-            console.warn(`[getAllFiles] Sync failed for ${currentPath}:`, syncError);
-          }
-        }
-        
-        const entries = await this.fs.promises.readdir(currentPath);
-        console.log(`[getAllFiles] Reading directory ${currentPath}, found:`, entries);
-        
-        for (const entry of entries) {
-          // .gitディレクトリは除外
-          if (entry === '.git') continue;
-          
-          const fullPath = `${currentPath}/${entry}`;
-          const relativeFilePath = relativePath ? `${relativePath}/${entry}` : entry;
-          
-          try {
-            const stat = await this.fs.promises.stat(fullPath);
-            console.log(`[getAllFiles] Stat for ${fullPath}:`, { 
-              isFile: stat.isFile(), 
-              isDirectory: stat.isDirectory(), 
-              size: stat.size 
-            });
-            
-            if (stat.isDirectory()) {
-              await traverse(fullPath, relativeFilePath);
-            } else if (stat.isFile()) {
-              files.push(relativeFilePath);
-              console.log(`[getAllFiles] Found file: ${relativeFilePath} (size: ${stat.size})`);
-            }
-          } catch (error) {
-            console.warn(`[getAllFiles] Failed to stat ${fullPath}:`, error);
-          }
-        }
-      } catch (error) {
-        console.warn(`[getAllFiles] Failed to read directory ${currentPath}:`, error);
-      }
-    };
-    
-    await traverse(dirPath);
-    console.log(`[getAllFiles] Total files found: ${files.length}`, files);
-    return files;
+    return await GitFileSystemHelper.getAllFiles(this.fs, dirPath);
   }
 
   // パターンにマッチするファイルを取得
   private async getMatchingFiles(dirPath: string, pattern: string): Promise<string[]> {
-    const allFiles = await this.getAllFiles(dirPath);
-    
-    if (pattern === '*') {
-      // カレントディレクトリの直接のファイルのみ
-      return allFiles.filter(file => !file.includes('/'));
-    }
-    
-    // 簡単なワイルドカードマッチング
-    const regexPattern = pattern
-      .replace(/\./g, '\\.')
-      .replace(/\*/g, '.*')
-      .replace(/\?/g, '.');
-    
-    const regex = new RegExp(`^${regexPattern}$`);
-    return allFiles.filter(file => regex.test(file));
+    return await GitFileSystemHelper.getMatchingFiles(this.fs, dirPath, pattern);
   }
 
   // git commit - コミット
