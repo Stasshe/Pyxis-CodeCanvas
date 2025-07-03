@@ -115,7 +115,7 @@ export class NodeJSRuntime {
   private createFSModule() {
     const self = this;
     
-    return {
+    const fsModule = {
       readFile: async (path: string, options?: any): Promise<string> => {
         try {
           // パスがプロジェクトルート相対の場合の処理
@@ -223,7 +223,6 @@ export class NodeJSRuntime {
           // 既存のファイル内容を読み取り
           let existingContent = '';
           try {
-            const fsModule = self.createFSModule();
             existingContent = await fsModule.readFile(path);
           } catch {
             // ファイルが存在しない場合は空として扱う
@@ -231,7 +230,6 @@ export class NodeJSRuntime {
           
           // 既存の内容に新しいデータを追加
           const newContent = existingContent + data;
-          const fsModule = self.createFSModule();
           await fsModule.writeFile(path, newContent);
         } catch (error) {
           throw new Error(`Failed to append to file '${path}': ${(error as Error).message}`);
@@ -251,6 +249,11 @@ export class NodeJSRuntime {
         }
       }
     };
+
+    // fs.promisesプロパティを追加
+    (fsModule as any).promises = fsModule;
+    
+    return fsModule;
   }
 
   // path モジュールのエミュレーション
