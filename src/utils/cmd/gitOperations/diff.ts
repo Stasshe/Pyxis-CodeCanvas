@@ -212,8 +212,8 @@ export class GitDiffOperations {
       const diffs: string[] = [];
       
       // 各ツリーのファイル一覧を取得
-      const files1 = this.getTreeFilePaths(tree1);
-      const files2 = this.getTreeFilePaths(tree2);
+      const files1 = await this.getTreeFilePaths(tree1);
+      const files2 = await this.getTreeFilePaths(tree2);
       const allFiles = new Set([...files1, ...files2]);
 
       for (const file of allFiles) {
@@ -236,7 +236,7 @@ export class GitDiffOperations {
   }
 
   // ツリーからファイルパスを取得（再帰的）
-  private getTreeFilePaths(tree: any, basePath = ''): string[] {
+  private async getTreeFilePaths(tree: any, basePath = ''): Promise<string[]> {
     const paths: string[] = [];
     
     for (const entry of tree.tree) {
@@ -247,10 +247,11 @@ export class GitDiffOperations {
       } else if (entry.type === 'tree') {
         // サブツリーも再帰的に処理
         try {
-          const subTree = { tree: [entry] }; // 簡略化のため、実際の再帰は省略
-          paths.push(fullPath + '/'); // フォルダを示す
-        } catch {
-          // サブツリーの処理に失敗した場合はスキップ
+          const subTree = await git.readTree({ fs: this.fs, dir: this.dir, oid: entry.oid });
+          const subPaths = await this.getTreeFilePaths(subTree, fullPath);
+          paths.push(...subPaths);
+        } catch (error) {
+          console.warn(`Failed to read subtree ${fullPath}:`, error);
         }
       }
     }

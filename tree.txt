@@ -39,7 +39,13 @@
 │   └── utils
 │       ├── cmd
 │       │   ├── git.ts
-│       │   ├── operations
+│       │   ├── gitOperations
+│       │   │   ├── checkout.ts
+│       │   │   ├── diff.ts
+│       │   │   ├── fileSystemHelper.ts
+│       │   │   ├── log.ts
+│       │   │   ├── reset.ts
+│       │   │   └── revert.ts
 │       │   └── unix.ts
 │       ├── database.ts
 │       ├── filesystem.ts
@@ -51,9 +57,9 @@
 ├── tree.txt
 └── tsconfig.json
 
-9 directories, 43 files
+9 directories, 49 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 7472
-合計文字数: 257921
-合計ファイルサイズ(bytes): 280529
+合計行数: 7718
+合計文字数: 265687
+合計ファイルサイズ(bytes): 289267

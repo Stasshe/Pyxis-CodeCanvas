@@ -65,13 +65,19 @@ export class GitRevertOperations {
       const parentTree = await git.readTree({ fs: this.fs, dir: this.dir, oid: parentCommit.commit.tree });
       
       // 変更されたファイルパスを収集
-      const getAllFilePaths = (tree: any, basePath = ''): string[] => {
+      const getAllFilePaths = async (tree: any, basePath = ''): Promise<string[]> => {
         const paths: string[] = [];
         for (const entry of tree.tree) {
           const fullPath = basePath ? `${basePath}/${entry.path}` : entry.path;
           if (entry.type === 'tree') {
-            // サブディレクトリは実装上簡略化
-            continue;
+            // サブディレクトリを再帰的に処理
+            try {
+              const subTree = await git.readTree({ fs: this.fs, dir: this.dir, oid: entry.oid });
+              const subPaths = await getAllFilePaths(subTree, fullPath);
+              paths.push(...subPaths);
+            } catch (error) {
+              console.warn(`Failed to read subtree ${fullPath}:`, error);
+            }
           } else {
             paths.push(fullPath);
           }
@@ -79,8 +85,8 @@ export class GitRevertOperations {
         return paths;
       };
 
-      const currentFiles = new Set(getAllFilePaths(currentTree));
-      const parentFiles = new Set(getAllFilePaths(parentTree));
+      const currentFiles = new Set(await getAllFilePaths(currentTree));
+      const parentFiles = new Set(await getAllFilePaths(parentTree));
 
       // 追加、削除、変更されたファイルを特定
       const addedFiles = [...currentFiles].filter(f => !parentFiles.has(f));
@@ -95,7 +101,7 @@ export class GitRevertOperations {
           const parentEntry = parentTree.tree.find((e: any) => e.path === filePath);
           
           if (currentEntry && parentEntry && currentEntry.oid !== parentEntry.oid) {
-            modifiedFiles.push(filePath);
+            modifiedFiles.push(filePath as string);
           }
         } catch {
           // ファイル比較エラーは無視
@@ -110,7 +116,7 @@ export class GitRevertOperations {
         try {
           const fullPath = `${this.dir}/${filePath}`;
           await this.fs.promises.unlink(fullPath);
-          changedFiles.add(filePath);
+          changedFiles.add(filePath as string);
           revertResults.push(`deleted:    ${filePath}`);
           revertedFileCount++;
         } catch (error) {
@@ -133,7 +139,7 @@ export class GitRevertOperations {
             }
             
             await this.fs.promises.writeFile(fullPath, blob.blob);
-            changedFiles.add(filePath);
+            changedFiles.add(filePath as string);
             revertResults.push(`restored:   ${filePath}`);
             revertedFileCount++;
           }
