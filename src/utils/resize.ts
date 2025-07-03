@@ -68,7 +68,7 @@ export const useBottomPanelResize = (
     
     // 最小高さと最大高さの設定
     const minHeight = 100;
-    const maxHeight = window.innerHeight * 0.6;
+    const maxHeight = window.innerHeight;
 
     const handleMove = (e: MouseEvent | TouchEvent) => {
       e.preventDefault();

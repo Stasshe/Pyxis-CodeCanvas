@@ -224,7 +224,6 @@ body {
   position: relative !important;
   overflow: hidden !important;
   contain: layout style paint !important;
-  max-height: 60vh !important; /* 画面の60%を超えないように制限 */
   min-height: 100px !important;
 }
 
