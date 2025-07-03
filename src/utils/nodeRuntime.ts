@@ -8,6 +8,7 @@ export class NodeJSRuntime {
   private unixCommands: UnixCommands;
   private console: any;
   private onOutput?: (output: string, type: 'log' | 'error') => void;
+  private onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string) => Promise<void>;
 
   constructor(
     projectName: string, 
@@ -18,6 +19,7 @@ export class NodeJSRuntime {
     this.projectDir = getProjectDir(projectName);
     this.unixCommands = new UnixCommands(projectName, onFileOperation);
     this.onOutput = onOutput;
+    this.onFileOperation = onFileOperation;
     
     // console.logをオーバーライド
     this.console = {
@@ -137,14 +139,37 @@ export class NodeJSRuntime {
       writeFile: async (path: string, data: string, options?: any): Promise<void> => {
         try {
           let fullPath;
+          let relativePath;
           if (path.startsWith('/')) {
             fullPath = `${self.projectDir}${path}`;
+            relativePath = path;
           } else {
             fullPath = `${self.projectDir}/${path}`;
+            relativePath = `/${path}`;
           }
           
           console.log(`[fs.writeFile] Writing to: ${path} -> ${fullPath}`);
+          
+          // 親ディレクトリが存在することを確認
+          const parentDir = fullPath.substring(0, fullPath.lastIndexOf('/'));
+          if (parentDir && parentDir !== self.projectDir) {
+            try {
+              await self.fs.promises.stat(parentDir);
+            } catch {
+              await self.fs.promises.mkdir(parentDir, { recursive: true } as any);
+            }
+          }
+          
           await self.fs.promises.writeFile(fullPath, data);
+          
+          // ファイルシステムのキャッシュをフラッシュ（unix.tsと同様）
+          await self.flushFileSystemCache();
+          
+          // IndexedDBとの同期（unix.tsと同様）
+          if (self.onFileOperation) {
+            await self.onFileOperation(relativePath, 'file', data);
+          }
+          
           self.onOutput?.(`File written: ${path}`, 'log');
         } catch (error) {
           throw new Error(`Failed to write file '${path}': ${(error as Error).message}`);
@@ -174,6 +199,7 @@ export class NodeJSRuntime {
       mkdir: async (path: string, options?: any): Promise<void> => {
         const recursive = options?.recursive || false;
         await self.unixCommands.mkdir(path, recursive);
+        // unixCommandsが内部でonFileOperationを呼び出すので追加の同期は不要
       },
       readdir: async (path: string, options?: any): Promise<string[]> => {
         try {
@@ -186,6 +212,39 @@ export class NodeJSRuntime {
       },
       unlink: async (path: string): Promise<void> => {
         await self.unixCommands.rm(path);
+        // unixCommandsが内部でonFileOperationを呼び出すので追加の同期は不要
+      },
+      appendFile: async (path: string, data: string, options?: any): Promise<void> => {
+        try {
+          // 既存のファイル内容を読み取り
+          let existingContent = '';
+          try {
+            const fsModule = self.createFSModule();
+            existingContent = await fsModule.readFile(path);
+          } catch {
+            // ファイルが存在しない場合は空として扱う
+          }
+          
+          // 既存の内容に新しいデータを追加
+          const newContent = existingContent + data;
+          const fsModule = self.createFSModule();
+          await fsModule.writeFile(path, newContent);
+        } catch (error) {
+          throw new Error(`Failed to append to file '${path}': ${(error as Error).message}`);
+        }
+      },
+      stat: async (path: string): Promise<any> => {
+        try {
+          let fullPath;
+          if (path.startsWith('/')) {
+            fullPath = `${self.projectDir}${path}`;
+          } else {
+            fullPath = `${self.projectDir}/${path}`;
+          }
+          return await self.fs.promises.stat(fullPath);
+        } catch (error) {
+          throw new Error(`ENOENT: no such file or directory, stat '${path}'`);
+        }
       }
     };
   }
@@ -332,6 +391,21 @@ export class NodeJSRuntime {
       console.error('[executeFile] Error:', error);
       this.onOutput?.(errorMessage, 'error');
       return { success: false, error: errorMessage };
+    }
+  }
+
+  // ファイルシステムのキャッシュをフラッシュしてGitに変更を認識させる
+  private async flushFileSystemCache(): Promise<void> {
+    try {
+      // Lightning-FSのキャッシュをフラッシュ（バックエンドストレージと同期）
+      if (this.fs && (this.fs as any).sync) {
+        await (this.fs as any).sync();
+      }
+      
+      // ファイルシステムの強制同期のため短縮した遅延
+      await new Promise(resolve => setTimeout(resolve, 100));
+    } catch (error) {
+      console.warn('[nodeRuntime] Failed to flush filesystem cache:', error);
     }
   }
 }
