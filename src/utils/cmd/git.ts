@@ -769,9 +769,54 @@ export class GitCommands {
       
       // 全てのブランチを取得
       const branches = await git.listBranches({ fs: this.fs, dir: this.dir });
+      console.log('All branches:', branches);
       
-      const commits = await git.log({ fs: this.fs, dir: this.dir, depth });
-      console.log('Raw commits found:', commits.length);
+      // 全ブランチからコミットを収集
+      const allCommits = new Map<string, any>(); // コミットハッシュをキーとして重複を避ける
+      
+      for (const branch of branches) {
+        try {
+          console.log(`Getting commits for branch: ${branch}`);
+          const branchCommits = await git.log({ 
+            fs: this.fs, 
+            dir: this.dir, 
+            ref: branch,
+            depth: depth
+          });
+          
+          // 各コミットにブランチ情報を付与して追加
+          for (const commit of branchCommits) {
+            if (!allCommits.has(commit.oid)) {
+              // 新しいコミット：そのまま追加
+              allCommits.set(commit.oid, { ...commit, sourceBranch: branch });
+            } else {
+              // 重複コミット：より適切なブランチを選択
+              const existingCommit = allCommits.get(commit.oid);
+              
+              // 現在のブランチを最優先
+              if (branch === currentBranch) {
+                allCommits.set(commit.oid, { ...commit, sourceBranch: branch });
+              } 
+              // 既存が現在のブランチでない場合のみ、アルファベット順で決定的な選択
+              else if (existingCommit.sourceBranch !== currentBranch) {
+                // より決定的な選択：アルファベット順で一貫性を保つ
+                if (branch < existingCommit.sourceBranch) {
+                  allCommits.set(commit.oid, { ...commit, sourceBranch: branch });
+                }
+              }
+              // 既存が現在のブランチの場合は変更しない
+            }
+          }
+        } catch (branchError) {
+          console.warn(`Failed to get commits for branch ${branch}:`, branchError);
+        }
+      }
+      
+      // 全コミットを時系列順でソート
+      const commits = Array.from(allCommits.values())
+        .sort((a, b) => b.commit.author.timestamp - a.commit.author.timestamp);
+      
+      console.log(`Total unique commits found: ${commits.length}`);
       
       if (commits.length === 0) {
         console.log('No commits found');
@@ -789,43 +834,8 @@ export class GitCommands {
         // 親コミットのハッシュを追加（複数の親がある場合はカンマ区切り）
         const parentHashes = commit.commit.parent.join(',');
         
-        // 各ブランチでこのコミットが含まれているかチェック
-        let commitBranch = currentBranch; // デフォルトは現在のブランチ
-        
-        // より公平なブランチ判定：コミットが複数のブランチに存在する場合の処理
-        const branchesContainingCommit: string[] = [];
-        
-        for (const branch of branches) {
-          try {
-            // 各ブランチでのコミット履歴を取得
-            const branchCommits = await git.log({ 
-              fs: this.fs, 
-              dir: this.dir, 
-              ref: branch,
-              depth: depth + 10
-            });
-            
-            // このコミットがそのブランチに含まれているかチェック
-            const foundInBranch = branchCommits.some(bc => bc.oid === commit.oid);
-            if (foundInBranch) {
-              branchesContainingCommit.push(branch);
-            }
-          } catch (branchError) {
-            // ブランチアクセスエラーは無視
-            console.warn(`Failed to check branch ${branch}:`, branchError);
-          }
-        }
-        
-        // ブランチ判定のロジック
-        if (branchesContainingCommit.length > 0) {
-          if (branchesContainingCommit.includes(currentBranch)) {
-            // 現在のブランチに含まれている場合は現在のブランチを優先
-            commitBranch = currentBranch;
-          } else {
-            // 現在のブランチに含まれていない場合は、最初に見つかったブランチを使用
-            commitBranch = branchesContainingCommit[0];
-          }
-        }
+        // ソースブランチを使用
+        const commitBranch = commit.sourceBranch || currentBranch;
         
         // フォーマット: hash|message|author|date|parentHashes|branch
         const formatted = `${commit.oid}|${safeMessage}|${safeName}|${safeDate}|${parentHashes}|${commitBranch}`;
