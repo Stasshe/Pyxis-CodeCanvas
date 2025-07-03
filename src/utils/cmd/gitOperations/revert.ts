@@ -7,12 +7,12 @@ import git from 'isomorphic-git';
 export class GitRevertOperations {
   private fs: FS;
   private dir: string;
-  private onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string) => Promise<void>;
+  private onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>;
 
   constructor(
     fs: FS, 
     dir: string, 
-    onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string) => Promise<void>
+    onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>
   ) {
     this.fs = fs;
     this.dir = dir;
@@ -209,10 +209,10 @@ export class GitRevertOperations {
             // ファイルが存在するかチェック
             try {
               const content = await this.fs.promises.readFile(fullPath, { encoding: 'utf8' });
-              await this.onFileOperation(relativePath, 'file', content as string);
+              await this.onFileOperation(relativePath, 'file', content as string, false);
             } catch {
               // ファイルが削除された場合
-              await this.onFileOperation(relativePath, 'delete');
+              await this.onFileOperation(relativePath, 'delete', undefined, false);
             }
           } catch (error) {
             console.warn(`Failed to sync file operation for ${filePath}:`, error);

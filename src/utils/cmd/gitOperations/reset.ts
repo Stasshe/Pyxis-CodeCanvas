@@ -8,12 +8,12 @@ import { GitFileSystemHelper } from './fileSystemHelper';
 export class GitResetOperations {
   private fs: FS;
   private dir: string;
-  private onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string) => Promise<void>;
+  private onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>;
 
   constructor(
     fs: FS, 
     dir: string, 
-    onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string) => Promise<void>
+    onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>
   ) {
     this.fs = fs;
     this.dir = dir;
@@ -75,7 +75,7 @@ export class GitResetOperations {
         // onFileOperationコールバックを呼び出してプロジェクトの更新を通知
         if (this.onFileOperation) {
           console.log('[git.reset] Triggering project refresh after unstaging file:', filepath);
-          await this.onFileOperation('.', 'folder');
+          await this.onFileOperation('.', 'folder', undefined, false);
         }
         
         return `Unstaged ${filepath}`;
@@ -94,7 +94,7 @@ export class GitResetOperations {
         // onFileOperationコールバックを呼び出してプロジェクトの更新を通知
         if (this.onFileOperation) {
           console.log('[git.reset] Triggering project refresh after unstaging all files');
-          await this.onFileOperation('.', 'folder');
+          await this.onFileOperation('.', 'folder', undefined, false);
         }
         
         return `Unstaged ${unstagedCount} file(s)`;
@@ -146,7 +146,7 @@ export class GitResetOperations {
           // ファイル操作のコールバックを実行
           if (this.onFileOperation) {
             const projectRelativePath = filePath.startsWith('/') ? filePath : `/${filePath}`;
-            await this.onFileOperation(projectRelativePath, 'delete');
+            await this.onFileOperation(projectRelativePath, 'delete', undefined, false);
           }
         } catch (error) {
           console.warn(`Failed to delete file ${filePath}:`, error);
@@ -239,7 +239,7 @@ export class GitResetOperations {
           // ファイル操作のコールバックを実行
           if (this.onFileOperation) {
             const projectRelativePath = fullPath.startsWith('/') ? fullPath : `/${fullPath}`;
-            await this.onFileOperation(projectRelativePath, 'folder');
+            await this.onFileOperation(projectRelativePath, 'folder', undefined, false);
           }
           
           const subTree = await git.readTree({ fs: this.fs, dir: this.dir, oid: entry.oid });
@@ -266,7 +266,7 @@ export class GitResetOperations {
           // ファイル操作のコールバックを実行
           if (this.onFileOperation) {
             const projectRelativePath = fullPath.startsWith('/') ? fullPath : `/${fullPath}`;
-            await this.onFileOperation(projectRelativePath, 'file', content);
+            await this.onFileOperation(projectRelativePath, 'file', content, false);
           }
         } catch (error) {
           console.warn(`Failed to restore file ${fullPath}:`, error);

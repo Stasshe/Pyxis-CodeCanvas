@@ -8,12 +8,12 @@ import { GitFileSystemHelper } from './fileSystemHelper';
 export class GitCheckoutOperations {
   private fs: FS;
   private dir: string;
-  private onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string) => Promise<void>;
+  private onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>;
 
   constructor(
     fs: FS, 
     dir: string, 
-    onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string) => Promise<void>
+    onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>
   ) {
     this.fs = fs;
     this.dir = dir;
@@ -151,7 +151,9 @@ export class GitCheckoutOperations {
       // 削除されたファイル
       for (const [filePath, _] of currentFiles) {
         if (!newFiles.has(filePath)) {
+          console.log('=== DELETED FILE DETECTED ===');
           console.log('Deleted file:', filePath);
+          console.log('File was in currentFiles but not in newFiles');
           deletedFiles.push(filePath);
           changedFiles.add(filePath);
         }
@@ -188,12 +190,16 @@ export class GitCheckoutOperations {
               // ファイルが存在する場合（追加または変更）
               const content = newFiles.get(filePath)!;
               console.log('Calling onFileOperation for file:', relativePath, 'content length:', content.length);
-              await this.onFileOperation(relativePath, 'file', content);
+              await this.onFileOperation(relativePath, 'file', content, false);
               console.log('Successfully called onFileOperation for file:', relativePath);
             } else {
               // ファイルが削除された場合
+              console.log('=== PROCESSING DELETED FILE ===');
               console.log('Calling onFileOperation for delete:', relativePath);
-              await this.onFileOperation(relativePath, 'delete');
+              console.log('Original filePath:', filePath);
+              console.log('File exists in currentFiles:', currentFiles.has(filePath));
+              console.log('File exists in newFiles:', newFiles.has(filePath));
+              await this.onFileOperation(relativePath, 'delete', undefined, false);
               console.log('Successfully called onFileOperation for delete:', relativePath);
             }
           } catch (error) {
