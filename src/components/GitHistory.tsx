@@ -55,6 +55,13 @@ export default function GitHistory({ commits, currentProject, currentBranch, onF
     '#84cc16', // lime
   ];
 
+  // コミット行の高さを動的に計算するヘルパー関数
+  const getCommitRowHeight = (commitHash: string): number => {
+    const baseHeight = 40; // 基本の行高さ
+    const expandedHeight = 100; // 展開時の追加高さ（少し増加）
+    return expandedCommits.has(commitHash) ? baseHeight + expandedHeight : baseHeight;
+  };
+
   // コミットの位置とブランチカラーを計算（展開状態を考慮）
   const [svgHeight, setSvgHeight] = useState<number>(0);
 
@@ -63,9 +70,9 @@ export default function GitHistory({ commits, currentProject, currentBranch, onF
 
     const branchMap = new Map<string, number>();
     let branchIndex = 0;
-    const ROW_HEIGHT = 40; // コミット行の高さ
+    const ROW_HEIGHT = 40; // コミット行の基本高さ
     const BRANCH_WIDTH = 20; // ブランチ間の幅
-    const EXPANDED_HEIGHT = 80; // 展開時の追加高さ
+    const EXPANDED_HEIGHT = 100; // 展開時の追加高さ（80から100に増加）
     const Y_OFFSET = 18; // テキストの中央に合わせるためのオフセット
 
     let currentY = Y_OFFSET;
@@ -95,7 +102,7 @@ export default function GitHistory({ commits, currentProject, currentBranch, onF
     });
 
     // SVGの高さを計算（最後のコミットの位置 + マージン）
-    const calculatedHeight = currentY + 20;
+    const calculatedHeight = currentY + 30; // マージンを30から50に増加
     setSvgHeight(calculatedHeight);
     setExtendedCommits(processedCommits);
   }, [commits, expandedCommits]); // expandedCommitsを依存関係に追加
@@ -217,14 +224,15 @@ export default function GitHistory({ commits, currentProject, currentBranch, onF
   return (
     <div className="h-full flex flex-col">
       <div className="flex-1 overflow-auto">
-        <div className="relative min-w-0 overflow-hidden">
+        <div className="relative min-w-0" style={{ overflow: 'visible' }}>
           {/* SVG for git graph lines */}
           <svg
             ref={svgRef}
             className="absolute top-0 left-0 pointer-events-none flex-shrink-0"
             style={{ 
               height: `${svgHeight}px`,
-              width: '60px'
+              width: '60px',
+              overflow: 'visible' // SVG内のコンテンツが見切れないように
             }}
           >
             {/* Draw branch lines */}
@@ -325,17 +333,23 @@ export default function GitHistory({ commits, currentProject, currentBranch, onF
           <div className="pl-12 space-y-0.5"> {/* pl-16 -> pl-12, space-y-1 -> space-y-0.5 */}
             {extendedCommits.map((commit) => (
               <div key={commit.hash} className="relative">
+                {/* Branch indicator - 展開時には全体の高さをカバー */}
+                <div 
+                  className="absolute left-0 w-0.5 rounded-r"
+                  style={{ 
+                    backgroundColor: commit.branchColor,
+                    top: 0,
+                    bottom: 0,
+                    height: expandedCommits.has(commit.hash) ? 'auto' : '100%'
+                  }}
+                />
+
                 {/* Main commit row */}
                 <div 
                   className="flex items-center py-1.5 px-2 hover:bg-muted/50 rounded-sm cursor-pointer group" // items-start -> items-center に戻す
                   style={{ minHeight: '36px' }}
                   onClick={() => toggleCommitExpansion(commit.hash)}
                 >
-                  {/* Branch indicator */}
-                  <div 
-                    className="absolute left-0 w-0.5 h-full rounded-r"
-                    style={{ backgroundColor: commit.branchColor }}
-                  />
                   
                   {/* Expand/collapse icon - SVGと同じ高さに配置 */}
                   <div className="mr-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center" style={{ height: '20px', width: '12px' }}>
@@ -402,7 +416,7 @@ export default function GitHistory({ commits, currentProject, currentBranch, onF
 
                 {/* Expanded commit changes */}
                 {expandedCommits.has(commit.hash) && (
-                  <div className="ml-4 mr-2 mb-1.5 p-2.5 bg-muted/30 rounded-md border-l-2 border-muted-foreground/30">
+                  <div className="ml-6 mr-2 mb-2 p-3 bg-muted/30 rounded-md border-l-2 border-muted-foreground/30">
                     <div className="text-xs text-muted-foreground mb-2 font-medium">変更されたファイル:</div>
                     {commitChanges.has(commit.hash) ? (
                       <div className="space-y-1">
