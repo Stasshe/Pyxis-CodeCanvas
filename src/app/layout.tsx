@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "🌟 Pyxis - クライアントサイド IDE & ターミナル",
+  title: "Pyxis - clientIDE Terminal",
   description:
     "完全クライアントサイド IDE。Node.js ランタイムと Git サポートを完全内蔵。サーバー不要で、iPad/モバイル/PC で動作。VS Code ライクな編集、Git バージョン管理、npm 実行、オフライン対応。",
   applicationName: "Pyxis",
@@ -80,8 +80,22 @@ export default function RootLayout({
         <link rel="icon" type="image/svg+xml" href="/file.svg" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
         <meta name="theme-color" content="#18181b" />
+        {/* PWA manifest & service worker */}
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="application-name" content="Pyxis" />
+        <meta name="apple-mobile-web-app-title" content="Pyxis" />
+        <meta name="msapplication-starturl" content="/" />
+        <meta name="msapplication-TileColor" content="#18181b" />
+        <meta name="msapplication-tap-highlight" content="no" />
         <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
         <script dangerouslySetInnerHTML={{ __html: "eruda.init();" }} />
+        {/* Service Worker registration for PWA */}
+        <script dangerouslySetInnerHTML={{
+          __html: `if ('serviceWorker' in navigator) { window.addEventListener('load', function() { navigator.serviceWorker.register('/sw.js'); }); }`
+        }} />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased h-full`}
