@@ -3,7 +3,7 @@
   "version": "0.2.2",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack -p 3005",
+    "dev": "next dev --turbopack -p 3006",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",

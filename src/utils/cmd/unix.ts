@@ -611,7 +611,7 @@ export class UnixCommands {
   }
 
   // ヘルパーメソッド: ディレクトリの再帰削除
-  private async rmdir(dirPath: string): Promise<void> {
+  async rmdir(dirPath: string): Promise<void> {
     console.log('[rmdir] Starting recursive directory deletion:', dirPath);
     
     try {

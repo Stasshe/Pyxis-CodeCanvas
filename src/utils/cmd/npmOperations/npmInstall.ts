@@ -3,6 +3,7 @@ import {
   getProjectDir,
   ensureDirectoryExists,
 } from "../../filesystem";
+import { UnixCommands } from "../../cmd/unix";
 import FS from "@isomorphic-git/lightning-fs";
 const pako = await import("pako");
 const tarStream = await import("tar-stream");
@@ -29,6 +30,11 @@ export class NpmInstall {
     this.fs = getFileSystem()!;
     this.projectName = projectName;
     this.onFileOperation = onFileOperation;
+  }
+
+  async removeDirectory(dirPath: string): Promise<void> {
+    const unixCommands = new UnixCommands(this.projectName);
+    unixCommands.rmdir(dirPath);
   }
   
   // パッケージをダウンロードしてインストール（.tgzから直接）
@@ -390,29 +396,6 @@ export class NpmInstall {
     } catch (error) {
       console.error(`[npm.extractPackage] Failed to extract package:`, error);
       throw error;
-    }
-  }
-
-  // ディレクトリの再帰削除
-  async removeDirectory(dirPath: string): Promise<void> {
-    try {
-      const files = await this.fs.promises.readdir(dirPath);
-      for (const file of files) {
-        const filePath = `${dirPath}/${file}`;
-        const stat = await this.fs.promises.stat(filePath);
-        if (stat.isDirectory()) {
-          await this.removeDirectory(filePath);
-        } else {
-          await this.fs.promises.unlink(filePath);
-        }
-      }
-      await this.fs.promises.rmdir(dirPath);
-    } catch (error: any) {
-      // ENOENT（存在しない）は無視、それ以外はエラー
-      if (error && error.code !== "ENOENT") {
-        console.error(`Failed to remove directory ${dirPath}:`, error);
-        throw error;
-      }
     }
   }
 }
