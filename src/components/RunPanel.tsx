@@ -45,12 +45,14 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
     }
   }, [output]);
 
-  // 実行可能なファイルを取得（.js, .ts, .mjs ファイル）
+  // 実行可能なファイルを取得（.js, .ts, .mjs ファイル、node_modules除外）
   const getExecutableFiles = () => {
     const executableExtensions = ['.js', '.ts', '.mjs', '.cjs'];
     const flattenFiles = (items: any[], parentPath = ''): any[] => {
       return items.reduce((acc, item) => {
         const fullPath = parentPath ? `${parentPath}/${item.name}` : item.name;
+        // node_modules配下は除外
+        if (fullPath.startsWith('node_modules/')) return acc;
         if (item.type === 'file' && executableExtensions.some(ext => item.name.endsWith(ext))) {
           acc.push({
             ...item,
@@ -66,6 +68,26 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
     };
     return flattenFiles(files);
   };
+
+  // ファイル名サーチ用
+  const [fileSearch, setFileSearch] = useState('');
+  const [fileSuggestOpen, setFileSuggestOpen] = useState(false);
+  const executableFiles = getExecutableFiles();
+  const filteredFiles = fileSearch
+    ? executableFiles.filter(f => f.path.toLowerCase().includes(fileSearch.toLowerCase()))
+    : executableFiles;
+
+  // localStorageキー
+  const LS_KEY = 'pyxis_last_executed_file';
+
+  // 初期化時にlocalStorageから復元
+  useEffect(() => {
+    const last = localStorage.getItem(LS_KEY);
+    if (last && executableFiles.some(f => f.path === last)) {
+      setSelectedFile(last);
+      setFileSearch(last);
+    }
+  }, [currentProject, files.length]);
 
   // 出力を追加
   const addOutput = (content: string, type: 'log' | 'error' | 'input') => {
@@ -102,10 +124,9 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
   // ファイルを実行
   const executeFile = async () => {
     if (!runtime || !selectedFile) return;
-
     setIsRunning(true);
     addOutput(`> node ${selectedFile}`, 'input');
-
+    localStorage.setItem(LS_KEY, selectedFile);
     try {
       const result = await runtime.executeFile(selectedFile);
       if (result.error) {
@@ -168,8 +189,6 @@ console.log('Joined path:', path.join('/users', 'documents', 'file.txt'));`
     setInputCode(samples[type as keyof typeof samples] || '');
   };
 
-  const executableFiles = getExecutableFiles();
-
   if (!currentProject) {
     return (
       <div className="h-full flex items-center justify-center text-muted-foreground">
@@ -203,19 +222,42 @@ console.log('Joined path:', path.join('/users', 'documents', 'file.txt'));`
 
         {/* ファイル実行セクション */}
         {executableFiles.length > 0 && (
-          <div className="flex gap-2 mb-3">
-            <select
-              value={selectedFile}
-              onChange={(e) => setSelectedFile(e.target.value)}
-              className="flex-1 px-2 py-1 border rounded text-sm bg-background"
-            >
-              <option value="">実行するファイルを選択...</option>
-              {executableFiles.map((file) => (
-                <option key={file.uniqueKey || file.path} value={file.path}>
-                  {file.path}
-                </option>
-              ))}
-            </select>
+          <div className="flex gap-2 mb-3 relative">
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                value={fileSearch}
+                onChange={e => {
+                  setFileSearch(e.target.value);
+                  setFileSuggestOpen(true);
+                }}
+                onFocus={() => setFileSuggestOpen(true)}
+                onBlur={() => setTimeout(() => setFileSuggestOpen(false), 150)}
+                placeholder="実行するファイル名を検索..."
+                className="w-full px-2 py-1 border rounded text-sm bg-background"
+                autoComplete="off"
+              />
+              {fileSuggestOpen && filteredFiles.length > 0 && (
+                <ul className="absolute z-10 left-0 right-0 bg-popover border rounded shadow max-h-48 overflow-y-auto mt-1">
+                  {filteredFiles.slice(0, 20).map(file => (
+                    <li
+                      key={file.uniqueKey || file.path}
+                      className={clsx(
+                        'px-2 py-1 cursor-pointer hover:bg-accent text-sm',
+                        selectedFile === file.path && 'bg-primary/10 font-bold'
+                      )}
+                      onMouseDown={() => {
+                        setSelectedFile(file.path);
+                        setFileSearch(file.path);
+                        setFileSuggestOpen(false);
+                      }}
+                    >
+                      {file.path}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
             <button
               onClick={executeFile}
               disabled={!selectedFile || isRunning}

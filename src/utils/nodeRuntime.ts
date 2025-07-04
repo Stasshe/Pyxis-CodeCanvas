@@ -636,6 +636,16 @@ export class NodeJSRuntime {
         moduleScope.global
       );
 
+      if (
+        moduleScope.module.exports &&
+        typeof moduleScope.module.exports === 'object' &&
+        'default' in moduleScope.module.exports &&
+        Object.keys(moduleScope.module.exports).length === 1
+      ) {
+        // ESM default only: promote default to exports
+        moduleScope.module.exports = moduleScope.module.exports.default as any;
+      }
+
       return result || moduleScope.module.exports || moduleScope.exports;
     } catch (error) {
       console.error(`[evaluateModuleCode] Error evaluating ${moduleName}:`, error);
