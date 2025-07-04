@@ -612,48 +612,37 @@ export class UnixCommands {
 
   // ヘルパーメソッド: ディレクトリの再帰削除
   async rmdir(dirPath: string): Promise<void> {
-    console.log('[rmdir] Starting recursive directory deletion:', dirPath);
-    
     try {
-      const files = await this.fs.promises.readdir(dirPath);
-      console.log('[rmdir] Found files in directory:', files.length);
-      
-      // .gitディレクトリは除外（git関連の操作を避ける）
-      const filteredFiles = files.filter(file => file !== '.git');
-      
-      for (const file of filteredFiles) {
+      let files = await this.fs.promises.readdir(dirPath);
+      // . と .. だけ除外し、それ以外は全て削除対象
+      files = files.filter(file => file !== '.' && file !== '..');
+      for (const file of files) {
         const filePath = `${dirPath}/${file}`;
-        
-        try {
-          const stat = await this.fs.promises.stat(filePath);
-          
-          if (stat.isDirectory()) {
-            console.log('[rmdir] Recursively deleting subdirectory:', filePath);
-            await this.rmdir(filePath);
-          } else {
-            console.log('[rmdir] Deleting file:', filePath);
-            await this.fs.promises.unlink(filePath);
-            
-            // 個別ファイル削除の通知
-            if (this.onFileOperation) {
-              const relativePath = this.getRelativePathFromProject(filePath);
-              await this.onFileOperation(relativePath, 'delete');
-            }
+        const stat = await this.fs.promises.stat(filePath);
+        if (stat.isDirectory()) {
+          await this.rmdir(filePath);
+        } else {
+          await this.fs.promises.unlink(filePath);
+          if (this.onFileOperation) {
+            const relativePath = this.getRelativePathFromProject(filePath);
+            await this.onFileOperation(relativePath, 'delete');
           }
-        } catch (fileError) {
-          console.warn(`[rmdir] Failed to delete ${filePath}:`, fileError);
-          // 個別ファイルの削除に失敗しても続行
         }
       }
-      
-      // ディレクトリ自体を削除
-      console.log('[rmdir] Removing directory:', dirPath);
-      await this.fs.promises.rmdir(dirPath);
-      
-      console.log('[rmdir] Successfully removed directory:', dirPath);
+      // 削除後に空か再確認
+      let remain = await this.fs.promises.readdir(dirPath);
+      remain = remain.filter(file => file !== '.' && file !== '..');
+      if (remain.length === 0) {
+        await this.fs.promises.rmdir(dirPath);
+        if (this.onFileOperation) {
+          const relativePath = this.getRelativePathFromProject(dirPath);
+          await this.onFileOperation(relativePath, 'delete');
+        }
+      } else {
+        throw new Error(`ENOTEMPTY: Directory not empty after attempted recursive delete: ${dirPath}`);
+      }
     } catch (error) {
-      console.error('[rmdir] Error removing directory:', dirPath, error);
-      throw new Error(`Cannot remove directory '${dirPath}': ${(error as Error).message}`);
+      throw new Error(`[rmdir] Error removing directory: ${dirPath}\n${(error as Error).message}`);
     }
   }
 }
