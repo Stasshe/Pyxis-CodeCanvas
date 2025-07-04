@@ -622,13 +622,15 @@ private async extractPackage(packageDir: string, tarballData: ArrayBuffer): Prom
       const fullPath = `${packageDir}/${relativePath}`;
       
       if (file.type === 'directory') {
-        // もし同名のファイルが存在していたら削除
+        // もし同名のファイルが存在していたら削除（存在しない場合は無視）
         try {
           const stat = await this.fs.promises.stat(fullPath);
           if (!stat.isDirectory()) {
             await this.fs.promises.unlink(fullPath);
           }
-        } catch {}
+        } catch (err: any) {
+          if (err && err.code !== 'ENOENT') throw err;
+        }
         
         // 親ディレクトリも必ず作成
         const dirPath = fullPath.substring(0, fullPath.lastIndexOf('/'));
@@ -647,7 +649,7 @@ private async extractPackage(packageDir: string, tarballData: ArrayBuffer): Prom
         const dirPath = fullPath.substring(0, fullPath.lastIndexOf('/'));
         await ensureDirectoryExists(this.fs, dirPath);
         
-        // もし同名のディレクトリが存在していたら削除
+        // もし同名のディレクトリが存在していたら削除（存在しない場合は無視）
         try {
           const stat = await this.fs.promises.stat(fullPath);
           if (stat.isDirectory()) {
@@ -665,11 +667,15 @@ private async extractPackage(packageDir: string, tarballData: ArrayBuffer): Prom
                   }
                 }
                 await fs.promises.rmdir(dir);
-              } catch {}
+              } catch (err: any) {
+                if (err && err.code !== 'ENOENT') throw err;
+              }
             };
             await removeDir(this.fs, fullPath);
           }
-        } catch {}
+        } catch (err: any) {
+          if (err && err.code !== 'ENOENT') throw err;
+        }
         
         // ファイルを書き込み
         console.log(`[npm.extractPackage] Writing file: ${fullPath} (${file.data.length} bytes)`);
@@ -723,22 +729,22 @@ private async extractPackage(packageDir: string, tarballData: ArrayBuffer): Prom
   private async removeDirectory(dirPath: string): Promise<void> {
     try {
       const files = await this.fs.promises.readdir(dirPath);
-      
       for (const file of files) {
         const filePath = `${dirPath}/${file}`;
         const stat = await this.fs.promises.stat(filePath);
-        
         if (stat.isDirectory()) {
           await this.removeDirectory(filePath);
         } else {
           await this.fs.promises.unlink(filePath);
         }
       }
-      
       await this.fs.promises.rmdir(dirPath);
-    } catch (error) {
-      console.error(`Failed to remove directory ${dirPath}:`, error);
-      throw error;
+    } catch (error: any) {
+      // ENOENT（存在しない）は無視、それ以外はエラー
+      if (error && error.code !== 'ENOENT') {
+        console.error(`Failed to remove directory ${dirPath}:`, error);
+        throw error;
+      }
     }
   }
 
