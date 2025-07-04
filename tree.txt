@@ -21,6 +21,7 @@
 │   ├── icon0.svg
 │   ├── icon1.png
 │   ├── manifest.json
+│   ├── sw.js
 │   ├── web-app-manifest-192x192.png
 │   ├── web-app-manifest-512x512.png
 │   └── window.svg
@@ -58,6 +59,8 @@
 │       │   │   ├── reset.ts
 │       │   │   └── revert.ts
 │       │   ├── npm.ts
+│       │   ├── npmOperations
+│       │   │   └── npmInstall.ts
 │       │   └── unix.ts
 │       ├── database.ts
 │       ├── filesystem.ts
@@ -71,9 +74,9 @@
 ├── tree.txt
 └── tsconfig.json
 
-9 directories, 63 files
+10 directories, 65 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 10608
-合計文字数: 371288
-合計ファイルサイズ(bytes): 403985
+合計行数: 10847
+合計文字数: 376526
+合計ファイルサイズ(bytes): 409492
