@@ -1,7 +1,6 @@
 // シンプルなPWA用Service Worker
 const CACHE_NAME = 'pyxis-pwa-cache-v1';
 const urlsToCache = [
-  '/',
   '/favicon.ico',
   '/manifest.json',
   '/apple-touch-icon.png',
@@ -35,3 +34,6 @@ self.addEventListener('fetch', event => {
     })
   );
 });
+
+
+//v0.2.2
