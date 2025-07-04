@@ -612,83 +612,48 @@ export class UnixCommands {
 
   // ヘルパーメソッド: ディレクトリの再帰削除
   async rmdir(dirPath: string, retryCount = 0): Promise<void> {
+    let files: string[] = [];
     try {
-      let files: string[];
+      files = await this.fs.promises.readdir(dirPath);
+    } catch (error) {
+      // ディレクトリが存在しない場合は何もしない
+      return;
+    }
+    files = files.filter(file => file !== '.' && file !== '..');
+    for (const file of files) {
+      const filePath = `${dirPath}/${file}`;
+      let stat;
       try {
-        files = await this.fs.promises.readdir(dirPath);
+        stat = await this.fs.promises.stat(filePath);
       } catch (error) {
-        if ((error as any).code === 'ENOENT') {
-          return;
-        }
-        throw error;
+        // 存在しない場合はスキップ
+        continue;
       }
-      files = files.filter(file => file !== '.' && file !== '..');
-      if (files.length > 0) {
-        console.warn(`[rmdir] ${dirPath} contains:`, files);
-      }
-      for (const file of files) {
-        const filePath = `${dirPath}/${file}`;
-        let stat;
+      if (stat.isDirectory()) {
+        await this.rmdir(filePath);
+      } else {
         try {
-          stat = await this.fs.promises.stat(filePath);
-        } catch (error) {
-          if ((error as any).code === 'ENOENT') {
-            continue;
-          }
-          console.warn(`[rmdir] stat error for ${filePath}:`, error);
-          continue;
-        }
-        if (stat.isDirectory()) {
-          await this.rmdir(filePath);
-        } else {
-          try {
-            await this.fs.promises.unlink(filePath);
-            if (this.onFileOperation) {
-              const relativePath = this.getRelativePathFromProject(filePath);
-              await this.onFileOperation(relativePath, 'delete');
-            }
-          } catch (error) {
-            if ((error as any).code !== 'ENOENT') {
-              console.warn(`[rmdir] unlink error for ${filePath}:`, error);
-            }
-          }
-        }
-      }
-      let remain: string[];
-      try {
-        remain = await this.fs.promises.readdir(dirPath);
-      } catch (error) {
-        if ((error as any).code === 'ENOENT') {
-          return;
-        }
-        throw error;
-      }
-      remain = remain.filter(file => file !== '.' && file !== '..');
-      if (remain.length === 0) {
-        try {
-          await this.fs.promises.rmdir(dirPath);
+          await this.fs.promises.unlink(filePath);
           if (this.onFileOperation) {
-            const relativePath = this.getRelativePathFromProject(dirPath);
+            const relativePath = this.getRelativePathFromProject(filePath);
             await this.onFileOperation(relativePath, 'delete');
           }
         } catch (error) {
-          if ((error as any).code === 'ENOENT') {
-            return;
-          }
-          console.warn(`[rmdir] rmdir error for ${dirPath}:`, error);
+          // 削除失敗でもスキップ
+          continue;
         }
-      } else {
-        // throwせず、残ファイルを警告として出力
-        console.error(`[rmdir] Directory not empty after attempted recursive delete: ${dirPath}`);
-        console.error(`[rmdir] Remaining files:`, remain);
-        // 必要ならここでreturnやthrowを選択
-        throw new Error(`ENOTEMPTY: Directory not empty: ${dirPath}\nRemaining: ${remain.join(', ')}`);
+      }
+    }
+    // ディレクトリ自身を削除
+    try {
+      await this.fs.promises.rmdir(dirPath);
+      if (this.onFileOperation) {
+        const relativePath = this.getRelativePathFromProject(dirPath);
+        await this.onFileOperation(relativePath, 'delete');
       }
     } catch (error) {
-      if ((error as any).code === 'ENOENT') {
-        return;
-      }
-      throw new Error(`[rmdir] Error removing directory: ${dirPath}\n${(error as Error).message}`);
+      // 削除失敗でもthrowしない
+      return;
     }
   }
 }
