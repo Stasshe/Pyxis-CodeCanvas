@@ -1,3 +1,4 @@
+/*
 // シンプルなPWA用Service Worker
 const CACHE_NAME = 'pyxis-pwa-cache-v1';
 const urlsToCache = [
@@ -37,3 +38,4 @@ self.addEventListener('fetch', event => {
 
 
 //v0.2.2
+*/
