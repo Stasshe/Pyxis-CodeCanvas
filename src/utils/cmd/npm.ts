@@ -411,323 +411,288 @@ export class NpmCommands {
     }
   }
 
-  // パッケージをダウンロードしてインストール
-  private async downloadAndInstallPackage(packageName: string, version: string): Promise<void> {
-    try {
-      const projectDir = getProjectDir(this.projectName);
-      const nodeModulesDir = `${projectDir}/node_modules`;
-      const packageDir = `${nodeModulesDir}/${packageName}`;
 
-      // パッケージ情報を取得
-      let packageInfo: any;
-      try {
-        packageInfo = await this.fetchPackageInfo(packageName);
-      } catch (error) {
-        throw new Error(`Package '${packageName}' not found in npm registry`);
-      }
+  // パッケージをダウンロードしてインストール
+  // パッケージをダウンロードしてインストール（.tgzから直接）
+private async downloadAndInstallPackage(packageName: string, version: string = 'latest'): Promise<void> {
+  try {
+    const projectDir = getProjectDir(this.projectName);
+    const nodeModulesDir = `${projectDir}/node_modules`;
+    const packageDir = `${nodeModulesDir}/${packageName}`;
+
+    // .tgzのURLを構築
+    const tgzUrl = `https://registry.npmjs.org/${packageName}/-/${packageName}-${version}.tgz`;
+    console.log(`[npm.downloadAndInstallPackage] Downloading from: ${tgzUrl}`);
+
+    // パッケージディレクトリを作成
+    try {
+      await this.fs.promises.mkdir(packageDir, { recursive: true } as any);
+    } catch (error) {
+      throw new Error(`Failed to create package directory: ${(error as Error).message}`);
+    }
+
+    // .tgzファイルをダウンロード（タイムアウト付き）
+    let tarballResponse: Response;
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒タイムアウト
       
-      // パッケージディレクトリを作成
-      try {
-        await this.fs.promises.mkdir(packageDir, { recursive: true } as any);
-      } catch (error) {
-        throw new Error(`Failed to create package directory: ${(error as Error).message}`);
-      }
+      tarballResponse = await fetch(tgzUrl, {
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/octet-stream',
+        }
+      });
+      clearTimeout(timeoutId);
       
-      // tarballをダウンロード（タイムアウト付き）
-      let tarballResponse: Response;
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒タイムアウト
-        
-        tarballResponse = await fetch(packageInfo.tarball, {
-          signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-        
-        if (!tarballResponse.ok) {
+      if (!tarballResponse.ok) {
+        if (tarballResponse.status === 404) {
+          throw new Error(`Package '${packageName}@${version}' not found`);
+        } else {
           throw new Error(`HTTP ${tarballResponse.status}: ${tarballResponse.statusText}`);
         }
-      } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') {
-          throw new Error(`Download timeout for ${packageName}`);
-        }
-        throw new Error(`Failed to download package: ${(error as Error).message}`);
-      }
-      
-      // tarballデータを取得
-      let tarballData: ArrayBuffer;
-      try {
-        tarballData = await tarballResponse.arrayBuffer();
-      } catch (error) {
-        throw new Error(`Failed to read package data: ${(error as Error).message}`);
-      }
-      
-      // tarballを展開
-      try {
-        await this.extractPackage(packageDir, tarballData, packageInfo);
-      } catch (error) {
-        // インストールに失敗した場合はディレクトリを削除
-        try {
-          await this.removeDirectory(packageDir);
-        } catch (cleanupError) {
-          console.warn(`Failed to cleanup failed installation: ${cleanupError}`);
-        }
-        throw new Error(`Failed to extract package: ${(error as Error).message}`);
-      }
-      
-      // IndexedDBに同期
-      if (this.onFileOperation) {
-        try {
-          const relativePath = `/node_modules/${packageName}`;
-          await this.onFileOperation(relativePath, 'folder');
-          
-          // package.jsonを同期
-          const packageJsonContent = JSON.stringify({
-            name: packageInfo.name,
-            version: packageInfo.version,
-            description: packageInfo.description,
-            main: packageInfo.main,
-            license: packageInfo.license,
-            dependencies: packageInfo.dependencies
-          }, null, 2);
-          
-          await this.onFileOperation(`${relativePath}/package.json`, 'file', packageJsonContent);
-          
-          // メインファイルを同期（パス正規化）
-          let mainFile = packageInfo.main || 'index.js';
-          console.log(`[npm.downloadAndInstallPackage] Original main file: "${mainFile}"`);
-          
-          // より厳密な正規化
-          mainFile = mainFile.replace(/^\.+\/+/g, ''); // ./や../を削除
-          mainFile = mainFile.replace(/\/+/g, '/'); // 連続するスラッシュを1つにまとめる
-          mainFile = mainFile.replace(/^\/+/, ''); // 先頭のスラッシュを削除
-          
-          console.log(`[npm.downloadAndInstallPackage] Normalized main file: "${mainFile}"`);
-          
-          // メインファイルの親ディレクトリが必要な場合は事前に作成
-          if (mainFile.includes('/')) {
-            const pathParts = mainFile.split('/');
-            let currentPath = relativePath;
-            
-            console.log(`[npm.downloadAndInstallPackage] Creating directories for path parts:`, pathParts);
-            
-            // 最後の要素（ファイル名）を除いて、ディレクトリを作成
-            for (let i = 0; i < pathParts.length - 1; i++) {
-              currentPath += `/${pathParts[i]}`;
-              console.log(`[npm.downloadAndInstallPackage] Creating directory: "${currentPath}"`);
-              await this.onFileOperation(currentPath, 'folder');
-            }
-          }
-          
-          const finalPath = `${relativePath}/${mainFile}`;
-          console.log(`[npm.downloadAndInstallPackage] Final file path: "${finalPath}"`);
-          
-          const mainContent = this.generateMainFileContent(packageInfo);
-          await this.onFileOperation(finalPath, 'file', mainContent);
-          
-          // README.mdを同期
-          const readmeContent = `# ${packageInfo.name}\n\n${packageInfo.description || 'No description available.'}\n\nVersion: ${packageInfo.version}\nLicense: ${packageInfo.license || 'Unknown'}\n\nThis package was installed via Pyxis npm implementation.`;
-          await this.onFileOperation(`${relativePath}/README.md`, 'file', readmeContent);
-        } catch (error) {
-          console.warn(`Failed to sync to IndexedDB: ${(error as Error).message}`);
-          // IndexedDB同期に失敗してもインストール自体は成功とする
-        }
       }
     } catch (error) {
-      throw new Error(`Installation failed for ${packageName}@${version}: ${(error as Error).message}`);
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error(`Download timeout for ${packageName}@${version}`);
+      }
+      throw new Error(`Failed to download package: ${(error as Error).message}`);
     }
-  }
 
-  // パッケージの展開（実際のtar展開）
-  private async extractPackage(packageDir: string, tarballData: ArrayBuffer, packageInfo: any): Promise<void> {
+    // tarballデータを取得
+    let tarballData: ArrayBuffer;
     try {
-      console.log(`[npm.extractPackage] Starting tar extraction to: ${packageDir}`);
-      
-      // tarballはgzip圧縮されているので、まず解凍
-      const uint8Array = new Uint8Array(tarballData);
-      
-      // pakoライブラリを動的インポート
-      const pako = await import('pako');
-      let decompressedData: Uint8Array;
-      
+      tarballData = await tarballResponse.arrayBuffer();
+    } catch (error) {
+      throw new Error(`Failed to read package data: ${(error as Error).message}`);
+    }
+
+    // tarballを展開
+    let extractedFiles: Map<string, { isDirectory: boolean; content?: string; fullPath: string }>;
+    try {
+      extractedFiles = await this.extractPackage(packageDir, tarballData);
+    } catch (error) {
+      // インストールに失敗した場合はディレクトリを削除
       try {
-        decompressedData = pako.inflate(uint8Array);
-        console.log(`[npm.extractPackage] Gzip decompression successful, size: ${decompressedData.length}`);
-      } catch (error) {
-        // gzip圧縮されていない場合はそのまま使用
-        console.log(`[npm.extractPackage] Not gzip compressed, using raw data`);
-        decompressedData = uint8Array;
+        await this.removeDirectory(packageDir);
+      } catch (cleanupError) {
+        console.warn(`Failed to cleanup failed installation: ${cleanupError}`);
       }
-      
-      // tar-streamライブラリを動的インポート
-      const tarStream = await import('tar-stream');
-      const extract = tarStream.extract();
-      
-      const files: Array<{ name: string; data: Uint8Array; type: string }> = [];
-      
-      // tar エントリを処理
-      extract.on('entry', (header: any, stream: any, next: any) => {
-        const chunks: Uint8Array[] = [];
+      throw new Error(`Failed to extract package: ${(error as Error).message}`);
+    }
+
+    // IndexedDBに同期（展開されたファイルのみを使用）
+    if (this.onFileOperation) {
+      try {
+        const relativePath = `/node_modules/${packageName}`;
+        await this.onFileOperation(relativePath, 'folder');
         
-        stream.on('data', (chunk: Uint8Array) => {
-          chunks.push(chunk);
-        });
-        
-        stream.on('end', () => {
-          if (header.type === 'file') {
-            // チャンクを結合
-            const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
-            const combined = new Uint8Array(totalLength);
-            let offset = 0;
-            for (const chunk of chunks) {
-              combined.set(chunk, offset);
-              offset += chunk.length;
+        // 展開されたファイルを順次同期
+        for (const [relativePath, fileInfo] of extractedFiles) {
+          const fullPath = `/node_modules/${packageName}/${relativePath}`;
+          
+          console.log(`[npm.downloadAndInstallPackage] Syncing: "${fullPath}"`);
+          
+          if (fileInfo.isDirectory) {
+            // ディレクトリを作成
+            await this.onFileOperation(fullPath, 'folder');
+          } else {
+            // ファイルを作成
+            // ファイルの親ディレクトリが必要な場合は事前に作成
+            const pathParts = relativePath.split('/');
+            if (pathParts.length > 1) {
+              let currentPath = `/node_modules/${packageName}`;
+              for (let i = 0; i < pathParts.length - 1; i++) {
+                currentPath += `/${pathParts[i]}`;
+                await this.onFileOperation(currentPath, 'folder');
+              }
             }
             
-            files.push({
-              name: header.name,
-              data: combined,
-              type: header.type
-            });
-          } else if (header.type === 'directory') {
-            files.push({
-              name: header.name,
-              data: new Uint8Array(0),
-              type: header.type
-            });
+            // extractPackageで既に内容が取得されているのでそれを使用
+            const fileContent = fileInfo.content || '';
+            await this.onFileOperation(fullPath, 'file', fileContent);
           }
-          next();
-        });
-        
-        stream.resume();
-      });
-      
-      // tar展開完了時の処理
-      await new Promise<void>((resolve, reject) => {
-        extract.on('finish', () => {
-          console.log(`[npm.extractPackage] Tar extraction completed, found ${files.length} entries`);
-          resolve();
-        });
-        
-        extract.on('error', (error: Error) => {
-          console.error(`[npm.extractPackage] Tar extraction error:`, error);
-          reject(error);
-        });
-        
-        // decompressされたデータをtar-streamに送信
-        extract.write(decompressedData);
-        extract.end();
-      });
-      
-      // ファイルをファイルシステムに書き込み
-      for (const file of files) {
-        // パッケージ名のプレフィックスを削除 (例: "package/" -> "")
-        let relativePath = file.name;
-        if (relativePath.startsWith('package/')) {
-          relativePath = relativePath.substring(8);
         }
-        if (!relativePath) continue; // 空のパスはスキップ
-        const fullPath = `${packageDir}/${relativePath}`;
-        if (file.type === 'directory') {
-          // もし同名のファイルが存在していたら削除
-          try {
-            const stat = await this.fs.promises.stat(fullPath);
-            if (!stat.isDirectory()) {
-              await this.fs.promises.unlink(fullPath);
-            }
-          } catch {}
-          // 親ディレクトリも必ず作成
-          const dirPath = fullPath.substring(0, fullPath.lastIndexOf('/'));
-          await ensureDirectoryExists(this.fs,dirPath);
-          console.log(`[npm.extractPackage] Creating directory: ${fullPath}`);
-          await this.fs.promises.mkdir(fullPath, { recursive: true } as any);
-        } else if (file.type === 'file') {
-          // 親ディレクトリを必ず作成（mkdir -p 相当）
-          const dirPath = fullPath.substring(0, fullPath.lastIndexOf('/'));
-          await ensureDirectoryExists(this.fs,dirPath);
-          // もし同名のディレクトリが存在していたら削除
-          try {
-            const stat = await this.fs.promises.stat(fullPath);
-            if (stat.isDirectory()) {
-              // ディレクトリを再帰的に削除
-              const removeDir = async (fs: any, dir: string) => {
-                try {
-                  const files = await fs.promises.readdir(dir);
-                  for (const f of files) {
-                    const p = `${dir}/${f}`;
-                    const s = await fs.promises.stat(p);
-                    if (s.isDirectory()) {
-                      await removeDir(fs, p);
-                    } else {
-                      await fs.promises.unlink(p);
-                    }
-                  }
-                  await fs.promises.rmdir(dir);
-                } catch {}
-              };
-              await removeDir(this.fs, fullPath);
-            }
-          } catch {}
-          // ファイルを書き込み
-          console.log(`[npm.extractPackage] Writing file: ${fullPath} (${file.data.length} bytes)`);
-          await this.fs.promises.writeFile(fullPath, file.data);
-        }
+        
+      } catch (error) {
+        console.warn(`Failed to sync to IndexedDB: ${(error as Error).message}`);
+        // IndexedDB同期に失敗してもインストール自体は成功とする
       }
-      
-      console.log(`[npm.extractPackage] Package extraction completed successfully`);
-      
-    } catch (error) {
-      console.error(`[npm.extractPackage] Failed to extract package:`, error);
-      throw error;
     }
+
+    console.log(`[npm.downloadAndInstallPackage] Package ${packageName}@${version} installed successfully`);
+  } catch (error) {
+    throw new Error(`Installation failed for ${packageName}@${version}: ${(error as Error).message}`);
   }
-
-  // メインファイルの内容を生成
-  private generateMainFileContent(packageInfo: any): string {
-    return `// ${packageInfo.name}@${packageInfo.version}
-// ${packageInfo.description || 'No description available.'}
-
-/**
- * This is a browser-compatible implementation of ${packageInfo.name}
- * Generated by Pyxis npm implementation
- */
-
-// Export placeholder - replace with actual implementation
-module.exports = {
-  name: '${packageInfo.name}',
-  version: '${packageInfo.version}',
-  description: '${packageInfo.description || ''}',
-  
-  // Add your implementation here
-  // This is a basic wrapper for browser compatibility
-  
-  // Common utilities that might be needed
-  toString: function() {
-    return \`[\${this.name}@\${this.version}]\`;
-  },
-  
-  // Version info
-  getVersion: function() {
-    return this.version;
-  },
-  
-  // Package info
-  getInfo: function() {
-    return {
-      name: this.name,
-      version: this.version,
-      description: this.description
-    };
-  }
-};
-
-// For ES6 modules compatibility
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports.default = module.exports;
 }
-`;
-  }
 
+// パッケージの展開（実際のtar展開）- 完全にtar内容と同じ構造を作成
+private async extractPackage(packageDir: string, tarballData: ArrayBuffer): Promise<Map<string, { isDirectory: boolean; content?: string; fullPath: string }>> {
+  try {
+    console.log(`[npm.extractPackage] Starting tar extraction to: ${packageDir}`);
+    
+    // tarballはgzip圧縮されているので、まず解凍
+    const uint8Array = new Uint8Array(tarballData);
+    
+    // pakoライブラリを動的インポート
+    const pako = await import('pako');
+    let decompressedData: Uint8Array;
+    
+    try {
+      decompressedData = pako.inflate(uint8Array);
+      console.log(`[npm.extractPackage] Gzip decompression successful, size: ${decompressedData.length}`);
+    } catch (error) {
+      // gzip圧縮されていない場合はそのまま使用
+      console.log(`[npm.extractPackage] Not gzip compressed, using raw data`);
+      decompressedData = uint8Array;
+    }
+    
+    // tar-streamライブラリを動的インポート
+    const tarStream = await import('tar-stream');
+    const extract = tarStream.extract();
+    
+    const files: Array<{ name: string; data: Uint8Array; type: string }> = [];
+    
+    // tar エントリを処理
+    extract.on('entry', (header: any, stream: any, next: any) => {
+      const chunks: Uint8Array[] = [];
+      
+      stream.on('data', (chunk: Uint8Array) => {
+        chunks.push(chunk);
+      });
+      
+      stream.on('end', () => {
+        if (header.type === 'file') {
+          // チャンクを結合
+          const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+          const combined = new Uint8Array(totalLength);
+          let offset = 0;
+          for (const chunk of chunks) {
+            combined.set(chunk, offset);
+            offset += chunk.length;
+          }
+          
+          files.push({
+            name: header.name,
+            data: combined,
+            type: header.type
+          });
+        } else if (header.type === 'directory') {
+          files.push({
+            name: header.name,
+            data: new Uint8Array(0),
+            type: header.type
+          });
+        }
+        next();
+      });
+      
+      stream.resume();
+    });
+    
+    // tar展開完了時の処理
+    await new Promise<void>((resolve, reject) => {
+      extract.on('finish', () => {
+        console.log(`[npm.extractPackage] Tar extraction completed, found ${files.length} entries`);
+        resolve();
+      });
+      
+      extract.on('error', (error: Error) => {
+        console.error(`[npm.extractPackage] Tar extraction error:`, error);
+        reject(error);
+      });
+      
+      // decompressされたデータをtar-streamに送信
+      extract.write(decompressedData);
+      extract.end();
+    });
+    
+    // 展開したファイル情報を格納するマップ
+    const extractedFiles = new Map<string, { isDirectory: boolean; content?: string; fullPath: string }>();
+    
+    // ファイルをファイルシステムに書き込み & 情報を収集
+    for (const file of files) {
+      // パッケージ名のプレフィックスを削除 (例: "package/" -> "")
+      let relativePath = file.name;
+      if (relativePath.startsWith('package/')) {
+        relativePath = relativePath.substring(8);
+      }
+      if (!relativePath) continue; // 空のパスはスキップ
+      
+      const fullPath = `${packageDir}/${relativePath}`;
+      
+      if (file.type === 'directory') {
+        // もし同名のファイルが存在していたら削除
+        try {
+          const stat = await this.fs.promises.stat(fullPath);
+          if (!stat.isDirectory()) {
+            await this.fs.promises.unlink(fullPath);
+          }
+        } catch {}
+        
+        // 親ディレクトリも必ず作成
+        const dirPath = fullPath.substring(0, fullPath.lastIndexOf('/'));
+        await ensureDirectoryExists(this.fs, dirPath);
+        console.log(`[npm.extractPackage] Creating directory: ${fullPath}`);
+        await this.fs.promises.mkdir(fullPath, { recursive: true } as any);
+        
+        // ディレクトリ情報を追加
+        extractedFiles.set(relativePath, {
+          isDirectory: true,
+          fullPath: fullPath
+        });
+        
+      } else if (file.type === 'file') {
+        // 親ディレクトリを必ず作成（mkdir -p 相当）
+        const dirPath = fullPath.substring(0, fullPath.lastIndexOf('/'));
+        await ensureDirectoryExists(this.fs, dirPath);
+        
+        // もし同名のディレクトリが存在していたら削除
+        try {
+          const stat = await this.fs.promises.stat(fullPath);
+          if (stat.isDirectory()) {
+            // ディレクトリを再帰的に削除
+            const removeDir = async (fs: any, dir: string) => {
+              try {
+                const files = await fs.promises.readdir(dir);
+                for (const f of files) {
+                  const p = `${dir}/${f}`;
+                  const s = await fs.promises.stat(p);
+                  if (s.isDirectory()) {
+                    await removeDir(fs, p);
+                  } else {
+                    await fs.promises.unlink(p);
+                  }
+                }
+                await fs.promises.rmdir(dir);
+              } catch {}
+            };
+            await removeDir(this.fs, fullPath);
+          }
+        } catch {}
+        
+        // ファイルを書き込み
+        console.log(`[npm.extractPackage] Writing file: ${fullPath} (${file.data.length} bytes)`);
+        await this.fs.promises.writeFile(fullPath, file.data);
+        
+        // ファイル情報を追加（内容も含む）
+        const content = new TextDecoder('utf-8', { fatal: false }).decode(file.data);
+        extractedFiles.set(relativePath, {
+          isDirectory: false,
+          content: content,
+          fullPath: fullPath
+        });
+      }
+    }
+    
+    console.log(`[npm.extractPackage] Package extraction completed successfully`);
+    return extractedFiles;
+    
+  } catch (error) {
+    console.error(`[npm.extractPackage] Failed to extract package:`, error);
+    throw error;
+  }
+}
   // 最新バージョンの取得（実際のレジストリから）
   private async getLatestVersion(packageName: string): Promise<string> {
     try {
