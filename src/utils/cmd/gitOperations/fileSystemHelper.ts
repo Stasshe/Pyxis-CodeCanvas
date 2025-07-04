@@ -1,4 +1,6 @@
 import FS from '@isomorphic-git/lightning-fs';
+import { ensureDirectoryExists } from '../../filesystem';
+
 
 /**
  * Git操作で使用する共通のファイルシステムヘルパー関数
@@ -103,11 +105,6 @@ export class GitFileSystemHelper {
    * @param dirPath ディレクトリパス
    */
   static async ensureDirectory(fs: FS, dirPath: string): Promise<void> {
-    try {
-      await fs.promises.stat(dirPath);
-    } catch {
-      // ディレクトリが存在しない場合は作成
-      await fs.promises.mkdir(dirPath, { recursive: true } as any);
-    }
+    ensureDirectoryExists(fs, dirPath);
   }
 }
