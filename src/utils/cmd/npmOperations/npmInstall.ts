@@ -30,9 +30,7 @@ export class NpmInstall {
     this.projectName = projectName;
     this.onFileOperation = onFileOperation;
   }
-
-
-// パッケージをダウンロードしてインストール
+  
   // パッケージをダウンロードしてインストール（.tgzから直接）
   async downloadAndInstallPackage(
     packageName: string,
@@ -173,7 +171,9 @@ export class NpmInstall {
     }
   }
 
-  // パッケージの展開（実際のtar展開）- 完全にtar内容と同じ構造を作成
+
+
+  // パッケージの展開（実際のtar展開）- 高速化版
   private async extractPackage(
     packageDir: string,
     tarballData: ArrayBuffer,
@@ -202,8 +202,17 @@ export class NpmInstall {
       }
 
       const extract = tarStream.extract();
-
-      const files: Array<{ name: string; data: Uint8Array; type: string }> = [];
+      
+      // ファイル/ディレクトリのメタデータを格納
+      const fileEntries = new Map<string, { 
+        type: string; 
+        data: Uint8Array; 
+        content?: string; 
+        fullPath: string 
+      }>();
+      
+      // 必要なディレクトリのセット
+      const requiredDirs = new Set<string>();
 
       // tar エントリを処理
       extract.on("entry", (header: any, stream: any, next: any) => {
@@ -214,12 +223,22 @@ export class NpmInstall {
         });
 
         stream.on("end", () => {
+          // パッケージ名のプレフィックスを削除 (例: "package/" -> "")
+          let relativePath = header.name;
+          if (relativePath.startsWith("package/")) {
+            relativePath = relativePath.substring(8);
+          }
+          
+          if (!relativePath) {
+            next();
+            return;
+          }
+
+          const fullPath = `${packageDir}/${relativePath}`;
+
           if (header.type === "file") {
-            // チャンクを結合
-            const totalLength = chunks.reduce(
-              (sum, chunk) => sum + chunk.length,
-              0,
-            );
+            // チャンクを結合（最適化）
+            const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
             const combined = new Uint8Array(totalLength);
             let offset = 0;
             for (const chunk of chunks) {
@@ -227,17 +246,31 @@ export class NpmInstall {
               offset += chunk.length;
             }
 
-            files.push({
-              name: header.name,
+            // ファイルの内容をデコード（事前に準備）
+            const content = new TextDecoder("utf-8", { fatal: false }).decode(combined);
+            
+            fileEntries.set(relativePath, {
+              type: header.type,
               data: combined,
-              type: header.type,
+              content: content,
+              fullPath: fullPath
             });
+
+            // 親ディレクトリを必要ディレクトリに追加
+            const pathParts = relativePath.split("/");
+            if (pathParts.length > 1) {
+              for (let i = 0; i < pathParts.length - 1; i++) {
+                const dirPath = pathParts.slice(0, i + 1).join("/");
+                requiredDirs.add(dirPath);
+              }
+            }
           } else if (header.type === "directory") {
-            files.push({
-              name: header.name,
-              data: new Uint8Array(0),
+            fileEntries.set(relativePath, {
               type: header.type,
+              data: new Uint8Array(0),
+              fullPath: fullPath
             });
+            requiredDirs.add(relativePath);
           }
           next();
         });
@@ -245,11 +278,11 @@ export class NpmInstall {
         stream.resume();
       });
 
-      // tar展開完了時の処理
+      // tar展開完了を待機
       await new Promise<void>((resolve, reject) => {
         extract.on("finish", () => {
           console.log(
-            `[npm.extractPackage] Tar extraction completed, found ${files.length} entries`,
+            `[npm.extractPackage] Tar processing completed, found ${fileEntries.size} entries`,
           );
           resolve();
         });
@@ -259,97 +292,93 @@ export class NpmInstall {
           reject(error);
         });
 
-        // decompressされたデータをtar-streamに送信
         extract.write(decompressedData);
         extract.end();
       });
 
-      // 展開したファイル情報を格納するマップ
-      const extractedFiles = new Map<
-        string,
-        { isDirectory: boolean; content?: string; fullPath: string }
-      >();
+      // 必要なディレクトリを深さ順でソート
+      const sortedDirs = Array.from(requiredDirs).sort((a, b) => {
+        const depthA = a.split('/').length;
+        const depthB = b.split('/').length;
+        return depthA - depthB;
+      });
 
-      // ファイルをファイルシステムに書き込み & 情報を収集
-      for (const file of files) {
-        // パッケージ名のプレフィックスを削除 (例: "package/" -> "")
-        let relativePath = file.name;
-        if (relativePath.startsWith("package/")) {
-          relativePath = relativePath.substring(8);
-        }
-        if (!relativePath) continue; // 空のパスはスキップ
-
-        const fullPath = `${packageDir}/${relativePath}`;
-
-        if (file.type === "directory") {
-          // もし同名のファイルが存在していたら削除（存在しない場合は無視）
+      // ディレクトリを順次作成（並列処理でファイルシステムの競合を避ける）
+      for (const dirPath of sortedDirs) {
+        const fullPath = `${packageDir}/${dirPath}`;
+        
+        try {
+          // 同名のファイルが存在していたら削除
           try {
             const stat = await this.fs.promises.stat(fullPath);
             if (!stat.isDirectory()) {
               await this.fs.promises.unlink(fullPath);
             }
           } catch (err: any) {
+            // ファイルが存在しない場合は無視
             if (err && err.code !== "ENOENT") throw err;
           }
 
-          // 親ディレクトリも必ず作成
-          const dirPath = fullPath.substring(0, fullPath.lastIndexOf("/"));
-          await ensureDirectoryExists(this.fs, dirPath);
-          console.log(`[npm.extractPackage] Creating directory: ${fullPath}`);
           await this.fs.promises.mkdir(fullPath, { recursive: true } as any);
-
-          // ディレクトリ情報を追加
-          extractedFiles.set(relativePath, {
-            isDirectory: true,
-            fullPath: fullPath,
-          });
-        } else if (file.type === "file") {
-          // 親ディレクトリを必ず作成（mkdir -p 相当）
-          const dirPath = fullPath.substring(0, fullPath.lastIndexOf("/"));
-          await ensureDirectoryExists(this.fs, dirPath);
-
-          // もし同名のディレクトリが存在していたら削除（存在しない場合は無視）
-          try {
-            const stat = await this.fs.promises.stat(fullPath);
-            if (stat.isDirectory()) {
-              // ディレクトリを再帰的に削除
-              const removeDir = async (fs: any, dir: string) => {
-                try {
-                  const files = await fs.promises.readdir(dir);
-                  for (const f of files) {
-                    const p = `${dir}/${f}`;
-                    const s = await fs.promises.stat(p);
-                    if (s.isDirectory()) {
-                      await removeDir(fs, p);
-                    } else {
-                      await fs.promises.unlink(p);
-                    }
-                  }
-                  await fs.promises.rmdir(dir);
-                } catch (err: any) {
-                  if (err && err.code !== "ENOENT") throw err;
-                }
-              };
-              await removeDir(this.fs, fullPath);
-            }
-          } catch (err: any) {
-            if (err && err.code !== "ENOENT") throw err;
+        } catch (error: any) {
+          if (error.code !== "EEXIST") {
+            console.warn(`Failed to create directory ${fullPath}:`, error);
           }
+        }
+      }
 
-          // ファイルを書き込み
-          console.log(
-            `[npm.extractPackage] Writing file: ${fullPath} (${file.data.length} bytes)`,
-          );
-          await this.fs.promises.writeFile(fullPath, file.data);
+      // ファイルを並列作成（適度な並列度で競合を避ける）
+      const fileEntryArray = Array.from(fileEntries.entries()).filter(([_, entry]) => entry.type === "file");
+      const BATCH_SIZE = 10;
+      
+      for (let i = 0; i < fileEntryArray.length; i += BATCH_SIZE) {
+        const batch = fileEntryArray.slice(i, i + BATCH_SIZE);
+        await Promise.all(batch.map(async ([relativePath, entry]) => {
+          const fullPath = entry.fullPath;
+          
+          try {
+            // 同名のディレクトリが存在していたら削除
+            try {
+              const stat = await this.fs.promises.stat(fullPath);
+              if (stat.isDirectory()) {
+                await this.removeDirectory(fullPath);
+              }
+            } catch (err: any) {
+              // ファイルが存在しない場合は無視
+              if (err && err.code !== "ENOENT") throw err;
+            }
 
-          // ファイル情報を追加（内容も含む）
-          const content = new TextDecoder("utf-8", { fatal: false }).decode(
-            file.data,
-          );
+            // ファイルを書き込み
+            await this.fs.promises.writeFile(fullPath, entry.data);
+          } catch (error) {
+            console.warn(`Failed to write file ${fullPath}:`, error);
+          }
+        }));
+      }
+
+      // 戻り値用のマップを作成
+      const extractedFiles = new Map<string, { 
+        isDirectory: boolean; 
+        content?: string; 
+        fullPath: string 
+      }>();
+
+      // ディレクトリ情報を追加
+      for (const dirPath of sortedDirs) {
+        const fullPath = `${packageDir}/${dirPath}`;
+        extractedFiles.set(dirPath, {
+          isDirectory: true,
+          fullPath: fullPath,
+        });
+      }
+
+      // ファイル情報を追加
+      for (const [relativePath, entry] of fileEntries) {
+        if (entry.type === "file") {
           extractedFiles.set(relativePath, {
             isDirectory: false,
-            content: content,
-            fullPath: fullPath,
+            content: entry.content,
+            fullPath: entry.fullPath,
           });
         }
       }
@@ -363,6 +392,7 @@ export class NpmInstall {
       throw error;
     }
   }
+
   // ディレクトリの再帰削除
   async removeDirectory(dirPath: string): Promise<void> {
     try {
@@ -385,6 +415,4 @@ export class NpmInstall {
       }
     }
   }
-
-
 }
