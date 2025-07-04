@@ -611,31 +611,32 @@ export class UnixCommands {
   }
 
   // ヘルパーメソッド: ディレクトリの再帰削除
-  async rmdir(dirPath: string): Promise<void> {
+  async rmdir(dirPath: string, retryCount = 0): Promise<void> {
     try {
       let files: string[];
       try {
         files = await this.fs.promises.readdir(dirPath);
       } catch (error) {
-        // ディレクトリが存在しない場合は何もしない（ENOENT）
         if ((error as any).code === 'ENOENT') {
           return;
         }
         throw error;
       }
-      // . と .. だけ除外し、それ以外は全て削除対象
       files = files.filter(file => file !== '.' && file !== '..');
+      if (files.length > 0) {
+        console.warn(`[rmdir] ${dirPath} contains:`, files);
+      }
       for (const file of files) {
         const filePath = `${dirPath}/${file}`;
         let stat;
         try {
           stat = await this.fs.promises.stat(filePath);
         } catch (error) {
-          // ファイルが存在しない場合はスキップ（ENOENT）
           if ((error as any).code === 'ENOENT') {
             continue;
           }
-          throw error;
+          console.warn(`[rmdir] stat error for ${filePath}:`, error);
+          continue;
         }
         if (stat.isDirectory()) {
           await this.rmdir(filePath);
@@ -647,19 +648,16 @@ export class UnixCommands {
               await this.onFileOperation(relativePath, 'delete');
             }
           } catch (error) {
-            // ファイルが存在しない場合はスキップ（ENOENT）
             if ((error as any).code !== 'ENOENT') {
-              throw error;
+              console.warn(`[rmdir] unlink error for ${filePath}:`, error);
             }
           }
         }
       }
-      // 削除後に空か再確認
       let remain: string[];
       try {
         remain = await this.fs.promises.readdir(dirPath);
       } catch (error) {
-        // ディレクトリが既に消えていればOK
         if ((error as any).code === 'ENOENT') {
           return;
         }
@@ -674,16 +672,19 @@ export class UnixCommands {
             await this.onFileOperation(relativePath, 'delete');
           }
         } catch (error) {
-          // 既に削除済みならOK
-          if ((error as any).code !== 'ENOENT') {
-            throw error;
+          if ((error as any).code === 'ENOENT') {
+            return;
           }
+          console.warn(`[rmdir] rmdir error for ${dirPath}:`, error);
         }
       } else {
-        throw new Error(`ENOTEMPTY: Directory not empty after attempted recursive delete: ${dirPath}`);
+        // throwせず、残ファイルを警告として出力
+        console.error(`[rmdir] Directory not empty after attempted recursive delete: ${dirPath}`);
+        console.error(`[rmdir] Remaining files:`, remain);
+        // 必要ならここでreturnやthrowを選択
+        throw new Error(`ENOTEMPTY: Directory not empty: ${dirPath}\nRemaining: ${remain.join(', ')}`);
       }
     } catch (error) {
-      // ENOENTは無視（既に削除済み）
       if ((error as any).code === 'ENOENT') {
         return;
       }
