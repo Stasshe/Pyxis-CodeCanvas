@@ -1,5 +1,6 @@
-import { getFileSystem, getProjectDir } from '../filesystem';
+import { getFileSystem, getProjectDir, ensureDirectoryExists } from '../filesystem';
 import FS from '@isomorphic-git/lightning-fs';
+
 
 export class NpmCommands {
   private fs: FS;
@@ -625,21 +626,48 @@ export class NpmCommands {
         if (relativePath.startsWith('package/')) {
           relativePath = relativePath.substring(8);
         }
-        
         if (!relativePath) continue; // 空のパスはスキップ
-        
         const fullPath = `${packageDir}/${relativePath}`;
-        
         if (file.type === 'directory') {
+          // もし同名のファイルが存在していたら削除
+          try {
+            const stat = await this.fs.promises.stat(fullPath);
+            if (!stat.isDirectory()) {
+              await this.fs.promises.unlink(fullPath);
+            }
+          } catch {}
+          // 親ディレクトリも必ず作成
+          const dirPath = fullPath.substring(0, fullPath.lastIndexOf('/'));
+          await ensureDirectoryExists(this.fs,dirPath);
           console.log(`[npm.extractPackage] Creating directory: ${fullPath}`);
           await this.fs.promises.mkdir(fullPath, { recursive: true } as any);
         } else if (file.type === 'file') {
-          // ディレクトリを作成
+          // 親ディレクトリを必ず作成（mkdir -p 相当）
           const dirPath = fullPath.substring(0, fullPath.lastIndexOf('/'));
-          if (dirPath !== packageDir) {
-            await this.fs.promises.mkdir(dirPath, { recursive: true } as any);
-          }
-          
+          await ensureDirectoryExists(this.fs,dirPath);
+          // もし同名のディレクトリが存在していたら削除
+          try {
+            const stat = await this.fs.promises.stat(fullPath);
+            if (stat.isDirectory()) {
+              // ディレクトリを再帰的に削除
+              const removeDir = async (fs: any, dir: string) => {
+                try {
+                  const files = await fs.promises.readdir(dir);
+                  for (const f of files) {
+                    const p = `${dir}/${f}`;
+                    const s = await fs.promises.stat(p);
+                    if (s.isDirectory()) {
+                      await removeDir(fs, p);
+                    } else {
+                      await fs.promises.unlink(p);
+                    }
+                  }
+                  await fs.promises.rmdir(dir);
+                } catch {}
+              };
+              await removeDir(this.fs, fullPath);
+            }
+          } catch {}
           // ファイルを書き込み
           console.log(`[npm.extractPackage] Writing file: ${fullPath} (${file.data.length} bytes)`);
           await this.fs.promises.writeFile(fullPath, file.data);

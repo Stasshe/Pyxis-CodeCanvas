@@ -253,7 +253,7 @@ const removeDirectoryRecursive = async (fs: any, dirPath: string): Promise<void>
 };
 
 // 確実にディレクトリを作成する関数
-const ensureDirectoryExists = async (fs: FS, dirPath: string): Promise<void> => {
+export const ensureDirectoryExists = async (fs: FS, dirPath: string): Promise<void> => {
   const pathSegments = dirPath.split('/').filter(segment => segment !== '');
   let currentPath = '';
   
