@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { ChevronDown, ChevronRight, File, Folder } from 'lucide-react';
-import MarkdownPreviewModal from './MarkdownPreviewModal';
 import { FileItem } from '../types';
 
 interface FileTreeProps {
