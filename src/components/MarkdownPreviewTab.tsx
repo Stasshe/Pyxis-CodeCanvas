@@ -8,15 +8,29 @@ interface MarkdownPreviewTabProps {
   fileName: string;
 }
 
+// ユニークID生成用
+let mermaidIdCounter = 0;
+const getUniqueMermaidId = () => `mermaid-svg-${mermaidIdCounter++}`;
+
 const Mermaid: React.FC<{ chart: string }> = ({ chart }) => {
   const ref = useRef<HTMLDivElement>(null);
+  const idRef = useRef<string>(getUniqueMermaidId());
   useEffect(() => {
     const renderMermaid = async () => {
       if (ref.current) {
         try {
-          mermaid.initialize({ startOnLoad: false });
-          const { svg } = await mermaid.render('mermaid-svg', chart);
+          // ダーク/ライト自動切替
+          const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' });
+          const { svg } = await mermaid.render(idRef.current, chart);
           ref.current.innerHTML = svg;
+          // SVGのoverflow調整
+          const svgElem = ref.current.querySelector('svg');
+          if (svgElem) {
+            svgElem.style.maxWidth = '100%';
+            svgElem.style.height = 'auto';
+            svgElem.style.overflow = 'visible';
+          }
         } catch (e) {
           ref.current.innerHTML = `<pre style='color:red;'>Mermaid render error: ${String(e)}</pre>`;
         }
