@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ChevronDown, ChevronRight, File, Folder } from 'lucide-react';
+import MarkdownPreviewModal from './MarkdownPreviewModal';
 import { FileItem } from '../types';
 
 interface FileTreeProps {
@@ -7,18 +8,35 @@ interface FileTreeProps {
   onFileOpen: (file: FileItem) => void;
   level?: number;
 }
-
 export default function FileTree({ items, onFileOpen, level = 0 }: FileTreeProps) {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; item: FileItem | null } | null>(null);
+  const [previewModal, setPreviewModal] = useState<{ open: boolean; content: string; fileName: string }>({ open: false, content: '', fileName: '' });
+  const contextMenuRef = useRef<HTMLDivElement>(null);
 
   // 初回読み込み時にルートレベルのフォルダを展開
   useEffect(() => {
     if (level === 0) {
-      const rootFolders = items.filter(item => item.type === 'folder');
-      const expandedIds = new Set(rootFolders.map(folder => folder.id));
+      const rootFolders = items.filter((item: FileItem) => item.type === 'folder');
+      const expandedIds = new Set<string>(rootFolders.map((folder: FileItem) => folder.id));
       setExpandedFolders(expandedIds);
     }
   }, [items, level]);
+
+  // コンテキストメニュー外クリックで閉じる
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+        setContextMenu(null);
+      }
+    };
+    if (contextMenu) {
+      document.addEventListener('mousedown', handleClick);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+    };
+  }, [contextMenu]);
 
   const toggleFolder = (folderId: string) => {
     setExpandedFolders(prev => {
@@ -40,16 +58,36 @@ export default function FileTree({ items, onFileOpen, level = 0 }: FileTreeProps
     }
   };
 
+  // 右クリック（または長押し）でメニュー表示
+  const handleContextMenu = (e: React.MouseEvent, item: FileItem) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, item });
+  };
+
+  // プレビュー表示
+  const handlePreview = async (item: FileItem) => {
+    setContextMenu(null);
+    // .mdファイルのみ
+    if (item.type === 'file' && item.name.endsWith('.md')) {
+      // contentがなければ空文字
+      setPreviewModal({ open: true, content: item.content || '', fileName: item.name });
+    }
+  };
+
+  const handleClosePreview = () => {
+    setPreviewModal({ open: false, content: '', fileName: '' });
+  };
+
   return (
     <>
       {items.map(item => {
         const isExpanded = expandedFolders.has(item.id);
-        
         return (
           <div key={item.id}>
             <div
-              className="flex items-center gap-1 px-2 py-1 hover:bg-accent cursor-pointer select-none"
+              className="flex items-center gap-1 px-2 py-1 hover:bg-accent cursor-pointer select-none relative"
               onClick={() => handleItemClick(item)}
+              onContextMenu={e => handleContextMenu(e, item)}
               style={{ marginLeft: `${level * 16}px` }}
             >
               {item.type === 'folder' ? (
@@ -69,7 +107,6 @@ export default function FileTree({ items, onFileOpen, level = 0 }: FileTreeProps
               )}
               <span className="text-sm truncate">{item.name}</span>
             </div>
-            
             {item.type === 'folder' && item.children && isExpanded && (
               <FileTree 
                 items={item.children} 
@@ -80,6 +117,36 @@ export default function FileTree({ items, onFileOpen, level = 0 }: FileTreeProps
           </div>
         );
       })}
+
+      {/* コンテキストメニュー */}
+      {contextMenu && contextMenu.item && (
+        <div
+          ref={contextMenuRef}
+          className="fixed z-50 bg-card border border-border rounded shadow-lg min-w-[160px]"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+        >
+          <ul className="py-1">
+            <li
+              className="px-4 py-2 hover:bg-accent cursor-pointer text-sm"
+              onClick={() => { onFileOpen(contextMenu.item!); setContextMenu(null); }}
+            >開く</li>
+            {contextMenu.item.type === 'file' && contextMenu.item.name.endsWith('.md') && (
+              <li
+                className="px-4 py-2 hover:bg-accent cursor-pointer text-sm"
+                onClick={() => handlePreview(contextMenu.item!)}
+              >プレビューを開く</li>
+            )}
+          </ul>
+        </div>
+      )}
+
+      {/* Markdownプレビューモーダル */}
+      <MarkdownPreviewModal
+        isOpen={previewModal.open}
+        onClose={handleClosePreview}
+        content={previewModal.content}
+        fileName={previewModal.fileName}
+      />
     </>
   );
 }
