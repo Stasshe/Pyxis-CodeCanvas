@@ -24,12 +24,13 @@ const Mermaid: React.FC<{ chart: string }> = ({ chart }) => {
           mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' });
           const { svg } = await mermaid.render(idRef.current, chart);
           ref.current.innerHTML = svg;
-          // SVGのoverflow調整
+          // SVGのoverflow調整 & 背景色設定
           const svgElem = ref.current.querySelector('svg');
           if (svgElem) {
             svgElem.style.maxWidth = '100%';
             svgElem.style.height = 'auto';
             svgElem.style.overflow = 'visible';
+            svgElem.style.background = '#eaffea'; // 薄い黄緑
           }
         } catch (e) {
           ref.current.innerHTML = `<pre style='color:red;'>Mermaid render error: ${String(e)}</pre>`;
