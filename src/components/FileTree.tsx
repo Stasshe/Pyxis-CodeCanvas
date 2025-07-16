@@ -76,6 +76,34 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview }
     setPreviewModal({ open: false, content: '', fileName: '' });
   };
 
+  // タッチ長押し用のタイマー管理
+  const longPressTimeout = useRef<NodeJS.Timeout | null>(null);
+  const touchPosition = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  // 長押し開始
+  const handleTouchStart = (e: React.TouchEvent, item: FileItem) => {
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      touchPosition.current = { x: touch.clientX, y: touch.clientY };
+      longPressTimeout.current = setTimeout(() => {
+        setContextMenu({ x: touch.clientX, y: touch.clientY, item });
+      }, 500); // 500ms長押しで発火
+    }
+  };
+  // 長押しキャンセル
+  const handleTouchEnd = () => {
+    if (longPressTimeout.current) {
+      clearTimeout(longPressTimeout.current);
+      longPressTimeout.current = null;
+    }
+  };
+  const handleTouchMove = () => {
+    if (longPressTimeout.current) {
+      clearTimeout(longPressTimeout.current);
+      longPressTimeout.current = null;
+    }
+  };
+
   return (
     <>
       {items.map(item => {
@@ -86,6 +114,10 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview }
               className="flex items-center gap-1 px-2 py-1 hover:bg-accent cursor-pointer select-none relative"
               onClick={() => handleItemClick(item)}
               onContextMenu={e => handleContextMenu(e, item)}
+              onTouchStart={e => handleTouchStart(e, item)}
+              onTouchEnd={handleTouchEnd}
+              onTouchMove={handleTouchMove}
+              onTouchCancel={handleTouchEnd}
               style={{ marginLeft: `${level * 16}px` }}
             >
               {item.type === 'folder' ? (
@@ -110,7 +142,7 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview }
                 items={item.children} 
                 onFileOpen={onFileOpen} 
                 level={level + 1}
-                onFilePreview={onFilePreview} // ← 追加
+                onFilePreview={onFilePreview}
               />
             )}
           </div>
