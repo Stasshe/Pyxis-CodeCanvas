@@ -1,4 +1,5 @@
 import { useRef, useEffect, useCallback } from 'react';
+import MarkdownPreviewTab from './MarkdownPreviewTab';
 import Editor, { Monaco } from '@monaco-editor/react';
 import { FileText } from 'lucide-react';
 import { Tab } from '../types';
@@ -234,6 +235,18 @@ export default function CodeEditor({
           </div>
         </div>
       </div>
+    );
+  }
+
+  // Markdownプレビュータブの場合は専用コンポーネントで表示
+  if ((activeTab.preview || false) && (activeTab.name.endsWith('.md') || activeTab.name.endsWith('Preview') || activeTab.name.endsWith('.markdown'))) {
+    return (
+      <>
+        {console.log('[CodeEditor] Rendering Markdown preview for:', activeTab.name)}
+        <div className="flex-1" style={{ height: editorHeight }}>
+          <MarkdownPreviewTab content={activeTab.content} fileName={activeTab.name} />
+        </div>
+      </>
     );
   }
 

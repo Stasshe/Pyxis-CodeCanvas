@@ -13,6 +13,7 @@ export interface Tab {
   content: string;
   isDirty: boolean;
   path: string;
+  preview?: boolean;
 }
 
 // VSCode風ウィンドウ分割用エディタペイン型

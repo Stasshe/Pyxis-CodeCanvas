@@ -11,6 +11,7 @@ interface LeftSidebarProps {
   files: FileItem[];
   currentProject?: string;
   onFileOpen: (file: FileItem) => void;
+  onFilePreview?: (file: FileItem) => void;
   onResize: (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => void;
   onGitRefresh?: () => void;
   gitRefreshTrigger?: number;
@@ -24,6 +25,7 @@ export default function LeftSidebar({
   files, 
   currentProject,
   onFileOpen,
+  onFilePreview,
   onResize,
   onGitRefresh,
   gitRefreshTrigger,
@@ -57,7 +59,7 @@ export default function LeftSidebar({
                 <FolderOpen size={14} />
                 <span className="text-xs font-medium">./</span>
               </div>
-              <FileTree items={files} onFileOpen={onFileOpen} />
+              <FileTree items={files} onFileOpen={onFileOpen} onFilePreview={onFilePreview} />
             </div>
           )}
           {activeMenuTab === 'search' && (

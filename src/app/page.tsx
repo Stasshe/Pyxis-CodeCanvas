@@ -434,6 +434,37 @@ export default function Home() {
           files={projectFiles}
           currentProject={currentProject?.name}
           onFileOpen={handleFileOpen}
+          onFilePreview={file => {
+            // Markdownプレビュータブとして開く
+            const previewTabId = `preview-${file.path}`;
+            setTabs(prevTabs => {
+              // 既存プレビュータブがあればアクティブ化
+              const existing = prevTabs.find(tab => tab.id === previewTabId);
+              if (existing) {
+                setActiveTabId(previewTabId);
+                return prevTabs;
+              }
+              // 最新のファイル内容取得
+              let fileToPreview = file;
+              if (currentProject && projectFiles.length > 0) {
+                const latestFile = projectFiles.find(f => f.path === file.path);
+                if (latestFile) {
+                  fileToPreview = { ...file, content: latestFile.content };
+                }
+              }
+              // プレビュータブ追加
+              const newTab = {
+                id: previewTabId,
+                name: `${fileToPreview.name} (Preview)`,
+                content: fileToPreview.content || '',
+                isDirty: false,
+                path: fileToPreview.path,
+                preview: true // プレビューフラグ
+              };
+              setActiveTabId(previewTabId);
+              return [...prevTabs, newTab];
+            });
+          }}
           onResize={handleLeftResize}
           onGitRefresh={() => {
             // Git操作後にプロジェクトを再読み込み

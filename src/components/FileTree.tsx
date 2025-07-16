@@ -6,9 +6,10 @@ import { FileItem } from '../types';
 interface FileTreeProps {
   items: FileItem[];
   onFileOpen: (file: FileItem) => void;
+  onFilePreview?: (file: FileItem) => void;
   level?: number;
 }
-export default function FileTree({ items, onFileOpen, level = 0 }: FileTreeProps) {
+export default function FileTree({ items, onFileOpen, level = 0, onFilePreview }: FileTreeProps) {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; item: FileItem | null } | null>(null);
   const [previewModal, setPreviewModal] = useState<{ open: boolean; content: string; fileName: string }>({ open: false, content: '', fileName: '' });
@@ -64,13 +65,11 @@ export default function FileTree({ items, onFileOpen, level = 0 }: FileTreeProps
     setContextMenu({ x: e.clientX, y: e.clientY, item });
   };
 
-  // プレビュー表示
-  const handlePreview = async (item: FileItem) => {
+  // プレビュー表示（タブで開く）
+  const handlePreview = (item: FileItem) => {
     setContextMenu(null);
-    // .mdファイルのみ
-    if (item.type === 'file' && item.name.endsWith('.md')) {
-      // contentがなければ空文字
-      setPreviewModal({ open: true, content: item.content || '', fileName: item.name });
+    if (item.type === 'file' && item.name.endsWith('.md') && onFilePreview) {
+      onFilePreview(item);
     }
   };
 
@@ -140,13 +139,7 @@ export default function FileTree({ items, onFileOpen, level = 0 }: FileTreeProps
         </div>
       )}
 
-      {/* Markdownプレビューモーダル */}
-      <MarkdownPreviewModal
-        isOpen={previewModal.open}
-        onClose={handleClosePreview}
-        content={previewModal.content}
-        fileName={previewModal.fileName}
-      />
+  {/* Markdownプレビューモーダルは廃止（タブで表示） */}
     </>
   );
 }
