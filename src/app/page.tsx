@@ -45,8 +45,8 @@ export default function Home() {
   const [nodeRuntimeOperationInProgress, setNodeRuntimeOperationInProgress] = useState(false); // NodeRuntime操作中フラグ
   //const [tabs, setTabs] = useState<Tab[]>([]);
   // --- VSCode風エディタペイン分割 ---
-  // ファイル選択モーダルの状態
-  const [isFileSelectOpen, setIsFileSelectOpen] = useState(false);
+  // ファイル選択モーダルの状態（どのペインで開くかも保持）
+  const [fileSelectState, setFileSelectState] = useState<{ open: boolean, paneIdx: number|null }>({ open: false, paneIdx: null });
   const [editorLayout, setEditorLayout] = useState<EditorLayoutType>('vertical');
   const [editors, setEditors] = useState<EditorPane[]>([
     { id: 'editor-1', tabs: [], activeTabId: '' }
@@ -613,7 +613,7 @@ export default function Home() {
                       <button className="px-2 py-1 text-xs bg-muted rounded" onClick={toggleEditorLayout} title="分割方向切替">⇄</button>
                     </div>
                   }
-                  onAddTab={() => setIsFileSelectOpen(true)}
+                  onAddTab={() => setFileSelectState({ open: true, paneIdx: idx })}
                 />
                 <CodeEditor
                   activeTab={activeTab}
@@ -673,12 +673,50 @@ export default function Home() {
       />
       {/* ファイル選択モーダル */}
       <FileSelectModal
-        isOpen={isFileSelectOpen}
-        onClose={() => setIsFileSelectOpen(false)}
+        isOpen={fileSelectState.open}
+        onClose={() => setFileSelectState({ open: false, paneIdx: null })}
         files={projectFiles}
         onFileSelect={file => {
-          setIsFileSelectOpen(false);
-          handleFileOpen(file);
+          setFileSelectState({ open: false, paneIdx: null });
+          // 開くペインを判定
+          if (fileSelectState.paneIdx !== null) {
+            setEditors(prev => {
+              const updated = [...prev];
+              const pane = updated[fileSelectState.paneIdx!];
+              // 最新のファイル内容取得
+              let fileToOpen = file;
+              if (currentProject && projectFiles.length > 0) {
+                const latestFile = projectFiles.find(f => f.path === file.path);
+                if (latestFile) {
+                  fileToOpen = { ...file, content: latestFile.content };
+                }
+              }
+              // 既存タブがあればアクティブ化、なければ追加
+              const existingTab = pane.tabs.find(t => t.path === fileToOpen.path);
+              let newTabs;
+              let newActiveTabId;
+              if (existingTab) {
+                newTabs = pane.tabs;
+                newActiveTabId = existingTab.id;
+              } else {
+                const newTab: Tab = {
+                  id: `${fileToOpen.path}-${Date.now()}`,
+                  name: fileToOpen.name,
+                  content: fileToOpen.content || '',
+                  isDirty: false,
+                  path: fileToOpen.path
+                };
+                newTabs = [...pane.tabs, newTab];
+                newActiveTabId = newTab.id;
+              }
+              updated[fileSelectState.paneIdx!] = {
+                ...pane,
+                tabs: newTabs,
+                activeTabId: newActiveTabId
+              };
+              return updated;
+            });
+          }
         }}
       />
     </div>
