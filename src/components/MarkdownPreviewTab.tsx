@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import mermaid from 'mermaid';
+import { HighlightedCode } from './HighlightedCode'; // Assuming you have a HighlightedCode component for syntax highlighting
 
 interface MarkdownPreviewTabProps {
   content: string;
@@ -52,14 +53,15 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ content, fileNa
           components={{
             code({ node, className, children, ...props }) {
               const match = /language-(\w+)/.exec(className || '');
+              const codeString = String(children).replace(/\n$/, '');
               if (match && match[1] === 'mermaid') {
-                return <Mermaid chart={String(children).trim()} />;
+                return <Mermaid chart={codeString} />;
               }
-              return (
-                <code className={className} {...props}>
-                  {children}
-                </code>
-              );
+              if (className && match) {
+                return <HighlightedCode language={match[1] || ''} value={codeString} />;
+              }
+              // インラインコード
+              return <code {...props}>{children}</code>;
             },
           }}
         >
