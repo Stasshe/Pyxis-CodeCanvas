@@ -1,0 +1,106 @@
+/* markdown.css - GitHub風Markdownスタイル（ダーク背景対応） */
+
+.markdown-body {
+  color: #d4d4d4;
+  background: #18181b;
+  font-family: 'Segoe UI', 'Helvetica Neue', Arial, 'Liberation Sans', sans-serif;
+  font-size: 1rem;
+  line-height: 1.7;
+  word-break: break-word;
+  padding: 0.5rem 0;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+  color: #fff;
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  font-weight: 700;
+}
+
+.markdown-body h1 { font-size: 2em; border-bottom: 1px solid #333; padding-bottom: 0.3em; }
+.markdown-body h2 { font-size: 1.5em; border-bottom: 1px solid #333; padding-bottom: 0.3em; }
+.markdown-body h3 { font-size: 1.2em; }
+
+.markdown-body p {
+  margin: 1em 0;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  margin: 1em 0 1em 2em;
+  padding: 0;
+}
+
+.markdown-body li {
+  margin-bottom: 0.3em;
+}
+
+.markdown-body blockquote {
+  border-left: 4px solid #444;
+  background: #222;
+  color: #aaa;
+  padding: 0.5em 1em;
+  margin: 1em 0;
+  font-style: italic;
+}
+
+.markdown-body pre {
+  background: #222;
+  color: #e6e6e6;
+  padding: 1em;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+.markdown-body code {
+  background: #222;
+  color: #ffb86c;
+  border-radius: 4px;
+  padding: 0.2em 0.4em;
+  font-size: 0.95em;
+}
+
+.markdown-body a {
+  color: #4ea1ff;
+  text-decoration: underline;
+}
+
+.markdown-body table {
+  border-collapse: collapse;
+  margin: 1em 0;
+  width: 100%;
+}
+
+.markdown-body th,
+.markdown-body td {
+  border: 1px solid #333;
+  padding: 0.5em 1em;
+}
+
+.markdown-body th {
+  background: #222;
+  color: #fff;
+}
+
+.markdown-body tr {
+  background: #18181b;
+}
+
+.markdown-body img {
+  max-width: 100%;
+  background: #222;
+  border-radius: 4px;
+  margin: 0.5em 0;
+}
+
+.markdown-body hr {
+  border: none;
+  border-top: 1px solid #333;
+  margin: 2em 0;
+}

@@ -45,17 +45,32 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ content, fileNa
   return (
     <div className="p-4 overflow-auto h-full w-full">
       <div className="font-bold text-lg mb-2">{fileName} プレビュー</div>
-      <div className="markdown-body prose max-w-none">
+      <div className="markdown-body prose prose-github max-w-none">
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           components={{
+            p({ children }) {
+              return <p className="mb-4 leading-relaxed">{children}</p>;
+            },
+            ul({ children }) {
+              return <ul className="list-disc pl-6 mb-4">{children}</ul>;
+            },
+            ol({ children }) {
+              return <ol className="list-decimal pl-6 mb-4">{children}</ol>;
+            },
+            li({ children }) {
+              return <li className="mb-1">{children}</li>;
+            },
+            blockquote({ children }) {
+              return <blockquote className="border-l-4 border-gray-300 pl-4 italic text-gray-600 mb-4">{children}</blockquote>;
+            },
             code({ node, className, children, ...props }) {
               const match = /language-(\w+)/.exec(className || '');
               if (match && match[1] === 'mermaid') {
                 return <Mermaid chart={String(children).trim()} />;
               }
               return (
-                <code className={className} {...props}>
+                <code className={className + ' bg-gray-100 rounded px-1 py-0.5'} {...props}>
                   {children}
                 </code>
               );
