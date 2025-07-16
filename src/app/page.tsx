@@ -664,7 +664,8 @@ export default function Home() {
                 />
                 <CodeEditor
                   activeTab={activeTab}
-                  onContentChange={(tabId, content) => {
+                  onContentChange={async (tabId, content) => {
+                    // ローカル状態を更新
                     setEditors(prev => {
                       const updated = [...prev];
                       updated[idx] = {
@@ -673,6 +674,51 @@ export default function Home() {
                       };
                       return updated;
                     });
+                    
+                    // ファイルパスを取得
+                    const tab = editors[idx].tabs.find(t => t.id === tabId);
+                    if (tab && currentProject) {
+                      // 同じファイルを開いているペインのうち、最小のペインインデックスを見つける
+                      const panesWithSameFile = editors.map((editor, editorIdx) => {
+                        const hasFile = editor.tabs.some(t => t.path === tab.path);
+                        return hasFile ? editorIdx : -1;
+                      }).filter(i => i !== -1);
+                      
+                      const minPaneIdx = Math.min(...panesWithSameFile);
+                      
+                      // 現在のペインが最小のペインインデックスの場合のみ保存処理を実行
+                      if (idx === minPaneIdx) {
+                        try {
+                          console.log(`[Pane ${idx}] Saving file as minimum pane index:`, tab.path);
+                          // IndexedDBに保存
+                          await saveFile(tab.path, content);
+                          console.log(`[Pane ${idx}] File saved to IndexedDB:`, tab.path);
+                          
+                          // 保存成功後、projectFilesを明示的に再取得
+                          if (refreshProjectFiles) await refreshProjectFiles();
+                          
+                          // 全ペインの同じファイルタブのisDirtyをfalseに
+                          setEditors(prevEditors => {
+                            const targetPath = tab.path;
+                            return prevEditors.map(pane => ({
+                              ...pane,
+                              tabs: pane.tabs.map(t =>
+                                t.path === targetPath ? { ...t, isDirty: false } : t
+                              )
+                            }));
+                          });
+                          
+                          // Git状態を更新
+                          setTimeout(() => {
+                            setGitRefreshTrigger(prev => prev + 1);
+                          }, 200);
+                        } catch (error) {
+                          console.error(`[Pane ${idx}] Failed to save file:`, error);
+                        }
+                      } else {
+                        console.log(`[Pane ${idx}] Skipping save as not minimum pane index (min: ${minPaneIdx}):`, tab.path);
+                      }
+                    }
                   }}
                   onContentChangeImmediate={handleTabContentChangeImmediate}
                   isBottomPanelVisible={isBottomPanelVisible}

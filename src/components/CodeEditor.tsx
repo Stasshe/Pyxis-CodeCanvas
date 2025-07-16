@@ -59,9 +59,14 @@ export default function CodeEditor({
       clearTimeout(saveTimeoutRef.current);
     }
     
+    // タブIDとコンテンツを保存して、タイムアウト時に最新の値を使用できるようにする
+    const currentTabId = tabId;
+    const currentContent = content;
+    
     saveTimeoutRef.current = setTimeout(() => {
-      console.log('[CodeEditor] Debounced save triggered for:', tabId);
-      onContentChange(tabId, content);
+      console.log('[CodeEditor] Debounced save triggered for:', currentTabId);
+      // 保存処理を実行（page.tsxで最小ペインインデックスのチェックを行う）
+      onContentChange(currentTabId, currentContent);
     }, 1000); // 1秒後に保存
   }, [onContentChange, nodeRuntimeOperationInProgress]);
 
