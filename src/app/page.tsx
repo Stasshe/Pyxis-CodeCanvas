@@ -318,16 +318,16 @@ export default function Home() {
   };
 
   return (
-    <div className="h-full w-full flex overflow-hidden bg-background" style={{ paddingTop: '2px', position: 'relative' }}>
+    <div className="h-full w-full flex overflow-hidden bg-background" style={{ paddingTop: '20px', position: 'relative' }}>
       <button
         className={
-          `absolute right-3 top-1 h-6 px-2 hover:bg-accent flex items-center justify-center border border-border bg-muted rounded text-xs shadow-sm transition-colors ${isBottomPanelVisible ? 'bg-accent text-primary' : ''}`
+          `absolute right-3 top-1 h-6 px-2 hover:bg-accent flex items-center justify-center border border-border bg-muted rounded transition-colors ${isBottomPanelVisible ? 'bg-accent text-primary' : ''}`
         }
         onClick={toggleBottomPanel}
         title="ターミナル表示/非表示"
         style={{ zIndex: 50 }}
       >
-        <Terminal />
+        <Terminal size={10}/>
       </button>
       <MenuBar 
         activeMenuTab={activeMenuTab}
