@@ -320,41 +320,88 @@ export default function Home() {
 
   const handleTabContentUpdate = async (tabId: string, content: string) => {
     console.log('[handleTabContentUpdate] Starting:', { tabId, contentLength: content.length });
-    
-    // ローカルタブを即座に更新（UI応答性のため）
-    updateTabContent(tabId, content, tabs, setTabs);
-    
+    // どのペインでも同じファイルタブは全て更新
+    setEditors(prevEditors => {
+      // 対象ファイルパスを取得
+      const targetPath = (() => {
+        for (const pane of prevEditors) {
+          const tab = pane.tabs.find(t => t.id === tabId);
+          if (tab) return tab.path;
+        }
+        return undefined;
+      })();
+      if (!targetPath) return prevEditors;
+      return prevEditors.map(pane => ({
+        ...pane,
+        tabs: pane.tabs.map(t =>
+          t.path === targetPath ? { ...t, content, isDirty: true } : t
+        )
+      }));
+    });
     // ファイルをIndexedDBに保存
     const tab = tabs.find(t => t.id === tabId);
     if (tab && currentProject) {
-      console.log('[handleTabContentUpdate] Found tab and project:', { tabPath: tab.path, projectName: currentProject.name });
       try {
         await saveFile(tab.path, content);
-        console.log('[handleTabContentUpdate] File saved successfully');
-        
-        // 保存成功後にタブの isDirty 状態をクリア
-        setTabs(prevTabs => prevTabs.map(t => 
-          t.id === tabId ? { ...t, isDirty: false } : t
-        ));
-        console.log('[handleTabContentUpdate] Tab isDirty status cleared');
-        
-        // ファイル保存後にGitパネルを更新（ファイルシステム同期を待つ）
+        // 保存成功後、projectFilesを明示的に再取得
+        if (refreshProjectFiles) await refreshProjectFiles();
+        // 全ペインの同じファイルタブのisDirtyをfalseに
+        setEditors(prevEditors => {
+          const targetPath = tab.path;
+          return prevEditors.map(pane => ({
+            ...pane,
+            tabs: pane.tabs.map(t =>
+              t.path === targetPath ? { ...t, isDirty: false } : t
+            )
+          }));
+        });
         setTimeout(() => {
           setGitRefreshTrigger(prev => prev + 1);
         }, 200);
       } catch (error) {
         console.error('[handleTabContentUpdate] Failed to save file:', error);
-        // エラーをユーザーに通知（今後の拡張用）
-        // toast.error(`Failed to save file: ${error.message}`);
       }
     } else {
       console.warn('[handleTabContentUpdate] Missing tab or project:', { tab: !!tab, currentProject: !!currentProject });
     }
+  // projectFiles更新時、全ペインの同じファイルタブの内容・isDirtyを強制同期
+  useEffect(() => {
+    if (!currentProject || projectFiles.length === 0) return;
+    setEditors(prevEditors => {
+      return prevEditors.map(pane => ({
+        ...pane,
+        tabs: pane.tabs.map(tab => {
+          const file = projectFiles.find(f => f.path === tab.path);
+          if (file && tab.content !== (file.content ?? '')) {
+            return { ...tab, content: file.content ?? '', isDirty: false };
+          }
+          return tab;
+        })
+      }));
+    });
+  }, [projectFiles, currentProject?.id]);
   };
 
   // 即座のローカル更新専用関数
+  // 即座のローカル更新: 全ペインの同じファイルタブも同期
   const handleTabContentChangeImmediate = (tabId: string, content: string) => {
-    updateTabContent(tabId, content, tabs, setTabs);
+    setEditors(prevEditors => {
+      // 対象ファイルパスを取得
+      const targetPath = (() => {
+        for (const pane of prevEditors) {
+          const tab = pane.tabs.find(t => t.id === tabId);
+          if (tab) return tab.path;
+        }
+        return undefined;
+      })();
+      if (!targetPath) return prevEditors;
+      return prevEditors.map(pane => ({
+        ...pane,
+        tabs: pane.tabs.map(t =>
+          t.path === targetPath ? { ...t, content, isDirty: true } : t
+        )
+      }));
+    });
   };
 
   const handleProjectSelect = async (project: Project) => {
@@ -627,16 +674,7 @@ export default function Home() {
                       return updated;
                     });
                   }}
-                  onContentChangeImmediate={(tabId, content) => {
-                    setEditors(prev => {
-                      const updated = [...prev];
-                      updated[idx] = {
-                        ...updated[idx],
-                        tabs: updated[idx].tabs.map(t => t.id === tabId ? { ...t, content } : t)
-                      };
-                      return updated;
-                    });
-                  }}
+                  onContentChangeImmediate={handleTabContentChangeImmediate}
                   isBottomPanelVisible={isBottomPanelVisible}
                   bottomPanelHeight={bottomPanelHeight}
                   nodeRuntimeOperationInProgress={nodeRuntimeOperationInProgress}
