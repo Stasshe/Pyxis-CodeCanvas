@@ -48,9 +48,10 @@ export default function Home() {
 
   // --- 既存のタブ・ファイル操作は最初のペインに集約（初期実装） ---
   const tabs = editors[0].tabs;
-  const setTabs = (newTabs: Tab[]) => {
+  const setTabs: React.Dispatch<React.SetStateAction<Tab[]>> = (update) => {
     setEditors(prev => {
       const updated = [...prev];
+      const newTabs = typeof update === 'function' ? update(updated[0].tabs) : update;
       updated[0] = { ...updated[0], tabs: newTabs };
       return updated;
     });
