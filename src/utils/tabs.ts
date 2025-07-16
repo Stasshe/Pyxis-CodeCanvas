@@ -41,31 +41,3 @@ export const openFile = (
   setTabs([...tabs, newTab]);
   setActiveTabId(newTab.id);
 };
-
-export const closeTab = (
-  tabId: string,
-  tabs: Tab[],
-  activeTabId: string,
-  setTabs: (tabs: Tab[]) => void,
-  setActiveTabId: (id: string) => void
-) => {
-  const newTabs = tabs.filter(tab => tab.id !== tabId);
-  setTabs(newTabs);
-  
-  if (activeTabId === tabId) {
-    setActiveTabId(newTabs.length > 0 ? newTabs[newTabs.length - 1].id : '');
-  }
-};
-
-export const updateTabContent = (
-  tabId: string,
-  content: string,
-  tabs: Tab[],
-  setTabs: (tabs: Tab[]) => void
-) => {
-  setTabs(tabs.map(tab => 
-    tab.id === tabId 
-      ? { ...tab, content, isDirty: true }
-      : tab
-  ));
-};

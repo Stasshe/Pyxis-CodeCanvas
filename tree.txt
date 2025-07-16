@@ -21,23 +21,25 @@
 │   ├── icon0.svg
 │   ├── icon1.png
 │   ├── manifest.json
-│   ├── sw.js
 │   ├── web-app-manifest-192x192.png
 │   ├── web-app-manifest-512x512.png
 │   └── window.svg
 ├── src
 │   ├── app
-│   │   ├── favicon.ico
 │   │   ├── globals.css
 │   │   ├── layout.tsx
+│   │   ├── markdown.css
 │   │   └── page.tsx
 │   ├── components
 │   │   ├── BottomPanel.tsx
 │   │   ├── CodeEditor.tsx
+│   │   ├── FileSelect.tsx
 │   │   ├── FileTree.tsx
 │   │   ├── GitHistory.tsx
 │   │   ├── GitPanel.tsx
+│   │   ├── HighlightedCode.tsx
 │   │   ├── LeftSidebar.tsx
+│   │   ├── MarkdownPreviewTab.tsx
 │   │   ├── MenuBar.tsx
 │   │   ├── ProjectModal.tsx
 │   │   ├── RunPanel.tsx
@@ -74,9 +76,9 @@
 ├── tree.txt
 └── tsconfig.json
 
-10 directories, 65 files
+10 directories, 67 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 10847
-合計文字数: 376526
-合計ファイルサイズ(bytes): 409492
+合計行数: 11261
+合計文字数: 392201
+合計ファイルサイズ(bytes): 426211

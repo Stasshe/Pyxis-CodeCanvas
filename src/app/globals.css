@@ -45,7 +45,6 @@ body {
   background: hsl(var(--background));
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   overflow: hidden;
-  padding-top: 8px; /* 上部に余白を追加 */
 }
 
 .sidebar-width {

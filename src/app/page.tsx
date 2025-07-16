@@ -8,12 +8,13 @@ import CodeEditor from '@/components/CodeEditor';
 import BottomPanel from '@/components/BottomPanel';
 import ProjectModal from '@/components/ProjectModal';
 import { useLeftSidebarResize, useBottomPanelResize } from '@/utils/resize';
-import { openFile, closeTab, updateTabContent } from '@/utils/tabs';
+import { openFile } from '@/utils/tabs';
 import { GitCommands } from '@/utils/cmd/git';
 import { useProject } from '@/utils/project';
 import { Project } from '@/utils/database';
 import type { Tab,FileItem, MenuTab, EditorLayoutType, EditorPane } from '@/types';
 import FileSelectModal from '@/components/FileSelect';
+import { Terminal } from 'lucide-react';
 
 // ファイル選択モーダル用の簡易コンポーネント（Home関数の外に移動）
 export default function Home() {
@@ -317,7 +318,17 @@ export default function Home() {
   };
 
   return (
-    <div className="h-full w-full flex overflow-hidden bg-background" style={{ paddingTop: '2px' }}>
+    <div className="h-full w-full flex overflow-hidden bg-background" style={{ paddingTop: '2px', position: 'relative' }}>
+      <button
+        className={
+          `absolute right-3 top-1 h-6 px-2 hover:bg-accent flex items-center justify-center border border-border bg-muted rounded text-xs shadow-sm transition-colors ${isBottomPanelVisible ? 'bg-accent text-primary' : ''}`
+        }
+        onClick={toggleBottomPanel}
+        title="ターミナル表示/非表示"
+        style={{ zIndex: 50 }}
+      >
+        <Terminal />
+      </button>
       <MenuBar 
         activeMenuTab={activeMenuTab}
         onMenuTabClick={handleMenuTabClick}

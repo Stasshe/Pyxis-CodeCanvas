@@ -31,7 +31,7 @@ export default function TabBar({
           {extraButtons}
         </div>
       )}
-      <div className="flex items-center overflow-x-auto flex-1" style={{ paddingRight: '50px' }}>
+      <div className="flex items-center overflow-x-auto flex-1">
         {tabs.map(tab => (
           <div
             key={tab.id}
@@ -61,18 +61,6 @@ export default function TabBar({
           <Plus size={16} />
         </button>
       </div>
-      {/* Terminal Toggle Button - 画面右端に固定位置 */}
-      <button
-        className={clsx(
-          'fixed right-3 top-1 h-6 px-2 hover:bg-accent flex items-center justify-center border border-border bg-muted rounded text-xs shadow-sm',
-          isBottomPanelVisible && 'bg-accent text-primary'
-        )}
-        onClick={onToggleBottomPanel}
-        title="ターミナル表示/非表示"
-        style={{ zIndex: 50 }}
-      >
-        <TerminalSquare size={12} />
-      </button>
     </div>
   );
 }
