@@ -555,24 +555,74 @@ export default function Home() {
       )}
 
       <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-        <TabBar
-          tabs={tabs}
-          activeTabId={activeTabId}
-          onTabClick={setActiveTabId}
-          onTabClose={handleTabClose}
-          isBottomPanelVisible={isBottomPanelVisible}
-          onToggleBottomPanel={toggleBottomPanel}
-        />
-
-        <CodeEditor
-          activeTab={activeTab}
-          onContentChange={handleTabContentUpdate}
-          onContentChangeImmediate={handleTabContentChangeImmediate}
-          isBottomPanelVisible={isBottomPanelVisible}
-          bottomPanelHeight={bottomPanelHeight}
-          nodeRuntimeOperationInProgress={nodeRuntimeOperationInProgress}
-        />
-
+        <div
+          className={editorLayout === 'vertical' ? 'flex-1 flex flex-row overflow-hidden min-h-0' : 'flex-1 flex flex-col overflow-hidden min-h-0'}
+          style={{ gap: '2px' }}
+        >
+          {editors.map((editor, idx) => {
+            const activeTab = editor.tabs.find(tab => tab.id === editor.activeTabId);
+            return (
+              <div key={editor.id} className="flex-1 flex flex-col border border-border rounded bg-background relative min-w-0 min-h-0">
+                <TabBar
+                  tabs={editor.tabs}
+                  activeTabId={editor.activeTabId}
+                  onTabClick={tabId => {
+                    setEditors(prev => {
+                      const updated = [...prev];
+                      updated[idx] = { ...updated[idx], activeTabId: tabId };
+                      return updated;
+                    });
+                  }}
+                  onTabClose={tabId => {
+                    setEditors(prev => {
+                      const updated = [...prev];
+                      updated[idx] = { ...updated[idx], tabs: updated[idx].tabs.filter(t => t.id !== tabId) };
+                      if (updated[idx].activeTabId === tabId) {
+                        updated[idx].activeTabId = updated[idx].tabs.length > 0 ? updated[idx].tabs[0].id : '';
+                      }
+                      return updated;
+                    });
+                  }}
+                  isBottomPanelVisible={isBottomPanelVisible}
+                  onToggleBottomPanel={toggleBottomPanel}
+                  extraButtons={
+                    <div className="flex gap-1 ml-2">
+                      <button className="px-2 py-1 text-xs bg-accent rounded" onClick={addEditorPane} title="ペイン追加">＋</button>
+                      <button className="px-2 py-1 text-xs bg-destructive rounded" onClick={() => removeEditorPane(editor.id)} title="ペイン削除">－</button>
+                      <button className="px-2 py-1 text-xs bg-muted rounded" onClick={toggleEditorLayout} title="分割方向切替">⇄</button>
+                    </div>
+                  }
+                />
+                <CodeEditor
+                  activeTab={activeTab}
+                  onContentChange={(tabId, content) => {
+                    setEditors(prev => {
+                      const updated = [...prev];
+                      updated[idx] = {
+                        ...updated[idx],
+                        tabs: updated[idx].tabs.map(t => t.id === tabId ? { ...t, content, isDirty: true } : t)
+                      };
+                      return updated;
+                    });
+                  }}
+                  onContentChangeImmediate={(tabId, content) => {
+                    setEditors(prev => {
+                      const updated = [...prev];
+                      updated[idx] = {
+                        ...updated[idx],
+                        tabs: updated[idx].tabs.map(t => t.id === tabId ? { ...t, content } : t)
+                      };
+                      return updated;
+                    });
+                  }}
+                  isBottomPanelVisible={isBottomPanelVisible}
+                  bottomPanelHeight={bottomPanelHeight}
+                  nodeRuntimeOperationInProgress={nodeRuntimeOperationInProgress}
+                />
+              </div>
+            );
+          })}
+        </div>
         {isBottomPanelVisible && (
           <BottomPanel
             height={bottomPanelHeight}
@@ -580,17 +630,12 @@ export default function Home() {
             projectFiles={projectFiles}
             onResize={handleBottomResize}
             onTerminalFileOperation={async (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => {
-              // NodeRuntime操作の場合はフラグを設定
               if (isNodeRuntime) {
                 setNodeRuntimeOperationInProgress(true);
               }
-              
-              // ターミナルからのファイル操作を処理
               if (syncTerminalFileOperation) {
                 await syncTerminalFileOperation(path, type, content);
               }
-              
-              // Git状態も更新
               setGitRefreshTrigger(prev => prev + 1);
             }}
           />

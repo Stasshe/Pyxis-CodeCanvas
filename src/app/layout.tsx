@@ -92,10 +92,6 @@ export default function RootLayout({
         <meta name="msapplication-tap-highlight" content="no" />
         <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
         <script dangerouslySetInnerHTML={{ __html: "eruda.init();" }} />
-        {/* Service Worker registration for PWA */}
-        <script dangerouslySetInnerHTML={{
-          __html: `if ('serviceWorker' in navigator) { window.addEventListener('load', function() { navigator.serviceWorker.register('/sw.js'); }); }`
-        }} />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased h-full`}

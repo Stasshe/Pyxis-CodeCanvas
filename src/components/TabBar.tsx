@@ -9,6 +9,7 @@ interface TabBarProps {
   onTabClick: (tabId: string) => void;
   onTabClose: (tabId: string) => void;
   onToggleBottomPanel: () => void;
+  extraButtons?: React.ReactNode;
 }
 
 export default function TabBar({
@@ -17,10 +18,17 @@ export default function TabBar({
   isBottomPanelVisible,
   onTabClick,
   onTabClose,
-  onToggleBottomPanel
+  onToggleBottomPanel,
+  extraButtons
 }: TabBarProps) {
   return (
     <div className="h-10 bg-muted border-b border-border flex items-center relative">
+      {/* 左端にextraButtonsを追加 */}
+      {extraButtons && (
+        <div className="flex items-center h-full pl-2 pr-1 gap-1">
+          {extraButtons}
+        </div>
+      )}
       <div className="flex items-center overflow-x-auto flex-1" style={{ paddingRight: '50px' }}>
         {tabs.map(tab => (
           <div
@@ -48,7 +56,6 @@ export default function TabBar({
           <Plus size={16} />
         </button>
       </div>
-      
       {/* Terminal Toggle Button - 画面右端に固定位置 */}
       <button
         className={clsx(
