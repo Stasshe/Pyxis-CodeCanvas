@@ -109,7 +109,8 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview }
               <FileTree 
                 items={item.children} 
                 onFileOpen={onFileOpen} 
-                level={level + 1} 
+                level={level + 1}
+                onFilePreview={onFilePreview} // ← 追加
               />
             )}
           </div>
