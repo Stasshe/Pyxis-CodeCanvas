@@ -445,31 +445,68 @@ export class UnixCommands {
       console.log('[rm] Processing file:', { fileName, targetPath, normalizedPath });
       
       // ファイル/ディレクトリの存在確認
-      let stat;
       try {
-        stat = await this.fs.promises.stat(normalizedPath);
-      } catch {
-        return { success: false, error: 'No such file or directory' };
-      }
+        const targetPath = fileName.startsWith('/') ? fileName : `${this.currentDir}/${fileName}`;
+        const normalizedPath = this.normalizePath(targetPath);
       
-      if (stat.isDirectory()) {
-        if (!recursive) {
-          return { success: false, error: 'is a directory (use -r for recursive)' };
+        console.log('[rm] Processing file:', { fileName, targetPath, normalizedPath });
+      
+        // ファイル/ディレクトリの存在確認
+        let stat;
+        try {
+          stat = await this.fs.promises.stat(normalizedPath);
+        } catch {
+          return { success: false, error: `No such file or directory: ${fileName}` };
         }
-        // ディレクトリの再帰削除
-        await this.rmdir(normalizedPath);
-        console.log('[rm] Directory removed successfully:', normalizedPath);
-      } else {
-        // ファイル削除
-        await this.fs.promises.unlink(normalizedPath);
-        console.log('[rm] File removed successfully:', normalizedPath);
-      }
-      
-      // IndexedDBからも削除
-      if (this.onFileOperation) {
-        const relativePath = this.getRelativePathFromProject(normalizedPath);
-        console.log('[rm] Notifying file operation callback:', relativePath);
-        await this.onFileOperation(relativePath, 'delete');
+        // 削除処理
+        if (stat.isDirectory()) {
+          // ディレクトリの場合は再帰的に削除
+          await this.rmdir(normalizedPath);
+          // onFileOperationを再帰的に通知
+          if (this.onFileOperation) {
+            // ディレクトリ配下の全ファイル・フォルダを取得
+            const notifyRecursive = async (dir: string) => {
+              let files: string[] = [];
+              try {
+                files = await this.fs.promises.readdir(dir);
+              } catch {}
+              for (const file of files) {
+                const childPath = `${dir}/${file}`;
+                try {
+                  const childStat = await this.fs.promises.stat(childPath);
+                  const relChildPath = this.getRelativePathFromProject(childPath);
+                  if (childStat.isDirectory()) {
+                    await notifyRecursive(childPath);
+                    if (this.onFileOperation) await this.onFileOperation(relChildPath, 'delete');
+                  } else {
+                    if (this.onFileOperation) await this.onFileOperation(relChildPath, 'delete');
+                  }
+                } catch {}
+              }
+              // 最後に自身（ディレクトリ）
+              const relDirPath = this.getRelativePathFromProject(dir);
+              if (this.onFileOperation) await this.onFileOperation(relDirPath, 'delete');
+            };
+            await notifyRecursive(normalizedPath);
+          }
+        } else {
+          // ファイルの場合
+          await this.fs.promises.unlink(normalizedPath);
+          if (this.onFileOperation) {
+            const relPath = this.getRelativePathFromProject(normalizedPath);
+            await this.onFileOperation(relPath, 'delete');
+          }
+        }
+        return { 
+          success: true, 
+          message: `removed '${fileName}'`
+        };
+      } catch (error) {
+        console.error('[rm] Error removing file:', fileName, error);
+        return { 
+          success: false, 
+          error: (error as Error).message 
+        };
       }
       
       return { 
