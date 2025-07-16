@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import MenuBar from '@/components/MenuBar';
 import LeftSidebar from '@/components/LeftSidebar';
 import TabBar from '@/components/TabBar';
-import FileTree from '@/components/FileTree';
 import CodeEditor from '@/components/CodeEditor';
 import BottomPanel from '@/components/BottomPanel';
 import ProjectModal from '@/components/ProjectModal';
@@ -14,25 +13,9 @@ import { GitCommands } from '@/utils/cmd/git';
 import { useProject } from '@/utils/project';
 import { Project } from '@/utils/database';
 import type { Tab,FileItem, MenuTab, EditorLayoutType, EditorPane } from '@/types';
-
+import FileSelectModal from '@/components/FileSelect';
 
 // ファイル選択モーダル用の簡易コンポーネント（Home関数の外に移動）
-function FileSelectModal({ isOpen, onClose, files, onFileSelect }: { isOpen: boolean, onClose: () => void, files: FileItem[], onFileSelect: (file: FileItem) => void }) {
-  if (!isOpen) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-      <div className="bg-background rounded shadow-lg p-4 min-w-[320px] max-h-[80vh] overflow-auto">
-        <div className="flex justify-between items-center mb-2">
-          <span className="font-bold text-lg">ファイルを選択</span>
-          <button className="px-2 py-1 text-xs bg-muted rounded" onClick={onClose}>閉じる</button>
-        </div>
-        <div className="border rounded p-2 bg-muted">
-          <FileTree items={files} onFileOpen={onFileSelect} />
-        </div>
-      </div>
-    </div>
-  );
-}
 export default function Home() {
   const [activeMenuTab, setActiveMenuTab] = useState<MenuTab>('files');
   const [leftSidebarWidth, setLeftSidebarWidth] = useState(240);
@@ -43,9 +26,6 @@ export default function Home() {
   const [gitRefreshTrigger, setGitRefreshTrigger] = useState(0);
   const [gitChangesCount, setGitChangesCount] = useState(0); // Git変更ファイル数
   const [nodeRuntimeOperationInProgress, setNodeRuntimeOperationInProgress] = useState(false); // NodeRuntime操作中フラグ
-  //const [tabs, setTabs] = useState<Tab[]>([]);
-  // --- VSCode風エディタペイン分割 ---
-  // ファイル選択モーダルの状態（どのペインで開くかも保持）
   const [fileSelectState, setFileSelectState] = useState<{ open: boolean, paneIdx: number|null }>({ open: false, paneIdx: null });
   const [editorLayout, setEditorLayout] = useState<EditorLayoutType>('vertical');
   const [editors, setEditors] = useState<EditorPane[]>([
@@ -91,7 +71,6 @@ export default function Home() {
   const { 
     currentProject, 
     projectFiles, 
-    loading: projectLoading,
     loadProject,
     saveFile,
     deleteFile,
@@ -102,19 +81,6 @@ export default function Home() {
 
   const handleLeftResize = useLeftSidebarResize(leftSidebarWidth, setLeftSidebarWidth);
   const handleBottomResize = useBottomPanelResize(bottomPanelHeight, setBottomPanelHeight);
-
-  const activeTab = tabs.find(tab => tab.id === activeTabId);
-  /*
-  // タブの状態変化をデバッグ
-  useEffect(() => {
-    console.log('[DEBUG] Tabs state changed:', {
-      tabCount: tabs.length,
-      tabIds: tabs.map(t => t.id),
-      activeTabId,
-      currentProjectId: currentProject?.id
-    });
-  }, [tabs, activeTabId, currentProject?.id]);
-  */
 
   // プロジェクトが変更された時にタブをリセット（プロジェクトIDが変わった場合のみ）
   useEffect(() => {
@@ -313,75 +279,7 @@ export default function Home() {
     
     openFile(file, tabs, setTabs, setActiveTabId);
   };
-
-  const handleTabClose = (tabId: string) => {
-    closeTab(tabId, tabs, activeTabId, setTabs, setActiveTabId);
-  };
-
-  const handleTabContentUpdate = async (tabId: string, content: string) => {
-    console.log('[handleTabContentUpdate] Starting:', { tabId, contentLength: content.length });
-    // どのペインでも同じファイルタブは全て更新
-    setEditors(prevEditors => {
-      // 対象ファイルパスを取得
-      const targetPath = (() => {
-        for (const pane of prevEditors) {
-          const tab = pane.tabs.find(t => t.id === tabId);
-          if (tab) return tab.path;
-        }
-        return undefined;
-      })();
-      if (!targetPath) return prevEditors;
-      return prevEditors.map(pane => ({
-        ...pane,
-        tabs: pane.tabs.map(t =>
-          t.path === targetPath ? { ...t, content, isDirty: true } : t
-        )
-      }));
-    });
-    // ファイルをIndexedDBに保存
-    const tab = tabs.find(t => t.id === tabId);
-    if (tab && currentProject) {
-      try {
-        await saveFile(tab.path, content);
-        // 保存成功後、projectFilesを明示的に再取得
-        if (refreshProjectFiles) await refreshProjectFiles();
-        // 全ペインの同じファイルタブのisDirtyをfalseに
-        setEditors(prevEditors => {
-          const targetPath = tab.path;
-          return prevEditors.map(pane => ({
-            ...pane,
-            tabs: pane.tabs.map(t =>
-              t.path === targetPath ? { ...t, isDirty: false } : t
-            )
-          }));
-        });
-        setTimeout(() => {
-          setGitRefreshTrigger(prev => prev + 1);
-        }, 200);
-      } catch (error) {
-        console.error('[handleTabContentUpdate] Failed to save file:', error);
-      }
-    } else {
-      console.warn('[handleTabContentUpdate] Missing tab or project:', { tab: !!tab, currentProject: !!currentProject });
-    }
-  // projectFiles更新時、全ペインの同じファイルタブの内容・isDirtyを強制同期
-  useEffect(() => {
-    if (!currentProject || projectFiles.length === 0) return;
-    setEditors(prevEditors => {
-      return prevEditors.map(pane => ({
-        ...pane,
-        tabs: pane.tabs.map(tab => {
-          const file = projectFiles.find(f => f.path === tab.path);
-          if (file && tab.content !== (file.content ?? '')) {
-            return { ...tab, content: file.content ?? '', isDirty: false };
-          }
-          return tab;
-        })
-      }));
-    });
-  }, [projectFiles, currentProject?.id]);
-  };
-
+  
   // 即座のローカル更新専用関数
   // 即座のローカル更新: 全ペインの同じファイルタブも同期
   const handleTabContentChangeImmediate = (tabId: string, content: string) => {
