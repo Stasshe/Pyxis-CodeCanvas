@@ -279,7 +279,7 @@ export default function Home() {
     
     openFile(file, tabs, setTabs, setActiveTabId);
   };
-  
+
   // 即座のローカル更新専用関数
   // 即座のローカル更新: 全ペインの同じファイルタブも同期
   const handleTabContentChangeImmediate = (tabId: string, content: string) => {
@@ -395,7 +395,8 @@ export default function Home() {
                 setGitRefreshTrigger(prev => prev + 1);
               }
               return;
-            }            // Gitコマンドからのファイル操作をプロジェクトに反映
+            }
+            // Gitコマンドからのファイル操作をプロジェクトに反映
             if (currentProject) {
               console.log('Processing real file operation for project:', currentProject.name);
                 
@@ -609,12 +610,6 @@ export default function Home() {
                       // 現在のタブを見つける
                       const tab = currentEditors[idx].tabs.find(t => t.id === tabId);
                       if (!tab || !currentProject) return currentEditors; // タブが見つからない場合は何もしない
-                      
-                      // 同じファイルを開いているペインのうち、最小のペインインデックスを見つける
-                      const panesWithSameFile = currentEditors.map((editor, editorIdx) => {
-                        const hasFile = editor.tabs.some(t => t.path === tab.path);
-                        return hasFile ? editorIdx : -1;
-                      }).filter(i => i !== -1);
                       
                       //const minPaneIdx = Math.min(...panesWithSameFile);
 
