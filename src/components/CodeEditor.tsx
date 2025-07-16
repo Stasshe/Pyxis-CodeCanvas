@@ -238,8 +238,10 @@ export default function CodeEditor({
     );
   }
 
+  console.log('[CodeEditor] Rendering editor for:', activeTab.name);
+
   // Markdownプレビュータブの場合は専用コンポーネントで表示
-  if ((activeTab.preview || false) && (activeTab.name.endsWith('.md') || activeTab.name.endsWith('Preview') || activeTab.name.endsWith('.markdown'))) {
+  if ((activeTab.preview || false) && (activeTab.name.endsWith('.md') || activeTab.name.endsWith('(Preview)') || activeTab.name.endsWith('.markdown'))) {
     return (
       <>
         {console.log('[CodeEditor] Rendering Markdown preview for:', activeTab.name)}
