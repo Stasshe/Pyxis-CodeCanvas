@@ -15,4 +15,13 @@ export interface Tab {
   path: string;
 }
 
+// VSCode風ウィンドウ分割用エディタペイン型
+export type EditorLayoutType = 'vertical' | 'horizontal';
+
+export interface EditorPane {
+  id: string;
+  tabs: Tab[];
+  activeTabId: string;
+}
+
 export type MenuTab = 'files' | 'search' | 'git' | 'settings' | 'run';

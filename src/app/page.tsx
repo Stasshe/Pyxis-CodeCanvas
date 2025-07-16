@@ -9,10 +9,10 @@ import BottomPanel from '@/components/BottomPanel';
 import ProjectModal from '@/components/ProjectModal';
 import { useLeftSidebarResize, useBottomPanelResize } from '@/utils/resize';
 import { openFile, closeTab, updateTabContent } from '@/utils/tabs';
-import { useProject } from '@/utils/project';
 import { GitCommands } from '@/utils/cmd/git';
-import type { MenuTab, Tab, FileItem } from '@/types';
+import { useProject } from '@/utils/project';
 import { Project } from '@/utils/database';
+import type { Tab,FileItem, MenuTab, EditorLayoutType, EditorPane } from '@/types';
 
 export default function Home() {
   const [activeMenuTab, setActiveMenuTab] = useState<MenuTab>('files');
@@ -24,9 +24,46 @@ export default function Home() {
   const [gitRefreshTrigger, setGitRefreshTrigger] = useState(0);
   const [gitChangesCount, setGitChangesCount] = useState(0); // Git変更ファイル数
   const [nodeRuntimeOperationInProgress, setNodeRuntimeOperationInProgress] = useState(false); // NodeRuntime操作中フラグ
+  //const [tabs, setTabs] = useState<Tab[]>([]);
+  // --- VSCode風エディタペイン分割 ---
+  const [editorLayout, setEditorLayout] = useState<EditorLayoutType>('vertical');
+  const [editors, setEditors] = useState<EditorPane[]>([
+    { id: 'editor-1', tabs: [], activeTabId: '' }
+  ]);
+
+  // ペイン追加
+  const addEditorPane = () => {
+    const newId = `editor-${editors.length + 1}`;
+    setEditors([...editors, { id: newId, tabs: [], activeTabId: '' }]);
+  };
+  // ペイン削除
+  const removeEditorPane = (id: string) => {
+    if (editors.length === 1) return; // 最低1ペインは残す
+    setEditors(editors.filter(e => e.id !== id));
+  };
+  // ペイン分割方向切替
+  const toggleEditorLayout = () => {
+    setEditorLayout(l => l === 'vertical' ? 'horizontal' : 'vertical');
+  };
+
+  // --- 既存のタブ・ファイル操作は最初のペインに集約（初期実装） ---
+  const tabs = editors[0].tabs;
+  const setTabs = (newTabs: Tab[]) => {
+    setEditors(prev => {
+      const updated = [...prev];
+      updated[0] = { ...updated[0], tabs: newTabs };
+      return updated;
+    });
+  };
+  const activeTabId = editors[0].activeTabId;
+  const setActiveTabId = (id: string) => {
+    setEditors(prev => {
+      const updated = [...prev];
+      updated[0] = { ...updated[0], activeTabId: id };
+      return updated;
+    });
+  };
   
-  const [tabs, setTabs] = useState<Tab[]>([]);
-  const [activeTabId, setActiveTabId] = useState('');
 
   // プロジェクト管理
   const { 
