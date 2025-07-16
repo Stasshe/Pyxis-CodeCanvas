@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import MenuBar from '@/components/MenuBar';
 import LeftSidebar from '@/components/LeftSidebar';
 import TabBar from '@/components/TabBar';
+import FileTree from '@/components/FileTree';
 import CodeEditor from '@/components/CodeEditor';
 import BottomPanel from '@/components/BottomPanel';
 import ProjectModal from '@/components/ProjectModal';
@@ -14,6 +15,24 @@ import { useProject } from '@/utils/project';
 import { Project } from '@/utils/database';
 import type { Tab,FileItem, MenuTab, EditorLayoutType, EditorPane } from '@/types';
 
+
+// ファイル選択モーダル用の簡易コンポーネント（Home関数の外に移動）
+function FileSelectModal({ isOpen, onClose, files, onFileSelect }: { isOpen: boolean, onClose: () => void, files: FileItem[], onFileSelect: (file: FileItem) => void }) {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+      <div className="bg-background rounded shadow-lg p-4 min-w-[320px] max-h-[80vh] overflow-auto">
+        <div className="flex justify-between items-center mb-2">
+          <span className="font-bold text-lg">ファイルを選択</span>
+          <button className="px-2 py-1 text-xs bg-muted rounded" onClick={onClose}>閉じる</button>
+        </div>
+        <div className="border rounded p-2 bg-muted">
+          <FileTree items={files} onFileOpen={onFileSelect} />
+        </div>
+      </div>
+    </div>
+  );
+}
 export default function Home() {
   const [activeMenuTab, setActiveMenuTab] = useState<MenuTab>('files');
   const [leftSidebarWidth, setLeftSidebarWidth] = useState(240);
@@ -26,6 +45,8 @@ export default function Home() {
   const [nodeRuntimeOperationInProgress, setNodeRuntimeOperationInProgress] = useState(false); // NodeRuntime操作中フラグ
   //const [tabs, setTabs] = useState<Tab[]>([]);
   // --- VSCode風エディタペイン分割 ---
+  // ファイル選択モーダルの状態
+  const [isFileSelectOpen, setIsFileSelectOpen] = useState(false);
   const [editorLayout, setEditorLayout] = useState<EditorLayoutType>('vertical');
   const [editors, setEditors] = useState<EditorPane[]>([
     { id: 'editor-1', tabs: [], activeTabId: '' }
@@ -592,6 +613,7 @@ export default function Home() {
                       <button className="px-2 py-1 text-xs bg-muted rounded" onClick={toggleEditorLayout} title="分割方向切替">⇄</button>
                     </div>
                   }
+                  onAddTab={() => setIsFileSelectOpen(true)}
                 />
                 <CodeEditor
                   activeTab={activeTab}
@@ -648,6 +670,16 @@ export default function Home() {
         onProjectSelect={handleProjectSelect}
         onProjectCreate={handleProjectCreate}
         currentProject={currentProject}
+      />
+      {/* ファイル選択モーダル */}
+      <FileSelectModal
+        isOpen={isFileSelectOpen}
+        onClose={() => setIsFileSelectOpen(false)}
+        files={projectFiles}
+        onFileSelect={file => {
+          setIsFileSelectOpen(false);
+          handleFileOpen(file);
+        }}
       />
     </div>
   );

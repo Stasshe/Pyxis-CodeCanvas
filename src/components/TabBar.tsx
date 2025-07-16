@@ -10,6 +10,7 @@ interface TabBarProps {
   onTabClose: (tabId: string) => void;
   onToggleBottomPanel: () => void;
   extraButtons?: React.ReactNode;
+  onAddTab?: () => void;
 }
 
 export default function TabBar({
@@ -19,7 +20,8 @@ export default function TabBar({
   onTabClick,
   onTabClose,
   onToggleBottomPanel,
-  extraButtons
+  extraButtons,
+  onAddTab
 }: TabBarProps) {
   return (
     <div className="h-10 bg-muted border-b border-border flex items-center relative">
@@ -52,7 +54,10 @@ export default function TabBar({
             </button>
           </div>
         ))}
-        <button className="h-full px-3 hover:bg-accent flex items-center justify-center flex-shrink-0">
+        <button
+          className="h-full px-3 hover:bg-accent flex items-center justify-center flex-shrink-0"
+          onClick={onAddTab}
+        >
           <Plus size={16} />
         </button>
       </div>
