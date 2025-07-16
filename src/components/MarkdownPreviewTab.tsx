@@ -50,28 +50,13 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ content, fileNa
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           components={{
-            p({ children }) {
-              return <p className="mb-4 leading-relaxed">{children}</p>;
-            },
-            ul({ children }) {
-              return <ul className="list-disc pl-6 mb-4">{children}</ul>;
-            },
-            ol({ children }) {
-              return <ol className="list-decimal pl-6 mb-4">{children}</ol>;
-            },
-            li({ children }) {
-              return <li className="mb-1">{children}</li>;
-            },
-            blockquote({ children }) {
-              return <blockquote className="border-l-4 border-gray-300 pl-4 italic text-gray-600 mb-4">{children}</blockquote>;
-            },
             code({ node, className, children, ...props }) {
               const match = /language-(\w+)/.exec(className || '');
               if (match && match[1] === 'mermaid') {
                 return <Mermaid chart={String(children).trim()} />;
               }
               return (
-                <code className={className + ' bg-gray-100 rounded px-1 py-0.5'} {...props}>
+                <code className={className} {...props}>
                   {children}
                 </code>
               );
