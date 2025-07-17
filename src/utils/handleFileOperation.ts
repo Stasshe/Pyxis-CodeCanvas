@@ -173,37 +173,7 @@ export async function handleFileOperation({
         console.log("deleteFile:", !!deleteFile);
       }
 
-      // タブも閉じる
-      const openTab = tabs.find((tab) => tab.path === normalizedPath);
-      if (openTab) {
-        console.log("=== CLOSING TAB FOR DELETED FILE ===");
-        console.log("Closing tab for deleted file:", normalizedPath);
-        console.log("Tab details:", { id: openTab.id, path: openTab.path });
-
-        // タブを即座に閉じる（setTimeoutを使わない）
-        setTabs((prevTabs) => {
-          const filteredTabs = prevTabs.filter((tab) => tab.id !== openTab.id);
-          console.log(
-            "Tabs after closing deleted file tab:",
-            filteredTabs.length,
-          );
-          return filteredTabs;
-        });
-
-        // アクティブタブが削除されたタブの場合は別のタブをアクティブにする
-        if (activeTabId === openTab.id) {
-          const remainingTabs = tabs.filter((tab) => tab.id !== openTab.id);
-          if (remainingTabs.length > 0) {
-            setActiveTabId(remainingTabs[0].id);
-            console.log("Set new active tab:", remainingTabs[0].id);
-          } else {
-            setActiveTabId("");
-            console.log("No tabs remaining, cleared active tab");
-          }
-        }
-      } else {
-        console.log("No open tab found for deleted file:", normalizedPath);
-      }
+  // タブ閉じ処理はprojectFiles更新後のuseEffectで行う
     } else {
       // ファイル作成・更新の場合
       const normalizedPath = path.startsWith("/") ? path : `/${path}`;
