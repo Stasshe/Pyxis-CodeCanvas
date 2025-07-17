@@ -272,11 +272,11 @@ export class GitCommands {
         staged.push(filepath);
       } else {
         // その他のケース（HEAD === 1 && workdir === 1 && stage === 1など）は変更なし
-        console.log(`[git.categorizeStatusFiles] → No changes: ${filepath}`);
+        //console.log(`[git.categorizeStatusFiles] → No changes: ${filepath}`);
       }
     });
 
-    console.log(`[git.categorizeStatusFiles] Final counts - Untracked: ${untracked.length}, Modified: ${modified.length}, Staged: ${staged.length}`);
+    //console.log(`[git.categorizeStatusFiles] Final counts - Untracked: ${untracked.length}, Modified: ${modified.length}, Staged: ${staged.length}`);
     return { untracked, modified, staged };
   }
 

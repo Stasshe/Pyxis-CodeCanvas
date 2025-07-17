@@ -16,7 +16,7 @@ interface CodeEditorProps {
 
 const getLanguage = (filename: string): string => {
   const ext = filename.toLowerCase();
-  if (ext.endsWith('.tsx') || ext.endsWith('.ts')) return 'typescript';
+  if (ext.endsWith('.tsx') || ext.endsWith('.ts')) return 'javascript';
   if (ext.endsWith('.jsx') || ext.endsWith('.js')) return 'javascript';
   if (ext.endsWith('.json')) return 'json';
   if (ext.endsWith('.md') || ext.endsWith('.markdown')) return 'markdown';
