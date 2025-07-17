@@ -45,6 +45,7 @@
 │   │   ├── ProjectModal.tsx
 │   │   ├── RunPanel.tsx
 │   │   ├── SearchPanel.tsx
+│   │   ├── SettingsPanel.tsx
 │   │   ├── TabBar.tsx
 │   │   └── Terminal.tsx
 │   ├── types
@@ -67,7 +68,8 @@
 │       │   └── unix.ts
 │       ├── database.ts
 │       ├── export
-│       │   └── exportIndexeddb.ts
+│       │   ├── exportIndexeddb.ts
+│       │   └── exportRepo.ts
 │       ├── filesystem.ts
 │       ├── handleFileOperation.ts
 │       ├── nodeRuntime.ts
@@ -80,9 +82,9 @@
 ├── tree.txt
 └── tsconfig.json
 
-11 directories, 70 files
+11 directories, 72 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 11613
-合計文字数: 399716
-合計ファイルサイズ(bytes): 434218
+合計行数: 11731
+合計文字数: 403423
+合計ファイルサイズ(bytes): 438221

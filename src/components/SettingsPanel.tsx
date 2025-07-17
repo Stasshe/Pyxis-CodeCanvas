@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { downloadWorkspaceZip } from '@/utils/export/exportIndexeddb';
+import { downloadWorkspaceZip } from '@/utils/export/exportRepo';
 import type { Project } from '@/types';
 
 interface SettingsPanelProps {
