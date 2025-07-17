@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
+import { exportSingleFile } from '../utils/export/exportSingleFile';
+import { exportFolderZip } from '../utils/export/exportFolderZip';
 import { ChevronDown, ChevronRight, File, Folder } from 'lucide-react';
 import { FileItem } from '../types';
 
@@ -11,7 +13,6 @@ interface FileTreeProps {
 export default function FileTree({ items, onFileOpen, level = 0, onFilePreview }: FileTreeProps) {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; item: FileItem | null } | null>(null);
-  const [previewModal, setPreviewModal] = useState<{ open: boolean; content: string; fileName: string }>({ open: false, content: '', fileName: '' });
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
   // 初回読み込み時にルートレベルのフォルダを展開
@@ -70,10 +71,6 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview }
     if (item.type === 'file' && item.name.endsWith('.md') && onFilePreview) {
       onFilePreview(item);
     }
-  };
-
-  const handleClosePreview = () => {
-    setPreviewModal({ open: false, content: '', fileName: '' });
   };
 
   // タッチ長押し用のタイマー管理
@@ -149,24 +146,48 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview }
         );
       })}
 
-      {/* コンテキストメニュー */}
+      {/* コンテキストメニュー（コンパクト化＋エクスポート/インポート追加） */}
       {contextMenu && contextMenu.item && (
         <div
           ref={contextMenuRef}
-          className="fixed z-50 bg-card border border-border rounded shadow-lg min-w-[160px]"
-          style={{ top: contextMenu.y, left: contextMenu.x }}
+          className="fixed z-50 bg-card border border-border rounded shadow-lg min-w-[120px]"
+          style={{ top: contextMenu.y, left: contextMenu.x, padding: '2px 0' }}
         >
-          <ul className="py-1">
+          <ul className="py-0">
             <li
-              className="px-4 py-2 hover:bg-accent cursor-pointer text-sm"
+              className="px-2 py-1 hover:bg-accent cursor-pointer text-xs"
+              style={{ lineHeight: '1.2', minHeight: '24px' }}
               onClick={() => { onFileOpen(contextMenu.item!); setContextMenu(null); }}
             >開く</li>
             {contextMenu.item.type === 'file' && contextMenu.item.name.endsWith('.md') && (
               <li
-                className="px-4 py-2 hover:bg-accent cursor-pointer text-sm"
+                className="px-2 py-1 hover:bg-accent cursor-pointer text-xs"
+                style={{ lineHeight: '1.2', minHeight: '24px' }}
                 onClick={() => handlePreview(contextMenu.item!)}
               >プレビューを開く</li>
             )}
+            <li
+              className="px-2 py-1 hover:bg-accent cursor-pointer text-xs border-t border-border"
+              style={{ lineHeight: '1.2', minHeight: '24px' }}
+              onClick={async () => {
+                setContextMenu(null);
+                const item = contextMenu.item;
+                if (item && item.type === 'file') {
+                  let content = item.content;
+                  if (typeof content !== 'string') {
+                    content = 'error fetching content';
+                  }
+                  exportSingleFile({ name: item.name, content });
+                } else if (item && item.type === 'folder') {
+                  await exportFolderZip(item);
+                }
+              }}
+            >ダウンロード</li>
+            <li
+              className="px-2 py-1 hover:bg-accent cursor-pointer text-xs"
+              style={{ lineHeight: '1.2', minHeight: '24px' }}
+              onClick={() => { setContextMenu(null); alert('インポート機能は未実装です'); }}
+            >インポート</li>
           </ul>
         </div>
       )}
