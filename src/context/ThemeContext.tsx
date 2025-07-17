@@ -67,8 +67,16 @@ interface ThemeContextProps {
 const ThemeContext = createContext<ThemeContextProps | undefined>(undefined);
 
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
-  const [themeName, setThemeName] = useState<string>('dark');
-  const [colors, setColorsState] = useState<ThemeColors>(themes[themeName]);
+  // localStorageからテーマ名を取得
+  const getInitialTheme = () => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('themeName');
+      if (saved && themes[saved]) return saved;
+    }
+    return 'dark';
+  };
+  const [themeName, setThemeName] = useState<string>(getInitialTheme());
+  const [colors, setColorsState] = useState<ThemeColors>(themes[getInitialTheme()]);
 
   const setColor = (key: string, value: string) => {
     setColorsState(prev => ({ ...prev, [key]: value }));
@@ -82,6 +90,9 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     if (themes[name]) {
       setThemeName(name);
       setColorsState(themes[name]);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('themeName', name);
+      }
     }
   };
 
