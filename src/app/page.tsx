@@ -82,21 +82,6 @@ export default function Home() {
   } = useProject();
 
   
-  // projectFilesが更新されたとき、削除されたファイルのタブを閉じる
-  useEffect(() => {
-    if (!currentProject || tabs.length === 0) return;
-    // tabsのpathがprojectFilesに存在しないものを閉じる
-    const validPaths = new Set(projectFiles.map(f => f.path));
-    const tabsToClose = tabs.filter(tab => !validPaths.has(tab.path));
-    if (tabsToClose.length > 0) {
-      const remainingTabs = tabs.filter(tab => validPaths.has(tab.path));
-      setTabs(remainingTabs);
-      // アクティブタブが消えた場合は先頭をアクティブに
-      if (!remainingTabs.find(tab => tab.id === activeTabId)) {
-        setActiveTabId(remainingTabs.length > 0 ? remainingTabs[0].id : '');
-      }
-    }
-  }, [projectFiles, tabs, activeTabId, currentProject]);
   
 
   const handleLeftResize = useLeftSidebarResize(leftSidebarWidth, setLeftSidebarWidth);
