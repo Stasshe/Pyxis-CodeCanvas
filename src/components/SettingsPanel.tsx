@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { downloadWorkspaceZip } from '@/utils/export/exportIndexeddb';
+import type { Project } from '@/types';
 
 interface SettingsPanelProps {
-  currentProject?: string;
+  currentProject: Project; // 現在のプロジェクト
 }
-
 const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
   const [includeGit, setIncludeGit] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -12,7 +12,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      await downloadWorkspaceZip({ includeGit });
+      await downloadWorkspaceZip({ currentProject, includeGit });
     } catch (e) {
       alert('エクスポートに失敗しました: ' + (e instanceof Error ? e.message : e));
     }

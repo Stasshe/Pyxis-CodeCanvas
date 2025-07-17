@@ -1,3 +1,5 @@
+import type { Project, ProjectFile } from '../types';
+
 // IndexedDBを使ったプロジェクト管理システム
 
 // ユニークID生成関数
@@ -7,26 +9,6 @@ const generateUniqueId = (prefix: string): string => {
   const counter = Math.floor(Math.random() * 10000);
   return `${prefix}_${timestamp}_${random}_${counter}`;
 };
-
-export interface Project {
-  id: string;
-  name: string;
-  createdAt: Date;
-  updatedAt: Date;
-  description?: string;
-}
-
-export interface ProjectFile {
-  id: string;
-  projectId: string;
-  path: string;
-  name: string;
-  content: string;
-  type: 'file' | 'folder';
-  parentPath?: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
 
 class ProjectDB {
   private dbName = 'PyxisProjects';

@@ -5,12 +5,13 @@ import SearchPanel from './SearchPanel';
 import GitPanel from './GitPanel';
 import RunPanel from './RunPanel';
 import SettingsPanel from './SettingsPanel';
+import type { Project } from '../types';
 
 interface LeftSidebarProps {
   activeMenuTab: MenuTab;
   leftSidebarWidth: number;
   files: FileItem[];
-  currentProject?: string;
+  currentProject: Project;
   onFileOpen: (file: FileItem) => void;
   onFilePreview?: (file: FileItem) => void;
   onResize: (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => void;
@@ -71,7 +72,7 @@ export default function LeftSidebar({
           {activeMenuTab === 'git' && (
             <div className="h-full">
               <GitPanel 
-                currentProject={currentProject} 
+                currentProject={currentProject.name} 
                 onRefresh={onGitRefresh}
                 gitRefreshTrigger={gitRefreshTrigger}
                 onFileOperation={onFileOperation}
@@ -82,7 +83,7 @@ export default function LeftSidebar({
           {activeMenuTab === 'run' && (
             <div className="h-full">
               <RunPanel 
-                currentProject={currentProject || null}
+                currentProject={currentProject.name}
                 files={files}
                 onFileOperation={onFileOperation}
               />

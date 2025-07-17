@@ -11,7 +11,7 @@ import { useLeftSidebarResize, useBottomPanelResize } from '@/utils/resize';
 import { openFile } from '@/utils/tabs';
 import { GitCommands } from '@/utils/cmd/git';
 import { useProject } from '@/utils/project';
-import { Project } from '@/utils/database';
+import { Project } from '@/types';
 import type { Tab,FileItem, MenuTab, EditorLayoutType, EditorPane } from '@/types';
 import FileSelectModal from '@/components/FileSelect';
 import { Terminal } from 'lucide-react';
@@ -346,7 +346,7 @@ export default function Home() {
           activeMenuTab={activeMenuTab}
           leftSidebarWidth={leftSidebarWidth}
           files={projectFiles}
-          currentProject={currentProject?.name}
+          currentProject={currentProject}
           onFileOpen={handleFileOpen}
           onFilePreview={file => {
             // Markdownプレビュータブとして開く
