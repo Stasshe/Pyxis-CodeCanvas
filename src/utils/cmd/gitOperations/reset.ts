@@ -80,23 +80,21 @@ export class GitResetOperations {
         
         return `Unstaged ${filepath}`;
       } else {
-        // 全ファイルをアンステージング - ステージングされたファイルを取得してそれぞれリセット
+        // 全ファイルをアンステージング - ステージングされたファイル（サブディレクトリ含む）を取得してそれぞれリセット
         const status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
         let unstagedCount = 0;
-        
+
         for (const [filepath, HEAD, workdir, stage] of status) {
-          if (stage === 3) { // ステージングされたファイル
+          // ステージ済み（新規/変更）: stage===2,3
+          if (stage === 2) {
             await git.resetIndex({ fs: this.fs, dir: this.dir, filepath });
             unstagedCount++;
           }
         }
-        
+
         // onFileOperationコールバックを呼び出してプロジェクトの更新を通知
-        if (this.onFileOperation) {
-          console.log('[git.reset] Triggering project refresh after unstaging all files');
-          await this.onFileOperation('.', 'folder', undefined, false);
-        }
-        
+        this.onFileOperation?.('.', 'folder', undefined, false);
+
         return `Unstaged ${unstagedCount} file(s)`;
       }
     } catch (error) {
@@ -230,18 +228,22 @@ export class GitResetOperations {
     for (const entry of tree.tree) {
       const fullPath = basePath ? `${basePath}/${entry.path}` : entry.path;
       const fsPath = `${this.dir}/${fullPath}`;
-      
+
       if (entry.type === 'tree') {
         // ディレクトリの場合、再帰的に処理
         try {
-          await this.fs.promises.mkdir(fsPath, { recursive: true } as any);
-          
+          // ディレクトリが存在しない場合のみ作成
+          try {
+            await this.fs.promises.stat(fsPath);
+          } catch {
+            await this.fs.promises.mkdir(fsPath, { recursive: true } as any);
+          }
           // ファイル操作のコールバックを実行
           if (this.onFileOperation) {
             const projectRelativePath = fullPath.startsWith('/') ? fullPath : `/${fullPath}`;
             await this.onFileOperation(projectRelativePath, 'folder', undefined, false);
           }
-          
+          // サブツリーを取得して再帰
           const subTree = await git.readTree({ fs: this.fs, dir: this.dir, oid: entry.oid });
           await this.restoreTreeFiles(subTree, fullPath, restoredFiles);
         } catch (error) {
@@ -250,19 +252,20 @@ export class GitResetOperations {
       } else if (entry.type === 'blob') {
         // ファイルの場合、内容を復元
         try {
-          // 親ディレクトリを作成
+          // 親ディレクトリを再帰的に作成
           const dirPath = fsPath.substring(0, fsPath.lastIndexOf('/'));
-          if (dirPath !== this.dir) {
-            await this.fs.promises.mkdir(dirPath, { recursive: true } as any);
+          if (dirPath && dirPath !== this.dir) {
+            try {
+              await this.fs.promises.stat(dirPath);
+            } catch {
+              await this.fs.promises.mkdir(dirPath, { recursive: true } as any);
+            }
           }
-          
           // ファイル内容を取得して書き込み
           const { blob } = await git.readBlob({ fs: this.fs, dir: this.dir, oid: entry.oid });
           const content = new TextDecoder().decode(blob);
           await this.fs.promises.writeFile(fsPath, content, 'utf8');
-          
           restoredFiles.push(fullPath);
-          
           // ファイル操作のコールバックを実行
           if (this.onFileOperation) {
             const projectRelativePath = fullPath.startsWith('/') ? fullPath : `/${fullPath}`;
