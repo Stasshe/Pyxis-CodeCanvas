@@ -131,13 +131,15 @@ export class GitRevertOperations {
           if (parentEntry) {
             const blob = await git.readBlob({ fs: this.fs, dir: this.dir, oid: parentEntry.oid });
             const fullPath = `${this.dir}/${filePath}`;
-            
-            // 親ディレクトリを作成
+            // 親ディレクトリを作成（存在しなければ作成）
             const parentDir = fullPath.substring(0, fullPath.lastIndexOf('/'));
             if (parentDir && parentDir !== this.dir) {
-              await this.fs.promises.mkdir(parentDir, { recursive: true } as any);
+              try {
+                await this.fs.promises.stat(parentDir);
+              } catch {
+                await this.fs.promises.mkdir(parentDir, { recursive: true } as any);
+              }
             }
-            
             await this.fs.promises.writeFile(fullPath, blob.blob);
             changedFiles.add(filePath as string);
             revertResults.push(`restored:   ${filePath}`);
@@ -155,6 +157,15 @@ export class GitRevertOperations {
           if (parentEntry) {
             const blob = await git.readBlob({ fs: this.fs, dir: this.dir, oid: parentEntry.oid });
             const fullPath = `${this.dir}/${filePath}`;
+            // 親ディレクトリを作成（存在しなければ作成）
+            const parentDir = fullPath.substring(0, fullPath.lastIndexOf('/'));
+            if (parentDir && parentDir !== this.dir) {
+              try {
+                await this.fs.promises.stat(parentDir);
+              } catch {
+                await this.fs.promises.mkdir(parentDir, { recursive: true } as any);
+              }
+            }
             await this.fs.promises.writeFile(fullPath, blob.blob);
             changedFiles.add(filePath);
             revertResults.push(`reverted:   ${filePath}`);
