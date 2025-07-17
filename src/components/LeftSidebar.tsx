@@ -4,6 +4,7 @@ import FileTree from './FileTree';
 import SearchPanel from './SearchPanel';
 import GitPanel from './GitPanel';
 import RunPanel from './RunPanel';
+import SettingsPanel from './SettingsPanel';
 
 interface LeftSidebarProps {
   activeMenuTab: MenuTab;
@@ -88,9 +89,7 @@ export default function LeftSidebar({
             </div>
           )}
           {activeMenuTab === 'settings' && (
-            <div className="p-4">
-              <p className="text-sm text-muted-foreground">設定画面は準備中です</p>
-            </div>
+            <SettingsPanel currentProject={currentProject} />
           )}
         </div>
       </div>

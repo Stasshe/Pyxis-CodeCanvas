@@ -19,6 +19,81 @@ export async function exportIndexeddbHtmlWithWindow(writeOutput: (msg: string) =
     await writeOutput('IndexedDBエクスポート失敗: ' + msg);
   }
 }
+
+// ZIPエクスポート・ダウンロード機能
+import JSZip from 'jszip';
+
+export async function downloadWorkspaceZip({ includeGit = false }: { includeGit?: boolean }) {
+  // PyxisProjects DBから全プロジェクト・全ファイルを取得
+  const dbName = 'PyxisProjects';
+  const req = window.indexedDB.open(dbName);
+  const db: IDBDatabase = await new Promise((resolve, reject) => {
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+
+  // projectsストア
+  const projectsTx = db.transaction('projects', 'readonly');
+  const projectsStore = projectsTx.objectStore('projects');
+  const projectsReq = projectsStore.getAll();
+  const projects: any[] = await new Promise((resolve, reject) => {
+    projectsReq.onsuccess = () => resolve(projectsReq.result);
+    projectsReq.onerror = () => reject(projectsReq.error);
+  });
+
+  // filesストア
+  const filesTx = db.transaction('files', 'readonly');
+  const filesStore = filesTx.objectStore('files');
+  const filesReq = filesStore.getAll();
+  const files: any[] = await new Promise((resolve, reject) => {
+    filesReq.onsuccess = () => resolve(filesReq.result);
+    filesReq.onerror = () => reject(filesReq.error);
+  });
+
+  db.close();
+
+  // ZIP生成
+  const zip = new JSZip();
+  // プロジェクトごとにディレクトリ分け
+  for (const project of projects) {
+    const projectDir = project.name || project.id;
+    // プロジェクト情報（README的な）
+    zip.file(`${projectDir}/.project.json`, JSON.stringify(project, null, 2));
+    // ファイル群
+    const projectFiles = files.filter(f => f.projectId === project.id);
+    for (const file of projectFiles) {
+      // フォルダはスキップ（空ディレクトリはjszipで作成可能だが、ここではファイルのみ）
+      if (file.type === 'file') {
+        zip.file(`${projectDir}${file.path}`, file.content);
+      }
+    }
+  }
+
+  // .gitを含める場合（filesストアに.gitファイルがあれば追加）
+  if (includeGit) {
+    for (const file of files) {
+      if (file.path.startsWith('/.git/') && file.type === 'file') {
+        // どのプロジェクトか判別できる場合はディレクトリ分け
+        const projectDir = projects.find(p => p.id === file.projectId)?.name || file.projectId;
+        zip.file(`${projectDir}${file.path}`, file.content);
+      }
+    }
+  }
+
+  // ZIPバイナリ生成
+  const blob = await zip.generateAsync({ type: 'blob' });
+  // ダウンロード
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'workspace_export.zip';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 1000);
+}
 // IndexedDBの全データを取得してHTML文字列として返すユーティリティ
 export type StoreDump = { name: string; items: any[] };
 export type DbDump = { name: string; version: number; stores: StoreDump[] };
