@@ -1,4 +1,4 @@
-import { Project } from "@/utils/database";
+import { Project } from "@/types/";
 import type { Tab, FileItem } from "@/types";
 
 type Params = {

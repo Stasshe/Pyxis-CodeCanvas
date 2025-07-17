@@ -346,7 +346,8 @@ export default function Home() {
           activeMenuTab={activeMenuTab}
           leftSidebarWidth={leftSidebarWidth}
           files={projectFiles}
-          currentProject={currentProject}
+          // !型アサーションビミョい
+          currentProject={currentProject!}
           onFileOpen={handleFileOpen}
           onFilePreview={file => {
             // Markdownプレビュータブとして開く

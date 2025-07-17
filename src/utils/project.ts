@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Project, ProjectFile, projectDB } from './database';
+import { Project, ProjectFile } from '@/types/';
+import { projectDB } from './database'; // プロジェクトデータベースのインポート
 import { FileItem } from '@/types';
 import { GitCommands, syncProjectFiles, initializeFileSystem, debugFileSystem } from './filesystem';
 
