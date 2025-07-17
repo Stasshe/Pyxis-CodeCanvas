@@ -393,15 +393,12 @@ export const useProject = () => {
     try {
       if (type === 'delete') {
         // ファイルまたはフォルダを削除
-        const fileToDelete = projectFiles.find(f => f.path === path);
+        const files = await projectDB.getProjectFiles(currentProject.id);
+        const fileToDelete = files.find(f => f.path === path);
         if (fileToDelete) {
-          console.log('[syncTerminalFileOperation] Deleting file:', fileToDelete);
           await projectDB.deleteFile(fileToDelete.id);
-          
-          // 子ファイルも削除（フォルダの場合）
           if (fileToDelete.type === 'folder') {
-            const childFiles = projectFiles.filter(f => f.path.startsWith(path + '/'));
-            console.log('[syncTerminalFileOperation] Deleting child files:', childFiles);
+            const childFiles = files.filter(f => f.path.startsWith(path + '/'));
             for (const child of childFiles) {
               await projectDB.deleteFile(child.id);
             }
