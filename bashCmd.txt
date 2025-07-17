@@ -1,0 +1,4 @@
+sed -i '/console\.log/d' src/utils/cmd/git.ts
+
+
+npx prettier --write src/
