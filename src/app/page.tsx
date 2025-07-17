@@ -178,8 +178,7 @@ export default function Home() {
             currentProject,
             loadProject,
             saveFile,
-            // 型変換: number型idをstring型に変換してdeleteFileへ渡す
-            deleteFile: deleteFile ? ((id: number) => deleteFile(String(id))) : undefined,
+            deleteFile,
             tabs,
             setTabs,
             activeTabId,
@@ -399,8 +398,7 @@ export default function Home() {
               currentProject,
               loadProject,
               saveFile,
-              // 型変換: number型idをstring型に変換してdeleteFileへ渡す
-              deleteFile: deleteFile ? ((id: number) => deleteFile(String(id))) : undefined,
+              deleteFile,
               tabs,
               setTabs,
               activeTabId,

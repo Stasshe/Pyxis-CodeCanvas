@@ -9,7 +9,7 @@ type Params = {
   currentProject: Project | null;
   loadProject: ((project: Project) => Promise<void>) | null;
   saveFile?: (path: string, content: string) => Promise<void>;
-  deleteFile?: (id: number) => Promise<void>;
+  deleteFile?: (id: string) => Promise<void>;
   tabs: Tab[];
   setTabs: React.Dispatch<React.SetStateAction<Tab[]>>;
   activeTabId: string;
@@ -152,7 +152,7 @@ export async function handleFileOperation({
             "Attempting to delete file from IndexedDB:",
             fileToDelete.id,
           );
-          await deleteFile(Number(fileToDelete.id));
+          await deleteFile(fileToDelete.id);
           console.log(
             "Successfully deleted file from IndexedDB:",
             normalizedPath,
