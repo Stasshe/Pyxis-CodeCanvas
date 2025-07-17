@@ -5,6 +5,7 @@
 ├── README_ja.md
 ├── SPECIFICATION.md
 ├── TODO.md
+├── bashCmd.txt
 ├── eslint.config.mjs
 ├── next-env.d.ts
 ├── next.config.ts
@@ -65,7 +66,10 @@
 │       │   │   └── npmInstall.ts
 │       │   └── unix.ts
 │       ├── database.ts
+│       ├── export
+│       │   └── exportIndexeddb.ts
 │       ├── filesystem.ts
+│       ├── handleFileOperation.ts
 │       ├── nodeRuntime.ts
 │       ├── project.ts
 │       ├── resize.ts
@@ -76,9 +80,9 @@
 ├── tree.txt
 └── tsconfig.json
 
-10 directories, 67 files
+11 directories, 70 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 11261
-合計文字数: 392201
-合計ファイルサイズ(bytes): 426211
+合計行数: 11613
+合計文字数: 399716
+合計ファイルサイズ(bytes): 434218
