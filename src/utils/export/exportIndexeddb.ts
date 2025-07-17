@@ -56,12 +56,12 @@ export async function exportIndexeddbHtml(): Promise<string> {
     if (json === null) return `<span class='json-null'>null</span>`;
     if (Array.isArray(json)) {
       const id = `item-${path}`;
-      return `<span class='json-array-toggle' onclick="toggleItem('${id}')">[Array(${json.length})]</span> <div class='json-array json-collapsible' id='${id}'>${json.map((v, i) => `<div class='json-array-item'>[${i}] ${syntaxHighlight(v, path + '-' + i)}</div>`).join('')}</div>`;
+      return `<span class='json-array-toggle' onclick="toggleItem('${id}',this)"><span class='arrow'>▶</span> [Array(${json.length})]</span> <div class='json-array json-collapsible collapsed' id='${id}'>${json.map((v, i) => `<div class='json-array-item'>[${i}] ${syntaxHighlight(v, path + '-' + i)}</div>`).join('')}</div>`;
     }
     if (typeof json === 'object') {
       const keys = Object.keys(json);
       const id = `item-${path}`;
-      return `<span class='json-object-toggle' onclick="toggleItem('${id}')">{Object(${keys.length})}</span> <div class='json-object json-collapsible' id='${id}'>${keys.map(k => `<div class='json-object-item'><span class='json-key'>"${k}"</span>: ${syntaxHighlight(json[k], path + '-' + k)}</div>`).join('')}</div>`;
+      return `<span class='json-object-toggle' onclick="toggleItem('${id}',this)"><span class='arrow'>▶</span> {Object(${keys.length})}</span> <div class='json-object json-collapsible collapsed' id='${id}'>${keys.map(k => `<div class='json-object-item'><span class='json-key'>"${k}"</span>: ${syntaxHighlight(json[k], path + '-' + k)}</div>`).join('')}</div>`;
     }
     if (typeof json === 'string') {
       return `<span class='json-string'>"${json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}"</span>`;
@@ -105,6 +105,45 @@ export async function exportIndexeddbHtml(): Promise<string> {
         margin-bottom: 0.2em;
         user-select: none;
         padding: 0.2em 0.3em;
+        display: flex;
+        align-items: center;
+      }
+      .arrow {
+        display: inline-block;
+        width: 1em;
+        text-align: center;
+        margin-right: 0.2em;
+        color: #fc8;
+        font-weight: bold;
+        transition: transform 0.2s;
+      }
+      .json-collapsible {
+        margin-left: 0.7em;
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s cubic-bezier(.4,0,.2,1);
+      }
+      .json-collapsible:not(.collapsed) {
+        max-height: 1000px;
+        overflow: auto;
+      }
+      .items {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s cubic-bezier(.4,0,.2,1);
+      }
+      .items:not(.collapsed) {
+        max-height: 300px;
+        overflow: auto;
+      }
+      .db-content {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s cubic-bezier(.4,0,.2,1);
+      }
+      .db-content:not(.collapsed) {
+        max-height: 2000px;
+        overflow: auto;
       }
       .store {
         border-left: 2px solid #fc8;
@@ -191,15 +230,19 @@ export async function exportIndexeddbHtml(): Promise<string> {
     </style>
   </head><body>
     <h1>IndexedDB Export</h1>
+    <div style='margin-bottom:0.5em;'>
+      <button onclick='expandAll()' style='margin-right:0.5em;padding:0.2em 0.5em;'>すべて展開</button>
+      <button onclick='collapseAll()' style='padding:0.2em 0.5em;'>すべて閉じる</button>
+    </div>
     <div id='dbs'>
       ${allData.map((db, dbIdx) => `
         <div class='db'>
-          <div class='db-header' onclick='toggleDb(${dbIdx})'>DB: ${db.name} (v${db.version}) <span class='count'>[${db.stores.length} stores]</span></div>
-          <div class='db-content'>
+          <div class='db-header' onclick='toggleDb(${dbIdx}, this)'><span class='arrow'>▶</span>DB: ${db.name} (v${db.version}) <span class='count'>[${db.stores.length} stores]</span></div>
+          <div class='db-content collapsed'>
             ${db.stores.map((store, storeIdx) => `
               <div class='store'>
-                <div class='store-header' onclick='toggleStore(${dbIdx},${storeIdx})'>Store: ${store.name} <span class='count'>[${store.items.length} items]</span></div>
-                <div class='items' id='items-${dbIdx}-${storeIdx}'>
+                <div class='store-header' onclick='toggleStore(${dbIdx},${storeIdx}, this)'><span class='arrow'>▶</span>Store: ${store.name} <span class='count'>[${store.items.length} items]</span></div>
+                <div class='items collapsed' id='items-${dbIdx}-${storeIdx}'>
                   ${store.items.length === 0 ? `<div class='item'>No items</div>` : store.items.map((item, idx) => `<div class='item'>[${idx}] ${syntaxHighlight(item, `${dbIdx}-${storeIdx}-${idx}`)}</div>`).join('')}
                 </div>
               </div>
@@ -210,20 +253,35 @@ export async function exportIndexeddbHtml(): Promise<string> {
     </div>
     <div class='footer'>Generated at ${new Date().toLocaleString('ja-JP')}</div>
     <script>
-      function toggleDb(dbIdx) {
+      function toggleDb(dbIdx, el) {
         const db = document.querySelectorAll('.db')[dbIdx];
         const content = db.querySelector('.db-content');
         content.classList.toggle('collapsed');
+        const arrow = el.querySelector('.arrow');
+        if (arrow) arrow.style.transform = content.classList.contains('collapsed') ? '' : 'rotate(90deg)';
       }
-      function toggleStore(dbIdx, storeIdx) {
+      function toggleStore(dbIdx, storeIdx, el) {
         const items = document.getElementById('items-' + dbIdx + '-' + storeIdx);
         if (items) items.classList.toggle('collapsed');
+        const arrow = el.querySelector('.arrow');
+        if (arrow) arrow.style.transform = items.classList.contains('collapsed') ? '' : 'rotate(90deg)';
       }
-      function toggleItem(id) {
-        const el = document.getElementById(id);
-        if (el) el.classList.toggle('collapsed');
+      function toggleItem(id, el) {
+        const elTarget = document.getElementById(id);
+        if (elTarget) elTarget.classList.toggle('collapsed');
+        const arrow = el.querySelector('.arrow');
+        if (arrow) arrow.style.transform = elTarget.classList.contains('collapsed') ? '' : 'rotate(90deg)';
       }
-      // 初期状態: DB/Store/Itemは展開
+      function expandAll() {
+        document.querySelectorAll('.collapsed').forEach(e => e.classList.remove('collapsed'));
+        document.querySelectorAll('.arrow').forEach(e => e.style.transform = 'rotate(90deg)');
+      }
+      function collapseAll() {
+        document.querySelectorAll('.db-content, .items, .json-collapsible').forEach(e => e.classList.add('collapsed'));
+        document.querySelectorAll('.arrow').forEach(e => e.style.transform = '');
+      }
+      // 初期状態: すべて閉じる
+      window.onload = () => { collapseAll(); };
     </script>
   </body></html>`;
   return html;
