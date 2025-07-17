@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { useTheme } from '@/context/ThemeContext';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import mermaid from 'mermaid';
@@ -16,6 +17,7 @@ const getUniqueMermaidId = () => `mermaid-svg-${mermaidIdCounter++}`;
 const Mermaid: React.FC<{ chart: string }> = ({ chart }) => {
   const ref = useRef<HTMLDivElement>(null);
   const idRef = useRef<string>(getUniqueMermaidId());
+  const { colors } = useTheme();
   useEffect(() => {
     const renderMermaid = async () => {
       if (ref.current) {
@@ -31,7 +33,7 @@ const Mermaid: React.FC<{ chart: string }> = ({ chart }) => {
             svgElem.style.maxWidth = '100%';
             svgElem.style.height = 'auto';
             svgElem.style.overflow = 'visible';
-            svgElem.style.background = '#eaffea'; // 薄い黄緑
+            svgElem.style.background = colors.mermaidBg || '#eaffea';
           }
         } catch (e) {
           ref.current.innerHTML = `<pre style='color:red;'>Mermaid render error: ${String(e)}</pre>`;
@@ -39,15 +41,22 @@ const Mermaid: React.FC<{ chart: string }> = ({ chart }) => {
       }
     };
     renderMermaid();
-  }, [chart]);
+  }, [chart, colors.mermaidBg]);
   return <div ref={ref} className="mermaid" />;
 };
 
 const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ content, fileName }) => {
+  const { colors } = useTheme();
   return (
     <div className="p-4 overflow-auto h-full w-full">
       <div className="font-bold text-lg mb-2">{fileName} プレビュー</div>
-      <div className="markdown-body prose prose-github max-w-none">
+      <div
+        className="markdown-body prose prose-github max-w-none"
+        style={{
+          background: colors.background,
+          color: colors.foreground,
+        }}
+      >
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           components={{

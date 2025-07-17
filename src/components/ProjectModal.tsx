@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Plus, Folder, Trash2 } from 'lucide-react';
-import { Project, projectDB } from '@/utils/database';
+import { projectDB } from '@/utils/database';
+import { Project } from '@/types';
 
 interface ProjectModalProps {
   isOpen: boolean;

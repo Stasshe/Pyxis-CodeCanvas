@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTheme } from '@/context/ThemeContext';
 import { downloadWorkspaceZip } from '@/utils/export/exportRepo';
 import type { Project } from '@/types';
 
@@ -8,6 +9,7 @@ interface SettingsPanelProps {
 const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
   const [includeGit, setIncludeGit] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const { colors, setColor, themeName, setTheme, themeList } = useTheme();
 
   const handleExport = async () => {
     setIsExporting(true);
@@ -38,7 +40,35 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
       >
         {isExporting ? 'エクスポート中...' : 'ZIPダウンロード'}
       </button>
-      {/* 今後の項目追加用: 例）テーマ設定など */}
+      <hr className="my-2 border-muted" />
+      <h2 className="text-base font-semibold">テーマ一括変更</h2>
+      <div className="flex items-center gap-2 mb-2">
+        <select
+          value={themeName}
+          onChange={e => setTheme(e.target.value)}
+          className="border rounded px-2 py-1 text-sm bg-card text-foreground"
+        >
+          {themeList.map(name => (
+            <option key={name} value={name}>{name}</option>
+          ))}
+        </select>
+        <span className="text-xs">選択したテーマに一括切替</span>
+      </div>
+      <h2 className="text-base font-semibold">テーマカラー個別設定</h2>
+      <div className="grid grid-cols-2 gap-2">
+        {Object.entries(colors).map(([key, value]) => (
+          <div key={key} className="flex items-center gap-2">
+            <label className="text-xs w-20" htmlFor={`theme-${key}`}>{key}</label>
+            <input
+              id={`theme-${key}`}
+              type="color"
+              value={value}
+              onChange={e => setColor(key, e.target.value)}
+              className="w-8 h-8 p-0 border rounded"
+            />
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
