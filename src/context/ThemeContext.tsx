@@ -8,6 +8,11 @@ export type ThemeColors = {
   accent: string;
   primary: string;
   mermaidBg: string;
+  editorBg: string;
+  editorFg: string;
+  editorLineHighlight: string;
+  editorSelection: string;
+  editorCursor: string;
   [key: string]: string;
 };
 
@@ -18,6 +23,11 @@ const themes: { [key: string]: ThemeColors } = {
     accent: '#363a4f',
     primary: '#4ea1ff',
     mermaidBg: '#eaffea',
+    editorBg: '#1e1e1e',
+    editorFg: '#d4d4d4',
+    editorLineHighlight: '#2d2d30',
+    editorSelection: '#264f78',
+    editorCursor: '#aeafad',
   },
   light: {
     background: '#fff',
@@ -25,6 +35,11 @@ const themes: { [key: string]: ThemeColors } = {
     accent: '#e0e0e0',
     primary: '#0070f3',
     mermaidBg: '#fffbe6',
+    editorBg: '#ffffff',
+    editorFg: '#222222',
+    editorLineHighlight: '#f0f0f0',
+    editorSelection: '#cce7ff',
+    editorCursor: '#0070f3',
   },
   solarized: {
     background: '#fdf6e3',
@@ -32,6 +47,11 @@ const themes: { [key: string]: ThemeColors } = {
     accent: '#eee8d5',
     primary: '#b58900',
     mermaidBg: '#fdf6e3',
+    editorBg: '#fdf6e3',
+    editorFg: '#657b83',
+    editorLineHighlight: '#eee8d5',
+    editorSelection: '#b58900',
+    editorCursor: '#b58900',
   },
 };
 

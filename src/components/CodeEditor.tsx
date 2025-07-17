@@ -1,4 +1,5 @@
 import { useRef, useEffect, useCallback } from 'react';
+import { useTheme } from '@/context/ThemeContext';
 import MarkdownPreviewTab from './MarkdownPreviewTab';
 import Editor, { Monaco } from '@monaco-editor/react';
 import { FileText } from 'lucide-react';
@@ -40,6 +41,7 @@ export default function CodeEditor({
   onContentChangeImmediate,
   nodeRuntimeOperationInProgress = false
 }: CodeEditorProps) {
+  const { colors } = useTheme();
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -84,8 +86,8 @@ export default function CodeEditor({
     editorRef.current = editor;
     monacoRef.current = monaco;
 
-    // カスタムテーマを設定
-    monaco.editor.defineTheme('pyxis-dark', {
+    // ThemeContextの色でMonaco Editorテーマを定義
+    monaco.editor.defineTheme('pyxis-custom', {
       base: 'vs-dark',
       inherit: true,
       rules: [
@@ -107,12 +109,12 @@ export default function CodeEditor({
         { token: 'method', foreground: 'DCDCAA' },
       ],
       colors: {
-        'editor.background': '#1e1e1e',
-        'editor.foreground': '#d4d4d4',
-        'editor.lineHighlightBackground': '#2d2d30',
-        'editor.selectionBackground': '#264f78',
+        'editor.background': colors.editorBg || '#1e1e1e',
+        'editor.foreground': colors.editorFg || '#d4d4d4',
+        'editor.lineHighlightBackground': colors.editorLineHighlight || '#2d2d30',
+        'editor.selectionBackground': colors.editorSelection || '#264f78',
         'editor.inactiveSelectionBackground': '#3a3d41',
-        'editorCursor.foreground': '#aeafad',
+        'editorCursor.foreground': colors.editorCursor || '#aeafad',
         'editorWhitespace.foreground': '#404040',
         'editorIndentGuide.background': '#404040',
         'editorIndentGuide.activeBackground': '#707070',
@@ -121,7 +123,7 @@ export default function CodeEditor({
       }
     });
 
-    monaco.editor.setTheme('pyxis-dark');
+    monaco.editor.setTheme('pyxis-custom');
 
     // エディターの追加設定
     editor.updateOptions({
@@ -270,7 +272,7 @@ export default function CodeEditor({
           }
         }}
         onMount={handleEditorDidMount}
-        theme="pyxis-dark"
+  theme="pyxis-custom"
         loading={
           <div className="h-full flex items-center justify-center text-muted-foreground">
             <div className="text-center">

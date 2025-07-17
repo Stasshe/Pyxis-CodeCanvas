@@ -58,13 +58,14 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
       <div className="grid grid-cols-2 gap-2">
         {Object.entries(colors).map(([key, value]) => (
           <div key={key} className="flex items-center gap-2">
-            <label className="text-xs w-20" htmlFor={`theme-${key}`}>{key}</label>
+            <label className="text-[10px] w-20" htmlFor={`theme-${key}`}>{key}</label>
+            {/* 全て同じ見た目のpicker */}
             <input
               id={`theme-${key}`}
               type="color"
               value={value}
               onChange={e => setColor(key, e.target.value)}
-              className="w-8 h-8 p-0 border rounded"
+              className="w-6 h-6 p-0 border rounded"
             />
           </div>
         ))}
