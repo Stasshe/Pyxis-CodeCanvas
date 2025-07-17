@@ -49,17 +49,182 @@ export async function exportIndexeddbHtml(): Promise<string> {
     allData.push(dbDump);
     db.close();
   }
-  // HTML生成
-  const html = `<html><head><title>IndexedDB Export</title><style>body{font-family:monospace;white-space:pre-wrap;background:#222;color:#eee;padding:1em;} h2{color:#8cf;} h3{color:#fc8;} .store{margin-bottom:1em;} .item{margin-left:2em;} </style></head><body>` +
-    `<h1>IndexedDB Export</h1>` +
-    allData.map((db) =>
-      `<h2>DB: ${db.name} (v${db.version})</h2>` +
-      db.stores.map((store: StoreDump) =>
-        `<div class='store'><h3>Store: ${store.name}</h3>` +
-        store.items.map((item: any, idx: number) => `<div class='item'>[${idx}] ${JSON.stringify(item, null, 2)}</div>`).join('') +
-        `</div>`
-      ).join('')
-    ).join('') +
-    `</body></html>`;
+  // HTML生成（見やすさ・大量データ対応強化）
+  // TypeScript側でJSON構造を色分けする関数
+  // JSON構造を色分けし、オブジェクトや配列は展開/縮小可能なHTMLに変換
+  function syntaxHighlight(json: any, path: string = ''): string {
+    if (json === null) return `<span class='json-null'>null</span>`;
+    if (Array.isArray(json)) {
+      const id = `item-${path}`;
+      return `<span class='json-array-toggle' onclick="toggleItem('${id}')">[Array(${json.length})]</span> <div class='json-array json-collapsible' id='${id}'>${json.map((v, i) => `<div class='json-array-item'>[${i}] ${syntaxHighlight(v, path + '-' + i)}</div>`).join('')}</div>`;
+    }
+    if (typeof json === 'object') {
+      const keys = Object.keys(json);
+      const id = `item-${path}`;
+      return `<span class='json-object-toggle' onclick="toggleItem('${id}')">{Object(${keys.length})}</span> <div class='json-object json-collapsible' id='${id}'>${keys.map(k => `<div class='json-object-item'><span class='json-key'>"${k}"</span>: ${syntaxHighlight(json[k], path + '-' + k)}</div>`).join('')}</div>`;
+    }
+    if (typeof json === 'string') {
+      return `<span class='json-string'>"${json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}"</span>`;
+    }
+    if (typeof json === 'number') {
+      return `<span class='json-number'>${json}</span>`;
+    }
+    if (typeof json === 'boolean') {
+      return `<span class='json-boolean'>${json}</span>`;
+    }
+    return String(json);
+  }
+
+  const html = `<!DOCTYPE html><html lang='ja'><head><meta charset='utf-8'><title>IndexedDB Export</title>
+    <style>
+      body {
+        font-family: 'Menlo', 'Monaco', 'Consolas', 'monospace';
+        background: #222;
+        color: #eee;
+        padding: 1em;
+        margin: 0;
+        overflow-x: auto;
+      }
+      h1 {
+        color: #8cf;
+        margin-bottom: 0.5em;
+        font-size: 2em;
+      }
+      .db {
+        border: 1px solid #444;
+        border-radius: 6px;
+        margin-bottom: 0.7em;
+        background: #282c34;
+        box-shadow: 0 1px 4px #0004;
+        padding: 0.5em;
+      }
+      .db-header {
+        cursor: pointer;
+        font-size: 1em;
+        color: #8cf;
+        margin-bottom: 0.2em;
+        user-select: none;
+        padding: 0.2em 0.3em;
+      }
+      .store {
+        border-left: 2px solid #fc8;
+        margin-bottom: 0.4em;
+        padding-left: 0.5em;
+        background: #23272e;
+        border-radius: 2px;
+      }
+      .store-header {
+        cursor: pointer;
+        color: #fc8;
+        font-size: 0.95em;
+        margin-bottom: 0.1em;
+        user-select: none;
+        padding: 0.1em 0.2em;
+      }
+      .items {
+        max-height: 300px;
+        overflow-y: auto;
+        margin-bottom: 0.2em;
+      }
+      .item {
+        margin-left: 0.5em;
+        padding: 0.1em 0.2em;
+        border-bottom: 1px solid #333;
+        background: #222;
+        color: #b8e986;
+        font-size: 0.92em;
+        white-space: pre-wrap;
+      }
+      .item:nth-child(even) {
+        background: #252525;
+      }
+      .collapsed {
+        display: none;
+      }
+      .count {
+        color: #aaa;
+        font-size: 0.85em;
+        margin-left: 0.3em;
+      }
+      .json-key {
+        color: #8cf;
+      }
+      .json-string {
+        color: #fc8;
+      }
+      .json-number {
+        color: #8f8;
+      }
+      .json-boolean {
+        color: #f88;
+      }
+      .json-null {
+        color: #888;
+      }
+      .json-array-toggle, .json-object-toggle {
+        cursor: pointer;
+        color: #8cf;
+        font-weight: bold;
+        margin-right: 0.2em;
+        font-size: 0.92em;
+      }
+      .json-collapsible {
+        margin-left: 0.7em;
+      }
+      .json-array-item, .json-object-item {
+        margin-bottom: 0.1em;
+      }
+      .footer {
+        margin-top: 1em;
+        color: #888;
+        font-size: 0.85em;
+        text-align: right;
+      }
+      ::-webkit-scrollbar {
+        width: 6px;
+        background: #222;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #444;
+        border-radius: 3px;
+      }
+    </style>
+  </head><body>
+    <h1>IndexedDB Export</h1>
+    <div id='dbs'>
+      ${allData.map((db, dbIdx) => `
+        <div class='db'>
+          <div class='db-header' onclick='toggleDb(${dbIdx})'>DB: ${db.name} (v${db.version}) <span class='count'>[${db.stores.length} stores]</span></div>
+          <div class='db-content'>
+            ${db.stores.map((store, storeIdx) => `
+              <div class='store'>
+                <div class='store-header' onclick='toggleStore(${dbIdx},${storeIdx})'>Store: ${store.name} <span class='count'>[${store.items.length} items]</span></div>
+                <div class='items' id='items-${dbIdx}-${storeIdx}'>
+                  ${store.items.length === 0 ? `<div class='item'>No items</div>` : store.items.map((item, idx) => `<div class='item'>[${idx}] ${syntaxHighlight(item, `${dbIdx}-${storeIdx}-${idx}`)}</div>`).join('')}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `).join('')}
+    </div>
+    <div class='footer'>Generated at ${new Date().toLocaleString('ja-JP')}</div>
+    <script>
+      function toggleDb(dbIdx) {
+        const db = document.querySelectorAll('.db')[dbIdx];
+        const content = db.querySelector('.db-content');
+        content.classList.toggle('collapsed');
+      }
+      function toggleStore(dbIdx, storeIdx) {
+        const items = document.getElementById('items-' + dbIdx + '-' + storeIdx);
+        if (items) items.classList.toggle('collapsed');
+      }
+      function toggleItem(id) {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle('collapsed');
+      }
+      // 初期状態: DB/Store/Itemは展開
+    </script>
+  </body></html>`;
   return html;
 }
