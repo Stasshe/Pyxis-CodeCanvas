@@ -43,12 +43,69 @@ export async function downloadWorkspaceZip({ currentProject, includeGit = false 
     }
   }
 
-  // .gitを含める場合（filesストアに.gitファイルがあれば追加）
+  // .gitを含める場合（仮想ファイルシステムから.git配下のファイルを再帰的に取得して追加）
   if (includeGit) {
-    for (const file of projectFiles) {
-      if (file.path.startsWith('/.git/') && file.type === 'file') {
-        zip.file(`${projectDir}${file.path}`, file.content);
+    try {
+      // lightning-fsインスタンス取得
+      const { getFileSystem, getProjectDir } = await import('../filesystem');
+      const fs = getFileSystem();
+      if (!fs) return;
+      const gitDir = `${getProjectDir(project.name || project.id)}/.git`;
+
+      // .gitディレクトリが存在するか確認
+      let stat;
+      try {
+        stat = await fs.promises.stat(gitDir);
+      } catch {
+        stat = null;
       }
+      if (stat && stat.isDirectory()) {
+        // .git配下のファイルを再帰的に取得
+        const getAllGitFiles = async (dir: string): Promise<Array<{ path: string, content: Uint8Array }>> => {
+          let result: Array<{ path: string, content: Uint8Array }> = [];
+          let files: string[] = [];
+          if (!fs) return result;
+          try {
+            files = await fs.promises.readdir(dir);
+          } catch {
+            return result;
+          }
+          for (const file of files) {
+            const filePath = `${dir}/${file}`;
+            let stat;
+            if (!fs) continue;
+            try {
+              stat = await fs.promises.stat(filePath);
+            } catch {
+              continue;
+            }
+            if (stat.isDirectory()) {
+              const subFiles = await getAllGitFiles(filePath);
+              result = result.concat(subFiles);
+            } else {
+              let content: Uint8Array = new Uint8Array();
+              if (!fs) continue;
+              try {
+                // バイナリとして取得
+                content = await fs.promises.readFile(filePath);
+              } catch {
+                content = new Uint8Array();
+              }
+              // ZIP内のパスはプロジェクトディレクトリからの相対パス
+              const relativePath = filePath.replace(getProjectDir(project.name || project.id), '');
+              result.push({ path: `${projectDir}${relativePath}`, content });
+            }
+          }
+          return result;
+        };
+        const gitFiles = await getAllGitFiles(gitDir);
+        console.log('[ZIP DEBUG] .git files:', gitFiles.map(f => f.path));
+        for (const gitFile of gitFiles) {
+          zip.file(gitFile.path, gitFile.content);
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to include .git files in ZIP:', err);
     }
   }
 
