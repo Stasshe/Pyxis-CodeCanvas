@@ -48,6 +48,8 @@
 │   │   ├── SettingsPanel.tsx
 │   │   ├── TabBar.tsx
 │   │   └── Terminal.tsx
+│   ├── context
+│   │   └── ThemeContext.tsx
 │   ├── types
 │   │   ├── git.ts
 │   │   └── index.ts
@@ -82,9 +84,9 @@
 ├── tree.txt
 └── tsconfig.json
 
-11 directories, 72 files
+12 directories, 73 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 11731
-合計文字数: 403423
-合計ファイルサイズ(bytes): 438221
+合計行数: 11902
+合計文字数: 408517
+合計ファイルサイズ(bytes): 443455
