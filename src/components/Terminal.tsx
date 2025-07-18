@@ -775,7 +775,113 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
       }, 150);
     };
     
+    // 選択範囲管理
+  let selectionStart: number | null = null;
+  let selectionEnd: number | null = null;
+    let isSelecting = false;
+    let isComposing = false;
+
+    // IME入力対応
+    term.textarea?.addEventListener('compositionstart', () => {
+      isComposing = true;
+    });
+    term.textarea?.addEventListener('compositionend', () => {
+      isComposing = false;
+    });
+
+    // ペースト対応（Ctrl+V/iPad）
+    term.textarea?.addEventListener('paste', (e: ClipboardEvent) => {
+      const pasteText = e.clipboardData?.getData('text');
+      if (pasteText) {
+        currentLine = currentLine.slice(0, cursorPos) + pasteText + currentLine.slice(cursorPos);
+        term.write(currentLine.slice(cursorPos));
+        cursorPos += pasteText.length;
+        for (let i = 0; i < currentLine.length - cursorPos; i++) term.write('\b');
+      }
+      e.preventDefault();
+    });
+
+    // iPadタッチペースト対応
+    term.textarea?.addEventListener('beforeinput', (e: InputEvent) => {
+      if (e.inputType === 'insertFromPaste') {
+        // iPad Safari用
+        const pasteText = (e as any).data;
+        if (pasteText) {
+          currentLine = currentLine.slice(0, cursorPos) + pasteText + currentLine.slice(cursorPos);
+          term.write(currentLine.slice(cursorPos));
+          cursorPos += pasteText.length;
+          for (let i = 0; i < currentLine.length - cursorPos; i++) term.write('\b');
+        }
+        e.preventDefault();
+      }
+    });
+
+    // xterm.jsのonKeyでCtrl/Shift判定
+  term.onKey(({ key, domEvent }: { key: string; domEvent: KeyboardEvent }) => {
+      if (isComposing) return; // IME中は無視
+      // Ctrl+←/→ 単語単位移動
+      if (domEvent.ctrlKey && !domEvent.shiftKey && !domEvent.altKey) {
+        if (key === '\u001b[D') { // Ctrl+←
+          // 左の単語先頭へ
+          if (cursorPos > 0) {
+            let pos = cursorPos - 1;
+            while (pos > 0 && currentLine[pos - 1] !== ' ') pos--;
+            for (let i = 0; i < cursorPos - pos; i++) term.write('\b');
+            cursorPos = pos;
+          }
+          domEvent.preventDefault();
+        } else if (key === '\u001b[C') { // Ctrl+→
+          // 右の単語末尾へ
+          let pos = cursorPos;
+          while (pos < currentLine.length && currentLine[pos] !== ' ') pos++;
+          while (pos < currentLine.length && currentLine[pos] === ' ') pos++;
+          term.write(currentLine.slice(cursorPos, pos));
+          cursorPos = pos;
+          domEvent.preventDefault();
+        }
+      }
+      // Shift+←/→ 選択範囲
+      if (domEvent.shiftKey && !domEvent.ctrlKey && !domEvent.altKey) {
+        if (key === '\u001b[D') { // Shift+←
+          if (!isSelecting) {
+            selectionStart = cursorPos;
+            isSelecting = true;
+          }
+          if (cursorPos > 0) {
+            cursorPos--;
+            selectionEnd = cursorPos;
+            term.write('\b');
+          }
+          domEvent.preventDefault();
+        } else if (key === '\u001b[C') { // Shift+→
+          if (!isSelecting) {
+            selectionStart = cursorPos;
+            isSelecting = true;
+          }
+          if (cursorPos < currentLine.length) {
+            term.write(currentLine[cursorPos]);
+            cursorPos++;
+            selectionEnd = cursorPos;
+          }
+          domEvent.preventDefault();
+        }
+      }
+      // Ctrl+Cで選択範囲コピー
+      if (domEvent.ctrlKey && key === '\u0003' && isSelecting && selectionStart !== null && selectionEnd !== null) {
+        const selStart = Math.min(selectionStart, selectionEnd);
+        const selEnd = Math.max(selectionStart, selectionEnd);
+        const selectedText = currentLine.slice(selStart, selEnd);
+        navigator.clipboard.writeText(selectedText);
+        isSelecting = false;
+        selectionStart = null;
+        selectionEnd = null;
+        domEvent.preventDefault();
+      }
+    });
+
+    // 通常のキー入力（既存処理）
     term.onData((data: string) => {
+      if (isComposing) return; // IME中は無視
       switch (data) {
         case '\r': // Enter
           term.writeln('');
@@ -800,12 +906,14 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
           }
           currentLine = '';
           cursorPos = 0;
+          isSelecting = false;
+          selectionStart = null;
+          selectionEnd = null;
           break;
         case '\u007F': // Backspace
           if (cursorPos > 0) {
             currentLine = currentLine.slice(0, cursorPos - 1) + currentLine.slice(cursorPos);
             cursorPos--;
-            // 画面上のカーソル位置を調整
             term.write('\b');
             term.write(currentLine.slice(cursorPos) + ' ');
             for (let i = 0; i < currentLine.length - cursorPos + 1; i++) term.write('\b');
@@ -816,6 +924,9 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
           currentLine = '';
           cursorPos = 0;
           historyIndex = -1;
+          isSelecting = false;
+          selectionStart = null;
+          selectionEnd = null;
           showPrompt();
           break;
         case '\u001b[A': // 上矢印キー
@@ -825,14 +936,15 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
             } else if (historyIndex > 0) {
               historyIndex--;
             }
-            // 現在の行をクリア
             for (let i = 0; i < cursorPos; i++) term.write('\b');
             for (let i = 0; i < currentLine.length; i++) term.write(' ');
             for (let i = 0; i < currentLine.length; i++) term.write('\b');
-            // 履歴からコマンドを復元
             currentLine = commandHistory[historyIndex];
             cursorPos = currentLine.length;
             term.write(currentLine);
+            isSelecting = false;
+            selectionStart = null;
+            selectionEnd = null;
           }
           break;
         case '\u001b[B': // 下矢印キー
@@ -845,6 +957,9 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
               currentLine = commandHistory[historyIndex];
               cursorPos = currentLine.length;
               term.write(currentLine);
+              isSelecting = false;
+              selectionStart = null;
+              selectionEnd = null;
             } else {
               historyIndex = -1;
               for (let i = 0; i < cursorPos; i++) term.write('\b');
@@ -852,6 +967,9 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
               for (let i = 0; i < currentLine.length; i++) term.write('\b');
               currentLine = '';
               cursorPos = 0;
+              isSelecting = false;
+              selectionStart = null;
+              selectionEnd = null;
             }
           }
           break;
@@ -859,12 +977,14 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
           if (cursorPos > 0) {
             term.write('\b');
             cursorPos--;
+            if (isSelecting) selectionEnd = cursorPos;
           }
           break;
         case '\u001b[C': // → 右
           if (cursorPos < currentLine.length) {
             term.write(currentLine[cursorPos]);
             cursorPos++;
+            if (isSelecting) selectionEnd = cursorPos;
           }
           break;
         default:
@@ -873,6 +993,9 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
             term.write(currentLine.slice(cursorPos));
             cursorPos++;
             for (let i = 0; i < currentLine.length - cursorPos; i++) term.write('\b');
+            isSelecting = false;
+            selectionStart = null;
+            selectionEnd = null;
           }
           break;
       }
