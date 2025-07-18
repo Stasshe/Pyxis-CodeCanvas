@@ -239,19 +239,39 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
     // 初期プロンプト表示
     showPrompt();
 
+
     let cmdOutputs = '';
+
+    // コマンド履歴のlocalStorageキー
+    const HISTORY_KEY = `pyxis_terminal_history_${currentProject}`;
+
+    // 履歴の初期化・復元
+    let commandHistory: string[] = [];
+    try {
+      const saved = localStorage.getItem(HISTORY_KEY);
+      if (saved) {
+        commandHistory = JSON.parse(saved);
+      }
+    } catch {}
+    let historyIndex = -1;
+    let currentLine = '';
+
+    // 履歴保存関数
+    const saveHistory = () => {
+      try {
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(commandHistory));
+      } catch {}
+    };
 
     // 長い出力を段階的に処理する関数（シンプルで確実な処理）
     const writeOutput = async (output: string) => {
       const lines = output.split('\n');
-      const batchSize = 20; // バッチサイズを適度に戻す
-      
+      const batchSize = 20;
       for (let i = 0; i < lines.length; i += batchSize) {
         const batch = lines.slice(i, i + batchSize);
         cmdOutputs += batch.join('\n');
         for (const line of batch) {
           if (line === '' && i === 0) {
-            // 最初の空行はスキップしない
             term.writeln('\r');
           } else if (line !== '' || i > 0) {
             term.writeln(`\r${line}`);
@@ -259,11 +279,6 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
         }
       }
     };
-
-    // コマンド処理
-    let currentLine = '';
-    const commandHistory: string[] = [];
-    let historyIndex = -1;
     
     const processCommand = async (command: string) => {
       // リダイレクト演算子のパース
@@ -763,26 +778,19 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
       switch (data) {
         case '\r': // Enter
           term.writeln('');
-          // Enter押下時に1回スクロール
           scrollToBottom();
-          
           if (currentLine.trim()) {
-            // コマンド履歴に追加（重複削除）
             const command = currentLine.trim();
             const existingIndex = commandHistory.indexOf(command);
             if (existingIndex !== -1) {
               commandHistory.splice(existingIndex, 1);
             }
             commandHistory.push(command);
-            
-            // 履歴サイズ制限（最大100コマンド）
             if (commandHistory.length > 100) {
               commandHistory.shift();
             }
-            
-            // 履歴インデックスをリセット
+            saveHistory();
             historyIndex = -1;
-            
             processCommand(currentLine).then(() => {
               showPrompt();
             });
