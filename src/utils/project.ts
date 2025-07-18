@@ -341,19 +341,16 @@ export const useProject = () => {
       setProjectFiles(prev => prev.filter(f => f.id !== fileId));
       
       // ファイルシステムからも削除（Git変更検知のため）
-      if (fileToDelete && fileToDelete.type === 'file') {
-        try {
-          const { getFileSystem, getProjectDir } = await import('./filesystem');
-          const fs = getFileSystem();
-          if (fs) {
-            const fullPath = `${getProjectDir(currentProject.name)}${fileToDelete.path}`;
-            await fs.promises.unlink(fullPath);
-            console.log('[deleteFile] Removed from filesystem for Git detection');
+        if (fileToDelete && fileToDelete.type === 'file') {
+          try {
+            const { syncFileToFileSystem } = await import('./filesystem');
+            // Git検知・一貫性のための同期
+            await syncFileToFileSystem(currentProject.name, fileToDelete.path, '');
+            console.log('[deleteFile] Synced deletion to filesystem for Git detection');
+          } catch (syncError) {
+            console.warn('[deleteFile] Filesystem removal/sync failed (non-critical):', syncError);
           }
-        } catch (syncError) {
-          console.warn('[deleteFile] Filesystem removal failed (non-critical):', syncError);
         }
-      }
       
       console.log('[deleteFile] File deleted successfully');
     } catch (error) {
