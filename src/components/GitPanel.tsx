@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useTheme } from '../context/ThemeContext';
 import { generateCommitMessage } from '@/utils/gemini';
 import { GitBranch, GitCommit, RefreshCw, Plus, Check, X, GitMerge, Clock, User, Minus, RotateCcw } from 'lucide-react';
 import { GitRepository, GitCommit as GitCommitType, GitStatus } from '@/types/git';
@@ -16,6 +17,7 @@ interface GitPanelProps {
 }
 
 export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger, onFileOperation, onGitStatusChange }: GitPanelProps) {
+  const { colors } = useTheme();
   const [gitRepo, setGitRepo] = useState<GitRepository | null>(null);
   const [commitMessage, setCommitMessage] = useState('');
   const [isCommitting, setIsCommitting] = useState(false);
@@ -425,31 +427,31 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
 
   if (!currentProject) {
     return (
-      <div className="p-4 text-center text-muted-foreground">
-        <GitBranch className="w-8 h-8 mx-auto mb-2 opacity-50" />
-        <p className="text-sm">プロジェクトを選択してください</p>
+      <div style={{ padding: '1rem', textAlign: 'center', color: colors.mutedFg }}>
+        <GitBranch style={{ width: '2rem', height: '2rem', display: 'block', margin: '0 auto 0.5rem', opacity: 0.5, color: colors.mutedFg }} />
+        <p style={{ fontSize: '0.875rem' }}>プロジェクトを選択してください</p>
       </div>
     );
   }
 
   if (isLoading) {
     return (
-      <div className="p-4 text-center text-muted-foreground">
-        <RefreshCw className="w-6 h-6 mx-auto mb-2 animate-spin" />
-        <p className="text-sm">Git状態を読み込み中...</p>
+      <div style={{ padding: '1rem', textAlign: 'center', color: colors.mutedFg }}>
+        <RefreshCw style={{ width: '1.5rem', height: '1.5rem', display: 'block', margin: '0 auto 0.5rem', animation: 'spin 1s linear infinite', color: colors.mutedFg }} />
+        <p style={{ fontSize: '0.875rem' }}>Git状態を読み込み中...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-4 text-center text-red-500">
-        <X className="w-8 h-8 mx-auto mb-2" />
-        <p className="text-sm mb-2">エラーが発生しました</p>
-        <p className="text-xs text-muted-foreground">{error}</p>
+      <div style={{ padding: '1rem', textAlign: 'center', color: colors.red }}>
+        <X style={{ width: '2rem', height: '2rem', display: 'block', margin: '0 auto 0.5rem', color: colors.red }} />
+        <p style={{ fontSize: '0.875rem', marginBottom: '0.5rem' }}>エラーが発生しました</p>
+        <p style={{ fontSize: '0.75rem', color: colors.mutedFg }}>{error}</p>
         <button
           onClick={fetchGitStatus}
-          className="mt-2 px-3 py-1 text-xs bg-muted hover:bg-muted/80 rounded"
+          style={{ marginTop: '0.5rem', padding: '0.5rem 1rem', fontSize: '0.75rem', background: colors.mutedBg, color: colors.foreground, borderRadius: '0.375rem', border: 'none', cursor: 'pointer' }}
         >
           再試行
         </button>
@@ -459,9 +461,9 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
 
   if (!gitRepo) {
     return (
-      <div className="p-4 text-center text-muted-foreground">
-        <GitBranch className="w-8 h-8 mx-auto mb-2 opacity-50" />
-        <p className="text-sm">Git情報を取得できませんでした</p>
+      <div style={{ padding: '1rem', textAlign: 'center', color: colors.mutedFg }}>
+        <GitBranch style={{ width: '2rem', height: '2rem', display: 'block', margin: '0 auto 0.5rem', opacity: 0.5, color: colors.mutedFg }} />
+        <p style={{ fontSize: '0.875rem' }}>Git情報を取得できませんでした</p>
       </div>
     );
   }
@@ -471,73 +473,80 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
                    gitRepo.status.untracked.length > 0;
 
   return (
-    <div className="h-full flex flex-col bg-card">
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: colors.cardBg }}>
       {/* ヘッダー */}
-      <div className="p-3 border-b border-border">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="font-medium flex items-center gap-2">
-            <GitBranch className="w-4 h-4" />
+      <div style={{ padding: '0.75rem', borderBottom: `1px solid ${colors.border}` }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+          <h3 style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1rem', color: colors.foreground }}>
+            <GitBranch style={{ width: '1rem', height: '1rem', color: colors.primary }} />
             Git
           </h3>
           <button
             onClick={fetchGitStatus}
-            className="p-1 hover:bg-muted rounded"
+            style={{ padding: '0.25rem', background: 'transparent', borderRadius: '0.375rem', border: 'none', cursor: 'pointer' }}
             title="更新"
+            onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
+            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw style={{ width: '1rem', height: '1rem', color: colors.mutedFg }} />
           </button>
         </div>
-        
-        <div className="text-xs text-muted-foreground">
-          <span className="font-medium">{gitRepo.currentBranch}</span>
+        <div style={{ fontSize: '0.75rem', color: colors.mutedFg }}>
+          <span style={{ fontWeight: 500 }}>{gitRepo.currentBranch}</span>
           {gitRepo.commits.length > 0 && (
-            <span className="ml-2">• {gitRepo.commits.length} コミット</span>
+            <span style={{ marginLeft: '0.5rem' }}>• {gitRepo.commits.length} コミット</span>
           )}
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div style={{ flex: 1, overflowY: 'auto' }}>
         {/* 変更ファイル */}
-        <div className="p-3 border-b border-border">
-          <div className="flex items-center justify-between mb-2">
-            <h4 className="text-sm font-medium">変更</h4>
+        <div style={{ padding: '0.75rem', borderBottom: `1px solid ${colors.border}` }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+            <h4 style={{ fontSize: '0.875rem', fontWeight: 500, color: colors.foreground }}>変更</h4>
             {hasChanges && (
-              <div className="flex gap-1">
+              <div style={{ display: 'flex', gap: '0.25rem' }}>
                 <button
                   onClick={handleStageAll}
-                  className="p-1 hover:bg-muted rounded text-xs"
+                  style={{ padding: '0.25rem', background: 'transparent', borderRadius: '0.375rem', border: 'none', fontSize: '0.75rem', cursor: 'pointer' }}
                   title="全てステージング"
+                  onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
-                  <Plus className="w-3 h-3" />
+                  <Plus style={{ width: '0.75rem', height: '0.75rem', color: colors.primary }} />
                 </button>
                 <button
                   onClick={handleUnstageAll}
-                  className="p-1 hover:bg-muted rounded text-xs"
+                  style={{ padding: '0.25rem', background: 'transparent', borderRadius: '0.375rem', border: 'none', fontSize: '0.75rem', cursor: 'pointer' }}
                   title="全てアンステージング"
+                  onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
-                  <Minus className="w-3 h-3" />
+                  <Minus style={{ width: '0.75rem', height: '0.75rem', color: colors.primary }} />
                 </button>
               </div>
             )}
           </div>
 
           {!hasChanges ? (
-            <p className="text-xs text-muted-foreground">変更はありません</p>
+            <p style={{ fontSize: '0.75rem', color: colors.mutedFg }}>変更はありません</p>
           ) : (
-            <div className="space-y-1">
+            <div>
               {/* ステージされたファイル */}
               {gitRepo.status.staged.length > 0 && (
                 <div>
-                  <p className="text-xs text-green-600 mb-1">ステージ済み ({gitRepo.status.staged.length})</p>
+                  <p style={{ fontSize: '0.75rem', color: '#22c55e', marginBottom: '0.25rem' }}>ステージ済み ({gitRepo.status.staged.length})</p>
                   {gitRepo.status.staged.map((file) => (
-                    <div key={`staged-${file}`} className="flex items-center justify-between text-xs py-1">
-                      <span className="text-green-600 flex-1 truncate">{file}</span>
+                    <div key={`staged-${file}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.75rem', padding: '0.25rem 0' }}>
+                      <span style={{ color: '#22c55e', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{file}</span>
                       <button
                         onClick={() => handleUnstageFile(file)}
-                        className="p-1 hover:bg-muted rounded ml-1"
+                        style={{ padding: '0.25rem', background: 'transparent', borderRadius: '0.375rem', marginLeft: '0.25rem', border: 'none', cursor: 'pointer' }}
                         title="アンステージング"
+                        onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                       >
-                        <Minus className="w-3 h-3" />
+                        <Minus style={{ width: '0.75rem', height: '0.75rem', color: colors.primary }} />
                       </button>
                     </div>
                   ))}
@@ -547,24 +556,28 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
               {/* 変更されたファイル */}
               {gitRepo.status.unstaged.length > 0 && (
                 <div>
-                  <p className="text-xs text-orange-600 mb-1">変更済み ({gitRepo.status.unstaged.length})</p>
+                  <p style={{ fontSize: '0.75rem', color: '#f59e42', marginBottom: '0.25rem' }}>変更済み ({gitRepo.status.unstaged.length})</p>
                   {gitRepo.status.unstaged.map((file) => (
-                    <div key={`unstaged-${file}`} className="flex items-center justify-between text-xs py-1">
-                      <span className="text-orange-600 flex-1 truncate">{file}</span>
-                      <div className="flex gap-1">
+                    <div key={`unstaged-${file}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.75rem', padding: '0.25rem 0' }}>
+                      <span style={{ color: '#f59e42', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{file}</span>
+                      <div style={{ display: 'flex', gap: '0.25rem' }}>
                         <button
                           onClick={() => handleStageFile(file)}
-                          className="p-1 hover:bg-muted rounded"
+                          style={{ padding: '0.25rem', background: 'transparent', borderRadius: '0.375rem', border: 'none', cursor: 'pointer' }}
                           title="ステージング"
+                          onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                         >
-                          <Plus className="w-3 h-3" />
+                          <Plus style={{ width: '0.75rem', height: '0.75rem', color: colors.primary }} />
                         </button>
                         <button
                           onClick={() => handleDiscardChanges(file)}
-                          className="p-1 hover:bg-muted rounded text-red-500"
+                          style={{ padding: '0.25rem', background: 'transparent', borderRadius: '0.375rem', border: 'none', cursor: 'pointer', color: colors.red }}
                           title="変更を破棄"
+                          onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                         >
-                          <RotateCcw className="w-3 h-3" />
+                          <RotateCcw style={{ width: '0.75rem', height: '0.75rem', color: colors.red }} />
                         </button>
                       </div>
                     </div>
@@ -575,24 +588,28 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
               {/* 未追跡ファイル */}
               {gitRepo.status.untracked.length > 0 && (
                 <div>
-                  <p className="text-xs text-blue-600 mb-1">未追跡 ({gitRepo.status.untracked.length})</p>
+                  <p style={{ fontSize: '0.75rem', color: colors.primary, marginBottom: '0.25rem' }}>未追跡 ({gitRepo.status.untracked.length})</p>
                   {gitRepo.status.untracked.map((file) => (
-                    <div key={`untracked-${file}`} className="flex items-center justify-between text-xs py-1">
-                      <span className="text-blue-600 flex-1 truncate">{file}</span>
-                      <div className="flex gap-1">
+                    <div key={`untracked-${file}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.75rem', padding: '0.25rem 0' }}>
+                      <span style={{ color: colors.primary, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{file}</span>
+                      <div style={{ display: 'flex', gap: '0.25rem' }}>
                         <button
                           onClick={() => handleStageFile(file)}
-                          className="p-1 hover:bg-muted rounded"
+                          style={{ padding: '0.25rem', background: 'transparent', borderRadius: '0.375rem', border: 'none', cursor: 'pointer' }}
                           title="ステージング"
+                          onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                         >
-                          <Plus className="w-3 h-3" />
+                          <Plus style={{ width: '0.75rem', height: '0.75rem', color: colors.primary }} />
                         </button>
                         <button
                           onClick={() => handleDiscardChanges(file)}
-                          className="p-1 hover:bg-muted rounded text-red-500"
+                          style={{ padding: '0.25rem', background: 'transparent', borderRadius: '0.375rem', border: 'none', cursor: 'pointer', color: colors.red }}
                           title="ファイルを削除"
+                          onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                         >
-                          <RotateCcw className="w-3 h-3" />
+                          <RotateCcw style={{ width: '0.75rem', height: '0.75rem', color: colors.red }} />
                         </button>
                       </div>
                     </div>
@@ -605,8 +622,8 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
 
         {/* コミット */}
         {gitRepo.status.staged.length > 0 && (
-          <div className="p-3 border-b border-border">
-            <h4 className="text-sm font-medium mb-2">コミット</h4>
+          <div style={{ padding: '0.75rem', borderBottom: `1px solid ${colors.border}` }}>
+            <h4 style={{ fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: colors.foreground }}>コミット</h4>
             {/* APIキー入力欄（未保存時のみ表示） */}
             {!hasApiKey && (
               <input
@@ -614,33 +631,33 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
                 value={apiKey}
                 onChange={handleApiKeyChange}
                 placeholder="Gemini APIキーを入力"
-                className="w-full mb-2 text-xs border border-border rounded px-2 py-1 bg-background"
+                style={{ width: '100%', marginBottom: '0.5rem', fontSize: '0.75rem', border: `1px solid ${colors.border}`, borderRadius: '0.375rem', padding: '0.25rem 0.5rem', background: colors.background, color: colors.foreground }}
               />
             )}
             <textarea
               value={commitMessage}
               onChange={(e) => setCommitMessage(e.target.value)}
               placeholder="コミットメッセージを入力..."
-              className="w-full h-16 text-xs border border-border rounded px-2 py-1 resize-none bg-background"
+              style={{ width: '100%', height: '4rem', fontSize: '0.75rem', border: `1px solid ${colors.border}`, borderRadius: '0.375rem', padding: '0.25rem 0.5rem', resize: 'none', background: colors.background, color: colors.foreground }}
             />
-            <div className="flex gap-2 mt-2">
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
               <button
                 onClick={handleGenerateCommitMessage}
                 disabled={!apiKey || isGenerating}
-                className="flex-1 bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1 rounded text-xs font-medium transition-colors flex items-center justify-center gap-2"
+                style={{ flex: 1, background: '#22c55e', color: 'white', borderRadius: '0.375rem', padding: '0.5rem 1rem', fontSize: '0.75rem', fontWeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', border: 'none', cursor: isGenerating || !apiKey ? 'not-allowed' : 'pointer', opacity: isGenerating || !apiKey ? 0.5 : 1 }}
               >
-                {isGenerating ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                {isGenerating ? <RefreshCw style={{ width: '0.75rem', height: '0.75rem', animation: 'spin 1s linear infinite' }} /> : <Plus style={{ width: '0.75rem', height: '0.75rem' }} />}
                 {isGenerating ? '生成中...' : '自動生成'}
               </button>
               <button
                 onClick={handleCommit}
                 disabled={!commitMessage.trim() || isCommitting}
-                className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1 rounded text-xs font-medium transition-colors flex items-center justify-center gap-2"
+                style={{ flex: 1, background: colors.primary, color: colors.background, borderRadius: '0.375rem', padding: '0.5rem 1rem', fontSize: '0.75rem', fontWeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', border: 'none', cursor: isCommitting || !commitMessage.trim() ? 'not-allowed' : 'pointer', opacity: isCommitting || !commitMessage.trim() ? 0.5 : 1 }}
               >
                 {isCommitting ? (
-                  <RefreshCw className="w-3 h-3 animate-spin" />
+                  <RefreshCw style={{ width: '0.75rem', height: '0.75rem', animation: 'spin 1s linear infinite' }} />
                 ) : (
-                  <GitCommit className="w-3 h-3" />
+                  <GitCommit style={{ width: '0.75rem', height: '0.75rem' }} />
                 )}
                 {isCommitting ? 'コミット中...' : 'コミット'}
               </button>
@@ -649,18 +666,17 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
         )}
 
         {/* コミット履歴 */}
-        <div className="flex-1 flex flex-col">
-          <div className="p-3 border-b border-border">
-            <h4 className="text-sm font-medium flex items-center gap-2">
-              <Clock className="w-4 h-4" />
+        <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+          <div style={{ padding: '0.75rem', borderBottom: `1px solid ${colors.border}` }}>
+            <h4 style={{ fontSize: '0.875rem', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.5rem', color: colors.foreground }}>
+              <Clock style={{ width: '1rem', height: '1rem', color: colors.mutedFg }} />
               履歴 ({gitRepo.commits.length})
             </h4>
           </div>
-          
-          <div className="flex-1 overflow-hidden">
+          <div style={{ flex: 1, overflow: 'hidden' }}>
             {gitRepo.commits.length === 0 ? (
-              <div className="p-3">
-                <p className="text-xs text-muted-foreground">コミット履歴がありません</p>
+              <div style={{ padding: '0.75rem' }}>
+                <p style={{ fontSize: '0.75rem', color: colors.mutedFg }}>コミット履歴がありません</p>
               </div>
             ) : (
               <GitHistory

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 
 export type ThemeColors = {
   background: string;
@@ -107,16 +107,20 @@ interface ThemeContextProps {
 const ThemeContext = createContext<ThemeContextProps | undefined>(undefined);
 
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
-  // localStorageからテーマ名を取得
-  const getInitialTheme = () => {
+  // SSR/クライアントで初期値を必ず一致させる
+  const [themeName, setThemeName] = useState<string>('dark');
+  const [colors, setColorsState] = useState<ThemeColors>(themes['dark']);
+
+  // クライアントマウント後にlocalStorageのテーマを反映
+  useEffect(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('themeName');
-      if (saved && themes[saved]) return saved;
+      if (saved && themes[saved]) {
+        setThemeName(saved);
+        setColorsState(themes[saved]);
+      }
     }
-    return 'dark';
-  };
-  const [themeName, setThemeName] = useState<string>(getInitialTheme());
-  const [colors, setColorsState] = useState<ThemeColors>(themes[getInitialTheme()]);
+  }, []);
 
   const setColor = (key: string, value: string) => {
     setColorsState(prev => ({ ...prev, [key]: value }));
