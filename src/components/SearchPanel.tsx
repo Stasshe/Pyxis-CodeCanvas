@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Search, X, FileText, Folder } from 'lucide-react';
 import { FileItem } from '@/types';
+import { useTheme } from '../context/ThemeContext';
 
 interface SearchPanelProps {
   files: FileItem[];
@@ -17,6 +18,7 @@ interface SearchResult {
 }
 
 export default function SearchPanel({ files, onFileOpen }: SearchPanelProps) {
+  const { colors } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -117,11 +119,10 @@ export default function SearchPanel({ files, onFileOpen }: SearchPanelProps) {
     const before = content.substring(0, matchStart);
     const match = content.substring(matchStart, matchEnd);
     const after = content.substring(matchEnd);
-
     return (
       <>
         {before}
-        <span className="bg-yellow-400 text-black px-0.5 rounded">{match}</span>
+        <span style={{ background: colors.primary, color: colors.background, padding: '0.125rem 0.25rem', borderRadius: '0.25rem' }}>{match}</span>
         {after}
       </>
     );
@@ -133,25 +134,39 @@ export default function SearchPanel({ files, onFileOpen }: SearchPanelProps) {
   };
 
   return (
-    <div className="h-full flex flex-col">
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* 検索入力エリア */}
-      <div className="p-3 border-b border-border">
-        <div className="space-y-2">
+      <div style={{ padding: '0.75rem', borderBottom: `1px solid ${colors.border}` }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           {/* 検索ボックス */}
-          <div className="relative">
-            <Search size={14} className="absolute left-2 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+          <div style={{ position: 'relative' }}>
+            <Search size={14} style={{ position: 'absolute', left: '0.5rem', top: '50%', transform: 'translateY(-50%)', color: colors.mutedFg }} />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="ファイル内を検索..."
-              className="w-full pl-8 pr-8 py-1.5 bg-muted border border-border rounded focus:outline-none focus:ring-1 focus:ring-ring text-xs"
+              style={{
+                width: '100%',
+                paddingLeft: '2rem',
+                paddingRight: '2rem',
+                paddingTop: '0.375rem',
+                paddingBottom: '0.375rem',
+                background: colors.mutedBg,
+                border: `1px solid ${colors.border}`,
+                borderRadius: '0.375rem',
+                fontSize: '0.75rem',
+                outline: 'none',
+                color: colors.foreground,
+              }}
               autoFocus
             />
             {searchQuery && (
               <button
                 onClick={clearSearch}
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                style={{ position: 'absolute', right: '0.5rem', top: '50%', transform: 'translateY(-50%)', color: colors.mutedFg }}
+                onMouseEnter={e => (e.currentTarget.style.color = colors.foreground)}
+                onMouseLeave={e => (e.currentTarget.style.color = colors.mutedFg)}
               >
                 <X size={14} />
               </button>
@@ -159,36 +174,48 @@ export default function SearchPanel({ files, onFileOpen }: SearchPanelProps) {
           </div>
 
           {/* 検索オプション - コンパクトなボタン形式 */}
-          <div className="flex gap-1">
+          <div style={{ display: 'flex', gap: '0.25rem' }}>
             <button
               onClick={() => setCaseSensitive(!caseSensitive)}
-              className={`px-1.5 py-0.5 text-xs rounded border ${
-                caseSensitive 
-                  ? 'bg-accent text-accent-foreground border-accent' 
-                  : 'bg-muted text-muted-foreground border-border hover:bg-accent/50'
-              }`}
+              style={{
+                padding: '0.375rem 0.5rem',
+                fontSize: '0.75rem',
+                borderRadius: '0.375rem',
+                border: `1px solid ${caseSensitive ? colors.accentBg : colors.border}`,
+                background: caseSensitive ? colors.accentBg : colors.mutedBg,
+                color: caseSensitive ? colors.accentFg : colors.mutedFg,
+                cursor: 'pointer',
+              }}
               title="大文字小文字を区別"
             >
               Aa
             </button>
             <button
               onClick={() => setWholeWord(!wholeWord)}
-              className={`px-1.5 py-0.5 text-xs rounded border ${
-                wholeWord 
-                  ? 'bg-accent text-accent-foreground border-accent' 
-                  : 'bg-muted text-muted-foreground border-border hover:bg-accent/50'
-              }`}
+              style={{
+                padding: '0.375rem 0.5rem',
+                fontSize: '0.75rem',
+                borderRadius: '0.375rem',
+                border: `1px solid ${wholeWord ? colors.accentBg : colors.border}`,
+                background: wholeWord ? colors.accentBg : colors.mutedBg,
+                color: wholeWord ? colors.accentFg : colors.mutedFg,
+                cursor: 'pointer',
+              }}
               title="単語単位で検索"
             >
               Ab
             </button>
             <button
               onClick={() => setUseRegex(!useRegex)}
-              className={`px-1.5 py-0.5 text-xs rounded border ${
-                useRegex 
-                  ? 'bg-accent text-accent-foreground border-accent' 
-                  : 'bg-muted text-muted-foreground border-border hover:bg-accent/50'
-              }`}
+              style={{
+                padding: '0.375rem 0.5rem',
+                fontSize: '0.75rem',
+                borderRadius: '0.375rem',
+                border: `1px solid ${useRegex ? colors.accentBg : colors.border}`,
+                background: useRegex ? colors.accentBg : colors.mutedBg,
+                color: useRegex ? colors.accentFg : colors.mutedFg,
+                cursor: 'pointer',
+              }}
               title="正規表現を使用"
             >
               .*
@@ -197,7 +224,7 @@ export default function SearchPanel({ files, onFileOpen }: SearchPanelProps) {
 
           {/* 検索結果サマリー */}
           {searchQuery && (
-            <div className="text-xs text-muted-foreground">
+            <div style={{ fontSize: '0.75rem', color: colors.mutedFg }}>
               {isSearching ? (
                 '検索中...'
               ) : (
@@ -209,35 +236,45 @@ export default function SearchPanel({ files, onFileOpen }: SearchPanelProps) {
       </div>
 
       {/* 検索結果 */}
-      <div className="flex-1 overflow-auto">
+      <div style={{ flex: 1, overflow: 'auto' }}>
         {searchQuery && !isSearching && searchResults.length === 0 && (
-          <div className="p-3 text-center text-muted-foreground">
-            <Search size={24} className="mx-auto mb-2 opacity-50" />
-            <p className="text-xs">結果が見つかりませんでした</p>
+          <div style={{ padding: '0.75rem', textAlign: 'center', color: colors.mutedFg }}>
+            <Search size={24} style={{ display: 'block', margin: '0 auto 0.5rem', opacity: 0.5, color: colors.mutedFg }} />
+            <p style={{ fontSize: '0.75rem' }}>結果が見つかりませんでした</p>
           </div>
         )}
 
         {searchResults.length > 0 && (
-          <div className="p-1">
+          <div style={{ padding: '0.25rem' }}>
             {searchResults.map((result, index) => (
               <div
                 key={`${result.file.id}-${result.line}-${index}`}
                 onClick={() => handleResultClick(result)}
-                className="p-2 hover:bg-accent cursor-pointer rounded text-xs border-b border-border/30 last:border-b-0"
+                style={{
+                  padding: '0.5rem',
+                  background: 'transparent',
+                  borderRadius: '0.375rem',
+                  fontSize: '0.75rem',
+                  borderBottom: `1px solid ${colors.border}`,
+                  cursor: 'pointer',
+                  marginBottom: '0.125rem',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
               >
-                <div className="flex items-center gap-1 mb-1">
-                  <FileText size={12} className="text-blue-400 flex-shrink-0" />
-                  <span className="font-medium truncate text-xs">{result.file.name}</span>
-                  <span className="text-xs text-muted-foreground flex-shrink-0 ml-auto">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginBottom: '0.25rem' }}>
+                  <FileText size={12} color={colors.primary} style={{ flexShrink: 0 }} />
+                  <span style={{ fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.75rem' }}>{result.file.name}</span>
+                  <span style={{ fontSize: '0.75rem', color: colors.mutedFg, flexShrink: 0, marginLeft: 'auto' }}>
                     {result.line}:{result.column}
                   </span>
                 </div>
-                <div className="ml-3 mb-1">
-                  <code className="bg-muted px-1 py-0.5 rounded text-xs block">
+                <div style={{ marginLeft: '0.75rem', marginBottom: '0.25rem' }}>
+                  <code style={{ background: colors.mutedBg, padding: '0.25rem 0.5rem', borderRadius: '0.25rem', fontSize: '0.75rem', display: 'block', color: colors.foreground }}>
                     {highlightMatch(result.content, result.matchStart, result.matchEnd)}
                   </code>
                 </div>
-                <div className="ml-3 text-xs text-muted-foreground truncate">
+                <div style={{ marginLeft: '0.75rem', fontSize: '0.75rem', color: colors.mutedFg, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {result.file.path}
                 </div>
               </div>
