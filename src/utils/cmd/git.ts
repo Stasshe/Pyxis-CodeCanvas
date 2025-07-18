@@ -295,24 +295,34 @@ export class GitCommands {
           }
         }
         
-        // ファイル追加後の状態確認
-        try {
-          const verifyStatus = await git.statusMatrix({ fs: this.fs, dir: this.dir });
-          
-          const stagedFiles = verifyStatus.filter(([file, head, workdir, stage]) => 
-            stage === 3 || stage === 2
-          );
-        } catch (verifyError) {
-          console.warn(`[git.add] Failed to verify status after add:`, verifyError);
-        }
-        
-        // onFileOperationコールバックを呼び出してプロジェクトの更新を通知
-        if (this.onFileOperation) {
-          // ダミーのファイル操作として通知（プロジェクト全体の更新を促す）
-          await this.onFileOperation('.', 'folder');
-        }
-        
-        return `Added ${files.length} file(s) to staging area`;
+          // ファイル追加後の状態確認と件数集計
+          let newCount = 0, modifiedCount = 0, deletedCount = 0;
+          try {
+            const verifyStatus = await git.statusMatrix({ fs: this.fs, dir: this.dir });
+            for (const [file, head, workdir, stage] of verifyStatus) {
+              // 新規ファイル: HEAD=0, stage=3 or 2
+              if (head === 0 && (stage === 3 || stage === 2)) {
+                newCount++;
+              }
+              // 変更ファイル: HEAD=1, workdir=2, stage=2
+              else if (head === 1 && workdir === 2 && stage === 2) {
+                modifiedCount++;
+              }
+              // 削除ファイル: HEAD=1, workdir=0, stage=3
+              else if (head === 1 && workdir === 0 && stage === 3) {
+                deletedCount++;
+              }
+            }
+          } catch (verifyError) {
+            console.warn(`[git.add] Failed to verify status after add:`, verifyError);
+          }
+          // onFileOperationコールバックを呼び出してプロジェクトの更新を通知
+          if (this.onFileOperation) {
+            // ダミーのファイル操作として通知（プロジェクト全体の更新を促す）
+            await this.onFileOperation('.', 'folder');
+          }
+          // 件数ごとに出力
+          return `Added: ${newCount} new, ${modifiedCount} modified, ${deletedCount} deleted files to staging area`;
       } else if (filepath === '*' || filepath.includes('*')) {
         // ワイルドカード対応
         const files = await this.getMatchingFiles(this.dir, filepath);
