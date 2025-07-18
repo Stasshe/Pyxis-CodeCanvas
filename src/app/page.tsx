@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useTheme } from '../context/ThemeContext';
 import MenuBar from '@/components/MenuBar';
 import LeftSidebar from '@/components/LeftSidebar';
 import TabBar from '@/components/TabBar';
@@ -33,6 +34,7 @@ export default function Home() {
   const [editors, setEditors] = useState<EditorPane[]>([
     { id: 'editor-1', tabs: [], activeTabId: '' }
   ]);
+  const { colors } = useTheme();
 
   // ペイン追加
   const addEditorPane = () => {
@@ -326,16 +328,28 @@ export default function Home() {
   };
 
   return (
-    <div className="h-full w-full flex overflow-hidden bg-background" style={{ paddingTop: '20px', position: 'relative' }}>
+    <div
+      className="h-full w-full flex overflow-hidden"
+      style={{
+        background: colors.background,
+        paddingTop: '20px',
+        position: 'relative'
+      }}
+    >
       <button
         className={
-          `absolute right-3 top-1 h-6 px-2 hover:bg-accent flex items-center justify-center border border-border bg-muted rounded transition-colors ${isBottomPanelVisible ? 'bg-accent text-primary' : ''}`
+          `absolute right-3 top-1 h-6 px-2 flex items-center justify-center border rounded transition-colors ${isBottomPanelVisible ? '' : ''}`
         }
         onClick={toggleBottomPanel}
         title="ターミナル表示/非表示"
-        style={{ zIndex: 50 }}
+        style={{
+          zIndex: 50,
+          background: isBottomPanelVisible ? colors.accentBg : colors.mutedBg,
+          color: isBottomPanelVisible ? colors.primary : colors.mutedFg,
+          borderColor: colors.border
+        }}
       >
-        <Terminal size={10}/>
+        <Terminal size={10} color={isBottomPanelVisible ? colors.primary : colors.mutedFg}/>
       </button>
       <MenuBar 
         activeMenuTab={activeMenuTab}
@@ -416,7 +430,7 @@ export default function Home() {
           />
       )}
 
-      <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+  <div className="flex-1 flex flex-col overflow-hidden min-h-0">
         <div
           className={editorLayout === 'vertical' ? 'flex-1 flex flex-row overflow-hidden min-h-0' : 'flex-1 flex flex-col overflow-hidden min-h-0'}
           style={{ gap: '2px' }}
@@ -424,7 +438,14 @@ export default function Home() {
           {editors.map((editor, idx) => {
             const activeTab = editor.tabs.find(tab => tab.id === editor.activeTabId);
             return (
-              <div key={editor.id} className="flex-1 flex flex-col border border-border rounded bg-background relative min-w-0 min-h-0">
+              <div
+                key={editor.id}
+                className="flex-1 flex flex-col rounded relative min-w-0 min-h-0"
+                style={{
+                  background: colors.background,
+                  border: `1px solid ${colors.border}`
+                }}
+              >
                 <TabBar
                   tabs={editor.tabs}
                   activeTabId={editor.activeTabId}
