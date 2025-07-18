@@ -328,29 +328,35 @@ export default function Home() {
   };
 
   return (
+    <>
     <div
-      className="h-full w-full flex overflow-hidden"
+      className="w-full flex justify-end items-center overflow-hidden"
       style={{
-        background: colors.background,
-        paddingTop: '20px',
-        position: 'relative'
+      background: colors.background,
+      height: '30px',
       }}
     >
       <button
-        className={
-          `absolute right-3 top-1 h-6 px-2 flex items-center justify-center border rounded transition-colors ${isBottomPanelVisible ? '' : ''}`
-        }
+        className={`relative right-3 h-6 px-2 flex items-center justify-center border rounded transition-colors`}
         onClick={toggleBottomPanel}
         title="ターミナル表示/非表示"
         style={{
           zIndex: 50,
           background: isBottomPanelVisible ? colors.accentBg : colors.mutedBg,
           color: isBottomPanelVisible ? colors.primary : colors.mutedFg,
-          borderColor: colors.border
+          borderColor: colors.border,
         }}
-      >
-        <Terminal size={10} color={isBottomPanelVisible ? colors.primary : colors.mutedFg}/>
+        >
+        <Terminal size={8} color={isBottomPanelVisible ? colors.primary : colors.mutedFg} />
       </button>
+    </div>
+    <div
+      className="h-full w-full flex overflow-hidden"
+      style={{
+        background: colors.background,
+        position: 'relative'
+      }}
+    >
       <MenuBar 
         activeMenuTab={activeMenuTab}
         onMenuTabClick={handleMenuTabClick}
@@ -616,5 +622,6 @@ export default function Home() {
         }}
       />
     </div>
+    </>
   );
 }
