@@ -627,7 +627,7 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
               <button
                 onClick={handleGenerateCommitMessage}
                 disabled={!apiKey || isGenerating}
-                className="flex-1 bg-muted text-muted-foreground hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1 rounded text-xs font-medium transition-colors flex items-center justify-center gap-2"
+                className="flex-1 bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1 rounded text-xs font-medium transition-colors flex items-center justify-center gap-2"
               >
                 {isGenerating ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
                 {isGenerating ? '生成中...' : '自動生成'}
