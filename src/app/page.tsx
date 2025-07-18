@@ -18,7 +18,7 @@ import FileSelectModal from '@/components/FileSelect';
 import { Terminal } from 'lucide-react';
 import { handleFileOperation } from '@/utils/handleFileOperation';
 
-// ファイル選択モーダル用の簡易コンポーネント（Home関数の外に移動）
+
 export default function Home() {
   const [activeMenuTab, setActiveMenuTab] = useState<MenuTab>('files');
   const [leftSidebarWidth, setLeftSidebarWidth] = useState(240);
