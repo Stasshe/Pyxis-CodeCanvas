@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { generateCommitMessage } from '@/utils/gemini';
 import { GitBranch, GitCommit, RefreshCw, Plus, Check, X, GitMerge, Clock, User, Minus, RotateCcw } from 'lucide-react';
 import { GitRepository, GitCommit as GitCommitType, GitStatus } from '@/types/git';
 import { GitCommands } from '@/utils/cmd/git';
@@ -20,6 +21,8 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
   const [isCommitting, setIsCommitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [apiKey, setApiKey] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
 
   // Git操作用のコマンドインスタンス
   const gitCommands = currentProject ? new GitCommands(currentProject, onFileOperation) : null;
@@ -356,7 +359,6 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
   // コミット実行
   const handleCommit = async () => {
     if (!gitCommands || !commitMessage.trim()) return;
-    
     try {
       setIsCommitting(true);
       await gitCommands.commit(commitMessage.trim());
@@ -368,6 +370,35 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
     } finally {
       setIsCommitting(false);
     }
+  };
+
+  // コミットメッセージ自動生成
+  const handleGenerateCommitMessage = async () => {
+    if (!gitCommands || !apiKey) return;
+    setIsGenerating(true);
+    try {
+      // 実際のdiff内容を取得
+      const diffText = await gitCommands.diff({ staged: false });
+      const message = await generateCommitMessage(diffText, apiKey);
+      setCommitMessage(message);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Gemini APIエラー');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // APIキーをlocalStorageから初期化
+  useEffect(() => {
+    const savedKey = localStorage.getItem('geminiApiKey') || '';
+    setApiKey(savedKey);
+  }, []);
+
+  // APIキー入力時にlocalStorageへ保存
+  const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setApiKey(value);
+    localStorage.setItem('geminiApiKey', value);
   };
 
   // 初期化とプロジェクト変更時の更新
@@ -574,24 +605,41 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
         {gitRepo.status.staged.length > 0 && (
           <div className="p-3 border-b border-border">
             <h4 className="text-sm font-medium mb-2">コミット</h4>
+            <input
+              type="text"
+              value={apiKey}
+              onChange={handleApiKeyChange}
+              placeholder="Gemini APIキーを入力"
+              className="w-full mb-2 text-xs border border-border rounded px-2 py-1 bg-background"
+            />
             <textarea
               value={commitMessage}
               onChange={(e) => setCommitMessage(e.target.value)}
               placeholder="コミットメッセージを入力..."
               className="w-full h-16 text-xs border border-border rounded px-2 py-1 resize-none bg-background"
             />
-            <button
-              onClick={handleCommit}
-              disabled={!commitMessage.trim() || isCommitting}
-              className="w-full mt-2 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1 rounded text-xs font-medium transition-colors flex items-center justify-center gap-2"
-            >
-              {isCommitting ? (
-                <RefreshCw className="w-3 h-3 animate-spin" />
-              ) : (
-                <GitCommit className="w-3 h-3" />
-              )}
-              {isCommitting ? 'コミット中...' : 'コミット'}
-            </button>
+            <div className="flex gap-2 mt-2">
+              <button
+                onClick={handleGenerateCommitMessage}
+                disabled={!apiKey || isGenerating}
+                className="flex-1 bg-muted text-muted-foreground hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1 rounded text-xs font-medium transition-colors flex items-center justify-center gap-2"
+              >
+                {isGenerating ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                {isGenerating ? '生成中...' : '自動生成'}
+              </button>
+              <button
+                onClick={handleCommit}
+                disabled={!commitMessage.trim() || isCommitting}
+                className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1 rounded text-xs font-medium transition-colors flex items-center justify-center gap-2"
+              >
+                {isCommitting ? (
+                  <RefreshCw className="w-3 h-3 animate-spin" />
+                ) : (
+                  <GitCommit className="w-3 h-3" />
+                )}
+                {isCommitting ? 'コミット中...' : 'コミット'}
+              </button>
+            </div>
           </div>
         )}
 
