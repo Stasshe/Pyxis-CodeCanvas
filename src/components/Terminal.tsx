@@ -253,8 +253,9 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
         commandHistory = JSON.parse(saved);
       }
     } catch {}
-    let historyIndex = -1;
-    let currentLine = '';
+  let historyIndex = -1;
+  let currentLine = '';
+  let cursorPos = 0;
 
     // 履歴保存関数
     const saveHistory = () => {
@@ -798,17 +799,23 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
             showPrompt();
           }
           currentLine = '';
+          cursorPos = 0;
           break;
         case '\u007F': // Backspace
-          if (currentLine.length > 0) {
-            currentLine = currentLine.slice(0, -1);
-            term.write('\b \b');
+          if (cursorPos > 0) {
+            currentLine = currentLine.slice(0, cursorPos - 1) + currentLine.slice(cursorPos);
+            cursorPos--;
+            // 画面上のカーソル位置を調整
+            term.write('\b');
+            term.write(currentLine.slice(cursorPos) + ' ');
+            for (let i = 0; i < currentLine.length - cursorPos + 1; i++) term.write('\b');
           }
           break;
         case '\u0003': // Ctrl+C
           term.writeln('^C');
           currentLine = '';
-          historyIndex = -1; // 履歴インデックスもリセット
+          cursorPos = 0;
+          historyIndex = -1;
           showPrompt();
           break;
         case '\u001b[A': // 上矢印キー
@@ -818,15 +825,13 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
             } else if (historyIndex > 0) {
               historyIndex--;
             }
-            
             // 現在の行をクリア
-            const lineLength = currentLine.length;
-            for (let i = 0; i < lineLength; i++) {
-              term.write('\b \b');
-            }
-            
+            for (let i = 0; i < cursorPos; i++) term.write('\b');
+            for (let i = 0; i < currentLine.length; i++) term.write(' ');
+            for (let i = 0; i < currentLine.length; i++) term.write('\b');
             // 履歴からコマンドを復元
             currentLine = commandHistory[historyIndex];
+            cursorPos = currentLine.length;
             term.write(currentLine);
           }
           break;
@@ -834,34 +839,40 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
           if (commandHistory.length > 0 && historyIndex !== -1) {
             if (historyIndex < commandHistory.length - 1) {
               historyIndex++;
-              
-              // 現在の行をクリア
-              const lineLength = currentLine.length;
-              for (let i = 0; i < lineLength; i++) {
-                term.write('\b \b');
-              }
-              
-              // 履歴からコマンドを復元
+              for (let i = 0; i < cursorPos; i++) term.write('\b');
+              for (let i = 0; i < currentLine.length; i++) term.write(' ');
+              for (let i = 0; i < currentLine.length; i++) term.write('\b');
               currentLine = commandHistory[historyIndex];
+              cursorPos = currentLine.length;
               term.write(currentLine);
             } else {
-              // 最新の履歴より下に行く場合は空の行に戻る
               historyIndex = -1;
-              
-              // 現在の行をクリア
-              const lineLength = currentLine.length;
-              for (let i = 0; i < lineLength; i++) {
-                term.write('\b \b');
-              }
-              
+              for (let i = 0; i < cursorPos; i++) term.write('\b');
+              for (let i = 0; i < currentLine.length; i++) term.write(' ');
+              for (let i = 0; i < currentLine.length; i++) term.write('\b');
               currentLine = '';
+              cursorPos = 0;
             }
+          }
+          break;
+        case '\u001b[D': // ← 左
+          if (cursorPos > 0) {
+            term.write('\b');
+            cursorPos--;
+          }
+          break;
+        case '\u001b[C': // → 右
+          if (cursorPos < currentLine.length) {
+            term.write(currentLine[cursorPos]);
+            cursorPos++;
           }
           break;
         default:
           if (data >= ' ' || data === '\t') {
-            currentLine += data;
-            term.write(data);
+            currentLine = currentLine.slice(0, cursorPos) + data + currentLine.slice(cursorPos);
+            term.write(currentLine.slice(cursorPos));
+            cursorPos++;
+            for (let i = 0; i < currentLine.length - cursorPos; i++) term.write('\b');
           }
           break;
       }
