@@ -1,6 +1,11 @@
 import { Project } from "@/types/";
 import type { Tab, FileItem } from "@/types";
 
+// === File Operation Handler ===
+// この関数は、ファイル操作（作成、更新、削除）を
+// プロジェクトの状態に反映させるためのものです。
+// NodeRuntime操作やGit操作からの呼び出しを想定しています。
+
 type Params = {
   path: string;
   type: "file" | "folder" | "delete";
