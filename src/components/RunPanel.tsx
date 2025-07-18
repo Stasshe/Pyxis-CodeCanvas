@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Play, Square, FileText, Code, Settings, Trash2 } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 import clsx from 'clsx';
 import { NodeJSRuntime } from '../utils/nodeRuntime';
 
@@ -17,6 +18,7 @@ interface OutputEntry {
 }
 
 export default function RunPanel({ currentProject, files, onFileOperation }: RunPanelProps) {
+  const { colors } = useTheme();
   const [isRunning, setIsRunning] = useState(false);
   const [output, setOutput] = useState<OutputEntry[]>([]);
   const [inputCode, setInputCode] = useState('');
@@ -191,9 +193,9 @@ console.log('Joined path:', path.join('/users', 'documents', 'file.txt'));`
 
   if (!currentProject) {
     return (
-      <div className="h-full flex items-center justify-center text-muted-foreground">
+      <div className="h-full flex items-center justify-center" style={{ color: colors.mutedFg }}>
         <div className="text-center">
-          <Code size={48} className="mx-auto mb-4" />
+          <Code size={48} style={{ margin: '0 auto 1rem', color: colors.mutedFg }} />
           <p>プロジェクトを開いてNode.jsコードを実行してください</p>
         </div>
       </div>
@@ -201,18 +203,19 @@ console.log('Joined path:', path.join('/users', 'documents', 'file.txt'));`
   }
 
   return (
-    <div className="h-full flex flex-col bg-background">
+    <div className="h-full flex flex-col" style={{ background: colors.background }}>
       {/* ヘッダー */}
-      <div className="border-b border-border p-3">
+  <div className="border-b p-3" style={{ borderBottom: `1px solid ${colors.border}` }}>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold flex items-center gap-2">
-            <Code size={16} />
+          <h3 className="font-semibold flex items-center gap-2" style={{ color: colors.foreground }}>
+            <Code size={16} style={{ color: colors.primary }} />
             Node.js 実行環境(開発中)
           </h3>
           <div className="flex gap-2">
             <button
               onClick={clearOutput}
-              className="p-1.5 hover:bg-accent rounded text-muted-foreground"
+              className="p-1.5 hover:bg-accent rounded"
+              style={{ color: colors.mutedFg }}
               title="出力をクリア"
             >
               <Trash2 size={14} />
@@ -234,18 +237,20 @@ console.log('Joined path:', path.join('/users', 'documents', 'file.txt'));`
                 onFocus={() => setFileSuggestOpen(true)}
                 onBlur={() => setTimeout(() => setFileSuggestOpen(false), 150)}
                 placeholder="実行するファイル名を検索..."
-                className="w-full px-2 py-1 border rounded text-sm bg-background"
+                className="w-full px-2 py-1 border rounded text-sm"
+                style={{ background: colors.background, color: colors.foreground, border: `1px solid ${colors.border}` }}
                 autoComplete="off"
               />
               {fileSuggestOpen && filteredFiles.length > 0 && (
-                <ul className="absolute z-10 left-0 right-0 bg-popover border rounded shadow max-h-48 overflow-y-auto mt-1">
+                <ul className="absolute z-10 left-0 right-0 border rounded shadow max-h-48 overflow-y-auto mt-1" style={{ background: colors.cardBg, border: `1px solid ${colors.border}` }}>
                   {filteredFiles.slice(0, 20).map(file => (
                     <li
                       key={file.uniqueKey || file.path}
                       className={clsx(
-                        'px-2 py-1 cursor-pointer hover:bg-accent text-sm',
-                        selectedFile === file.path && 'bg-primary/10 font-bold'
+                        'px-2 py-1 cursor-pointer text-sm',
+                        selectedFile === file.path && 'font-bold'
                       )}
+                      style={{ background: selectedFile === file.path ? colors.primary : 'transparent', color: selectedFile === file.path ? colors.background : colors.foreground }}
                       onMouseDown={() => {
                         setSelectedFile(file.path);
                         setFileSearch(file.path);
@@ -261,12 +266,12 @@ console.log('Joined path:', path.join('/users', 'documents', 'file.txt'));`
             <button
               onClick={executeFile}
               disabled={!selectedFile || isRunning}
-              className={clsx(
-                'px-3 py-1 rounded text-sm flex items-center gap-1',
-                selectedFile && !isRunning
-                  ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                  : 'bg-muted text-muted-foreground cursor-not-allowed'
-              )}
+              className={clsx('px-3 py-1 rounded text-sm flex items-center gap-1')}
+              style={{
+                background: selectedFile && !isRunning ? colors.primary : colors.mutedBg,
+                color: selectedFile && !isRunning ? colors.background : colors.mutedFg,
+                cursor: selectedFile && !isRunning ? 'pointer' : 'not-allowed'
+              }}
             >
               <Play size={12} />
               実行
@@ -286,7 +291,8 @@ console.log('Joined path:', path.join('/users', 'documents', 'file.txt'));`
             <button
               key={sample.key}
               onClick={() => insertSampleCode(sample.key)}
-              className="px-2 py-1 text-xs bg-muted hover:bg-accent rounded"
+              className="px-2 py-1 text-xs rounded"
+              style={{ background: colors.mutedBg, color: colors.mutedFg }}
             >
               {sample.label}
             </button>
@@ -298,22 +304,24 @@ console.log('Joined path:', path.join('/users', 'documents', 'file.txt'));`
       <div className="flex-1 min-h-0 flex flex-col">
         <div
           ref={outputRef}
-          className="flex-1 p-3 overflow-y-auto font-mono text-sm bg-background"
+          className="flex-1 p-3 overflow-y-auto font-mono text-sm"
+          style={{ background: colors.background, color: colors.foreground }}
         >
           {output.length === 0 ? (
-            <div className="text-muted-foreground">
+            <div style={{ color: colors.mutedFg }}>
               Node.jsコードを実行すると、ここに結果が表示されます。ただし、console.logやalertなどは、実際のブラウザネイティブのものに反映されます。
             </div>
           ) : (
             output.map((entry) => (
               <div
                 key={entry.id}
-                className={clsx(
-                  'mb-1 whitespace-pre-wrap',
-                  entry.type === 'error' && 'text-red-500',
-                  entry.type === 'input' && 'text-blue-500 font-semibold',
-                  entry.type === 'log' && 'text-foreground'
-                )}
+                className={clsx('mb-1 whitespace-pre-wrap', entry.type === 'input' && 'font-semibold')}
+                style={{
+                  color:
+                    entry.type === 'error' ? colors.red :
+                    entry.type === 'input' ? colors.primary :
+                    colors.foreground
+                }}
               >
                 {entry.content}
               </div>
@@ -322,13 +330,14 @@ console.log('Joined path:', path.join('/users', 'documents', 'file.txt'));`
         </div>
 
         {/* 入力エリア */}
-        <div className="border-t border-border p-3">
+  <div className="border-t p-3" style={{ borderTop: `1px solid ${colors.border}` }}>
           <div className="flex gap-2">
             <textarea
               value={inputCode}
               onChange={(e) => setInputCode(e.target.value)}
               placeholder="Node.jsコードを入力してください..."
-              className="flex-1 px-3 py-2 border rounded font-mono text-sm resize-none bg-background"
+              className="flex-1 px-3 py-2 border rounded font-mono text-sm resize-none"
+              style={{ background: colors.background, color: colors.foreground, border: `1px solid ${colors.border}` }}
               rows={3}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
@@ -341,12 +350,12 @@ console.log('Joined path:', path.join('/users', 'documents', 'file.txt'));`
               <button
                 onClick={executeCode}
                 disabled={!inputCode.trim() || isRunning}
-                className={clsx(
-                  'px-4 py-2 rounded flex items-center gap-2',
-                  inputCode.trim() && !isRunning
-                    ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                    : 'bg-muted text-muted-foreground cursor-not-allowed'
-                )}
+                className={clsx('px-4 py-2 rounded flex items-center gap-2')}
+                style={{
+                  background: inputCode.trim() && !isRunning ? colors.primary : colors.mutedBg,
+                  color: inputCode.trim() && !isRunning ? colors.background : colors.mutedFg,
+                  cursor: inputCode.trim() && !isRunning ? 'pointer' : 'not-allowed'
+                }}
               >
                 <Play size={14} />
                 実行
@@ -354,7 +363,8 @@ console.log('Joined path:', path.join('/users', 'documents', 'file.txt'));`
               {isRunning && (
                 <button
                   onClick={stopExecution}
-                  className="px-4 py-2 rounded flex items-center gap-2 bg-red-500 text-white hover:bg-red-600"
+                  className="px-4 py-2 rounded flex items-center gap-2"
+                  style={{ background: colors.red, color: 'white' }}
                 >
                   <Square size={14} />
                   停止
@@ -362,7 +372,7 @@ console.log('Joined path:', path.join('/users', 'documents', 'file.txt'));`
               )}
             </div>
           </div>
-          <div className="text-xs text-muted-foreground mt-2">
+          <div className="text-xs mt-2" style={{ color: colors.mutedFg }}>
             Ctrl+Enter (Cmd+Enter) で実行
           </div>
         </div>

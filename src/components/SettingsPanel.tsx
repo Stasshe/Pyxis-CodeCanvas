@@ -30,7 +30,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
   };
 
   return (
-    <div className="p-2 space-y-2">
+    <div className="p-2 space-y-2" style={{ background: colors.background, color: colors.foreground }}>
       <h2 className="text-base font-semibold">ワークスペースエクスポート</h2>
       <div className="flex items-center gap-2">
         <input
@@ -39,34 +39,36 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
           onChange={e => setIncludeGit(e.target.checked)}
           id="includeGit"
         />
-        <label htmlFor="includeGit" className="text-sm select-none">.git ディレクトリも含める</label>
+        <label htmlFor="includeGit" className="text-sm select-none" style={{ color: colors.foreground }}>.git ディレクトリも含める</label>
       </div>
       <button
-        className="px-3 py-1 bg-accent text-white rounded text-sm disabled:opacity-50"
+        className="px-3 py-1 rounded text-sm disabled:opacity-50"
+        style={{ background: colors.accentBg, color: colors.accentFg }}
         onClick={handleExport}
         disabled={isExporting}
       >
         {isExporting ? 'エクスポート中...' : 'ZIPダウンロード'}
       </button>
-      <hr className="my-2 border-muted" />
+      <hr className="my-2" style={{ borderColor: colors.mutedBg }} />
       <h2 className="text-base font-semibold">テーマ一括変更</h2>
       <div className="flex items-center gap-2 mb-2">
         <select
           value={themeName}
           onChange={e => setTheme(e.target.value)}
-          className="border rounded px-2 py-1 text-sm bg-card text-foreground"
+          className="border rounded px-2 py-1 text-sm"
+          style={{ background: colors.cardBg, color: colors.foreground, border: `1px solid ${colors.border}` }}
         >
           {themeList.map(name => (
             <option key={name} value={name}>{name}</option>
           ))}
         </select>
-        <span className="text-xs">選択したテーマに一括切替</span>
+        <span className="text-xs" style={{ color: colors.mutedFg }}>選択したテーマに一括切替</span>
       </div>
       <h2 className="text-base font-semibold">テーマカラー個別設定</h2>
       <div className="grid grid-cols-2 gap-2">
         {Object.entries(colors).map(([key, value]) => (
           <div key={key} className="flex items-center gap-2">
-            <label className="text-[10px] w-20" htmlFor={`theme-${key}`}>{key}</label>
+            <label className="text-[10px] w-20" htmlFor={`theme-${key}`} style={{ color: colors.mutedFg }}>{key}</label>
             {/* 全て同じ見た目のpicker */}
             <input
               id={`theme-${key}`}
@@ -74,11 +76,12 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               value={value}
               onChange={e => setColor(key, e.target.value)}
               className="w-6 h-6 p-0 border rounded"
+              style={{ border: `1px solid ${colors.border}` }}
             />
           </div>
         ))}
       </div>
-      <hr className="my-2 border-muted" />
+      <hr className="my-2" style={{ borderColor: colors.mutedBg }} />
       <h2 className="text-base font-semibold">Gemini APIキー</h2>
       <div className="flex items-center gap-2 mb-2">
         <input
@@ -86,9 +89,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
           value={apiKey}
           onChange={handleApiKeyChange}
           placeholder="Gemini APIキーを入力"
-          className="border rounded px-2 py-1 text-sm bg-card text-foreground w-64"
+          className="border rounded px-2 py-1 text-sm w-64"
+          style={{ background: colors.cardBg, color: colors.foreground, border: `1px solid ${colors.border}` }}
         />
-        <span className="text-xs">（保存は即時反映）</span>
+        <span className="text-xs" style={{ color: colors.mutedFg }}>（保存は即時反映）</span>
       </div>
     </div>
   );

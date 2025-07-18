@@ -70,9 +70,12 @@
 │       │   └── unix.ts
 │       ├── database.ts
 │       ├── export
+│       │   ├── exportFolderZip.ts
 │       │   ├── exportIndexeddb.ts
-│       │   └── exportRepo.ts
+│       │   ├── exportRepo.ts
+│       │   └── exportSingleFile.ts
 │       ├── filesystem.ts
+│       ├── gemini.ts
 │       ├── handleFileOperation.ts
 │       ├── nodeRuntime.ts
 │       ├── project.ts
@@ -84,9 +87,9 @@
 ├── tree.txt
 └── tsconfig.json
 
-12 directories, 73 files
+12 directories, 76 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 11902
-合計文字数: 408517
-合計ファイルサイズ(bytes): 443455
+合計行数: 12587
+合計文字数: 445708
+合計ファイルサイズ(bytes): 481820
