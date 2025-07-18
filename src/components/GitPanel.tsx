@@ -394,6 +394,8 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
     setApiKey(savedKey);
   }, []);
 
+  const hasApiKey = !!apiKey;
+
   // APIキー入力時にlocalStorageへ保存
   const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -605,13 +607,16 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
         {gitRepo.status.staged.length > 0 && (
           <div className="p-3 border-b border-border">
             <h4 className="text-sm font-medium mb-2">コミット</h4>
-            <input
-              type="text"
-              value={apiKey}
-              onChange={handleApiKeyChange}
-              placeholder="Gemini APIキーを入力"
-              className="w-full mb-2 text-xs border border-border rounded px-2 py-1 bg-background"
-            />
+            {/* APIキー入力欄（未保存時のみ表示） */}
+            {!hasApiKey && (
+              <input
+                type="text"
+                value={apiKey}
+                onChange={handleApiKeyChange}
+                placeholder="Gemini APIキーを入力"
+                className="w-full mb-2 text-xs border border-border rounded px-2 py-1 bg-background"
+              />
+            )}
             <textarea
               value={commitMessage}
               onChange={(e) => setCommitMessage(e.target.value)}

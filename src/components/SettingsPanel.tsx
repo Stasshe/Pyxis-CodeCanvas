@@ -11,6 +11,14 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
   const [isExporting, setIsExporting] = useState(false);
   const { colors, setColor, themeName, setTheme, themeList } = useTheme();
 
+  // Gemini APIキー管理
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem('geminiApiKey') || '');
+  const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setApiKey(value);
+    localStorage.setItem('geminiApiKey', value);
+  };
+
   const handleExport = async () => {
     setIsExporting(true);
     try {
@@ -69,6 +77,18 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
             />
           </div>
         ))}
+      </div>
+      <hr className="my-2 border-muted" />
+      <h2 className="text-base font-semibold">Gemini APIキー</h2>
+      <div className="flex items-center gap-2 mb-2">
+        <input
+          type="text"
+          value={apiKey}
+          onChange={handleApiKeyChange}
+          placeholder="Gemini APIキーを入力"
+          className="border rounded px-2 py-1 text-sm bg-card text-foreground w-64"
+        />
+        <span className="text-xs">（保存は即時反映）</span>
       </div>
     </div>
   );
