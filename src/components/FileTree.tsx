@@ -1,3 +1,4 @@
+import { useTheme } from '../context/ThemeContext';
 import { useState, useEffect, useRef } from 'react';
 import { exportSingleFile } from '../utils/export/exportSingleFile';
 import { exportFolderZip } from '../utils/export/exportFolderZip';
@@ -11,6 +12,9 @@ interface FileTreeProps {
   level?: number;
 }
 export default function FileTree({ items, onFileOpen, level = 0, onFilePreview }: FileTreeProps) {
+  const { colors } = useTheme();
+  const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
+  const [menuHoveredIdx, setMenuHoveredIdx] = useState<number | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; item: FileItem | null } | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
@@ -108,31 +112,42 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview }
         return (
           <div key={item.id}>
             <div
-              className="flex items-center gap-1 px-2 py-1 hover:bg-accent cursor-pointer select-none relative"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.25rem',
+                padding: '0.15rem 0.2rem',
+                cursor: 'pointer',
+                userSelect: 'none',
+                position: 'relative',
+                background: hoveredItemId === item.id ? colors.accentBg : 'transparent',
+                marginLeft: `${level * 12}px`,
+              }}
               onClick={() => handleItemClick(item)}
               onContextMenu={e => handleContextMenu(e, item)}
-              onTouchStart={e => handleTouchStart(e, item)}
-              onTouchEnd={handleTouchEnd}
-              onTouchMove={handleTouchMove}
-              onTouchCancel={handleTouchEnd}
-              style={{ marginLeft: `${level * 16}px` }}
+              onMouseEnter={() => setHoveredItemId(item.id)}
+              onMouseLeave={() => setHoveredItemId(null)}
+              onTouchStart={e => { handleTouchStart(e, item); setHoveredItemId(item.id); }}
+              onTouchEnd={() => { handleTouchEnd(); setHoveredItemId(null); }}
+              onTouchMove={() => { handleTouchMove(); setHoveredItemId(null); }}
+              onTouchCancel={() => { handleTouchEnd(); setHoveredItemId(null); }}
             >
               {item.type === 'folder' ? (
                 <>
                   {isExpanded ? (
-                    <ChevronDown size={14} className="text-muted-foreground" />
+                    <ChevronDown size={14} color={colors.mutedFg} />
                   ) : (
-                    <ChevronRight size={14} className="text-muted-foreground" />
+                    <ChevronRight size={14} color={colors.mutedFg} />
                   )}
-                  <Folder size={16} className="text-blue-400" />
+                  <Folder size={16} color={colors.primary} />
                 </>
               ) : (
                 <>
                   <div className="w-3.5"></div>
-                  <File size={16} className="text-gray-400" />
+                  <File size={16} color={colors.mutedFg} />
                 </>
               )}
-              <span className="text-sm truncate">{item.name}</span>
+              <span style={{ fontSize: '0.875rem', color: colors.foreground, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.name}</span>
             </div>
             {item.type === 'folder' && item.children && isExpanded && (
               <FileTree 
@@ -150,44 +165,61 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview }
       {contextMenu && contextMenu.item && (
         <div
           ref={contextMenuRef}
-          className="fixed z-50 bg-card border border-border rounded shadow-lg min-w-[120px]"
-          style={{ top: contextMenu.y, left: contextMenu.x, padding: '2px 0' }}
+          style={{
+            position: 'fixed',
+            zIndex: 50,
+            background: colors.cardBg,
+            border: `1px solid ${colors.border}`,
+            borderRadius: '0.5rem',
+            minWidth: '120px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+            top: contextMenu.y, left: contextMenu.x, padding: '2px 0'
+          }}
         >
           <ul className="py-0">
-            <li
-              className="px-2 py-1 hover:bg-accent cursor-pointer text-xs"
-              style={{ lineHeight: '1.2', minHeight: '24px' }}
-              onClick={() => { onFileOpen(contextMenu.item!); setContextMenu(null); }}
-            >開く</li>
-            {contextMenu.item.type === 'file' && contextMenu.item.name.endsWith('.md') && (
+            {['開く',
+              contextMenu.item.type === 'file' && contextMenu.item.name.endsWith('.md') ? 'プレビューを開く' : null,
+              'ダウンロード',
+              'インポート'
+            ].filter(Boolean).map((label, idx) => (
               <li
-                className="px-2 py-1 hover:bg-accent cursor-pointer text-xs"
-                style={{ lineHeight: '1.2', minHeight: '24px' }}
-                onClick={() => handlePreview(contextMenu.item!)}
-              >プレビューを開く</li>
-            )}
-            <li
-              className="px-2 py-1 hover:bg-accent cursor-pointer text-xs border-t border-border"
-              style={{ lineHeight: '1.2', minHeight: '24px' }}
-              onClick={async () => {
-                setContextMenu(null);
-                const item = contextMenu.item;
-                if (item && item.type === 'file') {
-                  let content = item.content;
-                  if (typeof content !== 'string') {
-                    content = 'error fetching content';
+                key={label as string}
+                style={{
+                  padding: '0.5rem',
+                  cursor: 'pointer',
+                  fontSize: '0.75rem',
+                  background: menuHoveredIdx === idx ? colors.accentBg : 'transparent',
+                  color: colors.foreground,
+                  borderTop: idx === 2 ? `1px solid ${colors.border}` : undefined,
+                  lineHeight: '1.2', minHeight: '24px'
+                }}
+                onMouseEnter={() => setMenuHoveredIdx(idx)}
+                onMouseLeave={() => setMenuHoveredIdx(null)}
+                onTouchStart={() => setMenuHoveredIdx(idx)}
+                onTouchEnd={() => setMenuHoveredIdx(null)}
+                onClick={async () => {
+                  setContextMenu(null);
+                  if (label === '開く') {
+                    onFileOpen(contextMenu.item!);
+                  } else if (label === 'プレビューを開く') {
+                    handlePreview(contextMenu.item!);
+                  } else if (label === 'ダウンロード') {
+                    const item = contextMenu.item;
+                    if (item && item.type === 'file') {
+                      let content = item.content;
+                      if (typeof content !== 'string') {
+                        content = 'error fetching content';
+                      }
+                      exportSingleFile({ name: item.name, content });
+                    } else if (item && item.type === 'folder') {
+                      await exportFolderZip(item);
+                    }
+                  } else if (label === 'インポート') {
+                    alert('インポート機能は未実装です');
                   }
-                  exportSingleFile({ name: item.name, content });
-                } else if (item && item.type === 'folder') {
-                  await exportFolderZip(item);
-                }
-              }}
-            >ダウンロード</li>
-            <li
-              className="px-2 py-1 hover:bg-accent cursor-pointer text-xs"
-              style={{ lineHeight: '1.2', minHeight: '24px' }}
-              onClick={() => { setContextMenu(null); alert('インポート機能は未実装です'); }}
-            >インポート</li>
+                }}
+              >{label}</li>
+            ))}
           </ul>
         </div>
       )}

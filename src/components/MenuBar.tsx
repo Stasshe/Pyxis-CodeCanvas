@@ -1,4 +1,5 @@
 import { FileText, Search, GitBranch, Settings, FolderOpen, Play } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 import clsx from 'clsx';
 import { MenuTab } from '../types';
 
@@ -10,91 +11,87 @@ interface MenuBarProps {
 }
 
 export default function MenuBar({ activeMenuTab, onMenuTabClick, onProjectClick, gitChangesCount = 0 }: MenuBarProps) {
+  const { colors } = useTheme();
   return (
-    <div className="w-12 bg-muted border-r border-border flex flex-col flex-shrink-0 h-full">
+    <div style={{
+      width: '3rem',
+      background: colors.mutedBg,
+      borderRight: `1px solid ${colors.border}`,
+      display: 'flex',
+      flexDirection: 'column',
+      flexShrink: 0,
+      height: '100%',
+    }}>
       {/* 上部のメニューボタン */}
-      <div className="flex flex-col">
-        <button
-          className={clsx(
-            'h-12 w-12 flex items-center justify-center hover:bg-accent',
-            activeMenuTab === 'files' && 'bg-accent text-primary'
-          )}
-          onClick={() => onMenuTabClick('files')}
-          title="ファイル"
-        >
-          <FileText size={20} />
-        </button>
-        <button
-          className={clsx(
-            'h-12 w-12 flex items-center justify-center hover:bg-accent',
-            activeMenuTab === 'search' && 'bg-accent text-primary'
-          )}
-          onClick={() => onMenuTabClick('search')}
-          title="検索"
-        >
-          <Search size={20} />
-        </button>
-        <button
-          className={clsx(
-            'h-12 w-12 flex items-center justify-center hover:bg-accent relative',
-            activeMenuTab === 'git' && 'bg-accent text-primary'
-          )}
-          onClick={() => onMenuTabClick('git')}
-          title="Git"
-        >
-          <GitBranch size={20} />
-          {gitChangesCount > 0 && (
-            <span
-              className="absolute"
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+        {['files', 'search', 'git', 'run', 'settings'].map(tab => {
+          const Icon = tab === 'files' ? FileText
+            : tab === 'search' ? Search
+            : tab === 'git' ? GitBranch
+            : tab === 'run' ? Play
+            : Settings;
+          const isActive = activeMenuTab === tab;
+          return (
+            <button
+              key={tab}
               style={{
-              right: '0.25rem',
-              bottom: '0.125rem',
-              background: '#ef4444', // bg-red-500
-              color: 'white',
-              fontSize: '0.75rem', // text-xs
-              borderRadius: '9999px', // rounded-full
-              minWidth: '16px',
-              height: '1rem', // h-4
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              paddingLeft: '0.25rem', // px-1
-              paddingRight: '0.25rem',
+                height: '3rem',
+                width: '3rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: isActive ? colors.accentBg : 'transparent',
+                color: isActive ? colors.accentFg : colors.sidebarIconFg,
+                position: tab === 'git' ? 'relative' : undefined,
+                border: 'none',
+                cursor: 'pointer',
               }}
+              onClick={() => onMenuTabClick(tab as MenuTab)}
+              title={tab === 'files' ? 'ファイル' : tab === 'search' ? '検索' : tab === 'git' ? 'Git' : tab === 'run' ? '実行' : '設定'}
             >
-              {gitChangesCount > 99 ? '99+' : gitChangesCount}
-            </span>
-          )}
-        </button>
-        <button
-          className={clsx(
-            'h-12 w-12 flex items-center justify-center hover:bg-accent',
-            activeMenuTab === 'run' && 'bg-accent text-primary'
-          )}
-          onClick={() => onMenuTabClick('run')}
-          title="実行"
-        >
-          <Play size={20} />
-        </button>
-        <button
-          className={clsx(
-            'h-12 w-12 flex items-center justify-center hover:bg-accent',
-            activeMenuTab === 'settings' && 'bg-accent text-primary'
-          )}
-          onClick={() => onMenuTabClick('settings')}
-          title="設定"
-        >
-          <Settings size={20} />
-        </button>
+              <Icon size={20} />
+              {tab === 'git' && gitChangesCount > 0 && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    right: '0.25rem',
+                    bottom: '0.125rem',
+                    background: colors.red,
+                    color: 'white',
+                    fontSize: '0.75rem',
+                    borderRadius: '9999px',
+                    minWidth: '16px',
+                    height: '1rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    paddingLeft: '0.25rem',
+                    paddingRight: '0.25rem',
+                  }}
+                >
+                  {gitChangesCount > 99 ? '99+' : gitChangesCount}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
-      
       {/* 伸縮領域 */}
-      <div className="flex-1 min-h-0"></div>
-      
+      <div style={{ flex: 1, minHeight: 0 }}></div>
       {/* プロジェクトボタン（下部に固定） */}
-      <div className="flex flex-col border-t border-border">
+      <div style={{ display: 'flex', flexDirection: 'column', borderTop: `1px solid ${colors.border}` }}>
         <button
-          className="h-12 w-12 flex items-center justify-center hover:bg-accent"
+          style={{
+            height: '3rem',
+            width: '3rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'transparent',
+            color: colors.sidebarIconFg,
+            border: 'none',
+            cursor: 'pointer',
+          }}
           onClick={onProjectClick}
           title="プロジェクト管理"
         >

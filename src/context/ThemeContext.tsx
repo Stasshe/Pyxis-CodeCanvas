@@ -13,6 +13,16 @@ export type ThemeColors = {
   editorLineHighlight: string;
   editorSelection: string;
   editorCursor: string;
+  cardBg: string;
+  border: string;
+  mutedBg: string;
+  mutedFg: string;
+  accentBg: string;
+  accentFg: string;
+  red: string;
+  sidebarTitleFg: string;
+  sidebarIconFg: string;
+  sidebarResizerBg: string;
   [key: string]: string;
 };
 
@@ -28,6 +38,16 @@ const themes: { [key: string]: ThemeColors } = {
     editorLineHighlight: '#2d2d30',
     editorSelection: '#264f78',
     editorCursor: '#aeafad',
+    cardBg: '#23232a',
+    border: '#2d2d30',
+    mutedBg: '#22222a',
+    mutedFg: '#a1a1aa',
+    accentBg: '#363a4f',
+    accentFg: '#4ea1ff',
+    red: '#ef4444',
+    sidebarTitleFg: '#a1a1aa',
+    sidebarIconFg: '#d4d4d4',
+    sidebarResizerBg: '#363a4f',
   },
   light: {
     background: '#fff',
@@ -40,6 +60,16 @@ const themes: { [key: string]: ThemeColors } = {
     editorLineHighlight: '#f0f0f0',
     editorSelection: '#cce7ff',
     editorCursor: '#0070f3',
+    cardBg: '#f5f5f5',
+    border: '#e0e0e0',
+    mutedBg: '#f0f0f0',
+    mutedFg: '#888888',
+    accentBg: '#e0e0e0',
+    accentFg: '#0070f3',
+    red: '#ef4444',
+    sidebarTitleFg: '#888888',
+    sidebarIconFg: '#222222',
+    sidebarResizerBg: '#e0e0e0',
   },
   solarized: {
     background: '#fdf6e3',
@@ -52,6 +82,16 @@ const themes: { [key: string]: ThemeColors } = {
     editorLineHighlight: '#eee8d5',
     editorSelection: '#b58900',
     editorCursor: '#b58900',
+    cardBg: '#eee8d5',
+    border: '#b58900',
+    mutedBg: '#f5eecb',
+    mutedFg: '#657b83',
+    accentBg: '#eee8d5',
+    accentFg: '#b58900',
+    red: '#dc322f',
+    sidebarTitleFg: '#657b83',
+    sidebarIconFg: '#657b83',
+    sidebarResizerBg: '#eee8d5',
   },
 };
 

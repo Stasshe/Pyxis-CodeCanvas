@@ -1,3 +1,4 @@
+import { useTheme } from '../context/ThemeContext';
 import { FolderOpen } from 'lucide-react';
 import { MenuTab, FileItem } from '../types';
 import FileTree from './FileTree';
@@ -34,19 +35,38 @@ export default function LeftSidebar({
   onFileOperation,
   onGitStatusChange
 }: LeftSidebarProps) {
+  const { colors } = useTheme();
   return (
     <>
       <div 
         data-sidebar="left"
-        className="bg-card border-r border-border flex flex-col flex-shrink-0"
         style={{ 
+          background: colors.cardBg,
+          borderRight: `1px solid ${colors.border}`,
           width: `${leftSidebarWidth}px`,
           minWidth: `${leftSidebarWidth}px`,
           maxWidth: `${leftSidebarWidth}px`,
+          display: 'flex',
+          flexDirection: 'column',
+          flexShrink: 0,
         }}
       >
-        <div className="h-8 bg-muted border-b border-border flex items-center px-3">
-          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <div style={{
+          height: '2rem',
+          background: colors.mutedBg,
+          borderBottom: `1px solid ${colors.border}`,
+          display: 'flex',
+          alignItems: 'center',
+          paddingLeft: '0.75rem',
+          paddingRight: '0.75rem',
+        }}>
+          <span style={{
+            fontSize: '0.75rem',
+            fontWeight: 500,
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            color: colors.sidebarTitleFg,
+          }}>
             {activeMenuTab === 'files' && 'エクスプローラー'}
             {activeMenuTab === 'search' && '検索'}
             {activeMenuTab === 'git' && 'ソース管理'}
@@ -54,23 +74,23 @@ export default function LeftSidebar({
             {activeMenuTab === 'settings' && '設定'}
           </span>
         </div>
-        <div className="flex-1 overflow-auto">
+        <div style={{ flex: 1, overflow: 'auto' }}>
           {activeMenuTab === 'files' && (
-            <div className="p-2">
-              <div className="flex items-center gap-2 mb-2">
-                <FolderOpen size={14} />
-                <span className="text-xs font-medium">./</span>
+            <div style={{ padding: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <FolderOpen size={14} color={colors.sidebarIconFg} />
+                <span style={{ fontSize: '0.75rem', fontWeight: 500, color: colors.sidebarTitleFg }}>./</span>
               </div>
               <FileTree items={files} onFileOpen={onFileOpen} onFilePreview={onFilePreview} />
             </div>
           )}
           {activeMenuTab === 'search' && (
-            <div className="h-full">
+            <div style={{ height: '100%' }}>
               <SearchPanel files={files} onFileOpen={onFileOpen} />
             </div>
           )}
           {activeMenuTab === 'git' && (
-            <div className="h-full">
+            <div style={{ height: '100%' }}>
               <GitPanel 
                 currentProject={currentProject.name} 
                 onRefresh={onGitRefresh}
@@ -81,7 +101,7 @@ export default function LeftSidebar({
             </div>
           )}
           {activeMenuTab === 'run' && (
-            <div className="h-full">
+            <div style={{ height: '100%' }}>
               <RunPanel 
                 currentProject={currentProject.name}
                 files={files}
@@ -94,10 +114,10 @@ export default function LeftSidebar({
           )}
         </div>
       </div>
-      
       {/* Resizer */}
       <div
         className="resizer resizer-vertical flex-shrink-0"
+        style={{ background: colors.sidebarResizerBg }}
         onMouseDown={onResize}
         onTouchStart={onResize}
       />
