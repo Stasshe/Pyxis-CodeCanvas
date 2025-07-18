@@ -23,7 +23,23 @@ export type ThemeColors = {
   sidebarTitleFg: string;
   sidebarIconFg: string;
   sidebarResizerBg: string;
-  [key: string]: string;
+  gitBranchColors?: string[];
+  gitCommitStroke?: string;
+  gitMergeDot?: string;
+  gitCommitChevron?: string;
+  gitCommitMsg?: string;
+  gitCommitMeta?: string;
+  gitCommitExpandedBg?: string;
+  gitCommitExpandedBorder?: string;
+  gitCommitFile?: string;
+  gitMergeIcon?: string;
+  gitBranchCurrentBg?: string;
+  gitBranchCurrentFg?: string;
+  gitBranchCurrentBorder?: string;
+  gitBranchOtherBg?: string;
+  gitBranchOtherFg?: string;
+  gitBranchOtherBorder?: string;
+  [key: string]: any;
 };
 
 const themes: { [key: string]: ThemeColors } = {
@@ -48,6 +64,31 @@ const themes: { [key: string]: ThemeColors } = {
     sidebarTitleFg: '#a1a1aa',
     sidebarIconFg: '#d4d4d4',
     sidebarResizerBg: '#363a4f',
+      gitBranchColors: [
+        '#3b82f6', // blue
+        '#10b981', // emerald
+        '#f59e0b', // amber
+        '#ef4444', // red
+        '#8b5cf6', // violet
+        '#06b6d4', // cyan
+        '#f97316', // orange
+        '#84cc16', // lime
+      ],
+      gitCommitStroke: '#fff',
+      gitMergeDot: '#fff',
+      gitCommitChevron: '#a1a1aa',
+      gitCommitMsg: '#d4d4d4',
+      gitCommitMeta: '#a1a1aa',
+      gitCommitExpandedBg: '#23232a',
+      gitCommitExpandedBorder: '#363a4f',
+      gitCommitFile: '#d4d4d4',
+      gitMergeIcon: '#a855f7',
+      gitBranchCurrentBg: 'rgba(59,130,246,0.2)',
+      gitBranchCurrentFg: '#3b82f6',
+      gitBranchCurrentBorder: 'rgba(59,130,246,0.3)',
+      gitBranchOtherBg: 'rgba(249,115,22,0.2)',
+      gitBranchOtherFg: '#f97316',
+      gitBranchOtherBorder: 'rgba(249,115,22,0.3)',
   },
   light: {
     background: '#fff',
@@ -70,6 +111,31 @@ const themes: { [key: string]: ThemeColors } = {
     sidebarTitleFg: '#888888',
     sidebarIconFg: '#222222',
     sidebarResizerBg: '#e0e0e0',
+      gitBranchColors: [
+        '#0070f3', // blue
+        '#10b981', // emerald
+        '#f59e0b', // amber
+        '#ef4444', // red
+        '#8b5cf6', // violet
+        '#06b6d4', // cyan
+        '#f97316', // orange
+        '#84cc16', // lime
+      ],
+      gitCommitStroke: '#222',
+      gitMergeDot: '#fff',
+      gitCommitChevron: '#888888',
+      gitCommitMsg: '#222',
+      gitCommitMeta: '#888888',
+      gitCommitExpandedBg: '#f5f5f5',
+      gitCommitExpandedBorder: '#e0e0e0',
+      gitCommitFile: '#222',
+      gitMergeIcon: '#a855f7',
+      gitBranchCurrentBg: 'rgba(0,112,243,0.15)',
+      gitBranchCurrentFg: '#0070f3',
+      gitBranchCurrentBorder: 'rgba(0,112,243,0.2)',
+      gitBranchOtherBg: 'rgba(249,115,22,0.15)',
+      gitBranchOtherFg: '#f97316',
+      gitBranchOtherBorder: 'rgba(249,115,22,0.2)',
   },
   solarized: {
     background: '#fdf6e3',
@@ -92,6 +158,31 @@ const themes: { [key: string]: ThemeColors } = {
     sidebarTitleFg: '#657b83',
     sidebarIconFg: '#657b83',
     sidebarResizerBg: '#eee8d5',
+      gitBranchColors: [
+        '#b58900', // yellow
+        '#268bd2', // blue
+        '#2aa198', // cyan
+        '#dc322f', // red
+        '#6c71c4', // violet
+        '#859900', // green
+        '#cb4b16', // orange
+        '#d33682', // magenta
+      ],
+      gitCommitStroke: '#657b83',
+      gitMergeDot: '#eee8d5',
+      gitCommitChevron: '#657b83',
+      gitCommitMsg: '#657b83',
+      gitCommitMeta: '#657b83',
+      gitCommitExpandedBg: '#eee8d5',
+      gitCommitExpandedBorder: '#b58900',
+      gitCommitFile: '#657b83',
+      gitMergeIcon: '#6c71c4',
+      gitBranchCurrentBg: 'rgba(181,137,0,0.15)',
+      gitBranchCurrentFg: '#b58900',
+      gitBranchCurrentBorder: 'rgba(181,137,0,0.2)',
+      gitBranchOtherBg: 'rgba(220,50,47,0.15)',
+      gitBranchOtherFg: '#dc322f',
+      gitBranchOtherBorder: 'rgba(220,50,47,0.2)',
   },
 };
 

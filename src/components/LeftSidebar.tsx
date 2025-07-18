@@ -101,7 +101,7 @@ export default function LeftSidebar({
       {/* Resizer */}
       <div
         className="resizer resizer-vertical flex-shrink-0"
-        style={{ background: colors.sidebarResizerBg }}
+        // styleは既存のまま。ドラッグ・タップ時の青色はCSS/tailwindで維持
         onMouseDown={onResize}
         onTouchStart={onResize}
       />
