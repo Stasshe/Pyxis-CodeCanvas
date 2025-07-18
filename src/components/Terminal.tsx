@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useTheme } from '../context/ThemeContext';
 import { UnixCommands, GitCommands, NpmCommands, initializeFileSystem, syncProjectFiles } from '@/utils/filesystem';
 import { FileItem } from '@/types';
 import { exportIndexeddbHtml } from '@/utils/export/exportIndexeddb';
@@ -34,6 +35,7 @@ interface TerminalProps {
 
 // クライアントサイド専用のターミナルコンポーネント
 function ClientTerminal({ height, currentProject = 'default', projectFiles = [], onFileOperation }: TerminalProps) {
+  const { colors } = useTheme();
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<any>(null);
   const fitAddonRef = useRef<any>(null);
@@ -70,14 +72,14 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
     // ターミナルの初期化
     const term = new XTerm({
       theme: {
-        background: '#1e1e1e',
-        foreground: '#d4d4d4',
-        cursor: '#ffffff',
+        background: colors.editorBg,
+        foreground: colors.editorFg,
+        cursor: colors.editorCursor,
         black: '#000000',
-        red: '#cd3131',
+        red: colors.red,
         green: '#0dbc79',
         yellow: '#e5e510',
-        blue: '#2472c8',
+        blue: colors.primary,
         magenta: '#bc3fbc',
         cyan: '#11a8cd',
         white: '#e5e5e5',
@@ -1047,13 +1049,14 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
   return (
     <div 
       ref={terminalRef}
-      className="w-full h-full bg-[#1e1e1e] overflow-hidden relative terminal-container"
+      className="w-full h-full overflow-hidden relative terminal-container"
       style={{ 
+        background: colors.editorBg,
         height: `${height - 32}px`,
         maxHeight: `${height - 32}px`,
         minHeight: '100px',
         touchAction: 'none',
-        contain: 'layout style paint' // CSS containment でレイアウトを制限
+        contain: 'layout style paint'
       }}
     />
   );
@@ -1068,13 +1071,14 @@ export default function Terminal({ height, currentProject, projectFiles, onFileO
   }, []);
 
   // サーバーサイドまたはマウント前はローディング表示
+  const { colors } = useTheme();
   if (!isMounted) {
     return (
       <div 
-        className="w-full h-full bg-[#1e1e1e] flex items-center justify-center"
-        style={{ height: `${height - 32}px` }}
+        className="w-full h-full flex items-center justify-center"
+        style={{ height: `${height - 32}px`, background: colors.editorBg }}
       >
-        <div className="text-gray-400 text-sm">ターミナルを初期化中...</div>
+        <div className="text-sm" style={{ color: colors.mutedFg }}>ターミナルを初期化中...</div>
       </div>
     );
   }
