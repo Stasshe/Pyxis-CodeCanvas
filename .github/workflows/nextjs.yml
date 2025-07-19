@@ -65,14 +65,14 @@ jobs:
         run: ${{ steps.detect-package-manager.outputs.manager }} ${{ steps.detect-package-manager.outputs.command }}
       - name: Build with Next.js
         run: NEXT_DISABLE_ESLINT=true ${{ steps.detect-package-manager.outputs.runner }} next build
-      - name: Create docs directory
-        run: mkdir -p ./docs
+      - name: Export static site
+        run: ${{ steps.detect-package-manager.outputs.runner }} next export
       - name: Create .nojekyll file
-        run: touch ./docs/.nojekyll
+        run: touch ./out/.nojekyll
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./docs
+          path: ./out
 
   # Deployment job
   deploy:

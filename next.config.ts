@@ -3,9 +3,7 @@
 
 // 環境変数から本番ビルドモードかどうかを判断
 const isProductionBuild = process.env.BUILD_MODE === 'production';
-const isRender = process.env.isRender === 'true';
 console.log(`isProductionBuild: ${isProductionBuild}`);
-console.log(`isRender: ${isRender}`);
 
 // 共通設定
 const commonConfig = {
@@ -59,7 +57,6 @@ const productionConfig = isProductionBuild
 const nextConfig = {
   ...commonConfig,
   ...productionConfig,
-  ...(isRender ? {} : { distDir: '../docs' }),
 };
 
 console.log(`Building in ${isProductionBuild ? 'PRODUCTION' : 'DEVELOPMENT'} mode`);
