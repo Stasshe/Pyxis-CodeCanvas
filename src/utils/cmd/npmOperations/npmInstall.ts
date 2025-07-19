@@ -5,8 +5,8 @@ import {
 } from "../../filesystem";
 import { UnixCommands } from "../../cmd/unix";
 import FS from "@isomorphic-git/lightning-fs";
-const pako = await import("pako");
-const tarStream = await import("tar-stream");
+import pako from "pako";
+import tarStream from"tar-stream";
 
 export class NpmInstall {
   private fs: FS;
