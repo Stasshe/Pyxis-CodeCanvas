@@ -2,7 +2,7 @@
 
 // 環境変数から本番ビルドモードかどうかを判断
 const isProductionBuild = process.env.BUILD_MODE === 'production';
-
+console.log(`isProductionBuild: ${isProductionBuild}`);
 // 開発環境でも静的エクスポートに近い動作をさせるために共通設定を定義
 const commonConfig = {
   // 画像設定
