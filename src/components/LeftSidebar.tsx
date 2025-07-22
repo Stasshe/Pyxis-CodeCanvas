@@ -65,7 +65,7 @@ export default function LeftSidebar({
                 <FolderOpen size={14} color={colors.sidebarIconFg} />
                 <span className="text-xs font-medium" style={{ color: colors.sidebarTitleFg }}>./</span>
               </div>
-              <FileTree items={files} onFileOpen={onFileOpen} onFilePreview={onFilePreview} />
+              <FileTree items={files} onFileOpen={onFileOpen} onFilePreview={onFilePreview} currentProjectName={currentProject?.name ?? ''} onFileOperation={onFileOperation} />
             </div>
           )}
           {activeMenuTab === 'search' && (

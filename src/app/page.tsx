@@ -413,25 +413,14 @@ export default function Home() {
           gitRefreshTrigger={gitRefreshTrigger}
           
           onGitStatusChange={setGitChangesCount}
-          onFileOperation={ async (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => {
-          await handleFileOperation({
-              path,
-              type,
-              content,
-              isNodeRuntime,
-              currentProject,
-              loadProject,
-              saveFile,
-              deleteFile,
-              tabs,
-              setTabs,
-              activeTabId,
-              setActiveTabId,
-              projectFiles,
-              setGitRefreshTrigger,
-              setNodeRuntimeOperationInProgress,
-              refreshProjectFiles,
-            });
+          onFileOperation={async (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => {
+            if (isNodeRuntime) {
+              setNodeRuntimeOperationInProgress(true);
+            }
+            if (syncTerminalFileOperation) {
+              await syncTerminalFileOperation(path, type, content);
+            }
+            setGitRefreshTrigger(prev => prev + 1);
           }}
           />
       )}

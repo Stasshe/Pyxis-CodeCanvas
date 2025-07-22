@@ -4,14 +4,17 @@ import { exportSingleFile } from '../utils/export/exportSingleFile';
 import { exportFolderZip } from '../utils/export/exportFolderZip';
 import { ChevronDown, ChevronRight, File, Folder } from 'lucide-react';
 import { FileItem } from '../types';
+import { UnixCommands } from '@/utils/cmd/unix';
 
 interface FileTreeProps {
   items: FileItem[];
   onFileOpen: (file: FileItem) => void;
   onFilePreview?: (file: FileItem) => void;
   level?: number;
+  currentProjectName: string; // プロジェクト情報をオプションで受け取る
+  onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>;
 }
-export default function FileTree({ items, onFileOpen, level = 0, onFilePreview }: FileTreeProps) {
+export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, currentProjectName, onFileOperation }: FileTreeProps) {
   const { colors } = useTheme();
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
   const [menuHoveredIdx, setMenuHoveredIdx] = useState<number | null>(null);
@@ -155,6 +158,7 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview }
                 onFileOpen={onFileOpen} 
                 level={level + 1}
                 onFilePreview={onFilePreview}
+                currentProjectName={currentProjectName}  // プロジェクト情報を渡す
               />
             )}
           </div>
@@ -215,7 +219,46 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview }
                       await exportFolderZip(item);
                     }
                   } else if (label === 'インポート') {
-                    alert('インポート機能は未実装です');
+                    // ファイル選択ダイアログを表示
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.onchange = async (e: any) => {
+                      const file = e.target.files[0];
+                      if (!file) return;
+                      // importSingleFileを呼び出し
+                      const { importSingleFile } = await import('../utils/export/importSingleFile');
+                      const unix = new UnixCommands(currentProjectName);
+                      const item = contextMenu.item;
+                      // targetPathを絶対パスで指定
+                      let targetPath = '';
+                      let targetAbsolutePath = '';
+                      if (item) {
+                        const dirPath = item.path.substring(0, item.path.lastIndexOf('/'));
+                        if ( item.type === 'file') {
+                          console.log('[インポート] ファイルアップロード', { file, item });
+                          // ファイルの場合はitem.pathからファイル名を除いたディレクトリパス＋file.name
+                          targetAbsolutePath = `/projects/${currentProjectName}${dirPath}/${file.name}`;
+                          targetPath = `${dirPath}/${file.name}`;
+                        } else if (item.type === 'folder') {
+                          // フォルダの場合はそのフォルダ内にアップロード
+                          targetAbsolutePath = `/projects/${currentProjectName}${item.path}/${file.name}`;
+                          targetPath = `${item.path}/${file.name}`;
+                        }
+                      }
+                      if (targetPath) {
+                        console.log('[インポート] importSingleFile呼び出し', { file, targetPath, unix });
+                        await importSingleFile(file, targetAbsolutePath, unix);
+                        console.log('[インポート] importSingleFile完了');
+
+                        // Terminalと同じフロー: onFileOperationを呼び出してUI/IndexedDB更新
+                        if (typeof onFileOperation === 'function') {
+                          await onFileOperation(targetPath, 'file', await file.text(), false);
+                        }
+                      } else {
+                        console.warn('[インポート] targetPathが空です', { file, item });
+                      }
+                    };
+                    input.click();
                   }
                 }}
               >{label}</li>
@@ -223,8 +266,6 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview }
           </ul>
         </div>
       )}
-
-  {/* Markdownプレビューモーダルは廃止（タブで表示） */}
     </>
   );
 }
