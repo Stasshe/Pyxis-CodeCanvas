@@ -11,6 +11,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
   const [isExporting, setIsExporting] = useState(false);
   const { colors, setColor, themeName, setTheme, themeList } = useTheme();
 
+
   // Gemini APIキー管理
   const [apiKey, setApiKey] = useState(() => localStorage.getItem('geminiApiKey') || '');
   const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -18,6 +19,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
     setApiKey(value);
     localStorage.setItem('geminiApiKey', value);
   };
+
+  // テーマカラー個別設定 折りたたみ
+  const [showColorSettings, setShowColorSettings] = useState(false);
+  const handleToggleColorSettings = () => setShowColorSettings(v => !v);
 
   const handleExport = async () => {
     setIsExporting(true);
@@ -64,23 +69,37 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
         </select>
         <span className="text-xs" style={{ color: colors.mutedFg }}>選択したテーマに一括切替</span>
       </div>
-      <h2 className="text-base font-semibold">テーマカラー個別設定</h2>
-      <div className="grid grid-cols-2 gap-2">
-        {Object.entries(colors).map(([key, value]) => (
-          <div key={key} className="flex items-center gap-2">
-            <label className="text-[10px] w-20" htmlFor={`theme-${key}`} style={{ color: colors.mutedFg }}>{key}</label>
-            {/* 全て同じ見た目のpicker */}
-            <input
-              id={`theme-${key}`}
-              type="color"
-              value={value}
-              onChange={e => setColor(key, e.target.value)}
-              className="w-6 h-6 p-0 border rounded"
-              style={{ border: `1px solid ${colors.border}` }}
-            />
-          </div>
-        ))}
+
+      <div className="flex items-center gap-2">
+        <h2 className="text-base font-semibold mb-0">テーマカラー個別設定</h2>
+        <button
+          type="button"
+          aria-label={showColorSettings ? '縮小' : '展開'}
+          onClick={handleToggleColorSettings}
+          className="text-xs px-1 py-0 rounded border"
+          style={{ background: colors.cardBg, color: colors.foreground, border: `1px solid ${colors.border}` }}
+        >
+          {showColorSettings ? '▼' : '▶'}
+        </button>
       </div>
+      {showColorSettings && (
+        <div className="grid grid-cols-2 gap-2">
+          {Object.entries(colors).map(([key, value]) => (
+            <div key={key} className="flex items-center gap-2">
+              <label className="text-[10px] w-20" htmlFor={`theme-${key}`} style={{ color: colors.mutedFg }}>{key}</label>
+              {/* 全て同じ見た目のpicker */}
+              <input
+                id={`theme-${key}`}
+                type="color"
+                value={value}
+                onChange={e => setColor(key, e.target.value)}
+                className="w-6 h-6 p-0 border rounded"
+                style={{ border: `1px solid ${colors.border}` }}
+              />
+            </div>
+          ))}
+        </div>
+      )}
       <hr className="my-2" style={{ borderColor: colors.mutedBg }} />
       <h2 className="text-base font-semibold">Gemini APIキー</h2>
       <div className="flex items-center gap-2 mb-2">
