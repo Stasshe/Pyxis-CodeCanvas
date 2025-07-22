@@ -261,7 +261,8 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
                     if (item && typeof onFileOperation === 'function') {
                       const folderName = prompt('新しいフォルダ名を入力してください:');
                       if (folderName) {
-                        await onFileOperation(item.path, 'folder', '', false);
+                        const newFolderPath = item.path.endsWith('/') ? item.path + folderName : item.path + '/' + folderName;
+                        await onFileOperation(newFolderPath, 'folder', '', false);
                       }
                     }
                   } else if (label === 'ファイル作成') {
@@ -269,7 +270,8 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
                     if (item && typeof onFileOperation === 'function') {
                       const fileName = prompt('新しいファイル名を入力してください:');
                       if (fileName) {
-                        await onFileOperation(item.path, 'file', '', false);
+                        const newFilePath = item.path.endsWith('/') ? item.path + fileName : item.path + '/' + fileName;
+                        await onFileOperation(newFilePath, 'file', '', false);
                       }
                     }
                   }
