@@ -158,7 +158,8 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
                 onFileOpen={onFileOpen} 
                 level={level + 1}
                 onFilePreview={onFilePreview}
-                currentProjectName={currentProjectName}  // プロジェクト情報を渡す
+                currentProjectName={currentProjectName}
+                onFileOperation={onFileOperation}
               />
             )}
           </div>
