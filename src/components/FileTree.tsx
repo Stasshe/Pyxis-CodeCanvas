@@ -12,8 +12,9 @@ interface FileTreeProps {
   onFilePreview?: (file: FileItem) => void;
   level?: number;
   currentProjectName: string; // プロジェクト情報をオプションで受け取る
+  onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>;
 }
-export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, currentProjectName }: FileTreeProps) {
+export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, currentProjectName, onFileOperation }: FileTreeProps) {
   const { colors } = useTheme();
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
   const [menuHoveredIdx, setMenuHoveredIdx] = useState<number | null>(null);
@@ -230,22 +231,29 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
                       const item = contextMenu.item;
                       // targetPathを絶対パスで指定
                       let targetPath = '';
+                      let targetAbsolutePath = '';
                       if (item) {
                         if (item.type === 'file') {
-                          targetPath = `/projects/${currentProjectName}/${item.name}`;
+                          targetAbsolutePath = `/projects/${currentProjectName}/${item.name}`;
+                          targetPath = `/${item.name}`;
                         } else if (item.type === 'folder') {
                           // フォルダの場合はそのフォルダ内にアップロード
-                          targetPath = `/projects/${currentProjectName}/${item.name}/${file.name}`;
+                          targetAbsolutePath = `/projects/${currentProjectName}/${item.name}/${file.name}`;
+                          targetPath = `/${item.name}/${file.name}`;
                         }
                       }
                       if (targetPath) {
                         console.log('[インポート] importSingleFile呼び出し', { file, targetPath, unix });
-                        await importSingleFile(file, targetPath, unix);
+                        await importSingleFile(file, targetAbsolutePath, unix);
                         console.log('[インポート] importSingleFile完了');
+
+                        // Terminalと同じフロー: onFileOperationを呼び出してUI/IndexedDB更新
+                        if (typeof onFileOperation === 'function') {
+                          await onFileOperation(targetPath, 'file', await file.text(), false);
+                        }
                       } else {
                         console.warn('[インポート] targetPathが空です', { file, item });
                       }
-                      alert('ファイルをアップロードしました: ' + file.name);
                     };
                     input.click();
                   }
