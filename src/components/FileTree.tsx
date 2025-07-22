@@ -236,12 +236,12 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
                         const dirPath = item.path.substring(0, item.path.lastIndexOf('/'));
                         if ( item.type === 'file') {
                           console.log('[インポート] ファイルアップロード', { file, item });
-                          // ファイルの場合はitem.pathからファイル名を除いたディレクトリパスを取得
-                          targetAbsolutePath = `/projects/${currentProjectName}${dirPath}/`;
-                          targetPath = `${dirPath}/`;
+                          // ファイルの場合はitem.pathからファイル名を除いたディレクトリパス＋file.name
+                          targetAbsolutePath = `/projects/${currentProjectName}${dirPath}/${file.name}`;
+                          targetPath = `${dirPath}/${file.name}`;
                         } else if (item.type === 'folder') {
                           // フォルダの場合はそのフォルダ内にアップロード
-                          targetAbsolutePath = `/projects/${currentProjectName}${item.path}/${file.name}/`;
+                          targetAbsolutePath = `/projects/${currentProjectName}${item.path}/${file.name}`;
                           targetPath = `${item.path}/${file.name}`;
                         }
                       }
