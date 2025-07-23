@@ -1,5 +1,6 @@
-import { X, Plus, TerminalSquare } from 'lucide-react';
+import { X, Plus, Menu } from 'lucide-react';
 import clsx from 'clsx';
+import React, { useState, useRef, useEffect } from 'react';
 import { Tab } from '../types';
 import { useTheme } from '../context/ThemeContext';
 
@@ -25,6 +26,27 @@ export default function TabBar({
   onAddTab
 }: TabBarProps) {
   const { colors } = useTheme();
+  // メニューの開閉状態管理
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // メニュー外クリックで閉じる
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    if (menuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    } else {
+      document.removeEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [menuOpen]);
+
   return (
     <div
       className="h-10 border-b flex items-center relative bg-muted border-border"
@@ -33,12 +55,26 @@ export default function TabBar({
         borderColor: colors.border,
       }}
     >
-      {/* 左端にextraButtonsを追加 */}
-      {extraButtons && (
-        <div className="flex items-center h-full pl-2 pr-1 gap-1">
-          {extraButtons}
-        </div>
-      )}
+      {/* メニューボタン */}
+      <div className="flex items-center h-full pl-2 pr-1 gap-1 relative">
+        <button
+          className="p-1 rounded hover:bg-accent"
+          style={{ background: undefined }}
+          onClick={() => setMenuOpen((open) => !open)}
+        >
+          <Menu size={20} color={colors.accentFg} />
+        </button>
+        {/* メニュー表示 */}
+        {menuOpen && (
+          <div
+            ref={menuRef}
+            className="absolute top-10 left-0 bg-card border border-border rounded shadow-lg z-10 min-w-[120px] p-2 flex flex-col gap-2"
+            style={{ background: colors.cardBg, borderColor: colors.border }}
+          >
+            {extraButtons}
+          </div>
+        )}
+      </div>
       <div className="flex items-center overflow-x-auto flex-1">
         {tabs.map(tab => (
           <div
