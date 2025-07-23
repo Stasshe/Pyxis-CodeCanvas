@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback, useState } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import MarkdownPreviewTab from './MarkdownPreviewTab';
 import Editor, { Monaco } from '@monaco-editor/react';
@@ -46,6 +46,10 @@ export default function CodeEditor({
   const monacoRef = useRef<Monaco | null>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // 文字数カウント用 state
+  const [charCount, setCharCount] = useState(0);
+  const [selectionCount, setSelectionCount] = useState<number | null>(null);
+
   const editorHeight = isBottomPanelVisible 
     ? `calc(100vh - 40px - ${bottomPanelHeight}px)` 
     : 'calc(100vh - 40px)';
@@ -85,6 +89,28 @@ export default function CodeEditor({
   const handleEditorDidMount = (editor: monaco.editor.IStandaloneCodeEditor, monaco: Monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
+    // 初期文字数カウント
+    const model = editor.getModel();
+    if (model) {
+      setCharCount(model.getValue().length);
+    }
+
+    // 選択範囲・全体文字数の更新
+    const updateCharCount = () => {
+      const model = editor.getModel();
+      if (model) {
+        setCharCount(model.getValue().length);
+        const selection = editor.getSelection();
+        if (selection && !selection.isEmpty()) {
+          const selectedText = model.getValueInRange(selection);
+          setSelectionCount(selectedText.length);
+        } else {
+          setSelectionCount(null);
+        }
+      }
+    };
+    editor.onDidChangeModelContent(updateCharCount);
+    editor.onDidChangeCursorSelection(updateCharCount);
 
     // ThemeContextの色でMonaco Editorテーマを定義
     monaco.editor.defineTheme('pyxis-custom', {
@@ -164,7 +190,7 @@ export default function CodeEditor({
       cursorBlinking: 'smooth',
       cursorSmoothCaretAnimation: 'on',
       mouseWheelZoom: true,
-      //folding: true,
+      folding: true,
       foldingStrategy: 'indentation',
       showFoldingControls: 'always',
       foldingHighlight: true,
@@ -255,24 +281,24 @@ export default function CodeEditor({
   }
 
   return (
-    <div className="flex-1" style={{ height: editorHeight }}>
+    <div className="flex-1 relative" style={{ height: editorHeight }}>
       <Editor
         height="100%"
         language={getLanguage(activeTab.name)}
         value={activeTab.content}
         onChange={(value) => {
           if (value !== undefined) {
-            // 即座にローカル状態を更新（UI応答性のため）
             if (onContentChangeImmediate) {
               onContentChangeImmediate(activeTab.id, value);
             }
-            
-            // デバウンス付きで保存（パフォーマンス向上のため）
             debouncedSave(activeTab.id, value);
+            // 文字数カウントも即時更新
+            setCharCount(value.length);
+            setSelectionCount(null); // 編集時は選択範囲リセット
           }
         }}
         onMount={handleEditorDidMount}
-  theme="pyxis-custom"
+        theme="pyxis-custom"
         loading={
           <div className="h-full flex items-center justify-center text-muted-foreground">
             <div className="text-center">
@@ -282,6 +308,25 @@ export default function CodeEditor({
           </div>
         }
       />
+      {/* 文字数カウント表示バー */}
+      <div
+        style={{
+          position: 'absolute',
+          right: 12,
+          bottom: 8,
+          background: 'rgba(30,30,30,0.85)',
+          color: '#d4d4d4',
+          padding: '2px 10px',
+          borderRadius: 6,
+          fontSize: 13,
+          zIndex: 10,
+          pointerEvents: 'none',
+        }}
+      >
+        {selectionCount !== null
+          ? `選択範囲: ${selectionCount}文字 / 全体: ${charCount}文字`
+          : `全体: ${charCount}文字`}
+      </div>
     </div>
   );
 }
