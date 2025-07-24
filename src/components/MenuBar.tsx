@@ -20,16 +20,16 @@ export default function MenuBar({ activeMenuTab, onMenuTabClick, onProjectClick,
       display: 'flex',
       flexDirection: 'column',
       flexShrink: 0,
-      height: '100vh', // 画面全体の高さに変更
+      height: '100%',
     }}>
       {/* 上部のメニューボタン */}
       <div style={{ display: 'flex', flexDirection: 'column' }}>
         {['files', 'search', 'git', 'run', 'settings'].map(tab => {
           const Icon = tab === 'files' ? FileText
             : tab === 'search' ? Search
-            : tab === 'git' ? GitBranch
-            : tab === 'run' ? Play
-            : Settings;
+              : tab === 'git' ? GitBranch
+                : tab === 'run' ? Play
+                  : Settings;
           const isActive = activeMenuTab === tab;
           return (
             <button
@@ -78,13 +78,13 @@ export default function MenuBar({ activeMenuTab, onMenuTabClick, onProjectClick,
       </div>
       {/* 伸縮領域 */}
       <div style={{ flex: 1, minHeight: 0 }}></div>
-      {/* プロジェクトボタン（下部に固定、安全領域対応） */}
+      {/* プロジェクトボタン（下部に固定） */}
       <div
         style={{
           display: 'flex',
           flexDirection: 'column',
           borderTop: `1px solid ${colors.border}`,
-          paddingBottom: 'env(safe-area-inset-bottom, 1rem)',
+          paddingBottom: '0.5rem',
         }}
       >
         <button
@@ -98,7 +98,6 @@ export default function MenuBar({ activeMenuTab, onMenuTabClick, onProjectClick,
             color: colors.sidebarIconFg,
             border: 'none',
             cursor: 'pointer',
-            marginBottom: '1rem', // 追加余白
           }}
           onClick={onProjectClick}
           title="プロジェクト管理"
