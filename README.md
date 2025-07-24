@@ -187,21 +187,6 @@ git merge feature/new-feature
 - **Library evaluation** - test npm packages without commitment
 - **Proof of concepts** - rapid prototyping capabilities
 
-## 🔮 Future Roadmap
-
-### **Enhanced Runtime Support**
-    - **Advanced LaTeX editing and preview**
-    - **More multi-monitor workflow enhancements**
-    - **Custom theme palette and presets**
-
-- **Import from GitHub** repositories
-
-### **Advanced Development Tools**
-- **Debugger integration** with breakpoints
-- **Performance profiling** tools
-- **Testing framework** integration
-- **Package manager** UI
-
 ## 📊 Performance & Compatibility
 
 ### **Browser Support**
