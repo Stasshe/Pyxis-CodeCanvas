@@ -109,7 +109,15 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
   };
 
   return (
-    <>
+    <div
+      style={level === 0 ? {
+        position: 'relative',
+        minHeight: '100%',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+      } : {}}
+    >
       {items.map(item => {
         const isExpanded = expandedFolders.has(item.id);
         return (
@@ -166,8 +174,20 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
         );
       })}
 
-      {/* コンテキストメニュー（コンパクト化＋エクスポート/インポート追加） */}
-      {contextMenu && contextMenu.item && (
+      {/* 空白領域を追加（最上位レベルのみ） */}
+      {level === 0 && (
+        <div
+          style={{ flex: 1, minHeight: '300px', cursor: 'default' }}
+          onClick={() => setContextMenu(null)}
+          onContextMenu={e => {
+            e.preventDefault();
+            setContextMenu({ x: e.clientX, y: e.clientY, item: null });
+          }}
+        />
+      )}
+
+      {/* コンテキストメニュー（item: null の場合は空白領域用） */}
+      {contextMenu && (
         <div
           ref={contextMenuRef}
           style={{
@@ -182,15 +202,22 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
           }}
         >
           <ul className="py-0">
-            {[
-              '開く',
-              contextMenu.item.type === 'file' && contextMenu.item.name.endsWith('.md') ? 'プレビューを開く' : null,
-              'ダウンロード',
-              'インポート',
-              '削除',
-              contextMenu.item.type === 'folder' ? 'フォルダ作成' : null,
-              contextMenu.item.type === 'folder' ? 'ファイル作成' : null
-            ].filter(Boolean).map((label, idx) => (
+            {(contextMenu.item == null
+              ? [
+                  'ファイル作成',
+                  'フォルダ作成',
+                  'インポート',
+                ]
+              : [
+                  '開く',
+                  contextMenu.item.type === 'file' && contextMenu.item.name.endsWith('.md') ? 'プレビューを開く' : null,
+                  'ダウンロード',
+                  'インポート',
+                  '削除',
+                  contextMenu.item.type === 'folder' ? 'フォルダ作成' : null,
+                  contextMenu.item.type === 'folder' ? 'ファイル作成' : null
+                ]
+            ).filter(Boolean).map((label, idx) => (
               <li
                 key={label as string}
                 style={{
@@ -208,20 +235,21 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
                 onTouchEnd={() => setMenuHoveredIdx(null)}
                 onClick={async () => {
                   setContextMenu(null);
-                  if (label === '開く') {
-                    onFileOpen(contextMenu.item!);
-                  } else if (label === 'プレビューを開く') {
-                    handlePreview(contextMenu.item!);
-                  } else if (label === 'ダウンロード') {
-                    const item = contextMenu.item;
-                    if (item && item.type === 'file') {
-                      let content = item.content;
-                      if (typeof content !== 'string') {
-                        content = 'error fetching content';
+                  if (label === 'ファイル作成') {
+                    if (typeof onFileOperation === 'function') {
+                      const fileName = prompt('新しいファイル名を入力してください:');
+                      if (fileName) {
+                        const newFilePath = fileName.startsWith('/') ? fileName : '/' + fileName;
+                        await onFileOperation(newFilePath, 'file', '', false);
                       }
-                      exportSingleFile({ name: item.name, content });
-                    } else if (item && item.type === 'folder') {
-                      await exportFolderZip(item);
+                    }
+                  } else if (label === 'フォルダ作成') {
+                    if (typeof onFileOperation === 'function') {
+                      const folderName = prompt('新しいフォルダ名を入力してください:');
+                      if (folderName) {
+                        const newFolderPath = folderName.startsWith('/') ? folderName : '/' + folderName;
+                        await onFileOperation(newFolderPath, 'folder', '', false);
+                      }
                     }
                   } else if (label === 'インポート') {
                     const input = document.createElement('input');
@@ -231,48 +259,83 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
                       if (!file) return;
                       const { importSingleFile } = await import('../utils/export/importSingleFile');
                       const unix = new UnixCommands(currentProjectName);
-                      const item = contextMenu.item;
-                      let targetPath = '';
-                      let targetAbsolutePath = '';
-                      if (item) {
-                        const dirPath = item.path.substring(0, item.path.lastIndexOf('/'));
-                        if ( item.type === 'file') {
-                          targetAbsolutePath = `/projects/${currentProjectName}${dirPath}/${file.name}`;
-                          targetPath = `${dirPath}/${file.name}`;
-                        } else if (item.type === 'folder') {
-                          targetAbsolutePath = `/projects/${currentProjectName}${item.path}/${file.name}`;
-                          targetPath = `${item.path}/${file.name}`;
-                        }
-                      }
-                      if (targetPath) {
-                        await importSingleFile(file, targetAbsolutePath, unix);
-                        if (typeof onFileOperation === 'function') {
-                          await onFileOperation(targetPath, 'file', await file.text(), false);
-                        }
+                      const targetAbsolutePath = `/projects/${currentProjectName}/${file.name}`;
+                      const targetPath = `/${file.name}`;
+                      await importSingleFile(file, targetAbsolutePath, unix);
+                      if (typeof onFileOperation === 'function') {
+                        await onFileOperation(targetPath, 'file', await file.text(), false);
                       }
                     };
                     input.click();
-                  } else if (label === '削除') {
-                    const item = contextMenu.item;
-                    if (item && typeof onFileOperation === 'function') {
-                      await onFileOperation(item.path, 'delete');
-                    }
-                  } else if (label === 'フォルダ作成') {
-                    const item = contextMenu.item;
-                    if (item && typeof onFileOperation === 'function') {
-                      const folderName = prompt('新しいフォルダ名を入力してください:');
-                      if (folderName) {
-                        const newFolderPath = item.path.endsWith('/') ? item.path + folderName : item.path + '/' + folderName;
-                        await onFileOperation(newFolderPath, 'folder', '', false);
+                  }
+                  // ...既存のitemありの処理...
+                  if (contextMenu.item) {
+                    if (label === '開く') {
+                      onFileOpen(contextMenu.item!);
+                    } else if (label === 'プレビューを開く') {
+                      handlePreview(contextMenu.item!);
+                    } else if (label === 'ダウンロード') {
+                      const item = contextMenu.item;
+                      if (item && item.type === 'file') {
+                        let content = item.content;
+                        if (typeof content !== 'string') {
+                          content = 'error fetching content';
+                        }
+                        exportSingleFile({ name: item.name, content });
+                      } else if (item && item.type === 'folder') {
+                        await exportFolderZip(item);
                       }
-                    }
-                  } else if (label === 'ファイル作成') {
-                    const item = contextMenu.item;
-                    if (item && typeof onFileOperation === 'function') {
-                      const fileName = prompt('新しいファイル名を入力してください:');
-                      if (fileName) {
-                        const newFilePath = item.path.endsWith('/') ? item.path + fileName : item.path + '/' + fileName;
-                        await onFileOperation(newFilePath, 'file', '', false);
+                    } else if (label === 'インポート') {
+                      const input = document.createElement('input');
+                      input.type = 'file';
+                      input.onchange = async (e: any) => {
+                        const file = e.target.files[0];
+                        if (!file) return;
+                        const { importSingleFile } = await import('../utils/export/importSingleFile');
+                        const unix = new UnixCommands(currentProjectName);
+                        const item = contextMenu.item;
+                        let targetPath = '';
+                        let targetAbsolutePath = '';
+                        if (item) {
+                          const dirPath = item.path.substring(0, item.path.lastIndexOf('/'));
+                          if ( item.type === 'file') {
+                            targetAbsolutePath = `/projects/${currentProjectName}${dirPath}/${file.name}`;
+                            targetPath = `${dirPath}/${file.name}`;
+                          } else if (item.type === 'folder') {
+                            targetAbsolutePath = `/projects/${currentProjectName}${item.path}/${file.name}`;
+                            targetPath = `${item.path}/${file.name}`;
+                          }
+                        }
+                        if (targetPath) {
+                          await importSingleFile(file, targetAbsolutePath, unix);
+                          if (typeof onFileOperation === 'function') {
+                            await onFileOperation(targetPath, 'file', await file.text(), false);
+                          }
+                        }
+                      };
+                      input.click();
+                    } else if (label === '削除') {
+                      const item = contextMenu.item;
+                      if (item && typeof onFileOperation === 'function') {
+                        await onFileOperation(item.path, 'delete');
+                      }
+                    } else if (label === 'フォルダ作成') {
+                      const item = contextMenu.item;
+                      if (item && typeof onFileOperation === 'function') {
+                        const folderName = prompt('新しいフォルダ名を入力してください:');
+                        if (folderName) {
+                          const newFolderPath = item.path.endsWith('/') ? item.path + folderName : item.path + '/' + folderName;
+                          await onFileOperation(newFolderPath, 'folder', '', false);
+                        }
+                      }
+                    } else if (label === 'ファイル作成') {
+                      const item = contextMenu.item;
+                      if (item && typeof onFileOperation === 'function') {
+                        const fileName = prompt('新しいファイル名を入力してください:');
+                        if (fileName) {
+                          const newFilePath = item.path.endsWith('/') ? item.path + fileName : item.path + '/' + fileName;
+                          await onFileOperation(newFilePath, 'file', '', false);
+                        }
                       }
                     }
                   }
@@ -282,6 +345,6 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
           </ul>
         </div>
       )}
-    </>
+    </div>
   );
 }
