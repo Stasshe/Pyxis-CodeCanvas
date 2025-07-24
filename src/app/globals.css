@@ -34,20 +34,29 @@
   border-color: hsl(var(--border));
 }
 
-html, body {
-  height: 100vh;
-  min-height: 0;
+html {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  height: 100%;
   margin: 0;
   padding: 0;
   overflow: hidden;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Next.js root container fix */
 #__next {
-  height: 100vh;
-  min-height: 0;
-  width: 100vw;
+  height: 100%;
+  width: 100%;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
 }
 
 body {
