@@ -71,7 +71,17 @@ export default function TabBar({
             className="absolute top-10 left-0 bg-card border border-border rounded shadow-lg z-10 min-w-[120px] p-2 flex flex-col gap-2"
             style={{ background: colors.cardBg, borderColor: colors.border }}
           >
-            {extraButtons}
+            {React.Children.map(extraButtons, child => {
+              if (!React.isValidElement(child)) return child;
+              const props: any = child.props;
+              const originalOnClick = props.onClick;
+              return React.cloneElement(child as React.ReactElement<any>, {
+                onClick: (e: React.MouseEvent) => {
+                  setMenuOpen(false);
+                  if (originalOnClick) originalOnClick(e);
+                }
+              });
+            })}
           </div>
         )}
       </div>
