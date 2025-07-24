@@ -119,16 +119,6 @@ export const useProject = () => {
 
   // プロジェクトファイルをFileItem形式に変換
   const convertToFileItems = (files: ProjectFile[]): FileItem[] => {
-    //console.log('[convertToFileItems] Input files:', files.length);
-    /*console.log('[convertToFileItems] Files detail:', files.map(f => ({ 
-      id: f.id, 
-      path: f.path, 
-      name: f.name, 
-      type: f.type, 
-      parentPath: f.parentPath,
-      contentLength: f.content.length 
-    })));
-    */
 
     // パスによる重複排除
     const uniqueFiles = files.reduce((acc, file) => {
@@ -144,13 +134,6 @@ export const useProject = () => {
       }
       return acc;
     }, [] as ProjectFile[]);
-    
-    //console.log('[convertToFileItems] Unique files after deduplication:', uniqueFiles.length);
-    /*console.log('[convertToFileItems] Unique files detail:', uniqueFiles.map(f => ({ 
-      path: f.path, 
-      parentPath: f.parentPath 
-    })));
-    */
     
     const fileMap = new Map<string, FileItem>();
     const rootItems: FileItem[] = [];

@@ -64,10 +64,11 @@ Pyxis is a revolutionary **client-side IDE** that brings the complete developmen
 ## ✨ Key Features
 
 ### 🖥️ **Integrated Development Environment**
-- **Multi-tab code editor** with syntax highlighting for 100+ languages
-- **File tree navigation** with create, delete, and rename operations
-- **Integrated terminal** with Unix-like command support
-- **Project management** with local storage persistence
+- **LaTeX rendering** for mathematical documents and formulas
+- **Multi-pane support** for enhanced productivity
+- **Theme color customization** for personalized workspace
+- **File import/export** and direct download/upload of files
+- **Download Git/project files** for easy sharing and backup
 
 ### ⚡ **Node.js Runtime Engine**
 - **Complete Node.js API compatibility** - fs, path, os, crypto, and more
@@ -88,12 +89,12 @@ Pyxis is a revolutionary **client-side IDE** that brings the complete developmen
 - **Dark/light theme** support
 - **Keyboard shortcuts** for power users
 - **Auto-save** functionality
+- **Multiple monitor layouts** for flexible workspace arrangement
+- **Theme color change** for UI personalization
 
 ### 💾 **Data Persistence**
-- **IndexedDB storage** for projects and files
-- **Local Git repository** management
-- **Session restoration** - continue where you left off
-- **Export/import** project capabilities
+- **Download project or Git repository as zip**
+- **Import files from local device**
 
 ## 🛠️ Technology Stack
 
@@ -189,13 +190,10 @@ git merge feature/new-feature
 ## 🔮 Future Roadmap
 
 ### **Enhanced Runtime Support**
-- **Python runtime** integration
-- **Database connectivity** (SQLite, IndexedDB)
-- **WebAssembly modules** support
+    - **Advanced LaTeX editing and preview**
+    - **More multi-monitor workflow enhancements**
+    - **Custom theme palette and presets**
 
-### **Collaboration Features**
-- **Real-time collaborative editing**
-- **Share projects** with read-only links
 - **Import from GitHub** repositories
 
 ### **Advanced Development Tools**
