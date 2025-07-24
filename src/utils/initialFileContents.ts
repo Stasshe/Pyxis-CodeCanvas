@@ -195,7 +195,7 @@ console.log("Hello, World!");
 
 // 関数定義と呼び出し
 function greet(name) {
-  return \`こんにちは、${name}さん！\`;
+  return \`こんにちは!;
 }
 console.log(greet("ユーザー"));
 
