@@ -130,9 +130,14 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
                 padding: '0.15rem 0.2rem',
                 cursor: 'pointer',
                 userSelect: 'none',
+                WebkitUserSelect: 'none',
+                WebkitTouchCallout: 'none',
+                MozUserSelect: 'none',
+                msUserSelect: 'none',
                 position: 'relative',
                 background: hoveredItemId === item.id ? colors.accentBg : 'transparent',
                 marginLeft: `${level * 12}px`,
+                touchAction: 'manipulation',
               }}
               onClick={() => handleItemClick(item)}
               onContextMenu={e => handleContextMenu(e, item)}
@@ -177,11 +182,35 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
       {/* 空白領域を追加（最上位レベルのみ） */}
       {level === 0 && (
         <div
-          style={{ flex: 1, minHeight: '300px', cursor: 'default' }}
+          style={{
+            flex: 1,
+            minHeight: '300px',
+            cursor: 'default',
+            WebkitUserSelect: 'none',
+            WebkitTouchCallout: 'none',
+            MozUserSelect: 'none',
+            msUserSelect: 'none',
+            userSelect: 'none',
+          }}
           onClick={() => setContextMenu(null)}
           onContextMenu={e => {
             e.preventDefault();
             setContextMenu({ x: e.clientX, y: e.clientY, item: null });
+          }}
+          onTouchStart={e => {
+            if (e.touches.length === 1) {
+              const touch = e.touches[0];
+              touchPosition.current = { x: touch.clientX, y: touch.clientY };
+              longPressTimeout.current = setTimeout(() => {
+                setContextMenu({ x: touch.clientX, y: touch.clientY, item: null });
+              }, 500);
+            }
+          }}
+          onTouchEnd={() => {
+            if (longPressTimeout.current) {
+              clearTimeout(longPressTimeout.current);
+              longPressTimeout.current = null;
+            }
           }}
         />
       )}
@@ -227,7 +256,14 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
                   background: menuHoveredIdx === idx ? colors.accentBg : 'transparent',
                   color: colors.foreground,
                   borderTop: idx === 2 ? `1px solid ${colors.border}` : undefined,
-                  lineHeight: '1.2', minHeight: '24px'
+                  lineHeight: '1.2',
+                  minHeight: '24px',
+                  userSelect: 'none',
+                  WebkitUserSelect: 'none',
+                  WebkitTouchCallout: 'none',
+                  MozUserSelect: 'none',
+                  msUserSelect: 'none',
+                  touchAction: 'manipulation'
                 }}
                 onMouseEnter={() => setMenuHoveredIdx(idx)}
                 onMouseLeave={() => setMenuHoveredIdx(null)}
