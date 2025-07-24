@@ -35,9 +35,19 @@
 }
 
 html, body {
-  height: 100%;
+  height: 100vh;
+  min-height: 0;
   margin: 0;
   padding: 0;
+  overflow: hidden;
+}
+
+/* Next.js root container fix */
+#__next {
+  height: 100vh;
+  min-height: 0;
+  width: 100vw;
+  overflow: hidden;
 }
 
 body {
