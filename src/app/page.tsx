@@ -393,7 +393,7 @@ export default function Home() {
               // プレビュータブ追加
               const newTab = {
                 id: previewTabId,
-                name: `${fileToPreview.name} (Preview)`,
+                name: fileToPreview.name,
                 content: fileToPreview.content || '',
                 isDirty: false,
                 path: fileToPreview.path,

@@ -100,7 +100,12 @@ export default function TabBar({
             }}
             onClick={() => onTabClick(tab.id)}
           >
-            <span className="text-sm truncate max-w-32">{tab.name}</span>
+              <span className="tab-label" style={{ color: tab.isDirty ? colors.accent : colors.foreground }}>
+                {tab.preview && (
+                  <span style={{ fontSize: '0.7em', opacity: 0.7, marginRight: '4px' }}>(Preview)</span>
+                )}
+                {tab.name}
+              </span>
             {tab.isDirty && <span className="ml-1 text-xs" style={{ color: colors.red }}>●</span>}
             <button
               className="ml-2 p-1 rounded hover:bg-accent"
