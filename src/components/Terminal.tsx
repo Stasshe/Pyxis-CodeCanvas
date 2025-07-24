@@ -228,12 +228,22 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
       if (unixCommandsRef.current && gitCommandsRef.current) {
         const relativePath = unixCommandsRef.current.getRelativePath();
         const branch = await gitCommandsRef.current.getCurrentBranch();
-        const branchDisplay = branch !== '(no git)' ? ` (${branch})` : '';
+        let branchDisplay = '';
+        if (branch !== '(no git)') {
+          // ブランチ名の色をThemeContextから取得
+          const branchColors = colors.gitBranchColors || [];
+          // ブランチ名ごとに色を決定（例: ハッシュで色選択）
+          const colorHex = branchColors.length > 0
+            ? branchColors[Math.abs(branch.split('').reduce((a, c) => a + c.charCodeAt(0), 0)) % branchColors.length]
+            : colors.primary;
+          // HEXをRGBに変換
+          const rgb = colorHex.replace('#','').match(/.{2}/g)?.map(x => parseInt(x, 16)) || [0,0,0];
+          branchDisplay = ` (\x1b[38;2;${rgb[0]};${rgb[1]};${rgb[2]}m${branch}\x1b[0m)`;
+        }
         term.write(`\r/workspaces/${currentProject}${relativePath}${branchDisplay} $ `);
       } else {
         term.write('\r$ ');
       }
-      
       // プロンプト表示後、1回だけスクロール
       scrollToBottom();
     };
