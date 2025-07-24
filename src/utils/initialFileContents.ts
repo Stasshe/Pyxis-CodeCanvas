@@ -80,15 +80,13 @@ console.log(content);
 \`\`\`
 
 ### LaTeX 数式例
-\`\`\`latex
-\\begin{align}
+$
 E = mc^2\\\\
 x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}
-\\end{align}
-\`\`\`
+$
 
 ### 複数モニター・テーマ変更
-- 設定パネルから「テーマカラー」や「レイアウト」を変更できます。
+- 設定パネルから「テーマカラー」「個別色設定」を変更できます。
 
 ### ファイル操作
 - ファイルツリーでドラッグ＆ドロップや右クリックで新規作成・削除・リネーム可能。
@@ -108,6 +106,51 @@ git checkout -b feature/new-feature
 git merge feature/new-feature
 \`\`\`
 
+
+## Mermaid記法のリアルタイム編集
+\`\`\`mermaid
+graph TB
+    subgraph "ブラウザ IndexedDB"
+        subgraph "pyxis-fs (lightning-fs)"
+            GitFS[Git仮想ファイルシステム]
+            GitObjects[.git/objects/]
+            GitRefs[.git/refs/]
+            GitHead[.git/HEAD]
+            GitIndex[.git/index]
+        end
+        
+        subgraph "PyxisProjects"
+            Projects[projects テーブル]
+            Files[files テーブル]
+        end
+    end
+    
+    subgraph "React メモリ状態"
+        ProjectFiles[projectFiles state]
+        Tabs[tabs state]
+        ActiveTab[activeTabId state]
+        NodeRuntimeFlag[nodeRuntimeOperationInProgress]
+    end
+    
+    subgraph "UI コンポーネント"
+        Terminal[Terminal.tsx]
+        FileTree[FileTree.tsx]
+        Editor[CodeEditor.tsx]
+        RunPanel[RunPanel.tsx]
+    end
+    
+    GitFS --> Terminal
+    Projects --> ProjectFiles
+    Files --> ProjectFiles
+    ProjectFiles --> FileTree
+    ProjectFiles --> Tabs
+    Tabs --> Editor
+    
+    Terminal --> GitFS
+    Editor --> Tabs
+    RunPanel --> GitFS
+    RunPanel --> Files
+\`\`\`
 ---
 
 ## よく使うコマンド
@@ -120,7 +163,7 @@ git merge feature/new-feature
 - テーマカラー変更
 - ファイルのインポート/ダウンロード
 - Git/プロジェクトファイルのダウンロード
-
+- Mermaid記法のリアルタイム編集
 ---
 
 > Pyxisで快適な開発をお楽しみください！
@@ -163,7 +206,7 @@ console.log("二乗した配列:", squared);
 
 // 非同期処理の例
 async function getData() {
-  return await new Promise(res => setTimeout(() => res("5秒経ちました。"), 1000));
+  return await new Promise(res => setTimeout(() => res("1秒経ちました。"), 1000));
 }
 getData().then(console.log);
 

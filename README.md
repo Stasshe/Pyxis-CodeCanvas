@@ -67,7 +67,7 @@ Pyxis is a revolutionary **client-side IDE** that brings the complete developmen
 - **LaTeX rendering** for mathematical documents and formulas
 - **Multi-pane support** for enhanced productivity
 - **Theme color customization** for personalized workspace
-- **File import/export** and direct download/upload of files
+- **Mermaid syntax support** - Easily render flowcharts and sequence diagrams in real time
 - **Download Git/project files** for easy sharing and backup
 
 ### ⚡ **Node.js Runtime Engine**

@@ -14,7 +14,7 @@ console.log("二乗した配列:", squared);
 
 // 非同期処理の例
 async function getData() {
-  return await new Promise(res => setTimeout(() => res("5秒経ちました。"), 1000));
+  return await new Promise(res => setTimeout(() => res("1秒経ちました。"), 1000));
 }
 getData().then(console.log);
 

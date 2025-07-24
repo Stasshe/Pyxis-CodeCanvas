@@ -33,10 +33,11 @@ const Mermaid: React.FC<{ chart: string }> = ({ chart }) => {
           // SVGのoverflow調整 & 背景色設定
           const svgElem = ref.current.querySelector('svg');
           if (svgElem) {
-            svgElem.style.maxWidth = '100%';
-            svgElem.style.height = 'auto';
-            svgElem.style.overflow = 'visible';
-            svgElem.style.background = colors.mermaidBg || '#eaffea';
+                svgElem.style.maxWidth = '100%';
+                svgElem.style.height = 'auto';
+                svgElem.style.maxHeight = '90vh'; // 画面高の90%以下に制限
+                svgElem.style.overflow = 'visible';
+                svgElem.style.background = colors.mermaidBg || '#eaffea';
           }
         } catch (e) {
           ref.current.innerHTML = `<pre style='color:red;'>Mermaid render error: ${String(e)}</pre>`;
