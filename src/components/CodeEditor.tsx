@@ -284,7 +284,7 @@ export default function CodeEditor({
   console.log('[CodeEditor] Rendering editor for:', activeTab.name);
 
   // Markdownプレビュータブの場合は専用コンポーネントで表示
-  if ((activeTab.preview || false) && activeTab.name.endsWith('(Preview)')) {
+  if (activeTab.preview) {
     return (
       <>
         {console.log('[CodeEditor] Rendering Markdown preview for:', activeTab.name)}

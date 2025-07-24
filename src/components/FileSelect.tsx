@@ -4,7 +4,15 @@ import type { FileItem } from '@/types';
 import FileTree from '@/components/FileTree';
 import { useTheme } from '../context/ThemeContext';
 
-export default function FileSelectModal({ isOpen, onClose, files, onFileSelect }: { isOpen: boolean, onClose: () => void, files: FileItem[], onFileSelect: (file: FileItem) => void }) {
+export default function FileSelectModal({ isOpen, onClose, files, onFileSelect, onFileOperation, currentProjectName, onFilePreview }: {
+  isOpen: boolean,
+  onClose: () => void,
+  files: FileItem[],
+  onFileSelect: (file: FileItem) => void,
+  onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>,
+  currentProjectName?: string,
+  onFilePreview?: (file: FileItem) => void
+}) {
   const { colors } = useTheme();
   if (!isOpen) return null;
   return (
@@ -25,7 +33,13 @@ export default function FileSelectModal({ isOpen, onClose, files, onFileSelect }
           className="border rounded p-2"
           style={{ background: colors.mutedBg, borderColor: colors.border }}
         >
-          <FileTree items={files} onFileOpen={onFileSelect} />
+          <FileTree
+            items={files}
+            onFileOpen={onFileSelect}
+            onFileOperation={onFileOperation}
+            currentProjectName={currentProjectName || ''}
+            onFilePreview={onFilePreview}
+          />
         </div>
       </div>
     </div>

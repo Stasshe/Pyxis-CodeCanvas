@@ -609,6 +609,60 @@ export default function Home() {
             });
           }
         }}
+        onFilePreview={file => {
+          // プレビュー用タブを開く
+          setFileSelectState({ open: false, paneIdx: null });
+          if (fileSelectState.paneIdx !== null) {
+            setEditors(prev => {
+              const updated = [...prev];
+              const pane = updated[fileSelectState.paneIdx!];
+              let fileToPreview = file;
+              if (currentProject && projectFiles.length > 0) {
+                const latestFile = projectFiles.find(f => f.path === file.path);
+                if (latestFile) {
+                  fileToPreview = { ...file, content: latestFile.content };
+                }
+              }
+              // プレビュー用タブ（preview: true）
+              const previewTabId = `${fileToPreview.path}-preview`;
+              const existingTab = pane.tabs.find(t => t.id === previewTabId);
+              let newTabs;
+              let newActiveTabId;
+              if (existingTab) {
+                newTabs = pane.tabs;
+                newActiveTabId = existingTab.id;
+              } else {
+                const newTab: Tab = {
+                  id: previewTabId,
+                  name: fileToPreview.name,
+                  content: fileToPreview.content || '',
+                  isDirty: false,
+                  path: fileToPreview.path,
+                  preview: true
+                };
+                newTabs = [...pane.tabs, newTab];
+                newActiveTabId = newTab.id;
+              }
+              updated[fileSelectState.paneIdx!] = {
+                ...pane,
+                tabs: newTabs,
+                activeTabId: newActiveTabId
+              };
+              return updated;
+            });
+          }
+        }}
+        onFileOperation={async (path, type, content, isNodeRuntime) => {
+          // 既存のonFileOperationのロジックを流用
+          if (isNodeRuntime) {
+            setNodeRuntimeOperationInProgress(true);
+          }
+          if (syncTerminalFileOperation) {
+            await syncTerminalFileOperation(path, type, content);
+          }
+          setGitRefreshTrigger(prev => prev + 1);
+        }}
+        currentProjectName={currentProject?.name || ''}
       />
     </div>
     </>
