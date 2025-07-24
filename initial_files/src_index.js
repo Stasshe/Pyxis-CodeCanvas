@@ -1,12 +1,6 @@
 // メインエントリーポイント
 console.log("Hello, World!");
 
-// 関数定義と呼び出し
-function greet(name) {
-  return `こんにちは、${name}さん！`;
-}
-console.log(greet("ユーザー"));
-
 // 配列処理の例
 const arr = [1, 2, 3, 4];
 const squared = arr.map(x => x * x);
