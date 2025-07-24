@@ -28,7 +28,7 @@ export default function TabBar({
   const { colors } = useTheme();
   // メニューの開閉状態管理
   const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef < HTMLDivElement > (null);
 
   // メニュー外クリックで閉じる
   useEffect(() => {
@@ -69,7 +69,16 @@ export default function TabBar({
           <div
             ref={menuRef}
             className="absolute top-10 left-0 bg-card border border-border rounded shadow-lg z-10 min-w-[120px] p-2 flex flex-col gap-2"
-            style={{ background: colors.cardBg, borderColor: colors.border }}
+            style={{
+              background: colors.cardBg,
+              borderColor: colors.border,
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
+              WebkitTouchCallout: 'none',
+              MozUserSelect: 'none',
+              msUserSelect: 'none',
+              touchAction: 'manipulation'
+            }}
           >
             {React.Children.map(extraButtons, child => {
               if (!React.isValidElement(child)) return child;
@@ -100,12 +109,29 @@ export default function TabBar({
             }}
             onClick={() => onTabClick(tab.id)}
           >
-              <span className="tab-label" style={{ color: tab.isDirty ? colors.accent : colors.foreground }}>
-                {tab.preview && (
-                  <span style={{ fontSize: '0.7em', opacity: 0.7, marginRight: '4px' }}>(Preview)</span>
-                )}
-                {tab.name}
-              </span>
+            <span className="tab-label" style={{
+              color: tab.isDirty ? colors.accent : colors.foreground,
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
+              WebkitTouchCallout: 'none',
+              MozUserSelect: 'none',
+              msUserSelect: 'none',
+              touchAction: 'manipulation'
+            }}>
+              {tab.preview && (
+                <span style={{
+                  fontSize: '0.7em',
+                  opacity: 0.7,
+                  marginRight: '4px',
+                  userSelect: 'none',
+                  WebkitUserSelect: 'none',
+                  WebkitTouchCallout: 'none',
+                  MozUserSelect: 'none',
+                  msUserSelect: 'none'
+                }}>(Preview)</span>
+              )}
+              {tab.name}
+            </span>
             {tab.isDirty && <span className="ml-1 text-xs" style={{ color: colors.red }}>●</span>}
             <button
               className="ml-2 p-1 rounded hover:bg-accent"
