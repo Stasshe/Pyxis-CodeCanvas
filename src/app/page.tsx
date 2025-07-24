@@ -102,10 +102,10 @@ export default function Home() {
       setTimeout(() => {
         const welcomeTab: Tab = {
           id: 'welcome',
-          name: 'README.md',
+          name: 'Welcome',
           content: `# ${currentProject.name}\n\n${currentProject.description || ''}\n\nプロジェクトファイルはIndexedDBに保存されています。\n./${currentProject.name}/~$`,
           isDirty: false,
-          path: '/README.md'
+          path: '/'
         };
         
         setTabs([welcomeTab]);

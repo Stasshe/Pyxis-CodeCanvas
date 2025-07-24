@@ -1,6 +1,7 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import MarkdownPreviewTab from './MarkdownPreviewTab';
+import WelcomeTab from './WelcomeTab';
 import Editor, { Monaco } from '@monaco-editor/react';
 import { FileText } from 'lucide-react';
 import { Tab } from '../types';
@@ -262,6 +263,20 @@ export default function CodeEditor({
             <p>ファイルを選択してください</p>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  // Welcomeタブの場合は専用コンポーネントで表示
+  if (activeTab.id === 'welcome') {
+    // README.mdの内容をパースしてプロジェクト名・説明を抽出
+    // 例: content = `# プロジェクト名\n\n説明...`
+    const lines = activeTab.content.split('\n');
+    const projectName = lines[0]?.replace(/^# /, '') || '';
+    const description = lines[2] || '';
+    return (
+      <div className="flex-1" style={{ height: editorHeight }}>
+        <WelcomeTab projectName={projectName} description={description} />
       </div>
     );
   }
