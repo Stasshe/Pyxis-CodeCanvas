@@ -158,7 +158,7 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
                   <File size={16} color={colors.mutedFg} />
                 </>
               )}
-              <span style={{ fontSize: '0.875rem', color: colors.foreground, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.name}</span>
+              <span style={{ fontSize: '0.875rem', color: colors.foreground, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', userSelect: 'none' }}>{item.name}</span>
             </div>
             {item.type === 'folder' && item.children && isExpanded && (
               <FileTree 
