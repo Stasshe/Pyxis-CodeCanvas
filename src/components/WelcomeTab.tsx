@@ -58,7 +58,7 @@ export default function WelcomeTab({ projectName, description }: WelcomeTabProps
               </li>
               <li className="flex items-center gap-2">
                 <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0"></span>
-                Markdown/LaTeX/HTML/CSS/JavaScript/Pythonなど多言語対応
+                Cpp, HTML, CSS, JavaScript, Pythonなど多言語Highlight対応
               </li>
               <li className="flex items-center gap-2">
                 <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0"></span>
@@ -72,7 +72,7 @@ export default function WelcomeTab({ projectName, description }: WelcomeTabProps
             <ul className="space-y-2 text-base">
               <li className="flex items-center gap-2">
                 <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0"></span>
-                LaTeX数式レンダリング・Mermaid記法対応
+                LaTeX数式レンダリング・MermaidHTML記法対応
               </li>
               <li className="flex items-center gap-2">
                 <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0"></span>
