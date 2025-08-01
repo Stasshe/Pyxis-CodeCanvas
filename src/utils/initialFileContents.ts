@@ -195,7 +195,7 @@ console.log("Hello, World!");
 
 // 関数定義と呼び出し
 function greet(name) {
-  const mes = "こんにちは!" + (name ?? "User")
+  const mes = "こんにちは!" + (name ?? "User");
   return mes;
 }
 console.log(greet("ユーザー"));
