@@ -319,16 +319,16 @@ export class GitCommands {
               console.log(`[git.add] Staging deleted file: ${file}`);
               await git.remove({ fs: this.fs, dir: this.dir, filepath: file });
               deletedCount++;
-            } else if (workdir > 0 && stage !== 2) {
-              // ワーキングディレクトリにファイルが存在し、まだステージされていない場合
-              if (head === 0) {
-                console.log(`[git.add] Adding new file: ${file}`);
-                newCount++;
-              } else {
-                console.log(`[git.add] Adding modified file: ${file}`);
-                modifiedCount++;
-              }
+            } else if (head === 0 && workdir > 0 && stage === 0) {
+              // 新規ファイル（未追跡）: HEAD=0, WORKDIR>0, STAGE=0
+              console.log(`[git.add] Adding new file: ${file}`);
               await git.add({ fs: this.fs, dir: this.dir, filepath: file });
+              newCount++;
+            } else if (head === 1 && workdir === 2 && stage === 1) {
+              // 変更されたファイル（未ステージ）: HEAD=1, WORKDIR=2, STAGE=1
+              console.log(`[git.add] Adding modified file: ${file}`);
+              await git.add({ fs: this.fs, dir: this.dir, filepath: file });
+              modifiedCount++;
             }
             // 既にステージ済みのファイル（stage === 2, 0 など）はスキップ
           } catch (operationError) {
