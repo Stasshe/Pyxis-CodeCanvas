@@ -191,7 +191,7 @@ export class GitCommands {
       return `On branch ${currentBranch}\nnothing to commit, working tree clean`;
     }
 
-    const { untracked, modified, staged } = this.categorizeStatusFiles(status);
+    const { untracked, modified, staged, deleted } = this.categorizeStatusFiles(status);
     
 
     let result = `On branch ${currentBranch}\n`;
@@ -206,13 +206,20 @@ export class GitCommands {
       modified.forEach(file => result += `  modified:   ${file}\n`);
     }
     
+    if (deleted.length > 0) {
+      if (modified.length === 0) {
+        result += '\nChanges not staged for commit:\n';
+      }
+      deleted.forEach(file => result += `  deleted:    ${file}\n`);
+    }
+    
     if (untracked.length > 0) {
       result += '\nUntracked files:\n';
       untracked.forEach(file => result += `  ${file}\n`);
       result += '\nnothing added to commit but untracked files present (use "git add" to track)';
     }
 
-    if (staged.length === 0 && modified.length === 0 && untracked.length === 0) {
+    if (staged.length === 0 && modified.length === 0 && untracked.length === 0 && deleted.length === 0) {
       result = `On branch ${currentBranch}\nnothing to commit, working tree clean`;
     }
 
@@ -221,13 +228,18 @@ export class GitCommands {
 
   // ファイルのステータスを分類
   private categorizeStatusFiles(status: Array<[string, number, number, number]>): {
-    untracked: string[], modified: string[], staged: string[]
+    untracked: string[], modified: string[], staged: string[], deleted: string[]
   } {
     const untracked: string[] = [];
     const modified: string[] = [];
     const staged: string[] = [];
+    const deleted: string[] = [];
+
+    console.log('[git.categorizeStatusFiles] Processing status entries:', status.length);
 
     status.forEach(([filepath, HEAD, workdir, stage]) => {
+      console.log(`[git.categorizeStatusFiles] File: ${filepath}, HEAD: ${HEAD}, workdir: ${workdir}, stage: ${stage}`);
+      
       // isomorphic-gitのstatusMatrixの値の意味:
       // HEAD: 0=ファイルなし, 1=ファイルあり
       // workdir: 0=ファイルなし, 1=ファイルあり, 2=変更あり
@@ -249,17 +261,25 @@ export class GitCommands {
         // 変更されてステージされたファイル
         staged.push(filepath);
       } else if (HEAD === 1 && workdir === 0 && stage === 0) {
-        // 削除されたファイル（未ステージ）
-        modified.push(filepath);
+        // 削除されたファイル（未ステージ）★ここが重要
+        console.log(`[git.categorizeStatusFiles] FOUND DELETED FILE (unstaged): ${filepath}`);
+        deleted.push(filepath);
+      } else if (HEAD === 1 && workdir === 0 && stage === 1) {
+        // 削除されたファイル（stage=1の場合も削除として扱う）★追加
+        console.log(`[git.categorizeStatusFiles] FOUND DELETED FILE (stage=1): ${filepath}`);
+        deleted.push(filepath);
       } else if (HEAD === 1 && workdir === 0 && stage === 3) {
         // 削除されてステージされたファイル
         staged.push(filepath);
       } else {
         // その他のケース（HEAD === 1 && workdir === 1 && stage === 1など）は変更なし
+        console.log(`[git.categorizeStatusFiles] No change: ${filepath}`);
       }
     });
 
-    return { untracked, modified, staged };
+    console.log('[git.categorizeStatusFiles] Results:', { untracked: untracked.length, modified: modified.length, staged: staged.length, deleted: deleted.length });
+    
+    return { untracked, modified, staged, deleted };
   }
 
   // ========================================

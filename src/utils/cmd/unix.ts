@@ -493,7 +493,17 @@ export class UnixCommands {
         }
       } else {
         // ファイルの場合
+        console.log('[rm] Deleting file from filesystem:', normalizedPath);
         await this.fs.promises.unlink(normalizedPath);
+        console.log('[rm] File deleted from filesystem successfully');
+        
+        // 削除後のファイル存在確認
+        try {
+          await this.fs.promises.stat(normalizedPath);
+          console.warn('[rm] WARNING: File still exists after deletion!', normalizedPath);
+        } catch {
+          console.log('[rm] Confirmed: File no longer exists in filesystem');
+        }
         
         // 削除後の重要なGitキャッシュフラッシュ
         await this.flushFileSystemCache();
@@ -501,6 +511,7 @@ export class UnixCommands {
         // onFileOperationコールバックを呼ぶ
         if (this.onFileOperation) {
           const relPath = this.getRelativePathFromProject(normalizedPath);
+          console.log('[rm] Calling onFileOperation for deletion:', relPath);
           await this.onFileOperation(relPath, 'delete');
         }
       }
