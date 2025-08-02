@@ -332,6 +332,17 @@ export class GitCommands {
               else if (head === 1 && workdir === 0 && stage === 3) {
                 deletedCount++;
               }
+              // 修正: 削除されたファイルをステージング
+              if (head === 1 && workdir === 0 && stage === 0) {
+                // デバッグログを追加して削除ファイルの処理を確認
+                console.log(`[git.add] Staging deleted file: ${file}`);
+                try {
+                  await git.remove({ fs: this.fs, dir: this.dir, filepath: file });
+                  deletedCount++;
+                } catch (removeError) {
+                  console.warn(`[git.add] Failed to stage deleted file ${file}:`, removeError);
+                }
+              }
             }
           } catch (verifyError) {
             console.warn(`[git.add] Failed to verify status after add:`, verifyError);
