@@ -260,14 +260,14 @@ export class GitCommands {
       } else if (HEAD === 1 && workdir === 2 && stage === 2) {
         // 変更されてステージされたファイル
         staged.push(filepath);
-      } else if (HEAD === 1 && workdir === 0 && stage === 0) {
-        // 削除されたファイル（未ステージ）★ここが重要
+      } else if (HEAD === 1 && workdir === 0 && stage === 1) {
+        // 削除されたファイル（未ステージ）- unstaged deletion
         console.log(`[git.categorizeStatusFiles] FOUND DELETED FILE (unstaged): ${filepath}`);
         deleted.push(filepath);
-      } else if (HEAD === 1 && workdir === 0 && stage === 1) {
-        // 削除されたファイル（stage=1の場合も削除として扱う）★追加
-        console.log(`[git.categorizeStatusFiles] FOUND DELETED FILE (stage=1): ${filepath}`);
-        deleted.push(filepath);
+      } else if (HEAD === 1 && workdir === 0 && stage === 0) {
+        // 削除されたファイル（ステージ済み）- staged deletion
+        console.log(`[git.categorizeStatusFiles] FOUND DELETED FILE (staged): ${filepath}`);
+        staged.push(filepath);
       } else if (HEAD === 1 && workdir === 0 && stage === 3) {
         // 削除されてステージされたファイル
         staged.push(filepath);
@@ -311,25 +311,26 @@ export class GitCommands {
         let newCount = 0, modifiedCount = 0, deletedCount = 0;
         
         // 全ファイルの状態に応じて適切な操作を実行
+        // isomorphic-gitのsnippets実装に基づく: worktreeStatus ? git.add : git.remove
         for (const [file, head, workdir, stage] of statusMatrix) {
           try {
-            if (head === 1 && workdir === 0 && stage === 0) {
-              // 削除されたファイル（未ステージ）
+            if (workdir === 0 && head === 1 && stage === 1) {
+              // 削除されたファイル（未ステージ）: HEAD=1, WORKDIR=0, STAGE=1
               console.log(`[git.add] Staging deleted file: ${file}`);
               await git.remove({ fs: this.fs, dir: this.dir, filepath: file });
               deletedCount++;
-            } else if (head === 0 && workdir === 1 && stage === 0) {
-              // 新規ファイル（未追跡）
-              console.log(`[git.add] Adding new file: ${file}`);
+            } else if (workdir > 0 && stage !== 2) {
+              // ワーキングディレクトリにファイルが存在し、まだステージされていない場合
+              if (head === 0) {
+                console.log(`[git.add] Adding new file: ${file}`);
+                newCount++;
+              } else {
+                console.log(`[git.add] Adding modified file: ${file}`);
+                modifiedCount++;
+              }
               await git.add({ fs: this.fs, dir: this.dir, filepath: file });
-              newCount++;
-            } else if (head === 1 && workdir === 2 && stage === 1) {
-              // 変更されたファイル（未ステージ）
-              console.log(`[git.add] Adding modified file: ${file}`);
-              await git.add({ fs: this.fs, dir: this.dir, filepath: file });
-              modifiedCount++;
             }
-            // 既にステージ済みのファイル（stage > 1）はスキップ
+            // 既にステージ済みのファイル（stage === 2, 0 など）はスキップ
           } catch (operationError) {
             console.warn(`[git.add] Failed to process ${file}:`, operationError);
           }
@@ -353,7 +354,8 @@ export class GitCommands {
         
         // 削除されたファイルを特定
         for (const [file, head, workdir, stage] of status) {
-          if (head === 1 && workdir === 0 && stage === 0) {
+          if (head === 1 && workdir === 0 && stage === 1) {
+            // 削除されたファイル（未ステージ）
             deletedFiles.push(file);
           }
         }
@@ -405,7 +407,7 @@ export class GitCommands {
           const [file, head, workdir, stage] = fileStatus;
           
           // 削除されたファイルの場合
-          if (head === 1 && workdir === 0 && stage === 0) {
+          if (head === 1 && workdir === 0 && stage === 1) {
             console.log(`[git.add] Staging deleted file: ${filepath}`);
             try {
               await git.remove({ fs: this.fs, dir: this.dir, filepath });
