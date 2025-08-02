@@ -21,7 +21,6 @@ export interface GitStatus {
   staged: string[];
   unstaged: string[];
   untracked: string[];
-  deleted: string[];
   branch: string;
   ahead: number;
   behind: number;

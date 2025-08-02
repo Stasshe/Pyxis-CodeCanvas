@@ -614,6 +614,7 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
                       </div>
                     </div>
                   ))}
+                  <p className='text-xs text-muted-foreground mt-1'>未追跡ファイルはGitに追加されていません。ステージングすることでコミット対象になります。</p>
                 </div>
               )}
             </div>
