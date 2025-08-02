@@ -458,17 +458,6 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
             break;
             
           case 'rm':
-            //このif追加するとエラーでる。isomorphic-gitのせいか？今は諦め
-            // if (gitCommandsRef.current && args[0]) {
-            //   const fileName = args[0];
-            //   try {
-            //     const result = await gitCommandsRef.current.removeFile(fileName);
-            //     await writeOutput(result);
-            //   } catch (error) {
-            //     await writeOutput(`Failed to remove file: ${(error as Error).message}`);
-            //   }
-            // }
-            //ここまで
             if (unixCommandsRef.current && args[0]) {
               const recursive = args.includes('-r') || args.includes('-rf');
               const fileName = args.find(arg => !arg.startsWith('-')) || args[args.length - 1];
