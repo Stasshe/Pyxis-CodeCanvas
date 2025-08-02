@@ -179,8 +179,9 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
     }, 100);
 
     // 初期メッセージ
-    term.writeln('Pyxis Terminal v1.0.0');
-    term.writeln('Type "help" for available commands.');
+  const pyxisVersion = process.env.PYXIS_VERSION || '(dev)';
+  term.writeln(`Pyxis Terminal v${pyxisVersion}`);
+  term.writeln('Type "help" for available commands.');
 
     // 確実な自動スクロール関数
     const scrollToBottom = (force = false) => {
