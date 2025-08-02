@@ -1,7 +1,7 @@
 'use client';
 
 import type { FileItem } from '@/types';
-import FileTree from '@/components/FileTree';
+import FileTree from '@/components/Left/FileTree';
 import { useTheme } from '../context/ThemeContext';
 
 export default function FileSelectModal({ isOpen, onClose, files, onFileSelect, onFileOperation, currentProjectName, onFilePreview }: {

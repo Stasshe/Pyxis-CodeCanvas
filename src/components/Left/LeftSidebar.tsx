@@ -1,12 +1,12 @@
 import { FolderOpen } from 'lucide-react';
-import { useTheme } from '../context/ThemeContext';
-import { MenuTab, FileItem } from '../types';
+import { useTheme } from '@/context/ThemeContext';
+import { MenuTab, FileItem } from '@/types';
+import type { Project } from '@/types';
 import FileTree from './FileTree';
 import SearchPanel from './SearchPanel';
 import GitPanel from './GitPanel';
 import RunPanel from './RunPanel';
 import SettingsPanel from './SettingsPanel';
-import type { Project } from '../types';
 
 interface LeftSidebarProps {
   activeMenuTab: MenuTab;

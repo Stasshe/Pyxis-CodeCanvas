@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { GitCommit as GitCommitType } from '@/types/git';
 import { GitCommands } from '@/utils/cmd/git';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme } from '@/context/ThemeContext';
 
 interface GitHistoryProps {
   commits: GitCommitType[];

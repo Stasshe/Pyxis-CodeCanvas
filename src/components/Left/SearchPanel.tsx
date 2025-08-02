@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Search, X, FileText, Folder } from 'lucide-react';
 import { FileItem } from '@/types';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme } from '@/context/ThemeContext';
 
 interface SearchPanelProps {
   files: FileItem[];

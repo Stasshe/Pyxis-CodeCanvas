@@ -41,25 +41,30 @@
 │   │   ├── markdown.css
 │   │   └── page.tsx
 │   ├── components
-│   │   ├── BottomPanel.tsx
-│   │   ├── CodeEditor.tsx
+│   │   ├── Bottom
+│   │   │   ├── BottomPanel.tsx
+│   │   │   ├── Terminal.tsx
+│   │   │   ├── TerminalGitCommands.tsx
+│   │   │   ├── TerminalNPMCommands.tsx
+│   │   │   ├── TerminalOtherCommands.tsx
+│   │   │   └── TerminalUnixCommands.tsx
 │   │   ├── FileSelect.tsx
-│   │   ├── FileTree.tsx
-│   │   ├── GitHistory.tsx
-│   │   ├── GitPanel.tsx
-│   │   ├── HighlightedCode.tsx
-│   │   ├── LeftSidebar.tsx
-│   │   ├── MarkdownPreviewTab.tsx
+│   │   ├── Left
+│   │   │   ├── FileTree.tsx
+│   │   │   ├── GitHistory.tsx
+│   │   │   ├── GitPanel.tsx
+│   │   │   ├── LeftSidebar.tsx
+│   │   │   ├── RunPanel.tsx
+│   │   │   ├── SearchPanel.tsx
+│   │   │   └── SettingsPanel.tsx
 │   │   ├── MenuBar.tsx
 │   │   ├── ProjectModal.tsx
-│   │   ├── RunPanel.tsx
-│   │   ├── SearchPanel.tsx
-│   │   ├── SettingsPanel.tsx
-│   │   ├── TabBar.tsx
-│   │   ├── Terminal.tsx
-│   │   ├── TerminalGitCommands.tsx
-│   │   ├── TerminalUnixCommands.tsx
-│   │   └── WelcomeTab.tsx
+│   │   └── Tab
+│   │       ├── CodeEditor.tsx
+│   │       ├── HighlightedCode.tsx
+│   │       ├── MarkdownPreviewTab.tsx
+│   │       ├── TabBar.tsx
+│   │       └── WelcomeTab.tsx
 │   ├── context
 │   │   └── ThemeContext.tsx
 │   ├── types
@@ -102,9 +107,9 @@
 ├── tree.txt
 └── tsconfig.json
 
-13 directories, 90 files
+16 directories, 92 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 13784
-合計文字数: 480225
-合計ファイルサイズ(bytes): 519385
+合計行数: 13817
+合計文字数: 476749
+合計ファイルサイズ(bytes): 515797

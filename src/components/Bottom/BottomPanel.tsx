@@ -1,6 +1,6 @@
 import Terminal from './Terminal';
 import { FileItem } from '@/types';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme } from '@/context/ThemeContext';
 
 interface BottomPanelProps {
   height: number;

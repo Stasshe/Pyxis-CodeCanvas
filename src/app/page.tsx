@@ -3,10 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import MenuBar from '@/components/MenuBar';
-import LeftSidebar from '@/components/LeftSidebar';
-import TabBar from '@/components/TabBar';
-import CodeEditor from '@/components/CodeEditor';
-import BottomPanel from '@/components/BottomPanel';
+import LeftSidebar from '@/components/Left/LeftSidebar';
+import TabBar from '@/components/Tab/TabBar';
+import CodeEditor from '@/components/Tab/CodeEditor';
+import BottomPanel from '@/components/Bottom/BottomPanel';
 import ProjectModal from '@/components/ProjectModal';
 import { useLeftSidebarResize, useBottomPanelResize } from '@/utils/resize';
 import { openFile } from '@/utils/tabs';

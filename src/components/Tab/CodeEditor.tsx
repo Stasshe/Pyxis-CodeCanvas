@@ -4,7 +4,7 @@ import MarkdownPreviewTab from './MarkdownPreviewTab';
 import WelcomeTab from './WelcomeTab';
 import Editor, { Monaco } from '@monaco-editor/react';
 import { FileText } from 'lucide-react';
-import { Tab } from '../types';
+import { Tab } from '@/types';
 import * as monaco from 'monaco-editor';
 
 interface CodeEditorProps {

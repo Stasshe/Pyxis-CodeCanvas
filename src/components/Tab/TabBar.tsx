@@ -1,8 +1,8 @@
 import { X, Plus, Menu } from 'lucide-react';
 import clsx from 'clsx';
 import React, { useState, useRef, useEffect } from 'react';
-import { Tab } from '../types';
-import { useTheme } from '../context/ThemeContext';
+import { Tab } from '@/types';
+import { useTheme } from '@/context/ThemeContext';
 
 interface TabBarProps {
   tabs: Tab[];

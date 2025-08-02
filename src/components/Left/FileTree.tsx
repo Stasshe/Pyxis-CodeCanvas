@@ -1,9 +1,9 @@
-import { useTheme } from '../context/ThemeContext';
+import { useTheme } from '@/context/ThemeContext';
 import { useState, useEffect, useRef } from 'react';
-import { exportSingleFile } from '../utils/export/exportSingleFile';
-import { exportFolderZip } from '../utils/export/exportFolderZip';
+import { exportSingleFile } from '@/utils/export/exportSingleFile';
+import { exportFolderZip } from '@/utils/export/exportFolderZip';
 import { ChevronDown, ChevronRight, File, Folder } from 'lucide-react';
-import { FileItem } from '../types';
+import { FileItem } from '@/types';
 import { UnixCommands } from '@/utils/cmd/unix';
 
 interface FileTreeProps {
@@ -293,7 +293,7 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
                     input.onchange = async (e: any) => {
                       const file = e.target.files[0];
                       if (!file) return;
-                      const { importSingleFile } = await import('../utils/export/importSingleFile');
+                      const { importSingleFile } = await import('@/utils/export/importSingleFile');
                       const unix = new UnixCommands(currentProjectName);
                       const targetAbsolutePath = `/projects/${currentProjectName}/${file.name}`;
                       const targetPath = `/${file.name}`;
@@ -327,7 +327,7 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
                       input.onchange = async (e: any) => {
                         const file = e.target.files[0];
                         if (!file) return;
-                        const { importSingleFile } = await import('../utils/export/importSingleFile');
+                        const { importSingleFile } = await import('@/utils/export/importSingleFile');
                         const unix = new UnixCommands(currentProjectName);
                         const item = contextMenu.item;
                         let targetPath = '';
