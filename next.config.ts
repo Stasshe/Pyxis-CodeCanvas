@@ -5,6 +5,9 @@
 const isProductionBuild = process.env.BUILD_MODE === 'production';
 console.log(`isProductionBuild: ${isProductionBuild}`);
 
+// package.jsonからバージョン取得
+const pkg = require('./package.json');
+
 // 共通設定
 const commonConfig = {
   reactStrictMode: false,
@@ -31,6 +34,10 @@ const commonConfig = {
         new (require('webpack')).ProvidePlugin({
           Buffer: ['buffer', 'Buffer'],
           process: 'process/browser',
+        }),
+        // バージョンをDefinePluginで注入
+        new (require('webpack')).DefinePlugin({
+          'process.env.PYXIS_VERSION': JSON.stringify(pkg.version),
         }),
       ];
       config.output.globalObject = 'globalThis';
