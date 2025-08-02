@@ -7,6 +7,15 @@
 ├── TODO.md
 ├── bashCmd.txt
 ├── eslint.config.mjs
+├── git-deletion-detection-analysis.md
+├── initial_files
+│   ├── README.md
+│   ├── docs_getting-started.md
+│   ├── docs_git-commands.md
+│   ├── docs_unix-commands.md
+│   ├── src_fileOperationg.js
+│   └── src_index.js
+├── initial_files_to_ts.js
 ├── next-env.d.ts
 ├── next.config.ts
 ├── package-lock.json
@@ -47,7 +56,10 @@
 │   │   ├── SearchPanel.tsx
 │   │   ├── SettingsPanel.tsx
 │   │   ├── TabBar.tsx
-│   │   └── Terminal.tsx
+│   │   ├── Terminal.tsx
+│   │   ├── TerminalGitCommands.tsx
+│   │   ├── TerminalUnixCommands.tsx
+│   │   └── WelcomeTab.tsx
 │   ├── context
 │   │   └── ThemeContext.tsx
 │   ├── types
@@ -73,23 +85,26 @@
 │       │   ├── exportFolderZip.ts
 │       │   ├── exportIndexeddb.ts
 │       │   ├── exportRepo.ts
-│       │   └── exportSingleFile.ts
+│       │   ├── exportSingleFile.ts
+│       │   └── importSingleFile.ts
 │       ├── filesystem.ts
 │       ├── gemini.ts
 │       ├── handleFileOperation.ts
+│       ├── initialFileContents.ts
 │       ├── nodeRuntime.ts
 │       ├── project.ts
 │       ├── resize.ts
 │       └── tabs.ts
 ├── tailwind.config.ts
+├── terminal_touch_flow.md
 ├── test-npm.js
 ├── tree.sh
 ├── tree.txt
 └── tsconfig.json
 
-12 directories, 76 files
+13 directories, 90 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 12587
-合計文字数: 445708
-合計ファイルサイズ(bytes): 481820
+合計行数: 13784
+合計文字数: 480225
+合計ファイルサイズ(bytes): 519385
