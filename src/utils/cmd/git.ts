@@ -278,6 +278,7 @@ export class GitCommands {
     });
 
     console.log('[git.categorizeStatusFiles] Results:', { untracked: untracked.length, modified: modified.length, staged: staged.length, deleted: deleted.length });
+    console.log('[git.add] Debugging deleted files:', { deleted });
     
     return { untracked, modified, staged, deleted };
   }
@@ -333,14 +334,14 @@ export class GitCommands {
                 deletedCount++;
               }
               // 修正: 削除されたファイルをステージング
-              if (head === 1 && workdir === 0 && stage === 0) {
+              if ((head === 1 && workdir === 0 && stage === 0)||(head === 1 && workdir === 0 && stage === 1)) {
                 // デバッグログを追加して削除ファイルの処理を確認
                 console.log(`[git.add] Staging deleted file: ${file}`);
                 try {
-                  await git.remove({ fs: this.fs, dir: this.dir, filepath: file });
+                  await git.add({ fs: this.fs, dir: this.dir, filepath: file });
                   deletedCount++;
-                } catch (removeError) {
-                  console.warn(`[git.add] Failed to stage deleted file ${file}:`, removeError);
+                } catch (addError) {
+                  console.warn(`[git.add] Failed to stage deleted file ${file}:`, addError);
                 }
               }
             }
