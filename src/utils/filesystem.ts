@@ -184,8 +184,13 @@ export const syncProjectFiles = async (projectName: string, files: Array<{ path:
   }
 };
 
-// 単一ファイルをファイルシステムに同期
-export const syncFileToFileSystem = async (projectName: string, filePath: string, content: string) => {
+// 単一ファイルをファイルシステムに同期（作成・更新・削除対応）
+export const syncFileToFileSystem = async (
+  projectName: string, 
+  filePath: string, 
+  content: string | null, 
+  operation?: 'create' | 'update' | 'delete'
+) => {
   const fs = getFileSystem();
   if (!fs) {
     return;
@@ -202,19 +207,39 @@ export const syncFileToFileSystem = async (projectName: string, filePath: string
       await fs.promises.mkdir(projectDir, { recursive: true } as any);
     }
     
-    // 親ディレクトリが存在することを確認
-    const parentDir = fullPath.substring(0, fullPath.lastIndexOf('/'));
-    if (parentDir && parentDir !== projectDir) {
+    // 削除操作の場合
+    if (operation === 'delete' || content === null) {
       try {
-        await fs.promises.stat(parentDir);
-      } catch {
-        await fs.promises.mkdir(parentDir, { recursive: true } as any);
+        // ファイルが存在するかチェック
+        await fs.promises.stat(fullPath);
+        // ファイルを削除
+        await fs.promises.unlink(fullPath);
+        console.log(`[syncFileToFileSystem] Successfully deleted: ${fullPath}`);
+      } catch (deleteError) {
+        // ファイルが存在しない場合は警告のみ
+        if ((deleteError as any).code === 'ENOENT') {
+          console.warn(`[syncFileToFileSystem] File already deleted or not found: ${fullPath}`);
+        } else {
+          console.error(`[syncFileToFileSystem] Failed to delete file ${fullPath}:`, deleteError);
+          throw deleteError;
+        }
       }
+    } else {
+      // 作成・更新操作の場合
+      // 親ディレクトリが存在することを確認
+      const parentDir = fullPath.substring(0, fullPath.lastIndexOf('/'));
+      if (parentDir && parentDir !== projectDir) {
+        try {
+          await fs.promises.stat(parentDir);
+        } catch {
+          await fs.promises.mkdir(parentDir, { recursive: true } as any);
+        }
+      }
+      
+      // ファイルを書き込み
+      await fs.promises.writeFile(fullPath, content);
+      console.log(`[syncFileToFileSystem] Successfully synced: ${fullPath}`);
     }
-    
-    // ファイルを書き込み
-    await fs.promises.writeFile(fullPath, content);
-    console.log(`[syncFileToFileSystem] Successfully synced: ${fullPath}`);
     
     // ファイルシステムの同期を確実にする
     if ((fs as any).sync) {
@@ -228,6 +253,11 @@ export const syncFileToFileSystem = async (projectName: string, filePath: string
   } catch (error) {
     console.error(`[syncFileToFileSystem] Failed to sync file ${fullPath}:`, error);
   }
+};
+
+// 後方互換性のためのオーバーロード関数（削除予定）
+export const syncFileToFileSystemLegacy = async (projectName: string, filePath: string, content: string) => {
+  return syncFileToFileSystem(projectName, filePath, content, 'update');
 };
 
 // ディレクトリを再帰的に削除するヘルパー関数

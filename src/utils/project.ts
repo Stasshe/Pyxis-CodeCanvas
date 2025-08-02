@@ -270,7 +270,7 @@ export const useProject = () => {
       // ファイルシステムに同期（Git変更検知のため）
       try {
         const { syncFileToFileSystem } = await import('./filesystem');
-        await syncFileToFileSystem(currentProject.name, path, content);
+        await syncFileToFileSystem(currentProject.name, path, content, existingFile ? 'update' : 'create');
         console.log('[saveFile] Synced to filesystem');
       } catch (syncError) {
         console.warn('[saveFile] Filesystem sync failed (non-critical):', syncError);
@@ -296,7 +296,7 @@ export const useProject = () => {
       if (type === 'file') {
         try {
           const { syncFileToFileSystem } = await import('./filesystem');
-          await syncFileToFileSystem(currentProject.name, path, content);
+          await syncFileToFileSystem(currentProject.name, path, content, 'create');
           console.log('[createFile] Synced to filesystem for Git detection');
         } catch (syncError) {
           console.warn('[createFile] Filesystem sync failed (non-critical):', syncError);
@@ -327,11 +327,11 @@ export const useProject = () => {
         if (fileToDelete && fileToDelete.type === 'file') {
           try {
             const { syncFileToFileSystem } = await import('./filesystem');
-            // Git検知・一貫性のための同期
-            await syncFileToFileSystem(currentProject.name, fileToDelete.path, '');
-            console.log('[deleteFile] Synced deletion to filesystem for Git detection');
+            // ファイルを物理的に削除してGit検知を有効にする
+            await syncFileToFileSystem(currentProject.name, fileToDelete.path, null, 'delete');
+            console.log('[deleteFile] File physically deleted from filesystem for Git detection');
           } catch (syncError) {
-            console.warn('[deleteFile] Filesystem removal/sync failed (non-critical):', syncError);
+            console.warn('[deleteFile] Filesystem deletion failed (non-critical):', syncError);
           }
         }
       
@@ -384,6 +384,32 @@ export const useProject = () => {
               await projectDB.deleteFile(child.id);
             }
           }
+          
+          // ファイルシステムからも削除（Git変更検知のため）
+          if (fileToDelete.type === 'file') {
+            try {
+              const { syncFileToFileSystem } = await import('./filesystem');
+              await syncFileToFileSystem(currentProject.name, path, null, 'delete');
+              console.log('[syncTerminalFileOperation] File physically deleted from filesystem for Git detection');
+              
+              // 追加的なGitキャッシュフラッシュ（削除検知のため）
+              try {
+                const { getFileSystem } = await import('./filesystem');
+                const fs = getFileSystem();
+                if (fs && (fs as any).sync) {
+                  await (fs as any).sync();
+                  console.log('[syncTerminalFileOperation] Additional Git cache flush completed');
+                  
+                  // Gitが削除を認識するまで少し待機
+                  await new Promise(resolve => setTimeout(resolve, 300));
+                }
+              } catch (flushError) {
+                console.warn('[syncTerminalFileOperation] Additional Git cache flush failed:', flushError);
+              }
+            } catch (syncError) {
+              console.warn('[syncTerminalFileOperation] Filesystem deletion failed (non-critical):', syncError);
+            }
+          }
         }
       } else {
         // ファイルまたはフォルダを作成/更新
@@ -395,11 +421,33 @@ export const useProject = () => {
           const updatedFile = { ...existingFile, content, updatedAt: new Date() };
           await projectDB.saveFile(updatedFile);
           console.log('[syncTerminalFileOperation] File updated in DB');
+          
+          // ファイルシステムにも同期（Git変更検知のため）
+          if (type === 'file') {
+            try {
+              const { syncFileToFileSystem } = await import('./filesystem');
+              await syncFileToFileSystem(currentProject.name, path, content, 'update');
+              console.log('[syncTerminalFileOperation] File updated in filesystem for Git detection');
+            } catch (syncError) {
+              console.warn('[syncTerminalFileOperation] Filesystem update failed (non-critical):', syncError);
+            }
+          }
         } else {
           // 新しいファイル/フォルダを作成
           console.log('[syncTerminalFileOperation] Creating new file/folder:', { path, type });
           const newFileId = await projectDB.createFile(currentProject.id, path, content, type);
           console.log('[syncTerminalFileOperation] File/folder created in DB with ID:', newFileId);
+          
+          // ファイルシステムにも同期（Git変更検知のため）
+          if (type === 'file') {
+            try {
+              const { syncFileToFileSystem } = await import('./filesystem');
+              await syncFileToFileSystem(currentProject.name, path, content, 'create');
+              console.log('[syncTerminalFileOperation] File created in filesystem for Git detection');
+            } catch (syncError) {
+              console.warn('[syncTerminalFileOperation] Filesystem creation failed (non-critical):', syncError);
+            }
+          }
           
           // 作成を確認（プロジェクトファイル一覧から確認）
           console.log('[syncTerminalFileOperation] Verifying file creation...');
