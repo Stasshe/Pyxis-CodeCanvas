@@ -153,30 +153,35 @@ export default function GitHistory({ commits, currentProject, currentBranch, onF
 
     const lines = diffOutput.split('\n');
     let currentFile = '';
-    
-    for (const line of lines) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
       // diff --git a/file b/file の形式でファイル名を取得
       if (line.startsWith('diff --git ')) {
         const match = line.match(/diff --git a\/(.+) b\/(.+)/);
         if (match) {
           currentFile = match[2]; // b/file の部分
-        }
-      }
-      // 新規ファイル
-      else if (line.startsWith('new file mode')) {
-        if (currentFile && !changes.added.includes(currentFile)) {
-          changes.added.push(currentFile);
+        } else {
+          currentFile = '';
         }
       }
       // 削除されたファイル
-      else if (line.startsWith('deleted file mode')) {
+      if (line.startsWith('deleted file mode')) {
+        // diff --git の直後に deleted file mode が来ることが多い
         if (currentFile && !changes.deleted.includes(currentFile)) {
           changes.deleted.push(currentFile);
         }
+        currentFile = '';
+        continue;
+      }
+      // 新規ファイル
+      if (line.startsWith('new file mode')) {
+        if (currentFile && !changes.added.includes(currentFile)) {
+          changes.added.push(currentFile);
+        }
+        continue;
       }
       // 変更されたファイル（新規・削除以外）
-      else if (line.startsWith('index ') && currentFile) {
-        // 新規ファイルでも削除ファイルでもない場合は変更されたファイル
+      if (line.startsWith('index ') && currentFile) {
         if (!changes.added.includes(currentFile) && !changes.deleted.includes(currentFile)) {
           if (!changes.modified.includes(currentFile)) {
             changes.modified.push(currentFile);

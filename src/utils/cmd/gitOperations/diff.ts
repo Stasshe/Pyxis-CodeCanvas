@@ -212,19 +212,49 @@ export class GitDiffOperations {
       const diffs: string[] = [];
       
       // 各ツリーのファイル一覧を取得
-      const files1 = await this.getTreeFilePaths(tree1);
-      const files2 = await this.getTreeFilePaths(tree2);
-      const allFiles = new Set([...files1, ...files2]);
+      const files1 = await this.getTreeFilePaths(tree1); // commit1 のファイル一覧
+      const files2 = await this.getTreeFilePaths(tree2); // commit2 のファイル一覧
+      const set1 = new Set(files1);
+      const set2 = new Set(files2);
 
-      for (const file of allFiles) {
-        // 特定ファイルが指定されている場合はそのファイルのみ
+      // 削除ファイル: commit1にあってcommit2にない
+      for (const file of files1) {
         if (filepath && file !== filepath) continue;
+        if (!set2.has(file)) {
+          // 削除されたファイル
+          try {
+            const diff = await this.generateCommitFileDiff(file, fullCommit1, null);
+            if (diff) diffs.push(diff);
+          } catch (error) {
+            console.warn(`Failed to generate commit diff for deleted file ${file}:`, error);
+          }
+        }
+      }
 
-        try {
-          const diff = await this.generateCommitFileDiff(file, fullCommit1, fullCommit2);
-          if (diff) diffs.push(diff);
-        } catch (error) {
-          console.warn(`Failed to generate commit diff for ${file}:`, error);
+      // 新規ファイル: commit2にあってcommit1にない
+      for (const file of files2) {
+        if (filepath && file !== filepath) continue;
+        if (!set1.has(file)) {
+          // 新規ファイル
+          try {
+            const diff = await this.generateCommitFileDiff(file, null, fullCommit2);
+            if (diff) diffs.push(diff);
+          } catch (error) {
+            console.warn(`Failed to generate commit diff for new file ${file}:`, error);
+          }
+        }
+      }
+
+      // 変更ファイル: 両方に存在し内容が違う
+      for (const file of files1) {
+        if (filepath && file !== filepath) continue;
+        if (set2.has(file)) {
+          try {
+            const diff = await this.generateCommitFileDiff(file, fullCommit1, fullCommit2);
+            if (diff) diffs.push(diff);
+          } catch (error) {
+            console.warn(`Failed to generate commit diff for modified file ${file}:`, error);
+          }
         }
       }
 
@@ -304,34 +334,55 @@ export class GitDiffOperations {
   }
 
   // コミット間のファイル差分を生成
-  private async generateCommitFileDiff(filepath: string, commit1: string, commit2: string): Promise<string> {
+  private async generateCommitFileDiff(filepath: string, commit1: string | null, commit2: string | null): Promise<string> {
     let content1 = '';
     let content2 = '';
 
     try {
-      // コミット1のファイル内容
-      try {
-        const { blob } = await git.readBlob({ fs: this.fs, dir: this.dir, oid: commit1, filepath });
-        content1 = new TextDecoder().decode(blob);
-      } catch {
-        // ファイルがコミット1に存在しない
-        content1 = '';
+      // commit1がnullの場合（新規ファイル）
+      if (!commit1 && commit2) {
+        if (commit2) {
+          try {
+            const { blob } = await git.readBlob({ fs: this.fs, dir: this.dir, oid: commit2, filepath });
+            content2 = new TextDecoder().decode(blob);
+          } catch {
+            content2 = '';
+          }
+        }
+        return this.formatDiff(filepath, '', content2);
       }
-
-      // コミット2のファイル内容
-      try {
-        const { blob } = await git.readBlob({ fs: this.fs, dir: this.dir, oid: commit2, filepath });
-        content2 = new TextDecoder().decode(blob);
-      } catch {
-        // ファイルがコミット2に存在しない
-        content2 = '';
+      // commit2がnullの場合（削除ファイル）
+      if (commit1 && !commit2) {
+        if (commit1) {
+          try {
+            const { blob } = await git.readBlob({ fs: this.fs, dir: this.dir, oid: commit1, filepath });
+            content1 = new TextDecoder().decode(blob);
+          } catch {
+            content1 = '';
+          }
+        }
+        return this.formatDiff(filepath, content1, '');
       }
-
-      // 内容が同じ場合は差分なし
+      // 両方に存在する場合
+      if (commit1) {
+        try {
+          const { blob } = await git.readBlob({ fs: this.fs, dir: this.dir, oid: commit1, filepath });
+          content1 = new TextDecoder().decode(blob);
+        } catch {
+          content1 = '';
+        }
+      }
+      if (commit2) {
+        try {
+          const { blob } = await git.readBlob({ fs: this.fs, dir: this.dir, oid: commit2, filepath });
+          content2 = new TextDecoder().decode(blob);
+        } catch {
+          content2 = '';
+        }
+      }
       if (content1 === content2) {
         return '';
       }
-
       return this.formatDiff(filepath, content1, content2);
     } catch (error) {
       console.warn(`Failed to generate commit file diff for ${filepath}:`, error);
