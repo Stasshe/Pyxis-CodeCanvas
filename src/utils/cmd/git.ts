@@ -302,70 +302,36 @@ export class GitCommands {
       
       if (filepath === '.') {
         // カレントディレクトリの全ファイルを追加
-        const files = await this.getAllFiles(this.dir);
-        if (files.length === 0) {
-          return 'No files to add';
-        }
+        console.log('[git.add] Processing all files in current directory');
         
-        for (const file of files) {
-          try {
-            await git.add({ fs: this.fs, dir: this.dir, filepath: file });
-          } catch (addError) {
-            console.warn(`[git.add] Failed to add ${file}:`, addError);
-          }
-        }
+        // ステータスマトリックスから全ファイルの状態を取得
+        const statusMatrix = await git.statusMatrix({ fs: this.fs, dir: this.dir });
+        console.log(`[git.add] Status matrix found ${statusMatrix.length} files`);
         
-          // ファイル追加後の状態確認と件数集計
-          let newCount = 0, modifiedCount = 0, deletedCount = 0;
+        let newCount = 0, modifiedCount = 0, deletedCount = 0;
+        
+        // 全ファイルの状態に応じて適切な操作を実行
+        for (const [file, head, workdir, stage] of statusMatrix) {
           try {
-            const verifyStatus = await git.statusMatrix({ fs: this.fs, dir: this.dir });
-            for (const [file, head, workdir, stage] of verifyStatus) {
-              // 新規ファイル: HEAD=0, stage=3 or 2
-              if (head === 0 && (stage === 3 || stage === 2)) {
-                newCount++;
-              }
-              // 変更ファイル: HEAD=1, workdir=2, stage=2
-              else if (head === 1 && workdir === 2 && stage === 2) {
-                modifiedCount++;
-              }
-              // 削除ファイル: HEAD=1, workdir=0, stage=3
-              else if (head === 1 && workdir === 0 && stage === 3) {
-                deletedCount++;
-              }
-              // 修正: 削除されたファイルをステージング
-              if (head === 1 && workdir === 0 && stage === 0) {
-                // デバッグログを追加して削除ファイルの処理を確認
-                console.log(`[git.add] Staging deleted file: ${file}`);
-                try {
-                  await git.remove({ fs: this.fs, dir: this.dir, filepath: file });
-                  deletedCount++;
-                } catch (removeError) {
-                  console.warn(`[git.add] Failed to stage deleted file ${file}:`, removeError);
-                }
-              }
+            if (head === 1 && workdir === 0 && stage === 0) {
+              // 削除されたファイル（未ステージ）
+              console.log(`[git.add] Staging deleted file: ${file}`);
+              await git.remove({ fs: this.fs, dir: this.dir, filepath: file });
+              deletedCount++;
+            } else if (head === 0 && workdir === 1 && stage === 0) {
+              // 新規ファイル（未追跡）
+              console.log(`[git.add] Adding new file: ${file}`);
+              await git.add({ fs: this.fs, dir: this.dir, filepath: file });
+              newCount++;
+            } else if (head === 1 && workdir === 2 && stage === 1) {
+              // 変更されたファイル（未ステージ）
+              console.log(`[git.add] Adding modified file: ${file}`);
+              await git.add({ fs: this.fs, dir: this.dir, filepath: file });
+              modifiedCount++;
             }
-          } catch (verifyError) {
-            console.warn(`[git.add] Failed to verify status after add:`, verifyError);
-          }
-          // onFileOperationコールバックを呼び出してプロジェクトの更新を通知
-          if (this.onFileOperation) {
-            // ダミーのファイル操作として通知（プロジェクト全体の更新を促す）
-            await this.onFileOperation('.', 'folder');
-          }
-          // 件数ごとに出力
-          return `Added: ${newCount} new, ${modifiedCount} modified, ${deletedCount} deleted files to staging area`;
-      } else if (filepath === '*' || filepath.includes('*')) {
-        // ワイルドカード対応
-        const files = await this.getMatchingFiles(this.dir, filepath);
-        if (files.length === 0) {
-          return `No files matching '${filepath}'`;
-        }
-        
-        for (const file of files) {
-          try {
-            await git.add({ fs: this.fs, dir: this.dir, filepath: file });
-          } catch (addError) {
-            console.warn(`[git.add] Failed to add ${file}:`, addError);
+            // 既にステージ済みのファイル（stage > 1）はスキップ
+          } catch (operationError) {
+            console.warn(`[git.add] Failed to process ${file}:`, operationError);
           }
         }
         
@@ -374,10 +340,89 @@ export class GitCommands {
           await this.onFileOperation('.', 'folder');
         }
         
-        return `Added ${files.length} file(s) to staging area`;
+        // 件数ごとに出力
+        console.log(`[git.add] Completed: ${newCount} new, ${modifiedCount} modified, ${deletedCount} deleted`);
+        return `Added: ${newCount} new, ${modifiedCount} modified, ${deletedCount} deleted files to staging area`;
+      } else if (filepath === '*' || filepath.includes('*')) {
+        // ワイルドカード対応
+        const files = await this.getMatchingFiles(this.dir, filepath);
+        
+        // 削除されたファイルも含めてステージング対象を取得
+        const status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
+        const deletedFiles: string[] = [];
+        
+        // 削除されたファイルを特定
+        for (const [file, head, workdir, stage] of status) {
+          if (head === 1 && workdir === 0 && stage === 0) {
+            deletedFiles.push(file);
+          }
+        }
+        
+        if (files.length === 0 && deletedFiles.length === 0) {
+          return `No files matching '${filepath}'`;
+        }
+        
+        let addedCount = 0;
+        let deletedCount = 0;
+        
+        // 通常のファイルを追加
+        for (const file of files) {
+          try {
+            await git.add({ fs: this.fs, dir: this.dir, filepath: file });
+            addedCount++;
+          } catch (addError) {
+            console.warn(`[git.add] Failed to add ${file}:`, addError);
+          }
+        }
+        
+        // 削除されたファイルをステージング
+        for (const file of deletedFiles) {
+          console.log(`[git.add] Staging deleted file: ${file}`);
+          try {
+            await git.remove({ fs: this.fs, dir: this.dir, filepath: file });
+            deletedCount++;
+          } catch (removeError) {
+            console.warn(`[git.add] Failed to stage deleted file ${file}:`, removeError);
+          }
+        }
+        
+        // onFileOperationコールバックを呼び出してプロジェクトの更新を通知
+        if (this.onFileOperation) {
+          await this.onFileOperation('.', 'folder');
+        }
+        
+        const totalFiles = addedCount + deletedCount;
+        return `Added ${addedCount} file(s), staged ${deletedCount} deletion(s) (${totalFiles} total)`;
       } else {
-        // 個別ファイル - まずファイルが存在することを確認
+        // 個別ファイル - ファイルの状態を確認
         const fullPath = `${this.dir}/${filepath}`;
+        
+        // まず現在のステータスを確認して削除ファイルかどうか判定
+        const status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
+        const fileStatus = status.find(([file]) => file === filepath);
+        
+        if (fileStatus) {
+          const [file, head, workdir, stage] = fileStatus;
+          
+          // 削除されたファイルの場合
+          if (head === 1 && workdir === 0 && stage === 0) {
+            console.log(`[git.add] Staging deleted file: ${filepath}`);
+            try {
+              await git.remove({ fs: this.fs, dir: this.dir, filepath });
+              
+              // onFileOperationコールバックを呼び出して削除を通知
+              if (this.onFileOperation) {
+                await this.onFileOperation(filepath, 'delete');
+              }
+              
+              return `Staged deletion of ${filepath}`;
+            } catch (removeError) {
+              throw new Error(`Failed to stage deletion of ${filepath}: ${(removeError as Error).message}`);
+            }
+          }
+        }
+        
+        // 通常のファイル（存在するファイル）の場合
         try {
           const stat = await this.fs.promises.stat(fullPath);
         } catch (statError) {
