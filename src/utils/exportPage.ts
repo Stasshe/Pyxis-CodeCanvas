@@ -33,11 +33,27 @@ export const exportPage = async (path: string, writeOutput: (output: string) => 
       const cssFiles = files.filter((f: string) => f.endsWith('.css'));
       const jsFiles = files.filter((f: string) => f.endsWith('.js'));
 
-      // CSSファイルをすべてインライン化
+      // CSSファイルをすべてインライン化 & CDNもfetchして埋め込む
       let cssContent = '';
+      // ローカルCSS
       for (const css of cssFiles) {
         try {
           cssContent += await fs.promises.readFile(path + '/' + css, { encoding: 'utf8' }) + '\n';
+        } catch {}
+      }
+      // CDN CSS (linkタグから抽出)
+      const cdnCssLinks = [];
+      const linkRegex = /<link[^>]*rel=["']stylesheet["'][^>]*href=["']([^"']+)["'][^>]*>/gi;
+      let match;
+      while ((match = linkRegex.exec(htmlContent)) !== null) {
+        cdnCssLinks.push(match[1]);
+      }
+      for (const url of cdnCssLinks) {
+        try {
+          const res = await fetch(url);
+          if (res.ok) {
+            cssContent += await res.text() + '\n';
+          }
         } catch {}
       }
       if (cssContent) {
@@ -47,11 +63,27 @@ export const exportPage = async (path: string, writeOutput: (output: string) => 
         htmlContent = htmlContent.replace(/<head>/i, `<head>\n<style>\n${cssContent}\n</style>`);
       }
 
-      // JSファイルをすべてインライン化
+      // JSファイルをすべてインライン化 & CDNもfetchして埋め込む
       let jsContent = '';
+      // ローカルJS
       for (const js of jsFiles) {
         try {
           jsContent += await fs.promises.readFile(path + '/' + js, { encoding: 'utf8' }) + '\n';
+        } catch {}
+      }
+      // CDN JS (scriptタグから抽出)
+      const cdnJsLinks = [];
+      const scriptRegex = /<script[^>]*src=["']([^"']+)["'][^>]*><\/script>/gi;
+      let jsMatch;
+      while ((jsMatch = scriptRegex.exec(htmlContent)) !== null) {
+        cdnJsLinks.push(jsMatch[1]);
+      }
+      for (const url of cdnJsLinks) {
+        try {
+          const res = await fetch(url);
+          if (res.ok) {
+            jsContent += await res.text() + '\n';
+          }
         } catch {}
       }
       if (jsContent) {
