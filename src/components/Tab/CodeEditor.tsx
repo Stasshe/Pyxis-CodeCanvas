@@ -51,9 +51,8 @@ export default function CodeEditor({
   const [charCount, setCharCount] = useState(0);
   const [selectionCount, setSelectionCount] = useState<number | null>(null);
 
-  const editorHeight = isBottomPanelVisible 
-    ? `calc(100vh - 40px - ${bottomPanelHeight}px)` 
-    : 'calc(100vh - 40px)';
+  // 親のflex-1 + min-h-0で高さ制御するため、height: '100%'に統一
+  const editorHeight = '100%';
 
   // デバウンス付きの保存関数
   const debouncedSave = useCallback((tabId: string, content: string) => {
@@ -256,7 +255,7 @@ export default function CodeEditor({
 
   if (!activeTab) {
     return (
-      <div className="flex-1" style={{ height: editorHeight }}>
+      <div className="flex-1 min-h-0" style={{ height: editorHeight }}>
         <div className="h-full flex items-center justify-center text-muted-foreground">
           <div className="text-center">
             <FileText size={48} className="mx-auto mb-4 opacity-50" />
@@ -275,7 +274,7 @@ export default function CodeEditor({
     const projectName = lines[0]?.replace(/^# /, '') || '';
     const description = lines[2] || '';
     return (
-      <div className="flex-1" style={{ height: editorHeight }}>
+      <div className="flex-1 min-h-0" style={{ height: editorHeight }}>
         <WelcomeTab projectName={projectName} description={description} />
       </div>
     );
@@ -288,7 +287,7 @@ export default function CodeEditor({
     return (
       <>
         {console.log('[CodeEditor] Rendering Markdown preview for:', activeTab.name)}
-        <div className="flex-1" style={{ height: editorHeight }}>
+        <div className="flex-1 min-h-0" style={{ height: editorHeight }}>
           <MarkdownPreviewTab content={activeTab.content} fileName={activeTab.name} />
         </div>
       </>
@@ -296,7 +295,7 @@ export default function CodeEditor({
   }
 
   return (
-    <div className="flex-1 relative" style={{ height: editorHeight }}>
+    <div className="flex-1 min-h-0 relative" style={{ height: editorHeight }}>
       <Editor
         height="100%"
         language={getLanguage(activeTab.name)}
