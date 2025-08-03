@@ -168,6 +168,41 @@ Pyxisのターミナルでは以下のコマンドが利用できます（一部
 
 詳細はターミナルで**help**コマンドを実行してください。
 `,
+  'index.html': `<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>Pyxis ExportPage サンプル</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>Pyxis ExportPage サンプル</h1>
+  <p>このページは export --page でフォルダ指定した場合に、CSS/JSも自動で読み込まれるサンプルです。</p>
+  <button id="btn">クリックしてJS動作確認</button>
+  <div id="result"></div>
+  <script src="script.js"></script>
+</body>
+</html>
+`,
+  'script.js': `document.getElementById('btn').addEventListener('click', function() {
+  const result = document.getElementById('result');
+  result.textContent = 'ボタンがクリックされました！';
+  result.style.color = '#0dbc79';
+  setTimeout(() => {
+    result.textContent = '';
+    result.style.color = '#bc3fbc';
+  }, 2000);
+});
+
+// ページロード時のサンプル
+window.addEventListener('DOMContentLoaded', function() {
+  const result = document.getElementById('result');
+  result.textContent = 'ページが正常に読み込まれました。';
+  setTimeout(() => {
+    result.textContent = '';
+  }, 1500);
+});
+`,
   'src_fileOperationg.js': `const fs = require('fs').promises;
 const triviaList = [
   'カンガルーの赤ちゃんは生まれたとき2cmしかない！',
@@ -205,5 +240,30 @@ async function getData() {
 getData().then(console.log);
 
 // プロジェクトのコードをここに記述してください
+`,
+  'style.css': `body {
+  background: #f7f7fa;
+  color: #222;
+  font-family: 'Segoe UI', 'Meiryo', sans-serif;
+}
+h1 {
+  color: #3b8eea;
+  margin-top: 2em;
+}
+button {
+  background: #3b8eea;
+  color: #fff;
+  border: none;
+  padding: 0.7em 1.5em;
+  border-radius: 6px;
+  font-size: 1.1em;
+  cursor: pointer;
+  margin-top: 1em;
+}
+#result {
+  margin-top: 2em;
+  font-size: 1.2em;
+  color: #bc3fbc;
+}
 `,
 };

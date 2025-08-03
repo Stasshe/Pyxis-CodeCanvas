@@ -1,0 +1,24 @@
+body {
+  background: #f7f7fa;
+  color: #222;
+  font-family: 'Segoe UI', 'Meiryo', sans-serif;
+}
+h1 {
+  color: #3b8eea;
+  margin-top: 2em;
+}
+button {
+  background: #3b8eea;
+  color: #fff;
+  border: none;
+  padding: 0.7em 1.5em;
+  border-radius: 6px;
+  font-size: 1.1em;
+  cursor: pointer;
+  margin-top: 1em;
+}
+#result {
+  margin-top: 2em;
+  font-size: 1.2em;
+  color: #bc3fbc;
+}

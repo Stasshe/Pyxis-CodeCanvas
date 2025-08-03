@@ -70,6 +70,10 @@ class ProjectDB {
       { path: '/src', key: null, type: 'folder' },
       { path: '/src/index.js', key: 'src_index.js', type: 'file' },
       { path: '/src/fileOperationg.js', key: 'src_fileOperationg.js', type: 'file' },
+      { path: '/web', key: null, type: 'folder' },
+      { path: '/web/index.html', key: 'index.html', type: 'file' },
+      { path: '/web/script.js', key: 'script.js', type: 'file' },
+      { path: '/web/style.css', key: 'style.css', type: 'file' }
     ];
     for (const f of initialFiles) {
       if (f.type === 'folder') {
