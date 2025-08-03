@@ -1,5 +1,17 @@
 import { getFileSystem, getProjectDir } from './filesystem';
 import { UnixCommands } from './cmd/unix';
+import { 
+  createFSModule, 
+  createPathModule, 
+  createOSModule, 
+  createUtilModule,
+  flushFileSystemCache
+} from './filesystemModule';
+import { 
+  transformESModules, 
+  wrapCodeForExecution,
+  wrapModuleCode
+} from './esModuleTransformer';
 
 // Node.js風のランタイム環境
 export class NodeJSRuntime {
@@ -62,7 +74,7 @@ export class NodeJSRuntime {
       const nodeGlobals = this.createNodeGlobals();
       
       // コードを実行可能な形に変換
-      const wrappedCode = this.wrapCodeForExecution(code, nodeGlobals);
+      const wrappedCode = wrapCodeForExecution(code, nodeGlobals);
       
       // 実行
       const result = await this.executeInSandbox(wrappedCode, nodeGlobals);
@@ -170,263 +182,6 @@ export class NodeJSRuntime {
     };
   }
 
-  // fs モジュールのエミュレーション
-  private createFSModule() {
-    const self = this;
-    
-    const fsModule = {
-      readFile: async (path: string, options?: any): Promise<string> => {
-        try {
-          // パスがプロジェクトルート相対の場合の処理
-          let fullPath;
-          if (path.startsWith('/')) {
-            // 絶対パスの場合、プロジェクトディレクトリを基準とする
-            fullPath = `${self.projectDir}${path}`;
-          } else {
-            // 相対パスの場合
-            fullPath = `${self.projectDir}/${path}`;
-          }
-          
-          console.log(`[fs.readFile] Attempting to read: ${path} -> ${fullPath}`);
-          const content = await self.fs.promises.readFile(fullPath, { encoding: 'utf8' });
-          return content as string;
-        } catch (error) {
-          console.error(`[fs.readFile] Failed to read ${path}:`, error);
-          throw new Error(`ENOENT: ${path}`);
-        }
-      },
-      writeFile: async (path: string, data: string, options?: any): Promise<void> => {
-        try {
-          let fullPath;
-          let relativePath;
-          if (path.startsWith('/')) {
-            fullPath = `${self.projectDir}${path}`;
-            relativePath = path;
-          } else {
-            fullPath = `${self.projectDir}/${path}`;
-            relativePath = `/${path}`;
-          }
-          
-          console.log(`[fs.writeFile] Writing to: ${path} -> ${fullPath}`);
-          
-          // 親ディレクトリが存在することを確認
-          const parentDir = fullPath.substring(0, fullPath.lastIndexOf('/'));
-          if (parentDir && parentDir !== self.projectDir) {
-            try {
-              await self.fs.promises.stat(parentDir);
-            } catch {
-              await self.fs.promises.mkdir(parentDir, { recursive: true } as any);
-            }
-          }
-          
-          await self.fs.promises.writeFile(fullPath, data);
-          
-          // ファイルシステムのキャッシュをフラッシュ（unix.tsと同様）
-          await self.flushFileSystemCache();
-          
-          console.log(`[nodeRuntime.fs.writeFile] File written to filesystem: ${fullPath}, content length: ${data.length}`);
-          
-          // IndexedDBとの同期（unix.tsと同様）
-          if (self.onFileOperation) {
-            console.log(`[nodeRuntime.fs.writeFile] Calling onFileOperation with isNodeRuntime=true`);
-            await self.onFileOperation(relativePath, 'file', data, true); // isNodeRuntime = true
-            console.log(`[nodeRuntime.fs.writeFile] onFileOperation completed`);
-          }
-          
-          self.onOutput?.(`File written: ${path}`, 'log');
-        } catch (error) {
-          throw new Error(`Failed to write file '${path}': ${(error as Error).message}`);
-        }
-      },
-      readFileSync: (path: string, options?: any): string => {
-        throw new Error('Synchronous file operations are not supported in browser environment. Use async versions.');
-      },
-      writeFileSync: (path: string, data: string, options?: any): void => {
-        throw new Error('Synchronous file operations are not supported in browser environment. Use async versions.');
-      },
-      existsSync: async (path: string): Promise<boolean> => {
-        try {
-          let fullPath;
-          if (path.startsWith('/')) {
-            fullPath = `${self.projectDir}${path}`;
-          } else {
-            fullPath = `${self.projectDir}/${path}`;
-          }
-          
-          await self.fs.promises.stat(fullPath);
-          return true;
-        } catch {
-          return false;
-        }
-      },
-      mkdir: async (path: string, options?: any): Promise<void> => {
-        const recursive = options?.recursive || false;
-        await self.unixCommands.mkdir(path, recursive);
-        // unixCommandsが内部でonFileOperationを呼び出すので追加の同期は不要
-      },
-      readdir: async (path: string, options?: any): Promise<string[]> => {
-        try {
-          const fullPath = path.startsWith('/') ? path : `${self.projectDir}/${path}`;
-          const files = await self.fs.promises.readdir(fullPath);
-          return files.filter((file: string) => file !== '.git' && !file.startsWith('.git'));
-        } catch (error) {
-          throw new Error(`ENOENT: no such file or directory, scandir '${path}'`);
-        }
-      },
-      unlink: async (path: string): Promise<void> => {
-        await self.unixCommands.rm(path);
-        // unixCommandsが内部でonFileOperationを呼び出すので追加の同期は不要
-      },
-      appendFile: async (path: string, data: string, options?: any): Promise<void> => {
-        try {
-          // 既存のファイル内容を読み取り
-          let existingContent = '';
-          try {
-            existingContent = await fsModule.readFile(path);
-          } catch {
-            // ファイルが存在しない場合は空として扱う
-          }
-          
-          // 既存の内容に新しいデータを追加
-          const newContent = existingContent + data;
-          await fsModule.writeFile(path, newContent);
-        } catch (error) {
-          throw new Error(`Failed to append to file '${path}': ${(error as Error).message}`);
-        }
-      },
-      stat: async (path: string): Promise<any> => {
-        try {
-          let fullPath;
-          if (path.startsWith('/')) {
-            fullPath = `${self.projectDir}${path}`;
-          } else {
-            fullPath = `${self.projectDir}/${path}`;
-          }
-          return await self.fs.promises.stat(fullPath);
-        } catch (error) {
-          throw new Error(`ENOENT: no such file or directory, stat '${path}'`);
-        }
-      }
-    };
-
-    // fs.promisesプロパティを追加
-    (fsModule as any).promises = fsModule;
-    
-    return fsModule;
-  }
-
-  // path モジュールのエミュレーション
-  private createPathModule() {
-    return {
-      join: (...paths: string[]): string => {
-        return paths
-          .filter(path => path)
-          .join('/')
-          .replace(/\/+/g, '/')
-          .replace(/\/$/, '') || '/';
-      },
-      resolve: (...paths: string[]): string => {
-        let resolved = this.projectDir;
-        for (const path of paths) {
-          if (path.startsWith('/')) {
-            resolved = path;
-          } else {
-            resolved = `${resolved}/${path}`;
-          }
-        }
-        return resolved.replace(/\/+/g, '/');
-      },
-      dirname: (path: string): string => {
-        const lastSlash = path.lastIndexOf('/');
-        return lastSlash > 0 ? path.substring(0, lastSlash) : '/';
-      },
-      basename: (path: string, ext?: string): string => {
-        const name = path.substring(path.lastIndexOf('/') + 1);
-        return ext && name.endsWith(ext) ? name.slice(0, -ext.length) : name;
-      },
-      extname: (path: string): string => {
-        const lastDot = path.lastIndexOf('.');
-        const lastSlash = path.lastIndexOf('/');
-        return (lastDot > lastSlash) ? path.substring(lastDot) : '';
-      }
-    };
-  }
-
-  // os モジュールのエミュレーション
-  private createOSModule() {
-    return {
-      platform: () => 'browser',
-      type: () => 'Browser',
-      arch: () => 'x64',
-      hostname: () => 'localhost',
-      tmpdir: () => '/tmp',
-      homedir: () => '/home/user',
-      EOL: '\n'
-    };
-  }
-
-  // util モジュールのエミュレーション
-  private createUtilModule() {
-    return {
-      inspect: (obj: any, options?: any): string => {
-        try {
-          return JSON.stringify(obj, null, 2);
-        } catch {
-          return String(obj);
-        }
-      },
-      format: (f: string, ...args: any[]): string => {
-        let i = 0;
-        return f.replace(/%[sdj%]/g, (x) => {
-          if (x === '%%') return x;
-          if (i >= args.length) return x;
-          switch (x) {
-            case '%s': return String(args[i++]);
-            case '%d': return String(Number(args[i++]));
-            case '%j':
-              try {
-                return JSON.stringify(args[i++]);
-              } catch {
-                return '[Circular]';
-              }
-            default:
-              return x;
-          }
-        });
-      },
-      promisify: (fn: Function): Function => {
-        return (...args: any[]) => {
-          return new Promise((resolve, reject) => {
-            fn(...args, (err: any, result: any) => {
-              if (err) {
-                reject(err);
-              } else {
-                resolve(result);
-              }
-            });
-          });
-        };
-      }
-    };
-  }
-
-  // コードを実行用にラップ
-  private wrapCodeForExecution(code: string, globals: any): string {
-    // ES6 import/export を CommonJS require/module.exports に変換
-    const transformedCode = this.transformESModules(code);
-    
-    // 確実に非同期関数として実行されるようにする
-    return `
-      (async function(globals) {
-        // グローバル変数を設定
-        const { console, process, require, module, exports, __filename, __dirname, Buffer, setTimeout, setInterval, clearTimeout, clearInterval } = globals;
-        
-        // ユーザーコードを実行
-        ${transformedCode}
-      })
-    `;
-  }
-
   // サンドボックス内でコードを実行
   private async executeInSandbox(wrappedCode: string, globals: any): Promise<string> {
     try {
@@ -492,20 +247,7 @@ export class NodeJSRuntime {
     }
   }
 
-  // ファイルシステムのキャッシュをフラッシュしてGitに変更を認識させる
-  private async flushFileSystemCache(): Promise<void> {
-    try {
-      // Lightning-FSのキャッシュをフラッシュ（バックエンドストレージと同期）
-      if (this.fs && (this.fs as any).sync) {
-        await (this.fs as any).sync();
-      }
-      
-      // ファイルシステムの強制同期のため短縮した遅延
-      await new Promise(resolve => setTimeout(resolve, 100));
-    } catch (error) {
-      console.warn('[nodeRuntime] Failed to flush filesystem cache:', error);
-    }
-  }
+
 
   // モジュール解決機能
   private async resolveModule(moduleName: string): Promise<any> {
@@ -663,13 +405,13 @@ export class NodeJSRuntime {
   private createBuiltinModule(moduleName: string): any {
     switch (moduleName) {
       case 'fs':
-        return this.createFSModule();
+        return createFSModule(this.projectDir, this.onFileOperation, this.unixCommands);
       case 'path':
-        return this.createPathModule();
+        return createPathModule(this.projectDir);
       case 'os':
-        return this.createOSModule();
+        return createOSModule();
       case 'util':
-        return this.createUtilModule();
+        return createUtilModule();
       default:
         throw new Error(`Built-in module '${moduleName}' not implemented`);
     }
@@ -829,80 +571,6 @@ export class NodeJSRuntime {
     return paths;
   }
 
-  // モジュールコードを実行してexportsを取得（同期版）
-  private executeModuleCodeSync(code: string, filePath: string): any {
-    const moduleExports = {};
-    const moduleObject = { exports: moduleExports };
-    
-    // モジュール用のグローバル環境を作成
-    const moduleGlobals = {
-      ...this.createNodeGlobals(),
-      module: moduleObject,
-      exports: moduleExports,
-      __filename: filePath,
-      __dirname: filePath.substring(0, filePath.lastIndexOf('/')) || '/',
-      require: (reqModule: string) => {
-        // 組み込みモジュールのみサポート
-        if (this.isBuiltinModule(reqModule)) {
-          const oldCwd = this.currentWorkingDirectory;
-          this.currentWorkingDirectory = filePath.substring(0, filePath.lastIndexOf('/')) || '/';
-          try {
-            if (this.moduleCache.has(reqModule)) {
-              return this.moduleCache.get(reqModule);
-            }
-            const module = this.createBuiltinModule(reqModule);
-            this.moduleCache.set(reqModule, module);
-            return module;
-          } finally {
-            this.currentWorkingDirectory = oldCwd;
-          }
-        }
-        
-        throw new Error(`Module '${reqModule}' requires async loading in module context.`);
-      }
-    };
-
-    try {
-      // ES6 import/export を CommonJS require/module.exports に変換
-      const transformedCode = this.transformESModules(code);
-      
-      console.log(`[executeModuleCodeSync] Executing module code for: ${filePath}`);
-      console.log(`[executeModuleCodeSync] Transformed code:`, transformedCode);
-      
-      // Function コンストラクタを使用して同期実行
-      const moduleFunction = new Function(
-        'module', 'exports', 'require', '__filename', '__dirname', 'console', 'process', 'Buffer', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval',
-        transformedCode
-      );
-      
-      moduleFunction.call(
-        {},
-        moduleObject,
-        moduleObject.exports, // exportsパラメータはmodule.exportsの参照
-        moduleGlobals.require,
-        moduleGlobals.__filename,
-        moduleGlobals.__dirname,
-        moduleGlobals.console,
-        moduleGlobals.process,
-        moduleGlobals.Buffer,
-        moduleGlobals.setTimeout,
-        moduleGlobals.setInterval,
-        moduleGlobals.clearTimeout,
-        moduleGlobals.clearInterval
-      );
-      
-      console.log(`[executeModuleCodeSync] Module execution completed. module.exports:`, moduleObject.exports);
-      console.log(`[executeModuleCodeSync] Module exports keys:`, Object.keys(moduleObject.exports));
-      
-      // module.exportsを返す（CommonJSの標準的な動作）
-      return moduleObject.exports;
-        
-    } catch (error) {
-      console.error(`[executeModuleCodeSync] Error executing module ${filePath}:`, error);
-      throw new Error(`Failed to execute module '${filePath}': ${(error as Error).message}`);
-    }
-  }
-
   // モジュールコードを実行してexportsを取得
   private async executeModuleCode(code: string, filePath: string): Promise<any> {
     const moduleExports = {};
@@ -929,13 +597,13 @@ export class NodeJSRuntime {
 
     try {
       // ES6 import/export を CommonJS require/module.exports に変換
-      const transformedCode = this.transformESModules(code);
+      const transformedCode = transformESModules(code);
       
       // モジュールコードをラップして実行
-      const wrappedCode = this.wrapModuleCode(transformedCode, moduleGlobals);
+      const wrappedCode = wrapModuleCode(transformedCode, moduleGlobals);
       
       console.log(`[executeModuleCode] Executing module code for: ${filePath}`);
-      console.log(`[executeModuleCode] Transformed code:`, transformedCode);
+      console.log(`[executeModuleCode] Transformed code:`, transformedCode.substring(0, 200) + '...');
       await this.executeInSandbox(wrappedCode, moduleGlobals);
       
       console.log(`[executeModuleCode] Module execution completed. module.exports:`, moduleObject.exports);
@@ -950,135 +618,5 @@ export class NodeJSRuntime {
     }
   }
 
-  // ES6 import/export を CommonJS に変換
-  private transformESModules(code: string): string {
-    let transformedCode = code;
-    
-    // import文を require に変換
-    // import Utils, { helper } from 'module' → const _temp = require('module'); const Utils = _temp.default || _temp; const { helper } = _temp;
-    transformedCode = transformedCode.replace(
-      /import\s+(\w+)\s*,\s*\{([^}]+)\}\s+from\s+['"]([^'"]+)['"];?/g,
-      (match, defaultImport, namedImports, modulePath) => {
-        const tempVar = `_temp_${Math.random().toString(36).substr(2, 9)}`;
-        return `const ${tempVar} = require('${modulePath}'); const ${defaultImport} = ${tempVar}.default || ${tempVar}; const { ${namedImports} } = ${tempVar};`;
-      }
-    );
-    
-    // import { something } from 'module' → const { something } = require('module')
-    transformedCode = transformedCode.replace(
-      /import\s+\{([^}]+)\}\s+from\s+['"]([^'"]+)['"];?/g,
-      'const { $1 } = require(\'$2\');'
-    );
-    
-    // import something from 'module' → const something = require('module').default || require('module')
-    transformedCode = transformedCode.replace(
-      /import\s+(\w+)\s+from\s+['"]([^'"]+)['"];?/g,
-      (match, varName, modulePath) => {
-        const tempVar = `_temp_${Math.random().toString(36).substr(2, 9)}`;
-        return `const ${tempVar} = require('${modulePath}'); const ${varName} = ${tempVar}.default || ${tempVar};`;
-      }
-    );
-    
-    // import * as something from 'module' → const something = require('module')
-    transformedCode = transformedCode.replace(
-      /import\s+\*\s+as\s+(\w+)\s+from\s+['"]([^'"]+)['"];?/g,
-      'const $1 = require(\'$2\');'
-    );
-    
-    // import 'module' → require('module')
-    transformedCode = transformedCode.replace(
-      /import\s+['"]([^'"]+)['"];?/g,
-      'require(\'$1\');'
-    );
-    
-    // export default something → module.exports = something; module.exports.default = something;
-    transformedCode = transformedCode.replace(
-      /export\s+default\s+(.+);?$/gm,
-      'module.exports = $1; module.exports.default = $1;'
-    );
-    
-    // export { something } → module.exports.something = something
-    transformedCode = transformedCode.replace(
-      /export\s+\{([^}]+)\};?/g,
-      (match, exports) => {
-        const exportList = exports.split(',').map((exp: string) => exp.trim());
-        return exportList.map((exp: string) => `module.exports.${exp} = ${exp};`).join('\n');
-      }
-    );
-    
-    // export const/let/var something → const something = ...; module.exports.something = something
-    transformedCode = transformedCode.replace(
-      /export\s+(const|let|var)\s+(\w+)\s*=\s*([^;]+);?/g,
-      '$1 $2 = $3;\nmodule.exports.$2 = $2;'
-    );
-    
-    // export function name() {...} → function name() {...}; module.exports.name = name;
-    transformedCode = transformedCode.replace(
-      /export\s+function\s+(\w+)/g,
-      'function $1'
-    );
-    
-    // export class Name {...} → class Name {...}; module.exports.Name = Name; module.exports.default = Name;
-    transformedCode = transformedCode.replace(
-      /export\s+default\s+class\s+(\w+)/g,
-      'class $1'
-    );
-    
-    transformedCode = transformedCode.replace(
-      /export\s+class\s+(\w+)/g,
-      'class $1'
-    );
-    
-    // 後処理：exportされた関数やクラスをmodule.exportsに追加
-    // export function の後処理
-    const exportFunctionMatches = code.match(/export\s+function\s+(\w+)/g);
-    if (exportFunctionMatches) {
-      exportFunctionMatches.forEach(match => {
-        const funcName = match.replace(/export\s+function\s+/, '');
-        if (!transformedCode.includes(`module.exports.${funcName} = ${funcName}`)) {
-          transformedCode += `\nmodule.exports.${funcName} = ${funcName};`;
-        }
-      });
-    }
-    
-    // export class の後処理
-    const exportClassMatches = code.match(/export\s+class\s+(\w+)/g);
-    if (exportClassMatches) {
-      exportClassMatches.forEach(match => {
-        const className = match.replace(/export\s+class\s+/, '');
-        if (!transformedCode.includes(`module.exports.${className} = ${className}`)) {
-          transformedCode += `\nmodule.exports.${className} = ${className};`;
-        }
-      });
-    }
-    
-    // export default class の後処理
-    const exportDefaultClassMatches = code.match(/export\s+default\s+class\s+(\w+)/g);
-    if (exportDefaultClassMatches) {
-      exportDefaultClassMatches.forEach(match => {
-        const className = match.replace(/export\s+default\s+class\s+/, '');
-        if (!transformedCode.includes(`module.exports = ${className}`)) {
-          transformedCode += `\nmodule.exports = ${className};\nmodule.exports.default = ${className};`;
-        }
-      });
-    }
-    
-    console.log('[transformESModules] Original code:', code);
-    console.log('[transformESModules] Transformed code:', transformedCode);
-    
-    return transformedCode;
-  }
 
-  // モジュールコードをラップ
-  private wrapModuleCode(code: string, globals: any): string {
-    return `
-      (async function(globals) {
-        const { console, process, require, module, exports, __filename, __dirname, Buffer, setTimeout, setInterval, clearTimeout, clearInterval } = globals;
-        
-        ${code}
-        
-        return module.exports;
-      })
-    `;
-  }
 }
