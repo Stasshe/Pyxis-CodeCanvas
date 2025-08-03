@@ -10,11 +10,17 @@
 ├── git-deletion-detection-analysis.md
 ├── initial_files
 │   ├── README.md
-│   ├── docs_getting-started.md
-│   ├── docs_git-commands.md
-│   ├── docs_unix-commands.md
-│   ├── src_fileOperationg.js
-│   └── src_index.js
+│   ├── docs
+│   │   ├── docs_getting-started.md
+│   │   ├── docs_git-commands.md
+│   │   └── docs_unix-commands.md
+│   ├── homepage
+│   │   ├── index.html
+│   │   ├── main.js
+│   │   └── style.css
+│   └── src
+│       ├── src_fileOperationg.js
+│       └── src_index.js
 ├── initial_files_to_ts.js
 ├── next-env.d.ts
 ├── next.config.ts
@@ -36,8 +42,6 @@
 │   └── window.svg
 ├── src
 │   ├── app
-│   │   ├── fileSelectHandlers.ts
-│   │   ├── gitHooks.ts
 │   │   ├── globals.css
 │   │   ├── layout.tsx
 │   │   ├── markdown.css
@@ -99,24 +103,30 @@
 │       │   ├── exportRepo.ts
 │       │   ├── exportSingleFile.ts
 │       │   └── importSingleFile.ts
+│       ├── exportPage.ts
 │       ├── filesystem.ts
 │       ├── gemini.ts
 │       ├── handleFileOperation.ts
 │       ├── initialFileContents.ts
+│       ├── node
+│       │   ├── esModuleTransformer.ts
+│       │   └── filesystemModule.ts
 │       ├── nodeRuntime.ts
 │       ├── project.ts
 │       ├── resize.ts
-│       └── tabs.ts
+│       ├── tabs.ts
+│       └── utils
 ├── tailwind.config.ts
 ├── terminal_touch_flow.md
 ├── test-npm.js
 ├── tree.sh
 ├── tree.txt
-└── tsconfig.json
+├── tsconfig.json
+└── tsconfig.tsbuildinfo
 
-17 directories, 98 files
+22 directories, 103 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 14179
-合計文字数: 486095
-合計ファイルサイズ(bytes): 524831
+合計行数: 14011
+合計文字数: 497349
+合計ファイルサイズ(bytes): 537862

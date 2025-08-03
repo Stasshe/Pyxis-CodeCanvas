@@ -69,6 +69,38 @@ export function createFSModule(projectDir: string, onFileOperation?: (path: stri
         throw new Error(`Failed to write file '${path}': ${(error as Error).message}`);
       }
     },
+    asyncWriteFile: async (path: string, data: string, options?: any): Promise<void> => {
+      try {
+        // パスがプロジェクトルート相対の場合の処理
+        let fullPath;
+        let relativePath;
+        if (path.startsWith('/')) {
+          fullPath = `${projectDir}${path}`;
+          relativePath = path;
+        } else {
+          fullPath = `${projectDir}/${path}`;
+          relativePath = `/${path}`;
+        }
+        const parentDir = fullPath.substring(0, fullPath.lastIndexOf('/'));
+        if (parentDir && parentDir !== projectDir) {
+          try {
+            await fs.promises.stat(parentDir);
+          } catch {
+            await fs.promises.mkdir(parentDir, { recursive: true } as any);
+          }
+        }
+        await fs.promises.writeFile(fullPath, data);
+        await flushFileSystemCache(fs);
+        // IndexedDBとの同期
+        if (onFileOperation) {
+          console.log(`[asyncWriteFile] Calling onFileOperation with isNodeRuntime=true`);
+          await onFileOperation(relativePath, 'file', data, true); // isNodeRuntime = true
+          console.log(`[asyncWriteFile] onFileOperation completed`);
+        }
+      } catch (error) {
+        throw new Error(`Failed to write file '${path}': ${(error as Error).message}`);
+      }
+    },
     readFileSync: (path: string, options?: any): string => {
       throw new Error('Synchronous file operations are not supported in browser environment. Use async versions.');
     },
