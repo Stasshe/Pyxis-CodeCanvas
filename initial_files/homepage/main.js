@@ -49,7 +49,14 @@ git merge feature/new-feature
 
 function setPage(page) {
   const main = document.getElementById('main-content');
-  main.innerHTML = pages[page] || pages.about;
+  main.classList.remove('animate__fadeIn'); // 既存のアニメーションをリセット
+  main.classList.add('animate__fadeOut'); // フェードアウトアニメーションを追加
+
+  setTimeout(() => {
+    main.innerHTML = pages[page] || pages.about;
+    main.classList.remove('animate__fadeOut'); // フェードアウトをリセット
+    main.classList.add('animate__fadeIn'); // フェードインアニメーションを追加
+  }, 500); // アニメーションの時間に合わせて調整
 }
 
 document.addEventListener('DOMContentLoaded', () => {
