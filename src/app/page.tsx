@@ -25,7 +25,6 @@ import type { Tab,FileItem, MenuTab, EditorLayoutType, EditorPane } from '@/type
 import FileSelectModal from '@/components/FileSelect';
 import { handleFileSelect, handleFilePreview } from '@/hooks/fileSelectHandlers';
 import { Terminal } from 'lucide-react';
-import { handleFileOperation } from '@/utils/handleFileOperation';
 
 
 export default function Home() {
@@ -314,14 +313,13 @@ export default function Home() {
                   }}
                   isBottomPanelVisible={isBottomPanelVisible}
                   onToggleBottomPanel={toggleBottomPanel}
-                  extraButtons={
-                    <div className="flex gap-1 ml-2">
-                      <button className="px-2 py-1 text-xs bg-accent rounded" onClick={() => addEditorPane(editors, setEditors)} title="ペイン追加">＋</button>
-                      <button className="px-2 py-1 text-xs bg-destructive rounded" onClick={() => removeEditorPane(editors, setEditors, editor.id)} title="ペイン削除">－</button>
-                      <button className="px-2 py-1 text-xs bg-muted rounded" onClick={() => toggleEditorLayout(editorLayout, setEditorLayout)} title="分割方向切替">⇄</button>
-                    </div>
-                  }
                   onAddTab={() => setFileSelectState({ open: true, paneIdx: idx })}
+                  addEditorPane={() => addEditorPane(editors, setEditors)}
+                  removeEditorPane={() => removeEditorPane(editors, setEditors, editor.id)}
+                  toggleEditorLayout={() => toggleEditorLayout(editorLayout, setEditorLayout)}
+                  editorLayout={editorLayout}
+                  editorId={editor.id}
+                  removeAllTabs={() => setTabsForPane(editors, setEditors, idx, [])}
                 />
                 <CodeEditor
                   activeTab={activeTab}

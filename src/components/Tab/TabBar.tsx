@@ -11,8 +11,13 @@ interface TabBarProps {
   onTabClick: (tabId: string) => void;
   onTabClose: (tabId: string) => void;
   onToggleBottomPanel: () => void;
-  extraButtons?: React.ReactNode;
   onAddTab?: () => void;
+  addEditorPane: () => void;
+  removeEditorPane: () => void;
+  toggleEditorLayout: () => void;
+  editorLayout: string;
+  editorId: string;
+  removeAllTabs: () => void;
 }
 
 export default function TabBar({
@@ -22,8 +27,13 @@ export default function TabBar({
   onTabClick,
   onTabClose,
   onToggleBottomPanel,
-  extraButtons,
-  onAddTab
+  onAddTab,
+  addEditorPane,
+  removeEditorPane,
+  toggleEditorLayout,
+  editorLayout,
+  editorId,
+  removeAllTabs
 }: TabBarProps) {
   const { colors } = useTheme();
   // メニューの開閉状態管理
@@ -80,17 +90,12 @@ export default function TabBar({
               touchAction: 'manipulation'
             }}
           >
-            {React.Children.map(extraButtons, child => {
-              if (!React.isValidElement(child)) return child;
-              const props: any = child.props;
-              const originalOnClick = props.onClick;
-              return React.cloneElement(child as React.ReactElement<any>, {
-                onClick: (e: React.MouseEvent) => {
-                  setMenuOpen(false);
-                  if (originalOnClick) originalOnClick(e);
-                }
-              });
-            })}
+            <div className="flex gap-1 ml-2">
+              <button className="px-2 py-1 text-xs bg-accent rounded" onClick={() => { setMenuOpen(false); addEditorPane(); }} title="ペイン追加">＋</button>
+              <button className="px-2 py-1 text-xs bg-destructive rounded" onClick={() => { setMenuOpen(false); removeEditorPane(); }} title="ペイン削除">－</button>
+              <button className="px-2 py-1 text-xs bg-muted rounded" onClick={() => { setMenuOpen(false); toggleEditorLayout(); }} title="分割方向切替">⇄</button>
+              <button className="px-2 py-1 text-xs bg-warning rounded" onClick={() => { setMenuOpen(false); removeAllTabs(); }} title="タブ全削除">🗑️</button>
+            </div>
           </div>
         )}
       </div>
