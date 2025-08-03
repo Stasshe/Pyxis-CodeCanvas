@@ -1,46 +1,40 @@
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>複雑なファイルエディタ</title>
+  <title>Pyxis ホームページ</title>
+  <link rel="icon" href="../../public/favicon.png">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Noto+Sans+JP:wght@400;700&display=swap">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header>
-    <h1>複雑なファイルエディタ</h1>
+    <img src="../../public/favicon.png" alt="Pyxis Logo" id="logo">
+    <h1>Pyxis - Client-Side IDE & Terminal</h1>
     <nav>
-      <button class="tab-btn" data-tab="editor">エディタ</button>
-      <button class="tab-btn" data-tab="preview">プレビュー</button>
-      <button class="tab-btn" data-tab="settings">設定</button>
+      <button data-page="about"><i class="fa-solid fa-circle-info"></i> Pyxisとは</button>
+      <button data-page="features"><i class="fa-solid fa-star"></i> 特徴</button>
+      <button data-page="tech"><i class="fa-solid fa-microchip"></i> 技術スタック</button>
+      <button data-page="usage"><i class="fa-solid fa-book"></i> 使い方</button>
+      <button data-page="faq"><i class="fa-solid fa-question"></i> FAQ</button>
+      <button data-page="cases"><i class="fa-solid fa-users"></i> 導入事例</button>
+      <button data-page="dev"><i class="fa-solid fa-user-astronaut"></i> 開発者</button>
+      <button data-page="links"><i class="fa-solid fa-link"></i> 外部リンク</button>
     </nav>
   </header>
-  <div class="container">
-    <aside class="sidebar">
-      <h2>ファイル一覧</h2>
-      <ul id="fileList"></ul>
-      <input type="file" id="fileInput" multiple>
-    </aside>
-    <main>
-      <section id="tab-editor" class="tab-content">
-        <h2>エディタ</h2>
-        <textarea id="editor" rows="20" cols="80"></textarea>
-        <button id="saveBtn">保存</button>
-      </section>
-      <section id="tab-preview" class="tab-content" style="display:none;">
-        <h2>プレビュー</h2>
-        <pre id="previewArea"></pre>
-      </section>
-      <section id="tab-settings" class="tab-content" style="display:none;">
-        <h2>設定</h2>
-        <label><input type="checkbox" id="autosave"> 自動保存</label>
-      </section>
-    </main>
-  </div>
+  <main id="main-content" class="animate__animated animate__fadeIn">
+    <!-- JSで内容を切り替え -->
+  </main>
   <footer>
-    <span id="status">準備完了</span>
+    <small>Made with <span style="color:#e11d48">❤️</span> for developers who code everywhere</small>
+    <div class="footer-links">
+      <a href="https://github.com/Stasshe/Pyxis-Client-Side-Code-Editor" target="_blank"><i class="fa-brands fa-github"></i> GitHub</a>
+      <a href="https://pyxis-code.onrender.com" target="_blank"><i class="fa-solid fa-globe"></i> Demo</a>
+    </div>
   </footer>
-  <script src="script.js"></script>
+  <script src="main.js"></script>
 </body>
 </html>
