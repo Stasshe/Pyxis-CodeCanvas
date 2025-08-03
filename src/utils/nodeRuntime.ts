@@ -12,6 +12,7 @@ import {
   wrapCodeForExecution,
   wrapModuleCode
 } from './node/esModuleTransformer';
+import { loadFromCDN, evaluateModuleCode } from './node/cdnLoader';
 
 // Node.js風のランタイム環境
 export class NodeJSRuntime {
@@ -275,9 +276,9 @@ export class NodeJSRuntime {
       // NPMモジュールの場合はCDNから試す（相対パスでない場合）
       if (!moduleName.startsWith('./') && !moduleName.startsWith('../') && !moduleName.startsWith('/')) {
         try {
-          const cdnCode = await this.loadFromCDN(moduleName);
+          const cdnCode = await loadFromCDN(moduleName, this.fs);
           // CDNコードを実行してモジュールを取得
-          const moduleObj = await this.evaluateModuleCode(cdnCode, moduleName);
+          const moduleObj = await evaluateModuleCode(cdnCode, moduleName, this.resolveModule.bind(this), this.currentWorkingDirectory);
           this.moduleCache.set(moduleName, moduleObj);
           return moduleObj;
         } catch (cdnError) {
@@ -286,112 +287,6 @@ export class NodeJSRuntime {
       }
       
       throw new Error(`Cannot find module '${moduleName}'`);
-    }
-  }
-
-  // CDNからモジュールを読み込む
-  private async loadFromCDN(moduleName: string): Promise<string> {
-    const cdnUrls = [
-      `https://unpkg.com/${moduleName}`,
-      `https://cdn.skypack.dev/${moduleName}`,
-      `https://jspm.dev/${moduleName}`
-    ];
-
-    console.log(`[NodeRuntime] Attempting to load ${moduleName} from CDN...`);
-
-    for (const url of cdnUrls) {
-      try {
-        const response = await fetch(url);
-        if (response.ok) {
-          const content = await response.text();
-          console.log(`[NodeRuntime] Successfully loaded ${moduleName} from ${url}`);
-          
-          // 仮想ファイルシステムにキャッシュ保存（次回は高速化）
-          try {
-            const modulePath = `/node_modules/${moduleName}/index.js`;
-            await this.fs.promises.mkdir(`/node_modules/${moduleName}`, { recursive: true });
-            await this.fs.promises.writeFile(modulePath, content, 'utf-8');
-            console.log(`[NodeRuntime] Cached ${moduleName} to virtual filesystem`);
-          } catch (cacheError) {
-            console.warn(`[NodeRuntime] Failed to cache ${moduleName}:`, cacheError);
-          }
-          
-          return content;
-        }
-      } catch (error) {
-        console.log(`[NodeRuntime] Failed to load from ${url}:`, error);
-      }
-    }
-
-    throw new Error(`Failed to load module ${moduleName} from CDN`);
-  }
-
-  // CDNコードを評価してモジュールオブジェクトを取得
-  private async evaluateModuleCode(code: string, moduleName: string): Promise<any> {
-    try {
-      // モジュール用のサンドボックスを作成
-      const moduleScope = {
-        module: { exports: {} },
-        exports: {},
-        require: (name: string) => this.resolveModule(name),
-        __filename: `/node_modules/${moduleName}/index.js`,
-        __dirname: `/node_modules/${moduleName}`,
-        console: console,
-        process: {
-          env: {},
-          cwd: () => this.currentWorkingDirectory,
-          platform: 'browser',
-          version: 'v16.0.0',
-          versions: { node: '16.0.0' }
-        },
-        Buffer: Buffer,
-        setTimeout,
-        clearTimeout,
-        setInterval,
-        clearInterval,
-        global: {},
-        window: undefined
-      };
-
-      // コードを実行
-      const wrappedCode = `
-        (function(module, exports, require, __filename, __dirname, console, process, Buffer, setTimeout, clearTimeout, setInterval, clearInterval, global) {
-          ${code}
-          return module.exports;
-        })
-      `;
-
-      const moduleFunction = eval(wrappedCode);
-      const result = await moduleFunction(
-        moduleScope.module,
-        moduleScope.exports,
-        moduleScope.require,
-        moduleScope.__filename,
-        moduleScope.__dirname,
-        moduleScope.console,
-        moduleScope.process,
-        moduleScope.Buffer,
-        moduleScope.setTimeout,
-        moduleScope.clearTimeout,
-        moduleScope.setInterval,
-        moduleScope.clearInterval,
-        moduleScope.global
-      );
-
-      if (
-        moduleScope.module.exports &&
-        typeof moduleScope.module.exports === 'object' &&
-        'default' in moduleScope.module.exports &&
-        Object.keys(moduleScope.module.exports).length === 1
-      ) {
-        // ESM default only: promote default to exports
-        moduleScope.module.exports = moduleScope.module.exports.default as any;
-      }
-
-      return result || moduleScope.module.exports || moduleScope.exports;
-    } catch (error) {
-      console.error(`[evaluateModuleCode] Error evaluating ${moduleName}:`, error);
-      throw new Error(`Failed to evaluate module ${moduleName}: ${(error as Error).message}`);
     }
   }
 
