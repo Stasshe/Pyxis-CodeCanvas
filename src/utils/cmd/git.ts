@@ -235,11 +235,7 @@ export class GitCommands {
     const staged: string[] = [];
     const deleted: string[] = [];
 
-    console.log('[git.categorizeStatusFiles] Processing status entries:', status.length);
-
     status.forEach(([filepath, HEAD, workdir, stage]) => {
-      console.log(`[git.categorizeStatusFiles] File: ${filepath}, HEAD: ${HEAD}, workdir: ${workdir}, stage: ${stage}`);
-      
       // isomorphic-gitのstatusMatrixの値の意味:
       // HEAD: 0=ファイルなし, 1=ファイルあり
       // workdir: 0=ファイルなし, 1=ファイルあり, 2=変更あり
@@ -262,22 +258,22 @@ export class GitCommands {
         staged.push(filepath);
       } else if (HEAD === 1 && workdir === 0 && stage === 1) {
         // 削除されたファイル（未ステージ）- unstaged deletion
-        console.log(`[git.categorizeStatusFiles] FOUND DELETED FILE (unstaged): ${filepath}`);
+        //console.log(`[git.categorizeStatusFiles] FOUND DELETED FILE (unstaged): ${filepath}`);
         deleted.push(filepath);
       } else if (HEAD === 1 && workdir === 0 && stage === 0) {
         // 削除されたファイル（ステージ済み）- staged deletion
-        console.log(`[git.categorizeStatusFiles] FOUND DELETED FILE (staged): ${filepath}`);
+        //console.log(`[git.categorizeStatusFiles] FOUND DELETED FILE (staged): ${filepath}`);
         staged.push(filepath);
       } else if (HEAD === 1 && workdir === 0 && stage === 3) {
         // 削除されてステージされたファイル
         staged.push(filepath);
       } else {
         // その他のケース（HEAD === 1 && workdir === 1 && stage === 1など）は変更なし
-        console.log(`[git.categorizeStatusFiles] No change: ${filepath}`);
+        //console.log(`[git.categorizeStatusFiles] No change: ${filepath}`);
       }
     });
 
-    console.log('[git.categorizeStatusFiles] Results:', { untracked: untracked.length, modified: modified.length, staged: staged.length, deleted: deleted.length });
+    //console.log('[git.categorizeStatusFiles] Results:', { untracked: untracked.length, modified: modified.length, staged: staged.length, deleted: deleted.length });
     
     return { untracked, modified, staged, deleted };
   }
