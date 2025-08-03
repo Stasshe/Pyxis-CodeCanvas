@@ -8,6 +8,7 @@ import { FileItem } from '@/types';
 import { handleGitCommand } from './TerminalGitCommands';
 import { handleUnixCommand } from './TerminalUnixCommands';
 import { handleNPMCommand } from './TerminalNPMCommands';
+import { exportPage } from '@/utils/exportPage';
 
 // FileItemの階層構造をフラットな配列に変換
 const flattenFileItems = (items: FileItem[], basePath = ''): Array<{ path: string; content?: string; type: 'file' | 'folder' }> => {
@@ -320,20 +321,25 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
       try {
         switch (cmd) {
           case 'export':
-            if (args[0]?.toLowerCase() === 'indexeddb') {
-              // Safari対応: window.openを同期で呼び出し
+            if (args[0]?.toLowerCase() === '--page' && args[1]) {
+              const targetPath = args[1].startsWith('/') ? args[1] : `${unixCommandsRef.current?.pwd()}/${args[1]}`;
+              const normalizedPath = unixCommandsRef.current?.normalizePath(targetPath);
+              if (normalizedPath) {
+                await exportPage(normalizedPath, writeOutput, unixCommandsRef);
+              } else {
+                await writeOutput('無効なパスが指定されました。');
+              }
+            } else if (args[0]?.toLowerCase() === '--indexeddb') {
               const win = window.open('about:blank', '_blank');
               if (!win) {
                 await writeOutput('about:blankの新規タブを開けませんでした。');
                 break;
               }
-              // importをawaitで同期化し、windowを渡す
               const mod = await import('@/utils/export/exportIndexeddb');
               mod.exportIndexeddbHtmlWithWindow(writeOutput, win);
-              break;
+            } else {
+              await writeOutput('export: サポートされているのは "export --page <path>" または "export --indexeddb" のみです');
             }
-            // 他のexportコマンドは未対応
-            await writeOutput('export: サポートされているのは "export IndexedDB" のみです');
             break;
           case 'clear':
             term.clear();
