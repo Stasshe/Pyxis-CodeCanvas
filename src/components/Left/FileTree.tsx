@@ -13,8 +13,9 @@ interface FileTreeProps {
   level?: number;
   currentProjectName: string; // プロジェクト情報をオプションで受け取る
   onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>;
+  isFileSelectModal?: boolean;
 }
-export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, currentProjectName, onFileOperation }: FileTreeProps) {
+export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, currentProjectName, onFileOperation, isFileSelectModal }: FileTreeProps) {
   const { colors } = useTheme();
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
   const [menuHoveredIdx, setMenuHoveredIdx] = useState<number | null>(null);
@@ -180,7 +181,7 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
       })}
 
       {/* 空白領域を追加（最上位レベルのみ） */}
-      {level === 0 && (
+      {(level === 0 && !isFileSelectModal) && (
         <div
           style={{
             flex: 1,

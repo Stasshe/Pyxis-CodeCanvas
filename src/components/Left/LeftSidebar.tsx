@@ -1,4 +1,4 @@
-import { FolderOpen } from 'lucide-react';
+import { FolderOpen, FilePlus, FolderPlus } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import { MenuTab, FileItem } from '@/types';
 import type { Project } from '@/types';
@@ -64,6 +64,38 @@ export default function LeftSidebar({
               <div className="flex items-center gap-2 mb-2">
                 <FolderOpen size={14} color={colors.sidebarIconFg} />
                 <span className="text-xs font-medium" style={{ color: colors.sidebarTitleFg }}>./</span>
+                {/* 新規ファイル作成アイコン */}
+                <button
+                  title="新規ファイル作成"
+                  style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                  onClick={async () => {
+                    if (typeof onFileOperation === 'function') {
+                      const fileName = prompt('新しいファイル名を入力してください:');
+                      if (fileName) {
+                        const newFilePath = fileName.startsWith('/') ? fileName : '/' + fileName;
+                        await onFileOperation(newFilePath, 'file', '');
+                      }
+                    }
+                  }}
+                >
+                  <FilePlus size={16} color={colors.sidebarIconFg} />
+                </button>
+                {/* 新規フォルダ作成アイコン */}
+                <button
+                  title="新規フォルダ作成"
+                  style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                  onClick={async () => {
+                    if (typeof onFileOperation === 'function') {
+                      const folderName = prompt('新しいフォルダ名を入力してください:');
+                      if (folderName) {
+                        const newFolderPath = folderName.startsWith('/') ? folderName : '/' + folderName;
+                        await onFileOperation(newFolderPath, 'folder', '');
+                      }
+                    }
+                  }}
+                >
+                  <FolderPlus size={16} color={colors.sidebarIconFg} />
+                </button>
               </div>
               <FileTree items={files} onFileOpen={onFileOpen} onFilePreview={onFilePreview} currentProjectName={currentProject?.name ?? ''} onFileOperation={onFileOperation} />
             </div>

@@ -21,6 +21,7 @@ export default function MenuBar({ activeMenuTab, onMenuTabClick, onProjectClick,
       flexDirection: 'column',
       flexShrink: 0,
       height: '100%',
+      userSelect: 'none',
     }}>
       {/* 上部のメニューボタン */}
       <div style={{ display: 'flex', flexDirection: 'column' }}>

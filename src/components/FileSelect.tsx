@@ -39,6 +39,7 @@ export default function FileSelectModal({ isOpen, onClose, files, onFileSelect, 
             onFileOperation={onFileOperation}
             currentProjectName={currentProjectName || ''}
             onFilePreview={onFilePreview}
+            isFileSelectModal={true}
           />
         </div>
       </div>
