@@ -1,0 +1,68 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f8f9fa;
+}
+
+header {
+    background-color: #007bff;
+    color: white;
+    padding: 10px 0;
+}
+
+#sidebar {
+    width: 250px;
+    overflow-y: auto;
+}
+
+textarea {
+    resize: none;
+    font-family: monospace;
+    font-size: 14px;
+    border: none;
+    outline: none;
+}
+
+#fileList {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #ced4da;
+    padding: 10px;
+    background-color: #fff;
+}
+
+.file-item {
+    cursor: pointer;
+    padding: 5px;
+    border-bottom: 1px solid #ddd;
+}
+
+.file-item:hover {
+    background-color: #f1f1f1;
+}
+
+footer {
+    background-color: #f1f1f1;
+    padding: 10px 0;
+    text-align: center;
+}
+
+/* Dark Theme */
+body.dark-mode {
+    background-color: #121212;
+    color: #e0e0e0;
+}
+
+body.dark-mode header {
+    background-color: #1f1f1f;
+}
+
+body.dark-mode #sidebar {
+    background-color: #1f1f1f;
+    color: #e0e0e0;
+}
+
+body.dark-mode footer {
+    background-color: #1f1f1f;
+}
