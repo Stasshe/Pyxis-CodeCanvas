@@ -155,14 +155,12 @@ class ProjectDB {
 
   // ファイル操作
   async createFile(projectId: string, path: string, content: string, type: 'file' | 'folder'): Promise<ProjectFile> {
-    console.log('[DB] Creating file:', { projectId, path, content, type });
     
     // 既存ファイルをチェック
     const existingFiles = await this.getProjectFiles(projectId);
     const existingFile = existingFiles.find(f => f.path === path);
     
     if (existingFile) {
-      console.log('[DB] File already exists, updating:', path);
       existingFile.content = content;
       existingFile.updatedAt = new Date();
       await this.saveFile(existingFile);
@@ -181,19 +179,11 @@ class ProjectDB {
       updatedAt: new Date(),
     };
 
-    console.log('[DB] File object created:', file);
     await this.saveFile(file);
-    console.log('[DB] File saved successfully');
     return file;
   }
 
   async saveFile(file: ProjectFile): Promise<void> {
-    console.log('[DB] Saving file:', { 
-      id: file.id, 
-      path: file.path, 
-      contentLength: file.content.length,
-      projectId: file.projectId 
-    });
     return new Promise((resolve, reject) => {
       if (!this.db) {
         console.error('[DB] Database not initialized');
@@ -211,23 +201,19 @@ class ProjectDB {
         reject(request.error);
       };
       request.onsuccess = () => {
-        console.log('[DB] Save successful for file:', file.path);
         resolve();
       };
       
       // トランザクション完了後に追加の同期処理
       transaction.oncomplete = () => {
-        console.log('[DB] Transaction completed for file:', file.path);
         // IndexedDBの変更を確実にフラッシュ
         setTimeout(() => {
-          console.log('[DB] Post-save sync delay completed for:', file.path);
         }, 50);
       };
     });
   }
 
   async getProjectFiles(projectId: string): Promise<ProjectFile[]> {
-    console.log('[DB] Getting project files for projectId:', projectId);
     return new Promise((resolve, reject) => {
       if (!this.db) {
         console.error('[DB] Database not initialized in getProjectFiles');
@@ -245,13 +231,11 @@ class ProjectDB {
         reject(request.error);
       };
       request.onsuccess = () => {
-        console.log('[DB] Raw files from database:', request.result);
         const files = request.result.map(f => ({
           ...f,
           createdAt: new Date(f.createdAt),
           updatedAt: new Date(f.updatedAt),
         }));
-        console.log('[DB] Processed files:', files);
         resolve(files);
       };
     });

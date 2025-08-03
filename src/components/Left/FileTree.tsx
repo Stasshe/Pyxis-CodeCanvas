@@ -23,8 +23,6 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; item: FileItem | null } | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
-  const unix = new UnixCommands(currentProjectName);
-
   // 初回読み込み時にルートレベルのフォルダを展開
   useEffect(() => {
     if (level === 0) {
@@ -275,6 +273,7 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
                 onTouchEnd={() => setMenuHoveredIdx(null)}
                 onClick={async () => {
                   setContextMenu(null);
+                  const unix = new UnixCommands(currentProjectName);
                   if (label === 'ファイル作成') {
                     if (typeof onFileOperation === 'function') {
                       const fileName = prompt('新しいファイル名を入力してください:');
