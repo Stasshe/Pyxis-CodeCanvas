@@ -489,7 +489,7 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
             onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
           >
-            <RefreshCw style={{ width: '1rem', height: '1rem', color: colors.mutedFg }} />
+            <RefreshCw style={{ width: '1rem', height: '1rem', color: colors.mutedFg }} className="select-none" />
           </button>
         </div>
         <div style={{ fontSize: '0.75rem', color: colors.mutedFg }}>
@@ -500,7 +500,7 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto' }}>
+  <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         {/* 変更ファイル */}
         <div style={{ padding: '0.75rem', borderBottom: `1px solid ${colors.border}` }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
@@ -511,19 +511,21 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
                   onClick={handleStageAll}
                   style={{ padding: '0.25rem', background: 'transparent', borderRadius: '0.375rem', border: 'none', fontSize: '0.75rem', cursor: 'pointer' }}
                   title="全てステージング"
+                  className="select-none"
                   onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
-                  <Plus style={{ width: '0.75rem', height: '0.75rem', color: colors.primary }} />
+                  <Plus style={{ width: '0.75rem', height: '0.75rem', color: colors.primary }} className="select-none" />
                 </button>
                 <button
                   onClick={handleUnstageAll}
                   style={{ padding: '0.25rem', background: 'transparent', borderRadius: '0.375rem', border: 'none', fontSize: '0.75rem', cursor: 'pointer' }}
                   title="全てアンステージング"
+                  className="select-none"
                   onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
-                  <Minus style={{ width: '0.75rem', height: '0.75rem', color: colors.primary }} />
+                  <Minus style={{ width: '0.75rem', height: '0.75rem', color: colors.primary }} className="select-none" />
                 </button>
               </div>
             )}
@@ -539,15 +541,16 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
                   <p style={{ fontSize: '0.75rem', color: '#22c55e', marginBottom: '0.25rem' }}>ステージ済み ({gitRepo.status.staged.length})</p>
                   {gitRepo.status.staged.map((file) => (
                     <div key={`staged-${file}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.75rem', padding: '0.25rem 0' }}>
-                      <span style={{ color: '#22c55e', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{file}</span>
+                      <span style={{ color: '#22c55e', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} className="select-text">{file}</span>
                       <button
                         onClick={() => handleUnstageFile(file)}
                         style={{ padding: '0.25rem', background: 'transparent', borderRadius: '0.375rem', marginLeft: '0.25rem', border: 'none', cursor: 'pointer' }}
                         title="アンステージング"
+                        className="select-none"
                         onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                       >
-                        <Minus style={{ width: '0.75rem', height: '0.75rem', color: colors.primary }} />
+                        <Minus style={{ width: '0.75rem', height: '0.75rem', color: colors.primary }} className="select-none" />
                       </button>
                     </div>
                   ))}
@@ -560,25 +563,27 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
                   <p style={{ fontSize: '0.75rem', color: '#f59e42', marginBottom: '0.25rem' }}>変更済み ({gitRepo.status.unstaged.length})</p>
                   {gitRepo.status.unstaged.map((file) => (
                     <div key={`unstaged-${file}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.75rem', padding: '0.25rem 0' }}>
-                      <span style={{ color: '#f59e42', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{file}</span>
+                      <span style={{ color: '#f59e42', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} className="select-text">{file}</span>
                       <div style={{ display: 'flex', gap: '0.25rem' }}>
                         <button
                           onClick={() => handleStageFile(file)}
                           style={{ padding: '0.25rem', background: 'transparent', borderRadius: '0.375rem', border: 'none', cursor: 'pointer' }}
                           title="ステージング"
+                          className="select-none"
                           onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
                           onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                         >
-                          <Plus style={{ width: '0.75rem', height: '0.75rem', color: colors.primary }} />
+                          <Plus style={{ width: '0.75rem', height: '0.75rem', color: colors.primary }} className="select-none" />
                         </button>
                         <button
                           onClick={() => handleDiscardChanges(file)}
                           style={{ padding: '0.25rem', background: 'transparent', borderRadius: '0.375rem', border: 'none', cursor: 'pointer', color: colors.red }}
                           title="変更を破棄"
+                          className="select-none"
                           onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
                           onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                         >
-                          <RotateCcw style={{ width: '0.75rem', height: '0.75rem', color: colors.red }} />
+                          <RotateCcw style={{ width: '0.75rem', height: '0.75rem', color: colors.red }} className="select-none" />
                         </button>
                       </div>
                     </div>
@@ -592,27 +597,29 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
                   <p style={{ fontSize: '0.75rem', color: colors.primary, marginBottom: '0.25rem' }}>未追跡 ({gitRepo.status.untracked.length})</p>
                   {gitRepo.status.untracked.map((file) => (
                     <div key={`untracked-${file}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.75rem', padding: '0.25rem 0' }}>
-                      <span style={{ color: colors.primary, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{file}</span>
+                      <span style={{ color: colors.primary, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} className="select-text">{file}</span>
                       <div style={{ display: 'flex', gap: '0.25rem' }}>
                         <button
                           onClick={() => handleStageFile(file)}
                           style={{ padding: '0.25rem', background: 'transparent', borderRadius: '0.375rem', border: 'none', cursor: 'pointer' }}
                           title="ステージング"
+                          className="select-none"
                           onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
                           onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                         >
-                          <Plus style={{ width: '0.75rem', height: '0.75rem', color: colors.primary }} />
+                          <Plus style={{ width: '0.75rem', height: '0.75rem', color: colors.primary }} className="select-none" />
                         </button>
                         <button
                           onClick={() => handleDiscardChanges(file)}
                           style={{ padding: '0.25rem', background: 'transparent', borderRadius: '0.375rem', border: 'none', cursor: 'pointer', color: colors.red }}
                           title="ファイルを削除"
+                          className="select-none"
                           onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
                           onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                         >
-                          <RotateCcw style={{ width: '0.75rem', height: '0.75rem', color: colors.red }} />
+                          <RotateCcw style={{ width: '0.75rem', height: '0.75rem', color: colors.red }} className="select-none" />
                         </button>
-                      </div>
+                        </div>
                     </div>
                   ))}
                 </div>
@@ -640,25 +647,28 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
               onChange={(e) => setCommitMessage(e.target.value)}
               placeholder="コミットメッセージを入力..."
               style={{ width: '100%', height: '4rem', fontSize: '0.75rem', border: `1px solid ${colors.border}`, borderRadius: '0.375rem', padding: '0.25rem 0.5rem', resize: 'none', background: colors.background, color: colors.foreground }}
+              className="select-text"
             />
             <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
               <button
                 onClick={handleGenerateCommitMessage}
                 disabled={!apiKey || isGenerating}
                 style={{ flex: 1, background: '#22c55e', color: 'white', borderRadius: '0.375rem', padding: '0.5rem 1rem', fontSize: '0.75rem', fontWeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', border: 'none', cursor: isGenerating || !apiKey ? 'not-allowed' : 'pointer', opacity: isGenerating || !apiKey ? 0.5 : 1 }}
+                className="select-none"
               >
-                {isGenerating ? <RefreshCw style={{ width: '0.75rem', height: '0.75rem', animation: 'spin 1s linear infinite' }} /> : <Plus style={{ width: '0.75rem', height: '0.75rem' }} />}
+                {isGenerating ? <RefreshCw style={{ width: '0.75rem', height: '0.75rem', animation: 'spin 1s linear infinite' }} className="select-none" /> : <Plus style={{ width: '0.75rem', height: '0.75rem' }} className="select-none" />}
                 {isGenerating ? '生成中...' : '自動生成'}
               </button>
               <button
                 onClick={handleCommit}
                 disabled={!commitMessage.trim() || isCommitting}
                 style={{ flex: 1, background: colors.primary, color: colors.background, borderRadius: '0.375rem', padding: '0.5rem 1rem', fontSize: '0.75rem', fontWeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', border: 'none', cursor: isCommitting || !commitMessage.trim() ? 'not-allowed' : 'pointer', opacity: isCommitting || !commitMessage.trim() ? 0.5 : 1 }}
+                className="select-none"
               >
                 {isCommitting ? (
-                  <RefreshCw style={{ width: '0.75rem', height: '0.75rem', animation: 'spin 1s linear infinite' }} />
+                  <RefreshCw style={{ width: '0.75rem', height: '0.75rem', animation: 'spin 1s linear infinite' }} className="select-none" />
                 ) : (
-                  <GitCommit style={{ width: '0.75rem', height: '0.75rem' }} />
+                  <GitCommit style={{ width: '0.75rem', height: '0.75rem' }} className="select-none" />
                 )}
                 {isCommitting ? 'コミット中...' : 'コミット'}
               </button>
@@ -667,27 +677,25 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
         )}
 
         {/* コミット履歴 */}
-        <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-          <div style={{ padding: '0.75rem', borderBottom: `1px solid ${colors.border}` }}>
-            <h4 style={{ fontSize: '0.875rem', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.5rem', color: colors.foreground }}>
-              <Clock style={{ width: '1rem', height: '1rem', color: colors.mutedFg }} />
-              履歴 ({gitRepo.commits.length})
-            </h4>
-          </div>
-          <div style={{ flex: 1, overflow: 'hidden' }}>
-            {gitRepo.commits.length === 0 ? (
-              <div style={{ padding: '0.75rem' }}>
-                <p style={{ fontSize: '0.75rem', color: colors.mutedFg }}>コミット履歴がありません</p>
-              </div>
-            ) : (
-              <GitHistory
-                commits={gitRepo.commits}
-                currentProject={currentProject}
-                currentBranch={gitRepo.currentBranch}
-                onFileOperation={onFileOperation}
-              />
-            )}
-          </div>
+        <div style={{ padding: '0.75rem', borderBottom: `1px solid ${colors.border}` }}>
+          <h4 style={{ fontSize: '0.875rem', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.5rem', color: colors.foreground }}>
+            <Clock style={{ width: '1rem', height: '1rem', color: colors.mutedFg }} />
+            履歴 ({gitRepo.commits.length})
+          </h4>
+        </div>
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+          {gitRepo.commits.length === 0 ? (
+            <div style={{ padding: '0.75rem' }}>
+              <p style={{ fontSize: '0.75rem', color: colors.mutedFg }}>コミット履歴がありません</p>
+            </div>
+          ) : (
+            <GitHistory
+              commits={gitRepo.commits}
+              currentProject={currentProject}
+              currentBranch={gitRepo.currentBranch}
+              onFileOperation={onFileOperation}
+            />
+          )}
         </div>
       </div>
     </div>

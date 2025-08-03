@@ -117,7 +117,7 @@ export default function LeftSidebar({
             </div>
           )}
           {activeMenuTab === 'run' && (
-            <div className="h-full">
+            <div className="h-full select-none">
               <RunPanel 
                 currentProject={currentProject.name}
                 files={files}

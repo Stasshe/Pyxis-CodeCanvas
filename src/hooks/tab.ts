@@ -56,11 +56,13 @@ export function useProjectFilesSyncEffect({
 export function useProjectTabResetEffect({
   currentProject,
   setTabs,
-  setActiveTabId
+  setActiveTabId,
+  pane
 }: {
   currentProject: Project | null;
   setTabs: (update: any) => void;
   setActiveTabId: (id: string) => void;
+  pane: number;
 }) {
   useEffect(() => {
     if (currentProject) {
@@ -69,6 +71,10 @@ export function useProjectTabResetEffect({
           // 既存のタブがある場合は何もしない
           if (prevTabs && prevTabs.length > 0) {
             return prevTabs;
+          }
+          // paneが0以外ならWelcomeタブを生成しない
+          if (pane !== 0) {
+            return [];
           }
           // Welcomeタブを追加
           const welcomeTab: Tab = {
@@ -80,11 +86,12 @@ export function useProjectTabResetEffect({
           };
           return [welcomeTab];
         });
+        // paneが0以外ならactiveTabIdも空に
         setActiveTabId('welcome');
       }, 50);
     } else {
       setTabs([]);
       setActiveTabId('');
     }
-  }, [currentProject?.id]);
+  }, [currentProject?.id, pane]);
 }
