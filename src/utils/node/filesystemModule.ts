@@ -1,4 +1,5 @@
 import { getFileSystem } from '@/utils/filesystem';
+import { path } from 'd3';
 
   // fs モジュールのエミュレーション
 export function createFSModule(projectDir: string, onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>, unixCommands?: any) {
@@ -7,6 +8,37 @@ export function createFSModule(projectDir: string, onFileOperation?: (path: stri
         throw new Error("ファイルシステムが初期化されていません");
     }
   
+  // 共通ロジックを持つヘルパー関数
+  async function handleWriteFile(fs: any, projectDir: string, path: string, data: string, onFileOperation?: (path: string, type: 'file', content?: string, isNodeRuntime?: boolean) => Promise<void>) {
+    let fullPath;
+    let relativePath;
+    if (path.startsWith('/')) {
+      fullPath = `${projectDir}${path}`;
+      relativePath = path;
+    } else {
+      fullPath = `${projectDir}/${path}`;
+      relativePath = `/${path}`;
+    }
+
+    const parentDir = fullPath.substring(0, fullPath.lastIndexOf('/'));
+    if (parentDir && parentDir !== projectDir) {
+      try {
+        await fs.promises.stat(parentDir);
+      } catch {
+        await fs.promises.mkdir(parentDir, { recursive: true } as any);
+      }
+    }
+
+    await fs.promises.writeFile(fullPath, data);
+    await flushFileSystemCache(fs);
+
+    if (onFileOperation) {
+      console.log(`[handleWriteFile] Calling onFileOperation with isNodeRuntime=true`);
+      await onFileOperation(relativePath, 'file', data, true);
+      console.log(`[handleWriteFile] onFileOperation completed`);
+    }
+  }
+
   const fsModule = {
     readFile: async (path: string, options?: any): Promise<string> => {
       try {
@@ -30,73 +62,7 @@ export function createFSModule(projectDir: string, onFileOperation?: (path: stri
     },
     writeFile: async (path: string, data: string, options?: any): Promise<void> => {
       try {
-        let fullPath;
-        let relativePath;
-        if (path.startsWith('/')) {
-          fullPath = `${projectDir}${path}`;
-          relativePath = path;
-        } else {
-          fullPath = `${projectDir}/${path}`;
-          relativePath = `/${path}`;
-        }
-        
-        console.log(`[fs.writeFile] Writing to: ${path} -> ${fullPath}`);
-        
-        // 親ディレクトリが存在することを確認
-        const parentDir = fullPath.substring(0, fullPath.lastIndexOf('/'));
-        if (parentDir && parentDir !== projectDir) {
-          try {
-            await fs.promises.stat(parentDir);
-          } catch {
-            await fs.promises.mkdir(parentDir, { recursive: true } as any);
-          }
-        }
-        
-        await fs.promises.writeFile(fullPath, data);
-        
-        // ファイルシステムのキャッシュをフラッシュ
-        await flushFileSystemCache(fs);
-        
-        console.log(`[nodeRuntime.fs.writeFile] File written to filesystem: ${fullPath}, content length: ${data.length}`);
-        
-        // IndexedDBとの同期
-        if (onFileOperation) {
-          console.log(`[nodeRuntime.fs.writeFile] Calling onFileOperation with isNodeRuntime=true`);
-          await onFileOperation(relativePath, 'file', data, true); // isNodeRuntime = true
-          console.log(`[nodeRuntime.fs.writeFile] onFileOperation completed`);
-        }
-      } catch (error) {
-        throw new Error(`Failed to write file '${path}': ${(error as Error).message}`);
-      }
-    },
-    asyncWriteFile: async (path: string, data: string, options?: any): Promise<void> => {
-      try {
-        // パスがプロジェクトルート相対の場合の処理
-        let fullPath;
-        let relativePath;
-        if (path.startsWith('/')) {
-          fullPath = `${projectDir}${path}`;
-          relativePath = path;
-        } else {
-          fullPath = `${projectDir}/${path}`;
-          relativePath = `/${path}`;
-        }
-        const parentDir = fullPath.substring(0, fullPath.lastIndexOf('/'));
-        if (parentDir && parentDir !== projectDir) {
-          try {
-            await fs.promises.stat(parentDir);
-          } catch {
-            await fs.promises.mkdir(parentDir, { recursive: true } as any);
-          }
-        }
-        await fs.promises.writeFile(fullPath, data);
-        await flushFileSystemCache(fs);
-        // IndexedDBとの同期
-        if (onFileOperation) {
-          console.log(`[asyncWriteFile] Calling onFileOperation with isNodeRuntime=true`);
-          await onFileOperation(relativePath, 'file', data, true); // isNodeRuntime = true
-          console.log(`[asyncWriteFile] onFileOperation completed`);
-        }
+        await handleWriteFile(fs, projectDir, path, data, onFileOperation);
       } catch (error) {
         throw new Error(`Failed to write file '${path}': ${(error as Error).message}`);
       }
@@ -121,6 +87,15 @@ export function createFSModule(projectDir: string, onFileOperation?: (path: stri
       } catch {
         return false;
       }
+    },
+    asyncWriteFile: async (path: string, data: string, options?: any): Promise<void> => {
+      await fsModule.writeFile(path, data, options);
+    },
+    asyncReadFile: async (path: string, options?: any): Promise<string> => {
+      return await fsModule.readFile(path, options);
+    },
+    asyncRemoveFile: async (path: string): Promise<void> => {
+      await fsModule.unlink(path);
     },
     mkdir: async (path: string, options?: any): Promise<void> => {
       if (!unixCommands) throw new Error('Unix commands not available');
