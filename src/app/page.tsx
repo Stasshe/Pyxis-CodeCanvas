@@ -240,6 +240,11 @@ export default function Home() {
   };
 
   const handleProjectSelect = async (project: Project) => {
+    setTabsForAllPanes([]); // 全ペインのタブをリセット
+    setActiveTabId(''); // アクティブタブIDをリセット
+    setEditors([{ id: 'editor-1', tabs: [], activeTabId: '' }]); // エディタ状態を初期化
+    setActiveMenuTab('files');
+    setIsLeftSidebarVisible(true);
     await loadProject(project);
   };
 
