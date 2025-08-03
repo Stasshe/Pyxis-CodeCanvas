@@ -59,30 +59,21 @@ class ProjectDB {
 
     await this.saveProject(project);
 
-    // initialFileContents.tsから初期ファイルを登録
-    const initialFiles = [
-      { path: '/README.md', key: 'README.md', type: 'file' },
-      { path: '/.gitignore', key: '.gitignore', type: 'file' },
-      { path: '/docs', key: null, type: 'folder' },
-      { path: '/docs/getting-started.md', key: 'docs_getting-started.md', type: 'file' },
-      { path: '/docs/git-commands.md', key: 'docs_git-commands.md', type: 'file' },
-      { path: '/docs/unix-commands.md', key: 'docs_unix-commands.md', type: 'file' },
-      { path: '/src', key: null, type: 'folder' },
-      { path: '/src/index.js', key: 'src_index.js', type: 'file' },
-      { path: '/src/fileOperationg.js', key: 'src_fileOperationg.js', type: 'file' },
-      { path: '/web', key: null, type: 'folder' },
-      { path: '/web/index.html', key: 'index.html', type: 'file' },
-      { path: '/web/script.js', key: 'script.js', type: 'file' },
-      { path: '/web/style.css', key: 'style.css', type: 'file' }
-    ];
-    for (const f of initialFiles) {
-      if (f.type === 'folder') {
-        await this.createFile(project.id, f.path, '', 'folder');
-      } else {
-        const content = initialFileContents[f.key!] ?? '';
-        await this.createFile(project.id, f.path, content, 'file');
+
+    // initialFileContents（ディレクトリ構造）から初期ファイル・フォルダを再帰登録
+    async function registerFiles(obj: any, parentPath: string) {
+      for (const [name, v] of Object.entries(obj)) {
+        const value = v as { type: string; children?: any; content?: string };
+        const currentPath = parentPath + '/' + name;
+        if (value.type === 'folder') {
+          await projectDB.createFile(project.id, currentPath, '', 'folder');
+          await registerFiles(value.children, currentPath);
+        } else if (value.type === 'file') {
+          await projectDB.createFile(project.id, currentPath, value.content ?? '', 'file');
+        }
       }
     }
+    await registerFiles(initialFileContents, '');
 
     return project;
   }

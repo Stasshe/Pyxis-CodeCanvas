@@ -1,5 +1,6 @@
-export const initialFileContents: Record<string, string> = {
-  '.gitignore': `# 依存関係
+export const initialFileContents = {
+  '.gitignore': { type: 'file', content: `
+    # 依存関係
 node_modules/
 npm-debug.log*
 yarn-debug.log*
@@ -16,8 +17,9 @@ build/
 .env.test.local
 .env.production.local
 
-`,
-  'README.md': `# プロジェクトへようこそ
+` },
+  'README.md': { type: 'file', content: `
+    # プロジェクトへようこそ
 
 このプロジェクトはPyxisで作成されました。
 
@@ -121,16 +123,19 @@ graph TB
 ---
 
 > Pyxisで快適な開発をお楽しみください！
-`,
-  'docs_getting-started.md': `# スタートガイド
+` },
+  'docs': { type: 'folder', children: {
+      'docs_getting-started.md': { type: 'file', content: `
+        # スタートガイド
 
 このプロジェクトの使用方法について説明します。
 
 1. コードエディタでファイルを編集
 2. ターミナルでコマンド実行
 3. Gitパネルで履歴管理
-`,
-  'docs_git-commands.md': `# Gitコマンドの使い方
+` },
+      'docs_git-commands.md': { type: 'file', content: `
+        # Gitコマンドの使い方
 
 Pyxisでは以下のGitコマンドが利用できます。
 
@@ -147,8 +152,9 @@ Pyxisでは以下のGitコマンドが利用できます。
 - **git revert [コミットID]**: 指定コミットを打ち消すコミットを作成
 
 詳細は画面のGitパネルやヒストリーをご参照ください。
-`,
-  'docs_unix-commands.md': `# ターミナルで使えるUnixコマンド
+` },
+      'docs_unix-commands.md': { type: 'file', content: `
+        # ターミナルで使えるUnixコマンド
 
 Pyxisのターミナルでは以下のコマンドが利用できます（一部制限あり）。
 
@@ -167,43 +173,11 @@ Pyxisのターミナルでは以下のコマンドが利用できます（一部
 ※ npmコマンドは現在開発中です。
 
 詳細はターミナルで**help**コマンドを実行してください。
-`,
-  'index.html': `<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8">
-  <title>Pyxis ExportPage サンプル</title>
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-  <h1>Pyxis ExportPage サンプル</h1>
-  <p>このページは export --page でフォルダ指定した場合に、CSS/JSも自動で読み込まれるサンプルです。</p>
-  <button id="btn">クリックしてJS動作確認</button>
-  <div id="result"></div>
-  <script src="script.js"></script>
-</body>
-</html>
-`,
-  'script.js': `document.getElementById('btn').addEventListener('click', function() {
-  const result = document.getElementById('result');
-  result.textContent = 'ボタンがクリックされました！';
-  result.style.color = '#0dbc79';
-  setTimeout(() => {
-    result.textContent = '';
-    result.style.color = '#bc3fbc';
-  }, 2000);
-});
-
-// ページロード時のサンプル
-window.addEventListener('DOMContentLoaded', function() {
-  const result = document.getElementById('result');
-  result.textContent = 'ページが正常に読み込まれました。';
-  setTimeout(() => {
-    result.textContent = '';
-  }, 1500);
-});
-`,
-  'src_fileOperationg.js': `const fs = require('fs').promises;
+` }
+    } },
+  'src': { type: 'folder', children: {
+      'src_fileOperationg.js': { type: 'file', content: `
+        const fs = require('fs').promises;
 const triviaList = [
   'カンガルーの赤ちゃんは生まれたとき2cmしかない！',
   '富士山は1707年に噴火している！',
@@ -224,8 +198,9 @@ async function saveRandomTrivia() {
 }
 
 saveRandomTrivia();
-`,
-  'src_index.js': `// メインエントリーポイント
+` },
+      'src_index.js': { type: 'file', content: `
+        // メインエントリーポイント
 console.log("Hello, World!");
 
 // 配列処理の例
@@ -240,8 +215,48 @@ async function getData() {
 getData().then(console.log);
 
 // プロジェクトのコードをここに記述してください
-`,
-  'style.css': `body {
+` }
+    } },
+  'web': { type: 'folder', children: {
+      'index.html': { type: 'file', content: `
+        <!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>Pyxis ExportPage サンプル</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>Pyxis ExportPage サンプル</h1>
+  <p>このページは export --page でフォルダ指定した場合に、CSS/JSも自動で読み込まれるサンプルです。</p>
+  <button id="btn">クリックしてJS動作確認</button>
+  <div id="result"></div>
+  <script src="script.js"></script>
+</body>
+</html>
+` },
+      'script.js': { type: 'file', content: `
+        document.getElementById('btn').addEventListener('click', function() {
+  const result = document.getElementById('result');
+  result.textContent = 'ボタンがクリックされました！';
+  result.style.color = '#0dbc79';
+  setTimeout(() => {
+    result.textContent = '';
+    result.style.color = '#bc3fbc';
+  }, 2000);
+});
+
+// ページロード時のサンプル
+window.addEventListener('DOMContentLoaded', function() {
+  const result = document.getElementById('result');
+  result.textContent = 'ページが正常に読み込まれました。';
+  setTimeout(() => {
+    result.textContent = '';
+  }, 1500);
+});
+` },
+      'style.css': { type: 'file', content: `
+        body {
   background: #f7f7fa;
   color: #222;
   font-family: 'Segoe UI', 'Meiryo', sans-serif;
@@ -265,5 +280,6 @@ button {
   font-size: 1.2em;
   color: #bc3fbc;
 }
-`,
+` }
+    } }
 };
