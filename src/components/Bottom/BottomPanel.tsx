@@ -31,7 +31,7 @@ export default function BottomPanel({ height, currentProject, projectFiles, onRe
         }}
       >
         <div
-          className="h-8 flex items-center px-3 flex-shrink-0"
+          className="h-8 flex items-center px-3 flex-shrink-0 select-none"
           style={{
             background: colors.mutedBg,
             borderBottom: `1px solid ${colors.border}`

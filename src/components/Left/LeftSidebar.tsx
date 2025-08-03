@@ -50,7 +50,7 @@ export default function LeftSidebar({
         }}
       >
         <div className="h-8 flex items-center px-3" style={{ background: colors.mutedBg, borderBottom: `1px solid ${colors.border}` }}>
-          <span className="text-xs font-medium uppercase tracking-wide" style={{ color: colors.sidebarTitleFg }}>
+          <span className="text-xs font-medium uppercase tracking-wide select-none" style={{ color: colors.sidebarTitleFg }}>
             {activeMenuTab === 'files' && 'エクスプローラー'}
             {activeMenuTab === 'search' && '検索'}
             {activeMenuTab === 'git' && 'ソース管理'}
@@ -60,7 +60,7 @@ export default function LeftSidebar({
         </div>
         <div className="flex-1 overflow-auto">
           {activeMenuTab === 'files' && (
-            <div className="p-2">
+            <div className="p-2 select-none">
               <div className="flex items-center gap-2 mb-2">
                 <FolderOpen size={14} color={colors.sidebarIconFg} />
                 <span className="text-xs font-medium" style={{ color: colors.sidebarTitleFg }}>./</span>

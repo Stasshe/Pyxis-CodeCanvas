@@ -484,6 +484,7 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
           <button
             onClick={fetchGitStatus}
             style={{ padding: '0.25rem', background: 'transparent', borderRadius: '0.375rem', border: 'none', cursor: 'pointer' }}
+            className='select-none'
             title="更新"
             onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}

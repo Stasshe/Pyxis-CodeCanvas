@@ -255,11 +255,11 @@ export default function CodeEditor({
 
   if (!activeTab) {
     return (
-      <div className="flex-1 min-h-0" style={{ height: editorHeight }}>
-        <div className="h-full flex items-center justify-center text-muted-foreground">
-          <div className="text-center">
-            <FileText size={48} className="mx-auto mb-4 opacity-50" />
-            <p>ファイルを選択してください</p>
+      <div className="flex-1 min-h-0 select-none" style={{ height: editorHeight }}>
+        <div className="h-full flex items-center justify-center text-muted-foreground select-none">
+          <div className="text-center select-none">
+          <FileText size={48} className="mx-auto mb-4 opacity-50" />
+          <p className="select-none">ファイルを選択してください</p>
           </div>
         </div>
       </div>
