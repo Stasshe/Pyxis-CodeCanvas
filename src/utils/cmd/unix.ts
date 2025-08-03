@@ -700,4 +700,55 @@ export class UnixCommands {
       return;
     }
   }
+
+  // rename - ファイル/ディレクトリの名前変更（削除＋新規作成＋書き込み）
+  async rename(oldPath: string, newPath: string): Promise<string> {
+    const oldAbsPath = oldPath.startsWith('/') ? oldPath : `${this.currentDir}/${oldPath}`;
+    const newAbsPath = newPath.startsWith('/') ? newPath : `${this.currentDir}/${newPath}`;
+    const oldNormalized = this.normalizePath(oldAbsPath);
+    const newNormalized = this.normalizePath(newAbsPath);
+    try {
+      // 元ファイル/ディレクトリの存在確認
+      const stat = await this.fs.promises.stat(oldNormalized);
+      if (stat.isDirectory()) {
+        // ディレクトリの場合は再帰的コピー＋削除
+        await this.copyDirectory(oldNormalized, newNormalized);
+        await this.rmdir(oldNormalized);
+        if (this.onFileOperation) {
+          await this.onFileOperation(this.getRelativePathFromProject(oldNormalized), 'delete');
+          await this.onFileOperation(this.getRelativePathFromProject(newNormalized), 'folder');
+        }
+        return `Directory renamed: ${oldNormalized} -> ${newNormalized}`;
+      } else {
+        // ファイルの場合は内容取得→新規作成→削除
+        const content = await this.fs.promises.readFile(oldNormalized, { encoding: 'utf8' });
+        await this.fs.promises.writeFile(newNormalized, content);
+        await this.fs.promises.unlink(oldNormalized);
+        if (this.onFileOperation) {
+          await this.onFileOperation(this.getRelativePathFromProject(oldNormalized), 'delete');
+          await this.onFileOperation(this.getRelativePathFromProject(newNormalized), 'file', content as string);
+        }
+        return `File renamed: ${oldNormalized} -> ${newNormalized}`;
+      }
+    } catch (error) {
+      throw new Error(`rename: cannot rename '${oldPath}' to '${newPath}': ${(error as Error).message}`);
+    }
+  }
+
+  // ディレクトリの再帰コピー
+  private async copyDirectory(src: string, dest: string): Promise<void> {
+    await this.fs.promises.mkdir(dest, { recursive: true } as any);
+    const entries = await this.fs.promises.readdir(src);
+    for (const entry of entries) {
+      const srcPath = `${src}/${entry}`;
+      const destPath = `${dest}/${entry}`;
+      const stat = await this.fs.promises.stat(srcPath);
+      if (stat.isDirectory()) {
+        await this.copyDirectory(srcPath, destPath);
+      } else {
+        const content = await this.fs.promises.readFile(srcPath, { encoding: 'utf8' });
+        await this.fs.promises.writeFile(destPath, content);
+      }
+    }
+  }
 }

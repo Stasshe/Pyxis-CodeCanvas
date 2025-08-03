@@ -18,6 +18,20 @@ export async function handleUnixCommand(
         await writeOutput(result);
       }
       break;
+    case "rename":
+      if (unixCommandsRef.current && args.length >= 2) {
+        const oldPath = args[0];
+        const newPath = args[1];
+        try {
+          const result = await unixCommandsRef.current.rename(oldPath, newPath);
+          await writeOutput(result);
+        } catch (error) {
+          await writeOutput(`rename: ${(error as Error).message}`);
+        }
+      } else {
+        await writeOutput("rename: missing arguments (usage: rename <old> <new>)");
+      }
+      break;
 
     case "ls":
       if (unixCommandsRef.current) {
