@@ -1,4 +1,4 @@
-import { getFileSystem } from './filesystem';
+import { getFileSystem } from '@/utils/filesystem';
 
   // fs モジュールのエミュレーション
 export function createFSModule(projectDir: string, onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>, unixCommands?: any) {

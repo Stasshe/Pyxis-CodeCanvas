@@ -6,12 +6,12 @@ import {
   createOSModule, 
   createUtilModule,
   flushFileSystemCache
-} from './filesystemModule';
+} from './node/filesystemModule';
 import { 
   transformESModules, 
   wrapCodeForExecution,
   wrapModuleCode
-} from './esModuleTransformer';
+} from './node/esModuleTransformer';
 
 // Node.js風のランタイム環境
 export class NodeJSRuntime {

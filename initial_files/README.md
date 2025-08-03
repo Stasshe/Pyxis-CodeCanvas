@@ -43,6 +43,15 @@ git checkout -b feature/new-feature
 git merge feature/new-feature
 ```
 
+### export --page <path> を使用したサイト転送
+`export --page <path>` コマンドを使用して、`about:blank` にサイトを転送し、開発を開始できます。
+
+#### 例: `homepage` を開く
+```bash
+export --page homepage
+```
+
+---
 
 ## Mermaid記法のリアルタイム編集
 ```mermaid
