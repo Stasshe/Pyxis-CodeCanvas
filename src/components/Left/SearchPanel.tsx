@@ -81,7 +81,7 @@ export default function SearchPanel({ files, onFileOpen }: SearchPanelProps) {
               file,
               line: lineIndex + 1,
               column: match.index + 1,
-              content: line.trim(),
+              content: line, // trim()を外す
               matchStart: match.index,
               matchEnd: match.index + match[0].length,
             });
@@ -271,7 +271,10 @@ export default function SearchPanel({ files, onFileOpen }: SearchPanelProps) {
                 </div>
                 <div style={{ marginLeft: '0.75rem', marginBottom: '0.25rem' }}>
                   <code style={{ background: colors.mutedBg, padding: '0.25rem 0.5rem', borderRadius: '0.25rem', fontSize: '0.75rem', display: 'block', color: colors.foreground }}>
-                    {highlightMatch(result.content, result.matchStart, result.matchEnd)}
+                    {/* 横スクロールを防ぐためoverflow-x: hiddenを追加 */}
+                    <span style={{ display: 'block', overflowX: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'pre-wrap' }}>
+                      {highlightMatch(result.content, result.matchStart, result.matchEnd)}
+                    </span>
                   </code>
                 </div>
                 <div style={{ marginLeft: '0.75rem', fontSize: '0.75rem', color: colors.mutedFg, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
