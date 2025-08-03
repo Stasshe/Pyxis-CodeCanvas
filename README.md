@@ -22,6 +22,7 @@ Pyxis is a revolutionary **client-side IDE** that brings the complete developmen
 - **Run Node.js applications directly in your browser** - No server, no Docker, no installation
 - **Execute npm commands, require modules, and run scripts** just like on a desktop
 - **Perfect for iPad development** - Write and test Node.js code anywhere, anytime
+- **Transfer to about:blank for instant development** - Instantly redirect and start developing on a simple site in your browser
 
 ### 🔧 **Complete Development Environment**
 - **VS Code-inspired interface** with tabs, file explorer, and integrated terminal
@@ -95,6 +96,33 @@ Pyxis is a revolutionary **client-side IDE** that brings the complete developmen
 ### 💾 **Data Persistence**
 - **Download project or Git repository as zip**
 - **Import files from local device**
+
+
+## 🌟 New Feature: export --page <path>
+
+Introducing a groundbreaking feature in Pyxis: `export --page <path>`!
+
+### 🚀 Key Highlights
+- **Redirect to about:blank**: With a single command, transfer the specified page to `about:blank` and start developing in the browser instantly.
+- **Seamless Development Experience**: Preview pages directly from your local environment without any server or complex setup.
+- **Rapid Prototyping**: Reflect code changes immediately, significantly boosting development speed.
+
+### 💡 How to Use
+Simply execute the following command to open the specified page in your browser:
+```bash
+export --page <path>
+```
+Example:
+```bash
+export --page /path/to/your/page
+```
+
+### 🌍 Benefits
+- **Enhanced Development Efficiency**: Preview pages with a simple command and get instant feedback.
+- **Flexible Workflow**: Makes local development even more convenient.
+
+> **Leverage this new feature to make your development experience with Pyxis even more enjoyable!**
+
 
 ## 🛠️ Technology Stack
 
@@ -230,4 +258,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 [🌐 Try Pyxis Now](https://your-pyxis-url.com) | [📖 Documentation](docs/) | [🐛 Report Issues](issues/) | [💬 Discussions](discussions/)
 
 </div>
-
