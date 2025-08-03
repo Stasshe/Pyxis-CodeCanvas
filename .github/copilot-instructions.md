@@ -1,3 +1,12 @@
+必ず、5行以上の大きな変更をしたときは、ファイルをもう一度読み直すこと。
+
+常に正しい位置を読み取り、正しい位置で修正すること。
+JSX構文に気をつけること。
+
+
+
+
+
 # Copilot Instructions for Pyxis Client-Side IDE
 
 ## Project Overview

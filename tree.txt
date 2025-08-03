@@ -36,6 +36,8 @@
 │   └── window.svg
 ├── src
 │   ├── app
+│   │   ├── fileSelectHandlers.ts
+│   │   ├── gitHooks.ts
 │   │   ├── globals.css
 │   │   ├── layout.tsx
 │   │   ├── markdown.css
@@ -67,6 +69,11 @@
 │   │       └── WelcomeTab.tsx
 │   ├── context
 │   │   └── ThemeContext.tsx
+│   ├── hooks
+│   │   ├── fileSelectHandlers.ts
+│   │   ├── gitHooks.ts
+│   │   ├── pane.ts
+│   │   └── tab.ts
 │   ├── types
 │   │   ├── git.ts
 │   │   └── index.ts
@@ -107,9 +114,9 @@
 ├── tree.txt
 └── tsconfig.json
 
-16 directories, 92 files
+17 directories, 98 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 13817
-合計文字数: 476749
-合計ファイルサイズ(bytes): 515797
+合計行数: 14179
+合計文字数: 486095
+合計ファイルサイズ(bytes): 524831

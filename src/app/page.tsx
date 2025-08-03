@@ -2,6 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
+import {
+  addEditorPane,
+  removeEditorPane,
+  toggleEditorLayout,
+  setTabsForPane,
+  setActiveTabIdForPane
+} from '@/hooks/pane';
+import { useProjectTabResetEffect, useProjectFilesSyncEffect } from '@/hooks/tab';
 import MenuBar from '@/components/MenuBar';
 import LeftSidebar from '@/components/Left/LeftSidebar';
 import TabBar from '@/components/Tab/TabBar';
@@ -10,11 +18,12 @@ import BottomPanel from '@/components/Bottom/BottomPanel';
 import ProjectModal from '@/components/ProjectModal';
 import { useLeftSidebarResize, useBottomPanelResize } from '@/utils/resize';
 import { openFile } from '@/utils/tabs';
-import { GitCommands } from '@/utils/cmd/git';
+import { useGitMonitor } from '@/hooks/gitHooks';
 import { useProject } from '@/utils/project';
 import { Project } from '@/types';
 import type { Tab,FileItem, MenuTab, EditorLayoutType, EditorPane } from '@/types';
 import FileSelectModal from '@/components/FileSelect';
+import { handleFileSelect, handleFilePreview } from '@/hooks/fileSelectHandlers';
 import { Terminal } from 'lucide-react';
 import { handleFileOperation } from '@/utils/handleFileOperation';
 
@@ -36,38 +45,16 @@ export default function Home() {
   ]);
   const { colors } = useTheme();
 
-  // ペイン追加
-  const addEditorPane = () => {
-    const newId = `editor-${editors.length + 1}`;
-    setEditors([...editors, { id: newId, tabs: [], activeTabId: '' }]);
-  };
-  // ペイン削除
-  const removeEditorPane = (id: string) => {
-    if (editors.length === 1) return; // 最低1ペインは残す
-    setEditors(editors.filter(e => e.id !== id));
-  };
-  // ペイン分割方向切替
-  const toggleEditorLayout = () => {
-    setEditorLayout(l => l === 'vertical' ? 'horizontal' : 'vertical');
-  };
+  // ペイン追加/削除/分割方向切替はpane.tsの関数を利用
 
   // --- 既存のタブ・ファイル操作は最初のペインに集約（初期実装） ---
   const tabs = editors[0].tabs;
   const setTabs: React.Dispatch<React.SetStateAction<Tab[]>> = (update) => {
-    setEditors(prev => {
-      const updated = [...prev];
-      const newTabs = typeof update === 'function' ? update(updated[0].tabs) : update;
-      updated[0] = { ...updated[0], tabs: newTabs };
-      return updated;
-    });
+    setTabsForPane(editors, setEditors, 0, update);
   };
   const activeTabId = editors[0].activeTabId;
   const setActiveTabId = (id: string) => {
-    setEditors(prev => {
-      const updated = [...prev];
-      updated[0] = { ...updated[0], activeTabId: id };
-      return updated;
-    });
+    setActiveTabIdForPane(editors, setEditors, 0, id);
   };
   
 
@@ -89,167 +76,40 @@ export default function Home() {
   const handleLeftResize = useLeftSidebarResize(leftSidebarWidth, setLeftSidebarWidth);
   const handleBottomResize = useBottomPanelResize(bottomPanelHeight, setBottomPanelHeight);
 
-  // プロジェクトが変更された時にタブをリセット（プロジェクトIDが変わった場合のみ）
+  // プロジェクト変更時のタブリセットuseEffectを分離
+  useProjectTabResetEffect({ currentProject, setTabs, setActiveTabId });
+
+  // プロジェクトファイル更新時のタブ同期useEffectを分離
+  useProjectFilesSyncEffect({
+    currentProject,
+    projectFiles,
+    tabs,
+    setTabs,
+    nodeRuntimeOperationInProgress
+  });
+
+  // Git状態監視ロジックをフックに分離
   useEffect(() => {
-    if (currentProject) {
-      console.log('[useEffect] Project changed, clearing all tabs and creating welcome tab:', currentProject.name);
-      
-      // プロジェクトが変更されたら全てのタブを閉じる
-      setTabs([]);
-      setActiveTabId('');
-      
-      // 少し遅延させてからウェルカムタブを作成（状態更新の競合を避ける）
-      setTimeout(() => {
-        const welcomeTab: Tab = {
-          id: 'welcome',
-          name: 'Welcome',
-          content: `# ${currentProject.name}\n\n${currentProject.description || ''}\n\nプロジェクトファイルはIndexedDBに保存されています。\n./${currentProject.name}/~$`,
-          isDirty: false,
-          path: '/'
-        };
-        
-        setTabs([welcomeTab]);
-        setActiveTabId('welcome');
-      }, 50);
-    } else {
-      // プロジェクトがない場合はタブをクリア
-      setTabs([]);
-      setActiveTabId('');
-    }
-  }, [currentProject?.id]); // currentProject.id のみを監視
-
-  // プロジェクトファイルが更新された時に開いているタブの内容も同期
-  useEffect(() => {
-    // プロジェクトが変更されたときはタブ同期をスキップ
-    if (!currentProject || tabs.length === 0) return;
-    
-    if (projectFiles.length > 0 && tabs.length > 0) {
-      let hasRealChanges = false;
-      const updatedTabs = tabs.map(tab => {
-        const correspondingFile = projectFiles.find(f => f.path === tab.path);
-        // ファイルが見つからない、または内容が同じ場合はスキップ
-        // NodeRuntime操作中またはタブが編集中でない場合は強制更新
-        if (!correspondingFile || correspondingFile.content === tab.content) {
-          return tab;
-        }
-        
-        // NodeRuntime操作中は強制的に更新、そうでなければisDirtyをチェック
-        const shouldUpdate = nodeRuntimeOperationInProgress || !tab.isDirty;
-        
-        if (!shouldUpdate) {
-          return tab;
-        }
-        
-        console.log('[useEffect] Syncing tab content from DB after external operation:', {
-          tabPath: tab.path,
-          oldContentLength: tab.content.length,
-          newContentLength: correspondingFile.content?.length || 0,
-          tabIsDirty: tab.isDirty,
-          nodeRuntimeInProgress: nodeRuntimeOperationInProgress
-        });
-        hasRealChanges = true;
-        return {
-          ...tab,
-          content: correspondingFile.content || '',
-          isDirty: false // DBから同期したので汚れていない状態にリセット
-        };
-      });
-      
-      // 実際に内容が変更された場合のみ更新
-      if (hasRealChanges) {
-        console.log('[useEffect] Updating tabs with new content from DB after external operation');
-        setTabs(updatedTabs);
-      }
-    }
-  }, [projectFiles, currentProject?.id, nodeRuntimeOperationInProgress]); // nodeRuntimeOperationInProgressも依存に追加
-
-  // Git状態を独立して監視（GitPanelが表示されていない時でも動作）
-  useEffect(() => {
-    if (!currentProject) {
-      setGitChangesCount(0);
-      return;
-    }
-
-    const checkGitStatus = async () => {
-      try {
-        // onFileOperationコールバック付きでGitCommandsを作成
-        const gitCommands = new GitCommands(currentProject.name, async (path: string, type: 'file' | 'folder' | 'delete', content?: string) => {
-          // handleFileOperation を使ってDB・UIと同期
-          await handleFileOperation({
-            path,
-            type,
-            content,
-            isNodeRuntime: false,
-            currentProject,
-            loadProject,
-            saveFile,
-            deleteFile,
-            tabs,
-            setTabs,
-            activeTabId,
-            setActiveTabId,
-            projectFiles,
-            setGitRefreshTrigger,
-            setNodeRuntimeOperationInProgress,
-            refreshProjectFiles,
-          });
-          // Git状態も再チェック
-          setTimeout(checkGitStatus, 200);
-        });
-
-        const statusResult = await gitCommands.status();
-
-        // Git状態をパースして変更ファイル数を計算
-        const parseGitStatus = (statusOutput: string) => {
-          const lines = statusOutput.split('\n').map(line => line.trim()).filter(Boolean);
-          let staged = 0, unstaged = 0, untracked = 0;
-          let inChangesToBeCommitted = false;
-          let inChangesNotStaged = false;
-          let inUntrackedFiles = false;
-
-          for (const line of lines) {
-            if (line === 'Changes to be committed:') {
-              inChangesToBeCommitted = true;
-              inChangesNotStaged = false;
-              inUntrackedFiles = false;
-            } else if (line === 'Changes not staged for commit:') {
-              inChangesToBeCommitted = false;
-              inChangesNotStaged = true;
-              inUntrackedFiles = false;
-            } else if (line === 'Untracked files:') {
-              inChangesToBeCommitted = false;
-              inChangesNotStaged = false;
-              inUntrackedFiles = true;
-            } else if (line.startsWith('modified:') || line.startsWith('new file:') || line.startsWith('deleted:')) {
-              if (inChangesToBeCommitted) staged++;
-              else if (inChangesNotStaged) unstaged++;
-            } else if (inUntrackedFiles && !line.includes('use "git add"') && !line.includes('to include') && !line.endsWith('/')) {
-              untracked++;
-            }
-          }
-
-          return staged + unstaged + untracked;
-        };
-
-        const changesCount = parseGitStatus(statusResult);
-        console.log('[Git Monitor] Changes count:', changesCount);
-        setGitChangesCount(changesCount);
-      } catch (error) {
-        // Git操作でエラーが発生した場合は変更ファイル数を0にリセット
-        console.warn('[Git Monitor] Error checking status:', error);
-        setGitChangesCount(0);
-      }
-    };
-
-    // 初回チェック
+    const { checkGitStatus } = useGitMonitor({
+      currentProject,
+      loadProject,
+      saveFile,
+      deleteFile,
+      tabs,
+      setTabs,
+      activeTabId,
+      setActiveTabId,
+      projectFiles,
+      setGitRefreshTrigger,
+      setNodeRuntimeOperationInProgress,
+      refreshProjectFiles,
+      setGitChangesCount,
+      gitRefreshTrigger,
+    });
     checkGitStatus();
-
-    // 定期的にチェック（1分ごと）
     const interval = setInterval(checkGitStatus, 60000);
-
-    // クリーンアップ
     return () => clearInterval(interval);
-  }, [currentProject, gitRefreshTrigger]); // プロジェクトやGit更新トリガーが変わった時に再チェック
+  }, [currentProject, gitRefreshTrigger]);
 
   const handleMenuTabClick = (tab: MenuTab) => {
     if (activeMenuTab === tab && isLeftSidebarVisible) {
@@ -444,30 +304,21 @@ export default function Home() {
                 <TabBar
                   tabs={editor.tabs}
                   activeTabId={editor.activeTabId}
-                  onTabClick={tabId => {
-                    setEditors(prev => {
-                      const updated = [...prev];
-                      updated[idx] = { ...updated[idx], activeTabId: tabId };
-                      return updated;
-                    });
-                  }}
+                  onTabClick={tabId => setActiveTabIdForPane(editors, setEditors, idx, tabId)}
                   onTabClose={tabId => {
-                    setEditors(prev => {
-                      const updated = [...prev];
-                      updated[idx] = { ...updated[idx], tabs: updated[idx].tabs.filter(t => t.id !== tabId) };
-                      if (updated[idx].activeTabId === tabId) {
-                        updated[idx].activeTabId = updated[idx].tabs.length > 0 ? updated[idx].tabs[0].id : '';
-                      }
-                      return updated;
-                    });
+                    setTabsForPane(editors, setEditors, idx, editor.tabs.filter(t => t.id !== tabId));
+                    if (editor.activeTabId === tabId) {
+                      const newActive = editor.tabs.filter(t => t.id !== tabId);
+                      setActiveTabIdForPane(editors, setEditors, idx, newActive.length > 0 ? newActive[0].id : '');
+                    }
                   }}
                   isBottomPanelVisible={isBottomPanelVisible}
                   onToggleBottomPanel={toggleBottomPanel}
                   extraButtons={
                     <div className="flex gap-1 ml-2">
-                      <button className="px-2 py-1 text-xs bg-accent rounded" onClick={addEditorPane} title="ペイン追加">＋</button>
-                      <button className="px-2 py-1 text-xs bg-destructive rounded" onClick={() => removeEditorPane(editor.id)} title="ペイン削除">－</button>
-                      <button className="px-2 py-1 text-xs bg-muted rounded" onClick={toggleEditorLayout} title="分割方向切替">⇄</button>
+                      <button className="px-2 py-1 text-xs bg-accent rounded" onClick={() => addEditorPane(editors, setEditors)} title="ペイン追加">＋</button>
+                      <button className="px-2 py-1 text-xs bg-destructive rounded" onClick={() => removeEditorPane(editors, setEditors, editor.id)} title="ペイン削除">－</button>
+                      <button className="px-2 py-1 text-xs bg-muted rounded" onClick={() => toggleEditorLayout(editorLayout, setEditorLayout)} title="分割方向切替">⇄</button>
                     </div>
                   }
                   onAddTab={() => setFileSelectState({ open: true, paneIdx: idx })}
@@ -569,88 +420,25 @@ export default function Home() {
         files={projectFiles}
         onFileSelect={file => {
           setFileSelectState({ open: false, paneIdx: null });
-          // 開くペインを判定
-          if (fileSelectState.paneIdx !== null) {
-            setEditors(prev => {
-              const updated = [...prev];
-              const pane = updated[fileSelectState.paneIdx!];
-              // 最新のファイル内容取得
-              let fileToOpen = file;
-              if (currentProject && projectFiles.length > 0) {
-                const latestFile = projectFiles.find(f => f.path === file.path);
-                if (latestFile) {
-                  fileToOpen = { ...file, content: latestFile.content };
-                }
-              }
-              // 既存タブがあればアクティブ化、なければ追加
-              const existingTab = pane.tabs.find(t => t.path === fileToOpen.path);
-              let newTabs;
-              let newActiveTabId;
-              if (existingTab) {
-                newTabs = pane.tabs;
-                newActiveTabId = existingTab.id;
-              } else {
-                const newTab: Tab = {
-                  id: `${fileToOpen.path}-${Date.now()}`,
-                  name: fileToOpen.name,
-                  content: fileToOpen.content || '',
-                  isDirty: false,
-                  path: fileToOpen.path
-                };
-                newTabs = [...pane.tabs, newTab];
-                newActiveTabId = newTab.id;
-              }
-              updated[fileSelectState.paneIdx!] = {
-                ...pane,
-                tabs: newTabs,
-                activeTabId: newActiveTabId
-              };
-              return updated;
-            });
-          }
+          handleFileSelect({
+            file,
+            fileSelectState,
+            currentProject,
+            projectFiles,
+            editors,
+            setEditors
+          });
         }}
         onFilePreview={file => {
-          // プレビュー用タブを開く
           setFileSelectState({ open: false, paneIdx: null });
-          if (fileSelectState.paneIdx !== null) {
-            setEditors(prev => {
-              const updated = [...prev];
-              const pane = updated[fileSelectState.paneIdx!];
-              let fileToPreview = file;
-              if (currentProject && projectFiles.length > 0) {
-                const latestFile = projectFiles.find(f => f.path === file.path);
-                if (latestFile) {
-                  fileToPreview = { ...file, content: latestFile.content };
-                }
-              }
-              // プレビュー用タブ（preview: true）
-              const previewTabId = `${fileToPreview.path}-preview`;
-              const existingTab = pane.tabs.find(t => t.id === previewTabId);
-              let newTabs;
-              let newActiveTabId;
-              if (existingTab) {
-                newTabs = pane.tabs;
-                newActiveTabId = existingTab.id;
-              } else {
-                const newTab: Tab = {
-                  id: previewTabId,
-                  name: fileToPreview.name,
-                  content: fileToPreview.content || '',
-                  isDirty: false,
-                  path: fileToPreview.path,
-                  preview: true
-                };
-                newTabs = [...pane.tabs, newTab];
-                newActiveTabId = newTab.id;
-              }
-              updated[fileSelectState.paneIdx!] = {
-                ...pane,
-                tabs: newTabs,
-                activeTabId: newActiveTabId
-              };
-              return updated;
-            });
-          }
+          handleFilePreview({
+            file,
+            fileSelectState,
+            currentProject,
+            projectFiles,
+            editors,
+            setEditors
+          });
         }}
         onFileOperation={async (path, type, content, isNodeRuntime) => {
           // 既存のonFileOperationのロジックを流用
