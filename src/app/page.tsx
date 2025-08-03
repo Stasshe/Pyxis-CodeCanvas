@@ -142,7 +142,8 @@ export default function Home() {
         console.log('[DEBUG] Skipping useProjectTabResetEffect: localStorage restoration not complete');
       }
     },
-    setActiveTabId
+    setActiveTabId,
+    pane: 0
   });
 
   // プロジェクトファイル更新時のタブ同期useEffectを分離

@@ -23,6 +23,8 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; item: FileItem | null } | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
+  const unix = new UnixCommands(currentProjectName);
+
   // 初回読み込み時にルートレベルのフォルダを展開
   useEffect(() => {
     if (level === 0) {
@@ -243,6 +245,7 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
                   contextMenu.item.type === 'file' && contextMenu.item.name.endsWith('.md') ? 'プレビューを開く' : null,
                   'ダウンロード',
                   'インポート',
+                  '名前変更',
                   '削除',
                   contextMenu.item.type === 'folder' ? 'フォルダ作成' : null,
                   contextMenu.item.type === 'folder' ? 'ファイル作成' : null
@@ -295,7 +298,6 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
                       const file = e.target.files[0];
                       if (!file) return;
                       const { importSingleFile } = await import('@/utils/export/importSingleFile');
-                      const unix = new UnixCommands(currentProjectName);
                       const targetAbsolutePath = `/projects/${currentProjectName}/${file.name}`;
                       const targetPath = `/${file.name}`;
                       await importSingleFile(file, targetAbsolutePath, unix);
@@ -304,6 +306,26 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
                       }
                     };
                     input.click();
+                  } else if (label === '名前変更') {
+                    const item = contextMenu.item;
+                    if (item) {
+                      const newName = prompt('新しい名前を入力してください:', item.name);
+                      if (newName && newName !== item.name) {
+                        try {
+                          const lastSlash = item.path.lastIndexOf('/');
+                          const oldPath = `/projects/${currentProjectName}${item.path}`;
+                          const newPath = `/projects/${currentProjectName}${item.path.substring(0, lastSlash + 1)}${newName}`;
+                          const result = await unix.rename(oldPath, newPath);
+                          alert(result);
+                          if (typeof onFileOperation === 'function') {
+                            await onFileOperation(item.path.substring(0, lastSlash + 1) + newName, item.type, item.content ?? '', false);
+                            await onFileOperation(item.path, 'delete');
+                          }
+                        } catch (error: any) {
+                          alert('名前変更に失敗しました: ' + error.message);
+                        }
+                      }
+                    }
                   }
                   // ...既存のitemありの処理...
                   if (contextMenu.item) {
