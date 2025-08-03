@@ -33,22 +33,32 @@ export const exportPage = async (path: string, writeOutput: (output: string) => 
       const cssFiles = files.filter((f: string) => f.endsWith('.css'));
       const jsFiles = files.filter((f: string) => f.endsWith('.js'));
 
-      // <head>タグを探してCSSを挿入
-      if (cssFiles.length > 0) {
-        let cssTags = '';
-        for (const css of cssFiles) {
-          cssTags += `<link rel="stylesheet" href="./${css}">\n`;
-        }
-        htmlContent = htmlContent.replace(/<head>/i, `<head>\n${cssTags}`);
+      // CSSファイルをすべてインライン化
+      let cssContent = '';
+      for (const css of cssFiles) {
+        try {
+          cssContent += await fs.promises.readFile(path + '/' + css, { encoding: 'utf8' }) + '\n';
+        } catch {}
+      }
+      if (cssContent) {
+        // <link rel="stylesheet">タグを削除
+        htmlContent = htmlContent.replace(/<link[^>]*rel=["']stylesheet["'][^>]*>/gi, '');
+        // <head>タグ直後に<style>挿入
+        htmlContent = htmlContent.replace(/<head>/i, `<head>\n<style>\n${cssContent}\n</style>`);
       }
 
-      // </body>タグ前にJSを挿入
-      if (jsFiles.length > 0) {
-        let jsTags = '';
-        for (const js of jsFiles) {
-          jsTags += `<script src="./${js}"></script>\n`;
-        }
-        htmlContent = htmlContent.replace(/<\/body>/i, `${jsTags}</body>`);
+      // JSファイルをすべてインライン化
+      let jsContent = '';
+      for (const js of jsFiles) {
+        try {
+          jsContent += await fs.promises.readFile(path + '/' + js, { encoding: 'utf8' }) + '\n';
+        } catch {}
+      }
+      if (jsContent) {
+        // <script src=...>タグを削除
+        htmlContent = htmlContent.replace(/<script[^>]*src=["'][^"']+["'][^>]*><\/script>/gi, '');
+        // </body>タグ直前に<script>挿入
+        htmlContent = htmlContent.replace(/<\/body>/i, `<script>\n${jsContent}\n</script></body>`);
       }
 
       win.document.open();
