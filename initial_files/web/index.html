@@ -1,15 +1,46 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>Pyxis ExportPage サンプル</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>複雑なファイルエディタ</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>Pyxis ExportPage サンプル</h1>
-  <p>このページは export --page でフォルダ指定した場合に、CSS/JSも自動で読み込まれるサンプルです。</p>
-  <button id="btn">クリックしてJS動作確認</button>
-  <div id="result"></div>
+  <header>
+    <h1>複雑なファイルエディタ</h1>
+    <nav>
+      <button class="tab-btn" data-tab="editor">エディタ</button>
+      <button class="tab-btn" data-tab="preview">プレビュー</button>
+      <button class="tab-btn" data-tab="settings">設定</button>
+    </nav>
+  </header>
+  <div class="container">
+    <aside class="sidebar">
+      <h2>ファイル一覧</h2>
+      <ul id="fileList"></ul>
+      <input type="file" id="fileInput" multiple>
+    </aside>
+    <main>
+      <section id="tab-editor" class="tab-content">
+        <h2>エディタ</h2>
+        <textarea id="editor" rows="20" cols="80"></textarea>
+        <button id="saveBtn">保存</button>
+      </section>
+      <section id="tab-preview" class="tab-content" style="display:none;">
+        <h2>プレビュー</h2>
+        <pre id="previewArea"></pre>
+      </section>
+      <section id="tab-settings" class="tab-content" style="display:none;">
+        <h2>設定</h2>
+        <label><input type="checkbox" id="autosave"> 自動保存</label>
+      </section>
+    </main>
+  </div>
+  <footer>
+    <span id="status">準備完了</span>
+  </footer>
   <script src="script.js"></script>
 </body>
 </html>

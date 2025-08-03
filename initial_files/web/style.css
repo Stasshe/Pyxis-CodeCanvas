@@ -1,13 +1,88 @@
+
 body {
   background: #f7f7fa;
   color: #222;
   font-family: 'Segoe UI', 'Meiryo', sans-serif;
+  margin: 0;
 }
-h1 {
+header {
+  background: #3b8eea;
+  color: #fff;
+  padding: 1em 2em;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+header h1 {
+  margin: 0;
+  font-size: 1.5em;
+}
+nav {
+  display: flex;
+  gap: 1em;
+}
+.tab-btn {
+  background: #fff;
   color: #3b8eea;
-  margin-top: 2em;
+  border: 1px solid #3b8eea;
+  border-radius: 6px 6px 0 0;
+  padding: 0.5em 1.2em;
+  font-size: 1em;
+  cursor: pointer;
 }
-button {
+.tab-btn.active {
+  background: #3b8eea;
+  color: #fff;
+}
+.container {
+  display: flex;
+  min-height: 70vh;
+}
+.sidebar {
+  background: #eaf2fb;
+  width: 220px;
+  padding: 1em;
+  border-right: 1px solid #c3d6ee;
+}
+.sidebar h2 {
+  font-size: 1.1em;
+  margin-top: 0;
+}
+#fileList {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1em 0;
+}
+#fileList li {
+  padding: 0.4em 0.7em;
+  cursor: pointer;
+  border-radius: 4px;
+  margin-bottom: 2px;
+}
+#fileList li.selected {
+  background: #3b8eea;
+  color: #fff;
+}
+main {
+  flex: 1;
+  padding: 1.5em;
+}
+.tab-content {
+  display: block;
+}
+#editor {
+  width: 100%;
+  min-height: 300px;
+  font-size: 1.1em;
+  font-family: 'Fira Mono', 'Consolas', monospace;
+  border: 1px solid #c3d6ee;
+  border-radius: 6px;
+  padding: 1em;
+  margin-bottom: 1em;
+  background: #fff;
+  box-sizing: border-box;
+}
+#saveBtn {
   background: #3b8eea;
   color: #fff;
   border: none;
@@ -15,10 +90,22 @@ button {
   border-radius: 6px;
   font-size: 1.1em;
   cursor: pointer;
-  margin-top: 1em;
 }
-#result {
-  margin-top: 2em;
-  font-size: 1.2em;
-  color: #bc3fbc;
+#previewArea {
+  background: #fff;
+  border: 1px solid #c3d6ee;
+  border-radius: 6px;
+  padding: 1em;
+  min-height: 300px;
+  font-family: 'Fira Mono', 'Consolas', monospace;
+  font-size: 1.1em;
+  white-space: pre-wrap;
+}
+footer {
+  background: #eaf2fb;
+  color: #3b8eea;
+  text-align: right;
+  padding: 0.7em 2em;
+  font-size: 1em;
+  border-top: 1px solid #c3d6ee;
 }

@@ -15,11 +15,9 @@ function walk(dir) {
         children: walk(fullPath)
       };
     } else {
-      let content = fs.readFileSync(fullPath, 'utf8');
-      content = content.replace(/\\/g, '\\\\').replace(/`/g, '\\`');
       result[entry] = {
         type: 'file',
-        content
+                content: fs.readFileSync(fullPath, 'utf8')
       };
     }
   }
@@ -28,9 +26,18 @@ function walk(dir) {
 
 const initialFileContents = walk(inputDir);
 
+function escapeString(str) {
+  return str
+    .replace(/\\/g, "\\\\")// バックスラッシュ
+    .replace(/`/g, "\\x60")// バッククォート
+    .replace(/'/g, "\\'")
+    .replace(/\r/g, "\\r")
+    .replace(/\n/g, "\\n");
+}
+
 function objToTs(obj, indent = '  ') {
   if (obj.type === 'file') {
-    return `{ type: 'file', content: \`\n${indent}${obj.content}\` }`;
+    return `{ type: 'file', content: '${escapeString(obj.content)}' }`;
   }
   if (obj.type === 'folder') {
     return `{ type: 'folder', children: ${objToTs(obj.children, indent + '  ')} }`;

@@ -3,9 +3,9 @@
   "version": "0.3.6",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build",
-    "start": "next start",
+    "dev": "node initial_files_to_ts.js && next dev --turbopack",
+    "build": "node initial_files_to_ts.js && next build",
+    "start": "node initial_files_to_ts.js && next start",
     "lint": "next lint",
     "preview": "npx serve out"
   },
