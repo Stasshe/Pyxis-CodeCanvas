@@ -39,17 +39,67 @@ export default function Home() {
   const [nodeRuntimeOperationInProgress, setNodeRuntimeOperationInProgress] = useState(false); // NodeRuntime操作中フラグ
   const [fileSelectState, setFileSelectState] = useState<{ open: boolean, paneIdx: number|null }>({ open: false, paneIdx: null });
   const [editorLayout, setEditorLayout] = useState<EditorLayoutType>('vertical');
-  const [editors, setEditors] = useState<EditorPane[]>([
-    { id: 'editor-1', tabs: [], activeTabId: '' }
-  ]);
+  const [editors, setEditors] = useState<EditorPane[]>([{ id: 'editor-1', tabs: [], activeTabId: '' }]);
+  const [isRestoredFromLocalStorage, setIsRestoredFromLocalStorage] = useState(false); // localStorage復元完了フラグ
+
+  // 初回レンダリング後にlocalStorageから復元（SSR/CSR不一致防止）
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = window.localStorage.getItem('pyxis-editors');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          // データが正しい形式かチェック
+          if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].id) {
+            setEditors(parsed);
+            // activeTabIdを復元
+            if (parsed[0].tabs.length > 0) {
+              setActiveTabId(parsed[0].tabs[0].id);
+            }
+          }
+        }
+      } catch (e) {
+        console.error('[DEBUG] Error restoring editors from localStorage:', e);
+      }
+      try {
+        const savedLayout = window.localStorage.getItem('pyxis-editorLayout');
+        if (savedLayout === 'vertical' || savedLayout === 'horizontal') {
+          setEditorLayout(savedLayout as EditorLayoutType);
+        }
+      } catch (e) {
+        console.error('[DEBUG] Error restoring editor layout from localStorage:', e);
+      }
+      setIsRestoredFromLocalStorage(true); // 復元完了フラグを設定
+    }
+  }, []);
+  // editors/editorLayout変更時にlocalStorageへ保存
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem('pyxis-editors', JSON.stringify(editors));
+      } catch (e) {}
+    }
+  }, [editors]);
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem('pyxis-editorLayout', editorLayout);
+      } catch (e) {}
+    }
+  }, [editorLayout]);
+
+  
   const { colors } = useTheme();
 
   // ペイン追加/削除/分割方向切替はpane.tsの関数を利用
 
   // --- 既存のタブ・ファイル操作は最初のペインに集約（初期実装） ---
   const tabs = editors[0].tabs;
+  // setTabsのデバッグログを追加
   const setTabs: React.Dispatch<React.SetStateAction<Tab[]>> = (update) => {
+    console.log('[DEBUG] setTabs called with update:', update);
     setTabsForPane(editors, setEditors, 0, update);
+    console.log('[DEBUG] editors after setTabs:', editors);
   };
   const activeTabId = editors[0].activeTabId;
   const setActiveTabId = (id: string) => {
@@ -69,14 +119,31 @@ export default function Home() {
     refreshProjectFiles,
   } = useProject();
 
-  
-  
+  // 修正: setTabsForAllPanesのupdate引数を関数として扱う
+  const setTabsForAllPanes = (update: Tab[] | ((tabs: Tab[]) => Tab[])) => {
+    setEditors(prevEditors => {
+      return prevEditors.map(editor => {
+        const updatedTabs = typeof update === 'function' ? update(editor.tabs) : update;
+        return { ...editor, tabs: updatedTabs };
+      });
+    });
+  };
 
   const handleLeftResize = useLeftSidebarResize(leftSidebarWidth, setLeftSidebarWidth);
   const handleBottomResize = useBottomPanelResize(bottomPanelHeight, setBottomPanelHeight);
 
   // プロジェクト変更時のタブリセットuseEffectを分離
-  useProjectTabResetEffect({ currentProject, setTabs, setActiveTabId });
+  useProjectTabResetEffect({
+    currentProject,
+    setTabs: (update) => {
+      if (isRestoredFromLocalStorage) {
+        setTabsForAllPanes(update);
+      } else {
+        console.log('[DEBUG] Skipping useProjectTabResetEffect: localStorage restoration not complete');
+      }
+    },
+    setActiveTabId
+  });
 
   // プロジェクトファイル更新時のタブ同期useEffectを分離
   useProjectFilesSyncEffect({
@@ -185,6 +252,12 @@ export default function Home() {
   const handleProjectModalOpen = () => {
     setIsProjectModalOpen(true);
   };
+
+  // editorsとtabsのデバッグログを追加
+  useEffect(() => {
+    console.log('[DEBUG] Current editors state:', editors);
+    console.log('[DEBUG] Current tabs state:', tabs);
+  }, [editors, tabs]);
 
   return (
     <>

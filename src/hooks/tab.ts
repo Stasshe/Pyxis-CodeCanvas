@@ -16,9 +16,12 @@ export function useProjectFilesSyncEffect({
   nodeRuntimeOperationInProgress: boolean;
 }) {
   useEffect(() => {
-    // プロジェクトが変更されたときはタブ同期をスキップ
-    if (!currentProject || tabs.length === 0) return;
-    if (projectFiles.length > 0 && tabs.length > 0) {
+    // currentProjectがnullの場合は処理をスキップ
+    if (!currentProject) {
+      console.log('[DEBUG] Skipping useProjectFilesSyncEffect: currentProject is null');
+      return;
+    }// tabsが空でもprojectFilesが存在する場合は同期を試みる
+    if (projectFiles.length > 0) {
       let hasRealChanges = false;
       const updatedTabs = tabs.map(tab => {
         const correspondingFile = projectFiles.find(f => f.path === tab.path);
@@ -40,6 +43,7 @@ export function useProjectFilesSyncEffect({
       });
       // 実際に内容が変更された場合のみ更新
       if (hasRealChanges) {
+        console.log('[DEBUG] Updating tabs in useProjectFilesSyncEffect', updatedTabs);
         setTabs(updatedTabs);
       }
     }
@@ -60,20 +64,23 @@ export function useProjectTabResetEffect({
 }) {
   useEffect(() => {
     if (currentProject) {
-      // プロジェクトが変更されたら全てのタブを閉じる
-      setTabs([]);
-      setActiveTabId('');
-      // 少し遅延させてからウェルカムタブを作成
       setTimeout(() => {
-        const welcomeTab: Tab = {
-          id: 'welcome',
-          name: 'Welcome',
-          content: `# ${currentProject.name}\n\n${currentProject.description || ''}\n\nプロジェクトファイルはIndexedDBに保存されています。\n./${currentProject.name}/~$`,
-          isDirty: false,
-          path: '/'
-        };
-  setTabs([welcomeTab]);
-  setActiveTabId('welcome');
+        setTabs((prevTabs: Tab[] | undefined) => {
+          // 既存のタブがある場合は何もしない
+          if (prevTabs && prevTabs.length > 0) {
+            return prevTabs;
+          }
+          // Welcomeタブを追加
+          const welcomeTab: Tab = {
+            id: 'welcome',
+            name: 'Welcome',
+            content: `# ${currentProject.name}\n\n${currentProject.description || ''}\n\nプロジェクトファイルはIndexedDBに保存されています。\n./${currentProject.name}/~$`,
+            isDirty: false,
+            path: '/'
+          };
+          return [welcomeTab];
+        });
+        setActiveTabId('welcome');
       }, 50);
     } else {
       setTabs([]);

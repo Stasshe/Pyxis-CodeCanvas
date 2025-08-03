@@ -188,7 +188,6 @@ export const useProject = () => {
 
   // プロジェクトを読み込み
   const loadProject = async (project: Project) => {
-    console.log('[loadProject] Loading project:', project.name, 'ID:', project.id);
     setLoading(true);
     try {
       await projectDB.init();
