@@ -1,8 +1,9 @@
 body {
   font-family: 'Roboto', 'Noto Sans JP', Arial, sans-serif;
   margin: 0;
-  background: #f8fafc;
+  background: linear-gradient(to bottom, #f8fafc, #e0e7ef);
   color: #222;
+  animation: fadeIn 1s ease-in-out;
 }
 header {
   background: linear-gradient(90deg, #2563eb 60%, #1e293b 100%);
@@ -12,6 +13,7 @@ header {
   align-items: center;
   flex-direction: column;
   box-shadow: 0 2px 8px rgba(37,99,235,0.08);
+  animation: slideDown 1s ease-in-out;
 }
 #logo {
   width: 72px;
@@ -38,7 +40,7 @@ nav button {
   font-weight: bold;
   font-size: 1rem;
   box-shadow: 0 1px 4px rgba(37,99,235,0.07);
-  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+  transition: background 0.3s, color 0.3s, box-shadow 0.3s, transform 0.3s;
   display: flex;
   align-items: center;
   gap: 0.5em;
@@ -51,6 +53,8 @@ nav button.active {
 nav button:hover {
   background: #dbeafe;
   color: #1e293b;
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(37,99,235,0.15);
 }
 main {
   max-width: 900px;
@@ -62,7 +66,8 @@ main {
   min-height: 350px;
   font-size: 1.08rem;
   line-height: 1.7;
-  transition: box-shadow 0.2s;
+  transition: box-shadow 0.3s;
+  animation: fadeIn 1.5s ease-in-out;
 }
 main h2 {
   color: #2563eb;
@@ -126,10 +131,11 @@ main ul, main ol {
   margin: 0 0.7em;
   text-decoration: none;
   font-size: 1.1em;
-  transition: color 0.2s;
+  transition: color 0.3s, transform 0.3s;
 }
 .footer-links a:hover {
   color: #e11d48;
+  transform: scale(1.1);
 }
 @media (max-width: 600px) {
   main {
@@ -146,8 +152,37 @@ main ul, main ol {
 footer {
   text-align: center;
   padding: 1rem;
-  background: #e0e7ef;
+  background: linear-gradient(to right, #e0e7ef, #f8fafc);
   color: #555;
   font-size: 0.95rem;
   margin-top: 2rem;
+  animation: fadeInUp 1s ease-in-out;
+}
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes slideDown {
+  from {
+    transform: translateY(-50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+@keyframes fadeInUp {
+  from {
+    transform: translateY(50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }

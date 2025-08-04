@@ -8,6 +8,69 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Noto+Sans+JP:wght@400;700&display=swap">
   <link rel="stylesheet" href="style.css">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Roboto', 'Noto Sans JP', sans-serif;
+      background: linear-gradient(to bottom, #1e293b, #0f172a);
+      color: #f8fafc;
+    }
+    header {
+      background: linear-gradient(to right, #3b82f6, #9333ea);
+      padding: 1rem;
+      text-align: center;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    header h1 {
+      margin: 0;
+      font-size: 2.5rem;
+      color: #f8fafc;
+    }
+    nav {
+      margin-top: 1rem;
+    }
+    nav button {
+      background: #1e293b;
+      color: #f8fafc;
+      border: none;
+      padding: 0.5rem 1rem;
+      margin: 0.5rem;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: transform 0.3s, background 0.3s;
+    }
+    nav button:hover {
+      background: #3b82f6;
+      transform: scale(1.1);
+    }
+    main {
+      padding: 2rem;
+      text-align: center;
+    }
+    .section {
+      margin: 2rem 0;
+      padding: 2rem;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    footer {
+      background: #1e293b;
+      padding: 1rem;
+      text-align: center;
+      color: #f8fafc;
+      box-shadow: 0 -4px 6px rgba(0, 0, 0, 0.1);
+    }
+    footer a {
+      color: #3b82f6;
+      text-decoration: none;
+      margin: 0 0.5rem;
+      transition: color 0.3s;
+    }
+    footer a:hover {
+      color: #9333ea;
+    }
+  </style>
 </head>
 <body>
   <header class="animate__animated animate__fadeInDown">
@@ -17,11 +80,21 @@
       <button data-page="features" class="animate__animated animate__fadeInLeft"><i class="fa-solid fa-star"></i> 特徴</button>
       <button data-page="tech" class="animate__animated animate__fadeInLeft"><i class="fa-solid fa-microchip"></i> 技術スタック</button>
       <button data-page="usage" class="animate__animated animate__fadeInLeft"><i class="fa-solid fa-book"></i> 使い方</button>
-      <button data-page="faq" class="animate__animated animate__fadeInLeft"><i class="fa-solid fa-question"></i> FAQ</button>
     </nav>
   </header>
   <main id="main-content" class="animate__animated animate__fadeIn">
-    <!-- JSで内容を切り替え -->
+    <section class="section animate__animated animate__zoomIn">
+      <h2>Pyxisとは？</h2>
+      <p>Pyxisは、どこでもコードを書くことができるクライアントサイドのIDEとターミナルです。</p>
+    </section>
+    <section class="section animate__animated animate__zoomIn">
+      <h2>特徴</h2>
+      <ul>
+        <li>軽量で高速</li>
+        <li>直感的なUI</li>
+        <li>豊富な機能</li>
+      </ul>
+    </section>
   </main>
   <footer class="animate__animated animate__fadeInUp">
     <small>Made with <span style="color:#e11d48">❤️</span> for developers who code everywhere</small>
