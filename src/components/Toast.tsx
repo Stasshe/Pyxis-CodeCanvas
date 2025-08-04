@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import '@/app/Toast.css';
 
 interface ToastMessage {
   id: number;
@@ -15,8 +14,11 @@ let addToast: (message: string, type?: 'success' | 'error' | 'info') => void;
 
 export const ToastContainer: React.FC = () => {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
+    setIsClient(true); // クライアントサイドでのみポータルを作成
+
     addToast = (message, type = 'info') => {
       const id = toastId++;
       setToasts((prev) => [...prev, { id, message, type }]);
@@ -25,6 +27,8 @@ export const ToastContainer: React.FC = () => {
       }, 3000); // 3秒で自動的に消える
     };
   }, []);
+
+  if (!isClient) return null; // サーバーサイドでは何もレンダリングしない
 
   return createPortal(
     <div className="toast-container">
