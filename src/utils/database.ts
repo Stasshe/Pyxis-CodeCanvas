@@ -94,6 +94,31 @@ class ProjectDB {
     });
   }
 
+  async updateProject(projectId: string, updates: Partial<Project>): Promise<void> {
+    return new Promise(async (resolve, reject) => {
+      if (!this.db) {
+        reject(new Error('Database not initialized'));
+        return;
+      }
+
+      try {
+        const projects = await this.getProjects();
+        const project = projects.find(p => p.id === projectId);
+
+        if (!project) {
+          reject(new Error('Project not found'));
+          return;
+        }
+
+        const updatedProject = { ...project, ...updates, updatedAt: new Date() };
+        await this.saveProject(updatedProject);
+        resolve();
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
   async getProjects(): Promise<Project[]> {
     return new Promise((resolve, reject) => {
       if (!this.db) {

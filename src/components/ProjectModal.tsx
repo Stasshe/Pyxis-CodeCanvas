@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Plus, Folder, Trash2 } from 'lucide-react';
+import { X, Plus, Folder, Trash2, Edit } from 'lucide-react';
 import { projectDB } from '@/utils/database';
 import { Project } from '@/types';
 
@@ -23,6 +23,7 @@ export default function ProjectModal({
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectDescription, setNewProjectDescription] = useState('');
   const [loading, setLoading] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -49,13 +50,11 @@ export default function ProjectModal({
     setLoading(true);
     try {
       if (onProjectCreate) {
-        // 新しいcreateProject関数を使用（Git初期化付き）
         await onProjectCreate(
           newProjectName.trim(),
           newProjectDescription.trim() || undefined
         );
       } else {
-        // フォールバック: 従来の方法
         const project = await projectDB.createProject(
           newProjectName.trim(),
           newProjectDescription.trim() || undefined
@@ -68,10 +67,26 @@ export default function ProjectModal({
       setIsCreating(false);
       onClose();
       
-      // プロジェクトリストを再読み込み
       await loadProjects();
     } catch (error) {
       console.error('Failed to create project:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditProject = async () => {
+    if (!editingProject) return;
+
+    setLoading(true);
+    try {
+      await projectDB.updateProject(editingProject.id, {
+        description: editingProject.description,
+      });
+      setEditingProject(null);
+      await loadProjects();
+    } catch (error) {
+      console.error('Failed to edit project:', error);
     } finally {
       setLoading(false);
     }
@@ -89,7 +104,6 @@ export default function ProjectModal({
       await projectDB.deleteProject(projectId);
       setProjects(prev => prev.filter(p => p.id !== projectId));
       
-      // 現在のプロジェクトが削除された場合
       if (currentProject?.id === projectId) {
         const remainingProjects = projects.filter(p => p.id !== projectId);
         if (remainingProjects.length > 0) {
@@ -118,7 +132,6 @@ export default function ProjectModal({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-card border border-border rounded-lg shadow-lg w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col">
-        {/* ヘッダー */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           <h2 className="text-lg font-semibold">プロジェクト管理</h2>
           <button
@@ -129,9 +142,7 @@ export default function ProjectModal({
           </button>
         </div>
 
-        {/* コンテンツ */}
         <div className="flex-1 overflow-auto p-4">
-          {/* 新規作成ボタン */}
           <div className="mb-4">
             {!isCreating ? (
               <button
@@ -188,9 +199,9 @@ export default function ProjectModal({
             )}
           </div>
 
-          {/* プロジェクト一覧 */}
           {loading ? (
             <div className="text-center py-8 text-muted-foreground">
+              <div className="loader" />
               読み込み中...
             </div>
           ) : projects.length === 0 ? (
@@ -202,11 +213,7 @@ export default function ProjectModal({
               {projects.map((project) => (
                 <div
                   key={project.id}
-                  onClick={() => {
-                    onProjectSelect(project);
-                    onClose();
-                  }}
-                  className={`group p-3 border rounded cursor-pointer hover:bg-accent transition-colors ${
+                  className={`group p-3 border rounded transition-colors ${
                     currentProject?.id === project.id 
                       ? 'border-primary bg-accent' 
                       : 'border-border'
@@ -228,19 +235,68 @@ export default function ProjectModal({
                         </div>
                       </div>
                     </div>
-                    <button
-                      onClick={(e) => handleDeleteProject(project.id, e)}
-                      className="p-1 hover:bg-destructive hover:text-destructive-foreground rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                      title="プロジェクトを削除"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setEditingProject(project)}
+                        className="p-1 hover:bg-accent rounded"
+                        title="プロジェクトを編集"
+                      >
+                        <Edit size={16} />
+                      </button>
+                      <button
+                        onClick={(e) => handleDeleteProject(project.id, e)}
+                        className="p-1 hover:bg-destructive hover:text-destructive-foreground rounded"
+                        title="プロジェクトを削除"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                      <button
+                        onClick={() => {
+                          onProjectSelect(project);
+                          onClose();
+                        }}
+                        className="px-2 py-1 bg-primary text-primary-foreground rounded hover:bg-primary/90"
+                      >
+                        開く
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
           )}
         </div>
+
+        {editingProject && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-card border border-border rounded-lg shadow-lg w-full max-w-md mx-4 p-4">
+              <h3 className="text-lg font-semibold mb-4">プロジェクトを編集</h3>
+              <div className="mb-3">
+                <label className="block text-sm font-medium mb-1">説明</label>
+                <textarea
+                  value={editingProject.description || ''}
+                  onChange={(e) => setEditingProject({ ...editingProject, description: e.target.value })}
+                  rows={2}
+                  className="w-full px-3 py-2 bg-background border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleEditProject}
+                  className="px-3 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
+                >
+                  保存
+                </button>
+                <button
+                  onClick={() => setEditingProject(null)}
+                  className="px-3 py-2 bg-secondary text-secondary-foreground rounded hover:bg-secondary/90"
+                >
+                  キャンセル
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
