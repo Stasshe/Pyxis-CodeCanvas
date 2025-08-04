@@ -340,12 +340,43 @@ export class NodeJSRuntime {
         const content = await this.fs.promises.readFile(fullPath, { encoding: 'utf8' });
         console.log(`[loadFileModule] File content read successfully, length: ${(content as string).length}`);
         
-        // package.jsonの場合はJSONとして解析
+        // package.jsonの場合はmain/exportsを解釈して本体jsファイルをrequire
         if (filePath.endsWith('package.json')) {
           try {
             const packageData = JSON.parse(content as string);
             console.log(`[loadFileModule] Loaded package.json: ${moduleName}`);
-            return packageData;
+            // main/exportsフィールドを参照
+            let entryFile = '';
+            if (packageData.exports && typeof packageData.exports === 'object') {
+              // exportsフィールドがオブジェクトの場合
+              if (packageData.exports["."] && packageData.exports["."].import) {
+                entryFile = packageData.exports["."].import;
+              } else if (packageData.exports["."] && typeof packageData.exports["."] === 'string') {
+                entryFile = packageData.exports["."];
+              } else if (typeof packageData.exports === 'string') {
+                entryFile = packageData.exports;
+              }
+            }
+            if (!entryFile && packageData.main) {
+              entryFile = packageData.main;
+            }
+            if (!entryFile) {
+              entryFile = 'index.js';
+            }
+            // パスの正規化
+            if (!entryFile.startsWith('.')) {
+              entryFile = './' + entryFile;
+            }
+            // chalkなどはsource/index.jsのようなパス
+            const packageDir = filePath.replace(/\/package\.json$/, '');
+            const entryPath = packageDir + '/' + entryFile.replace(/^\.\//, '');
+            console.log(`[loadFileModule] Resolving entry file: ${entryPath}`);
+            // entryPathをrequire
+            try {
+              return await this.loadFileModule(entryPath);
+            } catch (error) {
+              throw new Error(`Failed to load entry file '${entryPath}': ${(error as Error).message}`);
+            }
           } catch (error) {
             throw new Error(`Invalid JSON in package.json: ${(error as Error).message}`);
           }
