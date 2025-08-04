@@ -49,6 +49,12 @@ class ProjectDB {
 
   // プロジェクト操作
   async createProject(name: string, description?: string): Promise<Project> {
+    // プロジェクト名の重複チェック
+    const existingProjects = await this.getProjects();
+    if (existingProjects.some(project => project.name === name)) {
+      throw new Error(`プロジェクト名 "${name}" は既に存在します。別の名前を使用してください。`);
+    }
+
     const project: Project = {
       id: generateUniqueId('project'),
       name,
@@ -58,7 +64,6 @@ class ProjectDB {
     };
 
     await this.saveProject(project);
-
 
     // initialFileContents（ディレクトリ構造）から初期ファイル・フォルダを再帰登録
     async function registerFiles(obj: any, parentPath: string) {
