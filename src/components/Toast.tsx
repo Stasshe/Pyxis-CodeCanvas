@@ -6,29 +6,28 @@ import { createPortal } from 'react-dom';
 interface ToastMessage {
   id: number;
   message: string;
-  type?: 'success' | 'error' | 'info';
+  type: 'success' | 'error' | 'warn' | 'info';
 }
 
 let toastId = 0;
-let addToast: (message: string, type?: 'success' | 'error' | 'info') => void;
+let addToast: (toast: ToastMessage) => void;
 
 export const ToastContainer: React.FC = () => {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    setIsClient(true); // クライアントサイドでのみポータルを作成
+    setIsClient(true);
 
-    addToast = (message, type = 'info') => {
-      const id = toastId++;
-      setToasts((prev) => [...prev, { id, message, type }]);
+    addToast = (toast) => {
+      setToasts((prev) => [...prev, toast]);
       setTimeout(() => {
-        setToasts((prev) => prev.filter((toast) => toast.id !== id));
-      }, 3000); // 3秒で自動的に消える
+        setToasts((prev) => prev.filter((t) => t.id !== toast.id));
+      }, 3000);
     };
   }, []);
 
-  if (!isClient) return null; // サーバーサイドでは何もレンダリングしない
+  if (!isClient) return null;
 
   return createPortal(
     <div className="toast-container">
@@ -42,8 +41,17 @@ export const ToastContainer: React.FC = () => {
   );
 };
 
-export const showToastMessage = (message: string, type?: 'success' | 'error' | 'info') => {
-  if (addToast) {
-    addToast(message, type);
-  }
+export const showToast = {
+  success: (message: string) => {
+    if (addToast) addToast({ id: toastId++, message, type: 'success' });
+  },
+  error: (message: string) => {
+    if (addToast) addToast({ id: toastId++, message, type: 'error' });
+  },
+  warn: (message: string) => {
+    if (addToast) addToast({ id: toastId++, message, type: 'warn' });
+  },
+  info: (message: string) => {
+    if (addToast) addToast({ id: toastId++, message, type: 'info' });
+  },
 };
