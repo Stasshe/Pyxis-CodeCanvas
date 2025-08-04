@@ -20,17 +20,40 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
   const [menuHoveredIdx, setMenuHoveredIdx] = useState<number | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [isExpandedFoldersRestored, setIsExpandedFoldersRestored] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; item: FileItem | null } | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
-  // 初回読み込み時にルートレベルのフォルダを展開
+  // expandedFoldersをlocalStorageに保存（初回復元後のみ）
   useEffect(() => {
-    if (level === 0) {
+    if (level === 0 && isExpandedFoldersRestored) {
+      const arr = Array.from(expandedFolders);
+      window.localStorage.setItem(`pyxis-expandedFolders-${currentProjectName}`, JSON.stringify(arr));
+    }
+  }, [expandedFolders, level, currentProjectName, isExpandedFoldersRestored]);
+  // 初回読み込み時にlocalStorageからexpandedFoldersを復元（itemsが空の場合はスキップ）
+  useEffect(() => {
+    if (level === 0 && items && items.length > 0 && !isExpandedFoldersRestored) {
+      const saved = window.localStorage.getItem(`pyxis-expandedFolders-${currentProjectName}`);
+      if (saved) {
+        try {
+          const arr = JSON.parse(saved);
+          if (Array.isArray(arr)) {
+            // itemsに存在するidのみセット
+            const validIds = arr.filter((id: string) => items.some(item => item.id === id));
+            setExpandedFolders(new Set(validIds));
+            setIsExpandedFoldersRestored(true);
+            return;
+          }
+        } catch {}
+      }
+      // なければ従来通りルートフォルダ展開
       const rootFolders = items.filter((item: FileItem) => item.type === 'folder');
       const expandedIds = new Set<string>(rootFolders.map((folder: FileItem) => folder.id));
       setExpandedFolders(expandedIds);
+      setIsExpandedFoldersRestored(true);
     }
-  }, [items, level]);
+  }, [items, level, currentProjectName, isExpandedFoldersRestored]);
 
   // コンテキストメニュー外クリックで閉じる
   useEffect(() => {
