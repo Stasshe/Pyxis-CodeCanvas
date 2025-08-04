@@ -1,13 +1,13 @@
 const pages = {
-  about: `<h2>Pyxisとは</h2>
+  about: `<div style="color:#222;"><h2>Pyxisとは</h2>
     <p>Pyxisは、完全にクライアントサイドで動作するIDEです。Node.jsランタイムとGitをブラウザ上で利用でき、サーバー不要で本格的な開発環境を実現します。</p>
     <ul>
       <li>Node.jsアプリをブラウザで実行</li>
       <li>VS Code風のUIとタブ・ファイル管理</li>
       <li>Git操作も全てローカルで完結</li>
       <li>iPadやモバイルにも最適化</li>
-    </ul>`,
-  features: `<h2>主な特徴</h2>
+    </ul></div>`,
+  features: `<div style="color:#222;"><h2>主な特徴</h2>
     <ul>
       <li><b>Node.jsランタイム</b> - npmコマンドやrequireが使える</li>
       <li><b>VS Code風エディタ</b> - シンタックスハイライト・補完・エラー表示</li>
@@ -15,16 +15,16 @@ const pages = {
       <li><b>マルチプラットフォーム</b> - iPad/モバイル/PC対応</li>
       <li><b>LaTeX/Markdown/Mermaid対応</b></li>
       <li><b>ダウンロード/インポート機能</b></li>
-    </ul>`,
-  tech: `<h2>技術スタック</h2>
+    </ul></div>`,
+  tech: `<div style="color:#222;"><h2>技術スタック</h2>
     <ul>
       <li>Next.js (React) <span style="color:#888">※Pyxis本体はNext.js製</span></li>
       <li>TypeScript, Tailwind CSS</li>
       <li>Monaco Editor, xterm.js</li>
       <li>Lightning FS, QuickJS, node-stdlib-browser</li>
       <li>isomorphic-git, @gitgraph/react</li>
-    </ul>`,
-  usage: `<h2>使い方</h2>
+    </ul></div>`,
+  usage: `<div style="color:#222;"><h2>使い方</h2>
     <ol>
       <li>Pyxisを開く</li>
       <li>新規プロジェクト作成 or 既存プロジェクトを開く</li>
@@ -44,7 +44,7 @@ git add .
 git commit -m "Initial commit"
 git checkout -b feature/new-feature
 git merge feature/new-feature
-</code></pre>`
+</code></pre></div>`
 };
 
 function setPage(page) {
