@@ -72,6 +72,13 @@ export default function TabBar({
     return fullPath;
   }
 
+  // 保存再起動用: window.dispatchEventでカスタムイベントを発火
+  const handleSaveRestart = () => {
+    setMenuOpen(false);
+    // カスタムイベントで保存再起動を通知
+    window.dispatchEvent(new CustomEvent('pyxis-save-restart'));
+  };
+
   return (
     <div
       className="h-10 border-b flex items-center relative bg-muted border-border"
@@ -110,6 +117,7 @@ export default function TabBar({
               <button className="px-2 py-1 text-xs bg-destructive rounded" onClick={() => { setMenuOpen(false); removeEditorPane(); }} title="ペイン削除">－</button>
               <button className="px-2 py-1 text-xs bg-muted rounded" onClick={() => { setMenuOpen(false); toggleEditorLayout(); }} title="分割方向切替">⇄</button>
               <button className="px-2 py-1 text-xs bg-warning rounded" onClick={() => { setMenuOpen(false); removeAllTabs(); }} title="タブ全削除">🗑️</button>
+              <button className="px-2 py-1 text-xs bg-primary rounded" onClick={handleSaveRestart} title="保存再起動">💾</button>
             </div>
           </div>
         )}

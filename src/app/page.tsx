@@ -212,6 +212,45 @@ export default function Home() {
   openFile(fileToOpen, tabs, setTabs, setActiveTabId);
   };
 
+  // 保存再起動イベントリスナー
+  useEffect(() => {
+    const handleSaveRestart = () => {
+      // editors/tabsの全てのisDirtyなタブを保存
+      setEditors(prevEditors => {
+        prevEditors.forEach((editor, idx) => {
+          editor.tabs.forEach(async tab => {
+            if (tab.isDirty && currentProject && saveFile) {
+              try {
+                await saveFile(tab.path, tab.content);
+                // 保存後、isDirtyをfalseに
+                setEditors(prev => {
+                  const updated = [...prev];
+                  updated[idx] = {
+                    ...updated[idx],
+                    tabs: updated[idx].tabs.map(t => t.id === tab.id ? { ...t, isDirty: false } : t)
+                  };
+                  return updated;
+                });
+              } catch (e) {
+                console.error('[SaveRestart] Failed to save:', tab.path, e);
+              }
+            }
+          });
+        });
+        return prevEditors;
+      });
+      // Git状態更新
+      setTimeout(() => {
+        setGitRefreshTrigger(prev => prev + 1);
+      }, 200);
+    };
+    window.addEventListener('pyxis-save-restart', handleSaveRestart);
+    return () => {
+      window.removeEventListener('pyxis-save-restart', handleSaveRestart);
+    };
+  }, [saveFile]);
+  
+
   // 即座のローカル更新専用関数
   // 即座のローカル更新: 全ペインの同じファイルタブも同期
   const handleTabContentChangeImmediate = (tabId: string, content: string) => {
