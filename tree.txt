@@ -18,10 +18,15 @@
 │   │   ├── index.html
 │   │   ├── main.js
 │   │   └── style.css
-│   └── src
-│       ├── src_fileOperationg.js
-│       └── src_index.js
+│   ├── src
+│   │   ├── src_fileOperationg.js
+│   │   └── src_index.js
+│   └── text-editor
+│       ├── index.html
+│       ├── main.js
+│       └── style.css
 ├── initial_files_to_ts.js
+├── memo.txt
 ├── next-env.d.ts
 ├── next.config.ts
 ├── package-lock.json
@@ -40,8 +45,11 @@
 │   ├── web-app-manifest-192x192.png
 │   ├── web-app-manifest-512x512.png
 │   └── window.svg
+├── replace_throw.sh
+├── sampleNode.js
 ├── src
 │   ├── app
+│   │   ├── Toast.css
 │   │   ├── globals.css
 │   │   ├── layout.tsx
 │   │   ├── markdown.css
@@ -65,12 +73,14 @@
 │   │   │   └── SettingsPanel.tsx
 │   │   ├── MenuBar.tsx
 │   │   ├── ProjectModal.tsx
-│   │   └── Tab
-│   │       ├── CodeEditor.tsx
-│   │       ├── HighlightedCode.tsx
-│   │       ├── MarkdownPreviewTab.tsx
-│   │       ├── TabBar.tsx
-│   │       └── WelcomeTab.tsx
+│   │   ├── Tab
+│   │   │   ├── CodeEditor.tsx
+│   │   │   ├── HighlightedCode.tsx
+│   │   │   ├── MarkdownPreviewTab.tsx
+│   │   │   ├── TabBar.tsx
+│   │   │   └── WelcomeTab.tsx
+│   │   ├── Toast.css
+│   │   └── Toast.tsx
 │   ├── context
 │   │   └── ThemeContext.tsx
 │   ├── hooks
@@ -109,24 +119,23 @@
 │       ├── handleFileOperation.ts
 │       ├── initialFileContents.ts
 │       ├── node
+│       │   ├── cdnLoader.ts
 │       │   ├── esModuleTransformer.ts
 │       │   └── filesystemModule.ts
 │       ├── nodeRuntime.ts
 │       ├── project.ts
 │       ├── resize.ts
-│       ├── tabs.ts
-│       └── utils
+│       └── tabs.ts
 ├── tailwind.config.ts
 ├── terminal_touch_flow.md
-├── test-npm.js
 ├── tree.sh
 ├── tree.txt
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-22 directories, 103 files
+22 directories, 112 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 14011
-合計文字数: 497349
-合計ファイルサイズ(bytes): 537862
+合計行数: 14376
+合計文字数: 517963
+合計ファイルサイズ(bytes): 558927

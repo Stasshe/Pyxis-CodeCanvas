@@ -132,6 +132,8 @@ export async function handleUnixCommand(
       await writeOutput('  rm <file> [-r] - ファイルを削除 (ワイルドカード対応: rm *.txt)');
       await writeOutput('  cat <file> - ファイル内容を表示');
       await writeOutput('  echo <text> [> file] - テキストを出力/ファイルに書き込み');
+      await writeOutput('  export --page <file or folder> - 現在のページをエクスポート');
+      await writeOutput('  export --indexeddb   - IndexedDBの内容をエクスポート');
       await writeOutput('');
       await writeOutput('Git Commands:');
       await writeOutput('  git status  - ステータスを確認');
