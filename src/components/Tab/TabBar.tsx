@@ -57,6 +57,21 @@ export default function TabBar({
     };
   }, [menuOpen]);
 
+  // 同名ファイルの重複チェック
+  const nameCount: Record<string, number> = {};
+  tabs.forEach(tab => {
+    nameCount[tab.name] = (nameCount[tab.name] || 0) + 1;
+  });
+
+  // repoName抽出（projects/{repoName}/以降を表示）
+  function getDisplayPath(fullPath: string) {
+    const idx = fullPath.indexOf('projects/');
+    if (idx >= 0) {
+      return fullPath.substring(idx + 'projects/'.length);
+    }
+    return fullPath;
+  }
+
   return (
     <div
       className="h-10 border-b flex items-center relative bg-muted border-border"
@@ -121,21 +136,32 @@ export default function TabBar({
               WebkitTouchCallout: 'none',
               MozUserSelect: 'none',
               msUserSelect: 'none',
-              touchAction: 'manipulation'
+              touchAction: 'manipulation',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-start'
             }}>
-              {tab.preview && (
-                <span style={{
-                  fontSize: '0.7em',
-                  opacity: 0.7,
-                  marginRight: '4px',
-                  userSelect: 'none',
-                  WebkitUserSelect: 'none',
-                  WebkitTouchCallout: 'none',
-                  MozUserSelect: 'none',
-                  msUserSelect: 'none'
-                }}>(Preview)</span>
+              <span>
+                {tab.preview && (
+                  <span style={{
+                    fontSize: '0.7em',
+                    opacity: 0.7,
+                    marginRight: '4px',
+                    userSelect: 'none',
+                    WebkitUserSelect: 'none',
+                    WebkitTouchCallout: 'none',
+                    MozUserSelect: 'none',
+                    msUserSelect: 'none'
+                  }}>(Preview)</span>
+                )}
+                {tab.name}
+              </span>
+              {/* パス表示（同名ファイルが複数ある場合のみ） */}
+              {nameCount[tab.name] > 1 && tab.fullPath && (
+                <span style={{ fontSize: '0.7em', opacity: 0.7, marginTop: '2px' }}>
+                  {getDisplayPath(tab.fullPath)}
+                </span>
               )}
-              {tab.name}
             </span>
             {tab.isDirty && <span className="ml-1 text-xs" style={{ color: colors.red }}>●</span>}
             <button

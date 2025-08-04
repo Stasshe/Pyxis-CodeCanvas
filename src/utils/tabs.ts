@@ -6,12 +6,19 @@ export const createNewTab = (file: FileItem): Tab => {
     path: file.path, 
     contentLength: file.content?.length || 0 
   });
+  // fullPath生成: projects/{repoName}/... 形式に揃える
+  let fullPath = file.path;
+  if (!fullPath.startsWith('projects/')) {
+    // repoNameはpathから推測できない場合は空文字
+    fullPath = `projects/${file.path}`;
+  }
   return {
     id: Date.now().toString(),
     name: file.name,
     content: file.content || '',
     isDirty: false,
-    path: file.path
+    path: file.path,
+    fullPath
   };
 };
 

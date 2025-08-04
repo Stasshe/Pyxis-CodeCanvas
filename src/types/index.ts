@@ -13,6 +13,7 @@ export interface Tab {
   content: string;
   isDirty: boolean;
   path: string;
+  fullPath: string;
   preview?: boolean;
 }
 

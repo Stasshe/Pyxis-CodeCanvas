@@ -199,23 +199,17 @@ export default function Home() {
     });
     
     // 最新のプロジェクトファイルから正しいコンテンツを取得
+    let fileToOpen = file;
     if (currentProject && projectFiles.length > 0) {
       const latestFile = projectFiles.find(f => f.path === file.path);
       if (latestFile) {
-        const updatedFile = {
+        fileToOpen = {
           ...file,
           content: latestFile.content
         };
-        console.log('[handleFileOpen] Found latest file content:', {
-          path: file.path,
-          contentLength: latestFile.content?.length || 0
-        });
-        openFile(updatedFile, tabs, setTabs, setActiveTabId);
-        return;
       }
     }
-    
-    openFile(file, tabs, setTabs, setActiveTabId);
+  openFile(fileToOpen, tabs, setTabs, setActiveTabId);
   };
 
   // 即座のローカル更新専用関数
@@ -330,16 +324,17 @@ export default function Home() {
                 }
               }
               // プレビュータブ追加
-              const newTab = {
-                id: previewTabId,
-                name: fileToPreview.name,
-                content: fileToPreview.content || '',
-                isDirty: false,
-                path: fileToPreview.path,
-                preview: true // プレビューフラグ
-              };
-              setActiveTabId(previewTabId);
-              return [...prevTabs, newTab];
+                const newTab = {
+                  id: previewTabId,
+                  name: fileToPreview.name,
+                  content: fileToPreview.content || '',
+                  isDirty: false,
+                  path: fileToPreview.path,
+                  fullPath: fileToPreview.path,
+                  preview: true // プレビューフラグ
+                };
+                setActiveTabId(previewTabId);
+                return [...prevTabs, newTab];
             });
           }}
           onResize={handleLeftResize}
