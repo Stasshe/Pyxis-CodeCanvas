@@ -23,7 +23,6 @@ const commonConfig = {
         path: require.resolve('path-browserify'),
         vm: require.resolve('vm-browserify'),
         buffer: require.resolve('buffer'),
-        process: require.resolve('process/browser'),
         util: require.resolve('util'),
         stream: require.resolve('stream-browserify'),
         crypto: require.resolve('crypto-browserify'),
