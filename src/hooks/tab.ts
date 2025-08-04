@@ -82,7 +82,8 @@ export function useProjectTabResetEffect({
             name: 'Welcome',
             content: `# ${currentProject.name}\n\n${currentProject.description || ''}\n\nプロジェクトファイルはIndexedDBに保存されています。\n./${currentProject.name}/~$`,
             isDirty: false,
-            path: '/'
+            path: '/',
+            fullPath: ''
           };
           return [welcomeTab];
         });
