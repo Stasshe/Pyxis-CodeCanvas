@@ -40,7 +40,8 @@ export function handleFileSelect({
           name: fileToOpen.name,
           content: fileToOpen.content || '',
           isDirty: false,
-          path: fileToOpen.path
+          path: fileToOpen.path,
+          fullPath: fileToOpen.path // Corrected to fullPath
         };
         newTabs = [...pane.tabs, newTab];
         newActiveTabId = newTab.id;
@@ -95,7 +96,8 @@ export function handleFilePreview({
           content: fileToPreview.content || '',
           isDirty: false,
           path: fileToPreview.path,
-          preview: true
+          preview: true,
+          fullPath: fileToPreview.path // Corrected to fullPath
         };
         newTabs = [...pane.tabs, newTab];
         newActiveTabId = newTab.id;

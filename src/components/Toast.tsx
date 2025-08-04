@@ -42,7 +42,7 @@ export const ToastContainer: React.FC = () => {
   );
 };
 
-export const showToast = (message: string, type?: 'success' | 'error' | 'info') => {
+export const showToastMessage = (message: string, type?: 'success' | 'error' | 'info') => {
   if (addToast) {
     addToast(message, type);
   }
