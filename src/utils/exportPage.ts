@@ -1,9 +1,24 @@
 export const exportPage = async (path: string, writeOutput: (output: string) => Promise<void>, unixCommandsRef: any) => {
   try {
     const fs = unixCommandsRef.current?.fs;
-    const win = window.open('about:blank', '_blank');
-    if (!win) {
+    const newWindow = window.open('about:blank', '_blank');
+    if (!newWindow) {
       await writeOutput('新しいタブを開けませんでした。ポップアップブロックを確認してください。');
+      return;
+    }
+
+    const iframe = newWindow.document.createElement('iframe');
+    iframe.style.position = 'absolute';
+    iframe.style.top = '0';
+    iframe.style.left = '0';
+    iframe.style.width = '100%';
+    iframe.style.height = '100%';
+    iframe.style.border = 'none';
+    newWindow.document.body.appendChild(iframe);
+
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!iframeDoc) {
+      await writeOutput('iframeのドキュメントを取得できませんでした。');
       return;
     }
 
@@ -11,6 +26,11 @@ export const exportPage = async (path: string, writeOutput: (output: string) => 
     try {
       stat = await fs.promises.stat(path);
     } catch {}
+
+    // ローカル判定関数
+    const isLocal = (src: string) => {
+      return src.startsWith('.') || src.startsWith('/') || src.startsWith('..');
+    };
 
     if (stat && stat.isDirectory()) {
       const files = await fs.promises.readdir(path);
@@ -25,17 +45,8 @@ export const exportPage = async (path: string, writeOutput: (output: string) => 
       const htmlPath = path + '/' + htmlFile;
       let htmlContent = await fs.promises.readFile(htmlPath, { encoding: 'utf8' });
 
-      // jsFilesとcssFilesを再代入可能に変更
-      let jsFiles = files.filter((f: string) => f.endsWith('.js'));
-      let cssFiles = files.filter((f: string) => f.endsWith('.css'));
-
-      // Next.jsのチャンクファイルや特定のスクリプトを除外
-      const excludedJsPatterns = [/\/next\/static\//, /chunk.js$/];
-      jsFiles = jsFiles.filter((js: string) => !excludedJsPatterns.some(pattern => pattern.test(js)));
-
-      const excludedCssPatterns = [/\/next\/static\//];
-      cssFiles = cssFiles.filter((css: string) => !excludedCssPatterns.some(pattern => pattern.test(css)));
-
+      // CSS
+      const cssFiles = files.filter((f: string) => f.endsWith('.css'));
       let cssContent = '';
       for (const css of cssFiles) {
         try {
@@ -45,34 +56,22 @@ export const exportPage = async (path: string, writeOutput: (output: string) => 
           console.error(`CSSファイルの読み込みに失敗しました: ${css}`, err);
         }
       }
-
-      const cdnCssLinks = [];
-      const linkRegex = /<link[^>]*rel=["']stylesheet["'][^>]*href=["']([^"']+)["'][^>]*>/gi;
-      let match;
-      while ((match = linkRegex.exec(htmlContent)) !== null) {
-        cdnCssLinks.push(match[1]);
-      }
-
-      // CDNスクリプトやリンクも同様にフィルタリング
-      const filteredCdnCssLinks = cdnCssLinks.filter((url: string) => !excludedCssPatterns.some(pattern => pattern.test(url)));
-
-      // フィルタリング後のリンクを使用
-      for (const url of filteredCdnCssLinks) {
-        try {
-          const res = await fetch(url);
-          if (res.ok) {
-            cssContent += await res.text() + '\n';
+      // ローカルCSSのみインライン化
+      htmlContent = htmlContent.replace(
+        /<link[^>]*rel=["']stylesheet["'][^>]*href=["']([^"']+)["'][^>]*>/gi,
+        (match: string, href: string) => {
+          if (isLocal(href)) {
+            return '';
           }
-        } catch (err) {
-          console.error(`CDN CSSのフェッチに失敗しました: ${url}`, err);
+          return match;
         }
-      }
-
+      );
       if (cssContent) {
-        htmlContent = htmlContent.replace(/<link[^>]*rel=["']stylesheet["'][^>]*>/gi, '');
         htmlContent = htmlContent.replace(/<head>/i, `<head>\n<style>\n${cssContent}\n</style>`);
       }
 
+      // JS
+      const jsFiles = files.filter((f: string) => f.endsWith('.js'));
       let jsContent = '';
       for (const js of jsFiles) {
         try {
@@ -82,50 +81,57 @@ export const exportPage = async (path: string, writeOutput: (output: string) => 
           console.error(`JSファイルの読み込みに失敗しました: ${js}`, err);
         }
       }
-
-      const cdnJsLinks = [];
-      const scriptRegex = /<script[^>]*src=["']([^"']+)["'][^>]*><\/script>/gi;
-      let jsMatch;
-      while ((jsMatch = scriptRegex.exec(htmlContent)) !== null) {
-        cdnJsLinks.push(jsMatch[1]);
-      }
-
-      // CDNスクリプトやリンクも同様にフィルタリング
-      const filteredCdnJsLinks = cdnJsLinks.filter((url: string) => !excludedJsPatterns.some(pattern => pattern.test(url)));
-
-      // フィルタリング後のリンクを使用
-      for (const url of filteredCdnJsLinks) {
-        try {
-          const res = await fetch(url);
-          if (res.ok) {
-            jsContent += await res.text() + '\n';
+      // ローカルJSのみインライン化
+      htmlContent = htmlContent.replace(
+        /<script[^>]*src=["']([^"']+)["'][^>]*><\/script>/gi,
+        (match: string, src: string) => {
+          if (isLocal(src)) {
+            return '';
           }
-        } catch (err) {
-          console.error(`CDN JSのフェッチに失敗しました: ${url}`, err);
+          return match;
         }
-      }
-      console.log('jsContent', jsContent);
+      );
       if (jsContent) {
-        htmlContent = htmlContent.replace(/<script[^>]*src=["'][^"']+["'][^>]*><\/script>/gi, '');
-        htmlContent = htmlContent.replace(/<\/body>/i, `<script>
-${jsContent}
-</script></body>`);
+        htmlContent = htmlContent.replace(/<\/body>/i, `<script>\n${jsContent}\n</script></body>`);
       }
 
-      win.document.open();
-      win.document.write(htmlContent);
-      win.document.close();
-      await writeOutput(`フォルダ内のページが新しいタブで開かれました: ${htmlPath}`);
+      iframeDoc.open();
+      iframeDoc.write(htmlContent);
+      iframeDoc.close();
+
+      // eruda
+      const erudaScript = iframeDoc.createElement('script');
+      erudaScript.src = 'https://cdn.jsdelivr.net/npm/eruda';
+      erudaScript.onload = function() {
+        const initScript = iframeDoc.createElement('script');
+        initScript.textContent = 'eruda.init();';
+        iframeDoc.body.appendChild(initScript);
+      };
+      iframeDoc.body.appendChild(erudaScript);
+
+      await writeOutput(`フォルダ内のページが新しいタブのiframe内で開かれました: ${htmlPath}`);
     } else {
       const content = await fs.promises.readFile(path, { encoding: 'utf8' });
       if (!content) {
         await writeOutput(`指定されたファイルが見つかりません: ${path}`);
         return;
       }
-      win.document.open();
-      win.document.write(content);
-      win.document.close();
-      await writeOutput(`ページが新しいタブで開かれました: ${path}`);
+
+      iframeDoc.open();
+      iframeDoc.write(content);
+      iframeDoc.close();
+
+      // eruda
+      const erudaScript = iframeDoc.createElement('script');
+      erudaScript.src = 'https://cdn.jsdelivr.net/npm/eruda';
+      erudaScript.onload = function() {
+        const initScript = iframeDoc.createElement('script');
+        initScript.textContent = 'eruda.init();';
+        iframeDoc.body.appendChild(initScript);
+      };
+      iframeDoc.body.appendChild(erudaScript);
+
+      await writeOutput(`ページが新しいタブのiframe内で開かれました: ${path}`);
     }
   } catch (error) {
     await writeOutput(`エクスポート中にエラーが発生しました: ${(error as Error).message}`);
