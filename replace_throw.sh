@@ -5,13 +5,12 @@ TARGET_DIR="./src"
 
 # 置き換え処理
 find "$TARGET_DIR" -type f -name "*.ts" -o -name "*.tsx" | while read -r file; do
-  # 'use client' の下にインポート文を追加
-  if grep -q "^'use client'" "$file"; then
-    if ! grep -q "import { showToast } from" "$file"; then
-      sed -i "/^'use client'/a import { showToast } from '@/components/Toast';" "$file"
-    fi
+  # "use client" または 'use client' の下にインポート文を追加
+  if grep -q "^\"use client\"" "$file" || grep -q "^'use client'" "$file"; then
+    sed -i "/^\"use client\"/a import { showToast } from '@/components/Toast';" "$file"
+    sed -i "/^'use client'/a import { showToast } from '@/components/Toast';" "$file"
   else
-    # ファイルの先頭にインポート文を追加
+    # インポート文をファイルの先頭に追加
     if ! grep -q "import { showToast } from" "$file"; then
       sed -i "1i import { showToast } from '@/components/Toast';" "$file"
     fi
