@@ -1,5 +1,4 @@
 import { getFileSystem } from '@/utils/filesystem';
-import { path } from 'd3';
 
   // fs モジュールのエミュレーション
 export function createFSModule(projectDir: string, onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>, unixCommands?: any) {
@@ -247,6 +246,55 @@ export function createUtilModule() {
             }
           });
         });
+      };
+    },
+    callbackify: (fn: Function): Function => {
+      return (...args: any[]) => {
+        const cb = args.pop();
+        fn(...args)
+          .then((res: any) => cb(null, res))
+          .catch((err: any) => cb(err));
+      };
+    },
+    inherits: (ctor: Function, superCtor: Function) => {
+      ctor.prototype = Object.create(superCtor.prototype);
+      ctor.prototype.constructor = ctor;
+    },
+    isDeepStrictEqual: (a: any, b: any): boolean => {
+      return JSON.stringify(a) === JSON.stringify(b);
+    },
+    types: {
+      isArray: Array.isArray,
+      isObject: (obj: any) => obj !== null && typeof obj === 'object',
+      isPromise: (obj: any) => !!obj && typeof obj.then === 'function',
+      isRegExp: (obj: any) => Object.prototype.toString.call(obj) === '[object RegExp]',
+      isDate: (obj: any) => Object.prototype.toString.call(obj) === '[object Date]',
+      isError: (obj: any) => obj instanceof Error,
+      isFunction: (obj: any) => typeof obj === 'function',
+      isString: (obj: any) => typeof obj === 'string',
+      isNumber: (obj: any) => typeof obj === 'number',
+      isBoolean: (obj: any) => typeof obj === 'boolean',
+      isNull: (obj: any) => obj === null,
+      isUndefined: (obj: any) => obj === undefined,
+      isSymbol: (obj: any) => typeof obj === 'symbol',
+      isBuffer: (obj: any) => obj && obj.constructor && typeof obj.constructor.isBuffer === 'function' && obj.constructor.isBuffer(obj)
+    },
+    toPromise: (fn: Function, ...args: any[]): Promise<any> => {
+      return new Promise((resolve, reject) => {
+        fn(...args, (err: any, result: any) => {
+          if (err) reject(err);
+          else resolve(result);
+        });
+      });
+    },
+    deprecate: (fn: Function, msg: string): Function => {
+      let warned = false;
+      return function(this: any, ...args: any[]) {
+        if (!warned) {
+          console.warn('DeprecationWarning:', msg);
+          warned = true;
+        }
+        return fn.apply(this, args);
       };
     }
   };
