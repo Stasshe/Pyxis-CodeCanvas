@@ -41,7 +41,7 @@ const Mermaid: React.FC<{ chart: string }> = ({ chart }) => {
                 svgElem.style.background = colors.mermaidBg || '#eaffea';
           }
         } catch (e) {
-          ref.current.innerHTML = `<pre style='color:red;'>Mermaid render error: ${String(e)}</pre>`;
+          ref.current.innerHTML = `<div class="mermaid-error">Mermaidのレンダリングに失敗しました。コードを確認してください。</div>`;
         }
       }
     };

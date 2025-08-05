@@ -104,3 +104,7 @@
   border-top: 1px solid #333;
   margin: 2em 0;
 }
+
+[id^="dmermaid-svg-"] {
+  display: none !important;
+}
