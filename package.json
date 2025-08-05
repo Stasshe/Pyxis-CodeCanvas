@@ -24,7 +24,7 @@
     "jszip": "^3.10.1",
     "katex": "^0.16.22",
     "lucide-react": "^0.445.0",
-    "mermaid": "^11.8.1",
+    "mermaid": "^11.9.0",
     "next": "15.3.4",
     "os-browserify": "^0.3.0",
     "pako": "^2.1.0",

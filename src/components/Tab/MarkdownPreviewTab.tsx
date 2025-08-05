@@ -28,29 +28,36 @@ const Mermaid: React.FC<{ chart: string }> = ({ chart }) => {
         try {
           // ダーク/ライト自動切替
           const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-          mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' });
+          mermaid.initialize({ 
+            startOnLoad: false, 
+            theme: isDark ? 'dark' : 'default', 
+            securityLevel: 'loose',
+            themeVariables: {
+              fontSize: '8px', // フォントサイズ調整
+            }
+          });
           const { svg } = await mermaid.render(idRef.current, chart);
           ref.current.innerHTML = svg;
           // SVGのoverflow調整 & 背景色設定
           const svgElem = ref.current.querySelector('svg');
           if (svgElem) {
-                svgElem.style.maxWidth = '100%';
-                svgElem.style.height = 'auto';
-                svgElem.style.maxHeight = '90vh'; // 画面高の90%以下に制限
-                svgElem.style.overflow = 'visible';
-                svgElem.style.background = colors.mermaidBg || '#eaffea';
+            svgElem.style.maxWidth = '100%';
+            svgElem.style.height = 'auto';
+            svgElem.style.maxHeight = '90vh'; // 画面高の90%以下に制限
+            svgElem.style.overflow = 'visible';
+            svgElem.style.background = colors.mermaidBg || '#eaffea';
           }
         } catch (e) {
-          ref.current.innerHTML = `<div class="mermaid-error">Mermaidのレンダリングに失敗しました。コードを確認してください。</div>`;
+          ref.current.innerHTML = `<div class="mermaid-error">Mermaidのレンダリングに失敗しました。コードを確認してください。${e}</div>`;
         }
       }
     };
     renderMermaid();
-      // 10秒ごとにdmermaid-svg-で始まるIDの要素を削除
-      const interval = setInterval(() => {
-        document.querySelectorAll('[id^="dmermaid-svg-"]').forEach(el => el.remove());
-      }, 10000);
-      return () => clearInterval(interval);
+    // 10秒ごとにdmermaid-svg-で始まるIDの要素を削除
+    const interval = setInterval(() => {
+      document.querySelectorAll('[id^="dmermaid-svg-"]').forEach(el => el.remove());
+    }, 10000);
+    return () => clearInterval(interval);
   }, [chart, colors.mermaidBg]);
   return <div ref={ref} className="mermaid" />;
 };
@@ -73,7 +80,7 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ content, fileNa
           components={{
             code({ node, className, children, ...props }) {
               const match = /language-(\w+)/.exec(className || '');
-              const codeString = String(children).replace(/\n$/, '');
+              const codeString = String(children).replace(/\n$/, '').trim(); // 余計な空白・改行除去
               if (match && match[1] === 'mermaid') {
                 return <Mermaid chart={codeString} />;
               }
