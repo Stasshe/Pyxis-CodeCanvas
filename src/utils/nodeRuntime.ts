@@ -1,4 +1,5 @@
 import { getFileSystem, getProjectDir } from './filesystem';
+import vm from 'vm-browserify';
 import { UnixCommands } from './cmd/unix';
 import { 
   createFSModule, 
@@ -186,21 +187,18 @@ export class NodeJSRuntime {
   // サンドボックス内でコードを実行
   private async executeInSandbox(wrappedCode: string, globals: any): Promise<string> {
     try {
-      console.log('[NodeJS Runtime] Executing code:', wrappedCode.substring(0, 200) + '...');
-      
-      // 安全なFunction実行
-      const asyncFunction = eval(wrappedCode);
-      
+      console.log('[NodeJS Runtime] Executing code (vm-browserify):', wrappedCode.substring(0, 200) + '...');
+      // vm-browserifyのrunInNewContextでサンドボックス実行
+      // wrappedCodeは関数定義 (async function(globals) {...}) なので、まず関数を生成
+      const asyncFunction = vm.runInNewContext(wrappedCode, globals);
       if (typeof asyncFunction !== 'function') {
         throw new Error('Generated function is not executable');
       }
-      
       // グローバル変数を渡して実行
       const result = await asyncFunction(globals);
-      
       return result !== undefined ? String(result) : '';
     } catch (error) {
-      console.error('[NodeJS Runtime] Execution error:', error);
+      console.error('[NodeJS Runtime] Execution error (vm-browserify):', error);
       throw new Error(`Execution error: ${(error as Error).message}`);
     }
   }
