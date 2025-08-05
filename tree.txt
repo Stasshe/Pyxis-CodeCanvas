@@ -1,11 +1,12 @@
 .
 ├── Development
 │   ├── DATABASE.md
-│   └── git-deletion-detection-analysis.md
+│   ├── TODO.md
+│   ├── git-deletion-detection-analysis.md
+│   └── terminal_touch_flow.md
 ├── LICENSE
 ├── README.md
 ├── README_ja.md
-├── TODO.md
 ├── bashCmd.txt
 ├── eslint.config.mjs
 ├── initial_files
@@ -130,7 +131,6 @@
 │       ├── resize.ts
 │       └── tabs.ts
 ├── tailwind.config.ts
-├── terminal_touch_flow.md
 ├── tree.sh
 ├── tree.txt
 ├── tsconfig.json

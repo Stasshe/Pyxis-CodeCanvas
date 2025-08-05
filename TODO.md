@@ -1,3 +1,0 @@
-npm installのpackage.jsonの後の、tar展開
-
-tar展開によるサブディレクトリの作成
