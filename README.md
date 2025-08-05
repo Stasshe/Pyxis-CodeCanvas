@@ -96,7 +96,7 @@ Pyxis is a revolutionary **client-side IDE** that brings the complete developmen
 ### 💾 **Data Persistence**
 - **Download project or Git repository as zip**
 - **Import files from local device**
-For more details, please refer to [DATABASE.md](./Development/DATABASE.md).
+- For more details, please refer to [DATABASE.md](./Development/DATABASE.md).
 
 
 ## 🌟 New Feature: export --page <path>
