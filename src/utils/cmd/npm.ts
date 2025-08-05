@@ -41,7 +41,7 @@ export class NpmCommands {
       this.projectName,
       this.onFileOperation,
     );
-    await npmInstall.downloadAndInstallPackage(packageName, version);
+    await npmInstall.installWithDependencies(packageName, version);
   }
 
   async removeDirectory(
@@ -130,6 +130,9 @@ export class NpmCommands {
         let installedCount = 0;
         let skippedCount = 0;
 
+        // NpmInstallインスタンスを作成（依存関係解決のため）
+        const npmInstall = new NpmInstall(this.projectName, this.onFileOperation);
+
         for (const pkg of packageNames) {
           const versionSpec = allDependencies[pkg];
           const version = versionSpec.replace(/[\^~]/, ""); // ^1.0.0 -> 1.0.0
@@ -146,9 +149,10 @@ export class NpmCommands {
           }
 
           try {
-            await this.downloadAndInstallPackage(pkg, version);
+            // 依存関係も含めてインストール
+            await npmInstall.installWithDependencies(pkg, version);
             installedCount++;
-            output += `  ✓ ${pkg}@${version}\n`;
+            output += `  ✓ ${pkg}@${version} (with dependencies)\n`;
           } catch (error) {
             output += `  ✗ ${pkg}@${version} - ${(error as Error).message}\n`;
           }
@@ -211,9 +215,10 @@ export class NpmCommands {
           if (isAlreadyInstalled) {
             return `updated 1 package in ${Math.random() * 2 + 1}s\n\n~ ${packageName}@${version}\nupdated 1 package and audited 1 package in ${Math.random() * 0.5 + 0.5}s\n\nfound 0 vulnerabilities`;
           } else {
-            // パッケージをダウンロードしてインストール
-            await this.downloadAndInstallPackage(packageName, version);
-            return `added 1 package in ${Math.random() * 2 + 1}s\n\n+ ${packageName}@${version}\nadded 1 package and audited 1 package in ${Math.random() * 0.5 + 0.5}s\n\nfound 0 vulnerabilities`;
+            // パッケージを依存関係と一緒にダウンロードしてインストール
+            const npmInstall = new NpmInstall(this.projectName, this.onFileOperation);
+            await npmInstall.installWithDependencies(packageName, version);
+            return `added packages with dependencies in ${Math.random() * 2 + 1}s\n\n+ ${packageName}@${version}\nadded packages and audited packages in ${Math.random() * 0.5 + 0.5}s\n\nfound 0 vulnerabilities`;
           }
         } catch (error) {
           throw new Error(
