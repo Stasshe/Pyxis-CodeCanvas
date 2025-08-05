@@ -3,7 +3,7 @@ import { useTheme } from '@/context/ThemeContext';
 import * as shiki from 'shiki';
 
 export function HighlightedCode({ language, value }: { language: string; value: string }) {
-  const { themeName } = useTheme();
+  const { highlightTheme } = useTheme();
   const [html, setHtml] = useState<string>('');
 
   useEffect(() => {
@@ -11,12 +11,12 @@ export function HighlightedCode({ language, value }: { language: string; value: 
     async function highlight() {
       try {
         const highlighter = await shiki.createHighlighter({
-          themes: [themeName === 'light' ? 'github-light' : 'github-dark'],
+          themes: [highlightTheme],
           langs: [language || 'plaintext'],
         });
         const codeHtml = highlighter.codeToHtml(value, {
           lang: language || 'plaintext',
-          theme: themeName === 'light' ? 'github-light' : 'github-dark',
+          theme: highlightTheme,
         });
         if (mounted) setHtml(codeHtml);
       } catch (e) {
@@ -25,7 +25,7 @@ export function HighlightedCode({ language, value }: { language: string; value: 
     }
     highlight();
     return () => { mounted = false; };
-  }, [language, value, themeName]);
+  }, [language, value, highlightTheme]);
 
   return (
     <div

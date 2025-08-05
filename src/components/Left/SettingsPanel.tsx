@@ -9,7 +9,7 @@ interface SettingsPanelProps {
 const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
   const [includeGit, setIncludeGit] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-  const { colors, setColor, themeName, setTheme, themeList } = useTheme();
+  const { colors, setColor, themeName, setTheme, themeList, highlightTheme, setHighlightTheme, highlightThemeList } = useTheme();
 
 
   // Gemini APIキー管理
@@ -68,6 +68,21 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
           ))}
         </select>
         <span className="text-xs" style={{ color: colors.mutedFg }}>選択したテーマに一括切替</span>
+      </div>
+      <div className="flex items-center gap-2 mb-2">
+        <label className="text-sm font-semibold" htmlFor="highlightTheme" style={{ color: colors.foreground }}>コードハイライトテーマ</label>
+        <select
+          id="highlightTheme"
+          value={highlightTheme}
+          onChange={e => setHighlightTheme(e.target.value)}
+          className="border rounded px-2 py-1 text-sm"
+          style={{ background: colors.cardBg, color: colors.foreground, border: `1px solid ${colors.border}` }}
+        >
+          {highlightThemeList.map(name => (
+            <option key={name} value={name}>{name}</option>
+          ))}
+        </select>
+        <span className="text-xs" style={{ color: colors.mutedFg }}>（shiki公式テーマ）</span>
       </div>
 
       <div className="flex items-center gap-2">
