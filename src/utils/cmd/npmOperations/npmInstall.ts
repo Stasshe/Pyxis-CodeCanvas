@@ -38,15 +38,18 @@ export class NpmInstall {
       content?: string,
       isNodeRuntime?: boolean,
     ) => Promise<void>,
+    skipLoadingInstalledPackages: boolean = false,
   ) {
     this.fs = getFileSystem()!;
     this.projectName = projectName;
     this.onFileOperation = onFileOperation;
     
-    // 既存のインストール済みパッケージを非同期で読み込み
-    this.loadInstalledPackages().catch(error => {
-      console.warn(`[npm.constructor] Failed to load installed packages: ${error.message}`);
-    });
+    // 既存のインストール済みパッケージを非同期で読み込み（スキップオプション付き）
+    if (!skipLoadingInstalledPackages) {
+      this.loadInstalledPackages().catch(error => {
+        console.warn(`[npm.constructor] Failed to load installed packages: ${error.message}`);
+      });
+    }
   }
 
   // 既存のインストール済みパッケージを読み込む
@@ -95,6 +98,207 @@ export class NpmInstall {
   async removeDirectory(dirPath: string): Promise<void> {
     const unixCommands = new UnixCommands(this.projectName);
     unixCommands.rmdir(dirPath);
+  }
+
+  // 全インストール済みパッケージの依存関係を分析
+  private async analyzeDependencies(): Promise<Map<string, { dependencies: string[], dependents: string[] }>> {
+    const dependencyGraph = new Map<string, { dependencies: string[], dependents: string[] }>();
+    
+    try {
+      const projectDir = getProjectDir(this.projectName);
+      const nodeModulesDir = `${projectDir}/node_modules`;
+      
+      // node_modulesディレクトリ内の全パッケージをスキャン
+      const entries = await this.fs.promises.readdir(nodeModulesDir);
+      
+      // まず全パッケージをマップに登録
+      for (const entry of entries) {
+        try {
+          const packageDir = `${nodeModulesDir}/${entry}`;
+          const stat = await this.fs.promises.stat(packageDir);
+          
+          if (stat.isDirectory()) {
+            dependencyGraph.set(entry, { dependencies: [], dependents: [] });
+          }
+        } catch {
+          // ディレクトリでない場合はスキップ
+        }
+      }
+      
+      // 各パッケージの依存関係を読み取り
+      for (const entry of entries) {
+        try {
+          const packageDir = `${nodeModulesDir}/${entry}`;
+          const packageJsonPath = `${packageDir}/package.json`;
+          const stat = await this.fs.promises.stat(packageDir);
+          
+          if (stat.isDirectory()) {
+            try {
+              const packageJsonContent = await this.fs.promises.readFile(packageJsonPath, { encoding: "utf8" });
+              const packageJson = JSON.parse(packageJsonContent as string);
+              
+              const dependencies = Object.keys(packageJson.dependencies || {});
+              const packageInfo = dependencyGraph.get(entry);
+              
+              if (packageInfo) {
+                packageInfo.dependencies = dependencies;
+                
+                // 逆方向の依存関係も記録
+                for (const dep of dependencies) {
+                  const depInfo = dependencyGraph.get(dep);
+                  if (depInfo) {
+                    depInfo.dependents.push(entry);
+                  }
+                }
+              }
+            } catch {
+              // package.jsonが読めない場合はスキップ
+            }
+          }
+        } catch {
+          // エラーの場合はスキップ
+        }
+      }
+      
+      console.log(`[npm.analyzeDependencies] Analyzed ${dependencyGraph.size} packages`);
+      return dependencyGraph;
+    } catch (error) {
+      console.warn(`[npm.analyzeDependencies] Error analyzing dependencies: ${error}`);
+      return new Map();
+    }
+  }
+
+  // ルートpackage.jsonから直接依存しているパッケージを取得
+  private async getRootDependencies(): Promise<Set<string>> {
+    const rootDeps = new Set<string>();
+    
+    try {
+      const projectDir = getProjectDir(this.projectName);
+      const packageJsonPath = `${projectDir}/package.json`;
+      
+      const packageJsonContent = await this.fs.promises.readFile(packageJsonPath, { encoding: "utf8" });
+      const packageJson = JSON.parse(packageJsonContent as string);
+      
+      // dependencies と devDependencies の両方を含める
+      const dependencies = Object.keys(packageJson.dependencies || {});
+      const devDependencies = Object.keys(packageJson.devDependencies || {});
+      
+      [...dependencies, ...devDependencies].forEach(dep => rootDeps.add(dep));
+      
+      console.log(`[npm.getRootDependencies] Found ${rootDeps.size} root dependencies`);
+    } catch (error) {
+      console.warn(`[npm.getRootDependencies] Error reading root dependencies: ${error}`);
+    }
+    
+    return rootDeps;
+  }
+
+  // 削除可能なパッケージを再帰的に検索
+  private findOrphanedPackages(
+    packageToRemove: string,
+    dependencyGraph: Map<string, { dependencies: string[], dependents: string[] }>,
+    rootDependencies: Set<string>
+  ): string[] {
+    const toRemove = new Set<string>([packageToRemove]);
+    const processed = new Set<string>();
+    
+    // ルート依存関係は削除しない
+    if (rootDependencies.has(packageToRemove)) {
+      console.log(`[npm.findOrphanedPackages] ${packageToRemove} is a root dependency, not removing`);
+      return [];
+    }
+    
+    // 削除候補をキューで処理
+    const queue = [packageToRemove];
+    
+    while (queue.length > 0) {
+      const currentPkg = queue.shift()!;
+      
+      if (processed.has(currentPkg)) continue;
+      processed.add(currentPkg);
+      
+      const pkgInfo = dependencyGraph.get(currentPkg);
+      if (!pkgInfo) continue;
+      
+      // このパッケージの依存関係をチェック
+      for (const dependency of pkgInfo.dependencies) {
+        // ルート依存関係はスキップ
+        if (rootDependencies.has(dependency)) continue;
+        
+        // 既に削除対象の場合はスキップ
+        if (toRemove.has(dependency)) continue;
+        
+        const depInfo = dependencyGraph.get(dependency);
+        if (!depInfo) continue;
+        
+        // この依存関係に依存している他のパッケージをチェック
+        const otherDependents = depInfo.dependents.filter(dep => 
+          !toRemove.has(dep) && // 削除対象でない
+          dependencyGraph.has(dep) // 実際に存在する
+        );
+        
+        // 他に依存者がいない場合は孤立パッケージ
+        if (otherDependents.length === 0) {
+          console.log(`[npm.findOrphanedPackages] ${dependency} will be orphaned, adding to removal list`);
+          toRemove.add(dependency);
+          queue.push(dependency);
+        } else {
+          console.log(`[npm.findOrphanedPackages] ${dependency} still has dependents: ${otherDependents.join(', ')}`);
+        }
+      }
+    }
+    
+    // 最初に指定されたパッケージ以外を返す
+    const orphaned = Array.from(toRemove).filter(pkg => pkg !== packageToRemove);
+    console.log(`[npm.findOrphanedPackages] Found ${orphaned.length} orphaned packages: ${orphaned.join(', ')}`);
+    
+    return orphaned;
+  }
+
+  // 依存関係を含めてパッケージを削除
+  async uninstallWithDependencies(packageName: string): Promise<string[]> {
+    console.log(`[npm.uninstallWithDependencies] Analyzing dependencies for ${packageName}`);
+    
+    // 依存関係グラフを構築
+    const dependencyGraph = await this.analyzeDependencies();
+    const rootDependencies = await this.getRootDependencies();
+    
+    // 削除可能なパッケージを特定
+    const orphanedPackages = this.findOrphanedPackages(packageName, dependencyGraph, rootDependencies);
+    
+    // メインパッケージと孤立したパッケージを削除
+    const packagesToRemove = [packageName, ...orphanedPackages];
+    const removedPackages: string[] = [];
+    
+    for (const pkg of packagesToRemove) {
+      try {
+        const projectDir = getProjectDir(this.projectName);
+        const packageDir = `${projectDir}/node_modules/${pkg}`;
+        
+        // パッケージが実際に存在するかチェック
+        try {
+          await this.fs.promises.stat(packageDir);
+        } catch {
+          console.log(`[npm.uninstallWithDependencies] Package ${pkg} not found, skipping`);
+          continue;
+        }
+        
+        // パッケージを削除
+        await this.removeDirectory(packageDir);
+        removedPackages.push(pkg);
+        
+        // IndexedDBからも削除
+        if (this.onFileOperation) {
+          await this.onFileOperation(`/node_modules/${pkg}`, "delete");
+        }
+        
+        console.log(`[npm.uninstallWithDependencies] Removed ${pkg}`);
+      } catch (error) {
+        console.warn(`[npm.uninstallWithDependencies] Failed to remove ${pkg}: ${(error as Error).message}`);
+      }
+    }
+    
+    return removedPackages;
   }
 
   // NPMレジストリからパッケージ情報を取得
@@ -159,7 +363,7 @@ export class NpmInstall {
     return versionSpec.replace(/^[\^~]/, "");
   }
 
-  // パッケージが既にインストールされているかチェック
+  // パッケージが既にインストールされているかチェック（依存関係も含めて）
   private async isPackageInstalled(packageName: string, version: string): Promise<boolean> {
     try {
       const projectDir = getProjectDir(this.projectName);
@@ -174,7 +378,11 @@ export class NpmInstall {
         const packageJson = JSON.parse(packageJsonContent as string);
         
         // 既にインストールされているバージョンと要求されたバージョンが同じかチェック
-        return packageJson.version === version;
+        if (packageJson.version === version) {
+          // さらに依存関係もチェック
+          return await this.areDependenciesInstalled(packageJson.dependencies || {});
+        }
+        return false;
       } catch {
         // package.jsonが読めない場合は再インストールが必要
         return false;
@@ -182,6 +390,42 @@ export class NpmInstall {
     } catch {
       return false;
     }
+  }
+
+  // 依存関係が全てインストールされているかチェック
+  private async areDependenciesInstalled(dependencies: Record<string, string>): Promise<boolean> {
+    const dependencyEntries = Object.entries(dependencies);
+    
+    if (dependencyEntries.length === 0) {
+      return true; // 依存関係がない場合はOK
+    }
+
+    for (const [depName, depVersionSpec] of dependencyEntries) {
+      const depVersion = this.resolveVersion(depVersionSpec);
+      const projectDir = getProjectDir(this.projectName);
+      const depPackageDir = `${projectDir}/node_modules/${depName}`;
+      
+      try {
+        await this.fs.promises.stat(depPackageDir);
+        
+        // 依存関係のバージョンもチェック
+        try {
+          const depPackageJsonPath = `${depPackageDir}/package.json`;
+          const depPackageJsonContent = await this.fs.promises.readFile(depPackageJsonPath, { encoding: "utf8" });
+          const depPackageJson = JSON.parse(depPackageJsonContent as string);
+          
+          if (depPackageJson.version !== depVersion) {
+            return false; // バージョンが一致しない
+          }
+        } catch {
+          return false; // package.jsonが読めない
+        }
+      } catch {
+        return false; // 依存関係が存在しない
+      }
+    }
+    
+    return true; // 全ての依存関係が正しくインストールされている
   }
 
   // 依存関係を再帰的にインストール
@@ -195,20 +439,20 @@ export class NpmInstall {
       return;
     }
 
-    // 既にインストール済みかチェック
+    // ファイルシステムでのインストール状況をチェック（毎回チェック）
+    if (await this.isPackageInstalled(packageName, resolvedVersion)) {
+      console.log(`[npm.installWithDependencies] ${packageKey} with all dependencies already correctly installed, skipping`);
+      this.installedPackages.set(packageName, resolvedVersion);
+      return;
+    }
+
+    // メモリ上のキャッシュもチェックするが、ファイルシステムチェックを優先
     if (this.installedPackages.has(packageName)) {
       const installedVersion = this.installedPackages.get(packageName);
       if (installedVersion === resolvedVersion) {
-        console.log(`[npm.installWithDependencies] ${packageKey} already installed, skipping`);
-        return;
+        // メモリ上では一致しているが、ファイルシステムチェックで不一致だった場合は再インストール
+        console.log(`[npm.installWithDependencies] ${packageKey} cached but dependencies missing, reinstalling`);
       }
-    }
-
-    // ファイルシステムでのインストール状況もチェック
-    if (await this.isPackageInstalled(packageName, resolvedVersion)) {
-      console.log(`[npm.installWithDependencies] ${packageKey} already exists on filesystem, skipping`);
-      this.installedPackages.set(packageName, resolvedVersion);
-      return;
     }
 
     try {
@@ -245,7 +489,7 @@ export class NpmInstall {
       }
 
       // メインパッケージをインストール
-      await this.downloadAndInstallPackage(packageName, packageInfo.version);
+      await this.downloadAndInstallPackage(packageName, packageInfo.version, packageInfo.tarball);
       
       // インストール済みマークに追加
       this.installedPackages.set(packageName, packageInfo.version);

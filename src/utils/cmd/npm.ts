@@ -50,6 +50,7 @@ export class NpmCommands {
     const npmInstall = new NpmInstall(
       this.projectName,
       this.onFileOperation,
+      true, // skipLoadingInstalledPackages = true（軽量版）
     );
     await npmInstall.removeDirectory(dirPath);
   }
@@ -128,7 +129,6 @@ export class NpmCommands {
 
         let output = `Installing ${packageNames.length} packages...\n`;
         let installedCount = 0;
-        let skippedCount = 0;
 
         // NpmInstallインスタンスを作成（依存関係解決のため）
         const npmInstall = new NpmInstall(this.projectName, this.onFileOperation);
@@ -137,19 +137,8 @@ export class NpmCommands {
           const versionSpec = allDependencies[pkg];
           const version = versionSpec.replace(/[\^~]/, ""); // ^1.0.0 -> 1.0.0
 
-          // 既にインストール済みかチェック
-          const packageDir = `${nodeModulesDir}/${pkg}`;
           try {
-            await this.fs.promises.stat(packageDir);
-            output += `  ✓ ${pkg}@${version} (already installed)\n`;
-            skippedCount++;
-            continue;
-          } catch {
-            // パッケージが存在しない場合は新規インストール
-          }
-
-          try {
-            // 依存関係も含めてインストール
+            // 依存関係も含めてインストール（毎回チェック）
             await npmInstall.installWithDependencies(pkg, version);
             installedCount++;
             output += `  ✓ ${pkg}@${version} (with dependencies)\n`;
@@ -158,10 +147,10 @@ export class NpmCommands {
           }
         }
 
-        if (installedCount === 0 && skippedCount > 0) {
+        if (installedCount === 0) {
           output += `\nup to date, audited ${packageNames.length} packages in ${Math.random() * 2 + 1}s\n\nfound 0 vulnerabilities`;
         } else {
-          output += `\nadded ${installedCount} packages in ${Math.random() * 2 + 1}s\n\nfound 0 vulnerabilities`;
+          output += `\nadded/updated ${installedCount} packages in ${Math.random() * 2 + 1}s\n\nfound 0 vulnerabilities`;
         }
         return output;
       } else {
@@ -239,7 +228,17 @@ export class NpmCommands {
       const nodeModulesDir = `${projectDir}/node_modules`;
       const packageDir = `${nodeModulesDir}/${packageName}`;
 
+      // パッケージが実際に存在するかチェック
+      try {
+        await this.fs.promises.stat(packageDir);
+      } catch {
+        return `npm WARN ${packageName} package not found in node_modules`;
+      }
+
       // package.jsonから依存関係を削除
+      let wasInDependencies = false;
+      let wasInDevDependencies = false;
+      
       try {
         const packageJsonContent = await this.fs.promises.readFile(
           packageJsonPath,
@@ -255,9 +254,8 @@ export class NpmCommands {
           packageJson.devDependencies = {};
         }
 
-        const wasInDependencies = delete packageJson.dependencies[packageName];
-        const wasInDevDependencies =
-          delete packageJson.devDependencies[packageName];
+        wasInDependencies = delete packageJson.dependencies[packageName];
+        wasInDevDependencies = delete packageJson.devDependencies[packageName];
 
         if (!wasInDependencies && !wasInDevDependencies) {
           return `npm WARN ${packageName} is not a dependency of ${this.projectName}`;
@@ -280,18 +278,39 @@ export class NpmCommands {
         return `npm ERR! Cannot find package.json`;
       }
 
-      // node_modulesからパッケージを削除
+      // 依存関係を含めてパッケージを削除
+      const npmInstall = new NpmInstall(
+        this.projectName,
+        this.onFileOperation,
+        true, // skipLoadingInstalledPackages = true（軽量版）
+      );
+      
       try {
-        await this.removeDirectory(packageDir);
-
-        // IndexedDBからも削除
-        if (this.onFileOperation) {
-          await this.onFileOperation(`/node_modules/${packageName}`, "delete");
+        const removedPackages = await npmInstall.uninstallWithDependencies(packageName);
+        const totalRemoved = removedPackages.length;
+        
+        if (totalRemoved === 0) {
+          return `removed 1 package in 0.1s\n\n- ${packageName}\nremoved 1 package and audited 0 packages in 0.1s\n\nfound 0 vulnerabilities`;
+        } else {
+          const removedList = removedPackages.join(', ');
+          return `removed ${totalRemoved + 1} packages in 0.1s\n\n- ${packageName}\n- ${removedList} (orphaned dependencies)\nremoved ${totalRemoved + 1} packages and audited 0 packages in 0.1s\n\nfound 0 vulnerabilities`;
         }
+      } catch (error) {
+        // 依存関係解決に失敗した場合は、単純にメインパッケージのみ削除
+        console.warn(`[npm.uninstall] Dependency analysis failed, removing only main package: ${(error as Error).message}`);
+        
+        try {
+          await this.removeDirectory(packageDir);
 
-        return `removed 1 package in 0.1s\n\n- ${packageName}\nremoved 1 package and audited 0 packages in 0.1s\n\nfound 0 vulnerabilities`;
-      } catch {
-        return `npm WARN ${packageName} package not found in node_modules`;
+          // IndexedDBからも削除
+          if (this.onFileOperation) {
+            await this.onFileOperation(`/node_modules/${packageName}`, "delete");
+          }
+
+          return `removed 1 package in 0.1s\n\n- ${packageName}\nremoved 1 package and audited 0 packages in 0.1s\n\nfound 0 vulnerabilities`;
+        } catch {
+          return `npm WARN ${packageName} package not found in node_modules`;
+        }
       }
     } catch (error) {
       throw new Error(`npm uninstall failed: ${(error as Error).message}`);
