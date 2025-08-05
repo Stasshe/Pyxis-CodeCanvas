@@ -22,7 +22,13 @@ const Mermaid: React.FC<{ chart: string }> = ({ chart }) => {
   const ref = useRef<HTMLDivElement>(null);
   const idRef = useRef<string>(getUniqueMermaidId());
   const { colors } = useTheme();
+  const loadingRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    let bounceTimer: NodeJS.Timeout | null = null;
+    if (ref.current) {
+      // ローディングアニメーション表示
+  ref.current.innerHTML = `<div class="mermaid-loading" style="display:flex;align-items:center;justify-content:center;height:120px;"><svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="18" stroke="#4ade80" stroke-width="4" fill="none" stroke-dasharray="90" stroke-dashoffset="60"><animateTransform attributeName="transform" type="rotate" from="0 20 20" to="360 20 20" dur="1s" repeatCount="indefinite"/></circle></svg><span style="margin-left:10px;color:#4ade80;font-size:14px;">Mermaid図表を生成中...</span></div>`;
+    }
     const renderMermaid = async () => {
       if (ref.current) {
         try {
@@ -53,12 +59,12 @@ const Mermaid: React.FC<{ chart: string }> = ({ chart }) => {
         }
       }
     };
-    renderMermaid();
-    // 10秒ごとにdmermaid-svg-で始まるIDの要素を削除
-    // const interval = setInterval(() => {
-    //   document.querySelectorAll('[id^="dmermaid-svg-"]').forEach(el => el.remove());
-    // }, 10000);
-    // return () => clearInterval(interval);
+    // バウンス: 2秒間変更がなければ描画
+    if (bounceTimer) clearTimeout(bounceTimer);
+    bounceTimer = setTimeout(renderMermaid, 2000);
+    return () => {
+      if (bounceTimer) clearTimeout(bounceTimer);
+    };
   }, [chart, colors.mermaidBg]);
   return <div ref={ref} className="mermaid" />;
 };
