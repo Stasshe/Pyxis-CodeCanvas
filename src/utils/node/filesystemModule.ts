@@ -1,4 +1,5 @@
 import { getFileSystem } from '@/utils/filesystem';
+import pathBrowserify from 'path-browserify';
 
   // fs モジュールのエミュレーション
 export function createFSModule(projectDir: string, onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>, unixCommands?: any) {
@@ -158,38 +159,10 @@ export function createFSModule(projectDir: string, onFileOperation?: (path: stri
 
 // path モジュールのエミュレーション
 export function createPathModule(projectDir: string) {
+  // path-browserifyのAPIをそのまま返す
   return {
-    join: (...paths: string[]): string => {
-      return paths
-        .filter(path => path)
-        .join('/')
-        .replace(/\/+/g, '/')
-        .replace(/\/$/, '') || '/';
-    },
-    resolve: (...paths: string[]): string => {
-      let resolved = projectDir;
-      for (const path of paths) {
-        if (path.startsWith('/')) {
-          resolved = path;
-        } else {
-          resolved = `${resolved}/${path}`;
-        }
-      }
-      return resolved.replace(/\/+/g, '/');
-    },
-    dirname: (path: string): string => {
-      const lastSlash = path.lastIndexOf('/');
-      return lastSlash > 0 ? path.substring(0, lastSlash) : '/';
-    },
-    basename: (path: string, ext?: string): string => {
-      const name = path.substring(path.lastIndexOf('/') + 1);
-      return ext && name.endsWith(ext) ? name.slice(0, -ext.length) : name;
-    },
-    extname: (path: string): string => {
-      const lastDot = path.lastIndexOf('.');
-      const lastSlash = path.lastIndexOf('/');
-      return (lastDot > lastSlash) ? path.substring(lastDot) : '';
-    }
+    ...pathBrowserify,
+    // 必要ならprojectDirを使った独自拡張も追加可能
   };
 }
 

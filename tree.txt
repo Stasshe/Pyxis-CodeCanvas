@@ -1,13 +1,13 @@
 .
-├── DATABASE.md
+├── Development
+│   ├── DATABASE.md
+│   └── git-deletion-detection-analysis.md
 ├── LICENSE
 ├── README.md
 ├── README_ja.md
-├── SPECIFICATION.md
 ├── TODO.md
 ├── bashCmd.txt
 ├── eslint.config.mjs
-├── git-deletion-detection-analysis.md
 ├── initial_files
 │   ├── README.md
 │   ├── docs
@@ -90,7 +90,9 @@
 │   │   └── tab.ts
 │   ├── types
 │   │   ├── git.ts
-│   │   └── index.ts
+│   │   ├── index.ts
+│   │   ├── path-browserify.d.ts
+│   │   └── vm-browserify.d.ts
 │   └── utils
 │       ├── cmd
 │       │   ├── git.ts
@@ -134,9 +136,9 @@
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-22 directories, 113 files
+23 directories, 114 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 14986
-合計文字数: 541872
-合計ファイルサイズ(bytes): 586120
+合計行数: 15120
+合計文字数: 548000
+合計ファイルサイズ(bytes): 592628

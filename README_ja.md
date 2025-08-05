@@ -99,6 +99,7 @@ Pyxis は革新的な**クライアントサイド IDE** で、完全な開発�
 ### 💾 **データ永続化**
 - **プロジェクトやGitリポジトリのzipダウンロード**
 - **端末からのファイルインポート**
+詳しくは[DATABASE.md](./Development/DATABASE.md)
 
 
 ## 🌟 新機能: export --page <path>
@@ -240,7 +241,6 @@ git merge feature/new-feature
 - 📖 **ドキュメント改善**
 - 🔧 **コード投稿**
 
-詳細は [コントリビューションガイドライン](CONTRIBUTING.md) をご確認ください。
 
 ## 📝 ライセンス
 
