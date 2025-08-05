@@ -61,7 +61,7 @@ const Mermaid: React.FC<{ chart: string }> = ({ chart }) => {
     };
     // バウンス: 2秒間変更がなければ描画
     if (bounceTimer) clearTimeout(bounceTimer);
-    bounceTimer = setTimeout(renderMermaid, 2000);
+    bounceTimer = setTimeout(renderMermaid, 3000);
     return () => {
       if (bounceTimer) clearTimeout(bounceTimer);
     };
