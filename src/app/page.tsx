@@ -279,12 +279,20 @@ export default function Home() {
     setEditors([{ id: 'editor-1', tabs: [], activeTabId: '' }]); // エディタ状態を初期化
     setIsLeftSidebarVisible(true);
     localStorage.removeItem('pyxis-editors'); // localStorageのエディタ状態をクリア
-    setIsRestoredFromLocalStorage(false); // 復元フラグをリ
+    setIsRestoredFromLocalStorage(false); // 復元フラグをリセット
     await loadProject(project);
   };
 
   const handleProjectCreate = async (name: string, description?: string) => {
     if (createProject) {
+      // 全てのタブ、ペーン、セッションをリセット
+      setTabsForAllPanes([]); // 全ペインのタブをリセット
+      setActiveTabId(''); // アクティブタブIDをリセット
+      setEditors([{ id: 'editor-1', tabs: [], activeTabId: '' }]); // エディタ状態を初期化
+      setIsLeftSidebarVisible(true);
+      localStorage.removeItem('pyxis-editors'); // localStorageのエディタ状態をクリア
+      setIsRestoredFromLocalStorage(false); // 復元フラグをリセット
+
       await createProject(name, description);
     }
   };
