@@ -105,6 +105,6 @@
   margin: 2em 0;
 }
 
-[id^="dmermaid-svg-"] {
+/* [id^="dmermaid-svg-"] {
   display: none !important;
-}
+} */

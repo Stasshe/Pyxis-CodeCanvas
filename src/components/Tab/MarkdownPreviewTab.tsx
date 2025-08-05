@@ -34,7 +34,8 @@ const Mermaid: React.FC<{ chart: string }> = ({ chart }) => {
             securityLevel: 'loose',
             themeVariables: {
               fontSize: '8px', // フォントサイズ調整
-            }
+            },
+            suppressErrorRendering: true // エラーDOM自動挿入を抑制
           });
           const { svg } = await mermaid.render(idRef.current, chart);
           ref.current.innerHTML = svg;
@@ -54,10 +55,10 @@ const Mermaid: React.FC<{ chart: string }> = ({ chart }) => {
     };
     renderMermaid();
     // 10秒ごとにdmermaid-svg-で始まるIDの要素を削除
-    const interval = setInterval(() => {
-      document.querySelectorAll('[id^="dmermaid-svg-"]').forEach(el => el.remove());
-    }, 10000);
-    return () => clearInterval(interval);
+    // const interval = setInterval(() => {
+    //   document.querySelectorAll('[id^="dmermaid-svg-"]').forEach(el => el.remove());
+    // }, 10000);
+    // return () => clearInterval(interval);
   }, [chart, colors.mermaidBg]);
   return <div ref={ref} className="mermaid" />;
 };
