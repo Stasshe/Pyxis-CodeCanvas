@@ -362,6 +362,21 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
           case 'npm':
             await handleNPMCommand(args, npmCommandsRef, writeOutput);
             break;
+
+          case 'npm-size':
+            if (args.length === 0) {
+              await writeOutput('Usage: npm-size <package-name>');
+            } else {
+              const packageName = args[0];
+              try {
+                const { calculateDependencySize } = await import('@/utils/cmd/npmOperations/npmDependencySize');
+                const size = await calculateDependencySize(packageName);
+                await writeOutput(`Total size of ${packageName} and its dependencies: ${size.toFixed(2)} kB`);
+              } catch (error) {
+                await writeOutput(`Error calculating size: ${(error as Error).message}`);
+              }
+            }
+            break;
             
           // Unix commands
           default:
