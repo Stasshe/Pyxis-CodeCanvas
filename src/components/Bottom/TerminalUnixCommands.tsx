@@ -173,6 +173,7 @@ export async function handleUnixCommand(
       await writeOutput('  npm uninstall <package> - パッケージをアンインストール');
       await writeOutput('  npm list           - インストール済みパッケージ一覧');
       await writeOutput('  npm run <script>   - package.jsonのスクリプトを実行');
+      await writeOutput('  npm-size <package> - 指定したパッケージとその依存関係の合計サイズを計算');
       await writeOutput('');
       await writeOutput('Note: Gitリポジトリの初期化は左下の「プロジェクト管理」から');
       await writeOutput('新規プロジェクトを作成することで自動的に行われます。');
