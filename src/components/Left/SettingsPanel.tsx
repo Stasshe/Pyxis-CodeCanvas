@@ -69,8 +69,9 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
         </select>
         <span className="text-xs" style={{ color: colors.mutedFg }}>選択したテーマに一括切替</span>
       </div>
+
+      <h2 className="text-base font-semibold mt-4">コードハイライトテーマ</h2>
       <div className="flex items-center gap-2 mb-2">
-        <label className="text-sm font-semibold" htmlFor="highlightTheme" style={{ color: colors.foreground }}>コードハイライトテーマ</label>
         <select
           id="highlightTheme"
           value={highlightTheme}
