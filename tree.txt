@@ -104,6 +104,7 @@
 │       │   │   └── revert.ts
 │       │   ├── npm.ts
 │       │   ├── npmOperations
+│       │   │   ├── npmDependencySize.ts
 │       │   │   └── npmInstall.ts
 │       │   └── unix.ts
 │       ├── database.ts
@@ -133,9 +134,9 @@
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-22 directories, 112 files
+22 directories, 113 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 14376
-合計文字数: 517963
-合計ファイルサイズ(bytes): 558927
+合計行数: 14986
+合計文字数: 541872
+合計ファイルサイズ(bytes): 586120
