@@ -1,8 +1,76 @@
 // ES6 import/export を CommonJS に変換
 export function transformESModules(code: string): string {
+  
   let transformedCode = code;
+  // export { ... } from ... （複数行・コメント入り・as対応・空要素除去）
+  transformedCode = transformedCode.replace(
+    /export\s*\{([\s\S]*?)\}\s*from\s*['"]([^'"]+)['"];?/g,
+    (match, exports: string, modulePath: string) => {
+      // コメント除去
+      let cleaned = exports.replace(/\/\/.*|\/\*[\s\S]*?\*\//g, '');
+      // 改行・余分な空白・カンマの連続除去
+      cleaned = cleaned.replace(/\n/g, '').replace(/\s+/g, ' ').replace(/,+/g, ',');
+      // as構文を分解
+      const exportList = cleaned.split(',').map((e: string) => e.trim()).filter((e: string) => e.length > 0);
+      return exportList.map((exp: string) => {
+        const asMatch = exp.match(/^(\w+)\s+as\s+(\w+)$/);
+        if (asMatch) {
+          // foo as bar → module.exports.bar = require('module').foo;
+          return `module.exports.${asMatch[2]} = require('${modulePath}').${asMatch[1]};`;
+        } else {
+          // foo → module.exports.foo = require('module').foo;
+          return `module.exports.${exp} = require('${modulePath}').${exp};`;
+        }
+      }).join('\n');
+    }
+  );
 
+  // export { ... } （from句なし、複数行・コメント入り・as対応・空要素除去）
+  transformedCode = transformedCode.replace(
+    /export\s*\{([\s\S]*?)\};?/g,
+    (match, exports: string) => {
+      // コメント除去
+      let cleaned = exports.replace(/\/\/.*|\/\*[\s\S]*?\*\//g, '');
+      // 改行・余分な空白・カンマの連続除去
+      cleaned = cleaned.replace(/\n/g, '').replace(/\s+/g, ' ').replace(/,+/g, ',');
+      // as構文を分解
+      const exportList = cleaned.split(',').map((e: string) => e.trim()).filter((e: string) => e.length > 0);
+      return exportList.map((exp: string) => {
+        const asMatch = exp.match(/^(\w+)\s+as\s+(\w+)$/);
+        if (asMatch) {
+          // foo as bar → module.exports.bar = foo;
+          return `module.exports.${asMatch[2]} = ${asMatch[1]};`;
+        } else {
+          // foo → module.exports.foo = foo;
+          return `module.exports.${exp} = ${exp};`;
+        }
+      }).join('\n');
+    }
+  );
+  // export { ... } from ... （複数行・コメント入り・as対応）
+  
   // // export default function name(...) {...} → function name(...) {...};
+  transformedCode = transformedCode.replace(
+    /export\s*\{([\s\S]*?)\}\s*from\s*['"]([^'"]+)['"];?/g,
+    (match, exports: string, modulePath: string) => {
+      // コメント除去
+      let cleaned = exports.replace(/\/\/.*|\/\*[\s\S]*?\*\//g, '');
+      // 改行・余分な空白除去
+      cleaned = cleaned.replace(/\n/g, '').replace(/\s+/g, ' ');
+      // as構文を分解
+      const exportList = cleaned.split(',').map((e: string) => e.trim()).filter((e: string) => e.length > 0);
+      return exportList.map((exp: string) => {
+        const asMatch = exp.match(/^(\w+)\s+as\s+(\w+)$/);
+        if (asMatch) {
+          // foo as bar → module.exports.bar = require('module').foo;
+          return `module.exports.${asMatch[2]} = require('${modulePath}').${asMatch[1]};`;
+        } else {
+          // foo → module.exports.foo = require('module').foo;
+          return `module.exports.${exp} = require('${modulePath}').${exp};`;
+        }
+      }).join('\n');
+    }
+  );
   // transformedCode = transformedCode.replace(
   //   /export\s+default\s+function\s+(\w+)\s*\(([^)]*)\)\s*\{([\s\S]*?)\}/g,
   //   (match, funcName, args, body) => {
@@ -17,20 +85,35 @@ export function transformESModules(code: string): string {
   );
 
 
-  // import文を require に変換
-  // import Utils, { helper } from 'module' → const _temp = require('module'); const Utils = _temp.default || _temp; const { helper } = _temp;
+
+  // import * as something from 'module' → const something = require('module')
+  transformedCode = transformedCode.replace(
+    /import\s+\*\s+as\s+(\w+)\s+from\s+['"]([^'"]+)['"];?/g,
+    (match, varName, modulePath) => `const ${varName} = require('${modulePath}');`
+  );
+
+  // import { ... } from ... （複数行・コメント入り対応）
+  transformedCode = transformedCode.replace(
+    /import\s*\{([\s\S]*?)\}\s*from\s*['"]([^'"]+)['"];?/g,
+    (match, imports, modulePath) => {
+      // コメント除去
+      let cleaned = imports.replace(/\/\/.*|\/\*[\s\S]*?\*\//g, '');
+      // 改行・余分な空白除去
+      cleaned = cleaned.replace(/\n/g, '').replace(/\s+/g, ' ');
+      // as構文を:に変換
+      const converted = cleaned.replace(/(\w+)\s+as\s+(\w+)/g, '$1: $2');
+      return `const { ${converted.trim()} } = require('${modulePath}');`;
+    }
+  );
+
+  // import default, { ... } from 'module' → const _temp = require('module'); const default = _temp.default || _temp; const { ... } = _temp;
   transformedCode = transformedCode.replace(
     /import\s+(\w+)\s*,\s*\{([^}]+)\}\s+from\s+['"]([^'"]+)['"];?/g,
     (match, defaultImport, namedImports, modulePath) => {
       const tempVar = `_temp_${Math.random().toString(36).substr(2, 9)}`;
-      return `const ${tempVar} = require('${modulePath}'); const ${defaultImport} = ${tempVar}.default || ${tempVar}; const { ${namedImports} } = ${tempVar};`;
+      const converted = namedImports.replace(/(\w+)\s+as\s+(\w+)/g, '$1: $2');
+      return `const ${tempVar} = require('${modulePath}'); const ${defaultImport} = ${tempVar}.default || ${tempVar}; const { ${converted} } = ${tempVar};`;
     }
-  );
-
-  // import { something } from 'module' → const { something } = require('module')
-  transformedCode = transformedCode.replace(
-    /import\s+\{([^}]+)\}\s+from\s+['"]([^'"]+)['"];?/g,
-    'const { $1 } = require(\'$2\');'
   );
 
   // import something from 'module' → const something = require('module').default || require('module')
@@ -42,16 +125,10 @@ export function transformESModules(code: string): string {
     }
   );
 
-  // import * as something from 'module' → const something = require('module')
-  transformedCode = transformedCode.replace(
-    /import\s+\*\s+as\s+(\w+)\s+from\s+['"]([^'"]+)['"];?/g,
-    'const $1 = require(\'$2\');'
-  );
-
   // import 'module' → require('module')
   transformedCode = transformedCode.replace(
     /import\s+['"]([^'"]+)['"];?/g,
-    'require(\'$1\');'
+    (match, modulePath) => `require('${modulePath}');`
   );
 
   // export { something } →
