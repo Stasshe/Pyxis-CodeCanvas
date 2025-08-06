@@ -19,6 +19,23 @@ export const outputMessagesRef: { current: OutputMessage[]; set?: React.Dispatch
 export function addOutputPanelMessage(msg: string, type?: 'info' | 'error' | 'warn', context?: string) {
   if (outputMessagesRef.set) {
     outputMessagesRef.set(prev => {
+      // 直前のメッセージと同じ内容・type・contextなら回数を増やす
+      if (prev.length > 0) {
+        const last = prev[prev.length - 1];
+        if (
+          last.message === msg &&
+          last.type === type &&
+          last.context === context
+        ) {
+          // 回数を記録するため、lastにcountプロパティを追加
+          const newPrev = [...prev];
+          // @ts-ignore
+          newPrev[newPrev.length - 1] = { ...last, count: (last.count ?? 1) + 1 };
+          outputMessagesRef.current = newPrev;
+          return newPrev;
+        }
+      }
+      // 新規メッセージ
       const next = [...prev, { message: msg, type, context }];
       outputMessagesRef.current = next;
       return next;
@@ -56,26 +73,60 @@ export default function BottomPanel({ height, currentProject, projectFiles, onRe
           className="h-8 flex items-center px-3 flex-shrink-0 select-none border-b"
           style={{
             background: colors.mutedBg,
-            borderBottom: `1px solid ${colors.border}`
+            borderBottom: `1px solid ${colors.border}`,
+            gap: '2px',
           }}
         >
           <button
-            className={`text-xs font-medium uppercase tracking-wide px-2 py-1 rounded transition-colors ${activeTab === 'output' ? 'bg-gray-200' : ''}`}
-            style={{ color: colors.mutedFg }}
+            className="tab-btn"
+            style={{
+              position: 'relative',
+              fontSize: '11px',
+              fontWeight: 500,
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em',
+              padding: '2px 12px 0 12px',
+              background: 'none',
+              border: 'none',
+              outline: 'none',
+              color: activeTab === 'output' ? colors.primary : colors.mutedFg,
+              cursor: 'pointer',
+              borderBottom: activeTab === 'output' ? `2px solid ${colors.primary}` : `2px solid transparent`,
+              transition: 'color 0.2s, border-bottom 0.2s',
+            }}
             onClick={() => setActiveTab('output')}
+            onMouseOver={e => (e.currentTarget.style.color = colors.primary)}
+            onMouseOut={e => (e.currentTarget.style.color = activeTab === 'output' ? colors.primary : colors.mutedFg)}
           >
             出力
           </button>
           <button
-            className={`text-xs font-medium uppercase tracking-wide px-2 py-1 rounded ml-2 transition-colors ${activeTab === 'terminal' ? 'bg-gray-200' : ''}`}
-            style={{ color: colors.mutedFg }}
+            className="tab-btn"
+            style={{
+              position: 'relative',
+              fontSize: '11px',
+              fontWeight: 500,
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em',
+              padding: '2px 12px 0 12px',
+              background: 'none',
+              border: 'none',
+              outline: 'none',
+              color: activeTab === 'terminal' ? colors.primary : colors.mutedFg,
+              cursor: 'pointer',
+              borderBottom: activeTab === 'terminal' ? `2px solid ${colors.primary}` : `2px solid transparent`,
+              transition: 'color 0.2s, border-bottom 0.2s',
+              marginLeft: '2px',
+            }}
             onClick={() => setActiveTab('terminal')}
+            onMouseOver={e => (e.currentTarget.style.color = colors.primary)}
+            onMouseOut={e => (e.currentTarget.style.color = activeTab === 'terminal' ? colors.primary : colors.mutedFg)}
           >
             ターミナル
           </button>
           {currentProject && (
             <span className="ml-2 text-xs"
-              style={{ color: colors.mutedFg }}
+              style={{ color: colors.mutedFg, fontSize: '10px', marginLeft: '8px' }}
             >
               - {currentProject}
             </span>

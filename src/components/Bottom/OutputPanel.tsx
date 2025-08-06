@@ -8,6 +8,7 @@ export interface OutputMessage {
   message: string;
   type?: OutputType;
   context?: string;
+  count?: number;
 }
 
 
@@ -120,6 +121,11 @@ export default function OutputPanel({ messages }: OutputPanelProps) {
                 </span>
               )}
               <span style={{ fontSize: '11px', color: colors.editorFg, wordBreak: 'break-all' }}>{msg.message}</span>
+              {msg.count && msg.count > 1 && (
+                <span style={{ fontSize: '10px', color: colors.mutedFg, marginLeft: '6px' }}>
+                  ×{msg.count}
+                </span>
+              )}
             </div>
           ))}
         </div>
