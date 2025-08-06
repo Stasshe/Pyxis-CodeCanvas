@@ -14,6 +14,9 @@ import { css } from '@codemirror/lang-css';
 import { python } from '@codemirror/lang-python';
 import { yaml } from '@codemirror/lang-yaml';
 import { oneDark } from '@codemirror/theme-one-dark';
+import { highlightActiveLine, highlightActiveLineGutter, highlightSpecialChars, drawSelection } from '@codemirror/view';
+import { highlightSelectionMatches } from '@codemirror/search';
+import { html } from '@codemirror/lang-html';
 
 interface CodeEditorProps {
   activeTab: Tab | undefined;
@@ -87,14 +90,24 @@ const getLanguage = (filename: string): string => {
 
 const getCMExtensions = (filename: string) => {
   const ext = filename.toLowerCase();
-  if (ext.endsWith('.js') || ext.endsWith('.jsx') || ext.endsWith('.mjs') || ext.endsWith('.ts') || ext.endsWith('.tsx')) return [javascript()];
-  if (ext.endsWith('.md') || ext.endsWith('.markdown')) return [markdown()];
-  if (ext.endsWith('.xml')) return [xml()];
-  if (ext.endsWith('.css')) return [css()];
-  if (ext.endsWith('.py')) return [python()];
-  if (ext.endsWith('.yaml') || ext.endsWith('.yml')) return [yaml()];
+  let lang: any[] = [];
+  if (ext.endsWith('.js') || ext.endsWith('.jsx') || ext.endsWith('.mjs') || ext.endsWith('.ts') || ext.endsWith('.tsx')) lang = [javascript()];
+  else if (ext.endsWith('.md') || ext.endsWith('.markdown')) lang = [markdown()];
+  else if (ext.endsWith('.xml')) lang = [xml()];
+  else if (ext.endsWith('.css')) lang = [css()];
+  else if (ext.endsWith('.py')) lang = [python()];
+  else if (ext.endsWith('.yaml') || ext.endsWith('.yml')) lang = [yaml()];
+  else if (ext.endsWith('.html') || ext.endsWith('.htm') || ext.endsWith('.xhtml')) lang = [html()];
   // shellは拡張なし
-  return [];
+  return [
+    oneDark,
+    highlightActiveLine(),
+    highlightActiveLineGutter(),
+    highlightSpecialChars(),
+    drawSelection(),
+    highlightSelectionMatches(),
+    ...lang
+  ];
 };
 
 export default function CodeEditor({
@@ -362,6 +375,8 @@ export default function CodeEditor({
     <div className="flex-1 min-h-0 relative" style={{ height: editorHeight }}>
       {isCodeMirror ? (
         <div
+          tabIndex={0}
+          aria-label="codemirror-editor"
           style={{
             height: '100%',
             width: '100%',
@@ -372,6 +387,7 @@ export default function CodeEditor({
             msUserSelect: 'text',
             MozUserSelect: 'text',
             touchAction: 'auto',
+            WebkitTapHighlightColor: 'transparent',
           }}
         >
           <CodeMirror
@@ -379,6 +395,7 @@ export default function CodeEditor({
             height="100%"
             theme={oneDark}
             extensions={getCMExtensions(activeTab.name)}
+            basicSetup={true}
             onChange={(value) => {
               if (onContentChangeImmediate) {
                 onContentChangeImmediate(activeTab.id, value);
@@ -387,23 +404,16 @@ export default function CodeEditor({
               setCharCount(value.length);
               setSelectionCount(null);
             }}
-            basicSetup={{
-              lineNumbers: true,
-              highlightActiveLine: true,
-              highlightActiveLineGutter: true,
-              foldGutter: true,
-              allowMultipleSelections: true,
-            }}
             style={{
               height: '100%',
               minHeight: '100%',
               width: '100%',
-              background: 'transparent',
               userSelect: 'text',
               WebkitUserSelect: 'text',
               msUserSelect: 'text',
               MozUserSelect: 'text',
               touchAction: 'auto',
+              WebkitTapHighlightColor: 'transparent',
             }}
           />
         </div>
