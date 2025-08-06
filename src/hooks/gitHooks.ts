@@ -66,7 +66,7 @@ export function useGitMonitor({
           });
           setTimeout(() => {
             setGitRefreshTrigger((prev: number) => prev + 1);
-          }, 200);
+          }, 50);
         });
         const statusResult = await gitCommands.status();
         const changesCount = parseGitStatus(statusResult);

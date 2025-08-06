@@ -13,8 +13,8 @@ const initializeProjectGit = async (project: Project, files: ProjectFile[], conv
     // ファイルシステムを確実に初期化
     initializeFileSystem();
     
-    // 少し待機してファイルシステムの初期化を完了
-    await new Promise(resolve => setTimeout(resolve, 200));
+    // 最小限の待機でファイルシステムの初期化を完了
+    await new Promise(resolve => setTimeout(resolve, 50));
     
     // デバッグ: ファイルシステムの状態を確認
     await debugFileSystem();
@@ -28,9 +28,9 @@ const initializeProjectGit = async (project: Project, files: ProjectFile[], conv
     
     await syncProjectFiles(project.name, flatFiles);
     
-    // ファイル同期後に十分な待機時間を設ける
+    // ファイル同期後の最小限の待機
     console.log('Waiting for filesystem sync to complete...');
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, 100));
     
     // Git初期化
     const git = new GitCommands(project.name);
@@ -38,16 +38,16 @@ const initializeProjectGit = async (project: Project, files: ProjectFile[], conv
       await git.init();
       console.log('Git init completed');
       
-      // Git初期化後も少し待機
-      await new Promise(resolve => setTimeout(resolve, 200));
+      // Git初期化後の最小限の待機
+      await new Promise(resolve => setTimeout(resolve, 50));
       
       // すべてのファイルをステージング
       try {
         const addResult = await git.add('.');
         console.log('Files staged:', addResult);
         
-        // ステージング後も少し待機
-        await new Promise(resolve => setTimeout(resolve, 200));
+        // ステージング後の最小限の待機
+        await new Promise(resolve => setTimeout(resolve, 50));
         
         // ステージ状態を確認
         const statusBeforeCommit = await git.status();
@@ -399,8 +399,8 @@ export const useProject = () => {
                   await (fs as any).sync();
                   console.log('[syncTerminalFileOperation] Additional Git cache flush completed');
                   
-                  // Gitが削除を認識するまで少し待機
-                  await new Promise(resolve => setTimeout(resolve, 300));
+                  // Gitが削除を認識するまでの最小限の待機
+                  await new Promise(resolve => setTimeout(resolve, 50));
                 }
               } catch (flushError) {
                 console.warn('[syncTerminalFileOperation] Additional Git cache flush failed:', flushError);

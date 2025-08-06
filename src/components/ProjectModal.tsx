@@ -180,8 +180,9 @@ export default function ProjectModal({
                   <button
                     onClick={handleCreateProject}
                     disabled={!newProjectName.trim() || loading}
-                    className="px-3 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
+                    className="px-3 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2"
                   >
+                    {loading && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
                     作成
                   </button>
                   <button
@@ -199,7 +200,7 @@ export default function ProjectModal({
             )}
           </div>
 
-          {loading ? (
+          {loading && !projects.length ? (
             <div className="text-center py-8 text-muted-foreground">
               <div className="loader" />
               読み込み中...

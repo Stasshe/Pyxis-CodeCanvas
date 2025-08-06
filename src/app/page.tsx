@@ -174,7 +174,7 @@ export default function Home() {
       gitRefreshTrigger,
     });
     checkGitStatus();
-    const interval = setInterval(checkGitStatus, 60000);
+    const interval = setInterval(checkGitStatus, 30000); // 30秒間隔でより頻繁にチェック
     return () => clearInterval(interval);
   }, [currentProject, gitRefreshTrigger]);
 
@@ -242,7 +242,7 @@ export default function Home() {
       // Git状態更新
       setTimeout(() => {
         setGitRefreshTrigger(prev => prev + 1);
-      }, 200);
+      }, 50);
     };
     window.addEventListener('pyxis-save-restart', handleSaveRestart);
     return () => {
@@ -488,7 +488,7 @@ export default function Home() {
                           // Git状態を更新
                           setTimeout(() => {
                             setGitRefreshTrigger(prev => prev + 1);
-                          }, 200);
+                          }, 50);
                         } catch (error) {
                           console.error(`[Pane ${idx}] Failed to save file:`, error);
                         }

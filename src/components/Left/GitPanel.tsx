@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo, useCallback } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { generateCommitMessage } from '@/utils/gemini';
 import { GitBranch, GitCommit, RefreshCw, Plus, Check, X, GitMerge, Clock, User, Minus, RotateCcw } from 'lucide-react';
 import { GitRepository, GitCommit as GitCommitType, GitStatus } from '@/types/git';
 import { GitCommands } from '@/utils/cmd/git';
 import GitHistory from './GitHistory';
+import { gitCache } from '@/utils/cache';
 
 interface GitPanelProps {
   currentProject?: string;
@@ -16,7 +17,7 @@ interface GitPanelProps {
   onGitStatusChange?: (changesCount: number) => void; // Git変更状態のコールバック
 }
 
-export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger, onFileOperation, onGitStatusChange }: GitPanelProps) {
+const GitPanel = memo(function GitPanel({ currentProject, onRefresh, gitRefreshTrigger, onFileOperation, onGitStatusChange }: GitPanelProps) {
   const { colors } = useTheme();
   const [gitRepo, setGitRepo] = useState<GitRepository | null>(null);
   const [commitMessage, setCommitMessage] = useState('');
@@ -30,8 +31,22 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
   const gitCommands = currentProject ? new GitCommands(currentProject, onFileOperation) : null;
 
   // Git状態を取得
-  const fetchGitStatus = async () => {
+  const fetchGitStatus = useCallback(async (forceRefresh = false) => {
     if (!gitCommands || !currentProject) return;
+
+    const cacheKey = `git-status-${currentProject}`;
+    
+    // キャッシュチェック（強制更新でない場合）
+    if (!forceRefresh && gitCache.has(cacheKey)) {
+      const cachedData = gitCache.get(cacheKey);
+      if (cachedData) {
+        setGitRepo(cachedData.gitRepo);
+        if (onGitStatusChange) {
+          onGitStatusChange(cachedData.changesCount);
+        }
+        return;
+      }
+    }
 
     try {
       setIsLoading(true);
@@ -50,8 +65,8 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
         }
       }
       
-      // ファイルシステムの変更が確実に反映されるまで待機
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // ファイルシステムの変更が反映されるまでの最小限の待機
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       // Git状態を並行して取得
       const [statusResult, logResult, branchResult] = await Promise.all([
@@ -79,20 +94,29 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
         branches: branches.length
       });
 
-      setGitRepo({
+      const gitRepoData = {
         initialized: true,
         branches,
         commits, // 直接パースしたコミットを使用（ブランチ情報含む）
         status,
         currentBranch: status.branch
-      });
+      };
+
+      setGitRepo(gitRepoData);
 
       // 変更ファイル数を計算してコールバックで通知
+      const changesCount = status.staged.length + status.unstaged.length + status.untracked.length;
       if (onGitStatusChange) {
-        const changesCount = status.staged.length + status.unstaged.length + status.untracked.length;
         console.log('[GitPanel] Notifying changes count:', changesCount);
         onGitStatusChange(changesCount);
       }
+
+      // キャッシュに保存（3秒間有効）
+      gitCache.set(cacheKey, {
+        gitRepo: gitRepoData,
+        changesCount
+      }, 3000);
+
     } catch (error) {
       console.error('Failed to fetch git status:', error);
       setError(error instanceof Error ? error.message : 'Git操作でエラーが発生しました');
@@ -104,7 +128,7 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [gitCommands, currentProject, onGitStatusChange]);
 
   // Git logをパースしてコミット配列に変換（ブランチ情報付き）
   const parseGitLog = (logOutput: string): GitCommitType[] => {
@@ -416,11 +440,13 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
   useEffect(() => {
     if (currentProject && gitRefreshTrigger !== undefined && gitRefreshTrigger > 0) {
       console.log('[GitPanel] Git refresh trigger fired:', gitRefreshTrigger);
-      // ファイル同期完了を待つために適度な遅延
+      // キャッシュをクリアして強制更新
+      gitCache.invalidateByPrefix(`git-status-${currentProject}`);
+      // 最小限の遅延で更新実行
       const timer = setTimeout(() => {
         console.log('[GitPanel] Executing delayed git status fetch');
-        fetchGitStatus();
-      }, 500);
+        fetchGitStatus(true); // 強制更新
+      }, 100);
       return () => clearTimeout(timer);
     }
   }, [gitRefreshTrigger]);
@@ -434,7 +460,8 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
     );
   }
 
-  if (isLoading) {
+  // 初期化時のみフルローディングを表示し、それ以降は控えめなローディング状態にする
+  if (isLoading && !gitRepo) {
     return (
       <div style={{ padding: '1rem', textAlign: 'center', color: colors.mutedFg }}>
         <RefreshCw style={{ width: '1.5rem', height: '1.5rem', display: 'block', margin: '0 auto 0.5rem', animation: 'spin 1s linear infinite', color: colors.mutedFg }} />
@@ -482,14 +509,22 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
             Git
           </h3>
           <button
-            onClick={fetchGitStatus}
+            onClick={() => fetchGitStatus(true)} // 強制更新
             style={{ padding: '0.25rem', background: 'transparent', borderRadius: '0.375rem', border: 'none', cursor: 'pointer' }}
             className='select-none'
             title="更新"
             onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
           >
-            <RefreshCw style={{ width: '1rem', height: '1rem', color: colors.mutedFg }} className="select-none" />
+            <RefreshCw 
+              style={{ 
+                width: '1rem', 
+                height: '1rem', 
+                color: colors.mutedFg,
+                ...(isLoading && gitRepo ? { animation: 'spin 1s linear infinite' } : {})
+              }} 
+              className="select-none" 
+            />
           </button>
         </div>
         <div style={{ fontSize: '0.75rem', color: colors.mutedFg }}>
@@ -700,4 +735,8 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
       </div>
     </div>
   );
-}
+});
+
+GitPanel.displayName = 'GitPanel';
+
+export default GitPanel;

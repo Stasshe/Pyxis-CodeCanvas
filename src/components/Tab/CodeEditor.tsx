@@ -1,11 +1,33 @@
-import { useRef, useEffect, useCallback, useState } from 'react';
+import { useRef, useEffect, useCallback, useState, Suspense } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import MarkdownPreviewTab from './MarkdownPreviewTab';
 import WelcomeTab from './WelcomeTab';
-import Editor, { Monaco } from '@monaco-editor/react';
+import dynamic from 'next/dynamic';
 import { FileText } from 'lucide-react';
 import { Tab } from '@/types';
-import * as monaco from 'monaco-editor';
+
+// Monaco Editor を動的インポート
+const Editor = dynamic(() => import('@monaco-editor/react'), {
+  ssr: false,
+  loading: ({ colors }: { colors?: any }) => <EditorSkeleton colors={colors} />
+});
+
+// ローディング画面を最小限に
+const EditorSkeleton = ({ colors }: { colors: any }) => (
+  <div 
+    style={{
+      width: '100%',
+      height: '100%',
+      background: colors?.editorBg || colors?.background || '#1e1e1e',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: colors?.mutedFg || '#888'
+    }}
+  >
+    <FileText size={24} />
+  </div>
+);
 
 interface CodeEditorProps {
   activeTab: Tab | undefined;
@@ -85,8 +107,8 @@ export default function CodeEditor({
   nodeRuntimeOperationInProgress = false
 }: CodeEditorProps) {
   const { colors } = useTheme();
-  const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
-  const monacoRef = useRef<Monaco | null>(null);
+  const editorRef = useRef<any | null>(null);
+  const monacoRef = useRef<any | null>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // 文字数カウント用 state
@@ -116,7 +138,7 @@ export default function CodeEditor({
       console.log('[CodeEditor] Debounced save triggered for:', currentTabId);
       // 保存処理を実行（page.tsxで最小ペインインデックスのチェックを行う）
       onContentChange(currentTabId, currentContent);
-    }, 1000); // 1秒後に保存
+    }, 500); // 0.5秒後に保存（レスポンシブ性向上）
   }, [onContentChange, nodeRuntimeOperationInProgress]);
 
   // クリーンアップ
@@ -128,7 +150,7 @@ export default function CodeEditor({
     };
   }, []);
 
-  const handleEditorDidMount = (editor: monaco.editor.IStandaloneCodeEditor, monaco: Monaco) => {
+  const handleEditorDidMount = (editor: any, monaco: any) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
     // 初期文字数カウント
@@ -257,31 +279,33 @@ export default function CodeEditor({
     });
 
     // リアルタイム構文チェック設定
-    monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
-      noSemanticValidation: false,
-      noSyntaxValidation: false,
-      noSuggestionDiagnostics: false
-    });
+    if (monaco.languages?.typescript) {
+      monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
+        noSemanticValidation: false,
+        noSyntaxValidation: false,
+        noSuggestionDiagnostics: false
+      });
 
-    monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
-      noSemanticValidation: false,
-      noSyntaxValidation: false,
-      noSuggestionDiagnostics: false
-    });
+      monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
+        noSemanticValidation: false,
+        noSyntaxValidation: false,
+        noSuggestionDiagnostics: false
+      });
 
-    // コンパイラオプション
-    monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
-      target: monaco.languages.typescript.ScriptTarget.ES2020,
-      allowNonTsExtensions: true,
-      moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
-      module: monaco.languages.typescript.ModuleKind.CommonJS,
-      noEmit: true,
-      esModuleInterop: true,
-      jsx: monaco.languages.typescript.JsxEmit.React,
-      reactNamespace: 'React',
-      allowJs: true,
-      typeRoots: ['node_modules/@types']
-    });
+      // コンパイラオプション
+      monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
+        target: monaco.languages.typescript.ScriptTarget.ES2020,
+        allowNonTsExtensions: true,
+        moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+        module: monaco.languages.typescript.ModuleKind.CommonJS,
+        noEmit: true,
+        esModuleInterop: true,
+        jsx: monaco.languages.typescript.JsxEmit.React,
+        reactNamespace: 'React',
+        allowJs: true,
+        typeRoots: ['node_modules/@types']
+      });
+    }
 
     // ブラケットペアの色分け
     editor.onDidChangeModelContent(() => {
@@ -355,14 +379,7 @@ export default function CodeEditor({
         }}
         onMount={handleEditorDidMount}
         theme="pyxis-custom"
-        loading={
-          <div className="h-full flex items-center justify-center text-muted-foreground">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-              <p className="text-sm">エディターを読み込み中...</p>
-            </div>
-          </div>
-        }
+        loading={<EditorSkeleton colors={colors} />}
       />
       {/* 文字数カウント表示バー */}
       <div

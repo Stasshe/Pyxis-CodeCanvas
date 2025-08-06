@@ -66,30 +66,29 @@ export function useProjectTabResetEffect({
 }) {
   useEffect(() => {
     if (currentProject) {
-      setTimeout(() => {
-        setTabs((prevTabs: Tab[] | undefined) => {
-          // 既存のタブがある場合は何もしない
-          if (prevTabs && prevTabs.length > 0) {
-            return prevTabs;
-          }
-          // paneが0以外ならWelcomeタブを生成しない
-          if (pane !== 0) {
-            return [];
-          }
-          // Welcomeタブを追加
-          const welcomeTab: Tab = {
-            id: 'welcome',
-            name: 'Welcome',
-            content: `# ${currentProject.name}\n\n${currentProject.description || ''}\n\nプロジェクトファイルはIndexedDBに保存されています。\n./${currentProject.name}/~$`,
-            isDirty: false,
-            path: '/',
-            fullPath: ''
-          };
-          return [welcomeTab];
-        });
-        // paneが0以外ならactiveTabIdも空に
-        setActiveTabId('welcome');
-      }, 50);
+      // 即座にタブリセットを実行（遅延削除）
+      setTabs((prevTabs: Tab[] | undefined) => {
+        // 既存のタブがある場合は何もしない
+        if (prevTabs && prevTabs.length > 0) {
+          return prevTabs;
+        }
+        // paneが0以外ならWelcomeタブを生成しない
+        if (pane !== 0) {
+          return [];
+        }
+        // Welcomeタブを追加
+        const welcomeTab: Tab = {
+          id: 'welcome',
+          name: 'Welcome',
+          content: `# ${currentProject.name}\n\n${currentProject.description || ''}\n\nプロジェクトファイルはIndexedDBに保存されています。\n./${currentProject.name}/~$`,
+          isDirty: false,
+          path: '/',
+          fullPath: ''
+        };
+        return [welcomeTab];
+      });
+      // paneが0以外ならactiveTabIdも空に
+      setActiveTabId('welcome');
     } else {
       setTabs([]);
       setActiveTabId('');
