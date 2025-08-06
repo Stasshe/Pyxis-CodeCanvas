@@ -6,16 +6,14 @@ import Editor, { Monaco } from '@monaco-editor/react';
 import { FileText } from 'lucide-react';
 import { Tab } from '@/types';
 import * as monaco from 'monaco-editor';
-import { Controlled as CodeMirror } from 'react-codemirror2';
-import 'codemirror/lib/codemirror.css';
-import 'codemirror/theme/material.css';
-import 'codemirror/mode/javascript/javascript';
-import 'codemirror/mode/markdown/markdown';
-import 'codemirror/mode/xml/xml';
-import 'codemirror/mode/css/css';
-import 'codemirror/mode/python/python';
-import 'codemirror/mode/yaml/yaml';
-import 'codemirror/mode/shell/shell';
+import CodeMirror from '@uiw/react-codemirror';
+import { javascript } from '@codemirror/lang-javascript';
+import { markdown } from '@codemirror/lang-markdown';
+import { xml } from '@codemirror/lang-xml';
+import { css } from '@codemirror/lang-css';
+import { python } from '@codemirror/lang-python';
+import { yaml } from '@codemirror/lang-yaml';
+import { oneDark } from '@codemirror/theme-one-dark';
 
 interface CodeEditorProps {
   activeTab: Tab | undefined;
@@ -85,6 +83,18 @@ const getLanguage = (filename: string): string => {
   if (ext.endsWith('.dart')) return 'dart';
   if (ext.endsWith('.tsv') || ext.endsWith('.csv')) return 'plaintext';
   return 'plaintext';
+};
+
+const getCMExtensions = (filename: string) => {
+  const ext = filename.toLowerCase();
+  if (ext.endsWith('.js') || ext.endsWith('.jsx') || ext.endsWith('.mjs') || ext.endsWith('.ts') || ext.endsWith('.tsx')) return [javascript()];
+  if (ext.endsWith('.md') || ext.endsWith('.markdown')) return [markdown()];
+  if (ext.endsWith('.xml')) return [xml()];
+  if (ext.endsWith('.css')) return [css()];
+  if (ext.endsWith('.py')) return [python()];
+  if (ext.endsWith('.yaml') || ext.endsWith('.yml')) return [yaml()];
+  // shellは拡張なし
+  return [];
 };
 
 export default function CodeEditor({
@@ -351,30 +361,52 @@ export default function CodeEditor({
   return (
     <div className="flex-1 min-h-0 relative" style={{ height: editorHeight }}>
       {isCodeMirror ? (
-        <CodeMirror
-          value={activeTab.content}
-          options={{
-            mode: getLanguage(activeTab.name),
-            theme: 'material',
-            lineNumbers: true,
-            tabSize: 2,
-            indentWithTabs: false,
-            autofocus: true,
-            styleActiveLine: true,
-            matchBrackets: true,
-            autoCloseBrackets: true,
-            readOnly: false,
-            lineWrapping: true,
+        <div
+          style={{
+            height: '100%',
+            width: '100%',
+            overflow: 'auto',
+            WebkitOverflowScrolling: 'touch',
+            userSelect: 'text',
+            WebkitUserSelect: 'text',
+            msUserSelect: 'text',
+            MozUserSelect: 'text',
+            touchAction: 'auto',
           }}
-          onBeforeChange={(_editor, _data, value) => {
-            if (onContentChangeImmediate) {
-              onContentChangeImmediate(activeTab.id, value);
-            }
-            debouncedSave(activeTab.id, value);
-            setCharCount(value.length);
-            setSelectionCount(null);
-          }}
-        />
+        >
+          <CodeMirror
+            value={activeTab.content}
+            height="100%"
+            theme={oneDark}
+            extensions={getCMExtensions(activeTab.name)}
+            onChange={(value) => {
+              if (onContentChangeImmediate) {
+                onContentChangeImmediate(activeTab.id, value);
+              }
+              debouncedSave(activeTab.id, value);
+              setCharCount(value.length);
+              setSelectionCount(null);
+            }}
+            basicSetup={{
+              lineNumbers: true,
+              highlightActiveLine: true,
+              highlightActiveLineGutter: true,
+              foldGutter: true,
+              allowMultipleSelections: true,
+            }}
+            style={{
+              height: '100%',
+              minHeight: '100%',
+              width: '100%',
+              background: 'transparent',
+              userSelect: 'text',
+              WebkitUserSelect: 'text',
+              msUserSelect: 'text',
+              MozUserSelect: 'text',
+              touchAction: 'auto',
+            }}
+          />
+        </div>
       ) : (
         <Editor
           height="100%"

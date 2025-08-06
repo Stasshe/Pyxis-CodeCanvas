@@ -18,7 +18,8 @@ export const createNewTab = (file: FileItem): Tab => {
     content: file.content || '',
     isDirty: false,
     path: file.path,
-    fullPath
+    fullPath,
+    isCodeMirror: file.isCodeMirror ?? false // 追加
   };
 };
 
@@ -36,7 +37,7 @@ export const openFile = (
     contentLength: file.content?.length || 0 
   });
   
-  const existingTab = tabs.find(tab => tab.path === file.path);
+  const existingTab = tabs.find(tab => tab.path === file.path && tab.isCodeMirror === !!file.isCodeMirror);
   if (existingTab) {
     console.log('[openFile] Found existing tab:', existingTab.id);
     setActiveTabId(existingTab.id);

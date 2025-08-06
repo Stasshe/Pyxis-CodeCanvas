@@ -16,6 +16,7 @@ export interface Tab {
   path: string;
   fullPath: string;
   preview?: boolean;
+  isCodeMirror?: boolean;
 }
 
 // VSCode風ウィンドウ分割用エディタペイン型

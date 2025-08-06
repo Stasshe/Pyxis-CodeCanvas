@@ -502,6 +502,7 @@ export default function Home() {
                   isBottomPanelVisible={isBottomPanelVisible}
                   bottomPanelHeight={bottomPanelHeight}
                   nodeRuntimeOperationInProgress={nodeRuntimeOperationInProgress}
+                  isCodeMirror={activeTab?.isCodeMirror}
                 />
               </div>
             );
