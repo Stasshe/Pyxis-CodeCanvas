@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { UnixCommands, GitCommands, NpmCommands, initializeFileSystem, syncProjectFiles } from '@/utils/filesystem';
 import { FileItem } from '@/types';
-
+import { addOutputPanelMessage } from '@/components/Bottom/BottomPanel';
 import { handleGitCommand } from './TerminalGitCommands';
 import { handleUnixCommand } from './TerminalUnixCommands';
 import { handleNPMCommand } from './TerminalNPMCommands';
@@ -50,6 +50,8 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
 
   useEffect(() => {
     if (!terminalRef.current) return;
+    if (!currentProject) return;
+    addOutputPanelMessage('Terminal initialing','info','Terminal');
 
     // ファイルシステムの初期化
     initializeFileSystem();
@@ -316,7 +318,6 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
       const parts = baseCommand.trim().split(/\s+/);
       const cmd = parts[0].toLowerCase();
       const args = parts.slice(1);
-      
       let output = '';
       try {
         switch (cmd) {
