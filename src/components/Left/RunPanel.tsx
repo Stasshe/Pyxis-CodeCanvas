@@ -3,6 +3,7 @@ import { Play, Square, FileText, Code, Settings, Trash2 } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import clsx from 'clsx';
 import { NodeJSRuntime } from '@/utils/nodeRuntime';
+import { PyodideRuntime } from '@/utils/pyodideRuntime';
 
 interface RunPanelProps {
   currentProject: string | null;
@@ -24,6 +25,8 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
   const [inputCode, setInputCode] = useState('');
   const [selectedFile, setSelectedFile] = useState<string>('');
   const [runtime, setRuntime] = useState<NodeJSRuntime | null>(null);
+  const [pythonRuntime, setPythonRuntime] = useState<PyodideRuntime | null>(null);
+  const [activeTab, setActiveTab] = useState<'node' | 'python'>('node');
   const outputRef = useRef<HTMLDivElement>(null);
 
   // ランタイムの初期化
@@ -32,12 +35,17 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
       const newRuntime = new NodeJSRuntime(
         currentProject,
         (output, type) => {
-          addOutput(output, type);
+          if (activeTab === 'node') addOutput(output, type);
         },
         onFileOperation
       );
       setRuntime(newRuntime);
+      const newPyRuntime = new PyodideRuntime((output, type) => {
+        if (activeTab === 'python') addOutput(output, type);
+      });
+      setPythonRuntime(newPyRuntime);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentProject, onFileOperation]);
 
   // 出力エリアの自動スクロール
@@ -47,13 +55,16 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
     }
   }, [output]);
 
-  // 実行可能なファイルを取得（.js, .ts, .mjs ファイル、node_modules除外）
-  const getExecutableFiles = () => {
-    const executableExtensions = ['.js', '.ts', '.mjs', '.cjs'];
+  // 実行可能なファイルを取得
+  const getExecutableFiles = (lang: 'node' | 'python') => {
+    const extMap = {
+      node: ['.js', '.ts', '.mjs', '.cjs'],
+      python: ['.py']
+    };
+    const executableExtensions = extMap[lang];
     const flattenFiles = (items: any[], parentPath = ''): any[] => {
       return items.reduce((acc, item) => {
         const fullPath = parentPath ? `${parentPath}/${item.name}` : item.name;
-        // node_modules配下は除外
         if (fullPath.startsWith('node_modules/')) return acc;
         if (item.type === 'file' && executableExtensions.some(ext => item.name.endsWith(ext))) {
           acc.push({
@@ -74,7 +85,7 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
   // ファイル名サーチ用
   const [fileSearch, setFileSearch] = useState('');
   const [fileSuggestOpen, setFileSuggestOpen] = useState(false);
-  const executableFiles = getExecutableFiles();
+  const executableFiles = getExecutableFiles(activeTab);
   const filteredFiles = fileSearch
     ? executableFiles.filter(f => f.path.toLowerCase().includes(fileSearch.toLowerCase()))
     : executableFiles;
@@ -103,16 +114,22 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
 
   // コードを実行
   const executeCode = async () => {
-    if (!runtime || !inputCode.trim()) return;
-
+    if (!inputCode.trim()) return;
     setIsRunning(true);
     addOutput(`> ${inputCode}`, 'input');
-
     try {
-      const result = await runtime.executeNodeJS(inputCode);
+      let result;
+      if (activeTab === 'node') {
+        if (!runtime) return;
+        result = await runtime.executeNodeJS(inputCode);
+      } else {
+        if (!pythonRuntime) return;
+        await pythonRuntime.load();
+        result = await pythonRuntime.executePython(inputCode);
+      }
       if (result.success && result.output) {
         addOutput(result.output, 'log');
-      } else if (result.error) {
+      } else if ('error' in result && result.error) {
         addOutput(result.error, 'error');
       }
     } catch (error) {
@@ -125,13 +142,34 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
 
   // ファイルを実行
   const executeFile = async () => {
-    if (!runtime || !selectedFile) return;
+    if (!selectedFile) return;
     setIsRunning(true);
-    addOutput(`> node ${selectedFile}`, 'input');
+    addOutput(
+      activeTab === 'node' ? `> node ${selectedFile}` : `> python ${selectedFile}`,
+      'input'
+    );
     localStorage.setItem(LS_KEY, selectedFile);
     try {
-      const result = await runtime.executeFile(selectedFile);
-      if (result.error) {
+      let result;
+      if (activeTab === 'node') {
+        if (!runtime) return;
+        result = await runtime.executeFile(selectedFile);
+      } else {
+        if (!pythonRuntime) return;
+        await pythonRuntime.load();
+        // ファイル内容取得（onFileOperation経由 or files配列から）
+        const fileObj = executableFiles.find(f => f.path === selectedFile);
+        let code = '';
+        if (fileObj && fileObj.content) {
+          code = fileObj.content;
+        } else if (onFileOperation) {
+          // ファイル内容取得APIがあればここで取得
+        }
+        result = await pythonRuntime.executePython(code || '# ファイル内容取得未実装');
+      }
+      if (result.success && result.output) {
+        addOutput(result.output, 'log');
+      } else if ('error' in result && result.error) {
         addOutput(result.error, 'error');
       }
     } catch (error) {
@@ -154,7 +192,7 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
 
   // サンプルコードを挿入
   const insertSampleCode = (type: string) => {
-    const samples = {
+    const nodeSamples = {
       'hello': 'console.log("Hello, World!");',
       'file-read': `const fs = require('fs');
 
@@ -188,7 +226,32 @@ console.log('Filename:', path.basename(filePath));
 console.log('Extension:', path.extname(filePath));
 console.log('Joined path:', path.join('/users', 'documents', 'file.txt'));`
     };
-    setInputCode(samples[type as keyof typeof samples] || '');
+    const pythonSamples = {
+      'hello': 'print("Hello, World!")',
+      'file-read': `try:
+    with open('trivia.json', 'r') as f:
+        content = f.read()
+        print('File content:', content)
+except Exception as e:
+    print('Error reading file:', e)`,
+      'file-write': `try:
+    with open('test.txt', 'w') as f:
+        f.write('Hello from Python!')
+    print('File written successfully')
+except Exception as e:
+    print('Error writing file:', e)`,
+      'path-example': `import os
+file_path = '/users/documents/file.txt'
+print('Directory:', os.path.dirname(file_path))
+print('Filename:', os.path.basename(file_path))
+print('Extension:', os.path.splitext(file_path)[1])
+print('Joined path:', os.path.join('/users', 'documents', 'file.txt'))`
+    };
+    setInputCode(
+      activeTab === 'node'
+        ? nodeSamples[type as keyof typeof nodeSamples] || ''
+        : pythonSamples[type as keyof typeof pythonSamples] || ''
+    );
   };
 
   if (!currentProject) {
@@ -204,13 +267,25 @@ console.log('Joined path:', path.join('/users', 'documents', 'file.txt'));`
 
   return (
     <div className="h-full flex flex-col" style={{ background: colors.background }}>
-      {/* ヘッダー */}
-  <div className="border-b p-3" style={{ borderBottom: `1px solid ${colors.border}` }}>
+      {/* ヘッダー・タブ */}
+      <div className="border-b p-3" style={{ borderBottom: `1px solid ${colors.border}` }}>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold flex items-center gap-2" style={{ color: colors.foreground }}>
+          <div className="flex items-center gap-2">
             <Code size={16} style={{ color: colors.primary }} />
-            Node.js 実行環境(開発中)
-          </h3>
+            <span className="font-semibold" style={{ color: colors.foreground }}>実行環境(開発中)</span>
+            <div className="ml-4 flex gap-1">
+              <button
+                className={clsx('px-2 py-1 rounded text-xs', activeTab === 'node' ? 'font-bold' : '')}
+                style={{ background: activeTab === 'node' ? colors.primary : colors.mutedBg, color: activeTab === 'node' ? colors.background : colors.mutedFg }}
+                onClick={() => { setActiveTab('node'); setOutput([]); setInputCode(''); setFileSearch(''); }}
+              >Node.js</button>
+              <button
+                className={clsx('px-2 py-1 rounded text-xs', activeTab === 'python' ? 'font-bold' : '')}
+                style={{ background: activeTab === 'python' ? colors.primary : colors.mutedBg, color: activeTab === 'python' ? colors.background : colors.mutedFg }}
+                onClick={() => { setActiveTab('python'); setOutput([]); setInputCode(''); setFileSearch(''); }}
+              >Python</button>
+            </div>
+          </div>
           <div className="flex gap-2">
             <button
               onClick={clearOutput}
@@ -236,7 +311,7 @@ console.log('Joined path:', path.join('/users', 'documents', 'file.txt'));`
                 }}
                 onFocus={() => setFileSuggestOpen(true)}
                 onBlur={() => setTimeout(() => setFileSuggestOpen(false), 150)}
-                placeholder="実行するファイル名を検索..."
+                placeholder={activeTab === 'node' ? '実行するNode.jsファイル名を検索...' : '実行するPythonファイル名を検索...'}
                 className="w-full px-2 py-1 border rounded text-sm"
                 style={{ background: colors.background, color: colors.foreground, border: `1px solid ${colors.border}` }}
                 autoComplete="off"

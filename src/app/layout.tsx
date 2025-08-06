@@ -94,6 +94,8 @@ export default function RootLayout({
         <meta name="msapplication-tap-highlight" content="no" />
         <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
         <script dangerouslySetInnerHTML={{ __html: "eruda.init();" }} />
+        {/* Pyodide (Python in browser) */}
+        <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased h-full`}
