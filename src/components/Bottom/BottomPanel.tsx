@@ -16,7 +16,7 @@ interface BottomPanelProps {
 
 export const outputMessagesRef: { current: OutputMessage[]; set?: React.Dispatch<React.SetStateAction<OutputMessage[]>> } = { current: [], set: undefined };
 
-export function addOutputPanelMessage(msg: string, type?: 'info' | 'error' | 'warn', context?: string) {
+export function pushMsgOutPanel(msg: string, type?: 'info' | 'error' | 'warn' | 'check', context?: string) {
   if (outputMessagesRef.set) {
     outputMessagesRef.set(prev => {
       // 直前のメッセージと同じ内容・type・contextなら回数を増やす

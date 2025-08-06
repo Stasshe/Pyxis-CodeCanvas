@@ -1,4 +1,5 @@
 // CDN関連の処理を切り出したモジュール
+import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
 
 export async function loadFromCDN(moduleName: string, fs: any): Promise<string> {
   const cdnUrls = [
@@ -15,6 +16,11 @@ export async function loadFromCDN(moduleName: string, fs: any): Promise<string> 
       if (response.ok) {
         const content = await response.text();
         console.log(`[CDNLoader] Successfully loaded ${moduleName} from ${url}`);
+
+        // BottomPanelへのcheck出力
+        if (pushMsgOutPanel) {
+          pushMsgOutPanel(`✅ CDNから「${moduleName}」をロードしました: ${url}`, 'check', 'CDNLoader');
+        }
 
         // 仮想ファイルシステムにキャッシュ保存（次回は高速化）
         try {

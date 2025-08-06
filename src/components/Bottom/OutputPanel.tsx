@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 
-export type OutputType = 'info' | 'error' | 'warn';
+export type OutputType = 'info' | 'error' | 'warn' | 'check';
 
 
 export interface OutputMessage {
@@ -22,6 +22,7 @@ const getTypeColor = (colors: any): Record<OutputType, string> => ({
   info: colors.primary,
   error: colors.red,
   warn: colors.accentFg,
+  check: colors.green
 });
 
 export default function OutputPanel({ messages }: OutputPanelProps) {
