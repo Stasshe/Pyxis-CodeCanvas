@@ -132,14 +132,15 @@
 │       ├── resize.ts
 │       └── tabs.ts
 ├── tailwind.config.ts
+├── test_arrify_transform_fixed.js
 ├── tree.sh
 ├── tree.txt
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-23 directories, 115 files
+23 directories, 116 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 15379
-合計文字数: 558278
-合計ファイルサイズ(bytes): 603653
+合計行数: 15458
+合計文字数: 560824
+合計ファイルサイズ(bytes): 606453

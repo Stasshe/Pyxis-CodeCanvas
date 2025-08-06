@@ -13,7 +13,7 @@ import {
   wrapCodeForExecution,
   wrapModuleCode
 } from './node/esModuleTransformer';
-//import { loadFromCDN, evaluateModuleCode } from './node/cdnLoader';
+import { loadFromCDN, evaluateModuleCode } from './node/cdnLoader';
 import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
 
 // Node.js風のランタイム環境
@@ -211,7 +211,7 @@ export class NodeJSRuntime {
   // Node.js風のグローバル環境を作成
   private createNodeGlobals(): any {
     const self = this;
-    
+
     return {
       console: this.console,
       process: {
@@ -221,33 +221,43 @@ export class NodeJSRuntime {
         platform: 'browser',
         argv: ['node', 'script.js']
       },
-        require: (moduleName: string) => {
-          // コンテキストディレクトリ付きのモジュールキーを生成
-          const moduleKey = this.getModuleKey(moduleName, this.currentWorkingDirectory);
-          
-          // キャッシュから取得（preloadModulesで事前ロード済みのみ）
+      require: (moduleName: string) => {
+        const moduleKey = this.getModuleKey(moduleName, this.currentWorkingDirectory);
+        if (this.moduleCache.has(moduleKey)) {
+          console.log(`[require] Loading from cache: ${moduleKey}`);
+          return this.moduleCache.get(moduleKey);
+        }
+        if (this.isBuiltinModule(moduleName)) {
+          const module = this.createBuiltinModule(moduleName);
+          this.moduleCache.set(moduleKey, module);
+          return module;
+        }
+        console.error(`[require] Module '${moduleName}' (key: ${moduleKey}) not found in cache. Available modules:`, Array.from(this.moduleCache.keys()));
+        throw new Error(`Module '${moduleName}' not found in cache. Make sure all dependencies are preloaded. Context: ${this.currentWorkingDirectory}`);
+      },
+      exports: new Proxy({}, {
+        get: (target, prop) => {
+          const moduleKey = this.getModuleKey(String(prop), this.currentWorkingDirectory);
           if (this.moduleCache.has(moduleKey)) {
-            console.log(`[require] Loading from cache: ${moduleKey}`);
+            console.log(`[exports] Loading from cache: ${moduleKey}`);
             return this.moduleCache.get(moduleKey);
           }
-          
-          // 組み込みモジュールの場合は同期的に作成
-          if (this.isBuiltinModule(moduleName)) {
-            const module = this.createBuiltinModule(moduleName);
-            this.moduleCache.set(moduleKey, module);
-            return module;
-          }
-          
-          // ファイルモジュールがキャッシュにない場合はエラー
-          console.error(`[require] Module '${moduleName}' (key: ${moduleKey}) not found in cache. Available modules:`, Array.from(this.moduleCache.keys()));
-          throw new Error(`Module '${moduleName}' not found in cache. Make sure all dependencies are preloaded. Context: ${this.currentWorkingDirectory}`);
-        },
+          console.error(`[exports] Module '${String(prop)}' (key: ${moduleKey}) not found in cache. Available modules:`, Array.from(this.moduleCache.keys()));
+          throw new Error(`Module '${String(prop)}' not found in cache. Make sure all dependencies are preloaded. Context: ${this.currentWorkingDirectory}`);
+        }
+      }),
       __filename: this.projectDir + '/script.js',
       __dirname: this.projectDir,
       module: {
-        exports: {}
+        get exports() {
+          return this._exports;
+        },
+        set exports(value) {
+          this._exports = value;
+          this.exports = value; // 修正: module 内で exports を同期
+        },
+        _exports: {},
       },
-      exports: {},
       Buffer: globalThis.Buffer || {
         from: (data: any) => new Uint8Array(typeof data === 'string' ? new TextEncoder().encode(data) : data),
         isBuffer: (obj: any) => obj instanceof Uint8Array
@@ -516,10 +526,10 @@ export class NodeJSRuntime {
   private async executeModuleCode(code: string, filePath: string): Promise<any> {
     const moduleExports = {};
     const moduleObject = { exports: moduleExports };
-    
+
     // モジュールのディレクトリコンテキストを設定
     const moduleDir = filePath.substring(0, filePath.lastIndexOf('/')) || '/';
-    
+
     // モジュール用のグローバル環境を作成
     const moduleGlobals = {
       ...this.createNodeGlobals(),
@@ -530,22 +540,22 @@ export class NodeJSRuntime {
       require: (reqModule: string) => {
         // モジュールのディレクトリコンテキストでモジュールキーを生成
         const moduleKey = this.getModuleKey(reqModule, moduleDir);
-        
+
         console.log(`[executeModuleCode:require] Requiring: ${reqModule} from ${moduleDir}, key: ${moduleKey}`);
-        
+
         // キャッシュから取得（事前ロード済み）
         if (this.moduleCache.has(moduleKey)) {
           console.log(`[executeModuleCode:require] Found in cache: ${moduleKey}`);
           return this.moduleCache.get(moduleKey);
         }
-        
+
         // 組み込みモジュールの場合
         if (this.isBuiltinModule(reqModule)) {
           const module = this.createBuiltinModule(reqModule);
           this.moduleCache.set(moduleKey, module);
           return module;
         }
-        
+
         // キャッシュにない場合はエラー
         console.error(`[executeModuleCode:require] Module '${reqModule}' (key: ${moduleKey}) not found in cache. Available modules:`, Array.from(this.moduleCache.keys()));
         throw new Error(`Module '${reqModule}' not found in cache. Context: ${moduleDir}. Make sure all dependencies are preloaded.`);
@@ -554,21 +564,24 @@ export class NodeJSRuntime {
 
     try {
       // ES6 import/export を CommonJS require/module.exports に変換
-      const transformedCode = transformESModules(code);
-      
+      const transformedCode = code.replace(
+        /export\s+default\s+(.+);?$/gm,
+        'module.exports = $1;'
+      );
+
       // モジュールコードをラップして実行
       const wrappedCode = wrapModuleCode(transformedCode, moduleGlobals);
-      
+
       console.log(`[executeModuleCode] Executing module code for: ${filePath}`);
       console.log(`[executeModuleCode] Transformed code:`, transformedCode.substring(0, 200) + '...');
       await this.executeInSandbox(wrappedCode, moduleGlobals);
-      
-      console.log(`[executeModuleCode] Module execution completed. module.exports:`, moduleObject.exports);
+
+      console.log(`[executeModuleCode] Module execution completed.`);
       console.log(`[executeModuleCode] Module exports keys:`, Object.keys(moduleObject.exports));
-      
+
       // module.exportsを返す（CommonJSの標準的な動作）
       return moduleObject.exports;
-        
+
     } catch (error) {
       console.error(`[executeModuleCode] Error executing module ${filePath}:`, error);
       throw new Error(`Failed to execute module '${filePath}': ${(error as Error).message}`);
