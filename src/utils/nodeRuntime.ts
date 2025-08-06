@@ -69,8 +69,8 @@ export class NodeJSRuntime {
   // Node.js風のコードを実行
   async executeNodeJS(code: string): Promise<{ success: boolean; output?: string; error?: string }> {
     try {
-      // まず必要なモジュールを事前ロード
-      await this.preloadModules(code);
+      // まず必要なモジュールを事前ロード（現在の作業ディレクトリから開始）
+      await this.preloadModules(code, this.currentWorkingDirectory);
       
       // Node.js風のグローバル環境を構築
       const nodeGlobals = this.createNodeGlobals();
@@ -89,11 +89,12 @@ export class NodeJSRuntime {
     }
   }
 
-  // コード内のrequire/importを解析して事前ロード
-  private async preloadModules(code: string): Promise<void> {
+  // コード内のrequire/importを解析して事前ロード（再帰的に依存関係を解決）
+  private async preloadModules(code: string, currentDir: string = '/'): Promise<void> {
     const moduleNames = new Set<string>();
     
-    console.log('[preloadModules] Analyzing code for modules:', code);
+    console.log('[preloadModules] Analyzing code for modules:', code.substring(0, 100) + '...');
+    console.log(`[preloadModules] Current directory context: ${currentDir}`);
     
     // require()文の検出
     const requireMatches = code.match(/require\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/g);
@@ -123,11 +124,11 @@ export class NodeJSRuntime {
     
     console.log(`[preloadModules] Total modules to preload: ${Array.from(moduleNames)}`);
     
-    // 検出されたモジュールを事前ロード
+    // 検出されたモジュールを事前ロード（再帰的に依存関係もロード）
     for (const moduleName of moduleNames) {
       try {
         console.log(`[preloadModules] Preloading module: ${moduleName}`);
-        await this.resolveModule(moduleName);
+        await this.preloadModuleRecursively(moduleName, currentDir);
         console.log(`[preloadModules] Successfully preloaded: ${moduleName}`);
       } catch (error) {
         console.warn(`[preloadModules] Failed to preload ${moduleName}:`, (error as Error).message);
@@ -136,6 +137,78 @@ export class NodeJSRuntime {
     }
     
     console.log(`[preloadModules] Preloading complete. Cache contents:`, Array.from(this.moduleCache.keys()));
+  }
+
+  // モジュールとその依存関係を再帰的に事前ロード
+  private async preloadModuleRecursively(moduleName: string, contextDir: string = '/'): Promise<void> {
+    // モジュールの解決キーを生成（コンテキストディレクトリを考慮）
+    const moduleKey = this.getModuleKey(moduleName, contextDir);
+    
+    // すでにキャッシュにある場合はスキップ
+    if (this.moduleCache.has(moduleKey)) {
+      console.log(`[preloadModuleRecursively] Already cached: ${moduleKey}`);
+      return;
+    }
+    
+    console.log(`[preloadModuleRecursively] Loading module: ${moduleName} from context: ${contextDir}`);
+    
+    // 現在の作業ディレクトリを一時的に設定
+    const oldCwd = this.currentWorkingDirectory;
+    this.currentWorkingDirectory = contextDir;
+    
+    try {
+      // 組み込みモジュールの場合
+      if (this.isBuiltinModule(moduleName)) {
+        const module = this.createBuiltinModule(moduleName);
+        this.moduleCache.set(moduleKey, module);
+        return;
+      }
+      
+      // ファイルモジュールをロード
+      const moduleObj = await this.loadFileModuleForPreload(moduleName);
+      this.moduleCache.set(moduleKey, moduleObj);
+      
+      console.log(`[preloadModuleRecursively] Successfully loaded: ${moduleKey}`);
+      
+    } finally {
+      // 作業ディレクトリを復元
+      this.currentWorkingDirectory = oldCwd;
+    }
+  }
+  
+  // モジュールキーを生成（コンテキスト付き）
+  private getModuleKey(moduleName: string, contextDir: string): string {
+    // 絶対パスや相対パスの場合は、コンテキストディレクトリと結合
+    if (moduleName.startsWith('./') || moduleName.startsWith('../') || moduleName.startsWith('/')) {
+      let resolvedPath: string;
+      if (moduleName.startsWith('/')) {
+        resolvedPath = moduleName;
+      } else {
+        resolvedPath = this.resolvePath(contextDir, moduleName);
+      }
+      return resolvedPath;
+    }
+    // npm パッケージの場合はモジュール名をそのまま使用
+    return moduleName;
+  }
+  
+  // パスを解決するヘルパー
+  private resolvePath(basePath: string, relativePath: string): string {
+    // 相対パスを絶対パスに解決
+    const parts = basePath.split('/').filter(p => p.length > 0);
+    const relativeParts = relativePath.split('/');
+    
+    for (const part of relativeParts) {
+      if (part === '.') {
+        continue;
+      } else if (part === '..') {
+        parts.pop();
+      } else {
+        parts.push(part);
+      }
+    }
+    
+    return '/' + parts.join('/');
   }
 
   // Node.js風のグローバル環境を作成
@@ -151,22 +224,27 @@ export class NodeJSRuntime {
         platform: 'browser',
         argv: ['node', 'script.js']
       },
-      require: (moduleName: string) => {
-        // キャッシュから取得（事前ロード済み）
-        if (this.moduleCache.has(moduleName)) {
-          return this.moduleCache.get(moduleName);
-        }
-        
-        // 組み込みモジュールの場合は同期的に作成
-        if (this.isBuiltinModule(moduleName)) {
-          const module = this.createBuiltinModule(moduleName);
-          this.moduleCache.set(moduleName, module);
-          return module;
-        }
-        
-        // ファイルモジュールが事前ロードされていない場合
-        throw new Error(`Module '${moduleName}' not found. Make sure the module file exists and is accessible.`);
-      },
+        require: (moduleName: string) => {
+          // コンテキストディレクトリ付きのモジュールキーを生成
+          const moduleKey = this.getModuleKey(moduleName, this.currentWorkingDirectory);
+          
+          // キャッシュから取得（preloadModulesで事前ロード済みのみ）
+          if (this.moduleCache.has(moduleKey)) {
+            console.log(`[require] Loading from cache: ${moduleKey}`);
+            return this.moduleCache.get(moduleKey);
+          }
+          
+          // 組み込みモジュールの場合は同期的に作成
+          if (this.isBuiltinModule(moduleName)) {
+            const module = this.createBuiltinModule(moduleName);
+            this.moduleCache.set(moduleKey, module);
+            return module;
+          }
+          
+          // ファイルモジュールがキャッシュにない場合はエラー
+          console.error(`[require] Module '${moduleName}' (key: ${moduleKey}) not found in cache. Available modules:`, Array.from(this.moduleCache.keys()));
+          throw new Error(`Module '${moduleName}' not found in cache. Make sure all dependencies are preloaded. Context: ${this.currentWorkingDirectory}`);
+        },
       __filename: this.projectDir + '/script.js',
       __dirname: this.projectDir,
       module: {
@@ -308,6 +386,109 @@ export class NodeJSRuntime {
       default:
         throw new Error(`Built-in module '${moduleName}' not implemented`);
     }
+  }
+
+  // 事前ロード用のファイルモジュールローダー（依存関係も再帰的にロード）
+  private async loadFileModuleForPreload(moduleName: string): Promise<any> {
+    const possiblePaths = this.resolveModulePath(moduleName);
+    
+    console.log(`[loadFileModuleForPreload] Loading module: ${moduleName}`);
+    console.log(`[loadFileModuleForPreload] Project directory: ${this.projectDir}`);
+    console.log(`[loadFileModuleForPreload] Current working directory: ${this.currentWorkingDirectory}`);
+    
+    for (const filePath of possiblePaths) {
+      try {
+        console.log(`[loadFileModuleForPreload] Trying to load: ${filePath}`);
+        
+        let fullPath;
+        if (filePath.startsWith('/')) {
+          fullPath = `${this.projectDir}${filePath}`;
+        } else {
+          fullPath = `${this.projectDir}/${filePath}`;
+        }
+
+        console.log(`[loadFileModuleForPreload] Full path: ${fullPath}`);
+
+        // ファイルの存在確認
+        await this.fs.promises.stat(fullPath);
+        console.log(`[loadFileModuleForPreload] File exists: ${fullPath}`);
+        
+        // ファイル内容を読み取り
+        const content = await this.fs.promises.readFile(fullPath, { encoding: 'utf8' });
+        console.log(`[loadFileModuleForPreload] File content read successfully, length: ${(content as string).length}`);
+        
+        // package.jsonの場合はmain/exportsを解釈して本体jsファイルをrequire
+        if (filePath.endsWith('package.json')) {
+          try {
+            const packageData = JSON.parse(content as string);
+            console.log(`[loadFileModuleForPreload] Loaded package.json: ${moduleName}`);
+            // main/exportsフィールドを参照
+            let entryFile = '';
+            if (packageData.exports && typeof packageData.exports === 'object') {
+              // exportsフィールドがオブジェクトの場合
+              if (packageData.exports["."] && packageData.exports["."].import) {
+                entryFile = packageData.exports["."].import;
+              } else if (packageData.exports["."] && typeof packageData.exports["."] === 'string') {
+                entryFile = packageData.exports["."];
+              } else if (typeof packageData.exports === 'string') {
+                entryFile = packageData.exports;
+              }
+            }
+            if (!entryFile && packageData.main) {
+              entryFile = packageData.main;
+            }
+            if (!entryFile) {
+              entryFile = 'index.js';
+            }
+            // パスの正規化
+            if (!entryFile.startsWith('.')) {
+              entryFile = './' + entryFile;
+            }
+            // chalkなどはsource/index.jsのようなパス
+            const packageDir = filePath.replace(/\/package\.json$/, '');
+            const entryPath = packageDir + '/' + entryFile.replace(/^\.\//, '');
+            console.log(`[loadFileModuleForPreload] Resolving entry file: ${entryPath}`);
+            // entryPathをrequire
+            try {
+              return await this.loadFileModuleForPreload(entryPath);
+            } catch (error) {
+              throw new Error(`Failed to load entry file '${entryPath}': ${(error as Error).message}`);
+            }
+          } catch (error) {
+            throw new Error(`Invalid JSON in package.json: ${(error as Error).message}`);
+          }
+        }
+        
+        // .jsonファイルの場合もJSONとして解析
+        if (filePath.endsWith('.json')) {
+          try {
+            const jsonData = JSON.parse(content as string);
+            console.log(`[loadFileModuleForPreload] Loaded JSON file: ${moduleName}`);
+            return jsonData;
+          } catch (error) {
+            throw new Error(`Invalid JSON in ${filePath}: ${(error as Error).message}`);
+          }
+        }
+        
+        // モジュール内の依存関係も事前に再帰的にロード
+        const moduleDir = filePath.substring(0, filePath.lastIndexOf('/')) || '/';
+        console.log(`[loadFileModuleForPreload] Analyzing dependencies in module: ${filePath}, moduleDir: ${moduleDir}`);
+        await this.preloadModules(content as string, moduleDir);
+        
+        // モジュールを実行して exports を取得
+        const moduleExports = await this.executeModuleCode(content as string, filePath);
+        
+        console.log(`[loadFileModuleForPreload] Successfully loaded module: ${moduleName} from ${filePath}`);
+        return moduleExports;
+        
+      } catch (error) {
+        console.log(`[loadFileModuleForPreload] Failed to load ${filePath}: ${(error as Error).message}`);
+        continue;
+      }
+    }
+    
+    // すべての候補パスを試行しても見つからない場合
+    throw new Error(`Module file not found for '${moduleName}'. Tried paths: ${possiblePaths.join(', ')}`);
   }
 
   // ファイルモジュールをロード
@@ -500,22 +681,38 @@ export class NodeJSRuntime {
     const moduleExports = {};
     const moduleObject = { exports: moduleExports };
     
+    // モジュールのディレクトリコンテキストを設定
+    const moduleDir = filePath.substring(0, filePath.lastIndexOf('/')) || '/';
+    
     // モジュール用のグローバル環境を作成
     const moduleGlobals = {
       ...this.createNodeGlobals(),
       module: moduleObject,
       exports: moduleExports,
       __filename: filePath,
-      __dirname: filePath.substring(0, filePath.lastIndexOf('/')) || '/',
-      require: async (reqModule: string) => {
-        // 相対パスの解決を現在のモジュールのディレクトリから行う
-        const oldCwd = this.currentWorkingDirectory;
-        this.currentWorkingDirectory = filePath.substring(0, filePath.lastIndexOf('/')) || '/';
-        try {
-          return await this.resolveModule(reqModule);
-        } finally {
-          this.currentWorkingDirectory = oldCwd;
+      __dirname: moduleDir,
+      require: (reqModule: string) => {
+        // モジュールのディレクトリコンテキストでモジュールキーを生成
+        const moduleKey = this.getModuleKey(reqModule, moduleDir);
+        
+        console.log(`[executeModuleCode:require] Requiring: ${reqModule} from ${moduleDir}, key: ${moduleKey}`);
+        
+        // キャッシュから取得（事前ロード済み）
+        if (this.moduleCache.has(moduleKey)) {
+          console.log(`[executeModuleCode:require] Found in cache: ${moduleKey}`);
+          return this.moduleCache.get(moduleKey);
         }
+        
+        // 組み込みモジュールの場合
+        if (this.isBuiltinModule(reqModule)) {
+          const module = this.createBuiltinModule(reqModule);
+          this.moduleCache.set(moduleKey, module);
+          return module;
+        }
+        
+        // キャッシュにない場合はエラー
+        console.error(`[executeModuleCode:require] Module '${reqModule}' (key: ${moduleKey}) not found in cache. Available modules:`, Array.from(this.moduleCache.keys()));
+        throw new Error(`Module '${reqModule}' not found in cache. Context: ${moduleDir}. Make sure all dependencies are preloaded.`);
       }
     };
 
