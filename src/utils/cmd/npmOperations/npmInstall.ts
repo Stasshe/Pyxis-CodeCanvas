@@ -82,10 +82,8 @@ export class NpmInstall {
       await Promise.all(
         batch.map(op => this.onFileOperation!(op.path, op.type, op.content, op.isNodeRuntime))
       );
-    }
 
-    // 最後に一度だけプロジェクトリフレッシュ
-    if (this.fileOperationQueue.length > 0) {
+      // バッチごとにプロジェクトリフレッシュ
       await this.onFileOperation('.', 'file', '', false);
     }
 

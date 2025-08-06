@@ -51,7 +51,7 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
       }
       
       // ファイルシステムの変更が確実に反映されるまで待機
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 200));
       
       // Git状態を並行して取得
       const [statusResult, logResult, branchResult] = await Promise.all([
@@ -288,7 +288,7 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
       setTimeout(() => {
         console.log('[GitPanel] Refreshing status after staging');
         fetchGitStatus();
-      }, 500);
+      }, 200);
     } catch (error) {
       console.error('Failed to stage file:', error);
     }
@@ -318,7 +318,7 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
       setTimeout(() => {
         console.log('[GitPanel] Refreshing status after staging all');
         fetchGitStatus();
-      }, 600);
+      }, 300);
     } catch (error) {
       console.error('Failed to stage all files:', error);
     }
@@ -420,7 +420,7 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
       const timer = setTimeout(() => {
         console.log('[GitPanel] Executing delayed git status fetch');
         fetchGitStatus();
-      }, 500);
+      }, 200);
       return () => clearTimeout(timer);
     }
   }, [gitRefreshTrigger]);
