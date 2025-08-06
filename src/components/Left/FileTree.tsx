@@ -86,7 +86,13 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
     if (item.type === 'folder') {
       toggleFolder(item.id);
     } else {
-      onFileOpen(item);
+      // デフォルトエディタ設定をlocalStorageから取得
+      const defaultEditor = typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
+      if (defaultEditor === 'codemirror') {
+        onFileOpen({ ...item, isCodeMirror: true });
+      } else {
+        onFileOpen({ ...item, isCodeMirror: false });
+      }
     }
   };
 

@@ -24,6 +24,13 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
   const [showColorSettings, setShowColorSettings] = useState(false);
   const handleToggleColorSettings = () => setShowColorSettings(v => !v);
 
+  // デフォルトエディタ設定
+  const [defaultEditor, setDefaultEditor] = useState(() => localStorage.getItem('pyxis-defaultEditor') || 'monaco');
+  const handleDefaultEditorChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setDefaultEditor(e.target.value);
+    localStorage.setItem('pyxis-defaultEditor', e.target.value);
+  };
+
   const handleExport = async () => {
     setIsExporting(true);
     try {
@@ -128,6 +135,21 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
           style={{ background: colors.cardBg, color: colors.foreground, border: `1px solid ${colors.border}` }}
         />
         <span className="text-xs" style={{ color: colors.mutedFg }}>（保存は即時反映）</span>
+      </div>
+      <hr className="my-2" style={{ borderColor: colors.mutedBg }} />
+      <h2 className="text-base font-semibold">デフォルトコード編集ツール</h2>
+      <div className="flex items-center gap-2 mb-2">
+        <select
+          id="defaultEditor"
+          value={defaultEditor}
+          onChange={handleDefaultEditorChange}
+          className="border rounded px-2 py-1 text-sm"
+          style={{ background: colors.cardBg, color: colors.foreground, border: `1px solid ${colors.border}` }}
+        >
+          <option value="monaco">Monaco Editor</option>
+          <option value="codemirror">CodeMirror</option>
+        </select>
+        <span className="text-xs" style={{ color: colors.mutedFg }}>（ファイルを開く時のデフォルトエディタ）</span>
       </div>
     </div>
   );

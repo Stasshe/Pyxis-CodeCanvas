@@ -35,7 +35,13 @@ export default function FileSelectModal({ isOpen, onClose, files, onFileSelect, 
         >
           <FileTree
             items={files}
-            onFileOpen={onFileSelect}
+            onFileOpen={file => {
+              let defaultEditor = 'monaco';
+              if (typeof window !== 'undefined') {
+                defaultEditor = localStorage.getItem('pyxis-defaultEditor') || 'monaco';
+              }
+              onFileSelect({ ...file, isCodeMirror: defaultEditor === 'codemirror' });
+            }}
             onFileOperation={onFileOperation}
             currentProjectName={currentProjectName || ''}
             onFilePreview={onFilePreview}

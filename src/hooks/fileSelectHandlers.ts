@@ -41,7 +41,8 @@ export function handleFileSelect({
           content: fileToOpen.content || '',
           isDirty: false,
           path: fileToOpen.path,
-          fullPath: fileToOpen.path // Corrected to fullPath
+          fullPath: fileToOpen.path, // Corrected to fullPath
+          isCodeMirror: fileToOpen.isCodeMirror ?? false
         };
         newTabs = [...pane.tabs, newTab];
         newActiveTabId = newTab.id;
