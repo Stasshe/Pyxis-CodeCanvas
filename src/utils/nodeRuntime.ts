@@ -139,34 +139,80 @@ export class NodeJSRuntime {
   // モジュールとその依存関係を再帰的に事前ロード
   private async preloadModuleRecursively(moduleName: string, contextDir: string = '/'): Promise<void> {
     // モジュールの解決キーを生成（コンテキストディレクトリを考慮）
-    const moduleKey = this.getModuleKey(moduleName, contextDir);
-    
+    let resolvedModuleName = moduleName;
+    let moduleKey = this.getModuleKey(moduleName, contextDir);
+
+    // '#'で始まる場合はpackage.jsonのimportsフィールドを参照
+    if (moduleName.startsWith('#')) {
+      // contextDirから親ディレクトリを辿ってpackage.jsonを探す
+      let searchDir = contextDir;
+      let found = false;
+      let pkgJsonPath = '';
+      let pkgJsonFullPath = '';
+      while (searchDir !== '' && searchDir !== '/' && !found) {
+        pkgJsonPath = searchDir + '/package.json';
+        if (!pkgJsonPath.startsWith('/')) pkgJsonPath = '/' + pkgJsonPath;
+        pkgJsonFullPath = this.projectDir + pkgJsonPath;
+        try {
+          const stat = await this.fs.promises.stat(pkgJsonFullPath);
+          if (stat) {
+            found = true;
+            break;
+          }
+        } catch (e) {
+          // 見つからなければ親ディレクトリへ
+          searchDir = searchDir.substring(0, searchDir.lastIndexOf('/'));
+          if (searchDir === '') searchDir = '/';
+        }
+      }
+      if (found) {
+        try {
+          const pkgContent = await this.fs.promises.readFile(pkgJsonFullPath, { encoding: 'utf8' });
+          const pkgData = JSON.parse(pkgContent);
+          if (pkgData.imports && pkgData.imports[moduleName]) {
+            let importPath = pkgData.imports[moduleName];
+            // importPathが"./"で始まる場合はpackage.jsonのディレクトリからの相対パス
+            let pkgDir = pkgJsonPath.replace(/\/package\.json$/, '');
+            if (importPath.startsWith('./')) {
+              resolvedModuleName = pkgDir + '/' + importPath.substring(2);
+            } else {
+              resolvedModuleName = importPath;
+            }
+            moduleKey = this.getModuleKey(resolvedModuleName, contextDir);
+            console.log(`[preloadModuleRecursively] '#'-import resolved: ${moduleName} -> ${resolvedModuleName}`);
+          }
+        } catch (e) {
+          // JSON parse error等は無視
+        }
+      }
+    }
+
     // すでにキャッシュにある場合はスキップ
     if (this.moduleCache.has(moduleKey)) {
       console.log(`[preloadModuleRecursively] Already cached: ${moduleKey}`);
       return;
     }
-    
-    console.log(`[preloadModuleRecursively] Loading module: ${moduleName} from context: ${contextDir}`);
-    
+
+    console.log(`[preloadModuleRecursively] Loading module: ${resolvedModuleName} from context: ${contextDir}`);
+
     // 現在の作業ディレクトリを一時的に設定
     const oldCwd = this.currentWorkingDirectory;
     this.currentWorkingDirectory = contextDir;
-    
+
     try {
       // 組み込みモジュールの場合
-      if (this.isBuiltinModule(moduleName)) {
-        const module = this.createBuiltinModule(moduleName);
+      if (this.isBuiltinModule(resolvedModuleName)) {
+        const module = this.createBuiltinModule(resolvedModuleName);
         this.moduleCache.set(moduleKey, module);
         return;
       }
-      
+
       // ファイルモジュールをロード
-      const moduleObj = await this.loadFileModuleForPreload(moduleName);
+      const moduleObj = await this.loadFileModuleForPreload(resolvedModuleName);
       this.moduleCache.set(moduleKey, moduleObj);
-      
+
       console.log(`[preloadModuleRecursively] Successfully loaded: ${moduleKey}`);
-      
+
     } finally {
       // 作業ディレクトリを復元
       this.currentWorkingDirectory = oldCwd;
@@ -564,10 +610,11 @@ export class NodeJSRuntime {
 
     try {
       // ES6 import/export を CommonJS require/module.exports に変換
-      const transformedCode = code.replace(
-        /export\s+default\s+(.+);?$/gm,
-        'module.exports = $1;'
-      );
+      const transformedCode = transformESModules(code);
+      // code.replace(
+      //   /export\s+default\s+(.+);?$/gm,
+      //   'module.exports = $1;'
+      // );
 
       // モジュールコードをラップして実行
       const wrappedCode = wrapModuleCode(transformedCode, moduleGlobals);

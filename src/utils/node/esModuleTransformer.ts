@@ -2,19 +2,20 @@
 export function transformESModules(code: string): string {
   let transformedCode = code;
 
-  // export default function name(...) {...} → function name(...) {...};
-  transformedCode = transformedCode.replace(
-    /export\s+default\s+function\s+(\w+)\s*\(([^)]*)\)\s*\{([\s\S]*?)\}/g,
-    (match, funcName, args, body) => {
-      return `function ${funcName}(${args}) {${body}}\nmodule.exports = ${funcName};`;
-    }
-  );
+  // // export default function name(...) {...} → function name(...) {...};
+  // transformedCode = transformedCode.replace(
+  //   /export\s+default\s+function\s+(\w+)\s*\(([^)]*)\)\s*\{([\s\S]*?)\}/g,
+  //   (match, funcName, args, body) => {
+  //     return `function ${funcName}(${args}) {${body}}\nmodule.exports = ${funcName};`;
+  //   }
+  // );
 
   // export default something → module.exports = something;
   transformedCode = transformedCode.replace(
     /export\s+default\s+(.+);?$/gm,
     'module.exports = $1;'
   );
+
 
   // import文を require に変換
   // import Utils, { helper } from 'module' → const _temp = require('module'); const Utils = _temp.default || _temp; const { helper } = _temp;
@@ -103,16 +104,16 @@ export function transformESModules(code: string): string {
     });
   }
 
-  // // export default class の後処理
-  // const exportDefaultClassMatches = code.match(/export\s+default\s+class\s+(\w+)/g);
-  // if (exportDefaultClassMatches) {
-  //   exportDefaultClassMatches.forEach(match => {
-  //     const className = match.replace(/export\s+default\s+class\s+/, '');
-  //     if (!transformedCode.includes(`module.exports = ${className}`)) {
-  //       transformedCode += `\nmodule.exports = ${className};\nmodule.exports.default = ${className};`;
-  //     }
-  //   });
-  // }
+  // export default class の後処理
+  const exportDefaultClassMatches = code.match(/export\s+default\s+class\s+(\w+)/g);
+  if (exportDefaultClassMatches) {
+    exportDefaultClassMatches.forEach(match => {
+      const className = match.replace(/export\s+default\s+class\s+/, '');
+      if (!transformedCode.includes(`module.exports = ${className}`)) {
+        transformedCode += `\nmodule.exports = ${className};\nmodule.exports.default = ${className};`;
+      }
+    });
+  }
 
   console.log('[transformESModules] Original code:', code.substring(0, 200) + '...');
   console.log('[transformESModules] Transformed code:', transformedCode.substring(0, 200) + '...');
