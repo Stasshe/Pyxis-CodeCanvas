@@ -1,7 +1,16 @@
 // ES6 import/export を CommonJS に変換
 export function transformESModules(code: string): string {
   let transformedCode = code;
-  
+
+  // export default function name(...) {...} → function name(...) {...}; module.exports = name; module.exports.default = name;
+  transformedCode = transformedCode.replace(
+    /export\s+default\s+function\s+(\w+)\s*\(([^)]*)\)\s*\{([\s\S]*?)\}/g,
+    (match, funcName, args, body) => {
+      return `function ${funcName}(${args}) {${body}}\nmodule.exports = ${funcName};\nmodule.exports.default = ${funcName};`;
+    }
+  );
+
+  // ...existing code...
   // import文を require に変換
   // import Utils, { helper } from 'module' → const _temp = require('module'); const Utils = _temp.default || _temp; const { helper } = _temp;
   transformedCode = transformedCode.replace(
