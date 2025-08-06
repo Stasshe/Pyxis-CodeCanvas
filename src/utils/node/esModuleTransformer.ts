@@ -58,7 +58,7 @@ export function transformESModules(code: string): string {
     /export\s+\{([^}]+)\};?/g,
     (match, exports) => {
       const exportList = exports.split(',').map((exp: string) => exp.trim());
-      return exportList.map((exp: string) => `${exp};`).join('\n');
+      return exportList.map((exp: string) => `module.exports.${exp} = ${exp};`).join('\n');
     }
   );
 
@@ -103,16 +103,16 @@ export function transformESModules(code: string): string {
     });
   }
 
-  // export default class の後処理
-  const exportDefaultClassMatches = code.match(/export\s+default\s+class\s+(\w+)/g);
-  if (exportDefaultClassMatches) {
-    exportDefaultClassMatches.forEach(match => {
-      const className = match.replace(/export\s+default\s+class\s+/, '');
-      if (!transformedCode.includes(`module.exports = ${className}`)) {
-        transformedCode += `\nmodule.exports = ${className};\nmodule.exports.default = ${className};`;
-      }
-    });
-  }
+  // // export default class の後処理
+  // const exportDefaultClassMatches = code.match(/export\s+default\s+class\s+(\w+)/g);
+  // if (exportDefaultClassMatches) {
+  //   exportDefaultClassMatches.forEach(match => {
+  //     const className = match.replace(/export\s+default\s+class\s+/, '');
+  //     if (!transformedCode.includes(`module.exports = ${className}`)) {
+  //       transformedCode += `\nmodule.exports = ${className};\nmodule.exports.default = ${className};`;
+  //     }
+  //   });
+  // }
 
   console.log('[transformESModules] Original code:', code.substring(0, 200) + '...');
   console.log('[transformESModules] Transformed code:', transformedCode.substring(0, 200) + '...');
