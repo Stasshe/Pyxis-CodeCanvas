@@ -13,7 +13,8 @@ import {
   wrapCodeForExecution,
   wrapModuleCode
 } from './node/esModuleTransformer';
-import { loadFromCDN, evaluateModuleCode } from './node/cdnLoader';
+//import { loadFromCDN, evaluateModuleCode } from './node/cdnLoader';
+import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
 
 // Node.js風のランタイム環境
 export class NodeJSRuntime {
@@ -93,13 +94,11 @@ export class NodeJSRuntime {
   private async preloadModules(code: string, currentDir: string = '/'): Promise<void> {
     const moduleNames = new Set<string>();
     
-    console.log('[preloadModules] Analyzing code for modules:', code.substring(0, 100) + '...');
-    console.log(`[preloadModules] Current directory context: ${currentDir}`);
+    pushMsgOutPanel(`[preloadModules] Analyzing code for modules:'${code.substring(0, 100) + '...'}`,'info','npm');
     
     // require()文の検出
     const requireMatches = code.match(/require\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/g);
     if (requireMatches) {
-      console.log('[preloadModules] Found require statements:', requireMatches);
       requireMatches.forEach(match => {
         const moduleName = match.match(/require\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/)?.[1];
         if (moduleName && !this.isBuiltinModule(moduleName)) {
@@ -112,7 +111,6 @@ export class NodeJSRuntime {
     // import文の検出
     const importMatches = code.match(/from\s+['"`]([^'"`]+)['"`]/g);
     if (importMatches) {
-      console.log('[preloadModules] Found import statements:', importMatches);
       importMatches.forEach(match => {
         const moduleName = match.match(/from\s+['"`]([^'"`]+)['"`]/)?.[1];
         if (moduleName && !this.isBuiltinModule(moduleName)) {
@@ -127,16 +125,15 @@ export class NodeJSRuntime {
     // 検出されたモジュールを事前ロード（再帰的に依存関係もロード）
     for (const moduleName of moduleNames) {
       try {
-        console.log(`[preloadModules] Preloading module: ${moduleName}`);
         await this.preloadModuleRecursively(moduleName, currentDir);
-        console.log(`[preloadModules] Successfully preloaded: ${moduleName}`);
+        pushMsgOutPanel(`[preloadModules] Successfully preloaded: ${moduleName}`, 'info', 'npm');
       } catch (error) {
-        console.warn(`[preloadModules] Failed to preload ${moduleName}:`, (error as Error).message);
+        pushMsgOutPanel(`[preloadModules] Failed to preload ${moduleName}: ${(error as Error).message}`, 'error', 'npm');
         // 事前ロードに失敗してもエラーにはしない
       }
     }
-    
-    console.log(`[preloadModules] Preloading complete. Cache contents:`, Array.from(this.moduleCache.keys()));
+
+    pushMsgOutPanel(`[preloadModules] Preloading complete. Cache contents: ${Array.from(this.moduleCache.keys())}`,'info','npm');
   }
 
   // モジュールとその依存関係を再帰的に事前ロード
@@ -324,48 +321,6 @@ export class NodeJSRuntime {
     }
   }
 
-
-
-  // モジュール解決機能
-  private async resolveModule(moduleName: string): Promise<any> {
-    // キャッシュから取得
-    if (this.moduleCache.has(moduleName)) {
-      console.log(`[resolveModule] Loading from cache: ${moduleName}`);
-      return this.moduleCache.get(moduleName);
-    }
-
-    // 組み込みモジュールの場合
-    if (this.isBuiltinModule(moduleName)) {
-      const module = this.createBuiltinModule(moduleName);
-      this.moduleCache.set(moduleName, module);
-      return module;
-    }
-
-    // ローカルファイルモジュールの場合
-    try {
-      const moduleObj = await this.loadFileModule(moduleName);
-      this.moduleCache.set(moduleName, moduleObj);
-      return moduleObj;
-    } catch (error) {
-      console.log(`[resolveModule] Local module not found: ${moduleName}, attempting CDN...`);
-      
-      // NPMモジュールの場合はCDNから試す（相対パスでない場合）
-      if (!moduleName.startsWith('./') && !moduleName.startsWith('../') && !moduleName.startsWith('/')) {
-        try {
-          const cdnCode = await loadFromCDN(moduleName, this.fs);
-          // CDNコードを実行してモジュールを取得
-          const moduleObj = await evaluateModuleCode(cdnCode, moduleName, this.resolveModule.bind(this), this.currentWorkingDirectory);
-          this.moduleCache.set(moduleName, moduleObj);
-          return moduleObj;
-        } catch (cdnError) {
-          console.log(`[resolveModule] CDN loading failed for ${moduleName}:`, cdnError);
-        }
-      }
-      
-      throw new Error(`Cannot find module '${moduleName}'`);
-    }
-  }
-
   // 組み込みモジュールかチェック
   private isBuiltinModule(moduleName: string): boolean {
     const builtinModules = ['fs', 'path', 'os', 'util', 'crypto', 'http', 'url', 'querystring'];
@@ -392,9 +347,9 @@ export class NodeJSRuntime {
   private async loadFileModuleForPreload(moduleName: string): Promise<any> {
     const possiblePaths = this.resolveModulePath(moduleName);
     
-    console.log(`[loadFileModuleForPreload] Loading module: ${moduleName}`);
-    console.log(`[loadFileModuleForPreload] Project directory: ${this.projectDir}`);
-    console.log(`[loadFileModuleForPreload] Current working directory: ${this.currentWorkingDirectory}`);
+    // console.log(`[loadFileModuleForPreload] Loading module: ${moduleName}`);
+    // console.log(`[loadFileModuleForPreload] Project directory: ${this.projectDir}`);
+    // console.log(`[loadFileModuleForPreload] Current working directory: ${this.currentWorkingDirectory}`);
     
     for (const filePath of possiblePaths) {
       try {
@@ -463,7 +418,7 @@ export class NodeJSRuntime {
         if (filePath.endsWith('.json')) {
           try {
             const jsonData = JSON.parse(content as string);
-            console.log(`[loadFileModuleForPreload] Loaded JSON file: ${moduleName}`);
+            //console.log(`[loadFileModuleForPreload] Loaded JSON file: ${moduleName}`);
             return jsonData;
           } catch (error) {
             throw new Error(`Invalid JSON in ${filePath}: ${(error as Error).message}`);
@@ -488,125 +443,6 @@ export class NodeJSRuntime {
     }
     
     // すべての候補パスを試行しても見つからない場合
-    throw new Error(`Module file not found for '${moduleName}'. Tried paths: ${possiblePaths.join(', ')}`);
-  }
-
-  // ファイルモジュールをロード
-  private async loadFileModule(moduleName: string): Promise<any> {
-    const possiblePaths = this.resolveModulePath(moduleName);
-    
-    console.log(`[loadFileModule] Loading module: ${moduleName}`);
-    console.log(`[loadFileModule] Project directory: ${this.projectDir}`);
-    
-    for (const filePath of possiblePaths) {
-      try {
-        console.log(`[loadFileModule] Trying to load: ${filePath}`);
-        
-        let fullPath;
-        if (filePath.startsWith('/')) {
-          fullPath = `${this.projectDir}${filePath}`;
-        } else {
-          fullPath = `${this.projectDir}/${filePath}`;
-        }
-
-        console.log(`[loadFileModule] Full path: ${fullPath}`);
-
-        // ファイルの存在確認
-        await this.fs.promises.stat(fullPath);
-        console.log(`[loadFileModule] File exists: ${fullPath}`);
-        
-        // ファイル内容を読み取り
-        const content = await this.fs.promises.readFile(fullPath, { encoding: 'utf8' });
-        console.log(`[loadFileModule] File content read successfully, length: ${(content as string).length}`);
-        
-        // package.jsonの場合はmain/exportsを解釈して本体jsファイルをrequire
-        if (filePath.endsWith('package.json')) {
-          try {
-            const packageData = JSON.parse(content as string);
-            console.log(`[loadFileModule] Loaded package.json: ${moduleName}`);
-            // main/exportsフィールドを参照
-            let entryFile = '';
-            if (packageData.exports && typeof packageData.exports === 'object') {
-              // exportsフィールドがオブジェクトの場合
-              if (packageData.exports["."] && packageData.exports["."].import) {
-                entryFile = packageData.exports["."].import;
-              } else if (packageData.exports["."] && typeof packageData.exports["."] === 'string') {
-                entryFile = packageData.exports["."];
-              } else if (typeof packageData.exports === 'string') {
-                entryFile = packageData.exports;
-              }
-            }
-            if (!entryFile && packageData.main) {
-              entryFile = packageData.main;
-            }
-            if (!entryFile) {
-              entryFile = 'index.js';
-            }
-            // パスの正規化
-            if (!entryFile.startsWith('.')) {
-              entryFile = './' + entryFile;
-            }
-            // chalkなどはsource/index.jsのようなパス
-            const packageDir = filePath.replace(/\/package\.json$/, '');
-            const entryPath = packageDir + '/' + entryFile.replace(/^\.\//, '');
-            console.log(`[loadFileModule] Resolving entry file: ${entryPath}`);
-            // entryPathをrequire
-            try {
-              return await this.loadFileModule(entryPath);
-            } catch (error) {
-              throw new Error(`Failed to load entry file '${entryPath}': ${(error as Error).message}`);
-            }
-          } catch (error) {
-            throw new Error(`Invalid JSON in package.json: ${(error as Error).message}`);
-          }
-        }
-        
-        // .jsonファイルの場合もJSONとして解析
-        if (filePath.endsWith('.json')) {
-          try {
-            const jsonData = JSON.parse(content as string);
-            console.log(`[loadFileModule] Loaded JSON file: ${moduleName}`);
-            return jsonData;
-          } catch (error) {
-            throw new Error(`Invalid JSON in ${filePath}: ${(error as Error).message}`);
-          }
-        }
-        
-        // モジュールを実行して exports を取得
-        const moduleExports = await this.executeModuleCode(content as string, filePath);
-        
-        console.log(`[loadFileModule] Successfully loaded module: ${moduleName} from ${filePath}`);
-        return moduleExports;
-        
-      } catch (error) {
-        console.log(`[loadFileModule] Failed to load ${filePath}: ${(error as Error).message}`);
-        continue;
-      }
-    }
-    
-    // すべての候補パスを試行しても見つからない場合、利用可能なファイルを表示
-    try {
-      console.log(`[loadFileModule] Module not found. Listing available files in project directory:`);
-      const files = await this.fs.promises.readdir(this.projectDir);
-      console.log(`[loadFileModule] Available files:`, files);
-      
-      // サブディレクトリもチェック
-      for (const file of files) {
-        try {
-          const filePath = `${this.projectDir}/${file}`;
-          const stat = await this.fs.promises.stat(filePath);
-          if (stat.isDirectory()) {
-            const subFiles = await this.fs.promises.readdir(filePath);
-            console.log(`[loadFileModule] Files in ${file}/:`, subFiles);
-          }
-        } catch {
-          // ディレクトリ読み取りエラーは無視
-        }
-      }
-    } catch (error) {
-      console.log(`[loadFileModule] Could not list directory contents:`, error);
-    }
-    
     throw new Error(`Module file not found for '${moduleName}'. Tried paths: ${possiblePaths.join(', ')}`);
   }
 
@@ -738,6 +574,4 @@ export class NodeJSRuntime {
       throw new Error(`Failed to execute module '${filePath}': ${(error as Error).message}`);
     }
   }
-
-
 }

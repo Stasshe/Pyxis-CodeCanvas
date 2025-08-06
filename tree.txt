@@ -58,6 +58,7 @@
 │   ├── components
 │   │   ├── Bottom
 │   │   │   ├── BottomPanel.tsx
+│   │   │   ├── OutputPanel.tsx
 │   │   │   ├── Terminal.tsx
 │   │   │   ├── TerminalGitCommands.tsx
 │   │   │   ├── TerminalNPMCommands.tsx
@@ -136,9 +137,9 @@
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-23 directories, 114 files
+23 directories, 115 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 15120
-合計文字数: 548000
-合計ファイルサイズ(bytes): 592628
+合計行数: 15379
+合計文字数: 558278
+合計ファイルサイズ(bytes): 603653
