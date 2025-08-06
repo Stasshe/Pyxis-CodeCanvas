@@ -26,7 +26,7 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
   const [selectedFile, setSelectedFile] = useState<string>('');
   const [runtime, setRuntime] = useState<NodeJSRuntime | null>(null);
   const [pythonRuntime, setPythonRuntime] = useState<PyodideRuntime | null>(null);
-  const [activeTab, setActiveTab] = useState<'node' | 'python'>('node');
+  // activeTabは廃止
   const outputRef = useRef<HTMLDivElement>(null);
 
   // ランタイムの初期化
@@ -35,13 +35,13 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
       const newRuntime = new NodeJSRuntime(
         currentProject,
         (output, type) => {
-          if (activeTab === 'node') addOutput(output, type);
+          addOutput(output, type);
         },
         onFileOperation
       );
       setRuntime(newRuntime);
       const newPyRuntime = new PyodideRuntime((output, type) => {
-        if (activeTab === 'python') addOutput(output, type);
+        addOutput(output, type);
       });
       setPythonRuntime(newPyRuntime);
     }
@@ -55,23 +55,26 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
     }
   }, [output]);
 
-  // 実行可能なファイルを取得
-  const getExecutableFiles = (lang: 'node' | 'python') => {
-    const extMap = {
-      node: ['.js', '.ts', '.mjs', '.cjs'],
-      python: ['.py']
-    };
-    const executableExtensions = extMap[lang];
+  // 拡張子で自動判別: Node.js/Python両方の実行可能ファイルを取得
+  const getExecutableFiles = () => {
+    const nodeExts = ['.js', '.ts', '.mjs', '.cjs'];
+    const pyExts = ['.py'];
     const flattenFiles = (items: any[], parentPath = ''): any[] => {
       return items.reduce((acc, item) => {
         const fullPath = parentPath ? `${parentPath}/${item.name}` : item.name;
         if (fullPath.startsWith('node_modules/')) return acc;
-        if (item.type === 'file' && executableExtensions.some(ext => item.name.endsWith(ext))) {
-          acc.push({
-            ...item,
-            path: fullPath,
-            uniqueKey: `${fullPath}-${item.id || Math.random().toString(36).substr(2, 9)}`
-          });
+        if (item.type === 'file') {
+          let lang: 'node' | 'python' | null = null;
+          if (nodeExts.some(ext => item.name.endsWith(ext))) lang = 'node';
+          if (pyExts.some(ext => item.name.endsWith(ext))) lang = 'python';
+          if (lang) {
+            acc.push({
+              ...item,
+              path: fullPath,
+              uniqueKey: `${fullPath}-${item.id || Math.random().toString(36).substr(2, 9)}`,
+              lang
+            });
+          }
         }
         if (item.children) {
           acc.push(...flattenFiles(item.children, fullPath));
@@ -85,7 +88,7 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
   // ファイル名サーチ用
   const [fileSearch, setFileSearch] = useState('');
   const [fileSuggestOpen, setFileSuggestOpen] = useState(false);
-  const executableFiles = getExecutableFiles(activeTab);
+  const executableFiles = getExecutableFiles();
   const filteredFiles = fileSearch
     ? executableFiles.filter(f => f.path.toLowerCase().includes(fileSearch.toLowerCase()))
     : executableFiles;
@@ -112,20 +115,22 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
     }]);
   };
 
-  // コードを実行
+  // コードを実行（自動判別: .pyならPython, それ以外はNode.js）
   const executeCode = async () => {
     if (!inputCode.trim()) return;
     setIsRunning(true);
     addOutput(`> ${inputCode}`, 'input');
     try {
       let result;
-      if (activeTab === 'node') {
-        if (!runtime) return;
-        result = await runtime.executeNodeJS(inputCode);
-      } else {
+      // 入力欄の先頭行に#!pythonがあればPython、それ以外はNode.js
+      const isPython = inputCode.trimStart().startsWith('#!python') || inputCode.trimStart().startsWith('import ') || inputCode.trimStart().startsWith('print(');
+      if (isPython) {
         if (!pythonRuntime) return;
         await pythonRuntime.load();
-        result = await pythonRuntime.executePython(inputCode);
+        result = await pythonRuntime.executePython(inputCode.replace(/^#!python\s*/, ''));
+      } else {
+        if (!runtime) return;
+        result = await runtime.executeNodeJS(inputCode);
       }
       if (result.success && result.output) {
         addOutput(result.output, 'log');
@@ -140,25 +145,26 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
     }
   };
 
-  // ファイルを実行
+  // ファイルを実行（拡張子で自動判別）
   const executeFile = async () => {
     if (!selectedFile) return;
     setIsRunning(true);
+    const fileObj = executableFiles.find(f => f.path === selectedFile);
+    const lang = fileObj?.lang || (selectedFile.endsWith('.py') ? 'python' : 'node');
     addOutput(
-      activeTab === 'node' ? `> node ${selectedFile}` : `> python ${selectedFile}`,
+      lang === 'python' ? `> python ${selectedFile}` : `> node ${selectedFile}`,
       'input'
     );
     localStorage.setItem(LS_KEY, selectedFile);
     try {
       let result;
-      if (activeTab === 'node') {
+      if (lang === 'node') {
         if (!runtime) return;
         result = await runtime.executeFile(selectedFile);
       } else {
         if (!pythonRuntime) return;
         await pythonRuntime.load();
         // ファイル内容取得（onFileOperation経由 or files配列から）
-        const fileObj = executableFiles.find(f => f.path === selectedFile);
         let code = '';
         if (fileObj && fileObj.content) {
           code = fileObj.content;
@@ -190,7 +196,7 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
     setOutput([]);
   };
 
-  // サンプルコードを挿入
+  // サンプルコードを挿入（ファイル選択中なら拡張子で判別、未選択ならNode.jsデフォルト）
   const insertSampleCode = (type: string) => {
     const nodeSamples = {
       'hello': 'console.log("Hello, World!");',
@@ -247,8 +253,11 @@ print('Filename:', os.path.basename(file_path))
 print('Extension:', os.path.splitext(file_path)[1])
 print('Joined path:', os.path.join('/users', 'documents', 'file.txt'))`
     };
+    // ファイル選択中なら拡張子で判別
+    let lang: 'node' | 'python' = 'node';
+    if (selectedFile && selectedFile.endsWith('.py')) lang = 'python';
     setInputCode(
-      activeTab === 'node'
+      lang === 'node'
         ? nodeSamples[type as keyof typeof nodeSamples] || ''
         : pythonSamples[type as keyof typeof pythonSamples] || ''
     );
@@ -267,24 +276,12 @@ print('Joined path:', os.path.join('/users', 'documents', 'file.txt'))`
 
   return (
     <div className="h-full flex flex-col" style={{ background: colors.background }}>
-      {/* ヘッダー・タブ */}
+      {/* ヘッダー */}
       <div className="border-b p-3" style={{ borderBottom: `1px solid ${colors.border}` }}>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Code size={16} style={{ color: colors.primary }} />
-            <span className="font-semibold" style={{ color: colors.foreground }}>実行環境(開発中)</span>
-            <div className="ml-4 flex gap-1">
-              <button
-                className={clsx('px-2 py-1 rounded text-xs', activeTab === 'node' ? 'font-bold' : '')}
-                style={{ background: activeTab === 'node' ? colors.primary : colors.mutedBg, color: activeTab === 'node' ? colors.background : colors.mutedFg }}
-                onClick={() => { setActiveTab('node'); setOutput([]); setInputCode(''); setFileSearch(''); }}
-              >Node.js</button>
-              <button
-                className={clsx('px-2 py-1 rounded text-xs', activeTab === 'python' ? 'font-bold' : '')}
-                style={{ background: activeTab === 'python' ? colors.primary : colors.mutedBg, color: activeTab === 'python' ? colors.background : colors.mutedFg }}
-                onClick={() => { setActiveTab('python'); setOutput([]); setInputCode(''); setFileSearch(''); }}
-              >Python</button>
-            </div>
+            <span className="font-semibold" style={{ color: colors.foreground }}>実行環境(自動判別)</span>
           </div>
           <div className="flex gap-2">
             <button
@@ -311,7 +308,7 @@ print('Joined path:', os.path.join('/users', 'documents', 'file.txt'))`
                 }}
                 onFocus={() => setFileSuggestOpen(true)}
                 onBlur={() => setTimeout(() => setFileSuggestOpen(false), 150)}
-                placeholder={activeTab === 'node' ? '実行するNode.jsファイル名を検索...' : '実行するPythonファイル名を検索...'}
+                placeholder={'実行するファイル名を検索...'}
                 className="w-full px-2 py-1 border rounded text-sm"
                 style={{ background: colors.background, color: colors.foreground, border: `1px solid ${colors.border}` }}
                 autoComplete="off"
@@ -332,7 +329,7 @@ print('Joined path:', os.path.join('/users', 'documents', 'file.txt'))`
                         setFileSuggestOpen(false);
                       }}
                     >
-                      {file.path}
+                      {file.path} <span className="ml-2 text-xs" style={{ color: colors.mutedFg }}>({file.lang === 'python' ? 'Python' : 'Node.js'})</span>
                     </li>
                   ))}
                 </ul>
