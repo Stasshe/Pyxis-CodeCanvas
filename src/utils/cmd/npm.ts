@@ -41,7 +41,16 @@ export class NpmCommands {
       this.projectName,
       this.onFileOperation,
     );
-    await npmInstall.installWithDependencies(packageName, version);
+    
+    // バッチ処理を開始
+    npmInstall.startBatchProcessing();
+    
+    try {
+      await npmInstall.installWithDependencies(packageName, version);
+    } finally {
+      // バッチ処理を終了（エラーが発生してもフラッシュを実行）
+      await npmInstall.finishBatchProcessing();
+    }
   }
 
   async removeDirectory(
@@ -132,19 +141,27 @@ export class NpmCommands {
 
         // NpmInstallインスタンスを作成（依存関係解決のため）
         const npmInstall = new NpmInstall(this.projectName, this.onFileOperation);
+        
+        // バッチ処理を開始
+        npmInstall.startBatchProcessing();
 
-        for (const pkg of packageNames) {
-          const versionSpec = allDependencies[pkg];
-          const version = versionSpec.replace(/[\^~]/, ""); // ^1.0.0 -> 1.0.0
+        try {
+          for (const pkg of packageNames) {
+            const versionSpec = allDependencies[pkg];
+            const version = versionSpec.replace(/[\^~]/, ""); // ^1.0.0 -> 1.0.0
 
-          try {
-            // 依存関係も含めてインストール（毎回チェック）
-            await npmInstall.installWithDependencies(pkg, version);
-            installedCount++;
-            output += `  ✓ ${pkg}@${version} (with dependencies)\n`;
-          } catch (error) {
-            output += `  ✗ ${pkg}@${version} - ${(error as Error).message}\n`;
+            try {
+              // 依存関係も含めてインストール（毎回チェック）
+              await npmInstall.installWithDependencies(pkg, version);
+              installedCount++;
+              output += `  ✓ ${pkg}@${version} (with dependencies)\n`;
+            } catch (error) {
+              output += `  ✗ ${pkg}@${version} - ${(error as Error).message}\n`;
+            }
           }
+        } finally {
+          // バッチ処理を終了（エラーが発生してもフラッシュを実行）
+          await npmInstall.finishBatchProcessing();
         }
 
         if (installedCount === 0) {
@@ -206,7 +223,17 @@ export class NpmCommands {
           } else {
             // パッケージを依存関係と一緒にダウンロードしてインストール
             const npmInstall = new NpmInstall(this.projectName, this.onFileOperation);
-            await npmInstall.installWithDependencies(packageName, version);
+            
+            // バッチ処理を開始
+            npmInstall.startBatchProcessing();
+            
+            try {
+              await npmInstall.installWithDependencies(packageName, version);
+            } finally {
+              // バッチ処理を終了（エラーが発生してもフラッシュを実行）
+              await npmInstall.finishBatchProcessing();
+            }
+            
             return `added packages with dependencies in ${Math.random() * 2 + 1}s\n\n+ ${packageName}@${version}\nadded packages and audited packages in ${Math.random() * 0.5 + 0.5}s\n\nfound 0 vulnerabilities`;
           }
         } catch (error) {

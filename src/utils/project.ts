@@ -453,9 +453,8 @@ export const useProject = () => {
         }
       }
 
-      // プロジェクトファイルをリフレッシュ（少し遅延を追加）
+      // プロジェクトファイルをリフレッシュ（遅延なし - バッチ処理時の高速化）
       console.log('[syncTerminalFileOperation] Refreshing project files...');
-      await new Promise(resolve => setTimeout(resolve, 100));
       await refreshProjectFiles();
       console.log('[syncTerminalFileOperation] Sync completed, files count:', projectFiles.length);
       

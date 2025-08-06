@@ -1,7 +1,6 @@
 import {
   getFileSystem,
   getProjectDir,
-  ensureDirectoryExists,
 } from "../../filesystem";
 import { UnixCommands } from "../../cmd/unix";
 import FS from "@isomorphic-git/lightning-fs";
@@ -24,6 +23,15 @@ export class NpmInstall {
     content?: string,
     isNodeRuntime?: boolean,
   ) => Promise<void>;
+  
+  // バッチ処理用のキュー
+  private fileOperationQueue: Array<{
+    path: string;
+    type: "file" | "folder" | "delete";
+    content?: string;
+    isNodeRuntime?: boolean;
+  }> = [];
+  private batchProcessing = false;
   
   // インストール済みパッケージを追跡するためのマップ
   private installedPackages: Map<string, string> = new Map();
@@ -49,6 +57,60 @@ export class NpmInstall {
       this.loadInstalledPackages().catch(error => {
         console.warn(`[npm.constructor] Failed to load installed packages: ${error.message}`);
       });
+    }
+  }
+
+  // バッチ処理を開始
+  startBatchProcessing(): void {
+    this.batchProcessing = true;
+    this.fileOperationQueue = [];
+    console.log('[npmInstall] Started batch processing mode');
+  }
+
+  // バッチ処理を終了し、キューをフラッシュ
+  async finishBatchProcessing(): Promise<void> {
+    if (!this.batchProcessing || !this.onFileOperation) {
+      return;
+    }
+
+    console.log(`[npmInstall] Finishing batch processing, ${this.fileOperationQueue.length} operations queued`);
+    
+    // キューに溜まった操作を並列実行（適度な並列度で）
+    const BATCH_SIZE = 5;
+    for (let i = 0; i < this.fileOperationQueue.length; i += BATCH_SIZE) {
+      const batch = this.fileOperationQueue.slice(i, i + BATCH_SIZE);
+      await Promise.all(
+        batch.map(op => this.onFileOperation!(op.path, op.type, op.content, op.isNodeRuntime))
+      );
+    }
+
+    // 最後に一度だけプロジェクトリフレッシュ
+    if (this.fileOperationQueue.length > 0) {
+      await this.onFileOperation('.', 'file', '', false);
+    }
+
+    this.batchProcessing = false;
+    this.fileOperationQueue = [];
+    console.log('[npmInstall] Batch processing completed');
+  }
+
+  // ファイル操作を実行（バッチモード対応）
+  private async executeFileOperation(
+    path: string,
+    type: "file" | "folder" | "delete",
+    content?: string,
+    isNodeRuntime?: boolean
+  ): Promise<void> {
+    if (!this.onFileOperation) {
+      return;
+    }
+
+    if (this.batchProcessing) {
+      // バッチモードの場合はキューに追加
+      this.fileOperationQueue.push({ path, type, content, isNodeRuntime });
+    } else {
+      // 通常モードの場合は即座に実行
+      await this.onFileOperation(path, type, content, isNodeRuntime);
     }
   }
 
@@ -289,7 +351,7 @@ export class NpmInstall {
         
         // IndexedDBからも削除
         if (this.onFileOperation) {
-          await this.onFileOperation(`/node_modules/${pkg}`, "delete");
+          await this.executeFileOperation(`/node_modules/${pkg}`, "delete");
         }
         
         console.log(`[npm.uninstallWithDependencies] Removed ${pkg}`);
@@ -598,7 +660,7 @@ export class NpmInstall {
       if (this.onFileOperation) {
         try {
           const relativePath = `/node_modules/${packageName}`;
-          await this.onFileOperation(relativePath, "folder");
+          await this.executeFileOperation(relativePath, "folder");
 
           // 展開されたファイルを順次同期
           for (const [relativePath, fileInfo] of extractedFiles) {
@@ -610,7 +672,7 @@ export class NpmInstall {
 
             if (fileInfo.isDirectory) {
               // ディレクトリを作成
-              await this.onFileOperation(fullPath, "folder");
+              await this.executeFileOperation(fullPath, "folder");
             } else {
               // ファイルを作成
               // ファイルの親ディレクトリが必要な場合は事前に作成
@@ -619,13 +681,13 @@ export class NpmInstall {
                 let currentPath = `/node_modules/${packageName}`;
                 for (let i = 0; i < pathParts.length - 1; i++) {
                   currentPath += `/${pathParts[i]}`;
-                  await this.onFileOperation(currentPath, "folder");
+                  await this.executeFileOperation(currentPath, "folder");
                 }
               }
 
               // extractPackageで既に内容が取得されているのでそれを使用
               const fileContent = fileInfo.content || "";
-              await this.onFileOperation(fullPath, "file", fileContent);
+              await this.executeFileOperation(fullPath, "file", fileContent);
             }
           }
         } catch (error) {
