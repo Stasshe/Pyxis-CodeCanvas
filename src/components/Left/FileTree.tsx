@@ -264,6 +264,7 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
               : [
                   '開く',
                   contextMenu.item.type === 'file' && contextMenu.item.name.endsWith('.md') ? 'プレビューを開く' : null,
+                  'CodeMirrorで開く',
                   'ダウンロード',
                   'インポート',
                   '名前変更',
@@ -355,6 +356,11 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
                       onFileOpen(contextMenu.item!);
                     } else if (label === 'プレビューを開く') {
                       handlePreview(contextMenu.item!);
+                    } else if (label === 'CodeMirrorで開く') {
+                      if (contextMenu.item && contextMenu.item.type === 'file') {
+                        // CodeMirrorで開く用のフラグをonFileOpenに渡す（実装側でisCodeMirrorをtrueにする必要あり）
+                        onFileOpen({ ...contextMenu.item, isCodeMirror: true });
+                      }
                     } else if (label === 'ダウンロード') {
                       const item = contextMenu.item;
                       if (item && item.type === 'file') {

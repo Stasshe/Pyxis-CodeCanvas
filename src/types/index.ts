@@ -5,6 +5,7 @@ export interface FileItem {
   content?: string;
   children?: FileItem[];
   path: string;
+  isCodeMirror?: boolean;
 }
 
 export interface Tab {

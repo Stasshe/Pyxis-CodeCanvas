@@ -6,6 +6,16 @@ import Editor, { Monaco } from '@monaco-editor/react';
 import { FileText } from 'lucide-react';
 import { Tab } from '@/types';
 import * as monaco from 'monaco-editor';
+import { Controlled as CodeMirror } from 'react-codemirror2';
+import 'codemirror/lib/codemirror.css';
+import 'codemirror/theme/material.css';
+import 'codemirror/mode/javascript/javascript';
+import 'codemirror/mode/markdown/markdown';
+import 'codemirror/mode/xml/xml';
+import 'codemirror/mode/css/css';
+import 'codemirror/mode/python/python';
+import 'codemirror/mode/yaml/yaml';
+import 'codemirror/mode/shell/shell';
 
 interface CodeEditorProps {
   activeTab: Tab | undefined;
@@ -14,6 +24,7 @@ interface CodeEditorProps {
   onContentChange: (tabId: string, content: string) => void;
   onContentChangeImmediate?: (tabId: string, content: string) => void;
   nodeRuntimeOperationInProgress?: boolean;
+  isCodeMirror?: boolean;
 }
 
 const getLanguage = (filename: string): string => {
@@ -82,7 +93,8 @@ export default function CodeEditor({
   isBottomPanelVisible,
   onContentChange,
   onContentChangeImmediate,
-  nodeRuntimeOperationInProgress = false
+  nodeRuntimeOperationInProgress = false,
+  isCodeMirror = false
 }: CodeEditorProps) {
   const { colors } = useTheme();
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -338,32 +350,58 @@ export default function CodeEditor({
 
   return (
     <div className="flex-1 min-h-0 relative" style={{ height: editorHeight }}>
-      <Editor
-        height="100%"
-        language={getLanguage(activeTab.name)}
-        value={activeTab.content}
-        onChange={(value) => {
-          if (value !== undefined) {
+      {isCodeMirror ? (
+        <CodeMirror
+          value={activeTab.content}
+          options={{
+            mode: getLanguage(activeTab.name),
+            theme: 'material',
+            lineNumbers: true,
+            tabSize: 2,
+            indentWithTabs: false,
+            autofocus: true,
+            styleActiveLine: true,
+            matchBrackets: true,
+            autoCloseBrackets: true,
+            readOnly: false,
+            lineWrapping: true,
+          }}
+          onBeforeChange={(_editor, _data, value) => {
             if (onContentChangeImmediate) {
               onContentChangeImmediate(activeTab.id, value);
             }
             debouncedSave(activeTab.id, value);
-            // 文字数カウントも即時更新
             setCharCount(value.length);
-            setSelectionCount(null); // 編集時は選択範囲リセット
-          }
-        }}
-        onMount={handleEditorDidMount}
-        theme="pyxis-custom"
-        loading={
-          <div className="h-full flex items-center justify-center text-muted-foreground">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-              <p className="text-sm">エディターを読み込み中...</p>
+            setSelectionCount(null);
+          }}
+        />
+      ) : (
+        <Editor
+          height="100%"
+          language={getLanguage(activeTab.name)}
+          value={activeTab.content}
+          onChange={(value) => {
+            if (value !== undefined) {
+              if (onContentChangeImmediate) {
+                onContentChangeImmediate(activeTab.id, value);
+              }
+              debouncedSave(activeTab.id, value);
+              setCharCount(value.length);
+              setSelectionCount(null);
+            }
+          }}
+          onMount={handleEditorDidMount}
+          theme="pyxis-custom"
+          loading={
+            <div className="h-full flex items-center justify-center text-muted-foreground">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                <p className="text-sm">エディターを読み込み中...</p>
+              </div>
             </div>
-          </div>
-        }
-      />
+          }
+        />
+      )}
       {/* 文字数カウント表示バー */}
       <div
         style={{
