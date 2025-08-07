@@ -2,11 +2,14 @@ import { useRef, useEffect, useCallback, useState } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import MarkdownPreviewTab from './MarkdownPreviewTab';
 import WelcomeTab from './WelcomeTab';
-import Editor, { Monaco } from '@monaco-editor/react';
+import Editor, { Monaco, OnMount } from '@monaco-editor/react';
 import { FileText } from 'lucide-react';
 import { Tab } from '@/types';
 import * as monaco from 'monaco-editor';
+// Monaco用: ファイルごとにTextModelを管理するMap
+const monacoModelMap: Map<string, monaco.editor.ITextModel> = new Map();
 import CodeMirror from '@uiw/react-codemirror';
+// CodeMirror用: 履歴分離のためkeyにタブIDを使う
 import { javascript } from '@codemirror/lang-javascript';
 import { markdown } from '@codemirror/lang-markdown';
 import { xml } from '@codemirror/lang-xml';
@@ -163,33 +166,12 @@ export default function CodeEditor({
     };
   }, []);
 
-  const handleEditorDidMount = (editor: monaco.editor.IStandaloneCodeEditor, monaco: Monaco) => {
+  // Monaco Editor: ファイルごとにTextModelを管理し、タブ切り替え時にモデルを切り替える
+  const handleEditorDidMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
-    // 初期文字数カウント
-    const model = editor.getModel();
-    if (model) {
-      setCharCount(model.getValue().length);
-    }
 
-    // 選択範囲・全体文字数の更新
-    const updateCharCount = () => {
-      const model = editor.getModel();
-      if (model) {
-        setCharCount(model.getValue().length);
-        const selection = editor.getSelection();
-        if (selection && !selection.isEmpty()) {
-          const selectedText = model.getValueInRange(selection);
-          setSelectionCount(selectedText.length);
-        } else {
-          setSelectionCount(null);
-        }
-      }
-    };
-    editor.onDidChangeModelContent(updateCharCount);
-    editor.onDidChangeCursorSelection(updateCharCount);
-
-    // ThemeContextの色でMonaco Editorテーマを定義
+    // 初回のみ: テーマやオプションなどのセットアップ
     monaco.editor.defineTheme('pyxis-custom', {
       base: 'vs-dark',
       inherit: true,
@@ -225,10 +207,7 @@ export default function CodeEditor({
         'editorBracketMatch.border': '#888888',
       }
     });
-
     monaco.editor.setTheme('pyxis-custom');
-
-    // エディターの追加設定
     editor.updateOptions({
       fontSize: 14,
       lineNumbers: 'on',
@@ -290,21 +269,16 @@ export default function CodeEditor({
         horizontalScrollbarSize: 14
       }
     });
-
-    // リアルタイム構文チェック設定
     monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
       noSemanticValidation: false,
       noSyntaxValidation: false,
       noSuggestionDiagnostics: false
     });
-
     monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
       noSemanticValidation: false,
       noSyntaxValidation: false,
       noSuggestionDiagnostics: false
     });
-
-    // コンパイラオプション
     monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
       target: monaco.languages.typescript.ScriptTarget.ES2020,
       allowNonTsExtensions: true,
@@ -317,18 +291,26 @@ export default function CodeEditor({
       allowJs: true,
       typeRoots: ['node_modules/@types']
     });
-
-    // ブラケットペアの色分け
-    editor.onDidChangeModelContent(() => {
-      const model = editor.getModel();
-      if (model) {
-        const language = model.getLanguageId();
-        if (language === 'typescript' || language === 'javascript') {
-          // カスタムハイライト処理をここに追加可能
-        }
-      }
-    });
   };
+
+  // activeTabが変わるたびにモデルを切り替える
+  useEffect(() => {
+    if (!editorRef.current || !monacoRef.current || !activeTab) return;
+    let model = monacoModelMap.get(activeTab.id);
+    if (!model) {
+      model = monacoRef.current.editor.createModel(
+        activeTab.content,
+        getLanguage(activeTab.name)
+      );
+      monacoModelMap.set(activeTab.id, model);
+    } else {
+      if (model.getValue() !== activeTab.content) {
+        model.setValue(activeTab.content);
+      }
+    }
+    editorRef.current.setModel(model);
+    setCharCount(model.getValue().length);
+  }, [activeTab?.id, activeTab?.content]);
 
   if (!activeTab) {
     return (
@@ -391,6 +373,7 @@ export default function CodeEditor({
           }}
         >
           <CodeMirror
+            key={activeTab.id}
             value={activeTab.content}
             height="100%"
             theme={oneDark}
@@ -420,10 +403,20 @@ export default function CodeEditor({
       ) : (
         <Editor
           height="100%"
-          language={getLanguage(activeTab.name)}
-          value={activeTab.content}
+          // Monaco Editor: モデルを明示的に管理
+          defaultLanguage={getLanguage(activeTab.name)}
+          defaultValue={activeTab.content}
           onChange={(value) => {
             if (value !== undefined) {
+              // モデルの内容も更新
+              const model = monacoModelMap.get(activeTab.id);
+              if (model && value !== model.getValue()) {
+                model.pushEditOperations(
+                  [],
+                  [{ range: model.getFullModelRange(), text: value }],
+                  () => null
+                );
+              }
               if (onContentChangeImmediate) {
                 onContentChangeImmediate(activeTab.id, value);
               }
