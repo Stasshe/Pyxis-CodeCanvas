@@ -77,6 +77,7 @@
 │   │   ├── ProjectModal.tsx
 │   │   ├── Tab
 │   │   │   ├── CodeEditor.tsx
+│   │   │   ├── DiffTab.tsx
 │   │   │   ├── HighlightedCode.tsx
 │   │   │   ├── MarkdownPreviewTab.tsx
 │   │   │   ├── TabBar.tsx
@@ -89,7 +90,8 @@
 │   │   ├── fileSelectHandlers.ts
 │   │   ├── gitHooks.ts
 │   │   ├── pane.ts
-│   │   └── tab.ts
+│   │   ├── tab.ts
+│   │   └── useDiffTabHandlers.ts
 │   ├── types
 │   │   ├── git.ts
 │   │   ├── index.ts
@@ -129,18 +131,20 @@
 │       │   └── filesystemModule.ts
 │       ├── nodeRuntime.ts
 │       ├── project.ts
+│       ├── pyodideRuntime.ts
 │       ├── resize.ts
 │       └── tabs.ts
 ├── tailwind.config.ts
-├── test_arrify_transform_fixed.js
 ├── tree.sh
 ├── tree.txt
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-23 directories, 116 files
+23 directories, 118 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 15458
-合計文字数: 560824
-合計ファイルサイズ(bytes): 606453
+合計行数: 16319
+合計文字数: 596036
+合計ファイルサイズ(bytes): 643167
+
+リポジトリ全体のサイズ(bytes): 1.9G	.
