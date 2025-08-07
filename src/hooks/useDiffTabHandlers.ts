@@ -1,0 +1,110 @@
+import { useCallback } from 'react';
+import { GitCommands } from '@/utils/cmd/git';
+import type { Tab } from '@/types';
+
+export function useDiffTabHandlers(currentProject: any, setTabs: React.Dispatch<React.SetStateAction<Tab[]>>, setActiveTabId: (id: string) => void) {
+  // ファイル単体のdiffタブを開く
+  const handleDiffFileClick = useCallback(async ({ commitId, filePath }: { commitId: string; filePath: string }) => {
+    if (!currentProject) return;
+    const git = new GitCommands(currentProject.name);
+    // 指定コミットの親を取得
+    const log = await git.getFormattedLog(20);
+    const lines = log.split('\n');
+    const idx = lines.findIndex(line => line.startsWith(commitId));
+    let parentCommitId = '';
+    if (idx !== -1) {
+      const parts = lines[idx].split('|');
+      if (parts.length >= 5) {
+        const parentHashes = parts[4].trim();
+        parentCommitId = parentHashes.split(',')[0] || '';
+      }
+    }
+    const latterCommitId = commitId;
+    const formerCommitId = parentCommitId;
+    const latterContent = latterCommitId ? await git.getFileContentAtCommit(latterCommitId, filePath) : '';
+    const formerContent = formerCommitId ? await git.getFileContentAtCommit(formerCommitId, filePath) : '';
+    const diffTabId = `diff-${formerCommitId}-${latterCommitId}-${filePath}`;
+    setTabs(prevTabs => {
+      const existing = prevTabs.find(tab => tab.id === diffTabId);
+      if (existing) {
+        setActiveTabId(diffTabId);
+        return prevTabs;
+      }
+      const newTab = {
+        id: diffTabId,
+        name: `Diff: ${filePath}`,
+        content: '',
+        isDirty: false,
+        path: filePath,
+        fullPath: filePath,
+        preview: false,
+        isCodeMirror: false,
+        diffProps: {
+          formerFullPath: filePath,
+          formerCommitId: formerCommitId,
+          latterFullPath: filePath,
+          latterCommitId: latterCommitId,
+          formerContent,
+          latterContent
+        }
+      };
+      setActiveTabId(diffTabId);
+      return [...prevTabs, newTab];
+    });
+  }, [currentProject, setTabs, setActiveTabId]);
+
+  // コミット全体のdiffタブを開く
+  const handleDiffAllFilesClick = useCallback(async ({ commitId, parentCommitId }: { commitId: string; parentCommitId: string }) => {
+    if (!currentProject) return;
+    const git = new GitCommands(currentProject.name);
+    // 差分ファイル一覧を取得
+    const diffOutput = await git.diffCommits(parentCommitId, commitId);
+    // 変更ファイルを抽出
+    const files: string[] = [];
+    const lines = diffOutput.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (line.startsWith('diff --git ')) {
+        const match = line.match(/diff --git a\/(.+) b\/(.+)/);
+        if (match) {
+          files.push(match[2]);
+        }
+      }
+    }
+    // 各ファイルごとにdiffタブを開く
+    for (const filePath of files) {
+      const latterContent = await git.getFileContentAtCommit(commitId, filePath);
+      const formerContent = await git.getFileContentAtCommit(parentCommitId, filePath);
+      const diffTabId = `diff-${parentCommitId}-${commitId}-${filePath}`;
+      setTabs(prevTabs => {
+        const existing = prevTabs.find(tab => tab.id === diffTabId);
+        if (existing) {
+          setActiveTabId(diffTabId);
+          return prevTabs;
+        }
+        const newTab = {
+          id: diffTabId,
+          name: `Diff: ${filePath}`,
+          content: '',
+          isDirty: false,
+          path: filePath,
+          fullPath: filePath,
+          preview: false,
+          isCodeMirror: false,
+          diffProps: {
+            formerFullPath: filePath,
+            formerCommitId: parentCommitId,
+            latterFullPath: filePath,
+            latterCommitId: commitId,
+            formerContent,
+            latterContent
+          }
+        };
+        setActiveTabId(diffTabId);
+        return [...prevTabs, newTab];
+      });
+    }
+  }, [currentProject, setTabs, setActiveTabId]);
+
+  return { handleDiffFileClick, handleDiffAllFilesClick };
+}
