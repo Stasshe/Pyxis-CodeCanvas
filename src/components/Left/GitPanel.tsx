@@ -612,7 +612,21 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
                   <p style={{ fontSize: '0.75rem', color: '#f59e42', marginBottom: '0.25rem' }}>変更済み ({gitRepo.status.unstaged.length})</p>
                   {gitRepo.status.unstaged.map((file) => (
                     <div key={`unstaged-${file}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.75rem', padding: '0.25rem 0' }}>
-                      <span style={{ color: '#f59e42', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} className="select-text">{file}</span>
+                      <span
+                        style={{ color: '#f59e42', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', textDecoration: 'underline' }}
+                        className="select-text"
+                        title="diffを表示"
+                        onClick={async () => {
+                          if (onDiffFileClick && gitRepo.commits.length > 0) {
+                            // 最新コミットのhashを取得
+                            const latestCommit = gitRepo.commits[0];
+                            // working directoryと最新コミットのdiff
+                            onDiffFileClick({ commitId: latestCommit.hash, filePath: file });
+                          }
+                        }}
+                      >
+                        {file}
+                      </span>
                       <div style={{ display: 'flex', gap: '0.25rem' }}>
                         <button
                           onClick={() => handleStageFile(file)}

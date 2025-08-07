@@ -8,6 +8,61 @@ export function useDiffTabHandlers(currentProject: any, setTabs: React.Dispatch<
   const handleDiffFileClick = useCallback(async ({ commitId, filePath }: { commitId: string; filePath: string }) => {
     if (!currentProject) return;
     const git = new GitCommands(currentProject.name);
+    // working directory vs 最新コミット のdiffの場合
+    if (commitId && commitId.length >= 6 && commitId !== 'WORKDIR') {
+      // 最新コミットのhashが渡された場合、working directoryと比較
+      // latest commitの内容
+      const formerCommitId = commitId;
+      const latterCommitId = 'WORKDIR';
+      const formerContent = await git.getFileContentAtCommit(formerCommitId, filePath);
+      // working directoryの内容
+      let latterContent = '';
+      try {
+        // IndexedDB上の現状ファイル内容を取得
+        const fs = (git as any).fs;
+        const dir = (git as any).dir;
+        let relPath = filePath;
+        if (relPath.startsWith('/')) relPath = relPath.slice(1);
+        latterContent = await fs.promises.readFile(`${dir}/${relPath}`, 'utf8');
+      } catch (e) {
+        latterContent = '';
+      }
+      const diffTabId = `diff-${formerCommitId}-WORKDIR-${filePath}`;
+      setTabs(prevTabs => {
+        const existing = prevTabs.find(tab => tab.id === diffTabId);
+        if (existing) {
+          setActiveTabId(diffTabId);
+          return prevTabs;
+        }
+        const shortFormer = formerCommitId ? formerCommitId.slice(0, 6) : '';
+        const newTab = {
+          id: diffTabId,
+          name: `Diff: ${filePath} (${shortFormer}..WD)` ,
+          content: '',
+          isDirty: false,
+          path: filePath,
+          fullPath: filePath,
+          preview: false,
+          isCodeMirror: false,
+          diffProps: {
+            diffs: [
+              {
+                formerFullPath: filePath,
+                formerCommitId: formerCommitId,
+                latterFullPath: filePath,
+                latterCommitId: 'WORKDIR',
+                formerContent,
+                latterContent
+              }
+            ]
+          }
+        };
+        setActiveTabId(diffTabId);
+        return [...prevTabs, newTab];
+      });
+      return;
+    }
+    // 通常のコミット間diff
     // 指定コミットの親を取得
     const log = await git.getFormattedLog(20);
     const lines = log.split('\n');
