@@ -8,6 +8,15 @@ export interface FileItem {
   isCodeMirror?: boolean;
 }
 
+export interface SingleFileDiff {
+  formerFullPath: string;
+  formerCommitId: string;
+  latterFullPath: string;
+  latterCommitId: string;
+  formerContent: string;
+  latterContent: string;
+}
+
 export interface Tab {
   id: string;
   name: string;
@@ -19,12 +28,7 @@ export interface Tab {
   isCodeMirror?: boolean;
   // Diffタブ用のprops（通常タブではundefined）
   diffProps?: {
-    formerFullPath: string;
-    formerCommitId: string;
-    latterFullPath: string;
-    latterCommitId: string;
-    formerContent: string;
-    latterContent: string;
+    diffs: SingleFileDiff[];
   };
 }
 

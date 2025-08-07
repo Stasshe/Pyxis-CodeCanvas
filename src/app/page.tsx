@@ -445,7 +445,7 @@ export default function Home() {
                 />
                 {/* DiffTab or CodeEditor */}
                 {activeTab && (activeTab.diffProps ? (
-                  <DiffTab {...activeTab.diffProps} />
+                  <DiffTab diffs={activeTab.diffProps.diffs} />
                 ) : (
                   <CodeEditor
                     activeTab={activeTab}

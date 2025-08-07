@@ -1,6 +1,7 @@
+
 import { useCallback } from 'react';
 import { GitCommands } from '@/utils/cmd/git';
-import type { Tab } from '@/types';
+import type { Tab, SingleFileDiff } from '@/types';
 
 export function useDiffTabHandlers(currentProject: any, setTabs: React.Dispatch<React.SetStateAction<Tab[]>>, setActiveTabId: (id: string) => void) {
   // ファイル単体のdiffタブを開く
@@ -40,12 +41,16 @@ export function useDiffTabHandlers(currentProject: any, setTabs: React.Dispatch<
         preview: false,
         isCodeMirror: false,
         diffProps: {
-          formerFullPath: filePath,
-          formerCommitId: formerCommitId,
-          latterFullPath: filePath,
-          latterCommitId: latterCommitId,
-          formerContent,
-          latterContent
+          diffs: [
+            {
+              formerFullPath: filePath,
+              formerCommitId: formerCommitId,
+              latterFullPath: filePath,
+              latterCommitId: latterCommitId,
+              formerContent,
+              latterContent
+            }
+          ]
         }
       };
       setActiveTabId(diffTabId);
@@ -53,7 +58,7 @@ export function useDiffTabHandlers(currentProject: any, setTabs: React.Dispatch<
     });
   }, [currentProject, setTabs, setActiveTabId]);
 
-  // コミット全体のdiffタブを開く
+  // コミット全体のdiffタブを開く（全ファイルを1つのタブで縦並び表示）
   const handleDiffAllFilesClick = useCallback(async ({ commitId, parentCommitId }: { commitId: string; parentCommitId: string }) => {
     if (!currentProject) return;
     const git = new GitCommands(currentProject.name);
@@ -71,39 +76,43 @@ export function useDiffTabHandlers(currentProject: any, setTabs: React.Dispatch<
         }
       }
     }
-    // 各ファイルごとにdiffタブを開く
+    // 各ファイルごとにdiff情報を取得
+    const diffs: SingleFileDiff[] = [];
     for (const filePath of files) {
       const latterContent = await git.getFileContentAtCommit(commitId, filePath);
       const formerContent = await git.getFileContentAtCommit(parentCommitId, filePath);
-      const diffTabId = `diff-${parentCommitId}-${commitId}-${filePath}`;
-      setTabs(prevTabs => {
-        const existing = prevTabs.find(tab => tab.id === diffTabId);
-        if (existing) {
-          setActiveTabId(diffTabId);
-          return prevTabs;
-        }
-        const newTab = {
-          id: diffTabId,
-          name: `Diff: ${filePath}`,
-          content: '',
-          isDirty: false,
-          path: filePath,
-          fullPath: filePath,
-          preview: false,
-          isCodeMirror: false,
-          diffProps: {
-            formerFullPath: filePath,
-            formerCommitId: parentCommitId,
-            latterFullPath: filePath,
-            latterCommitId: commitId,
-            formerContent,
-            latterContent
-          }
-        };
-        setActiveTabId(diffTabId);
-        return [...prevTabs, newTab];
+      diffs.push({
+        formerFullPath: filePath,
+        formerCommitId: parentCommitId,
+        latterFullPath: filePath,
+        latterCommitId: commitId,
+        formerContent,
+        latterContent
       });
     }
+    const diffTabId = `diff-all-${parentCommitId}-${commitId}`;
+    setTabs(prevTabs => {
+      const existing = prevTabs.find(tab => tab.id === diffTabId);
+      if (existing) {
+        setActiveTabId(diffTabId);
+        return prevTabs;
+      }
+      const newTab = {
+        id: diffTabId,
+        name: `Diff: ${parentCommitId}..${commitId}`,
+        content: '',
+        isDirty: false,
+        path: '',
+        fullPath: '',
+        preview: false,
+        isCodeMirror: false,
+        diffProps: {
+          diffs
+        }
+      };
+      setActiveTabId(diffTabId);
+      return [...prevTabs, newTab];
+    });
   }, [currentProject, setTabs, setActiveTabId]);
 
   return { handleDiffFileClick, handleDiffAllFilesClick };
