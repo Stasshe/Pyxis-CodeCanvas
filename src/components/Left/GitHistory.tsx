@@ -27,6 +27,7 @@ interface GitHistoryProps {
     commitId: string;
     filePath: string;
   }) => void;
+  onDiffAllFilesClick?: (params: { commitId: string; parentCommitId: string }) => void;
 }
 
 interface CommitChanges {
@@ -42,7 +43,7 @@ interface ExtendedCommit extends GitCommitType {
   changes?: CommitChanges;
 }
 
-export default function GitHistory({ commits, currentProject, currentBranch, onFileOperation, onDiffFileClick }: GitHistoryProps) {
+export default function GitHistory({ commits, currentProject, currentBranch, onFileOperation, onDiffFileClick, onDiffAllFilesClick }: GitHistoryProps) {
   const [extendedCommits, setExtendedCommits] = useState<ExtendedCommit[]>([]);
   const [expandedCommits, setExpandedCommits] = useState<Set<string>>(new Set());
   const [commitChanges, setCommitChanges] = useState<Map<string, CommitChanges>>(new Map());
@@ -362,7 +363,13 @@ export default function GitHistory({ commits, currentProject, currentBranch, onF
                   onMouseLeave={e => {
                     e.currentTarget.style.border = '1.5px solid transparent';
                   }}
-                  onClick={() => toggleCommitExpansion(commit.hash)}
+                  onClick={() => {
+                    toggleCommitExpansion(commit.hash);
+                    // コミット行クリック時に全ファイルdiffタブを開く
+                    if (onDiffAllFilesClick && commit.parentHashes && commit.parentHashes.length > 0) {
+                      onDiffAllFilesClick({ commitId: commit.hash, parentCommitId: commit.parentHashes[0] });
+                    }
+                  }}
                 >
                   {/* Expand/collapse icon - SVGと同じ高さに配置 */}
                   <div className="mr-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center" style={{ height: '20px', width: '12px' }}>

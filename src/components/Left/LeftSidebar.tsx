@@ -21,6 +21,7 @@ interface LeftSidebarProps {
   onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string) => Promise<void>;
   onGitStatusChange?: (changesCount: number) => void; // Git変更状態のコールバック
   onDiffFileClick?: (params: { commitId: string; filePath: string }) => void;
+  onDiffAllFilesClick?: (params: { commitId: string; parentCommitId: string }) => void;
 }
 
 export default function LeftSidebar({ 
@@ -35,7 +36,8 @@ export default function LeftSidebar({
   gitRefreshTrigger,
   onFileOperation,
   onGitStatusChange,
-  onDiffFileClick
+  onDiffFileClick,
+  onDiffAllFilesClick
 }: LeftSidebarProps) {
   const { colors } = useTheme();
   return (
@@ -116,6 +118,7 @@ export default function LeftSidebar({
                 onFileOperation={onFileOperation}
                 onGitStatusChange={onGitStatusChange}
                 onDiffFileClick={onDiffFileClick}
+                onDiffAllFilesClick={onDiffAllFilesClick}
               />
             </div>
           )}

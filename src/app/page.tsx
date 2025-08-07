@@ -94,29 +94,37 @@ export default function Home() {
   const { colors } = useTheme();
   
   // ペイン追加/削除/分割方向切替はpane.tsの関数を利用
-  // Diffタブを開く
+  // ファイル単体のdiffタブを開く
   const handleDiffFileClick = async ({ commitId, filePath }: { commitId: string; filePath: string }) => {
     if (!currentProject) return;
     const git = new GitCommands(currentProject.name);
-    // HEADの内容取得
-    const latterCommitId = 'HEAD';
-    const latterContent = await git.getFileContentAtCommit(latterCommitId, filePath);
-    // 指定コミットの内容取得
-    const formerContent = await git.getFileContentAtCommit(commitId, filePath);
-    // DiffタブID生成
-    const diffTabId = `diff-${commitId}-${latterCommitId}-${filePath}`;
+    // 指定コミットの親を取得
+    const log = await git.getFormattedLog(20);
+    const lines = log.split('\n');
+    const idx = lines.findIndex(line => line.startsWith(commitId));
+    let parentCommitId = '';
+    if (idx !== -1) {
+      const parts = lines[idx].split('|');
+      if (parts.length >= 5) {
+        const parentHashes = parts[4].trim();
+        parentCommitId = parentHashes.split(',')[0] || '';
+      }
+    }
+    const latterCommitId = commitId;
+    const formerCommitId = parentCommitId;
+    const latterContent = latterCommitId ? await git.getFileContentAtCommit(latterCommitId, filePath) : '';
+    const formerContent = formerCommitId ? await git.getFileContentAtCommit(formerCommitId, filePath) : '';
+    const diffTabId = `diff-${formerCommitId}-${latterCommitId}-${filePath}`;
     setTabs(prevTabs => {
-      // 既存タブがあればアクティブ化
       const existing = prevTabs.find(tab => tab.id === diffTabId);
       if (existing) {
         setActiveTabId(diffTabId);
         return prevTabs;
       }
-      // 新規タブ追加
       const newTab = {
         id: diffTabId,
         name: `Diff: ${filePath}`,
-        content: '', // DiffTabはcontentを使わない
+        content: '',
         isDirty: false,
         path: filePath,
         fullPath: filePath,
@@ -124,7 +132,7 @@ export default function Home() {
         isCodeMirror: false,
         diffProps: {
           formerFullPath: filePath,
-          formerCommitId: commitId,
+          formerCommitId: formerCommitId,
           latterFullPath: filePath,
           latterCommitId: latterCommitId,
           formerContent,
@@ -134,6 +142,59 @@ export default function Home() {
       setActiveTabId(diffTabId);
       return [...prevTabs, newTab];
     });
+  };
+
+  // コミット全体のdiffタブを開く
+  const handleDiffAllFilesClick = async ({ commitId, parentCommitId }: { commitId: string; parentCommitId: string }) => {
+    if (!currentProject) return;
+    const git = new GitCommands(currentProject.name);
+    // 差分ファイル一覧を取得
+    const diffOutput = await git.diffCommits(parentCommitId, commitId);
+    // 変更ファイルを抽出
+    const files: string[] = [];
+    const lines = diffOutput.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (line.startsWith('diff --git ')) {
+        const match = line.match(/diff --git a\/(.+) b\/(.+)/);
+        if (match) {
+          files.push(match[2]);
+        }
+      }
+    }
+    // 各ファイルごとにdiffタブを開く
+    for (const filePath of files) {
+      const latterContent = await git.getFileContentAtCommit(commitId, filePath);
+      const formerContent = await git.getFileContentAtCommit(parentCommitId, filePath);
+      const diffTabId = `diff-${parentCommitId}-${commitId}-${filePath}`;
+      setTabs(prevTabs => {
+        const existing = prevTabs.find(tab => tab.id === diffTabId);
+        if (existing) {
+          setActiveTabId(diffTabId);
+          return prevTabs;
+        }
+        const newTab = {
+          id: diffTabId,
+          name: `Diff: ${filePath}`,
+          content: '',
+          isDirty: false,
+          path: filePath,
+          fullPath: filePath,
+          preview: false,
+          isCodeMirror: false,
+          diffProps: {
+            formerFullPath: filePath,
+            formerCommitId: parentCommitId,
+            latterFullPath: filePath,
+            latterCommitId: commitId,
+            formerContent,
+            latterContent
+          }
+        };
+        setActiveTabId(diffTabId);
+        return [...prevTabs, newTab];
+      });
+    }
   };
   
   // --- 既存のタブ・ファイル操作は最初のペインに集約（初期実装） ---
@@ -441,6 +502,7 @@ export default function Home() {
             setGitRefreshTrigger(prev => prev + 1);
           }}
           onDiffFileClick={handleDiffFileClick}
+          onDiffAllFilesClick={handleDiffAllFilesClick}
         />
       )}
 
