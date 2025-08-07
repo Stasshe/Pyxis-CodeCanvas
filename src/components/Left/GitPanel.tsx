@@ -14,9 +14,10 @@ interface GitPanelProps {
   gitRefreshTrigger?: number;
   onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string) => Promise<void>;
   onGitStatusChange?: (changesCount: number) => void; // Git変更状態のコールバック
+  onDiffFileClick?: (params: { commitId: string; filePath: string }) => void;
 }
 
-export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger, onFileOperation, onGitStatusChange }: GitPanelProps) {
+export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger, onFileOperation, onGitStatusChange, onDiffFileClick }: GitPanelProps) {
   const { colors } = useTheme();
   const [gitRepo, setGitRepo] = useState<GitRepository | null>(null);
   const [commitMessage, setCommitMessage] = useState('');
@@ -694,6 +695,7 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
               currentProject={currentProject}
               currentBranch={gitRepo.currentBranch}
               onFileOperation={onFileOperation}
+              onDiffFileClick={onDiffFileClick}
             />
           )}
         </div>

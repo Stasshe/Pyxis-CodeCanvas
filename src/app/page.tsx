@@ -14,6 +14,8 @@ import MenuBar from '@/components/MenuBar';
 import LeftSidebar from '@/components/Left/LeftSidebar';
 import TabBar from '@/components/Tab/TabBar';
 import CodeEditor from '@/components/Tab/CodeEditor';
+import DiffTab from '@/components/Tab/DiffTab';
+import { GitCommands } from '@/utils/cmd/git';
 import BottomPanel from '@/components/Bottom/BottomPanel';
 import ProjectModal from '@/components/ProjectModal';
 import { useLeftSidebarResize, useBottomPanelResize } from '@/utils/resize';
@@ -41,7 +43,7 @@ export default function Home() {
   const [editorLayout, setEditorLayout] = useState<EditorLayoutType>('vertical');
   const [editors, setEditors] = useState<EditorPane[]>([{ id: 'editor-1', tabs: [], activeTabId: '' }]);
   const [isRestoredFromLocalStorage, setIsRestoredFromLocalStorage] = useState(false); // localStorage復元完了フラグ
-
+  
   // 初回レンダリング後にlocalStorageから復元（SSR/CSR不一致防止）
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -87,12 +89,53 @@ export default function Home() {
       } catch (e) {}
     }
   }, [editorLayout]);
-
+  
   
   const { colors } = useTheme();
-
+  
   // ペイン追加/削除/分割方向切替はpane.tsの関数を利用
-
+  // Diffタブを開く
+  const handleDiffFileClick = async ({ commitId, filePath }: { commitId: string; filePath: string }) => {
+    if (!currentProject) return;
+    const git = new GitCommands(currentProject.name);
+    // HEADの内容取得
+    const latterCommitId = 'HEAD';
+    const latterContent = await git.getFileContentAtCommit(latterCommitId, filePath);
+    // 指定コミットの内容取得
+    const formerContent = await git.getFileContentAtCommit(commitId, filePath);
+    // DiffタブID生成
+    const diffTabId = `diff-${commitId}-${latterCommitId}-${filePath}`;
+    setTabs(prevTabs => {
+      // 既存タブがあればアクティブ化
+      const existing = prevTabs.find(tab => tab.id === diffTabId);
+      if (existing) {
+        setActiveTabId(diffTabId);
+        return prevTabs;
+      }
+      // 新規タブ追加
+      const newTab = {
+        id: diffTabId,
+        name: `Diff: ${filePath}`,
+        content: '', // DiffTabはcontentを使わない
+        isDirty: false,
+        path: filePath,
+        fullPath: filePath,
+        preview: false,
+        isCodeMirror: false,
+        diffProps: {
+          formerFullPath: filePath,
+          formerCommitId: commitId,
+          latterFullPath: filePath,
+          latterCommitId: latterCommitId,
+          formerContent,
+          latterContent
+        }
+      };
+      setActiveTabId(diffTabId);
+      return [...prevTabs, newTab];
+    });
+  };
+  
   // --- 既存のタブ・ファイル操作は最初のペインに集約（初期実装） ---
   const tabs = editors[0].tabs;
   // setTabsのデバッグログを追加
@@ -349,20 +392,17 @@ export default function Home() {
           activeMenuTab={activeMenuTab}
           leftSidebarWidth={leftSidebarWidth}
           files={projectFiles}
-          // !型アサーションビミョい
           currentProject={currentProject!}
           onFileOpen={handleFileOpen}
           onFilePreview={file => {
             // Markdownプレビュータブとして開く
             const previewTabId = `preview-${file.path}`;
             setTabs(prevTabs => {
-              // 既存プレビュータブがあればアクティブ化
               const existing = prevTabs.find(tab => tab.id === previewTabId);
               if (existing) {
                 setActiveTabId(previewTabId);
                 return prevTabs;
               }
-              // 最新のファイル内容取得
               let fileToPreview = file;
               if (currentProject && projectFiles.length > 0) {
                 const latestFile = projectFiles.find(f => f.path === file.path);
@@ -370,29 +410,26 @@ export default function Home() {
                   fileToPreview = { ...file, content: latestFile.content };
                 }
               }
-              // プレビュータブ追加
-                const newTab = {
-                  id: previewTabId,
-                  name: fileToPreview.name,
-                  content: fileToPreview.content || '',
-                  isDirty: false,
-                  path: fileToPreview.path,
-                  fullPath: fileToPreview.path,
-                  preview: true // プレビューフラグ
-                };
-                setActiveTabId(previewTabId);
-                return [...prevTabs, newTab];
+              const newTab = {
+                id: previewTabId,
+                name: fileToPreview.name,
+                content: fileToPreview.content || '',
+                isDirty: false,
+                path: fileToPreview.path,
+                fullPath: fileToPreview.path,
+                preview: true
+              };
+              setActiveTabId(previewTabId);
+              return [...prevTabs, newTab];
             });
           }}
           onResize={handleLeftResize}
           onGitRefresh={() => {
-            // Git操作後にプロジェクトを再読み込み
             if (currentProject && loadProject) {
               loadProject(currentProject);
             }
           }}
           gitRefreshTrigger={gitRefreshTrigger}
-          
           onGitStatusChange={setGitChangesCount}
           onFileOperation={async (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => {
             if (isNodeRuntime) {
@@ -403,7 +440,8 @@ export default function Home() {
             }
             setGitRefreshTrigger(prev => prev + 1);
           }}
-          />
+          onDiffFileClick={handleDiffFileClick}
+        />
       )}
 
   <div className="flex-1 flex flex-col overflow-hidden min-h-0">
@@ -443,67 +481,56 @@ export default function Home() {
                   editorId={editor.id}
                   removeAllTabs={() => setTabsForPane(editors, setEditors, idx, [])}
                 />
-                <CodeEditor
-                  activeTab={activeTab}
-                  onContentChange={async (tabId, content) => {
-                    // ローカル状態を更新
-                    setEditors(prev => {
-                      const updated = [...prev];
-                      updated[idx] = {
-                        ...updated[idx],
-                        tabs: updated[idx].tabs.map(t => t.id === tabId ? { ...t, content, isDirty: true } : t)
-                      };
-                      return updated;
-                    });
-                    
-                    // ファイルパスを取得 - 最新のエディタ状態を使用するために関数内で取得
-                    setEditors(currentEditors => {
-                      // 現在のタブを見つける
-                      const tab = currentEditors[idx].tabs.find(t => t.id === tabId);
-                      if (!tab || !currentProject) return currentEditors; // タブが見つからない場合は何もしない
-                      
-                      //const minPaneIdx = Math.min(...panesWithSameFile);
-
-                      (async () => {
-                        try {
-                          console.log(`[Pane ${idx}] Saving file as minimum pane index:`, tab.path);
-                          // IndexedDBに保存
-                          await saveFile(tab.path, content);
-                          console.log(`[Pane ${idx}] File saved to IndexedDB:`, tab.path);
-                          
-                          // 保存成功後、projectFilesを明示的に再取得
-                          if (refreshProjectFiles) await refreshProjectFiles();
-                          
-                          // 全ペインの同じファイルタブのisDirtyをfalseに
-                          setEditors(prevEditors => {
-                            const targetPath = tab.path;
-                            return prevEditors.map(pane => ({
-                              ...pane,
-                              tabs: pane.tabs.map(t =>
-                                t.path === targetPath ? { ...t, isDirty: false } : t
-                              )
-                            }));
-                          });
-                          
-                          // Git状態を更新
-                          setTimeout(() => {
-                            setGitRefreshTrigger(prev => prev + 1);
-                          }, 200);
-                        } catch (error) {
-                          console.error(`[Pane ${idx}] Failed to save file:`, error);
-                        }
-                      })();
-                      
-                      // 元のエディタ状態を返す（setEditorsの中なので）
-                      return currentEditors;
-                    })
-                  }}
-                  onContentChangeImmediate={handleTabContentChangeImmediate}
-                  isBottomPanelVisible={isBottomPanelVisible}
-                  bottomPanelHeight={bottomPanelHeight}
-                  nodeRuntimeOperationInProgress={nodeRuntimeOperationInProgress}
-                  isCodeMirror={activeTab?.isCodeMirror}
-                />
+                {/* DiffTab or CodeEditor */}
+                {activeTab && (activeTab.diffProps ? (
+                  <DiffTab {...activeTab.diffProps} />
+                ) : (
+                  <CodeEditor
+                    activeTab={activeTab}
+                    onContentChange={async (tabId, content) => {
+                      setEditors(prev => {
+                        const updated = [...prev];
+                        updated[idx] = {
+                          ...updated[idx],
+                          tabs: updated[idx].tabs.map(t => t.id === tabId ? { ...t, content, isDirty: true } : t)
+                        };
+                        return updated;
+                      });
+                      setEditors(currentEditors => {
+                        const tab = currentEditors[idx].tabs.find(t => t.id === tabId);
+                        if (!tab || !currentProject) return currentEditors;
+                        (async () => {
+                          try {
+                            console.log(`[Pane ${idx}] Saving file as minimum pane index:`, tab.path);
+                            await saveFile(tab.path, content);
+                            console.log(`[Pane ${idx}] File saved to IndexedDB:`, tab.path);
+                            if (refreshProjectFiles) await refreshProjectFiles();
+                            setEditors(prevEditors => {
+                              const targetPath = tab.path;
+                              return prevEditors.map(pane => ({
+                                ...pane,
+                                tabs: pane.tabs.map(t =>
+                                  t.path === targetPath ? { ...t, isDirty: false } : t
+                                )
+                              }));
+                            });
+                            setTimeout(() => {
+                              setGitRefreshTrigger(prev => prev + 1);
+                            }, 200);
+                          } catch (error) {
+                            console.error(`[Pane ${idx}] Failed to save file:`, error);
+                          }
+                        })();
+                        return currentEditors;
+                      })
+                    }}
+                    onContentChangeImmediate={handleTabContentChangeImmediate}
+                    isBottomPanelVisible={isBottomPanelVisible}
+                    bottomPanelHeight={bottomPanelHeight}
+                    nodeRuntimeOperationInProgress={nodeRuntimeOperationInProgress}
+                    isCodeMirror={activeTab?.isCodeMirror}
+                  />
+                ))}
               </div>
             );
           })}

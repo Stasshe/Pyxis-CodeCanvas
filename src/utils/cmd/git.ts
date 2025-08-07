@@ -724,4 +724,23 @@ export class GitCommands {
       throw new Error(`Failed to discard changes in ${filepath}: ${errorMessage}`);
     }
   }
+
+    // 指定コミット・ファイルの内容を取得 (git show 相当)
+  async getFileContentAtCommit(commitId: string, filePath: string): Promise<string> {
+    await this.ensureGitRepository();
+    try {
+      // isomorphic-gitは絶対パスでなくプロジェクト内パスを要求するため、filePathを調整
+      let relPath = filePath;
+      if (relPath.startsWith('/')) relPath = relPath.slice(1);
+      // readBlobでファイル内容取得
+      const { blob } = await git.readBlob({ fs: this.fs, dir: this.dir, oid: commitId, filepath: relPath });
+      if (!blob) return '';
+      // Uint8Array → string
+      return new TextDecoder('utf-8').decode(blob);
+    } catch (e) {
+      // ファイルが存在しない場合は空文字
+      return '';
+    }
+  }
+  
 }

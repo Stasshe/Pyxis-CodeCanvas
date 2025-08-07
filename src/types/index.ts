@@ -17,6 +17,15 @@ export interface Tab {
   fullPath: string;
   preview?: boolean;
   isCodeMirror?: boolean;
+  // Diffタブ用のprops（通常タブではundefined）
+  diffProps?: {
+    formerFullPath: string;
+    formerCommitId: string;
+    latterFullPath: string;
+    latterCommitId: string;
+    formerContent: string;
+    latterContent: string;
+  };
 }
 
 // VSCode風ウィンドウ分割用エディタペイン型

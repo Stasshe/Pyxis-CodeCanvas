@@ -17,11 +17,16 @@ import { GitCommit as GitCommitType } from '@/types/git';
 import { GitCommands } from '@/utils/cmd/git';
 import { useTheme } from '@/context/ThemeContext';
 
+
 interface GitHistoryProps {
   commits: GitCommitType[];
   currentProject?: string;
   currentBranch: string;
   onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string) => Promise<void>;
+  onDiffFileClick?: (params: {
+    commitId: string;
+    filePath: string;
+  }) => void;
 }
 
 interface CommitChanges {
@@ -37,7 +42,7 @@ interface ExtendedCommit extends GitCommitType {
   changes?: CommitChanges;
 }
 
-export default function GitHistory({ commits, currentProject, currentBranch, onFileOperation }: GitHistoryProps) {
+export default function GitHistory({ commits, currentProject, currentBranch, onFileOperation, onDiffFileClick }: GitHistoryProps) {
   const [extendedCommits, setExtendedCommits] = useState<ExtendedCommit[]>([]);
   const [expandedCommits, setExpandedCommits] = useState<Set<string>>(new Set());
   const [commitChanges, setCommitChanges] = useState<Map<string, CommitChanges>>(new Map());
@@ -436,7 +441,16 @@ export default function GitHistory({ commits, currentProject, currentBranch, onF
                             );
                           }
                           return allFiles.map(({ file, type }, index) => (
-                            <div key={index} className="flex items-center gap-2 text-xs py-0.5">
+                            <div
+                              key={index}
+                              className="flex items-center gap-2 text-xs py-0.5 cursor-pointer hover:underline"
+                              onClick={() => {
+                                if (onDiffFileClick) {
+                                  onDiffFileClick({ commitId: commit.hash, filePath: file });
+                                }
+                              }}
+                              title="このファイルの差分を表示"
+                            >
                               {getFileIcon(type)}
                               <span className="font-mono truncate flex-1" style={{ color: colors.gitCommitFile || colors.sidebarFg }}>{file}</span>
                             </div>
