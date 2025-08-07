@@ -20,10 +20,10 @@ export class GitDiffOperations {
   }
 
   // git diff - 変更差分を表示
-  async diff(options: { staged?: boolean; filepath?: string; commit1?: string; commit2?: string } = {}): Promise<string> {
+  async diff(options: { staged?: boolean; filepath?: string; commit1?: string; commit2?: string; branchName?: string } = {}): Promise<string> {
     try {
       await this.ensureProjectDirectory();
-      
+
       // Gitリポジトリが初期化されているかチェック
       try {
         await this.fs.promises.stat(`${this.dir}/.git`);
@@ -31,11 +31,22 @@ export class GitDiffOperations {
         throw new Error('not a git repository (or any of the parent directories): .git');
       }
 
-      const { staged, filepath, commit1, commit2 } = options;
+      const { staged, filepath, commit1, commit2, branchName } = options;
 
       if (commit1 && commit2) {
         // 2つのコミット間の差分
         return await this.diffCommits(commit1, commit2, filepath);
+      } else if (branchName) {
+        // git diff <branch> の場合: 現在のHEADとbranchNameのHEADを比較
+        let currentBranch: string = '';
+        try {
+          const branch = await git.currentBranch({ fs: this.fs, dir: this.dir });
+          currentBranch = typeof branch === 'string' ? branch : '';
+        } catch {}
+        if (!currentBranch) currentBranch = 'main';
+        const head1 = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: `refs/heads/${currentBranch}` });
+        const head2 = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: `refs/heads/${branchName}` });
+        return await this.diffCommits(head1, head2, filepath);
       } else if (staged) {
         // ステージされた変更の差分
         return await this.diffStaged(filepath);

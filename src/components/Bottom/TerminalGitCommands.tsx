@@ -151,6 +151,14 @@ export async function handleGitCommand(
         });
         await writeOutput(diffResult);
       } else if (
+        diffArgs.length === 1 &&
+        !diffArgs[0].startsWith("-")
+      ) {
+        // git diff <branch> の場合
+        const branchName = diffArgs[0];
+        const diffResult = await gitCommandsRef.current.diff({ branchName });
+        await writeOutput(diffResult);
+      } else if (
         diffArgs.length >= 2 &&
         !diffArgs[0].startsWith("-") &&
         !diffArgs[1].startsWith("-")
@@ -182,12 +190,7 @@ export async function handleGitCommand(
         await writeOutput(mergeAbortResult);
       } else if (args[1]) {
         // git merge <branch> [--no-ff] [-m "message"]
-        const branchName = args.find((arg) => !arg.startsWith("-"));
-        if (!branchName) {
-          await writeOutput("git merge: missing branch name");
-          break;
-        }
-
+        const branchName = args[1];
         const noFf = args.includes("--no-ff");
         let message: string | undefined;
 

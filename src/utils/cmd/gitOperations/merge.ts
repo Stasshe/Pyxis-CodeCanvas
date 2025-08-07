@@ -80,21 +80,9 @@ export class GitMergeOperations {
     return await GitFileSystemHelper.getAllFiles(this.fs, dirPath);
   }
 
-  // ファイルの内容を読み取り
-  private async readFileContent(filepath: string): Promise<string> {
-    try {
-      const content = await this.fs.promises.readFile(`${this.dir}/${filepath}`, { encoding: 'utf8' });
-      return content as string;
-    } catch {
-      return '';
-    }
-  }
-
-  // マージ結果をワーキングディレクトリに反映
+  // マージ結果をワーキングディレクトリに反映（reset.tsのrestoreTreeFilesを参考にリファクタ）
   private async updateWorkingDirectory(result: any): Promise<void> {
-    if (!result || !result.tree) {
-      return;
-    }
+    if (!result || !result.tree) return;
 
     // 現在のファイル一覧を取得
     const currentFiles = await this.getAllFiles(this.dir);
@@ -104,40 +92,53 @@ export class GitMergeOperations {
     const tree = await git.readTree({ fs: this.fs, dir: this.dir, oid: result.tree });
     const newFiles = new Set<string>();
 
-    // 新しいファイルを書き込み
-    for (const entry of tree.tree) {
-      if (entry.type === 'blob') {
-        newFiles.add(entry.path);
-        
-        try {
-          const { blob } = await git.readBlob({ fs: this.fs, dir: this.dir, oid: entry.oid });
-          const content = new TextDecoder().decode(blob);
-          
-          await this.fs.promises.writeFile(`${this.dir}/${entry.path}`, content, 'utf8');
-          
-          // onFileOperation コールバックを呼び出し
-          if (this.onFileOperation) {
-            await this.onFileOperation(`/${entry.path}`, 'file', content);
-          }
-        } catch (error) {
-          console.warn(`Failed to write file ${entry.path}:`, error);
+    // ファイル・ディレクトリを再帰的に復元
+    const restoreTreeFiles = async (treeObj: any, basePath: string) => {
+      for (const entry of treeObj.tree) {
+        const fullPath = basePath ? `${basePath}/${entry.path}` : entry.path;
+        const fsPath = `${this.dir}/${fullPath}`;
+        if (entry.type === 'tree') {
+          // ディレクトリ
+          try {
+            try { await this.fs.promises.stat(fsPath); } catch { await this.fs.promises.mkdir(fsPath, { recursive: true } as any); }
+            if (this.onFileOperation) {
+              const projectRelativePath = fullPath.startsWith('/') ? fullPath : `/${fullPath}`;
+              await this.onFileOperation(projectRelativePath, 'folder');
+            }
+            const subTree = await git.readTree({ fs: this.fs, dir: this.dir, oid: entry.oid });
+            await restoreTreeFiles(subTree, fullPath);
+          } catch (e) { console.warn(`Failed to create directory ${fullPath}:`, e); }
+        } else if (entry.type === 'blob') {
+          newFiles.add(fullPath);
+          try {
+            // 親ディレクトリを再帰的に作成
+            const dirPath = fsPath.substring(0, fsPath.lastIndexOf('/'));
+            if (dirPath && dirPath !== this.dir) {
+              try { await this.fs.promises.stat(dirPath); } catch { await this.fs.promises.mkdir(dirPath, { recursive: true } as any); }
+            }
+            const { blob } = await git.readBlob({ fs: this.fs, dir: this.dir, oid: entry.oid });
+            const content = new TextDecoder().decode(blob);
+            await this.fs.promises.writeFile(fsPath, content, 'utf8');
+            if (this.onFileOperation) {
+              const projectRelativePath = fullPath.startsWith('/') ? fullPath : `/${fullPath}`;
+              await this.onFileOperation(projectRelativePath, 'file', content);
+            }
+          } catch (e) { console.warn(`Failed to restore file ${fullPath}:`, e); }
         }
       }
-    }
+    };
+    await restoreTreeFiles(tree, '');
 
     // 削除されたファイルを処理
     for (const filepath of currentFileSet) {
       if (!newFiles.has(filepath)) {
         try {
           await this.fs.promises.unlink(`${this.dir}/${filepath}`);
-          
-          // onFileOperation コールバックを呼び出し
           if (this.onFileOperation) {
-            await this.onFileOperation(`/${filepath}`, 'delete');
+            const projectRelativePath = filepath.startsWith('/') ? filepath : `/${filepath}`;
+            await this.onFileOperation(projectRelativePath, 'delete');
           }
-        } catch (error) {
-          console.warn(`Failed to delete file ${filepath}:`, error);
-        }
+        } catch (e) { console.warn(`Failed to delete file ${filepath}:`, e); }
       }
     }
   }
@@ -148,12 +149,12 @@ export class GitMergeOperations {
       const sourceCommit = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: `refs/heads/${sourceBranch}` });
       const targetCommit = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: `refs/heads/${targetBranch}` });
 
-      // ターゲットブランチが現在のブランチの祖先かチェック
+      // sourceBranchがtargetBranchの祖先かチェック（mainがworkの祖先か？）
       const isAncestor = await git.isDescendent({ 
         fs: this.fs, 
         dir: this.dir, 
-        oid: targetCommit, 
-        ancestor: sourceCommit 
+        oid: sourceCommit, 
+        ancestor: targetCommit 
       });
 
       return {
@@ -197,7 +198,7 @@ export class GitMergeOperations {
       // Fast-forward マージの場合
       if (canFF && !options.noFf) {
         console.log('Performing fast-forward merge');
-        
+
         // Fast-forward マージを実行（HEADを対象ブランチに移動）
         await git.writeRef({ 
           fs: this.fs, 
@@ -205,15 +206,13 @@ export class GitMergeOperations {
           ref: `refs/heads/${currentBranch}`, 
           value: targetCommit 
         });
-        
+
         // ワーキングディレクトリを更新
         await git.checkout({ fs: this.fs, dir: this.dir, ref: currentBranch });
-        
-        // ファイルシステムの変更を通知
-        if (this.onFileOperation) {
-          await this.onFileOperation('.', 'folder');
-        }
-        
+
+        // updateWorkingDirectoryでファイル内容ごとUI反映
+        await this.updateWorkingDirectory({ tree: targetCommit });
+
         const shortTarget = targetCommit.slice(0, 7);
         return `Updating ${sourceCommit.slice(0, 7)}..${shortTarget}\nFast-forward`;
       }

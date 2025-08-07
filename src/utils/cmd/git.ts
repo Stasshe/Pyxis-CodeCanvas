@@ -565,7 +565,7 @@ export class GitCommands {
   }
 
   // git diff - 変更差分を表示
-  async diff(options: { staged?: boolean; filepath?: string; commit1?: string; commit2?: string } = {}): Promise<string> {
+  async diff(options: { staged?: boolean; filepath?: string; commit1?: string; commit2?: string; branchName?: string } = {}): Promise<string> {
     const diffOperations = new GitDiffOperations(this.fs, this.dir);
     return await diffOperations.diff(options);
   }
