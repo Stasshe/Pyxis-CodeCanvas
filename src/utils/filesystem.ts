@@ -1,3 +1,41 @@
+// Lightning-FS配下の全ファイル・ディレクトリを再帰的に取得
+export const getAllFilesAndDirs = async (baseDir: string = '/projects'): Promise<Array<{ path: string; content?: string; type: 'file' | 'folder' }>> => {
+  const fs = getFileSystem();
+  if (!fs) return [];
+  const result: Array<{ path: string; content?: string; type: 'file' | 'folder' }> = [];
+
+  async function walk(currentPath: string) {
+    if (!fs) return;
+    let stat;
+    try {
+      stat = await fs.promises.stat(currentPath);
+    } catch {
+      return;
+    }
+    if (stat.isDirectory()) {
+      if (currentPath !== baseDir) {
+        result.push({ path: currentPath.replace(baseDir, '') || '/', type: 'folder' });
+      }
+      let files: string[] = [];
+      try {
+        files = await fs.promises.readdir(currentPath);
+      } catch { return; }
+      for (const file of files) {
+        if (file === '.' || file === '..' || file === '.git' || file.startsWith('.git')) continue;
+        await walk(`${currentPath}/${file}`);
+      }
+    } else {
+      // ファイル
+      let content = '';
+      try {
+        content = await fs.promises.readFile(currentPath, { encoding: 'utf8' });
+      } catch {}
+      result.push({ path: currentPath.replace(baseDir, ''), content, type: 'file' });
+    }
+  }
+  await walk(baseDir);
+  return result;
+};
 import FS from '@isomorphic-git/lightning-fs';
 
 // 仮想ファイルシステムのインスタンス
