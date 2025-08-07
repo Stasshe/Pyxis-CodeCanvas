@@ -6,6 +6,8 @@ export interface FileItem {
   children?: FileItem[];
   path: string;
   isCodeMirror?: boolean;
+  isBufferArray?: boolean; // バイナリファイルの場合true
+  bufferContent?: ArrayBuffer; // バイナリデータ本体
 }
 
 export interface SingleFileDiff {
@@ -26,6 +28,8 @@ export interface Tab {
   fullPath: string;
   preview?: boolean;
   isCodeMirror?: boolean;
+  isBufferArray?: boolean; // バイナリファイルの場合true
+  bufferContent?: ArrayBuffer; // バイナリデータ本体
   // Diffタブ用のprops（通常タブではundefined）
   diffProps?: {
     diffs: SingleFileDiff[];
@@ -54,11 +58,13 @@ export interface ProjectFile {
   projectId: string;
   path: string;
   name: string;
-  content: string;
+  content: string; // テキストファイル用
   type: 'file' | 'folder';
   parentPath?: string;
   createdAt: Date;
   updatedAt: Date;
+  isBufferArray?: boolean; // バイナリファイルの場合true
+  bufferContent?: ArrayBuffer; // バイナリデータ本体
 }
 
 export type MenuTab = 'files' | 'search' | 'git' | 'settings' | 'run';

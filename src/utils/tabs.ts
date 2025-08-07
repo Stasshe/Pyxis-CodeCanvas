@@ -44,7 +44,18 @@ export const openFile = (
     return;
   }
 
-  const newTab = createNewTab(file);
+  const newTab: Tab = {
+    id: file.id + '-' + Date.now(),
+    name: file.name,
+    content: file.content || '',
+    isDirty: false,
+    path: file.path,
+    fullPath: file.path,
+    isCodeMirror: file.isCodeMirror,
+    isBufferArray: file.isBufferArray,
+    bufferContent: file.bufferContent,
+  };
+  //createNewTab()
   console.log('[openFile] Created new tab:', newTab.id);
   setTabs([...tabs, newTab]);
   setActiveTabId(newTab.id);

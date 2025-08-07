@@ -11,8 +11,15 @@ interface FileTreeProps {
   onFileOpen: (file: FileItem) => void;
   onFilePreview?: (file: FileItem) => void;
   level?: number;
-  currentProjectName: string; // プロジェクト情報をオプションで受け取る
-  onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>;
+  currentProjectName: string;
+  onFileOperation?: (
+    path: string,
+    type: 'file' | 'folder' | 'delete',
+    content?: string | ArrayBuffer,
+    isNodeRuntime?: boolean,
+    isBufferArray?: boolean,
+    bufferContent?: ArrayBuffer
+  ) => Promise<void>;
   isFileSelectModal?: boolean;
 }
 export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, currentProjectName, onFileOperation, isFileSelectModal }: FileTreeProps) {
@@ -329,9 +336,17 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
                       const { importSingleFile } = await import('@/utils/export/importSingleFile');
                       const targetAbsolutePath = `/projects/${currentProjectName}/${file.name}`;
                       const targetPath = `/${file.name}`;
+                      // バイナリ判定
+                      const isBinary = /\.(png|jpg|jpeg|gif|bmp|webp|svg|pdf)$/i.test(file.name);
+                      let content: string | ArrayBuffer = '';
+                      if (isBinary) {
+                        content = await file.arrayBuffer();
+                      } else {
+                        content = await file.text();
+                      }
                       await importSingleFile(file, targetAbsolutePath, unix);
                       if (typeof onFileOperation === 'function') {
-                        await onFileOperation(targetPath, 'file', await file.text(), false);
+                        await onFileOperation(targetPath, 'file', content, false, isBinary ? true : false, isBinary ? (content as ArrayBuffer) : undefined);
                       }
                     };
                     input.click();
@@ -400,9 +415,16 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
                           }
                         }
                         if (targetPath) {
+                          const isBinary = /\.(png|jpg|jpeg|gif|bmp|webp|svg|pdf)$/i.test(file.name);
+                          let content: string | ArrayBuffer = '';
+                          if (isBinary) {
+                            content = await file.arrayBuffer();
+                          } else {
+                            content = await file.text();
+                          }
                           await importSingleFile(file, targetAbsolutePath, unix);
                           if (typeof onFileOperation === 'function') {
-                            await onFileOperation(targetPath, 'file', await file.text(), false);
+                            await onFileOperation(targetPath, 'file', content, false, isBinary ? true : false, isBinary ? (content as ArrayBuffer) : undefined);
                           }
                         }
                       };

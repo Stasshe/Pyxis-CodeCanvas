@@ -179,29 +179,52 @@ class ProjectDB {
   }
 
   // ファイル操作
-  async createFile(projectId: string, path: string, content: string, type: 'file' | 'folder'): Promise<ProjectFile> {
-    
+  /**
+   * バイナリファイル対応: content(string)またはbufferContent(ArrayBuffer)を受け取る
+   * @param projectId
+   * @param path
+   * @param contentOrBuffer string | ArrayBuffer
+   * @param type
+   * @param isBufferArray? バイナリファイルの場合true
+   */
+  async createFile(
+    projectId: string,
+    path: string,
+    contentOrBuffer: string | ArrayBuffer,
+    type: 'file' | 'folder',
+    isBufferArray?: boolean
+  ): Promise<ProjectFile> {
     // 既存ファイルをチェック
     const existingFiles = await this.getProjectFiles(projectId);
     const existingFile = existingFiles.find(f => f.path === path);
-    
+
     if (existingFile) {
-      existingFile.content = content;
+      if (isBufferArray) {
+        existingFile.isBufferArray = true;
+        existingFile.bufferContent = contentOrBuffer as ArrayBuffer;
+        existingFile.content = '';
+      } else {
+        existingFile.isBufferArray = false;
+        existingFile.content = contentOrBuffer as string;
+        existingFile.bufferContent = undefined;
+      }
       existingFile.updatedAt = new Date();
       await this.saveFile(existingFile);
       return existingFile;
     }
-    
+
     const file: ProjectFile = {
       id: generateUniqueId('file'),
       projectId,
       path,
       name: path.split('/').pop() || '',
-      content,
+      content: isBufferArray ? '' : (contentOrBuffer as string),
       type,
       parentPath: path.substring(0, path.lastIndexOf('/')) || '/',
       createdAt: new Date(),
       updatedAt: new Date(),
+      isBufferArray: !!isBufferArray,
+      bufferContent: isBufferArray ? (contentOrBuffer as ArrayBuffer) : undefined,
     };
 
     await this.saveFile(file);
@@ -216,7 +239,15 @@ class ProjectDB {
         return;
       }
 
-      const updatedFile = { ...file, updatedAt: new Date() };
+      // バイナリファイルの場合はbufferContentを保存
+      const updatedFile: any = { ...file, updatedAt: new Date() };
+      if (file.isBufferArray) {
+        updatedFile.content = '';
+        // ArrayBufferはそのまま保存可能
+      } else {
+        updatedFile.bufferContent = undefined;
+      }
+
       const transaction = this.db.transaction(['files'], 'readwrite');
       const store = transaction.objectStore('files');
       const request = store.put(updatedFile);
@@ -256,11 +287,21 @@ class ProjectDB {
         reject(request.error);
       };
       request.onsuccess = () => {
-        const files = request.result.map(f => ({
-          ...f,
-          createdAt: new Date(f.createdAt),
-          updatedAt: new Date(f.updatedAt),
-        }));
+        const files = request.result.map(f => {
+          // バイナリファイルの場合はcontentを空文字に、bufferContentをArrayBufferとして返す
+          let bufferContent: ArrayBuffer | undefined = undefined;
+          if (f.isBufferArray && f.bufferContent) {
+            // IndexedDBからはArrayBufferとして取得される
+            bufferContent = f.bufferContent;
+          }
+          return {
+            ...f,
+            createdAt: new Date(f.createdAt),
+            updatedAt: new Date(f.updatedAt),
+            bufferContent,
+            content: f.isBufferArray ? '' : f.content,
+          };
+        });
         resolve(files);
       };
     });

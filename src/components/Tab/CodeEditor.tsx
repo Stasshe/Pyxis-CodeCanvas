@@ -5,6 +5,20 @@ import WelcomeTab from './WelcomeTab';
 import Editor, { Monaco, OnMount } from '@monaco-editor/react';
 import { FileText } from 'lucide-react';
 import { Tab } from '@/types';
+
+// バイナリファイルのMIMEタイプ推定
+function guessMimeType(fileName: string, buffer?: ArrayBuffer): string {
+  const ext = fileName.toLowerCase();
+  if (ext.match(/\.(png)$/)) return 'image/png';
+  if (ext.match(/\.(jpg|jpeg)$/)) return 'image/jpeg';
+  if (ext.match(/\.(gif)$/)) return 'image/gif';
+  if (ext.match(/\.(bmp)$/)) return 'image/bmp';
+  if (ext.match(/\.(webp)$/)) return 'image/webp';
+  if (ext.match(/\.(svg)$/)) return 'image/svg+xml';
+  if (ext.match(/\.(pdf)$/)) return 'application/pdf';
+  // 他はapplication/octet-stream
+  return 'application/octet-stream';
+}
 import * as monaco from 'monaco-editor';
 // Monaco用: ファイルごとにTextModelを管理するMap
 const monacoModelMap: Map<string, monaco.editor.ITextModel> = new Map();
@@ -317,10 +331,46 @@ export default function CodeEditor({
       <div className="flex-1 min-h-0 select-none" style={{ height: editorHeight }}>
         <div className="h-full flex items-center justify-center text-muted-foreground select-none">
           <div className="text-center select-none">
-          <FileText size={48} className="mx-auto mb-4 opacity-50" />
-          <p className="select-none">ファイルを選択してください</p>
+            <FileText size={48} className="mx-auto mb-4 opacity-50" />
+            <p className="select-none">ファイルを選択してください</p>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  // バイナリファイル（BufferArray）なら専用表示
+  if ((activeTab as any).isBufferArray) {
+    const buffer = (activeTab as any).bufferContent as ArrayBuffer | undefined;
+    const mime = guessMimeType(activeTab.name, buffer);
+    // 画像ならimg表示
+    if (mime.startsWith('image/') && buffer) {
+      const blob = new Blob([buffer], { type: mime });
+      const url = URL.createObjectURL(blob);
+      return (
+        <div className="flex-1 min-h-0 flex flex-col items-center justify-center" style={{ height: editorHeight }}>
+          <img src={url} alt={activeTab.name} style={{ maxWidth: '90%', maxHeight: '90%', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }} />
+          <div style={{ marginTop: 12, color: '#aaa', fontSize: 13 }}>{activeTab.name}</div>
+        </div>
+      );
+    }
+    // PDFならiframeで表示
+    if (mime === 'application/pdf' && buffer) {
+      const blob = new Blob([buffer], { type: mime });
+      const url = URL.createObjectURL(blob);
+      return (
+        <div className="flex-1 min-h-0 flex flex-col items-center justify-center" style={{ height: editorHeight }}>
+          <iframe src={url} title={activeTab.name} style={{ width: '90%', height: '90%', border: 'none', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }} />
+          <div style={{ marginTop: 12, color: '#aaa', fontSize: 13 }}>{activeTab.name}</div>
+        </div>
+      );
+    }
+    // それ以外は「表示できません」
+    return (
+      <div className="flex-1 min-h-0 flex flex-col items-center justify-center" style={{ height: editorHeight }}>
+        <FileText size={48} className="mx-auto mb-4 opacity-50" />
+        <div style={{ color: '#aaa', fontSize: 15, marginBottom: 8 }}>{activeTab.name}</div>
+        <div style={{ color: '#d44', fontSize: 16 }}>このファイル形式は表示できません</div>
       </div>
     );
   }

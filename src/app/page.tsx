@@ -201,19 +201,21 @@ export default function Home() {
       path: file.path, 
       contentLength: file.content?.length || 0 
     });
-    
-    // 最新のプロジェクトファイルから正しいコンテンツを取得
+    // 最新のプロジェクトファイルから正しいコンテンツ・バイナリ情報を取得
     let fileToOpen = file;
     if (currentProject && projectFiles.length > 0) {
       const latestFile = projectFiles.find(f => f.path === file.path);
       if (latestFile) {
         fileToOpen = {
           ...file,
-          content: latestFile.content
+          content: latestFile.content,
+          isBufferArray: (latestFile as any).isBufferArray,
+          bufferContent: (latestFile as any).bufferContent
         };
       }
     }
-  openFile(fileToOpen, tabs, setTabs, setActiveTabId);
+    // openFile: Tab生成時にもisBufferArray/bufferContentを渡す
+    openFile(fileToOpen, tabs, setTabs, setActiveTabId);
   };
 
   // 保存再起動イベントリスナー
@@ -392,12 +394,21 @@ export default function Home() {
           }}
           gitRefreshTrigger={gitRefreshTrigger}
           onGitStatusChange={setGitChangesCount}
-          onFileOperation={async (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => {
+          onFileOperation={async (
+            path: string,
+            type: 'file' | 'folder' | 'delete',
+            content?: string | ArrayBuffer,
+            isNodeRuntime?: boolean,
+            isBufferArray?: boolean,
+            bufferContent?: ArrayBuffer
+          ) => {
             if (isNodeRuntime) {
               setNodeRuntimeOperationInProgress(true);
             }
+            // バイナリファイルの場合はsyncTerminalFileOperation等で分岐
             if (syncTerminalFileOperation) {
-              await syncTerminalFileOperation(path, type, content);
+              // syncTerminalFileOperationの型も拡張が必要だが、ここではisBufferArray/bufferContentを渡す想定
+              await syncTerminalFileOperation(path, type, content, isBufferArray, bufferContent);
             }
             setGitRefreshTrigger(prev => prev + 1);
           }}
