@@ -36,10 +36,11 @@ interface TerminalProps {
   currentProject?: string;
   projectFiles?: FileItem[];
   onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>;
+  isActive?: boolean;
 }
 
 // クライアントサイド専用のターミナルコンポーネント
-function ClientTerminal({ height, currentProject = 'default', projectFiles = [], onFileOperation }: TerminalProps) {
+function ClientTerminal({ height, currentProject = 'default', projectFiles = [], onFileOperation, isActive }: TerminalProps) {
   const { colors } = useTheme();
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<any>(null);
@@ -48,6 +49,7 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
   const gitCommandsRef = useRef<GitCommands | null>(null);
   const npmCommandsRef = useRef<NpmCommands | null>(null);
 
+  // xterm/fitAddonをrefで保持
   useEffect(() => {
     if (!terminalRef.current) return;
     if (!currentProject) return;
@@ -652,8 +654,8 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
       }
     });
 
-    xtermRef.current = term;
-    fitAddonRef.current = fitAddon;
+  xtermRef.current = term;
+  fitAddonRef.current = fitAddon;
 
     // クリーンアップ
     return () => {
@@ -666,6 +668,15 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
       }
       term.dispose();
     };
+  // タブがアクティブになった時にfit/scrollToBottomを呼ぶ
+  useEffect(() => {
+    if (isActive && fitAddonRef.current && xtermRef.current) {
+      setTimeout(() => {
+        fitAddonRef.current?.fit();
+        xtermRef.current?.scrollToBottom();
+      }, 50);
+    }
+  }, [isActive]);
   }, [currentProject]);
 
   // 高さが変更された時にサイズを再調整
@@ -712,7 +723,7 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
 }
 
 // SSR対応のターミナルコンポーネント
-export default function Terminal({ height, currentProject, projectFiles, onFileOperation }: TerminalProps) {
+export default function Terminal({ height, currentProject, projectFiles, onFileOperation, isActive }: TerminalProps) {
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -733,5 +744,5 @@ export default function Terminal({ height, currentProject, projectFiles, onFileO
   }
 
   // クライアントサイドでマウント後のみ実際のターミナルを表示
-  return <ClientTerminal height={height} currentProject={currentProject} projectFiles={projectFiles} onFileOperation={onFileOperation} />;
+  return <ClientTerminal height={height} currentProject={currentProject} projectFiles={projectFiles} onFileOperation={onFileOperation} isActive={isActive} />;
 }

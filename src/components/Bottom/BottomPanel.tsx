@@ -133,16 +133,37 @@ export default function BottomPanel({ height, currentProject, projectFiles, onRe
           )}
         </div>
         <div className="flex-1 overflow-hidden relative">
-          {activeTab === 'output' ? (
+          {/* ターミナルと出力パネルを同時にマウントし、visibility/positionで切り替え（xterm.jsの幅崩れ対策） */}
+          <div
+            style={{
+              height: '100%',
+              width: '100%',
+              position: activeTab === 'output' ? 'static' : 'absolute',
+              visibility: activeTab === 'output' ? 'visible' : 'hidden',
+              pointerEvents: activeTab === 'output' ? 'auto' : 'none',
+              top: 0, left: 0,
+            }}
+          >
             <OutputPanel messages={outputMessages} />
-          ) : (
+          </div>
+          <div
+            style={{
+              height: '100%',
+              width: '100%',
+              position: activeTab === 'terminal' ? 'static' : 'absolute',
+              visibility: activeTab === 'terminal' ? 'visible' : 'hidden',
+              pointerEvents: activeTab === 'terminal' ? 'auto' : 'none',
+              top: 0, left: 0,
+            }}
+          >
             <Terminal
               height={height}
               currentProject={currentProject}
               projectFiles={projectFiles}
               onFileOperation={onTerminalFileOperation}
+              isActive={activeTab === 'terminal'}
             />
-          )}
+          </div>
         </div>
       </div>
     </>
