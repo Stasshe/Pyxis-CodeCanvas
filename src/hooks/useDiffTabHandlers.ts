@@ -31,9 +31,12 @@ export function useDiffTabHandlers(currentProject: any, setTabs: React.Dispatch<
         setActiveTabId(diffTabId);
         return prevTabs;
       }
+      // commitidは6桁のみ表示
+      const shortFormer = formerCommitId ? formerCommitId.slice(0, 6) : '';
+      const shortLatter = latterCommitId ? latterCommitId.slice(0, 6) : '';
       const newTab = {
         id: diffTabId,
-        name: `Diff: ${filePath}`,
+        name: `Diff: ${filePath} (${shortFormer}..${shortLatter})`,
         content: '',
         isDirty: false,
         path: filePath,
@@ -97,9 +100,12 @@ export function useDiffTabHandlers(currentProject: any, setTabs: React.Dispatch<
         setActiveTabId(diffTabId);
         return prevTabs;
       }
+      // commitidは6桁のみ表示
+      const shortFormer = parentCommitId ? parentCommitId.slice(0, 6) : '';
+      const shortLatter = commitId ? commitId.slice(0, 6) : '';
       const newTab = {
         id: diffTabId,
-        name: `Diff: ${parentCommitId}..${commitId}`,
+        name: `Diff: ${shortFormer}..${shortLatter}`,
         content: '',
         isDirty: false,
         path: '',
