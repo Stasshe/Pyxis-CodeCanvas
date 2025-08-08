@@ -359,7 +359,7 @@ export const useProject = () => {
   };
 
   // ターミナルからのファイル操作を同期
-  const syncTerminalFileOperation = async (path: string, type: 'file' | 'folder' | 'delete', content: string | ArrayBuffer = '') => {
+  const syncTerminalFileOperation = async (path: string, type: 'file' | 'folder' | 'delete', content: string = '', bufferContent?: ArrayBuffer) => {
     if (!currentProject) {
       console.log('[syncTerminalFileOperation] No current project');
       return;
@@ -422,7 +422,7 @@ export const useProject = () => {
           // 既存ファイルを更新
           console.log('[syncTerminalFileOperation] Updating existing file:', existingFile);
           let updatedFile;
-          if (content instanceof ArrayBuffer) {
+          if (content && content.constructor === ArrayBuffer) {
             updatedFile = { ...existingFile, content: '', isBufferArray: true, bufferContent: content, updatedAt: new Date() };
           } else {
             updatedFile = { ...existingFile, content, isBufferArray: false, bufferContent: undefined, updatedAt: new Date() };
@@ -442,7 +442,7 @@ export const useProject = () => {
         } else {
           // 新しいファイル/フォルダを作成
           console.log('[syncTerminalFileOperation] Creating new file/folder:', { path, type });
-          if (content instanceof ArrayBuffer) {
+          if (content && content.constructor === ArrayBuffer) {
             const newFile = await projectDB.createFile(currentProject.id, path, content, type, true);
             console.log('[syncTerminalFileOperation] File/folder created in DB with ID:', newFile.id);
           } else {
@@ -450,7 +450,12 @@ export const useProject = () => {
             console.log('[syncTerminalFileOperation] File/folder created in DB with ID:', newFile.id);
           }
           // ファイルシステムにも同期（Git変更検知のため）
-          if (type === 'file') {
+          if (type === 'file' || type === 'folder') {
+            const existingFile = projectFiles.find(f => f.path === path);
+            if (existingFile) {
+              console.log(`[syncTerminalFileOperation] Skipping creation: ${path} already exists.`);
+              return; // 既に存在する場合はスキップ
+            }
             try {
               const { syncFileToFileSystem } = await import('./filesystem');
               await syncFileToFileSystem(currentProject.name, path, content, 'create');

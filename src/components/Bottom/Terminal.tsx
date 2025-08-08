@@ -35,7 +35,7 @@ interface TerminalProps {
   height: number;
   currentProject?: string;
   projectFiles?: FileItem[];
-  onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>;
+  onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean, isBufferArray?: boolean, bufferContent?: ArrayBuffer) => Promise<void>;
   isActive?: boolean;
 }
 
@@ -388,8 +388,16 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
             } else if (!unixCommandsRef.current) {
               await writeOutput('unzip: internal error (filesystem not initialized)');
             } else {
+              // 修正: パスを正規化して検索
+              const normalizedPath = unixCommandsRef.current?.normalizePath(args[0]);
+              console.log('[unzip] Normalized path:', normalizedPath);
+              const fileToUnzip = projectFiles.find(file => file.path === normalizedPath);
+              console.log('[unzip] fileToUnzip:', fileToUnzip);
+              if (!fileToUnzip) return await writeOutput(`unzip: ファイルが見つかりません: ${args[0]}`);
+              const bufferContent = fileToUnzip.bufferContent;
+              if (!bufferContent) return await writeOutput(`unzip: バッファコンテンツが見つかりません: ${args[0]}`);
               try {
-                const result = await unixCommandsRef.current.unzip(args[0], args[1]);
+                const result = await unixCommandsRef.current.unzip(normalizedPath, args[1], bufferContent);
                 await writeOutput(result);
               } catch (e) {
                 await writeOutput((e as Error).message);

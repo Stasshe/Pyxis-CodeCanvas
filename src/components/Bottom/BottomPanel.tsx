@@ -11,7 +11,7 @@ interface BottomPanelProps {
   currentProject?: string;
   projectFiles?: FileItem[];
   onResize: (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => void;
-  onTerminalFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>;
+  onTerminalFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean, isBufferArray?: boolean, bufferContent?: ArrayBuffer) => Promise<void>;
 }
 
 export const outputMessagesRef: { current: OutputMessage[]; set?: React.Dispatch<React.SetStateAction<OutputMessage[]>> } = { current: [], set: undefined };

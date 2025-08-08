@@ -754,7 +754,7 @@ export class UnixCommands {
     }
   }
   // unzip - zipファイルを解凍
-  async unzip(zipFileName: string, destDir?: string): Promise<string> {
+  async unzip(zipFileName: string, destDir: string, bufferContent: ArrayBuffer): Promise<string> {
     const targetPath = zipFileName.startsWith('/') ? zipFileName : `${this.currentDir}/${zipFileName}`;
     const normalizedPath = this.normalizePath(targetPath);
     const extractDir = destDir
@@ -763,7 +763,10 @@ export class UnixCommands {
     const normalizedDest = this.normalizePath(extractDir);
     try {
       // zipファイルの内容を取得
-      const data = await this.fs.promises.readFile(normalizedPath);
+      // デバッグログを追加してbufferContentの内容を確認
+      console.log('[unzip] bufferContent:', bufferContent);
+      const data = bufferContent || await this.fs.promises.readFile(normalizedPath);
+      console.log('[unzip] data (used for JSZip):', data);
       const zip = await JSZip.loadAsync(data);
       let fileCount = 0;
       // zip内の全ファイルを展開
@@ -787,7 +790,14 @@ export class UnixCommands {
           await this.fs.promises.writeFile(filePath, content);
           if (this.onFileOperation) {
             const rel = this.getRelativePathFromProject(filePath);
-            await this.onFileOperation(rel, 'file', '');
+            // 修正: bufferContentをTextDecoderで文字列に変換して渡す
+            if (bufferContent) {
+              const decoder = new TextDecoder();
+              const contentString = decoder.decode(bufferContent);
+              await this.onFileOperation(rel, 'file', contentString, false);
+            } else {
+              await this.onFileOperation(rel, 'file', undefined, false);
+            }
           }
           fileCount++;
         }

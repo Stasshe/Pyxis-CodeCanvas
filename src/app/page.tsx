@@ -400,7 +400,7 @@ export default function Home() {
           onFileOperation={async (
             path: string,
             type: 'file' | 'folder' | 'delete',
-            content?: string | ArrayBuffer,
+            content?: string,
             isNodeRuntime?: boolean,
             isBufferArray?: boolean,
             bufferContent?: ArrayBuffer
@@ -413,7 +413,7 @@ export default function Home() {
               // syncTerminalFileOperationの型も拡張が必要だが、ここではisBufferArray/bufferContentを渡す想定
               // バイナリファイルの場合はcontentにbufferContentを渡す
               if (isBufferArray && bufferContent) {
-                await syncTerminalFileOperation(path, type, bufferContent);
+                await syncTerminalFileOperation(path, type, content, bufferContent);
               } else {
                 await syncTerminalFileOperation(path, type, content);
               }
@@ -522,12 +522,17 @@ export default function Home() {
             currentProject={currentProject?.name}
             projectFiles={projectFiles}
             onResize={handleBottomResize}
-            onTerminalFileOperation={async (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => {
+            onTerminalFileOperation={async (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean, isBufferArray?: boolean, bufferContent?: ArrayBuffer) => {
               if (isNodeRuntime) {
                 setNodeRuntimeOperationInProgress(true);
               }
               if (syncTerminalFileOperation) {
-                await syncTerminalFileOperation(path, type, content);
+                // bufferContentが存在する場合、それを渡す
+                if (bufferContent) {
+                  await syncTerminalFileOperation(path, type, content, bufferContent);
+                } else {
+                  await syncTerminalFileOperation(path, type, content);
+                }
               }
               setGitRefreshTrigger(prev => prev + 1);
             }}
