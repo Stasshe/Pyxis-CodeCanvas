@@ -139,6 +139,12 @@ export default function CodeEditor({
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
   
+  // Monaco用: ファイルごとにTextModelを管理するMap（コンポーネント内で管理）
+  const monacoModelMapRef = useRef<Map<string, monaco.editor.ITextModel>>(new Map());
+  
+  // 現在設定されているモデルのIDを追跡
+  const currentModelIdRef = useRef<string | null>(null);
+  
   // マウント状態をグローバルに管理
   const isMountedRef = useRef(true);
   
@@ -261,11 +267,88 @@ export default function CodeEditor({
       typeRoots: ['node_modules/@types']
     });
 
-    // 文字数カウント初期化
-    if (activeTab) {
+    // 初期モデルを設定（activeTabがある場合）
+    if (activeTab && !isBufferArray((activeTab as any).bufferContent) && 
+        activeTab.id !== 'welcome' && !activeTab.preview && !isCodeMirror) {
+      const monacoModelMap = monacoModelMapRef.current;
+      let model = monacoModelMap.get(activeTab.id);
+      
+      if (!model) {
+        model = monaco.editor.createModel(
+          activeTab.content,
+          getLanguage(activeTab.name)
+        );
+        monacoModelMap.set(activeTab.id, model);
+      }
+      
+      editor.setModel(model);
+      currentModelIdRef.current = activeTab.id;
       setCharCount(activeTab.content.length);
     }
   };
+
+  // activeTabが変わるたびにモデルを切り替える
+  useEffect(() => {
+    // Monaco Editorで表示すべきタブか判定（画像・PDF・Welcome・CodeMirror・Markdownプレビューは除外）
+    if (!activeTab) return;
+    if (
+      isBufferArray((activeTab as any).bufferContent) ||
+      activeTab.id === 'welcome' ||
+      activeTab.preview ||
+      isCodeMirror
+    ) {
+      return;
+    }
+    
+    // Monaco Editorの参照が有効かつdisposeされていないかチェック
+    if (!editorRef.current || !monacoRef.current) return;
+    if ((editorRef.current as any)._isDisposed) return;
+
+    // 既に同じモデルが設定されている場合はスキップ
+    if (currentModelIdRef.current === activeTab.id) {
+      return;
+    }
+
+    const monacoModelMap = monacoModelMapRef.current;
+    let model = monacoModelMap.get(activeTab.id);
+    
+    // dispose済みモデルはMapから削除し新規作成
+    if (model && typeof model.isDisposed === 'function' && model.isDisposed()) {
+      monacoModelMap.delete(activeTab.id);
+      model = undefined;
+    }
+    
+    if (!model) {
+      // 新しいモデルを作成
+      model = monacoRef.current.editor.createModel(
+        activeTab.content,
+        getLanguage(activeTab.name)
+      );
+      monacoModelMap.set(activeTab.id, model);
+    } else {
+      // 既存のモデルの内容を更新（必要に応じて）
+      if (typeof model.getValue === 'function' && model.getValue() !== activeTab.content) {
+        model.setValue(activeTab.content);
+      }
+    }
+    
+    // disposeやアンマウント後はsetModelしない
+    if (!isMountedRef.current) return;
+    if (!editorRef.current || (editorRef.current as any)._isDisposed) return;
+    
+    try {
+      editorRef.current.setModel(model);
+      currentModelIdRef.current = activeTab.id;
+      setCharCount(model.getValue().length);
+    } catch (e: any) {
+      if (e?.message?.includes('InstantiationService has been disposed')) {
+        console.warn('[CodeEditor] setModel failed: InstantiationService has been disposed');
+      } else {
+        console.error('[CodeEditor] setModel error:', e);
+        throw e;
+      }
+    }
+  }, [activeTab?.id, activeTab?.content, isCodeMirror]);
 
   // Cleanup Monaco Editor instance on unmount
   useEffect(() => {
@@ -274,7 +357,13 @@ export default function CodeEditor({
         editorRef.current.dispose();
         editorRef.current = null;
       }
-      monacoRef.current = null;
+      if (monacoRef.current) {
+        const monacoModelMap = monacoModelMapRef.current;
+        monacoModelMap.forEach((model: monaco.editor.ITextModel) => model.dispose());
+        monacoModelMap.clear();
+        monacoRef.current = null;
+      }
+      currentModelIdRef.current = null;
     };
   }, []);
 
@@ -402,12 +491,11 @@ export default function CodeEditor({
       ) : (
         <Editor
           height="100%"
-          // defaultValueやdefaultLanguageは使わず、key属性でコンポーネントを再作成させる
-          key={activeTab.id}
-          language={getLanguage(activeTab.name)}
-          value={activeTab.content}
+          // key属性を削除し、model切り替えでundo履歴を保持
+          // defaultValueも削除し、model管理に任せる
+          onMount={handleEditorDidMount}
           onChange={(value) => {
-            if (value !== undefined) {
+            if (value !== undefined && activeTab) {
               if (onContentChangeImmediate) {
                 onContentChangeImmediate(activeTab.id, value);
               }
@@ -416,7 +504,6 @@ export default function CodeEditor({
               setSelectionCount(null);
             }
           }}
-          onMount={handleEditorDidMount}
           theme="pyxis-custom"
           options={{
             fontSize: 14,
