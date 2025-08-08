@@ -37,6 +37,7 @@ export const getAllFilesAndDirs = async (baseDir: string = '/projects'): Promise
   return result;
 };
 import FS from '@isomorphic-git/lightning-fs';
+import { notifyFileChange } from './fileWatcher';
 
 // 仮想ファイルシステムのインスタンス
 let fs: FS | null = null;
@@ -253,6 +254,14 @@ export const syncFileToFileSystem = async (
         // ファイルを削除
         await fs.promises.unlink(fullPath);
         console.log(`[syncFileToFileSystem] Successfully deleted: ${fullPath}`);
+        
+        // ファイル削除通知
+        notifyFileChange({
+          path: filePath,
+          projectName,
+          type: 'delete',
+          timestamp: Date.now()
+        });
       } catch (deleteError) {
         // ファイルが存在しない場合は警告のみ
         if ((deleteError as any).code === 'ENOENT') {
@@ -280,6 +289,16 @@ export const syncFileToFileSystem = async (
         await fs.promises.writeFile(fullPath, new Uint8Array(content));
       }
       console.log(`[syncFileToFileSystem] Successfully synced: ${fullPath}`);
+      
+      // ファイル変更通知
+      notifyFileChange({
+        path: filePath,
+        projectName,
+        type: operation || 'update',
+        content,
+        isBufferArray: content instanceof ArrayBuffer,
+        timestamp: Date.now()
+      });
     }
     
     // ファイルシステムの同期を確実にする

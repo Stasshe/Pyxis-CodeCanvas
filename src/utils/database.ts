@@ -1,5 +1,6 @@
 import type { Project, ProjectFile } from '../types';
 import { initialFileContents } from './initialFileContents';
+import { notifyFileChange } from './fileWatcher';
 
 // IndexedDBを使ったプロジェクト管理システム
 
@@ -232,7 +233,29 @@ class ProjectDB {
       console.log('[DB][createFile] Save bufferContent (new):', file.path, file.bufferContent instanceof ArrayBuffer, file.bufferContent?.byteLength);
     }
     await this.saveFile(file);
+    // ファイル作成を通知
+    this.notifyFileChangeFromFile(file, 'create');
     return file;
+  }
+
+  // ファイル変更通知ヘルパーメソッド
+  private notifyFileChangeFromFile(file: ProjectFile, type: 'create' | 'update' | 'delete') {
+    // プロジェクト名を取得するためにプロジェクトを検索（簡易実装）
+    this.getProjects().then(projects => {
+      const project = projects.find(p => p.id === file.projectId);
+      if (project) {
+        notifyFileChange({
+          path: file.path,
+          projectName: project.name,
+          type,
+          content: file.isBufferArray ? file.bufferContent : file.content,
+          isBufferArray: file.isBufferArray,
+          timestamp: Date.now()
+        });
+      }
+    }).catch(error => {
+      console.error('[DB] Error notifying file change:', error);
+    });
   }
 
   async saveFile(file: ProjectFile): Promise<void> {
@@ -261,6 +284,8 @@ class ProjectDB {
         reject(request.error);
       };
       request.onsuccess = () => {
+        // ファイル変更を通知
+        this.notifyFileChangeFromFile(file, 'update');
         resolve();
       };
       
@@ -315,18 +340,45 @@ class ProjectDB {
   }
 
   async deleteFile(fileId: string): Promise<void> {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       if (!this.db) {
         reject(new Error('Database not initialized'));
         return;
       }
 
-      const transaction = this.db.transaction(['files'], 'readwrite');
-      const store = transaction.objectStore('files');
-      const request = store.delete(fileId);
+      // 削除前にファイル情報を取得して通知
+      try {
+        const transaction = this.db.transaction(['files'], 'readonly');
+        const store = transaction.objectStore('files');
+        const getRequest = store.get(fileId);
+        
+        getRequest.onsuccess = () => {
+          const file = getRequest.result;
+          if (file) {
+            this.notifyFileChangeFromFile(file, 'delete');
+          }
+          
+          // 実際の削除処理
+          const deleteTransaction = this.db!.transaction(['files'], 'readwrite');
+          const deleteStore = deleteTransaction.objectStore('files');
+          const deleteRequest = deleteStore.delete(fileId);
 
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve();
+          deleteRequest.onerror = () => reject(deleteRequest.error);
+          deleteRequest.onsuccess = () => resolve();
+        };
+        
+        getRequest.onerror = () => {
+          // ファイルが見つからない場合でも削除は実行
+          const deleteTransaction = this.db!.transaction(['files'], 'readwrite');
+          const deleteStore = deleteTransaction.objectStore('files');
+          const deleteRequest = deleteStore.delete(fileId);
+
+          deleteRequest.onerror = () => reject(deleteRequest.error);
+          deleteRequest.onsuccess = () => resolve();
+        };
+      } catch (error) {
+        reject(error);
+      }
     });
   }
 }
