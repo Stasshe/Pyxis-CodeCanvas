@@ -15,6 +15,7 @@ import LeftSidebar from '@/components/Left/LeftSidebar';
 import TabBar from '@/components/Tab/TabBar';
 import CodeEditor from '@/components/Tab/CodeEditor';
 import DiffTab from '@/components/Tab/DiffTab';
+import WebPreviewTab from '@/components/Tab/WebPreviewTab';
 import { useDiffTabHandlers } from '@/hooks/useDiffTabHandlers';
 import BottomPanel from '@/components/Bottom/BottomPanel';
 import ProjectModal from '@/components/ProjectModal';
@@ -499,7 +500,12 @@ export default function Home() {
                   removeAllTabs={() => setTabsForPane(editors, setEditors, idx, [])}
                 />
                 {/* DiffTab or CodeEditor */}
-                {activeTab && (activeTab.diffProps ? (
+                {activeTab && (activeTab.webPreview ? (
+                  <WebPreviewTab
+                    filePath={activeTab.path}
+                    currentProjectName={currentProject?.name}
+                  />
+                ) : activeTab.diffProps ? (
                   <DiffTab diffs={activeTab.diffProps.diffs} />
                 ) : (
                   <CodeEditor

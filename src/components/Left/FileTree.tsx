@@ -11,6 +11,7 @@ interface FileTreeProps {
   items: FileItem[];
   onFileOpen: (file: FileItem) => void;
   onFilePreview?: (file: FileItem) => void;
+  onWebPreview?: (file: FileItem) => void;
   level?: number;
   currentProjectName: string;
   onFileOperation?: (
@@ -23,7 +24,7 @@ interface FileTreeProps {
   ) => Promise<void>;
   isFileSelectModal?: boolean;
 }
-export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, currentProjectName, onFileOperation, isFileSelectModal }: FileTreeProps) {
+export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, onWebPreview, currentProjectName, onFileOperation, isFileSelectModal }: FileTreeProps) {
   const { colors } = useTheme();
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
   const [menuHoveredIdx, setMenuHoveredIdx] = useState<number | null>(null);
@@ -122,7 +123,7 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
   const handleWebPreview = (item: FileItem) => {
     setContextMenu(null);
     if (item.type === 'file' || item.type === 'folder') {
-      onFilePreview && onFilePreview(item); // Reuse onFilePreview logic for now
+      onWebPreview && onWebPreview(item);
     }
   };
 
@@ -217,6 +218,7 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
                 onFileOpen={onFileOpen} 
                 level={level + 1}
                 onFilePreview={onFilePreview}
+                onWebPreview={onWebPreview}
                 currentProjectName={currentProjectName}
                 onFileOperation={onFileOperation}
               />

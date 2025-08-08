@@ -110,7 +110,13 @@ export default function LeftSidebar({
                   <FolderPlus size={16} color={colors.sidebarIconFg} />
                 </button>
               </div>
-              <FileTree items={files} onFileOpen={onFileOpen} onFilePreview={onFilePreview} currentProjectName={currentProject?.name ?? ''} onFileOperation={onFileOperation} />
+              <FileTree 
+                items={files} 
+                onFileOpen={onFileOpen} 
+                onWebPreview={onWebPreview} 
+                currentProjectName={currentProject?.name ?? ''} 
+                onFileOperation={onFileOperation} 
+              />
             </div>
           )}
           {activeMenuTab === 'search' && (
