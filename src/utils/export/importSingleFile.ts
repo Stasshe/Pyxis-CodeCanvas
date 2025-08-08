@@ -16,18 +16,24 @@ export async function importSingleFile(file: File, targetPath: string, unix: Uni
   if (ext.match(/\.(png|jpg|jpeg|gif|bmp|webp|svg|pdf|zip)$/)) isBinary = true;
 
   let content: string | ArrayBuffer;
+  let bufferContent: ArrayBuffer | undefined = undefined;
   if (isBinary) {
     content = await file.arrayBuffer();
     if (!isBufferArray(content)) {
       // 念のため再判定
       isBinary = false;
       content = await file.text();
+    } else {
+      bufferContent = content as ArrayBuffer;
     }
   } else {
     content = await file.text();
     // テキストだがバイナリだった場合
     if (isBufferArray(content)) {
       isBinary = true;
+      if (typeof content !== 'string') {
+        bufferContent = content;
+      }
     }
   }
 
@@ -46,6 +52,11 @@ export async function importSingleFile(file: File, targetPath: string, unix: Uni
   const [, projectName, filePath] = match;
   console.log(`[importSingleFile] プロジェクト名: ${projectName}, ファイルパス: ${filePath}`);
   // ファイルシステム同期
-  await syncFileToFileSystem(projectName, filePath, content, isBinary ? 'create' : undefined);
+  await syncFileToFileSystem(
+    projectName,
+    filePath,
+    isBinary ? bufferContent! : (content as string),
+    isBinary ? 'create' : undefined
+  );
   console.log(`[importSingleFile] ファイルシステム同期完了: ${filePath}`);
 }
