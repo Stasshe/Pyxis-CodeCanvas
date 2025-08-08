@@ -39,22 +39,38 @@ export const openFile = (
   
   const existingTab = tabs.find(tab => tab.path === file.path && tab.isCodeMirror === !!file.isCodeMirror);
   if (existingTab) {
-    console.log('[openFile] Found existing tab:', existingTab.id);
+    // 既存タブにもisBufferArray/bufferContentを最新反映
+    const isBufferArray = !!file.isBufferArray;
+    const updatedTabs = tabs.map(tab =>
+      tab.id === existingTab.id
+        ? {
+            ...tab,
+            isBufferArray,
+            bufferContent: isBufferArray ? file.bufferContent : undefined,
+            content: isBufferArray ? '' : (file.content || ''),
+          }
+        : tab
+    );
+    setTabs(updatedTabs);
     setActiveTabId(existingTab.id);
     return;
   }
 
+  const isBufferArray = !!file.isBufferArray;
   const newTab: Tab = {
     id: file.id + '-' + Date.now(),
     name: file.name,
-    content: file.content || '',
+    content: isBufferArray ? '' : (file.content || ''),
     isDirty: false,
     path: file.path,
     fullPath: file.path,
     isCodeMirror: file.isCodeMirror,
-    isBufferArray: file.isBufferArray,
-    bufferContent: file.bufferContent,
+    isBufferArray,
+    bufferContent: isBufferArray ? file.bufferContent : undefined,
   };
+  if (isBufferArray) {
+    console.log('[openFile] newTab bufferContent:', newTab.path, newTab.bufferContent instanceof ArrayBuffer, newTab.bufferContent?.byteLength);
+  }
   //createNewTab()
   console.log('[openFile] Created new tab:', newTab.id);
   setTabs([...tabs, newTab]);

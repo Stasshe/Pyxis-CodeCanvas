@@ -203,6 +203,7 @@ class ProjectDB {
         existingFile.isBufferArray = true;
         existingFile.bufferContent = contentOrBuffer as ArrayBuffer;
         existingFile.content = '';
+        console.log('[DB][createFile] Save bufferContent (update):', existingFile.path, existingFile.bufferContent instanceof ArrayBuffer, existingFile.bufferContent?.byteLength);
       } else {
         existingFile.isBufferArray = false;
         existingFile.content = contentOrBuffer as string;
@@ -227,6 +228,9 @@ class ProjectDB {
       bufferContent: isBufferArray ? (contentOrBuffer as ArrayBuffer) : undefined,
     };
 
+    if (isBufferArray) {
+      console.log('[DB][createFile] Save bufferContent (new):', file.path, file.bufferContent instanceof ArrayBuffer, file.bufferContent?.byteLength);
+    }
     await this.saveFile(file);
     return file;
   }
@@ -270,7 +274,7 @@ class ProjectDB {
   }
 
   async getProjectFiles(projectId: string): Promise<ProjectFile[]> {
-    return new Promise((resolve, reject) => {
+  return new Promise((resolve, reject) => {
       if (!this.db) {
         console.error('[DB] Database not initialized in getProjectFiles');
         reject(new Error('Database not initialized'));
@@ -293,6 +297,9 @@ class ProjectDB {
           if (f.isBufferArray && f.bufferContent) {
             // IndexedDBからはArrayBufferとして取得される
             bufferContent = f.bufferContent;
+          }
+          if (f.isBufferArray) {
+            console.log('[DB][getProjectFiles] Load bufferContent:', f.path, bufferContent instanceof ArrayBuffer, bufferContent?.byteLength);
           }
           return {
             ...f,

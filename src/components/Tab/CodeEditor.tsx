@@ -343,6 +343,8 @@ export default function CodeEditor({
   if ((activeTab as any).isBufferArray) {
     const buffer = (activeTab as any).bufferContent as ArrayBuffer | undefined;
     const mime = guessMimeType(activeTab.name, buffer);
+    console.log('[CodeEditor] activeTab.isBufferArray:', (activeTab as any).isBufferArray);
+    console.log('[CodeEditor] activeTab.bufferContent:', (activeTab as any).bufferContent);
     // 画像ならimg表示
     if (mime.startsWith('image/') && buffer) {
       const blob = new Blob([buffer], { type: mime });

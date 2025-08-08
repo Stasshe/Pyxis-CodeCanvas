@@ -214,6 +214,9 @@ export default function Home() {
         };
       }
     }
+    if (fileToOpen.isBufferArray) {
+      console.log('[handleFileOpen] fileToOpen bufferContent:', fileToOpen.path, fileToOpen.bufferContent instanceof ArrayBuffer, fileToOpen.bufferContent?.byteLength);
+    }
     // openFile: Tab生成時にもisBufferArray/bufferContentを渡す
     openFile(fileToOpen, tabs, setTabs, setActiveTabId);
   };
@@ -408,7 +411,12 @@ export default function Home() {
             // バイナリファイルの場合はsyncTerminalFileOperation等で分岐
             if (syncTerminalFileOperation) {
               // syncTerminalFileOperationの型も拡張が必要だが、ここではisBufferArray/bufferContentを渡す想定
-              await syncTerminalFileOperation(path, type, content, isBufferArray, bufferContent);
+              // バイナリファイルの場合はcontentにbufferContentを渡す
+              if (isBufferArray && bufferContent) {
+                await syncTerminalFileOperation(path, type, bufferContent);
+              } else {
+                await syncTerminalFileOperation(path, type, content);
+              }
             }
             setGitRefreshTrigger(prev => prev + 1);
           }}
