@@ -6,7 +6,6 @@ import Editor, { Monaco, OnMount } from '@monaco-editor/react';
 import { FileText } from 'lucide-react';
 import { Tab } from '@/types';
 import { isBufferArray } from '@/utils/isBufferArray';
-
 // バイナリファイルのMIMEタイプ推定
 function guessMimeType(fileName: string, buffer?: ArrayBuffer): string {
   const ext = fileName.toLowerCase();
@@ -140,8 +139,18 @@ export default function CodeEditor({
   const { colors } = useTheme();
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
+  
+  // マウント状態をグローバルに管理
+  const isMountedRef = useRef(true);
+  
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
+  
   // 文字数カウント用 state
   const [charCount, setCharCount] = useState(0);
   const [selectionCount, setSelectionCount] = useState<number | null>(null);
@@ -310,8 +319,26 @@ export default function CodeEditor({
 
   // activeTabが変わるたびにモデルを切り替える
   useEffect(() => {
-    if (!editorRef.current || !monacoRef.current || !activeTab) return;
+    // Monaco Editorで表示すべきタブか判定（画像・PDF・Welcome・CodeMirror・Markdownプレビューは除外）
+    if (!activeTab) return;
+    if (
+      isBufferArray((activeTab as any).bufferContent) ||
+      activeTab.id === 'welcome' ||
+      activeTab.preview ||
+      isCodeMirror
+    ) {
+      return;
+    }
+    // Monaco Editorの参照が有効かつdisposeされていないかチェック
+    if (!editorRef.current || !monacoRef.current) return;
+    // @ts-ignore: _isDisposedはprivateだが安全のためチェック
+    if ((editorRef.current as any)._isDisposed) return;
     let model = monacoModelMap.get(activeTab.id);
+    // dispose済みモデルはMapから削除し新規作成
+    if (model && typeof model.isDisposed === 'function' && model.isDisposed()) {
+      monacoModelMap.delete(activeTab.id);
+      model = undefined;
+    }
     if (!model) {
       model = monacoRef.current.editor.createModel(
         activeTab.content,
@@ -319,13 +346,25 @@ export default function CodeEditor({
       );
       monacoModelMap.set(activeTab.id, model);
     } else {
-      if (model.getValue() !== activeTab.content) {
+      if (typeof model.getValue === 'function' && model.getValue() !== activeTab.content) {
         model.setValue(activeTab.content);
       }
     }
-    editorRef.current.setModel(model);
-    setCharCount(model.getValue().length);
-  }, [activeTab?.id, activeTab?.content]);
+    // disposeやアンマウント後はsetModelしない（useRefでグローバル管理）
+    if (!isMountedRef.current) return;
+    if (!editorRef.current || (editorRef.current as any)._isDisposed) return;
+    try {
+      editorRef.current.setModel(model);
+      setCharCount(model.getValue().length);
+    } catch (e: any) {
+      if (e?.message?.includes('InstantiationService has been disposed')) {
+        // 競合によるdispose直後のsetModelエラーは握りつぶす
+        console.warn('[CodeEditor] setModel failed: InstantiationService has been disposed');
+      } else {
+        throw e;
+      }
+    }
+  }, [activeTab?.id, activeTab?.content, isCodeMirror]);
 
   // Cleanup Monaco Editor instance on unmount
   useEffect(() => {
