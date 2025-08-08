@@ -81,6 +81,7 @@
 │   │   │   ├── HighlightedCode.tsx
 │   │   │   ├── MarkdownPreviewTab.tsx
 │   │   │   ├── TabBar.tsx
+│   │   │   ├── WebPreviewTab.tsx
 │   │   │   └── WelcomeTab.tsx
 │   │   ├── Toast.css
 │   │   └── Toast.tsx
@@ -141,11 +142,11 @@
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-23 directories, 119 files
+23 directories, 120 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 16806
-合計文字数: 616436
-合計ファイルサイズ(bytes): 665267
+合計行数: 16941
+合計文字数: 620551
+合計ファイルサイズ(bytes): 669324
 
 リポジトリ全体のサイズ(bytes): 1.9G	.

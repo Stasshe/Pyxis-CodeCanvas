@@ -15,10 +15,18 @@ interface LeftSidebarProps {
   currentProject: Project;
   onFileOpen: (file: FileItem) => void;
   onFilePreview?: (file: FileItem) => void;
+  onWebPreview?: (file: FileItem) => void;
   onResize: (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => void;
   onGitRefresh?: () => void;
   gitRefreshTrigger?: number;
-  onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string) => Promise<void>;
+  onFileOperation?: (
+    path: string,
+    type: 'file' | 'folder' | 'delete',
+    content?: string | ArrayBuffer,
+    isNodeRuntime?: boolean,
+    isBufferArray?: boolean,
+    bufferContent?: ArrayBuffer
+  ) => Promise<void>;
   onGitStatusChange?: (changesCount: number) => void; // Git変更状態のコールバック
   onDiffFileClick?: (params: { commitId: string; filePath: string }) => void;
   onDiffAllFilesClick?: (params: { commitId: string; parentCommitId: string }) => void;
@@ -31,6 +39,7 @@ export default function LeftSidebar({
   currentProject,
   onFileOpen,
   onFilePreview,
+  onWebPreview,
   onResize,
   onGitRefresh,
   gitRefreshTrigger,

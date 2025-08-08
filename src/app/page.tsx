@@ -403,6 +403,28 @@ export default function Home() {
               return [...prevTabs, newTab];
             });
           }}
+          onWebPreview={(file: FileItem) => {
+            const previewTabId = `web-preview-${file.path}`;
+            setTabs((prevTabs) => {
+              const existing = prevTabs.find((tab) => tab.id === previewTabId);
+              if (existing) {
+                setActiveTabId(previewTabId);
+                return prevTabs;
+              }
+              const newTab = {
+                id: previewTabId,
+                name: `Web Preview: ${file.name}`,
+                content: file.content || '',
+                isDirty: false,
+                path: file.path,
+                fullPath: file.path,
+                preview: true,
+                webPreview: true, // Custom flag for WebPreviewTab
+              };
+              setActiveTabId(previewTabId);
+              return [...prevTabs, newTab];
+            });
+          }}
           onResize={handleLeftResize}
           onGitRefresh={() => {
             if (currentProject && loadProject) {
@@ -414,7 +436,7 @@ export default function Home() {
           onFileOperation={async (
             path: string,
             type: 'file' | 'folder' | 'delete',
-            content?: string,
+            content?: string | ArrayBuffer,
             isNodeRuntime?: boolean,
             isBufferArray?: boolean,
             bufferContent?: ArrayBuffer

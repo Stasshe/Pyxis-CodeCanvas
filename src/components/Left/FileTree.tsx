@@ -118,6 +118,14 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
     }
   };
 
+  // WebPreview handler
+  const handleWebPreview = (item: FileItem) => {
+    setContextMenu(null);
+    if (item.type === 'file' || item.type === 'folder') {
+      onFilePreview && onFilePreview(item); // Reuse onFilePreview logic for now
+    }
+  };
+
   // タッチ長押し用のタイマー管理
   const longPressTimeout = useRef<NodeJS.Timeout | null>(null);
   const touchPosition = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -284,11 +292,12 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
                   '名前変更',
                   '削除',
                   contextMenu.item.type === 'folder' ? 'フォルダ作成' : null,
-                  contextMenu.item.type === 'folder' ? 'ファイル作成' : null
+                  contextMenu.item.type === 'folder' ? 'ファイル作成' : null,
+                  'WebPreview' // Add WebPreview option
                 ]
             ).filter(Boolean).map((label, idx) => (
               <li
-                key={label as string}
+                key={idx}
                 style={{
                   padding: '0.5rem',
                   cursor: 'pointer',
@@ -450,6 +459,8 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
                           await onFileOperation(newFilePath, 'file', '', false);
                         }
                       }
+                    } else if (label === 'WebPreview') {
+                      handleWebPreview(contextMenu.item!);
                     }
                   }
                 }}

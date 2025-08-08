@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useState } from 'react';
+import { useRef, useEffect, useCallback, useState, useContext } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import MarkdownPreviewTab from './MarkdownPreviewTab';
 import WelcomeTab from './WelcomeTab';
@@ -6,6 +6,8 @@ import Editor, { Monaco, OnMount } from '@monaco-editor/react';
 import { FileText } from 'lucide-react';
 import { Tab } from '@/types';
 import { isBufferArray } from '@/utils/isBufferArray';
+import WebPreviewTab from './WebPreviewTab';
+import type { EditorPane } from '@/types'; // Import EditorPane type
 // バイナリファイルのMIMEタイプ推定
 function guessMimeType(fileName: string, buffer?: ArrayBuffer): string {
   const ext = fileName.toLowerCase();
@@ -139,6 +141,8 @@ export default function CodeEditor({
   const { colors } = useTheme();
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
+  // Define editors and setEditors locally
+  const [editors, setEditors] = useState<EditorPane[]>([]);
   
   // マウント状態をグローバルに管理
   const isMountedRef = useRef(true);
@@ -455,6 +459,30 @@ export default function CodeEditor({
     );
   }
 
+  // Webプレビュータブの場合は専用コンポーネントで表示
+  if (activeTab.webPreview) {
+    return (
+      <WebPreviewTab
+        filePath={activeTab.path}
+        content={activeTab.content}
+        onContentChange={(newContent) => {
+          setEditors((prevEditors) => {
+            const updated = [...prevEditors];
+            updated[idx] = {
+              ...updated[idx],
+              tabs: updated[idx].tabs.map((t) =>
+                t.id === activeTab.id ? { ...t, content: newContent } : t
+              ),
+            };
+            return updated;
+          });
+        }}
+      />
+    );
+  }
+
+  const idx = editors.findIndex((editor) => editor.activeTabId === activeTab.id);
+
   return (
     <div className="flex-1 min-h-0 relative" style={{ height: editorHeight }}>
       {isCodeMirror ? (
@@ -509,16 +537,7 @@ export default function CodeEditor({
           defaultLanguage={getLanguage(activeTab.name)}
           defaultValue={activeTab.content}
           onChange={(value) => {
-            if (value !== undefined) {
-              // モデルの内容も更新
-              const model = monacoModelMap.get(activeTab.id);
-              if (model && value !== model.getValue()) {
-                model.pushEditOperations(
-                  [],
-                  [{ range: model.getFullModelRange(), text: value }],
-                  () => null
-                );
-              }
+            if (value) {
               if (onContentChangeImmediate) {
                 onContentChangeImmediate(activeTab.id, value);
               }
@@ -527,37 +546,69 @@ export default function CodeEditor({
               setSelectionCount(null);
             }
           }}
-          onMount={handleEditorDidMount}
-          theme="pyxis-custom"
-          loading={
-            <div className="h-full flex items-center justify-center text-muted-foreground">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-                <p className="text-sm">エディターを読み込み中...</p>
-              </div>
-            </div>
-          }
+          options={{
+            fontSize: 14,
+            lineNumbers: 'on',
+            roundedSelection: false,
+            scrollBeyondLastLine: false,
+            automaticLayout: true,
+            minimap: { 
+              enabled: true,
+              maxColumn: 120,
+              showSlider: 'always'
+            },
+            wordWrap: 'on',
+            tabSize: 2,
+            insertSpaces: true,
+            formatOnPaste: true,
+            formatOnType: true,
+            suggestOnTriggerCharacters: true,
+            acceptSuggestionOnEnter: 'on',
+            acceptSuggestionOnCommitCharacter: true,
+            wordBasedSuggestions: 'allDocuments',
+            parameterHints: { enabled: true },
+            quickSuggestions: {
+              other: true,
+              comments: false,
+              strings: false
+            },
+            hover: { enabled: true },
+            bracketPairColorization: { enabled: true },
+            guides: {
+              bracketPairs: true,
+              indentation: true
+            },
+            renderWhitespace: 'selection',
+            renderControlCharacters: true,
+            smoothScrolling: true,
+            cursorBlinking: 'smooth',
+            cursorSmoothCaretAnimation: 'on',
+            mouseWheelZoom: true,
+            folding: true,
+            foldingStrategy: 'indentation',
+            showFoldingControls: 'always',
+            foldingHighlight: true,
+            unfoldOnClickAfterEndOfLine: false,
+            matchBrackets: 'always',
+            renderLineHighlight: 'all',
+            occurrencesHighlight: 'singleFile',
+            selectionHighlight: true,
+            codeLens: true,
+            colorDecorators: true,
+            links: true,
+            contextmenu: true,
+            mouseWheelScrollSensitivity: 1,
+            fastScrollSensitivity: 5,
+            scrollbar: {
+              vertical: 'visible',
+              horizontal: 'visible',
+              useShadows: false,
+              verticalScrollbarSize: 14,
+              horizontalScrollbarSize: 14
+            }
+          }}
         />
       )}
-      {/* 文字数カウント表示バー */}
-      <div
-        style={{
-          position: 'absolute',
-          right: 12,
-          bottom: 8,
-          background: 'rgba(30,30,30,0.85)',
-          color: '#d4d4d4',
-          padding: '2px 10px',
-          borderRadius: 6,
-          fontSize: 13,
-          zIndex: 10,
-          pointerEvents: 'none',
-        }}
-      >
-        {selectionCount !== null
-          ? `選択範囲: ${selectionCount}文字 / 全体: ${charCount}文字`
-          : `全体: ${charCount}文字`}
-      </div>
     </div>
   );
 }

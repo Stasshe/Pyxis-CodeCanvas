@@ -34,6 +34,7 @@ export interface Tab {
   diffProps?: {
     diffs: SingleFileDiff[];
   };
+  webPreview?: boolean; // Added for WebPreviewTab
 }
 
 // VSCode風ウィンドウ分割用エディタペイン型
