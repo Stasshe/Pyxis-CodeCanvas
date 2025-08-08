@@ -9,7 +9,7 @@ import {
   setTabsForPane,
   setActiveTabIdForPane
 } from '@/hooks/pane';
-import { useProjectTabResetEffect, useProjectFilesSyncEffect } from '@/hooks/tab';
+import { useProjectTabResetEffect, useProjectFilesSyncEffect, useActiveTabContentRestore } from '@/hooks/tab';
 import MenuBar from '@/components/MenuBar';
 import LeftSidebar from '@/components/Left/LeftSidebar';
 import TabBar from '@/components/Tab/TabBar';
@@ -54,15 +54,21 @@ export default function Home() {
           const parsed = JSON.parse(saved);
           // データが正しい形式かチェック
           if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].id) {
-              // タブを初期化: バイナリタブにはcontent '', bufferContent undefined
+              // タブを初期化: contentとbufferContentは空にして、後でDBから復元
               const initEditors = parsed.map((editor: any) => ({
                 ...editor,
                 tabs: editor.tabs.map((tab: any) => ({
                   ...tab,
-                  content: tab.isBufferArray ? '' : (tab.content || ''),
-                  bufferContent: undefined
+                  content: '', // localStorageから復元時は空にする
+                  bufferContent: undefined, // バッファも空にする
+                  // Welcomeタブや特殊タブ以外はコンテンツ復元が必要
+                  needsContentRestore: tab.id !== 'welcome' && !tab.diffProps && !tab.webPreview && tab.path && tab.path !== '/',
                 }))
               }));
+              console.log('[DEBUG] Restored editors from localStorage:', initEditors.map(e => ({
+                id: e.id,
+                tabs: e.tabs.map((t: any) => ({ id: t.id, path: t.path, needsContentRestore: t.needsContentRestore }))
+              })));
               setEditors(initEditors);
               // activeTabIdを復元
               if (initEditors[0].tabs.length > 0) {
@@ -84,14 +90,17 @@ export default function Home() {
       setIsRestoredFromLocalStorage(true); // 復元完了フラグを設定
     }
   }, []);
-  // editors/editorLayout変更時にlocalStorageへ保存
+  // editors/editorLayout変更時にlocalStorageへ保存（contentとbufferContentを除外）
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
-        // 一旦
+        // contentとbufferContentの両方を除外してlocalStorageに保存
         const editorsWithoutContent = editors.map(editor => ({
           ...editor,
-          tabs: editor.tabs.map(({ bufferContent, ...tabRest }) => ({ ...tabRest }))
+          tabs: editor.tabs.map(({ content, bufferContent, ...tabRest }) => ({ 
+            ...tabRest,
+            // content除外、pathとisBufferArrayは保持してDBから復元できるようにする
+          }))
         }));
         window.localStorage.setItem('pyxis-editors', JSON.stringify(editorsWithoutContent));
       } catch (e) {}
@@ -171,7 +180,16 @@ export default function Home() {
     projectFiles,
     tabs,
     setTabs,
-    nodeRuntimeOperationInProgress
+    nodeRuntimeOperationInProgress,
+    isRestoredFromLocalStorage
+  });
+
+  // アクティブタブのコンテンツ復元フック（全ペイン対応）
+  useActiveTabContentRestore({
+    editors,
+    projectFiles,
+    setEditors,
+    isRestoredFromLocalStorage
   });
 
   // Git状態監視ロジックをフックに分離

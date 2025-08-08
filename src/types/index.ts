@@ -30,6 +30,7 @@ export interface Tab {
   isCodeMirror?: boolean;
   isBufferArray?: boolean; // バイナリファイルの場合true
   bufferContent?: ArrayBuffer; // バイナリデータ本体
+  needsContentRestore?: boolean; // localStorage復元時のコンテンツ再取得が必要かどうか
   // Diffタブ用のprops（通常タブではundefined）
   diffProps?: {
     diffs: SingleFileDiff[];

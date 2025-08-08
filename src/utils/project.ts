@@ -202,6 +202,15 @@ export const useProject = () => {
       setCurrentProject(project);
       setProjectFiles(files);
 
+      // デバッグ: ファイル変換前後でコンテンツが保持されているかチェック
+      const convertedFiles = convertToFileItems(files);
+      console.log('[loadProject] Converted files:', convertedFiles.length);
+      convertedFiles.forEach(file => {
+        if (file.type === 'file' && file.content) {
+          console.log('[loadProject] File with content:', file.path, 'contentLength:', file.content.length);
+        }
+      });
+
       console.log('[loadProject] Project files after loading:', files);
 
       // Git初期化状態をチェック
