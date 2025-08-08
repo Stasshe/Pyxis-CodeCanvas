@@ -55,88 +55,78 @@ export function useProjectFilesSyncEffect({
     const tabsNeedingRestore = tabs.filter(tab => tab.needsContentRestore);
     if (tabsNeedingRestore.length > 0) {
       console.log('[DEBUG] Tabs needing content restore:', tabsNeedingRestore.map(t => ({ path: t.path, id: t.id })));
-      console.log('[DEBUG] Available project files:', flattenedFiles.map(f => ({ path: f.path, contentLength: f.content?.length || 0 })));
-      console.log('[DEBUG] Exact path comparison:');
-      tabsNeedingRestore.forEach(tab => {
-        console.log(`  Tab path: "${tab.path}" (length: ${tab.path.length})`);
-        const match = flattenedFiles.find(f => f.path === tab.path);
-        if (match) {
-          console.log(`  ✓ Found match: "${match.path}" (content: ${match.content?.length || 0} chars)`);
-        } else {
-          console.log(`  ✗ No match found. Available paths:`);
-          flattenedFiles.forEach(f => console.log(`    - "${f.path}" (length: ${f.path.length})`));
-        }
-      });
     }
     
     // tabsが空でもprojectFilesが存在する場合は同期を試みる
     if (flattenedFiles.length > 0) {
       let hasRealChanges = false;
-      const updatedTabs = tabs.map(tab => {
-        const correspondingFile = flattenedFiles.find(f => f.path === tab.path);
-        if (!correspondingFile) {
-          if (tab.needsContentRestore) {
-            console.log('[DEBUG] No corresponding file found for tab needing restore:', tab.path);
+      const updatedTabs = tabs
+        .filter(tab => tab.content !== null) // contentがnullのタブを閉じる
+        .map(tab => {
+          const correspondingFile = flattenedFiles.find(f => f.path === tab.path);
+          if (!correspondingFile) {
+            if (tab.needsContentRestore) {
+              console.log('[DEBUG] No corresponding file found for tab needing restore:', tab.path);
+            }
+            return tab;
           }
-          return tab;
-        }
 
-        // localStorage復元後のコンテンツ復元が必要な場合
-        if (tab.needsContentRestore) {
-          hasRealChanges = true;
-          console.log('[DEBUG] Restoring content from DB for tab:', tab.path, 'fileContent:', correspondingFile.content?.slice(0, 50) + '...');
-          
-          if (tab.isBufferArray && correspondingFile.isBufferArray) {
-            return {
-              ...tab,
-              content: correspondingFile.content || '',
-              bufferContent: correspondingFile.bufferContent,
-              isDirty: false,
-              needsContentRestore: false, // 復元完了
-            };
-          } else {
-            return {
-              ...tab,
-              content: correspondingFile.content || '',
-              bufferContent: undefined,
-              isDirty: false,
-              needsContentRestore: false, // 復元完了
-            };
-          }
-        }
-        
-        // バイナリファイルの場合はbufferContentを同期
-        if (tab.isBufferArray && correspondingFile.isBufferArray) {
-          const newBuf = correspondingFile.bufferContent;
-          const oldBuf = tab.bufferContent;
-          // バッファ長が異なる、または未設定の場合にのみ更新
-          if (!oldBuf || (newBuf && oldBuf.byteLength !== newBuf.byteLength)) {
+          // localStorage復元後のコンテンツ復元が必要な場合
+          if (tab.needsContentRestore) {
             hasRealChanges = true;
-            return {
-              ...tab,
-              bufferContent: correspondingFile.bufferContent,
-              content: correspondingFile.content,
-              isDirty: false
-            };
+            console.log('[DEBUG] Restoring content from DB for tab:', tab.path, 'fileContent:', correspondingFile.content?.slice(0, 50) + '...');
+            
+            if (tab.isBufferArray && correspondingFile.isBufferArray) {
+              return {
+                ...tab,
+                content: correspondingFile.content || '',
+                bufferContent: correspondingFile.bufferContent,
+                isDirty: false,
+                needsContentRestore: false, // 復元完了
+              };
+            } else {
+              return {
+                ...tab,
+                content: correspondingFile.content || '',
+                bufferContent: undefined,
+                isDirty: false,
+                needsContentRestore: false, // 復元完了
+              };
+            }
           }
-          return tab;
-        }
-        // テキストファイルはcontentで比較
-        if (correspondingFile.content === tab.content) {
-          return tab;
-        }
-        // NodeRuntime操作中は強制的に更新、そうでなければisDirtyをチェック
-        const shouldUpdate = nodeRuntimeOperationInProgress || !tab.isDirty;
-        if (!shouldUpdate) {
-          return tab;
-        }
-        hasRealChanges = true;
-        return {
-          ...tab,
-          content: correspondingFile.content,
-          isDirty: false // DBから同期したので汚れていない状態にリセット
-        };
-      });
+          
+          // バイナリファイルの場合はbufferContentを同期
+          if (tab.isBufferArray && correspondingFile.isBufferArray) {
+            const newBuf = correspondingFile.bufferContent;
+            const oldBuf = tab.bufferContent;
+            // バッファ長が異なる、または未設定の場合にのみ更新
+            if (!oldBuf || (newBuf && oldBuf.byteLength !== newBuf.byteLength)) {
+              hasRealChanges = true;
+              return {
+                ...tab,
+                bufferContent: correspondingFile.bufferContent,
+                content: correspondingFile.content,
+                isDirty: false
+              };
+            }
+            return tab;
+          }
+          // テキストファイルはcontentで比較
+          if (correspondingFile.content === tab.content) {
+            return tab;
+          }
+          // NodeRuntime操作中は強制的に更新、そうでなければisDirtyをチェック
+          const shouldUpdate = nodeRuntimeOperationInProgress || !tab.isDirty;
+          if (!shouldUpdate) {
+            return tab;
+          }
+          hasRealChanges = true;
+          return {
+            ...tab,
+            content: correspondingFile.content,
+            isDirty: false // DBから同期したので汚れていない状態にリセット
+          };
+        });
       // 実際に内容が変更された場合のみ更新
       if (hasRealChanges) {
         console.log('[DEBUG] Updating tabs in useProjectFilesSyncEffect', updatedTabs.map(t => ({ id: t.id, path: t.path, needsContentRestore: t.needsContentRestore, contentLength: t.content?.length || 0 })));
@@ -158,24 +148,26 @@ export function useProjectFilesSyncEffect({
       // プロジェクトファイルを平坦化
       const flattenedFiles = flattenFileItems(projectFiles);
       
-      const updatedTabs = tabs.map(tab => {
-        if (!tab.needsContentRestore) return tab;
-        
-        const correspondingFile = flattenedFiles.find(f => f.path === tab.path);
-        if (!correspondingFile) {
-          console.log('[DEBUG] No file found for force restore:', tab.path);
-          return tab;
-        }
-        
-        console.log('[DEBUG] Force restoring:', tab.path, 'content length:', correspondingFile.content?.length || 0);
-        return {
-          ...tab,
-          content: correspondingFile.content || '',
-          bufferContent: tab.isBufferArray ? correspondingFile.bufferContent : undefined,
-          isDirty: false,
-          needsContentRestore: false,
-        };
-      });
+      const updatedTabs = tabs
+        .filter(tab => tab.content !== null) // contentがnullのタブを閉じる
+        .map(tab => {
+          if (!tab.needsContentRestore) return tab;
+          
+          const correspondingFile = flattenedFiles.find(f => f.path === tab.path);
+          if (!correspondingFile) {
+            console.log('[DEBUG] No file found for force restore:', tab.path);
+            return tab;
+          }
+          
+          console.log('[DEBUG] Force restoring:', tab.path, 'content length:', correspondingFile.content?.length || 0);
+          return {
+            ...tab,
+            content: correspondingFile.content || '',
+            bufferContent: tab.isBufferArray ? correspondingFile.bufferContent : undefined,
+            isDirty: false,
+            needsContentRestore: false,
+          };
+        });
       
       setTabs(updatedTabs);
     }
