@@ -53,6 +53,7 @@ const getLanguage = (filename: string): string => {
   if (ext.endsWith('.js')) return 'javascript';
   if (ext.endsWith('.mjs')) return 'javascript';
   if (ext.endsWith('.cjs')) return 'javascript';
+  if (ext.endsWith('.gs')) return 'javascript';
   if (ext.endsWith('.json') || ext.endsWith('.jsonc')) return 'json';
   if (ext.endsWith('.md') || ext.endsWith('.markdown')) return 'markdown';
   if (ext.endsWith('.html') || ext.endsWith('.htm') || ext.endsWith('.xhtml')) return 'html';
