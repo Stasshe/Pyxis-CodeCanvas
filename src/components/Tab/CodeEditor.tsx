@@ -20,8 +20,6 @@ function guessMimeType(fileName: string, buffer?: ArrayBuffer): string {
   return 'application/octet-stream';
 }
 import * as monaco from 'monaco-editor';
-// Monaco用: ファイルごとにTextModelを管理するMap
-const monacoModelMap: Map<string, monaco.editor.ITextModel> = new Map();
 import CodeMirror from '@uiw/react-codemirror';
 // CodeMirror用: 履歴分離のためkeyにタブIDを使う
 import { javascript } from '@codemirror/lang-javascript';
@@ -140,7 +138,6 @@ export default function CodeEditor({
   const { colors } = useTheme();
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
-  // Define editors and setEditors locally
   
   // マウント状態をグローバルに管理
   const isMountedRef = useRef(true);
@@ -197,104 +194,50 @@ export default function CodeEditor({
     editorRef.current = editor;
     monacoRef.current = monaco;
 
-    // 初回のみ: テーマやオプションなどのセットアップ
-    monaco.editor.defineTheme('pyxis-custom', {
-      base: 'vs-dark',
-      inherit: true,
-      rules: [
-        { token: 'comment', foreground: '6A9955', fontStyle: 'italic' },
-        { token: 'keyword', foreground: '569CD6', fontStyle: 'bold' },
-        { token: 'string', foreground: 'CE9178' },
-        { token: 'number', foreground: 'B5CEA8' },
-        { token: 'regexp', foreground: 'D16969' },
-        { token: 'operator', foreground: 'D4D4D4' },
-        { token: 'namespace', foreground: '4EC9B0' },
-        { token: 'type', foreground: '4EC9B0' },
-        { token: 'struct', foreground: '4EC9B0' },
-        { token: 'class', foreground: '4EC9B0' },
-        { token: 'interface', foreground: '4EC9B0' },
-        { token: 'parameter', foreground: '9CDCFE' },
-        { token: 'variable', foreground: '9CDCFE' },
-        { token: 'property', foreground: '9CDCFE' },
-        { token: 'function', foreground: 'DCDCAA' },
-        { token: 'method', foreground: 'DCDCAA' },
-      ],
-      colors: {
-        'editor.background': colors.editorBg || '#1e1e1e',
-        'editor.foreground': colors.editorFg || '#d4d4d4',
-        'editor.lineHighlightBackground': colors.editorLineHighlight || '#2d2d30',
-        'editor.selectionBackground': colors.editorSelection || '#264f78',
-        'editor.inactiveSelectionBackground': '#3a3d41',
-        'editorCursor.foreground': colors.editorCursor || '#aeafad',
-        'editorWhitespace.foreground': '#404040',
-        'editorIndentGuide.background': '#404040',
-        'editorIndentGuide.activeBackground': '#707070',
-        'editorBracketMatch.background': '#0064001a',
-        'editorBracketMatch.border': '#888888',
-      }
-    });
-    monaco.editor.setTheme('pyxis-custom');
-    editor.updateOptions({
-      fontSize: 14,
-      lineNumbers: 'on',
-      roundedSelection: false,
-      scrollBeyondLastLine: false,
-      automaticLayout: true,
-      minimap: { 
-        enabled: true,
-        maxColumn: 120,
-        showSlider: 'always'
-      },
-      wordWrap: 'on',
-      tabSize: 2,
-      insertSpaces: true,
-      formatOnPaste: true,
-      formatOnType: true,
-      suggestOnTriggerCharacters: true,
-      acceptSuggestionOnEnter: 'on',
-      acceptSuggestionOnCommitCharacter: true,
-      wordBasedSuggestions: 'allDocuments',
-      parameterHints: { enabled: true },
-      quickSuggestions: {
-        other: true,
-        comments: false,
-        strings: false
-      },
-      hover: { enabled: true },
-      bracketPairColorization: { enabled: true },
-      guides: {
-        bracketPairs: true,
-        indentation: true
-      },
-      renderWhitespace: 'selection',
-      renderControlCharacters: true,
-      smoothScrolling: true,
-      cursorBlinking: 'smooth',
-      cursorSmoothCaretAnimation: 'on',
-      mouseWheelZoom: true,
-      folding: true,
-      foldingStrategy: 'indentation',
-      showFoldingControls: 'always',
-      foldingHighlight: true,
-      unfoldOnClickAfterEndOfLine: false,
-      matchBrackets: 'always',
-      renderLineHighlight: 'all',
-      occurrencesHighlight: 'singleFile',
-      selectionHighlight: true,
-      codeLens: true,
-      colorDecorators: true,
-      links: true,
-      contextmenu: true,
-      mouseWheelScrollSensitivity: 1,
-      fastScrollSensitivity: 5,
-      scrollbar: {
-        vertical: 'visible',
-        horizontal: 'visible',
-        useShadows: false,
-        verticalScrollbarSize: 14,
-        horizontalScrollbarSize: 14
-      }
-    });
+    // テーマ定義（初回のみ）
+    try {
+      monaco.editor.defineTheme('pyxis-custom', {
+        base: 'vs-dark',
+        inherit: true,
+        rules: [
+          { token: 'comment', foreground: '6A9955', fontStyle: 'italic' },
+          { token: 'keyword', foreground: '569CD6', fontStyle: 'bold' },
+          { token: 'string', foreground: 'CE9178' },
+          { token: 'number', foreground: 'B5CEA8' },
+          { token: 'regexp', foreground: 'D16969' },
+          { token: 'operator', foreground: 'D4D4D4' },
+          { token: 'namespace', foreground: '4EC9B0' },
+          { token: 'type', foreground: '4EC9B0' },
+          { token: 'struct', foreground: '4EC9B0' },
+          { token: 'class', foreground: '4EC9B0' },
+          { token: 'interface', foreground: '4EC9B0' },
+          { token: 'parameter', foreground: '9CDCFE' },
+          { token: 'variable', foreground: '9CDCFE' },
+          { token: 'property', foreground: '9CDCFE' },
+          { token: 'function', foreground: 'DCDCAA' },
+          { token: 'method', foreground: 'DCDCAA' },
+        ],
+        colors: {
+          'editor.background': colors.editorBg || '#1e1e1e',
+          'editor.foreground': colors.editorFg || '#d4d4d4',
+          'editor.lineHighlightBackground': colors.editorLineHighlight || '#2d2d30',
+          'editor.selectionBackground': colors.editorSelection || '#264f78',
+          'editor.inactiveSelectionBackground': '#3a3d41',
+          'editorCursor.foreground': colors.editorCursor || '#aeafad',
+          'editorWhitespace.foreground': '#404040',
+          'editorIndentGuide.background': '#404040',
+          'editorIndentGuide.activeBackground': '#707070',
+          'editorBracketMatch.background': '#0064001a',
+          'editorBracketMatch.border': '#888888',
+        }
+      });
+      monaco.editor.setTheme('pyxis-custom');
+    } catch (e) {
+      // テーマが既に定義されている場合は無視
+      console.warn('[CodeEditor] Theme already defined:', e);
+    }
+
+    // TypeScript/JavaScript設定
     monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
       noSemanticValidation: false,
       noSyntaxValidation: false,
@@ -317,55 +260,12 @@ export default function CodeEditor({
       allowJs: true,
       typeRoots: ['node_modules/@types']
     });
-  };
 
-  // activeTabが変わるたびにモデルを切り替える
-  useEffect(() => {
-    // Monaco Editorで表示すべきタブか判定（画像・PDF・Welcome・CodeMirror・Markdownプレビューは除外）
-    if (!activeTab) return;
-    if (
-      isBufferArray((activeTab as any).bufferContent) ||
-      activeTab.id === 'welcome' ||
-      activeTab.preview ||
-      isCodeMirror
-    ) {
-      return;
+    // 文字数カウント初期化
+    if (activeTab) {
+      setCharCount(activeTab.content.length);
     }
-    // Monaco Editorの参照が有効かつdisposeされていないかチェック
-    if (!editorRef.current || !monacoRef.current) return;
-    if ((editorRef.current as any)._isDisposed) return;
-    let model = monacoModelMap.get(activeTab.id);
-    // dispose済みモデルはMapから削除し新規作成
-    if (model && typeof model.isDisposed === 'function' && model.isDisposed()) {
-      monacoModelMap.delete(activeTab.id);
-      model = undefined;
-    }
-    if (!model) {
-      model = monacoRef.current.editor.createModel(
-        activeTab.content,
-        getLanguage(activeTab.name)
-      );
-      monacoModelMap.set(activeTab.id, model);
-    } else {
-      if (typeof model.getValue === 'function' && model.getValue() !== activeTab.content) {
-        model.setValue(activeTab.content);
-      }
-    }
-    // disposeやアンマウント後はsetModelしない（useRefでグローバル管理）
-    if (!isMountedRef.current) return;
-    if (!editorRef.current || (editorRef.current as any)._isDisposed) return;
-    try {
-      editorRef.current.setModel(model);
-      setCharCount(model.getValue().length);
-    } catch (e: any) {
-      if (e?.message?.includes('InstantiationService has been disposed')) {
-        // 競合によるdispose直後のsetModelエラーは握りつぶす
-        console.warn('[CodeEditor] setModel failed: InstantiationService has been disposed');
-      } else {
-        throw e;
-      }
-    }
-  }, [activeTab?.id, activeTab?.content, isCodeMirror]);
+  };
 
   // Cleanup Monaco Editor instance on unmount
   useEffect(() => {
@@ -374,11 +274,7 @@ export default function CodeEditor({
         editorRef.current.dispose();
         editorRef.current = null;
       }
-      if (monacoRef.current) {
-        monacoModelMap.forEach((model) => model.dispose());
-        monacoModelMap.clear();
-        monacoRef.current = null;
-      }
+      monacoRef.current = null;
     };
   }, []);
 
@@ -506,20 +402,12 @@ export default function CodeEditor({
       ) : (
         <Editor
           height="100%"
-          // Monaco Editor: モデルを明示的に管理
-          defaultLanguage={getLanguage(activeTab.name)}
-          defaultValue={activeTab.content}
+          // defaultValueやdefaultLanguageは使わず、key属性でコンポーネントを再作成させる
+          key={activeTab.id}
+          language={getLanguage(activeTab.name)}
+          value={activeTab.content}
           onChange={(value) => {
             if (value !== undefined) {
-              // モデルの内容も更新
-              const model = monacoModelMap.get(activeTab.id);
-              if (model && value !== model.getValue()) {
-                model.pushEditOperations(
-                  [],
-                  [{ range: model.getFullModelRange(), text: value }],
-                  () => null
-                );
-              }
               if (onContentChangeImmediate) {
                 onContentChangeImmediate(activeTab.id, value);
               }
@@ -530,6 +418,67 @@ export default function CodeEditor({
           }}
           onMount={handleEditorDidMount}
           theme="pyxis-custom"
+          options={{
+            fontSize: 14,
+            lineNumbers: 'on',
+            roundedSelection: false,
+            scrollBeyondLastLine: false,
+            automaticLayout: true,
+            minimap: { 
+              enabled: true,
+              maxColumn: 120,
+              showSlider: 'always'
+            },
+            wordWrap: 'on',
+            tabSize: 2,
+            insertSpaces: true,
+            formatOnPaste: true,
+            formatOnType: true,
+            suggestOnTriggerCharacters: true,
+            acceptSuggestionOnEnter: 'on',
+            acceptSuggestionOnCommitCharacter: true,
+            wordBasedSuggestions: 'allDocuments',
+            parameterHints: { enabled: true },
+            quickSuggestions: {
+              other: true,
+              comments: false,
+              strings: false
+            },
+            hover: { enabled: true },
+            bracketPairColorization: { enabled: true },
+            guides: {
+              bracketPairs: true,
+              indentation: true
+            },
+            renderWhitespace: 'selection',
+            renderControlCharacters: true,
+            smoothScrolling: true,
+            cursorBlinking: 'smooth',
+            cursorSmoothCaretAnimation: 'on',
+            mouseWheelZoom: true,
+            folding: true,
+            foldingStrategy: 'indentation',
+            showFoldingControls: 'always',
+            foldingHighlight: true,
+            unfoldOnClickAfterEndOfLine: false,
+            matchBrackets: 'always',
+            renderLineHighlight: 'all',
+            occurrencesHighlight: 'singleFile',
+            selectionHighlight: true,
+            codeLens: true,
+            colorDecorators: true,
+            links: true,
+            contextmenu: true,
+            mouseWheelScrollSensitivity: 1,
+            fastScrollSensitivity: 5,
+            scrollbar: {
+              vertical: 'visible',
+              horizontal: 'visible',
+              useShadows: false,
+              verticalScrollbarSize: 14,
+              horizontalScrollbarSize: 14
+            }
+          }}
           loading={
             <div className="h-full flex items-center justify-center text-muted-foreground">
               <div className="text-center">
