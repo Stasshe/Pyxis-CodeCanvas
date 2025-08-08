@@ -1,3 +1,46 @@
+// 右サイドバー用リサイズフック
+export const useRightSidebarResize = (
+  rightSidebarWidth: number,
+  setRightSidebarWidth: (width: number) => void
+) => {
+  return useCallback((e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const isTouch = 'touches' in e;
+    const startX = isTouch ? e.touches[0].clientX : e.clientX;
+    const initialWidth = rightSidebarWidth;
+    const minWidth = 120;
+    const maxWidth = window.innerWidth * 0.7;
+    const handleMove = (e: MouseEvent | TouchEvent) => {
+      e.preventDefault();
+      const currentX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const deltaX = startX - currentX;
+      const newWidth = initialWidth + deltaX;
+      const clampedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
+      setRightSidebarWidth(clampedWidth);
+      const sidebar = document.querySelector('[data-sidebar="right"]') as HTMLElement;
+      if (sidebar) {
+        sidebar.style.width = `${clampedWidth}px`;
+        sidebar.offsetHeight;
+      }
+    };
+    const handleEnd = () => {
+      document.removeEventListener('mousemove', handleMove as EventListener);
+      document.removeEventListener('mouseup', handleEnd);
+      document.removeEventListener('touchmove', handleMove as EventListener);
+      document.removeEventListener('touchend', handleEnd);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      document.body.style.touchAction = '';
+    };
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    document.body.style.touchAction = 'none';
+    document.addEventListener('mousemove', handleMove as EventListener);
+    document.addEventListener('mouseup', handleEnd);
+    document.addEventListener('touchmove', handleMove as EventListener);
+    document.addEventListener('touchend', handleEnd);
+  }, [rightSidebarWidth, setRightSidebarWidth]);
+};
 import { useCallback } from 'react';
 
 export const useLeftSidebarResize = (

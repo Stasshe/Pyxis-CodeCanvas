@@ -19,21 +19,29 @@ import WebPreviewTab from '@/components/Tab/WebPreviewTab';
 import { useDiffTabHandlers } from '@/hooks/useDiffTabHandlers';
 import BottomPanel from '@/components/Bottom/BottomPanel';
 import ProjectModal from '@/components/ProjectModal';
-import { useLeftSidebarResize, useBottomPanelResize } from '@/utils/resize';
+import { useLeftSidebarResize, useBottomPanelResize, useRightSidebarResize } from '@/utils/resize';
 import { openFile } from '@/utils/tabs';
 import { useGitMonitor } from '@/hooks/gitHooks';
 import { useProject } from '@/utils/project';
 import { Project } from '@/types';
 import type { Tab,FileItem, MenuTab, EditorLayoutType, EditorPane } from '@/types';
+import RightSidebar from '@/components/Right/RightSidebar';
 import FileSelectModal from '@/components/FileSelect';
 import { handleFileSelect, handleFilePreview } from '@/hooks/fileSelectHandlers';
 import { Terminal } from 'lucide-react';
+import PanelRightIcon from '@/components/Right/PanelRightIcon';
 
 
 export default function Home() {
   const [activeMenuTab, setActiveMenuTab] = useState<MenuTab>('files');
   const [leftSidebarWidth, setLeftSidebarWidth] = useState(240);
   const [bottomPanelHeight, setBottomPanelHeight] = useState(200);
+  // 右サイドバー関連
+  const [rightSidebarWidth, setRightSidebarWidth] = useState(240);
+  const [isRightSidebarVisible, setIsRightSidebarVisible] = useState(false);
+  const handleRightResize = useRightSidebarResize(rightSidebarWidth, setRightSidebarWidth);
+  // 右サイドバーの表示切替（例: メニューやボタンでトグルする場合）
+  const toggleRightSidebar = () => setIsRightSidebarVisible(v => !v);
   const [isLeftSidebarVisible, setIsLeftSidebarVisible] = useState(true);
   const [isBottomPanelVisible, setIsBottomPanelVisible] = useState(true);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
@@ -354,12 +362,12 @@ export default function Home() {
     <div
       className="w-full flex justify-end items-center overflow-hidden"
       style={{
-      background: colors.background,
-      height: '30px',
+        background: colors.background,
+        height: '30px',
       }}
     >
       <button
-        className={`relative right-3 h-6 px-2 flex items-center justify-center border rounded transition-colors`}
+        className={`relative right-2 h-6 px-2 flex items-center justify-center border rounded transition-colors`}
         onClick={toggleBottomPanel}
         title="ターミナル表示/非表示"
         style={{
@@ -368,8 +376,21 @@ export default function Home() {
           color: isBottomPanelVisible ? colors.primary : colors.mutedFg,
           borderColor: colors.border,
         }}
-        >
+      >
         <Terminal size={8} color={isBottomPanelVisible ? colors.primary : colors.mutedFg} />
+      </button>
+      <button
+        className={`relative right-3 h-6 px-2 flex items-center justify-center border rounded transition-colors ml-1`}
+        onClick={toggleRightSidebar}
+        title="右パネル表示/非表示"
+        style={{
+          zIndex: 50,
+          background: isRightSidebarVisible ? colors.accentBg : colors.mutedBg,
+          color: isRightSidebarVisible ? colors.primary : colors.mutedFg,
+          borderColor: colors.border,
+        }}
+      >
+        <PanelRightIcon size={16} color={isRightSidebarVisible ? colors.primary : colors.mutedFg} />
       </button>
     </div>
     <div
@@ -480,123 +501,131 @@ export default function Home() {
         />
       )}
 
-  <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-        <div
-          className={editorLayout === 'vertical' ? 'flex-1 flex flex-row overflow-hidden min-h-0' : 'flex-1 flex flex-col overflow-hidden min-h-0'}
-          style={{ gap: '2px' }}
-        >
-          {editors.map((editor, idx) => {
-            const activeTab = editor.tabs.find(tab => tab.id === editor.activeTabId);
-            return (
-              <div
-                key={editor.id}
-                className="flex-1 flex flex-col rounded relative min-w-0 min-h-0"
-                style={{
-                  background: colors.background,
-                  border: `1px solid ${colors.border}`
-                }}
-              >
-                <TabBar
-                  tabs={editor.tabs}
-                  activeTabId={editor.activeTabId}
-                  onTabClick={tabId => setActiveTabIdForPane(editors, setEditors, idx, tabId)}
-                  onTabClose={tabId => {
-                    setTabsForPane(editors, setEditors, idx, editor.tabs.filter(t => t.id !== tabId));
-                    if (editor.activeTabId === tabId) {
-                      const newActive = editor.tabs.filter(t => t.id !== tabId);
-                      setActiveTabIdForPane(editors, setEditors, idx, newActive.length > 0 ? newActive[0].id : '');
-                    }
+
+      {/* メインエリア＋右サイドバー: 横並びflexで全体が動く */}
+      <div className="flex-1 flex flex-row overflow-hidden min-h-0" style={{ position: 'relative' }}>
+        {/* メインエディタ部 */}
+        <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+          <div
+            className={editorLayout === 'vertical' ? 'flex-1 flex flex-row overflow-hidden min-h-0' : 'flex-1 flex flex-col overflow-hidden min-h-0'}
+            style={{ gap: '2px' }}
+          >
+            {editors.map((editor, idx) => {
+              const activeTab = editor.tabs.find(tab => tab.id === editor.activeTabId);
+              return (
+                <div
+                  key={editor.id}
+                  className="flex-1 flex flex-col rounded relative min-w-0 min-h-0"
+                  style={{
+                    background: colors.background,
+                    border: `1px solid ${colors.border}`
                   }}
-                  isBottomPanelVisible={isBottomPanelVisible}
-                  onToggleBottomPanel={toggleBottomPanel}
-                  onAddTab={() => setFileSelectState({ open: true, paneIdx: idx })}
-                  addEditorPane={() => addEditorPane(editors, setEditors)}
-                  removeEditorPane={() => removeEditorPane(editors, setEditors, editor.id)}
-                  toggleEditorLayout={() => toggleEditorLayout(editorLayout, setEditorLayout)}
-                  editorLayout={editorLayout}
-                  editorId={editor.id}
-                  removeAllTabs={() => setTabsForPane(editors, setEditors, idx, [])}
-                />
-                {/* DiffTab or CodeEditor */}
-                {activeTab && (activeTab.webPreview ? (
-                  <WebPreviewTab
-                    filePath={activeTab.path}
-                    currentProjectName={currentProject?.name}
-                  />
-                ) : activeTab.diffProps ? (
-                  <DiffTab diffs={activeTab.diffProps.diffs} />
-                ) : (
-                  <CodeEditor
-                    activeTab={activeTab}
-                    onContentChange={async (tabId, content) => {
-                      setEditors(prev => {
-                        const updated = [...prev];
-                        updated[idx] = {
-                          ...updated[idx],
-                          tabs: updated[idx].tabs.map(t => t.id === tabId ? { ...t, content, isDirty: true } : t)
-                        };
-                        return updated;
-                      });
-                      setEditors(currentEditors => {
-                        const tab = currentEditors[idx].tabs.find(t => t.id === tabId);
-                        if (!tab || !currentProject) return currentEditors;
-                        (async () => {
-                          try {
-                            console.log(`[Pane ${idx}] Saving file as minimum pane index:`, tab.path);
-                            await saveFile(tab.path, content);
-                            console.log(`[Pane ${idx}] File saved to IndexedDB:`, tab.path);
-                            if (refreshProjectFiles) await refreshProjectFiles();
-                            setEditors(prevEditors => {
-                              const targetPath = tab.path;
-                              return prevEditors.map(pane => ({
-                                ...pane,
-                                tabs: pane.tabs.map(t =>
-                                  t.path === targetPath ? { ...t, isDirty: false } : t
-                                )
-                              }));
-                            });
-                            setTimeout(() => {
-                              setGitRefreshTrigger(prev => prev + 1);
-                            }, 200);
-                          } catch (error) {
-                            console.error(`[Pane ${idx}] Failed to save file:`, error);
-                          }
-                        })();
-                        return currentEditors;
-                      })
+                >
+                  <TabBar
+                    tabs={editor.tabs}
+                    activeTabId={editor.activeTabId}
+                    onTabClick={tabId => setActiveTabIdForPane(editors, setEditors, idx, tabId)}
+                    onTabClose={tabId => {
+                      setTabsForPane(editors, setEditors, idx, editor.tabs.filter(t => t.id !== tabId));
+                      if (editor.activeTabId === tabId) {
+                        const newActive = editor.tabs.filter(t => t.id !== tabId);
+                        setActiveTabIdForPane(editors, setEditors, idx, newActive.length > 0 ? newActive[0].id : '');
+                      }
                     }}
-                    onContentChangeImmediate={handleTabContentChangeImmediate}
                     isBottomPanelVisible={isBottomPanelVisible}
-                    bottomPanelHeight={bottomPanelHeight}
-                    nodeRuntimeOperationInProgress={nodeRuntimeOperationInProgress}
-                    isCodeMirror={activeTab?.isCodeMirror}
+                    onToggleBottomPanel={toggleBottomPanel}
+                    onAddTab={() => setFileSelectState({ open: true, paneIdx: idx })}
+                    addEditorPane={() => addEditorPane(editors, setEditors)}
+                    removeEditorPane={() => removeEditorPane(editors, setEditors, editor.id)}
+                    toggleEditorLayout={() => toggleEditorLayout(editorLayout, setEditorLayout)}
+                    editorLayout={editorLayout}
+                    editorId={editor.id}
+                    removeAllTabs={() => setTabsForPane(editors, setEditors, idx, [])}
                   />
-                ))}
-              </div>
-            );
-          })}
+                  {/* DiffTab or CodeEditor */}
+                  {activeTab && (activeTab.webPreview ? (
+                    <WebPreviewTab
+                      filePath={activeTab.path}
+                      currentProjectName={currentProject?.name}
+                    />
+                  ) : activeTab.diffProps ? (
+                    <DiffTab diffs={activeTab.diffProps.diffs} />
+                  ) : (
+                    <CodeEditor
+                      activeTab={activeTab}
+                      onContentChange={async (tabId, content) => {
+                        setEditors(prev => {
+                          const updated = [...prev];
+                          updated[idx] = {
+                            ...updated[idx],
+                            tabs: updated[idx].tabs.map(t => t.id === tabId ? { ...t, content, isDirty: true } : t)
+                          };
+                          return updated;
+                        });
+                        setEditors(currentEditors => {
+                          const tab = currentEditors[idx].tabs.find(t => t.id === tabId);
+                          if (!tab || !currentProject) return currentEditors;
+                          (async () => {
+                            try {
+                              console.log(`[Pane ${idx}] Saving file as minimum pane index:`, tab.path);
+                              await saveFile(tab.path, content);
+                              console.log(`[Pane ${idx}] File saved to IndexedDB:`, tab.path);
+                              if (refreshProjectFiles) await refreshProjectFiles();
+                              setEditors(prevEditors => {
+                                const targetPath = tab.path;
+                                return prevEditors.map(pane => ({
+                                  ...pane,
+                                  tabs: pane.tabs.map(t =>
+                                    t.path === targetPath ? { ...t, isDirty: false } : t
+                                  )
+                                }));
+                              });
+                              setTimeout(() => {
+                                setGitRefreshTrigger(prev => prev + 1);
+                              }, 200);
+                            } catch (error) {
+                              console.error(`[Pane ${idx}] Failed to save file:`, error);
+                            }
+                          })();
+                          return currentEditors;
+                        })
+                      }}
+                      onContentChangeImmediate={handleTabContentChangeImmediate}
+                      isBottomPanelVisible={isBottomPanelVisible}
+                      bottomPanelHeight={bottomPanelHeight}
+                      nodeRuntimeOperationInProgress={nodeRuntimeOperationInProgress}
+                      isCodeMirror={activeTab?.isCodeMirror}
+                    />
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+          {isBottomPanelVisible && (
+            <BottomPanel
+              height={bottomPanelHeight}
+              currentProject={currentProject?.name}
+              projectFiles={projectFiles}
+              onResize={handleBottomResize}
+              onTerminalFileOperation={async (path: string, type: 'file' | 'folder' | 'delete', content?: string | ArrayBuffer, isNodeRuntime?: boolean, isBufferArray?: boolean, bufferContent?: ArrayBuffer) => {
+                // ...existing code...
+              }}
+            />
+          )}
         </div>
-        {isBottomPanelVisible && (
-          <BottomPanel
-            height={bottomPanelHeight}
-            currentProject={currentProject?.name}
-            projectFiles={projectFiles}
-            onResize={handleBottomResize}
-            onTerminalFileOperation={async (path: string, type: 'file' | 'folder' | 'delete', content?: string | ArrayBuffer, isNodeRuntime?: boolean, isBufferArray?: boolean, bufferContent?: ArrayBuffer) => {
-              if (isNodeRuntime) {
-                setNodeRuntimeOperationInProgress(true);
-              }
-              if (syncTerminalFileOperation) {
-                // bufferContentが存在する場合、それを渡す
-                if (bufferContent) {
-                  await syncTerminalFileOperation(path, type, bufferContent);
-                } else {
-                  await syncTerminalFileOperation(path, type, content);
-                }
-              }
-              setGitRefreshTrigger(prev => prev + 1);
-            }}
-          />
+        {/* 右サイドバー: リサイズバーを本体の左側に配置 */}
+        {isRightSidebarVisible && (
+          <>
+            <div
+              className="resizer resizer-vertical flex-shrink-0"
+              onMouseDown={handleRightResize}
+              onTouchStart={handleRightResize}
+            />
+            <RightSidebar
+              rightSidebarWidth={rightSidebarWidth}
+              onResize={() => {}} // 右サイドバー本体には不要
+            />
+          </>
         )}
       </div>
 
