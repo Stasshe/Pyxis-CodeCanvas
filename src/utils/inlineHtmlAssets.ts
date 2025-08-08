@@ -36,9 +36,9 @@ export const inlineHtmlAssets = async (
       console.error(`CSSファイルの読み込みに失敗しました: ${css}`, err);
     }
   }
-  // ローカルCSSのみインライン化
+  // ローカルCSSのみインライン化し、ローカルCSSの<link>タグは完全に削除
   htmlContent = htmlContent.replace(
-    /<link[^>]*rel=["']stylesheet["'][^>]*href=["']([^"']+)["'][^>]*>/gi,
+    /<link[^>]*rel=["']stylesheet["'][^>]*href=["']([^"']+)["'][^>]*>\s*/gi,
     (match: string, href: string) => {
       if (isLocal(href)) {
         return '';
@@ -61,9 +61,9 @@ export const inlineHtmlAssets = async (
       console.error(`JSファイルの読み込みに失敗しました: ${js}`, err);
     }
   }
-  // ローカルJSのみインライン化
+  // ローカルJSのみインライン化し、ローカルJSの<script>タグは完全に削除
   htmlContent = htmlContent.replace(
-    /<script[^>]*src=["']([^"']+)["'][^>]*><\/script>/gi,
+    /<script[^>]*src=["']([^"']+)["'][^>]*><\/script>\s*/gi,
     (match: string, src: string) => {
       if (isLocal(src)) {
         return '';
