@@ -333,7 +333,6 @@ export default function CodeEditor({
     }
     // Monaco Editorの参照が有効かつdisposeされていないかチェック
     if (!editorRef.current || !monacoRef.current) return;
-    // @ts-ignore: _isDisposedはprivateだが安全のためチェック
     if ((editorRef.current as any)._isDisposed) return;
     let model = monacoModelMap.get(activeTab.id);
     // dispose済みモデルはMapから削除し新規作成

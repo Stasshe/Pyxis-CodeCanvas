@@ -38,7 +38,7 @@ export function useProjectFilesSyncEffect({
             return {
               ...tab,
               bufferContent: correspondingFile.bufferContent,
-              content: '',
+              content: correspondingFile.content,
               isDirty: false
             };
           }
@@ -56,7 +56,7 @@ export function useProjectFilesSyncEffect({
         hasRealChanges = true;
         return {
           ...tab,
-          content: correspondingFile.content || '',
+          content: correspondingFile.content,
           isDirty: false // DBから同期したので汚れていない状態にリセット
         };
       });

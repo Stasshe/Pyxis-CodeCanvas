@@ -88,10 +88,10 @@ export default function Home() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
-        // contentを除外して保存
+        // 一旦
         const editorsWithoutContent = editors.map(editor => ({
           ...editor,
-          tabs: editor.tabs.map(({ content, bufferContent, ...tabRest }) => ({ ...tabRest }))
+          tabs: editor.tabs.map(({ bufferContent, ...tabRest }) => ({ ...tabRest }))
         }));
         window.localStorage.setItem('pyxis-editors', JSON.stringify(editorsWithoutContent));
       } catch (e) {}
