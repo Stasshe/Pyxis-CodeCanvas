@@ -1,3 +1,4 @@
+import { isBufferArray } from '../isBufferArray';
 // zipファイル解凍用
 import JSZip from 'jszip';
 import FS from '@isomorphic-git/lightning-fs';
@@ -824,9 +825,16 @@ export class UnixCommands {
               try {
                 if (isText && typeof content === 'string') {
                   await this.onFileOperation(relativePath, 'file', content);
-                } else if (content instanceof Uint8Array && content.buffer instanceof ArrayBuffer) {
+                } else if (isBufferArray(content)) {
                   // バイナリはArrayBufferで渡す
-                  await this.onFileOperation(relativePath, 'file', content.buffer);
+                  const c: any = content;
+                  if (c instanceof Uint8Array) {
+                    await this.onFileOperation(relativePath, 'file', new Uint8Array(c).buffer);
+                  } else if (c instanceof ArrayBuffer) {
+                    await this.onFileOperation(relativePath, 'file', c);
+                  } else {
+                    await this.onFileOperation(relativePath, 'file', undefined);
+                  }
                 } else {
                   // fallback: undefined
                   await this.onFileOperation(relativePath, 'file', undefined);

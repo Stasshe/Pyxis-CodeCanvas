@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { isBufferArray } from './isBufferArray';
 import { Project, ProjectFile } from '@/types/';
 import { projectDB } from './database'; // プロジェクトデータベースのインポート
 import { FileItem } from '@/types';
@@ -422,18 +423,14 @@ export const useProject = () => {
           // 既存ファイルを更新
           console.log('[syncTerminalFileOperation] Updating existing file:', existingFile);
           let updatedFile;
-          // バイナリ判定: ArrayBuffer, Uint8Array, base64文字列
-          let isBuffer = false;
           let bufferContent: ArrayBuffer | undefined = undefined;
-          if (content instanceof ArrayBuffer) {
-            isBuffer = true;
-            bufferContent = content;
-          } else if (typeof content !== 'string' && content && typeof (content as any).buffer === 'object') {
-            // Uint8Array, ArrayBufferLike
-            const arr = new Uint8Array(content as ArrayBufferLike);
-            if (arr.buffer instanceof ArrayBuffer) {
-              isBuffer = true;
-              bufferContent = arr.buffer.slice(arr.byteOffset, arr.byteOffset + arr.byteLength);
+          if (isBufferArray(content)) {
+            if (typeof content !== 'string') {
+              if (content instanceof Uint8Array) {
+                bufferContent = new Uint8Array(content).buffer;
+              } else if (content instanceof ArrayBuffer) {
+                bufferContent = content;
+              }
             }
           } else if (typeof content === 'string' && /^([A-Za-z0-9+/=]{8,})$/.test(content)) {
             // base64らしき文字列（簡易判定）
@@ -441,11 +438,10 @@ export const useProject = () => {
               const bin = atob(content);
               const arr = new Uint8Array(bin.length);
               for (let i = 0; i < bin.length; ++i) arr[i] = bin.charCodeAt(i);
-              isBuffer = true;
               bufferContent = arr.buffer;
             } catch {}
           }
-          if (isBuffer && bufferContent) {
+          if (bufferContent) {
             updatedFile = { ...existingFile, content: '', isBufferArray: true, bufferContent, updatedAt: new Date() };
           } else {
             updatedFile = { ...existingFile, content: typeof content === 'string' ? content : '', isBufferArray: false, bufferContent: undefined, updatedAt: new Date() };
@@ -465,17 +461,14 @@ export const useProject = () => {
         } else {
           // 新しいファイル/フォルダを作成
           console.log('[syncTerminalFileOperation] Creating new file/folder:', { path, type });
-          let isBuffer = false;
           let bufferContent: ArrayBuffer | undefined = undefined;
-          if (content instanceof ArrayBuffer) {
-            isBuffer = true;
-            bufferContent = content;
-          } else if (typeof content !== 'string' && content && typeof (content as any).buffer === 'object') {
-            // Uint8Array, ArrayBufferLike
-            const arr = new Uint8Array(content as ArrayBufferLike);
-            if (arr.buffer instanceof ArrayBuffer) {
-              isBuffer = true;
-              bufferContent = arr.buffer.slice(arr.byteOffset, arr.byteOffset + arr.byteLength);
+          if (isBufferArray(content)) {
+            if (typeof content !== 'string') {
+              if (content instanceof Uint8Array) {
+                bufferContent = new Uint8Array(content).buffer;
+              } else if (content instanceof ArrayBuffer) {
+                bufferContent = content;
+              }
             }
           } else if (typeof content === 'string' && /^([A-Za-z0-9+/=]{8,})$/.test(content)) {
             // base64らしき文字列（簡易判定）
@@ -483,11 +476,10 @@ export const useProject = () => {
               const bin = atob(content);
               const arr = new Uint8Array(bin.length);
               for (let i = 0; i < bin.length; ++i) arr[i] = bin.charCodeAt(i);
-              isBuffer = true;
               bufferContent = arr.buffer;
             } catch {}
           }
-          if (isBuffer && bufferContent) {
+          if (bufferContent) {
             const newFile = await projectDB.createFile(currentProject.id, path, bufferContent, type, true);
             console.log('[syncTerminalFileOperation] File/folder created in DB with ID:', newFile.id);
           } else {
