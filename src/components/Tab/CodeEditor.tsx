@@ -5,6 +5,7 @@ import WelcomeTab from './WelcomeTab';
 import Editor, { Monaco, OnMount } from '@monaco-editor/react';
 import { FileText } from 'lucide-react';
 import { Tab } from '@/types';
+import { isBufferArray } from '@/utils/isBufferArray';
 
 // バイナリファイルのMIMEタイプ推定
 function guessMimeType(fileName: string, buffer?: ArrayBuffer): string {
@@ -326,6 +327,21 @@ export default function CodeEditor({
     setCharCount(model.getValue().length);
   }, [activeTab?.id, activeTab?.content]);
 
+  // Cleanup Monaco Editor instance on unmount
+  useEffect(() => {
+    return () => {
+      if (editorRef.current) {
+        editorRef.current.dispose();
+        editorRef.current = null;
+      }
+      if (monacoRef.current) {
+        monacoModelMap.forEach((model) => model.dispose());
+        monacoModelMap.clear();
+        monacoRef.current = null;
+      }
+    };
+  }, []);
+
   if (!activeTab) {
     return (
       <div className="flex-1 min-h-0 select-none" style={{ height: editorHeight }}>
@@ -340,10 +356,10 @@ export default function CodeEditor({
   }
 
   // バイナリファイル（BufferArray）なら専用表示
-  if ((activeTab as any).isBufferArray) {
+  if (isBufferArray((activeTab as any).bufferContent)) {
     const buffer = (activeTab as any).bufferContent as ArrayBuffer | undefined;
     const mime = guessMimeType(activeTab.name, buffer);
-    console.log('[CodeEditor] activeTab.isBufferArray:', (activeTab as any).isBufferArray);
+    console.log('[CodeEditor] bufferContent isBufferArray:', isBufferArray((activeTab as any).bufferContent));
     console.log('[CodeEditor] activeTab.bufferContent:', (activeTab as any).bufferContent);
     // 画像ならimg表示
     if (mime.startsWith('image/') && buffer) {

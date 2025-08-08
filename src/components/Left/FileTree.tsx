@@ -5,6 +5,7 @@ import { exportFolderZip } from '@/utils/export/exportFolderZip';
 import { ChevronDown, ChevronRight, File, Folder } from 'lucide-react';
 import { FileItem } from '@/types';
 import { UnixCommands } from '@/utils/cmd/unix';
+import { isBufferArray } from '@/utils/isBufferArray';
 
 interface FileTreeProps {
   items: FileItem[];
@@ -336,17 +337,15 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
                       const { importSingleFile } = await import('@/utils/export/importSingleFile');
                       const targetAbsolutePath = `/projects/${currentProjectName}/${file.name}`;
                       const targetPath = `/${file.name}`;
-                      // バイナリ判定
-                      const isBinary = /\.(png|jpg|jpeg|gif|bmp|webp|svg|pdf)$/i.test(file.name);
                       let content: string | ArrayBuffer = '';
-                      if (isBinary) {
-                        content = await file.arrayBuffer();
-                      } else {
+                      content = await file.arrayBuffer();
+                      const isBinary = isBufferArray(content);
+                      if (!isBinary) {
                         content = await file.text();
                       }
                       await importSingleFile(file, targetAbsolutePath, unix);
                       if (typeof onFileOperation === 'function') {
-                        await onFileOperation(targetPath, 'file', content, false, isBinary ? true : false, isBinary ? (content as ArrayBuffer) : undefined);
+                        await onFileOperation(targetPath, 'file', content, false, isBinary, isBinary ? (content as ArrayBuffer) : undefined);
                       }
                     };
                     input.click();
@@ -415,16 +414,15 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
                           }
                         }
                         if (targetPath) {
-                          const isBinary = /\.(png|jpg|jpeg|gif|bmp|webp|svg|pdf)$/i.test(file.name);
                           let content: string | ArrayBuffer = '';
-                          if (isBinary) {
-                            content = await file.arrayBuffer();
-                          } else {
+                          content = await file.arrayBuffer();
+                          const isBinary = isBufferArray(content);
+                          if (!isBinary) {
                             content = await file.text();
                           }
                           await importSingleFile(file, targetAbsolutePath, unix);
                           if (typeof onFileOperation === 'function') {
-                            await onFileOperation(targetPath, 'file', content, false, isBinary ? true : false, isBinary ? (content as ArrayBuffer) : undefined);
+                            await onFileOperation(targetPath, 'file', content, false, isBinary, isBinary ? (content as ArrayBuffer) : undefined);
                           }
                         }
                       };

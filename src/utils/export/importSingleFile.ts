@@ -1,5 +1,6 @@
 import { UnixCommands } from '../cmd/unix';
 import { syncFileToFileSystem } from '../filesystem';
+import { isBufferArray } from '../isBufferArray';
 
 /**
  * ファイルアップロード（インポート）機能
@@ -8,18 +9,26 @@ import { syncFileToFileSystem } from '../filesystem';
  * @param unix UnixCommandsインスタンス（プロジェクトごとに生成済みのものを渡す）
  */
 export async function importSingleFile(file: File, targetPath: string, unix: UnixCommands) {
-  // 拡張子でバイナリか判定（画像・pdf等はバイナリ）
-  const isBinary = (() => {
-    const ext = file.name.toLowerCase();
-    if (ext.match(/\.(png|jpg|jpeg|gif|bmp|webp|svg|pdf)$/)) return true;
-    return false;
-  })();
+  // isBufferArrayでバイナリ判定
+  let isBinary = false;
+  // File APIの型判定は難しいので拡張子で判定しつつ、arrayBuffer取得後にisBufferArrayで再判定
+  const ext = file.name.toLowerCase();
+  if (ext.match(/\.(png|jpg|jpeg|gif|bmp|webp|svg|pdf|zip)$/)) isBinary = true;
 
   let content: string | ArrayBuffer;
   if (isBinary) {
     content = await file.arrayBuffer();
+    if (!isBufferArray(content)) {
+      // 念のため再判定
+      isBinary = false;
+      content = await file.text();
+    }
   } else {
     content = await file.text();
+    // テキストだがバイナリだった場合
+    if (isBufferArray(content)) {
+      isBinary = true;
+    }
   }
 
   await unix.touch(targetPath);

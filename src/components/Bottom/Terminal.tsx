@@ -382,6 +382,20 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
             break;
             
           // Unix commands
+          case 'unzip':
+            if (args.length === 0) {
+              await writeOutput('Usage: unzip <zipfile> [destdir]');
+            } else if (!unixCommandsRef.current) {
+              await writeOutput('unzip: internal error (filesystem not initialized)');
+            } else {
+              try {
+                const result = await unixCommandsRef.current.unzip(args[0], args[1]);
+                await writeOutput(result);
+              } catch (e) {
+                await writeOutput((e as Error).message);
+              }
+            }
+            break;
           default:
             await handleUnixCommand(cmd, args, unixCommandsRef, currentProject, writeOutput);
             break;

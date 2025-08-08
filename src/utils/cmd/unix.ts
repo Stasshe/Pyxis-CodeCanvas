@@ -1,3 +1,5 @@
+// zipファイル解凍用
+import JSZip from 'jszip';
 import FS from '@isomorphic-git/lightning-fs';
 import { getFileSystem, getProjectDir } from '../filesystem';
 
@@ -749,6 +751,51 @@ export class UnixCommands {
         const content = await this.fs.promises.readFile(srcPath, { encoding: 'utf8' });
         await this.fs.promises.writeFile(destPath, content);
       }
+    }
+  }
+  // unzip - zipファイルを解凍
+  async unzip(zipFileName: string, destDir?: string): Promise<string> {
+    const targetPath = zipFileName.startsWith('/') ? zipFileName : `${this.currentDir}/${zipFileName}`;
+    const normalizedPath = this.normalizePath(targetPath);
+    const extractDir = destDir
+      ? (destDir.startsWith('/') ? destDir : `${this.currentDir}/${destDir}`)
+      : this.currentDir;
+    const normalizedDest = this.normalizePath(extractDir);
+    try {
+      // zipファイルの内容を取得
+      const data = await this.fs.promises.readFile(normalizedPath);
+      const zip = await JSZip.loadAsync(data);
+      let fileCount = 0;
+      // zip内の全ファイルを展開
+      for (const relPath in zip.files) {
+        const entry = zip.files[relPath];
+        if (entry.dir) {
+          // ディレクトリは作成
+          const dirPath = this.normalizePath(`${normalizedDest}/${relPath}`);
+          await this.fs.promises.mkdir(dirPath, { recursive: true } as any);
+          if (this.onFileOperation) {
+            const rel = this.getRelativePathFromProject(dirPath);
+            await this.onFileOperation(rel, 'folder');
+          }
+        } else {
+          // ファイルは書き込み
+          const filePath = this.normalizePath(`${normalizedDest}/${relPath}`);
+          const content = await entry.async('uint8array');
+          // 親ディレクトリ作成
+          const parentDir = filePath.substring(0, filePath.lastIndexOf('/'));
+          await this.fs.promises.mkdir(parentDir, { recursive: true } as any);
+          await this.fs.promises.writeFile(filePath, content);
+          if (this.onFileOperation) {
+            const rel = this.getRelativePathFromProject(filePath);
+            await this.onFileOperation(rel, 'file', '');
+          }
+          fileCount++;
+        }
+      }
+      await this.flushFileSystemCache();
+      return `Unzipped ${fileCount} file(s) to ${normalizedDest}`;
+    } catch (error) {
+      throw new Error(`unzip: ${zipFileName}: ${(error as Error).message}`);
     }
   }
 }
