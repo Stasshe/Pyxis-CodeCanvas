@@ -35,7 +35,6 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({ filePath, currentProjectN
 
       if (stats.isDirectory()) {
         const files = await fs.promises.readdir(resolvedPath);
-        console.log('[DEBUG] ディレクトリ内のファイル:', files);
 
         if (files.length === 0) {
           console.warn('[DEBUG] ディレクトリが空です:', resolvedPath);
@@ -65,8 +64,8 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({ filePath, currentProjectN
 
   useEffect(() => {
     fetchFileContent();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filePath]);
+    console.log('file changed');
+  }, [filePath, fileContent]);
 
   // ファイル内容が変わったらiframeに反映
   useEffect(() => {
@@ -85,20 +84,6 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({ filePath, currentProjectN
       console.warn('[DEBUG] iframeRefがnullです');
     }
   }, [fileContent]);
-
-  // ファイル変更通知を受けたら再取得
-  useEffect(() => {
-    const handleFileChange = (event: MessageEvent) => {
-      if (event.data.type === 'file-change' && event.data.filePath === filePath) {
-        fetchFileContent();
-      }
-    };
-    window.addEventListener('message', handleFileChange);
-    return () => {
-      window.removeEventListener('message', handleFileChange);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filePath]);
 
   return (
     <div style={{ height: '100%', width: '100%' }}>
