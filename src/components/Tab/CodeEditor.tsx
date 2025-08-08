@@ -6,8 +6,6 @@ import Editor, { Monaco, OnMount } from '@monaco-editor/react';
 import { FileText } from 'lucide-react';
 import { Tab } from '@/types';
 import { isBufferArray } from '@/utils/isBufferArray';
-import WebPreviewTab from './WebPreviewTab';
-import type { EditorPane } from '@/types'; // Import EditorPane type
 // バイナリファイルのMIMEタイプ推定
 function guessMimeType(fileName: string, buffer?: ArrayBuffer): string {
   const ext = fileName.toLowerCase();
@@ -142,7 +140,6 @@ export default function CodeEditor({
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
   // Define editors and setEditors locally
-  const [editors, setEditors] = useState<EditorPane[]>([]);
   
   // マウント状態をグローバルに管理
   const isMountedRef = useRef(true);
@@ -458,30 +455,6 @@ export default function CodeEditor({
       </>
     );
   }
-
-  // Webプレビュータブの場合は専用コンポーネントで表示
-  if (activeTab.webPreview) {
-    return (
-      <WebPreviewTab
-        filePath={activeTab.path}
-        content={activeTab.content}
-        onContentChange={(newContent) => {
-          setEditors((prevEditors) => {
-            const updated = [...prevEditors];
-            updated[idx] = {
-              ...updated[idx],
-              tabs: updated[idx].tabs.map((t) =>
-                t.id === activeTab.id ? { ...t, content: newContent } : t
-              ),
-            };
-            return updated;
-          });
-        }}
-      />
-    );
-  }
-
-  const idx = editors.findIndex((editor) => editor.activeTabId === activeTab.id);
 
   return (
     <div className="flex-1 min-h-0 relative" style={{ height: editorHeight }}>

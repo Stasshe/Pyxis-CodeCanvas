@@ -558,7 +558,7 @@ export default function Home() {
             currentProject={currentProject?.name}
             projectFiles={projectFiles}
             onResize={handleBottomResize}
-            onTerminalFileOperation={async (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean, isBufferArray?: boolean, bufferContent?: ArrayBuffer) => {
+            onTerminalFileOperation={async (path: string, type: 'file' | 'folder' | 'delete', content?: string | ArrayBuffer, isNodeRuntime?: boolean, isBufferArray?: boolean, bufferContent?: ArrayBuffer) => {
               if (isNodeRuntime) {
                 setNodeRuntimeOperationInProgress(true);
               }
