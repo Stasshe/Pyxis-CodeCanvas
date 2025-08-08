@@ -7,9 +7,9 @@ import { getFileSystem, getProjectDir } from '../filesystem';
 export class UnixCommands {
   public fs: FS;
   private currentDir: string;
-  private onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>;
+  private onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string | ArrayBuffer, isNodeRuntime?: boolean) => Promise<void>;
 
-  constructor(projectName: string, onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>) {
+  constructor(projectName: string, onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string | ArrayBuffer, isNodeRuntime?: boolean) => Promise<void>) {
     this.fs = getFileSystem()!;
     this.currentDir = getProjectDir(projectName);
     this.onFileOperation = onFileOperation;
@@ -795,27 +795,42 @@ export class UnixCommands {
             continue;
           } catch {
             // ファイルが存在しない場合のみ作成
-            const content = await file.async('nodebuffer');
+            // バイナリかテキストかを判定
+            let content: Uint8Array | string = await file.async('uint8array');
+            let isText = false;
+            // UTF-8としてデコードできるか簡易判定（完全ではない）
+            try {
+              const text = new TextDecoder('utf-8', { fatal: true }).decode(content);
+              // HTML/XML/JS/CSS/MD/JSON/TS/JSX/TSX/py/sh など拡張子で判定も可
+              // ここでは一部拡張子で判定
+              if (/[.](txt|md|js|ts|jsx|tsx|json|html|css|py|sh)$/i.test(relPath)) {
+                isText = true;
+                content = text;
+              } else {
+                // 先頭が可視ASCIIならテキストとみなす
+                if (/^[\x09\x0A\x0D\x20-\x7E]/.test(text)) {
+                  isText = true;
+                  content = text;
+                }
+              }
+            } catch {
+              isText = false;
+            }
             await this.fs.promises.writeFile(normalizedFilePath, content);
             console.log(`[unzip] Writing file: ${normalizedFilePath}`);
             updated = true;
             // UI/DB同期: ファイル作成を通知
             if (this.onFileOperation) {
               try {
-                // contentはstringで渡す必要がある
-                let fileContent: string;
-                if (typeof content === 'string') {
-                  fileContent = content;
-                } else if (content instanceof Uint8Array) {
-                  // バイナリの場合はbase64で渡す
-                  fileContent = btoa(String.fromCharCode(...content));
-                } else if (Buffer && Buffer.isBuffer(content)) {
-                  fileContent = '';//content.toString('base64');
+                if (isText && typeof content === 'string') {
+                  await this.onFileOperation(relativePath, 'file', content);
+                } else if (content instanceof Uint8Array && content.buffer instanceof ArrayBuffer) {
+                  // バイナリはArrayBufferで渡す
+                  await this.onFileOperation(relativePath, 'file', content.buffer);
                 } else {
-                  // fallback: 空文字
-                  fileContent = '';
+                  // fallback: undefined
+                  await this.onFileOperation(relativePath, 'file', undefined);
                 }
-                await this.onFileOperation(relativePath, 'file', fileContent);
               } catch (syncError) {
                 console.error('[unzip] onFileOperation (file) failed:', syncError);
               }
