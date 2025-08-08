@@ -477,11 +477,17 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: colors.cardBg }}>
       {/* ヘッダー */}
-      <div style={{ padding: '0.75rem', borderBottom: `1px solid ${colors.border}` }}>
+      <div style={{ padding: '0.25rem', borderBottom: `1px solid ${colors.border}` }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
           <h3 style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1rem', color: colors.foreground }}>
             <GitBranch style={{ width: '1rem', height: '1rem', color: colors.primary }} />
             Git
+            <div style={{ fontSize: '0.75rem', color: colors.mutedFg }}>
+              <span style={{ fontWeight: 500 }}>{gitRepo.currentBranch}</span>
+              {gitRepo.commits.length > 0 && (
+                <span style={{ marginLeft: '0.5rem' }}>• {gitRepo.commits.length} コミット</span>
+              )}
+            </div>
           </h3>
           <button
             onClick={fetchGitStatus}
@@ -494,17 +500,11 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
             <RefreshCw style={{ width: '1rem', height: '1rem', color: colors.mutedFg }} className="select-none" />
           </button>
         </div>
-        <div style={{ fontSize: '0.75rem', color: colors.mutedFg }}>
-          <span style={{ fontWeight: 500 }}>{gitRepo.currentBranch}</span>
-          {gitRepo.commits.length > 0 && (
-            <span style={{ marginLeft: '0.5rem' }}>• {gitRepo.commits.length} コミット</span>
-          )}
-        </div>
       </div>
           {/* コミット */}
           {gitRepo.status.staged.length > 0 && (
-            <div style={{ padding: '0.75rem', borderBottom: `1px solid ${colors.border}` }}>
-              <h4 style={{ fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: colors.foreground }}>コミット</h4>
+            <div style={{ padding: '0.3rem', borderBottom: `1px solid ${colors.border}` }}>
+              {/* <h4 style={{ fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: colors.foreground }}>コミット</h4> */}
               {/* APIキー入力欄（未保存時のみ表示） */}
               {!hasApiKey && (
                 <input
@@ -550,8 +550,17 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
           )}
 
   <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-        {/* 変更ファイル */}
-        <div style={{ padding: '0.75rem', borderBottom: `1px solid ${colors.border}` }}>
+
+        {/* 変更ファイル（スクロール可能・最大高さ45%） */}
+        <div
+          style={{
+            padding: '0.75rem',
+            borderBottom: `1px solid ${colors.border}`,
+            maxHeight: '45%',
+            overflowY: 'auto',
+            minHeight: 0,
+          }}
+        >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
             <h4 style={{ fontSize: '0.875rem', fontWeight: 500, color: colors.foreground }}>変更</h4>
             {hasChanges && (
