@@ -207,18 +207,17 @@ export class UnixCommands {
       if (recursive) {
         // 再帰的にディレクトリを作成
         await this.createDirectoryRecursive(normalizedPath);
-        
         // ファイルシステムのキャッシュをフラッシュ
         await this.flushFileSystemCache();
-        
-        // IndexedDBにも同期
+        // IndexedDBにも同期（touchのようにtry-catchで握りつぶす）
         if (this.onFileOperation) {
           const relativePath = this.getRelativePathFromProject(normalizedPath);
-          //console.log('[mkdir] Syncing recursive:', { relativePath });
-          await this.onFileOperation(relativePath, 'folder');
-          //console.log('[mkdir] Sync completed for recursive');
+          try {
+            await this.onFileOperation(relativePath, 'folder');
+          } catch (syncError) {
+            console.error('[mkdir] Sync failed (recursive):', syncError);
+          }
         }
-        
         return `Directory created: ${normalizedPath}`;
       } else {
         // 親ディレクトリの存在確認
@@ -763,50 +762,67 @@ export class UnixCommands {
     const normalizedDest = this.normalizePath(extractDir);
     try {
       // zipファイルの内容を取得
-      // デバッグログを追加してbufferContentの内容を確認
       console.log('[unzip] bufferContent:', bufferContent);
       const data = bufferContent || await this.fs.promises.readFile(normalizedPath);
       console.log('[unzip] data (used for JSZip):', data);
       const zip = await JSZip.loadAsync(data);
       let fileCount = 0;
+      let updated = false;
       // zip内の全ファイルを展開
       for (const relPath in zip.files) {
-        const entry = zip.files[relPath];
-        if (entry.dir) {
-          // ディレクトリが既に存在する場合はスキップ
-          const dirPath = this.normalizePath(`${normalizedDest}/${relPath}`);
-          try {
-            await this.fs.promises.mkdir(dirPath, { recursive: true } as any);
-            console.log(`[unzip] Directory created: ${dirPath}`);
-          } catch (error) {
-            if ((error as any).code !== 'EEXIST') {
-              throw error; // EEXIST以外のエラーは再スロー
-            }
-            console.log(`[unzip] Directory already exists, continuing: ${dirPath}`);
-          }
+        const file = zip.files[relPath];
+        const destPath = `${normalizedDest}/${relPath}`;
+        const normalizedFilePath = this.normalizePath(destPath);
+        const relativePath = this.getRelativePathFromProject(normalizedFilePath);
+
+        if (file.dir) {
+          // ディレクトリの場合は作成
+          await this.fs.promises.mkdir(normalizedFilePath, { recursive: true } as any);
+          updated = true;
+          // UI/DB同期: ディレクトリ作成を通知
           if (this.onFileOperation) {
-            const rel = this.getRelativePathFromProject(dirPath);
-            await this.onFileOperation(rel, 'folder');
+            try {
+              await this.onFileOperation(relativePath, 'folder');
+            } catch (syncError) {
+              console.error('[unzip] onFileOperation (folder) failed:', syncError);
+            }
           }
         } else {
-          const filePath = this.normalizePath(`${normalizedDest}/${relPath}`);
           try {
-            const content = await entry.async('uint8array');
-            const parentDir = filePath.substring(0, filePath.lastIndexOf('/'));
-            await this.fs.promises.mkdir(parentDir, { recursive: true } as any);
-            await this.fs.promises.writeFile(filePath, content);
-            console.log(`[unzip] File written: ${filePath}`);
+            // ファイルが既に存在する場合はスキップ
+            await this.fs.promises.stat(normalizedFilePath);
+            console.log(`[unzip] Skipping existing file: ${normalizedFilePath}`);
+            continue;
+          } catch {
+            // ファイルが存在しない場合のみ作成
+            const content = await file.async('nodebuffer');
+            await this.fs.promises.writeFile(normalizedFilePath, content);
+            console.log(`[unzip] Writing file: ${normalizedFilePath}`);
+            updated = true;
+            // UI/DB同期: ファイル作成を通知
             if (this.onFileOperation) {
-              const rel = this.getRelativePathFromProject(filePath);
-              await this.onFileOperation(rel, 'file', undefined, false);
+              try {
+                // contentはstringで渡す必要がある
+                let fileContent: string;
+                if (typeof content === 'string') {
+                  fileContent = content;
+                } else if (content instanceof Uint8Array) {
+                  // バイナリの場合はbase64で渡す
+                  fileContent = btoa(String.fromCharCode(...content));
+                } else if (Buffer && Buffer.isBuffer(content)) {
+                  fileContent = '';//content.toString('base64');
+                } else {
+                  // fallback: 空文字
+                  fileContent = '';
+                }
+                await this.onFileOperation(relativePath, 'file', fileContent);
+              } catch (syncError) {
+                console.error('[unzip] onFileOperation (file) failed:', syncError);
+              }
             }
-          } catch (error) {
-            if ((error as any).code !== 'EEXIST') {
-              throw error; // EEXIST以外のエラーは再スロー
-            }
-            console.log(`[unzip] File already exists, continuing: ${filePath}`);
           }
         }
+        fileCount++;
       }
       await this.flushFileSystemCache();
       return `Unzipped ${fileCount} file(s) to ${normalizedDest}`;
