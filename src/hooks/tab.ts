@@ -18,7 +18,7 @@ export function useProjectFilesSyncEffect({
   useEffect(() => {
     // currentProjectがnullの場合は処理をスキップ
     if (!currentProject) {
-      console.log('[DEBUG] Skipping useProjectFilesSyncEffect: currentProject is null');
+      //console.log('[DEBUG] Skipping useProjectFilesSyncEffect: currentProject is null');
       return;
     }// tabsが空でもprojectFilesが存在する場合は同期を試みる
     if (projectFiles.length > 0) {

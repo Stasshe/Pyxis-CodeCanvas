@@ -53,11 +53,20 @@ export default function Home() {
           const parsed = JSON.parse(saved);
           // データが正しい形式かチェック
           if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].id) {
-            setEditors(parsed);
-            // activeTabIdを復元
-            if (parsed[0].tabs.length > 0) {
-              setActiveTabId(parsed[0].tabs[0].id);
-            }
+              // タブを初期化: バイナリタブにはcontent '', bufferContent undefined
+              const initEditors = parsed.map((editor: any) => ({
+                ...editor,
+                tabs: editor.tabs.map((tab: any) => ({
+                  ...tab,
+                  content: tab.isBufferArray ? '' : (tab.content || ''),
+                  bufferContent: undefined
+                }))
+              }));
+              setEditors(initEditors);
+              // activeTabIdを復元
+              if (initEditors[0].tabs.length > 0) {
+                setActiveTabId(initEditors[0].tabs[0].id);
+              }
           }
         }
       } catch (e) {
