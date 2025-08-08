@@ -25,8 +25,27 @@ export function useProjectFilesSyncEffect({
       let hasRealChanges = false;
       const updatedTabs = tabs.map(tab => {
         const correspondingFile = projectFiles.find(f => f.path === tab.path);
-        // ファイルが見つからない、または内容が同じ場合はスキップ
-        if (!correspondingFile || correspondingFile.content === tab.content) {
+        if (!correspondingFile) {
+          return tab;
+        }
+        // バイナリファイルの場合はbufferContentを同期
+        if (tab.isBufferArray && correspondingFile.isBufferArray) {
+          const newBuf = correspondingFile.bufferContent;
+          const oldBuf = tab.bufferContent;
+          // バッファ長が異なる、または未設定の場合にのみ更新
+          if (!oldBuf || (newBuf && oldBuf.byteLength !== newBuf.byteLength)) {
+            hasRealChanges = true;
+            return {
+              ...tab,
+              bufferContent: correspondingFile.bufferContent,
+              content: '',
+              isDirty: false
+            };
+          }
+          return tab;
+        }
+        // テキストファイルはcontentで比較
+        if (correspondingFile.content === tab.content) {
           return tab;
         }
         // NodeRuntime操作中は強制的に更新、そうでなければisDirtyをチェック
