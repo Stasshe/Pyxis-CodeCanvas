@@ -35,7 +35,7 @@ interface TerminalProps {
   height: number;
   currentProject?: string;
   projectFiles?: FileItem[];
-  onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean, isBufferArray?: boolean, bufferContent?: ArrayBuffer) => Promise<void>;
+  onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string | ArrayBuffer, isNodeRuntime?: boolean) => Promise<void>;
   isActive?: boolean;
 }
 

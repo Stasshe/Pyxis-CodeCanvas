@@ -432,14 +432,6 @@ export const useProject = () => {
                 bufferContent = content;
               }
             }
-          } else if (typeof content === 'string' && /^([A-Za-z0-9+/=]{8,})$/.test(content)) {
-            // base64らしき文字列（簡易判定）
-            try {
-              const bin = atob(content);
-              const arr = new Uint8Array(bin.length);
-              for (let i = 0; i < bin.length; ++i) arr[i] = bin.charCodeAt(i);
-              bufferContent = arr.buffer;
-            } catch {}
           }
           if (bufferContent) {
             updatedFile = { ...existingFile, content: '', isBufferArray: true, bufferContent, updatedAt: new Date() };
