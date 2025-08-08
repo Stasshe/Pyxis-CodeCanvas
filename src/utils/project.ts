@@ -359,7 +359,7 @@ export const useProject = () => {
   };
 
   // ターミナルからのファイル操作を同期
-  const syncTerminalFileOperation = async (path: string, type: 'file' | 'folder' | 'delete', content: string = '', bufferContent?: ArrayBuffer) => {
+  const syncTerminalFileOperation = async (path: string, type: 'file' | 'folder' | 'delete', content: string | ArrayBuffer = '') => {
     if (!currentProject) {
       console.log('[syncTerminalFileOperation] No current project');
       return;
@@ -425,7 +425,7 @@ export const useProject = () => {
           if (content && content.constructor === ArrayBuffer) {
             updatedFile = { ...existingFile, content: '', isBufferArray: true, bufferContent: content, updatedAt: new Date() };
           } else {
-            updatedFile = { ...existingFile, content, isBufferArray: false, bufferContent: undefined, updatedAt: new Date() };
+            updatedFile = { ...existingFile, content: typeof content === 'string' ? content : '', isBufferArray: false, bufferContent: undefined, updatedAt: new Date() };
           }
           await projectDB.saveFile(updatedFile);
           console.log('[syncTerminalFileOperation] File updated in DB');

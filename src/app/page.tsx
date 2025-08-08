@@ -413,7 +413,7 @@ export default function Home() {
               // syncTerminalFileOperationの型も拡張が必要だが、ここではisBufferArray/bufferContentを渡す想定
               // バイナリファイルの場合はcontentにbufferContentを渡す
               if (isBufferArray && bufferContent) {
-                await syncTerminalFileOperation(path, type, content, bufferContent);
+                await syncTerminalFileOperation(path, type, bufferContent);
               } else {
                 await syncTerminalFileOperation(path, type, content);
               }
@@ -529,7 +529,7 @@ export default function Home() {
               if (syncTerminalFileOperation) {
                 // bufferContentが存在する場合、それを渡す
                 if (bufferContent) {
-                  await syncTerminalFileOperation(path, type, content, bufferContent);
+                  await syncTerminalFileOperation(path, type, bufferContent);
                 } else {
                   await syncTerminalFileOperation(path, type, content);
                 }
