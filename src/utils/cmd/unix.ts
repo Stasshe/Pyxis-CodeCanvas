@@ -773,33 +773,39 @@ export class UnixCommands {
       for (const relPath in zip.files) {
         const entry = zip.files[relPath];
         if (entry.dir) {
-          // ディレクトリは作成
+          // ディレクトリが既に存在する場合はスキップ
           const dirPath = this.normalizePath(`${normalizedDest}/${relPath}`);
-          await this.fs.promises.mkdir(dirPath, { recursive: true } as any);
+          try {
+            await this.fs.promises.mkdir(dirPath, { recursive: true } as any);
+            console.log(`[unzip] Directory created: ${dirPath}`);
+          } catch (error) {
+            if ((error as any).code !== 'EEXIST') {
+              throw error; // EEXIST以外のエラーは再スロー
+            }
+            console.log(`[unzip] Directory already exists, continuing: ${dirPath}`);
+          }
           if (this.onFileOperation) {
             const rel = this.getRelativePathFromProject(dirPath);
             await this.onFileOperation(rel, 'folder');
           }
         } else {
-          // ファイルは書き込み
           const filePath = this.normalizePath(`${normalizedDest}/${relPath}`);
-          const content = await entry.async('uint8array');
-          // 親ディレクトリ作成
-          const parentDir = filePath.substring(0, filePath.lastIndexOf('/'));
-          await this.fs.promises.mkdir(parentDir, { recursive: true } as any);
-          await this.fs.promises.writeFile(filePath, content);
-          if (this.onFileOperation) {
-            const rel = this.getRelativePathFromProject(filePath);
-            // 修正: bufferContentをTextDecoderで文字列に変換して渡す
-            if (bufferContent) {
-              const decoder = new TextDecoder();
-              const contentString = decoder.decode(bufferContent);
-              await this.onFileOperation(rel, 'file', contentString, false);
-            } else {
+          try {
+            const content = await entry.async('uint8array');
+            const parentDir = filePath.substring(0, filePath.lastIndexOf('/'));
+            await this.fs.promises.mkdir(parentDir, { recursive: true } as any);
+            await this.fs.promises.writeFile(filePath, content);
+            console.log(`[unzip] File written: ${filePath}`);
+            if (this.onFileOperation) {
+              const rel = this.getRelativePathFromProject(filePath);
               await this.onFileOperation(rel, 'file', undefined, false);
             }
+          } catch (error) {
+            if ((error as any).code !== 'EEXIST') {
+              throw error; // EEXIST以外のエラーは再スロー
+            }
+            console.log(`[unzip] File already exists, continuing: ${filePath}`);
           }
-          fileCount++;
         }
       }
       await this.flushFileSystemCache();
