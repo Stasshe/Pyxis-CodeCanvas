@@ -1,11 +1,6 @@
 import React from 'react';
 
-interface WelcomeTabProps {
-  projectName: string;
-  description?: string;
-}
-
-export default function WelcomeTab({ projectName, description }: WelcomeTabProps) {
+export default function WelcomeTab() {
   return (
     <div 
       className="h-full flex flex-col items-center text-muted-foreground overflow-hidden"
@@ -22,15 +17,10 @@ export default function WelcomeTab({ projectName, description }: WelcomeTabProps
         <div className="pb-24"> {/* 下部に余白を追加 */}
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold mb-3">ようこそ！</h1>
-            <h2 className="text-2xl mb-4 text-primary">{projectName}</h2>
-            {description && <p className="mb-4 text-base leading-relaxed">{description}</p>}
           </div>
 
           <div className="bg-card p-6 rounded-lg shadow-lg text-sm mb-8">
             <p className="mb-2 text-base">このプロジェクトのファイルはIndexedDBに保存されています。</p>
-            <p className="mt-3 font-mono bg-muted px-3 py-2 rounded">
-              パス: ./{projectName}/~$
-            </p>
           </div>
 
           <section className="mb-8">

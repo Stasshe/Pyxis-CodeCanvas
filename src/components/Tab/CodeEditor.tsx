@@ -434,14 +434,9 @@ export default function CodeEditor({
 
   // Welcomeタブの場合は専用コンポーネントで表示
   if (activeTab.id === 'welcome') {
-    // README.mdの内容をパースしてプロジェクト名・説明を抽出
-    // 例: content = `# プロジェクト名\n\n説明...`
-    const lines = activeTab.content.split('\n');
-    const projectName = lines[0]?.replace(/^# /, '') || '';
-    const description = lines[2] || '';
     return (
       <div className="flex-1 min-h-0" style={{ height: editorHeight }}>
-        <WelcomeTab projectName={projectName} description={description} />
+        <WelcomeTab />
       </div>
     );
   }

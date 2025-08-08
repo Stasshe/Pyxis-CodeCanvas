@@ -78,7 +78,12 @@ export default function Home() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
-        window.localStorage.setItem('pyxis-editors', JSON.stringify(editors));
+        // contentを除外して保存
+        const editorsWithoutContent = editors.map(editor => ({
+          ...editor,
+          tabs: editor.tabs.map(({ content, ...tabRest }) => ({ ...tabRest }))
+        }));
+        window.localStorage.setItem('pyxis-editors', JSON.stringify(editorsWithoutContent));
       } catch (e) {}
     }
   }, [editors]);

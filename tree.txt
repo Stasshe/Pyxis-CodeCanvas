@@ -125,6 +125,7 @@
 │       ├── gemini.ts
 │       ├── handleFileOperation.ts
 │       ├── initialFileContents.ts
+│       ├── isBufferArray.ts
 │       ├── node
 │       │   ├── cdnLoader.ts
 │       │   ├── esModuleTransformer.ts
@@ -140,11 +141,11 @@
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-23 directories, 118 files
+23 directories, 119 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 16319
-合計文字数: 596036
-合計ファイルサイズ(bytes): 643167
+合計行数: 16806
+合計文字数: 616436
+合計ファイルサイズ(bytes): 665267
 
 リポジトリ全体のサイズ(bytes): 1.9G	.
