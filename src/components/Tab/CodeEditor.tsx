@@ -281,9 +281,18 @@ export default function CodeEditor({
         monacoModelMap.set(activeTab.id, model);
       }
       
-      editor.setModel(model);
-      currentModelIdRef.current = activeTab.id;
-      setCharCount(activeTab.content.length);
+      try {
+        editor.setModel(model);
+        currentModelIdRef.current = activeTab.id;
+        setCharCount(activeTab.content.length);
+      } catch (e: any) {
+        if (e?.message?.includes('InstantiationService has been disposed')) {
+          console.warn('[CodeEditor] Initial setModel failed: InstantiationService has been disposed');
+        } else {
+          console.error('[CodeEditor] Initial setModel error:', e);
+          throw e;
+        }
+      }
     }
   };
 
@@ -380,7 +389,39 @@ export default function CodeEditor({
       
       setCharCount(model.getValue().length);
     }
-  }, [activeTab?.id, activeTab?.content, isCodeMirror]);
+  }, [activeTab?.id, isCodeMirror]); // activeTab.contentは除去して、不要なuseEffect実行を防ぐ
+
+  // activeTab.contentが外部から変更された場合の同期用useEffect
+  useEffect(() => {
+    if (!activeTab || !editorRef.current || !monacoRef.current) return;
+    if (
+      isBufferArray((activeTab as any).bufferContent) ||
+      activeTab.id === 'welcome' ||
+      activeTab.preview ||
+      isCodeMirror
+    ) {
+      return;
+    }
+
+    const monacoModelMap = monacoModelMapRef.current;
+    const model = monacoModelMap.get(activeTab.id);
+    
+    if (model && !model.isDisposed() && 
+        currentModelIdRef.current === activeTab.id &&
+        model.getValue() !== activeTab.content) {
+      try {
+        model.setValue(activeTab.content);
+        setCharCount(activeTab.content.length);
+      } catch (e: any) {
+        if (e?.message?.includes('Model is disposed')) {
+          console.warn('[CodeEditor] Content sync failed: Model is disposed');
+          monacoModelMap.delete(activeTab.id);
+        } else {
+          console.error('[CodeEditor] Content sync error:', e);
+        }
+      }
+    }
+  }, [activeTab?.content, activeTab?.id, isCodeMirror]);
 
   // Cleanup Monaco Editor instance on unmount
   useEffect(() => {
