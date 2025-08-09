@@ -44,7 +44,10 @@ export default function ChatMessage({
         }}
       >
         {/* メッセージ内容 */}
-        <div className={`${compact ? 'text-xs' : 'text-sm'} leading-relaxed`}>
+        <div 
+          className={`${compact ? 'text-xs' : 'text-sm'} leading-relaxed`}
+          style={{ wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}
+        >
           <ReactMarkdown 
             remarkPlugins={[remarkGfm]}
             components={{
@@ -58,7 +61,8 @@ export default function ChatMessage({
                     style={{ 
                       background: 'rgba(0, 0, 0, 0.1)', 
                       color: isUser ? colors.accentFg : colors.foreground,
-                      fontFamily: 'monospace'
+                      fontFamily: 'monospace',
+                      wordBreak: 'break-all',
                     }}
                   >
                     {children}
@@ -66,7 +70,10 @@ export default function ChatMessage({
                 );
               },
               pre: ({ children }) => (
-                <pre className="overflow-x-auto mb-2" style={{ fontSize: '11px' }}>
+                <pre 
+                  className="mb-2"
+                  style={{ fontSize: '11px', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}
+                >
                   {children}
                 </pre>
               ),
