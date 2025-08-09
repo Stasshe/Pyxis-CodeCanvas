@@ -60,7 +60,7 @@ export default function ContextFileList({ contexts, onToggleSelection }: Context
         </div>
       )}
 
-      {/* 利用可能なファイル（最初の5つのみ表示） */}
+      {/* 利用可能なファイル（最初の5つのみ表示）
       {availableContexts.length > 0 && (
         <div>
           <div 
@@ -95,7 +95,7 @@ export default function ContextFileList({ contexts, onToggleSelection }: Context
             )}
           </div>
         </div>
-      )}
+      )} */}
 
       {selectedContexts.length === 0 && (
         <div 

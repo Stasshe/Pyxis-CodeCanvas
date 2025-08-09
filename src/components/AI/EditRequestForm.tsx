@@ -83,7 +83,10 @@ export default function EditRequestForm({
           >
             {isProcessing ? (
               <div className="flex items-center gap-1">
-                <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin"></div>
+                <div 
+                  className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"
+                  style={{ borderColor: `${colors.background} transparent ${colors.background} ${colors.background}` }}
+                ></div>
                 処理中...
               </div>
             ) : (

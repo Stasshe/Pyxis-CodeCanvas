@@ -240,7 +240,21 @@ export default function AIAgent({
           <>
             {/* 編集結果 */}
             <div className="flex-1 overflow-y-auto p-3">
-              {lastEditResponse ? (
+              {isProcessing && currentMode === 'edit' ? (
+                <div className="flex flex-col items-center justify-center py-8">
+                  <div 
+                    className="w-8 h-8 border-4 border-current border-t-transparent rounded-full animate-spin mb-4"
+                    style={{ borderColor: `${colors.accent} transparent ${colors.accent} ${colors.accent}` }}
+                  ></div>
+                  <div style={{ color: colors.foreground }} className="text-sm font-medium mb-2">
+                    AIが編集を実行中...
+                  </div>
+                  <div style={{ color: colors.mutedFg }} className="text-xs text-center">
+                    選択されたファイルを解析し、<br />
+                    編集提案を生成しています
+                  </div>
+                </div>
+              ) : lastEditResponse ? (
                 <ChangedFilesList
                   changedFiles={lastEditResponse.changedFiles}
                   onOpenReview={handleOpenReview}

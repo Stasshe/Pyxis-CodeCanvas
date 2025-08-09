@@ -73,7 +73,37 @@ export function projectFileToAIContext(file: ProjectFile, selected: boolean = fa
 export function buildAIFileContextList(files: (FileItem | ProjectFile)[]): AIFileContext[] {
   const contexts: AIFileContext[] = [];
   
+  // FileItemの場合は再帰的にフラット化する
+  function flattenFileItems(items: FileItem[]): FileItem[] {
+    const result: FileItem[] = [];
+    
+    for (const item of items) {
+      if (item.type === 'file') {
+        result.push(item);
+      }
+      if (item.children && item.children.length > 0) {
+        result.push(...flattenFileItems(item.children));
+      }
+    }
+    
+    return result;
+  }
+  
+  // ファイルをフラット化
+  let flatFiles: (FileItem | ProjectFile)[] = [];
+  
   for (const file of files) {
+    if ('children' in file) {
+      // FileItem - 再帰的にフラット化
+      flatFiles.push(...flattenFileItems([file]));
+    } else {
+      // ProjectFile
+      flatFiles.push(file);
+    }
+  }
+  
+  // フラット化されたファイルをAIコンテキストに変換
+  for (const file of flatFiles) {
     let context: AIFileContext | null = null;
     
     if ('children' in file) {
