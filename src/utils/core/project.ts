@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { isBufferArray } from './isBufferArray';
 import { Project, ProjectFile } from '@/types/';
 import { projectDB } from './database'; // プロジェクトデータベースのインポート
 import { FileItem } from '@/types';

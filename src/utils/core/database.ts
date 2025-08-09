@@ -1,6 +1,6 @@
-import type { Project, ProjectFile } from '../types';
-import { initialFileContents } from './initialFileContents';
-import { notifyFileChange } from './fileWatcher';
+import type { Project, ProjectFile } from '@/types';
+import { initialFileContents } from '@/utils/initialFileContents';
+import { notifyFileChange } from '@/utils/fileWatcher';
 
 // IndexedDBを使ったプロジェクト管理システム
 

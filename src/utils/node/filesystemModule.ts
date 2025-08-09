@@ -1,4 +1,4 @@
-import { getFileSystem } from '@/utils/filesystem';
+import { getFileSystem } from '@/utils/core/filesystem';
 import pathBrowserify from 'path-browserify';
 
   // fs モジュールのエミュレーション

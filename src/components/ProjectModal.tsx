@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Plus, Folder, Trash2, Edit } from 'lucide-react';
-import { projectDB } from '@/utils/database';
+import { projectDB } from '@/utils/core/database';
 import { Project } from '@/types';
 
 interface ProjectModalProps {

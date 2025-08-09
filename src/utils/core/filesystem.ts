@@ -37,7 +37,7 @@ export const getAllFilesAndDirs = async (baseDir: string = '/projects'): Promise
   return result;
 };
 import FS from '@isomorphic-git/lightning-fs';
-import { notifyFileChange } from './fileWatcher';
+import { notifyFileChange } from '@/utils//fileWatcher';
 
 // 仮想ファイルシステムのインスタンス
 let fs: FS | null = null;
@@ -406,6 +406,6 @@ export const debugFileSystem = async () => {
 };
 
 // クラスのエクスポート
-export { UnixCommands } from './cmd/unix';
-export { GitCommands } from './cmd/git';
-export { NpmCommands } from './cmd/npm';
+export { UnixCommands } from '@/utils/cmd/unix';
+export { GitCommands } from '@/utils/cmd/git';
+export { NpmCommands } from '@/utils/cmd/npm';

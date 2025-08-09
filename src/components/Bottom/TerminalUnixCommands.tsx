@@ -1,7 +1,7 @@
 // TerminalUnixCommands.tsx
 // Terminalのunixコマンド処理部分を分割
 
-import type { UnixCommands } from "@/utils/filesystem";
+import type { UnixCommands } from "@/utils/core/filesystem";
 
 export async function handleUnixCommand(
   cmd: string,

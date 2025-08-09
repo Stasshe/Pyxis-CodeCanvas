@@ -1,4 +1,4 @@
-import { getAllFilesAndDirs } from './filesystem';
+import { getAllFilesAndDirs } from '@/utils/core/filesystem';
 export class PyodideRuntime {
   
   /**

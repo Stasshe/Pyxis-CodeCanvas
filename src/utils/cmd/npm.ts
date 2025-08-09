@@ -2,7 +2,7 @@ import {
   getFileSystem,
   getProjectDir,
   ensureDirectoryExists,
-} from "../filesystem";
+} from "@/utils/core/filesystem";
 import FS from "@isomorphic-git/lightning-fs";
 import { NpmInstall } from "./npmOperations/npmInstall";
 

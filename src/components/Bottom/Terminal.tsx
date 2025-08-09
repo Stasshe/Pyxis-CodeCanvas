@@ -2,14 +2,14 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useTheme } from '@/context/ThemeContext';
-import { UnixCommands, GitCommands, NpmCommands, initializeFileSystem, syncProjectFiles } from '@/utils/filesystem';
+import { UnixCommands, GitCommands, NpmCommands, initializeFileSystem, syncProjectFiles } from '@/utils/core/filesystem';
 import { FileItem } from '@/types';
 import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
 import { handleGitCommand } from './TerminalGitCommands';
 import { handleUnixCommand } from './TerminalUnixCommands';
 import { handleNPMCommand } from './TerminalNPMCommands';
-import { projectDB } from '@/utils/database';
-import { exportPage } from '@/utils/exportPage';
+import { projectDB } from '@/utils/core/database';
+import { exportPage } from '@/utils/export/exportPage';
 
 // FileItemの階層構造をフラットな配列に変換
 const flattenFileItems = (items: FileItem[], basePath = ''): Array<{ path: string; content?: string; type: 'file' | 'folder' }> => {
@@ -245,7 +245,11 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
           const branchColors = colors.gitBranchColors || [];
           // ブランチ名ごとに色を決定（例: ハッシュで色選択）
           const colorHex = branchColors.length > 0
-            ? branchColors[Math.abs(branch.split('').reduce((a, c) => a + c.charCodeAt(0), 0)) % branchColors.length]
+            ? branchColors[
+                Math.abs(
+                  branch.split('').reduce((a: number, c: string) => a + c.charCodeAt(0), 0)
+                ) % branchColors.length
+              ]
             : colors.primary;
           // HEXをRGBに変換
           const rgb = colorHex.replace('#','').match(/.{2}/g)?.map(x => parseInt(x, 16)) || [0,0,0];

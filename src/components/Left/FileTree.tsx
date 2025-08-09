@@ -5,7 +5,8 @@ import { exportFolderZip } from '@/utils/export/exportFolderZip';
 import { ChevronDown, ChevronRight, File, Folder } from 'lucide-react';
 import { FileItem } from '@/types';
 import { UnixCommands } from '@/utils/cmd/unix';
-import { isBufferArray } from '@/utils/isBufferArray';
+import { isBufferArray } from '@/utils/helper/isBufferArray';
+import { importSingleFile } from '@/utils/import/importSingleFile';
 
 interface FileTreeProps {
   items: FileItem[];
@@ -345,7 +346,6 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
                     input.onchange = async (e: any) => {
                       const file = e.target.files[0];
                       if (!file) return;
-                      const { importSingleFile } = await import('@/utils/export/importSingleFile');
                       const targetAbsolutePath = `/projects/${currentProjectName}/${file.name}`;
                       const targetPath = `/${file.name}`;
                       let content: string | ArrayBuffer = '';
@@ -409,7 +409,6 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
                       input.onchange = async (e: any) => {
                         const file = e.target.files[0];
                         if (!file) return;
-                        const { importSingleFile } = await import('@/utils/export/importSingleFile');
                         const unix = new UnixCommands(currentProjectName);
                         const item = contextMenu.item;
                         let targetPath = '';

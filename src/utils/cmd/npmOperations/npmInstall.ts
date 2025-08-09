@@ -1,7 +1,7 @@
 import {
   getFileSystem,
   getProjectDir,
-} from "../../filesystem";
+} from "@/utils/core/filesystem";
 import { UnixCommands } from "../../cmd/unix";
 import FS from "@isomorphic-git/lightning-fs";
 import pako from "pako";

@@ -1,6 +1,6 @@
 import FS from '@isomorphic-git/lightning-fs';
 import git from 'isomorphic-git';
-import { getFileSystem, getProjectDir } from '../filesystem';
+import { getFileSystem, getProjectDir } from '@/utils/core/filesystem';
 import { GitRevertOperations } from './gitOperations/revert';
 import { GitCheckoutOperations } from './gitOperations/checkout';
 import { GitFileSystemHelper } from './gitOperations/fileSystemHelper';

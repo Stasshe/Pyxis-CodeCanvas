@@ -1,6 +1,8 @@
 // ZIPエクスポート・ダウンロード機能
 import JSZip from 'jszip';
 import type { Project } from '@/types';
+// lightning-fsインスタンス取得
+import { getFileSystem, getProjectDir } from '@/utils/core/filesystem';
 
 // 現在のプロジェクトのみZIPエクスポート
 export async function downloadWorkspaceZip({ currentProject, includeGit = false }: { currentProject: Project, includeGit?: boolean }) {
@@ -46,8 +48,6 @@ export async function downloadWorkspaceZip({ currentProject, includeGit = false 
   // .gitを含める場合（仮想ファイルシステムから.git配下のファイルを再帰的に取得して追加）
   if (includeGit) {
     try {
-      // lightning-fsインスタンス取得
-      const { getFileSystem, getProjectDir } = await import('../filesystem');
       const fs = getFileSystem();
       if (!fs) return;
       const gitDir = `${getProjectDir(project.name || project.id)}/.git`;

@@ -1,5 +1,5 @@
 import FS from '@isomorphic-git/lightning-fs';
-import { ensureDirectoryExists } from '../../filesystem';
+import { ensureDirectoryExists } from '@/utils/core/filesystem';
 
 
 /**

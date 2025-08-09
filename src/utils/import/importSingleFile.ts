@@ -1,6 +1,6 @@
 import { UnixCommands } from '../cmd/unix';
-import { syncFileToFileSystem } from '../filesystem';
-import { isBufferArray } from '../isBufferArray';
+import { syncFileToFileSystem } from '@/utils/core/filesystem';
+import { isBufferArray } from '@/utils/helper/isBufferArray';
 
 /**
  * ファイルアップロード（インポート）機能

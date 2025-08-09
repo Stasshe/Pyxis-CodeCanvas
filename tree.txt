@@ -62,7 +62,6 @@
 │   │   │   ├── Terminal.tsx
 │   │   │   ├── TerminalGitCommands.tsx
 │   │   │   ├── TerminalNPMCommands.tsx
-│   │   │   ├── TerminalOtherCommands.tsx
 │   │   │   └── TerminalUnixCommands.tsx
 │   │   ├── FileSelect.tsx
 │   │   ├── Left
@@ -75,16 +74,17 @@
 │   │   │   └── SettingsPanel.tsx
 │   │   ├── MenuBar.tsx
 │   │   ├── ProjectModal.tsx
+│   │   ├── Right
+│   │   │   ├── PanelRightIcon.tsx
+│   │   │   └── RightSidebar.tsx
 │   │   ├── Tab
 │   │   │   ├── CodeEditor.tsx
-│   │   │   ├── CodeEditor_f.tsx
 │   │   │   ├── DiffTab.tsx
 │   │   │   ├── HighlightedCode.tsx
 │   │   │   ├── MarkdownPreviewTab.tsx
 │   │   │   ├── TabBar.tsx
 │   │   │   ├── WebPreviewTab.tsx
 │   │   │   └── WelcomeTab.tsx
-│   │   ├── Toast.css
 │   │   └── Toast.tsx
 │   ├── context
 │   │   └── ThemeContext.tsx
@@ -115,40 +115,45 @@
 │       │   │   ├── npmDependencySize.ts
 │       │   │   └── npmInstall.ts
 │       │   └── unix.ts
-│       ├── database.ts
+│       ├── core
+│       │   ├── database.ts
+│       │   ├── filesystem.ts
+│       │   └── project.ts
 │       ├── export
 │       │   ├── exportFolderZip.ts
 │       │   ├── exportIndexeddb.ts
+│       │   ├── exportPage.ts
 │       │   ├── exportRepo.ts
 │       │   ├── exportSingleFile.ts
-│       │   └── importSingleFile.ts
-│       ├── exportPage.ts
-│       ├── filesystem.ts
+│       │   └── inlineHtmlAssets.ts
+│       ├── fileWatcher.ts
 │       ├── gemini.ts
 │       ├── handleFileOperation.ts
+│       ├── helper
+│       │   ├── isBufferArray.ts
+│       │   └── resize.ts
+│       ├── import
+│       │   └── importSingleFile.ts
 │       ├── initialFileContents.ts
-│       ├── inlineHtmlAssets.ts
-│       ├── isBufferArray.ts
 │       ├── node
 │       │   ├── cdnLoader.ts
 │       │   ├── esModuleTransformer.ts
 │       │   └── filesystemModule.ts
-│       ├── nodeRuntime.ts
-│       ├── project.ts
-│       ├── pyodideRuntime.ts
-│       ├── resize.ts
-│       └── tabs.ts
+│       ├── openTab.ts
+│       └── runtime
+│           ├── nodeRuntime.ts
+│           └── pyodideRuntime.ts
 ├── tailwind.config.ts
 ├── tree.sh
 ├── tree.txt
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-23 directories, 122 files
+28 directories, 122 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 17510
-合計文字数: 641651
-合計ファイルサイズ(bytes): 691780
+合計行数: 17732
+合計文字数: 649545
+合計ファイルサイズ(bytes): 701876
 
 リポジトリ全体のサイズ(bytes): 1.9G	.

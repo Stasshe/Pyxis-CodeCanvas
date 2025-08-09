@@ -1,19 +1,18 @@
-import { getFileSystem, getProjectDir } from './filesystem';
+import { getFileSystem, getProjectDir } from '@/utils/core/filesystem';
 import vm from 'vm-browserify';
-import { UnixCommands } from './cmd/unix';
+import { UnixCommands } from '@/utils/cmd/unix';
 import { 
   createFSModule, 
   createPathModule, 
   createOSModule, 
   createUtilModule,
   flushFileSystemCache
-} from './node/filesystemModule';
+} from '@/utils/node/filesystemModule';
 import { 
   transformESModules, 
   wrapCodeForExecution,
   wrapModuleCode
-} from './node/esModuleTransformer';
-import { loadFromCDN, evaluateModuleCode } from './node/cdnLoader';
+} from '@/utils/node/esModuleTransformer';
 import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
 
 // Node.js風のランタイム環境

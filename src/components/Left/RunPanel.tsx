@@ -2,8 +2,8 @@ import { useState, useRef, useEffect } from 'react';
 import { Play, Square, FileText, Code, Settings, Trash2 } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import clsx from 'clsx';
-import { NodeJSRuntime } from '@/utils/nodeRuntime';
-import { PyodideRuntime } from '@/utils/pyodideRuntime';
+import { NodeJSRuntime } from '@/utils/runtime/nodeRuntime';
+import { PyodideRuntime } from '@/utils/runtime/pyodideRuntime';
 
 interface RunPanelProps {
   currentProject: string | null;
