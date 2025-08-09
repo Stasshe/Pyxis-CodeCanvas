@@ -49,7 +49,7 @@ export function useProjectFilesSyncEffect({
     
     // プロジェクトファイルを平坦化
     const flattenedFiles = flattenFileItems(projectFiles);
-    console.log('[DEBUG] Flattened project files:', flattenedFiles.map(f => ({ path: f.path, contentLength: f.content?.length || 0 })));
+    //console.log('[DEBUG] Flattened project files:', flattenedFiles.map(f => ({ path: f.path, contentLength: f.content?.length || 0 })));
     
     // タブにneedsContentRestoreフラグがあるかチェック
     const tabsNeedingRestore = tabs.filter(tab => tab.needsContentRestore);

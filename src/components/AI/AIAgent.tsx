@@ -122,6 +122,14 @@ export default function AIAgent({
     return !!localStorage.getItem('gemini-api-key');
   };
 
+
+  // ファイル選択クリア関数
+  const clearFileSelections = () => {
+    // すべてのfileContextsのselectedをfalseに
+    const cleared = fileContexts.map(ctx => ({ ...ctx, selected: false }));
+    updateFileContexts(cleared);
+  };
+
   // チャットメッセージ送信
   const handleSendMessage = async (message: string) => {
     if (!isApiKeySet()) {
@@ -131,6 +139,7 @@ export default function AIAgent({
 
     try {
       await sendChatMessage(message);
+      clearFileSelections();
     } catch (error) {
       console.error('Failed to send message:', error);
     }
@@ -152,6 +161,7 @@ export default function AIAgent({
       const response = await executeCodeEdit(instruction);
       setLastEditResponse(response);
       setCurrentMode('edit');
+      clearFileSelections();
     } catch (error) {
       console.error('Failed to execute edit:', error);
       alert(`編集に失敗しました: ${(error as Error).message}`);
@@ -293,7 +303,6 @@ export default function AIAgent({
               AI Agent
             </span>
           </div>
-          
           {/* スペース切り替えドロップダウン */}
           <div className="relative">
             <button
@@ -317,7 +326,6 @@ export default function AIAgent({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </button>
-            
             {/* スペースドロップダウン */}
             {showSpaceList && (
               <div 
@@ -348,22 +356,6 @@ export default function AIAgent({
             )}
           </div>
         </div>
-
-        {/* ファイル選択ボタン */}
-        <button
-          className="flex items-center gap-1 text-xs px-2 py-1 rounded hover:bg-opacity-80 transition"
-          style={{
-            background: colors.mutedBg,
-            color: colors.mutedFg,
-            border: `1px solid ${colors.border}`,
-          }}
-          onClick={() => setIsFileSelectorOpen(true)}
-        >
-          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-          <span>ファイル</span>
-        </button>
       </div>
 
       {/* メインコンテンツ */}
@@ -486,6 +478,7 @@ export default function AIAgent({
           </>
         )}
 
+
         {/* ファイルコンテキスト表示（入力エリアの直上） */}
         {fileContexts.filter(ctx => ctx.selected).length > 0 && (
           <div
@@ -502,6 +495,24 @@ export default function AIAgent({
             />
           </div>
         )}
+
+        {/* ファイル選択ボタン（edit/askタブの上に移動） */}
+        <div className="px-3 py-1 flex justify-end">
+          <button
+            className="flex items-center gap-1 text-xs px-2 py-1 rounded hover:bg-opacity-80 transition"
+            style={{
+              background: colors.mutedBg,
+              color: colors.mutedFg,
+              border: `1px solid ${colors.border}`,
+            }}
+            onClick={() => setIsFileSelectorOpen(true)}
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <span>ファイル</span>
+          </button>
+        </div>
 
         {/* 入力エリア */}
         <div 
