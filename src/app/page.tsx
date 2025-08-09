@@ -665,13 +665,12 @@ export default function Home() {
                 if (syncTerminalFileOperation) {
                   // bufferContentが存在する場合、それを渡す
                   if (bufferContent) {
-                    console.log('[DEBUG]','buffercontent')
                     await syncTerminalFileOperation(path, type, '', bufferContent);
                   } else {
-                    console.log('[AAAAAAAAA]','gggggggggg');
                     await syncTerminalFileOperation(path, type, content as string || '', undefined);
                   }
                 }
+                await refreshProjectFiles();
                 setGitRefreshTrigger(prev => prev + 1);
               }}
             />
