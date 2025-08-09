@@ -2,11 +2,13 @@
 ├── Development
 │   ├── DATABASE.md
 │   ├── TODO.md
+│   ├── ai-agent-implementation-plan.md
 │   ├── git-deletion-detection-analysis.md
 │   └── terminal_touch_flow.md
 ├── LICENSE
 ├── README.md
 ├── README_ja.md
+├── aiSystem.md
 ├── bashCmd.txt
 ├── eslint.config.mjs
 ├── initial_files
@@ -43,11 +45,12 @@
 │   ├── icon0.svg
 │   ├── icon1.png
 │   ├── manifest.json
+│   ├── monaco-editor-workers
 │   ├── web-app-manifest-192x192.png
 │   ├── web-app-manifest-512x512.png
 │   └── window.svg
-├── replace_throw.sh
 ├── sampleNode.js
+├── scripts
 ├── src
 │   ├── app
 │   │   ├── Toast.css
@@ -56,6 +59,16 @@
 │   │   ├── markdown.css
 │   │   └── page.tsx
 │   ├── components
+│   │   ├── AI
+│   │   │   ├── AIAgent.tsx
+│   │   │   ├── AIReview
+│   │   │   │   ├── AIReviewTab.tsx
+│   │   │   │   └── DiffViewer.tsx
+│   │   │   ├── ChangedFilesList.tsx
+│   │   │   ├── ChatMessage.tsx
+│   │   │   ├── ContextFileList.tsx
+│   │   │   ├── EditRequestForm.tsx
+│   │   │   └── FileSelector.tsx
 │   │   ├── Bottom
 │   │   │   ├── BottomPanel.tsx
 │   │   │   ├── OutputPanel.tsx
@@ -93,6 +106,8 @@
 │   │   ├── gitHooks.ts
 │   │   ├── pane.ts
 │   │   ├── tab.ts
+│   │   ├── useAIAgent.ts
+│   │   ├── useAIReview.ts
 │   │   └── useDiffTabHandlers.ts
 │   ├── types
 │   │   ├── git.ts
@@ -100,6 +115,11 @@
 │   │   ├── path-browserify.d.ts
 │   │   └── vm-browserify.d.ts
 │   └── utils
+│       ├── ai
+│       │   ├── contextBuilder.ts
+│       │   ├── diffProcessor.ts
+│       │   ├── geminiClient.ts
+│       │   └── prompts.ts
 │       ├── cmd
 │       │   ├── git.ts
 │       │   ├── gitOperations
@@ -149,11 +169,11 @@
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-28 directories, 122 files
+33 directories, 137 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 17732
-合計文字数: 649545
-合計ファイルサイズ(bytes): 701876
+合計行数: 20109
+合計文字数: 718132
+合計ファイルサイズ(bytes): 776532
 
-リポジトリ全体のサイズ(bytes): 1.9G	.
+リポジトリ全体のサイズ(bytes): 2.0G	.
