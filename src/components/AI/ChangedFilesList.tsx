@@ -56,37 +56,40 @@ export default function ChangedFilesList({
             {/* ファイル名と操作ボタン */}
             <div className="flex items-center justify-between mb-1">
               <div 
-                className="font-medium text-xs flex items-center gap-1"
+                className="font-medium text-xs flex items-center gap-1 flex-1 min-w-0"
                 style={{ color: colors.foreground }}
               >
-                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-2.5 h-2.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                {file.path.split('/').pop()}
+                <span className="truncate">{file.path.split('/').pop()}</span>
               </div>
-              <div className="flex gap-1">
+              <div className="flex gap-1 flex-shrink-0">
                 <button
-                  className="text-xs px-1.5 py-0.5 rounded hover:opacity-80 transition"
+                  className="text-xs px-1 py-0.5 rounded hover:opacity-80 transition"
                   style={{ background: colors.accent, color: colors.accentFg }}
                   onClick={() => onOpenReview(file.path, file.originalContent, file.suggestedContent)}
+                  title="レビュー"
                 >
                   👁️
                 </button>
                 <button
-                  className="text-xs px-1.5 py-0.5 rounded border hover:opacity-80 transition"
+                  className="text-xs px-1 py-0.5 rounded border hover:opacity-80 transition"
                   style={{ 
                     background: 'transparent', 
                     color: colors.foreground,
                     borderColor: colors.border
                   }}
                   onClick={() => onApplyChanges(file.path, file.suggestedContent)}
+                  title="適用"
                 >
                   ✅
                 </button>
                 <button
-                  className="text-xs px-1.5 py-0.5 rounded hover:opacity-80 transition"
+                  className="text-xs px-1 py-0.5 rounded hover:opacity-80 transition"
                   style={{ background: colors.red, color: colors.background }}
                   onClick={() => onDiscardChanges(file.path)}
+                  title="破棄"
                 >
                   ❌
                 </button>
@@ -96,8 +99,9 @@ export default function ChangedFilesList({
             {/* 変更理由（コンパクト） */}
             {file.explanation && (
               <div 
-                className="text-xs mb-1"
+                className="text-xs mb-1 text-ellipsis overflow-hidden"
                 style={{ color: colors.mutedFg }}
+                title={file.explanation}
               >
                 💡 {file.explanation}
               </div>
@@ -119,23 +123,17 @@ export default function ChangedFilesList({
               </span>
             </div>
 
-            {/* プレビュー（最初の2行） */}
+            {/* プレビュー（最初の1行のみ） */}
             <div 
-              className="text-xs mt-1 p-1 rounded font-mono"
+              className="text-xs mt-1 p-1 rounded font-mono overflow-hidden"
               style={{ background: colors.editorBg, color: colors.editorFg }}
             >
-              {file.suggestedContent
-                .split('\n')
-                .slice(0, 2)
-                .map((line, i) => (
-                  <div key={i} className="whitespace-pre-wrap truncate">
-                    {line || ' '}
-                  </div>
-                ))
-              }
-              {file.suggestedContent.split('\n').length > 2 && (
+              <div className="whitespace-pre-wrap truncate">
+                {file.suggestedContent.split('\n')[0] || ' '}
+              </div>
+              {file.suggestedContent.split('\n').length > 1 && (
                 <div style={{ color: colors.mutedFg }}>
-                  ... +{file.suggestedContent.split('\n').length - 2} 行
+                  ... +{file.suggestedContent.split('\n').length - 1} 行
                 </div>
               )}
             </div>
@@ -146,7 +144,7 @@ export default function ChangedFilesList({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <div 
         className="text-sm font-medium"
         style={{ color: colors.foreground }}
@@ -157,18 +155,19 @@ export default function ChangedFilesList({
       {changedFiles.map((file, index) => (
         <div
           key={index}
-          className="border rounded-lg p-3"
+          className="border rounded-lg p-2"
           style={{ borderColor: colors.border, background: colors.mutedBg }}
         >
           {/* ファイル名 */}
           <div className="flex items-center justify-between mb-2">
             <div 
-              className="font-medium text-sm"
+              className="font-medium text-sm flex-1 min-w-0"
               style={{ color: colors.foreground }}
+              title={file.path}
             >
-              {file.path}
+              <span className="truncate">{file.path}</span>
             </div>
-            <div className="flex gap-1">
+            <div className="flex gap-1 flex-shrink-0">
               <button
                 className="text-xs px-2 py-1 rounded hover:opacity-80"
                 style={{ background: colors.accent, color: colors.accentFg }}
@@ -207,8 +206,8 @@ export default function ChangedFilesList({
             </div>
           )}
 
-          {/* コード変更のプレビュー（最初の5行のみ） */}
-          <div className="space-y-2">
+          {/* コード変更のプレビュー（最初の3行のみ） */}
+          <div className="space-y-1">
             <div 
               className="text-xs font-medium"
               style={{ color: colors.mutedFg }}
@@ -216,24 +215,24 @@ export default function ChangedFilesList({
               変更プレビュー:
             </div>
             <div 
-              className="text-xs p-2 rounded font-mono"
+              className="text-xs p-2 rounded font-mono overflow-hidden"
               style={{ background: colors.editorBg, color: colors.editorFg }}
             >
               {file.suggestedContent
                 .split('\n')
-                .slice(0, 5)
+                .slice(0, 3)
                 .map((line, i) => (
-                  <div key={i} className="whitespace-pre-wrap">
+                  <div key={i} className="whitespace-pre-wrap truncate">
                     {line || ' '}
                   </div>
                 ))
               }
-              {file.suggestedContent.split('\n').length > 5 && (
+              {file.suggestedContent.split('\n').length > 3 && (
                 <div 
                   className="mt-1"
                   style={{ color: colors.mutedFg }}
                 >
-                  ... 他 {file.suggestedContent.split('\n').length - 5} 行
+                  ... 他 {file.suggestedContent.split('\n').length - 3} 行
                 </div>
               )}
             </div>
@@ -257,7 +256,7 @@ export default function ChangedFilesList({
       {/* 一括操作 */}
       {changedFiles.length > 1 && (
         <div 
-          className="flex gap-2 pt-3 border-t"
+          className="flex gap-2 pt-2 border-t"
           style={{ borderColor: colors.border }}
         >
           <button

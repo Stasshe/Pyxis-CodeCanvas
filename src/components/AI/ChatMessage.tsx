@@ -6,6 +6,8 @@ import React from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import type { AIMessage, AIEditResponse, ChatSpaceMessage } from '@/types';
 import ChangedFilesList from './ChangedFilesList';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface ChatMessageProps {
   message: AIMessage | ChatSpaceMessage;
@@ -32,9 +34,9 @@ export default function ChatMessage({
   const editResponse = (message as any).editResponse as AIEditResponse | undefined;
 
   return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+    <div className="w-full">
       <div 
-        className={`max-w-[85%] rounded px-2 py-1.5 ${isUser ? 'rounded-br-sm' : 'rounded-bl-sm'}`}
+        className="w-full rounded px-2 py-1.5"
         style={{
           background: isUser ? colors.accent : colors.mutedBg,
           color: isUser ? colors.accentFg : colors.foreground,
@@ -42,8 +44,42 @@ export default function ChatMessage({
         }}
       >
         {/* メッセージ内容 */}
-        <div className={`${compact ? 'text-xs' : 'text-sm'} whitespace-pre-wrap leading-relaxed`}>
-          {message.content}
+        <div className={`${compact ? 'text-xs' : 'text-sm'} leading-relaxed`}>
+          <ReactMarkdown 
+            remarkPlugins={[remarkGfm]}
+            components={{
+              // カスタムコンポーネントでスタイルを調整
+              p: ({ children }) => <div className="mb-2 last:mb-0">{children}</div>,
+              code: ({ children, ...props }) => {
+                const inline = !props.className?.includes('language-');
+                return (
+                  <code 
+                    className={`${inline ? 'px-1 py-0.5 rounded text-xs' : 'block p-2 rounded text-xs'}`}
+                    style={{ 
+                      background: 'rgba(0, 0, 0, 0.1)', 
+                      color: isUser ? colors.accentFg : colors.foreground,
+                      fontFamily: 'monospace'
+                    }}
+                  >
+                    {children}
+                  </code>
+                );
+              },
+              pre: ({ children }) => (
+                <pre className="overflow-x-auto mb-2" style={{ fontSize: '11px' }}>
+                  {children}
+                </pre>
+              ),
+              h1: ({ children }) => <h1 className="text-lg font-bold mb-2">{children}</h1>,
+              h2: ({ children }) => <h2 className="text-base font-bold mb-2">{children}</h2>,
+              h3: ({ children }) => <h3 className="text-sm font-bold mb-1">{children}</h3>,
+              ul: ({ children }) => <ul className="list-disc list-inside mb-2">{children}</ul>,
+              ol: ({ children }) => <ol className="list-decimal list-inside mb-2">{children}</ol>,
+              li: ({ children }) => <li className="mb-1">{children}</li>,
+            }}
+          >
+            {message.content}
+          </ReactMarkdown>
         </div>
 
         {/* 編集結果の表示（編集モードでAIの応答の場合） */}

@@ -128,10 +128,24 @@ export function useAIAgent(props?: UseAIAgentProps) {
         files: editResponse.changedFiles.map(f => ({ path: f.path, hasContent: !!f.suggestedContent }))
       });
       
+      // より詳細なメッセージを生成
+      let detailedMessage = editResponse.message;
+      if (editResponse.changedFiles.length > 0) {
+        detailedMessage = `編集が完了しました！\n\n**変更されたファイル:** ${editResponse.changedFiles.length}個\n\n`;
+        editResponse.changedFiles.forEach((file, index) => {
+          detailedMessage += `${index + 1}. **${file.path}**\n`;
+          if (file.explanation) {
+            detailedMessage += `   - ${file.explanation}\n`;
+          }
+          detailedMessage += '\n';
+        });
+        detailedMessage += editResponse.message;
+      }
+      
       // AI応答メッセージを追加（editResponseも含める）
       await addMessage({
         type: 'assistant',
-        content: `${editResponse.changedFiles.length}個のファイルを編集しました。\n\n${editResponse.message}`
+        content: detailedMessage
       }, 'edit', editResponse);
 
       return editResponse;
@@ -204,14 +218,6 @@ function parseEditResponse(response: string, originalFiles: Array<{path: string,
   console.log('[DEBUG] Raw AI response:', response);
   console.log('[DEBUG] Available original files for matching:', originalFiles.map(f => f.path));
 
-  // 変更が不要の場合の処理
-  if (response.includes('変更は必要ありません') || response.includes('変更が不要') || response.includes('No changes needed')) {
-    return {
-      changedFiles: [],
-      message: '変更は必要ありませんでした。'
-    };
-  }
-
   // 正規化関数
   const normalizePath = (path: string) => path.replace(/^\/|\/$/g, '').toLowerCase();
 
@@ -255,8 +261,25 @@ function parseEditResponse(response: string, originalFiles: Array<{path: string,
     }
   }
 
-  // メッセージを抽出
-  message = response.replace(/##\s*変更ファイル:[\s\S]*?---/g, '').trim();
+  // メッセージを抽出（コードブロックとファイル情報以外の部分）
+  let messageLines = response.split('\n');
+  
+  // 特定のパターンを除外してメッセージを構築
+  const filteredLines = messageLines.filter(line => {
+    // ファイル情報やコードブロックタグは除外
+    if (line.includes('<AI_EDIT_CONTENT_START:') || 
+        line.includes('<AI_EDIT_CONTENT_END:') ||
+        line.match(/^##\s*変更ファイル:/) ||
+        line.match(/^\*\*変更理由\*\*:/) ||
+        line.trim() === '---') {
+      return false;
+    }
+    return true;
+  });
+  
+  message = filteredLines.join('\n').trim();
+  
+  // メッセージが短すぎる場合はデフォルトメッセージを使用
   if (!message || message.length < 10) {
     message = changedFiles.length > 0 
       ? `${changedFiles.length}個のファイルの編集を提案しました。` 

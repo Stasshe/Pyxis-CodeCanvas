@@ -37,11 +37,11 @@ export default function EditRequestForm({
 
   return (
     <div 
-      className="p-3 border-t"
+      className="p-2 border-t"
       style={{ borderColor: colors.border }}
     >
-      <div className="flex flex-col gap-2">
-                <textarea
+      <div className="flex flex-col gap-1.5">
+        <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -49,13 +49,13 @@ export default function EditRequestForm({
             ? 'メッセージを入力...' 
             : 'コメントを追加してください、console.logを追加してください、型注釈を追加してください...'
           )}
-          className="w-full p-2 text-sm rounded border resize-none focus:outline-none focus:ring-1"
+          className="w-full p-2 text-xs rounded border resize-none focus:outline-none focus:ring-1"
           style={{
             background: colors.editorBg,
             color: colors.editorFg,
             borderColor: colors.border
           }}
-          rows={3}
+          rows={2}
           disabled={isProcessing}
         />
         
@@ -73,7 +73,7 @@ export default function EditRequestForm({
           <button
             onClick={handleSubmit}
             disabled={!input.trim() || isProcessing}
-            className={`px-3 py-1 text-xs rounded font-medium ${
+            className={`px-2 py-1 text-xs rounded font-medium ${
               !input.trim() || isProcessing ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'
             }`}
             style={{
