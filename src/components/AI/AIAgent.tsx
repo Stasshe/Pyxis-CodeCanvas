@@ -375,31 +375,11 @@ export default function AIAgent({
             background: colors.mutedBg,
           }}
         >
-          <div className="flex flex-wrap gap-1">
-            {fileContexts.filter(ctx => ctx.selected).map((ctx) => (
-              <div
-                key={ctx.path}
-                className="flex items-center gap-1 text-xs px-1 py-0.5 rounded"
-                style={{
-                  background: colors.background,
-                  color: colors.mutedFg,
-                  border: `1px solid ${colors.border}`,
-                }}
-              >
-                <span className="truncate max-w-20">
-                  {ctx.path.split('/').pop()}
-                </span>
-                <button
-                  className="hover:opacity-70"
-                  onClick={() => toggleFileSelection(ctx.path)}
-                >
-                  <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            ))}
-          </div>
+          <ContextFileList
+            contexts={fileContexts}
+            onToggleSelection={toggleFileSelection}
+            compact={true}
+          />
         </div>
       )}
 
@@ -466,17 +446,48 @@ export default function AIAgent({
                   <div className="text-xs opacity-70 mt-1">ファイルを選択して編集指示を入力</div>
                 </div>
               ) : (
-                messages.map(message => (
-                  <ChatMessage 
-                    key={message.id} 
-                    message={message}
-                    onOpenReview={handleOpenReview}
-                    onApplyChanges={handleApplyChanges}
-                    onDiscardChanges={handleDiscardChanges}
-                    showEditActions={true}
-                    compact={false}
-                  />
-                ))
+                <>
+                  {/* チャットメッセージを表示 */}
+                  {messages.map(message => (
+                    <ChatMessage 
+                      key={message.id} 
+                      message={message}
+                      onOpenReview={handleOpenReview}
+                      onApplyChanges={handleApplyChanges}
+                      onDiscardChanges={handleDiscardChanges}
+                      showEditActions={true}
+                      compact={false}
+                    />
+                  ))}
+                  
+                  {/* 最新の編集結果がある場合、追加でChangedFilesListを表示 */}
+                  {lastEditResponse && lastEditResponse.changedFiles.length > 0 && (
+                    <div 
+                      className="p-3 rounded border"
+                      style={{ 
+                        borderColor: colors.border, 
+                        background: colors.mutedBg 
+                      }}
+                    >
+                      <div 
+                        className="text-sm font-medium mb-2 flex items-center gap-2"
+                        style={{ color: colors.foreground }}
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        最新の編集提案
+                      </div>
+                      <ChangedFilesList
+                        changedFiles={lastEditResponse.changedFiles}
+                        onOpenReview={handleOpenReview}
+                        onApplyChanges={handleApplyChanges}
+                        onDiscardChanges={handleDiscardChanges}
+                        compact={false}
+                      />
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </>

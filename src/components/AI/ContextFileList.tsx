@@ -9,9 +9,10 @@ import type { AIFileContext } from '@/types';
 interface ContextFileListProps {
   contexts: AIFileContext[];
   onToggleSelection: (path: string) => void;
+  compact?: boolean;
 }
 
-export default function ContextFileList({ contexts, onToggleSelection }: ContextFileListProps) {
+export default function ContextFileList({ contexts, onToggleSelection, compact = false }: ContextFileListProps) {
   const { colors } = useTheme();
 
   const selectedContexts = contexts.filter(ctx => ctx.selected);

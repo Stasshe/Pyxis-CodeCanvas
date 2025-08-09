@@ -31,20 +31,6 @@ export default function ChatMessage({
   // ChatSpaceMessageの型からeditResponseを取得
   const editResponse = (message as any).editResponse as AIEditResponse | undefined;
 
-  // デバッグ情報をログ出力
-  React.useEffect(() => {
-    const chatSpaceMessage = message as ChatSpaceMessage;
-    if (message.type === 'assistant' && chatSpaceMessage.mode === 'edit') {
-      console.log('[ChatMessage] Assistant edit message:', {
-        messageId: message.id,
-        hasEditResponse: !!editResponse,
-        editResponseFiles: editResponse?.changedFiles?.length || 0,
-        showEditActions,
-        compact
-      });
-    }
-  }, [message.id, editResponse, showEditActions, compact]);
-
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
       <div 
