@@ -66,6 +66,7 @@
 │   │   │   │   └── DiffViewer.tsx
 │   │   │   ├── ChangedFilesList.tsx
 │   │   │   ├── ChatMessage.tsx
+│   │   │   ├── ChatSpaceList.tsx
 │   │   │   ├── ContextFileList.tsx
 │   │   │   ├── EditRequestForm.tsx
 │   │   │   └── FileSelector.tsx
@@ -108,6 +109,7 @@
 │   │   ├── tab.ts
 │   │   ├── useAIAgent.ts
 │   │   ├── useAIReview.ts
+│   │   ├── useChatSpace.ts
 │   │   └── useDiffTabHandlers.ts
 │   ├── types
 │   │   ├── git.ts
@@ -169,11 +171,11 @@
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-33 directories, 137 files
+33 directories, 139 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 20109
-合計文字数: 718132
-合計ファイルサイズ(bytes): 776532
+合計行数: 21313
+合計文字数: 763569
+合計ファイルサイズ(bytes): 825458
 
 リポジトリ全体のサイズ(bytes): 2.0G	.
