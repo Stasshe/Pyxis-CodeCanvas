@@ -371,8 +371,7 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
       setIsCommitting(true);
       await gitCommands.commit(commitMessage.trim());
       setCommitMessage('');
-      fetchGitStatus();
-      onRefresh?.();
+      //この後の更新処理は、他で自動でやるのでしない。書くと表示バグる
     } catch (error) {
       console.error('Failed to commit:', error);
     } finally {
