@@ -67,6 +67,8 @@ export interface ProjectFile {
   updatedAt: Date;
   isBufferArray?: boolean; // バイナリファイルの場合true
   bufferContent?: ArrayBuffer; // バイナリデータ本体
+  isAiAgentReview?: boolean; // AIエージェントによるレビュー中フラグ
+  aiAgentCode?: string; // AIが提案するコード
 }
 
 export type MenuTab = 'files' | 'search' | 'git' | 'settings' | 'run';
