@@ -20,7 +20,7 @@ interface AIAgentProps {
   tabs: Tab[];
   setTabs: (update: any) => void;
   setActiveTabId: (id: string) => void;
-  saveFile: (projectId: string, filePath: string, content: string) => Promise<void>;
+  saveFile: (filePath: string, content: string) => Promise<void>;
   clearAIReview: (filePath: string) => Promise<void>;
 }
 
@@ -73,7 +73,8 @@ export default function AIAgent({
   const {
     openAIReviewTab,
     applyChanges,
-    discardChanges
+    discardChanges,
+    closeAIReviewTab
   } = useAIReview();
 
   // プロジェクトファイルが変更されたときにコンテキストを更新
@@ -168,7 +169,12 @@ export default function AIAgent({
     if (!currentProject) return;
 
     try {
-      await applyChanges(filePath, newContent, currentProject, saveFile, clearAIReview);
+      // 直接saveFileを呼び出し、page.tsxのAIReviewTabと同じ方法を使用
+      await saveFile(filePath, newContent);
+      await clearAIReview(filePath);
+      
+      // レビュータブを閉じる
+      closeAIReviewTab(filePath, setTabs, tabs);
       
       // 成功したら変更リストから削除
       if (lastEditResponse) {
@@ -179,6 +185,7 @@ export default function AIAgent({
         setLastEditResponse(updatedResponse);
       }
     } catch (error) {
+      console.error('Failed to apply changes:', error);
       alert(`変更の適用に失敗しました: ${(error as Error).message}`);
     }
   };
@@ -186,7 +193,11 @@ export default function AIAgent({
   // 変更を破棄
   const handleDiscardChanges = async (filePath: string) => {
     try {
-      await discardChanges(filePath, clearAIReview);
+      // 直接clearAIReviewを呼び出し、page.tsxのAIReviewTabと同じ方法を使用
+      await clearAIReview(filePath);
+      
+      // レビュータブを閉じる
+      closeAIReviewTab(filePath, setTabs, tabs);
       
       // 変更リストから削除
       if (lastEditResponse) {
@@ -197,6 +208,7 @@ export default function AIAgent({
         setLastEditResponse(updatedResponse);
       }
     } catch (error) {
+      console.error('Failed to discard changes:', error);
       alert(`変更の破棄に失敗しました: ${(error as Error).message}`);
     }
   };

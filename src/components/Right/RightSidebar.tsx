@@ -13,7 +13,7 @@ interface RightSidebarProps {
   tabs?: Tab[];
   setTabs?: (update: any) => void;
   setActiveTabId?: (id: string) => void;
-  saveFile?: (projectId: string, filePath: string, content: string) => Promise<void>;
+  saveFile?: (filePath: string, content: string) => Promise<void>;
   clearAIReview?: (filePath: string) => Promise<void>;
 }
 

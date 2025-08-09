@@ -101,6 +101,18 @@ export function useAIReview() {
     }
   }, []);
 
+  // レビュータブを閉じる
+  const closeAIReviewTab = useCallback((
+    filePath: string,
+    setTabs: (update: any) => void,
+    tabs: Tab[]
+  ) => {
+    const updatedTabs = tabs.filter(tab => 
+      !(tab.aiReviewProps?.filePath === filePath)
+    );
+    setTabs(updatedTabs);
+  }, []);
+
   // 部分的な変更を適用（行単位での適用/破棄）
   const applyPartialChanges = useCallback((
     originalContent: string,
@@ -130,6 +142,7 @@ export function useAIReview() {
     openAIReviewTab,
     applyChanges,
     discardChanges,
-    applyPartialChanges
+    applyPartialChanges,
+    closeAIReviewTab
   };
 }

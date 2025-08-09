@@ -12,13 +12,15 @@ interface AIReviewTabProps {
   onApplyChanges: (filePath: string, content: string) => void;
   onDiscardChanges: (filePath: string) => void;
   onUpdateSuggestedContent?: (tabId: string, newContent: string) => void;
+  onCloseTab?: (filePath: string) => void;
 }
 
 export default function AIReviewTab({ 
   tab, 
   onApplyChanges, 
   onDiscardChanges, 
-  onUpdateSuggestedContent 
+  onUpdateSuggestedContent,
+  onCloseTab
 }: AIReviewTabProps) {
   const { colors } = useTheme();
   const [currentSuggestedContent, setCurrentSuggestedContent] = useState(
@@ -82,11 +84,19 @@ export default function AIReviewTab({
   // 全体適用
   const handleApplyAll = () => {
     onApplyChanges(filePath, currentSuggestedContent);
+    // レビュータブを閉じる
+    if (onCloseTab) {
+      onCloseTab(filePath);
+    }
   };
 
   // 全体破棄
   const handleDiscardAll = () => {
     onDiscardChanges(filePath);
+    // レビュータブを閉じる
+    if (onCloseTab) {
+      onCloseTab(filePath);
+    }
   };
 
   return (

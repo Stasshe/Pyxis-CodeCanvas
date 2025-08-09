@@ -571,6 +571,13 @@ export default function Home() {
                           console.error('Failed to discard AI review changes:', error);
                         }
                       }}
+                      onCloseTab={(filePath: string) => {
+                        setTabsForPane(editors, setEditors, idx, 
+                          editors[idx].tabs.filter(tab => 
+                            !(tab.aiReviewProps?.filePath === filePath)
+                          )
+                        );
+                      }}
                       onUpdateSuggestedContent={(tabId: string, newContent: string) => {
                         setEditors(prev => {
                           const updated = [...prev];
