@@ -45,28 +45,34 @@ export default function ProjectModal({
   };
 
   const handleCreateProject = async () => {
-    if (!newProjectName.trim()) return;
+    let name = newProjectName.trim();
+    if (!name) return;
+
+    // reponame: 英数字・ハイフンのみ、空白は-に置換、日本語不可
+    name = name.replace(/\s+/g, '-');
+    if (!/^[a-zA-Z0-9-]+$/.test(name)) {
+      alert('プロジェクト名は英数字とハイフンのみ使用できます。日本語や記号、スペースは使えません。');
+      return;
+    }
 
     setLoading(true);
     try {
       if (onProjectCreate) {
         await onProjectCreate(
-          newProjectName.trim(),
+          name,
           newProjectDescription.trim() || undefined
         );
       } else {
         const project = await projectDB.createProject(
-          newProjectName.trim(),
+          name,
           newProjectDescription.trim() || undefined
         );
         onProjectSelect(project);
       }
-      
       setNewProjectName('');
       setNewProjectDescription('');
       setIsCreating(false);
       onClose();
-      
       await loadProjects();
     } catch (error) {
       console.error('Failed to create project:', error);

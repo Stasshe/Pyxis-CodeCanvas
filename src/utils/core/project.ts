@@ -543,7 +543,7 @@ export const useProject = () => {
           try {
             console.log('[initProject] Creating default project...');
             const defaultProject = await projectDB.createProject(
-              'ウェルカムプロジェクト',
+              'Welcome-Project',
               'Pyxis エディターへようこそ！'
             );
             console.log('[initProject] Default project created:', defaultProject);
