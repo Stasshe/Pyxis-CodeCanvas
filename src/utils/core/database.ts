@@ -666,6 +666,43 @@ class ProjectDB {
       getRequest.onerror = () => reject(getRequest.error);
     });
   }
+
+  async renameChatSpace(chatSpaceId: string, newName: string): Promise<void> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    // チャットスペースストアの存在を確認
+    if (!this.db.objectStoreNames.contains('chatSpaces')) {
+      throw new Error('Chat spaces not supported in this database version');
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(['chatSpaces'], 'readwrite');
+      const store = transaction.objectStore('chatSpaces');
+      const getRequest = store.get(chatSpaceId);
+
+      getRequest.onsuccess = () => {
+        const chatSpace = getRequest.result;
+        if (!chatSpace) {
+          reject(new Error('Chat space not found'));
+          return;
+        }
+
+        const updatedChatSpace = {
+          ...chatSpace,
+          name: newName,
+          updatedAt: new Date()
+        };
+
+        const putRequest = store.put(updatedChatSpace);
+        putRequest.onerror = () => reject(putRequest.error);
+        putRequest.onsuccess = () => resolve();
+      };
+
+      getRequest.onerror = () => reject(getRequest.error);
+    });
+  }
 }
 
 export const projectDB = new ProjectDB();
