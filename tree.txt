@@ -93,6 +93,7 @@
 │   │   │   ├── PanelRightIcon.tsx
 │   │   │   └── RightSidebar.tsx
 │   │   ├── Tab
+│   │   │   ├── BinaryTabContent.tsx
 │   │   │   ├── CodeEditor.tsx
 │   │   │   ├── DiffTab.tsx
 │   │   │   ├── HighlightedCode.tsx
@@ -172,11 +173,11 @@
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-33 directories, 140 files
+33 directories, 141 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 21405
-合計文字数: 768448
-合計ファイルサイズ(bytes): 830669
+合計行数: 21455
+合計文字数: 770606
+合計ファイルサイズ(bytes): 833109
 
-リポジトリ全体のサイズ(bytes): 2.0G	.
+リポジトリ全体のサイズ(bytes): 2.1G	.
