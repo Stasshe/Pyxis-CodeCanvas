@@ -3,6 +3,7 @@ import { isBufferArray } from './isBufferArray';
 import { Project, ProjectFile } from '@/types/';
 import { projectDB } from './database'; // プロジェクトデータベースのインポート
 import { FileItem } from '@/types';
+import { getFileSystem } from './filesystem';
 import { GitCommands, syncProjectFiles, initializeFileSystem, debugFileSystem } from './filesystem';
 
 // プロジェクト作成時のGit初期化とコミット
@@ -387,13 +388,17 @@ export const useProject = () => {
 
     try {
       if (type === 'delete') {
+        console.log('[syncTerminalFileOperation] Processing delete operation for:', path);
         // ファイルまたはフォルダを削除
         const files = await projectDB.getProjectFiles(currentProject.id);
         const fileToDelete = files.find(f => f.path === path);
+        console.log('[syncTerminalFileOperation] File to delete found:', !!fileToDelete, fileToDelete?.path);
         if (fileToDelete) {
+          console.log('[syncTerminalFileOperation] Deleting file from DB:', fileToDelete.id);
           await projectDB.deleteFile(fileToDelete.id);
           if (fileToDelete.type === 'folder') {
             const childFiles = files.filter(f => f.path.startsWith(path + '/'));
+            console.log('[syncTerminalFileOperation] Deleting child files:', childFiles.length);
             for (const child of childFiles) {
               await projectDB.deleteFile(child.id);
             }
@@ -408,7 +413,6 @@ export const useProject = () => {
               
               // 追加的なGitキャッシュフラッシュ（削除検知のため）
               try {
-                const { getFileSystem } = await import('./filesystem');
                 const fs = getFileSystem();
                 if (fs && (fs as any).sync) {
                   await (fs as any).sync();
@@ -424,6 +428,9 @@ export const useProject = () => {
               console.warn('[syncTerminalFileOperation] Filesystem deletion failed (non-critical):', syncError);
             }
           }
+          console.log('[syncTerminalFileOperation] Delete operation completed for:', path);
+        } else {
+          console.log('[syncTerminalFileOperation] File not found in DB for deletion:', path);
         }
       } else {
         // ファイルまたはフォルダを作成/更新

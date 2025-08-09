@@ -343,14 +343,18 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
     if (!gitCommands) return;
     
     try {
+      console.log('[GitPanel] Starting discard changes for file:', file);
       const result = await gitCommands.discardChanges(file);
+      console.log('[GitPanel] Discard changes result:', result);
       
       // 少し待ってからGit状態を更新（ファイルシステムの同期を待つ）
       setTimeout(async () => {
+        console.log('[GitPanel] Refreshing git status after discard...');
         await fetchGitStatus();
         
         // 親コンポーネントにも更新を通知
         if (onRefresh) {
+          console.log('[GitPanel] Calling onRefresh after discard...');
           onRefresh();
         }
       }, 200);

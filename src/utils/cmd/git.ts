@@ -613,6 +613,7 @@ export class GitCommands {
       }
       
       const [file, HEAD, workdir, stage] = fileStatus;
+      console.log(`[Git discardChanges] File status for ${filepath}: HEAD=${HEAD}, workdir=${workdir}, stage=${stage}`);
       
       // HEADが存在するかチェック
       let headCommitHash: string | null = null;
@@ -691,19 +692,24 @@ export class GitCommands {
         }
       }
 
-      // ケース4: 新規ファイル（HEADに存在しない）
-      if (HEAD === 0 && workdir === 1) {
+      // ケース4: 新規ファイル（HEADに存在しない）- 未追跡ファイル
+      if (HEAD === 0 && (workdir === 1 || workdir === 2) && stage === 0) {
         try {
+          console.log('[Git discardChanges] Removing untracked file:', filepath);
           const fullPath = `${this.dir}/${filepath}`;
           await this.fs.promises.unlink(fullPath);
+          console.log('[Git discardChanges] File unlinked from filesystem:', fullPath);
           
           if (this.onFileOperation) {
             const projectRelativePath = filepath.startsWith('/') ? filepath : `/${filepath}`;
+            console.log('[Git discardChanges] Calling onFileOperation for delete:', projectRelativePath);
             await this.onFileOperation(projectRelativePath, 'delete');
+            console.log('[Git discardChanges] onFileOperation completed for:', projectRelativePath);
           }
           
           return `Removed untracked file ${filepath}`;
         } catch (error) {
+          console.error('[Git discardChanges] Error removing untracked file:', filepath, error);
           return `File ${filepath} not found or already removed`;
         }
       }
