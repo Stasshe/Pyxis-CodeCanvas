@@ -233,8 +233,8 @@ function DiffLineComponent({ line, colors }: { line: DiffLine; colors: any }) {
     switch (line.type) {
       case 'added':
         return {
-          background: '#e6ffed', // 緑系背景
-          borderLeft: '3px solid #2ecc40', // 緑系ボーダー
+          background: `${colors.green}20`, // 緑系背景
+          borderLeft: `3px solid ${colors.green}`, // 緑系ボーダー
         };
       case 'removed':
         return {

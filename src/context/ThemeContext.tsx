@@ -26,6 +26,7 @@ export type ThemeColors = {
   accentBg: string;
   accentFg: string;
   red: string;
+  green: string;
   sidebarTitleFg: string;
   sidebarIconFg: string;
   sidebarResizerBg: string;
@@ -67,6 +68,7 @@ const themes: { [key: string]: ThemeColors } = {
     accentBg: "#363a4f",
     accentFg: "#4ea1ff",
     red: "#ef4444",
+  green: "#10b981",
     sidebarTitleFg: "#a1a1aa",
     sidebarIconFg: "#d4d4d4",
     sidebarResizerBg: "#363a4f",
@@ -114,6 +116,7 @@ const themes: { [key: string]: ThemeColors } = {
     accentBg: "#073642",
     accentFg: "#b58900",
     red: "#dc322f",
+  green: "#859900",
     sidebarTitleFg: "#839496",
     sidebarIconFg: "#839496",
     sidebarResizerBg: "#073642",
@@ -161,6 +164,7 @@ const themes: { [key: string]: ThemeColors } = {
     accentBg: "#4c566a",
     accentFg: "#81a1c1",
     red: "#bf616a",
+  green: "#a3be8c",
     sidebarTitleFg: "#88c0d0",
     sidebarIconFg: "#d8dee9",
     sidebarResizerBg: "#4c566a",
@@ -208,6 +212,7 @@ const themes: { [key: string]: ThemeColors } = {
     accentBg: "#44475a",
     accentFg: "#bd93f9",
     red: "#ff5555",
+  green: "#50fa7b",
     sidebarTitleFg: "#8be9fd",
     sidebarIconFg: "#f8f8f2",
     sidebarResizerBg: "#44475a",
@@ -255,6 +260,7 @@ const themes: { [key: string]: ThemeColors } = {
     accentBg: "#75715e",
     accentFg: "#a6e22e",
     red: "#f92672",
+    green: "#a6e22e",
     sidebarTitleFg: "#fd971f",
     sidebarIconFg: "#f8f8f2",
     sidebarResizerBg: "#75715e",
@@ -302,6 +308,7 @@ const themes: { [key: string]: ThemeColors } = {
     accentBg: "#1a1a1a",
     accentFg: "#7f7fff",
     red: "#ff4b4b",
+    green: "#4bff4b",
     sidebarTitleFg: "#888",
     sidebarIconFg: "#e5e5e5",
     sidebarResizerBg: "#1a1a1a",
@@ -349,6 +356,7 @@ const themes: { [key: string]: ThemeColors } = {
     accentBg: "#e0e0e0",
     accentFg: "#0070f3",
     red: "#ef4444",
+    green: "#10b981",
     sidebarTitleFg: "#888888",
     sidebarIconFg: "#222222",
     sidebarResizerBg: "#e0e0e0",
@@ -396,6 +404,7 @@ const themes: { [key: string]: ThemeColors } = {
     accentBg: "#eee8d5",
     accentFg: "#b58900",
     red: "#dc322f",
+    green: "#859900",
     sidebarTitleFg: "#657b83",
     sidebarIconFg: "#657b83",
     sidebarResizerBg: "#eee8d5",
