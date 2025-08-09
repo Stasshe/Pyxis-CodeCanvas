@@ -608,7 +608,19 @@ export default function Home() {
               projectFiles={projectFiles}
               onResize={handleBottomResize}
               onTerminalFileOperation={async (path: string, type: 'file' | 'folder' | 'delete', content?: string | ArrayBuffer, isNodeRuntime?: boolean, isBufferArray?: boolean, bufferContent?: ArrayBuffer) => {
-                // ...existing code...
+                if (isNodeRuntime) {
+                  setNodeRuntimeOperationInProgress(true);
+                }
+                if (syncTerminalFileOperation) {
+                  // bufferContentが存在する場合、それを渡す
+                  if (bufferContent) {
+                    console.log('[DEBUG]','buffercontent')
+                    await syncTerminalFileOperation(path, type, bufferContent);
+                  } else {
+                    await syncTerminalFileOperation(path, type, content);
+                  }
+                }
+                setGitRefreshTrigger(prev => prev + 1);
               }}
             />
           )}
