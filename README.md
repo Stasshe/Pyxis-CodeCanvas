@@ -98,6 +98,18 @@ Pyxis is a revolutionary **client-side IDE** that brings the complete developmen
 - **Import files from local device**
 - For more details, please refer to [DATABASE.md](./Development/DATABASE.md).
 
+### 🤖 **AI Agent (Edit/Ask)**
+- **Interact with AI** to edit or ask questions about your code.
+- **Seamless integration** with the editor for enhanced productivity.
+
+### 🌐 **HMR-like Dev Environment with iframe**
+- **Preview changes in real-time** within an embedded iframe.
+- **Hot Module Replacement (HMR)**-like experience for rapid development.
+
+### 📂 **Enhanced Import Capabilities**
+- **Import buffer content** such as zip files, images, and PDFs.
+- **Unzip command support** for extracting files directly in the environment.
+
 
 ## 🌟 New Feature: export --page <path>
 
