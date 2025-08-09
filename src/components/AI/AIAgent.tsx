@@ -366,23 +366,6 @@ export default function AIAgent({
         </button>
       </div>
 
-      {/* コンパクトファイルコンテキスト */}
-      {fileContexts.filter(ctx => ctx.selected).length > 0 && (
-        <div
-          className="px-3 py-1 border-b"
-          style={{
-            borderColor: colors.border,
-            background: colors.mutedBg,
-          }}
-        >
-          <ContextFileList
-            contexts={fileContexts}
-            onToggleSelection={toggleFileSelection}
-            compact={true}
-          />
-        </div>
-      )}
-
       {/* メインコンテンツ */}
       <div className="flex-1 flex flex-col min-h-0" style={{ background: colors.background }}>
         {currentMode === 'chat' ? (
@@ -423,15 +406,25 @@ export default function AIAgent({
             <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2" style={{ background: colors.background }}>
               {isProcessing && currentMode === 'edit' ? (
                 <div className="flex flex-col items-center justify-center h-full text-center">
-                  <div
-                    className="w-6 h-6 border-3 border-current border-t-transparent rounded-full animate-spin mb-3"
-                    style={{ borderColor: `${colors.accent} transparent ${colors.accent} ${colors.accent}` }}
-                  ></div>
+                  <div className="relative mb-4">
+                    <div
+                      className="w-8 h-8 border-3 border-current border-t-transparent rounded-full animate-spin"
+                      style={{ borderColor: `${colors.accent} transparent ${colors.accent} ${colors.accent}` }}
+                    ></div>
+                    <div
+                      className="absolute inset-0 w-8 h-8 border-3 border-current border-b-transparent rounded-full animate-spin"
+                      style={{ 
+                        borderColor: `transparent transparent ${colors.accent} transparent`,
+                        animationDirection: 'reverse',
+                        animationDuration: '1.5s'
+                      }}
+                    ></div>
+                  </div>
                   <div style={{ color: colors.foreground }} className="text-sm font-medium mb-1">
-                    編集実行中...
+                    🤖 AI編集実行中...
                   </div>
                   <div style={{ color: colors.mutedFg }} className="text-xs">
-                    ファイルを解析して編集提案を生成
+                    ファイルを解析して編集提案を生成しています
                   </div>
                 </div>
               ) : messages.length === 0 ? (
@@ -493,18 +486,35 @@ export default function AIAgent({
           </>
         )}
 
+        {/* ファイルコンテキスト表示（入力エリアの直上） */}
+        {fileContexts.filter(ctx => ctx.selected).length > 0 && (
+          <div
+            className="px-3 py-1 border-t"
+            style={{
+              borderColor: colors.border,
+              background: colors.mutedBg,
+            }}
+          >
+            <ContextFileList
+              contexts={fileContexts}
+              onToggleSelection={toggleFileSelection}
+              compact={true}
+            />
+          </div>
+        )}
+
         {/* 入力エリア */}
         <div 
-          className="border-t px-3 py-2"
+          className="border-t px-3 py-1.5"
           style={{ 
             borderColor: colors.border, 
             background: colors.cardBg 
           }}
         >
           {/* モード切り替えタブ（コンパクト） */}
-          <div className="flex mb-2">
+          <div className="flex mb-1.5">
             <button
-              className={`flex-1 text-xs py-1 px-2 rounded-l border-r-0 transition ${currentMode === 'chat' ? 'font-medium' : ''}`}
+              className={`flex-1 text-xs py-0.5 px-2 rounded-l border-r-0 transition ${currentMode === 'chat' ? 'font-medium' : ''}`}
               style={{
                 background: currentMode === 'chat' ? colors.accent : colors.mutedBg,
                 color: currentMode === 'chat' ? colors.accentFg : colors.mutedFg,
@@ -515,7 +525,7 @@ export default function AIAgent({
               💬 Ask
             </button>
             <button
-              className={`flex-1 text-xs py-1 px-2 rounded-r transition ${currentMode === 'edit' ? 'font-medium' : ''}`}
+              className={`flex-1 text-xs py-0.5 px-2 rounded-r transition ${currentMode === 'edit' ? 'font-medium' : ''}`}
               style={{
                 background: currentMode === 'edit' ? colors.accent : colors.mutedBg,
                 color: currentMode === 'edit' ? colors.accentFg : colors.mutedFg,
