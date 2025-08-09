@@ -13,11 +13,11 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
 
 
   // Gemini APIキー管理
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem('geminiApiKey') || '');
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem('gemini-api-key') || '');
   const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setApiKey(value);
-    localStorage.setItem('geminiApiKey', value);
+    localStorage.setItem('gemini-api-key', value);
   };
 
   // テーマカラー個別設定 折りたたみ

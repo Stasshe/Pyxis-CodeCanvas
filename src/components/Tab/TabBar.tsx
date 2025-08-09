@@ -162,6 +162,18 @@ export default function TabBar({
                     msUserSelect: 'none'
                   }}>(Preview)</span>
                 )}
+                {tab.aiReviewProps && (
+                  <span style={{
+                    fontSize: '0.7em',
+                    opacity: 0.7,
+                    marginRight: '4px',
+                    userSelect: 'none',
+                    WebkitUserSelect: 'none',
+                    WebkitTouchCallout: 'none',
+                    MozUserSelect: 'none',
+                    msUserSelect: 'none'
+                  }}>🤖</span>
+                )}
                 {tab.name}
               </span>
               {/* パス表示（同名ファイルが複数ある場合のみ） */}

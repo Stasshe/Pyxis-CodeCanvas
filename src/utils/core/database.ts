@@ -384,6 +384,47 @@ class ProjectDB {
       }
     });
   }
+
+  // AIレビュー状態をクリアする
+  async clearAIReview(projectId: string, filePath: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        console.error('[DB] Database not initialized');
+        reject(new Error('Database not initialized'));
+        return;
+      }
+
+      const transaction = this.db.transaction(['files'], 'readwrite');
+      const store = transaction.objectStore('files');
+      const index = store.index('projectId');
+      const request = index.getAll(projectId);
+
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const files = request.result;
+        const targetFile = files.find(f => f.path === filePath);
+        
+        if (targetFile) {
+          // AIレビュー関連フィールドをクリア
+          const updatedFile = {
+            ...targetFile,
+            isAiAgentReview: false,
+            aiAgentCode: undefined,
+            updatedAt: new Date()
+          };
+          
+          const updateRequest = store.put(updatedFile);
+          updateRequest.onerror = () => reject(updateRequest.error);
+          updateRequest.onsuccess = () => {
+            this.notifyFileChangeFromFile(updatedFile, 'update');
+            resolve();
+          };
+        } else {
+          resolve(); // ファイルが見つからない場合は成功として扱う
+        }
+      };
+    });
+  }
 }
 
 export const projectDB = new ProjectDB();

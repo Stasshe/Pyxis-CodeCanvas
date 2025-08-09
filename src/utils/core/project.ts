@@ -573,6 +573,24 @@ export const useProject = () => {
     initProject();
   }, []);
 
+  // AIレビューをクリアする
+  const clearAIReview = async (filePath: string): Promise<void> => {
+    if (!currentProject) {
+      throw new Error('No project selected');
+    }
+
+    try {
+      await projectDB.clearAIReview(currentProject.id, filePath);
+      
+      // プロジェクトファイルを再読み込み
+      const files = await projectDB.getProjectFiles(currentProject.id);
+      setProjectFiles(files);
+    } catch (error) {
+      console.error('Failed to clear AI review:', error);
+      throw error;
+    }
+  };
+
   return {
     currentProject,
     projectFiles: convertToFileItems(projectFiles),
@@ -584,5 +602,6 @@ export const useProject = () => {
     createProject,
     refreshProjectFiles,
     syncTerminalFileOperation,
+    clearAIReview,
   };
 };

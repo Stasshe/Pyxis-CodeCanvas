@@ -35,6 +35,12 @@ export interface Tab {
   diffProps?: {
     diffs: SingleFileDiff[];
   };
+  // AIレビュータブ用のprops
+  aiReviewProps?: {
+    originalContent: string;
+    suggestedContent: string;
+    filePath: string;
+  };
   webPreview?: boolean; // Added for WebPreviewTab
 }
 
@@ -72,3 +78,37 @@ export interface ProjectFile {
 }
 
 export type MenuTab = 'files' | 'search' | 'git' | 'settings' | 'run';
+
+// AI Agent関連の型定義
+export interface AIMessage {
+  id: string;
+  type: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+  fileContext?: string[]; // 参照されたファイルパス
+}
+
+export interface AIEditRequest {
+  files: Array<{
+    path: string;
+    content: string;
+  }>;
+  instruction: string;
+}
+
+export interface AIEditResponse {
+  changedFiles: Array<{
+    path: string;
+    originalContent: string;
+    suggestedContent: string;
+    explanation: string;
+  }>;
+  message: string;
+}
+
+export interface AIFileContext {
+  path: string;
+  name: string;
+  content: string;
+  selected: boolean;
+}

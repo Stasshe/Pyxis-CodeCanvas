@@ -16,6 +16,7 @@ import TabBar from '@/components/Tab/TabBar';
 import CodeEditor from '@/components/Tab/CodeEditor';
 import DiffTab from '@/components/Tab/DiffTab';
 import WebPreviewTab from '@/components/Tab/WebPreviewTab';
+import AIReviewTab from '@/components/AI/AIReview/AIReviewTab';
 import { useDiffTabHandlers } from '@/hooks/useDiffTabHandlers';
 import BottomPanel from '@/components/Bottom/BottomPanel';
 import ProjectModal from '@/components/ProjectModal';
@@ -38,7 +39,7 @@ export default function Home() {
   const [bottomPanelHeight, setBottomPanelHeight] = useState(200);
   // 右サイドバー関連
   const [rightSidebarWidth, setRightSidebarWidth] = useState(240);
-  const [isRightSidebarVisible, setIsRightSidebarVisible] = useState(false);
+  const [isRightSidebarVisible, setIsRightSidebarVisible] = useState(true);
   const handleRightResize = useRightSidebarResize(rightSidebarWidth, setRightSidebarWidth);
   // 右サイドバーの表示切替（例: メニューやボタンでトグルする場合）
   const toggleRightSidebar = () => setIsRightSidebarVisible(v => !v);
@@ -160,6 +161,7 @@ export default function Home() {
     createProject,
     syncTerminalFileOperation,
     refreshProjectFiles,
+    clearAIReview,
   } = useProject();
 
   const handleLeftResize = useLeftSidebarResize(leftSidebarWidth, setLeftSidebarWidth);
@@ -547,6 +549,49 @@ export default function Home() {
                       filePath={activeTab.path}
                       currentProjectName={currentProject?.name}
                     />
+                  ) : activeTab.aiReviewProps ? (
+                    <AIReviewTab
+                      tab={activeTab}
+                      onApplyChanges={async (filePath: string, content: string) => {
+                        if (!currentProject) return;
+                        try {
+                          await saveFile(filePath, content);
+                          await clearAIReview(filePath);
+                          if (refreshProjectFiles) await refreshProjectFiles();
+                          setGitRefreshTrigger(prev => prev + 1);
+                        } catch (error) {
+                          console.error('Failed to apply AI review changes:', error);
+                        }
+                      }}
+                      onDiscardChanges={async (filePath: string) => {
+                        try {
+                          await clearAIReview(filePath);
+                          if (refreshProjectFiles) await refreshProjectFiles();
+                        } catch (error) {
+                          console.error('Failed to discard AI review changes:', error);
+                        }
+                      }}
+                      onUpdateSuggestedContent={(tabId: string, newContent: string) => {
+                        setEditors(prev => {
+                          const updated = [...prev];
+                          updated[idx] = {
+                            ...updated[idx],
+                            tabs: updated[idx].tabs.map(t => 
+                              t.id === tabId && t.aiReviewProps 
+                                ? { 
+                                    ...t, 
+                                    aiReviewProps: { 
+                                      ...t.aiReviewProps, 
+                                      suggestedContent: newContent 
+                                    } 
+                                  } 
+                                : t
+                            )
+                          };
+                          return updated;
+                        });
+                      }}
+                    />
                   ) : activeTab.diffProps ? (
                     <DiffTab diffs={activeTab.diffProps.diffs} />
                   ) : (
@@ -636,6 +681,13 @@ export default function Home() {
             <RightSidebar
               rightSidebarWidth={rightSidebarWidth}
               onResize={() => {}} // 右サイドバー本体には不要
+              projectFiles={projectFiles}
+              currentProject={currentProject}
+              tabs={tabs}
+              setTabs={setTabs}
+              setActiveTabId={setActiveTabId}
+              saveFile={saveFile}
+              clearAIReview={clearAIReview}
             />
           </>
         )}
