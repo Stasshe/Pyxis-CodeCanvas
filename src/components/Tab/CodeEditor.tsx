@@ -273,6 +273,17 @@ export default function CodeEditor({
       typeRoots: ['node_modules/@types']
     });
 
+    // 選択範囲の文字数を検知
+    editor.onDidChangeCursorSelection((e) => {
+      const selection = e.selection;
+      const length = editor.getModel()?.getValueInRange(selection).length ?? 0;
+      if (selection.isEmpty()) {
+        setSelectionCount(null);
+      } else {
+        setSelectionCount(length);
+      }
+    });
+
     // 初期モデルを設定（activeTabがある場合）
     if (activeTab && !isBufferArray((activeTab as any).bufferContent) && 
         activeTab.id !== 'welcome' && !activeTab.preview && !isCodeMirror) {

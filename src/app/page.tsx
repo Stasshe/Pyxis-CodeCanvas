@@ -29,8 +29,9 @@ import type { Tab,FileItem, MenuTab, EditorLayoutType, EditorPane } from '@/type
 import RightSidebar from '@/components/Right/RightSidebar';
 import FileSelectModal from '@/components/FileSelect';
 import { handleFileSelect, handleFilePreview } from '@/hooks/fileSelectHandlers';
-import { Terminal } from 'lucide-react';
+import { Terminal, Search } from 'lucide-react';
 import PanelRightIcon from '@/components/Right/PanelRightIcon';
+import OperationWindow from '@/components/OperationWindow';
 
 
 export default function Home() {
@@ -46,6 +47,7 @@ export default function Home() {
   const [isLeftSidebarVisible, setIsLeftSidebarVisible] = useState(true);
   const [isBottomPanelVisible, setIsBottomPanelVisible] = useState(true);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+  const [isOperationWindowVisible, setIsOperationWindowVisible] = useState(false);
   const [gitRefreshTrigger, setGitRefreshTrigger] = useState(0);
   const [gitChangesCount, setGitChangesCount] = useState(0); // Git変更ファイル数
   const [nodeRuntimeOperationInProgress, setNodeRuntimeOperationInProgress] = useState(false); // NodeRuntime操作中フラグ
@@ -238,6 +240,25 @@ export default function Home() {
     setIsBottomPanelVisible(!isBottomPanelVisible);
   };
 
+  const toggleOperationWindow = () => {
+    setIsOperationWindowVisible(!isOperationWindowVisible);
+  };
+
+  // Ctrl+P でOperation Windowを開く
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+        e.preventDefault();
+        setIsOperationWindowVisible(true);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
   const handleFileOpen = (file: FileItem) => {
     console.log('[handleFileOpen] Opening file:', { 
       name: file.name, 
@@ -368,6 +389,25 @@ export default function Home() {
         height: '30px',
       }}
     >
+      <button
+        className="absolute left-1/2 transform -translate-x-1/2 h-6 flex items-center justify-center border rounded transition-colors"
+        onClick={toggleOperationWindow}
+        title="ファイル検索 (Ctrl+P)"
+        style={{
+          zIndex: 50,
+          background: isOperationWindowVisible ? colors.accentBg : colors.mutedBg,
+          color: isOperationWindowVisible ? colors.primary : colors.mutedFg,
+          borderColor: colors.border,
+          width: '35%',
+          minWidth: 180,
+          maxWidth: 500,
+          paddingLeft: 12,
+          paddingRight: 12,
+        }}
+      >
+        <Search size={14} color={isOperationWindowVisible ? colors.primary : colors.mutedFg} />
+        <span className="ml-2 truncate">{currentProject?.name} [ファイル検索]</span>
+      </button>
       <button
         className={`relative right-2 h-6 px-2 flex items-center justify-center border rounded transition-colors`}
         onClick={toggleBottomPanel}
@@ -744,6 +784,14 @@ export default function Home() {
           setGitRefreshTrigger(prev => prev + 1);
         }}
         currentProjectName={currentProject?.name || ''}
+      />
+      <OperationWindow
+        isVisible={isOperationWindowVisible}
+        onClose={() => setIsOperationWindowVisible(false)}
+        projectFiles={projectFiles}
+        tabs={tabs}
+        setTabs={setTabs}
+        setActiveTabId={setActiveTabId}
       />
     </div>
     </>

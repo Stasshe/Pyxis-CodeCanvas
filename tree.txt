@@ -88,6 +88,7 @@
 │   │   │   ├── SearchPanel.tsx
 │   │   │   └── SettingsPanel.tsx
 │   │   ├── MenuBar.tsx
+│   │   ├── OperationWindow.tsx
 │   │   ├── ProjectModal.tsx
 │   │   ├── Right
 │   │   │   ├── PanelRightIcon.tsx
@@ -173,11 +174,11 @@
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-33 directories, 141 files
+33 directories, 142 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 21455
-合計文字数: 770606
-合計ファイルサイズ(bytes): 833109
+合計行数: 21775
+合計文字数: 779734
+合計ファイルサイズ(bytes): 842701
 
 リポジトリ全体のサイズ(bytes): 2.1G	.
