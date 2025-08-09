@@ -5,6 +5,7 @@
 │   ├── ai-agent-implementation-plan.md
 │   ├── git-deletion-detection-analysis.md
 │   └── terminal_touch_flow.md
+├── FreeAPIGenerativeAI-Model.md
 ├── LICENSE
 ├── README.md
 ├── README_ja.md
@@ -120,7 +121,7 @@
 │       ├── ai
 │       │   ├── contextBuilder.ts
 │       │   ├── diffProcessor.ts
-│       │   ├── geminiClient.ts
+│       │   ├── fetchAI.ts
 │       │   └── prompts.ts
 │       ├── cmd
 │       │   ├── git.ts
@@ -137,6 +138,7 @@
 │       │   │   ├── npmDependencySize.ts
 │       │   │   └── npmInstall.ts
 │       │   └── unix.ts
+│       ├── commitMsgAI.ts
 │       ├── core
 │       │   ├── database.ts
 │       │   ├── filesystem.ts
@@ -149,7 +151,6 @@
 │       │   ├── exportSingleFile.ts
 │       │   └── inlineHtmlAssets.ts
 │       ├── fileWatcher.ts
-│       ├── gemini.ts
 │       ├── handleFileOperation.ts
 │       ├── helper
 │       │   ├── isBufferArray.ts
@@ -171,11 +172,11 @@
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-33 directories, 139 files
+33 directories, 140 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 21313
-合計文字数: 763569
-合計ファイルサイズ(bytes): 825458
+合計行数: 21405
+合計文字数: 768448
+合計ファイルサイズ(bytes): 830669
 
 リポジトリ全体のサイズ(bytes): 2.0G	.

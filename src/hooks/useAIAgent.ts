@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import type { AIMessage, AIEditRequest, AIEditResponse, AIFileContext, ProjectFile, ChatSpaceMessage } from '@/types';
-import { generateCodeEdit, generateChatResponse } from '@/utils/ai/geminiClient';
+import { generateCodeEdit, generateChatResponse } from '@/utils/ai/fetchAI';
 import { EDIT_PROMPT_TEMPLATE } from '@/utils/ai/prompts';
 import { getSelectedFileContexts } from '@/utils/ai/contextBuilder';
 

@@ -31,24 +31,6 @@
 
 ---
 
-## 4. Replicate
-- **概要**: OSS系コード生成モデル（CodeLlama等）をAPI経由で利用可能。
-- **無料枠**: 新規登録時に無料クレジット付与。
-- **取得方法**: [Replicate](https://replicate.com/)でアカウント作成しAPIキー取得。
-- **主な制限**: クレジット消費後は有料。
-- **公式**: https://replicate.com/
-
----
-
-## 5. OpenAI Playground
-- **概要**: GPT-3.5/4系でコード生成可能。API自体は有料だが、Playgroundで無料枠あり。
-- **無料枠**: 新規登録時に無料クレジット付与（APIキーは有料）。
-- **取得方法**: [OpenAI](https://platform.openai.com/)でアカウント作成。
-- **主な制限**: クレジット消費後は有料。API利用は有料。
-- **公式**: https://platform.openai.com/playground
-
----
-
 ## 参考
 - OSSモデル（CodeLlama, StarCoder, CodeGen等）はHugging FaceやReplicate経由でAPI利用が簡単。
 - 商用利用や大量利用は有料プランが必要。
