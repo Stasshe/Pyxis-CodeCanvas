@@ -112,3 +112,24 @@ export interface AIFileContext {
   content: string;
   selected: boolean;
 }
+
+// チャットスペース関連の型定義
+export interface ChatSpaceMessage {
+  id: string;
+  type: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+  mode: 'chat' | 'edit'; // メッセージが送信された時のモード
+  fileContext?: string[]; // 参照されたファイルパス
+  editResponse?: AIEditResponse; // 編集モードの場合のレスポンス
+}
+
+export interface ChatSpace {
+  id: string;
+  name: string;
+  projectId: string;
+  messages: ChatSpaceMessage[];
+  selectedFiles: string[]; // 選択されたファイルパスのリスト
+  createdAt: Date;
+  updatedAt: Date;
+}

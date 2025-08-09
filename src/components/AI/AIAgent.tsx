@@ -4,12 +4,14 @@ import React, { useState, useEffect } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { useAIAgent } from '@/hooks/useAIAgent';
 import { useAIReview } from '@/hooks/useAIReview';
+import { useChatSpace } from '@/hooks/useChatSpace';
 import { buildAIFileContextList } from '@/utils/ai/contextBuilder';
 import ChatMessage from './ChatMessage';
 import FileSelector from './FileSelector';
 import ContextFileList from './ContextFileList';
 import EditRequestForm from './EditRequestForm';
 import ChangedFilesList from './ChangedFilesList';
+import ChatSpaceList from './ChatSpaceList';
 import type { FileItem, ProjectFile, Tab, Project, AIEditResponse } from '@/types';
 
 interface AIAgentProps {
@@ -35,6 +37,20 @@ export default function AIAgent({
   const [isFileSelectorOpen, setIsFileSelectorOpen] = useState(false);
   const [currentMode, setCurrentMode] = useState<'chat' | 'edit'>('chat');
   const [lastEditResponse, setLastEditResponse] = useState<AIEditResponse | null>(null);
+  const [showSpaceList, setShowSpaceList] = useState(false);
+
+  // チャットスペース管理
+  const {
+    chatSpaces,
+    currentSpace,
+    loading: spacesLoading,
+    createNewSpace,
+    selectSpace,
+    deleteSpace,
+    addMessage: addSpaceMessage,
+    updateSelectedFiles: updateSpaceSelectedFiles,
+    updateSpaceName
+  } = useChatSpace(currentProject?.id || null);
 
   const {
     messages,
@@ -45,7 +61,14 @@ export default function AIAgent({
     updateFileContexts,
     toggleFileSelection,
     clearMessages
-  } = useAIAgent();
+  } = useAIAgent({
+    onAddMessage: async (content, type, mode, fileContext, editResponse) => {
+      await addSpaceMessage(content, type, mode, fileContext, editResponse);
+    },
+    selectedFiles: currentSpace?.selectedFiles,
+    onUpdateSelectedFiles: updateSpaceSelectedFiles,
+    messages: currentSpace?.messages
+  });
 
   const {
     openAIReviewTab,
@@ -59,7 +82,21 @@ export default function AIAgent({
       const contexts = buildAIFileContextList(projectFiles);
       updateFileContexts(contexts);
     }
-  }, [projectFiles, updateFileContexts]);
+  }, [projectFiles.length]); // updateFileContextsを依存配列から削除
+
+  // プロジェクトが変更されたときに初期スペースを作成
+  useEffect(() => {
+    const initializeSpace = async () => {
+      if (currentProject && chatSpaces.length === 0 && !spacesLoading && !currentSpace) {
+        await createNewSpace(`${currentProject.name} - 初期チャット`);
+      }
+    };
+
+    // プロジェクトIDが変わった時のみ実行
+    if (currentProject) {
+      initializeSpace();
+    }
+  }, [currentProject?.id]); // createNewSpaceを依存配列から削除
 
   // API キーのチェック
   const isApiKeySet = () => {
@@ -101,6 +138,19 @@ export default function AIAgent({
       alert(`編集に失敗しました: ${(error as Error).message}`);
     }
   };
+
+  // 最新の編集レスポンスを取得（チャットスペースから）
+  useEffect(() => {
+    if (currentSpace && currentSpace.messages.length > 0) {
+      const latestEditMessage = [...currentSpace.messages]
+        .reverse()
+        .find(msg => msg.mode === 'edit' && msg.type === 'assistant' && msg.editResponse);
+      
+      if (latestEditMessage?.editResponse) {
+        setLastEditResponse(latestEditMessage.editResponse);
+      }
+    }
+  }, [currentSpace?.id, currentSpace?.messages?.length]); // メッセージの配列全体ではなく長さのみ監視
 
   // ファイル選択
   const handleFileSelect = (file: FileItem) => {
@@ -171,13 +221,38 @@ export default function AIAgent({
           boxShadow: '0 1px 0 0 ' + colors.border,
         }}
       >
-        <h2
-          className="text-lg font-bold tracking-tight"
-          style={{ color: colors.foreground, letterSpacing: '-0.5px' }}
-        >
-          AI Agent
-        </h2>
+        <div className="flex items-center gap-3">
+          <h2
+            className="text-lg font-bold tracking-tight"
+            style={{ color: colors.foreground, letterSpacing: '-0.5px' }}
+          >
+            AI Agent
+          </h2>
+          {currentSpace && (
+            <span
+              className="text-sm px-2 py-1 rounded border"
+              style={{ 
+                color: colors.mutedFg, 
+                borderColor: colors.border,
+                background: colors.background 
+              }}
+            >
+              {currentSpace.name}
+            </span>
+          )}
+        </div>
         <div className="flex gap-2">
+          <button
+            className="text-xs px-3 py-1 rounded border font-medium hover:opacity-90 transition"
+            style={{
+              background: showSpaceList ? colors.accent : colors.background,
+              color: showSpaceList ? colors.accentFg : colors.mutedFg,
+              borderColor: showSpaceList ? colors.primary : colors.border,
+            }}
+            onClick={() => setShowSpaceList(!showSpaceList)}
+          >
+            スペース
+          </button>
           <button
             className={`px-4 py-1 text-xs rounded-md transition font-semibold border focus:outline-none ${currentMode === 'chat' ? '' : ''}`}
             style={{
@@ -204,6 +279,26 @@ export default function AIAgent({
           </button>
         </div>
       </div>
+
+      {/* チャットスペースリスト */}
+      {showSpaceList && (
+        <div className="px-5 py-3 border-b" style={{ borderColor: colors.border }}>
+          <ChatSpaceList
+            chatSpaces={chatSpaces}
+            currentSpace={currentSpace}
+            onSelectSpace={(space) => {
+              selectSpace(space);
+              setShowSpaceList(false);
+            }}
+            onCreateSpace={async (name) => {
+              await createNewSpace(name);
+              setShowSpaceList(false);
+            }}
+            onDeleteSpace={deleteSpace}
+            onUpdateSpaceName={updateSpaceName}
+          />
+        </div>
+      )}
 
       {/* ファイルコンテキスト */}
       <div

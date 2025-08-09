@@ -519,6 +519,15 @@ export const useProject = () => {
       // Git初期化と初期コミット
       await initializeProjectGit(newProject, files, convertToFileItems);
       
+      // 初期チャットスペースを作成
+      try {
+        await projectDB.createChatSpace(newProject.id, `${newProject.name} - 初期チャット`);
+        console.log('[createProject] Initial chat space created');
+      } catch (error) {
+        console.warn('[createProject] Failed to create initial chat space:', error);
+        // チャットスペース作成の失敗はプロジェクト作成を妨げない
+      }
+      
       return newProject;
     } catch (error) {
       console.error('Failed to create project:', error);

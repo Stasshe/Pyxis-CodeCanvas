@@ -1,4 +1,4 @@
-import type { Project, ProjectFile } from '@/types';
+import type { Project, ProjectFile, ChatSpace, ChatSpaceMessage } from '@/types';
 import { initialFileContents } from '@/utils/initialFileContents';
 import { notifyFileChange } from '@/utils/fileWatcher';
 
@@ -14,14 +14,17 @@ const generateUniqueId = (prefix: string): string => {
 
 class ProjectDB {
   private dbName = 'PyxisProjects';
-  private version = 1;
+  private version = 2;
   private db: IDBDatabase | null = null;
 
   async init(): Promise<void> {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(this.dbName, this.version);
 
-      request.onerror = () => reject(request.error);
+      request.onerror = () => {
+        reject(new Error('Failed to open database'));
+      };
+
       request.onsuccess = () => {
         this.db = request.result;
         resolve();
@@ -33,16 +36,20 @@ class ProjectDB {
         // プロジェクトストア
         if (!db.objectStoreNames.contains('projects')) {
           const projectStore = db.createObjectStore('projects', { keyPath: 'id' });
-          projectStore.createIndex('name', 'name', { unique: false });
-          projectStore.createIndex('createdAt', 'createdAt', { unique: false });
+          projectStore.createIndex('name', 'name', { unique: true });
         }
 
         // ファイルストア
         if (!db.objectStoreNames.contains('files')) {
           const fileStore = db.createObjectStore('files', { keyPath: 'id' });
-          fileStore.createIndex('projectId', 'projectId', { unique: false });
-          fileStore.createIndex('path', 'path', { unique: false });
-          fileStore.createIndex('parentPath', 'parentPath', { unique: false });
+          fileStore.createIndex('projectId', 'projectId');
+          fileStore.createIndex('path', 'path');
+        }
+
+        // チャットスペースストア（後から追加された場合に対応）
+        if (!db.objectStoreNames.contains('chatSpaces')) {
+          const chatSpaceStore = db.createObjectStore('chatSpaces', { keyPath: 'id' });
+          chatSpaceStore.createIndex('projectId', 'projectId');
         }
       };
     });
@@ -423,6 +430,206 @@ class ProjectDB {
           resolve(); // ファイルが見つからない場合は成功として扱う
         }
       };
+    });
+  }
+
+    // チャットスペース操作
+  async createChatSpace(projectId: string, name: string): Promise<ChatSpace> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    // チャットスペースストアの存在を確認
+    if (!this.db.objectStoreNames.contains('chatSpaces')) {
+      // データベースを再初期化
+      this.db.close();
+      this.db = null;
+      await this.init();
+      if (!this.db) {
+        throw new Error('Failed to reinitialize database');
+      }
+    }
+
+    const chatSpace: ChatSpace = {
+      id: generateUniqueId('chatspace'),
+      name,
+      projectId,
+      messages: [],
+      selectedFiles: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(['chatSpaces'], 'readwrite');
+      const store = transaction.objectStore('chatSpaces');
+      const request = store.add(chatSpace);
+
+      request.onsuccess = () => {
+        resolve(chatSpace);
+      };
+
+      request.onerror = () => {
+        reject(new Error('Failed to create chat space'));
+      };
+    });
+  }
+
+  async saveChatSpace(chatSpace: ChatSpace): Promise<void> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    // チャットスペースストアの存在を確認
+    if (!this.db.objectStoreNames.contains('chatSpaces')) {
+      return; // ストアが存在しない場合は何もしない
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(['chatSpaces'], 'readwrite');
+      const store = transaction.objectStore('chatSpaces');
+      const request = store.put({ ...chatSpace, updatedAt: new Date() });
+
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve();
+    });
+  }
+
+  async getChatSpaces(projectId: string): Promise<ChatSpace[]> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    // チャットスペースストアの存在を確認
+    if (!this.db.objectStoreNames.contains('chatSpaces')) {
+      // ストアが存在しない場合は空配列を返す
+      return [];
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(['chatSpaces'], 'readonly');
+      const store = transaction.objectStore('chatSpaces');
+      const index = store.index('projectId');
+      const request = index.getAll(projectId);
+
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const chatSpaces = request.result.map(cs => ({
+          ...cs,
+          createdAt: new Date(cs.createdAt),
+          updatedAt: new Date(cs.updatedAt),
+          messages: cs.messages?.map((msg: any) => ({
+            ...msg,
+            timestamp: new Date(msg.timestamp)
+          })) || []
+        }));
+        resolve(chatSpaces.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()));
+      };
+    });
+  }
+
+  async deleteChatSpace(chatSpaceId: string): Promise<void> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    // チャットスペースストアの存在を確認
+    if (!this.db.objectStoreNames.contains('chatSpaces')) {
+      return; // ストアが存在しない場合は何もしない
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(['chatSpaces'], 'readwrite');
+      const store = transaction.objectStore('chatSpaces');
+      const request = store.delete(chatSpaceId);
+
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve();
+    });
+  }
+
+  async addMessageToChatSpace(chatSpaceId: string, message: Omit<ChatSpaceMessage, 'id'>): Promise<ChatSpaceMessage> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    // チャットスペースストアの存在を確認
+    if (!this.db.objectStoreNames.contains('chatSpaces')) {
+      throw new Error('Chat spaces not supported in this database version');
+    }
+
+    return new Promise(async (resolve, reject) => {
+      try {
+        // チャットスペースを取得
+        const transaction = this.db!.transaction(['chatSpaces'], 'readwrite');
+        const store = transaction.objectStore('chatSpaces');
+        const getRequest = store.get(chatSpaceId);
+
+        getRequest.onsuccess = () => {
+          const chatSpace = getRequest.result;
+          if (!chatSpace) {
+            reject(new Error('Chat space not found'));
+            return;
+          }
+
+          // 新しいメッセージを追加
+          const newMessage: ChatSpaceMessage = {
+            ...message,
+            id: generateUniqueId('message'),
+          };
+
+          const updatedChatSpace = {
+            ...chatSpace,
+            messages: [...(chatSpace.messages || []), newMessage],
+            updatedAt: new Date()
+          };
+
+          const putRequest = store.put(updatedChatSpace);
+          putRequest.onerror = () => reject(putRequest.error);
+          putRequest.onsuccess = () => resolve(newMessage);
+        };
+
+        getRequest.onerror = () => reject(getRequest.error);
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  async updateChatSpaceSelectedFiles(chatSpaceId: string, selectedFiles: string[]): Promise<void> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    // チャットスペースストアの存在を確認
+    if (!this.db.objectStoreNames.contains('chatSpaces')) {
+      return; // ストアが存在しない場合は何もしない
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(['chatSpaces'], 'readwrite');
+      const store = transaction.objectStore('chatSpaces');
+      const getRequest = store.get(chatSpaceId);
+
+      getRequest.onsuccess = () => {
+        const chatSpace = getRequest.result;
+        if (!chatSpace) {
+          reject(new Error('Chat space not found'));
+          return;
+        }
+
+        const updatedChatSpace = {
+          ...chatSpace,
+          selectedFiles,
+          updatedAt: new Date()
+        };
+
+        const putRequest = store.put(updatedChatSpace);
+        putRequest.onerror = () => reject(putRequest.error);
+        putRequest.onsuccess = () => resolve();
+      };
+
+      getRequest.onerror = () => reject(getRequest.error);
     });
   }
 }
