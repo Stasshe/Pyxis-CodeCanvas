@@ -152,31 +152,51 @@ export default function AIAgent({
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div
+      className="flex flex-col h-full w-full"
+      style={{
+        background: colors.background,
+        borderRadius: 10,
+        boxShadow: '0 2px 16px 0 rgba(0,0,0,0.10)',
+        border: `1px solid ${colors.border}`,
+        overflow: 'hidden',
+      }}
+    >
       {/* ヘッダー */}
-      <div 
-        className="flex items-center justify-between p-3 border-b"
-        style={{ borderColor: colors.border }}
+      <div
+        className="flex items-center justify-between px-5 py-3 border-b"
+        style={{
+          borderColor: colors.border,
+          background: colors.cardBg,
+          boxShadow: '0 1px 0 0 ' + colors.border,
+        }}
       >
-        <h2 className="text-lg font-semibold" style={{ color: colors.foreground }}>
+        <h2
+          className="text-lg font-bold tracking-tight"
+          style={{ color: colors.foreground, letterSpacing: '-0.5px' }}
+        >
           AI Agent
         </h2>
         <div className="flex gap-2">
           <button
-            className={`px-3 py-1 text-xs rounded ${currentMode === 'chat' ? 'font-semibold' : ''}`}
-            style={{ 
-              background: currentMode === 'chat' ? colors.accent : colors.mutedBg,
-              color: currentMode === 'chat' ? colors.background : colors.mutedFg
+            className={`px-4 py-1 text-xs rounded-md transition font-semibold border focus:outline-none ${currentMode === 'chat' ? '' : ''}`}
+            style={{
+              background: currentMode === 'chat' ? colors.accent : colors.background,
+              color: currentMode === 'chat' ? colors.accentFg : colors.mutedFg,
+              borderColor: currentMode === 'chat' ? colors.primary : colors.border,
+              boxShadow: currentMode === 'chat' ? `0 2px 8px 0 ${colors.accent}33` : 'none',
             }}
             onClick={() => setCurrentMode('chat')}
           >
             チャット
           </button>
           <button
-            className={`px-3 py-1 text-xs rounded ${currentMode === 'edit' ? 'font-semibold' : ''}`}
-            style={{ 
-              background: currentMode === 'edit' ? colors.accent : colors.mutedBg,
-              color: currentMode === 'edit' ? colors.background : colors.mutedFg
+            className={`px-4 py-1 text-xs rounded-md transition font-semibold border focus:outline-none ${currentMode === 'edit' ? '' : ''}`}
+            style={{
+              background: currentMode === 'edit' ? colors.accent : colors.background,
+              color: currentMode === 'edit' ? colors.accentFg : colors.mutedFg,
+              borderColor: currentMode === 'edit' ? colors.primary : colors.border,
+              boxShadow: currentMode === 'edit' ? `0 2px 8px 0 ${colors.accent}33` : 'none',
             }}
             onClick={() => setCurrentMode('edit')}
           >
@@ -186,17 +206,25 @@ export default function AIAgent({
       </div>
 
       {/* ファイルコンテキスト */}
-      <div 
-        className="p-3 border-b"
-        style={{ borderColor: colors.border }}
+      <div
+        className="px-5 py-3 border-b"
+        style={{
+          borderColor: colors.border,
+          background: colors.background,
+        }}
       >
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium" style={{ color: colors.foreground }}>
+          <span className="text-xs font-semibold tracking-wide" style={{ color: colors.sidebarTitleFg }}>
             ファイルコンテキスト
           </span>
           <button
-            className="text-xs px-2 py-1 rounded"
-            style={{ background: colors.accent, color: colors.background }}
+            className="text-xs px-3 py-1 rounded-md border font-medium hover:opacity-90 transition"
+            style={{
+              background: colors.accent,
+              color: colors.accentFg,
+              borderColor: colors.primary,
+              boxShadow: `0 1px 4px 0 ${colors.accent}22`,
+            }}
             onClick={() => setIsFileSelectorOpen(true)}
           >
             ファイル選択
@@ -209,14 +237,14 @@ export default function AIAgent({
       </div>
 
       {/* メインコンテンツ */}
-      <div className="flex-1 flex flex-col min-h-0">
+      <div className="flex-1 flex flex-col min-h-0" style={{ background: colors.background }}>
         {currentMode === 'chat' ? (
           <>
             {/* チャットメッセージ */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-3">
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4" style={{ background: colors.background }}>
               {messages.length === 0 ? (
-                <div 
-                  className="text-center text-sm"
+                <div
+                  className="text-center text-sm opacity-70"
                   style={{ color: colors.mutedFg }}
                 >
                   AIとチャットを開始しましょう
@@ -229,24 +257,26 @@ export default function AIAgent({
             </div>
 
             {/* チャット入力 */}
-            <EditRequestForm
-              mode="chat"
-              onSubmit={handleSendMessage}
-              isProcessing={isProcessing}
-              placeholder="AIに質問やコード相談をしてください..."
-            />
+            <div className="px-5 pb-4 pt-2 border-t" style={{ borderColor: colors.border, background: colors.cardBg }}>
+              <EditRequestForm
+                mode="chat"
+                onSubmit={handleSendMessage}
+                isProcessing={isProcessing}
+                placeholder="AIに質問やコード相談をしてください..."
+              />
+            </div>
           </>
         ) : (
           <>
             {/* 編集結果 */}
-            <div className="flex-1 overflow-y-auto p-3">
+            <div className="flex-1 overflow-y-auto px-5 py-4" style={{ background: colors.background }}>
               {isProcessing && currentMode === 'edit' ? (
                 <div className="flex flex-col items-center justify-center py-8">
-                  <div 
+                  <div
                     className="w-8 h-8 border-4 border-current border-t-transparent rounded-full animate-spin mb-4"
-                    style={{ borderColor: `${colors.accent} transparent ${colors.accent} ${colors.accent}` }}
+                    style={{ borderColor: `${colors.primary} transparent ${colors.primary} ${colors.primary}` }}
                   ></div>
-                  <div style={{ color: colors.foreground }} className="text-sm font-medium mb-2">
+                  <div style={{ color: colors.foreground }} className="text-sm font-semibold mb-2">
                     AIが編集を実行中...
                   </div>
                   <div style={{ color: colors.mutedFg }} className="text-xs text-center">
@@ -262,8 +292,8 @@ export default function AIAgent({
                   onDiscardChanges={handleDiscardChanges}
                 />
               ) : (
-                <div 
-                  className="text-center text-sm"
+                <div
+                  className="text-center text-sm opacity-70"
                   style={{ color: colors.mutedFg }}
                 >
                   ファイルを選択して編集指示を入力してください
@@ -272,12 +302,14 @@ export default function AIAgent({
             </div>
 
             {/* 編集入力 */}
-            <EditRequestForm
-              mode="edit"
-              onSubmit={handleExecuteEdit}
-              isProcessing={isProcessing}
-              placeholder="コードの編集指示を入力してください..."
-            />
+            <div className="px-5 pb-4 pt-2 border-t" style={{ borderColor: colors.border, background: colors.cardBg }}>
+              <EditRequestForm
+                mode="edit"
+                onSubmit={handleExecuteEdit}
+                isProcessing={isProcessing}
+                placeholder="コードの編集指示を入力してください..."
+              />
+            </div>
           </>
         )}
       </div>
