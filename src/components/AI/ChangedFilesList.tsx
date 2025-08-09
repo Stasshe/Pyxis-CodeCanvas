@@ -11,23 +11,106 @@ interface ChangedFilesListProps {
   onOpenReview: (filePath: string, originalContent: string, suggestedContent: string) => void;
   onApplyChanges: (filePath: string, content: string) => void;
   onDiscardChanges: (filePath: string) => void;
+  compact?: boolean;
 }
 
 export default function ChangedFilesList({
   changedFiles,
   onOpenReview,
   onApplyChanges,
-  onDiscardChanges
+  onDiscardChanges,
+  compact = false
 }: ChangedFilesListProps) {
   const { colors } = useTheme();
 
   if (changedFiles.length === 0) {
     return (
       <div 
-        className="text-center text-sm py-8"
+        className={`text-center ${compact ? 'text-xs' : 'text-sm'} py-8`}
         style={{ color: colors.mutedFg }}
       >
         変更されたファイルはありません
+      </div>
+    );
+  }
+
+  if (compact) {
+    return (
+      <div className="space-y-2">
+        <div 
+          className="text-xs font-medium"
+          style={{ color: colors.foreground }}
+        >
+          変更されたファイル ({changedFiles.length})
+        </div>
+
+        {changedFiles.map((file, index) => (
+          <div
+            key={index}
+            className="border rounded p-2"
+            style={{ borderColor: colors.border, background: colors.mutedBg }}
+          >
+            {/* ファイル名と操作ボタン */}
+            <div className="flex items-center justify-between mb-1">
+              <div 
+                className="font-medium text-xs"
+                style={{ color: colors.foreground }}
+              >
+                {file.path}
+              </div>
+              <div className="flex gap-1">
+                <button
+                  className="text-xs px-2 py-1 rounded hover:opacity-80"
+                  style={{ background: colors.accent, color: colors.accentFg }}
+                  onClick={() => onOpenReview(file.path, file.originalContent, file.suggestedContent)}
+                >
+                  レビュー
+                </button>
+                <button
+                  className="text-xs px-2 py-1 rounded border hover:opacity-80"
+                  style={{ 
+                    background: 'transparent', 
+                    color: colors.foreground,
+                    borderColor: colors.border
+                  }}
+                  onClick={() => onApplyChanges(file.path, file.suggestedContent)}
+                >
+                  適用
+                </button>
+                <button
+                  className="text-xs px-2 py-1 rounded hover:opacity-80"
+                  style={{ background: colors.red, color: colors.accentFg }}
+                  onClick={() => onDiscardChanges(file.path)}
+                >
+                  破棄
+                </button>
+              </div>
+            </div>
+
+            {/* 変更理由（コンパクト） */}
+            {file.explanation && (
+              <div 
+                className="text-xs mb-1"
+                style={{ color: colors.mutedFg }}
+              >
+                {file.explanation}
+              </div>
+            )}
+
+            {/* 統計情報 */}
+            <div 
+              className="flex gap-2 text-xs"
+              style={{ color: colors.mutedFg }}
+            >
+              <span>元: {file.originalContent.split('\n').length}行</span>
+              <span>新: {file.suggestedContent.split('\n').length}行</span>
+              <span>
+                差分: {file.suggestedContent.split('\n').length - file.originalContent.split('\n').length > 0 ? '+' : ''}
+                {file.suggestedContent.split('\n').length - file.originalContent.split('\n').length}行
+              </span>
+            </div>
+          </div>
+        ))}
       </div>
     );
   }

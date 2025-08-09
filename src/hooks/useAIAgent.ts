@@ -123,7 +123,12 @@ export function useAIAgent(props?: UseAIAgentProps) {
       // レスポンスをパース
       const editResponse = parseEditResponse(response, selectedFiles);
       
-      // AI応答メッセージを追加
+      console.log('[useAIAgent] Parsed edit response:', {
+        changedFilesCount: editResponse.changedFiles.length,
+        files: editResponse.changedFiles.map(f => ({ path: f.path, hasContent: !!f.suggestedContent }))
+      });
+      
+      // AI応答メッセージを追加（editResponseも含める）
       await addMessage({
         type: 'assistant',
         content: `${editResponse.changedFiles.length}個のファイルを編集しました。\n\n${editResponse.message}`
@@ -168,6 +173,15 @@ export function useAIAgent(props?: UseAIAgentProps) {
     setLocalMessages([]);
   }, []);
 
+  // メッセージのeditResponseを更新する関数
+  const updateMessageEditResponse = useCallback(async (messageId: string, updatedEditResponse: AIEditResponse) => {
+    if (props?.onAddMessage && props?.messages) {
+      // チャットスペースのメッセージを更新する必要がある場合の処理
+      // この実装は、ChatSpaceの更新機能が必要
+      console.log('Message edit response updated:', messageId, updatedEditResponse);
+    }
+  }, [props?.onAddMessage, props?.messages]);
+
   return {
     messages,
     isProcessing,
@@ -177,7 +191,8 @@ export function useAIAgent(props?: UseAIAgentProps) {
     updateFileContexts,
     toggleFileSelection,
     clearMessages,
-    addMessage
+    addMessage,
+    updateMessageEditResponse
   };
 }
 

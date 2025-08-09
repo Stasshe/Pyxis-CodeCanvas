@@ -520,9 +520,25 @@ class ProjectDB {
           updatedAt: new Date(cs.updatedAt),
           messages: cs.messages?.map((msg: any) => ({
             ...msg,
-            timestamp: new Date(msg.timestamp)
+            timestamp: new Date(msg.timestamp),
+            // editResponseがある場合は適切にデシリアライズ
+            editResponse: msg.editResponse ? {
+              ...msg.editResponse,
+              changedFiles: msg.editResponse.changedFiles || []
+            } : undefined
           })) || []
         }));
+        
+        console.log('[DB] Loaded chat spaces:', chatSpaces.length, 'spaces');
+        chatSpaces.forEach(space => {
+          console.log(`[DB] Space "${space.name}": ${space.messages.length} messages`);
+          space.messages.forEach((msg: ChatSpaceMessage) => {
+            if (msg.editResponse) {
+              console.log(`[DB] Message ${msg.id} has editResponse with ${msg.editResponse.changedFiles.length} files`);
+            }
+          });
+        });
+        
         resolve(chatSpaces.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()));
       };
     });
@@ -578,6 +594,14 @@ class ProjectDB {
             id: generateUniqueId('message'),
           };
 
+          console.log('[DB] Adding message to chat space:', {
+            chatSpaceId,
+            messageType: newMessage.type,
+            mode: newMessage.mode,
+            hasEditResponse: !!newMessage.editResponse,
+            editResponseFiles: newMessage.editResponse?.changedFiles?.length || 0
+          });
+
           const updatedChatSpace = {
             ...chatSpace,
             messages: [...(chatSpace.messages || []), newMessage],
@@ -585,12 +609,22 @@ class ProjectDB {
           };
 
           const putRequest = store.put(updatedChatSpace);
-          putRequest.onerror = () => reject(putRequest.error);
-          putRequest.onsuccess = () => resolve(newMessage);
+          putRequest.onerror = () => {
+            console.error('[DB] Failed to save message:', putRequest.error);
+            reject(putRequest.error);
+          };
+          putRequest.onsuccess = () => {
+            console.log('[DB] Message saved successfully:', newMessage.id);
+            resolve(newMessage);
+          };
         };
 
-        getRequest.onerror = () => reject(getRequest.error);
+        getRequest.onerror = () => {
+          console.error('[DB] Failed to get chat space:', getRequest.error);
+          reject(getRequest.error);
+        };
       } catch (error) {
+        console.error('[DB] Error in addMessageToChatSpace:', error);
         reject(error);
       }
     });

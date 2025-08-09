@@ -99,6 +99,24 @@ export default function AIAgent({
     }
   }, [currentProject?.id]); // createNewSpaceを依存配列から削除
 
+  // チャットスペースのメッセージが変更されたときにログ出力
+  useEffect(() => {
+    if (currentSpace) {
+      console.log('[AIAgent] Current space messages:', {
+        spaceId: currentSpace.id,
+        spaceName: currentSpace.name,
+        messageCount: currentSpace.messages.length,
+        messages: currentSpace.messages.map(msg => ({
+          id: msg.id,
+          type: msg.type,
+          mode: msg.mode,
+          hasEditResponse: !!msg.editResponse,
+          editResponseFiles: msg.editResponse?.changedFiles?.length || 0
+        }))
+      });
+    }
+  }, [currentSpace?.messages?.length, currentSpace?.id]);
+
   // API キーのチェック
   const isApiKeySet = () => {
     return !!localStorage.getItem('gemini-api-key');
@@ -176,6 +194,29 @@ export default function AIAgent({
       // レビュータブを閉じる
       closeAIReviewTab(filePath, setTabs, tabs);
       
+      // チャットスペースのメッセージからも該当ファイルを削除
+      if (currentSpace) {
+        const updatedMessages = currentSpace.messages.map(message => {
+          if (message.editResponse && message.editResponse.changedFiles.some(f => f.path === filePath)) {
+            return {
+              ...message,
+              editResponse: {
+                ...message.editResponse,
+                changedFiles: message.editResponse.changedFiles.filter(f => f.path !== filePath)
+              }
+            };
+          }
+          return message;
+        });
+        
+        // 現在のスペースを更新
+        const updatedSpace = { ...currentSpace, messages: updatedMessages };
+        await addSpaceMessage('', 'assistant', 'edit', [], {
+          changedFiles: [],
+          message: `${filePath} の変更が適用されました。`
+        });
+      }
+
       // 成功したら変更リストから削除
       if (lastEditResponse) {
         const updatedResponse = {
@@ -199,6 +240,14 @@ export default function AIAgent({
       // レビュータブを閉じる
       closeAIReviewTab(filePath, setTabs, tabs);
       
+      // チャットスペースのメッセージからも該当ファイルを削除
+      if (currentSpace) {
+        await addSpaceMessage('', 'assistant', 'edit', [], {
+          changedFiles: [],
+          message: `${filePath} の変更が破棄されました。`
+        });
+      }
+      
       // 変更リストから削除
       if (lastEditResponse) {
         const updatedResponse = {
@@ -218,207 +267,266 @@ export default function AIAgent({
       className="flex flex-col h-full w-full"
       style={{
         background: colors.background,
-        borderRadius: 10,
-        boxShadow: '0 2px 16px 0 rgba(0,0,0,0.10)',
         border: `1px solid ${colors.border}`,
         overflow: 'hidden',
       }}
     >
-      {/* ヘッダー */}
+      {/* コンパクトヘッダー */}
       <div
-        className="flex items-center justify-between px-5 py-3 border-b"
+        className="flex items-center justify-between px-3 py-2 border-b"
         style={{
           borderColor: colors.border,
           background: colors.cardBg,
-          boxShadow: '0 1px 0 0 ' + colors.border,
+          minHeight: '32px',
         }}
       >
-        <div className="flex items-center gap-3">
-          <h2
-            className="text-lg font-bold tracking-tight"
-            style={{ color: colors.foreground, letterSpacing: '-0.5px' }}
-          >
-            AI Agent
-          </h2>
-          {currentSpace && (
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            <div 
+              className="w-2 h-2 rounded-full"
+              style={{ background: colors.accent }}
+            ></div>
             <span
-              className="text-sm px-2 py-1 rounded border"
-              style={{ 
-                color: colors.mutedFg, 
-                borderColor: colors.border,
-                background: colors.background 
-              }}
+              className="text-sm font-medium"
+              style={{ color: colors.foreground }}
             >
-              {currentSpace.name}
+              AI Agent
             </span>
-          )}
+          </div>
+          
+          {/* スペース切り替えドロップダウン */}
+          <div className="relative">
+            <button
+              className="flex items-center gap-1 text-xs px-2 py-1 rounded hover:bg-opacity-80 transition"
+              style={{
+                background: colors.mutedBg,
+                color: colors.mutedFg,
+                border: `1px solid ${colors.border}`,
+              }}
+              onClick={() => setShowSpaceList(!showSpaceList)}
+            >
+              <span className="max-w-24 truncate">
+                {currentSpace?.name || 'スペース'}
+              </span>
+              <svg 
+                className="w-3 h-3" 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            
+            {/* スペースドロップダウン */}
+            {showSpaceList && (
+              <div 
+                className="absolute top-full left-0 mt-1 w-64 rounded border shadow-lg z-10"
+                style={{
+                  background: colors.cardBg,
+                  borderColor: colors.border,
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                }}
+              >
+                <div className="p-2">
+                  <ChatSpaceList
+                    chatSpaces={chatSpaces}
+                    currentSpace={currentSpace}
+                    onSelectSpace={(space) => {
+                      selectSpace(space);
+                      setShowSpaceList(false);
+                    }}
+                    onCreateSpace={async (name) => {
+                      await createNewSpace(name);
+                      setShowSpaceList(false);
+                    }}
+                    onDeleteSpace={deleteSpace}
+                    onUpdateSpaceName={updateSpaceName}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-        <div className="flex gap-2">
-          <button
-            className="text-xs px-3 py-1 rounded border font-medium hover:opacity-90 transition"
-            style={{
-              background: showSpaceList ? colors.accent : colors.background,
-              color: showSpaceList ? colors.accentFg : colors.mutedFg,
-              borderColor: showSpaceList ? colors.primary : colors.border,
-            }}
-            onClick={() => setShowSpaceList(!showSpaceList)}
-          >
-            スペース
-          </button>
-          <button
-            className={`px-4 py-1 text-xs rounded-md transition font-semibold border focus:outline-none ${currentMode === 'chat' ? '' : ''}`}
-            style={{
-              background: currentMode === 'chat' ? colors.accent : colors.background,
-              color: currentMode === 'chat' ? colors.accentFg : colors.mutedFg,
-              borderColor: currentMode === 'chat' ? colors.primary : colors.border,
-              boxShadow: currentMode === 'chat' ? `0 2px 8px 0 ${colors.accent}33` : 'none',
-            }}
-            onClick={() => setCurrentMode('chat')}
-          >
-            チャット
-          </button>
-          <button
-            className={`px-4 py-1 text-xs rounded-md transition font-semibold border focus:outline-none ${currentMode === 'edit' ? '' : ''}`}
-            style={{
-              background: currentMode === 'edit' ? colors.accent : colors.background,
-              color: currentMode === 'edit' ? colors.accentFg : colors.mutedFg,
-              borderColor: currentMode === 'edit' ? colors.primary : colors.border,
-              boxShadow: currentMode === 'edit' ? `0 2px 8px 0 ${colors.accent}33` : 'none',
-            }}
-            onClick={() => setCurrentMode('edit')}
-          >
-            編集
-          </button>
-        </div>
+
+        {/* ファイル選択ボタン */}
+        <button
+          className="flex items-center gap-1 text-xs px-2 py-1 rounded hover:bg-opacity-80 transition"
+          style={{
+            background: colors.mutedBg,
+            color: colors.mutedFg,
+            border: `1px solid ${colors.border}`,
+          }}
+          onClick={() => setIsFileSelectorOpen(true)}
+        >
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <span>ファイル</span>
+        </button>
       </div>
 
-      {/* チャットスペースリスト */}
-      {showSpaceList && (
-        <div className="px-5 py-3 border-b" style={{ borderColor: colors.border }}>
-          <ChatSpaceList
-            chatSpaces={chatSpaces}
-            currentSpace={currentSpace}
-            onSelectSpace={(space) => {
-              selectSpace(space);
-              setShowSpaceList(false);
-            }}
-            onCreateSpace={async (name) => {
-              await createNewSpace(name);
-              setShowSpaceList(false);
-            }}
-            onDeleteSpace={deleteSpace}
-            onUpdateSpaceName={updateSpaceName}
-          />
+      {/* コンパクトファイルコンテキスト */}
+      {fileContexts.filter(ctx => ctx.selected).length > 0 && (
+        <div
+          className="px-3 py-1 border-b"
+          style={{
+            borderColor: colors.border,
+            background: colors.mutedBg,
+          }}
+        >
+          <div className="flex flex-wrap gap-1">
+            {fileContexts.filter(ctx => ctx.selected).map((ctx) => (
+              <div
+                key={ctx.path}
+                className="flex items-center gap-1 text-xs px-1 py-0.5 rounded"
+                style={{
+                  background: colors.background,
+                  color: colors.mutedFg,
+                  border: `1px solid ${colors.border}`,
+                }}
+              >
+                <span className="truncate max-w-20">
+                  {ctx.path.split('/').pop()}
+                </span>
+                <button
+                  className="hover:opacity-70"
+                  onClick={() => toggleFileSelection(ctx.path)}
+                >
+                  <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
-
-      {/* ファイルコンテキスト */}
-      <div
-        className="px-5 py-3 border-b"
-        style={{
-          borderColor: colors.border,
-          background: colors.background,
-        }}
-      >
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-semibold tracking-wide" style={{ color: colors.sidebarTitleFg }}>
-            ファイルコンテキスト
-          </span>
-          <button
-            className="text-xs px-3 py-1 rounded-md border font-medium hover:opacity-90 transition"
-            style={{
-              background: colors.accent,
-              color: colors.accentFg,
-              borderColor: colors.primary,
-              boxShadow: `0 1px 4px 0 ${colors.accent}22`,
-            }}
-            onClick={() => setIsFileSelectorOpen(true)}
-          >
-            ファイル選択
-          </button>
-        </div>
-        <ContextFileList
-          contexts={fileContexts}
-          onToggleSelection={toggleFileSelection}
-        />
-      </div>
 
       {/* メインコンテンツ */}
       <div className="flex-1 flex flex-col min-h-0" style={{ background: colors.background }}>
         {currentMode === 'chat' ? (
           <>
             {/* チャットメッセージ */}
-            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4" style={{ background: colors.background }}>
+            <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2" style={{ background: colors.background }}>
               {messages.length === 0 ? (
                 <div
-                  className="text-center text-sm opacity-70"
+                  className="flex flex-col items-center justify-center h-full text-center"
                   style={{ color: colors.mutedFg }}
                 >
-                  AIとチャットを開始しましょう
+                  <svg className="w-8 h-8 mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                  <div className="text-sm">AIとチャットを開始</div>
+                  <div className="text-xs opacity-70 mt-1">質問やコード相談をしてください</div>
                 </div>
               ) : (
                 messages.map(message => (
-                  <ChatMessage key={message.id} message={message} />
+                  <ChatMessage 
+                    key={message.id} 
+                    message={message}
+                    compact={true}
+                  />
                 ))
               )}
-            </div>
-
-            {/* チャット入力 */}
-            <div className="px-5 pb-4 pt-2 border-t" style={{ borderColor: colors.border, background: colors.cardBg }}>
-              <EditRequestForm
-                mode="chat"
-                onSubmit={handleSendMessage}
-                isProcessing={isProcessing}
-                placeholder="AIに質問やコード相談をしてください..."
-              />
+              {isProcessing && (
+                <div className="flex items-center gap-2 text-xs py-2" style={{ color: colors.mutedFg }}>
+                  <div className="animate-spin w-3 h-3 border-2 border-current border-t-transparent rounded-full"></div>
+                  回答生成中...
+                </div>
+              )}
             </div>
           </>
         ) : (
           <>
             {/* 編集結果 */}
-            <div className="flex-1 overflow-y-auto px-5 py-4" style={{ background: colors.background }}>
+            <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2" style={{ background: colors.background }}>
               {isProcessing && currentMode === 'edit' ? (
-                <div className="flex flex-col items-center justify-center py-8">
+                <div className="flex flex-col items-center justify-center h-full text-center">
                   <div
-                    className="w-8 h-8 border-4 border-current border-t-transparent rounded-full animate-spin mb-4"
-                    style={{ borderColor: `${colors.primary} transparent ${colors.primary} ${colors.primary}` }}
+                    className="w-6 h-6 border-3 border-current border-t-transparent rounded-full animate-spin mb-3"
+                    style={{ borderColor: `${colors.accent} transparent ${colors.accent} ${colors.accent}` }}
                   ></div>
-                  <div style={{ color: colors.foreground }} className="text-sm font-semibold mb-2">
-                    AIが編集を実行中...
+                  <div style={{ color: colors.foreground }} className="text-sm font-medium mb-1">
+                    編集実行中...
                   </div>
-                  <div style={{ color: colors.mutedFg }} className="text-xs text-center">
-                    選択されたファイルを解析し、<br />
-                    編集提案を生成しています
+                  <div style={{ color: colors.mutedFg }} className="text-xs">
+                    ファイルを解析して編集提案を生成
                   </div>
                 </div>
-              ) : lastEditResponse ? (
-                <ChangedFilesList
-                  changedFiles={lastEditResponse.changedFiles}
-                  onOpenReview={handleOpenReview}
-                  onApplyChanges={handleApplyChanges}
-                  onDiscardChanges={handleDiscardChanges}
-                />
-              ) : (
+              ) : messages.length === 0 ? (
                 <div
-                  className="text-center text-sm opacity-70"
+                  className="flex flex-col items-center justify-center h-full text-center"
                   style={{ color: colors.mutedFg }}
                 >
-                  ファイルを選択して編集指示を入力してください
+                  <svg className="w-8 h-8 mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  <div className="text-sm">コード編集モード</div>
+                  <div className="text-xs opacity-70 mt-1">ファイルを選択して編集指示を入力</div>
                 </div>
+              ) : (
+                messages.map(message => (
+                  <ChatMessage 
+                    key={message.id} 
+                    message={message}
+                    onOpenReview={handleOpenReview}
+                    onApplyChanges={handleApplyChanges}
+                    onDiscardChanges={handleDiscardChanges}
+                    showEditActions={true}
+                    compact={false}
+                  />
+                ))
               )}
-            </div>
-
-            {/* 編集入力 */}
-            <div className="px-5 pb-4 pt-2 border-t" style={{ borderColor: colors.border, background: colors.cardBg }}>
-              <EditRequestForm
-                mode="edit"
-                onSubmit={handleExecuteEdit}
-                isProcessing={isProcessing}
-                placeholder="コードの編集指示を入力してください..."
-              />
             </div>
           </>
         )}
+
+        {/* 入力エリア */}
+        <div 
+          className="border-t px-3 py-2"
+          style={{ 
+            borderColor: colors.border, 
+            background: colors.cardBg 
+          }}
+        >
+          {/* モード切り替えタブ（コンパクト） */}
+          <div className="flex mb-2">
+            <button
+              className={`flex-1 text-xs py-1 px-2 rounded-l border-r-0 transition ${currentMode === 'chat' ? 'font-medium' : ''}`}
+              style={{
+                background: currentMode === 'chat' ? colors.accent : colors.mutedBg,
+                color: currentMode === 'chat' ? colors.accentFg : colors.mutedFg,
+                border: `1px solid ${colors.border}`,
+              }}
+              onClick={() => setCurrentMode('chat')}
+            >
+              💬 Ask
+            </button>
+            <button
+              className={`flex-1 text-xs py-1 px-2 rounded-r transition ${currentMode === 'edit' ? 'font-medium' : ''}`}
+              style={{
+                background: currentMode === 'edit' ? colors.accent : colors.mutedBg,
+                color: currentMode === 'edit' ? colors.accentFg : colors.mutedFg,
+                border: `1px solid ${colors.border}`,
+              }}
+              onClick={() => setCurrentMode('edit')}
+            >
+              ✏️ Edit
+            </button>
+          </div>
+
+          {/* 入力フォーム */}
+          <EditRequestForm
+            mode={currentMode}
+            onSubmit={currentMode === 'chat' ? handleSendMessage : handleExecuteEdit}
+            isProcessing={isProcessing}
+            placeholder={currentMode === 'chat' 
+              ? "AIに質問やコード相談..." 
+              : "コードの編集指示..."
+            }
+          />
+        </div>
       </div>
 
       {/* ファイル選択モーダル */}

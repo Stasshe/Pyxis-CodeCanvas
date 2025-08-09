@@ -93,7 +93,20 @@ export const useChatSpace = (projectId: string | null) => {
 
   // メッセージを追加
   const addMessage = async (content: string, type: 'user' | 'assistant', mode: 'chat' | 'edit', fileContext?: string[], editResponse?: AIEditResponse): Promise<ChatSpaceMessage | null> => {
-    if (!currentSpace) return null;
+    if (!currentSpace) {
+      console.error('[useChatSpace] No current space available for adding message');
+      return null;
+    }
+
+    console.log('[useChatSpace] Adding message:', {
+      spaceId: currentSpace.id,
+      type,
+      mode,
+      hasFileContext: !!fileContext,
+      fileContextLength: fileContext?.length || 0,
+      hasEditResponse: !!editResponse,
+      editResponseFiles: editResponse?.changedFiles?.length || 0
+    });
 
     try {
       const newMessage = await projectDB.addMessageToChatSpace(currentSpace.id, {
@@ -104,6 +117,8 @@ export const useChatSpace = (projectId: string | null) => {
         fileContext,
         editResponse
       });
+
+      console.log('[useChatSpace] Message added successfully:', newMessage.id);
 
       // 現在のスペースのメッセージを更新
       setCurrentSpace(prev => {
@@ -126,7 +141,7 @@ export const useChatSpace = (projectId: string | null) => {
 
       return newMessage;
     } catch (error) {
-      console.error('Failed to add message:', error);
+      console.error('[useChatSpace] Failed to add message:', error);
       return null;
     }
   };
