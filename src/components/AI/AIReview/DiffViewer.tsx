@@ -7,18 +7,21 @@ import { useTheme } from '@/context/ThemeContext';
 import { calculateDiff, groupDiffLines, calculateWordDiff } from '@/utils/ai/diffProcessor';
 import type { DiffLine, DiffBlock } from '@/utils/ai/diffProcessor';
 
+type DiffViewMode = 'block' | 'inline';
 interface DiffViewerProps {
   oldValue: string;
   newValue: string;
   onApplyBlock?: (startLine: number, endLine: number, content: string) => void;
   onDiscardBlock?: (startLine: number, endLine: number) => void;
+  viewMode?: DiffViewMode;
 }
 
 export default function DiffViewer({ 
   oldValue, 
   newValue, 
   onApplyBlock, 
-  onDiscardBlock 
+  onDiscardBlock, 
+  viewMode = 'block',
 }: DiffViewerProps) {
   const { colors } = useTheme();
   const [expandedBlocks, setExpandedBlocks] = useState<Set<number>>(new Set());
@@ -50,6 +53,51 @@ export default function DiffViewer({
     }
   };
 
+  if (viewMode === 'inline') {
+    // 全体リストで各変更ブロックの先頭にボタンを表示
+    let lineGlobalIndex = 0;
+    return (
+      <div className="font-mono text-sm border rounded" style={{ borderColor: colors.border }}>
+        {diffBlocks.map((block, blockIndex) => {
+          if (block.type === 'changed') {
+            return (
+              <React.Fragment key={blockIndex}>
+                {/* 変更ブロック先頭にボタン */}
+                <div className="flex gap-1 items-center px-2 py-1" style={{ background: colors.mutedBg }}>
+                  <span className="text-xs font-medium" style={{ color: colors.foreground }}>
+                    変更ブロック {blockIndex + 1}（行 {block.startLine}-{block.endLine}）
+                  </span>
+                  <button
+                    className="text-xs px-2 py-1 rounded hover:opacity-80"
+                    style={{ background: colors.accent, color: colors.background }}
+                    onClick={() => handleApplyBlock(block)}
+                  >適用</button>
+                  <button
+                    className="text-xs px-2 py-1 rounded hover:opacity-80"
+                    style={{ background: colors.red, color: colors.background }}
+                    onClick={() => handleDiscardBlock(block)}
+                  >破棄</button>
+                </div>
+                {block.lines.map((line, lineIndex) => {
+                  lineGlobalIndex++;
+                  return (
+                    <DiffLineComponent key={lineGlobalIndex} line={line} colors={colors} />
+                  );
+                })}
+              </React.Fragment>
+            );
+          } else {
+            // unchanged
+            return block.lines.map((line, lineIndex) => {
+              lineGlobalIndex++;
+              return <DiffLineComponent key={lineGlobalIndex} line={line} colors={colors} />;
+            });
+          }
+        })}
+      </div>
+    );
+  }
+  // blockモード（従来通り）
   return (
     <div 
       className="font-mono text-sm border rounded"
@@ -83,7 +131,6 @@ export default function DiffViewer({
                     行 {block.startLine}-{block.endLine}
                   </span>
                 </div>
-                
                 <div className="flex gap-1">
                   <button
                     className="text-xs px-2 py-1 rounded hover:opacity-80"
@@ -186,8 +233,8 @@ function DiffLineComponent({ line, colors }: { line: DiffLine; colors: any }) {
     switch (line.type) {
       case 'added':
         return {
-          background: `${colors.accent}20`,
-          borderLeft: `3px solid ${colors.accent}`,
+          background: '#e6ffed', // 緑系背景
+          borderLeft: '3px solid #2ecc40', // 緑系ボーダー
         };
       case 'removed':
         return {
@@ -196,7 +243,7 @@ function DiffLineComponent({ line, colors }: { line: DiffLine; colors: any }) {
         };
       default:
         return {
-          background: colors.editorBg,
+          background: 'none', // 既存行は色なし
         };
     }
   };

@@ -5,6 +5,8 @@
 import React, { useState } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import DiffViewer from './DiffViewer';
+// 差分表示モード
+type DiffViewMode = 'block' | 'inline';
 import type { Tab } from '@/types';
 
 interface AIReviewTabProps {
@@ -26,6 +28,12 @@ export default function AIReviewTab({
   const [currentSuggestedContent, setCurrentSuggestedContent] = useState(
     tab.aiReviewProps?.suggestedContent || ''
   );
+  // 差分表示モード: block=ブロックごと, inline=全体＋各ブロックにボタン
+  const [diffViewMode, setDiffViewMode] = useState<DiffViewMode>('block');
+  // 差分表示モード切り替え
+  const handleToggleDiffViewMode = () => {
+    setDiffViewMode((prev) => (prev === 'block' ? 'inline' : 'block'));
+  };
 
   if (!tab.aiReviewProps) {
     return (
@@ -120,8 +128,16 @@ export default function AIReviewTab({
             {filePath}
           </p>
         </div>
-        
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          {/* 差分表示モード切り替え */}
+          <button
+            className="px-2 py-1 text-xs rounded border hover:opacity-80"
+            style={{ background: 'transparent', color: colors.mutedFg, borderColor: colors.border }}
+            onClick={handleToggleDiffViewMode}
+            title="表示モード切替"
+          >
+            {diffViewMode === 'block' ? '全体表示' : 'ブロック表示'}
+          </button>
           <button
             className="px-3 py-1 text-sm rounded border hover:opacity-80"
             style={{ 
@@ -169,6 +185,7 @@ export default function AIReviewTab({
           newValue={currentSuggestedContent}
           onApplyBlock={handleApplyBlock}
           onDiscardBlock={handleDiscardBlock}
+          viewMode={diffViewMode}
         />
       </div>
 
@@ -181,8 +198,11 @@ export default function AIReviewTab({
           color: colors.mutedFg
         }}
       >
-        💡 各変更ブロックの「適用」「破棄」ボタンで部分的に変更を適用できます。
-        最終的に「全て適用」を押すとファイルに反映されます。
+        💡 表示モード: <b>{diffViewMode === 'block' ? 'ブロックごと' : '全体＋各ブロックボタン'}</b>。
+        <br />
+        {diffViewMode === 'block'
+          ? '各変更ブロックの「適用」「破棄」ボタンで部分的に変更を適用できます。最終的に「全て適用」を押すとファイルに反映されます。'
+          : '全体表示の中で各ブロックに「適用」「破棄」ボタンが表示されます。最終的に「全て適用」を押すとファイルに反映されます。'}
       </div>
     </div>
   );
