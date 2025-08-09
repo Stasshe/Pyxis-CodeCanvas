@@ -16,6 +16,10 @@ function guessMimeType(fileName: string, buffer?: ArrayBuffer): string {
   if (ext.match(/\.(webp)$/)) return 'image/webp';
   if (ext.match(/\.(svg)$/)) return 'image/svg+xml';
   if (ext.match(/\.(pdf)$/)) return 'application/pdf';
+  if (ext.match(/\.(mp3)$/)) return 'audio/mpeg';
+  if (ext.match(/\.(wav)$/)) return 'audio/wav';
+  if (ext.match(/\.(ogg)$/)) return 'audio/ogg';
+  if (ext.match(/\.(mp4)$/)) return 'video/mp4';
   // 他はapplication/octet-stream
   return 'application/octet-stream';
 }
@@ -32,6 +36,7 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { highlightActiveLine, highlightActiveLineGutter, highlightSpecialChars, drawSelection } from '@codemirror/view';
 import { highlightSelectionMatches } from '@codemirror/search';
 import { html } from '@codemirror/lang-html';
+import { extent } from 'd3';
 
 interface CodeEditorProps {
   activeTab: Tab | undefined;
@@ -470,6 +475,17 @@ export default function CodeEditor({
         </div>
       );
     }
+    if (mime.startsWith('video/') && buffer) {
+      // 動画ならvideo表示
+      const blob = new Blob([buffer], { type: mime });
+      const url = URL.createObjectURL(blob);
+      return (
+        <div className="flex-1 min-h-0 flex flex-col items-center justify-center" style={{ height: editorHeight }}>
+          <video controls src={url} style={{ width: '90%', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }} />
+          <div style={{ marginTop: 12, color: '#aaa', fontSize: 13 }}>{activeTab.name}</div>
+        </div>
+      );
+    }
     // PDFならiframeで表示
     if (mime === 'application/pdf' && buffer) {
       const blob = new Blob([buffer], { type: mime });
@@ -477,6 +493,17 @@ export default function CodeEditor({
       return (
         <div className="flex-1 min-h-0 flex flex-col items-center justify-center" style={{ height: editorHeight }}>
           <iframe src={url} title={activeTab.name} style={{ width: '90%', height: '90%', border: 'none', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }} />
+          <div style={{ marginTop: 12, color: '#aaa', fontSize: 13 }}>{activeTab.name}</div>
+        </div>
+      );
+    }
+    // 音声ファイルならaudio表示
+    if ((mime === 'audio/mpeg' || mime === 'audio/wav' || mime === 'audio/ogg') && buffer) {
+      const blob = new Blob([buffer], { type: mime });
+      const url = URL.createObjectURL(blob);
+      return (
+        <div className="flex-1 min-h-0 flex flex-col items-center justify-center" style={{ height: editorHeight }}>
+          <audio controls loop src={url} style={{ width: '90%', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }} />
           <div style={{ marginTop: 12, color: '#aaa', fontSize: 13 }}>{activeTab.name}</div>
         </div>
       );
