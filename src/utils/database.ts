@@ -184,16 +184,18 @@ class ProjectDB {
    * バイナリファイル対応: content(string)またはbufferContent(ArrayBuffer)を受け取る
    * @param projectId
    * @param path
-   * @param contentOrBuffer string | ArrayBuffer
+   * @param content string content
    * @param type
    * @param isBufferArray? バイナリファイルの場合true
+   * @param bufferContent? バイナリデータ本体
    */
   async createFile(
     projectId: string,
     path: string,
-    contentOrBuffer: string | ArrayBuffer,
+    content: string,
     type: 'file' | 'folder',
-    isBufferArray?: boolean
+    isBufferArray?: boolean,
+    bufferContent?: ArrayBuffer
   ): Promise<ProjectFile> {
     // 既存ファイルをチェック
     const existingFiles = await this.getProjectFiles(projectId);
@@ -202,12 +204,12 @@ class ProjectDB {
     if (existingFile) {
       if (isBufferArray) {
         existingFile.isBufferArray = true;
-        existingFile.bufferContent = contentOrBuffer as ArrayBuffer;
+        existingFile.bufferContent = bufferContent;
         existingFile.content = '';
         console.log('[DB][createFile] Save bufferContent (update):', existingFile.path, existingFile.bufferContent instanceof ArrayBuffer, existingFile.bufferContent?.byteLength);
       } else {
         existingFile.isBufferArray = false;
-        existingFile.content = contentOrBuffer as string;
+        existingFile.content = content;
         existingFile.bufferContent = undefined;
       }
       existingFile.updatedAt = new Date();
@@ -220,13 +222,13 @@ class ProjectDB {
       projectId,
       path,
       name: path.split('/').pop() || '',
-      content: isBufferArray ? '' : (contentOrBuffer as string),
+      content: isBufferArray ? '' : content,
       type,
       parentPath: path.substring(0, path.lastIndexOf('/')) || '/',
       createdAt: new Date(),
       updatedAt: new Date(),
       isBufferArray: !!isBufferArray,
-      bufferContent: isBufferArray ? (contentOrBuffer as ArrayBuffer) : undefined,
+      bufferContent: isBufferArray ? bufferContent : undefined,
     };
 
     if (isBufferArray) {
@@ -248,7 +250,8 @@ class ProjectDB {
           path: file.path,
           projectName: project.name,
           type,
-          content: file.isBufferArray ? file.bufferContent : file.content,
+          content: file.isBufferArray ? undefined : file.content,
+          bufferContent: file.isBufferArray ? file.bufferContent : undefined,
           isBufferArray: file.isBufferArray,
           timestamp: Date.now()
         });

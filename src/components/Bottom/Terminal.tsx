@@ -8,6 +8,7 @@ import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
 import { handleGitCommand } from './TerminalGitCommands';
 import { handleUnixCommand } from './TerminalUnixCommands';
 import { handleNPMCommand } from './TerminalNPMCommands';
+import { projectDB } from '@/utils/database';
 import { exportPage } from '@/utils/exportPage';
 
 // FileItemの階層構造をフラットな配列に変換
@@ -35,7 +36,7 @@ interface TerminalProps {
   height: number;
   currentProject?: string;
   projectFiles?: FileItem[];
-  onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string | ArrayBuffer, isNodeRuntime?: boolean, isBufferArray?: boolean, bufferContent?: ArrayBuffer) => Promise<void>;
+  onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean, isBufferArray?: boolean, bufferContent?: ArrayBuffer) => Promise<void>;
   isActive?: boolean;
 }
 
@@ -391,8 +392,36 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
               // 修正: パスを正規化して検索
               const normalizedPath = unixCommandsRef.current?.normalizePath(args[0]);
               console.log('[unzip] Normalized path:', normalizedPath);
-              const fileToUnzip = projectFiles.find(file => file.path === normalizedPath);
-              console.log('[unzip] fileToUnzip:', fileToUnzip);
+              let fileToUnzip = projectFiles.find(file => file.path === normalizedPath);
+              console.log('[unzip] fileToUnzip from projectFiles:', fileToUnzip);
+              
+              // projectFilesで見つからない場合は、DBから直接取得
+              if (!fileToUnzip && currentProject) {
+                console.log('[unzip] File not found in projectFiles, checking DB...');
+                try {
+                  const projects = await projectDB.getProjects();
+                  const project = projects.find(p => p.name === currentProject);
+                  if (project) {
+                    const dbFiles = await projectDB.getProjectFiles(project.id);
+                    const dbFile = dbFiles.find(f => f.path === normalizedPath);
+                    if (dbFile && dbFile.isBufferArray && dbFile.bufferContent) {
+                      fileToUnzip = {
+                        id: dbFile.id,
+                        name: dbFile.name,
+                        type: dbFile.type,
+                        path: dbFile.path,
+                        content: dbFile.content,
+                        isBufferArray: dbFile.isBufferArray,
+                        bufferContent: dbFile.bufferContent
+                      } as FileItem;
+                      console.log('[unzip] Found file in DB:', fileToUnzip);
+                    }
+                  }
+                } catch (dbError) {
+                  console.error('[unzip] DB lookup error:', dbError);
+                }
+              }
+              
               if (!fileToUnzip) return await writeOutput(`unzip: ファイルが見つかりません: ${args[0]}`);
               const bufferContent = fileToUnzip.bufferContent;
               if (!bufferContent) return await writeOutput(`unzip: バッファコンテンツが見つかりません: ${args[0]}`);

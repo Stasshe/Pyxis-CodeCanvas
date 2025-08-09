@@ -22,7 +22,7 @@ interface LeftSidebarProps {
   onFileOperation?: (
     path: string,
     type: 'file' | 'folder' | 'delete',
-    content?: string | ArrayBuffer,
+    content?: string,
     isNodeRuntime?: boolean,
     isBufferArray?: boolean,
     bufferContent?: ArrayBuffer

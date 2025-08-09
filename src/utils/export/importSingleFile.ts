@@ -15,25 +15,26 @@ export async function importSingleFile(file: File, targetPath: string, unix: Uni
   const ext = file.name.toLowerCase();
   if (ext.match(/\.(png|jpg|jpeg|gif|bmp|webp|svg|pdf|zip)$/)) isBinary = true;
 
-  let content: string | ArrayBuffer;
+  let content: string;
   let bufferContent: ArrayBuffer | undefined = undefined;
   if (isBinary) {
-    content = await file.arrayBuffer();
-    if (!isBufferArray(content)) {
+    const arrayBuffer = await file.arrayBuffer();
+    if (!isBufferArray(arrayBuffer)) {
       // 念のため再判定
       isBinary = false;
       content = await file.text();
     } else {
-      bufferContent = content as ArrayBuffer;
+      bufferContent = arrayBuffer;
+      content = ''; // バイナリファイルの場合はcontentは空
     }
   } else {
     content = await file.text();
     // テキストだがバイナリだった場合
     if (isBufferArray(content)) {
       isBinary = true;
-      if (typeof content !== 'string') {
-        bufferContent = content;
-      }
+      // この場合は既にstringとして読み込まれているので、再度arrayBufferで読み込む
+      bufferContent = await file.arrayBuffer();
+      content = '';
     }
   }
 
@@ -42,7 +43,7 @@ export async function importSingleFile(file: File, targetPath: string, unix: Uni
   if (isBinary) {
     // バイナリはecho不可なのでスキップ（DB/FS同期のみ）
   } else {
-    await unix.echo(content as string, targetPath);
+    await unix.echo(content, targetPath);
   }
   console.log(`[importSingleFile] ファイルアップロード完了: ${targetPath}`);
 
@@ -55,8 +56,9 @@ export async function importSingleFile(file: File, targetPath: string, unix: Uni
   await syncFileToFileSystem(
     projectName,
     filePath,
-    isBinary ? bufferContent! : (content as string),
-    isBinary ? 'create' : undefined
+    isBinary ? null : content,
+    isBinary ? 'create' : undefined,
+    isBinary ? bufferContent : undefined
   );
   console.log(`[importSingleFile] ファイルシステム同期完了: ${filePath}`);
 }

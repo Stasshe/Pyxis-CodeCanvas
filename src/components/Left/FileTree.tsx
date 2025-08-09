@@ -17,7 +17,7 @@ interface FileTreeProps {
   onFileOperation?: (
     path: string,
     type: 'file' | 'folder' | 'delete',
-    content?: string | ArrayBuffer,
+    content?: string,
     isNodeRuntime?: boolean,
     isBufferArray?: boolean,
     bufferContent?: ArrayBuffer
@@ -356,7 +356,7 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
                       }
                       await importSingleFile(file, targetAbsolutePath, unix);
                       if (typeof onFileOperation === 'function') {
-                        await onFileOperation(targetPath, 'file', content, false, isBinary, isBinary ? (content as ArrayBuffer) : undefined);
+                        await onFileOperation(targetPath, 'file', isBinary ? undefined : (content as string), false, isBinary, isBinary ? (content as ArrayBuffer) : undefined);
                       }
                     };
                     input.click();
@@ -433,7 +433,7 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
                           }
                           await importSingleFile(file, targetAbsolutePath, unix);
                           if (typeof onFileOperation === 'function') {
-                            await onFileOperation(targetPath, 'file', content, false, isBinary, isBinary ? (content as ArrayBuffer) : undefined);
+                            await onFileOperation(targetPath, 'file', isBinary ? undefined : (content as string), false, isBinary, isBinary ? (content as ArrayBuffer) : undefined);
                           }
                         }
                       };

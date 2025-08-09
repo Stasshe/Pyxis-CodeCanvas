@@ -227,8 +227,9 @@ export const syncProjectFiles = async (projectName: string, files: Array<{ path:
 export const syncFileToFileSystem = async (
   projectName: string, 
   filePath: string, 
-  content: string | ArrayBuffer | null, 
-  operation?: 'create' | 'update' | 'delete'
+  content: string | null, 
+  operation?: 'create' | 'update' | 'delete',
+  bufferContent?: ArrayBuffer
 ) => {
   const fs = getFileSystem();
   if (!fs) {
@@ -285,8 +286,8 @@ export const syncFileToFileSystem = async (
       // ファイルを書き込み（バイナリ対応）
       if (typeof content === 'string') {
         await fs.promises.writeFile(fullPath, content);
-      } else if (content instanceof ArrayBuffer) {
-        await fs.promises.writeFile(fullPath, new Uint8Array(content));
+      } else if (bufferContent) {
+        await fs.promises.writeFile(fullPath, new Uint8Array(bufferContent));
       }
       console.log(`[syncFileToFileSystem] Successfully synced: ${fullPath}`);
       
@@ -295,8 +296,9 @@ export const syncFileToFileSystem = async (
         path: filePath,
         projectName,
         type: operation || 'update',
-        content,
-        isBufferArray: content instanceof ArrayBuffer,
+        content: typeof content === 'string' ? content : undefined,
+        bufferContent: bufferContent,
+        isBufferArray: !!bufferContent,
         timestamp: Date.now()
       });
     }

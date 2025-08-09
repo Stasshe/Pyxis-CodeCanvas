@@ -5,7 +5,8 @@ export interface FileChangeEvent {
   path: string;
   projectName: string;
   type: 'create' | 'update' | 'delete';
-  content?: string | ArrayBuffer;
+  content?: string;
+  bufferContent?: ArrayBuffer;
   isBufferArray?: boolean;
   timestamp: number;
 }

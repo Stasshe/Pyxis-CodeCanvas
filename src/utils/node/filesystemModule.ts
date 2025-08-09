@@ -2,14 +2,14 @@ import { getFileSystem } from '@/utils/filesystem';
 import pathBrowserify from 'path-browserify';
 
   // fs モジュールのエミュレーション
-export function createFSModule(projectDir: string, onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>, unixCommands?: any) {
+export function createFSModule(projectDir: string, onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean, isBufferArray?: boolean, bufferContent?: ArrayBuffer) => Promise<void>, unixCommands?: any) {
     const fs = getFileSystem();
     if (!fs) {
         throw new Error("ファイルシステムが初期化されていません");
     }
   
   // 共通ロジックを持つヘルパー関数
-  async function handleWriteFile(fs: any, projectDir: string, path: string, data: string, onFileOperation?: (path: string, type: 'file', content?: string, isNodeRuntime?: boolean) => Promise<void>) {
+  async function handleWriteFile(fs: any, projectDir: string, path: string, data: string, onFileOperation?: (path: string, type: 'file', content?: string, isNodeRuntime?: boolean, isBufferArray?: boolean, bufferContent?: ArrayBuffer) => Promise<void>) {
     let fullPath;
     let relativePath;
     if (path.startsWith('/')) {
@@ -34,7 +34,7 @@ export function createFSModule(projectDir: string, onFileOperation?: (path: stri
 
     if (onFileOperation) {
       console.log(`[handleWriteFile] Calling onFileOperation with isNodeRuntime=true`);
-      await onFileOperation(relativePath, 'file', data, true);
+      await onFileOperation(relativePath, 'file', data, true, false, undefined);
       console.log(`[handleWriteFile] onFileOperation completed`);
     }
   }

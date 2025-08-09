@@ -8,9 +8,9 @@ import { getFileSystem, getProjectDir } from '../filesystem';
 export class UnixCommands {
   public fs: FS;
   private currentDir: string;
-  private onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string | ArrayBuffer, isNodeRuntime?: boolean) => Promise<void>;
+  private onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean, isBufferArray?: boolean, bufferContent?: ArrayBuffer) => Promise<void>;
 
-  constructor(projectName: string, onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string | ArrayBuffer, isNodeRuntime?: boolean) => Promise<void>) {
+  constructor(projectName: string, onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean, isBufferArray?: boolean, bufferContent?: ArrayBuffer) => Promise<void>) {
     this.fs = getFileSystem()!;
     this.currentDir = getProjectDir(projectName);
     this.onFileOperation = onFileOperation;
@@ -214,7 +214,7 @@ export class UnixCommands {
         if (this.onFileOperation) {
           const relativePath = this.getRelativePathFromProject(normalizedPath);
           try {
-            await this.onFileOperation(relativePath, 'folder');
+            await this.onFileOperation(relativePath, 'folder', undefined, false, false, undefined);
           } catch (syncError) {
             console.error('[mkdir] Sync failed (recursive):', syncError);
           }
@@ -259,7 +259,7 @@ export class UnixCommands {
             const relativePath = this.getRelativePathFromProject(normalizedPath);
             //console.log('[mkdir] Syncing to IndexedDB:', { relativePath });
             try {
-              await this.onFileOperation(relativePath, 'folder');
+              await this.onFileOperation(relativePath, 'folder', undefined, false, false, undefined);
               console.log('[mkdir] Sync completed successfully');
             } catch (syncError) {
               console.error('[mkdir] Sync failed:', syncError);
@@ -337,7 +337,7 @@ export class UnixCommands {
         if (this.onFileOperation) {
           const relativePath = this.getRelativePathFromProject(normalizedPath);
           try {
-            await this.onFileOperation(relativePath, 'file', '');
+            await this.onFileOperation(relativePath, 'file', '', false, false, undefined);
           } catch (syncError) {
             console.error(`[touch] IndexedDB sync failed: ${relativePath}`, syncError);
           }
@@ -406,7 +406,7 @@ export class UnixCommands {
         // プロジェクト全体の更新を通知
         if (this.onFileOperation && deletedCount > 0) {
           console.log('[rm] Triggering project refresh after batch deletion');
-          await this.onFileOperation('.', 'folder');
+          await this.onFileOperation('.', 'folder', undefined, false, false, undefined);
           
           // 追加的な同期処理（Git削除検知を確実にするため）
           await new Promise(resolve => setTimeout(resolve, 200));
@@ -432,7 +432,7 @@ export class UnixCommands {
           // プロジェクト全体の更新を通知
           if (this.onFileOperation) {
             console.log('[rm] Triggering project refresh after single file deletion');
-            await this.onFileOperation('.', 'folder');
+            await this.onFileOperation('.', 'folder', undefined, false, false, undefined);
             
             // 追加的な同期処理（Git削除検知を確実にするため）
             await new Promise(resolve => setTimeout(resolve, 200));
@@ -481,15 +481,15 @@ export class UnixCommands {
                 const relChildPath = this.getRelativePathFromProject(childPath);
                 if (childStat.isDirectory()) {
                   await notifyRecursive(childPath);
-                  if (this.onFileOperation) await this.onFileOperation(relChildPath, 'delete');
+                  if (this.onFileOperation) await this.onFileOperation(relChildPath, 'delete', undefined, false, false, undefined);
                 } else {
-                  if (this.onFileOperation) await this.onFileOperation(relChildPath, 'delete');
+                  if (this.onFileOperation) await this.onFileOperation(relChildPath, 'delete', undefined, false, false, undefined);
                 }
               } catch {}
             }
             // 最後に自身（ディレクトリ）
             const relDirPath = this.getRelativePathFromProject(dir);
-            if (this.onFileOperation) await this.onFileOperation(relDirPath, 'delete');
+            if (this.onFileOperation) await this.onFileOperation(relDirPath, 'delete', undefined, false, false, undefined);
           };
           await notifyRecursive(normalizedPath);
         }
@@ -514,7 +514,7 @@ export class UnixCommands {
         if (this.onFileOperation) {
           const relPath = this.getRelativePathFromProject(normalizedPath);
           console.log('[rm] Calling onFileOperation for deletion:', relPath);
-          await this.onFileOperation(relPath, 'delete');
+          await this.onFileOperation(relPath, 'delete', undefined, false, false, undefined);
         }
       }
       
@@ -824,20 +824,20 @@ export class UnixCommands {
             if (this.onFileOperation) {
               try {
                 if (isText && typeof content === 'string') {
-                  await this.onFileOperation(relativePath, 'file', content);
+                  await this.onFileOperation(relativePath, 'file', content, false, false, undefined);
                 } else if (isBufferArray(content)) {
-                  // バイナリはArrayBufferで渡す
+                  // バイナリはbufferContentで渡す
                   const c: any = content;
                   if (c instanceof Uint8Array) {
-                    await this.onFileOperation(relativePath, 'file', new Uint8Array(c).buffer);
+                    await this.onFileOperation(relativePath, 'file', undefined, false, true, new Uint8Array(c).buffer);
                   } else if (c instanceof ArrayBuffer) {
-                    await this.onFileOperation(relativePath, 'file', c);
+                    await this.onFileOperation(relativePath, 'file', undefined, false, true, c);
                   } else {
-                    await this.onFileOperation(relativePath, 'file', undefined);
+                    await this.onFileOperation(relativePath, 'file', undefined, false, false, undefined);
                   }
                 } else {
                   // fallback: undefined
-                  await this.onFileOperation(relativePath, 'file', undefined);
+                  await this.onFileOperation(relativePath, 'file', undefined, false, false, undefined);
                 }
               } catch (syncError) {
                 console.error('[unzip] onFileOperation (file) failed:', syncError);

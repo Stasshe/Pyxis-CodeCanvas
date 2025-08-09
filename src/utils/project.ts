@@ -369,7 +369,7 @@ export const useProject = () => {
   };
 
   // ターミナルからのファイル操作を同期
-  const syncTerminalFileOperation = async (path: string, type: 'file' | 'folder' | 'delete', content: string | ArrayBuffer = '') => {
+  const syncTerminalFileOperation = async (path: string, type: 'file' | 'folder' | 'delete', content: string = '', bufferContent?: ArrayBuffer) => {
     if (!currentProject) {
       console.log('[syncTerminalFileOperation] No current project');
       return;
@@ -432,20 +432,10 @@ export const useProject = () => {
           // 既存ファイルを更新
           console.log('[syncTerminalFileOperation] Updating existing file:', existingFile);
           let updatedFile;
-          let bufferContent: ArrayBuffer | undefined = undefined;
-          if (isBufferArray(content)) {
-            if (typeof content !== 'string') {
-              if (content instanceof Uint8Array) {
-                bufferContent = new Uint8Array(content).buffer;
-              } else if (content instanceof ArrayBuffer) {
-                bufferContent = content;
-              }
-            }
-          }
           if (bufferContent) {
             updatedFile = { ...existingFile, content: '', isBufferArray: true, bufferContent, updatedAt: new Date() };
           } else {
-            updatedFile = { ...existingFile, content: typeof content === 'string' ? content : '', isBufferArray: false, bufferContent: undefined, updatedAt: new Date() };
+            updatedFile = { ...existingFile, content, isBufferArray: false, bufferContent: undefined, updatedAt: new Date() };
           }
           await projectDB.saveFile(updatedFile);
           console.log('[syncTerminalFileOperation] File updated in DB');
@@ -462,26 +452,8 @@ export const useProject = () => {
         } else {
           // 新しいファイル/フォルダを作成
           console.log('[syncTerminalFileOperation] Creating new file/folder:', { path, type });
-          let bufferContent: ArrayBuffer | undefined = undefined;
-          if (isBufferArray(content)) {
-            if (typeof content !== 'string') {
-              if (content instanceof Uint8Array) {
-                bufferContent = new Uint8Array(content).buffer;
-              } else if (content instanceof ArrayBuffer) {
-                bufferContent = content;
-              }
-            }
-          } else if (typeof content === 'string' && /^([A-Za-z0-9+/=]{8,})$/.test(content)) {
-            // base64らしき文字列（簡易判定）
-            try {
-              const bin = atob(content);
-              const arr = new Uint8Array(bin.length);
-              for (let i = 0; i < bin.length; ++i) arr[i] = bin.charCodeAt(i);
-              bufferContent = arr.buffer;
-            } catch {}
-          }
           if (bufferContent) {
-            const newFile = await projectDB.createFile(currentProject.id, path, bufferContent, type, true);
+            const newFile = await projectDB.createFile(currentProject.id, path, '', type, true, bufferContent);
             console.log('[syncTerminalFileOperation] File/folder created in DB with ID:', newFile.id);
           } else {
             const newFile = await projectDB.createFile(currentProject.id, path, content, type, false);
