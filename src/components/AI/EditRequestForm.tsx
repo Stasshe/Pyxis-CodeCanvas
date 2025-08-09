@@ -41,18 +41,21 @@ export default function EditRequestForm({
       style={{ borderColor: colors.border }}
     >
       <div className="flex flex-col gap-2">
-        <textarea
+                <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={placeholder || (mode === 'chat' ? 'メッセージを入力...' : '編集指示を入力...')}
+          placeholder={placeholder || (mode === 'chat' 
+            ? 'メッセージを入力...' 
+            : 'コメントを追加してください、console.logを追加してください、型注釈を追加してください...'
+          )}
           className="w-full p-2 text-sm rounded border resize-none focus:outline-none focus:ring-1"
           style={{
             background: colors.editorBg,
             color: colors.editorFg,
-            borderColor: colors.border,
+            borderColor: colors.border
           }}
-          rows={5}
+          rows={3}
           disabled={isProcessing}
         />
         
