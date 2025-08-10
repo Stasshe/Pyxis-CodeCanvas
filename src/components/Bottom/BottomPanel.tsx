@@ -43,9 +43,11 @@ export function pushMsgOutPanel(msg: string, type?: 'info' | 'error' | 'warn' | 
   }
 }
 
+import DebugConsole from './DebugConsole';
+
 export default function BottomPanel({ height, currentProject, projectFiles, onResize, onTerminalFileOperation }: BottomPanelProps) {
   const { colors } = useTheme();
-  const [activeTab, setActiveTab] = useState<'output' | 'terminal'>('terminal');
+  const [activeTab, setActiveTab] = useState<'output' | 'terminal' | 'debug'>('terminal');
   const [outputMessages, setOutputMessages] = useState<OutputMessage[]>([]);
   outputMessagesRef.current = outputMessages;
   outputMessagesRef.set = setOutputMessages;
@@ -112,6 +114,30 @@ export default function BottomPanel({ height, currentProject, projectFiles, onRe
               background: 'none',
               border: 'none',
               outline: 'none',
+              color: activeTab === 'debug' ? colors.primary : colors.mutedFg,
+              cursor: 'pointer',
+              borderBottom: activeTab === 'debug' ? `2px solid ${colors.primary}` : `2px solid transparent`,
+              transition: 'color 0.2s, border-bottom 0.2s',
+              marginLeft: '2px',
+            }}
+            onClick={() => setActiveTab('debug')}
+            onMouseOver={e => (e.currentTarget.style.color = colors.primary)}
+            onMouseOut={e => (e.currentTarget.style.color = activeTab === 'debug' ? colors.primary : colors.mutedFg)}
+          >
+            デバッグコンソール
+          </button>
+          <button
+            className="tab-btn"
+            style={{
+              position: 'relative',
+              fontSize: '11px',
+              fontWeight: 500,
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em',
+              padding: '2px 12px 0 12px',
+              background: 'none',
+              border: 'none',
+              outline: 'none',
               color: activeTab === 'terminal' ? colors.primary : colors.mutedFg,
               cursor: 'pointer',
               borderBottom: activeTab === 'terminal' ? `2px solid ${colors.primary}` : `2px solid transparent`,
@@ -124,7 +150,7 @@ export default function BottomPanel({ height, currentProject, projectFiles, onRe
           >
             ターミナル
           </button>
-          {currentProject && (
+            {currentProject && (
             <span className="ml-2 text-xs"
               style={{ color: colors.mutedFg, fontSize: '10px', marginLeft: '8px' }}
             >
@@ -133,7 +159,7 @@ export default function BottomPanel({ height, currentProject, projectFiles, onRe
           )}
         </div>
         <div className="flex-1 overflow-hidden relative">
-          {/* ターミナルと出力パネルを同時にマウントし、visibility/positionで切り替え（xterm.jsの幅崩れ対策） */}
+          {/* 3つのパネルを同時にマウントし、visibility/positionで切り替え（xterm.jsの幅崩れ対策） */}
           <div
             style={{
               height: '100%',
@@ -163,6 +189,18 @@ export default function BottomPanel({ height, currentProject, projectFiles, onRe
               onFileOperation={onTerminalFileOperation}
               isActive={activeTab === 'terminal'}
             />
+          </div>
+          <div
+            style={{
+              height: '100%',
+              width: '100%',
+              position: activeTab === 'debug' ? 'static' : 'absolute',
+              visibility: activeTab === 'debug' ? 'visible' : 'hidden',
+              pointerEvents: activeTab === 'debug' ? 'auto' : 'none',
+              top: 0, left: 0,
+            }}
+          >
+            <DebugConsole height={height} isActive={activeTab === 'debug'} />
           </div>
         </div>
       </div>

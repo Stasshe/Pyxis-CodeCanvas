@@ -7,7 +7,7 @@ import {
   createOSModule, 
   createUtilModule,
   flushFileSystemCache
-} from '@/utils/node/filesystemModule';
+} from '@/utils/node/builtInModule';
 import { 
   transformESModules, 
   wrapCodeForExecution,
