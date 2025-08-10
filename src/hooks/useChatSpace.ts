@@ -109,6 +109,14 @@ export const useChatSpace = (projectId: string | null) => {
     });
 
     try {
+      // 最初のメッセージならスペース名をメッセージ内容に変更
+      if (currentSpace.messages.length === 0 && content && content.trim().length > 0) {
+        const newName = content.length > 30 ? content.slice(0, 30) + '…' : content;
+        await projectDB.renameChatSpace(currentSpace.id, newName);
+        setCurrentSpace(prev => prev ? { ...prev, name: newName } : prev);
+        setChatSpaces(prev => prev.map(space => space.id === currentSpace.id ? { ...space, name: newName } : space));
+      }
+
       const newMessage = await projectDB.addMessageToChatSpace(currentSpace.id, {
         type,
         content,
@@ -191,20 +199,6 @@ export const useChatSpace = (projectId: string | null) => {
     }
   };
 
-  // チャットスペース名を変更
-  const renameSpace = async (spaceId: string, newName: string) => {
-    try {
-      await projectDB.renameChatSpace(spaceId, newName);
-      setChatSpaces(prev => prev.map(space => space.id === spaceId ? { ...space, name: newName } : space));
-
-      if (currentSpace?.id === spaceId) {
-        setCurrentSpace({ ...currentSpace, name: newName });
-      }
-    } catch (error) {
-      console.error('Failed to rename chat space:', error);
-    }
-  };
-
   return {
     chatSpaces,
     currentSpace,
@@ -215,6 +209,5 @@ export const useChatSpace = (projectId: string | null) => {
     addMessage,
     updateSelectedFiles,
     updateSpaceName,
-    renameSpace,
   };
 };
