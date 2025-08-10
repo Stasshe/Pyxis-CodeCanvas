@@ -14,6 +14,7 @@ import {
   wrapModuleCode
 } from '@/utils/node/esModuleTransformer';
 import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
+import { DebugConsoleAPI } from '@/components/Bottom/DebugConsoleAPI';
 
 // Node.js風のランタイム環境
 export class NodeJSRuntime {
@@ -43,25 +44,34 @@ export class NodeJSRuntime {
         const output = args.map(arg => 
           typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
         ).join(' ');
+        // 既存のonOutput（出力パネル）への出力は維持
         this.onOutput?.(output, 'log');
+        // DebugConsoleAPIにも出力
+        DebugConsoleAPI.log(`\x1b[32m[LOG]\x1b[0m ${output}`);
       },
       error: (...args: any[]) => {
         const output = args.map(arg => 
           typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
         ).join(' ');
         this.onOutput?.(output, 'error');
+        // DebugConsoleAPIにも出力（赤色）
+        DebugConsoleAPI.log(`\x1b[31m[ERROR]\x1b[0m ${output}`);
       },
       warn: (...args: any[]) => {
         const output = args.map(arg => 
           typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
         ).join(' ');
         this.onOutput?.(`⚠️ ${output}`, 'log');
+        // DebugConsoleAPIにも出力（黄色）
+        DebugConsoleAPI.log(`\x1b[33m[WARN]\x1b[0m ${output}`);
       },
       info: (...args: any[]) => {
         const output = args.map(arg => 
           typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
         ).join(' ');
         this.onOutput?.(`ℹ️ ${output}`, 'log');
+        // DebugConsoleAPIにも出力（青色）
+        DebugConsoleAPI.log(`\x1b[34m[INFO]\x1b[0m ${output}`);
       }
     };
   }
@@ -85,6 +95,8 @@ export class NodeJSRuntime {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.onOutput?.(errorMessage, 'error');
+      // DebugConsoleAPIにもエラー出力
+      DebugConsoleAPI.log(`\x1b[31m[RUNTIME ERROR]\x1b[0m ${errorMessage}`);
       return { success: false, error: errorMessage };
     }
   }
@@ -318,6 +330,9 @@ export class NodeJSRuntime {
   private async executeInSandbox(wrappedCode: string, globals: any): Promise<string> {
     try {
       console.log('[NodeJS Runtime] Executing code (vm-browserify):', wrappedCode.substring(0, 200) + '...');
+      // DebugConsoleAPIにも実行情報を出力
+      DebugConsoleAPI.log(`\x1b[35m[SANDBOX]\x1b[0m Executing code in sandbox...`);
+      
       // vm-browserifyのrunInNewContextでサンドボックス実行
       // wrappedCodeは関数定義 (async function(globals) {...}) なので、まず関数を生成
       const asyncFunction = vm.runInNewContext(wrappedCode, globals);
@@ -326,9 +341,14 @@ export class NodeJSRuntime {
       }
       // グローバル変数を渡して実行
       const result = await asyncFunction(globals);
+      
+      // 実行完了をDebugConsoleAPIに出力
+      DebugConsoleAPI.log(`\x1b[35m[SANDBOX]\x1b[0m Execution completed successfully`);
       return result !== undefined ? String(result) : '';
     } catch (error) {
       console.error('[NodeJS Runtime] Execution error (vm-browserify):', error);
+      // DebugConsoleAPIにもエラー出力
+      DebugConsoleAPI.log(`\x1b[31m[SANDBOX ERROR]\x1b[0m ${(error as Error).message}`);
       throw new Error(`Execution error: ${(error as Error).message}`);
     }
   }
@@ -361,6 +381,8 @@ export class NodeJSRuntime {
         const code = await this.fs.promises.readFile(fullPath, { encoding: 'utf8' });
         
         this.onOutput?.(`Executing: ${filePath}`, 'log');
+        // DebugConsoleAPIにも実行開始を出力
+        DebugConsoleAPI.log(`\x1b[36m[EXECUTE]\x1b[0m Starting execution: ${filePath}`);
         const result = await this.executeNodeJS(code as string);
         
         return result;
@@ -372,6 +394,8 @@ export class NodeJSRuntime {
       const errorMessage = `Failed to execute file '${filePath}': ${(error as Error).message}`;
       console.error('[executeFile] Error:', error);
       this.onOutput?.(errorMessage, 'error');
+      // DebugConsoleAPIにもエラー出力
+      DebugConsoleAPI.log(`\x1b[31m[EXECUTE ERROR]\x1b[0m ${errorMessage}`);
       return { success: false, error: errorMessage };
     }
   }
@@ -401,10 +425,6 @@ export class NodeJSRuntime {
   // 事前ロード用のファイルモジュールローダー（依存関係も再帰的にロード）
   private async loadFileModuleForPreload(moduleName: string): Promise<any> {
     const possiblePaths = this.resolveModulePath(moduleName);
-    
-    // console.log(`[loadFileModuleForPreload] Loading module: ${moduleName}`);
-    // console.log(`[loadFileModuleForPreload] Project directory: ${this.projectDir}`);
-    // console.log(`[loadFileModuleForPreload] Current working directory: ${this.currentWorkingDirectory}`);
     
     for (const filePath of possiblePaths) {
       try {
@@ -620,16 +640,23 @@ export class NodeJSRuntime {
 
       console.log(`[executeModuleCode] Executing module code for: ${filePath}`);
       console.log(`[executeModuleCode] Transformed code:`, transformedCode.substring(0, 200) + '...');
+      // DebugConsoleAPIにもモジュール実行開始を出力
+      DebugConsoleAPI.log(`\x1b[33m[MODULE]\x1b[0m Executing module: ${filePath}`);
+      
       await this.executeInSandbox(wrappedCode, moduleGlobals);
 
       console.log(`[executeModuleCode] Module execution completed.`);
       console.log(`[executeModuleCode] Module exports keys:`, Object.keys(moduleObject.exports));
+      // DebugConsoleAPIにもモジュール実行完了を出力
+      DebugConsoleAPI.log(`\x1b[33m[MODULE]\x1b[0m Module '${filePath}' loaded successfully with exports: ${Object.keys(moduleObject.exports).join(', ')}`);
 
       // module.exportsを返す（CommonJSの標準的な動作）
       return moduleObject.exports;
 
     } catch (error) {
       console.error(`[executeModuleCode] Error executing module ${filePath}:`, error);
+      // DebugConsoleAPIにもモジュールエラーを出力
+      DebugConsoleAPI.log(`\x1b[31m[MODULE ERROR]\x1b[0m Failed to execute module '${filePath}': ${(error as Error).message}`);
       throw new Error(`Failed to execute module '${filePath}': ${(error as Error).message}`);
     }
   }
