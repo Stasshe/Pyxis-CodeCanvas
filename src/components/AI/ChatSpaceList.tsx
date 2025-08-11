@@ -25,6 +25,17 @@ export default function ChatSpaceList({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
 
+  // スペースが10個を超えた場合、古いものから削除する
+  const handleCreateSpace = (name?: string) => {
+    if (chatSpaces.length >= 10) {
+      // updatedAtが古い順にソートし、超過分を削除
+      const sorted = [...chatSpaces].sort((a, b) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime());
+      const toDelete = sorted.slice(0, chatSpaces.length - 9); // 1つ追加するので9個残す
+      toDelete.forEach(space => onDeleteSpace(space.id));
+    }
+    onCreateSpace(name);
+  };
+
   const handleEditStart = (space: ChatSpace) => {
     setEditingId(space.id);
     setEditingName(space.name);
@@ -66,12 +77,12 @@ export default function ChatSpaceList({
           color: colors.foreground,
           borderColor: colors.border,
         }}
-        onClick={() => onCreateSpace()}
+        onClick={() => handleCreateSpace()}
       >
         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
         </svg>
-        新しいスペースを作成
+          新しいスペースを作成
       </button>
 
       {/* スペースリスト */}
