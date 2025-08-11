@@ -308,7 +308,7 @@ export function createReadlineModule() {
       DebugConsoleAPI.onInput((input: string) => {
         if (this._isWaitingForInput) {
           this._isWaitingForInput = false;
-          this._addHistory(input.trim());
+          // 履歴に追加しない（questionで追加するため）
           this.emit('line', input.trim());
         }
       });
@@ -318,10 +318,13 @@ export function createReadlineModule() {
     private _addHistory(line: string): void {
       if (!line || line.trim() === '') return;
       
+      console.log(`[readline] Adding to history: "${line}"`);
+      
       if (this._removeHistoryDuplicates) {
         const index = this._history.indexOf(line);
         if (index !== -1) {
           this._history.splice(index, 1);
+          console.log(`[readline] Removed duplicate from position ${index}`);
         }
       }
       
@@ -329,10 +332,13 @@ export function createReadlineModule() {
       if (this._history.length > this._historySize) {
         this._history = this._history.slice(0, this._historySize);
       }
+      
+      console.log(`[readline] History now has ${this._history.length} items:`, this._history);
     }
     
     // 履歴を取得
     getHistory(): string[] {
+      console.log(`[readline] Current history (${this._history.length} items):`, this._history);
       return [...this._history];
     }
     
@@ -401,6 +407,8 @@ export function createReadlineModule() {
         
         const onLine = (answer: string) => {
           this.removeListener('line', onLine);
+          // 履歴に追加
+          this._addHistory(answer);
           callback(answer);
         };
         
@@ -526,44 +534,49 @@ export function createReadlineModule() {
   }
   
   // カーソル制御関数（グローバル）
-  const cursorTo = (stream: any, x: number, y?: number): void => {
-    if (y !== undefined) {
-      DebugConsoleAPI.write(`\x1b[${y + 1};${x + 1}H`);
-    } else {
-      DebugConsoleAPI.write(`\x1b[${x + 1}G`);
+  const cursorTo = (stream: any, x: number, y?: number): boolean => {
+    try {
+      if (y !== undefined) {
+        DebugConsoleAPI.moveCursor(0, 0); // まず原点に移動
+        DebugConsoleAPI.moveCursor(x, y); // 指定位置に移動
+      } else {
+        DebugConsoleAPI.write(`\x1b[${x + 1}G`);
+      }
+      return true;
+    } catch (error) {
+      console.error('cursorTo error:', error);
+      return false;
     }
   };
   
-  const moveCursor = (stream: any, dx: number, dy: number): void => {
-    if (dx < 0) {
-      DebugConsoleAPI.write(`\x1b[${Math.abs(dx)}D`);
-    } else if (dx > 0) {
-      DebugConsoleAPI.write(`\x1b[${dx}C`);
-    }
-    
-    if (dy < 0) {
-      DebugConsoleAPI.write(`\x1b[${Math.abs(dy)}A`);
-    } else if (dy > 0) {
-      DebugConsoleAPI.write(`\x1b[${dy}B`);
+  const moveCursor = (stream: any, dx: number, dy: number): boolean => {
+    try {
+      DebugConsoleAPI.moveCursor(dx, dy);
+      return true;
+    } catch (error) {
+      console.error('moveCursor error:', error);
+      return false;
     }
   };
   
-  const clearLine = (stream: any, dir: number = 0): void => {
-    switch (dir) {
-      case -1:
-        DebugConsoleAPI.write('\x1b[1K');
-        break;
-      case 1:
-        DebugConsoleAPI.write('\x1b[0K');
-        break;
-      default:
-        DebugConsoleAPI.write('\x1b[2K');
-        break;
+  const clearLine = (stream: any, dir: number = 0): boolean => {
+    try {
+      DebugConsoleAPI.clearLine();
+      return true;
+    } catch (error) {
+      console.error('clearLine error:', error);
+      return false;
     }
   };
   
-  const clearScreenDown = (stream: any): void => {
-    DebugConsoleAPI.write('\x1b[0J');
+  const clearScreenDown = (stream: any): boolean => {
+    try {
+      DebugConsoleAPI.write('\x1b[0J');
+      return true;
+    } catch (error) {
+      console.error('clearScreenDown error:', error);
+      return false;
+    }
   };
   
   return {

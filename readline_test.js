@@ -1,25 +1,50 @@
-// readline モジュールのテストファイル
 const readline = require('readline');
 
-console.log('Readline Test Started');
+console.log('🚀 ReadLine モジュールテスト開始');
 
-// 基本的な質問テスト
-async function basicTest() {
-  console.log('\n=== Basic Question Test ===');
-  
-  const answer = await readline.question('What is your name? ');
-  console.log(`Hello, ${answer}!`);
-}
+// 基本的なインターフェース
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+  prompt: 'REPL> ',
+  historySize: 100,
+  removeHistoryDuplicates: true
+});
 
-// インターフェースを使った対話テスト
-async function interfaceTest() {
-  console.log('\n=== Interface Test ===');
+console.log('✅ インターフェース作成完了');
+
+// まず履歴に何かを追加するためのテスト質問
+console.log('📝 最初の質問');
+rl.question('最初の質問 - 何か入力してください: ', (answer1) => {
+  console.log(`入力1: "${answer1}"`);
+  console.log('📋 現在の履歴:', rl.getHistory());
   
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-    prompt: 'MyApp> '
+  console.log('📝 二番目の質問');
+  rl.question('二番目の質問 - 別の何かを入力してください: ', (answer2) => {
+    console.log(`入力2: "${answer2}"`);
+    console.log('📋 現在の履歴:', rl.getHistory());
+    
+    console.log('🎯 カーソル制御テスト開始');
+    
+    // カーソル制御テスト
+    console.log('移動前の位置');
+    const result1 = readline.cursorTo(process.stdout, 10, 5);
+    console.log('カーソル移動結果:', result1);
+    
+    const result2 = readline.clearLine(process.stdout, 0);
+    console.log('行クリア結果:', result2);
+    
+    console.log('カーソル制御完了');
+    
+    // 履歴クリアテスト
+    console.log('🗑️ 履歴クリア前:', rl.getHistory());
+    rl.clearHistory();
+    console.log('🗑️ 履歴クリア後:', rl.getHistory());
+    
+    rl.close();
+    console.log('🏁 テスト完了');
   });
+});
 
   rl.setPrompt('Enter a command (type "exit" to quit): ');
   rl.prompt();
@@ -51,7 +76,7 @@ async function interfaceTest() {
   rl.on('close', () => {
     console.log('Interface closed');
   });
-}
+
 
 // プロンプトテスト
 async function promptTest() {
