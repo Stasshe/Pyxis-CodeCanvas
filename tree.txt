@@ -9,7 +9,6 @@
 ├── LICENSE
 ├── README.md
 ├── README_ja.md
-├── aiSystem.md
 ├── bashCmd.txt
 ├── eslint.config.mjs
 ├── initial_files
@@ -179,11 +178,11 @@
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-33 directories, 147 files
+33 directories, 146 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 22900
-合計文字数: 813083
-合計ファイルサイズ(bytes): 878998
+合計行数: 22961
+合計文字数: 815745
+合計ファイルサイズ(bytes): 881614
 
 リポジトリ全体のサイズ(bytes): 1.9G	.
