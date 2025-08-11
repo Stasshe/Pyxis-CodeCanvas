@@ -147,8 +147,9 @@ export class GitCheckoutOperations {
       const addedFiles: string[] = [];
       const deletedFiles: string[] = [];
       const modifiedFiles: string[] = [];
+      const restoredFiles: string[] = []; // 復元されたファイル（以前削除されていたが、新しいブランチに存在）
 
-      // 削除されたファイル
+      // 削除されたファイル（現在のブランチにあったが、新しいブランチにはない）
       for (const [filePath, _] of currentFiles) {
         if (!newFiles.has(filePath)) {
           console.log('=== DELETED FILE DETECTED ===');
@@ -159,11 +160,14 @@ export class GitCheckoutOperations {
         }
       }
 
-      // 追加・変更されたファイル
+      // 追加・変更・復元されたファイル
       for (const [filePath, newContent] of newFiles) {
         if (!currentFiles.has(filePath)) {
-          console.log('Added file:', filePath);
+          console.log('=== ADDED/RESTORED FILE DETECTED ===');
+          console.log('Added/Restored file:', filePath);
+          console.log('File was not in currentFiles but exists in newFiles');
           addedFiles.push(filePath);
+          restoredFiles.push(filePath); // 復元されたファイルとしても記録
           changedFiles.add(filePath);
         } else if (currentFiles.get(filePath) !== newContent) {
           console.log('Modified file:', filePath);
@@ -173,7 +177,7 @@ export class GitCheckoutOperations {
       }
       
       console.log('Total changed files:', changedFiles.size);
-      console.log('Added:', addedFiles.length, 'Modified:', modifiedFiles.length, 'Deleted:', deletedFiles.length);
+      console.log('Added:', addedFiles.length, 'Modified:', modifiedFiles.length, 'Deleted:', deletedFiles.length, 'Restored:', restoredFiles.length);
 
       // ファイル操作のコールバックを実行（テキストエディターに反映）
       if (this.onFileOperation) {
@@ -189,9 +193,19 @@ export class GitCheckoutOperations {
             if (newFiles.has(filePath)) {
               // ファイルが存在する場合（追加または変更）
               const content = newFiles.get(filePath)!;
-              console.log('Calling onFileOperation for file:', relativePath, 'content length:', content.length);
+              const isRestored = restoredFiles.includes(filePath);
+              const actionType = isRestored ? 'restored' : 'created/modified';
+              
+              console.log(`Calling onFileOperation for ${actionType} file:`, relativePath, 'content length:', content.length);
+              if (isRestored) {
+                console.log('=== RESTORING PREVIOUSLY DELETED FILE ===');
+                console.log('File path:', filePath);
+                console.log('Relative path:', relativePath);
+                console.log('Content preview:', content.substring(0, 100) + (content.length > 100 ? '...' : ''));
+              }
+              
               await this.onFileOperation(relativePath, 'file', content, false);
-              console.log('Successfully called onFileOperation for file:', relativePath);
+              console.log(`Successfully called onFileOperation for ${actionType} file:`, relativePath);
             } else {
               // ファイルが削除された場合
               console.log('=== PROCESSING DELETED FILE ===');
@@ -231,6 +245,7 @@ export class GitCheckoutOperations {
         if (addedFiles.length > 0) changes.push(`${addedFiles.length} added`);
         if (modifiedFiles.length > 0) changes.push(`${modifiedFiles.length} modified`);
         if (deletedFiles.length > 0) changes.push(`${deletedFiles.length} deleted`);
+        if (restoredFiles.length > 0) changes.push(`${restoredFiles.length} restored`);
         
         if (changes.length > 0) {
           result += `\n\nFiles changed: ${changes.join(', ')}`;
