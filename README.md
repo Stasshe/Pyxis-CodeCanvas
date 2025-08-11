@@ -1,7 +1,7 @@
 <div align="center">
-  <img src="readme-assets/IMG_1473.png" alt="Pyxis カバー画像" width="100%" />
-  
   # 🌟 Pyxis - Client Side Code Editor
+  
+  <img src="readme-assets/IMG_1473.png" alt="Pyxis カバー画像" width="100%" />
   
   ### *セットアップゼロ。素早く起動、気軽にコーディング*
   
@@ -33,7 +33,7 @@
 
 ---
 
-### **Markdown・Mermaid・LaTeX - ドキュメント天国**
+### **Markdown・Mermaid・LaTeX - ドキュメント**
 <div align="center">
   <img src="readme-assets/IMG_1470.png" alt="リッチコンテンツ編集" width="80%" />
 </div>

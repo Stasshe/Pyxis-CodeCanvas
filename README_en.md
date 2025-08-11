@@ -1,7 +1,7 @@
 <div align="center">
-  <img src="readme-assets/IMG_1473.png" alt="Pyxis Cover" width="100%" />
-  
   # 🌟 Pyxis - Your Code Universe in a Browser
+  
+  <img src="readme-assets/IMG_1473.png" alt="Pyxis Cover" width="100%" />
   
   ### *Zero Setup. Quick Start, Easy Coding*
   
