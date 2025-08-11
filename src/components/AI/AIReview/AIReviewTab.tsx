@@ -139,11 +139,15 @@ export default function AIReviewTab({
             {diffViewMode === 'block' ? '全体表示' : 'ブロック表示'}
           </button>
           <button
-            className="px-3 py-1 text-sm rounded border hover:opacity-80"
+            className="px-3 py-1 text-sm rounded border hover:opacity-90"
             style={{ 
-              background: 'transparent', 
-              color: colors.foreground,
-              borderColor: colors.border
+              background: colors.green, 
+              color: colors.background,
+              borderColor: colors.green,
+              fontWeight: 700,
+              boxShadow: '0 2px 8px 0 #0003',
+              letterSpacing: '0.05em',
+              textShadow: '0 1px 2px #0002'
             }}
             onClick={handleApplyAll}
           >

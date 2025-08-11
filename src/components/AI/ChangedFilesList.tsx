@@ -74,11 +74,13 @@ export default function ChangedFilesList({
                   👁️
                 </button>
                 <button
-                  className="text-xs px-1 py-0.5 rounded border hover:opacity-80 transition"
+                  className="text-xs px-1 py-0.5 rounded border hover:opacity-90 transition"
                   style={{ 
-                    background: 'transparent', 
-                    color: colors.foreground,
-                    borderColor: colors.border
+                    background: colors.green, 
+                    color: colors.background,
+                    borderColor: colors.green,
+                    fontWeight: 600,
+                    boxShadow: '0 1px 4px 0 #0002'
                   }}
                   onClick={() => onApplyChanges(file.path, file.suggestedContent)}
                   title="適用"
@@ -176,11 +178,13 @@ export default function ChangedFilesList({
                 レビュー
               </button>
               <button
-                className="text-xs px-2 py-1 rounded border hover:opacity-80"
+                className="text-xs px-2 py-1 rounded border hover:opacity-90"
                 style={{ 
-                  background: 'transparent', 
-                  color: colors.foreground,
-                  borderColor: colors.border
+                  background: colors.green, 
+                  color: colors.background,
+                  borderColor: colors.green,
+                  fontWeight: 600,
+                  boxShadow: '0 1px 4px 0 #0002'
                 }}
                 onClick={() => onApplyChanges(file.path, file.suggestedContent)}
               >
@@ -260,11 +264,15 @@ export default function ChangedFilesList({
           style={{ borderColor: colors.border }}
         >
           <button
-            className="flex-1 text-xs py-2 rounded border hover:opacity-80"
+            className="flex-1 text-xs py-2 rounded border hover:opacity-90"
             style={{ 
-              background: 'transparent', 
-              color: colors.foreground,
-              borderColor: colors.border
+              background: colors.green, 
+              color: colors.background,
+              borderColor: colors.green,
+              fontWeight: 700,
+              boxShadow: '0 2px 8px 0 #0003',
+              letterSpacing: '0.05em',
+              textShadow: '0 1px 2px #0002'
             }}
             onClick={() => {
               changedFiles.forEach(file => 
