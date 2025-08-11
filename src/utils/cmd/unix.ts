@@ -9,12 +9,77 @@ export class UnixCommands {
   private currentDir: string;
   private onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean, isBufferArray?: boolean, bufferContent?: ArrayBuffer) => Promise<void>;
 
+  // バッチ処理用のキュー
+  private fileOperationQueue: Array<{
+    path: string;
+    type: 'file' | 'folder' | 'delete';
+    content?: string;
+    isNodeRuntime?: boolean;
+    isBufferArray?: boolean;
+    bufferContent?: ArrayBuffer;
+  }> = [];
+  private batchProcessing = false;
+
   constructor(projectName: string, onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean, isBufferArray?: boolean, bufferContent?: ArrayBuffer) => Promise<void>) {
     this.fs = getFileSystem()!;
     this.currentDir = getProjectDir(projectName);
     this.onFileOperation = onFileOperation;
     // プロジェクトディレクトリが存在しない場合は作成
     this.ensureProjectDirectory();
+  }
+
+  // バッチ処理を開始
+  startBatchProcessing(): void {
+    this.batchProcessing = true;
+    this.fileOperationQueue = [];
+    console.log('[UnixCommands] Started batch processing mode');
+  }
+
+  // バッチ処理を終了し、キューをフラッシュ
+  async finishBatchProcessing(): Promise<void> {
+    if (!this.batchProcessing || !this.onFileOperation) {
+      return;
+    }
+
+    console.log(`[UnixCommands] Finishing batch processing, ${this.fileOperationQueue.length} operations queued`);
+    
+    // キューに溜まった操作を並列実行（適度な並列度で）
+    const BATCH_SIZE = 10;
+    for (let i = 0; i < this.fileOperationQueue.length; i += BATCH_SIZE) {
+      const batch = this.fileOperationQueue.slice(i, i + BATCH_SIZE);
+      await Promise.all(
+        batch.map(op => this.onFileOperation!(op.path, op.type, op.content, op.isNodeRuntime, op.isBufferArray, op.bufferContent))
+      );
+
+      // バッチごとに短い遅延を挟む
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+
+    this.batchProcessing = false;
+    this.fileOperationQueue = [];
+    console.log('[UnixCommands] Batch processing completed');
+  }
+
+  // ファイル操作を実行（バッチモード対応）
+  private async executeFileOperation(
+    path: string,
+    type: 'file' | 'folder' | 'delete',
+    content?: string,
+    isNodeRuntime?: boolean,
+    isBufferArray?: boolean,
+    bufferContent?: ArrayBuffer
+  ): Promise<void> {
+    if (!this.onFileOperation) {
+      return;
+    }
+
+    if (this.batchProcessing) {
+      // バッチモードの場合はキューに追加
+      this.fileOperationQueue.push({ path, type, content, isNodeRuntime, isBufferArray, bufferContent });
+    } else {
+      // 通常モードの場合は即座に実行
+      await this.onFileOperation(path, type, content, isNodeRuntime, isBufferArray, bufferContent);
+    }
   }
 
   // プロジェクトディレクトリの存在を確認し、なければ作成
@@ -209,13 +274,13 @@ export class UnixCommands {
         await this.createDirectoryRecursive(normalizedPath);
         // ファイルシステムのキャッシュをフラッシュ
         await this.flushFileSystemCache();
-        // IndexedDBにも同期（touchのようにtry-catchで握りつぶす）
+                // IndexedDBにも同期（touchのようにtry-catchで握りつぶす）
         if (this.onFileOperation) {
           const relativePath = this.getRelativePathFromProject(normalizedPath);
           try {
-            await this.onFileOperation(relativePath, 'folder', undefined, false, false, undefined);
+            await this.executeFileOperation(relativePath, 'folder');
           } catch (syncError) {
-            console.error('[mkdir] Sync failed (recursive):', syncError);
+            console.error(`[mkdir] IndexedDB sync failed: ${relativePath}`, syncError);
           }
         }
         return `Directory created: ${normalizedPath}`;
@@ -258,7 +323,7 @@ export class UnixCommands {
             const relativePath = this.getRelativePathFromProject(normalizedPath);
             //console.log('[mkdir] Syncing to IndexedDB:', { relativePath });
             try {
-              await this.onFileOperation(relativePath, 'folder', undefined, false, false, undefined);
+              await this.executeFileOperation(relativePath, 'folder', undefined, false, false, undefined);
               console.log('[mkdir] Sync completed successfully');
             } catch (syncError) {
               console.error('[mkdir] Sync failed:', syncError);
@@ -336,7 +401,7 @@ export class UnixCommands {
         if (this.onFileOperation) {
           const relativePath = this.getRelativePathFromProject(normalizedPath);
           try {
-            await this.onFileOperation(relativePath, 'file', '', false, false, undefined);
+            await this.executeFileOperation(relativePath, 'file', '', false, false, undefined);
           } catch (syncError) {
             console.error(`[touch] IndexedDB sync failed: ${relativePath}`, syncError);
           }
@@ -368,7 +433,7 @@ export class UnixCommands {
 
   // rm - ファイル削除
   async rm(fileName: string, recursive = false): Promise<string> {
-    return this.executeFileOperation(async () => {
+    return this.executeUnixOperation(async () => {
       console.log('[rm] Starting file deletion:', { fileName, recursive, currentDir: this.currentDir });
       
       // プロジェクトディレクトリの確認
@@ -532,7 +597,7 @@ export class UnixCommands {
   }
 
   // エラーハンドリング付きのファイル操作実行
-  private async executeFileOperation<T>(operation: () => Promise<T>, errorPrefix: string): Promise<T> {
+  private async executeUnixOperation<T>(operation: () => Promise<T>, errorPrefix: string): Promise<T> {
     try {
       return await operation();
     } catch (error) {
@@ -627,7 +692,7 @@ export class UnixCommands {
         // IndexedDBにも同期
         if (this.onFileOperation) {
           const relativePath = this.getRelativePathFromProject(normalizedPath);
-          await this.onFileOperation(relativePath, 'file', content);
+          await this.executeFileOperation(relativePath, 'file', content);
         }
         return append ? `Appended to: ${normalizedPath}` : `Text written to: ${normalizedPath}`;
       } catch (error) {
@@ -761,6 +826,7 @@ export class UnixCommands {
       ? (destDir.startsWith('/') ? destDir : `${this.currentDir}/${destDir}`)
       : this.currentDir;
     const normalizedDest = this.normalizePath(extractDir);
+    
     try {
       // zipファイルの内容を取得
       console.log('[unzip] bufferContent:', bufferContent);
@@ -769,6 +835,10 @@ export class UnixCommands {
       const zip = await JSZip.loadAsync(data);
       let fileCount = 0;
       let updated = false;
+      
+      // バッチ処理開始
+      this.startBatchProcessing();
+      
       // zip内の全ファイルを展開
       for (const relPath in zip.files) {
         const file = zip.files[relPath];
@@ -791,14 +861,8 @@ export class UnixCommands {
             console.log(`[unzip] Created directory: ${normalizedFilePath}`);
             updated = true;
             
-            // UI/DB同期: ディレクトリ作成を通知
-            if (this.onFileOperation) {
-              try {
-                await this.onFileOperation(relativePath, 'folder');
-              } catch (syncError) {
-                console.error('[unzip] onFileOperation (folder) failed:', syncError);
-              }
-            }
+            // バッチキューに追加
+            await this.executeFileOperation(relativePath, 'folder');
           } catch (dirError) {
             if ((dirError as any).code !== 'EEXIST') {
               console.error(`[unzip] Failed to create directory ${normalizedFilePath}:`, dirError);
@@ -861,23 +925,17 @@ export class UnixCommands {
             console.log(`[unzip] Created file: ${normalizedFilePath}, isText: ${isText}`);
             updated = true;
             
-            // UI/DB同期: ファイル作成を通知
-            if (this.onFileOperation) {
-              try {
-                if (isText && typeof content === 'string') {
-                  await this.onFileOperation(relativePath, 'file', content, false, false, undefined);
-                } else if (isBufferArray && content instanceof Uint8Array) {
-                  const buffer = content.buffer instanceof ArrayBuffer ? content.buffer : new ArrayBuffer(content.byteLength);
-                  if (buffer !== content.buffer) {
-                    new Uint8Array(buffer).set(content);
-                  }
-                  await this.onFileOperation(relativePath, 'file', undefined, false, true, buffer);
-                } else {
-                  await this.onFileOperation(relativePath, 'file', '', false, false, undefined);
-                }
-              } catch (syncError) {
-                console.error('[unzip] onFileOperation (file) failed:', syncError);
+            // バッチキューに追加
+            if (isText && typeof content === 'string') {
+              await this.executeFileOperation(relativePath, 'file', content, false, false, undefined);
+            } else if (isBufferArray && content instanceof Uint8Array) {
+              const buffer = content.buffer instanceof ArrayBuffer ? content.buffer : new ArrayBuffer(content.byteLength);
+              if (buffer !== content.buffer) {
+                new Uint8Array(buffer).set(content);
               }
+              await this.executeFileOperation(relativePath, 'file', undefined, false, true, buffer);
+            } else {
+              await this.executeFileOperation(relativePath, 'file', '', false, false, undefined);
             }
           } catch (fileError) {
             console.error(`[unzip] Failed to create file ${normalizedFilePath}:`, fileError);
@@ -885,9 +943,16 @@ export class UnixCommands {
         }
         fileCount++;
       }
+      
+      // バッチ処理終了
+      await this.finishBatchProcessing();
+      
       await this.flushFileSystemCache();
       return `Unzipped ${fileCount} file(s) to ${normalizedDest}`;
     } catch (error) {
+      // バッチ処理をクリーンアップ
+      this.batchProcessing = false;
+      this.fileOperationQueue = [];
       throw new Error(`unzip: ${zipFileName}: ${(error as Error).message}`);
     }
   }

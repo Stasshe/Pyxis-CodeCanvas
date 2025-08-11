@@ -32,7 +32,8 @@ export async function handleUnixCommand(
         await writeOutput("rename: missing arguments (usage: rename <old> <new>)");
       }
       break;
-
+    
+    case "tree":
     case "ls":
       if (unixCommandsRef.current) {
         const result = await unixCommandsRef.current.ls(args[0]);
