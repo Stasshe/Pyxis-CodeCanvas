@@ -818,6 +818,378 @@ export class UnixCommands {
       }
     }
   }
+
+  // mv - ファイル/ディレクトリの移動・名前変更
+  async mv(source: string, destination: string): Promise<string> {
+    return this.executeUnixOperation(async () => {
+      console.log('[mv] Starting move operation:', { source, destination, currentDir: this.currentDir });
+      
+      // プロジェクトディレクトリの確認
+      await this.ensureProjectDirectory();
+      
+      // ワイルドカード対応
+      if (source.includes('*') || source.includes('?')) {
+        return await this.moveMultipleFiles(source, destination);
+      }
+      
+      // 単一ファイル/ディレクトリの移動
+      return await this.moveSingleFile(source, destination);
+    }, `mv operation failed`);
+  }
+
+  // 単一ファイル/ディレクトリ移動
+  private async moveSingleFile(source: string, destination: string): Promise<string> {
+    // パスの正規化
+    const srcPath = source.startsWith('/') ? source : `${this.currentDir}/${source}`;
+    const destPath = destination.startsWith('/') ? destination : `${this.currentDir}/${destination}`;
+    const srcNormalized = this.normalizePath(srcPath);
+    const destNormalized = this.normalizePath(destPath);
+    
+    console.log('[mv] Normalized paths:', { srcNormalized, destNormalized });
+    
+    // プロジェクトルート制限の確認
+    const projectRoot = getProjectDir(this.currentDir.split('/')[2]);
+    if (!srcNormalized.startsWith(projectRoot) || !destNormalized.startsWith(projectRoot)) {
+      throw new Error('mv: Permission denied - Cannot move files outside project directory');
+    }
+    
+    // ソースファイル/ディレクトリの存在確認
+    let srcStat;
+    try {
+      srcStat = await this.fs.promises.stat(srcNormalized);
+    } catch {
+      throw new Error(`mv: cannot stat '${source}': No such file or directory`);
+    }
+    
+    // 移動先の処理
+    let finalDestPath = destNormalized;
+    let isRename = false;
+    
+    try {
+      const destStat = await this.fs.promises.stat(destNormalized);
+      if (destStat.isDirectory()) {
+        // 移動先がディレクトリの場合、その中にソースファイル/ディレクトリを移動
+        const baseName = srcNormalized.substring(srcNormalized.lastIndexOf('/') + 1);
+        finalDestPath = `${destNormalized}/${baseName}`;
+      } else {
+        // 移動先が既存ファイルの場合は上書き
+        isRename = true;
+      }
+    } catch {
+      // 移動先が存在しない場合は名前変更
+      isRename = true;
+    }
+    
+    // 同じパスへの移動はエラー
+    if (srcNormalized === finalDestPath) {
+      throw new Error(`mv: '${source}' and '${destination}' are the same file`);
+    }
+    
+    // 移動先が移動元の子ディレクトリでないことを確認
+    if (srcStat.isDirectory() && finalDestPath.startsWith(srcNormalized + '/')) {
+      throw new Error(`mv: cannot move '${source}' to a subdirectory of itself, '${destination}'`);
+    }
+    
+    console.log('[mv] Final destination path:', finalDestPath);
+    
+    // 移動処理の実行
+    if (srcStat.isDirectory()) {
+      // ディレクトリの移動
+      await this.moveDirectory(srcNormalized, finalDestPath);
+      console.log('[mv] Directory moved successfully');
+    } else {
+      // ファイルの移動
+      await this.moveFile(srcNormalized, finalDestPath);
+      console.log('[mv] File moved successfully');
+    }
+    
+    // ファイルシステムキャッシュのフラッシュ
+    await this.flushFileSystemCache();
+    
+    // プロジェクト全体の更新を通知
+    if (this.onFileOperation) {
+      console.log('[mv] Triggering project refresh after move operation');
+      await this.onFileOperation('.', 'folder', undefined, false, false, undefined);
+      
+      // 追加的な同期処理
+      await new Promise(resolve => setTimeout(resolve, 200));
+      await this.flushFileSystemCache();
+    }
+    
+    return `'${source}' -> '${finalDestPath}'`;
+  }
+
+  // 複数ファイル移動（ワイルドカード対応）
+  private async moveMultipleFiles(pattern: string, destination: string): Promise<string> {
+    console.log('[mv] Pattern matching for move:', pattern);
+    
+    // 移動先がディレクトリであることを確認
+    const destPath = destination.startsWith('/') ? destination : `${this.currentDir}/${destination}`;
+    const destNormalized = this.normalizePath(destPath);
+    
+    try {
+      const destStat = await this.fs.promises.stat(destNormalized);
+      if (!destStat.isDirectory()) {
+        throw new Error(`mv: target '${destination}' is not a directory`);
+      }
+    } catch {
+      throw new Error(`mv: cannot stat '${destination}': No such file or directory`);
+    }
+    
+    // パターンにマッチするファイルを取得
+    const matchedFiles = await this.getMatchingFilesForMove(pattern);
+    if (matchedFiles.length === 0) {
+      return `mv: no matches found: ${pattern}`;
+    }
+    
+    console.log('[mv] Matched files for move:', matchedFiles);
+    
+    let movedCount = 0;
+    const movedFiles: string[] = [];
+    const errors: string[] = [];
+    
+    // バッチ処理開始
+    this.startBatchProcessing();
+    
+    try {
+      for (const file of matchedFiles) {
+        try {
+          console.log('[mv] Moving file:', file);
+          
+          // 各ファイルを移動先ディレクトリに移動
+          const baseName = file.substring(file.lastIndexOf('/') + 1);
+          const targetPath = `${destNormalized}/${baseName}`;
+          
+          // 移動先に同名ファイルが存在するかチェック
+          let canMove = true;
+          try {
+            await this.fs.promises.stat(targetPath);
+            // 既存ファイルがある場合は上書き警告（UNIXの動作に合わせて続行）
+            console.log(`[mv] Overwriting existing file: ${targetPath}`);
+          } catch {
+            // ファイルが存在しない場合は問題なし
+          }
+          
+          if (canMove) {
+            const srcStat = await this.fs.promises.stat(file);
+            if (srcStat.isDirectory()) {
+              await this.moveDirectory(file, targetPath);
+            } else {
+              await this.moveFile(file, targetPath);
+            }
+            
+            movedCount++;
+            movedFiles.push(baseName);
+            console.log(`[mv] Successfully moved: ${file} -> ${targetPath}`);
+          }
+        } catch (error) {
+          const fileName = file.substring(file.lastIndexOf('/') + 1);
+          errors.push(`${fileName}: ${(error as Error).message}`);
+          console.error(`[mv] Error moving file ${file}:`, error);
+        }
+      }
+      
+      // バッチ処理終了
+      await this.finishBatchProcessing();
+      
+      // ファイルシステムキャッシュのフラッシュ
+      await this.flushFileSystemCache();
+      
+      // プロジェクト全体の更新を通知
+      if (this.onFileOperation && movedCount > 0) {
+        console.log('[mv] Triggering project refresh after batch move');
+        await this.onFileOperation('.', 'folder', undefined, false, false, undefined);
+        
+        // 追加的な同期処理
+        await new Promise(resolve => setTimeout(resolve, 200));
+        await this.flushFileSystemCache();
+      }
+      
+      if (movedCount === 0) {
+        const errorMsg = errors.length > 0 ? `\nErrors:\n${errors.join('\n')}` : '';
+        return `mv: no files were moved${errorMsg}`;
+      }
+      
+      const successMsg = `moved ${movedCount} file(s) to '${destination}': ${movedFiles.join(', ')}`;
+      const errorMsg = errors.length > 0 ? `\nWarnings:\n${errors.join('\n')}` : '';
+      return successMsg + errorMsg;
+      
+    } catch (error) {
+      // バッチ処理をクリーンアップ
+      this.batchProcessing = false;
+      this.fileOperationQueue = [];
+      throw error;
+    }
+  }
+
+  // 移動用のパターンマッチング
+  private async getMatchingFilesForMove(pattern: string): Promise<string[]> {
+    try {
+      console.log('[mv] Pattern matching for move:', pattern);
+      
+      // パターンのディレクトリ部分を取得
+      const lastSlashIndex = pattern.lastIndexOf('/');
+      let searchDir = this.currentDir;
+      let filePattern = pattern;
+      
+      if (lastSlashIndex !== -1) {
+        const dirPart = pattern.substring(0, lastSlashIndex);
+        filePattern = pattern.substring(lastSlashIndex + 1);
+        searchDir = dirPart.startsWith('/') ? dirPart : `${this.currentDir}/${dirPart}`;
+        searchDir = this.normalizePath(searchDir);
+      }
+      
+      console.log('[mv] Search directory:', searchDir, 'Pattern:', filePattern);
+      
+      // 検索ディレクトリの内容を取得
+      const files = await this.fs.promises.readdir(searchDir);
+      // .git関連のファイルは除外
+      const filteredFiles = files.filter(file => 
+        file !== '.git' && 
+        !file.startsWith('.git')
+      );
+      
+      console.log('[mv] Available files for pattern matching:', filteredFiles);
+      
+      if (filePattern === '*') {
+        // すべてのファイル（.git関連を除く）
+        return filteredFiles.map(file => `${searchDir}/${file}`);
+      }
+      
+      // ワイルドカードパターンをRegExpに変換
+      const regexPattern = filePattern
+        .replace(/\./g, '\\.')  // . を \. にエスケープ
+        .replace(/\*/g, '.*')   // * を .* に変換
+        .replace(/\?/g, '.');   // ? を . に変換
+      
+      const regex = new RegExp(`^${regexPattern}$`);
+      const matchedFiles = filteredFiles
+        .filter(file => regex.test(file))
+        .map(file => `${searchDir}/${file}`);
+      
+      console.log('[mv] Matched files:', matchedFiles);
+      return matchedFiles;
+    } catch (error) {
+      console.error('[mv] Error getting matching files:', error);
+      return [];
+    }
+  }
+
+  // ファイル移動のヘルパーメソッド
+  private async moveFile(srcPath: string, destPath: string): Promise<void> {
+    try {
+      // 移動先の親ディレクトリを作成
+      const parentDir = destPath.substring(0, destPath.lastIndexOf('/'));
+      if (parentDir && parentDir !== '/') {
+        try {
+          await this.fs.promises.stat(parentDir);
+        } catch {
+          await this.fs.promises.mkdir(parentDir, { recursive: true } as any);
+          if (this.onFileOperation) {
+            const relParentPath = this.getRelativePathFromProject(parentDir);
+            await this.executeFileOperation(relParentPath, 'folder');
+          }
+        }
+      }
+      
+      // ファイル内容を読み取り
+      const content = await this.fs.promises.readFile(srcPath, { encoding: 'utf8' });
+      
+      // 新しい場所にファイルを作成
+      await this.fs.promises.writeFile(destPath, content);
+      
+      // 元のファイルを削除
+      await this.fs.promises.unlink(srcPath);
+      
+      // IndexedDBの同期
+      if (this.onFileOperation) {
+        const srcRelPath = this.getRelativePathFromProject(srcPath);
+        const destRelPath = this.getRelativePathFromProject(destPath);
+        
+        // 移動先に新しいファイルを作成
+        await this.executeFileOperation(destRelPath, 'file', content as string);
+        
+        // 移動元のファイルを削除
+        await this.executeFileOperation(srcRelPath, 'delete');
+      }
+    } catch (error) {
+      throw new Error(`Failed to move file: ${(error as Error).message}`);
+    }
+  }
+
+  // ディレクトリ移動のヘルパーメソッド
+  private async moveDirectory(srcPath: string, destPath: string): Promise<void> {
+    try {
+      // バッチ処理開始
+      this.startBatchProcessing();
+      
+      // 移動先ディレクトリを作成
+      await this.fs.promises.mkdir(destPath, { recursive: true } as any);
+      
+      // ディレクトリの内容を再帰的にコピー
+      await this.copyDirectoryForMove(srcPath, destPath);
+      
+      // 元のディレクトリを削除
+      await this.rmdir(srcPath);
+      
+      // バッチ処理終了
+      await this.finishBatchProcessing();
+      
+      // IndexedDBの同期
+      if (this.onFileOperation) {
+        const srcRelPath = this.getRelativePathFromProject(srcPath);
+        const destRelPath = this.getRelativePathFromProject(destPath);
+        
+        // 移動先にディレクトリを作成
+        await this.executeFileOperation(destRelPath, 'folder');
+        
+        // 移動元のディレクトリを削除
+        await this.executeFileOperation(srcRelPath, 'delete');
+      }
+    } catch (error) {
+      // バッチ処理をクリーンアップ
+      this.batchProcessing = false;
+      this.fileOperationQueue = [];
+      throw new Error(`Failed to move directory: ${(error as Error).message}`);
+    }
+  }
+
+  // 移動用のディレクトリコピー（IndexedDB同期付き）
+  private async copyDirectoryForMove(src: string, dest: string): Promise<void> {
+    const entries = await this.fs.promises.readdir(src);
+    
+    for (const entry of entries) {
+      if (entry === '.' || entry === '..') continue;
+      
+      const srcPath = `${src}/${entry}`;
+      const destPath = `${dest}/${entry}`;
+      const stat = await this.fs.promises.stat(srcPath);
+      
+      if (stat.isDirectory()) {
+        // サブディレクトリを作成
+        await this.fs.promises.mkdir(destPath, { recursive: true } as any);
+        
+        // IndexedDBに同期
+        if (this.onFileOperation) {
+          const relPath = this.getRelativePathFromProject(destPath);
+          await this.executeFileOperation(relPath, 'folder');
+        }
+        
+        // 再帰的にコピー
+        await this.copyDirectoryForMove(srcPath, destPath);
+      } else {
+        // ファイルをコピー
+        const content = await this.fs.promises.readFile(srcPath, { encoding: 'utf8' });
+        await this.fs.promises.writeFile(destPath, content);
+        
+        // IndexedDBに同期
+        if (this.onFileOperation) {
+          const relPath = this.getRelativePathFromProject(destPath);
+          await this.executeFileOperation(relPath, 'file', content as string);
+        }
+      }
+    }
+  }
   // unzip - zipファイルを解凍
   async unzip(zipFileName: string, destDir: string, bufferContent: ArrayBuffer): Promise<string> {
     const targetPath = zipFileName.startsWith('/') ? zipFileName : `${this.currentDir}/${zipFileName}`;

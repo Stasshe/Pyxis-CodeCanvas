@@ -32,6 +32,21 @@ export async function handleUnixCommand(
         await writeOutput("rename: missing arguments (usage: rename <old> <new>)");
       }
       break;
+
+    case "mv":
+      if (unixCommandsRef.current && args.length >= 2) {
+        const source = args[0];
+        const destination = args[1];
+        try {
+          const result = await unixCommandsRef.current.mv(source, destination);
+          await writeOutput(result);
+        } catch (error) {
+          await writeOutput(`mv: ${(error as Error).message}`);
+        }
+      } else {
+        await writeOutput("mv: missing arguments (usage: mv <source> <destination>)");
+      }
+      break;
     
     case "tree":
     case "ls":
@@ -131,6 +146,7 @@ export async function handleUnixCommand(
       await writeOutput('  mkdir <name> [-p] - ディレクトリを作成');
       await writeOutput('  touch <file> - ファイルを作成');
       await writeOutput('  rm <file> [-r] - ファイルを削除 (ワイルドカード対応: rm *.txt)');
+      await writeOutput('  mv <source> <dest> - ファイル/ディレクトリを移動・名前変更 (ワイルドカード対応: mv *.txt folder/)');
       await writeOutput('  cat <file> - ファイル内容を表示');
       await writeOutput('  echo <text> [> file] - テキストを出力/ファイルに書き込み');
       await writeOutput('  export --page <file or folder> - 現在のページをエクスポート');
