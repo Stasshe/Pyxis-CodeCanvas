@@ -1,5 +1,6 @@
 import { getFileSystem } from '@/utils/core/filesystem';
 import pathBrowserify from 'path-browserify';
+import { DebugConsoleAPI } from '@/components/Bottom/DebugConsoleAPI';
 
   // fs モジュールのエミュレーション
 export function createFSModule(projectDir: string, onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean, isBufferArray?: boolean, bufferContent?: ArrayBuffer) => Promise<void>, unixCommands?: any) {
@@ -270,6 +271,128 @@ export function createUtilModule() {
         return fn.apply(this, args);
       };
     }
+  };
+}
+
+// readline モジュールのエミュレーション
+export function createReadlineModule() {
+  // DebugConsoleAPI経由で入力を取得するためのイベントエミッター
+  class Interface {
+    private _input: any;
+    private _output: any;
+    private _prompt: string = '> ';
+    private _listeners: Map<string, Function[]> = new Map();
+    private _isWaitingForInput: boolean = false;
+    
+    constructor(options: any = {}) {
+      this._input = options.input || process.stdin;
+      this._output = options.output || process.stdout;
+      if (options.prompt) this._prompt = options.prompt;
+      
+      // DebugConsoleからの入力をリッスン
+      DebugConsoleAPI.onInput((input: string) => {
+        if (this._isWaitingForInput) {
+          this._isWaitingForInput = false;
+          this.emit('line', input.trim());
+        }
+      });
+    }
+    
+    // イベントリスナーの管理
+    on(event: string, listener: Function): this {
+      if (!this._listeners.has(event)) {
+        this._listeners.set(event, []);
+      }
+      this._listeners.get(event)!.push(listener);
+      return this;
+    }
+    
+    // イベントの発火
+    emit(event: string, ...args: any[]): boolean {
+      const listeners = this._listeners.get(event);
+      if (listeners) {
+        listeners.forEach(listener => listener(...args));
+        return true;
+      }
+      return false;
+    }
+    
+    // プロンプトの表示
+    prompt(preserveCursor?: boolean): void {
+      this._isWaitingForInput = true;
+      DebugConsoleAPI.log(this._prompt);
+    }
+    
+    // プロンプトの設定
+    setPrompt(prompt: string): void {
+      this._prompt = prompt;
+    }
+    
+    // 質問（非同期）
+    question(query: string, callback: (answer: string) => void): void {
+      DebugConsoleAPI.log(query);
+      this._isWaitingForInput = true;
+      
+      const onLine = (answer: string) => {
+        this.removeListener('line', onLine);
+        callback(answer);
+      };
+      
+      this.on('line', onLine);
+    }
+    
+    // 質問（Promise版）
+    questionAsync(query: string): Promise<string> {
+      return new Promise((resolve) => {
+        this.question(query, resolve);
+      });
+    }
+    
+    // リスナーの削除
+    removeListener(event: string, listener: Function): this {
+      const listeners = this._listeners.get(event);
+      if (listeners) {
+        const index = listeners.indexOf(listener);
+        if (index !== -1) {
+          listeners.splice(index, 1);
+        }
+      }
+      return this;
+    }
+    
+    // インターフェースを閉じる
+    close(): void {
+      this._listeners.clear();
+      this._isWaitingForInput = false;
+      this.emit('close');
+    }
+    
+    // 一行書き込み
+    write(data: string): void {
+      DebugConsoleAPI.log(data);
+    }
+  }
+  
+  return {
+    // インターフェースの作成
+    createInterface: (options: any): Interface => {
+      return new Interface(options);
+    },
+    
+    // より簡単な質問関数
+    question: (query: string): Promise<string> => {
+      return new Promise((resolve) => {
+        DebugConsoleAPI.log(query);
+        const onInput = (input: string) => {
+          DebugConsoleAPI.removeInputListener(onInput);
+          resolve(input.trim());
+        };
+        DebugConsoleAPI.onInput(onInput);
+      });
+    },
+    
+    // Interface クラスをエクスポート
+    Interface: Interface
   };
 }
 

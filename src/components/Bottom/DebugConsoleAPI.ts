@@ -25,6 +25,9 @@ class DebugConsoleAPIClass {
       this.inputListeners = this.inputListeners.filter(f => f !== cb);
     };
   }
+  removeInputListener(cb: DebugConsoleInputCallback) {
+    this.inputListeners = this.inputListeners.filter(f => f !== cb);
+  }
   // DebugConsoleがxtermインスタンスを渡す
   onLog(fn: (msg: string) => void) {
     this.logListeners.push(fn);

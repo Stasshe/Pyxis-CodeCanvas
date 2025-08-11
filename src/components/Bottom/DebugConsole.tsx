@@ -96,9 +96,35 @@ export default function DebugConsole({ height, isActive }: DebugConsoleProps) {
         scrollToBottom();
       });
       
-      // xtermへの入力をAPIに流す
-      term.onData((input: string) => {
-        DebugConsoleAPI._emitInput(input);
+      // xtermへの入力をAPIに流す（入力行管理付き）
+      let currentLine = '';
+      
+      term.onData((data: string) => {
+        switch (data) {
+          case '\r': // Enter
+            term.writeln('');
+            if (currentLine.trim()) {
+              DebugConsoleAPI._emitInput(currentLine.trim());
+            }
+            currentLine = '';
+            break;
+          case '\u007F': // Backspace
+            if (currentLine.length > 0) {
+              currentLine = currentLine.slice(0, -1);
+              term.write('\b \b');
+            }
+            break;
+          case '\u0003': // Ctrl+C
+            term.writeln('^C');
+            currentLine = '';
+            break;
+          default:
+            if (data >= ' ' || data === '\t') {
+              currentLine += data;
+              term.write(data);
+            }
+            break;
+        }
       });
       
       termRef.current = term;
@@ -113,22 +139,6 @@ export default function DebugConsole({ height, isActive }: DebugConsoleProps) {
       }, 50);
     }
   }, [colors, isActive]);
-
-  // DebugConsoleAPIのlog()で出力できるようにする（重複登録を避ける）
-  useEffect(() => {
-    const unsub = DebugConsoleAPI.onLog((msg: string) => {
-      if (termRef.current) {
-        termRef.current.writeln(msg);
-        // 出力時に自動スクロール
-        setTimeout(() => {
-          termRef.current?.scrollToBottom();
-        }, 10);
-      }
-    });
-    return () => {
-      unsub();
-    };
-  }, []);
 
   // 高さが変更された時にサイズを再調整
   useEffect(() => {

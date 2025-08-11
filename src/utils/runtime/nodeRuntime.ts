@@ -6,6 +6,7 @@ import {
   createPathModule, 
   createOSModule, 
   createUtilModule,
+  createReadlineModule,
   flushFileSystemCache
 } from '@/utils/node/builtInModule';
 import { 
@@ -331,7 +332,7 @@ export class NodeJSRuntime {
     try {
       console.log('[NodeJS Runtime] Executing code (vm-browserify):', wrappedCode.substring(0, 200) + '...');
       // DebugConsoleAPIにも実行情報を出力
-      DebugConsoleAPI.log(`\x1b[35m[SANDBOX]\x1b[0m Executing code in sandbox...`);
+      //DebugConsoleAPI.log(`\x1b[35m[SANDBOX]\x1b[0m Executing code in sandbox...`);
       
       // vm-browserifyのrunInNewContextでサンドボックス実行
       // wrappedCodeは関数定義 (async function(globals) {...}) なので、まず関数を生成
@@ -382,7 +383,7 @@ export class NodeJSRuntime {
         
         this.onOutput?.(`Executing: ${filePath}`, 'log');
         // DebugConsoleAPIにも実行開始を出力
-        DebugConsoleAPI.log(`\x1b[36m[EXECUTE]\x1b[0m Starting execution: ${filePath}`);
+        //DebugConsoleAPI.log(`\x1b[36m[EXECUTE]\x1b[0m Starting execution: ${filePath}`);
         const result = await this.executeNodeJS(code as string);
         
         return result;
@@ -402,7 +403,7 @@ export class NodeJSRuntime {
 
   // 組み込みモジュールかチェック
   private isBuiltinModule(moduleName: string): boolean {
-    const builtinModules = ['fs', 'path', 'os', 'util', 'crypto', 'http', 'url', 'querystring'];
+    const builtinModules = ['fs', 'path', 'os', 'util', 'crypto', 'http', 'url', 'querystring', 'readline'];
     return builtinModules.includes(moduleName);
   }
 
@@ -417,6 +418,8 @@ export class NodeJSRuntime {
         return createOSModule();
       case 'util':
         return createUtilModule();
+      case 'readline':
+        return createReadlineModule();
       default:
         throw new Error(`Built-in module '${moduleName}' not implemented`);
     }
