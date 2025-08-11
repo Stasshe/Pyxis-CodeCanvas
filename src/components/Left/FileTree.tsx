@@ -2,7 +2,8 @@ import { useTheme } from '@/context/ThemeContext';
 import { useState, useEffect, useRef } from 'react';
 import { exportSingleFile } from '@/utils/export/exportSingleFile';
 import { exportFolderZip } from '@/utils/export/exportFolderZip';
-import { ChevronDown, ChevronRight, File, Folder } from 'lucide-react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
+import { getIconForFile, getIconForFolder, getIconForOpenFolder } from 'vscode-icons-js';
 import { FileItem } from '@/types';
 import { UnixCommands } from '@/utils/cmd/unix';
 import { isBufferArray } from '@/utils/helper/isBufferArray';
@@ -203,12 +204,36 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
                   ) : (
                     <ChevronRight size={14} color={colors.mutedFg} />
                   )}
-                  <Folder size={16} color={colors.primary} />
+                  {/* vscode-icons-jsのフォルダアイコン */}
+                  <img
+                    src={(() => {
+                      const iconPath = isExpanded
+                        ? getIconForOpenFolder(item.name) || getIconForFolder(item.name) || getIconForFolder('')
+                        : getIconForFolder(item.name) || getIconForFolder('');
+                      if (iconPath && iconPath.endsWith('.svg')) {
+                        return `/vscode-icons/${iconPath.split('/').pop()}`;
+                      }
+                      return '/vscode-icons/folder.svg';
+                    })()}
+                    alt="folder"
+                    style={{ width: 16, height: 16, verticalAlign: 'middle' }}
+                  />
                 </>
               ) : (
                 <>
                   <div className="w-3.5"></div>
-                  <File size={16} color={colors.mutedFg} />
+                  {/* vscode-icons-jsのファイルアイコン */}
+                  <img
+                    src={(() => {
+                      const iconPath = getIconForFile(item.name) || getIconForFile('');
+                      if (iconPath && iconPath.endsWith('.svg')) {
+                        return `/vscode-icons/${iconPath.split('/').pop()}`;
+                      }
+                      return '/vscode-icons/file.svg';
+                    })()}
+                    alt="file"
+                    style={{ width: 16, height: 16, verticalAlign: 'middle' }}
+                  />
                 </>
               )}
               <span style={{ fontSize: '0.875rem', color: colors.foreground, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', userSelect: 'none' }}>{item.name}</span>

@@ -51,7 +51,8 @@
     "shiki": "^3.9.2",
     "stream-browserify": "^3.0.0",
     "tar-stream": "^3.1.7",
-    "vm-browserify": "^1.1.2"
+    "vm-browserify": "^1.1.2",
+    "vscode-icons-js": "^11.6.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
