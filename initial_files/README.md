@@ -31,8 +31,6 @@ $
 
 ### Git 操作例
 ```bash
-# リポジトリ初期化
-git init
 # ファイル追加
 git add .
 # コミット
@@ -41,15 +39,14 @@ git commit -m "初期コミット"
 git checkout -b feature/new-feature
 # マージ
 git merge feature/new-feature
+# diff
+git diff [branchName]
 ```
 
-### export --page <path> を使用したサイト転送
-`export --page <path>` コマンドを使用して、`about:blank` にサイトを転送し、開発を開始できます。
 
-#### 例: `homepage` を開く
-```bash
-export --page homepage
-```
+### WebPreview機能でのリアルタイムプレビュー
+Pyxisでは、`homepage` や `text-editor` フォルダなど、Webアプリのエントリポイントとなるフォルダを長押し（または右クリック）し、「WebPreview」を選択することで、埋め込みiframe内でリアルタイムにサイトをプレビューできます。
+
 
 ---
 
