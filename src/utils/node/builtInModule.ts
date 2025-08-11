@@ -68,11 +68,17 @@ export function createFSModule(projectDir: string, onFileOperation?: (path: stri
         throw new Error(`Failed to write file '${path}': ${(error as Error).message}`);
       }
     },
-    readFileSync: (path: string, options?: any): string => {
-      throw new Error('Synchronous file operations are not supported in browser environment. Use async versions.');
+    readFileSync: (path: string, options?: any): any => {
+      // ブラウザ環境では真の同期操作は不可能なため、
+      // 代わりにPromiseを返すことで非同期として扱う
+      console.warn('⚠️  fs.readFileSync detected: Converting to async operation. Please await the result or use .then()');
+      return fsModule.readFile(path, options);
     },
-    writeFileSync: (path: string, data: string, options?: any): void => {
-      throw new Error('Synchronous file operations are not supported in browser environment. Use async versions.');
+    writeFileSync: (path: string, data: string, options?: any): any => {
+      // ブラウザ環境では真の同期操作は不可能なため、
+      // 代わりにPromiseを返すことで非同期として扱う
+      console.warn('⚠️  fs.writeFileSync detected: Converting to async operation. Please await the result or use .then()');
+      return fsModule.writeFile(path, data, options);
     },
     existsSync: async (path: string): Promise<boolean> => {
       try {

@@ -201,8 +201,6 @@ fs.writeFileSync('hello.txt', 'Pyxisからこんにちは！ 🚀');
 const message = fs.readFileSync('hello.txt', 'utf8');
 console.log(message);
 
-// シンプルなサーバーシミュレーション
-const express = require('express'); // 多くのnpmモジュールが動く！
 console.log('Pyxisへようこそ - どこでもコーディング！ ✨');
 ```
 Git練習
