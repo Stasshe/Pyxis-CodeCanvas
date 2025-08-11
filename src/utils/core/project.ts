@@ -195,23 +195,23 @@ export const useProject = () => {
     setLoading(true);
     try {
       await projectDB.init();
-      console.log('[loadProject] Getting project files...');
+      // console.log('[loadProject] Getting project files...');
       const files = await projectDB.getProjectFiles(project.id);
-      console.log('[loadProject] Received files:', files.length, files);
+      // console.log('[loadProject] Received files:', files.length, files);
       
       setCurrentProject(project);
       setProjectFiles(files);
 
       // デバッグ: ファイル変換前後でコンテンツが保持されているかチェック
       const convertedFiles = convertToFileItems(files);
-      console.log('[loadProject] Converted files:', convertedFiles.length);
+      // console.log('[loadProject] Converted files:', convertedFiles.length);
       convertedFiles.forEach(file => {
         if (file.type === 'file' && file.content) {
           console.log('[loadProject] File with content:', file.path, 'contentLength:', file.content.length);
         }
       });
 
-      console.log('[loadProject] Project files after loading:', files);
+      // console.log('[loadProject] Project files after loading:', files);
 
       // Git初期化状態をチェック
       try {
