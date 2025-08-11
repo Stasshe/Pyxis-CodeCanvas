@@ -274,6 +274,40 @@ export const syncFileToFileSystem = async (
       }
     } else {
       // 作成・更新操作の場合
+      // パスがディレクトリを指しているかチェック
+      if (filePath.endsWith('/')) {
+        // ディレクトリとして扱う
+        try {
+          await fs.promises.mkdir(fullPath, { recursive: true } as any);
+          console.log(`[syncFileToFileSystem] Successfully created directory: ${fullPath}`);
+          
+          // ディレクトリ作成通知
+          notifyFileChange({
+            path: filePath,
+            projectName,
+            type: operation || 'create',
+            timestamp: Date.now()
+          });
+        } catch (dirError) {
+          if ((dirError as any).code !== 'EEXIST') {
+            console.error(`[syncFileToFileSystem] Failed to create directory ${fullPath}:`, dirError);
+            throw dirError;
+          }
+        }
+        return;
+      }
+      
+      // 既存のパスがディレクトリでないことを確認
+      try {
+        const existingStat = await fs.promises.stat(fullPath);
+        if (existingStat.isDirectory()) {
+          console.warn(`[syncFileToFileSystem] Path is directory, cannot write file: ${fullPath}`);
+          return;
+        }
+      } catch {
+        // ファイルが存在しない場合は続行
+      }
+      
       // 親ディレクトリが存在することを確認
       const parentDir = fullPath.substring(0, fullPath.lastIndexOf('/'));
       if (parentDir && parentDir !== projectDir) {
@@ -283,11 +317,15 @@ export const syncFileToFileSystem = async (
           await fs.promises.mkdir(parentDir, { recursive: true } as any);
         }
       }
+      
       // ファイルを書き込み（バイナリ対応）
       if (typeof content === 'string') {
         await fs.promises.writeFile(fullPath, content);
       } else if (bufferContent) {
         await fs.promises.writeFile(fullPath, new Uint8Array(bufferContent));
+      } else {
+        // contentもbufferContentもない場合は空ファイルを作成
+        await fs.promises.writeFile(fullPath, '');
       }
       console.log(`[syncFileToFileSystem] Successfully synced: ${fullPath}`);
       

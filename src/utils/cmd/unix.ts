@@ -1,4 +1,3 @@
-import { isBufferArray } from '@/utils/helper/isBufferArray';
 // zipファイル解凍用
 import JSZip from 'jszip';
 import FS from '@isomorphic-git/lightning-fs';
@@ -773,77 +772,115 @@ export class UnixCommands {
       // zip内の全ファイルを展開
       for (const relPath in zip.files) {
         const file = zip.files[relPath];
+        
+        // 空のパスや親ディレクトリ参照はスキップ
+        if (!relPath || relPath === '/' || relPath.includes('../')) {
+          continue;
+        }
+        
         const destPath = `${normalizedDest}/${relPath}`;
         const normalizedFilePath = this.normalizePath(destPath);
         const relativePath = this.getRelativePathFromProject(normalizedFilePath);
 
-        if (file.dir) {
-          // ディレクトリの場合は作成
-          await this.fs.promises.mkdir(normalizedFilePath, { recursive: true } as any);
-          updated = true;
-          // UI/DB同期: ディレクトリ作成を通知
-          if (this.onFileOperation) {
-            try {
-              await this.onFileOperation(relativePath, 'folder');
-            } catch (syncError) {
-              console.error('[unzip] onFileOperation (folder) failed:', syncError);
+        console.log(`[unzip] Processing: ${relPath}, dir: ${file.dir}, relativePath: ${relativePath}`);
+
+        if (file.dir || relPath.endsWith('/')) {
+          // ディレクトリの場合
+          try {
+            await this.fs.promises.mkdir(normalizedFilePath, { recursive: true } as any);
+            console.log(`[unzip] Created directory: ${normalizedFilePath}`);
+            updated = true;
+            
+            // UI/DB同期: ディレクトリ作成を通知
+            if (this.onFileOperation) {
+              try {
+                await this.onFileOperation(relativePath, 'folder');
+              } catch (syncError) {
+                console.error('[unzip] onFileOperation (folder) failed:', syncError);
+              }
+            }
+          } catch (dirError) {
+            if ((dirError as any).code !== 'EEXIST') {
+              console.error(`[unzip] Failed to create directory ${normalizedFilePath}:`, dirError);
             }
           }
         } else {
+          // ファイルの場合
           try {
+            // 親ディレクトリを確実に作成
+            const parentDir = normalizedFilePath.substring(0, normalizedFilePath.lastIndexOf('/'));
+            if (parentDir && parentDir !== normalizedDest) {
+              try {
+                await this.fs.promises.mkdir(parentDir, { recursive: true } as any);
+              } catch (mkdirError) {
+                if ((mkdirError as any).code !== 'EEXIST') {
+                  console.warn(`[unzip] Failed to create parent directory ${parentDir}:`, mkdirError);
+                }
+              }
+            }
+            
             // ファイルが既に存在する場合はスキップ
-            await this.fs.promises.stat(normalizedFilePath);
-            console.log(`[unzip] Skipping existing file: ${normalizedFilePath}`);
-            continue;
-          } catch {
-            // ファイルが存在しない場合のみ作成
+            try {
+              const existingStat = await this.fs.promises.stat(normalizedFilePath);
+              if (existingStat.isDirectory()) {
+                console.warn(`[unzip] Path is directory, skipping file write: ${normalizedFilePath}`);
+                continue;
+              }
+              console.log(`[unzip] Skipping existing file: ${normalizedFilePath}`);
+              continue;
+            } catch {
+              // ファイルが存在しない場合のみ作成
+            }
+            
             // バイナリかテキストかを判定
             let content: Uint8Array | string = await file.async('uint8array');
             let isText = false;
-            // UTF-8としてデコードできるか簡易判定（完全ではない）
+            let isBufferArray = false;
+            
+            // UTF-8としてデコードできるか簡易判定
             try {
               const text = new TextDecoder('utf-8', { fatal: true }).decode(content);
-              // HTML/XML/JS/CSS/MD/JSON/TS/JSX/TSX/py/sh など拡張子で判定も可
-              // ここでは一部拡張子で判定
-              if (/[.](txt|md|js|ts|jsx|tsx|json|html|css|py|sh)$/i.test(relPath)) {
+              // 拡張子でテキストファイルを判定
+              if (/\.(txt|md|js|ts|jsx|tsx|json|html|css|py|sh|yml|yaml|xml|svg|csv)$/i.test(relPath)) {
                 isText = true;
                 content = text;
               } else {
                 // 先頭が可視ASCIIならテキストとみなす
-                if (/^[\x09\x0A\x0D\x20-\x7E]/.test(text)) {
+                if (/^[\x09\x0A\x0D\x20-\x7E]/.test(text.substring(0, 100))) {
                   isText = true;
                   content = text;
                 }
               }
             } catch {
               isText = false;
+              isBufferArray = true;
             }
+            
+            // ファイルシステムに書き込み
             await this.fs.promises.writeFile(normalizedFilePath, content);
-            console.log(`[unzip] Writing file: ${normalizedFilePath}`);
+            console.log(`[unzip] Created file: ${normalizedFilePath}, isText: ${isText}`);
             updated = true;
+            
             // UI/DB同期: ファイル作成を通知
             if (this.onFileOperation) {
               try {
                 if (isText && typeof content === 'string') {
                   await this.onFileOperation(relativePath, 'file', content, false, false, undefined);
-                } else if (isBufferArray(content)) {
-                  // バイナリはbufferContentで渡す
-                  const c: any = content;
-                  if (c instanceof Uint8Array) {
-                    await this.onFileOperation(relativePath, 'file', undefined, false, true, new Uint8Array(c).buffer);
-                  } else if (c instanceof ArrayBuffer) {
-                    await this.onFileOperation(relativePath, 'file', undefined, false, true, c);
-                  } else {
-                    await this.onFileOperation(relativePath, 'file', undefined, false, false, undefined);
+                } else if (isBufferArray && content instanceof Uint8Array) {
+                  const buffer = content.buffer instanceof ArrayBuffer ? content.buffer : new ArrayBuffer(content.byteLength);
+                  if (buffer !== content.buffer) {
+                    new Uint8Array(buffer).set(content);
                   }
+                  await this.onFileOperation(relativePath, 'file', undefined, false, true, buffer);
                 } else {
-                  // fallback: undefined
-                  await this.onFileOperation(relativePath, 'file', undefined, false, false, undefined);
+                  await this.onFileOperation(relativePath, 'file', '', false, false, undefined);
                 }
               } catch (syncError) {
                 console.error('[unzip] onFileOperation (file) failed:', syncError);
               }
             }
+          } catch (fileError) {
+            console.error(`[unzip] Failed to create file ${normalizedFilePath}:`, fileError);
           }
         }
         fileCount++;
