@@ -50,8 +50,10 @@
 │   ├── web-app-manifest-192x192.png
 │   ├── web-app-manifest-512x512.png
 │   └── window.svg
+├── readline_test.js
 ├── sampleNode.js
 ├── scripts
+├── simple_readline_test.js
 ├── src
 │   ├── app
 │   │   ├── Toast.css
@@ -73,6 +75,8 @@
 │   │   │   └── FileSelector.tsx
 │   │   ├── Bottom
 │   │   │   ├── BottomPanel.tsx
+│   │   │   ├── DebugConsole.tsx
+│   │   │   ├── DebugConsoleAPI.ts
 │   │   │   ├── OutputPanel.tsx
 │   │   │   ├── Terminal.tsx
 │   │   │   ├── TerminalGitCommands.tsx
@@ -161,9 +165,9 @@
 │       │   └── importSingleFile.ts
 │       ├── initialFileContents.ts
 │       ├── node
+│       │   ├── builtInModule.ts
 │       │   ├── cdnLoader.ts
-│       │   ├── esModuleTransformer.ts
-│       │   └── filesystemModule.ts
+│       │   └── esModuleTransformer.ts
 │       ├── openTab.ts
 │       └── runtime
 │           ├── nodeRuntime.ts
@@ -174,11 +178,11 @@
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-33 directories, 142 files
+33 directories, 146 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 21798
-合計文字数: 781006
-合計ファイルサイズ(bytes): 844011
+合計行数: 22620
+合計文字数: 804271
+合計ファイルサイズ(bytes): 869502
 
-リポジトリ全体のサイズ(bytes): 2.1G	.
+リポジトリ全体のサイズ(bytes): 1.8G	.

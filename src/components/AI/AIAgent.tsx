@@ -13,6 +13,7 @@ import EditRequestForm from './EditRequestForm';
 import ChangedFilesList from './ChangedFilesList';
 import ChatSpaceList from './ChatSpaceList';
 import type { FileItem, ProjectFile, Tab, Project, AIEditResponse } from '@/types';
+import { useProject } from '@/utils/core/project';
 
 interface AIAgentProps {
   projectFiles: FileItem[];
@@ -39,7 +40,21 @@ export default function AIAgent({
   const [lastEditResponse, setLastEditResponse] = useState<AIEditResponse | null>(null);
   const [showSpaceList, setShowSpaceList] = useState(false);
 
-  // チャットスペース管理
+    const handleRefreshFileContexts = async () => {
+    if (currentProject) {
+      console.log('[AIAgent] Manual refresh requested');
+      try {
+        // プロジェクトファイルを強制的に再取得
+        const { refreshProjectFiles } = useProject();
+        await refreshProjectFiles();
+        console.log('[AIAgent] Project files refreshed');
+      } catch (error) {
+        console.error('[AIAgent] Failed to refresh files:', error);
+      }
+    }
+  };
+
+  // 編集実行ハンドラー
   const {
     chatSpaces,
     currentSpace,
@@ -80,10 +95,28 @@ export default function AIAgent({
   // プロジェクトファイルが変更されたときにコンテキストを更新
   useEffect(() => {
     if (projectFiles.length > 0) {
+      console.log('[AIAgent] Updating file contexts due to projectFiles change');
+      console.log('[AIAgent] Current projectFiles:', projectFiles.map(f => ({
+        path: f.path,
+        hasContent: !!f.content,
+        contentLength: f.content?.length || 0,
+        type: f.type
+      })));
       const contexts = buildAIFileContextList(projectFiles);
       updateFileContexts(contexts);
     }
-  }, [projectFiles.length]); // updateFileContextsを依存配列から削除
+  }, [projectFiles]); // projectFiles全体に依存し、内容変更も検知
+
+  // ファイルコンテキストの状態変化をログで監視
+  useEffect(() => {
+    if (fileContexts.length > 0) {
+      console.log('[AIAgent] File contexts updated:', fileContexts.map(ctx => ({
+        path: ctx.path,
+        contentLength: ctx.content.length,
+        selected: ctx.selected
+      })));
+    }
+  }, [fileContexts]);
 
   // プロジェクトが変更されたときに初期スペースを作成
   useEffect(() => {

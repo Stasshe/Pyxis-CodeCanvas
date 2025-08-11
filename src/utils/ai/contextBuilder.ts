@@ -75,7 +75,13 @@ export function projectFileToAIContext(file: ProjectFile, selected: boolean = fa
 
 // フラットなファイルリストからAIコンテキストリストを作成
 export function buildAIFileContextList(files: (FileItem | ProjectFile)[]): AIFileContext[] {
-  console.log('[buildAIFileContextList] Input files:', files.length, files.map(f => ({ path: f.path, type: f.type, hasContent: !!f.content })));
+  console.log('[buildAIFileContextList] Input files:', files.length, files.map(f => ({ 
+    path: f.path, 
+    type: f.type, 
+    hasContent: !!f.content,
+    contentLength: f.content?.length || 0,
+    name: f.name
+  })));
   
   const contexts: AIFileContext[] = [];
   
@@ -108,7 +114,13 @@ export function buildAIFileContextList(files: (FileItem | ProjectFile)[]): AIFil
     }
   }
   
-  console.log('[buildAIFileContextList] Flattened files:', flatFiles.length, flatFiles.map(f => ({ path: f.path, type: f.type, hasContent: !!f.content })));
+  console.log('[buildAIFileContextList] Flattened files:', flatFiles.length, flatFiles.map(f => ({ 
+    path: f.path, 
+    type: f.type, 
+    hasContent: !!f.content,
+    contentLength: f.content?.length || 0,
+    name: f.name
+  })));
   
   // フラット化されたファイルをAIコンテキストに変換
   for (const file of flatFiles) {
@@ -124,7 +136,7 @@ export function buildAIFileContextList(files: (FileItem | ProjectFile)[]): AIFil
     
     if (context) {
       contexts.push(context);
-      console.log('[buildAIFileContextList] Added context:', context.path);
+      console.log('[buildAIFileContextList] Added context:', context.path, 'contentLength:', context.content.length);
     } else {
       console.log('[buildAIFileContextList] Skipped file:', file.path, 'type:', file.type, 'hasContent:', !!file.content, 'isBinary:', isBinaryFile(file));
     }
