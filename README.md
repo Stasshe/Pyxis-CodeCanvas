@@ -1,290 +1,298 @@
 <div align="center">
-  <img src="readme-assets/IMG_1473.png" alt="Pyxis Cover" width="100%" />
+  <img src="readme-assets/IMG_1473.png" alt="Pyxis カバー画像" width="100%" />
   
-  # 🌟 Pyxis - Your Code Universe in a Browser
+  # 🌟 Pyxis - Client Side Code Editor
   
-  ### *Zero Setup. Infinite Possibilities. Pure Magic.*
+  ### *セットアップゼロ。素早く起動、気軽にコーディング*
   
   [![Version](https://img.shields.io/badge/version-0.2.0-blue.svg)](https://github.com/your-username/pyxis)
   [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
   [![Platform](https://img.shields.io/badge/platform-Web%20%7C%20iPad%20%7C%20Mobile-orange.svg)](README.md)
   
-  **[🚀 Try Pyxis Now](https://pyxis-code.onrender.com)** | **[📖 日本語版](README_ja.md)**
+  **[🚀 Pyxis を今すぐ試す](https://pyxis-code.onrender.com)** | **[📖 English](README_en.md)**
 </div>
 
 ---
 
-## ✨ What is Pyxis?
+## ✨ Pyxis って何？
 
-Imagine having a **complete development environment** that loads instantly in your browser - no downloads, no installations, no server connections. That's Pyxis! It's like having **VS Code + Node.js + Git** all bundled into a lightning-fast web app that works anywhere, even on your iPad.
+**完全な開発環境**がブラウザで瞬時に起動する、そんな世界を想像してみてください。ダウンロード不要、インストール不要、サーバー接続不要。それがPyxisです！**VS Code + Node.js + Git**が全て一つの超高速ウェブアプリに詰まっていて、iPadでも、どこでも動きます。
 
-> 💡 **Perfect for students, professionals, and anyone who wants to code without the hassle!**
-
+> 💡 **学生、プロ、コードを気軽に書きたい全ての人にピッタリ！**
 
 ---
 
-## 🚀 Revolutionary Features That Will Blow Your Mind
+## 🚀 あなたの心を揺さぶる革新的機能
 
-### **Hot Module Replacement (HMR) - Live Magic!**
+### 🔥 **ホットモジュールリプレースメント（HMR）- リアルタイム編集！**
 <div align="center">
-  <img src="readme-assets/IMG_1465.png" alt="HMR in Action" width="80%" />
+  <img src="readme-assets/IMG_1465.png" alt="HMR の動作画面" width="80%" />
 </div>
 
-Build websites and see changes **instantly**! No refreshing, no waiting - just pure development bliss. Your code updates in real-time as you type, making web development feel like magic.
+ウェブサイトを作って、変更が**瞬時に**反映される！リフレッシュ不要、待ち時間なし。コードを書けば即座に画面に反映される、まさに開発の極上体験です。
 
 ---
 
-### � **Markdown, Mermaid & LaTeX - Documentation Heaven**
+### **Markdown・Mermaid・LaTeX - ドキュメント天国**
 <div align="center">
-  <img src="readme-assets/IMG_1470.png" alt="Rich Content Editing" width="80%" />
+  <img src="readme-assets/IMG_1470.png" alt="リッチコンテンツ編集" width="80%" />
 </div>
 
-Create **beautiful documentation** with live previews! Write flowcharts with Mermaid, mathematical formulas with LaTeX, and rich markdown - all updating in real-time as you type.
+**美しいドキュメント**をライブプレビューで作成！Mermaidでフローチャート、LaTeXで数式、リッチなマークダウン - 全てタイプするだけでリアルタイム更新。
 
 ---
 
-### 🔄 **Visual Git - Version Control Made Simple**
+### 🔄 **ビジュアル Git - バージョン管理がこんなに簡単**
 <div align="center">
-  <img src="readme-assets/IMG_1466.png" alt="Git Diff Visualization" width="80%" />
+  <img src="readme-assets/IMG_1466.png" alt="Git 差分の可視化" width="80%" />
 </div>
 
-See your code changes with **beautiful visual diffs**! Full Git support with branches, merging, and history - perfect for learning Git safely without breaking anything.
+コードの変更を**美しいビジュアル差分**で確認！完全なGitサポートでブランチ、マージ、履歴管理 - 何を壊しても大丈夫な安全なGit学習環境。
 
 ---
 
-### ⚡ **Node.js Runtime - Real Backend Power**
+### ⚡ **Node.js ランタイム - 本物のバックエンドパワー**
 <div align="center">
-  <img src="readme-assets/IMG_1469.png" alt="Node.js Execution" width="80%" />
+  <img src="readme-assets/IMG_1469.png" alt="Node.js 実行画面" width="80%" />
 </div>
 
-Run **real Node.js code** in your browser! File operations, readline, and many npm modules work perfectly. It's like having a mini server right in your browser.
+ブラウザで**本物のNode.jsコード**が動く！ファイル操作、readline、多くのnpmモジュールが完璧に動作。ブラウザの中に小さなサーバーがあるようなものです。
 
 ---
 
-### � **Smart File Operations - Find Anything Instantly**
+### **スマートファイル操作 - 何でも瞬時に発見**
 <div align="center">
-  <img src="readme-assets/IMG_1467.png" alt="File Operations" width="80%" />
+  <img src="readme-assets/IMG_1467.png" alt="ファイル操作" width="80%" />
 </div>
 
-Navigate your projects with **VS Code-like efficiency**! Quick file search, intelligent autocomplete, and powerful commands make coding a breeze.
+**VS Code並みの効率性**でプロジェクトをナビゲート！高速ファイル検索、インテリジェントなオートコンプリート、強力なコマンドでコーディングが楽しくなります。
 
 ---
 
-## 🎯 Why Choose Pyxis?
+## 🎯 なぜPyxisを選ぶべきか？
 
-### � **Lightning Fast - Zero Wait Time**
-- **Instant startup** - No servers, no loading screens, just pure speed
-- **Static hosting** means it loads faster than you can blink
-- **No stress, no lag** - Code at the speed of thought
+### **超高速 - 待ち時間ゼロ**
+- **瞬間起動** - サーバーなし、ローディング画面なし、純粋なスピード
+- **静的ホスティング** でまばたきより速く読み込み
+- **ストレスフリー、ラグなし** - 思考の速度でコーディング
 
-### 🛡️ **100% Safe - Break Nothing**
-- **Sandbox environment** - Experiment freely without fear
-- **Perfect for beginners** learning Git and coding
-- **No system damage possible** - it's just a browser tab!
+### 🛡️ **100%安全 - 何も壊れない**
+- **サンドボックス環境** - 恐れることなく自由に実験
+- **初心者のGitとコーディング学習に最適**
+- **システム破損不可能** - ただのブラウザタブだから！
 
-### 📱 **iPad First - Code Anywhere**
-- **Designed on iPad** for the ultimate mobile coding experience
-- **Touch-optimized interface** with dual editor support
-- **True iPad development** - finally, a real IDE for your tablet
+### � **iPad ファースト - どこでもコーディング**
+- **iPad で設計** された究極のモバイルコーディング体験
+- **タッチ最適化インターフェース** とデュアルエディター対応
+- **真のiPad開発** - ついに、タブレット用の本物のIDE
 
-### 🤖 **AI-Powered - Your Coding Assistant**
-- **Built-in AI Agent** for instant help and code editing
-- **Ask & Edit features** - no more copy-pasting to ChatGPT
-- **Seamless integration** right in your coding environment
+### 🤖 **AI搭載 - あなたのコーディングアシスタント**
+- **Ask & Edit機能** - 何度もファイルからChatGPTにコピペする必要なし
+- **シームレス統合** でコーディング環境に直接組み込み
 
-### 🌐 **Universal Compatibility**
-- **Works everywhere** - Web, iPad, mobile, any modern browser
-- **Multi-pane support** for complex projects
-- **Buffer content support** - unzip files, view PDFs, images, videos
+### 🌐 **ユニバーサル互換性**
+- **どこでも動く** - Web、iPad、モバイル、全てのモダンブラウザ
+- **マルチペーン対応** で複雑なプロジェクトも楽々
+- **バッファコンテンツ対応** - zip解凍、PDF、画像、動画表示
+
+> 🌟 **おそらく世界初** - この全条件を満たすツールは他に見つかりませんでした！
 
 ---
 
-## 🎪 Perfect For Everyone
+## 🎪 みんなにピッタリ
 
 <div align="center">
 
-| 👨‍🎓 **Students** | 👩‍💻 **Professionals** | 🧪 **Experimenters** |
+| 👨‍🎓 **学生** | 👩‍💻 **プロフェッショナル** | 🧪 **実験好き** |
 |:---:|:---:|:---:|
-| Learn coding without setup hassles | Code on iPad during commutes | Test ideas instantly |
-| Practice Git safely | Client demos without deployment | Prototype rapidly |
-| Access from school computers | Remote work ready | Algorithm testing |
+| セットアップの面倒なしに学習 | 通勤中にiPadでコーディング | アイデアを瞬時にテスト |
+| 安全にGitの練習 | デプロイなしでクライアントデモ | 高速プロトタイピング |
+| 学校のPCからもアクセス | リモートワーク対応 | アルゴリズムテスト |
 
 </div>
 
 ---
 
-## �️ Technical Excellence Under the Hood
+## 技術的価値
 
 <details>
-<summary><strong>🔧 Modern Tech Stack</strong></summary>
+<summary><strong>🔧 モダンテックスタック</strong></summary>
 
-### **Frontend Powerhouse**
-- **Next.js 15** with React 19 - Latest and greatest
-- **TypeScript** - Type-safe development
-- **Tailwind CSS** - Beautiful, responsive design
+### **Front End**
+- **Next.js 15** と React 19 - 最新で最高
+- **TypeScript** - 型安全な開発
+- **Tailwind CSS** - 美しく、レスポンシブなデザイン
 
-### **Editor & Terminal Magic**
-- **Monaco Editor** - The same engine that powers VS Code
-- **xterm.js** - Full-featured terminal experience
-- **Lightning FS** - Blazing-fast file system
+### **エディターとターミナル**
+- **Monaco Editor** - VS Codeと同じエンジンを使用
+- **xterm.js** - フル機能ターミナル体験
+- **Lightning FS** - 超高速ファイルシステム
 
-### **Runtime Innovation**
-- **QuickJS** - Lightning-fast JavaScript execution
-- **node-stdlib-browser** - Node.js API compatibility
-- **isomorphic-git** - Pure JavaScript Git implementation
+### **ランタイムイノベーション**
+- **node-stdlib-browser** - Node.js API互換性
+- **fs module** - 気合いのエミュレーター全書き
+- **isomorphic-git** - 純粋JavaScriptのGit実装
 
 </details>
 
-### 🎨 **What You Can Build**
+### 🎨 **作れるもの**
 
 ```javascript
-// 🚀 Node.js apps that actually work!
+// 🚀 本当に動くNode.jsアプリ！
 const fs = require('fs');
 const readline = require('readline');
 
-// Real file operations
-fs.writeFileSync('my-app.js', 'console.log("Hello Pyxis!")');
+// 本物のファイル操作
+fs.writeFileSync('my-app.js', 'console.log("こんにちはPyxis!")');
 
-// Interactive console apps
+// インタラクティブなコンソールアプリ
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout
 });
 
-rl.question('What\'s your name? ', (name) => {
-  console.log(`Hello ${name}! Welcome to Pyxis! 🌟`);
+rl.question('お名前は？ ', (name) => {
+  console.log(`${name}さん、Pyxisへようこそ！ 🌟`);
   rl.close();
 });
 ```
 
-### 🌟 **Git Workflow Made Easy**
+### 🌟 **簡単になったGitワークフロー**
 
 ```bash
-# See beautiful visual diffs
-git diff [branchName]
-git add .
-git commit -m "My awesome feature ✨"
 
-# Branch like a pro
+# 美しいビジュアル差分を見る
+git add .
+git commit -m "私の素晴らしい機能 ✨"
+
+# プロのようにブランチ
 git checkout -b feature/amazing-idea
 git merge main
 
-# Download your entire repo with .git included!
-# Perfect for moving to desktop later
+# .gitを含む完全なリポジトリをダウンロード！
+# 後でデスクトップに移行するのに最適
 ```
-
 
 ---
 
-## 🚀 Quick Start Guide
+## 🚀 クイックスタートガイド
 
-### **1. Just Click and Code!**
-1. 🌐 **[Open Pyxis](https://pyxis-code.onrender.com)** in any browser
-2. 📝 **Start typing** - no sign up, no downloads needed
-3. 🎯 **Try the examples** below to see the magic
+### **1. クリックしてコーディング開始！**
+1. 🌐 **[Pyxis を開く](https://pyxis-code.onrender.com)** - どのブラウザでも
+2. 📝 **タイプ開始** - サインアップ不要、ダウンロード不要
+3. 🎯 **下の例を試す** - 即座に体験
 
-### **2. Your First Pyxis Project**
+### **2. 初めてのPyxisプロジェクト**
 
-**Create a simple Node.js app:**
+**シンプルなNode.jsアプリを作成：**
 ```javascript
 // app.js
 const fs = require('fs');
 
-// Write your first file
-fs.writeFileSync('hello.txt', 'Hello from Pyxis! 🚀');
+// 初めてのファイルを書く
+fs.writeFileSync('hello.txt', 'Pyxisからこんにちは！ 🚀');
 
-// Read it back
+// 読み戻す
 const message = fs.readFileSync('hello.txt', 'utf8');
 console.log(message);
 
-// Create a simple server simulation
-const express = require('express'); // Many npm modules work!
-console.log('Welcome to Pyxis - code anywhere! ✨');
+// シンプルなサーバーシミュレーション
+const express = require('express'); // 多くのnpmモジュールが動く！
+console.log('Pyxisへようこそ - どこでもコーディング！ ✨');
 ```
-**Create rich documentation:**
-```markdown
-# My Project
+Git練習
+```
+git add .
+git commit -m "初めてのPyxisプロジェクト！ 🎉"
 
-## Architecture
+# フィーチャーブランチ作成
+git checkout -b my-awesome-feature
+
+# 美しい差分ビュー
+git diff [branchName]
+```
+
+**リッチなドキュメント作成：**
+```markdown
+# 私のプロジェクト
+
+## アーキテクチャ
 ```mermaid
 graph TD
-    A[User] --> B[Pyxis IDE]
-    B --> C[Node.js Runtime]
-    B --> D[Git System]
-    C --> E[File System]
-```
+    A[ユーザー] --> B[Pyxis IDE]
+    B --> C[Node.js ランタイム]
+    B --> D[Git システム]
+    C --> E[ファイル システム]
 
-## Formula
+## 数式
 $$E = mc^2$$
-
-**Real-time preview as you type!**
 ```
+**タイプするだけでリアルタイムプレビュー！**
 
 ---
 
-## 🌈 Browser Compatibility
+## 🌈 ブラウザ互換性
 
-| Browser | Support | Notes |
+| ブラウザ | サポート | 備考 |
 |---------|---------|-------|
-| 🟢 **Chrome/Edge** | Perfect | Recommended for best experience |
-| 🟢 **Safari (iPad)** | Excellent | Optimized specifically for iPad |
-| 🟡 **Firefox** | Good | All features work |
-| 🟡 **Mobile** | Good | Touch-optimized interface |
+| 🟢 **Chrome/Edge** | 完璧 | 最高の体験にお勧め |
+| 🟢 **Safari (iPad)** | 優秀 | iPadに特別最適化 |
+| 🟡 **Firefox** | 良好 | 全機能動作 |
+| 🟡 **モバイル** | 良好 | タッチ最適化インターフェース |
 
-**System Requirements:** Just a modern browser and 2GB+ RAM for smooth experience.
-
----
-
-## 🎉 Join the Pyxis Community
-
-### 💝 **We'd Love Your Help!**
-
-Whether you're a coding wizard or just getting started, there are tons of ways to contribute:
-
-- 🐛 **Found a bug?** Report it and help make Pyxis better
-- 💡 **Have an idea?** Share your feature suggestions
-- � **Improve docs** - help others discover the magic
-- 🔧 **Code contributions** - add new features or fix issues
-- ⭐ **Star the repo** - it really helps us grow!
-
-### 🌟 **Special Thanks**
-
-Huge appreciation to the amazing open-source projects that make Pyxis possible:
-- **Monaco Editor** - The VS Code magic in browsers
-- **isomorphic-git** - Bringing Git to the web
-- **xtermjs** - Terminal emulator
-- **Next.js & React** - The foundation of modern web apps
+**システム要件：** モダンブラウザと2GB+のRAMでスムーズな体験。
 
 ---
 
-## 📄 License
+## 🎉 Pyxisコミュニティに参加
 
-MIT License - Use it, modify it, love it! See [LICENSE](LICENSE) for details.
+### 💝 **あなたの力をお貸しください！**
+
+貢献の方法はたくさんあります：
+
+- 🐛 **バグを見つけた？** 報告してPyxisをより良くしましょう
+- 💡 **アイデアがある？** 機能提案をシェアしてください
+- **ドキュメント改善** - 他の人にも伝えましょう
+- 🔧 **コード貢献** - 新機能追加やイシュー修正
+- ⭐ **リポジトリにスター** - 本当に成長の助けになります！
+
+### 🌟 **Thanks**
+
+Pyxisを可能にした素晴らしいオープンソースプロジェクトに心から感謝：
+- **Monaco Editor** - ブラウザでのVS Code
+- **isomorphic-git** - Gitをウェブに
+- **Next.js & React** - モダンウェブアプリの基盤
+
+---
+
+## 📄 ライセンス
+
+MIT License - 使って、改造して。詳細は[LICENSE](LICENSE)をご覧ください。
 
 ---
 
 <div align="center">
 
-## 🚀 Ready to Code Without Limits?
+## 🚀 制限なしのコーディングの準備はできましたか？
 
-**[✨ Launch Pyxis Now](https://pyxis-code.onrender.com)**
+**[✨ Pyxis を今すぐ起動](https://pyxis-code.onrender.com)**
 
-*No downloads. No setup. Just pure coding magic.* ✨
-
----
-
-### 📱 Share the Magic
-
-**Love Pyxis?** Star ⭐ the repo and share it with fellow developers!
-
-**Found a bug?** [Report it here](issues/) and help us improve
+*ダウンロード不要。セットアップ不要。純粋なコーディング。* ✨
 
 ---
 
-<img src="public/favicon.png" alt="Pyxis Logo" width="64" height="64" />
+### シェアしよう
 
-**Made with ❤️ for developers who refuse to compromise**
+**Pyxisが気に入った？** リポジトリに⭐をつけて、仲間の開発者にシェアしてください！
 
-*"Code anywhere, anytime, without limits"*
+**バグを見つけた？** [こちらで報告](issues/)して改善にご協力ください
+
+---
+
+<img src="public/favicon.png" alt="Pyxis ロゴ" width="64" height="64" />
+
+**妥協を拒む開発者のために ❤️ で作られました**
+
+*「制限なく、いつでも、どこでもコーディング」*
 
 </div>
