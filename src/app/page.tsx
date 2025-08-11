@@ -723,6 +723,10 @@ export default function Home() {
               className="resizer resizer-vertical flex-shrink-0"
               onMouseDown={handleRightResize}
               onTouchStart={handleRightResize}
+              style={{
+                background: colors.sidebarResizerBg,
+                cursor: 'col-resize',
+              }}
             />
             <RightSidebar
               rightSidebarWidth={rightSidebarWidth}

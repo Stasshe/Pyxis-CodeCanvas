@@ -57,6 +57,10 @@ export default function BottomPanel({ height, currentProject, projectFiles, onRe
       {/* Bottom Resizer（高さ調節バーはそのまま） */}
       <div
         className="resizer resizer-horizontal"
+        style={{
+          background: colors.sidebarResizerBg,
+          cursor: 'row-resize',
+        }}
         onMouseDown={onResize}
         onTouchStart={onResize}
       />
