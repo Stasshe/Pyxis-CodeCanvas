@@ -80,7 +80,6 @@
 │   │   │   ├── TerminalGitCommands.tsx
 │   │   │   ├── TerminalNPMCommands.tsx
 │   │   │   └── TerminalUnixCommands.tsx
-│   │   ├── ChemDoodle
 │   │   ├── FileSelect.tsx
 │   │   ├── Left
 │   │   │   ├── FileTree.tsx
@@ -179,11 +178,11 @@
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-33 directories, 147 files
+32 directories, 147 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 22966
-合計文字数: 816085
-合計ファイルサイズ(bytes): 881954
+合計行数: 22998
+合計文字数: 817526
+合計ファイルサイズ(bytes): 883525
 
-リポジトリ全体のサイズ(bytes): 1.9G	.
+リポジトリ全体のサイズ(bytes): 2.0G	.

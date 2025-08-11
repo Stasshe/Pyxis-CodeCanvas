@@ -1,271 +1,290 @@
-# 🌟 Pyxis - Client-Side IDE & Terminal
-## 日本語ver -> [README_ja.md](README_ja.md)
+<div align="center">
+  <img src="readme-assets/IMG_1473.png" alt="Pyxis Cover" width="100%" />
+  
+  # 🌟 Pyxis - Your Code Universe in a Browser
+  
+  ### *Zero Setup. Infinite Possibilities. Pure Magic.*
+  
+  [![Version](https://img.shields.io/badge/version-0.2.0-blue.svg)](https://github.com/your-username/pyxis)
+  [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+  [![Platform](https://img.shields.io/badge/platform-Web%20%7C%20iPad%20%7C%20Mobile-orange.svg)](README.md)
+  
+  **[🚀 Try Pyxis Now](https://pyxis-code.onrender.com)** | **[📖 日本語版](README_ja.md)**
+</div>
 
-> **The truly client-side IDE with full Node.js runtime and Git support - No server required!**
+---
 
-[![Version](https://img.shields.io/badge/version-0.2.0-blue.svg)](https://github.com/your-username/pyxis)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Web%20%7C%20iPad%20%7C%20Mobile-orange.svg)](README.md)
+## ✨ What is Pyxis?
 
-<p align="center">
-    <a href="https://pyxis-code.onrender.com">
-        <img src="public/favicon.png" alt="Pyxis Favicon" width="128" height="128" align="center"/>
-    </a>
-</p>
+Imagine having a **complete development environment** that loads instantly in your browser - no downloads, no installations, no server connections. That's Pyxis! It's like having **VS Code + Node.js + Git** all bundled into a lightning-fast web app that works anywhere, even on your iPad.
 
-Pyxis is a revolutionary **client-side IDE** that brings the complete development environment to your browser. Experience the full power of **Node.js runtime**, **Git version control**, and **VS Code-like editing** - all running locally on your device without any server dependency.
-
-
-## 🚀 What Makes Pyxis Revolutionary?
-
-### 💡 **Full Node.js Runtime in Browser**
-- **Run Node.js applications directly in your browser** - No server, no Docker, no installation
-- **Execute npm commands, require modules, and run scripts** just like on a desktop
-- **Perfect for iPad development** - Write and test Node.js code anywhere, anytime
-- **Transfer to about:blank for instant development** - Instantly redirect and start developing on a simple site in your browser
-
-### 🔧 **Complete Development Environment**
-- **VS Code-inspired interface** with tabs, file explorer, and integrated terminal
-- **Monaco Editor** with syntax highlighting, autocomplete, and error checking
-- **Real-time code editing** with instant feedback and IntelliSense
-
-### 🌿 **Full Git Integration**
-- **Complete Git workflow** - init, add, commit, branch, merge, checkout
-- **Visual Git history** with interactive commit graph
-- **Branch management** with switching and merging capabilities
-- **No external Git service required** - all operations run locally
-
-### 📱 **Cross-Platform Excellence**
-- **Optimized for iPad** - Touch-friendly interface for mobile development
-- **Responsive design** that works on desktop, tablet, and mobile
-- **Offline-first** - Work without internet connection
-
-## 🎯 Target Audience
-
-### 👨‍💻 **iPad Developers**
-- Developers who want to code on iPad without limitations
-- Those seeking a true IDE experience on mobile devices
-- Professionals who need Node.js development on the go
-
-### 🎓 **Students & Educators**
-- Learning programming without complex setup requirements
-- Teaching Node.js and Git in environments without installation privileges
-- Quick prototyping and experimentation
-
-### 🚀 **Rapid Prototypers**
-- Quick idea validation without environment setup
-- Testing code snippets and algorithms instantly
-- Sharing runnable code without deployment complexity
-
-### 🌐 **Web Developers**
-- Frontend developers exploring full-stack capabilities
-- Those working in restricted environments
-- Developers seeking lightweight, portable development tools
-
-## ✨ Key Features
-
-### 🖥️ **Integrated Development Environment**
-- **LaTeX rendering** for mathematical documents and formulas
-- **Multi-pane support** for enhanced productivity
-- **Theme color customization** for personalized workspace
-- **Mermaid syntax support** - Easily render flowcharts and sequence diagrams in real time
-- **Download Git/project files** for easy sharing and backup
-
-### ⚡ **Node.js Runtime Engine**
-- **Complete Node.js API compatibility** - fs, path, os, crypto, and more
-- **npm module support** with require() functionality
-- **Script execution** with real-time output
-- **Environment variables** and process management
-
-### 🔄 **Git Version Control**
-- **Repository initialization** and cloning capabilities
-- **Staging and committing** with author configuration
-- **Branch operations** - create, switch, merge, delete
-- **History visualization** with commit graphs and diffs
-- **Reset and revert** operations with conflict resolution
-
-### 🎨 **User Experience**
-- **Drag-and-drop** tab management
-- **Resizable panels** for optimal workspace layout
-- **Dark/light theme** support
-- **Keyboard shortcuts** for power users
-- **Auto-save** functionality
-- **Multiple monitor layouts** for flexible workspace arrangement
-- **Theme color change** for UI personalization
-
-### 💾 **Data Persistence**
-- **Download project or Git repository as zip**
-- **Import files from local device**
-- For more details, please refer to [DATABASE.md](./Development/DATABASE.md).
-
-### 🤖 **AI Agent (Edit/Ask)**
-- **Interact with AI** to edit or ask questions about your code.
-- **Seamless integration** with the editor for enhanced productivity.
-
-### 🌐 **HMR-like Dev Environment with iframe**
-- **Preview changes in real-time** within an embedded iframe.
-- **Hot Module Replacement (HMR)**-like experience for rapid development.
-
-### 📂 **Enhanced Import Capabilities**
-- **Import buffer content** such as zip files, images, and PDFs.
-- **Unzip command support** for extracting files directly in the environment.
+> 💡 **Perfect for students, professionals, and anyone who wants to code without the hassle!**
 
 
-## 🌟 New Feature: export --page <path>
+---
 
-Introducing a groundbreaking feature in Pyxis: `export --page <path>`!
+## 🚀 Revolutionary Features That Will Blow Your Mind
 
-### 🚀 Key Highlights
-- **Redirect to about:blank**: With a single command, transfer the specified page to `about:blank` and start developing in the browser instantly.
-- **Seamless Development Experience**: Preview pages directly from your local environment without any server or complex setup.
-- **Rapid Prototyping**: Reflect code changes immediately, significantly boosting development speed.
+### **Hot Module Replacement (HMR) - Live Magic!**
+<div align="center">
+  <img src="readme-assets/IMG_1465.png" alt="HMR in Action" width="80%" />
+</div>
 
-### 💡 How to Use
-Simply execute the following command to open the specified page in your browser:
-```bash
-export --page <path>
-```
-Example:
-```bash
-export --page /path/to/your/page
-```
+Build websites and see changes **instantly**! No refreshing, no waiting - just pure development bliss. Your code updates in real-time as you type, making web development feel like magic.
 
-### 🌍 Benefits
-- **Enhanced Development Efficiency**: Preview pages with a simple command and get instant feedback.
-- **Flexible Workflow**: Makes local development even more convenient.
+---
 
-> **Leverage this new feature to make your development experience with Pyxis even more enjoyable!**
+### � **Markdown, Mermaid & LaTeX - Documentation Heaven**
+<div align="center">
+  <img src="readme-assets/IMG_1470.png" alt="Rich Content Editing" width="80%" />
+</div>
 
+Create **beautiful documentation** with live previews! Write flowcharts with Mermaid, mathematical formulas with LaTeX, and rich markdown - all updating in real-time as you type.
 
-## 🛠️ Technology Stack
+---
 
-### **Frontend Framework**
-- **Next.js 15** - React framework with App Router
-- **React 19** - Latest React with concurrent features
+### 🔄 **Visual Git - Version Control Made Simple**
+<div align="center">
+  <img src="readme-assets/IMG_1466.png" alt="Git Diff Visualization" width="80%" />
+</div>
+
+See your code changes with **beautiful visual diffs**! Full Git support with branches, merging, and history - perfect for learning Git safely without breaking anything.
+
+---
+
+### ⚡ **Node.js Runtime - Real Backend Power**
+<div align="center">
+  <img src="readme-assets/IMG_1469.png" alt="Node.js Execution" width="80%" />
+</div>
+
+Run **real Node.js code** in your browser! File operations, readline, and many npm modules work perfectly. It's like having a mini server right in your browser.
+
+---
+
+### � **Smart File Operations - Find Anything Instantly**
+<div align="center">
+  <img src="readme-assets/IMG_1467.png" alt="File Operations" width="80%" />
+</div>
+
+Navigate your projects with **VS Code-like efficiency**! Quick file search, intelligent autocomplete, and powerful commands make coding a breeze.
+
+---
+
+## 🎯 Why Choose Pyxis?
+
+### � **Lightning Fast - Zero Wait Time**
+- **Instant startup** - No servers, no loading screens, just pure speed
+- **Static hosting** means it loads faster than you can blink
+- **No stress, no lag** - Code at the speed of thought
+
+### 🛡️ **100% Safe - Break Nothing**
+- **Sandbox environment** - Experiment freely without fear
+- **Perfect for beginners** learning Git and coding
+- **No system damage possible** - it's just a browser tab!
+
+### 📱 **iPad First - Code Anywhere**
+- **Designed on iPad** for the ultimate mobile coding experience
+- **Touch-optimized interface** with dual editor support
+- **True iPad development** - finally, a real IDE for your tablet
+
+### 🤖 **AI-Powered - Your Coding Assistant**
+- **Built-in AI Agent** for instant help and code editing
+- **Ask & Edit features** - no more copy-pasting to ChatGPT
+- **Seamless integration** right in your coding environment
+
+### 🌐 **Universal Compatibility**
+- **Works everywhere** - Web, iPad, mobile, any modern browser
+- **Multi-pane support** for complex projects
+- **Buffer content support** - unzip files, view PDFs, images, videos
+
+---
+
+## 🎪 Perfect For Everyone
+
+<div align="center">
+
+| 👨‍🎓 **Students** | 👩‍💻 **Professionals** | 🧪 **Experimenters** |
+|:---:|:---:|:---:|
+| Learn coding without setup hassles | Code on iPad during commutes | Test ideas instantly |
+| Practice Git safely | Client demos without deployment | Prototype rapidly |
+| Access from school computers | Remote work ready | Algorithm testing |
+
+</div>
+
+---
+
+## �️ Technical Excellence Under the Hood
+
+<details>
+<summary><strong>🔧 Modern Tech Stack</strong></summary>
+
+### **Frontend Powerhouse**
+- **Next.js 15** with React 19 - Latest and greatest
 - **TypeScript** - Type-safe development
-- **Tailwind CSS** - Utility-first styling
+- **Tailwind CSS** - Beautiful, responsive design
 
-### **Editor & Terminal**
-- **Monaco Editor** - VS Code's editor engine
-- **xterm.js** - Full-featured terminal emulator
-- **Lightning FS** - File system implementation
+### **Editor & Terminal Magic**
+- **Monaco Editor** - The same engine that powers VS Code
+- **xterm.js** - Full-featured terminal experience
+- **Lightning FS** - Blazing-fast file system
 
-### **Runtime & Execution**
-- **QuickJS** - JavaScript engine for Node.js emulation
-- **node-stdlib-browser** - Node.js standard library polyfills
-- **vm-browserify** - Virtual machine for code execution
-
-### **Version Control**
+### **Runtime Innovation**
+- **QuickJS** - Lightning-fast JavaScript execution
+- **node-stdlib-browser** - Node.js API compatibility
 - **isomorphic-git** - Pure JavaScript Git implementation
-- **@gitgraph/react** - Git history visualization
 
-## 🚀 Getting Started
+</details>
 
-### **Quick Start**
-1. **Open Pyxis** in your browser
-2. **Create a new project** or open an existing one
-3. **Start coding** with full Node.js support
-4. **Initialize Git** for version control
-5. **Run your applications** directly in the browser
+### 🎨 **What You Can Build**
 
-### **Example: Hello World Node.js App**
 ```javascript
-// Create app.js
+// 🚀 Node.js apps that actually work!
 const fs = require('fs');
-const path = require('path');
+const readline = require('readline');
 
-// Write a file
-fs.writeFileSync('hello.txt', 'Hello from Pyxis!');
+// Real file operations
+fs.writeFileSync('my-app.js', 'console.log("Hello Pyxis!")');
 
-// Read and display
-const content = fs.readFileSync('hello.txt', 'utf8');
-console.log(content);
+// Interactive console apps
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout
+});
 
-// Create a simple HTTP server simulation
-const http = require('http');
-console.log('Node.js runtime fully functional in browser!');
+rl.question('What\'s your name? ', (name) => {
+  console.log(`Hello ${name}! Welcome to Pyxis! 🌟`);
+  rl.close();
+});
 ```
 
-### **Git Workflow Example**
+### 🌟 **Git Workflow Made Easy**
+
 ```bash
-# Initialize repository
-git init
-
-# Add files
+# See beautiful visual diffs
+git diff [branchName]
 git add .
+git commit -m "My awesome feature ✨"
 
-# Commit changes
-git commit -m "Initial commit"
+# Branch like a pro
+git checkout -b feature/amazing-idea
+git merge main
 
-# Create and switch to feature branch
-git checkout -b feature/new-feature
-
-# Make changes and commit
-git add .
-git commit -m "Add new feature"
-
-# Switch back to main
-git checkout main
-
-# Merge feature
-git merge feature/new-feature
+# Download your entire repo with .git included!
+# Perfect for moving to desktop later
 ```
 
-## 🌍 Use Cases
 
-### **Educational Projects**
-- **Computer Science courses** - teach programming without setup barriers
-- **Coding bootcamps** - provide consistent development environment
-- **Online tutorials** - interactive learning with immediate feedback
+---
 
-### **Professional Development**
-- **Mobile development** - full IDE experience on iPad Pro
-- **Remote work** - development capabilities without local installation
-- **Client demonstrations** - show working code without deployment
+## 🚀 Quick Start Guide
 
-### **Research & Experimentation**
-- **Algorithm testing** - quick validation of programming concepts
-- **Library evaluation** - test npm packages without commitment
-- **Proof of concepts** - rapid prototyping capabilities
+### **1. Just Click and Code!**
+1. 🌐 **[Open Pyxis](https://pyxis-code.onrender.com)** in any browser
+2. 📝 **Start typing** - no sign up, no downloads needed
+3. 🎯 **Try the examples** below to see the magic
 
-## 📊 Performance & Compatibility
+### **2. Your First Pyxis Project**
 
-### **Browser Support**
-- ✅ **Chrome/Chromium** 90+
-- ✅ **Safari** 14+ (optimized for iPad)
-- ✅ **Firefox** 88+
-- ✅ **Edge** 90+
+**Create a simple Node.js app:**
+```javascript
+// app.js
+const fs = require('fs');
 
-### **Device Requirements**
-- **RAM**: 2GB+ recommended for optimal performance
-- **Storage**: IndexedDB support for persistence
-- **JavaScript**: ES2020+ support required
+// Write your first file
+fs.writeFileSync('hello.txt', 'Hello from Pyxis! 🚀');
 
-## 🤝 Contributing
+// Read it back
+const message = fs.readFileSync('hello.txt', 'utf8');
+console.log(message);
 
-We welcome contributions! Whether you're:
-- 🐛 **Reporting bugs**
-- 💡 **Suggesting features**
-- 📖 **Improving documentation**
-- 🔧 **Submitting code**
+// Create a simple server simulation
+const express = require('express'); // Many npm modules work!
+console.log('Welcome to Pyxis - code anywhere! ✨');
+```
+**Create rich documentation:**
+```markdown
+# My Project
 
-## 📝 License
+## Architecture
+```mermaid
+graph TD
+    A[User] --> B[Pyxis IDE]
+    B --> C[Node.js Runtime]
+    B --> D[Git System]
+    C --> E[File System]
+```
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## Formula
+$$E = mc^2$$
 
-## 🙏 Acknowledgments
+**Real-time preview as you type!**
+```
 
-- **Monaco Editor** team for the excellent code editor
-- **isomorphic-git** for bringing Git to the browser
-- **QuickJS** for the lightweight JavaScript engine
-- **Next.js** team for the amazing React framework
+---
+
+## 🌈 Browser Compatibility
+
+| Browser | Support | Notes |
+|---------|---------|-------|
+| 🟢 **Chrome/Edge** | Perfect | Recommended for best experience |
+| 🟢 **Safari (iPad)** | Excellent | Optimized specifically for iPad |
+| 🟡 **Firefox** | Good | All features work |
+| 🟡 **Mobile** | Good | Touch-optimized interface |
+
+**System Requirements:** Just a modern browser and 2GB+ RAM for smooth experience.
+
+---
+
+## 🎉 Join the Pyxis Community
+
+### 💝 **We'd Love Your Help!**
+
+Whether you're a coding wizard or just getting started, there are tons of ways to contribute:
+
+- 🐛 **Found a bug?** Report it and help make Pyxis better
+- 💡 **Have an idea?** Share your feature suggestions
+- � **Improve docs** - help others discover the magic
+- 🔧 **Code contributions** - add new features or fix issues
+- ⭐ **Star the repo** - it really helps us grow!
+
+### 🌟 **Special Thanks**
+
+Huge appreciation to the amazing open-source projects that make Pyxis possible:
+- **Monaco Editor** - The VS Code magic in browsers
+- **isomorphic-git** - Bringing Git to the web
+- **xtermjs** - Terminal emulator
+- **Next.js & React** - The foundation of modern web apps
+
+---
+
+## 📄 License
+
+MIT License - Use it, modify it, love it! See [LICENSE](LICENSE) for details.
 
 ---
 
 <div align="center">
 
-**Made with ❤️ for developers who code everywhere**
+## 🚀 Ready to Code Without Limits?
 
-[🌐 Try Pyxis Now](https://your-pyxis-url.com) | [📖 Documentation](docs/) | [🐛 Report Issues](issues/) | [💬 Discussions](discussions/)
+**[✨ Launch Pyxis Now](https://pyxis-code.onrender.com)**
+
+*No downloads. No setup. Just pure coding magic.* ✨
+
+---
+
+### 📱 Share the Magic
+
+**Love Pyxis?** Star ⭐ the repo and share it with fellow developers!
+
+**Found a bug?** [Report it here](issues/) and help us improve
+
+---
+
+<img src="public/favicon.png" alt="Pyxis Logo" width="64" height="64" />
+
+**Made with ❤️ for developers who refuse to compromise**
+
+*"Code anywhere, anytime, without limits"*
 
 </div>
