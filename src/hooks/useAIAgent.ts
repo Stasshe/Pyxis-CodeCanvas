@@ -261,26 +261,17 @@ function parseEditResponse(response: string, originalFiles: Array<{path: string,
     }
   }
 
-  // メッセージを抽出（コードブロックとファイル情報以外の部分）
-  let messageLines = response.split('\n');
-  
-  // 特定のパターンを除外してメッセージを構築
-  const filteredLines = messageLines.filter(line => {
-    // ファイル情報やコードブロックタグは除外
-    if (line.includes('<AI_EDIT_CONTENT_START:') || 
-        line.includes('<AI_EDIT_CONTENT_END:') ||
-        line.match(/^##\s*変更ファイル:/) ||
-        line.match(/^\*\*変更理由\*\*:/) ||
-        line.trim() === '---') {
-      return false;
-    }
-    return true;
-  });
-  
-  message = filteredLines.join('\n').trim();
-  
+
+  // <AI_EDIT_CONTENT_START:...> から <AI_EDIT_CONTENT_END:...> までのブロックをすべて削除
+  let cleaned = response.replace(/<AI_EDIT_CONTENT_START:[^>]+>[\s\S]*?<AI_EDIT_CONTENT_END:[^>]+>/g, '');
+  // ファイル情報や変更理由、--- も除外
+  cleaned = cleaned.replace(/^##\s*変更ファイル:.*$/gm, '')
+                   .replace(/^\*\*変更理由\*\*:.*$/gm, '')
+                   .replace(/^---$/gm, '');
+  message = cleaned.trim();
+
   // メッセージが短すぎる場合はデフォルトメッセージを使用
-  if (!message || message.length < 10) {
+  if (!message || message.replace(/\s/g, '').length < 10) {
     message = changedFiles.length > 0 
       ? `${changedFiles.length}個のファイルの編集を提案しました。` 
       : 'レスポンスの解析に失敗しました。プロンプトを調整してください。';

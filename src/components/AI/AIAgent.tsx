@@ -40,7 +40,8 @@ export default function AIAgent({
   const [lastEditResponse, setLastEditResponse] = useState<AIEditResponse | null>(null);
   const [showSpaceList, setShowSpaceList] = useState(false);
 
-    const handleRefreshFileContexts = async () => {
+  //手動更新ハンドラ
+  const handleRefreshFileContexts = async () => {
     if (currentProject) {
       console.log('[AIAgent] Manual refresh requested');
       try {
@@ -107,16 +108,16 @@ export default function AIAgent({
     }
   }, [projectFiles]); // projectFiles全体に依存し、内容変更も検知
 
-  // ファイルコンテキストの状態変化をログで監視
-  useEffect(() => {
-    if (fileContexts.length > 0) {
-      console.log('[AIAgent] File contexts updated:', fileContexts.map(ctx => ({
-        path: ctx.path,
-        contentLength: ctx.content.length,
-        selected: ctx.selected
-      })));
-    }
-  }, [fileContexts]);
+  // // ファイルコンテキストの状態変化をログで監視
+  // useEffect(() => {
+  //   if (fileContexts.length > 0) {
+  //     console.log('[AIAgent] File contexts updated:', fileContexts.map(ctx => ({
+  //       path: ctx.path,
+  //       contentLength: ctx.content.length,
+  //       selected: ctx.selected
+  //     })));
+  //   }
+  // }, [fileContexts]);
 
   // プロジェクトが変更されたときに初期スペースを作成
   useEffect(() => {
