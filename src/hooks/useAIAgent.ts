@@ -5,6 +5,7 @@ import type { AIMessage, AIEditRequest, AIEditResponse, AIFileContext, ProjectFi
 import { generateCodeEdit, generateChatResponse } from '@/utils/ai/fetchAI';
 import { EDIT_PROMPT_TEMPLATE } from '@/utils/ai/prompts';
 import { getSelectedFileContexts } from '@/utils/ai/contextBuilder';
+import { LOCALSTORAGE_KEY } from '@/context/config';
 
 interface UseAIAgentProps {
   onAddMessage?: (content: string, type: 'user' | 'assistant', mode: 'chat' | 'edit', fileContext?: string[], editResponse?: AIEditResponse) => Promise<void>;
@@ -57,7 +58,7 @@ export function useAIAgent(props?: UseAIAgentProps) {
 
   // チャットメッセージを送信
   const sendChatMessage = useCallback(async (content: string): Promise<void> => {
-    const apiKey = localStorage.getItem('gemini-api-key');
+    const apiKey = localStorage.getItem(LOCALSTORAGE_KEY.GEMINI_API_KEY);
     if (!apiKey) {
       throw new Error('Gemini APIキーが設定されていません。設定画面で設定してください。');
     }
@@ -95,7 +96,7 @@ export function useAIAgent(props?: UseAIAgentProps) {
 
   // コード編集を実行
   const executeCodeEdit = useCallback(async (instruction: string): Promise<AIEditResponse> => {
-    const apiKey = localStorage.getItem('gemini-api-key');
+    const apiKey = localStorage.getItem(LOCALSTORAGE_KEY.GEMINI_API_KEY);
     if (!apiKey) {
       throw new Error('Gemini APIキーが設定されていません。設定画面で設定してください。');
     }

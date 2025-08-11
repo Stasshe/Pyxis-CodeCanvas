@@ -107,7 +107,8 @@
 │   │   │   └── WelcomeTab.tsx
 │   │   └── Toast.tsx
 │   ├── context
-│   │   └── ThemeContext.tsx
+│   │   ├── ThemeContext.tsx
+│   │   └── config.ts
 │   ├── hooks
 │   │   ├── fileSelectHandlers.ts
 │   │   ├── gitHooks.ts
@@ -178,11 +179,11 @@
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-33 directories, 146 files
+33 directories, 147 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 22961
-合計文字数: 815745
-合計ファイルサイズ(bytes): 881614
+合計行数: 22966
+合計文字数: 816085
+合計ファイルサイズ(bytes): 881954
 
 リポジトリ全体のサイズ(bytes): 1.9G	.

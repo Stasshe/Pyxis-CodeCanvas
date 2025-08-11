@@ -14,6 +14,7 @@ import ChangedFilesList from './ChangedFilesList';
 import ChatSpaceList from './ChatSpaceList';
 import type { FileItem, ProjectFile, Tab, Project, AIEditResponse } from '@/types';
 import { useProject } from '@/utils/core/project';
+import { LOCALSTORAGE_KEY } from '@/context/config';
 
 interface AIAgentProps {
   projectFiles: FileItem[];
@@ -153,7 +154,7 @@ export default function AIAgent({
 
   // API キーのチェック
   const isApiKeySet = () => {
-    return !!localStorage.getItem('gemini-api-key');
+    return !!localStorage.getItem(LOCALSTORAGE_KEY.GEMINI_API_KEY);
   };
 
 

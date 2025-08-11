@@ -7,6 +7,7 @@ import { GitBranch, GitCommit, RefreshCw, Plus, Check, X, GitMerge, Clock, User,
 import { GitRepository, GitCommit as GitCommitType, GitStatus } from '@/types/git';
 import { GitCommands } from '@/utils/cmd/git';
 import GitHistory from './GitHistory';
+import { LOCALSTORAGE_KEY } from '@/context/config';
 
 interface GitPanelProps {
   currentProject?: string;
@@ -397,7 +398,7 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
 
   // APIキーをlocalStorageから初期化
   useEffect(() => {
-    const savedKey = localStorage.getItem('geminiApiKey') || '';
+    const savedKey = localStorage.getItem(LOCALSTORAGE_KEY.GEMINI_API_KEY) || '';
     setApiKey(savedKey);
   }, []);
 
@@ -407,7 +408,7 @@ export default function GitPanel({ currentProject, onRefresh, gitRefreshTrigger,
   const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setApiKey(value);
-    localStorage.setItem('geminiApiKey', value);
+    localStorage.setItem(LOCALSTORAGE_KEY.GEMINI_API_KEY, value);
   };
 
   // 初期化とプロジェクト変更時の更新
