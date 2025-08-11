@@ -83,7 +83,8 @@ body {
   background: hsl(var(--border));
   position: relative;
   user-select: none;
-  /* transition: background-color 0.2s ease; 一時的に無効化 */
+  transition: background-color 0.2s ease;
+   /* 一時的に無効化 */
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;

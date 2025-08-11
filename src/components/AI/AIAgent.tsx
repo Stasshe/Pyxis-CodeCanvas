@@ -557,28 +557,78 @@ export default function AIAgent({
           }}
         >
           {/* モード切り替えタブ（コンパクト） */}
-          <div className="flex mb-1.5">
+          <div className="flex mb-1.5 relative">
             <button
-              className={`flex-1 text-xs py-0.5 px-2 rounded-l border-r-0 transition ${currentMode === 'chat' ? 'font-medium' : ''}`}
+              className={`flex-1 text-xs py-0.5 px-2 rounded-l border-r-0 transition relative ${currentMode === 'chat' ? 'font-bold shadow' : ''}`}
               style={{
                 background: currentMode === 'chat' ? colors.accent : colors.mutedBg,
                 color: currentMode === 'chat' ? colors.accentFg : colors.mutedFg,
                 border: `1px solid ${colors.border}`,
+                position: 'relative',
+                zIndex: currentMode === 'chat' ? 2 : 1,
+                boxShadow: currentMode === 'chat' ? `0 2px 0 0 ${colors.accent}` : 'none',
+                outline: currentMode === 'chat' ? `2px solid ${colors.accent}` : 'none',
+                outlineOffset: currentMode === 'chat' ? '-2px' : '0',
               }}
               onClick={() => setCurrentMode('chat')}
             >
-              💬 Ask
+              <span className="inline-flex items-center gap-1">
+                <span style={{
+                  display: 'inline-block',
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  background: currentMode === 'chat' ? colors.accentFg : 'transparent',
+                  marginRight: 4,
+                  transition: 'background 0.2s',
+                }}></span>
+                💬 Ask
+              </span>
+              {currentMode === 'chat' && (
+                <span
+                  className="absolute left-1/2 -translate-x-1/2 bottom-0 w-3/4 h-0.5 rounded"
+                  style={{
+                    background: colors.accentFg,
+                    boxShadow: `0 2px 8px 0 ${colors.accent}33`,
+                  }}
+                ></span>
+              )}
             </button>
             <button
-              className={`flex-1 text-xs py-0.5 px-2 rounded-r transition ${currentMode === 'edit' ? 'font-medium' : ''}`}
+              className={`flex-1 text-xs py-0.5 px-2 rounded-r transition relative ${currentMode === 'edit' ? 'font-bold shadow' : ''}`}
               style={{
                 background: currentMode === 'edit' ? colors.accent : colors.mutedBg,
                 color: currentMode === 'edit' ? colors.accentFg : colors.mutedFg,
                 border: `1px solid ${colors.border}`,
+                position: 'relative',
+                zIndex: currentMode === 'edit' ? 2 : 1,
+                boxShadow: currentMode === 'edit' ? `0 2px 0 0 ${colors.accent}` : 'none',
+                outline: currentMode === 'edit' ? `2px solid ${colors.accent}` : 'none',
+                outlineOffset: currentMode === 'edit' ? '-2px' : '0',
               }}
               onClick={() => setCurrentMode('edit')}
             >
-              ✏️ Edit
+              <span className="inline-flex items-center gap-1">
+                <span style={{
+                  display: 'inline-block',
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  background: currentMode === 'edit' ? colors.accentFg : 'transparent',
+                  marginRight: 4,
+                  transition: 'background 0.2s',
+                }}></span>
+                ✏️ Edit
+              </span>
+              {currentMode === 'edit' && (
+                <span
+                  className="absolute left-1/2 -translate-x-1/2 bottom-0 w-3/4 h-0.5 rounded"
+                  style={{
+                    background: colors.accentFg,
+                    boxShadow: `0 2px 8px 0 ${colors.accent}33`,
+                  }}
+                ></span>
+              )}
             </button>
           </div>
 
