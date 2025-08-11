@@ -440,7 +440,8 @@ export class UnixCommands {
           }
           return result.message || `removed '${fileName}'`;
         } else {
-          throw new Error(result.error || `cannot remove '${fileName}'`);
+          return `file or dir: '${fileName}' not found`;
+          //throw new Error(result.error || `cannot remove '${fileName}'`);
         }
       }
     }, `rm operation failed`);

@@ -68,8 +68,8 @@ export default function DiffViewer({
                     変更ブロック {blockIndex + 1}（行 {block.startLine}-{block.endLine}）
                   </span>
                   <button
-                    className="text-xs px-2 py-1 rounded hover:opacity-80"
-                    style={{ background: colors.accent, color: colors.background }}
+                    className="text-xs px-2 py-1 rounded hover:opacity-90 border"
+                    style={{ background: colors.green, color: colors.background, borderColor: colors.green, fontWeight: 600, boxShadow: '0 1px 4px 0 #0002' }}
                     onClick={() => handleApplyBlock(block)}
                   >適用</button>
                   <button
@@ -133,8 +133,8 @@ export default function DiffViewer({
                 </div>
                 <div className="flex gap-1">
                   <button
-                    className="text-xs px-2 py-1 rounded hover:opacity-80"
-                    style={{ background: colors.accent, color: colors.background }}
+                    className="text-xs px-2 py-1 rounded hover:opacity-90 border"
+                    style={{ background: colors.green, color: colors.background, borderColor: colors.green, fontWeight: 600, boxShadow: '0 1px 4px 0 #0002' }}
                     onClick={(e) => {
                       e.stopPropagation();
                       handleApplyBlock(block);
