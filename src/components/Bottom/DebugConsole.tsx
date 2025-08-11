@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { DebugConsoleAPI } from './DebugConsoleAPI';
+import { DebugConsoleAPI, TerminalAction } from './DebugConsoleAPI';
 import { useTheme } from '@/context/ThemeContext';
 
 interface DebugConsoleProps {
@@ -90,10 +90,80 @@ export default function DebugConsole({ height, isActive }: DebugConsoleProps) {
       term.writeln('\x1b[1;36m[Debug Console]\x1b[0m デバッグ出力はこちらに表示されます。');
       scrollToBottom();
       
-      // APIからの出力をxtermに流す（自動スクロール付き）
+      // 後方互換性のためのログリスナー（従来のlog()メソッド用）
       DebugConsoleAPI.onLog((msg: string) => {
         termRef.current?.writeln(msg);
         scrollToBottom();
+      });
+
+      // 新しいアクション型リスナー（高度なターミナル制御用）
+      DebugConsoleAPI.onAction((action: TerminalAction) => {
+        if (!termRef.current) return;
+        
+        switch (action.type) {
+          case 'log':
+            termRef.current.writeln(action.data);
+            scrollToBottom();
+            break;
+            
+          case 'clear':
+            termRef.current.clear();
+            break;
+            
+          case 'clearLine':
+            termRef.current.write('\r\x1b[K'); // カーソルを行頭に移動して行をクリア
+            break;
+            
+          case 'write':
+            termRef.current.write(action.data);
+            break;
+            
+          case 'writeln':
+            termRef.current.writeln(action.data);
+            scrollToBottom();
+            break;
+            
+          case 'moveCursor':
+            if (action.data.absolute) {
+              // 絶対位置への移動
+              termRef.current.write(`\x1b[${action.data.y + 1};${action.data.x + 1}H`);
+            } else {
+              // 相対移動
+              const { deltaX, deltaY } = action.data;
+              if (deltaY !== 0) {
+                const direction = deltaY > 0 ? 'B' : 'A';
+                termRef.current.write(`\x1b[${Math.abs(deltaY)}${direction}`);
+              }
+              if (deltaX !== 0) {
+                const direction = deltaX > 0 ? 'C' : 'D';
+                termRef.current.write(`\x1b[${Math.abs(deltaX)}${direction}`);
+              }
+            }
+            break;
+            
+          case 'deleteLines':
+            // 指定行数を削除
+            termRef.current.write(`\x1b[${action.data}M`);
+            break;
+            
+          case 'insertLines':
+            // 指定行数を挿入
+            termRef.current.write(`\x1b[${action.data}L`);
+            break;
+            
+          case 'setTitle':
+            // ターミナルタイトルを設定
+            termRef.current.write(`\x1b]0;${action.data}\x07`);
+            break;
+            
+          case 'bell':
+            // ベル音（xtermでは画面の点滅など）
+            termRef.current.write('\x07');
+            break;
+            
+          default:
+            console.warn('Unknown terminal action:', action.type);
+        }
       });
       
 

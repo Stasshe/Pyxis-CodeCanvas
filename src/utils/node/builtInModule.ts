@@ -276,26 +276,69 @@ export function createUtilModule() {
 
 // readline モジュールのエミュレーション
 export function createReadlineModule() {
-  // DebugConsoleAPI経由で入力を取得するためのイベントエミッター
+  // 実際のNode.jsのreadline.Interfaceに近いクラス
   class Interface {
     private _input: any;
     private _output: any;
     private _prompt: string = '> ';
     private _listeners: Map<string, Function[]> = new Map();
     private _isWaitingForInput: boolean = false;
+    private _completer: Function | null = null;
+    private _terminal: boolean = true;
+    private _historySize: number = 30;
+    private _history: string[] = [];
+    private _removeHistoryDuplicates: boolean = false;
+    private _crlfDelay: number = 100;
+    private _escapeCodeTimeout: number = 500;
+    private _tabSize: number = 8;
     
     constructor(options: any = {}) {
       this._input = options.input || process.stdin;
       this._output = options.output || process.stdout;
-      if (options.prompt) this._prompt = options.prompt;
+      this._prompt = options.prompt || '> ';
+      this._completer = options.completer || null;
+      this._terminal = options.terminal !== false;
+      this._historySize = options.historySize || 30;
+      this._removeHistoryDuplicates = options.removeHistoryDuplicates || false;
+      this._crlfDelay = options.crlfDelay || 100;
+      this._escapeCodeTimeout = options.escapeCodeTimeout || 500;
+      this._tabSize = options.tabSize || 8;
       
       // DebugConsoleからの入力をリッスン
       DebugConsoleAPI.onInput((input: string) => {
         if (this._isWaitingForInput) {
           this._isWaitingForInput = false;
+          this._addHistory(input.trim());
           this.emit('line', input.trim());
         }
       });
+    }
+    
+    // 履歴管理
+    private _addHistory(line: string): void {
+      if (!line || line.trim() === '') return;
+      
+      if (this._removeHistoryDuplicates) {
+        const index = this._history.indexOf(line);
+        if (index !== -1) {
+          this._history.splice(index, 1);
+        }
+      }
+      
+      this._history.unshift(line);
+      if (this._history.length > this._historySize) {
+        this._history = this._history.slice(0, this._historySize);
+      }
+    }
+    
+    // 履歴を取得
+    getHistory(): string[] {
+      return [...this._history];
+    }
+    
+    // 履歴をクリア
+    clearHistory(): void {
+      this._history = [];
     }
     
     // イベントリスナーの管理
@@ -307,11 +350,25 @@ export function createReadlineModule() {
       return this;
     }
     
+    once(event: string, listener: Function): this {
+      const onceWrapper = (...args: any[]) => {
+        this.removeListener(event, onceWrapper);
+        listener(...args);
+      };
+      return this.on(event, onceWrapper);
+    }
+    
     // イベントの発火
     emit(event: string, ...args: any[]): boolean {
       const listeners = this._listeners.get(event);
       if (listeners) {
-        listeners.forEach(listener => listener(...args));
+        listeners.forEach(listener => {
+          try {
+            listener(...args);
+          } catch (error) {
+            console.error('Error in readline event listener:', error);
+          }
+        });
         return true;
       }
       return false;
@@ -320,7 +377,10 @@ export function createReadlineModule() {
     // プロンプトの表示
     prompt(preserveCursor?: boolean): void {
       this._isWaitingForInput = true;
-      DebugConsoleAPI.log(this._prompt);
+      if (!preserveCursor) {
+        DebugConsoleAPI.write('\r');
+      }
+      DebugConsoleAPI.write(this._prompt);
     }
     
     // プロンプトの設定
@@ -328,17 +388,29 @@ export function createReadlineModule() {
       this._prompt = prompt;
     }
     
+    // プロンプトを取得
+    getPrompt(): string {
+      return this._prompt;
+    }
+    
     // 質問（非同期）
-    question(query: string, callback: (answer: string) => void): void {
-      DebugConsoleAPI.log(query);
-      this._isWaitingForInput = true;
-      
-      const onLine = (answer: string) => {
-        this.removeListener('line', onLine);
-        callback(answer);
-      };
-      
-      this.on('line', onLine);
+    question(query: string, callback?: (answer: string) => void): void {
+      if (callback) {
+        DebugConsoleAPI.write(query);
+        this._isWaitingForInput = true;
+        
+        const onLine = (answer: string) => {
+          this.removeListener('line', onLine);
+          callback(answer);
+        };
+        
+        this.on('line', onLine);
+      } else {
+        // Promiseを返す（Node.js 17+の動作）
+        return new Promise((resolve) => {
+          this.question(query, resolve);
+        }) as any;
+      }
     }
     
     // 質問（Promise版）
@@ -360,6 +432,22 @@ export function createReadlineModule() {
       return this;
     }
     
+    // 全てのリスナーを削除
+    removeAllListeners(event?: string): this {
+      if (event) {
+        this._listeners.delete(event);
+      } else {
+        this._listeners.clear();
+      }
+      return this;
+    }
+    
+    // リスナーの数を取得
+    listenerCount(event: string): number {
+      const listeners = this._listeners.get(event);
+      return listeners ? listeners.length : 0;
+    }
+    
     // インターフェースを閉じる
     close(): void {
       this._listeners.clear();
@@ -368,10 +456,115 @@ export function createReadlineModule() {
     }
     
     // 一行書き込み
-    write(data: string): void {
-      DebugConsoleAPI.log(data);
+    write(data: string, key?: any): void {
+      if (key && key.ctrl && key.name === 'c') {
+        this.emit('SIGINT');
+        return;
+      }
+      DebugConsoleAPI.write(data);
+    }
+    
+    // カーソル位置を取得
+    getCursorPos(): { rows: number; cols: number } {
+      // ブラウザ環境では実際のカーソル位置は取得困難なので、
+      // ダミーの値を返す
+      return { rows: 1, cols: this._prompt.length };
+    }
+    
+    // 行をクリア
+    clearLine(dir: number = 0): void {
+      // dir: -1 (left), 0 (entire), 1 (right)
+      switch (dir) {
+        case -1:
+          DebugConsoleAPI.write('\x1b[1K'); // カーソルから行頭までクリア
+          break;
+        case 1:
+          DebugConsoleAPI.write('\x1b[0K'); // カーソルから行末までクリア
+          break;
+        default:
+          DebugConsoleAPI.write('\x1b[2K'); // 行全体をクリア
+          break;
+      }
+    }
+    
+    // カーソルを移動
+    cursorTo(x: number, y?: number): void {
+      if (y !== undefined) {
+        DebugConsoleAPI.write(`\x1b[${y + 1};${x + 1}H`);
+      } else {
+        DebugConsoleAPI.write(`\x1b[${x + 1}G`);
+      }
+    }
+    
+    // カーソルを相対移動
+    moveCursor(dx: number, dy: number): void {
+      if (dx < 0) {
+        DebugConsoleAPI.write(`\x1b[${Math.abs(dx)}D`);
+      } else if (dx > 0) {
+        DebugConsoleAPI.write(`\x1b[${dx}C`);
+      }
+      
+      if (dy < 0) {
+        DebugConsoleAPI.write(`\x1b[${Math.abs(dy)}A`);
+      } else if (dy > 0) {
+        DebugConsoleAPI.write(`\x1b[${dy}B`);
+      }
+    }
+    
+    // 一時停止
+    pause(): this {
+      this._isWaitingForInput = false;
+      this.emit('pause');
+      return this;
+    }
+    
+    // 再開
+    resume(): this {
+      this.emit('resume');
+      return this;
     }
   }
+  
+  // カーソル制御関数（グローバル）
+  const cursorTo = (stream: any, x: number, y?: number): void => {
+    if (y !== undefined) {
+      DebugConsoleAPI.write(`\x1b[${y + 1};${x + 1}H`);
+    } else {
+      DebugConsoleAPI.write(`\x1b[${x + 1}G`);
+    }
+  };
+  
+  const moveCursor = (stream: any, dx: number, dy: number): void => {
+    if (dx < 0) {
+      DebugConsoleAPI.write(`\x1b[${Math.abs(dx)}D`);
+    } else if (dx > 0) {
+      DebugConsoleAPI.write(`\x1b[${dx}C`);
+    }
+    
+    if (dy < 0) {
+      DebugConsoleAPI.write(`\x1b[${Math.abs(dy)}A`);
+    } else if (dy > 0) {
+      DebugConsoleAPI.write(`\x1b[${dy}B`);
+    }
+  };
+  
+  const clearLine = (stream: any, dir: number = 0): void => {
+    switch (dir) {
+      case -1:
+        DebugConsoleAPI.write('\x1b[1K');
+        break;
+      case 1:
+        DebugConsoleAPI.write('\x1b[0K');
+        break;
+      default:
+        DebugConsoleAPI.write('\x1b[2K');
+        break;
+    }
+  };
+  
+  const clearScreenDown = (stream: any): void => {
+    DebugConsoleAPI.write('\x1b[0J');
+  };
   
   return {
     // インターフェースの作成
@@ -379,20 +572,25 @@ export function createReadlineModule() {
       return new Interface(options);
     },
     
-    // より簡単な質問関数
+    // Interface クラスをエクスポート
+    Interface: Interface,
+    
+    // カーソル制御関数
+    cursorTo,
+    moveCursor,
+    clearLine,
+    clearScreenDown,
+    
+    // 互換性のための簡単な関数
     question: (query: string): Promise<string> => {
       return new Promise((resolve) => {
-        DebugConsoleAPI.log(query);
-        const onInput = (input: string) => {
-          DebugConsoleAPI.removeInputListener(onInput);
-          resolve(input.trim());
-        };
-        DebugConsoleAPI.onInput(onInput);
+        const rl = new Interface({});
+        rl.question(query, (answer: string) => {
+          rl.close();
+          resolve(answer);
+        });
       });
-    },
-    
-    // Interface クラスをエクスポート
-    Interface: Interface
+    }
   };
 }
 
