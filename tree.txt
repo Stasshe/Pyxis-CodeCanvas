@@ -8,9 +8,10 @@
 ├── FreeAPIGenerativeAI-Model.md
 ├── LICENSE
 ├── README.md
-├── README_ja.md
+├── README_en.md
 ├── bashCmd.txt
 ├── eslint.config.mjs
+├── feature.txt
 ├── initial_files
 │   ├── README.md
 │   ├── docs
@@ -50,6 +51,14 @@
 │   ├── web-app-manifest-512x512.png
 │   └── window.svg
 ├── readline_test.js
+├── readme-assets
+│   ├── IMG_1465.png
+│   ├── IMG_1466.png
+│   ├── IMG_1467.png
+│   ├── IMG_1469.png
+│   ├── IMG_1470.png
+│   ├── IMG_1471.png
+│   └── IMG_1473.png
 ├── sampleNode.js
 ├── simple_readline_test.js
 ├── src
@@ -178,11 +187,11 @@
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-32 directories, 147 files
+33 directories, 155 files
 
 src/*.ts, *.tsx の統計:
 合計行数: 22998
-合計文字数: 817526
-合計ファイルサイズ(bytes): 883525
+合計文字数: 817513
+合計ファイルサイズ(bytes): 883608
 
 リポジトリ全体のサイズ(bytes): 2.0G	.

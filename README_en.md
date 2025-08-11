@@ -52,12 +52,12 @@ See your code changes with **beautiful visual diffs**! Full Git support with bra
 
 ---
 
-### ⚡ **Node.js Runtime - Real Backend Power**
+### ⚡ **Node.js Runtime - Backend Power**
 <div align="center">
   <img src="readme-assets/IMG_1469.png" alt="Node.js Execution" width="80%" />
 </div>
 
-Run **real Node.js code** in your browser! File operations, readline, and many npm modules work perfectly. It's like having a mini server right in your browser.
+Run **Node.js code** in your browser! File operations, readline, and many npm modules work perfectly. It's like having a mini server right in your browser.
 
 ---
 
@@ -113,10 +113,7 @@ Navigate your projects with **VS Code-like efficiency**! Quick file search, inte
 
 ---
 
-## Technical Excellence Under the Hood
-
-<details>
-<summary><strong>🔧 Modern Tech Stack</strong></summary>
+## Tech
 
 ### **Frontend Powerhouse**
 - **Next.js 15** with React 19 - Latest and greatest
@@ -133,7 +130,11 @@ Navigate your projects with **VS Code-like efficiency**! Quick file search, inte
 - **node-stdlib-browser** - Node.js API compatibility
 - **isomorphic-git** - Pure JavaScript Git implementation
 
-</details>
+### **Interested in Pyxis Database & File System Design?**
+
+For an in-depth look at Pyxis's internal architecture, database design, and file system specifications, check out the **advanced documentation** in [Development/DATABASE.md](Development/DATABASE.md).
+
+> Covers data flow, IndexedDB structure, virtual file system mechanisms, and more—packed with deep technical insights for developers and researchers.
 
 ### 🎨 **What You Can Build**
 

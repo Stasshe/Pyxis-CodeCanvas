@@ -51,7 +51,7 @@
 
 ---
 
-### ⚡ **Node.js ランタイム - 本物のバックエンドパワー**
+### ⚡ **Node.js ランタイム - バックエンドパワー**
 <div align="center">
   <img src="readme-assets/IMG_1469.png" alt="Node.js 実行画面" width="80%" />
 </div>
@@ -113,10 +113,7 @@
 
 ---
 
-## 技術的価値
-
-<details>
-<summary><strong>🔧 モダンテックスタック</strong></summary>
+## Tech
 
 ### **Front End**
 - **Next.js 15** と React 19 - 最新で最高
@@ -133,7 +130,11 @@
 - **fs module** - 気合いのエミュレーター全書き
 - **isomorphic-git** - 純粋JavaScriptのGit実装
 
-</details>
+### **Pyxisのデータベース・ファイルシステム設計に興味がある方へ**
+- Pyxisの内部アーキテクチャやデータベース設計、ファイルシステムの詳細な仕様\n
+- **非常に高度な内容**をまとめた[Development/DATABASE.md](Development/DATABASE.md)をご覧ください。
+\n\n> 
+データフローやIndexedDBの構造、仮想ファイルシステムの仕組みなど、\n> 開発者・研究者向けの深い技術情報を掲載しています。
 
 ### 🎨 **作れるもの**
 
