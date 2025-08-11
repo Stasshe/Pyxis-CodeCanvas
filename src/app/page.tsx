@@ -374,11 +374,11 @@ export default function Home() {
     setIsProjectModalOpen(true);
   };
 
-  // editorsとtabsのデバッグログを追加
-  useEffect(() => {
-    console.log('[DEBUG] Current editors state:', editors);
-    console.log('[DEBUG] Current tabs state:', tabs);
-  }, [editors, tabs]);
+  // // editorsとtabsのデバッグログを追加
+  // useEffect(() => {
+  //   console.log('[DEBUG] Current editors state:', editors);
+  //   console.log('[DEBUG] Current tabs state:', tabs);
+  // }, [editors, tabs]);
 
   return (
     <>
@@ -459,31 +459,36 @@ export default function Home() {
           onFilePreview={file => {
             // Markdownプレビュータブとして開く
             const previewTabId = `preview-${file.path}`;
-            setTabs(prevTabs => {
-              const existing = prevTabs.find(tab => tab.id === previewTabId);
-              if (existing) {
-                setActiveTabId(previewTabId);
-                return prevTabs;
-              }
-              let fileToPreview = file;
-              if (currentProject && projectFiles.length > 0) {
-                const latestFile = projectFiles.find(f => f.path === file.path);
-                if (latestFile) {
-                  fileToPreview = { ...file, content: latestFile.content };
-                }
-              }
-              const newTab = {
-                id: previewTabId,
-                name: fileToPreview.name,
-                content: fileToPreview.content || '',
-                isDirty: false,
-                path: fileToPreview.path,
-                fullPath: fileToPreview.path,
-                preview: true
-              };
+            
+            // 既存のタブがあるかチェック（最初のペインから）
+            const existing = editors[0].tabs.find(tab => tab.id === previewTabId);
+            if (existing) {
               setActiveTabId(previewTabId);
-              return [...prevTabs, newTab];
-            });
+              return;
+            }
+            
+            // 最新のファイル内容を取得
+            let fileToPreview = file;
+            if (currentProject && projectFiles.length > 0) {
+              const latestFile = projectFiles.find(f => f.path === file.path);
+              if (latestFile) {
+                fileToPreview = { ...file, content: latestFile.content };
+              }
+            }
+            
+            const newTab = {
+              id: previewTabId,
+              name: fileToPreview.name,
+              content: fileToPreview.content || '',
+              isDirty: false,
+              path: fileToPreview.path,
+              fullPath: fileToPreview.path,
+              preview: true
+            };
+            
+            // 最初のペインにタブを追加
+            setTabs(prevTabs => [...prevTabs, newTab]);
+            setActiveTabId(previewTabId);
           }}
           onWebPreview={(file: FileItem) => {
             const previewTabId = `web-preview-${file.path}`;

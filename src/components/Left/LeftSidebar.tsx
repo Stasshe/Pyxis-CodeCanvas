@@ -113,6 +113,7 @@ export default function LeftSidebar({
               <FileTree 
                 items={files} 
                 onFileOpen={onFileOpen} 
+                onFilePreview={onFilePreview}
                 onWebPreview={onWebPreview} 
                 currentProjectName={currentProject?.name ?? ''} 
                 onFileOperation={onFileOperation} 
