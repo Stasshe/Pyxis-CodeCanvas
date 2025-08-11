@@ -52,7 +52,6 @@
 │   └── window.svg
 ├── readline_test.js
 ├── sampleNode.js
-├── scripts
 ├── simple_readline_test.js
 ├── src
 │   ├── app
@@ -82,6 +81,7 @@
 │   │   │   ├── TerminalGitCommands.tsx
 │   │   │   ├── TerminalNPMCommands.tsx
 │   │   │   └── TerminalUnixCommands.tsx
+│   │   ├── ChemDoodle
 │   │   ├── FileSelect.tsx
 │   │   ├── Left
 │   │   │   ├── FileTree.tsx
@@ -117,7 +117,8 @@
 │   │   ├── useAIAgent.ts
 │   │   ├── useAIReview.ts
 │   │   ├── useChatSpace.ts
-│   │   └── useDiffTabHandlers.ts
+│   │   ├── useDiffTabHandlers.ts
+│   │   └── useInputHistory.ts
 │   ├── types
 │   │   ├── git.ts
 │   │   ├── index.ts
@@ -178,11 +179,11 @@
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-33 directories, 146 files
+33 directories, 147 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 22620
-合計文字数: 804271
-合計ファイルサイズ(bytes): 869502
+合計行数: 22900
+合計文字数: 813083
+合計ファイルサイズ(bytes): 878998
 
-リポジトリ全体のサイズ(bytes): 1.8G	.
+リポジトリ全体のサイズ(bytes): 1.9G	.

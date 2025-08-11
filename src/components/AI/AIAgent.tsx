@@ -591,6 +591,16 @@ export default function AIAgent({
               ? "AIに質問やコード相談..." 
               : "コードの編集指示..."
             }
+            selectedFiles={fileContexts.filter(ctx => ctx.selected).map(ctx => ctx.path)}
+            onFileSelect={(files) => {
+              // ファイル選択を更新
+              const updatedContexts = fileContexts.map(ctx => ({
+                ...ctx,
+                selected: files.includes(ctx.path)
+              }));
+              updateFileContexts(updatedContexts);
+            }}
+            availableFiles={fileContexts.map(ctx => ctx.path)}
           />
         </div>
       </div>

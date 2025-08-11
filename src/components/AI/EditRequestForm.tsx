@@ -2,27 +2,54 @@
 
 'use client';
 
-import React, { useState, KeyboardEvent } from 'react';
+import React, { useState, KeyboardEvent, useEffect } from 'react';
 import { useTheme } from '@/context/ThemeContext';
+import { useInputHistory } from '@/hooks/useInputHistory';
 
 interface EditRequestFormProps {
   mode: 'chat' | 'edit';
   onSubmit: (content: string) => void;
   isProcessing: boolean;
   placeholder?: string;
+  selectedFiles?: string[];
+  onFileSelect?: (files: string[]) => void;
+  availableFiles?: string[];
 }
 
 export default function EditRequestForm({ 
   mode, 
   onSubmit, 
   isProcessing, 
-  placeholder 
+  placeholder,
+  selectedFiles = [],
+  onFileSelect,
+  availableFiles = []
 }: EditRequestFormProps) {
   const { colors } = useTheme();
   const [input, setInput] = useState('');
+  
+  const {
+    addToHistory,
+    goToPrevious,
+    goToNext,
+    getCurrentEntry,
+    hasHistory,
+    canGoBack,
+    canGoForward
+  } = useInputHistory({
+    maxHistorySize: 100,
+    storageKey: `ai-input-history-${mode}`
+  });
+
+  // 履歴エントリからファイルの存在をチェックし、有効なファイルのみを返す
+  const validateAndFilterFiles = (files: string[]): string[] => {
+    return files.filter(file => availableFiles.includes(file));
+  };
 
   const handleSubmit = () => {
     if (input.trim() && !isProcessing) {
+      // 履歴に追加
+      addToHistory(input.trim(), selectedFiles, mode);
       onSubmit(input.trim());
       setInput('');
     }
@@ -32,6 +59,41 @@ export default function EditRequestForm({
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
+    }
+    
+    // 履歴ナビゲーション（Alt + 上下キー）
+    if (e.altKey && hasHistory) {
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const entry = goToPrevious(input);
+        if (entry) {
+          setInput(entry.content);
+          // ファイル選択も復元（存在するファイルのみ）
+          if (onFileSelect && entry.selectedFiles.length > 0) {
+            const validFiles = validateAndFilterFiles(entry.selectedFiles);
+            if (validFiles.length > 0) {
+              onFileSelect(validFiles);
+            }
+          }
+        }
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const result = goToNext(input);
+        if (typeof result === 'string') {
+          // 一時保存された入力に戻る
+          setInput(result);
+        } else if (result) {
+          // 次の履歴エントリ
+          setInput(result.content);
+          // ファイル選択も復元（存在するファイルのみ）
+          if (onFileSelect && result.selectedFiles.length > 0) {
+            const validFiles = validateAndFilterFiles(result.selectedFiles);
+            if (validFiles.length > 0) {
+              onFileSelect(validFiles);
+            }
+          }
+        }
+      }
     }
   };
 
@@ -61,13 +123,31 @@ export default function EditRequestForm({
         
         <div className="flex justify-between items-center">
           <div 
-            className="text-xs"
+            className="text-xs flex items-center gap-2"
             style={{ color: colors.mutedFg }}
           >
-            {mode === 'edit' 
-              ? 'Enter: 送信, Shift+Enter: 改行' 
-              : 'Enter: 送信, Shift+Enter: 改行'
-            }
+            <span>
+              {mode === 'edit' 
+                ? 'Enter: 送信, Shift+Enter: 改行' 
+                : 'Enter: 送信, Shift+Enter: 改行'
+              }
+            </span>
+            {hasHistory && (
+              <span className="flex items-center gap-1">
+                <span>|</span>
+                <span>Alt+↑↓: 履歴</span>
+                {(canGoBack || canGoForward) && (
+                  <span className="flex items-center gap-0.5">
+                    <span 
+                      className={`w-1 h-1 rounded-full ${canGoBack ? 'bg-current' : 'bg-gray-400'}`}
+                    ></span>
+                    <span 
+                      className={`w-1 h-1 rounded-full ${canGoForward ? 'bg-current' : 'bg-gray-400'}`}
+                    ></span>
+                  </span>
+                )}
+              </span>
+            )}
           </div>
           
           <button
