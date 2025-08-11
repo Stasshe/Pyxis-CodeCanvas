@@ -49,7 +49,7 @@ export default function AIAgent({
         // プロジェクトファイルを強制的に再取得
         const { refreshProjectFiles } = useProject();
         await refreshProjectFiles();
-        console.log('[AIAgent] Project files refreshed');
+        // console.log('[AIAgent] Project files refreshed');
       } catch (error) {
         console.error('[AIAgent] Failed to refresh files:', error);
       }
@@ -97,13 +97,13 @@ export default function AIAgent({
   // プロジェクトファイルが変更されたときにコンテキストを更新
   useEffect(() => {
     if (projectFiles.length > 0) {
-      console.log('[AIAgent] Updating file contexts due to projectFiles change');
-      console.log('[AIAgent] Current projectFiles:', projectFiles.map(f => ({
-        path: f.path,
-        hasContent: !!f.content,
-        contentLength: f.content?.length || 0,
-        type: f.type
-      })));
+      // console.log('[AIAgent] Updating file contexts due to projectFiles change');
+      // console.log('[AIAgent] Current projectFiles:', projectFiles.map(f => ({
+      //   path: f.path,
+      //   hasContent: !!f.content,
+      //   contentLength: f.content?.length || 0,
+      //   type: f.type
+      // })));
       const contexts = buildAIFileContextList(projectFiles);
       updateFileContexts(contexts);
     }
@@ -135,22 +135,22 @@ export default function AIAgent({
   }, [currentProject?.id]); // createNewSpaceを依存配列から削除
 
   // チャットスペースのメッセージが変更されたときにログ出力
-  useEffect(() => {
-    if (currentSpace) {
-      console.log('[AIAgent] Current space messages:', {
-        spaceId: currentSpace.id,
-        spaceName: currentSpace.name,
-        messageCount: currentSpace.messages.length,
-        messages: currentSpace.messages.map(msg => ({
-          id: msg.id,
-          type: msg.type,
-          mode: msg.mode,
-          hasEditResponse: !!msg.editResponse,
-          editResponseFiles: msg.editResponse?.changedFiles?.length || 0
-        }))
-      });
-    }
-  }, [currentSpace?.messages?.length, currentSpace?.id]);
+  // useEffect(() => {
+  //   if (currentSpace) {
+  //     console.log('[AIAgent] Current space messages:', {
+  //       spaceId: currentSpace.id,
+  //       spaceName: currentSpace.name,
+  //       messageCount: currentSpace.messages.length,
+  //       messages: currentSpace.messages.map(msg => ({
+  //         id: msg.id,
+  //         type: msg.type,
+  //         mode: msg.mode,
+  //         hasEditResponse: !!msg.editResponse,
+  //         editResponseFiles: msg.editResponse?.changedFiles?.length || 0
+  //       }))
+  //     });
+  //   }
+  // }, [currentSpace?.messages?.length, currentSpace?.id]);
 
   // API キーのチェック
   const isApiKeySet = () => {

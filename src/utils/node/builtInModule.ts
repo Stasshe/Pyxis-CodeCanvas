@@ -280,6 +280,630 @@ export function createUtilModule() {
   };
 }
 
+// http/https モジュールのエミュレーション
+export function createHTTPModule() {
+  // リクエストオプションの型定義
+  interface RequestOptions {
+    hostname?: string;
+    port?: number;
+    path?: string;
+    method?: string;
+    headers?: { [key: string]: string };
+    auth?: string;
+    timeout?: number;
+    agent?: any;
+    createConnection?: Function;
+    family?: number;
+    localAddress?: string;
+    localPort?: number;
+    socketPath?: string;
+    setHost?: boolean;
+    lookup?: Function;
+    protocol?: string;
+  }
+
+  // IncomingMessageクラス（レスポンス）
+  class IncomingMessage {
+    public statusCode: number = 200;
+    public statusMessage: string = 'OK';
+    public headers: { [key: string]: string } = {};
+    public rawHeaders: string[] = [];
+    public httpVersion: string = '1.1';
+    public complete: boolean = false;
+    public url?: string;
+    public method?: string;
+    public trailers: { [key: string]: string } = {};
+    public rawTrailers: string[] = [];
+    private _data: Uint8Array[] = [];
+    private _listeners: Map<string, Function[]> = new Map();
+
+    constructor() {}
+
+    // イベントリスナー管理
+    on(event: string, listener: Function): this {
+      if (!this._listeners.has(event)) {
+        this._listeners.set(event, []);
+      }
+      this._listeners.get(event)!.push(listener);
+      return this;
+    }
+
+    once(event: string, listener: Function): this {
+      const onceWrapper = (...args: any[]) => {
+        this.removeListener(event, onceWrapper);
+        listener(...args);
+      };
+      return this.on(event, onceWrapper);
+    }
+
+    emit(event: string, ...args: any[]): boolean {
+      const listeners = this._listeners.get(event);
+      if (listeners) {
+        listeners.forEach(listener => {
+          try {
+            listener(...args);
+          } catch (error) {
+            console.error('Error in IncomingMessage event listener:', error);
+          }
+        });
+        return true;
+      }
+      return false;
+    }
+
+    removeListener(event: string, listener: Function): this {
+      const listeners = this._listeners.get(event);
+      if (listeners) {
+        const index = listeners.indexOf(listener);
+        if (index !== -1) {
+          listeners.splice(index, 1);
+        }
+      }
+      return this;
+    }
+
+    // データを追加
+    _addData(chunk: Uint8Array): void {
+      this._data.push(chunk);
+      console.log('[HTTP] Data received:', chunk.length, 'bytes');
+      // グローバルBufferが利用可能ならそれを使用、なければBufferEmulationを使用
+      const BufferConstructor = (globalThis as any).Buffer || BufferEmulation;
+      this.emit('data', BufferConstructor.from(chunk));
+    }
+
+    // レスポンス終了
+    _end(): void {
+      this.complete = true;
+      console.log('[HTTP] Response ended, total data:', this._data.reduce((sum, chunk) => sum + chunk.length, 0), 'bytes');
+      this.emit('end');
+    }
+
+    // エラー発生
+    _error(error: Error): void {
+      console.error('[HTTP] Response error:', error);
+      this.emit('error', error);
+    }
+
+    // レスポンスを文字列として取得
+    getText(): string {
+      const buffer = Buffer.concat(this._data.map(chunk => Buffer.from(chunk)));
+      return buffer.toString('utf8');
+    }
+
+    // 一時停止/再開（互換性のため）
+    pause(): this { return this; }
+    resume(): this { return this; }
+    isPaused(): boolean { return false; }
+    setEncoding(encoding: string): this { return this; }
+    read(): any { return null; }
+    destroy(): this { return this; }
+  }
+
+  // ClientRequestクラス（リクエスト）
+  class ClientRequest {
+    private _options: RequestOptions;
+    private _listeners: Map<string, Function[]> = new Map();
+    private _headers: { [key: string]: string } = {};
+    private _body: Uint8Array[] = [];
+    private _ended: boolean = false;
+    private _aborted: boolean = false;
+    private _timeout?: number;
+
+    constructor(options: RequestOptions | string, callback?: Function) {
+      if (typeof options === 'string') {
+        try {
+          const url = new URL(options);
+          this._options = {
+            protocol: url.protocol,
+            hostname: url.hostname,
+            port: url.port ? parseInt(url.port) : (url.protocol === 'https:' ? 443 : 80),
+            path: url.pathname + url.search,
+            method: 'GET'
+          };
+          console.log('[HTTP] Parsed URL:', options, '→', this._options);
+        } catch (error) {
+          console.error('[HTTP] Invalid URL:', options, error);
+          throw new Error(`Invalid URL: ${options}`);
+        }
+      } else {
+        this._options = { ...options };
+        console.log('[HTTP] Using options object:', this._options);
+      }
+
+      if (callback) {
+        this.on('response', callback);
+      }
+
+      // デフォルトヘッダー
+      this._headers = { ...this._options.headers };
+      
+      console.log('[HTTP] ClientRequest created for:', (this._options.hostname || 'localhost') + (this._options.path || '/'));
+    }
+
+    // イベントリスナー管理
+    on(event: string, listener: Function): this {
+      if (!this._listeners.has(event)) {
+        this._listeners.set(event, []);
+      }
+      this._listeners.get(event)!.push(listener);
+      return this;
+    }
+
+    once(event: string, listener: Function): this {
+      const onceWrapper = (...args: any[]) => {
+        this.removeListener(event, onceWrapper);
+        listener(...args);
+      };
+      return this.on(event, onceWrapper);
+    }
+
+    emit(event: string, ...args: any[]): boolean {
+      const listeners = this._listeners.get(event);
+      if (listeners) {
+        listeners.forEach(listener => {
+          try {
+            listener(...args);
+          } catch (error) {
+            console.error('Error in ClientRequest event listener:', error);
+          }
+        });
+        return true;
+      }
+      return false;
+    }
+
+    removeListener(event: string, listener: Function): this {
+      const listeners = this._listeners.get(event);
+      if (listeners) {
+        const index = listeners.indexOf(listener);
+        if (index !== -1) {
+          listeners.splice(index, 1);
+        }
+      }
+      return this;
+    }
+
+    // ヘッダー設定
+    setHeader(name: string, value: string): void {
+      this._headers[name.toLowerCase()] = value;
+    }
+
+    getHeader(name: string): string | undefined {
+      return this._headers[name.toLowerCase()];
+    }
+
+    removeHeader(name: string): void {
+      delete this._headers[name.toLowerCase()];
+    }
+
+    // データ書き込み
+    write(chunk: string | Buffer, encoding?: string): boolean {
+      if (this._ended) {
+        throw new Error('Cannot write after end');
+      }
+
+      let data: Uint8Array;
+      if (typeof chunk === 'string') {
+        data = new TextEncoder().encode(chunk);
+      } else {
+        data = new Uint8Array(chunk);
+      }
+
+      this._body.push(data);
+      return true;
+    }
+
+    // リクエスト終了・送信
+    end(data?: string | Buffer, encoding?: string): void {
+      if (data) {
+        this.write(data, encoding);
+      }
+      this._ended = true;
+      
+      // 非同期でリクエストを送信（次のティックで実行）
+      setTimeout(() => {
+        this._sendRequest().catch(error => {
+          console.error('[HTTP] Async request error:', error);
+          this.emit('error', error);
+        });
+      }, 0);
+    }
+
+    // タイムアウト設定
+    setTimeout(timeout: number, callback?: Function): this {
+      this._timeout = timeout;
+      if (callback) {
+        this.on('timeout', callback);
+      }
+      return this;
+    }
+
+    // リクエスト中止
+    abort(): void {
+      this._aborted = true;
+      this.emit('abort');
+    }
+
+    // 実際のfetchリクエストを送信
+    private async _sendRequest(): Promise<void> {
+      if (this._aborted) return;
+
+      console.log('[HTTP] Starting request...');
+      
+      try {
+        const protocol = this._options.protocol || 'http:';
+        const hostname = this._options.hostname || 'localhost';
+        const port = this._options.port || (protocol === 'https:' ? 443 : 80);
+        const path = this._options.path || '/';
+        
+        // URLを構築
+        const url = `${protocol}//${hostname}${port !== (protocol === 'https:' ? 443 : 80) ? `:${port}` : ''}${path}`;
+        console.log('[HTTP] Request URL:', url);
+
+        // リクエストボディ
+        let body: BodyInit | undefined;
+        if (this._body.length > 0) {
+          const totalLength = this._body.reduce((sum, chunk) => sum + chunk.length, 0);
+          const combined = new Uint8Array(totalLength);
+          let offset = 0;
+          for (const chunk of this._body) {
+            combined.set(chunk, offset);
+            offset += chunk.length;
+          }
+          body = combined;
+        }
+
+        // Content-Lengthヘッダーを自動設定
+        if (body && !this._headers['content-length']) {
+          const bodyLength = body instanceof Uint8Array ? body.byteLength : 
+                           typeof body === 'string' ? new TextEncoder().encode(body).byteLength :
+                           body instanceof ArrayBuffer ? body.byteLength :
+                           0;
+          this._headers['content-length'] = bodyLength.toString();
+        }
+
+        console.log('[HTTP] Request headers:', this._headers);
+        console.log('[HTTP] Request method:', this._options.method || 'GET');
+
+        // fetchオプション
+        const fetchOptions: RequestInit = {
+          method: this._options.method || 'GET',
+          headers: this._headers,
+          body: body
+        };
+
+        // タイムアウト処理
+        const controller = new AbortController();
+        if (this._timeout) {
+          setTimeout(() => {
+            controller.abort();
+            this.emit('timeout');
+          }, this._timeout);
+        }
+        fetchOptions.signal = controller.signal;
+
+        console.log('[HTTP] Sending fetch request...');
+        
+        // リクエスト実行
+        const response = await fetch(url, fetchOptions);
+        
+        console.log('[HTTP] Response received:', response.status, response.statusText);
+
+        // IncomingMessageを作成
+        const incomingMessage = new IncomingMessage();
+        incomingMessage.statusCode = response.status;
+        incomingMessage.statusMessage = response.statusText;
+        incomingMessage.httpVersion = '1.1';
+
+        // レスポンスヘッダーを設定
+        response.headers.forEach((value, key) => {
+          incomingMessage.headers[key.toLowerCase()] = value;
+          incomingMessage.rawHeaders.push(key, value);
+        });
+
+        console.log('[HTTP] Response headers:', incomingMessage.headers);
+
+        // レスポンスイベントを発火
+        console.log('[HTTP] Emitting response event...');
+        this.emit('response', incomingMessage);
+
+        // レスポンスボディを読み取り
+        const reader = response.body?.getReader();
+        if (reader) {
+          try {
+            console.log('[HTTP] Reading response body...');
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              
+              if (value) {
+                console.log('[HTTP] Received chunk:', value.length, 'bytes');
+                incomingMessage._addData(value);
+              }
+            }
+            console.log('[HTTP] Response body read complete');
+            incomingMessage._end();
+          } catch (error) {
+            console.error('[HTTP] Error reading response body:', error);
+            incomingMessage._error(error as Error);
+          } finally {
+            reader.releaseLock();
+          }
+        } else {
+          console.log('[HTTP] No response body');
+          incomingMessage._end();
+        }
+
+      } catch (error) {
+        console.error('[HTTP] Request error:', error);
+        this.emit('error', error);
+      }
+    }
+  }
+
+  // HTTPモジュールの実装
+  const httpModule = {
+    // リクエスト作成
+    request: (options: RequestOptions | string, callback?: Function): ClientRequest => {
+      return new ClientRequest(options, callback);
+    },
+
+    // GETリクエスト
+    get: (options: RequestOptions | string, callback?: Function): ClientRequest => {
+      const req = new ClientRequest(options, callback);
+      if (typeof options === 'object') {
+        options.method = 'GET';
+      }
+      req.end();
+      return req;
+    },
+
+    // サーバー作成（ブラウザ環境では制限あり）
+    createServer: (requestListener?: Function): any => {
+      console.warn('http.createServer is not supported in browser environment');
+      return {
+        listen: () => console.warn('Server.listen is not supported in browser environment'),
+        close: () => console.warn('Server.close is not supported in browser environment'),
+        on: () => console.warn('Server events are not supported in browser environment')
+      };
+    },
+
+    // Agent（接続プール管理）
+    Agent: class Agent {
+      constructor(options?: any) {
+        console.warn('http.Agent is simplified in browser environment');
+      }
+    },
+
+    // グローバルAgent
+    globalAgent: new (class Agent {})(),
+
+    // ステータスコード定数
+    STATUS_CODES: {
+      100: 'Continue',
+      101: 'Switching Protocols',
+      200: 'OK',
+      201: 'Created',
+      202: 'Accepted',
+      204: 'No Content',
+      300: 'Multiple Choices',
+      301: 'Moved Permanently',
+      302: 'Found',
+      304: 'Not Modified',
+      400: 'Bad Request',
+      401: 'Unauthorized',
+      403: 'Forbidden',
+      404: 'Not Found',
+      405: 'Method Not Allowed',
+      500: 'Internal Server Error',
+      502: 'Bad Gateway',
+      503: 'Service Unavailable'
+    },
+
+    // HTTPメソッド定数
+    METHODS: ['GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS', 'PATCH', 'TRACE', 'CONNECT'],
+
+    // IncomingMessageとClientRequestクラスをエクスポート
+    IncomingMessage,
+    ClientRequest
+  };
+
+  return httpModule;
+}
+
+// HTTPSモジュールのエミュレーション（HTTPの拡張）
+export function createHTTPSModule() {
+  const httpModule = createHTTPModule();
+  
+  // HTTPSモジュールはHTTPモジュールを拡張
+  const httpsModule = {
+    ...httpModule,
+    
+    // HTTPSリクエスト作成（SSL/TLS証明書検証を無効化可能）
+    request: (options: any, callback?: Function): any => {
+      if (typeof options === 'string') {
+        options = new URL(options);
+      }
+      
+      // HTTPSの場合のデフォルト設定
+      const httpsOptions = {
+        ...options,
+        protocol: 'https:',
+        port: options.port || 443,
+        // ブラウザ環境では証明書検証はブラウザが行う
+        rejectUnauthorized: options.rejectUnauthorized !== false
+      };
+      
+      return httpModule.request(httpsOptions, callback);
+    },
+
+    // HTTPSのGETリクエスト
+    get: (options: any, callback?: Function): any => {
+      const req = httpsModule.request(options, callback);
+      req.end();
+      return req;
+    },
+
+    // HTTPSサーバー作成（ブラウザ環境では制限あり）
+    createServer: (options?: any, requestListener?: Function): any => {
+      console.warn('https.createServer is not supported in browser environment');
+      return httpModule.createServer(requestListener);
+    },
+
+    // HTTPS Agent
+    Agent: class Agent extends httpModule.Agent {
+      constructor(options?: any) {
+        super(options);
+        console.warn('https.Agent is simplified in browser environment');
+      }
+    },
+
+    // グローバルAgent
+    globalAgent: new (class Agent extends httpModule.Agent {})()
+  };
+
+  return httpsModule;
+}
+
+// Buffer クラスのエミュレーション（簡易版）
+class BufferEmulation {
+  public _data: Uint8Array;
+
+  constructor(data?: number | ArrayLike<number> | ArrayBuffer) {
+    if (typeof data === 'number') {
+      this._data = new Uint8Array(data);
+    } else if (data instanceof ArrayBuffer) {
+      this._data = new Uint8Array(data);
+    } else if (data) {
+      this._data = new Uint8Array(data);
+    } else {
+      this._data = new Uint8Array(0);
+    }
+  }
+
+  get length(): number {
+    return this._data.length;
+  }
+
+  get byteLength(): number {
+    return this._data.byteLength;
+  }
+
+  static from(data: string | ArrayBuffer | ArrayLike<number>, encoding?: string): BufferEmulation {
+    if (typeof data === 'string') {
+      const encoder = new TextEncoder();
+      return new BufferEmulation(encoder.encode(data));
+    } else if (data instanceof ArrayBuffer) {
+      return new BufferEmulation(data);
+    } else {
+      return new BufferEmulation(data);
+    }
+  }
+
+  static alloc(size: number, fill?: number): BufferEmulation {
+    const buffer = new BufferEmulation(size);
+    if (fill !== undefined) {
+      buffer.fill(fill);
+    }
+    return buffer;
+  }
+
+  static concat(buffers: BufferEmulation[], totalLength?: number): BufferEmulation {
+    const length = totalLength || buffers.reduce((sum, buf) => sum + buf.length, 0);
+    const result = new BufferEmulation(length);
+    let offset = 0;
+    for (const buffer of buffers) {
+      result._data.set(buffer._data, offset);
+      offset += buffer.length;
+      if (offset >= length) break;
+    }
+    return result;
+  }
+
+  toString(encoding: string = 'utf8'): string {
+    const decoder = new TextDecoder(encoding);
+    return decoder.decode(this._data);
+  }
+
+  toJSON(): { type: 'Buffer'; data: number[] } {
+    return {
+      type: 'Buffer',
+      data: Array.from(this._data)
+    };
+  }
+
+  fill(value: number): this {
+    this._data.fill(value);
+    return this;
+  }
+
+  set(array: ArrayLike<number>, offset?: number): void {
+    this._data.set(array, offset);
+  }
+
+  slice(start?: number, end?: number): BufferEmulation {
+    const sliced = this._data.slice(start, end);
+    return new BufferEmulation(sliced);
+  }
+
+  // Uint8Arrayとの互換性のため
+  [Symbol.iterator]() {
+    return this._data[Symbol.iterator]();
+  }
+
+  [index: number]: number;
+}
+
+// インデックスアクセスのプロキシ設定
+const BufferProxy = new Proxy(BufferEmulation, {
+  construct(target, args) {
+    const instance = new target(...args);
+    return new Proxy(instance, {
+      get(target, prop) {
+        if (typeof prop === 'string' && /^\d+$/.test(prop)) {
+          const index = parseInt(prop);
+          return target._data[index];
+        }
+        return (target as any)[prop];
+      },
+      set(target, prop, value) {
+        if (typeof prop === 'string' && /^\d+$/.test(prop)) {
+          const index = parseInt(prop);
+          target._data[index] = value;
+          return true;
+        }
+        (target as any)[prop] = value;
+        return true;
+      }
+    });
+  }
+});
+
+// グローバルBufferを設定
+if (typeof globalThis !== 'undefined' && !globalThis.Buffer) {
+  (globalThis as any).Buffer = BufferProxy;
+}
+
 // readline モジュールのエミュレーション
 export function createReadlineModule() {
   // 実際のNode.jsのreadline.Interfaceに近いクラス

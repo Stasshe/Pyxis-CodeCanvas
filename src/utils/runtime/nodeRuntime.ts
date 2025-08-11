@@ -7,7 +7,8 @@ import {
   createOSModule, 
   createUtilModule,
   createReadlineModule,
-  flushFileSystemCache
+  createHTTPModule,
+  createHTTPSModule
 } from '@/utils/node/builtInModule';
 import { 
   transformESModules, 
@@ -403,7 +404,7 @@ export class NodeJSRuntime {
 
   // 組み込みモジュールかチェック
   private isBuiltinModule(moduleName: string): boolean {
-    const builtinModules = ['fs', 'path', 'os', 'util', 'crypto', 'http', 'url', 'querystring', 'readline'];
+    const builtinModules = ['fs', 'path', 'os', 'util', 'http', 'https', 'url', 'querystring', 'readline'];
     return builtinModules.includes(moduleName);
   }
 
@@ -420,6 +421,10 @@ export class NodeJSRuntime {
         return createUtilModule();
       case 'readline':
         return createReadlineModule();
+      case 'http':
+        return createHTTPModule();
+      case 'https':
+        return createHTTPSModule();
       default:
         throw new Error(`Built-in module '${moduleName}' not implemented`);
     }

@@ -124,10 +124,11 @@ export function useAIAgent(props?: UseAIAgentProps) {
       // レスポンスをパース
       const editResponse = parseEditResponse(response, selectedFiles);
       
-      console.log('[useAIAgent] Parsed edit response:', {
-        changedFilesCount: editResponse.changedFiles.length,
-        files: editResponse.changedFiles.map(f => ({ path: f.path, hasContent: !!f.suggestedContent }))
-      });
+      // console.log('[useAIAgent] Parsed edit response:', {
+      //   changedFilesCount: editResponse.changedFiles.length,
+      //   files: editResponse.changedFiles.map(f => ({ path: f.path, hasContent: !!f.suggestedContent }))
+      // });
+      
       
       // より詳細なメッセージを生成
       let detailedMessage = editResponse.message;
