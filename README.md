@@ -1,7 +1,7 @@
 <div align="center">
-  # 🌟 Pyxis - Client Side Code Editor
-  
   <img src="readme-assets/IMG_1473.png" alt="Pyxis カバー画像" width="100%" />
+  
+  # 🌟 Pyxis - Client Side Code Editor
   
   ### *セットアップゼロ。素早く起動、気軽にコーディング*
   
@@ -56,7 +56,7 @@
   <img src="readme-assets/IMG_1469.png" alt="Node.js 実行画面" width="80%" />
 </div>
 
-ブラウザで**本物のNode.jsコード**が動く！ファイル操作、readline、多くのnpmモジュールが完璧に動作。ブラウザの中に小さなサーバーがあるようなものです。
+ブラウザで**本物のNode.jsコード**が動く！ファイル操作、readline、多くのnpmモジュールが動作。(WASMを使っていないので、完璧な動作は厳しいです。ただ、動作は早いです。)
 
 ---
 
@@ -155,22 +155,6 @@ rl.question('お名前は？ ', (name) => {
   console.log(`${name}さん、Pyxisへようこそ！ 🌟`);
   rl.close();
 });
-```
-
-### 🌟 **簡単になったGitワークフロー**
-
-```bash
-
-# 美しいビジュアル差分を見る
-git add .
-git commit -m "私の素晴らしい機能 ✨"
-
-# プロのようにブランチ
-git checkout -b feature/amazing-idea
-git merge main
-
-# .gitを含む完全なリポジトリをダウンロード！
-# 後でデスクトップに移行するのに最適
 ```
 
 ---
@@ -290,8 +274,6 @@ MIT License - 使って、改造して。詳細は[LICENSE](LICENSE)をご覧く
 ---
 
 <img src="public/favicon.png" alt="Pyxis ロゴ" width="64" height="64" />
-
-**妥協を拒む開発者のために ❤️ で作られました**
 
 *「制限なく、いつでも、どこでもコーディング」*
 

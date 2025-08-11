@@ -1,7 +1,7 @@
 <div align="center">
-  # 🌟 Pyxis - Your Code Universe in a Browser
-  
   <img src="readme-assets/IMG_1473.png" alt="Pyxis Cover" width="100%" />
+  
+  # 🌟 Pyxis - Your Code Universe in a Browser
   
   ### *Zero Setup. Quick Start, Easy Coding*
   
@@ -279,8 +279,6 @@ MIT License - Use it, modify it, love it! See [LICENSE](LICENSE) for details.
 ---
 
 <img src="public/favicon.png" alt="Pyxis Logo" width="64" height="64" />
-
-**Made with ❤️ for developers who refuse to compromise**
 
 *"Code anywhere, anytime, without limits"*
 
