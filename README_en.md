@@ -4,10 +4,16 @@
   # 🌟 Pyxis - Your Code Universe in a Browser
   
   ### *Zero Setup. Quick Start, Easy Coding*
-  
-  [![Version](https://img.shields.io/badge/version-0.2.0-blue.svg)](https://github.com/your-username/pyxis)
+
+  [![Version](https://img.shields.io/badge/version-0.5.1-blue.svg)](https://github.com/your-username/pyxis)
   [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
   [![Platform](https://img.shields.io/badge/platform-Web%20%7C%20iPad%20%7C%20Mobile-orange.svg)](README.md)
+  [![Next.js](https://img.shields.io/badge/Next.js-15-blue?logo=next.js)](https://nextjs.org/)
+  [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4.1-38bdf8?logo=tailwindcss)](https://tailwindcss.com/)
+  [![TypeScript](https://img.shields.io/badge/TypeScript-v5-3178c6?logo=typescript)](https://www.typescriptlang.org/)
+  [![React](https://img.shields.io/badge/React-19-61dafb?logo=react)](https://react.dev/)
+  [![Last Commit](https://img.shields.io/github/last-commit/Stasshe/Pyxis-Client-Side-Code-Editor?logo=github)](https://github.com/Stasshe/Pyxis-Client-Side-Code-Editor/commits/main)
+  [![Bundle Size](https://img.shields.io/badge/bundle--size-1.04MB-purple?logo=next.js)](#)
   
   **[🚀 Try Pyxis Now](https://pyxis-code.onrender.com)** | **[📖 日本語版](README.md)**
 </div>
@@ -34,7 +40,7 @@ Build websites and see changes **instantly**! No refreshing, no waiting - just p
 
 ---
 
-### � **Markdown, Mermaid & LaTeX - Documentation Heaven**
+### **Markdown, Mermaid & LaTeX - Documentation Heaven**
 <div align="center">
   <img src="readme-assets/IMG_1470.png" alt="Rich Content Editing" width="80%" />
 </div>
@@ -96,6 +102,24 @@ Navigate your projects with **VS Code-like efficiency**! Quick file search, inte
 - **Works everywhere** - Web, iPad, mobile, any modern browser
 - **Multi-pane support** for complex projects
 - **Buffer content support** - unzip files, view PDFs, images, videos
+
+---
+
+## 🌟 **Possibly a World First** - No Other Browser Editor Has All These Features Integrated
+
+- **Blazing fast startup** thanks to static site hosting—no server connections, zero stress.
+- **Full Git support** (branches, merges, resets, local git). Want to use it as a real repository? Download your project with `.git` included from the settings.
+- **Node.js support** without WASM, enabling ultra-fast execution. Emulates file operations not possible in plain JavaScript, so you can code freely and easily.
+- **Lightweight, real-time editing** for Markdown, Mermaid, and LaTeX.
+- **Built-in AI Agent**—not quite a full VS Code, but with Ask and Edit features, Pyxis eliminates the copy-paste hassle of typical browser workflows.
+- **HMR (Hot Module Replacement)** lets you build simple sites instantly. Perfect for quick browser-only testing without tedious setup.
+- **iPad compatibility**—developed on iPad, so iPad is a top priority. Includes dual code editors for the best mobile experience.
+- **Safe in the browser**—no risk of breaking your system. On a PC, deleting the wrong thing can be a disaster; with Pyxis, you’re always safe. Ideal for beginners learning Git.
+- **Buffer content support**—view and unzip files, PDFs, images, and videos right in the app.
+- **Efficient editing**—handle large text files quickly with powerful keyboard shortcuts.
+- **Multi-pane support**—work in multiple windows at once for maximum productivity.
+
+--- 
 
 ---
 

@@ -5,9 +5,15 @@
   
   ### *セットアップゼロ。素早く起動、気軽にコーディング*
   
-  [![Version](https://img.shields.io/badge/version-0.2.0-blue.svg)](https://github.com/your-username/pyxis)
+  [![Version](https://img.shields.io/badge/version-0.5.1-blue.svg)](https://github.com/your-username/pyxis)
   [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
   [![Platform](https://img.shields.io/badge/platform-Web%20%7C%20iPad%20%7C%20Mobile-orange.svg)](README.md)
+  [![Next.js](https://img.shields.io/badge/Next.js-15-blue?logo=next.js)](https://nextjs.org/)
+  [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4.1-38bdf8?logo=tailwindcss)](https://tailwindcss.com/)
+  [![TypeScript](https://img.shields.io/badge/TypeScript-v5-3178c6?logo=typescript)](https://www.typescriptlang.org/)
+  [![React](https://img.shields.io/badge/React-19-61dafb?logo=react)](https://react.dev/)
+  [![Last Commit](https://img.shields.io/github/last-commit/Stasshe/Pyxis-Client-Side-Code-Editor?logo=github)](https://github.com/Stasshe/Pyxis-Client-Side-Code-Editor/commits/main)
+  [![Bundle Size](https://img.shields.io/badge/bundle--size-1.04MB-purple?logo=next.js)](#)
   
   **[🚀 Pyxis を今すぐ試す](https://pyxis-code.onrender.com)** | **[📖 English](README_en.md)**
 </div>
@@ -29,7 +35,7 @@
   <img src="readme-assets/IMG_1465.png" alt="HMR の動作画面" width="80%" />
 </div>
 
-ウェブサイトを作って、変更が**瞬時に**反映される！リフレッシュ不要、待ち時間なし。コードを書けば即座に画面に反映される、まさに開発の極上体験です。
+簡易サイトを素早く構築できる。ブラウザでしかテストできないが、環境整備は面倒。そんな時に、とても便利。
 
 ---
 
@@ -38,7 +44,7 @@
   <img src="readme-assets/IMG_1470.png" alt="リッチコンテンツ編集" width="80%" />
 </div>
 
-**美しいドキュメント**をライブプレビューで作成！Mermaidでフローチャート、LaTeXで数式、リッチなマークダウン - 全てタイプするだけでリアルタイム更新。
+美しいドキュメントをライブプレビューで作成！Mermaidでフローチャート、LaTeXで数式、リッチなマークダウン - 全てタイプするだけでリアルタイム更新。
 
 ---
 
@@ -47,7 +53,7 @@
   <img src="readme-assets/IMG_1466.png" alt="Git 差分の可視化" width="80%" />
 </div>
 
-コードの変更を**美しいビジュアル差分**で確認！完全なGitサポートでブランチ、マージ、履歴管理 - 何を壊しても大丈夫な安全なGit学習環境。
+コードの変更を**gitビジュアル差分**で確認！完全なGitサポートでブランチ、マージ、履歴管理 - 何を壊しても大丈夫な安全なGit学習環境。
 
 ---
 
@@ -81,7 +87,7 @@
 - **初心者のGitとコーディング学習に最適**
 - **システム破損不可能** - ただのブラウザタブだから！
 
-### � **iPad ファースト - どこでもコーディング**
+### **iPad ファースト - どこでもコーディング**
 - **iPad で設計** された究極のモバイルコーディング体験
 - **タッチ最適化インターフェース** とデュアルエディター対応
 - **真のiPad開発** - ついに、タブレット用の本物のIDE
@@ -95,7 +101,21 @@
 - **マルチペーン対応** で複雑なプロジェクトも楽々
 - **バッファコンテンツ対応** - zip解凍、PDF、画像、動画表示
 
-> 🌟 **おそらく世界初** - この全条件を満たすツールは他に見つかりませんでした！
+--- 
+
+## 🌟 **おそらく世界初** - こんな機能が全て統合されたブラウザエディタはありませんでした
+
+- **サーバーに一切接続しない**ため（static site hosting）起動が驚くほどはやい。ノンストレス
+- **完全なGit**が使える（ブランチや、マージ、リセットなど、ローカルのgitに対応。）もしリポジトリとしてちゃんと使いたかったら、設定から。.gitを含めてダウンロードできる。
+- **NodeJS**が使える。WASMを使わないので、実行までの時間が非常に短い。また、javascriptでできない、ファイルオペレーション機能をエミュレートし、気楽にコードが気軽にかける
+- マークダウン、マーメイド、Latexなどを非常に軽量にリアルタイム編集できる。
+- **AIAgent**搭載　vscodeを開くまでではないが、AskやEdit機能によって、通常のブラウザでは、何度も貼り付けたりする作業がいるところを、Pyxisは解決。
+- **HMR** 簡易サイトを素早く構築できる。ブラウザでしかテストできないが、環境整備は面倒。そんな時に、とても便利。
+- **iPad互換**　私がiPadで開発したため、もちろんiPad最優先。そのためにコードエディタも2つ搭載
+- ブラウザ上だから、**何をしても壊れない。**パソコンだと何かを消すと大惨事。Pyxisだと、何をしても大丈夫。初心者がgitを学ぶのにも最適。
+- buffercontentも対応し、unzipやpdf,image,videoなどのビューワーも搭載。
+- **大量のテキスト**も、素早く、キーボードショートカットを使いこなして編集できる。
+- **マルチペーン**　複数ウィンドウで同時に作業
 
 ---
 
