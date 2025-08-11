@@ -92,9 +92,13 @@ body {
   z-index: 10;
 }
 
-.resizer:hover,
-.resizer:active {
-  background: hsl(var(--primary));
+
+.resizer:hover {
+  background: hsl(var(--primary) / 0.7);
+}
+.resizer:active, .resizer.resizing {
+  background: hsl(var(--primary) / 0.95) !important;
+  transition: background-color 0.1s;
 }
 
 .resizer-vertical {
