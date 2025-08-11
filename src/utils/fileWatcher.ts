@@ -16,7 +16,7 @@ export const FILE_CHANGE_EVENT = 'pyxis-file-changed';
 
 // ファイル変更を通知する関数
 export const notifyFileChange = (event: FileChangeEvent) => {
-  console.log('[FileWatcher] File change notification:', event);
+  // console.log('[FileWatcher] File change notification:', event);
   
   // カスタムイベントを発火
   const customEvent = new CustomEvent(FILE_CHANGE_EVENT, {

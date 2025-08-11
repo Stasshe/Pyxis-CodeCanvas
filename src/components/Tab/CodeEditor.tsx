@@ -201,6 +201,19 @@ export default function CodeEditor({
     };
   }, []);
 
+  // 安全にエディターやモデルの状態をチェックするヘルパー関数
+  const isEditorSafe = useCallback(() => {
+    return editorRef.current && 
+           !((editorRef.current as any)._isDisposed) && 
+           isMountedRef.current;
+  }, []);
+
+  const isModelSafe = useCallback((model: monaco.editor.ITextModel | null | undefined) => {
+    return model && 
+           typeof model.isDisposed === 'function' && 
+           !model.isDisposed();
+  }, []);
+
   // Monaco Editor: ファイルごとにTextModelを管理し、タブ切り替え時にモデルを切り替える
   const handleEditorDidMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
@@ -275,8 +288,13 @@ export default function CodeEditor({
 
     // 選択範囲の文字数を検知
     editor.onDidChangeCursorSelection((e) => {
+      if (!isEditorSafe()) return;
+      
       const selection = e.selection;
-      const length = editor.getModel()?.getValueInRange(selection).length ?? 0;
+      const model = editor.getModel();
+      if (!isModelSafe(model)) return;
+      
+      const length = model!.getValueInRange(selection).length ?? 0;
       if (selection.isEmpty()) {
         setSelectionCount(null);
       } else {
@@ -290,7 +308,12 @@ export default function CodeEditor({
       const monacoModelMap = monacoModelMapRef.current;
       let model = monacoModelMap.get(activeTab.id);
       
-      if (!model) {
+      if (!isModelSafe(model)) {
+        // 既存のモデルが破棄されている場合は削除
+        if (model) {
+          monacoModelMap.delete(activeTab.id);
+        }
+        
         model = monaco.editor.createModel(
           activeTab.content,
           getLanguage(activeTab.name)
@@ -298,16 +321,35 @@ export default function CodeEditor({
         monacoModelMap.set(activeTab.id, model);
       }
       
-      try {
-        editor.setModel(model);
-        currentModelIdRef.current = activeTab.id;
-        setCharCount(activeTab.content.length);
-      } catch (e: any) {
-        if (e?.message?.includes('InstantiationService has been disposed')) {
-          console.warn('[CodeEditor] Initial setModel failed: InstantiationService has been disposed');
-        } else {
-          console.error('[CodeEditor] Initial setModel error:', e);
-          throw e;
+      if (isEditorSafe() && model) {
+        try {
+          editor.setModel(model);
+          currentModelIdRef.current = activeTab.id;
+          setCharCount(activeTab.content.length);
+        } catch (e: any) {
+          console.warn('[CodeEditor] Initial setModel failed:', e?.message);
+          // エラーが発生した場合、モデルを再作成して再試行
+          if (model) {
+            try {
+              model.dispose();
+            } catch (disposeError) {
+              console.warn('[CodeEditor] Model dispose failed:', disposeError);
+            }
+            monacoModelMap.delete(activeTab.id);
+          }
+          
+          try {
+            const newModel = monaco.editor.createModel(
+              activeTab.content,
+              getLanguage(activeTab.name)
+            );
+            monacoModelMap.set(activeTab.id, newModel);
+            editor.setModel(newModel);
+            currentModelIdRef.current = activeTab.id;
+            setCharCount(activeTab.content.length);
+          } catch (retryError) {
+            console.error('[CodeEditor] Model creation retry failed:', retryError);
+          }
         }
       }
     }
@@ -327,90 +369,113 @@ export default function CodeEditor({
     }
     
     // Monaco Editorの参照が有効かつdisposeされていないかチェック
-    if (!editorRef.current || !monacoRef.current) return;
-    if ((editorRef.current as any)._isDisposed) return;
+    if (!isEditorSafe() || !monacoRef.current) return;
 
     const monacoModelMap = monacoModelMapRef.current;
     let model = monacoModelMap.get(activeTab.id);
     
     // dispose済みモデルはMapから削除し新規作成
-    if (model && typeof model.isDisposed === 'function' && model.isDisposed()) {
-      monacoModelMap.delete(activeTab.id);
+    if (!isModelSafe(model)) {
+      if (model) {
+        monacoModelMap.delete(activeTab.id);
+      }
       model = undefined;
     }
     
     if (!model) {
       // 新しいモデルを作成
-      model = monacoRef.current.editor.createModel(
-        activeTab.content,
-        getLanguage(activeTab.name)
-      );
-      monacoModelMap.set(activeTab.id, model);
+      try {
+        model = monacoRef.current.editor.createModel(
+          activeTab.content,
+          getLanguage(activeTab.name)
+        );
+        monacoModelMap.set(activeTab.id, model);
+      } catch (createError: any) {
+        console.error('[CodeEditor] Model creation failed:', createError);
+        return;
+      }
       
       // disposeやアンマウント後はsetModelしない
-      if (!isMountedRef.current) return;
-      if (!editorRef.current || (editorRef.current as any)._isDisposed) return;
+      if (!isEditorSafe()) return;
       
       try {
         // モデルを設定
-        editorRef.current.setModel(model);
+        editorRef.current!.setModel(model);
         currentModelIdRef.current = activeTab.id;
         setCharCount(model.getValue().length);
       } catch (e: any) {
-        if (e?.message?.includes('InstantiationService has been disposed')) {
-          console.warn('[CodeEditor] setModel failed: InstantiationService has been disposed');
-          return;
-        } else {
-          console.error('[CodeEditor] setModel error:', e);
-          throw e;
-        }
+        console.warn('[CodeEditor] setModel failed:', e?.message);
+        // setModelに失敗した場合、少し待ってから再試行
+        setTimeout(() => {
+          if (isEditorSafe() && isModelSafe(model) && model) {
+            try {
+              editorRef.current!.setModel(model);
+              currentModelIdRef.current = activeTab.id;
+              setCharCount(model.getValue().length);
+            } catch (retryError: any) {
+              console.error('[CodeEditor] setModel retry failed:', retryError);
+            }
+          }
+        }, 50);
       }
     } else {
       // 既存のモデルの場合
       // 1. 現在のエディターのモデルと異なる場合は切り替え
       if (currentModelIdRef.current !== activeTab.id) {
         // disposeやアンマウント後はsetModelしない
-        if (!isMountedRef.current) return;
-        if (!editorRef.current || (editorRef.current as any)._isDisposed) return;
+        if (!isEditorSafe()) return;
         
         try {
-          editorRef.current.setModel(model);
+          editorRef.current!.setModel(model);
           currentModelIdRef.current = activeTab.id;
         } catch (e: any) {
-          if (e?.message?.includes('InstantiationService has been disposed')) {
-            console.warn('[CodeEditor] setModel failed: InstantiationService has been disposed');
-            return;
-          } else {
-            console.error('[CodeEditor] setModel error:', e);
-            throw e;
+          console.warn('[CodeEditor] setModel for existing model failed:', e?.message);
+          // 既存のモデルが何らかの理由で使えない場合、再作成を試みる
+          monacoModelMap.delete(activeTab.id);
+          try {
+            model.dispose();
+          } catch (disposeError) {
+            console.warn('[CodeEditor] Failed to dispose broken model:', disposeError);
           }
+          
+          // 新しいモデルを作成して再試行
+          try {
+            const newModel = monacoRef.current!.editor.createModel(
+              activeTab.content,
+              getLanguage(activeTab.name)
+            );
+            monacoModelMap.set(activeTab.id, newModel);
+            editorRef.current!.setModel(newModel);
+            currentModelIdRef.current = activeTab.id;
+            setCharCount(newModel.getValue().length);
+          } catch (recreateError: any) {
+            console.error('[CodeEditor] Model recreation failed:', recreateError);
+          }
+          return;
         }
       }
       
       // 2. モデルの内容を更新（必要に応じて）
-      if (typeof model.getValue === 'function' && model.getValue() !== activeTab.content) {
+      if (isModelSafe(model) && model!.getValue() !== activeTab.content) {
         try {
-          model.setValue(activeTab.content);
+          model!.setValue(activeTab.content);
         } catch (e: any) {
-          if (e?.message?.includes('Model is disposed')) {
-            console.warn('[CodeEditor] Model setValue failed: Model is disposed');
-            // モデルが破棄されている場合は、マップから削除
-            monacoModelMap.delete(activeTab.id);
-            return;
-          } else {
-            console.error('[CodeEditor] Model setValue error:', e);
-            throw e;
-          }
+          console.warn('[CodeEditor] Model setValue failed:', e?.message);
+          // setValueに失敗した場合は、モデルが破棄されている可能性があるので削除
+          monacoModelMap.delete(activeTab.id);
+          return;
         }
       }
       
-      setCharCount(model.getValue().length);
+      if (isModelSafe(model)) {
+        setCharCount(model!.getValue().length);
+      }
     }
-  }, [activeTab?.id, isCodeMirror]); // activeTab.contentは除去して、不要なuseEffect実行を防ぐ
+  }, [activeTab?.id, isCodeMirror, isEditorSafe, isModelSafe]); // activeTab.contentは除去して、不要なuseEffect実行を防ぐ
 
   // activeTab.contentが外部から変更された場合の同期用useEffect
   useEffect(() => {
-    if (!activeTab || !editorRef.current || !monacoRef.current) return;
+    if (!activeTab || !isEditorSafe() || !monacoRef.current) return;
     if (
       isBufferArray((activeTab as any).bufferContent) ||
       activeTab.id === 'welcome' ||
@@ -423,22 +488,43 @@ export default function CodeEditor({
     const monacoModelMap = monacoModelMapRef.current;
     const model = monacoModelMap.get(activeTab.id);
     
-    if (model && !model.isDisposed() && 
+    if (isModelSafe(model) && 
         currentModelIdRef.current === activeTab.id &&
-        model.getValue() !== activeTab.content) {
+        model!.getValue() !== activeTab.content) {
       try {
-        model.setValue(activeTab.content);
+        // 強制的にコンテンツを同期する（ユーザーの変更は絶対に反映する）
+        model!.setValue(activeTab.content);
         setCharCount(activeTab.content.length);
+        console.log('[CodeEditor] Content synced for tab:', activeTab.id);
       } catch (e: any) {
-        if (e?.message?.includes('Model is disposed')) {
-          console.warn('[CodeEditor] Content sync failed: Model is disposed');
-          monacoModelMap.delete(activeTab.id);
-        } else {
-          console.error('[CodeEditor] Content sync error:', e);
+        console.warn('[CodeEditor] Content sync failed, recreating model:', e?.message);
+        // setValueに失敗した場合、モデルを再作成する
+        monacoModelMap.delete(activeTab.id);
+        try {
+          model!.dispose();
+        } catch (disposeError) {
+          console.warn('[CodeEditor] Failed to dispose model during sync:', disposeError);
+        }
+        
+        try {
+          const newModel = monacoRef.current!.editor.createModel(
+            activeTab.content,
+            getLanguage(activeTab.name)
+          );
+          monacoModelMap.set(activeTab.id, newModel);
+          
+          if (isEditorSafe()) {
+            editorRef.current!.setModel(newModel);
+            currentModelIdRef.current = activeTab.id;
+            setCharCount(activeTab.content.length);
+            console.log('[CodeEditor] Model recreated and synced for tab:', activeTab.id);
+          }
+        } catch (recreateError: any) {
+          console.error('[CodeEditor] Failed to recreate model during sync:', recreateError);
         }
       }
     }
-  }, [activeTab?.content, activeTab?.id, isCodeMirror]);
+  }, [activeTab?.content, activeTab?.id, isCodeMirror, isEditorSafe, isModelSafe]);
 
   // Cleanup Monaco Editor instance on unmount
   useEffect(() => {
@@ -555,12 +641,26 @@ export default function CodeEditor({
           onMount={handleEditorDidMount}
           onChange={(value) => {
             if (value !== undefined && activeTab) {
-              if (onContentChangeImmediate) {
-                onContentChangeImmediate(activeTab.id, value);
+              try {
+                // ユーザーの変更は絶対に反映する
+                if (onContentChangeImmediate) {
+                  onContentChangeImmediate(activeTab.id, value);
+                }
+                debouncedSave(activeTab.id, value);
+                setCharCount(value.length);
+                setSelectionCount(null);
+                // console.log('[CodeEditor] User change detected for tab:', activeTab.id, 'length:', value.length);
+              } catch (error: any) {
+                console.error('[CodeEditor] Error handling user change:', error);
+                // エラーが発生してもユーザーの変更は保存を試みる
+                try {
+                  if (onContentChangeImmediate) {
+                    onContentChangeImmediate(activeTab.id, value);
+                  }
+                } catch (fallbackError: any) {
+                  console.error('[CodeEditor] Fallback save also failed:', fallbackError);
+                }
               }
-              debouncedSave(activeTab.id, value);
-              setCharCount(value.length);
-              setSelectionCount(null);
             }
           }}
           theme="pyxis-custom"
@@ -587,8 +687,8 @@ export default function CodeEditor({
             parameterHints: { enabled: true },
             quickSuggestions: {
               other: true,
-              comments: false,
-              strings: false
+              comments: true,
+              strings: true
             },
             hover: { enabled: true },
             bracketPairColorization: { enabled: true },

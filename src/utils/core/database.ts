@@ -529,15 +529,15 @@ class ProjectDB {
           })) || []
         }));
         
-        console.log('[DB] Loaded chat spaces:', chatSpaces.length, 'spaces');
-        chatSpaces.forEach(space => {
-          console.log(`[DB] Space "${space.name}": ${space.messages.length} messages`);
-          space.messages.forEach((msg: ChatSpaceMessage) => {
-            if (msg.editResponse) {
-              console.log(`[DB] Message ${msg.id} has editResponse with ${msg.editResponse.changedFiles.length} files`);
-            }
-          });
-        });
+        // console.log('[DB] Loaded chat spaces:', chatSpaces.length, 'spaces');
+        // chatSpaces.forEach(space => {
+        //   console.log(`[DB] Space "${space.name}": ${space.messages.length} messages`);
+        //   space.messages.forEach((msg: ChatSpaceMessage) => {
+        //     if (msg.editResponse) {
+        //       console.log(`[DB] Message ${msg.id} has editResponse with ${msg.editResponse.changedFiles.length} files`);
+        //     }
+        //   });
+        // });
         
         resolve(chatSpaces.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()));
       };
@@ -614,7 +614,7 @@ class ProjectDB {
             reject(putRequest.error);
           };
           putRequest.onsuccess = () => {
-            console.log('[DB] Message saved successfully:', newMessage.id);
+            // console.log('[DB] Message saved successfully:', newMessage.id);
             resolve(newMessage);
           };
         };
