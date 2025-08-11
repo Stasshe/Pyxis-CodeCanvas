@@ -344,7 +344,7 @@ export class NodeJSRuntime {
       const result = await asyncFunction(globals);
       
       // 実行完了をDebugConsoleAPIに出力
-      DebugConsoleAPI.log(`\x1b[35m[SANDBOX]\x1b[0m Execution completed successfully`);
+      //DebugConsoleAPI.log(`\x1b[35m[SANDBOX]\x1b[0m Execution completed successfully`);
       return result !== undefined ? String(result) : '';
     } catch (error) {
       console.error('[NodeJS Runtime] Execution error (vm-browserify):', error);
