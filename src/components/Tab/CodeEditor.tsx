@@ -286,7 +286,7 @@ export default function CodeEditor({
       esModuleInterop: true,
       jsx: monaco.languages.typescript.JsxEmit.React,
       reactNamespace: 'React',
-      allowJs: true,
+      allowJs: false,
       typeRoots: ['node_modules/@types']
     });
 
