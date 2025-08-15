@@ -47,6 +47,8 @@ interface CodeEditorProps {
   onContentChangeImmediate?: (tabId: string, content: string) => void;
   nodeRuntimeOperationInProgress?: boolean;
   isCodeMirror?: boolean;
+  currentProjectName?: string;
+  projectFiles?: any[]; // FileItem[]
 }
 
 const getLanguage = (filename: string): string => {
@@ -139,7 +141,9 @@ export default function CodeEditor({
   onContentChange,
   onContentChangeImmediate,
   nodeRuntimeOperationInProgress = false,
-  isCodeMirror = false
+  isCodeMirror = false,
+  currentProjectName,
+  projectFiles
 }: CodeEditorProps) {
   const { colors } = useTheme();
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -580,7 +584,12 @@ export default function CodeEditor({
       <>
         {console.log('[CodeEditor] Rendering Markdown preview for:', activeTab.name)}
         <div className="flex-1 min-h-0" style={{ height: editorHeight }}>
-          <MarkdownPreviewTab content={activeTab.content} fileName={activeTab.name} />
+          <MarkdownPreviewTab 
+            content={activeTab.content} 
+            fileName={activeTab.name} 
+            currentProjectName={currentProjectName}
+            projectFiles={projectFiles}
+          />
         </div>
       </>
     );

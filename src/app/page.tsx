@@ -731,6 +731,8 @@ export default function Home() {
                       bottomPanelHeight={bottomPanelHeight}
                       nodeRuntimeOperationInProgress={nodeRuntimeOperationInProgress}
                       isCodeMirror={activeTab?.isCodeMirror}
+                      currentProjectName={currentProject?.name}
+                      projectFiles={projectFiles}
                     />
                   ))}
                 </div>
