@@ -149,12 +149,12 @@ export class GitMergeOperations {
       const sourceCommit = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: `refs/heads/${sourceBranch}` });
       const targetCommit = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: `refs/heads/${targetBranch}` });
 
-      // sourceBranchがtargetBranchの祖先かチェック（mainがworkの祖先か？）
+      // targetBranchがsourceBranchの祖先かチェック（bがaの祖先か？）
       const isAncestor = await git.isDescendent({ 
         fs: this.fs, 
         dir: this.dir, 
-        oid: sourceCommit, 
-        ancestor: targetCommit 
+        oid: targetCommit, 
+        ancestor: sourceCommit 
       });
 
       return {
@@ -244,9 +244,13 @@ export class GitMergeOperations {
 
         // マージが成功した場合
         if (result && !result.alreadyMerged) {
-          // ワーキングディレクトリを更新
-          await this.updateWorkingDirectory(result);
-          
+          // マージコミットのOIDをcheckoutし、そのツリー全体を反映
+          if (result.oid) {
+            await git.checkout({ fs: this.fs, dir: this.dir, ref: result.oid });
+            await this.updateWorkingDirectory({ tree: result.oid });
+          } else {
+            await this.updateWorkingDirectory(result);
+          }
           // ファイルシステムの変更を通知
           if (this.onFileOperation) {
             await this.onFileOperation('.', 'folder');
@@ -262,12 +266,10 @@ export class GitMergeOperations {
 
       } catch (mergeError) {
         const error = mergeError as any;
-        
         // マージコンフリクトの場合
         if (error.code === 'MergeNotSupportedError' || error.message?.includes('conflict')) {
           return `CONFLICT: Automatic merge failed. Please resolve conflicts manually.\nMerge conflicts detected in the following files. This CLI doesn't support conflict resolution yet.`;
         }
-        
         // その他のマージエラー
         throw new Error(`Merge failed: ${error.message}`);
       }

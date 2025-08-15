@@ -51,6 +51,33 @@ export default function GitHistory({ commits, currentProject, currentBranch, onF
   const svgRef = useRef<SVGSVGElement>(null);
   const gitCommands = currentProject ? new GitCommands(currentProject, onFileOperation) : null;
 
+  // トポロジカルソート: 親→子の順に並べる
+  const topoSortCommits = (commits: GitCommitType[]): GitCommitType[] => {
+    const visited = new Set<string>();
+    const result: GitCommitType[] = [];
+    const map = new Map<string, GitCommitType>();
+    commits.forEach(c => map.set(c.hash, c));
+    const visit = (c: GitCommitType) => {
+      if (visited.has(c.hash)) return;
+      visited.add(c.hash);
+      if (c.parentHashes) {
+        c.parentHashes.forEach(ph => {
+          const parent = map.get(ph);
+          if (parent) visit(parent);
+        });
+      }
+      result.push(c);
+    };
+    commits.forEach(c => visit(c));
+    // 重複除去
+    const seen = new Set<string>();
+    return result.filter(c => {
+      if (seen.has(c.hash)) return false;
+      seen.add(c.hash);
+      return true;
+    });
+  };
+
     // ThemeContextから色を取得
   const { colors } = useTheme();
   
@@ -79,31 +106,31 @@ export default function GitHistory({ commits, currentProject, currentBranch, onF
   useEffect(() => {
     if (commits.length === 0) return;
 
+  // トポロジカルソートで順序保証（古い順）
+  let sortedCommits = topoSortCommits(commits);
+  // 新しいコミットが上に来るよう逆順に
+  sortedCommits = sortedCommits.reverse();
+
+    // 全ての親コミットが含まれるように
     const branchMap = new Map<string, number>();
     let branchIndex = 0;
-    const ROW_HEIGHT = 40; // コミット行の基本高さ
-    const BRANCH_WIDTH = 20; // ブランチ間の幅
-    const EXPANDED_HEIGHT = 100; // 展開時の追加高さ（80から100に増加）
-    const Y_OFFSET = 18; // テキストの中央に合わせるためのオフセット
+    const ROW_HEIGHT = 40;
+    const BRANCH_WIDTH = 20;
+    const EXPANDED_HEIGHT = 100;
+    const Y_OFFSET = 18;
 
     let currentY = Y_OFFSET;
-    const processedCommits: ExtendedCommit[] = commits.map((commit, index) => {
-      // ブランチのインデックスを取得または作成
+    const processedCommits: ExtendedCommit[] = sortedCommits.map((commit, index) => {
       if (!branchMap.has(commit.branch)) {
         branchMap.set(commit.branch, branchIndex++);
       }
-      
       const branchIdx = branchMap.get(commit.branch) || 0;
       const colorIndex = branchIdx % branchColors.length;
-
       const commitY = currentY;
-      
-      // 次のコミットのY座標を計算（展開状態を考慮）
       currentY += ROW_HEIGHT;
       if (expandedCommits.has(commit.hash)) {
         currentY += EXPANDED_HEIGHT;
       }
-
       return {
         ...commit,
         x: branchIdx * BRANCH_WIDTH + 15,
@@ -112,11 +139,11 @@ export default function GitHistory({ commits, currentProject, currentBranch, onF
       };
     });
 
-    // SVGの高さを計算（最後のコミットの位置 + マージン）
-    const calculatedHeight = currentY + 30; // マージンを30から50に増加
+    // SVGの高さを計算
+    const calculatedHeight = currentY + 30;
     setSvgHeight(calculatedHeight);
     setExtendedCommits(processedCommits);
-  }, [commits, expandedCommits]); // expandedCommitsを依存関係に追加
+  }, [commits, expandedCommits]);
 
   // コミットの変更ファイルを取得
   const getCommitChanges = async (commitHash: string) => {
@@ -254,6 +281,8 @@ export default function GitHistory({ commits, currentProject, currentBranch, onF
             {/* Draw branch lines */}
             {extendedCommits.map((commit, index) => {
               const lines = [];
+              // ROW_HEIGHTをここでも定義
+              const ROW_HEIGHT = 40;
               // 同じブランチの連続するコミット間の縦線
               const nextCommit = extendedCommits[index + 1];
               if (nextCommit && commit.branch === nextCommit.branch) {
@@ -275,9 +304,7 @@ export default function GitHistory({ commits, currentProject, currentBranch, onF
                   const parentCommit = extendedCommits.find(c => c.hash === parentHash);
                   if (parentCommit) {
                     if (parentCommit.branch === commit.branch) {
-                      // 同じブランチ内の接続（直線）
                       if (Math.abs(extendedCommits.indexOf(parentCommit) - index) > 1) {
-                        // 連続していないコミット間の接続線
                         lines.push(
                           <line
                             key={`direct-line-${commit.hash}-${parentHash}-${parentIndex}`}
@@ -291,12 +318,10 @@ export default function GitHistory({ commits, currentProject, currentBranch, onF
                         );
                       }
                     } else {
-                      // 異なるブランチ間の分岐線（曲線）
                       const midY = (commit.y + parentCommit.y) / 2;
                       const midX = (commit.x + parentCommit.x) / 2;
                       lines.push(
-                        <g key={`branch-line-${commit.hash}-${parentHash}-${parentIndex}`}> 
-                          {/* S字カーブで接続 */}
+                        <g key={`branch-line-${commit.hash}-${parentHash}-${parentIndex}`}>
                           <path
                             d={`M ${commit.x} ${commit.y} C ${commit.x} ${commit.y + 15} ${midX} ${midY - 15} ${midX} ${midY}`}
                             stroke={commit.branchColor}
@@ -312,6 +337,33 @@ export default function GitHistory({ commits, currentProject, currentBranch, onF
                         </g>
                       );
                     }
+                  } else {
+                    // 親コミットが見つからない場合でも、仮想的な位置に点と線を描画
+                    // 仮想的な位置: xは同じ、yは少し上
+                    const virtualY = commit.y - ROW_HEIGHT;
+                    lines.push(
+                      <circle
+                        key={`virtual-parent-dot-${commit.hash}-${parentHash}-${parentIndex}`}
+                        cx={commit.x}
+                        cy={virtualY}
+                        r="3"
+                        fill={commit.branchColor}
+                        stroke={colors.gitCommitStroke || 'white'}
+                        strokeWidth="1"
+                      />
+                    );
+                    lines.push(
+                      <line
+                        key={`virtual-parent-line-${commit.hash}-${parentHash}-${parentIndex}`}
+                        x1={commit.x}
+                        y1={commit.y}
+                        x2={commit.x}
+                        y2={virtualY}
+                        stroke={commit.branchColor}
+                        strokeWidth="1"
+                        strokeDasharray="2,2"
+                      />
+                    );
                   }
                 });
               }
