@@ -63,9 +63,9 @@ export class GitLogOperations {
       const branches = await git.listBranches({ fs: this.fs, dir: this.dir });
       console.log('All branches:', branches);
       
-      // 全ブランチからコミットを収集
+      // 全ブランチからコミットを収集（uiBranches配列で所属ブランチを記録）
       const allCommits = new Map<string, any>(); // コミットハッシュをキーとして重複を避ける
-      
+
       for (const branch of branches) {
         try {
           console.log(`Getting commits for branch: ${branch}`);
@@ -75,45 +75,22 @@ export class GitLogOperations {
             ref: branch,
             depth: depth
           });
-          
-          // 各コミットにブランチ情報を付与して追加
+
           for (const commit of branchCommits) {
             if (!allCommits.has(commit.oid)) {
-              // 新しいコミット：そのまま追加
-              allCommits.set(commit.oid, { ...commit, sourceBranch: branch });
+              // 新しいコミット：uiBranches配列で追加
+              allCommits.set(commit.oid, { ...commit, uiBranches: [branch] });
             } else {
-              // 重複コミット：どのブランチに属するかをより適切に判定
+              // 既存コミット：uiBranchesにブランチ名を追加（重複除外）
               const existingCommit = allCommits.get(commit.oid);
-              
-              // 1. 現在のブランチを最優先
-              if (branch === currentBranch) {
-                allCommits.set(commit.oid, { ...commit, sourceBranch: branch });
-              } 
-              // 2. そのブランチでそのコミットがHEAD（最新）かどうかをチェック
-              else if (existingCommit.sourceBranch !== currentBranch) {
-                // そのブランチの最新コミットかどうかで判定
-                // インデックス0は最新コミット
-                const isHeadOfCurrentBranch = branchCommits[0]?.oid === commit.oid;
-                const wasHeadOfExistingBranch = existingCommit.isHeadOfBranch;
-                
-                if (isHeadOfCurrentBranch && !wasHeadOfExistingBranch) {
-                  // 現在のブランチのHEADで、既存のブランチのHEADでない場合
-                  allCommits.set(commit.oid, { 
-                    ...commit, 
-                    sourceBranch: branch,
-                    isHeadOfBranch: true 
-                  });
-                } else if (!isHeadOfCurrentBranch && !wasHeadOfExistingBranch) {
-                  // どちらもHEADでない場合は、より新しいタイムスタンプを優先
-                  if (commit.commit.author.timestamp >= existingCommit.commit.author.timestamp) {
-                    allCommits.set(commit.oid, { ...commit, sourceBranch: branch });
-                  }
-                }
+              const branchesArr = existingCommit.uiBranches || [];
+              if (!branchesArr.includes(branch)) {
+                branchesArr.push(branch);
+                allCommits.set(commit.oid, { ...existingCommit, uiBranches: branchesArr });
               }
-              // 3. 既存が現在のブランチの場合は変更しない
             }
-            
-            // 最初に追加する時にHEAD情報も記録
+
+            // HEAD情報も記録（従来通り）
             if (!allCommits.get(commit.oid)?.hasOwnProperty('isHeadOfBranch')) {
               const isHead = branchCommits[0]?.oid === commit.oid;
               const currentCommit = allCommits.get(commit.oid);
@@ -149,12 +126,10 @@ export class GitLogOperations {
         const safeDate = date.toISOString();
         // 親コミットのハッシュを追加（複数の親がある場合はカンマ区切り）
         const parentHashes = commit.commit.parent.join(',');
-        
-        // ソースブランチを使用
-        const commitBranch = commit.sourceBranch || currentBranch;
-        
-        // フォーマット: hash|message|author|date|parentHashes|branch
-        const formatted = `${commit.oid}|${safeMessage}|${safeName}|${safeDate}|${parentHashes}|${commitBranch}`;
+        // uiBranchesをカンマ区切りで出力
+        const uiBranches = Array.isArray(commit.uiBranches) ? commit.uiBranches.join(',') : '';
+        // フォーマット: hash|message|author|date|parentHashes|uiBranches
+        const formatted = `${commit.oid}|${safeMessage}|${safeName}|${safeDate}|${parentHashes}|${uiBranches}`;
         formattedCommits.push(formatted);
       }
       

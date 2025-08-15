@@ -8,6 +8,11 @@ export interface GitCommit {
   branch: string;
   isMerge: boolean;
   parentHashes: string[];
+  /**
+   * UI表示専用: このコミットが属するブランチ名（複数可）
+   * UIでの色分け・ラベル表示用。ロジック処理には使わないこと。
+   */
+  uiBranches?: string[];
 }
 
 export interface GitBranch {

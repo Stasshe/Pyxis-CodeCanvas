@@ -460,26 +460,31 @@ export default function GitHistory({ commits, currentProject, currentBranch, onF
                               <Hash className="w-2.5 h-2.5" />
                               <span className="font-mono">{commit.shortHash}</span>
                             </span>
-                            {/* ブランチ表示：各ブランチの最新コミットに表示 */}
-                            {(() => {
-                              const firstCommitOfBranch = commits.find(c => c.branch === commit.branch);
-                              const isLatestOfBranch = firstCommitOfBranch?.hash === commit.hash;
-                              if (!isLatestOfBranch) return null;
-                              const isCurrentBranch = commit.branch === currentBranch;
-                              return (
-                                <span
-                                  className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium flex-shrink-0 whitespace-nowrap border`}
-                                  style={{
-                                    background: isCurrentBranch ? colors.gitBranchCurrentBg : colors.gitBranchOtherBg,
-                                    color: isCurrentBranch ? colors.gitBranchCurrentFg : colors.gitBranchOtherFg,
-                                    borderColor: isCurrentBranch ? colors.gitBranchCurrentBorder : colors.gitBranchOtherBorder
-                                  }}
-                                >
-                                  <GitBranch className="w-2.5 h-2.5" />
-                                  {commit.branch}
-                                </span>
-                              );
-                            })()}
+                            {/* UI表示専用: uiBranches配列の全ブランチ名をラベル表示 */}
+                            {Array.isArray(commit.uiBranches) && commit.uiBranches.length > 0 && (
+                              <div className="flex gap-1">
+                                {commit.uiBranches.map((branchName, idx) => {
+                                  // 色分け: branchColorsからインデックス算出
+                                  const branchIdx = branchColors.findIndex((_, i) => i === idx);
+                                  const colorIndex = branchIdx >= 0 ? branchIdx % branchColors.length : 0;
+                                  const isCurrentBranch = branchName === currentBranch;
+                                  return (
+                                    <span
+                                      key={branchName}
+                                      className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium flex-shrink-0 whitespace-nowrap border`}
+                                      style={{
+                                        background: isCurrentBranch ? colors.gitBranchCurrentBg : colors.gitBranchOtherBg,
+                                        color: isCurrentBranch ? colors.gitBranchCurrentFg : colors.gitBranchOtherFg,
+                                        borderColor: isCurrentBranch ? colors.gitBranchCurrentBorder : colors.gitBranchOtherBorder
+                                      }}
+                                    >
+                                      <GitBranch className="w-2.5 h-2.5" />
+                                      {branchName}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            )}
                           </div>
                         </div>
                         {commit.isMerge && (
