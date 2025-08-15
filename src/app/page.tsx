@@ -66,16 +66,56 @@ export default function Home() {
           // データが正しい形式かチェック
           if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].id) {
               // タブを初期化: contentとbufferContentは空にして、後でDBから復元
-              const initEditors = parsed.map((editor: any) => ({
-                ...editor,
-                tabs: editor.tabs.map((tab: any) => ({
-                  ...tab,
-                  content: '', // localStorageから復元時は空にする
-                  bufferContent: undefined, // バッファも空にする
-                  // Welcomeタブや特殊タブ以外はコンテンツ復元が必要
-                  needsContentRestore: tab.id !== 'welcome' && !tab.diffProps && !tab.webPreview && tab.path && tab.path !== '/',
-                }))
-              }));
+              const initEditors = parsed.map((editor: any, idx: number) => {
+                let newId = editor.id;
+                // ...既存のID重複防止処理...
+                // タブID・path生成ルールを統一
+                const tabs = editor.tabs.map((tab: any) => {
+                  let tabId;
+                  let tabPath = tab.path;
+                  if (tab.id === 'welcome') {
+                    tabId = 'welcome';
+                    tabPath = '/';
+                  } else if (tab.preview) {
+                    tabId = `${newId}:${tab.path}-preview`;
+                  } else if (tab.diffProps) {
+                    tabId = `${newId}:${tab.path}-diff`;
+                  } else if (tab.aiReviewProps) {
+                    tabId = `${newId}:${tab.path}-ai`;
+                  } else {
+                    tabId = `${newId}:${tab.path}`;
+                  }
+                  if (tabPath && !tabPath.startsWith('/')) tabPath = '/' + tabPath;
+                  return {
+                    ...tab,
+                    id: tabId,
+                    path: tabPath,
+                    content: '',
+                    bufferContent: undefined,
+                    needsContentRestore: tabId !== 'welcome' && !tab.diffProps && !tab.webPreview && tabPath && tabPath !== '/',
+                  };
+                });
+                // activeTabIdをtabs配列のIDと完全一致させる
+                let restoredActiveTabId = '';
+                if (editor.activeTabId) {
+                  // 旧IDが一致するタブがあればそれを使う
+                  const found = tabs.find((t: any) => t.id === editor.activeTabId);
+                  if (found) restoredActiveTabId = found.id;
+                  else {
+                    // pathベースで一致するタブがあればそれを使う
+                    const foundByPath = tabs.find((t: any) => t.path === editor.activeTabId || t.path === editor.activeTabId.replace(/^.*?:/, ''));
+                    if (foundByPath) restoredActiveTabId = foundByPath.id;
+                  }
+                }
+                // どれもなければ先頭タブ
+                if (!restoredActiveTabId && tabs.length > 0) restoredActiveTabId = tabs[0].id;
+                return {
+                  ...editor,
+                  id: newId,
+                  tabs,
+                  activeTabId: restoredActiveTabId
+                };
+              });
               console.log('[DEBUG] Restored editors from localStorage:', initEditors.map(e => ({
                 id: e.id,
                 tabs: e.tabs.map((t: any) => ({ id: t.id, path: t.path, needsContentRestore: t.needsContentRestore }))

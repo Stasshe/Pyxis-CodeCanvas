@@ -4,7 +4,13 @@ import type { Tab, EditorPane, EditorLayoutType, MenuTab } from '@/types';
 import type { Dispatch, SetStateAction } from 'react';
 
 export function addEditorPane(editors: EditorPane[], setEditors: Dispatch<SetStateAction<EditorPane[]>>) {
-  const newId = `editor-${editors.length + 1}`;
+  // 既存ID一覧を取得
+  const existingIds = editors.map(e => e.id);
+  let nextNum = 1;
+  while (existingIds.includes(`editor-${nextNum}`)) {
+    nextNum++;
+  }
+  const newId = `editor-${nextNum}`;
   setEditors(prev => [...prev, { id: newId, tabs: [], activeTabId: '' }]);
 }
 

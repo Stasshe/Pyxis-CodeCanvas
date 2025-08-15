@@ -47,8 +47,12 @@ export function useProjectFilesSyncEffect({
       return;
     }
     
-    // プロジェクトファイルを平坦化
-    const flattenedFiles = flattenFileItems(projectFiles);
+  // プロジェクトファイルを平坦化
+  const flattenedFiles = flattenFileItems(projectFiles);
+  // デバッグ: 全ファイルパス一覧
+  console.log('[DEBUG] ProjectFiles paths:', flattenedFiles.map(f => f.path));
+  // デバッグ: 全タブパス一覧
+  console.log('[DEBUG] Tabs paths:', tabs.map(t => t.path));
     //console.log('[DEBUG] Flattened project files:', flattenedFiles.map(f => ({ path: f.path, contentLength: f.content?.length || 0 })));
     
     // タブにneedsContentRestoreフラグがあるかチェック
@@ -67,6 +71,10 @@ export function useProjectFilesSyncEffect({
           if (!correspondingFile) {
             if (tab.needsContentRestore) {
               console.log('[DEBUG] No corresponding file found for tab needing restore:', tab.path);
+              // 追加: どのファイルパスと一致しないか詳細表示
+              flattenedFiles.forEach(f => {
+                console.log(`[DEBUG] Compare: tab.path="${tab.path}" vs file.path="${f.path}" =>`, tab.path === f.path);
+              });
             }
             return tab;
           }
@@ -255,30 +263,22 @@ export function useActiveTabContentRestore({
       setEditors((prevEditors: any[]) => {
         return prevEditors.map(editor => {
           if (!editor.activeTabId) return editor;
-          
           const activeTab = editor.tabs.find((tab: any) => tab.id === editor.activeTabId);
           if (!activeTab?.needsContentRestore) return editor;
-          
           const correspondingFile = flattenedFiles.find(f => f.path === activeTab.path);
           if (!correspondingFile) {
-            console.log('[DEBUG] No corresponding file found for active tab:', activeTab.path);
-            console.log('[DEBUG] Available project file paths:', flattenedFiles.map(f => f.path));
-            console.log('[DEBUG] Tab path length:', activeTab.path.length, 'chars:', [...activeTab.path].map(c => c.charCodeAt(0)));
-            flattenedFiles.forEach(f => {
-              console.log(`[DEBUG] File path "${f.path}" length: ${f.path.length}, chars:`, [...f.path].map(c => c.charCodeAt(0)));
-            });
+            // ...existing code...
             return editor;
           }
-
-          console.log('[DEBUG] Restoring content for active tab:', activeTab.path, 'content length:', correspondingFile.content?.length || 0);
-          
+          // タブIDをeditor.id + ':' + tab.pathでユニーク化
           return {
             ...editor,
             tabs: editor.tabs.map((tab: any) => {
               if (tab.id !== activeTab.id) return tab;
-              
+              const newTabId = tab.id === 'welcome' ? tab.id : `${editor.id}:${tab.path}`;
               return {
                 ...tab,
+                id: newTabId,
                 content: correspondingFile.content || '',
                 bufferContent: tab.isBufferArray ? correspondingFile.bufferContent : undefined,
                 isDirty: false,
