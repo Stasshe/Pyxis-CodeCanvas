@@ -40,7 +40,7 @@ export function HighlightedCode({ language, value }: { language: string; value: 
   };
 
   return (
-    <div style={{ position: 'relative', margin: 0 }}>
+    <div style={{ position: 'relative', margin: 0, minHeight: '100px' }}> {/* 高さを固定 */}
       <button
         aria-label="コードをコピー"
         onClick={handleCopy}
@@ -63,7 +63,7 @@ export function HighlightedCode({ language, value }: { language: string; value: 
       </button>
       <div
         className="shiki-code-block"
-        style={{ borderRadius: 8, fontSize: '1em', margin: 0, overflowX: 'auto' }}
+        style={{ borderRadius: 8, fontSize: '1em', margin: 0, overflowX: 'auto', minHeight: '100px' }} // 高さを固定
         dangerouslySetInnerHTML={{ __html: html }}
       />
     </div>

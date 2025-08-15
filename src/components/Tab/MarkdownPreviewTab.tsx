@@ -27,7 +27,8 @@ const Mermaid: React.FC<{ chart: string }> = ({ chart }) => {
     let bounceTimer: NodeJS.Timeout | null = null;
     if (ref.current) {
       // ローディングアニメーション表示
-  ref.current.innerHTML = `<div class="mermaid-loading" style="display:flex;align-items:center;justify-content:center;height:120px;"><svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="18" stroke="#4ade80" stroke-width="4" fill="none" stroke-dasharray="90" stroke-dashoffset="60"><animateTransform attributeName="transform" type="rotate" from="0 20 20" to="360 20 20" dur="1s" repeatCount="indefinite"/></circle></svg><span style="margin-left:10px;color:#4ade80;font-size:14px;">Mermaid図表を生成中...</span></div>`;
+      ref.current.innerHTML = `<div class="mermaid-loading" style="display:flex;align-items:center;justify-content:center;height:120px;"><svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="18" stroke="#4ade80" stroke-width="4" fill="none" stroke-dasharray="90" stroke-dashoffset="60"><animateTransform attributeName="transform" type="rotate" from="0 20 20" to="360 20 20" dur="1s" repeatCount="indefinite"/></circle></svg><span style="margin-left:10px;color:#4ade80;font-size:14px;">Mermaid図表を生成中...</span></div>`;
+      ref.current.style.minHeight = '120px'; // 高さを固定
     }
     const renderMermaid = async () => {
       if (ref.current) {
@@ -66,7 +67,7 @@ const Mermaid: React.FC<{ chart: string }> = ({ chart }) => {
       if (bounceTimer) clearTimeout(bounceTimer);
     };
   }, [chart, colors.mermaidBg]);
-  return <div ref={ref} className="mermaid" />;
+  return <div ref={ref} className="mermaid" style={{ minHeight: '120px' }} />; // 高さを固定
 };
 
 const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ content, fileName }) => {
