@@ -201,6 +201,8 @@ export async function handleUnixCommand(
       await writeOutput('  echo <text> [> file] - テキストを出力/ファイルに書き込み');
       await writeOutput('  export --page <file or folder> - 現在のページをエクスポート');
       await writeOutput('  export --indexeddb   - IndexedDBの内容をエクスポート');
+      await writeOutput('  debug-db             - IndexedDB・Lightning-FSの全データを出力');
+      await writeOutput('  memory-clean         - 不要なファイル・データベースエントリを削除');
       await writeOutput('');
       await writeOutput('Git Commands:');
       await writeOutput('  git status  - ステータスを確認');

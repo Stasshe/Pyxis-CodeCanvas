@@ -328,6 +328,158 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
       let output = '';
       try {
         switch (cmd) {
+          case 'debug-db':
+            // IndexedDB と Lightning-FS の全データを出力
+            try {
+              await writeOutput('=== IndexedDB & Lightning-FS Debug Information ===\n');
+              
+              // IndexedDB databases の取得
+              const dbs = await (window.indexedDB.databases ? window.indexedDB.databases() : []);
+              
+              for (const dbInfo of dbs) {
+                const dbName = dbInfo.name;
+                if (!dbName) continue;
+                
+                await writeOutput(`\n--- Database: ${dbName} (v${dbInfo.version}) ---`);
+                
+                try {
+                  const req = window.indexedDB.open(dbName);
+                  const db = await new Promise<IDBDatabase>((resolve, reject) => {
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => reject(req.error);
+                  });
+                  
+                  const objectStoreNames = Array.from(db.objectStoreNames);
+                  await writeOutput(`Object Stores: ${objectStoreNames.join(', ')}`);
+                  
+                  for (const storeName of objectStoreNames) {
+                    try {
+                      const tx = db.transaction(storeName, 'readonly');
+                      const store = tx.objectStore(storeName);
+                      const getAllReq = store.getAll();
+                      const items = await new Promise<any[]>((resolve, reject) => {
+                        getAllReq.onsuccess = () => resolve(getAllReq.result);
+                        getAllReq.onerror = () => reject(getAllReq.error);
+                      });
+                      
+                      await writeOutput(`\n  Store: ${storeName} (${items.length} items)`);
+                      
+                      if (items.length === 0) {
+                        await writeOutput('    (empty)');
+                      } else {
+                        for (let i = 0; i < Math.min(items.length, 10); i++) {
+                          const item = items[i];
+                          let summary = '';
+                          
+                          if (typeof item === 'object' && item !== null) {
+                            const keys = Object.keys(item);
+                            if (keys.includes('id')) summary += `id: ${item.id}, `;
+                            if (keys.includes('name')) summary += `name: ${item.name}, `;
+                            if (keys.includes('path')) summary += `path: ${item.path}, `;
+                            if (keys.includes('type')) summary += `type: ${item.type}, `;
+                            if (keys.includes('content')) {
+                              const contentSize = typeof item.content === 'string' 
+                                ? item.content.length 
+                                : JSON.stringify(item.content).length;
+                              summary += `content: ${contentSize} chars, `;
+                            }
+                            summary = summary.replace(/, $/, '');
+                            
+                            if (summary === '') {
+                              summary = `{${keys.slice(0, 3).join(', ')}${keys.length > 3 ? '...' : ''}}`;
+                            }
+                          } else {
+                            summary = String(item).slice(0, 100);
+                          }
+                          
+                          await writeOutput(`    [${i}] ${summary}`);
+                        }
+                        
+                        if (items.length > 10) {
+                          await writeOutput(`    ... and ${items.length - 10} more items`);
+                        }
+                      }
+                    } catch (storeError) {
+                      await writeOutput(`    Error accessing store ${storeName}: ${storeError}`);
+                    }
+                  }
+                  
+                  db.close();
+                } catch (dbError) {
+                  await writeOutput(`  Error opening database ${dbName}: ${dbError}`);
+                }
+              }
+              
+              // LocalStorage の Lightning-FS 関連データを出力
+              await writeOutput('\n--- LocalStorage (Lightning-FS related) ---');
+              const lightningFSKeys = [];
+              for (let i = 0; i < window.localStorage.length; i++) {
+                const key = window.localStorage.key(i);
+                if (key && (key.startsWith('fs/') || key.includes('lightning'))) {
+                  lightningFSKeys.push(key);
+                }
+              }
+              
+              if (lightningFSKeys.length === 0) {
+                await writeOutput('No Lightning-FS related localStorage entries found.');
+              } else {
+                await writeOutput(`Found ${lightningFSKeys.length} Lightning-FS related entries:`);
+                for (const key of lightningFSKeys.slice(0, 20)) {
+                  const value = window.localStorage.getItem(key);
+                  const size = value ? value.length : 0;
+                  await writeOutput(`  ${key}: ${size} chars`);
+                }
+                if (lightningFSKeys.length > 20) {
+                  await writeOutput(`  ... and ${lightningFSKeys.length - 20} more entries`);
+                }
+              }
+              
+              // ファイルシステム統計
+              await writeOutput('\n--- File System Statistics ---');
+              try {
+                const { getFileSystem } = await import('@/utils/core/filesystem');
+                const fs = getFileSystem();
+                if (fs) {
+                  try {
+                    const projectsExists = await fs.promises.stat('/projects').catch(() => null);
+                    if (projectsExists) {
+                      const projectDirs = await fs.promises.readdir('/projects');
+                      await writeOutput(`Projects in filesystem: ${projectDirs.length}`);
+                      
+                      for (const dir of projectDirs.slice(0, 10)) {
+                        if (dir === '.' || dir === '..') continue;
+                        try {
+                          const projectPath = `/projects/${dir}`;
+                          const files = await fs.promises.readdir(projectPath);
+                          await writeOutput(`  ${dir}: ${files.length} files/dirs`);
+                        } catch {
+                          await writeOutput(`  ${dir}: (inaccessible)`);
+                        }
+                      }
+                      
+                      if (projectDirs.length > 10) {
+                        await writeOutput(`  ... and ${projectDirs.length - 10} more projects`);
+                      }
+                    } else {
+                      await writeOutput('No /projects directory found in filesystem');
+                    }
+                  } catch (fsError) {
+                    await writeOutput(`Error reading filesystem: ${fsError}`);
+                  }
+                } else {
+                  await writeOutput('Filesystem not initialized');
+                }
+              } catch (importError) {
+                await writeOutput(`Error importing filesystem: ${importError}`);
+              }
+              
+              await writeOutput('\n=== Debug Information Complete ===');
+              
+            } catch (e) {
+              await writeOutput(`debug-db: エラー: ${(e as Error).message}`);
+            }
+            break;
+            
           case 'memory-clean':
             // 全プロジェクトをスキャンして、DBに存在しないファイル・フォルダ（特に.git）を削除
             try {
