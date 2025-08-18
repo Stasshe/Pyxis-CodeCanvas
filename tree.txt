@@ -182,16 +182,22 @@
 │           ├── nodeRuntime.ts
 │           └── pyodideRuntime.ts
 ├── tailwind.config.ts
+├── tree-built-out.sh
 ├── tree.sh
 ├── tree.txt
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-33 directories, 155 files
+33 directories, 156 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 22998
-合計文字数: 817513
-合計ファイルサイズ(bytes): 883608
+合計行数: 25293
+合計文字数: 896179
+合計ファイルサイズ(bytes): 969116
 
-リポジトリ全体のサイズ(bytes): 2.0G	.
+リポジトリ全体のサイズ(bytes): 1.7G	.
+
+
+ビルト済みファイルの行数: 14752
+合計文字数: 21304905
+合計ファイルサイズ(bytes): 22231118
