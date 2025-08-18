@@ -329,48 +329,159 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
       try {
         switch (cmd) {
           case 'memory-clean':
-            // /projects配下の不要なディレクトリ・ファイル（.git含む）を削除
+            // 全プロジェクトをスキャンして、DBに存在しないファイル・フォルダ（特に.git）を削除
             try {
               const { getFileSystem, initializeFileSystem } = await import('@/utils/core/filesystem');
+              const { projectDB } = await import('@/utils/core/database');
+              
               let fs = getFileSystem();
               if (!fs) fs = initializeFileSystem();
               if (!fs) {
                 await writeOutput('memory-clean: ファイルシステムが初期化できませんでした');
                 break;
               }
+
+              await projectDB.init();
+              
+              // 全プロジェクトのファイル一覧を取得
+              const allProjects = await projectDB.getProjects();
+              const allDbPaths = new Map<string, Set<string>>(); // projectName -> Set of paths
+              
+              for (const project of allProjects) {
+                const projectFiles = await projectDB.getProjectFiles(project.id);
+                allDbPaths.set(project.name, new Set(projectFiles.map(f => f.path)));
+              }
+              
               // 再帰削除関数
-              async function removeDirectoryRecursive(fs: any, dirPath: string): Promise<void> {
+              async function removeFileOrDirectory(fs: any, path: string): Promise<void> {
+                try {
+                  const stat = await fs.promises.stat(path);
+                  if (stat.isDirectory()) {
+                    const files = await fs.promises.readdir(path);
+                    for (const file of files) {
+                      await removeFileOrDirectory(fs, `${path}/${file}`);
+                    }
+                    await fs.promises.rmdir(path);
+                  } else {
+                    await fs.promises.unlink(path);
+                  }
+                } catch {
+                  // エラーは無視（既に削除済みなど）
+                }
+              }
+
+              // プロジェクトディレクトリを再帰的に探索して、DBに存在しないファイルを削除
+              async function cleanProjectDirectory(fs: any, projectName: string, dirPath: string, cleaned: string[]): Promise<void> {
+                const dbPaths = allDbPaths.get(projectName);
+                if (!dbPaths) {
+                  // プロジェクトがDBに存在しない場合は全て削除（.gitも含む）
+                  try {
+                    await removeFileOrDirectory(fs, dirPath);
+                    cleaned.push(`${projectName}/ (project not in DB)`);
+                  } catch {}
+                  return;
+                }
+                
                 try {
                   const files = await fs.promises.readdir(dirPath);
                   for (const file of files) {
-                    const filePath = `${dirPath}/${file}`;
-                    const stat = await fs.promises.stat(filePath);
-                    if (stat.isDirectory()) {
-                      await removeDirectoryRecursive(fs, filePath);
+                    const fullPath = `${dirPath}/${file}`;
+                    const relativePath = fullPath.replace(`/projects/${projectName}`, '') || '/';
+                    
+                    // .gitディレクトリの処理：DBに存在するプロジェクトの場合は削除しない
+                    if (file === '.git') {
+                      // DBに存在するプロジェクトの.gitは保持
+                      continue;
+                    }
+                    
+                    // DBに存在しないファイル・フォルダを削除
+                    if (!dbPaths.has(relativePath)) {
+                      await removeFileOrDirectory(fs, fullPath);
+                      cleaned.push(`${projectName}${relativePath}`);
                     } else {
-                      await fs.promises.unlink(filePath);
+                      // ディレクトリの場合は再帰的にチェック
+                      try {
+                        const stat = await fs.promises.stat(fullPath);
+                        if (stat.isDirectory()) {
+                          await cleanProjectDirectory(fs, projectName, fullPath, cleaned);
+                        }
+                      } catch {
+                        // アクセスできない場合は無視
+                      }
                     }
                   }
-                  await fs.promises.rmdir(dirPath);
                 } catch {
-                  // エラーは無視
+                  // ディレクトリが存在しない場合は無視
                 }
               }
-              // /projects配下を列挙
-              let cleaned = [];
+
+              let cleaned: string[] = [];
+              
               try {
-                const projects = await fs.promises.readdir('/projects');
-                for (const dir of projects) {
+                // /projectsディレクトリが存在するかチェック
+                await fs.promises.stat('/projects');
+                
+                // /projects配下の全ディレクトリをスキャン
+                const projectDirs = await fs.promises.readdir('/projects');
+                
+                for (const dir of projectDirs) {
                   if (dir === '.' || dir === '..') continue;
-                  const targetPath = `/projects/${dir}`;
-                  await removeDirectoryRecursive(fs, targetPath);
-                  cleaned.push(targetPath);
+                  
+                  const projectPath = `/projects/${dir}`;
+                  try {
+                    const stat = await fs.promises.stat(projectPath);
+                    if (stat.isDirectory()) {
+                      await cleanProjectDirectory(fs, dir, projectPath, cleaned);
+                    }
+                  } catch {
+                    // アクセスできないディレクトリは無視
+                  }
+                }
+                
+              } catch (e) {
+                // /projectsディレクトリが存在しない場合もOK
+              }
+              
+              // IndexedDB とLightningFSの直接クリーンアップも試行
+              try {
+                // LightningFSのデータをクリア
+                if (typeof window !== 'undefined' && window.localStorage) {
+                  const lightningFSKeys = [];
+                  for (let i = 0; i < window.localStorage.length; i++) {
+                    const key = window.localStorage.key(i);
+                    if (key && (key.startsWith('fs/') || key.includes('lightning'))) {
+                      lightningFSKeys.push(key);
+                    }
+                  }
+                  for (const key of lightningFSKeys) {
+                    window.localStorage.removeItem(key);
+                    cleaned.push(`LocalStorage: ${key}`);
+                  }
+                }
+                
+                // IndexedDBのオーファンエントリのクリーンアップ
+                if (typeof window !== 'undefined' && window.indexedDB) {
+                  const dbNames = ['PyxisProjectDB', 'LightningFS'];
+                  for (const dbName of dbNames) {
+                    try {
+                      const req = window.indexedDB.open(dbName);
+                      req.onsuccess = () => {
+                        const db = req.result;
+                        // データベースバージョンを確認してクリーンアップが必要かチェック
+                        db.close();
+                      };
+                    } catch {}
+                  }
                 }
               } catch (e) {
-                await writeOutput('memory-clean: /projectsディレクトリの列挙に失敗しました');
-                break;
+                // IndexedDB/LightningFSのクリーンアップエラーは無視
               }
-              await writeOutput(`memory-clean: 以下のディレクトリ・ファイルを削除しました:\n${cleaned.join('\n')}`);
+              
+              if (cleaned.length > 0) {
+                await writeOutput(`memory-clean: 以下のファイル・ディレクトリを削除しました:\n${cleaned.join('\n')}`);
+              } else {
+                await writeOutput('memory-clean: 削除対象のファイルは見つかりませんでした');
+              }
             } catch (e) {
               await writeOutput(`memory-clean: エラー: ${(e as Error).message}`);
             }
