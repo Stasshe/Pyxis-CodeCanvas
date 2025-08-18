@@ -49,10 +49,34 @@ export async function handleUnixCommand(
       break;
     
     case "tree":
+      if (unixCommandsRef.current) {
+        // オプションとパスを分離
+        const options = args.filter(arg => arg.startsWith('-'));
+        const pathArgs = args.filter(arg => !arg.startsWith('-'));
+        const targetPath = pathArgs.length > 0 ? pathArgs[0] : undefined;
+        
+        try {
+          const result = await unixCommandsRef.current.tree(targetPath, options);
+          await writeOutput(result);
+        } catch (error) {
+          await writeOutput(`tree: ${(error as Error).message}`);
+        }
+      }
+      break;
+
     case "ls":
       if (unixCommandsRef.current) {
-        const result = await unixCommandsRef.current.ls(args[0]);
-        await writeOutput(result);
+        // オプションとパスを分離
+        const options = args.filter(arg => arg.startsWith('-'));
+        const pathArgs = args.filter(arg => !arg.startsWith('-'));
+        const targetPath = pathArgs.length > 0 ? pathArgs[0] : undefined;
+        
+        try {
+          const result = await unixCommandsRef.current.ls(targetPath, options);
+          await writeOutput(result);
+        } catch (error) {
+          await writeOutput(`ls: ${(error as Error).message}`);
+        }
       }
       break;
 
@@ -140,7 +164,14 @@ export async function handleUnixCommand(
       await writeOutput('');
       await writeOutput('File System Commands:');
       await writeOutput('  pwd       - 現在のディレクトリを表示');
-      await writeOutput('  ls [path] - ワークスペースファイルをツリー形式で表示');
+      await writeOutput('  ls [path] [options] - ファイル一覧をツリー形式で表示');
+      await writeOutput('    ls -a     - 隠しファイルも表示');
+      await writeOutput('    ls -l     - 詳細リスト表示');
+      await writeOutput('    ls -R     - 再帰的に全て表示');
+      await writeOutput('  tree [path] [options] - ディレクトリツリーを表示');
+      await writeOutput('    tree -a   - 隠しファイルも表示');
+      await writeOutput('    tree -s   - ファイルサイズも表示');
+      await writeOutput('    tree -L<n> - 最大深度を指定 (例: tree -L3)');
       await writeOutput('  cd <path> - ディレクトリを変更 (プロジェクト内のみ)');
       await writeOutput('  cd        - プロジェクトルートに戻る');
       await writeOutput('  mkdir <name> [-p] - ディレクトリを作成');

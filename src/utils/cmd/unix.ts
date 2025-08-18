@@ -143,21 +143,54 @@ export class UnixCommands {
     }
   }
 
-  // ls - ファイル一覧表示（ツリー形式）
-  async ls(path?: string): Promise<string> {
+  // ls - ファイル一覧表示（ツリー形式、オプション対応）
+  async ls(path?: string, options: string[] = []): Promise<string> {
     const targetPath = path ? 
       (path.startsWith('/') ? path : `${this.currentDir}/${path}`) : 
       this.currentDir;
     
+    // オプション解析
+    const showAll = options.includes('-a') || options.includes('--all'); // 隠しファイルも表示
+    const showLong = options.includes('-l') || options.includes('--long'); // 詳細表示
+    const recursive = options.includes('-R') || options.includes('--recursive'); // 再帰表示
+    //const treeFormat = options.includes('--tree'); // ツリー形式強制
+    
     try {
-      // 現在のディレクトリの内容を取得（.git、「.」フォルダは除外）
+      // ファイル/ディレクトリの存在確認
+      const stat = await this.fs.promises.stat(targetPath);
+      
+      if (!stat.isDirectory()) {
+        // ファイルの場合は詳細情報を表示
+        if (showLong) {
+          const size = stat.size || 0;
+          const date = new Date().toLocaleDateString();
+          return `${stat.isDirectory() ? 'd' : '-'}rw-r--r-- 1 user user ${size} ${date} ${path}`;
+        }
+        return path || targetPath.split('/').pop() || '';
+      }
+      
+      // 現在のディレクトリの内容を取得（フィルタリング条件を調整）
       const files = await this.fs.promises.readdir(targetPath);
-      const filteredFiles = files.filter(file => 
-        file !== '.git' && 
-        file !== '.' && 
-        file !== '..' &&
-        !file.startsWith('.git')
-      );
+      let filteredFiles = files;
+      
+      if (!showAll) {
+        // 通常は隠しファイル（.で始まる）と.git関連を除外
+        filteredFiles = files.filter(file => 
+          file !== '.git' && 
+          file !== '.' && 
+          file !== '..' &&
+          !file.startsWith('.git') &&
+          !file.startsWith('.')
+        );
+      } else {
+        // -a オプション時は.gitのみ除外（安全性のため）
+        filteredFiles = files.filter(file => 
+          file !== '.git' && 
+          file !== '.' && 
+          file !== '..' &&
+          !file.startsWith('.git')
+        );
+      }
       
       if (filteredFiles.length === 0) {
         return '(empty directory)';
@@ -168,14 +201,22 @@ export class UnixCommands {
         filteredFiles.map(async (file) => {
           try {
             const filePath = `${targetPath}/${file}`;
-            const stat = await this.fs.promises.stat(filePath);
+            const fileStat = await this.fs.promises.stat(filePath);
             return { 
               name: file, 
-              isDirectory: stat.isDirectory(),
-              path: filePath
+              isDirectory: fileStat.isDirectory(),
+              path: filePath,
+              size: fileStat.size || 0,
+              mtime: new Date(fileStat.mtimeMs || Date.now())
             };
           } catch (error) {
-            return { name: file, isDirectory: false, path: `${targetPath}/${file}` };
+            return { 
+              name: file, 
+              isDirectory: false, 
+              path: `${targetPath}/${file}`,
+              size: 0,
+              mtime: new Date()
+            };
           }
         })
       );
@@ -188,19 +229,136 @@ export class UnixCommands {
         return a.name.localeCompare(b.name);
       });
 
-      // ツリー形式で表示
-      return await this.generateSimpleTree(targetPath, sortedFiles, 0, '');
+      // 表示形式の選択
+      if (showLong) {
+        // 詳細表示（ls -l形式）
+        let result = `total ${sortedFiles.length}\n`;
+        for (const file of sortedFiles) {
+          const type = file.isDirectory ? 'd' : '-';
+          const size = file.size.toString().padStart(8);
+          const date = file.mtime.toLocaleDateString();
+          const time = file.mtime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          result += `${type}rw-r--r-- 1 user user ${size} ${date} ${time} ${file.name}${file.isDirectory ? '/' : ''}\n`;
+        }
+        return result.trim();
+      } else {
+        // ツリー形式で表示
+        const maxDepth = recursive ? 10 : (showAll ? 3 : 2);
+        return await this.generateSimpleTree(targetPath, sortedFiles, 0, '', showAll, maxDepth);
+      }
     } catch (error) {
-      throw new Error(`ls: ${path || this.currentDir}: No such directory`);
+      throw new Error(`ls: ${path || this.currentDir}: No such file or directory`);
     }
   }
 
-  // シンプルなツリー形式表示（.git、「.」フォルダを除外）
-  private async generateSimpleTree(basePath: string, files: Array<{name: string, isDirectory: boolean, path: string}>, depth = 0, prefix = ''): Promise<string> {
+  // tree コマンド専用（常にツリー形式）
+  async tree(path?: string, options: string[] = []): Promise<string> {
+    const showAll = options.includes('-a') || options.includes('--all');
+    const showSize = options.includes('-s') || options.includes('--size');
+    const maxDepthOption = options.find(opt => opt.startsWith('-L'));
+    let maxDepth = showAll ? 10 : 3;
+    
+    if (maxDepthOption) {
+      const depthMatch = maxDepthOption.match(/-L(\d+)/);
+      if (depthMatch) {
+        maxDepth = parseInt(depthMatch[1], 10);
+      }
+    }
+    
+    const targetPath = path ? 
+      (path.startsWith('/') ? path : `${this.currentDir}/${path}`) : 
+      this.currentDir;
+    
+    try {
+      const stat = await this.fs.promises.stat(targetPath);
+      
+      if (!stat.isDirectory()) {
+        return path || targetPath.split('/').pop() || '';
+      }
+      
+      const files = await this.fs.promises.readdir(targetPath);
+      
+      // フィルタリング
+      let filteredFiles = files;
+      if (!showAll) {
+        filteredFiles = files.filter(file => 
+          file !== '.git' && 
+          file !== '.' && 
+          file !== '..' &&
+          !file.startsWith('.git') &&
+          !file.startsWith('.')
+        );
+      } else {
+        filteredFiles = files.filter(file => 
+          file !== '.git' && 
+          file !== '.' && 
+          file !== '..' &&
+          !file.startsWith('.git')
+        );
+      }
+      
+      if (filteredFiles.length === 0) {
+        return `${targetPath}\n\n0 directories, 0 files`;
+      }
+      
+      // ファイル詳細情報を取得
+      const fileDetails = await Promise.all(
+        filteredFiles.map(async (file) => {
+          try {
+            const filePath = `${targetPath}/${file}`;
+            const fileStat = await this.fs.promises.stat(filePath);
+            return { 
+              name: file, 
+              isDirectory: fileStat.isDirectory(), 
+              path: filePath,
+              size: fileStat.size || 0
+            };
+          } catch {
+            return { 
+              name: file, 
+              isDirectory: false, 
+              path: `${targetPath}/${file}`,
+              size: 0
+            };
+          }
+        })
+      );
+
+      const sortedFiles = fileDetails.sort((a, b) => {
+        if (a.isDirectory !== b.isDirectory) {
+          return a.isDirectory ? -1 : 1;
+        }
+        return a.name.localeCompare(b.name);
+      });
+
+      let result = `${targetPath}\n`;
+      const treeContent = await this.generateSimpleTree(targetPath, sortedFiles, 0, '', showAll, maxDepth, showSize);
+      result += treeContent;
+      
+      // 統計情報を追加
+      const { dirCount, fileCount } = await this.countFilesAndDirs(targetPath, showAll, maxDepth);
+      result += `\n${dirCount} directories, ${fileCount} files`;
+      
+      return result;
+    } catch (error) {
+      throw new Error(`tree: ${path || this.currentDir}: No such file or directory`);
+    }
+  }
+
+  // シンプルなツリー形式表示（.git、「.」フォルダを除外、オプション対応）
+  private async generateSimpleTree(
+    basePath: string, 
+    files: Array<{name: string, isDirectory: boolean, path: string, size?: number}>, 
+    depth = 0, 
+    prefix = '', 
+    showAll = false, 
+    maxDepth = 10, 
+    showSize = false
+  ): Promise<string> {
     let result = '';
     
     // 深度制限（無限ループ防止）
-    if (depth > 5) {
+    if (depth >= maxDepth) {
       return '';
     }
 
@@ -208,21 +366,32 @@ export class UnixCommands {
       const file = files[i];
       const isLast = i === files.length - 1;
       const connector = isLast ? '└── ' : '├── ';
+      const sizeInfo = showSize && file.size !== undefined ? ` [${this.formatFileSize(file.size)}]` : '';
       
       if (file.isDirectory) {
-        result += `${prefix}${connector}${file.name}/\n`;
+        result += `${prefix}${connector}${file.name}/${sizeInfo}\n`;
         
         // サブディレクトリの内容を取得（深度制限内で）
-        if (depth < 1) {
+        if (depth < maxDepth - 1) {
           try {
             const subFiles = await this.fs.promises.readdir(file.path);
-            // .git関連と「.」フォルダを除外して安全性を確保
-            const filteredSubFiles = subFiles.filter(f => 
-              f !== '.git' && 
-              f !== '.' && 
-              f !== '..' &&
-              !f.startsWith('.git')
-            );
+            
+            // フィルタリング条件を調整
+            let filteredSubFiles = subFiles;
+            if (!showAll) {
+              filteredSubFiles = subFiles.filter(f => 
+                f !== '.git' && 
+                f !== '.' && 
+                f !== '..' &&
+                !f.startsWith('.git') &&
+                !f.startsWith('.')
+              );
+            } else {
+              filteredSubFiles = subFiles.filter(f => 
+                f !== '.' && 
+                f !== '..'
+              );
+            }
             
             if (filteredSubFiles.length > 0) {
               const subDetails = await Promise.all(
@@ -230,9 +399,19 @@ export class UnixCommands {
                   try {
                     const subPath = `${file.path}/${subFile}`;
                     const stat = await this.fs.promises.stat(subPath);
-                    return { name: subFile, isDirectory: stat.isDirectory(), path: subPath };
+                    return { 
+                      name: subFile, 
+                      isDirectory: stat.isDirectory(), 
+                      path: subPath,
+                      size: stat.size || 0
+                    };
                   } catch {
-                    return { name: subFile, isDirectory: false, path: `${file.path}/${subFile}` };
+                    return { 
+                      name: subFile, 
+                      isDirectory: false, 
+                      path: `${file.path}/${subFile}`,
+                      size: 0
+                    };
                   }
                 })
               );
@@ -246,7 +425,7 @@ export class UnixCommands {
               
               // 子要素のプレフィックスを計算
               const nextPrefix = prefix + (isLast ? '    ' : '│   ');
-              const subTree = await this.generateSimpleTree(file.path, sortedSubFiles, depth + 1, nextPrefix);
+              const subTree = await this.generateSimpleTree(file.path, sortedSubFiles, depth + 1, nextPrefix, showAll, maxDepth, showSize);
               result += subTree;
             }
           } catch {
@@ -254,11 +433,81 @@ export class UnixCommands {
           }
         }
       } else {
-        result += `${prefix}${connector}${file.name}\n`;
+        result += `${prefix}${connector}${file.name}${sizeInfo}\n`;
       }
     }
     
     return result;
+  }
+
+  // ファイルサイズをフォーマット
+  private formatFileSize(bytes: number): string {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  }
+
+  // ファイルとディレクトリの数を数える
+  private async countFilesAndDirs(
+    basePath: string, 
+    showAll = false, 
+    maxDepth = 3, 
+    currentDepth = 0
+  ): Promise<{ dirCount: number; fileCount: number }> {
+    let dirCount = 0;
+    let fileCount = 0;
+
+    if (currentDepth >= maxDepth) {
+      return { dirCount, fileCount };
+    }
+
+    try {
+      const files = await this.fs.promises.readdir(basePath);
+      
+      // フィルタリング条件を調整
+      let filteredFiles = files;
+      if (!showAll) {
+        filteredFiles = files.filter(f => 
+          f !== '.git' && 
+          f !== '.' && 
+          f !== '..' &&
+          !f.startsWith('.git') &&
+          !f.startsWith('.')
+        );
+      } else {
+        filteredFiles = files.filter(f => 
+          f !== '.git' && 
+          f !== '.' && 
+          f !== '..' &&
+          !f.startsWith('.git')
+        );
+      }
+
+      for (const file of filteredFiles) {
+        try {
+          const filePath = `${basePath}/${file}`;
+          const stat = await this.fs.promises.stat(filePath);
+          
+          if (stat.isDirectory()) {
+            dirCount++;
+            // 再帰的にサブディレクトリを数える
+            const subCounts = await this.countFilesAndDirs(filePath, showAll, maxDepth, currentDepth + 1);
+            dirCount += subCounts.dirCount;
+            fileCount += subCounts.fileCount;
+          } else {
+            fileCount++;
+          }
+        } catch {
+          // ファイルアクセスエラーは無視
+        }
+      }
+    } catch {
+      // ディレクトリアクセスエラーは無視
+    }
+
+    return { dirCount, fileCount };
   }
 
   // mkdir - ディレクトリ作成
