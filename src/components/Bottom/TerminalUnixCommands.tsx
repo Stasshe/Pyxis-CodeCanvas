@@ -82,8 +82,21 @@ export async function handleUnixCommand(
 
     case "cd":
       if (unixCommandsRef.current && args[0]) {
-        const result = await unixCommandsRef.current.cd(args[0]);
-        await writeOutput(result);
+        // オプションとパスを分離
+        const options = args.filter(arg => arg.startsWith('-'));
+        const pathArgs = args.filter(arg => !arg.startsWith('-'));
+        const targetPath = pathArgs.length > 0 ? pathArgs[0] : undefined;
+        
+        if (targetPath) {
+          try {
+            const result = await unixCommandsRef.current.cd(targetPath, options);
+            await writeOutput(result);
+          } catch (error) {
+            await writeOutput(`cd: ${(error as Error).message}`);
+          }
+        } else {
+          await writeOutput("cd: missing argument");
+        }
       } else if (unixCommandsRef.current && !args[0]) {
         // cdのみの場合はプロジェクトルートに移動
         const projectRoot = `/projects/${currentProject}`;
@@ -168,11 +181,17 @@ export async function handleUnixCommand(
       await writeOutput('    ls -a     - 隠しファイルも表示');
       await writeOutput('    ls -l     - 詳細リスト表示');
       await writeOutput('    ls -R     - 再帰的に全て表示');
+      await writeOutput('    ls --system - システム全体（プロジェクト外も含む）表示');
+      await writeOutput('    ls --complete - 完全表示（制限なし、深度20まで）');
       await writeOutput('  tree [path] [options] - ディレクトリツリーを表示');
       await writeOutput('    tree -a   - 隠しファイルも表示');
       await writeOutput('    tree -s   - ファイルサイズも表示');
       await writeOutput('    tree -L<n> - 最大深度を指定 (例: tree -L3)');
-      await writeOutput('  cd <path> - ディレクトリを変更 (プロジェクト内のみ)');
+      await writeOutput('    tree --system - システム全体（.gitも含む）表示');
+      await writeOutput('    tree --complete - 完全表示（制限なし、深度20まで）');
+      await writeOutput('  cd <path> [options] - ディレクトリを変更');
+      await writeOutput('    cd <path> - プロジェクト内のディレクトリに移動');
+      await writeOutput('    cd <path> --system - システム全体への移動を許可');
       await writeOutput('  cd        - プロジェクトルートに戻る');
       await writeOutput('  mkdir <name> [-p] - ディレクトリを作成');
       await writeOutput('  touch <file> - ファイルを作成');

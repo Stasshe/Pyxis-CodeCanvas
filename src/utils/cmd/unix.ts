@@ -115,15 +115,16 @@ export class UnixCommands {
     return fullPath.replace(projectBase, '') || '/';
   }
 
-  // cd - ディレクトリ変更
-  async cd(path: string): Promise<string> {
+  // cd - ディレクトリ変更（システムアクセス対応）
+  async cd(path: string, options: string[] = []): Promise<string> {
+    const allowSystemAccess = options.includes('--system') || options.includes('--root');
     const projectRoot = getProjectDir(this.currentDir.split('/')[2]); // プロジェクトのルートディレクトリ
     const newPath = path.startsWith('/') ? path : `${this.currentDir}/${path}`;
     const normalizedPath = this.normalizePath(newPath);
     
-    // プロジェクトルートより上への移動を制限
-    if (!normalizedPath.startsWith(projectRoot)) {
-      throw new Error('cd: Permission denied - Cannot navigate outside project directory');
+    // プロジェクトルートより上への移動を制限（システムアクセスが許可されていない場合）
+    if (!allowSystemAccess && !normalizedPath.startsWith(projectRoot)) {
+      throw new Error('cd: Permission denied - Cannot navigate outside project directory (use --system option to override)');
     }
     
     try {
@@ -153,6 +154,8 @@ export class UnixCommands {
     const showAll = options.includes('-a') || options.includes('--all'); // 隠しファイルも表示
     const showLong = options.includes('-l') || options.includes('--long'); // 詳細表示
     const recursive = options.includes('-R') || options.includes('--recursive'); // 再帰表示
+    const showSystem = options.includes('--system') || options.includes('--root'); // システム全体表示
+    const showComplete = options.includes('--complete') || options.includes('--full'); // 完全表示（制限なし）
     //const treeFormat = options.includes('--tree'); // ツリー形式強制
     
     try {
@@ -173,7 +176,7 @@ export class UnixCommands {
       const files = await this.fs.promises.readdir(targetPath);
       let filteredFiles = files;
       
-      if (!showAll) {
+      if (!showAll && !showSystem && !showComplete) {
         // 通常は隠しファイル（.で始まる）と.git関連を除外
         filteredFiles = files.filter(file => 
           file !== '.git' && 
@@ -182,13 +185,19 @@ export class UnixCommands {
           !file.startsWith('.git') &&
           !file.startsWith('.')
         );
-      } else {
+      } else if (showAll && !showSystem && !showComplete) {
         // -a オプション時は.gitのみ除外（安全性のため）
         filteredFiles = files.filter(file => 
           file !== '.git' && 
           file !== '.' && 
           file !== '..' &&
           !file.startsWith('.git')
+        );
+      } else if (showSystem || showComplete) {
+        // --system や --complete オプション時は . と .. のみ除外
+        filteredFiles = files.filter(file => 
+          file !== '.' && 
+          file !== '..'
         );
       }
       
@@ -243,8 +252,8 @@ export class UnixCommands {
         return result.trim();
       } else {
         // ツリー形式で表示
-        const maxDepth = recursive ? 10 : (showAll ? 3 : 2);
-        return await this.generateSimpleTree(targetPath, sortedFiles, 0, '', showAll, maxDepth);
+        const maxDepth = showComplete ? 20 : (recursive ? 10 : (showAll ? 3 : 2));
+        return await this.generateSimpleTree(targetPath, sortedFiles, 0, '', showAll || showSystem || showComplete, maxDepth, false, showSystem || showComplete);
       }
     } catch (error) {
       throw new Error(`ls: ${path || this.currentDir}: No such file or directory`);
@@ -255,8 +264,10 @@ export class UnixCommands {
   async tree(path?: string, options: string[] = []): Promise<string> {
     const showAll = options.includes('-a') || options.includes('--all');
     const showSize = options.includes('-s') || options.includes('--size');
+    const showSystem = options.includes('--system') || options.includes('--root');
+    const showComplete = options.includes('--complete') || options.includes('--full');
     const maxDepthOption = options.find(opt => opt.startsWith('-L'));
-    let maxDepth = showAll ? 10 : 3;
+    let maxDepth = showComplete ? 20 : (showAll ? 10 : 3);
     
     if (maxDepthOption) {
       const depthMatch = maxDepthOption.match(/-L(\d+)/);
@@ -280,7 +291,7 @@ export class UnixCommands {
       
       // フィルタリング
       let filteredFiles = files;
-      if (!showAll) {
+      if (!showAll && !showSystem && !showComplete) {
         filteredFiles = files.filter(file => 
           file !== '.git' && 
           file !== '.' && 
@@ -288,12 +299,17 @@ export class UnixCommands {
           !file.startsWith('.git') &&
           !file.startsWith('.')
         );
-      } else {
+      } else if (showAll && !showSystem && !showComplete) {
         filteredFiles = files.filter(file => 
           file !== '.git' && 
           file !== '.' && 
           file !== '..' &&
           !file.startsWith('.git')
+        );
+      } else if (showSystem || showComplete) {
+        filteredFiles = files.filter(file => 
+          file !== '.' && 
+          file !== '..'
         );
       }
       
@@ -332,11 +348,11 @@ export class UnixCommands {
       });
 
       let result = `${targetPath}\n`;
-      const treeContent = await this.generateSimpleTree(targetPath, sortedFiles, 0, '', showAll, maxDepth, showSize);
+      const treeContent = await this.generateSimpleTree(targetPath, sortedFiles, 0, '', showAll || showSystem || showComplete, maxDepth, showSize, showSystem || showComplete);
       result += treeContent;
       
       // 統計情報を追加
-      const { dirCount, fileCount } = await this.countFilesAndDirs(targetPath, showAll, maxDepth);
+      const { dirCount, fileCount } = await this.countFilesAndDirs(targetPath, showAll || showSystem || showComplete, maxDepth);
       result += `\n${dirCount} directories, ${fileCount} files`;
       
       return result;
@@ -353,7 +369,8 @@ export class UnixCommands {
     prefix = '', 
     showAll = false, 
     maxDepth = 10, 
-    showSize = false
+    showSize = false,
+    allowSystemAccess = false
   ): Promise<string> {
     let result = '';
     
@@ -378,7 +395,7 @@ export class UnixCommands {
             
             // フィルタリング条件を調整
             let filteredSubFiles = subFiles;
-            if (!showAll) {
+            if (!showAll && !allowSystemAccess) {
               filteredSubFiles = subFiles.filter(f => 
                 f !== '.git' && 
                 f !== '.' && 
@@ -386,7 +403,14 @@ export class UnixCommands {
                 !f.startsWith('.git') &&
                 !f.startsWith('.')
               );
-            } else {
+            } else if (showAll && !allowSystemAccess) {
+              filteredSubFiles = subFiles.filter(f => 
+                f !== '.git' && 
+                f !== '.' && 
+                f !== '..' &&
+                !f.startsWith('.git')
+              );
+            } else if (allowSystemAccess) {
               filteredSubFiles = subFiles.filter(f => 
                 f !== '.' && 
                 f !== '..'
@@ -425,7 +449,7 @@ export class UnixCommands {
               
               // 子要素のプレフィックスを計算
               const nextPrefix = prefix + (isLast ? '    ' : '│   ');
-              const subTree = await this.generateSimpleTree(file.path, sortedSubFiles, depth + 1, nextPrefix, showAll, maxDepth, showSize);
+              const subTree = await this.generateSimpleTree(file.path, sortedSubFiles, depth + 1, nextPrefix, showAll, maxDepth, showSize, allowSystemAccess);
               result += subTree;
             }
           } catch {
