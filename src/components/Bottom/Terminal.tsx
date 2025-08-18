@@ -377,6 +377,7 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
                             if (keys.includes('name')) summary += `name: ${item.name}, `;
                             if (keys.includes('path')) summary += `path: ${item.path}, `;
                             if (keys.includes('type')) summary += `type: ${item.type}, `;
+                            if (keys.includes('projectId')) summary += `repo: ${item.projectId}, `;
                             if (keys.includes('content')) {
                               const contentSize = typeof item.content === 'string' 
                                 ? item.content.length 
@@ -395,8 +396,8 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
                           await writeOutput(`    [${i}] ${summary}`);
                         }
                         
-                        if (items.length > 10) {
-                          await writeOutput(`    ... and ${items.length - 10} more items`);
+                        if (items.length > 50) {
+                          await writeOutput(`    ... and ${items.length - 50} more items`);
                         }
                       }
                     } catch (storeError) {
