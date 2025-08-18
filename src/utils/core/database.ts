@@ -156,14 +156,22 @@ class ProjectDB {
   }
 
   async deleteProject(projectId: string): Promise<void> {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       if (!this.db) {
         reject(new Error('Database not initialized'));
         return;
       }
 
+      // プロジェクト名取得
+      let projectName = '';
+      try {
+        const projects = await this.getProjects();
+        const project = projects.find(p => p.id === projectId);
+        if (project) projectName = project.name;
+      } catch {}
+
       const transaction = this.db.transaction(['projects', 'files'], 'readwrite');
-      
+
       // プロジェクトを削除
       const projectStore = transaction.objectStore('projects');
       projectStore.delete(projectId);
@@ -182,7 +190,40 @@ class ProjectDB {
       };
 
       transaction.onerror = () => reject(transaction.error);
-      transaction.oncomplete = () => resolve();
+      transaction.oncomplete = async () => {
+        // Lightning-FS上のディレクトリも削除
+        if (projectName) {
+          try {
+            const { getFileSystem } = await import('./filesystem');
+            const fs = getFileSystem();
+            const projectDir = `/projects/${projectName}`;
+            // removeDirectoryRecursiveはfilesystem.tsでexportされていないので、ここで再定義
+            async function removeDirectoryRecursive(fs: any, dirPath: string): Promise<void> {
+              try {
+                const files = await fs.promises.readdir(dirPath);
+                for (const file of files) {
+                  const filePath = `${dirPath}/${file}`;
+                  const stat = await fs.promises.stat(filePath);
+                  if (stat.isDirectory()) {
+                    await removeDirectoryRecursive(fs, filePath);
+                  } else {
+                    await fs.promises.unlink(filePath);
+                  }
+                }
+                await fs.promises.rmdir(dirPath);
+              } catch {
+                // エラーは無視
+              }
+            }
+            await removeDirectoryRecursive(fs, projectDir);
+            // 完了ログ
+            console.log(`[deleteProject] Removed project directory from Lightning-FS: ${projectDir}`);
+          } catch (fsError) {
+            console.warn(`[deleteProject] Failed to remove project directory from Lightning-FS`, fsError);
+          }
+        }
+        resolve();
+      };
     });
   }
 

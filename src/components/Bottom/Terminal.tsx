@@ -308,7 +308,7 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
       }
     };
     
-    const processCommand = async (command: string) => {
+  const processCommand = async (command: string) => {
       // リダイレクト演算子のパース
       let redirect = null;
       let fileName = null;
@@ -328,6 +328,53 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
       let output = '';
       try {
         switch (cmd) {
+          case 'memory-clean':
+            // /projects配下の不要なディレクトリ・ファイル（.git含む）を削除
+            try {
+              const { getFileSystem, initializeFileSystem } = await import('@/utils/core/filesystem');
+              let fs = getFileSystem();
+              if (!fs) fs = initializeFileSystem();
+              if (!fs) {
+                await writeOutput('memory-clean: ファイルシステムが初期化できませんでした');
+                break;
+              }
+              // 再帰削除関数
+              async function removeDirectoryRecursive(fs: any, dirPath: string): Promise<void> {
+                try {
+                  const files = await fs.promises.readdir(dirPath);
+                  for (const file of files) {
+                    const filePath = `${dirPath}/${file}`;
+                    const stat = await fs.promises.stat(filePath);
+                    if (stat.isDirectory()) {
+                      await removeDirectoryRecursive(fs, filePath);
+                    } else {
+                      await fs.promises.unlink(filePath);
+                    }
+                  }
+                  await fs.promises.rmdir(dirPath);
+                } catch {
+                  // エラーは無視
+                }
+              }
+              // /projects配下を列挙
+              let cleaned = [];
+              try {
+                const projects = await fs.promises.readdir('/projects');
+                for (const dir of projects) {
+                  if (dir === '.' || dir === '..') continue;
+                  const targetPath = `/projects/${dir}`;
+                  await removeDirectoryRecursive(fs, targetPath);
+                  cleaned.push(targetPath);
+                }
+              } catch (e) {
+                await writeOutput('memory-clean: /projectsディレクトリの列挙に失敗しました');
+                break;
+              }
+              await writeOutput(`memory-clean: 以下のディレクトリ・ファイルを削除しました:\n${cleaned.join('\n')}`);
+            } catch (e) {
+              await writeOutput(`memory-clean: エラー: ${(e as Error).message}`);
+            }
+            break;
           case 'export':
             if (args[0]?.toLowerCase() === '--page' && args[1]) {
               const targetPath = args[1].startsWith('/') ? args[1] : `${unixCommandsRef.current?.pwd()}/${args[1]}`;
