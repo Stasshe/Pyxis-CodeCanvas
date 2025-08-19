@@ -163,14 +163,19 @@ export default function CodeEditor({
   
   // ユーザー変更を記録する関数
   const recordUserChange = useCallback((tabId: string) => {
-    userChangeTimestampRef.current.set(tabId, Date.now());
+    const timestamp = Date.now();
+    userChangeTimestampRef.current.set(tabId, timestamp);
+    console.log('[CodeEditor] User change recorded for tab:', {
+      tabId,
+      timestamp
+    });
   }, []);
   
-  // 最近のユーザー変更があるかチェックする関数（0.5秒以内）
+  // 最近のユーザー変更があるかチェックする関数（1秒以内）
   const hasRecentUserChange = useCallback((tabId: string) => {
     const timestamp = userChangeTimestampRef.current.get(tabId);
     if (!timestamp) return false;
-    return Date.now() - timestamp < 500; // 0.5秒以内の変更を保護
+    return Date.now() - timestamp < 1000; // 1秒以内の変更を保護（0.5秒から延長）
   }, []);
   
   useEffect(() => {
@@ -208,7 +213,7 @@ export default function CodeEditor({
       console.log('[CodeEditor] Debounced save triggered for:', currentTabId);
       // 保存処理を実行（page.tsxで最小ペインインデックスのチェックを行う）
       onContentChange(currentTabId, currentContent);
-    }, 5000); // 5秒後に保存
+    }, 3000); // 3秒後に保存（5秒から短縮してより積極的に保存）
   }, [onContentChange, nodeRuntimeOperationInProgress]);
 
   // クリーンアップ
@@ -513,14 +518,31 @@ export default function CodeEditor({
       
       // ユーザーの最近の変更がある場合は外部からの同期を拒否
       if (hasRecentUserChange(activeTab.id)) {
-        console.log('[CodeEditor] Blocking external content sync due to recent user changes for tab:', activeTab.id);
+        console.log('[CodeEditor] Blocking external content sync due to recent user changes for tab:', {
+          tabId: activeTab.id,
+          timeSinceUserChange: Date.now() - (userChangeTimestampRef.current.get(activeTab.id) || 0),
+          contentLength: activeTab.content.length
+        });
         return;
       }
       
       try {
+        // カーソル位置を保存
+        const currentPosition = isEditorSafe() ? editorRef.current!.getPosition() : null;
+        
         // 強制的にコンテンツを同期する（ユーザーの変更は絶対に反映する）
         model!.setValue(activeTab.content);
         setCharCount(activeTab.content.length);
+        
+        // カーソル位置を復元
+        if (currentPosition && isEditorSafe()) {
+          try {
+            editorRef.current!.setPosition(currentPosition);
+          } catch (positionError) {
+            console.warn('[CodeEditor] Failed to restore cursor position:', positionError);
+          }
+        }
+        
         console.log('[CodeEditor] Content synced for tab:', activeTab.id);
       } catch (e: any) {
         console.warn('[CodeEditor] Content sync failed, recreating model:', e?.message);

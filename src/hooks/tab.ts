@@ -126,9 +126,9 @@ export function useProjectFilesSyncEffect({
             return tab;
           }
           
-          // ユーザーの最近の変更チェック（0.5秒以内）
+          // ユーザーの最近の変更チェック（1秒以内）
           const hasRecentUserChange = tab.userChangeTimestamp && 
-            (Date.now() - tab.userChangeTimestamp < 500);
+            (Date.now() - tab.userChangeTimestamp < 1000);
           
           // NodeRuntime操作中や外部操作中は強制的に更新、そうでなければisDirtyと最近のユーザー変更をチェック
           const shouldUpdate = nodeRuntimeOperationInProgress || externalOperationInProgress || (!tab.isDirty && !hasRecentUserChange);
@@ -137,6 +137,7 @@ export function useProjectFilesSyncEffect({
               tabPath: tab.path,
               isDirty: tab.isDirty,
               hasRecentUserChange,
+              timeSinceUserChange: tab.userChangeTimestamp ? Date.now() - tab.userChangeTimestamp : null,
               nodeRuntimeOperationInProgress,
               externalOperationInProgress
             });
