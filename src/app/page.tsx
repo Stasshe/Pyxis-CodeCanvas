@@ -51,6 +51,7 @@ export default function Home() {
   const [gitRefreshTrigger, setGitRefreshTrigger] = useState(0);
   const [gitChangesCount, setGitChangesCount] = useState(0); // Git変更ファイル数
   const [nodeRuntimeOperationInProgress, setNodeRuntimeOperationInProgress] = useState(false); // NodeRuntime操作中フラグ
+  const [externalOperationInProgress, setExternalOperationInProgress] = useState(false); // 全外部操作中フラグ（terminal, git, aiagent含む）
   const [fileSelectState, setFileSelectState] = useState<{ open: boolean, paneIdx: number|null }>({ open: false, paneIdx: null });
   const [editorLayout, setEditorLayout] = useState<EditorLayoutType>('vertical');
   const [editors, setEditors] = useState<EditorPane[]>([{ id: 'editor-1', tabs: [], activeTabId: '' }]);
@@ -233,6 +234,7 @@ export default function Home() {
     tabs,
     setTabs,
     nodeRuntimeOperationInProgress,
+    externalOperationInProgress,
     isRestoredFromLocalStorage
   });
 
@@ -367,6 +369,7 @@ export default function Home() {
   // 即座のローカル更新専用関数
   // 即座のローカル更新: 全ペインの同じファイルタブも同期
   const handleTabContentChangeImmediate = (tabId: string, content: string) => {
+    const currentTimestamp = Date.now();
     setEditors(prevEditors => {
       // 対象ファイルパスを取得
       const targetPath = (() => {
@@ -380,7 +383,7 @@ export default function Home() {
       return prevEditors.map(pane => ({
         ...pane,
         tabs: pane.tabs.map(t =>
-          t.path === targetPath ? { ...t, content, isDirty: true } : t
+          t.path === targetPath ? { ...t, content, isDirty: true, userChangeTimestamp: currentTimestamp } : t
         )
       }));
     });
@@ -640,20 +643,26 @@ export default function Home() {
                       onApplyChanges={async (filePath: string, content: string) => {
                         if (!currentProject) return;
                         try {
+                          setExternalOperationInProgress(true);
                           await saveFile(filePath, content);
                           await clearAIReview(filePath);
                           if (refreshProjectFiles) await refreshProjectFiles();
                           setGitRefreshTrigger(prev => prev + 1);
                         } catch (error) {
                           console.error('Failed to apply AI review changes:', error);
+                        } finally {
+                          setExternalOperationInProgress(false);
                         }
                       }}
                       onDiscardChanges={async (filePath: string) => {
                         try {
+                          setExternalOperationInProgress(true);
                           await clearAIReview(filePath);
                           if (refreshProjectFiles) await refreshProjectFiles();
                         } catch (error) {
                           console.error('Failed to discard AI review changes:', error);
+                        } finally {
+                          setExternalOperationInProgress(false);
                         }
                       }}
                       onCloseTab={(filePath: string) => {
@@ -690,11 +699,12 @@ export default function Home() {
                     <CodeEditor
                       activeTab={activeTab}
                       onContentChange={async (tabId, content) => {
+                        const currentTimestamp = Date.now();
                         setEditors(prev => {
                           const updated = [...prev];
                           updated[idx] = {
                             ...updated[idx],
-                            tabs: updated[idx].tabs.map(t => t.id === tabId ? { ...t, content, isDirty: true } : t)
+                            tabs: updated[idx].tabs.map(t => t.id === tabId ? { ...t, content, isDirty: true, userChangeTimestamp: currentTimestamp } : t)
                           };
                           return updated;
                         });
@@ -703,6 +713,7 @@ export default function Home() {
                           if (!tab || !currentProject) return currentEditors;
                           (async () => {
                             try {
+                              setExternalOperationInProgress(true);
                               console.log(`[Pane ${idx}] Saving file as minimum pane index:`, tab.path);
                               await saveFile(tab.path, content);
                               console.log(`[Pane ${idx}] File saved to IndexedDB:`, tab.path);
@@ -721,6 +732,8 @@ export default function Home() {
                               }, 200);
                             } catch (error) {
                               console.error(`[Pane ${idx}] Failed to save file:`, error);
+                            } finally {
+                              setExternalOperationInProgress(false);
                             }
                           })();
                           return currentEditors;
@@ -749,16 +762,25 @@ export default function Home() {
                 if (isNodeRuntime) {
                   setNodeRuntimeOperationInProgress(true);
                 }
-                if (syncTerminalFileOperation) {
-                  // bufferContentが存在する場合、それを渡す
-                  if (bufferContent) {
-                    await syncTerminalFileOperation(path, type, '', bufferContent);
-                  } else {
-                    await syncTerminalFileOperation(path, type, content as string || '', undefined);
+                // 全ての外部操作を追跡
+                setExternalOperationInProgress(true);
+                try {
+                  if (syncTerminalFileOperation) {
+                    // bufferContentが存在する場合、それを渡す
+                    if (bufferContent) {
+                      await syncTerminalFileOperation(path, type, '', bufferContent);
+                    } else {
+                      await syncTerminalFileOperation(path, type, content as string || '', undefined);
+                    }
+                  }
+                  await refreshProjectFiles();
+                  setGitRefreshTrigger(prev => prev + 1);
+                } finally {
+                  setExternalOperationInProgress(false);
+                  if (isNodeRuntime) {
+                    setNodeRuntimeOperationInProgress(false);
                   }
                 }
-                await refreshProjectFiles();
-                setGitRefreshTrigger(prev => prev + 1);
               }}
             />
           )}

@@ -25,6 +25,7 @@ export function useProjectFilesSyncEffect({
   tabs,
   setTabs,
   nodeRuntimeOperationInProgress,
+  externalOperationInProgress,
   isRestoredFromLocalStorage
 }: {
   currentProject: Project | null;
@@ -32,6 +33,7 @@ export function useProjectFilesSyncEffect({
   tabs: Tab[];
   setTabs: (update: any) => void;
   nodeRuntimeOperationInProgress: boolean;
+  externalOperationInProgress: boolean;
   isRestoredFromLocalStorage: boolean;
 }) {
   useEffect(() => {
@@ -123,16 +125,29 @@ export function useProjectFilesSyncEffect({
           if (correspondingFile.content === tab.content) {
             return tab;
           }
-          // NodeRuntime操作中は強制的に更新、そうでなければisDirtyをチェック
-          const shouldUpdate = nodeRuntimeOperationInProgress || !tab.isDirty;
+          
+          // ユーザーの最近の変更チェック（0.5秒以内）
+          const hasRecentUserChange = tab.userChangeTimestamp && 
+            (Date.now() - tab.userChangeTimestamp < 500);
+          
+          // NodeRuntime操作中や外部操作中は強制的に更新、そうでなければisDirtyと最近のユーザー変更をチェック
+          const shouldUpdate = nodeRuntimeOperationInProgress || externalOperationInProgress || (!tab.isDirty && !hasRecentUserChange);
           if (!shouldUpdate) {
+            console.log('[DEBUG] Skipping tab sync due to user protection:', {
+              tabPath: tab.path,
+              isDirty: tab.isDirty,
+              hasRecentUserChange,
+              nodeRuntimeOperationInProgress,
+              externalOperationInProgress
+            });
             return tab;
           }
           hasRealChanges = true;
           return {
             ...tab,
             content: correspondingFile.content,
-            isDirty: false // DBから同期したので汚れていない状態にリセット
+            isDirty: false, // DBから同期したので汚れていない状態にリセット
+            userChangeTimestamp: undefined // 外部同期時はユーザー変更タイムスタンプをクリア
           };
         });
       // 実際に内容が変更された場合のみ更新
@@ -141,7 +156,7 @@ export function useProjectFilesSyncEffect({
         setTabs(updatedTabs);
       }
     }
-  }, [projectFiles, currentProject?.id, nodeRuntimeOperationInProgress, isRestoredFromLocalStorage]);
+  }, [projectFiles, currentProject?.id, nodeRuntimeOperationInProgress, externalOperationInProgress, isRestoredFromLocalStorage]);
 
   // 追加：プロジェクトファイルが初回読み込まれた時に、コンテンツ復元を強制実行
   useEffect(() => {

@@ -31,6 +31,7 @@ export interface Tab {
   isBufferArray?: boolean; // バイナリファイルの場合true
   bufferContent?: ArrayBuffer; // バイナリデータ本体
   needsContentRestore?: boolean; // localStorage復元時のコンテンツ再取得が必要かどうか
+  userChangeTimestamp?: number; // 最後のユーザー変更タイムスタンプ（ユーザー変更保護用）
   // Diffタブ用のprops（通常タブではundefined）
   diffProps?: {
     diffs: SingleFileDiff[];

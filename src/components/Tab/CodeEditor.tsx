@@ -158,6 +158,21 @@ export default function CodeEditor({
   // マウント状態をグローバルに管理
   const isMountedRef = useRef(true);
   
+  // ユーザー変更保護メカニズム: 最近のユーザー変更タイムスタンプを追跡
+  const userChangeTimestampRef = useRef<Map<string, number>>(new Map());
+  
+  // ユーザー変更を記録する関数
+  const recordUserChange = useCallback((tabId: string) => {
+    userChangeTimestampRef.current.set(tabId, Date.now());
+  }, []);
+  
+  // 最近のユーザー変更があるかチェックする関数（0.5秒以内）
+  const hasRecentUserChange = useCallback((tabId: string) => {
+    const timestamp = userChangeTimestampRef.current.get(tabId);
+    if (!timestamp) return false;
+    return Date.now() - timestamp < 500; // 0.5秒以内の変更を保護
+  }, []);
+  
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
@@ -495,6 +510,13 @@ export default function CodeEditor({
     if (isModelSafe(model) && 
         currentModelIdRef.current === activeTab.id &&
         model!.getValue() !== activeTab.content) {
+      
+      // ユーザーの最近の変更がある場合は外部からの同期を拒否
+      if (hasRecentUserChange(activeTab.id)) {
+        console.log('[CodeEditor] Blocking external content sync due to recent user changes for tab:', activeTab.id);
+        return;
+      }
+      
       try {
         // 強制的にコンテンツを同期する（ユーザーの変更は絶対に反映する）
         model!.setValue(activeTab.content);
@@ -528,7 +550,7 @@ export default function CodeEditor({
         }
       }
     }
-  }, [activeTab?.content, activeTab?.id, isCodeMirror, isEditorSafe, isModelSafe]);
+  }, [activeTab?.content, activeTab?.id, isCodeMirror, isEditorSafe, isModelSafe, hasRecentUserChange]);
 
   // Cleanup Monaco Editor instance on unmount
   useEffect(() => {
@@ -625,6 +647,7 @@ export default function CodeEditor({
               if (onContentChangeImmediate) {
                 onContentChangeImmediate(activeTab.id, value);
               }
+              recordUserChange(activeTab.id);
               debouncedSave(activeTab.id, value);
               setCharCount(value.length);
               setSelectionCount(null);
@@ -652,6 +675,7 @@ export default function CodeEditor({
             if (value !== undefined && activeTab) {
               try {
                 // ユーザーの変更は絶対に反映する
+                recordUserChange(activeTab.id);
                 if (onContentChangeImmediate) {
                   onContentChangeImmediate(activeTab.id, value);
                 }
