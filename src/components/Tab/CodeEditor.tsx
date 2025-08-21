@@ -674,7 +674,7 @@ export default function CodeEditor({
           }}
           theme="pyxis-custom"
           options={{
-            fontSize: 14,
+            fontSize: 12,
             lineNumbers: 'on',
             roundedSelection: false,
             scrollBeyondLastLine: false,
