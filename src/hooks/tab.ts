@@ -50,10 +50,10 @@ export function useProjectFilesSyncEffect({
   // プロジェクトファイルを平坦化
   const flattenedFiles = flattenFileItems(projectFiles);
   // デバッグ: 全ファイルパス一覧
-  console.log('[DEBUG] ProjectFiles paths:', flattenedFiles.map(f => f.path));
-  // デバッグ: 全タブパス一覧
-  console.log('[DEBUG] Tabs paths:', tabs.map(t => t.path));
-    //console.log('[DEBUG] Flattened project files:', flattenedFiles.map(f => ({ path: f.path, contentLength: f.content?.length || 0 })));
+  // console.log('[DEBUG] ProjectFiles paths:', flattenedFiles.map(f => f.path));
+  //  デバッグ: 全タブパス一覧
+  // console.log('[DEBUG] Tabs paths:', tabs.map(t => t.path));
+  //console.log('[DEBUG] Flattened project files:', flattenedFiles.map(f => ({ path: f.path, contentLength: f.content?.length || 0 })));
     
     // タブにneedsContentRestoreフラグがあるかチェック
     const tabsNeedingRestore = tabs.filter(tab => tab.needsContentRestore);
