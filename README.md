@@ -2,6 +2,8 @@
   <img src="readme-assets/IMG_1473.png" alt="Pyxis カバー画像" width="100%" />
   
   # 🌟 Pyxis - Client Side Code Editor
+
+  ## [📖 English Version README](README_en.md)
   
   ### *セットアップゼロ。素早く起動、気軽にコーディング*
   
@@ -15,7 +17,7 @@
   [![Last Commit](https://img.shields.io/github/last-commit/Stasshe/Pyxis-Client-Side-Code-Editor?logo=github)](https://github.com/Stasshe/Pyxis-Client-Side-Code-Editor/commits/main)
   [![Bundle Size](https://img.shields.io/badge/bundle--size-1.04MB-purple?logo=next.js)](#)
   
-  **[🚀 Pyxis を今すぐ試す](https://pyxis-code.onrender.com)** | **[📖 English](README_en.md)**
+  **[🚀 Pyxis を今すぐ試す](https://pyxis-code.onrender.com)**
 </div>
 
 ---
