@@ -123,16 +123,22 @@ export default function AIAgent({
   // プロジェクトが変更されたときに初期スペースを作成
   useEffect(() => {
     const initializeSpace = async () => {
-      if (currentProject && chatSpaces.length === 0 && !spacesLoading && !currentSpace) {
-        await createNewSpace(`${currentProject.name} - 初期チャット`);
+      // プロジェクトがあり、ローディングが完了していて、スペースが存在しない場合のみ作成
+      if (currentProject && !spacesLoading && chatSpaces.length === 0 && !currentSpace) {
+        console.log('[AIAgent] Creating initial space for project:', currentProject.name);
+        await createNewSpace();
+      } else if (currentProject && !spacesLoading && chatSpaces.length > 0 && !currentSpace) {
+        // スペースは存在するが選択されていない場合、最初のスペースを選択
+        console.log('[AIAgent] Selecting existing space:', chatSpaces[0].name);
+        selectSpace(chatSpaces[0]);
       }
     };
 
-    // プロジェクトIDが変わった時のみ実行
-    if (currentProject) {
+    // プロジェクトIDが変わった時のみ実行、ただしロード完了を待つ
+    if (currentProject && !spacesLoading) {
       initializeSpace();
     }
-  }, [currentProject?.id]); // createNewSpaceを依存配列から削除
+  }, [currentProject?.id, spacesLoading, chatSpaces.length, currentSpace]); // 必要な依存関係を追加
 
   // チャットスペースのメッセージが変更されたときにログ出力
   // useEffect(() => {

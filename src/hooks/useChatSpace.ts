@@ -45,7 +45,39 @@ export const useChatSpace = (projectId: string | null) => {
     if (!projectId) return null;
 
     try {
-      const spaceName = name || `チャット ${new Date().toLocaleString()}`;
+      // まず「新規チャット」を含む既存のスペースを探す (名前が指定されていない場合のみ)
+      if (!name) {
+        const existingNewChatSpace = chatSpaces.find(space => 
+          (space.name.includes('新規チャット') || space.name.includes('初期チャット')) && 
+          space.messages.length === 0
+        );
+        
+        // 既存の空の新規チャットスペースがある場合はそれを使用
+        if (existingNewChatSpace) {
+          console.log('[createNewSpace] Using existing empty space:', existingNewChatSpace.name);
+          setCurrentSpace(existingNewChatSpace);
+          return existingNewChatSpace;
+        }
+      }
+
+      // スペースが10個を超える場合、古いものから削除
+      if (chatSpaces.length >= 10) {
+        const sorted = [...chatSpaces].sort((a, b) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime());
+        const toDelete = sorted.slice(0, chatSpaces.length - 9); // 1つ追加するので9個残す
+        
+        for (const space of toDelete) {
+          try {
+            await projectDB.deleteChatSpace(space.id);
+          } catch (error) {
+            console.error('Failed to delete old chat space:', error);
+          }
+        }
+        
+        setChatSpaces(prev => prev.filter(s => !toDelete.some(d => d.id === s.id)));
+      }
+
+      const spaceName = name || `新規チャット`;
+      console.log('[createNewSpace] Creating new space:', spaceName);
       const newSpace = await projectDB.createChatSpace(projectId, spaceName);
       
       setChatSpaces(prev => [newSpace, ...prev]);
