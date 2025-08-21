@@ -45,15 +45,19 @@ export const useChatSpace = (projectId: string | null) => {
     if (!projectId) return null;
 
     try {
-      // まず「新規チャット」を含む既存のスペースを探す
-      const existingNewChatSpace = chatSpaces.find(space => 
-        space.name.includes('新規チャット') || space.name.includes('初期チャット')
-      );
-      
-      // 既存の新規チャットスペースがあり、名前が指定されていない場合はそれを使用
-      if (existingNewChatSpace && !name) {
-        setCurrentSpace(existingNewChatSpace);
-        return existingNewChatSpace;
+      // まず「新規チャット」を含む既存のスペースを探す (名前が指定されていない場合のみ)
+      if (!name) {
+        const existingNewChatSpace = chatSpaces.find(space => 
+          (space.name.includes('新規チャット') || space.name.includes('初期チャット')) && 
+          space.messages.length === 0
+        );
+        
+        // 既存の空の新規チャットスペースがある場合はそれを使用
+        if (existingNewChatSpace) {
+          console.log('[createNewSpace] Using existing empty space:', existingNewChatSpace.name);
+          setCurrentSpace(existingNewChatSpace);
+          return existingNewChatSpace;
+        }
       }
 
       // スペースが10個を超える場合、古いものから削除
@@ -73,6 +77,7 @@ export const useChatSpace = (projectId: string | null) => {
       }
 
       const spaceName = name || `新規チャット`;
+      console.log('[createNewSpace] Creating new space:', spaceName);
       const newSpace = await projectDB.createChatSpace(projectId, spaceName);
       
       setChatSpaces(prev => [newSpace, ...prev]);

@@ -127,6 +127,10 @@ export default function AIAgent({
       if (currentProject && !spacesLoading && chatSpaces.length === 0 && !currentSpace) {
         console.log('[AIAgent] Creating initial space for project:', currentProject.name);
         await createNewSpace();
+      } else if (currentProject && !spacesLoading && chatSpaces.length > 0 && !currentSpace) {
+        // スペースは存在するが選択されていない場合、最初のスペースを選択
+        console.log('[AIAgent] Selecting existing space:', chatSpaces[0].name);
+        selectSpace(chatSpaces[0]);
       }
     };
 
