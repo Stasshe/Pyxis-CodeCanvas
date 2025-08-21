@@ -25,14 +25,8 @@ export default function ChatSpaceList({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
 
-  // スペースが10個を超えた場合、古いものから削除する
+  // スペース作成のハンドラー（10個制限は createNewSpace 内で処理される）
   const handleCreateSpace = (name?: string) => {
-    if (chatSpaces.length >= 10) {
-      // updatedAtが古い順にソートし、超過分を削除
-      const sorted = [...chatSpaces].sort((a, b) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime());
-      const toDelete = sorted.slice(0, chatSpaces.length - 9); // 1つ追加するので9個残す
-      toDelete.forEach(space => onDeleteSpace(space.id));
-    }
     onCreateSpace(name);
   };
 
