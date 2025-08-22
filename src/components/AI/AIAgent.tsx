@@ -109,56 +109,6 @@ export default function AIAgent({
     }
   }, [projectFiles]); // projectFiles全体に依存し、内容変更も検知
 
-  // // ファイルコンテキストの状態変化をログで監視
-  // useEffect(() => {
-  //   if (fileContexts.length > 0) {
-  //     console.log('[AIAgent] File contexts updated:', fileContexts.map(ctx => ({
-  //       path: ctx.path,
-  //       contentLength: ctx.content.length,
-  //       selected: ctx.selected
-  //     })));
-  //   }
-  // }, [fileContexts]);
-
-  // いやいらへんのかい
-  // const initializedRef = React.useRef(false);
-  // useEffect(() => {
-  //   if (!currentProject || spacesLoading) return;
-  //   // プロジェクトIDが変わったら初期化フラグをリセット
-  //   initializedRef.current = false;
-  //   // chatSpacesロード済みかつcurrentSpaceがnullかつchatSpaces.length === 0かつ未初期化
-  //   if (!initializedRef.current) {
-  //     // chatSpacesが空でcurrentSpaceがnullでも、currentProjectがnullまたは不正なら作成しない
-  //     if (chatSpaces.length === 0 && !currentSpace && currentProject && currentProject.id) {
-  //       initializedRef.current = true;
-  //       createNewSpace();
-  //     } else if (chatSpaces.length > 0 && !currentSpace) {
-  //       // 既存スペースがある場合は最近更新されたものを選択
-  //       const sortedSpaces = [...chatSpaces].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
-  //       selectSpace(sortedSpaces[0]);
-  //       initializedRef.current = true;
-  //     }
-  //   }
-  // }, [currentProject?.id, spacesLoading, chatSpaces.length]);
-
-  // チャットスペースのメッセージが変更されたときにログ出力
-  // useEffect(() => {
-  //   if (currentSpace) {
-  //     console.log('[AIAgent] Current space messages:', {
-  //       spaceId: currentSpace.id,
-  //       spaceName: currentSpace.name,
-  //       messageCount: currentSpace.messages.length,
-  //       messages: currentSpace.messages.map(msg => ({
-  //         id: msg.id,
-  //         type: msg.type,
-  //         mode: msg.mode,
-  //         hasEditResponse: !!msg.editResponse,
-  //         editResponseFiles: msg.editResponse?.changedFiles?.length || 0
-  //       }))
-  //     });
-  //   }
-  // }, [currentSpace?.messages?.length, currentSpace?.id]);
-
   // API キーのチェック
   const isApiKeySet = () => {
     return !!localStorage.getItem(LOCALSTORAGE_KEY.GEMINI_API_KEY);
@@ -167,7 +117,6 @@ export default function AIAgent({
 
   // ファイル選択クリア関数
   const clearFileSelections = () => {
-    // すべてのfileContextsのselectedをfalseに
     const cleared = fileContexts.map(ctx => ({ ...ctx, selected: false }));
     updateFileContexts(cleared);
   };
@@ -181,7 +130,6 @@ export default function AIAgent({
 
     try {
       await sendChatMessage(message);
-      clearFileSelections();
     } catch (error) {
       console.error('Failed to send message:', error);
     }
@@ -385,6 +333,7 @@ export default function AIAgent({
                     onSelectSpace={(space) => {
                       selectSpace(space);
                       setShowSpaceList(false);
+                      clearFileSelections(); // スペース切り替え時にファイルセレクトをクリア
                     }}
                     onCreateSpace={async (name) => {
                       if (chatSpaces.length >= 10) {
@@ -393,6 +342,7 @@ export default function AIAgent({
                       }
                       await createNewSpace(name);
                       setShowSpaceList(false);
+                      clearFileSelections(); // 新規スペース作成時もクリア
                     }}
                     onDeleteSpace={deleteSpace}
                     onUpdateSpaceName={async (spaceId, newName) => {
@@ -575,7 +525,7 @@ export default function AIAgent({
             background: colors.cardBg 
           }}
         >
-          {/* モード切り替えタブ（コンパクト） */}
+          {/* モード切り替えタブ */}
           <div className="flex mb-1.5 relative">
             <button
               className={`flex-1 text-xs py-0.5 px-2 rounded-l border-r-0 transition relative ${currentMode === 'chat' ? 'font-bold shadow' : ''}`}
