@@ -50,6 +50,54 @@ export type ThemeColors = {
 };
 
 const themes: { [key: string]: ThemeColors } = {
+  pastelSoft: {
+    background: "#e5e9f2",
+    foreground: "#2c3440",
+    accent: "#cbd5e1",
+    primary: "#7f9cf5",
+    mermaidBg: "#f3f6fa",
+    editorBg: "#1e1e1e",
+    editorFg: "#d4d4d4",
+    editorLineHighlight: "#2d2d30",
+    editorSelection: "#264f78",
+    editorCursor: "#aeafad",
+    cardBg: "#cbd5e1",
+    border: "#b4c2e6",
+    mutedBg: "#cbd5e1",
+    mutedFg: "#6b7280",
+    accentBg: "#cbd5e1",
+    accentFg: "#7f9cf5",
+    red: "#fb7185",
+    green: "#34d399",
+    sidebarTitleFg: "#6b7280",
+    sidebarIconFg: "#2c3440",
+    sidebarResizerBg: "#cbd5e1",
+    gitBranchColors: [
+      "#7f9cf5", // blue
+      "#34d399", // green
+      "#fbbf24", // yellow
+      "#fb7185", // red
+      "#a78bfa", // violet
+      "#38bdf8", // cyan
+      "#f472b6", // pink
+      "#facc15", // gold
+    ],
+    gitCommitStroke: "#2c3440",
+    gitMergeDot: "#cbd5e1",
+    gitCommitChevron: "#6b7280",
+    gitCommitMsg: "#2c3440",
+    gitCommitMeta: "#6b7280",
+    gitCommitExpandedBg: "#cbd5e1",
+    gitCommitExpandedBorder: "#b4c2e6",
+    gitCommitFile: "#2c3440",
+    gitMergeIcon: "#a78bfa",
+    gitBranchCurrentBg: "rgba(127,156,245,0.12)",
+    gitBranchCurrentFg: "#7f9cf5",
+    gitBranchCurrentBorder: "rgba(127,156,245,0.18)",
+    gitBranchOtherBg: "rgba(251,113,133,0.12)",
+    gitBranchOtherFg: "#fb7185",
+    gitBranchOtherBorder: "rgba(251,113,133,0.18)",
+  },
   dark: {
     background: "#18181b",
     foreground: "#d4d4d4",
