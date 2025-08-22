@@ -298,7 +298,21 @@ export default function OperationWindow({
           }}
         >
           <span>↑↓ で選択, Enter で開く</span>
-          <span>ESC で閉じる</span>
+          <span
+            style={{
+              cursor: 'pointer',
+              textDecoration: 'underline',
+            }}
+            onClick={onClose}
+            tabIndex={0}
+            role="button"
+            aria-label="ESC で閉じる"
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                onClose();
+              }
+            }}
+          >ESC で閉じる</span>
         </div>
       </div>
     </div>
