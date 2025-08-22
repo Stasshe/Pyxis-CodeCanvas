@@ -281,7 +281,7 @@ export default function AIAgent({
         }}
       >
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 select-none">
+          <div className="flex items-center gap-1">
             <div
               className="w-2 h-2 rounded-full"
               style={{ background: colors.accent }}
@@ -362,7 +362,7 @@ export default function AIAgent({
       </div>
 
       {/* メインコンテンツ */}
-      <div className="flex-1 flex flex-col min-h-0 select-none" style={{ background: colors.background }}>
+      <div className="flex-1 flex flex-col min-h-0" style={{ background: colors.background }}>
         {currentMode === 'chat' ? (
           <>
             {/* チャットメッセージ */}
