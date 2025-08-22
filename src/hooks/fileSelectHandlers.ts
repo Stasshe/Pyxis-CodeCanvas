@@ -1,6 +1,25 @@
 // src/app/fileSelectHandlers.ts
 // page.tsx の FileSelectModal 用ロジックを分離
 import type { Tab, FileItem, Project, EditorPane } from '@/types';
+import { flattenPanes } from '@/hooks/pane';
+
+// ヘルパー関数：ペインを再帰的に更新
+function updatePaneRecursively(panes: EditorPane[], targetId: string, updates: Partial<EditorPane>): EditorPane[] {
+  return panes.map(pane => {
+    if (pane.id === targetId) {
+      return { ...pane, ...updates };
+    }
+    
+    if (pane.children && pane.children.length > 0) {
+      return {
+        ...pane,
+        children: updatePaneRecursively(pane.children, targetId, updates)
+      };
+    }
+    
+    return pane;
+  });
+}
 
 export function handleFileSelect({
   file,
@@ -19,8 +38,13 @@ export function handleFileSelect({
 }) {
   if (fileSelectState.paneIdx !== null) {
     setEditors((prev: EditorPane[]) => {
-      const updated = [...prev];
-      const pane = updated[fileSelectState.paneIdx!];
+      // フラット化してターゲットペインを特定
+      const flatPanes = flattenPanes(prev);
+      if (fileSelectState.paneIdx! < 0 || fileSelectState.paneIdx! >= flatPanes.length) {
+        return prev;
+      }
+      
+      const targetPane = flatPanes[fileSelectState.paneIdx!];
       let fileToOpen = file;
       if (currentProject && projectFiles.length > 0) {
         const latestFile = projectFiles.find(f => f.path === file.path);
@@ -28,11 +52,12 @@ export function handleFileSelect({
           fileToOpen = { ...file, content: latestFile.content };
         }
       }
-      const existingTab = pane.tabs.find(t => t.path === fileToOpen.path);
+      
+      const existingTab = targetPane.tabs.find(t => t.path === fileToOpen.path);
       let newTabs;
       let newActiveTabId;
       if (existingTab) {
-        newTabs = pane.tabs;
+        newTabs = targetPane.tabs;
         newActiveTabId = existingTab.id;
       } else {
         const newTab: Tab = {
@@ -41,18 +66,18 @@ export function handleFileSelect({
           content: fileToOpen.content || '',
           isDirty: false,
           path: fileToOpen.path,
-          fullPath: fileToOpen.path, // Corrected to fullPath
+          fullPath: fileToOpen.path,
           isCodeMirror: fileToOpen.isCodeMirror ?? false
         };
-        newTabs = [...pane.tabs, newTab];
+        newTabs = [...targetPane.tabs, newTab];
         newActiveTabId = newTab.id;
       }
-      updated[fileSelectState.paneIdx!] = {
-        ...pane,
+      
+      // IDベースでペインを更新
+      return updatePaneRecursively(prev, targetPane.id, {
         tabs: newTabs,
         activeTabId: newActiveTabId
-      };
-      return updated;
+      });
     });
   }
 }
@@ -74,8 +99,13 @@ export function handleFilePreview({
 }) {
   if (fileSelectState.paneIdx !== null) {
     setEditors((prev: EditorPane[]) => {
-      const updated = [...prev];
-      const pane = updated[fileSelectState.paneIdx!];
+      // フラット化してターゲットペインを特定
+      const flatPanes = flattenPanes(prev);
+      if (fileSelectState.paneIdx! < 0 || fileSelectState.paneIdx! >= flatPanes.length) {
+        return prev;
+      }
+      
+      const targetPane = flatPanes[fileSelectState.paneIdx!];
       let fileToPreview = file;
       if (currentProject && projectFiles.length > 0) {
         const latestFile = projectFiles.find(f => f.path === file.path);
@@ -83,12 +113,13 @@ export function handleFilePreview({
           fileToPreview = { ...file, content: latestFile.content };
         }
       }
+      
       const previewTabId = `${fileToPreview.path}-preview`;
-      const existingTab = pane.tabs.find(t => t.id === previewTabId);
+      const existingTab = targetPane.tabs.find(t => t.id === previewTabId);
       let newTabs;
       let newActiveTabId;
       if (existingTab) {
-        newTabs = pane.tabs;
+        newTabs = targetPane.tabs;
         newActiveTabId = existingTab.id;
       } else {
         const newTab: Tab = {
@@ -98,17 +129,17 @@ export function handleFilePreview({
           isDirty: false,
           path: fileToPreview.path,
           preview: true,
-          fullPath: fileToPreview.path // Corrected to fullPath
+          fullPath: fileToPreview.path
         };
-        newTabs = [...pane.tabs, newTab];
+        newTabs = [...targetPane.tabs, newTab];
         newActiveTabId = newTab.id;
       }
-      updated[fileSelectState.paneIdx!] = {
-        ...pane,
+      
+      // IDベースでペインを更新
+      return updatePaneRecursively(prev, targetPane.id, {
         tabs: newTabs,
         activeTabId: newActiveTabId
-      };
-      return updated;
+      });
     });
   }
 }

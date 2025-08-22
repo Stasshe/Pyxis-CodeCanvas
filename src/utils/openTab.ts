@@ -26,7 +26,7 @@ export const createNewTab = (file: FileItem): Tab => {
 export const openFile = (
   file: FileItem,
   tabs: Tab[],
-  setTabs: (tabs: Tab[]) => void,
+  setTabs: (tabs: Tab[] | ((tabs: Tab[]) => Tab[])) => void,
   setActiveTabId: (id: string) => void
 ) => {
   if (file.type === 'folder') return;
@@ -41,17 +41,18 @@ export const openFile = (
   if (existingTab) {
     // 既存タブにもisBufferArray/bufferContentを最新反映
     const isBufferArray = !!file.isBufferArray;
-    const updatedTabs = tabs.map(tab =>
-      tab.id === existingTab.id
-        ? {
-            ...tab,
-            isBufferArray,
-            bufferContent: isBufferArray ? file.bufferContent : undefined,
-            content: isBufferArray ? '' : (file.content || ''),
-          }
-        : tab
-    );
-    setTabs(updatedTabs);
+    setTabs((currentTabs: Tab[]) => {
+      return currentTabs.map(tab =>
+        tab.id === existingTab.id
+          ? {
+              ...tab,
+              isBufferArray,
+              bufferContent: isBufferArray ? file.bufferContent : undefined,
+              content: isBufferArray ? '' : (file.content || ''),
+            }
+          : tab
+      );
+    });
     setActiveTabId(existingTab.id);
     return;
   }
@@ -71,8 +72,8 @@ export const openFile = (
   if (isBufferArray) {
     console.log('[openFile] newTab bufferContent:', newTab.path, newTab.bufferContent instanceof ArrayBuffer, newTab.bufferContent?.byteLength);
   }
-  //createNewTab()
+  
   console.log('[openFile] Created new tab:', newTab.id);
-  setTabs([...tabs, newTab]);
+  setTabs((currentTabs: Tab[]) => [...currentTabs, newTab]);
   setActiveTabId(newTab.id);
 };

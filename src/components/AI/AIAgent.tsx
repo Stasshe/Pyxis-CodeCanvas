@@ -97,14 +97,15 @@ export default function AIAgent({
   // プロジェクトファイルが変更されたときにコンテキストを更新
   useEffect(() => {
     if (projectFiles.length > 0) {
-      // console.log('[AIAgent] Updating file contexts due to projectFiles change');
-      // console.log('[AIAgent] Current projectFiles:', projectFiles.map(f => ({
-      //   path: f.path,
-      //   hasContent: !!f.content,
-      //   contentLength: f.content?.length || 0,
-      //   type: f.type
-      // })));
+      console.log('[AIAgent] Updating file contexts due to projectFiles change');
+      console.log('[AIAgent] Current projectFiles:', projectFiles.map(f => ({
+        path: f.path,
+        hasContent: !!f.content,
+        contentLength: f.content?.length || 0,
+        type: f.type
+      })));
       const contexts = buildAIFileContextList(projectFiles);
+      console.log('[AIAgent] Built contexts:', contexts.length, contexts.map(c => c.path));
       updateFileContexts(contexts);
     }
   }, [projectFiles]); // projectFiles全体に依存し、内容変更も検知
@@ -173,7 +174,23 @@ export default function AIAgent({
 
   // ファイル選択
   const handleFileSelect = (file: FileItem) => {
-    toggleFileSelection(file.path);
+    // ファイルがfileContextsに存在しない場合は追加
+    const existingContext = fileContexts.find(ctx => ctx.path === file.path);
+    if (!existingContext && file.type === 'file' && file.content) {
+      const newContext = {
+        path: file.path,
+        name: file.name,
+        content: file.content,
+        selected: true // 新しく追加したファイルは選択状態にする
+      };
+      // updateFileContextsを使用するが、循環参照を避けるためselectedFilesは更新しない
+      const newContexts = [...fileContexts, newContext];
+      updateFileContexts(newContexts);
+    } else if (existingContext) {
+      // 既存のファイルの選択状態を切り替え
+      toggleFileSelection(file.path);
+    }
+    
     setIsFileSelectorOpen(false);
   };
 

@@ -1,10 +1,10 @@
-// AI用ファイル選択コンポーネント（FileSelectの再利用）
+// AI用ファイル選択コンポーネント（OperationWindowの再利用）
 
 'use client';
 
 import React from 'react';
 import type { FileItem } from '@/types';
-import FileSelect from '@/components/FileSelect';
+import OperationWindow from '@/components/OperationWindow';
 
 interface FileSelectorProps {
   isOpen: boolean;
@@ -17,16 +17,20 @@ export default function FileSelector({
   isOpen, 
   onClose, 
   files, 
-  onFileSelect 
+  onFileSelect
 }: FileSelectorProps) {
-  // 既存のFileSelectコンポーネントを再利用
+  // OperationWindowを使用してファイル選択（AI用）
+  // AIの場合はファイルをタブで開くのではなく、コンテキストに追加するだけ
   return (
-    <FileSelect
-      isOpen={isOpen}
+    <OperationWindow
+      isVisible={isOpen}
       onClose={onClose}
-      files={files}
+      projectFiles={files}
       onFileSelect={onFileSelect}
-      currentProjectName="AI Context"
+      editors={[]} // ダミー値（AIモードでは使用されない）
+      setEditors={() => {}} // ダミー値（AIモードでは使用されない）
+      setFileSelectState={() => {}} // ダミー値（AIモードでは使用されない）
+      aiMode={true} // AI用モード
     />
   );
 }

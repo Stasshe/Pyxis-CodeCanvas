@@ -1,18 +1,21 @@
 'use client';
 
-import type { FileItem } from '@/types';
+import type { FileItem, EditorPane } from '@/types';
 
 import OperationWindow from '@/components/OperationWindow';
 import { useTheme } from '../context/ThemeContext';
 
-export default function FileSelectModal({ isOpen, onClose, files, onFileSelect, onFileOperation, currentProjectName, onFilePreview }: {
+export default function FileSelectModal({ isOpen, onClose, files, onFileSelect, onFileOperation, currentProjectName, onFilePreview, editors, setEditors, setFileSelectState }: {
   isOpen: boolean,
   onClose: () => void,
   files: FileItem[],
   onFileSelect: (file: FileItem) => void,
   onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>,
   currentProjectName?: string,
-  onFilePreview?: (file: FileItem) => void
+  onFilePreview?: (file: FileItem) => void,
+  editors: EditorPane[],
+  setEditors: React.Dispatch<React.SetStateAction<EditorPane[]>>,
+  setFileSelectState: (state: { open: boolean; paneIdx: number | null }) => void
 }) {
   const { colors } = useTheme();
   if (!isOpen) return null;
@@ -22,10 +25,10 @@ export default function FileSelectModal({ isOpen, onClose, files, onFileSelect, 
       isVisible={isOpen}
       onClose={onClose}
       projectFiles={files}
-      tabs={[]}
-      setTabs={() => {}}
-      setActiveTabId={() => {}}
       onFileSelect={onFileSelect}
+      editors={editors}
+      setEditors={setEditors}
+      setFileSelectState={setFileSelectState}
     />
   );
 }

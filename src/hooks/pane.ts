@@ -3,41 +3,173 @@
 import type { Tab, EditorPane, EditorLayoutType, MenuTab } from '@/types';
 import type { Dispatch, SetStateAction } from 'react';
 
-export function addEditorPane(editors: EditorPane[], setEditors: Dispatch<SetStateAction<EditorPane[]>>) {
+export function addEditorPane(editors: EditorPane[], setEditors: Dispatch<SetStateAction<EditorPane[]>>, parentId?: string, layout: EditorLayoutType = 'vertical') {
   // 既存ID一覧を取得
-  const existingIds = editors.map(e => e.id);
+  const existingIds = getAllPaneIds(editors);
   let nextNum = 1;
   while (existingIds.includes(`editor-${nextNum}`)) {
     nextNum++;
   }
   const newId = `editor-${nextNum}`;
-  setEditors(prev => [...prev, { id: newId, tabs: [], activeTabId: '' }]);
+  
+  if (parentId) {
+    // 親ペイン内に子ペインとして追加
+    setEditors(prev => {
+      return prev.map(pane => updatePaneRecursive(pane, parentId, (targetPane) => ({
+        ...targetPane,
+        layout,
+        children: [
+          ...(targetPane.children || []),
+          { 
+            id: newId, 
+            tabs: [], // 空のタブ配列で初期化
+            activeTabId: '', // 空のアクティブタブIDで初期化
+            parentId,
+            size: 50 // デフォルトは50%
+          }
+        ]
+      })));
+    });
+  } else {
+    // ルートレベルに追加
+    const newPane: EditorPane = { 
+      id: newId, 
+      tabs: [], // 空のタブ配列で初期化
+      activeTabId: '', // 空のアクティブタブIDで初期化
+      size: 100 / (editors.length + 1) // 均等分割
+    };
+    
+    // 既存ペインのサイズを調整
+    setEditors(prev => {
+      const totalPanes = prev.length + 1;
+      const newSize = 100 / totalPanes;
+      return [
+        ...prev.map(pane => ({ ...pane, size: newSize })),
+        newPane
+      ];
+    });
+  }
 }
 
 export function removeEditorPane(editors: EditorPane[], setEditors: Dispatch<SetStateAction<EditorPane[]>>, id: string) {
-  if (editors.length === 1) return; // 最低1ペインは残す
-  setEditors(prev => prev.filter(e => e.id !== id));
+  if (editors.length === 1 && !hasChildPanes(editors)) return; // 最低1ペインは残す
+  
+  setEditors(prev => {
+    // ルートレベルから削除
+    const filtered = prev.filter(e => e.id !== id);
+    if (filtered.length !== prev.length) {
+      // ルートレベルで削除された場合、残りペインのサイズを調整
+      const newSize = 100 / filtered.length;
+      return filtered.map(pane => ({ ...pane, size: newSize }));
+    }
+    
+    // 子ペインから削除
+    return prev.map(pane => removePaneRecursive(pane, id));
+  });
+}
+
+export function splitPane(editors: EditorPane[], setEditors: Dispatch<SetStateAction<EditorPane[]>>, paneId: string, direction: EditorLayoutType) {
+  const existingIds = getAllPaneIds(editors);
+  let nextNum = 1;
+  while (existingIds.includes(`editor-${nextNum}`)) {
+    nextNum++;
+  }
+  const newId = `editor-${nextNum}`;
+  
+  setEditors(prev => {
+    return prev.map(pane => updatePaneRecursive(pane, paneId, (targetPane) => ({
+      ...targetPane,
+      layout: direction,
+      children: [
+        { 
+          ...targetPane, 
+          size: 50, 
+          children: undefined, 
+          layout: undefined,
+          tabs: targetPane.tabs || [], // 既存のタブを保持
+          activeTabId: targetPane.activeTabId || '' // 既存のアクティブタブIDを保持
+        }, // 元のペインを子に
+        { 
+          id: newId, 
+          tabs: [], // 空のタブ配列で初期化
+          activeTabId: '', // 空のアクティブタブIDで初期化
+          parentId: paneId,
+          size: 50 
+        }
+      ],
+      tabs: [], // 親ペインはタブを持たない
+      activeTabId: ''
+    })));
+  });
 }
 
 export function toggleEditorLayout(editorLayout: EditorLayoutType, setEditorLayout: Dispatch<SetStateAction<EditorLayoutType>>) {
   setEditorLayout(l => l === 'vertical' ? 'horizontal' : 'vertical');
 }
 
+export function resizePane(editors: EditorPane[], setEditors: Dispatch<SetStateAction<EditorPane[]>>, paneId: string, newSize: number) {
+  setEditors(prev => {
+    return prev.map(pane => updatePaneRecursive(pane, paneId, (targetPane) => ({
+      ...targetPane,
+      size: newSize
+    })));
+  });
+}
+
 export function setTabsForPane(editors: EditorPane[], setEditors: Dispatch<SetStateAction<EditorPane[]>>, paneIdx: number, update: Tab[] | ((tabs: Tab[]) => Tab[])) {
   setEditors((prev: EditorPane[]) => {
-    const updated = [...prev];
-    const newTabs = typeof update === 'function' ? update(updated[paneIdx].tabs) : update;
-    updated[paneIdx] = { ...updated[paneIdx], tabs: newTabs };
-    return updated;
+    // フラット化してインデックスを取得
+    const flatPanes = flattenPanes(prev);
+    if (paneIdx < 0 || paneIdx >= flatPanes.length) return prev;
+    
+    const targetPane = flatPanes[paneIdx];
+    const newTabs = typeof update === 'function' ? update(targetPane.tabs || []) : update;
+    
+    // IDベースでペインを更新
+    return updatePaneRecursiveInEditors(prev, targetPane.id, (pane) => ({
+      ...pane,
+      tabs: newTabs
+    }));
   });
 }
 
 export function setActiveTabIdForPane(editors: EditorPane[], setEditors: Dispatch<SetStateAction<EditorPane[]>>, paneIdx: number, id: string) {
   setEditors((prev: EditorPane[]) => {
-    const updated = [...prev];
-    updated[paneIdx] = { ...updated[paneIdx], activeTabId: id };
-    return updated;
+    // フラット化してインデックスを取得
+    const flatPanes = flattenPanes(prev);
+    if (paneIdx < 0 || paneIdx >= flatPanes.length) return prev;
+    
+    const targetPane = flatPanes[paneIdx];
+    
+    // IDベースでペインを更新
+    return updatePaneRecursiveInEditors(prev, targetPane.id, (pane) => ({
+      ...pane,
+      activeTabId: id
+    }));
   });
+}
+
+// 新しいヘルパー関数：エディタ配列全体でペインを更新
+function updatePaneRecursiveInEditors(editors: EditorPane[], targetId: string, updater: (pane: EditorPane) => EditorPane): EditorPane[] {
+  return editors.map(editor => updatePaneRecursive(editor, targetId, updater));
+}
+
+// ペインをフラット化する関数（外部から使用可能）
+export function flattenPanes(panes: EditorPane[]): EditorPane[] {
+  const result: EditorPane[] = [];
+  
+  const traverse = (panes: EditorPane[]) => {
+    panes.forEach(pane => {
+      if (pane.children && pane.children.length > 0) {
+        traverse(pane.children);
+      } else {
+        result.push(pane);
+      }
+    });
+  };
+  
+  traverse(panes);
+  return result;
 }
 
 export function handleMenuTabClick(
@@ -53,4 +185,69 @@ export function handleMenuTabClick(
     setActiveMenuTab(tab);
     setIsLeftSidebarVisible(true);
   }
+}
+
+// ヘルパー関数
+function getAllPaneIds(editors: EditorPane[]): string[] {
+  const ids: string[] = [];
+  const traverse = (panes: EditorPane[]) => {
+    panes.forEach(pane => {
+      ids.push(pane.id);
+      if (pane.children) {
+        traverse(pane.children);
+      }
+    });
+  };
+  traverse(editors);
+  return ids;
+}
+
+function hasChildPanes(editors: EditorPane[]): boolean {
+  return editors.some(pane => pane.children && pane.children.length > 0);
+}
+
+function updatePaneRecursive(pane: EditorPane, targetId: string, updater: (pane: EditorPane) => EditorPane): EditorPane {
+  if (pane.id === targetId) {
+    return updater(pane);
+  }
+  
+  if (pane.children) {
+    return {
+      ...pane,
+      children: pane.children.map(child => updatePaneRecursive(child, targetId, updater))
+    };
+  }
+  
+  return pane;
+}
+
+function removePaneRecursive(pane: EditorPane, targetId: string): EditorPane {
+  if (pane.children) {
+    const filteredChildren = pane.children.filter(child => child.id !== targetId);
+    
+    // 子ペインが1つだけ残った場合、その子を現在のペインにマージ
+    if (filteredChildren.length === 1) {
+      const remainingChild = filteredChildren[0];
+      return {
+        ...pane,
+        tabs: remainingChild.tabs,
+        activeTabId: remainingChild.activeTabId,
+        children: remainingChild.children,
+        layout: remainingChild.layout
+      };
+    }
+    
+    // サイズを再調整
+    if (filteredChildren.length > 0) {
+      const newSize = 100 / filteredChildren.length;
+      return {
+        ...pane,
+        children: filteredChildren.map(child => ({ ...child, size: newSize }))
+      };
+    }
+    
+    return { ...pane, children: filteredChildren };
+  }
+  
+  return pane;
 }

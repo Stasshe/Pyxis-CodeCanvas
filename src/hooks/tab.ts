@@ -1,6 +1,7 @@
 // プロジェクトファイルが更新された時に開いているタブの内容も同期
 import { useEffect } from 'react';
 import type { Tab, Project, FileItem } from '@/types';
+import { flattenPanes } from '@/hooks/pane';
 
 // FileItem[]を平坦化する関数
 function flattenFileItems(items: FileItem[]): FileItem[] {
@@ -247,10 +248,11 @@ export function useActiveTabContentRestore({
       return;
     }
 
-    // 全ペインのアクティブタブでneedsContentRestoreが必要なものを探す
-    const needsRestore = editors.some(editor => {
-      if (!editor.activeTabId) return false;
-      const activeTab = editor.tabs.find((tab: any) => tab.id === editor.activeTabId);
+    // ペインをフラット化して、アクティブタブでneedsContentRestoreが必要なものを探す
+    const flatPanes = flattenPanes(editors);
+    const needsRestore = flatPanes.some(pane => {
+      if (!pane.activeTabId) return false;
+      const activeTab = pane.tabs.find((tab: any) => tab.id === pane.activeTabId);
       return activeTab?.needsContentRestore;
     });
 
@@ -261,41 +263,54 @@ export function useActiveTabContentRestore({
       const flattenedFiles = flattenFileItems(projectFiles);
       
       setEditors((prevEditors: any[]) => {
-        return prevEditors.map(editor => {
-          if (!editor.activeTabId) return editor;
-          const activeTab = editor.tabs.find((tab: any) => tab.id === editor.activeTabId);
-          if (!activeTab?.needsContentRestore) return editor;
-          const correspondingFile = flattenedFiles.find(f => f.path === activeTab.path);
-          if (!correspondingFile) {
-            // ...existing code...
-            return editor;
-          }
-          // タブIDをeditor.id + ':' + tab.pathでユニーク化
-          return {
-            ...editor,
-            tabs: editor.tabs.map((tab: any) => {
-              if (tab.id !== activeTab.id) return tab;
-              const newTabId = tab.id === 'welcome' ? tab.id : `${editor.id}:${tab.path}`;
+        const updatePaneRecursive = (panes: any[]): any[] => {
+          return panes.map(editor => {
+            // 子ペインがある場合は再帰的に処理
+            if (editor.children && editor.children.length > 0) {
               return {
-                ...tab,
-                id: newTabId,
-                content: correspondingFile.content || '',
-                bufferContent: tab.isBufferArray ? correspondingFile.bufferContent : undefined,
-                isDirty: false,
-                needsContentRestore: false, // 復元完了
+                ...editor,
+                children: updatePaneRecursive(editor.children)
               };
-            })
-          };
-        });
+            }
+            
+            // リーフペインの場合、アクティブタブの復元処理
+            if (!editor.activeTabId) return editor;
+            const activeTab = editor.tabs.find((tab: any) => tab.id === editor.activeTabId);
+            if (!activeTab?.needsContentRestore) return editor;
+            
+            const correspondingFile = flattenedFiles.find(f => f.path === activeTab.path);
+            if (!correspondingFile) {
+              return editor;
+            }
+            
+            return {
+              ...editor,
+              tabs: editor.tabs.map((tab: any) => {
+                if (tab.id !== activeTab.id) return tab;
+                const newTabId = tab.id === 'welcome' ? tab.id : `${editor.id}:${tab.path}`;
+                return {
+                  ...tab,
+                  id: newTabId,
+                  content: correspondingFile.content || '',
+                  bufferContent: tab.isBufferArray ? correspondingFile.bufferContent : undefined,
+                  isDirty: false,
+                  needsContentRestore: false, // 復元完了
+                };
+              })
+            };
+          });
+        };
+        
+        return updatePaneRecursive(prevEditors);
       });
     }
   }, [
-    // 全ペインのアクティブタブIDを監視
-    editors.map(editor => editor.activeTabId).join(','),
+    // 全ペインのアクティブタブIDを監視（フラット化して監視）
+    flattenPanes(editors).map(pane => pane.activeTabId).join(','),
     // needsContentRestoreフラグがあるアクティブタブがあるかチェック
-    editors.some(editor => {
-      if (!editor.activeTabId) return false;
-      const activeTab = editor.tabs.find((tab: any) => tab.id === editor.activeTabId);
+    flattenPanes(editors).some(pane => {
+      if (!pane.activeTabId) return false;
+      const activeTab = pane.tabs.find((tab: any) => tab.id === pane.activeTabId);
       return activeTab?.needsContentRestore;
     }),
     projectFiles.length,

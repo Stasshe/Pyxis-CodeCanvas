@@ -1,13 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import {
   addEditorPane,
   removeEditorPane,
   toggleEditorLayout,
   setTabsForPane,
-  setActiveTabIdForPane
+  setActiveTabIdForPane,
+  splitPane,
+  flattenPanes
 } from '@/hooks/pane';
 import { useProjectTabResetEffect, useProjectFilesSyncEffect, useActiveTabContentRestore } from '@/hooks/tab';
 import MenuBar from '@/components/MenuBar';
@@ -17,6 +19,8 @@ import CodeEditor from '@/components/Tab/CodeEditor';
 import DiffTab from '@/components/Tab/DiffTab';
 import WebPreviewTab from '@/components/Tab/WebPreviewTab';
 import AIReviewTab from '@/components/AI/AIReview/AIReviewTab';
+import PaneContainer from '@/components/PaneContainer';
+import PaneResizer from '@/components/PaneResizer';
 import { useDiffTabHandlers } from '@/hooks/useDiffTabHandlers';
 import BottomPanel from '@/components/Bottom/BottomPanel';
 import ProjectModal from '@/components/ProjectModal';
@@ -109,11 +113,17 @@ export default function Home() {
                 }
                 // どれもなければ先頭タブ
                 if (!restoredActiveTabId && tabs.length > 0) restoredActiveTabId = tabs[0].id;
+                
+                // 新しいペインシステム用のプロパティを追加
                 return {
                   ...editor,
                   id: newId,
                   tabs,
-                  activeTabId: restoredActiveTabId
+                  activeTabId: restoredActiveTabId,
+                  size: editor.size || (100 / parsed.length), // デフォルトサイズ
+                  layout: editor.layout || 'vertical', // デフォルトレイアウト
+                  children: editor.children || undefined, // 子ペイン
+                  parentId: editor.parentId || undefined // 親ペインID
                 };
               });
               setEditors(initEditors);
@@ -168,15 +178,21 @@ export default function Home() {
 
   // Diffタブ関連のハンドラをカスタムフックから取得
   
-  // --- 既存のタブ・ファイル操作は最初のペインに集約（初期実装） ---
-  const tabs = editors[0].tabs;
+  // --- 既存のタブ・ファイル操作は最初のリーフペインに集約（初期実装） ---
+  const flatPanes = flattenPanes(editors);
+  const firstLeafPane = flatPanes[0] || { tabs: [], activeTabId: '' };
+  const tabs = firstLeafPane.tabs;
   // setTabsのデバッグログを追加
   const setTabs: React.Dispatch<React.SetStateAction<Tab[]>> = (update) => {
-    setTabsForPane(editors, setEditors, 0, update);
+    if (flatPanes.length > 0) {
+      setTabsForPane(editors, setEditors, 0, update);
+    }
   };
-  const activeTabId = editors[0].activeTabId;
+  const activeTabId = firstLeafPane.activeTabId;
   const setActiveTabId = (id: string) => {
-    setActiveTabIdForPane(editors, setEditors, 0, id);
+    if (flatPanes.length > 0) {
+      setActiveTabIdForPane(editors, setEditors, 0, id);
+    }
   };
   const setTabsForAllPanes = (update: Tab[] | ((tabs: Tab[]) => Tab[])) => {
     setEditors(prevEditors => {
@@ -220,23 +236,24 @@ export default function Home() {
     pane: 0
   });
 
+  // 注意: 以下のフックは古いタブシステム用のため、新しいペインシステムでは無効化
   // プロジェクトファイル更新時のタブ同期useEffectを分離
-  useProjectFilesSyncEffect({
-    currentProject,
-    projectFiles,
-    tabs,
-    setTabs,
-    nodeRuntimeOperationInProgress,
-    isRestoredFromLocalStorage
-  });
+  // useProjectFilesSyncEffect({
+  //   currentProject,
+  //   projectFiles,
+  //   tabs,
+  //   setTabs,
+  //   nodeRuntimeOperationInProgress,
+  //   isRestoredFromLocalStorage
+  // });
 
   // アクティブタブのコンテンツ復元フック（全ペイン対応）
-  useActiveTabContentRestore({
-    editors,
-    projectFiles,
-    setEditors,
-    isRestoredFromLocalStorage
-  });
+  // useActiveTabContentRestore({
+  //   editors,
+  //   projectFiles,
+  //   setEditors,
+  //   isRestoredFromLocalStorage
+  // });
 
   // Git状態監視ロジックをフックに分離
   useEffect(() => {
@@ -588,178 +605,63 @@ export default function Home() {
         <div className="flex-1 flex flex-col overflow-hidden min-h-0">
           <div
             className={editorLayout === 'vertical' ? 'flex-1 flex flex-row overflow-hidden min-h-0' : 'flex-1 flex flex-col overflow-hidden min-h-0'}
-            style={{ gap: '2px' }}
+            style={{ gap: '0px', position: 'relative' }}
           >
-            {editors.map((editor, idx) => {
-              const activeTab = editor.tabs.find(tab => tab.id === editor.activeTabId);
-              return (
+            {editors.map((editor, idx) => (
+              <React.Fragment key={editor.id}>
                 <div
-                  key={editor.id}
-                  className="flex-1 flex flex-col rounded relative min-w-0 min-h-0"
+                  className="relative min-w-0 min-h-0"
                   style={{
-                    background: colors.background,
-                    border: `1px solid ${colors.border}`
+                    [editorLayout === 'vertical' ? 'width' : 'height']: `${editor.size || (100 / editors.length)}%`,
+                    flexShrink: 0,
+                    overflow: 'hidden'
                   }}
                 >
-                  <TabBar
-                    tabs={editor.tabs}
-                    activeTabId={editor.activeTabId}
-                    onTabClick={tabId => setActiveTabIdForPane(editors, setEditors, idx, tabId)}
-                    onTabClose={tabId => {
-                      setTabsForPane(editors, setEditors, idx, editor.tabs.filter(t => t.id !== tabId));
-                      if (editor.activeTabId === tabId) {
-                        const newActive = editor.tabs.filter(t => t.id !== tabId);
-                        setActiveTabIdForPane(editors, setEditors, idx, newActive.length > 0 ? newActive[0].id : '');
-                      }
-                    }}
+                  <PaneContainer
+                    pane={editor}
+                    paneIndex={idx}
+                    allPanes={editors}
+                    setEditors={setEditors}
+                    currentProject={currentProject || undefined}
+                    saveFile={saveFile}
+                    clearAIReview={clearAIReview}
+                    refreshProjectFiles={refreshProjectFiles}
+                    setGitRefreshTrigger={setGitRefreshTrigger}
+                    setFileSelectState={setFileSelectState}
+                    onTabContentChange={handleTabContentChangeImmediate}
                     isBottomPanelVisible={isBottomPanelVisible}
-                    onToggleBottomPanel={toggleBottomPanel}
-                    onAddTab={() => setFileSelectState({ open: true, paneIdx: idx })}
-                    addEditorPane={() => addEditorPane(editors, setEditors)}
-                    removeEditorPane={() => removeEditorPane(editors, setEditors, editor.id)}
-                    toggleEditorLayout={() => toggleEditorLayout(editorLayout, setEditorLayout)}
-                    editorLayout={editorLayout}
-                    editorId={editor.id}
-                    removeAllTabs={() => setTabsForPane(editors, setEditors, idx, [])}
-                    availablePanes={editors.map((pane, paneIdx) => ({
-                      id: pane.id,
-                      name: `ペイン ${paneIdx + 1}`
-                    }))}
-                    onMoveTabToPane={(tabId, targetPaneId) => {
-                      // 移動元のタブを取得
-                      const sourceTab = editor.tabs.find(t => t.id === tabId);
-                      if (!sourceTab) return;
-                      
-                      // 移動先のペインのインデックスを取得
-                      const targetPaneIdx = editors.findIndex(p => p.id === targetPaneId);
-                      if (targetPaneIdx === -1) return;
-                      
-                      // 移動元ペインからタブを削除
-                      setTabsForPane(editors, setEditors, idx, editor.tabs.filter(t => t.id !== tabId));
-                      
-                      // 移動先ペインにタブを追加
-                      setTabsForPane(editors, setEditors, targetPaneIdx, (prevTabs) => [...prevTabs, sourceTab]);
-                      
-                      // 移動先ペインでそのタブをアクティブにする
-                      setActiveTabIdForPane(editors, setEditors, targetPaneIdx, tabId);
-                      
-                      // 移動元ペインのアクティブタブを調整
-                      if (editor.activeTabId === tabId) {
-                        const remainingTabs = editor.tabs.filter(t => t.id !== tabId);
-                        setActiveTabIdForPane(editors, setEditors, idx, remainingTabs.length > 0 ? remainingTabs[0].id : '');
-                      }
-                    }}
+                    toggleBottomPanel={toggleBottomPanel}
                   />
-                  {/* DiffTab or CodeEditor */}
-                  {activeTab && (activeTab.webPreview ? (
-                    <WebPreviewTab
-                      filePath={activeTab.path}
-                      currentProjectName={currentProject?.name}
-                    />
-                  ) : activeTab.aiReviewProps ? (
-                    <AIReviewTab
-                      tab={activeTab}
-                      onApplyChanges={async (filePath: string, content: string) => {
-                        if (!currentProject) return;
-                        try {
-                          await saveFile(filePath, content);
-                          await clearAIReview(filePath);
-                          if (refreshProjectFiles) await refreshProjectFiles();
-                          setGitRefreshTrigger(prev => prev + 1);
-                        } catch (error) {
-                          console.error('Failed to apply AI review changes:', error);
-                        }
-                      }}
-                      onDiscardChanges={async (filePath: string) => {
-                        try {
-                          await clearAIReview(filePath);
-                          if (refreshProjectFiles) await refreshProjectFiles();
-                        } catch (error) {
-                          console.error('Failed to discard AI review changes:', error);
-                        }
-                      }}
-                      onCloseTab={(filePath: string) => {
-                        setTabsForPane(editors, setEditors, idx, 
-                          editors[idx].tabs.filter(tab => 
-                            !(tab.aiReviewProps?.filePath === filePath)
-                          )
-                        );
-                      }}
-                      onUpdateSuggestedContent={(tabId: string, newContent: string) => {
-                        setEditors(prev => {
-                          const updated = [...prev];
-                          updated[idx] = {
-                            ...updated[idx],
-                            tabs: updated[idx].tabs.map(t => 
-                              t.id === tabId && t.aiReviewProps 
-                                ? { 
-                                    ...t, 
-                                    aiReviewProps: { 
-                                      ...t.aiReviewProps, 
-                                      suggestedContent: newContent 
-                                    } 
-                                  } 
-                                : t
-                            )
+                  
+                  {/* ルートレベルペイン間のリサイザー */}
+                  {idx < editors.length - 1 && (
+                    <div style={{ 
+                      position: 'absolute', 
+                      [editorLayout === 'vertical' ? 'right' : 'bottom']: 0,
+                      [editorLayout === 'vertical' ? 'top' : 'left']: 0,
+                      [editorLayout === 'vertical' ? 'bottom' : 'right']: 0,
+                      [editorLayout === 'vertical' ? 'width' : 'height']: '6px',
+                      zIndex: 10
+                    }}>
+                      <PaneResizer
+                        direction={editorLayout === 'vertical' ? 'vertical' : 'horizontal'}
+                        leftSize={editor.size || (100 / editors.length)}
+                        rightSize={editors[idx + 1]?.size || (100 / editors.length)}
+                        onResize={(leftSize: number, rightSize: number) => {
+                          const updatedEditors = [...editors];
+                          updatedEditors[idx] = { ...editor, size: leftSize };
+                          updatedEditors[idx + 1] = { 
+                            ...updatedEditors[idx + 1], 
+                            size: rightSize 
                           };
-                          return updated;
-                        });
-                      }}
-                    />
-                  ) : activeTab.diffProps ? (
-                    <DiffTab diffs={activeTab.diffProps.diffs} />
-                  ) : (
-                    <CodeEditor
-                      activeTab={activeTab}
-                      onContentChange={async (tabId, content) => {
-                        setEditors(prev => {
-                          const updated = [...prev];
-                          updated[idx] = {
-                            ...updated[idx],
-                            tabs: updated[idx].tabs.map(t => t.id === tabId ? { ...t, content, isDirty: true } : t)
-                          };
-                          return updated;
-                        });
-                        setEditors(currentEditors => {
-                          const tab = currentEditors[idx].tabs.find(t => t.id === tabId);
-                          if (!tab || !currentProject) return currentEditors;
-                          (async () => {
-                            try {
-                              console.log(`[Pane ${idx}] Saving file as minimum pane index:`, tab.path);
-                              await saveFile(tab.path, content);
-                              console.log(`[Pane ${idx}] File saved to IndexedDB:`, tab.path);
-                              if (refreshProjectFiles) await refreshProjectFiles();
-                              setEditors(prevEditors => {
-                                const targetPath = tab.path;
-                                return prevEditors.map(pane => ({
-                                  ...pane,
-                                  tabs: pane.tabs.map(t =>
-                                    t.path === targetPath ? { ...t, isDirty: false } : t
-                                  )
-                                }));
-                              });
-                              setTimeout(() => {
-                                setGitRefreshTrigger(prev => prev + 1);
-                              }, 200);
-                            } catch (error) {
-                              console.error(`[Pane ${idx}] Failed to save file:`, error);
-                            }
-                          })();
-                          return currentEditors;
-                        })
-                      }}
-                      onContentChangeImmediate={handleTabContentChangeImmediate}
-                      isBottomPanelVisible={isBottomPanelVisible}
-                      bottomPanelHeight={bottomPanelHeight}
-                      nodeRuntimeOperationInProgress={nodeRuntimeOperationInProgress}
-                      isCodeMirror={activeTab?.isCodeMirror}
-                      currentProjectName={currentProject?.name}
-                      projectFiles={projectFiles}
-                    />
-                  ))}
+                          setEditors(updatedEditors);
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
-              );
-            })}
+              </React.Fragment>
+            ))}
           </div>
           {isBottomPanelVisible && (
             <BottomPanel
@@ -824,8 +726,10 @@ export default function Home() {
         isOpen={fileSelectState.open}
         onClose={() => setFileSelectState({ open: false, paneIdx: null })}
         files={projectFiles}
+        editors={editors}
+        setEditors={setEditors}
+        setFileSelectState={setFileSelectState}
         onFileSelect={file => {
-          setFileSelectState({ open: false, paneIdx: null });
           handleFileSelect({
             file,
             fileSelectState,
@@ -834,9 +738,9 @@ export default function Home() {
             editors,
             setEditors
           });
+          setFileSelectState({ open: false, paneIdx: null });
         }}
         onFilePreview={file => {
-          setFileSelectState({ open: false, paneIdx: null });
           handleFilePreview({
             file,
             fileSelectState,
@@ -845,6 +749,7 @@ export default function Home() {
             editors,
             setEditors
           });
+          setFileSelectState({ open: false, paneIdx: null });
         }}
         onFileOperation={async (path, type, content, isNodeRuntime) => {
           // 既存のonFileOperationのロジックを流用
@@ -862,9 +767,9 @@ export default function Home() {
         isVisible={isOperationWindowVisible}
         onClose={() => setIsOperationWindowVisible(false)}
         projectFiles={projectFiles}
-        tabs={tabs}
-        setTabs={setTabs}
-        setActiveTabId={setActiveTabId}
+        editors={editors}
+        setEditors={setEditors}
+        setFileSelectState={setFileSelectState}
       />
     </div>
     </>

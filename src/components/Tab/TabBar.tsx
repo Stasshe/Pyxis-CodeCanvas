@@ -21,6 +21,8 @@ interface TabBarProps {
   // 新しく追加: タブをペイン間で移動する機能
   availablePanes?: Array<{ id: string; name: string }>;
   onMoveTabToPane?: (tabId: string, targetPaneId: string) => void;
+  // ペイン分割機能
+  onSplitPane?: (direction: 'vertical' | 'horizontal') => void;
 }
 
 export default function TabBar({
@@ -38,7 +40,8 @@ export default function TabBar({
   editorId,
   removeAllTabs,
   availablePanes = [],
-  onMoveTabToPane
+  onMoveTabToPane,
+  onSplitPane
 }: TabBarProps) {
   const { colors } = useTheme();
   // メニューの開閉状態管理
@@ -179,7 +182,12 @@ export default function TabBar({
             <div className="flex gap-1 ml-2">
               <button className="px-2 py-1 text-xs bg-accent rounded" onClick={() => { setMenuOpen(false); addEditorPane(); }} title="ペイン追加">＋</button>
               <button className="px-2 py-1 text-xs bg-destructive rounded" onClick={() => { setMenuOpen(false); removeEditorPane(); }} title="ペイン削除">－</button>
-              <button className="px-2 py-1 text-xs bg-muted rounded" onClick={() => { setMenuOpen(false); toggleEditorLayout(); }} title="分割方向切替">⇄</button>
+              {onSplitPane && (
+                <>
+                  <button className="px-2 py-1 text-xs bg-secondary rounded" onClick={() => { setMenuOpen(false); onSplitPane('vertical'); }} title="縦分割">｜</button>
+                  <button className="px-2 py-1 text-xs bg-secondary rounded" onClick={() => { setMenuOpen(false); onSplitPane('horizontal'); }} title="横分割">－</button>
+                </>
+              )}
               <button className="px-2 py-1 text-xs bg-warning rounded" onClick={() => { setMenuOpen(false); removeAllTabs(); }} title="タブ全削除">🗑️</button>
               <button className="px-2 py-1 text-xs bg-primary rounded" onClick={handleSaveRestart} title="保存再起動">💾</button>
             </div>

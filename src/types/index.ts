@@ -51,6 +51,10 @@ export interface EditorPane {
   id: string;
   tabs: Tab[];
   activeTabId: string;
+  layout?: EditorLayoutType; // 個別ペインの分割方式
+  size?: number; // ペインのサイズ（%）
+  children?: EditorPane[]; // 子ペイン（ネストした分割）
+  parentId?: string; // 親ペインのID
 }
 
 export interface Project {
