@@ -29,6 +29,7 @@ interface OperationWindowProps {
   tabs: any[];
   setTabs: (tabs: any[]) => void;
   setActiveTabId: (id: string) => void;
+  onFileSelect?: (file: FileItem) => void;
 }
 
 export default function OperationWindow({
@@ -37,7 +38,8 @@ export default function OperationWindow({
   projectFiles,
   tabs,
   setTabs,
-  setActiveTabId
+  setActiveTabId,
+  onFileSelect
 }: OperationWindowProps) {
   const { colors } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
@@ -104,6 +106,7 @@ export default function OperationWindow({
           e.preventDefault();
           if (flattenedFiles[selectedIndex]) {
             openFile(flattenedFiles[selectedIndex], tabs, setTabs, setActiveTabId);
+            if (onFileSelect) onFileSelect(flattenedFiles[selectedIndex]);
             onClose();
           }
           break;
@@ -218,6 +221,7 @@ export default function OperationWindow({
                 }}
                 onClick={() => {
                   openFile(file, tabs, setTabs, setActiveTabId);
+                  if (onFileSelect) onFileSelect(file);
                   onClose();
                 }}
                 onMouseEnter={() => setSelectedIndex(index)}
