@@ -73,6 +73,10 @@ jobs:
           echo "$COMMITS" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
+      - name: Get current date
+        id: current_date
+        run: echo "date=$(date '+%Y-%m-%d')" >> $GITHUB_OUTPUT
+
       - name: Create Release
         if: steps.check_tag.outputs.exists == 'false'
         uses: actions/create-release@v1
@@ -83,9 +87,9 @@ jobs:
           release_name: v${{ steps.version.outputs.version }}
           body: |
             ## 🚀 Release v${{ steps.version.outputs.version }}
-            
-            **リリース日:** $(date '+%Y-%m-%d')
-            
+
+            **リリース日:** ${{ steps.current_date.outputs.date }}
+
             ### 🔄 変更内容
             
             ${{ steps.changelog.outputs.COMMITS }}
