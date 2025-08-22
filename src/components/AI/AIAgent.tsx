@@ -120,25 +120,23 @@ export default function AIAgent({
   //   }
   // }, [fileContexts]);
 
-  // プロジェクトが変更されたときに初期スペースを作成
+  // 根本的なスペース多重作成防止
+  const initializedRef = React.useRef(false);
   useEffect(() => {
-    const initializeSpace = async () => {
-      // プロジェクトがあり、ローディングが完了していて、スペースが存在しない場合のみ作成
-      if (currentProject && !spacesLoading && chatSpaces.length === 0 && !currentSpace) {
-        console.log('[AIAgent] Creating initial space for project:', currentProject.name);
-        await createNewSpace();
-      } else if (currentProject && !spacesLoading && chatSpaces.length > 0 && !currentSpace) {
-        // スペースは存在するが選択されていない場合、最初のスペースを選択
-        console.log('[AIAgent] Selecting existing space:', chatSpaces[0].name);
-        selectSpace(chatSpaces[0]);
-      }
-    };
-
-    // プロジェクトIDが変わった時のみ実行、ただしロード完了を待つ
-    if (currentProject && !spacesLoading) {
-      initializeSpace();
+    if (!currentProject || spacesLoading) return;
+    // プロジェクトIDが変わったら初期化フラグをリセット
+    initializedRef.current = false;
+    // chatSpacesロード済みかつcurrentSpaceがnullかつchatSpaces.length === 0かつ未初期化
+    if (chatSpaces.length === 0 && !currentSpace && !initializedRef.current) {
+      initializedRef.current = true;
+      createNewSpace();
+    } else if (chatSpaces.length > 0 && !currentSpace) {
+      // 既存スペースがある場合は最近更新されたものを選択
+      const sortedSpaces = [...chatSpaces].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+      selectSpace(sortedSpaces[0]);
+      initializedRef.current = true;
     }
-  }, [currentProject?.id, spacesLoading, chatSpaces.length, currentSpace]); // 必要な依存関係を追加
+  }, [currentProject?.id, spacesLoading, chatSpaces.length]);
 
   // チャットスペースのメッセージが変更されたときにログ出力
   // useEffect(() => {
@@ -386,11 +384,22 @@ export default function AIAgent({
                       setShowSpaceList(false);
                     }}
                     onCreateSpace={async (name) => {
+                      if (chatSpaces.length >= 10) {
+                        alert('スペースは最大10個までです。不要なスペースを削除してください。');
+                        return;
+                      }
                       await createNewSpace(name);
                       setShowSpaceList(false);
                     }}
                     onDeleteSpace={deleteSpace}
-                    onUpdateSpaceName={updateSpaceName}
+                    onUpdateSpaceName={async (spaceId, newName) => {
+                      await updateSpaceName(spaceId, newName);
+                      // UI側stateも即座に反映
+                      const updatedSpaces = chatSpaces.map(s => s.id === spaceId ? { ...s, name: newName, updatedAt: new Date() } : s);
+                      // selectSpaceで再選択してUI更新
+                      const updated = updatedSpaces.find(s => s.id === spaceId);
+                      if (updated) selectSpace(updated);
+                    }}
                   />
                 </div>
               </div>
