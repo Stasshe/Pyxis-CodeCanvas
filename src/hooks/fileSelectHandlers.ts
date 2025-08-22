@@ -134,7 +134,10 @@ export function handleFilePreview({
           isDirty: false,
           path: fileToPreview.path,
           preview: true,
-          fullPath: fileToPreview.path
+          fullPath: fileToPreview.path,
+          isCodeMirror: fileToPreview.isCodeMirror ?? false,
+          isBufferArray: fileToPreview.isBufferArray,
+          bufferContent: fileToPreview.bufferContent
         };
         newTabs = [...targetPane.tabs, newTab];
         newActiveTabId = newTab.id;

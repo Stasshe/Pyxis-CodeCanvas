@@ -4,6 +4,7 @@ import { projectDB } from './database'; // プロジェクトデータベース�
 import { FileItem } from '@/types';
 import { getFileSystem } from './filesystem';
 import { GitCommands, syncProjectFiles, initializeFileSystem, debugFileSystem } from './filesystem';
+import { LOCALSTORAGE_KEY } from '@/context/config';
 
 // プロジェクト作成時のGit初期化とコミット
 const initializeProjectGit = async (project: Project, files: ProjectFile[], convertToFileItems: (files: ProjectFile[]) => FileItem[]) => {
@@ -537,6 +538,51 @@ export const useProject = () => {
     }
   };
 
+  // 最近のプロジェクトを保存
+  const saveRecentProject = (project: Project) => {
+    try {
+      const recentProjectsStr = localStorage.getItem(LOCALSTORAGE_KEY.RECENT_PROJECTS);
+      let recentProjects: Project[] = [];
+      
+      if (recentProjectsStr) {
+        recentProjects = JSON.parse(recentProjectsStr);
+      }
+      
+      // 既存のプロジェクトを除外
+      recentProjects = recentProjects.filter(p => p.id !== project.id);
+      
+      // 新しいプロジェクトを先頭に追加
+      recentProjects.unshift(project);
+      
+      // 最大10件まで保持
+      recentProjects = recentProjects.slice(0, 10);
+      
+      localStorage.setItem(LOCALSTORAGE_KEY.RECENT_PROJECTS, JSON.stringify(recentProjects));
+    } catch (error) {
+      console.error('Failed to save recent project:', error);
+    }
+  };
+
+  // 最近のプロジェクトを取得
+  const getRecentProjects = (): Project[] => {
+    try {
+      const recentProjectsStr = localStorage.getItem(LOCALSTORAGE_KEY.RECENT_PROJECTS);
+      if (recentProjectsStr) {
+        return JSON.parse(recentProjectsStr);
+      }
+    } catch (error) {
+      console.error('Failed to get recent projects:', error);
+    }
+    return [];
+  };
+
+  // プロジェクトがロードされたら履歴に追加
+  useEffect(() => {
+    if (currentProject) {
+      saveRecentProject(currentProject);
+    }
+  }, [currentProject]);
+
   // デフォルトプロジェクトを読み込み（初回起動時）
   useEffect(() => {
     const initProject = async () => {
@@ -544,7 +590,15 @@ export const useProject = () => {
         await projectDB.init();
         const projects = await projectDB.getProjects();
         
-        if (projects.length > 0) {
+        // 最近のプロジェクトを確認
+        const recentProjects = getRecentProjects();
+        const lastProject = recentProjects[0];
+        
+        if (lastProject && projects.find(p => p.id === lastProject.id)) {
+          // 最後に開いたプロジェクトが存在すれば、それを読み込む
+          await loadProject(lastProject);
+        } else if (projects.length > 0) {
+          // 最後に開いたプロジェクトがない場合は最初のプロジェクトを読み込む
           await loadProject(projects[0]);
         } else {
           // デフォルトプロジェクトを作成

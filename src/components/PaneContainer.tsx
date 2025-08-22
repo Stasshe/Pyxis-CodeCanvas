@@ -307,6 +307,7 @@ export default function PaneContainer({
         ) : (
           <CodeEditor
             activeTab={activeTab}
+            isCodeMirror={activeTab?.isCodeMirror || false}
             bottomPanelHeight={200}
             isBottomPanelVisible={isBottomPanelVisible}
             wordWrapConfig={wordWrapConfig}

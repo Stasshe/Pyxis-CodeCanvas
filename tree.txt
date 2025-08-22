@@ -25,6 +25,7 @@
 │   │   ├── main.js
 │   │   └── style.css
 │   ├── src
+│   │   ├── debugConsoleDemo.js
 │   │   ├── src_fileOperationg.js
 │   │   └── src_index.js
 │   └── text-editor
@@ -189,11 +190,15 @@
 ├── tree.txt
 └── tsconfig.json
 
-32 directories, 158 files
+32 directories, 159 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 26362
-合計文字数: 954462
-合計ファイルサイズ(bytes): 1032050
+合計行数: 26358
+合計文字数: 955995
+合計ファイルサイズ(bytes): 1033733
 
 リポジトリ全体のサイズ(bytes): 1.6G	.
+==========
+ビルト済みファイルの行数: 14026
+合計文字数: 6795267
+合計ファイルサイズ(bytes): 7695641
