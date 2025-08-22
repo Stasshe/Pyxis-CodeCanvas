@@ -43,26 +43,23 @@ export default function OperationWindow({
 }: OperationWindowProps) {
   const { colors } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchMode, setSearchMode] = useState<'file' | 'folder' | 'fuzzy'>('file');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  // 検索ロジック
+  // 検索ロジック（ファイル名・フォルダ名・パスのいずれかに一致）
   const allFiles = flattenFileItems(projectFiles).filter(file => file.type === 'file' && !file.path.includes('node_modules/'));
-  let filteredFiles: FileItem[] = [];
-  if (searchMode === 'file') {
-    filteredFiles = allFiles.filter(file => file.name.toLowerCase().includes(searchQuery.toLowerCase()));
-  } else if (searchMode === 'folder') {
-    filteredFiles = allFiles.filter(file => {
-      const folders = file.path.split('/').slice(0, -1);
-      return folders.some(folder => folder.toLowerCase().includes(searchQuery.toLowerCase()));
-    });
-  } else if (searchMode === 'fuzzy') {
-    // あいまい検索（簡易: 全体パス・ファイル名に部分一致）
-    const q = searchQuery.toLowerCase();
-    filteredFiles = allFiles.filter(file => file.path.toLowerCase().includes(q) || file.name.toLowerCase().includes(q));
-  }
+  const filteredFiles: FileItem[] = searchQuery
+    ? allFiles.filter(file => {
+        const q = searchQuery.toLowerCase();
+        const folders = file.path.split('/').slice(0, -1);
+        return (
+          file.name.toLowerCase().includes(q) ||
+          folders.some(folder => folder.toLowerCase().includes(q)) ||
+          file.path.toLowerCase().includes(q)
+        );
+      })
+    : allFiles;
 
   // 選択されたアイテムにスクロールする関数
   const scrollToSelectedItem = (index: number) => {
@@ -138,7 +135,7 @@ export default function OperationWindow({
   // 検索クエリが変更されたときに選択インデックスをリセット
   useEffect(() => {
     setSelectedIndex(0);
-  }, [searchQuery, searchMode]);
+  }, [searchQuery]);
 
   // 表示されていない場合は何も表示しない
   if (!isVisible) return null;
@@ -173,12 +170,12 @@ export default function OperationWindow({
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* 検索入力欄＋モード切替 */}
-        <div style={{ padding: '12px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+        {/* 検索入力欄のみ */}
+        <div style={{ padding: '12px' }}>
           <input
             ref={inputRef}
             type="text"
-            placeholder={searchMode === 'file' ? 'ファイル名を入力...' : searchMode === 'folder' ? 'フォルダ名を入力...' : 'あいまい検索...'}
+            placeholder="ファイル名・フォルダ名・パス いずれかで検索..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{
@@ -192,11 +189,6 @@ export default function OperationWindow({
               outline: 'none',
             }}
           />
-          <select value={searchMode} onChange={e => setSearchMode(e.target.value as any)} style={{ padding: '6px', borderRadius: '4px', fontSize: '13px', border: `1px solid ${colors.border}` }}>
-            <option value="file">ファイル名</option>
-            <option value="folder">フォルダ名</option>
-            <option value="fuzzy">あいまい</option>
-          </select>
         </div>
 
         {/* ファイル一覧 */}
@@ -222,43 +214,47 @@ export default function OperationWindow({
           ) : (
             filteredFiles.map((file, index) => {
               // highlight helper
-              function highlight(text: string, query: string) {
+              function highlight(text: string, query: string, isSelected: boolean) {
                 if (!query) return text;
                 const idx = text.toLowerCase().indexOf(query.toLowerCase());
                 if (idx === -1) return text;
-                return <>{text.slice(0, idx)}<span style={{ background: colors.accentBg, color: colors.primary }}>{text.slice(idx, idx + query.length)}</span>{text.slice(idx + query.length)}</>;
+                return <>{text.slice(0, idx)}<span style={{ background: isSelected ? colors.primary : colors.accentBg, color: isSelected ? colors.cardBg : colors.primary, fontWeight: isSelected ? 'bold' : 'normal', borderRadius: '2px', padding: '0 2px' }}>{text.slice(idx, idx + query.length)}</span>{text.slice(idx + query.length)}</>;
               }
-              // highlight logic for each mode
+              // highlight logic: ファイル名・フォルダ名・パスのいずれかに一致した部分をハイライト
               let pathElem: React.ReactNode = file.path;
               let nameElem: React.ReactNode = file.name;
-              if (searchMode === 'file') {
-                nameElem = highlight(file.name, searchQuery);
-              } else if (searchMode === 'folder') {
-                // highlight folder part in path
-                const folders = file.path.split('/').slice(0, -1);
-                const folderElems = folders.map((folder, i) => folder.toLowerCase().includes(searchQuery.toLowerCase()) ? <span key={i} style={{ background: colors.accentBg, color: colors.primary }}>{folder}</span> : folder);
+              const q = searchQuery.toLowerCase();
+              // highlight file name
+              if (file.name.toLowerCase().includes(q)) {
+                nameElem = highlight(file.name, searchQuery, index === selectedIndex);
+              }
+              // highlight folder part in path
+              const folders = file.path.split('/').slice(0, -1);
+              if (folders.some(folder => folder.toLowerCase().includes(q))) {
+                const folderElems = folders.map((folder, i) => folder.toLowerCase().includes(q)
+                  ? <span key={i} style={{ background: index === selectedIndex ? colors.primary : colors.accentBg, color: index === selectedIndex ? colors.cardBg : colors.primary, fontWeight: index === selectedIndex ? 'bold' : 'normal', borderRadius: '2px', padding: '0 2px' }}>{folder}</span>
+                  : folder);
                 const joinedFolders = folderElems.slice(1).reduce<React.ReactNode[]>((prev, curr, i) => [...prev, <span key={i + 'sep'}>/</span>, curr], [folderElems[0]]);
                 pathElem = <>{joinedFolders}{"/"}{file.name}</>;
-              } else if (searchMode === 'fuzzy') {
-                // highlight in path or name
-                if (file.path.toLowerCase().includes(searchQuery.toLowerCase())) {
-                  pathElem = highlight(file.path, searchQuery);
-                } else {
-                  nameElem = highlight(file.name, searchQuery);
-                }
+              } else if (file.path.toLowerCase().includes(q)) {
+                pathElem = highlight(file.path, searchQuery, index === selectedIndex);
               }
               return (
                 <div
                   key={file.id}
                   style={{
                     padding: '8px 12px',
-                    background: index === selectedIndex ? colors.accentBg : 'transparent',
-                    color: index === selectedIndex ? colors.primary : colors.foreground,
+                    background: index === selectedIndex ? colors.primary : 'transparent',
+                    color: index === selectedIndex ? colors.cardBg : colors.foreground,
                     cursor: 'pointer',
                     borderBottom: `1px solid ${colors.border}`,
                     display: 'flex',
                     alignItems: 'center',
                     gap: '8px',
+                    border: index === selectedIndex ? `2px solid ${colors.accentBg}` : undefined,
+                    fontWeight: index === selectedIndex ? 'bold' : 'normal',
+                    borderRadius: index === selectedIndex ? '6px' : undefined,
+                    boxShadow: index === selectedIndex ? '0 0 0 2px rgba(0,0,0,0.08)' : undefined,
                   }}
                   onClick={() => {
                     openFile(file, tabs, setTabs, setActiveTabId);
@@ -270,7 +266,6 @@ export default function OperationWindow({
                   <span
                     style={{
                       fontSize: '10px',
-                      color: colors.mutedFg,
                       fontFamily: 'monospace',
                     }}
                   >
