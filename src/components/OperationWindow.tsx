@@ -57,6 +57,7 @@ export default function OperationWindow({
       if (onFileSelect) {
         onFileSelect(file);
       }
+      // AIモードでは必ずウィンドウを閉じる
       onClose();
       return;
     }
@@ -149,11 +150,6 @@ export default function OperationWindow({
           if (filteredFiles[selectedIndex]) {
             // ファイル選択ハンドラを呼び出し
             handleFileSelectInOperation(filteredFiles[selectedIndex]);
-            
-            // 外部ハンドラがある場合は呼び出し
-            if (onFileSelect) onFileSelect(filteredFiles[selectedIndex]);
-            
-            onClose();
           }
           break;
       }
@@ -299,11 +295,6 @@ export default function OperationWindow({
                   onClick={() => {
                     // ファイル選択ハンドラを呼び出し
                     handleFileSelectInOperation(file);
-                    
-                    // 外部ハンドラがある場合は呼び出し
-                    if (onFileSelect) onFileSelect(file);
-                    
-                    onClose();
                   }}
                   onMouseEnter={() => setSelectedIndex(index)}
                 >

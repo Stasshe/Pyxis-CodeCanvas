@@ -191,7 +191,8 @@ export default function AIAgent({
       toggleFileSelection(file.path);
     }
     
-    setIsFileSelectorOpen(false);
+    // FileSelectorコンポーネントで既にonCloseが呼ばれるため、ここでは閉じない
+    // setIsFileSelectorOpen(false);
   };
 
   // レビューを開く
