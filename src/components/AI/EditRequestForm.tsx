@@ -99,7 +99,7 @@ export default function EditRequestForm({
 
   return (
     <div 
-      className="p-2 border-t"
+      className="p-2 border-t select-none"
       style={{ borderColor: colors.border }}
     >
       <div className="flex flex-col gap-1.5">
