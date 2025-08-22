@@ -96,6 +96,20 @@ export default function TabBar({
     window.dispatchEvent(new CustomEvent('pyxis-save-restart'));
   };
 
+    // Ctrl+S で保存再起動
+    useEffect(() => {
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+          e.preventDefault();
+          handleSaveRestart();
+        }
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => {
+        window.removeEventListener('keydown', handleKeyDown);
+      };
+    }, []);
+
   // タブ右クリックハンドラ
   const handleTabRightClick = (e: React.MouseEvent, tabId: string) => {
     e.preventDefault();
