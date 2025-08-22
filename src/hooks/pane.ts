@@ -77,29 +77,36 @@ export function splitPane(editors: EditorPane[], setEditors: Dispatch<SetStateAc
   const newId = `editor-${nextNum}`;
   
   setEditors(prev => {
-    return prev.map(pane => updatePaneRecursive(pane, paneId, (targetPane) => ({
-      ...targetPane,
-      layout: direction,
-      children: [
-        { 
-          ...targetPane, 
-          size: 50, 
-          children: undefined, 
-          layout: undefined,
-          tabs: targetPane.tabs || [], // 既存のタブを保持
-          activeTabId: targetPane.activeTabId || '' // 既存のアクティブタブIDを保持
-        }, // 元のペインを子に
-        { 
-          id: newId, 
-          tabs: [], // 空のタブ配列で初期化
-          activeTabId: '', // 空のアクティブタブIDで初期化
-          parentId: paneId,
-          size: 50 
-        }
-      ],
-      tabs: [], // 親ペインはタブを持たない
-      activeTabId: ''
-    })));
+    return prev.map(pane => updatePaneRecursive(pane, paneId, (targetPane) => {
+      // 既存の子ペインのIDを生成
+      const existingPaneId = `editor-${nextNum + 1}`;
+      
+      return {
+        ...targetPane,
+        layout: direction,
+        children: [
+          { 
+            id: existingPaneId, // 新しいIDを割り当て
+            tabs: targetPane.tabs?.map(tab => ({
+              ...tab,
+              id: tab.id.replace(targetPane.id, existingPaneId) // タブIDも更新
+            })) || [], 
+            activeTabId: targetPane.activeTabId ? targetPane.activeTabId.replace(targetPane.id, existingPaneId) : '', // アクティブタブIDも更新
+            parentId: paneId,
+            size: 50
+          },
+          { 
+            id: newId, 
+            tabs: [], 
+            activeTabId: '',
+            parentId: paneId,
+            size: 50 
+          }
+        ],
+        tabs: [], // 親ペインはタブを持たない
+        activeTabId: ''
+      };
+    }));
   });
 }
 

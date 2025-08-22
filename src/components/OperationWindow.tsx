@@ -31,6 +31,7 @@ interface OperationWindowProps {
   editors: EditorPane[];
   setEditors: React.Dispatch<React.SetStateAction<EditorPane[]>>;
   setFileSelectState: (state: { open: boolean; paneIdx: number | null }) => void;
+  currentPaneIndex?: number | null; // 現在のペインインデックス
   aiMode?: boolean; // AI用モード（ファイルをタブで開かない）
 }
 
@@ -42,6 +43,7 @@ export default function OperationWindow({
   editors,
   setEditors,
   setFileSelectState,
+  currentPaneIndex,
   aiMode = false
 }: OperationWindowProps) {
   const { colors } = useTheme();
@@ -67,8 +69,8 @@ export default function OperationWindow({
     
     if (flatPanes.length === 0) return;
     
-    // 最初のリーフペインを使用
-    const paneIdx = 0; // flatPanesの最初の要素を使用
+    // 指定されたペインインデックスを使用（未指定の場合は最初のペイン）
+    const paneIdx = currentPaneIndex ?? 0;
     
     // ファイルを直接開く（OperationWindowからのファイル選択）
     handleFileSelect({

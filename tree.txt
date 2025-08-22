@@ -3,6 +3,7 @@
 │   ├── DATABASE.md
 │   ├── TODO.md
 │   ├── ai-agent-implementation-plan.md
+│   ├── all-flow.svg
 │   ├── git-deletion-detection-analysis.md
 │   └── terminal_touch_flow.md
 ├── FreeAPIGenerativeAI-Model.md
@@ -12,6 +13,7 @@
 ├── bashCmd.txt
 ├── eslint.config.mjs
 ├── feature.txt
+├── helper-code.txt
 ├── initial_files
 │   ├── README.md
 │   ├── docs
@@ -30,7 +32,6 @@
 │       ├── main.js
 │       └── style.css
 ├── initial_files_to_ts.js
-├── memo.txt
 ├── next-env.d.ts
 ├── next.config.ts
 ├── package-lock.json
@@ -46,7 +47,6 @@
 │   ├── icon0.svg
 │   ├── icon1.png
 │   ├── manifest.json
-│   ├── monaco-editor-workers
 │   ├── web-app-manifest-192x192.png
 │   ├── web-app-manifest-512x512.png
 │   └── window.svg
@@ -100,6 +100,8 @@
 │   │   │   └── SettingsPanel.tsx
 │   │   ├── MenuBar.tsx
 │   │   ├── OperationWindow.tsx
+│   │   ├── PaneContainer.tsx
+│   │   ├── PaneResizer.tsx
 │   │   ├── ProjectModal.tsx
 │   │   ├── Right
 │   │   │   ├── PanelRightIcon.tsx
@@ -185,19 +187,13 @@
 ├── tree-built-out.sh
 ├── tree.sh
 ├── tree.txt
-├── tsconfig.json
-└── tsconfig.tsbuildinfo
+└── tsconfig.json
 
-33 directories, 156 files
+32 directories, 158 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 25293
-合計文字数: 896179
-合計ファイルサイズ(bytes): 969116
+合計行数: 26362
+合計文字数: 954462
+合計ファイルサイズ(bytes): 1032050
 
-リポジトリ全体のサイズ(bytes): 1.7G	.
-
-
-ビルト済みファイルの行数: 14752
-合計文字数: 21304905
-合計ファイルサイズ(bytes): 22231118
+リポジトリ全体のサイズ(bytes): 1.6G	.

@@ -23,11 +23,7 @@ export default function PaneResizer({
   const [isDragging, setIsDragging] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(true);
-
+  const startResize = useCallback((clientX: number, clientY: number) => {
     // 親コンテナを見つける
     let parentContainer = containerRef.current?.parentElement;
     while (parentContainer && !parentContainer.classList.contains('flex')) {
@@ -36,7 +32,6 @@ export default function PaneResizer({
     
     if (!parentContainer) return;
 
-    const startPos = direction === 'vertical' ? e.clientX : e.clientY;
     const containerRect = parentContainer.getBoundingClientRect();
     const containerStart = direction === 'vertical' ? containerRect.left : containerRect.top;
     const containerSize = direction === 'vertical' ? containerRect.width : containerRect.height;
@@ -44,8 +39,8 @@ export default function PaneResizer({
     // 初期の分割点の位置（ピクセル）
     const initialSplitPos = (leftSize / 100) * containerSize;
 
-    const handleMouseMove = (e: MouseEvent) => {
-      const currentPos = direction === 'vertical' ? e.clientX : e.clientY;
+    const handleMove = (moveX: number, moveY: number) => {
+      const currentPos = direction === 'vertical' ? moveX : moveY;
       const relativePos = currentPos - containerStart;
       
       // 新しい分割点の位置を計算
@@ -61,19 +56,57 @@ export default function PaneResizer({
       }
     };
 
-    const handleMouseUp = () => {
+    const handleStop = () => {
       setIsDragging(false);
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleTouchEnd);
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
     };
 
+    const handleMouseMove = (e: MouseEvent) => {
+      e.preventDefault();
+      handleMove(e.clientX, e.clientY);
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      handleMove(touch.clientX, touch.clientY);
+    };
+
+    const handleMouseUp = () => {
+      handleStop();
+    };
+
+    const handleTouchEnd = () => {
+      handleStop();
+    };
+
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleTouchEnd);
     document.body.style.cursor = direction === 'vertical' ? 'col-resize' : 'row-resize';
     document.body.style.userSelect = 'none';
-  }, [direction, onResize, leftSize, rightSize, minSize]);
+  }, [direction, onResize, leftSize, minSize]);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+    startResize(e.clientX, e.clientY);
+  }, [startResize]);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+    const touch = e.touches[0];
+    startResize(touch.clientX, touch.clientY);
+  }, [startResize]);
 
   const resizerStyle: React.CSSProperties = {
     position: 'absolute',
@@ -125,6 +158,7 @@ export default function PaneResizer({
       <div
         style={hoverZoneStyle}
         onMouseDown={handleMouseDown}
+        onTouchStart={handleTouchStart}
         onMouseEnter={() => {
           if (!isDragging) {
             document.body.style.cursor = direction === 'vertical' ? 'col-resize' : 'row-resize';
@@ -140,6 +174,7 @@ export default function PaneResizer({
       <div
         style={resizerStyle}
         onMouseDown={handleMouseDown}
+        onTouchStart={handleTouchStart}
       />
     </div>
   );

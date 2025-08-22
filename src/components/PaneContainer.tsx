@@ -10,6 +10,7 @@ import AIReviewTab from '@/components/AI/AIReview/AIReviewTab';
 import WebPreviewTab from '@/components/Tab/WebPreviewTab';
 import PaneResizer from '@/components/PaneResizer';
 import type { EditorPane, Tab, Project, FileItem } from '@/types';
+import { LOCALSTORAGE_KEY } from '@/context/config';
 import { 
   setTabsForPane, 
   setActiveTabIdForPane, 
@@ -52,6 +53,10 @@ export default function PaneContainer({
   toggleBottomPanel,
 }: PaneContainerProps) {
   const { colors } = useTheme();
+  let wordWrapConfig: 'on' | 'off' = 'off';
+  if (typeof window !== 'undefined') {
+    wordWrapConfig = localStorage.getItem(LOCALSTORAGE_KEY.MONACO_WORD_WRAP) === 'true' ? 'on' : 'off';
+  }
 
   // 子ペインがある場合は分割レイアウトをレンダリング
   if (pane.children && pane.children.length > 0) {
@@ -304,6 +309,7 @@ export default function PaneContainer({
             activeTab={activeTab}
             bottomPanelHeight={200}
             isBottomPanelVisible={isBottomPanelVisible}
+            wordWrapConfig={wordWrapConfig}
             onContentChange={async (tabId: string, content: string) => {
               onTabContentChange(tabId, content);
               

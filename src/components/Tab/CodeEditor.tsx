@@ -44,6 +44,7 @@ interface CodeEditorProps {
   bottomPanelHeight: number;
   isBottomPanelVisible: boolean;
   onContentChange: (tabId: string, content: string) => void;
+  wordWrapConfig: 'on' | 'off';
   onContentChangeImmediate?: (tabId: string, content: string) => void;
   nodeRuntimeOperationInProgress?: boolean;
   isCodeMirror?: boolean;
@@ -143,7 +144,8 @@ export default function CodeEditor({
   nodeRuntimeOperationInProgress = false,
   isCodeMirror = false,
   currentProjectName,
-  projectFiles
+  projectFiles,
+  wordWrapConfig
 }: CodeEditorProps) {
   const { colors } = useTheme();
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -702,7 +704,7 @@ export default function CodeEditor({
               maxColumn: 120,
               showSlider: 'always'
             },
-            wordWrap: 'on',
+            wordWrap: wordWrapConfig,
             tabSize: 2,
             insertSpaces: true,
             formatOnPaste: true,

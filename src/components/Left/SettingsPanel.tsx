@@ -32,6 +32,15 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
     localStorage.setItem('pyxis-defaultEditor', e.target.value);
   };
 
+  // モナコエディタの折り返し設定
+  const [monacoWordWrap, setMonacoWordWrap] = useState(() => 
+    localStorage.getItem(LOCALSTORAGE_KEY.MONACO_WORD_WRAP) === 'true'
+  );
+  const handleMonacoWordWrapChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setMonacoWordWrap(e.target.checked);
+    localStorage.setItem(LOCALSTORAGE_KEY.MONACO_WORD_WRAP, e.target.checked.toString());
+  };
+
   const handleExport = async () => {
     setIsExporting(true);
     try {
@@ -151,6 +160,20 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
           <option value="codemirror">CodeMirror</option>
         </select>
         <span className="text-xs" style={{ color: colors.mutedFg }}>（ファイルを開く時のデフォルトエディタ）</span>
+      </div>
+      <h2 className="text-base font-semibold mt-4">Monaco Editor設定</h2>
+      <div className="flex items-center gap-2 mb-2">
+        <input
+          type="checkbox"
+          id="monacoWordWrap"
+          checked={monacoWordWrap}
+          onChange={handleMonacoWordWrapChange}
+          className="rounded"
+          style={{ accentColor: colors.accentBg }}
+        />
+        <label htmlFor="monacoWordWrap" className="text-sm" style={{ color: colors.foreground }}>
+          コードの折り返しを有効にする
+        </label>
       </div>
     </div>
   );

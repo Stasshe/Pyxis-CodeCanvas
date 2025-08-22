@@ -53,15 +53,20 @@ export function handleFileSelect({
         }
       }
       
-      const existingTab = targetPane.tabs.find(t => t.path === fileToOpen.path);
+      // パスとIDの両方で既存タブをチェック
+      const existingTab = targetPane.tabs.find(t => 
+        t.path === fileToOpen.path || 
+        t.id === `${targetPane.id}:${fileToOpen.path}`
+      );
       let newTabs;
       let newActiveTabId;
       if (existingTab) {
         newTabs = targetPane.tabs;
         newActiveTabId = existingTab.id;
       } else {
+        // タブIDの生成方法を統一: ペインID:ファイルパス
         const newTab: Tab = {
-          id: `${fileToOpen.path}-${Date.now()}`,
+          id: `${targetPane.id}:${fileToOpen.path}`,
           name: fileToOpen.name,
           content: fileToOpen.content || '',
           isDirty: false,

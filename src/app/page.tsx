@@ -292,6 +292,8 @@ export default function Home() {
   };
 
   const toggleOperationWindow = () => {
+    // 直前に選択されたペインを維持
+    const lastSelectedPane = fileSelectState.paneIdx;
     setIsOperationWindowVisible(!isOperationWindowVisible);
   };
 
@@ -300,7 +302,11 @@ export default function Home() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
         e.preventDefault();
+        // フォーカスのあるペインまたは最後に選択したペインを使用
+        const focusedPaneIndex = fileSelectState.paneIdx ?? 0;
         setIsOperationWindowVisible(true);
+        // ペインインデックスを設定
+        setFileSelectState(prev => ({ ...prev, paneIdx: focusedPaneIndex }));
       }
     };
 
@@ -762,14 +768,19 @@ export default function Home() {
           setGitRefreshTrigger(prev => prev + 1);
         }}
         currentProjectName={currentProject?.name || ''}
+        currentPaneIndex={fileSelectState.paneIdx}
       />
       <OperationWindow
         isVisible={isOperationWindowVisible}
-        onClose={() => setIsOperationWindowVisible(false)}
+        onClose={() => {
+          setIsOperationWindowVisible(false);
+          setFileSelectState(prev => ({ ...prev, open: false })); // openフラグのみリセット
+        }}
         projectFiles={projectFiles}
         editors={editors}
         setEditors={setEditors}
         setFileSelectState={setFileSelectState}
+        currentPaneIndex={fileSelectState.paneIdx}
       />
     </div>
     </>
