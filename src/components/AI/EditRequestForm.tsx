@@ -56,11 +56,11 @@ export default function EditRequestForm({
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    // Ctrl+Enterで送信
+    if (e.key === 'Enter' && e.ctrlKey) {
       e.preventDefault();
       handleSubmit();
     }
-    
     // 履歴ナビゲーション（Alt + 上下キー）
     if (e.altKey && hasHistory) {
       if (e.key === 'ArrowUp') {
@@ -127,10 +127,7 @@ export default function EditRequestForm({
             style={{ color: colors.mutedFg }}
           >
             <span>
-              {mode === 'edit' 
-                ? 'Enter: 送信, Shift+Enter: 改行' 
-                : 'Enter: 送信, Shift+Enter: 改行'
-              }
+              {'Enter: 改行, Ctrl+Enter: 送信'}
             </span>
             {hasHistory && (
               <span className="flex items-center gap-1">
