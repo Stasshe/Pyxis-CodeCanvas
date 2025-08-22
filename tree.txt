@@ -68,6 +68,7 @@
 │   │   ├── globals.css
 │   │   ├── layout.tsx
 │   │   ├── markdown.css
+│   │   ├── page-transformed-before.tsx
 │   │   └── page.tsx
 │   ├── components
 │   │   ├── AI
@@ -190,15 +191,15 @@
 ├── tree.txt
 └── tsconfig.json
 
-32 directories, 159 files
+32 directories, 160 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 26358
-合計文字数: 955995
-合計ファイルサイズ(bytes): 1033733
+合計行数: 27334
+合計文字数: 993690
+合計ファイルサイズ(bytes): 1074140
 
 リポジトリ全体のサイズ(bytes): 1.6G	.
 ==========
-ビルト済みファイルの行数: 14026
-合計文字数: 6795267
-合計ファイルサイズ(bytes): 7695641
+ビルト済みファイルの行数: 14752
+合計文字数: 21340536
+合計ファイルサイズ(bytes): 22268229

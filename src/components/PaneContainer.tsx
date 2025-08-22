@@ -20,6 +20,7 @@ import {
   resizePane,
   flattenPanes
 } from '@/hooks/pane';
+import { active } from 'd3';
 
 interface PaneContainerProps {
   pane: EditorPane;
@@ -32,9 +33,10 @@ interface PaneContainerProps {
   refreshProjectFiles?: () => Promise<void>;
   setGitRefreshTrigger: (fn: (prev: number) => number) => void;
   setFileSelectState: (state: { open: boolean; paneIdx: number | null }) => void;
-  onTabContentChange: (tabId: string, content: string) => void;
+  onTabContentChange: (tabId: string, content: string) => (void | ((content: string) => void));
   isBottomPanelVisible: boolean;
   toggleBottomPanel: () => void;
+  nodeRuntimeOperationInProgress: boolean;
 }
 
 export default function PaneContainer({
@@ -51,6 +53,7 @@ export default function PaneContainer({
   onTabContentChange,
   isBottomPanelVisible,
   toggleBottomPanel,
+  nodeRuntimeOperationInProgress,
 }: PaneContainerProps) {
   const { colors } = useTheme();
   let wordWrapConfig: 'on' | 'off' = 'off';
@@ -94,6 +97,7 @@ export default function PaneContainer({
                 onTabContentChange={onTabContentChange}
                 isBottomPanelVisible={isBottomPanelVisible}
                 toggleBottomPanel={toggleBottomPanel}
+                nodeRuntimeOperationInProgress={nodeRuntimeOperationInProgress}
               />
             </div>
             
@@ -311,26 +315,40 @@ export default function PaneContainer({
             bottomPanelHeight={200}
             isBottomPanelVisible={isBottomPanelVisible}
             wordWrapConfig={wordWrapConfig}
+            onContentChangeImmediate={onTabContentChange}
             onContentChange={async (tabId: string, content: string) => {
-              onTabContentChange(tabId, content);
-              
-              setEditors(prev => {
-                const updatePaneRecursive = (panes: EditorPane[]): EditorPane[] => {
-                  return panes.map(p => {
-                    if (p.id === pane.id) {
-                      return {
-                        ...p,
-                        tabs: p.tabs.map(t => t.id === tabId ? { ...t, content, isDirty: true } : t)
-                      };
-                    }
-                    if (p.children) {
-                      return { ...p, children: updatePaneRecursive(p.children) };
-                    }
-                    return p;
+              // タブ内容変更をコールバックに伝播（親コンポーネントで即時更新用に使用）
+
+              // プロジェクトとファイルが有効な場合は保存処理を実行
+              if (currentProject && saveFile && activeTab?.path) {
+                try {
+                  // ファイルの保存を実行
+                  await saveFile(activeTab.path, content);
+                  
+                  // 保存成功後はisDirtyフラグをクリア
+                  setEditors(prev => {
+                    const updatePaneRecursive = (panes: EditorPane[]): EditorPane[] => {
+                      return panes.map(p => {
+                        if (!p.children) {
+                          return {
+                            ...p,
+                            tabs: p.tabs.map(t => 
+                              t.path === activeTab.path ? { ...t, isDirty: false } : t
+                            )
+                          };
+                        }
+                        return { ...p, children: updatePaneRecursive(p.children) };
+                      });
+                    };
+                    return updatePaneRecursive(prev);
                   });
-                };
-                return updatePaneRecursive(prev);
-              });
+                  
+                  // Git状態の更新をトリガー
+                  setGitRefreshTrigger(prev => prev + 1);
+                } catch (error) {
+                  console.error('Failed to save file:', error);
+                }
+              }
             }}
           />
         ))}

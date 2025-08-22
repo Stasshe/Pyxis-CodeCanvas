@@ -281,7 +281,7 @@ print('Joined path:', os.path.join('/users', 'documents', 'file.txt'))`
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Code size={16} style={{ color: colors.primary }} />
-            <span className="font-semibold" style={{ color: colors.foreground }}>実行環境(自動判別)</span>
+            <span className="font-semibold" style={{ color: colors.foreground }}>実行環境</span>
           </div>
           <div className="flex gap-2">
             <button
@@ -381,7 +381,7 @@ print('Joined path:', os.path.join('/users', 'documents', 'file.txt'))`
         >
           {output.length === 0 ? (
             <div style={{ color: colors.mutedFg }}>
-              Node.jsコードを実行すると、ここに結果が表示されます。ただし、console.logやalertなどは、実際のブラウザネイティブのものに反映されます。
+              Javascript/Node.js/Pythonコードを実行すると、ここに結果が表示されます。Node.jsと、jsは、同じファイルで実行できます。
             </div>
           ) : (
             output.map((entry) => (

@@ -382,24 +382,52 @@ export default function Home() {
   
 
   // 即座のローカル更新専用関数
-  // 即座のローカル更新: 全ペインの同じファイルタブも同期
+  // 即座のローカル更新: 全ペインの同じファイルタブも同期（ネストされたペインにも対応）
   const handleTabContentChangeImmediate = (tabId: string, content: string) => {
     setEditors(prevEditors => {
-      // 対象ファイルパスを取得
+      // 対象ファイルパスを取得（ネストされたペインも含めて探索）
+      const findPathInPane = (pane: EditorPane): string | undefined => {
+        // 現在のペインのタブをチェック
+        const tab = pane.tabs.find(t => t.id === tabId);
+        if (tab) return tab.path;
+        
+        // 子ペインがあれば再帰的に探索
+        if (pane.children) {
+          for (const child of pane.children) {
+            const found = findPathInPane(child);
+            if (found) return found;
+          }
+        }
+        return undefined;
+      };
+
       const targetPath = (() => {
-        for (const pane of prevEditors) {
-          const tab = pane.tabs.find(t => t.id === tabId);
-          if (tab) return tab.path;
+        for (const editor of prevEditors) {
+          const found = findPathInPane(editor);
+          if (found) return found;
         }
         return undefined;
       })();
+
       if (!targetPath) return prevEditors;
-      return prevEditors.map(pane => ({
-        ...pane,
-        tabs: pane.tabs.map(t =>
+
+      // ペインを再帰的に更新する関数
+      const updatePane = (pane: EditorPane): EditorPane => {
+        const updatedTabs = pane.tabs.map(t =>
           t.path === targetPath ? { ...t, content, isDirty: true } : t
-        )
-      }));
+        );
+
+        const updatedChildren = pane.children?.map(child => updatePane(child));
+
+        return {
+          ...pane,
+          tabs: updatedTabs,
+          ...(updatedChildren ? { children: updatedChildren } : {})
+        };
+      };
+
+      // 全てのルートペインを更新
+      return prevEditors.map(pane => updatePane(pane));
     });
   };
 
@@ -637,6 +665,7 @@ export default function Home() {
                     onTabContentChange={handleTabContentChangeImmediate}
                     isBottomPanelVisible={isBottomPanelVisible}
                     toggleBottomPanel={toggleBottomPanel}
+                    nodeRuntimeOperationInProgress={nodeRuntimeOperationInProgress}
                   />
                   
                   {/* ルートレベルペイン間のリサイザー */}

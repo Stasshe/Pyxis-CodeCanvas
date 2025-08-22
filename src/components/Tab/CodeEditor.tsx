@@ -45,11 +45,11 @@ interface CodeEditorProps {
   isBottomPanelVisible: boolean;
   onContentChange: (tabId: string, content: string) => void;
   wordWrapConfig: 'on' | 'off';
-  onContentChangeImmediate?: (tabId: string, content: string) => void;
+  onContentChangeImmediate: (tabId: string, content: string) => void;
   nodeRuntimeOperationInProgress?: boolean;
   isCodeMirror?: boolean;
   currentProjectName?: string;
-  projectFiles?: any[]; // FileItem[]
+  projectFiles?: any[]; // FileItem[];
 }
 
 const getLanguage = (filename: string): string => {
