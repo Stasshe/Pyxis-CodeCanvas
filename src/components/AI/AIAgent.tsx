@@ -120,23 +120,26 @@ export default function AIAgent({
   //   }
   // }, [fileContexts]);
 
-  // 根本的なスペース多重作成防止
-  const initializedRef = React.useRef(false);
-  useEffect(() => {
-    if (!currentProject || spacesLoading) return;
-    // プロジェクトIDが変わったら初期化フラグをリセット
-    initializedRef.current = false;
-    // chatSpacesロード済みかつcurrentSpaceがnullかつchatSpaces.length === 0かつ未初期化
-    if (chatSpaces.length === 0 && !currentSpace && !initializedRef.current) {
-      initializedRef.current = true;
-      createNewSpace();
-    } else if (chatSpaces.length > 0 && !currentSpace) {
-      // 既存スペースがある場合は最近更新されたものを選択
-      const sortedSpaces = [...chatSpaces].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
-      selectSpace(sortedSpaces[0]);
-      initializedRef.current = true;
-    }
-  }, [currentProject?.id, spacesLoading, chatSpaces.length]);
+  // いやいらへんのかい
+  // const initializedRef = React.useRef(false);
+  // useEffect(() => {
+  //   if (!currentProject || spacesLoading) return;
+  //   // プロジェクトIDが変わったら初期化フラグをリセット
+  //   initializedRef.current = false;
+  //   // chatSpacesロード済みかつcurrentSpaceがnullかつchatSpaces.length === 0かつ未初期化
+  //   if (!initializedRef.current) {
+  //     // chatSpacesが空でcurrentSpaceがnullでも、currentProjectがnullまたは不正なら作成しない
+  //     if (chatSpaces.length === 0 && !currentSpace && currentProject && currentProject.id) {
+  //       initializedRef.current = true;
+  //       createNewSpace();
+  //     } else if (chatSpaces.length > 0 && !currentSpace) {
+  //       // 既存スペースがある場合は最近更新されたものを選択
+  //       const sortedSpaces = [...chatSpaces].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+  //       selectSpace(sortedSpaces[0]);
+  //       initializedRef.current = true;
+  //     }
+  //   }
+  // }, [currentProject?.id, spacesLoading, chatSpaces.length]);
 
   // チャットスペースのメッセージが変更されたときにログ出力
   // useEffect(() => {

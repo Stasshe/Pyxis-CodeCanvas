@@ -71,14 +71,33 @@ export function useAIAgent(props?: UseAIAgentProps) {
       fileContext: selectedFiles.map(f => f.path)
     }, 'chat');
 
+    // 過去メッセージから type, content, mode のみ抽出し、空contentやファイル内容だけのメッセージは除外
+    const previousMessages = props?.messages
+      ?.filter(msg => typeof msg.content === 'string' && msg.content.trim().length > 0)
+      ?.map(msg => ({
+        type: msg.type,
+        content: msg.content,
+        mode: msg.mode
+      }));
+
     setIsProcessing(true);
     try {
+      // 履歴をMarkdown形式でまとめる
+      const history = previousMessages && previousMessages.length > 0
+        ? previousMessages.slice(-5).map(msg =>
+            `### ${msg.type === 'user' ? 'ユーザー' : 'アシスタント'}: ${msg.mode === 'edit' ? '編集' : '会話'}\n${msg.content}`
+          ).join('\n\n')
+        : '';
+
       // コンテキストを構築
       const context = selectedFiles.map(f => `ファイル: ${f.path}\n\`\`\`\n${f.content}\n\`\`\``);
-      
+
+      // AIプロンプトを生成（履歴＋質問＋ファイルコンテキスト）
+      const prompt = `${history ? `## これまでの会話履歴\n${history}\n` : ''}\n${content}\n\n${context.join('\n')}`;
+
       // AI応答を生成
-      const response = await generateChatResponse(content, context, apiKey);
-      
+      const response = await generateChatResponse(prompt, [], apiKey);
+
       // AI応答を追加
       await addMessage({
         type: 'assistant',
@@ -92,7 +111,7 @@ export function useAIAgent(props?: UseAIAgentProps) {
     } finally {
       setIsProcessing(false);
     }
-  }, [fileContexts, addMessage]);
+  }, [fileContexts, addMessage, props?.messages]);
 
   // コード編集を実行
   const executeCodeEdit = useCallback(async (instruction: string): Promise<AIEditResponse> => {
@@ -115,9 +134,18 @@ export function useAIAgent(props?: UseAIAgentProps) {
         fileContext: selectedFiles.map(f => f.path)
       }, 'edit');
 
+      // 過去メッセージから type, content, mode のみ抽出し、空contentやファイル内容だけのメッセージは除外
+      const previousMessages = props?.messages
+        ?.filter(msg => typeof msg.content === 'string' && msg.content.trim().length > 0)
+        ?.map(msg => ({
+          type: msg.type,
+          content: msg.content,
+          mode: msg.mode
+        }));
+
       // プロンプトを生成
-      const prompt = EDIT_PROMPT_TEMPLATE(selectedFiles, instruction);
-      
+      const prompt = EDIT_PROMPT_TEMPLATE(selectedFiles, instruction, previousMessages);
+          
       // AI編集を実行
       const response = await generateCodeEdit(prompt, apiKey);
       

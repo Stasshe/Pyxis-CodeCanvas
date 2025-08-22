@@ -40,29 +40,26 @@ export const useChatSpace = (projectId: string | null) => {
     loadChatSpaces();
   }, [projectId]); // currentSpaceをチェックしないように修正
 
-  // 新しいチャットスペースを作成（DBに1つでもあればそれを使う）
+  // 新しいチャットスペースを常に作成
   const createNewSpace = async (name?: string): Promise<ChatSpace | null> => {
     if (!projectId) return null;
     try {
       await projectDB.init();
-      const spaces = await projectDB.getChatSpaces(projectId);
-      if (spaces.length > 0) {
-        setChatSpaces(spaces);
-        setCurrentSpace(spaces[0]);
-        return spaces[0];
-      }
       // スペースが10個を超える場合、古いものから削除（念のため）
-      if (chatSpaces.length >= 10) {
-        const sorted = [...chatSpaces].sort((a, b) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime());
-        const toDelete = sorted.slice(0, chatSpaces.length - 9);
+      const spaces = await projectDB.getChatSpaces(projectId);
+      let toDelete: ChatSpace[] = [];
+      if (spaces.length >= 10) {
+        const sorted = [...spaces].sort((a, b) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime());
+        toDelete = sorted.slice(0, spaces.length - 9);
         for (const space of toDelete) {
           try { await projectDB.deleteChatSpace(space.id); } catch (error) { console.error('Failed to delete old chat space:', error); }
         }
-        setChatSpaces(prev => prev.filter(s => !toDelete.some(d => d.id === s.id)));
       }
       const spaceName = name || `新規チャット`;
       const newSpace = await projectDB.createChatSpace(projectId, spaceName);
-      setChatSpaces(prev => [newSpace, ...prev]);
+      // 最新のスペースリストを取得して先頭に追加
+      const updatedSpaces = [newSpace, ...spaces.filter(s => !toDelete.some((d: ChatSpace) => d.id === s.id))];
+      setChatSpaces(updatedSpaces);
       setCurrentSpace(newSpace);
       return newSpace;
     } catch (error) {
