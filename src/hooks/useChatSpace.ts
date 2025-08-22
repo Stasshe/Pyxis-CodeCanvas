@@ -129,8 +129,8 @@ export const useChatSpace = (projectId: string | null) => {
     });
 
     try {
-      // 最初のメッセージならスペース名をメッセージ内容に変更
-      if (currentSpace.messages.length === 0 && content && content.trim().length > 0) {
+      // 最初のメッセージかつ type === 'user' の場合のみスペース名をメッセージ内容に変更
+      if (currentSpace.messages.length === 0 && type === 'user' && content && content.trim().length > 0) {
         const newName = content.length > 30 ? content.slice(0, 30) + '…' : content;
         await projectDB.renameChatSpace(currentSpace.id, newName);
         setCurrentSpace(prev => prev ? { ...prev, name: newName } : prev);
