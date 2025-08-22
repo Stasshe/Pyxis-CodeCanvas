@@ -166,9 +166,11 @@ export default function CodeEditor({
   }, []);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
-  // 文字数カウント用 state
+  // 文字数カウント用 state（スペース除外）
   const [charCount, setCharCount] = useState(0);
   const [selectionCount, setSelectionCount] = useState<number | null>(null);
+  // 文字数カウント（スペース除外）
+  const countCharsNoSpaces = (text: string) => text.replace(/\s/g, '').length;
 
   // 親のflex-1 + min-h-0で高さ制御するため、height: '100%'に統一
   const editorHeight = '100%';
@@ -290,15 +292,13 @@ export default function CodeEditor({
       typeRoots: ['node_modules/@types']
     });
 
-    // 選択範囲の文字数を検知
+    // 選択範囲の文字数（スペース除外）を検知
     editor.onDidChangeCursorSelection((e) => {
       if (!isEditorSafe()) return;
-      
       const selection = e.selection;
       const model = editor.getModel();
       if (!isModelSafe(model)) return;
-      
-      const length = model!.getValueInRange(selection).length ?? 0;
+      const length = countCharsNoSpaces(model!.getValueInRange(selection)) ?? 0;
       if (selection.isEmpty()) {
         setSelectionCount(null);
       } else {
@@ -329,7 +329,7 @@ export default function CodeEditor({
         try {
           editor.setModel(model);
           currentModelIdRef.current = activeTab.id;
-          setCharCount(activeTab.content.length);
+          setCharCount(countCharsNoSpaces(activeTab.content));
         } catch (e: any) {
           console.warn('[CodeEditor] Initial setModel failed:', e?.message);
           // エラーが発生した場合、モデルを再作成して再試行
@@ -626,7 +626,7 @@ export default function CodeEditor({
                 onContentChangeImmediate(activeTab.id, value);
               }
               debouncedSave(activeTab.id, value);
-              setCharCount(value.length);
+              setCharCount(countCharsNoSpaces(value));
               setSelectionCount(null);
             }}
             style={{
@@ -760,8 +760,8 @@ export default function CodeEditor({
         }}
       >
         {selectionCount !== null
-          ? `選択範囲: ${selectionCount}文字 / 全体: ${charCount}文字`
-          : `全体: ${charCount}文字`}
+          ? `選択範囲: ${selectionCount}文字（スペース除外） / 全体: ${charCount}文字（スペース除外）`
+          : `全体: ${charCount}文字（スペース除外）`}
       </div>
     </div>
   );
