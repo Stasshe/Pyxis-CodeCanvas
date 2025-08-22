@@ -621,6 +621,34 @@ export default function Home() {
                     editorLayout={editorLayout}
                     editorId={editor.id}
                     removeAllTabs={() => setTabsForPane(editors, setEditors, idx, [])}
+                    availablePanes={editors.map((pane, paneIdx) => ({
+                      id: pane.id,
+                      name: `ペイン ${paneIdx + 1}`
+                    }))}
+                    onMoveTabToPane={(tabId, targetPaneId) => {
+                      // 移動元のタブを取得
+                      const sourceTab = editor.tabs.find(t => t.id === tabId);
+                      if (!sourceTab) return;
+                      
+                      // 移動先のペインのインデックスを取得
+                      const targetPaneIdx = editors.findIndex(p => p.id === targetPaneId);
+                      if (targetPaneIdx === -1) return;
+                      
+                      // 移動元ペインからタブを削除
+                      setTabsForPane(editors, setEditors, idx, editor.tabs.filter(t => t.id !== tabId));
+                      
+                      // 移動先ペインにタブを追加
+                      setTabsForPane(editors, setEditors, targetPaneIdx, (prevTabs) => [...prevTabs, sourceTab]);
+                      
+                      // 移動先ペインでそのタブをアクティブにする
+                      setActiveTabIdForPane(editors, setEditors, targetPaneIdx, tabId);
+                      
+                      // 移動元ペインのアクティブタブを調整
+                      if (editor.activeTabId === tabId) {
+                        const remainingTabs = editor.tabs.filter(t => t.id !== tabId);
+                        setActiveTabIdForPane(editors, setEditors, idx, remainingTabs.length > 0 ? remainingTabs[0].id : '');
+                      }
+                    }}
                   />
                   {/* DiffTab or CodeEditor */}
                   {activeTab && (activeTab.webPreview ? (

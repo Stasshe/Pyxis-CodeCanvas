@@ -18,6 +18,9 @@ interface TabBarProps {
   editorLayout: string;
   editorId: string;
   removeAllTabs: () => void;
+  // 新しく追加: タブをペイン間で移動する機能
+  availablePanes?: Array<{ id: string; name: string }>;
+  onMoveTabToPane?: (tabId: string, targetPaneId: string) => void;
 }
 
 export default function TabBar({
@@ -33,12 +36,23 @@ export default function TabBar({
   toggleEditorLayout,
   editorLayout,
   editorId,
-  removeAllTabs
+  removeAllTabs,
+  availablePanes = [],
+  onMoveTabToPane
 }: TabBarProps) {
   const { colors } = useTheme();
   // メニューの開閉状態管理
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef < HTMLDivElement > (null);
+  
+  // タブコンテキストメニューの状態管理
+  const [tabContextMenu, setTabContextMenu] = useState<{
+    isOpen: boolean;
+    tabId: string;
+    x: number;
+    y: number;
+  }>({ isOpen: false, tabId: '', x: 0, y: 0 });
+  const tabContextMenuRef = useRef<HTMLDivElement>(null);
 
   // メニュー外クリックで閉じる
   useEffect(() => {
@@ -46,8 +60,11 @@ export default function TabBar({
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setMenuOpen(false);
       }
+      if (tabContextMenuRef.current && !tabContextMenuRef.current.contains(event.target as Node)) {
+        setTabContextMenu({ isOpen: false, tabId: '', x: 0, y: 0 });
+      }
     }
-    if (menuOpen) {
+    if (menuOpen || tabContextMenu.isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     } else {
       document.removeEventListener('mousedown', handleClickOutside);
@@ -55,7 +72,7 @@ export default function TabBar({
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [menuOpen]);
+  }, [menuOpen, tabContextMenu.isOpen]);
 
   // 同名ファイルの重複チェック
   const nameCount: Record<string, number> = {};
@@ -77,6 +94,39 @@ export default function TabBar({
     setMenuOpen(false);
     // カスタムイベントで保存再起動を通知
     window.dispatchEvent(new CustomEvent('pyxis-save-restart'));
+  };
+
+  // タブ右クリックハンドラ
+  const handleTabRightClick = (e: React.MouseEvent, tabId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setTabContextMenu({
+      isOpen: true,
+      tabId,
+      x: e.clientX,
+      y: e.clientY
+    });
+  };
+
+  // タブ長押しハンドラ（iPad等）
+  const handleTabLongPress = (e: React.TouchEvent, tabId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const touch = e.touches[0];
+    setTabContextMenu({
+      isOpen: true,
+      tabId,
+      x: touch.clientX,
+      y: touch.clientY
+    });
+  };
+
+  // タブをペインに移動
+  const handleMoveToPane = (tabId: string, targetPaneId: string) => {
+    if (onMoveTabToPane) {
+      onMoveTabToPane(tabId, targetPaneId);
+    }
+    setTabContextMenu({ isOpen: false, tabId: '', x: 0, y: 0 });
   };
 
   return (
@@ -136,6 +186,28 @@ export default function TabBar({
               color: tab.id === activeTabId ? colors.foreground : colors.mutedFg,
             }}
             onClick={() => onTabClick(tab.id)}
+            onContextMenu={(e) => handleTabRightClick(e, tab.id)}
+            onTouchStart={(e) => {
+              // 長押し検出のためのタイマー設定
+              const timer = setTimeout(() => {
+                handleTabLongPress(e, tab.id);
+              }, 500); // 500msで長押し判定
+              
+              const handleTouchEnd = () => {
+                clearTimeout(timer);
+                document.removeEventListener('touchend', handleTouchEnd);
+                document.removeEventListener('touchmove', handleTouchMove);
+              };
+              
+              const handleTouchMove = () => {
+                clearTimeout(timer);
+                document.removeEventListener('touchend', handleTouchEnd);
+                document.removeEventListener('touchmove', handleTouchMove);
+              };
+              
+              document.addEventListener('touchend', handleTouchEnd);
+              document.addEventListener('touchmove', handleTouchMove);
+            }}
           >
             <span className="tab-label" style={{
               color: tab.isDirty ? colors.accent : colors.foreground,
@@ -204,6 +276,56 @@ export default function TabBar({
           <Plus size={16} color={colors.accentFg} />
         </button>
       </div>
+      
+      {/* タブコンテキストメニュー */}
+      {tabContextMenu.isOpen && (
+        <div
+          ref={tabContextMenuRef}
+          className="fixed bg-card border border-border rounded shadow-lg z-50 min-w-[150px] p-2"
+          style={{
+            background: colors.cardBg,
+            borderColor: colors.border,
+            left: `${tabContextMenu.x}px`,
+            top: `${tabContextMenu.y}px`,
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
+            WebkitTouchCallout: 'none',
+            MozUserSelect: 'none',
+            msUserSelect: 'none',
+            touchAction: 'manipulation'
+          }}
+        >
+          <div className="text-xs text-muted-foreground mb-2 px-2">タブアクション</div>
+          <button
+            className="w-full text-left px-2 py-1 text-sm hover:bg-accent rounded"
+            onClick={() => {
+              onTabClose(tabContextMenu.tabId);
+              setTabContextMenu({ isOpen: false, tabId: '', x: 0, y: 0 });
+            }}
+          >
+            タブを閉じる
+          </button>
+          
+          {/* ペイン移動メニュー */}
+          {availablePanes.length > 1 && (
+            <>
+              <div className="text-xs text-muted-foreground mt-3 mb-2 px-2">ペインに移動</div>
+              {availablePanes
+                .filter(pane => pane.id !== editorId) // 現在のペインは除外
+                .map(pane => (
+                  <button
+                    key={pane.id}
+                    className="w-full text-left px-2 py-1 text-sm hover:bg-accent rounded"
+                    onClick={() => handleMoveToPane(tabContextMenu.tabId, pane.id)}
+                  >
+                    {pane.name}
+                  </button>
+                ))
+              }
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
