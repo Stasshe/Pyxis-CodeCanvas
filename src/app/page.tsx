@@ -116,10 +116,6 @@ export default function Home() {
                   activeTabId: restoredActiveTabId
                 };
               });
-              console.log('[DEBUG] Restored editors from localStorage:', initEditors.map(e => ({
-                id: e.id,
-                tabs: e.tabs.map((t: any) => ({ id: t.id, path: t.path, needsContentRestore: t.needsContentRestore }))
-              })));
               setEditors(initEditors);
               // activeTabIdを復元
               if (initEditors[0].tabs.length > 0) {
@@ -176,9 +172,7 @@ export default function Home() {
   const tabs = editors[0].tabs;
   // setTabsのデバッグログを追加
   const setTabs: React.Dispatch<React.SetStateAction<Tab[]>> = (update) => {
-    console.log('[DEBUG] setTabs called with update:', update);
     setTabsForPane(editors, setEditors, 0, update);
-    console.log('[DEBUG] editors after setTabs:', editors);
   };
   const activeTabId = editors[0].activeTabId;
   const setActiveTabId = (id: string) => {

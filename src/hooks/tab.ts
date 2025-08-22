@@ -57,9 +57,9 @@ export function useProjectFilesSyncEffect({
     
     // タブにneedsContentRestoreフラグがあるかチェック
     const tabsNeedingRestore = tabs.filter(tab => tab.needsContentRestore);
-    if (tabsNeedingRestore.length > 0) {
-      console.log('[DEBUG] Tabs needing content restore:', tabsNeedingRestore.map(t => ({ path: t.path, id: t.id })));
-    }
+    // if (tabsNeedingRestore.length > 0) {
+    //   console.log('[DEBUG] Tabs needing content restore:', tabsNeedingRestore.map(t => ({ path: t.path, id: t.id })));
+    // }
     
     // tabsが空でもprojectFilesが存在する場合は同期を試みる
     if (flattenedFiles.length > 0) {
@@ -69,20 +69,20 @@ export function useProjectFilesSyncEffect({
         .map(tab => {
           const correspondingFile = flattenedFiles.find(f => f.path === tab.path);
           if (!correspondingFile) {
-            if (tab.needsContentRestore) {
-              console.log('[DEBUG] No corresponding file found for tab needing restore:', tab.path);
-              // 追加: どのファイルパスと一致しないか詳細表示
-              flattenedFiles.forEach(f => {
-                console.log(`[DEBUG] Compare: tab.path="${tab.path}" vs file.path="${f.path}" =>`, tab.path === f.path);
-              });
-            }
+            // if (tab.needsContentRestore) {
+            //   console.log('[DEBUG] No corresponding file found for tab needing restore:', tab.path);
+            //   // 追加: どのファイルパスと一致しないか詳細表示
+            //   flattenedFiles.forEach(f => {
+            //     console.log(`[DEBUG] Compare: tab.path="${tab.path}" vs file.path="${f.path}" =>`, tab.path === f.path);
+            //   });
+            // }
             return tab;
           }
 
           // localStorage復元後のコンテンツ復元が必要な場合
           if (tab.needsContentRestore) {
             hasRealChanges = true;
-            console.log('[DEBUG] Restoring content from DB for tab:', tab.path, 'fileContent:', correspondingFile.content?.slice(0, 50) + '...');
+            // console.log('[DEBUG] Restoring content from DB for tab:', tab.path, 'fileContent:', correspondingFile.content?.slice(0, 50) + '...');
             
             if (tab.isBufferArray && correspondingFile.isBufferArray) {
               return {
@@ -137,7 +137,7 @@ export function useProjectFilesSyncEffect({
         });
       // 実際に内容が変更された場合のみ更新
       if (hasRealChanges) {
-        console.log('[DEBUG] Updating tabs in useProjectFilesSyncEffect', updatedTabs.map(t => ({ id: t.id, path: t.path, needsContentRestore: t.needsContentRestore, contentLength: t.content?.length || 0 })));
+        // console.log('[DEBUG] Updating tabs in useProjectFilesSyncEffect', updatedTabs.map(t => ({ id: t.id, path: t.path, needsContentRestore: t.needsContentRestore, contentLength: t.content?.length || 0 })));
         setTabs(updatedTabs);
       }
     }
@@ -151,7 +151,7 @@ export function useProjectFilesSyncEffect({
 
     const tabsNeedingRestore = tabs.filter(tab => tab.needsContentRestore);
     if (tabsNeedingRestore.length > 0) {
-      console.log('[DEBUG] Force restoring content for tabs after project load');
+      // console.log('[DEBUG] Force restoring content for tabs after project load');
       
       // プロジェクトファイルを平坦化
       const flattenedFiles = flattenFileItems(projectFiles);
@@ -163,11 +163,11 @@ export function useProjectFilesSyncEffect({
           
           const correspondingFile = flattenedFiles.find(f => f.path === tab.path);
           if (!correspondingFile) {
-            console.log('[DEBUG] No file found for force restore:', tab.path);
+            // console.log('[DEBUG] No file found for force restore:', tab.path);
             return tab;
           }
           
-          console.log('[DEBUG] Force restoring:', tab.path, 'content length:', correspondingFile.content?.length || 0);
+          // console.log('[DEBUG] Force restoring:', tab.path, 'content length:', correspondingFile.content?.length || 0);
           return {
             ...tab,
             content: correspondingFile.content || '',
@@ -255,7 +255,7 @@ export function useActiveTabContentRestore({
     });
 
     if (needsRestore) {
-      console.log('[DEBUG] Some active tabs need content restore');
+      // console.log('[DEBUG] Some active tabs need content restore');
       
       // プロジェクトファイルを平坦化
       const flattenedFiles = flattenFileItems(projectFiles);

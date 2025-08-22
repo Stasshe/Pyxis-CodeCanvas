@@ -245,7 +245,7 @@ function parseEditResponse(response: string, originalFiles: Array<{path: string,
   const changedFiles: AIEditResponse['changedFiles'] = [];
   let message = '';
 
-  console.log('[DEBUG] Raw AI response:', response);
+  console.log('[AI Agent] Raw AI response:', response);
   console.log('[DEBUG] Available original files for matching:', originalFiles.map(f => f.path));
 
   // 正規化関数

@@ -35,7 +35,6 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({ filePath, currentProjectN
 
       const resolvedPath = resolveFilePath(filePath); // パスを解決
       const stats = await fs.promises.stat(resolvedPath);
-      console.log('[DEBUG] ファイルパス:', resolvedPath, 'ステータス:', stats);
 
       if (stats.isDirectory()) {
         const files = await fs.promises.readdir(resolvedPath);
@@ -47,7 +46,6 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({ filePath, currentProjectN
         }
 
         try {
-          console.log('[DEBUG] inlineHtmlAssetsを呼び出します:', { files, resolvedPath });
           const inlinedContent = await inlineHtmlAssets(files, resolvedPath, fs);
           console.log('[DEBUG] inlineHtmlAssetsの結果:', inlinedContent);
           setFileContent(inlinedContent);
@@ -108,7 +106,7 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({ filePath, currentProjectN
 
   // ファイル内容が変わったらiframeに反映
   useEffect(() => {
-    console.log('[DEBUG] fileContentの状態:', fileContent);
+    // console.log('[DEBUG] fileContentの状態:', fileContent);
     if (iframeRef.current) {
       const iframeDocument = iframeRef.current.contentDocument;
       if (iframeDocument) {
