@@ -68,7 +68,7 @@ const themes: { [key: string]: ThemeColors } = {
     accentBg: "#363a4f",
     accentFg: "#4ea1ff",
     red: "#ef4444",
-  green: "#10b981",
+    green: "#10b981",
     sidebarTitleFg: "#a1a1aa",
     sidebarIconFg: "#d4d4d4",
     sidebarResizerBg: "#363a4f",
@@ -389,7 +389,7 @@ const themes: { [key: string]: ThemeColors } = {
   solarizedLight: {
     background: "#fdf6e3",
     foreground: "#657b83",
-    accent: "#eee8d5",
+    accent: "#f5eecb",
     primary: "#b58900",
     mermaidBg: "#f3f6fa",
     editorBg: "#fdf6e3",
@@ -399,7 +399,8 @@ const themes: { [key: string]: ThemeColors } = {
     editorCursor: "#b58900",
     cardBg: "#eee8d5",
     border: "#b58900",
-    mutedBg: "#f5eecb",
+    mutedBg: "#eee8d5",
+    // #f5eecb
     mutedFg: "#657b83",
     accentBg: "#eee8d5",
     accentFg: "#b58900",

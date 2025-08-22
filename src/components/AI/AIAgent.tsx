@@ -531,8 +531,8 @@ export default function AIAgent({
               className={`flex-1 text-xs py-0.5 px-2 rounded-l border-r-0 transition relative ${currentMode === 'chat' ? 'font-bold shadow' : ''}`}
               style={{
                 background: currentMode === 'chat' ? colors.accent : colors.mutedBg,
+                border: currentMode === 'chat' ? `3px solid ${colors.border}` : 'none',
                 color: currentMode === 'chat' ? colors.accentFg : colors.mutedFg,
-                border: `1px solid ${colors.border}`,
                 position: 'relative',
                 zIndex: currentMode === 'chat' ? 2 : 1,
                 boxShadow: currentMode === 'chat' ? `0 2px 0 0 ${colors.accent}` : 'none',
@@ -540,7 +540,7 @@ export default function AIAgent({
                 outlineOffset: currentMode === 'chat' ? '-2px' : '0',
               }}
               onClick={() => setCurrentMode('chat')}
-            >
+              >
               <span className="inline-flex items-center gap-1">
                 <span style={{
                   display: 'inline-block',
@@ -555,7 +555,7 @@ export default function AIAgent({
               </span>
               {currentMode === 'chat' && (
                 <span
-                  className="absolute left-1/2 -translate-x-1/2 bottom-0 w-3/4 h-0.5 rounded"
+                className="absolute left-1/2 -translate-x-1/2 bottom-0 w-3/4 h-0.5 rounded"
                   style={{
                     background: colors.accentFg,
                     boxShadow: `0 2px 8px 0 ${colors.accent}33`,
@@ -568,7 +568,7 @@ export default function AIAgent({
               style={{
                 background: currentMode === 'edit' ? colors.accent : colors.mutedBg,
                 color: currentMode === 'edit' ? colors.accentFg : colors.mutedFg,
-                border: `1px solid ${colors.border}`,
+                border: currentMode == 'edit' ? `3px solid ${colors.border}` : 'none',
                 position: 'relative',
                 zIndex: currentMode === 'edit' ? 2 : 1,
                 boxShadow: currentMode === 'edit' ? `0 2px 0 0 ${colors.accent}` : 'none',
@@ -576,7 +576,7 @@ export default function AIAgent({
                 outlineOffset: currentMode === 'edit' ? '-2px' : '0',
               }}
               onClick={() => setCurrentMode('edit')}
-            >
+              >
               <span className="inline-flex items-center gap-1">
                 <span style={{
                   display: 'inline-block',
@@ -591,9 +591,9 @@ export default function AIAgent({
               </span>
               {currentMode === 'edit' && (
                 <span
-                  className="absolute left-1/2 -translate-x-1/2 bottom-0 w-3/4 h-0.5 rounded"
-                  style={{
-                    background: colors.accentFg,
+                className="absolute left-1/2 -translate-x-1/2 bottom-0 w-3/4 h-0.5 rounded"
+                style={{
+                  background: colors.accentFg,
                     boxShadow: `0 2px 8px 0 ${colors.accent}33`,
                   }}
                 ></span>
