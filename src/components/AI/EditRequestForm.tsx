@@ -1,5 +1,3 @@
-// 編集依頼・チャット入力フォーム
-
 'use client';
 
 import React, { useState, KeyboardEvent, useEffect } from 'react';
