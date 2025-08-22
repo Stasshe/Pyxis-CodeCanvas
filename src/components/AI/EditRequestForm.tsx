@@ -57,7 +57,7 @@ export default function EditRequestForm({
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     // Ctrl+Enterで送信
-    if (e.key === 'Enter' && e.ctrlKey) {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       handleSubmit();
     }
