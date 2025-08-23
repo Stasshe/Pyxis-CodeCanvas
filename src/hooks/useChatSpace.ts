@@ -112,67 +112,79 @@ export const useChatSpace = (projectId: string | null) => {
   };
 
   // メッセージを追加
-  const addMessage = async (content: string, type: 'user' | 'assistant', mode: 'chat' | 'edit', fileContext?: string[], editResponse?: AIEditResponse): Promise<ChatSpaceMessage | null> => {
-    if (!currentSpace) {
-      console.error('[useChatSpace] No current space available for adding message');
+const addMessage = async (
+  content: string,
+  type: 'user' | 'assistant',
+  mode: 'chat' | 'edit',
+  fileContext?: string[],
+  editResponse?: AIEditResponse
+): Promise<ChatSpaceMessage | null> => {
+  let space = currentSpace;
+
+  // もし現在のスペースが無ければ、新規作成して選択
+  if (!space) {
+    console.warn('[useChatSpace] No current space, creating new one...');
+    space = await createNewSpace();
+    if (!space) {
+      console.error('[useChatSpace] Failed to create new space');
       return null;
     }
+  }
 
-    console.log('[useChatSpace] Adding message:', {
-      spaceId: currentSpace.id,
+  console.log('[useChatSpace] Adding message:', {
+    spaceId: space.id,
+    type,
+    mode,
+    hasFileContext: !!fileContext,
+    fileContextLength: fileContext?.length || 0,
+    hasEditResponse: !!editResponse,
+    editResponseFiles: editResponse?.changedFiles?.length || 0
+  });
+
+  try {
+    // 最初のメッセージならスペース名をリネーム
+    if (space.messages.length === 0 && type === 'user' && content.trim().length > 0) {
+      const newName = content.length > 30 ? content.slice(0, 30) + '…' : content;
+      await projectDB.renameChatSpace(space.id, newName);
+
+      setCurrentSpace(prev => prev ? { ...prev, name: newName } : prev);
+      setChatSpaces(prev => prev.map(s => s.id === space.id ? { ...s, name: newName } : s));
+    }
+
+    const newMessage = await projectDB.addMessageToChatSpace(space.id, {
       type,
+      content,
+      timestamp: new Date(),
       mode,
-      hasFileContext: !!fileContext,
-      fileContextLength: fileContext?.length || 0,
-      hasEditResponse: !!editResponse,
-      editResponseFiles: editResponse?.changedFiles?.length || 0
+      fileContext,
+      editResponse
     });
 
-    try {
-      // 最初のメッセージかつ type === 'user' の場合のみスペース名をメッセージ内容に変更
-      if (currentSpace.messages.length === 0 && type === 'user' && content && content.trim().length > 0) {
-        const newName = content.length > 30 ? content.slice(0, 30) + '…' : content;
-        await projectDB.renameChatSpace(currentSpace.id, newName);
-        setCurrentSpace(prev => prev ? { ...prev, name: newName } : prev);
-        setChatSpaces(prev => prev.map(space => space.id === currentSpace.id ? { ...space, name: newName } : space));
-      }
+    console.log('[useChatSpace] Message added successfully:', newMessage.id);
 
-      const newMessage = await projectDB.addMessageToChatSpace(currentSpace.id, {
-        type,
-        content,
-        timestamp: new Date(),
-        mode,
-        fileContext,
-        editResponse
-      });
+    // 現在のスペースを更新
+    setCurrentSpace(prev =>
+      prev && prev.id === space!.id
+        ? { ...prev, messages: [...prev.messages, newMessage] }
+        : prev
+    );
 
-      console.log('[useChatSpace] Message added successfully:', newMessage.id);
+    // リストも更新
+    setChatSpaces(prev => {
+      const updated = prev.map(s =>
+        s.id === space!.id
+          ? { ...s, messages: [...s.messages, newMessage], updatedAt: new Date() }
+          : s
+      );
+      return updated.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+    });
 
-      // 現在のスペースのメッセージを更新
-      setCurrentSpace(prev => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          messages: [...prev.messages, newMessage]
-        };
-      });
-
-      // チャットスペースリストも更新（最新順に並び替え）
-      setChatSpaces(prev => {
-        const updated = prev.map(space => 
-          space.id === currentSpace.id 
-            ? { ...space, messages: [...space.messages, newMessage], updatedAt: new Date() }
-            : space
-        );
-        return updated.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
-      });
-
-      return newMessage;
-    } catch (error) {
-      console.error('[useChatSpace] Failed to add message:', error);
-      return null;
-    }
-  };
+    return newMessage;
+  } catch (error) {
+    console.error('[useChatSpace] Failed to add message:', error);
+    return null;
+  }
+};
 
   // 選択ファイルを更新
   const updateSelectedFiles = async (selectedFiles: string[]) => {
