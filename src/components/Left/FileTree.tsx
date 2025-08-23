@@ -424,7 +424,12 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
                         if (typeof content !== 'string') {
                           content = 'error fetching content';
                         }
-                        exportSingleFile({ name: item.name, content });
+                        exportSingleFile({ 
+                          name: item.name, 
+                          content,
+                          isBufferArray: item.isBufferArray,
+                          bufferContent: item.bufferContent
+                        });
                       } else if (item && item.type === 'folder') {
                         await exportFolderZip(item);
                       }
