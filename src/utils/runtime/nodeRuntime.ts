@@ -44,7 +44,7 @@ export class NodeJSRuntime {
     this.console = {
       log: (...args: any[]) => {
         const output = args.map(arg => 
-          typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+          this.formatArgument(arg)
         ).join(' ');
         // 既存のonOutput（出力パネル）への出力は維持
         this.onOutput?.(output, 'log');
@@ -53,7 +53,7 @@ export class NodeJSRuntime {
       },
       error: (...args: any[]) => {
         const output = args.map(arg => 
-          typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+          this.formatArgument(arg)
         ).join(' ');
         this.onOutput?.(output, 'error');
         // DebugConsoleAPIにも出力（赤色）
@@ -61,7 +61,7 @@ export class NodeJSRuntime {
       },
       warn: (...args: any[]) => {
         const output = args.map(arg => 
-          typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+          this.formatArgument(arg)
         ).join(' ');
         this.onOutput?.(`⚠️ ${output}`, 'log');
         // DebugConsoleAPIにも出力（黄色）
@@ -69,13 +69,42 @@ export class NodeJSRuntime {
       },
       info: (...args: any[]) => {
         const output = args.map(arg => 
-          typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+          this.formatArgument(arg)
         ).join(' ');
         this.onOutput?.(`ℹ️ ${output}`, 'log');
         // DebugConsoleAPIにも出力（青色）
         DebugConsoleAPI.log(`\x1b[34m[INFO]\x1b[0m ${output}`);
       }
     };
+  }
+
+  // Format arguments for console output, properly handling Error objects
+  private formatArgument(arg: any): string {
+    if (arg instanceof Error) {
+      // For Error objects, extract meaningful properties
+      const errorInfo: any = {
+        name: arg.name,
+        message: arg.message
+      };
+      
+      // Include stack trace if available
+      if (arg.stack) {
+        errorInfo.stack = arg.stack;
+      }
+      
+      // Include any custom properties
+      for (const key in arg) {
+        if (arg.hasOwnProperty(key) && !errorInfo.hasOwnProperty(key)) {
+          errorInfo[key] = (arg as any)[key];
+        }
+      }
+      
+      return JSON.stringify(errorInfo, null, 2);
+    } else if (typeof arg === 'object' && arg !== null) {
+      return JSON.stringify(arg, null, 2);
+    } else {
+      return String(arg);
+    }
   }
 
   // Node.js風のコードを実行
