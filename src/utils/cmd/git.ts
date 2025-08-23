@@ -1,5 +1,6 @@
 import FS from '@isomorphic-git/lightning-fs';
 import git from 'isomorphic-git';
+import http from 'isomorphic-git/http/web';
 import { getFileSystem, getProjectDir } from '@/utils/core/filesystem';
 import { GitRevertOperations } from './gitOperations/revert';
 import { GitCheckoutOperations } from './gitOperations/checkout';
@@ -74,6 +75,87 @@ export class GitCommands {
       await git.init({ fs: this.fs, dir: this.dir, defaultBranch: 'main' });
       return `Initialized empty Git repository in ${this.dir}`;
     }, 'git init failed');
+  }
+
+  // git clone - リポジトリをクローン
+  async clone(url: string, targetDir?: string): Promise<string> {
+    return this.executeGitOperation(async () => {
+      // クローン先ディレクトリを決定
+      let cloneDir = this.dir;
+      if (targetDir) {
+        // 相対パスの場合は親ディレクトリからの相対パスとして扱う
+        const parentDir = this.dir.substring(0, this.dir.lastIndexOf('/'));
+        cloneDir = `${parentDir}/${targetDir}`;
+      }
+
+      // クローン先ディレクトリが存在しないことを確認
+      try {
+        await this.fs.promises.stat(cloneDir);
+        throw new Error(`fatal: destination path '${targetDir || cloneDir}' already exists and is not an empty directory.`);
+      } catch (error) {
+        // ディレクトリが存在しない場合は正常（続行）
+        if (!(error as any).code || (error as any).code !== 'ENOENT') {
+          throw error;
+        }
+      }
+
+      // 親ディレクトリを作成
+      await GitFileSystemHelper.ensureDirectory(this.fs, cloneDir);
+
+      // リポジトリをクローン
+      await git.clone({
+        fs: this.fs,
+        http,
+        dir: cloneDir,
+        url: url,
+        singleBranch: true,
+        depth: 1,
+        noTags: true,
+        corsProxy: 'https://cors.isomorphic-git.org',
+      });
+
+      // クローンしたファイルをファイルシステムに反映
+      if (this.onFileOperation) {
+        const files = await this.getAllFilesInDirectory(cloneDir);
+        for (const file of files) {
+          const relativePath = file.replace(cloneDir, '');
+          const content = await this.fs.promises.readFile(file, 'utf8');
+          await this.onFileOperation(relativePath, 'file', content);
+        }
+      }
+
+      const repoName = targetDir || url.split('/').pop()?.replace('.git', '') || 'repository';
+      return `Cloning into '${repoName}'...\nClone completed successfully.`;
+    }, 'git clone failed');
+  }
+
+  // ディレクトリ内の全ファイルを再帰的に取得
+  private async getAllFilesInDirectory(dirPath: string): Promise<string[]> {
+    const files: string[] = [];
+    
+    const traverse = async (currentPath: string) => {
+      try {
+        const entries = await this.fs.promises.readdir(currentPath);
+        for (const entry of entries) {
+          const fullPath = `${currentPath}/${entry}`;
+          const stat = await this.fs.promises.stat(fullPath);
+          
+          if (stat.isDirectory()) {
+            // .gitディレクトリはスキップ
+            if (entry !== '.git') {
+              await traverse(fullPath);
+            }
+          } else {
+            files.push(fullPath);
+          }
+        }
+      } catch (error) {
+        console.warn(`Failed to traverse directory ${currentPath}:`, error);
+      }
+    };
+    
+    await traverse(dirPath);
+    return files;
   }
 
   // git status - ステータス確認

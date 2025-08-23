@@ -23,6 +23,21 @@ export async function handleGitCommand(
       await writeOutput(initMessage);
       break;
 
+    case "clone":
+      if (args[1]) {
+        const url = args[1];
+        const targetDir = args[2]; // オプションのターゲットディレクトリ
+        try {
+          const cloneResult = await gitCommandsRef.current.clone(url, targetDir);
+          await writeOutput(cloneResult);
+        } catch (error) {
+          await writeOutput(`git clone: ${(error as Error).message}`);
+        }
+      } else {
+        await writeOutput("git clone: missing repository URL");
+      }
+      break;
+
     case "status":
       const statusResult = await gitCommandsRef.current.status();
       await writeOutput(statusResult);
