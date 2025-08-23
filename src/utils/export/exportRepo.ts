@@ -41,7 +41,12 @@ export async function downloadWorkspaceZip({ currentProject, includeGit = false 
   const projectFiles = allFiles.filter(f => f.projectId === currentProject.id);
   for (const file of projectFiles) {
     if (file.type === 'file') {
-      zip.file(`${projectDir}${file.path}`, file.content);
+      // バイナリファイル（bufferContent）がある場合はそれを使用
+      if (file.isBufferArray && file.bufferContent) {
+        zip.file(`${projectDir}${file.path}`, file.bufferContent);
+      } else {
+        zip.file(`${projectDir}${file.path}`, file.content);
+      }
     }
   }
 

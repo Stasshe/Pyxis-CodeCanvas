@@ -9,7 +9,12 @@ export async function exportFolderZip(folder: FileItem) {
   function addToZip(items: FileItem[], basePath: string) {
     for (const item of items) {
       if (item.type === 'file') {
-        zip.file(basePath + item.name, item.content ?? '');
+        // バイナリファイル（bufferContent）がある場合はそれを使用
+        if (item.isBufferArray && item.bufferContent) {
+          zip.file(basePath + item.name, item.bufferContent);
+        } else {
+          zip.file(basePath + item.name, item.content ?? '');
+        }
       } else if (item.type === 'folder' && item.children) {
         addToZip(item.children, basePath + item.name + '/');
       }
