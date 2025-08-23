@@ -80,6 +80,11 @@ export class GitCommands {
   // git clone - リポジトリをクローン
   async clone(url: string, targetDir?: string): Promise<string> {
     return this.executeGitOperation(async () => {
+      // URLの妥当性を簡易チェック
+      if (!url || typeof url !== 'string' || !url.trim()) {
+        throw new Error('fatal: repository URL is required');
+      }
+
       // クローン先ディレクトリを決定
       let cloneDir = this.dir;
       if (targetDir) {
@@ -103,24 +108,49 @@ export class GitCommands {
       await GitFileSystemHelper.ensureDirectory(this.fs, cloneDir);
 
       // リポジトリをクローン
-      await git.clone({
-        fs: this.fs,
-        http,
-        dir: cloneDir,
-        url: url,
-        singleBranch: true,
-        depth: 1,
-        noTags: true,
-        corsProxy: 'https://cors.isomorphic-git.org',
-      });
+      try {
+        await git.clone({
+          fs: this.fs,
+          http,
+          dir: cloneDir,
+          url: url,
+          singleBranch: true,
+          depth: 1,
+          noTags: true,
+          corsProxy: 'https://cors.isomorphic-git.org',
+        });
+      } catch (cloneError) {
+        // クローンに失敗した場合、作成したディレクトリをクリーンアップ
+        try {
+          const entries = await this.fs.promises.readdir(cloneDir);
+          if (entries.length === 0) {
+            await this.fs.promises.rmdir(cloneDir);
+          }
+        } catch {
+          // クリーンアップに失敗してもエラーは無視
+        }
+        throw cloneError;
+      }
 
       // クローンしたファイルをファイルシステムに反映
       if (this.onFileOperation) {
-        const files = await this.getAllFilesInDirectory(cloneDir);
-        for (const file of files) {
-          const relativePath = file.replace(cloneDir, '');
-          const content = await this.fs.promises.readFile(file, 'utf8');
-          await this.onFileOperation(relativePath, 'file', content);
+        try {
+          const files = await this.getAllFilesInDirectory(cloneDir);
+          for (const file of files) {
+            const relativePath = file.replace(cloneDir, '');
+            if (relativePath) { // 空でない場合のみ
+              try {
+                const content = await this.fs.promises.readFile(file, 'utf8');
+                await this.onFileOperation(relativePath, 'file', content);
+              } catch (readError) {
+                console.warn(`Failed to read file ${file}:`, readError);
+                // ファイル読み込みエラーは警告のみで処理を続行
+              }
+            }
+          }
+        } catch (syncError) {
+          console.warn('Failed to sync files to project:', syncError);
+          // ファイル同期エラーは警告のみで処理を続行
         }
       }
 
