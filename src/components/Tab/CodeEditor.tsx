@@ -34,7 +34,15 @@ import { css } from '@codemirror/lang-css';
 import { python } from '@codemirror/lang-python';
 import { yaml } from '@codemirror/lang-yaml';
 import { oneDark } from '@codemirror/theme-one-dark';
-import { highlightActiveLine, highlightActiveLineGutter, highlightSpecialChars, drawSelection } from '@codemirror/view';
+import { highlightActiveLine, highlightActiveLineGutter, highlightSpecialChars, lineNumbers } from '@codemirror/view';
+import { keymap } from '@codemirror/view';
+import { history } from '@codemirror/commands';
+// 編集支援
+import { autocompletion } from '@codemirror/autocomplete';
+// 検索機能
+import { searchKeymap } from '@codemirror/search';
+// キーマップ（基本操作）
+import { defaultKeymap, historyKeymap } from '@codemirror/commands';
 import { highlightSelectionMatches } from '@codemirror/search';
 import { html } from '@codemirror/lang-html';
 import { extent } from 'd3';
@@ -125,6 +133,15 @@ const getCMExtensions = (filename: string) => {
   else if (ext.endsWith('.html') || ext.endsWith('.htm') || ext.endsWith('.xhtml')) lang = [html()];
   // shellは拡張なし
   return [
+    keymap.of([
+      ...defaultKeymap,
+      ...historyKeymap,
+      ...defaultKeymap,
+      ...searchKeymap,
+    ]),
+    history(),
+    autocompletion(),
+    lineNumbers(),
     oneDark,
     highlightActiveLine(),
     highlightActiveLineGutter(),
@@ -639,7 +656,7 @@ export default function CodeEditor({
             height="100%"
             theme={oneDark}
             extensions={getCMExtensions(activeTab.name)}
-            basicSetup={true}
+            basicSetup={false}
             onChange={(value) => {
               if (onContentChangeImmediate) {
                 onContentChangeImmediate(activeTab.id, value);
