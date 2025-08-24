@@ -686,7 +686,7 @@ export default function CodeEditor({
               const text = vu.state.sliceDoc(sel.from, sel.to);
               setSelectionCount(countCharsNoSpaces(text));
             }
-          }
+          }}
           style={{
               height: '100%',
               minHeight: '100%',
