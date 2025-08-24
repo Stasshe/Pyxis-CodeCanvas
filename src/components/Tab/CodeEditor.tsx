@@ -237,6 +237,20 @@ export default function CodeEditor({
            typeof model.isDisposed === 'function' && 
            !model.isDisposed();
   }, []);
+  
+  useEffect(() => {
+    if (!activeTab || !isCodeMirror) return;
+    if (
+      isBufferArray((activeTab as any).bufferContent) ||
+      activeTab.id === 'welcome' ||
+      activeTab.preview
+    ) {
+      return;
+    }
+    setCharCount(countCharsNoSpaces(activeTab.content || ''));
+    setSelectionCount(null);
+  }, [isCodeMirror, activeTab?.id, activeTab?.content]);
+
 
   // Monaco Editor: ファイルごとにTextModelを管理し、タブ切り替え時にモデルを切り替える
   const handleEditorDidMount: OnMount = (editor, monaco) => {
@@ -650,22 +664,30 @@ export default function CodeEditor({
             WebkitTapHighlightColor: 'transparent',
           }}
         >
-          <CodeMirror
-            key={activeTab.id}
-            value={activeTab.content}
-            height="100%"
-            theme={oneDark}
-            extensions={getCMExtensions(activeTab.name)}
-            basicSetup={false}
-            onChange={(value) => {
-              if (onContentChangeImmediate) {
-                onContentChangeImmediate(activeTab.id, value);
-              }
-              debouncedSave(activeTab.id, value);
-              setCharCount(countCharsNoSpaces(value));
+        <CodeMirror
+          key={activeTab.id}
+          value={activeTab.content}
+          height="100%"
+          theme={oneDark}
+          extensions={getCMExtensions(activeTab.name)}
+          basicSetup={false}
+          onChange={(value) => {
+            onContentChangeImmediate?.(activeTab.id, value);
+            debouncedSave(activeTab.id, value);
+            setCharCount(countCharsNoSpaces(value)); // ← ここは「スペース除外」で計算
+            setSelectionCount(null);
+          }}
+          // これを追加：選択範囲の文字数（スペース除外）
+          onUpdate={(vu: any) => {
+            const sel = vu.state.selection.main;
+            if (sel.empty) {
               setSelectionCount(null);
-            }}
-            style={{
+            } else {
+              const text = vu.state.sliceDoc(sel.from, sel.to);
+              setSelectionCount(countCharsNoSpaces(text));
+            }
+          }
+          style={{
               height: '100%',
               minHeight: '100%',
               width: '100%',
