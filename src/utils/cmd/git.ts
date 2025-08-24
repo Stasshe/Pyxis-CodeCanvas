@@ -77,7 +77,7 @@ export class GitCommands {
     }, 'git init failed');
   }
 
-    // terminalGitCommands.ts の clone メソッド
+  // terminalGitCommands.ts の clone メソッド
   async clone(url: string, targetDir?: string): Promise<string> {
     return this.executeGitOperation(async () => {
       // URLの妥当性を簡易チェック
@@ -174,12 +174,19 @@ export class GitCommands {
   private async syncDirectoryRecursively(clonePath: string, baseRelativePath: string): Promise<void> {
     try {
       console.log(`[syncDirectoryRecursively] Processing: ${clonePath}, base: ${baseRelativePath}`);
+      
+      // まず baseRelativePath のルートフォルダを作成（最初の呼び出し時のみ）
+      if (baseRelativePath && this.onFileOperation) {
+        console.log(`[syncDirectoryRecursively] Creating root folder: ${baseRelativePath}`);
+        await this.onFileOperation(baseRelativePath, 'folder', '');
+      }
+      
       const entries = await this.fs.promises.readdir(clonePath);
       console.log(`[syncDirectoryRecursively] Found ${entries.length} entries in ${clonePath}`);
       
-      // まず全ディレクトリを収集して作成
-      const directories: string[] = [];
-      const files: Array<{path: string, fullPath: string}> = [];
+      // エントリを分類
+      const directories: Array<{name: string, fullPath: string, relativePath: string}> = [];
+      const files: Array<{name: string, fullPath: string, relativePath: string}> = [];
       
       for (const entry of entries) {
         // .git ディレクトリは除外
@@ -195,11 +202,16 @@ export class GitCommands {
           const stat = await this.fs.promises.stat(entryFullPath);
           
           if (stat.isDirectory()) {
-            directories.push(entryRelativePath);
+            directories.push({
+              name: entry,
+              fullPath: entryFullPath,
+              relativePath: entryRelativePath
+            });
           } else {
             files.push({
-              path: entryRelativePath,
-              fullPath: entryFullPath
+              name: entry,
+              fullPath: entryFullPath,
+              relativePath: entryRelativePath
             });
           }
         } catch (statError) {
@@ -207,36 +219,35 @@ export class GitCommands {
         }
       }
       
-      // 1. 全ディレクトリを先に作成
-      for (const dirPath of directories) {
+      // 1. 現在のレベルのディレクトリを先に作成
+      for (const dir of directories) {
         if (this.onFileOperation) {
-          console.log(`[syncDirectoryRecursively] Creating folder: ${dirPath}`);
-          await this.onFileOperation(dirPath, 'folder', '');
+          console.log(`[syncDirectoryRecursively] Creating folder: ${dir.relativePath}`);
+          await this.onFileOperation(dir.relativePath, 'folder', '');
         }
       }
       
-      // 2. 全ファイルを作成
+      // 2. 現在のレベルのファイルを作成
       for (const file of files) {
         try {
           const content = await this.fs.promises.readFile(file.fullPath, 'utf8');
           if (this.onFileOperation) {
-            console.log(`[syncDirectoryRecursively] Creating file: ${file.path}, content length: ${content.length}`);
-            await this.onFileOperation(file.path, 'file', content);
+            console.log(`[syncDirectoryRecursively] Creating file: ${file.relativePath}, content length: ${content.length}`);
+            await this.onFileOperation(file.relativePath, 'file', content);
           }
         } catch (readError) {
           console.warn(`Failed to read file ${file.fullPath}:`, readError);
           // バイナリファイルの場合は空の内容で同期
           if (this.onFileOperation) {
-            console.log(`[syncDirectoryRecursively] Creating binary file: ${file.path}`);
-            await this.onFileOperation(file.path, 'file', '');
+            console.log(`[syncDirectoryRecursively] Creating binary file: ${file.relativePath}`);
+            await this.onFileOperation(file.relativePath, 'file', '');
           }
         }
       }
       
       // 3. サブディレクトリを再帰的に処理
-      for (const dirPath of directories) {
-        const dirFullPath = `${clonePath}/${dirPath.split('/').pop()}`;
-        await this.syncDirectoryRecursively(dirFullPath, dirPath);
+      for (const dir of directories) {
+        await this.syncDirectoryRecursively(dir.fullPath, dir.relativePath);
       }
       
     } catch (readdirError) {
