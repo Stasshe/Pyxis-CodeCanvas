@@ -183,6 +183,13 @@ body {
   background: hsl(var(--accent));
 }
 
+.cm-editor {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+  -webkit-touch-callout: default !important;
+  touch-action: manipulation;
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;
