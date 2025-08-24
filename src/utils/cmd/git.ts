@@ -77,7 +77,7 @@ export class GitCommands {
     }, 'git init failed');
   }
 
-  // terminalGitCommands.ts の clone メソッド
+    // terminalGitCommands.ts の clone メソッド
   async clone(url: string, targetDir?: string): Promise<string> {
     return this.executeGitOperation(async () => {
       // URLの妥当性を簡易チェック
@@ -117,7 +117,7 @@ export class GitCommands {
       try {
         await this.ensureGitRepository()
         // 最終的なクローン先ディレクトリを作成
-        await this.fs.promises.mkdir(cloneDir);
+        await this.fs.promises.mkdir(cloneDir, { recursive: true });
         console.log(`[git clone] Created clone directory: ${cloneDir}`);
       } catch (mkdirError) {
         console.error('[git clone] Failed to create directories:', mkdirError);
@@ -177,6 +177,10 @@ export class GitCommands {
       const entries = await this.fs.promises.readdir(clonePath);
       console.log(`[syncDirectoryRecursively] Found ${entries.length} entries in ${clonePath}`);
       
+      // まず全ディレクトリを収集して作成
+      const directories: string[] = [];
+      const files: Array<{path: string, fullPath: string}> = [];
+      
       for (const entry of entries) {
         // .git ディレクトリは除外
         if (entry === '.git') {
@@ -189,37 +193,52 @@ export class GitCommands {
         
         try {
           const stat = await this.fs.promises.stat(entryFullPath);
-          console.log(`[syncDirectoryRecursively] Processing entry: ${entry}, isDir: ${stat.isDirectory()}, path: ${entryRelativePath}`);
           
           if (stat.isDirectory()) {
-            // ディレクトリの場合：まずフォルダを作成してから再帰処理
-            if (this.onFileOperation) {
-              console.log(`[syncDirectoryRecursively] Creating folder: ${entryRelativePath}`);
-              await this.onFileOperation(entryRelativePath, 'folder', '');
-            }
-            // 再帰的に処理
-            await this.syncDirectoryRecursively(entryFullPath, entryRelativePath);
+            directories.push(entryRelativePath);
           } else {
-            // ファイルの場合は内容を読み取って同期
-            try {
-              const content = await this.fs.promises.readFile(entryFullPath, 'utf8');
-              if (this.onFileOperation) {
-                console.log(`[syncDirectoryRecursively] Creating file: ${entryRelativePath}, content length: ${content.length}`);
-                await this.onFileOperation(entryRelativePath, 'file', content);
-              }
-            } catch (readError) {
-              console.warn(`Failed to read file ${entryFullPath}:`, readError);
-              // バイナリファイルの場合は空の内容で同期
-              if (this.onFileOperation) {
-                console.log(`[syncDirectoryRecursively] Creating binary file: ${entryRelativePath}`);
-                await this.onFileOperation(entryRelativePath, 'file', '');
-              }
-            }
+            files.push({
+              path: entryRelativePath,
+              fullPath: entryFullPath
+            });
           }
         } catch (statError) {
           console.warn(`Failed to stat ${entryFullPath}:`, statError);
         }
       }
+      
+      // 1. 全ディレクトリを先に作成
+      for (const dirPath of directories) {
+        if (this.onFileOperation) {
+          console.log(`[syncDirectoryRecursively] Creating folder: ${dirPath}`);
+          await this.onFileOperation(dirPath, 'folder', '');
+        }
+      }
+      
+      // 2. 全ファイルを作成
+      for (const file of files) {
+        try {
+          const content = await this.fs.promises.readFile(file.fullPath, 'utf8');
+          if (this.onFileOperation) {
+            console.log(`[syncDirectoryRecursively] Creating file: ${file.path}, content length: ${content.length}`);
+            await this.onFileOperation(file.path, 'file', content);
+          }
+        } catch (readError) {
+          console.warn(`Failed to read file ${file.fullPath}:`, readError);
+          // バイナリファイルの場合は空の内容で同期
+          if (this.onFileOperation) {
+            console.log(`[syncDirectoryRecursively] Creating binary file: ${file.path}`);
+            await this.onFileOperation(file.path, 'file', '');
+          }
+        }
+      }
+      
+      // 3. サブディレクトリを再帰的に処理
+      for (const dirPath of directories) {
+        const dirFullPath = `${clonePath}/${dirPath.split('/').pop()}`;
+        await this.syncDirectoryRecursively(dirFullPath, dirPath);
+      }
+      
     } catch (readdirError) {
       console.error(`Failed to read directory ${clonePath}:`, readdirError);
       throw readdirError;
