@@ -85,18 +85,25 @@ export class GitCommands {
         throw new Error('fatal: repository URL is required');
       }
 
+      // リポジトリ名を取得
+      const repoName = url.split('/').pop()?.replace('.git', '') || 'repository';
+      
       // クローン先ディレクトリを決定
-      let cloneDir = this.dir;
+      let cloneDir: string;
+      
       if (targetDir) {
-        // 相対パスの場合は親ディレクトリからの相対パスとして扱う
-        const parentDir = this.dir.substring(0, this.dir.lastIndexOf('/'));
-        cloneDir = `${parentDir}/${targetDir}`;
+        // targetDirが指定された場合: projects/{現在のリポジトリ名}/{targetDir}
+        const currentRepoName = this.dir.split('/').pop() || 'project';
+        cloneDir = `projects/${currentRepoName}/${targetDir}`;
+      } else {
+        // targetDirが指定されていない場合: projects/{クローン先リポジトリ名}
+        cloneDir = `projects/${repoName}`;
       }
 
       // クローン先ディレクトリが存在しないことを確認
       try {
         await this.fs.promises.stat(cloneDir);
-        throw new Error(`fatal: destination path '${targetDir || cloneDir}' already exists and is not an empty directory.`);
+        throw new Error(`fatal: destination path '${targetDir || repoName}' already exists and is not an empty directory.`);
       } catch (error) {
         // ディレクトリが存在しない場合は正常（続行）
         if (!(error as any).code || (error as any).code !== 'ENOENT') {
@@ -132,31 +139,65 @@ export class GitCommands {
         throw cloneError;
       }
 
-      // クローンしたファイルをファイルシステムに反映
+      // クローンしたファイルをファイルシステムに反映（再帰的に処理）
       if (this.onFileOperation) {
         try {
-          const files = await this.getAllFilesInDirectory(cloneDir);
-          for (const file of files) {
-            const relativePath = file.replace(cloneDir, '');
-            if (relativePath) { // 空でない場合のみ
-              try {
-                const content = await this.fs.promises.readFile(file, 'utf8');
-                await this.onFileOperation(relativePath, 'file', content);
-              } catch (readError) {
-                console.warn(`Failed to read file ${file}:`, readError);
-                // ファイル読み込みエラーは警告のみで処理を続行
-              }
-            }
-          }
+          await this.syncDirectoryRecursively(cloneDir, '');
         } catch (syncError) {
           console.warn('Failed to sync files to project:', syncError);
           // ファイル同期エラーは警告のみで処理を続行
         }
       }
 
-      const repoName = targetDir || url.split('/').pop()?.replace('.git', '') || 'repository';
-      return `Cloning into '${repoName}'...\nClone completed successfully.`;
+      return `Cloning into '${targetDir || repoName}'...\nClone completed successfully.`;
     }, 'git clone failed');
+  }
+
+  // 再帰的にディレクトリをSync するヘルパーメソッド
+  private async syncDirectoryRecursively(basePath: string, relativePath: string): Promise<void> {
+    const fullPath = relativePath ? `${basePath}/${relativePath}` : basePath;
+    
+    try {
+      const entries = await this.fs.promises.readdir(fullPath);
+      
+      for (const entry of entries) {
+        // .git ディレクトリは除外
+        if (entry === '.git') continue;
+        
+        const entryPath = relativePath ? `${relativePath}/${entry}` : entry;
+        const entryFullPath = `${fullPath}/${entry}`;
+        
+        try {
+          const stat = await this.fs.promises.stat(entryFullPath);
+          
+          if (stat.isDirectory()) {
+            // ディレクトリの場合は再帰的に処理
+            if (this.onFileOperation) {
+              await this.onFileOperation(entryPath, 'folder', '');
+            }
+            await this.syncDirectoryRecursively(basePath, entryPath);
+          } else {
+            // ファイルの場合は内容を読み取って同期
+            try {
+              const content = await this.fs.promises.readFile(entryFullPath, 'utf8');
+              if (this.onFileOperation) {
+                await this.onFileOperation(entryPath, 'file', content);
+              }
+            } catch (readError) {
+              console.warn(`Failed to read file ${entryFullPath}:`, readError);
+              // バイナリファイルの場合は空の内容で同期
+              if (this.onFileOperation) {
+                await this.onFileOperation(entryPath, 'file', '');
+              }
+            }
+          }
+        } catch (statError) {
+          console.warn(`Failed to stat ${entryFullPath}:`, statError);
+        }
+      }
+    } catch (readdirError) {
+      console.warn(`Failed to read directory ${fullPath}:`, readdirError);
+    }
   }
 
   // ディレクトリ内の全ファイルを再帰的に取得
