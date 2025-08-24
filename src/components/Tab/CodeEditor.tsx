@@ -26,7 +26,6 @@ function guessMimeType(fileName: string, buffer?: ArrayBuffer): string {
 }
 import * as monaco from 'monaco-editor';
 import CodeMirror from '@uiw/react-codemirror';
-import { drawSelection } from '@codemirror/view';
 // CodeMirror用: 履歴分離のためkeyにタブIDを使う
 import { javascript } from '@codemirror/lang-javascript';
 import { markdown } from '@codemirror/lang-markdown';
@@ -126,12 +125,10 @@ const getCMExtensions = (filename: string) => {
   else if (ext.endsWith('.html') || ext.endsWith('.htm') || ext.endsWith('.xhtml')) lang = [html()];
   // shellは拡張なし
   return [
-    drawSelection(),
     oneDark,
     highlightActiveLine(),
     highlightActiveLineGutter(),
     highlightSpecialChars(),
-    drawSelection(),
     highlightSelectionMatches(),
     ...lang
   ];
