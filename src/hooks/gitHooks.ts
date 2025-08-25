@@ -1,26 +1,14 @@
 // src/app/gitHooks.ts
 // page.tsx から Git 関連のロジックを分離
 import { GitCommands } from '@/utils/cmd/git';
-import { handleFileOperation } from '@/utils/handleFileOperation';
 
 import type { Tab, FileItem, Project } from '@/types';
 import type { Dispatch, SetStateAction } from 'react';
 
 export function useGitMonitor({
   currentProject,
-  loadProject,
-  saveFile,
-  deleteFile,
-  tabs,
-  setTabs,
-  activeTabId,
-  setActiveTabId,
-  projectFiles,
   setGitRefreshTrigger,
-  setNodeRuntimeOperationInProgress,
-  refreshProjectFiles,
   setGitChangesCount,
-  gitRefreshTrigger,
 }: {
   currentProject: Project | null;
   loadProject: any;
@@ -46,24 +34,6 @@ export function useGitMonitor({
       }
       try {
         const gitCommands = new GitCommands(currentProject.name, async (path: string, type: 'file' | 'folder' | 'delete', content?: string) => {
-          await handleFileOperation({
-            path,
-            type,
-            content,
-            isNodeRuntime: false,
-            currentProject,
-            loadProject,
-            saveFile,
-            deleteFile,
-            tabs,
-            setTabs,
-            activeTabId,
-            setActiveTabId,
-            projectFiles,
-            setGitRefreshTrigger,
-            setNodeRuntimeOperationInProgress,
-            refreshProjectFiles,
-          });
           setTimeout(() => {
             setGitRefreshTrigger((prev: number) => prev + 1);
           }, 200);

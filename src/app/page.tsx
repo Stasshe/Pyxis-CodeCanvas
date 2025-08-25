@@ -14,11 +14,6 @@ import {
 import { useProjectTabResetEffect, useProjectFilesSyncEffect, useActiveTabContentRestore } from '@/hooks/tab';
 import MenuBar from '@/components/MenuBar';
 import LeftSidebar from '@/components/Left/LeftSidebar';
-import TabBar from '@/components/Tab/TabBar';
-import CodeEditor from '@/components/Tab/CodeEditor';
-import DiffTab from '@/components/Tab/DiffTab';
-import WebPreviewTab from '@/components/Tab/WebPreviewTab';
-import AIReviewTab from '@/components/AI/AIReview/AIReviewTab';
 import PaneContainer from '@/components/PaneContainer';
 import PaneResizer from '@/components/PaneResizer';
 import { useDiffTabHandlers } from '@/hooks/useDiffTabHandlers';
