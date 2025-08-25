@@ -1,9 +1,9 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import mermaid from 'mermaid';
-import { HighlightedCode } from './HighlightedCode'; // Assuming you have a HighlightedCode component for syntax highlighting
+import { HighlightedCode } from './HighlightedCode';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
@@ -151,66 +151,83 @@ const loadImageAsDataURL = async (
   }
 };
 
-const Mermaid: React.FC<{ chart: string }> = ({ chart }) => {
+// メモ化されたMermaidコンポーネント
+const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) => {
   const ref = useRef<HTMLDivElement>(null);
   const idRef = useRef<string>(getUniqueMermaidId());
-  const { colors } = useTheme();
-  const loadingRef = useRef<HTMLDivElement>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
-    let bounceTimer: NodeJS.Timeout | null = null;
-    if (ref.current) {
-      // ローディングアニメーション表示
-      ref.current.innerHTML = `<div class="mermaid-loading" style="display:flex;align-items:center;justify-content:center;height:120px;"><svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="18" stroke="#4ade80" stroke-width="4" fill="none" stroke-dasharray="90" stroke-dashoffset="60"><animateTransform attributeName="transform" type="rotate" from="0 20 20" to="360 20 20" dur="1s" repeatCount="indefinite"/></circle></svg><span style="margin-left:10px;color:#4ade80;font-size:14px;">Mermaid図表を生成中...</span></div>`;
-      ref.current.style.minHeight = '120px'; // 高さを固定
-    }
     const renderMermaid = async () => {
-      if (ref.current) {
-        try {
-          // ダーク/ライト自動切替
-          const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-          mermaid.initialize({ 
-            startOnLoad: false, 
-            theme: isDark ? 'dark' : 'default', 
-            securityLevel: 'loose',
-            themeVariables: {
-              fontSize: '8px', // フォントサイズ調整
-            },
-            suppressErrorRendering: true // エラーDOM自動挿入を抑制
-          });
-          const { svg } = await mermaid.render(idRef.current, chart);
-          ref.current.innerHTML = svg;
-          // SVGのoverflow調整 & 背景色設定
-          const svgElem = ref.current.querySelector('svg');
-          if (svgElem) {
-            svgElem.style.maxWidth = '100%';
-            svgElem.style.height = 'auto';
-            svgElem.style.maxHeight = '90vh'; // 画面高の90%以下に制限
-            svgElem.style.overflow = 'visible';
-            svgElem.style.background = colors.mermaidBg || '#eaffea';
-          }
-        } catch (e) {
-          ref.current.innerHTML = `<div class="mermaid-error">Mermaidのレンダリングに失敗しました。コードを確認してください。${e}</div>`;
+      if (!ref.current) return;
+      
+      setIsLoading(true);
+      setError(null);
+      
+      // ローディング表示
+      ref.current.innerHTML = `
+        <div class="mermaid-loading" style="display:flex;align-items:center;justify-content:center;height:120px;">
+          <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="20" cy="20" r="18" stroke="#4ade80" stroke-width="4" fill="none" stroke-dasharray="90" stroke-dashoffset="60">
+              <animateTransform attributeName="transform" type="rotate" from="0 20 20" to="360 20 20" dur="1s" repeatCount="indefinite"/>
+            </circle>
+          </svg>
+          <span style="margin-left:10px;color:#4ade80;font-size:14px;">Mermaid図表を生成中...</span>
+        </div>
+      `;
+
+      try {
+        // ダーク/ライト自動切替
+        const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        mermaid.initialize({ 
+          startOnLoad: false, 
+          theme: isDark ? 'dark' : 'default', 
+          securityLevel: 'loose',
+          themeVariables: {
+            fontSize: '8px',
+          },
+          suppressErrorRendering: true
+        });
+        
+        const { svg } = await mermaid.render(idRef.current, chart);
+        ref.current.innerHTML = svg;
+        
+        // SVGのoverflow調整 & 背景色設定
+        const svgElem = ref.current.querySelector('svg');
+        if (svgElem) {
+          svgElem.style.maxWidth = '100%';
+          svgElem.style.height = 'auto';
+          svgElem.style.maxHeight = '90vh';
+          svgElem.style.overflow = 'visible';
+          svgElem.style.background = colors.mermaidBg || '#eaffea';
         }
+        
+        setIsLoading(false);
+      } catch (e) {
+        const errorMessage = `Mermaidのレンダリングに失敗しました。コードを確認してください。${e}`;
+        ref.current.innerHTML = `<div class="mermaid-error" style="color: #cc0000; padding: 16px; border: 1px solid #ff9999; border-radius: 4px; background: #ffe6e6;">${errorMessage}</div>`;
+        setError(errorMessage);
+        setIsLoading(false);
       }
     };
-    // バウンス: 1秒間変更がなければ描画
-    if (bounceTimer) clearTimeout(bounceTimer);
-    bounceTimer = setTimeout(renderMermaid, 1000);
-    return () => {
-      if (bounceTimer) clearTimeout(bounceTimer);
-    };
-  }, [chart, colors.mermaidBg]);
-  return <div ref={ref} className="mermaid" style={{ minHeight: '120px' }} />; // 高さを固定
-};
 
-// ローカル画像コンポーネント
-const LocalImage: React.FC<{ 
+    renderMermaid();
+  }, [chart, colors.mermaidBg]);
+
+  return <div ref={ref} className="mermaid" style={{ minHeight: '120px' }} />;
+});
+
+Mermaid.displayName = 'Mermaid';
+
+// メモ化されたローカル画像コンポーネント
+const LocalImage = React.memo<{ 
   src: string; 
   alt?: string; 
   projectName?: string; 
   projectFiles?: FileItem[];
   [key: string]: any; 
-}> = ({ src, alt, projectName, projectFiles, ...props }) => {
+}>(({ src, alt, projectName, projectFiles, ...props }) => {
   const [dataUrl, setDataUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -286,10 +303,81 @@ const LocalImage: React.FC<{
   }
 
   return <img {...props} src={dataUrl} alt={alt} />;
-};
+});
 
-const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ content, fileName, currentProjectName, projectFiles }) => {
+LocalImage.displayName = 'LocalImage';
+
+// メモ化されたコードコンポーネント
+const MemoizedCodeComponent = React.memo<{
+  className?: string;
+  children: React.ReactNode;
+  colors: any;
+  currentProjectName?: string;
+  projectFiles?: FileItem[];
+}>(({ className, children, colors, currentProjectName, projectFiles, ...props }) => {
+  const match = /language-(\w+)/.exec(className || '');
+  const codeString = String(children).replace(/\n$/, '').trim();
+  
+  if (match && match[1] === 'mermaid') {
+    return <Mermaid chart={codeString} colors={colors} />;
+  }
+  
+  if (className && match) {
+    return <HighlightedCode language={match[1] || ''} value={codeString} />;
+  }
+  
+  // インラインコード
+  return <code {...props}>{children}</code>;
+});
+
+MemoizedCodeComponent.displayName = 'MemoizedCodeComponent';
+
+const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ 
+  content, 
+  fileName, 
+  currentProjectName, 
+  projectFiles 
+}) => {
   const { colors } = useTheme();
+
+  // ReactMarkdownのコンポーネントをメモ化
+  const markdownComponents = useMemo(() => ({
+    code: ({ node, className, children, ...props }: any) => (
+      <MemoizedCodeComponent 
+        className={className}
+        colors={colors}
+        currentProjectName={currentProjectName}
+        projectFiles={projectFiles}
+        {...props}
+      >
+        {children}
+      </MemoizedCodeComponent>
+    ),
+    img: ({ node, src, alt, ...props }: any) => {
+      const srcString = typeof src === 'string' ? src : '';
+      return (
+        <LocalImage 
+          src={srcString} 
+          alt={alt || ''} 
+          projectName={currentProjectName}
+          projectFiles={projectFiles}
+          {...props}
+        />
+      );
+    },
+  }), [colors, currentProjectName, projectFiles]);
+
+  // メイン部分もメモ化
+  const markdownContent = useMemo(() => (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm, remarkMath]}
+      rehypePlugins={[rehypeKatex, rehypeRaw]}
+      components={markdownComponents}
+    >
+      {content}
+    </ReactMarkdown>
+  ), [content, markdownComponents]);
+
   return (
     <div className="p-4 overflow-auto h-full w-full">
       <div className="font-bold text-lg mb-2">{fileName} プレビュー</div>
@@ -300,41 +388,10 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ content, fileNa
           color: colors.foreground,
         }}
       >
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm, remarkMath]}
-          rehypePlugins={[rehypeKatex, rehypeRaw]}
-          components={{
-            code({ node, className, children, ...props }) {
-              const match = /language-(\w+)/.exec(className || '');
-              const codeString = String(children).replace(/\n$/, '').trim(); // 余計な空白・改行除去
-              if (match && match[1] === 'mermaid') {
-                return <Mermaid chart={codeString} />;
-              }
-              if (className && match) {
-                return <HighlightedCode language={match[1] || ''} value={codeString} />;
-              }
-              // インラインコード
-              return <code {...props}>{children}</code>;
-            },
-            img({ node, src, alt, ...props }) {
-              const srcString = typeof src === 'string' ? src : '';
-              return (
-                <LocalImage 
-                  src={srcString} 
-                  alt={alt || ''} 
-                  projectName={currentProjectName}
-                  projectFiles={projectFiles}
-                  {...props}
-                />
-              );
-            },
-          }}
-        >
-          {content}
-        </ReactMarkdown>
+        {markdownContent}
       </div>
     </div>
   );
 };
 
-export default MarkdownPreviewTab;
+export default React.memo(MarkdownPreviewTab);
