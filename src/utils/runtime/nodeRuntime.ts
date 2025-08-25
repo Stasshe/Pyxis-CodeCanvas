@@ -324,7 +324,9 @@ export class NodeJSRuntime {
       setTimeout: globalThis.setTimeout,
       setInterval: globalThis.setInterval,
       clearTimeout: globalThis.clearTimeout,
-      clearInterval: globalThis.clearInterval
+      clearInterval: globalThis.clearInterval,
+      fetch: globalThis.fetch.bind(globalThis),
+      crypto: globalThis.crypto,
     };
   }
 
