@@ -1,4 +1,13 @@
-<svg id="export-svg" width="4059.25" xmlns="http://www.w3.org/2000/svg" class="flowchart" height="3432" viewBox="-8 -8 4059.25 3432" role="graphics-document document" aria-roledescription="flowchart-elk"><style xmlns="http://www.w3.org/1999/xhtml">/* Google Inc.
+<svg id="export-svg"
+     width="1000"
+     height="1000"
+     viewBox="-100 100 4300 3000"
+     xmlns="http://www.w3.org/2000/svg"
+     class="flowchart"
+     role="graphics-document document"
+     aria-roledescription="flowchart-elk"
+     style="display: block; margin: auto;">
+  <style xmlns="http://www.w3.org/1999/xhtml">/* Google Inc.
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:
