@@ -1,5 +1,6 @@
 import FS from '@isomorphic-git/lightning-fs';
 import git from 'isomorphic-git';
+import http from 'isomorphic-git/http/web';
 import { getFileSystem, getProjectDir } from '@/utils/core/filesystem';
 import { GitRevertOperations } from './gitOperations/revert';
 import { GitCheckoutOperations } from './gitOperations/checkout';
@@ -74,6 +75,214 @@ export class GitCommands {
       await git.init({ fs: this.fs, dir: this.dir, defaultBranch: 'main' });
       return `Initialized empty Git repository in ${this.dir}`;
     }, 'git init failed');
+  }
+
+  // terminalGitCommands.ts の clone メソッド
+  async clone(url: string, targetDir?: string): Promise<string> {
+    return this.executeGitOperation(async () => {
+      // URLの妥当性を簡易チェック
+      if (!url || typeof url !== 'string' || !url.trim()) {
+        throw new Error('fatal: repository URL is required');
+      }
+
+      // リポジトリ名を取得
+      const repoName = url.split('/').pop()?.replace('.git', '') || 'repository';
+      
+      // クローン先ディレクトリを決定
+      let cloneDir: string;
+      const currentRepoName = this.dir.split('/').pop() || 'project';
+      
+      if (targetDir) {
+        // targetDirが指定された場合: projects/{現在のリポジトリ名}/{targetDir}
+        cloneDir = `/projects/${currentRepoName}/${targetDir}`;
+      } else {
+        // targetDirが指定されていない場合: projects/{クローン先リポジトリ名}
+        cloneDir = `/projects/${repoName}`;
+      }
+
+      console.log(`[git clone] Clone directory: ${cloneDir}`);
+
+      // クローン先ディレクトリが存在しないことを確認
+      try {
+        await this.fs.promises.stat(cloneDir);
+        throw new Error(`fatal: destination path '${targetDir || repoName}' already exists and is not an empty directory.`);
+      } catch (error) {
+        // ディレクトリが存在しない場合は正常（続行）
+        if (!(error as any).code || (error as any).code !== 'ENOENT') {
+          throw error;
+        }
+      }
+
+      // 段階的にディレクトリを作成
+      try {
+        await this.ensureGitRepository()
+        // 最終的なクローン先ディレクトリを作成
+        await this.fs.promises.mkdir(cloneDir, { recursive: true });
+        console.log(`[git clone] Created clone directory: ${cloneDir}`);
+      } catch (mkdirError) {
+        console.error('[git clone] Failed to create directories:', mkdirError);
+        throw new Error(`Failed to create clone directory: ${(mkdirError as Error).message}`);
+      }
+
+      // リポジトリをクローン
+      try {
+        console.log(`[git clone] Starting git clone to ${cloneDir}`);
+        await git.clone({
+          fs: this.fs,
+          http,
+          dir: cloneDir,
+          url: url,
+          singleBranch: true,
+          depth: 1,
+          noTags: true,
+          corsProxy: 'https://cors.isomorphic-git.org',
+        });
+        console.log('[git clone] Git clone completed successfully');
+      } catch (cloneError) {
+        console.error('[git clone] Git clone failed:', cloneError);
+        // クローンに失敗した場合、作成したディレクトリをクリーンアップ
+        try {
+          const entries = await this.fs.promises.readdir(cloneDir);
+          if (entries.length === 0) {
+            await this.fs.promises.rmdir(cloneDir);
+          }
+        } catch {
+          // クリーンアップに失敗してもエラーは無視
+        }
+        throw cloneError;
+      }
+
+      // クローンしたファイルをファイルシステムに反映（再帰的に処理）
+      if (this.onFileOperation) {
+        try {
+          console.log('[git clone] Starting file synchronization');
+          // クローン先のルートパスを基準に同期
+          const relativePath = targetDir || repoName;
+          await this.syncDirectoryRecursively(cloneDir, relativePath);
+          console.log('[git clone] File synchronization completed');
+        } catch (syncError) {
+          console.warn('Failed to sync files to project:', syncError);
+          // ファイル同期エラーは警告のみで処理を続行
+        }
+      }
+
+      return `Cloning into '${targetDir || repoName}'...\nClone completed successfully.`;
+    }, 'git clone failed');
+  }
+
+  // 再帰的にディレクトリをSync するヘルパーメソッド
+  private async syncDirectoryRecursively(clonePath: string, baseRelativePath: string): Promise<void> {
+    try {
+      console.log(`[syncDirectoryRecursively] Processing: ${clonePath}, base: ${baseRelativePath}`);
+      
+      // まず baseRelativePath のルートフォルダを作成（最初の呼び出し時のみ）
+      if (baseRelativePath && this.onFileOperation) {
+        console.log(`[syncDirectoryRecursively] Creating root folder: ${baseRelativePath}`);
+        await this.onFileOperation(baseRelativePath, 'folder', '');
+      }
+      
+      const entries = await this.fs.promises.readdir(clonePath);
+      console.log(`[syncDirectoryRecursively] Found ${entries.length} entries in ${clonePath}`);
+      
+      // エントリを分類
+      const directories: Array<{name: string, fullPath: string, relativePath: string}> = [];
+      const files: Array<{name: string, fullPath: string, relativePath: string}> = [];
+      
+      for (const entry of entries) {
+        // .git ディレクトリは除外
+        if (entry === '.git') {
+          console.log(`[syncDirectoryRecursively] Skipping .git directory`);
+          continue;
+        }
+        
+        const entryFullPath = `${clonePath}/${entry}`;
+        const entryRelativePath = baseRelativePath ? `${baseRelativePath}/${entry}` : entry;
+        
+        try {
+          const stat = await this.fs.promises.stat(entryFullPath);
+          
+          if (stat.isDirectory()) {
+            directories.push({
+              name: entry,
+              fullPath: entryFullPath,
+              relativePath: entryRelativePath
+            });
+          } else {
+            files.push({
+              name: entry,
+              fullPath: entryFullPath,
+              relativePath: entryRelativePath
+            });
+          }
+        } catch (statError) {
+          console.warn(`Failed to stat ${entryFullPath}:`, statError);
+        }
+      }
+      
+      // 1. 現在のレベルのディレクトリを先に作成
+      for (const dir of directories) {
+        if (this.onFileOperation) {
+          console.log(`[syncDirectoryRecursively] Creating folder: ${dir.relativePath}`);
+          await this.onFileOperation(dir.relativePath, 'folder', '');
+        }
+      }
+      
+      // 2. 現在のレベルのファイルを作成
+      for (const file of files) {
+        try {
+          const content = await this.fs.promises.readFile(file.fullPath, 'utf8');
+          if (this.onFileOperation) {
+            console.log(`[syncDirectoryRecursively] Creating file: ${file.relativePath}, content length: ${content.length}`);
+            await this.onFileOperation(file.relativePath, 'file', content);
+          }
+        } catch (readError) {
+          console.warn(`Failed to read file ${file.fullPath}:`, readError);
+          // バイナリファイルの場合は空の内容で同期
+          if (this.onFileOperation) {
+            console.log(`[syncDirectoryRecursively] Creating binary file: ${file.relativePath}`);
+            await this.onFileOperation(file.relativePath, 'file', '');
+          }
+        }
+      }
+      
+      // 3. サブディレクトリを再帰的に処理
+      for (const dir of directories) {
+        await this.syncDirectoryRecursively(dir.fullPath, dir.relativePath);
+      }
+      
+    } catch (readdirError) {
+      console.error(`Failed to read directory ${clonePath}:`, readdirError);
+      throw readdirError;
+    }
+  }
+
+  // ディレクトリ内の全ファイルを再帰的に取得
+  private async getAllFilesInDirectory(dirPath: string): Promise<string[]> {
+    const files: string[] = [];
+    
+    const traverse = async (currentPath: string) => {
+      try {
+        const entries = await this.fs.promises.readdir(currentPath);
+        for (const entry of entries) {
+          const fullPath = `${currentPath}/${entry}`;
+          const stat = await this.fs.promises.stat(fullPath);
+          
+          if (stat.isDirectory()) {
+            // .gitディレクトリはスキップ
+            if (entry !== '.git') {
+              await traverse(fullPath);
+            }
+          } else {
+            files.push(fullPath);
+          }
+        }
+      } catch (error) {
+        console.warn(`Failed to traverse directory ${currentPath}:`, error);
+      }
+    };
+    
+    await traverse(dirPath);
+    return files;
   }
 
   // git status - ステータス確認

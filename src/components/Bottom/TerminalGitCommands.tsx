@@ -23,6 +23,35 @@ export async function handleGitCommand(
       await writeOutput(initMessage);
       break;
 
+    case "clone":
+      if (args[1]) {
+        const url = args[1].trim();
+        const targetDir = args[2]?.trim(); // オプションのターゲットディレクトリ
+        
+        // URLの基本的な妥当性チェック
+        if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('git://')) {
+          await writeOutput("git clone: invalid repository URL (must start with http://, https://, or git://)");
+          break;
+        }
+        
+        try {
+          await writeOutput(`Cloning repository ${url}...`);
+          const cloneResult = await gitCommandsRef.current.clone(url, targetDir);
+          await writeOutput(cloneResult);
+        } catch (error) {
+          const errorMessage = (error as Error).message;
+          // ネットワークエラーやCORSエラーの場合は、より分かりやすいメッセージを表示
+          if (errorMessage.includes('CORS') || errorMessage.includes('fetch')) {
+            await writeOutput(`git clone: Failed to clone repository. This may be due to CORS restrictions or network issues.\nTry using a repository that supports CORS or is hosted on a platform that allows cross-origin requests.`);
+          } else {
+            await writeOutput(`git clone: ${errorMessage}`);
+          }
+        }
+      } else {
+        await writeOutput("git clone: missing repository URL\nUsage: git clone <repository-url> [directory]");
+      }
+      break;
+
     case "status":
       const statusResult = await gitCommandsRef.current.status();
       await writeOutput(statusResult);
