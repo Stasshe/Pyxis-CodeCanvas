@@ -215,19 +215,18 @@ const parseMermaidContent = (chart: string): { config: any; diagram: string } =>
 
 // メモ化されたMermaidコンポーネント
 const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) => {
+
   const ref = useRef<HTMLDivElement>(null);
   const idRef = useRef<string>(getUniqueMermaidId());
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [svgContent, setSvgContent] = useState<string | null>(null);
 
   useEffect(() => {
     const renderMermaid = async () => {
       if (!ref.current) return;
-      
       setIsLoading(true);
       setError(null);
-      
-      // ローディング表示
       ref.current.innerHTML = `
         <div class="mermaid-loading" style="display:flex;align-items:center;justify-content:center;height:120px;">
           <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
@@ -238,12 +237,8 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
           <span style="margin-left:10px;color:#4ade80;font-size:14px;">Mermaid図表を生成中...</span>
         </div>
       `;
-
       try {
-        // チャートから設定と図表を分離
         const { config, diagram } = parseMermaidContent(chart);
-        
-        // デフォルト設定
         const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
         let mermaidConfig: any = {
           startOnLoad: false,
@@ -260,41 +255,29 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
             rankSpacing: 80,
             nodeSpacing: 50,
           },
-          layout: 'dagre' // デフォルトレイアウト
+          layout: 'dagre'
         };
-
-        // フロントマターの設定をマージ
         if (config.config) {
-          // テーマ設定
           if (config.config.theme) {
             mermaidConfig.theme = config.config.theme;
           }
-          
-          // テーマ変数
           if (config.config.themeVariables) {
             mermaidConfig.themeVariables = {
               ...mermaidConfig.themeVariables,
               ...config.config.themeVariables
             };
           }
-          
-          // フローチャート設定
           if (config.config.flowchart) {
             mermaidConfig.flowchart = {
               ...mermaidConfig.flowchart,
               ...config.config.flowchart
             };
           }
-          
-          // ELKレンダラー設定
           if (config.config.defaultRenderer === 'elk') {
             mermaidConfig.flowchart.defaultRenderer = 'elk';
           }
-          
-          // レイアウト設定（elk, dagre等）
           if (config.config.layout) {
             mermaidConfig.layout = config.config.layout;
-            // ELK使用時の追加設定
             if (config.config.layout === 'elk') {
               mermaidConfig.flowchart.defaultRenderer = 'elk';
               mermaidConfig.elk = {
@@ -306,22 +289,16 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
               };
             }
           }
-          
-          // look設定（neo等）
           if (config.config.look) {
             mermaidConfig.look = config.config.look;
           }
         }
-
         console.log('[Mermaid] Initializing with config:', mermaidConfig);
         console.log('[Mermaid] Rendering diagram:', diagram);
-        
         mermaid.initialize(mermaidConfig);
-        
         const { svg } = await mermaid.render(idRef.current, diagram);
         ref.current.innerHTML = svg;
-        
-        // SVGのoverflow調整 & 背景色設定
+        setSvgContent(svg);
         const svgElem = ref.current.querySelector('svg');
         if (svgElem) {
           svgElem.style.maxWidth = '100%';
@@ -330,21 +307,63 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
           svgElem.style.overflow = 'visible';
           svgElem.style.background = colors.mermaidBg || '#eaffea';
         }
-        
         setIsLoading(false);
       } catch (e) {
         const errorMessage = `Mermaidのレンダリングに失敗しました。コードを確認してください。${e}`;
         ref.current.innerHTML = `<div class="mermaid-error" style="color: #cc0000; padding: 16px; border: 1px solid #ff9999; border-radius: 4px; background: #ffe6e6;">${errorMessage}</div>`;
         setError(errorMessage);
         setIsLoading(false);
+        setSvgContent(null);
         console.error('[Mermaid] Rendering error:', e);
       }
     };
-
     renderMermaid();
   }, [chart, colors.mermaidBg]);
 
-  return <div ref={ref} className="mermaid" style={{ minHeight: '120px' }} />;
+  // SVGダウンロード処理
+  const handleDownloadSvg = useCallback(() => {
+    if (!svgContent) return;
+    // Blob生成
+    const blob = new Blob([svgContent], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'mermaid-diagram.svg';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 100);
+  }, [svgContent]);
+
+  return (
+    <div style={{ gap: '8px', minHeight: '120px' }}>
+      {svgContent && !isLoading && !error && (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '8px' }}>
+          <button
+            type="button"
+            onClick={handleDownloadSvg}
+            style={{
+            padding: '4px 8px',
+            background: '#38bdf8',
+            color: '#fff',
+            borderRadius: '4px',
+            border: 'none',
+            cursor: 'pointer',
+            fontSize: '12px',
+            marginLeft: '4px',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.08)'
+            }}
+            title="SVGダウンロード"
+          >
+            SVGダウンロード
+          </button>
+        </div>
+      )}
+      <div ref={ref} className="mermaid" style={{ minHeight: '120px' }} />
+    </div>
+  );
 });
 
 Mermaid.displayName = 'Mermaid';
