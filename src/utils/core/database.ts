@@ -88,6 +88,13 @@ class ProjectDB {
     }
     await registerFiles(initialFileContents, '');
 
+    // 初期チャットスペースを作成
+    try {
+      await this.createChatSpace(project.id, `${project.name} - 初期チャット`);
+    } catch (error) {
+      console.warn('[createProject] Failed to create initial chat space:', error);
+    }
+
     return project;
   }
 
