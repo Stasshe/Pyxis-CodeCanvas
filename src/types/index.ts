@@ -123,7 +123,7 @@ export interface ChatSpaceMessage {
   type: 'user' | 'assistant';
   content: string;
   timestamp: Date;
-  mode: 'chat' | 'edit'; // メッセージが送信された時のモード
+  mode: 'ask' | 'edit'; // メッセージが送信された時のモード
   fileContext?: string[]; // 参照されたファイルパス
   editResponse?: AIEditResponse; // 編集モードの場合のレスポンス
 }

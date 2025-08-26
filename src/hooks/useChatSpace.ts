@@ -112,7 +112,7 @@ export const useChatSpace = (projectId: string | null) => {
   };
 
   // メッセージを追加
-  const addMessage = async (content: string, type: 'user' | 'assistant', mode: 'chat' | 'edit', fileContext?: string[], editResponse?: AIEditResponse): Promise<ChatSpaceMessage | null> => {
+  const addMessage = async (content: string, type: 'user' | 'assistant', mode: 'ask' | 'edit', fileContext?: string[], editResponse?: AIEditResponse): Promise<ChatSpaceMessage | null> => {
     if (!currentSpace) {
       console.error('[useChatSpace] No current space available for adding message');
       return null;

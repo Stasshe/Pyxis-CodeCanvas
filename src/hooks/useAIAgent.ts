@@ -8,7 +8,7 @@ import { getSelectedFileContexts } from '@/utils/ai/contextBuilder';
 import { LOCALSTORAGE_KEY } from '@/context/config';
 
 interface UseAIAgentProps {
-  onAddMessage?: (content: string, type: 'user' | 'assistant', mode: 'chat' | 'edit', fileContext?: string[], editResponse?: AIEditResponse) => Promise<void>;
+  onAddMessage?: (content: string, type: 'user' | 'assistant', mode: 'ask' | 'edit', fileContext?: string[], editResponse?: AIEditResponse) => Promise<void>;
   selectedFiles?: string[];
   onUpdateSelectedFiles?: (files: string[]) => void;
   messages?: ChatSpaceMessage[];
@@ -41,7 +41,7 @@ export function useAIAgent(props?: UseAIAgentProps) {
   }, [props?.selectedFiles]); // fileContexts.lengthを依存配列から削除
 
   // メッセージを追加（チャットスペース対応）
-  const addMessage = useCallback(async (message: Omit<AIMessage, 'id' | 'timestamp'>, mode: 'chat' | 'edit' = 'chat', editResponse?: AIEditResponse) => {
+  const addMessage = useCallback(async (message: Omit<AIMessage, 'id' | 'timestamp'>, mode: 'ask' | 'edit' = 'ask', editResponse?: AIEditResponse) => {
     if (props?.onAddMessage) {
       // チャットスペースに保存
       await props.onAddMessage(message.content, message.type, mode, message.fileContext, editResponse);
@@ -56,8 +56,8 @@ export function useAIAgent(props?: UseAIAgentProps) {
     }
   }, [props?.onAddMessage]);
 
-  // チャットメッセージを送信
-  const sendChatMessage = useCallback(async (content: string): Promise<void> => {
+  // Askメッセージを送信
+  const sendAskMessage = useCallback(async (content: string): Promise<void> => {
     const apiKey = localStorage.getItem(LOCALSTORAGE_KEY.GEMINI_API_KEY);
     if (!apiKey) {
       throw new Error('Gemini APIキーが設定されていません。設定画面で設定してください。');
@@ -69,7 +69,7 @@ export function useAIAgent(props?: UseAIAgentProps) {
       type: 'user',
       content,
       fileContext: selectedFiles.map(f => f.path)
-    }, 'chat');
+    }, 'ask');
 
     // 過去メッセージから type, content, mode のみ抽出し、空contentやファイル内容だけのメッセージは除外
     const previousMessages = props?.messages
@@ -103,12 +103,12 @@ export function useAIAgent(props?: UseAIAgentProps) {
       await addMessage({
         type: 'assistant',
         content: response
-      }, 'chat');
+      }, 'ask');
     } catch (error) {
       await addMessage({
         type: 'assistant',
         content: `エラーが発生しました: ${(error as Error).message}`
-      }, 'chat');
+      }, 'ask');
     } finally {
       setIsProcessing(false);
     }
@@ -231,7 +231,7 @@ export function useAIAgent(props?: UseAIAgentProps) {
     messages,
     isProcessing,
     fileContexts,
-    sendChatMessage,
+    sendAskMessage,
     executeCodeEdit,
     updateFileContexts,
     toggleFileSelection,

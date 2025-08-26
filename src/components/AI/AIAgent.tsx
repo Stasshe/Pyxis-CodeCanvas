@@ -73,7 +73,7 @@ export default function AIAgent({
     messages,
     isProcessing,
     fileContexts,
-    sendChatMessage,
+    sendAskMessage,
     executeCodeEdit,
     updateFileContexts,
     toggleFileSelection,
@@ -97,13 +97,6 @@ export default function AIAgent({
   // プロジェクトファイルが変更されたときにコンテキストを更新
   useEffect(() => {
     if (projectFiles.length > 0) {
-      // console.log('[AIAgent] Updating file contexts due to projectFiles change');
-      // console.log('[AIAgent] Current projectFiles:', projectFiles.map(f => ({
-      //   path: f.path,
-      //   hasContent: !!f.content,
-      //   contentLength: f.content?.length || 0,
-      //   type: f.type
-      // })));
       const contexts = buildAIFileContextList(projectFiles);
       // console.log('[AIAgent] Built contexts:', contexts.length, contexts.map(c => c.path));
       updateFileContexts(contexts);
@@ -130,7 +123,7 @@ export default function AIAgent({
     }
 
     try {
-      await sendChatMessage(message);
+      await sendAskMessage(message);
     } catch (error) {
       console.error('Failed to send message:', error);
     }
