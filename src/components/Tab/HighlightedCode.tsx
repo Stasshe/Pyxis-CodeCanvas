@@ -3,10 +3,19 @@ import { useTheme } from '@/context/ThemeContext';
 import * as shiki from 'shiki';
 import { Copy, Check } from 'lucide-react';
 
-export function HighlightedCode({ language, value }: { language: string; value: string }) {
+export function HighlightedCode({ language, value, plain }: { language: string; value: string; plain?: boolean }) {
   const { highlightTheme } = useTheme();
   const [html, setHtml] = useState<string>('');
   const [copied, setCopied] = useState(false);
+
+  // PDFエクスポート時はplain=trueで呼び出し、ハイライトなし
+  if (plain) {
+    return (
+      <pre style={{ borderRadius: 8, fontSize: '1em', margin: 0, overflowX: 'auto', minHeight: '100px', background: '#f5f5f5', color: '#222', padding: '12px' }}>
+        <code>{value}</code>
+      </pre>
+    );
+  }
 
   useEffect(() => {
     let mounted = true;

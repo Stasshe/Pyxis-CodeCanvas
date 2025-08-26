@@ -470,6 +470,7 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({
   const { colors } = useTheme();
 
   // ReactMarkdownのコンポーネントをメモ化
+  // 通常表示用
   const markdownComponents = useMemo(() => ({
     code: ({ node, className, children, ...props }: any) => (
       <MemoizedCodeComponent 
@@ -496,6 +497,37 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({
     },
   }), [colors, currentProjectName, projectFiles]);
 
+  // PDFエクスポート用: plain=trueを渡す
+  const markdownComponentsPlain = useMemo(() => ({
+    code: ({ node, className, children, ...props }: any) => {
+      const match = /language-(\w+)/.exec(className || '');
+      const codeString = String(children).replace(/\n$/, '').trim();
+      if (match && match[1] === 'mermaid') {
+        return <Mermaid chart={codeString} colors={colors} />;
+      }
+      return (
+        <HighlightedCode
+          language={match ? match[1] : ''}
+          value={codeString}
+          plain={true}
+          {...props}
+        />
+      );
+    },
+    img: ({ node, src, alt, ...props }: any) => {
+      const srcString = typeof src === 'string' ? src : '';
+      return (
+        <LocalImage 
+          src={srcString} 
+          alt={alt || ''} 
+          projectName={currentProjectName}
+          projectFiles={projectFiles}
+          {...props}
+        />
+      );
+    },
+  }), [colors, currentProjectName, projectFiles]);
+
   // メイン部分もメモ化
   const markdownContent = useMemo(() => (
     <ReactMarkdown
@@ -506,6 +538,17 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({
       {content}
     </ReactMarkdown>
   ), [content, markdownComponents]);
+
+  // PDF用
+  const markdownContentPlain = useMemo(() => (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm, remarkMath]}
+      rehypePlugins={[rehypeKatex, rehypeRaw]}
+      components={markdownComponentsPlain}
+    >
+      {content}
+    </ReactMarkdown>
+  ), [content, markdownComponentsPlain]);
 
   // PDFエクスポート処理
   const handleExportPdf = useCallback(() => {
@@ -531,7 +574,7 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({
         setHighlightTheme: () => {},
         highlightThemeList: [],
       }}>
-        {markdownContent}
+        {markdownContentPlain}
       </ThemeContext.Provider>
     );
     setTimeout(() => {
