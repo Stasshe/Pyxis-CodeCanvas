@@ -18,11 +18,55 @@ export class GitCommands {
   private fs: FS;
   private dir: string;
   private onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>;
+  // バッチ処理用のキュー
+  private fileOperationQueue: Array<{ path: string; type: 'file' | 'folder' | 'delete'; content?: string; isNodeRuntime?: boolean }> = [];
+  private batchProcessing = false;
 
   constructor(projectName: string, onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>) {
     this.fs = getFileSystem()!;
     this.dir = getProjectDir(projectName);
     this.onFileOperation = onFileOperation;
+  }
+
+  // バッチ処理開始
+  startBatchProcessing(): void {
+    this.batchProcessing = true;
+    this.fileOperationQueue = [];
+    console.log('[GitCommands] Started batch processing mode');
+  }
+
+  // バッチ処理終了し、キューをフラッシュ
+  async finishBatchProcessing(): Promise<void> {
+    if (!this.batchProcessing || !this.onFileOperation) {
+      return;
+    }
+    console.log(`[GitCommands] Finishing batch processing, ${this.fileOperationQueue.length} operations queued`);
+    const BATCH_SIZE = 10;
+    for (let i = 0; i < this.fileOperationQueue.length; i += BATCH_SIZE) {
+      const batch = this.fileOperationQueue.slice(i, i + BATCH_SIZE);
+      await Promise.all(
+        batch.map(op => this.onFileOperation!(op.path, op.type, op.content, op.isNodeRuntime))
+      );
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    this.batchProcessing = false;
+    this.fileOperationQueue = [];
+    console.log('[GitCommands] Batch processing completed');
+  }
+
+  // ファイル操作を実行（バッチモード対応）
+  private async executeFileOperation(
+    path: string,
+    type: 'file' | 'folder' | 'delete',
+    content?: string,
+    isNodeRuntime?: boolean
+  ): Promise<void> {
+    if (!this.onFileOperation) return;
+    if (this.batchProcessing) {
+      this.fileOperationQueue.push({ path, type, content, isNodeRuntime });
+    } else {
+      await this.onFileOperation(path, type, content, isNodeRuntime);
+    }
   }
 
   // ========================================
@@ -117,7 +161,7 @@ export class GitCommands {
       try {
         await this.ensureGitRepository()
         // 最終的なクローン先ディレクトリを作成
-        await this.fs.promises.mkdir(cloneDir, { recursive: true });
+        await this.fs.promises.mkdir(cloneDir, { recursive: true } as any);
         console.log(`[git clone] Created clone directory: ${cloneDir}`);
       } catch (mkdirError) {
         console.error('[git clone] Failed to create directories:', mkdirError);
@@ -152,104 +196,64 @@ export class GitCommands {
         throw cloneError;
       }
 
-      // クローンしたファイルをファイルシステムに反映（再帰的に処理）
+      // クローンしたファイルをファイルシステムに反映（バッチで処理）
       if (this.onFileOperation) {
         try {
-          console.log('[git clone] Starting file synchronization');
-          // クローン先のルートパスを基準に同期
+          console.log('[git clone] Starting batch file synchronization');
+          this.startBatchProcessing();
           const relativePath = targetDir || repoName;
-          await this.syncDirectoryRecursively(cloneDir, relativePath);
-          console.log('[git clone] File synchronization completed');
+          await this.syncDirectoryRecursivelyBatch(cloneDir, relativePath);
+          await this.finishBatchProcessing();
+          console.log('[git clone] Batch file synchronization completed');
         } catch (syncError) {
-          console.warn('Failed to sync files to project:', syncError);
-          // ファイル同期エラーは警告のみで処理を続行
+          console.warn('Failed to batch sync files to project:', syncError);
         }
       }
-
       return `Cloning into '${targetDir || repoName}'...\nClone completed successfully.`;
     }, 'git clone failed');
   }
 
-  // 再帰的にディレクトリをSync するヘルパーメソッド
-  private async syncDirectoryRecursively(clonePath: string, baseRelativePath: string): Promise<void> {
+  // 再帰的にディレクトリをSync（バッチでファイル操作をキューに追加）
+  private async syncDirectoryRecursivelyBatch(clonePath: string, baseRelativePath: string): Promise<void> {
     try {
-      console.log(`[syncDirectoryRecursively] Processing: ${clonePath}, base: ${baseRelativePath}`);
-      
+      console.log(`[syncDirectoryRecursivelyBatch] Processing: ${clonePath}, base: ${baseRelativePath}`);
       // まず baseRelativePath のルートフォルダを作成（最初の呼び出し時のみ）
-      if (baseRelativePath && this.onFileOperation) {
-        console.log(`[syncDirectoryRecursively] Creating root folder: ${baseRelativePath}`);
-        await this.onFileOperation(baseRelativePath, 'folder', '');
+      if (baseRelativePath) {
+        await this.executeFileOperation(baseRelativePath, 'folder', '');
       }
-      
       const entries = await this.fs.promises.readdir(clonePath);
-      console.log(`[syncDirectoryRecursively] Found ${entries.length} entries in ${clonePath}`);
-      
-      // エントリを分類
       const directories: Array<{name: string, fullPath: string, relativePath: string}> = [];
       const files: Array<{name: string, fullPath: string, relativePath: string}> = [];
-      
       for (const entry of entries) {
-        // .git ディレクトリは除外
-        if (entry === '.git') {
-          console.log(`[syncDirectoryRecursively] Skipping .git directory`);
-          continue;
-        }
-        
+        if (entry === '.git') continue;
         const entryFullPath = `${clonePath}/${entry}`;
         const entryRelativePath = baseRelativePath ? `${baseRelativePath}/${entry}` : entry;
-        
         try {
           const stat = await this.fs.promises.stat(entryFullPath);
-          
           if (stat.isDirectory()) {
-            directories.push({
-              name: entry,
-              fullPath: entryFullPath,
-              relativePath: entryRelativePath
-            });
+            directories.push({ name: entry, fullPath: entryFullPath, relativePath: entryRelativePath });
           } else {
-            files.push({
-              name: entry,
-              fullPath: entryFullPath,
-              relativePath: entryRelativePath
-            });
+            files.push({ name: entry, fullPath: entryFullPath, relativePath: entryRelativePath });
           }
-        } catch (statError) {
-          console.warn(`Failed to stat ${entryFullPath}:`, statError);
-        }
+        } catch {}
       }
-      
-      // 1. 現在のレベルのディレクトリを先に作成
+      // ディレクトリ作成
       for (const dir of directories) {
-        if (this.onFileOperation) {
-          console.log(`[syncDirectoryRecursively] Creating folder: ${dir.relativePath}`);
-          await this.onFileOperation(dir.relativePath, 'folder', '');
-        }
+        await this.executeFileOperation(dir.relativePath, 'folder', '');
       }
-      
-      // 2. 現在のレベルのファイルを作成
+      // ファイル作成
       for (const file of files) {
         try {
           const content = await this.fs.promises.readFile(file.fullPath, 'utf8');
-          if (this.onFileOperation) {
-            console.log(`[syncDirectoryRecursively] Creating file: ${file.relativePath}, content length: ${content.length}`);
-            await this.onFileOperation(file.relativePath, 'file', content);
-          }
-        } catch (readError) {
-          console.warn(`Failed to read file ${file.fullPath}:`, readError);
-          // バイナリファイルの場合は空の内容で同期
-          if (this.onFileOperation) {
-            console.log(`[syncDirectoryRecursively] Creating binary file: ${file.relativePath}`);
-            await this.onFileOperation(file.relativePath, 'file', '');
-          }
+          await this.executeFileOperation(file.relativePath, 'file', content);
+        } catch {
+          await this.executeFileOperation(file.relativePath, 'file', '');
         }
       }
-      
-      // 3. サブディレクトリを再帰的に処理
+      // サブディレクトリ再帰
       for (const dir of directories) {
-        await this.syncDirectoryRecursively(dir.fullPath, dir.relativePath);
+        await this.syncDirectoryRecursivelyBatch(dir.fullPath, dir.relativePath);
       }
-      
     } catch (readdirError) {
       console.error(`Failed to read directory ${clonePath}:`, readdirError);
       throw readdirError;
