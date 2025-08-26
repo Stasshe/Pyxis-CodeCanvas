@@ -555,7 +555,7 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({
     if (typeof window === 'undefined') return; // SSR対策
     const container = document.createElement('div');
     container.style.background = colors.background;
-    container.style.color = colors.foreground;
+    container.style.color = '#000';
     container.className = 'markdown-body prose prose-github max-w-none';
     document.body.appendChild(container);
     // React 18+ の createRoot を使う
@@ -578,6 +578,15 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({
       </ThemeContext.Provider>
     );
     setTimeout(() => {
+      // インラインCSSで強制的に黒文字にする
+      container.innerHTML = `
+        <style>
+          body, .markdown-body, .prose, .prose-github, .markdown-body * {
+            color: #000 !important;
+          }
+        </style>
+        ${container.innerHTML}
+      `;
       exportPdfFromHtml(container.innerHTML, fileName.replace(/\.[^/.]+$/, '') + '.pdf');
       root.unmount();
       document.body.removeChild(container);
