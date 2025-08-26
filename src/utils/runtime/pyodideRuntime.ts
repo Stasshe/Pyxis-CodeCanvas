@@ -12,6 +12,27 @@ export class PyodideRuntime {
  isReady: boolean = false;
  onOutput: (output: string, type: 'log' | 'error' | 'input') => void;
 
+  /**
+   * Pythonミニライブラリ（パッケージ）をインストールする
+   * @param packages インストールしたいパッケージ名の配列
+   */
+  async installPackages(packages: string[]) {
+    if (!this.isReady) await this.load();
+    try {
+      // micropipがなければロード
+      if (!this.pyodide.isPyodidePackageLoaded || !this.pyodide.isPyodidePackageLoaded('micropip')) {
+        await this.pyodide.loadPackage('micropip');
+      }
+      const micropip = this.pyodide.pyimport('micropip');
+      await micropip.install(packages);
+      this.onOutput(`[Pyodide] パッケージインストール完了: ${packages.join(', ')}`, 'log');
+      return { success: true };
+    } catch (e: any) {
+      this.onOutput(`[Pyodide] パッケージインストール失敗: ${e.message}`, 'error');
+      return { success: false, error: e.message };
+    }
+  }
+
  static async syncLightningFSToPyodideFS(pyodideRuntimeInstance: PyodideRuntime, baseDir: string = '/projects') {
    const files = await getAllFilesAndDirs(baseDir);
    await pyodideRuntimeInstance.syncFilesToPyodideFS(files);
