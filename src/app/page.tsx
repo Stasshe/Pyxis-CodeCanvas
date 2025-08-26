@@ -135,14 +135,6 @@ export default function Home() {
       } catch (e) {
         console.error('[DEBUG] Error restoring editors from localStorage:', e);
       }
-      try {
-        const savedLayout = window.localStorage.getItem('pyxis-editorLayout');
-        if (savedLayout === 'vertical' || savedLayout === 'horizontal') {
-          setEditorLayout(savedLayout as EditorLayoutType);
-        }
-      } catch (e) {
-        console.error('[DEBUG] Error restoring editor layout from localStorage:', e);
-      }
       setIsRestoredFromLocalStorage(true); // 復元完了フラグを設定
     }
   }, []);
@@ -162,14 +154,6 @@ export default function Home() {
       } catch (e) {}
     }
   }, [editors]);
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        window.localStorage.setItem('pyxis-editorLayout', editorLayout);
-      } catch (e) {}
-    }
-  }, [editorLayout]);
-  
   
   const { colors } = useTheme();
   

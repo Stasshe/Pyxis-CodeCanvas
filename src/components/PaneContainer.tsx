@@ -188,7 +188,11 @@ export default function PaneContainer({
           setFileSelectState({ open: true, paneIdx: actualPaneIndex });
         }}
         addEditorPane={() => addEditorPane(allPanes, setEditors)}
-        removeEditorPane={() => removeEditorPane(allPanes, setEditors, pane.id)}
+        removeEditorPane={() => {
+          // ペインが1つだけなら削除しない
+          if (flattenPanes(allPanes).length <= 1) return;
+          removeEditorPane(allPanes, setEditors, pane.id);
+        }}
         toggleEditorLayout={() => {
           // 個別ペインの分割方式は現在未実装
         }}
