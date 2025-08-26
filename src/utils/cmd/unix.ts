@@ -1229,7 +1229,7 @@ export class UnixCommands {
           const targetPath = `${destNormalized}/${baseName}`;
           
           // 移動先に同名ファイルが存在するかチェック
-          let canMove = true;
+          const canMove = true;
           try {
             await this.fs.promises.stat(targetPath);
             // 既存ファイルがある場合は上書き警告（UNIXの動作に合わせて続行）

@@ -84,7 +84,7 @@ export function useAIAgent(props?: UseAIAgentProps) {
     try {
       // ASK_PROMPT_TEMPLATEを使ってプロンプトを生成
       // importを追加して使う
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
+       
       const { ASK_PROMPT_TEMPLATE } = require('@/utils/ai/prompts');
       const prompt = ASK_PROMPT_TEMPLATE(selectedFiles, content, previousMessages);
 

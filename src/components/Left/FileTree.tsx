@@ -49,8 +49,8 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
         content = await file.text();
       }
       const unix = new UnixCommands(currentProjectName);
-      let importPath = targetPath ? `${targetPath}/${file.name}` : `/${file.name}`;
-      let absolutePath = `/projects/${currentProjectName}${importPath}`;
+      const importPath = targetPath ? `${targetPath}/${file.name}` : `/${file.name}`;
+      const absolutePath = `/projects/${currentProjectName}${importPath}`;
       await importSingleFile(file, absolutePath, unix);
       if (typeof onFileOperation === 'function') {
         await onFileOperation(importPath, 'file', isBinary ? undefined : (content as string), false, isBinary, isBinary ? (content as ArrayBuffer) : undefined);

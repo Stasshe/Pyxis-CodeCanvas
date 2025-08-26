@@ -183,9 +183,9 @@ export class NodeJSRuntime {
           const pkgContent = await this.fs.promises.readFile(pkgJsonFullPath, { encoding: 'utf8' });
           const pkgData = JSON.parse(pkgContent);
           if (pkgData.imports && pkgData.imports[moduleName]) {
-            let importPath = pkgData.imports[moduleName];
+            const importPath = pkgData.imports[moduleName];
             // importPathが"./"で始まる場合はpackage.jsonのディレクトリからの相対パス
-            let pkgDir = pkgJsonPath.replace(/\/package\.json$/, '');
+            const pkgDir = pkgJsonPath.replace(/\/package\.json$/, '');
             if (importPath.startsWith('./')) {
               resolvedModuleName = pkgDir + '/' + importPath.substring(2);
             } else {

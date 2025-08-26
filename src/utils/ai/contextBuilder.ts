@@ -102,7 +102,7 @@ export function buildAIFileContextList(files: (FileItem | ProjectFile)[]): AIFil
   }
   
   // ファイルをフラット化
-  let flatFiles: (FileItem | ProjectFile)[] = [];
+  const flatFiles: (FileItem | ProjectFile)[] = [];
   
   for (const file of files) {
     if ('children' in file) {

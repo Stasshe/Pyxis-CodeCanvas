@@ -325,7 +325,7 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
       const parts = baseCommand.trim().split(/\s+/);
       const cmd = parts[0].toLowerCase();
       const args = parts.slice(1);
-      let output = '';
+      const output = '';
       try {
         switch (cmd) {
           case 'debug-db':
@@ -568,7 +568,7 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
                 }
               }
 
-              let cleaned: string[] = [];
+              const cleaned: string[] = [];
               
               try {
                 // /projectsディレクトリが存在するかチェック

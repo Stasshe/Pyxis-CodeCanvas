@@ -240,7 +240,7 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
       try {
         const { config, diagram } = parseMermaidContent(chart);
         const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-        let mermaidConfig: any = {
+        const mermaidConfig: any = {
           startOnLoad: false,
           theme: isDark ? 'dark' : 'default',
           securityLevel: 'loose',

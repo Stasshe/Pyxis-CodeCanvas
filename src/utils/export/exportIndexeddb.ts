@@ -22,7 +22,7 @@ export async function exportIndexeddbHtmlWithWindow(writeOutput: (msg: string) =
 
 export async function exportIndexeddbHtml(): Promise<string> {
   const dbs = await (window.indexedDB.databases ? window.indexedDB.databases() : []);
-  let allData: DbDump[] = [];
+  const allData: DbDump[] = [];
   for (const dbInfo of dbs) {
     const dbName = dbInfo.name;
     if (!dbName) continue;
@@ -32,7 +32,7 @@ export async function exportIndexeddbHtml(): Promise<string> {
       req.onerror = () => reject(req.error);
     });
     const objectStoreNames = Array.from(db.objectStoreNames);
-    let dbDump: DbDump = { name: dbName, version: db.version, stores: [] };
+    const dbDump: DbDump = { name: dbName, version: db.version, stores: [] };
     for (const storeName of objectStoreNames) {
       const tx = db.transaction(storeName, 'readonly');
       const store = tx.objectStore(storeName);

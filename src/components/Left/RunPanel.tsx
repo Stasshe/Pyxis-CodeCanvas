@@ -45,7 +45,7 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
       });
       setPythonRuntime(newPyRuntime);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [currentProject, onFileOperation]);
 
   // 出力エリアの自動スクロール

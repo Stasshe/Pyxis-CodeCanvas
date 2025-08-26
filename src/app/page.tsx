@@ -66,9 +66,9 @@ export default function Home() {
           if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].id) {
             // ペインツリー全体を再帰的に復元
             const restorePaneRecursive = (pane: any, total: number): any => {
-              let newId = pane.id;
+              const newId = pane.id;
               // リーフペインならタブを初期化
-              let tabs = Array.isArray(pane.tabs) ? pane.tabs.map((tab: any) => {
+              const tabs = Array.isArray(pane.tabs) ? pane.tabs.map((tab: any) => {
                 let tabId;
                 let tabPath = tab.path;
                 if (tab.id === 'welcome') {
@@ -105,7 +105,7 @@ export default function Home() {
               }
               if (!restoredActiveTabId && tabs.length > 0) restoredActiveTabId = tabs[0].id;
               // 子ペインがあれば再帰的に復元
-              let children = Array.isArray(pane.children) ? pane.children.map((child: any) => restorePaneRecursive(child, total)) : undefined;
+              const children = Array.isArray(pane.children) ? pane.children.map((child: any) => restorePaneRecursive(child, total)) : undefined;
               return {
                 ...pane,
                 id: newId,

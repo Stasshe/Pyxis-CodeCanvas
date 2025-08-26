@@ -442,7 +442,7 @@ export class GitDiffOperations {
   private generateLineDiff(oldLines: string[], newLines: string[]): string {
     const maxLines = Math.max(oldLines.length, newLines.length);
     let result = '';
-    let diffSections: Array<{start: number, oldCount: number, newCount: number, lines: string[]}> = [];
+    const diffSections: Array<{start: number, oldCount: number, newCount: number, lines: string[]}> = [];
     let currentSection: {start: number, oldCount: number, newCount: number, lines: string[]} | null = null;
     
     for (let i = 0; i < maxLines; i++) {

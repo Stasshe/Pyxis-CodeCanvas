@@ -44,7 +44,7 @@ export default function PaneResizer({
       const relativePos = currentPos - containerStart;
       
       // 新しい分割点の位置を計算
-      let newSplitPos = Math.max(minSize * containerSize / 100, Math.min(relativePos, containerSize - (minSize * containerSize / 100)));
+      const newSplitPos = Math.max(minSize * containerSize / 100, Math.min(relativePos, containerSize - (minSize * containerSize / 100)));
       
       // パーセントに変換
       const newLeftPercent = (newSplitPos / containerSize) * 100;
