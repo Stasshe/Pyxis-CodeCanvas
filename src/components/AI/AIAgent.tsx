@@ -97,8 +97,13 @@ export default function AIAgent({
   // プロジェクトファイルが変更されたときにコンテキストを更新
   useEffect(() => {
     if (projectFiles.length > 0) {
-      const contexts = buildAIFileContextList(projectFiles);
-      // console.log('[AIAgent] Built contexts:', contexts.length, contexts.map(c => c.path));
+      // 既存のfileContextsのselected情報を保持
+      const selectedMap = new Map(fileContexts.map(ctx => [ctx.path, ctx.selected]));
+      // 最新のprojectFilesからcontextsを生成し、selected状態をマージ
+      const contexts = buildAIFileContextList(projectFiles).map(ctx => ({
+        ...ctx,
+        selected: selectedMap.get(ctx.path) ?? false
+      }));
       updateFileContexts(contexts);
     }
   }, [projectFiles]); // projectFiles全体に依存し、内容変更も検知
