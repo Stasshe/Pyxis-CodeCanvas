@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { useTheme } from '@/context/ThemeContext';
+import { exportPdfFromHtml } from '@/utils/export/exportPdf';
+import { useTheme, ThemeContext } from '@/context/ThemeContext';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import mermaid from 'mermaid';
@@ -506,9 +507,54 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({
     </ReactMarkdown>
   ), [content, markdownComponents]);
 
+  // PDFエクスポート処理
+  const handleExportPdf = useCallback(() => {
+    if (typeof window === 'undefined') return; // SSR対策
+    const container = document.createElement('div');
+    container.style.background = colors.background;
+    container.style.color = colors.foreground;
+    container.className = 'markdown-body prose prose-github max-w-none';
+    document.body.appendChild(container);
+    // React 18+ の createRoot を使う
+    const ReactDOM = require('react-dom/client');
+    const root = ReactDOM.createRoot(container);
+    // ThemeContext.Providerでラップ
+    root.render(
+      <ThemeContext.Provider value={{
+        colors,
+        setColor: () => {},
+        setColors: () => {},
+        themeName: 'pdf',
+        setTheme: () => {},
+        themeList: [],
+        highlightTheme: '',
+        setHighlightTheme: () => {},
+        highlightThemeList: [],
+      }}>
+        {markdownContent}
+      </ThemeContext.Provider>
+    );
+    setTimeout(() => {
+      exportPdfFromHtml(container.innerHTML, fileName.replace(/\.[^/.]+$/, '') + '.pdf');
+      root.unmount();
+      document.body.removeChild(container);
+    }, 300);
+  }, [markdownContent, fileName, colors]);
+
   return (
     <div className="p-4 overflow-auto h-full w-full">
-      <div className="font-bold text-lg mb-2">{fileName} プレビュー</div>
+      <div className="flex items-center mb-2">
+        <div className="font-bold text-lg mr-2">{fileName} プレビュー</div>
+        <button
+          type="button"
+          className="px-2 py-1 rounded bg-green-500 text-white text-xs hover:bg-green-600 transition"
+          style={{ marginLeft: 4 }}
+          onClick={handleExportPdf}
+          title="PDFエクスポート"
+        >
+          PDFエクスポート
+        </button>
+      </div>
       <div
         className="markdown-body prose prose-github max-w-none"
         style={{

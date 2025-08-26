@@ -497,7 +497,7 @@ interface ThemeContextProps {
   highlightThemeList: string[];
 }
 
-const ThemeContext = createContext<ThemeContextProps | undefined>(undefined);
+export const ThemeContext = createContext<ThemeContextProps | undefined>(undefined);
 
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   // SSR/クライアントで初期値を必ず一致させる
