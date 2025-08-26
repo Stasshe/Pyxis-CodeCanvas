@@ -9,8 +9,12 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
 import 'katex/dist/katex.min.css';
-import { getFileSystem } from '@/utils/core/filesystem';
 import { FileItem } from '@/types';
+import {
+  loadImageAsDataURL,
+  parseMermaidContent,
+  parseYamlConfig,
+} from './markdownUtils';
 
 interface MarkdownPreviewTabProps {
   content: string;
@@ -24,194 +28,12 @@ let mermaidIdCounter = 0;
 const getUniqueMermaidId = () => `mermaid-svg-${mermaidIdCounter++}`;
 
 // ローカル画像をDataURLに変換する関数（プロジェクトファイルのbufferContentから読み込み）
-const loadImageAsDataURL = async (
-  imagePath: string, 
-  projectName?: string, 
-  projectFiles?: FileItem[]
-): Promise<string | null> => {
-  if (!projectName) return null;
-  
-  // まずプロジェクトファイルからbufferContentを探す
-  if (projectFiles) {
-    // パスの正規化
-    const normalizedPath = imagePath.startsWith('/') ? imagePath : '/' + imagePath;
-    
-    // プロジェクトファイルを平坦化して検索
-    const findFileRecursively = (files: FileItem[]): FileItem | null => {
-      for (const file of files) {
-        if (file.path === normalizedPath && file.type === 'file' && file.isBufferArray && file.bufferContent) {
-          return file;
-        }
-        if (file.children) {
-          const found = findFileRecursively(file.children);
-          if (found) return found;
-        }
-      }
-      return null;
-    };
-    
-    const imageFile = findFileRecursively(projectFiles);
-    if (imageFile && imageFile.bufferContent) {
-      try {
-        // ファイル拡張子から MIME タイプを推定
-        const extension = imagePath.toLowerCase().split('.').pop();
-        let mimeType = 'image/png'; // デフォルト
-        
-        switch (extension) {
-          case 'jpg':
-          case 'jpeg':
-            mimeType = 'image/jpeg';
-            break;
-          case 'png':
-            mimeType = 'image/png';
-            break;
-          case 'gif':
-            mimeType = 'image/gif';
-            break;
-          case 'svg':
-            mimeType = 'image/svg+xml';
-            break;
-          case 'webp':
-            mimeType = 'image/webp';
-            break;
-        }
-        
-        // ArrayBuffer を Uint8Array に変換
-        const uint8Array = new Uint8Array(imageFile.bufferContent);
-        
-        // Base64 エンコード
-        let binary = '';
-        for (let i = 0; i < uint8Array.byteLength; i++) {
-          binary += String.fromCharCode(uint8Array[i]);
-        }
-        const base64 = btoa(binary);
-        
-        console.log('[MarkdownPreviewTab] Loaded image from bufferContent:', imagePath, mimeType);
-        return `data:${mimeType};base64,${base64}`;
-      } catch (error) {
-        console.warn(`Failed to load image from bufferContent: ${imagePath}`, error);
-      }
-    }
-  }
-  
-  // フォールバック: ファイルシステムから読み込み
-  const fs = getFileSystem();
-  if (!fs) return null;
-  
-  try {
-    // パスの正規化（先頭の/を除去）
-    const normalizedPath = imagePath.startsWith('/') ? imagePath.slice(1) : imagePath;
-    const fullPath = `/projects/${projectName}/${normalizedPath}`;
-    console.log('[MarkdownPreviewTab] Loading local image from filesystem:', fullPath);
-    // ファイルの存在確認
-    const stat = await fs.promises.stat(fullPath);
-    if (!stat.isFile()) return null;
-    
-    // ファイルを読み込み
-    const fileData = await fs.promises.readFile(fullPath);
-    
-    // ファイル拡張子から MIME タイプを推定
-    const extension = imagePath.toLowerCase().split('.').pop();
-    let mimeType = 'image/png'; // デフォルト
-    
-    switch (extension) {
-      case 'jpg':
-      case 'jpeg':
-        mimeType = 'image/jpeg';
-        break;
-      case 'png':
-        mimeType = 'image/png';
-        break;
-      case 'gif':
-        mimeType = 'image/gif';
-        break;
-      case 'svg':
-        mimeType = 'image/svg+xml';
-        break;
-      case 'webp':
-        mimeType = 'image/webp';
-        break;
-    }
-    
-    // ArrayBuffer を Uint8Array に変換
-    const uint8Array = fileData instanceof ArrayBuffer 
-      ? new Uint8Array(fileData)
-      : new Uint8Array(fileData as any);
-    
-    // Base64 エンコード
-    let binary = '';
-    for (let i = 0; i < uint8Array.byteLength; i++) {
-      binary += String.fromCharCode(uint8Array[i]);
-    }
-    const base64 = btoa(binary);
-    
-    return `data:${mimeType};base64,${base64}`;
-  } catch (error) {
-    console.warn(`Failed to load image: ${imagePath}`, error);
-    return null;
-  }
-};
+// loadImageAsDataURL moved to markdownUtils
 
-// YAML frontmatter設定を解析する関数
-const parseYamlConfig = (yamlText: string): any => {
-  try {
-    // 簡易的なYAML解析（完全なYAMLパーサーではないが、基本的な設定は処理可能）
-    const lines = yamlText.split('\n').filter(line => line.trim());
-    const config: any = {};
-    let currentObject = config;
-    const objectStack: any[] = [config];
-    
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith('#')) continue;
-      
-      const indent = line.length - line.trimStart().length;
-      const colonIndex = trimmed.indexOf(':');
-      
-      if (colonIndex > 0) {
-        const key = trimmed.substring(0, colonIndex).trim();
-        const value = trimmed.substring(colonIndex + 1).trim();
-        
-        if (value) {
-          // 値がある場合
-          let parsedValue: any = value;
-          if (value === 'true' || value === 'false') {
-            parsedValue = value === 'true';
-          } else if (!isNaN(Number(value))) {
-            parsedValue = Number(value);
-          } else if (value.startsWith("'") && value.endsWith("'")) {
-            parsedValue = value.slice(1, -1);
-          }
-          currentObject[key] = parsedValue;
-        } else {
-          // 値がない場合（オブジェクト）
-          currentObject[key] = {};
-          currentObject = currentObject[key];
-        }
-      }
-    }
-    
-    return config;
-  } catch (error) {
-    console.warn('YAML設定の解析に失敗:', error);
-    return {};
-  }
-};
+// parseYamlConfig moved to markdownUtils
 
 // Mermaidチャートから設定と図表を分離する関数
-const parseMermaidContent = (chart: string): { config: any; diagram: string } => {
-  const frontmatterRegex = /^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/;
-  const match = chart.match(frontmatterRegex);
-  
-  if (match) {
-    const yamlContent = match[1];
-    const diagramContent = match[2];
-    const config = parseYamlConfig(yamlContent);
-    return { config, diagram: diagramContent };
-  }
-  
-  return { config: {}, diagram: chart };
-};
+// parseMermaidContent moved to markdownUtils
 
 // メモ化されたMermaidコンポーネント
 const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) => {
@@ -238,7 +60,7 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
         </div>
       `;
       try {
-        const { config, diagram } = parseMermaidContent(chart);
+  const { config, diagram } = parseMermaidContent(chart);
         const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
         const mermaidConfig: any = {
           startOnLoad: false,
@@ -570,33 +392,34 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({
   ), [content, markdownComponentsPlain]);
 
   // PDFエクスポート処理
-  const handleExportPdf = useCallback(() => {
+  const handleExportPdf = useCallback(async () => {
     if (typeof window === 'undefined') return; // SSR対策
     const container = document.createElement('div');
     container.style.background = colors.background;
     container.style.color = '#000';
     container.className = 'markdown-body prose prose-github max-w-none';
     document.body.appendChild(container);
-    // React 18+ の createRoot を使う
-    const ReactDOM = require('react-dom/client');
-    const root = ReactDOM.createRoot(container);
-    // ThemeContext.Providerでラップ
-    root.render(
-      <ThemeContext.Provider value={{
-        colors,
-        setColor: () => {},
-        setColors: () => {},
-        themeName: 'pdf',
-        setTheme: () => {},
-        themeList: [],
-        highlightTheme: '',
-        setHighlightTheme: () => {},
-        highlightThemeList: [],
-      }}>
-        {markdownContentPlain}
-      </ThemeContext.Provider>
-    );
-    setTimeout(() => {
+    try {
+      // React 18+ の createRoot を使う（動的インポートでSSR安全）
+      const ReactDOMClient = await import('react-dom/client');
+      const root = ReactDOMClient.createRoot(container);
+      // ThemeContext.Providerでラップ
+      root.render(
+        <ThemeContext.Provider value={{
+          colors,
+          setColor: () => {},
+          setColors: () => {},
+          themeName: 'pdf',
+          setTheme: () => {},
+          themeList: [],
+          highlightTheme: '',
+          setHighlightTheme: () => {},
+          highlightThemeList: [],
+        }}>
+          {markdownContentPlain}
+        </ThemeContext.Provider>
+      );
+      setTimeout(() => {
       // インラインCSSで強制的に黒文字にする
       container.innerHTML = `
         <style>
@@ -606,11 +429,15 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({
         </style>
         ${container.innerHTML}
       `;
-      exportPdfFromHtml(container.innerHTML, fileName.replace(/\.[^/.]+$/, '') + '.pdf');
-      root.unmount();
-      document.body.removeChild(container);
-    }, 300);
-  }, [markdownContent, fileName, colors]);
+        exportPdfFromHtml(container.innerHTML, fileName.replace(/\.[^/.]+$/, '') + '.pdf');
+        try { root.unmount(); } catch (e) { /* ignore */ }
+        document.body.removeChild(container);
+      }, 300);
+    } catch (err) {
+      console.error('PDFエクスポート中にエラーが発生しました', err);
+      if (document.body.contains(container)) document.body.removeChild(container);
+    }
+  }, [markdownContentPlain, fileName, colors]);
 
   return (
     <div className="p-4 overflow-auto h-full w-full">
