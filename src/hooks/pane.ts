@@ -53,18 +53,26 @@ export function addEditorPane(editors: EditorPane[], setEditors: Dispatch<SetSta
 
 export function removeEditorPane(editors: EditorPane[], setEditors: Dispatch<SetStateAction<EditorPane[]>>, id: string) {
   if (editors.length === 1 && !hasChildPanes(editors)) return; // 最低1ペインは残す
-  
+
   setEditors(prev => {
     // ルートレベルから削除
-    const filtered = prev.filter(e => e.id !== id);
+    let filtered = prev.filter(e => e.id !== id);
     if (filtered.length !== prev.length) {
       // ルートレベルで削除された場合、残りペインのサイズを調整
       const newSize = 100 / filtered.length;
-      return filtered.map(pane => ({ ...pane, size: newSize }));
+      filtered = filtered.map(pane => ({ ...pane, size: newSize }));
+      return filtered;
     }
-    
+
     // 子ペインから削除
-    return prev.map(pane => removePaneRecursive(pane, id));
+    const updated = prev.map(pane => removePaneRecursive(pane, id));
+    // 兄弟ペインのsizeを均等割り
+    const total = updated.length;
+    if (total > 0) {
+      const newSize = 100 / total;
+      return updated.map(pane => ({ ...pane, size: newSize }));
+    }
+    return updated;
   });
 }
 
@@ -230,31 +238,31 @@ function updatePaneRecursive(pane: EditorPane, targetId: string, updater: (pane:
 
 function removePaneRecursive(pane: EditorPane, targetId: string): EditorPane {
   if (pane.children) {
-    const filteredChildren = pane.children.filter(child => child.id !== targetId);
-    
-    // 子ペインが1つだけ残った場合、その子を現在のペインにマージ
-    if (filteredChildren.length === 1) {
-      const remainingChild = filteredChildren[0];
+    // 再帰的に子ペインを探索し、targetIdを削除
+    const updatedChildren = pane.children
+      .map(child => child.id === targetId ? null : removePaneRecursive(child, targetId))
+      .filter(Boolean) as EditorPane[];
+
+    // 子ペインが1つだけ残った場合、その子を現在のペインに昇格
+    if (updatedChildren.length === 1) {
+      const remainingChild = updatedChildren[0];
+      // 親ペインのsizeを維持
       return {
-        ...pane,
-        tabs: remainingChild.tabs,
-        activeTabId: remainingChild.activeTabId,
-        children: remainingChild.children,
-        layout: remainingChild.layout
+        ...remainingChild,
+        size: pane.size
       };
     }
-    
+
     // サイズを再調整
-    if (filteredChildren.length > 0) {
-      const newSize = 100 / filteredChildren.length;
+    if (updatedChildren.length > 0) {
+      const newSize = 100 / updatedChildren.length;
       return {
         ...pane,
-        children: filteredChildren.map(child => ({ ...child, size: newSize }))
+        children: updatedChildren.map(child => ({ ...child, size: newSize }))
       };
     }
-    
-    return { ...pane, children: filteredChildren };
+
+    return { ...pane, children: updatedChildren };
   }
-  
   return pane;
 }
