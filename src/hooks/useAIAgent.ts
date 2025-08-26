@@ -82,19 +82,11 @@ export function useAIAgent(props?: UseAIAgentProps) {
 
     setIsProcessing(true);
     try {
-      // 履歴をMarkdown形式でまとめる
-      const history = previousMessages && previousMessages.length > 0
-        ? previousMessages.slice(-5).map(msg =>
-            `### ${msg.type === 'user' ? 'ユーザー' : 'アシスタント'}: ${msg.mode === 'edit' ? '編集' : '会話'}\n${msg.content}`
-          ).join('\n\n')
-        : '';
-
-      // コンテキストを構築
-      const context = selectedFiles.map(f => `ファイル: ${f.path}\n\`\`\`\n${f.content}\n\`\`\``);
-
-      // AIプロンプトを生成（履歴＋質問＋ファイルコンテキスト）
-      console.log(history);
-      const prompt = `${history ? `## これまでの会話履歴\n${history}\n` : ''}\n${content}\n\n${context.join('\n')}`;
+      // ASK_PROMPT_TEMPLATEを使ってプロンプトを生成
+      // importを追加して使う
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { ASK_PROMPT_TEMPLATE } = require('@/utils/ai/prompts');
+      const prompt = ASK_PROMPT_TEMPLATE(selectedFiles, content, previousMessages);
 
       // AI応答を生成
       const response = await generateChatResponse(prompt, [], apiKey);
