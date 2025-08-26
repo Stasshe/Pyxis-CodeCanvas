@@ -34,7 +34,34 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
   const [isExpandedFoldersRestored, setIsExpandedFoldersRestored] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; item: FileItem | null } | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
-
+  
+  // ドラッグ&ドロップ用
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>, targetPath?: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const files = e.dataTransfer.files;
+    if (!files || files.length === 0) return;
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      let content: string | ArrayBuffer = await file.arrayBuffer();
+      const isBinary = isBufferArray(content);
+      if (!isBinary) {
+        content = await file.text();
+      }
+      const unix = new UnixCommands(currentProjectName);
+      let importPath = targetPath ? `${targetPath}/${file.name}` : `/${file.name}`;
+      let absolutePath = `/projects/${currentProjectName}${importPath}`;
+      await importSingleFile(file, absolutePath, unix);
+      if (typeof onFileOperation === 'function') {
+        await onFileOperation(importPath, 'file', isBinary ? undefined : (content as string), false, isBinary, isBinary ? (content as ArrayBuffer) : undefined);
+      }
+    }
+  };
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+  
   // expandedFoldersをlocalStorageに保存（初回復元後のみ）
   useEffect(() => {
     if (level === 0 && isExpandedFoldersRestored) {
@@ -65,7 +92,7 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
       setIsExpandedFoldersRestored(true);
     }
   }, [items, level, currentProjectName, isExpandedFoldersRestored]);
-
+  
   // コンテキストメニュー外クリックで閉じる
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -166,11 +193,16 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
         display: 'flex',
         flexDirection: 'column',
       } : {}}
+      onDrop={level === 0 ? (e) => handleDrop(e) : undefined}
+      onDragOver={level === 0 ? handleDragOver : undefined}
     >
       {items.map(item => {
         const isExpanded = expandedFolders.has(item.id);
         return (
-          <div key={item.id}>
+          <div key={item.id}
+            onDrop={item.type === 'folder' ? (e) => handleDrop(e, item.path) : undefined}
+            onDragOver={item.type === 'folder' ? handleDragOver : undefined}
+          >
             <div
               style={{
                 display: 'flex',
@@ -286,6 +318,8 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
               longPressTimeout.current = null;
             }
           }}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
         />
       )}
 
