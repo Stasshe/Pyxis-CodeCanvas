@@ -43,6 +43,10 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [svgContent, setSvgContent] = useState<string | null>(null);
+  const scaleRef = useRef<number>(1);
+  const translateRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const isPanningRef = useRef<boolean>(false);
+  const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     const renderMermaid = async () => {
@@ -128,6 +132,92 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
           svgElem.style.maxHeight = '90vh';
           svgElem.style.overflow = 'visible';
           svgElem.style.background = colors.mermaidBg || '#eaffea';
+          // enable better interaction styles
+          svgElem.style.touchAction = 'none';
+          svgElem.style.transformOrigin = '0 0';
+          // reset pan/zoom state
+          scaleRef.current = 1;
+          translateRef.current = { x: 0, y: 0 };
+          svgElem.style.transform = `translate(0px, 0px) scale(1)`;
+          // attach pan/zoom handlers
+          const container = ref.current as HTMLDivElement;
+
+          const applyTransform = () => {
+            const s = scaleRef.current;
+            const { x, y } = translateRef.current;
+            svgElem.style.transform = `translate(${x}px, ${y}px) scale(${s})`;
+          };
+
+          const onWheel = (e: WheelEvent) => {
+            // allow user to zoom with ctrl+wheel or wheel alone
+            e.preventDefault();
+            const rect = container.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+            const delta = e.deltaY < 0 ? 1.12 : 0.9;
+            const prevScale = scaleRef.current;
+            const newScale = Math.max(0.2, Math.min(8, prevScale * delta));
+            // adjust translate so zoom centers on pointer
+            const tx = translateRef.current.x;
+            const ty = translateRef.current.y;
+            translateRef.current.x = mx - (mx - tx) * (newScale / prevScale);
+            translateRef.current.y = my - (my - ty) * (newScale / prevScale);
+            scaleRef.current = newScale;
+            applyTransform();
+          };
+
+          const onPointerDown = (e: PointerEvent) => {
+            (e.target as Element).setPointerCapture?.(e.pointerId);
+            isPanningRef.current = true;
+            lastPointerRef.current = { x: e.clientX, y: e.clientY };
+            container.style.cursor = 'grabbing';
+          };
+
+          const onPointerMove = (e: PointerEvent) => {
+            if (!isPanningRef.current || !lastPointerRef.current) return;
+            const dx = e.clientX - lastPointerRef.current.x;
+            const dy = e.clientY - lastPointerRef.current.y;
+            lastPointerRef.current = { x: e.clientX, y: e.clientY };
+            translateRef.current.x += dx;
+            translateRef.current.y += dy;
+            applyTransform();
+          };
+
+          const onPointerUp = (e: PointerEvent) => {
+            try { (e.target as Element).releasePointerCapture?.(e.pointerId); } catch (e) { /* ignore */ }
+            isPanningRef.current = false;
+            lastPointerRef.current = null;
+            container.style.cursor = 'default';
+          };
+
+          const onDblClick = (e: MouseEvent) => {
+            // reset
+            scaleRef.current = 1;
+            translateRef.current = { x: 0, y: 0 };
+            applyTransform();
+          };
+
+          // event registration
+          container.addEventListener('wheel', onWheel, { passive: false });
+          container.addEventListener('pointerdown', onPointerDown as any);
+          window.addEventListener('pointermove', onPointerMove as any);
+          window.addEventListener('pointerup', onPointerUp as any);
+          container.addEventListener('dblclick', onDblClick as any);
+
+          // cleanup when chart changes/unmounts
+          const cleanup = () => {
+            try {
+              container.removeEventListener('wheel', onWheel as any);
+              container.removeEventListener('pointerdown', onPointerDown as any);
+              window.removeEventListener('pointermove', onPointerMove as any);
+              window.removeEventListener('pointerup', onPointerUp as any);
+              container.removeEventListener('dblclick', onDblClick as any);
+            } catch (err) {
+              // ignore
+            }
+          };
+          // store cleanup function on element so we can call it from outer effect cleanup too
+          (container as any).__mermaidCleanup = cleanup;
         }
         setIsLoading(false);
       } catch (e) {
@@ -140,6 +230,16 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
       }
     };
     renderMermaid();
+    return () => {
+      // call any attached cleanup (remove listeners)
+      try {
+        if (ref.current && (ref.current as any).__mermaidCleanup) {
+          (ref.current as any).__mermaidCleanup();
+        }
+      } catch (err) {
+        /* ignore */
+      }
+    };
   }, [chart, colors.mermaidBg]);
 
   // SVGダウンロード処理
@@ -159,28 +259,88 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
     }, 100);
   }, [svgContent]);
 
+  // Small helpers for UI controls
+  const handleZoomIn = useCallback(() => {
+    const container = ref.current;
+    if (!container) return;
+    const svgElem = container.querySelector('svg') as SVGElement | null;
+    if (!svgElem) return;
+    const prev = scaleRef.current;
+    const next = Math.min(8, prev * 1.2);
+    // center zoom on container center
+    const rect = container.getBoundingClientRect();
+    const cx = rect.width / 2;
+    const cy = rect.height / 2;
+    translateRef.current.x = cx - (cx - translateRef.current.x) * (next / prev);
+    translateRef.current.y = cy - (cy - translateRef.current.y) * (next / prev);
+    scaleRef.current = next;
+    svgElem.style.transform = `translate(${translateRef.current.x}px, ${translateRef.current.y}px) scale(${scaleRef.current})`;
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    const container = ref.current;
+    if (!container) return;
+    const svgElem = container.querySelector('svg') as SVGElement | null;
+    if (!svgElem) return;
+    const prev = scaleRef.current;
+    const next = Math.max(0.2, prev / 1.2);
+    const rect = container.getBoundingClientRect();
+    const cx = rect.width / 2;
+    const cy = rect.height / 2;
+    translateRef.current.x = cx - (cx - translateRef.current.x) * (next / prev);
+    translateRef.current.y = cy - (cy - translateRef.current.y) * (next / prev);
+    scaleRef.current = next;
+    svgElem.style.transform = `translate(${translateRef.current.x}px, ${translateRef.current.y}px) scale(${scaleRef.current})`;
+  }, []);
+
+  const handleResetView = useCallback(() => {
+    const container = ref.current;
+    if (!container) return;
+    const svgElem = container.querySelector('svg') as SVGElement | null;
+    if (!svgElem) return;
+    scaleRef.current = 1;
+    translateRef.current = { x: 0, y: 0 };
+    svgElem.style.transform = `translate(0px, 0px) scale(1)`;
+  }, []);
+
   return (
     <div style={{ gap: '8px', minHeight: '120px' }}>
       {svgContent && !isLoading && !error && (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '8px' }}>
-          <button
-            type="button"
-            onClick={handleDownloadSvg}
-            style={{
-            padding: '4px 8px',
-            background: '#38bdf8',
-            color: '#fff',
-            borderRadius: '4px',
-            border: 'none',
-            cursor: 'pointer',
-            fontSize: '12px',
-            marginLeft: '4px',
-            boxShadow: '0 1px 4px rgba(0,0,0,0.08)'
-            }}
-            title="SVGダウンロード"
-          >
-            SVGダウンロード
-          </button>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button
+              type="button"
+              onClick={handleZoomIn}
+              style={{ padding: '4px 8px', background: '#60a5fa', color: '#fff', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '12px' }}
+              title="ズームイン"
+            >
+              ＋
+            </button>
+            <button
+              type="button"
+              onClick={handleZoomOut}
+              style={{ padding: '4px 8px', background: '#60a5fa', color: '#fff', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '12px' }}
+              title="ズームアウト"
+            >
+              －
+            </button>
+            <button
+              type="button"
+              onClick={handleResetView}
+              style={{ padding: '4px 8px', background: '#94a3b8', color: '#fff', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '12px' }}
+              title="リセット"
+            >
+              リセット
+            </button>
+            <button
+              type="button"
+              onClick={handleDownloadSvg}
+              style={{ padding: '4px 8px', background: '#38bdf8', color: '#fff', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '12px', marginLeft: '4px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}
+              title="SVGダウンロード"
+            >
+              SVG
+            </button>
+          </div>
         </div>
       )}
       <div ref={ref} className="mermaid" style={{ minHeight: '120px' }} />

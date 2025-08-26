@@ -55,7 +55,10 @@
   padding: 1em;
   border-radius: 6px;
   overflow-x: auto;
-  margin: 1em 0;
+  margin: 1em auto;
+  max-width: 90%;
+  display: block;
+  text-align: left;
 }
 
 .markdown-body code {
