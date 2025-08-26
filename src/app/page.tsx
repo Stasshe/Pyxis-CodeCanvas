@@ -62,9 +62,10 @@ export default function Home() {
       try {
         const saved = window.localStorage.getItem(LOCALSTORAGE_KEY.EDITOR_LAYOUT);
         if (saved) {
-          const parsed = JSON.parse(saved);
-          // データが正しい形式かチェック
-          if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].id) {
+          const parsedRaw = JSON.parse(saved);
+          // Backwards compatible: old format was an array of editors
+          const parsed = Array.isArray(parsedRaw) ? { editors: parsedRaw } : parsedRaw;
+          if (parsed && Array.isArray(parsed.editors) && parsed.editors.length > 0) {
             // ペインツリー全体を再帰的に復元
             const restorePaneRecursive = (pane: any, total: number): any => {
               const newId = pane.id;
@@ -118,8 +119,18 @@ export default function Home() {
                 parentId: pane.parentId || undefined
               };
             };
-            const initEditors = parsed.map((editor: any) => restorePaneRecursive(editor, parsed.length));
+            const initEditors = parsed.editors.map((editor: any) => restorePaneRecursive(editor, parsed.editors.length));
             setEditors(initEditors);
+            // UIの復元: left/right/bottom の表示状態やサイズ
+            if (parsed.ui) {
+              if (typeof parsed.ui.isLeftSidebarVisible === 'boolean') setIsLeftSidebarVisible(parsed.ui.isLeftSidebarVisible);
+              if (typeof parsed.ui.isBottomPanelVisible === 'boolean') setIsBottomPanelVisible(parsed.ui.isBottomPanelVisible);
+              if (typeof parsed.ui.isRightSidebarVisible === 'boolean') setIsRightSidebarVisible(parsed.ui.isRightSidebarVisible);
+              if (typeof parsed.ui.leftSidebarWidth === 'number') setLeftSidebarWidth(parsed.ui.leftSidebarWidth);
+              if (typeof parsed.ui.rightSidebarWidth === 'number') setRightSidebarWidth(parsed.ui.rightSidebarWidth);
+              if (typeof parsed.ui.bottomPanelHeight === 'number') setBottomPanelHeight(parsed.ui.bottomPanelHeight);
+              if (parsed.ui.editorLayout) setEditorLayout(parsed.ui.editorLayout);
+            }
             // ルートリーフペインのactiveTabIdを復元
             const firstLeaf = (() => {
               const findLeaf = (pane: any): any => {
@@ -151,10 +162,24 @@ export default function Home() {
             // content除外、pathとisBufferArrayは保持してDBから復元できるようにする
           }))
         }));
-        window.localStorage.setItem(LOCALSTORAGE_KEY.EDITOR_LAYOUT, JSON.stringify(editorsWithoutContent));
+
+        const payload = {
+          editors: editorsWithoutContent,
+          ui: {
+            isLeftSidebarVisible,
+            isRightSidebarVisible,
+            isBottomPanelVisible,
+            leftSidebarWidth,
+            rightSidebarWidth,
+            bottomPanelHeight,
+            editorLayout,
+          }
+        };
+
+        window.localStorage.setItem(LOCALSTORAGE_KEY.EDITOR_LAYOUT, JSON.stringify(payload));
       } catch (e) {}
     }
-  }, [editors]);
+  }, [editors, isLeftSidebarVisible, isRightSidebarVisible, isBottomPanelVisible, leftSidebarWidth, rightSidebarWidth, bottomPanelHeight, editorLayout]);
   
   const { colors } = useTheme();
   
