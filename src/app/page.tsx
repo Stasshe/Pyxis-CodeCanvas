@@ -24,7 +24,7 @@ import { openFile } from '@/utils/openTab';
 import { useGitMonitor } from '@/hooks/gitHooks';
 import { useProject } from '@/utils/core/project';
 import { Project } from '@/types';
-import type { Tab,FileItem, MenuTab, EditorLayoutType, EditorPane } from '@/types';
+import type { Tab,FileItem, MenuTab, EditorPane } from '@/types';
 import RightSidebar from '@/components/Right/RightSidebar';
 import FileSelectModal from '@/components/FileSelect';
 import { handleFileSelect, handleFilePreview } from '@/hooks/fileSelectHandlers';
@@ -52,7 +52,7 @@ export default function Home() {
   const [gitChangesCount, setGitChangesCount] = useState(0); // Git変更ファイル数
   const [nodeRuntimeOperationInProgress, setNodeRuntimeOperationInProgress] = useState(false); // NodeRuntime操作中フラグ
   const [fileSelectState, setFileSelectState] = useState<{ open: boolean, paneIdx: number|null }>({ open: false, paneIdx: null });
-  const [editorLayout, setEditorLayout] = useState<EditorLayoutType>('vertical');
+  // Editor layout is fixed to vertical in this build.
   const [editors, setEditors] = useState<EditorPane[]>([{ id: 'editor-1', tabs: [], activeTabId: '' }]);
   const [isRestoredFromLocalStorage, setIsRestoredFromLocalStorage] = useState(false); // localStorage復元完了フラグ
   
@@ -129,7 +129,6 @@ export default function Home() {
               if (typeof parsed.ui.leftSidebarWidth === 'number') setLeftSidebarWidth(parsed.ui.leftSidebarWidth);
               if (typeof parsed.ui.rightSidebarWidth === 'number') setRightSidebarWidth(parsed.ui.rightSidebarWidth);
               if (typeof parsed.ui.bottomPanelHeight === 'number') setBottomPanelHeight(parsed.ui.bottomPanelHeight);
-              if (parsed.ui.editorLayout) setEditorLayout(parsed.ui.editorLayout);
             }
             // ルートリーフペインのactiveTabIdを復元
             const firstLeaf = (() => {
@@ -172,14 +171,13 @@ export default function Home() {
             leftSidebarWidth,
             rightSidebarWidth,
             bottomPanelHeight,
-            editorLayout,
           }
         };
 
         window.localStorage.setItem(LOCALSTORAGE_KEY.EDITOR_LAYOUT, JSON.stringify(payload));
       } catch (e) {}
     }
-  }, [editors, isLeftSidebarVisible, isRightSidebarVisible, isBottomPanelVisible, leftSidebarWidth, rightSidebarWidth, bottomPanelHeight, editorLayout]);
+  }, [editors, isLeftSidebarVisible, isRightSidebarVisible, isBottomPanelVisible, leftSidebarWidth, rightSidebarWidth, bottomPanelHeight]);
   
   const { colors } = useTheme();
   
@@ -647,20 +645,10 @@ export default function Home() {
       <div className="flex-1 flex flex-row overflow-hidden min-h-0" style={{ position: 'relative' }}>
         {/* メインエディタ部 */}
         <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-          <div
-            className={editorLayout === 'vertical' ? 'flex-1 flex flex-row overflow-hidden min-h-0' : 'flex-1 flex flex-col overflow-hidden min-h-0'}
-            style={{ gap: '0px', position: 'relative' }}
-          >
+          <div className={'flex-1 flex flex-row overflow-hidden min-h-0'} style={{ gap: '0px', position: 'relative' }}>
             {editors.map((editor, idx) => (
               <React.Fragment key={editor.id}>
-                <div
-                  className="relative min-w-0 min-h-0"
-                  style={{
-                    [editorLayout === 'vertical' ? 'width' : 'height']: `${editor.size || (100 / editors.length)}%`,
-                    flexShrink: 0,
-                    overflow: 'hidden'
-                  }}
-                >
+                <div className="relative min-w-0 min-h-0" style={{ width: `${editor.size || (100 / editors.length)}%`, flexShrink: 0, overflow: 'hidden' }}>
                   <PaneContainer
                     pane={editor}
                     paneIndex={idx}
@@ -680,16 +668,9 @@ export default function Home() {
                   
                   {/* ルートレベルペイン間のリサイザー */}
                   {idx < editors.length - 1 && (
-                    <div style={{ 
-                      position: 'absolute', 
-                      [editorLayout === 'vertical' ? 'right' : 'bottom']: 0,
-                      [editorLayout === 'vertical' ? 'top' : 'left']: 0,
-                      [editorLayout === 'vertical' ? 'bottom' : 'right']: 0,
-                      [editorLayout === 'vertical' ? 'width' : 'height']: '6px',
-                      zIndex: 10
-                    }}>
+                    <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '6px', zIndex: 10 }}>
                       <PaneResizer
-                        direction={editorLayout === 'vertical' ? 'vertical' : 'horizontal'}
+                        direction={'vertical'}
                         leftSize={editor.size || (100 / editors.length)}
                         rightSize={editors[idx + 1]?.size || (100 / editors.length)}
                         onResize={(leftSize: number, rightSize: number) => {
