@@ -31,6 +31,7 @@ import { handleFileSelect, handleFilePreview } from '@/hooks/fileSelectHandlers'
 import { Terminal, Search } from 'lucide-react';
 import PanelRightIcon from '@/components/Right/PanelRightIcon';
 import OperationWindow from '@/components/OperationWindow';
+import { LOCALSTORAGE_KEY } from '@/context/config';
 
 
 export default function Home() {
@@ -59,7 +60,7 @@ export default function Home() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
-        const saved = window.localStorage.getItem('pyxis-editors');
+        const saved = window.localStorage.getItem(LOCALSTORAGE_KEY.EDITOR_LAYOUT);
         if (saved) {
           const parsed = JSON.parse(saved);
           // データが正しい形式かチェック
@@ -150,7 +151,7 @@ export default function Home() {
             // content除外、pathとisBufferArrayは保持してDBから復元できるようにする
           }))
         }));
-        window.localStorage.setItem('pyxis-editors', JSON.stringify(editorsWithoutContent));
+        window.localStorage.setItem(LOCALSTORAGE_KEY.EDITOR_LAYOUT, JSON.stringify(editorsWithoutContent));
       } catch (e) {}
     }
   }, [editors]);
@@ -420,7 +421,7 @@ export default function Home() {
     setActiveTabId(''); // アクティブタブIDをリセット
     setEditors([{ id: 'editor-1', tabs: [], activeTabId: '' }]); // エディタ状態を初期化
     setIsLeftSidebarVisible(true);
-    localStorage.removeItem('pyxis-editors'); // localStorageのエディタ状態をクリア
+    localStorage.removeItem(LOCALSTORAGE_KEY.EDITOR_LAYOUT); // localStorageのエディタ状態をクリア
     setIsRestoredFromLocalStorage(false); // 復元フラグをリセット
     await loadProject(project);
   };
@@ -432,7 +433,7 @@ export default function Home() {
       setActiveTabId(''); // アクティブタブIDをリセット
       setEditors([{ id: 'editor-1', tabs: [], activeTabId: '' }]); // エディタ状態を初期化
       setIsLeftSidebarVisible(true);
-      localStorage.removeItem('pyxis-editors'); // localStorageのエディタ状態をクリア
+      localStorage.removeItem(LOCALSTORAGE_KEY.EDITOR_LAYOUT); // localStorageのエディタ状態をクリア
       setIsRestoredFromLocalStorage(false); // 復元フラグをリセット
 
       await createProject(name, description);
