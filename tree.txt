@@ -4,8 +4,7 @@
 │   ├── TODO.md
 │   ├── ai-agent-implementation-plan.md
 │   ├── all-flow.svg
-│   ├── git-deletion-detection-analysis.md
-│   └── terminal_touch_flow.md
+│   └── git-deletion-detection-analysis.md
 ├── FreeAPIGenerativeAI-Model.md
 ├── LICENSE
 ├── README.md
@@ -17,17 +16,18 @@
 ├── initial_files
 │   ├── README.md
 │   ├── docs
-│   │   ├── docs_getting-started.md
 │   │   ├── docs_git-commands.md
-│   │   └── docs_unix-commands.md
+│   │   ├── getting-started.md
+│   │   └── unix-commands.md
 │   ├── homepage
 │   │   ├── index.html
 │   │   ├── main.js
 │   │   └── style.css
 │   ├── src
 │   │   ├── debugConsoleDemo.js
-│   │   ├── src_fileOperationg.js
-│   │   └── src_index.js
+│   │   ├── fileOperationg.js
+│   │   ├── index.js
+│   │   └── readline_test.js
 │   └── text-editor
 │       ├── index.html
 │       ├── main.js
@@ -51,7 +51,6 @@
 │   ├── web-app-manifest-192x192.png
 │   ├── web-app-manifest-512x512.png
 │   └── window.svg
-├── readline_test.js
 ├── readme-assets
 │   ├── IMG_1465.png
 │   ├── IMG_1466.png
@@ -61,14 +60,12 @@
 │   ├── IMG_1471.png
 │   └── IMG_1473.png
 ├── sampleNode.js
-├── simple_readline_test.js
 ├── src
 │   ├── app
 │   │   ├── Toast.css
 │   │   ├── globals.css
 │   │   ├── layout.tsx
 │   │   ├── markdown.css
-│   │   ├── page-transformed-before.tsx
 │   │   └── page.tsx
 │   ├── components
 │   │   ├── AI
@@ -110,13 +107,15 @@
 │   │   │   └── RightSidebar.tsx
 │   │   ├── Tab
 │   │   │   ├── BinaryTabContent.tsx
+│   │   │   ├── CharCountDetails.tsx
 │   │   │   ├── CodeEditor.tsx
 │   │   │   ├── DiffTab.tsx
 │   │   │   ├── HighlightedCode.tsx
 │   │   │   ├── MarkdownPreviewTab.tsx
 │   │   │   ├── TabBar.tsx
 │   │   │   ├── WebPreviewTab.tsx
-│   │   │   └── WelcomeTab.tsx
+│   │   │   ├── WelcomeTab.tsx
+│   │   │   └── markdownUtils.ts
 │   │   └── Toast.tsx
 │   ├── context
 │   │   ├── ThemeContext.tsx
@@ -166,11 +165,11 @@
 │       │   ├── exportFolderZip.ts
 │       │   ├── exportIndexeddb.ts
 │       │   ├── exportPage.ts
+│       │   ├── exportPdf.ts
 │       │   ├── exportRepo.ts
 │       │   ├── exportSingleFile.ts
 │       │   └── inlineHtmlAssets.ts
 │       ├── fileWatcher.ts
-│       ├── handleFileOperation.ts
 │       ├── helper
 │       │   ├── isBufferArray.ts
 │       │   └── resize.ts
@@ -189,17 +188,18 @@
 ├── tree-built-out.sh
 ├── tree.sh
 ├── tree.txt
-└── tsconfig.json
+├── tsconfig.json
+└── tsconfig.tsbuildinfo
 
 32 directories, 160 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 27334
-合計文字数: 993690
-合計ファイルサイズ(bytes): 1074140
+合計行数: 27153
+合計文字数: 989287
+合計ファイルサイズ(bytes): 1068998
 
-リポジトリ全体のサイズ(bytes): 1.6G	.
+リポジトリ全体のサイズ(bytes): 1.7G	.
 ==========
 ビルト済みファイルの行数: 14752
-合計文字数: 21340536
-合計ファイルサイズ(bytes): 22268229
+合計文字数: 22144272
+合計ファイルサイズ(bytes): 23073865

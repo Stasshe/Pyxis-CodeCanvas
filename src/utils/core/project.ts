@@ -567,7 +567,7 @@ export const useProject = () => {
       
       // 初期チャットスペースを作成
       try {
-        await projectDB.createChatSpace(newProject.id, `${newProject.name} - 初期チャット`);
+        await projectDB.createChatSpace(newProject.id, `新規チャット`);
         console.log('[createProject] Initial chat space created');
       } catch (error) {
         console.warn('[createProject] Failed to create initial chat space:', error);
