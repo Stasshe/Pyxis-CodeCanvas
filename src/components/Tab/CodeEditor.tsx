@@ -7,6 +7,7 @@ import Editor, { Monaco, OnMount } from '@monaco-editor/react';
 import { FileText } from 'lucide-react';
 import { Tab } from '@/types';
 import { isBufferArray } from '@/utils/helper/isBufferArray';
+import CharCountDetails from './CharCountDetails';
 // バイナリファイルのMIMEタイプ推定
 function guessMimeType(fileName: string, buffer?: ArrayBuffer): string {
   const ext = fileName.toLowerCase();
@@ -187,6 +188,8 @@ export default function CodeEditor({
   // 文字数カウント用 state（スペース除外）
   const [charCount, setCharCount] = useState(0);
   const [selectionCount, setSelectionCount] = useState<number | null>(null);
+  // ポップアップ表示状態
+  const [showCharCountPopup, setShowCharCountPopup] = useState(false);
   // 文字数カウント（スペース除外）
   const countCharsNoSpaces = (text: string) => text.replace(/\s/g, '').length;
 
@@ -391,7 +394,7 @@ export default function CodeEditor({
             monacoModelMap.set(activeTab.id, newModel);
             editor.setModel(newModel);
             currentModelIdRef.current = activeTab.id;
-            setCharCount(activeTab.content.length);
+            setCharCount(countCharsNoSpaces(activeTab.content));
           } catch (retryError) {
             console.error('[CodeEditor] Model creation retry failed:', retryError);
           }
@@ -447,7 +450,7 @@ export default function CodeEditor({
         // モデルを設定
         editorRef.current!.setModel(model);
         currentModelIdRef.current = activeTab.id;
-        setCharCount(model.getValue().length);
+        setCharCount(countCharsNoSpaces(model.getValue()));
       } catch (e: any) {
         console.warn('[CodeEditor] setModel failed:', e?.message);
         // setModelに失敗した場合、少し待ってから再試行
@@ -513,7 +516,7 @@ export default function CodeEditor({
       }
       
       if (isModelSafe(model)) {
-        setCharCount(model!.getValue().length);
+        setCharCount(countCharsNoSpaces(model!.getValue()));
       }
     }
   }, [activeTab?.id, isCodeMirror, isEditorSafe, isModelSafe]); // activeTab.contentは除去して、不要なuseEffect実行を防ぐ
@@ -550,7 +553,7 @@ export default function CodeEditor({
       try {
         // 強制的にコンテンツを同期する（ユーザーの変更は絶対に反映する）
         model!.setValue(activeTab.content);
-        setCharCount(activeTab.content.length);
+        setCharCount(countCharsNoSpaces(activeTab.content));
         console.log('[CodeEditor] Content synced for tab:', activeTab.id);
       } catch (e: any) {
         console.warn('[CodeEditor] Content sync failed, recreating model:', e?.message);
@@ -570,7 +573,7 @@ export default function CodeEditor({
           if (isEditorSafe()) {
             editorRef.current!.setModel(newModel);
             currentModelIdRef.current = activeTab.id;
-            setCharCount(activeTab.content.length);
+            setCharCount(countCharsNoSpaces(activeTab.content));
             console.log('[CodeEditor] Model recreated and synced for tab:', activeTab.id);
           }
         } catch (recreateError: any) {
@@ -674,7 +677,7 @@ export default function CodeEditor({
           onChange={(value) => {
             onContentChangeImmediate?.(activeTab.id, value);
             debouncedSave(activeTab.id, value);
-            setCharCount(countCharsNoSpaces(value)); // ← ここは「スペース除外」で計算
+            setCharCount(countCharsNoSpaces(value));
             setSelectionCount(null);
           }}
           // これを追加：選択範囲の文字数（スペース除外）
@@ -714,7 +717,7 @@ export default function CodeEditor({
                   onContentChangeImmediate(activeTab.id, value);
                 }
                 debouncedSave(activeTab.id, value);
-                setCharCount(value.length);
+                setCharCount(countCharsNoSpaces(value));
                 setSelectionCount(null);
                 // console.log('[CodeEditor] User change detected for tab:', activeTab.id, 'length:', value.length);
               } catch (error: any) {
@@ -802,7 +805,7 @@ export default function CodeEditor({
           }
         />
       )}
-      {/* 文字数カウント表示バー */}
+      {/* 文字数カウント表示バー（クリックでポップアップ展開） */}
       <div
         style={{
           position: 'absolute',
@@ -814,13 +817,50 @@ export default function CodeEditor({
           borderRadius: 6,
           fontSize: 13,
           zIndex: 10,
-          pointerEvents: 'none',
+          cursor: 'pointer',
+          userSelect: 'none',
+          boxShadow: showCharCountPopup ? '0 2px 8px rgba(0,0,0,0.25)' : undefined,
         }}
+        onClick={() => setShowCharCountPopup((v) => !v)}
+        title="クリックで詳細表示"
       >
         {selectionCount !== null
-          ? `選択範囲: ${selectionCount}文字（スペース除外） / 全体: ${charCount}文字（スペース除外）`
+          ? `選択範囲: ${selectionCount}文字（スペース除外）/ 全体: ${charCount}文字（スペース除外）`
           : `全体: ${charCount}文字（スペース除外）`}
       </div>
+      {showCharCountPopup && (
+        <div
+          style={{
+            position: 'absolute',
+            right: 12,
+            bottom: 40,
+            zIndex: 20,
+            background: 'rgba(30,30,30,0.98)',
+            borderRadius: 8,
+            boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
+            padding: '12px 18px',
+            minWidth: 180,
+            maxWidth: 320,
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <CharCountDetails content={activeTab.content || ''} />
+          <div style={{ textAlign: 'right', marginTop: 8 }}>
+            <button
+              style={{
+                background: '#444',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 4,
+                padding: '2px 10px',
+                cursor: 'pointer',
+                fontSize: 12,
+              }}
+              onClick={() => setShowCharCountPopup(false)}
+            >閉じる</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
