@@ -305,9 +305,10 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
 
   return (
     <div style={{ gap: '8px', minHeight: '120px' }}>
+      {/* Controls: separate container with higher z-index so it won't be overlapped by the SVG */}
       {svgContent && !isLoading && !error && (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '8px' }}>
-          <div style={{ display: 'flex', gap: 6 }}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px', position: 'relative', zIndex: 20 }}>
+          <div className="select-none" style={{ display: 'flex', gap: 6, background: 'rgba(255,255,255,0.85)', padding: '6px', borderRadius: 6 }}>
             <button
               type="button"
               onClick={handleZoomIn}
@@ -343,7 +344,11 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
           </div>
         </div>
       )}
-      <div ref={ref} className="mermaid" style={{ minHeight: '120px' }} />
+
+      {/* Diagram container: scrollable area and separate from controls to avoid overlap when panning/zooming */}
+      <div style={{ position: 'relative', zIndex: 10, overflow: 'auto', maxHeight: '60vh', paddingTop: 4 }}>
+        <div ref={ref} className="mermaid" style={{ minHeight: '120px' }} />
+      </div>
     </div>
   );
 });
