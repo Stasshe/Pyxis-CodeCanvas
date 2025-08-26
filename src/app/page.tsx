@@ -64,68 +64,72 @@ export default function Home() {
           const parsed = JSON.parse(saved);
           // データが正しい形式かチェック
           if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].id) {
-              // タブを初期化: contentとbufferContentは空にして、後でDBから復元
-              const initEditors = parsed.map((editor: any, idx: number) => {
-                let newId = editor.id;
-                // ...既存のID重複防止処理...
-                // タブID・path生成ルールを統一
-                const tabs = editor.tabs.map((tab: any) => {
-                  let tabId;
-                  let tabPath = tab.path;
-                  if (tab.id === 'welcome') {
-                    tabId = 'welcome';
-                    tabPath = '/';
-                  } else if (tab.preview) {
-                    tabId = `${newId}:${tab.path}-preview`;
-                  } else if (tab.diffProps) {
-                    tabId = `${newId}:${tab.path}-diff`;
-                  } else if (tab.aiReviewProps) {
-                    tabId = `${newId}:${tab.path}-ai`;
-                  } else {
-                    tabId = `${newId}:${tab.path}`;
-                  }
-                  if (tabPath && !tabPath.startsWith('/')) tabPath = '/' + tabPath;
-                  return {
-                    ...tab,
-                    id: tabId,
-                    path: tabPath,
-                    content: '',
-                    bufferContent: undefined,
-                    needsContentRestore: tabId !== 'welcome' && !tab.diffProps && !tab.webPreview && tabPath && tabPath !== '/',
-                  };
-                });
-                // activeTabIdをtabs配列のIDと完全一致させる
-                let restoredActiveTabId = '';
-                if (editor.activeTabId) {
-                  // 旧IDが一致するタブがあればそれを使う
-                  const found = tabs.find((t: any) => t.id === editor.activeTabId);
-                  if (found) restoredActiveTabId = found.id;
-                  else {
-                    // pathベースで一致するタブがあればそれを使う
-                    const foundByPath = tabs.find((t: any) => t.path === editor.activeTabId || t.path === editor.activeTabId.replace(/^.*?:/, ''));
-                    if (foundByPath) restoredActiveTabId = foundByPath.id;
-                  }
+            // ペインツリー全体を再帰的に復元
+            const restorePaneRecursive = (pane: any, total: number): any => {
+              let newId = pane.id;
+              // リーフペインならタブを初期化
+              let tabs = Array.isArray(pane.tabs) ? pane.tabs.map((tab: any) => {
+                let tabId;
+                let tabPath = tab.path;
+                if (tab.id === 'welcome') {
+                  tabId = 'welcome';
+                  tabPath = '/';
+                } else if (tab.preview) {
+                  tabId = `${newId}:${tab.path}-preview`;
+                } else if (tab.diffProps) {
+                  tabId = `${newId}:${tab.path}-diff`;
+                } else if (tab.aiReviewProps) {
+                  tabId = `${newId}:${tab.path}-ai`;
+                } else {
+                  tabId = `${newId}:${tab.path}`;
                 }
-                // どれもなければ先頭タブ
-                if (!restoredActiveTabId && tabs.length > 0) restoredActiveTabId = tabs[0].id;
-                
-                // 新しいペインシステム用のプロパティを追加
+                if (tabPath && !tabPath.startsWith('/')) tabPath = '/' + tabPath;
                 return {
-                  ...editor,
-                  id: newId,
-                  tabs,
-                  activeTabId: restoredActiveTabId,
-                  size: editor.size || (100 / parsed.length), // デフォルトサイズ
-                  layout: editor.layout || 'vertical', // デフォルトレイアウト
-                  children: editor.children || undefined, // 子ペイン
-                  parentId: editor.parentId || undefined // 親ペインID
+                  ...tab,
+                  id: tabId,
+                  path: tabPath,
+                  content: '',
+                  bufferContent: undefined,
+                  needsContentRestore: tabId !== 'welcome' && !tab.diffProps && !tab.webPreview && tabPath && tabPath !== '/',
                 };
-              });
-              setEditors(initEditors);
-              // activeTabIdを復元
-              if (initEditors[0].tabs.length > 0) {
-                setActiveTabId(initEditors[0].tabs[0].id);
+              }) : [];
+              // activeTabIdをtabs配列のIDと完全一致させる
+              let restoredActiveTabId = '';
+              if (pane.activeTabId && tabs.length > 0) {
+                const found = tabs.find((t: any) => t.id === pane.activeTabId);
+                if (found) restoredActiveTabId = found.id;
+                else {
+                  const foundByPath = tabs.find((t: any) => t.path === pane.activeTabId || t.path === pane.activeTabId.replace(/^.*?:/, ''));
+                  if (foundByPath) restoredActiveTabId = foundByPath.id;
+                }
               }
+              if (!restoredActiveTabId && tabs.length > 0) restoredActiveTabId = tabs[0].id;
+              // 子ペインがあれば再帰的に復元
+              let children = Array.isArray(pane.children) ? pane.children.map((child: any) => restorePaneRecursive(child, total)) : undefined;
+              return {
+                ...pane,
+                id: newId,
+                tabs,
+                activeTabId: restoredActiveTabId,
+                size: pane.size || (100 / total),
+                layout: pane.layout || 'vertical',
+                children,
+                parentId: pane.parentId || undefined
+              };
+            };
+            const initEditors = parsed.map((editor: any) => restorePaneRecursive(editor, parsed.length));
+            setEditors(initEditors);
+            // ルートリーフペインのactiveTabIdを復元
+            const firstLeaf = (() => {
+              const findLeaf = (pane: any): any => {
+                if (!pane.children || pane.children.length === 0) return pane;
+                return findLeaf(pane.children[0]);
+              };
+              return findLeaf(initEditors[0]);
+            })();
+            if (firstLeaf && firstLeaf.tabs.length > 0) {
+              setActiveTabId(firstLeaf.tabs[0].id);
+            }
           }
         }
       } catch (e) {
@@ -243,12 +247,13 @@ export default function Home() {
   // });
 
   // アクティブタブのコンテンツ復元フック（全ペイン対応）
-  // useActiveTabContentRestore({
-  //   editors,
-  //   projectFiles,
-  //   setEditors,
-  //   isRestoredFromLocalStorage
-  // });
+  // アクティブタブのコンテンツ復元フック（全ペイン対応）
+  useActiveTabContentRestore({
+    editors,
+    projectFiles,
+    setEditors,
+    isRestoredFromLocalStorage
+  });
 
   // Git状態監視ロジックをフックに分離
   useEffect(() => {

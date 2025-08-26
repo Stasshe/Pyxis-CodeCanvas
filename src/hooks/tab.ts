@@ -248,71 +248,46 @@ export function useActiveTabContentRestore({
       return;
     }
 
-    // ペインをフラット化して、アクティブタブでneedsContentRestoreが必要なものを探す
+    // ペインをフラット化して、needsContentRestoreなタブが1つでもあれば復元
     const flatPanes = flattenPanes(editors);
-    const needsRestore = flatPanes.some(pane => {
-      if (!pane.activeTabId) return false;
-      const activeTab = pane.tabs.find((tab: any) => tab.id === pane.activeTabId);
-      return activeTab?.needsContentRestore;
-    });
+    const needsRestore = flatPanes.some(pane => pane.tabs.some((tab: any) => tab.needsContentRestore));
 
     if (needsRestore) {
-      // console.log('[DEBUG] Some active tabs need content restore');
-      
       // プロジェクトファイルを平坦化
       const flattenedFiles = flattenFileItems(projectFiles);
-      
       setEditors((prevEditors: any[]) => {
         const updatePaneRecursive = (panes: any[]): any[] => {
           return panes.map(editor => {
-            // 子ペインがある場合は再帰的に処理
             if (editor.children && editor.children.length > 0) {
               return {
                 ...editor,
                 children: updatePaneRecursive(editor.children)
               };
             }
-            
-            // リーフペインの場合、アクティブタブの復元処理
-            if (!editor.activeTabId) return editor;
-            const activeTab = editor.tabs.find((tab: any) => tab.id === editor.activeTabId);
-            if (!activeTab?.needsContentRestore) return editor;
-            
-            const correspondingFile = flattenedFiles.find(f => f.path === activeTab.path);
-            if (!correspondingFile) {
-              return editor;
-            }
-            
+            // リーフペインの場合、全タブを復元
             return {
               ...editor,
               tabs: editor.tabs.map((tab: any) => {
-                if (tab.id !== activeTab.id) return tab;
-                const newTabId = tab.id === 'welcome' ? tab.id : `${editor.id}:${tab.path}`;
+                if (!tab.needsContentRestore) return tab;
+                const correspondingFile = flattenedFiles.find(f => f.path === tab.path);
+                if (!correspondingFile) return tab;
                 return {
                   ...tab,
-                  id: newTabId,
                   content: correspondingFile.content || '',
                   bufferContent: tab.isBufferArray ? correspondingFile.bufferContent : undefined,
                   isDirty: false,
-                  needsContentRestore: false, // 復元完了
+                  needsContentRestore: false,
                 };
               })
             };
           });
         };
-        
         return updatePaneRecursive(prevEditors);
       });
     }
   }, [
-    // 全ペインのアクティブタブIDを監視（フラット化して監視）
-    flattenPanes(editors).map(pane => pane.activeTabId).join(','),
-    // needsContentRestoreフラグがあるアクティブタブがあるかチェック
-    flattenPanes(editors).some(pane => {
-      if (!pane.activeTabId) return false;
-      const activeTab = pane.tabs.find((tab: any) => tab.id === pane.activeTabId);
-      return activeTab?.needsContentRestore;
-    }),
+    // 全ペインのタブIDとneedsContentRestoreフラグを監視
+    flattenPanes(editors).map(pane => pane.tabs.map((tab: any) => tab.id + ':' + (tab.needsContentRestore ? '1' : '0')).join(',')).join(','),
     projectFiles.length,
     isRestoredFromLocalStorage
   ]);
