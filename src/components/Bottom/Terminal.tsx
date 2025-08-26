@@ -809,29 +809,16 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
     });
 
     // ペースト対応（Ctrl+V/iPad）
+    // ペーストイベントはe.preventDefault()のみ実行し、currentLineへの追加は行わない
     term.textarea?.addEventListener('paste', (e: ClipboardEvent) => {
-      const pasteText = e.clipboardData?.getData('text');
-      if (pasteText) {
-        currentLine = currentLine.slice(0, cursorPos) + pasteText + currentLine.slice(cursorPos);
-        term.write(currentLine.slice(cursorPos));
-        cursorPos += pasteText.length;
-        for (let i = 0; i < currentLine.length - cursorPos; i++) term.write('\b');
-      }
       e.preventDefault();
     });
 
-    // iPadタッチペースト対応
+    // iPadタッチペースト対応（insertFromPasteは何もしない）
     term.textarea?.addEventListener('beforeinput', (e: InputEvent) => {
       if (e.inputType === 'insertFromPaste') {
-        // iPad Safari用
-        const pasteText = (e as any).data;
-        if (pasteText) {
-          currentLine = currentLine.slice(0, cursorPos) + pasteText + currentLine.slice(cursorPos);
-          term.write(currentLine.slice(cursorPos));
-          cursorPos += pasteText.length;
-          for (let i = 0; i < currentLine.length - cursorPos; i++) term.write('\b');
-        }
-        e.preventDefault();
+        // 何もしない（pasteイベントのみで処理）
+        // e.preventDefault(); を削除
       }
     });
 
