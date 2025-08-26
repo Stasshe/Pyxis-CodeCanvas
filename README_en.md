@@ -8,6 +8,7 @@
   [![Version](https://img.shields.io/badge/version-0.5.2-blue.svg)](https://github.com/your-username/pyxis)
   [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
   [![Platform](https://img.shields.io/badge/platform-Web%20%7C%20iPad%20%7C%20Mobile-orange.svg)](README.md)
+  [![Tauri](https://img.shields.io/badge/Tauri-Desktop-blueviolet?logo=tauri)](https://tauri.app/)
   [![Next.js](https://img.shields.io/badge/Next.js-15-blue?logo=next.js)](https://nextjs.org/)
   [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4.1-38bdf8?logo=tailwindcss)](https://tailwindcss.com/)
   [![TypeScript](https://img.shields.io/badge/TypeScript-v5-3178c6?logo=typescript)](https://www.typescriptlang.org/)
@@ -25,6 +26,7 @@
 Imagine having a **complete development environment** that loads instantly in your browser - no downloads, no installations, no server connections. That's Pyxis! It's like having **VS Code + Node.js + Git** all bundled into a lightning-fast web app that works anywhere, even on your iPad.
 
 > 💡 **Perfect for students, professionals, and anyone who wants to code without the hassle!**
+> 🖥️ **Now supports Tauri Desktop!** Use Pyxis as a native app on Windows, Mac, and Linux.
 
 
 ---
@@ -103,6 +105,11 @@ Navigate your projects with **VS Code-like efficiency**! Quick file search, inte
 - **Multi-pane support** for complex projects
 - **Buffer content support** - unzip files, view PDFs, images, videos
 
+### 🖥️ **Tauri Desktop Support**
+- **Windows/Mac/Linux** native app experience
+- **Same features as Web version** on desktop
+- **Works offline**
+
 ---
 
 ## 🌟 **Possibly a World First** - No Other Browser Editor Has All These Features Integrated
@@ -144,13 +151,17 @@ Navigate your projects with **VS Code-like efficiency**! Quick file search, inte
 - **TypeScript** - Type-safe development
 - **Tailwind CSS** - Beautiful, responsive design
 
+### **Desktop (Tauri)**
+- **Tauri** - Lightweight, fast desktop app framework
+- **Rust** - Secure native runtime
+
 ### **Editor & Terminal**
 - **Monaco Editor** - The same engine that powers VS Code
 - **xterm.js** - Full-featured terminal experience
 - **Lightning FS** - Blazing-fast file system
 
 ### **Runtime Innovation**
-- **QuickJS** - Lightning-fast JavaScript execution
+- **fs module** - File System
 - **node-stdlib-browser** - Node.js API compatibility
 - **isomorphic-git** - Pure JavaScript Git implementation
 
@@ -208,6 +219,13 @@ git merge main
 2. 📝 **Start typing** - no sign up, no downloads needed
 3. 🎯 **Try the examples**
 
+### **How to use Tauri Desktop version**
+1. Clone the repository and switch to the `tauri` branch
+2. Install Rust and Node.js
+3. Run `npm install` to install dependencies
+4. Run `npx tauri dev` to launch the desktop app
+5. Enjoy the same Pyxis experience on desktop!
+
 ### **2. Your First Pyxis Project**
 
 **Create a simple Node.js app:**
@@ -252,6 +270,7 @@ $$E = mc^2$$
 | 🟢 **Safari (iPad)** | Excellent | Optimized specifically for iPad |
 | 🟡 **Firefox** | Good | All features work |
 | 🟡 **Mobile** | Good | Touch-optimized interface |
+| 🟢 **Tauri (Desktop)** | Perfect | Works on Windows/Mac/Linux |
 
 **System Requirements:** Just a modern browser and 2GB+ RAM for smooth experience.
 
