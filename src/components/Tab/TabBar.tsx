@@ -2,6 +2,7 @@ import { X, Plus, Menu } from 'lucide-react';
 import clsx from 'clsx';
 import React, { useState, useRef, useEffect } from 'react';
 import { Tab } from '@/types';
+import { FILE_CHANGE_EVENT } from '@/utils/fileWatcher';
 import { useTheme } from '@/context/ThemeContext';
 
 interface TabBarProps {
@@ -145,6 +146,35 @@ export default function TabBar({
     }
     setTabContextMenu({ isOpen: false, tabId: '', x: 0, y: 0 });
   };
+
+  // ファイル削除イベントを受けて、該当ファイルのタブを閉じる
+  useEffect(() => {
+    const handleFileChange = (event: Event) => {
+      const custom = event as CustomEvent<any>;
+      const change = custom.detail;
+      if (!change) return;
+      if (change.type === 'delete') {
+        const deletedPath: string = change.path;
+        // 該当ファイルに対応するタブを全て閉じる
+        const tabsToClose = tabs.filter(t => t.fullPath === deletedPath || t.path === deletedPath);
+        if (tabsToClose.length > 0) {
+          // それぞれのタブを閉じる（onTabCloseに処理を委ねる）
+          tabsToClose.forEach(t => {
+            try {
+              onTabClose(t.id);
+            } catch (err) {
+              console.error('[TabBar] Error closing tab for deleted file:', err);
+            }
+          });
+        }
+      }
+    };
+
+    window.addEventListener(FILE_CHANGE_EVENT, handleFileChange as EventListener);
+    return () => {
+      window.removeEventListener(FILE_CHANGE_EVENT, handleFileChange as EventListener);
+    };
+  }, [tabs, onTabClose]);
 
   return (
     <div
