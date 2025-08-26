@@ -86,7 +86,7 @@ export default function WelcomeTab() {
             isomorphic-git, Monaco Editor, xterm.js, Mermaid, KaTeX, Pyodide and all OSS contributors.
           </li>
           <li>
-            Pyxis開発にご協力いただいた皆様、コミュニティの皆様に感謝します。
+            Thank you for your visiting!
           </li>
         </ul>
           </section>
