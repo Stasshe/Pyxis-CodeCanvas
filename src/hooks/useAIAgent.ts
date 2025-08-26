@@ -93,6 +93,7 @@ export function useAIAgent(props?: UseAIAgentProps) {
       const context = selectedFiles.map(f => `ファイル: ${f.path}\n\`\`\`\n${f.content}\n\`\`\``);
 
       // AIプロンプトを生成（履歴＋質問＋ファイルコンテキスト）
+      console.log(history);
       const prompt = `${history ? `## これまでの会話履歴\n${history}\n` : ''}\n${content}\n\n${context.join('\n')}`;
 
       // AI応答を生成

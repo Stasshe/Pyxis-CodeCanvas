@@ -5,6 +5,7 @@ import { FileItem } from '@/types';
 import { getFileSystem } from './filesystem';
 import { GitCommands, syncProjectFiles, initializeFileSystem, debugFileSystem } from './filesystem';
 import { LOCALSTORAGE_KEY } from '@/context/config';
+import { syncFileToFileSystem } from './filesystem';
 
 // プロジェクト作成時のGit初期化とコミット
 const initializeProjectGit = async (project: Project, files: ProjectFile[], convertToFileItems: (files: ProjectFile[]) => FileItem[]) => {
@@ -284,7 +285,6 @@ export const useProject = () => {
 
       // ファイルシステムに同期（Git変更検知のため）
       try {
-        const { syncFileToFileSystem } = await import('./filesystem');
         await syncFileToFileSystem(currentProject.name, path, content, existingFile ? 'update' : 'create');
         console.log('[saveFile] Synced to filesystem');
       } catch (syncError) {
@@ -304,13 +304,18 @@ export const useProject = () => {
 
     try {
       console.log('[createFile] Creating file:', { path, type, contentLength: content.length });
+      
+      // ファイル作成の場合、親フォルダの存在を確認して必要に応じて作成
+      if (type === 'file') {
+        await ensureParentFolders(path);
+      }
+      
       const newFile = await projectDB.createFile(currentProject.id, path, content, type);
       setProjectFiles(prev => [...prev, newFile]);
       
       // ファイルシステムに同期（Git変更検知のため）
       if (type === 'file') {
         try {
-          const { syncFileToFileSystem } = await import('./filesystem');
           await syncFileToFileSystem(currentProject.name, path, content, 'create');
           console.log('[createFile] Synced to filesystem for Git detection');
         } catch (syncError) {
@@ -323,6 +328,49 @@ export const useProject = () => {
     } catch (error) {
       console.error('Failed to create file:', error);
       throw error;
+    }
+  };
+
+  // 親フォルダが存在することを確認し、存在しない場合は作成する
+  const ensureParentFolders = async (filePath: string) => {
+    if (!currentProject) return;
+
+    // ルートファイル（/filename）の場合は親フォルダ不要
+    if (filePath.lastIndexOf('/') <= 0) return;
+
+    const pathParts = filePath.split('/').filter(part => part !== '');
+    let currentPath = '';
+
+    // 各階層のフォルダをチェック・作成
+    for (let i = 0; i < pathParts.length - 1; i++) {
+      currentPath += '/' + pathParts[i];
+      
+      // 既存フォルダをチェック
+      const existingFolder = projectFiles.find(f => f.path === currentPath && f.type === 'folder');
+      
+      if (!existingFolder) {
+        console.log('[ensureParentFolders] Creating missing folder:', currentPath);
+        
+        try {
+          // データベースにフォルダを作成
+          const newFolder = await projectDB.createFile(currentProject.id, currentPath, '', 'folder');
+          
+          // 状態に追加（即座に反映させる）
+          setProjectFiles(prev => [...prev, newFolder]);
+          
+          // ファイルシステムにも同期
+          try {
+            await syncFileToFileSystem(currentProject.name, currentPath, '', 'create');
+            console.log('[ensureParentFolders] Folder synced to filesystem:', currentPath);
+          } catch (syncError) {
+            console.warn('[ensureParentFolders] Folder filesystem sync failed (non-critical):', syncError);
+          }
+          
+        } catch (error) {
+          console.error('[ensureParentFolders] Failed to create parent folder:', currentPath, error);
+          throw error;
+        }
+      }
     }
   };
 
@@ -407,7 +455,6 @@ export const useProject = () => {
           // ファイルシステムからも削除（Git変更検知のため）
           if (fileToDelete.type === 'file') {
             try {
-              const { syncFileToFileSystem } = await import('./filesystem');
               await syncFileToFileSystem(currentProject.name, path, null, 'delete');
               console.log('[syncTerminalFileOperation] File physically deleted from filesystem for Git detection');
               
@@ -449,7 +496,6 @@ export const useProject = () => {
           // ファイルシステムにも同期（Git変更検知のため）
           if (type === 'file') {
             try {
-              const { syncFileToFileSystem } = await import('./filesystem');
               await syncFileToFileSystem(currentProject.name, path, content, 'update');
               console.log('[syncTerminalFileOperation] File updated in filesystem for Git detection');
             } catch (syncError) {
@@ -474,7 +520,6 @@ export const useProject = () => {
               return; // 既に存在する場合はスキップ
             }
             try {
-              const { syncFileToFileSystem } = await import('./filesystem');
               await syncFileToFileSystem(currentProject.name, path, content, 'create');
               console.log('[syncTerminalFileOperation] File created in filesystem for Git detection');
             } catch (syncError) {

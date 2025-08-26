@@ -657,11 +657,7 @@ export class UnixCommands {
         // 親ディレクトリが存在することを確認
         const parentDir = normalizedPath.substring(0, normalizedPath.lastIndexOf('/'));
         if (parentDir && parentDir !== this.currentDir) {
-          try {
-            await this.fs.promises.stat(parentDir);
-          } catch {
-            await this.fs.promises.mkdir(parentDir, { recursive: true } as any);
-          }
+          return 'no such file or directory';
         }
         
         // ファイルを作成
@@ -679,7 +675,6 @@ export class UnixCommands {
             console.error(`[touch] IndexedDB sync failed: ${relativePath}`, syncError);
           }
         }
-        
         return `File created: ${normalizedPath}`;
       }
     } catch (error) {

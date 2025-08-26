@@ -151,6 +151,67 @@ const loadImageAsDataURL = async (
   }
 };
 
+// YAML frontmatter設定を解析する関数
+const parseYamlConfig = (yamlText: string): any => {
+  try {
+    // 簡易的なYAML解析（完全なYAMLパーサーではないが、基本的な設定は処理可能）
+    const lines = yamlText.split('\n').filter(line => line.trim());
+    const config: any = {};
+    let currentObject = config;
+    const objectStack: any[] = [config];
+    
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      
+      const indent = line.length - line.trimStart().length;
+      const colonIndex = trimmed.indexOf(':');
+      
+      if (colonIndex > 0) {
+        const key = trimmed.substring(0, colonIndex).trim();
+        const value = trimmed.substring(colonIndex + 1).trim();
+        
+        if (value) {
+          // 値がある場合
+          let parsedValue: any = value;
+          if (value === 'true' || value === 'false') {
+            parsedValue = value === 'true';
+          } else if (!isNaN(Number(value))) {
+            parsedValue = Number(value);
+          } else if (value.startsWith("'") && value.endsWith("'")) {
+            parsedValue = value.slice(1, -1);
+          }
+          currentObject[key] = parsedValue;
+        } else {
+          // 値がない場合（オブジェクト）
+          currentObject[key] = {};
+          currentObject = currentObject[key];
+        }
+      }
+    }
+    
+    return config;
+  } catch (error) {
+    console.warn('YAML設定の解析に失敗:', error);
+    return {};
+  }
+};
+
+// Mermaidチャートから設定と図表を分離する関数
+const parseMermaidContent = (chart: string): { config: any; diagram: string } => {
+  const frontmatterRegex = /^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/;
+  const match = chart.match(frontmatterRegex);
+  
+  if (match) {
+    const yamlContent = match[1];
+    const diagramContent = match[2];
+    const config = parseYamlConfig(yamlContent);
+    return { config, diagram: diagramContent };
+  }
+  
+  return { config: {}, diagram: chart };
+};
+
 // メモ化されたMermaidコンポーネント
 const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) => {
   const ref = useRef<HTMLDivElement>(null);
@@ -178,19 +239,85 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
       `;
 
       try {
-        // ダーク/ライト自動切替
+        // チャートから設定と図表を分離
+        const { config, diagram } = parseMermaidContent(chart);
+        
+        // デフォルト設定
         const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-        mermaid.initialize({ 
-          startOnLoad: false, 
-          theme: isDark ? 'dark' : 'default', 
+        let mermaidConfig: any = {
+          startOnLoad: false,
+          theme: isDark ? 'dark' : 'default',
           securityLevel: 'loose',
           themeVariables: {
             fontSize: '8px',
           },
-          suppressErrorRendering: true
-        });
+          suppressErrorRendering: true,
+          flowchart: {
+            useMaxWidth: false,
+            htmlLabels: true,
+            curve: 'basis',
+            rankSpacing: 80,
+            nodeSpacing: 50,
+          },
+          layout: 'dagre' // デフォルトレイアウト
+        };
+
+        // フロントマターの設定をマージ
+        if (config.config) {
+          // テーマ設定
+          if (config.config.theme) {
+            mermaidConfig.theme = config.config.theme;
+          }
+          
+          // テーマ変数
+          if (config.config.themeVariables) {
+            mermaidConfig.themeVariables = {
+              ...mermaidConfig.themeVariables,
+              ...config.config.themeVariables
+            };
+          }
+          
+          // フローチャート設定
+          if (config.config.flowchart) {
+            mermaidConfig.flowchart = {
+              ...mermaidConfig.flowchart,
+              ...config.config.flowchart
+            };
+          }
+          
+          // ELKレンダラー設定
+          if (config.config.defaultRenderer === 'elk') {
+            mermaidConfig.flowchart.defaultRenderer = 'elk';
+          }
+          
+          // レイアウト設定（elk, dagre等）
+          if (config.config.layout) {
+            mermaidConfig.layout = config.config.layout;
+            // ELK使用時の追加設定
+            if (config.config.layout === 'elk') {
+              mermaidConfig.flowchart.defaultRenderer = 'elk';
+              mermaidConfig.elk = {
+                algorithm: 'layered',
+                'elk.direction': 'DOWN',
+                'elk.spacing.nodeNode': 50,
+                'elk.layered.spacing.nodeNodeBetweenLayers': 80,
+                ...(config.config.elk || {})
+              };
+            }
+          }
+          
+          // look設定（neo等）
+          if (config.config.look) {
+            mermaidConfig.look = config.config.look;
+          }
+        }
+
+        console.log('[Mermaid] Initializing with config:', mermaidConfig);
+        console.log('[Mermaid] Rendering diagram:', diagram);
         
-        const { svg } = await mermaid.render(idRef.current, chart);
+        mermaid.initialize(mermaidConfig);
+        
+        const { svg } = await mermaid.render(idRef.current, diagram);
         ref.current.innerHTML = svg;
         
         // SVGのoverflow調整 & 背景色設定
@@ -209,6 +336,7 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
         ref.current.innerHTML = `<div class="mermaid-error" style="color: #cc0000; padding: 16px; border: 1px solid #ff9999; border-radius: 4px; background: #ffe6e6;">${errorMessage}</div>`;
         setError(errorMessage);
         setIsLoading(false);
+        console.error('[Mermaid] Rendering error:', e);
       }
     };
 
