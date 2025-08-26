@@ -10,6 +10,7 @@
   [![Version](https://img.shields.io/badge/version-0.5.2-blue.svg)](https://github.com/your-username/pyxis)
   [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
   [![Platform](https://img.shields.io/badge/platform-Web%20%7C%20iPad%20%7C%20Mobile-orange.svg)](README.md)
+  [![Tauri](https://img.shields.io/badge/Tauri-Desktop-blueviolet?logo=tauri)](https://tauri.app/)
   [![Next.js](https://img.shields.io/badge/Next.js-15-blue?logo=next.js)](https://nextjs.org/)
   [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4.1-38bdf8?logo=tailwindcss)](https://tailwindcss.com/)
   [![TypeScript](https://img.shields.io/badge/TypeScript-v5-3178c6?logo=typescript)](https://www.typescriptlang.org/)
@@ -27,6 +28,7 @@
 **完全な開発環境**がブラウザで瞬時に起動する、そんな世界を想像してみてください。ダウンロード不要、インストール不要、サーバー接続不要。それがPyxisです！**VS Code + Node.js + Git**が全て一つの超高速ウェブアプリに詰まっていて、iPadでも、どこでも動きます。
 
 > 💡 **学生、プロ、コードを気軽に書きたい全ての人にピッタリ！**
+> 🖥️ **Tauriデスクトップ版もサポート！** Windows/Mac/LinuxでネイティブアプリとしてPyxisを利用できます。
 
 ---
 
@@ -94,6 +96,11 @@
 - **タッチ最適化インターフェース** とデュアルエディター対応
 - **真のiPad開発** - ついに、タブレット用の本物のIDE
 
+### 🖥️ Tauriデスクトップ対応
+- Windows/Mac/LinuxでネイティブアプリとしてPyxisを利用可能
+- Webと同じ体験をデスクトップで
+- オフラインでも動作
+
 ### 🤖 **AI搭載 - あなたのコーディングアシスタント**
 - **Ask & Edit機能** - 何度もファイルからChatGPTにコピペする必要なし
 - **シームレス統合** でコーディング環境に直接組み込み
@@ -137,10 +144,16 @@
 
 ## Tech
 
+### [click me! 処理フローはこちら](./Development/all-flow.svg)
+
 ### **Front End**
 - **Next.js 15** と React 19 - 最新で最高
 - **TypeScript** - 型安全な開発
 - **Tailwind CSS** - 美しく、レスポンシブなデザイン
+
+### Desktop (Tauri)
+- Tauri - 軽量・高速なデスクトップアプリフレームワーク
+- Rust - セキュアなネイティブランタイム
 
 ### **エディターとターミナル**
 - **Monaco Editor** - VS Codeと同じエンジンを使用
@@ -188,6 +201,14 @@ rl.question('お名前は？ ', (name) => {
 1. 🌐 **[Pyxis を開く](https://pyxis-code.onrender.com)** - どのブラウザでも
 2. 📝 **タイプ開始** - サインアップ不要、ダウンロード不要
 3. 🎯 **下の例を試す** - 即座に体験
+
+### Tauriデスクトップ版の使い方
+1. リポジトリをクローンし、tauriブランチに切り替え
+2. RustとNode.jsをインストール
+3. npm install で依存を導入
+4. npx tauri dev でデスクトップアプリを起動
+5. Web版と同じPyxis体験をデスクトップで！
+* [Tauri Setup Guide](./Development/Tauri-Setup.md)
 
 ### **2. 初めてのPyxisプロジェクト**
 
@@ -244,8 +265,32 @@ $$E = mc^2$$
 | 🟢 **Safari (iPad)** | 優秀 | iPadに特別最適化 |
 | 🟡 **Firefox** | 良好 | 全機能動作 |
 | 🟡 **モバイル** | 良好 | タッチ最適化インターフェース |
+| 🟢 Tauri (Desktop) | 完璧 | Windows/Mac/Linuxで動作 |
 
 **システム要件：** モダンブラウザと2GB+のRAMでスムーズな体験。
+
+---
+
+## インストール方法
+```
+npm i
+
+#development server
+npm run dev
+
+#production mode
+npm run build
+npm run preview
+```
+
+or, if you use tauri, use "tauri" branch.
+* check this guide! [Tauri Setup Guide](./Development/Tauri-Setup.md)
+
+```
+npm i
+
+npx tauri dev
+```
 
 ---
 
