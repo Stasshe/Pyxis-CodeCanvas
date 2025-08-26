@@ -2,7 +2,7 @@
 
 ---
 
-## 🇺🇸 English: Setup Guide
+## English: Setup Guide
 
 1. **Install Rust**
    - Download and run "rustup-init.exe" from https://www.rust-lang.org/tools/install
@@ -32,7 +32,7 @@
 
 ---
 
-## 🇯🇵 日本語: インストール手順
+## 日本語: インストール手順
 
 1. **Rustのインストール**
    - 公式サイト https://www.rust-lang.org/ja/tools/install から「rustup-init.exe」をダウンロードし、インストール。

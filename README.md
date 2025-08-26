@@ -144,6 +144,8 @@
 
 ## Tech
 
+### [click me! 処理フローはこちら](./Development/all-flow.svg)
+
 ### **Front End**
 - **Next.js 15** と React 19 - 最新で最高
 - **TypeScript** - 型安全な開発
@@ -206,6 +208,7 @@ rl.question('お名前は？ ', (name) => {
 3. npm install で依存を導入
 4. npx tauri dev でデスクトップアプリを起動
 5. Web版と同じPyxis体験をデスクトップで！
+* [Tauri Setup Guide](./Development/Tauri-Setup.md)
 
 ### **2. 初めてのPyxisプロジェクト**
 
@@ -265,6 +268,29 @@ $$E = mc^2$$
 | 🟢 Tauri (Desktop) | 完璧 | Windows/Mac/Linuxで動作 |
 
 **システム要件：** モダンブラウザと2GB+のRAMでスムーズな体験。
+
+---
+
+## インストール方法
+```
+npm i
+
+#development server
+npm run dev
+
+#production mode
+npm run build
+npm run preview
+```
+
+or, if you use tauri, use "tauri" branch.
+* check this guide! [Tauri Setup Guide](./Development/Tauri-Setup.md)
+
+```
+npm i
+
+npx tauri dev
+```
 
 ---
 

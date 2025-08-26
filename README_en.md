@@ -276,6 +276,27 @@ $$E = mc^2$$
 
 ---
 
+## インストール方法
+```
+npm i
+
+#development server
+npm run dev
+
+#production mode
+npm run build
+npm run preview
+```
+
+or, if you use tauri, use "tauri" branch.
+* check this guide! [Tauri Setup Guide](./Development/Tauri-Setup.md)
+
+```
+npm i
+
+npx tauri dev
+```
+
 ## 🎉 Join the Pyxis Community
 
 ### 💝 **We'd Love Your Help!**
