@@ -523,11 +523,22 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
                       await removeFileOrDirectory(fs, `${path}/${file}`);
                     }
                     await fs.promises.rmdir(path);
+                    // 削除成功ログ
+                    console.log(`[memory-clean] Removed directory: ${path}`);
                   } else {
                     await fs.promises.unlink(path);
+                    // 削除成功ログ
+                    console.log(`[memory-clean] Removed file: ${path}`);
                   }
-                } catch {
-                  // エラーは無視（既に削除済みなど）
+                  // 削除後にLightning-FSキャッシュフラッシュ
+                  if (fs && typeof (fs as any).sync === 'function') {
+                    await (fs as any).sync();
+                    console.log('[memory-clean] Lightning-FS cache flushed');
+                  }
+                } catch (err) {
+                  // 削除失敗時は警告ログ
+                  console.warn(`[memory-clean] Failed to remove: ${path}`, err);
+                  throw err; // 失敗時は例外を投げる
                 }
               }
 
@@ -645,6 +656,65 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
               }
             } catch (e) {
               await writeOutput(`memory-clean: エラー: ${(e as Error).message}`);
+            }
+            break;
+          case 'fs-clean':
+            // Lightning-FSの全データを完全削除
+            try {
+              const { getFileSystem, initializeFileSystem } = await import('@/utils/core/filesystem');
+              let fs = getFileSystem();
+              if (!fs) fs = initializeFileSystem();
+              if (!fs) {
+                await writeOutput('fs-clean: ファイルシステムが初期化できませんでした');
+                break;
+              }
+              // /projects配下を再帰削除
+              async function removeAll(fs: any, dirPath: string): Promise<void> {
+                try {
+                  const stat = await fs.promises.stat(dirPath);
+                  if (stat.isDirectory()) {
+                    const files = await fs.promises.readdir(dirPath);
+                    for (const file of files) {
+                      await removeAll(fs, `${dirPath}/${file}`);
+                    }
+                    await fs.promises.rmdir(dirPath);
+                    console.log(`[fs-clean] Removed directory: ${dirPath}`);
+                  } else {
+                    await fs.promises.unlink(dirPath);
+                    console.log(`[fs-clean] Removed file: ${dirPath}`);
+                  }
+                  if (fs && typeof (fs as any).sync === 'function') {
+                    await (fs as any).sync();
+                    console.log('[fs-clean] Lightning-FS cache flushed');
+                  }
+                } catch (err) {
+                  console.warn(`[fs-clean] Failed to remove: ${dirPath}`, err);
+                }
+              }
+              try {
+                await removeAll(fs, '/projects');
+                await writeOutput('fs-clean: /projects配下を全て削除しました');
+              } catch (e) {
+                await writeOutput(`fs-clean: /projects削除エラー: ${(e as Error).message}`);
+              }
+              // LocalStorageのLightning-FS関連キーも削除
+              if (typeof window !== 'undefined' && window.localStorage) {
+                const lightningFSKeys = [];
+                for (let i = 0; i < window.localStorage.length; i++) {
+                  const key = window.localStorage.key(i);
+                  if (key && (key.startsWith('fs/') || key.includes('lightning'))) {
+                    lightningFSKeys.push(key);
+                  }
+                }
+                for (const key of lightningFSKeys) {
+                  window.localStorage.removeItem(key);
+                  console.log(`[fs-clean] Removed localStorage key: ${key}`);
+                }
+                await writeOutput(`fs-clean: LocalStorageのLightning-FS関連キーも削除しました (${lightningFSKeys.length}件)`);
+              }
+              await writeOutput('fs-clean: 完了');
+            } catch (e) {
+              await writeOutput(`fs-clean: エラー: ${(e as Error).message}`);
             }
             break;
           case 'export':

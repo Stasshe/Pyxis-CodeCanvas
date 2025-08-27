@@ -138,11 +138,9 @@ export class GitCommands {
       const currentRepoName = this.dir.split('/').pop() || 'project';
       
       if (targetDir) {
-        // targetDirが指定された場合: projects/{現在のリポジトリ名}/{targetDir}
-        cloneDir = `/projects/${currentRepoName}/${targetDir}`;
+        cloneDir = `${this.dir}/${targetDir}/`;
       } else {
-        // targetDirが指定されていない場合: projects/{クローン先リポジトリ名}
-        cloneDir = `/projects/${repoName}`;
+        cloneDir = `${this.dir}/${repoName}/`;
       }
 
       console.log(`[git clone] Clone directory: ${cloneDir}`);
@@ -156,17 +154,6 @@ export class GitCommands {
         if (!(error as any).code || (error as any).code !== 'ENOENT') {
           throw error;
         }
-      }
-
-      // 段階的にディレクトリを作成
-      try {
-        await this.ensureGitRepository()
-        // 最終的なクローン先ディレクトリを作成
-        await this.fs.promises.mkdir(cloneDir, { recursive: true } as any);
-        console.log(`[git clone] Created clone directory: ${cloneDir}`);
-      } catch (mkdirError) {
-        console.error('[git clone] Failed to create directories:', mkdirError);
-        throw new Error(`Failed to create clone directory: ${(mkdirError as Error).message}`);
       }
 
       // リポジトリをクローン
