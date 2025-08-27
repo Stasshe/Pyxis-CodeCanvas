@@ -138,6 +138,7 @@ export const useProject = () => {
       return acc;
     }, [] as ProjectFile[]);
     
+
     const fileMap = new Map<string, FileItem>();
     const rootItems: FileItem[] = [];
 
@@ -149,13 +150,35 @@ export const useProject = () => {
         type: file.type,
         path: file.path,
         content: file.content,
-        // バイナリファイル判定とデータを保持
         isBufferArray: file.isBufferArray,
         bufferContent: file.bufferContent,
         children: file.type === 'folder' ? [] : undefined,
       };
       fileMap.set(file.path, item);
     });
+
+    // 親フォルダがなければ自動生成する関数
+    const ensureParentFolder = (parentPath: string) => {
+      if (!parentPath || parentPath === '/') return;
+      if (!fileMap.has(parentPath)) {
+        // フォルダ名抽出
+        const name = parentPath.split('/').filter(Boolean).pop() || parentPath;
+        // 親の親
+        const grandParent = parentPath.substring(0, parentPath.lastIndexOf('/')) || '/';
+        const folderItem: FileItem = {
+          id: `auto-folder-${parentPath}`,
+          name,
+          type: 'folder',
+          path: parentPath,
+          content: '',
+          isBufferArray: false,
+          bufferContent: undefined,
+          children: [],
+        };
+        fileMap.set(parentPath, folderItem);
+        ensureParentFolder(grandParent);
+      }
+    };
 
     // 階層構造を構築
     uniqueFiles.forEach(file => {
@@ -165,12 +188,21 @@ export const useProject = () => {
       if (file.parentPath === '/' || !file.parentPath || file.path === '/') {
         rootItems.push(item);
       } else {
+        // 親がなければ自動生成
+        if (!fileMap.has(file.parentPath)) {
+          ensureParentFolder(file.parentPath);
+        }
         const parent = fileMap.get(file.parentPath);
         if (parent && parent.children) {
           parent.children.push(item);
-        } else {
-          console.warn(`Parent not found for ${file.path}, parentPath: ${file.parentPath}`);
         }
+      }
+    });
+
+    // ルートに自動生成されたフォルダも追加
+    fileMap.forEach((item, path) => {
+      if ((item.type === 'folder') && (item.path.lastIndexOf('/') <= 0) && !rootItems.includes(item)) {
+        rootItems.push(item);
       }
     });
 

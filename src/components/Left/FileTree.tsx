@@ -37,25 +37,71 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; item: FileItem | null } | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
   
-  // ドラッグ&ドロップ用
+  // ドラッグ&ドロップ用（フォルダ対応）
   const handleDrop = async (e: React.DragEvent<HTMLDivElement>, targetPath?: string) => {
     e.preventDefault();
     e.stopPropagation();
-    const files = e.dataTransfer.files;
-    if (!files || files.length === 0) return;
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      let content: string | ArrayBuffer = await file.arrayBuffer();
-      const isBinary = isBufferArray(content);
-      if (!isBinary) {
-        content = await file.text();
-      }
-  const unix = new UnixCommands(currentProjectName, undefined, currentProjectId);
-      const importPath = targetPath ? `${targetPath}/${file.name}` : `/${file.name}`;
-      const absolutePath = `/projects/${currentProjectName}${importPath}`;
-      await importSingleFile(file, absolutePath, unix);
-      if (typeof onFileOperation === 'function') {
-        await onFileOperation(importPath, 'file', isBinary ? undefined : (content as string), false, isBinary, isBinary ? (content as ArrayBuffer) : undefined);
+  const items = e.dataTransfer.items;
+  if (items && items.length > 0 && typeof items[0].webkitGetAsEntry === 'function') {
+      // フォルダD&D対応
+      const traverseFileTree = async (item: any, path: string) => {
+        return new Promise<void>((resolve) => {
+          if (item.isFile) {
+            item.file(async (file: File) => {
+              let content: string | ArrayBuffer = await file.arrayBuffer();
+              const isBinary = isBufferArray(content);
+              if (!isBinary) {
+                content = await file.text();
+              }
+              const unix = new UnixCommands(currentProjectName, undefined, currentProjectId);
+              const importPath = `${path}${file.name}`;
+              const absolutePath = `/projects/${currentProjectName}${importPath}`;
+              await importSingleFile(file, absolutePath, unix);
+              if (typeof onFileOperation === 'function') {
+                await onFileOperation(importPath, 'file', isBinary ? undefined : (content as string), false, isBinary, isBinary ? (content as ArrayBuffer) : undefined);
+              }
+              resolve();
+            });
+          } else if (item.isDirectory) {
+            const dirReader = item.createReader();
+            dirReader.readEntries(async (entries: any[]) => {
+              for (const entry of entries) {
+                await traverseFileTree(entry, `${path}${item.name}/`);
+              }
+              resolve();
+            });
+          } else {
+            resolve();
+          }
+        });
+      };
+      const traverseAll = async () => {
+        for (let i = 0; i < items.length; i++) {
+          const entry = items[i].webkitGetAsEntry();
+          if (entry) {
+            await traverseFileTree(entry, targetPath ? `${targetPath}/` : '/');
+          }
+        }
+      };
+      await traverseAll();
+    } else {
+      // 通常のファイルD&D
+      const files = e.dataTransfer.files;
+      if (!files || files.length === 0) return;
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        let content: string | ArrayBuffer = await file.arrayBuffer();
+        const isBinary = isBufferArray(content);
+        if (!isBinary) {
+          content = await file.text();
+        }
+        const unix = new UnixCommands(currentProjectName, undefined, currentProjectId);
+        const importPath = targetPath ? `${targetPath}/${file.name}` : `/${file.name}`;
+        const absolutePath = `/projects/${currentProjectName}${importPath}`;
+        await importSingleFile(file, absolutePath, unix);
+        if (typeof onFileOperation === 'function') {
+          await onFileOperation(importPath, 'file', isBinary ? undefined : (content as string), false, isBinary, isBinary ? (content as ArrayBuffer) : undefined);
+        }
       }
     }
   };
