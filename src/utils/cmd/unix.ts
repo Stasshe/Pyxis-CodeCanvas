@@ -715,51 +715,43 @@ export class UnixCommands {
       await this.ensureProjectDirectory();
       
       if (fileName.includes('*')) {
-        // ワイルドカード対応
-        const files = await this.getMatchingFilesForDelete(fileName);
-        if (files.length === 0) {
-          return `rm: no matches found: ${fileName}`;
-        }
-        
-        let deletedCount = 0;
-        const deletedFiles: string[] = [];
-        const errors: string[] = [];
-        
-        for (const file of files) {
-          try {
-            const result = await this.removeFile(file, recursive);
-            if (result.success) {
-              deletedFiles.push(file);
-              deletedCount++;
-            } else if (result.error) {
-              errors.push(`${file}: ${result.error}`);
-            }
-          } catch (error) {
-            errors.push(`${file}: ${(error as Error).message}`);
+          // ワイルドカード対応
+          const files = await this.getMatchingFilesForDelete(fileName);
+          if (files.length === 0) {
+            return `rm: no matches found: ${fileName}`;
           }
-        }
         
-        // ファイルシステムキャッシュのフラッシュ
-        await this.flushFileSystemCache();
+          let result;
+          if (recursive) {
+            result = await Promise.all(files.map(file => this.removeFile(file, recursive)));
+          } else {
+            result = await Promise.all(files.map(file => this.removeFile(file, false)));
+          }
         
-        // プロジェクト全体の更新を通知
-        if (this.onFileOperation && deletedCount > 0) {
-          console.log('[rm] Triggering project refresh after batch deletion');
-          await this.onFileOperation('.', 'folder', undefined, false, false, undefined);
-          
-          // 追加的な同期処理（Git削除検知を確実にするため）
-          await new Promise(resolve => setTimeout(resolve, 200));
+          const deletedFiles = result.filter(res => res.success).map(res => res.message);
+          const errors = result.filter(res => !res.success).map(res => res.error);
+        
+          // ファイルシステムキャッシュのフラッシュ
           await this.flushFileSystemCache();
-        }
         
-        if (deletedCount === 0) {
-          const errorMsg = errors.length > 0 ? `\nErrors:\n${errors.join('\n')}` : '';
-          return `rm: no files were removed${errorMsg}`;
-        }
+          // プロジェクト全体の更新を通知
+          if (this.onFileOperation && deletedFiles.length > 0) {
+            console.log('[rm] Triggering project refresh after batch deletion');
+            await this.onFileOperation('.', 'folder', undefined, false, false, undefined);
+          
+            // 追加的な同期処理（Git削除検知を確実にするため）
+            await new Promise(resolve => setTimeout(resolve, 200));
+            await this.flushFileSystemCache();
+          }
         
-        const successMsg = `removed ${deletedCount} file(s): ${deletedFiles.join(', ')}`;
-        const errorMsg = errors.length > 0 ? `\nWarnings:\n${errors.join('\n')}` : '';
-        return successMsg + errorMsg;
+          if (deletedFiles.length === 0) {
+            const errorMsg = errors.length > 0 ? `\nErrors:\n${errors.join('\n')}` : '';
+            return `rm: no files were removed${errorMsg}`;
+          }
+        
+          const successMsg = `removed ${deletedFiles.length} file(s): ${deletedFiles.join(', ')}`;
+          const errorMsg = errors.length > 0 ? `\nWarnings:\n${errors.join('\n')}` : '';
+          return successMsg + errorMsg;
       } else {
         // 単一ファイル削除
         const result = await this.removeFile(fileName, recursive);
