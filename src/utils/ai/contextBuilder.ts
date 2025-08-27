@@ -138,7 +138,7 @@ export function buildAIFileContextList(files: (FileItem | ProjectFile)[]): AIFil
       contexts.push(context);
       // console.log('[buildAIFileContextList] Added context:', context.path, 'contentLength:', context.content.length);
     } else {
-      console.log('[buildAIFileContextList] Skipped file:', file.path, 'type:', file.type, 'hasContent:', !!file.content, 'isBinary:', isBinaryFile(file), 'contentLength:', file.content?.length || 0);
+      // console.log('[buildAIFileContextList] Skipped file:', file.path, 'type:', file.type, 'hasContent:', !!file.content, 'isBinary:', isBinaryFile(file), 'contentLength:', file.content?.length || 0);
     }
   }
   

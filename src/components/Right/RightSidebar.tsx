@@ -10,6 +10,7 @@ interface RightSidebarProps {
   // AI Agent用のプロパティ
   projectFiles?: FileItem[];
   currentProject?: Project | null;
+  currentProjectId?: string;
   tabs?: Tab[];
   setTabs?: (update: any) => void;
   setActiveTabId?: (id: string) => void;
@@ -24,6 +25,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
   children,
   projectFiles = [],
   currentProject = null,
+  currentProjectId = '',
   tabs = [],
   setTabs,
   setActiveTabId,
@@ -61,6 +63,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
               <AIAgent
                 projectFiles={projectFiles}
                 currentProject={currentProject}
+                currentProjectId={currentProjectId}
                 tabs={tabs}
                 setTabs={setTabs}
                 setActiveTabId={setActiveTabId}

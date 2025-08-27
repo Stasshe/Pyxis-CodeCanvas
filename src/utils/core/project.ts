@@ -138,6 +138,7 @@ export const useProject = () => {
       return acc;
     }, [] as ProjectFile[]);
     
+
     const fileMap = new Map<string, FileItem>();
     const rootItems: FileItem[] = [];
 
@@ -149,13 +150,35 @@ export const useProject = () => {
         type: file.type,
         path: file.path,
         content: file.content,
-        // バイナリファイル判定とデータを保持
         isBufferArray: file.isBufferArray,
         bufferContent: file.bufferContent,
         children: file.type === 'folder' ? [] : undefined,
       };
       fileMap.set(file.path, item);
     });
+
+    // 親フォルダがなければ自動生成する関数
+    const ensureParentFolder = (parentPath: string) => {
+      if (!parentPath || parentPath === '/') return;
+      if (!fileMap.has(parentPath)) {
+        // フォルダ名抽出
+        const name = parentPath.split('/').filter(Boolean).pop() || parentPath;
+        // 親の親
+        const grandParent = parentPath.substring(0, parentPath.lastIndexOf('/')) || '/';
+        const folderItem: FileItem = {
+          id: `auto-folder-${parentPath}`,
+          name,
+          type: 'folder',
+          path: parentPath,
+          content: '',
+          isBufferArray: false,
+          bufferContent: undefined,
+          children: [],
+        };
+        fileMap.set(parentPath, folderItem);
+        ensureParentFolder(grandParent);
+      }
+    };
 
     // 階層構造を構築
     uniqueFiles.forEach(file => {
@@ -165,12 +188,21 @@ export const useProject = () => {
       if (file.parentPath === '/' || !file.parentPath || file.path === '/') {
         rootItems.push(item);
       } else {
+        // 親がなければ自動生成
+        if (!fileMap.has(file.parentPath)) {
+          ensureParentFolder(file.parentPath);
+        }
         const parent = fileMap.get(file.parentPath);
         if (parent && parent.children) {
           parent.children.push(item);
-        } else {
-          console.warn(`Parent not found for ${file.path}, parentPath: ${file.parentPath}`);
         }
+      }
+    });
+
+    // ルートに自動生成されたフォルダも追加
+    fileMap.forEach((item, path) => {
+      if ((item.type === 'folder') && (item.path.lastIndexOf('/') <= 0) && !rootItems.includes(item)) {
+        rootItems.push(item);
       }
     });
 
@@ -382,22 +414,41 @@ export const useProject = () => {
       // 削除対象ファイルの情報を取得
       const fileToDelete = projectFiles.find(f => f.id === fileId);
       console.log('[deleteFile] Deleting file:', fileToDelete?.path);
-      
+
+      // IndexedDBから削除
       await projectDB.deleteFile(fileId);
-      setProjectFiles(prev => prev.filter(f => f.id !== fileId));
-      
-      // ファイルシステムからも削除（Git変更検知のため）
-        if (fileToDelete && fileToDelete.type === 'file') {
-          try {
-            const { syncFileToFileSystem } = await import('./filesystem');
-            // ファイルを物理的に削除してGit検知を有効にする
-            await syncFileToFileSystem(currentProject.name, fileToDelete.path, null, 'delete');
-            console.log('[deleteFile] File physically deleted from filesystem for Git detection');
-          } catch (syncError) {
-            console.warn('[deleteFile] Filesystem deletion failed (non-critical):', syncError);
-          }
+
+      // フォルダの場合は子ファイルも再帰削除
+      if (fileToDelete && fileToDelete.type === 'folder') {
+        const childFiles = projectFiles.filter(f => f.path.startsWith(fileToDelete.path + '/'));
+        for (const child of childFiles) {
+          await projectDB.deleteFile(child.id);
         }
-      
+      }
+
+      // Lightning-FSからも削除（ファイル/フォルダ両方対応）
+      if (fileToDelete) {
+        try {
+          await syncFileToFileSystem(currentProject.name, fileToDelete.path, null, 'delete');
+        } catch (syncError) {
+          console.warn('[deleteFile] Lightning-FS delete failed:', syncError);
+        }
+      }
+
+      // キャッシュフラッシュ（Lightning-FS）
+      try {
+        const fs = getFileSystem();
+        if (fs && typeof (fs as any).sync === 'function') {
+          await (fs as any).sync();
+          console.log('[deleteFile] Lightning-FS cache flushed');
+        }
+      } catch (flushError) {
+        console.warn('[deleteFile] Lightning-FS cache flush failed:', flushError);
+      }
+
+      // UI更新
+      setProjectFiles(prev => prev.filter(f => f.id !== fileId && !(fileToDelete && fileToDelete.type === 'folder' && f.path.startsWith(fileToDelete.path + '/'))));
+      await refreshProjectFiles();
       console.log('[deleteFile] File deleted successfully');
     } catch (error) {
       console.error('Failed to delete file:', error);
@@ -451,33 +502,49 @@ export const useProject = () => {
               await projectDB.deleteFile(child.id);
             }
           }
-          
           // ファイルシステムからも削除（Git変更検知のため）
-          if (fileToDelete.type === 'file') {
+          try {
+            await syncFileToFileSystem(currentProject.name, path, null, 'delete');
+            console.log('[syncTerminalFileOperation] File/folder physically deleted from filesystem for Git detection');
+            // 追加的なGitキャッシュフラッシュ（削除検知のため）
+            try {
+              const fs = getFileSystem();
+              if (fs && (fs as any).sync) {
+                await (fs as any).sync();
+                console.log('[syncTerminalFileOperation] Additional Git cache flush completed');
+                await new Promise(resolve => setTimeout(resolve, 300));
+              }
+            } catch (flushError) {
+              console.warn('[syncTerminalFileOperation] Additional Git cache flush failed:', flushError);
+            }
+          } catch (syncError) {
+            console.warn('[syncTerminalFileOperation] Filesystem deletion failed (non-critical):', syncError);
+          }
+          console.log('[syncTerminalFileOperation] Delete operation completed for:', path);
+        } else {
+          // フォルダ自体がDBにない場合でも、配下のファイル・フォルダを削除
+          const childFiles = files.filter(f => f.path.startsWith(path + '/'));
+          if (childFiles.length > 0) {
+            console.log('[syncTerminalFileOperation] Folder not found, deleting child files:', childFiles.length);
+            for (const child of childFiles) {
+              await projectDB.deleteFile(child.id);
+            }
+            // Lightning-FSからも削除
             try {
               await syncFileToFileSystem(currentProject.name, path, null, 'delete');
-              console.log('[syncTerminalFileOperation] File physically deleted from filesystem for Git detection');
-              
-              // 追加的なGitキャッシュフラッシュ（削除検知のため）
-              try {
-                const fs = getFileSystem();
-                if (fs && (fs as any).sync) {
-                  await (fs as any).sync();
-                  console.log('[syncTerminalFileOperation] Additional Git cache flush completed');
-                  
-                  // Gitが削除を認識するまで少し待機
-                  await new Promise(resolve => setTimeout(resolve, 300));
-                }
-              } catch (flushError) {
-                console.warn('[syncTerminalFileOperation] Additional Git cache flush failed:', flushError);
+              const fs = getFileSystem();
+              if (fs && (fs as any).sync) {
+                await (fs as any).sync();
+                console.log('[syncTerminalFileOperation] Additional Git cache flush completed');
+                await new Promise(resolve => setTimeout(resolve, 300));
               }
             } catch (syncError) {
               console.warn('[syncTerminalFileOperation] Filesystem deletion failed (non-critical):', syncError);
             }
+            console.log('[syncTerminalFileOperation] Delete operation completed for folder children:', path);
+          } else {
+            console.log('[syncTerminalFileOperation] File not found in DB for deletion:', path);
           }
-          console.log('[syncTerminalFileOperation] Delete operation completed for:', path);
-        } else {
-          console.log('[syncTerminalFileOperation] File not found in DB for deletion:', path);
         }
       } else {
         // ファイルまたはフォルダを作成/更新
@@ -496,7 +563,7 @@ export const useProject = () => {
           // ファイルシステムにも同期（Git変更検知のため）
           if (type === 'file') {
             try {
-              await syncFileToFileSystem(currentProject.name, path, content, 'update');
+              await syncFileToFileSystem(currentProject.name, path, bufferContent ? '' : content, 'update', bufferContent);
               console.log('[syncTerminalFileOperation] File updated in filesystem for Git detection');
             } catch (syncError) {
               console.warn('[syncTerminalFileOperation] Filesystem update failed (non-critical):', syncError);
@@ -509,7 +576,7 @@ export const useProject = () => {
             const newFile = await projectDB.createFile(currentProject.id, path, '', type, true, bufferContent);
             console.log('[syncTerminalFileOperation] File/folder created in DB with ID:', newFile.id);
           } else {
-            const newFile = await projectDB.createFile(currentProject.id, path, content, type, false);
+            const newFile = await projectDB.createFile(currentProject.id, path, content, type, false, undefined);
             console.log('[syncTerminalFileOperation] File/folder created in DB with ID:', newFile.id);
           }
           // ファイルシステムにも同期（Git変更検知のため）

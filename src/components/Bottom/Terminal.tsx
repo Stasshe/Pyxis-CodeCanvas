@@ -35,13 +35,14 @@ const flattenFileItems = (items: FileItem[], basePath = ''): Array<{ path: strin
 interface TerminalProps {
   height: number;
   currentProject?: string;
+  currentProjectId?: string;
   projectFiles?: FileItem[];
   onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean, isBufferArray?: boolean, bufferContent?: ArrayBuffer) => Promise<void>;
   isActive?: boolean;
 }
 
 // クライアントサイド専用のターミナルコンポーネント
-function ClientTerminal({ height, currentProject = 'default', projectFiles = [], onFileOperation, isActive }: TerminalProps) {
+function ClientTerminal({ height, currentProject = 'default', currentProjectId = '', projectFiles = [], onFileOperation, isActive }: TerminalProps) {
   const { colors } = useTheme();
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<any>(null);
@@ -58,8 +59,15 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
 
     // ファイルシステムの初期化
     initializeFileSystem();
-    unixCommandsRef.current = new UnixCommands(currentProject, onFileOperation);
-    gitCommandsRef.current = new GitCommands(currentProject, onFileOperation);
+  unixCommandsRef.current = new UnixCommands(currentProject, onFileOperation, currentProjectId);
+    gitCommandsRef.current = new GitCommands(
+      currentProject,
+      onFileOperation
+        ? (path, type, content, isNodeRuntime, bufferContent) =>
+            // onFileOperation expects isBufferArray, so pass undefined for it
+            onFileOperation(path, type, content, isNodeRuntime, undefined, bufferContent)
+        : undefined
+    );
     npmCommandsRef.current = new NpmCommands(currentProject, '/projects/' + currentProject, onFileOperation);
 
     // プロジェクトファイルをターミナルファイルシステムに同期
@@ -411,27 +419,30 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
                 }
               }
               
-              // LocalStorage の Lightning-FS 関連データを出力
-              await writeOutput('\n--- LocalStorage (Lightning-FS related) ---');
-              const lightningFSKeys = [];
+              // LocalStorage の Lightning-FS/pyxis-fs関連データを出力
+              await writeOutput('\n--- LocalStorage (Lightning-FS/pyxis-fs related) ---');
+              const pyxisFSKeys = [];
+              const otherLightningFSKeys = [];
               for (let i = 0; i < window.localStorage.length; i++) {
                 const key = window.localStorage.key(i);
-                if (key && (key.startsWith('fs/') || key.includes('lightning'))) {
-                  lightningFSKeys.push(key);
+                if (!key) continue;
+                if (key.startsWith('pyxis-fs')) {
+                  pyxisFSKeys.push(key);
+                } else if (key.startsWith('fs/') || key.includes('lightning')) {
+                  otherLightningFSKeys.push(key);
                 }
               }
-              
-              if (lightningFSKeys.length === 0) {
-                await writeOutput('No Lightning-FS related localStorage entries found.');
+
+              // 他のLightning-FS関連はすべて詳細表示
+              if (otherLightningFSKeys.length === 0) {
+                await writeOutput('No other Lightning-FS related localStorage entries found.');
               } else {
-                await writeOutput(`Found ${lightningFSKeys.length} Lightning-FS related entries:`);
-                for (const key of lightningFSKeys.slice(0, 20)) {
+                await writeOutput(`Other Lightning-FS related entries (${otherLightningFSKeys.length}):`);
+                for (const key of otherLightningFSKeys) {
                   const value = window.localStorage.getItem(key);
                   const size = value ? value.length : 0;
                   await writeOutput(`  ${key}: ${size} chars`);
-                }
-                if (lightningFSKeys.length > 20) {
-                  await writeOutput(`  ... and ${lightningFSKeys.length - 20} more entries`);
+                  await writeOutput(`    value: ${value ? value.slice(0, 1000) : ''}${value && value.length > 1000 ? ' ...(truncated)' : ''}`);
                 }
               }
               
@@ -515,11 +526,22 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
                       await removeFileOrDirectory(fs, `${path}/${file}`);
                     }
                     await fs.promises.rmdir(path);
+                    // 削除成功ログ
+                    console.log(`[memory-clean] Removed directory: ${path}`);
                   } else {
                     await fs.promises.unlink(path);
+                    // 削除成功ログ
+                    console.log(`[memory-clean] Removed file: ${path}`);
                   }
-                } catch {
-                  // エラーは無視（既に削除済みなど）
+                  // 削除後にLightning-FSキャッシュフラッシュ
+                  if (fs && typeof (fs as any).sync === 'function') {
+                    await (fs as any).sync();
+                    console.log('[memory-clean] Lightning-FS cache flushed');
+                  }
+                } catch (err) {
+                  // 削除失敗時は警告ログ
+                  console.warn(`[memory-clean] Failed to remove: ${path}`, err);
+                  throw err; // 失敗時は例外を投げる
                 }
               }
 
@@ -637,6 +659,65 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
               }
             } catch (e) {
               await writeOutput(`memory-clean: エラー: ${(e as Error).message}`);
+            }
+            break;
+          case 'fs-clean':
+            // Lightning-FSの全データを完全削除
+            try {
+              const { getFileSystem, initializeFileSystem } = await import('@/utils/core/filesystem');
+              let fs = getFileSystem();
+              if (!fs) fs = initializeFileSystem();
+              if (!fs) {
+                await writeOutput('fs-clean: ファイルシステムが初期化できませんでした');
+                break;
+              }
+              // /projects配下を再帰削除
+              async function removeAll(fs: any, dirPath: string): Promise<void> {
+                try {
+                  const stat = await fs.promises.stat(dirPath);
+                  if (stat.isDirectory()) {
+                    const files = await fs.promises.readdir(dirPath);
+                    for (const file of files) {
+                      await removeAll(fs, `${dirPath}/${file}`);
+                    }
+                    await fs.promises.rmdir(dirPath);
+                    console.log(`[fs-clean] Removed directory: ${dirPath}`);
+                  } else {
+                    await fs.promises.unlink(dirPath);
+                    console.log(`[fs-clean] Removed file: ${dirPath}`);
+                  }
+                  if (fs && typeof (fs as any).sync === 'function') {
+                    await (fs as any).sync();
+                    console.log('[fs-clean] Lightning-FS cache flushed');
+                  }
+                } catch (err) {
+                  console.warn(`[fs-clean] Failed to remove: ${dirPath}`, err);
+                }
+              }
+              try {
+                await removeAll(fs, '/projects');
+                await writeOutput('fs-clean: /projects配下を全て削除しました');
+              } catch (e) {
+                await writeOutput(`fs-clean: /projects削除エラー: ${(e as Error).message}`);
+              }
+              // LocalStorageのLightning-FS関連キーも削除
+              if (typeof window !== 'undefined' && window.localStorage) {
+                const lightningFSKeys = [];
+                for (let i = 0; i < window.localStorage.length; i++) {
+                  const key = window.localStorage.key(i);
+                  if (key && (key.startsWith('fs/') || key.includes('lightning'))) {
+                    lightningFSKeys.push(key);
+                  }
+                }
+                for (const key of lightningFSKeys) {
+                  window.localStorage.removeItem(key);
+                  console.log(`[fs-clean] Removed localStorage key: ${key}`);
+                }
+                await writeOutput(`fs-clean: LocalStorageのLightning-FS関連キーも削除しました (${lightningFSKeys.length}件)`);
+              }
+              await writeOutput('fs-clean: 完了');
+            } catch (e) {
+              await writeOutput(`fs-clean: エラー: ${(e as Error).message}`);
             }
             break;
           case 'export':
@@ -1076,7 +1157,7 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
 }
 
 // SSR対応のターミナルコンポーネント
-export default function Terminal({ height, currentProject, projectFiles, onFileOperation, isActive }: TerminalProps) {
+export default function Terminal({ height, currentProject, currentProjectId, projectFiles, onFileOperation, isActive }: TerminalProps) {
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -1097,5 +1178,5 @@ export default function Terminal({ height, currentProject, projectFiles, onFileO
   }
 
   // クライアントサイドでマウント後のみ実際のターミナルを表示
-  return <ClientTerminal height={height} currentProject={currentProject} projectFiles={projectFiles} onFileOperation={onFileOperation} isActive={isActive} />;
+  return <ClientTerminal height={height} currentProject={currentProject} currentProjectId={currentProjectId} projectFiles={projectFiles} onFileOperation={onFileOperation} isActive={isActive} />;
 }

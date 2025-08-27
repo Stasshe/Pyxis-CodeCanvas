@@ -113,10 +113,8 @@ export function useAIAgent(props?: UseAIAgentProps) {
       throw new Error('Gemini APIキーが設定されていません。設定画面で設定してください。');
     }
 
+    // 選択ファイルがなくてもAIが新規ファイル作成できるようにする
     const selectedFiles = getSelectedFileContexts(fileContexts);
-    if (selectedFiles.length === 0) {
-      throw new Error('編集するファイルを選択してください。');
-    }
 
     setIsProcessing(true);
     try {
@@ -138,19 +136,19 @@ export function useAIAgent(props?: UseAIAgentProps) {
 
       // プロンプトを生成
       const prompt = EDIT_PROMPT_TEMPLATE(selectedFiles, instruction, previousMessages);
-          
+      
       // AI編集を実行
       const response = await generateCodeEdit(prompt, apiKey);
       
       // レスポンスをパース
-      const editResponse = parseEditResponse(response, selectedFiles);
-      
-      // console.log('[useAIAgent] Parsed edit response:', {
-      //   changedFilesCount: editResponse.changedFiles.length,
-      //   files: editResponse.changedFiles.map(f => ({ path: f.path, hasContent: !!f.suggestedContent }))
-      // });
-      
-      
+      // 新規ファイル作成対応: selectedFilesにないファイルもパースする
+      const allOriginalFiles = [
+        ...selectedFiles,
+        // 新規ファイル用: 空ファイルとしてパース対象に追加
+        ...extractNewFilePathsFromResponse(response).map(path => ({ path, content: '' }))
+      ];
+      const editResponse = parseEditResponse(response, allOriginalFiles);
+
       // より詳細なメッセージを生成
       let detailedMessage = editResponse.message;
       if (editResponse.changedFiles.length > 0) {
@@ -164,7 +162,7 @@ export function useAIAgent(props?: UseAIAgentProps) {
         });
         detailedMessage += editResponse.message;
       }
-      
+
       // AI応答メッセージを追加（editResponseも含める）
       await addMessage({
         type: 'assistant',
@@ -176,6 +174,27 @@ export function useAIAgent(props?: UseAIAgentProps) {
       setIsProcessing(false);
     }
   }, [fileContexts, addMessage]);
+
+  // AIレスポンスから新規ファイルパスを抽出する関数
+  function extractNewFilePathsFromResponse(response: string): string[] {
+    // 新規ファイルのみ抽出: 「**変更理由**: 新規ファイルの作成」が明記されたファイルのみ
+    const fileBlockPattern = /<AI_EDIT_CONTENT_START:(.+?)>/g;
+    const reasonPattern = /##\s*変更ファイル:\s*(.+?)\n+\*\*変更理由\*\*:\s*新規ファイルの作成(?=\n\s*<AI_EDIT_CONTENT_START:)/g;
+    const foundPaths: string[] = [];
+
+    // 新規ファイル理由が明記されたファイルパスを抽出
+    const reasonMatches = [...response.matchAll(reasonPattern)].map(r => r[1].trim());
+
+    let match;
+    while ((match = fileBlockPattern.exec(response)) !== null) {
+      const filePath = match[1].trim();
+      // 新規ファイル理由が明記されていて、fileContextsに含まれていないものだけ
+      if (reasonMatches.includes(filePath) && !fileContexts.some(f => f.path === filePath)) {
+        foundPaths.push(filePath);
+      }
+    }
+    return foundPaths;
+  }
 
   // ファイルコンテキストを更新
   const updateFileContexts = useCallback((contexts: AIFileContext[]) => {

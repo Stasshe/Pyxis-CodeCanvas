@@ -26,6 +26,8 @@ export async function exportIndexeddbHtml(): Promise<string> {
   for (const dbInfo of dbs) {
     const dbName = dbInfo.name;
     if (!dbName) continue;
+    // pyxis-fs系DBは除外
+    if (dbName.startsWith('pyxis-fs')) continue;
     const req = window.indexedDB.open(dbName);
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
       req.onsuccess = () => resolve(req.result);

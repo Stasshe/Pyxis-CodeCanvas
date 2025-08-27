@@ -16,6 +16,7 @@ interface FileTreeProps {
   onWebPreview?: (file: FileItem) => void;
   level?: number;
   currentProjectName: string;
+  currentProjectId?: string;
   onFileOperation?: (
     path: string,
     type: 'file' | 'folder' | 'delete',
@@ -26,8 +27,9 @@ interface FileTreeProps {
   ) => Promise<void>;
   isFileSelectModal?: boolean;
 }
-export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, onWebPreview, currentProjectName, onFileOperation, isFileSelectModal }: FileTreeProps) {
+export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, onWebPreview, currentProjectName, currentProjectId, onFileOperation, isFileSelectModal }: FileTreeProps) {
   const { colors } = useTheme();
+  // currentProjectId is now available for DB operations if needed
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
   const [menuHoveredIdx, setMenuHoveredIdx] = useState<number | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
@@ -35,25 +37,71 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; item: FileItem | null } | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
   
-  // ドラッグ&ドロップ用
+  // ドラッグ&ドロップ用（フォルダ対応）
   const handleDrop = async (e: React.DragEvent<HTMLDivElement>, targetPath?: string) => {
     e.preventDefault();
     e.stopPropagation();
-    const files = e.dataTransfer.files;
-    if (!files || files.length === 0) return;
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      let content: string | ArrayBuffer = await file.arrayBuffer();
-      const isBinary = isBufferArray(content);
-      if (!isBinary) {
-        content = await file.text();
-      }
-      const unix = new UnixCommands(currentProjectName);
-      const importPath = targetPath ? `${targetPath}/${file.name}` : `/${file.name}`;
-      const absolutePath = `/projects/${currentProjectName}${importPath}`;
-      await importSingleFile(file, absolutePath, unix);
-      if (typeof onFileOperation === 'function') {
-        await onFileOperation(importPath, 'file', isBinary ? undefined : (content as string), false, isBinary, isBinary ? (content as ArrayBuffer) : undefined);
+  const items = e.dataTransfer.items;
+  if (items && items.length > 0 && typeof items[0].webkitGetAsEntry === 'function') {
+      // フォルダD&D対応
+      const traverseFileTree = async (item: any, path: string) => {
+        return new Promise<void>((resolve) => {
+          if (item.isFile) {
+            item.file(async (file: File) => {
+              let content: string | ArrayBuffer = await file.arrayBuffer();
+              const isBinary = isBufferArray(content);
+              if (!isBinary) {
+                content = await file.text();
+              }
+              const unix = new UnixCommands(currentProjectName, undefined, currentProjectId);
+              const importPath = `${path}${file.name}`;
+              const absolutePath = `/projects/${currentProjectName}${importPath}`;
+              await importSingleFile(file, absolutePath, unix);
+              if (typeof onFileOperation === 'function') {
+                await onFileOperation(importPath, 'file', isBinary ? undefined : (content as string), false, isBinary, isBinary ? (content as ArrayBuffer) : undefined);
+              }
+              resolve();
+            });
+          } else if (item.isDirectory) {
+            const dirReader = item.createReader();
+            dirReader.readEntries(async (entries: any[]) => {
+              for (const entry of entries) {
+                await traverseFileTree(entry, `${path}${item.name}/`);
+              }
+              resolve();
+            });
+          } else {
+            resolve();
+          }
+        });
+      };
+      const traverseAll = async () => {
+        for (let i = 0; i < items.length; i++) {
+          const entry = items[i].webkitGetAsEntry();
+          if (entry) {
+            await traverseFileTree(entry, targetPath ? `${targetPath}/` : '/');
+          }
+        }
+      };
+      await traverseAll();
+    } else {
+      // 通常のファイルD&D
+      const files = e.dataTransfer.files;
+      if (!files || files.length === 0) return;
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        let content: string | ArrayBuffer = await file.arrayBuffer();
+        const isBinary = isBufferArray(content);
+        if (!isBinary) {
+          content = await file.text();
+        }
+        const unix = new UnixCommands(currentProjectName, undefined, currentProjectId);
+        const importPath = targetPath ? `${targetPath}/${file.name}` : `/${file.name}`;
+        const absolutePath = `/projects/${currentProjectName}${importPath}`;
+        await importSingleFile(file, absolutePath, unix);
+        if (typeof onFileOperation === 'function') {
+          await onFileOperation(importPath, 'file', isBinary ? undefined : (content as string), false, isBinary, isBinary ? (content as ArrayBuffer) : undefined);
+        }
       }
     }
   };
@@ -278,6 +326,7 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
                 onFilePreview={onFilePreview}
                 onWebPreview={onWebPreview}
                 currentProjectName={currentProjectName}
+                currentProjectId={currentProjectId}
                 onFileOperation={onFileOperation}
               />
             )}
@@ -382,7 +431,7 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
                 onTouchEnd={() => setMenuHoveredIdx(null)}
                 onClick={async () => {
                   setContextMenu(null);
-                  const unix = new UnixCommands(currentProjectName);
+                  const unix = new UnixCommands(currentProjectName, undefined, currentProjectId);
                   if (label === 'ファイル作成') {
                     if (typeof onFileOperation === 'function') {
                       const fileName = prompt('新しいファイル名を入力してください:');
@@ -413,6 +462,7 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
                       if (!isBinary) {
                         content = await file.text();
                       }
+                      const unix = new UnixCommands(currentProjectName, undefined, currentProjectId);
                       await importSingleFile(file, targetAbsolutePath, unix);
                       if (typeof onFileOperation === 'function') {
                         await onFileOperation(targetPath, 'file', isBinary ? undefined : (content as string), false, isBinary, isBinary ? (content as ArrayBuffer) : undefined);
@@ -429,9 +479,16 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
                           const oldPath = `/projects/${currentProjectName}${item.path}`;
                           const newPath = `/projects/${currentProjectName}${item.path.substring(0, lastSlash + 1)}${newName}`;
                           const result = await unix.rename(oldPath, newPath);
-                          alert(result);
+                          // alert(result);
                           if (typeof onFileOperation === 'function') {
-                            await onFileOperation(item.path.substring(0, lastSlash + 1) + newName, item.type, item.content ?? '', false);
+                            await onFileOperation(
+                              item.path.substring(0, lastSlash + 1) + newName,
+                              item.type,
+                              item.content ?? '',
+                              false,
+                              item.isBufferArray,
+                              item.bufferContent
+                            );
                             await onFileOperation(item.path, 'delete');
                           }
                         } catch (error: any) {
@@ -473,7 +530,7 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
                       input.onchange = async (e: any) => {
                         const file = e.target.files[0];
                         if (!file) return;
-                        const unix = new UnixCommands(currentProjectName);
+                        const unix = new UnixCommands(currentProjectName, undefined, currentProjectId);
                         const item = contextMenu.item;
                         let targetPath = '';
                         let targetAbsolutePath = '';

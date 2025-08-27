@@ -352,11 +352,11 @@ const themes: { [key: string]: ThemeColors } = {
     cardBg: "#181818",
     border: "#222",
     mutedBg: "#181818",
-    mutedFg: "#888",
-    accentBg: "#1a1a1a",
-    accentFg: "#7f7fff",
-    red: "#ff4b4b",
-    green: "#4bff4b",
+  mutedFg: "#888",
+  accentBg: "#1a1a1a",
+  accentFg: "#7f7fff",
+  red: "#ff6b6b", // Diff用に明るい赤
+  green: "#4bff7b", // Diff用に明るい緑
     sidebarTitleFg: "#888",
     sidebarIconFg: "#e5e5e5",
     sidebarResizerBg: "#1a1a1a",
