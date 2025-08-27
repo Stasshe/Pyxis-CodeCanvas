@@ -613,6 +613,20 @@ export default function CodeEditor({
     );
   }
 
+  // needsContentRestoreがtrueならローディング表示
+  if (activeTab.needsContentRestore) {
+    return (
+      <div className="flex-1 min-h-0 select-none" style={{ height: editorHeight }}>
+        <div className="h-full flex items-center justify-center text-muted-foreground select-none">
+          <div className="text-center select-none">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+            <p className="select-none">ファイル内容を復元中...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // バイナリファイル（BufferArray）なら専用表示
   const binaryContent = (
     <BinaryTabContent
