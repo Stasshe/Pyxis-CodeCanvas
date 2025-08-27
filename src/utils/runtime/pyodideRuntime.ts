@@ -1,14 +1,5 @@
 import { getAllFilesAndDirs } from '@/utils/core/filesystem';
 export class PyodideRuntime {
-  /**
-   * sympy, sympy.parsing.latex, mpmath を自動インストール
-   */
-  async ensureSympyInstalled() {
-    if (!this.isReady) await this.load();
-    // sympy, mpmathはPyodide標準パッケージ。未ロードでも必ずloadPackageする。
-    await this.pyodide.loadPackage('sympy');
-    await this.pyodide.loadPackage('mpmath');
-  }
   
   /**
    * Lightning-FSの仮想ファイルシステム全体をPyodide FSに同期する（/projects配下）
@@ -96,13 +87,32 @@ export class PyodideRuntime {
   }
 
   async executePython(code: string) {
-  if (!this.isReady) await this.load();
-  // sympyを常にロード（LaTeX計算以外でも安全）
-  await this.ensureSympyInstalled();
+    if (!this.isReady) await this.load();
+    // コードからimport文を抽出し、必要なパッケージを自動インストール
+    let codeStr = code;
+    if (typeof code === 'object' && code !== null && (code as any).latexInput) {
+      codeStr = '';
+    }
+    // import文抽出（簡易: "import xxx"/"from xxx import"）
+    const importRegex = /(?:import|from)\s+([a-zA-Z0-9_]+)/g;
+    const pkgs = new Set<string>();
+    let match;
+    while ((match = importRegex.exec(codeStr)) !== null) {
+      pkgs.add(match[1]);
+    }
+    // sympy, mpmathは必ずロード
+    pkgs.add('sympy');
+    pkgs.add('mpmath');
+    for (const pkg of pkgs) {
+      try {
+        await this.pyodide.loadPackage(pkg);
+      } catch (e) {
+        // ロード失敗は無視（Pyodide未対応パッケージ等）
+      }
+    }
     // LaTeX入力対応: codeが { latexInput, latexEvalType, latexEvalArgs } を持つ場合
     if (typeof code === 'object' && code !== null && (code as any).latexInput) {
       const { latexInput, latexEvalType, latexEvalArgs } = code as any;
-      await this.ensureSympyInstalled();
       let pyCode = `import sys\nimport io\n_pyxis_stdout = sys.stdout\n_pyxis_stringio = io.StringIO()\nsys.stdout = _pyxis_stringio\nfrom sympy import *\nfrom sympy.parsing.latex import parse_latex\ntry:\n    expr = parse_latex("""${latexInput.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}""")\n`;
       if (latexEvalType === 'limit' && latexEvalArgs) {
         pyCode += `    result = limit(expr, Symbol('${latexEvalArgs.var}'), ${latexEvalArgs.point}, dir='${latexEvalArgs.dir || '+'}')\n`;
