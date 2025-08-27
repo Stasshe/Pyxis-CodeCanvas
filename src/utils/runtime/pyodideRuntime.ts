@@ -1,5 +1,14 @@
 import { getAllFilesAndDirs } from '@/utils/core/filesystem';
 export class PyodideRuntime {
+  /**
+   * sympy, sympy.parsing.latex, mpmath を自動インストール
+   */
+  async ensureSympyInstalled() {
+    if (!this.isReady) await this.load();
+    // sympy, mpmathはPyodide標準パッケージ。未ロードでも必ずloadPackageする。
+    await this.pyodide.loadPackage('sympy');
+    await this.pyodide.loadPackage('mpmath');
+  }
   
   /**
    * Lightning-FSの仮想ファイルシステム全体をPyodide FSに同期する（/projects配下）
@@ -87,29 +96,56 @@ export class PyodideRuntime {
   }
 
   async executePython(code: string) {
-    if (!this.isReady) await this.load();
-    try {
-      // print出力を取得するためにstdoutをリダイレクト
-      const captureCode = `
+  if (!this.isReady) await this.load();
+  // sympyを常にロード（LaTeX計算以外でも安全）
+  await this.ensureSympyInstalled();
+    // LaTeX入力対応: codeが { latexInput, latexEvalType, latexEvalArgs } を持つ場合
+    if (typeof code === 'object' && code !== null && (code as any).latexInput) {
+      const { latexInput, latexEvalType, latexEvalArgs } = code as any;
+      await this.ensureSympyInstalled();
+      let pyCode = `import sys\nimport io\n_pyxis_stdout = sys.stdout\n_pyxis_stringio = io.StringIO()\nsys.stdout = _pyxis_stringio\nfrom sympy import *\nfrom sympy.parsing.latex import parse_latex\ntry:\n    expr = parse_latex("""${latexInput.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}""")\n`;
+      if (latexEvalType === 'limit' && latexEvalArgs) {
+        pyCode += `    result = limit(expr, Symbol('${latexEvalArgs.var}'), ${latexEvalArgs.point}, dir='${latexEvalArgs.dir || '+'}')\n`;
+      } else if (latexEvalType === 'diff' && latexEvalArgs) {
+        pyCode += `    result = diff(expr, Symbol('${latexEvalArgs.var}'))\n`;
+      } else if (latexEvalType === 'integrate' && latexEvalArgs) {
+        pyCode += `    result = integrate(expr, Symbol('${latexEvalArgs.var}'))\n`;
+      } else {
+        pyCode += `    result = expr\n`;
+      }
+      pyCode += `    print(latex(result))\n    _pyxis_result = _pyxis_stringio.getvalue()\nfinally:\n    sys.stdout = _pyxis_stdout\ndel _pyxis_stringio\ndel _pyxis_stdout\n`;
+      try {
+        await this.pyodide.runPythonAsync(pyCode);
+        const output = this.pyodide.globals.get('_pyxis_result') || '';
+        this.pyodide.globals.set('_pyxis_result', undefined);
+        return { success: true, output: output };
+      } catch (e: any) {
+        return { success: false, error: e.message };
+      }
+    } else {
+      // 通常のPythonコード
+      try {
+        const captureCode = `
 import sys
 import io
 _pyxis_stdout = sys.stdout
 _pyxis_stringio = io.StringIO()
 sys.stdout = _pyxis_stringio
 try:
-    exec("""${code.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n')}""", globals())
+    exec("""${typeof code === 'string' ? code.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n') : ''}""", globals())
     _pyxis_result = _pyxis_stringio.getvalue()
 finally:
     sys.stdout = _pyxis_stdout
 del _pyxis_stringio
 del _pyxis_stdout
 `;
-      await this.pyodide.runPythonAsync(captureCode);
-      const output = this.pyodide.globals.get('_pyxis_result') || '';
-      this.pyodide.globals.set('_pyxis_result', undefined);
-      return { success: true, output: output };
-    } catch (e: any) {
-      return { success: false, error: e.message };
+        await this.pyodide.runPythonAsync(captureCode);
+        const output = this.pyodide.globals.get('_pyxis_result') || '';
+        this.pyodide.globals.set('_pyxis_result', undefined);
+        return { success: true, output: output };
+      } catch (e: any) {
+        return { success: false, error: e.message };
+      }
     }
   }
 }
