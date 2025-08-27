@@ -20,7 +20,16 @@ export default function WelcomeTab() {
           </div>
 
           <div className="bg-card p-6 rounded-lg shadow-lg text-sm mb-8">
-        <p className="mb-2 text-base">このプロジェクトのファイルはIndexedDBに保存されています。</p>
+            <p className="mb-2 text-base">このプロジェクトのファイルはIndexedDBに保存されています。</p>
+          </div>
+
+          <div className="bg-card p-6 rounded-lg shadow-lg text-sm mb-8">
+            <p className="mb-2 text-base">このアプリは完全にクライアントサイドで動作し、サーバーには一切データを送信しません。</p>
+          </div>
+
+          <div className="bg-card p-6 rounded-lg shadow-lg text-sm mb-8">
+            <p className="mb-2 text-base">HMR,WebPreviewは、デフォルトで生成される,homepageフォルダを長押しして、試してみてください。
+            </p>
           </div>
 
           <section className="mb-8">
