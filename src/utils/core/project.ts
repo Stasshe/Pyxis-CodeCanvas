@@ -563,7 +563,7 @@ export const useProject = () => {
           // ファイルシステムにも同期（Git変更検知のため）
           if (type === 'file') {
             try {
-              await syncFileToFileSystem(currentProject.name, path, content, 'update');
+              await syncFileToFileSystem(currentProject.name, path, bufferContent ? '' : content, 'update', bufferContent);
               console.log('[syncTerminalFileOperation] File updated in filesystem for Git detection');
             } catch (syncError) {
               console.warn('[syncTerminalFileOperation] Filesystem update failed (non-critical):', syncError);
@@ -576,7 +576,7 @@ export const useProject = () => {
             const newFile = await projectDB.createFile(currentProject.id, path, '', type, true, bufferContent);
             console.log('[syncTerminalFileOperation] File/folder created in DB with ID:', newFile.id);
           } else {
-            const newFile = await projectDB.createFile(currentProject.id, path, content, type, false);
+            const newFile = await projectDB.createFile(currentProject.id, path, content, type, false, undefined);
             console.log('[syncTerminalFileOperation] File/folder created in DB with ID:', newFile.id);
           }
           // ファイルシステムにも同期（Git変更検知のため）

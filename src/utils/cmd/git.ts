@@ -17,12 +17,12 @@ import { GitMergeOperations } from './gitOperations/merge';
 export class GitCommands {
   private fs: FS;
   private dir: string;
-  private onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>;
+  private onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean, bufferContent?: ArrayBuffer) => Promise<void>;
   // バッチ処理用のキュー
-  private fileOperationQueue: Array<{ path: string; type: 'file' | 'folder' | 'delete'; content?: string; isNodeRuntime?: boolean }> = [];
+  private fileOperationQueue: Array<{ path: string; type: 'file' | 'folder' | 'delete'; content?: string; isNodeRuntime?: boolean; bufferContent?: ArrayBuffer }> = [];
   private batchProcessing = false;
 
-  constructor(projectName: string, onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>) {
+  constructor(projectName: string, onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean, bufferContent?: ArrayBuffer) => Promise<void>) {
     this.fs = getFileSystem()!;
     this.dir = getProjectDir(projectName);
     this.onFileOperation = onFileOperation;
@@ -45,7 +45,7 @@ export class GitCommands {
     for (let i = 0; i < this.fileOperationQueue.length; i += BATCH_SIZE) {
       const batch = this.fileOperationQueue.slice(i, i + BATCH_SIZE);
       await Promise.all(
-        batch.map(op => this.onFileOperation!(op.path, op.type, op.content, op.isNodeRuntime))
+        batch.map(op => this.onFileOperation!(op.path, op.type, op.content, op.isNodeRuntime, op.bufferContent))
       );
       await new Promise(resolve => setTimeout(resolve, 50));
     }
@@ -59,13 +59,14 @@ export class GitCommands {
     path: string,
     type: 'file' | 'folder' | 'delete',
     content?: string,
-    isNodeRuntime?: boolean
+    isNodeRuntime?: boolean,
+    bufferContent?: ArrayBuffer
   ): Promise<void> {
     if (!this.onFileOperation) return;
     if (this.batchProcessing) {
-      this.fileOperationQueue.push({ path, type, content, isNodeRuntime });
+      this.fileOperationQueue.push({ path, type, content, isNodeRuntime, bufferContent });
     } else {
-      await this.onFileOperation(path, type, content, isNodeRuntime);
+      await this.onFileOperation(path, type, content, isNodeRuntime, bufferContent);
     }
   }
 
@@ -244,10 +245,26 @@ export class GitCommands {
       // ファイル作成
       for (const file of files) {
         try {
-          const content = await this.fs.promises.readFile(file.fullPath, 'utf8');
-          await this.executeFileOperation(file.relativePath, 'file', content);
+          // バイナリ判定: 拡張子で判定
+          const ext = file.name.toLowerCase();
+          let isBinary = false;
+          if (ext.match(/\.(png|jpg|jpeg|gif|bmp|webp|svg|pdf|zip)$/)) isBinary = true;
+          let content: string = '';
+          let bufferContent: ArrayBuffer | undefined = undefined;
+          if (isBinary) {
+            const uint8 = await this.fs.promises.readFile(file.fullPath);
+            if (uint8 instanceof Uint8Array) {
+              bufferContent = new Uint8Array(uint8).buffer;
+            } else {
+              bufferContent = undefined;
+            }
+            content = '';
+          } else {
+            content = await this.fs.promises.readFile(file.fullPath, 'utf8');
+          }
+          await this.executeFileOperation(file.relativePath, 'file', content, undefined, bufferContent);
         } catch {
-          await this.executeFileOperation(file.relativePath, 'file', '');
+          await this.executeFileOperation(file.relativePath, 'file', '', undefined, undefined);
         }
       }
       // サブディレクトリ再帰

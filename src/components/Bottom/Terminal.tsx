@@ -60,7 +60,14 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
     // ファイルシステムの初期化
     initializeFileSystem();
   unixCommandsRef.current = new UnixCommands(currentProject, onFileOperation, currentProjectId);
-    gitCommandsRef.current = new GitCommands(currentProject, onFileOperation);
+    gitCommandsRef.current = new GitCommands(
+      currentProject,
+      onFileOperation
+        ? (path, type, content, isNodeRuntime, bufferContent) =>
+            // onFileOperation expects isBufferArray, so pass undefined for it
+            onFileOperation(path, type, content, isNodeRuntime, undefined, bufferContent)
+        : undefined
+    );
     npmCommandsRef.current = new NpmCommands(currentProject, '/projects/' + currentProject, onFileOperation);
 
     // プロジェクトファイルをターミナルファイルシステムに同期
