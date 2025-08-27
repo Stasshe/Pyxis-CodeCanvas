@@ -419,27 +419,30 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
                 }
               }
               
-              // LocalStorage の Lightning-FS 関連データを出力
-              await writeOutput('\n--- LocalStorage (Lightning-FS related) ---');
-              const lightningFSKeys = [];
+              // LocalStorage の Lightning-FS/pyxis-fs関連データを出力
+              await writeOutput('\n--- LocalStorage (Lightning-FS/pyxis-fs related) ---');
+              const pyxisFSKeys = [];
+              const otherLightningFSKeys = [];
               for (let i = 0; i < window.localStorage.length; i++) {
                 const key = window.localStorage.key(i);
-                if (key && (key.startsWith('fs/') || key.includes('lightning'))) {
-                  lightningFSKeys.push(key);
+                if (!key) continue;
+                if (key.startsWith('pyxis-fs')) {
+                  pyxisFSKeys.push(key);
+                } else if (key.startsWith('fs/') || key.includes('lightning')) {
+                  otherLightningFSKeys.push(key);
                 }
               }
-              
-              if (lightningFSKeys.length === 0) {
-                await writeOutput('No Lightning-FS related localStorage entries found.');
+
+              // 他のLightning-FS関連はすべて詳細表示
+              if (otherLightningFSKeys.length === 0) {
+                await writeOutput('No other Lightning-FS related localStorage entries found.');
               } else {
-                await writeOutput(`Found ${lightningFSKeys.length} Lightning-FS related entries:`);
-                for (const key of lightningFSKeys.slice(0, 20)) {
+                await writeOutput(`Other Lightning-FS related entries (${otherLightningFSKeys.length}):`);
+                for (const key of otherLightningFSKeys) {
                   const value = window.localStorage.getItem(key);
                   const size = value ? value.length : 0;
                   await writeOutput(`  ${key}: ${size} chars`);
-                }
-                if (lightningFSKeys.length > 20) {
-                  await writeOutput(`  ... and ${lightningFSKeys.length - 20} more entries`);
+                  await writeOutput(`    value: ${value ? value.slice(0, 1000) : ''}${value && value.length > 1000 ? ' ...(truncated)' : ''}`);
                 }
               }
               
