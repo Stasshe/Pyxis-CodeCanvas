@@ -19,6 +19,7 @@ import { LOCALSTORAGE_KEY } from '@/context/config';
 interface AIAgentProps {
   projectFiles: FileItem[];
   currentProject: Project | null;
+  currentProjectId?: string;
   tabs: Tab[];
   setTabs: (update: any) => void;
   setActiveTabId: (id: string) => void;
@@ -29,6 +30,7 @@ interface AIAgentProps {
 export default function AIAgent({
   projectFiles,
   currentProject,
+  currentProjectId,
   tabs,
   setTabs,
   setActiveTabId,

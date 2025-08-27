@@ -2,11 +2,14 @@
 import JSZip from 'jszip';
 import FS from '@isomorphic-git/lightning-fs';
 import { getFileSystem, getProjectDir } from '@/utils/core/filesystem';
+import { projectDB } from '@/utils/core/database';
+import type { ProjectFile } from '@/types';
 
 // UNIXライクなコマンド実装
 export class UnixCommands {
   public fs: FS;
   private currentDir: string;
+  private projectId: string;
   private onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean, isBufferArray?: boolean, bufferContent?: ArrayBuffer) => Promise<void>;
 
   // バッチ処理用のキュー
@@ -20,14 +23,18 @@ export class UnixCommands {
   }> = [];
   private batchProcessing = false;
 
-  constructor(projectName: string, onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean, isBufferArray?: boolean, bufferContent?: ArrayBuffer) => Promise<void>) {
+  constructor(projectName: string, onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean, isBufferArray?: boolean, bufferContent?: ArrayBuffer) => Promise<void>, projectId?: string) {
     this.fs = getFileSystem()!;
     this.currentDir = getProjectDir(projectName);
+    this.projectId = projectId || '';
     this.onFileOperation = onFileOperation;
+    if (!this.projectId) {
+      console.warn('[UnixCommands] projectId is empty! DB operations will fail.');
+    }
     // プロジェクトディレクトリが存在しない場合は作成
     this.ensureProjectDirectory();
   }
-
+  
   // バッチ処理を開始
   startBatchProcessing(): void {
     this.batchProcessing = true;
@@ -1038,31 +1045,90 @@ export class UnixCommands {
 
   // rename - ファイル/ディレクトリの名前変更（削除＋新規作成＋書き込み）
   async rename(oldPath: string, newPath: string): Promise<string> {
+    if (!this.projectId) {
+      throw new Error('rename: projectId is empty. Cannot perform DB operations.');
+    }
     const oldAbsPath = oldPath.startsWith('/') ? oldPath : `${this.currentDir}/${oldPath}`;
     const newAbsPath = newPath.startsWith('/') ? newPath : `${this.currentDir}/${newPath}`;
     const oldNormalized = this.normalizePath(oldAbsPath);
     const newNormalized = this.normalizePath(newAbsPath);
     try {
-      // 元ファイル/ディレクトリの存在確認
-      const stat = await this.fs.promises.stat(oldNormalized);
-      if (stat.isDirectory()) {
-        // ディレクトリの場合は再帰的コピー＋削除
-        await this.copyDirectory(oldNormalized, newNormalized);
-        await this.rmdir(oldNormalized);
+      // DB初期化
+      await projectDB.init();
+      // 旧ファイル情報取得（projectIdで検索）
+      const files: ProjectFile[] = await projectDB.getProjectFiles(this.projectId);
+      // DB内はプロジェクト相対パスなので変換
+      const projectRoot = getProjectDir(this.currentDir.split('/')[2]);
+      const oldRelativePath = oldNormalized.replace(projectRoot, '') || '/';
+      const newRelativePath = newNormalized.replace(projectRoot, '') || '/';
+      // デバッグログ追加
+      console.log('[rename] projectId:', this.projectId);
+      console.log('[rename] files:', files.map(f => f.path));
+      console.log('[rename] oldRelativePath:', oldRelativePath);
+      const oldFile = files.find((f: ProjectFile) => f.path === oldRelativePath);
+      if (!oldFile) {
+        throw new Error(`ファイルが見つかりません: ${oldNormalized}`);
+      }
+      // ディレクトリの場合
+      if (oldFile.type === 'folder') {
+        // 再帰的に子ファイル・フォルダを新パスに複製
+        const copyChildren = async (parentPath: string, newParentPath: string) => {
+          const children = files.filter((f: ProjectFile) => f.parentPath === parentPath);
+          for (const child of children) {
+            const childNewPath = child.path.replace(parentPath, newParentPath);
+            await projectDB.createFile(
+              this.projectId,
+              childNewPath,
+              child.isBufferArray ? '' : child.content,
+              child.type,
+              child.isBufferArray,
+              child.bufferContent
+            );
+            if (child.type === 'folder') {
+              await copyChildren(child.path, childNewPath);
+            }
+          }
+        };
+        // 新フォルダ作成
+        await projectDB.createFile(
+          this.projectId,
+          newRelativePath,
+          '',
+          'folder'
+        );
+        await copyChildren(oldRelativePath, newRelativePath);
+        // 旧フォルダ・子ファイル削除
+        const deleteChildren = async (parentPath: string) => {
+          const children = files.filter((f: ProjectFile) => f.parentPath === parentPath);
+          for (const child of children) {
+            await projectDB.deleteFile(child.id);
+            if (child.type === 'folder') {
+              await deleteChildren(child.path);
+            }
+          }
+        };
+        await projectDB.deleteFile(oldFile.id);
+        await deleteChildren(oldRelativePath);
         if (this.onFileOperation) {
-          await this.onFileOperation(this.getRelativePathFromProject(oldNormalized), 'delete');
-          await this.onFileOperation(this.getRelativePathFromProject(newNormalized), 'folder');
+          await this.onFileOperation(oldRelativePath, 'delete');
         }
+        await this.flushFileSystemCache();
         return `Directory renamed: ${oldNormalized} -> ${newNormalized}`;
       } else {
-        // ファイルの場合は内容取得→新規作成→削除
-        const content = await this.fs.promises.readFile(oldNormalized, { encoding: 'utf8' });
-        await this.fs.promises.writeFile(newNormalized, content);
-        await this.fs.promises.unlink(oldNormalized);
+        // ファイルの場合はバイナリも維持
+        await projectDB.createFile(
+          this.projectId,
+          newRelativePath,
+          oldFile.isBufferArray ? '' : oldFile.content,
+          'file',
+          oldFile.isBufferArray,
+          oldFile.bufferContent
+        );
+        await projectDB.deleteFile(oldFile.id);
         if (this.onFileOperation) {
-          await this.onFileOperation(this.getRelativePathFromProject(oldNormalized), 'delete');
-          await this.onFileOperation(this.getRelativePathFromProject(newNormalized), 'file', content as string);
+          await this.onFileOperation(oldRelativePath, 'delete');
         }
+        await this.flushFileSystemCache();
         return `File renamed: ${oldNormalized} -> ${newNormalized}`;
       }
     } catch (error) {

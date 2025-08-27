@@ -35,13 +35,14 @@ const flattenFileItems = (items: FileItem[], basePath = ''): Array<{ path: strin
 interface TerminalProps {
   height: number;
   currentProject?: string;
+  currentProjectId?: string;
   projectFiles?: FileItem[];
   onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean, isBufferArray?: boolean, bufferContent?: ArrayBuffer) => Promise<void>;
   isActive?: boolean;
 }
 
 // クライアントサイド専用のターミナルコンポーネント
-function ClientTerminal({ height, currentProject = 'default', projectFiles = [], onFileOperation, isActive }: TerminalProps) {
+function ClientTerminal({ height, currentProject = 'default', currentProjectId = '', projectFiles = [], onFileOperation, isActive }: TerminalProps) {
   const { colors } = useTheme();
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<any>(null);
@@ -58,7 +59,7 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
 
     // ファイルシステムの初期化
     initializeFileSystem();
-    unixCommandsRef.current = new UnixCommands(currentProject, onFileOperation);
+  unixCommandsRef.current = new UnixCommands(currentProject, onFileOperation, currentProjectId);
     gitCommandsRef.current = new GitCommands(currentProject, onFileOperation);
     npmCommandsRef.current = new NpmCommands(currentProject, '/projects/' + currentProject, onFileOperation);
 
@@ -1076,7 +1077,7 @@ function ClientTerminal({ height, currentProject = 'default', projectFiles = [],
 }
 
 // SSR対応のターミナルコンポーネント
-export default function Terminal({ height, currentProject, projectFiles, onFileOperation, isActive }: TerminalProps) {
+export default function Terminal({ height, currentProject, currentProjectId, projectFiles, onFileOperation, isActive }: TerminalProps) {
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -1097,5 +1098,5 @@ export default function Terminal({ height, currentProject, projectFiles, onFileO
   }
 
   // クライアントサイドでマウント後のみ実際のターミナルを表示
-  return <ClientTerminal height={height} currentProject={currentProject} projectFiles={projectFiles} onFileOperation={onFileOperation} isActive={isActive} />;
+  return <ClientTerminal height={height} currentProject={currentProject} currentProjectId={currentProjectId} projectFiles={projectFiles} onFileOperation={onFileOperation} isActive={isActive} />;
 }

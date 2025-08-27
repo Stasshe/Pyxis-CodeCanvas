@@ -693,6 +693,7 @@ export default function Home() {
             <BottomPanel
               height={bottomPanelHeight}
               currentProject={currentProject?.name}
+              currentProjectId={currentProject?.id || ''}
               projectFiles={projectFiles}
               onResize={handleBottomResize}
               onTerminalFileOperation={async (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean, isBufferArray?: boolean, bufferContent?: ArrayBuffer) => {
@@ -730,6 +731,7 @@ export default function Home() {
               onResize={() => {}} // 右サイドバー本体には不要
               projectFiles={projectFiles}
               currentProject={currentProject}
+              currentProjectId={currentProject?.id || ''}
               tabs={tabs}
               setTabs={setTabs}
               setActiveTabId={setActiveTabId}

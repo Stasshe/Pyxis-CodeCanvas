@@ -9,6 +9,7 @@ import { useState, useRef } from 'react';
 interface BottomPanelProps {
   height: number;
   currentProject?: string;
+  currentProjectId?: string;
   projectFiles?: FileItem[];
   onResize: (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => void;
   onTerminalFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean, isBufferArray?: boolean, bufferContent?: ArrayBuffer) => Promise<void>;
@@ -45,7 +46,7 @@ export function pushMsgOutPanel(msg: string, type?: 'info' | 'error' | 'warn' | 
 
 import DebugConsole from './DebugConsole';
 
-export default function BottomPanel({ height, currentProject, projectFiles, onResize, onTerminalFileOperation }: BottomPanelProps) {
+export default function BottomPanel({ height, currentProject, currentProjectId, projectFiles, onResize, onTerminalFileOperation }: BottomPanelProps) {
   const { colors } = useTheme();
   const [activeTab, setActiveTab] = useState<'output' | 'terminal' | 'debug'>('terminal');
   const [outputMessages, setOutputMessages] = useState<OutputMessage[]>([]);
@@ -189,6 +190,7 @@ export default function BottomPanel({ height, currentProject, projectFiles, onRe
             <Terminal
               height={height}
               currentProject={currentProject}
+              currentProjectId={currentProjectId}
               projectFiles={projectFiles}
               onFileOperation={onTerminalFileOperation}
               isActive={activeTab === 'terminal'}

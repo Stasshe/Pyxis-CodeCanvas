@@ -116,6 +116,7 @@ export default function LeftSidebar({
                 onFilePreview={onFilePreview}
                 onWebPreview={onWebPreview} 
                 currentProjectName={currentProject?.name ?? ''} 
+                currentProjectId={currentProject?.id ?? ''} 
                 onFileOperation={onFileOperation} 
               />
             </div>
