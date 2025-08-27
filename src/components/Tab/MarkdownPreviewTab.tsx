@@ -39,20 +39,26 @@ const getUniqueMermaidId = () => `mermaid-svg-${mermaidIdCounter++}`;
 const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) => {
 
   const ref = useRef<HTMLDivElement>(null);
-  const idRef = useRef<string>(getUniqueMermaidId());
+  // chart内容ごとにIDを固定
+  const idRef = useMemo(() => `mermaid-svg-${btoa(unescape(encodeURIComponent(chart))).slice(0, 12)}`, [chart]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [svgContent, setSvgContent] = useState<string | null>(null);
-  const scaleRef = useRef<number>(1);
-  const translateRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  // Mermaidチャート内容ごとにズーム・パン情報をuseStateで管理
+  const [zoomState, setZoomState] = useState<{ scale: number; translate: { x: number; y: number } }>({ scale: 1, translate: { x: 0, y: 0 } });
+  const scaleRef = useRef<number>(zoomState.scale);
+  const translateRef = useRef<{ x: number; y: number }>({ ...zoomState.translate });
   const isPanningRef = useRef<boolean>(false);
   const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     const renderMermaid = async () => {
       if (!ref.current) return;
-      setIsLoading(true);
-      setError(null);
+  setIsLoading(true);
+  setError(null);
+  // 初期ズーム・パン情報をzoomStateから復元
+  scaleRef.current = zoomState.scale;
+  translateRef.current = { ...zoomState.translate };
       ref.current.innerHTML = `
         <div class="mermaid-loading" style="display:flex;align-items:center;justify-content:center;height:120px;">
           <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
@@ -64,7 +70,7 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
         </div>
       `;
       try {
-  const { config, diagram } = parseMermaidContent(chart);
+        const { config, diagram } = parseMermaidContent(chart);
         const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
         const mermaidConfig: any = {
           startOnLoad: false,
@@ -122,7 +128,7 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
         console.log('[Mermaid] Initializing with config:', mermaidConfig);
         console.log('[Mermaid] Rendering diagram:', diagram);
         mermaid.initialize(mermaidConfig);
-        const { svg } = await mermaid.render(idRef.current, diagram);
+        const { svg } = await mermaid.render(idRef, diagram);
         ref.current.innerHTML = svg;
         setSvgContent(svg);
         const svgElem = ref.current.querySelector('svg');
@@ -132,13 +138,10 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
           svgElem.style.maxHeight = '90vh';
           svgElem.style.overflow = 'visible';
           svgElem.style.background = colors.mermaidBg || '#eaffea';
-          // enable better interaction styles
           svgElem.style.touchAction = 'none';
           svgElem.style.transformOrigin = '0 0';
-          // reset pan/zoom state
-          scaleRef.current = 1;
-          translateRef.current = { x: 0, y: 0 };
-          svgElem.style.transform = `translate(0px, 0px) scale(1)`;
+          // SVG生成後にzoomStateを必ず反映
+          svgElem.style.transform = `translate(${zoomState.translate.x}px, ${zoomState.translate.y}px) scale(${zoomState.scale})`;
           // attach pan/zoom handlers
           const container = ref.current as HTMLDivElement;
 
@@ -146,10 +149,11 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
             const s = scaleRef.current;
             const { x, y } = translateRef.current;
             svgElem.style.transform = `translate(${x}px, ${y}px) scale(${s})`;
+            // useStateで保存
+            setZoomState({ scale: s, translate: { x, y } });
           };
 
           const onWheel = (e: WheelEvent) => {
-            // allow user to zoom with ctrl+wheel or wheel alone
             e.preventDefault();
             const rect = container.getBoundingClientRect();
             const mx = e.clientX - rect.left;
@@ -157,7 +161,6 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
             const delta = e.deltaY < 0 ? 1.12 : 0.9;
             const prevScale = scaleRef.current;
             const newScale = Math.max(0.2, Math.min(8, prevScale * delta));
-            // adjust translate so zoom centers on pointer
             const tx = translateRef.current.x;
             const ty = translateRef.current.y;
             translateRef.current.x = mx - (mx - tx) * (newScale / prevScale);
@@ -197,14 +200,12 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
             applyTransform();
           };
 
-          // event registration
           container.addEventListener('wheel', onWheel, { passive: false });
           container.addEventListener('pointerdown', onPointerDown as any);
           window.addEventListener('pointermove', onPointerMove as any);
           window.addEventListener('pointerup', onPointerUp as any);
           container.addEventListener('dblclick', onDblClick as any);
 
-          // cleanup when chart changes/unmounts
           const cleanup = () => {
             try {
               container.removeEventListener('wheel', onWheel as any);
@@ -216,7 +217,6 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
               // ignore
             }
           };
-          // store cleanup function on element so we can call it from outer effect cleanup too
           (container as any).__mermaidCleanup = cleanup;
         }
         setIsLoading(false);
@@ -231,7 +231,6 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
     };
     renderMermaid();
     return () => {
-      // call any attached cleanup (remove listeners)
       try {
         if (ref.current && (ref.current as any).__mermaidCleanup) {
           (ref.current as any).__mermaidCleanup();
@@ -273,8 +272,9 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
     const cy = rect.height / 2;
     translateRef.current.x = cx - (cx - translateRef.current.x) * (next / prev);
     translateRef.current.y = cy - (cy - translateRef.current.y) * (next / prev);
-    scaleRef.current = next;
-    svgElem.style.transform = `translate(${translateRef.current.x}px, ${translateRef.current.y}px) scale(${scaleRef.current})`;
+  scaleRef.current = next;
+  svgElem.style.transform = `translate(${translateRef.current.x}px, ${translateRef.current.y}px) scale(${scaleRef.current})`;
+  setZoomState({ scale: scaleRef.current, translate: { ...translateRef.current } });
   }, []);
 
   const handleZoomOut = useCallback(() => {
@@ -289,8 +289,9 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
     const cy = rect.height / 2;
     translateRef.current.x = cx - (cx - translateRef.current.x) * (next / prev);
     translateRef.current.y = cy - (cy - translateRef.current.y) * (next / prev);
-    scaleRef.current = next;
-    svgElem.style.transform = `translate(${translateRef.current.x}px, ${translateRef.current.y}px) scale(${scaleRef.current})`;
+  scaleRef.current = next;
+  svgElem.style.transform = `translate(${translateRef.current.x}px, ${translateRef.current.y}px) scale(${scaleRef.current})`;
+  setZoomState({ scale: scaleRef.current, translate: { ...translateRef.current } });
   }, []);
 
   const handleResetView = useCallback(() => {
@@ -298,9 +299,10 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
     if (!container) return;
     const svgElem = container.querySelector('svg') as SVGElement | null;
     if (!svgElem) return;
-    scaleRef.current = 1;
-    translateRef.current = { x: 0, y: 0 };
-    svgElem.style.transform = `translate(0px, 0px) scale(1)`;
+  scaleRef.current = 1;
+  translateRef.current = { x: 0, y: 0 };
+  svgElem.style.transform = `translate(0px, 0px) scale(1)`;
+  setZoomState({ scale: 1, translate: { x: 0, y: 0 } });
   }, []);
 
   return (
