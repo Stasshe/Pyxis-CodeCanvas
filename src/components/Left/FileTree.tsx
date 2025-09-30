@@ -42,68 +42,90 @@ export default function FileTree({ items, onFileOpen, level = 0, onFilePreview, 
     e.preventDefault();
     e.stopPropagation();
   const items = e.dataTransfer.items;
+  // バイナリ拡張子リスト
+  const binaryExt = /\.(png|jpg|jpeg|gif|bmp|webp|svg|pdf|zip|ico|tar|gz|rar|exe|dll|so|dylib|mp3|mp4|avi|mov|woff|woff2|ttf|eot)$/i;
   if (items && items.length > 0 && typeof items[0].webkitGetAsEntry === 'function') {
-      // フォルダD&D対応
-      const traverseFileTree = async (item: any, path: string) => {
-        return new Promise<void>((resolve) => {
-          if (item.isFile) {
-            item.file(async (file: File) => {
-              let content: string | ArrayBuffer = await file.arrayBuffer();
-              const isBinary = isBufferArray(content);
-              if (!isBinary) {
-                content = await file.text();
-              }
-              const unix = new UnixCommands(currentProjectName, undefined, currentProjectId);
-              const importPath = `${path}${file.name}`;
-              const absolutePath = `/projects/${currentProjectName}${importPath}`;
-              await importSingleFile(file, absolutePath, unix);
-              if (typeof onFileOperation === 'function') {
-                await onFileOperation(importPath, 'file', isBinary ? undefined : (content as string), false, isBinary, isBinary ? (content as ArrayBuffer) : undefined);
-              }
-              resolve();
-            });
-          } else if (item.isDirectory) {
-            const dirReader = item.createReader();
-            dirReader.readEntries(async (entries: any[]) => {
-              for (const entry of entries) {
-                await traverseFileTree(entry, `${path}${item.name}/`);
-              }
-              resolve();
-            });
-          } else {
+    // フォルダD&D対応
+    const traverseFileTree = async (item: any, path: string) => {
+      return new Promise<void>((resolve) => {
+        if (item.isFile) {
+          item.file(async (file: File) => {
+            const ext = file.name.toLowerCase();
+            let isBinary = binaryExt.test(ext);
+            let content: string | ArrayBuffer = '';
+            if (isBinary) {
+              content = await file.arrayBuffer();
+            } else {
+              content = await file.text();
+            }
+            const unix = new UnixCommands(currentProjectName, undefined, currentProjectId);
+            const importPath = `${path}${file.name}`;
+            const absolutePath = `/projects/${currentProjectName}${importPath}`;
+            await importSingleFile(file, absolutePath, unix);
+            if (typeof onFileOperation === 'function') {
+              await onFileOperation(
+                importPath,
+                'file',
+                isBinary ? undefined : (content as string),
+                false,
+                isBinary,
+                isBinary ? (content as ArrayBuffer) : undefined
+              );
+            }
             resolve();
-          }
-        });
-      };
-      const traverseAll = async () => {
-        for (let i = 0; i < items.length; i++) {
-          const entry = items[i].webkitGetAsEntry();
-          if (entry) {
-            await traverseFileTree(entry, targetPath ? `${targetPath}/` : '/');
-          }
+          });
+        } else if (item.isDirectory) {
+          const dirReader = item.createReader();
+          dirReader.readEntries(async (entries: any[]) => {
+            for (const entry of entries) {
+              await traverseFileTree(entry, `${path}${item.name}/`);
+            }
+            resolve();
+          });
+        } else {
+          resolve();
         }
-      };
-      await traverseAll();
-    } else {
-      // 通常のファイルD&D
-      const files = e.dataTransfer.files;
-      if (!files || files.length === 0) return;
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        let content: string | ArrayBuffer = await file.arrayBuffer();
-        const isBinary = isBufferArray(content);
-        if (!isBinary) {
-          content = await file.text();
-        }
-        const unix = new UnixCommands(currentProjectName, undefined, currentProjectId);
-        const importPath = targetPath ? `${targetPath}/${file.name}` : `/${file.name}`;
-        const absolutePath = `/projects/${currentProjectName}${importPath}`;
-        await importSingleFile(file, absolutePath, unix);
-        if (typeof onFileOperation === 'function') {
-          await onFileOperation(importPath, 'file', isBinary ? undefined : (content as string), false, isBinary, isBinary ? (content as ArrayBuffer) : undefined);
+      });
+    };
+    const traverseAll = async () => {
+      for (let i = 0; i < items.length; i++) {
+        const entry = items[i].webkitGetAsEntry();
+        if (entry) {
+          await traverseFileTree(entry, targetPath ? `${targetPath}/` : '/');
         }
       }
+    };
+    await traverseAll();
+  } else {
+    // 通常のファイルD&D
+    const files = e.dataTransfer.files;
+    if (!files || files.length === 0) return;
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const ext = file.name.toLowerCase();
+      let isBinary = binaryExt.test(ext);
+      let content: string | ArrayBuffer = '';
+      if (isBinary) {
+        content = await file.arrayBuffer();
+      } else {
+        content = await file.text();
+      }
+      const unix = new UnixCommands(currentProjectName, undefined, currentProjectId);
+      const importPath = targetPath ? `${targetPath}/${file.name}` : `/${file.name}`;
+      const absolutePath = `/projects/${currentProjectName}${importPath}`;
+      await importSingleFile(file, absolutePath, unix);
+      if (typeof onFileOperation === 'function') {
+        await onFileOperation(
+          importPath,
+          'file',
+          isBinary ? undefined : (content as string),
+          false,
+          isBinary,
+          isBinary ? (content as ArrayBuffer) : undefined
+        );
+      }
     }
+  }
   };
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();

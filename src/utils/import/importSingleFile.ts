@@ -9,33 +9,27 @@ import { isBufferArray } from '@/utils/helper/isBufferArray';
  * @param unix UnixCommandsインスタンス（プロジェクトごとに生成済みのものを渡す）
  */
 export async function importSingleFile(file: File, targetPath: string, unix: UnixCommands) {
-  // isBufferArrayでバイナリ判定
+  // isBufferArrayでバイナリ判定（stringには使わない）
   let isBinary = false;
-  // File APIの型判定は難しいので拡張子で判定しつつ、arrayBuffer取得後にisBufferArrayで再判定
   const ext = file.name.toLowerCase();
   if (ext.match(/\.(png|jpg|jpeg|gif|bmp|webp|svg|pdf|zip)$/)) isBinary = true;
 
-  let content: string;
+  let content: string = '';
   let bufferContent: ArrayBuffer | undefined = undefined;
   if (isBinary) {
     const arrayBuffer = await file.arrayBuffer();
-    if (!isBufferArray(arrayBuffer)) {
-      // 念のため再判定
+    if (isBufferArray(arrayBuffer)) {
+      bufferContent = arrayBuffer;
+      content = '';
+    } else {
+      // 万一バイナリ拡張子だがArrayBufferでなければテキストとして扱う
       isBinary = false;
       content = await file.text();
-    } else {
-      bufferContent = arrayBuffer;
-      content = ''; // バイナリファイルの場合はcontentは空
     }
   } else {
+    // テキストファイルはstringとして読み込む。isBufferArrayは使わない。
     content = await file.text();
-    // テキストだがバイナリだった場合
-    if (isBufferArray(content)) {
-      isBinary = true;
-      // この場合は既にstringとして読み込まれているので、再度arrayBufferで読み込む
-      bufferContent = await file.arrayBuffer();
-      content = '';
-    }
+    bufferContent = undefined;
   }
 
   await unix.touch(targetPath);
