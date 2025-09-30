@@ -1,14 +1,35 @@
 // ブレークポイント用のガターアイコンCSSクラス名
 const BREAKPOINT_GUTTER_CLASS = 'pyxis-breakpoint-gutter';
 const BREAKPOINT_GUTTER_STYLE = `
-.pyxis-breakpoint-gutter {
-  background: none !important;
+.monaco-editor .margin .glyph-margin.pyxis-breakpoint-gutter {
+  background: yellow !important;
+  border: 1px solid red !important;
+  min-width: 16px !important;
+  min-height: 16px !important;
   width: 16px !important;
   height: 16px !important;
-  display: inline-block;
-  background-image: url('data:image/svg+xml;utf8,<svg width="16" height="16" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="6" fill="%23e06c75" stroke="%23fff" stroke-width="2"/></svg>');
-  background-repeat: no-repeat;
-  background-position: center;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  position: relative !important;
+  z-index: 1000 !important;
+  pointer-events: none !important;
+  overflow: visible !important;
+}
+.monaco-editor .margin .glyph-margin.pyxis-breakpoint-gutter::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #e06c75;
+  border: 2px solid #fff;
+  box-sizing: border-box;
+  z-index: 1001;
+  pointer-events: none;
 }
 `;
 
@@ -286,11 +307,14 @@ export default function CodeEditor({
   // SSR対策: クライアントのみでガターCSSを注入
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    if (!document.getElementById('pyxis-breakpoint-gutter-style')) {
-      const style = document.createElement('style');
+    let style = document.getElementById('pyxis-breakpoint-gutter-style');
+    if (!style) {
+      style = document.createElement('style');
       style.id = 'pyxis-breakpoint-gutter-style';
       style.innerHTML = BREAKPOINT_GUTTER_STYLE;
       document.head.appendChild(style);
+    } else {
+      style.innerHTML = BREAKPOINT_GUTTER_STYLE;
     }
   }, []);
 
@@ -316,20 +340,24 @@ export default function CodeEditor({
     const decorations = breakpoints.map(bp => ({
       range: new monaco.Range(bp.line, 1, bp.line, 1),
       options: {
-        isWholeLine: false,
+        isWholeLine: true,
         glyphMarginClassName: BREAKPOINT_GUTTER_CLASS,
+        glyphMarginHoverMessage: { value: 'ブレークポイント' },
         stickiness: monaco.editor.TrackedRangeStickiness && monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
       },
     }));
     const newIds = editorRef.current.deltaDecorations(breakpointDecorations, decorations);
     setBreakpointDecorations(newIds);
   }, [breakpoints, breakpointDecorations]);
-  useEffect(() => { updateBreakpointDecorations(); }, [breakpoints, updateBreakpointDecorations, activeTab?.id]);
+  useEffect(() => { updateBreakpointDecorations(); }, [breakpoints, activeTab?.id]);
   const handleEditorGutterClick = useCallback((e: any) => {
     if (typeof window === 'undefined') return;
     const monaco = monacoRef.current;
     if (!monaco) return;
-    if (e.target?.type === monaco.editor.MouseTargetType.GUTTER_GLYPH_MARGIN) {
+    // MonacoのMouseTargetTypeは数値なので、GUTTER_GLYPH_MARGINは定数値で比較
+    // 2: GUTTER_GLYPH_MARGIN (Monaco 0.44.0以降)
+    const GUTTER_GLYPH_MARGIN = monaco.editor.MouseTargetType?.GUTTER_GLYPH_MARGIN ?? 2;
+    if (e.target?.type === GUTTER_GLYPH_MARGIN) {
       const line = e.target.position?.lineNumber;
       if (line) { toggleBreakpoint(line); }
     }
@@ -621,8 +649,8 @@ export default function CodeEditor({
 
       if (isModelSafe(model)) {
         setCharCount(countCharsNoSpaces(model!.getValue()));
-  setBreakpointDecorations([]);
-  setBreakpoints([]);
+        // setBreakpointDecorations([]); // ← ここを削除
+        // setBreakpoints([]); // ← ここを削除
       }
     }
 
@@ -957,6 +985,7 @@ export default function CodeEditor({
               verticalScrollbarSize: 14,
               horizontalScrollbarSize: 14,
             },
+            glyphMargin: true, // ← これを追加: ガターのマージン有効化
           }}
           loading={
             <div className="h-full flex items-center justify-center text-muted-foreground">
