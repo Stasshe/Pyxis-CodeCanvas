@@ -11,7 +11,13 @@ import { importSingleFile } from '@/utils/import/importSingleFile';
 
 interface FileTreeProps {
   items: FileItem[];
-  onFileOpen: (file: FileItem) => void;
+  /**
+   * ファイルを開く。行・カラム指定でジャンプする場合はline/columnを指定。
+   * @param file ファイル情報
+   * @param line 行番号（1始まり、省略可）
+   * @param column カラム番号（1始まり、省略可）
+   */
+  onFileOpen: (file: FileItem, line?: number, column?: number) => void;
   onFilePreview?: (file: FileItem) => void;
   onWebPreview?: (file: FileItem) => void;
   level?: number;

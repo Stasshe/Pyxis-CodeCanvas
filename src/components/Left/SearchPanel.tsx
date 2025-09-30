@@ -5,7 +5,13 @@ import { useTheme } from '@/context/ThemeContext';
 
 interface SearchPanelProps {
   files: FileItem[];
-  onFileOpen: (file: FileItem) => void;
+  /**
+   * ファイルを開く。行・カラム指定でジャンプする場合はline/columnを指定。
+   * @param file ファイル情報
+   * @param line 行番号（1始まり、省略可）
+   * @param column カラム番号（1始まり、省略可）
+   */
+  onFileOpen: (file: FileItem, line?: number, column?: number) => void;
 }
 
 interface SearchResult {
@@ -111,8 +117,21 @@ export default function SearchPanel({ files, onFileOpen }: SearchPanelProps) {
   }, [searchQuery, caseSensitive, wholeWord, useRegex, files]);
 
   const handleResultClick = (result: SearchResult) => {
-    onFileOpen(result.file);
-    // TODO: 将来的にエディターの特定行にジャンプする機能を追加
+    // localStorageのpyxis-defaultEditorを参照しisCodeMirrorを明示的に付与
+    let isCodeMirror = false;
+    if (typeof window !== 'undefined') {
+      const defaultEditor = localStorage.getItem('pyxis-defaultEditor');
+      isCodeMirror = defaultEditor === 'codemirror';
+    }
+    const fileWithJump = {
+      ...result.file,
+      jumpToLine: result.line,
+      jumpToColumn: result.column,
+      isCodeMirror,
+      isBufferArray: result.file.isBufferArray,
+      bufferContent: result.file.bufferContent,
+    };
+    onFileOpen(fileWithJump, result.line, result.column);
   };
 
   const highlightMatch = (content: string, matchStart: number, matchEnd: number) => {

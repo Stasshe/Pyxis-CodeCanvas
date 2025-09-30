@@ -427,7 +427,7 @@ export default function CodeEditor({
     }
   };
 
-  // activeTabが変わるたびにモデルを切り替える
+  // activeTabが変わるたびにモデルを切り替え、必要ならジャンプ
   useEffect(() => {
     // Monaco Editorで表示すべきタブか判定（画像・PDF・Welcome・CodeMirror・Markdownプレビューは除外）
     if (!activeTab) return;
@@ -454,6 +454,7 @@ export default function CodeEditor({
       model = undefined;
     }
 
+    let didSetModel = false;
     if (!model) {
       // 新しいモデルを作成
       try {
@@ -475,6 +476,7 @@ export default function CodeEditor({
         editorRef.current!.setModel(model);
         currentModelIdRef.current = activeTab.id;
         setCharCount(countCharsNoSpaces(model.getValue()));
+        didSetModel = true;
       } catch (e: any) {
         console.warn('[CodeEditor] setModel failed:', e?.message);
         // setModelに失敗した場合、少し待ってから再試行
@@ -500,6 +502,7 @@ export default function CodeEditor({
         try {
           editorRef.current!.setModel(model);
           currentModelIdRef.current = activeTab.id;
+          didSetModel = true;
         } catch (e: any) {
           console.warn('[CodeEditor] setModel for existing model failed:', e?.message);
           // 既存のモデルが何らかの理由で使えない場合、再作成を試みる
@@ -520,6 +523,7 @@ export default function CodeEditor({
             editorRef.current!.setModel(newModel);
             currentModelIdRef.current = activeTab.id;
             setCharCount(newModel.getValue().length);
+            didSetModel = true;
           } catch (recreateError: any) {
             console.error('[CodeEditor] Model recreation failed:', recreateError);
           }
@@ -543,7 +547,32 @@ export default function CodeEditor({
         setCharCount(countCharsNoSpaces(model!.getValue()));
       }
     }
-  }, [activeTab?.id, isCodeMirror, isEditorSafe, isModelSafe]); // activeTab.contentは除去して、不要なuseEffect実行を防ぐ
+
+    // --- JUMP TO LINE/COLUMN ---
+    // ここでactiveTab.jumpToLine/jumpToColumnがあればジャンプ
+    if (
+      isEditorSafe() &&
+      (activeTab as any).jumpToLine !== undefined &&
+      typeof (activeTab as any).jumpToLine === 'number'
+    ) {
+      const jumpToLine = (activeTab as any).jumpToLine;
+      const jumpToColumn = (activeTab as any).jumpToColumn || 1;
+      try {
+        // MonacoのエディタAPIでジャンプ
+        const editor = editorRef.current!;
+        editor.revealPositionInCenter({ lineNumber: jumpToLine, column: jumpToColumn });
+        editor.setPosition({ lineNumber: jumpToLine, column: jumpToColumn });
+        editor.focus();
+        console.log('[CodeEditor] JUMP: line', jumpToLine, 'col', jumpToColumn, 'tab', activeTab.id);
+      } catch (e) {
+        console.warn('[CodeEditor] Failed to jump to line/column:', e);
+      }
+    } else {
+      if ((activeTab as any).jumpToLine !== undefined) {
+        console.log('[CodeEditor] jumpToLine present but editor not ready or not a number:', (activeTab as any).jumpToLine);
+      }
+    }
+  }, [activeTab?.id, isCodeMirror, isEditorSafe, isModelSafe]);
 
   // activeTab.contentが外部から変更された場合の同期用useEffect
   useEffect(() => {

@@ -370,11 +370,19 @@ export default function Home() {
     };
   }, []);
 
-  const handleFileOpen = (file: FileItem) => {
+  /**
+   * ファイルを開く。必要に応じて行・カラム番号でジャンプする。
+   * @param file ファイル情報
+   * @param line 行番号（1始まり、省略可）
+   * @param column カラム番号（1始まり、省略可）
+   */
+  const handleFileOpen = (file: FileItem, line?: number, column?: number) => {
     console.log('[handleFileOpen] Opening file:', {
       name: file.name,
       path: file.path,
       contentLength: file.content?.length || 0,
+      line,
+      column,
     });
     // 最新のプロジェクトファイルから正しいコンテンツ・バイナリ情報を取得
     let fileToOpen = file;
@@ -398,7 +406,16 @@ export default function Home() {
       );
     }
     // openFile: Tab生成時にもisBufferArray/bufferContentを渡す
-    openFile(fileToOpen, tabs, setTabs, setActiveTabId);
+    if (line !== undefined || column !== undefined) {
+      const tabObj: any = {
+        ...fileToOpen,
+        jumpToLine: line,
+        jumpToColumn: column,
+      };
+      openFile(tabObj, tabs, setTabs, setActiveTabId);
+    } else {
+      openFile(fileToOpen, tabs, setTabs, setActiveTabId);
+    }
   };
 
   // 保存再起動イベントリスナー

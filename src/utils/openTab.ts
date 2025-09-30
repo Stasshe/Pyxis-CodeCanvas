@@ -60,7 +60,7 @@ export const openFile = (
   }
 
   const isBufferArray = !!file.isBufferArray;
-  const newTab: Tab = {
+  const newTab: any = {
     id: file.id + '-' + Date.now(),
     name: file.name,
     content: isBufferArray ? '' : file.content || '',
@@ -71,6 +71,8 @@ export const openFile = (
     isBufferArray,
     bufferContent: isBufferArray ? file.bufferContent : undefined,
   };
+  if ((file as any).jumpToLine !== undefined) newTab.jumpToLine = (file as any).jumpToLine;
+  if ((file as any).jumpToColumn !== undefined) newTab.jumpToColumn = (file as any).jumpToColumn;
   if (isBufferArray) {
     console.log(
       '[openFile] newTab bufferContent:',
@@ -80,7 +82,11 @@ export const openFile = (
     );
   }
 
-  console.log('[openFile] Created new tab:', newTab.id);
+  if (newTab.jumpToLine !== undefined || newTab.jumpToColumn !== undefined) {
+    console.log('[openFile] Created new tab:', newTab.id, 'jumpToLine:', newTab.jumpToLine, 'jumpToColumn:', newTab.jumpToColumn);
+  } else {
+    console.log('[openFile] Created new tab:', newTab.id);
+  }
   setTabs((currentTabs: Tab[]) => [...currentTabs, newTab]);
   setActiveTabId(newTab.id);
 };
