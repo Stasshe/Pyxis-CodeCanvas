@@ -307,15 +307,18 @@ export default function CodeEditor({
     });
   }, []);
   const updateBreakpointDecorations = useCallback(() => {
+    if (typeof window === 'undefined') return;
     if (!editorRef.current) return;
-    const model = editorRef.current.getModel();
+    const monaco = monacoRef.current;
+    if (!monaco) return;
+    const model = editorRef.current.getModel && editorRef.current.getModel();
     if (!model) return;
     const decorations = breakpoints.map(bp => ({
       range: new monaco.Range(bp.line, 1, bp.line, 1),
       options: {
         isWholeLine: false,
         glyphMarginClassName: BREAKPOINT_GUTTER_CLASS,
-        stickiness: monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
+        stickiness: monaco.editor.TrackedRangeStickiness && monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
       },
     }));
     const newIds = editorRef.current.deltaDecorations(breakpointDecorations, decorations);
@@ -323,6 +326,9 @@ export default function CodeEditor({
   }, [breakpoints, breakpointDecorations]);
   useEffect(() => { updateBreakpointDecorations(); }, [breakpoints, updateBreakpointDecorations, activeTab?.id]);
   const handleEditorGutterClick = useCallback((e: any) => {
+    if (typeof window === 'undefined') return;
+    const monaco = monacoRef.current;
+    if (!monaco) return;
     if (e.target?.type === monaco.editor.MouseTargetType.GUTTER_GLYPH_MARGIN) {
       const line = e.target.position?.lineNumber;
       if (line) { toggleBreakpoint(line); }
@@ -331,8 +337,10 @@ export default function CodeEditor({
 
   // Monaco Editor: ファイルごとにTextModelを管理し、タブ切り替え時にモデルを切り替える
   const handleEditorDidMount: OnMount = (editor, monaco) => {
-  // ガタークリックイベント登録
-  editor.onMouseDown(handleEditorGutterClick);
+    if (typeof window !== 'undefined') {
+      // ガタークリックイベント登録
+      editor.onMouseDown(handleEditorGutterClick);
+    }
     editorRef.current = editor;
     monacoRef.current = monaco;
 
