@@ -1,3 +1,19 @@
+// ブレークポイント用のガターアイコンCSSクラス名
+const BREAKPOINT_GUTTER_CLASS = 'pyxis-breakpoint-gutter';
+const BREAKPOINT_GUTTER_STYLE = `
+.pyxis-breakpoint-gutter {
+  background: none !important;
+  width: 16px !important;
+  height: 16px !important;
+  display: inline-block;
+  background-image: url('data:image/svg+xml;utf8,<svg width="16" height="16" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="6" fill="%23e06c75" stroke="%23fff" stroke-width="2"/></svg>');
+  background-repeat: no-repeat;
+  background-position: center;
+}
+`;
+
+// ブレークポイント管理用型
+type Breakpoint = { line: number };
 import { useRef, useEffect, useCallback, useState, useContext, useMemo } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import MarkdownPreviewTab from './MarkdownPreviewTab';
@@ -170,8 +186,6 @@ const getCMExtensions = (filename: string) => {
 
 export default function CodeEditor({
   activeTab,
-  bottomPanelHeight,
-  isBottomPanelVisible,
   onContentChange,
   onContentChangeImmediate,
   nodeRuntimeOperationInProgress = false,
@@ -269,8 +283,56 @@ export default function CodeEditor({
     setSelectionCount(null);
   }, [isCodeMirror, activeTab?.id, activeTab?.content]);
 
+  // SSR対策: クライアントのみでガターCSSを注入
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!document.getElementById('pyxis-breakpoint-gutter-style')) {
+      const style = document.createElement('style');
+      style.id = 'pyxis-breakpoint-gutter-style';
+      style.innerHTML = BREAKPOINT_GUTTER_STYLE;
+      document.head.appendChild(style);
+    }
+  }, []);
+
+  // --- ブレークポイント機能 ---
+  const [breakpoints, setBreakpoints] = useState<Breakpoint[]>([]);
+  const [breakpointDecorations, setBreakpointDecorations] = useState<string[]>([]);
+  const toggleBreakpoint = useCallback((line: number) => {
+    setBreakpoints(prev => {
+      if (prev.some(bp => bp.line === line)) {
+        return prev.filter(bp => bp.line !== line);
+      } else {
+        return [...prev, { line }];
+      }
+    });
+  }, []);
+  const updateBreakpointDecorations = useCallback(() => {
+    if (!editorRef.current) return;
+    const model = editorRef.current.getModel();
+    if (!model) return;
+    const decorations = breakpoints.map(bp => ({
+      range: new monaco.Range(bp.line, 1, bp.line, 1),
+      options: {
+        isWholeLine: false,
+        glyphMarginClassName: BREAKPOINT_GUTTER_CLASS,
+        stickiness: monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
+      },
+    }));
+    const newIds = editorRef.current.deltaDecorations(breakpointDecorations, decorations);
+    setBreakpointDecorations(newIds);
+  }, [breakpoints, breakpointDecorations]);
+  useEffect(() => { updateBreakpointDecorations(); }, [breakpoints, updateBreakpointDecorations, activeTab?.id]);
+  const handleEditorGutterClick = useCallback((e: any) => {
+    if (e.target?.type === monaco.editor.MouseTargetType.GUTTER_GLYPH_MARGIN) {
+      const line = e.target.position?.lineNumber;
+      if (line) { toggleBreakpoint(line); }
+    }
+  }, [toggleBreakpoint]);
+
   // Monaco Editor: ファイルごとにTextModelを管理し、タブ切り替え時にモデルを切り替える
   const handleEditorDidMount: OnMount = (editor, monaco) => {
+  // ガタークリックイベント登録
+  editor.onMouseDown(handleEditorGutterClick);
     editorRef.current = editor;
     monacoRef.current = monaco;
 
@@ -391,6 +453,9 @@ export default function CodeEditor({
 
         model = monaco.editor.createModel(activeTab.content, getLanguage(activeTab.name));
         monacoModelMap.set(activeTab.id, model);
+        // ブレークポイントデコレーション初期化
+        setBreakpointDecorations([]);
+        setBreakpoints([]);
       }
 
       if (isEditorSafe() && model) {
@@ -405,6 +470,9 @@ export default function CodeEditor({
             try {
               model.dispose();
             } catch (disposeError) {
+            // モデル切り替え時にブレークポイントデコレーション初期化
+            setBreakpointDecorations([]);
+            setBreakpoints([]);
               console.warn('[CodeEditor] Model dispose failed:', disposeError);
             }
             monacoModelMap.delete(activeTab.id);
@@ -545,6 +613,8 @@ export default function CodeEditor({
 
       if (isModelSafe(model)) {
         setCharCount(countCharsNoSpaces(model!.getValue()));
+  setBreakpointDecorations([]);
+  setBreakpoints([]);
       }
     }
 

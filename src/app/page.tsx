@@ -377,13 +377,6 @@ export default function Home() {
    * @param column カラム番号（1始まり、省略可）
    */
   const handleFileOpen = (file: FileItem, line?: number, column?: number) => {
-    console.log('[handleFileOpen] Opening file:', {
-      name: file.name,
-      path: file.path,
-      contentLength: file.content?.length || 0,
-      line,
-      column,
-    });
     // 最新のプロジェクトファイルから正しいコンテンツ・バイナリ情報を取得
     let fileToOpen = file;
     if (currentProject && projectFiles.length > 0) {

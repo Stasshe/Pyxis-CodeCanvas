@@ -60,7 +60,7 @@ export const openFile = (
   }
 
   const isBufferArray = !!file.isBufferArray;
-  const newTab: any = {
+  const newTab: Tab = {
     id: file.id + '-' + Date.now(),
     name: file.name,
     content: isBufferArray ? '' : file.content || '',

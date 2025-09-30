@@ -1,5 +1,3 @@
-// カスタム差分表示コンポーネント
-
 'use client';
 
 import React, { useState } from 'react';
