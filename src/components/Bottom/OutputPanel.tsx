@@ -3,7 +3,6 @@ import { useTheme } from '../../context/ThemeContext';
 
 export type OutputType = 'info' | 'error' | 'warn' | 'check';
 
-
 export interface OutputMessage {
   message: string;
   type?: OutputType;
@@ -11,18 +10,16 @@ export interface OutputMessage {
   count?: number;
 }
 
-
 interface OutputPanelProps {
   messages: OutputMessage[];
 }
-
 
 // Themeの色を使う
 const getTypeColor = (colors: any): Record<OutputType, string> => ({
   info: colors.primary,
   error: colors.red,
   warn: colors.accentFg,
-  check: colors.green
+  check: colors.green,
 });
 
 export default function OutputPanel({ messages }: OutputPanelProps) {
@@ -32,7 +29,7 @@ export default function OutputPanel({ messages }: OutputPanelProps) {
 
   const contextList = useMemo(() => {
     const set = new Set<string>();
-    messages.forEach((m) => {
+    messages.forEach(m => {
       if (m.context) set.add(m.context);
     });
     return Array.from(set);
@@ -42,7 +39,7 @@ export default function OutputPanel({ messages }: OutputPanelProps) {
   const typeColor = getTypeColor(colors);
 
   const filtered = useMemo(() => {
-    return messages.filter((msg) => {
+    return messages.filter(msg => {
       const typeMatch = typeFilter === 'all' || (msg.type || 'info') === typeFilter;
       const contextMatch = !contextFilter || msg.context === contextFilter;
       return typeMatch && contextMatch;
@@ -69,31 +66,59 @@ export default function OutputPanel({ messages }: OutputPanelProps) {
         <label style={{ fontSize: '10px', color: colors.mutedFg }}>
           処理名:
           <select
-            style={{ marginLeft: 4, padding: '2px 6px', border: `1px solid ${colors.border}`, borderRadius: 3, fontSize: '10px', background: colors.mutedBg, color: colors.editorFg }}
+            style={{
+              marginLeft: 4,
+              padding: '2px 6px',
+              border: `1px solid ${colors.border}`,
+              borderRadius: 3,
+              fontSize: '10px',
+              background: colors.mutedBg,
+              color: colors.editorFg,
+            }}
             value={contextFilter}
             onChange={e => setContextFilter(e.target.value)}
           >
             <option value="">全て</option>
             {contextList.map(ctx => (
-              <option key={ctx} value={ctx}>{ctx}</option>
+              <option
+                key={ctx}
+                value={ctx}
+              >
+                {ctx}
+              </option>
             ))}
           </select>
         </label>
         <label style={{ fontSize: '10px', color: colors.mutedFg }}>
           タイプ:
           <select
-            style={{ marginLeft: 4, padding: '2px 6px', border: `1px solid ${colors.border}`, borderRadius: 3, fontSize: '10px', background: colors.mutedBg, color: colors.editorFg }}
+            style={{
+              marginLeft: 4,
+              padding: '2px 6px',
+              border: `1px solid ${colors.border}`,
+              borderRadius: 3,
+              fontSize: '10px',
+              background: colors.mutedBg,
+              color: colors.editorFg,
+            }}
             value={typeFilter}
             onChange={e => setTypeFilter(e.target.value as OutputType | 'all')}
           >
             {typeList.map(type => (
-              <option key={type} value={type}>{type === 'all' ? '全て' : type}</option>
+              <option
+                key={type}
+                value={type}
+              >
+                {type === 'all' ? '全て' : type}
+              </option>
             ))}
           </select>
         </label>
       </div>
       {filtered.length === 0 ? (
-        <div style={{ color: colors.mutedFg, fontSize: '10px', padding: '4px 0' }}>出力はありません</div>
+        <div style={{ color: colors.mutedFg, fontSize: '10px', padding: '4px 0' }}>
+          出力はありません
+        </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
           {filtered.map((msg, idx) => (
@@ -113,7 +138,14 @@ export default function OutputPanel({ messages }: OutputPanelProps) {
                 minHeight: '18px',
               }}
             >
-              <span style={{ fontWeight: 600, marginRight: 4, fontSize: '10px', color: typeColor[msg.type || 'info'] }}>
+              <span
+                style={{
+                  fontWeight: 600,
+                  marginRight: 4,
+                  fontSize: '10px',
+                  color: typeColor[msg.type || 'info'],
+                }}
+              >
                 [{msg.type || 'info'}]
               </span>
               {msg.context && (
@@ -121,7 +153,9 @@ export default function OutputPanel({ messages }: OutputPanelProps) {
                   ({msg.context})
                 </span>
               )}
-              <span style={{ fontSize: '11px', color: colors.editorFg, wordBreak: 'break-all' }}>{msg.message}</span>
+              <span style={{ fontSize: '11px', color: colors.editorFg, wordBreak: 'break-all' }}>
+                {msg.message}
+              </span>
               {msg.count && msg.count > 1 && (
                 <span style={{ fontSize: '10px', color: colors.mutedFg, marginLeft: '6px' }}>
                   ×{msg.count}

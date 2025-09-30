@@ -20,7 +20,7 @@ export async function calculateDependencySize(
     }
 
     const packageData = await response.json();
-    const latestVersion = packageData["dist-tags"].latest;
+    const latestVersion = packageData['dist-tags'].latest;
     const tarballUrl = packageData.versions[latestVersion].dist.tarball;
 
     // Debugging: Log tarball URL
@@ -28,19 +28,19 @@ export async function calculateDependencySize(
 
     // Fetch tarball size using GET request if HEAD fails
     const tarballSize = await fetch(tarballUrl, { method: 'HEAD' })
-      .then((res) => {
+      .then(res => {
         const contentLength = res.headers.get('Content-Length');
         if (contentLength) {
           return parseInt(contentLength, 10);
         } else {
           console.warn(`Content-Length missing for ${tarballUrl}, falling back to GET request.`);
           return fetch(tarballUrl)
-            .then((getRes) => getRes.body?.getReader().read())
-            .then((result) => result?.value?.length || 0)
+            .then(getRes => getRes.body?.getReader().read())
+            .then(result => result?.value?.length || 0)
             .catch(() => 0);
         }
       })
-      .catch((error) => {
+      .catch(error => {
         console.error(`Failed to fetch tarball size for ${tarballUrl}:`, error);
         return 0;
       });

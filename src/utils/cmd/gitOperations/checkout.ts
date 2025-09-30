@@ -8,12 +8,22 @@ import { GitFileSystemHelper } from './fileSystemHelper';
 export class GitCheckoutOperations {
   private fs: FS;
   private dir: string;
-  private onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>;
+  private onFileOperation?: (
+    path: string,
+    type: 'file' | 'folder' | 'delete',
+    content?: string,
+    isNodeRuntime?: boolean
+  ) => Promise<void>;
 
   constructor(
-    fs: FS, 
-    dir: string, 
-    onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>
+    fs: FS,
+    dir: string,
+    onFileOperation?: (
+      path: string,
+      type: 'file' | 'folder' | 'delete',
+      content?: string,
+      isNodeRuntime?: boolean
+    ) => Promise<void>
   ) {
     this.fs = fs;
     this.dir = dir;
@@ -28,7 +38,7 @@ export class GitCheckoutOperations {
   // 現在のブランチを取得
   private async getCurrentBranch(): Promise<string> {
     try {
-      return await git.currentBranch({ fs: this.fs, dir: this.dir, fullname: false }) || 'HEAD';
+      return (await git.currentBranch({ fs: this.fs, dir: this.dir, fullname: false })) || 'HEAD';
     } catch {
       return 'HEAD';
     }
@@ -43,7 +53,7 @@ export class GitCheckoutOperations {
   async checkout(branchName: string, createNew = false): Promise<string> {
     try {
       await this.ensureProjectDirectory();
-      
+
       // Gitリポジトリが初期化されているかチェック
       try {
         await this.fs.promises.stat(`${this.dir}/.git`);
@@ -53,7 +63,7 @@ export class GitCheckoutOperations {
 
       // 現在のブランチを取得
       const currentBranch = await this.getCurrentBranch();
-      
+
       // 同じブランチの場合はスキップ
       if (currentBranch === branchName && !createNew) {
         return `Already on '${branchName}'`;
@@ -69,7 +79,7 @@ export class GitCheckoutOperations {
         } catch {
           throw new Error('Cannot create new branch - no commits found in current branch');
         }
-        
+
         // ブランチを作成
         await git.branch({ fs: this.fs, dir: this.dir, ref: branchName });
       } else {
@@ -78,20 +88,30 @@ export class GitCheckoutOperations {
           // ブランチまたはコミットハッシュを解決
           try {
             // まずブランチとして試行
-            targetCommitHash = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: `refs/heads/${branchName}` });
+            targetCommitHash = await git.resolveRef({
+              fs: this.fs,
+              dir: this.dir,
+              ref: `refs/heads/${branchName}`,
+            });
           } catch {
             // ブランチが存在しない場合、コミットハッシュとして試行
             try {
-              const expandedOid = await git.expandOid({ fs: this.fs, dir: this.dir, oid: branchName });
+              const expandedOid = await git.expandOid({
+                fs: this.fs,
+                dir: this.dir,
+                oid: branchName,
+              });
               targetCommitHash = expandedOid;
-              
+
               // コミットハッシュの場合はdetached HEADになる
               isNewBranch = false;
             } catch {
               // 利用可能なブランチ一覧を取得してエラーメッセージに含める
               try {
                 const branches = await git.listBranches({ fs: this.fs, dir: this.dir });
-                throw new Error(`pathspec '${branchName}' did not match any file(s) known to git\nAvailable branches: ${branches.join(', ')}`);
+                throw new Error(
+                  `pathspec '${branchName}' did not match any file(s) known to git\nAvailable branches: ${branches.join(', ')}`
+                );
               } catch {
                 throw new Error(`pathspec '${branchName}' did not match any file(s) known to git`);
               }
@@ -105,10 +125,12 @@ export class GitCheckoutOperations {
       // 現在のワーキングディレクトリの状態をバックアップ
       const currentFiles = new Map<string, string>();
       const existingFiles = await this.getAllFiles(this.dir);
-      
+
       for (const filePath of existingFiles) {
         try {
-          const content = await this.fs.promises.readFile(`${this.dir}/${filePath}`, { encoding: 'utf8' });
+          const content = await this.fs.promises.readFile(`${this.dir}/${filePath}`, {
+            encoding: 'utf8',
+          });
           currentFiles.set(filePath, content as string);
         } catch {
           // ファイル読み取りエラーは無視
@@ -123,17 +145,27 @@ export class GitCheckoutOperations {
       console.log('Checkout completed successfully');
 
       // ターゲットコミットの情報を取得
-      const targetCommit = await git.readCommit({ fs: this.fs, dir: this.dir, oid: targetCommitHash });
-      const targetTree = await git.readTree({ fs: this.fs, dir: this.dir, oid: targetCommit.commit.tree });
+      const targetCommit = await git.readCommit({
+        fs: this.fs,
+        dir: this.dir,
+        oid: targetCommitHash,
+      });
+      const targetTree = await git.readTree({
+        fs: this.fs,
+        dir: this.dir,
+        oid: targetCommit.commit.tree,
+      });
 
       // チェックアウト後のファイル状態を取得
       const newFiles = new Map<string, string>();
       const newFilesList = await this.getAllFiles(this.dir);
       console.log('New files count after checkout:', newFilesList.length);
-      
+
       for (const filePath of newFilesList) {
         try {
-          const content = await this.fs.promises.readFile(`${this.dir}/${filePath}`, { encoding: 'utf8' });
+          const content = await this.fs.promises.readFile(`${this.dir}/${filePath}`, {
+            encoding: 'utf8',
+          });
           newFiles.set(filePath, content as string);
         } catch {
           // ファイル読み取りエラーは無視
@@ -175,37 +207,60 @@ export class GitCheckoutOperations {
           changedFiles.add(filePath);
         }
       }
-      
+
       console.log('Total changed files:', changedFiles.size);
-      console.log('Added:', addedFiles.length, 'Modified:', modifiedFiles.length, 'Deleted:', deletedFiles.length, 'Restored:', restoredFiles.length);
+      console.log(
+        'Added:',
+        addedFiles.length,
+        'Modified:',
+        modifiedFiles.length,
+        'Deleted:',
+        deletedFiles.length,
+        'Restored:',
+        restoredFiles.length
+      );
 
       // ファイル操作のコールバックを実行（テキストエディターに反映）
       if (this.onFileOperation) {
         console.log('=== Git checkout: Starting file operations ===');
         console.log('Changed files count:', changedFiles.size);
         console.log('onFileOperation callback available:', !!this.onFileOperation);
-        
+
         for (const filePath of changedFiles) {
           try {
-            const relativePath = GitFileSystemHelper.getRelativePathFromProject(`${this.dir}/${filePath}`, this.dir);
+            const relativePath = GitFileSystemHelper.getRelativePathFromProject(
+              `${this.dir}/${filePath}`,
+              this.dir
+            );
             console.log('Processing file:', filePath, '-> relativePath:', relativePath);
-            
+
             if (newFiles.has(filePath)) {
               // ファイルが存在する場合（追加または変更）
               const content = newFiles.get(filePath)!;
               const isRestored = restoredFiles.includes(filePath);
               const actionType = isRestored ? 'restored' : 'created/modified';
-              
-              console.log(`Calling onFileOperation for ${actionType} file:`, relativePath, 'content length:', content.length);
+
+              console.log(
+                `Calling onFileOperation for ${actionType} file:`,
+                relativePath,
+                'content length:',
+                content.length
+              );
               if (isRestored) {
                 console.log('=== RESTORING PREVIOUSLY DELETED FILE ===');
                 console.log('File path:', filePath);
                 console.log('Relative path:', relativePath);
-                console.log('Content preview:', content.substring(0, 100) + (content.length > 100 ? '...' : ''));
+                console.log(
+                  'Content preview:',
+                  content.substring(0, 100) + (content.length > 100 ? '...' : '')
+                );
               }
-              
+
               await this.onFileOperation(relativePath, 'file', content, false);
-              console.log(`Successfully called onFileOperation for ${actionType} file:`, relativePath);
+              console.log(
+                `Successfully called onFileOperation for ${actionType} file:`,
+                relativePath
+              );
             } else {
               // ファイルが削除された場合
               console.log('=== PROCESSING DELETED FILE ===');
@@ -220,7 +275,7 @@ export class GitCheckoutOperations {
             console.warn(`Failed to sync file operation for ${filePath}:`, error);
           }
         }
-        
+
         console.log('=== Git checkout: File operations completed ===');
       } else {
         console.warn('=== Git checkout: onFileOperation callback not available ===');
@@ -230,7 +285,10 @@ export class GitCheckoutOperations {
       let result = '';
       if (createNew) {
         result = `Switched to a new branch '${branchName}'`;
-      } else if (branchName.length >= 7 && branchName === targetCommitHash.slice(0, branchName.length)) {
+      } else if (
+        branchName.length >= 7 &&
+        branchName === targetCommitHash.slice(0, branchName.length)
+      ) {
         // コミットハッシュでチェックアウトした場合（detached HEAD）
         const shortHash = targetCommitHash.slice(0, 7);
         const commitMessage = targetCommit.commit.message.split('\n')[0];
@@ -246,17 +304,16 @@ export class GitCheckoutOperations {
         if (modifiedFiles.length > 0) changes.push(`${modifiedFiles.length} modified`);
         if (deletedFiles.length > 0) changes.push(`${deletedFiles.length} deleted`);
         if (restoredFiles.length > 0) changes.push(`${restoredFiles.length} restored`);
-        
+
         if (changes.length > 0) {
           result += `\n\nFiles changed: ${changes.join(', ')}`;
         }
       }
 
       return result;
-      
     } catch (error) {
       const errorMessage = (error as Error).message;
-      
+
       // 特定のエラーメッセージを適切にフォーマット
       if (errorMessage.includes('pathspec')) {
         throw new Error(errorMessage);
@@ -265,7 +322,7 @@ export class GitCheckoutOperations {
       } else if (errorMessage.includes('Cannot create new branch')) {
         throw new Error(`fatal: ${errorMessage}`);
       }
-      
+
       throw new Error(`git checkout failed: ${errorMessage}`);
     }
   }

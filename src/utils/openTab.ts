@@ -1,10 +1,10 @@
 import { Tab, FileItem } from '../types';
 
 export const createNewTab = (file: FileItem): Tab => {
-  console.log('[createNewTab] Creating tab for file:', { 
-    name: file.name, 
-    path: file.path, 
-    contentLength: file.content?.length || 0 
+  console.log('[createNewTab] Creating tab for file:', {
+    name: file.name,
+    path: file.path,
+    contentLength: file.content?.length || 0,
   });
   // fullPath生成: projects/{repoName}/... 形式に揃える
   let fullPath = file.path;
@@ -19,7 +19,7 @@ export const createNewTab = (file: FileItem): Tab => {
     isDirty: false,
     path: file.path,
     fullPath,
-    isCodeMirror: file.isCodeMirror ?? false // 追加
+    isCodeMirror: file.isCodeMirror ?? false, // 追加
   };
 };
 
@@ -30,14 +30,16 @@ export const openFile = (
   setActiveTabId: (id: string) => void
 ) => {
   if (file.type === 'folder') return;
-  
-  console.log('[openFile] Opening file:', { 
-    name: file.name, 
-    path: file.path, 
-    contentLength: file.content?.length || 0 
+
+  console.log('[openFile] Opening file:', {
+    name: file.name,
+    path: file.path,
+    contentLength: file.content?.length || 0,
   });
-  
-  const existingTab = tabs.find(tab => tab.path === file.path && tab.isCodeMirror === !!file.isCodeMirror);
+
+  const existingTab = tabs.find(
+    tab => tab.path === file.path && tab.isCodeMirror === !!file.isCodeMirror
+  );
   if (existingTab) {
     // 既存タブにもisBufferArray/bufferContentを最新反映
     const isBufferArray = !!file.isBufferArray;
@@ -48,7 +50,7 @@ export const openFile = (
               ...tab,
               isBufferArray,
               bufferContent: isBufferArray ? file.bufferContent : undefined,
-              content: isBufferArray ? '' : (file.content || ''),
+              content: isBufferArray ? '' : file.content || '',
             }
           : tab
       );
@@ -61,7 +63,7 @@ export const openFile = (
   const newTab: Tab = {
     id: file.id + '-' + Date.now(),
     name: file.name,
-    content: isBufferArray ? '' : (file.content || ''),
+    content: isBufferArray ? '' : file.content || '',
     isDirty: false,
     path: file.path,
     fullPath: file.path,
@@ -70,9 +72,14 @@ export const openFile = (
     bufferContent: isBufferArray ? file.bufferContent : undefined,
   };
   if (isBufferArray) {
-    console.log('[openFile] newTab bufferContent:', newTab.path, newTab.bufferContent instanceof ArrayBuffer, newTab.bufferContent?.byteLength);
+    console.log(
+      '[openFile] newTab bufferContent:',
+      newTab.path,
+      newTab.bufferContent instanceof ArrayBuffer,
+      newTab.bufferContent?.byteLength
+    );
   }
-  
+
   console.log('[openFile] Created new tab:', newTab.id);
   setTabs((currentTabs: Tab[]) => [...currentTabs, newTab]);
   setActiveTabId(newTab.id);

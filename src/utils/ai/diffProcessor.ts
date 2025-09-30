@@ -1,4 +1,3 @@
-
 // 差分表示ユーティリティ（diffライブラリ利用）
 import { diffLines, diffWords } from 'diff';
 
@@ -34,7 +33,12 @@ export function calculateDiff(oldText: string, newText: string): DiffLine[] {
         result.push({ type: 'removed', oldLineNumber: oldLine, content: line });
         oldLine++;
       } else {
-        result.push({ type: 'unchanged', oldLineNumber: oldLine, newLineNumber: newLine, content: line });
+        result.push({
+          type: 'unchanged',
+          oldLineNumber: oldLine,
+          newLineNumber: newLine,
+          content: line,
+        });
         oldLine++;
         newLine++;
       }
@@ -61,7 +65,7 @@ export function groupDiffLines(diffLines: DiffLine[]): DiffBlock[] {
           type: currentType,
           lines: [...currentBlock],
           startLine,
-          endLine: startLine + currentBlock.length - 1
+          endLine: startLine + currentBlock.length - 1,
         });
       }
       currentBlock = [line];
@@ -78,7 +82,7 @@ export function groupDiffLines(diffLines: DiffLine[]): DiffBlock[] {
       type: currentType,
       lines: currentBlock,
       startLine,
-      endLine: startLine + currentBlock.length - 1
+      endLine: startLine + currentBlock.length - 1,
     });
   }
 
@@ -86,7 +90,10 @@ export function groupDiffLines(diffLines: DiffLine[]): DiffBlock[] {
 }
 
 // 文字レベルでの差分計算（diffライブラリ利用）
-export function calculateWordDiff(oldLine: string, newLine: string): {
+export function calculateWordDiff(
+  oldLine: string,
+  newLine: string
+): {
   type: 'unchanged' | 'added' | 'removed';
   content: string;
 }[] {

@@ -15,18 +15,18 @@ interface EditRequestFormProps {
   availableFiles?: string[];
 }
 
-export default function EditRequestForm({ 
-  mode, 
-  onSubmit, 
-  isProcessing, 
+export default function EditRequestForm({
+  mode,
+  onSubmit,
+  isProcessing,
   placeholder,
   selectedFiles = [],
   onFileSelect,
-  availableFiles = []
+  availableFiles = [],
 }: EditRequestFormProps) {
   const { colors } = useTheme();
   const [input, setInput] = useState('');
-  
+
   const {
     addToHistory,
     goToPrevious,
@@ -34,10 +34,10 @@ export default function EditRequestForm({
     getCurrentEntry,
     hasHistory,
     canGoBack,
-    canGoForward
+    canGoForward,
   } = useInputHistory({
     maxHistorySize: 100,
-    storageKey: `ai-input-history-${mode}`
+    storageKey: `ai-input-history-${mode}`,
   });
 
   // 履歴エントリからファイルの存在をチェックし、有効なファイルのみを返す
@@ -97,37 +97,37 @@ export default function EditRequestForm({
   };
 
   return (
-    <div 
+    <div
       className="p-2 border-t select-none"
       style={{ borderColor: colors.border }}
     >
       <div className="flex flex-col gap-1.5">
         <textarea
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={e => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={placeholder || (mode === 'chat' 
-            ? 'メッセージを入力...' 
-            : 'コメントを追加してください、console.logを追加してください、型注釈を追加してください...'
-          )}
+          placeholder={
+            placeholder ||
+            (mode === 'chat'
+              ? 'メッセージを入力...'
+              : 'コメントを追加してください、console.logを追加してください、型注釈を追加してください...')
+          }
           className="w-full p-2 text-xs rounded border resize-none focus:outline-none focus:ring-1"
           style={{
             background: colors.editorBg,
             color: colors.editorFg,
-            borderColor: colors.border
+            borderColor: colors.border,
           }}
           rows={2}
           disabled={isProcessing}
         />
-        
+
         <div className="flex justify-between items-center">
-          <div 
+          <div
             className="text-xs flex items-center gap-2"
             style={{ color: colors.mutedFg }}
           >
-            <span>
-              {'Enter: 改行, Ctrl+Enter: 送信'}
-            </span>
+            <span>{'Enter: 改行, Ctrl+Enter: 送信'}</span>
             {hasHistory && (
               <span className="flex items-center gap-1">
                 <span>|</span>
@@ -135,7 +135,7 @@ export default function EditRequestForm({
               </span>
             )}
           </div>
-          
+
           <button
             onClick={handleSubmit}
             disabled={!input.trim() || isProcessing}
@@ -143,14 +143,16 @@ export default function EditRequestForm({
               !input.trim() || isProcessing ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'
             }`}
             style={{
-              background: colors.accent
+              background: colors.accent,
             }}
           >
             {isProcessing ? (
               <div className="flex items-center gap-1">
-                <div 
+                <div
                   className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"
-                  style={{ borderColor: `${colors.background} transparent ${colors.background} ${colors.background}` }}
+                  style={{
+                    borderColor: `${colors.background} transparent ${colors.background} ${colors.background}`,
+                  }}
                 ></div>
                 処理中...
               </div>

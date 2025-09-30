@@ -24,7 +24,12 @@ export const loadImageAsDataURL = async (
 
     const findFileRecursively = (files: FileItem[]): FileItem | null => {
       for (const file of files) {
-        if (file.path === normalizedPath && file.type === 'file' && file.isBufferArray && file.bufferContent) {
+        if (
+          file.path === normalizedPath &&
+          file.type === 'file' &&
+          file.isBufferArray &&
+          file.bufferContent
+        ) {
           return file;
         }
         if (file.children) {
@@ -100,7 +105,8 @@ export const loadImageAsDataURL = async (
         break;
     }
 
-    const uint8Array = fileData instanceof ArrayBuffer ? new Uint8Array(fileData) : new Uint8Array(fileData as any);
+    const uint8Array =
+      fileData instanceof ArrayBuffer ? new Uint8Array(fileData) : new Uint8Array(fileData as any);
     const base64 = uint8ArrayToBase64(uint8Array);
     return `data:${mimeType};base64,${base64}`;
   } catch (error) {

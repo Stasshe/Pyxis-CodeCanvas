@@ -1,11 +1,8 @@
-import {
-  getFileSystem,
-  getProjectDir,
-} from "@/utils/core/filesystem";
-import { UnixCommands } from "../../cmd/unix";
-import FS from "@isomorphic-git/lightning-fs";
-import pako from "pako";
-import tarStream from"tar-stream";
+import { getFileSystem, getProjectDir } from '@/utils/core/filesystem';
+import { UnixCommands } from '../../cmd/unix';
+import FS from '@isomorphic-git/lightning-fs';
+import pako from 'pako';
+import tarStream from 'tar-stream';
 
 interface PackageInfo {
   name: string;
@@ -19,20 +16,20 @@ export class NpmInstall {
   private projectName: string;
   private onFileOperation?: (
     path: string,
-    type: "file" | "folder" | "delete",
+    type: 'file' | 'folder' | 'delete',
     content?: string,
-    isNodeRuntime?: boolean,
+    isNodeRuntime?: boolean
   ) => Promise<void>;
-  
+
   // バッチ処理用のキュー
   private fileOperationQueue: Array<{
     path: string;
-    type: "file" | "folder" | "delete";
+    type: 'file' | 'folder' | 'delete';
     content?: string;
     isNodeRuntime?: boolean;
   }> = [];
   private batchProcessing = false;
-  
+
   // インストール済みパッケージを追跡するためのマップ
   private installedPackages: Map<string, string> = new Map();
   // 現在インストール処理中のパッケージ（循環依存回避）
@@ -42,16 +39,16 @@ export class NpmInstall {
     projectName: string,
     onFileOperation?: (
       path: string,
-      type: "file" | "folder" | "delete",
+      type: 'file' | 'folder' | 'delete',
       content?: string,
-      isNodeRuntime?: boolean,
+      isNodeRuntime?: boolean
     ) => Promise<void>,
-    skipLoadingInstalledPackages: boolean = false,
+    skipLoadingInstalledPackages: boolean = false
   ) {
     this.fs = getFileSystem()!;
     this.projectName = projectName;
     this.onFileOperation = onFileOperation;
-    
+
     // 既存のインストール済みパッケージを非同期で読み込み（スキップオプション付き）
     if (!skipLoadingInstalledPackages) {
       this.loadInstalledPackages().catch(error => {
@@ -73,8 +70,10 @@ export class NpmInstall {
       return;
     }
 
-    console.log(`[npmInstall] Finishing batch processing, ${this.fileOperationQueue.length} operations queued`);
-    
+    console.log(
+      `[npmInstall] Finishing batch processing, ${this.fileOperationQueue.length} operations queued`
+    );
+
     // キューに溜まった操作を並列実行（適度な並列度で）
     const BATCH_SIZE = 5;
     for (let i = 0; i < this.fileOperationQueue.length; i += BATCH_SIZE) {
@@ -95,7 +94,7 @@ export class NpmInstall {
   // ファイル操作を実行（バッチモード対応）
   private async executeFileOperation(
     path: string,
-    type: "file" | "folder" | "delete",
+    type: 'file' | 'folder' | 'delete',
     content?: string,
     isNodeRuntime?: boolean
   ): Promise<void> {
@@ -117,24 +116,28 @@ export class NpmInstall {
     try {
       const projectDir = getProjectDir(this.projectName);
       const nodeModulesDir = `${projectDir}/node_modules`;
-      
+
       try {
         const entries = await this.fs.promises.readdir(nodeModulesDir);
-        
+
         for (const entry of entries) {
           try {
             const packageDir = `${nodeModulesDir}/${entry}`;
             const packageJsonPath = `${packageDir}/package.json`;
             const stat = await this.fs.promises.stat(packageDir);
-            
+
             if (stat.isDirectory()) {
               try {
-                const packageJsonContent = await this.fs.promises.readFile(packageJsonPath, { encoding: "utf8" });
+                const packageJsonContent = await this.fs.promises.readFile(packageJsonPath, {
+                  encoding: 'utf8',
+                });
                 const packageJson = JSON.parse(packageJsonContent as string);
-                
+
                 if (packageJson.name && packageJson.version) {
                   this.installedPackages.set(packageJson.name, packageJson.version);
-                  console.log(`[npm.loadInstalledPackages] Found installed package: ${packageJson.name}@${packageJson.version}`);
+                  console.log(
+                    `[npm.loadInstalledPackages] Found installed package: ${packageJson.name}@${packageJson.version}`
+                  );
                 }
               } catch {
                 // package.jsonの読み取りに失敗した場合はスキップ
@@ -144,8 +147,10 @@ export class NpmInstall {
             // ディレクトリの処理に失敗した場合はスキップ
           }
         }
-        
-        console.log(`[npm.loadInstalledPackages] Loaded ${this.installedPackages.size} installed packages`);
+
+        console.log(
+          `[npm.loadInstalledPackages] Loaded ${this.installedPackages.size} installed packages`
+        );
       } catch {
         // node_modulesディレクトリが存在しない場合は空でOK
         console.log(`[npm.loadInstalledPackages] No node_modules directory found`);
@@ -161,22 +166,24 @@ export class NpmInstall {
   }
 
   // 全インストール済みパッケージの依存関係を分析
-  private async analyzeDependencies(): Promise<Map<string, { dependencies: string[], dependents: string[] }>> {
-    const dependencyGraph = new Map<string, { dependencies: string[], dependents: string[] }>();
-    
+  private async analyzeDependencies(): Promise<
+    Map<string, { dependencies: string[]; dependents: string[] }>
+  > {
+    const dependencyGraph = new Map<string, { dependencies: string[]; dependents: string[] }>();
+
     try {
       const projectDir = getProjectDir(this.projectName);
       const nodeModulesDir = `${projectDir}/node_modules`;
-      
+
       // node_modulesディレクトリ内の全パッケージをスキャン
       const entries = await this.fs.promises.readdir(nodeModulesDir);
-      
+
       // まず全パッケージをマップに登録
       for (const entry of entries) {
         try {
           const packageDir = `${nodeModulesDir}/${entry}`;
           const stat = await this.fs.promises.stat(packageDir);
-          
+
           if (stat.isDirectory()) {
             dependencyGraph.set(entry, { dependencies: [], dependents: [] });
           }
@@ -184,25 +191,27 @@ export class NpmInstall {
           // ディレクトリでない場合はスキップ
         }
       }
-      
+
       // 各パッケージの依存関係を読み取り
       for (const entry of entries) {
         try {
           const packageDir = `${nodeModulesDir}/${entry}`;
           const packageJsonPath = `${packageDir}/package.json`;
           const stat = await this.fs.promises.stat(packageDir);
-          
+
           if (stat.isDirectory()) {
             try {
-              const packageJsonContent = await this.fs.promises.readFile(packageJsonPath, { encoding: "utf8" });
+              const packageJsonContent = await this.fs.promises.readFile(packageJsonPath, {
+                encoding: 'utf8',
+              });
               const packageJson = JSON.parse(packageJsonContent as string);
-              
+
               const dependencies = Object.keys(packageJson.dependencies || {});
               const packageInfo = dependencyGraph.get(entry);
-              
+
               if (packageInfo) {
                 packageInfo.dependencies = dependencies;
-                
+
                 // 逆方向の依存関係も記録
                 for (const dep of dependencies) {
                   const depInfo = dependencyGraph.get(dep);
@@ -219,7 +228,7 @@ export class NpmInstall {
           // エラーの場合はスキップ
         }
       }
-      
+
       console.log(`[npm.analyzeDependencies] Analyzed ${dependencyGraph.size} packages`);
       return dependencyGraph;
     } catch (error) {
@@ -231,110 +240,125 @@ export class NpmInstall {
   // ルートpackage.jsonから直接依存しているパッケージを取得
   private async getRootDependencies(): Promise<Set<string>> {
     const rootDeps = new Set<string>();
-    
+
     try {
       const projectDir = getProjectDir(this.projectName);
       const packageJsonPath = `${projectDir}/package.json`;
-      
-      const packageJsonContent = await this.fs.promises.readFile(packageJsonPath, { encoding: "utf8" });
+
+      const packageJsonContent = await this.fs.promises.readFile(packageJsonPath, {
+        encoding: 'utf8',
+      });
       const packageJson = JSON.parse(packageJsonContent as string);
-      
+
       // dependencies と devDependencies の両方を含める
       const dependencies = Object.keys(packageJson.dependencies || {});
       const devDependencies = Object.keys(packageJson.devDependencies || {});
-      
+
       [...dependencies, ...devDependencies].forEach(dep => rootDeps.add(dep));
-      
+
       console.log(`[npm.getRootDependencies] Found ${rootDeps.size} root dependencies`);
     } catch (error) {
       console.warn(`[npm.getRootDependencies] Error reading root dependencies: ${error}`);
     }
-    
+
     return rootDeps;
   }
 
   // 削除可能なパッケージを再帰的に検索
   private findOrphanedPackages(
     packageToRemove: string,
-    dependencyGraph: Map<string, { dependencies: string[], dependents: string[] }>,
+    dependencyGraph: Map<string, { dependencies: string[]; dependents: string[] }>,
     rootDependencies: Set<string>
   ): string[] {
     const toRemove = new Set<string>([packageToRemove]);
     const processed = new Set<string>();
-    
+
     // ルート依存関係は削除しない
     if (rootDependencies.has(packageToRemove)) {
-      console.log(`[npm.findOrphanedPackages] ${packageToRemove} is a root dependency, not removing`);
+      console.log(
+        `[npm.findOrphanedPackages] ${packageToRemove} is a root dependency, not removing`
+      );
       return [];
     }
-    
+
     // 削除候補をキューで処理
     const queue = [packageToRemove];
-    
+
     while (queue.length > 0) {
       const currentPkg = queue.shift()!;
-      
+
       if (processed.has(currentPkg)) continue;
       processed.add(currentPkg);
-      
+
       const pkgInfo = dependencyGraph.get(currentPkg);
       if (!pkgInfo) continue;
-      
+
       // このパッケージの依存関係をチェック
       for (const dependency of pkgInfo.dependencies) {
         // ルート依存関係はスキップ
         if (rootDependencies.has(dependency)) continue;
-        
+
         // 既に削除対象の場合はスキップ
         if (toRemove.has(dependency)) continue;
-        
+
         const depInfo = dependencyGraph.get(dependency);
         if (!depInfo) continue;
-        
+
         // この依存関係に依存している他のパッケージをチェック
-        const otherDependents = depInfo.dependents.filter(dep => 
-          !toRemove.has(dep) && // 削除対象でない
-          dependencyGraph.has(dep) // 実際に存在する
+        const otherDependents = depInfo.dependents.filter(
+          dep =>
+            !toRemove.has(dep) && // 削除対象でない
+            dependencyGraph.has(dep) // 実際に存在する
         );
-        
+
         // 他に依存者がいない場合は孤立パッケージ
         if (otherDependents.length === 0) {
-          console.log(`[npm.findOrphanedPackages] ${dependency} will be orphaned, adding to removal list`);
+          console.log(
+            `[npm.findOrphanedPackages] ${dependency} will be orphaned, adding to removal list`
+          );
           toRemove.add(dependency);
           queue.push(dependency);
         } else {
-          console.log(`[npm.findOrphanedPackages] ${dependency} still has dependents: ${otherDependents.join(', ')}`);
+          console.log(
+            `[npm.findOrphanedPackages] ${dependency} still has dependents: ${otherDependents.join(', ')}`
+          );
         }
       }
     }
-    
+
     // 最初に指定されたパッケージ以外を返す
     const orphaned = Array.from(toRemove).filter(pkg => pkg !== packageToRemove);
-    console.log(`[npm.findOrphanedPackages] Found ${orphaned.length} orphaned packages: ${orphaned.join(', ')}`);
-    
+    console.log(
+      `[npm.findOrphanedPackages] Found ${orphaned.length} orphaned packages: ${orphaned.join(', ')}`
+    );
+
     return orphaned;
   }
 
   // 依存関係を含めてパッケージを削除
   async uninstallWithDependencies(packageName: string): Promise<string[]> {
     console.log(`[npm.uninstallWithDependencies] Analyzing dependencies for ${packageName}`);
-    
+
     // 依存関係グラフを構築
     const dependencyGraph = await this.analyzeDependencies();
     const rootDependencies = await this.getRootDependencies();
-    
+
     // 削除可能なパッケージを特定
-    const orphanedPackages = this.findOrphanedPackages(packageName, dependencyGraph, rootDependencies);
-    
+    const orphanedPackages = this.findOrphanedPackages(
+      packageName,
+      dependencyGraph,
+      rootDependencies
+    );
+
     // メインパッケージと孤立したパッケージを削除
     const packagesToRemove = [packageName, ...orphanedPackages];
     const removedPackages: string[] = [];
-    
+
     for (const pkg of packagesToRemove) {
       try {
         const projectDir = getProjectDir(this.projectName);
         const packageDir = `${projectDir}/node_modules/${pkg}`;
-        
+
         // パッケージが実際に存在するかチェック
         try {
           await this.fs.promises.stat(packageDir);
@@ -342,27 +366,32 @@ export class NpmInstall {
           console.log(`[npm.uninstallWithDependencies] Package ${pkg} not found, skipping`);
           continue;
         }
-        
+
         // パッケージを削除
         await this.removeDirectory(packageDir);
         removedPackages.push(pkg);
-        
+
         // IndexedDBからも削除
         if (this.onFileOperation) {
-          await this.executeFileOperation(`/node_modules/${pkg}`, "delete");
+          await this.executeFileOperation(`/node_modules/${pkg}`, 'delete');
         }
-        
+
         console.log(`[npm.uninstallWithDependencies] Removed ${pkg}`);
       } catch (error) {
-        console.warn(`[npm.uninstallWithDependencies] Failed to remove ${pkg}: ${(error as Error).message}`);
+        console.warn(
+          `[npm.uninstallWithDependencies] Failed to remove ${pkg}: ${(error as Error).message}`
+        );
       }
     }
-    
+
     return removedPackages;
   }
 
   // NPMレジストリからパッケージ情報を取得
-  private async fetchPackageInfo(packageName: string, version: string = "latest"): Promise<PackageInfo> {
+  private async fetchPackageInfo(
+    packageName: string,
+    version: string = 'latest'
+  ): Promise<PackageInfo> {
     try {
       const packageUrl = `https://registry.npmjs.org/${packageName}`;
       console.log(`[npm.fetchPackageInfo] Fetching package info from: ${packageUrl}`);
@@ -373,7 +402,7 @@ export class NpmInstall {
       const response = await fetch(packageUrl, {
         signal: controller.signal,
         headers: {
-          Accept: "application/json",
+          Accept: 'application/json',
         },
       });
       clearTimeout(timeoutId);
@@ -388,17 +417,15 @@ export class NpmInstall {
       const data = await response.json();
 
       // 必要なデータが存在するかチェック
-      if (!data.name || !data["dist-tags"] || !data["dist-tags"].latest) {
+      if (!data.name || !data['dist-tags'] || !data['dist-tags'].latest) {
         throw new Error(`Invalid package data for '${packageName}'`);
       }
 
-      const targetVersion = version === "latest" ? data["dist-tags"].latest : version;
+      const targetVersion = version === 'latest' ? data['dist-tags'].latest : version;
       const versionData = data.versions[targetVersion];
 
       if (!versionData || !versionData.dist || !versionData.dist.tarball) {
-        throw new Error(
-          `No download URL found for '${packageName}@${targetVersion}'`,
-        );
+        throw new Error(`No download URL found for '${packageName}@${targetVersion}'`);
       }
 
       return {
@@ -408,19 +435,17 @@ export class NpmInstall {
         tarball: versionData.dist.tarball,
       };
     } catch (error) {
-      if (error instanceof Error && error.name === "AbortError") {
+      if (error instanceof Error && error.name === 'AbortError') {
         throw new Error(`Request timeout for package '${packageName}'`);
       }
-      throw new Error(
-        `Failed to fetch package info: ${(error as Error).message}`,
-      );
+      throw new Error(`Failed to fetch package info: ${(error as Error).message}`);
     }
   }
 
   // セマンティックバージョンを解析して実際のバージョンを決定
   private resolveVersion(versionSpec: string): string {
     // ^1.0.0 -> 1.0.0, ~1.0.0 -> 1.0.0, 1.0.0 -> 1.0.0
-    return versionSpec.replace(/^[\^~]/, "");
+    return versionSpec.replace(/^[\^~]/, '');
   }
 
   // パッケージが既にインストールされているかチェック（依存関係も含めて）
@@ -431,12 +456,14 @@ export class NpmInstall {
       const packageJsonPath = `${packageDir}/package.json`;
 
       await this.fs.promises.stat(packageDir);
-      
+
       // package.jsonから実際のバージョンを確認
       try {
-        const packageJsonContent = await this.fs.promises.readFile(packageJsonPath, { encoding: "utf8" });
+        const packageJsonContent = await this.fs.promises.readFile(packageJsonPath, {
+          encoding: 'utf8',
+        });
         const packageJson = JSON.parse(packageJsonContent as string);
-        
+
         // 既にインストールされているバージョンと要求されたバージョンが同じかチェック
         if (packageJson.version === version) {
           // さらに依存関係もチェック
@@ -455,7 +482,7 @@ export class NpmInstall {
   // 依存関係が全てインストールされているかチェック
   private async areDependenciesInstalled(dependencies: Record<string, string>): Promise<boolean> {
     const dependencyEntries = Object.entries(dependencies);
-    
+
     if (dependencyEntries.length === 0) {
       return true; // 依存関係がない場合はOK
     }
@@ -464,16 +491,18 @@ export class NpmInstall {
       const depVersion = this.resolveVersion(depVersionSpec);
       const projectDir = getProjectDir(this.projectName);
       const depPackageDir = `${projectDir}/node_modules/${depName}`;
-      
+
       try {
         await this.fs.promises.stat(depPackageDir);
-        
+
         // 依存関係のバージョンもチェック
         try {
           const depPackageJsonPath = `${depPackageDir}/package.json`;
-          const depPackageJsonContent = await this.fs.promises.readFile(depPackageJsonPath, { encoding: "utf8" });
+          const depPackageJsonContent = await this.fs.promises.readFile(depPackageJsonPath, {
+            encoding: 'utf8',
+          });
           const depPackageJson = JSON.parse(depPackageJsonContent as string);
-          
+
           if (depPackageJson.version !== depVersion) {
             return false; // バージョンが一致しない
           }
@@ -484,24 +513,28 @@ export class NpmInstall {
         return false; // 依存関係が存在しない
       }
     }
-    
+
     return true; // 全ての依存関係が正しくインストールされている
   }
 
   // 依存関係を再帰的にインストール
-  async installWithDependencies(packageName: string, version: string = "latest"): Promise<void> {
+  async installWithDependencies(packageName: string, version: string = 'latest'): Promise<void> {
     const resolvedVersion = this.resolveVersion(version);
     const packageKey = `${packageName}@${resolvedVersion}`;
 
     // 循環依存の検出
     if (this.installingPackages.has(packageKey)) {
-      console.log(`[npm.installWithDependencies] Circular dependency detected for ${packageKey}, skipping`);
+      console.log(
+        `[npm.installWithDependencies] Circular dependency detected for ${packageKey}, skipping`
+      );
       return;
     }
 
     // ファイルシステムでのインストール状況をチェック（毎回チェック）
     if (await this.isPackageInstalled(packageName, resolvedVersion)) {
-      console.log(`[npm.installWithDependencies] ${packageKey} with all dependencies already correctly installed, skipping`);
+      console.log(
+        `[npm.installWithDependencies] ${packageKey} with all dependencies already correctly installed, skipping`
+      );
       this.installedPackages.set(packageName, resolvedVersion);
       return;
     }
@@ -511,26 +544,30 @@ export class NpmInstall {
       const installedVersion = this.installedPackages.get(packageName);
       if (installedVersion === resolvedVersion) {
         // メモリ上では一致しているが、ファイルシステムチェックで不一致だった場合は再インストール
-        console.log(`[npm.installWithDependencies] ${packageKey} cached but dependencies missing, reinstalling`);
+        console.log(
+          `[npm.installWithDependencies] ${packageKey} cached but dependencies missing, reinstalling`
+        );
       }
     }
 
     try {
       // インストール処理中マークに追加
       this.installingPackages.add(packageKey);
-      
+
       console.log(`[npm.installWithDependencies] Installing ${packageKey}...`);
 
       // パッケージ情報を取得
       const packageInfo = await this.fetchPackageInfo(packageName, resolvedVersion);
-      
+
       // 依存関係を先にインストール
       const dependencies = packageInfo.dependencies || {};
       const dependencyEntries = Object.entries(dependencies);
-      
+
       if (dependencyEntries.length > 0) {
-        console.log(`[npm.installWithDependencies] Installing ${dependencyEntries.length} dependencies for ${packageKey}`);
-        
+        console.log(
+          `[npm.installWithDependencies] Installing ${dependencyEntries.length} dependencies for ${packageKey}`
+        );
+
         // 依存関係を並列でインストール（適度な並列度で制限）
         const DEPENDENCY_BATCH_SIZE = 3;
         for (let i = 0; i < dependencyEntries.length; i += DEPENDENCY_BATCH_SIZE) {
@@ -540,7 +577,9 @@ export class NpmInstall {
               try {
                 await this.installWithDependencies(depName, this.resolveVersion(depVersion));
               } catch (error) {
-                console.warn(`[npm.installWithDependencies] Failed to install dependency ${depName}@${depVersion}: ${(error as Error).message}`);
+                console.warn(
+                  `[npm.installWithDependencies] Failed to install dependency ${depName}@${depVersion}: ${(error as Error).message}`
+                );
                 // 依存関係のインストールに失敗しても、メインパッケージのインストールは続行
               }
             })
@@ -550,12 +589,13 @@ export class NpmInstall {
 
       // メインパッケージをインストール
       await this.downloadAndInstallPackage(packageName, packageInfo.version, packageInfo.tarball);
-      
+
       // インストール済みマークに追加
       this.installedPackages.set(packageName, packageInfo.version);
-      
-      console.log(`[npm.installWithDependencies] Successfully installed ${packageKey} with ${dependencyEntries.length} dependencies`);
-      
+
+      console.log(
+        `[npm.installWithDependencies] Successfully installed ${packageKey} with ${dependencyEntries.length} dependencies`
+      );
     } catch (error) {
       console.error(`[npm.installWithDependencies] Failed to install ${packageKey}:`, error);
       throw error;
@@ -564,12 +604,12 @@ export class NpmInstall {
       this.installingPackages.delete(packageKey);
     }
   }
-  
+
   // パッケージをダウンロードしてインストール（.tgzから直接）
   async downloadAndInstallPackage(
     packageName: string,
-    version: string = "latest",
-    tarballUrl?: string,
+    version: string = 'latest',
+    tarballUrl?: string
   ): Promise<void> {
     try {
       const projectDir = getProjectDir(this.projectName);
@@ -577,18 +617,17 @@ export class NpmInstall {
       const packageDir = `${nodeModulesDir}/${packageName}`;
 
       // .tgzのURLを構築（指定されていない場合）
-      const tgzUrl = tarballUrl || `https://registry.npmjs.org/${packageName}/-/${packageName}-${version}.tgz`;
+      const tgzUrl =
+        tarballUrl || `https://registry.npmjs.org/${packageName}/-/${packageName}-${version}.tgz`;
       console.log(
-        `[npm.downloadAndInstallPackage] Downloading ${packageName}@${version} from: ${tgzUrl}`,
+        `[npm.downloadAndInstallPackage] Downloading ${packageName}@${version} from: ${tgzUrl}`
       );
 
       // パッケージディレクトリを作成
       try {
         await this.fs.promises.mkdir(packageDir, { recursive: true } as any);
       } catch (error) {
-        throw new Error(
-          `Failed to create package directory: ${(error as Error).message}`,
-        );
+        throw new Error(`Failed to create package directory: ${(error as Error).message}`);
       }
 
       // .tgzファイルをダウンロード（タイムアウト付き）
@@ -600,7 +639,7 @@ export class NpmInstall {
         tarballResponse = await fetch(tgzUrl, {
           signal: controller.signal,
           headers: {
-            Accept: "application/octet-stream",
+            Accept: 'application/octet-stream',
           },
         });
         clearTimeout(timeoutId);
@@ -609,18 +648,14 @@ export class NpmInstall {
           if (tarballResponse.status === 404) {
             throw new Error(`Package '${packageName}@${version}' not found`);
           } else {
-            throw new Error(
-              `HTTP ${tarballResponse.status}: ${tarballResponse.statusText}`,
-            );
+            throw new Error(`HTTP ${tarballResponse.status}: ${tarballResponse.statusText}`);
           }
         }
       } catch (error) {
-        if (error instanceof Error && error.name === "AbortError") {
+        if (error instanceof Error && error.name === 'AbortError') {
           throw new Error(`Download timeout for ${packageName}@${version}`);
         }
-        throw new Error(
-          `Failed to download package: ${(error as Error).message}`,
-        );
+        throw new Error(`Failed to download package: ${(error as Error).message}`);
       }
 
       // tarballデータを取得
@@ -628,16 +663,11 @@ export class NpmInstall {
       try {
         tarballData = await tarballResponse.arrayBuffer();
       } catch (error) {
-        throw new Error(
-          `Failed to read package data: ${(error as Error).message}`,
-        );
+        throw new Error(`Failed to read package data: ${(error as Error).message}`);
       }
 
       // tarballを展開
-      let extractedFiles: Map<
-        string,
-        { isDirectory: boolean; content?: string; fullPath: string }
-      >;
+      let extractedFiles: Map<string, { isDirectory: boolean; content?: string; fullPath: string }>;
       try {
         extractedFiles = await this.extractPackage(packageDir, tarballData);
       } catch (error) {
@@ -645,90 +675,76 @@ export class NpmInstall {
         try {
           await this.removeDirectory(packageDir);
         } catch (cleanupError) {
-          console.warn(
-            `Failed to cleanup failed installation: ${cleanupError}`,
-          );
+          console.warn(`Failed to cleanup failed installation: ${cleanupError}`);
         }
-        throw new Error(
-          `Failed to extract package: ${(error as Error).message}`,
-        );
+        throw new Error(`Failed to extract package: ${(error as Error).message}`);
       }
 
       // IndexedDBに同期（展開されたファイルのみを使用）
       if (this.onFileOperation) {
         try {
           const relativePath = `/node_modules/${packageName}`;
-          await this.executeFileOperation(relativePath, "folder");
+          await this.executeFileOperation(relativePath, 'folder');
 
           // 展開されたファイルを順次同期
           for (const [relativePath, fileInfo] of extractedFiles) {
             const fullPath = `/node_modules/${packageName}/${relativePath}`;
 
-            console.log(
-              `[npm.downloadAndInstallPackage] Syncing: "${fullPath}"`,
-            );
+            console.log(`[npm.downloadAndInstallPackage] Syncing: "${fullPath}"`);
 
             if (fileInfo.isDirectory) {
               // ディレクトリを作成
-              await this.executeFileOperation(fullPath, "folder");
+              await this.executeFileOperation(fullPath, 'folder');
             } else {
               // ファイルを作成
               // ファイルの親ディレクトリが必要な場合は事前に作成
-              const pathParts = relativePath.split("/");
+              const pathParts = relativePath.split('/');
               if (pathParts.length > 1) {
                 let currentPath = `/node_modules/${packageName}`;
                 for (let i = 0; i < pathParts.length - 1; i++) {
                   currentPath += `/${pathParts[i]}`;
-                  await this.executeFileOperation(currentPath, "folder");
+                  await this.executeFileOperation(currentPath, 'folder');
                 }
               }
 
               // extractPackageで既に内容が取得されているのでそれを使用
-              const fileContent = fileInfo.content || "";
-              await this.executeFileOperation(fullPath, "file", fileContent);
+              const fileContent = fileInfo.content || '';
+              await this.executeFileOperation(fullPath, 'file', fileContent);
             }
           }
         } catch (error) {
-          console.warn(
-            `Failed to sync to IndexedDB: ${(error as Error).message}`,
-          );
+          console.warn(`Failed to sync to IndexedDB: ${(error as Error).message}`);
           // IndexedDB同期に失敗してもインストール自体は成功とする
         }
       }
 
       console.log(
-        `[npm.downloadAndInstallPackage] Package ${packageName}@${version} installed successfully`,
+        `[npm.downloadAndInstallPackage] Package ${packageName}@${version} installed successfully`
       );
     } catch (error) {
       throw new Error(
-        `Installation failed for ${packageName}@${version}: ${(error as Error).message}`,
+        `Installation failed for ${packageName}@${version}: ${(error as Error).message}`
       );
     }
   }
 
-
-
   // パッケージの展開（実際のtar展開）- 高速化版
   private async extractPackage(
     packageDir: string,
-    tarballData: ArrayBuffer,
-  ): Promise<
-    Map<string, { isDirectory: boolean; content?: string; fullPath: string }>
-  > {
+    tarballData: ArrayBuffer
+  ): Promise<Map<string, { isDirectory: boolean; content?: string; fullPath: string }>> {
     try {
-      console.log(
-        `[npm.extractPackage] Starting tar extraction to: ${packageDir}`,
-      );
+      console.log(`[npm.extractPackage] Starting tar extraction to: ${packageDir}`);
 
       // tarballはgzip圧縮されているので、まず解凍
       const uint8Array = new Uint8Array(tarballData);
-      
+
       let decompressedData: Uint8Array;
 
       try {
         decompressedData = pako.inflate(uint8Array);
         console.log(
-          `[npm.extractPackage] Gzip decompression successful, size: ${decompressedData.length}`,
+          `[npm.extractPackage] Gzip decompression successful, size: ${decompressedData.length}`
         );
       } catch (error) {
         // gzip圧縮されていない場合はそのまま使用
@@ -737,33 +753,36 @@ export class NpmInstall {
       }
 
       const extract = tarStream.extract();
-      
+
       // ファイル/ディレクトリのメタデータを格納
-      const fileEntries = new Map<string, { 
-        type: string; 
-        data: Uint8Array; 
-        content?: string; 
-        fullPath: string 
-      }>();
-      
+      const fileEntries = new Map<
+        string,
+        {
+          type: string;
+          data: Uint8Array;
+          content?: string;
+          fullPath: string;
+        }
+      >();
+
       // 必要なディレクトリのセット
       const requiredDirs = new Set<string>();
 
       // tar エントリを処理
-      extract.on("entry", (header: any, stream: any, next: any) => {
+      extract.on('entry', (header: any, stream: any, next: any) => {
         const chunks: Uint8Array[] = [];
 
-        stream.on("data", (chunk: Uint8Array) => {
+        stream.on('data', (chunk: Uint8Array) => {
           chunks.push(chunk);
         });
 
-        stream.on("end", () => {
+        stream.on('end', () => {
           // パッケージ名のプレフィックスを削除 (例: "package/" -> "")
           let relativePath = header.name;
-          if (relativePath.startsWith("package/")) {
+          if (relativePath.startsWith('package/')) {
             relativePath = relativePath.substring(8);
           }
-          
+
           if (!relativePath) {
             next();
             return;
@@ -771,7 +790,7 @@ export class NpmInstall {
 
           const fullPath = `${packageDir}/${relativePath}`;
 
-          if (header.type === "file") {
+          if (header.type === 'file') {
             // チャンクを結合（最適化）
             const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
             const combined = new Uint8Array(totalLength);
@@ -782,28 +801,28 @@ export class NpmInstall {
             }
 
             // ファイルの内容をデコード（事前に準備）
-            const content = new TextDecoder("utf-8", { fatal: false }).decode(combined);
-            
+            const content = new TextDecoder('utf-8', { fatal: false }).decode(combined);
+
             fileEntries.set(relativePath, {
               type: header.type,
               data: combined,
               content: content,
-              fullPath: fullPath
+              fullPath: fullPath,
             });
 
             // 親ディレクトリを必要ディレクトリに追加
-            const pathParts = relativePath.split("/");
+            const pathParts = relativePath.split('/');
             if (pathParts.length > 1) {
               for (let i = 0; i < pathParts.length - 1; i++) {
-                const dirPath = pathParts.slice(0, i + 1).join("/");
+                const dirPath = pathParts.slice(0, i + 1).join('/');
                 requiredDirs.add(dirPath);
               }
             }
-          } else if (header.type === "directory") {
+          } else if (header.type === 'directory') {
             fileEntries.set(relativePath, {
               type: header.type,
               data: new Uint8Array(0),
-              fullPath: fullPath
+              fullPath: fullPath,
             });
             requiredDirs.add(relativePath);
           }
@@ -815,14 +834,14 @@ export class NpmInstall {
 
       // tar展開完了を待機
       await new Promise<void>((resolve, reject) => {
-        extract.on("finish", () => {
+        extract.on('finish', () => {
           console.log(
-            `[npm.extractPackage] Tar processing completed, found ${fileEntries.size} entries`,
+            `[npm.extractPackage] Tar processing completed, found ${fileEntries.size} entries`
           );
           resolve();
         });
 
-        extract.on("error", (error: Error) => {
+        extract.on('error', (error: Error) => {
           console.error(`[npm.extractPackage] Tar extraction error:`, error);
           reject(error);
         });
@@ -841,7 +860,7 @@ export class NpmInstall {
       // ディレクトリを順次作成（並列処理でファイルシステムの競合を避ける）
       for (const dirPath of sortedDirs) {
         const fullPath = `${packageDir}/${dirPath}`;
-        
+
         try {
           // 同名のファイルが存在していたら削除
           try {
@@ -851,52 +870,59 @@ export class NpmInstall {
             }
           } catch (err: any) {
             // ファイルが存在しない場合は無視
-            if (err && err.code !== "ENOENT") throw err;
+            if (err && err.code !== 'ENOENT') throw err;
           }
 
           await this.fs.promises.mkdir(fullPath, { recursive: true } as any);
         } catch (error: any) {
-          if (error.code !== "EEXIST") {
+          if (error.code !== 'EEXIST') {
             console.warn(`Failed to create directory ${fullPath}:`, error);
           }
         }
       }
 
       // ファイルを並列作成（適度な並列度で競合を避ける）
-      const fileEntryArray = Array.from(fileEntries.entries()).filter(([_, entry]) => entry.type === "file");
+      const fileEntryArray = Array.from(fileEntries.entries()).filter(
+        ([_, entry]) => entry.type === 'file'
+      );
       const BATCH_SIZE = 10;
-      
+
       for (let i = 0; i < fileEntryArray.length; i += BATCH_SIZE) {
         const batch = fileEntryArray.slice(i, i + BATCH_SIZE);
-        await Promise.all(batch.map(async ([relativePath, entry]) => {
-          const fullPath = entry.fullPath;
-          
-          try {
-            // 同名のディレクトリが存在していたら削除
-            try {
-              const stat = await this.fs.promises.stat(fullPath);
-              if (stat.isDirectory()) {
-                await this.removeDirectory(fullPath);
-              }
-            } catch (err: any) {
-              // ファイルが存在しない場合は無視
-              if (err && err.code !== "ENOENT") throw err;
-            }
+        await Promise.all(
+          batch.map(async ([relativePath, entry]) => {
+            const fullPath = entry.fullPath;
 
-            // ファイルを書き込み
-            await this.fs.promises.writeFile(fullPath, entry.data);
-          } catch (error) {
-            console.warn(`Failed to write file ${fullPath}:`, error);
-          }
-        }));
+            try {
+              // 同名のディレクトリが存在していたら削除
+              try {
+                const stat = await this.fs.promises.stat(fullPath);
+                if (stat.isDirectory()) {
+                  await this.removeDirectory(fullPath);
+                }
+              } catch (err: any) {
+                // ファイルが存在しない場合は無視
+                if (err && err.code !== 'ENOENT') throw err;
+              }
+
+              // ファイルを書き込み
+              await this.fs.promises.writeFile(fullPath, entry.data);
+            } catch (error) {
+              console.warn(`Failed to write file ${fullPath}:`, error);
+            }
+          })
+        );
       }
 
       // 戻り値用のマップを作成
-      const extractedFiles = new Map<string, { 
-        isDirectory: boolean; 
-        content?: string; 
-        fullPath: string 
-      }>();
+      const extractedFiles = new Map<
+        string,
+        {
+          isDirectory: boolean;
+          content?: string;
+          fullPath: string;
+        }
+      >();
 
       // ディレクトリ情報を追加
       for (const dirPath of sortedDirs) {
@@ -909,7 +935,7 @@ export class NpmInstall {
 
       // ファイル情報を追加
       for (const [relativePath, entry] of fileEntries) {
-        if (entry.type === "file") {
+        if (entry.type === 'file') {
           extractedFiles.set(relativePath, {
             isDirectory: false,
             content: entry.content,
@@ -918,9 +944,7 @@ export class NpmInstall {
         }
       }
 
-      console.log(
-        `[npm.extractPackage] Package extraction completed successfully`,
-      );
+      console.log(`[npm.extractPackage] Package extraction completed successfully`);
       return extractedFiles;
     } catch (error) {
       console.error(`[npm.extractPackage] Failed to extract package:`, error);

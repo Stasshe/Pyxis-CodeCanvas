@@ -8,72 +8,79 @@ import { LOCALSTORAGE_KEY } from '@/context/config';
 import { syncFileToFileSystem } from './filesystem';
 
 // プロジェクト作成時のGit初期化とコミット
-const initializeProjectGit = async (project: Project, files: ProjectFile[], convertToFileItems: (files: ProjectFile[]) => FileItem[]) => {
+const initializeProjectGit = async (
+  project: Project,
+  files: ProjectFile[],
+  convertToFileItems: (files: ProjectFile[]) => FileItem[]
+) => {
   try {
     console.log('Initializing Git for project:', project.name);
     console.log('Files to sync:', files.length);
-    
+
     // ファイルシステムを確実に初期化
     initializeFileSystem();
-    
+
     // 少し待機してファイルシステムの初期化を完了
     await new Promise(resolve => setTimeout(resolve, 200));
-    
+
     // デバッグ: ファイルシステムの状態を確認
     await debugFileSystem();
-    
+
     // ファイルをファイルシステムに同期
     const fileItems = convertToFileItems(files);
     console.log('Converted file items:', fileItems.length);
-    
+
     const flatFiles = flattenFileItems(fileItems);
-    console.log('Flattened files:', flatFiles.length, flatFiles.map(f => f.path));
-    
+    console.log(
+      'Flattened files:',
+      flatFiles.length,
+      flatFiles.map(f => f.path)
+    );
+
     await syncProjectFiles(project.name, flatFiles);
-    
+
     // ファイル同期後に十分な待機時間を設ける
     console.log('Waiting for filesystem sync to complete...');
     await new Promise(resolve => setTimeout(resolve, 500));
-    
+
     // Git初期化
     const git = new GitCommands(project.name);
     try {
       await git.init();
       console.log('Git init completed');
-      
+
       // Git初期化後も少し待機
       await new Promise(resolve => setTimeout(resolve, 200));
-      
+
       // すべてのファイルをステージング
       try {
         const addResult = await git.add('.');
         console.log('Files staged:', addResult);
-        
+
         // ステージング後も少し待機
         await new Promise(resolve => setTimeout(resolve, 200));
-        
+
         // ステージ状態を確認
         const statusBeforeCommit = await git.status();
         console.log('Status before commit:', statusBeforeCommit);
-        
+
         // 初期コミット
         const commitResult = await git.commit('Initial commit', {
           name: 'Pyxis User',
-          email: 'user@pyxis.dev'
+          email: 'user@pyxis.dev',
         });
         console.log('Initial commit completed:', commitResult);
-        
+
         // コミット後の状態を確認
         const statusAfterCommit = await git.status();
         console.log('Status after commit:', statusAfterCommit);
-        
+
         // ログを確認
         const logResult = await git.getFormattedLog(5);
         console.log('Log after commit:', logResult);
-        
       } catch (commitError) {
         console.error('Initial commit failed:', commitError);
-        
+
         // 詳細なエラー情報を表示
         console.log('Attempting to debug the issue...');
         try {
@@ -86,7 +93,7 @@ const initializeProjectGit = async (project: Project, files: ProjectFile[], conv
     } catch (initError) {
       console.warn('Git initialization failed:', initError);
     }
-    
+
     console.log('Git initialization process completed for project:', project.name);
   } catch (error) {
     console.error('Failed to initialize Git for project:', error);
@@ -95,23 +102,26 @@ const initializeProjectGit = async (project: Project, files: ProjectFile[], conv
 };
 
 // FileItemの階層構造をフラットな配列に変換
-const flattenFileItems = (items: FileItem[], basePath = ''): Array<{ path: string; content?: string; type: 'file' | 'folder' }> => {
+const flattenFileItems = (
+  items: FileItem[],
+  basePath = ''
+): Array<{ path: string; content?: string; type: 'file' | 'folder' }> => {
   const result: Array<{ path: string; content?: string; type: 'file' | 'folder' }> = [];
-  
+
   for (const item of items) {
     const fullPath = basePath === '' ? `/${item.name}` : `${basePath}/${item.name}`;
-    
+
     result.push({
       path: fullPath,
       content: item.content,
-      type: item.type
+      type: item.type,
     });
-    
+
     if (item.children && item.children.length > 0) {
       result.push(...flattenFileItems(item.children, fullPath));
     }
   }
-  
+
   return result;
 };
 
@@ -122,7 +132,6 @@ export const useProject = () => {
 
   // プロジェクトファイルをFileItem形式に変換
   const convertToFileItems = (files: ProjectFile[]): FileItem[] => {
-
     // パスによる重複排除
     const uniqueFiles = files.reduce((acc, file) => {
       const existing = acc.find(f => f.path === file.path);
@@ -137,7 +146,6 @@ export const useProject = () => {
       }
       return acc;
     }, [] as ProjectFile[]);
-    
 
     const fileMap = new Map<string, FileItem>();
     const rootItems: FileItem[] = [];
@@ -201,7 +209,7 @@ export const useProject = () => {
 
     // ルートに自動生成されたフォルダも追加
     fileMap.forEach((item, path) => {
-      if ((item.type === 'folder') && (item.path.lastIndexOf('/') <= 0) && !rootItems.includes(item)) {
+      if (item.type === 'folder' && item.path.lastIndexOf('/') <= 0 && !rootItems.includes(item)) {
         rootItems.push(item);
       }
     });
@@ -210,15 +218,17 @@ export const useProject = () => {
 
     // フォルダを先に、ファイルを後にソート
     const sortItems = (items: FileItem[]): FileItem[] => {
-      return items.sort((a, b) => {
-        if (a.type !== b.type) {
-          return a.type === 'folder' ? -1 : 1;
-        }
-        return a.name.localeCompare(b.name);
-      }).map(item => ({
-        ...item,
-        children: item.children ? sortItems(item.children) : undefined,
-      }));
+      return items
+        .sort((a, b) => {
+          if (a.type !== b.type) {
+            return a.type === 'folder' ? -1 : 1;
+          }
+          return a.name.localeCompare(b.name);
+        })
+        .map(item => ({
+          ...item,
+          children: item.children ? sortItems(item.children) : undefined,
+        }));
     };
 
     return sortItems(rootItems);
@@ -232,7 +242,7 @@ export const useProject = () => {
       // console.log('[loadProject] Getting project files...');
       const files = await projectDB.getProjectFiles(project.id);
       // console.log('[loadProject] Received files:', files.length, files);
-      
+
       setCurrentProject(project);
       setProjectFiles(files);
 
@@ -241,7 +251,12 @@ export const useProject = () => {
       // console.log('[loadProject] Converted files:', convertedFiles.length);
       convertedFiles.forEach(file => {
         if (file.type === 'file' && file.content) {
-          console.log('[loadProject] File with content:', file.path, 'contentLength:', file.content.length);
+          console.log(
+            '[loadProject] File with content:',
+            file.path,
+            'contentLength:',
+            file.content.length
+          );
         }
       });
 
@@ -251,7 +266,7 @@ export const useProject = () => {
       try {
         const git = new GitCommands(project.name);
         const currentBranch = await git.getCurrentBranch();
-        
+
         // Git初期化されていない場合は初期化を実行
         if (currentBranch === '(no git)') {
           console.log('Git not initialized for project:', project.name, 'Initializing...');
@@ -279,30 +294,30 @@ export const useProject = () => {
       return;
     }
 
-    console.log('[saveFile] Starting save:', { 
-      path, 
-      contentLength: content.length, 
+    console.log('[saveFile] Starting save:', {
+      path,
+      contentLength: content.length,
       projectId: currentProject.id,
-      projectName: currentProject.name 
+      projectName: currentProject.name,
     });
 
     try {
       // データベースが初期化されていることを確認
       await projectDB.init();
-      
+
       // 既存ファイルを探す
       const existingFile = projectFiles.find(f => f.path === path);
       console.log('[saveFile] Existing file found:', !!existingFile);
-      
+
       if (existingFile) {
         // 既存ファイルを更新
         const updatedFile = { ...existingFile, content, updatedAt: new Date() };
         console.log('[saveFile] Updating existing file:', updatedFile.id);
         await projectDB.saveFile(updatedFile);
-        
+
         // 内容が実際に変わった場合のみ状態を更新
         if (existingFile.content !== content) {
-          setProjectFiles(prev => prev.map(f => f.id === existingFile.id ? updatedFile : f));
+          setProjectFiles(prev => prev.map(f => (f.id === existingFile.id ? updatedFile : f)));
           console.log('[saveFile] File state updated');
         } else {
           console.log('[saveFile] File content unchanged, skipping state update');
@@ -317,7 +332,12 @@ export const useProject = () => {
 
       // ファイルシステムに同期（Git変更検知のため）
       try {
-        await syncFileToFileSystem(currentProject.name, path, content, existingFile ? 'update' : 'create');
+        await syncFileToFileSystem(
+          currentProject.name,
+          path,
+          content,
+          existingFile ? 'update' : 'create'
+        );
         console.log('[saveFile] Synced to filesystem');
       } catch (syncError) {
         console.warn('[saveFile] Filesystem sync failed (non-critical):', syncError);
@@ -336,15 +356,15 @@ export const useProject = () => {
 
     try {
       console.log('[createFile] Creating file:', { path, type, contentLength: content.length });
-      
+
       // ファイル作成の場合、親フォルダの存在を確認して必要に応じて作成
       if (type === 'file') {
         await ensureParentFolders(path);
       }
-      
+
       const newFile = await projectDB.createFile(currentProject.id, path, content, type);
       setProjectFiles(prev => [...prev, newFile]);
-      
+
       // ファイルシステムに同期（Git変更検知のため）
       if (type === 'file') {
         try {
@@ -354,7 +374,7 @@ export const useProject = () => {
           console.warn('[createFile] Filesystem sync failed (non-critical):', syncError);
         }
       }
-      
+
       console.log('[createFile] File created successfully:', newFile.id);
       return newFile;
     } catch (error) {
@@ -376,30 +396,41 @@ export const useProject = () => {
     // 各階層のフォルダをチェック・作成
     for (let i = 0; i < pathParts.length - 1; i++) {
       currentPath += '/' + pathParts[i];
-      
+
       // 既存フォルダをチェック
       const existingFolder = projectFiles.find(f => f.path === currentPath && f.type === 'folder');
-      
+
       if (!existingFolder) {
         console.log('[ensureParentFolders] Creating missing folder:', currentPath);
-        
+
         try {
           // データベースにフォルダを作成
-          const newFolder = await projectDB.createFile(currentProject.id, currentPath, '', 'folder');
-          
+          const newFolder = await projectDB.createFile(
+            currentProject.id,
+            currentPath,
+            '',
+            'folder'
+          );
+
           // 状態に追加（即座に反映させる）
           setProjectFiles(prev => [...prev, newFolder]);
-          
+
           // ファイルシステムにも同期
           try {
             await syncFileToFileSystem(currentProject.name, currentPath, '', 'create');
             console.log('[ensureParentFolders] Folder synced to filesystem:', currentPath);
           } catch (syncError) {
-            console.warn('[ensureParentFolders] Folder filesystem sync failed (non-critical):', syncError);
+            console.warn(
+              '[ensureParentFolders] Folder filesystem sync failed (non-critical):',
+              syncError
+            );
           }
-          
         } catch (error) {
-          console.error('[ensureParentFolders] Failed to create parent folder:', currentPath, error);
+          console.error(
+            '[ensureParentFolders] Failed to create parent folder:',
+            currentPath,
+            error
+          );
           throw error;
         }
       }
@@ -447,7 +478,17 @@ export const useProject = () => {
       }
 
       // UI更新
-      setProjectFiles(prev => prev.filter(f => f.id !== fileId && !(fileToDelete && fileToDelete.type === 'folder' && f.path.startsWith(fileToDelete.path + '/'))));
+      setProjectFiles(prev =>
+        prev.filter(
+          f =>
+            f.id !== fileId &&
+            !(
+              fileToDelete &&
+              fileToDelete.type === 'folder' &&
+              f.path.startsWith(fileToDelete.path + '/')
+            )
+        )
+      );
       await refreshProjectFiles();
       console.log('[deleteFile] File deleted successfully');
     } catch (error) {
@@ -469,18 +510,30 @@ export const useProject = () => {
   };
 
   // ターミナルからのファイル操作を同期
-  const syncTerminalFileOperation = async (path: string, type: 'file' | 'folder' | 'delete', content: string = '', bufferContent?: ArrayBuffer) => {
+  const syncTerminalFileOperation = async (
+    path: string,
+    type: 'file' | 'folder' | 'delete',
+    content: string = '',
+    bufferContent?: ArrayBuffer
+  ) => {
     if (!currentProject) {
       console.log('[syncTerminalFileOperation] No current project');
       return;
     }
 
-    console.log('[syncTerminalFileOperation] Starting:', { path, type, content, projectName: currentProject.name });
+    console.log('[syncTerminalFileOperation] Starting:', {
+      path,
+      type,
+      content,
+      projectName: currentProject.name,
+    });
 
     // 「.」パスはプロジェクト更新通知のためのダミー操作
     // 実際のファイル作成は行わず、プロジェクトリフレッシュのみ実行
     if (path === '.') {
-      console.log('[syncTerminalFileOperation] Dummy project refresh operation detected, skipping file operations');
+      console.log(
+        '[syncTerminalFileOperation] Dummy project refresh operation detected, skipping file operations'
+      );
       await refreshProjectFiles();
       return;
     }
@@ -491,7 +544,11 @@ export const useProject = () => {
         // ファイルまたはフォルダを削除
         const files = await projectDB.getProjectFiles(currentProject.id);
         const fileToDelete = files.find(f => f.path === path);
-        console.log('[syncTerminalFileOperation] File to delete found:', !!fileToDelete, fileToDelete?.path);
+        console.log(
+          '[syncTerminalFileOperation] File to delete found:',
+          !!fileToDelete,
+          fileToDelete?.path
+        );
         if (fileToDelete) {
           console.log('[syncTerminalFileOperation] Deleting file from DB:', fileToDelete.id);
           await projectDB.deleteFile(fileToDelete.id);
@@ -505,7 +562,9 @@ export const useProject = () => {
           // ファイルシステムからも削除（Git変更検知のため）
           try {
             await syncFileToFileSystem(currentProject.name, path, null, 'delete');
-            console.log('[syncTerminalFileOperation] File/folder physically deleted from filesystem for Git detection');
+            console.log(
+              '[syncTerminalFileOperation] File/folder physically deleted from filesystem for Git detection'
+            );
             // 追加的なGitキャッシュフラッシュ（削除検知のため）
             try {
               const fs = getFileSystem();
@@ -515,17 +574,26 @@ export const useProject = () => {
                 await new Promise(resolve => setTimeout(resolve, 300));
               }
             } catch (flushError) {
-              console.warn('[syncTerminalFileOperation] Additional Git cache flush failed:', flushError);
+              console.warn(
+                '[syncTerminalFileOperation] Additional Git cache flush failed:',
+                flushError
+              );
             }
           } catch (syncError) {
-            console.warn('[syncTerminalFileOperation] Filesystem deletion failed (non-critical):', syncError);
+            console.warn(
+              '[syncTerminalFileOperation] Filesystem deletion failed (non-critical):',
+              syncError
+            );
           }
           console.log('[syncTerminalFileOperation] Delete operation completed for:', path);
         } else {
           // フォルダ自体がDBにない場合でも、配下のファイル・フォルダを削除
           const childFiles = files.filter(f => f.path.startsWith(path + '/'));
           if (childFiles.length > 0) {
-            console.log('[syncTerminalFileOperation] Folder not found, deleting child files:', childFiles.length);
+            console.log(
+              '[syncTerminalFileOperation] Folder not found, deleting child files:',
+              childFiles.length
+            );
             for (const child of childFiles) {
               await projectDB.deleteFile(child.id);
             }
@@ -539,9 +607,15 @@ export const useProject = () => {
                 await new Promise(resolve => setTimeout(resolve, 300));
               }
             } catch (syncError) {
-              console.warn('[syncTerminalFileOperation] Filesystem deletion failed (non-critical):', syncError);
+              console.warn(
+                '[syncTerminalFileOperation] Filesystem deletion failed (non-critical):',
+                syncError
+              );
             }
-            console.log('[syncTerminalFileOperation] Delete operation completed for folder children:', path);
+            console.log(
+              '[syncTerminalFileOperation] Delete operation completed for folder children:',
+              path
+            );
           } else {
             console.log('[syncTerminalFileOperation] File not found in DB for deletion:', path);
           }
@@ -554,30 +628,73 @@ export const useProject = () => {
           console.log('[syncTerminalFileOperation] Updating existing file:', existingFile);
           let updatedFile;
           if (bufferContent) {
-            updatedFile = { ...existingFile, content: '', isBufferArray: true, bufferContent, updatedAt: new Date() };
+            updatedFile = {
+              ...existingFile,
+              content: '',
+              isBufferArray: true,
+              bufferContent,
+              updatedAt: new Date(),
+            };
           } else {
-            updatedFile = { ...existingFile, content, isBufferArray: false, bufferContent: undefined, updatedAt: new Date() };
+            updatedFile = {
+              ...existingFile,
+              content,
+              isBufferArray: false,
+              bufferContent: undefined,
+              updatedAt: new Date(),
+            };
           }
           await projectDB.saveFile(updatedFile);
           console.log('[syncTerminalFileOperation] File updated in DB');
           // ファイルシステムにも同期（Git変更検知のため）
           if (type === 'file') {
             try {
-              await syncFileToFileSystem(currentProject.name, path, bufferContent ? '' : content, 'update', bufferContent);
-              console.log('[syncTerminalFileOperation] File updated in filesystem for Git detection');
+              await syncFileToFileSystem(
+                currentProject.name,
+                path,
+                bufferContent ? '' : content,
+                'update',
+                bufferContent
+              );
+              console.log(
+                '[syncTerminalFileOperation] File updated in filesystem for Git detection'
+              );
             } catch (syncError) {
-              console.warn('[syncTerminalFileOperation] Filesystem update failed (non-critical):', syncError);
+              console.warn(
+                '[syncTerminalFileOperation] Filesystem update failed (non-critical):',
+                syncError
+              );
             }
           }
         } else {
           // 新しいファイル/フォルダを作成
           console.log('[syncTerminalFileOperation] Creating new file/folder:', { path, type });
           if (bufferContent) {
-            const newFile = await projectDB.createFile(currentProject.id, path, '', type, true, bufferContent);
-            console.log('[syncTerminalFileOperation] File/folder created in DB with ID:', newFile.id);
+            const newFile = await projectDB.createFile(
+              currentProject.id,
+              path,
+              '',
+              type,
+              true,
+              bufferContent
+            );
+            console.log(
+              '[syncTerminalFileOperation] File/folder created in DB with ID:',
+              newFile.id
+            );
           } else {
-            const newFile = await projectDB.createFile(currentProject.id, path, content, type, false, undefined);
-            console.log('[syncTerminalFileOperation] File/folder created in DB with ID:', newFile.id);
+            const newFile = await projectDB.createFile(
+              currentProject.id,
+              path,
+              content,
+              type,
+              false,
+              undefined
+            );
+            console.log(
+              '[syncTerminalFileOperation] File/folder created in DB with ID:',
+              newFile.id
+            );
           }
           // ファイルシステムにも同期（Git変更検知のため）
           if (type === 'file' || type === 'folder') {
@@ -588,9 +705,14 @@ export const useProject = () => {
             }
             try {
               await syncFileToFileSystem(currentProject.name, path, content, 'create');
-              console.log('[syncTerminalFileOperation] File created in filesystem for Git detection');
+              console.log(
+                '[syncTerminalFileOperation] File created in filesystem for Git detection'
+              );
             } catch (syncError) {
-              console.warn('[syncTerminalFileOperation] Filesystem creation failed (non-critical):', syncError);
+              console.warn(
+                '[syncTerminalFileOperation] Filesystem creation failed (non-critical):',
+                syncError
+              );
             }
           }
           // 作成を確認（プロジェクトファイル一覧から確認）
@@ -602,7 +724,6 @@ export const useProject = () => {
       console.log('[syncTerminalFileOperation] Refreshing project files...');
       await refreshProjectFiles();
       console.log('[syncTerminalFileOperation] Sync completed, files count:', projectFiles.length);
-      
     } catch (error) {
       console.error('[syncTerminalFileOperation] Failed to sync terminal file operation:', error);
       throw error; // エラーを上位に伝播して問題を明確にする
@@ -614,24 +735,24 @@ export const useProject = () => {
     try {
       setLoading(true);
       await projectDB.init();
-      
+
       // プロジェクトを作成
       console.log('[createProject] Creating new project:', name);
       const newProject = await projectDB.createProject(name, description);
       console.log('[createProject] Project created:', newProject);
-      
+
       // ファイルを取得
       console.log('[createProject] Getting files for new project...');
       const files = await projectDB.getProjectFiles(newProject.id);
       console.log('[createProject] Files retrieved:', files.length, files);
-      
+
       // プロジェクトを設定
       setCurrentProject(newProject);
       setProjectFiles(files);
-      
+
       // Git初期化と初期コミット
       await initializeProjectGit(newProject, files, convertToFileItems);
-      
+
       // 初期チャットスペースを作成
       try {
         await projectDB.createChatSpace(newProject.id, `新規チャット`);
@@ -640,7 +761,7 @@ export const useProject = () => {
         console.warn('[createProject] Failed to create initial chat space:', error);
         // チャットスペース作成の失敗はプロジェクト作成を妨げない
       }
-      
+
       return newProject;
     } catch (error) {
       console.error('Failed to create project:', error);
@@ -655,20 +776,20 @@ export const useProject = () => {
     try {
       const recentProjectsStr = localStorage.getItem(LOCALSTORAGE_KEY.RECENT_PROJECTS);
       let recentProjects: Project[] = [];
-      
+
       if (recentProjectsStr) {
         recentProjects = JSON.parse(recentProjectsStr);
       }
-      
+
       // 既存のプロジェクトを除外
       recentProjects = recentProjects.filter(p => p.id !== project.id);
-      
+
       // 新しいプロジェクトを先頭に追加
       recentProjects.unshift(project);
-      
+
       // 最大10件まで保持
       recentProjects = recentProjects.slice(0, 10);
-      
+
       localStorage.setItem(LOCALSTORAGE_KEY.RECENT_PROJECTS, JSON.stringify(recentProjects));
     } catch (error) {
       console.error('Failed to save recent project:', error);
@@ -701,11 +822,11 @@ export const useProject = () => {
       try {
         await projectDB.init();
         const projects = await projectDB.getProjects();
-        
+
         // 最近のプロジェクトを確認
         const recentProjects = getRecentProjects();
         const lastProject = recentProjects[0];
-        
+
         if (lastProject && projects.find(p => p.id === lastProject.id)) {
           // 最後に開いたプロジェクトが存在すれば、それを読み込む
           await loadProject(lastProject);
@@ -722,16 +843,16 @@ export const useProject = () => {
               'Pyxis エディターへようこそ！'
             );
             console.log('[initProject] Default project created:', defaultProject);
-            
+
             // ファイルを取得
             console.log('[initProject] Getting files for default project...');
             const files = await projectDB.getProjectFiles(defaultProject.id);
             console.log('[initProject] Default project files:', files.length, files);
-            
+
             // プロジェクトを設定
             setCurrentProject(defaultProject);
             setProjectFiles(files);
-            
+
             // Git初期化と初期コミット
             console.log('[initProject] Starting Git initialization...');
             await initializeProjectGit(defaultProject, files, convertToFileItems);
@@ -756,7 +877,7 @@ export const useProject = () => {
 
     try {
       await projectDB.clearAIReview(currentProject.id, filePath);
-      
+
       // プロジェクトファイルを再読み込み
       const files = await projectDB.getProjectFiles(currentProject.id);
       setProjectFiles(files);

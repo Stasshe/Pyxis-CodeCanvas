@@ -29,7 +29,7 @@ export default function SearchPanel({ files, onFileOpen }: SearchPanelProps) {
   // 全ファイルを再帰的に取得
   const getAllFiles = (items: FileItem[]): FileItem[] => {
     const result: FileItem[] = [];
-    
+
     const traverse = (items: FileItem[]) => {
       for (const item of items) {
         if (item.type === 'file') {
@@ -39,7 +39,7 @@ export default function SearchPanel({ files, onFileOpen }: SearchPanelProps) {
         }
       }
     };
-    
+
     traverse(items);
     return result;
   };
@@ -57,7 +57,7 @@ export default function SearchPanel({ files, onFileOpen }: SearchPanelProps) {
 
     try {
       let searchRegex: RegExp;
-      
+
       if (useRegex) {
         const flags = caseSensitive ? 'g' : 'gi';
         searchRegex = new RegExp(query, flags);
@@ -122,7 +122,16 @@ export default function SearchPanel({ files, onFileOpen }: SearchPanelProps) {
     return (
       <>
         {before}
-        <span style={{ background: colors.primary, color: colors.background, padding: '0.125rem 0.25rem', borderRadius: '0.25rem' }}>{match}</span>
+        <span
+          style={{
+            background: colors.primary,
+            color: colors.background,
+            padding: '0.125rem 0.25rem',
+            borderRadius: '0.25rem',
+          }}
+        >
+          {match}
+        </span>
         {after}
       </>
     );
@@ -140,11 +149,20 @@ export default function SearchPanel({ files, onFileOpen }: SearchPanelProps) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           {/* 検索ボックス */}
           <div style={{ position: 'relative' }}>
-            <Search size={14} style={{ position: 'absolute', left: '0.5rem', top: '50%', transform: 'translateY(-50%)', color: colors.mutedFg }} />
+            <Search
+              size={14}
+              style={{
+                position: 'absolute',
+                left: '0.5rem',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: colors.mutedFg,
+              }}
+            />
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={e => setSearchQuery(e.target.value)}
               placeholder="ファイル内を検索..."
               style={{
                 width: '100%',
@@ -164,7 +182,13 @@ export default function SearchPanel({ files, onFileOpen }: SearchPanelProps) {
             {searchQuery && (
               <button
                 onClick={clearSearch}
-                style={{ position: 'absolute', right: '0.5rem', top: '50%', transform: 'translateY(-50%)', color: colors.mutedFg }}
+                style={{
+                  position: 'absolute',
+                  right: '0.5rem',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: colors.mutedFg,
+                }}
                 onMouseEnter={e => (e.currentTarget.style.color = colors.foreground)}
                 onMouseLeave={e => (e.currentTarget.style.color = colors.mutedFg)}
               >
@@ -225,11 +249,7 @@ export default function SearchPanel({ files, onFileOpen }: SearchPanelProps) {
           {/* 検索結果サマリー */}
           {searchQuery && (
             <div style={{ fontSize: '0.75rem', color: colors.mutedFg }}>
-              {isSearching ? (
-                '検索中...'
-              ) : (
-                `${searchResults.length} 件の結果`
-              )}
+              {isSearching ? '検索中...' : `${searchResults.length} 件の結果`}
             </div>
           )}
         </div>
@@ -239,7 +259,15 @@ export default function SearchPanel({ files, onFileOpen }: SearchPanelProps) {
       <div style={{ flex: 1, overflow: 'auto' }}>
         {searchQuery && !isSearching && searchResults.length === 0 && (
           <div style={{ padding: '0.75rem', textAlign: 'center', color: colors.mutedFg }}>
-            <Search size={24} style={{ display: 'block', margin: '0 auto 0.5rem', opacity: 0.5, color: colors.mutedFg }} />
+            <Search
+              size={24}
+              style={{
+                display: 'block',
+                margin: '0 auto 0.5rem',
+                opacity: 0.5,
+                color: colors.mutedFg,
+              }}
+            />
             <p style={{ fontSize: '0.75rem' }}>結果が見つかりませんでした</p>
           </div>
         )}
@@ -262,22 +290,75 @@ export default function SearchPanel({ files, onFileOpen }: SearchPanelProps) {
                 onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginBottom: '0.25rem' }}>
-                  <FileText size={12} color={colors.primary} style={{ flexShrink: 0 }} />
-                  <span style={{ fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.75rem' }}>{result.file.name}</span>
-                  <span style={{ fontSize: '0.75rem', color: colors.mutedFg, flexShrink: 0, marginLeft: 'auto' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.25rem',
+                    marginBottom: '0.25rem',
+                  }}
+                >
+                  <FileText
+                    size={12}
+                    color={colors.primary}
+                    style={{ flexShrink: 0 }}
+                  />
+                  <span
+                    style={{
+                      fontWeight: 500,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      fontSize: '0.75rem',
+                    }}
+                  >
+                    {result.file.name}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: '0.75rem',
+                      color: colors.mutedFg,
+                      flexShrink: 0,
+                      marginLeft: 'auto',
+                    }}
+                  >
                     {result.line}:{result.column}
                   </span>
                 </div>
                 <div style={{ marginLeft: '0.75rem', marginBottom: '0.25rem' }}>
-                  <code style={{ background: colors.mutedBg, padding: '0.25rem 0.5rem', borderRadius: '0.25rem', fontSize: '0.75rem', display: 'block', color: colors.foreground }}>
+                  <code
+                    style={{
+                      background: colors.mutedBg,
+                      padding: '0.25rem 0.5rem',
+                      borderRadius: '0.25rem',
+                      fontSize: '0.75rem',
+                      display: 'block',
+                      color: colors.foreground,
+                    }}
+                  >
                     {/* 横スクロールを防ぐためoverflow-x: hiddenを追加 */}
-                    <span style={{ display: 'block', overflowX: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'pre-wrap' }}>
+                    <span
+                      style={{
+                        display: 'block',
+                        overflowX: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'pre-wrap',
+                      }}
+                    >
                       {highlightMatch(result.content, result.matchStart, result.matchEnd)}
                     </span>
                   </code>
                 </div>
-                <div style={{ marginLeft: '0.75rem', fontSize: '0.75rem', color: colors.mutedFg, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <div
+                  style={{
+                    marginLeft: '0.75rem',
+                    fontSize: '0.75rem',
+                    color: colors.mutedFg,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
                   {result.file.path}
                 </div>
               </div>

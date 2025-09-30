@@ -35,7 +35,7 @@ export default function AIAgent({
   setTabs,
   setActiveTabId,
   saveFile,
-  clearAIReview
+  clearAIReview,
 }: AIAgentProps) {
   const { colors } = useTheme();
   const [isFileSelectorOpen, setIsFileSelectorOpen] = useState(false);
@@ -68,7 +68,7 @@ export default function AIAgent({
     deleteSpace,
     addMessage: addSpaceMessage,
     updateSelectedFiles: updateSpaceSelectedFiles,
-    updateSpaceName
+    updateSpaceName,
   } = useChatSpace(currentProject?.id || null);
 
   const {
@@ -79,22 +79,17 @@ export default function AIAgent({
     executeCodeEdit,
     updateFileContexts,
     toggleFileSelection,
-    clearMessages
+    clearMessages,
   } = useAIAgent({
     onAddMessage: async (content, type, mode, fileContext, editResponse) => {
       await addSpaceMessage(content, type, mode, fileContext, editResponse);
     },
     selectedFiles: currentSpace?.selectedFiles,
     onUpdateSelectedFiles: updateSpaceSelectedFiles,
-    messages: currentSpace?.messages
+    messages: currentSpace?.messages,
   });
 
-  const {
-    openAIReviewTab,
-    applyChanges,
-    discardChanges,
-    closeAIReviewTab
-  } = useAIReview();
+  const { openAIReviewTab, applyChanges, discardChanges, closeAIReviewTab } = useAIReview();
 
   // プロジェクトファイルが変更されたときにコンテキストを更新
   useEffect(() => {
@@ -104,7 +99,7 @@ export default function AIAgent({
       // 最新のprojectFilesからcontextsを生成し、selected状態をマージ
       const contexts = buildAIFileContextList(projectFiles).map(ctx => ({
         ...ctx,
-        selected: selectedMap.get(ctx.path) ?? false
+        selected: selectedMap.get(ctx.path) ?? false,
       }));
       updateFileContexts(contexts);
     }
@@ -114,7 +109,6 @@ export default function AIAgent({
   const isApiKeySet = () => {
     return !!localStorage.getItem(LOCALSTORAGE_KEY.GEMINI_API_KEY);
   };
-
 
   // ファイル選択クリア関数
   const clearFileSelections = () => {
@@ -165,7 +159,7 @@ export default function AIAgent({
       const latestEditMessage = [...currentSpace.messages]
         .reverse()
         .find(msg => msg.mode === 'edit' && msg.type === 'assistant' && msg.editResponse);
-      
+
       if (latestEditMessage?.editResponse) {
         setLastEditResponse(latestEditMessage.editResponse);
       }
@@ -181,7 +175,7 @@ export default function AIAgent({
         path: file.path,
         name: file.name,
         content: file.content,
-        selected: true // 新しく追加したファイルは選択状態にする
+        selected: true, // 新しく追加したファイルは選択状態にする
       };
       // updateFileContextsを使用するが、循環参照を避けるためselectedFilesは更新しない
       const newContexts = [...fileContexts, newContext];
@@ -190,13 +184,17 @@ export default function AIAgent({
       // 既存のファイルの選択状態を切り替え
       toggleFileSelection(file.path);
     }
-    
+
     // FileSelectorコンポーネントで既にonCloseが呼ばれるため、ここでは閉じない
     // setIsFileSelectorOpen(false);
   };
 
   // レビューを開く
-  const handleOpenReview = (filePath: string, originalContent: string, suggestedContent: string) => {
+  const handleOpenReview = (
+    filePath: string,
+    originalContent: string,
+    suggestedContent: string
+  ) => {
     openAIReviewTab(filePath, originalContent, suggestedContent, setTabs, setActiveTabId, tabs);
   };
 
@@ -208,30 +206,33 @@ export default function AIAgent({
       // 直接saveFileを呼び出し、page.tsxのAIReviewTabと同じ方法を使用
       await saveFile(filePath, newContent);
       await clearAIReview(filePath);
-      
+
       // レビュータブを閉じる
       closeAIReviewTab(filePath, setTabs, tabs);
-      
+
       // チャットスペースのメッセージからも該当ファイルを削除
       if (currentSpace) {
         const updatedMessages = currentSpace.messages.map(message => {
-          if (message.editResponse && message.editResponse.changedFiles.some(f => f.path === filePath)) {
+          if (
+            message.editResponse &&
+            message.editResponse.changedFiles.some(f => f.path === filePath)
+          ) {
             return {
               ...message,
               editResponse: {
                 ...message.editResponse,
-                changedFiles: message.editResponse.changedFiles.filter(f => f.path !== filePath)
-              }
+                changedFiles: message.editResponse.changedFiles.filter(f => f.path !== filePath),
+              },
             };
           }
           return message;
         });
-        
+
         // 現在のスペースを更新
         const updatedSpace = { ...currentSpace, messages: updatedMessages };
         await addSpaceMessage('', 'assistant', 'edit', [], {
           changedFiles: [],
-          message: `${filePath} の変更が適用されました。`
+          message: `${filePath} の変更が適用されました。`,
         });
       }
 
@@ -239,7 +240,7 @@ export default function AIAgent({
       if (lastEditResponse) {
         const updatedResponse = {
           ...lastEditResponse,
-          changedFiles: lastEditResponse.changedFiles.filter(f => f.path !== filePath)
+          changedFiles: lastEditResponse.changedFiles.filter(f => f.path !== filePath),
         };
         setLastEditResponse(updatedResponse);
       }
@@ -254,23 +255,23 @@ export default function AIAgent({
     try {
       // 直接clearAIReviewを呼び出し、page.tsxのAIReviewTabと同じ方法を使用
       await clearAIReview(filePath);
-      
+
       // レビュータブを閉じる
       closeAIReviewTab(filePath, setTabs, tabs);
-      
+
       // チャットスペースのメッセージからも該当ファイルを削除
       if (currentSpace) {
         await addSpaceMessage('', 'assistant', 'edit', [], {
           changedFiles: [],
-          message: `${filePath} の変更が破棄されました。`
+          message: `${filePath} の変更が破棄されました。`,
         });
       }
-      
+
       // 変更リストから削除
       if (lastEditResponse) {
         const updatedResponse = {
           ...lastEditResponse,
-          changedFiles: lastEditResponse.changedFiles.filter(f => f.path !== filePath)
+          changedFiles: lastEditResponse.changedFiles.filter(f => f.path !== filePath),
         };
         setLastEditResponse(updatedResponse);
       }
@@ -322,21 +323,24 @@ export default function AIAgent({
               }}
               onClick={() => setShowSpaceList(!showSpaceList)}
             >
-              <span className="max-w-24 truncate">
-                {currentSpace?.name || 'スペース'}
-              </span>
-              <svg 
-                className="w-3 h-3" 
-                fill="none" 
-                stroke="currentColor" 
+              <span className="max-w-24 truncate">{currentSpace?.name || 'スペース'}</span>
+              <svg
+                className="w-3 h-3"
+                fill="none"
+                stroke="currentColor"
                 viewBox="0 0 24 24"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
               </svg>
             </button>
             {/* スペースドロップダウン */}
             {showSpaceList && (
-              <div 
+              <div
                 className="absolute top-full left-0 mt-1 w-64 rounded border shadow-lg z-10"
                 style={{
                   background: colors.cardBg,
@@ -348,12 +352,12 @@ export default function AIAgent({
                   <ChatSpaceList
                     chatSpaces={chatSpaces}
                     currentSpace={currentSpace}
-                    onSelectSpace={(space) => {
+                    onSelectSpace={space => {
                       selectSpace(space);
                       setShowSpaceList(false);
                       clearFileSelections(); // スペース切り替え時にファイルセレクトをクリア
                     }}
-                    onCreateSpace={async (name) => {
+                    onCreateSpace={async name => {
                       if (chatSpaces.length >= 10) {
                         alert('スペースは最大10個までです。不要なスペースを削除してください。');
                         return;
@@ -366,7 +370,9 @@ export default function AIAgent({
                     onUpdateSpaceName={async (spaceId, newName) => {
                       await updateSpaceName(spaceId, newName);
                       // UI側stateも即座に反映
-                      const updatedSpaces = chatSpaces.map(s => s.id === spaceId ? { ...s, name: newName, updatedAt: new Date() } : s);
+                      const updatedSpaces = chatSpaces.map(s =>
+                        s.id === spaceId ? { ...s, name: newName, updatedAt: new Date() } : s
+                      );
                       // selectSpaceで再選択してUI更新
                       const updated = updatedSpaces.find(s => s.id === spaceId);
                       if (updated) selectSpace(updated);
@@ -380,33 +386,52 @@ export default function AIAgent({
       </div>
 
       {/* メインコンテンツ */}
-      <div className="flex-1 flex flex-col min-h-0" style={{ background: colors.background }}>
+      <div
+        className="flex-1 flex flex-col min-h-0"
+        style={{ background: colors.background }}
+      >
         {currentMode === 'chat' ? (
           <>
             {/* チャットメッセージ */}
-            <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2" style={{ background: colors.background }}>
+            <div
+              className="flex-1 overflow-y-auto px-3 py-2 space-y-2"
+              style={{ background: colors.background }}
+            >
               {messages.length === 0 ? (
                 <div
                   className="flex flex-col items-center justify-center h-full text-center select-none"
                   style={{ color: colors.mutedFg }}
                 >
-                  <svg className="w-8 h-8 mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  <svg
+                    className="w-8 h-8 mb-2 opacity-50"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1}
+                      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                    />
                   </svg>
                   <div className="text-sm">AIとチャットを開始</div>
                   <div className="text-xs opacity-70 mt-1">質問やコード相談をしてください</div>
                 </div>
               ) : (
                 messages.map(message => (
-                  <ChatMessage 
-                    key={message.id} 
+                  <ChatMessage
+                    key={message.id}
                     message={message}
                     compact={true}
                   />
                 ))
               )}
               {isProcessing && (
-                <div className="flex items-center gap-2 text-xs py-2" style={{ color: colors.mutedFg }}>
+                <div
+                  className="flex items-center gap-2 text-xs py-2"
+                  style={{ color: colors.mutedFg }}
+                >
                   <div className="animate-spin w-3 h-3 border-2 border-current border-t-transparent rounded-full"></div>
                   回答生成中...
                 </div>
@@ -416,27 +441,38 @@ export default function AIAgent({
         ) : (
           <>
             {/* 編集結果 */}
-            <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2" style={{ background: colors.background }}>
+            <div
+              className="flex-1 overflow-y-auto px-3 py-2 space-y-2"
+              style={{ background: colors.background }}
+            >
               {isProcessing && currentMode === 'edit' ? (
                 <div className="flex flex-col items-center justify-center h-full text-center">
                   <div className="relative mb-4">
                     <div
                       className="w-8 h-8 border-3 border-current border-t-transparent rounded-full animate-spin"
-                      style={{ borderColor: `${colors.accent} transparent ${colors.accent} ${colors.accent}` }}
+                      style={{
+                        borderColor: `${colors.accent} transparent ${colors.accent} ${colors.accent}`,
+                      }}
                     ></div>
                     <div
                       className="absolute inset-0 w-8 h-8 border-3 border-current border-b-transparent rounded-full animate-spin"
-                      style={{ 
+                      style={{
                         borderColor: `transparent transparent ${colors.accent} transparent`,
                         animationDirection: 'reverse',
-                        animationDuration: '1.5s'
+                        animationDuration: '1.5s',
                       }}
                     ></div>
                   </div>
-                  <div style={{ color: colors.foreground }} className="text-sm font-medium mb-1">
+                  <div
+                    style={{ color: colors.foreground }}
+                    className="text-sm font-medium mb-1"
+                  >
                     🤖 AI編集実行中...
                   </div>
-                  <div style={{ color: colors.mutedFg }} className="text-xs">
+                  <div
+                    style={{ color: colors.mutedFg }}
+                    className="text-xs"
+                  >
                     ファイルを解析して編集提案を生成しています
                   </div>
                 </div>
@@ -445,8 +481,18 @@ export default function AIAgent({
                   className="flex flex-col items-center justify-center h-full text-center select-none"
                   style={{ color: colors.mutedFg }}
                 >
-                  <svg className="w-8 h-8 mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  <svg
+                    className="w-8 h-8 mb-2 opacity-50"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1}
+                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                    />
                   </svg>
                   <div className="text-sm">コード編集モード</div>
                   <div className="text-xs opacity-70 mt-1">ファイルを選択して編集指示を入力</div>
@@ -455,8 +501,8 @@ export default function AIAgent({
                 <>
                   {/* チャットメッセージを表示 */}
                   {messages.map(message => (
-                    <ChatMessage 
-                      key={message.id} 
+                    <ChatMessage
+                      key={message.id}
                       message={message}
                       onOpenReview={handleOpenReview}
                       onApplyChanges={handleApplyChanges}
@@ -465,22 +511,32 @@ export default function AIAgent({
                       compact={false}
                     />
                   ))}
-                  
+
                   {/* 最新の編集結果がある場合、追加でChangedFilesListを表示 */}
                   {lastEditResponse && lastEditResponse.changedFiles.length > 0 && (
-                    <div 
+                    <div
                       className="p-3 rounded border"
-                      style={{ 
-                        borderColor: colors.border, 
-                        background: colors.mutedBg 
+                      style={{
+                        borderColor: colors.border,
+                        background: colors.mutedBg,
                       }}
                     >
-                      <div 
+                      <div
                         className="text-sm font-medium mb-2 flex items-center gap-2"
                         style={{ color: colors.foreground }}
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                          />
                         </svg>
                         最新の編集提案
                       </div>
@@ -498,7 +554,6 @@ export default function AIAgent({
             </div>
           </>
         )}
-
 
         {/* ファイルコンテキスト表示（入力エリアの直上） */}
         {fileContexts.filter(ctx => ctx.selected).length > 0 && (
@@ -528,19 +583,29 @@ export default function AIAgent({
             }}
             onClick={() => setIsFileSelectorOpen(true)}
           >
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            <svg
+              className="w-3 h-3"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+              />
             </svg>
             <span>ファイル</span>
           </button>
         </div>
 
         {/* 入力エリア */}
-        <div 
+        <div
           className="border-t px-3 py-1.5"
-          style={{ 
-            borderColor: colors.border, 
-            background: colors.cardBg 
+          style={{
+            borderColor: colors.border,
+            background: colors.cardBg,
           }}
         >
           {/* モード切り替えタブ */}
@@ -558,22 +623,24 @@ export default function AIAgent({
                 outlineOffset: currentMode === 'chat' ? '-2px' : '0',
               }}
               onClick={() => setCurrentMode('chat')}
-              >
+            >
               <span className="inline-flex items-center gap-1">
-                <span style={{
-                  display: 'inline-block',
-                  width: 8,
-                  height: 8,
-                  borderRadius: '50%',
-                  background: currentMode === 'chat' ? colors.accentFg : 'transparent',
-                  marginRight: 4,
-                  transition: 'background 0.2s',
-                }}></span>
+                <span
+                  style={{
+                    display: 'inline-block',
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    background: currentMode === 'chat' ? colors.accentFg : 'transparent',
+                    marginRight: 4,
+                    transition: 'background 0.2s',
+                  }}
+                ></span>
                 💬 Ask
               </span>
               {currentMode === 'chat' && (
                 <span
-                className="absolute left-1/2 -translate-x-1/2 bottom-0 w-3/4 h-0.5 rounded"
+                  className="absolute left-1/2 -translate-x-1/2 bottom-0 w-3/4 h-0.5 rounded"
                   style={{
                     background: colors.accentFg,
                     boxShadow: `0 2px 8px 0 ${colors.accent}33`,
@@ -594,24 +661,26 @@ export default function AIAgent({
                 outlineOffset: currentMode === 'edit' ? '-2px' : '0',
               }}
               onClick={() => setCurrentMode('edit')}
-              >
+            >
               <span className="inline-flex items-center gap-1">
-                <span style={{
-                  display: 'inline-block',
-                  width: 8,
-                  height: 8,
-                  borderRadius: '50%',
-                  background: currentMode === 'edit' ? colors.accentFg : 'transparent',
-                  marginRight: 4,
-                  transition: 'background 0.2s',
-                }}></span>
+                <span
+                  style={{
+                    display: 'inline-block',
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    background: currentMode === 'edit' ? colors.accentFg : 'transparent',
+                    marginRight: 4,
+                    transition: 'background 0.2s',
+                  }}
+                ></span>
                 ✏️ Edit
               </span>
               {currentMode === 'edit' && (
                 <span
-                className="absolute left-1/2 -translate-x-1/2 bottom-0 w-3/4 h-0.5 rounded"
-                style={{
-                  background: colors.accentFg,
+                  className="absolute left-1/2 -translate-x-1/2 bottom-0 w-3/4 h-0.5 rounded"
+                  style={{
+                    background: colors.accentFg,
                     boxShadow: `0 2px 8px 0 ${colors.accent}33`,
                   }}
                 ></span>
@@ -624,16 +693,13 @@ export default function AIAgent({
             mode={currentMode}
             onSubmit={currentMode === 'chat' ? handleSendMessage : handleExecuteEdit}
             isProcessing={isProcessing}
-            placeholder={currentMode === 'chat' 
-              ? "AIに質問やコード相談..." 
-              : "コードの編集指示..."
-            }
+            placeholder={currentMode === 'chat' ? 'AIに質問やコード相談...' : 'コードの編集指示...'}
             selectedFiles={fileContexts.filter(ctx => ctx.selected).map(ctx => ctx.path)}
-            onFileSelect={(files) => {
+            onFileSelect={files => {
               // ファイル選択を更新
               const updatedContexts = fileContexts.map(ctx => ({
                 ...ctx,
-                selected: files.includes(ctx.path)
+                selected: files.includes(ctx.path),
               }));
               updateFileContexts(updatedContexts);
             }}

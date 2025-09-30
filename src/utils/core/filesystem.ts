@@ -1,5 +1,7 @@
 // Lightning-FS配下の全ファイル・ディレクトリを再帰的に取得
-export const getAllFilesAndDirs = async (baseDir: string = '/projects'): Promise<Array<{ path: string; content?: string; type: 'file' | 'folder' }>> => {
+export const getAllFilesAndDirs = async (
+  baseDir: string = '/projects'
+): Promise<Array<{ path: string; content?: string; type: 'file' | 'folder' }>> => {
   const fs = getFileSystem();
   if (!fs) return [];
   const result: Array<{ path: string; content?: string; type: 'file' | 'folder' }> = [];
@@ -19,7 +21,9 @@ export const getAllFilesAndDirs = async (baseDir: string = '/projects'): Promise
       let files: string[] = [];
       try {
         files = await fs.promises.readdir(currentPath);
-      } catch { return; }
+      } catch {
+        return;
+      }
       for (const file of files) {
         if (file === '.' || file === '..' || file === '.git' || file.startsWith('.git')) continue;
         await walk(`${currentPath}/${file}`);
@@ -46,7 +50,7 @@ let fs: FS | null = null;
 export const initializeFileSystem = () => {
   if (typeof window !== 'undefined' && !fs) {
     fs = new FS('pyxis-fs');
-    
+
     // 基本ディレクトリ構造を非同期で作成
     setTimeout(async () => {
       try {
@@ -91,7 +95,10 @@ export const getFileSystem = () => {
 export const getProjectDir = (projectName: string) => `/projects/${projectName}`;
 
 // プロジェクトファイルをターミナルファイルシステムに同期
-export const syncProjectFiles = async (projectName: string, files: Array<{ path: string; content?: string; type: 'file' | 'folder' }>) => {
+export const syncProjectFiles = async (
+  projectName: string,
+  files: Array<{ path: string; content?: string; type: 'file' | 'folder' }>
+) => {
   const fs = getFileSystem();
   if (!fs) {
     console.error('FileSystem not available');
@@ -99,16 +106,16 @@ export const syncProjectFiles = async (projectName: string, files: Array<{ path:
   }
 
   const projectDir = getProjectDir(projectName);
-  
+
   try {
     // まず/projectsディレクトリを確実に作成
     //console.log('Ensuring /projects directory exists...');
     await ensureDirectoryExists(fs, '/projects');
-    
+
     // プロジェクトディレクトリを作成
     //console.log('Ensuring project directory exists:', projectDir);
     await ensureDirectoryExists(fs, projectDir);
-    
+
     // 既存のファイルをクリア（.gitディレクトリは保持）
     try {
       const existingFiles = await fs.promises.readdir(projectDir);
@@ -132,9 +139,11 @@ export const syncProjectFiles = async (projectName: string, files: Array<{ path:
     }
 
     // ディレクトリを先に作成
-    const directories = files.filter(f => f.type === 'folder').sort((a, b) => a.path.length - b.path.length);
+    const directories = files
+      .filter(f => f.type === 'folder')
+      .sort((a, b) => a.path.length - b.path.length);
     //console.log('Creating directories:', directories.map(d => d.path));
-    
+
     for (const dir of directories) {
       const fullPath = `${projectDir}${dir.path}`;
       try {
@@ -146,13 +155,13 @@ export const syncProjectFiles = async (projectName: string, files: Array<{ path:
 
     // ファイルを作成
     const fileItems = files.filter(f => f.type === 'file');
-    
+
     for (const file of fileItems) {
       const fullPath = `${projectDir}${file.path}`;
-      
+
       // 親ディレクトリパスを取得
       const parentDir = fullPath.substring(0, fullPath.lastIndexOf('/'));
-      
+
       // 親ディレクトリを確実に作成
       if (parentDir && parentDir !== projectDir) {
         try {
@@ -161,11 +170,11 @@ export const syncProjectFiles = async (projectName: string, files: Array<{ path:
           console.warn(`Failed to ensure parent directory ${parentDir}:`, error);
         }
       }
-      
+
       try {
         await fs.promises.writeFile(fullPath, file.content || '');
         // console.log(`Successfully synced file: ${fullPath}`);
-        
+
         // // ファイル作成後に存在確認
         // try {
         //   const stat = await fs.promises.stat(fullPath);
@@ -175,15 +184,15 @@ export const syncProjectFiles = async (projectName: string, files: Array<{ path:
         // }
       } catch (error) {
         console.error(`Failed to sync file ${fullPath}:`, error);
-        
+
         // ENOENTエラーの場合は再度ディレクトリ作成を試行
         if ((error as any).code === 'ENOENT') {
           console.log(`Retrying file creation for: ${fullPath}`);
-          
+
           // パス全体を再度作成
           const allPathSegments = fullPath.split('/').filter(segment => segment !== '');
           const fileName = allPathSegments.pop(); // ファイル名を除去
-          
+
           let currentPath = '';
           for (const segment of allPathSegments) {
             currentPath += '/' + segment;
@@ -196,7 +205,7 @@ export const syncProjectFiles = async (projectName: string, files: Array<{ path:
               }
             }
           }
-          
+
           // ファイル作成を再試行
           try {
             await fs.promises.writeFile(fullPath, file.content || '');
@@ -207,7 +216,7 @@ export const syncProjectFiles = async (projectName: string, files: Array<{ path:
         }
       }
     }
-    
+
     //console.log('File sync completed, verifying filesystem state...');
     /*
     // 最終的なファイルシステム状態を確認
@@ -225,9 +234,9 @@ export const syncProjectFiles = async (projectName: string, files: Array<{ path:
 
 // 単一ファイルをファイルシステムに同期（作成・更新・削除対応）
 export const syncFileToFileSystem = async (
-  projectName: string, 
-  filePath: string, 
-  content: string | null, 
+  projectName: string,
+  filePath: string,
+  content: string | null,
   operation?: 'create' | 'update' | 'delete',
   bufferContent?: ArrayBuffer
 ) => {
@@ -238,7 +247,7 @@ export const syncFileToFileSystem = async (
 
   const projectDir = getProjectDir(projectName);
   const fullPath = `${projectDir}${filePath}`;
-  
+
   try {
     // プロジェクトディレクトリの存在を確認
     try {
@@ -246,7 +255,7 @@ export const syncFileToFileSystem = async (
     } catch {
       await fs.promises.mkdir(projectDir, { recursive: true } as any);
     }
-    
+
     // 削除操作の場合
     if (operation === 'delete' || content === null) {
       try {
@@ -255,13 +264,13 @@ export const syncFileToFileSystem = async (
         // ファイルを削除
         await fs.promises.unlink(fullPath);
         console.log(`[syncFileToFileSystem] Successfully deleted: ${fullPath}`);
-        
+
         // ファイル削除通知
         notifyFileChange({
           path: filePath,
           projectName,
           type: 'delete',
-          timestamp: Date.now()
+          timestamp: Date.now(),
         });
       } catch (deleteError) {
         // ファイルが存在しない場合は警告のみ
@@ -280,23 +289,26 @@ export const syncFileToFileSystem = async (
         try {
           await fs.promises.mkdir(fullPath, { recursive: true } as any);
           console.log(`[syncFileToFileSystem] Successfully created directory: ${fullPath}`);
-          
+
           // ディレクトリ作成通知
           notifyFileChange({
             path: filePath,
             projectName,
             type: operation || 'create',
-            timestamp: Date.now()
+            timestamp: Date.now(),
           });
         } catch (dirError) {
           if ((dirError as any).code !== 'EEXIST') {
-            console.error(`[syncFileToFileSystem] Failed to create directory ${fullPath}:`, dirError);
+            console.error(
+              `[syncFileToFileSystem] Failed to create directory ${fullPath}:`,
+              dirError
+            );
             throw dirError;
           }
         }
         return;
       }
-      
+
       // 既存のパスがディレクトリでないことを確認
       try {
         const existingStat = await fs.promises.stat(fullPath);
@@ -307,7 +319,7 @@ export const syncFileToFileSystem = async (
       } catch {
         // ファイルが存在しない場合は続行
       }
-      
+
       // 親ディレクトリが存在することを確認
       const parentDir = fullPath.substring(0, fullPath.lastIndexOf('/'));
       if (parentDir && parentDir !== projectDir) {
@@ -317,7 +329,7 @@ export const syncFileToFileSystem = async (
           await fs.promises.mkdir(parentDir, { recursive: true } as any);
         }
       }
-      
+
       // ファイルを書き込み（バイナリ対応）
       if (typeof content === 'string') {
         await fs.promises.writeFile(fullPath, content);
@@ -328,7 +340,7 @@ export const syncFileToFileSystem = async (
         await fs.promises.writeFile(fullPath, '');
       }
       console.log(`[syncFileToFileSystem] Successfully synced: ${fullPath}`);
-      
+
       // ファイル変更通知
       notifyFileChange({
         path: filePath,
@@ -337,10 +349,10 @@ export const syncFileToFileSystem = async (
         content: typeof content === 'string' ? content : undefined,
         bufferContent: bufferContent,
         isBufferArray: !!bufferContent,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
     }
-    
+
     // ファイルシステムの同期を確実にする
     if ((fs as any).sync) {
       try {
@@ -356,7 +368,11 @@ export const syncFileToFileSystem = async (
 };
 
 // 後方互換性のためのオーバーロード関数（削除予定）
-export const syncFileToFileSystemLegacy = async (projectName: string, filePath: string, content: string) => {
+export const syncFileToFileSystemLegacy = async (
+  projectName: string,
+  filePath: string,
+  content: string
+) => {
   return syncFileToFileSystem(projectName, filePath, content, 'update');
 };
 
@@ -364,18 +380,18 @@ export const syncFileToFileSystemLegacy = async (projectName: string, filePath: 
 const removeDirectoryRecursive = async (fs: any, dirPath: string): Promise<void> => {
   try {
     const files = await fs.promises.readdir(dirPath);
-    
+
     for (const file of files) {
       const filePath = `${dirPath}/${file}`;
       const stat = await fs.promises.stat(filePath);
-      
+
       if (stat.isDirectory()) {
         await removeDirectoryRecursive(fs, filePath);
       } else {
         await fs.promises.unlink(filePath);
       }
     }
-    
+
     await fs.promises.rmdir(dirPath);
   } catch {
     // エラーは無視
@@ -386,7 +402,7 @@ const removeDirectoryRecursive = async (fs: any, dirPath: string): Promise<void>
 export const ensureDirectoryExists = async (fs: FS, dirPath: string): Promise<void> => {
   const pathSegments = dirPath.split('/').filter(segment => segment !== '');
   let currentPath = '';
-  
+
   for (const segment of pathSegments) {
     currentPath += '/' + segment;
     try {
@@ -420,7 +436,7 @@ export const debugFileSystem = async () => {
 
   try {
     console.log('=== FileSystem Debug ===');
-    
+
     // ルートディレクトリの確認
     try {
       const rootFiles = await fs.promises.readdir('/');
@@ -428,7 +444,7 @@ export const debugFileSystem = async () => {
     } catch (error) {
       console.log('Failed to read root directory:', error);
     }
-    
+
     // /projectsディレクトリの確認
     try {
       const projectsFiles = await fs.promises.readdir('/projects');
@@ -436,7 +452,7 @@ export const debugFileSystem = async () => {
     } catch (error) {
       console.log('/projects directory does not exist or cannot be read:', error);
     }
-    
+
     console.log('=== End Debug ===');
   } catch (error) {
     console.error('Debug failed:', error);

@@ -34,23 +34,32 @@ export const SYSTEM_PROMPT = `あなたは優秀なコード編集アシスタ�
 必ずマークダウン形式で、上記の構造を守って回答してください。`;
 
 export const ASK_PROMPT_TEMPLATE = (
-  files: Array<{path: string, content: string}>,
+  files: Array<{ path: string; content: string }>,
   question: string,
-  previousMessages?: Array<{type: string, content: string, mode?: string}>
+  previousMessages?: Array<{ type: string; content: string; mode?: string }>
 ) => {
   // 直近5件のメッセージをまとめる
-  const history = previousMessages && previousMessages.length > 0
-    ? previousMessages.slice(-5).map(msg =>
-        `### ${msg.type === 'user' ? 'ユーザー' : 'アシスタント'}: ${msg.mode === 'edit' ? '編集' : '会話'}\n${msg.content}`
-      ).join('\n\n')
-    : '';
+  const history =
+    previousMessages && previousMessages.length > 0
+      ? previousMessages
+          .slice(-5)
+          .map(
+            msg =>
+              `### ${msg.type === 'user' ? 'ユーザー' : 'アシスタント'}: ${msg.mode === 'edit' ? '編集' : '会話'}\n${msg.content}`
+          )
+          .join('\n\n')
+      : '';
 
-  const fileContexts = files.map(file => `
+  const fileContexts = files
+    .map(
+      file => `
 ## ファイル: ${file.path}
 <AI_EDIT_CONTENT_START:${file.path}>
 ${file.content}
 <AI_EDIT_CONTENT_END:${file.path}>
-`).join('\n');
+`
+    )
+    .join('\n');
 
   return `あなたは優秀なコードアシスタントです。ユーザーの質問に対して、ファイル内容や履歴を参考に、分かりやすく日本語で回答してください。
 
@@ -66,23 +75,32 @@ ${question}
 };
 
 export const EDIT_PROMPT_TEMPLATE = (
-  files: Array<{path: string, content: string}>,
+  files: Array<{ path: string; content: string }>,
   instruction: string,
-  previousMessages?: Array<{type: string, content: string, mode?: string}>
+  previousMessages?: Array<{ type: string; content: string; mode?: string }>
 ) => {
   // 直近5件のメッセージをまとめる
-  const history = previousMessages && previousMessages.length > 0
-    ? previousMessages.slice(-5).map(msg =>
-        `### ${msg.type === 'user' ? 'ユーザー' : 'アシスタント'}: ${msg.mode === 'edit' ? '編集' : '会話'}\n${msg.content}`
-      ).join('\n\n')
-    : '';
+  const history =
+    previousMessages && previousMessages.length > 0
+      ? previousMessages
+          .slice(-5)
+          .map(
+            msg =>
+              `### ${msg.type === 'user' ? 'ユーザー' : 'アシスタント'}: ${msg.mode === 'edit' ? '編集' : '会話'}\n${msg.content}`
+          )
+          .join('\n\n')
+      : '';
 
-  const fileContexts = files.map(file => `
+  const fileContexts = files
+    .map(
+      file => `
 ## ファイル: ${file.path}
 <AI_EDIT_CONTENT_START:${file.path}>
 ${file.content}
 <AI_EDIT_CONTENT_END:${file.path}>
-`).join('\n');
+`
+    )
+    .join('\n');
 
   return `${SYSTEM_PROMPT}
 

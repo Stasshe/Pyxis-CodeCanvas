@@ -1,5 +1,3 @@
-
-
 import React, { useRef } from 'react';
 import { DiffEditor } from '@monaco-editor/react';
 
@@ -15,9 +13,6 @@ export interface SingleFileDiff {
 export interface DiffTabProps {
   diffs: SingleFileDiff[];
 }
-
-
-
 
 const DiffTab: React.FC<DiffTabProps> = ({ diffs }) => {
   // 各diff領域へのref
@@ -39,10 +34,37 @@ const DiffTab: React.FC<DiffTabProps> = ({ diffs }) => {
   const showFileList = diffs.length > 1;
 
   return (
-    <div style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'row', overflow: 'hidden' }}>
+    <div
+      style={{
+        height: '100%',
+        width: '100%',
+        display: 'flex',
+        flexDirection: 'row',
+        overflow: 'hidden',
+      }}
+    >
       {showFileList && (
-        <div style={{ width: 120, background: '#23272e', color: '#d4d4d4', borderRight: '1px solid #333', padding: '4px 0', overflowY: 'auto' }}>
-          <div style={{ fontWeight: 'bold', fontSize: 11, padding: '0 8px 4px 8px', borderBottom: '1px solid #333', letterSpacing: 0.5 }}>ファイル一覧</div>
+        <div
+          style={{
+            width: 120,
+            background: '#23272e',
+            color: '#d4d4d4',
+            borderRight: '1px solid #333',
+            padding: '4px 0',
+            overflowY: 'auto',
+          }}
+        >
+          <div
+            style={{
+              fontWeight: 'bold',
+              fontSize: 11,
+              padding: '0 8px 4px 8px',
+              borderBottom: '1px solid #333',
+              letterSpacing: 0.5,
+            }}
+          >
+            ファイル一覧
+          </div>
           {diffs.map((diff, idx) => (
             <div
               key={idx}
@@ -68,23 +90,40 @@ const DiffTab: React.FC<DiffTabProps> = ({ diffs }) => {
           ))}
         </div>
       )}
-      <div style={{ flex: 1, height: '100%', overflowY: 'auto', paddingLeft: showFileList ? 0 : 0 }}>
+      <div
+        style={{ flex: 1, height: '100%', overflowY: 'auto', paddingLeft: showFileList ? 0 : 0 }}
+      >
         {diffs.map((diff, idx) => {
           const showLatter = diff.latterFullPath !== diff.formerFullPath;
           return (
             <div
               key={idx}
-              ref={el => { diffRefs.current[idx] = el ?? null; }}
+              ref={el => {
+                diffRefs.current[idx] = el ?? null;
+              }}
               style={{ marginBottom: 24, borderBottom: '1px solid #333', scrollMarginTop: 24 }}
             >
-              <div style={{ padding: '8px 16px', background: '#23272e', color: '#d4d4d4', fontSize: 13, display: 'flex', justifyContent: 'space-between' }}>
+              <div
+                style={{
+                  padding: '8px 16px',
+                  background: '#23272e',
+                  color: '#d4d4d4',
+                  fontSize: 13,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                }}
+              >
                 <div>
                   <span style={{ fontWeight: 'bold' }}>{diff.formerFullPath}</span>
-                  <span style={{ marginLeft: 8, color: '#aaa' }}>@{diff.formerCommitId?.slice(0, 6)}</span>
+                  <span style={{ marginLeft: 8, color: '#aaa' }}>
+                    @{diff.formerCommitId?.slice(0, 6)}
+                  </span>
                 </div>
                 <div>
                   {showLatter && <span style={{ fontWeight: 'bold' }}>{diff.latterFullPath}</span>}
-                  <span style={{ marginLeft: showLatter ? 8 : 0, color: '#aaa' }}>@{diff.latterCommitId?.slice(0, 6)}</span>
+                  <span style={{ marginLeft: showLatter ? 8 : 0, color: '#aaa' }}>
+                    @{diff.latterCommitId?.slice(0, 6)}
+                  </span>
                 </div>
               </div>
               <div style={{ height: 360, minHeight: 0 }}>

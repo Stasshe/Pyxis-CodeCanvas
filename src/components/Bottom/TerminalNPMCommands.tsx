@@ -8,7 +8,7 @@ export async function handleNPMCommand(
   writeOutput: (output: string) => Promise<void>
 ) {
   if (!npmCommandsRef.current || !args[0]) {
-    await writeOutput("npm: missing command");
+    await writeOutput('npm: missing command');
     return;
   }
   const npmCmd = args[0];
@@ -18,7 +18,7 @@ export async function handleNPMCommand(
       const initResult = await npmCommandsRef.current.init(force);
       await writeOutput(initResult);
       break;
-      
+
     case 'install':
     case 'i':
       if (args[1]) {
@@ -33,7 +33,7 @@ export async function handleNPMCommand(
         await writeOutput(installResult);
       }
       break;
-      
+
     case 'uninstall':
     case 'remove':
     case 'rm':
@@ -44,13 +44,13 @@ export async function handleNPMCommand(
         await writeOutput('npm uninstall: missing package name');
       }
       break;
-      
+
     case 'list':
     case 'ls':
       const listResult = await npmCommandsRef.current.list();
       await writeOutput(listResult);
       break;
-      
+
     case 'run':
       if (args[1]) {
         const runResult = await npmCommandsRef.current.run(args[1]);
@@ -59,7 +59,7 @@ export async function handleNPMCommand(
         await writeOutput('npm run: missing script name');
       }
       break;
-      
+
     default:
       await writeOutput(`npm: '${npmCmd}' is not a supported npm command`);
       break;

@@ -63,24 +63,35 @@ function avgLineLength(text: string): number {
 }
 
 const CharCountDetails: React.FC<CharCountDetailsProps> = ({ content }) => {
-  const stats = useMemo(() => ({
-    lines: countLines(content),
-    words: countWords(content),
-    chars: countChars(content),
-    charsNoSpaces: countCharsNoSpaces(content),
-    zenkaku: countZenkaku(content),
-    hankaku: countHankaku(content),
-    digits: countDigits(content),
-    alpha: countAlpha(content),
-    symbols: countSymbols(content),
-    spaces: countSpaces(content),
-    newlines: countNewlines(content),
-    maxLineLen: maxLineLength(content),
-    avgLineLen: avgLineLength(content),
-  }), [content]);
+  const stats = useMemo(
+    () => ({
+      lines: countLines(content),
+      words: countWords(content),
+      chars: countChars(content),
+      charsNoSpaces: countCharsNoSpaces(content),
+      zenkaku: countZenkaku(content),
+      hankaku: countHankaku(content),
+      digits: countDigits(content),
+      alpha: countAlpha(content),
+      symbols: countSymbols(content),
+      spaces: countSpaces(content),
+      newlines: countNewlines(content),
+      maxLineLen: maxLineLength(content),
+      avgLineLen: avgLineLength(content),
+    }),
+    [content]
+  );
 
   return (
-    <div style={{ padding: '10px', background: 'rgba(30,30,30,0.95)', color: '#d4d4d4', borderRadius: 8, fontSize: 14 }}>
+    <div
+      style={{
+        padding: '10px',
+        background: 'rgba(30,30,30,0.95)',
+        color: '#d4d4d4',
+        borderRadius: 8,
+        fontSize: 14,
+      }}
+    >
       <div>行数: {stats.lines}</div>
       <div>単語数: {stats.words}</div>
       <div>文字数: {stats.chars}</div>

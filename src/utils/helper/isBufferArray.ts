@@ -6,6 +6,11 @@ export function isBufferArray(obj: any): boolean {
   if (typeof ArrayBuffer !== 'undefined' && obj instanceof ArrayBuffer) return true;
   if (typeof Uint8Array !== 'undefined' && obj instanceof Uint8Array) return true;
   // Node.js Buffer
-  if (typeof Buffer !== 'undefined' && typeof Buffer.isBuffer === 'function' && Buffer.isBuffer(obj)) return true;
+  if (
+    typeof Buffer !== 'undefined' &&
+    typeof Buffer.isBuffer === 'function' &&
+    Buffer.isBuffer(obj)
+  )
+    return true;
   return false;
 }

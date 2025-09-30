@@ -22,7 +22,7 @@ export default function DebugConsole({ height, isActive }: DebugConsoleProps) {
       // クライアントサイドのみrequire
       const { Terminal: XTerm } = require('@xterm/xterm');
       const { FitAddon } = require('@xterm/addon-fit');
-      
+
       const term = new XTerm({
         theme: {
           background: colors.cardBg,
@@ -40,9 +40,9 @@ export default function DebugConsole({ height, isActive }: DebugConsoleProps) {
       // FitAddonを追加
       const fitAddon = new FitAddon();
       term.loadAddon(fitAddon);
-      
+
       term.open(xtermRef.current);
-      
+
       // 確実な自動スクロール関数
       const scrollToBottom = () => {
         try {
@@ -53,16 +53,16 @@ export default function DebugConsole({ height, isActive }: DebugConsoleProps) {
               const viewportHeight = term.rows;
               const baseY = buffer.baseY;
               const cursorY = buffer.cursorY;
-              
+
               const absoluteCursorLine = baseY + cursorY;
               const currentScrollTop = buffer.viewportY;
               const targetScrollTop = Math.max(0, absoluteCursorLine - viewportHeight + 1);
               const scrollDelta = targetScrollTop - currentScrollTop;
-              
+
               if (scrollDelta > 0) {
                 term.scrollLines(scrollDelta);
               }
-              
+
               term.scrollToBottom();
             } catch (error) {
               term.scrollToBottom();
@@ -72,24 +72,24 @@ export default function DebugConsole({ height, isActive }: DebugConsoleProps) {
           term.scrollToBottom();
         }
       };
-      
+
       // サイズを調整（複数段階で確実に）
       setTimeout(() => {
         fitAddon.fit();
-        
+
         setTimeout(() => {
           term.scrollToBottom();
-          
+
           setTimeout(() => {
             fitAddon.fit();
             term.scrollToBottom();
           }, 100);
         }, 50);
       }, 100);
-      
+
       term.writeln('\x1b[1;36m[Debug Console]\x1b[0m デバッグ出力はこちらに表示されます。');
       scrollToBottom();
-      
+
       // 後方互換性のためのログリスナー（従来のlog()メソッド用）
       DebugConsoleAPI.onLog((msg: string) => {
         termRef.current?.writeln(msg);
@@ -99,30 +99,30 @@ export default function DebugConsole({ height, isActive }: DebugConsoleProps) {
       // 新しいアクション型リスナー（高度なターミナル制御用）
       DebugConsoleAPI.onAction((action: TerminalAction) => {
         if (!termRef.current) return;
-        
+
         switch (action.type) {
           case 'log':
             termRef.current.writeln(action.data);
             scrollToBottom();
             break;
-            
+
           case 'clear':
             termRef.current.clear();
             break;
-            
+
           case 'clearLine':
             termRef.current.write('\r\x1b[K'); // カーソルを行頭に移動して行をクリア
             break;
-            
+
           case 'write':
             termRef.current.write(action.data);
             break;
-            
+
           case 'writeln':
             termRef.current.writeln(action.data);
             scrollToBottom();
             break;
-            
+
           case 'moveCursor':
             if (action.data.absolute) {
               // 絶対位置への移動
@@ -140,32 +140,31 @@ export default function DebugConsole({ height, isActive }: DebugConsoleProps) {
               }
             }
             break;
-            
+
           case 'deleteLines':
             // 指定行数を削除
             termRef.current.write(`\x1b[${action.data}M`);
             break;
-            
+
           case 'insertLines':
             // 指定行数を挿入
             termRef.current.write(`\x1b[${action.data}L`);
             break;
-            
+
           case 'setTitle':
             // ターミナルタイトルを設定
             termRef.current.write(`\x1b]0;${action.data}\x07`);
             break;
-            
+
           case 'bell':
             // ベル音（xtermでは画面の点滅など）
             termRef.current.write('\x07');
             break;
-            
+
           default:
             console.warn('Unknown terminal action:', action.type);
         }
       });
-      
 
       // $プロンプト表示関数
       const showPrompt = () => {
@@ -212,11 +211,11 @@ export default function DebugConsole({ height, isActive }: DebugConsoleProps) {
             break;
         }
       });
-      
+
       termRef.current = term;
       fitAddonRef.current = fitAddon;
     }
-    
+
     // アクティブ時にリサイズとスクロール
     if (isActive && fitAddonRef.current && termRef.current) {
       setTimeout(() => {
@@ -231,7 +230,7 @@ export default function DebugConsole({ height, isActive }: DebugConsoleProps) {
     if (fitAddonRef.current && termRef.current) {
       setTimeout(() => {
         fitAddonRef.current?.fit();
-        
+
         setTimeout(() => {
           termRef.current?.scrollToBottom();
         }, 100);
@@ -253,7 +252,7 @@ export default function DebugConsole({ height, isActive }: DebugConsoleProps) {
         fontSize: 13,
         overflow: 'hidden',
         touchAction: 'none',
-        contain: 'layout style paint'
+        contain: 'layout style paint',
       }}
     />
   );

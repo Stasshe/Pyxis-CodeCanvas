@@ -5,7 +5,7 @@ export async function loadFromCDN(moduleName: string, fs: any): Promise<string> 
   const cdnUrls = [
     `https://unpkg.com/${moduleName}`,
     `https://cdn.skypack.dev/${moduleName}`,
-    `https://jspm.dev/${moduleName}`
+    `https://jspm.dev/${moduleName}`,
   ];
 
   console.log(`[CDNLoader] Attempting to load ${moduleName} from CDN...`);
@@ -19,7 +19,11 @@ export async function loadFromCDN(moduleName: string, fs: any): Promise<string> 
 
         // BottomPanelへのcheck出力
         if (pushMsgOutPanel) {
-          pushMsgOutPanel(`✅ CDNから「${moduleName}」をロードしました: ${url}`, 'check', 'CDNLoader');
+          pushMsgOutPanel(
+            `✅ CDNから「${moduleName}」をロードしました: ${url}`,
+            'check',
+            'CDNLoader'
+          );
         }
 
         // 仮想ファイルシステムにキャッシュ保存（次回は高速化）
@@ -62,7 +66,7 @@ export async function evaluateModuleCode(
         cwd: () => currentWorkingDirectory,
         platform: 'browser',
         version: 'v16.0.0',
-        versions: { node: '16.0.0' }
+        versions: { node: '16.0.0' },
       },
       Buffer: Buffer,
       setTimeout,
@@ -70,7 +74,7 @@ export async function evaluateModuleCode(
       setInterval,
       clearInterval,
       global: {},
-      window: undefined
+      window: undefined,
     };
 
     // コードを実行

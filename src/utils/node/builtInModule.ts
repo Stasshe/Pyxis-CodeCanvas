@@ -2,15 +2,39 @@ import { getFileSystem } from '@/utils/core/filesystem';
 import pathBrowserify from 'path-browserify';
 import { DebugConsoleAPI } from '@/components/Bottom/DebugConsoleAPI';
 
-  // fs モジュールのエミュレーション
-export function createFSModule(projectDir: string, onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean, isBufferArray?: boolean, bufferContent?: ArrayBuffer) => Promise<void>, unixCommands?: any) {
-    const fs = getFileSystem();
-    if (!fs) {
-        throw new Error("ファイルシステムが初期化されていません");
-    }
-  
+// fs モジュールのエミュレーション
+export function createFSModule(
+  projectDir: string,
+  onFileOperation?: (
+    path: string,
+    type: 'file' | 'folder' | 'delete',
+    content?: string,
+    isNodeRuntime?: boolean,
+    isBufferArray?: boolean,
+    bufferContent?: ArrayBuffer
+  ) => Promise<void>,
+  unixCommands?: any
+) {
+  const fs = getFileSystem();
+  if (!fs) {
+    throw new Error('ファイルシステムが初期化されていません');
+  }
+
   // 共通ロジックを持つヘルパー関数
-  async function handleWriteFile(fs: any, projectDir: string, path: string, data: string, onFileOperation?: (path: string, type: 'file', content?: string, isNodeRuntime?: boolean, isBufferArray?: boolean, bufferContent?: ArrayBuffer) => Promise<void>) {
+  async function handleWriteFile(
+    fs: any,
+    projectDir: string,
+    path: string,
+    data: string,
+    onFileOperation?: (
+      path: string,
+      type: 'file',
+      content?: string,
+      isNodeRuntime?: boolean,
+      isBufferArray?: boolean,
+      bufferContent?: ArrayBuffer
+    ) => Promise<void>
+  ) {
     let fullPath;
     let relativePath;
     if (path.startsWith('/')) {
@@ -52,7 +76,7 @@ export function createFSModule(projectDir: string, onFileOperation?: (path: stri
           // 相対パスの場合
           fullPath = `${projectDir}/${path}`;
         }
-        
+
         console.log(`[fs.readFile] Attempting to read: ${path} -> ${fullPath}`);
         const content = await fs.promises.readFile(fullPath, { encoding: 'utf8' });
         return content as string;
@@ -71,13 +95,17 @@ export function createFSModule(projectDir: string, onFileOperation?: (path: stri
     readFileSync: (path: string, options?: any): any => {
       // ブラウザ環境では真の同期操作は不可能なため、
       // 代わりにPromiseを返すことで非同期として扱う
-      console.warn('⚠️  fs.readFileSync detected: Converting to async operation. Please await the result or use .then()');
+      console.warn(
+        '⚠️  fs.readFileSync detected: Converting to async operation. Please await the result or use .then()'
+      );
       return fsModule.readFile(path, options);
     },
     writeFileSync: (path: string, data: string, options?: any): any => {
       // ブラウザ環境では真の同期操作は不可能なため、
       // 代わりにPromiseを返すことで非同期として扱う
-      console.warn('⚠️  fs.writeFileSync detected: Converting to async operation. Please await the result or use .then()');
+      console.warn(
+        '⚠️  fs.writeFileSync detected: Converting to async operation. Please await the result or use .then()'
+      );
       return fsModule.writeFile(path, data, options);
     },
     existsSync: async (path: string): Promise<boolean> => {
@@ -88,7 +116,7 @@ export function createFSModule(projectDir: string, onFileOperation?: (path: stri
         } else {
           fullPath = `${projectDir}/${path}`;
         }
-        
+
         await fs.promises.stat(fullPath);
         return true;
       } catch {
@@ -106,7 +134,7 @@ export function createFSModule(projectDir: string, onFileOperation?: (path: stri
     },
     mkdir: async (path: string, options?: any): Promise<void> => {
       if (!unixCommands) throw new Error('Unix commands not available');
-      
+
       const recursive = options?.recursive || false;
       await unixCommands.mkdir(path, recursive);
       // unixCommandsが内部でonFileOperationを呼び出すので追加の同期は不要
@@ -122,7 +150,7 @@ export function createFSModule(projectDir: string, onFileOperation?: (path: stri
     },
     unlink: async (path: string): Promise<void> => {
       if (!unixCommands) throw new Error('Unix commands not available');
-      
+
       await unixCommands.rm(path);
       // unixCommandsが内部でonFileOperationを呼び出すので追加の同期は不要
     },
@@ -135,7 +163,7 @@ export function createFSModule(projectDir: string, onFileOperation?: (path: stri
         } catch {
           // ファイルが存在しない場合は空として扱う
         }
-        
+
         // 既存の内容に新しいデータを追加
         const newContent = existingContent + data;
         await fsModule.writeFile(path, newContent);
@@ -155,12 +183,12 @@ export function createFSModule(projectDir: string, onFileOperation?: (path: stri
       } catch (error) {
         throw new Error(`ENOENT: no such file or directory, stat '${path}'`);
       }
-    }
+    },
   };
 
   // fs.promisesプロパティを追加
   (fsModule as any).promises = fsModule;
-  
+
   return fsModule;
 }
 
@@ -182,7 +210,7 @@ export function createOSModule() {
     hostname: () => 'localhost',
     tmpdir: () => '/tmp',
     homedir: () => '/home/user',
-    EOL: '\n'
+    EOL: '\n',
   };
 }
 
@@ -198,12 +226,14 @@ export function createUtilModule() {
     },
     format: (f: string, ...args: any[]): string => {
       let i = 0;
-      return f.replace(/%[sdj%]/g, (x) => {
+      return f.replace(/%[sdj%]/g, x => {
         if (x === '%%') return x;
         if (i >= args.length) return x;
         switch (x) {
-          case '%s': return String(args[i++]);
-          case '%d': return String(Number(args[i++]));
+          case '%s':
+            return String(args[i++]);
+          case '%d':
+            return String(Number(args[i++]));
           case '%j':
             try {
               return JSON.stringify(args[i++]);
@@ -257,7 +287,11 @@ export function createUtilModule() {
       isNull: (obj: any) => obj === null,
       isUndefined: (obj: any) => obj === undefined,
       isSymbol: (obj: any) => typeof obj === 'symbol',
-      isBuffer: (obj: any) => obj && obj.constructor && typeof obj.constructor.isBuffer === 'function' && obj.constructor.isBuffer(obj)
+      isBuffer: (obj: any) =>
+        obj &&
+        obj.constructor &&
+        typeof obj.constructor.isBuffer === 'function' &&
+        obj.constructor.isBuffer(obj),
     },
     toPromise: (fn: Function, ...args: any[]): Promise<any> => {
       return new Promise((resolve, reject) => {
@@ -269,14 +303,14 @@ export function createUtilModule() {
     },
     deprecate: (fn: Function, msg: string): Function => {
       let warned = false;
-      return function(this: any, ...args: any[]) {
+      return function (this: any, ...args: any[]) {
         if (!warned) {
           console.warn('DeprecationWarning:', msg);
           warned = true;
         }
         return fn.apply(this, args);
       };
-    }
+    },
   };
 }
 
@@ -374,7 +408,11 @@ export function createHTTPModule() {
     // レスポンス終了
     _end(): void {
       this.complete = true;
-      console.log('[HTTP] Response ended, total data:', this._data.reduce((sum, chunk) => sum + chunk.length, 0), 'bytes');
+      console.log(
+        '[HTTP] Response ended, total data:',
+        this._data.reduce((sum, chunk) => sum + chunk.length, 0),
+        'bytes'
+      );
       this.emit('end');
     }
 
@@ -391,12 +429,24 @@ export function createHTTPModule() {
     }
 
     // 一時停止/再開（互換性のため）
-    pause(): this { return this; }
-    resume(): this { return this; }
-    isPaused(): boolean { return false; }
-    setEncoding(encoding: string): this { return this; }
-    read(): any { return null; }
-    destroy(): this { return this; }
+    pause(): this {
+      return this;
+    }
+    resume(): this {
+      return this;
+    }
+    isPaused(): boolean {
+      return false;
+    }
+    setEncoding(encoding: string): this {
+      return this;
+    }
+    read(): any {
+      return null;
+    }
+    destroy(): this {
+      return this;
+    }
   }
 
   // ClientRequestクラス（リクエスト）
@@ -416,9 +466,9 @@ export function createHTTPModule() {
           this._options = {
             protocol: url.protocol,
             hostname: url.hostname,
-            port: url.port ? parseInt(url.port) : (url.protocol === 'https:' ? 443 : 80),
+            port: url.port ? parseInt(url.port) : url.protocol === 'https:' ? 443 : 80,
             path: url.pathname + url.search,
-            method: 'GET'
+            method: 'GET',
           };
           console.log('[HTTP] Parsed URL:', options, '→', this._options);
         } catch (error) {
@@ -436,8 +486,11 @@ export function createHTTPModule() {
 
       // デフォルトヘッダー
       this._headers = { ...this._options.headers };
-      
-      console.log('[HTTP] ClientRequest created for:', (this._options.hostname || 'localhost') + (this._options.path || '/'));
+
+      console.log(
+        '[HTTP] ClientRequest created for:',
+        (this._options.hostname || 'localhost') + (this._options.path || '/')
+      );
     }
 
     // イベントリスナー管理
@@ -519,7 +572,7 @@ export function createHTTPModule() {
         this.write(data, encoding);
       }
       this._ended = true;
-      
+
       // 非同期でリクエストを送信（次のティックで実行）
       setTimeout(() => {
         this._sendRequest().catch(error => {
@@ -549,13 +602,13 @@ export function createHTTPModule() {
       if (this._aborted) return;
 
       console.log('[HTTP] Starting request...');
-      
+
       try {
         const protocol = this._options.protocol || 'http:';
         const hostname = this._options.hostname || 'localhost';
         const port = this._options.port || (protocol === 'https:' ? 443 : 80);
         const path = this._options.path || '/';
-        
+
         // URLを構築
         const url = `${protocol}//${hostname}${port !== (protocol === 'https:' ? 443 : 80) ? `:${port}` : ''}${path}`;
         console.log('[HTTP] Request URL:', url);
@@ -575,10 +628,14 @@ export function createHTTPModule() {
 
         // Content-Lengthヘッダーを自動設定
         if (body && !this._headers['content-length']) {
-          const bodyLength = body instanceof Uint8Array ? body.byteLength : 
-                           typeof body === 'string' ? new TextEncoder().encode(body).byteLength :
-                           body instanceof ArrayBuffer ? body.byteLength :
-                           0;
+          const bodyLength =
+            body instanceof Uint8Array
+              ? body.byteLength
+              : typeof body === 'string'
+                ? new TextEncoder().encode(body).byteLength
+                : body instanceof ArrayBuffer
+                  ? body.byteLength
+                  : 0;
           this._headers['content-length'] = bodyLength.toString();
         }
 
@@ -589,7 +646,7 @@ export function createHTTPModule() {
         const fetchOptions: RequestInit = {
           method: this._options.method || 'GET',
           headers: this._headers,
-          body: body
+          body: body,
         };
 
         // タイムアウト処理
@@ -603,10 +660,10 @@ export function createHTTPModule() {
         fetchOptions.signal = controller.signal;
 
         console.log('[HTTP] Sending fetch request...');
-        
+
         // リクエスト実行
         const response = await fetch(url, fetchOptions);
-        
+
         console.log('[HTTP] Response received:', response.status, response.statusText);
 
         // IncomingMessageを作成
@@ -635,7 +692,7 @@ export function createHTTPModule() {
             while (true) {
               const { done, value } = await reader.read();
               if (done) break;
-              
+
               if (value) {
                 console.log('[HTTP] Received chunk:', value.length, 'bytes');
                 incomingMessage._addData(value);
@@ -653,7 +710,6 @@ export function createHTTPModule() {
           console.log('[HTTP] No response body');
           incomingMessage._end();
         }
-
       } catch (error) {
         console.error('[HTTP] Request error:', error);
         this.emit('error', error);
@@ -684,7 +740,7 @@ export function createHTTPModule() {
       return {
         listen: () => console.warn('Server.listen is not supported in browser environment'),
         close: () => console.warn('Server.close is not supported in browser environment'),
-        on: () => console.warn('Server events are not supported in browser environment')
+        on: () => console.warn('Server events are not supported in browser environment'),
       };
     },
 
@@ -717,7 +773,7 @@ export function createHTTPModule() {
       405: 'Method Not Allowed',
       500: 'Internal Server Error',
       502: 'Bad Gateway',
-      503: 'Service Unavailable'
+      503: 'Service Unavailable',
     },
 
     // HTTPメソッド定数
@@ -725,7 +781,7 @@ export function createHTTPModule() {
 
     // IncomingMessageとClientRequestクラスをエクスポート
     IncomingMessage,
-    ClientRequest
+    ClientRequest,
   };
 
   return httpModule;
@@ -734,26 +790,26 @@ export function createHTTPModule() {
 // HTTPSモジュールのエミュレーション（HTTPの拡張）
 export function createHTTPSModule() {
   const httpModule = createHTTPModule();
-  
+
   // HTTPSモジュールはHTTPモジュールを拡張
   const httpsModule = {
     ...httpModule,
-    
+
     // HTTPSリクエスト作成（SSL/TLS証明書検証を無効化可能）
     request: (options: any, callback?: Function): any => {
       if (typeof options === 'string') {
         options = new URL(options);
       }
-      
+
       // HTTPSの場合のデフォルト設定
       const httpsOptions = {
         ...options,
         protocol: 'https:',
         port: options.port || 443,
         // ブラウザ環境では証明書検証はブラウザが行う
-        rejectUnauthorized: options.rejectUnauthorized !== false
+        rejectUnauthorized: options.rejectUnauthorized !== false,
       };
-      
+
       return httpModule.request(httpsOptions, callback);
     },
 
@@ -779,7 +835,7 @@ export function createHTTPSModule() {
     },
 
     // グローバルAgent
-    globalAgent: new (class Agent extends httpModule.Agent {})()
+    globalAgent: new (class Agent extends httpModule.Agent {})(),
   };
 
   return httpsModule;
@@ -848,7 +904,7 @@ class BufferEmulation {
   toJSON(): { type: 'Buffer'; data: number[] } {
     return {
       type: 'Buffer',
-      data: Array.from(this._data)
+      data: Array.from(this._data),
     };
   }
 
@@ -894,9 +950,9 @@ const BufferProxy = new Proxy(BufferEmulation, {
         }
         (target as any)[prop] = value;
         return true;
-      }
+      },
     });
-  }
+  },
 });
 
 // グローバルBufferを設定
@@ -921,7 +977,7 @@ export function createReadlineModule() {
     private _crlfDelay: number = 100;
     private _escapeCodeTimeout: number = 500;
     private _tabSize: number = 8;
-    
+
     constructor(options: any = {}) {
       this._input = options.input || process.stdin;
       this._output = options.output || process.stdout;
@@ -933,7 +989,7 @@ export function createReadlineModule() {
       this._crlfDelay = options.crlfDelay || 100;
       this._escapeCodeTimeout = options.escapeCodeTimeout || 500;
       this._tabSize = options.tabSize || 8;
-      
+
       // DebugConsoleからの入力をリッスン
       DebugConsoleAPI.onInput((input: string) => {
         if (this._isWaitingForInput) {
@@ -943,13 +999,13 @@ export function createReadlineModule() {
         }
       });
     }
-    
+
     // 履歴管理
     private _addHistory(line: string): void {
       if (!line || line.trim() === '') return;
-      
+
       console.log(`[readline] Adding to history: "${line}"`);
-      
+
       if (this._removeHistoryDuplicates) {
         const index = this._history.indexOf(line);
         if (index !== -1) {
@@ -957,26 +1013,26 @@ export function createReadlineModule() {
           console.log(`[readline] Removed duplicate from position ${index}`);
         }
       }
-      
+
       this._history.unshift(line);
       if (this._history.length > this._historySize) {
         this._history = this._history.slice(0, this._historySize);
       }
-      
+
       console.log(`[readline] History now has ${this._history.length} items:`, this._history);
     }
-    
+
     // 履歴を取得
     getHistory(): string[] {
       console.log(`[readline] Current history (${this._history.length} items):`, this._history);
       return [...this._history];
     }
-    
+
     // 履歴をクリア
     clearHistory(): void {
       this._history = [];
     }
-    
+
     // イベントリスナーの管理
     on(event: string, listener: Function): this {
       if (!this._listeners.has(event)) {
@@ -985,7 +1041,7 @@ export function createReadlineModule() {
       this._listeners.get(event)!.push(listener);
       return this;
     }
-    
+
     once(event: string, listener: Function): this {
       const onceWrapper = (...args: any[]) => {
         this.removeListener(event, onceWrapper);
@@ -993,7 +1049,7 @@ export function createReadlineModule() {
       };
       return this.on(event, onceWrapper);
     }
-    
+
     // イベントの発火
     emit(event: string, ...args: any[]): boolean {
       const listeners = this._listeners.get(event);
@@ -1009,7 +1065,7 @@ export function createReadlineModule() {
       }
       return false;
     }
-    
+
     // プロンプトの表示
     prompt(preserveCursor?: boolean): void {
       this._isWaitingForInput = true;
@@ -1018,46 +1074,46 @@ export function createReadlineModule() {
       }
       DebugConsoleAPI.write(this._prompt);
     }
-    
+
     // プロンプトの設定
     setPrompt(prompt: string): void {
       this._prompt = prompt;
     }
-    
+
     // プロンプトを取得
     getPrompt(): string {
       return this._prompt;
     }
-    
+
     // 質問（非同期）
     question(query: string, callback?: (answer: string) => void): void {
       if (callback) {
         DebugConsoleAPI.write(query);
         this._isWaitingForInput = true;
-        
+
         const onLine = (answer: string) => {
           this.removeListener('line', onLine);
           // 履歴に追加
           this._addHistory(answer);
           callback(answer);
         };
-        
+
         this.on('line', onLine);
       } else {
         // Promiseを返す（Node.js 17+の動作）
-        return new Promise((resolve) => {
+        return new Promise(resolve => {
           this.question(query, resolve);
         }) as any;
       }
     }
-    
+
     // 質問（Promise版）
     questionAsync(query: string): Promise<string> {
-      return new Promise((resolve) => {
+      return new Promise(resolve => {
         this.question(query, resolve);
       });
     }
-    
+
     // リスナーの削除
     removeListener(event: string, listener: Function): this {
       const listeners = this._listeners.get(event);
@@ -1069,7 +1125,7 @@ export function createReadlineModule() {
       }
       return this;
     }
-    
+
     // 全てのリスナーを削除
     removeAllListeners(event?: string): this {
       if (event) {
@@ -1079,20 +1135,20 @@ export function createReadlineModule() {
       }
       return this;
     }
-    
+
     // リスナーの数を取得
     listenerCount(event: string): number {
       const listeners = this._listeners.get(event);
       return listeners ? listeners.length : 0;
     }
-    
+
     // インターフェースを閉じる
     close(): void {
       this._listeners.clear();
       this._isWaitingForInput = false;
       this.emit('close');
     }
-    
+
     // 一行書き込み
     write(data: string, key?: any): void {
       if (key && key.ctrl && key.name === 'c') {
@@ -1101,14 +1157,14 @@ export function createReadlineModule() {
       }
       DebugConsoleAPI.write(data);
     }
-    
+
     // カーソル位置を取得
     getCursorPos(): { rows: number; cols: number } {
       // ブラウザ環境では実際のカーソル位置は取得困難なので、
       // ダミーの値を返す
       return { rows: 1, cols: this._prompt.length };
     }
-    
+
     // 行をクリア
     clearLine(dir: number = 0): void {
       // dir: -1 (left), 0 (entire), 1 (right)
@@ -1124,7 +1180,7 @@ export function createReadlineModule() {
           break;
       }
     }
-    
+
     // カーソルを移動
     cursorTo(x: number, y?: number): void {
       if (y !== undefined) {
@@ -1133,7 +1189,7 @@ export function createReadlineModule() {
         DebugConsoleAPI.write(`\x1b[${x + 1}G`);
       }
     }
-    
+
     // カーソルを相対移動
     moveCursor(dx: number, dy: number): void {
       if (dx < 0) {
@@ -1141,28 +1197,28 @@ export function createReadlineModule() {
       } else if (dx > 0) {
         DebugConsoleAPI.write(`\x1b[${dx}C`);
       }
-      
+
       if (dy < 0) {
         DebugConsoleAPI.write(`\x1b[${Math.abs(dy)}A`);
       } else if (dy > 0) {
         DebugConsoleAPI.write(`\x1b[${dy}B`);
       }
     }
-    
+
     // 一時停止
     pause(): this {
       this._isWaitingForInput = false;
       this.emit('pause');
       return this;
     }
-    
+
     // 再開
     resume(): this {
       this.emit('resume');
       return this;
     }
   }
-  
+
   // カーソル制御関数（グローバル）
   const cursorTo = (stream: any, x: number, y?: number): boolean => {
     try {
@@ -1178,7 +1234,7 @@ export function createReadlineModule() {
       return false;
     }
   };
-  
+
   const moveCursor = (stream: any, dx: number, dy: number): boolean => {
     try {
       DebugConsoleAPI.moveCursor(dx, dy);
@@ -1188,7 +1244,7 @@ export function createReadlineModule() {
       return false;
     }
   };
-  
+
   const clearLine = (stream: any, dir: number = 0): boolean => {
     try {
       DebugConsoleAPI.clearLine();
@@ -1198,7 +1254,7 @@ export function createReadlineModule() {
       return false;
     }
   };
-  
+
   const clearScreenDown = (stream: any): boolean => {
     try {
       DebugConsoleAPI.write('\x1b[0J');
@@ -1208,32 +1264,32 @@ export function createReadlineModule() {
       return false;
     }
   };
-  
+
   return {
     // インターフェースの作成
     createInterface: (options: any): Interface => {
       return new Interface(options);
     },
-    
+
     // Interface クラスをエクスポート
     Interface: Interface,
-    
+
     // カーソル制御関数
     cursorTo,
     moveCursor,
     clearLine,
     clearScreenDown,
-    
+
     // 互換性のための簡単な関数
     question: (query: string): Promise<string> => {
-      return new Promise((resolve) => {
+      return new Promise(resolve => {
         const rl = new Interface({});
         rl.question(query, (answer: string) => {
           rl.close();
           resolve(answer);
         });
       });
-    }
+    },
   };
 }
 
@@ -1244,7 +1300,7 @@ export async function flushFileSystemCache(fs: any): Promise<void> {
     if (fs && fs.sync) {
       await fs.sync();
     }
-    
+
     // ファイルシステムの強制同期のため短縮した遅延
     await new Promise(resolve => setTimeout(resolve, 100));
   } catch (error) {

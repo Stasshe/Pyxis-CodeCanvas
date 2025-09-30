@@ -30,7 +30,7 @@ class ProjectDB {
         resolve();
       };
 
-      request.onupgradeneeded = (event) => {
+      request.onupgradeneeded = event => {
         const db = (event.target as IDBOpenDBRequest).result;
 
         // プロジェクトストア
@@ -188,7 +188,7 @@ class ProjectDB {
       const index = fileStore.index('projectId');
       const request = index.openCursor(IDBKeyRange.only(projectId));
 
-      request.onsuccess = (event) => {
+      request.onsuccess = event => {
         const cursor = (event.target as IDBRequest).result;
         if (cursor) {
           cursor.delete();
@@ -197,46 +197,49 @@ class ProjectDB {
       };
 
       transaction.onerror = () => reject(transaction.error);
-        transaction.oncomplete = async () => {
-          // Lightning-FS上のディレクトリも削除
-          if (projectName) {
-            try {
-              const { getFileSystem } = await import('./filesystem');
-              const fs = getFileSystem();
-              const projectDir = `/projects/${projectName}`;
-              // removeDirectoryRecursiveはfilesystem.tsでexportされていないので、ここで再定義
-              async function removeDirectoryRecursive(fs: any, dirPath: string): Promise<void> {
-                try {
-                  const files = await fs.promises.readdir(dirPath);
-                  for (const file of files) {
-                    const filePath = `${dirPath}/${file}`;
-                    const stat = await fs.promises.stat(filePath);
-                    if (stat.isDirectory()) {
-                      await removeDirectoryRecursive(fs, filePath);
-                    } else {
-                      await fs.promises.unlink(filePath);
-                    }
+      transaction.oncomplete = async () => {
+        // Lightning-FS上のディレクトリも削除
+        if (projectName) {
+          try {
+            const { getFileSystem } = await import('./filesystem');
+            const fs = getFileSystem();
+            const projectDir = `/projects/${projectName}`;
+            // removeDirectoryRecursiveはfilesystem.tsでexportされていないので、ここで再定義
+            async function removeDirectoryRecursive(fs: any, dirPath: string): Promise<void> {
+              try {
+                const files = await fs.promises.readdir(dirPath);
+                for (const file of files) {
+                  const filePath = `${dirPath}/${file}`;
+                  const stat = await fs.promises.stat(filePath);
+                  if (stat.isDirectory()) {
+                    await removeDirectoryRecursive(fs, filePath);
+                  } else {
+                    await fs.promises.unlink(filePath);
                   }
-                  await fs.promises.rmdir(dirPath);
-                  // 削除成功ログ
-                  console.log(`[deleteProject] Removed directory: ${dirPath}`);
-                } catch (err) {
-                  // 削除失敗時は警告ログ
-                  console.warn(`[deleteProject] Failed to remove directory: ${dirPath}`, err);
-                  throw err; // 失敗時は例外を投げる
                 }
+                await fs.promises.rmdir(dirPath);
+                // 削除成功ログ
+                console.log(`[deleteProject] Removed directory: ${dirPath}`);
+              } catch (err) {
+                // 削除失敗時は警告ログ
+                console.warn(`[deleteProject] Failed to remove directory: ${dirPath}`, err);
+                throw err; // 失敗時は例外を投げる
               }
-              await removeDirectoryRecursive(fs, projectDir);
-              if (fs && typeof (fs as any).sync === 'function') {
-                await (fs as any).sync();
-                console.log('[deleteProject] Lightning-FS cache flushed');
-              }
-            } catch (fsError) {
-              console.warn(`[deleteProject] Failed to remove project directory from Lightning-FS`, fsError);
             }
+            await removeDirectoryRecursive(fs, projectDir);
+            if (fs && typeof (fs as any).sync === 'function') {
+              await (fs as any).sync();
+              console.log('[deleteProject] Lightning-FS cache flushed');
+            }
+          } catch (fsError) {
+            console.warn(
+              `[deleteProject] Failed to remove project directory from Lightning-FS`,
+              fsError
+            );
           }
-          resolve();
-        };
+        }
+        resolve();
+      };
     });
   }
 
@@ -267,7 +270,12 @@ class ProjectDB {
         existingFile.isBufferArray = true;
         existingFile.bufferContent = bufferContent;
         existingFile.content = '';
-        console.log('[DB][createFile] Save bufferContent (update):', existingFile.path, existingFile.bufferContent instanceof ArrayBuffer, existingFile.bufferContent?.byteLength);
+        console.log(
+          '[DB][createFile] Save bufferContent (update):',
+          existingFile.path,
+          existingFile.bufferContent instanceof ArrayBuffer,
+          existingFile.bufferContent?.byteLength
+        );
       } else {
         existingFile.isBufferArray = false;
         existingFile.content = content;
@@ -293,7 +301,12 @@ class ProjectDB {
     };
 
     if (isBufferArray) {
-      console.log('[DB][createFile] Save bufferContent (new):', file.path, file.bufferContent instanceof ArrayBuffer, file.bufferContent?.byteLength);
+      console.log(
+        '[DB][createFile] Save bufferContent (new):',
+        file.path,
+        file.bufferContent instanceof ArrayBuffer,
+        file.bufferContent?.byteLength
+      );
     }
     await this.saveFile(file);
     // ファイル作成を通知
@@ -304,22 +317,24 @@ class ProjectDB {
   // ファイル変更通知ヘルパーメソッド
   private notifyFileChangeFromFile(file: ProjectFile, type: 'create' | 'update' | 'delete') {
     // プロジェクト名を取得するためにプロジェクトを検索（簡易実装）
-    this.getProjects().then(projects => {
-      const project = projects.find(p => p.id === file.projectId);
-      if (project) {
-        notifyFileChange({
-          path: file.path,
-          projectName: project.name,
-          type,
-          content: file.isBufferArray ? undefined : file.content,
-          bufferContent: file.isBufferArray ? file.bufferContent : undefined,
-          isBufferArray: file.isBufferArray,
-          timestamp: Date.now()
-        });
-      }
-    }).catch(error => {
-      console.error('[DB] Error notifying file change:', error);
-    });
+    this.getProjects()
+      .then(projects => {
+        const project = projects.find(p => p.id === file.projectId);
+        if (project) {
+          notifyFileChange({
+            path: file.path,
+            projectName: project.name,
+            type,
+            content: file.isBufferArray ? undefined : file.content,
+            bufferContent: file.isBufferArray ? file.bufferContent : undefined,
+            isBufferArray: file.isBufferArray,
+            timestamp: Date.now(),
+          });
+        }
+      })
+      .catch(error => {
+        console.error('[DB] Error notifying file change:', error);
+      });
   }
 
   async saveFile(file: ProjectFile): Promise<void> {
@@ -352,18 +367,17 @@ class ProjectDB {
         this.notifyFileChangeFromFile(file, 'update');
         resolve();
       };
-      
+
       // トランザクション完了後に追加の同期処理
       transaction.oncomplete = () => {
         // IndexedDBの変更を確実にフラッシュ
-        setTimeout(() => {
-        }, 50);
+        setTimeout(() => {}, 50);
       };
     });
   }
 
   async getProjectFiles(projectId: string): Promise<ProjectFile[]> {
-  return new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) => {
       if (!this.db) {
         console.error('[DB] Database not initialized in getProjectFiles');
         reject(new Error('Database not initialized'));
@@ -388,7 +402,12 @@ class ProjectDB {
             bufferContent = f.bufferContent;
           }
           if (f.isBufferArray) {
-            console.log('[DB][getProjectFiles] Load bufferContent:', f.path, bufferContent instanceof ArrayBuffer, bufferContent?.byteLength);
+            console.log(
+              '[DB][getProjectFiles] Load bufferContent:',
+              f.path,
+              bufferContent instanceof ArrayBuffer,
+              bufferContent?.byteLength
+            );
           }
           return {
             ...f,
@@ -415,13 +434,13 @@ class ProjectDB {
         const transaction = this.db.transaction(['files'], 'readonly');
         const store = transaction.objectStore('files');
         const getRequest = store.get(fileId);
-        
+
         getRequest.onsuccess = () => {
           const file = getRequest.result;
           if (file) {
             this.notifyFileChangeFromFile(file, 'delete');
           }
-          
+
           // 実際の削除処理
           const deleteTransaction = this.db!.transaction(['files'], 'readwrite');
           const deleteStore = deleteTransaction.objectStore('files');
@@ -430,7 +449,7 @@ class ProjectDB {
           deleteRequest.onerror = () => reject(deleteRequest.error);
           deleteRequest.onsuccess = () => resolve();
         };
-        
+
         getRequest.onerror = () => {
           // ファイルが見つからない場合でも削除は実行
           const deleteTransaction = this.db!.transaction(['files'], 'readwrite');
@@ -464,16 +483,16 @@ class ProjectDB {
       request.onsuccess = () => {
         const files = request.result;
         const targetFile = files.find(f => f.path === filePath);
-        
+
         if (targetFile) {
           // AIレビュー関連フィールドをクリア
           const updatedFile = {
             ...targetFile,
             isAiAgentReview: false,
             aiAgentCode: undefined,
-            updatedAt: new Date()
+            updatedAt: new Date(),
           };
-          
+
           const updateRequest = store.put(updatedFile);
           updateRequest.onerror = () => reject(updateRequest.error);
           updateRequest.onsuccess = () => {
@@ -487,7 +506,7 @@ class ProjectDB {
     });
   }
 
-    // チャットスペース操作
+  // チャットスペース操作
   async createChatSpace(projectId: string, name: string): Promise<ChatSpace> {
     if (!this.db) {
       throw new Error('Database not initialized');
@@ -572,17 +591,20 @@ class ProjectDB {
           ...cs,
           createdAt: new Date(cs.createdAt),
           updatedAt: new Date(cs.updatedAt),
-          messages: cs.messages?.map((msg: any) => ({
-            ...msg,
-            timestamp: new Date(msg.timestamp),
-            // editResponseがある場合は適切にデシリアライズ
-            editResponse: msg.editResponse ? {
-              ...msg.editResponse,
-              changedFiles: msg.editResponse.changedFiles || []
-            } : undefined
-          })) || []
+          messages:
+            cs.messages?.map((msg: any) => ({
+              ...msg,
+              timestamp: new Date(msg.timestamp),
+              // editResponseがある場合は適切にデシリアライズ
+              editResponse: msg.editResponse
+                ? {
+                    ...msg.editResponse,
+                    changedFiles: msg.editResponse.changedFiles || [],
+                  }
+                : undefined,
+            })) || [],
         }));
-        
+
         // console.log('[DB] Loaded chat spaces:', chatSpaces.length, 'spaces');
         // chatSpaces.forEach(space => {
         //   console.log(`[DB] Space "${space.name}": ${space.messages.length} messages`);
@@ -592,7 +614,7 @@ class ProjectDB {
         //     }
         //   });
         // });
-        
+
         resolve(chatSpaces.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()));
       };
     });
@@ -618,7 +640,10 @@ class ProjectDB {
     });
   }
 
-  async addMessageToChatSpace(chatSpaceId: string, message: Omit<ChatSpaceMessage, 'id'>): Promise<ChatSpaceMessage> {
+  async addMessageToChatSpace(
+    chatSpaceId: string,
+    message: Omit<ChatSpaceMessage, 'id'>
+  ): Promise<ChatSpaceMessage> {
     if (!this.db) {
       throw new Error('Database not initialized');
     }
@@ -653,13 +678,13 @@ class ProjectDB {
             messageType: newMessage.type,
             mode: newMessage.mode,
             hasEditResponse: !!newMessage.editResponse,
-            editResponseFiles: newMessage.editResponse?.changedFiles?.length || 0
+            editResponseFiles: newMessage.editResponse?.changedFiles?.length || 0,
           });
 
           const updatedChatSpace = {
             ...chatSpace,
             messages: [...(chatSpace.messages || []), newMessage],
-            updatedAt: new Date()
+            updatedAt: new Date(),
           };
 
           const putRequest = store.put(updatedChatSpace);
@@ -709,7 +734,7 @@ class ProjectDB {
         const updatedChatSpace = {
           ...chatSpace,
           selectedFiles,
-          updatedAt: new Date()
+          updatedAt: new Date(),
         };
 
         const putRequest = store.put(updatedChatSpace);
@@ -746,7 +771,7 @@ class ProjectDB {
         const updatedChatSpace = {
           ...chatSpace,
           name: newName,
-          updatedAt: new Date()
+          updatedAt: new Date(),
         };
 
         const putRequest = store.put(updatedChatSpace);

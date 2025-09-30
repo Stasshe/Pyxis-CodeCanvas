@@ -17,12 +17,12 @@ export const FILE_CHANGE_EVENT = 'pyxis-file-changed';
 // ファイル変更を通知する関数
 export const notifyFileChange = (event: FileChangeEvent) => {
   // console.log('[FileWatcher] File change notification:', event);
-  
+
   // カスタムイベントを発火
   const customEvent = new CustomEvent(FILE_CHANGE_EVENT, {
-    detail: event
+    detail: event,
   });
-  
+
   window.dispatchEvent(customEvent);
 };
 
@@ -34,34 +34,34 @@ export const useFileWatcher = (
 ) => {
   const handleFileChange = (event: CustomEvent<FileChangeEvent>) => {
     const changeEvent = event.detail;
-    
+
     // プロジェクトが一致しない場合は無視
     if (changeEvent.projectName !== projectName) {
       return;
     }
-    
+
     // 監視対象パス以下のファイルかチェック
     if (!changeEvent.path.startsWith(watchPath)) {
       return;
     }
-    
+
     console.log('[FileWatcher] Matched file change:', changeEvent);
     onFileChange(changeEvent);
   };
-  
+
   // イベントリスナーを登録
   const addEventListener = () => {
     window.addEventListener(FILE_CHANGE_EVENT, handleFileChange as EventListener);
   };
-  
+
   // イベントリスナーを削除
   const removeEventListener = () => {
     window.removeEventListener(FILE_CHANGE_EVENT, handleFileChange as EventListener);
   };
-  
+
   return {
     addEventListener,
-    removeEventListener
+    removeEventListener,
   };
 };
 
@@ -71,66 +71,71 @@ export class FolderWatcher {
   private projectName: string;
   private listeners: ((event: FileChangeEvent) => void)[] = [];
   private isActive = false;
-  
+
   constructor(watchPath: string, projectName: string) {
     this.watchPath = watchPath;
     this.projectName = projectName;
   }
-  
+
   // リスナーを追加
   addListener(callback: (event: FileChangeEvent) => void) {
     this.listeners.push(callback);
-    
+
     // 初回リスナー追加時にイベント監視を開始
     if (!this.isActive) {
       this.startWatching();
     }
   }
-  
+
   // リスナーを削除
   removeListener(callback: (event: FileChangeEvent) => void) {
     const index = this.listeners.indexOf(callback);
     if (index > -1) {
       this.listeners.splice(index, 1);
     }
-    
+
     // リスナーが0になったら監視を停止
     if (this.listeners.length === 0) {
       this.stopWatching();
     }
   }
-  
+
   // 監視を開始
   private startWatching() {
     this.isActive = true;
     window.addEventListener(FILE_CHANGE_EVENT, this.handleFileChange);
-    console.log('[FolderWatcher] Started watching:', this.watchPath, 'in project:', this.projectName);
+    console.log(
+      '[FolderWatcher] Started watching:',
+      this.watchPath,
+      'in project:',
+      this.projectName
+    );
   }
-  
+
   // 監視を停止
   private stopWatching() {
     this.isActive = false;
     window.removeEventListener(FILE_CHANGE_EVENT, this.handleFileChange);
     console.log('[FolderWatcher] Stopped watching:', this.watchPath);
   }
-  
+
   // ファイル変更イベントハンドラ
   private handleFileChange = (event: Event) => {
     const customEvent = event as CustomEvent<FileChangeEvent>;
     const changeEvent = customEvent.detail;
-    
+
     // プロジェクトが一致しない場合は無視
     if (changeEvent.projectName !== this.projectName) {
       return;
     }
-    
+
     // 監視対象パス以下のファイルかチェック
     if (!changeEvent.path.startsWith(this.watchPath)) {
       return;
     }
-    
+
     console.log('[FolderWatcher] File change detected:', changeEvent.path, changeEvent.type);
-    
+
     // 全てのリスナーに通知
     this.listeners.forEach(listener => {
       try {
@@ -140,7 +145,7 @@ export class FolderWatcher {
       }
     });
   };
-  
+
   // リソースのクリーンアップ
   destroy() {
     this.listeners = [];

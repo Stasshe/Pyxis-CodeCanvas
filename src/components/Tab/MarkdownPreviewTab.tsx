@@ -10,11 +10,7 @@ import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
 import 'katex/dist/katex.min.css';
 import { FileItem } from '@/types';
-import {
-  loadImageAsDataURL,
-  parseMermaidContent,
-  parseYamlConfig,
-} from './markdownUtils';
+import { loadImageAsDataURL, parseMermaidContent, parseYamlConfig } from './markdownUtils';
 
 interface MarkdownPreviewTabProps {
   content: string;
@@ -37,15 +33,20 @@ const getUniqueMermaidId = () => `mermaid-svg-${mermaidIdCounter++}`;
 
 // メモ化されたMermaidコンポーネント
 const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) => {
-
   const ref = useRef<HTMLDivElement>(null);
   // chart内容ごとにIDを固定
-  const idRef = useMemo(() => `mermaid-svg-${btoa(unescape(encodeURIComponent(chart))).slice(0, 12)}`, [chart]);
+  const idRef = useMemo(
+    () => `mermaid-svg-${btoa(unescape(encodeURIComponent(chart))).slice(0, 12)}`,
+    [chart]
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [svgContent, setSvgContent] = useState<string | null>(null);
   // Mermaidチャート内容ごとにズーム・パン情報をuseStateで管理
-  const [zoomState, setZoomState] = useState<{ scale: number; translate: { x: number; y: number } }>({ scale: 1, translate: { x: 0, y: 0 } });
+  const [zoomState, setZoomState] = useState<{
+    scale: number;
+    translate: { x: number; y: number };
+  }>({ scale: 1, translate: { x: 0, y: 0 } });
   const scaleRef = useRef<number>(zoomState.scale);
   const translateRef = useRef<{ x: number; y: number }>({ ...zoomState.translate });
   const isPanningRef = useRef<boolean>(false);
@@ -54,11 +55,11 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
   useEffect(() => {
     const renderMermaid = async () => {
       if (!ref.current) return;
-  setIsLoading(true);
-  setError(null);
-  // 初期ズーム・パン情報をzoomStateから復元
-  scaleRef.current = zoomState.scale;
-  translateRef.current = { ...zoomState.translate };
+      setIsLoading(true);
+      setError(null);
+      // 初期ズーム・パン情報をzoomStateから復元
+      scaleRef.current = zoomState.scale;
+      translateRef.current = { ...zoomState.translate };
       ref.current.innerHTML = `
         <div class="mermaid-loading" style="display:flex;align-items:center;justify-content:center;height:120px;">
           <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
@@ -71,7 +72,8 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
       `;
       try {
         const { config, diagram } = parseMermaidContent(chart);
-        const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const isDark =
+          window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
         const mermaidConfig: any = {
           startOnLoad: false,
           theme: isDark ? 'dark' : 'default',
@@ -87,7 +89,7 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
             rankSpacing: 80,
             nodeSpacing: 50,
           },
-          layout: 'dagre'
+          layout: 'dagre',
         };
         if (config.config) {
           if (config.config.theme) {
@@ -96,13 +98,13 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
           if (config.config.themeVariables) {
             mermaidConfig.themeVariables = {
               ...mermaidConfig.themeVariables,
-              ...config.config.themeVariables
+              ...config.config.themeVariables,
             };
           }
           if (config.config.flowchart) {
             mermaidConfig.flowchart = {
               ...mermaidConfig.flowchart,
-              ...config.config.flowchart
+              ...config.config.flowchart,
             };
           }
           if (config.config.defaultRenderer === 'elk') {
@@ -113,11 +115,11 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
             if (config.config.layout === 'elk') {
               mermaidConfig.flowchart.defaultRenderer = 'elk';
               mermaidConfig.elk = {
-                algorithm: 'layered',
+                'algorithm': 'layered',
                 'elk.direction': 'DOWN',
                 'elk.spacing.nodeNode': 50,
                 'elk.layered.spacing.nodeNodeBetweenLayers': 80,
-                ...(config.config.elk || {})
+                ...(config.config.elk || {}),
               };
             }
           }
@@ -187,7 +189,11 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
           };
 
           const onPointerUp = (e: PointerEvent) => {
-            try { (e.target as Element).releasePointerCapture?.(e.pointerId); } catch (e) { /* ignore */ }
+            try {
+              (e.target as Element).releasePointerCapture?.(e.pointerId);
+            } catch (e) {
+              /* ignore */
+            }
             isPanningRef.current = false;
             lastPointerRef.current = null;
             container.style.cursor = 'default';
@@ -272,9 +278,9 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
     const cy = rect.height / 2;
     translateRef.current.x = cx - (cx - translateRef.current.x) * (next / prev);
     translateRef.current.y = cy - (cy - translateRef.current.y) * (next / prev);
-  scaleRef.current = next;
-  svgElem.style.transform = `translate(${translateRef.current.x}px, ${translateRef.current.y}px) scale(${scaleRef.current})`;
-  setZoomState({ scale: scaleRef.current, translate: { ...translateRef.current } });
+    scaleRef.current = next;
+    svgElem.style.transform = `translate(${translateRef.current.x}px, ${translateRef.current.y}px) scale(${scaleRef.current})`;
+    setZoomState({ scale: scaleRef.current, translate: { ...translateRef.current } });
   }, []);
 
   const handleZoomOut = useCallback(() => {
@@ -289,9 +295,9 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
     const cy = rect.height / 2;
     translateRef.current.x = cx - (cx - translateRef.current.x) * (next / prev);
     translateRef.current.y = cy - (cy - translateRef.current.y) * (next / prev);
-  scaleRef.current = next;
-  svgElem.style.transform = `translate(${translateRef.current.x}px, ${translateRef.current.y}px) scale(${scaleRef.current})`;
-  setZoomState({ scale: scaleRef.current, translate: { ...translateRef.current } });
+    scaleRef.current = next;
+    svgElem.style.transform = `translate(${translateRef.current.x}px, ${translateRef.current.y}px) scale(${scaleRef.current})`;
+    setZoomState({ scale: scaleRef.current, translate: { ...translateRef.current } });
   }, []);
 
   const handleResetView = useCallback(() => {
@@ -299,22 +305,47 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
     if (!container) return;
     const svgElem = container.querySelector('svg') as SVGElement | null;
     if (!svgElem) return;
-  scaleRef.current = 1;
-  translateRef.current = { x: 0, y: 0 };
-  svgElem.style.transform = `translate(0px, 0px) scale(1)`;
-  setZoomState({ scale: 1, translate: { x: 0, y: 0 } });
+    scaleRef.current = 1;
+    translateRef.current = { x: 0, y: 0 };
+    svgElem.style.transform = `translate(0px, 0px) scale(1)`;
+    setZoomState({ scale: 1, translate: { x: 0, y: 0 } });
   }, []);
 
   return (
     <div style={{ gap: '8px', minHeight: '120px' }}>
       {/* Controls: separate container with higher z-index so it won't be overlapped by the SVG */}
       {svgContent && !isLoading && !error && (
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px', position: 'relative', zIndex: 20 }}>
-          <div className="select-none" style={{ display: 'flex', gap: 6, background: 'rgba(255,255,255,0.85)', padding: '6px', borderRadius: 6 }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+            marginBottom: '8px',
+            position: 'relative',
+            zIndex: 20,
+          }}
+        >
+          <div
+            className="select-none"
+            style={{
+              display: 'flex',
+              gap: 6,
+              background: 'rgba(255,255,255,0.85)',
+              padding: '6px',
+              borderRadius: 6,
+            }}
+          >
             <button
               type="button"
               onClick={handleZoomIn}
-              style={{ padding: '4px 8px', background: '#60a5fa', color: '#fff', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '12px' }}
+              style={{
+                padding: '4px 8px',
+                background: '#60a5fa',
+                color: '#fff',
+                borderRadius: '4px',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '12px',
+              }}
               title="ズームイン"
             >
               ＋
@@ -322,7 +353,15 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
             <button
               type="button"
               onClick={handleZoomOut}
-              style={{ padding: '4px 8px', background: '#60a5fa', color: '#fff', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '12px' }}
+              style={{
+                padding: '4px 8px',
+                background: '#60a5fa',
+                color: '#fff',
+                borderRadius: '4px',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '12px',
+              }}
               title="ズームアウト"
             >
               －
@@ -330,7 +369,15 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
             <button
               type="button"
               onClick={handleResetView}
-              style={{ padding: '4px 8px', background: '#94a3b8', color: '#fff', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '12px' }}
+              style={{
+                padding: '4px 8px',
+                background: '#94a3b8',
+                color: '#fff',
+                borderRadius: '4px',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '12px',
+              }}
               title="リセット"
             >
               リセット
@@ -338,7 +385,17 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
             <button
               type="button"
               onClick={handleDownloadSvg}
-              style={{ padding: '4px 8px', background: '#38bdf8', color: '#fff', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '12px', marginLeft: '4px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}
+              style={{
+                padding: '4px 8px',
+                background: '#38bdf8',
+                color: '#fff',
+                borderRadius: '4px',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '12px',
+                marginLeft: '4px',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+              }}
               title="SVGダウンロード"
             >
               SVG
@@ -348,8 +405,20 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
       )}
 
       {/* Diagram container: scrollable area and separate from controls to avoid overlap when panning/zooming */}
-      <div style={{ position: 'relative', zIndex: 10, overflow: 'auto', maxHeight: '60vh', paddingTop: 4 }}>
-        <div ref={ref} className="mermaid" style={{ minHeight: '120px' }} />
+      <div
+        style={{
+          position: 'relative',
+          zIndex: 10,
+          overflow: 'auto',
+          maxHeight: '60vh',
+          paddingTop: 4,
+        }}
+      >
+        <div
+          ref={ref}
+          className="mermaid"
+          style={{ minHeight: '120px' }}
+        />
       </div>
     </div>
   );
@@ -358,12 +427,12 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
 Mermaid.displayName = 'Mermaid';
 
 // メモ化されたローカル画像コンポーネント
-const LocalImage = React.memo<{ 
-  src: string; 
-  alt?: string; 
-  projectName?: string; 
+const LocalImage = React.memo<{
+  src: string;
+  alt?: string;
+  projectName?: string;
   projectFiles?: FileItem[];
-  [key: string]: any; 
+  [key: string]: any;
 }>(({ src, alt, projectName, projectFiles, ...props }) => {
   const [dataUrl, setDataUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -407,14 +476,14 @@ const LocalImage = React.memo<{
 
   if (loading) {
     return (
-      <div 
-        style={{ 
-          display: 'inline-block', 
-          padding: '8px 12px', 
-          background: '#f0f0f0', 
-          border: '1px dashed #ccc', 
+      <div
+        style={{
+          display: 'inline-block',
+          padding: '8px 12px',
+          background: '#f0f0f0',
+          border: '1px dashed #ccc',
           borderRadius: '4px',
-          color: '#666'
+          color: '#666',
         }}
       >
         画像を読み込み中...
@@ -424,14 +493,14 @@ const LocalImage = React.memo<{
 
   if (error || !dataUrl) {
     return (
-      <div 
-        style={{ 
-          display: 'inline-block', 
-          padding: '8px 12px', 
-          background: '#ffe6e6', 
-          border: '1px dashed #ff9999', 
+      <div
+        style={{
+          display: 'inline-block',
+          padding: '8px 12px',
+          background: '#ffe6e6',
+          border: '1px dashed #ff9999',
           borderRadius: '4px',
-          color: '#cc0000'
+          color: '#cc0000',
         }}
       >
         画像が見つかりません: {src}
@@ -439,7 +508,13 @@ const LocalImage = React.memo<{
     );
   }
 
-  return <img {...props} src={dataUrl} alt={alt} />;
+  return (
+    <img
+      {...props}
+      src={dataUrl}
+      alt={alt}
+    />
+  );
 });
 
 LocalImage.displayName = 'LocalImage';
@@ -454,109 +529,136 @@ const MemoizedCodeComponent = React.memo<{
 }>(({ className, children, colors, currentProjectName, projectFiles, ...props }) => {
   const match = /language-(\w+)/.exec(className || '');
   const codeString = String(children).replace(/\n$/, '').trim();
-  
+
   if (match && match[1] === 'mermaid') {
-    return <Mermaid chart={codeString} colors={colors} />;
+    return (
+      <Mermaid
+        chart={codeString}
+        colors={colors}
+      />
+    );
   }
-  
+
   if (className && match) {
-    return <HighlightedCode language={match[1] || ''} value={codeString} />;
+    return (
+      <HighlightedCode
+        language={match[1] || ''}
+        value={codeString}
+      />
+    );
   }
-  
+
   // インラインコード
   return <code {...props}>{children}</code>;
 });
 
 MemoizedCodeComponent.displayName = 'MemoizedCodeComponent';
 
-const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ 
-  content, 
-  fileName, 
-  currentProjectName, 
-  projectFiles 
+const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({
+  content,
+  fileName,
+  currentProjectName,
+  projectFiles,
 }) => {
   const { colors } = useTheme();
 
   // ReactMarkdownのコンポーネントをメモ化
   // 通常表示用
-  const markdownComponents = useMemo(() => ({
-    code: ({ node, className, children, ...props }: any) => (
-      <MemoizedCodeComponent 
-        className={className}
-        colors={colors}
-        currentProjectName={currentProjectName}
-        projectFiles={projectFiles}
-        {...props}
-      >
-        {children}
-      </MemoizedCodeComponent>
-    ),
-    img: ({ node, src, alt, ...props }: any) => {
-      const srcString = typeof src === 'string' ? src : '';
-      return (
-        <LocalImage 
-          src={srcString} 
-          alt={alt || ''} 
-          projectName={currentProjectName}
+  const markdownComponents = useMemo(
+    () => ({
+      code: ({ node, className, children, ...props }: any) => (
+        <MemoizedCodeComponent
+          className={className}
+          colors={colors}
+          currentProjectName={currentProjectName}
           projectFiles={projectFiles}
           {...props}
-        />
-      );
-    },
-  }), [colors, currentProjectName, projectFiles]);
+        >
+          {children}
+        </MemoizedCodeComponent>
+      ),
+      img: ({ node, src, alt, ...props }: any) => {
+        const srcString = typeof src === 'string' ? src : '';
+        return (
+          <LocalImage
+            src={srcString}
+            alt={alt || ''}
+            projectName={currentProjectName}
+            projectFiles={projectFiles}
+            {...props}
+          />
+        );
+      },
+    }),
+    [colors, currentProjectName, projectFiles]
+  );
 
   // PDFエクスポート用: plain=trueを渡す
-  const markdownComponentsPlain = useMemo(() => ({
-    code: ({ node, className, children, ...props }: any) => {
-      const match = /language-(\w+)/.exec(className || '');
-      const codeString = String(children).replace(/\n$/, '').trim();
-      if (match && match[1] === 'mermaid') {
-        return <Mermaid chart={codeString} colors={colors} />;
-      }
-      return (
-        <HighlightedCode
-          language={match ? match[1] : ''}
-          value={codeString}
-          plain={true}
-          {...props}
-        />
-      );
-    },
-    img: ({ node, src, alt, ...props }: any) => {
-      const srcString = typeof src === 'string' ? src : '';
-      return (
-        <LocalImage 
-          src={srcString} 
-          alt={alt || ''} 
-          projectName={currentProjectName}
-          projectFiles={projectFiles}
-          {...props}
-        />
-      );
-    },
-  }), [colors, currentProjectName, projectFiles]);
+  const markdownComponentsPlain = useMemo(
+    () => ({
+      code: ({ node, className, children, ...props }: any) => {
+        const match = /language-(\w+)/.exec(className || '');
+        const codeString = String(children).replace(/\n$/, '').trim();
+        if (match && match[1] === 'mermaid') {
+          return (
+            <Mermaid
+              chart={codeString}
+              colors={colors}
+            />
+          );
+        }
+        return (
+          <HighlightedCode
+            language={match ? match[1] : ''}
+            value={codeString}
+            plain={true}
+            {...props}
+          />
+        );
+      },
+      img: ({ node, src, alt, ...props }: any) => {
+        const srcString = typeof src === 'string' ? src : '';
+        return (
+          <LocalImage
+            src={srcString}
+            alt={alt || ''}
+            projectName={currentProjectName}
+            projectFiles={projectFiles}
+            {...props}
+          />
+        );
+      },
+    }),
+    [colors, currentProjectName, projectFiles]
+  );
 
   // メイン部分もメモ化
-  const markdownContent = useMemo(() => (
-    <ReactMarkdown
-      remarkPlugins={[remarkGfm, remarkMath]}
-      rehypePlugins={[rehypeKatex, rehypeRaw]}
-      components={markdownComponents}
-    >
-      {content}
-    </ReactMarkdown>
-  ), [content, markdownComponents]);
+  const markdownContent = useMemo(
+    () => (
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeKatex, rehypeRaw]}
+        components={markdownComponents}
+      >
+        {content}
+      </ReactMarkdown>
+    ),
+    [content, markdownComponents]
+  );
 
   // PDF用
-  const markdownContentPlain = useMemo(() => (
-    <ReactMarkdown
-      remarkPlugins={[remarkGfm, remarkMath]}
-      rehypePlugins={[rehypeKatex, rehypeRaw]}
-      components={markdownComponentsPlain}
-    >
-      {content}
-    </ReactMarkdown>
-  ), [content, markdownComponentsPlain]);
+  const markdownContentPlain = useMemo(
+    () => (
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeKatex, rehypeRaw]}
+        components={markdownComponentsPlain}
+      >
+        {content}
+      </ReactMarkdown>
+    ),
+    [content, markdownComponentsPlain]
+  );
 
   // PDFエクスポート処理
   const handleExportPdf = useCallback(async () => {
@@ -572,23 +674,25 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({
       const root = ReactDOMClient.createRoot(container);
       // ThemeContext.Providerでラップ
       root.render(
-        <ThemeContext.Provider value={{
-          colors,
-          setColor: () => {},
-          setColors: () => {},
-          themeName: 'pdf',
-          setTheme: () => {},
-          themeList: [],
-          highlightTheme: '',
-          setHighlightTheme: () => {},
-          highlightThemeList: [],
-        }}>
+        <ThemeContext.Provider
+          value={{
+            colors,
+            setColor: () => {},
+            setColors: () => {},
+            themeName: 'pdf',
+            setTheme: () => {},
+            themeList: [],
+            highlightTheme: '',
+            setHighlightTheme: () => {},
+            highlightThemeList: [],
+          }}
+        >
           {markdownContentPlain}
         </ThemeContext.Provider>
       );
       setTimeout(() => {
-      // インラインCSSで強制的に黒文字にする
-      container.innerHTML = `
+        // インラインCSSで強制的に黒文字にする
+        container.innerHTML = `
         <style>
           body, .markdown-body, .prose, .prose-github, .markdown-body * {
             color: #000 !important;
@@ -597,7 +701,11 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({
         ${container.innerHTML}
       `;
         exportPdfFromHtml(container.innerHTML, fileName.replace(/\.[^/.]+$/, '') + '.pdf');
-        try { root.unmount(); } catch (e) { /* ignore */ }
+        try {
+          root.unmount();
+        } catch (e) {
+          /* ignore */
+        }
         document.body.removeChild(container);
       }, 300);
     } catch (err) {

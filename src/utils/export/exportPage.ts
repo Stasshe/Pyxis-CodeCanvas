@@ -1,6 +1,10 @@
 import { inlineHtmlAssets } from './inlineHtmlAssets';
 
-export const exportPage = async (path: string, writeOutput: (output: string) => Promise<void>, unixCommandsRef: any) => {
+export const exportPage = async (
+  path: string,
+  writeOutput: (output: string) => Promise<void>,
+  unixCommandsRef: any
+) => {
   try {
     const fs = unixCommandsRef.current?.fs;
     const newWindow = window.open('about:blank', '_blank');
@@ -46,7 +50,7 @@ export const exportPage = async (path: string, writeOutput: (output: string) => 
       // eruda
       const erudaScript = iframeDoc.createElement('script');
       erudaScript.src = 'https://cdn.jsdelivr.net/npm/eruda';
-      erudaScript.onload = function() {
+      erudaScript.onload = function () {
         const initScript = iframeDoc.createElement('script');
         initScript.textContent = 'eruda.init();';
         iframeDoc.body.appendChild(initScript);
@@ -74,7 +78,7 @@ export const exportPage = async (path: string, writeOutput: (output: string) => 
       // eruda
       const erudaScript = iframeDoc.createElement('script');
       erudaScript.src = 'https://cdn.jsdelivr.net/npm/eruda';
-      erudaScript.onload = function() {
+      erudaScript.onload = function () {
         const initScript = iframeDoc.createElement('script');
         initScript.textContent = 'eruda.init();';
         iframeDoc.body.appendChild(initScript);

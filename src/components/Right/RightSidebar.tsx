@@ -18,10 +18,9 @@ interface RightSidebarProps {
   clearAIReview?: (filePath: string) => Promise<void>;
 }
 
-
-const RightSidebar: React.FC<RightSidebarProps> = ({ 
-  rightSidebarWidth, 
-  onResize, 
+const RightSidebar: React.FC<RightSidebarProps> = ({
+  rightSidebarWidth,
+  onResize,
   children,
   projectFiles = [],
   currentProject = null,
@@ -30,7 +29,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
   setTabs,
   setActiveTabId,
   saveFile,
-  clearAIReview
+  clearAIReview,
 }) => {
   const { colors } = useTheme();
 
@@ -53,13 +52,13 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
           minWidth: `${rightSidebarWidth}px`,
           maxWidth: `${rightSidebarWidth}px`,
           height: '100%',
-          zIndex: 20
+          zIndex: 20,
         }}
       >
         <div style={{ flex: 1, overflow: 'auto' }}>
-          {children || (
+          {children ||
             // デフォルトでAI Agentを表示
-            setTabs && setActiveTabId && saveFile ? (
+            (setTabs && setActiveTabId && saveFile ? (
               <AIAgent
                 projectFiles={projectFiles}
                 currentProject={currentProject}
@@ -74,8 +73,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
               <div style={{ padding: 16, color: colors.mutedFg, textAlign: 'center' }}>
                 AI Agent機能が利用できません
               </div>
-            )
-          )}
+            ))}
         </div>
       </aside>
     </>

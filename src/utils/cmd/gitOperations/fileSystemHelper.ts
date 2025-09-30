@@ -1,7 +1,6 @@
 import FS from '@isomorphic-git/lightning-fs';
 import { ensureDirectoryExists } from '@/utils/core/filesystem';
 
-
 /**
  * Git操作で使用する共通のファイルシステムヘルパー関数
  */
@@ -14,7 +13,7 @@ export class GitFileSystemHelper {
    */
   static async getAllFiles(fs: FS, dirPath: string): Promise<string[]> {
     const files: string[] = [];
-    
+
     const traverse = async (currentPath: string, relativePath: string = '') => {
       try {
         // ファイルシステムの同期を確実にする
@@ -27,25 +26,25 @@ export class GitFileSystemHelper {
             console.warn(`[getAllFiles] Sync failed for ${currentPath}:`, syncError);
           }
         }
-        
+
         const entries = await fs.promises.readdir(currentPath);
         console.log(`[getAllFiles] Reading directory ${currentPath}, found:`, entries);
-        
+
         for (const entry of entries) {
           // .gitディレクトリは除外
           if (entry === '.git') continue;
-          
+
           const fullPath = `${currentPath}/${entry}`;
           const relativeFilePath = relativePath ? `${relativePath}/${entry}` : entry;
-          
+
           try {
             const stat = await fs.promises.stat(fullPath);
-            console.log(`[getAllFiles] Stat for ${fullPath}:`, { 
-              isFile: stat.isFile(), 
-              isDirectory: stat.isDirectory(), 
-              size: stat.size 
+            console.log(`[getAllFiles] Stat for ${fullPath}:`, {
+              isFile: stat.isFile(),
+              isDirectory: stat.isDirectory(),
+              size: stat.size,
             });
-            
+
             if (stat.isDirectory()) {
               await traverse(fullPath, relativeFilePath);
             } else if (stat.isFile()) {
@@ -60,7 +59,7 @@ export class GitFileSystemHelper {
         console.warn(`[getAllFiles] Failed to read directory ${currentPath}:`, error);
       }
     };
-    
+
     await traverse(dirPath);
     console.log(`[getAllFiles] Total files found: ${files.length}`, files);
     return files;
@@ -75,11 +74,11 @@ export class GitFileSystemHelper {
    */
   static async getMatchingFiles(fs: FS, dirPath: string, pattern: string): Promise<string[]> {
     const allFiles = await this.getAllFiles(fs, dirPath);
-    
+
     if (pattern === '*') {
       return allFiles;
     }
-    
+
     // シンプルなグロブパターンマッチング
     const regex = new RegExp(pattern.replace(/\*/g, '.*').replace(/\?/g, '.'));
     return allFiles.filter(file => regex.test(file));

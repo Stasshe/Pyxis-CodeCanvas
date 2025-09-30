@@ -7,12 +7,22 @@ import git from 'isomorphic-git';
 export class GitRevertOperations {
   private fs: FS;
   private dir: string;
-  private onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>;
+  private onFileOperation?: (
+    path: string,
+    type: 'file' | 'folder' | 'delete',
+    content?: string,
+    isNodeRuntime?: boolean
+  ) => Promise<void>;
 
   constructor(
-    fs: FS, 
-    dir: string, 
-    onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>
+    fs: FS,
+    dir: string,
+    onFileOperation?: (
+      path: string,
+      type: 'file' | 'folder' | 'delete',
+      content?: string,
+      isNodeRuntime?: boolean
+    ) => Promise<void>
   ) {
     this.fs = fs;
     this.dir = dir;
@@ -40,8 +50,12 @@ export class GitRevertOperations {
       }
 
       // 対象コミットの情報を取得
-      const commitToRevert = await git.readCommit({ fs: this.fs, dir: this.dir, oid: fullCommitHash });
-      
+      const commitToRevert = await git.readCommit({
+        fs: this.fs,
+        dir: this.dir,
+        oid: fullCommitHash,
+      });
+
       // 親コミットが存在するかチェック
       if (commitToRevert.commit.parent.length === 0) {
         throw new Error(`cannot revert initial commit ${commitHash.slice(0, 7)}`);
@@ -56,14 +70,22 @@ export class GitRevertOperations {
 
       // 親コミットの状態を取得
       const parentCommit = await git.readCommit({ fs: this.fs, dir: this.dir, oid: parentHash });
-      
+
       // 対象コミットと親コミットのファイル差分を取得
       const changedFiles = new Set<string>();
-      
+
       // 対象コミットで変更されたファイルを特定
-      const currentTree = await git.readTree({ fs: this.fs, dir: this.dir, oid: commitToRevert.commit.tree });
-      const parentTree = await git.readTree({ fs: this.fs, dir: this.dir, oid: parentCommit.commit.tree });
-      
+      const currentTree = await git.readTree({
+        fs: this.fs,
+        dir: this.dir,
+        oid: commitToRevert.commit.tree,
+      });
+      const parentTree = await git.readTree({
+        fs: this.fs,
+        dir: this.dir,
+        oid: parentCommit.commit.tree,
+      });
+
       // 変更されたファイルパスを収集
       const getAllFilePaths = async (tree: any, basePath = ''): Promise<string[]> => {
         const paths: string[] = [];
@@ -99,7 +121,7 @@ export class GitRevertOperations {
         try {
           const currentEntry = currentTree.tree.find((e: any) => e.path === filePath);
           const parentEntry = parentTree.tree.find((e: any) => e.path === filePath);
-          
+
           if (currentEntry && parentEntry && currentEntry.oid !== parentEntry.oid) {
             modifiedFiles.push(filePath as string);
           }
@@ -196,7 +218,7 @@ export class GitRevertOperations {
       // リバートコミットを作成
       const revertMessage = `Revert "${commitToRevert.commit.message.split('\n')[0]}"\n\nThis reverts commit ${fullCommitHash}.`;
       const author = { name: 'User', email: 'user@pyxis.dev' };
-      
+
       const revertCommitHash = await git.commit({
         fs: this.fs,
         dir: this.dir,
@@ -216,7 +238,7 @@ export class GitRevertOperations {
           try {
             const relativePath = getRelativePathFromProject(`${this.dir}/${filePath}`);
             const fullPath = `${this.dir}/${filePath}`;
-            
+
             // ファイルが存在するかチェック
             try {
               const content = await this.fs.promises.readFile(fullPath, { encoding: 'utf8' });
@@ -234,17 +256,17 @@ export class GitRevertOperations {
       // 結果メッセージを生成
       let result = `Revert commit ${revertCommitHash.slice(0, 7)} created\n`;
       result += `Reverted commit: ${fullCommitHash.slice(0, 7)} - ${commitToRevert.commit.message.split('\n')[0]}\n`;
-      
+
       if (revertResults.length > 0) {
         result += `\nFiles changed:\n${revertResults.join('\n')}`;
       }
-      
+
       result += `\n\nTotal ${revertedFileCount} file(s) reverted`;
 
       return result;
     } catch (error) {
       const errorMessage = (error as Error).message;
-      
+
       // エラーメッセージを適切にフォーマット
       if (errorMessage.includes('bad revision')) {
         throw new Error(`fatal: bad revision '${commitHash}'`);
@@ -253,9 +275,11 @@ export class GitRevertOperations {
       } else if (errorMessage.includes('cannot revert initial commit')) {
         throw new Error(`error: ${errorMessage}`);
       } else if (errorMessage.includes('is a merge commit')) {
-        throw new Error(`error: ${errorMessage}\nhint: Try 'git revert -m 1 <commit>' to revert a merge commit`);
+        throw new Error(
+          `error: ${errorMessage}\nhint: Try 'git revert -m 1 <commit>' to revert a merge commit`
+        );
       }
-      
+
       throw new Error(`git revert failed: ${errorMessage}`);
     }
   }

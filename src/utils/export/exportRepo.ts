@@ -5,7 +5,13 @@ import type { Project } from '@/types';
 import { getFileSystem, getProjectDir } from '@/utils/core/filesystem';
 
 // 現在のプロジェクトのみZIPエクスポート
-export async function downloadWorkspaceZip({ currentProject, includeGit = false }: { currentProject: Project, includeGit?: boolean }) {
+export async function downloadWorkspaceZip({
+  currentProject,
+  includeGit = false,
+}: {
+  currentProject: Project;
+  includeGit?: boolean;
+}) {
   const dbName = 'PyxisProjects';
   const req = window.indexedDB.open(dbName);
   const db: IDBDatabase = await new Promise((resolve, reject) => {
@@ -66,8 +72,10 @@ export async function downloadWorkspaceZip({ currentProject, includeGit = false 
       }
       if (stat && stat.isDirectory()) {
         // .git配下のファイルを再帰的に取得
-        const getAllGitFiles = async (dir: string): Promise<Array<{ path: string, content: Uint8Array }>> => {
-          let result: Array<{ path: string, content: Uint8Array }> = [];
+        const getAllGitFiles = async (
+          dir: string
+        ): Promise<Array<{ path: string; content: Uint8Array }>> => {
+          let result: Array<{ path: string; content: Uint8Array }> = [];
           let files: string[] = [];
           if (!fs) return result;
           try {
@@ -104,7 +112,10 @@ export async function downloadWorkspaceZip({ currentProject, includeGit = false 
           return result;
         };
         const gitFiles = await getAllGitFiles(gitDir);
-        console.log('[ZIP DEBUG] .git files:', gitFiles.map(f => f.path));
+        console.log(
+          '[ZIP DEBUG] .git files:',
+          gitFiles.map(f => f.path)
+        );
         for (const gitFile of gitFiles) {
           zip.file(gitFile.path, gitFile.content);
         }

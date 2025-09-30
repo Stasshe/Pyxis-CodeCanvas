@@ -20,7 +20,15 @@ export class GitDiffOperations {
   }
 
   // git diff - 変更差分を表示
-  async diff(options: { staged?: boolean; filepath?: string; commit1?: string; commit2?: string; branchName?: string } = {}): Promise<string> {
+  async diff(
+    options: {
+      staged?: boolean;
+      filepath?: string;
+      commit1?: string;
+      commit2?: string;
+      branchName?: string;
+    } = {}
+  ): Promise<string> {
     try {
       await this.ensureProjectDirectory();
 
@@ -44,8 +52,16 @@ export class GitDiffOperations {
           currentBranch = typeof branch === 'string' ? branch : '';
         } catch {}
         if (!currentBranch) currentBranch = 'main';
-        const head1 = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: `refs/heads/${currentBranch}` });
-        const head2 = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: `refs/heads/${branchName}` });
+        const head1 = await git.resolveRef({
+          fs: this.fs,
+          dir: this.dir,
+          ref: `refs/heads/${currentBranch}`,
+        });
+        const head2 = await git.resolveRef({
+          fs: this.fs,
+          dir: this.dir,
+          ref: `refs/heads/${branchName}`,
+        });
         return await this.diffCommits(head1, head2, filepath);
       } else if (staged) {
         // ステージされた変更の差分
@@ -81,29 +97,34 @@ export class GitDiffOperations {
       for (const [file, HEAD, workdir, stage] of status) {
         // 特定ファイルが指定されている場合はそのファイルのみ
         if (filepath && file !== filepath) continue;
-        
+
         // 変更されたファイルのみ処理
         if (HEAD === 1 && workdir === 2) {
           try {
             // 変更されたファイル: HEADと現在のワーキングディレクトリを比較
             let headContent = '';
             let workContent = '';
-            
+
             // HEADからの内容
             try {
-              const { blob } = await git.readBlob({ fs: this.fs, dir: this.dir, oid: headCommitHash, filepath: file });
+              const { blob } = await git.readBlob({
+                fs: this.fs,
+                dir: this.dir,
+                oid: headCommitHash,
+                filepath: file,
+              });
               headContent = new TextDecoder().decode(blob);
             } catch {
               headContent = '';
             }
-            
+
             // ワーキングディレクトリの内容
             try {
               workContent = await this.fs.promises.readFile(`${this.dir}/${file}`, 'utf8');
             } catch {
               workContent = '';
             }
-            
+
             const diff = this.formatDiff(file, headContent, workContent);
             if (diff) diffs.push(diff);
           } catch (error) {
@@ -118,7 +139,7 @@ export class GitDiffOperations {
             } catch {
               workContent = '';
             }
-            
+
             const diff = this.formatDiff(file, '', workContent);
             if (diff) diffs.push(diff);
           } catch (error) {
@@ -129,12 +150,17 @@ export class GitDiffOperations {
           try {
             let headContent = '';
             try {
-              const { blob } = await git.readBlob({ fs: this.fs, dir: this.dir, oid: headCommitHash, filepath: file });
+              const { blob } = await git.readBlob({
+                fs: this.fs,
+                dir: this.dir,
+                oid: headCommitHash,
+                filepath: file,
+              });
               headContent = new TextDecoder().decode(blob);
             } catch {
               headContent = '';
             }
-            
+
             const diff = this.formatDiff(file, headContent, '');
             if (diff) diffs.push(diff);
           } catch (error) {
@@ -171,7 +197,7 @@ export class GitDiffOperations {
       for (const [file, HEAD, workdir, stage] of status) {
         // 特定ファイルが指定されている場合はそのファイルのみ
         if (filepath && file !== filepath) continue;
-        
+
         // ステージされたファイルのみ処理
         if (stage === 2 || stage === 3) {
           try {
@@ -194,18 +220,18 @@ export class GitDiffOperations {
   async diffCommits(commit1: string, commit2: string, filepath?: string): Promise<string> {
     try {
       console.log('diffCommits called with:', { commit1, commit2, filepath });
-      
+
       // コミットハッシュを正規化
       let fullCommit1: string;
       let fullCommit2: string;
-      
+
       try {
         fullCommit1 = await git.expandOid({ fs: this.fs, dir: this.dir, oid: commit1 });
         console.log('Expanded commit1:', commit1, '->', fullCommit1);
       } catch (error) {
         throw new Error(`Invalid commit1 '${commit1}': ${(error as Error).message}`);
       }
-      
+
       try {
         fullCommit2 = await git.expandOid({ fs: this.fs, dir: this.dir, oid: commit2 });
         console.log('Expanded commit2:', commit2, '->', fullCommit2);
@@ -221,7 +247,7 @@ export class GitDiffOperations {
       const tree2 = await git.readTree({ fs: this.fs, dir: this.dir, oid: commit2Obj.commit.tree });
 
       const diffs: string[] = [];
-      
+
       // 各ツリーのファイル一覧を取得
       const files1 = await this.getTreeFilePaths(tree1); // commit1 のファイル一覧
       const files2 = await this.getTreeFilePaths(tree2); // commit2 のファイル一覧
@@ -279,10 +305,10 @@ export class GitDiffOperations {
   // ツリーからファイルパスを取得（再帰的）
   private async getTreeFilePaths(tree: any, basePath = ''): Promise<string[]> {
     const paths: string[] = [];
-    
+
     for (const entry of tree.tree) {
       const fullPath = basePath ? `${basePath}/${entry.path}` : entry.path;
-      
+
       if (entry.type === 'blob') {
         paths.push(fullPath);
       } else if (entry.type === 'tree') {
@@ -296,7 +322,7 @@ export class GitDiffOperations {
         }
       }
     }
-    
+
     return paths;
   }
 
@@ -306,7 +332,12 @@ export class GitDiffOperations {
       // HEADからの内容
       let headContent = '';
       try {
-        const { blob } = await git.readBlob({ fs: this.fs, dir: this.dir, oid: headCommitHash, filepath });
+        const { blob } = await git.readBlob({
+          fs: this.fs,
+          dir: this.dir,
+          oid: headCommitHash,
+          filepath,
+        });
         headContent = new TextDecoder().decode(blob);
       } catch {
         headContent = '';
@@ -323,13 +354,13 @@ export class GitDiffOperations {
       // ステージングの状態を確認
       const status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
       const fileStatus = status.find(([file]) => file === filepath);
-      
+
       if (!fileStatus) {
         return '';
       }
 
       const [, HEAD, workdir, stage] = fileStatus;
-      
+
       if (stage === 3) {
         // 新規ファイルがステージされた場合
         return this.formatDiff(filepath, '', workContent);
@@ -345,7 +376,11 @@ export class GitDiffOperations {
   }
 
   // コミット間のファイル差分を生成
-  private async generateCommitFileDiff(filepath: string, commit1: string | null, commit2: string | null): Promise<string> {
+  private async generateCommitFileDiff(
+    filepath: string,
+    commit1: string | null,
+    commit2: string | null
+  ): Promise<string> {
     let content1 = '';
     let content2 = '';
 
@@ -354,7 +389,12 @@ export class GitDiffOperations {
       if (!commit1 && commit2) {
         if (commit2) {
           try {
-            const { blob } = await git.readBlob({ fs: this.fs, dir: this.dir, oid: commit2, filepath });
+            const { blob } = await git.readBlob({
+              fs: this.fs,
+              dir: this.dir,
+              oid: commit2,
+              filepath,
+            });
             content2 = new TextDecoder().decode(blob);
           } catch {
             content2 = '';
@@ -366,7 +406,12 @@ export class GitDiffOperations {
       if (commit1 && !commit2) {
         if (commit1) {
           try {
-            const { blob } = await git.readBlob({ fs: this.fs, dir: this.dir, oid: commit1, filepath });
+            const { blob } = await git.readBlob({
+              fs: this.fs,
+              dir: this.dir,
+              oid: commit1,
+              filepath,
+            });
             content1 = new TextDecoder().decode(blob);
           } catch {
             content1 = '';
@@ -377,7 +422,12 @@ export class GitDiffOperations {
       // 両方に存在する場合
       if (commit1) {
         try {
-          const { blob } = await git.readBlob({ fs: this.fs, dir: this.dir, oid: commit1, filepath });
+          const { blob } = await git.readBlob({
+            fs: this.fs,
+            dir: this.dir,
+            oid: commit1,
+            filepath,
+          });
           content1 = new TextDecoder().decode(blob);
         } catch {
           content1 = '';
@@ -385,7 +435,12 @@ export class GitDiffOperations {
       }
       if (commit2) {
         try {
-          const { blob } = await git.readBlob({ fs: this.fs, dir: this.dir, oid: commit2, filepath });
+          const { blob } = await git.readBlob({
+            fs: this.fs,
+            dir: this.dir,
+            oid: commit2,
+            filepath,
+          });
           content2 = new TextDecoder().decode(blob);
         } catch {
           content2 = '';
@@ -409,32 +464,32 @@ export class GitDiffOperations {
 
     const oldLines = oldContent.split('\n');
     const newLines = newContent.split('\n');
-    
+
     let result = `diff --git a/${filepath} b/${filepath}\n`;
-    
+
     if (oldContent === '') {
       result += `new file mode 100644\n`;
       result += `index 0000000..${this.generateShortHash(newContent)}\n`;
       result += `--- /dev/null\n`;
       result += `+++ b/${filepath}\n`;
       result += `@@ -0,0 +1,${newLines.length} @@\n`;
-      newLines.forEach(line => result += `+${line}\n`);
+      newLines.forEach(line => (result += `+${line}\n`));
     } else if (newContent === '') {
       result += `deleted file mode 100644\n`;
       result += `index ${this.generateShortHash(oldContent)}..0000000\n`;
       result += `--- a/${filepath}\n`;
       result += `+++ /dev/null\n`;
       result += `@@ -1,${oldLines.length} +0,0 @@\n`;
-      oldLines.forEach(line => result += `-${line}\n`);
+      oldLines.forEach(line => (result += `-${line}\n`));
     } else {
       result += `index ${this.generateShortHash(oldContent)}..${this.generateShortHash(newContent)} 100644\n`;
       result += `--- a/${filepath}\n`;
       result += `+++ b/${filepath}\n`;
-      
+
       // 簡単な差分表示（行単位での比較）
       result += this.generateLineDiff(oldLines, newLines);
     }
-    
+
     return result;
   }
 
@@ -442,13 +497,23 @@ export class GitDiffOperations {
   private generateLineDiff(oldLines: string[], newLines: string[]): string {
     const maxLines = Math.max(oldLines.length, newLines.length);
     let result = '';
-    const diffSections: Array<{start: number, oldCount: number, newCount: number, lines: string[]}> = [];
-    let currentSection: {start: number, oldCount: number, newCount: number, lines: string[]} | null = null;
-    
+    const diffSections: Array<{
+      start: number;
+      oldCount: number;
+      newCount: number;
+      lines: string[];
+    }> = [];
+    let currentSection: {
+      start: number;
+      oldCount: number;
+      newCount: number;
+      lines: string[];
+    } | null = null;
+
     for (let i = 0; i < maxLines; i++) {
       const oldLine = i < oldLines.length ? oldLines[i] : undefined;
       const newLine = i < newLines.length ? newLines[i] : undefined;
-      
+
       if (oldLine !== newLine) {
         // 差分が発見された場合、新しいセクションを開始
         if (!currentSection) {
@@ -456,10 +521,10 @@ export class GitDiffOperations {
             start: i + 1,
             oldCount: 0,
             newCount: 0,
-            lines: []
+            lines: [],
           };
         }
-        
+
         if (oldLine !== undefined && newLine !== undefined) {
           // 変更された行
           currentSection.lines.push(`-${oldLine}`);
@@ -480,7 +545,7 @@ export class GitDiffOperations {
         if (oldLine !== undefined) {
           currentSection.lines.push(` ${oldLine}`);
         }
-        
+
         // セクションが長くなりすぎた場合は終了
         if (currentSection.lines.length > 10) {
           diffSections.push(currentSection);
@@ -488,12 +553,12 @@ export class GitDiffOperations {
         }
       }
     }
-    
+
     // 最後のセクションを追加
     if (currentSection) {
       diffSections.push(currentSection);
     }
-    
+
     // セクションが空の場合は簡単な差分表示
     if (diffSections.length === 0) {
       result += `@@ -1,${oldLines.length} +1,${newLines.length} @@\n`;
@@ -519,7 +584,7 @@ export class GitDiffOperations {
         result += section.lines.join('\n') + '\n';
       });
     }
-    
+
     return result;
   }
 
@@ -528,7 +593,7 @@ export class GitDiffOperations {
     let hash = 0;
     for (let i = 0; i < content.length; i++) {
       const char = content.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
+      hash = (hash << 5) - hash + char;
       hash = hash & hash; // 32bit整数に変換
     }
     return Math.abs(hash).toString(16).substring(0, 7);

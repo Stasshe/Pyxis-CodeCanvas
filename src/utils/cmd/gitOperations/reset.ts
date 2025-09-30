@@ -8,12 +8,22 @@ import { GitFileSystemHelper } from './fileSystemHelper';
 export class GitResetOperations {
   private fs: FS;
   private dir: string;
-  private onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>;
+  private onFileOperation?: (
+    path: string,
+    type: 'file' | 'folder' | 'delete',
+    content?: string,
+    isNodeRuntime?: boolean
+  ) => Promise<void>;
 
   constructor(
-    fs: FS, 
-    dir: string, 
-    onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>
+    fs: FS,
+    dir: string,
+    onFileOperation?: (
+      path: string,
+      type: 'file' | 'folder' | 'delete',
+      content?: string,
+      isNodeRuntime?: boolean
+    ) => Promise<void>
   ) {
     this.fs = fs;
     this.dir = dir;
@@ -52,32 +62,34 @@ export class GitResetOperations {
   }
 
   // git reset - ファイルをアンステージング、またはハードリセット
-  async reset(options: { filepath?: string; hard?: boolean; commit?: string } = {}): Promise<string> {
+  async reset(
+    options: { filepath?: string; hard?: boolean; commit?: string } = {}
+  ): Promise<string> {
     try {
       await this.ensureProjectDirectory();
-      
+
       // Gitリポジトリが初期化されているかチェック
       try {
         await this.fs.promises.stat(`${this.dir}/.git`);
       } catch {
         throw new Error('not a git repository (or any of the parent directories): .git');
       }
-      
+
       const { filepath, hard, commit } = options;
-      
+
       if (hard && commit) {
         // git reset --hard <commit> - 指定されたコミットまでハードリセット
         return await this.resetHard(commit);
       } else if (filepath) {
         // 特定のファイルをアンステージング
         await git.resetIndex({ fs: this.fs, dir: this.dir, filepath });
-        
+
         // onFileOperationコールバックを呼び出してプロジェクトの更新を通知
         if (this.onFileOperation) {
           console.log('[git.reset] Triggering project refresh after unstaging file:', filepath);
           await this.onFileOperation('.', 'folder', undefined, false);
         }
-        
+
         return `Unstaged ${filepath}`;
       } else {
         // 全ファイルをアンステージング - ステージングされたファイル（サブディレクトリ含む）を取得してそれぞれリセット
@@ -115,13 +127,21 @@ export class GitResetOperations {
       }
 
       // 対象コミットの情報を取得
-      const targetCommit = await git.readCommit({ fs: this.fs, dir: this.dir, oid: fullCommitHash });
-      
+      const targetCommit = await git.readCommit({
+        fs: this.fs,
+        dir: this.dir,
+        oid: fullCommitHash,
+      });
+
       // 現在のコミットを取得
       const currentBranch = await this.getCurrentBranch();
       let currentCommitHash: string;
       try {
-        currentCommitHash = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: currentBranch });
+        currentCommitHash = await git.resolveRef({
+          fs: this.fs,
+          dir: this.dir,
+          ref: currentBranch,
+        });
       } catch {
         throw new Error(`Cannot reset - no commits found on branch '${currentBranch}'`);
       }
@@ -134,13 +154,13 @@ export class GitResetOperations {
       // 現在のワーキングディレクトリの全ファイルを削除
       const filesToDelete = await this.getAllFiles(this.dir);
       const deletedFiles: string[] = [];
-      
+
       for (const filePath of filesToDelete) {
         try {
           const fullPath = `${this.dir}/${filePath}`;
           await this.fs.promises.unlink(fullPath);
           deletedFiles.push(filePath);
-          
+
           // ファイル操作のコールバックを実行
           if (this.onFileOperation) {
             const projectRelativePath = filePath.startsWith('/') ? filePath : `/${filePath}`;
@@ -152,28 +172,32 @@ export class GitResetOperations {
       }
 
       // 対象コミットのツリーを取得してファイルを復元
-      const targetTree = await git.readTree({ fs: this.fs, dir: this.dir, oid: targetCommit.commit.tree });
+      const targetTree = await git.readTree({
+        fs: this.fs,
+        dir: this.dir,
+        oid: targetCommit.commit.tree,
+      });
       const restoredFiles: string[] = [];
-      
+
       await this.restoreTreeFiles(targetTree, '', restoredFiles);
 
       // HEADを対象コミットに移動
       try {
-        await git.writeRef({ 
-          fs: this.fs, 
-          dir: this.dir, 
-          ref: `refs/heads/${currentBranch}`, 
+        await git.writeRef({
+          fs: this.fs,
+          dir: this.dir,
+          ref: `refs/heads/${currentBranch}`,
           value: fullCommitHash,
-          force: true
+          force: true,
         });
       } catch (writeRefError) {
         // writeRefが失敗した場合は、checkoutを使用して強制的にリセット
         try {
-          await git.checkout({ 
-            fs: this.fs, 
-            dir: this.dir, 
+          await git.checkout({
+            fs: this.fs,
+            dir: this.dir,
             ref: fullCommitHash,
-            force: true
+            force: true,
           });
         } catch (checkoutError) {
           throw new Error(`Failed to reset HEAD: ${(writeRefError as Error).message}`);
@@ -196,9 +220,9 @@ export class GitResetOperations {
 
       const shortHash = fullCommitHash.slice(0, 7);
       const commitMessage = targetCommit.commit.message.split('\n')[0];
-      
+
       let result = `HEAD is now at ${shortHash} ${commitMessage}`;
-      
+
       if (deletedFiles.length > 0 || restoredFiles.length > 0) {
         result += `\n\nFiles changed:`;
         if (deletedFiles.length > 0) {
@@ -212,19 +236,23 @@ export class GitResetOperations {
       return result;
     } catch (error) {
       const errorMessage = (error as Error).message;
-      
+
       if (errorMessage.includes('bad revision')) {
         throw new Error(`fatal: bad revision '${commitHash}'`);
       } else if (errorMessage.includes('not a git repository')) {
         throw new Error('fatal: not a git repository (or any of the parent directories): .git');
       }
-      
+
       throw new Error(`git reset --hard failed: ${errorMessage}`);
     }
   }
 
   // ツリーからファイルを復元する補助メソッド
-  private async restoreTreeFiles(tree: any, basePath: string, restoredFiles: string[]): Promise<void> {
+  private async restoreTreeFiles(
+    tree: any,
+    basePath: string,
+    restoredFiles: string[]
+  ): Promise<void> {
     for (const entry of tree.tree) {
       const fullPath = basePath ? `${basePath}/${entry.path}` : entry.path;
       const fsPath = `${this.dir}/${fullPath}`;

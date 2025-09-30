@@ -1,5 +1,8 @@
 // IndexedDBデータを新規about:blankタブにエクスポートし、結果メッセージを返す
-export async function exportIndexeddbHtmlWithWindow(writeOutput: (msg: string) => Promise<void>, win: Window | null) {
+export async function exportIndexeddbHtmlWithWindow(
+  writeOutput: (msg: string) => Promise<void>,
+  win: Window | null
+) {
   if (!win) {
     await writeOutput('about:blankの新規タブを開けませんでした。');
     return;
@@ -234,21 +237,29 @@ export async function exportIndexeddbHtml(): Promise<string> {
       <button onclick='collapseAll()' style='padding:0.2em 0.5em;'>すべて閉じる</button>
     </div>
     <div id='dbs'>
-      ${allData.map((db, dbIdx) => `
+      ${allData
+        .map(
+          (db, dbIdx) => `
         <div class='db'>
           <div class='db-header' onclick='toggleDb(${dbIdx}, this)'><span class='arrow'>▶</span>DB: ${db.name} (v${db.version}) <span class='count'>[${db.stores.length} stores]</span></div>
           <div class='db-content collapsed'>
-            ${db.stores.map((store, storeIdx) => `
+            ${db.stores
+              .map(
+                (store, storeIdx) => `
               <div class='store'>
                 <div class='store-header' onclick='toggleStore(${dbIdx},${storeIdx}, this)'><span class='arrow'>▶</span>Store: ${store.name} <span class='count'>[${store.items.length} items]</span></div>
                 <div class='items collapsed' id='items-${dbIdx}-${storeIdx}'>
                   ${store.items.length === 0 ? `<div class='item'>No items</div>` : store.items.map((item, idx) => `<div class='item'>[${idx}] ${syntaxHighlight(item, `${dbIdx}-${storeIdx}-${idx}`)}</div>`).join('')}
                 </div>
               </div>
-            `).join('')}
+            `
+              )
+              .join('')}
           </div>
         </div>
-      `).join('')}
+      `
+        )
+        .join('')}
     </div>
     <div class='footer'>Generated at ${new Date().toLocaleString('ja-JP')}</div>
     <script>
@@ -289,4 +300,3 @@ export async function exportIndexeddbHtml(): Promise<string> {
 // IndexedDBの全データを取得してHTML文字列として返すユーティリティ
 export type StoreDump = { name: string; items: any[] };
 export type DbDump = { name: string; version: number; stores: StoreDump[] };
-

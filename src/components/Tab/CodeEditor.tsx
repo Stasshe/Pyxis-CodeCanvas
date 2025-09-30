@@ -35,7 +35,12 @@ import { css } from '@codemirror/lang-css';
 import { python } from '@codemirror/lang-python';
 import { yaml } from '@codemirror/lang-yaml';
 import { oneDark } from '@codemirror/theme-one-dark';
-import { highlightActiveLine, highlightActiveLineGutter, highlightSpecialChars, lineNumbers } from '@codemirror/view';
+import {
+  highlightActiveLine,
+  highlightActiveLineGutter,
+  highlightSpecialChars,
+  lineNumbers,
+} from '@codemirror/view';
 import { keymap } from '@codemirror/view';
 import { history } from '@codemirror/commands';
 // 編集支援
@@ -85,10 +90,18 @@ const getLanguage = (filename: string): string => {
   if (ext.endsWith('.php')) return 'php';
   if (ext.endsWith('.go')) return 'go';
   if (ext.endsWith('.rs')) return 'rust';
-  if (ext.endsWith('.cpp') || ext.endsWith('.cc') || ext.endsWith('.cxx') || ext.endsWith('.hpp') || ext.endsWith('.hxx')) return 'cpp';
+  if (
+    ext.endsWith('.cpp') ||
+    ext.endsWith('.cc') ||
+    ext.endsWith('.cxx') ||
+    ext.endsWith('.hpp') ||
+    ext.endsWith('.hxx')
+  )
+    return 'cpp';
   if (ext.endsWith('.c') || ext.endsWith('.h')) return 'c';
   if (ext.endsWith('.cs')) return 'csharp';
-  if (ext.endsWith('.xml') || ext.endsWith('.xsd') || ext.endsWith('.xslt') || ext.endsWith('.xsl')) return 'xml';
+  if (ext.endsWith('.xml') || ext.endsWith('.xsd') || ext.endsWith('.xslt') || ext.endsWith('.xsl'))
+    return 'xml';
   if (ext.endsWith('.yaml') || ext.endsWith('.yml')) return 'yaml';
   if (ext.endsWith('.toml')) return 'toml';
   if (ext.endsWith('.ini') || ext.endsWith('.conf')) return 'ini';
@@ -115,7 +128,8 @@ const getLanguage = (filename: string): string => {
   if (ext.endsWith('.matlab') || ext.endsWith('.m')) return 'matlab';
   if (ext.endsWith('.vhdl') || ext.endsWith('.vhd')) return 'vhdl';
   if (ext.endsWith('.verilog') || ext.endsWith('.v')) return 'verilog';
-  if (ext.endsWith('.f90') || ext.endsWith('.f95') || ext.endsWith('.for') || ext.endsWith('.f')) return 'fortran';
+  if (ext.endsWith('.f90') || ext.endsWith('.f95') || ext.endsWith('.for') || ext.endsWith('.f'))
+    return 'fortran';
   if (ext.endsWith('.ada')) return 'ada';
   if (ext.endsWith('.dart')) return 'dart';
   if (ext.endsWith('.tsv') || ext.endsWith('.csv')) return 'plaintext';
@@ -125,7 +139,14 @@ const getLanguage = (filename: string): string => {
 const getCMExtensions = (filename: string) => {
   const ext = filename.toLowerCase();
   let lang: any[] = [];
-  if (ext.endsWith('.js') || ext.endsWith('.jsx') || ext.endsWith('.mjs') || ext.endsWith('.ts') || ext.endsWith('.tsx')) lang = [javascript()];
+  if (
+    ext.endsWith('.js') ||
+    ext.endsWith('.jsx') ||
+    ext.endsWith('.mjs') ||
+    ext.endsWith('.ts') ||
+    ext.endsWith('.tsx')
+  )
+    lang = [javascript()];
   else if (ext.endsWith('.md') || ext.endsWith('.markdown')) lang = [markdown()];
   else if (ext.endsWith('.xml')) lang = [xml()];
   else if (ext.endsWith('.css')) lang = [css()];
@@ -134,12 +155,7 @@ const getCMExtensions = (filename: string) => {
   else if (ext.endsWith('.html') || ext.endsWith('.htm') || ext.endsWith('.xhtml')) lang = [html()];
   // shellは拡張なし
   return [
-    keymap.of([
-      ...defaultKeymap,
-      ...historyKeymap,
-      ...defaultKeymap,
-      ...searchKeymap,
-    ]),
+    keymap.of([...defaultKeymap, ...historyKeymap, ...defaultKeymap, ...searchKeymap]),
     history(),
     autocompletion(),
     lineNumbers(),
@@ -148,7 +164,7 @@ const getCMExtensions = (filename: string) => {
     highlightActiveLineGutter(),
     highlightSpecialChars(),
     highlightSelectionMatches(),
-    ...lang
+    ...lang,
   ];
 };
 
@@ -162,21 +178,21 @@ export default function CodeEditor({
   isCodeMirror = false,
   currentProjectName,
   projectFiles,
-  wordWrapConfig
+  wordWrapConfig,
 }: CodeEditorProps) {
   const { colors } = useTheme();
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
-  
+
   // Monaco用: ファイルごとにTextModelを管理するMap（コンポーネント内で管理）
   const monacoModelMapRef = useRef<Map<string, monaco.editor.ITextModel>>(new Map());
-  
+
   // 現在設定されているモデルのIDを追跡
   const currentModelIdRef = useRef<string | null>(null);
-  
+
   // マウント状態をグローバルに管理
   const isMountedRef = useRef(true);
-  
+
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
@@ -184,7 +200,7 @@ export default function CodeEditor({
     };
   }, []);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
+
   // 文字数カウント用 state（スペース除外）
   const [charCount, setCharCount] = useState(0);
   const [selectionCount, setSelectionCount] = useState<number | null>(null);
@@ -197,27 +213,30 @@ export default function CodeEditor({
   const editorHeight = '100%';
 
   // デバウンス付きの保存関数
-  const debouncedSave = useCallback((tabId: string, content: string) => {
-    // NodeRuntime操作中は保存を一時停止
-    if (nodeRuntimeOperationInProgress) {
-      console.log('[CodeEditor] Skipping debounced save during NodeRuntime operation');
-      return;
-    }
-    
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-    
-    // タブIDとコンテンツを保存して、タイムアウト時に最新の値を使用できるようにする
-    const currentTabId = tabId;
-    const currentContent = content;
-    
-    saveTimeoutRef.current = setTimeout(() => {
-      console.log('[CodeEditor] Debounced save triggered for:', currentTabId);
-      // 保存処理を実行（page.tsxで最小ペインインデックスのチェックを行う）
-      onContentChange(currentTabId, currentContent);
-    }, 5000); // 5秒後に保存
-  }, [onContentChange, nodeRuntimeOperationInProgress]);
+  const debouncedSave = useCallback(
+    (tabId: string, content: string) => {
+      // NodeRuntime操作中は保存を一時停止
+      if (nodeRuntimeOperationInProgress) {
+        console.log('[CodeEditor] Skipping debounced save during NodeRuntime operation');
+        return;
+      }
+
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+
+      // タブIDとコンテンツを保存して、タイムアウト時に最新の値を使用できるようにする
+      const currentTabId = tabId;
+      const currentContent = content;
+
+      saveTimeoutRef.current = setTimeout(() => {
+        console.log('[CodeEditor] Debounced save triggered for:', currentTabId);
+        // 保存処理を実行（page.tsxで最小ペインインデックスのチェックを行う）
+        onContentChange(currentTabId, currentContent);
+      }, 5000); // 5秒後に保存
+    },
+    [onContentChange, nodeRuntimeOperationInProgress]
+  );
 
   // クリーンアップ
   useEffect(() => {
@@ -230,17 +249,13 @@ export default function CodeEditor({
 
   // 安全にエディターやモデルの状態をチェックするヘルパー関数
   const isEditorSafe = useCallback(() => {
-    return editorRef.current && 
-           !((editorRef.current as any)._isDisposed) && 
-           isMountedRef.current;
+    return editorRef.current && !(editorRef.current as any)._isDisposed && isMountedRef.current;
   }, []);
 
   const isModelSafe = useCallback((model: monaco.editor.ITextModel | null | undefined) => {
-    return model && 
-           typeof model.isDisposed === 'function' && 
-           !model.isDisposed();
+    return model && typeof model.isDisposed === 'function' && !model.isDisposed();
   }, []);
-  
+
   useEffect(() => {
     if (!activeTab || !isCodeMirror) return;
     if (
@@ -254,7 +269,6 @@ export default function CodeEditor({
     setSelectionCount(null);
   }, [isCodeMirror, activeTab?.id, activeTab?.content]);
 
-
   // Monaco Editor: ファイルごとにTextModelを管理し、タブ切り替え時にモデルを切り替える
   const handleEditorDidMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
@@ -264,13 +278,21 @@ export default function CodeEditor({
     try {
       Promise.all([
         fetch('https://unpkg.com/@types/react/index.d.ts').then(r => r.text()),
-        fetch('https://unpkg.com/@types/react-dom/index.d.ts').then(r => r.text())
-      ]).then(([reactTypes, reactDomTypes]) => {
-        monaco.languages.typescript.typescriptDefaults.addExtraLib(reactTypes, 'file:///node_modules/@types/react/index.d.ts');
-        monaco.languages.typescript.typescriptDefaults.addExtraLib(reactDomTypes, 'file:///node_modules/@types/react-dom/index.d.ts');
-      }).catch(e => {
-        console.warn('[CodeEditor] Failed to load React type definitions:', e);
-      });
+        fetch('https://unpkg.com/@types/react-dom/index.d.ts').then(r => r.text()),
+      ])
+        .then(([reactTypes, reactDomTypes]) => {
+          monaco.languages.typescript.typescriptDefaults.addExtraLib(
+            reactTypes,
+            'file:///node_modules/@types/react/index.d.ts'
+          );
+          monaco.languages.typescript.typescriptDefaults.addExtraLib(
+            reactDomTypes,
+            'file:///node_modules/@types/react-dom/index.d.ts'
+          );
+        })
+        .catch(e => {
+          console.warn('[CodeEditor] Failed to load React type definitions:', e);
+        });
       monaco.editor.defineTheme('pyxis-custom', {
         base: 'vs-dark',
         inherit: true,
@@ -304,7 +326,7 @@ export default function CodeEditor({
           'editorIndentGuide.activeBackground': '#707070',
           'editorBracketMatch.background': '#0064001a',
           'editorBracketMatch.border': '#888888',
-        }
+        },
       });
       monaco.editor.setTheme('pyxis-custom');
     } catch (e) {
@@ -316,12 +338,12 @@ export default function CodeEditor({
     monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
       noSemanticValidation: false,
       noSyntaxValidation: false,
-      noSuggestionDiagnostics: false
+      noSuggestionDiagnostics: false,
     });
     monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
       noSemanticValidation: false,
       noSyntaxValidation: false,
-      noSuggestionDiagnostics: false
+      noSuggestionDiagnostics: false,
     });
     monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
       target: monaco.languages.typescript.ScriptTarget.ES2020,
@@ -333,11 +355,11 @@ export default function CodeEditor({
       jsx: monaco.languages.typescript.JsxEmit.React,
       reactNamespace: 'React',
       allowJs: false,
-      typeRoots: ['node_modules/@types']
+      typeRoots: ['node_modules/@types'],
     });
 
     // 選択範囲の文字数（スペース除外）を検知
-    editor.onDidChangeCursorSelection((e) => {
+    editor.onDidChangeCursorSelection(e => {
       if (!isEditorSafe()) return;
       const selection = e.selection;
       const model = editor.getModel();
@@ -351,24 +373,26 @@ export default function CodeEditor({
     });
 
     // 初期モデルを設定（activeTabがある場合）
-    if (activeTab && !isBufferArray((activeTab as any).bufferContent) && 
-        activeTab.id !== 'welcome' && !activeTab.preview && !isCodeMirror) {
+    if (
+      activeTab &&
+      !isBufferArray((activeTab as any).bufferContent) &&
+      activeTab.id !== 'welcome' &&
+      !activeTab.preview &&
+      !isCodeMirror
+    ) {
       const monacoModelMap = monacoModelMapRef.current;
       let model = monacoModelMap.get(activeTab.id);
-      
+
       if (!isModelSafe(model)) {
         // 既存のモデルが破棄されている場合は削除
         if (model) {
           monacoModelMap.delete(activeTab.id);
         }
-        
-        model = monaco.editor.createModel(
-          activeTab.content,
-          getLanguage(activeTab.name)
-        );
+
+        model = monaco.editor.createModel(activeTab.content, getLanguage(activeTab.name));
         monacoModelMap.set(activeTab.id, model);
       }
-      
+
       if (isEditorSafe() && model) {
         try {
           editor.setModel(model);
@@ -385,7 +409,7 @@ export default function CodeEditor({
             }
             monacoModelMap.delete(activeTab.id);
           }
-          
+
           try {
             const newModel = monaco.editor.createModel(
               activeTab.content,
@@ -415,13 +439,13 @@ export default function CodeEditor({
     ) {
       return;
     }
-    
+
     // Monaco Editorの参照が有効かつdisposeされていないかチェック
     if (!isEditorSafe() || !monacoRef.current) return;
 
     const monacoModelMap = monacoModelMapRef.current;
     let model = monacoModelMap.get(activeTab.id);
-    
+
     // dispose済みモデルはMapから削除し新規作成
     if (!isModelSafe(model)) {
       if (model) {
@@ -429,7 +453,7 @@ export default function CodeEditor({
       }
       model = undefined;
     }
-    
+
     if (!model) {
       // 新しいモデルを作成
       try {
@@ -442,10 +466,10 @@ export default function CodeEditor({
         console.error('[CodeEditor] Model creation failed:', createError);
         return;
       }
-      
+
       // disposeやアンマウント後はsetModelしない
       if (!isEditorSafe()) return;
-      
+
       try {
         // モデルを設定
         editorRef.current!.setModel(model);
@@ -472,7 +496,7 @@ export default function CodeEditor({
       if (currentModelIdRef.current !== activeTab.id) {
         // disposeやアンマウント後はsetModelしない
         if (!isEditorSafe()) return;
-        
+
         try {
           editorRef.current!.setModel(model);
           currentModelIdRef.current = activeTab.id;
@@ -485,7 +509,7 @@ export default function CodeEditor({
           } catch (disposeError) {
             console.warn('[CodeEditor] Failed to dispose broken model:', disposeError);
           }
-          
+
           // 新しいモデルを作成して再試行
           try {
             const newModel = monacoRef.current!.editor.createModel(
@@ -502,7 +526,7 @@ export default function CodeEditor({
           return;
         }
       }
-      
+
       // 2. モデルの内容を更新（必要に応じて）
       if (isModelSafe(model) && model!.getValue() !== activeTab.content) {
         try {
@@ -514,7 +538,7 @@ export default function CodeEditor({
           return;
         }
       }
-      
+
       if (isModelSafe(model)) {
         setCharCount(countCharsNoSpaces(model!.getValue()));
       }
@@ -602,10 +626,16 @@ export default function CodeEditor({
 
   if (!activeTab) {
     return (
-      <div className="flex-1 min-h-0 select-none" style={{ height: editorHeight }}>
+      <div
+        className="flex-1 min-h-0 select-none"
+        style={{ height: editorHeight }}
+      >
         <div className="h-full flex items-center justify-center text-muted-foreground select-none">
           <div className="text-center select-none">
-            <FileText size={48} className="mx-auto mb-4 opacity-50" />
+            <FileText
+              size={48}
+              className="mx-auto mb-4 opacity-50"
+            />
             <p className="select-none">ファイルを選択してください</p>
           </div>
         </div>
@@ -616,7 +646,10 @@ export default function CodeEditor({
   // needsContentRestoreがtrueならローディング表示
   if (activeTab.needsContentRestore) {
     return (
-      <div className="flex-1 min-h-0 select-none" style={{ height: editorHeight }}>
+      <div
+        className="flex-1 min-h-0 select-none"
+        style={{ height: editorHeight }}
+      >
         <div className="h-full flex items-center justify-center text-muted-foreground select-none">
           <div className="text-center select-none">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
@@ -640,7 +673,10 @@ export default function CodeEditor({
 
   if (activeTab.id === 'welcome') {
     return (
-      <div className="flex-1 min-h-0" style={{ height: editorHeight }}>
+      <div
+        className="flex-1 min-h-0"
+        style={{ height: editorHeight }}
+      >
         <WelcomeTab />
       </div>
     );
@@ -650,10 +686,13 @@ export default function CodeEditor({
     return (
       <>
         {console.log('[CodeEditor] Rendering Markdown preview for:', activeTab.name)}
-        <div className="flex-1 min-h-0" style={{ height: editorHeight }}>
-          <MarkdownPreviewTab 
-            content={activeTab.content} 
-            fileName={activeTab.name} 
+        <div
+          className="flex-1 min-h-0"
+          style={{ height: editorHeight }}
+        >
+          <MarkdownPreviewTab
+            content={activeTab.content}
+            fileName={activeTab.name}
             currentProjectName={currentProjectName}
             projectFiles={projectFiles}
           />
@@ -663,7 +702,10 @@ export default function CodeEditor({
   }
 
   return (
-    <div className="flex-1 min-h-0 relative" style={{ height: editorHeight }}>
+    <div
+      className="flex-1 min-h-0 relative"
+      style={{ height: editorHeight }}
+    >
       {isCodeMirror ? (
         <div
           tabIndex={0}
@@ -681,30 +723,30 @@ export default function CodeEditor({
             WebkitTapHighlightColor: 'transparent',
           }}
         >
-        <CodeMirror
-          key={activeTab.id}
-          value={activeTab.content}
-          height="100%"
-          theme={oneDark}
-          extensions={getCMExtensions(activeTab.name)}
-          basicSetup={false}
-          onChange={(value) => {
-            onContentChangeImmediate?.(activeTab.id, value);
-            debouncedSave(activeTab.id, value);
-            setCharCount(countCharsNoSpaces(value));
-            setSelectionCount(null);
-          }}
-          // これを追加：選択範囲の文字数（スペース除外）
-          onUpdate={(vu: any) => {
-            const sel = vu.state.selection.main;
-            if (sel.empty) {
+          <CodeMirror
+            key={activeTab.id}
+            value={activeTab.content}
+            height="100%"
+            theme={oneDark}
+            extensions={getCMExtensions(activeTab.name)}
+            basicSetup={false}
+            onChange={value => {
+              onContentChangeImmediate?.(activeTab.id, value);
+              debouncedSave(activeTab.id, value);
+              setCharCount(countCharsNoSpaces(value));
               setSelectionCount(null);
-            } else {
-              const text = vu.state.sliceDoc(sel.from, sel.to);
-              setSelectionCount(countCharsNoSpaces(text));
-            }
-          }}
-          style={{
+            }}
+            // これを追加：選択範囲の文字数（スペース除外）
+            onUpdate={(vu: any) => {
+              const sel = vu.state.selection.main;
+              if (sel.empty) {
+                setSelectionCount(null);
+              } else {
+                const text = vu.state.sliceDoc(sel.from, sel.to);
+                setSelectionCount(countCharsNoSpaces(text));
+              }
+            }}
+            style={{
               height: '100%',
               minHeight: '100%',
               width: '100%',
@@ -723,7 +765,7 @@ export default function CodeEditor({
           // key属性を削除し、model切り替えでundo履歴を保持
           // defaultValueも削除し、model管理に任せる
           onMount={handleEditorDidMount}
-          onChange={(value) => {
+          onChange={value => {
             if (value !== undefined && activeTab) {
               try {
                 // ユーザーの変更は絶対に反映する
@@ -754,10 +796,10 @@ export default function CodeEditor({
             roundedSelection: false,
             scrollBeyondLastLine: false,
             automaticLayout: true,
-            minimap: { 
+            minimap: {
               enabled: true,
               maxColumn: 120,
-              showSlider: 'always'
+              showSlider: 'always',
             },
             wordWrap: wordWrapConfig,
             tabSize: 2,
@@ -772,13 +814,13 @@ export default function CodeEditor({
             quickSuggestions: {
               other: true,
               comments: true,
-              strings: true
+              strings: true,
             },
             hover: { enabled: true },
             bracketPairColorization: { enabled: true },
             guides: {
               bracketPairs: true,
-              indentation: true
+              indentation: true,
             },
             renderWhitespace: 'selection',
             renderControlCharacters: true,
@@ -806,8 +848,8 @@ export default function CodeEditor({
               horizontal: 'visible',
               useShadows: false,
               verticalScrollbarSize: 14,
-              horizontalScrollbarSize: 14
-            }
+              horizontalScrollbarSize: 14,
+            },
           }}
           loading={
             <div className="h-full flex items-center justify-center text-muted-foreground">
@@ -835,7 +877,7 @@ export default function CodeEditor({
           userSelect: 'none',
           boxShadow: showCharCountPopup ? '0 2px 8px rgba(0,0,0,0.25)' : undefined,
         }}
-        onClick={() => setShowCharCountPopup((v) => !v)}
+        onClick={() => setShowCharCountPopup(v => !v)}
         title="クリックで詳細表示"
       >
         {selectionCount !== null
@@ -856,7 +898,7 @@ export default function CodeEditor({
             minWidth: 180,
             maxWidth: 320,
           }}
-          onClick={(e) => e.stopPropagation()}
+          onClick={e => e.stopPropagation()}
         >
           <CharCountDetails content={activeTab.content || ''} />
           <div style={{ textAlign: 'right', marginTop: 8 }}>
@@ -871,7 +913,9 @@ export default function CodeEditor({
                 fontSize: 12,
               }}
               onClick={() => setShowCharCountPopup(false)}
-            >閉じる</button>
+            >
+              閉じる
+            </button>
           </div>
         </div>
       )}

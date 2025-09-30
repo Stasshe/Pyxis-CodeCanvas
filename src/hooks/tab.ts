@@ -6,7 +6,7 @@ import { flattenPanes } from '@/hooks/pane';
 // FileItem[]を平坦化する関数
 function flattenFileItems(items: FileItem[]): FileItem[] {
   const result: FileItem[] = [];
-  
+
   function traverse(items: FileItem[]) {
     for (const item of items) {
       result.push(item);
@@ -15,7 +15,7 @@ function flattenFileItems(items: FileItem[]): FileItem[] {
       }
     }
   }
-  
+
   traverse(items);
   return result;
 }
@@ -26,7 +26,7 @@ export function useProjectFilesSyncEffect({
   tabs,
   setTabs,
   nodeRuntimeOperationInProgress,
-  isRestoredFromLocalStorage
+  isRestoredFromLocalStorage,
 }: {
   currentProject: Project | null;
   projectFiles: FileItem[];
@@ -38,30 +38,32 @@ export function useProjectFilesSyncEffect({
   useEffect(() => {
     // localStorage復元が完了していない場合は処理をスキップ
     if (!isRestoredFromLocalStorage) {
-      console.log('[DEBUG] Skipping useProjectFilesSyncEffect: localStorage restoration not complete');
+      console.log(
+        '[DEBUG] Skipping useProjectFilesSyncEffect: localStorage restoration not complete'
+      );
       return;
     }
-    
+
     // currentProjectがnullの場合は処理をスキップ
     if (!currentProject) {
       console.log('[DEBUG] Skipping useProjectFilesSyncEffect: currentProject is null');
       return;
     }
-    
-  // プロジェクトファイルを平坦化
-  const flattenedFiles = flattenFileItems(projectFiles);
-  // デバッグ: 全ファイルパス一覧
-  // console.log('[DEBUG] ProjectFiles paths:', flattenedFiles.map(f => f.path));
-  //  デバッグ: 全タブパス一覧
-  // console.log('[DEBUG] Tabs paths:', tabs.map(t => t.path));
-  //console.log('[DEBUG] Flattened project files:', flattenedFiles.map(f => ({ path: f.path, contentLength: f.content?.length || 0 })));
-    
+
+    // プロジェクトファイルを平坦化
+    const flattenedFiles = flattenFileItems(projectFiles);
+    // デバッグ: 全ファイルパス一覧
+    // console.log('[DEBUG] ProjectFiles paths:', flattenedFiles.map(f => f.path));
+    //  デバッグ: 全タブパス一覧
+    // console.log('[DEBUG] Tabs paths:', tabs.map(t => t.path));
+    //console.log('[DEBUG] Flattened project files:', flattenedFiles.map(f => ({ path: f.path, contentLength: f.content?.length || 0 })));
+
     // タブにneedsContentRestoreフラグがあるかチェック
     const tabsNeedingRestore = tabs.filter(tab => tab.needsContentRestore);
     // if (tabsNeedingRestore.length > 0) {
     //   console.log('[DEBUG] Tabs needing content restore:', tabsNeedingRestore.map(t => ({ path: t.path, id: t.id })));
     // }
-    
+
     // tabsが空でもprojectFilesが存在する場合は同期を試みる
     if (flattenedFiles.length > 0) {
       let hasRealChanges = false;
@@ -84,7 +86,7 @@ export function useProjectFilesSyncEffect({
           if (tab.needsContentRestore) {
             hasRealChanges = true;
             // console.log('[DEBUG] Restoring content from DB for tab:', tab.path, 'fileContent:', correspondingFile.content?.slice(0, 50) + '...');
-            
+
             if (tab.isBufferArray && correspondingFile.isBufferArray) {
               return {
                 ...tab,
@@ -103,7 +105,7 @@ export function useProjectFilesSyncEffect({
               };
             }
           }
-          
+
           // バイナリファイルの場合はbufferContentを同期
           if (tab.isBufferArray && correspondingFile.isBufferArray) {
             const newBuf = correspondingFile.bufferContent;
@@ -115,7 +117,7 @@ export function useProjectFilesSyncEffect({
                 ...tab,
                 bufferContent: correspondingFile.bufferContent,
                 content: correspondingFile.content,
-                isDirty: false
+                isDirty: false,
               };
             }
             return tab;
@@ -133,7 +135,7 @@ export function useProjectFilesSyncEffect({
           return {
             ...tab,
             content: correspondingFile.content,
-            isDirty: false // DBから同期したので汚れていない状態にリセット
+            isDirty: false, // DBから同期したので汚れていない状態にリセット
           };
         });
       // 実際に内容が変更された場合のみ更新
@@ -142,7 +144,12 @@ export function useProjectFilesSyncEffect({
         setTabs(updatedTabs);
       }
     }
-  }, [projectFiles, currentProject?.id, nodeRuntimeOperationInProgress, isRestoredFromLocalStorage]);
+  }, [
+    projectFiles,
+    currentProject?.id,
+    nodeRuntimeOperationInProgress,
+    isRestoredFromLocalStorage,
+  ]);
 
   // 追加：プロジェクトファイルが初回読み込まれた時に、コンテンツ復元を強制実行
   useEffect(() => {
@@ -153,21 +160,21 @@ export function useProjectFilesSyncEffect({
     const tabsNeedingRestore = tabs.filter(tab => tab.needsContentRestore);
     if (tabsNeedingRestore.length > 0) {
       // console.log('[DEBUG] Force restoring content for tabs after project load');
-      
+
       // プロジェクトファイルを平坦化
       const flattenedFiles = flattenFileItems(projectFiles);
-      
+
       const updatedTabs = tabs
         .filter(tab => tab.content !== null) // contentがnullのタブを閉じる
         .map(tab => {
           if (!tab.needsContentRestore) return tab;
-          
+
           const correspondingFile = flattenedFiles.find(f => f.path === tab.path);
           if (!correspondingFile) {
             // console.log('[DEBUG] No file found for force restore:', tab.path);
             return tab;
           }
-          
+
           // console.log('[DEBUG] Force restoring:', tab.path, 'content length:', correspondingFile.content?.length || 0);
           return {
             ...tab,
@@ -177,7 +184,7 @@ export function useProjectFilesSyncEffect({
             needsContentRestore: false,
           };
         });
-      
+
       setTabs(updatedTabs);
     }
   }, [currentProject?.id, projectFiles.length, isRestoredFromLocalStorage]);
@@ -185,12 +192,11 @@ export function useProjectFilesSyncEffect({
 // src/hooks/pageEffects.ts
 // page.tsx の長めのuseEffect（プロジェクト変更時のタブリセット）を分離
 
-
 export function useProjectTabResetEffect({
   currentProject,
   setTabs,
   setActiveTabId,
-  pane
+  pane,
 }: {
   currentProject: Project | null;
   setTabs: (update: any) => void;
@@ -216,7 +222,7 @@ export function useProjectTabResetEffect({
             content: `# ${currentProject.name}\n\n${currentProject.description || ''}\n\nプロジェクトファイルはIndexedDBに保存されています。\n./${currentProject.name}/~$`,
             isDirty: false,
             path: '/',
-            fullPath: ''
+            fullPath: '',
           };
           return [welcomeTab];
         });
@@ -235,7 +241,7 @@ export function useActiveTabContentRestore({
   editors,
   projectFiles,
   setEditors,
-  isRestoredFromLocalStorage
+  isRestoredFromLocalStorage,
 }: {
   editors: any[]; // EditorPane[]
   projectFiles: FileItem[];
@@ -250,7 +256,9 @@ export function useActiveTabContentRestore({
 
     // ペインをフラット化して、needsContentRestoreなタブが1つでもあれば復元
     const flatPanes = flattenPanes(editors);
-    const needsRestore = flatPanes.some(pane => pane.tabs.some((tab: any) => tab.needsContentRestore));
+    const needsRestore = flatPanes.some(pane =>
+      pane.tabs.some((tab: any) => tab.needsContentRestore)
+    );
 
     if (needsRestore) {
       // プロジェクトファイルを平坦化
@@ -261,7 +269,7 @@ export function useActiveTabContentRestore({
             if (editor.children && editor.children.length > 0) {
               return {
                 ...editor,
-                children: updatePaneRecursive(editor.children)
+                children: updatePaneRecursive(editor.children),
               };
             }
             // リーフペインの場合、全タブを復元
@@ -278,7 +286,7 @@ export function useActiveTabContentRestore({
                   isDirty: false,
                   needsContentRestore: false,
                 };
-              })
+              }),
             };
           });
         };
@@ -287,8 +295,12 @@ export function useActiveTabContentRestore({
     }
   }, [
     // 全ペインのタブIDとneedsContentRestoreフラグを監視
-    flattenPanes(editors).map(pane => pane.tabs.map((tab: any) => tab.id + ':' + (tab.needsContentRestore ? '1' : '0')).join(',')).join(','),
+    flattenPanes(editors)
+      .map(pane =>
+        pane.tabs.map((tab: any) => tab.id + ':' + (tab.needsContentRestore ? '1' : '0')).join(',')
+      )
+      .join(','),
     projectFiles.length,
-    isRestoredFromLocalStorage
+    isRestoredFromLocalStorage,
   ]);
 }

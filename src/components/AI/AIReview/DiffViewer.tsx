@@ -16,11 +16,11 @@ interface DiffViewerProps {
   viewMode?: DiffViewMode;
 }
 
-export default function DiffViewer({ 
-  oldValue, 
-  newValue, 
-  onApplyBlock, 
-  onDiscardBlock, 
+export default function DiffViewer({
+  oldValue,
+  newValue,
+  onApplyBlock,
+  onDiscardBlock,
   viewMode = 'block',
 }: DiffViewerProps) {
   const { colors } = useTheme();
@@ -57,31 +57,54 @@ export default function DiffViewer({
     // 全体リストで各変更ブロックの先頭にボタンを表示
     let lineGlobalIndex = 0;
     return (
-      <div className="font-mono text-sm border rounded" style={{ borderColor: colors.border }}>
+      <div
+        className="font-mono text-sm border rounded"
+        style={{ borderColor: colors.border }}
+      >
         {diffBlocks.map((block, blockIndex) => {
           if (block.type === 'changed') {
             return (
               <React.Fragment key={blockIndex}>
                 {/* 変更ブロック先頭にボタン */}
-                <div className="flex gap-1 items-center px-2 py-1" style={{ background: colors.mutedBg }}>
-                  <span className="text-xs font-medium" style={{ color: colors.foreground }}>
+                <div
+                  className="flex gap-1 items-center px-2 py-1"
+                  style={{ background: colors.mutedBg }}
+                >
+                  <span
+                    className="text-xs font-medium"
+                    style={{ color: colors.foreground }}
+                  >
                     変更ブロック {blockIndex + 1}（行 {block.startLine}-{block.endLine}）
                   </span>
                   <button
                     className="text-xs px-2 py-1 rounded hover:opacity-90 border"
-                    style={{ background: colors.green, color: colors.background, borderColor: colors.green, fontWeight: 600, boxShadow: '0 1px 4px 0 #0002' }}
+                    style={{
+                      background: colors.green,
+                      color: colors.background,
+                      borderColor: colors.green,
+                      fontWeight: 600,
+                      boxShadow: '0 1px 4px 0 #0002',
+                    }}
                     onClick={() => handleApplyBlock(block)}
-                  >適用</button>
+                  >
+                    適用
+                  </button>
                   <button
                     className="text-xs px-2 py-1 rounded hover:opacity-80"
                     style={{ background: colors.red, color: colors.background }}
                     onClick={() => handleDiscardBlock(block)}
-                  >破棄</button>
+                  >
+                    破棄
+                  </button>
                 </div>
                 {block.lines.map((line, lineIndex) => {
                   lineGlobalIndex++;
                   return (
-                    <DiffLineComponent key={lineGlobalIndex} line={line} colors={colors} />
+                    <DiffLineComponent
+                      key={lineGlobalIndex}
+                      line={line}
+                      colors={colors}
+                    />
                   );
                 })}
               </React.Fragment>
@@ -90,7 +113,13 @@ export default function DiffViewer({
             // unchanged
             return block.lines.map((line, lineIndex) => {
               lineGlobalIndex++;
-              return <DiffLineComponent key={lineGlobalIndex} line={line} colors={colors} />;
+              return (
+                <DiffLineComponent
+                  key={lineGlobalIndex}
+                  line={line}
+                  colors={colors}
+                />
+              );
             });
           }
         })}
@@ -99,7 +128,7 @@ export default function DiffViewer({
   }
   // blockモード（従来通り）
   return (
-    <div 
+    <div
       className="font-mono text-sm border rounded"
       style={{ borderColor: colors.border }}
     >
@@ -108,23 +137,23 @@ export default function DiffViewer({
           {block.type === 'changed' ? (
             <div>
               {/* 変更ブロックヘッダー */}
-              <div 
+              <div
                 className="flex items-center justify-between px-3 py-2 border-b cursor-pointer hover:opacity-80"
-                style={{ 
-                  background: colors.mutedBg, 
-                  borderColor: colors.border 
+                style={{
+                  background: colors.mutedBg,
+                  borderColor: colors.border,
                 }}
                 onClick={() => toggleBlockExpansion(blockIndex)}
               >
                 <div className="flex items-center gap-2">
-                  <span 
+                  <span
                     className="text-xs font-medium"
                     style={{ color: colors.foreground }}
                   >
-                    {expandedBlocks.has(blockIndex) ? '▼' : '▶'} 
+                    {expandedBlocks.has(blockIndex) ? '▼' : '▶'}
                     変更ブロック {blockIndex + 1}
                   </span>
-                  <span 
+                  <span
                     className="text-xs"
                     style={{ color: colors.mutedFg }}
                   >
@@ -134,8 +163,14 @@ export default function DiffViewer({
                 <div className="flex gap-1">
                   <button
                     className="text-xs px-2 py-1 rounded hover:opacity-90 border"
-                    style={{ background: colors.green, color: colors.background, borderColor: colors.green, fontWeight: 600, boxShadow: '0 1px 4px 0 #0002' }}
-                    onClick={(e) => {
+                    style={{
+                      background: colors.green,
+                      color: colors.background,
+                      borderColor: colors.green,
+                      fontWeight: 600,
+                      boxShadow: '0 1px 4px 0 #0002',
+                    }}
+                    onClick={e => {
                       e.stopPropagation();
                       handleApplyBlock(block);
                     }}
@@ -145,7 +180,7 @@ export default function DiffViewer({
                   <button
                     className="text-xs px-2 py-1 rounded hover:opacity-80"
                     style={{ background: colors.red, color: colors.background }}
-                    onClick={(e) => {
+                    onClick={e => {
                       e.stopPropagation();
                       handleDiscardBlock(block);
                     }}
@@ -159,9 +194,9 @@ export default function DiffViewer({
               {expandedBlocks.has(blockIndex) && (
                 <div>
                   {block.lines.map((line, lineIndex) => (
-                    <DiffLineComponent 
-                      key={lineIndex} 
-                      line={line} 
+                    <DiffLineComponent
+                      key={lineIndex}
+                      line={line}
                       colors={colors}
                     />
                   ))}
@@ -174,47 +209,45 @@ export default function DiffViewer({
               {block.lines.length > 6 ? (
                 <>
                   {block.lines.slice(0, 3).map((line, lineIndex) => (
-                    <DiffLineComponent 
-                      key={lineIndex} 
-                      line={line} 
+                    <DiffLineComponent
+                      key={lineIndex}
+                      line={line}
                       colors={colors}
                     />
                   ))}
-                  <div 
+                  <div
                     className="flex items-center justify-center py-2 text-xs cursor-pointer hover:opacity-80"
-                    style={{ 
-                      background: colors.mutedBg, 
-                      color: colors.mutedFg 
+                    style={{
+                      background: colors.mutedBg,
+                      color: colors.mutedFg,
                     }}
                     onClick={() => toggleBlockExpansion(blockIndex)}
                   >
-                    {expandedBlocks.has(blockIndex) 
-                      ? '▲ 折りたたむ' 
-                      : `▼ ${block.lines.length - 6}行を展開`
-                    }
+                    {expandedBlocks.has(blockIndex)
+                      ? '▲ 折りたたむ'
+                      : `▼ ${block.lines.length - 6}行を展開`}
                   </div>
-                  {expandedBlocks.has(blockIndex) && 
+                  {expandedBlocks.has(blockIndex) &&
                     block.lines.slice(3, -3).map((line, lineIndex) => (
-                      <DiffLineComponent 
-                        key={lineIndex + 3} 
-                        line={line} 
+                      <DiffLineComponent
+                        key={lineIndex + 3}
+                        line={line}
                         colors={colors}
                       />
-                    ))
-                  }
+                    ))}
                   {block.lines.slice(-3).map((line, lineIndex) => (
-                    <DiffLineComponent 
-                      key={lineIndex + block.lines.length - 3} 
-                      line={line} 
+                    <DiffLineComponent
+                      key={lineIndex + block.lines.length - 3}
+                      line={line}
                       colors={colors}
                     />
                   ))}
                 </>
               ) : (
                 block.lines.map((line, lineIndex) => (
-                  <DiffLineComponent 
-                    key={lineIndex} 
-                    line={line} 
+                  <DiffLineComponent
+                    key={lineIndex}
+                    line={line}
                     colors={colors}
                   />
                 ))
@@ -260,50 +293,52 @@ function DiffLineComponent({ line, colors }: { line: DiffLine; colors: any }) {
   };
 
   return (
-    <div 
+    <div
       className="flex hover:opacity-90"
       style={{
         ...getLineStyle(),
-        color: colors.editorFg
+        color: colors.editorFg,
       }}
     >
       {/* 行番号 */}
-      <div 
+      <div
         className="flex-shrink-0 px-2 py-1 text-right min-w-[60px] text-xs"
-        style={{ 
-          background: colors.mutedBg, 
+        style={{
+          background: colors.mutedBg,
           color: colors.mutedFg,
-          borderRight: `1px solid ${colors.border}`
+          borderRight: `1px solid ${colors.border}`,
         }}
       >
         {line.oldLineNumber || ''}
       </div>
-      <div 
+      <div
         className="flex-shrink-0 px-2 py-1 text-right min-w-[60px] text-xs"
-        style={{ 
-          background: colors.mutedBg, 
+        style={{
+          background: colors.mutedBg,
           color: colors.mutedFg,
-          borderRight: `1px solid ${colors.border}`
+          borderRight: `1px solid ${colors.border}`,
         }}
       >
         {line.newLineNumber || ''}
       </div>
 
       {/* プレフィックス */}
-      <div 
+      <div
         className="flex-shrink-0 px-2 py-1 text-xs font-bold"
-        style={{ 
-          color: line.type === 'added' ? colors.accent : 
-                 line.type === 'removed' ? colors.red : colors.mutedFg
+        style={{
+          color:
+            line.type === 'added'
+              ? colors.accent
+              : line.type === 'removed'
+                ? colors.red
+                : colors.mutedFg,
         }}
       >
         {getLinePrefix()}
       </div>
 
       {/* コンテンツ */}
-      <div className="flex-1 px-2 py-1 whitespace-pre-wrap">
-        {line.content || ' '}
-      </div>
+      <div className="flex-1 px-2 py-1 whitespace-pre-wrap">{line.content || ' '}</div>
     </div>
   );
 }

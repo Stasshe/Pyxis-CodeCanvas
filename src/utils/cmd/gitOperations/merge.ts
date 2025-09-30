@@ -8,12 +8,22 @@ import { GitFileSystemHelper } from './fileSystemHelper';
 export class GitMergeOperations {
   private fs: FS;
   private dir: string;
-  private onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>;
+  private onFileOperation?: (
+    path: string,
+    type: 'file' | 'folder' | 'delete',
+    content?: string,
+    isNodeRuntime?: boolean
+  ) => Promise<void>;
 
   constructor(
-    fs: FS, 
-    dir: string, 
-    onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean) => Promise<void>
+    fs: FS,
+    dir: string,
+    onFileOperation?: (
+      path: string,
+      type: 'file' | 'folder' | 'delete',
+      content?: string,
+      isNodeRuntime?: boolean
+    ) => Promise<void>
   ) {
     this.fs = fs;
     this.dir = dir;
@@ -60,7 +70,7 @@ export class GitMergeOperations {
   private async isWorkingDirectoryClean(): Promise<boolean> {
     try {
       const status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
-      
+
       // 変更されたファイルまたはステージされたファイルがあるかチェック
       for (const [filepath, HEAD, workdir, stage] of status) {
         // 変更がある場合
@@ -68,7 +78,7 @@ export class GitMergeOperations {
           return false;
         }
       }
-      
+
       return true;
     } catch {
       return true; // エラーの場合はクリーンとみなす
@@ -100,21 +110,31 @@ export class GitMergeOperations {
         if (entry.type === 'tree') {
           // ディレクトリ
           try {
-            try { await this.fs.promises.stat(fsPath); } catch { await this.fs.promises.mkdir(fsPath, { recursive: true } as any); }
+            try {
+              await this.fs.promises.stat(fsPath);
+            } catch {
+              await this.fs.promises.mkdir(fsPath, { recursive: true } as any);
+            }
             if (this.onFileOperation) {
               const projectRelativePath = fullPath.startsWith('/') ? fullPath : `/${fullPath}`;
               await this.onFileOperation(projectRelativePath, 'folder');
             }
             const subTree = await git.readTree({ fs: this.fs, dir: this.dir, oid: entry.oid });
             await restoreTreeFiles(subTree, fullPath);
-          } catch (e) { console.warn(`Failed to create directory ${fullPath}:`, e); }
+          } catch (e) {
+            console.warn(`Failed to create directory ${fullPath}:`, e);
+          }
         } else if (entry.type === 'blob') {
           newFiles.add(fullPath);
           try {
             // 親ディレクトリを再帰的に作成
             const dirPath = fsPath.substring(0, fsPath.lastIndexOf('/'));
             if (dirPath && dirPath !== this.dir) {
-              try { await this.fs.promises.stat(dirPath); } catch { await this.fs.promises.mkdir(dirPath, { recursive: true } as any); }
+              try {
+                await this.fs.promises.stat(dirPath);
+              } catch {
+                await this.fs.promises.mkdir(dirPath, { recursive: true } as any);
+              }
             }
             const { blob } = await git.readBlob({ fs: this.fs, dir: this.dir, oid: entry.oid });
             const content = new TextDecoder().decode(blob);
@@ -123,7 +143,9 @@ export class GitMergeOperations {
               const projectRelativePath = fullPath.startsWith('/') ? fullPath : `/${fullPath}`;
               await this.onFileOperation(projectRelativePath, 'file', content);
             }
-          } catch (e) { console.warn(`Failed to restore file ${fullPath}:`, e); }
+          } catch (e) {
+            console.warn(`Failed to restore file ${fullPath}:`, e);
+          }
         }
       }
     };
@@ -138,29 +160,42 @@ export class GitMergeOperations {
             const projectRelativePath = filepath.startsWith('/') ? filepath : `/${filepath}`;
             await this.onFileOperation(projectRelativePath, 'delete');
           }
-        } catch (e) { console.warn(`Failed to delete file ${filepath}:`, e); }
+        } catch (e) {
+          console.warn(`Failed to delete file ${filepath}:`, e);
+        }
       }
     }
   }
 
   // Fast-forward マージかチェック
-  private async canFastForward(sourceBranch: string, targetBranch: string): Promise<{ canFF: boolean; sourceCommit: string; targetCommit: string }> {
+  private async canFastForward(
+    sourceBranch: string,
+    targetBranch: string
+  ): Promise<{ canFF: boolean; sourceCommit: string; targetCommit: string }> {
     try {
-      const sourceCommit = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: `refs/heads/${sourceBranch}` });
-      const targetCommit = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: `refs/heads/${targetBranch}` });
+      const sourceCommit = await git.resolveRef({
+        fs: this.fs,
+        dir: this.dir,
+        ref: `refs/heads/${sourceBranch}`,
+      });
+      const targetCommit = await git.resolveRef({
+        fs: this.fs,
+        dir: this.dir,
+        ref: `refs/heads/${targetBranch}`,
+      });
 
       // targetBranchがsourceBranchの祖先かチェック（bがaの祖先か？）
-      const isAncestor = await git.isDescendent({ 
-        fs: this.fs, 
-        dir: this.dir, 
-        oid: targetCommit, 
-        ancestor: sourceCommit 
+      const isAncestor = await git.isDescendent({
+        fs: this.fs,
+        dir: this.dir,
+        oid: targetCommit,
+        ancestor: sourceCommit,
       });
 
       return {
         canFF: isAncestor,
         sourceCommit,
-        targetCommit
+        targetCommit,
       };
     } catch (error) {
       throw new Error(`Failed to check fast-forward possibility: ${(error as Error).message}`);
@@ -168,7 +203,10 @@ export class GitMergeOperations {
   }
 
   // git merge - ブランチをマージ
-  async merge(branchName: string, options: { noFf?: boolean; message?: string } = {}): Promise<string> {
+  async merge(
+    branchName: string,
+    options: { noFf?: boolean; message?: string } = {}
+  ): Promise<string> {
     try {
       await this.ensureGitRepository();
 
@@ -180,7 +218,7 @@ export class GitMergeOperations {
 
       // 現在のブランチを取得
       const currentBranch = await this.getCurrentBranch();
-      
+
       // 自分自身をマージしようとした場合
       if (currentBranch === branchName) {
         return `Already up to date.`;
@@ -193,18 +231,21 @@ export class GitMergeOperations {
       }
 
       // Fast-forward チェック
-      const { canFF, sourceCommit, targetCommit } = await this.canFastForward(currentBranch, branchName);
+      const { canFF, sourceCommit, targetCommit } = await this.canFastForward(
+        currentBranch,
+        branchName
+      );
 
       // Fast-forward マージの場合
       if (canFF && !options.noFf) {
         console.log('Performing fast-forward merge');
 
         // Fast-forward マージを実行（HEADを対象ブランチに移動）
-        await git.writeRef({ 
-          fs: this.fs, 
-          dir: this.dir, 
-          ref: `refs/heads/${currentBranch}`, 
-          value: targetCommit 
+        await git.writeRef({
+          fs: this.fs,
+          dir: this.dir,
+          ref: `refs/heads/${currentBranch}`,
+          value: targetCommit,
         });
 
         // ワーキングディレクトリを更新
@@ -219,9 +260,9 @@ export class GitMergeOperations {
 
       // 3-way マージを実行
       console.log('Performing 3-way merge');
-      
+
       const commitMessage = options.message || `Merge branch '${branchName}' into ${currentBranch}`;
-      
+
       try {
         // isomorphic-git の merge 関数を使用
         const result = await git.merge({
@@ -231,13 +272,13 @@ export class GitMergeOperations {
           theirs: branchName,
           author: {
             name: 'User',
-            email: 'user@pyxis.dev'
+            email: 'user@pyxis.dev',
           },
           committer: {
-            name: 'User', 
-            email: 'user@pyxis.dev'
+            name: 'User',
+            email: 'user@pyxis.dev',
           },
-          message: commitMessage
+          message: commitMessage,
         });
 
         console.log('Merge result:', result);
@@ -263,7 +304,6 @@ export class GitMergeOperations {
         } else {
           return `Merge completed successfully.`;
         }
-
       } catch (mergeError) {
         const error = mergeError as any;
         // マージコンフリクトの場合
@@ -273,15 +313,14 @@ export class GitMergeOperations {
         // その他のマージエラー
         throw new Error(`Merge failed: ${error.message}`);
       }
-
     } catch (error) {
       const errorMessage = (error as Error).message;
-      
+
       // 特定のエラーは再スロー
       if (errorMessage.includes('not a git repository')) {
         throw error;
       }
-      
+
       // その他のエラーは詳細なメッセージで包む
       throw new Error(`git merge failed: ${errorMessage}`);
     }
@@ -302,7 +341,7 @@ export class GitMergeOperations {
       // MERGE_HEAD ファイルを削除してマージ状態をクリア
       try {
         await this.fs.promises.unlink(`${this.dir}/.git/MERGE_HEAD`);
-        
+
         // MERGE_MSG ファイルも削除（存在する場合）
         try {
           await this.fs.promises.unlink(`${this.dir}/.git/MERGE_MSG`);
@@ -323,14 +362,13 @@ export class GitMergeOperations {
       } catch (error) {
         throw new Error(`Failed to abort merge: ${(error as Error).message}`);
       }
-
     } catch (error) {
       const errorMessage = (error as Error).message;
-      
+
       if (errorMessage.includes('not a git repository')) {
         throw error;
       }
-      
+
       throw new Error(`git merge --abort failed: ${errorMessage}`);
     }
   }

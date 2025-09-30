@@ -19,10 +19,10 @@ export const ToastContainer: React.FC = () => {
   useEffect(() => {
     setIsClient(true);
 
-    addToast = (toast) => {
-      setToasts((prev) => [...prev, toast]);
+    addToast = toast => {
+      setToasts(prev => [...prev, toast]);
       setTimeout(() => {
-        setToasts((prev) => prev.filter((t) => t.id !== toast.id));
+        setToasts(prev => prev.filter(t => t.id !== toast.id));
       }, 3000);
     };
   }, []);
@@ -31,8 +31,11 @@ export const ToastContainer: React.FC = () => {
 
   return createPortal(
     <div className="toast-container">
-      {toasts.map((toast) => (
-        <div key={toast.id} className={`toast toast-${toast.type}`}>
+      {toasts.map(toast => (
+        <div
+          key={toast.id}
+          className={`toast toast-${toast.type}`}
+        >
           {toast.message}
         </div>
       ))}

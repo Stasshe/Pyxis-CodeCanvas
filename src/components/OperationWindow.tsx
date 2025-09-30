@@ -9,7 +9,7 @@ import { flattenPanes } from '@/hooks/pane';
 // FileItem[]を平坦化する関数（tab.tsと同じ実装）
 function flattenFileItems(items: FileItem[]): FileItem[] {
   const result: FileItem[] = [];
-  
+
   function traverse(items: FileItem[]) {
     for (const item of items) {
       result.push(item);
@@ -18,7 +18,7 @@ function flattenFileItems(items: FileItem[]): FileItem[] {
       }
     }
   }
-  
+
   traverse(items);
   return result;
 }
@@ -44,14 +44,14 @@ export default function OperationWindow({
   setEditors,
   setFileSelectState,
   currentPaneIndex,
-  aiMode = false
+  aiMode = false,
 }: OperationWindowProps) {
   const { colors } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  
+
   // ファイル選択ハンドラ
   const handleFileSelectInOperation = (file: FileItem) => {
     if (aiMode) {
@@ -66,12 +66,12 @@ export default function OperationWindow({
 
     // 通常モードの場合は、ファイルをタブで開く
     const flatPanes = flattenPanes(editors);
-    
+
     if (flatPanes.length === 0) return;
-    
+
     // 指定されたペインインデックスを使用（未指定の場合は最初のペイン）
     const paneIdx = currentPaneIndex ?? 0;
-    
+
     // ファイルを直接開く（OperationWindowからのファイル選択）
     handleFileSelect({
       file,
@@ -79,15 +79,17 @@ export default function OperationWindow({
       currentProject: null,
       projectFiles,
       editors,
-      setEditors
+      setEditors,
     });
-    
+
     // OperationWindowを閉じる
     onClose();
   };
 
   // 検索ロジック（ファイル名・フォルダ名・パスのいずれかに一致）
-  const allFiles = flattenFileItems(projectFiles).filter(file => file.type === 'file' && !file.path.includes('node_modules/'));
+  const allFiles = flattenFileItems(projectFiles).filter(
+    file => file.type === 'file' && !file.path.includes('node_modules/')
+  );
   const filteredFiles: FileItem[] = searchQuery
     ? allFiles.filter(file => {
         const q = searchQuery.toLowerCase();
@@ -103,15 +105,15 @@ export default function OperationWindow({
   // 選択されたアイテムにスクロールする関数
   const scrollToSelectedItem = (index: number) => {
     if (!listRef.current) return;
-    
+
     const listElement = listRef.current;
     const itemHeight = 38;
     const containerHeight = listElement.clientHeight;
     const scrollTop = listElement.scrollTop;
-    
+
     const itemTop = index * itemHeight;
     const itemBottom = itemTop + itemHeight;
-    
+
     if (itemTop < scrollTop) {
       // アイテムが上に隠れている場合
       listElement.scrollTop = itemTop;
@@ -206,7 +208,7 @@ export default function OperationWindow({
           flexDirection: 'column',
           boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
         }}
-        onClick={(e) => e.stopPropagation()}
+        onClick={e => e.stopPropagation()}
       >
         {/* 検索入力欄のみ */}
         <div style={{ padding: '12px' }}>
@@ -215,7 +217,7 @@ export default function OperationWindow({
             type="text"
             placeholder="ファイル名・フォルダ名・パス いずれかで検索..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={e => setSearchQuery(e.target.value)}
             style={{
               width: '100%',
               padding: '8px 12px',
@@ -256,7 +258,23 @@ export default function OperationWindow({
                 if (!query) return text;
                 const idx = text.toLowerCase().indexOf(query.toLowerCase());
                 if (idx === -1) return text;
-                return <>{text.slice(0, idx)}<span style={{ background: isSelected ? colors.primary : colors.accentBg, color: isSelected ? colors.cardBg : colors.primary, fontWeight: isSelected ? 'bold' : 'normal', borderRadius: '2px', padding: '0 2px' }}>{text.slice(idx, idx + query.length)}</span>{text.slice(idx + query.length)}</>;
+                return (
+                  <>
+                    {text.slice(0, idx)}
+                    <span
+                      style={{
+                        background: isSelected ? colors.primary : colors.accentBg,
+                        color: isSelected ? colors.cardBg : colors.primary,
+                        fontWeight: isSelected ? 'bold' : 'normal',
+                        borderRadius: '2px',
+                        padding: '0 2px',
+                      }}
+                    >
+                      {text.slice(idx, idx + query.length)}
+                    </span>
+                    {text.slice(idx + query.length)}
+                  </>
+                );
               }
               // highlight logic: ファイル名・フォルダ名・パスのいずれかに一致した部分をハイライト
               let pathElem: React.ReactNode = file.path;
@@ -269,11 +287,36 @@ export default function OperationWindow({
               // highlight folder part in path
               const folders = file.path.split('/').slice(0, -1);
               if (folders.some(folder => folder.toLowerCase().includes(q))) {
-                const folderElems = folders.map((folder, i) => folder.toLowerCase().includes(q)
-                  ? <span key={i} style={{ background: index === selectedIndex ? colors.primary : colors.accentBg, color: index === selectedIndex ? colors.cardBg : colors.primary, fontWeight: index === selectedIndex ? 'bold' : 'normal', borderRadius: '2px', padding: '0 2px' }}>{folder}</span>
-                  : folder);
-                const joinedFolders = folderElems.slice(1).reduce<React.ReactNode[]>((prev, curr, i) => [...prev, <span key={i + 'sep'}>/</span>, curr], [folderElems[0]]);
-                pathElem = <>{joinedFolders}{"/"}{file.name}</>;
+                const folderElems = folders.map((folder, i) =>
+                  folder.toLowerCase().includes(q) ? (
+                    <span
+                      key={i}
+                      style={{
+                        background: index === selectedIndex ? colors.primary : colors.accentBg,
+                        color: index === selectedIndex ? colors.cardBg : colors.primary,
+                        fontWeight: index === selectedIndex ? 'bold' : 'normal',
+                        borderRadius: '2px',
+                        padding: '0 2px',
+                      }}
+                    >
+                      {folder}
+                    </span>
+                  ) : (
+                    folder
+                  )
+                );
+                const joinedFolders = folderElems
+                  .slice(1)
+                  .reduce<
+                    React.ReactNode[]
+                  >((prev, curr, i) => [...prev, <span key={i + 'sep'}>/</span>, curr], [folderElems[0]]);
+                pathElem = (
+                  <>
+                    {joinedFolders}
+                    {'/'}
+                    {file.name}
+                  </>
+                );
               } else if (file.path.toLowerCase().includes(q)) {
                 pathElem = highlight(file.path, searchQuery, index === selectedIndex);
               }
@@ -349,7 +392,9 @@ export default function OperationWindow({
                 onClose();
               }
             }}
-          >ESC で閉じる</span>
+          >
+            ESC で閉じる
+          </span>
         </div>
       </div>
     </div>

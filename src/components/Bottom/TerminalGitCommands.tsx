@@ -2,20 +2,20 @@
 // Terminalのgitコマンド処理部分を分割
 // ...original Terminal.tsx から git コマンド処理部分を移植して実装してください。
 
-import type { GitCommands } from "@/utils/core/filesystem";
+import type { GitCommands } from '@/utils/core/filesystem';
 
 export async function handleGitCommand(
   args: string[],
   gitCommandsRef: React.RefObject<GitCommands | null>,
-  writeOutput: (output: string) => Promise<void>,
+  writeOutput: (output: string) => Promise<void>
 ) {
   if (!gitCommandsRef.current || !args[0]) {
-    await writeOutput("git: missing command");
+    await writeOutput('git: missing command');
     return;
   }
   const gitCmd = args[0];
   switch (gitCmd) {
-    case "init":
+    case 'init':
       const initMessage = `git init: Command not available from terminal
 プロジェクトの初期化は左下の「プロジェクト管理」ボタンから
 新規プロジェクトを作成してください。
@@ -23,17 +23,23 @@ export async function handleGitCommand(
       await writeOutput(initMessage);
       break;
 
-    case "clone":
+    case 'clone':
       if (args[1]) {
         const url = args[1].trim();
         const targetDir = args[2]?.trim(); // オプションのターゲットディレクトリ
-        
+
         // URLの基本的な妥当性チェック
-        if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('git://')) {
-          await writeOutput("git clone: invalid repository URL (must start with http://, https://, or git://)");
+        if (
+          !url.startsWith('http://') &&
+          !url.startsWith('https://') &&
+          !url.startsWith('git://')
+        ) {
+          await writeOutput(
+            'git clone: invalid repository URL (must start with http://, https://, or git://)'
+          );
           break;
         }
-        
+
         try {
           await writeOutput(`Cloning repository ${url}...`);
           const cloneResult = await gitCommandsRef.current.clone(url, targetDir);
@@ -42,60 +48,64 @@ export async function handleGitCommand(
           const errorMessage = (error as Error).message;
           // ネットワークエラーやCORSエラーの場合は、より分かりやすいメッセージを表示
           if (errorMessage.includes('CORS') || errorMessage.includes('fetch')) {
-            await writeOutput(`git clone: Failed to clone repository. This may be due to CORS restrictions or network issues.\nTry using a repository that supports CORS or is hosted on a platform that allows cross-origin requests.`);
+            await writeOutput(
+              `git clone: Failed to clone repository. This may be due to CORS restrictions or network issues.\nTry using a repository that supports CORS or is hosted on a platform that allows cross-origin requests.`
+            );
           } else {
             await writeOutput(`git clone: ${errorMessage}`);
           }
         }
       } else {
-        await writeOutput("git clone: missing repository URL\nUsage: git clone <repository-url> [directory]");
+        await writeOutput(
+          'git clone: missing repository URL\nUsage: git clone <repository-url> [directory]'
+        );
       }
       break;
 
-    case "status":
+    case 'status':
       const statusResult = await gitCommandsRef.current.status();
       await writeOutput(statusResult);
       break;
 
-    case "add":
+    case 'add':
       if (args[1]) {
         const addResult = await gitCommandsRef.current.add(args[1]);
         await writeOutput(addResult);
       } else {
-        await writeOutput("git add: missing file argument");
+        await writeOutput('git add: missing file argument');
       }
       break;
 
-    case "commit":
-      const messageIndex = args.indexOf("-m");
+    case 'commit':
+      const messageIndex = args.indexOf('-m');
       if (messageIndex !== -1 && args[messageIndex + 1]) {
         const message = args
           .slice(messageIndex + 1)
-          .join(" ")
-          .replace(/['"]/g, "");
+          .join(' ')
+          .replace(/['"]/g, '');
         const commitResult = await gitCommandsRef.current.commit(message);
         await writeOutput(commitResult);
       } else {
-        await writeOutput("git commit: missing -m flag and message");
+        await writeOutput('git commit: missing -m flag and message');
       }
       break;
 
-    case "log":
+    case 'log':
       const logResult = await gitCommandsRef.current.log();
       await writeOutput(logResult);
       break;
 
-    case "checkout":
+    case 'checkout':
       if (args[1]) {
-        const createNew = args.includes("-b");
+        const createNew = args.includes('-b');
         let branchName: string;
 
         if (createNew) {
           // -bフラグがある場合、-bの次の引数がブランチ名
-          const bIndex = args.indexOf("-b");
+          const bIndex = args.indexOf('-b');
           branchName = args[bIndex + 1];
           if (!branchName) {
-            await writeOutput("git checkout: option requires an argument -- b");
+            await writeOutput('git checkout: option requires an argument -- b');
             break;
           }
         } else {
@@ -103,28 +113,22 @@ export async function handleGitCommand(
           branchName = args[1];
         }
 
-        const checkoutResult = await gitCommandsRef.current.checkout(
-          branchName,
-          createNew,
-        );
+        const checkoutResult = await gitCommandsRef.current.checkout(branchName, createNew);
         await writeOutput(checkoutResult);
       } else {
-        await writeOutput("git checkout: missing branch name");
+        await writeOutput('git checkout: missing branch name');
       }
       break;
 
-    case "branch":
+    case 'branch':
       if (args[1]) {
-        const deleteFlag = args.includes("-d") || args.includes("-D");
-        const branchName = args.find((arg) => !arg.startsWith("-"));
+        const deleteFlag = args.includes('-d') || args.includes('-D');
+        const branchName = args.find(arg => !arg.startsWith('-'));
         if (branchName) {
-          const branchResult = await gitCommandsRef.current.branch(
-            branchName,
-            deleteFlag,
-          );
+          const branchResult = await gitCommandsRef.current.branch(branchName, deleteFlag);
           await writeOutput(branchResult);
         } else {
-          await writeOutput("git branch: missing branch name");
+          await writeOutput('git branch: missing branch name');
         }
       } else {
         const branchResult = await gitCommandsRef.current.branch();
@@ -132,19 +136,19 @@ export async function handleGitCommand(
       }
       break;
 
-    case "revert":
+    case 'revert':
       if (args[1]) {
         const revertResult = await gitCommandsRef.current.revert(args[1]);
         await writeOutput(revertResult);
       } else {
-        await writeOutput("git revert: missing commit hash");
+        await writeOutput('git revert: missing commit hash');
       }
       break;
 
-    case "reset":
-      if (args.includes("--hard") && args[args.indexOf("--hard") + 1]) {
+    case 'reset':
+      if (args.includes('--hard') && args[args.indexOf('--hard') + 1]) {
         // git reset --hard <commit>
-        const commitHash = args[args.indexOf("--hard") + 1];
+        const commitHash = args[args.indexOf('--hard') + 1];
         const resetResult = await gitCommandsRef.current.reset({
           hard: true,
           commit: commitHash,
@@ -163,37 +167,34 @@ export async function handleGitCommand(
       }
       break;
 
-    case "diff":
-      console.log("git diff args:", args);
+    case 'diff':
+      console.log('git diff args:', args);
 
       // argsから'diff'を除外してdiffArgsを作成
-      const diffArgs = args.filter((arg) => arg !== "diff");
-      console.log("filtered diff args:", diffArgs);
+      const diffArgs = args.filter(arg => arg !== 'diff');
+      console.log('filtered diff args:', diffArgs);
 
-      if (diffArgs.includes("--staged") || diffArgs.includes("--cached")) {
+      if (diffArgs.includes('--staged') || diffArgs.includes('--cached')) {
         // git diff --staged [filepath]
-        const filepath = diffArgs.find((arg) => !arg.startsWith("--"));
-        console.log("Staged diff for filepath:", filepath);
+        const filepath = diffArgs.find(arg => !arg.startsWith('--'));
+        console.log('Staged diff for filepath:', filepath);
         const diffResult = await gitCommandsRef.current.diff({
           staged: true,
           filepath,
         });
         await writeOutput(diffResult);
-      } else if (
-        diffArgs.length === 1 &&
-        !diffArgs[0].startsWith("-")
-      ) {
+      } else if (diffArgs.length === 1 && !diffArgs[0].startsWith('-')) {
         // git diff <branch> の場合
         const branchName = diffArgs[0];
         const diffResult = await gitCommandsRef.current.diff({ branchName });
         await writeOutput(diffResult);
       } else if (
         diffArgs.length >= 2 &&
-        !diffArgs[0].startsWith("-") &&
-        !diffArgs[1].startsWith("-")
+        !diffArgs[0].startsWith('-') &&
+        !diffArgs[1].startsWith('-')
       ) {
         // git diff <commit1> <commit2> [filepath]
-        console.log("Commit diff:", diffArgs[0], "vs", diffArgs[1]);
+        console.log('Commit diff:', diffArgs[0], 'vs', diffArgs[1]);
         const filepath = diffArgs[2]; // 3番目の引数がファイルパス（オプション）
         const diffResult = await gitCommandsRef.current.diff({
           commit1: diffArgs[0],
@@ -203,33 +204,33 @@ export async function handleGitCommand(
         await writeOutput(diffResult);
       } else {
         // git diff [filepath] - ワーキングディレクトリの変更
-        const filepath = diffArgs.find((arg) => !arg.startsWith("-"));
-        console.log("Working directory diff for filepath:", filepath);
+        const filepath = diffArgs.find(arg => !arg.startsWith('-'));
+        console.log('Working directory diff for filepath:', filepath);
         const diffResult = await gitCommandsRef.current.diff({ filepath });
         await writeOutput(diffResult);
       }
       break;
 
-    case "merge":
-      if (args.includes("--abort")) {
+    case 'merge':
+      if (args.includes('--abort')) {
         // git merge --abort
-        const mergeAbortResult = await gitCommandsRef.current.merge("", {
+        const mergeAbortResult = await gitCommandsRef.current.merge('', {
           abort: true,
         });
         await writeOutput(mergeAbortResult);
       } else if (args[1]) {
         // git merge <branch> [--no-ff] [-m "message"]
         const branchName = args[1];
-        const noFf = args.includes("--no-ff");
+        const noFf = args.includes('--no-ff');
         let message: string | undefined;
 
         // -m フラグでメッセージを指定
-        const messageIndex = args.indexOf("-m");
+        const messageIndex = args.indexOf('-m');
         if (messageIndex !== -1 && args[messageIndex + 1]) {
           message = args
             .slice(messageIndex + 1)
-            .join(" ")
-            .replace(/['"]/g, "");
+            .join(' ')
+            .replace(/['"]/g, '');
         }
 
         const mergeResult = await gitCommandsRef.current.merge(branchName, {
@@ -238,7 +239,7 @@ export async function handleGitCommand(
         });
         await writeOutput(mergeResult);
       } else {
-        await writeOutput("git merge: missing branch name");
+        await writeOutput('git merge: missing branch name');
       }
       break;
 

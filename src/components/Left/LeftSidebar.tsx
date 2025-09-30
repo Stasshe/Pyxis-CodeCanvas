@@ -32,10 +32,10 @@ interface LeftSidebarProps {
   onDiffAllFilesClick?: (params: { commitId: string; parentCommitId: string }) => void;
 }
 
-export default function LeftSidebar({ 
-  activeMenuTab, 
-  leftSidebarWidth, 
-  files, 
+export default function LeftSidebar({
+  activeMenuTab,
+  leftSidebarWidth,
+  files,
   currentProject,
   onFileOpen,
   onFilePreview,
@@ -46,15 +46,15 @@ export default function LeftSidebar({
   onFileOperation,
   onGitStatusChange,
   onDiffFileClick,
-  onDiffAllFilesClick
+  onDiffAllFilesClick,
 }: LeftSidebarProps) {
   const { colors } = useTheme();
   return (
     <>
-      <div 
+      <div
         data-sidebar="left"
         className="flex flex-col flex-shrink-0"
-        style={{ 
+        style={{
           background: colors.cardBg,
           borderRight: `1px solid ${colors.border}`,
           width: `${leftSidebarWidth}px`,
@@ -62,8 +62,14 @@ export default function LeftSidebar({
           maxWidth: `${leftSidebarWidth}px`,
         }}
       >
-        <div className="h-8 flex items-center px-3" style={{ background: colors.mutedBg, borderBottom: `1px solid ${colors.border}` }}>
-          <span className="text-xs font-medium uppercase tracking-wide select-none" style={{ color: colors.sidebarTitleFg }}>
+        <div
+          className="h-8 flex items-center px-3"
+          style={{ background: colors.mutedBg, borderBottom: `1px solid ${colors.border}` }}
+        >
+          <span
+            className="text-xs font-medium uppercase tracking-wide select-none"
+            style={{ color: colors.sidebarTitleFg }}
+          >
             {activeMenuTab === 'files' && 'エクスプローラー'}
             {activeMenuTab === 'search' && '検索'}
             {activeMenuTab === 'git' && 'ソース管理'}
@@ -75,12 +81,27 @@ export default function LeftSidebar({
           {activeMenuTab === 'files' && (
             <div className="p-2 select-none">
               <div className="flex items-center gap-2 mb-2">
-                <FolderOpen size={14} color={colors.sidebarIconFg} />
-                <span className="text-xs font-medium" style={{ color: colors.sidebarTitleFg }}>./</span>
+                <FolderOpen
+                  size={14}
+                  color={colors.sidebarIconFg}
+                />
+                <span
+                  className="text-xs font-medium"
+                  style={{ color: colors.sidebarTitleFg }}
+                >
+                  ./
+                </span>
                 {/* 新規ファイル作成アイコン */}
                 <button
                   title="新規ファイル作成"
-                  style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
                   onClick={async () => {
                     if (typeof onFileOperation === 'function') {
                       const fileName = prompt('新しいファイル名を入力してください:');
@@ -91,45 +112,63 @@ export default function LeftSidebar({
                     }
                   }}
                 >
-                  <FilePlus size={16} color={colors.sidebarIconFg} />
+                  <FilePlus
+                    size={16}
+                    color={colors.sidebarIconFg}
+                  />
                 </button>
                 {/* 新規フォルダ作成アイコン */}
                 <button
                   title="新規フォルダ作成"
-                  style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
                   onClick={async () => {
                     if (typeof onFileOperation === 'function') {
                       const folderName = prompt('新しいフォルダ名を入力してください:');
                       if (folderName) {
-                        const newFolderPath = folderName.startsWith('/') ? folderName : '/' + folderName;
+                        const newFolderPath = folderName.startsWith('/')
+                          ? folderName
+                          : '/' + folderName;
                         await onFileOperation(newFolderPath, 'folder', '');
                       }
                     }
                   }}
                 >
-                  <FolderPlus size={16} color={colors.sidebarIconFg} />
+                  <FolderPlus
+                    size={16}
+                    color={colors.sidebarIconFg}
+                  />
                 </button>
               </div>
-              <FileTree 
-                items={files} 
-                onFileOpen={onFileOpen} 
+              <FileTree
+                items={files}
+                onFileOpen={onFileOpen}
                 onFilePreview={onFilePreview}
-                onWebPreview={onWebPreview} 
-                currentProjectName={currentProject?.name ?? ''} 
-                currentProjectId={currentProject?.id ?? ''} 
-                onFileOperation={onFileOperation} 
+                onWebPreview={onWebPreview}
+                currentProjectName={currentProject?.name ?? ''}
+                currentProjectId={currentProject?.id ?? ''}
+                onFileOperation={onFileOperation}
               />
             </div>
           )}
           {activeMenuTab === 'search' && (
             <div className="h-full">
-              <SearchPanel files={files} onFileOpen={onFileOpen} />
+              <SearchPanel
+                files={files}
+                onFileOpen={onFileOpen}
+              />
             </div>
           )}
           {activeMenuTab === 'git' && (
             <div className="h-full">
-              <GitPanel 
-                currentProject={currentProject.name} 
+              <GitPanel
+                currentProject={currentProject.name}
                 onRefresh={onGitRefresh}
                 gitRefreshTrigger={gitRefreshTrigger}
                 onFileOperation={onFileOperation}
@@ -141,16 +180,14 @@ export default function LeftSidebar({
           )}
           {activeMenuTab === 'run' && (
             <div className="h-full">
-              <RunPanel 
+              <RunPanel
                 currentProject={currentProject.name}
                 files={files}
                 onFileOperation={onFileOperation}
               />
             </div>
           )}
-          {activeMenuTab === 'settings' && (
-            <SettingsPanel currentProject={currentProject} />
-          )}
+          {activeMenuTab === 'settings' && <SettingsPanel currentProject={currentProject} />}
         </div>
       </div>
       {/* Resizer */}

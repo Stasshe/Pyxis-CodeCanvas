@@ -1,4 +1,3 @@
-
 // #エイリアス解決用関数
 export function resolveImportAlias(moduleName: string, importsMap: Record<string, any>): string {
   const entry = importsMap && importsMap[moduleName];
@@ -15,20 +14,29 @@ export function transformESModules(code: string, importsMap?: Record<string, any
   // #エイリアスの置換（import, require, from句）
   if (importsMap) {
     // require('...')
-    transformedCode = transformedCode.replace(/require\s*\(\s*['"](#\w[\w-]*)['"]\s*\)/g, (match, moduleName) => {
-      const resolved = resolveImportAlias(moduleName, importsMap);
-      return match.replace(moduleName, resolved);
-    });
+    transformedCode = transformedCode.replace(
+      /require\s*\(\s*['"](#\w[\w-]*)['"]\s*\)/g,
+      (match, moduleName) => {
+        const resolved = resolveImportAlias(moduleName, importsMap);
+        return match.replace(moduleName, resolved);
+      }
+    );
     // from '...'
-    transformedCode = transformedCode.replace(/from\s+['"](#\w[\w-]*)['"]/g, (match, moduleName) => {
-      const resolved = resolveImportAlias(moduleName, importsMap);
-      return match.replace(moduleName, resolved);
-    });
+    transformedCode = transformedCode.replace(
+      /from\s+['"](#\w[\w-]*)['"]/g,
+      (match, moduleName) => {
+        const resolved = resolveImportAlias(moduleName, importsMap);
+        return match.replace(moduleName, resolved);
+      }
+    );
     // import '...'
-    transformedCode = transformedCode.replace(/import\s+['"](#\w[\w-]*)['"]/g, (match, moduleName) => {
-      const resolved = resolveImportAlias(moduleName, importsMap);
-      return match.replace(moduleName, resolved);
-    });
+    transformedCode = transformedCode.replace(
+      /import\s+['"](#\w[\w-]*)['"]/g,
+      (match, moduleName) => {
+        const resolved = resolveImportAlias(moduleName, importsMap);
+        return match.replace(moduleName, resolved);
+      }
+    );
   }
 
   // ...既存の変換処理...
@@ -37,15 +45,20 @@ export function transformESModules(code: string, importsMap?: Record<string, any
     (match, exports: string, modulePath: string) => {
       let cleaned = exports.replace(/\/\/.*|\/\*[\s\S]*?\*\//g, '');
       cleaned = cleaned.replace(/\n/g, '').replace(/\s+/g, ' ').replace(/,+/g, ',');
-      const exportList = cleaned.split(',').map((e: string) => e.trim()).filter((e: string) => e.length > 0);
-      return exportList.map((exp: string) => {
-        const asMatch = exp.match(/^([\w$]+)\s+as\s+([\w$]+)$/);
-        if (asMatch) {
-          return `module.exports.${asMatch[2]} = require('${modulePath}').${asMatch[1]};`;
-        } else {
-          return `module.exports.${exp} = require('${modulePath}').${exp};`;
-        }
-      }).join('\n');
+      const exportList = cleaned
+        .split(',')
+        .map((e: string) => e.trim())
+        .filter((e: string) => e.length > 0);
+      return exportList
+        .map((exp: string) => {
+          const asMatch = exp.match(/^([\w$]+)\s+as\s+([\w$]+)$/);
+          if (asMatch) {
+            return `module.exports.${asMatch[2]} = require('${modulePath}').${asMatch[1]};`;
+          } else {
+            return `module.exports.${exp} = require('${modulePath}').${exp};`;
+          }
+        })
+        .join('\n');
     }
   );
   transformedCode = transformedCode.replace(
@@ -53,15 +66,20 @@ export function transformESModules(code: string, importsMap?: Record<string, any
     (match, exports: string) => {
       let cleaned = exports.replace(/\/\/.*|\/\*[\s\S]*?\*\//g, '');
       cleaned = cleaned.replace(/\n/g, '').replace(/\s+/g, ' ').replace(/,+/g, ',');
-      const exportList = cleaned.split(',').map((e: string) => e.trim()).filter((e: string) => e.length > 0);
-      return exportList.map((exp: string) => {
-        const asMatch = exp.match(/^([\w$]+)\s+as\s+([\w$]+)$/);
-        if (asMatch) {
-          return `module.exports.${asMatch[2]} = ${asMatch[1]};`;
-        } else {
-          return `module.exports.${exp} = ${exp};`;
-        }
-      }).join('\n');
+      const exportList = cleaned
+        .split(',')
+        .map((e: string) => e.trim())
+        .filter((e: string) => e.length > 0);
+      return exportList
+        .map((exp: string) => {
+          const asMatch = exp.match(/^([\w$]+)\s+as\s+([\w$]+)$/);
+          if (asMatch) {
+            return `module.exports.${asMatch[2]} = ${asMatch[1]};`;
+          } else {
+            return `module.exports.${exp} = ${exp};`;
+          }
+        })
+        .join('\n');
     }
   );
   transformedCode = transformedCode.replace(
@@ -69,21 +87,23 @@ export function transformESModules(code: string, importsMap?: Record<string, any
     (match, exports: string, modulePath: string) => {
       let cleaned = exports.replace(/\/\/.*|\/\*[\s\S]*?\*\//g, '');
       cleaned = cleaned.replace(/\n/g, '').replace(/\s+/g, ' ');
-      const exportList = cleaned.split(',').map((e: string) => e.trim()).filter((e: string) => e.length > 0);
-      return exportList.map((exp: string) => {
-        const asMatch = exp.match(/^([\w$]+)\s+as\s+([\w$]+)$/);
-        if (asMatch) {
-          return `module.exports.${asMatch[2]} = require('${modulePath}').${asMatch[1]};`;
-        } else {
-          return `module.exports.${exp} = require('${modulePath}').${exp};`;
-        }
-      }).join('\n');
+      const exportList = cleaned
+        .split(',')
+        .map((e: string) => e.trim())
+        .filter((e: string) => e.length > 0);
+      return exportList
+        .map((exp: string) => {
+          const asMatch = exp.match(/^([\w$]+)\s+as\s+([\w$]+)$/);
+          if (asMatch) {
+            return `module.exports.${asMatch[2]} = require('${modulePath}').${asMatch[1]};`;
+          } else {
+            return `module.exports.${exp} = require('${modulePath}').${exp};`;
+          }
+        })
+        .join('\n');
     }
   );
-  transformedCode = transformedCode.replace(
-    /export\s+default\s+(.+);?$/gm,
-    'module.exports = $1;'
-  );
+  transformedCode = transformedCode.replace(/export\s+default\s+(.+);?$/gm, 'module.exports = $1;');
   transformedCode = transformedCode.replace(
     /import\s+\*\s+as\s+(\w+)\s+from\s+['"]([^'"]+)['"];?/g,
     (match, varName, modulePath) => `const ${varName} = require('${modulePath}');`
@@ -116,25 +136,16 @@ export function transformESModules(code: string, importsMap?: Record<string, any
     /import\s+['"]([^'"]+)['"];?/g,
     (match, modulePath) => `require('${modulePath}');`
   );
-  transformedCode = transformedCode.replace(
-    /export\s+\{([^}]+)\};?/g,
-    (match, exports) => {
-      const exportList = exports.split(',').map((exp: string) => exp.trim());
-      return exportList.map((exp: string) => `module.exports.${exp} = ${exp};`).join('\n');
-    }
-  );
+  transformedCode = transformedCode.replace(/export\s+\{([^}]+)\};?/g, (match, exports) => {
+    const exportList = exports.split(',').map((exp: string) => exp.trim());
+    return exportList.map((exp: string) => `module.exports.${exp} = ${exp};`).join('\n');
+  });
   transformedCode = transformedCode.replace(
     /export\s+(const|let|var)\s+(\w+)\s*=\s*([^;]+);?/g,
     '$1 $2 = $3;'
   );
-  transformedCode = transformedCode.replace(
-    /export\s+function\s+(\w+)/g,
-    'function $1'
-  );
-  transformedCode = transformedCode.replace(
-    /export\s+class\s+(\w+)/g,
-    'class $1'
-  );
+  transformedCode = transformedCode.replace(/export\s+function\s+(\w+)/g, 'function $1');
+  transformedCode = transformedCode.replace(/export\s+class\s+(\w+)/g, 'class $1');
   const exportFunctionMatches = code.match(/export\s+function\s+(\w+)/g);
   if (exportFunctionMatches) {
     exportFunctionMatches.forEach(match => {

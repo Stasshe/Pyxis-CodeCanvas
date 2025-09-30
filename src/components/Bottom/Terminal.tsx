@@ -2,7 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useTheme } from '@/context/ThemeContext';
-import { UnixCommands, GitCommands, NpmCommands, initializeFileSystem, syncProjectFiles } from '@/utils/core/filesystem';
+import {
+  UnixCommands,
+  GitCommands,
+  NpmCommands,
+  initializeFileSystem,
+  syncProjectFiles,
+} from '@/utils/core/filesystem';
 import { FileItem } from '@/types';
 import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
 import { handleGitCommand } from './TerminalGitCommands';
@@ -12,23 +18,26 @@ import { projectDB } from '@/utils/core/database';
 import { exportPage } from '@/utils/export/exportPage';
 
 // FileItemの階層構造をフラットな配列に変換
-const flattenFileItems = (items: FileItem[], basePath = ''): Array<{ path: string; content?: string; type: 'file' | 'folder' }> => {
+const flattenFileItems = (
+  items: FileItem[],
+  basePath = ''
+): Array<{ path: string; content?: string; type: 'file' | 'folder' }> => {
   const result: Array<{ path: string; content?: string; type: 'file' | 'folder' }> = [];
-  
+
   for (const item of items) {
     const fullPath = basePath === '' ? `/${item.name}` : `${basePath}/${item.name}`;
-    
+
     result.push({
       path: fullPath,
       content: item.content,
-      type: item.type
+      type: item.type,
     });
-    
+
     if (item.children && item.children.length > 0) {
       result.push(...flattenFileItems(item.children, fullPath));
     }
   }
-  
+
   return result;
 };
 
@@ -37,12 +46,26 @@ interface TerminalProps {
   currentProject?: string;
   currentProjectId?: string;
   projectFiles?: FileItem[];
-  onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean, isBufferArray?: boolean, bufferContent?: ArrayBuffer) => Promise<void>;
+  onFileOperation?: (
+    path: string,
+    type: 'file' | 'folder' | 'delete',
+    content?: string,
+    isNodeRuntime?: boolean,
+    isBufferArray?: boolean,
+    bufferContent?: ArrayBuffer
+  ) => Promise<void>;
   isActive?: boolean;
 }
 
 // クライアントサイド専用のターミナルコンポーネント
-function ClientTerminal({ height, currentProject = 'default', currentProjectId = '', projectFiles = [], onFileOperation, isActive }: TerminalProps) {
+function ClientTerminal({
+  height,
+  currentProject = 'default',
+  currentProjectId = '',
+  projectFiles = [],
+  onFileOperation,
+  isActive,
+}: TerminalProps) {
   const { colors } = useTheme();
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<any>(null);
@@ -55,11 +78,11 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
   useEffect(() => {
     if (!terminalRef.current) return;
     if (!currentProject) return;
-    pushMsgOutPanel('Terminal initialing','info','Terminal');
+    pushMsgOutPanel('Terminal initialing', 'info', 'Terminal');
 
     // ファイルシステムの初期化
     initializeFileSystem();
-  unixCommandsRef.current = new UnixCommands(currentProject, onFileOperation, currentProjectId);
+    unixCommandsRef.current = new UnixCommands(currentProject, onFileOperation, currentProjectId);
     gitCommandsRef.current = new GitCommands(
       currentProject,
       onFileOperation
@@ -68,7 +91,11 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
             onFileOperation(path, type, content, isNodeRuntime, undefined, bufferContent)
         : undefined
     );
-    npmCommandsRef.current = new NpmCommands(currentProject, '/projects/' + currentProject, onFileOperation);
+    npmCommandsRef.current = new NpmCommands(
+      currentProject,
+      '/projects/' + currentProject,
+      onFileOperation
+    );
 
     // プロジェクトファイルをターミナルファイルシステムに同期
     const syncFiles = async () => {
@@ -108,7 +135,7 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
         brightBlue: '#3b8eea',
         brightMagenta: '#d670d6',
         brightCyan: '#29b8db',
-        brightWhite: '#e5e5e5'
+        brightWhite: '#e5e5e5',
       },
       fontSize: 13,
       fontFamily: 'Menlo, Monaco, "Courier New", monospace',
@@ -121,53 +148,54 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
     // アドオンの追加
     const fitAddon = new FitAddon();
     const webLinksAddon = new WebLinksAddon();
-    
+
     term.loadAddon(fitAddon);
     term.loadAddon(webLinksAddon);
 
     // DOMに接続
     term.open(terminalRef.current);
-    
+
     // タッチスクロール機能を追加
     let startY = 0;
     let scrolling = false;
-    
+
     const handleTouchStart = (e: TouchEvent) => {
       startY = e.touches[0].clientY;
       scrolling = false;
     };
-    
+
     const handleTouchMove = (e: TouchEvent) => {
       if (!scrolling) {
         const currentY = e.touches[0].clientY;
         const deltaY = startY - currentY;
-        
-        if (Math.abs(deltaY) > 10) { // 最小スクロール距離
+
+        if (Math.abs(deltaY) > 10) {
+          // 最小スクロール距離
           scrolling = true;
           const scrollAmount = Math.round(deltaY / 20); // スクロール量を調整
-          
+
           if (scrollAmount > 0) {
             term.scrollLines(scrollAmount); // 上にスクロール
           } else {
             term.scrollLines(scrollAmount); // 下にスクロール
           }
-          
+
           startY = currentY;
         }
       }
     };
-    
+
     const handleTouchEnd = () => {
       scrolling = false;
     };
-    
+
     // ホイールスクロール機能
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
       const scrollAmount = Math.round(e.deltaY / 100); // スクロール量を調整
       term.scrollLines(scrollAmount);
     };
-    
+
     // タッチイベントリスナーを追加
     if (terminalRef.current) {
       terminalRef.current.addEventListener('touchstart', handleTouchStart, { passive: true });
@@ -175,15 +203,15 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
       terminalRef.current.addEventListener('touchend', handleTouchEnd, { passive: true });
       terminalRef.current.addEventListener('wheel', handleWheel, { passive: false });
     }
-    
+
     // サイズを調整（複数段階で確実に）
     setTimeout(() => {
       fitAddon.fit();
-      
+
       // 初期フィット後にスクロール位置を確認
       setTimeout(() => {
         term.scrollToBottom();
-        
+
         // さらに確実にするため追加のフィットとスクロール
         setTimeout(() => {
           fitAddon.fit();
@@ -193,16 +221,16 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
     }, 100);
 
     // 初期メッセージ
-  const pyxisVersion = process.env.PYXIS_VERSION || '(dev)';
-  term.writeln(`Pyxis Terminal v${pyxisVersion}`);
-  term.writeln('Type "help" for available commands.');
+    const pyxisVersion = process.env.PYXIS_VERSION || '(dev)';
+    term.writeln(`Pyxis Terminal v${pyxisVersion}`);
+    term.writeln('Type "help" for available commands.');
 
     // 確実な自動スクロール関数
     const scrollToBottom = (force = false) => {
       try {
         // まず標準的な方法でスクロール
         term.scrollToBottom();
-        
+
         // 確実に最下段に行くため、少し余分にスクロール
         setTimeout(() => {
           try {
@@ -210,33 +238,31 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
             const viewportHeight = term.rows;
             const baseY = buffer.baseY;
             const cursorY = buffer.cursorY;
-            
+
             // 実際のカーソル位置
             const absoluteCursorLine = baseY + cursorY;
-            
+
             // 現在のスクロール位置
             const currentScrollTop = buffer.viewportY;
-            
+
             // 確実に最下段に表示されるスクロール位置
             const targetScrollTop = Math.max(0, absoluteCursorLine - viewportHeight + 1);
-            
+
             // 必要なスクロール量
             const scrollDelta = targetScrollTop - currentScrollTop;
-            
+
             if (scrollDelta > 0) {
               // 余分にスクロールして確実に最下段へ
               term.scrollLines(scrollDelta);
             }
-            
+
             // 最終確認として標準メソッドも実行
             term.scrollToBottom();
-            
           } catch (error) {
             // エラー時は標準メソッドにフォールバック
             term.scrollToBottom();
           }
         }, 50);
-        
       } catch (error) {
         term.scrollToBottom();
       }
@@ -252,15 +278,19 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
           // ブランチ名の色をThemeContextから取得
           const branchColors = colors.gitBranchColors || [];
           // ブランチ名ごとに色を決定（例: ハッシュで色選択）
-          const colorHex = branchColors.length > 0
-            ? branchColors[
-                Math.abs(
-                  branch.split('').reduce((a: number, c: string) => a + c.charCodeAt(0), 0)
-                ) % branchColors.length
-              ]
-            : colors.primary;
+          const colorHex =
+            branchColors.length > 0
+              ? branchColors[
+                  Math.abs(
+                    branch.split('').reduce((a: number, c: string) => a + c.charCodeAt(0), 0)
+                  ) % branchColors.length
+                ]
+              : colors.primary;
           // HEXをRGBに変換
-          const rgb = colorHex.replace('#','').match(/.{2}/g)?.map(x => parseInt(x, 16)) || [0,0,0];
+          const rgb = colorHex
+            .replace('#', '')
+            .match(/.{2}/g)
+            ?.map(x => parseInt(x, 16)) || [0, 0, 0];
           branchDisplay = ` (\x1b[38;2;${rgb[0]};${rgb[1]};${rgb[2]}m${branch}\x1b[0m)`;
         }
         term.write(`\r/workspaces/${currentProject}${relativePath}${branchDisplay} $ `);
@@ -273,7 +303,6 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
 
     // 初期プロンプト表示
     showPrompt();
-
 
     let cmdOutputs = '';
 
@@ -288,9 +317,9 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
         commandHistory = JSON.parse(saved);
       }
     } catch {}
-  let historyIndex = -1;
-  let currentLine = '';
-  let cursorPos = 0;
+    let historyIndex = -1;
+    let currentLine = '';
+    let cursorPos = 0;
 
     // 履歴保存関数
     const saveHistory = () => {
@@ -315,8 +344,8 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
         }
       }
     };
-    
-  const processCommand = async (command: string) => {
+
+    const processCommand = async (command: string) => {
       // リダイレクト演算子のパース
       let redirect = null;
       let fileName = null;
@@ -340,26 +369,26 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
             // IndexedDB と Lightning-FS の全データを出力
             try {
               await writeOutput('=== IndexedDB & Lightning-FS Debug Information ===\n');
-              
+
               // IndexedDB databases の取得
               const dbs = await (window.indexedDB.databases ? window.indexedDB.databases() : []);
-              
+
               for (const dbInfo of dbs) {
                 const dbName = dbInfo.name;
                 if (!dbName) continue;
-                
+
                 await writeOutput(`\n--- Database: ${dbName} (v${dbInfo.version}) ---`);
-                
+
                 try {
                   const req = window.indexedDB.open(dbName);
                   const db = await new Promise<IDBDatabase>((resolve, reject) => {
                     req.onsuccess = () => resolve(req.result);
                     req.onerror = () => reject(req.error);
                   });
-                  
+
                   const objectStoreNames = Array.from(db.objectStoreNames);
                   await writeOutput(`Object Stores: ${objectStoreNames.join(', ')}`);
-                  
+
                   for (const storeName of objectStoreNames) {
                     try {
                       const tx = db.transaction(storeName, 'readonly');
@@ -369,16 +398,16 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
                         getAllReq.onsuccess = () => resolve(getAllReq.result);
                         getAllReq.onerror = () => reject(getAllReq.error);
                       });
-                      
+
                       await writeOutput(`\n  Store: ${storeName} (${items.length} items)`);
-                      
+
                       if (items.length === 0) {
                         await writeOutput('    (empty)');
                       } else {
                         for (let i = 0; i < Math.min(items.length, 10); i++) {
                           const item = items[i];
                           let summary = '';
-                          
+
                           if (typeof item === 'object' && item !== null) {
                             const keys = Object.keys(item);
                             if (keys.includes('id')) summary += `id: ${item.id}, `;
@@ -387,23 +416,24 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
                             if (keys.includes('type')) summary += `type: ${item.type}, `;
                             if (keys.includes('projectId')) summary += `repo: ${item.projectId}, `;
                             if (keys.includes('content')) {
-                              const contentSize = typeof item.content === 'string' 
-                                ? item.content.length 
-                                : JSON.stringify(item.content).length;
+                              const contentSize =
+                                typeof item.content === 'string'
+                                  ? item.content.length
+                                  : JSON.stringify(item.content).length;
                               summary += `content: ${contentSize} chars, `;
                             }
                             summary = summary.replace(/, $/, '');
-                            
+
                             if (summary === '') {
                               summary = `{${keys.slice(0, 3).join(', ')}${keys.length > 3 ? '...' : ''}}`;
                             }
                           } else {
                             summary = String(item).slice(0, 100);
                           }
-                          
+
                           await writeOutput(`    [${i}] ${summary}`);
                         }
-                        
+
                         if (items.length > 50) {
                           await writeOutput(`    ... and ${items.length - 50} more items`);
                         }
@@ -412,13 +442,13 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
                       await writeOutput(`    Error accessing store ${storeName}: ${storeError}`);
                     }
                   }
-                  
+
                   db.close();
                 } catch (dbError) {
                   await writeOutput(`  Error opening database ${dbName}: ${dbError}`);
                 }
               }
-              
+
               // LocalStorage の Lightning-FS/pyxis-fs関連データを出力
               await writeOutput('\n--- LocalStorage (Lightning-FS/pyxis-fs related) ---');
               const pyxisFSKeys = [];
@@ -437,15 +467,19 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
               if (otherLightningFSKeys.length === 0) {
                 await writeOutput('No other Lightning-FS related localStorage entries found.');
               } else {
-                await writeOutput(`Other Lightning-FS related entries (${otherLightningFSKeys.length}):`);
+                await writeOutput(
+                  `Other Lightning-FS related entries (${otherLightningFSKeys.length}):`
+                );
                 for (const key of otherLightningFSKeys) {
                   const value = window.localStorage.getItem(key);
                   const size = value ? value.length : 0;
                   await writeOutput(`  ${key}: ${size} chars`);
-                  await writeOutput(`    value: ${value ? value.slice(0, 1000) : ''}${value && value.length > 1000 ? ' ...(truncated)' : ''}`);
+                  await writeOutput(
+                    `    value: ${value ? value.slice(0, 1000) : ''}${value && value.length > 1000 ? ' ...(truncated)' : ''}`
+                  );
                 }
               }
-              
+
               // ファイルシステム統計
               await writeOutput('\n--- File System Statistics ---');
               try {
@@ -457,7 +491,7 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
                     if (projectsExists) {
                       const projectDirs = await fs.promises.readdir('/projects');
                       await writeOutput(`Projects in filesystem: ${projectDirs.length}`);
-                      
+
                       for (const dir of projectDirs.slice(0, 10)) {
                         if (dir === '.' || dir === '..') continue;
                         try {
@@ -468,7 +502,7 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
                           await writeOutput(`  ${dir}: (inaccessible)`);
                         }
                       }
-                      
+
                       if (projectDirs.length > 10) {
                         await writeOutput(`  ... and ${projectDirs.length - 10} more projects`);
                       }
@@ -484,20 +518,21 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
               } catch (importError) {
                 await writeOutput(`Error importing filesystem: ${importError}`);
               }
-              
+
               await writeOutput('\n=== Debug Information Complete ===');
-              
             } catch (e) {
               await writeOutput(`debug-db: エラー: ${(e as Error).message}`);
             }
             break;
-            
+
           case 'memory-clean':
             // 全プロジェクトをスキャンして、DBに存在しないファイル・フォルダ（特に.git）を削除
             try {
-              const { getFileSystem, initializeFileSystem } = await import('@/utils/core/filesystem');
+              const { getFileSystem, initializeFileSystem } = await import(
+                '@/utils/core/filesystem'
+              );
               const { projectDB } = await import('@/utils/core/database');
-              
+
               let fs = getFileSystem();
               if (!fs) fs = initializeFileSystem();
               if (!fs) {
@@ -506,16 +541,16 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
               }
 
               await projectDB.init();
-              
+
               // 全プロジェクトのファイル一覧を取得
               const allProjects = await projectDB.getProjects();
               const allDbPaths = new Map<string, Set<string>>(); // projectName -> Set of paths
-              
+
               for (const project of allProjects) {
                 const projectFiles = await projectDB.getProjectFiles(project.id);
                 allDbPaths.set(project.name, new Set(projectFiles.map(f => f.path)));
               }
-              
+
               // 再帰削除関数
               async function removeFileOrDirectory(fs: any, path: string): Promise<void> {
                 try {
@@ -546,7 +581,12 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
               }
 
               // プロジェクトディレクトリを再帰的に探索して、DBに存在しないファイルを削除
-              async function cleanProjectDirectory(fs: any, projectName: string, dirPath: string, cleaned: string[]): Promise<void> {
+              async function cleanProjectDirectory(
+                fs: any,
+                projectName: string,
+                dirPath: string,
+                cleaned: string[]
+              ): Promise<void> {
                 const dbPaths = allDbPaths.get(projectName);
                 if (!dbPaths) {
                   // プロジェクトがDBに存在しない場合は全て削除（.gitも含む）
@@ -556,19 +596,19 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
                   } catch {}
                   return;
                 }
-                
+
                 try {
                   const files = await fs.promises.readdir(dirPath);
                   for (const file of files) {
                     const fullPath = `${dirPath}/${file}`;
                     const relativePath = fullPath.replace(`/projects/${projectName}`, '') || '/';
-                    
+
                     // .gitディレクトリの処理：DBに存在するプロジェクトの場合は削除しない
                     if (file === '.git') {
                       // DBに存在するプロジェクトの.gitは保持
                       continue;
                     }
-                    
+
                     // DBに存在しないファイル・フォルダを削除
                     if (!dbPaths.has(relativePath)) {
                       await removeFileOrDirectory(fs, fullPath);
@@ -591,17 +631,17 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
               }
 
               const cleaned: string[] = [];
-              
+
               try {
                 // /projectsディレクトリが存在するかチェック
                 await fs.promises.stat('/projects');
-                
+
                 // /projects配下の全ディレクトリをスキャン
                 const projectDirs = await fs.promises.readdir('/projects');
-                
+
                 for (const dir of projectDirs) {
                   if (dir === '.' || dir === '..') continue;
-                  
+
                   const projectPath = `/projects/${dir}`;
                   try {
                     const stat = await fs.promises.stat(projectPath);
@@ -612,11 +652,10 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
                     // アクセスできないディレクトリは無視
                   }
                 }
-                
               } catch (e) {
                 // /projectsディレクトリが存在しない場合もOK
               }
-              
+
               // IndexedDB とLightningFSの直接クリーンアップも試行
               try {
                 // LightningFSのデータをクリア
@@ -633,7 +672,7 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
                     cleaned.push(`LocalStorage: ${key}`);
                   }
                 }
-                
+
                 // IndexedDBのオーファンエントリのクリーンアップ
                 if (typeof window !== 'undefined' && window.indexedDB) {
                   const dbNames = ['PyxisProjectDB', 'LightningFS'];
@@ -651,9 +690,11 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
               } catch (e) {
                 // IndexedDB/LightningFSのクリーンアップエラーは無視
               }
-              
+
               if (cleaned.length > 0) {
-                await writeOutput(`memory-clean: 以下のファイル・ディレクトリを削除しました:\n${cleaned.join('\n')}`);
+                await writeOutput(
+                  `memory-clean: 以下のファイル・ディレクトリを削除しました:\n${cleaned.join('\n')}`
+                );
               } else {
                 await writeOutput('memory-clean: 削除対象のファイルは見つかりませんでした');
               }
@@ -664,7 +705,9 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
           case 'fs-clean':
             // Lightning-FSの全データを完全削除
             try {
-              const { getFileSystem, initializeFileSystem } = await import('@/utils/core/filesystem');
+              const { getFileSystem, initializeFileSystem } = await import(
+                '@/utils/core/filesystem'
+              );
               let fs = getFileSystem();
               if (!fs) fs = initializeFileSystem();
               if (!fs) {
@@ -713,7 +756,9 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
                   window.localStorage.removeItem(key);
                   console.log(`[fs-clean] Removed localStorage key: ${key}`);
                 }
-                await writeOutput(`fs-clean: LocalStorageのLightning-FS関連キーも削除しました (${lightningFSKeys.length}件)`);
+                await writeOutput(
+                  `fs-clean: LocalStorageのLightning-FS関連キーも削除しました (${lightningFSKeys.length}件)`
+                );
               }
               await writeOutput('fs-clean: 完了');
             } catch (e) {
@@ -722,7 +767,9 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
             break;
           case 'export':
             if (args[0]?.toLowerCase() === '--page' && args[1]) {
-              const targetPath = args[1].startsWith('/') ? args[1] : `${unixCommandsRef.current?.pwd()}/${args[1]}`;
+              const targetPath = args[1].startsWith('/')
+                ? args[1]
+                : `${unixCommandsRef.current?.pwd()}/${args[1]}`;
               const normalizedPath = unixCommandsRef.current?.normalizePath(targetPath);
               if (normalizedPath) {
                 await exportPage(normalizedPath, writeOutput, unixCommandsRef);
@@ -738,17 +785,19 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
               const mod = await import('@/utils/export/exportIndexeddb');
               mod.exportIndexeddbHtmlWithWindow(writeOutput, win);
             } else {
-              await writeOutput('export: サポートされているのは "export --page <path>" または "export --indexeddb" のみです');
+              await writeOutput(
+                'export: サポートされているのは "export --page <path>" または "export --indexeddb" のみです'
+              );
             }
             break;
           case 'clear':
             term.clear();
             break;
-              
+
           case 'date':
             await writeOutput(new Date().toLocaleString('ja-JP'));
             break;
-            
+
           case 'whoami':
             await writeOutput('user');
             break;
@@ -758,7 +807,7 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
             // 分割したGitコマンド処理に委譲
             await handleGitCommand(args, gitCommandsRef, writeOutput);
             break;
-            
+
           case 'npm':
             await handleNPMCommand(args, npmCommandsRef, writeOutput);
             break;
@@ -769,15 +818,19 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
             } else {
               const packageName = args[0];
               try {
-                const { calculateDependencySize } = await import('@/utils/cmd/npmOperations/npmDependencySize');
+                const { calculateDependencySize } = await import(
+                  '@/utils/cmd/npmOperations/npmDependencySize'
+                );
                 const size = await calculateDependencySize(packageName);
-                await writeOutput(`Total size of ${packageName} and its dependencies: ${size.toFixed(2)} kB`);
+                await writeOutput(
+                  `Total size of ${packageName} and its dependencies: ${size.toFixed(2)} kB`
+                );
               } catch (error) {
                 await writeOutput(`Error calculating size: ${(error as Error).message}`);
               }
             }
             break;
-            
+
           // Unix commands
           case 'unzip':
             if (args.length === 0) {
@@ -790,7 +843,7 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
               console.log('[unzip] Normalized path:', normalizedPath);
               let fileToUnzip = projectFiles.find(file => file.path === normalizedPath);
               console.log('[unzip] fileToUnzip from projectFiles:', fileToUnzip);
-              
+
               // projectFilesで見つからない場合は、DBから直接取得
               if (!fileToUnzip && currentProject) {
                 console.log('[unzip] File not found in projectFiles, checking DB...');
@@ -808,7 +861,7 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
                         path: dbFile.path,
                         content: dbFile.content,
                         isBufferArray: dbFile.isBufferArray,
-                        bufferContent: dbFile.bufferContent
+                        bufferContent: dbFile.bufferContent,
                       } as FileItem;
                       console.log('[unzip] Found file in DB:', fileToUnzip);
                     }
@@ -817,12 +870,18 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
                   console.error('[unzip] DB lookup error:', dbError);
                 }
               }
-              
-              if (!fileToUnzip) return await writeOutput(`unzip: ファイルが見つかりません: ${args[0]}`);
+
+              if (!fileToUnzip)
+                return await writeOutput(`unzip: ファイルが見つかりません: ${args[0]}`);
               const bufferContent = fileToUnzip.bufferContent;
-              if (!bufferContent) return await writeOutput(`unzip: バッファコンテンツが見つかりません: ${args[0]}`);
+              if (!bufferContent)
+                return await writeOutput(`unzip: バッファコンテンツが見つかりません: ${args[0]}`);
               try {
-                const result = await unixCommandsRef.current.unzip(normalizedPath, args[1], bufferContent);
+                const result = await unixCommandsRef.current.unzip(
+                  normalizedPath,
+                  args[1],
+                  bufferContent
+                );
                 await writeOutput(result);
               } catch (e) {
                 await writeOutput((e as Error).message);
@@ -833,13 +892,23 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
             await handleUnixCommand(cmd, args, unixCommandsRef, currentProject, writeOutput);
             break;
         }
-        if (redirect && fileName && unixCommandsRef.current && cmdOutputs !== undefined && cmdOutputs !== null) {
-          const targetPath = fileName.startsWith('/') ? fileName : `${unixCommandsRef.current.pwd()}/${fileName}`;
+        if (
+          redirect &&
+          fileName &&
+          unixCommandsRef.current &&
+          cmdOutputs !== undefined &&
+          cmdOutputs !== null
+        ) {
+          const targetPath = fileName.startsWith('/')
+            ? fileName
+            : `${unixCommandsRef.current.pwd()}/${fileName}`;
           const normalizedPath = unixCommandsRef.current.normalizePath(targetPath);
           let content = String(cmdOutputs);
           if (append) {
             try {
-              const prev = await unixCommandsRef.current.fs.promises.readFile(normalizedPath, { encoding: 'utf8' });
+              const prev = await unixCommandsRef.current.fs.promises.readFile(normalizedPath, {
+                encoding: 'utf8',
+              });
               content = (typeof prev === 'string' ? prev : String(prev)) + String(cmdOutputs);
             } catch {
               content = String(cmdOutputs);
@@ -849,7 +918,8 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
           try {
             await unixCommandsRef.current.fs.promises.writeFile(normalizedPath, content);
             if (onFileOperation) {
-              const relativePath = unixCommandsRef.current.getRelativePathFromProject(normalizedPath);
+              const relativePath =
+                unixCommandsRef.current.getRelativePathFromProject(normalizedPath);
               await onFileOperation(relativePath, 'file', content);
             }
             cmdOutputs = ''; // 書き込み後は出力をリセット
@@ -874,10 +944,10 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
         scrollToBottom();
       }, 150);
     };
-    
+
     // 選択範囲管理
-  let selectionStart: number | null = null;
-  let selectionEnd: number | null = null;
+    let selectionStart: number | null = null;
+    let selectionEnd: number | null = null;
     let isSelecting = false;
     let isComposing = false;
 
@@ -904,11 +974,12 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
     });
 
     // xterm.jsのonKeyでCtrl/Shift判定
-  term.onKey(({ key, domEvent }: { key: string; domEvent: KeyboardEvent }) => {
+    term.onKey(({ key, domEvent }: { key: string; domEvent: KeyboardEvent }) => {
       if (isComposing) return; // IME中は無視
       // Ctrl+←/→ 単語単位移動
       if (domEvent.ctrlKey && !domEvent.shiftKey && !domEvent.altKey) {
-        if (key === '\u001b[D') { // Ctrl+←
+        if (key === '\u001b[D') {
+          // Ctrl+←
           // 左の単語先頭へ
           if (cursorPos > 0) {
             let pos = cursorPos - 1;
@@ -917,7 +988,8 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
             cursorPos = pos;
           }
           domEvent.preventDefault();
-        } else if (key === '\u001b[C') { // Ctrl+→
+        } else if (key === '\u001b[C') {
+          // Ctrl+→
           // 右の単語末尾へ
           let pos = cursorPos;
           while (pos < currentLine.length && currentLine[pos] !== ' ') pos++;
@@ -929,7 +1001,8 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
       }
       // Shift+←/→ 選択範囲
       if (domEvent.shiftKey && !domEvent.ctrlKey && !domEvent.altKey) {
-        if (key === '\u001b[D') { // Shift+←
+        if (key === '\u001b[D') {
+          // Shift+←
           if (!isSelecting) {
             selectionStart = cursorPos;
             isSelecting = true;
@@ -940,7 +1013,8 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
             term.write('\b');
           }
           domEvent.preventDefault();
-        } else if (key === '\u001b[C') { // Shift+→
+        } else if (key === '\u001b[C') {
+          // Shift+→
           if (!isSelecting) {
             selectionStart = cursorPos;
             isSelecting = true;
@@ -954,7 +1028,13 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
         }
       }
       // Ctrl+Cで選択範囲コピー
-      if (domEvent.ctrlKey && key === '\u0003' && isSelecting && selectionStart !== null && selectionEnd !== null) {
+      if (
+        domEvent.ctrlKey &&
+        key === '\u0003' &&
+        isSelecting &&
+        selectionStart !== null &&
+        selectionEnd !== null
+      ) {
         const selStart = Math.min(selectionStart, selectionEnd);
         const selEnd = Math.max(selectionStart, selectionEnd);
         const selectedText = currentLine.slice(selStart, selEnd);
@@ -1088,8 +1168,8 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
       }
     });
 
-  xtermRef.current = term;
-  fitAddonRef.current = fitAddon;
+    xtermRef.current = term;
+    fitAddonRef.current = fitAddon;
 
     // クリーンアップ
     return () => {
@@ -1102,15 +1182,15 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
       }
       term.dispose();
     };
-  // タブがアクティブになった時にfit/scrollToBottomを呼ぶ
-  useEffect(() => {
-    if (isActive && fitAddonRef.current && xtermRef.current) {
-      setTimeout(() => {
-        fitAddonRef.current?.fit();
-        xtermRef.current?.scrollToBottom();
-      }, 50);
-    }
-  }, [isActive]);
+    // タブがアクティブになった時にfit/scrollToBottomを呼ぶ
+    useEffect(() => {
+      if (isActive && fitAddonRef.current && xtermRef.current) {
+        setTimeout(() => {
+          fitAddonRef.current?.fit();
+          xtermRef.current?.scrollToBottom();
+        }, 50);
+      }
+    }, [isActive]);
   }, [currentProject]);
 
   // 高さが変更された時にサイズを再調整
@@ -1119,7 +1199,7 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
       // まずサイズを調整
       setTimeout(() => {
         fitAddonRef.current?.fit();
-        
+
         // リサイズ後の正確なスクロール（1回のみ）
         setTimeout(() => {
           xtermRef.current?.scrollToBottom();
@@ -1141,23 +1221,30 @@ function ClientTerminal({ height, currentProject = 'default', currentProjectId =
   }, [projectFiles, currentProject]);
 
   return (
-    <div 
+    <div
       ref={terminalRef}
       className="w-full h-full overflow-hidden relative terminal-container"
-      style={{ 
+      style={{
         background: colors.editorBg,
         height: `${height - 32}px`,
         maxHeight: `${height - 32}px`,
         minHeight: '100px',
         touchAction: 'none',
-        contain: 'layout style paint'
+        contain: 'layout style paint',
       }}
     />
   );
 }
 
 // SSR対応のターミナルコンポーネント
-export default function Terminal({ height, currentProject, currentProjectId, projectFiles, onFileOperation, isActive }: TerminalProps) {
+export default function Terminal({
+  height,
+  currentProject,
+  currentProjectId,
+  projectFiles,
+  onFileOperation,
+  isActive,
+}: TerminalProps) {
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -1168,15 +1255,29 @@ export default function Terminal({ height, currentProject, currentProjectId, pro
   const { colors } = useTheme();
   if (!isMounted) {
     return (
-      <div 
+      <div
         className="w-full h-full flex items-center justify-center"
         style={{ height: `${height - 32}px`, background: colors.editorBg }}
       >
-        <div className="text-sm" style={{ color: colors.mutedFg }}>ターミナルを初期化中...</div>
+        <div
+          className="text-sm"
+          style={{ color: colors.mutedFg }}
+        >
+          ターミナルを初期化中...
+        </div>
       </div>
     );
   }
 
   // クライアントサイドでマウント後のみ実際のターミナルを表示
-  return <ClientTerminal height={height} currentProject={currentProject} currentProjectId={currentProjectId} projectFiles={projectFiles} onFileOperation={onFileOperation} isActive={isActive} />;
+  return (
+    <ClientTerminal
+      height={height}
+      currentProject={currentProject}
+      currentProjectId={currentProjectId}
+      projectFiles={projectFiles}
+      onFileOperation={onFileOperation}
+      isActive={isActive}
+    />
+  );
 }
