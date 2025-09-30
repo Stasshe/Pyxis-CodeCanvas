@@ -170,7 +170,7 @@ export default function OperationWindow({
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isVisible, filteredFiles, selectedIndex, onClose, editors, setEditors, setFileSelectState]);
+  }, [isVisible, filteredFiles, selectedIndex, onClose, editors, setEditors, setFileSelectState, handleFileSelectInOperation]);
 
   // 検索クエリが変更されたときに選択インデックスをリセット
   useEffect(() => {

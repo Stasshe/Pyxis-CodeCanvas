@@ -58,7 +58,7 @@ export default function FileTree({
     const items = e.dataTransfer.items;
     // バイナリ拡張子リスト
     const binaryExt =
-      /\.(png|jpg|jpeg|gif|bmp|webp|svg|pdf|zip|ico|tar|gz|rar|exe|dll|so|dylib|mp3|mp4|avi|mov|woff|woff2|ttf|eot)$/i;
+      /\.(png|jpg|jpeg|gif|bmp|webp|svg|pdf|zip|ico|tar|gz|rar|exe|dll|so|mp3|mp4|avi|mov|woff|woff2|ttf|eot)$/i;
     if (items && items.length > 0 && typeof items[0].webkitGetAsEntry === 'function') {
       // フォルダD&D対応
       const traverseFileTree = async (item: any, path: string) => {
@@ -66,7 +66,7 @@ export default function FileTree({
           if (item.isFile) {
             item.file(async (file: File) => {
               const ext = file.name.toLowerCase();
-              let isBinary = binaryExt.test(ext);
+              const isBinary = binaryExt.test(ext);
               let content: string | ArrayBuffer = '';
               if (isBinary) {
                 content = await file.arrayBuffer();
@@ -118,7 +118,7 @@ export default function FileTree({
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         const ext = file.name.toLowerCase();
-        let isBinary = binaryExt.test(ext);
+        const isBinary = binaryExt.test(ext);
         let content: string | ArrayBuffer = '';
         if (isBinary) {
           content = await file.arrayBuffer();

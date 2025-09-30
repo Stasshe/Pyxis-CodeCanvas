@@ -8,6 +8,7 @@
     "start": "node initial_files_to_ts.js && next start",
     "format": "prettier --write src/**/*.ts src/**/*.tsx",
     "lint": "next lint",
+    "prepare": "husky install",
     "preview": "npx serve out"
   },
   "dependencies": {
