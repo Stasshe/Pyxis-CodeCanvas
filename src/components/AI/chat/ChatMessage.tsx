@@ -70,13 +70,19 @@ function CodeBlock({ language, value, isDark }: { language: string; value: strin
       >
         {copied ? <Check size={16} /> : <Copy size={16} />}
       </button>
-      <div
-        className="overflow-x-auto"
-        dangerouslySetInnerHTML={{ __html: html }}
-        style={{
-          fontSize: '13px',
-        }}
-      />
+      {html ? (
+        <div
+          className="overflow-x-auto"
+          dangerouslySetInnerHTML={{ __html: html }}
+          style={{
+            fontSize: '13px',
+          }}
+        />
+      ) : (
+        <pre className="overflow-x-auto bg-gray-100 dark:bg-neutral-800 text-xs p-3 min-h-[48px] font-mono" style={{ fontSize: '13px', margin: 0 }}>
+          <code>{value}</code>
+        </pre>
+      )}
     </div>
   );
 }
