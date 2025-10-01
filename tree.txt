@@ -1,11 +1,13 @@
 .
 ├── Development
 │   ├── DATABASE.md
+│   ├── NEW-ARCHITECTURE.md
 │   ├── TODO.md
 │   ├── Tauri-Setup.md
 │   ├── ai-agent-implementation-plan.md
 │   ├── all-flow.svg
-│   └── git-deletion-detection-analysis.md
+│   ├── git-deletion-detection-analysis.md
+│   └── virtual-fs-design.md
 ├── FreeAPIGenerativeAI-Model.md
 ├── LICENSE
 ├── README.md
@@ -40,6 +42,7 @@
 ├── package-lock.json
 ├── package.json
 ├── postcss.config.js
+├── prettier.config.mjs
 ├── public
 │   ├── apple-touch-icon-precomposed.png
 │   ├── apple-touch-icon.png
@@ -120,6 +123,7 @@
 │   │   │   └── markdownUtils.ts
 │   │   └── Toast.tsx
 │   ├── context
+│   │   ├── BreakpointContext.tsx
 │   │   ├── ThemeContext.tsx
 │   │   └── config.ts
 │   ├── engine
@@ -146,8 +150,11 @@
 │   │   ├── commitMsgAI.ts
 │   │   ├── core
 │   │   │   ├── database.ts
+│   │   │   ├── fileRepository.ts
 │   │   │   ├── filesystem.ts
-│   │   │   └── project.ts
+│   │   │   ├── gitFileSystem.ts
+│   │   │   ├── project.ts
+│   │   │   └── syncManager.ts
 │   │   ├── export
 │   │   │   ├── exportFolderZip.ts
 │   │   │   ├── exportIndexeddb.ts
@@ -165,7 +172,15 @@
 │   │   ├── initialFileContents.ts
 │   │   ├── node
 │   │   │   ├── builtInModule.ts
-│   │   │   └── esModuleTransformer.ts
+│   │   │   ├── esModuleTransformer.ts
+│   │   │   └── modules
+│   │   │       ├── bufferModule.ts
+│   │   │       ├── fsModule.ts
+│   │   │       ├── httpModule.ts
+│   │   │       ├── osModule.ts
+│   │   │       ├── pathModule.ts
+│   │   │       ├── readlineModule.ts
+│   │   │       └── utilModule.ts
 │   │   ├── openTab.ts
 │   │   └── runtime
 │   │       ├── nodeRuntime.ts
@@ -191,15 +206,11 @@
 ├── tree.txt
 └── tsconfig.json
 
-32 directories, 160 files
+33 directories, 174 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 30800
-合計文字数: 1054822
-合計ファイルサイズ(bytes): 1137571
+合計行数: 28608
+合計文字数: 973529
+合計ファイルサイズ(bytes): 1042692
 
-リポジトリ全体のサイズ(bytes): 1.7G	.
-==========
-ビルト済みファイルの行数: 14742
-合計文字数: 22162473
-合計ファイルサイズ(bytes): 23093104
+リポジトリ全体のサイズ(bytes): 1.8G	.
