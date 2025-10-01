@@ -23,9 +23,13 @@ import { LOCALSTORAGE_KEY } from '@/context/config';
 
 interface GitPanelProps {
   currentProject?: string;
-  currentProjectId?: string;
   onRefresh?: () => void;
   gitRefreshTrigger?: number;
+  onFileOperation?: (
+    path: string,
+    type: 'file' | 'folder' | 'delete',
+    content?: string
+  ) => Promise<void>;
   onGitStatusChange?: (changesCount: number) => void; // Git変更状態のコールバック
   onDiffFileClick?: (params: { commitId: string; filePath: string }) => void;
   onDiffAllFilesClick?: (params: { commitId: string; parentCommitId: string }) => void;
@@ -33,9 +37,9 @@ interface GitPanelProps {
 
 export default function GitPanel({
   currentProject,
-  currentProjectId,
   onRefresh,
   gitRefreshTrigger,
+  onFileOperation,
   onGitStatusChange,
   onDiffFileClick,
   onDiffAllFilesClick,
@@ -49,9 +53,8 @@ export default function GitPanel({
   const [apiKey, setApiKey] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // Git操作用のコマンドインスタンス（新アーキテクチャ）
-  const gitCommands =
-    currentProject && currentProjectId ? new GitCommands(currentProject, currentProjectId) : null;
+  // Git操作用のコマンドインスタンス
+  const gitCommands = currentProject ? new GitCommands(currentProject, onFileOperation) : null;
 
   // Git状態を取得
   const fetchGitStatus = async () => {
@@ -1051,8 +1054,8 @@ export default function GitPanel({
             <GitHistory
               commits={gitRepo.commits}
               currentProject={currentProject}
-              currentProjectId={currentProjectId}
               currentBranch={gitRepo.currentBranch}
+              onFileOperation={onFileOperation}
               onDiffFileClick={onDiffFileClick}
               onDiffAllFilesClick={onDiffAllFilesClick}
             />
