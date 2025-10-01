@@ -15,12 +15,25 @@ const generateUniqueId = (prefix: string): string => {
   return `${prefix}_${timestamp}_${random}_${counter}`;
 };
 
+// ファイル変更イベント型
+export type FileChangeEvent = {
+  type: 'create' | 'update' | 'delete';
+  projectId: string;
+  file: ProjectFile | { id: string; path: string }; // deleteの場合は最小限の情報
+};
+
+// イベントリスナー型
+type FileChangeListener = (event: FileChangeEvent) => void;
+
 export class FileRepository {
   private dbName = 'PyxisProjects';
   private version = 2;
   private db: IDBDatabase | null = null;
   private static instance: FileRepository | null = null;
   private projectNameCache: Map<string, string> = new Map(); // projectId -> projectName
+
+  // イベントリスナー管理
+  private listeners: Set<FileChangeListener> = new Set();
 
   private constructor() {}
 
@@ -32,6 +45,30 @@ export class FileRepository {
       FileRepository.instance = new FileRepository();
     }
     return FileRepository.instance;
+  }
+
+  /**
+   * ファイル変更イベントリスナーを追加
+   */
+  addChangeListener(listener: FileChangeListener): () => void {
+    this.listeners.add(listener);
+    // アンサブスクライブ関数を返す
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  /**
+   * ファイル変更イベントを発火
+   */
+  private emitChange(event: FileChangeEvent): void {
+    this.listeners.forEach(listener => {
+      try {
+        listener(event);
+      } catch (error) {
+        console.warn('[FileRepository] Listener error:', error);
+      }
+    });
   }
 
   /**
@@ -307,6 +344,14 @@ export class FileRepository {
     };
 
     await this.saveFile(file); // saveFileが自動同期を実行
+
+    // ファイル作成イベントを発火
+    this.emitChange({
+      type: 'create',
+      projectId,
+      file,
+    });
+
     return file;
   }
 
@@ -317,35 +362,34 @@ export class FileRepository {
     if (!this.db) throw new Error('Database not initialized');
 
     return new Promise((resolve, reject) => {
-      const updatedFile: any = { ...file, updatedAt: new Date() };
-
-      // バイナリファイルの場合はbufferContentを保存
-      if (file.isBufferArray) {
-        updatedFile.bufferContent = file.bufferContent;
-      } else {
-        delete updatedFile.bufferContent;
-      }
-
       const transaction = this.db!.transaction(['files'], 'readwrite');
       const store = transaction.objectStore('files');
+      const updatedFile = { ...file, updatedAt: new Date() };
       const request = store.put(updatedFile);
 
-      request.onerror = () => {
-        console.error('[FileRepository] Failed to save file:', request.error);
-        reject(request.error);
-      };
-
-      request.onsuccess = () => {
-        // 非同期でGitFileSystemに同期（エラーは無視）
+      request.onerror = () => reject(request.error);
+      request.onsuccess = async () => {
+        // GitFileSystemへの自動同期（非同期・バックグラウンド実行）
         this.syncToGitFileSystem(
-          file.projectId,
-          file.path,
-          file.content,
+          updatedFile.projectId,
+          updatedFile.path,
+          updatedFile.isBufferArray ? '' : updatedFile.content || '',
           'update',
-          file.bufferContent
-        ).catch(err => {
-          console.warn('[FileRepository] Background sync to GitFileSystem failed:', err);
+          updatedFile.bufferContent
+        ).catch(error => {
+          console.warn(
+            '[FileRepository] Background sync to GitFileSystem failed (non-critical):',
+            error
+          );
         });
+
+        // ファイル更新イベントを発火
+        this.emitChange({
+          type: 'update',
+          projectId: updatedFile.projectId,
+          file: updatedFile,
+        });
+
         resolve();
       };
     });
@@ -511,7 +555,6 @@ export class FileRepository {
       const transaction = this.db!.transaction(['files'], 'readonly');
       const store = transaction.objectStore('files');
       const request = store.get(fileId);
-
       request.onerror = () => reject(request.error);
       request.onsuccess = () => resolve(request.result || null);
     });
@@ -522,14 +565,21 @@ export class FileRepository {
       const request = store.delete(fileId);
 
       request.onerror = () => reject(request.error);
-      request.onsuccess = () => {
-        // 非同期でGitFileSystemから削除（エラーは無視）
+      request.onsuccess = async () => {
         if (fileToDelete) {
+          // GitFileSystemへの自動同期（削除）
           this.syncToGitFileSystem(fileToDelete.projectId, fileToDelete.path, '', 'delete').catch(
-            err => {
-              console.warn('[FileRepository] Background sync delete to GitFileSystem failed:', err);
+            error => {
+              console.warn('[FileRepository] Background delete sync failed (non-critical):', error);
             }
           );
+
+          // ファイル削除イベントを発火
+          this.emitChange({
+            type: 'delete',
+            projectId: fileToDelete.projectId,
+            file: { id: fileToDelete.id, path: fileToDelete.path },
+          });
         }
         resolve();
       };
