@@ -123,14 +123,26 @@ export class FileRepository {
     parentPath: string
   ): Promise<void> {
     for (const [name, value] of Object.entries(obj)) {
+      // children, content, type などのプロパティ名はスキップ
+      if (["children", "content", "type"].includes(name)) continue;
       const path = parentPath === '' ? `/${name}` : `${parentPath}/${name}`;
       if (typeof value === 'string') {
         // ファイル
         await this.createFile(projectId, path, value, 'file');
-      } else {
-        // フォルダ
-        await this.createFile(projectId, path, '', 'folder');
-        await this.registerInitialFiles(projectId, value, path);
+      } else if (typeof value === 'object' && value !== null) {
+        const v: any = value;
+        if (v.type === 'folder' || v.children) {
+          await this.createFile(projectId, path, '', 'folder');
+          if (v.children && typeof v.children === 'object') {
+            await this.registerInitialFiles(projectId, v.children, path);
+          }
+        } else if (v.type === 'file' && typeof v.content === 'string') {
+          await this.createFile(projectId, path, v.content, 'file');
+        } else {
+          // それ以外は従来通り再帰
+          await this.createFile(projectId, path, '', 'folder');
+          await this.registerInitialFiles(projectId, value, path);
+        }
       }
     }
   }
