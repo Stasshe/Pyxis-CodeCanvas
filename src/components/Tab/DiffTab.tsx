@@ -1,5 +1,7 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { DiffEditor } from '@monaco-editor/react';
+import type { Monaco } from '@monaco-editor/react';
+import type * as monacoEditor from 'monaco-editor';
 
 interface SingleFileDiff {
   formerFullPath: string;
@@ -17,6 +19,79 @@ interface DiffTabProps {
 const DiffTab: React.FC<DiffTabProps> = ({ diffs }) => {
   // 各diff領域へのref
   const diffRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  // DiffEditorインスタンスとモデルを管理
+  const editorsRef = useRef<Map<number, monacoEditor.editor.IStandaloneDiffEditor>>(new Map());
+  const modelsRef = useRef<
+    Map<
+      number,
+      { original: monacoEditor.editor.ITextModel; modified: monacoEditor.editor.ITextModel }
+    >
+  >(new Map());
+
+  // クリーンアップ処理
+  useEffect(() => {
+    return () => {
+      // エディタをリセットしてからモデルを破棄
+      editorsRef.current.forEach((editor, idx) => {
+        try {
+          // まずエディタのモデルをnullに設定
+          const diffModel = editor.getModel();
+          if (diffModel) {
+            editor.setModel(null);
+          }
+        } catch (e) {
+          console.warn(`[DiffTab] Failed to reset editor ${idx}:`, e);
+        }
+      });
+
+      // エディタを破棄
+      editorsRef.current.forEach((editor, idx) => {
+        try {
+          if (editor && typeof editor.dispose === 'function') {
+            editor.dispose();
+          }
+        } catch (e) {
+          console.warn(`[DiffTab] Failed to dispose editor ${idx}:`, e);
+        }
+      });
+
+      // 最後にモデルを破棄
+      modelsRef.current.forEach((models, idx) => {
+        try {
+          if (models.original && !models.original.isDisposed()) {
+            models.original.dispose();
+          }
+          if (models.modified && !models.modified.isDisposed()) {
+            models.modified.dispose();
+          }
+        } catch (e) {
+          console.warn(`[DiffTab] Failed to dispose models ${idx}:`, e);
+        }
+      });
+
+      editorsRef.current.clear();
+      modelsRef.current.clear();
+    };
+  }, []);
+
+  // DiffEditorマウント時のハンドラ
+  const handleDiffEditorMount = (
+    editor: monacoEditor.editor.IStandaloneDiffEditor,
+    monaco: Monaco,
+    idx: number
+  ) => {
+    editorsRef.current.set(idx, editor);
+
+    // モデルを取得して保存
+    const diffModel = editor.getModel();
+    if (diffModel) {
+      modelsRef.current.set(idx, {
+        original: diffModel.original,
+        modified: diffModel.modified,
+      });
+    }
+  };
 
   // ファイルリストクリック時に該当diff領域へスクロール
   const handleFileClick = (idx: number) => {
@@ -134,6 +209,7 @@ const DiffTab: React.FC<DiffTabProps> = ({ diffs }) => {
                   original={diff.formerContent}
                   modified={diff.latterContent}
                   theme="pyxis-custom"
+                  onMount={(editor, monaco) => handleDiffEditorMount(editor, monaco, idx)}
                   options={{
                     renderSideBySide: true,
                     readOnly: true,
