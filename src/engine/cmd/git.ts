@@ -412,23 +412,46 @@ export class GitCommands {
 
     const { untracked, modified, staged, deleted } = this.categorizeStatusFiles(status);
 
+    // 削除ファイルの正確な分類
+    const stagedDeleted: string[] = [];
+    const unstagedDeleted: string[] = [];
+
+    status.forEach(([filepath, HEAD, workdir, stage]) => {
+      if (HEAD === 1 && workdir === 0) {
+        if (stage === 0) {
+          // 削除済み（ステージ済み）
+          stagedDeleted.push(filepath);
+        } else if (stage === 1) {
+          // 削除済み（未ステージ）
+          unstagedDeleted.push(filepath);
+        }
+      }
+    });
+
     let result = `On branch ${currentBranch}\n`;
 
-    if (staged.length > 0) {
+    // ステージ済みの変更（新規・変更・削除）
+    if (staged.length > 0 || stagedDeleted.length > 0) {
       result += '\nChanges to be committed:\n';
-      staged.forEach(file => (result += `  new file:   ${file}\n`));
+      staged.forEach(file => {
+        // ファイルの種類を判定
+        const fileStatus = status.find(([path]) => path === file);
+        if (fileStatus && fileStatus[1] === 0) {
+          result += `  new file:   ${file}\n`;
+        } else {
+          result += `  modified:   ${file}\n`;
+        }
+      });
+      stagedDeleted.forEach(file => {
+        result += `  deleted:    ${file}\n`;
+      });
     }
 
-    if (modified.length > 0) {
+    // 未ステージの変更（変更・削除）
+    if (modified.length > 0 || unstagedDeleted.length > 0) {
       result += '\nChanges not staged for commit:\n';
       modified.forEach(file => (result += `  modified:   ${file}\n`));
-    }
-
-    if (deleted.length > 0) {
-      if (modified.length === 0) {
-        result += '\nChanges not staged for commit:\n';
-      }
-      deleted.forEach(file => (result += `  deleted:    ${file}\n`));
+      unstagedDeleted.forEach(file => (result += `  deleted:    ${file}\n`));
     }
 
     if (untracked.length > 0) {
@@ -439,9 +462,10 @@ export class GitCommands {
 
     if (
       staged.length === 0 &&
+      stagedDeleted.length === 0 &&
       modified.length === 0 &&
-      untracked.length === 0 &&
-      deleted.length === 0
+      unstagedDeleted.length === 0 &&
+      untracked.length === 0
     ) {
       result = `On branch ${currentBranch}\nnothing to commit, working tree clean`;
     }
@@ -483,11 +507,11 @@ export class GitCommands {
         // 変更あり（ステージ済み）
         staged.push(filepath);
       } else if (HEAD === 1 && workdir === 0 && stage === 1) {
-        // 削除（未ステージ）
+        // 削除（未ステージ）- 削除されたが、まだステージされていない
         deleted.push(filepath);
       } else if (HEAD === 1 && workdir === 0 && stage === 0) {
-        // 削除（ステージ済み）
-        deleted.push(filepath);
+        // 削除（ステージ済み）- 削除がステージされている
+        staged.push(filepath);
       } else if (HEAD === 1 && workdir === 0 && stage === 3) {
         // 削除後に新規追加（ステージ済み）
         staged.push(filepath);

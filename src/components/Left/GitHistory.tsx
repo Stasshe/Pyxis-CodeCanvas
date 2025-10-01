@@ -167,8 +167,9 @@ export default function GitHistory({
 
       // 最初の親コミットと比較（マージコミットの場合も最初の親を使用）
       const parentHash = currentCommit.parentHashes[0];
-      console.log('[GitHistory] Comparing commits:', parentHash, 'vs', commitHash);
+      console.log('[GitHistory] Comparing commits (parent->child):', parentHash, '->', commitHash);
 
+      // 親コミット→子コミットの順序で差分を取得（変更を正しく表示するため）
       const diffOutput = await gitCommands.diffCommits(parentHash, commitHash);
       console.log('[GitHistory] Raw diff output:', diffOutput);
 
