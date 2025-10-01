@@ -98,6 +98,9 @@ const BREAKPOINT_GUTTER_STYLE = `
 
 // ブレークポイント管理用型
 type Breakpoint = { line: number };
+
+// グローバルフラグ: テーマ定義を一度だけ実行
+let isThemeDefined = false;
 import { useRef, useEffect, useCallback, useState, useContext, useMemo } from 'react';
 import { useBreakpointContext } from '@/context/BreakpointContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -533,64 +536,77 @@ export default function CodeEditor({
     editorRef.current = editor;
     monacoRef.current = monaco;
 
-    // テーマ定義（初回のみ）
-    try {
-      Promise.all([
-        fetch('https://unpkg.com/@types/react/index.d.ts').then(r => r.text()),
-        fetch('https://unpkg.com/@types/react-dom/index.d.ts').then(r => r.text()),
-      ])
-        .then(([reactTypes, reactDomTypes]) => {
-          monaco.languages.typescript.typescriptDefaults.addExtraLib(
-            reactTypes,
-            'file:///node_modules/@types/react/index.d.ts'
-          );
-          monaco.languages.typescript.typescriptDefaults.addExtraLib(
-            reactDomTypes,
-            'file:///node_modules/@types/react-dom/index.d.ts'
-          );
-        })
-        .catch(e => {
-          console.warn('[CodeEditor] Failed to load React type definitions:', e);
+    // テーマ定義（初回のみ、グローバルフラグで管理）
+    if (!isThemeDefined) {
+      try {
+        // React型定義を非同期で読み込み（エラーは無視）
+        Promise.all([
+          fetch('https://unpkg.com/@types/react/index.d.ts').then(r => r.text()),
+          fetch('https://unpkg.com/@types/react-dom/index.d.ts').then(r => r.text()),
+        ])
+          .then(([reactTypes, reactDomTypes]) => {
+            if (monacoRef.current) {
+              monacoRef.current.languages.typescript.typescriptDefaults.addExtraLib(
+                reactTypes,
+                'file:///node_modules/@types/react/index.d.ts'
+              );
+              monacoRef.current.languages.typescript.typescriptDefaults.addExtraLib(
+                reactDomTypes,
+                'file:///node_modules/@types/react-dom/index.d.ts'
+              );
+            }
+          })
+          .catch(e => {
+            console.warn('[CodeEditor] Failed to load React type definitions:', e);
+          });
+
+        // テーマ定義
+        monaco.editor.defineTheme('pyxis-custom', {
+          base: 'vs-dark',
+          inherit: true,
+          rules: [
+            { token: 'comment', foreground: '6A9955', fontStyle: 'italic' },
+            { token: 'keyword', foreground: '569CD6', fontStyle: 'bold' },
+            { token: 'string', foreground: 'CE9178' },
+            { token: 'number', foreground: 'B5CEA8' },
+            { token: 'regexp', foreground: 'D16969' },
+            { token: 'operator', foreground: 'D4D4D4' },
+            { token: 'namespace', foreground: '4EC9B0' },
+            { token: 'type', foreground: '4EC9B0' },
+            { token: 'struct', foreground: '4EC9B0' },
+            { token: 'class', foreground: '4EC9B0' },
+            { token: 'interface', foreground: '4EC9B0' },
+            { token: 'parameter', foreground: '9CDCFE' },
+            { token: 'variable', foreground: '9CDCFE' },
+            { token: 'property', foreground: '9CDCFE' },
+            { token: 'function', foreground: 'DCDCAA' },
+            { token: 'method', foreground: 'DCDCAA' },
+          ],
+          colors: {
+            'editor.background': colors.editorBg || '#1e1e1e',
+            'editor.foreground': colors.editorFg || '#d4d4d4',
+            'editor.lineHighlightBackground': colors.editorLineHighlight || '#2d2d30',
+            'editor.selectionBackground': colors.editorSelection || '#264f78',
+            'editor.inactiveSelectionBackground': '#3a3d41',
+            'editorCursor.foreground': colors.editorCursor || '#aeafad',
+            'editorWhitespace.foreground': '#404040',
+            'editorIndentGuide.background': '#404040',
+            'editorIndentGuide.activeBackground': '#707070',
+            'editorBracketMatch.background': '#0064001a',
+            'editorBracketMatch.border': '#888888',
+          },
         });
-      monaco.editor.defineTheme('pyxis-custom', {
-        base: 'vs-dark',
-        inherit: true,
-        rules: [
-          { token: 'comment', foreground: '6A9955', fontStyle: 'italic' },
-          { token: 'keyword', foreground: '569CD6', fontStyle: 'bold' },
-          { token: 'string', foreground: 'CE9178' },
-          { token: 'number', foreground: 'B5CEA8' },
-          { token: 'regexp', foreground: 'D16969' },
-          { token: 'operator', foreground: 'D4D4D4' },
-          { token: 'namespace', foreground: '4EC9B0' },
-          { token: 'type', foreground: '4EC9B0' },
-          { token: 'struct', foreground: '4EC9B0' },
-          { token: 'class', foreground: '4EC9B0' },
-          { token: 'interface', foreground: '4EC9B0' },
-          { token: 'parameter', foreground: '9CDCFE' },
-          { token: 'variable', foreground: '9CDCFE' },
-          { token: 'property', foreground: '9CDCFE' },
-          { token: 'function', foreground: 'DCDCAA' },
-          { token: 'method', foreground: 'DCDCAA' },
-        ],
-        colors: {
-          'editor.background': colors.editorBg || '#1e1e1e',
-          'editor.foreground': colors.editorFg || '#d4d4d4',
-          'editor.lineHighlightBackground': colors.editorLineHighlight || '#2d2d30',
-          'editor.selectionBackground': colors.editorSelection || '#264f78',
-          'editor.inactiveSelectionBackground': '#3a3d41',
-          'editorCursor.foreground': colors.editorCursor || '#aeafad',
-          'editorWhitespace.foreground': '#404040',
-          'editorIndentGuide.background': '#404040',
-          'editorIndentGuide.activeBackground': '#707070',
-          'editorBracketMatch.background': '#0064001a',
-          'editorBracketMatch.border': '#888888',
-        },
-      });
+        isThemeDefined = true;
+      } catch (e) {
+        console.warn('[CodeEditor] Failed to define theme:', e);
+      }
+    }
+
+    // テーマを適用（安全に）
+    try {
       monaco.editor.setTheme('pyxis-custom');
     } catch (e) {
-      // テーマが既に定義されている場合は無視
-      console.warn('[CodeEditor] Theme already defined:', e);
+      console.warn('[CodeEditor] Failed to set theme:', e);
     }
 
     // エディター初期化直後に現在のブレークポイントを反映する
@@ -908,42 +924,55 @@ export default function CodeEditor({
         setCharCount(countCharsNoSpaces(model!.getValue()));
       }
     }
-
-    // --- JUMP TO LINE/COLUMN ---
-    // ここでactiveTab.jumpToLine/jumpToColumnがあればジャンプ
-    if (
-      isEditorSafe() &&
-      (activeTab as any).jumpToLine !== undefined &&
-      typeof (activeTab as any).jumpToLine === 'number'
-    ) {
-      const jumpToLine = (activeTab as any).jumpToLine;
-      const jumpToColumn = (activeTab as any).jumpToColumn || 1;
-      try {
-        // MonacoのエディタAPIでジャンプ
-        const editor = editorRef.current!;
-        editor.revealPositionInCenter({ lineNumber: jumpToLine, column: jumpToColumn });
-        editor.setPosition({ lineNumber: jumpToLine, column: jumpToColumn });
-        editor.focus();
-        console.log(
-          '[CodeEditor] JUMP: line',
-          jumpToLine,
-          'col',
-          jumpToColumn,
-          'tab',
-          activeTab.id
-        );
-      } catch (e) {
-        console.warn('[CodeEditor] Failed to jump to line/column:', e);
-      }
-    } else {
-      if ((activeTab as any).jumpToLine !== undefined) {
-        console.log(
-          '[CodeEditor] jumpToLine present but editor not ready or not a number:',
-          (activeTab as any).jumpToLine
-        );
-      }
-    }
   }, [activeTab?.id, isCodeMirror, isEditorSafe, isModelSafe]);
+
+  // --- JUMP TO LINE/COLUMN 専用のuseEffect ---
+  useEffect(() => {
+    // CodeMirrorの場合はスキップ
+    if (isCodeMirror || !activeTab) return;
+
+    const jumpToLine = (activeTab as any).jumpToLine;
+    const jumpToColumn = (activeTab as any).jumpToColumn;
+
+    if (
+      jumpToLine !== undefined &&
+      typeof jumpToLine === 'number' &&
+      isEditorSafe() &&
+      editorRef.current
+    ) {
+      const column = jumpToColumn && typeof jumpToColumn === 'number' ? jumpToColumn : 1;
+
+      // 少し遅延させてモデルが完全にセットされるのを待つ
+      const timeoutId = setTimeout(() => {
+        try {
+          const editor = editorRef.current;
+          if (editor) {
+            editor.revealPositionInCenter({ lineNumber: jumpToLine, column });
+            editor.setPosition({ lineNumber: jumpToLine, column });
+            editor.focus();
+            console.log(
+              '[CodeEditor] JUMP executed: line',
+              jumpToLine,
+              'col',
+              column,
+              'tab',
+              activeTab.id
+            );
+          }
+        } catch (e) {
+          console.warn('[CodeEditor] Failed to jump to line/column:', e);
+        }
+      }, 100);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [
+    activeTab?.id,
+    (activeTab as any)?.jumpToLine,
+    (activeTab as any)?.jumpToColumn,
+    isCodeMirror,
+    isEditorSafe,
+  ]);
 
   // activeTab.contentが外部から変更された場合の同期用useEffect
   useEffect(() => {

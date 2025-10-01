@@ -32,6 +32,25 @@ export const openOrActivateTab = (
   // 既存タブ検索
   const existing = tabs.find(tab => tab.id === tabId);
   if (existing) {
+    // 既存タブにjumpToLine/jumpToColumnを設定してアクティブ化
+    if (options?.jumpToLine !== undefined || options?.jumpToColumn !== undefined) {
+      console.log('[openOrActivateTab] Setting jump position for existing tab:', {
+        tabId,
+        jumpToLine: options.jumpToLine,
+        jumpToColumn: options.jumpToColumn,
+      });
+      setTabs((currentTabs: Tab[]) =>
+        currentTabs.map(tab =>
+          tab.id === tabId
+            ? {
+                ...tab,
+                jumpToLine: options.jumpToLine,
+                jumpToColumn: options.jumpToColumn,
+              }
+            : tab
+        )
+      );
+    }
     setActiveTabId(tabId);
     return;
   }
@@ -54,6 +73,15 @@ export const openOrActivateTab = (
   };
   if (options?.jumpToLine !== undefined) newTab.jumpToLine = options.jumpToLine;
   if (options?.jumpToColumn !== undefined) newTab.jumpToColumn = options.jumpToColumn;
+
+  if (options?.jumpToLine !== undefined) {
+    console.log('[openOrActivateTab] Creating new tab with jump position:', {
+      tabId,
+      jumpToLine: options.jumpToLine,
+      jumpToColumn: options.jumpToColumn,
+    });
+  }
+
   setTabs((currentTabs: Tab[]) => [...currentTabs, newTab]);
   setActiveTabId(tabId);
 };
