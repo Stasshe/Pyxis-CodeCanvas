@@ -26,6 +26,7 @@ export interface GitStatus {
   staged: string[];
   unstaged: string[];
   untracked: string[];
+  deleted: string[]; // 削除されたファイル（未ステージ）
   branch: string;
   ahead: number;
   behind: number;

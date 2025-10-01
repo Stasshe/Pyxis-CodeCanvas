@@ -284,25 +284,26 @@ export class GitCommands {
   async status(): Promise<string> {
     await this.ensureGitRepository();
 
-    // [重要] IndexedDBからgitFileSystemへの軽量同期を実行（タイムアウト付き）
-    // ステータス確認前に必ずファイルが同期されていることを保証
-    console.log('[git.status] Starting lightweight sync for status check');
-    const syncPromise = syncManager.lightweightSyncForGit(this.projectId, this.projectName);
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Sync timeout')), 3000)
-    );
-    
+    // [NEW ARCHITECTURE] IndexedDBからgitFileSystemへの完全同期を実行
+    // git_stable.ts方式に加えて、NEW-ARCHITECTUREの同期も実行
+    console.log('[git.status] Starting IndexedDB sync for git operations');
     try {
-      await Promise.race([syncPromise, timeoutPromise]);
-      console.log('[git.status] File sync completed');
+      await syncManager.syncFromIndexedDBToFS(this.projectId, this.projectName);
+      console.log('[git.status] IndexedDB sync completed');
     } catch (syncError) {
-      console.warn('[git.status] File sync failed or timed out, using existing state:', syncError);
+      console.warn('[git.status] IndexedDB sync failed, proceeding anyway:', syncError);
     }
 
-    // ファイルシステムの同期処理
-    await gitFileSystem.flush();
+    // ファイルシステムの同期処理（git_stable.ts方式）
+    if ((this.fs as any).sync) {
+      try {
+        await (this.fs as any).sync();
+      } catch (syncError) {
+        console.warn('[git.status] FileSystem sync failed:', syncError);
+      }
+    }
 
-    // 追加の待機時間
+    // git addの後に呼び出される場合、追加の待機時間を設ける
     await new Promise(resolve => setTimeout(resolve, 200));
 
     let status: Array<[string, number, number, number]> = [];
@@ -400,7 +401,7 @@ export class GitCommands {
     return projectFiles;
   }
 
-  // ステータス結果をフォーマット
+  // ステータス結果をフォーマット（git_stable.tsベース）
   private async formatStatusResult(
     status: Array<[string, number, number, number]>
   ): Promise<string> {
@@ -412,46 +413,23 @@ export class GitCommands {
 
     const { untracked, modified, staged, deleted } = this.categorizeStatusFiles(status);
 
-    // 削除ファイルの正確な分類
-    const stagedDeleted: string[] = [];
-    const unstagedDeleted: string[] = [];
-
-    status.forEach(([filepath, HEAD, workdir, stage]) => {
-      if (HEAD === 1 && workdir === 0) {
-        if (stage === 0) {
-          // 削除済み（ステージ済み）
-          stagedDeleted.push(filepath);
-        } else if (stage === 1) {
-          // 削除済み（未ステージ）
-          unstagedDeleted.push(filepath);
-        }
-      }
-    });
-
     let result = `On branch ${currentBranch}\n`;
 
-    // ステージ済みの変更（新規・変更・削除）
-    if (staged.length > 0 || stagedDeleted.length > 0) {
+    if (staged.length > 0) {
       result += '\nChanges to be committed:\n';
-      staged.forEach(file => {
-        // ファイルの種類を判定
-        const fileStatus = status.find(([path]) => path === file);
-        if (fileStatus && fileStatus[1] === 0) {
-          result += `  new file:   ${file}\n`;
-        } else {
-          result += `  modified:   ${file}\n`;
-        }
-      });
-      stagedDeleted.forEach(file => {
-        result += `  deleted:    ${file}\n`;
-      });
+      staged.forEach(file => (result += `  new file:   ${file}\n`));
     }
 
-    // 未ステージの変更（変更・削除）
-    if (modified.length > 0 || unstagedDeleted.length > 0) {
+    if (modified.length > 0) {
       result += '\nChanges not staged for commit:\n';
       modified.forEach(file => (result += `  modified:   ${file}\n`));
-      unstagedDeleted.forEach(file => (result += `  deleted:    ${file}\n`));
+    }
+
+    if (deleted.length > 0) {
+      if (modified.length === 0) {
+        result += '\nChanges not staged for commit:\n';
+      }
+      deleted.forEach(file => (result += `  deleted:    ${file}\n`));
     }
 
     if (untracked.length > 0) {
@@ -462,10 +440,9 @@ export class GitCommands {
 
     if (
       staged.length === 0 &&
-      stagedDeleted.length === 0 &&
       modified.length === 0 &&
-      unstagedDeleted.length === 0 &&
-      untracked.length === 0
+      untracked.length === 0 &&
+      deleted.length === 0
     ) {
       result = `On branch ${currentBranch}\nnothing to commit, working tree clean`;
     }
@@ -473,7 +450,7 @@ export class GitCommands {
     return result;
   }
 
-  // ファイルのステータスを分類
+  // ファイルのステータスを分類（git_stable.tsベース）
   private categorizeStatusFiles(status: Array<[string, number, number, number]>): {
     untracked: string[];
     modified: string[];
@@ -492,30 +469,31 @@ export class GitCommands {
       // stage: 0=ステージなし, 1=ステージ済み（変更なし）, 2=ステージ済み（変更あり）, 3=ステージ済み（新規）
 
       if (HEAD === 0 && (workdir === 1 || workdir === 2) && stage === 0) {
-        // 新規ファイル（未追跡）
+        // 新しいファイル（未追跡）- workdir が 1 または 2 の場合
         untracked.push(filepath);
       } else if (HEAD === 0 && stage === 3) {
-        // 新規ファイル（ステージ済み）
+        // 新しくステージされたファイル（stage=3の場合）
         staged.push(filepath);
       } else if (HEAD === 0 && stage === 2) {
-        // 新規ファイル（ステージ済み・変更あり）
+        // 新しくステージされたファイル（stage=2の場合）
         staged.push(filepath);
       } else if (HEAD === 1 && workdir === 2 && stage === 1) {
-        // 変更あり（未ステージ）
+        // 変更されたファイル（未ステージ）
         modified.push(filepath);
       } else if (HEAD === 1 && workdir === 2 && stage === 2) {
-        // 変更あり（ステージ済み）
+        // 変更されてステージされたファイル
         staged.push(filepath);
       } else if (HEAD === 1 && workdir === 0 && stage === 1) {
-        // 削除（未ステージ）- 削除されたが、まだステージされていない
+        // 削除されたファイル（未ステージ）- unstaged deletion
         deleted.push(filepath);
       } else if (HEAD === 1 && workdir === 0 && stage === 0) {
-        // 削除（ステージ済み）- 削除がステージされている
+        // 削除されたファイル（ステージ済み）- staged deletion
         staged.push(filepath);
       } else if (HEAD === 1 && workdir === 0 && stage === 3) {
-        // 削除後に新規追加（ステージ済み）
+        // 削除されてステージされたファイル
         staged.push(filepath);
       }
+      // その他のケース（HEAD === 1 && workdir === 1 && stage === 1など）は変更なし
     });
 
     return { untracked, modified, staged, deleted };
@@ -530,25 +508,23 @@ export class GitCommands {
     try {
       await this.ensureProjectDirectory();
 
-      // [重要] IndexedDBからgitFileSystemへの軽量同期を実行（タイムアウト付き）
-      // ステージング前に必ずファイルが同期されていることを保証
-      console.log(`[git.add] Starting lightweight sync for staging: ${filepath}`);
-      const syncPromise = syncManager.lightweightSyncForGit(this.projectId, this.projectName);
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Sync timeout')), 5000)
-      );
-      
+      // [NEW ARCHITECTURE] IndexedDBからgitFileSystemへの完全同期を実行
+      console.log(`[git.add] Starting IndexedDB sync for staging: ${filepath}`);
       try {
-        await Promise.race([syncPromise, timeoutPromise]);
-        console.log('[git.add] File sync completed');
+        await syncManager.syncFromIndexedDBToFS(this.projectId, this.projectName);
+        console.log('[git.add] IndexedDB sync completed');
       } catch (syncError) {
-        console.warn('[git.add] File sync failed or timed out, trying to proceed:', syncError);
-        // 同期に失敗した場合でも、軽量な同期を試行
-        await gitFileSystem.flush();
+        console.warn('[git.add] IndexedDB sync failed, proceeding anyway:', syncError);
       }
 
-      // ファイルシステムの同期を確実にする
-      await gitFileSystem.flush();
+      // ファイルシステムの同期処理（git_stable.ts方式）
+      if ((this.fs as any).sync) {
+        try {
+          await (this.fs as any).sync();
+        } catch (syncError) {
+          console.warn('[git.add] FileSystem sync failed:', syncError);
+        }
+      }
 
       if (filepath === '.') {
         // すべてのファイルを追加（削除されたファイルも含む）
@@ -617,13 +593,13 @@ export class GitCommands {
           
           // 削除されたファイル (HEAD=1, workdir=0, stage=1) の場合
           if (HEAD === 1 && workdir === 0 && stage === 1) {
-            console.log(`[NEW ARCHITECTURE] git add: Processing deleted file: ${path}`);
+            console.log(`[git.add] Staging deleted file: ${path}`);
             await git.remove({ fs: this.fs, dir: this.dir, filepath: normalizedPath });
             return `Staged deletion of ${filepath}`;
           }
           // 新規・変更されたファイル (workdir=1 or workdir=2) の場合
           else if (workdir === 1 || workdir === 2) {
-            console.log(`[NEW ARCHITECTURE] git add: Processing new/modified file: ${path} (workdir=${workdir})`);
+            console.log(`[git.add] Processing new/modified file: ${path} (workdir=${workdir})`);
             await git.add({ fs: this.fs, dir: this.dir, filepath: normalizedPath });
             return `Added ${filepath} to staging area`;
           }
@@ -662,13 +638,25 @@ export class GitCommands {
             return `Added ${addedCount} file(s) from directory${errors.length > 0 ? ` (${errors.length} failed)` : ''}`;
           } else {
             // 通常のファイル追加
-            console.log(`[NEW ARCHITECTURE] git add: Adding file directly: ${normalizedPath}`);
+            console.log(`[git.add] Adding file directly: ${normalizedPath}`);
             await git.add({ fs: this.fs, dir: this.dir, filepath: normalizedPath });
             return `Added ${filepath} to staging area`;
           }
         } catch (error) {
           const err = error as Error;
           if (err.message.includes('ENOENT')) {
+            // ファイルが存在しない場合は削除されたファイルの可能性があるので、
+            // ステータスを再確認
+            const status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
+            const fileStatus = status.find(([path]) => path === normalizedPath);
+            
+            if (fileStatus && fileStatus[1] === 1 && fileStatus[2] === 0) {
+              // 削除されたファイル
+              console.log(`[git.add] File not found but exists in git, staging deletion: ${normalizedPath}`);
+              await git.remove({ fs: this.fs, dir: this.dir, filepath: normalizedPath });
+              return `Staged deletion of ${filepath}`;
+            }
+            
             throw new Error(`pathspec '${filepath}' did not match any files`);
           }
           throw error;
@@ -689,10 +677,19 @@ export class GitCommands {
     return await GitFileSystemHelper.getMatchingFiles(this.fs, dirPath, pattern);
   }
 
-  // [NEW ARCHITECTURE] すべてのファイルを追加（削除されたファイルも含む）
+  // [NEW ARCHITECTURE] すべてのファイルを追加（削除されたファイルも含む）- git_stable.tsベース
   private async addAll(): Promise<string> {
     try {
       console.log('[git.add] Processing all files in current directory');
+
+      // [NEW ARCHITECTURE] IndexedDBからgitFileSystemへの完全同期を実行
+      console.log('[git.add] Starting IndexedDB sync for git operations');
+      try {
+        await syncManager.syncFromIndexedDBToFS(this.projectId, this.projectName);
+        console.log('[git.add] IndexedDB sync completed');
+      } catch (syncError) {
+        console.warn('[git.add] IndexedDB sync failed, proceeding anyway:', syncError);
+      }
 
       // [重要] ファイルシステムの同期を確実にする（git_stable.tsと同様）
       if ((this.fs as any).sync) {
@@ -703,12 +700,15 @@ export class GitCommands {
         }
       }
 
-      // 追加の待機時間（git_stable.tsと同様）
-      await new Promise(resolve => setTimeout(resolve, 200));
-
       // ステータスマトリックスから全ファイルの状態を取得
       const statusMatrix = await git.statusMatrix({ fs: this.fs, dir: this.dir });
       console.log(`[git.add] Status matrix found ${statusMatrix.length} files`);
+      console.log(`[git.add] Project directory: ${this.dir}`);
+      
+      // デバッグ: statusMatrixの内容を詳しくログ
+      statusMatrix.forEach(([file, head, workdir, stage]) => {
+        console.log(`[git.add] File: ${file}, HEAD=${head}, workdir=${workdir}, stage=${stage}`);
+      });
 
       let newCount = 0,
         modifiedCount = 0,
@@ -720,17 +720,17 @@ export class GitCommands {
         try {
           if (workdir === 0 && head === 1 && stage === 1) {
             // 削除されたファイル（未ステージ）: HEAD=1, WORKDIR=0, STAGE=1
-            // console.log(`[git.add] Staging deleted file: ${file}`);
+            console.log(`[git.add] Staging deleted file: ${file}`);
             await git.remove({ fs: this.fs, dir: this.dir, filepath: file });
             deletedCount++;
           } else if (head === 0 && workdir > 0 && stage === 0) {
             // 新規ファイル（未追跡）: HEAD=0, WORKDIR>0, STAGE=0
-            // console.log(`[git.add] Adding new file: ${file}`);
+            console.log(`[git.add] Adding new file: ${file}`);
             await git.add({ fs: this.fs, dir: this.dir, filepath: file });
             newCount++;
           } else if (head === 1 && workdir === 2 && stage === 1) {
             // 変更されたファイル（未ステージ）: HEAD=1, WORKDIR=2, STAGE=1
-            // console.log(`[git.add] Adding modified file: ${file}`);
+            console.log(`[git.add] Adding modified file: ${file}`);
             await git.add({ fs: this.fs, dir: this.dir, filepath: file });
             modifiedCount++;
           }
@@ -760,34 +760,25 @@ export class GitCommands {
       console.log('[git.commit] Starting commit process...');
       await this.ensureGitRepository();
 
-      // [重要] コミット前にIndexedDBからgitFileSystemへの軽量同期を実行
-      // ただし、タイムアウトを設けて無限ループを防ぐ
-      console.log('[git.commit] Syncing files before commit...');
-      const syncPromise = syncManager.lightweightSyncForGit(this.projectId, this.projectName);
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Sync timeout')), 8000)
-      );
-      
+      // [NEW ARCHITECTURE] IndexedDBからgitFileSystemへの完全同期を実行
+      console.log('[git.commit] Starting IndexedDB sync for commit...');
       try {
-        await Promise.race([syncPromise, timeoutPromise]);
-        console.log('[git.commit] File sync completed');
+        await syncManager.syncFromIndexedDBToFS(this.projectId, this.projectName);
+        console.log('[git.commit] IndexedDB sync completed');
       } catch (syncError) {
-        console.warn('[git.commit] File sync failed or timed out, proceeding anyway:', syncError);
+        console.warn('[git.commit] IndexedDB sync failed, proceeding anyway:', syncError);
       }
 
-      // ファイルシステムフラッシュ
-      await gitFileSystem.flush();
-
-      // ステージされたファイルがあるかチェック
-      console.log('[git.commit] Checking staged files...');
-      const statusMatrix = await git.statusMatrix({ fs: this.fs, dir: this.dir });
-      const stagedFiles = statusMatrix.filter(([, , , stage]) => stage === 2 || stage === 3);
-      
-      if (stagedFiles.length === 0) {
-        throw new Error('No changes added to commit');
+      // ファイルシステムの同期処理（git_stable.ts方式）
+      if ((this.fs as any).sync) {
+        try {
+          await (this.fs as any).sync();
+        } catch (syncError) {
+          console.warn('[git.commit] FileSystem sync failed:', syncError);
+        }
       }
-      
-      console.log(`[git.commit] Found ${stagedFiles.length} staged files, proceeding with commit...`);
+
+      console.log('[git.commit] Proceeding with commit...');
       
       const sha = await git.commit({
         fs: this.fs,

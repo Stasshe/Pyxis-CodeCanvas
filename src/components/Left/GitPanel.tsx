@@ -115,7 +115,7 @@ export default function GitPanel({
       // 変更ファイル数を計算してコールバックで通知
       if (onGitStatusChange) {
         const changesCount =
-          status.staged.length + status.unstaged.length + status.untracked.length;
+          status.staged.length + status.unstaged.length + status.untracked.length + status.deleted.length;
         console.log('[GitPanel] Notifying changes count:', changesCount);
         onGitStatusChange(changesCount);
       }
@@ -241,6 +241,7 @@ export default function GitPanel({
       staged: [],
       unstaged: [],
       untracked: [],
+      deleted: [],  // 削除されたファイル（未ステージ）
       branch: 'main',
       ahead: 0,
       behind: 0,
@@ -282,8 +283,13 @@ export default function GitPanel({
             status.staged.push(fileName);
             console.log('[GitPanel] Found staged file:', fileName);
           } else if (inChangesNotStaged) {
-            status.unstaged.push(fileName);
-            console.log('[GitPanel] Found unstaged file:', fileName);
+            if (trimmed.startsWith('deleted:')) {
+              status.deleted.push(fileName);
+              console.log('[GitPanel] Found deleted file:', fileName);
+            } else {
+              status.unstaged.push(fileName);
+              console.log('[GitPanel] Found unstaged file:', fileName);
+            }
           }
         }
       } else if (
@@ -306,7 +312,8 @@ export default function GitPanel({
       staged: status.staged,
       unstaged: status.unstaged,
       untracked: status.untracked,
-      total: status.staged.length + status.unstaged.length + status.untracked.length,
+      deleted: status.deleted,
+      total: status.staged.length + status.unstaged.length + status.untracked.length + status.deleted.length,
     });
 
     return status;
@@ -572,7 +579,8 @@ export default function GitPanel({
   const hasChanges =
     gitRepo.status.staged.length > 0 ||
     gitRepo.status.unstaged.length > 0 ||
-    gitRepo.status.untracked.length > 0;
+    gitRepo.status.untracked.length > 0 ||
+    gitRepo.status.deleted.length > 0;
 
   return (
     <div
@@ -951,6 +959,81 @@ export default function GitPanel({
                             color: colors.red,
                           }}
                           title="変更を破棄"
+                          className="select-none"
+                          onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                        >
+                          <RotateCcw
+                            style={{ width: '0.75rem', height: '0.75rem', color: colors.red }}
+                            className="select-none"
+                          />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* 削除されたファイル */}
+              {gitRepo.status.deleted.length > 0 && (
+                <div>
+                  <p style={{ fontSize: '0.75rem', color: colors.red, marginBottom: '0.25rem' }}>
+                    削除済み ({gitRepo.status.deleted.length})
+                  </p>
+                  {gitRepo.status.deleted.map(file => (
+                    <div
+                      key={`deleted-${file}`}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        fontSize: '0.75rem',
+                        padding: '0.25rem 0',
+                      }}
+                    >
+                      <span
+                        style={{
+                          color: colors.red,
+                          flex: 1,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                        className="select-text"
+                      >
+                        {file}
+                      </span>
+                      <div style={{ display: 'flex', gap: '0.25rem' }}>
+                        <button
+                          onClick={() => handleStageFile(file)}
+                          style={{
+                            padding: '0.25rem',
+                            background: 'transparent',
+                            borderRadius: '0.375rem',
+                            border: 'none',
+                            cursor: 'pointer',
+                          }}
+                          title="削除をステージング"
+                          className="select-none"
+                          onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                        >
+                          <Plus
+                            style={{ width: '0.75rem', height: '0.75rem', color: colors.primary }}
+                            className="select-none"
+                          />
+                        </button>
+                        <button
+                          onClick={() => handleDiscardChanges(file)}
+                          style={{
+                            padding: '0.25rem',
+                            background: 'transparent',
+                            borderRadius: '0.375rem',
+                            border: 'none',
+                            cursor: 'pointer',
+                            color: colors.red,
+                          }}
+                          title="ファイルを復元"
                           className="select-none"
                           onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
                           onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
