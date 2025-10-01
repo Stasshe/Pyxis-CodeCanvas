@@ -1,5 +1,5 @@
-import { FileItem } from '@/types';
 import { getFileSystem } from '@/engine/core/filesystem';
+import { FileItem } from '@/types';
 
 // Safe conversion of Uint8Array to base64 using chunking to avoid call stack limits
 const uint8ArrayToBase64 = (uint8Array: Uint8Array): string => {

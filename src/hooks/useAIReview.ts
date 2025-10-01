@@ -2,8 +2,8 @@
 
 import { useCallback } from 'react';
 
-import type { Tab, FileItem } from '@/types';
 import { openOrActivateTab } from '@/engine/openTab';
+import type { Tab, FileItem } from '@/types';
 
 export function useAIReview() {
   // AIレビュータブを開く

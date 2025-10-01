@@ -1,6 +1,6 @@
-import type { Project, ProjectFile, ChatSpace, ChatSpaceMessage } from '@/types';
 import { notifyFileChange } from '@/engine/fileWatcher';
 import { initialFileContents } from '@/engine/initialFileContents';
+import type { Project, ProjectFile, ChatSpace, ChatSpaceMessage } from '@/types';
 
 // IndexedDBを使ったプロジェクト管理システム
 

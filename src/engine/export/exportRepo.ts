@@ -1,9 +1,8 @@
 // ZIPエクスポート・ダウンロード機能
 import JSZip from 'jszip';
 
-import type { Project } from '@/types';
-// lightning-fsインスタンス取得
 import { getFileSystem, getProjectDir } from '@/engine/core/filesystem';
+import type { Project } from '@/types';
 
 // 現在のプロジェクトのみZIPエクスポート
 export async function downloadWorkspaceZip({

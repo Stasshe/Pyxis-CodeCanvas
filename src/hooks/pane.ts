@@ -2,7 +2,7 @@
 // ペイン・タブ系のロジックを分離
 import type { Dispatch, SetStateAction } from 'react';
 
-import type { Tab, EditorPane, EditorLayoutType, MenuTab } from '@/types';
+import type { Tab, EditorPane, EditorLayoutType } from '@/types';
 
 export function addEditorPane(
   editors: EditorPane[],

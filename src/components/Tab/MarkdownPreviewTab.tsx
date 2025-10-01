@@ -10,7 +10,7 @@ import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
 import 'katex/dist/katex.min.css';
 import { FileItem } from '@/types';
-import { loadImageAsDataURL, parseMermaidContent, parseYamlConfig } from './markdownUtils';
+import { loadImageAsDataURL, parseMermaidContent } from './markdownUtils';
 
 interface MarkdownPreviewTabProps {
   content: string;
