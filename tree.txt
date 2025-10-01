@@ -122,6 +122,54 @@
 │   ├── context
 │   │   ├── ThemeContext.tsx
 │   │   └── config.ts
+│   ├── engine
+│   │   ├── ai
+│   │   │   ├── contextBuilder.ts
+│   │   │   ├── diffProcessor.ts
+│   │   │   ├── fetchAI.ts
+│   │   │   └── prompts.ts
+│   │   ├── cmd
+│   │   │   ├── git.ts
+│   │   │   ├── gitOperations
+│   │   │   │   ├── checkout.ts
+│   │   │   │   ├── diff.ts
+│   │   │   │   ├── fileSystemHelper.ts
+│   │   │   │   ├── log.ts
+│   │   │   │   ├── merge.ts
+│   │   │   │   ├── reset.ts
+│   │   │   │   └── revert.ts
+│   │   │   ├── npm.ts
+│   │   │   ├── npmOperations
+│   │   │   │   ├── npmDependencySize.ts
+│   │   │   │   └── npmInstall.ts
+│   │   │   └── unix.ts
+│   │   ├── commitMsgAI.ts
+│   │   ├── core
+│   │   │   ├── database.ts
+│   │   │   ├── filesystem.ts
+│   │   │   └── project.ts
+│   │   ├── export
+│   │   │   ├── exportFolderZip.ts
+│   │   │   ├── exportIndexeddb.ts
+│   │   │   ├── exportPage.ts
+│   │   │   ├── exportPdf.ts
+│   │   │   ├── exportRepo.ts
+│   │   │   ├── exportSingleFile.ts
+│   │   │   └── inlineHtmlAssets.ts
+│   │   ├── fileWatcher.ts
+│   │   ├── helper
+│   │   │   ├── isBufferArray.ts
+│   │   │   └── resize.ts
+│   │   ├── import
+│   │   │   └── importSingleFile.ts
+│   │   ├── initialFileContents.ts
+│   │   ├── node
+│   │   │   ├── builtInModule.ts
+│   │   │   └── esModuleTransformer.ts
+│   │   ├── openTab.ts
+│   │   └── runtime
+│   │       ├── nodeRuntime.ts
+│   │       └── pyodideRuntime.ts
 │   ├── hooks
 │   │   ├── fileSelectHandlers.ts
 │   │   ├── gitHooks.ts
@@ -132,75 +180,26 @@
 │   │   ├── useChatSpace.ts
 │   │   ├── useDiffTabHandlers.ts
 │   │   └── useInputHistory.ts
-│   ├── types
-│   │   ├── git.ts
-│   │   ├── index.ts
-│   │   ├── path-browserify.d.ts
-│   │   └── vm-browserify.d.ts
-│   └── utils
-│       ├── ai
-│       │   ├── contextBuilder.ts
-│       │   ├── diffProcessor.ts
-│       │   ├── fetchAI.ts
-│       │   └── prompts.ts
-│       ├── cmd
-│       │   ├── git.ts
-│       │   ├── gitOperations
-│       │   │   ├── checkout.ts
-│       │   │   ├── diff.ts
-│       │   │   ├── fileSystemHelper.ts
-│       │   │   ├── log.ts
-│       │   │   ├── merge.ts
-│       │   │   ├── reset.ts
-│       │   │   └── revert.ts
-│       │   ├── npm.ts
-│       │   ├── npmOperations
-│       │   │   ├── npmDependencySize.ts
-│       │   │   └── npmInstall.ts
-│       │   └── unix.ts
-│       ├── commitMsgAI.ts
-│       ├── core
-│       │   ├── database.ts
-│       │   ├── filesystem.ts
-│       │   └── project.ts
-│       ├── export
-│       │   ├── exportFolderZip.ts
-│       │   ├── exportIndexeddb.ts
-│       │   ├── exportPage.ts
-│       │   ├── exportPdf.ts
-│       │   ├── exportRepo.ts
-│       │   ├── exportSingleFile.ts
-│       │   └── inlineHtmlAssets.ts
-│       ├── fileWatcher.ts
-│       ├── helper
-│       │   ├── isBufferArray.ts
-│       │   └── resize.ts
-│       ├── import
-│       │   └── importSingleFile.ts
-│       ├── initialFileContents.ts
-│       ├── node
-│       │   ├── builtInModule.ts
-│       │   ├── cdnLoader.ts
-│       │   └── esModuleTransformer.ts
-│       ├── openTab.ts
-│       └── runtime
-│           ├── nodeRuntime.ts
-│           └── pyodideRuntime.ts
+│   └── types
+│       ├── git.ts
+│       ├── index.ts
+│       ├── path-browserify.d.ts
+│       └── vm-browserify.d.ts
 ├── tailwind.config.ts
 ├── tree-built-out.sh
 ├── tree.sh
 ├── tree.txt
 └── tsconfig.json
 
-32 directories, 161 files
+32 directories, 160 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 31071
-合計文字数: 1063136
-合計ファイルサイズ(bytes): 1146225
+合計行数: 30800
+合計文字数: 1054822
+合計ファイルサイズ(bytes): 1137571
 
-リポジトリ全体のサイズ(bytes): 1.8G	.
+リポジトリ全体のサイズ(bytes): 1.7G	.
 ==========
 ビルト済みファイルの行数: 14742
-合計文字数: 22157817
-合計ファイルサイズ(bytes): 23087884
+合計文字数: 22162473
+合計ファイルサイズ(bytes): 23093104
