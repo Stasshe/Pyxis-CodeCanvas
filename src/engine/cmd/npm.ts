@@ -1,10 +1,11 @@
 /**
- * npm_new.ts - 新アーキテクチャ版NPMコマンド
+ * npm.ts - 新アーキテクチャ版NPMコマンド
  * 
  * NEW ARCHITECTURE:
  * - IndexedDB (fileRepository) が単一の真実の情報源
- * - npm操作は IndexedDB のみを更新
- * - GitFileSystem (lightning-fs) への同期は不要（node_modulesは.gitignoreで除外）
+ * - package.jsonなどの設定ファイルは IndexedDB に保存
+ * - node_modulesは lightning-fs のみ（実行に必要だが .gitignore で除外）
+ * - NpmInstallクラスが .gitignore を考慮して IndexedDB を更新
  * - fileRepository.createFile() を使用して自動的に管理
  */
 
@@ -79,7 +80,7 @@ export class NpmCommands {
         };
         await this.fs.promises.writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2));
 
-        // IndexedDBに同期
+        // NEW ARCHITECTURE: IndexedDBのみに同期
         await fileRepository.createFile(
           this.projectId,
           '/package.json',
@@ -88,16 +89,15 @@ export class NpmCommands {
         );
       }
 
-      // node_modulesディレクトリの作成
+      // NEW ARCHITECTURE: node_modulesはlightning-fsに作成（実行に必要）
+      // ただし、IndexedDBには同期しない（.gitignoreで除外されるべき）
       try {
         await this.fs.promises.stat(nodeModulesDir);
       } catch {
         await this.fs.promises.mkdir(nodeModulesDir, {
           recursive: true,
         } as any);
-
-        // IndexedDBに同期
-        await fileRepository.createFile(this.projectId, '/node_modules', '', 'folder');
+        // IndexedDBには同期しない（node_modulesは.gitignoreで除外）
       }
 
       if (!packageName) {
@@ -179,10 +179,8 @@ export class NpmCommands {
             packageJson.dependencies[packageName] = `^${version}`;
           }
 
-          // package.jsonを更新
+          // NEW ARCHITECTURE: package.jsonを更新（IndexedDBとlightning-fs両方）
           await this.fs.promises.writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2));
-
-          // IndexedDBに同期
           await fileRepository.createFile(
             this.projectId,
             '/package.json',
@@ -257,9 +255,8 @@ export class NpmCommands {
           return `npm WARN ${packageName} is not a dependency of ${this.projectName}`;
         }
 
+        // NEW ARCHITECTURE: package.jsonを更新（IndexedDBとlightning-fs両方）
         await this.fs.promises.writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2));
-
-        // IndexedDBに同期
         await fileRepository.createFile(
           this.projectId,
           '/package.json',
@@ -270,7 +267,8 @@ export class NpmCommands {
         return `npm ERR! Cannot find package.json`;
       }
 
-      // 依存関係を含めてパッケージを削除
+      // NEW ARCHITECTURE: 依存関係を含めてパッケージを削除
+      // NpmInstallが内部で.gitignoreを考慮してIndexedDBを更新する
       const npmInstall = new NpmInstall(
         this.projectName,
         this.projectId,
@@ -294,9 +292,10 @@ export class NpmCommands {
         );
 
         try {
+          // NEW ARCHITECTURE: lightning-fsから削除（実行環境のクリーンアップ）
           await this.removeDirectory(packageDir);
 
-          // IndexedDBから削除
+          // NEW ARCHITECTURE: IndexedDBからも削除（node_modulesは通常.gitignoreだが念のため）
           const files = await fileRepository.getProjectFiles(this.projectId);
           const packageFiles = files.filter(f => f.path.startsWith(`/node_modules/${packageName}`));
           for (const file of packageFiles) {
@@ -391,9 +390,8 @@ export class NpmCommands {
         devDependencies: {},
       };
 
+      // NEW ARCHITECTURE: package.jsonを作成（IndexedDBとlightning-fs両方）
       await this.fs.promises.writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2));
-
-      // IndexedDBに同期
       await fileRepository.createFile(
         this.projectId,
         '/package.json',
