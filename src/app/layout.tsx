@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/context/ThemeContext';
+import { BreakpointProvider } from '@/context/BreakpointContext';
 import { ToastContainer } from '@/components/Toast';
 
 const geistSans = Geist({
@@ -143,10 +144,12 @@ export default function RootLayout({
         <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased h-full`}>
-        <ThemeProvider>
-          {children}
-          <ToastContainer />
-        </ThemeProvider>
+        <BreakpointProvider>
+          <ThemeProvider>
+            {children}
+            <ToastContainer />
+          </ThemeProvider>
+        </BreakpointProvider>
       </body>
     </html>
   );

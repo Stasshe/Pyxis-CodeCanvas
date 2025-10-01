@@ -4,6 +4,7 @@ import { useTheme } from '@/context/ThemeContext';
 import clsx from 'clsx';
 import { NodeJSRuntime } from '@/engine/runtime/nodeRuntime';
 import { PyodideRuntime } from '@/engine/runtime/pyodideRuntime';
+import { useBreakpointContext } from '@/context/BreakpointContext';
 
 interface RunPanelProps {
   currentProject: string | null;
@@ -24,6 +25,7 @@ interface OutputEntry {
 }
 
 export default function RunPanel({ currentProject, files, onFileOperation }: RunPanelProps) {
+  const { breakpointsMap } = useBreakpointContext();
   const { colors } = useTheme();
   const [isRunning, setIsRunning] = useState(false);
   const [output, setOutput] = useState<OutputEntry[]>([]);

@@ -99,6 +99,7 @@ const BREAKPOINT_GUTTER_STYLE = `
 // ブレークポイント管理用型
 type Breakpoint = { line: number };
 import { useRef, useEffect, useCallback, useState, useContext, useMemo } from 'react';
+import { useBreakpointContext } from '@/context/BreakpointContext';
 import { useTheme } from '@/context/ThemeContext';
 import MarkdownPreviewTab from './MarkdownPreviewTab';
 import WelcomeTab from './WelcomeTab';
@@ -382,8 +383,8 @@ export default function CodeEditor({
   }, []);
 
   // --- ブレークポイント機能 ---
-  // ブレークポイントはタブ（モデル）ごとに管理する
-  const [breakpointsMap, setBreakpointsMap] = useState<Record<string, number[]>>({});
+  // ブレークポイントはContextで管理する
+  const { breakpointsMap, setBreakpointsMap } = useBreakpointContext();
   // デコレーションIDはレンダリングに影響させたくないためrefで管理
   const decorationsMapRef = useRef<Record<string, string[]>>({});
 
