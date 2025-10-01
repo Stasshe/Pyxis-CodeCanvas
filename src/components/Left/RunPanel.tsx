@@ -203,73 +203,6 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
     setOutput([]);
   };
 
-  // サンプルコードを挿入（ファイル選択中なら拡張子で判別、未選択ならNode.jsデフォルト）
-  const insertSampleCode = (type: string) => {
-    const nodeSamples = {
-      'hello': 'console.log("Hello, World!");',
-      'file-read': `const fs = require('fs');
-
-async function readFile() {
-  try {
-    const content = await fs.readFile('trivia.json');
-    console.log('File content:', content);
-  } catch (error) {
-    console.error('Error reading file:', error.message);
-  }
-}
-
-readFile();`,
-      'file-write': `const fs = require('fs');
-
-async function writeFile() {
-  try {
-    await fs.writeFile('test.txt', 'Hello from Node.js!');
-    console.log('File written successfully');
-  } catch (error) {
-    console.error('Error writing file:', error.message);
-  }
-}
-
-writeFile();`,
-      'path-example': `const path = require('path');
-
-const filePath = '/users/documents/file.txt';
-console.log('Directory:', path.dirname(filePath));
-console.log('Filename:', path.basename(filePath));
-console.log('Extension:', path.extname(filePath));
-console.log('Joined path:', path.join('/users', 'documents', 'file.txt'));`,
-    };
-    const pythonSamples = {
-      'hello': 'print("Hello, World!")',
-      'file-read': `try:
-    with open('trivia.json', 'r') as f:
-        content = f.read()
-        print('File content:', content)
-except Exception as e:
-    print('Error reading file:', e)`,
-      'file-write': `try:
-    with open('test.txt', 'w') as f:
-        f.write('Hello from Python!')
-    print('File written successfully')
-except Exception as e:
-    print('Error writing file:', e)`,
-      'path-example': `import os
-file_path = '/users/documents/file.txt'
-print('Directory:', os.path.dirname(file_path))
-print('Filename:', os.path.basename(file_path))
-print('Extension:', os.path.splitext(file_path)[1])
-print('Joined path:', os.path.join('/users', 'documents', 'file.txt'))`,
-    };
-    // ファイル選択中なら拡張子で判別
-    let lang: 'node' | 'python' = 'node';
-    if (selectedFile && selectedFile.endsWith('.py')) lang = 'python';
-    setInputCode(
-      lang === 'node'
-        ? nodeSamples[type as keyof typeof nodeSamples] || ''
-        : pythonSamples[type as keyof typeof pythonSamples] || ''
-    );
-  };
-
   if (!currentProject) {
     return (
       <div
@@ -394,25 +327,7 @@ print('Joined path:', os.path.join('/users', 'documents', 'file.txt'))`,
           </div>
         )}
 
-        {/* サンプルコード */}
-        <div className="flex gap-1 mb-3">
-          <span className="text-xs text-muted-foreground py-1">サンプル:</span>
-          {[
-            { key: 'hello', label: 'Hello' },
-            { key: 'file-read', label: 'ファイル読み取り' },
-            { key: 'file-write', label: 'ファイル書き込み' },
-            { key: 'path-example', label: 'Path' },
-          ].map(sample => (
-            <button
-              key={sample.key}
-              onClick={() => insertSampleCode(sample.key)}
-              className="px-2 py-1 text-xs rounded"
-              style={{ background: colors.mutedBg, color: colors.mutedFg }}
-            >
-              {sample.label}
-            </button>
-          ))}
-        </div>
+        {/* サンプルコードセクション削除済み */}
       </div>
 
       {/* 出力エリア */}
