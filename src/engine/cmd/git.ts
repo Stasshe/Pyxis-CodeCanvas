@@ -284,16 +284,6 @@ export class GitCommands {
   async status(): Promise<string> {
     await this.ensureGitRepository();
 
-    // [NEW ARCHITECTURE] IndexedDBからgitFileSystemへの完全同期を実行
-    // git_stable.ts方式に加えて、NEW-ARCHITECTUREの同期も実行
-    console.log('[git.status] Starting IndexedDB sync for git operations');
-    try {
-      await syncManager.syncFromIndexedDBToFS(this.projectId, this.projectName);
-      console.log('[git.status] IndexedDB sync completed');
-    } catch (syncError) {
-      console.warn('[git.status] IndexedDB sync failed, proceeding anyway:', syncError);
-    }
-
     // ファイルシステムの同期処理（git_stable.ts方式）
     if ((this.fs as any).sync) {
       try {
@@ -508,15 +498,6 @@ export class GitCommands {
     try {
       await this.ensureProjectDirectory();
 
-      // [NEW ARCHITECTURE] IndexedDBからgitFileSystemへの完全同期を実行
-      console.log(`[git.add] Starting IndexedDB sync for staging: ${filepath}`);
-      try {
-        await syncManager.syncFromIndexedDBToFS(this.projectId, this.projectName);
-        console.log('[git.add] IndexedDB sync completed');
-      } catch (syncError) {
-        console.warn('[git.add] IndexedDB sync failed, proceeding anyway:', syncError);
-      }
-
       // ファイルシステムの同期処理（git_stable.ts方式）
       if ((this.fs as any).sync) {
         try {
@@ -682,15 +663,6 @@ export class GitCommands {
     try {
       console.log('[git.add] Processing all files in current directory');
 
-      // [NEW ARCHITECTURE] IndexedDBからgitFileSystemへの完全同期を実行
-      console.log('[git.add] Starting IndexedDB sync for git operations');
-      try {
-        await syncManager.syncFromIndexedDBToFS(this.projectId, this.projectName);
-        console.log('[git.add] IndexedDB sync completed');
-      } catch (syncError) {
-        console.warn('[git.add] IndexedDB sync failed, proceeding anyway:', syncError);
-      }
-
       // [重要] ファイルシステムの同期を確実にする（git_stable.tsと同様）
       if ((this.fs as any).sync) {
         try {
@@ -720,17 +692,17 @@ export class GitCommands {
         try {
           if (workdir === 0 && head === 1 && stage === 1) {
             // 削除されたファイル（未ステージ）: HEAD=1, WORKDIR=0, STAGE=1
-            console.log(`[git.add] Staging deleted file: ${file}`);
+            // console.log(`[git.add] Staging deleted file: ${file}`);
             await git.remove({ fs: this.fs, dir: this.dir, filepath: file });
             deletedCount++;
           } else if (head === 0 && workdir > 0 && stage === 0) {
             // 新規ファイル（未追跡）: HEAD=0, WORKDIR>0, STAGE=0
-            console.log(`[git.add] Adding new file: ${file}`);
+            // console.log(`[git.add] Adding new file: ${file}`);
             await git.add({ fs: this.fs, dir: this.dir, filepath: file });
             newCount++;
           } else if (head === 1 && workdir === 2 && stage === 1) {
             // 変更されたファイル（未ステージ）: HEAD=1, WORKDIR=2, STAGE=1
-            console.log(`[git.add] Adding modified file: ${file}`);
+            // console.log(`[git.add] Adding modified file: ${file}`);
             await git.add({ fs: this.fs, dir: this.dir, filepath: file });
             modifiedCount++;
           }
@@ -751,35 +723,13 @@ export class GitCommands {
     }
   }
 
-  // git commit - コミット
+  // git commit - コミット（git_stable.tsベース）
   async commit(
     message: string,
     author = { name: 'User', email: 'user@pyxis.dev' }
   ): Promise<string> {
     return this.executeGitOperation(async () => {
-      console.log('[git.commit] Starting commit process...');
       await this.ensureGitRepository();
-
-      // [NEW ARCHITECTURE] IndexedDBからgitFileSystemへの完全同期を実行
-      console.log('[git.commit] Starting IndexedDB sync for commit...');
-      try {
-        await syncManager.syncFromIndexedDBToFS(this.projectId, this.projectName);
-        console.log('[git.commit] IndexedDB sync completed');
-      } catch (syncError) {
-        console.warn('[git.commit] IndexedDB sync failed, proceeding anyway:', syncError);
-      }
-
-      // ファイルシステムの同期処理（git_stable.ts方式）
-      if ((this.fs as any).sync) {
-        try {
-          await (this.fs as any).sync();
-        } catch (syncError) {
-          console.warn('[git.commit] FileSystem sync failed:', syncError);
-        }
-      }
-
-      console.log('[git.commit] Proceeding with commit...');
-      
       const sha = await git.commit({
         fs: this.fs,
         dir: this.dir,
@@ -788,7 +738,6 @@ export class GitCommands {
         committer: author,
       });
 
-      console.log(`[git.commit] Commit successful: ${sha}`);
       return `[main ${sha.slice(0, 7)}] ${message}`;
     }, 'git commit failed');
   }

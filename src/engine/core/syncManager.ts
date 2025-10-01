@@ -28,12 +28,12 @@ export class SyncManager {
    * 通常のファイル操作後に呼び出される
    */
   async syncFromIndexedDBToFS(projectId: string, projectName: string): Promise<void> {
-    console.log('[SyncManager] Syncing from IndexedDB to lightning-fs...');
+    // console.log('[SyncManager] Syncing from IndexedDB to lightning-fs...');
 
     try {
       // IndexedDBから全ファイルを取得
       const dbFiles = await fileRepository.getProjectFiles(projectId);
-      console.log(`[SyncManager] Found ${dbFiles.length} files in IndexedDB`);
+      // console.log(`[SyncManager] Found ${dbFiles.length} files in IndexedDB`);
 
       // lightning-fsのプロジェクトディレクトリを確保
       const projectDir = gitFileSystem.getProjectDir(projectName);
@@ -41,7 +41,7 @@ export class SyncManager {
 
       // 既存のファイルをクリア（.gitディレクトリは保持）
       // 注意: この処理が重い場合があるため、タイムアウトを設ける
-      console.log('[SyncManager] Clearing project directory...');
+      // console.log('[SyncManager] Clearing project directory...');
       const clearPromise = gitFileSystem.clearProjectDirectory(projectName);
       const clearTimeout = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Clear directory timeout')), 5000)
@@ -49,7 +49,7 @@ export class SyncManager {
       
       try {
         await Promise.race([clearPromise, clearTimeout]);
-        console.log('[SyncManager] Project directory cleared');
+        // console.log('[SyncManager] Project directory cleared');
       } catch (clearError) {
         console.warn('[SyncManager] Failed to clear directory, proceeding anyway:', clearError);
       }
@@ -59,7 +59,7 @@ export class SyncManager {
         .filter(f => f.type === 'folder')
         .sort((a, b) => a.path.length - b.path.length);
 
-      console.log(`[SyncManager] Creating ${directories.length} directories...`);
+      // console.log(`[SyncManager] Creating ${directories.length} directories...`);
       for (const dir of directories) {
         const fullPath = `${projectDir}${dir.path}`;
         try {
@@ -71,7 +71,7 @@ export class SyncManager {
 
       // ファイルを作成
       const files = dbFiles.filter(f => f.type === 'file');
-      console.log(`[SyncManager] Creating ${files.length} files...`);
+      // console.log(`[SyncManager] Creating ${files.length} files...`);
 
       // ファイル作成を並列処理（ただし同時実行数を制限）
       const BATCH_SIZE = 10;
@@ -116,7 +116,7 @@ export class SyncManager {
    * git revert/checkout等の操作後に呼び出される
    */
   async syncFromFSToIndexedDB(projectId: string, projectName: string): Promise<void> {
-    console.log('[SyncManager] Syncing from lightning-fs to IndexedDB...');
+    // console.log('[SyncManager] Syncing from lightning-fs to IndexedDB...');
 
     try {
       // lightning-fsから全ファイルを取得
@@ -160,57 +160,6 @@ export class SyncManager {
     } catch (error) {
       console.error('[SyncManager] Failed to sync from lightning-fs to IndexedDB:', error);
       throw error;
-    }
-  }
-
-  /**
-   * 軽量な同期処理（git操作専用）
-   * ファイルの存在をチェックして、必要最小限の同期のみ実行
-   */
-  async lightweightSyncForGit(projectId: string, projectName: string): Promise<void> {
-    console.log('[SyncManager] Performing lightweight sync for git operations...');
-
-    try {
-      // IndexedDBから全ファイルを取得
-      const dbFiles = await fileRepository.getProjectFiles(projectId);
-      const projectDir = gitFileSystem.getProjectDir(projectName);
-      
-      // プロジェクトディレクトリが存在しない場合のみ完全同期
-      try {
-        await gitFileSystem.getFS()!.promises.stat(projectDir);
-      } catch (statError) {
-        console.log('[SyncManager] Project directory not found, performing full sync');
-        return await this.syncFromIndexedDBToFS(projectId, projectName);
-      }
-
-      // ファイル存在チェックと最小限の同期
-      const files = dbFiles.filter(f => f.type === 'file');
-      let syncCount = 0;
-      
-      for (const file of files) {
-        const fullPath = `${projectDir}${file.path}`;
-        try {
-          const stat = await gitFileSystem.getFS()!.promises.stat(fullPath);
-          // ファイルが存在するが、更新時刻が違う場合は更新
-          const fileLastModified = file.updatedAt ? new Date(file.updatedAt).getTime() : 0;
-          const fsLastModified = stat.mtimeMs ? stat.mtimeMs : 0;
-          
-          if (Math.abs(fileLastModified - fsLastModified) > 1000) { // 1秒以上の差
-            await this.syncSingleFileToFS(projectName, file.path, file.content || '', 'update', file.bufferContent);
-            syncCount++;
-          }
-        } catch (statError) {
-          // ファイルが存在しない場合は作成
-          await this.syncSingleFileToFS(projectName, file.path, file.content || '', 'create', file.bufferContent);
-          syncCount++;
-        }
-      }
-
-      await gitFileSystem.flush();
-      console.log(`[SyncManager] Lightweight sync completed, updated ${syncCount} files`);
-    } catch (error) {
-      console.error('[SyncManager] Lightweight sync failed, falling back to full sync:', error);
-      return await this.syncFromIndexedDBToFS(projectId, projectName);
     }
   }
 
@@ -275,5 +224,4 @@ export class SyncManager {
   }
 }
 
-// シングルトンインスタンスをエクスポート
 export const syncManager = SyncManager.getInstance();
