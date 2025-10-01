@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 
-import { projectDB } from './database'; // プロジェクトデータベースのインポート
-import { getFileSystem } from './filesystem';
-import { GitCommands, syncProjectFiles, initializeFileSystem, debugFileSystem } from './filesystem';
-import { syncFileToFileSystem } from './filesystem';
+import { projectDB } from './database';
+import { fileRepository } from './fileRepository';
+import { gitFileSystem } from './gitFileSystem';
+import { syncManager } from './syncManager';
+import { GitCommands } from '@/engine/cmd/git';
 
 import { LOCALSTORAGE_KEY } from '@/context/config';
 import { FileItem } from '@/types';
@@ -16,33 +17,24 @@ const initializeProjectGit = async (
   convertToFileItems: (files: ProjectFile[]) => FileItem[]
 ) => {
   try {
-    console.log('Initializing Git for project:', project.name);
-    console.log('Files to sync:', files.length);
+    console.log('[initializeProjectGit] Initializing Git for project:', project.name);
+    console.log('[initializeProjectGit] Files to sync:', files.length);
 
     // ファイルシステムを確実に初期化
-    initializeFileSystem();
+    gitFileSystem.init();
 
     // 少し待機してファイルシステムの初期化を完了
     await new Promise(resolve => setTimeout(resolve, 200));
 
     // デバッグ: ファイルシステムの状態を確認
-    await debugFileSystem();
+    await gitFileSystem.debugFileSystem();
 
-    // ファイルをファイルシステムに同期
-    const fileItems = convertToFileItems(files);
-    console.log('Converted file items:', fileItems.length);
-
-    const flatFiles = flattenFileItems(fileItems);
-    console.log(
-      'Flattened files:',
-      flatFiles.length,
-      flatFiles.map(f => f.path)
-    );
-
-    await syncProjectFiles(project.name, flatFiles);
+    // SyncManagerを使用してプロジェクトを初期化
+    console.log('[initializeProjectGit] Initializing project with SyncManager...');
+    await syncManager.initializeProject(project.id, project.name, files);
 
     // ファイル同期後に十分な待機時間を設ける
-    console.log('Waiting for filesystem sync to complete...');
+    console.log('[initializeProjectGit] Waiting for filesystem sync to complete...');
     await new Promise(resolve => setTimeout(resolve, 500));
 
     // Git初期化
@@ -332,9 +324,9 @@ export const useProject = () => {
         console.log('[saveFile] New file created:', newFile.id);
       }
 
-      // ファイルシステムに同期（Git変更検知のため）
+      // SyncManagerを使用してファイルシステムに同期（Git変更検知のため）
       try {
-        await syncFileToFileSystem(
+        await syncManager.syncSingleFileToFS(
           currentProject.name,
           path,
           content,
@@ -367,10 +359,10 @@ export const useProject = () => {
       const newFile = await projectDB.createFile(currentProject.id, path, content, type);
       setProjectFiles(prev => [...prev, newFile]);
 
-      // ファイルシステムに同期（Git変更検知のため）
+      // SyncManagerを使用してファイルシステムに同期（Git変更検知のため）
       if (type === 'file') {
         try {
-          await syncFileToFileSystem(currentProject.name, path, content, 'create');
+          await syncManager.syncSingleFileToFS(currentProject.name, path, content, 'create');
           console.log('[createFile] Synced to filesystem for Git detection');
         } catch (syncError) {
           console.warn('[createFile] Filesystem sync failed (non-critical):', syncError);
@@ -417,9 +409,9 @@ export const useProject = () => {
           // 状態に追加（即座に反映させる）
           setProjectFiles(prev => [...prev, newFolder]);
 
-          // ファイルシステムにも同期
+          // SyncManagerを使用してファイルシステムにも同期
           try {
-            await syncFileToFileSystem(currentProject.name, currentPath, '', 'create');
+            await syncManager.syncSingleFileToFS(currentProject.name, currentPath, '', 'create');
             console.log('[ensureParentFolders] Folder synced to filesystem:', currentPath);
           } catch (syncError) {
             console.warn(
@@ -459,24 +451,21 @@ export const useProject = () => {
         }
       }
 
-      // Lightning-FSからも削除（ファイル/フォルダ両方対応）
+      // SyncManagerを使用してGitFileSystemからも削除（ファイル/フォルダ両方対応）
       if (fileToDelete) {
         try {
-          await syncFileToFileSystem(currentProject.name, fileToDelete.path, null, 'delete');
+          await syncManager.syncSingleFileToFS(currentProject.name, fileToDelete.path, null, 'delete');
         } catch (syncError) {
-          console.warn('[deleteFile] Lightning-FS delete failed:', syncError);
+          console.warn('[deleteFile] GitFileSystem delete failed:', syncError);
         }
       }
 
-      // キャッシュフラッシュ（Lightning-FS）
+      // キャッシュフラッシュ（GitFileSystem）
       try {
-        const fs = getFileSystem();
-        if (fs && typeof (fs as any).sync === 'function') {
-          await (fs as any).sync();
-          console.log('[deleteFile] Lightning-FS cache flushed');
-        }
+        await gitFileSystem.flush();
+        console.log('[deleteFile] GitFileSystem cache flushed');
       } catch (flushError) {
-        console.warn('[deleteFile] Lightning-FS cache flush failed:', flushError);
+        console.warn('[deleteFile] GitFileSystem cache flush failed:', flushError);
       }
 
       // UI更新
@@ -561,20 +550,17 @@ export const useProject = () => {
               await projectDB.deleteFile(child.id);
             }
           }
-          // ファイルシステムからも削除（Git変更検知のため）
+          // SyncManagerを使用してGitFileSystemからも削除（Git変更検知のため）
           try {
-            await syncFileToFileSystem(currentProject.name, path, null, 'delete');
+            await syncManager.syncSingleFileToFS(currentProject.name, path, null, 'delete');
             console.log(
               '[syncTerminalFileOperation] File/folder physically deleted from filesystem for Git detection'
             );
             // 追加的なGitキャッシュフラッシュ（削除検知のため）
             try {
-              const fs = getFileSystem();
-              if (fs && (fs as any).sync) {
-                await (fs as any).sync();
-                console.log('[syncTerminalFileOperation] Additional Git cache flush completed');
-                await new Promise(resolve => setTimeout(resolve, 300));
-              }
+              await gitFileSystem.flush();
+              console.log('[syncTerminalFileOperation] Additional Git cache flush completed');
+              await new Promise(resolve => setTimeout(resolve, 300));
             } catch (flushError) {
               console.warn(
                 '[syncTerminalFileOperation] Additional Git cache flush failed:',
@@ -599,15 +585,12 @@ export const useProject = () => {
             for (const child of childFiles) {
               await projectDB.deleteFile(child.id);
             }
-            // Lightning-FSからも削除
+            // SyncManagerを使用してGitFileSystemからも削除
             try {
-              await syncFileToFileSystem(currentProject.name, path, null, 'delete');
-              const fs = getFileSystem();
-              if (fs && (fs as any).sync) {
-                await (fs as any).sync();
-                console.log('[syncTerminalFileOperation] Additional Git cache flush completed');
-                await new Promise(resolve => setTimeout(resolve, 300));
-              }
+              await syncManager.syncSingleFileToFS(currentProject.name, path, null, 'delete');
+              await gitFileSystem.flush();
+              console.log('[syncTerminalFileOperation] Additional Git cache flush completed');
+              await new Promise(resolve => setTimeout(resolve, 300));
             } catch (syncError) {
               console.warn(
                 '[syncTerminalFileOperation] Filesystem deletion failed (non-critical):',
@@ -648,10 +631,10 @@ export const useProject = () => {
           }
           await projectDB.saveFile(updatedFile);
           console.log('[syncTerminalFileOperation] File updated in DB');
-          // ファイルシステムにも同期（Git変更検知のため）
+          // SyncManagerを使用してGitFileSystemにも同期（Git変更検知のため）
           if (type === 'file') {
             try {
-              await syncFileToFileSystem(
+              await syncManager.syncSingleFileToFS(
                 currentProject.name,
                 path,
                 bufferContent ? '' : content,
@@ -698,7 +681,7 @@ export const useProject = () => {
               newFile.id
             );
           }
-          // ファイルシステムにも同期（Git変更検知のため）
+          // SyncManagerを使用してGitFileSystemにも同期（Git変更検知のため）
           if (type === 'file' || type === 'folder') {
             const existingFile = projectFiles.find(f => f.path === path);
             if (existingFile) {
@@ -706,7 +689,7 @@ export const useProject = () => {
               return; // 既に存在する場合はスキップ
             }
             try {
-              await syncFileToFileSystem(currentProject.name, path, content, 'create');
+              await syncManager.syncSingleFileToFS(currentProject.name, path, content, 'create');
               console.log(
                 '[syncTerminalFileOperation] File created in filesystem for Git detection'
               );

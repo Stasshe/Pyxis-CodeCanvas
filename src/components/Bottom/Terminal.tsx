@@ -2,13 +2,11 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useTheme } from '@/context/ThemeContext';
-import {
-  UnixCommands,
-  GitCommands,
-  NpmCommands,
-  initializeFileSystem,
-  syncProjectFiles,
-} from '@/engine/core/filesystem';
+import { UnixCommands } from '@/engine/cmd/unix';
+import { GitCommands } from '@/engine/cmd/git';
+import { NpmCommands } from '@/engine/cmd/npm';
+import { gitFileSystem } from '@/engine/core/gitFileSystem';
+import { syncManager } from '@/engine/core/syncManager';
 import { FileItem } from '@/types';
 import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
 import { handleGitCommand } from './TerminalGitCommands';
@@ -81,7 +79,7 @@ function ClientTerminal({
     pushMsgOutPanel('Terminal initialing', 'info', 'Terminal');
 
     // ファイルシステムの初期化
-    initializeFileSystem();
+    gitFileSystem.init();
     unixCommandsRef.current = new UnixCommands(currentProject, onFileOperation, currentProjectId);
     gitCommandsRef.current = new GitCommands(
       currentProject,
@@ -97,14 +95,17 @@ function ClientTerminal({
       onFileOperation
     );
 
-    // プロジェクトファイルをターミナルファイルシステムに同期
+    // プロジェクトファイルをターミナルファイルシステムに同期（SyncManager経由）
     const syncFiles = async () => {
-      if (projectFiles.length > 0) {
-        console.log('[Terminal]Syncing project files:', projectFiles);
-        const flatFiles = flattenFileItems(projectFiles);
-        console.log('Flattened files:', flatFiles);
-        await syncProjectFiles(currentProject, flatFiles);
-        console.log('Files synced to terminal filesystem');
+      if (projectFiles.length > 0 && currentProjectId) {
+        console.log('[Terminal] Syncing project files via SyncManager:', projectFiles.length);
+        try {
+          // SyncManagerを使用してIndexedDB→GitFileSystemに同期
+          await syncManager.syncFromIndexedDBToFS(currentProjectId, currentProject);
+          console.log('[Terminal] Files synced to GitFileSystem successfully');
+        } catch (error) {
+          console.error('[Terminal] Failed to sync files:', error);
+        }
       }
     };
     syncFiles();
@@ -511,8 +512,7 @@ function ClientTerminal({
               // ファイルシステム統計
               await writeOutput('\n--- File System Statistics ---');
               try {
-                const { getFileSystem } = await import('@/engine/core/filesystem');
-                const fs = getFileSystem();
+                const fs = gitFileSystem.getFS();
                 if (fs) {
                   try {
                     const projectsExists = await fs.promises.stat('/projects').catch(() => null);
@@ -556,13 +556,9 @@ function ClientTerminal({
           case 'memory-clean':
             // 全プロジェクトをスキャンして、DBに存在しないファイル・フォルダ（特に.git）を削除
             try {
-              const { getFileSystem, initializeFileSystem } = await import(
-                '@/engine/core/filesystem'
-              );
               const { projectDB } = await import('@/engine/core/database');
 
-              let fs = getFileSystem();
-              if (!fs) fs = initializeFileSystem();
+              const fs = gitFileSystem.getFS();
               if (!fs) {
                 await writeOutput('memory-clean: ファイルシステムが初期化できませんでした');
                 break;
@@ -733,11 +729,7 @@ function ClientTerminal({
           case 'fs-clean':
             // Lightning-FSの全データを完全削除
             try {
-              const { getFileSystem, initializeFileSystem } = await import(
-                '@/engine/core/filesystem'
-              );
-              let fs = getFileSystem();
-              if (!fs) fs = initializeFileSystem();
+              const fs = gitFileSystem.getFS();
               if (!fs) {
                 await writeOutput('fs-clean: ファイルシステムが初期化できませんでした');
                 break;
@@ -1227,17 +1219,19 @@ function ClientTerminal({
     }
   }, [height, currentProject, projectFiles]);
 
-  // プロジェクトファイルが変更されたときの同期
+  // プロジェクトファイルが変更されたときの同期（SyncManager経由）
   useEffect(() => {
     const syncFiles = async () => {
-      if (projectFiles.length > 0) {
-        //console.log('Project files changed, syncing:', projectFiles);
-        const flatFiles = flattenFileItems(projectFiles);
-        await syncProjectFiles(currentProject, flatFiles);
+      if (projectFiles.length > 0 && currentProjectId) {
+        try {
+          await syncManager.syncFromIndexedDBToFS(currentProjectId, currentProject);
+        } catch (error) {
+          console.error('[Terminal] Failed to sync project files on change:', error);
+        }
       }
     };
     syncFiles();
-  }, [projectFiles, currentProject]);
+  }, [projectFiles, currentProject, currentProjectId]);
 
   return (
     <div
