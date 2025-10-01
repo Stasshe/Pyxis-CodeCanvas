@@ -301,12 +301,21 @@ function ClientTerminal({
       const parts = baseCommand.trim().split(/\s+/);
       const cmd = parts[0].toLowerCase();
       const args = parts.slice(1);
-      const output = '';
+
+      // リダイレクト時にコマンド出力をキャプチャ
+      let capturedOutput = '';
+      const captureWriteOutput = async (output: string) => {
+        capturedOutput += output + '\n';
+        if (!redirect) {
+          await writeOutput(output);
+        }
+      };
+
       try {
         switch (cmd) {
           case 'node':
             if (args.length === 0) {
-              await writeOutput('Usage: node <file.js>');
+              await captureWriteOutput('Usage: node <file.js>');
               break;
             }
             try {
@@ -315,21 +324,21 @@ function ClientTerminal({
                 currentProject,
                 (out, type) => {
                   if (type === 'error') {
-                    writeOutput(`\x1b[31m${out}\x1b[0m`);
+                    captureWriteOutput(`\x1b[31m${out}\x1b[0m`);
                   } else {
-                    writeOutput(out);
+                    captureWriteOutput(out);
                   }
                 },
                 undefined // onFileOperationは不要、NodeJSRuntimeが自動的にfileRepository使用
               );
               const result = await runtime.executeFile(args[0]);
               if (result.success && result.output) {
-                await writeOutput(result.output);
+                await captureWriteOutput(result.output);
               } else if (!result.success && result.error) {
-                await writeOutput(`\x1b[31m${result.error}\x1b[0m`);
+                await captureWriteOutput(`\x1b[31m${result.error}\x1b[0m`);
               }
             } catch (e) {
-              await writeOutput(`node: エラー: ${(e as Error).message}`);
+              await captureWriteOutput(`node: エラー: ${(e as Error).message}`);
             }
             break;
 
@@ -656,24 +665,24 @@ function ClientTerminal({
             break;
 
           case 'date':
-            await writeOutput(new Date().toLocaleString('ja-JP'));
+            await captureWriteOutput(new Date().toLocaleString('ja-JP'));
             break;
 
           case 'whoami':
-            await writeOutput('user');
+            await captureWriteOutput('user');
             break;
 
           case 'git':
-            await handleGitCommand(args, gitCommandsRef, writeOutput);
+            await handleGitCommand(args, gitCommandsRef, captureWriteOutput);
             break;
 
           case 'npm':
-            await handleNPMCommand(args, npmCommandsRef, writeOutput);
+            await handleNPMCommand(args, npmCommandsRef, captureWriteOutput);
             break;
 
           case 'npm-size':
             if (args.length === 0) {
-              await writeOutput('Usage: npm-size <package-name>');
+              await captureWriteOutput('Usage: npm-size <package-name>');
             } else {
               const packageName = args[0];
               try {
@@ -681,20 +690,20 @@ function ClientTerminal({
                   '@/engine/cmd/npmOperations/npmDependencySize'
                 );
                 const size = await calculateDependencySize(packageName);
-                await writeOutput(
+                await captureWriteOutput(
                   `Total size of ${packageName} and its dependencies: ${size.toFixed(2)} kB`
                 );
               } catch (error) {
-                await writeOutput(`Error calculating size: ${(error as Error).message}`);
+                await captureWriteOutput(`Error calculating size: ${(error as Error).message}`);
               }
             }
             break;
 
           case 'unzip':
             if (args.length === 0) {
-              await writeOutput('Usage: unzip <zipfile> [destdir]');
+              await captureWriteOutput('Usage: unzip <zipfile> [destdir]');
             } else if (!unixCommandsRef.current) {
-              await writeOutput('unzip: internal error (filesystem not initialized)');
+              await captureWriteOutput('unzip: internal error (filesystem not initialized)');
             } else {
               const normalizedPath = unixCommandsRef.current?.normalizePath(args[0]);
 
@@ -711,61 +720,81 @@ function ClientTerminal({
                       args[1],
                       dbFile.bufferContent
                     );
-                    await writeOutput(result);
+                    await captureWriteOutput(result);
                   } else {
-                    await writeOutput(`unzip: ファイルが見つかりません: ${args[0]}`);
+                    await captureWriteOutput(`unzip: ファイルが見つかりません: ${args[0]}`);
                   }
                 } else {
-                  await writeOutput(`unzip: プロジェクトが見つかりません: ${currentProject}`);
+                  await captureWriteOutput(
+                    `unzip: プロジェクトが見つかりません: ${currentProject}`
+                  );
                 }
               } catch (dbError) {
-                await writeOutput(`unzip: エラー: ${(dbError as Error).message}`);
+                await captureWriteOutput(`unzip: エラー: ${(dbError as Error).message}`);
+              }
+            }
+            break;
+
+          case 'tree':
+            if (!unixCommandsRef.current) {
+              await captureWriteOutput('tree: internal error (filesystem not initialized)');
+            } else {
+              try {
+                const result = await unixCommandsRef.current.tree(args[0], args.slice(1));
+                await captureWriteOutput(result);
+              } catch (e) {
+                await captureWriteOutput(`tree: エラー: ${(e as Error).message}`);
               }
             }
             break;
 
           default:
-            await handleUnixCommand(cmd, args, unixCommandsRef, currentProject, writeOutput);
+            await handleUnixCommand(cmd, args, unixCommandsRef, currentProject, captureWriteOutput);
             break;
         }
 
-        if (
-          redirect &&
-          fileName &&
-          unixCommandsRef.current &&
-          cmdOutputs !== undefined &&
-          cmdOutputs !== null
-        ) {
-          const targetPath = fileName.startsWith('/')
-            ? fileName
-            : `${unixCommandsRef.current.pwd()}/${fileName}`;
-          const normalizedPath = unixCommandsRef.current.normalizePath(targetPath);
-          let content = String(cmdOutputs);
-          if (append) {
-            try {
-              const prev = await unixCommandsRef.current.fs.promises.readFile(normalizedPath, {
-                encoding: 'utf8',
-              });
-              content = (typeof prev === 'string' ? prev : String(prev)) + String(cmdOutputs);
-            } catch {
-              content = String(cmdOutputs);
-            }
-          }
+        // リダイレクト処理
+        if (redirect && fileName && unixCommandsRef.current && capturedOutput) {
+          const relativePath = unixCommandsRef.current.getRelativePathFromProject(
+            unixCommandsRef.current.normalizePath(
+              fileName.startsWith('/') ? fileName : `${unixCommandsRef.current.pwd()}/${fileName}`
+            )
+          );
 
           try {
-            await unixCommandsRef.current.fs.promises.writeFile(normalizedPath, content);
-            // onFileOperationは不要、fileRepositoryが自動的に同期
-            cmdOutputs = '';
+            let content = capturedOutput.trim();
+
+            if (append) {
+              // >>: 追記モード
+              const files = await fileRepository.getProjectFiles(currentProjectId);
+              const existingFile = files.find(f => f.path === relativePath);
+              if (existingFile) {
+                content = (existingFile.content || '') + '\n' + content;
+              }
+            }
+
+            // ファイルを保存または更新
+            const files = await fileRepository.getProjectFiles(currentProjectId);
+            const existingFile = files.find(f => f.path === relativePath);
+
+            if (existingFile) {
+              await fileRepository.saveFile({
+                ...existingFile,
+                content,
+                updatedAt: new Date(),
+              });
+            } else {
+              await fileRepository.createFile(currentProjectId, relativePath, content, 'file');
+            }
           } catch (e) {
             await writeOutput(`ファイル書き込みエラー: ${(e as Error).message}`);
           }
           return;
         }
-        if (output !== undefined && output !== null) {
-          await writeOutput(output);
-        }
       } catch (error) {
-        cmdOutputs = (error as Error).message;
+        if (!redirect) {
+          await writeOutput(`エラー: ${(error as Error).message}`);
+        }
       }
 
       scrollToBottom();

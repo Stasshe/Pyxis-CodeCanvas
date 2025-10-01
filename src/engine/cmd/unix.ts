@@ -223,6 +223,38 @@ export class UnixCommands {
 
   async rm(fileName: string, recursive = false): Promise<string> {
     const targetPath = fileName.startsWith('/') ? fileName : `${this.currentDir}/${fileName}`;
+
+    // ワイルドカード展開
+    if (fileName.includes('*')) {
+      const dirPath = targetPath.substring(0, targetPath.lastIndexOf('/')) || this.currentDir;
+      const pattern = targetPath.substring(targetPath.lastIndexOf('/') + 1);
+      const normalizedDir = this.normalizePath(dirPath);
+
+      try {
+        const filesInDir = await this.fs.promises.readdir(normalizedDir);
+        const regex = new RegExp('^' + pattern.replace(/\*/g, '.*').replace(/\?/g, '.') + '$');
+        const matchedFiles = filesInDir.filter((file: string) => regex.test(file));
+
+        if (matchedFiles.length === 0) {
+          throw new Error(`No matches found: ${fileName}`);
+        }
+
+        const results: string[] = [];
+        for (const file of matchedFiles) {
+          try {
+            const result = await this.rm(`${dirPath}/${file}`, recursive);
+            results.push(result);
+          } catch (error) {
+            results.push(`rm: cannot remove '${file}': ${(error as Error).message}`);
+          }
+        }
+
+        return results.join('\n');
+      } catch (error) {
+        throw new Error(`rm: ${(error as Error).message}`);
+      }
+    }
+
     const normalizedPath = this.normalizePath(targetPath);
     const relativePath = this.getRelativePathFromProject(normalizedPath);
 
@@ -416,6 +448,110 @@ export class UnixCommands {
       return `Unzipped ${fileCount} file(s) to ${normalizedDest}`;
     } catch (error) {
       throw new Error(`unzip: ${zipFileName}: ${(error as Error).message}`);
+    }
+  }
+
+  async tree(path?: string, options: string[] = []): Promise<string> {
+    const targetPath = path
+      ? path.startsWith('/')
+        ? path
+        : `${this.currentDir}/${path}`
+      : this.currentDir;
+    const normalizedPath = this.normalizePath(targetPath);
+
+    const showAll = options.includes('-a') || options.includes('--all');
+    const maxDepth = options.includes('-L')
+      ? parseInt(options[options.indexOf('-L') + 1] || '999', 10)
+      : 999;
+
+    let dirCount = 0;
+    let fileCount = 0;
+
+    const buildTree = async (
+      dirPath: string,
+      prefix: string = '',
+      depth: number = 0
+    ): Promise<string> => {
+      if (depth > maxDepth) return '';
+
+      try {
+        const files = await this.fs.promises.readdir(dirPath);
+        let filteredFiles = files;
+
+        if (!showAll) {
+          filteredFiles = files.filter(
+            (file: string) =>
+              file !== '.git' &&
+              file !== '.' &&
+              file !== '..' &&
+              !file.startsWith('.git') &&
+              !file.startsWith('.')
+          );
+        }
+
+        const fileDetails = await Promise.all(
+          filteredFiles.map(async (file: string) => {
+            try {
+              const filePath = `${dirPath}/${file}`;
+              const fileStat = await this.fs.promises.stat(filePath);
+              return {
+                name: file,
+                isDirectory: fileStat.isDirectory(),
+                path: filePath,
+              };
+            } catch {
+              return {
+                name: file,
+                isDirectory: false,
+                path: `${dirPath}/${file}`,
+              };
+            }
+          })
+        );
+
+        const sortedFiles = fileDetails.sort((a, b) => {
+          if (a.isDirectory !== b.isDirectory) {
+            return a.isDirectory ? -1 : 1;
+          }
+          return a.name.localeCompare(b.name);
+        });
+
+        let result = '';
+        for (let i = 0; i < sortedFiles.length; i++) {
+          const file = sortedFiles[i];
+          const isLast = i === sortedFiles.length - 1;
+          const connector = isLast ? '└── ' : '├── ';
+          const newPrefix = prefix + (isLast ? '    ' : '│   ');
+
+          result += `${prefix}${connector}${file.name}${file.isDirectory ? '/' : ''}\n`;
+
+          if (file.isDirectory) {
+            dirCount++;
+            result += await buildTree(file.path, newPrefix, depth + 1);
+          } else {
+            fileCount++;
+          }
+        }
+
+        return result;
+      } catch (error) {
+        return `${prefix}[error reading directory]\n`;
+      }
+    };
+
+    try {
+      const stat = await this.fs.promises.stat(normalizedPath);
+      if (!stat.isDirectory()) {
+        return normalizedPath;
+      }
+
+      let result = `${normalizedPath}\n`;
+      result += await buildTree(normalizedPath);
+      result += `\n${dirCount} directories, ${fileCount} files`;
+
+      return result;
+    } catch (error) {
+      throw new Error(`tree: ${path || this.currentDir}: No such directory`);
     }
   }
 }
