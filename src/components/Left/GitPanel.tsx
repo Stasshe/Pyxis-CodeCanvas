@@ -403,7 +403,18 @@ export default function GitPanel({
       setIsCommitting(true);
       await gitCommands.commit(commitMessage.trim());
       setCommitMessage('');
-      //この後の更新処理は、他で自動でやるのでしない。書くと表示バグる
+      
+      // コミット後にGit状態を更新
+      setTimeout(async () => {
+        console.log('[GitPanel] Refreshing git status after commit...');
+        await fetchGitStatus();
+        
+        // 親コンポーネントにも更新を通知
+        if (onRefresh) {
+          console.log('[GitPanel] Calling onRefresh after commit...');
+          onRefresh();
+        }
+      }, 200);
     } catch (error) {
       console.error('Failed to commit:', error);
     } finally {

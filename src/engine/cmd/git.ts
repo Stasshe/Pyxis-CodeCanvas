@@ -495,32 +495,8 @@ export class GitCommands {
       await gitFileSystem.flush();
 
       if (filepath === '.') {
-        // すべてのファイルを追加
-        const allFiles = await this.getAllFiles(this.dir);
-        if (allFiles.length === 0) {
-          return 'No files to add';
-        }
-
-        let addedCount = 0;
-        const errors: string[] = [];
-
-        for (const file of allFiles) {
-          try {
-            const relativePath = file.replace(`${this.dir}/`, '');
-            if (!relativePath.startsWith('.git') && relativePath !== '.' && relativePath !== '..') {
-              await git.add({ fs: this.fs, dir: this.dir, filepath: relativePath });
-              addedCount++;
-            }
-          } catch (error) {
-            errors.push(`Failed to add ${file}: ${(error as Error).message}`);
-          }
-        }
-
-        if (errors.length > 0) {
-          console.warn('[git add .] Some files failed to add:', errors);
-        }
-
-        return `Added ${addedCount} file(s)${errors.length > 0 ? ` (${errors.length} failed)` : ''}`;
+        // すべてのファイルを追加（削除されたファイルも含む）
+        return await this.addAll();
       } else if (filepath === '*' || filepath.includes('*')) {
         // ワイルドカードパターン
         const matchingFiles = await this.getMatchingFiles(this.dir, filepath);
@@ -577,9 +553,24 @@ export class GitCommands {
 
             return `Added ${addedCount} file(s) from directory${errors.length > 0 ? ` (${errors.length} failed)` : ''}`;
           } else {
-            // ファイルの場合
-            await git.add({ fs: this.fs, dir: this.dir, filepath: normalizedPath });
-            return `add '${filepath}'`;
+            // ファイルの場合 - 削除されたファイルかどうかチェック
+            try {
+              await this.fs.promises.stat(fullPath);
+              // ファイルが存在する場合は通常の追加
+              await git.add({ fs: this.fs, dir: this.dir, filepath: normalizedPath });
+              return `add '${filepath}'`;
+            } catch (statError) {
+              // ファイルが存在しない場合、削除されたファイルとして処理
+              if ((statError as Error).message.includes('ENOENT')) {
+                try {
+                  await git.remove({ fs: this.fs, dir: this.dir, filepath: normalizedPath });
+                  return `remove '${filepath}'`;
+                } catch (removeError) {
+                  throw new Error(`pathspec '${filepath}' did not match any files`);
+                }
+              }
+              throw statError;
+            }
           }
         } catch (error) {
           const err = error as Error;
@@ -602,6 +593,55 @@ export class GitCommands {
   // パターンにマッチするファイルを取得
   private async getMatchingFiles(dirPath: string, pattern: string): Promise<string[]> {
     return await GitFileSystemHelper.getMatchingFiles(this.fs, dirPath, pattern);
+  }
+
+  // すべてのファイルを追加（削除されたファイルも含む）
+  private async addAll(): Promise<string> {
+    try {
+      // git statusを取得して変更されたファイルを特定
+      const status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
+      
+      let addedCount = 0;
+      let removedCount = 0;
+      const errors: string[] = [];
+
+      for (const [filepath, HEAD, workdir, stage] of status) {
+        try {
+          // スキップするファイル
+          if (filepath.startsWith('.git') || filepath === '.' || filepath === '..') {
+            continue;
+          }
+
+          // 削除されたファイル (HEAD=1, workdir=0)
+          if (HEAD === 1 && workdir === 0) {
+            await git.remove({ fs: this.fs, dir: this.dir, filepath });
+            removedCount++;
+            console.log(`[git add .] Removed: ${filepath}`);
+          }
+          // 新規ファイルまたは変更されたファイル (workdir=1 or workdir=2)
+          else if ((workdir === 1 || workdir === 2) && stage !== 2 && stage !== 3) {
+            await git.add({ fs: this.fs, dir: this.dir, filepath });
+            addedCount++;
+            console.log(`[git add .] Added: ${filepath}`);
+          }
+        } catch (error) {
+          errors.push(`Failed to process ${filepath}: ${(error as Error).message}`);
+        }
+      }
+
+      if (errors.length > 0) {
+        console.warn('[git add .] Some files failed to process:', errors);
+      }
+
+      const totalCount = addedCount + removedCount;
+      if (totalCount === 0) {
+        return 'No files to add';
+      }
+
+      return `Added ${addedCount} file(s), removed ${removedCount} file(s)${errors.length > 0 ? ` (${errors.length} failed)` : ''}`;
+    } catch (error) {
+      throw new Error(`Failed to add all files: ${(error as Error).message}`);
+    }
   }
 
   // git commit - コミット
@@ -753,6 +793,15 @@ export class GitCommands {
 
       const headCommit = commits[0];
 
+      // ファイルが現在のワーキングディレクトリに存在するかチェック
+      let fileExists = false;
+      try {
+        await this.fs.promises.stat(`${this.dir}/${normalizedPath}`);
+        fileExists = true;
+      } catch {
+        fileExists = false;
+      }
+
       // ファイルの内容をHEADから読み取る
       try {
         const { blob } = await git.readBlob({
@@ -780,24 +829,32 @@ export class GitCommands {
           updatedAt: new Date(),
         });
 
-        return `Discarded changes in ${filepath}`;
+        if (!fileExists) {
+          return `Restored deleted file ${filepath}`;
+        } else {
+          return `Discarded changes in ${filepath}`;
+        }
       } catch (readError) {
         const err = readError as Error;
         if (err.message.includes('not found')) {
-          // ファイルがHEADに存在しない場合は削除
-          try {
-            await this.fs.promises.unlink(`${this.dir}/${normalizedPath}`);
+          // ファイルがHEADに存在しない場合（新規追加されたファイル）は削除
+          if (fileExists) {
+            try {
+              await this.fs.promises.unlink(`${this.dir}/${normalizedPath}`);
 
-            // IndexedDBからも削除
-            const files = await fileRepository.getProjectFiles(this.projectId);
-            const file = files.find(f => f.path === `/${normalizedPath}`);
-            if (file) {
-              await fileRepository.deleteFile(file.id);
+              // IndexedDBからも削除
+              const files = await fileRepository.getProjectFiles(this.projectId);
+              const file = files.find(f => f.path === `/${normalizedPath}`);
+              if (file) {
+                await fileRepository.deleteFile(file.id);
+              }
+
+              return `Removed untracked file ${filepath}`;
+            } catch (unlinkError) {
+              throw new Error(`Failed to remove file: ${(unlinkError as Error).message}`);
             }
-
-            return `Removed untracked file ${filepath}`;
-          } catch (unlinkError) {
-            throw new Error(`Failed to remove file: ${(unlinkError as Error).message}`);
+          } else {
+            return `File ${filepath} is already removed`;
           }
         }
         throw readError;
