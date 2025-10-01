@@ -365,6 +365,34 @@ function ClientTerminal({
       const output = '';
       try {
         switch (cmd) {
+          case 'node':
+            if (args.length === 0) {
+              await writeOutput('Usage: node <file.js>');
+              break;
+            }
+            try {
+              const { NodeJSRuntime } = await import('@/utils/runtime/nodeRuntime');
+              const runtime = new NodeJSRuntime(
+                currentProject,
+                (out, type) => {
+                  if (type === 'error') {
+                    writeOutput(`\x1b[31m${out}\x1b[0m`);
+                  } else {
+                    writeOutput(out);
+                  }
+                },
+                onFileOperation
+              );
+              const result = await runtime.executeFile(args[0]);
+              if (result.success && result.output) {
+                await writeOutput(result.output);
+              } else if (!result.success && result.error) {
+                await writeOutput(`\x1b[31m${result.error}\x1b[0m`);
+              }
+            } catch (e) {
+              await writeOutput(`node: エラー: ${(e as Error).message}`);
+            }
+            break;
           case 'debug-db':
             // IndexedDB と Lightning-FS の全データを出力
             try {
@@ -1182,15 +1210,6 @@ function ClientTerminal({
       }
       term.dispose();
     };
-    // タブがアクティブになった時にfit/scrollToBottomを呼ぶ
-    useEffect(() => {
-      if (isActive && fitAddonRef.current && xtermRef.current) {
-        setTimeout(() => {
-          fitAddonRef.current?.fit();
-          xtermRef.current?.scrollToBottom();
-        }, 50);
-      }
-    }, [isActive]);
   }, [currentProject]);
 
   // 高さが変更された時にサイズを再調整
