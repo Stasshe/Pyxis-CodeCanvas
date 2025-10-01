@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { GitCommands } from '@/utils/cmd/git';
-import type { Tab, SingleFileDiff } from '@/types';
+import type { Tab, SingleFileDiff, FileItem } from '@/types';
+import { openOrActivateTab } from '@/utils/openTab';
 
 export function useDiffTabHandlers(
   currentProject: any,
@@ -32,37 +33,35 @@ export function useDiffTabHandlers(
           latterContent = '';
         }
         const diffTabId = `diff-${formerCommitId}-WORKDIR-${filePath}`;
-        setTabs(prevTabs => {
-          const existing = prevTabs.find(tab => tab.id === diffTabId);
-          if (existing) {
-            setActiveTabId(diffTabId);
-            return prevTabs;
-          }
-          const shortFormer = formerCommitId ? formerCommitId.slice(0, 6) : '';
-          const newTab = {
-            id: diffTabId,
-            name: `Diff: ${filePath} (${shortFormer}..WD)`,
-            content: '',
-            isDirty: false,
-            path: filePath,
-            fullPath: filePath,
-            preview: false,
-            isCodeMirror: false,
-            diffProps: {
-              diffs: [
-                {
-                  formerFullPath: filePath,
-                  formerCommitId: formerCommitId,
-                  latterFullPath: filePath,
-                  latterCommitId: 'WORKDIR',
-                  formerContent,
-                  latterContent,
-                },
-              ],
-            },
-          };
-          setActiveTabId(diffTabId);
-          return [...prevTabs, newTab];
+        const fileItem: FileItem = {
+          id: diffTabId,
+          name: `Diff: ${filePath} (${formerCommitId ? formerCommitId.slice(0, 6) : ''}..WD)` ,
+          path: filePath,
+          content: '',
+          type: 'file',
+        };
+        openOrActivateTab(fileItem, [], setTabs, setActiveTabId);
+        // diffPropsを付与
+        setTabs((prevTabs: Tab[]) => {
+          return prevTabs.map(tab =>
+            tab.id === diffTabId
+              ? {
+                  ...tab,
+                  diffProps: {
+                    diffs: [
+                      {
+                        formerFullPath: filePath,
+                        formerCommitId: formerCommitId,
+                        latterFullPath: filePath,
+                        latterCommitId: 'WORKDIR',
+                        formerContent,
+                        latterContent,
+                      },
+                    ],
+                  },
+                }
+              : tab
+          );
         });
         return;
       }
@@ -88,39 +87,34 @@ export function useDiffTabHandlers(
         ? await git.getFileContentAtCommit(formerCommitId, filePath)
         : '';
       const diffTabId = `diff-${formerCommitId}-${latterCommitId}-${filePath}`;
-      setTabs(prevTabs => {
-        const existing = prevTabs.find(tab => tab.id === diffTabId);
-        if (existing) {
-          setActiveTabId(diffTabId);
-          return prevTabs;
-        }
-        // commitidは6桁のみ表示
-        const shortFormer = formerCommitId ? formerCommitId.slice(0, 6) : '';
-        const shortLatter = latterCommitId ? latterCommitId.slice(0, 6) : '';
-        const newTab = {
-          id: diffTabId,
-          name: `Diff: ${filePath} (${shortFormer}..${shortLatter})`,
-          content: '',
-          isDirty: false,
-          path: filePath,
-          fullPath: filePath,
-          preview: false,
-          isCodeMirror: false,
-          diffProps: {
-            diffs: [
-              {
-                formerFullPath: filePath,
-                formerCommitId: formerCommitId,
-                latterFullPath: filePath,
-                latterCommitId: latterCommitId,
-                formerContent,
-                latterContent,
-              },
-            ],
-          },
-        };
-        setActiveTabId(diffTabId);
-        return [...prevTabs, newTab];
+      const fileItem2: FileItem = {
+        id: diffTabId,
+        name: `Diff: ${filePath} (${formerCommitId ? formerCommitId.slice(0, 6) : ''}..${latterCommitId ? latterCommitId.slice(0, 6) : ''})`,
+        path: filePath,
+        content: '',
+        type: 'file',
+      };
+      openOrActivateTab(fileItem2, [], setTabs, setActiveTabId);
+      setTabs((prevTabs: Tab[]) => {
+        return prevTabs.map(tab =>
+          tab.id === diffTabId
+            ? {
+                ...tab,
+                diffProps: {
+                  diffs: [
+                    {
+                      formerFullPath: filePath,
+                      formerCommitId: formerCommitId,
+                      latterFullPath: filePath,
+                      latterCommitId: latterCommitId,
+                      formerContent,
+                      latterContent,
+                    },
+                  ],
+                },
+              }
+            : tab
+        );
       });
     },
     [currentProject, setTabs, setActiveTabId]
@@ -160,30 +154,25 @@ export function useDiffTabHandlers(
         });
       }
       const diffTabId = `diff-all-${parentCommitId}-${commitId}`;
-      setTabs(prevTabs => {
-        const existing = prevTabs.find(tab => tab.id === diffTabId);
-        if (existing) {
-          setActiveTabId(diffTabId);
-          return prevTabs;
-        }
-        // commitidは6桁のみ表示
-        const shortFormer = parentCommitId ? parentCommitId.slice(0, 6) : '';
-        const shortLatter = commitId ? commitId.slice(0, 6) : '';
-        const newTab = {
-          id: diffTabId,
-          name: `Diff: ${shortFormer}..${shortLatter}`,
-          content: '',
-          isDirty: false,
-          path: '',
-          fullPath: '',
-          preview: false,
-          isCodeMirror: false,
-          diffProps: {
-            diffs,
-          },
-        };
-        setActiveTabId(diffTabId);
-        return [...prevTabs, newTab];
+      const fileItem: FileItem = {
+        id: diffTabId,
+        name: `Diff: ${parentCommitId ? parentCommitId.slice(0, 6) : ''}..${commitId ? commitId.slice(0, 6) : ''}`,
+        path: '',
+        content: '',
+        type: 'file',
+      };
+      openOrActivateTab(fileItem, [], setTabs, setActiveTabId);
+      setTabs((prevTabs: Tab[]) => {
+        return prevTabs.map(tab =>
+          tab.id === diffTabId
+            ? {
+                ...tab,
+                diffProps: {
+                  diffs,
+                },
+              }
+            : tab
+        );
       });
     },
     [currentProject, setTabs, setActiveTabId]
