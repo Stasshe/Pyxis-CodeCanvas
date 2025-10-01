@@ -35,7 +35,7 @@ export function useDiffTabHandlers(
         const diffTabId = `diff-${formerCommitId}-WORKDIR-${filePath}`;
         const fileItem: FileItem = {
           id: diffTabId,
-          name: `Diff: ${filePath} (${formerCommitId ? formerCommitId.slice(0, 6) : ''}..WD)` ,
+          name: `Diff: ${filePath} (${formerCommitId ? formerCommitId.slice(0, 6) : ''}..WD)`,
           path: filePath,
           content: '',
           type: 'file',

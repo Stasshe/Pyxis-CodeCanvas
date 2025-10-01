@@ -24,19 +24,13 @@ export function useAIReview() {
         id: `ai-review-${filePath}`,
         type: 'file',
       };
-      openOrActivateTab(
-        fileItem,
-        tabs,
-        setTabs,
-        setActiveTabId,
-        {
-          aiReviewProps: {
-            originalContent,
-            suggestedContent,
-            filePath,
-          },
-        }
-      );
+      openOrActivateTab(fileItem, tabs, setTabs, setActiveTabId, {
+        aiReviewProps: {
+          originalContent,
+          suggestedContent,
+          filePath,
+        },
+      });
     },
     []
   );
