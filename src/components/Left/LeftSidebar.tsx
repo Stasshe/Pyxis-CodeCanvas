@@ -179,7 +179,7 @@ export default function LeftSidebar({
           {activeMenuTab === 'run' && (
             <div className="h-full">
               <RunPanel
-                currentProject={currentProject.name}
+                currentProject={currentProject}
                 files={files}
               />
             </div>

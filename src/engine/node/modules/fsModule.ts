@@ -50,6 +50,12 @@ export function createFSModule(options: FSModuleOptions) {
     data: string | Uint8Array,
     isNodeRuntime: boolean = true
   ): Promise<void> {
+    // projectIdのバリデーション
+    if (!projectId || typeof projectId !== 'string') {
+      console.error('[fsModule] Invalid projectId:', projectId);
+      throw new Error(`Invalid projectId: ${projectId}`);
+    }
+
     const { relativePath } = normalizePath(path);
 
     // 親ディレクトリをIndexedDBに作成

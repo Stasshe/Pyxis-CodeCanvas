@@ -7,7 +7,7 @@ import { PyodideRuntime } from '@/engine/runtime/pyodideRuntime';
 import { useBreakpointContext } from '@/context/BreakpointContext';
 
 interface RunPanelProps {
-  currentProject: string | null;
+  currentProject: { id: string; name: string } | null;
   files: any[];
   onFileOperation?: (
     path: string,
@@ -40,11 +40,11 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
   useEffect(() => {
     if (currentProject) {
       const newRuntime = new NodeJSRuntime(
-        currentProject,
+        currentProject.name,
+        currentProject.id,
         (output, type) => {
           addOutput(output, type);
-        },
-        onFileOperation
+        }
       );
       setRuntime(newRuntime);
       const newPyRuntime = new PyodideRuntime((output, type) => {
@@ -52,7 +52,7 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
       });
       setPythonRuntime(newPyRuntime);
     }
-  }, [currentProject, onFileOperation]);
+  }, [currentProject]);
 
   // 出力エリアの自動スクロール
   useEffect(() => {

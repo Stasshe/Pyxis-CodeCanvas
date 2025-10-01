@@ -515,11 +515,19 @@ export class FileRepository {
       console.error('[FileRepository] syncToGitFileSystem error:', error);
       throw error;
     }
-  } /**
+  }
+
+  /**
    * プロジェクトの全ファイル取得
    */
   async getProjectFiles(projectId: string): Promise<ProjectFile[]> {
     if (!this.db) throw new Error('Database not initialized');
+
+    // projectIdのバリデーション
+    if (!projectId || typeof projectId !== 'string' || projectId.trim() === '') {
+      console.error('[FileRepository] Invalid projectId:', projectId);
+      throw new Error(`Invalid projectId: ${projectId}`);
+    }
 
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction(['files'], 'readonly');

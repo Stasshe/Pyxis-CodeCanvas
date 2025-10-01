@@ -263,58 +263,14 @@ export default function Home() {
     clearAIReview,
   } = useProject();
 
-  // プロジェクトファイルが更新されたら、開いているタブの内容も自動更新
-  useEffect(() => {
-    if (!currentProject || projectFiles.length === 0) return;
-
-    setEditors(prevEditors => {
-      return prevEditors.map(editor => {
-        // 再帰的にペインツリーを更新
-        const updatePaneRecursive = (pane: EditorPane): EditorPane => {
-          // 子ペインがある場合は再帰的に更新
-          if (pane.children && pane.children.length > 0) {
-            return {
-              ...pane,
-              children: pane.children.map(child => updatePaneRecursive(child)),
-            };
-          }
-
-          // リーフペイン: タブを更新
-          const updatedTabs = pane.tabs.map(tab => {
-            // AIレビュー、Diff、プレビュータブはスキップ
-            if (tab.aiReviewProps || tab.diffProps || tab.webPreview) return tab;
-
-            // projectFilesから最新のファイル情報を取得
-            const latestFile = projectFiles.find(f => f.path === tab.path);
-            if (!latestFile) return tab; // ファイルが見つからない場合はそのまま
-
-            // 内容が変わっている場合のみ更新
-            const needsUpdate =
-              tab.content !== latestFile.content ||
-              (latestFile as any).isBufferArray !== tab.isBufferArray;
-
-            if (!needsUpdate) return tab;
-
-            console.log('[page.tsx] Auto-updating tab content:', tab.path);
-
-            return {
-              ...tab,
-              content: latestFile.content || '',
-              isBufferArray: (latestFile as any).isBufferArray,
-              bufferContent: (latestFile as any).bufferContent,
-            };
-          });
-
-          return {
-            ...pane,
-            tabs: updatedTabs,
-          };
-        };
-
-        return updatePaneRecursive(editor);
-      });
-    });
-  }, [projectFiles, currentProject]);
+  // [NEW ARCHITECTURE] タブコンテンツの自動更新は無効化
+  // useActiveTabContentRestoreフックがオンデマンドで復元を行う
+  // projectFilesの変更を監視して全タブを更新するのは無限ループの原因となるため削除
+  // 代わりに、以下の戦略を採用：
+  // 1. localStorage復元時: useActiveTabContentRestoreがアクティブタブの内容を復元
+  // 2. タブ切り替え時: useActiveTabContentRestoreがアクティブタブの内容を復元
+  // 3. ファイル編集時: handleTabContentChangeImmediateが即座に更新
+  // 4. 外部変更（Git等）: refreshProjectFiles後、useActiveTabContentRestoreが次回アクティブ時に復元
 
   const handleLeftResize = useLeftSidebarResize(leftSidebarWidth, setLeftSidebarWidth);
   const handleBottomResize = useBottomPanelResize(bottomPanelHeight, setBottomPanelHeight);
