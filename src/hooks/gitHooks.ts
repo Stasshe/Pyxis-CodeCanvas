@@ -35,6 +35,7 @@ export function useGitMonitor({
       try {
         const gitCommands = new GitCommands(
           currentProject.name,
+          currentProject.id,
           async (path: string, type: 'file' | 'folder' | 'delete', content?: string) => {
             setTimeout(() => {
               setGitRefreshTrigger((prev: number) => prev + 1);

@@ -38,7 +38,7 @@ const initializeProjectGit = async (
     await new Promise(resolve => setTimeout(resolve, 500));
 
     // Git初期化
-    const git = new GitCommands(project.name);
+    const git = new GitCommands(project.name, project.id);
     try {
       await git.init();
       console.log('Git init completed');
@@ -258,7 +258,7 @@ export const useProject = () => {
 
       // Git初期化状態をチェック
       try {
-        const git = new GitCommands(project.name);
+        const git = new GitCommands(project.name, project.id);
         const currentBranch = await git.getCurrentBranch();
 
         // Git初期化されていない場合は初期化を実行

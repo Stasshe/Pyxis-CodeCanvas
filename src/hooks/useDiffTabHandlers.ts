@@ -13,7 +13,7 @@ export function useDiffTabHandlers(
   const handleDiffFileClick = useCallback(
     async ({ commitId, filePath }: { commitId: string; filePath: string }) => {
       if (!currentProject) return;
-      const git = new GitCommands(currentProject.name);
+      const git = new GitCommands(currentProject.name, currentProject.id);
       // working directory vs 最新コミット のdiffの場合
       if (commitId && commitId.length >= 6 && commitId !== 'WORKDIR') {
         // 最新コミットのhashが渡された場合、working directoryと比較
@@ -125,7 +125,7 @@ export function useDiffTabHandlers(
   const handleDiffAllFilesClick = useCallback(
     async ({ commitId, parentCommitId }: { commitId: string; parentCommitId: string }) => {
       if (!currentProject) return;
-      const git = new GitCommands(currentProject.name);
+      const git = new GitCommands(currentProject.name, currentProject.id);
       // 差分ファイル一覧を取得
       const diffOutput = await git.diffCommits(parentCommitId, commitId);
       // 変更ファイルを抽出

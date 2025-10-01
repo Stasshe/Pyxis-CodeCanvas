@@ -19,6 +19,8 @@ import { getFileSystem, getProjectDir } from '@/engine/core/filesystem';
 export class GitCommands {
   private fs: FS;
   private dir: string;
+  private projectId: string;
+  private projectName: string;
   private onFileOperation?: (
     path: string,
     type: 'file' | 'folder' | 'delete',
@@ -38,6 +40,7 @@ export class GitCommands {
 
   constructor(
     projectName: string,
+    projectId: string,
     onFileOperation?: (
       path: string,
       type: 'file' | 'folder' | 'delete',
@@ -48,6 +51,8 @@ export class GitCommands {
   ) {
     this.fs = getFileSystem()!;
     this.dir = getProjectDir(projectName);
+    this.projectId = projectId;
+    this.projectName = projectName;
     this.onFileOperation = onFileOperation;
   }
 
@@ -778,7 +783,7 @@ export class GitCommands {
   async reset(
     options: { filepath?: string; hard?: boolean; commit?: string } = {}
   ): Promise<string> {
-    const resetOperations = new GitResetOperations(this.fs, this.dir, this.onFileOperation);
+    const resetOperations = new GitResetOperations(this.fs, this.dir, this.projectId, this.projectName);
     return await resetOperations.reset(options);
   }
 
@@ -796,13 +801,13 @@ export class GitCommands {
 
   // git checkout - ブランチ切り替え/作成
   async checkout(branchName: string, createNew = false): Promise<string> {
-    const checkoutOperations = new GitCheckoutOperations(this.fs, this.dir, this.onFileOperation);
+    const checkoutOperations = new GitCheckoutOperations(this.fs, this.dir, this.projectId, this.projectName);
     return await checkoutOperations.checkout(branchName, createNew);
   }
 
   // git revert - コミットを取り消し
   async revert(commitHash: string): Promise<string> {
-    const revertOperations = new GitRevertOperations(this.fs, this.dir, this.onFileOperation);
+    const revertOperations = new GitRevertOperations(this.fs, this.dir, this.projectId, this.projectName);
     return await revertOperations.revert(commitHash);
   }
 
@@ -872,7 +877,7 @@ export class GitCommands {
     branchName: string,
     options: { noFf?: boolean; message?: string; abort?: boolean } = {}
   ): Promise<string> {
-    const mergeOperations = new GitMergeOperations(this.fs, this.dir, this.onFileOperation);
+    const mergeOperations = new GitMergeOperations(this.fs, this.dir, this.projectId, this.projectName);
 
     if (options.abort) {
       return await mergeOperations.mergeAbort();

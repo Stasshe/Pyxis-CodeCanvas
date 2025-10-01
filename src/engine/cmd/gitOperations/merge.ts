@@ -2,33 +2,29 @@ import FS from '@isomorphic-git/lightning-fs';
 import git from 'isomorphic-git';
 
 import { GitFileSystemHelper } from './fileSystemHelper';
+import { syncManager } from '@/engine/core/syncManager';
 
 /**
- * Git merge操作を管理するクラス
+ * [NEW ARCHITECTURE] Git merge操作を管理するクラス
+ * - onFileOperationコールバックを削除
+ * - merge後にsyncManager.syncFromFSToIndexedDB()で逆同期
  */
 export class GitMergeOperations {
   private fs: FS;
   private dir: string;
-  private onFileOperation?: (
-    path: string,
-    type: 'file' | 'folder' | 'delete',
-    content?: string,
-    isNodeRuntime?: boolean
-  ) => Promise<void>;
+  private projectId: string;
+  private projectName: string;
 
   constructor(
     fs: FS,
     dir: string,
-    onFileOperation?: (
-      path: string,
-      type: 'file' | 'folder' | 'delete',
-      content?: string,
-      isNodeRuntime?: boolean
-    ) => Promise<void>
+    projectId: string,
+    projectName: string
   ) {
     this.fs = fs;
     this.dir = dir;
-    this.onFileOperation = onFileOperation;
+    this.projectId = projectId;
+    this.projectName = projectName;
   }
 
   // プロジェクトディレクトリの存在を確認し、なければ作成
@@ -89,83 +85,6 @@ export class GitMergeOperations {
   // すべてのファイルを取得（再帰的）
   private async getAllFiles(dirPath: string): Promise<string[]> {
     return await GitFileSystemHelper.getAllFiles(this.fs, dirPath);
-  }
-
-  // マージ結果をワーキングディレクトリに反映（reset.tsのrestoreTreeFilesを参考にリファクタ）
-  private async updateWorkingDirectory(result: any): Promise<void> {
-    if (!result || !result.tree) return;
-
-    // 現在のファイル一覧を取得
-    const currentFiles = await this.getAllFiles(this.dir);
-    const currentFileSet = new Set(currentFiles);
-
-    // マージ結果のツリーからファイル一覧を取得
-    const tree = await git.readTree({ fs: this.fs, dir: this.dir, oid: result.tree });
-    const newFiles = new Set<string>();
-
-    // ファイル・ディレクトリを再帰的に復元
-    const restoreTreeFiles = async (treeObj: any, basePath: string) => {
-      for (const entry of treeObj.tree) {
-        const fullPath = basePath ? `${basePath}/${entry.path}` : entry.path;
-        const fsPath = `${this.dir}/${fullPath}`;
-        if (entry.type === 'tree') {
-          // ディレクトリ
-          try {
-            try {
-              await this.fs.promises.stat(fsPath);
-            } catch {
-              await this.fs.promises.mkdir(fsPath, { recursive: true } as any);
-            }
-            if (this.onFileOperation) {
-              const projectRelativePath = fullPath.startsWith('/') ? fullPath : `/${fullPath}`;
-              await this.onFileOperation(projectRelativePath, 'folder');
-            }
-            const subTree = await git.readTree({ fs: this.fs, dir: this.dir, oid: entry.oid });
-            await restoreTreeFiles(subTree, fullPath);
-          } catch (e) {
-            console.warn(`Failed to create directory ${fullPath}:`, e);
-          }
-        } else if (entry.type === 'blob') {
-          newFiles.add(fullPath);
-          try {
-            // 親ディレクトリを再帰的に作成
-            const dirPath = fsPath.substring(0, fsPath.lastIndexOf('/'));
-            if (dirPath && dirPath !== this.dir) {
-              try {
-                await this.fs.promises.stat(dirPath);
-              } catch {
-                await this.fs.promises.mkdir(dirPath, { recursive: true } as any);
-              }
-            }
-            const { blob } = await git.readBlob({ fs: this.fs, dir: this.dir, oid: entry.oid });
-            const content = new TextDecoder().decode(blob);
-            await this.fs.promises.writeFile(fsPath, content, 'utf8');
-            if (this.onFileOperation) {
-              const projectRelativePath = fullPath.startsWith('/') ? fullPath : `/${fullPath}`;
-              await this.onFileOperation(projectRelativePath, 'file', content);
-            }
-          } catch (e) {
-            console.warn(`Failed to restore file ${fullPath}:`, e);
-          }
-        }
-      }
-    };
-    await restoreTreeFiles(tree, '');
-
-    // 削除されたファイルを処理
-    for (const filepath of currentFileSet) {
-      if (!newFiles.has(filepath)) {
-        try {
-          await this.fs.promises.unlink(`${this.dir}/${filepath}`);
-          if (this.onFileOperation) {
-            const projectRelativePath = filepath.startsWith('/') ? filepath : `/${filepath}`;
-            await this.onFileOperation(projectRelativePath, 'delete');
-          }
-        } catch (e) {
-          console.warn(`Failed to delete file ${filepath}:`, e);
-        }
-      }
-    }
   }
 
   // Fast-forward マージかチェック
@@ -239,7 +158,7 @@ export class GitMergeOperations {
 
       // Fast-forward マージの場合
       if (canFF && !options.noFf) {
-        console.log('Performing fast-forward merge');
+        console.log('[NEW ARCHITECTURE] Performing fast-forward merge');
 
         // Fast-forward マージを実行（HEADを対象ブランチに移動）
         await git.writeRef({
@@ -252,15 +171,17 @@ export class GitMergeOperations {
         // ワーキングディレクトリを更新
         await git.checkout({ fs: this.fs, dir: this.dir, ref: currentBranch });
 
-        // updateWorkingDirectoryでファイル内容ごとUI反映
-        await this.updateWorkingDirectory({ tree: targetCommit });
+        // [NEW ARCHITECTURE] GitFileSystem → IndexedDBへ逆同期
+        console.log('[NEW ARCHITECTURE] Starting reverse sync: GitFileSystem → IndexedDB');
+        await syncManager.syncFromFSToIndexedDB(this.projectId, this.projectName);
+        console.log('[NEW ARCHITECTURE] Reverse sync completed');
 
         const shortTarget = targetCommit.slice(0, 7);
-        return `Updating ${sourceCommit.slice(0, 7)}..${shortTarget}\nFast-forward`;
+        return `Updating ${sourceCommit.slice(0, 7)}..${shortTarget}\nFast-forward\n\n[NEW ARCHITECTURE] Changes synced to IndexedDB`;
       }
 
       // 3-way マージを実行
-      console.log('Performing 3-way merge');
+      console.log('[NEW ARCHITECTURE] Performing 3-way merge');
 
       const commitMessage = options.message || `Merge branch '${branchName}' into ${currentBranch}`;
 
@@ -282,28 +203,31 @@ export class GitMergeOperations {
           message: commitMessage,
         });
 
-        console.log('Merge result:', result);
+        console.log('[NEW ARCHITECTURE] Merge result:', result);
 
         // マージが成功した場合
         if (result && !result.alreadyMerged) {
-          // マージコミットのOIDをcheckoutし、そのツリー全体を反映
+          // マージコミットのOIDをcheckoutし、その状態を反映
           if (result.oid) {
             await git.checkout({ fs: this.fs, dir: this.dir, ref: result.oid });
-            await this.updateWorkingDirectory({ tree: result.oid });
-          } else {
-            await this.updateWorkingDirectory(result);
-          }
-          // ファイルシステムの変更を通知
-          if (this.onFileOperation) {
-            await this.onFileOperation('.', 'folder');
           }
 
+          // [NEW ARCHITECTURE] GitFileSystem → IndexedDBへ逆同期
+          console.log('[NEW ARCHITECTURE] Starting reverse sync: GitFileSystem → IndexedDB');
+          await syncManager.syncFromFSToIndexedDB(this.projectId, this.projectName);
+          console.log('[NEW ARCHITECTURE] Reverse sync completed');
+
           const mergeCommit = result.oid ? result.oid.slice(0, 7) : 'unknown';
-          return `Merge made by the 'ort' strategy.\nMerge commit: ${mergeCommit}`;
+          return `Merge made by the 'ort' strategy.\nMerge commit: ${mergeCommit}\n\n[NEW ARCHITECTURE] Changes synced to IndexedDB`;
         } else if (result && result.alreadyMerged) {
           return `Already up to date.`;
         } else {
-          return `Merge completed successfully.`;
+          // [NEW ARCHITECTURE] GitFileSystem → IndexedDBへ逆同期
+          console.log('[NEW ARCHITECTURE] Starting reverse sync: GitFileSystem → IndexedDB');
+          await syncManager.syncFromFSToIndexedDB(this.projectId, this.projectName);
+          console.log('[NEW ARCHITECTURE] Reverse sync completed');
+
+          return `Merge completed successfully.\n\n[NEW ARCHITECTURE] Changes synced to IndexedDB`;
         }
       } catch (mergeError) {
         const error = mergeError as any;
@@ -354,12 +278,12 @@ export class GitMergeOperations {
         const currentBranch = await this.getCurrentBranch();
         await git.checkout({ fs: this.fs, dir: this.dir, ref: currentBranch, force: true });
 
-        // ファイルシステムの変更を通知
-        if (this.onFileOperation) {
-          await this.onFileOperation('.', 'folder');
-        }
+        // [NEW ARCHITECTURE] GitFileSystem → IndexedDBへ逆同期
+        console.log('[NEW ARCHITECTURE] Starting reverse sync: GitFileSystem → IndexedDB');
+        await syncManager.syncFromFSToIndexedDB(this.projectId, this.projectName);
+        console.log('[NEW ARCHITECTURE] Reverse sync completed');
 
-        return `Merge aborted. Working tree has been reset.`;
+        return `Merge aborted. Working tree has been reset.\n\n[NEW ARCHITECTURE] Changes synced to IndexedDB`;
       } catch (error) {
         throw new Error(`Failed to abort merge: ${(error as Error).message}`);
       }

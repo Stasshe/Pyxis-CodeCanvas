@@ -21,6 +21,7 @@ import { useTheme } from '@/context/ThemeContext';
 interface GitHistoryProps {
   commits: GitCommitType[];
   currentProject?: string;
+  currentProjectId?: string;
   currentBranch: string;
   onFileOperation?: (
     path: string,
@@ -47,6 +48,7 @@ interface ExtendedCommit extends GitCommitType {
 export default function GitHistory({
   commits,
   currentProject,
+  currentProjectId,
   currentBranch,
   onFileOperation,
   onDiffFileClick,
@@ -56,7 +58,7 @@ export default function GitHistory({
   const [expandedCommits, setExpandedCommits] = useState<Set<string>>(new Set());
   const [commitChanges, setCommitChanges] = useState<Map<string, CommitChanges>>(new Map());
   const svgRef = useRef<SVGSVGElement>(null);
-  const gitCommands = currentProject ? new GitCommands(currentProject, onFileOperation) : null;
+  const gitCommands = currentProject && currentProjectId ? new GitCommands(currentProject, currentProjectId, onFileOperation) : null;
 
   // トポロジカルソート: 親→子の順に並べる
   const topoSortCommits = (commits: GitCommitType[]): GitCommitType[] => {

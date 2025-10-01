@@ -23,6 +23,7 @@ import { LOCALSTORAGE_KEY } from '@/context/config';
 
 interface GitPanelProps {
   currentProject?: string;
+  currentProjectId?: string;
   onRefresh?: () => void;
   gitRefreshTrigger?: number;
   onFileOperation?: (
@@ -37,6 +38,7 @@ interface GitPanelProps {
 
 export default function GitPanel({
   currentProject,
+  currentProjectId,
   onRefresh,
   gitRefreshTrigger,
   onFileOperation,
@@ -54,7 +56,7 @@ export default function GitPanel({
   const [isGenerating, setIsGenerating] = useState(false);
 
   // Git操作用のコマンドインスタンス
-  const gitCommands = currentProject ? new GitCommands(currentProject, onFileOperation) : null;
+  const gitCommands = currentProject && currentProjectId ? new GitCommands(currentProject, currentProjectId, onFileOperation) : null;
 
   // Git状態を取得
   const fetchGitStatus = async () => {
@@ -1054,6 +1056,7 @@ export default function GitPanel({
             <GitHistory
               commits={gitRepo.commits}
               currentProject={currentProject}
+              currentProjectId={currentProjectId}
               currentBranch={gitRepo.currentBranch}
               onFileOperation={onFileOperation}
               onDiffFileClick={onDiffFileClick}

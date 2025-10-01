@@ -1,35 +1,32 @@
 import FS from '@isomorphic-git/lightning-fs';
 import git from 'isomorphic-git';
 
+import { syncManager } from '@/engine/core/syncManager';
+
 /**
- * Git revert操作を管理するクラス
+ * [NEW ARCHITECTURE] Git revert操作を管理するクラス
+ * - onFileOperationコールバックを削除
+ * - revert後にsyncManager.syncFromFSToIndexedDB()で逆同期
  */
 export class GitRevertOperations {
   private fs: FS;
   private dir: string;
-  private onFileOperation?: (
-    path: string,
-    type: 'file' | 'folder' | 'delete',
-    content?: string,
-    isNodeRuntime?: boolean
-  ) => Promise<void>;
+  private projectId: string;
+  private projectName: string;
 
   constructor(
     fs: FS,
     dir: string,
-    onFileOperation?: (
-      path: string,
-      type: 'file' | 'folder' | 'delete',
-      content?: string,
-      isNodeRuntime?: boolean
-    ) => Promise<void>
+    projectId: string,
+    projectName: string
   ) {
     this.fs = fs;
     this.dir = dir;
-    this.onFileOperation = onFileOperation;
+    this.projectId = projectId;
+    this.projectName = projectName;
   }
 
-  // git revert - コミットを取り消し
+  // [NEW ARCHITECTURE] git revert - コミットを取り消し + 逆同期
   async revert(commitHash: string): Promise<string> {
     try {
       // Gitリポジトリが初期化されているかチェック
@@ -42,7 +39,6 @@ export class GitRevertOperations {
       // コミットハッシュの正規化（短縮形も対応）
       let fullCommitHash: string;
       try {
-        // コミットが存在するかチェックし、完全なハッシュを取得
         const expandedOid = await git.expandOid({ fs: this.fs, dir: this.dir, oid: commitHash });
         fullCommitHash = expandedOid;
       } catch {
@@ -68,13 +64,28 @@ export class GitRevertOperations {
 
       const parentHash = commitToRevert.commit.parent[0];
 
+      console.log('[NEW ARCHITECTURE] Reverting commit:', commitHash.slice(0, 7));
+
       // 親コミットの状態を取得
       const parentCommit = await git.readCommit({ fs: this.fs, dir: this.dir, oid: parentHash });
 
-      // 対象コミットと親コミットのファイル差分を取得
-      const changedFiles = new Set<string>();
+      // 現在のワーキングディレクトリの状態をチェック
+      const status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
+      const hasChanges = status.some(row => {
+        const [, headStatus, workdirStatus, stageStatus] = row;
+        return headStatus !== workdirStatus || headStatus !== stageStatus;
+      });
 
-      // 対象コミットで変更されたファイルを特定
+      if (hasChanges) {
+        throw new Error(
+          'error: your local changes would be overwritten by revert.\nhint: commit your changes or stash them to proceed.'
+        );
+      }
+
+      // 親コミットのツリーを現在のワーキングディレクトリに適用
+      // isomorphic-gitにはrevertコマンドがないため、手動で実装
+      
+      // 対象コミットで変更されたファイルを特定して、親コミットの状態に戻す
       const currentTree = await git.readTree({
         fs: this.fs,
         dir: this.dir,
@@ -86,198 +97,113 @@ export class GitRevertOperations {
         oid: parentCommit.commit.tree,
       });
 
-      // 変更されたファイルパスを収集
-      const getAllFilePaths = async (tree: any, basePath = ''): Promise<string[]> => {
-        const paths: string[] = [];
+      // ファイルの差分を収集
+      const changedFiles = new Map<string, { parentOid?: string; currentOid?: string }>();
+
+      const collectTreeFiles = async (tree: any, basePath = ''): Promise<Map<string, string>> => {
+        const files = new Map<string, string>();
         for (const entry of tree.tree) {
           const fullPath = basePath ? `${basePath}/${entry.path}` : entry.path;
-          if (entry.type === 'tree') {
-            // サブディレクトリを再帰的に処理
+          if (entry.type === 'blob') {
+            files.set(fullPath, entry.oid);
+          } else if (entry.type === 'tree') {
             try {
               const subTree = await git.readTree({ fs: this.fs, dir: this.dir, oid: entry.oid });
-              const subPaths = await getAllFilePaths(subTree, fullPath);
-              paths.push(...subPaths);
+              const subFiles = await collectTreeFiles(subTree, fullPath);
+              for (const [path, oid] of subFiles) {
+                files.set(path, oid);
+              }
             } catch (error) {
               console.warn(`Failed to read subtree ${fullPath}:`, error);
             }
-          } else {
-            paths.push(fullPath);
           }
         }
-        return paths;
+        return files;
       };
 
-      const currentFiles = new Set(await getAllFilePaths(currentTree));
-      const parentFiles = new Set(await getAllFilePaths(parentTree));
+      const parentFiles = await collectTreeFiles(parentTree);
+      const currentFiles = await collectTreeFiles(currentTree);
 
-      // 追加、削除、変更されたファイルを特定
-      const addedFiles = [...currentFiles].filter(f => !parentFiles.has(f));
-      const deletedFiles = [...parentFiles].filter(f => !currentFiles.has(f));
-      const commonFiles = [...currentFiles].filter(f => parentFiles.has(f));
-
-      // 変更されたファイルを特定（内容比較）
-      const modifiedFiles: string[] = [];
-      for (const filePath of commonFiles) {
-        try {
-          const currentEntry = currentTree.tree.find((e: any) => e.path === filePath);
-          const parentEntry = parentTree.tree.find((e: any) => e.path === filePath);
-
-          if (currentEntry && parentEntry && currentEntry.oid !== parentEntry.oid) {
-            modifiedFiles.push(filePath as string);
-          }
-        } catch {
-          // ファイル比較エラーは無視
+      // 変更されたファイルを特定
+      for (const [path, oid] of currentFiles) {
+        const parentOid = parentFiles.get(path);
+        if (!parentOid || parentOid !== oid) {
+          changedFiles.set(path, { parentOid, currentOid: oid });
         }
       }
 
-      let revertedFileCount = 0;
-      const revertResults: string[] = [];
-
-      // 追加されたファイルを削除
-      for (const filePath of addedFiles) {
-        try {
-          const fullPath = `${this.dir}/${filePath}`;
-          await this.fs.promises.unlink(fullPath);
-          changedFiles.add(filePath as string);
-          revertResults.push(`deleted:    ${filePath}`);
-          revertedFileCount++;
-        } catch (error) {
-          console.warn(`Failed to delete file ${filePath}:`, error);
+      // 削除されたファイルを特定
+      for (const [path, oid] of parentFiles) {
+        if (!currentFiles.has(path)) {
+          changedFiles.set(path, { parentOid: oid, currentOid: undefined });
         }
       }
 
-      // 削除されたファイルを復元
-      for (const filePath of deletedFiles) {
-        try {
-          const parentEntry = parentTree.tree.find((e: any) => e.path === filePath);
-          if (parentEntry) {
-            const blob = await git.readBlob({ fs: this.fs, dir: this.dir, oid: parentEntry.oid });
-            const fullPath = `${this.dir}/${filePath}`;
-            // 親ディレクトリを作成（存在しなければ作成）
-            const parentDir = fullPath.substring(0, fullPath.lastIndexOf('/'));
-            if (parentDir && parentDir !== this.dir) {
-              try {
-                await this.fs.promises.stat(parentDir);
-              } catch {
-                await this.fs.promises.mkdir(parentDir, { recursive: true } as any);
-              }
-            }
-            await this.fs.promises.writeFile(fullPath, blob.blob);
-            changedFiles.add(filePath as string);
-            revertResults.push(`restored:   ${filePath}`);
-            revertedFileCount++;
-          }
-        } catch (error) {
-          console.warn(`Failed to restore file ${filePath}:`, error);
-        }
-      }
+      console.log('[NEW ARCHITECTURE] Revert: Files to change:', changedFiles.size);
 
-      // 変更されたファイルを親コミットの状態に戻す
-      for (const filePath of modifiedFiles) {
-        try {
-          const parentEntry = parentTree.tree.find((e: any) => e.path === filePath);
-          if (parentEntry) {
-            const blob = await git.readBlob({ fs: this.fs, dir: this.dir, oid: parentEntry.oid });
-            const fullPath = `${this.dir}/${filePath}`;
-            // 親ディレクトリを作成（存在しなければ作成）
-            const parentDir = fullPath.substring(0, fullPath.lastIndexOf('/'));
-            if (parentDir && parentDir !== this.dir) {
-              try {
-                await this.fs.promises.stat(parentDir);
-              } catch {
-                await this.fs.promises.mkdir(parentDir, { recursive: true } as any);
-              }
-            }
-            await this.fs.promises.writeFile(fullPath, blob.blob);
-            changedFiles.add(filePath);
-            revertResults.push(`reverted:   ${filePath}`);
-            revertedFileCount++;
-          }
-        } catch (error) {
-          console.warn(`Failed to revert file ${filePath}:`, error);
-        }
-      }
-
-      // 変更をステージング
-      for (const filePath of changedFiles) {
-        try {
-          const fullPath = `${this.dir}/${filePath}`;
-          // ファイルが存在するかチェック
+      // 変更を適用
+      for (const [filePath, { parentOid }] of changedFiles) {
+        const fullPath = `${this.dir}/${filePath}`;
+        
+        if (parentOid) {
+          // ファイルを親コミットの状態に戻す
           try {
-            await this.fs.promises.stat(fullPath);
+            const { blob } = await git.readBlob({
+              fs: this.fs,
+              dir: this.dir,
+              oid: parentOid,
+            });
+            await this.fs.promises.writeFile(fullPath, blob);
             await git.add({ fs: this.fs, dir: this.dir, filepath: filePath });
-          } catch {
-            // ファイルが削除された場合
-            await git.remove({ fs: this.fs, dir: this.dir, filepath: filePath });
+          } catch (error) {
+            console.error(`Failed to restore file ${filePath}:`, error);
           }
-        } catch (error) {
-          console.warn(`Failed to stage file ${filePath}:`, error);
+        } else {
+          // ファイルを削除
+          try {
+            await this.fs.promises.unlink(fullPath);
+            await git.remove({ fs: this.fs, dir: this.dir, filepath: filePath });
+          } catch (error) {
+            console.error(`Failed to remove file ${filePath}:`, error);
+          }
         }
       }
 
       // リバートコミットを作成
+      const shortHash = commitHash.slice(0, 7);
       const revertMessage = `Revert "${commitToRevert.commit.message.split('\n')[0]}"\n\nThis reverts commit ${fullCommitHash}.`;
-      const author = { name: 'User', email: 'user@pyxis.dev' };
 
-      const revertCommitHash = await git.commit({
+      const commitOid = await git.commit({
         fs: this.fs,
         dir: this.dir,
         message: revertMessage,
-        author,
-        committer: author,
+        author: {
+          name: 'Pyxis User',
+          email: 'user@pyxis.local',
+        },
       });
 
-      // プロジェクトディレクトリからの相対パスを取得
-      const getRelativePathFromProject = (fullPath: string): string => {
-        return fullPath.replace(this.dir, '') || '/';
-      };
+      console.log('[NEW ARCHITECTURE] Revert commit created:', commitOid.slice(0, 7));
 
-      // ファイル操作のコールバックを実行（テキストエディターに反映）
-      if (this.onFileOperation) {
-        for (const filePath of changedFiles) {
-          try {
-            const relativePath = getRelativePathFromProject(`${this.dir}/${filePath}`);
-            const fullPath = `${this.dir}/${filePath}`;
+      // [NEW ARCHITECTURE] GitFileSystem → IndexedDBへ逆同期
+      console.log('[NEW ARCHITECTURE] Starting reverse sync: GitFileSystem → IndexedDB');
+      await syncManager.syncFromFSToIndexedDB(this.projectId, this.projectName);
+      console.log('[NEW ARCHITECTURE] Reverse sync completed');
 
-            // ファイルが存在するかチェック
-            try {
-              const content = await this.fs.promises.readFile(fullPath, { encoding: 'utf8' });
-              await this.onFileOperation(relativePath, 'file', content as string, false);
-            } catch {
-              // ファイルが削除された場合
-              await this.onFileOperation(relativePath, 'delete', undefined, false);
-            }
-          } catch (error) {
-            console.warn(`Failed to sync file operation for ${filePath}:`, error);
-          }
-        }
-      }
-
-      // 結果メッセージを生成
-      let result = `Revert commit ${revertCommitHash.slice(0, 7)} created\n`;
-      result += `Reverted commit: ${fullCommitHash.slice(0, 7)} - ${commitToRevert.commit.message.split('\n')[0]}\n`;
-
-      if (revertResults.length > 0) {
-        result += `\nFiles changed:\n${revertResults.join('\n')}`;
-      }
-
-      result += `\n\nTotal ${revertedFileCount} file(s) reverted`;
-
-      return result;
+      return `[${commitOid.slice(0, 7)}] ${revertMessage.split('\n')[0]}\n${changedFiles.size} files changed\n\n[NEW ARCHITECTURE] Changes synced to IndexedDB`;
     } catch (error) {
       const errorMessage = (error as Error).message;
 
-      // エラーメッセージを適切にフォーマット
       if (errorMessage.includes('bad revision')) {
-        throw new Error(`fatal: bad revision '${commitHash}'`);
-      } else if (errorMessage.includes('not a git repository')) {
-        throw new Error('fatal: not a git repository (or any of the parent directories): .git');
+        throw new Error(errorMessage);
       } else if (errorMessage.includes('cannot revert initial commit')) {
         throw new Error(`error: ${errorMessage}`);
       } else if (errorMessage.includes('is a merge commit')) {
-        throw new Error(
-          `error: ${errorMessage}\nhint: Try 'git revert -m 1 <commit>' to revert a merge commit`
-        );
+        throw new Error(`error: ${errorMessage}`);
+      } else if (errorMessage.includes('not a git repository')) {
+        throw new Error('fatal: not a git repository (or any of the parent directories): .git');
+      } else if (errorMessage.includes('your local changes would be overwritten')) {
+        throw new Error(errorMessage);
       }
 
       throw new Error(`git revert failed: ${errorMessage}`);

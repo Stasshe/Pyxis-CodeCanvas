@@ -162,6 +162,7 @@ export default function LeftSidebar({
             <div className="h-full">
               <GitPanel
                 currentProject={currentProject.name}
+                currentProjectId={currentProject.id}
                 onRefresh={onGitRefresh}
                 gitRefreshTrigger={gitRefreshTrigger}
                 onGitStatusChange={onGitStatusChange}
