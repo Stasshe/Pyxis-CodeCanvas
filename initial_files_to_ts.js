@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const inputDir = path.join(__dirname, 'initial_files');
-const outputFile = path.join(__dirname, 'src/utils/initialFileContents.ts');
+const outputFile = path.join(__dirname, 'src/engine/initialFileContents.ts');
 
 function walk(dir) {
   const result = {};

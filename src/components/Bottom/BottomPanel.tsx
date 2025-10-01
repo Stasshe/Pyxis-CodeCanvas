@@ -12,22 +12,32 @@ interface BottomPanelProps {
   currentProjectId?: string;
   projectFiles?: FileItem[];
   onResize: (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => void;
-  onTerminalFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string, isNodeRuntime?: boolean, isBufferArray?: boolean, bufferContent?: ArrayBuffer) => Promise<void>;
+  onTerminalFileOperation?: (
+    path: string,
+    type: 'file' | 'folder' | 'delete',
+    content?: string,
+    isNodeRuntime?: boolean,
+    isBufferArray?: boolean,
+    bufferContent?: ArrayBuffer
+  ) => Promise<void>;
 }
 
-export const outputMessagesRef: { current: OutputMessage[]; set?: React.Dispatch<React.SetStateAction<OutputMessage[]>> } = { current: [], set: undefined };
+const outputMessagesRef: {
+  current: OutputMessage[];
+  set?: React.Dispatch<React.SetStateAction<OutputMessage[]>>;
+} = { current: [], set: undefined };
 
-export function pushMsgOutPanel(msg: string, type?: 'info' | 'error' | 'warn' | 'check', context?: string) {
+export function pushMsgOutPanel(
+  msg: string,
+  type?: 'info' | 'error' | 'warn' | 'check',
+  context?: string
+) {
   if (outputMessagesRef.set) {
     outputMessagesRef.set(prev => {
       // 直前のメッセージと同じ内容・type・contextなら回数を増やす
       if (prev.length > 0) {
         const last = prev[prev.length - 1];
-        if (
-          last.message === msg &&
-          last.type === type &&
-          last.context === context
-        ) {
+        if (last.message === msg && last.type === type && last.context === context) {
           // 回数を記録するため、lastにcountプロパティを追加
           const newPrev = [...prev];
           // @ts-ignore
@@ -46,7 +56,14 @@ export function pushMsgOutPanel(msg: string, type?: 'info' | 'error' | 'warn' | 
 
 import DebugConsole from './DebugConsole';
 
-export default function BottomPanel({ height, currentProject, currentProjectId, projectFiles, onResize, onTerminalFileOperation }: BottomPanelProps) {
+export default function BottomPanel({
+  height,
+  currentProject,
+  currentProjectId,
+  projectFiles,
+  onResize,
+  onTerminalFileOperation,
+}: BottomPanelProps) {
   const { colors } = useTheme();
   const [activeTab, setActiveTab] = useState<'output' | 'terminal' | 'debug'>('terminal');
   const [outputMessages, setOutputMessages] = useState<OutputMessage[]>([]);
@@ -72,7 +89,7 @@ export default function BottomPanel({ height, currentProject, currentProjectId, 
         style={{
           height,
           background: colors.cardBg,
-          borderTop: `1px solid ${colors.border}`
+          borderTop: `1px solid ${colors.border}`,
         }}
       >
         {/* タブバー */}
@@ -98,12 +115,16 @@ export default function BottomPanel({ height, currentProject, currentProjectId, 
               outline: 'none',
               color: activeTab === 'output' ? colors.primary : colors.mutedFg,
               cursor: 'pointer',
-              borderBottom: activeTab === 'output' ? `2px solid ${colors.primary}` : `2px solid transparent`,
+              borderBottom:
+                activeTab === 'output' ? `2px solid ${colors.primary}` : `2px solid transparent`,
               transition: 'color 0.2s, border-bottom 0.2s',
             }}
             onClick={() => setActiveTab('output')}
             onMouseOver={e => (e.currentTarget.style.color = colors.primary)}
-            onMouseOut={e => (e.currentTarget.style.color = activeTab === 'output' ? colors.primary : colors.mutedFg)}
+            onMouseOut={e =>
+              (e.currentTarget.style.color =
+                activeTab === 'output' ? colors.primary : colors.mutedFg)
+            }
           >
             出力
           </button>
@@ -121,13 +142,17 @@ export default function BottomPanel({ height, currentProject, currentProjectId, 
               outline: 'none',
               color: activeTab === 'debug' ? colors.primary : colors.mutedFg,
               cursor: 'pointer',
-              borderBottom: activeTab === 'debug' ? `2px solid ${colors.primary}` : `2px solid transparent`,
+              borderBottom:
+                activeTab === 'debug' ? `2px solid ${colors.primary}` : `2px solid transparent`,
               transition: 'color 0.2s, border-bottom 0.2s',
               marginLeft: '2px',
             }}
             onClick={() => setActiveTab('debug')}
             onMouseOver={e => (e.currentTarget.style.color = colors.primary)}
-            onMouseOut={e => (e.currentTarget.style.color = activeTab === 'debug' ? colors.primary : colors.mutedFg)}
+            onMouseOut={e =>
+              (e.currentTarget.style.color =
+                activeTab === 'debug' ? colors.primary : colors.mutedFg)
+            }
           >
             デバッグコンソール
           </button>
@@ -145,18 +170,23 @@ export default function BottomPanel({ height, currentProject, currentProjectId, 
               outline: 'none',
               color: activeTab === 'terminal' ? colors.primary : colors.mutedFg,
               cursor: 'pointer',
-              borderBottom: activeTab === 'terminal' ? `2px solid ${colors.primary}` : `2px solid transparent`,
+              borderBottom:
+                activeTab === 'terminal' ? `2px solid ${colors.primary}` : `2px solid transparent`,
               transition: 'color 0.2s, border-bottom 0.2s',
               marginLeft: '2px',
             }}
             onClick={() => setActiveTab('terminal')}
             onMouseOver={e => (e.currentTarget.style.color = colors.primary)}
-            onMouseOut={e => (e.currentTarget.style.color = activeTab === 'terminal' ? colors.primary : colors.mutedFg)}
+            onMouseOut={e =>
+              (e.currentTarget.style.color =
+                activeTab === 'terminal' ? colors.primary : colors.mutedFg)
+            }
           >
             ターミナル
           </button>
-            {currentProject && (
-            <span className="ml-2 text-xs"
+          {currentProject && (
+            <span
+              className="ml-2 text-xs"
               style={{ color: colors.mutedFg, fontSize: '10px', marginLeft: '8px' }}
             >
               - {currentProject}
@@ -172,7 +202,8 @@ export default function BottomPanel({ height, currentProject, currentProjectId, 
               position: activeTab === 'output' ? 'static' : 'absolute',
               visibility: activeTab === 'output' ? 'visible' : 'hidden',
               pointerEvents: activeTab === 'output' ? 'auto' : 'none',
-              top: 0, left: 0,
+              top: 0,
+              left: 0,
             }}
           >
             <OutputPanel messages={outputMessages} />
@@ -184,7 +215,8 @@ export default function BottomPanel({ height, currentProject, currentProjectId, 
               position: activeTab === 'terminal' ? 'static' : 'absolute',
               visibility: activeTab === 'terminal' ? 'visible' : 'hidden',
               pointerEvents: activeTab === 'terminal' ? 'auto' : 'none',
-              top: 0, left: 0,
+              top: 0,
+              left: 0,
             }}
           >
             <Terminal
@@ -203,10 +235,14 @@ export default function BottomPanel({ height, currentProject, currentProjectId, 
               position: activeTab === 'debug' ? 'static' : 'absolute',
               visibility: activeTab === 'debug' ? 'visible' : 'hidden',
               pointerEvents: activeTab === 'debug' ? 'auto' : 'none',
-              top: 0, left: 0,
+              top: 0,
+              left: 0,
             }}
           >
-            <DebugConsole height={height} isActive={activeTab === 'debug'} />
+            <DebugConsole
+              height={height}
+              isActive={activeTab === 'debug'}
+            />
           </div>
         </div>
       </div>

@@ -42,6 +42,8 @@ export interface Tab {
     filePath: string;
   };
   webPreview?: boolean; // Added for WebPreviewTab
+  jumpToLine?: number; // 開いたときにジャンプする行番号（1始まり）
+  jumpToColumn?: number; // 開いたときにジャンプする列番号（1始まり）
 }
 
 // VSCode風ウィンドウ分割用エディタペイン型

@@ -13,12 +13,7 @@ interface FileSelectorProps {
   onFileSelect: (file: FileItem) => void;
 }
 
-export default function FileSelector({ 
-  isOpen, 
-  onClose, 
-  files, 
-  onFileSelect
-}: FileSelectorProps) {
+export default function FileSelector({ isOpen, onClose, files, onFileSelect }: FileSelectorProps) {
   // OperationWindowを使用してファイル選択（AI用）
   // AIの場合はファイルをタブで開くのではなく、コンテキストに追加するだけ
   return (

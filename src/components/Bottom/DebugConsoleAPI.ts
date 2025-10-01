@@ -1,12 +1,22 @@
 // DebugConsoleAPI.ts
 // DebugConsoleと連携するグローバルAPI
 
-export type DebugConsoleInputCallback = (input: string) => void;
-export type DebugConsoleActionCallback = (action: TerminalAction) => void;
+type DebugConsoleInputCallback = (input: string) => void;
+type DebugConsoleActionCallback = (action: TerminalAction) => void;
 
 // ターミナルアクション定義
 export interface TerminalAction {
-  type: 'log' | 'clear' | 'clearLine' | 'write' | 'writeln' | 'moveCursor' | 'deleteLines' | 'insertLines' | 'setTitle' | 'bell';
+  type:
+    | 'log'
+    | 'clear'
+    | 'clearLine'
+    | 'write'
+    | 'writeln'
+    | 'moveCursor'
+    | 'deleteLines'
+    | 'insertLines'
+    | 'setTitle'
+    | 'bell';
   data?: any;
 }
 
@@ -32,7 +42,7 @@ class DebugConsoleAPIClass {
   }
 
   // === ターミナル制御コマンド ===
-  
+
   // 画面をクリア
   clear() {
     this._emitAction({ type: 'clear' });
@@ -84,7 +94,7 @@ class DebugConsoleAPIClass {
   }
 
   // === 色付きテキスト出力のヘルパー ===
-  
+
   // 成功メッセージ（緑色）
   success(msg: string) {
     this.writeln(`\x1b[32m✓ ${msg}\x1b[0m`);
@@ -111,7 +121,7 @@ class DebugConsoleAPIClass {
   }
 
   // === プログレスバー ===
-  
+
   // プログレスバーを表示
   progress(percentage: number, width: number = 50, label?: string) {
     const filled = Math.floor((percentage / 100) * width);
@@ -128,7 +138,7 @@ class DebugConsoleAPIClass {
   }
 
   // === リスナー管理 ===
-  
+
   onInput(cb: DebugConsoleInputCallback) {
     this.inputListeners.push(cb);
     return () => {

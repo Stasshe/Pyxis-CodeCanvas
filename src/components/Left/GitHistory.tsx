@@ -1,33 +1,33 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useContext } from 'react';
-import { 
-  GitCommit, 
-  GitBranch, 
-  ChevronRight, 
-  ChevronDown, 
-  FileText, 
-  FilePlus, 
+import {
+  GitCommit,
+  GitBranch,
+  ChevronRight,
+  ChevronDown,
+  FileText,
+  FilePlus,
   FileMinus,
   User,
   Calendar,
   Hash,
-  FileDiff
+  FileDiff,
 } from 'lucide-react';
 import { GitCommit as GitCommitType } from '@/types/git';
-import { GitCommands } from '@/utils/cmd/git';
+import { GitCommands } from '@/engine/cmd/git';
 import { useTheme } from '@/context/ThemeContext';
-
 
 interface GitHistoryProps {
   commits: GitCommitType[];
   currentProject?: string;
   currentBranch: string;
-  onFileOperation?: (path: string, type: 'file' | 'folder' | 'delete', content?: string) => Promise<void>;
-  onDiffFileClick?: (params: {
-    commitId: string;
-    filePath: string;
-  }) => void;
+  onFileOperation?: (
+    path: string,
+    type: 'file' | 'folder' | 'delete',
+    content?: string
+  ) => Promise<void>;
+  onDiffFileClick?: (params: { commitId: string; filePath: string }) => void;
   onDiffAllFilesClick?: (params: { commitId: string; parentCommitId: string }) => void;
 }
 
@@ -44,7 +44,14 @@ interface ExtendedCommit extends GitCommitType {
   changes?: CommitChanges;
 }
 
-export default function GitHistory({ commits, currentProject, currentBranch, onFileOperation, onDiffFileClick, onDiffAllFilesClick }: GitHistoryProps) {
+export default function GitHistory({
+  commits,
+  currentProject,
+  currentBranch,
+  onFileOperation,
+  onDiffFileClick,
+  onDiffAllFilesClick,
+}: GitHistoryProps) {
   const [extendedCommits, setExtendedCommits] = useState<ExtendedCommit[]>([]);
   const [expandedCommits, setExpandedCommits] = useState<Set<string>>(new Set());
   const [commitChanges, setCommitChanges] = useState<Map<string, CommitChanges>>(new Map());
@@ -78,9 +85,9 @@ export default function GitHistory({ commits, currentProject, currentBranch, onF
     });
   };
 
-    // ThemeContextから色を取得
+  // ThemeContextから色を取得
   const { colors } = useTheme();
-  
+
   // ブランチカラーのパレット（ThemeContextから取得、なければデフォルト）
   const branchColors = colors.gitBranchColors || [
     '#3b82f6', // blue
@@ -106,10 +113,10 @@ export default function GitHistory({ commits, currentProject, currentBranch, onF
   useEffect(() => {
     if (commits.length === 0) return;
 
-  // トポロジカルソートで順序保証（古い順）
-  let sortedCommits = topoSortCommits(commits);
-  // 新しいコミットが上に来るよう逆順に
-  sortedCommits = sortedCommits.reverse();
+    // トポロジカルソートで順序保証（古い順）
+    let sortedCommits = topoSortCommits(commits);
+    // 新しいコミットが上に来るよう逆順に
+    sortedCommits = sortedCommits.reverse();
 
     // 全ての親コミットが含まれるように
     const branchMap = new Map<string, number>();
@@ -135,7 +142,7 @@ export default function GitHistory({ commits, currentProject, currentBranch, onF
         ...commit,
         x: branchIdx * BRANCH_WIDTH + 15,
         y: commitY,
-        branchColor: branchColors[colorIndex]
+        branchColor: branchColors[colorIndex],
       };
     });
 
@@ -155,17 +162,19 @@ export default function GitHistory({ commits, currentProject, currentBranch, onF
       if (!currentCommit || currentCommit.parentHashes.length === 0) {
         // 親コミットがない場合（初回コミット）は空の変更として扱う
         console.log('[GitHistory] No parent commits found for:', commitHash);
-        setCommitChanges(prev => new Map(prev).set(commitHash, { added: [], modified: [], deleted: [] }));
+        setCommitChanges(prev =>
+          new Map(prev).set(commitHash, { added: [], modified: [], deleted: [] })
+        );
         return;
       }
 
       // 最初の親コミットと比較（マージコミットの場合も最初の親を使用）
       const parentHash = currentCommit.parentHashes[0];
       console.log('[GitHistory] Comparing commits:', parentHash, 'vs', commitHash);
-      
+
       const diffOutput = await gitCommands.diffCommits(parentHash, commitHash);
       console.log('[GitHistory] Raw diff output:', diffOutput);
-      
+
       const changes = parseDiffOutput(diffOutput);
       setCommitChanges(prev => new Map(prev).set(commitHash, changes));
     } catch (error) {
@@ -178,10 +187,14 @@ export default function GitHistory({ commits, currentProject, currentBranch, onF
     const changes: CommitChanges = {
       added: [],
       modified: [],
-      deleted: []
+      deleted: [],
     };
 
-    if (!diffOutput || diffOutput.trim() === '' || diffOutput === 'No differences between commits') {
+    if (
+      !diffOutput ||
+      diffOutput.trim() === '' ||
+      diffOutput === 'No differences between commits'
+    ) {
       return changes;
     }
 
@@ -258,21 +271,30 @@ export default function GitHistory({ commits, currentProject, currentBranch, onF
   // ファイルタイプのアイコンを取得
   const getFileIcon = (type: 'added' | 'modified' | 'deleted') => {
     switch (type) {
-      case 'added': return <FilePlus className="w-2.5 h-2.5 text-green-500" />; // w-3 h-3 -> w-2.5 h-2.5
-      case 'modified': return <FileText className="w-2.5 h-2.5 text-blue-500" />; // w-3 h-3 -> w-2.5 h-2.5
-      case 'deleted': return <FileMinus className="w-2.5 h-2.5 text-red-500" />; // w-3 h-3 -> w-2.5 h-2.5
+      case 'added':
+        return <FilePlus className="w-2.5 h-2.5 text-green-500" />; // w-3 h-3 -> w-2.5 h-2.5
+      case 'modified':
+        return <FileText className="w-2.5 h-2.5 text-blue-500" />; // w-3 h-3 -> w-2.5 h-2.5
+      case 'deleted':
+        return <FileMinus className="w-2.5 h-2.5 text-red-500" />; // w-3 h-3 -> w-2.5 h-2.5
     }
   };
 
   return (
-    <div className="h-full flex flex-col" style={{ background: colors.sidebarBg, color: colors.sidebarFg }}>
+    <div
+      className="h-full flex flex-col"
+      style={{ background: colors.sidebarBg, color: colors.sidebarFg }}
+    >
       <div className="flex-1 overflow-auto">
-        <div className="relative min-w-0" style={{ overflow: 'visible' }}>
+        <div
+          className="relative min-w-0"
+          style={{ overflow: 'visible' }}
+        >
           {/* SVG for git graph lines */}
           <svg
             ref={svgRef}
             className="absolute top-0 left-0 pointer-events-none flex-shrink-0"
-            style={{ 
+            style={{
               height: `${svgHeight}px`,
               width: '60px',
               overflow: 'visible',
@@ -370,7 +392,7 @@ export default function GitHistory({ commits, currentProject, currentBranch, onF
               return lines;
             })}
             {/* Draw commit points */}
-            {extendedCommits.map((commit) => (
+            {extendedCommits.map(commit => (
               <g key={`point-${commit.hash}`}>
                 <circle
                   cx={commit.x}
@@ -393,19 +415,29 @@ export default function GitHistory({ commits, currentProject, currentBranch, onF
           </svg>
           {/* Commit list */}
           <div className="pl-12 space-y-0.5">
-            {extendedCommits.map((commit) => (
-              <div key={commit.hash} className="relative">
+            {extendedCommits.map(commit => (
+              <div
+                key={commit.hash}
+                className="relative"
+              >
                 {/* Branch indicator - 展開時には全体の高さをカバー */}
-                <div 
+                <div
                   className="absolute left-0 w-0.5 rounded-r"
-                  style={{ background: commit.branchColor, top: 0, bottom: 0, height: expandedCommits.has(commit.hash) ? 'auto' : '100%' }}
+                  style={{
+                    background: commit.branchColor,
+                    top: 0,
+                    bottom: 0,
+                    height: expandedCommits.has(commit.hash) ? 'auto' : '100%',
+                  }}
                 />
                 {/* Main commit row */}
                 <div
                   className="flex items-center py-1.5 px-2 rounded-sm cursor-pointer group"
                   style={{
                     minHeight: '36px',
-                    background: expandedCommits.has(commit.hash) ? colors.gitCommitExpandedBg : undefined,
+                    background: expandedCommits.has(commit.hash)
+                      ? colors.gitCommitExpandedBg
+                      : undefined,
                     color: colors.sidebarFg,
                     border: '1.5px solid transparent',
                     transition: 'border-color 0.2s',
@@ -421,84 +453,139 @@ export default function GitHistory({ commits, currentProject, currentBranch, onF
                   }}
                 >
                   {/* Expand/collapse icon - SVGと同じ高さに配置 */}
-                  <div className="mr-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center" style={{ height: '20px', width: '12px' }}>
+                  <div
+                    className="mr-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center"
+                    style={{ height: '20px', width: '12px' }}
+                  >
                     {expandedCommits.has(commit.hash) ? (
-                      <ChevronDown style={{ color: colors.gitCommitChevron || 'var(--muted-foreground)' }} className="w-3 h-3" />
+                      <ChevronDown
+                        style={{ color: colors.gitCommitChevron || 'var(--muted-foreground)' }}
+                        className="w-3 h-3"
+                      />
                     ) : (
-                      <ChevronRight style={{ color: colors.gitCommitChevron || 'var(--muted-foreground)' }} className="w-3 h-3" />
+                      <ChevronRight
+                        style={{ color: colors.gitCommitChevron || 'var(--muted-foreground)' }}
+                        className="w-3 h-3"
+                      />
                     )}
                   </div>
                   {/* Commit info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 text-xs overflow-hidden">
-                            {/* コミットメッセージ */}
-                            <span className="font-medium truncate max-w-32 lg:max-w-48 flex-shrink-0" title={commit.message} style={{ color: colors.gitCommitMsg || colors.sidebarFg }}>
-                              {commit.message.length > 40 ? `${commit.message.substring(0, 40)}...` : commit.message}
-                            </span>
-                            {/* Diffタブを開くアイコン */}
-                            {commit.parentHashes && commit.parentHashes.length > 0 && onDiffAllFilesClick && (
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 text-xs overflow-hidden">
+                          {/* コミットメッセージ */}
+                          <span
+                            className="font-medium truncate max-w-32 lg:max-w-48 flex-shrink-0"
+                            title={commit.message}
+                            style={{ color: colors.gitCommitMsg || colors.sidebarFg }}
+                          >
+                            {commit.message.length > 40
+                              ? `${commit.message.substring(0, 40)}...`
+                              : commit.message}
+                          </span>
+                          {/* Diffタブを開くアイコン */}
+                          {commit.parentHashes &&
+                            commit.parentHashes.length > 0 &&
+                            onDiffAllFilesClick && (
                               <button
                                 className="ml-1 p-0.5 rounded hover:bg-gray-700"
                                 title="このコミットの全ファイルdiffを表示"
-                                style={{ verticalAlign: 'middle', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                                style={{
+                                  verticalAlign: 'middle',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                }}
                                 onClick={e => {
                                   e.stopPropagation();
-                                  onDiffAllFilesClick({ commitId: commit.hash, parentCommitId: commit.parentHashes[0] });
+                                  onDiffAllFilesClick({
+                                    commitId: commit.hash,
+                                    parentCommitId: commit.parentHashes[0],
+                                  });
                                 }}
                               >
                                 <FileDiff className="w-4 h-4 text-blue-400" />
                               </button>
                             )}
-                            {/* メタデータ */}
-                            <span className="flex items-center gap-1 flex-shrink-0" style={{ color: colors.gitCommitMeta || 'var(--muted-foreground)' }}>
-                              <Calendar className="w-2.5 h-2.5" />
-                              <span className="whitespace-nowrap">{getRelativeTime(commit.timestamp)}</span>
+                          {/* メタデータ */}
+                          <span
+                            className="flex items-center gap-1 flex-shrink-0"
+                            style={{ color: colors.gitCommitMeta || 'var(--muted-foreground)' }}
+                          >
+                            <Calendar className="w-2.5 h-2.5" />
+                            <span className="whitespace-nowrap">
+                              {getRelativeTime(commit.timestamp)}
                             </span>
-                            <span className="flex items-center gap-1 flex-shrink-0 hidden sm:flex" style={{ color: colors.gitCommitMeta || 'var(--muted-foreground)' }}>
-                              <Hash className="w-2.5 h-2.5" />
-                              <span className="font-mono">{commit.shortHash}</span>
-                            </span>
-                            {/* UI表示専用: uiBranches配列の全ブランチ名をラベル表示 */}
-                            {Array.isArray(commit.uiBranches) && commit.uiBranches.length > 0 && (
-                              <div className="flex gap-1">
-                                {commit.uiBranches.map((branchName, idx) => {
-                                  // 色分け: branchColorsからインデックス算出
-                                  const branchIdx = branchColors.findIndex((_, i) => i === idx);
-                                  const colorIndex = branchIdx >= 0 ? branchIdx % branchColors.length : 0;
-                                  const isCurrentBranch = branchName === currentBranch;
-                                  return (
-                                    <span
-                                      key={branchName}
-                                      className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium flex-shrink-0 whitespace-nowrap border`}
-                                      style={{
-                                        background: isCurrentBranch ? colors.gitBranchCurrentBg : colors.gitBranchOtherBg,
-                                        color: isCurrentBranch ? colors.gitBranchCurrentFg : colors.gitBranchOtherFg,
-                                        borderColor: isCurrentBranch ? colors.gitBranchCurrentBorder : colors.gitBranchOtherBorder
-                                      }}
-                                    >
-                                      <GitBranch className="w-2.5 h-2.5" />
-                                      {branchName}
-                                    </span>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
+                          </span>
+                          <span
+                            className="flex items-center gap-1 flex-shrink-0 hidden sm:flex"
+                            style={{ color: colors.gitCommitMeta || 'var(--muted-foreground)' }}
+                          >
+                            <Hash className="w-2.5 h-2.5" />
+                            <span className="font-mono">{commit.shortHash}</span>
+                          </span>
+                          {/* UI表示専用: uiBranches配列の全ブランチ名をラベル表示 */}
+                          {Array.isArray(commit.uiBranches) && commit.uiBranches.length > 0 && (
+                            <div className="flex gap-1">
+                              {commit.uiBranches.map((branchName, idx) => {
+                                // 色分け: branchColorsからインデックス算出
+                                const branchIdx = branchColors.findIndex((_, i) => i === idx);
+                                const colorIndex =
+                                  branchIdx >= 0 ? branchIdx % branchColors.length : 0;
+                                const isCurrentBranch = branchName === currentBranch;
+                                return (
+                                  <span
+                                    key={branchName}
+                                    className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium flex-shrink-0 whitespace-nowrap border`}
+                                    style={{
+                                      background: isCurrentBranch
+                                        ? colors.gitBranchCurrentBg
+                                        : colors.gitBranchOtherBg,
+                                      color: isCurrentBranch
+                                        ? colors.gitBranchCurrentFg
+                                        : colors.gitBranchOtherFg,
+                                      borderColor: isCurrentBranch
+                                        ? colors.gitBranchCurrentBorder
+                                        : colors.gitBranchOtherBorder,
+                                    }}
+                                  >
+                                    <GitBranch className="w-2.5 h-2.5" />
+                                    {branchName}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
-                        {commit.isMerge && (
-                          <div className="ml-1.5 flex items-center" style={{ color: colors.gitMergeIcon || '#a855f7' }}>
-                            <GitCommit className="w-3 h-3" />
-                          </div>
-                        )}
                       </div>
+                      {commit.isMerge && (
+                        <div
+                          className="ml-1.5 flex items-center"
+                          style={{ color: colors.gitMergeIcon || '#a855f7' }}
+                        >
+                          <GitCommit className="w-3 h-3" />
+                        </div>
+                      )}
                     </div>
+                  </div>
                 </div>
                 {/* Expanded commit changes */}
                 {expandedCommits.has(commit.hash) && (
-                  <div className="ml-6 mr-2 mb-2 p-3 rounded-md border-l-2" style={{ background: colors.gitCommitExpandedBg, borderColor: colors.gitCommitExpandedBorder, color: colors.sidebarFg }}>
-                    <div className="text-xs mb-2 font-medium" style={{ color: colors.gitCommitMeta || 'var(--muted-foreground)' }}>変更されたファイル:</div>
+                  <div
+                    className="ml-6 mr-2 mb-2 p-3 rounded-md border-l-2"
+                    style={{
+                      background: colors.gitCommitExpandedBg,
+                      borderColor: colors.gitCommitExpandedBorder,
+                      color: colors.sidebarFg,
+                    }}
+                  >
+                    <div
+                      className="text-xs mb-2 font-medium"
+                      style={{ color: colors.gitCommitMeta || 'var(--muted-foreground)' }}
+                    >
+                      変更されたファイル:
+                    </div>
                     {commitChanges.has(commit.hash) ? (
                       <div className="space-y-1">
                         {(() => {
@@ -506,11 +593,14 @@ export default function GitHistory({ commits, currentProject, currentBranch, onF
                           const allFiles = [
                             ...changes.added.map(f => ({ file: f, type: 'added' as const })),
                             ...changes.modified.map(f => ({ file: f, type: 'modified' as const })),
-                            ...changes.deleted.map(f => ({ file: f, type: 'deleted' as const }))
+                            ...changes.deleted.map(f => ({ file: f, type: 'deleted' as const })),
                           ];
                           if (allFiles.length === 0) {
                             return (
-                              <div className="text-xs italic py-1" style={{ color: colors.gitCommitMeta || 'var(--muted-foreground)' }}>
+                              <div
+                                className="text-xs italic py-1"
+                                style={{ color: colors.gitCommitMeta || 'var(--muted-foreground)' }}
+                              >
                                 変更ファイルが見つかりません
                               </div>
                             );
@@ -527,13 +617,21 @@ export default function GitHistory({ commits, currentProject, currentBranch, onF
                               title="このファイルの差分を表示"
                             >
                               {getFileIcon(type)}
-                              <span className="font-mono truncate flex-1" style={{ color: colors.gitCommitFile || colors.sidebarFg }}>{file}</span>
+                              <span
+                                className="font-mono truncate flex-1"
+                                style={{ color: colors.gitCommitFile || colors.sidebarFg }}
+                              >
+                                {file}
+                              </span>
                             </div>
                           ));
                         })()}
                       </div>
                     ) : (
-                      <div className="text-xs py-1" style={{ color: colors.gitCommitMeta || 'var(--muted-foreground)' }}>
+                      <div
+                        className="text-xs py-1"
+                        style={{ color: colors.gitCommitMeta || 'var(--muted-foreground)' }}
+                      >
                         変更情報を読み込み中...
                       </div>
                     )}

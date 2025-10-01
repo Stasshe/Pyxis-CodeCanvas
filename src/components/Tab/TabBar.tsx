@@ -2,7 +2,7 @@ import { X, Plus, Menu } from 'lucide-react';
 import clsx from 'clsx';
 import React, { useState, useRef, useEffect } from 'react';
 import { Tab } from '@/types';
-import { FILE_CHANGE_EVENT } from '@/utils/fileWatcher';
+import { FILE_CHANGE_EVENT } from '@/engine/fileWatcher';
 import { useTheme } from '@/context/ThemeContext';
 
 interface TabBarProps {
@@ -42,13 +42,13 @@ export default function TabBar({
   removeAllTabs,
   availablePanes = [],
   onMoveTabToPane,
-  onSplitPane
+  onSplitPane,
 }: TabBarProps) {
   const { colors } = useTheme();
   // メニューの開閉状態管理
   const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef < HTMLDivElement > (null);
-  
+  const menuRef = useRef<HTMLDivElement>(null);
+
   // タブコンテキストメニューの状態管理
   const [tabContextMenu, setTabContextMenu] = useState<{
     isOpen: boolean;
@@ -100,19 +100,19 @@ export default function TabBar({
     window.dispatchEvent(new CustomEvent('pyxis-save-restart'));
   };
 
-    // Ctrl+S で保存再起動
-    useEffect(() => {
-      const handleKeyDown = (e: KeyboardEvent) => {
-        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
-          e.preventDefault();
-          handleSaveRestart();
-        }
-      };
-      window.addEventListener('keydown', handleKeyDown);
-      return () => {
-        window.removeEventListener('keydown', handleKeyDown);
-      };
-    }, []);
+  // Ctrl+S で保存再起動
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        handleSaveRestart();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
 
   // タブ右クリックハンドラ
   const handleTabRightClick = (e: React.MouseEvent, tabId: string) => {
@@ -122,7 +122,7 @@ export default function TabBar({
       isOpen: true,
       tabId,
       x: e.clientX,
-      y: e.clientY
+      y: e.clientY,
     });
   };
 
@@ -135,7 +135,7 @@ export default function TabBar({
       isOpen: true,
       tabId,
       x: touch.clientX,
-      y: touch.clientY
+      y: touch.clientY,
     });
   };
 
@@ -189,9 +189,12 @@ export default function TabBar({
         <button
           className="p-1 rounded hover:bg-accent"
           style={{ background: undefined }}
-          onClick={() => setMenuOpen((open) => !open)}
+          onClick={() => setMenuOpen(open => !open)}
         >
-          <Menu size={20} color={colors.accentFg} />
+          <Menu
+            size={20}
+            color={colors.accentFg}
+          />
         </button>
         {/* メニュー表示 */}
         {menuOpen && (
@@ -206,20 +209,71 @@ export default function TabBar({
               WebkitTouchCallout: 'none',
               MozUserSelect: 'none',
               msUserSelect: 'none',
-              touchAction: 'manipulation'
+              touchAction: 'manipulation',
             }}
           >
             <div className="flex gap-1 ml-2">
-              <button className="px-2 py-1 text-xs bg-accent rounded" onClick={() => { setMenuOpen(false); addEditorPane(); }} title="ペイン追加">＋</button>
-              <button className="px-2 py-1 text-xs bg-destructive rounded" onClick={() => { setMenuOpen(false); removeEditorPane(); }} title="ペイン削除">－</button>
+              <button
+                className="px-2 py-1 text-xs bg-accent rounded"
+                onClick={() => {
+                  setMenuOpen(false);
+                  addEditorPane();
+                }}
+                title="ペイン追加"
+              >
+                ＋
+              </button>
+              <button
+                className="px-2 py-1 text-xs bg-destructive rounded"
+                onClick={() => {
+                  setMenuOpen(false);
+                  removeEditorPane();
+                }}
+                title="ペイン削除"
+              >
+                －
+              </button>
               {onSplitPane && (
                 <>
-                  <button className="px-2 py-1 text-xs bg-secondary rounded" onClick={() => { setMenuOpen(false); onSplitPane('vertical'); }} title="縦分割">｜</button>
-                  <button className="px-2 py-1 text-xs bg-secondary rounded" onClick={() => { setMenuOpen(false); onSplitPane('horizontal'); }} title="横分割">－</button>
+                  <button
+                    className="px-2 py-1 text-xs bg-secondary rounded"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onSplitPane('vertical');
+                    }}
+                    title="縦分割"
+                  >
+                    ｜
+                  </button>
+                  <button
+                    className="px-2 py-1 text-xs bg-secondary rounded"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onSplitPane('horizontal');
+                    }}
+                    title="横分割"
+                  >
+                    －
+                  </button>
                 </>
               )}
-              <button className="px-2 py-1 text-xs bg-warning rounded" onClick={() => { setMenuOpen(false); removeAllTabs(); }} title="タブ全削除">🗑️</button>
-              <button className="px-2 py-1 text-xs bg-primary rounded" onClick={handleSaveRestart} title="保存再起動">💾</button>
+              <button
+                className="px-2 py-1 text-xs bg-warning rounded"
+                onClick={() => {
+                  setMenuOpen(false);
+                  removeAllTabs();
+                }}
+                title="タブ全削除"
+              >
+                🗑️
+              </button>
+              <button
+                className="px-2 py-1 text-xs bg-primary rounded"
+                onClick={handleSaveRestart}
+                title="保存再起動"
+              >
+                💾
+              </button>
             </div>
           </div>
         )}
@@ -238,65 +292,76 @@ export default function TabBar({
               color: tab.id === activeTabId ? colors.foreground : colors.mutedFg,
             }}
             onClick={() => onTabClick(tab.id)}
-            onContextMenu={(e) => handleTabRightClick(e, tab.id)}
-            onTouchStart={(e) => {
+            onContextMenu={e => handleTabRightClick(e, tab.id)}
+            onTouchStart={e => {
               // 長押し検出のためのタイマー設定
               const timer = setTimeout(() => {
                 handleTabLongPress(e, tab.id);
               }, 500); // 500msで長押し判定
-              
+
               const handleTouchEnd = () => {
                 clearTimeout(timer);
                 document.removeEventListener('touchend', handleTouchEnd);
                 document.removeEventListener('touchmove', handleTouchMove);
               };
-              
+
               const handleTouchMove = () => {
                 clearTimeout(timer);
                 document.removeEventListener('touchend', handleTouchEnd);
                 document.removeEventListener('touchmove', handleTouchMove);
               };
-              
+
               document.addEventListener('touchend', handleTouchEnd);
               document.addEventListener('touchmove', handleTouchMove);
             }}
           >
-            <span className="tab-label" style={{
-              color: tab.isDirty ? colors.accent : colors.foreground,
-              userSelect: 'none',
-              WebkitUserSelect: 'none',
-              WebkitTouchCallout: 'none',
-              MozUserSelect: 'none',
-              msUserSelect: 'none',
-              touchAction: 'manipulation',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'flex-start'
-            }}>
+            <span
+              className="tab-label"
+              style={{
+                color: tab.isDirty ? colors.accent : colors.foreground,
+                userSelect: 'none',
+                WebkitUserSelect: 'none',
+                WebkitTouchCallout: 'none',
+                MozUserSelect: 'none',
+                msUserSelect: 'none',
+                touchAction: 'manipulation',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'flex-start',
+              }}
+            >
               <span>
                 {tab.preview && (
-                  <span style={{
-                    fontSize: '0.7em',
-                    opacity: 0.7,
-                    marginRight: '4px',
-                    userSelect: 'none',
-                    WebkitUserSelect: 'none',
-                    WebkitTouchCallout: 'none',
-                    MozUserSelect: 'none',
-                    msUserSelect: 'none'
-                  }}>(Preview)</span>
+                  <span
+                    style={{
+                      fontSize: '0.7em',
+                      opacity: 0.7,
+                      marginRight: '4px',
+                      userSelect: 'none',
+                      WebkitUserSelect: 'none',
+                      WebkitTouchCallout: 'none',
+                      MozUserSelect: 'none',
+                      msUserSelect: 'none',
+                    }}
+                  >
+                    (Preview)
+                  </span>
                 )}
                 {tab.aiReviewProps && (
-                  <span style={{
-                    fontSize: '0.7em',
-                    opacity: 0.7,
-                    marginRight: '4px',
-                    userSelect: 'none',
-                    WebkitUserSelect: 'none',
-                    WebkitTouchCallout: 'none',
-                    MozUserSelect: 'none',
-                    msUserSelect: 'none'
-                  }}>🤖</span>
+                  <span
+                    style={{
+                      fontSize: '0.7em',
+                      opacity: 0.7,
+                      marginRight: '4px',
+                      userSelect: 'none',
+                      WebkitUserSelect: 'none',
+                      WebkitTouchCallout: 'none',
+                      MozUserSelect: 'none',
+                      msUserSelect: 'none',
+                    }}
+                  >
+                    🤖
+                  </span>
                 )}
                 {tab.name}
               </span>
@@ -307,16 +372,26 @@ export default function TabBar({
                 </span>
               )}
             </span>
-            {tab.isDirty && <span className="ml-1 text-xs" style={{ color: colors.red }}>●</span>}
+            {tab.isDirty && (
+              <span
+                className="ml-1 text-xs"
+                style={{ color: colors.red }}
+              >
+                ●
+              </span>
+            )}
             <button
               className="ml-2 p-1 rounded hover:bg-accent"
               style={{ background: undefined }}
-              onClick={(e) => {
+              onClick={e => {
                 e.stopPropagation();
                 onTabClose(tab.id);
               }}
             >
-              <X size={12} color={colors.mutedFg} />
+              <X
+                size={12}
+                color={colors.mutedFg}
+              />
             </button>
           </div>
         ))}
@@ -325,10 +400,13 @@ export default function TabBar({
           style={{ background: undefined }}
           onClick={onAddTab}
         >
-          <Plus size={16} color={colors.accentFg} />
+          <Plus
+            size={16}
+            color={colors.accentFg}
+          />
         </button>
       </div>
-      
+
       {/* タブコンテキストメニュー */}
       {tabContextMenu.isOpen && (
         <div
@@ -344,7 +422,7 @@ export default function TabBar({
             WebkitTouchCallout: 'none',
             MozUserSelect: 'none',
             msUserSelect: 'none',
-            touchAction: 'manipulation'
+            touchAction: 'manipulation',
           }}
         >
           <div className="text-xs text-muted-foreground mb-2 px-2">タブアクション</div>
@@ -357,7 +435,7 @@ export default function TabBar({
           >
             タブを閉じる
           </button>
-          
+
           {/* ペイン移動メニュー */}
           {availablePanes.length > 1 && (
             <>
@@ -372,8 +450,7 @@ export default function TabBar({
                   >
                     {pane.name}
                   </button>
-                ))
-              }
+                ))}
             </>
           )}
         </div>

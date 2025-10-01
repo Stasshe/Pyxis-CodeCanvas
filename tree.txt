@@ -2,6 +2,7 @@
 ├── Development
 │   ├── DATABASE.md
 │   ├── TODO.md
+│   ├── Tauri-Setup.md
 │   ├── ai-agent-implementation-plan.md
 │   ├── all-flow.svg
 │   └── git-deletion-detection-analysis.md
@@ -25,6 +26,7 @@
 │   │   └── style.css
 │   ├── src
 │   │   ├── debugConsoleDemo.js
+│   │   ├── fibonacci.py
 │   │   ├── fileOperationg.js
 │   │   ├── index.js
 │   │   └── readline_test.js
@@ -120,6 +122,54 @@
 │   ├── context
 │   │   ├── ThemeContext.tsx
 │   │   └── config.ts
+│   ├── engine
+│   │   ├── ai
+│   │   │   ├── contextBuilder.ts
+│   │   │   ├── diffProcessor.ts
+│   │   │   ├── fetchAI.ts
+│   │   │   └── prompts.ts
+│   │   ├── cmd
+│   │   │   ├── git.ts
+│   │   │   ├── gitOperations
+│   │   │   │   ├── checkout.ts
+│   │   │   │   ├── diff.ts
+│   │   │   │   ├── fileSystemHelper.ts
+│   │   │   │   ├── log.ts
+│   │   │   │   ├── merge.ts
+│   │   │   │   ├── reset.ts
+│   │   │   │   └── revert.ts
+│   │   │   ├── npm.ts
+│   │   │   ├── npmOperations
+│   │   │   │   ├── npmDependencySize.ts
+│   │   │   │   └── npmInstall.ts
+│   │   │   └── unix.ts
+│   │   ├── commitMsgAI.ts
+│   │   ├── core
+│   │   │   ├── database.ts
+│   │   │   ├── filesystem.ts
+│   │   │   └── project.ts
+│   │   ├── export
+│   │   │   ├── exportFolderZip.ts
+│   │   │   ├── exportIndexeddb.ts
+│   │   │   ├── exportPage.ts
+│   │   │   ├── exportPdf.ts
+│   │   │   ├── exportRepo.ts
+│   │   │   ├── exportSingleFile.ts
+│   │   │   └── inlineHtmlAssets.ts
+│   │   ├── fileWatcher.ts
+│   │   ├── helper
+│   │   │   ├── isBufferArray.ts
+│   │   │   └── resize.ts
+│   │   ├── import
+│   │   │   └── importSingleFile.ts
+│   │   ├── initialFileContents.ts
+│   │   ├── node
+│   │   │   ├── builtInModule.ts
+│   │   │   └── esModuleTransformer.ts
+│   │   ├── openTab.ts
+│   │   └── runtime
+│   │       ├── nodeRuntime.ts
+│   │       └── pyodideRuntime.ts
 │   ├── hooks
 │   │   ├── fileSelectHandlers.ts
 │   │   ├── gitHooks.ts
@@ -130,76 +180,26 @@
 │   │   ├── useChatSpace.ts
 │   │   ├── useDiffTabHandlers.ts
 │   │   └── useInputHistory.ts
-│   ├── types
-│   │   ├── git.ts
-│   │   ├── index.ts
-│   │   ├── path-browserify.d.ts
-│   │   └── vm-browserify.d.ts
-│   └── utils
-│       ├── ai
-│       │   ├── contextBuilder.ts
-│       │   ├── diffProcessor.ts
-│       │   ├── fetchAI.ts
-│       │   └── prompts.ts
-│       ├── cmd
-│       │   ├── git.ts
-│       │   ├── gitOperations
-│       │   │   ├── checkout.ts
-│       │   │   ├── diff.ts
-│       │   │   ├── fileSystemHelper.ts
-│       │   │   ├── log.ts
-│       │   │   ├── merge.ts
-│       │   │   ├── reset.ts
-│       │   │   └── revert.ts
-│       │   ├── npm.ts
-│       │   ├── npmOperations
-│       │   │   ├── npmDependencySize.ts
-│       │   │   └── npmInstall.ts
-│       │   └── unix.ts
-│       ├── commitMsgAI.ts
-│       ├── core
-│       │   ├── database.ts
-│       │   ├── filesystem.ts
-│       │   └── project.ts
-│       ├── export
-│       │   ├── exportFolderZip.ts
-│       │   ├── exportIndexeddb.ts
-│       │   ├── exportPage.ts
-│       │   ├── exportPdf.ts
-│       │   ├── exportRepo.ts
-│       │   ├── exportSingleFile.ts
-│       │   └── inlineHtmlAssets.ts
-│       ├── fileWatcher.ts
-│       ├── helper
-│       │   ├── isBufferArray.ts
-│       │   └── resize.ts
-│       ├── import
-│       │   └── importSingleFile.ts
-│       ├── initialFileContents.ts
-│       ├── node
-│       │   ├── builtInModule.ts
-│       │   ├── cdnLoader.ts
-│       │   └── esModuleTransformer.ts
-│       ├── openTab.ts
-│       └── runtime
-│           ├── nodeRuntime.ts
-│           └── pyodideRuntime.ts
+│   └── types
+│       ├── git.ts
+│       ├── index.ts
+│       ├── path-browserify.d.ts
+│       └── vm-browserify.d.ts
 ├── tailwind.config.ts
 ├── tree-built-out.sh
 ├── tree.sh
 ├── tree.txt
-├── tsconfig.json
-└── tsconfig.tsbuildinfo
+└── tsconfig.json
 
 32 directories, 160 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 27153
-合計文字数: 989287
-合計ファイルサイズ(bytes): 1068998
+合計行数: 30800
+合計文字数: 1054822
+合計ファイルサイズ(bytes): 1137571
 
 リポジトリ全体のサイズ(bytes): 1.7G	.
 ==========
-ビルト済みファイルの行数: 14752
-合計文字数: 22144272
-合計ファイルサイズ(bytes): 23073865
+ビルト済みファイルの行数: 14742
+合計文字数: 22162473
+合計ファイルサイズ(bytes): 23093104

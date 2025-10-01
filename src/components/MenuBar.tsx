@@ -10,27 +10,39 @@ interface MenuBarProps {
   gitChangesCount?: number; // Git変更ファイル数
 }
 
-export default function MenuBar({ activeMenuTab, onMenuTabClick, onProjectClick, gitChangesCount = 0 }: MenuBarProps) {
+export default function MenuBar({
+  activeMenuTab,
+  onMenuTabClick,
+  onProjectClick,
+  gitChangesCount = 0,
+}: MenuBarProps) {
   const { colors } = useTheme();
   return (
-    <div style={{
-      width: '3rem',
-      background: colors.mutedBg,
-      borderRight: `1px solid ${colors.border}`,
-      display: 'flex',
-      flexDirection: 'column',
-      flexShrink: 0,
-      height: '100%',
-      userSelect: 'none',
-    }}>
+    <div
+      style={{
+        width: '3rem',
+        background: colors.mutedBg,
+        borderRight: `1px solid ${colors.border}`,
+        display: 'flex',
+        flexDirection: 'column',
+        flexShrink: 0,
+        height: '100%',
+        userSelect: 'none',
+      }}
+    >
       {/* 上部のメニューボタン */}
       <div style={{ display: 'flex', flexDirection: 'column' }}>
         {['files', 'search', 'git', 'run', 'settings'].map(tab => {
-          const Icon = tab === 'files' ? FileText
-            : tab === 'search' ? Search
-              : tab === 'git' ? GitBranch
-                : tab === 'run' ? Play
-                  : Settings;
+          const Icon =
+            tab === 'files'
+              ? FileText
+              : tab === 'search'
+                ? Search
+                : tab === 'git'
+                  ? GitBranch
+                  : tab === 'run'
+                    ? Play
+                    : Settings;
           const isActive = activeMenuTab === tab;
           return (
             <button
@@ -48,7 +60,17 @@ export default function MenuBar({ activeMenuTab, onMenuTabClick, onProjectClick,
                 cursor: 'pointer',
               }}
               onClick={() => onMenuTabClick(tab as MenuTab)}
-              title={tab === 'files' ? 'ファイル' : tab === 'search' ? '検索' : tab === 'git' ? 'Git' : tab === 'run' ? '実行' : '設定'}
+              title={
+                tab === 'files'
+                  ? 'ファイル'
+                  : tab === 'search'
+                    ? '検索'
+                    : tab === 'git'
+                      ? 'Git'
+                      : tab === 'run'
+                        ? '実行'
+                        : '設定'
+              }
             >
               <Icon size={20} />
               {tab === 'git' && gitChangesCount > 0 && (

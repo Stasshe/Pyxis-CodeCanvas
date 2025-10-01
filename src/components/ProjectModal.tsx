@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Plus, Folder, Trash2, Edit } from 'lucide-react';
-import { projectDB } from '@/utils/core/database';
+import { projectDB } from '@/engine/core/database';
 import { Project } from '@/types';
 
 interface ProjectModalProps {
@@ -11,12 +11,12 @@ interface ProjectModalProps {
   currentProject: Project | null;
 }
 
-export default function ProjectModal({ 
-  isOpen, 
-  onClose, 
-  onProjectSelect, 
+export default function ProjectModal({
+  isOpen,
+  onClose,
+  onProjectSelect,
   onProjectCreate,
-  currentProject 
+  currentProject,
 }: ProjectModalProps) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isCreating, setIsCreating] = useState(false);
@@ -51,17 +51,16 @@ export default function ProjectModal({
     // reponame: 英数字・ハイフンのみ、空白は-に置換、日本語不可
     name = name.replace(/\s+/g, '-');
     if (!/^[a-zA-Z0-9-]+$/.test(name)) {
-      alert('プロジェクト名は英数字とハイフンのみ使用できます。日本語や記号、スペースは使えません。');
+      alert(
+        'プロジェクト名は英数字とハイフンのみ使用できます。日本語や記号、スペースは使えません。'
+      );
       return;
     }
 
     setLoading(true);
     try {
       if (onProjectCreate) {
-        await onProjectCreate(
-          name,
-          newProjectDescription.trim() || undefined
-        );
+        await onProjectCreate(name, newProjectDescription.trim() || undefined);
       } else {
         const project = await projectDB.createProject(
           name,
@@ -100,7 +99,7 @@ export default function ProjectModal({
 
   const handleDeleteProject = async (projectId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    
+
     if (!confirm('このプロジェクトを削除しますか？この操作は取り消せません。')) {
       return;
     }
@@ -109,7 +108,7 @@ export default function ProjectModal({
     try {
       await projectDB.deleteProject(projectId);
       setProjects(prev => prev.filter(p => p.id !== projectId));
-      
+
       if (currentProject?.id === projectId) {
         const remainingProjects = projects.filter(p => p.id !== projectId);
         if (remainingProjects.length > 0) {
@@ -166,7 +165,7 @@ export default function ProjectModal({
                   <input
                     type="text"
                     value={newProjectName}
-                    onChange={(e) => setNewProjectName(e.target.value)}
+                    onChange={e => setNewProjectName(e.target.value)}
                     placeholder="マイプロジェクト"
                     className="w-full px-3 py-2 bg-background border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
                     autoFocus
@@ -176,7 +175,7 @@ export default function ProjectModal({
                   <label className="block text-sm font-medium mb-1">説明（オプション）</label>
                   <textarea
                     value={newProjectDescription}
-                    onChange={(e) => setNewProjectDescription(e.target.value)}
+                    onChange={e => setNewProjectDescription(e.target.value)}
                     placeholder="プロジェクトの説明..."
                     rows={2}
                     className="w-full px-3 py-2 bg-background border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary resize-none"
@@ -211,23 +210,22 @@ export default function ProjectModal({
               読み込み中...
             </div>
           ) : projects.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              プロジェクトがありません
-            </div>
+            <div className="text-center py-8 text-muted-foreground">プロジェクトがありません</div>
           ) : (
             <div className="space-y-2">
-              {projects.map((project) => (
+              {projects.map(project => (
                 <div
                   key={project.id}
                   className={`group p-3 border rounded transition-colors ${
-                    currentProject?.id === project.id 
-                      ? 'border-primary bg-accent' 
-                      : 'border-border'
+                    currentProject?.id === project.id ? 'border-primary bg-accent' : 'border-border'
                   }`}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-3 flex-1">
-                      <Folder size={20} className="text-primary mt-0.5 flex-shrink-0" />
+                      <Folder
+                        size={20}
+                        className="text-primary mt-0.5 flex-shrink-0"
+                      />
                       <div className="flex-1 min-w-0">
                         <h3 className="font-medium truncate">{project.name}</h3>
                         {project.description && (
@@ -250,7 +248,7 @@ export default function ProjectModal({
                         <Edit size={16} />
                       </button>
                       <button
-                        onClick={(e) => handleDeleteProject(project.id, e)}
+                        onClick={e => handleDeleteProject(project.id, e)}
                         className="p-1 hover:bg-destructive hover:text-destructive-foreground rounded"
                         title="プロジェクトを削除"
                       >
@@ -281,7 +279,9 @@ export default function ProjectModal({
                 <label className="block text-sm font-medium mb-1">説明</label>
                 <textarea
                   value={editingProject.description || ''}
-                  onChange={(e) => setEditingProject({ ...editingProject, description: e.target.value })}
+                  onChange={e =>
+                    setEditingProject({ ...editingProject, description: e.target.value })
+                  }
                   rows={2}
                   className="w-full px-3 py-2 bg-background border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary resize-none"
                 />

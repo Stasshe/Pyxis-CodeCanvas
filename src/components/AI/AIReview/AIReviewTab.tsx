@@ -17,12 +17,12 @@ interface AIReviewTabProps {
   onCloseTab?: (filePath: string) => void;
 }
 
-export default function AIReviewTab({ 
-  tab, 
-  onApplyChanges, 
-  onDiscardChanges, 
+export default function AIReviewTab({
+  tab,
+  onApplyChanges,
+  onDiscardChanges,
   onUpdateSuggestedContent,
-  onCloseTab
+  onCloseTab,
 }: AIReviewTabProps) {
   const { colors } = useTheme();
   const [currentSuggestedContent, setCurrentSuggestedContent] = useState(
@@ -32,12 +32,12 @@ export default function AIReviewTab({
   const [diffViewMode, setDiffViewMode] = useState<DiffViewMode>('block');
   // 差分表示モード切り替え
   const handleToggleDiffViewMode = () => {
-    setDiffViewMode((prev) => (prev === 'block' ? 'inline' : 'block'));
+    setDiffViewMode(prev => (prev === 'block' ? 'inline' : 'block'));
   };
 
   if (!tab.aiReviewProps) {
     return (
-      <div 
+      <div
         className="flex items-center justify-center h-full"
         style={{ color: colors.mutedFg }}
       >
@@ -53,17 +53,17 @@ export default function AIReviewTab({
     // 簡単な実装：ブロック単位で適用
     const originalLines = originalContent.split('\n');
     const suggestedLines = currentSuggestedContent.split('\n');
-    
+
     // 指定範囲の行を置換
     const newLines = [...originalLines];
     const blockLines = content.split('\n');
-    
+
     // 範囲を置換
     newLines.splice(startLine - 1, endLine - startLine + 1, ...blockLines);
-    
+
     const newContent = newLines.join('\n');
     setCurrentSuggestedContent(newContent);
-    
+
     if (onUpdateSuggestedContent) {
       onUpdateSuggestedContent(tab.id, newContent);
     }
@@ -74,16 +74,16 @@ export default function AIReviewTab({
     // 元の内容に戻す
     const originalLines = originalContent.split('\n');
     const currentLines = currentSuggestedContent.split('\n');
-    
+
     // 指定範囲を元の内容で置換
     const newLines = [...currentLines];
     const originalBlockLines = originalLines.slice(startLine - 1, endLine);
-    
+
     newLines.splice(startLine - 1, endLine - startLine + 1, ...originalBlockLines);
-    
+
     const newContent = newLines.join('\n');
     setCurrentSuggestedContent(newContent);
-    
+
     if (onUpdateSuggestedContent) {
       onUpdateSuggestedContent(tab.id, newContent);
     }
@@ -110,18 +110,18 @@ export default function AIReviewTab({
   return (
     <div className="flex flex-col h-full">
       {/* ヘッダー */}
-      <div 
+      <div
         className="flex items-center justify-between p-3 border-b"
         style={{ borderColor: colors.border, background: colors.cardBg }}
       >
         <div>
-          <h3 
+          <h3
             className="font-semibold"
             style={{ color: colors.foreground }}
           >
             AI Review: {filePath.split('/').pop()}
           </h3>
-          <p 
+          <p
             className="text-xs mt-1"
             style={{ color: colors.mutedFg }}
           >
@@ -140,14 +140,14 @@ export default function AIReviewTab({
           </button>
           <button
             className="px-3 py-1 text-sm rounded border hover:opacity-90"
-            style={{ 
-              background: colors.green, 
+            style={{
+              background: colors.green,
               color: colors.background,
               borderColor: colors.green,
               fontWeight: 700,
               boxShadow: '0 2px 8px 0 #0003',
               letterSpacing: '0.05em',
-              textShadow: '0 1px 2px #0002'
+              textShadow: '0 1px 2px #0002',
             }}
             onClick={handleApplyAll}
           >
@@ -164,19 +164,22 @@ export default function AIReviewTab({
       </div>
 
       {/* 統計情報 */}
-      <div 
+      <div
         className="px-3 py-2 text-xs border-b"
-        style={{ 
-          borderColor: colors.border, 
+        style={{
+          borderColor: colors.border,
           background: colors.mutedBg,
-          color: colors.mutedFg
+          color: colors.mutedFg,
         }}
       >
         <div className="flex gap-4">
           <span>元: {originalContent.split('\n').length}行</span>
           <span>新: {currentSuggestedContent.split('\n').length}行</span>
           <span>
-            差分: {currentSuggestedContent.split('\n').length - originalContent.split('\n').length > 0 ? '+' : ''}
+            差分:{' '}
+            {currentSuggestedContent.split('\n').length - originalContent.split('\n').length > 0
+              ? '+'
+              : ''}
             {currentSuggestedContent.split('\n').length - originalContent.split('\n').length}行
           </span>
         </div>
@@ -194,15 +197,16 @@ export default function AIReviewTab({
       </div>
 
       {/* フッター */}
-      <div 
+      <div
         className="p-3 border-t text-xs"
-        style={{ 
-          borderColor: colors.border, 
+        style={{
+          borderColor: colors.border,
           background: colors.cardBg,
-          color: colors.mutedFg
+          color: colors.mutedFg,
         }}
       >
-        💡 表示モード: <b>{diffViewMode === 'block' ? 'ブロックごと' : '全体＋各ブロックボタン'}</b>。
+        💡 表示モード: <b>{diffViewMode === 'block' ? 'ブロックごと' : '全体＋各ブロックボタン'}</b>
+        。
         <br />
         {diffViewMode === 'block'
           ? '各変更ブロックの「適用」「破棄」ボタンで部分的に変更を適用できます。最終的に「全て適用」を押すとファイルに反映されます。'

@@ -3,7 +3,15 @@ import { useTheme } from '@/context/ThemeContext';
 import * as shiki from 'shiki';
 import { Copy, Check } from 'lucide-react';
 
-export function HighlightedCode({ language, value, plain }: { language: string; value: string; plain?: boolean }) {
+export function HighlightedCode({
+  language,
+  value,
+  plain,
+}: {
+  language: string;
+  value: string;
+  plain?: boolean;
+}) {
   const { highlightTheme } = useTheme();
   const [html, setHtml] = useState<string>('');
   const [copied, setCopied] = useState(false);
@@ -11,7 +19,18 @@ export function HighlightedCode({ language, value, plain }: { language: string; 
   // PDFエクスポート時はplain=trueで呼び出し、ハイライトなし
   if (plain) {
     return (
-      <pre style={{ borderRadius: 8, fontSize: '1em', margin: 0, overflowX: 'auto', minHeight: '100px', background: '#f5f5f5', color: '#222', padding: '12px' }}>
+      <pre
+        style={{
+          borderRadius: 8,
+          fontSize: '1em',
+          margin: 0,
+          overflowX: 'auto',
+          minHeight: '100px',
+          background: '#f5f5f5',
+          color: '#222',
+          padding: '12px',
+        }}
+      >
         <code>{value}</code>
       </pre>
     );
@@ -35,7 +54,9 @@ export function HighlightedCode({ language, value, plain }: { language: string; 
       }
     }
     highlight();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, [language, value, highlightTheme]);
 
   const handleCopy = async () => {
@@ -49,7 +70,9 @@ export function HighlightedCode({ language, value, plain }: { language: string; 
   };
 
   return (
-    <div style={{ position: 'relative', margin: 0, minHeight: '100px' }}> {/* 高さを固定 */}
+    <div style={{ position: 'relative', margin: 0, minHeight: '100px' }}>
+      {' '}
+      {/* 高さを固定 */}
       <button
         aria-label="コードをコピー"
         onClick={handleCopy}
@@ -68,11 +91,27 @@ export function HighlightedCode({ language, value, plain }: { language: string; 
           transition: 'background 0.2s',
         }}
       >
-        {copied ? <Check size={18} color="#22c55e" /> : <Copy size={18} color="#555" />}
+        {copied ? (
+          <Check
+            size={18}
+            color="#22c55e"
+          />
+        ) : (
+          <Copy
+            size={18}
+            color="#555"
+          />
+        )}
       </button>
       <div
         className="shiki-code-block"
-        style={{ borderRadius: 8, fontSize: '1em', margin: 0, overflowX: 'auto', minHeight: '100px' }} // 高さを固定
+        style={{
+          borderRadius: 8,
+          fontSize: '1em',
+          margin: 0,
+          overflowX: 'auto',
+          minHeight: '100px',
+        }} // 高さを固定
         dangerouslySetInnerHTML={{ __html: html }}
       />
     </div>

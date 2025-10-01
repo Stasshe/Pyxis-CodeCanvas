@@ -1,8 +1,8 @@
-import { getFileSystem } from '@/utils/core/filesystem';
+import { getFileSystem } from '@/engine/core/filesystem';
 import { FileItem } from '@/types';
 
 // Safe conversion of Uint8Array to base64 using chunking to avoid call stack limits
-export const uint8ArrayToBase64 = (uint8Array: Uint8Array): string => {
+const uint8ArrayToBase64 = (uint8Array: Uint8Array): string => {
   const CHUNK_SIZE = 0x8000; // 32KB chunks
   let result = '';
   for (let i = 0; i < uint8Array.length; i += CHUNK_SIZE) {
@@ -24,7 +24,12 @@ export const loadImageAsDataURL = async (
 
     const findFileRecursively = (files: FileItem[]): FileItem | null => {
       for (const file of files) {
-        if (file.path === normalizedPath && file.type === 'file' && file.isBufferArray && file.bufferContent) {
+        if (
+          file.path === normalizedPath &&
+          file.type === 'file' &&
+          file.isBufferArray &&
+          file.bufferContent
+        ) {
           return file;
         }
         if (file.children) {
@@ -100,7 +105,8 @@ export const loadImageAsDataURL = async (
         break;
     }
 
-    const uint8Array = fileData instanceof ArrayBuffer ? new Uint8Array(fileData) : new Uint8Array(fileData as any);
+    const uint8Array =
+      fileData instanceof ArrayBuffer ? new Uint8Array(fileData) : new Uint8Array(fileData as any);
     const base64 = uint8ArrayToBase64(uint8Array);
     return `data:${mimeType};base64,${base64}`;
   } catch (error) {

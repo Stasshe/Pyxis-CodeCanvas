@@ -47,4 +47,4 @@ next-env.d.ts
 memo.txt
 memo.md
 
-src/utils/initialFileContents.ts
+src/engine/initialFileContents.ts

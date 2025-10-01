@@ -1,24 +1,24 @@
 // TerminalUnixCommands.tsx
 // Terminalのunixコマンド処理部分を分割
 
-import type { UnixCommands } from "@/utils/core/filesystem";
+import type { UnixCommands } from '@/engine/core/filesystem';
 
 export async function handleUnixCommand(
   cmd: string,
   args: string[],
   unixCommandsRef: React.RefObject<UnixCommands | null>,
   currentProject: string,
-  writeOutput: (output: string) => Promise<void>,
+  writeOutput: (output: string) => Promise<void>
 ) {
   // Handle additional Unix commands
   switch (cmd) {
-    case "pwd":
+    case 'pwd':
       if (unixCommandsRef.current) {
         const result = unixCommandsRef.current.pwd();
         await writeOutput(result);
       }
       break;
-    case "rename":
+    case 'rename':
       if (unixCommandsRef.current && args.length >= 2) {
         const oldPath = args[0];
         const newPath = args[1];
@@ -29,11 +29,11 @@ export async function handleUnixCommand(
           await writeOutput(`rename: ${(error as Error).message}`);
         }
       } else {
-        await writeOutput("rename: missing arguments (usage: rename <old> <new>)");
+        await writeOutput('rename: missing arguments (usage: rename <old> <new>)');
       }
       break;
 
-    case "mv":
+    case 'mv':
       if (unixCommandsRef.current && args.length >= 2) {
         const source = args[0];
         const destination = args[1];
@@ -44,17 +44,17 @@ export async function handleUnixCommand(
           await writeOutput(`mv: ${(error as Error).message}`);
         }
       } else {
-        await writeOutput("mv: missing arguments (usage: mv <source> <destination>)");
+        await writeOutput('mv: missing arguments (usage: mv <source> <destination>)');
       }
       break;
-    
-    case "tree":
+
+    case 'tree':
       if (unixCommandsRef.current) {
         // オプションとパスを分離
         const options = args.filter(arg => arg.startsWith('-'));
         const pathArgs = args.filter(arg => !arg.startsWith('-'));
         const targetPath = pathArgs.length > 0 ? pathArgs[0] : undefined;
-        
+
         try {
           const result = await unixCommandsRef.current.tree(targetPath, options);
           await writeOutput(result);
@@ -64,13 +64,13 @@ export async function handleUnixCommand(
       }
       break;
 
-    case "ls":
+    case 'ls':
       if (unixCommandsRef.current) {
         // オプションとパスを分離
         const options = args.filter(arg => arg.startsWith('-'));
         const pathArgs = args.filter(arg => !arg.startsWith('-'));
         const targetPath = pathArgs.length > 0 ? pathArgs[0] : undefined;
-        
+
         try {
           const result = await unixCommandsRef.current.ls(targetPath, options);
           await writeOutput(result);
@@ -80,13 +80,13 @@ export async function handleUnixCommand(
       }
       break;
 
-    case "cd":
+    case 'cd':
       if (unixCommandsRef.current && args[0]) {
         // オプションとパスを分離
         const options = args.filter(arg => arg.startsWith('-'));
         const pathArgs = args.filter(arg => !arg.startsWith('-'));
         const targetPath = pathArgs.length > 0 ? pathArgs[0] : undefined;
-        
+
         if (targetPath) {
           try {
             const result = await unixCommandsRef.current.cd(targetPath, options);
@@ -95,7 +95,7 @@ export async function handleUnixCommand(
             await writeOutput(`cd: ${(error as Error).message}`);
           }
         } else {
-          await writeOutput("cd: missing argument");
+          await writeOutput('cd: missing argument');
         }
       } else if (unixCommandsRef.current && !args[0]) {
         // cdのみの場合はプロジェクトルートに移動
@@ -103,67 +103,66 @@ export async function handleUnixCommand(
         unixCommandsRef.current.setCurrentDir(projectRoot);
         await writeOutput(`Changed directory to ${projectRoot}`);
       } else {
-        await writeOutput("cd: missing argument");
+        await writeOutput('cd: missing argument');
       }
       break;
 
-    case "mkdir":
+    case 'mkdir':
       if (unixCommandsRef.current && args[0]) {
-        const recursive = args.includes("-p");
-        const dirName = args.find((arg) => !arg.startsWith("-")) || args[0];
+        const recursive = args.includes('-p');
+        const dirName = args.find(arg => !arg.startsWith('-')) || args[0];
         const result = await unixCommandsRef.current.mkdir(dirName, recursive);
         await writeOutput(result);
       } else {
-        await writeOutput("mkdir: missing argument");
+        await writeOutput('mkdir: missing argument');
       }
       break;
 
-    case "touch":
+    case 'touch':
       if (unixCommandsRef.current && args[0]) {
         const result = await unixCommandsRef.current.touch(args[0]);
         await writeOutput(result);
       } else {
-        await writeOutput("touch: missing argument");
+        await writeOutput('touch: missing argument');
       }
       break;
 
-    case "rm":
+    case 'rm':
       if (unixCommandsRef.current && args[0]) {
-        const recursive = args.includes("-r") || args.includes("-rf");
-        const fileName =
-          args.find((arg) => !arg.startsWith("-")) || args[args.length - 1];
+        const recursive = args.includes('-r') || args.includes('-rf');
+        const fileName = args.find(arg => !arg.startsWith('-')) || args[args.length - 1];
         const result = await unixCommandsRef.current.rm(fileName, recursive);
         await writeOutput(result);
       } else {
-        await writeOutput("rm: missing argument");
+        await writeOutput('rm: missing argument');
       }
       break;
 
-    case "cat":
+    case 'cat':
       if (unixCommandsRef.current && args[0]) {
         const result = await unixCommandsRef.current.cat(args[0]);
         await writeOutput(result);
       } else {
-        await writeOutput("cat: missing argument");
+        await writeOutput('cat: missing argument');
       }
       break;
 
-    case "echo":
+    case 'echo':
       if (unixCommandsRef.current) {
-        const redirectIndex = args.indexOf(">");
+        const redirectIndex = args.indexOf('>');
         if (redirectIndex !== -1 && args[redirectIndex + 1]) {
-          const text = args.slice(0, redirectIndex).join(" ");
+          const text = args.slice(0, redirectIndex).join(' ');
           const fileName = args[redirectIndex + 1];
           const result = await unixCommandsRef.current.echo(text, fileName);
           await writeOutput(result);
         } else {
-          const text = args.join(" ");
+          const text = args.join(' ');
           const result = await unixCommandsRef.current.echo(text);
           await writeOutput(result);
         }
       }
       break;
-    case "help":
+    case 'help':
       await writeOutput('\r\n=== 利用可能なコマンド ===');
       await writeOutput('Basic Commands:');
       await writeOutput('  clear     - 画面をクリア');
@@ -196,7 +195,9 @@ export async function handleUnixCommand(
       await writeOutput('  mkdir <name> [-p] - ディレクトリを作成');
       await writeOutput('  touch <file> - ファイルを作成');
       await writeOutput('  rm <file> [-r] - ファイルを削除 (ワイルドカード対応: rm *.txt)');
-      await writeOutput('  mv <source> <dest> - ファイル/ディレクトリを移動・名前変更 (ワイルドカード対応: mv *.txt folder/)');
+      await writeOutput(
+        '  mv <source> <dest> - ファイル/ディレクトリを移動・名前変更 (ワイルドカード対応: mv *.txt folder/)'
+      );
       await writeOutput('  cat <file> - ファイル内容を表示');
       await writeOutput('  echo <text> [> file] - テキストを出力/ファイルに書き込み');
       await writeOutput('  export --page <file or folder> - 現在のページをエクスポート');
@@ -242,7 +243,9 @@ export async function handleUnixCommand(
       await writeOutput('  npm uninstall <package> - パッケージをアンインストール');
       await writeOutput('  npm list           - インストール済みパッケージ一覧');
       await writeOutput('  npm run <script>   - package.jsonのスクリプトを実行');
-      await writeOutput('  npm-size <package> - 指定したパッケージとその依存関係の合計サイズを計算');
+      await writeOutput(
+        '  npm-size <package> - 指定したパッケージとその依存関係の合計サイズを計算'
+      );
       await writeOutput('');
       await writeOutput('Note: Gitリポジトリの初期化は左下の「プロジェクト管理」から');
       await writeOutput('新規プロジェクトを作成することで自動的に行われます。');

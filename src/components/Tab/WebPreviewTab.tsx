@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 
 // Lightning-FSの仮想ファイルシステム取得関数
-import { getFileSystem } from '@/utils/core/filesystem';
-import { inlineHtmlAssets } from '@/utils/export/inlineHtmlAssets';
-import { FolderWatcher, type FileChangeEvent } from '@/utils/fileWatcher';
+import { getFileSystem } from '@/engine/core/filesystem';
+import { inlineHtmlAssets } from '@/engine/export/inlineHtmlAssets';
+import { FolderWatcher, type FileChangeEvent } from '@/engine/fileWatcher';
 
 interface WebPreviewTabProps {
   filePath: string;
@@ -15,8 +15,8 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({ filePath, currentProjectN
   const [fileContent, setFileContent] = useState('');
   const folderWatcherRef = useRef<FolderWatcher | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  
-  console.log('[web previewtab]',filePath)
+
+  console.log('[web previewtab]', filePath);
 
   // ファイルパスを仮想ファイルシステムのルートに基づいて解決
   const resolveFilePath = (path: string): string => {
@@ -74,26 +74,33 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({ filePath, currentProjectN
     if (!currentProjectName) return;
 
     // 監視対象のパスを決定（ディレクトリの場合はそのまま、ファイルの場合は親ディレクトリ）
-    const watchPath = filePath.endsWith('/') ? filePath : filePath.substring(0, filePath.lastIndexOf('/')) || '/';
-    
-    console.log('[WebPreviewTab] Setting up file watcher for path:', watchPath, 'in project:', currentProjectName);
-    
+    const watchPath = filePath.endsWith('/')
+      ? filePath
+      : filePath.substring(0, filePath.lastIndexOf('/')) || '/';
+
+    console.log(
+      '[WebPreviewTab] Setting up file watcher for path:',
+      watchPath,
+      'in project:',
+      currentProjectName
+    );
+
     // FolderWatcherを作成
     const watcher = new FolderWatcher(watchPath, currentProjectName);
     folderWatcherRef.current = watcher;
-    
+
     // ファイル変更リスナーを追加
     const handleFileChange = (event: FileChangeEvent) => {
       console.log('[WebPreviewTab] File change detected:', event.path, event.type);
-      
+
       // 少し遅延してから更新（ファイル操作が完了するのを待つ）
       setTimeout(() => {
         setRefreshTrigger(prev => prev + 1);
       }, 100);
     };
-    
+
     watcher.addListener(handleFileChange);
-    
+
     // クリーンアップ
     return () => {
       if (folderWatcherRef.current) {
@@ -124,7 +131,10 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({ filePath, currentProjectN
 
   return (
     <div style={{ height: '100%', width: '100%' }}>
-      <iframe ref={iframeRef} style={{ border: 'none', width: '100%', height: '100%' }} />
+      <iframe
+        ref={iframeRef}
+        style={{ border: 'none', width: '100%', height: '100%' }}
+      />
     </div>
   );
 };
