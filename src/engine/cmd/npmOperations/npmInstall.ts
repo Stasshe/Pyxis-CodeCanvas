@@ -1,3 +1,13 @@
+/**
+ * npmInstall_new.ts - 新アーキテクチャ版NPMパッケージインストーラー
+ * 
+ * NEW ARCHITECTURE:
+ * - IndexedDB (fileRepository) が単一の真実の情報源
+ * - npm操作は IndexedDB のみを更新
+ * - GitFileSystem (lightning-fs) への同期は不要（node_modulesは.gitignoreで除外）
+ * - fileRepository.createFile() を使用して自動的に管理
+ */
+
 import FS from '@isomorphic-git/lightning-fs';
 import pako from 'pako';
 import tarStream from 'tar-stream';
@@ -5,6 +15,7 @@ import tarStream from 'tar-stream';
 import { UnixCommands } from '../unix';
 
 import { getFileSystem, getProjectDir } from '@/engine/core/filesystem';
+import { fileRepository } from '@/engine/core/fileRepository';
 
 interface PackageInfo {
   name: string;
@@ -16,19 +27,13 @@ interface PackageInfo {
 export class NpmInstall {
   private fs: FS;
   private projectName: string;
-  private onFileOperation?: (
-    path: string,
-    type: 'file' | 'folder' | 'delete',
-    content?: string,
-    isNodeRuntime?: boolean
-  ) => Promise<void>;
+  private projectId: string;
 
   // バッチ処理用のキュー
   private fileOperationQueue: Array<{
     path: string;
     type: 'file' | 'folder' | 'delete';
     content?: string;
-    isNodeRuntime?: boolean;
   }> = [];
   private batchProcessing = false;
 
@@ -39,17 +44,12 @@ export class NpmInstall {
 
   constructor(
     projectName: string,
-    onFileOperation?: (
-      path: string,
-      type: 'file' | 'folder' | 'delete',
-      content?: string,
-      isNodeRuntime?: boolean
-    ) => Promise<void>,
+    projectId: string,
     skipLoadingInstalledPackages: boolean = false
   ) {
     this.fs = getFileSystem()!;
     this.projectName = projectName;
-    this.onFileOperation = onFileOperation;
+    this.projectId = projectId;
 
     // 既存のインストール済みパッケージを非同期で読み込み（スキップオプション付き）
     if (!skipLoadingInstalledPackages) {
@@ -68,7 +68,7 @@ export class NpmInstall {
 
   // バッチ処理を終了し、キューをフラッシュ
   async finishBatchProcessing(): Promise<void> {
-    if (!this.batchProcessing || !this.onFileOperation) {
+    if (!this.batchProcessing) {
       return;
     }
 
@@ -81,11 +81,24 @@ export class NpmInstall {
     for (let i = 0; i < this.fileOperationQueue.length; i += BATCH_SIZE) {
       const batch = this.fileOperationQueue.slice(i, i + BATCH_SIZE);
       await Promise.all(
-        batch.map(op => this.onFileOperation!(op.path, op.type, op.content, op.isNodeRuntime))
+        batch.map(async op => {
+          try {
+            if (op.type === 'folder') {
+              await fileRepository.createFile(this.projectId, op.path, '', 'folder');
+            } else if (op.type === 'file') {
+              await fileRepository.createFile(this.projectId, op.path, op.content || '', 'file');
+            } else if (op.type === 'delete') {
+              const files = await fileRepository.getProjectFiles(this.projectId);
+              const fileToDelete = files.find(f => f.path === op.path);
+              if (fileToDelete) {
+                await fileRepository.deleteFile(fileToDelete.id);
+              }
+            }
+          } catch (error) {
+            console.warn(`[npmInstall] Failed to execute operation for ${op.path}:`, error);
+          }
+        })
       );
-
-      // バッチごとにプロジェクトリフレッシュ
-      await this.onFileOperation('.', 'file', '', false);
     }
 
     this.batchProcessing = false;
@@ -97,19 +110,24 @@ export class NpmInstall {
   private async executeFileOperation(
     path: string,
     type: 'file' | 'folder' | 'delete',
-    content?: string,
-    isNodeRuntime?: boolean
+    content?: string
   ): Promise<void> {
-    if (!this.onFileOperation) {
-      return;
-    }
-
     if (this.batchProcessing) {
       // バッチモードの場合はキューに追加
-      this.fileOperationQueue.push({ path, type, content, isNodeRuntime });
+      this.fileOperationQueue.push({ path, type, content });
     } else {
       // 通常モードの場合は即座に実行
-      await this.onFileOperation(path, type, content, isNodeRuntime);
+      if (type === 'folder') {
+        await fileRepository.createFile(this.projectId, path, '', 'folder');
+      } else if (type === 'file') {
+        await fileRepository.createFile(this.projectId, path, content || '', 'file');
+      } else if (type === 'delete') {
+        const files = await fileRepository.getProjectFiles(this.projectId);
+        const fileToDelete = files.find(f => f.path === path);
+        if (fileToDelete) {
+          await fileRepository.deleteFile(fileToDelete.id);
+        }
+      }
     }
   }
 
@@ -163,8 +181,29 @@ export class NpmInstall {
   }
 
   async removeDirectory(dirPath: string): Promise<void> {
-    const unixCommands = new UnixCommands(this.projectName);
-    unixCommands.rmdir(dirPath);
+    // ディレクトリを再帰的に削除
+    const removeRecursively = async (path: string): Promise<void> => {
+      try {
+        const stat = await this.fs.promises.stat(path);
+        
+        if (stat.isDirectory()) {
+          const entries = await this.fs.promises.readdir(path);
+          for (const entry of entries) {
+            await removeRecursively(`${path}/${entry}`);
+          }
+          await this.fs.promises.rmdir(path);
+        } else {
+          await this.fs.promises.unlink(path);
+        }
+      } catch (error: any) {
+        // ファイルが存在しない場合は無視
+        if (error.code !== 'ENOENT') {
+          throw error;
+        }
+      }
+    };
+
+    await removeRecursively(dirPath);
   }
 
   // 全インストール済みパッケージの依存関係を分析
@@ -373,10 +412,8 @@ export class NpmInstall {
         await this.removeDirectory(packageDir);
         removedPackages.push(pkg);
 
-        // IndexedDBからも削除
-        if (this.onFileOperation) {
-          await this.executeFileOperation(`/node_modules/${pkg}`, 'delete');
-        }
+        // IndexedDBから削除
+        await this.executeFileOperation(`/node_modules/${pkg}`, 'delete');
 
         console.log(`[npm.uninstallWithDependencies] Removed ${pkg}`);
       } catch (error) {
@@ -683,41 +720,26 @@ export class NpmInstall {
       }
 
       // IndexedDBに同期（展開されたファイルのみを使用）
-      if (this.onFileOperation) {
-        try {
-          const relativePath = `/node_modules/${packageName}`;
-          await this.executeFileOperation(relativePath, 'folder');
+      try {
+        const relativePath = `/node_modules/${packageName}`;
+        await this.executeFileOperation(relativePath, 'folder');
 
-          // 展開されたファイルを順次同期
-          for (const [relativePath, fileInfo] of extractedFiles) {
-            const fullPath = `/node_modules/${packageName}/${relativePath}`;
+        // 展開されたファイルを順次同期
+        for (const [relativePath, fileInfo] of extractedFiles) {
+          const fullPath = `/node_modules/${packageName}/${relativePath}`;
 
-            console.log(`[npm.downloadAndInstallPackage] Syncing: "${fullPath}"`);
-
-            if (fileInfo.isDirectory) {
-              // ディレクトリを作成
-              await this.executeFileOperation(fullPath, 'folder');
-            } else {
-              // ファイルを作成
-              // ファイルの親ディレクトリが必要な場合は事前に作成
-              const pathParts = relativePath.split('/');
-              if (pathParts.length > 1) {
-                let currentPath = `/node_modules/${packageName}`;
-                for (let i = 0; i < pathParts.length - 1; i++) {
-                  currentPath += `/${pathParts[i]}`;
-                  await this.executeFileOperation(currentPath, 'folder');
-                }
-              }
-
-              // extractPackageで既に内容が取得されているのでそれを使用
-              const fileContent = fileInfo.content || '';
-              await this.executeFileOperation(fullPath, 'file', fileContent);
-            }
+          if (fileInfo.isDirectory) {
+            // ディレクトリを作成
+            await this.executeFileOperation(fullPath, 'folder');
+          } else {
+            // ファイルを作成
+            const fileContent = fileInfo.content || '';
+            await this.executeFileOperation(fullPath, 'file', fileContent);
           }
-        } catch (error) {
-          console.warn(`Failed to sync to IndexedDB: ${(error as Error).message}`);
-          // IndexedDB同期に失敗してもインストール自体は成功とする
         }
+      } catch (error) {
+        console.warn(`Failed to sync to IndexedDB: ${(error as Error).message}`);
+        // IndexedDB同期に失敗してもインストール自体は成功とする
       }
 
       console.log(

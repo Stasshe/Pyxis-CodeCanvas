@@ -1,35 +1,38 @@
-/**
- * npm_new.ts - 新アーキテクチャ版NPMコマンド
- * 
- * NEW ARCHITECTURE:
- * - IndexedDB (fileRepository) が単一の真実の情報源
- * - npm操作は IndexedDB のみを更新
- * - GitFileSystem (lightning-fs) への同期は不要（node_modulesは.gitignoreで除外）
- * - fileRepository.createFile() を使用して自動的に管理
- */
-
 import FS from '@isomorphic-git/lightning-fs';
 
 import { NpmInstall } from './npmOperations/npmInstall';
 
 import { getFileSystem, getProjectDir } from '@/engine/core/filesystem';
-import { fileRepository } from '@/engine/core/fileRepository';
 
 export class NpmCommands {
   private fs: FS;
   private currentDir: string;
   private projectName: string;
-  private projectId: string;
+  private onFileOperation?: (
+    path: string,
+    type: 'file' | 'folder' | 'delete',
+    content?: string,
+    isNodeRuntime?: boolean
+  ) => Promise<void>;
 
-  constructor(projectName: string, projectId: string, currentDir: string) {
+  constructor(
+    projectName: string,
+    currentDir: string,
+    onFileOperation?: (
+      path: string,
+      type: 'file' | 'folder' | 'delete',
+      content?: string,
+      isNodeRuntime?: boolean
+    ) => Promise<void>
+  ) {
     this.fs = getFileSystem()!;
     this.projectName = projectName;
-    this.projectId = projectId;
     this.currentDir = currentDir;
+    this.onFileOperation = onFileOperation;
   }
 
   async downloadAndInstallPackage(packageName: string, version: string = 'latest'): Promise<void> {
-    const npmInstall = new NpmInstall(this.projectName, this.projectId);
+    const npmInstall = new NpmInstall(this.projectName, this.onFileOperation);
 
     // バッチ処理を開始
     npmInstall.startBatchProcessing();
@@ -43,7 +46,11 @@ export class NpmCommands {
   }
 
   async removeDirectory(dirPath: string): Promise<void> {
-    const npmInstall = new NpmInstall(this.projectName, this.projectId, true); // skipLoadingInstalledPackages
+    const npmInstall = new NpmInstall(
+      this.projectName,
+      this.onFileOperation,
+      true // skipLoadingInstalledPackages = true（軽量版）
+    );
     await npmInstall.removeDirectory(dirPath);
   }
 
@@ -79,13 +86,10 @@ export class NpmCommands {
         };
         await this.fs.promises.writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2));
 
-        // IndexedDBに同期
-        await fileRepository.createFile(
-          this.projectId,
-          '/package.json',
-          JSON.stringify(packageJson, null, 2),
-          'file'
-        );
+        // package.jsonをIndexedDBに同期
+        if (this.onFileOperation) {
+          await this.onFileOperation('/package.json', 'file', JSON.stringify(packageJson, null, 2));
+        }
       }
 
       // node_modulesディレクトリの作成
@@ -96,8 +100,10 @@ export class NpmCommands {
           recursive: true,
         } as any);
 
-        // IndexedDBに同期
-        await fileRepository.createFile(this.projectId, '/node_modules', '', 'folder');
+        // node_modulesをIndexedDBに同期
+        if (this.onFileOperation) {
+          await this.onFileOperation('/node_modules', 'folder');
+        }
       }
 
       if (!packageName) {
@@ -116,7 +122,7 @@ export class NpmCommands {
         let installedCount = 0;
 
         // NpmInstallインスタンスを作成（依存関係解決のため）
-        const npmInstall = new NpmInstall(this.projectName, this.projectId);
+        const npmInstall = new NpmInstall(this.projectName, this.onFileOperation);
 
         // バッチ処理を開始
         npmInstall.startBatchProcessing();
@@ -182,19 +188,20 @@ export class NpmCommands {
           // package.jsonを更新
           await this.fs.promises.writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2));
 
-          // IndexedDBに同期
-          await fileRepository.createFile(
-            this.projectId,
-            '/package.json',
-            JSON.stringify(packageJson, null, 2),
-            'file'
-          );
+          // package.jsonをIndexedDBに同期
+          if (this.onFileOperation) {
+            await this.onFileOperation(
+              '/package.json',
+              'file',
+              JSON.stringify(packageJson, null, 2)
+            );
+          }
 
           if (isAlreadyInstalled) {
             return `updated 1 package in ${Math.random() * 2 + 1}s\n\n~ ${packageName}@${version}\nupdated 1 package and audited 1 package in ${Math.random() * 0.5 + 0.5}s\n\nfound 0 vulnerabilities`;
           } else {
             // パッケージを依存関係と一緒にダウンロードしてインストール
-            const npmInstall = new NpmInstall(this.projectName, this.projectId);
+            const npmInstall = new NpmInstall(this.projectName, this.onFileOperation);
 
             // バッチ処理を開始
             npmInstall.startBatchProcessing();
@@ -259,13 +266,10 @@ export class NpmCommands {
 
         await this.fs.promises.writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2));
 
-        // IndexedDBに同期
-        await fileRepository.createFile(
-          this.projectId,
-          '/package.json',
-          JSON.stringify(packageJson, null, 2),
-          'file'
-        );
+        // package.jsonをIndexedDBに同期
+        if (this.onFileOperation) {
+          await this.onFileOperation('/package.json', 'file', JSON.stringify(packageJson, null, 2));
+        }
       } catch {
         return `npm ERR! Cannot find package.json`;
       }
@@ -273,7 +277,7 @@ export class NpmCommands {
       // 依存関係を含めてパッケージを削除
       const npmInstall = new NpmInstall(
         this.projectName,
-        this.projectId,
+        this.onFileOperation,
         true // skipLoadingInstalledPackages = true（軽量版）
       );
 
@@ -296,11 +300,9 @@ export class NpmCommands {
         try {
           await this.removeDirectory(packageDir);
 
-          // IndexedDBから削除
-          const files = await fileRepository.getProjectFiles(this.projectId);
-          const packageFiles = files.filter(f => f.path.startsWith(`/node_modules/${packageName}`));
-          for (const file of packageFiles) {
-            await fileRepository.deleteFile(file.id);
+          // IndexedDBからも削除
+          if (this.onFileOperation) {
+            await this.onFileOperation(`/node_modules/${packageName}`, 'delete');
           }
 
           return `removed 1 package in 0.1s\n\n- ${packageName}\nremoved 1 package and audited 0 packages in 0.1s\n\nfound 0 vulnerabilities`;
@@ -393,13 +395,10 @@ export class NpmCommands {
 
       await this.fs.promises.writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2));
 
-      // IndexedDBに同期
-      await fileRepository.createFile(
-        this.projectId,
-        '/package.json',
-        JSON.stringify(packageJson, null, 2),
-        'file'
-      );
+      // package.jsonをIndexedDBに同期
+      if (this.onFileOperation) {
+        await this.onFileOperation('/package.json', 'file', JSON.stringify(packageJson, null, 2));
+      }
 
       return `Wrote to ${packageJsonPath}:\n\n${JSON.stringify(packageJson, null, 2)}`;
     } catch (error) {
@@ -509,6 +508,32 @@ export class NpmCommands {
         throw new Error(`Request timeout for package '${packageName}'`);
       }
       throw new Error(`Failed to fetch package info: ${(error as Error).message}`);
+    }
+  }
+
+  // 最新バージョンの取得（実際のレジストリから）
+  private async getLatestVersion(packageName: string): Promise<string> {
+    try {
+      const packageInfo = await this.fetchPackageInfo(packageName);
+      return packageInfo.version;
+    } catch {
+      // フォールバック: よく使われるパッケージのデフォルトバージョン
+      const fallbackVersions: { [key: string]: string } = {
+        'react': '18.2.0',
+        'react-dom': '18.2.0',
+        'next': '14.0.0',
+        'typescript': '5.0.0',
+        'lodash': '4.17.21',
+        'express': '4.18.0',
+        'axios': '1.6.0',
+        'moment': '2.29.0',
+        'uuid': '9.0.0',
+        'chalk': '5.3.0',
+        'commander': '11.0.0',
+        'inquirer': '9.2.0',
+      };
+
+      return fallbackVersions[packageName] || '1.0.0';
     }
   }
 

@@ -337,8 +337,83 @@ export class FileRepository {
   }
 
   /**
+   * .gitignoreルールに基づいてパスを無視すべきかチェック
+   */
+  private async shouldIgnorePathForGit(projectId: string, path: string): Promise<boolean> {
+    try {
+      // プロジェクト名を取得
+      let projectName = this.projectNameCache.get(projectId);
+      if (!projectName) {
+        const projects = await this.getProjects();
+        const project = projects.find(p => p.id === projectId);
+        if (project) {
+          projectName = project.name;
+          this.projectNameCache.set(projectId, projectName);
+        } else {
+          return false;
+        }
+      }
+
+      // .gitignoreを読み込み
+      const gitignorePath = `${path.startsWith('/') ? '' : '/'}${projectName}/.gitignore`;
+      const files = await this.getProjectFiles(projectId);
+      const gitignoreFile = files.find(f => f.path === '/.gitignore');
+      
+      if (!gitignoreFile || !gitignoreFile.content) {
+        return false; // .gitignoreがない場合は無視しない
+      }
+
+      const gitignoreRules = gitignoreFile.content
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line && !line.startsWith('#')); // コメントと空行を除外
+
+      // パスの正規化（先頭の/を削除）
+      const normalizedPath = path.replace(/^\/+/, '');
+
+      // 各ルールをチェック
+      for (const rule of gitignoreRules) {
+        if (this.matchGitignoreRule(normalizedPath, rule)) {
+          console.log(`[FileRepository] Path "${path}" matched gitignore rule: "${rule}"`);
+          return true;
+        }
+      }
+
+      return false;
+    } catch (error) {
+      console.warn('[FileRepository] Error checking gitignore:', error);
+      return false; // エラー時は無視しない（安全側に倒す）
+    }
+  }
+
+  /**
+   * .gitignoreルールとパスをマッチング（簡易実装）
+   */
+  private matchGitignoreRule(path: string, rule: string): boolean {
+    // ディレクトリルール（末尾が/）
+    if (rule.endsWith('/')) {
+      const dirName = rule.slice(0, -1);
+      return path === dirName || path.startsWith(dirName + '/');
+    }
+
+    // ワイルドカードルール（*を含む）
+    if (rule.includes('*')) {
+      const regexPattern = rule
+        .replace(/\./g, '\\.')
+        .replace(/\*/g, '.*')
+        .replace(/\?/g, '.');
+      const regex = new RegExp(`^${regexPattern}$`);
+      return regex.test(path);
+    }
+
+    // 完全一致または部分一致
+    return path === rule || path.startsWith(rule + '/') || path.endsWith('/' + rule);
+  }
+
+  /**
    * GitFileSystemへの自動同期（非同期・バックグラウンド実行）
    * 同期後にGitキャッシュも自動的にフラッシュ
+   * .gitignoreルールに基づいて無視すべきパスはスキップ
    */
   private async syncToGitFileSystem(
     projectId: string,
@@ -348,6 +423,15 @@ export class FileRepository {
     bufferContent?: ArrayBuffer
   ): Promise<void> {
     try {
+      // .gitignoreチェック（作成・更新時のみ）
+      if (operation !== 'delete') {
+        const shouldIgnore = await this.shouldIgnorePathForGit(projectId, path);
+        if (shouldIgnore) {
+          console.log(`[FileRepository] Skipping GitFileSystem sync for ignored path: ${path}`);
+          return;
+        }
+      }
+
       // 遅延インポートで循環参照を回避
       const { syncManager } = await import('./syncManager');
       const { gitFileSystem } = await import('./gitFileSystem');
@@ -375,9 +459,7 @@ export class FileRepository {
       console.error('[FileRepository] syncToGitFileSystem error:', error);
       throw error;
     }
-  }
-
-  /**
+  }  /**
    * プロジェクトの全ファイル取得
    */
   async getProjectFiles(projectId: string): Promise<ProjectFile[]> {

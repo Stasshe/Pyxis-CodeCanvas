@@ -67,7 +67,7 @@ function ClientTerminal({
     // コマンドクラスの初期化（onFileOperation不要、すべてfileRepository経由）
     unixCommandsRef.current = new UnixCommands(currentProject, undefined, currentProjectId);
     gitCommandsRef.current = new GitCommands(currentProject, currentProjectId, undefined);
-    npmCommandsRef.current = new NpmCommands(currentProject, '/projects/' + currentProject, undefined);
+    npmCommandsRef.current = new NpmCommands(currentProject, currentProjectId, '/projects/' + currentProject);
 
     // xterm関連のモジュールをrequire（クライアントサイドでのみ実行）
     const { Terminal: XTerm } = require('@xterm/xterm');
