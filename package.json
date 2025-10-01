@@ -40,7 +40,7 @@
     "lucide-react": "^0.445.0",
     "mermaid": "^11.9.0",
     "monaco-editor": "^0.52.2",
-    "next": "15.3.4",
+    "next": "^15.5.4",
     "os-browserify": "^0.3.0",
     "pako": "^2.1.0",
     "path-browserify": "^1.0.1",
