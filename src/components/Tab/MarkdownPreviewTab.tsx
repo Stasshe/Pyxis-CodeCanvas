@@ -52,6 +52,10 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
   const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
+    let lastTouchDist = 0;
+    let isPinching = false;
+    let pinchStartScale = 1;
+    let pinchStart = { x: 0, y: 0 };
     const renderMermaid = async () => {
       if (!ref.current) return;
       setIsLoading(true);
@@ -150,10 +154,10 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
             const s = scaleRef.current;
             const { x, y } = translateRef.current;
             svgElem.style.transform = `translate(${x}px, ${y}px) scale(${s})`;
-            // useStateで保存
             setZoomState({ scale: s, translate: { x, y } });
           };
 
+          // Wheel zoom (desktop)
           const onWheel = (e: WheelEvent) => {
             e.preventDefault();
             const rect = container.getBoundingClientRect();
@@ -170,6 +174,54 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
             applyTransform();
           };
 
+          // Touch events for iPad pinch zoom
+          const getTouchDist = (touches: TouchList) => {
+            if (touches.length < 2) return 0;
+            const dx = touches[0].clientX - touches[1].clientX;
+            const dy = touches[0].clientY - touches[1].clientY;
+            return Math.sqrt(dx * dx + dy * dy);
+          };
+
+          const onTouchStart = (e: TouchEvent) => {
+            if (e.touches.length === 2) {
+              isPinching = true;
+              lastTouchDist = getTouchDist(e.touches);
+              pinchStartScale = scaleRef.current;
+              // ピンチ中心座標
+              const rect = container.getBoundingClientRect();
+              pinchStart = {
+                x: (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left,
+                y: (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top,
+              };
+            }
+          };
+
+          const onTouchMove = (e: TouchEvent) => {
+            if (isPinching && e.touches.length === 2) {
+              e.preventDefault();
+              const newDist = getTouchDist(e.touches);
+              if (lastTouchDist > 0) {
+                let scaleDelta = newDist / lastTouchDist;
+                let newScale = Math.max(0.2, Math.min(8, pinchStartScale * scaleDelta));
+                // ピンチ中心を基準にズーム
+                const tx = translateRef.current.x;
+                const ty = translateRef.current.y;
+                translateRef.current.x = pinchStart.x - (pinchStart.x - tx) * (newScale / scaleRef.current);
+                translateRef.current.y = pinchStart.y - (pinchStart.y - ty) * (newScale / scaleRef.current);
+                scaleRef.current = newScale;
+                applyTransform();
+              }
+            }
+          };
+
+          const onTouchEnd = (e: TouchEvent) => {
+            if (e.touches.length < 2) {
+              isPinching = false;
+              lastTouchDist = 0;
+            }
+          };
+
+          // Pointer events for pan
           const onPointerDown = (e: PointerEvent) => {
             (e.target as Element).setPointerCapture?.(e.pointerId);
             isPanningRef.current = true;
@@ -210,6 +262,10 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
           window.addEventListener('pointermove', onPointerMove as any);
           window.addEventListener('pointerup', onPointerUp as any);
           container.addEventListener('dblclick', onDblClick as any);
+          // iPadピンチズーム
+          container.addEventListener('touchstart', onTouchStart, { passive: false });
+          container.addEventListener('touchmove', onTouchMove, { passive: false });
+          container.addEventListener('touchend', onTouchEnd, { passive: false });
 
           const cleanup = () => {
             try {
@@ -218,6 +274,9 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
               window.removeEventListener('pointermove', onPointerMove as any);
               window.removeEventListener('pointerup', onPointerUp as any);
               container.removeEventListener('dblclick', onDblClick as any);
+              container.removeEventListener('touchstart', onTouchStart as any);
+              container.removeEventListener('touchmove', onTouchMove as any);
+              container.removeEventListener('touchend', onTouchEnd as any);
             } catch (err) {
               // ignore
             }
