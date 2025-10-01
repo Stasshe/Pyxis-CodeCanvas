@@ -88,10 +88,9 @@
 │   │   │   │   └── ModeSelector.tsx
 │   │   │   ├── context
 │   │   │   │   └── FileContextBar.tsx
-│   │   │   ├── review
-│   │   │   │   ├── ChangedFilesPanel.tsx
-│   │   │   │   └── FileChangeItem.tsx
-│   │   │   └── spaces
+│   │   │   └── review
+│   │   │       ├── ChangedFilesPanel.tsx
+│   │   │       └── FileChangeItem.tsx
 │   │   ├── Bottom
 │   │   │   ├── BottomPanel.tsx
 │   │   │   ├── DebugConsole.tsx
@@ -120,7 +119,6 @@
 │   │   │   └── RightSidebar.tsx
 │   │   ├── Tab
 │   │   │   ├── BinaryTabContent.tsx
-│   │   │   ├── CharCountDetails.tsx
 │   │   │   ├── CodeEditor.tsx
 │   │   │   ├── DiffTab.tsx
 │   │   │   ├── HighlightedCode.tsx
@@ -128,7 +126,22 @@
 │   │   │   ├── TabBar.tsx
 │   │   │   ├── WebPreviewTab.tsx
 │   │   │   ├── WelcomeTab.tsx
-│   │   │   └── markdownUtils.ts
+│   │   │   ├── markdownUtils.ts
+│   │   │   └── text-editor
+│   │   │       ├── editors
+│   │   │       │   ├── CodeMirrorEditor.tsx
+│   │   │       │   ├── MonacoEditor.tsx
+│   │   │       │   ├── codemirror-utils.ts
+│   │   │       │   └── editor-utils.ts
+│   │   │       ├── hooks
+│   │   │       │   ├── useCharCount.ts
+│   │   │       │   ├── useMonacoBreakpoints.ts
+│   │   │       │   └── useMonacoModels.ts
+│   │   │       ├── ui
+│   │   │       │   ├── CharCountDisplay.tsx
+│   │   │       │   └── EditorPlaceholder.tsx
+│   │   │       └── utils
+│   │   │           └── CharCountDetails.tsx
 │   │   └── Toast.tsx
 │   ├── context
 │   │   ├── BreakpointContext.tsx
@@ -218,11 +231,11 @@
 ├── tree.txt
 └── tsconfig.json
 
-39 directories, 180 files
+43 directories, 189 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 28925
-合計文字数: 979039
-合計ファイルサイズ(bytes): 1048014
+合計行数: 28882
+合計文字数: 973272
+合計ファイルサイズ(bytes): 1040115
 
 リポジトリ全体のサイズ(bytes): 1.9G	.
