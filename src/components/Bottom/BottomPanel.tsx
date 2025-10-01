@@ -223,8 +223,6 @@ export default function BottomPanel({
               height={height}
               currentProject={currentProject}
               currentProjectId={currentProjectId}
-              projectFiles={projectFiles}
-              onFileOperation={onTerminalFileOperation}
               isActive={activeTab === 'terminal'}
             />
           </div>
