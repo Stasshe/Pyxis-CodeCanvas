@@ -38,11 +38,11 @@ export class UnixCommands {
     this.projectId = projectId || '';
     this.projectName = projectName;
     this.onFileOperation = onFileOperation;
-    
+
     if (!this.projectId) {
       console.warn('[UnixCommands] projectId is empty! DB operations will fail.');
     }
-    
+
     this.ensureProjectDirectory();
   }
 
@@ -118,7 +118,9 @@ export class UnixCommands {
 
   async ls(path?: string, options: string[] = []): Promise<string> {
     const targetPath = path
-      ? path.startsWith('/') ? path : `${this.currentDir}/${path}`
+      ? path.startsWith('/')
+        ? path
+        : `${this.currentDir}/${path}`
       : this.currentDir;
 
     const showAll = options.includes('-a') || options.includes('--all');
@@ -143,7 +145,12 @@ export class UnixCommands {
 
       if (!showAll && !showSystem && !showComplete) {
         filteredFiles = files.filter(
-          file => file !== '.git' && file !== '.' && file !== '..' && !file.startsWith('.git') && !file.startsWith('.')
+          file =>
+            file !== '.git' &&
+            file !== '.' &&
+            file !== '..' &&
+            !file.startsWith('.git') &&
+            !file.startsWith('.')
         );
       } else if (showAll && !showSystem && !showComplete) {
         filteredFiles = files.filter(
@@ -243,13 +250,13 @@ export class UnixCommands {
       // IndexedDBから削除（自動的にGitFileSystemからも削除＆フラッシュ）
       const files = await fileRepository.getProjectFiles(this.projectId);
       const fileToDelete = files.find(f => f.path === relativePath);
-      
+
       if (!fileToDelete) {
         throw new Error(`No such file or directory: ${fileName}`);
       }
 
       await fileRepository.deleteFile(fileToDelete.id);
-      
+
       // フォルダの場合は子ファイルも削除（各削除で自動フラッシュ）
       if (fileToDelete.type === 'folder') {
         const childFiles = files.filter(f => f.path.startsWith(relativePath + '/'));
@@ -257,7 +264,7 @@ export class UnixCommands {
           await fileRepository.deleteFile(child.id);
         }
       }
-      
+
       return `removed '${fileName}'`;
     } catch (error) {
       throw new Error(`rm: ${(error as Error).message}`);
@@ -283,7 +290,7 @@ export class UnixCommands {
 
     let append = false;
     let actualFileName = fileName;
-    
+
     if (fileName.startsWith('>>')) {
       append = true;
       actualFileName = fileName.replace(/^>>\s*/, '');
@@ -299,7 +306,7 @@ export class UnixCommands {
 
     try {
       let content = text;
-      
+
       if (append) {
         const files = await fileRepository.getProjectFiles(this.projectId);
         const existingFile = files.find(f => f.path === relativePath);
@@ -311,7 +318,7 @@ export class UnixCommands {
       // IndexedDBに保存（自動的にGitFileSystemに同期＆フラッシュ）
       const files = await fileRepository.getProjectFiles(this.projectId);
       const existingFile = files.find(f => f.path === relativePath);
-      
+
       if (existingFile) {
         await fileRepository.saveFile({
           ...existingFile,
@@ -321,7 +328,7 @@ export class UnixCommands {
       } else {
         await fileRepository.createFile(this.projectId, relativePath, content, 'file');
       }
-      
+
       return append ? `Appended to: ${normalizedPath}` : `Text written to: ${normalizedPath}`;
     } catch (error) {
       throw new Error(`echo: cannot write to '${actualFileName}': ${(error as Error).message}`);
@@ -330,7 +337,9 @@ export class UnixCommands {
 
   async mv(source: string, destination: string): Promise<string> {
     const srcPath = source.startsWith('/') ? source : `${this.currentDir}/${source}`;
-    const destPath = destination.startsWith('/') ? destination : `${this.currentDir}/${destination}`;
+    const destPath = destination.startsWith('/')
+      ? destination
+      : `${this.currentDir}/${destination}`;
     const srcNormalized = this.normalizePath(srcPath);
     const destNormalized = this.normalizePath(destPath);
     const srcRelative = this.getRelativePathFromProject(srcNormalized);
@@ -340,7 +349,7 @@ export class UnixCommands {
       // IndexedDBで移動（削除→作成、各操作で自動的にGitFileSystemに同期＆フラッシュ）
       const files = await fileRepository.getProjectFiles(this.projectId);
       const srcFile = files.find(f => f.path === srcRelative);
-      
+
       if (!srcFile) {
         throw new Error(`No such file or directory: ${source}`);
       }
@@ -354,10 +363,10 @@ export class UnixCommands {
         srcFile.isBufferArray,
         srcFile.bufferContent
       );
-      
+
       // 元の場所から削除（自動同期＆フラッシュ）
       await fileRepository.deleteFile(srcFile.id);
-      
+
       return `'${source}' -> '${destination}'`;
     } catch (error) {
       throw new Error(`mv: ${(error as Error).message}`);
@@ -366,7 +375,9 @@ export class UnixCommands {
 
   async unzip(zipFileName: string, destDir: string, bufferContent: ArrayBuffer): Promise<string> {
     const extractDir = destDir
-      ? destDir.startsWith('/') ? destDir : `${this.currentDir}/${destDir}`
+      ? destDir.startsWith('/')
+        ? destDir
+        : `${this.currentDir}/${destDir}`
       : this.currentDir;
     const normalizedDest = this.normalizePath(extractDir);
 
@@ -396,7 +407,9 @@ export class UnixCommands {
 
           try {
             const text = new TextDecoder('utf-8', { fatal: true }).decode(content);
-            if (/\.(txt|md|js|ts|jsx|tsx|json|html|css|py|sh|yml|yaml|xml|svg|csv)$/i.test(relPath)) {
+            if (
+              /\.(txt|md|js|ts|jsx|tsx|json|html|css|py|sh|yml|yaml|xml|svg|csv)$/i.test(relPath)
+            ) {
               isText = true;
               content = text;
             }
@@ -407,9 +420,10 @@ export class UnixCommands {
           if (isText && typeof content === 'string') {
             await fileRepository.createFile(this.projectId, relativePath, content, 'file');
           } else if (isBufferArray && content instanceof Uint8Array) {
-            const buffer = content.buffer instanceof ArrayBuffer
-              ? content.buffer
-              : new ArrayBuffer(content.byteLength);
+            const buffer =
+              content.buffer instanceof ArrayBuffer
+                ? content.buffer
+                : new ArrayBuffer(content.byteLength);
             if (buffer !== content.buffer) {
               new Uint8Array(buffer).set(content);
             }

@@ -58,7 +58,11 @@ export class SyncManager {
         try {
           if (file.isBufferArray && file.bufferContent) {
             // バイナリファイル
-            await gitFileSystem.writeFile(projectName, file.path, new Uint8Array(file.bufferContent));
+            await gitFileSystem.writeFile(
+              projectName,
+              file.path,
+              new Uint8Array(file.bufferContent)
+            );
           } else {
             // テキストファイル
             await gitFileSystem.writeFile(projectName, file.path, file.content || '');
@@ -119,12 +123,7 @@ export class SyncManager {
         } else {
           // 新規ファイルの作成
           console.log(`[SyncManager] Creating file in IndexedDB: ${fsFile.path}`);
-          await fileRepository.createFile(
-            projectId,
-            fsFile.path,
-            fsFile.content,
-            fsFile.type
-          );
+          await fileRepository.createFile(projectId, fsFile.path, fsFile.content, fsFile.type);
         }
       }
 

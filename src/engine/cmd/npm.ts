@@ -1,6 +1,6 @@
 /**
  * npm.ts - 新アーキテクチャ版NPMコマンド
- * 
+ *
  * NEW ARCHITECTURE:
  * - IndexedDB (fileRepository) が単一の真実の情報源
  * - package.jsonなどの設定ファイルは IndexedDB に保存

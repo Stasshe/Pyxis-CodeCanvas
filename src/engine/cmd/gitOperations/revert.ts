@@ -14,12 +14,7 @@ export class GitRevertOperations {
   private projectId: string;
   private projectName: string;
 
-  constructor(
-    fs: FS,
-    dir: string,
-    projectId: string,
-    projectName: string
-  ) {
+  constructor(fs: FS, dir: string, projectId: string, projectName: string) {
     this.fs = fs;
     this.dir = dir;
     this.projectId = projectId;
@@ -84,7 +79,7 @@ export class GitRevertOperations {
 
       // 親コミットのツリーを現在のワーキングディレクトリに適用
       // isomorphic-gitにはrevertコマンドがないため、手動で実装
-      
+
       // 対象コミットで変更されたファイルを特定して、親コミットの状態に戻す
       const currentTree = await git.readTree({
         fs: this.fs,
@@ -144,7 +139,7 @@ export class GitRevertOperations {
       // 変更を適用
       for (const [filePath, { parentOid }] of changedFiles) {
         const fullPath = `${this.dir}/${filePath}`;
-        
+
         if (parentOid) {
           // ファイルを親コミットの状態に戻す
           try {

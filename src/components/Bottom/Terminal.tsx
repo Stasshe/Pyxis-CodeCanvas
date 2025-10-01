@@ -47,10 +47,10 @@ function ClientTerminal({
       try {
         // FileRepositoryを初期化
         await fileRepository.init();
-        
+
         // GitFileSystemを初期化
         gitFileSystem.init();
-        
+
         // プロジェクトファイルをIndexedDB→GitFileSystemに同期（初回のみ）
         if (currentProjectId) {
           console.log('[Terminal] Syncing project files from IndexedDB to GitFileSystem');
@@ -61,13 +61,17 @@ function ClientTerminal({
         console.error('[Terminal] Initialization error:', error);
       }
     };
-    
+
     initializeTerminal();
 
     // コマンドクラスの初期化（onFileOperation不要、すべてfileRepository経由）
     unixCommandsRef.current = new UnixCommands(currentProject, undefined, currentProjectId);
     gitCommandsRef.current = new GitCommands(currentProject, currentProjectId, undefined);
-    npmCommandsRef.current = new NpmCommands(currentProject, currentProjectId, '/projects/' + currentProject);
+    npmCommandsRef.current = new NpmCommands(
+      currentProject,
+      currentProjectId,
+      '/projects/' + currentProject
+    );
 
     // xterm関連のモジュールをrequire（クライアントサイドでのみ実行）
     const { Terminal: XTerm } = require('@xterm/xterm');
@@ -424,9 +428,7 @@ function ClientTerminal({
               if (otherLightningFSKeys.length === 0) {
                 await writeOutput('No Lightning-FS related localStorage entries found.');
               } else {
-                await writeOutput(
-                  `Lightning-FS related entries (${otherLightningFSKeys.length}):`
-                );
+                await writeOutput(`Lightning-FS related entries (${otherLightningFSKeys.length}):`);
                 for (const key of otherLightningFSKeys.slice(0, 10)) {
                   const value = window.localStorage.getItem(key);
                   const size = value ? value.length : 0;
@@ -695,7 +697,7 @@ function ClientTerminal({
               await writeOutput('unzip: internal error (filesystem not initialized)');
             } else {
               const normalizedPath = unixCommandsRef.current?.normalizePath(args[0]);
-              
+
               // FileRepositoryから直接取得
               try {
                 const projects = await fileRepository.getProjects();
@@ -749,7 +751,7 @@ function ClientTerminal({
               content = String(cmdOutputs);
             }
           }
-          
+
           try {
             await unixCommandsRef.current.fs.promises.writeFile(normalizedPath, content);
             // onFileOperationは不要、fileRepositoryが自動的に同期
@@ -765,7 +767,7 @@ function ClientTerminal({
       } catch (error) {
         cmdOutputs = (error as Error).message;
       }
-      
+
       scrollToBottom();
       setTimeout(() => scrollToBottom(), 50);
       setTimeout(() => scrollToBottom(), 150);
@@ -799,7 +801,7 @@ function ClientTerminal({
     // キーボードショートカット
     term.onKey(({ key, domEvent }: { key: string; domEvent: KeyboardEvent }) => {
       if (isComposing) return;
-      
+
       if (domEvent.ctrlKey && !domEvent.shiftKey && !domEvent.altKey) {
         if (key === '\u001b[D') {
           if (cursorPos > 0) {
@@ -818,7 +820,7 @@ function ClientTerminal({
           domEvent.preventDefault();
         }
       }
-      
+
       if (domEvent.shiftKey && !domEvent.ctrlKey && !domEvent.altKey) {
         if (key === '\u001b[D') {
           if (!isSelecting) {
@@ -844,7 +846,7 @@ function ClientTerminal({
           domEvent.preventDefault();
         }
       }
-      
+
       if (
         domEvent.ctrlKey &&
         key === '\u0003' &&
@@ -1048,7 +1050,10 @@ export default function Terminal({
         className="w-full h-full flex items-center justify-center"
         style={{ height: `${height - 32}px`, background: colors.editorBg }}
       >
-        <div className="text-sm" style={{ color: colors.mutedFg }}>
+        <div
+          className="text-sm"
+          style={{ color: colors.mutedFg }}
+        >
           ターミナルを初期化中...
         </div>
       </div>

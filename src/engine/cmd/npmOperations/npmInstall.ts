@@ -1,6 +1,6 @@
 /**
  * npmInstall_new.ts - 新アーキテクチャ版NPMパッケージインストーラー
- * 
+ *
  * NEW ARCHITECTURE:
  * - IndexedDB (fileRepository) が単一の真実の情報源
  * - npm操作は IndexedDB のみを更新
@@ -185,7 +185,7 @@ export class NpmInstall {
     const removeRecursively = async (path: string): Promise<void> => {
       try {
         const stat = await this.fs.promises.stat(path);
-        
+
         if (stat.isDirectory()) {
           const entries = await this.fs.promises.readdir(path);
           for (const entry of entries) {

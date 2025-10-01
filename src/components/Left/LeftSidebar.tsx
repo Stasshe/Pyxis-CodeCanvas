@@ -43,7 +43,7 @@ export default function LeftSidebar({
   onDiffAllFilesClick,
 }: LeftSidebarProps) {
   const { colors } = useTheme();
-  
+
   return (
     <>
       <div
@@ -128,7 +128,12 @@ export default function LeftSidebar({
                       const newFolderPath = folderName.startsWith('/')
                         ? folderName
                         : '/' + folderName;
-                      await fileRepository.createFile(currentProject.id, newFolderPath, '', 'folder');
+                      await fileRepository.createFile(
+                        currentProject.id,
+                        newFolderPath,
+                        '',
+                        'folder'
+                      );
                       if (onRefresh) setTimeout(onRefresh, 100);
                     }
                   }}

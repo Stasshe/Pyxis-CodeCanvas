@@ -389,19 +389,22 @@ export default function CodeEditor({
   const decorationsMapRef = useRef<Record<string, string[]>>({});
 
   // 指定行のトグル（現在のモデル or activeTab に紐づける）
-  const toggleBreakpoint = useCallback((line: number) => {
-    const tabId = currentModelIdRef.current || (activeTab && activeTab.id);
-    if (!tabId) return;
-    setBreakpointsMap(prev => {
-      const prevLines = new Set(prev[tabId] || []);
-      if (prevLines.has(line)) {
-        prevLines.delete(line);
-      } else {
-        prevLines.add(line);
-      }
-      return { ...prev, [tabId]: Array.from(prevLines).sort((a, b) => a - b) };
-    });
-  }, [activeTab?.id]);
+  const toggleBreakpoint = useCallback(
+    (line: number) => {
+      const tabId = currentModelIdRef.current || (activeTab && activeTab.id);
+      if (!tabId) return;
+      setBreakpointsMap(prev => {
+        const prevLines = new Set(prev[tabId] || []);
+        if (prevLines.has(line)) {
+          prevLines.delete(line);
+        } else {
+          prevLines.add(line);
+        }
+        return { ...prev, [tabId]: Array.from(prevLines).sort((a, b) => a - b) };
+      });
+    },
+    [activeTab?.id]
+  );
 
   // タブごとにデコレーションを更新する
   const updateBreakpointDecorations = useCallback(() => {
@@ -454,59 +457,72 @@ export default function CodeEditor({
   }, [breakpointsMap, activeTab?.id]);
 
   // ガタークリック（タップ）処理を強化
-  const handleEditorGutterClick = useCallback((e: any) => {
-    if (typeof window === 'undefined') return;
-    const monaco = monacoRef.current;
-    if (!monaco) return;
+  const handleEditorGutterClick = useCallback(
+    (e: any) => {
+      if (typeof window === 'undefined') return;
+      const monaco = monacoRef.current;
+      if (!monaco) return;
 
-    // いくつかのバージョンでのType定数を取得
-    const GUTTER_GLYPH_MARGIN = monaco.editor.MouseTargetType?.GUTTER_GLYPH_MARGIN ?? 2;
-    const GUTTER_LINE_NUMBERS = monaco.editor.MouseTargetType?.GUTTER_LINE_NUMBERS ?? 3;
+      // いくつかのバージョンでのType定数を取得
+      const GUTTER_GLYPH_MARGIN = monaco.editor.MouseTargetType?.GUTTER_GLYPH_MARGIN ?? 2;
+      const GUTTER_LINE_NUMBERS = monaco.editor.MouseTargetType?.GUTTER_LINE_NUMBERS ?? 3;
 
-    // 基本的にGUTTER_GLYPH_MARGINを期待するが、ライン番号や近接エリアでタップされる場合もあるため
-    const clickedType = e?.target?.type;
+      // 基本的にGUTTER_GLYPH_MARGINを期待するが、ライン番号や近接エリアでタップされる場合もあるため
+      const clickedType = e?.target?.type;
 
-    // デバッグ: ターゲットの情報をログに出す
-    // eslint-disable-next-line no-console
-    console.debug('[CodeEditor] onMouseDown target type:', clickedType, 'position:', e?.target?.position, 'browserEvent:', e?.event?.browserEvent?.type);
+      // デバッグ: ターゲットの情報をログに出す
+      // eslint-disable-next-line no-console
+      console.debug(
+        '[CodeEditor] onMouseDown target type:',
+        clickedType,
+        'position:',
+        e?.target?.position,
+        'browserEvent:',
+        e?.event?.browserEvent?.type
+      );
 
-    let lineNumber: number | undefined;
+      let lineNumber: number | undefined;
 
-    // 優先: 明示的に報告された行番号
-    if (e.target?.position?.lineNumber) {
-      lineNumber = e.target.position.lineNumber;
-    }
+      // 優先: 明示的に報告された行番号
+      if (e.target?.position?.lineNumber) {
+        lineNumber = e.target.position.lineNumber;
+      }
 
-    // 代替: 要素走査でglyph-margin内かどうか判断
-    if (!lineNumber && e.target && (e.target.element || e.target.detail)) {
-      const el = e.target.element || e.target.detail?.target || null;
-      try {
-        if (el && typeof (el as Element).closest === 'function') {
-          const glyph = (el as Element).closest('.glyph-margin');
-          if (glyph) {
-            // 行番号情報はDOM属性に含まれる場合がある
-            const lineAttr = glyph.getAttribute && glyph.getAttribute('data-line-number');
-            if (lineAttr) {
-              const parsed = parseInt(lineAttr, 10);
-              if (!Number.isNaN(parsed)) lineNumber = parsed;
+      // 代替: 要素走査でglyph-margin内かどうか判断
+      if (!lineNumber && e.target && (e.target.element || e.target.detail)) {
+        const el = e.target.element || e.target.detail?.target || null;
+        try {
+          if (el && typeof (el as Element).closest === 'function') {
+            const glyph = (el as Element).closest('.glyph-margin');
+            if (glyph) {
+              // 行番号情報はDOM属性に含まれる場合がある
+              const lineAttr = glyph.getAttribute && glyph.getAttribute('data-line-number');
+              if (lineAttr) {
+                const parsed = parseInt(lineAttr, 10);
+                if (!Number.isNaN(parsed)) lineNumber = parsed;
+              }
             }
           }
+        } catch (er) {
+          // ignore
         }
-      } catch (er) {
-        // ignore
       }
-    }
 
-    // 最終手段: MouseTargetTypeが該当するならpositionから取得
-    if (!lineNumber && (clickedType === GUTTER_GLYPH_MARGIN || clickedType === GUTTER_LINE_NUMBERS)) {
-      lineNumber = e.target?.position?.lineNumber;
-    }
+      // 最終手段: MouseTargetTypeが該当するならpositionから取得
+      if (
+        !lineNumber &&
+        (clickedType === GUTTER_GLYPH_MARGIN || clickedType === GUTTER_LINE_NUMBERS)
+      ) {
+        lineNumber = e.target?.position?.lineNumber;
+      }
 
-    if (lineNumber) {
-      toggleBreakpoint(lineNumber);
-      console.debug('[CodeEditor] Toggled breakpoint at line:', lineNumber);
-    }
-  }, [toggleBreakpoint]);
+      if (lineNumber) {
+        toggleBreakpoint(lineNumber);
+        console.debug('[CodeEditor] Toggled breakpoint at line:', lineNumber);
+      }
+    },
+    [toggleBreakpoint]
+  );
 
   // Monaco Editor: ファイルごとにTextModelを管理し、タブ切り替え時にモデルを切り替える
   const handleEditorDidMount: OnMount = (editor, monaco) => {
@@ -659,12 +675,20 @@ export default function CodeEditor({
             try {
               editorRef.current.deltaDecorations(prevIdsInit, []);
             } catch (e) {
-              console.warn('[CodeEditor] Failed to clear previous decorations on init for', tabIdInit, e);
+              console.warn(
+                '[CodeEditor] Failed to clear previous decorations on init for',
+                tabIdInit,
+                e
+              );
             }
           }
           decorationsMapRef.current[tabIdInit] = [];
         } catch (e) {
-          console.warn('[CodeEditor] Failed to initialize breakpoint state for tab:', activeTab.id, e);
+          console.warn(
+            '[CodeEditor] Failed to initialize breakpoint state for tab:',
+            activeTab.id,
+            e
+          );
         }
       }
 
@@ -689,17 +713,24 @@ export default function CodeEditor({
                   try {
                     editorRef.current.deltaDecorations(prevIds, []);
                   } catch (clearErr) {
-                    console.warn('[CodeEditor] Failed to clear decorations during model dispose for', tabToClear, clearErr);
+                    console.warn(
+                      '[CodeEditor] Failed to clear decorations during model dispose for',
+                      tabToClear,
+                      clearErr
+                    );
                   }
                 }
                 decorationsMapRef.current[tabToClear] = [];
               } catch (initErr) {
-                console.warn('[CodeEditor] Failed to reset breakpoint state during model dispose:', initErr);
+                console.warn(
+                  '[CodeEditor] Failed to reset breakpoint state during model dispose:',
+                  initErr
+                );
               }
-               console.warn('[CodeEditor] Model dispose failed:', disposeError);
-             }
-             monacoModelMap.delete(activeTab.id);
-           }
+              console.warn('[CodeEditor] Model dispose failed:', disposeError);
+            }
+            monacoModelMap.delete(activeTab.id);
+          }
 
           try {
             const newModel = monaco.editor.createModel(
@@ -757,7 +788,6 @@ export default function CodeEditor({
       }
       model = undefined;
     }
-
 
     let didSetModel = false;
     // --- 1. モデルがなければ新規作成 ---
@@ -817,7 +847,10 @@ export default function CodeEditor({
           }
           decorationsMapRef.current[currentModelIdRef.current || ''] = [];
         } catch (e) {
-          console.warn('[CodeEditor] Failed to clear decorations before setModel (existing model):', e);
+          console.warn(
+            '[CodeEditor] Failed to clear decorations before setModel (existing model):',
+            e
+          );
         }
         try {
           editorRef.current!.setModel(model);
@@ -891,13 +924,23 @@ export default function CodeEditor({
         editor.revealPositionInCenter({ lineNumber: jumpToLine, column: jumpToColumn });
         editor.setPosition({ lineNumber: jumpToLine, column: jumpToColumn });
         editor.focus();
-        console.log('[CodeEditor] JUMP: line', jumpToLine, 'col', jumpToColumn, 'tab', activeTab.id);
+        console.log(
+          '[CodeEditor] JUMP: line',
+          jumpToLine,
+          'col',
+          jumpToColumn,
+          'tab',
+          activeTab.id
+        );
       } catch (e) {
         console.warn('[CodeEditor] Failed to jump to line/column:', e);
       }
     } else {
       if ((activeTab as any).jumpToLine !== undefined) {
-        console.log('[CodeEditor] jumpToLine present but editor not ready or not a number:', (activeTab as any).jumpToLine);
+        console.log(
+          '[CodeEditor] jumpToLine present but editor not ready or not a number:',
+          (activeTab as any).jumpToLine
+        );
       }
     }
   }, [activeTab?.id, isCodeMirror, isEditorSafe, isModelSafe]);

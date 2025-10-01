@@ -454,7 +454,12 @@ export const useProject = () => {
       // SyncManagerを使用してGitFileSystemからも削除（ファイル/フォルダ両方対応）
       if (fileToDelete) {
         try {
-          await syncManager.syncSingleFileToFS(currentProject.name, fileToDelete.path, null, 'delete');
+          await syncManager.syncSingleFileToFS(
+            currentProject.name,
+            fileToDelete.path,
+            null,
+            'delete'
+          );
         } catch (syncError) {
           console.warn('[deleteFile] GitFileSystem delete failed:', syncError);
         }

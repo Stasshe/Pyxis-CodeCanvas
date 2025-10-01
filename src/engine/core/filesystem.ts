@@ -26,7 +26,7 @@ export const getAllFilesAndDirs = async (
   // baseDirからプロジェクト名を抽出
   const projectName = baseDir.replace('/projects/', '').replace('/projects', '');
   if (!projectName) return [];
-  
+
   return gitFileSystem.getAllFiles(projectName);
 };
 

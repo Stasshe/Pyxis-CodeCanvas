@@ -124,7 +124,7 @@ export class FileRepository {
   ): Promise<void> {
     for (const [name, value] of Object.entries(obj)) {
       // children, content, type などのプロパティ名はスキップ
-      if (["children", "content", "type"].includes(name)) continue;
+      if (['children', 'content', 'type'].includes(name)) continue;
       const path = parentPath === '' ? `/${name}` : `${parentPath}/${name}`;
       if (typeof value === 'string') {
         // ファイル
@@ -215,10 +215,7 @@ export class FileRepository {
     const projectName = project?.name || '';
 
     return new Promise(async (resolve, reject) => {
-      const transaction = this.db!.transaction(
-        ['projects', 'files', 'chatSpaces'],
-        'readwrite'
-      );
+      const transaction = this.db!.transaction(['projects', 'files', 'chatSpaces'], 'readwrite');
 
       // プロジェクトを削除
       const projectStore = transaction.objectStore('projects');
@@ -340,7 +337,13 @@ export class FileRepository {
 
       request.onsuccess = () => {
         // 非同期でGitFileSystemに同期（エラーは無視）
-        this.syncToGitFileSystem(file.projectId, file.path, file.content, 'update', file.bufferContent).catch(err => {
+        this.syncToGitFileSystem(
+          file.projectId,
+          file.path,
+          file.content,
+          'update',
+          file.bufferContent
+        ).catch(err => {
           console.warn('[FileRepository] Background sync to GitFileSystem failed:', err);
         });
         resolve();
@@ -370,7 +373,7 @@ export class FileRepository {
       const gitignorePath = `${path.startsWith('/') ? '' : '/'}${projectName}/.gitignore`;
       const files = await this.getProjectFiles(projectId);
       const gitignoreFile = files.find(f => f.path === '/.gitignore');
-      
+
       if (!gitignoreFile || !gitignoreFile.content) {
         return false; // .gitignoreがない場合は無視しない
       }
@@ -410,10 +413,7 @@ export class FileRepository {
 
     // ワイルドカードルール（*を含む）
     if (rule.includes('*')) {
-      const regexPattern = rule
-        .replace(/\./g, '\\.')
-        .replace(/\*/g, '.*')
-        .replace(/\?/g, '.');
+      const regexPattern = rule.replace(/\./g, '\\.').replace(/\*/g, '.*').replace(/\?/g, '.');
       const regex = new RegExp(`^${regexPattern}$`);
       return regex.test(path);
     }
@@ -447,7 +447,7 @@ export class FileRepository {
       // 遅延インポートで循環参照を回避
       const { syncManager } = await import('./syncManager');
       const { gitFileSystem } = await import('./gitFileSystem');
-      
+
       // プロジェクト名を取得
       let projectName = this.projectNameCache.get(projectId);
       if (!projectName) {
@@ -464,14 +464,14 @@ export class FileRepository {
 
       // SyncManagerを使用して同期
       await syncManager.syncSingleFileToFS(projectName, path, content, operation, bufferContent);
-      
+
       // Git変更検知のために自動的にキャッシュフラッシュ
       await gitFileSystem.flush();
     } catch (error) {
       console.error('[FileRepository] syncToGitFileSystem error:', error);
       throw error;
     }
-  }  /**
+  } /**
    * プロジェクトの全ファイル取得
    */
   async getProjectFiles(projectId: string): Promise<ProjectFile[]> {
@@ -525,9 +525,11 @@ export class FileRepository {
       request.onsuccess = () => {
         // 非同期でGitFileSystemから削除（エラーは無視）
         if (fileToDelete) {
-          this.syncToGitFileSystem(fileToDelete.projectId, fileToDelete.path, '', 'delete').catch(err => {
-            console.warn('[FileRepository] Background sync delete to GitFileSystem failed:', err);
-          });
+          this.syncToGitFileSystem(fileToDelete.projectId, fileToDelete.path, '', 'delete').catch(
+            err => {
+              console.warn('[FileRepository] Background sync delete to GitFileSystem failed:', err);
+            }
+          );
         }
         resolve();
       };
@@ -689,10 +691,7 @@ export class FileRepository {
   /**
    * チャットスペースの選択ファイル更新
    */
-  async updateChatSpaceSelectedFiles(
-    chatSpaceId: string,
-    selectedFiles: string[]
-  ): Promise<void> {
+  async updateChatSpaceSelectedFiles(chatSpaceId: string, selectedFiles: string[]): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
 
     return new Promise(async (resolve, reject) => {

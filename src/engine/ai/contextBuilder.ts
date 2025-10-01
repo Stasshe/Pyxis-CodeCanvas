@@ -28,10 +28,7 @@ function truncateFileContent(content: string): string {
 }
 
 // FileItemをAIFileContextに変換
-function fileItemToAIContext(
-  file: FileItem,
-  selected: boolean = false
-): AIFileContext | null {
+function fileItemToAIContext(file: FileItem, selected: boolean = false): AIFileContext | null {
   //console.log('[fileItemToAIContext] Processing file:', file.path, 'type:', file.type, 'hasContent:', !!file.content, 'isBinary:', isBinaryFile(file));
 
   if (isBinaryFile(file) || file.type === 'folder') {

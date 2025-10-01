@@ -15,12 +15,7 @@ export class GitCheckoutOperations {
   private projectId: string;
   private projectName: string;
 
-  constructor(
-    fs: FS,
-    dir: string,
-    projectId: string,
-    projectName: string
-  ) {
+  constructor(fs: FS, dir: string, projectId: string, projectName: string) {
     this.fs = fs;
     this.dir = dir;
     this.projectId = projectId;

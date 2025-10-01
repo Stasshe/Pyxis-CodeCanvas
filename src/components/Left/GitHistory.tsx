@@ -58,7 +58,10 @@ export default function GitHistory({
   const [expandedCommits, setExpandedCommits] = useState<Set<string>>(new Set());
   const [commitChanges, setCommitChanges] = useState<Map<string, CommitChanges>>(new Map());
   const svgRef = useRef<SVGSVGElement>(null);
-  const gitCommands = currentProject && currentProjectId ? new GitCommands(currentProject, currentProjectId, onFileOperation) : null;
+  const gitCommands =
+    currentProject && currentProjectId
+      ? new GitCommands(currentProject, currentProjectId, onFileOperation)
+      : null;
 
   // トポロジカルソート: 親→子の順に並べる
   const topoSortCommits = (commits: GitCommitType[]): GitCommitType[] => {

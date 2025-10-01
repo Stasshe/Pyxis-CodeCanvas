@@ -783,7 +783,12 @@ export class GitCommands {
   async reset(
     options: { filepath?: string; hard?: boolean; commit?: string } = {}
   ): Promise<string> {
-    const resetOperations = new GitResetOperations(this.fs, this.dir, this.projectId, this.projectName);
+    const resetOperations = new GitResetOperations(
+      this.fs,
+      this.dir,
+      this.projectId,
+      this.projectName
+    );
     return await resetOperations.reset(options);
   }
 
@@ -801,13 +806,23 @@ export class GitCommands {
 
   // git checkout - ブランチ切り替え/作成
   async checkout(branchName: string, createNew = false): Promise<string> {
-    const checkoutOperations = new GitCheckoutOperations(this.fs, this.dir, this.projectId, this.projectName);
+    const checkoutOperations = new GitCheckoutOperations(
+      this.fs,
+      this.dir,
+      this.projectId,
+      this.projectName
+    );
     return await checkoutOperations.checkout(branchName, createNew);
   }
 
   // git revert - コミットを取り消し
   async revert(commitHash: string): Promise<string> {
-    const revertOperations = new GitRevertOperations(this.fs, this.dir, this.projectId, this.projectName);
+    const revertOperations = new GitRevertOperations(
+      this.fs,
+      this.dir,
+      this.projectId,
+      this.projectName
+    );
     return await revertOperations.revert(commitHash);
   }
 
@@ -877,7 +892,12 @@ export class GitCommands {
     branchName: string,
     options: { noFf?: boolean; message?: string; abort?: boolean } = {}
   ): Promise<string> {
-    const mergeOperations = new GitMergeOperations(this.fs, this.dir, this.projectId, this.projectName);
+    const mergeOperations = new GitMergeOperations(
+      this.fs,
+      this.dir,
+      this.projectId,
+      this.projectName
+    );
 
     if (options.abort) {
       return await mergeOperations.mergeAbort();

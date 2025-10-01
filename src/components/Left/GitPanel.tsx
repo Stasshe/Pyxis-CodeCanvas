@@ -56,7 +56,10 @@ export default function GitPanel({
   const [isGenerating, setIsGenerating] = useState(false);
 
   // Git操作用のコマンドインスタンス
-  const gitCommands = currentProject && currentProjectId ? new GitCommands(currentProject, currentProjectId, onFileOperation) : null;
+  const gitCommands =
+    currentProject && currentProjectId
+      ? new GitCommands(currentProject, currentProjectId, onFileOperation)
+      : null;
 
   // Git状態を取得
   const fetchGitStatus = async () => {

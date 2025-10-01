@@ -56,7 +56,7 @@ export default function FileTree({
     e.preventDefault();
     e.stopPropagation();
     const items = e.dataTransfer.items;
-    
+
     if (items && items.length > 0 && typeof items[0].webkitGetAsEntry === 'function') {
       // フォルダD&D対応
       const traverseFileTree = async (item: any, path: string) => {
@@ -82,7 +82,7 @@ export default function FileTree({
           }
         });
       };
-      
+
       const traverseAll = async () => {
         for (let i = 0; i < items.length; i++) {
           const entry = items[i].webkitGetAsEntry();
@@ -91,7 +91,7 @@ export default function FileTree({
           }
         }
       };
-      
+
       await traverseAll();
       // [NEW ARCHITECTURE] ファイルツリー再読み込み
       if (onRefresh) {
@@ -101,7 +101,7 @@ export default function FileTree({
       // 通常のファイルD&D
       const files = e.dataTransfer.files;
       if (!files || files.length === 0) return;
-      
+
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         const unix = new UnixCommands(currentProjectName, undefined, currentProjectId);
@@ -109,7 +109,7 @@ export default function FileTree({
         const absolutePath = `/projects/${currentProjectName}${importPath}`;
         await importSingleFile(file, absolutePath, unix);
       }
-      
+
       // [NEW ARCHITECTURE] ファイルツリー再読み込み
       if (onRefresh) {
         setTimeout(onRefresh, 100);
@@ -309,9 +309,15 @@ export default function FileTree({
               {item.type === 'folder' ? (
                 <>
                   {isExpanded ? (
-                    <ChevronDown size={14} color={colors.mutedFg} />
+                    <ChevronDown
+                      size={14}
+                      color={colors.mutedFg}
+                    />
                   ) : (
-                    <ChevronRight size={14} color={colors.mutedFg} />
+                    <ChevronRight
+                      size={14}
+                      color={colors.mutedFg}
+                    />
                   )}
                   <img
                     src={(() => {

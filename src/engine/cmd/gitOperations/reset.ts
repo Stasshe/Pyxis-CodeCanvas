@@ -14,12 +14,7 @@ export class GitResetOperations {
   private projectId: string;
   private projectName: string;
 
-  constructor(
-    fs: FS,
-    dir: string,
-    projectId: string,
-    projectName: string
-  ) {
+  constructor(fs: FS, dir: string, projectId: string, projectName: string) {
     this.fs = fs;
     this.dir = dir;
     this.projectId = projectId;
@@ -54,7 +49,7 @@ export class GitResetOperations {
       if (hard) {
         // ハードリセット: ワーキングディレクトリとインデックスを指定コミットの状態に戻す
         const targetRef = commit || 'HEAD';
-        
+
         console.log('[NEW ARCHITECTURE] Reset: Hard reset to', targetRef);
 
         // ターゲットコミットのOIDを取得
@@ -62,7 +57,9 @@ export class GitResetOperations {
         try {
           targetOid = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: targetRef });
         } catch {
-          throw new Error(`fatal: ambiguous argument '${targetRef}': unknown revision or path not in the working tree.`);
+          throw new Error(
+            `fatal: ambiguous argument '${targetRef}': unknown revision or path not in the working tree.`
+          );
         }
 
         // 現在のHEADを更新
@@ -164,7 +161,7 @@ export class GitResetOperations {
       // 通常のリセット（ソフトリセット）
       const targetRef = commit || 'HEAD';
       console.log('[NEW ARCHITECTURE] Reset: Soft reset to', targetRef);
-      
+
       // ソフトリセットはステージングエリアをクリア
       // isomorphic-gitではgit.checkoutを使用してインデックスを更新
       try {
@@ -172,7 +169,7 @@ export class GitResetOperations {
       } catch {
         console.error('Failed to perform soft reset checkout');
       }
-      
+
       return 'Unstaged changes after reset';
     } catch (error) {
       const errorMessage = (error as Error).message;
