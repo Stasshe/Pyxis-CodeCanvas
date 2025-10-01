@@ -17,7 +17,7 @@ flowchart TD
     SyncManager -- 差分同期 --> GitFileSystem
     GitFileSystem -- git操作 --> SyncManager
     SyncManager -- 差分同期 --> FileRepository
-    GitFileSystem -. git操作 .->|revert/checkout| SyncManager
+    GitFileSystem -. git操作 .->|revert checkout| SyncManager
 ```
 
 ---
