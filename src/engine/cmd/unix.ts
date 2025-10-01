@@ -12,32 +12,12 @@ export class UnixCommands {
   private currentDir: string;
   private projectId: string;
   private projectName: string;
-  private onFileOperation?: (
-    path: string,
-    type: 'file' | 'folder' | 'delete',
-    content?: string,
-    isNodeRuntime?: boolean,
-    isBufferArray?: boolean,
-    bufferContent?: ArrayBuffer
-  ) => Promise<void>;
 
-  constructor(
-    projectName: string,
-    onFileOperation?: (
-      path: string,
-      type: 'file' | 'folder' | 'delete',
-      content?: string,
-      isNodeRuntime?: boolean,
-      isBufferArray?: boolean,
-      bufferContent?: ArrayBuffer
-    ) => Promise<void>,
-    projectId?: string
-  ) {
+  constructor(projectName: string, projectId?: string) {
     this.fs = gitFileSystem.getFS();
     this.currentDir = gitFileSystem.getProjectDir(projectName);
     this.projectId = projectId || '';
     this.projectName = projectName;
-    this.onFileOperation = onFileOperation;
 
     if (!this.projectId) {
       console.warn('[UnixCommands] projectId is empty! DB operations will fail.');

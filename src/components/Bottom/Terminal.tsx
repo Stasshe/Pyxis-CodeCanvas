@@ -65,7 +65,7 @@ function ClientTerminal({
     initializeTerminal();
 
     // コマンドクラスの初期化（onFileOperation不要、すべてfileRepository経由）
-    unixCommandsRef.current = new UnixCommands(currentProject, undefined, currentProjectId);
+    unixCommandsRef.current = new UnixCommands(currentProject, currentProjectId);
     gitCommandsRef.current = new GitCommands(currentProject, currentProjectId, undefined);
     npmCommandsRef.current = new NpmCommands(
       currentProject,
