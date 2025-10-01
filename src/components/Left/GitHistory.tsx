@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useContext } from 'react';
+import React, { useState, useRef, useContext, useEffect } from 'react';
 import {
   GitCommit,
   GitBranch,
@@ -23,11 +23,6 @@ interface GitHistoryProps {
   currentProject?: string;
   currentProjectId?: string;
   currentBranch: string;
-  onFileOperation?: (
-    path: string,
-    type: 'file' | 'folder' | 'delete',
-    content?: string
-  ) => Promise<void>;
   onDiffFileClick?: (params: { commitId: string; filePath: string }) => void;
   onDiffAllFilesClick?: (params: { commitId: string; parentCommitId: string }) => void;
 }
@@ -50,7 +45,6 @@ export default function GitHistory({
   currentProject,
   currentProjectId,
   currentBranch,
-  onFileOperation,
   onDiffFileClick,
   onDiffAllFilesClick,
 }: GitHistoryProps) {
@@ -59,9 +53,7 @@ export default function GitHistory({
   const [commitChanges, setCommitChanges] = useState<Map<string, CommitChanges>>(new Map());
   const svgRef = useRef<SVGSVGElement>(null);
   const gitCommands =
-    currentProject && currentProjectId
-      ? new GitCommands(currentProject, currentProjectId, onFileOperation)
-      : null;
+    currentProject && currentProjectId ? new GitCommands(currentProject, currentProjectId) : null;
 
   // トポロジカルソート: 親→子の順に並べる
   const topoSortCommits = (commits: GitCommitType[]): GitCommitType[] => {

@@ -10,96 +10,28 @@ import { GitMergeOperations } from './gitOperations/merge';
 import { GitResetOperations } from './gitOperations/reset';
 import { GitRevertOperations } from './gitOperations/revert';
 
-import { getFileSystem, getProjectDir } from '@/engine/core/filesystem';
+import { gitFileSystem } from '@/engine/core/gitFileSystem';
+import { fileRepository } from '@/engine/core/fileRepository';
+import { syncManager } from '@/engine/core/syncManager';
 
 /**
- * Git操作を管理するクラス
- * isomorphic-gitを使用してブラウザ環境でGit操作を実現
+ * [NEW ARCHITECTURE] Git操作を管理するクラス
+ * - onFileOperationコールバックを完全に削除
+ * - IndexedDBへの同期はfileRepositoryが自動的に実行
+ * - Git操作後の逆同期はsyncManagerを使用
+ * - バッチ処理機能を削除（不要）
  */
 export class GitCommands {
   private fs: FS;
   private dir: string;
   private projectId: string;
   private projectName: string;
-  private onFileOperation?: (
-    path: string,
-    type: 'file' | 'folder' | 'delete',
-    content?: string,
-    isNodeRuntime?: boolean,
-    bufferContent?: ArrayBuffer
-  ) => Promise<void>;
-  // バッチ処理用のキュー
-  private fileOperationQueue: Array<{
-    path: string;
-    type: 'file' | 'folder' | 'delete';
-    content?: string;
-    isNodeRuntime?: boolean;
-    bufferContent?: ArrayBuffer;
-  }> = [];
-  private batchProcessing = false;
 
-  constructor(
-    projectName: string,
-    projectId: string,
-    onFileOperation?: (
-      path: string,
-      type: 'file' | 'folder' | 'delete',
-      content?: string,
-      isNodeRuntime?: boolean,
-      bufferContent?: ArrayBuffer
-    ) => Promise<void>
-  ) {
-    this.fs = getFileSystem()!;
-    this.dir = getProjectDir(projectName);
+  constructor(projectName: string, projectId: string) {
+    this.fs = gitFileSystem.getFS()!;
+    this.dir = gitFileSystem.getProjectDir(projectName);
     this.projectId = projectId;
     this.projectName = projectName;
-    this.onFileOperation = onFileOperation;
-  }
-
-  // バッチ処理開始
-  startBatchProcessing(): void {
-    this.batchProcessing = true;
-    this.fileOperationQueue = [];
-    console.log('[GitCommands] Started batch processing mode');
-  }
-
-  // バッチ処理終了し、キューをフラッシュ
-  async finishBatchProcessing(): Promise<void> {
-    if (!this.batchProcessing || !this.onFileOperation) {
-      return;
-    }
-    console.log(
-      `[GitCommands] Finishing batch processing, ${this.fileOperationQueue.length} operations queued`
-    );
-    const BATCH_SIZE = 10;
-    for (let i = 0; i < this.fileOperationQueue.length; i += BATCH_SIZE) {
-      const batch = this.fileOperationQueue.slice(i, i + BATCH_SIZE);
-      await Promise.all(
-        batch.map(op =>
-          this.onFileOperation!(op.path, op.type, op.content, op.isNodeRuntime, op.bufferContent)
-        )
-      );
-      await new Promise(resolve => setTimeout(resolve, 50));
-    }
-    this.batchProcessing = false;
-    this.fileOperationQueue = [];
-    console.log('[GitCommands] Batch processing completed');
-  }
-
-  // ファイル操作を実行（バッチモード対応）
-  private async executeFileOperation(
-    path: string,
-    type: 'file' | 'folder' | 'delete',
-    content?: string,
-    isNodeRuntime?: boolean,
-    bufferContent?: ArrayBuffer
-  ): Promise<void> {
-    if (!this.onFileOperation) return;
-    if (this.batchProcessing) {
-      this.fileOperationQueue.push({ path, type, content, isNodeRuntime, bufferContent });
-    } else {
-      await this.onFileOperation(path, type, content, isNodeRuntime, bufferContent);
-    }
   }
 
   // ========================================
@@ -157,12 +89,12 @@ export class GitCommands {
     }, 'git init failed');
   }
 
-  // terminalGitCommands.ts の clone メソッド
+  // git clone - リモートリポジトリをクローン
   async clone(url: string, targetDir?: string): Promise<string> {
     return this.executeGitOperation(async () => {
       // URLの妥当性を簡易チェック
       if (!url || typeof url !== 'string' || !url.trim()) {
-        throw new Error('fatal: repository URL is required');
+        throw new Error('Invalid repository URL');
       }
 
       // リポジトリ名を取得
@@ -173,9 +105,9 @@ export class GitCommands {
       const currentRepoName = this.dir.split('/').pop() || 'project';
 
       if (targetDir) {
-        cloneDir = `${this.dir}/${targetDir}/`;
+        cloneDir = `${this.dir.replace(`/${currentRepoName}`, '')}/${targetDir}`;
       } else {
-        cloneDir = `${this.dir}/${repoName}/`;
+        cloneDir = `${this.dir.replace(`/${currentRepoName}`, '')}/${repoName}`;
       }
 
       console.log(`[git clone] Clone directory: ${cloneDir}`);
@@ -187,133 +119,138 @@ export class GitCommands {
           `fatal: destination path '${targetDir || repoName}' already exists and is not an empty directory.`
         );
       } catch (error) {
-        // ディレクトリが存在しない場合は正常（続行）
-        if (!(error as any).code || (error as any).code !== 'ENOENT') {
+        if ((error as Error).message.includes('already exists')) {
           throw error;
         }
+        // ディレクトリが存在しない場合は続行（期待される動作）
       }
 
       // リポジトリをクローン
       try {
-        console.log(`[git clone] Starting git clone to ${cloneDir}`);
         await git.clone({
           fs: this.fs,
           http,
           dir: cloneDir,
-          url: url,
-          singleBranch: true,
-          depth: 1,
-          noTags: true,
+          url,
           corsProxy: 'https://cors.isomorphic-git.org',
+          singleBranch: true,
+          depth: 10,
         });
-        console.log('[git clone] Git clone completed successfully');
       } catch (cloneError) {
-        console.error('[git clone] Git clone failed:', cloneError);
-        // クローンに失敗した場合、作成したディレクトリをクリーンアップ
+        console.error('[git clone] Clone failed:', cloneError);
         try {
-          const entries = await this.fs.promises.readdir(cloneDir);
-          if (entries.length === 0) {
-            await this.fs.promises.rmdir(cloneDir);
-          }
-        } catch {
-          // クリーンアップに失敗してもエラーは無視
-        }
-        throw cloneError;
+          await this.fs.promises.rmdir(cloneDir);
+        } catch {}
+        throw new Error(
+          `Failed to clone repository: ${(cloneError as Error).message}. Please check the URL and try again.`
+        );
       }
 
-      // クローンしたファイルをファイルシステムに反映（バッチで処理）
-      if (this.onFileOperation) {
-        try {
-          console.log('[git clone] Starting batch file synchronization');
-          this.startBatchProcessing();
-          const relativePath = targetDir || repoName;
-          await this.syncDirectoryRecursivelyBatch(cloneDir, relativePath);
-          await this.finishBatchProcessing();
-          console.log('[git clone] Batch file synchronization completed');
-        } catch (syncError) {
-          console.warn('Failed to batch sync files to project:', syncError);
-        }
-      }
+      // クローンしたファイルをIndexedDBに同期
+      console.log('[git clone] Syncing cloned files to IndexedDB...');
+      await this.syncClonedFilesToIndexedDB(cloneDir, targetDir || repoName);
+
       return `Cloning into '${targetDir || repoName}'...\nClone completed successfully.`;
     }, 'git clone failed');
   }
 
-  // 再帰的にディレクトリをSync（バッチでファイル操作をキューに追加）
-  private async syncDirectoryRecursivelyBatch(
+  // クローンしたファイルをIndexedDBに同期
+  private async syncClonedFilesToIndexedDB(
     clonePath: string,
     baseRelativePath: string
   ): Promise<void> {
     try {
       console.log(
-        `[syncDirectoryRecursivelyBatch] Processing: ${clonePath}, base: ${baseRelativePath}`
+        `[syncClonedFilesToIndexedDB] Processing: ${clonePath}, base: ${baseRelativePath}`
       );
-      // まず baseRelativePath のルートフォルダを作成（最初の呼び出し時のみ）
+
+      // ルートフォルダを作成
       if (baseRelativePath) {
-        await this.executeFileOperation(baseRelativePath, 'folder', '');
+        await fileRepository.createFile(this.projectId, `/${baseRelativePath}`, '', 'folder');
       }
+
       const entries = await this.fs.promises.readdir(clonePath);
       const directories: Array<{ name: string; fullPath: string; relativePath: string }> = [];
       const files: Array<{ name: string; fullPath: string; relativePath: string }> = [];
+
       for (const entry of entries) {
-        if (entry === '.git') continue;
-        const entryFullPath = `${clonePath}/${entry}`;
-        const entryRelativePath = baseRelativePath ? `${baseRelativePath}/${entry}` : entry;
+        if (entry === '.' || entry === '..' || entry === '.git') continue;
+
+        const fullPath = `${clonePath}/${entry}`;
+        const relativePath = `/${baseRelativePath}/${entry}`;
+
         try {
-          const stat = await this.fs.promises.stat(entryFullPath);
+          const stat = await this.fs.promises.stat(fullPath);
           if (stat.isDirectory()) {
-            directories.push({
-              name: entry,
-              fullPath: entryFullPath,
-              relativePath: entryRelativePath,
-            });
+            directories.push({ name: entry, fullPath, relativePath });
           } else {
-            files.push({ name: entry, fullPath: entryFullPath, relativePath: entryRelativePath });
+            files.push({ name: entry, fullPath, relativePath });
           }
-        } catch {}
+        } catch (statError) {
+          console.warn(`Failed to stat ${fullPath}:`, statError);
+        }
       }
+
       // ディレクトリ作成
       for (const dir of directories) {
-        await this.executeFileOperation(dir.relativePath, 'folder', '');
+        await fileRepository.createFile(this.projectId, dir.relativePath, '', 'folder');
       }
+
       // ファイル作成
       for (const file of files) {
         try {
-          // バイナリ判定: 拡張子で判定
-          const ext = file.name.toLowerCase();
-          let isBinary = false;
-          if (ext.match(/\.(png|jpg|jpeg|gif|bmp|webp|svg|pdf|zip)$/)) isBinary = true;
-          let content: string = '';
-          let bufferContent: ArrayBuffer | undefined = undefined;
+          const contentBuffer = await this.fs.promises.readFile(file.fullPath);
+
+          // バイナリファイルかどうかを判定
+          const isBinary = this.isBinaryFile(contentBuffer as Uint8Array);
+
           if (isBinary) {
-            const uint8 = await this.fs.promises.readFile(file.fullPath);
-            if (uint8 instanceof Uint8Array) {
-              bufferContent = new Uint8Array(uint8).buffer;
-            } else {
-              bufferContent = undefined;
-            }
-            content = '';
+            // バイナリファイル
+            const uint8Array =
+              contentBuffer instanceof Uint8Array
+                ? contentBuffer
+                : new Uint8Array(contentBuffer as ArrayBufferLike);
+            const arrayBuffer = new Uint8Array(uint8Array).buffer as ArrayBuffer;
+            await fileRepository.createFile(
+              this.projectId,
+              file.relativePath,
+              '',
+              'file',
+              true,
+              arrayBuffer
+            );
           } else {
-            content = await this.fs.promises.readFile(file.fullPath, 'utf8');
+            // テキストファイル
+            const content =
+              typeof contentBuffer === 'string'
+                ? contentBuffer
+                : new TextDecoder().decode(contentBuffer as Uint8Array);
+            await fileRepository.createFile(this.projectId, file.relativePath, content, 'file');
           }
-          await this.executeFileOperation(
-            file.relativePath,
-            'file',
-            content,
-            undefined,
-            bufferContent
-          );
-        } catch {
-          await this.executeFileOperation(file.relativePath, 'file', '', undefined, undefined);
+        } catch (fileError) {
+          console.error(`Failed to create file ${file.relativePath}:`, fileError);
         }
       }
+
       // サブディレクトリ再帰
       for (const dir of directories) {
-        await this.syncDirectoryRecursivelyBatch(dir.fullPath, dir.relativePath);
+        await this.syncClonedFilesToIndexedDB(dir.fullPath, `${baseRelativePath}/${dir.name}`);
       }
     } catch (readdirError) {
       console.error(`Failed to read directory ${clonePath}:`, readdirError);
       throw readdirError;
     }
+  }
+
+  // バイナリファイル判定
+  private isBinaryFile(buffer: Uint8Array): boolean {
+    const sampleSize = Math.min(buffer.length, 8000);
+    for (let i = 0; i < sampleSize; i++) {
+      const byte = buffer[i];
+      if (byte === 0) return true;
+      if (byte < 32 && byte !== 9 && byte !== 10 && byte !== 13) return true;
+    }
+    return false;
   }
 
   // ディレクトリ内の全ファイルを再帰的に取得
@@ -324,20 +261,19 @@ export class GitCommands {
       try {
         const entries = await this.fs.promises.readdir(currentPath);
         for (const entry of entries) {
+          if (entry === '.' || entry === '..' || entry === '.git') continue;
+
           const fullPath = `${currentPath}/${entry}`;
           const stat = await this.fs.promises.stat(fullPath);
 
           if (stat.isDirectory()) {
-            // .gitディレクトリはスキップ
-            if (entry !== '.git') {
-              await traverse(fullPath);
-            }
+            await traverse(fullPath);
           } else {
             files.push(fullPath);
           }
         }
       } catch (error) {
-        console.warn(`Failed to traverse directory ${currentPath}:`, error);
+        console.warn(`Failed to traverse ${currentPath}:`, error);
       }
     };
 
@@ -350,15 +286,9 @@ export class GitCommands {
     await this.ensureGitRepository();
 
     // ファイルシステムの同期処理
-    if ((this.fs as any).sync) {
-      try {
-        await (this.fs as any).sync();
-      } catch (syncError) {
-        console.warn('[git.status] FileSystem sync failed:', syncError);
-      }
-    }
+    await gitFileSystem.flush();
 
-    // git addの後に呼び出される場合、追加の待機時間を設ける
+    // 追加の待機時間
     await new Promise(resolve => setTimeout(resolve, 200));
 
     let status: Array<[string, number, number, number]> = [];
@@ -378,13 +308,7 @@ export class GitCommands {
   private async getStatusFallback(): Promise<string> {
     try {
       // ファイルシステムの同期を確実にする
-      if ((this.fs as any).sync) {
-        try {
-          await (this.fs as any).sync();
-        } catch (syncError) {
-          console.warn('[git.getStatusFallback] FileSystem sync failed:', syncError);
-        }
-      }
+      await gitFileSystem.flush();
 
       // 追加の待機時間
       await new Promise(resolve => setTimeout(resolve, 200));
@@ -418,35 +342,46 @@ export class GitCommands {
       if (file.startsWith('.') || file === '.git') continue;
 
       try {
-        const filePath = `${this.dir}/${file}`;
-        const stat = await this.fs.promises.stat(filePath);
-        if (stat.isFile()) {
+        const stat = await this.fs.promises.stat(`${this.dir}/${file}`);
+        if (!stat.isDirectory()) {
           projectFiles.push(file);
-        } else if (stat.isDirectory()) {
-          // ディレクトリ内のファイルも再帰的に検査
-          try {
-            const subFiles = await this.fs.promises.readdir(filePath);
-
-            for (const subFile of subFiles) {
-              if (!subFile.startsWith('.')) {
-                const subFilePath = `${filePath}/${subFile}`;
-                try {
-                  const subStat = await this.fs.promises.stat(subFilePath);
-                  if (subStat.isFile()) {
-                    projectFiles.push(`${file}/${subFile}`);
-                  }
-                } catch (subStatError) {
-                  // サブファイルのstat失敗は無視
-                }
-              }
-            }
-          } catch (subDirError) {
-            // サブディレクトリの読み取り失敗は無視
-          }
+        } else {
+          // サブディレクトリ内のファイルを取得
+          const subFiles = await this.getProjectFilesRecursive(`${this.dir}/${file}`, file);
+          projectFiles.push(...subFiles);
         }
       } catch (statError) {
-        // ファイルのstat失敗は無視
+        console.warn(`Failed to stat ${file}:`, statError);
       }
+    }
+    return projectFiles;
+  }
+
+  // 再帰的にプロジェクトファイルを取得
+  private async getProjectFilesRecursive(dirPath: string, prefix: string): Promise<string[]> {
+    const projectFiles = [];
+    try {
+      const entries = await this.fs.promises.readdir(dirPath);
+      for (const entry of entries) {
+        if (entry === '.' || entry === '..' || entry === '.git') continue;
+
+        const fullPath = `${dirPath}/${entry}`;
+        const relativePath = `${prefix}/${entry}`;
+
+        try {
+          const stat = await this.fs.promises.stat(fullPath);
+          if (!stat.isDirectory()) {
+            projectFiles.push(relativePath);
+          } else {
+            const subFiles = await this.getProjectFilesRecursive(fullPath, relativePath);
+            projectFiles.push(...subFiles);
+          }
+        } catch (statError) {
+          console.warn(`Failed to stat ${fullPath}:`, statError);
+        }
+      }
+    } catch (readdirError) {
+      console.warn(`Failed to read directory ${dirPath}:`, readdirError);
     }
     return projectFiles;
   }
@@ -519,38 +454,31 @@ export class GitCommands {
       // stage: 0=ステージなし, 1=ステージ済み（変更なし）, 2=ステージ済み（変更あり）, 3=ステージ済み（新規）
 
       if (HEAD === 0 && (workdir === 1 || workdir === 2) && stage === 0) {
-        // 新しいファイル（未追跡）- workdir が 1 または 2 の場合
+        // 新規ファイル（未追跡）
         untracked.push(filepath);
       } else if (HEAD === 0 && stage === 3) {
-        // 新しくステージされたファイル（stage=3の場合）
+        // 新規ファイル（ステージ済み）
         staged.push(filepath);
       } else if (HEAD === 0 && stage === 2) {
-        // 新しくステージされたファイル（stage=2の場合）
+        // 新規ファイル（ステージ済み・変更あり）
         staged.push(filepath);
       } else if (HEAD === 1 && workdir === 2 && stage === 1) {
-        // 変更されたファイル（未ステージ）
+        // 変更あり（未ステージ）
         modified.push(filepath);
       } else if (HEAD === 1 && workdir === 2 && stage === 2) {
-        // 変更されてステージされたファイル
+        // 変更あり（ステージ済み）
         staged.push(filepath);
       } else if (HEAD === 1 && workdir === 0 && stage === 1) {
-        // 削除されたファイル（未ステージ）- unstaged deletion
-        //console.log(`[git.categorizeStatusFiles] FOUND DELETED FILE (unstaged): ${filepath}`);
+        // 削除（未ステージ）
         deleted.push(filepath);
       } else if (HEAD === 1 && workdir === 0 && stage === 0) {
-        // 削除されたファイル（ステージ済み）- staged deletion
-        //console.log(`[git.categorizeStatusFiles] FOUND DELETED FILE (staged): ${filepath}`);
-        staged.push(filepath);
+        // 削除（ステージ済み）
+        deleted.push(filepath);
       } else if (HEAD === 1 && workdir === 0 && stage === 3) {
-        // 削除されてステージされたファイル
+        // 削除後に新規追加（ステージ済み）
         staged.push(filepath);
-      } else {
-        // その他のケース（HEAD === 1 && workdir === 1 && stage === 1など）は変更なし
-        //console.log(`[git.categorizeStatusFiles] No change: ${filepath}`);
       }
     });
-
-    //console.log('[git.categorizeStatusFiles] Results:', { untracked: untracked.length, modified: modified.length, staged: staged.length, deleted: deleted.length });
 
     return { untracked, modified, staged, deleted };
   }
@@ -565,179 +493,102 @@ export class GitCommands {
       await this.ensureProjectDirectory();
 
       // ファイルシステムの同期を確実にする
-      if ((this.fs as any).sync) {
-        try {
-          await (this.fs as any).sync();
-        } catch (syncError) {
-          console.warn('[git.add] FileSystem sync failed:', syncError);
-        }
-      }
+      await gitFileSystem.flush();
 
       if (filepath === '.') {
-        // カレントディレクトリの全ファイルを追加
-        console.log('[git.add] Processing all files in current directory');
-
-        // ステータスマトリックスから全ファイルの状態を取得
-        const statusMatrix = await git.statusMatrix({ fs: this.fs, dir: this.dir });
-        console.log(`[git.add] Status matrix found ${statusMatrix.length} files`);
-
-        let newCount = 0,
-          modifiedCount = 0,
-          deletedCount = 0;
-
-        // 全ファイルの状態に応じて適切な操作を実行
-        // isomorphic-gitのsnippets実装に基づく: worktreeStatus ? git.add : git.remove
-        for (const [file, head, workdir, stage] of statusMatrix) {
-          try {
-            if (workdir === 0 && head === 1 && stage === 1) {
-              // 削除されたファイル（未ステージ）: HEAD=1, WORKDIR=0, STAGE=1
-              // console.log(`[git.add] Staging deleted file: ${file}`);
-              await git.remove({ fs: this.fs, dir: this.dir, filepath: file });
-              deletedCount++;
-            } else if (head === 0 && workdir > 0 && stage === 0) {
-              // 新規ファイル（未追跡）: HEAD=0, WORKDIR>0, STAGE=0
-              // console.log(`[git.add] Adding new file: ${file}`);
-              await git.add({ fs: this.fs, dir: this.dir, filepath: file });
-              newCount++;
-            } else if (head === 1 && workdir === 2 && stage === 1) {
-              // 変更されたファイル（未ステージ）: HEAD=1, WORKDIR=2, STAGE=1
-              // console.log(`[git.add] Adding modified file: ${file}`);
-              await git.add({ fs: this.fs, dir: this.dir, filepath: file });
-              modifiedCount++;
-            }
-            // 既にステージ済みのファイル（stage === 2, 0 など）はスキップ
-          } catch (operationError) {
-            console.warn(`[git.add] Failed to process ${file}:`, operationError);
-          }
-        }
-
-        // onFileOperationコールバックを呼び出してプロジェクトの更新を通知
-        if (this.onFileOperation) {
-          await this.onFileOperation('.', 'folder');
-        }
-
-        // 件数ごとに出力
-        console.log(
-          `[git.add] Completed: ${newCount} new, ${modifiedCount} modified, ${deletedCount} deleted`
-        );
-        return `Added: ${newCount} new, ${modifiedCount} modified, ${deletedCount} deleted files to staging area`;
-      } else if (filepath === '*' || filepath.includes('*')) {
-        // ワイルドカード対応
-        const files = await this.getMatchingFiles(this.dir, filepath);
-
-        // 削除されたファイルも含めてステージング対象を取得
-        const status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
-        const deletedFiles: string[] = [];
-
-        // 削除されたファイルを特定
-        for (const [file, head, workdir, stage] of status) {
-          if (head === 1 && workdir === 0 && stage === 1) {
-            // 削除されたファイル（未ステージ）
-            deletedFiles.push(file);
-          }
-        }
-
-        if (files.length === 0 && deletedFiles.length === 0) {
-          return `No files matching '${filepath}'`;
+        // すべてのファイルを追加
+        const allFiles = await this.getAllFiles(this.dir);
+        if (allFiles.length === 0) {
+          return 'No files to add';
         }
 
         let addedCount = 0;
-        let deletedCount = 0;
+        const errors: string[] = [];
 
-        // 通常のファイルを追加
-        for (const file of files) {
+        for (const file of allFiles) {
           try {
-            await git.add({ fs: this.fs, dir: this.dir, filepath: file });
-            addedCount++;
-          } catch (addError) {
-            console.warn(`[git.add] Failed to add ${file}:`, addError);
-          }
-        }
-
-        // 削除されたファイルをステージング
-        for (const file of deletedFiles) {
-          // console.log(`[git.add] Staging deleted file: ${file}`);
-          try {
-            await git.remove({ fs: this.fs, dir: this.dir, filepath: file });
-            deletedCount++;
-          } catch (removeError) {
-            console.warn(`[git.add] Failed to stage deleted file ${file}:`, removeError);
-          }
-        }
-
-        // onFileOperationコールバックを呼び出してプロジェクトの更新を通知
-        if (this.onFileOperation) {
-          await this.onFileOperation('.', 'folder');
-        }
-
-        const totalFiles = addedCount + deletedCount;
-        return `Added ${addedCount} file(s), staged ${deletedCount} deletion(s) (${totalFiles} total)`;
-      } else {
-        // 個別ファイル - ファイルの状態を確認
-        const fullPath = `${this.dir}/${filepath}`;
-
-        // まず現在のステータスを確認して削除ファイルかどうか判定
-        const status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
-        const fileStatus = status.find(([file]) => file === filepath);
-
-        if (fileStatus) {
-          const [file, head, workdir, stage] = fileStatus;
-
-          // 削除されたファイルの場合
-          if (head === 1 && workdir === 0 && stage === 1) {
-            // console.log(`[git.add] Staging deleted file: ${filepath}`);
-            try {
-              await git.remove({ fs: this.fs, dir: this.dir, filepath });
-
-              // onFileOperationコールバックを呼び出して削除を通知
-              if (this.onFileOperation) {
-                await this.onFileOperation(filepath, 'delete');
-              }
-
-              return `Staged deletion of ${filepath}`;
-            } catch (removeError) {
-              throw new Error(
-                `Failed to stage deletion of ${filepath}: ${(removeError as Error).message}`
-              );
+            const relativePath = file.replace(`${this.dir}/`, '');
+            if (!relativePath.startsWith('.git') && relativePath !== '.' && relativePath !== '..') {
+              await git.add({ fs: this.fs, dir: this.dir, filepath: relativePath });
+              addedCount++;
             }
+          } catch (error) {
+            errors.push(`Failed to add ${file}: ${(error as Error).message}`);
           }
         }
 
-        // 通常のファイル（存在するファイル）の場合
+        if (errors.length > 0) {
+          console.warn('[git add .] Some files failed to add:', errors);
+        }
+
+        return `Added ${addedCount} file(s)${errors.length > 0 ? ` (${errors.length} failed)` : ''}`;
+      } else if (filepath === '*' || filepath.includes('*')) {
+        // ワイルドカードパターン
+        const matchingFiles = await this.getMatchingFiles(this.dir, filepath);
+
+        if (matchingFiles.length === 0) {
+          return `No files matching pattern: ${filepath}`;
+        }
+
+        let addedCount = 0;
+        const errors: string[] = [];
+
+        for (const file of matchingFiles) {
+          try {
+            const relativePath = file.replace(`${this.dir}/`, '');
+            await git.add({ fs: this.fs, dir: this.dir, filepath: relativePath });
+            addedCount++;
+          } catch (error) {
+            errors.push(`Failed to add ${file}: ${(error as Error).message}`);
+          }
+        }
+
+        if (errors.length > 0) {
+          console.warn(`[git add ${filepath}] Some files failed to add:`, errors);
+        }
+
+        return `Added ${addedCount} file(s)${errors.length > 0 ? ` (${errors.length} failed)` : ''}`;
+      } else {
+        // 単一ファイルまたはディレクトリ
+        const normalizedPath = filepath.startsWith('/') ? filepath.slice(1) : filepath;
+        const fullPath = `${this.dir}/${normalizedPath}`;
+
         try {
           const stat = await this.fs.promises.stat(fullPath);
-        } catch (statError) {
-          throw new Error(`pathspec '${filepath}' did not match any files`);
-        }
 
-        await git.add({ fs: this.fs, dir: this.dir, filepath });
+          if (stat.isDirectory()) {
+            // ディレクトリの場合、再帰的に追加
+            const filesInDir = await this.getAllFilesInDirectory(fullPath);
+            let addedCount = 0;
+            const errors: string[] = [];
 
-        // onFileOperationコールバックを呼び出してプロジェクトの更新を通知
-        if (this.onFileOperation) {
-          // ファイル内容を読み取って通知
-          try {
-            const content = await this.fs.promises.readFile(fullPath, 'utf8');
-            await this.onFileOperation(filepath, 'file', content);
-          } catch (readError) {
-            // ファイル読み取りに失敗した場合はファイルタイプのみで通知
-            await this.onFileOperation(filepath, 'file');
-          }
-        }
+            for (const file of filesInDir) {
+              try {
+                const relativePath = file.replace(`${this.dir}/`, '');
+                await git.add({ fs: this.fs, dir: this.dir, filepath: relativePath });
+                addedCount++;
+              } catch (error) {
+                errors.push(`Failed to add ${file}: ${(error as Error).message}`);
+              }
+            }
 
-        // 個別ファイル追加後の状態確認
-        try {
-          const verifyStatus = await git.statusMatrix({ fs: this.fs, dir: this.dir });
-          const fileStatus = verifyStatus.find(([file]) => file === filepath);
-          if (fileStatus) {
-            const [file, head, workdir, stage] = fileStatus;
+            if (errors.length > 0) {
+              console.warn(`[git add ${filepath}] Some files failed to add:`, errors);
+            }
+
+            return `Added ${addedCount} file(s) from directory${errors.length > 0 ? ` (${errors.length} failed)` : ''}`;
           } else {
-            console.warn(`[git.add] File ${filepath} not found in status matrix after add`);
+            // ファイルの場合
+            await git.add({ fs: this.fs, dir: this.dir, filepath: normalizedPath });
+            return `add '${filepath}'`;
           }
-        } catch (verifyError) {
-          console.warn(`[git.add] Failed to verify status after add:`, verifyError);
+        } catch (error) {
+          const err = error as Error;
+          if (err.message.includes('ENOENT')) {
+            throw new Error(`pathspec '${filepath}' did not match any files`);
+          }
+          throw error;
         }
-
-        return `Added ${filepath} to staging area`;
       }
     } catch (error) {
       throw new Error(`git add failed: ${(error as Error).message}`);
@@ -768,12 +619,6 @@ export class GitCommands {
         author,
         committer: author,
       });
-
-      // onFileOperationコールバックを呼び出してプロジェクトの更新を通知
-      if (this.onFileOperation) {
-        // ダミーのフォルダ操作として通知（プロジェクト全体の更新を促す）
-        await this.onFileOperation('.', 'folder');
-      }
 
       return `[main ${sha.slice(0, 7)}] ${message}`;
     }, 'git commit failed');
@@ -837,30 +682,19 @@ export class GitCommands {
         throw new Error('not a git repository (or any of the parent directories): .git');
       }
 
-      if (deleteFlag && branchName) {
-        // ブランチ削除
-        try {
-          await git.deleteBranch({ fs: this.fs, dir: this.dir, ref: branchName });
-          return `Deleted branch ${branchName}`;
-        } catch (error) {
-          throw new Error(`error: branch '${branchName}' not found.`);
-        }
-      } else if (branchName) {
-        // ブランチ作成
-        await git.branch({ fs: this.fs, dir: this.dir, ref: branchName });
-        return `Created branch '${branchName}'`;
-      } else {
-        // ブランチ一覧表示
+      if (!branchName) {
+        // ブランチ一覧を表示
         const branches = await git.listBranches({ fs: this.fs, dir: this.dir });
         const currentBranch = await this.getCurrentBranch();
-
-        if (branches.length === 0) {
-          return `* ${currentBranch}`;
-        }
-
-        return branches
-          .map(branch => (branch === currentBranch ? `* ${branch}` : `  ${branch}`))
-          .join('\n');
+        return branches.map(b => (b === currentBranch ? `* ${b}` : `  ${b}`)).join('\n');
+      } else if (deleteFlag) {
+        // ブランチ削除
+        await git.deleteBranch({ fs: this.fs, dir: this.dir, ref: branchName });
+        return `Deleted branch ${branchName}`;
+      } else {
+        // ブランチ作成
+        await git.branch({ fs: this.fs, dir: this.dir, ref: branchName });
+        return `Created branch ${branchName}`;
       }
     } catch (error) {
       throw new Error(`git branch failed: ${(error as Error).message}`);
@@ -890,7 +724,7 @@ export class GitCommands {
   // git merge - ブランチをマージ
   async merge(
     branchName: string,
-    options: { noFf?: boolean; message?: string; abort?: boolean } = {}
+    options: { noFf?: boolean; message?: string } = {}
   ): Promise<string> {
     const mergeOperations = new GitMergeOperations(
       this.fs,
@@ -898,10 +732,6 @@ export class GitCommands {
       this.projectId,
       this.projectName
     );
-
-    if (options.abort) {
-      return await mergeOperations.mergeAbort();
-    }
 
     return await mergeOperations.merge(branchName, {
       noFf: options.noFf,
@@ -912,144 +742,69 @@ export class GitCommands {
   // ワーキングディレクトリの変更を破棄
   async discardChanges(filepath: string): Promise<string> {
     try {
-      await this.ensureProjectDirectory();
+      await this.ensureGitRepository();
 
-      // Gitリポジトリが初期化されているかチェック
+      const normalizedPath = filepath.startsWith('/') ? filepath.slice(1) : filepath;
+
+      // HEADから最新のコミットを取得
+      const commits = await git.log({ fs: this.fs, dir: this.dir, depth: 1 });
+      if (commits.length === 0) {
+        throw new Error('No commits found. Cannot discard changes.');
+      }
+
+      const headCommit = commits[0];
+
+      // ファイルの内容をHEADから読み取る
       try {
-        await this.fs.promises.stat(`${this.dir}/.git`);
-      } catch {
-        throw new Error('not a git repository (or any of the parent directories): .git');
-      }
+        const { blob } = await git.readBlob({
+          fs: this.fs,
+          dir: this.dir,
+          oid: headCommit.oid,
+          filepath: normalizedPath,
+        });
 
-      // ファイルの状態を確認
-      const status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
+        // ファイルをワーキングディレクトリに書き戻す
+        await this.fs.promises.writeFile(`${this.dir}/${normalizedPath}`, blob);
 
-      const fileStatus = status.find(([file]) => file === filepath);
+        // IndexedDBにも同期
+        const content =
+          typeof blob === 'string' ? blob : new TextDecoder().decode(blob as Uint8Array);
+        await fileRepository.saveFile({
+          id: '', // 既存のファイルを検索して更新
+          projectId: this.projectId,
+          path: `/${normalizedPath}`,
+          name: normalizedPath.split('/').pop() || '',
+          content,
+          type: 'file',
+          parentPath: `/${normalizedPath.substring(0, normalizedPath.lastIndexOf('/'))}` || '/',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
 
-      if (!fileStatus) {
-        return `File ${filepath} not found in git status`;
-      }
+        return `Discarded changes in ${filepath}`;
+      } catch (readError) {
+        const err = readError as Error;
+        if (err.message.includes('not found')) {
+          // ファイルがHEADに存在しない場合は削除
+          try {
+            await this.fs.promises.unlink(`${this.dir}/${normalizedPath}`);
 
-      const [file, HEAD, workdir, stage] = fileStatus;
-      console.log(
-        `[Git discardChanges] File status for ${filepath}: HEAD=${HEAD}, workdir=${workdir}, stage=${stage}`
-      );
+            // IndexedDBからも削除
+            const files = await fileRepository.getProjectFiles(this.projectId);
+            const file = files.find(f => f.path === `/${normalizedPath}`);
+            if (file) {
+              await fileRepository.deleteFile(file.id);
+            }
 
-      // HEADが存在するかチェック
-      let headCommitHash: string | null = null;
-      try {
-        headCommitHash = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: 'HEAD' });
-      } catch {
-        headCommitHash = null;
-      }
-
-      // ケース1: HEADが存在しない（初回コミット前）
-      if (!headCommitHash) {
-        try {
-          const fullPath = `${this.dir}/${filepath}`;
-          await this.fs.promises.unlink(fullPath);
-
-          if (this.onFileOperation) {
-            const projectRelativePath = filepath.startsWith('/') ? filepath : `/${filepath}`;
-            await this.onFileOperation(projectRelativePath, 'delete');
+            return `Removed untracked file ${filepath}`;
+          } catch (unlinkError) {
+            throw new Error(`Failed to remove file: ${(unlinkError as Error).message}`);
           }
-
-          return `Removed file ${filepath} (no commits yet)`;
-        } catch (error) {
-          return `File ${filepath} not found or already removed`;
         }
+        throw readError;
       }
-
-      // ケース2: ファイルがHEADには存在するが、ワーキングディレクトリから削除されている
-      if (HEAD === 1 && workdir === 0) {
-        try {
-          const { blob } = await git.readBlob({
-            fs: this.fs,
-            dir: this.dir,
-            oid: headCommitHash,
-            filepath,
-          });
-          const content = new TextDecoder().decode(blob);
-
-          const fullPath = `${this.dir}/${filepath}`;
-          await this.fs.promises.writeFile(fullPath, content, 'utf8');
-
-          if (this.onFileOperation) {
-            const projectRelativePath = filepath.startsWith('/') ? filepath : `/${filepath}`;
-            await this.onFileOperation(projectRelativePath, 'file', content);
-          }
-
-          return `Restored deleted file ${filepath}`;
-        } catch (error) {
-          console.error('Failed to restore deleted file:', error);
-          return `Failed to restore ${filepath}`;
-        }
-      }
-
-      // ケース3: ファイルがHEADには存在し、ワーキングディレクトリでも変更されている
-      if (HEAD === 1 && workdir === 2) {
-        try {
-          const { blob } = await git.readBlob({
-            fs: this.fs,
-            dir: this.dir,
-            oid: headCommitHash,
-            filepath,
-          });
-          const content = new TextDecoder().decode(blob);
-
-          const fullPath = `${this.dir}/${filepath}`;
-          await this.fs.promises.writeFile(fullPath, content, 'utf8');
-
-          if (this.onFileOperation) {
-            const projectRelativePath = filepath.startsWith('/') ? filepath : `/${filepath}`;
-            await this.onFileOperation(projectRelativePath, 'file', content);
-          }
-
-          return `Discarded changes in ${filepath}`;
-        } catch (error) {
-          console.error('Failed to discard changes:', error);
-          return `Failed to discard changes in ${filepath}`;
-        }
-      }
-
-      // ケース4: 新規ファイル（HEADに存在しない）- 未追跡ファイル
-      if (HEAD === 0 && (workdir === 1 || workdir === 2) && stage === 0) {
-        try {
-          console.log('[Git discardChanges] Removing untracked file:', filepath);
-          const fullPath = `${this.dir}/${filepath}`;
-          await this.fs.promises.unlink(fullPath);
-          console.log('[Git discardChanges] File unlinked from filesystem:', fullPath);
-
-          if (this.onFileOperation) {
-            const projectRelativePath = filepath.startsWith('/') ? filepath : `/${filepath}`;
-            console.log(
-              '[Git discardChanges] Calling onFileOperation for delete:',
-              projectRelativePath
-            );
-            await this.onFileOperation(projectRelativePath, 'delete');
-            console.log('[Git discardChanges] onFileOperation completed for:', projectRelativePath);
-          }
-
-          return `Removed untracked file ${filepath}`;
-        } catch (error) {
-          console.error('[Git discardChanges] Error removing untracked file:', filepath, error);
-          return `File ${filepath} not found or already removed`;
-        }
-      }
-
-      // その他のケース
-      return `No changes to discard for ${filepath}`;
     } catch (error) {
-      const errorMessage = (error as Error).message;
-      console.error('Discard changes error:', error);
-
-      // 特定のエラーは再スロー
-      if (errorMessage.includes('not a git repository')) {
-        throw error;
-      }
-
-      // その他のエラーは詳細なメッセージで包む
-      throw new Error(`Failed to discard changes in ${filepath}: ${errorMessage}`);
+      throw new Error(`Failed to discard changes: ${(error as Error).message}`);
     }
   }
 
@@ -1057,22 +812,15 @@ export class GitCommands {
   async getFileContentAtCommit(commitId: string, filePath: string): Promise<string> {
     await this.ensureGitRepository();
     try {
-      // isomorphic-gitは絶対パスでなくプロジェクト内パスを要求するため、filePathを調整
-      let relPath = filePath;
-      if (relPath.startsWith('/')) relPath = relPath.slice(1);
-      // readBlobでファイル内容取得
       const { blob } = await git.readBlob({
         fs: this.fs,
         dir: this.dir,
         oid: commitId,
-        filepath: relPath,
+        filepath: filePath,
       });
-      if (!blob) return '';
-      // Uint8Array → string
-      return new TextDecoder('utf-8').decode(blob);
+      return typeof blob === 'string' ? blob : new TextDecoder().decode(blob as Uint8Array);
     } catch (e) {
-      // ファイルが存在しない場合は空文字
-      return '';
+      throw new Error(`Failed to read file at commit ${commitId}: ${(e as Error).message}`);
     }
   }
 }

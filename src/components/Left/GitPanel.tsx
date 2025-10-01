@@ -55,11 +55,9 @@ export default function GitPanel({
   const [apiKey, setApiKey] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // Git操作用のコマンドインスタンス
+  // Git操作用のコマンドインスタンス（新アーキテクチャ）
   const gitCommands =
-    currentProject && currentProjectId
-      ? new GitCommands(currentProject, currentProjectId, onFileOperation)
-      : null;
+    currentProject && currentProjectId ? new GitCommands(currentProject, currentProjectId) : null;
 
   // Git状態を取得
   const fetchGitStatus = async () => {
@@ -1061,7 +1059,6 @@ export default function GitPanel({
               currentProject={currentProject}
               currentProjectId={currentProjectId}
               currentBranch={gitRepo.currentBranch}
-              onFileOperation={onFileOperation}
               onDiffFileClick={onDiffFileClick}
               onDiffAllFilesClick={onDiffAllFilesClick}
             />

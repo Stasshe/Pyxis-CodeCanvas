@@ -13,3 +13,6 @@ JSX構文に気をつけること。
 
 
 use lucide-react for icons
+
+
+後方互換性は一切気にしなくてよい。
