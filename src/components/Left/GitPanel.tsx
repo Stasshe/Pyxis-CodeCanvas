@@ -63,6 +63,7 @@ export default function GitPanel({
 
       console.log('[GitPanel] Fetching git status...');
 
+      // [重要] git.tsの内部で完全同期が実行されるため、ここでの同期処理は簡素化
       // ファイルシステムの同期を確実にする
       const fs = (gitCommands as any).fs;
       if (fs && (fs as any).sync) {
@@ -74,8 +75,8 @@ export default function GitPanel({
         }
       }
 
-      // ファイルシステムの変更が確実に反映されるまで待機
-      await new Promise(resolve => setTimeout(resolve, 200));
+      // ファイルシステムの変更が確実に反映されるまで待機（短縮）
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       // Git状態を並行して取得
       const [statusResult, logResult, branchResult] = await Promise.all([
@@ -319,11 +320,11 @@ export default function GitPanel({
       console.log('[GitPanel] Staging file:', file);
       await gitCommands.add(file);
 
-      // ステージング後十分な時間待ってから状態を更新
+      // ステージング後の状態更新（git.tsで既に同期処理があるため、短い遅延で十分）
       setTimeout(() => {
         console.log('[GitPanel] Refreshing status after staging');
         fetchGitStatus();
-      }, 200);
+      }, 100);
     } catch (error) {
       console.error('Failed to stage file:', error);
     }
@@ -349,11 +350,11 @@ export default function GitPanel({
       console.log('[GitPanel] Staging all files');
       await gitCommands.add('.');
 
-      // ステージング後十分な時間待ってから状態を更新
+      // ステージング後の状態更新（git.tsで既に同期処理があるため、短い遅延で十分）
       setTimeout(() => {
         console.log('[GitPanel] Refreshing status after staging all');
         fetchGitStatus();
-      }, 300);
+      }, 150);
     } catch (error) {
       console.error('Failed to stage all files:', error);
     }
@@ -399,13 +400,32 @@ export default function GitPanel({
   // コミット実行
   const handleCommit = async () => {
     if (!gitCommands || !commitMessage.trim()) return;
+    
     try {
       setIsCommitting(true);
-      await gitCommands.commit(commitMessage.trim());
+      setError(null);
+      console.log('[GitPanel] Starting commit process...');
+      
+      // タイムアウト付きでコミット実行
+      const commitPromise = gitCommands.commit(commitMessage.trim());
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Commit timeout after 30 seconds')), 30000)
+      );
+      
+      await Promise.race([commitPromise, timeoutPromise]);
+      
+      console.log('[GitPanel] Commit completed successfully');
       setCommitMessage('');
-      //この後の更新処理は、他で自動でやるのでしない。書くと表示バグる
+      
+      // コミット成功後、少し待ってからステータスを更新
+      setTimeout(() => {
+        console.log('[GitPanel] Refreshing status after commit...');
+        fetchGitStatus();
+      }, 500);
+      
     } catch (error) {
       console.error('Failed to commit:', error);
+      setError(error instanceof Error ? error.message : 'コミットに失敗しました');
     } finally {
       setIsCommitting(false);
     }

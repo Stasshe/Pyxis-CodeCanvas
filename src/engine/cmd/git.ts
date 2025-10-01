@@ -284,6 +284,21 @@ export class GitCommands {
   async status(): Promise<string> {
     await this.ensureGitRepository();
 
+    // [重要] IndexedDBからgitFileSystemへの軽量同期を実行（タイムアウト付き）
+    // ステータス確認前に必ずファイルが同期されていることを保証
+    console.log('[git.status] Starting lightweight sync for status check');
+    const syncPromise = syncManager.lightweightSyncForGit(this.projectId, this.projectName);
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Sync timeout')), 3000)
+    );
+    
+    try {
+      await Promise.race([syncPromise, timeoutPromise]);
+      console.log('[git.status] File sync completed');
+    } catch (syncError) {
+      console.warn('[git.status] File sync failed or timed out, using existing state:', syncError);
+    }
+
     // ファイルシステムの同期処理
     await gitFileSystem.flush();
 
@@ -491,6 +506,23 @@ export class GitCommands {
     try {
       await this.ensureProjectDirectory();
 
+      // [重要] IndexedDBからgitFileSystemへの軽量同期を実行（タイムアウト付き）
+      // ステージング前に必ずファイルが同期されていることを保証
+      console.log(`[git.add] Starting lightweight sync for staging: ${filepath}`);
+      const syncPromise = syncManager.lightweightSyncForGit(this.projectId, this.projectName);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Sync timeout')), 5000)
+      );
+      
+      try {
+        await Promise.race([syncPromise, timeoutPromise]);
+        console.log('[git.add] File sync completed');
+      } catch (syncError) {
+        console.warn('[git.add] File sync failed or timed out, trying to proceed:', syncError);
+        // 同期に失敗した場合でも、軽量な同期を試行
+        await gitFileSystem.flush();
+      }
+
       // ファイルシステムの同期を確実にする
       await gitFileSystem.flush();
 
@@ -638,7 +670,7 @@ export class GitCommands {
     try {
       console.log('[git.add] Processing all files in current directory');
 
-      // ファイルシステムの同期を確実にする
+      // [重要] ファイルシステムの同期を確実にする（git_stable.tsと同様）
       if ((this.fs as any).sync) {
         try {
           await (this.fs as any).sync();
@@ -646,6 +678,9 @@ export class GitCommands {
           console.warn('[git.add] FileSystem sync failed:', syncError);
         }
       }
+
+      // 追加の待機時間（git_stable.tsと同様）
+      await new Promise(resolve => setTimeout(resolve, 200));
 
       // ステータスマトリックスから全ファイルの状態を取得
       const statusMatrix = await git.statusMatrix({ fs: this.fs, dir: this.dir });
@@ -698,7 +733,38 @@ export class GitCommands {
     author = { name: 'User', email: 'user@pyxis.dev' }
   ): Promise<string> {
     return this.executeGitOperation(async () => {
+      console.log('[git.commit] Starting commit process...');
       await this.ensureGitRepository();
+
+      // [重要] コミット前にIndexedDBからgitFileSystemへの軽量同期を実行
+      // ただし、タイムアウトを設けて無限ループを防ぐ
+      console.log('[git.commit] Syncing files before commit...');
+      const syncPromise = syncManager.lightweightSyncForGit(this.projectId, this.projectName);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Sync timeout')), 8000)
+      );
+      
+      try {
+        await Promise.race([syncPromise, timeoutPromise]);
+        console.log('[git.commit] File sync completed');
+      } catch (syncError) {
+        console.warn('[git.commit] File sync failed or timed out, proceeding anyway:', syncError);
+      }
+
+      // ファイルシステムフラッシュ
+      await gitFileSystem.flush();
+
+      // ステージされたファイルがあるかチェック
+      console.log('[git.commit] Checking staged files...');
+      const statusMatrix = await git.statusMatrix({ fs: this.fs, dir: this.dir });
+      const stagedFiles = statusMatrix.filter(([, , , stage]) => stage === 2 || stage === 3);
+      
+      if (stagedFiles.length === 0) {
+        throw new Error('No changes added to commit');
+      }
+      
+      console.log(`[git.commit] Found ${stagedFiles.length} staged files, proceeding with commit...`);
+      
       const sha = await git.commit({
         fs: this.fs,
         dir: this.dir,
@@ -707,6 +773,7 @@ export class GitCommands {
         committer: author,
       });
 
+      console.log(`[git.commit] Commit successful: ${sha}`);
       return `[main ${sha.slice(0, 7)}] ${message}`;
     }, 'git commit failed');
   }

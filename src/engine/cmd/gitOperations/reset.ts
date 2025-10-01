@@ -51,10 +51,16 @@ export class GitResetOperations {
 
         console.log('[NEW ARCHITECTURE] Reset: Hard reset to', targetRef);
 
-        // ターゲットコミットのOIDを取得
+        // ターゲットコミットのOIDを取得（短縮形コミットIDも対応）
         let targetOid: string;
         try {
-          targetOid = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: targetRef });
+          // まず expandOid で短縮形コミットIDを解決を試行
+          try {
+            targetOid = await git.expandOid({ fs: this.fs, dir: this.dir, oid: targetRef });
+          } catch {
+            // expandOid が失敗した場合は resolveRef でブランチ/タグとして解決
+            targetOid = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: targetRef });
+          }
         } catch {
           throw new Error(
             `fatal: ambiguous argument '${targetRef}': unknown revision or path not in the working tree.`
@@ -161,10 +167,26 @@ export class GitResetOperations {
       const targetRef = commit || 'HEAD';
       console.log('[NEW ARCHITECTURE] Reset: Soft reset to', targetRef);
 
+      // ソフトリセット用のOID解決（短縮形コミットIDも対応）
+      let targetOid: string;
+      try {
+        // まず expandOid で短縮形コミットIDを解決を試行
+        try {
+          targetOid = await git.expandOid({ fs: this.fs, dir: this.dir, oid: targetRef });
+        } catch {
+          // expandOid が失敗した場合は resolveRef でブランチ/タグとして解決
+          targetOid = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: targetRef });
+        }
+      } catch {
+        throw new Error(
+          `fatal: ambiguous argument '${targetRef}': unknown revision or path not in the working tree.`
+        );
+      }
+
       // ソフトリセットはステージングエリアをクリア
       // isomorphic-gitではgit.checkoutを使用してインデックスを更新
       try {
-        await git.checkout({ fs: this.fs, dir: this.dir, ref: targetRef });
+        await git.checkout({ fs: this.fs, dir: this.dir, ref: targetOid });
       } catch {
         console.error('Failed to perform soft reset checkout');
       }
@@ -175,8 +197,10 @@ export class GitResetOperations {
 
       if (errorMessage.includes('not a git repository')) {
         throw new Error('fatal: not a git repository (or any of the parent directories): .git');
-      } else if (errorMessage.includes('unknown revision')) {
+      } else if (errorMessage.includes('unknown revision') || errorMessage.includes('ambiguous argument')) {
         throw new Error(errorMessage);
+      } else if (errorMessage.includes('bad revision')) {
+        throw new Error(`fatal: bad revision - commit not found`);
       }
 
       throw new Error(`git reset failed: ${errorMessage}`);
