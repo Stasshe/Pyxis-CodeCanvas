@@ -1,35 +1,98 @@
 // ブレークポイント用のガターアイコンCSSクラス名
 const BREAKPOINT_GUTTER_CLASS = 'pyxis-breakpoint-gutter';
 const BREAKPOINT_GUTTER_STYLE = `
-.monaco-editor .margin .glyph-margin.pyxis-breakpoint-gutter {
-  background: yellow !important;
-  border: 1px solid red !important;
-  min-width: 16px !important;
-  min-height: 16px !important;
-  width: 16px !important;
-  height: 16px !important;
+/* Monaco は glyphMarginClassName に指定したクラスを '.glyph-margin' 要素に直接付与します。
+   そのためスペース無し（.glyph-margin.pyxis-breakpoint-gutter）での指定が必要です。加えて
+   互換性のためにいくつかのバリエーションを用意します。*/
+/* 汎用セレクタ: 構造が異なる場合でもクラス名自体を狙う */
+.pyxis-breakpoint-gutter,
+.glyph-margin.pyxis-breakpoint-gutter,
+.glyph-margin .pyxis-breakpoint-gutter,
+.monaco-editor .pyxis-breakpoint-gutter,
+.monaco-editor .margin .glyph-margin.pyxis-breakpoint-gutter,
+.monaco-editor.vs .margin .glyph-margin.pyxis-breakpoint-gutter,
+.monaco-editor.vs-dark .margin .glyph-margin.pyxis-breakpoint-gutter,
+/* 互換性: 要素が子要素として挿入されるケースをカバー */
+.monaco-editor .margin .glyph-margin .pyxis-breakpoint-gutter,
+.monaco-editor.vs .margin .glyph-margin .pyxis-breakpoint-gutter,
+.monaco-editor.vs-dark .margin .glyph-margin .pyxis-breakpoint-gutter {
+  /* タッチデバイス（iPad など）でもタップしやすいように大きめにする */
   display: flex !important;
-  align-items: center;
-  justify-content: center;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 24px !important;
+  height: 24px !important;
+  min-width: 24px !important;
+  min-height: 24px !important;
+  padding: 2px !important;
   position: relative !important;
-  z-index: 1000 !important;
-  pointer-events: none !important;
+  z-index: 10000 !important; /* 高めにして上書きを避ける */
+  box-sizing: border-box !important;
+  /* pointer-events を有効にしてタッチやホバーを受け取れるようにする */
+  pointer-events: auto !important;
+  touch-action: manipulation !important;
+  -webkit-tap-highlight-color: rgba(0,0,0,0) !important;
   overflow: visible !important;
 }
-.monaco-editor .margin .glyph-margin.pyxis-breakpoint-gutter::after {
+
+/* アイコン本体は擬似要素に描画（クリック判定は親要素で行う） */
+.pyxis-breakpoint-gutter::after,
+.monaco-editor .margin .glyph-margin.pyxis-breakpoint-gutter::after,
+.monaco-editor.vs .margin .glyph-margin.pyxis-breakpoint-gutter::after,
+.monaco-editor.vs-dark .margin .glyph-margin.pyxis-breakpoint-gutter::after,
+.monaco-editor .margin .glyph-margin .pyxis-breakpoint-gutter::after,
+.monaco-editor.vs .margin .glyph-margin .pyxis-breakpoint-gutter::after,
+.monaco-editor.vs-dark .margin .glyph-margin .pyxis-breakpoint-gutter::after {
   content: '';
   position: absolute;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #e06c75;
-  border: 2px solid #fff;
-  box-sizing: border-box;
-  z-index: 1001;
-  pointer-events: none;
+  width: 12px !important;
+  height: 12px !important;
+  border-radius: 50% !important;
+  background: #e06c75 !important; /* 赤系の円 */
+  border: 2px solid rgba(255,255,255,0.95) !important;
+  box-sizing: border-box !important;
+  z-index: 10001 !important;
+  pointer-events: none !important; /* アイコン自体はクリックを邪魔しない */
+}
+
+
+/* タッチ操作向けヒット領域を控えめに（ガバ防止） */
+.pyxis-breakpoint-gutter::before,
+.monaco-editor .margin .glyph-margin .${BREAKPOINT_GUTTER_CLASS}::before,
+.monaco-editor .glyph-margin.${BREAKPOINT_GUTTER_CLASS}::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 22px; /* 控えめなサイズ */
+  height: 22px;
+  border-radius: 11px;
+  background: transparent;
+  z-index: 10002 !important;
+  pointer-events: auto !important; /* タッチを受けるために有効 */
+}
+
+/* ポインタが粗いデバイス（タッチ）でも控えめなヒット領域 */
+@media (pointer: coarse) {
+  .monaco-editor .margin .glyph-margin .${BREAKPOINT_GUTTER_CLASS},
+  .monaco-editor .glyph-margin.${BREAKPOINT_GUTTER_CLASS},
+  .pyxis-breakpoint-gutter {
+    width: 26px !important;
+    height: 26px !important;
+    min-width: 26px !important;
+    min-height: 26px !important;
+  }
+  .monaco-editor .margin .glyph-margin .${BREAKPOINT_GUTTER_CLASS}::before,
+  .monaco-editor .glyph-margin.${BREAKPOINT_GUTTER_CLASS}::before,
+  .pyxis-breakpoint-gutter::before {
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 14px !important;
+  }
 }
 `;
 
@@ -319,47 +382,128 @@ export default function CodeEditor({
   }, []);
 
   // --- ブレークポイント機能 ---
-  const [breakpoints, setBreakpoints] = useState<Breakpoint[]>([]);
-  const [breakpointDecorations, setBreakpointDecorations] = useState<string[]>([]);
+  // ブレークポイントはタブ（モデル）ごとに管理する
+  const [breakpointsMap, setBreakpointsMap] = useState<Record<string, number[]>>({});
+  // デコレーションIDはレンダリングに影響させたくないためrefで管理
+  const decorationsMapRef = useRef<Record<string, string[]>>({});
+
+  // 指定行のトグル（現在のモデル or activeTab に紐づける）
   const toggleBreakpoint = useCallback((line: number) => {
-    setBreakpoints(prev => {
-      if (prev.some(bp => bp.line === line)) {
-        return prev.filter(bp => bp.line !== line);
+    const tabId = currentModelIdRef.current || (activeTab && activeTab.id);
+    if (!tabId) return;
+    setBreakpointsMap(prev => {
+      const prevLines = new Set(prev[tabId] || []);
+      if (prevLines.has(line)) {
+        prevLines.delete(line);
       } else {
-        return [...prev, { line }];
+        prevLines.add(line);
       }
+      return { ...prev, [tabId]: Array.from(prevLines).sort((a, b) => a - b) };
     });
-  }, []);
+  }, [activeTab?.id]);
+
+  // タブごとにデコレーションを更新する
   const updateBreakpointDecorations = useCallback(() => {
     if (typeof window === 'undefined') return;
     if (!editorRef.current) return;
-    const monaco = monacoRef.current;
-    if (!monaco) return;
+    const mon = monacoRef.current;
+    if (!mon) return;
     const model = editorRef.current.getModel && editorRef.current.getModel();
     if (!model) return;
-    const decorations = breakpoints.map(bp => ({
-      range: new monaco.Range(bp.line, 1, bp.line, 1),
+
+    const tabId = currentModelIdRef.current || (activeTab && activeTab.id);
+    if (!tabId) return;
+
+    const lines = breakpointsMap[tabId] || [];
+    const prevIds = decorationsMapRef.current[tabId] || [];
+
+    if (!lines || lines.length === 0) {
+      // 既存のデコレーションを削除
+      try {
+        if (prevIds && prevIds.length > 0 && editorRef.current) {
+          const removed = editorRef.current.deltaDecorations(prevIds, []);
+          decorationsMapRef.current[tabId] = [];
+          console.debug('[CodeEditor] Cleared decorations for', tabId, 'removed:', removed);
+        }
+      } catch (e) {
+        console.warn('[CodeEditor] Failed to clear decorations for tab', tabId, e);
+      }
+      return;
+    }
+
+    const decorations = lines.map(line => ({
+      range: new mon.Range(line, 1, line, 1),
       options: {
         isWholeLine: true,
         glyphMarginClassName: BREAKPOINT_GUTTER_CLASS,
         glyphMarginHoverMessage: { value: 'ブレークポイント' },
-        stickiness: monaco.editor.TrackedRangeStickiness && monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
+        stickiness:
+          mon.editor.TrackedRangeStickiness &&
+          mon.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
       },
     }));
-    const newIds = editorRef.current.deltaDecorations(breakpointDecorations, decorations);
-    setBreakpointDecorations(newIds);
-  }, [breakpoints, breakpointDecorations]);
-  useEffect(() => { updateBreakpointDecorations(); }, [breakpoints, activeTab?.id]);
+
+    try {
+      const newIds = editorRef.current.deltaDecorations(prevIds, decorations);
+      decorationsMapRef.current[tabId] = newIds;
+      console.debug('[CodeEditor] Applied decorations for', tabId, 'ids:', newIds);
+    } catch (e) {
+      console.warn('[CodeEditor] Failed to apply decorations for tab', tabId, e);
+    }
+  }, [breakpointsMap, activeTab?.id]);
+
+  // ガタークリック（タップ）処理を強化
   const handleEditorGutterClick = useCallback((e: any) => {
     if (typeof window === 'undefined') return;
     const monaco = monacoRef.current;
     if (!monaco) return;
-    // MonacoのMouseTargetTypeは数値なので、GUTTER_GLYPH_MARGINは定数値で比較
-    // 2: GUTTER_GLYPH_MARGIN (Monaco 0.44.0以降)
+
+    // いくつかのバージョンでのType定数を取得
     const GUTTER_GLYPH_MARGIN = monaco.editor.MouseTargetType?.GUTTER_GLYPH_MARGIN ?? 2;
-    if (e.target?.type === GUTTER_GLYPH_MARGIN) {
-      const line = e.target.position?.lineNumber;
-      if (line) { toggleBreakpoint(line); }
+    const GUTTER_LINE_NUMBERS = monaco.editor.MouseTargetType?.GUTTER_LINE_NUMBERS ?? 3;
+
+    // 基本的にGUTTER_GLYPH_MARGINを期待するが、ライン番号や近接エリアでタップされる場合もあるため
+    const clickedType = e?.target?.type;
+
+    // デバッグ: ターゲットの情報をログに出す
+    // eslint-disable-next-line no-console
+    console.debug('[CodeEditor] onMouseDown target type:', clickedType, 'position:', e?.target?.position, 'browserEvent:', e?.event?.browserEvent?.type);
+
+    let lineNumber: number | undefined;
+
+    // 優先: 明示的に報告された行番号
+    if (e.target?.position?.lineNumber) {
+      lineNumber = e.target.position.lineNumber;
+    }
+
+    // 代替: 要素走査でglyph-margin内かどうか判断
+    if (!lineNumber && e.target && (e.target.element || e.target.detail)) {
+      const el = e.target.element || e.target.detail?.target || null;
+      try {
+        if (el && typeof (el as Element).closest === 'function') {
+          const glyph = (el as Element).closest('.glyph-margin');
+          if (glyph) {
+            // 行番号情報はDOM属性に含まれる場合がある
+            const lineAttr = glyph.getAttribute && glyph.getAttribute('data-line-number');
+            if (lineAttr) {
+              const parsed = parseInt(lineAttr, 10);
+              if (!Number.isNaN(parsed)) lineNumber = parsed;
+            }
+          }
+        }
+      } catch (er) {
+        // ignore
+      }
+    }
+
+    // 最終手段: MouseTargetTypeが該当するならpositionから取得
+    if (!lineNumber && (clickedType === GUTTER_GLYPH_MARGIN || clickedType === GUTTER_LINE_NUMBERS)) {
+      lineNumber = e.target?.position?.lineNumber;
+    }
+
+    if (lineNumber) {
+      toggleBreakpoint(lineNumber);
+      console.debug('[CodeEditor] Toggled breakpoint at line:', lineNumber);
     }
   }, [toggleBreakpoint]);
 
@@ -432,6 +576,20 @@ export default function CodeEditor({
       console.warn('[CodeEditor] Theme already defined:', e);
     }
 
+    // エディター初期化直後に現在のブレークポイントを反映する
+    try {
+      // 少し遅延させることでモデルのセットが完了しているケースにも対応
+      setTimeout(() => {
+        try {
+          updateBreakpointDecorations();
+        } catch (err) {
+          console.warn('[CodeEditor] Failed to apply breakpoint decorations on mount:', err);
+        }
+      }, 10);
+    } catch (err) {
+      console.warn('[CodeEditor] Error scheduling breakpoint decoration update on mount:', err);
+    }
+
     // TypeScript/JavaScript設定
     monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
       noSemanticValidation: false,
@@ -489,9 +647,24 @@ export default function CodeEditor({
 
         model = monaco.editor.createModel(activeTab.content, getLanguage(activeTab.name));
         monacoModelMap.set(activeTab.id, model);
-        // ブレークポイントデコレーション初期化
-        setBreakpointDecorations([]);
-        setBreakpoints([]);
+        // ブレークポイントデコレーション初期化（タブ単位で管理）
+        try {
+          const tabIdInit = activeTab.id;
+          // 明示的に空配列で初期化
+          setBreakpointsMap(prev => ({ ...prev, [tabIdInit]: [] }));
+          // 既存のデコレーションが残っていれば削除する
+          const prevIdsInit = decorationsMapRef.current[tabIdInit] || [];
+          if (prevIdsInit.length > 0 && editorRef.current) {
+            try {
+              editorRef.current.deltaDecorations(prevIdsInit, []);
+            } catch (e) {
+              console.warn('[CodeEditor] Failed to clear previous decorations on init for', tabIdInit, e);
+            }
+          }
+          decorationsMapRef.current[tabIdInit] = [];
+        } catch (e) {
+          console.warn('[CodeEditor] Failed to initialize breakpoint state for tab:', activeTab.id, e);
+        }
       }
 
       if (isEditorSafe() && model) {
@@ -506,13 +679,26 @@ export default function CodeEditor({
             try {
               model.dispose();
             } catch (disposeError) {
-            // モデル切り替え時にブレークポイントデコレーション初期化
-            setBreakpointDecorations([]);
-            setBreakpoints([]);
-              console.warn('[CodeEditor] Model dispose failed:', disposeError);
-            }
-            monacoModelMap.delete(activeTab.id);
-          }
+              // モデル切り替え時にタブ単位のデコレーション／ブレークポイントを初期化
+              try {
+                const tabToClear = activeTab.id;
+                setBreakpointsMap(prev => ({ ...prev, [tabToClear]: [] }));
+                const prevIds = decorationsMapRef.current[tabToClear] || [];
+                if (prevIds.length > 0 && editorRef.current) {
+                  try {
+                    editorRef.current.deltaDecorations(prevIds, []);
+                  } catch (clearErr) {
+                    console.warn('[CodeEditor] Failed to clear decorations during model dispose for', tabToClear, clearErr);
+                  }
+                }
+                decorationsMapRef.current[tabToClear] = [];
+              } catch (initErr) {
+                console.warn('[CodeEditor] Failed to reset breakpoint state during model dispose:', initErr);
+              }
+               console.warn('[CodeEditor] Model dispose failed:', disposeError);
+             }
+             monacoModelMap.delete(activeTab.id);
+           }
 
           try {
             const newModel = monaco.editor.createModel(
@@ -530,6 +716,19 @@ export default function CodeEditor({
       }
     }
   };
+
+  // ブレークポイント配列や表示タブが変わったらデコレーションを更新する
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    // Editor がまだない場合は何もしない
+    if (!isEditorSafe() || !monacoRef.current) return;
+    try {
+      updateBreakpointDecorations();
+    } catch (e) {
+      console.warn('[CodeEditor] Failed to update breakpoint decorations in effect:', e);
+    }
+    // activeTab.id を依存に入れることでモデル切替時にもデコレーションを再適用する
+  }, [breakpointsMap, activeTab?.id, isEditorSafe]);
 
   // activeTabが変わるたびにモデルを切り替え、必要ならジャンプ
   useEffect(() => {
@@ -558,9 +757,10 @@ export default function CodeEditor({
       model = undefined;
     }
 
+
     let didSetModel = false;
+    // --- 1. モデルがなければ新規作成 ---
     if (!model) {
-      // 新しいモデルを作成
       try {
         model = monacoRef.current.editor.createModel(
           activeTab.content,
@@ -571,25 +771,33 @@ export default function CodeEditor({
         console.error('[CodeEditor] Model creation failed:', createError);
         return;
       }
-
-      // disposeやアンマウント後はsetModelしない
       if (!isEditorSafe()) return;
-
+      // --- 2. setModel前に古いデコレーションを必ずクリア ---
       try {
-        // モデルを設定
+        const prevIds = decorationsMapRef.current[activeTab.id] || [];
+        if (prevIds.length > 0 && editorRef.current) {
+          editorRef.current.deltaDecorations(prevIds, []);
+        }
+        decorationsMapRef.current[activeTab.id] = [];
+      } catch (e) {
+        console.warn('[CodeEditor] Failed to clear decorations before setModel (new model):', e);
+      }
+      try {
         editorRef.current!.setModel(model);
         currentModelIdRef.current = activeTab.id;
         setCharCount(countCharsNoSpaces(model.getValue()));
         didSetModel = true;
+        // --- 3. setModel後にデコレーション再適用 ---
+        updateBreakpointDecorations();
       } catch (e: any) {
         console.warn('[CodeEditor] setModel failed:', e?.message);
-        // setModelに失敗した場合、少し待ってから再試行
         setTimeout(() => {
           if (isEditorSafe() && isModelSafe(model) && model) {
             try {
               editorRef.current!.setModel(model);
               currentModelIdRef.current = activeTab.id;
               setCharCount(model.getValue().length);
+              updateBreakpointDecorations();
             } catch (retryError: any) {
               console.error('[CodeEditor] setModel retry failed:', retryError);
             }
@@ -597,60 +805,73 @@ export default function CodeEditor({
         }, 50);
       }
     } else {
-      // 既存のモデルの場合
-      // 1. 現在のエディターのモデルと異なる場合は切り替え
+      // --- 既存モデル ---
+      // 1. モデル切り替え時は必ず古いデコレーションをクリア
       if (currentModelIdRef.current !== activeTab.id) {
-        // disposeやアンマウント後はsetModelしない
         if (!isEditorSafe()) return;
-
+        try {
+          const prevIds = decorationsMapRef.current[currentModelIdRef.current || ''] || [];
+          if (prevIds.length > 0 && editorRef.current) {
+            editorRef.current.deltaDecorations(prevIds, []);
+          }
+          decorationsMapRef.current[currentModelIdRef.current || ''] = [];
+        } catch (e) {
+          console.warn('[CodeEditor] Failed to clear decorations before setModel (existing model):', e);
+        }
         try {
           editorRef.current!.setModel(model);
           currentModelIdRef.current = activeTab.id;
           didSetModel = true;
+          setCharCount(countCharsNoSpaces(model.getValue()));
+          // --- 2. setModel後にデコレーション再適用 ---
+          updateBreakpointDecorations();
         } catch (e: any) {
           console.warn('[CodeEditor] setModel for existing model failed:', e?.message);
-          // 既存のモデルが何らかの理由で使えない場合、再作成を試みる
           monacoModelMap.delete(activeTab.id);
           try {
             model.dispose();
           } catch (disposeError) {
             console.warn('[CodeEditor] Failed to dispose broken model:', disposeError);
           }
-
-          // 新しいモデルを作成して再試行
           try {
             const newModel = monacoRef.current!.editor.createModel(
               activeTab.content,
               getLanguage(activeTab.name)
             );
             monacoModelMap.set(activeTab.id, newModel);
+            // --- setModel前にデコレーションクリア ---
+            try {
+              const prevIds = decorationsMapRef.current[activeTab.id] || [];
+              if (prevIds.length > 0 && editorRef.current) {
+                editorRef.current.deltaDecorations(prevIds, []);
+              }
+              decorationsMapRef.current[activeTab.id] = [];
+            } catch (e) {}
             editorRef.current!.setModel(newModel);
             currentModelIdRef.current = activeTab.id;
             setCharCount(newModel.getValue().length);
             didSetModel = true;
+            updateBreakpointDecorations();
           } catch (recreateError: any) {
             console.error('[CodeEditor] Model recreation failed:', recreateError);
           }
           return;
         }
       }
-
       // 2. モデルの内容を更新（必要に応じて）
       if (isModelSafe(model) && model!.getValue() !== activeTab.content) {
         try {
           model!.setValue(activeTab.content);
+          // --- 内容更新時もデコレーション再適用 ---
+          updateBreakpointDecorations();
         } catch (e: any) {
           console.warn('[CodeEditor] Model setValue failed:', e?.message);
-          // setValueに失敗した場合は、モデルが破棄されている可能性があるので削除
           monacoModelMap.delete(activeTab.id);
           return;
         }
       }
-
       if (isModelSafe(model)) {
         setCharCount(countCharsNoSpaces(model!.getValue()));
-        // setBreakpointDecorations([]); // ← ここを削除
-        // setBreakpoints([]); // ← ここを削除
       }
     }
 
