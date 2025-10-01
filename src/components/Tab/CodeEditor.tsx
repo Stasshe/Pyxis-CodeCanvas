@@ -955,11 +955,8 @@ export default function CodeEditor({
     if (jumpToLine !== undefined && typeof jumpToLine === 'number') {
       const column = jumpToColumn && typeof jumpToColumn === 'number' ? jumpToColumn : 1;
 
-      // モデルが確実にセットされるまでリトライ付き遅延実行
-      let retryCount = 0;
-      const maxRetries = 10;
-
-      const attemptJump = () => {
+      // 少し遅延させてモデルが確実にセットされるのを待つ
+      const timeoutId = setTimeout(() => {
         try {
           const editor = editorRef.current;
           const model = editor?.getModel();
@@ -977,26 +974,13 @@ export default function CodeEditor({
               'tab',
               activeTab.id
             );
-          } else if (retryCount < maxRetries) {
-            // モデルがまだない場合はリトライ
-            retryCount++;
-            console.log(
-              '[CodeEditor] Model not ready for jump, retrying...',
-              retryCount,
-              '/',
-              maxRetries
-            );
-            setTimeout(attemptJump, 50);
           } else {
-            console.warn('[CodeEditor] Failed to jump: model not available after retries');
+            console.warn('[CodeEditor] Model not ready for jump');
           }
         } catch (e) {
           console.warn('[CodeEditor] Failed to jump to line/column:', e);
         }
-      };
-
-      // 初回実行を少し遅延
-      const timeoutId = setTimeout(attemptJump, 50);
+      }, 100);
 
       return () => clearTimeout(timeoutId);
     }
