@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTheme } from '@/context/ThemeContext';
-import AIAgent from '@/components/AI/AIAgent';
+import AIPanel from '@/components/AI/AIPanel';
 import type { FileItem, Project, Tab } from '@/types';
 
 interface RightSidebarProps {
@@ -57,9 +57,9 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
       >
         <div style={{ flex: 1, overflow: 'auto' }}>
           {children ||
-            // デフォルトでAI Agentを表示
+            // デフォルトでAI Panelを表示
             (setTabs && setActiveTabId && saveFile ? (
-              <AIAgent
+              <AIPanel
                 projectFiles={projectFiles}
                 currentProject={currentProject}
                 currentProjectId={currentProjectId}
@@ -71,7 +71,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
               />
             ) : (
               <div style={{ padding: 16, color: colors.mutedFg, textAlign: 'center' }}>
-                AI Agent機能が利用できません
+                AI Assistant機能が利用できません
               </div>
             ))}
         </div>

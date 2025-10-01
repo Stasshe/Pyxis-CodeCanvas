@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 interface HistoryEntry {
   content: string;
   selectedFiles: string[];
-  mode: 'chat' | 'edit';
+  mode: 'ask' | 'edit'; // 'ask'と'chat'の両方をサポート
   timestamp: number;
 }
 
@@ -46,7 +46,7 @@ export function useInputHistory(options: UseInputHistoryOptions = {}) {
 
   // 履歴に新しいエントリを追加
   const addToHistory = useCallback(
-    (content: string, selectedFiles: string[] = [], mode: 'chat' | 'edit' = 'chat') => {
+    (content: string, selectedFiles: string[] = [], mode: 'ask' | 'edit' = 'ask') => {
       if (!content.trim()) return;
 
       const newEntry: HistoryEntry = {
