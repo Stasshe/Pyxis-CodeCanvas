@@ -4,7 +4,7 @@
 
 import React, { useState, KeyboardEvent, useRef, useEffect } from 'react';
 import { useTheme } from '@/context/ThemeContext';
-import { useInputHistory } from '@/hooks/ui/useInputHistory';
+import { useInputHistory } from '@/hooks/ai/useInputHistory';
 import { Send, Loader2, FileCode } from 'lucide-react';
 
 interface ChatInputProps {
