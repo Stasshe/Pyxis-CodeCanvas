@@ -478,6 +478,7 @@ export class FileRepository {
     operation: 'create' | 'update' | 'delete',
     bufferContent?: ArrayBuffer
   ): Promise<void> {
+    console.log(`[FileRepository.syncToGitFileSystem] START - path: ${path}, operation: ${operation}`);
     try {
       // .gitignoreチェック（作成・更新時のみ）
       if (operation !== 'delete') {
@@ -486,6 +487,7 @@ export class FileRepository {
           console.log(`[FileRepository] Skipping GitFileSystem sync for ignored path: ${path}`);
           return;
         }
+        console.log(`[FileRepository.syncToGitFileSystem] Path not ignored, proceeding: ${path}`);
       }
 
       // 遅延インポートで循環参照を回避
@@ -507,10 +509,12 @@ export class FileRepository {
       }
 
       // SyncManagerを使用して同期
+      console.log(`[FileRepository.syncToGitFileSystem] Calling syncSingleFileToFS for: ${path}`);
       await syncManager.syncSingleFileToFS(projectName, path, content, operation, bufferContent);
 
       // Git変更検知のために自動的にキャッシュフラッシュ
       await gitFileSystem.flush();
+      console.log(`[FileRepository.syncToGitFileSystem] COMPLETED - path: ${path}`);
     } catch (error) {
       console.error('[FileRepository] syncToGitFileSystem error:', error);
       throw error;

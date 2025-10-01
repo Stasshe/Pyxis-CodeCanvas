@@ -51,12 +51,9 @@ function ClientTerminal({
         // GitFileSystemを初期化
         gitFileSystem.init();
 
-        // プロジェクトファイルをIndexedDB→GitFileSystemに同期（初回のみ）
-        if (currentProjectId) {
-          console.log('[Terminal] Syncing project files from IndexedDB to GitFileSystem');
-          await syncManager.syncFromIndexedDBToFS(currentProjectId, currentProject);
-          console.log('[Terminal] Initial sync completed');
-        }
+        // [NEW ARCHITECTURE] fileRepositoryが自動的にlightning-fsに同期するため、
+        // ここでの明示的な同期は不要（むしろ有害：ディレクトリクリアで新規ファイルが消える）
+        // 初期化時の同期は、プロジェクト作成時のみsyncManager.initializeProjectで実行される
       } catch (error) {
         console.error('[Terminal] Initialization error:', error);
       }
