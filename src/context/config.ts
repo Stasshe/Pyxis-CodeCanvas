@@ -3,4 +3,9 @@ export const LOCALSTORAGE_KEY = {
   MONACO_WORD_WRAP: 'pyxis-monaco-word-wrap',
   RECENT_PROJECTS: 'pyxis-recent-projects',
   EDITOR_LAYOUT: 'pyxis-editor-layout',
+  DEFAULT_EDITOR: 'pyxis-defaultEditor',
+};
+
+export const DEFAULT_VALUES = {
+  DEFAULT_EDITOR: 'monaco',
 };

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { downloadWorkspaceZip } from '@/engine/export/exportRepo';
 import type { Project } from '@/types';
-import { LOCALSTORAGE_KEY } from '@/context/config';
+import { LOCALSTORAGE_KEY, DEFAULT_VALUES } from '@/context/config';
 
 interface SettingsPanelProps {
   currentProject: Project; // 現在のプロジェクト
@@ -37,11 +37,11 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
 
   // デフォルトエディタ設定
   const [defaultEditor, setDefaultEditor] = useState(
-    () => localStorage.getItem('pyxis-defaultEditor') || 'monaco'
+    () => localStorage.getItem(LOCALSTORAGE_KEY.DEFAULT_EDITOR) || DEFAULT_VALUES.DEFAULT_EDITOR
   );
   const handleDefaultEditorChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setDefaultEditor(e.target.value);
-    localStorage.setItem('pyxis-defaultEditor', e.target.value);
+    localStorage.setItem(LOCALSTORAGE_KEY.DEFAULT_EDITOR, e.target.value);
   };
 
   // モナコエディタの折り返し設定
