@@ -642,27 +642,13 @@ export default function Home() {
             }}
             gitRefreshTrigger={gitRefreshTrigger}
             onGitStatusChange={setGitChangesCount}
-            onFileOperation={async (
-              path: string,
-              type: 'file' | 'folder' | 'delete',
-              content?: string,
-              isNodeRuntime?: boolean,
-              isBufferArray?: boolean,
-              bufferContent?: ArrayBuffer
-            ) => {
-              if (isNodeRuntime) {
-                setNodeRuntimeOperationInProgress(true);
+            onRefresh={() => {
+              // [NEW ARCHITECTURE] ファイルツリー再読み込み
+              if (refreshProjectFiles) {
+                refreshProjectFiles().then(() => {
+                  setGitRefreshTrigger(prev => prev + 1);
+                });
               }
-              // バイナリファイルの場合はsyncTerminalFileOperation等で分岐
-              if (syncTerminalFileOperation) {
-                // バイナリファイルの場合はbufferContentを、テキストファイルの場合はcontentを渡す
-                if (isBufferArray && bufferContent) {
-                  await syncTerminalFileOperation(path, type, '', bufferContent);
-                } else {
-                  await syncTerminalFileOperation(path, type, (content as string) || '', undefined);
-                }
-              }
-              setGitRefreshTrigger(prev => prev + 1);
             }}
             onDiffFileClick={handleDiffFileClick}
             onDiffAllFilesClick={handleDiffAllFilesClick}
@@ -746,33 +732,6 @@ export default function Home() {
                 currentProjectId={currentProject?.id || ''}
                 projectFiles={projectFiles}
                 onResize={handleBottomResize}
-                onTerminalFileOperation={async (
-                  path: string,
-                  type: 'file' | 'folder' | 'delete',
-                  content?: string,
-                  isNodeRuntime?: boolean,
-                  isBufferArray?: boolean,
-                  bufferContent?: ArrayBuffer
-                ) => {
-                  if (isNodeRuntime) {
-                    setNodeRuntimeOperationInProgress(true);
-                  }
-                  if (syncTerminalFileOperation) {
-                    // bufferContentが存在する場合、それを渡す
-                    if (bufferContent) {
-                      await syncTerminalFileOperation(path, type, '', bufferContent);
-                    } else {
-                      await syncTerminalFileOperation(
-                        path,
-                        type,
-                        (content as string) || '',
-                        undefined
-                      );
-                    }
-                  }
-                  await refreshProjectFiles();
-                  setGitRefreshTrigger(prev => prev + 1);
-                }}
               />
             )}
           </div>
@@ -840,16 +799,6 @@ export default function Home() {
               setEditors,
             });
             setFileSelectState({ open: false, paneIdx: null });
-          }}
-          onFileOperation={async (path, type, content, isNodeRuntime) => {
-            // 既存のonFileOperationのロジックを流用
-            if (isNodeRuntime) {
-              setNodeRuntimeOperationInProgress(true);
-            }
-            if (syncTerminalFileOperation) {
-              await syncTerminalFileOperation(path, type, (content as string) || '', undefined);
-            }
-            setGitRefreshTrigger(prev => prev + 1);
           }}
           currentProjectName={currentProject?.name || ''}
           currentPaneIndex={fileSelectState.paneIdx}

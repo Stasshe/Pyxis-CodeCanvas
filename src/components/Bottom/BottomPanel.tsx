@@ -12,14 +12,7 @@ interface BottomPanelProps {
   currentProjectId?: string;
   projectFiles?: FileItem[];
   onResize: (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => void;
-  onTerminalFileOperation?: (
-    path: string,
-    type: 'file' | 'folder' | 'delete',
-    content?: string,
-    isNodeRuntime?: boolean,
-    isBufferArray?: boolean,
-    bufferContent?: ArrayBuffer
-  ) => Promise<void>;
+  // [NEW ARCHITECTURE] onTerminalFileOperation removed - Terminal uses fileRepository directly
 }
 
 const outputMessagesRef: {
@@ -62,7 +55,6 @@ export default function BottomPanel({
   currentProjectId,
   projectFiles,
   onResize,
-  onTerminalFileOperation,
 }: BottomPanelProps) {
   const { colors } = useTheme();
   const [activeTab, setActiveTab] = useState<'output' | 'terminal' | 'debug'>('terminal');

@@ -8,14 +8,15 @@ import { FileItem } from '@/types';
 import { UnixCommands } from '@/engine/cmd/unix';
 import { isBufferArray } from '@/engine/helper/isBufferArray';
 import { importSingleFile } from '@/engine/import/importSingleFile';
+import { fileRepository } from '@/engine/core/fileRepository';
 
 interface FileTreeProps {
   items: FileItem[];
   /**
    * ファイルを開く。行・カラム指定でジャンプする場合はline/columnを指定。
    * @param file ファイル情報
-   * @param line 行番号（1始まり、省略可）
-   * @param column カラム番号（1始まり、省略可）
+   * @param line 行番号(1始まり、省略可)
+   * @param column カラム番号(1始まり、省略可)
    */
   onFileOpen: (file: FileItem, line?: number, column?: number) => void;
   onFilePreview?: (file: FileItem) => void;
@@ -23,16 +24,10 @@ interface FileTreeProps {
   level?: number;
   currentProjectName: string;
   currentProjectId?: string;
-  onFileOperation?: (
-    path: string,
-    type: 'file' | 'folder' | 'delete',
-    content?: string,
-    isNodeRuntime?: boolean,
-    isBufferArray?: boolean,
-    bufferContent?: ArrayBuffer
-  ) => Promise<void>;
+  onRefresh?: () => void; // [NEW ARCHITECTURE] ファイルツリー再読み込み用
   isFileSelectModal?: boolean;
 }
+
 export default function FileTree({
   items,
   onFileOpen,
@@ -41,11 +36,10 @@ export default function FileTree({
   onWebPreview,
   currentProjectName,
   currentProjectId,
-  onFileOperation,
+  onRefresh,
   isFileSelectModal,
 }: FileTreeProps) {
   const { colors } = useTheme();
-  // currentProjectId is now available for DB operations if needed
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
   const [menuHoveredIdx, setMenuHoveredIdx] = useState<number | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
@@ -57,42 +51,22 @@ export default function FileTree({
   } | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
-  // ドラッグ&ドロップ用（フォルダ対応）
+  // ドラッグ&ドロップ用(フォルダ対応)
   const handleDrop = async (e: React.DragEvent<HTMLDivElement>, targetPath?: string) => {
     e.preventDefault();
     e.stopPropagation();
     const items = e.dataTransfer.items;
-    // バイナリ拡張子リスト
-    const binaryExt =
-      /\.(png|jpg|jpeg|gif|bmp|webp|svg|pdf|zip|ico|tar|gz|rar|exe|dll|so|mp3|mp4|avi|mov|woff|woff2|ttf|eot)$/i;
+    
     if (items && items.length > 0 && typeof items[0].webkitGetAsEntry === 'function') {
       // フォルダD&D対応
       const traverseFileTree = async (item: any, path: string) => {
         return new Promise<void>(resolve => {
           if (item.isFile) {
             item.file(async (file: File) => {
-              const ext = file.name.toLowerCase();
-              const isBinary = binaryExt.test(ext);
-              let content: string | ArrayBuffer = '';
-              if (isBinary) {
-                content = await file.arrayBuffer();
-              } else {
-                content = await file.text();
-              }
               const unix = new UnixCommands(currentProjectName, undefined, currentProjectId);
               const importPath = `${path}${file.name}`;
               const absolutePath = `/projects/${currentProjectName}${importPath}`;
               await importSingleFile(file, absolutePath, unix);
-              if (typeof onFileOperation === 'function') {
-                await onFileOperation(
-                  importPath,
-                  'file',
-                  isBinary ? undefined : (content as string),
-                  false,
-                  isBinary,
-                  isBinary ? (content as ArrayBuffer) : undefined
-                );
-              }
               resolve();
             });
           } else if (item.isDirectory) {
@@ -108,6 +82,7 @@ export default function FileTree({
           }
         });
       };
+      
       const traverseAll = async () => {
         for (let i = 0; i < items.length; i++) {
           const entry = items[i].webkitGetAsEntry();
@@ -116,44 +91,38 @@ export default function FileTree({
           }
         }
       };
+      
       await traverseAll();
+      // [NEW ARCHITECTURE] ファイルツリー再読み込み
+      if (onRefresh) {
+        setTimeout(onRefresh, 100);
+      }
     } else {
       // 通常のファイルD&D
       const files = e.dataTransfer.files;
       if (!files || files.length === 0) return;
+      
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const ext = file.name.toLowerCase();
-        const isBinary = binaryExt.test(ext);
-        let content: string | ArrayBuffer = '';
-        if (isBinary) {
-          content = await file.arrayBuffer();
-        } else {
-          content = await file.text();
-        }
         const unix = new UnixCommands(currentProjectName, undefined, currentProjectId);
         const importPath = targetPath ? `${targetPath}/${file.name}` : `/${file.name}`;
         const absolutePath = `/projects/${currentProjectName}${importPath}`;
         await importSingleFile(file, absolutePath, unix);
-        if (typeof onFileOperation === 'function') {
-          await onFileOperation(
-            importPath,
-            'file',
-            isBinary ? undefined : (content as string),
-            false,
-            isBinary,
-            isBinary ? (content as ArrayBuffer) : undefined
-          );
-        }
+      }
+      
+      // [NEW ARCHITECTURE] ファイルツリー再読み込み
+      if (onRefresh) {
+        setTimeout(onRefresh, 100);
       }
     }
   };
+
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
   };
 
-  // expandedFoldersをlocalStorageに保存（初回復元後のみ）
+  // expandedFoldersをlocalStorageに保存(初回復元後のみ)
   useEffect(() => {
     if (level === 0 && isExpandedFoldersRestored) {
       const arr = Array.from(expandedFolders);
@@ -163,7 +132,8 @@ export default function FileTree({
       );
     }
   }, [expandedFolders, level, currentProjectName, isExpandedFoldersRestored]);
-  // 初回読み込み時にlocalStorageからexpandedFoldersを復元（itemsが空の場合はスキップ）
+
+  // 初回読み込み時にlocalStorageからexpandedFoldersを復元(itemsが空の場合はスキップ)
   useEffect(() => {
     if (level === 0 && items && items.length > 0 && !isExpandedFoldersRestored) {
       const saved = window.localStorage.getItem(`pyxis-expandedFolders-${currentProjectName}`);
@@ -171,7 +141,6 @@ export default function FileTree({
         try {
           const arr = JSON.parse(saved);
           if (Array.isArray(arr)) {
-            // itemsに存在するidのみセット
             const validIds = arr.filter((id: string) => items.some(item => item.id === id));
             setExpandedFolders(new Set(validIds));
             setIsExpandedFoldersRestored(true);
@@ -218,7 +187,6 @@ export default function FileTree({
     if (item.type === 'folder') {
       toggleFolder(item.id);
     } else {
-      // デフォルトエディタ設定をlocalStorageから取得
       const defaultEditor =
         typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
       if (defaultEditor === 'codemirror') {
@@ -229,13 +197,11 @@ export default function FileTree({
     }
   };
 
-  // 右クリック（または長押し）でメニュー表示
   const handleContextMenu = (e: React.MouseEvent, item: FileItem) => {
     e.preventDefault();
     setContextMenu({ x: e.clientX, y: e.clientY, item });
   };
 
-  // プレビュー表示（タブで開く）
   const handlePreview = (item: FileItem) => {
     setContextMenu(null);
     if (item.type === 'file' && item.name.endsWith('.md') && onFilePreview) {
@@ -243,7 +209,6 @@ export default function FileTree({
     }
   };
 
-  // WebPreview handler
   const handleWebPreview = (item: FileItem) => {
     setContextMenu(null);
     if (item.type === 'file' || item.type === 'folder') {
@@ -255,23 +220,23 @@ export default function FileTree({
   const longPressTimeout = useRef<NodeJS.Timeout | null>(null);
   const touchPosition = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
-  // 長押し開始
   const handleTouchStart = (e: React.TouchEvent, item: FileItem) => {
     if (e.touches.length === 1) {
       const touch = e.touches[0];
       touchPosition.current = { x: touch.clientX, y: touch.clientY };
       longPressTimeout.current = setTimeout(() => {
         setContextMenu({ x: touch.clientX, y: touch.clientY, item });
-      }, 500); // 500ms長押しで発火
+      }, 500);
     }
   };
-  // 長押しキャンセル
+
   const handleTouchEnd = () => {
     if (longPressTimeout.current) {
       clearTimeout(longPressTimeout.current);
       longPressTimeout.current = null;
     }
   };
+
   const handleTouchMove = () => {
     if (longPressTimeout.current) {
       clearTimeout(longPressTimeout.current);
@@ -344,17 +309,10 @@ export default function FileTree({
               {item.type === 'folder' ? (
                 <>
                   {isExpanded ? (
-                    <ChevronDown
-                      size={14}
-                      color={colors.mutedFg}
-                    />
+                    <ChevronDown size={14} color={colors.mutedFg} />
                   ) : (
-                    <ChevronRight
-                      size={14}
-                      color={colors.mutedFg}
-                    />
+                    <ChevronRight size={14} color={colors.mutedFg} />
                   )}
-                  {/* vscode-icons-jsのフォルダアイコン */}
                   <img
                     src={(() => {
                       const iconPath = isExpanded
@@ -374,7 +332,6 @@ export default function FileTree({
               ) : (
                 <>
                   <div className="w-3.5"></div>
-                  {/* vscode-icons-jsのファイルアイコン */}
                   <img
                     src={(() => {
                       const iconPath = getIconForFile(item.name) || getIconForFile('');
@@ -410,14 +367,14 @@ export default function FileTree({
                 onWebPreview={onWebPreview}
                 currentProjectName={currentProjectName}
                 currentProjectId={currentProjectId}
-                onFileOperation={onFileOperation}
+                onRefresh={onRefresh}
               />
             )}
           </div>
         );
       })}
 
-      {/* 空白領域を追加（最上位レベルのみ） */}
+      {/* 空白領域を追加(最上位レベルのみ) */}
       {level === 0 && !isFileSelectModal && (
         <div
           style={{
@@ -455,7 +412,7 @@ export default function FileTree({
         />
       )}
 
-      {/* コンテキストメニュー（item: null の場合は空白領域用） */}
+      {/* コンテキストメニュー(item: null の場合は空白領域用) */}
       {contextMenu && (
         <div
           ref={contextMenuRef}
@@ -487,7 +444,7 @@ export default function FileTree({
                   '削除',
                   contextMenu.item.type === 'folder' ? 'フォルダ作成' : null,
                   contextMenu.item.type === 'folder' ? 'ファイル作成' : null,
-                  'WebPreview', // Add WebPreview option
+                  'WebPreview',
                 ]
             )
               .filter(Boolean)
@@ -517,23 +474,28 @@ export default function FileTree({
                   onClick={async () => {
                     setContextMenu(null);
                     const unix = new UnixCommands(currentProjectName, undefined, currentProjectId);
+
+                    // [NEW ARCHITECTURE] 全てfileRepository経由で操作、onFileOperationコールバックは不要
                     if (label === 'ファイル作成') {
-                      if (typeof onFileOperation === 'function') {
-                        const fileName = prompt('新しいファイル名を入力してください:');
-                        if (fileName) {
-                          const newFilePath = fileName.startsWith('/') ? fileName : '/' + fileName;
-                          await onFileOperation(newFilePath, 'file', '', false);
-                        }
+                      const fileName = prompt('新しいファイル名を入力してください:');
+                      if (fileName && currentProjectId) {
+                        const newFilePath = fileName.startsWith('/') ? fileName : '/' + fileName;
+                        await fileRepository.createFile(currentProjectId, newFilePath, '', 'file');
+                        if (onRefresh) setTimeout(onRefresh, 100);
                       }
                     } else if (label === 'フォルダ作成') {
-                      if (typeof onFileOperation === 'function') {
-                        const folderName = prompt('新しいフォルダ名を入力してください:');
-                        if (folderName) {
-                          const newFolderPath = folderName.startsWith('/')
-                            ? folderName
-                            : '/' + folderName;
-                          await onFileOperation(newFolderPath, 'folder', '', false);
-                        }
+                      const folderName = prompt('新しいフォルダ名を入力してください:');
+                      if (folderName && currentProjectId) {
+                        const newFolderPath = folderName.startsWith('/')
+                          ? folderName
+                          : '/' + folderName;
+                        await fileRepository.createFile(
+                          currentProjectId,
+                          newFolderPath,
+                          '',
+                          'folder'
+                        );
+                        if (onRefresh) setTimeout(onRefresh, 100);
                       }
                     } else if (label === 'インポート') {
                       const input = document.createElement('input');
@@ -542,29 +504,8 @@ export default function FileTree({
                         const file = e.target.files[0];
                         if (!file) return;
                         const targetAbsolutePath = `/projects/${currentProjectName}/${file.name}`;
-                        const targetPath = `/${file.name}`;
-                        let content: string | ArrayBuffer = '';
-                        content = await file.arrayBuffer();
-                        const isBinary = isBufferArray(content);
-                        if (!isBinary) {
-                          content = await file.text();
-                        }
-                        const unix = new UnixCommands(
-                          currentProjectName,
-                          undefined,
-                          currentProjectId
-                        );
                         await importSingleFile(file, targetAbsolutePath, unix);
-                        if (typeof onFileOperation === 'function') {
-                          await onFileOperation(
-                            targetPath,
-                            'file',
-                            isBinary ? undefined : (content as string),
-                            false,
-                            isBinary,
-                            isBinary ? (content as ArrayBuffer) : undefined
-                          );
-                        }
+                        if (onRefresh) setTimeout(onRefresh, 100);
                       };
                       input.click();
                     } else if (label === '名前変更') {
@@ -576,26 +517,16 @@ export default function FileTree({
                             const lastSlash = item.path.lastIndexOf('/');
                             const oldPath = `/projects/${currentProjectName}${item.path}`;
                             const newPath = `/projects/${currentProjectName}${item.path.substring(0, lastSlash + 1)}${newName}`;
-                            const result = await unix.rename(oldPath, newPath);
-                            // alert(result);
-                            if (typeof onFileOperation === 'function') {
-                              await onFileOperation(
-                                item.path.substring(0, lastSlash + 1) + newName,
-                                item.type,
-                                item.content ?? '',
-                                false,
-                                item.isBufferArray,
-                                item.bufferContent
-                              );
-                              await onFileOperation(item.path, 'delete');
-                            }
+                            await unix.rename(oldPath, newPath);
+                            if (onRefresh) setTimeout(onRefresh, 100);
                           } catch (error: any) {
                             alert('名前変更に失敗しました: ' + error.message);
                           }
                         }
                       }
                     }
-                    // ...既存のitemありの処理...
+
+                    // 既存のitemありの処理
                     if (contextMenu.item) {
                       if (label === '開く') {
                         onFileOpen(contextMenu.item!);
@@ -603,7 +534,6 @@ export default function FileTree({
                         handlePreview(contextMenu.item!);
                       } else if (label === 'CodeMirrorで開く') {
                         if (contextMenu.item && contextMenu.item.type === 'file') {
-                          // CodeMirrorで開く用のフラグをonFileOpenに渡す（実装側でisCodeMirrorをtrueにする必要あり）
                           onFileOpen({ ...contextMenu.item, isCodeMirror: true });
                         }
                       } else if (label === 'ダウンロード') {
@@ -634,64 +564,60 @@ export default function FileTree({
                             currentProjectId
                           );
                           const item = contextMenu.item;
-                          let targetPath = '';
                           let targetAbsolutePath = '';
                           if (item) {
                             const dirPath = item.path.substring(0, item.path.lastIndexOf('/'));
                             if (item.type === 'file') {
                               targetAbsolutePath = `/projects/${currentProjectName}${dirPath}/${file.name}`;
-                              targetPath = `${dirPath}/${file.name}`;
                             } else if (item.type === 'folder') {
                               targetAbsolutePath = `/projects/${currentProjectName}${item.path}/${file.name}`;
-                              targetPath = `${item.path}/${file.name}`;
                             }
                           }
-                          if (targetPath) {
-                            let content: string | ArrayBuffer = '';
-                            content = await file.arrayBuffer();
-                            const isBinary = isBufferArray(content);
-                            if (!isBinary) {
-                              content = await file.text();
-                            }
+                          if (targetAbsolutePath) {
                             await importSingleFile(file, targetAbsolutePath, unix);
-                            if (typeof onFileOperation === 'function') {
-                              await onFileOperation(
-                                targetPath,
-                                'file',
-                                isBinary ? undefined : (content as string),
-                                false,
-                                isBinary,
-                                isBinary ? (content as ArrayBuffer) : undefined
-                              );
-                            }
+                            if (onRefresh) setTimeout(onRefresh, 100);
                           }
                         };
                         input.click();
                       } else if (label === '削除') {
                         const item = contextMenu.item;
-                        if (item && typeof onFileOperation === 'function') {
-                          await onFileOperation(item.path, 'delete');
+                        if (item && currentProjectId) {
+                          // [NEW ARCHITECTURE] fileRepository.deleteFile経由で削除
+                          await fileRepository.deleteFile(item.id);
+                          if (onRefresh) setTimeout(onRefresh, 100);
                         }
                       } else if (label === 'フォルダ作成') {
                         const item = contextMenu.item;
-                        if (item && typeof onFileOperation === 'function') {
+                        if (item && currentProjectId) {
                           const folderName = prompt('新しいフォルダ名を入力してください:');
                           if (folderName) {
                             const newFolderPath = item.path.endsWith('/')
                               ? item.path + folderName
                               : item.path + '/' + folderName;
-                            await onFileOperation(newFolderPath, 'folder', '', false);
+                            await fileRepository.createFile(
+                              currentProjectId,
+                              newFolderPath,
+                              '',
+                              'folder'
+                            );
+                            if (onRefresh) setTimeout(onRefresh, 100);
                           }
                         }
                       } else if (label === 'ファイル作成') {
                         const item = contextMenu.item;
-                        if (item && typeof onFileOperation === 'function') {
+                        if (item && currentProjectId) {
                           const fileName = prompt('新しいファイル名を入力してください:');
                           if (fileName) {
                             const newFilePath = item.path.endsWith('/')
                               ? item.path + fileName
                               : item.path + '/' + fileName;
-                            await onFileOperation(newFilePath, 'file', '', false);
+                            await fileRepository.createFile(
+                              currentProjectId,
+                              newFilePath,
+                              '',
+                              'file'
+                            );
+                            if (onRefresh) setTimeout(onRefresh, 100);
                           }
                         }
                       } else if (label === 'WebPreview') {

@@ -7,6 +7,7 @@ import SearchPanel from './SearchPanel';
 import GitPanel from './GitPanel';
 import RunPanel from './RunPanel';
 import SettingsPanel from './SettingsPanel';
+import { fileRepository } from '@/engine/core/fileRepository';
 
 interface LeftSidebarProps {
   activeMenuTab: MenuTab;
@@ -19,15 +20,8 @@ interface LeftSidebarProps {
   onResize: (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => void;
   onGitRefresh?: () => void;
   gitRefreshTrigger?: number;
-  onFileOperation?: (
-    path: string,
-    type: 'file' | 'folder' | 'delete',
-    content?: string,
-    isNodeRuntime?: boolean,
-    isBufferArray?: boolean,
-    bufferContent?: ArrayBuffer
-  ) => Promise<void>;
-  onGitStatusChange?: (changesCount: number) => void; // Git変更状態のコールバック
+  onRefresh?: () => void; // [NEW ARCHITECTURE] ファイルツリー再読み込み用
+  onGitStatusChange?: (changesCount: number) => void;
   onDiffFileClick?: (params: { commitId: string; filePath: string }) => void;
   onDiffAllFilesClick?: (params: { commitId: string; parentCommitId: string }) => void;
 }
@@ -43,12 +37,13 @@ export default function LeftSidebar({
   onResize,
   onGitRefresh,
   gitRefreshTrigger,
-  onFileOperation,
+  onRefresh,
   onGitStatusChange,
   onDiffFileClick,
   onDiffAllFilesClick,
 }: LeftSidebarProps) {
   const { colors } = useTheme();
+  
   return (
     <>
       <div
@@ -91,7 +86,7 @@ export default function LeftSidebar({
                 >
                   ./
                 </span>
-                {/* 新規ファイル作成アイコン */}
+                {/* [NEW ARCHITECTURE] 新規ファイル作成 - fileRepository直接呼び出し */}
                 <button
                   title="新規ファイル作成"
                   style={{
@@ -103,12 +98,11 @@ export default function LeftSidebar({
                     alignItems: 'center',
                   }}
                   onClick={async () => {
-                    if (typeof onFileOperation === 'function') {
-                      const fileName = prompt('新しいファイル名を入力してください:');
-                      if (fileName) {
-                        const newFilePath = fileName.startsWith('/') ? fileName : '/' + fileName;
-                        await onFileOperation(newFilePath, 'file', '');
-                      }
+                    const fileName = prompt('新しいファイル名を入力してください:');
+                    if (fileName && currentProject?.id) {
+                      const newFilePath = fileName.startsWith('/') ? fileName : '/' + fileName;
+                      await fileRepository.createFile(currentProject.id, newFilePath, '', 'file');
+                      if (onRefresh) setTimeout(onRefresh, 100);
                     }
                   }}
                 >
@@ -117,7 +111,7 @@ export default function LeftSidebar({
                     color={colors.sidebarIconFg}
                   />
                 </button>
-                {/* 新規フォルダ作成アイコン */}
+                {/* [NEW ARCHITECTURE] 新規フォルダ作成 - fileRepository直接呼び出し */}
                 <button
                   title="新規フォルダ作成"
                   style={{
@@ -129,14 +123,13 @@ export default function LeftSidebar({
                     alignItems: 'center',
                   }}
                   onClick={async () => {
-                    if (typeof onFileOperation === 'function') {
-                      const folderName = prompt('新しいフォルダ名を入力してください:');
-                      if (folderName) {
-                        const newFolderPath = folderName.startsWith('/')
-                          ? folderName
-                          : '/' + folderName;
-                        await onFileOperation(newFolderPath, 'folder', '');
-                      }
+                    const folderName = prompt('新しいフォルダ名を入力してください:');
+                    if (folderName && currentProject?.id) {
+                      const newFolderPath = folderName.startsWith('/')
+                        ? folderName
+                        : '/' + folderName;
+                      await fileRepository.createFile(currentProject.id, newFolderPath, '', 'folder');
+                      if (onRefresh) setTimeout(onRefresh, 100);
                     }
                   }}
                 >
@@ -153,7 +146,7 @@ export default function LeftSidebar({
                 onWebPreview={onWebPreview}
                 currentProjectName={currentProject?.name ?? ''}
                 currentProjectId={currentProject?.id ?? ''}
-                onFileOperation={onFileOperation}
+                onRefresh={onRefresh}
               />
             </div>
           )}
@@ -171,7 +164,6 @@ export default function LeftSidebar({
                 currentProject={currentProject.name}
                 onRefresh={onGitRefresh}
                 gitRefreshTrigger={gitRefreshTrigger}
-                onFileOperation={onFileOperation}
                 onGitStatusChange={onGitStatusChange}
                 onDiffFileClick={onDiffFileClick}
                 onDiffAllFilesClick={onDiffAllFilesClick}
@@ -183,7 +175,6 @@ export default function LeftSidebar({
               <RunPanel
                 currentProject={currentProject.name}
                 files={files}
-                onFileOperation={onFileOperation}
               />
             </div>
           )}

@@ -10,7 +10,6 @@ export default function FileSelectModal({
   onClose,
   files,
   onFileSelect,
-  onFileOperation,
   currentProjectName,
   onFilePreview,
   editors,
@@ -22,12 +21,6 @@ export default function FileSelectModal({
   onClose: () => void;
   files: FileItem[];
   onFileSelect: (file: FileItem) => void;
-  onFileOperation?: (
-    path: string,
-    type: 'file' | 'folder' | 'delete',
-    content?: string,
-    isNodeRuntime?: boolean
-  ) => Promise<void>;
   currentProjectName?: string;
   onFilePreview?: (file: FileItem) => void;
   editors: EditorPane[];
