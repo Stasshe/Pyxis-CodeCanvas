@@ -10,16 +10,25 @@
   "files.exclude": {
     "**/node_modules": true,
     "**/.git": true,
+    "public/vscode-icons/**": true,
+    ".next/**": true,
+    "out/**": true
   },
   "files.watcherExclude": {
     "**/.git/objects/**": true,
     "**/.git/subtree-cache/**": true,
     "**/.hg/store/**": true,
     "**/node_modules/**": true,
+    "**/public/vscode-icons/**": true,
+    ".next/**": true,
+    "out/**": true,
   },
   "search.exclude": {
     "**/node_modules": true,
     "**/.git": true,
+    "public/vscode-icons/**": true,
+    ".next/**": true,
+    "out/**": true
   },
   "typescript.tsdk": "node_modules/typescript/lib",
   "prettier.enable": true,
