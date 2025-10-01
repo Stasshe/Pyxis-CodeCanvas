@@ -1,4 +1,5 @@
-// src/context/BreakpointContext.tsx
+'use client';
+
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 export type BreakpointsMap = Record<string, number[]>;

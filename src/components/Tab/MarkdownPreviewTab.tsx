@@ -21,7 +21,6 @@ interface MarkdownPreviewTabProps {
 
 // ユニークID生成用
 let mermaidIdCounter = 0;
-const getUniqueMermaidId = () => `mermaid-svg-${mermaidIdCounter++}`;
 
 // ローカル画像をDataURLに変換する関数（プロジェクトファイルのbufferContentから読み込み）
 // loadImageAsDataURL moved to markdownUtils
