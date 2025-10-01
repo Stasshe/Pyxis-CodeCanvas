@@ -1,4 +1,62 @@
 import { Tab, FileItem } from '../types';
+/**
+ * タブの重複検出・アクティブ化・新規追加を一元化する関数。
+ * @param file 開くファイル情報
+ * @param tabs 現在のタブ配列
+ * @param setTabs タブ配列のsetter
+ * @param setActiveTabId アクティブタブIDのsetter
+ * @param options オプション: preview/webPreview/jumpToLine/jumpToColumn等
+ */
+export const openOrActivateTab = (
+  file: FileItem,
+  tabs: Tab[],
+  setTabs: (tabs: Tab[] | ((tabs: Tab[]) => Tab[])) => void,
+  setActiveTabId: (id: string) => void,
+  options?: {
+    preview?: boolean;
+    webPreview?: boolean;
+    jumpToLine?: number;
+    jumpToColumn?: number;
+    aiReviewProps?: {
+      originalContent: string;
+      suggestedContent: string;
+      filePath: string;
+    };
+  }
+) => {
+  // タブID生成ロジック（preview/webPreview対応）
+  let tabId = file.id ? String(file.id) : file.path;
+  if (options?.preview) tabId = `preview-${file.path}`;
+  if (options?.webPreview) tabId = `web-preview-${file.path}`;
+
+  // 既存タブ検索
+  const existing = tabs.find(tab => tab.id === tabId);
+  if (existing) {
+    setActiveTabId(tabId);
+    return;
+  }
+
+  // 新規タブ作成
+  const isBufferArray = !!file.isBufferArray;
+  const newTab: any = {
+    id: tabId,
+    name: options?.webPreview ? `Web Preview: ${file.name}` : file.name,
+    content: isBufferArray ? '' : file.content || '',
+    isDirty: false,
+    path: file.path,
+    fullPath: file.path,
+    isCodeMirror: file.isCodeMirror,
+    isBufferArray,
+    bufferContent: isBufferArray ? file.bufferContent : undefined,
+    preview: options?.preview,
+    webPreview: options?.webPreview,
+    aiReviewProps: options?.aiReviewProps,
+  };
+  if (options?.jumpToLine !== undefined) newTab.jumpToLine = options.jumpToLine;
+  if (options?.jumpToColumn !== undefined) newTab.jumpToColumn = options.jumpToColumn;
+  setTabs((currentTabs: Tab[]) => [...currentTabs, newTab]);
+  setActiveTabId(tabId);
+};
 
 export const createNewTab = (file: FileItem): Tab => {
   console.log('[createNewTab] Creating tab for file:', {
@@ -29,64 +87,10 @@ export const openFile = (
   setTabs: (tabs: Tab[] | ((tabs: Tab[]) => Tab[])) => void,
   setActiveTabId: (id: string) => void
 ) => {
+  // 後方互換: 通常ファイルオープンはopenOrActivateTabで集約
   if (file.type === 'folder') return;
-
-  console.log('[openFile] Opening file:', {
-    name: file.name,
-    path: file.path,
-    contentLength: file.content?.length || 0,
+  openOrActivateTab(file, tabs, setTabs, setActiveTabId, {
+    jumpToLine: (file as any).jumpToLine,
+    jumpToColumn: (file as any).jumpToColumn,
   });
-
-  const existingTab = tabs.find(
-    tab => tab.path === file.path && tab.isCodeMirror === !!file.isCodeMirror
-  );
-  if (existingTab) {
-    // 既存タブにもisBufferArray/bufferContentを最新反映
-    const isBufferArray = !!file.isBufferArray;
-    setTabs((currentTabs: Tab[]) => {
-      return currentTabs.map(tab =>
-        tab.id === existingTab.id
-          ? {
-              ...tab,
-              isBufferArray,
-              bufferContent: isBufferArray ? file.bufferContent : undefined,
-              content: isBufferArray ? '' : file.content || '',
-            }
-          : tab
-      );
-    });
-    setActiveTabId(existingTab.id);
-    return;
-  }
-
-  const isBufferArray = !!file.isBufferArray;
-  const newTab: Tab = {
-    id: file.id + '-' + Date.now(),
-    name: file.name,
-    content: isBufferArray ? '' : file.content || '',
-    isDirty: false,
-    path: file.path,
-    fullPath: file.path,
-    isCodeMirror: file.isCodeMirror,
-    isBufferArray,
-    bufferContent: isBufferArray ? file.bufferContent : undefined,
-  };
-  if ((file as any).jumpToLine !== undefined) newTab.jumpToLine = (file as any).jumpToLine;
-  if ((file as any).jumpToColumn !== undefined) newTab.jumpToColumn = (file as any).jumpToColumn;
-  if (isBufferArray) {
-    console.log(
-      '[openFile] newTab bufferContent:',
-      newTab.path,
-      newTab.bufferContent instanceof ArrayBuffer,
-      newTab.bufferContent?.byteLength
-    );
-  }
-
-  if (newTab.jumpToLine !== undefined || newTab.jumpToColumn !== undefined) {
-    console.log('[openFile] Created new tab:', newTab.id, 'jumpToLine:', newTab.jumpToLine, 'jumpToColumn:', newTab.jumpToColumn);
-  } else {
-    console.log('[openFile] Created new tab:', newTab.id);
-  }
-  setTabs((currentTabs: Tab[]) => [...currentTabs, newTab]);
-  setActiveTabId(newTab.id);
 };

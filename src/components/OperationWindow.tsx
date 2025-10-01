@@ -202,7 +202,18 @@ export default function OperationWindow({
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isVisible, filteredFiles, selectedIndex, onClose, editors, setEditors, setFileSelectState, handleFileSelectInOperation, mdPreviewPrompt, mdDialogSelected]);
+  }, [
+    isVisible,
+    filteredFiles,
+    selectedIndex,
+    onClose,
+    editors,
+    setEditors,
+    setFileSelectState,
+    handleFileSelectInOperation,
+    mdPreviewPrompt,
+    mdDialogSelected,
+  ]);
 
   // 検索クエリが変更されたときに選択インデックスをリセット
   useEffect(() => {
@@ -246,7 +257,14 @@ export default function OperationWindow({
             }}
             onClick={e => e.stopPropagation()}
           >
-            <div style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '8px', color: colors.foreground }}>
+            <div
+              style={{
+                fontSize: '16px',
+                fontWeight: 'bold',
+                marginBottom: '8px',
+                color: colors.foreground,
+              }}
+            >
               Markdownプレビューで開きますか？
             </div>
             <div style={{ color: colors.mutedFg, fontSize: '13px', marginBottom: '12px' }}>
@@ -258,7 +276,10 @@ export default function OperationWindow({
                   padding: '8px 18px',
                   background: mdDialogSelected === 0 ? colors.primary : colors.background,
                   color: mdDialogSelected === 0 ? colors.cardBg : colors.foreground,
-                  border: mdDialogSelected === 0 ? `2px solid ${colors.accentBg}` : `1px solid ${colors.border}`,
+                  border:
+                    mdDialogSelected === 0
+                      ? `2px solid ${colors.accentBg}`
+                      : `1px solid ${colors.border}`,
                   borderRadius: '4px',
                   fontWeight: 'bold',
                   cursor: 'pointer',
@@ -278,7 +299,10 @@ export default function OperationWindow({
                   padding: '8px 18px',
                   background: mdDialogSelected === 1 ? colors.primary : colors.background,
                   color: mdDialogSelected === 1 ? colors.cardBg : colors.foreground,
-                  border: mdDialogSelected === 1 ? `2px solid ${colors.accentBg}` : `1px solid ${colors.border}`,
+                  border:
+                    mdDialogSelected === 1
+                      ? `2px solid ${colors.accentBg}`
+                      : `1px solid ${colors.border}`,
                   borderRadius: '4px',
                   fontWeight: 'bold',
                   cursor: 'pointer',

@@ -28,7 +28,7 @@ import {
   useBottomPanelResize,
   useRightSidebarResize,
 } from '@/utils/helper/resize';
-import { openFile } from '@/utils/openTab';
+import { openFile, openOrActivateTab } from '@/utils/openTab';
 import { useGitMonitor } from '@/hooks/gitHooks';
 import { useProject } from '@/utils/core/project';
 import { Project } from '@/types';
@@ -621,16 +621,6 @@ export default function Home() {
             currentProject={currentProject!}
             onFileOpen={handleFileOpen}
             onFilePreview={file => {
-              // Markdownプレビュータブとして開く
-              const previewTabId = `preview-${file.path}`;
-
-              // 既存のタブがあるかチェック（最初のペインから）
-              const existing = editors[0].tabs.find(tab => tab.id === previewTabId);
-              if (existing) {
-                setActiveTabId(previewTabId);
-                return;
-              }
-
               // 最新のファイル内容を取得
               let fileToPreview = file;
               if (currentProject && projectFiles.length > 0) {
@@ -639,42 +629,10 @@ export default function Home() {
                   fileToPreview = { ...file, content: latestFile.content };
                 }
               }
-
-              const newTab = {
-                id: previewTabId,
-                name: fileToPreview.name,
-                content: fileToPreview.content || '',
-                isDirty: false,
-                path: fileToPreview.path,
-                fullPath: fileToPreview.path,
-                preview: true,
-              };
-
-              // 最初のペインにタブを追加
-              setTabs(prevTabs => [...prevTabs, newTab]);
-              setActiveTabId(previewTabId);
+              openOrActivateTab(fileToPreview, tabs, setTabs, setActiveTabId, { preview: true });
             }}
             onWebPreview={(file: FileItem) => {
-              const previewTabId = `web-preview-${file.path}`;
-              setTabs(prevTabs => {
-                const existing = prevTabs.find(tab => tab.id === previewTabId);
-                if (existing) {
-                  setActiveTabId(previewTabId);
-                  return prevTabs;
-                }
-                const newTab = {
-                  id: previewTabId,
-                  name: `Web Preview: ${file.name}`,
-                  content: file.content || '',
-                  isDirty: false,
-                  path: file.path,
-                  fullPath: file.path,
-                  preview: true,
-                  webPreview: true, // Custom flag for WebPreviewTab
-                };
-                setActiveTabId(previewTabId);
-                return [...prevTabs, newTab];
-              });
+              openOrActivateTab(file, tabs, setTabs, setActiveTabId, { webPreview: true });
             }}
             onResize={handleLeftResize}
             onGitRefresh={() => {

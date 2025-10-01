@@ -1,7 +1,8 @@
 // AI Review処理フック
 
 import { useCallback } from 'react';
-import type { Tab, ProjectFile } from '@/types';
+import type { Tab, ProjectFile, FileItem } from '@/types';
+import { openOrActivateTab } from '@/utils/openTab';
 
 export function useAIReview() {
   // AIレビュータブを開く
@@ -14,48 +15,22 @@ export function useAIReview() {
       setActiveTabId: (id: string) => void,
       tabs: Tab[]
     ) => {
+      // openOrActivateTabで一元化
       const fileName = filePath.split('/').pop() || 'unknown';
-      const tabName = `AI Review: ${fileName}`;
-
-      // 既存のレビュータブをチェック
-      const existingTab = tabs.find(tab => tab.aiReviewProps?.filePath === filePath);
-
-      if (existingTab) {
-        // 既存タブの内容を更新
-        const updatedTabs = tabs.map(tab =>
-          tab.id === existingTab.id
-            ? {
-                ...tab,
-                aiReviewProps: {
-                  originalContent,
-                  suggestedContent,
-                  filePath,
-                },
-              }
-            : tab
-        );
-        setTabs(updatedTabs);
-        setActiveTabId(existingTab.id);
-        return;
-      }
-
-      // 新しいレビュータブを作成
-      const newTab: Tab = {
-        id: `ai-review-${filePath}-${Date.now()}`,
-        name: tabName,
-        content: '', // レビュータブではcontentは使用しない
-        isDirty: false,
+      const fileItem: FileItem = {
+        name: `AI Review: ${fileName}`,
         path: filePath,
-        fullPath: filePath,
+        content: '',
+        id: `ai-review-${filePath}`,
+        type: 'file',
+      };
+      openOrActivateTab(fileItem, tabs, setTabs, setActiveTabId, {
         aiReviewProps: {
           originalContent,
           suggestedContent,
           filePath,
         },
-      };
-
-      setTabs([...tabs, newTab]);
-      setActiveTabId(newTab.id);
+      });
     },
     []
   );
