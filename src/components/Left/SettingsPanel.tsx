@@ -65,208 +65,185 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
 
   return (
     <div
-      className="p-2 space-y-2"
+      className="h-full overflow-y-auto"
       style={{ background: colors.background, color: colors.foreground }}
     >
-      <h2 className="text-base font-semibold">ワークスペースエクスポート</h2>
-      <div className="flex items-center gap-2">
-        <input
-          type="checkbox"
-          checked={includeGit}
-          onChange={e => setIncludeGit(e.target.checked)}
-          id="includeGit"
-        />
-        <label
-          htmlFor="includeGit"
-          className="text-sm select-none"
-          style={{ color: colors.foreground }}
-        >
-          .git ディレクトリも含める
-        </label>
-      </div>
-      <button
-        className="px-3 py-1 rounded text-sm disabled:opacity-50"
-        style={{ background: colors.accentBg, color: colors.accentFg }}
-        onClick={handleExport}
-        disabled={isExporting}
-      >
-        {isExporting ? 'エクスポート中...' : 'ZIPダウンロード'}
-      </button>
-      <hr
-        className="my-2"
-        style={{ borderColor: colors.mutedBg }}
-      />
-      <h2 className="text-base font-semibold">テーマ一括変更</h2>
-      <div className="flex items-center gap-2 mb-2">
-        <select
-          value={themeName}
-          onChange={e => setTheme(e.target.value)}
-          className="border rounded px-2 py-1 text-sm"
-          style={{
-            background: colors.cardBg,
-            color: colors.foreground,
-            border: `1px solid ${colors.border}`,
-          }}
-        >
-          {themeList.map(name => (
-            <option
-              key={name}
-              value={name}
-            >
-              {name}
-            </option>
-          ))}
-        </select>
-        <span
-          className="text-xs"
-          style={{ color: colors.mutedFg }}
-        >
-          選択したテーマに一括切替
-        </span>
-      </div>
-
-      <h2 className="text-base font-semibold mt-4">コードハイライトテーマ</h2>
-      <div className="flex items-center gap-2 mb-2">
-        <select
-          id="highlightTheme"
-          value={highlightTheme}
-          onChange={e => setHighlightTheme(e.target.value)}
-          className="border rounded px-2 py-1 text-sm"
-          style={{
-            background: colors.cardBg,
-            color: colors.foreground,
-            border: `1px solid ${colors.border}`,
-          }}
-        >
-          {highlightThemeList.map(name => (
-            <option
-              key={name}
-              value={name}
-            >
-              {name}
-            </option>
-          ))}
-        </select>
-        <span
-          className="text-xs"
-          style={{ color: colors.mutedFg }}
-        >
-          （shiki公式テーマ）
-        </span>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <h2 className="text-base font-semibold mb-0">テーマカラー個別設定</h2>
-        <button
-          type="button"
-          aria-label={showColorSettings ? '縮小' : '展開'}
-          onClick={handleToggleColorSettings}
-          className="text-xs px-1 py-0 rounded border"
-          style={{
-            background: colors.cardBg,
-            color: colors.foreground,
-            border: `1px solid ${colors.border}`,
-          }}
-        >
-          {showColorSettings ? '▼' : '▶'}
-        </button>
-      </div>
-      {showColorSettings && (
-        <div className="grid grid-cols-2 gap-2">
-          {Object.entries(colors).map(([key, value]) => (
-            <div
-              key={key}
-              className="flex items-center gap-2"
-            >
-              <label
-                className="text-[10px] w-20"
-                htmlFor={`theme-${key}`}
-                style={{ color: colors.mutedFg }}
-              >
-                {key}
-              </label>
-              {/* 全て同じ見た目のpicker */}
-              <input
-                id={`theme-${key}`}
-                type="color"
-                value={value}
-                onChange={e => setColor(key, e.target.value)}
-                className="w-6 h-6 p-0 border rounded"
-                style={{ border: `1px solid ${colors.border}` }}
-              />
-            </div>
-          ))}
+      {/* ワークスペースエクスポート */}
+      <div className="px-4 py-3 border-b" style={{ borderColor: colors.border }}>
+        <h2 className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: colors.mutedFg }}>
+          ワークスペースエクスポート
+        </h2>
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 text-xs cursor-pointer hover:bg-opacity-50 py-1 px-2 rounded transition-colors" style={{ color: colors.foreground }}>
+            <input
+              type="checkbox"
+              checked={includeGit}
+              onChange={e => setIncludeGit(e.target.checked)}
+              className="rounded"
+              style={{ accentColor: colors.accentBg }}
+            />
+            <span>.git ディレクトリも含める</span>
+          </label>
+          <button
+            className="w-full px-3 py-1.5 rounded text-xs font-medium disabled:opacity-50 hover:opacity-90 transition-opacity"
+            style={{ background: colors.accentBg, color: colors.accentFg }}
+            onClick={handleExport}
+            disabled={isExporting}
+          >
+            {isExporting ? 'エクスポート中...' : 'ZIPダウンロード'}
+          </button>
         </div>
-      )}
-      <hr
-        className="my-2"
-        style={{ borderColor: colors.mutedBg }}
-      />
-      <h2 className="text-base font-semibold">Gemini APIキー</h2>
-      <div className="flex items-center gap-2 mb-2">
-        <input
-          type="text"
-          value={apiKey}
-          onChange={handleApiKeyChange}
-          placeholder="Gemini APIキーを入力"
-          className="border rounded px-2 py-1 text-sm w-64"
-          style={{
-            background: colors.cardBg,
-            color: colors.foreground,
-            border: `1px solid ${colors.border}`,
-          }}
-        />
-        <span
-          className="text-xs"
-          style={{ color: colors.mutedFg }}
-        >
-          （保存は即時反映）
-        </span>
       </div>
-      <hr
-        className="my-2"
-        style={{ borderColor: colors.mutedBg }}
-      />
-      <h2 className="text-base font-semibold">デフォルトコード編集ツール</h2>
-      <div className="flex items-center gap-2 mb-2">
-        <select
-          id="defaultEditor"
-          value={defaultEditor}
-          onChange={handleDefaultEditorChange}
-          className="border rounded px-2 py-1 text-sm"
-          style={{
-            background: colors.cardBg,
-            color: colors.foreground,
-            border: `1px solid ${colors.border}`,
-          }}
-        >
-          <option value="monaco">Monaco Editor</option>
-          <option value="codemirror">CodeMirror</option>
-        </select>
-        <span
-          className="text-xs"
-          style={{ color: colors.mutedFg }}
-        >
-          （ファイルを開く時のデフォルトエディタ）
-        </span>
+
+      {/* テーマ設定 */}
+      <div className="px-4 py-3 border-b" style={{ borderColor: colors.border }}>
+        <h2 className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: colors.mutedFg }}>
+          テーマ
+        </h2>
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs mb-1.5" style={{ color: colors.foreground }}>
+              カラーテーマ
+            </label>
+            <select
+              value={themeName}
+              onChange={e => setTheme(e.target.value)}
+              className="w-full rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1"
+              style={{
+                background: colors.cardBg,
+                color: colors.foreground,
+                border: `1px solid ${colors.border}`,
+              }}
+            >
+              {themeList.map(name => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs mb-1.5" style={{ color: colors.foreground }}>
+              コードハイライト
+            </label>
+            <select
+              value={highlightTheme}
+              onChange={e => setHighlightTheme(e.target.value)}
+              className="w-full rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1"
+              style={{
+                background: colors.cardBg,
+                color: colors.foreground,
+                border: `1px solid ${colors.border}`,
+              }}
+            >
+              {highlightThemeList.map(name => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <button
+              type="button"
+              onClick={handleToggleColorSettings}
+              className="flex items-center justify-between w-full text-xs py-1.5 px-2 rounded hover:bg-opacity-10 transition-colors"
+              style={{ color: colors.foreground, background: showColorSettings ? colors.mutedBg : 'transparent' }}
+            >
+              <span>カラーカスタマイズ</span>
+              <span className="text-[10px]">{showColorSettings ? '▼' : '▶'}</span>
+            </button>
+            {showColorSettings && (
+              <div className="mt-2 p-2 rounded" style={{ background: colors.cardBg }}>
+                <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
+                  {Object.entries(colors).map(([key, value]) => (
+                    <div key={key} className="flex items-center gap-2">
+                      <input
+                        id={`theme-${key}`}
+                        type="color"
+                        value={value}
+                        onChange={e => setColor(key, e.target.value)}
+                        className="w-5 h-5 rounded cursor-pointer border-0"
+                      />
+                      <label
+                        htmlFor={`theme-${key}`}
+                        className="text-[10px] cursor-pointer flex-1 truncate"
+                        style={{ color: colors.mutedFg }}
+                        title={key}
+                      >
+                        {key}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
-      <h2 className="text-base font-semibold mt-4">Monaco Editor設定</h2>
-      <div className="flex items-center gap-2 mb-2">
-        <input
-          type="checkbox"
-          id="monacoWordWrap"
-          checked={monacoWordWrap}
-          onChange={handleMonacoWordWrapChange}
-          className="rounded"
-          style={{ accentColor: colors.accentBg }}
-        />
-        <label
-          htmlFor="monacoWordWrap"
-          className="text-sm"
-          style={{ color: colors.foreground }}
-        >
-          コードの折り返しを有効にする
-        </label>
+
+      {/* エディター設定 */}
+      <div className="px-4 py-3 border-b" style={{ borderColor: colors.border }}>
+        <h2 className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: colors.mutedFg }}>
+          エディター
+        </h2>
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs mb-1.5" style={{ color: colors.foreground }}>
+              デフォルトエディター
+            </label>
+            <select
+              value={defaultEditor}
+              onChange={handleDefaultEditorChange}
+              className="w-full rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1"
+              style={{
+                background: colors.cardBg,
+                color: colors.foreground,
+                border: `1px solid ${colors.border}`,
+              }}
+            >
+              <option value="monaco">Monaco Editor</option>
+              <option value="codemirror">CodeMirror</option>
+            </select>
+          </div>
+
+          <label className="flex items-center gap-2 text-xs cursor-pointer hover:bg-opacity-50 py-1 px-2 rounded transition-colors" style={{ color: colors.foreground }}>
+            <input
+              type="checkbox"
+              checked={monacoWordWrap}
+              onChange={handleMonacoWordWrapChange}
+              className="rounded"
+              style={{ accentColor: colors.accentBg }}
+            />
+            <span>Monaco: 折り返しを有効化</span>
+          </label>
+        </div>
+      </div>
+
+      {/* API設定 */}
+      <div className="px-4 py-3">
+        <h2 className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: colors.mutedFg }}>
+          API
+        </h2>
+        <div>
+          <label className="block text-xs mb-1.5" style={{ color: colors.foreground }}>
+            Gemini APIキー
+          </label>
+          <input
+            type="text"
+            value={apiKey}
+            onChange={handleApiKeyChange}
+            placeholder="APIキーを入力"
+            className="w-full rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1"
+            style={{
+              background: colors.cardBg,
+              color: colors.foreground,
+              border: `1px solid ${colors.border}`,
+            }}
+          />
+        </div>
       </div>
     </div>
   );

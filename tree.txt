@@ -74,16 +74,24 @@
 │   │   └── page.tsx
 │   ├── components
 │   │   ├── AI
-│   │   │   ├── AIAgent.tsx
+│   │   │   ├── AIPanel.tsx
 │   │   │   ├── AIReview
 │   │   │   │   ├── AIReviewTab.tsx
 │   │   │   │   └── DiffViewer.tsx
 │   │   │   ├── ChangedFilesList.tsx
-│   │   │   ├── ChatMessage.tsx
 │   │   │   ├── ChatSpaceList.tsx
-│   │   │   ├── ContextFileList.tsx
-│   │   │   ├── EditRequestForm.tsx
-│   │   │   └── FileSelector.tsx
+│   │   │   ├── FileSelector.tsx
+│   │   │   ├── chat
+│   │   │   │   ├── ChatContainer.tsx
+│   │   │   │   ├── ChatInput.tsx
+│   │   │   │   ├── ChatMessage.tsx
+│   │   │   │   └── ModeSelector.tsx
+│   │   │   ├── context
+│   │   │   │   └── FileContextBar.tsx
+│   │   │   ├── review
+│   │   │   │   ├── ChangedFilesPanel.tsx
+│   │   │   │   └── FileChangeItem.tsx
+│   │   │   └── spaces
 │   │   ├── Bottom
 │   │   │   ├── BottomPanel.tsx
 │   │   │   ├── DebugConsole.tsx
@@ -186,15 +194,19 @@
 │   │       ├── nodeRuntime.ts
 │   │       └── pyodideRuntime.ts
 │   ├── hooks
+│   │   ├── ai
+│   │   │   ├── useAI.ts
+│   │   │   ├── useChatSpace.ts
+│   │   │   └── useInputHistory.ts
 │   │   ├── fileSelectHandlers.ts
 │   │   ├── gitHooks.ts
 │   │   ├── pane.ts
 │   │   ├── tab.ts
+│   │   ├── ui
 │   │   ├── useAIAgent.ts
 │   │   ├── useAIReview.ts
 │   │   ├── useChatSpace.ts
-│   │   ├── useDiffTabHandlers.ts
-│   │   └── useInputHistory.ts
+│   │   └── useDiffTabHandlers.ts
 │   └── types
 │       ├── git.ts
 │       ├── index.ts
@@ -206,11 +218,11 @@
 ├── tree.txt
 └── tsconfig.json
 
-33 directories, 174 files
+39 directories, 180 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 28608
-合計文字数: 973529
-合計ファイルサイズ(bytes): 1042692
+合計行数: 28925
+合計文字数: 979039
+合計ファイルサイズ(bytes): 1048014
 
-リポジトリ全体のサイズ(bytes): 1.8G	.
+リポジトリ全体のサイズ(bytes): 1.9G	.
