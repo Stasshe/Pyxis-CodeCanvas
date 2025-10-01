@@ -252,10 +252,7 @@ export default function AIPanel({
         </div>
       </div>
 
-      {/* モードセレクター */}
-      <div className="px-4 py-3">
-        <ModeSelector mode={mode} onChange={setMode} disabled={isProcessing} />
-      </div>
+
 
       {/* ファイルコンテキストバー */}
       {fileContexts.filter(ctx => ctx.selected).length > 0 && (
@@ -288,6 +285,12 @@ export default function AIPanel({
           compact={false}
         />
       )}
+
+
+      {/* モードセレクター（下部に移動・小型化） */}
+      <div className="px-2 pb-2 flex justify-end">
+        <ModeSelector mode={mode} onChange={setMode} disabled={isProcessing} small />
+      </div>
 
       {/* 入力エリア */}
       <ChatInput
