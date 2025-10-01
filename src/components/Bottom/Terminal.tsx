@@ -320,13 +320,17 @@ function ClientTerminal({
             }
             try {
               const { NodeJSRuntime } = await import('@/engine/runtime/nodeRuntime');
-              const runtime = new NodeJSRuntime(currentProject, (out, type) => {
-                if (type === 'error') {
-                  captureWriteOutput(`\x1b[31m${out}\x1b[0m`);
-                } else {
-                  captureWriteOutput(out);
+              const runtime = new NodeJSRuntime(
+                currentProject,
+                currentProjectId,
+                (out: string, type: 'log' | 'error') => {
+                  if (type === 'error') {
+                    captureWriteOutput(`\x1b[31m${out}\x1b[0m`);
+                  } else {
+                    captureWriteOutput(out);
+                  }
                 }
-              });
+              );
               const result = await runtime.executeFile(args[0]);
               if (result.success && result.output) {
                 await captureWriteOutput(result.output);

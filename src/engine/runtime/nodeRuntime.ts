@@ -3,7 +3,6 @@
  * - onFileOperationコールバックを完全に削除
  * - IndexedDBへの同期はfileRepositoryが自動的に実行
  * - UnixCommandsは読み取り専用で使用
- * - 後方互換性は無視した破壊的変更
  */
 
 import vm from 'vm-browserify';
@@ -12,15 +11,7 @@ import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
 import { DebugConsoleAPI } from '@/components/Bottom/DebugConsoleAPI';
 import { UnixCommands } from '@/engine/cmd/unix';
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
-import {
-  createFSModule,
-  createPathModule,
-  createOSModule,
-  createUtilModule,
-  createReadlineModule,
-  createHTTPModule,
-  createHTTPSModule,
-} from '@/engine/node/builtInModule';
+import { createBuiltInModules } from '@/engine/node/builtInModule';
 import {
   transformESModules,
   wrapCodeForExecution,
@@ -38,6 +29,7 @@ export class NodeJSRuntime {
   private onOutput?: (output: string, type: 'log' | 'error') => void;
   private moduleCache: Map<string, any> = new Map(); // モジュールキャッシュ
   private currentWorkingDirectory: string = '/'; // 現在の作業ディレクトリ
+  private builtInModules: any; // ビルトインモジュール
 
   constructor(
     projectName: string,
@@ -50,6 +42,13 @@ export class NodeJSRuntime {
     this.projectName = projectName;
     this.unixCommands = new UnixCommands(projectName, projectId);
     this.onOutput = onOutput;
+
+    // ビルトインモジュールを初期化
+    this.builtInModules = createBuiltInModules({
+      projectDir: this.projectDir,
+      projectId: this.projectId,
+      projectName: this.projectName,
+    });
 
     // console.logをオーバーライド
     this.console = {
@@ -359,11 +358,7 @@ export class NodeJSRuntime {
         },
         _exports: {},
       },
-      Buffer: globalThis.Buffer || {
-        from: (data: any) =>
-          new Uint8Array(typeof data === 'string' ? new TextEncoder().encode(data) : data),
-        isBuffer: (obj: any) => obj instanceof Uint8Array,
-      },
+      Buffer: this.builtInModules.Buffer,
       setTimeout: globalThis.setTimeout,
       setInterval: globalThis.setInterval,
       clearTimeout: globalThis.clearTimeout,
@@ -466,21 +461,21 @@ export class NodeJSRuntime {
   private createBuiltinModule(moduleName: string): any {
     switch (moduleName) {
       case 'fs':
-        // 新アーキテクチャ: onFileOperationコールバックは undefined（使用しない）
-        // builtInModule.ts側も将来的に新アーキテクチャ対応が必要
-        return createFSModule(this.projectDir, undefined, this.unixCommands);
+        return this.builtInModules.fs;
       case 'path':
-        return createPathModule(this.projectDir);
+        return this.builtInModules.path;
       case 'os':
-        return createOSModule();
+        return this.builtInModules.os;
       case 'util':
-        return createUtilModule();
+        return this.builtInModules.util;
       case 'readline':
-        return createReadlineModule();
+        return this.builtInModules.readline;
       case 'http':
-        return createHTTPModule();
+        return this.builtInModules.http;
       case 'https':
-        return createHTTPSModule();
+        return this.builtInModules.https;
+      case 'buffer':
+        return this.builtInModules.Buffer;
       default:
         throw new Error(`Built-in module '${moduleName}' not implemented`);
     }
