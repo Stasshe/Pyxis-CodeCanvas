@@ -303,6 +303,9 @@ export default function CodeEditor({
   }, []);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // エディターの準備状態を管理
+  const [isEditorReady, setIsEditorReady] = useState(false);
+
   // 文字数カウント用 state（スペース除外）
   const [charCount, setCharCount] = useState(0);
   const [selectionCount, setSelectionCount] = useState<number | null>(null);
@@ -535,6 +538,7 @@ export default function CodeEditor({
     }
     editorRef.current = editor;
     monacoRef.current = monaco;
+    setIsEditorReady(true); // エディター準備完了を通知
 
     // テーマ定義（初回のみ、グローバルフラグで管理）
     if (!isThemeDefined) {
@@ -934,19 +938,34 @@ export default function CodeEditor({
     const jumpToLine = (activeTab as any).jumpToLine;
     const jumpToColumn = (activeTab as any).jumpToColumn;
 
-    if (
-      jumpToLine !== undefined &&
-      typeof jumpToLine === 'number' &&
-      isEditorSafe() &&
-      editorRef.current
-    ) {
+    console.log('[CodeEditor] Jump useEffect triggered:', {
+      tabId: activeTab.id,
+      jumpToLine,
+      jumpToColumn,
+      isEditorReady,
+      hasEditor: !!editorRef.current,
+      hasMonaco: !!monacoRef.current,
+    });
+
+    // エディターが準備できていない場合はスキップ（次回の実行を待つ）
+    if (!isEditorReady || !editorRef.current || !monacoRef.current) {
+      return;
+    }
+
+    if (jumpToLine !== undefined && typeof jumpToLine === 'number') {
       const column = jumpToColumn && typeof jumpToColumn === 'number' ? jumpToColumn : 1;
 
-      // 少し遅延させてモデルが完全にセットされるのを待つ
-      const timeoutId = setTimeout(() => {
+      // モデルが確実にセットされるまでリトライ付き遅延実行
+      let retryCount = 0;
+      const maxRetries = 10;
+
+      const attemptJump = () => {
         try {
           const editor = editorRef.current;
-          if (editor) {
+          const model = editor?.getModel();
+
+          if (editor && model && !model.isDisposed()) {
+            // モデルが存在し、有効な場合のみジャンプ
             editor.revealPositionInCenter({ lineNumber: jumpToLine, column });
             editor.setPosition({ lineNumber: jumpToLine, column });
             editor.focus();
@@ -958,11 +977,26 @@ export default function CodeEditor({
               'tab',
               activeTab.id
             );
+          } else if (retryCount < maxRetries) {
+            // モデルがまだない場合はリトライ
+            retryCount++;
+            console.log(
+              '[CodeEditor] Model not ready for jump, retrying...',
+              retryCount,
+              '/',
+              maxRetries
+            );
+            setTimeout(attemptJump, 50);
+          } else {
+            console.warn('[CodeEditor] Failed to jump: model not available after retries');
           }
         } catch (e) {
           console.warn('[CodeEditor] Failed to jump to line/column:', e);
         }
-      }, 100);
+      };
+
+      // 初回実行を少し遅延
+      const timeoutId = setTimeout(attemptJump, 50);
 
       return () => clearTimeout(timeoutId);
     }
@@ -971,7 +1005,7 @@ export default function CodeEditor({
     (activeTab as any)?.jumpToLine,
     (activeTab as any)?.jumpToColumn,
     isCodeMirror,
-    isEditorSafe,
+    isEditorReady, // エディター準備状態を依存配列に追加
   ]);
 
   // activeTab.contentが外部から変更された場合の同期用useEffect
