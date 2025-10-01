@@ -2,6 +2,7 @@
 ├── Development
 │   ├── DATABASE.md
 │   ├── TODO.md
+│   ├── Tauri-Setup.md
 │   ├── ai-agent-implementation-plan.md
 │   ├── all-flow.svg
 │   └── git-deletion-detection-analysis.md
@@ -25,6 +26,7 @@
 │   │   └── style.css
 │   ├── src
 │   │   ├── debugConsoleDemo.js
+│   │   ├── fibonacci.py
 │   │   ├── fileOperationg.js
 │   │   ├── index.js
 │   │   └── readline_test.js
@@ -188,18 +190,17 @@
 ├── tree-built-out.sh
 ├── tree.sh
 ├── tree.txt
-├── tsconfig.json
-└── tsconfig.tsbuildinfo
+└── tsconfig.json
 
-32 directories, 160 files
+32 directories, 161 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 27153
-合計文字数: 989287
-合計ファイルサイズ(bytes): 1068998
+合計行数: 31071
+合計文字数: 1063136
+合計ファイルサイズ(bytes): 1146225
 
-リポジトリ全体のサイズ(bytes): 1.7G	.
+リポジトリ全体のサイズ(bytes): 1.8G	.
 ==========
-ビルト済みファイルの行数: 14752
-合計文字数: 22144272
-合計ファイルサイズ(bytes): 23073865
+ビルト済みファイルの行数: 14742
+合計文字数: 22157817
+合計ファイルサイズ(bytes): 23087884
