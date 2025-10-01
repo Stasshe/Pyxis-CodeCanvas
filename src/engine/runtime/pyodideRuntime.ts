@@ -1,173 +1,245 @@
-import { getAllFilesAndDirs } from '@/engine/core/filesystem';
-export class PyodideRuntime {
-  /**
-   * Lightning-FSの仮想ファイルシステム全体をPyodide FSに同期する（/projects配下）
-   * @param pyodideRuntimeInstance PyodideRuntimeインスタンス
-   * @param baseDir 同期したいLightning-FSのベースディレクトリ（デフォルト: /projects）
-   */
-  // Pyodideラッパークラス (CDN window.loadPyodide版)
+import { fileRepository } from '@/engine/core/fileRepository';
 
-  pyodide: any = null;
-  isReady: boolean = false;
-  onOutput: (output: string, type: 'log' | 'error' | 'input') => void;
+interface PyodideInterface {
+  runPythonAsync(code: string): Promise<any>;
+  FS: {
+    readdir(path: string): string[];
+    readFile(path: string, options: { encoding: string }): string;
+    writeFile(path: string, content: string): void;
+    mkdir(path: string): void;
+    rmdir(path: string): void;
+    unlink(path: string): void;
+    isDir(mode: number): boolean;
+    stat(path: string): { mode: number };
+  };
+  loadPackage(packages: string[]): Promise<void>;
+}
 
-  /**
-   * Pythonミニライブラリ（パッケージ）をインストールする
-   * @param packages インストールしたいパッケージ名の配列
-   */
-  async installPackages(packages: string[]) {
-    if (!this.isReady) await this.load();
+let pyodideInstance: PyodideInterface | null = null;
+let currentProjectId: string | null = null;
+let currentProjectName: string | null = null;
+
+export async function initPyodide(): Promise<PyodideInterface> {
+  if (pyodideInstance) {
+    return pyodideInstance;
+  }
+
+  // @ts-ignore
+  const pyodide = await window.loadPyodide({
+    indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/',
+    stdout: (msg: string) => console.log('[Python]', msg),
+    stderr: (msg: string) => console.error('[Python]', msg),
+  });
+
+  pyodideInstance = pyodide;
+  return pyodide;
+}
+
+export function getPyodide(): PyodideInterface | null {
+  return pyodideInstance;
+}
+
+export async function setCurrentProject(projectId: string, projectName: string): Promise<void> {
+  currentProjectId = projectId;
+  currentProjectName = projectName;
+  
+  // Pyodideが初期化されていれば、ファイルシステムを同期
+  if (pyodideInstance && projectId) {
+    await syncPyodideFromIndexedDB(projectId);
+  }
+}
+
+/**
+ * IndexedDBからPyodideのファイルシステムへ同期
+ * NEW-ARCHITECTURE: fileRepositoryから読み取り、Pyodideに書き込むだけ
+ */
+export async function syncPyodideFromIndexedDB(projectId: string): Promise<void> {
+  const pyodide = await initPyodide();
+  
+  try {
+    // IndexedDBから全ファイルを取得
+    const files = await fileRepository.getProjectFiles(projectId);
+    
+    // Pyodideのファイルシステムをクリア（/homeディレクトリを再作成）
     try {
-      // micropipがなければロード
-      if (
-        !this.pyodide.isPyodidePackageLoaded ||
-        !this.pyodide.isPyodidePackageLoaded('micropip')
-      ) {
-        await this.pyodide.loadPackage('micropip');
-      }
-      const micropip = this.pyodide.pyimport('micropip');
-      await micropip.install(packages);
-      this.onOutput(`[Pyodide] パッケージインストール完了: ${packages.join(', ')}`, 'log');
-      return { success: true };
-    } catch (e: any) {
-      this.onOutput(`[Pyodide] パッケージインストール失敗: ${e.message}`, 'error');
-      return { success: false, error: e.message };
-    }
-  }
-
-  static async syncLightningFSToPyodideFS(
-    pyodideRuntimeInstance: PyodideRuntime,
-    baseDir: string = '/projects'
-  ) {
-    const files = await getAllFilesAndDirs(baseDir);
-    await pyodideRuntimeInstance.syncFilesToPyodideFS(files);
-  }
-  /**
-   * Pyodideの仮想ファイルシステムにファイル・ディレクトリを同期する
-   * @param files [{ path, content, type }]
-   */
-  async syncFilesToPyodideFS(
-    files: Array<{ path: string; content?: string; type: 'file' | 'folder' }>
-  ) {
-    if (!this.isReady) await this.load();
-    const FS = this.pyodide.FS;
-    // まずディレクトリを先に作成
-    const dirs = files
-      .filter(f => f.type === 'folder')
-      .sort((a, b) => a.path.length - b.path.length);
-    for (const dir of dirs) {
-      try {
-        FS.mkdirTree(dir.path);
-      } catch (e) {
-        // 既存なら無視
-      }
-    }
-    // ファイルを書き込み
-    const fileItems = files.filter(f => f.type === 'file');
-    for (const file of fileItems) {
-      try {
-        // 親ディレクトリがなければ作成
-        const parent = file.path.substring(0, file.path.lastIndexOf('/'));
-        if (parent) {
+      const homeContents = pyodide.FS.readdir('/home');
+      for (const item of homeContents) {
+        if (item !== '.' && item !== '..') {
           try {
-            FS.stat(parent);
+            pyodide.FS.unlink(`/home/${item}`);
           } catch {
-            FS.mkdirTree(parent);
+            try {
+              pyodide.FS.rmdir(`/home/${item}`);
+            } catch {
+              // 無視
+            }
           }
         }
-        FS.writeFile(file.path, file.content || '');
-      } catch (e) {
-        const msg = (e as any)?.message || String(e);
-        this.onOutput(`[PyodideFS] Failed to sync file: ${file.path} (${msg})`, 'error');
       }
-    }
-    this.onOutput('[PyodideFS] ファイルシステム同期完了', 'log');
-  }
-
-  constructor(onOutput: (output: string, type: 'log' | 'error' | 'input') => void) {
-    this.onOutput = onOutput;
-  }
-
-  async load() {
-    if (this.isReady) return;
-    // @ts-ignore
-    this.pyodide = await window.loadPyodide({
-      stdout: (msg: string) => this.onOutput(msg, 'log'),
-      stderr: (msg: string) => this.onOutput(msg, 'error'),
-    });
-    this.isReady = true;
-  }
-
-  async executePython(code: string) {
-    if (!this.isReady) await this.load();
-    // コードからimport文を抽出し、必要なパッケージを自動インストール
-    let codeStr = code;
-    if (typeof code === 'object' && code !== null && (code as any).latexInput) {
-      codeStr = '';
-    }
-    // import文抽出（簡易: "import xxx"/"from xxx import"）
-    const importRegex = /(?:import|from)\s+([a-zA-Z0-9_]+)/g;
-    const pkgs = new Set<string>();
-    let match;
-    while ((match = importRegex.exec(codeStr)) !== null) {
-      pkgs.add(match[1]);
-    }
-    // sympy, mpmathは必ずロード
-    pkgs.add('sympy');
-    pkgs.add('mpmath');
-    for (const pkg of pkgs) {
+    } catch {
+      // /homeが存在しない場合は作成
       try {
-        await this.pyodide.loadPackage(pkg);
-      } catch (e) {
-        // ロード失敗は無視（Pyodide未対応パッケージ等）
+        pyodide.FS.mkdir('/home');
+      } catch {
+        // 既に存在する場合は無視
       }
     }
-    // LaTeX入力対応: codeが { latexInput, latexEvalType, latexEvalArgs } を持つ場合
-    if (typeof code === 'object' && code !== null && (code as any).latexInput) {
-      const { latexInput, latexEvalType, latexEvalArgs } = code as any;
-      let pyCode = `import sys\nimport io\n_pyxis_stdout = sys.stdout\n_pyxis_stringio = io.StringIO()\nsys.stdout = _pyxis_stringio\nfrom sympy import *\nfrom sympy.parsing.latex import parse_latex\ntry:\n    expr = parse_latex("""${latexInput.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}""")\n`;
-      if (latexEvalType === 'limit' && latexEvalArgs) {
-        pyCode += `    result = limit(expr, Symbol('${latexEvalArgs.var}'), ${latexEvalArgs.point}, dir='${latexEvalArgs.dir || '+'}')\n`;
-      } else if (latexEvalType === 'diff' && latexEvalArgs) {
-        pyCode += `    result = diff(expr, Symbol('${latexEvalArgs.var}'))\n`;
-      } else if (latexEvalType === 'integrate' && latexEvalArgs) {
-        pyCode += `    result = integrate(expr, Symbol('${latexEvalArgs.var}'))\n`;
+    
+    // 各ファイルをPyodideに書き込む
+    for (const file of files) {
+      if (file.type === 'file' && file.content) {
+        const pyodidePath = `/home${file.path}`;
+        
+        // ディレクトリを作成
+        const dirPath = pyodidePath.substring(0, pyodidePath.lastIndexOf('/'));
+        createDirectoryRecursive(pyodide, dirPath);
+        
+        // ファイルを書き込む
+        try {
+          pyodide.FS.writeFile(pyodidePath, file.content);
+        } catch (error) {
+          console.warn(`Failed to write file to Pyodide: ${pyodidePath}`, error);
+        }
+      }
+    }
+    
+    console.log(`Synced ${files.filter(f => f.type === 'file').length} files to Pyodide`);
+  } catch (error) {
+    console.error('Failed to sync Pyodide from IndexedDB:', error);
+    throw error;
+  }
+}
+
+/**
+ * PyodideのファイルシステムからIndexedDBへ同期
+ * NEW-ARCHITECTURE: Pyodideから読み取り、fileRepositoryに書き込むだけ
+ * 自動的にGitFileSystemに同期される
+ */
+export async function syncPyodideToIndexedDB(projectId: string): Promise<void> {
+  if (!pyodideInstance) {
+    console.warn('Pyodide not initialized');
+    return;
+  }
+  
+  try {
+    // 現在のIndexedDBファイル一覧を取得
+    const existingFiles = await fileRepository.getProjectFiles(projectId);
+    const existingPaths = new Set(existingFiles.map(f => f.path));
+    
+    // Pyodideの/homeディレクトリを再帰的にスキャン
+    const pyodideFiles = scanPyodideDirectory(pyodideInstance, '/home', '');
+    
+    // Pyodideのファイルを同期
+    for (const { path, content } of pyodideFiles) {
+      const existingFile = existingFiles.find(f => f.path === path);
+      
+      if (existingFile) {
+        // 既存ファイルの更新
+        if (existingFile.content !== content) {
+          await fileRepository.saveFile({
+            ...existingFile,
+            content,
+            updatedAt: new Date(),
+          });
+        }
       } else {
-        pyCode += `    result = expr\n`;
+        // 新規ファイルの作成
+        await fileRepository.createFile(projectId, path, content, 'file');
       }
-      pyCode += `    print(latex(result))\n    _pyxis_result = _pyxis_stringio.getvalue()\nfinally:\n    sys.stdout = _pyxis_stdout\ndel _pyxis_stringio\ndel _pyxis_stdout\n`;
-      try {
-        await this.pyodide.runPythonAsync(pyCode);
-        const output = this.pyodide.globals.get('_pyxis_result') || '';
-        this.pyodide.globals.set('_pyxis_result', undefined);
-        return { success: true, output: output };
-      } catch (e: any) {
-        return { success: false, error: e.message };
-      }
-    } else {
-      // 通常のPythonコード
-      try {
-        const captureCode = `
-import sys
-import io
-_pyxis_stdout = sys.stdout
-_pyxis_stringio = io.StringIO()
-sys.stdout = _pyxis_stringio
-try:
-    exec("""${typeof code === 'string' ? code.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n') : ''}""", globals())
-    _pyxis_result = _pyxis_stringio.getvalue()
-finally:
-    sys.stdout = _pyxis_stdout
-del _pyxis_stringio
-del _pyxis_stdout
-`;
-        await this.pyodide.runPythonAsync(captureCode);
-        const output = this.pyodide.globals.get('_pyxis_result') || '';
-        this.pyodide.globals.set('_pyxis_result', undefined);
-        return { success: true, output: output };
-      } catch (e: any) {
-        return { success: false, error: e.message };
+      
+      existingPaths.delete(path);
+    }
+    
+    // Pyodideに存在しないファイルを削除
+    for (const path of existingPaths) {
+      const file = existingFiles.find(f => f.path === path);
+      if (file && file.type === 'file') {
+        await fileRepository.deleteFile(file.id);
       }
     }
+    
+    console.log(`Synced ${pyodideFiles.length} files from Pyodide to IndexedDB`);
+  } catch (error) {
+    console.error('Failed to sync Pyodide to IndexedDB:', error);
+    throw error;
   }
+}
+
+/**
+ * Pyodideのディレクトリを再帰的にスキャン
+ */
+function scanPyodideDirectory(
+  pyodide: PyodideInterface,
+  pyodidePath: string,
+  relativePath: string
+): Array<{ path: string; content: string }> {
+  const results: Array<{ path: string; content: string }> = [];
+  
+  try {
+    const contents = pyodide.FS.readdir(pyodidePath);
+    
+    for (const item of contents) {
+      if (item === '.' || item === '..') continue;
+      
+      const fullPyodidePath = `${pyodidePath}/${item}`;
+      const fullRelativePath = relativePath ? `${relativePath}/${item}` : `/${item}`;
+      
+      try {
+        const stat = pyodide.FS.stat(fullPyodidePath);
+        
+        if (pyodide.FS.isDir(stat.mode)) {
+          // ディレクトリの場合は再帰的にスキャン
+          results.push(...scanPyodideDirectory(pyodide, fullPyodidePath, fullRelativePath));
+        } else {
+          // ファイルの場合は内容を読み取る
+          const content = pyodide.FS.readFile(fullPyodidePath, { encoding: 'utf8' });
+          results.push({ path: fullRelativePath, content });
+        }
+      } catch (error) {
+        console.warn(`Failed to process: ${fullPyodidePath}`, error);
+      }
+    }
+  } catch (error) {
+    console.warn(`Failed to read directory: ${pyodidePath}`, error);
+  }
+  
+  return results;
+}
+
+/**
+ * ディレクトリを再帰的に作成
+ */
+function createDirectoryRecursive(pyodide: PyodideInterface, path: string): void {
+  const parts = path.split('/').filter(p => p);
+  let currentPath = '';
+  
+  for (const part of parts) {
+    currentPath += '/' + part;
+    try {
+      pyodide.FS.mkdir(currentPath);
+    } catch {
+      // ディレクトリが既に存在する場合は無視
+    }
+  }
+}
+
+/**
+ * Pythonコードを実行（ファイルシステムの自動同期付き）
+ */
+export async function runPythonWithSync(
+  code: string,
+  projectId: string
+): Promise<any> {
+  const pyodide = await initPyodide();
+  
+  // 実行前: IndexedDBからPyodideへ同期
+  await syncPyodideFromIndexedDB(projectId);
+  
+  // Pythonコードを実行
+  const result = await pyodide.runPythonAsync(code);
+  
+  // 実行後: PyodideからIndexedDBへ同期（自動的にGitFileSystemにも同期される）
+  await syncPyodideToIndexedDB(projectId);
+  
+  return result;
 }
