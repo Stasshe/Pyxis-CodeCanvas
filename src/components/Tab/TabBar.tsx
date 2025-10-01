@@ -2,7 +2,7 @@ import { X, Plus, Menu } from 'lucide-react';
 import clsx from 'clsx';
 import React, { useState, useRef, useEffect } from 'react';
 import { Tab } from '@/types';
-import { FILE_CHANGE_EVENT } from '@/utils/fileWatcher';
+import { FILE_CHANGE_EVENT } from '@/engine/fileWatcher';
 import { useTheme } from '@/context/ThemeContext';
 
 interface TabBarProps {

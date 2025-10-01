@@ -1,7 +1,7 @@
 // src/app/fileSelectHandlers.ts
 // page.tsx の FileSelectModal 用ロジックを分離
-import type { Tab, FileItem, Project, EditorPane } from '@/types';
 import { flattenPanes } from '@/hooks/pane';
+import type { Tab, FileItem, Project, EditorPane } from '@/types';
 
 // ヘルパー関数：ペインを再帰的に更新
 function updatePaneRecursively(

@@ -1,8 +1,9 @@
 // AI Review処理フック
 
 import { useCallback } from 'react';
-import type { Tab, ProjectFile, FileItem } from '@/types';
-import { openOrActivateTab } from '@/utils/openTab';
+
+import type { Tab, FileItem } from '@/types';
+import { openOrActivateTab } from '@/engine/openTab';
 
 export function useAIReview() {
   // AIレビュータブを開く

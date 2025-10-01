@@ -22,7 +22,7 @@ interface BottomPanelProps {
   ) => Promise<void>;
 }
 
-export const outputMessagesRef: {
+const outputMessagesRef: {
   current: OutputMessage[];
   set?: React.Dispatch<React.SetStateAction<OutputMessage[]>>;
 } = { current: [], set: undefined };

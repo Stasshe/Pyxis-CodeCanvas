@@ -1,7 +1,8 @@
 // プロジェクトファイルが更新された時に開いているタブの内容も同期
 import { useEffect } from 'react';
-import type { Tab, Project, FileItem } from '@/types';
+
 import { flattenPanes } from '@/hooks/pane';
+import type { Tab, Project, FileItem } from '@/types';
 
 // FileItem[]を平坦化する関数
 function flattenFileItems(items: FileItem[]): FileItem[] {

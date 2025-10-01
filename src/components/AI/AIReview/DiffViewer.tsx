@@ -2,8 +2,8 @@
 
 import React, { useState } from 'react';
 import { useTheme } from '@/context/ThemeContext';
-import { calculateDiff, groupDiffLines, calculateWordDiff } from '@/utils/ai/diffProcessor';
-import type { DiffLine, DiffBlock } from '@/utils/ai/diffProcessor';
+import { calculateDiff, groupDiffLines, calculateWordDiff } from '@/engine/ai/diffProcessor';
+import type { DiffLine, DiffBlock } from '@/engine/ai/diffProcessor';
 
 type DiffViewMode = 'block' | 'inline';
 interface DiffViewerProps {

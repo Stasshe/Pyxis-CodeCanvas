@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { exportPdfFromHtml } from '@/utils/export/exportPdf';
+import { exportPdfFromHtml } from '@/engine/export/exportPdf';
 import { useTheme, ThemeContext } from '@/context/ThemeContext';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';

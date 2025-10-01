@@ -1,18 +1,12 @@
 // AI Agent メインロジック
 
 import { useState, useCallback, useEffect } from 'react';
-import type {
-  AIMessage,
-  AIEditRequest,
-  AIEditResponse,
-  AIFileContext,
-  ProjectFile,
-  ChatSpaceMessage,
-} from '@/types';
-import { generateCodeEdit, generateChatResponse } from '@/utils/ai/fetchAI';
-import { EDIT_PROMPT_TEMPLATE } from '@/utils/ai/prompts';
-import { getSelectedFileContexts } from '@/utils/ai/contextBuilder';
+
 import { LOCALSTORAGE_KEY } from '@/context/config';
+import type { AIMessage, AIEditResponse, AIFileContext, ChatSpaceMessage } from '@/types';
+import { getSelectedFileContexts } from '@/engine/ai/contextBuilder';
+import { generateCodeEdit, generateChatResponse } from '@/engine/ai/fetchAI';
+import { EDIT_PROMPT_TEMPLATE, ASK_PROMPT_TEMPLATE } from '@/engine/ai/prompts';
 
 interface UseAIAgentProps {
   onAddMessage?: (
@@ -117,9 +111,6 @@ export function useAIAgent(props?: UseAIAgentProps) {
       setIsProcessing(true);
       try {
         // ASK_PROMPT_TEMPLATEを使ってプロンプトを生成
-        // importを追加して使う
-
-        const { ASK_PROMPT_TEMPLATE } = require('@/utils/ai/prompts');
         const prompt = ASK_PROMPT_TEMPLATE(selectedFiles, content, previousMessages);
 
         // AI応答を生成

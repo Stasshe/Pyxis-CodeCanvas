@@ -2,7 +2,7 @@ import * as React from 'react';
 import { SVGProps } from 'react';
 
 // LucideのPanelRightアイコン（16x16）
-export function PanelRightIcon({
+function PanelRightIcon({
   color = 'currentColor',
   size = 16,
   ...props

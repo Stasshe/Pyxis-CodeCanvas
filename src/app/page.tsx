@@ -27,10 +27,10 @@ import {
   useLeftSidebarResize,
   useBottomPanelResize,
   useRightSidebarResize,
-} from '@/utils/helper/resize';
-import { openFile, openOrActivateTab } from '@/utils/openTab';
+} from '@/engine/helper/resize';
+import { openFile, openOrActivateTab } from '@/engine/openTab';
 import { useGitMonitor } from '@/hooks/gitHooks';
-import { useProject } from '@/utils/core/project';
+import { useProject } from '@/engine/core/project';
 import { Project } from '@/types';
 import type { Tab, FileItem, MenuTab, EditorPane } from '@/types';
 import RightSidebar from '@/components/Right/RightSidebar';

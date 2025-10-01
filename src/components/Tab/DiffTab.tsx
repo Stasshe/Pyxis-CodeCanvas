@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { DiffEditor } from '@monaco-editor/react';
 
-export interface SingleFileDiff {
+interface SingleFileDiff {
   formerFullPath: string;
   formerCommitId: string;
   latterFullPath: string;
@@ -10,7 +10,7 @@ export interface SingleFileDiff {
   latterContent: string;
 }
 
-export interface DiffTabProps {
+interface DiffTabProps {
   diffs: SingleFileDiff[];
 }
 

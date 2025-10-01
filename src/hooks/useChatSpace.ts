@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { projectDB } from '@/utils/core/database';
+
 import type { ChatSpace, ChatSpaceMessage, AIEditResponse } from '@/types';
+import { projectDB } from '@/engine/core/database';
 
 export const useChatSpace = (projectId: string | null) => {
   const [chatSpaces, setChatSpaces] = useState<ChatSpace[]>([]);

@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { useTheme } from '../../context/ThemeContext';
+import { useTheme } from '@/context/ThemeContext';
 
-export type OutputType = 'info' | 'error' | 'warn' | 'check';
+type OutputType = 'info' | 'error' | 'warn' | 'check';
 
 export interface OutputMessage {
   message: string;

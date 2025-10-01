@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 
 // Lightning-FSの仮想ファイルシステム取得関数
-import { getFileSystem } from '@/utils/core/filesystem';
-import { inlineHtmlAssets } from '@/utils/export/inlineHtmlAssets';
-import { FolderWatcher, type FileChangeEvent } from '@/utils/fileWatcher';
+import { getFileSystem } from '@/engine/core/filesystem';
+import { inlineHtmlAssets } from '@/engine/export/inlineHtmlAssets';
+import { FolderWatcher, type FileChangeEvent } from '@/engine/fileWatcher';
 
 interface WebPreviewTabProps {
   filePath: string;

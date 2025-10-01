@@ -5,7 +5,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useAIAgent } from '@/hooks/useAIAgent';
 import { useAIReview } from '@/hooks/useAIReview';
 import { useChatSpace } from '@/hooks/useChatSpace';
-import { buildAIFileContextList } from '@/utils/ai/contextBuilder';
+import { buildAIFileContextList } from '@/engine/ai/contextBuilder';
 import ChatMessage from './ChatMessage';
 import FileSelector from './FileSelector';
 import ContextFileList from './ContextFileList';
@@ -13,7 +13,7 @@ import EditRequestForm from './EditRequestForm';
 import ChangedFilesList from './ChangedFilesList';
 import ChatSpaceList from './ChatSpaceList';
 import type { FileItem, ProjectFile, Tab, Project, AIEditResponse } from '@/types';
-import { useProject } from '@/utils/core/project';
+import { useProject } from '@/engine/core/project';
 import { LOCALSTORAGE_KEY } from '@/context/config';
 
 interface AIAgentProps {

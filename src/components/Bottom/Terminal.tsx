@@ -8,14 +8,14 @@ import {
   NpmCommands,
   initializeFileSystem,
   syncProjectFiles,
-} from '@/utils/core/filesystem';
+} from '@/engine/core/filesystem';
 import { FileItem } from '@/types';
 import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
 import { handleGitCommand } from './TerminalGitCommands';
 import { handleUnixCommand } from './TerminalUnixCommands';
 import { handleNPMCommand } from './TerminalNPMCommands';
-import { projectDB } from '@/utils/core/database';
-import { exportPage } from '@/utils/export/exportPage';
+import { projectDB } from '@/engine/core/database';
+import { exportPage } from '@/engine/export/exportPage';
 
 // FileItemの階層構造をフラットな配列に変換
 const flattenFileItems = (
@@ -371,7 +371,7 @@ function ClientTerminal({
               break;
             }
             try {
-              const { NodeJSRuntime } = await import('@/utils/runtime/nodeRuntime');
+              const { NodeJSRuntime } = await import('@/engine/runtime/nodeRuntime');
               const runtime = new NodeJSRuntime(
                 currentProject,
                 (out, type) => {
@@ -511,7 +511,7 @@ function ClientTerminal({
               // ファイルシステム統計
               await writeOutput('\n--- File System Statistics ---');
               try {
-                const { getFileSystem } = await import('@/utils/core/filesystem');
+                const { getFileSystem } = await import('@/engine/core/filesystem');
                 const fs = getFileSystem();
                 if (fs) {
                   try {
@@ -557,9 +557,9 @@ function ClientTerminal({
             // 全プロジェクトをスキャンして、DBに存在しないファイル・フォルダ（特に.git）を削除
             try {
               const { getFileSystem, initializeFileSystem } = await import(
-                '@/utils/core/filesystem'
+                '@/engine/core/filesystem'
               );
-              const { projectDB } = await import('@/utils/core/database');
+              const { projectDB } = await import('@/engine/core/database');
 
               let fs = getFileSystem();
               if (!fs) fs = initializeFileSystem();
@@ -734,7 +734,7 @@ function ClientTerminal({
             // Lightning-FSの全データを完全削除
             try {
               const { getFileSystem, initializeFileSystem } = await import(
-                '@/utils/core/filesystem'
+                '@/engine/core/filesystem'
               );
               let fs = getFileSystem();
               if (!fs) fs = initializeFileSystem();
@@ -810,7 +810,7 @@ function ClientTerminal({
                 await writeOutput('about:blankの新規タブを開けませんでした。');
                 break;
               }
-              const mod = await import('@/utils/export/exportIndexeddb');
+              const mod = await import('@/engine/export/exportIndexeddb');
               mod.exportIndexeddbHtmlWithWindow(writeOutput, win);
             } else {
               await writeOutput(
@@ -847,7 +847,7 @@ function ClientTerminal({
               const packageName = args[0];
               try {
                 const { calculateDependencySize } = await import(
-                  '@/utils/cmd/npmOperations/npmDependencySize'
+                  '@/engine/cmd/npmOperations/npmDependencySize'
                 );
                 const size = await calculateDependencySize(packageName);
                 await writeOutput(

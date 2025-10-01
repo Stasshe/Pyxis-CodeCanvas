@@ -1,9 +1,9 @@
 // src/app/gitHooks.ts
 // page.tsx から Git 関連のロジックを分離
-import { GitCommands } from '@/utils/cmd/git';
+import type { Dispatch, SetStateAction } from 'react';
 
 import type { Tab, FileItem, Project } from '@/types';
-import type { Dispatch, SetStateAction } from 'react';
+import { GitCommands } from '@/engine/cmd/git';
 
 export function useGitMonitor({
   currentProject,
@@ -51,7 +51,7 @@ export function useGitMonitor({
   };
 }
 
-export function parseGitStatus(statusOutput: string) {
+function parseGitStatus(statusOutput: string) {
   const lines = statusOutput
     .split('\n')
     .map(line => line.trim())

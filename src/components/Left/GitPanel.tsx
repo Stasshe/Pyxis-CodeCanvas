@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '@/context/ThemeContext';
-import { generateCommitMessage } from '@/utils/commitMsgAI';
+import { generateCommitMessage } from '@/engine/commitMsgAI';
 import {
   GitBranch,
   GitCommit,
@@ -17,7 +17,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { GitRepository, GitCommit as GitCommitType, GitStatus } from '@/types/git';
-import { GitCommands } from '@/utils/cmd/git';
+import { GitCommands } from '@/engine/cmd/git';
 import GitHistory from './GitHistory';
 import { LOCALSTORAGE_KEY } from '@/context/config';
 

@@ -2,7 +2,7 @@
 // Terminalのgitコマンド処理部分を分割
 // ...original Terminal.tsx から git コマンド処理部分を移植して実装してください。
 
-import type { GitCommands } from '@/utils/core/filesystem';
+import type { GitCommands } from '@/engine/core/filesystem';
 
 export async function handleGitCommand(
   args: string[],

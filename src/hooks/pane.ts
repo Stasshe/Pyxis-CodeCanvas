@@ -1,7 +1,8 @@
 // src/hooks/pane.ts
 // ペイン・タブ系のロジックを分離
-import type { Tab, EditorPane, EditorLayoutType, MenuTab } from '@/types';
 import type { Dispatch, SetStateAction } from 'react';
+
+import type { Tab, EditorPane, EditorLayoutType, MenuTab } from '@/types';
 
 export function addEditorPane(
   editors: EditorPane[],
@@ -227,21 +228,6 @@ export function flattenPanes(panes: EditorPane[]): EditorPane[] {
 
   traverse(panes);
   return result;
-}
-
-export function handleMenuTabClick(
-  activeMenuTab: MenuTab,
-  setActiveMenuTab: (tab: MenuTab) => void,
-  isLeftSidebarVisible: boolean,
-  setIsLeftSidebarVisible: (visible: boolean) => void,
-  tab: MenuTab
-) {
-  if (activeMenuTab === tab && isLeftSidebarVisible) {
-    setIsLeftSidebarVisible(false);
-  } else {
-    setActiveMenuTab(tab);
-    setIsLeftSidebarVisible(true);
-  }
 }
 
 // ヘルパー関数

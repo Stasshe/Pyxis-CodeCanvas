@@ -106,7 +106,7 @@ import BinaryTabContent from './BinaryTabContent';
 import Editor, { Monaco, OnMount } from '@monaco-editor/react';
 import { FileText } from 'lucide-react';
 import { Tab } from '@/types';
-import { isBufferArray } from '@/utils/helper/isBufferArray';
+import { isBufferArray } from '@/engine/helper/isBufferArray';
 import CharCountDetails from './CharCountDetails';
 // バイナリファイルのMIMEタイプ推定
 function guessMimeType(fileName: string, buffer?: ArrayBuffer): string {

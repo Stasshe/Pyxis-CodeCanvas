@@ -15,7 +15,7 @@ import {
   FileDiff,
 } from 'lucide-react';
 import { GitCommit as GitCommitType } from '@/types/git';
-import { GitCommands } from '@/utils/cmd/git';
+import { GitCommands } from '@/engine/cmd/git';
 import { useTheme } from '@/context/ThemeContext';
 
 interface GitHistoryProps {

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTheme } from '@/context/ThemeContext';
-import { downloadWorkspaceZip } from '@/utils/export/exportRepo';
+import { downloadWorkspaceZip } from '@/engine/export/exportRepo';
 import type { Project } from '@/types';
 import { LOCALSTORAGE_KEY } from '@/context/config';
 

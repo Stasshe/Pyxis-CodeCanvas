@@ -1,8 +1,8 @@
 // DebugConsoleAPI.ts
 // DebugConsoleと連携するグローバルAPI
 
-export type DebugConsoleInputCallback = (input: string) => void;
-export type DebugConsoleActionCallback = (action: TerminalAction) => void;
+type DebugConsoleInputCallback = (input: string) => void;
+type DebugConsoleActionCallback = (action: TerminalAction) => void;
 
 // ターミナルアクション定義
 export interface TerminalAction {

@@ -1,8 +1,8 @@
-import { getFileSystem } from '@/utils/core/filesystem';
 import { FileItem } from '@/types';
+import { getFileSystem } from '@/engine/core/filesystem';
 
 // Safe conversion of Uint8Array to base64 using chunking to avoid call stack limits
-export const uint8ArrayToBase64 = (uint8Array: Uint8Array): string => {
+const uint8ArrayToBase64 = (uint8Array: Uint8Array): string => {
   const CHUNK_SIZE = 0x8000; // 32KB chunks
   let result = '';
   for (let i = 0; i < uint8Array.length; i += CHUNK_SIZE) {

@@ -1,13 +1,13 @@
 import { useTheme } from '@/context/ThemeContext';
 import { useState, useEffect, useRef } from 'react';
-import { exportSingleFile } from '@/utils/export/exportSingleFile';
-import { exportFolderZip } from '@/utils/export/exportFolderZip';
+import { exportSingleFile } from '@/engine/export/exportSingleFile';
+import { exportFolderZip } from '@/engine/export/exportFolderZip';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { getIconForFile, getIconForFolder, getIconForOpenFolder } from 'vscode-icons-js';
 import { FileItem } from '@/types';
-import { UnixCommands } from '@/utils/cmd/unix';
-import { isBufferArray } from '@/utils/helper/isBufferArray';
-import { importSingleFile } from '@/utils/import/importSingleFile';
+import { UnixCommands } from '@/engine/cmd/unix';
+import { isBufferArray } from '@/engine/helper/isBufferArray';
+import { importSingleFile } from '@/engine/import/importSingleFile';
 
 interface FileTreeProps {
   items: FileItem[];

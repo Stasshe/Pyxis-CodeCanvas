@@ -1,7 +1,8 @@
 import { useCallback } from 'react';
-import { GitCommands } from '@/utils/cmd/git';
+
 import type { Tab, SingleFileDiff, FileItem } from '@/types';
-import { openOrActivateTab } from '@/utils/openTab';
+import { GitCommands } from '@/engine/cmd/git';
+import { openOrActivateTab } from '@/engine/openTab';
 
 export function useDiffTabHandlers(
   currentProject: any,
