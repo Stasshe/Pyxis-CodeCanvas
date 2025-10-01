@@ -3,6 +3,8 @@
  * - onFileOperationコールバックを完全に削除
  * - fileRepositoryを直接使用してIndexedDBに保存
  * - GitFileSystemへの同期は自動的に実行される
+ * - 読み取りはgitFileSystem.getFS()から直接実行
+ * - 書き込みはfileRepositoryのみを使用（自動同期）
  */
 
 import { fileRepository } from '@/engine/core/fileRepository';
@@ -40,58 +42,30 @@ export function createFSModule(options: FSModuleOptions) {
   }
 
   /**
-   * ディレクトリを再帰的に作成
-   */
-  async function ensureDirectory(dirPath: string): Promise<void> {
-    const parts = dirPath.split('/').filter(Boolean);
-    let currentPath = '';
-
-    for (const part of parts) {
-      currentPath += `/${part}`;
-      try {
-        await fs.promises.stat(currentPath);
-      } catch {
-        await fs.promises.mkdir(currentPath);
-      }
-    }
-  }
-
-  /**
    * ファイルを書き込む（IndexedDBに保存し、自動的にGitFileSystemに同期）
+   * [NEW ARCHITECTURE] GitFileSystemへの直接書き込みは不要
    */
   async function handleWriteFile(
     path: string,
     data: string | Uint8Array,
     isNodeRuntime: boolean = true
   ): Promise<void> {
-    const { fullPath, relativePath } = normalizePath(path);
+    const { relativePath } = normalizePath(path);
 
-    // 親ディレクトリを作成
-    const parentDir = fullPath.substring(0, fullPath.lastIndexOf('/'));
-    if (parentDir && parentDir !== projectDir) {
-      await ensureDirectory(parentDir);
+    // 親ディレクトリをIndexedDBに作成
+    const parentPath = relativePath.substring(0, relativePath.lastIndexOf('/'));
+    if (parentPath) {
+      try {
+        const existingFiles = await fileRepository.getProjectFiles(projectId);
+        const folderExists = existingFiles.some(f => f.path === parentPath && f.type === 'folder');
 
-      // 親ディレクトリをIndexedDBに作成
-      const parentRelativePath = parentDir.replace(projectDir, '');
-      if (parentRelativePath) {
-        try {
-          const existingFiles = await fileRepository.getProjectFiles(projectId);
-          const folderExists = existingFiles.some(
-            f => f.path === parentRelativePath && f.type === 'folder'
-          );
-
-          if (!folderExists) {
-            await fileRepository.createFile(projectId, parentRelativePath, '', 'folder');
-          }
-        } catch (error) {
-          console.error('[fsModule] Failed to create parent directory in IndexedDB:', error);
+        if (!folderExists) {
+          await fileRepository.createFile(projectId, parentPath, '', 'folder');
         }
+      } catch (error) {
+        console.error('[fsModule] Failed to create parent directory in IndexedDB:', error);
       }
     }
-
-    // GitFileSystemに書き込み
-    await fs.promises.writeFile(fullPath, data);
-    await gitFileSystem.flush();
 
     // IndexedDBに保存（自動的にGitFileSystemに同期される）
     try {
@@ -131,7 +105,8 @@ export function createFSModule(options: FSModuleOptions) {
         );
       }
     } catch (error) {
-      console.error('[fsModule] Failed to sync file to IndexedDB:', error);
+      console.error('[fsModule] Failed to save file to IndexedDB:', error);
+      throw error;
     }
   }
 
@@ -227,29 +202,43 @@ export function createFSModule(options: FSModuleOptions) {
 
     /**
      * ディレクトリを作成
+     * [NEW ARCHITECTURE] IndexedDBに保存すれば自動的にGitFileSystemに同期される
      */
     mkdir: async (path: string, options?: any): Promise<void> => {
-      const { fullPath, relativePath } = normalizePath(path);
+      const { relativePath } = normalizePath(path);
       const recursive = options?.recursive || false;
 
-      if (recursive) {
-        await ensureDirectory(fullPath);
-      } else {
-        await fs.promises.mkdir(fullPath);
-      }
-
-      // IndexedDBに作成（自動的にGitFileSystemに同期される）
       try {
         const existingFiles = await fileRepository.getProjectFiles(projectId);
-        const folderExists = existingFiles.some(
-          f => f.path === relativePath && f.type === 'folder'
-        );
 
-        if (!folderExists) {
-          await fileRepository.createFile(projectId, relativePath, '', 'folder');
+        if (recursive) {
+          // 再帰的にディレクトリを作成
+          const parts = relativePath.split('/').filter(Boolean);
+          let currentPath = '';
+
+          for (const part of parts) {
+            currentPath += `/${part}`;
+            const folderExists = existingFiles.some(
+              f => f.path === currentPath && f.type === 'folder'
+            );
+
+            if (!folderExists) {
+              await fileRepository.createFile(projectId, currentPath, '', 'folder');
+            }
+          }
+        } else {
+          // 単一ディレクトリを作成
+          const folderExists = existingFiles.some(
+            f => f.path === relativePath && f.type === 'folder'
+          );
+
+          if (!folderExists) {
+            await fileRepository.createFile(projectId, relativePath, '', 'folder');
+          }
         }
       } catch (error) {
         console.error('[fsModule] Failed to create directory in IndexedDB:', error);
+        throw error;
       }
     },
 
@@ -267,24 +256,23 @@ export function createFSModule(options: FSModuleOptions) {
 
     /**
      * ファイルを削除
+     * [NEW ARCHITECTURE] IndexedDBから削除すれば自動的にGitFileSystemからも削除される
      */
     unlink: async (path: string): Promise<void> => {
-      const { fullPath, relativePath } = normalizePath(path);
+      const { relativePath } = normalizePath(path);
 
-      // GitFileSystemから削除
-      await fs.promises.unlink(fullPath);
-      await gitFileSystem.flush();
-
-      // IndexedDBから削除（自動的にGitFileSystemに同期される）
       try {
         const existingFiles = await fileRepository.getProjectFiles(projectId);
         const file = existingFiles.find(f => f.path === relativePath);
 
         if (file) {
           await fileRepository.deleteFile(file.id);
+        } else {
+          throw new Error(`File not found: ${path}`);
         }
       } catch (error) {
         console.error('[fsModule] Failed to delete file from IndexedDB:', error);
+        throw error;
       }
     },
 
