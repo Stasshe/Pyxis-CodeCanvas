@@ -336,7 +336,7 @@ export default function OperationWindow({
           alignItems: 'flex-start',
           justifyContent: 'center',
           paddingTop: '100px',
-          zIndex: 1000,
+          zIndex: 2000,
         }}
         onClick={onClose}
       >
