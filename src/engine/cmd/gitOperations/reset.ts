@@ -113,46 +113,42 @@ export class GitResetOperations {
 
         await deleteAllFiles(this.dir);
 
-        // ターゲットツリーからファイルを復元
-        const restoreTreeFiles = async (tree: any, basePath = ''): Promise<number> => {
-          let count = 0;
-          for (const entry of tree.tree) {
-            const fullPath = basePath ? `${basePath}/${entry.path}` : entry.path;
-            const fsPath = `${this.dir}/${fullPath}`;
+        // git.checkoutを使用してターゲットコミットの状態を復元
+        // これによりディレクトリ構造も自動的に作成される
+        console.log('[NEW ARCHITECTURE] Reset: Checking out target commit');
+        await git.checkout({
+          fs: this.fs,
+          dir: this.dir,
+          ref: targetOid,
+          force: true,
+        });
 
-            if (entry.type === 'blob') {
+        // 復元されたファイル数をカウント
+        const countFiles = async (dirPath: string): Promise<number> => {
+          let count = 0;
+          try {
+            const entries = await this.fs.promises.readdir(dirPath);
+            for (const entry of entries) {
+              if (entry === '.git') continue;
+              const fullPath = `${dirPath}/${entry}`;
               try {
-                const { blob } = await git.readBlob({
-                  fs: this.fs,
-                  dir: this.dir,
-                  oid: entry.oid,
-                });
-                
-                // ディレクトリを確保
-                const dirPath = fsPath.substring(0, fsPath.lastIndexOf('/'));
-                if (dirPath !== this.dir) {
-                  await this.fs.promises.mkdir(dirPath, { recursive: true } as any);
+                const stats = await this.fs.promises.stat(fullPath);
+                if (stats.type === 'dir') {
+                  count += await countFiles(fullPath);
+                } else {
+                  count++;
                 }
-                
-                await this.fs.promises.writeFile(fsPath, blob);
-                count++;
               } catch (error) {
-                console.error(`Failed to restore file ${fullPath}:`, error);
-              }
-            } else if (entry.type === 'tree') {
-              try {
-                await this.fs.promises.mkdir(fsPath, { recursive: true } as any);
-                const subTree = await git.readTree({ fs: this.fs, dir: this.dir, oid: entry.oid });
-                count += await restoreTreeFiles(subTree, fullPath);
-              } catch (error) {
-                console.error(`Failed to restore directory ${fullPath}:`, error);
+                // Ignore
               }
             }
+          } catch (error) {
+            // Ignore
           }
           return count;
         };
 
-        const restoredCount = await restoreTreeFiles(targetTree);
+        const restoredCount = await countFiles(this.dir);
         console.log('[NEW ARCHITECTURE] Reset: Restored files count:', restoredCount);
 
         // [NEW ARCHITECTURE] GitFileSystem → IndexedDBへ逆同期
