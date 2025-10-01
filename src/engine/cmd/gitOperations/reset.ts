@@ -74,9 +74,6 @@ export class GitResetOperations {
           force: true,
         });
 
-        // インデックスをリセット
-        await git.resetIndex({ fs: this.fs, dir: this.dir });
-
         // ワーキングディレクトリをターゲットコミットの状態に復元
         const targetCommit = await git.readCommit({
           fs: this.fs,
@@ -134,7 +131,7 @@ export class GitResetOperations {
                 // ディレクトリを確保
                 const dirPath = fsPath.substring(0, fsPath.lastIndexOf('/'));
                 if (dirPath !== this.dir) {
-                  await this.fs.promises.mkdir(dirPath, { recursive: true });
+                  await this.fs.promises.mkdir(dirPath, { recursive: true } as any);
                 }
                 
                 await this.fs.promises.writeFile(fsPath, blob);
@@ -144,7 +141,7 @@ export class GitResetOperations {
               }
             } else if (entry.type === 'tree') {
               try {
-                await this.fs.promises.mkdir(fsPath, { recursive: true });
+                await this.fs.promises.mkdir(fsPath, { recursive: true } as any);
                 const subTree = await git.readTree({ fs: this.fs, dir: this.dir, oid: entry.oid });
                 count += await restoreTreeFiles(subTree, fullPath);
               } catch (error) {
@@ -172,7 +169,13 @@ export class GitResetOperations {
       const targetRef = commit || 'HEAD';
       console.log('[NEW ARCHITECTURE] Reset: Soft reset to', targetRef);
       
-      await git.resetIndex({ fs: this.fs, dir: this.dir });
+      // ソフトリセットはステージングエリアをクリア
+      // isomorphic-gitではgit.checkoutを使用してインデックスを更新
+      try {
+        await git.checkout({ fs: this.fs, dir: this.dir, ref: targetRef });
+      } catch {
+        console.error('Failed to perform soft reset checkout');
+      }
       
       return 'Unstaged changes after reset';
     } catch (error) {
