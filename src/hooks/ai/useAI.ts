@@ -235,15 +235,15 @@ function parseEditResponse(
   );
   cleaned = cleaned
     .replace(/^##\s*変更ファイル:.*$/gm, '')
-    .replace(/^\*\*変更理由\*\*:.*$/gm, '')
+    .replace(/^\*\*変更理由\*\*:.+$/gm, '')
     .replace(/^---$/gm, '');
   message = cleaned.trim();
 
-  if (!message || message.replace(/\s/g, '').length < 10) {
-    message =
-      changedFiles.length > 0
-        ? `${changedFiles.length}個のファイルの編集を提案しました。`
-        : 'レスポンスの解析に失敗しました。プロンプトを調整してください。';
+  // messageが空、または10文字未満でも、changedFilesが1件以上あれば必ず編集提案メッセージを返す
+  if (changedFiles.length > 0 && (!message || message.replace(/\s/g, '').length < 10)) {
+    message = `${changedFiles.length}個のファイルの編集を提案しました。`;
+  } else if (!message || message.replace(/\s/g, '').length < 10) {
+    message = 'レスポンスの解析に失敗しました。プロンプトを調整してください。';
   }
 
   return {

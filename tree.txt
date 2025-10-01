@@ -1,13 +1,11 @@
 .
 ├── Development
-│   ├── DATABASE.md
 │   ├── NEW-ARCHITECTURE.md
 │   ├── TODO.md
 │   ├── Tauri-Setup.md
 │   ├── ai-agent-implementation-plan.md
 │   ├── all-flow.svg
-│   ├── git-deletion-detection-analysis.md
-│   └── virtual-fs-design.md
+│   └── git-deletion-detection-analysis.md
 ├── FreeAPIGenerativeAI-Model.md
 ├── LICENSE
 ├── README.md
@@ -105,6 +103,7 @@
 │   │   │   ├── FileTree.tsx
 │   │   │   ├── GitHistory.tsx
 │   │   │   ├── GitPanel.tsx
+│   │   │   ├── GitPanel_stable.tsx
 │   │   │   ├── LeftSidebar.tsx
 │   │   │   ├── RunPanel.tsx
 │   │   │   ├── SearchPanel.tsx
@@ -162,7 +161,9 @@
 │   │   │   │   ├── log.ts
 │   │   │   │   ├── merge.ts
 │   │   │   │   ├── reset.ts
+│   │   │   │   ├── reset_stable.ts
 │   │   │   │   └── revert.ts
+│   │   │   ├── git_stable.ts
 │   │   │   ├── npm.ts
 │   │   │   ├── npmOperations
 │   │   │   │   ├── npmDependencySize.ts
@@ -215,10 +216,6 @@
 │   │   ├── gitHooks.ts
 │   │   ├── pane.ts
 │   │   ├── tab.ts
-│   │   ├── ui
-│   │   ├── useAIAgent.ts
-│   │   ├── useAIReview.ts
-│   │   ├── useChatSpace.ts
 │   │   └── useDiffTabHandlers.ts
 │   └── types
 │       ├── git.ts
@@ -231,11 +228,11 @@
 ├── tree.txt
 └── tsconfig.json
 
-43 directories, 189 files
+42 directories, 187 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 28882
-合計文字数: 973272
-合計ファイルサイズ(bytes): 1040115
+合計行数: 31032
+合計文字数: 1050512
+合計ファイルサイズ(bytes): 1124173
 
 リポジトリ全体のサイズ(bytes): 1.9G	.
