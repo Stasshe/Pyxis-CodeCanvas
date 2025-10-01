@@ -26,10 +26,9 @@ export async function initPyodide(): Promise<PyodideInterface> {
 
   // @ts-ignore
   const pyodide = await window.loadPyodide({
-    indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/',
-    stdout: (msg: string) => console.log('[Python]', msg),
-    stderr: (msg: string) => console.error('[Python]', msg),
-  });
+      stdout: (msg: string) => console.log(msg, 'log'),
+      stderr: (msg: string) => console.error(msg, 'error'),
+    });
 
   pyodideInstance = pyodide;
   return pyodide;
