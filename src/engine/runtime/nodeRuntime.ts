@@ -1,6 +1,5 @@
 /**
  * [NEW ARCHITECTURE] Node.js Runtime
- * - onFileOperationコールバックを完全に削除
  * - IndexedDBへの同期はfileRepositoryが自動的に実行
  * - UnixCommandsは読み取り専用で使用
  */

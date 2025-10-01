@@ -16,7 +16,6 @@ import { syncManager } from '@/engine/core/syncManager';
 
 /**
  * [NEW ARCHITECTURE] Git操作を管理するクラス
- * - onFileOperationコールバックを完全に削除
  * - IndexedDBへの同期はfileRepositoryが自動的に実行
  * - Git操作後の逆同期はsyncManagerを使用
  * - バッチ処理機能を削除（不要）

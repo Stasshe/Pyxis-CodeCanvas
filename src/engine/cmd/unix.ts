@@ -385,6 +385,59 @@ export class UnixCommands {
     }
   }
 
+  async rename(oldPath: string, newPath: string): Promise<string> {
+    const oldNormalized = this.normalizePath(oldPath);
+    const newNormalized = this.normalizePath(newPath);
+    const oldRelative = this.getRelativePathFromProject(oldNormalized);
+    const newRelative = this.getRelativePathFromProject(newNormalized);
+
+    try {
+      // IndexedDBでリネーム（削除→作成、各操作で自動的にGitFileSystemに同期＆フラッシュ）
+      const files = await fileRepository.getProjectFiles(this.projectId);
+      const oldFile = files.find(f => f.path === oldRelative);
+
+      if (!oldFile) {
+        throw new Error(`No such file or directory: ${oldPath}`);
+      }
+
+      // 新しい名前で作成（自動同期＆フラッシュ）
+      // ArrayBuffer(bufferContent)も含めて全てのデータをコピー
+      await fileRepository.createFile(
+        this.projectId,
+        newRelative,
+        oldFile.content || '',
+        oldFile.type,
+        oldFile.isBufferArray,
+        oldFile.bufferContent // ArrayBufferをそのまま渡す
+      );
+
+      // 古いファイルを削除（自動同期＆フラッシュ）
+      await fileRepository.deleteFile(oldFile.id);
+
+      // フォルダの場合は子ファイルもリネーム（ArrayBuffer対応）
+      if (oldFile.type === 'folder') {
+        const childFiles = files.filter(f => f.path.startsWith(oldRelative + '/'));
+        for (const child of childFiles) {
+          const newChildPath = child.path.replace(oldRelative, newRelative);
+          // 子ファイルのArrayBuffer(bufferContent)も含めて全てのデータをコピー
+          await fileRepository.createFile(
+            this.projectId,
+            newChildPath,
+            child.content || '',
+            child.type,
+            child.isBufferArray,
+            child.bufferContent // 子ファイルのArrayBufferもそのまま渡す
+          );
+          await fileRepository.deleteFile(child.id);
+        }
+      }
+
+      return `Renamed '${oldPath}' to '${newPath}'`;
+    } catch (error) {
+      throw new Error(`rename: ${(error as Error).message}`);
+    }
+  }
+
   async unzip(zipFileName: string, destDir: string, bufferContent: ArrayBuffer): Promise<string> {
     const extractDir = destDir
       ? destDir.startsWith('/')

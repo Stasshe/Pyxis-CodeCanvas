@@ -1,6 +1,5 @@
 /**
  * [NEW ARCHITECTURE] fs モジュールのエミュレーション
- * - onFileOperationコールバックを完全に削除
  * - fileRepositoryを直接使用してIndexedDBに保存
  * - GitFileSystemへの同期は自動的に実行される
  * - 読み取りはgitFileSystem.getFS()から直接実行

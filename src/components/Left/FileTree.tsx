@@ -63,7 +63,7 @@ export default function FileTree({
         return new Promise<void>(resolve => {
           if (item.isFile) {
             item.file(async (file: File) => {
-              const unix = new UnixCommands(currentProjectName, undefined, currentProjectId);
+              const unix = new UnixCommands(currentProjectName, currentProjectId);
               const importPath = `${path}${file.name}`;
               const absolutePath = `/projects/${currentProjectName}${importPath}`;
               await importSingleFile(file, absolutePath, unix);
@@ -104,7 +104,7 @@ export default function FileTree({
 
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const unix = new UnixCommands(currentProjectName, undefined, currentProjectId);
+        const unix = new UnixCommands(currentProjectName, currentProjectId);
         const importPath = targetPath ? `${targetPath}/${file.name}` : `/${file.name}`;
         const absolutePath = `/projects/${currentProjectName}${importPath}`;
         await importSingleFile(file, absolutePath, unix);
@@ -479,9 +479,7 @@ export default function FileTree({
                   onTouchEnd={() => setMenuHoveredIdx(null)}
                   onClick={async () => {
                     setContextMenu(null);
-                    const unix = new UnixCommands(currentProjectName, undefined, currentProjectId);
-
-                    // [NEW ARCHITECTURE] 全てfileRepository経由で操作、onFileOperationコールバックは不要
+                    const unix = new UnixCommands(currentProjectName, currentProjectId);
                     if (label === 'ファイル作成') {
                       const fileName = prompt('新しいファイル名を入力してください:');
                       if (fileName && currentProjectId) {
@@ -564,11 +562,7 @@ export default function FileTree({
                         input.onchange = async (e: any) => {
                           const file = e.target.files[0];
                           if (!file) return;
-                          const unix = new UnixCommands(
-                            currentProjectName,
-                            undefined,
-                            currentProjectId
-                          );
+                          const unix = new UnixCommands(currentProjectName, currentProjectId);
                           const item = contextMenu.item;
                           let targetAbsolutePath = '';
                           if (item) {

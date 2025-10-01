@@ -5,7 +5,6 @@ import { syncManager } from '@/engine/core/syncManager';
 
 /**
  * [NEW ARCHITECTURE] Git revert操作を管理するクラス
- * - onFileOperationコールバックを削除
  * - revert後にsyncManager.syncFromFSToIndexedDB()で逆同期
  */
 export class GitRevertOperations {

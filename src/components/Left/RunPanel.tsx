@@ -9,12 +9,6 @@ import { useBreakpointContext } from '@/context/BreakpointContext';
 interface RunPanelProps {
   currentProject: { id: string; name: string } | null;
   files: any[];
-  onFileOperation?: (
-    path: string,
-    type: 'file' | 'folder' | 'delete',
-    content?: string,
-    isNodeRuntime?: boolean
-  ) => Promise<void>;
 }
 
 interface OutputEntry {
@@ -24,7 +18,7 @@ interface OutputEntry {
   timestamp: Date;
 }
 
-export default function RunPanel({ currentProject, files, onFileOperation }: RunPanelProps) {
+export default function RunPanel({ currentProject, files }: RunPanelProps) {
   const { breakpointsMap } = useBreakpointContext();
   const { colors } = useTheme();
   const [isRunning, setIsRunning] = useState(false);
@@ -173,12 +167,9 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
       } else {
         if (!pythonRuntime) return;
         await pythonRuntime.load();
-        // ファイル内容取得（onFileOperation経由 or files配列から）
         let code = '';
         if (fileObj && fileObj.content) {
           code = fileObj.content;
-        } else if (onFileOperation) {
-          // ファイル内容取得APIがあればここで取得
         }
         result = await pythonRuntime.executePython(code || '# ファイル内容取得未実装');
       }

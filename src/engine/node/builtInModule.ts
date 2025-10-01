@@ -2,7 +2,6 @@
  * [NEW ARCHITECTURE] Built-in Node.js モジュールのエミュレーション（統合エントリーポイント）
  *
  * ## 主な変更点
- * - onFileOperationコールバックを完全に削除
  * - fileRepositoryを直接使用してIndexedDBに保存
  * - GitFileSystemへの同期は自動的に実行される
  * - プロジェクト情報（projectId, projectName）を必須パラメータとして追加
