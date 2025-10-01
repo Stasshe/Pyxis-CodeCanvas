@@ -27,17 +27,16 @@ export async function importSingleFile(file: File, targetPath: string, unix: Uni
   } else {
     // バイナリファイルの場合は、touchで作成した後、直接バイナリ内容を書き込む
     const arrayBuffer = await file.arrayBuffer();
-    // unix.echoでバイナリは扱えないため、fileRepositoryで直接保存
-    // targetPathから projectName と filePath を抽出
+    // projectId取得
+    const projectId = (unix as any).projectId || '';
+    // targetPathからファイルパスを抽出
     const match = targetPath.match(/^\/projects\/([^/]+)(\/.*)$/);
-    if (match) {
-      const [, projectName, filePath] = match;
-      // UnixCommandsインスタンスが持つprojectIdを取得する必要があるが、
-      // ここではprojectIdを取得できないため、unix内部でバイナリ対応を追加するか、
-      // 別の方法でバイナリファイルを保存する必要がある
-      // 現時点では、touchで作成したファイルにバイナリ内容を書き込む方法は未実装
-      // TODO: UnixCommands.echoでバイナリ対応を追加するか、別途バイナリ保存メソッドを実装
-      console.warn('[importSingleFile] バイナリファイルの内容書き込みは未実装です:', targetPath);
+    const filePath = match ? match[2] : targetPath;
+    if (projectId) {
+      const { fileRepository } = await import('@/engine/core/fileRepository');
+      await fileRepository.createFile(projectId, filePath, '', 'file', true, arrayBuffer);
+    } else {
+      console.warn('[importSingleFile] projectIdが取得できませんでした:', targetPath);
     }
   }
 
