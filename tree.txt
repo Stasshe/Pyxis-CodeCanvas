@@ -216,6 +216,7 @@
 │   │   ├── gitHooks.ts
 │   │   ├── pane.ts
 │   │   ├── tab.ts
+│   │   ├── useAIReview.ts
 │   │   └── useDiffTabHandlers.ts
 │   └── types
 │       ├── git.ts
@@ -228,11 +229,15 @@
 ├── tree.txt
 └── tsconfig.json
 
-42 directories, 187 files
+42 directories, 188 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 31032
-合計文字数: 1050512
-合計ファイルサイズ(bytes): 1124173
+合計行数: 31324
+合計文字数: 1060471
+合計ファイルサイズ(bytes): 1135466
 
-リポジトリ全体のサイズ(bytes): 1.9G	.
+リポジトリ全体のサイズ(bytes): 1.8G	.
+==========
+ビルト済みファイルの行数: 14777
+合計文字数: 22174419
+合計ファイルサイズ(bytes): 23104569
