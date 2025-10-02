@@ -23,7 +23,7 @@ interface GitHistoryProps {
   currentProject?: string;
   currentProjectId?: string;
   currentBranch: string;
-  onDiffFileClick?: (params: { commitId: string; filePath: string }) => void;
+  onDiffFileClick?: (params: { commitId: string; filePath: string; editable?: boolean }) => void;
   onDiffAllFilesClick?: (params: { commitId: string; parentCommitId: string }) => void;
 }
 

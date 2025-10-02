@@ -339,7 +339,51 @@ export default function PaneContainer({
               }}
             />
           ) : activeTab.diffProps ? (
-            <DiffTab diffs={activeTab.diffProps.diffs} />
+            <DiffTab
+              diffs={activeTab.diffProps.diffs}
+              editable={activeTab.diffProps.editable}
+              onContentChangeImmediate={(content: string) => {
+                // 即座にタブの内容を更新
+                if (onTabContentChange) {
+                  onTabContentChange(activeTab.id, content);
+                }
+              }}
+              onContentChange={async (content: string) => {
+                // デバウンス後の保存処理
+                // Diffタブの場合、latterFullPathをファイルパスとして使用
+                const filePath = activeTab.diffProps?.diffs[0]?.latterFullPath;
+
+                if (currentProject && saveFile && filePath) {
+                  try {
+                    console.log('[PaneContainer] Saving diff content to:', filePath);
+                    await saveFile(filePath, content);
+
+                    // 保存成功後はisDirtyフラグをクリア
+                    setEditors(prev => {
+                      const updatePaneRecursive = (panes: EditorPane[]): EditorPane[] => {
+                        return panes.map(p => {
+                          if (!p.children) {
+                            return {
+                              ...p,
+                              tabs: p.tabs.map(t =>
+                                t.id === activeTab.id ? { ...t, isDirty: false } : t
+                              ),
+                            };
+                          }
+                          return { ...p, children: updatePaneRecursive(p.children) };
+                        });
+                      };
+                      return updatePaneRecursive(prev);
+                    });
+
+                    // Git状態の更新をトリガー
+                    setGitRefreshTrigger(prev => prev + 1);
+                  } catch (error) {
+                    console.error('[PaneContainer] Failed to save diff content:', error);
+                  }
+                }
+              }}
+            />
           ) : (
             <CodeEditor
               activeTab={activeTab}

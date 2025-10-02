@@ -34,6 +34,7 @@ export interface Tab {
   // Diffタブ用のprops（通常タブではundefined）
   diffProps?: {
     diffs: SingleFileDiff[];
+    editable?: boolean; // 編集可能かどうか（true: 編集可能, false: 読み取り専用）
   };
   // AIレビュータブ用のprops
   aiReviewProps?: {

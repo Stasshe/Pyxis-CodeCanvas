@@ -11,7 +11,15 @@ export function useDiffTabHandlers(
 ) {
   // ファイル単体のdiffタブを開く
   const handleDiffFileClick = useCallback(
-    async ({ commitId, filePath }: { commitId: string; filePath: string }) => {
+    async ({
+      commitId,
+      filePath,
+      editable,
+    }: {
+      commitId: string;
+      filePath: string;
+      editable?: boolean;
+    }) => {
       if (!currentProject) return;
       const git = new GitCommands(currentProject.name, currentProject.id);
       // working directory vs 最新コミット のdiffの場合
@@ -59,6 +67,7 @@ export function useDiffTabHandlers(
                         latterContent,
                       },
                     ],
+                    editable: editable ?? true, // 未指定時はtrue（デフォルトで編集可能）
                   },
                 }
               : tab
@@ -112,6 +121,7 @@ export function useDiffTabHandlers(
                       latterContent,
                     },
                   ],
+                  editable: editable ?? false, // コミット間のdiffは編集不可がデフォルト
                 },
               }
             : tab

@@ -27,7 +27,7 @@ interface GitPanelProps {
   onRefresh?: () => void;
   gitRefreshTrigger?: number;
   onGitStatusChange?: (changesCount: number) => void; // Git変更状態のコールバック
-  onDiffFileClick?: (params: { commitId: string; filePath: string }) => void;
+  onDiffFileClick?: (params: { commitId: string; filePath: string; editable?: boolean }) => void;
   onDiffAllFilesClick?: (params: { commitId: string; parentCommitId: string }) => void;
 }
 
@@ -858,8 +858,19 @@ export default function GitPanel({
                           whiteSpace: 'nowrap',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
+                          cursor: 'pointer',
+                          textDecoration: 'underline',
                         }}
                         className="select-text"
+                        title="diffを表示（編集不可）"
+                        onClick={async () => {
+                          if (onDiffFileClick && gitRepo.commits.length > 0) {
+                            // 最新コミットのhashを取得
+                            const latestCommit = gitRepo.commits[0];
+                            // ステージング済みファイルは編集不可でdiffを表示
+                            onDiffFileClick({ commitId: latestCommit.hash, filePath: file, editable: false });
+                          }
+                        }}
                       >
                         {file}
                       </span>
@@ -916,13 +927,13 @@ export default function GitPanel({
                           textDecoration: 'underline',
                         }}
                         className="select-text"
-                        title="diffを表示"
+                        title="diffを表示（編集可能）"
                         onClick={async () => {
                           if (onDiffFileClick && gitRepo.commits.length > 0) {
                             // 最新コミットのhashを取得
                             const latestCommit = gitRepo.commits[0];
-                            // working directoryと最新コミットのdiff
-                            onDiffFileClick({ commitId: latestCommit.hash, filePath: file });
+                            // 未ステージファイルは編集可能でdiffを表示
+                            onDiffFileClick({ commitId: latestCommit.hash, filePath: file, editable: true });
                           }
                         }}
                       >
@@ -998,8 +1009,19 @@ export default function GitPanel({
                           whiteSpace: 'nowrap',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
+                          cursor: 'pointer',
+                          textDecoration: 'underline',
                         }}
                         className="select-text"
+                        title="diffを表示（編集可能）"
+                        onClick={async () => {
+                          if (onDiffFileClick && gitRepo.commits.length > 0) {
+                            // 最新コミットのhashを取得
+                            const latestCommit = gitRepo.commits[0];
+                            // 削除されたファイルは編集可能でdiffを表示
+                            onDiffFileClick({ commitId: latestCommit.hash, filePath: file, editable: true });
+                          }
+                        }}
                       >
                         {file}
                       </span>

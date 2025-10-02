@@ -14,9 +14,17 @@ interface SingleFileDiff {
 
 interface DiffTabProps {
   diffs: SingleFileDiff[];
+  editable?: boolean; // 編集可能かどうか（true: 編集可能, false: 読み取り専用）
+  onContentChange?: (content: string) => void; // 編集内容の保存用（デバウンス後）
+  onContentChangeImmediate?: (content: string) => void; // 編集内容の即時更新用
 }
 
-const DiffTab: React.FC<DiffTabProps> = ({ diffs }) => {
+const DiffTab: React.FC<DiffTabProps> = ({ 
+  diffs, 
+  editable = false,
+  onContentChange,
+  onContentChangeImmediate,
+}) => {
   // 各diff領域へのref
   const diffRefs = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -29,9 +37,17 @@ const DiffTab: React.FC<DiffTabProps> = ({ diffs }) => {
     >
   >(new Map());
 
+  // デバウンス保存用のタイマー
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   // クリーンアップ処理
   useEffect(() => {
     return () => {
+      // デバウンスタイマーをクリア
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+
       // エディタをリセットしてからモデルを破棄
       editorsRef.current.forEach((editor, idx) => {
         try {
@@ -75,6 +91,20 @@ const DiffTab: React.FC<DiffTabProps> = ({ diffs }) => {
     };
   }, []);
 
+  // デバウンス付き保存関数
+  const debouncedSave = (content: string) => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    saveTimeoutRef.current = setTimeout(() => {
+      console.log('[DiffTab] Debounced save triggered');
+      if (onContentChange) {
+        onContentChange(content);
+      }
+    }, 5000); // CodeEditorと同じく5秒
+  };
+
   // DiffEditorマウント時のハンドラ
   const handleDiffEditorMount = (
     editor: monacoEditor.editor.IStandaloneDiffEditor,
@@ -90,6 +120,30 @@ const DiffTab: React.FC<DiffTabProps> = ({ diffs }) => {
         original: diffModel.original,
         modified: diffModel.modified,
       });
+
+      // 編集可能かつ単一ファイルのdiffの場合のみ変更イベントを監視
+      // 複数ファイルのdiffでは、どのファイルが編集されたか特定が困難なため無効化
+      if (editable && diffModel.modified && diffs.length === 1) {
+        const modifiedEditor = editor.getModifiedEditor();
+        
+        // 変更イベントリスナーを追加
+        const disposable = diffModel.modified.onDidChangeContent(() => {
+          const newContent = diffModel.modified.getValue();
+          
+          console.log('[DiffTab] Content changed, triggering save');
+          
+          // 即座に状態を更新
+          if (onContentChangeImmediate) {
+            onContentChangeImmediate(newContent);
+          }
+          
+          // デバウンス保存をトリガー
+          debouncedSave(newContent);
+        });
+
+        // クリーンアップ用に保存（エディタ破棄時に一緒に破棄される）
+        // disposableはエディタと共に破棄されるため、明示的な管理は不要
+      }
     }
   };
 
@@ -212,7 +266,8 @@ const DiffTab: React.FC<DiffTabProps> = ({ diffs }) => {
                   onMount={(editor, monaco) => handleDiffEditorMount(editor, monaco, idx)}
                   options={{
                     renderSideBySide: true,
-                    readOnly: true,
+                    // 単一ファイルのdiffかつeditableがtrueの場合のみ編集可能
+                    readOnly: !(editable && diffs.length === 1),
                     minimap: { enabled: false },
                     scrollBeyondLastLine: false,
                     fontSize: 14,

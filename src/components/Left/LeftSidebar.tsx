@@ -22,7 +22,7 @@ interface LeftSidebarProps {
   gitRefreshTrigger?: number;
   onRefresh?: () => void; // [NEW ARCHITECTURE] ファイルツリー再読み込み用
   onGitStatusChange?: (changesCount: number) => void;
-  onDiffFileClick?: (params: { commitId: string; filePath: string }) => void;
+  onDiffFileClick?: (params: { commitId: string; filePath: string; editable?: boolean }) => void;
   onDiffAllFilesClick?: (params: { commitId: string; parentCommitId: string }) => void;
 }
 
