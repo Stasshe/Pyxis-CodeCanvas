@@ -10,9 +10,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useEffect, useState } from 'react';
-import { authRepository } from '@/engine/core/authRepository';
-import { authenticateWithDeviceFlow } from '@/engine/core/githubDeviceFlow';
-import type { GitHubUser } from '@/engine/core/githubDeviceFlow';
+import { authRepository, type GitHubUser } from '@/engine/core/authRepository';
 import { MenuTab } from '../types';
 
 interface MenuBarProps {
@@ -31,6 +29,8 @@ export default function MenuBar({
   const { colors } = useTheme();
   const [user, setUser] = useState<GitHubUser | null>(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showPATInput, setShowPATInput] = useState(false);
+  const [patInput, setPATInput] = useState('');
   const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   // 認証状態を確認
@@ -42,31 +42,48 @@ export default function MenuBar({
     checkAuth();
   }, []);
 
-  // GitHub Device Flow サインイン
+  // GitHub Personal Access Token (PAT) でサインイン
   const handleSignIn = async () => {
-    const clientId = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID || '';
-
-    if (!clientId) {
-      alert('GitHub Client IDが設定されていません。');
+    if (!patInput.trim()) {
+      alert('Personal Access Token を入力してください。');
       return;
     }
 
     setIsAuthenticating(true);
 
     try {
-      // Device Flowで認証
-      const result = await authenticateWithDeviceFlow(clientId, message => {
-        console.log('[MenuBar] Device Flow:', message);
+      // PATを使用してユーザー情報を取得
+      const userResponse = await fetch('https://api.github.com/user', {
+        headers: {
+          Authorization: `Bearer ${patInput}`,
+          Accept: 'application/vnd.github+json',
+        },
       });
+
+      if (!userResponse.ok) {
+        throw new Error('GitHub認証に失敗しました。トークンが無効です。');
+      }
+
+      const userData = await userResponse.json();
+
+      const githubUser: GitHubUser = {
+        login: userData.login,
+        name: userData.name,
+        email: userData.email,
+        avatar_url: userData.avatar_url,
+        id: userData.id,
+      };
 
       // IndexedDBに保存（暗号化される）
       await authRepository.saveAuth({
-        accessToken: result.accessToken,
-        user: result.user,
+        accessToken: patInput,
+        user: githubUser,
         createdAt: Date.now(),
       });
 
-      setUser(result.user);
+      setUser(githubUser);
+      setPATInput('');
+      setShowPATInput(false);
       console.log('[MenuBar] GitHub authentication successful');
       alert('GitHub認証に成功しました！');
     } catch (error) {
@@ -252,25 +269,124 @@ export default function MenuBar({
               )}
             </>
           ) : (
-            <button
-              style={{
-                height: '3rem',
-                width: '3rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: 'transparent',
-                color: isAuthenticating ? colors.primary : colors.sidebarIconFg,
-                border: 'none',
-                cursor: isAuthenticating ? 'not-allowed' : 'pointer',
-                opacity: isAuthenticating ? 0.5 : 1,
-              }}
-              onClick={handleSignIn}
-              disabled={isAuthenticating}
-              title={isAuthenticating ? '認証中...' : 'GitHubにサインイン（Device Flow）'}
-            >
-              <LogIn size={20} />
-            </button>
+            <>
+              <button
+                style={{
+                  height: '3rem',
+                  width: '3rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: 'transparent',
+                  color: colors.sidebarIconFg,
+                  border: 'none',
+                  cursor: 'pointer',
+                }}
+                onClick={() => setShowPATInput(!showPATInput)}
+                title="GitHubにサインイン（PAT）"
+              >
+                <LogIn size={20} />
+              </button>
+              {showPATInput && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    bottom: '100%',
+                    left: '3rem',
+                    background: colors.cardBg,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: '0.375rem',
+                    padding: '1rem',
+                    minWidth: '20rem',
+                    zIndex: 1000,
+                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                  }}
+                >
+                  <div style={{ marginBottom: '0.5rem' }}>
+                    <div
+                      style={{
+                        fontSize: '0.875rem',
+                        fontWeight: 'bold',
+                        color: colors.fg,
+                        marginBottom: '0.25rem',
+                      }}
+                    >
+                      GitHub Personal Access Token
+                    </div>
+                    <div
+                      style={{ fontSize: '0.75rem', color: colors.mutedFg, marginBottom: '0.5rem' }}
+                    >
+                      <a
+                        href="https://github.com/settings/tokens/new?scopes=repo"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: colors.primary, textDecoration: 'underline' }}
+                      >
+                        ここをクリック
+                      </a>
+                      してPATを作成（repo スコープが必要）
+                    </div>
+                  </div>
+                  <input
+                    type="password"
+                    value={patInput}
+                    onChange={e => setPATInput(e.target.value)}
+                    placeholder="ghp_xxxxxxxxxxxx"
+                    style={{
+                      width: '100%',
+                      padding: '0.5rem',
+                      background: colors.bg,
+                      border: `1px solid ${colors.border}`,
+                      borderRadius: '0.25rem',
+                      color: colors.fg,
+                      fontSize: '0.875rem',
+                      marginBottom: '0.5rem',
+                    }}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        handleSignIn();
+                      }
+                    }}
+                  />
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button
+                      style={{
+                        flex: 1,
+                        padding: '0.5rem',
+                        background: colors.primary,
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '0.25rem',
+                        cursor: isAuthenticating ? 'not-allowed' : 'pointer',
+                        fontSize: '0.875rem',
+                        opacity: isAuthenticating ? 0.5 : 1,
+                      }}
+                      onClick={handleSignIn}
+                      disabled={isAuthenticating}
+                    >
+                      {isAuthenticating ? '認証中...' : 'サインイン'}
+                    </button>
+                    <button
+                      style={{
+                        padding: '0.5rem 1rem',
+                        background: 'transparent',
+                        color: colors.fg,
+                        border: `1px solid ${colors.border}`,
+                        borderRadius: '0.25rem',
+                        cursor: 'pointer',
+                        fontSize: '0.875rem',
+                      }}
+                      onClick={() => {
+                        setShowPATInput(false);
+                        setPATInput('');
+                      }}
+                    >
+                      キャンセル
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
         {/* プロジェクトボタン */}

@@ -1,10 +1,17 @@
 /**
  * AuthRepository - GitHub認証情報管理
- * IndexedDBにトークンとユーザー情報を暗号化して保存
+ * IndexedDBにPersonal Access Token (PAT)を暗号化して保存
  */
 
 import { encryptText, decryptText, clearEncryptionKey } from './crypto';
-import type { GitHubUser } from './githubDeviceFlow';
+
+export interface GitHubUser {
+  login: string;
+  name: string | null;
+  email: string | null;
+  avatar_url: string;
+  id: number;
+}
 
 export interface GitHubAuthData {
   accessToken: string;
