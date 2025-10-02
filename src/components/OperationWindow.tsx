@@ -225,7 +225,7 @@ export default function OperationWindow({
 
   return (
     <>
-      {/* mdプレビュー選択ダイアログ */}
+      {/* mdプレビュー選択ダイアログを最前面に移動 */}
       {mdPreviewPrompt && (
         <div
           style={{
@@ -235,7 +235,7 @@ export default function OperationWindow({
             right: 0,
             bottom: 0,
             background: 'rgba(0,0,0,0.4)',
-            zIndex: 2000,
+            zIndex: 3000, // より高いz-index
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
