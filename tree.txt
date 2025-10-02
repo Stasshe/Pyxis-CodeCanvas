@@ -11,6 +11,14 @@
 ├── README.md
 ├── README_en.md
 ├── bashCmd.txt
+├── docs
+│   ├── AI-SYSTEM.md
+│   ├── CORE-ENGINE.md
+│   ├── DATA-FLOW.md
+│   ├── NODE-RUNTIME.md
+│   ├── README.md
+│   ├── SYSTEM-OVERVIEW.md
+│   └── UI-COMPONENTS.md
 ├── eslint.config.mjs
 ├── feature.txt
 ├── helper-code.txt
@@ -229,15 +237,15 @@
 ├── tree.txt
 └── tsconfig.json
 
-42 directories, 188 files
+43 directories, 195 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 31324
-合計文字数: 1060471
-合計ファイルサイズ(bytes): 1135466
+合計行数: 31443
+合計文字数: 1065018
+合計ファイルサイズ(bytes): 1140631
 
-リポジトリ全体のサイズ(bytes): 1.8G	.
+リポジトリ全体のサイズ(bytes): 1.9G	.
 ==========
 ビルト済みファイルの行数: 14777
-合計文字数: 22174419
-合計ファイルサイズ(bytes): 23104569
+合計文字数: 22176700
+合計ファイルサイズ(bytes): 23106850
