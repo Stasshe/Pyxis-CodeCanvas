@@ -22,8 +22,10 @@ export function useDiffTabHandlers(
     }) => {
       if (!currentProject) return;
       const git = new GitCommands(currentProject.name, currentProject.id);
-      // working directory vs 最新コミット のdiffの場合
-      if (commitId && commitId.length >= 6 && commitId !== 'WORKDIR') {
+
+      // working directory vs コミット のdiffの場合（editableがtrueの場合のみ）
+      // GitPanelのunstaged/stagedファイルから開かれた場合
+      if (editable === true && commitId && commitId.length >= 6 && commitId !== 'WORKDIR') {
         // 最新コミットのhashが渡された場合、working directoryと比較
         // latest commitの内容
         const formerCommitId = commitId;
@@ -120,17 +122,40 @@ export function useDiffTabHandlers(
           parentCommitId = parentHashes.split(',')[0] || '';
         }
       }
+
+      console.log('[useDiffTabHandlers] Commit diff:', { commitId, parentCommitId, filePath });
+
       const latterCommitId = commitId;
       const formerCommitId = parentCommitId;
-      const latterContent = latterCommitId
-        ? await git.getFileContentAtCommit(latterCommitId, filePath)
-        : '';
-      const formerContent = formerCommitId
-        ? await git.getFileContentAtCommit(formerCommitId, filePath)
-        : '';
+
+      // コミット間のコンテンツを取得（エラーハンドリング付き）
+      let latterContent = '';
+      let formerContent = '';
+
+      try {
+        if (latterCommitId) {
+          latterContent = await git.getFileContentAtCommit(latterCommitId, filePath);
+          console.log('[useDiffTabHandlers] Latter content length:', latterContent.length);
+        }
+      } catch (error) {
+        console.error('[useDiffTabHandlers] Failed to get latter content:', error);
+        latterContent = '';
+      }
+
+      try {
+        if (formerCommitId) {
+          formerContent = await git.getFileContentAtCommit(formerCommitId, filePath);
+          console.log('[useDiffTabHandlers] Former content length:', formerContent.length);
+        }
+      } catch (error) {
+        console.error('[useDiffTabHandlers] Failed to get former content:', error);
+        formerContent = '';
+      }
+
       const diffTabId = `diff-${formerCommitId}-${latterCommitId}-${filePath}`;
 
-      // 既存タブを検索して、あれば更新してアクティブ化
+      // 既存タブを検索
+      let shouldCreateNewTab = false;
       setTabs((prevTabs: Tab[]) => {
         const existingTab = prevTabs.find(tab => tab.id === diffTabId);
 
@@ -140,11 +165,14 @@ export function useDiffTabHandlers(
             '[useDiffTabHandlers] Activating existing diff tab (commit-to-commit):',
             diffTabId
           );
-          setActiveTabId(diffTabId);
           return prevTabs;
         } else {
+          shouldCreateNewTab = true;
           // 新規タブを作成
-          console.log('[useDiffTabHandlers] Creating new diff tab:', diffTabId);
+          console.log('[useDiffTabHandlers] Creating new diff tab:', diffTabId, {
+            formerContentLength: formerContent.length,
+            latterContentLength: latterContent.length,
+          });
           const newTab: Tab = {
             id: diffTabId,
             name: `Diff: ${filePath} (${formerCommitId ? formerCommitId.slice(0, 6) : ''}..${latterCommitId ? latterCommitId.slice(0, 6) : ''})`,
@@ -166,10 +194,12 @@ export function useDiffTabHandlers(
               editable: editable ?? false,
             },
           };
-          setActiveTabId(diffTabId);
           return [...prevTabs, newTab];
         }
       });
+
+      // タブのアクティブ化（タブ作成後に実行）
+      setActiveTabId(diffTabId);
     },
     [currentProject, setTabs, setActiveTabId]
   );

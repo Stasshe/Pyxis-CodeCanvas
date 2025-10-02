@@ -64,6 +64,16 @@ export class GitFileSystem {
   }
 
   /**
+   * パスを正規化（先頭の/を削除し、プロジェクトディレクトリと正しく連結）
+   */
+  private normalizePath(projectDir: string, filePath: string): string {
+    // filePathの先頭の/を削除
+    const cleanPath = filePath.replace(/^\/+/, '');
+    // プロジェクトディレクトリと連結
+    return `${projectDir}/${cleanPath}`;
+  }
+
+  /**
    * ディレクトリが存在することを確認し、作成
    */
   async ensureDirectory(dirPath: string): Promise<void> {
@@ -97,7 +107,7 @@ export class GitFileSystem {
   ): Promise<void> {
     const fs = this.getFS();
     const projectDir = this.getProjectDir(projectName);
-    const fullPath = `${projectDir}${filePath}`;
+    const fullPath = this.normalizePath(projectDir, filePath);
 
     // 親ディレクトリを確実に作成
     const parentDir = fullPath.substring(0, fullPath.lastIndexOf('/'));
@@ -115,10 +125,17 @@ export class GitFileSystem {
   async readFile(projectName: string, filePath: string): Promise<string> {
     const fs = this.getFS();
     const projectDir = this.getProjectDir(projectName);
-    const fullPath = `${projectDir}${filePath}`;
+    const fullPath = this.normalizePath(projectDir, filePath);
 
-    const content = await fs.promises.readFile(fullPath, { encoding: 'utf8' });
-    return content as string;
+    console.log(`[GitFileSystem] Reading file: ${filePath} -> ${fullPath}`);
+
+    try {
+      const content = await fs.promises.readFile(fullPath, { encoding: 'utf8' });
+      return content as string;
+    } catch (error) {
+      console.error(`[GitFileSystem] Failed to read file: ${fullPath}`, error);
+      throw error;
+    }
   }
 
   /**
@@ -127,7 +144,7 @@ export class GitFileSystem {
   async deleteFile(projectName: string, filePath: string): Promise<void> {
     const fs = this.getFS();
     const projectDir = this.getProjectDir(projectName);
-    const fullPath = `${projectDir}${filePath}`;
+    const fullPath = this.normalizePath(projectDir, filePath);
 
     try {
       const stat = await fs.promises.stat(fullPath);
