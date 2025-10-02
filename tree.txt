@@ -1,6 +1,8 @@
 .
 ├── Development
+│   ├── DEVICE_FLOW_IMPLEMENTATION.md
 │   ├── NEW-ARCHITECTURE.md
+│   ├── SECURITY_IMPROVEMENTS.md
 │   ├── TODO.md
 │   ├── Tauri-Setup.md
 │   ├── ai-agent-implementation-plan.md
@@ -112,7 +114,6 @@
 │   │   │   ├── FileTree.tsx
 │   │   │   ├── GitHistory.tsx
 │   │   │   ├── GitPanel.tsx
-│   │   │   ├── GitPanel_stable.tsx
 │   │   │   ├── LeftSidebar.tsx
 │   │   │   ├── RunPanel.tsx
 │   │   │   ├── SearchPanel.tsx
@@ -170,10 +171,9 @@
 │   │   │   │   ├── fileSystemHelper.ts
 │   │   │   │   ├── log.ts
 │   │   │   │   ├── merge.ts
+│   │   │   │   ├── push.ts
 │   │   │   │   ├── reset.ts
-│   │   │   │   ├── reset_stable.ts
 │   │   │   │   └── revert.ts
-│   │   │   ├── git_stable.ts
 │   │   │   ├── npm.ts
 │   │   │   ├── npmOperations
 │   │   │   │   ├── npmDependencySize.ts
@@ -181,10 +181,13 @@
 │   │   │   └── unix.ts
 │   │   ├── commitMsgAI.ts
 │   │   ├── core
+│   │   │   ├── authRepository.ts
+│   │   │   ├── crypto.ts
 │   │   │   ├── database.ts
 │   │   │   ├── fileRepository.ts
 │   │   │   ├── filesystem.ts
 │   │   │   ├── gitFileSystem.ts
+│   │   │   ├── githubDeviceFlow.ts
 │   │   │   ├── project.ts
 │   │   │   └── syncManager.ts
 │   │   ├── export
@@ -239,15 +242,19 @@
 ├── tree.txt
 └── tsconfig.json
 
-43 directories, 197 files
+43 directories, 200 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 31575
-合計文字数: 1068638
-合計ファイルサイズ(bytes): 1144391
+合計行数: 30196
+合計文字数: 1016360
+合計ファイルサイズ(bytes): 1087571
 
 リポジトリ全体のサイズ(bytes): 1.8G	.
 ==========
 ビルト済みファイルの行数: 14777
 合計文字数: 22178514
 合計ファイルサイズ(bytes): 23108804
+==========
+ビルト済みファイルの行数: 14777
+合計文字数: 22193829
+合計ファイルサイズ(bytes): 23124615
