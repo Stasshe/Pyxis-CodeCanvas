@@ -1,598 +1,418 @@
-# GitHub連携ドキュメント
+# GitHub連携アーキテクチャ
 
 ## 概要
 
-Pyxis-CodeCanvasは、Personal Access Token (PAT) を使用したGitHub認証により、完全なGit操作とGitHubへのプッシュ機能を提供します。
+Personal Access Token (PAT) を使用したGitHub認証と、GitHub Git Data APIを用いたプッシュ機能を実装しています。
 
-## アーキテクチャ
+## システム全体図
 
-### 主要コンポーネント
-
-1. **authRepository** - 認証情報の管理
-2. **githubUserManager** - GitHubユーザー情報の管理
-3. **GitCommands** - Git操作の実行
-4. **GitHubAPI** - GitHub Git Data APIとの通信
-5. **TreeBuilder** - ローカルGitツリーのGitHub上への再構築
-
----
-
-## 1. 認証システム (AuthRepository)
-
-### ファイル: `src/engine/core/authRepository.ts`
-
-### 機能
-
-Personal Access Token (PAT) を **暗号化** してIndexedDBに保存し、GitHub APIアクセス時に復号化して使用します。
-
-### 主要メソッド
-
-#### `saveAuth(authData: GitHubAuthData): Promise<void>`
-- PATとユーザー情報を暗号化して保存
-- IndexedDBの `PyxisAuth` データベースに格納
-- トークンは暗号化され、平文では保存されない
-
-```typescript
-await authRepository.saveAuth({
-  accessToken: 'ghp_xxxxxxxxxxxxx',
-  user: {
-    login: 'username',
-    name: 'User Name',
-    email: 'user@example.com',
-    avatar_url: 'https://...',
-    id: 12345,
-  },
-  createdAt: Date.now(),
-});
-```
-
-#### `getAccessToken(): Promise<string | null>`
-- 保存されたトークンを復号化して取得
-- 認証が必要な操作で使用
-
-```typescript
-const token = await authRepository.getAccessToken();
-if (!token) {
-  throw new Error('GitHub authentication required');
-}
-```
-
-#### `getUser(): Promise<GitHubUser | null>`
-- 保存されたユーザー情報を取得
-
-#### `clearAuth(): Promise<void>`
-- 認証情報を削除（サインアウト）
-- 暗号化キーもクリア
-
-### データ構造
-
-```typescript
-interface GitHubUser {
-  login: string;           // GitHubユーザー名
-  name: string | null;     // 表示名
-  email: string | null;    // メールアドレス
-  avatar_url: string;      // アバター画像URL
-  id: number;              // GitHub ID
-}
-
-interface GitHubAuthData {
-  accessToken: string;     // Personal Access Token
-  user: GitHubUser;        // ユーザー情報
-  expiresAt?: number;      // 有効期限（オプション）
-  createdAt: number;       // 作成日時
-}
-```
-
-### セキュリティ
-
-- ✅ トークンは暗号化されて保存（Web Crypto API使用）
-- ✅ 暗号化キーはメモリ上に保持
-- ✅ サインアウト時に暗号化キーをクリア
-- ✅ 復号化失敗時は自動的に認証情報をクリア
-
----
-
-## 2. ユーザー情報管理 (GitHubUserManager)
-
-### ファイル: `src/engine/core/githubUserManager.ts`
-
-### 機能
-
-GitHub APIからユーザー情報を取得し、**5分間キャッシュ**します。React Context外からもアクセス可能なシングルトンです。
-
-### 主要メソッド
-
-#### `getUser(): Promise<GitHubUser | null>`
-- ユーザー情報を取得（キャッシュあり）
-- キャッシュが有効な場合はAPIコールなし
-- 未認証の場合は `null` を返す
-
-```typescript
-const user = await githubUserManager.getUser();
-if (user) {
-  console.log('Logged in as:', user.login);
-}
-```
-
-#### `getCommitAuthor(): Promise<GitCommitAuthor>`
-- Git コミット用のAuthor情報を取得
-- ログイン済みの場合はGitHubユーザー情報を使用
-- 未ログインの場合はデフォルト値を返す
-
-```typescript
-const author = await githubUserManager.getCommitAuthor();
-// => { name: 'User Name', email: 'user@example.com' }
-```
-
-#### `refreshUser(): Promise<GitHubUser | null>`
-- キャッシュをクリアして強制的にAPIから再取得
-
-#### `getCachedUser(): GitHubUser | null`
-- キャッシュされたユーザー情報を即座に取得（APIコールなし）
-
-### データ構造
-
-```typescript
-interface GitHubUser {
-  login: string;
-  name: string | null;
-  email: string | null;
-  avatar_url: string;
-  bio: string | null;
-  company: string | null;
-  location: string | null;
-  blog: string | null;
-  twitter_username: string | null;
-  public_repos: number;
-  public_gists: number;
-  followers: number;
-  following: number;
-  created_at: string;
-  updated_at: string;
-}
-
-interface GitCommitAuthor {
-  name: string;
-  email: string;
-}
-```
-
-### 内部動作
-
-1. `authRepository.getAccessToken()` でトークンを取得
-2. GitHub API `GET /user` にリクエスト
-3. レスポンスをキャッシュ（5分間有効）
-4. 次回のアクセスはキャッシュから返す
-
----
-
-## 3. Git操作 (GitCommands)
-
-### ファイル: `src/engine/cmd/git.ts`
-
-### 機能
-
-isomorphic-gitを使用したローカルGit操作と、GitHubへのプッシュ機能を提供します。
-
-### コミット操作
-
-#### `commit(message: string, author?): Promise<string>`
-
-コミットを作成します。**GitHub認証済みの場合は自動的にGitHubユーザー情報を使用**します。
-
-```typescript
-const gitCommands = new GitCommands(projectName, projectId);
-
-// GitHub認証済みの場合、自動的にGitHubユーザー情報が使用される
-await gitCommands.commit('feat: add new feature');
-
-// 手動でauthorを指定することも可能
-await gitCommands.commit('fix: bug fix', {
-  name: 'Custom Name',
-  email: 'custom@example.com'
-});
-```
-
-**内部処理:**
-1. `authRepository.getAccessToken()` でトークンを確認
-2. トークンがある場合、`GET /user` APIでユーザー情報を取得
-3. 取得したユーザー情報を author/committer として使用
-4. トークンがない場合はデフォルト値を使用
-
----
-
-### リモート操作
-
-#### `addRemote(remote: string, url: string): Promise<string>`
-
-リモートリポジトリを追加します。
-
-```typescript
-await gitCommands.addRemote('origin', 'https://github.com/owner/repo.git');
-// => "Remote 'origin' added: https://github.com/owner/repo.git"
-```
-
-#### `listRemotes(): Promise<string>`
-
-登録されているリモートの一覧を取得します。
-
-```typescript
-const remotes = await gitCommands.listRemotes();
-// => "origin\thttps://github.com/owner/repo.git"
-```
-
-#### `deleteRemote(remote: string): Promise<string>`
-
-リモートを削除します。
-
-```typescript
-await gitCommands.deleteRemote('origin');
-// => "Remote 'origin' deleted."
+```mermaid
+graph TB
+    subgraph "ユーザーインターフェース"
+        A[MenuBar<br/>PAT入力UI]
+        B[GitPanel<br/>Git操作UI]
+    end
+    
+    subgraph "認証層"
+        C[AuthRepository<br/>暗号化トークン管理]
+        D[GitHubUserManager<br/>ユーザー情報キャッシュ]
+    end
+    
+    subgraph "Git操作層"
+        E[GitCommands<br/>isomorphic-git]
+        F[Lightning FS<br/>IndexedDB]
+    end
+    
+    subgraph "GitHub連携層"
+        G[GitHubAPI<br/>REST API Client]
+        H[TreeBuilder<br/>ツリー再構築]
+    end
+    
+    subgraph "外部サービス"
+        I[(IndexedDB)]
+        J[GitHub API]
+    end
+    
+    A --> C
+    B --> E
+    C --> I
+    C --> D
+    D --> J
+    E --> F
+    E --> G
+    F --> I
+    G --> J
+    G --> H
+    H --> J
 ```
 
 ---
 
-### プッシュ操作
+## 1. 認証システム
 
-#### `push(options?: PushOptions): Promise<string>`
+### AuthRepository
 
-GitHubにプッシュします。**GitHub Git Data APIを使用**した完全なプッシュ実装です。
+**ファイル**: `src/engine/core/authRepository.ts`
 
-```typescript
-interface PushOptions {
-  remote?: string;   // デフォルト: 'origin'
-  branch?: string;   // デフォルト: 現在のブランチ
-  force?: boolean;   // デフォルト: false
-}
+#### アーキテクチャ
 
-// 基本的な使用
-await gitCommands.push();
-// => "Successfully pushed to origin/main"
-
-// オプション指定
-await gitCommands.push({
-  remote: 'origin',
-  branch: 'develop',
-  force: false
-});
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant M as MenuBar
+    participant A as AuthRepository
+    participant C as Web Crypto API
+    participant DB as IndexedDB
+    participant GH as GitHub API
+    
+    U->>M: PAT入力
+    M->>GH: GET /user
+    GH-->>M: ユーザー情報
+    M->>A: saveAuth(token, user)
+    A->>C: encrypt(token)
+    C-->>A: encryptedToken
+    A->>DB: save(encryptedToken, user)
+    
+    Note over A,DB: 認証完了
+    
+    U->>E: Git操作実行
+    E->>A: getAccessToken()
+    A->>DB: get()
+    DB-->>A: encryptedToken
+    A->>C: decrypt(encryptedToken)
+    C-->>A: token
+    A-->>E: token
 ```
 
-**プッシュの内部フロー:**
+#### データ構造
 
-1. **認証確認**: `authRepository.getAccessToken()` でPATを取得
-2. **リモート確認**: 指定されたリモート（デフォルト: origin）の存在確認
-3. **GitHub URL解析**: リモートURLからowner/repoを抽出
-4. **ローカルコミット取得**: 現在のブランチの最新コミットを取得
-5. **リモート状態確認**: GitHub APIでリモートブランチのHEADを取得
-6. **ツリー構築**: `TreeBuilder` でローカルのGitツリーをGitHub上に再構築
-7. **コミット作成**: GitHub APIでコミットオブジェクトを作成
-8. **参照更新**: GitHub APIでブランチの参照を更新
+| フィールド | 型 | 説明 |
+|-----------|-----|------|
+| `id` | `string` | 固定値 `"github"` |
+| `encryptedToken` | `string` | 暗号化されたPAT |
+| `user.login` | `string` | GitHubユーザー名 |
+| `user.name` | `string \| null` | 表示名 |
+| `user.email` | `string \| null` | メールアドレス |
+| `user.avatar_url` | `string` | アバターURL |
+| `user.id` | `number` | GitHub ID |
+| `createdAt` | `number` | 作成タイムスタンプ |
+#### セキュリティ設計
+
+| 項目 | 実装 |
+|------|------|
+| 暗号化アルゴリズム | AES-GCM |
+| 鍵の保存場所 | メモリのみ（永続化しない） |
+| トークン保存形式 | 暗号化された文字列 |
+| 復号化失敗時 | 認証情報を自動削除 |
+| サインアウト時 | 暗号化鍵を破棄 |
 
 ---
 
-## 4. GitHub API連携 (GitHubAPI)
+## 2. ユーザー情報管理
 
-### ファイル: `src/engine/cmd/gitOperations/github/GitHubAPI.ts`
+### GitHubUserManager
 
-### 機能
+**ファイル**: `src/engine/core/githubUserManager.ts`
 
-GitHub Git Data API (REST API) を使用して、Git操作を行います。
+#### キャッシュ戦略
 
-### 主要メソッド
-
-#### `getRef(branch: string): Promise<GitRef | null>`
-- ブランチの参照情報を取得
-- `GET /repos/{owner}/{repo}/git/refs/heads/{branch}`
-
-```typescript
-const ref = await githubAPI.getRef('main');
-// => { ref: 'refs/heads/main', object: { sha: 'abc123...', type: 'commit' } }
+```mermaid
+stateDiagram-v2
+    [*] --> キャッシュなし
+    キャッシュなし --> API取得中: getUser()
+    API取得中 --> キャッシュ有効: 成功
+    API取得中 --> キャッシュなし: 失敗
+    キャッシュ有効 --> キャッシュ有効: 5分以内
+    キャッシュ有効 --> API取得中: 5分経過
+    キャッシュ有効 --> [*]: clearCache()
 ```
 
-#### `updateRef(branch: string, sha: string, force: boolean): Promise<GitRef>`
-- ブランチの参照を更新（プッシュの最終ステップ）
-- `PATCH /repos/{owner}/{repo}/git/refs/heads/{branch}`
-- ブランチが存在しない場合は自動的に作成
+#### 機能一覧
 
-```typescript
-await githubAPI.updateRef('main', 'abc123...', false);
-```
-
-#### `createCommit(data): Promise<GitCommit>`
-- コミットオブジェクトを作成
-- `POST /repos/{owner}/{repo}/git/commits`
-
-```typescript
-const commit = await githubAPI.createCommit({
-  message: 'feat: add feature',
-  tree: 'tree_sha',
-  parents: ['parent_sha'],
-  author: {
-    name: 'User Name',
-    email: 'user@example.com',
-    date: '2025-10-02T00:00:00Z'
-  },
-  committer: {
-    name: 'User Name',
-    email: 'user@example.com',
-    date: '2025-10-02T00:00:00Z'
-  }
-});
-```
-
-#### `createTree(tree: GitTreeEntry[], baseTree?: string): Promise<GitTree>`
-- ツリーオブジェクトを作成
-- `POST /repos/{owner}/{repo}/git/trees`
-
-```typescript
-const tree = await githubAPI.createTree([
-  { path: 'file.txt', mode: '100644', type: 'blob', sha: 'blob_sha' },
-  { path: 'dir', mode: '040000', type: 'tree', sha: 'tree_sha' }
-]);
-```
-
-#### `createBlob(content: string, encoding: 'utf-8' | 'base64'): Promise<GitBlob>`
-- Blobオブジェクトを作成（ファイル内容）
-- `POST /repos/{owner}/{repo}/git/blobs`
-
-```typescript
-const blob = await githubAPI.createBlob('console.log("hello")', 'utf-8');
-// => { sha: 'blob_sha', ... }
-```
-
-### 認証
-
-全てのAPIリクエストに以下のヘッダーを付与します:
-
-```typescript
-headers: {
-  'Authorization': `Bearer ${token}`,
-  'Accept': 'application/vnd.github.v3+json',
-  'Content-Type': 'application/json'
-}
-```
+| メソッド | 動作 | API呼び出し |
+|----------|------|-------------|
+| `getUser()` | ユーザー情報取得 | キャッシュ有効時は無し |
+| `getCommitAuthor()` | Gitコミット用情報 | `getUser()`経由 |
+| `refreshUser()` | 強制再取得 | 必ず実行 |
+| `getCachedUser()` | キャッシュ取得 | 無し |
+| `clearCache()` | キャッシュクリア | 無し |
 
 ---
 
-## 5. ツリービルダー (TreeBuilder)
+## 3. Git操作
 
-### ファイル: `src/engine/cmd/gitOperations/github/TreeBuilder.ts`
+### GitCommands
 
-### 機能
+**ファイル**: `src/engine/cmd/git.ts`
 
-ローカルのGitツリー構造を、GitHub上に再構築します。
+#### アーキテクチャ
 
-### 主要メソッド
-
-#### `buildTree(commitOid: string): Promise<string>`
-
-コミットのツリーをGitHub上に再帰的に構築し、ルートツリーのSHAを返します。
-
-```typescript
-const treeBuilder = new TreeBuilder(fs, dir, githubAPI);
-const treeSha = await treeBuilder.buildTree('commit_oid');
-// => 'tree_sha_on_github'
+```mermaid
+graph LR
+    A[GitCommands] --> B[isomorphic-git]
+    A --> C[Lightning FS]
+    A --> D[GitHubAPI]
+    C --> E[(IndexedDB)]
+    D --> F[GitHub REST API]
 ```
 
-### 内部処理フロー
+#### コミット時のAuthor解決
 
-1. **コミット読み込み**: ローカルのコミットオブジェクトを読み込む
-2. **ツリー走査**: ツリーを再帰的に走査
-3. **Blob処理**:
-   - ローカルのBlobを読み込む
-   - バイナリ判定（UTF-8 or Base64）
-   - GitHub APIでBlobを作成
-   - SHAをキャッシュ（重複アップロード防止）
-4. **サブツリー処理**: 再帰的にサブツリーを構築
-5. **ツリー作成**: GitHub APIでツリーオブジェクトを作成
-
-### バイナリ判定
-
-```typescript
-private isBinaryContent(content: Uint8Array): boolean {
-  // 最初の8000バイトをチェック
-  const sample = content.slice(0, Math.min(content.length, 8000));
-  for (let i = 0; i < sample.length; i++) {
-    if (sample[i] === 0) return true; // NULL文字が含まれる場合はバイナリ
-  }
-  return false;
-}
+```mermaid
+flowchart TD
+    A[commit実行] --> B{GitHub認証済み?}
+    B -->|Yes| C[authRepository.getAccessToken]
+    B -->|No| D[デフォルト値使用]
+    C --> E[GitHub API: GET /user]
+    E --> F{成功?}
+    F -->|Yes| G[GitHubユーザー情報]
+    F -->|No| D
+    G --> H[isomorphic-git.commit]
+    D --> H
 ```
 
-### Blobキャッシュ
+#### リモート操作
 
-同じ内容のファイルは一度だけアップロードし、SHAを再利用します。
+| 操作 | メソッド | 用途 |
+|------|----------|------|
+| リモート追加 | `addRemote()` | GitHub URLを登録 |
+| リモート一覧 | `listRemotes()` | 登録済みリモート確認 |
+| リモート削除 | `deleteRemote()` | リモートを削除 |
+---
 
-```typescript
-private blobCache: Map<string, string> = new Map(); // content -> sha
+## 4. GitHubプッシュアーキテクチャ
+
+### 設計方針
+
+ブラウザ環境ではSSH/HTTPSプロトコルが使用できないため、GitHub Git Data APIを使用してプッシュを実装しています。
+
+### プッシュフロー
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant GC as GitCommands
+    participant AR as AuthRepository
+    participant TB as TreeBuilder
+    participant API as GitHub API
+    
+    U->>GC: push()
+    GC->>AR: getAccessToken()
+    AR-->>GC: PAT
+    GC->>GC: listRemotes()
+    GC->>GC: parseGitHubUrl()
+    GC->>GC: git.log() 最新コミット取得
+    GC->>API: GET /git/refs/heads/main
+    API-->>GC: リモートSHA
+    GC->>TB: buildTree(commitOid)
+    TB->>API: POST /git/blobs (複数)
+    TB->>API: POST /git/trees (複数)
+    API-->>TB: treeSha
+    TB-->>GC: treeSha
+    GC->>API: POST /git/commits
+    API-->>GC: commitSha
+    GC->>API: PATCH /git/refs/heads/main
+    API-->>GC: 更新完了
+    GC-->>U: プッシュ成功
 ```
+
+### TreeBuilder
+
+**ファイル**: `src/engine/cmd/gitOperations/github/TreeBuilder.ts`
+
+#### ツリー再構築プロセス
+
+```mermaid
+graph TD
+    A[ローカルGitツリー] --> B{エントリ種別}
+    B -->|Blob| C[ファイル読み込み]
+    B -->|Tree| D[再帰的に処理]
+    C --> E{バイナリ判定}
+    E -->|テキスト| F[UTF-8エンコード]
+    E -->|バイナリ| G[Base64エンコード]
+    F --> H[POST /git/blobs]
+    G --> H
+    H --> I[Blob SHA取得]
+    D --> J[サブツリー構築]
+    J --> K[Tree SHA取得]
+    I --> L[ツリーエントリに追加]
+    K --> L
+    L --> M[POST /git/trees]
+    M --> N[Tree SHA返却]
+```
+
+#### 最適化手法
+
+| 手法 | 実装 | 効果 |
+|------|------|------|
+| Blobキャッシュ | `Map<content, sha>` | 同一ファイルの重複アップロード防止 |
+| バイナリ判定 | NULL文字チェック | 適切なエンコーディング選択 |
+| 再帰構築 | 深さ優先探索 | ディレクトリ構造の完全再現 |
+
+### GitHubAPI
+
+**ファイル**: `src/engine/cmd/gitOperations/github/GitHubAPI.ts`
+
+#### API エンドポイント
+
+| 操作 | エンドポイント | 用途 |
+|------|---------------|------|
+| 参照取得 | `GET /git/refs/heads/{branch}` | リモートブランチのHEAD確認 |
+| 参照更新 | `PATCH /git/refs/heads/{branch}` | プッシュの最終ステップ |
+| コミット作成 | `POST /git/commits` | GitHub上にコミットオブジェクト作成 |
+| ツリー作成 | `POST /git/trees` | ディレクトリ構造の作成 |
+| Blob作成 | `POST /git/blobs` | ファイル内容のアップロード |
+
+#### 認証ヘッダー
+全てのリクエストに以下を付与:
+- `Authorization: Bearer {PAT}`
+- `Accept: application/vnd.github.v3+json`
+- `Content-Type: application/json`
+
+#### エラーハンドリング
+- 404エラー: ブランチ不在時は新規作成
+- 401/403エラー: 認証エラーとして処理
+- その他: エラーメッセージを含めて例外をスロー
 
 ---
 
-## 6. GitHub URL解析
+## URL解析とリポジトリ特定
 
-### ファイル: `src/engine/cmd/gitOperations/github/utils.ts`
+**ファイル**: `src/engine/cmd/gitOperations/github/utils.ts`
 
-### 機能
+### サポートするURL形式
 
-GitリモートURLからowner/repoを抽出します。
+| 形式 | 例 | 抽出結果 |
+|------|---|---------|
+| HTTPS | `https://github.com/owner/repo.git` | `{ owner, repo }` |
+| HTTPS (拡張子なし) | `https://github.com/owner/repo` | `{ owner, repo }` |
+| SSH | `git@github.com:owner/repo.git` | `{ owner, repo }` |
 
-```typescript
-function parseGitHubUrl(url: string): { owner: string; repo: string } | null
-```
-
-### サポートされる形式
-
-```typescript
-// HTTPS形式
-parseGitHubUrl('https://github.com/owner/repo.git')
-// => { owner: 'owner', repo: 'repo' }
-
-parseGitHubUrl('https://github.com/owner/repo')
-// => { owner: 'owner', repo: 'repo' }
-
-// SSH形式
-parseGitHubUrl('git@github.com:owner/repo.git')
-// => { owner: 'owner', repo: 'repo' }
-
-// 非GitHubのURL
-parseGitHubUrl('https://gitlab.com/owner/repo.git')
-// => null
-```
+### 制限事項
+- **GitHubのみサポート**: GitLab, Bitbucket等は非対応
+- 理由: 各サービスでGit Data APIの仕様が異なるため
 
 ---
 
-## 実際の使用例
+## 5. 認証管理の実装
 
-### 1. ユーザー認証
+### ストレージ構造
 
-```typescript
-// MenuBar.tsx で実装済み
-import { authRepository } from '@/engine/core/authRepository';
-
-// PATでサインイン
-const response = await fetch('https://api.github.com/user', {
-  headers: {
-    Authorization: `Bearer ${pat}`,
-    Accept: 'application/vnd.github+json',
-  },
-});
-
-const userData = await response.json();
-
-await authRepository.saveAuth({
-  accessToken: pat,
-  user: {
-    login: userData.login,
-    name: userData.name,
-    email: userData.email,
-    avatar_url: userData.avatar_url,
-    id: userData.id,
-  },
-  createdAt: Date.now(),
-});
+```mermaid
+graph TB
+    subgraph "Browser"
+        A[Memory]
+        B[(IndexedDB: PyxisAuth)]
+    end
+    
+    A -->|暗号化キー| C[AES-GCM Encryption]
+    C -->|暗号化| D[encryptedToken]
+    D -->|保存| B
+    B -->|読込| D
+    D -->|復号化| C
+    C -->|暗号化キー| A
+    C -->|PAT| E[GitHub API]
 ```
 
-### 2. コミット作成
+### 認証フロー
 
-```typescript
-// GitPanel.tsx で実装済み
-const gitCommands = new GitCommands(projectName, projectId);
+| ステップ | 処理 | 関連コンポーネント |
+|---------|------|-------------------|
+| 1. PAT入力 | ユーザーがトークンを入力 | MenuBar |
+| 2. 検証 | `GET /user` で有効性確認 | GitHub API |
+| 3. 暗号化 | Web Crypto APIで暗号化 | AuthRepository |
+| 4. 保存 | IndexedDBに格納 | AuthRepository |
+| 5. 利用 | Git操作時に復号化して使用 | GitCommands |
 
-// ファイルをステージング
-await gitCommands.add('src/file.ts');
+### トークンの利用箇所
 
-// コミット（GitHub認証済みなら自動的にユーザー情報が使われる）
-await gitCommands.commit('feat: add new feature');
-```
-
-### 3. GitHubへのプッシュ
-
-```typescript
-const gitCommands = new GitCommands(projectName, projectId);
-
-// リモートを追加（初回のみ）
-await gitCommands.addRemote('origin', 'https://github.com/owner/repo.git');
-
-// プッシュ
-try {
-  const result = await gitCommands.push();
-  console.log(result); // => "Successfully pushed to origin/main"
-} catch (error) {
-  console.error('Push failed:', error.message);
-}
-```
-
-### 4. エラーハンドリング
-
-```typescript
-try {
-  await gitCommands.push();
-} catch (error) {
-  if (error.message.includes('authentication required')) {
-    // 認証が必要
-    alert('GitHubにサインインしてください');
-  } else if (error.message.includes('not found')) {
-    // リモートが見つからない
-    alert('リモートリポジトリが設定されていません');
-  } else {
-    // その他のエラー
-    alert(`プッシュに失敗しました: ${error.message}`);
-  }
-}
-```
+| 操作 | 必須 | 動作 |
+|------|------|------|
+| コミット | No | 認証済みならGitHubユーザー情報使用 |
+| プッシュ | Yes | 認証なしはエラー |
+| UI表示 | No | 認証済みならアバター表示 |
 
 ---
 
-## セキュリティ考慮事項
+## 6. 設計上の制約
 
-### 1. トークンの保護
+### GitHub専用設計
 
-- ✅ **暗号化**: PATはWeb Crypto APIで暗号化されてIndexedDBに保存
-- ✅ **メモリ保持**: 暗号化キーはメモリ上のみに保持
-- ✅ **自動クリア**: サインアウト時に暗号化キーをクリア
-- ✅ **HTTPS通信**: 全てのGitHub API通信はHTTPS
+**理由:**
 
-### 2. トークンのスコープ
+| 制約 | 背景 |
+|------|------|
+| GitHubのみサポート | Git Data APIは各サービスで仕様が異なる |
+| ブラウザ環境 | SSH/HTTPSプロトコルが使用不可 |
+| REST API依存 | 通常のGitプロトコルは使えない |
+- CORSの制約により直接Git通信が困難
 
-PATには以下のスコープが必要です:
+### プッシュ方式の選択理由
 
-- `repo` - プライベートリポジトリへのフルアクセス
-  - `repo:status` - コミットステータスへのアクセス
-  - `repo_deployment` - デプロイステータスへのアクセス
-  - `public_repo` - パブリックリポジトリへのアクセス
-  - `repo:invite` - リポジトリへの招待
+| 方式 | 採用 | 理由 |
+|------|------|------|
+| SSH/HTTPS | ❌ | ブラウザ環境で使用不可 |
+| Git Data API | ✅ | REST APIで完全なGit操作が可能 |
 
-### 3. トークンの有効期限
+### 認証方式の選択理由
 
-- GitHub PATには有効期限があります（7日、30日、60日、90日、カスタム、無期限）
-- 有効期限切れの場合は再度サインインが必要
-- 将来的には `expiresAt` フィールドを使用した自動チェックを実装予定
+| 方式 | 採用 | 理由 |
+|------|------|------|
+| OAuth Device Flow | ❌ | OAuth App登録が必要、実装が複雑 |
+| OAuth Web Flow | ❌ | コールバックサーバーが必要 |
+| PAT | ✅ | シンプル、即座に利用可能 |
+
+### セキュリティ実装
+
+| 項目 | 実装内容 |
+|------|---------|
+| トークン保護 | AES-GCM暗号化 |
+| キー管理 | メモリのみ（永続化なし） |
+| 通信 | HTTPS |
+| 必要スコープ | `repo` |
 
 ---
 
-## トラブルシューティング
+## 補足情報
 
-### プッシュが失敗する
+### コミットAuthorの自動設定
 
-**症状**: `Push failed: GitHub authentication required`
+認証済みの場合、コミット時に自動的にGitHubユーザー情報が使用されます。
 
-**解決策**:
-1. MenuBarのLogInアイコンをクリック
-2. GitHubでPATを作成（`repo`スコープ）
-3. PATを入力してサインイン
-
----
-
-**症状**: `Push failed: Remote 'origin' not found`
-
-**解決策**:
-```typescript
-await gitCommands.addRemote('origin', 'https://github.com/owner/repo.git');
+```mermaid
+graph LR
+    A[commit実行] --> B{認証状態}
+    B -->|認証済み| C[GitHub API]
+    B -->|未認証| D[デフォルト値]
+    C --> E[name/email取得]
+    E --> F[isomorphic-git]
+    D --> F
 ```
 
----
+### パフォーマンス特性
 
-**症状**: `Push failed: Only GitHub repositories are supported`
+プッシュは通常のGitよりも時間がかかります。
 
-**解決策**:
-- 現在はGitHubのみサポート
-- GitLabやBitbucketはサポートされていません
+**理由:**
+- 各Blobを個別にREST APIでアップロード
+- ツリー構造を再帰的に構築
+- HTTPリクエストのオーバーヘッド
 
----
+**最適化:**
+- Blobキャッシュで重複アップロード防止
 
-### コミットのAuthor情報が正しくない
+### 制限事項
 
-**症状**: コミットのAuthorが `User <user@pyxis.dev>` になる
-
-**解決策**:
-1. GitHubにサインインする
-2. コミット時に自動的にGitHubユーザー情報が使用されます
+| 項目 | 制限内容 |
+|------|----------|
+| サポートサービス | GitHub のみ |
+| PATスコープ | `repo` が必須 |
+| PAT有効期限 | GitHubの設定に従う（期限切れ時は再認証が必要） |
 
 ---
 
 ## 参考リンク
 
 - [GitHub REST API - Git Database](https://docs.github.com/en/rest/git)
-- [GitHub Personal Access Tokens](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)
-- [isomorphic-git Documentation](https://isomorphic-git.org/)
+- [isomorphic-git](https://isomorphic-git.org/)
 - [Web Crypto API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API)
