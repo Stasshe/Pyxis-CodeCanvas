@@ -183,9 +183,17 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
           addOutput('ファイル内容が取得できません', 'error');
           return;
         }
-        // NEW-ARCHITECTURE: runPythonWithSyncで自動同期
+        // runPythonWithSyncで自動同期
         const pythonResult = await runPythonWithSync(fileObj.content, currentProject.id);
-        addOutput(String(pythonResult), 'log');
+        if (pythonResult.stderr) {
+          addOutput(pythonResult.stderr, 'error');
+        } else if (pythonResult.stdout) {
+          addOutput(pythonResult.stdout, 'log');
+        } else if (pythonResult.result) {
+          addOutput(String(pythonResult.result), 'log');
+        } else {
+          addOutput('No output', 'log');
+        }
       }
     } catch (error) {
       addOutput(`Error: ${(error as Error).message}`, 'error');

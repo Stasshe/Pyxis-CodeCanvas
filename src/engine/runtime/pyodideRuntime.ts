@@ -228,17 +228,60 @@ function createDirectoryRecursive(pyodide: PyodideInterface, path: string): void
 export async function runPythonWithSync(
   code: string,
   projectId: string
-): Promise<any> {
+): Promise<{ result: any; stdout: string; stderr: string }> {
   const pyodide = await initPyodide();
-  
+
   // 実行前: IndexedDBからPyodideへ同期
   await syncPyodideFromIndexedDB(projectId);
-  
-  // Pythonコードを実行
-  const result = await pyodide.runPythonAsync(code);
-  
-  // 実行後: PyodideからIndexedDBへ同期（自動的にGitFileSystemにも同期される）
+
+  // stdout/stderrを一時バッファに退避
+  let stdoutBuffer = '';
+  let stderrBuffer = '';
+  const origStdout = pyodideInstance && (pyodideInstance as any).stdout;
+  const origStderr = pyodideInstance && (pyodideInstance as any).stderr;
+
+  // Pyodideのstdout/stderrをフック
+  (pyodideInstance as any).stdout = (msg: string) => {
+    stdoutBuffer += msg + '\n';
+  };
+  (pyodideInstance as any).stderr = (msg: string) => {
+    stderrBuffer += msg + '\n';
+  };
+
+  let result: any = undefined;
+  try {
+    result = await pyodide.runPythonAsync(code);
+  } finally {
+    // stdout/stderrを元に戻す
+    if (origStdout) (pyodideInstance as any).stdout = origStdout;
+    if (origStderr) (pyodideInstance as any).stderr = origStderr;
+  }
+
+  // 実行後: PyodideからIndexedDBへ同期
   await syncPyodideToIndexedDB(projectId);
-  
-  return result;
+
+  // result, stdout, stderrをJSON.stringifyでラップ（パース可能な場合のみ）
+  let safeResult = result;
+  let safeStdout = stdoutBuffer.trim();
+  let safeStderr = stderrBuffer.trim();
+
+  try {
+    if (typeof result === 'object' && result !== null) {
+      safeResult = JSON.stringify(result);
+    }
+  } catch {}
+  try {
+    if (safeStdout && (safeStdout.startsWith('{') || safeStdout.startsWith('['))) {
+      JSON.parse(safeStdout); // パースできる場合のみ
+    }
+  } catch {
+    // パースできない場合はそのまま
+  }
+  try {
+    if (safeStderr && (safeStderr.startsWith('{') || safeStderr.startsWith('['))) {
+      JSON.parse(safeStderr);
+    }
+  } catch {}
+
+  return { result: safeResult, stdout: safeStdout, stderr: safeStderr };
 }
