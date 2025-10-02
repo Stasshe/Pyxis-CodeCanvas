@@ -1,0 +1,13 @@
+# Gemini API 2025年10月時点の利用可能モデル調査
+
+- Gemini 1.5 Pro, Gemini 1.5 Flash, Gemini 1.5 Flash 8B などは2025年夏ごろまでは利用可能だったが、
+  2025年10月時点ではGoogle公式AI Studio/APIのモデル選択肢から消えている。
+- 現在（2025年10月）、Google Gemini APIで利用できるのは「gemini-2.0-flash」系のみ。
+- 公式ドキュメントやAI Studioのモデル選択画面でも1.5系は非表示。
+- 1.5系IDを指定してAPIリクエストしても404や"model not found"エラーとなる。
+
+## 結論
+- 利用可能: gemini-2.0-flash
+- 利用不可: gemini-1.5-pro, gemini-1.5-flash, gemini-1.5-flash-8b
+
+（2025年10月2日調査）

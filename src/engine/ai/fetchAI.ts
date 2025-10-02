@@ -1,12 +1,15 @@
 // src/utils/ai/geminiClient.ts
-const GEMINI_API_URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+const GEMINI_API_BASE_URL =
+  'https://generativelanguage.googleapis.com/v1beta/models';
 
-export async function generateCodeEdit(prompt: string, apiKey: string): Promise<string> {
+export async function generateCodeEdit(prompt: string, apiKey: string, modelId?: string): Promise<string> {
   if (!apiKey) throw new Error('Gemini API key is missing');
 
+  const model = modelId || 'gemini-2.0-flash';
+  const apiUrl = `${GEMINI_API_BASE_URL}/${model}:generateContent`;
+
   try {
-    const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
+    const response = await fetch(`${apiUrl}?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -40,16 +43,20 @@ export async function generateCodeEdit(prompt: string, apiKey: string): Promise<
 export async function generateChatResponse(
   message: string,
   context: string[],
-  apiKey: string
+  apiKey: string,
+  modelId?: string
 ): Promise<string> {
   if (!apiKey) throw new Error('Gemini API key is missing');
+
+  const model = modelId || 'gemini-2.0-flash-exp';
+  const apiUrl = `${GEMINI_API_BASE_URL}/${model}:generateContent`;
 
   const contextText = context.length > 0 ? `\n\n参考コンテキスト:\n${context.join('\n---\n')}` : '';
 
   const prompt = `${message}${contextText}`;
 
   try {
-    const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
+    const response = await fetch(`${apiUrl}?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

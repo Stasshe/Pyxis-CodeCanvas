@@ -56,7 +56,7 @@ export function useAI(props?: UseAIProps) {
 
   // メッセージを送信（Ask/Edit統合）
   const sendMessage = useCallback(
-    async (content: string, mode: 'ask' | 'edit'): Promise<AIEditResponse | null> => {
+    async (content: string, mode: 'ask' | 'edit', modelId?: string): Promise<AIEditResponse | null> => {
       const apiKey = localStorage.getItem(LOCALSTORAGE_KEY.GEMINI_API_KEY);
       if (!apiKey) {
         throw new Error('Gemini APIキーが設定されていません。設定画面で設定してください。');
@@ -86,14 +86,14 @@ export function useAI(props?: UseAIProps) {
         if (mode === 'ask') {
           // Ask モード
           const prompt = ASK_PROMPT_TEMPLATE(selectedFiles, content, previousMessages);
-          const response = await generateChatResponse(prompt, [], apiKey);
+          const response = await generateChatResponse(prompt, [], apiKey, modelId);
 
           await addMessage(response, 'assistant', 'ask');
           return null;
         } else {
           // Edit モード
           const prompt = EDIT_PROMPT_TEMPLATE(selectedFiles, content, previousMessages);
-          const response = await generateCodeEdit(prompt, apiKey);
+          const response = await generateCodeEdit(prompt, apiKey, modelId);
 
           // レスポンスをパース
           const allOriginalFiles = [

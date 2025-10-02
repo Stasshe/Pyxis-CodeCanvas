@@ -8,7 +8,7 @@ import { useChatSpace } from '@/hooks/ai/useChatSpace';
 import { useAI } from '@/hooks/ai/useAI';
 import { useAIReview } from '@/hooks/useAIReview';
 import { buildAIFileContextList } from '@/engine/ai/contextBuilder';
-import { LOCALSTORAGE_KEY } from '@/context/config';
+import { LOCALSTORAGE_KEY, AI_MODELS, DEFAULT_VALUES } from '@/context/config';
 import ChatContainer from './chat/ChatContainer';
 import ChatInput from './chat/ChatInput';
 import ModeSelector from './chat/ModeSelector';
@@ -43,6 +43,8 @@ export default function AIPanel({
   const [mode, setMode] = useState<'ask' | 'edit'>('ask');
   const [isFileSelectorOpen, setIsFileSelectorOpen] = useState(false);
   const [showSpaceList, setShowSpaceList] = useState(false);
+  const [showModelSelector, setShowModelSelector] = useState(false);
+  const [selectedModel, setSelectedModel] = useState<string>( DEFAULT_VALUES.AI_MODEL);
 
   // チャットスペース管理
   const {
@@ -94,6 +96,12 @@ export default function AIPanel({
     return !!localStorage.getItem(LOCALSTORAGE_KEY.GEMINI_API_KEY);
   };
 
+  // モデル変更ハンドラー
+  const handleModelChange = (modelId: string) => {
+    setSelectedModel(modelId);
+    setShowModelSelector(false);
+  };
+
   // メッセージ送信ハンドラー
   const handleSendMessage = async (content: string) => {
     if (!isApiKeySet()) {
@@ -107,7 +115,7 @@ export default function AIPanel({
     }
 
     try {
-      await sendMessage(content, mode);
+      await sendMessage(content, mode, selectedModel);
     } catch (error) {
       console.error('Failed to send message:', error);
       alert(`エラーが発生しました: ${(error as Error).message}`);
@@ -246,6 +254,62 @@ export default function AIPanel({
                   onDeleteSpace={deleteSpace}
                   onUpdateSpaceName={updateSpaceName}
                 />
+              </div>
+            )}
+          </div>
+
+          {/* モデル選択 */}
+          <div className="relative">
+            <button
+              className="flex items-center gap-2 px-3 py-1.5 rounded-md hover:opacity-80 transition-all text-sm"
+              style={{
+                background: colors.mutedBg,
+                color: colors.foreground,
+                border: `1px solid ${colors.border}`,
+              }}
+              onClick={() => setShowModelSelector(!showModelSelector)}
+            >
+              <span className="max-w-32 truncate">
+                {AI_MODELS.find(m => m.id === selectedModel)?.name || 'モデル'}
+              </span>
+              <ChevronDown size={14} />
+            </button>
+
+            {showModelSelector && (
+              <div
+                className="absolute top-full right-0 mt-2 w-72 rounded-lg border shadow-xl z-50"
+                style={{
+                  background: colors.cardBg,
+                  borderColor: colors.border,
+                }}
+              >
+                <div className="p-2">
+                  {AI_MODELS.map(model => (
+                    <button
+                      key={model.id}
+                      className="w-full text-left px-3 py-2 rounded-md hover:opacity-80 transition-all flex items-center justify-between"
+                      style={{
+                        background:
+                          selectedModel === model.id ? colors.mutedBg : 'transparent',
+                        color: colors.foreground,
+                      }}
+                      onClick={() => handleModelChange(model.id)}
+                    >
+                      <span className="text-sm">{model.name}</span>
+                      {model.fast && (
+                        <span
+                          className="text-xs px-2 py-0.5 rounded"
+                          style={{
+                            background: colors.accent,
+                            color: colors.background,
+                          }}
+                        >
+                          Fast
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
