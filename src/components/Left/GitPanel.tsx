@@ -15,6 +15,7 @@ import {
   User,
   Minus,
   RotateCcw,
+  Upload,
 } from 'lucide-react';
 import { GitRepository, GitCommit as GitCommitType, GitStatus } from '@/types/git';
 import { GitCommands } from '@/engine/cmd/git';
@@ -438,6 +439,34 @@ export default function GitPanel({
     }
   };
 
+  // Push処理
+  const [isPushing, setIsPushing] = useState(false);
+  const handlePush = async () => {
+    if (!gitCommands) return;
+
+    try {
+      setIsPushing(true);
+      setError(null);
+      console.log('[GitPanel] Starting push process...');
+
+      const result = await gitCommands.push();
+      console.log('[GitPanel] Push completed:', result);
+      alert(result); // 成功メッセージを表示
+
+      // Push成功後、ステータスを更新
+      setTimeout(() => {
+        fetchGitStatus();
+      }, 500);
+    } catch (error) {
+      console.error('Failed to push:', error);
+      const errorMessage = error instanceof Error ? error.message : 'プッシュに失敗しました';
+      setError(errorMessage);
+      alert(`Push failed: ${errorMessage}`);
+    } finally {
+      setIsPushing(false);
+    }
+  };
+
   // コミットメッセージ自動生成
   const handleGenerateCommitMessage = async () => {
     if (!gitCommands || !apiKey) return;
@@ -759,6 +788,48 @@ export default function GitPanel({
               {isCommitting ? 'コミット中...' : 'コミット'}
             </button>
           </div>
+
+          {/* Pushボタン */}
+          <button
+            onClick={handlePush}
+            disabled={isPushing}
+            style={{
+              width: '100%',
+              marginTop: '0.5rem',
+              background: '#3b82f6',
+              color: 'white',
+              borderRadius: '0.375rem',
+              padding: '0.5rem 1rem',
+              fontSize: '0.75rem',
+              fontWeight: 500,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem',
+              border: 'none',
+              cursor: isPushing ? 'not-allowed' : 'pointer',
+              opacity: isPushing ? 0.5 : 1,
+            }}
+            className="select-none"
+            title="GitHubにプッシュ（要認証）"
+          >
+            {isPushing ? (
+              <RefreshCw
+                style={{
+                  width: '0.75rem',
+                  height: '0.75rem',
+                  animation: 'spin 1s linear infinite',
+                }}
+                className="select-none"
+              />
+            ) : (
+              <Upload
+                style={{ width: '0.75rem', height: '0.75rem' }}
+                className="select-none"
+              />
+            )}
+            {isPushing ? 'プッシュ中...' : 'Push to GitHub'}
+          </button>
         </div>
       )}
 

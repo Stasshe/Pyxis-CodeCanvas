@@ -842,7 +842,7 @@ export class GitCommands {
   // git merge - ブランチをマージ
   async merge(
     branchName: string,
-    options: { noFf?: boolean; message?: string } = {}
+    options: { noFf?: boolean; message?: string; abort?: boolean } = {}
   ): Promise<string> {
     const mergeOperations = new GitMergeOperations(
       this.fs,
@@ -854,6 +854,7 @@ export class GitCommands {
     return await mergeOperations.merge(branchName, {
       noFf: options.noFf,
       message: options.message,
+      abort: options.abort,
     });
   }
 
@@ -957,5 +958,54 @@ export class GitCommands {
     } catch (e) {
       throw new Error(`Failed to read file at commit ${commitId}: ${(e as Error).message}`);
     }
+  }
+
+  // ========================================
+  // リモート操作
+  // ========================================
+
+  /**
+   * git push - リモートにプッシュ
+   */
+  async push(options: {
+    remote?: string;
+    branch?: string;
+    force?: boolean;
+  } = {}): Promise<string> {
+    await this.ensureGitRepository();
+    
+    // 動的インポートで循環参照を回避
+    const { push } = await import('./gitOperations/push');
+    return push(this.fs, this.dir, options);
+  }
+
+  /**
+   * git remote add - リモートを追加
+   */
+  async addRemote(remote: string, url: string): Promise<string> {
+    await this.ensureGitRepository();
+    
+    const { addRemote } = await import('./gitOperations/push');
+    return addRemote(this.fs, this.dir, remote, url);
+  }
+
+  /**
+   * git remote - リモート一覧を取得
+   */
+  async listRemotes(): Promise<string> {
+    await this.ensureGitRepository();
+    
+    const { listRemotes } = await import('./gitOperations/push');
+    return listRemotes(this.fs, this.dir);
+  }
+
+  /**
+   * git remote remove - リモートを削除
+   */
+  async deleteRemote(remote: string): Promise<string> {
+    await this.ensureGitRepository();
+    
+    const { deleteRemote } = await import('./gitOperations/push');
+    return deleteRemote(this.fs, this.dir, remote);
   }
 }

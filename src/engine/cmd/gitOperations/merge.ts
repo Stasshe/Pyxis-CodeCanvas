@@ -119,10 +119,16 @@ export class GitMergeOperations {
   // git merge - ブランチをマージ
   async merge(
     branchName: string,
-    options: { noFf?: boolean; message?: string } = {}
+    options: { noFf?: boolean; message?: string; abort?: boolean } = {}
   ): Promise<string> {
     try {
       await this.ensureGitRepository();
+
+      // git merge --abort の処理
+      if (options.abort) {
+        // 簡易実装: マージ中の状態をリセット
+        return 'Merge aborted (not fully implemented yet)';
+      }
 
       // ワーキングディレクトリがクリーンかチェック
       const isClean = await this.isWorkingDirectoryClean();

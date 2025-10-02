@@ -243,6 +243,55 @@ export async function handleGitCommand(
       }
       break;
 
+    case 'push':
+      // git push [remote] [branch] [--force]
+      const remote = args[1] && !args[1].startsWith('-') ? args[1] : undefined;
+      const branch = args[2] && !args[2].startsWith('-') ? args[2] : undefined;
+      const force = args.includes('--force') || args.includes('-f');
+
+      try {
+        const pushResult = await gitCommandsRef.current.push({
+          remote,
+          branch,
+          force,
+        });
+        await writeOutput(pushResult);
+      } catch (error) {
+        await writeOutput(`git push: ${(error as Error).message}`);
+      }
+      break;
+
+    case 'remote':
+      // git remote add/remove/list
+      if (args[1] === 'add' && args[2] && args[3]) {
+        // git remote add <name> <url>
+        try {
+          const addResult = await gitCommandsRef.current.addRemote(args[2], args[3]);
+          await writeOutput(addResult);
+        } catch (error) {
+          await writeOutput(`git remote add: ${(error as Error).message}`);
+        }
+      } else if (args[1] === 'remove' && args[2]) {
+        // git remote remove <name>
+        try {
+          const removeResult = await gitCommandsRef.current.deleteRemote(args[2]);
+          await writeOutput(removeResult);
+        } catch (error) {
+          await writeOutput(`git remote remove: ${(error as Error).message}`);
+        }
+      } else if (args[1] === '-v' || !args[1]) {
+        // git remote [-v]
+        try {
+          const listResult = await gitCommandsRef.current.listRemotes();
+          await writeOutput(listResult);
+        } catch (error) {
+          await writeOutput(`git remote: ${(error as Error).message}`);
+        }
+      } else {
+        await writeOutput('git remote: invalid command\nUsage: git remote [-v] | git remote add <name> <url> | git remote remove <name>');
+      }
+      break;
+
     default:
       await writeOutput(`git: '${gitCmd}' is not a git command`);
       break;
