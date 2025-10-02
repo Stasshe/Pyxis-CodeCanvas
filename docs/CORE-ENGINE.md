@@ -44,7 +44,7 @@ graph TB
 | **GitFileSystem** | lightning-fs management, Git operations | ✅ For read-only | ✅ For writes |
 | **SyncManager** | Sync coordination between storages | ❌ No | ✅ Yes |
 | **Project Hook** | React integration layer | ✅ In React components | - |
-| **database.ts** | Backward compatibility wrapper | ⚠️ Legacy only | ✅ Delegates to FileRepository |
+| **database.ts** | Backward compatibility wrapper | ⚠️ Still used (e.g., useChatSpace) | ✅ Delegates to FileRepository |
 | **filesystem.ts** | Backward compatibility wrapper | ⚠️ Legacy only | ✅ Delegates to GitFileSystem |
 
 ---
@@ -61,7 +61,6 @@ graph TB
         A[Public API]
         B[Event System]
         C[IndexedDB Operations]
-        D[Cache Management]
     end
     
     subgraph External
@@ -75,10 +74,9 @@ graph TB
     C -->|Triggers| B
     B -->|Notifies| G
     A -->|Auto-triggers| F
-    
-    A -->|Updates| D
-    C -->|Reads| D
 ```
+
+> **注意**: FileRepositoryは軽量なprojectNameCacheのみ実装。プロジェクト全体やファイルのキャッシュは行いません。
 
 ### 2.2 Database Schema
 
@@ -165,25 +163,17 @@ sequenceDiagram
     REPO-->>APP: Return project
 ```
 
-**Load Project:**
+**Load Projects:**
 ```mermaid
 sequenceDiagram
     participant APP as Application
     participant REPO as FileRepository
     participant IDB as IndexedDB
-    participant CACHE as Cache
 
-    APP->>REPO: getProject(id)
-    REPO->>CACHE: Check cache
-    alt Cache hit
-        CACHE-->>REPO: Return cached
-        REPO-->>APP: Return project
-    else Cache miss
-        REPO->>IDB: Query project
-        IDB-->>REPO: Project data
-        REPO->>CACHE: Update cache
-        REPO-->>APP: Return project
-    end
+    APP->>REPO: getProjects()
+    REPO->>IDB: Query all projects
+    IDB-->>REPO: Project data
+    REPO-->>APP: Return projects[]
 ```
 
 #### File Operations
@@ -811,16 +801,9 @@ graph LR
 - Smoother user experience
 
 **Cache Strategy:**
-```mermaid
-graph TB
-    A[Request] --> B{Cache?}
-    B -->|Hit| C[Return cached]
-    B -->|Miss| D[Query DB]
-    D --> E[Cache result]
-    E --> F[Return data]
-    
-    G[Write operation] --> H[Invalidate cache]
-```
+
+現在実装されているキャッシュは、`projectNameCache` (projectId → projectName のマッピング) のみです。
+プロジェクトやファイルの全体キャッシュは実装されておらず、毎回IndexedDBから読み取られます。
 
 ---
 
@@ -934,6 +917,6 @@ await fileRepository.saveFile(...)
 
 ---
 
-**Last Updated**: 2025-10-02  
-**Version**: 0.6  
-**Status**: Complete
+**Last Updated**: 2025-01-02  
+**Version**: 0.7  
+**Status**: Verified - Cache実装の実態を正確に記述

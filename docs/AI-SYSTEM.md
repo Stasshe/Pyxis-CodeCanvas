@@ -599,17 +599,10 @@ sequenceDiagram
     PROMPT->>PROMPT: Inject context
     PROMPT-->>UI: Final prompt
     
-    UI->>CACHE: Check cache
-    
-    alt Cache hit
-        CACHE-->>UI: Cached response
-    else Cache miss
-        UI->>API_CLIENT: Request AI
-        API_CLIENT->>API: HTTP POST
-        API-->>API_CLIENT: Response
-        API_CLIENT->>CACHE: Store response
-        API_CLIENT-->>UI: Parsed response
-    end
+    UI->>API_CLIENT: Request AI
+    API_CLIENT->>API: HTTP POST
+    API-->>API_CLIENT: Response
+    API_CLIENT-->>UI: Parsed response
     
     UI->>UI: Process response
     UI-->>USER: Display result
@@ -705,138 +698,55 @@ sequenceDiagram
     PARSER-->>OUTPUT: Complete output
 ```
 
-### 5.2 Response Caching
+### 5.2 Chat Space - Conversation History Persistence
 
-**Cache Strategy:**
+**Chat Space Overview:**
+
+Pyxis CodeCanvasでは、AIとの会話履歴を「チャットスペース」として管理・永続化します。これにより、過去の会話を参照しながら継続的な開発支援を受けられます。
+
+**Chat Space Features:**
+
+- 1プロジェクトあたり最大10個のチャットスペースを保持
+- 各スペースは独立したメッセージ履歴と選択ファイルを保持
+- IndexedDBに永続化され、ブラウザを閉じても保存される
+- 古いスペースは自動的に削除（LRUベース）
+
+**Storage Structure:**
 
 ```mermaid
 graph TB
-    A[AI Request] --> B[Generate Cache Key]
-    B --> C[Hash: Prompt + Context]
-    C --> D{Cache Exists?}
+    A[Chat Space] --> B[Messages]
+    A --> C[Selected Files]
+    A --> D[Metadata]
     
-    D -->|Yes| E{Fresh?}
-    D -->|No| F[Make API Call]
+    B --> B1[User Messages]
+    B --> B2[Assistant Responses]
+    B --> B3[Edit Responses]
     
-    E -->|Yes| G[Return Cached]
-    E -->|No| F
+    C --> C1[File Paths]
     
-    F --> H[Store in Cache]
-    H --> I[Return Response]
-    
-    G --> J[Update Access Time]
+    D --> D1[Space Name]
+    D --> D2[Created/Updated Time]
 ```
 
-**Cache Key Generation:**
-
-| Component | Weight | Purpose |
-|-----------|--------|---------|
-| Prompt hash | High | Identify unique request |
-| Context hash | High | Include file changes |
-| User ID | Medium | User-specific cache |
-| Timestamp | Low | Cache freshness |
-
-**Cache Invalidation:**
-
-- File content changes: Invalidate related cache entries
-- Time-based: Expire after 1 hour
-- Size-based: LRU eviction when limit reached
-- Manual: User can clear cache
+**Note:** 現在、APIレスポンス自体のキャッシュ機能は実装されていません。各リクエストは毎回Gemini APIに送信されます。
 
 ---
 
 ## 6. AI Performance Optimization
 
-### 6.1 Request Batching
-
-**Batch Strategy:**
-
-```mermaid
-sequenceDiagram
-    participant USER as User
-    participant UI as UI
-    participant BATCH as Batch Queue
-    participant API as API Client
-
-    USER->>UI: Request 1
-    UI->>BATCH: Add to queue
-    
-    USER->>UI: Request 2
-    UI->>BATCH: Add to queue
-    
-    USER->>UI: Request 3
-    UI->>BATCH: Add to queue
-    
-    Note over BATCH: Wait 100ms
-    
-    BATCH->>API: Send batch request
-    API-->>BATCH: Batch response
-    
-    BATCH->>UI: Distribute responses
-    UI-->>USER: Show results
-```
-
-### 6.2 Context Optimization
-
-**Token Management:**
-
-```mermaid
-graph TB
-    A[Full Context] --> B[Calculate Tokens]
-    B --> C{Over Limit?}
-    
-    C -->|No| D[Use Full Context]
-    C -->|Yes| E[Prioritize Content]
-    
-    E --> F[Keep Essential]
-    F --> G[Truncate Low Priority]
-    G --> H[Summarize Long Content]
-    H --> I[Optimized Context]
-```
-
-**Optimization Techniques:**
-
-| Technique | Description | Token Savings |
-|-----------|-------------|---------------|
-| Truncation | Cut long files | Up to 50% |
-| Summarization | Summarize large files | Up to 70% |
-| Deduplication | Remove duplicate context | Variable |
-| Compression | Remove whitespace/comments | Up to 20% |
+> **注意**: 現在、以下のパフォーマンス最適化機能は実装されていません:
+> - リクエストのバッチ処理
+> - コンテキストの自動最適化(トランケート、要約、重複排除)
+> - トークン制限の自動管理
+>
+> ユーザーは選択ファイルを手動で管理し、各リクエストは個別に送信されます。
 
 ---
 
 ## 7. AI Security and Privacy
 
-### 7.1 Data Handling
-
-**Privacy Principles:**
-
-```mermaid
-graph TB
-    A[User Code] --> B{Send to AI?}
-    B -->|Yes| C[User Consent]
-    B -->|No| D[Local Processing]
-    
-    C --> E[Sanitize Sensitive Data]
-    E --> F[Encrypt in Transit]
-    F --> G[API Request]
-    
-    G --> H[Process in Cloud]
-    H --> I[Delete After Response]
-    
-    D --> J[No Network Call]
-```
-
-**Sensitive Data Filtering:**
-
-| Data Type | Action | Reason |
-|-----------|--------|--------|
-| API Keys | Remove | Security risk |
-| Passwords | Remove | Security risk |
-| Personal Info | Anonymize | Privacy |
-| Proprietary Code | User choice | Compliance |
-
-### 7.2 API Key Management
+### 7.1 API Key Management
 
 **Key Storage:**
 
@@ -848,22 +758,27 @@ sequenceDiagram
     participant AI as AI Engine
 
     USER->>UI: Enter API key
-    UI->>UI: Validate format
-    UI->>LS: Store encrypted key
+    UI->>LS: Store key (plain text)
     LS-->>UI: Saved
     
     Note over AI: On AI request
     AI->>LS: Retrieve key
-    LS-->>AI: Decrypted key
+    LS-->>AI: API key
     AI->>AI: Use for request
-    AI->>AI: Clear from memory
 ```
 
 **Key Security:**
-- Never logged or displayed in full
-- Stored in localStorage (browser-level encryption)
-- Not sent to any server except Gemini API
-- User can revoke at any time
+- Stored in localStorage as plain text (ブラウザのセキュリティに依存)
+- Gemini API以外には送信されない
+- ユーザーはいつでも設定から削除可能
+
+> **注意**: 現在、以下のセキュリティ機能は実装されていません:
+> - APIキーの暗号化保存
+> - センシティブデータのフィルタリング(パスワード、個人情報など)
+> - コンテキストの自動サニタイズ
+> - データの匿名化処理
+>
+> ユーザーは手動でセンシティブな情報を含むファイルを選択から除外する必要があります。
 
 ---
 
@@ -901,27 +816,6 @@ graph TB
 
 ---
 
-## 9. Future AI Enhancements
-
-### 9.1 Planned Features
-
-- **Multi-Model Support**: Support for multiple AI providers
-- **Local AI Models**: Run models locally in browser (WebGPU)
-- **Fine-Tuning**: Custom model training on user code
-- **Collaborative AI**: Shared AI context in team projects
-- **Voice Input**: Voice-to-code functionality
-- **AI Debugging**: AI-assisted debugging and profiling
-
-### 9.2 Research Areas
-
-- **Code Generation**: Full feature generation from specs
-- **Test Generation**: Automated test case creation
-- **Documentation**: Auto-generated documentation
-- **Code Migration**: Automated refactoring and upgrades
-- **Performance Analysis**: AI-driven optimization suggestions
-
----
-
 ## Related Documents
 
 - [SYSTEM-OVERVIEW.md](./SYSTEM-OVERVIEW.md) - System architecture
@@ -930,6 +824,6 @@ graph TB
 
 ---
 
-**Last Updated**: 2025-10-02  
-**Version**: 0.6  
-**Status**: Complete
+**Last Updated**: 2025-01-02  
+**Version**: 0.7  
+**Status**: Verified - 未実装機能の推測記述を削除

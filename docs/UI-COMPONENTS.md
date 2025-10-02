@@ -30,10 +30,9 @@ graph TB
     
     E --> E1[Terminal]
     E --> E2[Output]
-    E --> E3[Problems]
+    E --> E3[DebugConsole]
     
-    F --> F1[AI Chat]
-    F --> F2[File Info]
+    F --> F1[AIPanel]
     
     G --> G1[ProjectModal]
     G --> G2[FileSelectModal]
@@ -78,35 +77,7 @@ page.tsxは、アプリケーション全体の状態とレイアウトを管理
 
 ### 2.1 State Management
 
-**Main State Categories:**
-
-```mermaid
-graph TB
-    subgraph Page State
-        A[Layout State]
-        B[Editor State]
-        C[Project State]
-        D[UI Flags]
-    end
-    
-    A --> A1[Sidebar widths]
-    A --> A2[Panel heights]
-    A --> A3[Visibility flags]
-    
-    B --> B1[Editor panes]
-    B --> B2[Active tabs]
-    B --> B3[Tab contents]
-    
-    C --> C1[Current project]
-    C --> C2[Project files]
-    C --> C3[Git status]
-    
-    D --> D1[Modal states]
-    D --> D2[Loading flags]
-    D --> D3[Operation flags]
-```
-
-**State Variables:**
+**主要なState変数:**
 
 | Category | State | Type | Persistence |
 |----------|-------|------|-------------|
@@ -126,55 +97,19 @@ graph TB
 
 ### 2.2 Initialization Flow
 
-```mermaid
-sequenceDiagram
-    participant BROWSER as Browser
-    participant PAGE as page.tsx
-    participant LS as localStorage
-    participant REPO as FileRepository
-    participant HOOK as useProject
+1. localStorageからレイアウト復元
+2. useProjectでFileRepository初期化
+3. 前回のプロジェクトがあれば読み込み
+4. イベントリスナー設定
+5. UI レンダリング
 
-    BROWSER->>PAGE: Mount component
-    PAGE->>LS: Load editor layout
-    LS-->>PAGE: Layout data
-    PAGE->>PAGE: Restore panes and tabs
-    PAGE->>PAGE: Set isRestoredFromLocalStorage = true
-    
-    PAGE->>HOOK: Initialize useProject
-    HOOK->>REPO: Initialize IndexedDB
-    REPO-->>HOOK: Ready
-    
-    alt Has last project in localStorage
-        PAGE->>LS: Get last project ID
-        LS-->>PAGE: Project ID
-        PAGE->>HOOK: loadProject(projectId)
-        HOOK-->>PAGE: Project loaded
-    end
-    
-    PAGE->>PAGE: Setup event listeners
-    PAGE->>PAGE: Render UI
-```
+### 2.3 主要なuseEffect
 
-### 2.3 Effect Dependencies
-
-**Key useEffect Hooks:**
-
-```mermaid
-graph TB
-    A[useEffect: Restore from localStorage] --> B[Dependency: none]
-    C[useEffect: Save to localStorage] --> D[Dependency: editors]
-    E[useEffect: Project file sync] --> F[Dependency: projectFiles, currentProject]
-    G[useEffect: Tab content restore] --> H[Dependency: editors, isRestoredFromLocalStorage]
-    I[useEffect: Git monitoring] --> J[Dependency: currentProject, gitRefreshTrigger]
-```
-
-**Effect Execution Order:**
-1. Restore layout from localStorage (on mount)
-2. Initialize FileRepository and useProject
-3. Load last project (if exists)
-4. Setup git monitoring
-5. Sync tab contents with project files
-6. Setup auto-save to localStorage
+- localStorage復元 (マウント時)
+- localStorage自動保存 (editors変更時)
+- プロジェクトファイル同期 (projectFiles, currentProject変更時)
+- タブコンテンツ復元 (editors, isRestoredFromLocalStorage)
+- Git監視 (currentProject, gitRefreshTrigger)
 
 ### 2.4 Event Handlers
 
@@ -386,96 +321,37 @@ sequenceDiagram
 
 ### 4.1 LeftSidebar
 
-```mermaid
-graph TB
-    A[LeftSidebar] --> B{Active Tab}
-    B -->|files| C[FileExplorer]
-    B -->|git| D[GitPanel]
-    B -->|search| E[SearchPanel]
-    B -->|settings| F[SettingsPanel]
-    
-    C --> C1[Project Selector]
-    C --> C2[File Tree]
-    C --> C3[File Actions]
-    
-    D --> D1[Changes List]
-    D --> D2[Commit Form]
-    D --> D3[Branch Info]
-    
-    E --> E1[Search Input]
-    E --> E2[Results List]
-```
+**Active Tabs:**
 
-**FileExplorer Features:**
+| Tab | Component | Purpose |
+|-----|-----------|---------|
+| `files` | FileTree | ファイルエクスプローラー |
+| `search` | SearchPanel | ファイル検索 |
+| `git` | GitPanel | Git操作とステータス |
+| `run` | RunPanel | スクリプト実行 |
+| `settings` | SettingsPanel | 設定管理 |
 
-- Hierarchical file tree display
-- Drag-and-drop support
-- Context menu for file operations
-- New file/folder creation
-- File deletion
-- File renaming
+**各パネルの機能:**
 
-**File Tree Rendering:**
-
-```mermaid
-sequenceDiagram
-    participant PAGE as page.tsx
-    participant SIDEBAR as LeftSidebar
-    participant TREE as FileTree
-    participant ITEM as FileItem
-
-    PAGE->>SIDEBAR: projectFiles prop
-    SIDEBAR->>TREE: Render tree
-    
-    loop For each item
-        TREE->>ITEM: Render item
-        
-        alt Item is folder
-            ITEM->>ITEM: Render folder icon
-            ITEM->>ITEM: Render expand/collapse
-            
-            alt Folder is expanded
-                ITEM->>TREE: Render children (recursive)
-            end
-        else Item is file
-            ITEM->>ITEM: Render file icon
-            ITEM->>ITEM: Render file name
-        end
-    end
-```
-
-**GitPanel Features:**
-
-- Display changed files
-- Stage/unstage files
-- Commit with message
-- Branch management
-- View commit history
+- **FileTree**: 階層ファイルツリー、ドラッグ&ドロップ、コンテキストメニュー、ファイル/フォルダ作成・削除・リネーム
+- **SearchPanel**: ファイル内容検索
+- **GitPanel**: 変更ファイル表示、ステージング、コミット、ブランチ管理、履歴表示
+- **RunPanel**: スクリプト実行
+- **SettingsPanel**: 設定管理(APIキー、エディター設定など)
 
 ### 4.2 RightSidebar
 
-```mermaid
-graph TB
-    A[RightSidebar] --> B[AI Chat]
-    A --> C[File Info Panel]
-    A --> D[Documentation]
-    
-    B --> B1[Chat History]
-    B --> B2[Message Input]
-    B --> B3[Context Selection]
-    
-    C --> C1[File Statistics]
-    C --> C2[File History]
-    C --> C3[AI Review Status]
-```
+RightSidebarはAIPanel専用のコンテナです。
 
-**AI Chat Features:**
+**役割:**
+- AIPanelをレンダリング
+- リサイズハンドル提供
+- 幅の管理(デフォルト240px)
 
-- Conversation history
-- Context-aware responses
-- File attachment support
-- Code snippet inclusion
-- Markdown rendering
+**内容:**
+- `children` prop経由で任意のコンテンツを表示可能
+- デフォルトでは`AIPanel`を表示
+- AIPanelが利用不可の場合はエラーメッセージ表示
 
 ---
 
@@ -485,19 +361,13 @@ graph TB
 
 ```mermaid
 graph TB
-    A[BottomPanel] --> B[Tab Selector]
-    A --> C[Panel Content]
-    
-    B --> B1[Terminal]
-    B --> B2[Output]
-    B --> B3[Problems]
-    B --> B4[Debug]
-    
-    C --> C1{Active Tab}
-    C1 -->|terminal| D[Terminal Component]
-    C1 -->|output| E[Output Component]
-    C1 -->|problems| F[Problems Component]
-```
+**BottomPanel Tabs:**
+
+| Tab | Component | Purpose |
+|-----|-----------|---------|
+| `terminal` | Terminal | コマンド実行 |
+| `output` | OutputPanel | システム出力表示 |
+| `debug` | DebugConsole | Python/JS実行結果 |
 
 ### 5.2 Terminal Component
 
@@ -634,60 +504,24 @@ graph TB
 
 ### 6.2 CodeEditor Component
 
-**Features:**
+**エディター実装:**
 
-- Monaco-based code editor
-- Syntax highlighting for multiple languages
-- Auto-completion and IntelliSense
-- Multi-cursor editing
-- Find and replace
-- Code folding
-- Minimap
-- Git diff indicators
+CodeEditorは2つのエディターをサポート:
+- **MonacoEditor**: デフォルト、フル機能
+- **CodeMirrorEditor**: `isCodeMirror` プロップで切り替え可能
 
-**Editor Initialization:**
+**共通機能:**
+- シンタックスハイライト
+- 行ジャンプ (jumpToLine/jumpToColumn)
+- ブレークポイント管理
+- 文字数カウント
+- デバウンス保存
+- Undo/Redo履歴
 
-```mermaid
-sequenceDiagram
-    participant COMP as CodeEditor
-    participant MONACO as Monaco Editor
-    participant THEME as Theme Context
-
-    COMP->>MONACO: Create editor instance
-    MONACO-->>COMP: Editor ready
-    
-    COMP->>THEME: Get current theme
-    THEME-->>COMP: Theme colors
-    
-    COMP->>MONACO: Apply theme
-    COMP->>MONACO: Set language
-    COMP->>MONACO: Set content
-    COMP->>MONACO: Set options
-    
-    MONACO-->>COMP: Configured
-    COMP->>COMP: Setup event listeners
-```
-
-**Content Synchronization:**
-
-```mermaid
-sequenceDiagram
-    participant USER as User
-    participant EDITOR as Monaco Editor
-    participant COMP as CodeEditor
-    participant PAGE as page.tsx
-
-    USER->>EDITOR: Edit content
-    EDITOR->>COMP: onChange event
-    COMP->>COMP: Update local state
-    COMP->>PAGE: Mark tab as dirty
-    PAGE->>PAGE: Update isDirty flag
-    
-    alt Auto-save enabled
-        COMP->>PAGE: Debounced save
-        PAGE->>PAGE: saveFile()
-    end
-```
+**コンテンツ同期:**
+- ユーザー編集 → onChange イベント → ローカル状態更新
+- タブをdirtyとしてマーク
+- デバウンス保存で自動保存
 
 ### 6.3 DiffTab Component
 
@@ -1026,6 +860,6 @@ graph TB
 
 ---
 
-**Last Updated**: 2025-10-02  
-**Version**: 0.6  
-**Status**: Complete
+**Last Updated**: 2025-01-02  
+**Version**: 0.7  
+**Status**: Verified - 未実装機能(Problems)削除、不要な図簡略化

@@ -106,6 +106,7 @@
 │   │   │   ├── TerminalGitCommands.tsx
 │   │   │   ├── TerminalNPMCommands.tsx
 │   │   │   └── TerminalUnixCommands.tsx
+│   │   ├── Confirmation.tsx
 │   │   ├── FileSelect.tsx
 │   │   ├── Left
 │   │   │   ├── FileTree.tsx
@@ -134,21 +135,22 @@
 │   │   │   ├── WebPreviewTab.tsx
 │   │   │   ├── WelcomeTab.tsx
 │   │   │   ├── markdownUtils.ts
-│   │   │   └── text-editor
-│   │   │       ├── editors
-│   │   │       │   ├── CodeMirrorEditor.tsx
-│   │   │       │   ├── MonacoEditor.tsx
-│   │   │       │   ├── codemirror-utils.ts
-│   │   │       │   └── editor-utils.ts
-│   │   │       ├── hooks
-│   │   │       │   ├── useCharCount.ts
-│   │   │       │   ├── useMonacoBreakpoints.ts
-│   │   │       │   └── useMonacoModels.ts
-│   │   │       ├── ui
-│   │   │       │   ├── CharCountDisplay.tsx
-│   │   │       │   └── EditorPlaceholder.tsx
-│   │   │       └── utils
-│   │   │           └── CharCountDetails.tsx
+│   │   │   ├── text-editor
+│   │   │   │   ├── editors
+│   │   │   │   │   ├── CodeMirrorEditor.tsx
+│   │   │   │   │   ├── MonacoEditor.tsx
+│   │   │   │   │   ├── codemirror-utils.ts
+│   │   │   │   │   └── editor-utils.ts
+│   │   │   │   ├── hooks
+│   │   │   │   │   ├── useCharCount.ts
+│   │   │   │   │   ├── useMonacoBreakpoints.ts
+│   │   │   │   │   └── useMonacoModels.ts
+│   │   │   │   ├── ui
+│   │   │   │   │   ├── CharCountDisplay.tsx
+│   │   │   │   │   └── EditorPlaceholder.tsx
+│   │   │   │   └── utils
+│   │   │   │       └── CharCountDetails.tsx
+│   │   │   └── useTabCloseConfirmation.tsx
 │   │   └── Toast.tsx
 │   ├── context
 │   │   ├── BreakpointContext.tsx
@@ -237,15 +239,11 @@
 ├── tree.txt
 └── tsconfig.json
 
-43 directories, 195 files
+43 directories, 197 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 31443
-合計文字数: 1065018
-合計ファイルサイズ(bytes): 1140631
+合計行数: 31575
+合計文字数: 1068638
+合計ファイルサイズ(bytes): 1144391
 
 リポジトリ全体のサイズ(bytes): 1.9G	.
-==========
-ビルト済みファイルの行数: 14777
-合計文字数: 22176700
-合計ファイルサイズ(bytes): 23106850
