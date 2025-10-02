@@ -176,8 +176,8 @@ graph TB
     D --> D3[os]
     D --> D4[process]
     D --> D5[buffer]
-    D --> D6[stream]
-    D --> D7[events]
+    D --> D6[http]
+    D --> D7[readline]
     D --> D8[util]
     
     E --> G[Load from GitFileSystem]
@@ -338,12 +338,11 @@ graph TB
 | Module | Purpose | Key APIs |
 |--------|---------|----------|
 | **buffer** | Binary data handling | Buffer.from, Buffer.alloc |
-| **events** | Event emitter | EventEmitter, on, emit |
-| **stream** | Streaming data | Readable, Writable, Transform |
+| **http** | HTTP client | request, get |
+| **readline** | Line-by-line input | createInterface, question |
 | **util** | Utility functions | promisify, inspect, format |
-| **crypto** | Cryptographic operations | createHash, randomBytes |
-| **url** | URL parsing | URL, URLSearchParams |
-| **querystring** | Query string handling | parse, stringify |
+
+> **注意**: events, stream, crypto, url, querystringは現在未実装です。
 
 ---
 
@@ -654,23 +653,15 @@ graph TB
     E --> J
 ```
 
-### 8.2 Supported Packages
+### 8.2 Package Loading
 
-**Pre-bundled Packages:**
+**外部パッケージ読み込み:**
 
-| Package | Version | Purpose |
-|---------|---------|---------|
-| lodash | Latest | Utility library |
-| axios | Latest | HTTP client |
-| moment | Latest | Date/time handling |
-| react | 18.x | UI library (limited) |
+現在、npm packageの動的読み込みは基本実装のみです。
+- CDN経由での読み込み機能は限定的
+- プロジェクト内のnode_modulesは未サポート
 
-**CDN-Loaded Packages:**
-
-Any ES module compatible package from:
-- unpkg.com
-- cdn.skypack.dev
-- esm.sh
+> **注意**: Pre-bundledパッケージやCDN自動読み込みは現在未実装です。
 
 ---
 
@@ -692,132 +683,19 @@ graph TB
     G --> H[Execute Code]
 ```
 
-### 9.2 Code Transformation Caching
 
-```mermaid
-sequenceDiagram
-    participant CODE as Source Code
-    participant CACHE as Transform Cache
-    participant TRANS as Transformer
-
-    CODE->>CACHE: Check cache
-    
-    alt Cache hit and fresh
-        CACHE-->>CODE: Transformed code
-    else Cache miss or stale
-        CODE->>TRANS: Transform code
-        TRANS-->>CODE: Transformed code
-        CODE->>CACHE: Store result
-    end
-```
-
-**Cache Key:**
-- File path
-- File content hash
-- Transformer version
 
 ---
 
-## 10. Limitations and Workarounds
+## 10. Testing and Debugging
 
-### 10.1 Known Limitations
+現在、専用のテストスイートやデバッグツール、セキュリティサンドボックスは実装されていません。
 
-| Limitation | Reason | Workaround |
-|------------|--------|------------|
-| No native modules | Browser environment | Use pure JS alternatives |
-| No child_process | Security restrictions | Not supported |
-| No network server | Browser limitations | Use mock servers |
-| Limited fs APIs | Virtual file system | Use supported APIs only |
-| No C/C++ addons | Browser environment | Use WASM alternatives |
-
-### 10.2 Future Improvements
-
-**Planned Enhancements:**
-
-- **Web Workers**: Execute code in background threads
-- **WASM Support**: Run compiled modules
-- **WebContainer Integration**: Use StackBlitz's WebContainer
-- **Better Module Resolution**: npm-style node_modules traversal
-- **Debugging Support**: Breakpoints and step execution
-- **Hot Module Replacement**: Auto-reload on changes
-
----
-
-## 11. Testing and Debugging
-
-### 11.1 Runtime Testing
-
-**Test Scenarios:**
-
-```mermaid
-graph TB
-    A[Test Suite] --> B[Module Loading]
-    A --> C[Code Transformation]
-    A --> D[Built-in Modules]
-    A --> E[Error Handling]
-    
-    B --> B1[Relative imports]
-    B --> B2[Absolute imports]
-    B --> B3[Package imports]
-    
-    C --> C1[ES6 to CJS]
-    C --> C2[Alias resolution]
-    
-    D --> D1[fs operations]
-    D --> D2[path operations]
-    D --> D3[process object]
-    
-    E --> E1[Syntax errors]
-    E --> E2[Runtime errors]
-    E --> E3[Module not found]
-```
-
-### 11.2 Debugging Tools
-
-**Debug Output:**
-
-- Console logs with source mapping
-- Stack traces with file/line info
-- Module load timing
-- Transform results
-
-**Debug Flags:**
-
-- `DEBUG_NODE_RUNTIME`: Runtime operations
-- `DEBUG_MODULE_LOADER`: Module loading
-- `DEBUG_TRANSFORMER`: Code transformation
-
----
-
-## 12. Security Considerations
-
-### 12.1 Sandbox Restrictions
-
-```mermaid
-graph TB
-    A[User Code] --> B[Sandbox]
-    
-    B --> C[Allowed]
-    B --> D[Blocked]
-    
-    C --> C1[File operations in project]
-    C --> C2[Console output]
-    C --> C3[Fetch to public APIs]
-    
-    D --> D1[Access to parent directory]
-    D --> D2[Execute native code]
-    D --> D3[Access to other projects]
-    D --> D4[Local network access]
-```
-
-### 12.2 Resource Limits
-
-| Resource | Limit | Action on Exceed |
-|----------|-------|------------------|
-| Execution time | 30 seconds | Terminate |
-| Memory usage | Browser limit | Warn user |
-| File size | 10MB | Reject operation |
-| Recursion depth | 1000 | Stack overflow error |
+コード実行は基本的にブラウザの制約に従います:
+- ネイティブモジュールは使用不可
+- `child_process`は使用不可
+- ネットワークサーバーは起動不可
+- ファイル操作はプロジェクト内のlightning-fs領域に限定
 
 ---
 
@@ -829,6 +707,6 @@ graph TB
 
 ---
 
-**Last Updated**: 2025-10-02  
-**Version**: 0.6  
-**Status**: Complete
+**Last Updated**: 2025-01-23  
+**Version**: 0.7  
+**Status**: Verified

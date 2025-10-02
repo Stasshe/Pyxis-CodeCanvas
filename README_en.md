@@ -23,49 +23,99 @@
 
 ## ✨ What is Pyxis?
 
-Imagine having a **complete development environment** that loads instantly in your browser - no downloads, no installations, no server connections. That's Pyxis! It's like having **VS Code + Node.js + Git** all bundled into a lightning-fast web app that works anywhere, even on your iPad.
+**Pyxis is a high-mobility browser IDE designed for iPad that launches in just 1 second.**
 
-> 💡 **Perfect for students, professionals, and anyone who wants to code without the hassle!**
-> 🖥️ **Now supports Tauri Desktop!** Use Pyxis as a native app on Windows, Mac, and Linux.
+### 🎯 Built For
 
-
----
-
-## 🚀 Revolutionary Features That Will Blow Your Mind
-
-### **Hot Module Replacement (HMR) - Live Edit!**
 <div align="center">
-  <img src="readme-assets/IMG_1465.png" alt="HMR in Action" width="80%" />
+
+| 📱 **iPad Users** | 💻 **PC Owners** |
+|:---:|:---:|
+| Serious coding on iPad | Not serious enough for VS Code |
+| Stackblitz is too heavy | Quick code edits |
+| Touch-optimized IDE | Extended note-taking |
+| Lightweight performance | Casual, instant access |
+
 </div>
 
-Build websites and see changes **instantly**! No refreshing, no waiting - just pure development bliss. Your code updates in real-time as you type, making web development feel like magic.
+### 🚀 Why Not Stackblitz?
+
+Stackblitz is a sophisticated IDE, but has these challenges:
+- **Heavy on iPad** - High memory consumption
+- **Web-focused** - Limited for other use cases
+- **Small screen issues** - Not mobile-optimized
+- **Touch UI problems** - Not optimized for iPad gestures
+
+**Pyxis solves these problems:**
+- ⚡ **1-second startup** - Serverless static hosting for instant launch
+- � **iPad-optimized** - Touch gestures and dual editor support
+- 🎨 **Versatile** - Not just web dev, but docs and notes too
+- 🪶 **Lightweight** - Smooth even on iPad
+
+> 💡 **Desktop-like experience with iPad mobility!**
+> 🖥️ **Tauri Desktop supported!** Use Pyxis as a native app on Windows, Mac, and Linux.
 
 ---
 
-### **Markdown, Mermaid & LaTeX - Documentation Heaven**
+## 🚀 Revolutionary Features of Pyxis
+
+### 📝 **Markdown, Mermaid & LaTeX - Premium Documentation**
 <div align="center">
   <img src="readme-assets/IMG_1470.png" alt="Rich Content Editing" width="80%" />
 </div>
 
-Create **beautiful documentation** with live previews! Write flowcharts with Mermaid, mathematical formulas with LaTeX, and rich markdown - all updating in real-time as you type.
+**Pyxis focuses heavily on the Markdown viewer.**
+- 📄 **Technical docs** - Beautiful specifications and documentation
+- ✍️ **Blog writing** - Efficient writing with real-time preview
+- 📊 **Mermaid support** - Easy flowcharts and diagrams
+- 🔢 **LaTeX math** - Perfect rendering of mathematical expressions
+
+Instant preview as you type! Perfect for long-form writing.
 
 ---
 
-### 🔄 **Visual Git - Version Control Made Simple**
+### 🔥 **Hot Module Replacement (HMR) - Quick Site Building**
+<div align="center">
+  <img src="readme-assets/IMG_1465.png" alt="HMR in Action" width="80%" />
+</div>
+
+**HTML/CSS/JS only** - Perfect for quick browser testing without tedious setup.
+- Real-time updates for instant feedback
+- Ideal for simple web development
+- No setup required, just start coding
+
+> **Note**: Currently supports HTML/CSS/JS only. WebContainer integration is a future plan (implementation being carefully considered due to iPad memory constraints).
+
+---
+
+### 🔄 **Local Git - Version Control in Browser**
 <div align="center">
   <img src="readme-assets/IMG_1466.png" alt="Git Diff Visualization" width="80%" />
 </div>
 
-See your code changes with **beautiful visual diffs**! Full Git support with branches, merging, and history - perfect for learning Git safely without breaking anything.
+**Local Git is nearly complete!** Branch, merge, commit, reset - all major Git features in your browser.
+- 🎨 **Visual diffs** - Beautiful code change visualization
+- 🌿 **Branch operations** - Experiment safely, revert anytime
+- 💾 **Export with .git** - Download entire repository including .git folder
+- 🛡️ **Safe learning** - Break anything without consequences! Perfect for Git beginners
+
+> **GitHub Integration**: Remote repository connection is on hold pending GitHub application approval. Local Git is fully functional.
 
 ---
 
-### ⚡ **Node.js Runtime - Backend Power**
+### ⚡ **Node.js Runtime - Lightning Fast Execution**
 <div align="center">
   <img src="readme-assets/IMG_1469.png" alt="Node.js Execution" width="80%" />
 </div>
 
-Run **Node.js code** in your browser! File operations, readline, and many npm modules work perfectly. It's like having a mini server right in your browser.
+**Custom implementation without WASM** - that's why it's incredibly fast!
+- ⚡ **Instant execution** - No compilation, zero wait time
+- 📁 **File operations** - fs, path, readline and core modules supported
+- 🎯 **Casual coding** - Perfect for algorithm testing and learning
+
+Emulates file operations impossible in plain JavaScript, providing a genuine Node.js learning environment.
+
+> **Limitations**: No WASM means some features like native modules and child_process are unsupported. Sufficient for basic Node.js learning and simple scripts.
 
 ---
 
@@ -95,10 +145,10 @@ Navigate your projects with **VS Code-like efficiency**! Quick file search, inte
 - **Touch-optimized interface** with dual editor support
 - **True iPad development** - finally, a real IDE for your tablet
 
-### 🤖 **AI-Powered - Your Coding Assistant**
-- **Built-in AI Agent** for instant help and code editing
-- **Ask & Edit features** - no more copy-pasting to ChatGPT
-- **Seamless integration** right in your coding environment
+### 🤖 **AI Support - Seamless Development Assistance**
+- **Ask & Edit features** - Eliminates repetitive copy-paste in regular browsers
+- **Context retention** - Ask AI and request edits while keeping files open
+- **Integrated experience** - Not quite VS Code level, but perfect when you need AI power
 
 ### 🌐 **Universal Compatibility**
 - **Works everywhere** - Web, iPad, mobile, any modern browser
@@ -110,35 +160,20 @@ Navigate your projects with **VS Code-like efficiency**! Quick file search, inte
 - **Same features as Web version** on desktop
 - **Works offline**
 
----
-
-## 🌟 **Possibly a World First** - No Other Browser Editor Has All These Features Integrated
-
-- **Blazing fast startup** thanks to static site hosting—no server connections, zero stress.
-- **Full Git support** (branches, merges, resets, local git). Want to use it as a real repository? Download your project with `.git` included from the settings.
-- **Node.js support** without WASM, enabling ultra-fast execution. Emulates file operations not possible in plain JavaScript, so you can code freely and easily.
-- **Lightweight, real-time editing** for Markdown, Mermaid, and LaTeX.
-- **Built-in AI Agent**—not quite a full VS Code, but with Ask and Edit features, Pyxis eliminates the copy-paste hassle of typical browser workflows.
-- **HMR (Hot Module Replacement)** lets you build simple sites instantly. Perfect for quick browser-only testing without tedious setup.
-- **iPad compatibility**—developed on iPad, so iPad is a top priority. Includes dual code editors for the best mobile experience.
-- **Safe in the browser**—no risk of breaking your system. On a PC, deleting the wrong thing can be a disaster; with Pyxis, you’re always safe. Ideal for beginners learning Git.
-- **Buffer content support**—view and unzip files, PDFs, images, and videos right in the app.
-- **Efficient editing**—handle large text files quickly with powerful keyboard shortcuts.
-- **Multi-pane support**—work in multiple windows at once for maximum productivity.
-
 --- 
 
 ---
 
-## 🎪 Perfect For Everyone
+## 🎪 Use Cases
 
 <div align="center">
 
-| 👨‍🎓 **Students** | 👩‍💻 **Professionals** | 🧪 **Experimenters** |
+| � **iPad Users** |  **PC Owners** | 👨‍🎓 **Learners** |
 |:---:|:---:|:---:|
-| Learn coding without setup hassles | Code on iPad during commutes | Test ideas instantly |
-| Practice Git safely | Client demos without deployment | Prototype rapidly |
-| Access from school computers | Remote work ready | Algorithm testing |
+| Serious coding on the go | When VS Code is overkill | Practice Git operations safely |
+| Write blog posts anywhere | Quick code edits | Learn Node.js basics |
+| Document creation & preview | Extended notes & tech docs | Algorithm testing |
+| Smooth operation, comfort | 1-second start, instant work | Break anything, stay safe |
 
 </div>
 
