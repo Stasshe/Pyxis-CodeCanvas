@@ -340,7 +340,7 @@ function ClientTerminal({
 
           case 'debug-db':
             try {
-              await writeOutput('=== IndexedDB & Lightning-FS Debug Information ===\n');
+              await captureWriteOutput('=== IndexedDB & Lightning-FS Debug Information ===\n');
 
               const dbs = await (window.indexedDB.databases ? window.indexedDB.databases() : []);
 
@@ -348,7 +348,7 @@ function ClientTerminal({
                 const dbName = dbInfo.name;
                 if (!dbName) continue;
 
-                await writeOutput(`\n--- Database: ${dbName} (v${dbInfo.version}) ---`);
+                await captureWriteOutput(`\n--- Database: ${dbName} (v${dbInfo.version}) ---`);
 
                 try {
                   const req = window.indexedDB.open(dbName);
@@ -358,7 +358,7 @@ function ClientTerminal({
                   });
 
                   const objectStoreNames = Array.from(db.objectStoreNames);
-                  await writeOutput(`Object Stores: ${objectStoreNames.join(', ')}`);
+                  await captureWriteOutput(`Object Stores: ${objectStoreNames.join(', ')}`);
 
                   for (const storeName of objectStoreNames) {
                     try {
@@ -370,10 +370,10 @@ function ClientTerminal({
                         getAllReq.onerror = () => reject(getAllReq.error);
                       });
 
-                      await writeOutput(`\n  Store: ${storeName} (${items.length} items)`);
+                      await captureWriteOutput(`\n  Store: ${storeName} (${items.length} items)`);
 
                       if (items.length === 0) {
-                        await writeOutput('    (empty)');
+                        await captureWriteOutput('    (empty)');
                       } else {
                         for (let i = 0; i < Math.min(items.length, 10); i++) {
                           const item = items[i];
@@ -402,25 +402,25 @@ function ClientTerminal({
                             summary = String(item).slice(0, 100);
                           }
 
-                          await writeOutput(`    [${i}] ${summary}`);
+                          await captureWriteOutput(`    [${i}] ${summary}`);
                         }
 
                         if (items.length > 10) {
-                          await writeOutput(`    ... and ${items.length - 10} more items`);
+                          await captureWriteOutput(`    ... and ${items.length - 10} more items`);
                         }
                       }
                     } catch (storeError) {
-                      await writeOutput(`    Error accessing store ${storeName}: ${storeError}`);
+                      await captureWriteOutput(`    Error accessing store ${storeName}: ${storeError}`);
                     }
                   }
 
                   db.close();
                 } catch (dbError) {
-                  await writeOutput(`  Error opening database ${dbName}: ${dbError}`);
+                  await captureWriteOutput(`  Error opening database ${dbName}: ${dbError}`);
                 }
               }
 
-              await writeOutput('\n--- LocalStorage (Lightning-FS/pyxis-fs related) ---');
+              await captureWriteOutput('\n--- LocalStorage (Lightning-FS/pyxis-fs related) ---');
               const otherLightningFSKeys = [];
               for (let i = 0; i < window.localStorage.length; i++) {
                 const key = window.localStorage.key(i);
@@ -431,17 +431,17 @@ function ClientTerminal({
               }
 
               if (otherLightningFSKeys.length === 0) {
-                await writeOutput('No Lightning-FS related localStorage entries found.');
+                await captureWriteOutput('No Lightning-FS related localStorage entries found.');
               } else {
-                await writeOutput(`Lightning-FS related entries (${otherLightningFSKeys.length}):`);
+                await captureWriteOutput(`Lightning-FS related entries (${otherLightningFSKeys.length}):`);
                 for (const key of otherLightningFSKeys.slice(0, 10)) {
                   const value = window.localStorage.getItem(key);
                   const size = value ? value.length : 0;
-                  await writeOutput(`  ${key}: ${size} chars`);
+                  await captureWriteOutput(`  ${key}: ${size} chars`);
                 }
               }
 
-              await writeOutput('\n--- File System Statistics ---');
+              await captureWriteOutput('\n--- File System Statistics ---');
               try {
                 const fs = gitFileSystem.getFS();
                 if (fs) {
@@ -449,34 +449,34 @@ function ClientTerminal({
                     const projectsExists = await fs.promises.stat('/projects').catch(() => null);
                     if (projectsExists) {
                       const projectDirs = await fs.promises.readdir('/projects');
-                      await writeOutput(`Projects in filesystem: ${projectDirs.length}`);
+                      await captureWriteOutput(`Projects in filesystem: ${projectDirs.length}`);
 
                       for (const dir of projectDirs.slice(0, 10)) {
                         if (dir === '.' || dir === '..') continue;
                         try {
                           const projectPath = `/projects/${dir}`;
                           const files = await fs.promises.readdir(projectPath);
-                          await writeOutput(`  ${dir}: ${files.length} files/dirs`);
+                          await captureWriteOutput(`  ${dir}: ${files.length} files/dirs`);
                         } catch {
-                          await writeOutput(`  ${dir}: (inaccessible)`);
+                          await captureWriteOutput(`  ${dir}: (inaccessible)`);
                         }
                       }
                     } else {
-                      await writeOutput('No /projects directory found in filesystem');
+                      await captureWriteOutput('No /projects directory found in filesystem');
                     }
                   } catch (fsError) {
-                    await writeOutput(`Error reading filesystem: ${fsError}`);
+                    await captureWriteOutput(`Error reading filesystem: ${fsError}`);
                   }
                 } else {
-                  await writeOutput('Filesystem not initialized');
+                  await captureWriteOutput('Filesystem not initialized');
                 }
               } catch (importError) {
-                await writeOutput(`Error importing filesystem: ${importError}`);
+                await captureWriteOutput(`Error importing filesystem: ${importError}`);
               }
 
-              await writeOutput('\n=== Debug Information Complete ===');
+              await captureWriteOutput('\n=== Debug Information Complete ===');
             } catch (e) {
-              await writeOutput(`debug-db: エラー: ${(e as Error).message}`);
+              await captureWriteOutput(`debug-db: エラー: ${(e as Error).message}`);
             }
             break;
 
@@ -484,7 +484,7 @@ function ClientTerminal({
             try {
               const fs = gitFileSystem.getFS();
               if (!fs) {
-                await writeOutput('memory-clean: ファイルシステムが初期化できませんでした');
+                await captureWriteOutput('memory-clean: ファイルシステムが初期化できませんでした');
                 break;
               }
 
@@ -581,14 +581,14 @@ function ClientTerminal({
               } catch (e) {}
 
               if (cleaned.length > 0) {
-                await writeOutput(
+                await captureWriteOutput(
                   `memory-clean: 以下のファイル・ディレクトリを削除しました:\n${cleaned.join('\n')}`
                 );
               } else {
-                await writeOutput('memory-clean: 削除対象のファイルは見つかりませんでした');
+                await captureWriteOutput('memory-clean: 削除対象のファイルは見つかりませんでした');
               }
             } catch (e) {
-              await writeOutput(`memory-clean: エラー: ${(e as Error).message}`);
+              await captureWriteOutput(`memory-clean: エラー: ${(e as Error).message}`);
             }
             break;
 
@@ -596,7 +596,7 @@ function ClientTerminal({
             try {
               const fs = gitFileSystem.getFS();
               if (!fs) {
-                await writeOutput('fs-clean: ファイルシステムが初期化できませんでした');
+                await captureWriteOutput('fs-clean: ファイルシステムが初期化できませんでした');
                 break;
               }
               async function removeAll(fs: any, dirPath: string): Promise<void> {
@@ -620,13 +620,13 @@ function ClientTerminal({
               }
               try {
                 await removeAll(fs, '/projects');
-                await writeOutput('fs-clean: /projects配下を全て削除しました');
+                await captureWriteOutput('fs-clean: /projects配下を全て削除しました');
               } catch (e) {
-                await writeOutput(`fs-clean: /projects削除エラー: ${(e as Error).message}`);
+                await captureWriteOutput(`fs-clean: /projects削除エラー: ${(e as Error).message}`);
               }
-              await writeOutput('fs-clean: 完了');
+              await captureWriteOutput('fs-clean: 完了');
             } catch (e) {
-              await writeOutput(`fs-clean: エラー: ${(e as Error).message}`);
+              await captureWriteOutput(`fs-clean: エラー: ${(e as Error).message}`);
             }
             break;
 
