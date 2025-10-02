@@ -1,6 +1,7 @@
 import { X, Plus, Menu } from 'lucide-react';
 import clsx from 'clsx';
 import React, { useState, useRef, useEffect } from 'react';
+import { useTabCloseConfirmation } from './useTabCloseConfirmation';
 import { Tab } from '@/types';
 import { FILE_CHANGE_EVENT } from '@/engine/fileWatcher';
 import { useTheme } from '@/context/ThemeContext';
@@ -45,6 +46,7 @@ export default function TabBar({
   onSplitPane,
 }: TabBarProps) {
   const { colors } = useTheme();
+  const { requestClose, ConfirmationDialog } = useTabCloseConfirmation();
   // メニューの開閉状態管理
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -385,7 +387,7 @@ export default function TabBar({
               style={{ background: undefined }}
               onClick={e => {
                 e.stopPropagation();
-                onTabClose(tab.id);
+                requestClose(tab.id, tab.isDirty, onTabClose);
               }}
             >
               <X
@@ -429,7 +431,10 @@ export default function TabBar({
           <button
             className="w-full text-left px-2 py-1 text-sm hover:bg-accent rounded"
             onClick={() => {
-              onTabClose(tabContextMenu.tabId);
+              const tab = tabs.find(t => t.id === tabContextMenu.tabId);
+              if (tab) {
+                requestClose(tab.id, tab.isDirty, onTabClose);
+              }
               setTabContextMenu({ isOpen: false, tabId: '', x: 0, y: 0 });
             }}
           >
@@ -455,6 +460,7 @@ export default function TabBar({
           )}
         </div>
       )}
-    </div>
+  {ConfirmationDialog}
+  </div>
   );
 }
