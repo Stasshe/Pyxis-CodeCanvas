@@ -279,6 +279,23 @@ export class GitFileSystem {
   }
 
   /**
+   * プロジェクト全体を削除（ディレクトリごと削除）
+   */
+  async deleteProject(projectName: string): Promise<void> {
+    const fs = this.getFS();
+    const projectDir = this.getProjectDir(projectName);
+
+    try {
+      // プロジェクトディレクトリを再帰的に削除
+      await this.removeDirectoryRecursive(projectDir);
+      console.log(`[GitFileSystem] Deleted project directory: ${projectDir}`);
+    } catch (error) {
+      // ディレクトリが存在しない場合は無視
+      console.warn(`[GitFileSystem] Failed to delete project directory ${projectDir}:`, error);
+    }
+  }
+
+  /**
    * デバッグ: ファイルシステムの状態を確認
    */
   async debugFileSystem(): Promise<void> {

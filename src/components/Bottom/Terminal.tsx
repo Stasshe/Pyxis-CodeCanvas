@@ -13,6 +13,7 @@ import { handleGitCommand } from './TerminalGitCommands';
 import { handleUnixCommand } from './TerminalUnixCommands';
 import { handleNPMCommand } from './TerminalNPMCommands';
 import { exportPage } from '@/engine/export/exportPage';
+import { LOCALSTORAGE_KEY } from '@/context/config';
 
 interface TerminalProps {
   height: number;
@@ -242,7 +243,7 @@ function ClientTerminal({
     let cmdOutputs = '';
 
     // コマンド履歴のlocalStorageキー
-    const HISTORY_KEY = `pyxis_terminal_history_${currentProject}`;
+    const HISTORY_KEY = `${LOCALSTORAGE_KEY.TERMINAL_HISTORY}${currentProject}`;
 
     // 履歴の初期化・復元
     let commandHistory: string[] = [];

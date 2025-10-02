@@ -6,6 +6,7 @@
 
 import { Project, ProjectFile, ChatSpace, ChatSpaceMessage } from '@/types';
 import { initialFileContents } from '@/engine/initialFileContents';
+import { LOCALSTORAGE_KEY } from '@/context/config';
 
 // ユニークID生成関数
 const generateUniqueId = (prefix: string): string => {
@@ -285,11 +286,63 @@ export class FileRepository {
       };
 
       transaction.onerror = () => reject(transaction.error);
-      transaction.oncomplete = () => {
-        console.log(`[FileRepository] Project deleted: ${projectName}`);
+      transaction.oncomplete = async () => {
+        console.log(`[FileRepository] Project deleted from IndexedDB: ${projectName}`);
+        
+        // LocalStorageから最近使用したプロジェクトを削除（バックグラウンド）
+        this.cleanupLocalStorage(projectId).catch(err => {
+          console.warn('[FileRepository] Failed to cleanup localStorage:', err);
+        });
+
+        // GitFileSystemからプロジェクトを削除（バックグラウンド）
+        if (projectName) {
+          this.deleteProjectFromGitFS(projectName).catch(err => {
+            console.warn('[FileRepository] Failed to delete project from GitFileSystem:', err);
+          });
+        }
+
         resolve();
       };
     });
+  }
+
+  /**
+   * LocalStorageからプロジェクト関連データを削除
+   */
+  private async cleanupLocalStorage(projectId: string): Promise<void> {
+    try {
+      // 最近使用したプロジェクトから削除
+      const recentProjectsStr = localStorage.getItem(LOCALSTORAGE_KEY.RECENT_PROJECTS);
+      if (recentProjectsStr) {
+        const recentProjects = JSON.parse(recentProjectsStr);
+        const updatedProjects = recentProjects.filter((id: string) => id !== projectId);
+        localStorage.setItem(LOCALSTORAGE_KEY.RECENT_PROJECTS, JSON.stringify(updatedProjects));
+        console.log(`[FileRepository] Removed project ${projectId} from recent projects`);
+      }
+      // エディターレイアウトやターミナル履歴など、プロジェクト固有のlocalStorageキーを削除
+      const keysToRemove = [
+        `${LOCALSTORAGE_KEY.TERMINAL_HISTORY}${projectId}`,
+        `${LOCALSTORAGE_KEY.EDITOR_LAYOUT}${projectId}`,
+        LOCALSTORAGE_KEY.LAST_EXECUTE_FILE,
+      ];
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+    } catch (error) {
+      console.error('[FileRepository] Failed to cleanup localStorage:', error);
+    }
+  }
+
+  /**
+   * GitFileSystemからプロジェクトを削除（バックグラウンド）
+   */
+  private async deleteProjectFromGitFS(projectName: string): Promise<void> {
+    try {
+      const { gitFileSystem } = await import('./gitFileSystem');
+      await gitFileSystem.deleteProject(projectName);
+      console.log(`[FileRepository] Deleted project from GitFileSystem: ${projectName}`);
+    } catch (error) {
+      console.error(`[FileRepository] Failed to delete project from GitFileSystem:`, error);
+      throw error;
+    }
   }
 
   // ==================== ファイル操作 ====================

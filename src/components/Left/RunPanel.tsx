@@ -5,6 +5,8 @@ import clsx from 'clsx';
 import { NodeJSRuntime } from '@/engine/runtime/nodeRuntime';
 import { initPyodide, runPythonWithSync, setCurrentProject } from '@/engine/runtime/pyodideRuntime';
 import { useBreakpointContext } from '@/context/BreakpointContext';
+import { LOCALSTORAGE_KEY } from '@/context/config';
+
 
 interface RunPanelProps {
   currentProject: { id: string; name: string } | null;
@@ -94,12 +96,9 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
     ? executableFiles.filter(f => f.path.toLowerCase().includes(fileSearch.toLowerCase()))
     : executableFiles;
 
-  // localStorageキー
-  const LS_KEY = 'pyxis_last_executed_file';
-
   // 初期化時にlocalStorageから復元
   useEffect(() => {
-    const last = localStorage.getItem(LS_KEY);
+    const last = localStorage.getItem(LOCALSTORAGE_KEY.LAST_EXECUTE_FILE);
     if (last && executableFiles.some(f => f.path === last)) {
       setSelectedFile(last);
       setFileSearch(last);
@@ -164,7 +163,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
     const fileObj = executableFiles.find(f => f.path === selectedFile);
     const lang = fileObj?.lang || (selectedFile.endsWith('.py') ? 'python' : 'node');
     addOutput(lang === 'python' ? `> python ${selectedFile}` : `> node ${selectedFile}`, 'input');
-    localStorage.setItem(LS_KEY, selectedFile);
+    localStorage.setItem(LOCALSTORAGE_KEY.LAST_EXECUTE_FILE, selectedFile);
     try {
       if (lang === 'node') {
         if (!runtime) return;
