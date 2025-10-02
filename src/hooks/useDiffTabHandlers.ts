@@ -32,46 +32,78 @@ export function useDiffTabHandlers(
         // working directoryの内容
         let latterContent = '';
         try {
-          // IndexedDB上の現状ファイル内容を取得
-          const fs = (git as any).fs;
-          const dir = (git as any).dir;
-          let relPath = filePath;
-          if (relPath.startsWith('/')) relPath = relPath.slice(1);
-          latterContent = await fs.promises.readFile(`${dir}/${relPath}`, 'utf8');
+          // まずfileRepositoryから最新の内容を取得を試みる
+          const { fileRepository } = await import('@/engine/core/fileRepository');
+          try {
+            const allFiles = await fileRepository.getProjectFiles(currentProject.id);
+            const targetFile = allFiles.find(f => f.path === filePath);
+            if (targetFile && targetFile.content) {
+              latterContent = targetFile.content;
+              console.log('[useDiffTabHandlers] Read latterContent from fileRepository (latest)');
+            } else {
+              throw new Error('File not found in repository');
+            }
+          } catch (repoError) {
+            // fileRepositoryから取得できない場合は、gitFileSystemから取得
+            console.log('[useDiffTabHandlers] Falling back to gitFileSystem');
+            const { gitFileSystem } = await import('@/engine/core/gitFileSystem');
+
+            try {
+              // gitFileSystem.readFileを使用（Git用ワークスペースから読み取り）
+              latterContent = await gitFileSystem.readFile(currentProject.name, filePath);
+              console.log('[useDiffTabHandlers] Read latterContent from gitFileSystem');
+            } catch (fsError) {
+              console.error('[useDiffTabHandlers] Failed to read from gitFileSystem:', fsError);
+              latterContent = '';
+            }
+          }
+          console.log('[useDiffTabHandlers] Read latterContent:', latterContent.substring(0, 100));
         } catch (e) {
+          console.error('[useDiffTabHandlers] Failed to read latterContent:', e);
           latterContent = '';
         }
         const diffTabId = `diff-${formerCommitId}-WORKDIR-${filePath}`;
-        const fileItem: FileItem = {
-          id: diffTabId,
-          name: `Diff: ${filePath} (${formerCommitId ? formerCommitId.slice(0, 6) : ''}..WD)`,
-          path: filePath,
-          content: '',
-          type: 'file',
-        };
-        openOrActivateTab(fileItem, [], setTabs, setActiveTabId);
-        // diffPropsを付与
+
+        // 既存タブを検索して、あれば更新してアクティブ化
         setTabs((prevTabs: Tab[]) => {
-          return prevTabs.map(tab =>
-            tab.id === diffTabId
-              ? {
-                  ...tab,
-                  diffProps: {
-                    diffs: [
-                      {
-                        formerFullPath: filePath,
-                        formerCommitId: formerCommitId,
-                        latterFullPath: filePath,
-                        latterCommitId: 'WORKDIR',
-                        formerContent,
-                        latterContent,
-                      },
-                    ],
-                    editable: editable ?? true, // 未指定時はtrue（デフォルトで編集可能）
+          const existingTab = prevTabs.find(tab => tab.id === diffTabId);
+
+          if (existingTab) {
+            // 既存のworking directory diffタブがある場合は、常に内容を保持
+            // （編集内容を失わないため）
+            console.log(
+              '[useDiffTabHandlers] Existing WD diff tab found, preserving content:',
+              diffTabId
+            );
+            setActiveTabId(diffTabId);
+            return prevTabs;
+          } else {
+            // 新規タブを作成
+            console.log('[useDiffTabHandlers] Creating new diff tab:', diffTabId);
+            const newTab: Tab = {
+              id: diffTabId,
+              name: `Diff: ${filePath} (${formerCommitId ? formerCommitId.slice(0, 6) : ''}..WD)`,
+              content: '',
+              isDirty: false,
+              path: filePath,
+              fullPath: filePath,
+              diffProps: {
+                diffs: [
+                  {
+                    formerFullPath: filePath,
+                    formerCommitId: formerCommitId,
+                    latterFullPath: filePath,
+                    latterCommitId: 'WORKDIR',
+                    formerContent,
+                    latterContent,
                   },
-                }
-              : tab
-          );
+                ],
+                editable: editable ?? true,
+              },
+            };
+            setActiveTabId(diffTabId);
+            return [...prevTabs, newTab];
+          }
         });
         return;
       }
@@ -97,35 +129,46 @@ export function useDiffTabHandlers(
         ? await git.getFileContentAtCommit(formerCommitId, filePath)
         : '';
       const diffTabId = `diff-${formerCommitId}-${latterCommitId}-${filePath}`;
-      const fileItem2: FileItem = {
-        id: diffTabId,
-        name: `Diff: ${filePath} (${formerCommitId ? formerCommitId.slice(0, 6) : ''}..${latterCommitId ? latterCommitId.slice(0, 6) : ''})`,
-        path: filePath,
-        content: '',
-        type: 'file',
-      };
-      openOrActivateTab(fileItem2, [], setTabs, setActiveTabId);
+
+      // 既存タブを検索して、あれば更新してアクティブ化
       setTabs((prevTabs: Tab[]) => {
-        return prevTabs.map(tab =>
-          tab.id === diffTabId
-            ? {
-                ...tab,
-                diffProps: {
-                  diffs: [
-                    {
-                      formerFullPath: filePath,
-                      formerCommitId: formerCommitId,
-                      latterFullPath: filePath,
-                      latterCommitId: latterCommitId,
-                      formerContent,
-                      latterContent,
-                    },
-                  ],
-                  editable: editable ?? false, // コミット間のdiffは編集不可がデフォルト
+        const existingTab = prevTabs.find(tab => tab.id === diffTabId);
+
+        if (existingTab) {
+          // コミット間のdiffは常に編集不可なので、内容を更新しない
+          console.log(
+            '[useDiffTabHandlers] Activating existing diff tab (commit-to-commit):',
+            diffTabId
+          );
+          setActiveTabId(diffTabId);
+          return prevTabs;
+        } else {
+          // 新規タブを作成
+          console.log('[useDiffTabHandlers] Creating new diff tab:', diffTabId);
+          const newTab: Tab = {
+            id: diffTabId,
+            name: `Diff: ${filePath} (${formerCommitId ? formerCommitId.slice(0, 6) : ''}..${latterCommitId ? latterCommitId.slice(0, 6) : ''})`,
+            content: '',
+            isDirty: false,
+            path: filePath,
+            fullPath: filePath,
+            diffProps: {
+              diffs: [
+                {
+                  formerFullPath: filePath,
+                  formerCommitId: formerCommitId,
+                  latterFullPath: filePath,
+                  latterCommitId: latterCommitId,
+                  formerContent,
+                  latterContent,
                 },
-              }
-            : tab
-        );
+              ],
+              editable: editable ?? false,
+            },
+          };
+          setActiveTabId(diffTabId);
+          return [...prevTabs, newTab];
+        }
       });
     },
     [currentProject, setTabs, setActiveTabId]
