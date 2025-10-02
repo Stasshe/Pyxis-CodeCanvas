@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { BreakpointProvider } from '@/context/BreakpointContext';
+import { GitHubUserProvider } from '@/context/GitHubUserContext';
 import { ToastContainer } from '@/components/Toast';
 
 const geistSans = Geist({
@@ -146,8 +147,10 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased h-full`}>
         <BreakpointProvider>
           <ThemeProvider>
-            {children}
-            <ToastContainer />
+            <GitHubUserProvider>
+              {children}
+              <ToastContainer />
+            </GitHubUserProvider>
           </ThemeProvider>
         </BreakpointProvider>
       </body>

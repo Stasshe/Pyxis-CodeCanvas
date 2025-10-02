@@ -9,8 +9,9 @@ import {
   LogOut,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
-import { useEffect, useState } from 'react';
-import { authRepository, type GitHubUser } from '@/engine/core/authRepository';
+import { useState } from 'react';
+import { authRepository } from '@/engine/core/authRepository';
+import { useGitHubUser } from '@/context/GitHubUserContext';
 import { MenuTab } from '../types';
 
 interface MenuBarProps {
@@ -27,20 +28,11 @@ export default function MenuBar({
   gitChangesCount = 0,
 }: MenuBarProps) {
   const { colors } = useTheme();
-  const [user, setUser] = useState<GitHubUser | null>(null);
+  const { user, fetchUser, clearUser } = useGitHubUser();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showPATInput, setShowPATInput] = useState(false);
   const [patInput, setPATInput] = useState('');
   const [isAuthenticating, setIsAuthenticating] = useState(false);
-
-  // 認証状態を確認
-  useEffect(() => {
-    const checkAuth = async () => {
-      const authUser = await authRepository.getUser();
-      setUser(authUser);
-    };
-    checkAuth();
-  }, []);
 
   // GitHub Personal Access Token (PAT) でサインイン
   const handleSignIn = async () => {
@@ -66,7 +58,7 @@ export default function MenuBar({
 
       const userData = await userResponse.json();
 
-      const githubUser: GitHubUser = {
+      const githubUser = {
         login: userData.login,
         name: userData.name,
         email: userData.email,
@@ -81,7 +73,9 @@ export default function MenuBar({
         createdAt: Date.now(),
       });
 
-      setUser(githubUser);
+      // GitHubUserContextを更新
+      await fetchUser();
+
       setPATInput('');
       setShowPATInput(false);
       console.log('[MenuBar] GitHub authentication successful');
@@ -98,7 +92,7 @@ export default function MenuBar({
   const handleSignOut = async () => {
     if (confirm('GitHubからサインアウトしますか？')) {
       await authRepository.clearAuth();
-      setUser(null);
+      clearUser();
       setShowUserMenu(false);
     }
   };

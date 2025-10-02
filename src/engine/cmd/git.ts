@@ -13,6 +13,7 @@ import { GitRevertOperations } from './gitOperations/revert';
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { syncManager } from '@/engine/core/syncManager';
+import { authRepository } from '@/engine/core/authRepository';
 
 /**
  * [NEW ARCHITECTURE] Git操作を管理するクラス
@@ -730,12 +731,40 @@ export class GitCommands {
   ): Promise<string> {
     return this.executeGitOperation(async () => {
       await this.ensureGitRepository();
+      
+      // GitHubにログイン済みの場合は、その情報を使用
+      let commitAuthor = author;
+      try {
+        const token = await authRepository.getAccessToken();
+        if (token) {
+          // GitHub APIでユーザー情報を取得
+          const response = await fetch('https://api.github.com/user', {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Accept': 'application/vnd.github.v3+json',
+            },
+          });
+          
+          if (response.ok) {
+            const userData = await response.json();
+            commitAuthor = {
+              name: userData.name || userData.login,
+              email: userData.email || `${userData.login}@users.noreply.github.com`,
+            };
+            console.log('[git commit] Using GitHub user:', commitAuthor);
+          }
+        }
+      } catch (error) {
+        console.warn('[git commit] Failed to get GitHub user info, using default:', error);
+        // エラーが発生してもデフォルトのauthorで続行
+      }
+      
       const sha = await git.commit({
         fs: this.fs,
         dir: this.dir,
         message,
-        author,
-        committer: author,
+        author: commitAuthor,
+        committer: commitAuthor,
       });
 
       return `[main ${sha.slice(0, 7)}] ${message}`;
