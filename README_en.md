@@ -23,7 +23,8 @@
 
 ## ✨ What is Pyxis?
 
-**Pyxis is a high-mobility browser IDE designed for iPad that launches in just 1 second.**
+- **Pyxis is a high-mobility browser IDE designed for iPad that launches in just 1 second.**
+- **Since Pyxis is a static site, there is no need to start a server, and as a result, no charges are incurred.**
 
 ### 🎯 Built For
 
