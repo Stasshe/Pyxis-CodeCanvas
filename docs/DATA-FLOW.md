@@ -898,88 +898,20 @@ sequenceDiagram
     end
 ```
 
-### 9.2 AI Operation Error Flow
+### 9.2 AI Error Handling
 
-```mermaid
-sequenceDiagram
-    participant USER as User
-    participant UI as AI UI
-    participant AI as AI Engine
-    participant API as Gemini API
-    participant ERROR as Error Handler
-    participant RETRY as Retry Logic
+**エラー処理:**
+- APIエラー(429, 500等) → エラーメッセージ表示
+- ネットワークエラー → ユーザーに通知
+- 無効なAPIキー → 設定画面へ誘導
 
-    USER->>UI: Request AI operation
-    UI->>AI: Send request
-    AI->>API: HTTP request
-    
-    alt API Error (429, 500, etc.)
-        API-->>AI: Error response
-        AI->>RETRY: Check retry count
-        
-        alt Can retry
-            RETRY->>RETRY: Exponential backoff
-            RETRY->>API: Retry request
-            alt Retry success
-                API-->>AI: Success
-                AI-->>UI: Result
-                UI-->>USER: Show result
-            else Retry fails
-                API-->>AI: Error again
-                AI->>ERROR: Handle error
-                ERROR-->>UI: Error message
-                UI-->>USER: Show error with retry option
-            end
-        else Max retries reached
-            AI->>ERROR: Handle final error
-            ERROR-->>UI: Error message
-            UI-->>USER: Operation failed
-        end
-        
-    else Success
-        API-->>AI: Response
-        AI-->>UI: Result
-        UI-->>USER: Show result
-    end
-```
+> **注意**: 現在、自動リトライやExponential Backoffは実装されていません。
 
 ---
 
 ## 10. Performance Optimization Flows
 
-### 10.1 Batch File Sync Flow
-
-```mermaid
-sequenceDiagram
-    participant REPO as FileRepository
-    participant QUEUE as Sync Queue
-    participant BATCH as Batch Processor
-    participant SYNC as SyncManager
-    participant GFS as GitFileSystem
-
-    REPO->>QUEUE: Queue file 1
-    REPO->>QUEUE: Queue file 2
-    REPO->>QUEUE: Queue file 3
-    
-    Note over QUEUE: Wait for batch or timeout
-    
-    QUEUE->>BATCH: Flush queue
-    BATCH->>BATCH: Group files
-    
-    BATCH->>SYNC: Sync batch
-    
-    par Parallel Sync
-        SYNC->>GFS: Write file 1
-        SYNC->>GFS: Write file 2
-        SYNC->>GFS: Write file 3
-    end
-    
-    GFS-->>SYNC: All written
-    SYNC-->>BATCH: Batch complete
-    BATCH-->>QUEUE: Queue cleared
-```
-
-### 10.2 Debounced Save Flow
+### 10.1 Debounced Save Flow
 
 ```mermaid
 sequenceDiagram
@@ -1008,80 +940,6 @@ sequenceDiagram
 
 ---
 
-## 11. Complete User Scenario Flows
-
-### 11.1 New User First Session
-
-```mermaid
-sequenceDiagram
-    participant USER as New User
-    participant BROWSER as Browser
-    participant APP as Application
-    participant LS as localStorage
-    participant MODAL as Project Modal
-    participant REPO as FileRepository
-    participant WELCOME as Welcome Tab
-
-    USER->>BROWSER: Open application
-    BROWSER->>APP: Load application
-    APP->>LS: Check for saved project
-    LS-->>APP: No saved project
-    
-    APP->>MODAL: Auto-open project modal
-    MODAL-->>USER: Show "Create Project"
-    
-    USER->>MODAL: Enter project details
-    USER->>MODAL: Click create
-    MODAL->>REPO: Create project
-    REPO-->>MODAL: Project created
-    
-    MODAL->>APP: Close modal
-    APP->>APP: Load new project
-    APP->>WELCOME: Open welcome tab
-    WELCOME-->>USER: Show getting started guide
-```
-
-### 11.2 Typical Development Session
-
-```mermaid
-sequenceDiagram
-    participant USER as Developer
-    participant APP as Application
-    participant FILE as File Tree
-    participant EDITOR as Code Editor
-    participant TERM as Terminal
-    participant GIT as Git Panel
-
-    USER->>APP: Open application
-    APP->>APP: Restore last project
-    APP->>APP: Restore tabs
-    
-    USER->>FILE: Browse files
-    USER->>FILE: Open file
-    FILE->>EDITOR: Load in editor
-    
-    USER->>EDITOR: Edit code
-    EDITOR->>EDITOR: Auto-save
-    
-    USER->>TERM: Run tests
-    TERM->>TERM: Execute command
-    TERM-->>USER: Show results
-    
-    USER->>FILE: Create new file
-    FILE->>EDITOR: Open in new tab
-    USER->>EDITOR: Write code
-    
-    USER->>GIT: View changes
-    GIT-->>USER: Show modified files
-    USER->>GIT: Stage and commit
-    GIT->>GIT: Create commit
-    
-    USER->>APP: Close application
-    APP->>APP: Save state
-```
-
----
-
 ## Related Documents
 
 - [SYSTEM-OVERVIEW.md](./SYSTEM-OVERVIEW.md) - System architecture overview
@@ -1092,6 +950,6 @@ sequenceDiagram
 
 ---
 
-**Last Updated**: 2025-10-02  
-**Version**: 0.6  
-**Status**: Complete
+**Last Updated**: 2025-01-02  
+**Version**: 0.7  
+**Status**: Verified - 未実装機能削除(Batch Queue, Retry Logic, User Scenarios)
