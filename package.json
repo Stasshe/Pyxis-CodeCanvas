@@ -1,6 +1,6 @@
 {
   "name": "pyxis",
-  "version": "0.5.5",
+  "version": "0.6.0",
   "private": true,
   "scripts": {
     "dev": "node initial_files_to_ts.js && next dev --turbopack",

@@ -10,6 +10,7 @@
 ├── LICENSE
 ├── README.md
 ├── README_en.md
+├── SHORT_README.md
 ├── bashCmd.txt
 ├── docs
 │   ├── AI-SYSTEM.md
@@ -20,7 +21,6 @@
 │   ├── SYSTEM-OVERVIEW.md
 │   └── UI-COMPONENTS.md
 ├── eslint.config.mjs
-├── feature.txt
 ├── helper-code.txt
 ├── initial_files
 │   ├── README.md
@@ -246,4 +246,8 @@ src/*.ts, *.tsx の統計:
 合計文字数: 1068638
 合計ファイルサイズ(bytes): 1144391
 
-リポジトリ全体のサイズ(bytes): 1.9G	.
+リポジトリ全体のサイズ(bytes): 1.8G	.
+==========
+ビルト済みファイルの行数: 14777
+合計文字数: 22178514
+合計ファイルサイズ(bytes): 23108804
