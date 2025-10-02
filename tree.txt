@@ -1,8 +1,6 @@
 .
 ├── Development
 │   ├── NEW-ARCHITECTURE.md
-│   ├── PAT-AUTH-IMPLEMENTATION.md
-│   ├── SECURITY_IMPROVEMENTS.md
 │   ├── TODO.md
 │   ├── Tauri-Setup.md
 │   ├── ai-agent-implementation-plan.md
@@ -18,6 +16,7 @@
 │   ├── AI-SYSTEM.md
 │   ├── CORE-ENGINE.md
 │   ├── DATA-FLOW.md
+│   ├── GITHUB-INTEGRATION.md
 │   ├── NODE-RUNTIME.md
 │   ├── README.md
 │   ├── SYSTEM-OVERVIEW.md
@@ -250,15 +249,15 @@
 ├── tree.txt
 └── tsconfig.json
 
-47 directories, 204 files
+47 directories, 203 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 30727
-合計文字数: 1031793
-合計ファイルサイズ(bytes): 1103670
+合計行数: 30714
+合計文字数: 1031281
+合計ファイルサイズ(bytes): 1103120
 
-リポジトリ全体のサイズ(bytes): 2.0G	.
+リポジトリ全体のサイズ(bytes): 1.8G	.
 ==========
-ビルト済みファイルの行数: 14777
-合計文字数: 22193802
-合計ファイルサイズ(bytes): 23124406
+ビルト済みファイルの行数: 14778
+合計文字数: 22191046
+合計ファイルサイズ(bytes): 23121812
