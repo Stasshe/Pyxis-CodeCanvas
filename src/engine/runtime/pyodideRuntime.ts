@@ -13,6 +13,7 @@ interface PyodideInterface {
     stat(path: string): { mode: number };
   };
   loadPackage(packages: string[]): Promise<void>;
+  globals?: any; // for direct access
 }
 
 let pyodideInstance: PyodideInterface | null = null;
@@ -234,54 +235,25 @@ export async function runPythonWithSync(
   // 実行前: IndexedDBからPyodideへ同期
   await syncPyodideFromIndexedDB(projectId);
 
-  // stdout/stderrを一時バッファに退避
-  let stdoutBuffer = '';
-  let stderrBuffer = '';
-  const origStdout = pyodideInstance && (pyodideInstance as any).stdout;
-  const origStderr = pyodideInstance && (pyodideInstance as any).stderr;
-
-  // Pyodideのstdout/stderrをフック
-  (pyodideInstance as any).stdout = (msg: string) => {
-    stdoutBuffer += msg + '\n';
-  };
-  (pyodideInstance as any).stderr = (msg: string) => {
-    stderrBuffer += msg + '\n';
-  };
-
+  // print出力を必ず取得するため、exec+StringIOでstdoutをキャプチャ
   let result: any = undefined;
+  let stdout = '';
+  let stderr = '';
+  const captureCode = `
+import sys\nimport io\n_pyxis_stdout = sys.stdout\n_pyxis_stringio = io.StringIO()\nsys.stdout = _pyxis_stringio\ntry:\n    exec(\"\"\"${code.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n')}\"\"\", globals())\n    _pyxis_result = _pyxis_stringio.getvalue()\nfinally:\n    sys.stdout = _pyxis_stdout\ndel _pyxis_stringio\ndel _pyxis_stdout\n`;
   try {
-    result = await pyodide.runPythonAsync(code);
-  } finally {
-    // stdout/stderrを元に戻す
-    if (origStdout) (pyodideInstance as any).stdout = origStdout;
-    if (origStderr) (pyodideInstance as any).stderr = origStderr;
+    await pyodide.runPythonAsync(captureCode);
+    // @ts-ignore
+    stdout = (pyodide as any).globals.get('_pyxis_result') || '';
+    // @ts-ignore
+    (pyodide as any).globals.set('_pyxis_result', undefined);
+    result = stdout;
+  } catch (e: any) {
+    stderr = e.message || String(e);
   }
 
   // 実行後: PyodideからIndexedDBへ同期
   await syncPyodideToIndexedDB(projectId);
 
-  // result, stdout, stderrをJSON.stringifyでラップ（パース可能な場合のみ）
-  let safeResult = result;
-  let safeStdout = stdoutBuffer.trim();
-  let safeStderr = stderrBuffer.trim();
-
-  try {
-    if (typeof result === 'object' && result !== null) {
-      safeResult = JSON.stringify(result);
-    }
-  } catch {}
-  try {
-    if (safeStdout && (safeStdout.startsWith('{') || safeStdout.startsWith('['))) {
-      JSON.parse(safeStdout); // パースできる場合のみ
-    }
-  } catch {
-    // パースできない場合はそのまま
-  }
-  try {
-    if (safeStderr && (safeStderr.startsWith('{') || safeStderr.startsWith('['))) {
-      JSON.parse(safeStderr);
-    }
-  } catch {}
-
-  return { result: safeResult, stdout: safeStdout, stderr: safeStderr };
+  return { result, stdout: stdout.trim(), stderr: stderr.trim() };
 }
