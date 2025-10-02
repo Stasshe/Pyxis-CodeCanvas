@@ -1,7 +1,7 @@
 .
 ├── Development
-│   ├── DEVICE_FLOW_IMPLEMENTATION.md
 │   ├── NEW-ARCHITECTURE.md
+│   ├── PAT-AUTH-IMPLEMENTATION.md
 │   ├── SECURITY_IMPROVEMENTS.md
 │   ├── TODO.md
 │   ├── Tauri-Setup.md
@@ -76,6 +76,9 @@
 ├── src
 │   ├── app
 │   │   ├── Toast.css
+│   │   ├── api
+│   │   │   └── github
+│   │   │       └── device-code
 │   │   ├── globals.css
 │   │   ├── layout.tsx
 │   │   ├── markdown.css
@@ -155,6 +158,7 @@
 │   │   └── Toast.tsx
 │   ├── context
 │   │   ├── BreakpointContext.tsx
+│   │   ├── GitHubUserContext.tsx
 │   │   ├── ThemeContext.tsx
 │   │   └── config.ts
 │   ├── engine
@@ -169,6 +173,10 @@
 │   │   │   │   ├── checkout.ts
 │   │   │   │   ├── diff.ts
 │   │   │   │   ├── fileSystemHelper.ts
+│   │   │   │   ├── github
+│   │   │   │   │   ├── GitHubAPI.ts
+│   │   │   │   │   ├── TreeBuilder.ts
+│   │   │   │   │   └── utils.ts
 │   │   │   │   ├── log.ts
 │   │   │   │   ├── merge.ts
 │   │   │   │   ├── push.ts
@@ -187,7 +195,7 @@
 │   │   │   ├── fileRepository.ts
 │   │   │   ├── filesystem.ts
 │   │   │   ├── gitFileSystem.ts
-│   │   │   ├── githubDeviceFlow.ts
+│   │   │   ├── githubUserManager.ts
 │   │   │   ├── project.ts
 │   │   │   └── syncManager.ts
 │   │   ├── export
@@ -242,19 +250,15 @@
 ├── tree.txt
 └── tsconfig.json
 
-43 directories, 200 files
+47 directories, 204 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 30196
-合計文字数: 1016360
-合計ファイルサイズ(bytes): 1087571
+合計行数: 30727
+合計文字数: 1031793
+合計ファイルサイズ(bytes): 1103670
 
-リポジトリ全体のサイズ(bytes): 1.8G	.
+リポジトリ全体のサイズ(bytes): 2.0G	.
 ==========
 ビルト済みファイルの行数: 14777
-合計文字数: 22178514
-合計ファイルサイズ(bytes): 23108804
-==========
-ビルト済みファイルの行数: 14777
-合計文字数: 22193829
-合計ファイルサイズ(bytes): 23124615
+合計文字数: 22193802
+合計ファイルサイズ(bytes): 23124406

@@ -195,9 +195,7 @@ export async function handleUnixCommand(
       await writeOutput('  mkdir <name> [-p] - ディレクトリを作成');
       await writeOutput('  touch <file> - ファイルを作成');
       await writeOutput('  rm <file> [-r] - ファイルを削除 (ワイルドカード対応: rm *.txt)');
-      await writeOutput(
-        '  mv <source> <dest> - ファイル/ディレクトリを移動・名前変更 (ワイルドカード対応: mv *.txt folder/)'
-      );
+      await writeOutput('  mv <source> <dest> - ファイル/ディレクトリを移動・名前変更 (ワイルドカード対応: mv *.txt folder/)');
       await writeOutput('  cat <file> - ファイル内容を表示');
       await writeOutput('  echo <text> [> file] - テキストを出力/ファイルに書き込み');
       await writeOutput('  export --page <file or folder> - 現在のページをエクスポート');
@@ -233,8 +231,15 @@ export async function handleUnixCommand(
       await writeOutput('    git diff          - ワーキングディレクトリの変更');
       await writeOutput('    git diff --staged - ステージされた変更');
       await writeOutput('    git diff <commit1> <commit2> - コミット間の差分');
+      await writeOutput('  git push [remote] [branch] [--force] - リモートリポジトリへプッシュ');
+      await writeOutput('    git push           - 現在のブランチをデフォルトリモートへプッシュ');
+      await writeOutput('    git push origin main - originリモートのmainブランチへプッシュ');
+      await writeOutput('    git push --force   - 強制プッシュ');
+      await writeOutput('  git remote [-v] - リモートリポジトリ一覧');
+      await writeOutput('  git remote add <name> <url> - リモートリポジトリ追加');
+      await writeOutput('  git remote remove <name> - リモートリポジトリ削除');
       await writeOutput('');
-      await writeOutput('NPM Commands:開発中、利用できません');
+      await writeOutput('NPM Commands:開発中');
       await writeOutput('  npm init [--force] - package.jsonを作成');
       await writeOutput('  npm install [package] [flags] - パッケージのインストール');
       await writeOutput('    npm install        - 全依存関係をインストール');
@@ -243,9 +248,7 @@ export async function handleUnixCommand(
       await writeOutput('  npm uninstall <package> - パッケージをアンインストール');
       await writeOutput('  npm list           - インストール済みパッケージ一覧');
       await writeOutput('  npm run <script>   - package.jsonのスクリプトを実行');
-      await writeOutput(
-        '  npm-size <package> - 指定したパッケージとその依存関係の合計サイズを計算'
-      );
+      await writeOutput('  npm-size <package> - 指定したパッケージとその依存関係の合計サイズを計算');
       await writeOutput('');
       await writeOutput('Note: Gitリポジトリの初期化は左下の「プロジェクト管理」から');
       await writeOutput('新規プロジェクトを作成することで自動的に行われます。');
