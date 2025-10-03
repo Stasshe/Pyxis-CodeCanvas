@@ -307,8 +307,7 @@ export async function handleGitCommand(
         });
         await writeOutput(pushResult);
 
-        // push成功後にreset origin/{pushしたブランチ}を自動実行
-        // pushResultが"Everything up-to-date"の場合もresetは実行する
+        // push成功後にfetch origin {pushしたブランチ}を自動実行
         let usedBranch = branch;
         if (!usedBranch && typeof pushResult === 'string') {
           const match = pushResult.match(/\s([\w\-]+) -> [\w\-]+/);
@@ -316,13 +315,12 @@ export async function handleGitCommand(
             usedBranch = match[1];
           }
         }
-        const resetTarget = usedBranch ? `origin/${usedBranch}` : undefined;
-        if (resetTarget) {
-          const resetResult = await gitCommandsRef.current.reset({
-            hard: true,
-            commit: resetTarget,
+        if (usedBranch) {
+          const fetchResult = await gitCommandsRef.current.fetch({
+            remote: 'origin',
+            branch: usedBranch,
           });
-          await writeOutput(`(auto) git reset --hard ${resetTarget}\n${resetResult}`);
+          await writeOutput(`(auto) git fetch origin ${usedBranch}\n${fetchResult}`);
         }
       } catch (error) {
         const msg = (error as Error).message || '';
