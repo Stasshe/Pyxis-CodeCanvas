@@ -49,10 +49,26 @@ export async function fetch(
     console.log('[git fetch] Repository:', `${repoInfo.owner}/${repoInfo.repo}`);
     console.log('[git fetch] Remote:', remote);
 
-    // 認証ヘッダーを構築
-    const headers: Record<string, string> = {};
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+    // まず、リモートブランチの存在を確認
+    if (!token) {
+      throw new Error('GitHub authentication required for fetch');
+    }
+
+    const { GitHubAPI } = await import('./github/GitHubAPI');
+    const githubAPI = new GitHubAPI(token, repoInfo.owner, repoInfo.repo);
+    
+    // ブランチ指定がない場合はデフォルトブランチを取得
+    let targetBranch = branch;
+    if (!targetBranch) {
+      const currentBranch = await git.currentBranch({ fs, dir });
+      targetBranch = currentBranch || 'main';
+    }
+
+    // リモートブランチの存在確認
+    const remoteRef = await githubAPI.getRef(targetBranch);
+    if (!remoteRef) {
+      console.log('[git fetch] Remote branch does not exist:', targetBranch);
+      return `From ${remoteInfo.url}\nRemote branch '${targetBranch}' does not exist yet.\nUse 'git push' to create it.`;
     }
 
     // fetch実行
@@ -64,13 +80,16 @@ export async function fetch(
         dir,
         url: remoteInfo.url,
         remote,
-        ref: branch,
+        ref: targetBranch,
         depth: depth,
         singleBranch: !!branch,
         tags: tags,
         prune: prune,
         corsProxy: 'https://cors.isomorphic-git.org',
-        headers,
+        onAuth: () => ({
+          username: token,
+          password: 'x-oauth-basic',
+        }),
         onProgress: (progress) => {
           if (progress.phase === 'Receiving objects') {
             const percent = Math.round((progress.loaded / progress.total) * 100);
@@ -79,13 +98,8 @@ export async function fetch(
         },
       });
     } catch (fetchError: any) {
-      // 空リポジトリの場合、fetchするものがないので404や401が返る
-      if (fetchError.message?.includes('401') || fetchError.message?.includes('404') || 
-          fetchError.data?.statusCode === 401 || fetchError.data?.statusCode === 404) {
-        console.log('[git fetch] Remote repository is empty or branch does not exist');
-        return `From ${remoteInfo.url}\nRemote repository is empty or branch does not exist yet.\nUse 'git push' to create the first commit.`;
-      }
-      throw fetchError;
+      console.error('[git fetch] Fetch failed:', fetchError);
+      throw new Error(`Fetch failed: ${fetchError.message}`);
     }
 
     // フェッチ結果を整形

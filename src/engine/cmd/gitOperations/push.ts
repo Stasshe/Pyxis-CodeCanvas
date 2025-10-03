@@ -87,18 +87,26 @@ export async function push(
     const localTreeSha = localCommitObj.commit.tree;
     
     // コミット履歴もチェック（fast-forward可能か）
-    if (remoteCommitSha) {
-      // リモートコミットがローカルの履歴に含まれているかチェック
+    if (remoteCommitSha && !force) {
       try {
         const localLog = await git.log({ fs, dir, depth: 100, ref: targetBranch });
         const isAncestor = localLog.some(c => c.oid === remoteCommitSha);
         
-        if (!isAncestor && !force) {
-          throw new Error(
-            `Updates were rejected because the remote contains work that you do not have locally.\n` +
-            `This is usually caused by another repository pushing to the same ref.\n` +
-            `You may want to first integrate the remote changes (e.g., 'git pull ...') before pushing again.`
-          );
+        if (!isAncestor) {
+          // リモートがローカルより進んでいる場合
+          // ただし、ローカルのコミットがリモートに存在するかもチェック
+          try {
+            await githubAPI.getCommit(localCommit.oid);
+            // ローカルのコミットがリモートに存在する = すでにpush済み
+            return 'Everything up-to-date';
+          } catch {
+            // ローカルのコミットがリモートに存在しない = 本当の競合
+            throw new Error(
+              `Updates were rejected because the remote contains work that you do not have locally.\n` +
+              `This is usually caused by another repository pushing to the same ref.\n` +
+              `You may want to first integrate the remote changes (e.g., 'git pull ...') before pushing again.`
+            );
+          }
         }
       } catch (error) {
         if ((error as Error).message.includes('Updates were rejected')) {

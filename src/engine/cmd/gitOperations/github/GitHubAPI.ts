@@ -145,14 +145,12 @@ export class GitHubAPI {
     tree: GitTreeEntry[],
     baseTree?: string
   ): Promise<GitTree> {
-    const body: any = { tree };
-    if (baseTree) {
-      body.base_tree = baseTree;
-    }
-    
     return this.request<GitTree>('/git/trees', {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        tree,
+        ...(baseTree && { base_tree: baseTree }),
+      }),
     });
   }
 
