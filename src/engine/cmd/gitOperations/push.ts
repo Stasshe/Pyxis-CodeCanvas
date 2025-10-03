@@ -173,30 +173,8 @@ export async function push(
     console.log('[git push] Updating branch reference...');
     await githubAPI.updateRef(targetBranch, commitData.sha, force);
 
-    // ローカルのブランチもリモートのコミットIDに更新
-    try {
-      await git.writeRef({
-        fs,
-        dir,
-        ref: `refs/heads/${targetBranch}`,
-        value: commitData.sha,
-        force: true,
-      });
-      console.log('[git push] Updated local branch to remote commit:', commitData.sha.slice(0, 7));
-      
-      // ワーキングディレクトリを更新（重要: ファイルが消えないように）
-      await git.checkout({
-        fs,
-        dir,
-        ref: targetBranch,
-        force: false, // 変更を上書きしない
-      });
-      console.log('[git push] Updated working directory');
-    } catch (error) {
-      console.warn('[git push] Failed to update local branch or working directory:', error);
-    }
-
-    // ローカルのリモート追跡ブランチも更新（refs/remotes/origin/branch）
+    // リモート追跡ブランチのみを更新
+    // ローカルブランチは更新しない - ローカルのコミット履歴を保持
     try {
       await git.writeRef({
         fs,
@@ -205,6 +183,7 @@ export async function push(
         value: commitData.sha,
         force: true,
       });
+      console.log('[git push] Updated remote tracking branch:', `${remote}/${targetBranch} -> ${commitData.sha.slice(0, 7)}`);
     } catch (error) {
       console.warn('[git push] Failed to update remote tracking branch:', error);
     }

@@ -133,16 +133,16 @@ export default function GitHistory({
     if (commits.length === 0) return;
 
     // トポロジカルソートで順序保証（古い順）
-    let sortedCommits = topoSortCommits(commits);
-    // 新しいコミットが上に来るよう逆順に
-    sortedCommits = sortedCommits.reverse();
+    const sortedCommits = topoSortCommits(commits);
+    // レーン割り当ては古い順に処理（親→子の順）
+    // 表示は新しい順（逆順）
 
   const ROW_HEIGHT = 28;
   const LANE_WIDTH = 16;
   const EXPANDED_HEIGHT = 56;
   const Y_OFFSET = 10;
 
-    // レーン割り当てアルゴリズム
+    // レーン割り当てアルゴリズム（古い順に処理）
     const commitMap = new Map<string, GitCommitType>();
     sortedCommits.forEach(c => commitMap.set(c.hash, c));
 
@@ -150,28 +150,25 @@ export default function GitHistory({
     const commitLanes = new Map<string, number>(); // コミットハッシュ -> レーン番号
     const commitColors = new Map<string, string>(); // コミットハッシュ -> 色
 
+    // 古い順に処理してレーンを割り当て
     for (const commit of sortedCommits) {
-      // 親コミットのレーンを確認
       let assignedLane = -1;
+      let assignedColor: string | undefined;
       
+      // 親コミットのレーンを引き継ぐ（親→子で同じレーン）
       if (commit.parentHashes.length > 0) {
-        // 最初の親のレーンを引き継ぐ
         const firstParentHash = commit.parentHashes[0];
         if (commitLanes.has(firstParentHash)) {
           const parentLane = commitLanes.get(firstParentHash)!;
-          // 親のレーンが空いているか確認
-          if (lanes[parentLane] === firstParentHash || lanes[parentLane] === null) {
-            assignedLane = parentLane;
-            // 親の色を引き継ぐ
-            if (commitColors.has(firstParentHash)) {
-              commitColors.set(commit.hash, commitColors.get(firstParentHash)!);
-            }
-          }
+          assignedLane = parentLane;
+          // 親の色を引き継ぐ
+          assignedColor = commitColors.get(firstParentHash);
         }
       }
 
-      // レーンが割り当てられていない場合は、空いているレーンを探す
+      // 親コミットがない、または親がまだ処理されていない場合は新しいレーンを割り当て
       if (assignedLane === -1) {
+        // 空いているレーンを探す
         assignedLane = lanes.findIndex(lane => lane === null);
         if (assignedLane === -1) {
           // 空きレーンがない場合は新しいレーンを作成
@@ -179,12 +176,13 @@ export default function GitHistory({
           lanes.push(null);
         }
         // 新しい色を割り当て
-        commitColors.set(commit.hash, branchColors[assignedLane % branchColors.length]);
+        assignedColor = branchColors[assignedLane % branchColors.length];
       }
 
-      // レーンに配置
+      // レーンと色を記録
       lanes[assignedLane] = commit.hash;
       commitLanes.set(commit.hash, assignedLane);
+      commitColors.set(commit.hash, assignedColor!);
 
       // マージコミットの場合、他の親のレーンを解放
       if (commit.parentHashes.length > 1) {
@@ -199,16 +197,17 @@ export default function GitHistory({
         }
       }
 
-      // 子コミットがない場合、レーンを解放
+      // このコミットの処理が終わったら、子がいない場合はレーンを開放
       const hasChildren = sortedCommits.some(c => c.parentHashes.includes(commit.hash));
-      if (!hasChildren && lanes[assignedLane] === commit.hash) {
+      if (!hasChildren) {
         lanes[assignedLane] = null;
       }
     }
 
-    // 位置とY座標を計算
+    // 位置とY座標を計算（表示は新しい順なので逆順）
     let currentY = Y_OFFSET;
-    const processedCommits: ExtendedCommit[] = sortedCommits.map(commit => {
+    const displayCommits = [...sortedCommits].reverse(); // 新しい順に表示
+    const processedCommits: ExtendedCommit[] = displayCommits.map(commit => {
       const lane = commitLanes.get(commit.hash) || 0;
       const color = commitColors.get(commit.hash) || branchColors[0];
       const commitY = currentY;
