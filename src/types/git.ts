@@ -5,14 +5,14 @@ export interface GitCommit {
   author: string;
   date: string;
   timestamp: number;
-  branch: string;
   isMerge: boolean;
   parentHashes: string[];
   /**
-   * UI表示専用: このコミットが属するブランチ名（複数可）
-   * UIでの色分け・ラベル表示用。ロジック処理には使わないこと。
+   * このコミットを指しているブランチ・タグのref名（複数可）
+   * 例: ['main', 'origin/main', 'v1.0.0']
+   * HEADコミットのみに設定される
    */
-  uiBranches?: string[];
+  refs?: string[];
 }
 
 export interface GitBranch {

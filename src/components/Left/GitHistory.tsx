@@ -36,7 +36,8 @@ interface CommitChanges {
 interface ExtendedCommit extends GitCommitType {
   x: number;
   y: number;
-  branchColor: string;
+  lane: number; // このコミットが描画されるレーン番号
+  laneColor: string; // このコミットの線の色
   changes?: CommitChanges;
 }
 
@@ -104,7 +105,7 @@ export default function GitHistory({
     return expandedCommits.has(commitHash) ? baseHeight + expandedHeight : baseHeight;
   };
 
-  // コミットの位置とブランチカラーを計算（展開状態を考慮）
+  // コミットの位置とレーンを計算（展開状態を考慮）
   const [svgHeight, setSvgHeight] = useState<number>(0);
 
   useEffect(() => {
@@ -115,21 +116,80 @@ export default function GitHistory({
     // 新しいコミットが上に来るよう逆順に
     sortedCommits = sortedCommits.reverse();
 
-    // 全ての親コミットが含まれるように
-    const branchMap = new Map<string, number>();
-    let branchIndex = 0;
     const ROW_HEIGHT = 40;
-    const BRANCH_WIDTH = 20;
+    const LANE_WIDTH = 20;
     const EXPANDED_HEIGHT = 100;
     const Y_OFFSET = 18;
 
-    let currentY = Y_OFFSET;
-    const processedCommits: ExtendedCommit[] = sortedCommits.map((commit, index) => {
-      if (!branchMap.has(commit.branch)) {
-        branchMap.set(commit.branch, branchIndex++);
+    // レーン割り当てアルゴリズム
+    const commitMap = new Map<string, GitCommitType>();
+    sortedCommits.forEach(c => commitMap.set(c.hash, c));
+
+    const lanes: (string | null)[] = []; // 各レーンに現在配置されているコミットハッシュ
+    const commitLanes = new Map<string, number>(); // コミットハッシュ -> レーン番号
+    const commitColors = new Map<string, string>(); // コミットハッシュ -> 色
+
+    for (const commit of sortedCommits) {
+      // 親コミットのレーンを確認
+      let assignedLane = -1;
+      
+      if (commit.parentHashes.length > 0) {
+        // 最初の親のレーンを引き継ぐ
+        const firstParentHash = commit.parentHashes[0];
+        if (commitLanes.has(firstParentHash)) {
+          const parentLane = commitLanes.get(firstParentHash)!;
+          // 親のレーンが空いているか確認
+          if (lanes[parentLane] === firstParentHash || lanes[parentLane] === null) {
+            assignedLane = parentLane;
+            // 親の色を引き継ぐ
+            if (commitColors.has(firstParentHash)) {
+              commitColors.set(commit.hash, commitColors.get(firstParentHash)!);
+            }
+          }
+        }
       }
-      const branchIdx = branchMap.get(commit.branch) || 0;
-      const colorIndex = branchIdx % branchColors.length;
+
+      // レーンが割り当てられていない場合は、空いているレーンを探す
+      if (assignedLane === -1) {
+        assignedLane = lanes.findIndex(lane => lane === null);
+        if (assignedLane === -1) {
+          // 空きレーンがない場合は新しいレーンを作成
+          assignedLane = lanes.length;
+          lanes.push(null);
+        }
+        // 新しい色を割り当て
+        commitColors.set(commit.hash, branchColors[assignedLane % branchColors.length]);
+      }
+
+      // レーンに配置
+      lanes[assignedLane] = commit.hash;
+      commitLanes.set(commit.hash, assignedLane);
+
+      // マージコミットの場合、他の親のレーンを解放
+      if (commit.parentHashes.length > 1) {
+        for (let i = 1; i < commit.parentHashes.length; i++) {
+          const parentHash = commit.parentHashes[i];
+          if (commitLanes.has(parentHash)) {
+            const parentLane = commitLanes.get(parentHash)!;
+            if (lanes[parentLane] === parentHash) {
+              lanes[parentLane] = null; // レーンを解放
+            }
+          }
+        }
+      }
+
+      // 子コミットがない場合、レーンを解放
+      const hasChildren = sortedCommits.some(c => c.parentHashes.includes(commit.hash));
+      if (!hasChildren && lanes[assignedLane] === commit.hash) {
+        lanes[assignedLane] = null;
+      }
+    }
+
+    // 位置とY座標を計算
+    let currentY = Y_OFFSET;
+    const processedCommits: ExtendedCommit[] = sortedCommits.map(commit => {
+      const lane = commitLanes.get(commit.hash) || 0;
+      const color = commitColors.get(commit.hash) || branchColors[0];
       const commitY = currentY;
       currentY += ROW_HEIGHT;
       if (expandedCommits.has(commit.hash)) {
@@ -137,9 +197,10 @@ export default function GitHistory({
       }
       return {
         ...commit,
-        x: branchIdx * BRANCH_WIDTH + 15,
+        x: lane * LANE_WIDTH + 15,
         y: commitY,
-        branchColor: branchColors[colorIndex],
+        lane,
+        laneColor: color,
       };
     });
 
@@ -147,7 +208,7 @@ export default function GitHistory({
     const calculatedHeight = currentY + 30;
     setSvgHeight(calculatedHeight);
     setExtendedCommits(processedCommits);
-  }, [commits, expandedCommits]);
+  }, [commits, expandedCommits, branchColors]);
 
   // コミットの変更ファイルを取得
   const getCommitChanges = async (commitHash: string) => {
@@ -298,59 +359,44 @@ export default function GitHistory({
               overflow: 'visible',
             }}
           >
-            {/* Draw branch lines */}
+            {/* Draw lane lines */}
             {extendedCommits.map((commit, index) => {
-              const lines = [];
-              // ROW_HEIGHTをここでも定義
+              const lines: React.ReactElement[] = [];
               const ROW_HEIGHT = 40;
-              // 同じブランチの連続するコミット間の縦線
-              const nextCommit = extendedCommits[index + 1];
-              if (nextCommit && commit.branch === nextCommit.branch) {
-                lines.push(
-                  <line
-                    key={`line-${commit.hash}-${nextCommit.hash}`}
-                    x1={commit.x}
-                    y1={commit.y}
-                    x2={nextCommit.x}
-                    y2={nextCommit.y}
-                    stroke={commit.branchColor}
-                    strokeWidth="2"
-                  />
-                );
-              }
+
               // 親コミットへの接続線（すべての親への接続）
               if (commit.parentHashes && commit.parentHashes.length > 0) {
                 commit.parentHashes.forEach((parentHash, parentIndex) => {
                   const parentCommit = extendedCommits.find(c => c.hash === parentHash);
                   if (parentCommit) {
-                    if (parentCommit.branch === commit.branch) {
-                      if (Math.abs(extendedCommits.indexOf(parentCommit) - index) > 1) {
-                        lines.push(
-                          <line
-                            key={`direct-line-${commit.hash}-${parentHash}-${parentIndex}`}
-                            x1={commit.x}
-                            y1={commit.y}
-                            x2={parentCommit.x}
-                            y2={parentCommit.y}
-                            stroke={commit.branchColor}
-                            strokeWidth="2"
-                          />
-                        );
-                      }
+                    if (parentCommit.lane === commit.lane) {
+                      // 同じレーン：直線
+                      lines.push(
+                        <line
+                          key={`line-${commit.hash}-${parentHash}-${parentIndex}`}
+                          x1={commit.x}
+                          y1={commit.y}
+                          x2={parentCommit.x}
+                          y2={parentCommit.y}
+                          stroke={commit.laneColor}
+                          strokeWidth="2"
+                        />
+                      );
                     } else {
+                      // 異なるレーン：曲線（マージまたは分岐）
                       const midY = (commit.y + parentCommit.y) / 2;
                       const midX = (commit.x + parentCommit.x) / 2;
                       lines.push(
-                        <g key={`branch-line-${commit.hash}-${parentHash}-${parentIndex}`}>
+                        <g key={`curve-${commit.hash}-${parentHash}-${parentIndex}`}>
                           <path
                             d={`M ${commit.x} ${commit.y} C ${commit.x} ${commit.y + 15} ${midX} ${midY - 15} ${midX} ${midY}`}
-                            stroke={commit.branchColor}
+                            stroke={commit.laneColor}
                             strokeWidth="2"
                             fill="none"
                           />
                           <path
                             d={`M ${midX} ${midY} C ${midX} ${midY + 15} ${parentCommit.x} ${parentCommit.y - 15} ${parentCommit.x} ${parentCommit.y}`}
-                            stroke={parentCommit.branchColor}
+                            stroke={parentCommit.laneColor}
                             strokeWidth="2"
                             fill="none"
                           />
@@ -359,7 +405,6 @@ export default function GitHistory({
                     }
                   } else {
                     // 親コミットが見つからない場合でも、仮想的な位置に点と線を描画
-                    // 仮想的な位置: xは同じ、yは少し上
                     const virtualY = commit.y - ROW_HEIGHT;
                     lines.push(
                       <circle
@@ -367,7 +412,7 @@ export default function GitHistory({
                         cx={commit.x}
                         cy={virtualY}
                         r="3"
-                        fill={commit.branchColor}
+                        fill={commit.laneColor}
                         stroke={colors.gitCommitStroke || 'white'}
                         strokeWidth="1"
                       />
@@ -379,7 +424,7 @@ export default function GitHistory({
                         y1={commit.y}
                         x2={commit.x}
                         y2={virtualY}
-                        stroke={commit.branchColor}
+                        stroke={commit.laneColor}
                         strokeWidth="1"
                         strokeDasharray="2,2"
                       />
@@ -396,7 +441,7 @@ export default function GitHistory({
                   cx={commit.x}
                   cy={commit.y}
                   r="4"
-                  fill={commit.branchColor}
+                  fill={commit.laneColor}
                   stroke={colors.gitCommitStroke || 'white'}
                   strokeWidth="1.5"
                 />
@@ -418,11 +463,11 @@ export default function GitHistory({
                 key={commit.hash}
                 className="relative"
               >
-                {/* Branch indicator - 展開時には全体の高さをカバー */}
+                {/* Lane indicator - 展開時には全体の高さをカバー */}
                 <div
                   className="absolute left-0 w-0.5 rounded-r"
                   style={{
-                    background: commit.branchColor,
+                    background: commit.laneColor,
                     top: 0,
                     bottom: 0,
                     height: expandedCommits.has(commit.hash) ? 'auto' : '100%',
@@ -523,33 +568,36 @@ export default function GitHistory({
                             <Hash className="w-2.5 h-2.5" />
                             <span className="font-mono">{commit.shortHash}</span>
                           </span>
-                          {/* UI表示専用: uiBranches配列の全ブランチ名をラベル表示 */}
-                          {Array.isArray(commit.uiBranches) && commit.uiBranches.length > 0 && (
-                            <div className="flex gap-1">
-                              {commit.uiBranches.map((branchName, idx) => {
-                                // 色分け: branchColorsからインデックス算出
-                                const branchIdx = branchColors.findIndex((_, i) => i === idx);
-                                const colorIndex =
-                                  branchIdx >= 0 ? branchIdx % branchColors.length : 0;
-                                const isCurrentBranch = branchName === currentBranch;
+                          {/* refs: このコミットを指すブランチ・タグ名をラベル表示 */}
+                          {Array.isArray(commit.refs) && commit.refs.length > 0 && (
+                            <div className="flex gap-1 flex-wrap">
+                              {commit.refs.map((refName: string) => {
+                                const isCurrentBranch = refName === currentBranch;
+                                const isRemote = refName.startsWith('origin/') || refName.startsWith('upstream/');
                                 return (
                                   <span
-                                    key={branchName}
+                                    key={refName}
                                     className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium flex-shrink-0 whitespace-nowrap border`}
                                     style={{
                                       background: isCurrentBranch
                                         ? colors.gitBranchCurrentBg
-                                        : colors.gitBranchOtherBg,
+                                        : isRemote
+                                        ? colors.gitBranchOtherBg
+                                        : colors.gitBranchCurrentBg,
                                       color: isCurrentBranch
                                         ? colors.gitBranchCurrentFg
-                                        : colors.gitBranchOtherFg,
+                                        : isRemote
+                                        ? colors.gitBranchOtherFg
+                                        : colors.gitBranchCurrentFg,
                                       borderColor: isCurrentBranch
                                         ? colors.gitBranchCurrentBorder
-                                        : colors.gitBranchOtherBorder,
+                                        : isRemote
+                                        ? colors.gitBranchOtherBorder
+                                        : colors.gitBranchCurrentBorder,
                                     }}
                                   >
                                     <GitBranch className="w-2.5 h-2.5" />
-                                    {branchName}
+                                    {refName}
                                   </span>
                                 );
                               })}

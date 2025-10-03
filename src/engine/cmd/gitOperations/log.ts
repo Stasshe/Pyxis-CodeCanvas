@@ -106,7 +106,7 @@ export class GitLogOperations {
 
       // 全ブランチからコミットを収集
       const allCommits = new Map<string, any>(); // コミットハッシュをキーとして重複を避ける
-      const branchHeads = new Map<string, string>(); // ブランチ名 -> HEADコミットハッシュ
+      const refsByCommit = new Map<string, string[]>(); // コミットハッシュ -> ref名配列
 
       for (const branch of branches) {
         try {
@@ -125,8 +125,13 @@ export class GitLogOperations {
           });
 
           if (branchCommits.length > 0) {
-            // このブランチのHEAD(最初のコミット)を記録
-            branchHeads.set(branch, branchCommits[0].oid);
+            // このブランチのHEAD(最初のコミット)にref名を記録
+            const headHash = branchCommits[0].oid;
+            const existingRefs = refsByCommit.get(headHash) || [];
+            if (!existingRefs.includes(branch)) {
+              existingRefs.push(branch);
+              refsByCommit.set(headHash, existingRefs);
+            }
           }
 
           // 全てのコミットを収集（重複なし）
@@ -140,15 +145,9 @@ export class GitLogOperations {
         }
       }
 
-      // 各コミットに、そのコミットがHEADであるブランチの配列を追加
+      // 各コミットにrefs配列を設定
       for (const commit of allCommits.values()) {
-        const uiBranches: string[] = [];
-        for (const [branch, headHash] of branchHeads.entries()) {
-          if (commit.oid === headHash) {
-            uiBranches.push(branch);
-          }
-        }
-        commit.uiBranches = uiBranches;
+        commit.refs = refsByCommit.get(commit.oid) || [];
       }
 
       // 全コミットを時系列順でソート
@@ -175,10 +174,10 @@ export class GitLogOperations {
         const safeDate = date.toISOString();
         // 親コミットのハッシュを追加（複数の親がある場合はカンマ区切り）
         const parentHashes = commit.commit.parent.join(',');
-        // uiBranchesをカンマ区切りで出力
-        const uiBranches = Array.isArray(commit.uiBranches) ? commit.uiBranches.join(',') : '';
-        // フォーマット: hash|message|author|date|parentHashes|uiBranches
-        const formatted = `${commit.oid}|${safeMessage}|${safeName}|${safeDate}|${parentHashes}|${uiBranches}`;
+        // refsをカンマ区切りで出力（このコミットを指すブランチ名）
+        const refs = Array.isArray(commit.refs) ? commit.refs.join(',') : '';
+        // フォーマット: hash|message|author|date|parentHashes|refs
+        const formatted = `${commit.oid}|${safeMessage}|${safeName}|${safeDate}|${parentHashes}|${refs}`;
         formattedCommits.push(formatted);
       }
 

@@ -146,14 +146,14 @@ export default function GitPanel({
       const line = lines[i];
       const parts = line.split('|');
 
-      // 6つのパーツがあることを確認（ブランチ情報を含む）
+      // 6つのパーツがあることを確認（refs情報を含む）
       if (parts.length === 6) {
         const hash = parts[0]?.trim();
         const message = parts[1]?.trim();
         const author = parts[2]?.trim();
         const date = parts[3]?.trim();
         const parentHashesStr = parts[4]?.trim();
-        const uiBranchesStr = parts[5]?.trim();
+        const refsStr = parts[5]?.trim();
 
         // 全てのフィールドが有効であることを確認
         if (hash && hash.length >= 7 && message && author && date) {
@@ -166,14 +166,11 @@ export default function GitPanel({
                   ? parentHashesStr.split(',').filter(h => h.trim() !== '')
                   : [];
 
-              // uiBranchesをカンマ区切りからstring配列に変換
-              const uiBranches =
-                uiBranchesStr && uiBranchesStr !== ''
-                  ? uiBranchesStr.split(',').filter(b => b.trim() !== '')
+              // refsをカンマ区切りからstring配列に変換
+              const refs =
+                refsStr && refsStr !== ''
+                  ? refsStr.split(',').filter(r => r.trim() !== '')
                   : [];
-
-              // branchは最初のブランチまたは空文字列
-              const branch = uiBranches.length > 0 ? uiBranches[0] : '';
 
               commits.push({
                 hash,
@@ -182,10 +179,9 @@ export default function GitPanel({
                 author: author.replace(/｜/g, '|'),
                 date,
                 timestamp,
-                branch: branch, // 互換性のため最初のブランチを使用
-                isMerge: message.toLowerCase().includes('merge'),
+                isMerge: parentHashes.length > 1, // 親が2つ以上ならマージコミット
                 parentHashes,
-                uiBranches, // UI表示用のブランチ配列
+                refs, // このコミットを指すブランチ名配列
               });
             }
           } catch (dateError) {
@@ -193,7 +189,7 @@ export default function GitPanel({
           }
         }
       } else if (parts.length === 5) {
-        // 古いフォーマット（ブランチ情報なし）との互換性
+        // 古いフォーマット（refs情報なし）との互換性
         const hash = parts[0]?.trim();
         const message = parts[1]?.trim();
         const author = parts[2]?.trim();
@@ -216,9 +212,9 @@ export default function GitPanel({
                 author: author.replace(/｜/g, '|'),
                 date,
                 timestamp,
-                branch: 'main', // デフォルトはmain
-                isMerge: message.toLowerCase().includes('merge'),
+                isMerge: parentHashes.length > 1,
                 parentHashes,
+                refs: [], // refsなし
               });
             }
           } catch (dateError) {
