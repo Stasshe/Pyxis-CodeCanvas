@@ -461,7 +461,8 @@ export class FileRepository {
           updatedFile.path,
           updatedFile.isBufferArray ? '' : updatedFile.content || '',
           'update',
-          updatedFile.bufferContent
+          updatedFile.bufferContent,
+          updatedFile.type
         ).catch(error => {
           console.warn(
             '[FileRepository] Background sync to GitFileSystem failed (non-critical):',
@@ -562,9 +563,10 @@ export class FileRepository {
     path: string,
     content: string,
     operation: 'create' | 'update' | 'delete',
-    bufferContent?: ArrayBuffer
+    bufferContent?: ArrayBuffer,
+    fileType?: 'file' | 'folder'
   ): Promise<void> {
-    console.log(`[FileRepository.syncToGitFileSystem] START - path: ${path}, operation: ${operation}`);
+    console.log(`[FileRepository.syncToGitFileSystem] START - path: ${path}, operation: ${operation}, type: ${fileType}`);
     try {
       // .gitignoreチェック（作成・更新時のみ）
       if (operation !== 'delete') {
@@ -594,9 +596,17 @@ export class FileRepository {
         }
       }
 
-      // SyncManagerを使用して同期
-      console.log(`[FileRepository.syncToGitFileSystem] Calling syncSingleFileToFS for: ${path}`);
-      await syncManager.syncSingleFileToFS(projectName, path, content, operation, bufferContent);
+      // フォルダの場合はディレクトリを作成
+      if (fileType === 'folder' && operation !== 'delete') {
+        console.log(`[FileRepository.syncToGitFileSystem] Creating directory: ${path}`);
+        const projectDir = gitFileSystem.getProjectDir(projectName);
+        const fullPath = `${projectDir}${path}`;
+        await gitFileSystem.ensureDirectory(fullPath);
+      } else {
+        // ファイルの場合はSyncManagerを使用して同期
+        console.log(`[FileRepository.syncToGitFileSystem] Calling syncSingleFileToFS for: ${path}`);
+        await syncManager.syncSingleFileToFS(projectName, path, content, operation, bufferContent);
+      }
 
       // Git変更検知のために自動的にキャッシュフラッシュ
       await gitFileSystem.flush();
@@ -666,7 +676,7 @@ export class FileRepository {
       request.onsuccess = async () => {
         if (fileToDelete) {
           // GitFileSystemへの自動同期（削除）
-          this.syncToGitFileSystem(fileToDelete.projectId, fileToDelete.path, '', 'delete').catch(
+          this.syncToGitFileSystem(fileToDelete.projectId, fileToDelete.path, '', 'delete', undefined, fileToDelete.type).catch(
             error => {
               console.warn('[FileRepository] Background delete sync failed (non-critical):', error);
             }
