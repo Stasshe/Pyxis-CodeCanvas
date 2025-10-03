@@ -101,8 +101,29 @@ export default function GitHistory({
   // コミット行の高さを動的に計算するヘルパー関数（小さめ）
   const getCommitRowHeight = (commitHash: string): number => {
     const baseHeight = 28; // 基本の行高さ
-    const expandedHeight = 56; // 展開時の追加高さ
-    return expandedCommits.has(commitHash) ? baseHeight + expandedHeight : baseHeight;
+    const FILE_ITEM_HEIGHT = 24; // ファイル1つあたりの高さ
+    const MAX_FILES_DISPLAY = 10; // 最大表示ファイル数
+    const HEADER_FOOTER_HEIGHT = 32; // ヘッダー・フッター・パディング(最小)
+
+    if (!expandedCommits.has(commitHash)) {
+      return baseHeight;
+    }
+
+    // 変更ファイル数を取得
+    const changes = commitChanges.get(commitHash);
+    if (!changes) {
+      return baseHeight + HEADER_FOOTER_HEIGHT; // デフォルトの展開高さ
+    }
+
+    const totalFiles = changes.added.length + changes.modified.length + changes.deleted.length;
+    const displayFiles = Math.min(totalFiles, MAX_FILES_DISPLAY);
+    // ファイルが1つもなければ最低限の高さだけ
+    if (displayFiles === 0) {
+      return baseHeight + HEADER_FOOTER_HEIGHT;
+    }
+    // ファイルが1つ以上なら、その分だけ高さを増やす
+    const expandedHeight = HEADER_FOOTER_HEIGHT + (displayFiles * FILE_ITEM_HEIGHT);
+    return baseHeight + expandedHeight;
   };
 
   // コミットの位置とレーンを計算（展開状態を考慮）
@@ -206,7 +227,7 @@ export default function GitHistory({
     const calculatedHeight = currentY + 30;
     setSvgHeight(calculatedHeight);
     setExtendedCommits(processedCommits);
-  }, [commits, expandedCommits, branchColors]);
+  }, [commits, expandedCommits, commitChanges, branchColors]);
 
   // コミットの変更ファイルを取得
   const getCommitChanges = async (commitHash: string) => {
@@ -627,7 +648,10 @@ export default function GitHistory({
                       変更されたファイル:
                     </div>
                     {commitChanges.has(commit.hash) ? (
-                      <div className="space-y-0.5">
+                      <div 
+                        className="space-y-0.5 overflow-y-auto"
+                        style={{ maxHeight: '240px' }} // 10ファイル分の高さ (24px * 10)
+                      >
                         {(() => {
                           const changes = commitChanges.get(commit.hash)!;
                           const allFiles = [
@@ -645,26 +669,38 @@ export default function GitHistory({
                               </div>
                             );
                           }
-                          return allFiles.map(({ file, type }, index) => (
-                            <div
-                              key={index}
-                              className="flex items-center gap-1 text-[11px] py-0.5 cursor-pointer hover:underline"
-                              onClick={() => {
-                                if (onDiffFileClick) {
-                                  onDiffFileClick({ commitId: commit.hash, filePath: file });
-                                }
-                              }}
-                              title="このファイルの差分を表示"
-                            >
-                              {getFileIcon(type)}
-                              <span
-                                className="font-mono truncate flex-1"
-                                style={{ color: colors.gitCommitFile || colors.sidebarFg }}
-                              >
-                                {file}
-                              </span>
-                            </div>
-                          ));
+                          return (
+                            <>
+                              {allFiles.map(({ file, type }, index) => (
+                                <div
+                                  key={index}
+                                  className="flex items-center gap-1 text-[11px] py-0.5 cursor-pointer hover:underline"
+                                  onClick={() => {
+                                    if (onDiffFileClick) {
+                                      onDiffFileClick({ commitId: commit.hash, filePath: file });
+                                    }
+                                  }}
+                                  title="このファイルの差分を表示"
+                                >
+                                  {getFileIcon(type)}
+                                  <span
+                                    className="font-mono truncate flex-1"
+                                    style={{ color: colors.gitCommitFile || colors.sidebarFg }}
+                                  >
+                                    {file}
+                                  </span>
+                                </div>
+                              ))}
+                              {allFiles.length > 10 && (
+                                <div
+                                  className="text-[10px] italic py-0.5 text-center"
+                                  style={{ color: colors.gitCommitMeta || 'var(--muted-foreground)' }}
+                                >
+                                  全{allFiles.length}ファイル (スクロール可能)
+                                </div>
+                              )}
+                            </>
+                          );
                         })()}
                       </div>
                     ) : (
