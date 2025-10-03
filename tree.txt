@@ -20,7 +20,8 @@
 │   ├── NODE-RUNTIME.md
 │   ├── README.md
 │   ├── SYSTEM-OVERVIEW.md
-│   └── UI-COMPONENTS.md
+│   ├── UI-COMPONENTS.md
+│   └── UNIX-COMMANDS.md
 ├── eslint.config.mjs
 ├── helper-code.txt
 ├── initial_files
@@ -183,6 +184,23 @@
 │   │   │   ├── npmOperations
 │   │   │   │   ├── npmDependencySize.ts
 │   │   │   │   └── npmInstall.ts
+│   │   │   ├── unix-commands
+│   │   │   │   ├── base.ts
+│   │   │   │   ├── cat.ts
+│   │   │   │   ├── cd.ts
+│   │   │   │   ├── cp.ts
+│   │   │   │   ├── echo.ts
+│   │   │   │   ├── find.ts
+│   │   │   │   ├── grep.ts
+│   │   │   │   ├── help.ts
+│   │   │   │   ├── index.ts
+│   │   │   │   ├── ls.ts
+│   │   │   │   ├── mkdir.ts
+│   │   │   │   ├── mv.ts
+│   │   │   │   ├── pwd.ts
+│   │   │   │   ├── rm.ts
+│   │   │   │   ├── touch.ts
+│   │   │   │   └── tree.ts
 │   │   │   └── unix.ts
 │   │   ├── commitMsgAI.ts
 │   │   ├── core
@@ -247,15 +265,11 @@
 ├── tree.txt
 └── tsconfig.json
 
-44 directories, 204 files
+45 directories, 221 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 31666
-合計文字数: 1061406
-合計ファイルサイズ(bytes): 1136431
+合計行数: 33834
+合計文字数: 1115362
+合計ファイルサイズ(bytes): 1198667
 
 リポジトリ全体のサイズ(bytes): 1.9G	.
-==========
-ビルト済みファイルの行数: 14778
-合計文字数: 22205686
-合計ファイルサイズ(bytes): 23136424
