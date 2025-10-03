@@ -176,8 +176,10 @@ export class GitLogOperations {
         const parentHashes = commit.commit.parent.join(',');
         // refsをカンマ区切りで出力（このコミットを指すブランチ名）
         const refs = Array.isArray(commit.refs) ? commit.refs.join(',') : '';
-        // フォーマット: hash|message|author|date|parentHashes|refs
-        const formatted = `${commit.oid}|${safeMessage}|${safeName}|${safeDate}|${parentHashes}|${refs}`;
+        // ツリーSHAを追加（重複検出に使用）
+        const treeSha = commit.commit.tree || '';
+        // フォーマット: hash|message|author|date|parentHashes|refs|tree
+        const formatted = `${commit.oid}|${safeMessage}|${safeName}|${safeDate}|${parentHashes}|${refs}|${treeSha}`;
         formattedCommits.push(formatted);
       }
 

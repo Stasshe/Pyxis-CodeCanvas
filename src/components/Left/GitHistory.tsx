@@ -83,6 +83,54 @@ export default function GitHistory({
     });
   };
 
+  // 重複コミットを除去（同じ内容のコミットはリモート優先）
+  const deduplicateCommits = (commits: GitCommitType[]): GitCommitType[] => {
+    // コミット内容のキー: tree (最も確実) または author + timestamp + message
+    const contentMap = new Map<string, GitCommitType[]>();
+    
+    commits.forEach(commit => {
+      // ツリーSHAがある場合はそれを使用（最も確実な一意性識別子）
+      // ない場合は author + timestamp + message を使用
+      const key = commit.tree 
+        ? `tree:${commit.tree}`
+        : `meta:${commit.author}|${commit.timestamp}|${commit.message}`;
+      
+      if (!contentMap.has(key)) {
+        contentMap.set(key, []);
+      }
+      contentMap.get(key)!.push(commit);
+    });
+    
+    // 各グループから1つだけ選択（リモート優先）
+    const deduplicated: GitCommitType[] = [];
+    contentMap.forEach((group, key) => {
+      if (group.length === 1) {
+        // 重複なし
+        deduplicated.push(group[0]);
+      } else {
+        // 重複あり: リモート参照があるコミットを優先
+        const remoteCommit = group.find(c => 
+          Array.isArray(c.refs) && c.refs.some((ref: string) => 
+            ref.startsWith('origin/') || ref.startsWith('upstream/')
+          )
+        );
+        if (remoteCommit) {
+          deduplicated.push(remoteCommit);
+          const localHashes = group.filter(c => c !== remoteCommit).map(c => c.shortHash).join(', ');
+          console.log(
+            `[GitHistory] Deduplicated commits (key: ${key}): using remote ${remoteCommit.shortHash}, hiding local ${localHashes}`
+          );
+        } else {
+          // リモート参照がない場合は最初のものを使用
+          deduplicated.push(group[0]);
+          console.log(`[GitHistory] No remote ref found for duplicate, using first: ${group[0].shortHash}`);
+        }
+      }
+    });
+    
+    return deduplicated;
+  };
+
   // ThemeContextから色を取得
   const { colors } = useTheme();
 
@@ -132,8 +180,11 @@ export default function GitHistory({
   useEffect(() => {
     if (commits.length === 0) return;
 
+    // 重複コミットを除去（リモート優先）
+    const deduplicatedCommits = deduplicateCommits(commits);
+    
     // トポロジカルソートで順序保証（古い順）
-    const sortedCommits = topoSortCommits(commits);
+    const sortedCommits = topoSortCommits(deduplicatedCommits);
     // レーン割り当ては古い順に処理（親→子の順）
     // 表示は新しい順（逆順）
 

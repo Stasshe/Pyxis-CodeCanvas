@@ -146,14 +146,15 @@ export default function GitPanel({
       const line = lines[i];
       const parts = line.split('|');
 
-      // 6つのパーツがあることを確認（refs情報を含む）
-      if (parts.length === 6) {
+      // 7つのパーツがあることを確認（refs + tree情報を含む）
+      if (parts.length === 7) {
         const hash = parts[0]?.trim();
         const message = parts[1]?.trim();
         const author = parts[2]?.trim();
         const date = parts[3]?.trim();
         const parentHashesStr = parts[4]?.trim();
         const refsStr = parts[5]?.trim();
+        const treeSha = parts[6]?.trim();
 
         // 全てのフィールドが有効であることを確認
         if (hash && hash.length >= 7 && message && author && date) {
@@ -182,6 +183,47 @@ export default function GitPanel({
                 isMerge: parentHashes.length > 1, // 親が2つ以上ならマージコミット
                 parentHashes,
                 refs, // このコミットを指すブランチ名配列
+                tree: treeSha || undefined, // ツリーSHA
+              });
+            }
+          } catch (dateError) {
+            // Date parsing error, skip this commit
+          }
+        }
+      } else if (parts.length === 6) {
+        // 旧フォーマット（tree情報なし）との互換性
+        const hash = parts[0]?.trim();
+        const message = parts[1]?.trim();
+        const author = parts[2]?.trim();
+        const date = parts[3]?.trim();
+        const parentHashesStr = parts[4]?.trim();
+        const refsStr = parts[5]?.trim();
+
+        if (hash && hash.length >= 7 && message && author && date) {
+          try {
+            const timestamp = new Date(date).getTime();
+            if (!isNaN(timestamp)) {
+              const parentHashes =
+                parentHashesStr && parentHashesStr !== ''
+                  ? parentHashesStr.split(',').filter(h => h.trim() !== '')
+                  : [];
+
+              const refs =
+                refsStr && refsStr !== ''
+                  ? refsStr.split(',').filter(r => r.trim() !== '')
+                  : [];
+
+              commits.push({
+                hash,
+                shortHash: hash.substring(0, 7),
+                message: message.replace(/｜/g, '|'),
+                author: author.replace(/｜/g, '|'),
+                date,
+                timestamp,
+                isMerge: parentHashes.length > 1,
+                parentHashes,
+                refs,
+                tree: undefined,
               });
             }
           } catch (dateError) {

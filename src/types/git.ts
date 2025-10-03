@@ -13,6 +13,11 @@ export interface GitCommit {
    * HEADコミットのみに設定される
    */
   refs?: string[];
+  /**
+   * ツリーSHA（コミットの内容を識別するために使用）
+   * 重複コミット検出に使用される
+   */
+  tree?: string;
 }
 
 export interface GitBranch {
