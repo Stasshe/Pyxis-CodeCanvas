@@ -306,6 +306,24 @@ export async function handleGitCommand(
           force,
         });
         await writeOutput(pushResult);
+
+        // push成功後にreset origin/{pushしたブランチ}を自動実行
+        // pushResultが"Everything up-to-date"の場合もresetは実行する
+        let usedBranch = branch;
+        if (!usedBranch && typeof pushResult === 'string') {
+          const match = pushResult.match(/\s([\w\-]+) -> [\w\-]+/);
+          if (match && match[1]) {
+            usedBranch = match[1];
+          }
+        }
+        const resetTarget = usedBranch ? `origin/${usedBranch}` : undefined;
+        if (resetTarget) {
+          const resetResult = await gitCommandsRef.current.reset({
+            hard: true,
+            commit: resetTarget,
+          });
+          await writeOutput(`(auto) git reset --hard ${resetTarget}\n${resetResult}`);
+        }
       } catch (error) {
         const msg = (error as Error).message || '';
         await writeOutput(`git push: ${msg}`);

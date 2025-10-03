@@ -476,17 +476,6 @@ export default function GitHistory({
                     // 親コミットが見つからない場合でも、仮想的な位置に点と線を描画
                     const virtualY = commit.y - ROW_HEIGHT;
                     lines.push(
-                      <circle
-                        key={`virtual-parent-dot-${commit.hash}-${parentHash}-${parentIndex}`}
-                        cx={commit.x}
-                        cy={virtualY}
-                        r="3"
-                        fill={commit.laneColor}
-                        stroke={colors.gitCommitStroke || 'white'}
-                        strokeWidth="1"
-                      />
-                    );
-                    lines.push(
                       <line
                         key={`virtual-parent-line-${commit.hash}-${parentHash}-${parentIndex}`}
                         x1={commit.x}
