@@ -86,7 +86,8 @@ export class GitHubAPI {
     try {
       return await this.request<GitRef>(`/git/refs/heads/${branch}`);
     } catch (error: any) {
-      if (error.message.includes('404')) {
+      // 404 or 409 = ブランチが存在しない
+      if (error.message.includes('404') || error.message.includes('409')) {
         return null;
       }
       throw error;
@@ -144,12 +145,14 @@ export class GitHubAPI {
     tree: GitTreeEntry[],
     baseTree?: string
   ): Promise<GitTree> {
+    const body: any = { tree };
+    if (baseTree) {
+      body.base_tree = baseTree;
+    }
+    
     return this.request<GitTree>('/git/trees', {
       method: 'POST',
-      body: JSON.stringify({
-        tree,
-        base_tree: baseTree,
-      }),
+      body: JSON.stringify(body),
     });
   }
 

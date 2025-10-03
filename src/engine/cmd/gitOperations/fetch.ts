@@ -56,26 +56,37 @@ export async function fetch(
     }
 
     // fetch実行
-    const fetchResult = await git.fetch({
-      fs,
-      http,
-      dir,
-      url: remoteInfo.url,
-      remote,
-      ref: branch,
-      depth: depth,
-      singleBranch: !!branch,
-      tags: tags,
-      prune: prune,
-      corsProxy: 'https://cors.isomorphic-git.org',
-      headers,
-      onProgress: (progress) => {
-        if (progress.phase === 'Receiving objects') {
-          const percent = Math.round((progress.loaded / progress.total) * 100);
-          console.log(`[git fetch] ${progress.phase}: ${percent}% (${progress.loaded}/${progress.total})`);
-        }
-      },
-    });
+    let fetchResult;
+    try {
+      fetchResult = await git.fetch({
+        fs,
+        http,
+        dir,
+        url: remoteInfo.url,
+        remote,
+        ref: branch,
+        depth: depth,
+        singleBranch: !!branch,
+        tags: tags,
+        prune: prune,
+        corsProxy: 'https://cors.isomorphic-git.org',
+        headers,
+        onProgress: (progress) => {
+          if (progress.phase === 'Receiving objects') {
+            const percent = Math.round((progress.loaded / progress.total) * 100);
+            console.log(`[git fetch] ${progress.phase}: ${percent}% (${progress.loaded}/${progress.total})`);
+          }
+        },
+      });
+    } catch (fetchError: any) {
+      // 空リポジトリの場合、fetchするものがないので404や401が返る
+      if (fetchError.message?.includes('401') || fetchError.message?.includes('404') || 
+          fetchError.data?.statusCode === 401 || fetchError.data?.statusCode === 404) {
+        console.log('[git fetch] Remote repository is empty or branch does not exist');
+        return `From ${remoteInfo.url}\nRemote repository is empty or branch does not exist yet.\nUse 'git push' to create the first commit.`;
+      }
+      throw fetchError;
+    }
 
     // フェッチ結果を整形
     let result = `From ${remoteInfo.url}\n`;

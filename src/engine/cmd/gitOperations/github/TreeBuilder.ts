@@ -21,35 +21,23 @@ export class TreeBuilder {
   }
 
   /**
-   * コミットのツリーをGitHub上に構築（vscode.dev方式: 差分ベース）
+   * コミットのツリーをGitHub上に構築
    */
   async buildTree(commitOid: string, remoteTreeSha?: string): Promise<string> {
-    console.log('[TreeBuilder] Building tree for commit:', commitOid);
-
-    // コミットオブジェクトを取得
     const commit = await git.readCommit({ fs: this.fs, dir: this.dir, oid: commitOid });
     const treeOid = commit.commit.tree;
 
-    // リモートツリーがあれば、base_treeを使用して差分のみ送信（vscode.dev方式）
     if (remoteTreeSha) {
       try {
-        console.log('[TreeBuilder] Using base tree for differential upload:', remoteTreeSha);
         await this.cacheRemoteBlobs(remoteTreeSha);
-        
-        // 差分のみをアップロード（最速）
         const treeSha = await this.buildTreeDifferential(treeOid, remoteTreeSha, '');
-        console.log('[TreeBuilder] Tree built (differential):', treeSha);
         return treeSha;
       } catch (error) {
-        console.warn('[TreeBuilder] Differential upload failed, falling back to full upload:', error);
-        // フォールバック: 全体アップロード
+        console.warn('[TreeBuilder] Differential upload failed, falling back:', error);
       }
     }
 
-    // リモートツリーがない場合、または差分アップロードに失敗した場合は全体を構築
-    const treeSha = await this.buildTreeRecursive(treeOid, '');
-    console.log('[TreeBuilder] Tree built successfully:', treeSha);
-    return treeSha;
+    return await this.buildTreeRecursive(treeOid, '');
   }
 
   /**
@@ -57,34 +45,36 @@ export class TreeBuilder {
    */
   private async cacheRemoteBlobs(treeSha: string): Promise<void> {
     try {
-      const tree = await this.githubAPI.getTree(treeSha, true); // recursive=true
+      const tree = await this.githubAPI.getTree(treeSha, true);
       for (const entry of tree.tree) {
         if (entry.type === 'blob' && entry.sha) {
           this.remoteBlobCache.add(entry.sha);
         }
       }
-      console.log(`[TreeBuilder] Cached ${this.remoteBlobCache.size} remote blobs`);
     } catch (error) {
-      console.warn('[TreeBuilder] Failed to get remote tree:', error);
+      console.warn('[TreeBuilder] Failed to cache remote blobs:', error);
     }
   }
 
   /**
-   * 差分ベースのツリー構築（vscode.dev方式: base_treeを使用）
-   * これが最も高速 - 変更されたファイルのみアップロード
+   * 差分ベースのツリー構築
    */
   private async buildTreeDifferential(
     localTreeOid: string,
     remoteTreeSha: string,
     path: string
   ): Promise<string> {
-    console.log('[TreeBuilder] Building differential tree:', path || 'root');
-
-    // ローカルのツリーオブジェクトを読み込み
     const localTree = await git.readTree({ fs: this.fs, dir: this.dir, oid: localTreeOid });
 
-    // リモートツリーを取得
-    const remoteTree = await this.githubAPI.getTree(remoteTreeSha, false);
+    let remoteTree;
+    try {
+      remoteTree = await this.githubAPI.getTree(remoteTreeSha, false);
+    } catch (error: any) {
+      if (error.message.includes('409') || error.message.includes('empty')) {
+        return this.buildTreeRecursive(localTreeOid, path);
+      }
+      throw error;
+    }
     
     // リモートのファイルマップを作成
     const remoteEntries = new Map<string, typeof remoteTree.tree[0]>();
@@ -199,25 +189,18 @@ export class TreeBuilder {
       }
     }
 
-    // 変更がない場合はリモートのツリーを再利用
     if (!hasChanges && changedEntries.length === remoteTree.tree.length) {
-      console.log('[TreeBuilder] No changes, reusing remote tree:', remoteTreeSha);
       return remoteTreeSha;
     }
 
-    // 変更がある場合のみ新しいツリーを作成
     const treeData = await this.githubAPI.createTree(changedEntries, remoteTreeSha);
-    console.log('[TreeBuilder] Created differential tree:', path || 'root', '->', treeData.sha);
     return treeData.sha;
   }
 
   /**
-   * ツリーを再帰的に構築（並列処理最適化版）
+   * ツリーを再帰的に構築
    */
   private async buildTreeRecursive(treeOid: string, path: string): Promise<string> {
-    console.log('[TreeBuilder] Building tree:', path || 'root');
-
-    // ローカルのツリーオブジェクトを読み込み
     const tree = await git.readTree({ fs: this.fs, dir: this.dir, oid: treeOid });
 
     const entries: GitTreeEntry[] = [];
@@ -274,20 +257,15 @@ export class TreeBuilder {
       });
     }
 
-    // ツリーをGitHub上に作成
     const treeData = await this.githubAPI.createTree(entries);
-    console.log('[TreeBuilder] Created tree:', path || 'root', '->', treeData.sha);
-
     return treeData.sha;
   }
 
   /**
-   * Blobをアップロード（既存blob確認最適化版）
+   * Blobをアップロード
    */
   private async uploadBlob(blobOid: string, path: string): Promise<string> {
-    // リモートに既に存在する場合はスキップ（最大の最適化）
     if (this.remoteBlobCache.has(blobOid)) {
-      console.log('[TreeBuilder] Blob already on remote (skipped):', path, '->', blobOid);
       return blobOid;
     }
 
@@ -315,19 +293,12 @@ export class TreeBuilder {
       encoding = 'utf-8';
     }
 
-    // キャッシュチェック
     const cacheKey = `${contentStr}:${encoding}`;
     if (this.blobCache.has(cacheKey)) {
-      const cachedSha = this.blobCache.get(cacheKey)!;
-      console.log('[TreeBuilder] Blob cache hit:', path, '->', cachedSha);
-      return cachedSha;
+      return this.blobCache.get(cacheKey)!;
     }
 
-    // GitHub上にBlobを作成
     const blobData2 = await this.githubAPI.createBlob(contentStr, encoding);
-    console.log('[TreeBuilder] Uploaded blob:', path, '->', blobData2.sha);
-
-    // キャッシュに保存
     this.blobCache.set(cacheKey, blobData2.sha);
     this.remoteBlobCache.add(blobData2.sha);
 

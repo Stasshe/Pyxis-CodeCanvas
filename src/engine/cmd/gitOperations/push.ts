@@ -50,12 +50,7 @@ export async function push(
       throw new Error('Only GitHub repositories are supported');
     }
 
-    console.log('[git push] Repository:', `${repoInfo.owner}/${repoInfo.repo}`);
-    console.log('[git push] Target branch:', targetBranch);
-
     const githubAPI = new GitHubAPI(token, repoInfo.owner, repoInfo.repo);
-
-    console.log('[git push] Analyzing commits...');
     const localCommits = await git.log({ fs, dir, depth: 1, ref: targetBranch });
     const localCommit = localCommits[0];
     
@@ -63,24 +58,28 @@ export async function push(
       throw new Error('No commits found');
     }
 
-    console.log('[git push] Local commit:', localCommit.oid.slice(0, 7));
-
-    console.log('[git push] Checking remote state...');
     const remoteRef = await githubAPI.getRef(targetBranch);
-    const remoteCommitSha = remoteRef?.object.sha;
+    
+    if (!remoteRef) {
+      throw new Error(
+        'Push failed: Remote repository is empty.\n\n' +
+        'Empty repositories are not supported. Please:\n' +
+        '1. Initialize the repository with a README on GitHub, or\n' +
+        '2. Push from another Git client first, or\n' +
+        '3. Create an initial commit on GitHub web interface'
+      );
+    }
+    
+    const remoteCommitSha = remoteRef.object.sha;
 
-    // リモートツリーSHAを取得（差分アップロードのため - vscode.dev方式）
+    // リモートツリーSHAを取得（差分アップロードのため）
     let remoteTreeSha: string | undefined;
     let remoteCommit;
-    if (remoteCommitSha) {
-      try {
-        console.log('[git push] Fetching remote tree (for differential upload)...');
-        remoteCommit = await githubAPI.getCommit(remoteCommitSha);
-        remoteTreeSha = remoteCommit.tree.sha;
-        console.log('[git push] Remote tree:', remoteTreeSha.slice(0, 7));
-      } catch (error) {
-        console.warn('[git push] Failed to get remote tree, will upload all files:', error);
-      }
+    try {
+      remoteCommit = await githubAPI.getCommit(remoteCommitSha);
+      remoteTreeSha = remoteCommit.tree.sha;
+    } catch (error) {
+      console.warn('[git push] Failed to get remote tree:', error);
     }
 
     // ローカルとリモートのツリーを比較
@@ -110,33 +109,16 @@ export async function push(
     }
     
     if (remoteTreeSha && localTreeSha === remoteTreeSha) {
-      // ツリーが同じ = 内容に変更なし
-      console.log('[git push] No changes detected (tree match)');
       return 'Everything up-to-date';
     }
 
-    const startTime = Date.now();
-    console.log(
-      remoteTreeSha 
-        ? '[git push] Uploading changes (differential)...' 
-        : '[git push] Uploading all files (initial push)...'
-    );
-    
     const treeBuilder = new TreeBuilder(fs, dir, githubAPI);
     const treeSha = await treeBuilder.buildTree(localCommit.oid, remoteTreeSha);
     
-    const uploadTime = ((Date.now() - startTime) / 1000).toFixed(2);
-    console.log(`[git push] Tree built in ${uploadTime}s`);
-    
-    // ツリーが同じ場合は変更なし（ツリー構築後の最終チェック）
     if (remoteTreeSha && treeSha === remoteTreeSha) {
-      console.log('[git push] No changes detected after tree build');
       return 'Everything up-to-date';
     }
-    
-    console.log('[git push] Creating commit on remote...');
-    // 注意: ローカルのコミットIDは使用せず、リモートに新しいコミットを作成
-    // これにより、リモートとローカルで異なるコミットIDになる（git pushの正常な動作）
+
     const commitData = await githubAPI.createCommit({
       message: localCommit.commit.message,
       tree: treeSha,
@@ -167,16 +149,10 @@ export async function push(
         value: commitData.sha,
         force: true,
       });
-      console.log('[git push] Updated remote tracking branch');
     } catch (error) {
       console.warn('[git push] Failed to update remote tracking branch:', error);
-      // エラーでも続行（重要な操作ではない）
     }
 
-    const totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
-    console.log(`[git push] Push completed in ${totalTime}s`);
-    
-    // 本物のgitコマンドと同じフォーマット
     const remoteUrl = remoteInfo.url;
     let result = `To ${remoteUrl}\n`;
     

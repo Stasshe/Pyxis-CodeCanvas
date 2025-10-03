@@ -15,6 +15,33 @@ export async function handleGitCommand(
   }
   const gitCmd = args[0];
   switch (gitCmd) {
+    case 'fetch': {
+      // git fetch [remote] [branch]
+      const remote = args[1] && !args[1].startsWith('-') ? args[1] : undefined;
+      const branch = args[2] && !args[2].startsWith('-') ? args[2] : undefined;
+      try {
+        const fetchResult = await gitCommandsRef.current.fetch({ remote, branch });
+        await writeOutput(fetchResult);
+      } catch (error) {
+        const msg = (error as Error).message || '';
+        // fetchは空リポジトリでも内部でハンドリングされるので、それ以外のエラーのみ表示
+        await writeOutput(`git fetch: ${msg}`);
+      }
+      break;
+    }
+
+    case 'pull': {
+      // git pull [remote] [branch]
+      const remote = args[1] && !args[1].startsWith('-') ? args[1] : undefined;
+      const branch = args[2] && !args[2].startsWith('-') ? args[2] : undefined;
+      try {
+        const pullResult = await gitCommandsRef.current.pull({ remote, branch });
+        await writeOutput(pullResult);
+      } catch (error) {
+        await writeOutput(`git pull: ${(error as Error).message}`);
+      }
+      break;
+    }
     case 'init':
       const initMessage = `git init: Command not available from terminal
 プロジェクトの初期化は左下の「プロジェクト管理」ボタンから
@@ -95,7 +122,7 @@ export async function handleGitCommand(
       await writeOutput(logResult);
       break;
 
-    case 'checkout':
+    case 'checkout': {
       if (args[1]) {
         const createNew = args.includes('-b');
         let branchName: string;
@@ -109,16 +136,27 @@ export async function handleGitCommand(
             break;
           }
         } else {
-          // -bフラグがない場合、最初の引数（git checkoutの後）がブランチ名
           branchName = args[1];
         }
 
-        const checkoutResult = await gitCommandsRef.current.checkout(branchName, createNew);
-        await writeOutput(checkoutResult);
+        // origin/xxx の場合はリモートブランチとして扱う
+        if (/^[\w-]+\//.test(branchName)) {
+          // 例: git checkout origin/main
+          try {
+            const result = await gitCommandsRef.current.checkoutRemote(branchName);
+            await writeOutput(result);
+          } catch (error) {
+            await writeOutput(`git checkout: ${(error as Error).message}`);
+          }
+        } else {
+          const checkoutResult = await gitCommandsRef.current.checkout(branchName, createNew);
+          await writeOutput(checkoutResult);
+        }
       } else {
         await writeOutput('git checkout: missing branch name');
       }
       break;
+    }
 
     case 'branch':
       if (args[1]) {
@@ -145,15 +183,20 @@ export async function handleGitCommand(
       }
       break;
 
-    case 'reset':
+    case 'reset': {
       if (args.includes('--hard') && args[args.indexOf('--hard') + 1]) {
         // git reset --hard <commit>
         const commitHash = args[args.indexOf('--hard') + 1];
-        const resetResult = await gitCommandsRef.current.reset({
-          hard: true,
-          commit: commitHash,
-        });
-        await writeOutput(resetResult);
+        // origin/xxx の場合もOK
+        try {
+          const resetResult = await gitCommandsRef.current.reset({
+            hard: true,
+            commit: commitHash,
+          });
+          await writeOutput(resetResult);
+        } catch (error) {
+          await writeOutput(`git reset: ${(error as Error).message}`);
+        }
       } else if (args[1]) {
         // git reset <filepath>
         const resetResult = await gitCommandsRef.current.reset({
@@ -166,6 +209,7 @@ export async function handleGitCommand(
         await writeOutput(resetResult);
       }
       break;
+    }
 
     case 'diff':
       console.log('git diff args:', args);
@@ -243,7 +287,7 @@ export async function handleGitCommand(
       }
       break;
 
-    case 'push':
+    case 'push': {
       // git push [remote] [branch] [--force]
       const remote = args[1] && !args[1].startsWith('-') ? args[1] : undefined;
       const branch = args[2] && !args[2].startsWith('-') ? args[2] : undefined;
@@ -257,9 +301,11 @@ export async function handleGitCommand(
         });
         await writeOutput(pushResult);
       } catch (error) {
-        await writeOutput(`git push: ${(error as Error).message}`);
+        const msg = (error as Error).message || '';
+        await writeOutput(`git push: ${msg}`);
       }
       break;
+    }
 
     case 'remote':
       // git remote add/remove/list
