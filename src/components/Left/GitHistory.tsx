@@ -62,10 +62,12 @@ export default function GitHistory({
 
   // トポロジカルソート: 親→子の順に並べる
   const topoSortCommits = (commits: GitCommitType[]): GitCommitType[] => {
+    // timestamp昇順（古い順）で処理する
+    const sorted = commits.slice().sort((a, b) => a.timestamp - b.timestamp);
     const visited = new Set<string>();
     const result: GitCommitType[] = [];
     const map = new Map<string, GitCommitType>();
-    commits.forEach(c => map.set(c.hash, c));
+    sorted.forEach(c => map.set(c.hash, c));
     const visit = (c: GitCommitType) => {
       if (visited.has(c.hash)) return;
       visited.add(c.hash);
@@ -77,7 +79,7 @@ export default function GitHistory({
       }
       result.push(c);
     };
-    commits.forEach(c => visit(c));
+    sorted.forEach(c => visit(c));
     // 重複除去
     const seen = new Set<string>();
     return result.filter(c => {
@@ -173,25 +175,30 @@ export default function GitHistory({
     // 重複コミットを除去（リモート優先）
     const { deduplicated, groups } = deduplicateCommits(commits);
     setDuplicateGroups(groups);
-    // トポロジカルソートで順序保証（古い順）
-    const sortedCommits = topoSortCommits(showDuplicates ? commits : deduplicated);
-    // レーン割り当ては古い順に処理（親→子の順）
-    // 表示は新しい順（逆順）
 
+    // 表示用コミットリストを時系列（新しい順）でソート
+    const sortedCommits = (showDuplicates ? commits : deduplicated)
+      .slice()
+      .sort((a, b) => b.timestamp - a.timestamp);
+
+    // レーン割り当ては古い順に処理（親→子の順）
+    // ただし、描画は新しい順
     const ROW_HEIGHT = 28;
     const LANE_WIDTH = 16;
     const EXPANDED_HEIGHT = 56;
     const Y_OFFSET = 10;
 
     // レーン割り当てアルゴリズム（古い順に処理）
+    // 古い順で処理するため、timestamp昇順で一時ソート
+    const sortedForLane = sortedCommits.slice().sort((a, b) => a.timestamp - b.timestamp);
     const commitMap = new Map<string, GitCommitType>();
-    sortedCommits.forEach(c => commitMap.set(c.hash, c));
+    sortedForLane.forEach(c => commitMap.set(c.hash, c));
 
     const lanes: (string | null)[] = [];
     const commitLanes = new Map<string, number>();
     const commitColors = new Map<string, string>();
 
-    for (const commit of sortedCommits) {
+    for (const commit of sortedForLane) {
       let assignedLane = -1;
       let assignedColor: string | undefined;
       if (commit.parentHashes.length > 0) {
@@ -224,14 +231,15 @@ export default function GitHistory({
           }
         }
       }
-      const hasChildren = sortedCommits.some(c => c.parentHashes.includes(commit.hash));
+      const hasChildren = sortedForLane.some(c => c.parentHashes.includes(commit.hash));
       if (!hasChildren) {
         lanes[assignedLane] = null;
       }
     }
 
     let currentY = Y_OFFSET;
-    const displayCommits = [...sortedCommits].reverse();
+    // 新しい順で描画
+    const displayCommits = sortedCommits;
     const processedCommits: ExtendedCommit[] = displayCommits.map(commit => {
       const lane = commitLanes.get(commit.hash) || 0;
       const color = commitColors.get(commit.hash) || branchColors[0];
