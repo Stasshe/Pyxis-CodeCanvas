@@ -851,7 +851,7 @@ export class GitCommands {
   }
 
   // git branch - ブランチ一覧/作成
-  async branch(branchName?: string, deleteFlag = false): Promise<string> {
+  async branch(branchName?: string, options: { delete?: boolean; remote?: boolean; all?: boolean } = {}): Promise<string> {
     try {
       await this.ensureProjectDirectory();
       // Gitリポジトリが初期化されているかチェック
@@ -861,11 +861,67 @@ export class GitCommands {
         throw new Error('not a git repository (or any of the parent directories): .git');
       }
 
+      const { delete: deleteFlag = false, remote = false, all = false } = options;
+
       if (!branchName) {
         // ブランチ一覧を表示
-        const branches = await git.listBranches({ fs: this.fs, dir: this.dir });
         const currentBranch = await this.getCurrentBranch();
-        return branches.map(b => (b === currentBranch ? `* ${b}` : `  ${b}`)).join('\n');
+        let result = '';
+
+        if (remote || all) {
+          // リモートブランチを表示
+          const remoteBranches: string[] = [];
+          
+          // refs/remotes 以下のブランチを直接取得
+          try {
+            // originのリモートブランチを取得
+            try {
+              const originBranches = await this.fs.promises.readdir(`${this.dir}/.git/refs/remotes/origin`);
+              for (const branch of originBranches) {
+                if (branch !== '.' && branch !== '..') {
+                  remoteBranches.push(`origin/${branch}`);
+                }
+              }
+            } catch {
+              // originディレクトリが存在しない
+            }
+
+            // upstreamのリモートブランチを取得
+            try {
+              const upstreamBranches = await this.fs.promises.readdir(`${this.dir}/.git/refs/remotes/upstream`);
+              for (const branch of upstreamBranches) {
+                if (branch !== '.' && branch !== '..') {
+                  remoteBranches.push(`upstream/${branch}`);
+                }
+              }
+            } catch {
+              // upstreamディレクトリが存在しない
+            }
+          } catch (error) {
+            console.warn('[git branch] Failed to read remote branches:', error);
+          }
+          
+          if (all && !remote) {
+            // -a: ローカルブランチも表示
+            const localBranches = await git.listBranches({ fs: this.fs, dir: this.dir });
+            result += localBranches.map(b => (b === currentBranch ? `* ${b}` : `  ${b}`)).join('\n');
+            if (localBranches.length > 0 && remoteBranches.length > 0) {
+              result += '\n';
+            }
+          }
+          
+          if (remoteBranches.length > 0) {
+            result += remoteBranches.map(b => `  remotes/${b}`).join('\n');
+          } else if (!all) {
+            return 'No remote branches found. Use "git fetch" first.';
+          }
+        } else {
+          // ローカルブランチのみ
+          const branches = await git.listBranches({ fs: this.fs, dir: this.dir });
+          result = branches.map(b => (b === currentBranch ? `* ${b}` : `  ${b}`)).join('\n');
+        }
+        
+        return result || 'No branches found.';
       } else if (deleteFlag) {
         // ブランチ削除
         await git.deleteBranch({ fs: this.fs, dir: this.dir, ref: branchName });

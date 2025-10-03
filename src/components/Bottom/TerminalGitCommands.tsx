@@ -158,21 +158,27 @@ export async function handleGitCommand(
       break;
     }
 
-    case 'branch':
-      if (args[1]) {
-        const deleteFlag = args.includes('-d') || args.includes('-D');
-        const branchName = args.find(arg => !arg.startsWith('-'));
-        if (branchName) {
-          const branchResult = await gitCommandsRef.current.branch(branchName, deleteFlag);
-          await writeOutput(branchResult);
-        } else {
-          await writeOutput('git branch: missing branch name');
-        }
+    case 'branch': {
+      const deleteFlag = args.includes('-d') || args.includes('-D');
+      const remoteFlag = args.includes('-r');
+      const allFlag = args.includes('-a');
+      // -r/-a 以外で - で始まらない最初の引数をブランチ名とみなす
+      const branchName = args.find(arg => !arg.startsWith('-') && arg !== 'branch');
+
+      // ブランチ名が明示的に指定されている場合のみ作成/削除
+      if (branchName && branchName.trim() !== '') {
+        const branchResult = await gitCommandsRef.current.branch(branchName, { delete: deleteFlag });
+        await writeOutput(branchResult);
       } else {
-        const branchResult = await gitCommandsRef.current.branch();
+        // -r/-aのみ、または引数なしの場合は一覧表示
+        const branchResult = await gitCommandsRef.current.branch(undefined, {
+          remote: remoteFlag,
+          all: allFlag,
+        });
         await writeOutput(branchResult);
       }
       break;
+    }
 
     case 'revert':
       if (args[1]) {
