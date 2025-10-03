@@ -20,6 +20,8 @@ interface MonacoEditorProps {
   onChange: (value: string) => void;
   onCharCountChange: (count: number) => void;
   onSelectionCountChange: (count: number | null) => void;
+  tabSize?: number;
+  insertSpaces?: boolean;
 }
 
 export default function MonacoEditor({
@@ -32,6 +34,8 @@ export default function MonacoEditor({
   onChange,
   onCharCountChange,
   onSelectionCountChange,
+  tabSize = 2,
+  insertSpaces = true,
 }: MonacoEditorProps) {
   const { colors } = useTheme();
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -353,8 +357,8 @@ export default function MonacoEditor({
           showSlider: 'always',
         },
         wordWrap: wordWrapConfig,
-        tabSize: 2,
-        insertSpaces: true,
+        tabSize,
+        insertSpaces,
         formatOnPaste: true,
         formatOnType: true,
         suggestOnTriggerCharacters: true,

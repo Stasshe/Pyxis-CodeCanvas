@@ -8,15 +8,20 @@ interface CodeMirrorEditorProps {
   content: string;
   onChange: (value: string) => void;
   onSelectionChange: (count: number | null) => void;
+  tabSize: number;
+  insertSpaces: boolean;
 }
 
-export default function CodeMirrorEditor({
-  tabId,
-  fileName,
-  content,
-  onChange,
-  onSelectionChange,
-}: CodeMirrorEditorProps) {
+export default function CodeMirrorEditor(props: CodeMirrorEditorProps) {
+  const {
+    tabId,
+    fileName,
+    content,
+    onChange,
+    onSelectionChange,
+    tabSize,
+    insertSpaces,
+  } = props;
   return (
     <div
       tabIndex={0}
@@ -38,7 +43,7 @@ export default function CodeMirrorEditor({
         key={tabId}
         value={content}
         height="100%"
-        extensions={getCMExtensions(fileName)}
+        extensions={getCMExtensions(fileName, tabSize, insertSpaces)}
         basicSetup={false}
         onChange={onChange}
         onUpdate={(vu: any) => {

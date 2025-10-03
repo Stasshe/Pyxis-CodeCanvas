@@ -22,10 +22,10 @@ import { highlightSelectionMatches } from '@codemirror/search';
 /**
  * CodeMirror用の拡張機能を取得
  */
-export const getCMExtensions = (filename: string) => {
+import { indentUnit } from '@codemirror/language';
+export const getCMExtensions = (filename: string, tabSize = 2, insertSpaces = true) => {
   const ext = filename.toLowerCase();
   let lang: any[] = [];
-  
   if (
     ext.endsWith('.js') ||
     ext.endsWith('.jsx') ||
@@ -41,6 +41,9 @@ export const getCMExtensions = (filename: string) => {
   else if (ext.endsWith('.yaml') || ext.endsWith('.yml')) lang = [yaml()];
   else if (ext.endsWith('.html') || ext.endsWith('.htm') || ext.endsWith('.xhtml')) lang = [html()];
 
+  // インデント設定
+  const indentStr = insertSpaces ? ' '.repeat(tabSize) : '\t';
+
   return [
     keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
     history(),
@@ -51,6 +54,7 @@ export const getCMExtensions = (filename: string) => {
     highlightActiveLineGutter(),
     highlightSpecialChars(),
     highlightSelectionMatches(),
+    indentUnit.of(indentStr),
     ...lang,
   ];
 };

@@ -15,6 +15,7 @@
  */
 
 import { useRef, useEffect, useCallback } from 'react';
+import { useSettings } from '@/hooks/useSettings';
 import { Tab } from '@/types';
 import { isBufferArray } from '@/engine/helper/isBufferArray';
 import { guessMimeType } from './text-editor/editors/editor-utils';
@@ -50,6 +51,9 @@ export default function CodeEditor({
   projectFiles,
   wordWrapConfig,
 }: CodeEditorProps) {
+  // プロジェクトIDをactiveTabから推測（なければundefined）
+  const projectId = (activeTab as any)?.projectId || undefined;
+  const { settings } = useSettings(projectId);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const {
@@ -186,6 +190,8 @@ export default function CodeEditor({
           content={activeTab.content}
           onChange={handleEditorChange}
           onSelectionChange={setSelectionCount}
+          tabSize={settings?.editor.tabSize ?? 2}
+          insertSpaces={settings?.editor.insertSpaces ?? true}
         />
         <CharCountDisplay
           charCount={charCount}
@@ -215,6 +221,8 @@ export default function CodeEditor({
         onChange={handleEditorChange}
         onCharCountChange={setCharCount}
         onSelectionCountChange={setSelectionCount}
+        tabSize={settings?.editor.tabSize ?? 2}
+        insertSpaces={settings?.editor.insertSpaces ?? true}
       />
       <CharCountDisplay
         charCount={charCount}
