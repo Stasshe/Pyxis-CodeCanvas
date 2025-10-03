@@ -18,6 +18,7 @@ import { UnixCommandBase } from './base';
  *   - 再帰的削除対応
  */
 export class RmCommand extends UnixCommandBase {
+
   async execute(args: string[]): Promise<string> {
     const { options, positional } = this.parseOptions(args);
 
@@ -33,21 +34,18 @@ export class RmCommand extends UnixCommandBase {
     const results: string[] = [];
     const errors: string[] = [];
 
-    // 各引数に対してワイルドカード展開
     for (const arg of positional) {
       try {
         const expanded = await this.expandPathPattern(arg);
-        
         if (expanded.length === 0) {
           if (!force) {
             errors.push(`rm: cannot remove '${arg}': No such file or directory`);
           }
           continue;
         }
-
         for (const path of expanded) {
           try {
-            const result = await this.removeFileOrDir(path, recursive, force, interactive, verbose);
+            const result = await this.removeFileOrDirDeep(path, recursive, force, interactive, verbose);
             if (result) {
               results.push(result);
             }
@@ -71,14 +69,13 @@ export class RmCommand extends UnixCommandBase {
     if (verbose && results.length > 0) {
       return results.join('\n');
     }
-    
     return '';
   }
 
   /**
-   * ファイルまたはディレクトリを削除
+   * ディレクトリを再帰的に削除（rm -rf対応）
    */
-  private async removeFileOrDir(
+  private async removeFileOrDirDeep(
     path: string,
     recursive: boolean,
     force: boolean,
@@ -87,20 +84,15 @@ export class RmCommand extends UnixCommandBase {
   ): Promise<string | null> {
     const normalizedPath = this.normalizePath(path);
     const relativePath = this.getRelativePathFromProject(normalizedPath);
-
     const files = await this.getAllFilesFromDB();
     const file = files.find(f => f.path === relativePath);
 
     if (!file) {
-      if (force) {
-        return null;
-      }
+      if (force) return null;
       throw new Error('No such file or directory');
     }
 
     const isDir = file.type === 'folder';
-
-    // ディレクトリの削除には-rオプションが必要
     if (isDir && !recursive) {
       throw new Error('Is a directory');
     }
@@ -110,21 +102,24 @@ export class RmCommand extends UnixCommandBase {
       // 実装する場合は、ユーザー入力を受け取る仕組みが必要
     }
 
-    // 削除実行
+    // ディレクトリの場合、配下すべてを再帰的に削除
     if (isDir) {
-      // ディレクトリの場合、子ファイルも削除
-      const childFiles = files.filter(f => f.path.startsWith(relativePath + '/'));
-      for (const child of childFiles) {
+      // 自分自身も含めて、relativePathで始まるもの全て
+      const allFiles = files.filter(f => f.path === relativePath || f.path.startsWith(relativePath + '/'));
+      for (const child of allFiles) {
         await fileRepository.deleteFile(child.id);
       }
+      if (verbose) {
+        return `removed directory '${normalizedPath}'`;
+      }
+      return null;
+    } else {
+      // ファイル
+      await fileRepository.deleteFile(file.id);
+      if (verbose) {
+        return `removed '${normalizedPath}'`;
+      }
+      return null;
     }
-
-    await fileRepository.deleteFile(file.id);
-
-    if (verbose) {
-      return `removed '${normalizedPath}'`;
-    }
-
-    return null;
   }
 }
