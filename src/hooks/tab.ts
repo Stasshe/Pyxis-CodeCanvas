@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 
 import { flattenPanes } from '@/hooks/pane';
 import type { Tab, Project, FileItem } from '@/types';
+import { fileRepository } from '@/engine/core/fileRepository';
 
 // FileItem[]を平坦化する関数
 function flattenFileItems(items: FileItem[]): FileItem[] {
@@ -249,6 +250,7 @@ export function useActiveTabContentRestore({
   setEditors: (update: any) => void;
   isRestoredFromLocalStorage: boolean;
 }) {
+  // needsContentRestoreフラグのあるタブを復元
   useEffect(() => {
     // localStorage復元が完了していない、またはエディタがない場合はスキップ
     if (!isRestoredFromLocalStorage || !editors.length) {
@@ -304,4 +306,72 @@ export function useActiveTabContentRestore({
     projectFiles.length,
     isRestoredFromLocalStorage,
   ]);
+
+  // ファイル変更イベントをリッスンして、開いているタブのコンテンツを自動更新
+  useEffect(() => {
+    if (!isRestoredFromLocalStorage || !editors.length) {
+      return;
+    }
+
+    // FileRepositoryからのファイル変更イベントをリッスン
+    const unsubscribe = fileRepository.addChangeListener(event => {
+      console.log('[useActiveTabContentRestore] File change event:', event);
+
+      // 削除イベントの場合はタブを閉じる処理は TabBar.tsx で処理されるのでここではスキップ
+      if (event.type === 'delete') {
+        return;
+      }
+
+      // 作成・更新イベントの場合、該当するタブのコンテンツを更新
+      if (event.type === 'create' || event.type === 'update') {
+        const changedFile = event.file;
+        const flatPanes = flattenPanes(editors);
+
+        // 変更されたファイルのパスに対応するタブがあるかチェック
+        const hasMatchingTab = flatPanes.some(pane =>
+          pane.tabs.some((tab: any) => tab.path === changedFile.path)
+        );
+
+        if (hasMatchingTab) {
+          console.log('[useActiveTabContentRestore] Updating tab content for:', changedFile.path);
+
+          setEditors((prevEditors: any[]) => {
+            const updatePaneRecursive = (panes: any[]): any[] => {
+              return panes.map(editor => {
+                if (editor.children && editor.children.length > 0) {
+                  return {
+                    ...editor,
+                    children: updatePaneRecursive(editor.children),
+                  };
+                }
+                // リーフペインの場合、該当するタブのコンテンツを更新
+                return {
+                  ...editor,
+                  tabs: editor.tabs.map((tab: any) => {
+                    // パスが一致するタブのみ更新
+                    if (tab.path === changedFile.path) {
+                      console.log('[useActiveTabContentRestore] Updating tab:', tab.id);
+                      return {
+                        ...tab,
+                        content: (changedFile as any).content || '',
+                        bufferContent: tab.isBufferArray
+                          ? (changedFile as any).bufferContent
+                          : undefined,
+                      };
+                    }
+                    return tab;
+                  }),
+                };
+              });
+            };
+            return updatePaneRecursive(prevEditors);
+          });
+        }
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [editors, isRestoredFromLocalStorage, setEditors]);
 }

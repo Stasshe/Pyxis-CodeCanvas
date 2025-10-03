@@ -156,24 +156,11 @@ export async function handleUnixCommand(
         break;
 
       case 'echo':
-        // echo の出力先リダイレクト処理
-        const redirectIndex = args.findIndex(arg => arg === '>' || arg === '>>');
-        if (redirectIndex !== -1) {
-          const text = args.slice(0, redirectIndex).join(' ');
-          const fileName = args[redirectIndex + 1];
-          if (!fileName) {
-            await writeOutput('echo: missing filename after redirect');
-          } else {
-            const redirectOp = args[redirectIndex]; // '>' or '>>'
-            const fullFileName = redirectOp === '>>' ? `>>${fileName}` : `>${fileName}`;
-            const result = await unix.echo(text, fullFileName);
-            await writeOutput(result || 'Text written to file');
-          }
-        } else {
-          const text = args.join(' ');
-          const result = await unix.echo(text);
-          await writeOutput(result);
-        }
+        // リダイレクト処理はTerminal.tsxで統一的に処理されるため、
+        // ここでは単純にテキストを出力するだけ
+        const text = args.join(' ');
+        const result = await unix.echo(text);
+        await writeOutput(result);
         break;
 
       // ========== 検索コマンド ==========

@@ -176,13 +176,10 @@ export class UnixCommands {
   }
 
   /**
-   * テキストをファイルに書き込み
+   * テキストを出力（リダイレクト処理はTerminal.tsxで処理される）
    */
-  async echo(text: string, fileName?: string): Promise<string> {
-    if (!fileName) {
-      return await this.echoCmd.execute([text]);
-    }
-    return await this.echoCmd.execute([text, fileName]);
+  async echo(text: string): Promise<string> {
+    return await this.echoCmd.execute([text]);
   }
 
   /**

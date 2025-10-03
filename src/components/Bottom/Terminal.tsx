@@ -750,22 +750,26 @@ function ClientTerminal({
         }
 
         // リダイレクト処理
-        if (redirect && fileName && unixCommandsRef.current && capturedOutput) {
-          const relativePath = unixCommandsRef.current.getRelativePathFromProject(
-            unixCommandsRef.current.normalizePath(
-              fileName.startsWith('/') ? fileName : `${unixCommandsRef.current.pwd()}/${fileName}`
-            )
-          );
+        if (redirect && fileName && unixCommandsRef.current) {
+          // コマンド出力がない場合は空文字列として扱う
+          const outputContent = capturedOutput || '';
+          
+          // ファイルパスを解決
+          const fullPath = fileName.startsWith('/')
+            ? fileName
+            : `${await unixCommandsRef.current.pwd()}/${fileName}`;
+          const normalizedPath = unixCommandsRef.current.normalizePath(fullPath);
+          const relativePath = unixCommandsRef.current.getRelativePathFromProject(normalizedPath);
 
           try {
-            let content = capturedOutput.trim();
+            let content = outputContent;
 
+            // 追記モードの場合、既存のコンテンツを先頭に追加
             if (append) {
-              // >>: 追記モード
               const files = await fileRepository.getProjectFiles(currentProjectId);
               const existingFile = files.find(f => f.path === relativePath);
-              if (existingFile) {
-                content = (existingFile.content || '') + '\n' + content;
+              if (existingFile && existingFile.content) {
+                content = existingFile.content + content;
               }
             }
 
