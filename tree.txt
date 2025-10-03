@@ -75,9 +75,6 @@
 ├── src
 │   ├── app
 │   │   ├── Toast.css
-│   │   ├── api
-│   │   │   └── github
-│   │   │       └── device-code
 │   │   ├── globals.css
 │   │   ├── layout.tsx
 │   │   ├── markdown.css
@@ -171,6 +168,7 @@
 │   │   │   ├── gitOperations
 │   │   │   │   ├── checkout.ts
 │   │   │   │   ├── diff.ts
+│   │   │   │   ├── fetch.ts
 │   │   │   │   ├── fileSystemHelper.ts
 │   │   │   │   ├── github
 │   │   │   │   │   ├── GitHubAPI.ts
@@ -249,15 +247,15 @@
 ├── tree.txt
 └── tsconfig.json
 
-47 directories, 203 files
+44 directories, 204 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 30714
-合計文字数: 1031281
-合計ファイルサイズ(bytes): 1103120
+合計行数: 31666
+合計文字数: 1061406
+合計ファイルサイズ(bytes): 1136431
 
-リポジトリ全体のサイズ(bytes): 1.8G	.
+リポジトリ全体のサイズ(bytes): 1.9G	.
 ==========
 ビルト済みファイルの行数: 14778
-合計文字数: 22191046
-合計ファイルサイズ(bytes): 23121812
+合計文字数: 22205686
+合計ファイルサイズ(bytes): 23136424
