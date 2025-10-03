@@ -47,6 +47,21 @@ export async function handleUnixCommand(
         await writeOutput('mv: missing arguments (usage: mv <source> <destination>)');
       }
       break;
+    
+    case 'cp':
+      if (unixCommandsRef.current && args.length >= 2) {
+        const source = args[0];
+        const destination = args[1];
+        try {
+          const result = await unixCommandsRef.current.cp(source, destination);
+          await writeOutput(result);
+        } catch (error) {
+          await writeOutput(`cp: ${(error as Error).message}`);
+        }
+      } else {
+        await writeOutput('cp: missing arguments (usage: cp <source> <destination>)');
+      }
+      break;
 
     case 'tree':
       if (unixCommandsRef.current) {

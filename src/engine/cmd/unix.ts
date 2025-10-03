@@ -607,4 +607,54 @@ export class UnixCommands {
       throw new Error(`tree: ${path || this.currentDir}: No such directory`);
     }
   }
+
+  async cp(source: string, destination: string, options: string[] = []): Promise<string> {
+    const srcPath = source.startsWith('/') ? source : `${this.currentDir}/${source}`;
+    const destPath = destination.startsWith('/')
+      ? destination
+      : `${this.currentDir}/${destination}`;
+    const srcNormalized = this.normalizePath(srcPath);
+    const destNormalized = this.normalizePath(destPath);
+    const srcRelative = this.getRelativePathFromProject(srcNormalized);
+    const destRelative = this.getRelativePathFromProject(destNormalized);
+
+    try {
+      const files = await fileRepository.getProjectFiles(this.projectId);
+      const srcFile = files.find(f => f.path === srcRelative);
+
+      if (!srcFile) {
+        throw new Error(`No such file or directory: ${source}`);
+      }
+
+      if (srcFile.type === 'folder') {
+        // Copy folder recursively
+        const childFiles = files.filter(f => f.path.startsWith(srcRelative + '/'));
+        for (const child of childFiles) {
+          const newChildPath = child.path.replace(srcRelative, destRelative);
+          await fileRepository.createFile(
+            this.projectId,
+            newChildPath,
+            child.content || '',
+            child.type,
+            child.isBufferArray,
+            child.bufferContent
+          );
+        }
+      }
+
+      // Copy the file or folder itself
+      await fileRepository.createFile(
+        this.projectId,
+        destRelative,
+        srcFile.content || '',
+        srcFile.type,
+        srcFile.isBufferArray,
+        srcFile.bufferContent
+      );
+
+      return `Copied '${source}' to '${destination}'`;
+    } catch (error) {
+      throw new Error(`cp: ${(error as Error).message}`);
+    }
+  }
 }
