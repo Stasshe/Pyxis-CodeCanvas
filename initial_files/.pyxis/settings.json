@@ -1,0 +1,52 @@
+{
+  "editor": {
+    "fontSize": 14,
+    "tabSize": 2,
+    "insertSpaces": true,
+    "wordWrap": false
+  },
+  "theme": {
+    "colorTheme": "dark",
+    "highlightTheme": "github-dark"
+  },
+  "search": {
+    "exclude": [
+      "**/node_modules",
+      "**/bower_components",
+      "**/*.code-search",
+      "**/dist",
+      "**/build",
+      "**/.git",
+      "**/.pyxis",
+      "**/coverage",
+      "**/.next",
+      "**/.nuxt",
+      "**/.cache"
+    ],
+    "useIgnoreFiles": true,
+    "followSymlinks": false
+  },
+  "files": {
+    "exclude": [
+      "**/.git",
+      "**/.DS_Store",
+      "**/Thumbs.db"
+    ],
+    "watcherExclude": [
+      "**/.git/objects/**",
+      "**/.git/subtree-cache/**",
+      "**/node_modules/**",
+      "**/.hg/store/**"
+    ],
+    "autoSave": "off",
+    "autoSaveDelay": 1000
+  },
+  "git": {
+    "enabled": true,
+    "autoFetch": false
+  },
+  "terminal": {
+    "fontSize": 14,
+    "cursorStyle": "block"
+  }
+}

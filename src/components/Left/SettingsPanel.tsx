@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { downloadWorkspaceZip } from '@/engine/export/exportRepo';
 import type { Project } from '@/types';
-import { LOCALSTORAGE_KEY, DEFAULT_VALUES } from '@/context/config';
+import { settingsManager } from '@/engine/core/settingsManager';
+import type { PyxisSettings } from '@/types/settings';
+import { LOCALSTORAGE_KEY } from '@/context/config';
 
 interface SettingsPanelProps {
   currentProject: Project; // 現在のプロジェクト
@@ -21,36 +23,79 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
     highlightThemeList,
   } = useTheme();
 
-  // Gemini APIキー管理
-  const [apiKey, setApiKey] = useState(
-    () => localStorage.getItem(LOCALSTORAGE_KEY.GEMINI_API_KEY) || ''
-  );
+  // 設定状態
+  const [settings, setSettings] = useState<PyxisSettings | null>(null);
+  const [isLoadingSettings, setIsLoadingSettings] = useState(true);
+
+  // LocalStorageで管理する設定
+  const [apiKey, setApiKey] = useState('');
+  const [defaultEditor, setDefaultEditor] = useState<'monaco' | 'codemirror'>('monaco');
+
+  // テーマカラー個別設定 折りたたみ
+  const [showColorSettings, setShowColorSettings] = useState(false);
+  const handleToggleColorSettings = () => setShowColorSettings(v => !v);
+
+  // 設定を読み込み
+  useEffect(() => {
+    const loadSettings = async () => {
+      setIsLoadingSettings(true);
+      try {
+        const loadedSettings = await settingsManager.loadSettings(currentProject.id);
+        setSettings(loadedSettings);
+      } catch (error) {
+        console.error('[SettingsPanel] Failed to load settings:', error);
+      } finally {
+        setIsLoadingSettings(false);
+      }
+    };
+
+    loadSettings();
+
+    // LocalStorageから設定を読み込み
+    const savedApiKey = localStorage.getItem(LOCALSTORAGE_KEY.GEMINI_API_KEY) || '';
+    setApiKey(savedApiKey);
+
+    const savedEditor = localStorage.getItem(LOCALSTORAGE_KEY.DEFAULT_EDITOR) || 'monaco';
+    if (savedEditor === 'monaco' || savedEditor === 'codemirror') {
+      setDefaultEditor(savedEditor);
+    }
+
+    // 設定変更リスナーを登録
+    const unsubscribe = settingsManager.addListener(currentProject.id, newSettings => {
+      setSettings(newSettings);
+      // テーマも更新
+      setTheme(newSettings.theme.colorTheme);
+      setHighlightTheme(newSettings.theme.highlightTheme);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [currentProject.id]);
+
+  // APIキー変更ハンドラ
   const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setApiKey(value);
     localStorage.setItem(LOCALSTORAGE_KEY.GEMINI_API_KEY, value);
   };
 
-  // テーマカラー個別設定 折りたたみ
-  const [showColorSettings, setShowColorSettings] = useState(false);
-  const handleToggleColorSettings = () => setShowColorSettings(v => !v);
-
-  // デフォルトエディタ設定
-  const [defaultEditor, setDefaultEditor] = useState(
-    () => localStorage.getItem(LOCALSTORAGE_KEY.DEFAULT_EDITOR) || DEFAULT_VALUES.DEFAULT_EDITOR
-  );
+  // デフォルトエディター変更ハンドラ
   const handleDefaultEditorChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setDefaultEditor(e.target.value);
-    localStorage.setItem(LOCALSTORAGE_KEY.DEFAULT_EDITOR, e.target.value);
+    const value = e.target.value as 'monaco' | 'codemirror';
+    setDefaultEditor(value);
+    localStorage.setItem(LOCALSTORAGE_KEY.DEFAULT_EDITOR, value);
   };
 
-  // モナコエディタの折り返し設定
-  const [monacoWordWrap, setMonacoWordWrap] = useState(
-    () => localStorage.getItem(LOCALSTORAGE_KEY.MONACO_WORD_WRAP) === 'true'
-  );
-  const handleMonacoWordWrapChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setMonacoWordWrap(e.target.checked);
-    localStorage.setItem(LOCALSTORAGE_KEY.MONACO_WORD_WRAP, e.target.checked.toString());
+  // 設定更新ヘルパー
+  const updateSettings = async (updates: Partial<PyxisSettings>) => {
+    if (!settings) return;
+    try {
+      await settingsManager.updateSettings(currentProject.id, updates);
+    } catch (error) {
+      console.error('[SettingsPanel] Failed to update settings:', error);
+      alert('設定の保存に失敗しました');
+    }
   };
 
   const handleExport = async () => {
@@ -62,6 +107,18 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
     }
     setIsExporting(false);
   };
+
+  // ローディング中
+  if (isLoadingSettings || !settings) {
+    return (
+      <div
+        className="h-full flex items-center justify-center"
+        style={{ background: colors.background, color: colors.mutedFg }}
+      >
+        <p className="text-xs">設定を読み込み中...</p>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -207,23 +264,76 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               <option value="monaco">Monaco Editor</option>
               <option value="codemirror">CodeMirror</option>
             </select>
+            <p className="text-[10px] mt-1" style={{ color: colors.mutedFg }}>
+              LocalStorageに保存されます
+            </p>
           </div>
 
           <label className="flex items-center gap-2 text-xs cursor-pointer hover:bg-opacity-50 py-1 px-2 rounded transition-colors" style={{ color: colors.foreground }}>
             <input
               type="checkbox"
-              checked={monacoWordWrap}
-              onChange={handleMonacoWordWrapChange}
+              checked={settings.editor.wordWrap}
+              onChange={e =>
+                updateSettings({
+                  editor: { ...settings.editor, wordWrap: e.target.checked },
+                })
+              }
               className="rounded"
               style={{ accentColor: colors.accentBg }}
             />
-            <span>Monaco: 折り返しを有効化</span>
+            <span>折り返しを有効化</span>
           </label>
+
+          <div>
+            <label className="block text-xs mb-1.5" style={{ color: colors.foreground }}>
+              フォントサイズ
+            </label>
+            <input
+              type="number"
+              min="8"
+              max="32"
+              value={settings.editor.fontSize}
+              onChange={e =>
+                updateSettings({
+                  editor: { ...settings.editor, fontSize: parseInt(e.target.value) || 14 },
+                })
+              }
+              className="w-full rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1"
+              style={{
+                background: colors.cardBg,
+                color: colors.foreground,
+                border: `1px solid ${colors.border}`,
+              }}
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs mb-1.5" style={{ color: colors.foreground }}>
+              タブサイズ
+            </label>
+            <input
+              type="number"
+              min="1"
+              max="8"
+              value={settings.editor.tabSize}
+              onChange={e =>
+                updateSettings({
+                  editor: { ...settings.editor, tabSize: parseInt(e.target.value) || 2 },
+                })
+              }
+              className="w-full rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1"
+              style={{
+                background: colors.cardBg,
+                color: colors.foreground,
+                border: `1px solid ${colors.border}`,
+              }}
+            />
+          </div>
         </div>
       </div>
 
       {/* API設定 */}
-      <div className="px-4 py-3">
+      <div className="px-4 py-3 border-b" style={{ borderColor: colors.border }}>
         <h2 className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: colors.mutedFg }}>
           API
         </h2>
@@ -232,7 +342,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
             Gemini APIキー
           </label>
           <input
-            type="text"
+            type="password"
             value={apiKey}
             onChange={handleApiKeyChange}
             placeholder="APIキーを入力"
@@ -243,6 +353,115 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               border: `1px solid ${colors.border}`,
             }}
           />
+          <p className="text-[10px] mt-1" style={{ color: colors.mutedFg }}>
+            LocalStorageに保存されます
+          </p>
+        </div>
+      </div>
+
+      {/* 検索設定 */}
+      <div className="px-4 py-3 border-b" style={{ borderColor: colors.border }}>
+        <h2 className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: colors.mutedFg }}>
+          検索
+        </h2>
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs mb-1.5" style={{ color: colors.foreground }}>
+              除外パターン
+            </label>
+            <textarea
+              value={settings.search.exclude.join('\n')}
+              onChange={e =>
+                updateSettings({
+                  search: { ...settings.search, exclude: e.target.value.split('\n').filter(Boolean) },
+                })
+              }
+              placeholder="**/node_modules&#10;**/.git"
+              rows={5}
+              className="w-full rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 font-mono"
+              style={{
+                background: colors.cardBg,
+                color: colors.foreground,
+                border: `1px solid ${colors.border}`,
+              }}
+            />
+            <p className="text-[10px] mt-1" style={{ color: colors.mutedFg }}>
+              glob パターンを1行ごとに記述
+            </p>
+          </div>
+
+          <label className="flex items-center gap-2 text-xs cursor-pointer hover:bg-opacity-50 py-1 px-2 rounded transition-colors" style={{ color: colors.foreground }}>
+            <input
+              type="checkbox"
+              checked={settings.search.useIgnoreFiles}
+              onChange={e =>
+                updateSettings({
+                  search: { ...settings.search, useIgnoreFiles: e.target.checked },
+                })
+              }
+              className="rounded"
+              style={{ accentColor: colors.accentBg }}
+            />
+            <span>.gitignoreなどの無視ファイルを使用</span>
+          </label>
+        </div>
+      </div>
+
+      {/* ファイル設定 */}
+      <div className="px-4 py-3">
+        <h2 className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: colors.mutedFg }}>
+          ファイル
+        </h2>
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs mb-1.5" style={{ color: colors.foreground }}>
+              除外パターン
+            </label>
+            <textarea
+              value={settings.files.exclude.join('\n')}
+              onChange={e =>
+                updateSettings({
+                  files: { ...settings.files, exclude: e.target.value.split('\n').filter(Boolean) },
+                })
+              }
+              placeholder="**/.git&#10;**/.DS_Store"
+              rows={3}
+              className="w-full rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 font-mono"
+              style={{
+                background: colors.cardBg,
+                color: colors.foreground,
+                border: `1px solid ${colors.border}`,
+              }}
+            />
+            <p className="text-[10px] mt-1" style={{ color: colors.mutedFg }}>
+              エクスプローラーで非表示にするファイル/フォルダ
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs mb-1.5" style={{ color: colors.foreground }}>
+              自動保存
+            </label>
+            <select
+              value={settings.files.autoSave}
+              onChange={e =>
+                updateSettings({
+                  files: { ...settings.files, autoSave: e.target.value as any },
+                })
+              }
+              className="w-full rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1"
+              style={{
+                background: colors.cardBg,
+                color: colors.foreground,
+                border: `1px solid ${colors.border}`,
+              }}
+            >
+              <option value="off">オフ</option>
+              <option value="afterDelay">遅延後</option>
+              <option value="onFocusChange">フォーカス変更時</option>
+              <option value="onWindowChange">ウィンドウ変更時</option>
+            </select>
+          </div>
         </div>
       </div>
     </div>

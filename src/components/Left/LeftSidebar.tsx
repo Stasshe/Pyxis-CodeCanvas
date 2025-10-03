@@ -159,6 +159,7 @@ export default function LeftSidebar({
             <div className="h-full">
               <SearchPanel
                 files={files}
+                projectId={currentProject.id}
                 onFileOpen={onFileOpen}
               />
             </div>
