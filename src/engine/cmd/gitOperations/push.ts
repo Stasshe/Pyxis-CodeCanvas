@@ -183,8 +183,17 @@ export async function push(
         force: true,
       });
       console.log('[git push] Updated local branch to remote commit:', commitData.sha.slice(0, 7));
+      
+      // ワーキングディレクトリを更新（重要: ファイルが消えないように）
+      await git.checkout({
+        fs,
+        dir,
+        ref: targetBranch,
+        force: false, // 変更を上書きしない
+      });
+      console.log('[git push] Updated working directory');
     } catch (error) {
-      console.warn('[git push] Failed to update local branch:', error);
+      console.warn('[git push] Failed to update local branch or working directory:', error);
     }
 
     // ローカルのリモート追跡ブランチも更新（refs/remotes/origin/branch）

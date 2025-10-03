@@ -98,11 +98,15 @@ export class GitLogOperations {
       }
 
       // 全てのブランチ（ローカル + リモート）
-      const branches = [...localBranches, ...remoteBranches];
-      console.log('All branches:', branches);
+      // origin/HEAD, upstream/HEADなどのシンボリックリファレンスを除外
+      const branches = [...localBranches, ...remoteBranches].filter(
+        branch => !branch.endsWith('/HEAD')
+      );
+      console.log('All branches (excluding symbolic refs):', branches);
 
-      // 全ブランチからコミットを収集（uiBranches配列で所属ブランチを記録）
+      // 全ブランチからコミットを収集
       const allCommits = new Map<string, any>(); // コミットハッシュをキーとして重複を避ける
+      const branchHeads = new Map<string, string>(); // ブランチ名 -> HEADコミットハッシュ
 
       for (const branch of branches) {
         try {
@@ -120,33 +124,31 @@ export class GitLogOperations {
             depth: depth,
           });
 
+          if (branchCommits.length > 0) {
+            // このブランチのHEAD(最初のコミット)を記録
+            branchHeads.set(branch, branchCommits[0].oid);
+          }
+
+          // 全てのコミットを収集（重複なし）
           for (const commit of branchCommits) {
             if (!allCommits.has(commit.oid)) {
-              // 新しいコミット：uiBranches配列で追加
-              allCommits.set(commit.oid, { ...commit, uiBranches: [branch] });
-            } else {
-              // 既存コミット：uiBranchesにブランチ名を追加（重複除外）
-              const existingCommit = allCommits.get(commit.oid);
-              const branchesArr = existingCommit.uiBranches || [];
-              if (!branchesArr.includes(branch)) {
-                branchesArr.push(branch);
-                allCommits.set(commit.oid, { ...existingCommit, uiBranches: branchesArr });
-              }
-            }
-
-            // HEAD情報も記録（従来通り）
-            if (!allCommits.get(commit.oid)?.hasOwnProperty('isHeadOfBranch')) {
-              const isHead = branchCommits[0]?.oid === commit.oid;
-              const currentCommit = allCommits.get(commit.oid);
-              allCommits.set(commit.oid, {
-                ...currentCommit,
-                isHeadOfBranch: isHead,
-              });
+              allCommits.set(commit.oid, commit);
             }
           }
         } catch (branchError) {
           console.warn(`Failed to get commits for branch ${branch}:`, branchError);
         }
+      }
+
+      // 各コミットに、そのコミットがHEADであるブランチの配列を追加
+      for (const commit of allCommits.values()) {
+        const uiBranches: string[] = [];
+        for (const [branch, headHash] of branchHeads.entries()) {
+          if (commit.oid === headHash) {
+            uiBranches.push(branch);
+          }
+        }
+        commit.uiBranches = uiBranches;
       }
 
       // 全コミットを時系列順でソート

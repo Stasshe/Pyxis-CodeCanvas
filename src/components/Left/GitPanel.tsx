@@ -153,10 +153,10 @@ export default function GitPanel({
         const author = parts[2]?.trim();
         const date = parts[3]?.trim();
         const parentHashesStr = parts[4]?.trim();
-        const branch = parts[5]?.trim();
+        const uiBranchesStr = parts[5]?.trim();
 
         // 全てのフィールドが有効であることを確認
-        if (hash && hash.length >= 7 && message && author && date && branch) {
+        if (hash && hash.length >= 7 && message && author && date) {
           try {
             const timestamp = new Date(date).getTime();
             if (!isNaN(timestamp)) {
@@ -166,6 +166,15 @@ export default function GitPanel({
                   ? parentHashesStr.split(',').filter(h => h.trim() !== '')
                   : [];
 
+              // uiBranchesをカンマ区切りからstring配列に変換
+              const uiBranches =
+                uiBranchesStr && uiBranchesStr !== ''
+                  ? uiBranchesStr.split(',').filter(b => b.trim() !== '')
+                  : [];
+
+              // branchは最初のブランチまたは空文字列
+              const branch = uiBranches.length > 0 ? uiBranches[0] : '';
+
               commits.push({
                 hash,
                 shortHash: hash.substring(0, 7),
@@ -173,9 +182,10 @@ export default function GitPanel({
                 author: author.replace(/｜/g, '|'),
                 date,
                 timestamp,
-                branch: branch, // 実際のブランチ情報を使用
+                branch: branch, // 互換性のため最初のブランチを使用
                 isMerge: message.toLowerCase().includes('merge'),
                 parentHashes,
+                uiBranches, // UI表示用のブランチ配列
               });
             }
           } catch (dateError) {
