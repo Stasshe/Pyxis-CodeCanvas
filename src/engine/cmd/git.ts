@@ -807,6 +807,38 @@ export class GitCommands {
     return await checkoutOperations.checkout(branchName, createNew);
   }
 
+  /**
+   * リモートブランチをチェックアウト（fetch後に使用）
+   * 例: git checkout origin/main
+   */
+  async checkoutRemote(remoteBranch: string): Promise<string> {
+    await this.ensureGitRepository();
+    
+    try {
+      // リモートブランチのコミットIDを取得
+      const remoteRef = `refs/remotes/${remoteBranch}`;
+      let commitOid: string;
+      
+      try {
+        commitOid = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: remoteRef });
+      } catch {
+        throw new Error(`Remote branch '${remoteBranch}' not found. Did you run 'git fetch'?`);
+      }
+
+      // detached HEAD状態でチェックアウト
+      const checkoutOperations = new GitCheckoutOperations(
+        this.fs,
+        this.dir,
+        this.projectId,
+        this.projectName
+      );
+      
+      return await checkoutOperations.checkout(commitOid, false);
+    } catch (error) {
+      throw new Error(`Failed to checkout remote branch: ${(error as Error).message}`);
+    }
+  }
+
   // git revert - コミットを取り消し
   async revert(commitHash: string): Promise<string> {
     const revertOperations = new GitRevertOperations(
@@ -1036,5 +1068,166 @@ export class GitCommands {
     
     const { deleteRemote } = await import('./gitOperations/push');
     return deleteRemote(this.fs, this.dir, remote);
+  }
+
+  /**
+   * git fetch - リモートから変更を取得
+   */
+  async fetch(options: {
+    remote?: string;
+    branch?: string;
+    depth?: number;
+    prune?: boolean;
+    tags?: boolean;
+  } = {}): Promise<string> {
+    await this.ensureGitRepository();
+    
+    const { fetch } = await import('./gitOperations/fetch');
+    return fetch(this.fs, this.dir, options);
+  }
+
+  /**
+   * git fetch --all - 全リモートから変更を取得
+   */
+  async fetchAll(options: {
+    depth?: number;
+    prune?: boolean;
+    tags?: boolean;
+  } = {}): Promise<string> {
+    await this.ensureGitRepository();
+    
+    const { fetchAll } = await import('./gitOperations/fetch');
+    return fetchAll(this.fs, this.dir, options);
+  }
+
+  /**
+   * リモートブランチ一覧を取得
+   */
+  async listRemoteBranches(remote = 'origin'): Promise<string[]> {
+    await this.ensureGitRepository();
+    
+    const { listRemoteBranches } = await import('./gitOperations/fetch');
+    return listRemoteBranches(this.fs, this.dir, remote);
+  }
+
+  /**
+   * リモートタグ一覧を取得
+   */
+  async listRemoteTags(): Promise<string[]> {
+    await this.ensureGitRepository();
+    
+    const { listRemoteTags } = await import('./gitOperations/fetch');
+    return listRemoteTags(this.fs, this.dir);
+  }
+
+  /**
+   * git pull - fetch + merge/rebase
+   */
+  async pull(options: {
+    remote?: string;
+    branch?: string;
+    rebase?: boolean;
+  } = {}): Promise<string> {
+    await this.ensureGitRepository();
+    
+    const { remote = 'origin', branch, rebase = false } = options;
+    
+    try {
+      // 現在のブランチを取得
+      let targetBranch = branch;
+      if (!targetBranch) {
+        const currentBranch = await git.currentBranch({ fs: this.fs, dir: this.dir });
+        if (!currentBranch) {
+          throw new Error('No branch checked out');
+        }
+        targetBranch = currentBranch;
+      }
+
+      // 1. fetch実行
+      console.log(`[git pull] Fetching from ${remote}/${targetBranch}...`);
+      const { fetch } = await import('./gitOperations/fetch');
+      await fetch(this.fs, this.dir, { remote, branch: targetBranch });
+
+      // 2. リモート追跡ブランチのコミットIDを取得
+      const remoteBranchRef = `refs/remotes/${remote}/${targetBranch}`;
+      let remoteCommitOid: string;
+      
+      try {
+        remoteCommitOid = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: remoteBranchRef });
+      } catch {
+        throw new Error(`Remote branch '${remote}/${targetBranch}' not found after fetch`);
+      }
+
+      // 3. ローカルのコミットIDを取得
+      const localCommitOid = await git.resolveRef({ 
+        fs: this.fs, 
+        dir: this.dir, 
+        ref: `refs/heads/${targetBranch}` 
+      });
+
+      // 4. すでに最新の場合
+      if (localCommitOid === remoteCommitOid) {
+        return 'Already up to date.';
+      }
+
+      console.log(`[git pull] Merging ${remote}/${targetBranch} into ${targetBranch}...`);
+
+      if (rebase) {
+        // Rebase（未実装）
+        throw new Error('git pull --rebase is not yet supported. Use merge instead.');
+      } else {
+        // 5. Fast-forward可能かチェック
+        const localLog = await git.log({ fs: this.fs, dir: this.dir, depth: 100, ref: targetBranch });
+        const isAncestor = localLog.some(c => c.oid === remoteCommitOid);
+        
+        if (!isAncestor) {
+          // Fast-forwardできない場合はマージ
+          // まずリモートブランチをdetached HEADでチェックアウト
+          const mergeOperations = new GitMergeOperations(
+            this.fs,
+            this.dir,
+            this.projectId,
+            this.projectName
+          );
+          
+          // マージ実行（リモートコミットをマージ）
+          const mergeResult = await mergeOperations.merge(remoteBranchRef, {
+            message: `Merge branch '${remote}/${targetBranch}'`,
+          });
+          
+          return `From ${remote}\n${mergeResult}`;
+        } else {
+          // Fast-forward可能
+          console.log('[git pull] Fast-forwarding...');
+          
+          // HEADを更新
+          await git.writeRef({
+            fs: this.fs,
+            dir: this.dir,
+            ref: `refs/heads/${targetBranch}`,
+            value: remoteCommitOid,
+            force: true,
+          });
+
+          // ワーキングディレクトリを更新
+          await git.checkout({
+            fs: this.fs,
+            dir: this.dir,
+            ref: targetBranch,
+            force: true,
+          });
+
+          // IndexedDBに同期
+          await syncManager.syncFromFSToIndexedDB(this.projectId, this.projectName);
+
+          const shortLocal = localCommitOid.slice(0, 7);
+          const shortRemote = remoteCommitOid.slice(0, 7);
+          
+          return `Updating ${shortLocal}..${shortRemote}\nFast-forward`;
+        }
+      }
+    } catch (error) {
+      throw new Error(`git pull failed: ${(error as Error).message}`);
+    }
   }
 }
