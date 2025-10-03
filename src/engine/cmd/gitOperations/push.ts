@@ -16,6 +16,44 @@ export interface PushOptions {
   force?: boolean;
 }
 
+/**
+ * リモートHEAD以降の未pushコミット列を古い順に取得
+ */
+async function getCommitsToPush(
+  fs: FS,
+  dir: string,
+  branch: string,
+  remoteHeadSha: string | null
+): Promise<any[]> {
+  const localLog = await git.log({ fs, dir, ref: branch });
+  
+  if (!remoteHeadSha) {
+    // リモートが空の場合は全コミットを返す
+    return localLog.reverse();
+  }
+
+  // リモートHEADがローカル履歴に含まれているか確認
+  const remoteHeadIndex = localLog.findIndex(c => c.oid === remoteHeadSha);
+  
+  if (remoteHeadIndex === -1) {
+    // リモートHEADがローカル履歴にない = non-fast-forward
+    throw new Error(
+      `Updates were rejected because the remote contains work that you do not have locally.\n` +
+      `This is usually caused by another repository pushing to the same ref.\n` +
+      `You may want to first integrate the remote changes (e.g., 'git pull ...') before pushing again.`
+    );
+  }
+
+  if (remoteHeadIndex === 0) {
+    // 最新コミットがリモートと同じ = up-to-date
+    return [];
+  }
+
+  // リモートHEAD以降のコミットを古い順に返す
+  const commitsToPush = localLog.slice(0, remoteHeadIndex);
+  return commitsToPush.reverse();
+}
+
 export async function push(
   fs: FS,
   dir: string,
@@ -51,13 +89,8 @@ export async function push(
     }
 
     const githubAPI = new GitHubAPI(token, repoInfo.owner, repoInfo.repo);
-    const localCommits = await git.log({ fs, dir, depth: 1, ref: targetBranch });
-    const localCommit = localCommits[0];
     
-    if (!localCommit) {
-      throw new Error('No commits found');
-    }
-
+    // 1. リモートHEADを取得
     const remoteRef = await githubAPI.getRef(targetBranch);
     
     if (!remoteRef) {
@@ -70,132 +103,100 @@ export async function push(
       );
     }
     
-    const remoteCommitSha = remoteRef.object.sha;
+    const remoteHeadSha = remoteRef.object.sha;
+    console.log('[git push] Remote HEAD:', remoteHeadSha.slice(0, 7));
+
+    // 2. 未pushコミット列を取得（古い順）
+    let commitsToPush: any[];
+    try {
+      commitsToPush = await getCommitsToPush(fs, dir, targetBranch, remoteHeadSha);
+    } catch (error: any) {
+      if (!force && error.message.includes('Updates were rejected')) {
+        throw error;
+      }
+      // forceの場合は全コミットをpush
+      if (force) {
+        const localLog = await git.log({ fs, dir, ref: targetBranch });
+        commitsToPush = localLog.reverse();
+      } else {
+        throw error;
+      }
+    }
+
+    if (commitsToPush.length === 0) {
+      return 'Everything up-to-date';
+    }
+
+    console.log(`[git push] Pushing ${commitsToPush.length} commit(s)...`);
 
     // リモートツリーSHAを取得（差分アップロードのため）
     let remoteTreeSha: string | undefined;
-    let remoteCommit;
     try {
-      remoteCommit = await githubAPI.getCommit(remoteCommitSha);
+      const remoteCommit = await githubAPI.getCommit(remoteHeadSha);
       remoteTreeSha = remoteCommit.tree.sha;
     } catch (error) {
       console.warn('[git push] Failed to get remote tree:', error);
     }
 
-    // ローカルとリモートのツリーを比較
-    const localCommitObj = await git.readCommit({ fs, dir, oid: localCommit.oid });
-    const localTreeSha = localCommitObj.commit.tree;
-    
-    // コミット履歴もチェック（fast-forward可能か）
-    if (remoteCommitSha && !force) {
-      try {
-        // まず、ローカルのコミットがリモートに存在するかチェック
-        try {
-          const remoteCommit = await githubAPI.getCommit(localCommit.oid);
-          // ローカルのコミットがリモートに存在し、ツリーも同じ場合
-          if (remoteCommit.tree.sha === localTreeSha) {
-            return 'Everything up-to-date';
-          }
-        } catch {
-          // ローカルのコミットがリモートに存在しない = 新しいコミット
-        }
-        
-        // fast-forwardチェック: リモートコミットがローカルの履歴に含まれているか
-        const localLog = await git.log({ fs, dir, depth: 100, ref: targetBranch });
-        const isAncestor = localLog.some(c => c.oid === remoteCommitSha);
-        
-        if (!isAncestor) {
-          // リモートがローカルの履歴にない = 競合の可能性
-          // ただし、リモート追跡ブランチが最新の場合は許可
-          try {
-            const trackedRemoteCommit = await git.resolveRef({
-              fs,
-              dir,
-              ref: `refs/remotes/${remote}/${targetBranch}`,
-            });
-            
-            // リモート追跡ブランチがローカルの履歴に含まれているかチェック
-            const trackedIsAncestor = localLog.some(c => c.oid === trackedRemoteCommit);
-            
-            if (!trackedIsAncestor && trackedRemoteCommit !== remoteCommitSha) {
-              throw new Error(
-                `Updates were rejected because the remote contains work that you do not have locally.\n` +
-                `This is usually caused by another repository pushing to the same ref.\n` +
-                `You may want to first integrate the remote changes (e.g., 'git pull ...') before pushing again.`
-              );
-            }
-          } catch (resolveError) {
-            // リモート追跡ブランチが存在しない場合は、リモートとの比較のみ
-            if (!(resolveError as Error).message.includes('Updates were rejected')) {
-              console.warn('[git push] Remote tracking branch not found:', resolveError);
-            } else {
-              throw resolveError;
-            }
-          }
-        }
-      } catch (error) {
-        if ((error as Error).message.includes('Updates were rejected')) {
-          throw error;
-        }
-        console.warn('[git push] Could not verify ancestry:', error);
-      }
-    }
-    
-    if (remoteTreeSha && localTreeSha === remoteTreeSha) {
-      return 'Everything up-to-date';
-    }
-
+    // 3. 各コミットを順番にpush
+    let parentSha = remoteHeadSha;
+    let lastCommitSha = remoteHeadSha;
     const treeBuilder = new TreeBuilder(fs, dir, githubAPI);
-    const treeSha = await treeBuilder.buildTree(localCommit.oid, remoteTreeSha);
-    
-    if (remoteTreeSha && treeSha === remoteTreeSha) {
-      return 'Everything up-to-date';
+
+    for (const commit of commitsToPush) {
+      console.log(`[git push] Processing commit: ${commit.oid.slice(0, 7)} - ${commit.commit.message.split('\n')[0]}`);
+
+      // ツリーを構築（差分アップロード）
+      const treeSha = await treeBuilder.buildTree(commit.oid, remoteTreeSha);
+
+      // コミットを作成
+      const commitData = await githubAPI.createCommit({
+        message: commit.commit.message,
+        tree: treeSha,
+        parents: [parentSha],
+        author: {
+          name: commit.commit.author.name,
+          email: commit.commit.author.email,
+          date: new Date(commit.commit.author.timestamp * 1000).toISOString(),
+        },
+        committer: {
+          name: commit.commit.committer.name,
+          email: commit.commit.committer.email,
+          date: new Date(commit.commit.committer.timestamp * 1000).toISOString(),
+        },
+      });
+
+      console.log(`[git push] Created remote commit: ${commitData.sha.slice(0, 7)}`);
+
+      // 次のコミットのparentとして使用
+      parentSha = commitData.sha;
+      lastCommitSha = commitData.sha;
+      
+      // 次の差分アップロード用にremoteTreeShaを更新
+      remoteTreeSha = treeSha;
     }
 
-    const commitData = await githubAPI.createCommit({
-      message: localCommit.commit.message,
-      tree: treeSha,
-      parents: remoteCommitSha ? [remoteCommitSha] : [],
-      author: {
-        name: localCommit.commit.author.name,
-        email: localCommit.commit.author.email,
-        date: new Date(localCommit.commit.author.timestamp * 1000).toISOString(),
-      },
-      committer: {
-        name: localCommit.commit.committer.name,
-        email: localCommit.commit.committer.email,
-        date: new Date(localCommit.commit.committer.timestamp * 1000).toISOString(),
-      },
-    });
-    
-    console.log('[git push] Remote commit created:', commitData.sha.slice(0, 7));
-
+    // 4. ブランチrefを最新のコミットに更新
     console.log('[git push] Updating branch reference...');
-    await githubAPI.updateRef(targetBranch, commitData.sha, force);
+    await githubAPI.updateRef(targetBranch, lastCommitSha, force);
 
-    // リモート追跡ブランチのみを更新
-    // ローカルブランチは更新しない - ローカルのコミット履歴を保持
+    // リモート追跡ブランチを更新
     try {
       await git.writeRef({
         fs,
         dir,
         ref: `refs/remotes/${remote}/${targetBranch}`,
-        value: commitData.sha,
+        value: lastCommitSha,
         force: true,
       });
-      console.log('[git push] Updated remote tracking branch:', `${remote}/${targetBranch} -> ${commitData.sha.slice(0, 7)}`);
+      console.log('[git push] Updated remote tracking branch:', `${remote}/${targetBranch} -> ${lastCommitSha.slice(0, 7)}`);
     } catch (error) {
       console.warn('[git push] Failed to update remote tracking branch:', error);
     }
 
     const remoteUrl = remoteInfo.url;
     let result = `To ${remoteUrl}\n`;
-    
-    if (remoteCommitSha) {
-      result += `   ${remoteCommitSha.slice(0, 7)}..${commitData.sha.slice(0, 7)}  ${targetBranch} -> ${targetBranch}\n`;
-    } else {
-      result += ` * [new branch]      ${targetBranch} -> ${targetBranch}\n`;
-    }
+    result += `   ${remoteHeadSha.slice(0, 7)}..${lastCommitSha.slice(0, 7)}  ${targetBranch} -> ${targetBranch}\n`;
     
     return result;
   } catch (error: any) {
