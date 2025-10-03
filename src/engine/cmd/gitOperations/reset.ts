@@ -67,11 +67,23 @@ export class GitResetOperations {
           );
         }
 
-        // 現在のHEADを更新
+        // 現在のブランチを取得してHEADを更新
+        let currentBranch: string;
+        try {
+          currentBranch = await git.currentBranch({
+            fs: this.fs,
+            dir: this.dir,
+            fullname: true,
+          }) || 'HEAD';
+        } catch {
+          currentBranch = 'HEAD';
+        }
+
+        // ブランチが取得できた場合はブランチのHEADを更新、そうでなければHEADを直接更新
         await git.writeRef({
           fs: this.fs,
           dir: this.dir,
-          ref: 'HEAD',
+          ref: currentBranch,
           value: targetOid,
           force: true,
         });
@@ -118,10 +130,13 @@ export class GitResetOperations {
         // git.checkoutを使用してターゲットコミットの状態を復元
         // これによりディレクトリ構造も自動的に作成される
         console.log('[NEW ARCHITECTURE] Reset: Checking out target commit');
+        
+        // ブランチが存在する場合はブランチ名でcheckout、detached HEAD状態の場合はOIDでcheckout
+        const checkoutRef = currentBranch !== 'HEAD' ? currentBranch : targetOid;
         await git.checkout({
           fs: this.fs,
           dir: this.dir,
-          ref: targetOid,
+          ref: checkoutRef,
           force: true,
         });
 
