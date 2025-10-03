@@ -16,6 +16,10 @@ class ProjectDB {
     return fileRepository.createProject(name, description);
   }
 
+  async createEmptyProject(name: string, description?: string): Promise<Project> {
+    return fileRepository.createEmptyProject(name, description);
+  }
+
   async saveProject(project: Project): Promise<void> {
     return fileRepository.saveProject(project);
   }

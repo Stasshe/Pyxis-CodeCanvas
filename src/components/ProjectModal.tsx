@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
-import { X, Plus, Folder, Trash2, Edit } from 'lucide-react';
+import { X, Plus, Folder, Trash2, Edit, GitBranch } from 'lucide-react';
 import { projectDB } from '@/engine/core/database';
+import { fileRepository } from '@/engine/core/fileRepository';
+import { authRepository } from '@/engine/core/authRepository';
 import { Project } from '@/types';
 
 interface ProjectModalProps {
@@ -20,16 +22,31 @@ export default function ProjectModal({
 }: ProjectModalProps) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isCreating, setIsCreating] = useState(false);
+  const [isCloning, setIsCloning] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectDescription, setNewProjectDescription] = useState('');
+  const [cloneUrl, setCloneUrl] = useState('');
+  const [cloneProjectName, setCloneProjectName] = useState('');
   const [loading, setLoading] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [isGitHubAuthenticated, setIsGitHubAuthenticated] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       loadProjects();
+      checkGitHubAuth();
     }
   }, [isOpen]);
+
+  const checkGitHubAuth = async () => {
+    try {
+      const isAuth = await authRepository.isAuthenticated();
+      setIsGitHubAuthenticated(isAuth);
+    } catch (error) {
+      console.error('Failed to check GitHub auth:', error);
+      setIsGitHubAuthenticated(false);
+    }
+  };
 
   const loadProjects = async () => {
     setLoading(true);
@@ -75,6 +92,61 @@ export default function ProjectModal({
       await loadProjects();
     } catch (error) {
       console.error('Failed to create project:', error);
+      alert(`プロジェクト作成に失敗しました: ${(error as Error).message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCloneProject = async () => {
+    const url = cloneUrl.trim();
+    let name = cloneProjectName.trim();
+
+    if (!url) {
+      alert('リポジトリURLを入力してください。');
+      return;
+    }
+
+    // プロジェクト名が未入力の場合、URLから推測
+    if (!name) {
+      const repoName = url.split('/').pop()?.replace('.git', '') || '';
+      name = repoName.replace(/\s+/g, '-');
+    }
+
+    // プロジェクト名のバリデーション
+    name = name.replace(/\s+/g, '-');
+    if (!/^[a-zA-Z0-9-]+$/.test(name)) {
+      alert(
+        'プロジェクト名は英数字とハイフンのみ使用できます。日本語や記号、スペースは使えません。'
+      );
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // 空のプロジェクトを作成（デフォルトファイル無し）
+      const project = await fileRepository.createEmptyProject(name);
+
+      // GitCommandsを動的インポートしてclone実行
+      const { GitCommands } = await import('@/engine/cmd/git');
+      const git = new GitCommands(project.name, project.id);
+
+      // git cloneを実行（.gitを含む全ファイルがIndexedDBに同期される）
+      await git.clone(url, project.name);
+
+      // プロジェクトを選択して開く
+      onProjectSelect(project);
+
+      setCloneUrl('');
+      setCloneProjectName('');
+      setIsCloning(false);
+      onClose();
+      await loadProjects();
+
+      alert('リポジトリのクローンが完了しました！');
+    } catch (error) {
+      console.error('Failed to clone project:', error);
+      alert(`クローンに失敗しました: ${(error as Error).message}`);
     } finally {
       setLoading(false);
     }
@@ -149,16 +221,28 @@ export default function ProjectModal({
 
         <div className="flex-1 overflow-auto p-4">
           <div className="mb-4">
-            {!isCreating ? (
-              <button
-                onClick={() => setIsCreating(true)}
-                className="flex items-center gap-2 px-3 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
-                disabled={loading}
-              >
-                <Plus size={16} />
-                新しいプロジェクト
-              </button>
-            ) : (
+            {!isCreating && !isCloning ? (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setIsCreating(true)}
+                  className="flex items-center gap-2 px-3 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
+                  disabled={loading}
+                >
+                  <Plus size={16} />
+                  新しいプロジェクト
+                </button>
+                {isGitHubAuthenticated && (
+                  <button
+                    onClick={() => setIsCloning(true)}
+                    className="flex items-center gap-2 px-3 py-2 bg-secondary text-secondary-foreground rounded hover:bg-secondary/90"
+                    disabled={loading}
+                  >
+                    <GitBranch size={16} />
+                    Clone from GitHub
+                  </button>
+                )}
+              </div>
+            ) : isCreating ? (
               <div className="bg-muted p-4 rounded border">
                 <div className="mb-3">
                   <label className="block text-sm font-medium mb-1">プロジェクト名</label>
@@ -194,6 +278,54 @@ export default function ProjectModal({
                       setIsCreating(false);
                       setNewProjectName('');
                       setNewProjectDescription('');
+                    }}
+                    className="px-3 py-2 bg-secondary text-secondary-foreground rounded hover:bg-secondary/90"
+                  >
+                    キャンセル
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-muted p-4 rounded border">
+                <div className="mb-3">
+                  <label className="block text-sm font-medium mb-1">リポジトリURL</label>
+                  <input
+                    type="text"
+                    value={cloneUrl}
+                    onChange={e => setCloneUrl(e.target.value)}
+                    placeholder="https://github.com/username/repository.git"
+                    className="w-full px-3 py-2 bg-background border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                    autoFocus
+                  />
+                </div>
+                <div className="mb-3">
+                  <label className="block text-sm font-medium mb-1">
+                    プロジェクト名（オプション）
+                  </label>
+                  <input
+                    type="text"
+                    value={cloneProjectName}
+                    onChange={e => setCloneProjectName(e.target.value)}
+                    placeholder="未入力の場合はリポジトリ名を使用"
+                    className="w-full px-3 py-2 bg-background border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    英数字とハイフンのみ使用できます
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleCloneProject}
+                    disabled={!cloneUrl.trim() || loading}
+                    className="px-3 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    Clone
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsCloning(false);
+                      setCloneUrl('');
+                      setCloneProjectName('');
                     }}
                     className="px-3 py-2 bg-secondary text-secondary-foreground rounded hover:bg-secondary/90"
                   >

@@ -148,7 +148,18 @@ export class GitCommands {
           url,
           corsProxy: 'https://cors.isomorphic-git.org',
           singleBranch: true,
-          depth: 10,
+          depth: 10, //全部取得したら死ぬ
+          onAuth: (url) => {
+            if (authRepository && typeof authRepository.getAccessToken === 'function') {
+              return authRepository.getAccessToken().then(token => {
+                if (token) {
+                  return { username: 'x-access-token', password: token };
+                }
+                return {};
+              });
+            }
+            return {};
+          },
         });
       } catch (cloneError) {
         console.error('[git clone] Clone failed:', cloneError);

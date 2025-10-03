@@ -153,6 +153,39 @@ export class FileRepository {
   }
 
   /**
+   * 空のプロジェクト作成（clone専用、デフォルトファイル無し）
+   * GitFileSystemに.gitディレクトリを含めて作成される
+   */
+  async createEmptyProject(name: string, description?: string): Promise<Project> {
+    await this.init();
+
+    // プロジェクト名の重複チェック
+    const existingProjects = await this.getProjects();
+    if (existingProjects.some(project => project.name === name)) {
+      throw new Error(`プロジェクト名 "${name}" は既に存在します。別の名前を使用してください。`);
+    }
+
+    const project: Project = {
+      id: generateUniqueId('project'),
+      name,
+      description,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    await this.saveProject(project);
+
+    // 初期チャットスペースのみ作成（ファイルは作成しない）
+    try {
+      await this.createChatSpace(project.id, `${project.name} - 初期チャット`);
+    } catch (error) {
+      console.warn('[FileRepository] Failed to create initial chat space:', error);
+    }
+
+    return project;
+  }
+
+  /**
    * 初期ファイルを再帰的に登録
    */
   private async registerInitialFiles(
