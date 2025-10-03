@@ -74,7 +74,21 @@ export class GitCommands {
     try {
       await this.ensureGitRepository();
       const branch = await git.currentBranch({ fs: this.fs, dir: this.dir });
-      return branch || 'main';
+      
+      if (!branch) {
+        // detached HEAD状態 - 現在のコミットIDを取得
+        try {
+          const commits = await git.log({ fs: this.fs, dir: this.dir, depth: 1 });
+          if (commits.length > 0) {
+            return `(HEAD detached at ${commits[0].oid.slice(0, 7)})`;
+          }
+        } catch {
+          // ログ取得失敗
+        }
+        return 'main';
+      }
+      
+      return branch;
     } catch {
       return '(no git)';
     }
@@ -911,7 +925,7 @@ export class GitCommands {
           }
           
           if (remoteBranches.length > 0) {
-            result += remoteBranches.map(b => `  remotes/${b}`).join('\n');
+            result += remoteBranches.map(b => `  ${b}`).join('\n');
           } else if (!all) {
             return 'No remote branches found. Use "git fetch" first.';
           }

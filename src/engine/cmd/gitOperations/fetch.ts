@@ -106,7 +106,20 @@ export async function fetch(
     let result = `From ${remoteInfo.url}\n`;
     
     if (fetchResult.fetchHead) {
-      result += ` * branch            ${branch || 'HEAD'}       -> FETCH_HEAD\n`;
+      result += ` * branch            ${targetBranch}       -> FETCH_HEAD\n`;
+      
+      // リモート追跡ブランチの更新を確認
+      try {
+        const remoteTrackingRef = await git.resolveRef({
+          fs,
+          dir,
+          ref: `refs/remotes/${remote}/${targetBranch}`,
+        });
+        result += ` * [updated]         ${remote}/${targetBranch} -> ${remote}/${targetBranch}\n`;
+        console.log(`[git fetch] Updated ${remote}/${targetBranch} to ${remoteTrackingRef.slice(0, 7)}`);
+      } catch {
+        console.warn(`[git fetch] Could not verify remote tracking branch update`);
+      }
     }
 
     if (fetchResult.pruned && fetchResult.pruned.length > 0) {

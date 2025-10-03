@@ -89,23 +89,48 @@ export async function push(
     // コミット履歴もチェック（fast-forward可能か）
     if (remoteCommitSha && !force) {
       try {
+        // まず、ローカルのコミットがリモートに存在するかチェック
+        try {
+          const remoteCommit = await githubAPI.getCommit(localCommit.oid);
+          // ローカルのコミットがリモートに存在し、ツリーも同じ場合
+          if (remoteCommit.tree.sha === localTreeSha) {
+            return 'Everything up-to-date';
+          }
+        } catch {
+          // ローカルのコミットがリモートに存在しない = 新しいコミット
+        }
+        
+        // fast-forwardチェック: リモートコミットがローカルの履歴に含まれているか
         const localLog = await git.log({ fs, dir, depth: 100, ref: targetBranch });
         const isAncestor = localLog.some(c => c.oid === remoteCommitSha);
         
         if (!isAncestor) {
-          // リモートがローカルより進んでいる場合
-          // ただし、ローカルのコミットがリモートに存在するかもチェック
+          // リモートがローカルの履歴にない = 競合の可能性
+          // ただし、リモート追跡ブランチが最新の場合は許可
           try {
-            await githubAPI.getCommit(localCommit.oid);
-            // ローカルのコミットがリモートに存在する = すでにpush済み
-            return 'Everything up-to-date';
-          } catch {
-            // ローカルのコミットがリモートに存在しない = 本当の競合
-            throw new Error(
-              `Updates were rejected because the remote contains work that you do not have locally.\n` +
-              `This is usually caused by another repository pushing to the same ref.\n` +
-              `You may want to first integrate the remote changes (e.g., 'git pull ...') before pushing again.`
-            );
+            const trackedRemoteCommit = await git.resolveRef({
+              fs,
+              dir,
+              ref: `refs/remotes/${remote}/${targetBranch}`,
+            });
+            
+            // リモート追跡ブランチがローカルの履歴に含まれているかチェック
+            const trackedIsAncestor = localLog.some(c => c.oid === trackedRemoteCommit);
+            
+            if (!trackedIsAncestor && trackedRemoteCommit !== remoteCommitSha) {
+              throw new Error(
+                `Updates were rejected because the remote contains work that you do not have locally.\n` +
+                `This is usually caused by another repository pushing to the same ref.\n` +
+                `You may want to first integrate the remote changes (e.g., 'git pull ...') before pushing again.`
+              );
+            }
+          } catch (resolveError) {
+            // リモート追跡ブランチが存在しない場合は、リモートとの比較のみ
+            if (!(resolveError as Error).message.includes('Updates were rejected')) {
+              console.warn('[git push] Remote tracking branch not found:', resolveError);
+            } else {
+              throw resolveError;
+            }
           }
         }
       } catch (error) {
@@ -147,6 +172,20 @@ export async function push(
 
     console.log('[git push] Updating branch reference...');
     await githubAPI.updateRef(targetBranch, commitData.sha, force);
+
+    // ローカルのブランチもリモートのコミットIDに更新
+    try {
+      await git.writeRef({
+        fs,
+        dir,
+        ref: `refs/heads/${targetBranch}`,
+        value: commitData.sha,
+        force: true,
+      });
+      console.log('[git push] Updated local branch to remote commit:', commitData.sha.slice(0, 7));
+    } catch (error) {
+      console.warn('[git push] Failed to update local branch:', error);
+    }
 
     // ローカルのリモート追跡ブランチも更新（refs/remotes/origin/branch）
     try {

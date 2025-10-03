@@ -37,13 +37,13 @@ export class GitMergeOperations {
   }
 
   // 現在のブランチ名を取得
-  private async getCurrentBranch(): Promise<string> {
+  private async getCurrentBranch(): Promise<string | null> {
     try {
       await this.ensureGitRepository();
       const branch = await git.currentBranch({ fs: this.fs, dir: this.dir });
-      return branch || 'main';
+      return branch || null; // undefinedをnullに変換
     } catch {
-      return '(no git)';
+      return null;
     }
   }
 
@@ -138,6 +138,11 @@ export class GitMergeOperations {
 
       // 現在のブランチを取得
       const currentBranch = await this.getCurrentBranch();
+      
+      // detached HEAD状態ではマージできない
+      if (!currentBranch) {
+        return 'fatal: You are not currently on a branch.\nTo make a commit, create a new branch or switch to an existing branch.';
+      }
 
       // 自分自身をマージしようとした場合
       if (currentBranch === branchName) {
@@ -276,7 +281,9 @@ export class GitMergeOperations {
 
         // 現在のブランチにハードリセット
         const currentBranch = await this.getCurrentBranch();
-        await git.checkout({ fs: this.fs, dir: this.dir, ref: currentBranch, force: true });
+        if (currentBranch) {
+          await git.checkout({ fs: this.fs, dir: this.dir, ref: currentBranch, force: true });
+        }
 
         // [NEW ARCHITECTURE] GitFileSystem → IndexedDBへ逆同期
         console.log('[NEW ARCHITECTURE] Starting reverse sync: GitFileSystem → IndexedDB');
