@@ -212,6 +212,7 @@
 │   │   │   ├── gitFileSystem.ts
 │   │   │   ├── githubUserManager.ts
 │   │   │   ├── project.ts
+│   │   │   ├── settingsManager.ts
 │   │   │   └── syncManager.ts
 │   │   ├── export
 │   │   │   ├── exportFolderZip.ts
@@ -253,11 +254,13 @@
 │   │   ├── pane.ts
 │   │   ├── tab.ts
 │   │   ├── useAIReview.ts
-│   │   └── useDiffTabHandlers.ts
+│   │   ├── useDiffTabHandlers.ts
+│   │   └── useSettings.ts
 │   └── types
 │       ├── git.ts
 │       ├── index.ts
 │       ├── path-browserify.d.ts
+│       ├── settings.ts
 │       └── vm-browserify.d.ts
 ├── tailwind.config.ts
 ├── tree-built-out.sh
@@ -265,15 +268,15 @@
 ├── tree.txt
 └── tsconfig.json
 
-45 directories, 221 files
+45 directories, 224 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 33902
-合計文字数: 1117375
-合計ファイルサイズ(bytes): 1201466
+合計行数: 34506
+合計文字数: 1136479
+合計ファイルサイズ(bytes): 1222182
 
 リポジトリ全体のサイズ(bytes): 1.8G	.
 ==========
 ビルト済みファイルの行数: 14778
-合計文字数: 22228245
-合計ファイルサイズ(bytes): 23161043
+合計文字数: 22236724
+合計ファイルサイズ(bytes): 23169792
