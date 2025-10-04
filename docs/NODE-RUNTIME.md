@@ -1,6 +1,36 @@
+
+
+
+# 未チェックーこのドキュメントは実装に基づいていない可能性があります。あまり参考にしないで下さい。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # Node.js Runtime - ブラウザ内実行環境
 
-Pyxis CodeCanvasのNode.js Runtimeは、完全にブラウザ環境で動作するNode.js互換の実行環境です。SWC wasmによる本格的なAST変換、Web Workerによるマルチスレッド処理、IndexedDBベースの永続キャッシュを備えています。
+Pyxis CodeCanvasのNode.js Runtimeは、完全にブラウザ環境で動作するNode.js互換の実行環境です。babel standaloneによる本格的なAST変換、Web Workerによるマルチスレッド処理、IndexedDBベースの永続キャッシュを備えています。
 
 ---
 
@@ -10,13 +40,13 @@ Pyxis CodeCanvasのNode.js Runtimeは、完全にブラウザ環境で動作す�
 
 1. **完全ブラウザ環境**: サーバーを使わず、すべてクライアントで実行
 2. **Node.js互換**: require、npm packages、ビルトインモジュールをサポート
-3. **高性能**: SWC wasmによる高速トランスパイル、3層キャッシュシステム
+3. **高性能**: babel standaloneによる高速トランスパイル、3層キャッシュシステム
 4. **メモリ効率**: LRU GC、Worker自動終了による一定のメモリフットプリント
 5. **拡張性**: プラグイン可能な設計、将来のHMR対応
 
 ### 主要な特徴
 
-- **SWC wasm統合**: 正規表現ではなくAST変換による正確なトランスパイル
+- **babel standalone統合**: 正規表現ではなくAST変換による正確なトランスパイル
 - **TypeScript完全サポート**: interface、generics、decorators対応
 - **JSX/TSX対応**: React自動ランタイム
 - **ES Module ⇔ CommonJS**: 双方向変換
@@ -43,7 +73,7 @@ graph TB
     subgraph Transpile[トランスパイル]
         Manager[TranspileManager]
         Worker[Web Worker]
-        SWC[SWC wasm]
+        SWC[babel standalone]
     end
     
     subgraph Cache[キャッシュシステム]
@@ -225,11 +255,11 @@ graph TB
 
 ### 4. TranspileManager & Web Worker
 
-**役割**: SWC wasmによる高速トランスパイル
+**役割**: babel standaloneによる高速トランスパイル
 
 **責務**:
 - Web Workerの作成と管理
-- SWC wasmの初期化
+- babel standaloneの初期化
 - トランスパイルリクエストの処理
 - 自動メモリ管理
 
@@ -240,7 +270,7 @@ sequenceDiagram
     participant Main as メインスレッド
     participant Manager as TranspileManager
     participant Worker as Web Worker
-    participant SWC as SWC wasm
+    participant SWC as babel standalone
     
     Main->>Manager: transpile(code, options)
     Manager->>Worker: new Worker()
@@ -274,7 +304,7 @@ sequenceDiagram
 
 **メモリ管理**:
 - トランスパイル完了後、即座にWorkerを終了
-- SWC wasmのヒープはWorker内に隔離
+- babel standaloneのヒープはWorker内に隔離
 - メインスレッドのメモリに影響なし
 
 ---
@@ -419,7 +449,7 @@ graph TB
 
 **ステップ3: AST変換**
 
-SWC wasmによる処理:
+babel standaloneによる処理:
 1. コードをASTに解析
 2. 型アノテーションを削除（TypeScript）
 3. JSXをReact.createElement呼び出しに変換
@@ -656,7 +686,7 @@ SyntaxError: Unexpected token
 
 ## 設計の背景と理由
 
-### なぜSWC wasmを選択したか
+### なぜbabel standaloneを選択したか
 
 **比較検討**:
 
@@ -665,7 +695,7 @@ SyntaxError: Unexpected token
 | 正規表現 | 軽量、簡単 | 不正確、複雑な構文に非対応 | ❌ |
 | Babel | 強力、プラグイン豊富 | 重い、バンドルサイズ大 | ❌ |
 | TypeScript Compiler | 公式、正確 | 重い、ブラウザ非対応 | ❌ |
-| SWC wasm | 高速、正確、軽量 | WebAssembly必須 | ✅ |
+| babel standalone | 高速、正確、軽量 | WebAssembly必須 | ✅ |
 
 **決定理由**:
 - Rustベースで高速
@@ -684,7 +714,7 @@ SyntaxError: Unexpected token
 - メインスレッド非ブロック
 - 並列処理可能
 - 完了後、即座にメモリ解放
-- SWC wasmヒープの隔離
+- babel standaloneヒープの隔離
 
 ### なぜ3層キャッシュか
 
@@ -847,4 +877,4 @@ Cannot find module 'xxx'
 
 **最終更新**: 2025-10-04  
 **バージョン**: 3.0  
-**ステータス**: ✅ SWC wasm統合完了
+**ステータス**: ✅ babel standalone統合完了
