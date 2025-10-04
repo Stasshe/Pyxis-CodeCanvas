@@ -16,6 +16,198 @@
 import * as Babel from '@babel/standalone';
 
 /**
+ * Babel Plugin: ES Module と require() を変換
+ */
+function babelPluginModuleTransform() {
+  return {
+    name: 'module-transform',
+    visitor: {
+      // import文を await __require__() に変換
+      ImportDeclaration(path: any) {
+        const { node } = path;
+        const source = node.source.value;
+        
+        // import defaultExport from 'module'
+        // import { named } from 'module'
+        // import * as namespace from 'module'
+        
+        const declarations: any[] = [];
+        
+        node.specifiers.forEach((spec: any) => {
+          if (spec.type === 'ImportDefaultSpecifier') {
+            // const defaultExport = (await __require__('module')).default || await __require__('module')
+            declarations.push({
+              type: 'VariableDeclarator',
+              id: spec.local,
+              init: {
+                type: 'AwaitExpression',
+                argument: {
+                  type: 'CallExpression',
+                  callee: { type: 'Identifier', name: '__require__' },
+                  arguments: [{ type: 'StringLiteral', value: source }],
+                },
+              },
+            });
+          } else if (spec.type === 'ImportSpecifier') {
+            // const { named } = await __require__('module')
+            declarations.push({
+              type: 'VariableDeclarator',
+              id: { type: 'Identifier', name: spec.local.name },
+              init: {
+                type: 'MemberExpression',
+                object: {
+                  type: 'AwaitExpression',
+                  argument: {
+                    type: 'CallExpression',
+                    callee: { type: 'Identifier', name: '__require__' },
+                    arguments: [{ type: 'StringLiteral', value: source }],
+                  },
+                },
+                property: { type: 'Identifier', name: spec.imported.name },
+                computed: false,
+              },
+            });
+          } else if (spec.type === 'ImportNamespaceSpecifier') {
+            // const namespace = await __require__('module')
+            declarations.push({
+              type: 'VariableDeclarator',
+              id: spec.local,
+              init: {
+                type: 'AwaitExpression',
+                argument: {
+                  type: 'CallExpression',
+                  callee: { type: 'Identifier', name: '__require__' },
+                  arguments: [{ type: 'StringLiteral', value: source }],
+                },
+              },
+            });
+          }
+        });
+        
+        if (declarations.length > 0) {
+          const variableDeclaration = {
+            type: 'VariableDeclaration',
+            kind: 'const',
+            declarations,
+          };
+          path.replaceWith(variableDeclaration);
+        } else {
+          // import 'module' (side effect only)
+          path.replaceWith({
+            type: 'ExpressionStatement',
+            expression: {
+              type: 'AwaitExpression',
+              argument: {
+                type: 'CallExpression',
+                callee: { type: 'Identifier', name: '__require__' },
+                arguments: [{ type: 'StringLiteral', value: source }],
+              },
+            },
+          });
+        }
+        
+        // 親関数をasyncに
+        let functionParent = path.getFunctionParent();
+        if (functionParent) {
+          functionParent.node.async = true;
+        }
+      },
+      
+      // export文を module.exports に変換
+      ExportDefaultDeclaration(path: any) {
+        const { node } = path;
+        path.replaceWith({
+          type: 'ExpressionStatement',
+          expression: {
+            type: 'AssignmentExpression',
+            operator: '=',
+            left: {
+              type: 'MemberExpression',
+              object: { type: 'Identifier', name: 'module' },
+              property: { type: 'Identifier', name: 'exports' },
+              computed: false,
+            },
+            right: node.declaration,
+          },
+        });
+      },
+      
+      ExportNamedDeclaration(path: any) {
+        const { node } = path;
+        
+        if (node.declaration) {
+          // export const foo = 1; => const foo = 1; exports.foo = foo;
+          const declarations: any[] = [];
+          
+          if (node.declaration.type === 'VariableDeclaration') {
+            node.declaration.declarations.forEach((decl: any) => {
+              declarations.push({
+                type: 'ExpressionStatement',
+                expression: {
+                  type: 'AssignmentExpression',
+                  operator: '=',
+                  left: {
+                    type: 'MemberExpression',
+                    object: { type: 'Identifier', name: 'exports' },
+                    property: { type: 'Identifier', name: decl.id.name },
+                    computed: false,
+                  },
+                  right: { type: 'Identifier', name: decl.id.name },
+                },
+              });
+            });
+          }
+          
+          path.replaceWithMultiple([node.declaration, ...declarations]);
+        } else if (node.specifiers.length > 0) {
+          // export { foo, bar };
+          const assignments = node.specifiers.map((spec: any) => ({
+            type: 'ExpressionStatement',
+            expression: {
+              type: 'AssignmentExpression',
+              operator: '=',
+              left: {
+                type: 'MemberExpression',
+                object: { type: 'Identifier', name: 'exports' },
+                property: { type: 'Identifier', name: spec.exported.name },
+                computed: false,
+              },
+              right: { type: 'Identifier', name: spec.local.name },
+            },
+          }));
+          path.replaceWithMultiple(assignments);
+        }
+      },
+      
+      // require() を await __require__() に変換
+      CallExpression(path: any) {
+        const { node } = path;
+        
+        if (
+          node.callee.type === 'Identifier' &&
+          node.callee.name === 'require' &&
+          node.arguments.length === 1
+        ) {
+          node.callee.name = '__require__';
+          
+          const awaitExpression = {
+            type: 'AwaitExpression',
+            argument: node,
+          };
+          
+          path.replaceWith(awaitExpression);
+          
+          let functionParent = path.getFunctionParent();
+          if (functionParent) {
+            functionParent.node.async = true;
+          }
+        }
+      },
+    },
+  };
+}
+
+/**
  * トランスパイルリクエスト
  */
 export interface TranspileRequest {
@@ -76,10 +268,8 @@ function transpile(request: TranspileRequest): TranspileResult {
       ]);
     }
 
-    // ES Moduleサポート（CommonJSに変換）
-    if (options.isESModule) {
-      plugins.push('@babel/plugin-transform-modules-commonjs');
-    }
+    // ES Module と require() を変換するプラグインを追加
+    plugins.push(babelPluginModuleTransform());
 
     // トランスパイル実行
     const result = Babel.transform(code, {

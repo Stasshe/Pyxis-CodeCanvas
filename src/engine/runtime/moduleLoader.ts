@@ -48,7 +48,6 @@ export class ModuleLoader {
   private cache: ModuleCache;
   private resolver: ModuleResolver;
   private executionCache: ModuleExecutionCache = {};
-  private projectPackageJson: PackageJson | null = null;
 
   constructor(options: ModuleLoaderOptions) {
     this.projectId = options.projectId;
@@ -69,14 +68,11 @@ export class ModuleLoader {
     // キャッシュを初期化
     await this.cache.init();
 
-    // プロジェクトのpackage.jsonを読み込み
-    await this.loadProjectPackageJson();
-
     this.log('✅ ModuleLoader initialized');
   }
 
   /**
-   * モジュールを読み込み
+   * モジュールを読み込み（非同期）
    */
   async load(moduleName: string, currentFilePath: string): Promise<unknown> {
     this.log('📦 Loading module:', moduleName, 'from', currentFilePath);
@@ -87,28 +83,29 @@ export class ModuleLoader {
       throw new Error(`Cannot find module '${moduleName}'`);
     }
 
-    // ビルトインモジュールは解決済みパスを返す
+    // ビルトインモジュールは特殊なマーカーを返す
     if (resolved.isBuiltIn) {
       this.log('✅ Built-in module:', moduleName);
       return { __isBuiltIn: true, moduleName };
     }
 
+    const resolvedPath = resolved.path;
+
     // 実行キャッシュをチェック（循環参照対策）
-    if (this.executionCache[resolved.path]) {
-      const cached = this.executionCache[resolved.path];
+    if (this.executionCache[resolvedPath]) {
+      const cached = this.executionCache[resolvedPath];
       if (cached.loaded) {
-        this.log('📦 Using execution cache:', resolved.path);
+        this.log('📦 Using execution cache:', resolvedPath);
         return cached.exports;
       }
       if (cached.loading) {
-        // 循環参照を検出
-        this.warn('⚠️ Circular dependency detected:', resolved.path);
-        return cached.exports; // 部分的にロード済みのexportsを返す
+        this.log('⚠️ Circular dependency detected:', resolvedPath);
+        return cached.exports; // 部分的なexportsを返す
       }
     }
 
-    // 実行キャッシュにエントリを作成
-    this.executionCache[resolved.path] = {
+    // 実行キャッシュを初期化
+    this.executionCache[resolvedPath] = {
       exports: {},
       loaded: false,
       loading: true,
@@ -116,104 +113,53 @@ export class ModuleLoader {
 
     try {
       // ファイルを読み込み
-      const content = await this.readFile(resolved.path);
-      if (content === null) {
-        throw new Error(`File not found: ${resolved.path}`);
+      const fileContent = await this.readFile(resolvedPath);
+      if (fileContent === null) {
+        throw new Error(`File not found: ${resolvedPath}`);
       }
 
-      // トランスパイルキャッシュをチェック
-      let code = content;
-      const isTypeScript = this.isTypeScript(resolved.path);
-      const isESModule = this.isESModule(resolved.path, content);
-
-      if (isTypeScript || isESModule) {
-        // キャッシュから取得を試みる
-        const cached = await this.cache.get(resolved.path);
-        if (cached && cached.mtime >= Date.now() - 3600000) {
-          // 1時間以内のキャッシュは有効
-          this.log('📦 Using transpile cache:', resolved.path);
-          code = cached.code;
-        } else {
-          // トランスパイル
-          this.log('🔄 Transpiling:', resolved.path);
-          code = await this.transpile(resolved.path, content, isTypeScript, isESModule);
-
-          // キャッシュに保存
-          await this.cache.set(resolved.path, {
-            originalPath: resolved.path,
-            code,
-            deps: this.extractDependencies(code),
-            mtime: Date.now(),
-            size: code.length,
-          });
-        }
-      }
+      // トランスパイル済みコードを取得（キャッシュ優先）
+      let code = await this.getTranspiledCode(resolvedPath, fileContent);
 
       // モジュールを実行
-      const moduleExports = await this.executeModule(resolved.path, code);
+      const moduleExports = await this.executeModule(code, resolvedPath);
 
       // 実行キャッシュを更新
-      this.executionCache[resolved.path].exports = moduleExports;
-      this.executionCache[resolved.path].loaded = true;
-      this.executionCache[resolved.path].loading = false;
+      this.executionCache[resolvedPath].exports = moduleExports;
+      this.executionCache[resolvedPath].loaded = true;
+      this.executionCache[resolvedPath].loading = false;
 
-      this.log('✅ Module loaded:', resolved.path);
+      this.log('✅ Module loaded:', resolvedPath);
       return moduleExports;
     } catch (error) {
-      // エラー時はキャッシュから削除
-      delete this.executionCache[resolved.path];
-      this.error('❌ Failed to load module:', moduleName, error);
+      // エラー時はキャッシュをクリア
+      delete this.executionCache[resolvedPath];
+      this.error('❌ Failed to load module:', resolvedPath, error);
       throw error;
     }
   }
 
   /**
-   * ファイルがTypeScriptかどうかを判定
+   * トランスパイル済みコードを取得
    */
-  private isTypeScript(filePath: string): boolean {
-    return /\.(ts|tsx|mts|cts)$/.test(filePath);
-  }
-
-  /**
-   * ファイルがES Moduleかどうかを判定
-   */
-  private isESModule(filePath: string, content: string): boolean {
-    // package.jsonのtype設定を確認
-    if (this.projectPackageJson?.type === 'module') {
-      return filePath.endsWith('.js') || filePath.endsWith('.ts');
-    }
-    if (this.projectPackageJson?.type === 'commonjs') {
-      return filePath.endsWith('.mjs') || filePath.endsWith('.mts');
+  private async getTranspiledCode(filePath: string, content: string): Promise<string> {
+    // キャッシュをチェック
+    const cached = await this.cache.get(filePath);
+    if (cached) {
+      this.log('📦 Using transpile cache:', filePath);
+      return cached.code;
     }
 
-    // 拡張子で判定
-    if (filePath.endsWith('.mjs') || filePath.endsWith('.mts')) {
-      return true;
-    }
-    if (filePath.endsWith('.cjs') || filePath.endsWith('.cts')) {
-      return false;
-    }
+    // トランスパイルが必要か判定
+    const needsTranspile = this.needsTranspile(filePath, content);
+    let code = content;
 
-    // コンテンツで判定
-    return /^\s*(import|export)\s+/m.test(content);
-  }
-
-  /**
-   * トランスパイル（SWC wasm使用）
-   */
-  private async transpile(
-    filePath: string,
-    content: string,
-    isTypeScript: boolean,
-    isESModule: boolean
-  ): Promise<string> {
-    try {
-      this.log('🔄 Transpiling with SWC wasm:', filePath);
-
-      // ファイル拡張子からJSXを判定
+    if (needsTranspile) {
+      this.log('🔄 Transpiling module:', filePath);
+      const isTypeScript = /\.(ts|tsx|mts|cts)$/.test(filePath);
       const isJSX = /\.(jsx|tsx)$/.test(filePath);
+      const isESModule = this.isESModule(content);
 
-      // SWC wasmでトランスパイル
       const result = await transpileManager.transpile({
         code: content,
         filePath,
@@ -222,108 +168,93 @@ export class ModuleLoader {
         isJSX,
       });
 
-      this.log('✅ Transpile completed:', {
-        filePath,
-        originalSize: content.length,
-        transpiledSize: result.code.length,
-        dependencies: result.dependencies.length,
+      code = result.code;
+
+      // キャッシュに保存
+      await this.cache.set(filePath, {
+        originalPath: filePath,
+        code: result.code,
+        sourceMap: result.sourceMap,
+        deps: result.dependencies,
+        mtime: Date.now(),
+        size: result.code.length,
       });
 
-      return result.code;
-    } catch (error) {
-      this.error('❌ Transpile failed:', filePath, error);
-      // フォールバック: 元のコードを返す
-      this.warn('⚠️ Using original code without transpilation');
-      return content;
-    }
-  }
-
-
-
-  /**
-   * 依存関係を抽出
-   */
-  private extractDependencies(code: string): string[] {
-    const deps: string[] = [];
-    const requireRegex = /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
-    const importRegex = /import\s+.*?from\s+['"]([^'"]+)['"]/g;
-
-    let match;
-    while ((match = requireRegex.exec(code)) !== null) {
-      deps.push(match[1]);
-    }
-    while ((match = importRegex.exec(code)) !== null) {
-      deps.push(match[1]);
+      this.log('✅ Transpile completed and cached');
     }
 
-    return [...new Set(deps)]; // 重複を削除
+    return code;
   }
 
   /**
    * モジュールを実行
    */
-  private async executeModule(filePath: string, code: string): Promise<unknown> {
-    // CommonJS形式でラップ
+  private async executeModule(code: string, filePath: string): Promise<unknown> {
+    const module = { exports: {} };
+    const exports = module.exports;
+    const __filename = filePath;
+    const __dirname = this.dirname(filePath);
+
+    // __require__ 関数を定義（非同期）
+    const __require__ = async (moduleName: string) => {
+      return await this.load(moduleName, filePath);
+    };
+
+    // コードをラップして実行
     const wrappedCode = `
-      'use strict';
-      const module = { exports: {} };
-      const exports = module.exports;
-      const __filename = ${JSON.stringify(filePath)};
-      const __dirname = ${JSON.stringify(this.dirname(filePath))};
-      
-      ${code}
-      
-      return module.exports;
+      (async function(module, exports, __require__, __filename, __dirname) {
+        ${code}
+        return module.exports;
+      })
     `;
 
-    // require関数を提供
-    const self = this;
-    const requireFunc = (moduleName: string) => {
-      // 同期的に見えるが、実際には事前にロード済みを前提とする
-      // TODO: 非同期requireのサポート
-      const cached = self.executionCache[moduleName];
-      if (cached?.loaded) {
-        return cached.exports;
-      }
-      throw new Error(`Module not loaded: ${moduleName}. Use async import() instead.`);
-    };
+    try {
+      const executeFunc = eval(wrappedCode);
+      const result = await executeFunc(module, exports, __require__, __filename, __dirname);
+      return result;
+    } catch (error) {
+      this.error('❌ Module execution failed:', filePath, error);
+      throw error;
+    }
+  }
 
-    // サンドボックスを構築
-    const sandbox = {
-      console: {
-        log: (...args: unknown[]) => this.log(...args),
-        error: (...args: unknown[]) => this.error(...args),
-        warn: (...args: unknown[]) => this.warn(...args),
-      },
-      require: requireFunc,
-      module: { exports: this.executionCache[filePath].exports },
-      exports: this.executionCache[filePath].exports,
-      __filename: filePath,
-      __dirname: this.dirname(filePath),
-      setTimeout,
-      setInterval,
-      clearTimeout,
-      clearInterval,
-      Promise,
-      Array,
-      Object,
-      String,
-      Number,
-      Boolean,
-      Date,
-      Math,
-      JSON,
-      Error,
-      RegExp,
-      Map,
-      Set,
-      WeakMap,
-      WeakSet,
-    };
+  /**
+   * トランスパイルが必要か判定
+   */
+  private needsTranspile(filePath: string, content: string): boolean {
+    // TypeScriptファイル
+    if (/\.(ts|tsx|mts|cts)$/.test(filePath)) {
+      return true;
+    }
 
-    // 実行
-    const executeFunc = new Function(...Object.keys(sandbox), wrappedCode);
-    return executeFunc(...Object.values(sandbox));
+    // JSXファイル
+    if (/\.(jsx|tsx)$/.test(filePath)) {
+      return true;
+    }
+
+    // ES Module構文を含む
+    if (this.isESModule(content)) {
+      return true;
+    }
+
+    // require()を含む（非同期化が必要）
+    if (/require\s*\(/.test(content)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * ES Moduleかどうかを判定
+   */
+  private isESModule(content: string): boolean {
+    const cleaned = content
+      .replace(/\/\/.*$/gm, '')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/(['"`])(?:(?=(\\?))\2.)*?\1/g, '');
+
+    return /^\s*(import|export)\s+/m.test(cleaned);
   }
 
   /**
@@ -332,16 +263,14 @@ export class ModuleLoader {
   private async readFile(filePath: string): Promise<string | null> {
     try {
       const files = await fileRepository.getProjectFiles(this.projectId);
-      const normalizedPath = this.normalizePath(filePath);
+      const file = files.find((f) => f.path === filePath);
 
-      const file = files.find((f) => this.normalizePath(f.path) === normalizedPath);
       if (!file) {
-        this.log('⚠️ File not found in IndexedDB:', normalizedPath);
         return null;
       }
 
       if (file.isBufferArray && file.bufferContent) {
-        this.warn('⚠️ Cannot load binary file as module:', normalizedPath);
+        this.warn('⚠️ Cannot execute binary file:', filePath);
         return null;
       }
 
@@ -353,50 +282,20 @@ export class ModuleLoader {
   }
 
   /**
-   * プロジェクトのpackage.jsonを読み込み
-   */
-  private async loadProjectPackageJson(): Promise<void> {
-    try {
-      const packageJsonPath = `${this.projectDir}/package.json`;
-      const content = await this.readFile(packageJsonPath);
-      if (content) {
-        this.projectPackageJson = JSON.parse(content);
-        this.log('📦 Project package.json loaded:', this.projectPackageJson);
-      }
-    } catch (error) {
-      this.log('⚠️ No project package.json found or invalid JSON');
-      this.projectPackageJson = null;
-    }
-  }
-
-  /**
-   * パスを正規化
-   */
-  private normalizePath(filePath: string): string {
-    let normalized = filePath;
-
-    if (normalized.startsWith(this.projectDir)) {
-      normalized = normalized.slice(this.projectDir.length);
-    }
-
-    if (!normalized.startsWith('/')) {
-      normalized = '/' + normalized;
-    }
-
-    if (normalized.endsWith('/') && normalized !== '/') {
-      normalized = normalized.slice(0, -1);
-    }
-
-    return normalized;
-  }
-
-  /**
    * ディレクトリパスを取得
    */
   private dirname(filePath: string): string {
     const parts = filePath.split('/');
     parts.pop();
     return parts.join('/') || '/';
+  }
+
+  /**
+   * キャッシュをクリア
+   */
+  clearCache(): void {
+    this.cache.clear();
+    this.executionCache = {};
   }
 
   /**
@@ -418,14 +317,5 @@ export class ModuleLoader {
    */
   private warn(...args: unknown[]): void {
     this.debugConsole?.warn(...args);
-  }
-
-  /**
-   * キャッシュをクリア
-   */
-  clearCache(): void {
-    this.cache.clear();
-    this.resolver.clearCache();
-    this.executionCache = {};
   }
 }

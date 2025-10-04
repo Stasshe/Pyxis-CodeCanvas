@@ -7,25 +7,13 @@
  * 3. npm installされたパッケージはIndexedDBから読み取り
  * 4. ES Modulesとcommonjsの両方をサポート
  * 5. トランスパイルキャッシュによる高速化
- *
- * ## アーキテクチャ
- * ```
- * ユーザーコード実行
- *     ↓
- * NodeRuntime.execute()
- *     ↓
- * ModuleLoader
- *     ├─ ModuleResolver (パス解決)
- *     ├─ ModuleCache (トランスパイルキャッシュ)
- *     └─ Transpiler (ES Module → CommonJS)
- *     ↓
- * Sandbox実行環境
- * ```
+ * 6. require()は非同期化（await __require__()に変換）
  */
 
 import { fileRepository } from '@/engine/core/fileRepository';
 import { createBuiltInModules, type BuiltInModules } from '@/engine/node/builtInModule';
 import { ModuleLoader } from './moduleLoader';
+import { transpileManager } from './transpileManager';
 
 /**
  * 実行オプション
@@ -104,13 +92,12 @@ export class NodeRuntime {
         size: fileContent.length,
       });
 
-      // トランスパイルが必要か判定
+      // トランスパイル（require → await __require__ に変換）
       let code = fileContent;
       const needsTranspile = this.needsTranspile(filePath, fileContent);
 
       if (needsTranspile) {
         this.log('🔄 Transpiling main file:', filePath);
-        const { transpileManager } = await import('./transpileManager');
         
         const isTypeScript = /\.(ts|tsx|mts|cts)$/.test(filePath);
         const isJSX = /\.(jsx|tsx)$/.test(filePath);
@@ -129,9 +116,9 @@ export class NodeRuntime {
       }
 
       // サンドボックス環境を構築
-      const sandbox = this.createSandbox(filePath);
+      const sandbox = await this.createSandbox(filePath);
 
-      // コードを実行
+      // コードを実行（async関数としてラップ）
       const wrappedCode = this.wrapCode(code, filePath);
       const executeFunc = new Function(...Object.keys(sandbox), wrappedCode);
       
@@ -153,18 +140,20 @@ export class NodeRuntime {
    * トランスパイルが必要か判定
    */
   private needsTranspile(filePath: string, content: string): boolean {
-    // TypeScriptファイル
     if (/\.(ts|tsx|mts|cts)$/.test(filePath)) {
       return true;
     }
 
-    // JSXファイル
     if (/\.(jsx|tsx)$/.test(filePath)) {
       return true;
     }
 
-    // ES Module構文を含む
     if (this.isESModule(content)) {
+      return true;
+    }
+
+    // require()を含む場合も変換が必要（await __require__に変換）
+    if (/require\s*\(/.test(content)) {
       return true;
     }
 
@@ -175,7 +164,6 @@ export class NodeRuntime {
    * ES Moduleかどうかを判定
    */
   private isESModule(content: string): boolean {
-    // コメントと文字列を除外して判定
     const cleaned = content
       .replace(/\/\/.*$/gm, '')
       .replace(/\/\*[\s\S]*?\*\//g, '')
@@ -185,12 +173,12 @@ export class NodeRuntime {
   }
 
   /**
-   * コードをラップ（CommonJS形式）
+   * コードをラップ（async関数として実行）
    */
   private wrapCode(code: string, filePath: string): string {
     return `
-      'use strict';
-      (async () => {
+      return (async () => {
+        'use strict';
         const module = { exports: {} };
         const exports = module.exports;
         const __filename = ${JSON.stringify(filePath)};
@@ -206,21 +194,37 @@ export class NodeRuntime {
   /**
    * サンドボックス環境を構築
    */
-  private createSandbox(currentFilePath: string): Record<string, unknown> {
+  private async createSandbox(currentFilePath: string): Promise<Record<string, unknown>> {
     const self = this;
 
-    // require関数（同期的に動作するように修正）
-    const requireFunc = (moduleName: string): unknown => {
-      // ビルトインモジュールの解決
+    // __require__ 関数（非同期・ModuleLoaderを使用）
+    const __require__ = async (moduleName: string): Promise<unknown> => {
+      self.log('📦 __require__:', moduleName);
+
+      // ビルトインモジュールを先にチェック
       const builtInModule = this.resolveBuiltInModule(moduleName);
       if (builtInModule !== null) {
-        this.log('✅ Built-in module resolved:', moduleName);
+        self.log('✅ Built-in module resolved:', moduleName);
         return builtInModule;
       }
 
-      // それ以外は同期的にエラー
-      this.error('❌ Module not found (async loading not supported in require):', moduleName);
-      throw new Error(`Cannot find module '${moduleName}'. Use dynamic import() for user modules.`);
+      // ModuleLoaderでユーザーモジュールを読み込み
+      try {
+        const moduleExports = await self.moduleLoader.load(moduleName, currentFilePath);
+        
+        // ビルトインモジュールマーカーを処理
+        if (typeof moduleExports === 'object' && moduleExports !== null) {
+          const obj = moduleExports as any;
+          if (obj.__isBuiltIn) {
+            return this.resolveBuiltInModule(obj.moduleName);
+          }
+        }
+
+        return moduleExports;
+      } catch (error) {
+        self.error('❌ Failed to load module:', moduleName, error);
+        throw new Error(`Cannot find module '${moduleName}'`);
+      }
     };
 
     return {
@@ -266,14 +270,10 @@ export class NodeRuntime {
       },
       Buffer: this.builtInModules.Buffer,
 
-      // require関数（同期的）
-      require: requireFunc,
-
-      // __filename, __dirname は wrapCode で注入
+      // __require__ 関数（非同期）
+      __require__,
     };
   }
-
-
 
   /**
    * ビルトインモジュールを解決
@@ -309,7 +309,6 @@ export class NodeRuntime {
       }
 
       if (file.isBufferArray && file.bufferContent) {
-        // バイナリファイル
         this.warn('⚠️ Cannot execute binary file:', normalizedPath);
         return null;
       }

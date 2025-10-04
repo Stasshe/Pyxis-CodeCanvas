@@ -61,6 +61,7 @@
     "vscode-icons-js": "^11.6.1"
   },
   "devDependencies": {
+    "@babel/helper-plugin-utils": "^7.27.1",
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
     "@types/babel__standalone": "^7.1.9",

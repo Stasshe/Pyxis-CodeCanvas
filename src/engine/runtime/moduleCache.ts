@@ -150,16 +150,25 @@ export class ModuleCache {
   private async loadMetadata(): Promise<void> {
     try {
       const files = await fileRepository.getProjectFiles(this.projectId);
-      const metaFiles = files.filter((f) => f.path.startsWith(this.metaDir));
+      const metaFiles = files.filter((f) => 
+        f.path.startsWith(this.metaDir) && 
+        f.path.endsWith('.json') &&
+        f.type === 'file'
+      );
 
       for (const file of metaFiles) {
         try {
+          if (!file.content || file.content.trim() === '') {
+            continue; // 空ファイルをスキップ
+          }
           const meta: CacheEntry = JSON.parse(file.content);
           this.cache.set(meta.hash, meta);
         } catch (error) {
           console.warn('⚠️ Failed to parse cache meta:', file.path);
         }
       }
+      
+      console.log('✅ Loaded', this.cache.size, 'cache entries from disk');
     } catch (error) {
       console.warn('⚠️ Failed to load cache metadata:', error);
     }
