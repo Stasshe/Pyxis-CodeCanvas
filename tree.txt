@@ -1,6 +1,7 @@
 .
 ├── Development
 │   ├── NEW-ARCHITECTURE.md
+│   ├── NodeJSRuntime-new-arc.md
 │   ├── TODO.md
 │   ├── Tauri-Setup.md
 │   ├── ai-agent-implementation-plan.md
@@ -268,15 +269,11 @@
 ├── tree.txt
 └── tsconfig.json
 
-45 directories, 224 files
+45 directories, 225 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 34273
-合計文字数: 1132055
-合計ファイルサイズ(bytes): 1216244
+合計行数: 34195
+合計文字数: 1132627
+合計ファイルサイズ(bytes): 1217784
 
-リポジトリ全体のサイズ(bytes): 1.8G	.
-==========
-ビルト済みファイルの行数: 14778
-合計文字数: 22236748
-合計ファイルサイズ(bytes): 23169778
+リポジトリ全体のサイズ(bytes): 2.0G	.
