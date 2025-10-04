@@ -214,7 +214,13 @@ export class ModuleLoader {
       const result = await executeFunc(module, exports, __require__, __filename, __dirname);
       return result;
     } catch (error) {
-      this.error('❌ Module execution failed:', filePath, error);
+      this.error('❌ Module execution failed:', filePath);
+      this.error('Error details:', {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        name: error instanceof Error ? error.name : undefined,
+      });
+      this.error('Code snippet (first 500 chars):', code.slice(0, 500));
       throw error;
     }
   }

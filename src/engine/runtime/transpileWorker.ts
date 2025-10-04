@@ -136,19 +136,24 @@ function babelPluginModuleTransform() {
         const { node } = path;
         
         if (node.declaration) {
-          // export const foo = 1; => const foo = 1; exports.foo = foo;
-          const declarations: any[] = [];
+          // export const foo = 1; => const foo = 1; module.exports.foo = foo;
+          const assignments: any[] = [];
           
           if (node.declaration.type === 'VariableDeclaration') {
             node.declaration.declarations.forEach((decl: any) => {
-              declarations.push({
+              assignments.push({
                 type: 'ExpressionStatement',
                 expression: {
                   type: 'AssignmentExpression',
                   operator: '=',
                   left: {
                     type: 'MemberExpression',
-                    object: { type: 'Identifier', name: 'exports' },
+                    object: {
+                      type: 'MemberExpression',
+                      object: { type: 'Identifier', name: 'module' },
+                      property: { type: 'Identifier', name: 'exports' },
+                      computed: false,
+                    },
                     property: { type: 'Identifier', name: decl.id.name },
                     computed: false,
                   },
@@ -156,9 +161,38 @@ function babelPluginModuleTransform() {
                 },
               });
             });
+            
+            // 元の宣言と代入を順番に実行
+            path.replaceWithMultiple([node.declaration, ...assignments]);
+          } else if (node.declaration.type === 'FunctionDeclaration') {
+            // export function foo() {} => function foo() {}; module.exports.foo = foo;
+            const funcName = node.declaration.id.name;
+            path.replaceWithMultiple([
+              node.declaration,
+              {
+                type: 'ExpressionStatement',
+                expression: {
+                  type: 'AssignmentExpression',
+                  operator: '=',
+                  left: {
+                    type: 'MemberExpression',
+                    object: {
+                      type: 'MemberExpression',
+                      object: { type: 'Identifier', name: 'module' },
+                      property: { type: 'Identifier', name: 'exports' },
+                      computed: false,
+                    },
+                    property: { type: 'Identifier', name: funcName },
+                    computed: false,
+                  },
+                  right: { type: 'Identifier', name: funcName },
+                },
+              },
+            ]);
+          } else {
+            // その他の宣言
+            path.replaceWith(node.declaration);
           }
-          
-          path.replaceWithMultiple([node.declaration, ...declarations]);
         } else if (node.specifiers.length > 0) {
           // export { foo, bar };
           const assignments = node.specifiers.map((spec: any) => ({
@@ -168,7 +202,12 @@ function babelPluginModuleTransform() {
               operator: '=',
               left: {
                 type: 'MemberExpression',
-                object: { type: 'Identifier', name: 'exports' },
+                object: {
+                  type: 'MemberExpression',
+                  object: { type: 'Identifier', name: 'module' },
+                  property: { type: 'Identifier', name: 'exports' },
+                  computed: false,
+                },
                 property: { type: 'Identifier', name: spec.exported.name },
                 computed: false,
               },
