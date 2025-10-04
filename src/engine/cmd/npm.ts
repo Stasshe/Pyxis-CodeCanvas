@@ -114,11 +114,11 @@ export class NpmCommands {
         // 特定パッケージのインストール
         const isDev = flags.includes('--save-dev') || flags.includes('-D');
 
-        // 既に依存関係に含まれているかチェック
-        let isAlreadyInstalled = false;
+        // package.jsonに記載があるかチェック
+        let isInPackageJson = false;
         if ((packageJson.dependencies && packageJson.dependencies[packageName]) ||
             (packageJson.devDependencies && packageJson.devDependencies[packageName])) {
-          isAlreadyInstalled = true;
+          isInPackageJson = true;
         }
 
         try {
@@ -141,7 +141,11 @@ export class NpmCommands {
             'file'
           );
 
-          if (isAlreadyInstalled) {
+          // 実際にnode_modulesにインストールされているかチェック
+          let files = await fileRepository.getProjectFiles(this.projectId);
+          const isActuallyInstalled = files.some(f => f.path.startsWith(`/node_modules/${packageName}`));
+
+          if (isInPackageJson && isActuallyInstalled) {
             return `updated 1 package in ${Math.random() * 2 + 1}s\n\n~ ${packageName}@${version}\nupdated 1 package and audited 1 package in ${Math.random() * 0.5 + 0.5}s\n\nfound 0 vulnerabilities`;
           } else {
             const npmInstall = new NpmInstall(this.projectName, this.projectId);
