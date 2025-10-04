@@ -1,6 +1,20 @@
 /**
  * [NEW ARCHITECTURE] readline モジュールのエミュレーション
+ * 
+ * ## 動作モード
+ * 1. Terminal経由でnodeコマンドで実行: Terminalの入力インターフェースを使用
+ * 2. RunPanel経由で実行: DebugConsoleAPIを使用
+ * 
+ * onInput callbackが渡された場合はそれを優先的に使用
  */
+
+interface ReadlineOptions {
+  input?: any;
+  output?: any;
+  terminal?: boolean;
+  prompt?: string;
+  onInput?: (prompt: string, callback: (input: string) => void) => void;
+}
 
 class Interface {
   private input: any;
@@ -9,52 +23,17 @@ class Interface {
   private promptStr: string = '> ';
   private listeners: { [event: string]: Function[] } = {};
   private closed: boolean = false;
-  private lineBuffer: string = '';
-  private historyIndex: number = -1;
   private history: string[] = [];
+  private onInput?: (prompt: string, callback: (input: string) => void) => void;
 
-  constructor(options: any) {
+  constructor(options: ReadlineOptions) {
     this.input = options.input;
     this.output = options.output;
     this.terminal = options.terminal ?? false;
+    this.onInput = options.onInput;
+    
     if (options.prompt) {
       this.promptStr = options.prompt;
-    }
-
-    if (this.input && this.input.on) {
-      this.input.on('data', (data: any) => {
-        this.handleInput(data.toString());
-      });
-    }
-  }
-
-  private handleInput(data: string): void {
-    if (this.closed) return;
-
-    for (const char of data) {
-      if (char === '\n' || char === '\r') {
-        this.emit('line', this.lineBuffer);
-        if (this.lineBuffer) {
-          this.history.push(this.lineBuffer);
-          this.historyIndex = this.history.length;
-        }
-        this.lineBuffer = '';
-        if (this.output) {
-          this.output.write('\n');
-        }
-      } else if (char === '\x7f' || char === '\b') {
-        if (this.lineBuffer.length > 0) {
-          this.lineBuffer = this.lineBuffer.slice(0, -1);
-          if (this.output) {
-            this.output.write('\b \b');
-          }
-        }
-      } else {
-        this.lineBuffer += char;
-        if (this.output) {
-          this.output.write(char);
-        }
-      }
     }
   }
 
@@ -76,7 +55,7 @@ class Interface {
 
   emit(event: string, ...args: any[]): boolean {
     const listeners = this.listeners[event];
-    if (listeners) {
+    if (listeners && listeners.length > 0) {
       for (const listener of listeners) {
         try {
           listener(...args);
@@ -100,19 +79,34 @@ class Interface {
     return this;
   }
 
-  question(query: string, callback?: Function): Promise<string> {
+  question(query: string, callback?: (answer: string) => void): Promise<string> {
     return new Promise(resolve => {
-      if (this.output) {
+      // プロンプトを表示
+      if (this.output && this.output.write) {
         this.output.write(query);
       }
 
-      const onLine = (answer: string) => {
-        this.removeListener('line', onLine);
-        if (callback) callback(answer);
-        resolve(answer);
-      };
-
-      this.on('line', onLine);
+      // onInput callbackが渡されている場合はそれを使用
+      if (this.onInput) {
+        this.onInput(query, (answer: string) => {
+          if (answer) {
+            this.history.push(answer);
+          }
+          if (callback) callback(answer);
+          resolve(answer);
+        });
+      } else {
+        // lineイベントを待つ
+        const onLine = (answer: string) => {
+          this.removeListener('line', onLine);
+          if (answer) {
+            this.history.push(answer);
+          }
+          if (callback) callback(answer);
+          resolve(answer);
+        };
+        this.on('line', onLine);
+      }
     });
   }
 
@@ -121,13 +115,13 @@ class Interface {
   }
 
   prompt(preserveCursor?: boolean): void {
-    if (this.output && !this.closed) {
+    if (!this.closed && this.output && this.output.write) {
       this.output.write(this.promptStr);
     }
   }
 
   write(data: string): void {
-    if (this.output && !this.closed) {
+    if (!this.closed && this.output && this.output.write) {
       this.output.write(data);
     }
   }
@@ -153,7 +147,6 @@ class Interface {
 
   clearHistory(): void {
     this.history = [];
-    this.historyIndex = -1;
   }
 }
 
@@ -192,9 +185,13 @@ const clearScreenDown = (stream: any): boolean => {
   return true;
 };
 
-export function createReadlineModule() {
+export function createReadlineModule(onInput?: (prompt: string, callback: (input: string) => void) => void) {
   return {
-    createInterface: (options: any): Interface => {
+    createInterface: (options: ReadlineOptions): Interface => {
+      // onInputが渡されている場合は優先的に使用
+      if (onInput && !options.onInput) {
+        options.onInput = onInput;
+      }
       return new Interface(options);
     },
     Interface: Interface,
@@ -202,13 +199,5 @@ export function createReadlineModule() {
     moveCursor,
     clearLine,
     clearScreenDown,
-    question: (query: string): Promise<string> => {
-      return new Promise(resolve => {
-        console.log(query);
-        setTimeout(() => {
-          resolve('');
-        }, 0);
-      });
-    },
   };
 }

@@ -342,11 +342,50 @@ function ClientTerminal({
                 },
               };
 
+              // Terminalの入力インターフェースを設定
+              const onInput = (promptText: string, callback: (input: string) => void) => {
+                // プロンプトを表示
+                term.write(promptText);
+                
+                // 一時的な入力バッファ
+                let inputBuffer = '';
+                
+                // 入力ハンドラ
+                const inputHandler = (data: string) => {
+                  if (data === '\r') {
+                    // Enter押下
+                    term.write('\r\n');
+                    const result = inputBuffer;
+                    inputBuffer = '';
+                    disposable.dispose();
+                    callback(result);
+                  } else if (data === '\u007F') {
+                    // Backspace
+                    if (inputBuffer.length > 0) {
+                      inputBuffer = inputBuffer.slice(0, -1);
+                      term.write('\b \b');
+                    }
+                  } else if (data === '\u0003') {
+                    // Ctrl+C
+                    term.write('^C\r\n');
+                    inputBuffer = '';
+                    disposable.dispose();
+                    callback('');
+                  } else if (data >= ' ' || data === '\t') {
+                    inputBuffer += data;
+                    term.write(data);
+                  }
+                };
+                
+                const disposable = term.onData(inputHandler);
+              };
+
               const runtime = new NodeRuntime({
                 projectId: currentProjectId,
                 projectName: currentProject,
                 filePath: args[0],
                 debugConsole,
+                onInput,
               });
 
               await runtime.execute(args[0]);

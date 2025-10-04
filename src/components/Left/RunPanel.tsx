@@ -131,6 +131,25 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
     },
   });
 
+  // 入力コールバックを作成（readline用 - DebugConsoleAPI使用）
+  const createOnInput = () => {
+    return (prompt: string, callback: (input: string) => void) => {
+      // DebugConsoleAPIを使って入力を受け取る
+      const { DebugConsoleAPI } = require('@/components/Bottom/DebugConsoleAPI');
+      
+      // プロンプトを表示
+      addOutput(prompt, 'log');
+      DebugConsoleAPI.write(prompt);
+      
+      // DebugConsoleからの入力を待つ
+      const unsubscribe = DebugConsoleAPI.onInput((input: string) => {
+        unsubscribe();
+        addOutput(input, 'input');
+        callback(input);
+      });
+    };
+  };
+
   // コードを実行（自動判別: .pyならPython, それ以外はNode.js）
   const executeCode = async () => {
     if (!inputCode.trim() || !currentProject) return;
@@ -168,6 +187,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
           projectName: currentProject.name,
           filePath: '/temp-code.js',
           debugConsole: createDebugConsole(),
+          onInput: createOnInput(),
         });
       }
     } catch (error) {
@@ -194,6 +214,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
           projectName: currentProject.name,
           filePath: `/${selectedFile}`,
           debugConsole: createDebugConsole(),
+          onInput: createOnInput(),
         });
       } else {
         // Python実行

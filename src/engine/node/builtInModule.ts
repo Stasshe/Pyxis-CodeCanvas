@@ -39,6 +39,7 @@ export interface BuiltInModulesOptions {
   projectDir: string;
   projectId: string;
   projectName: string;
+  onInput?: (prompt: string, callback: (input: string) => void) => void;
 }
 
 export interface BuiltInModules {
@@ -59,7 +60,7 @@ export interface BuiltInModules {
  * @returns すべてのビルトインモジュール
  */
 export function createBuiltInModules(options: BuiltInModulesOptions): BuiltInModules {
-  const { projectDir, projectId, projectName } = options;
+  const { projectDir, projectId, projectName, onInput } = options;
 
   return {
     fs: createFSModule({ projectDir, projectId, projectName }),
@@ -69,7 +70,7 @@ export function createBuiltInModules(options: BuiltInModulesOptions): BuiltInMod
     http: createHTTPModule(),
     https: createHTTPSModule(),
     Buffer: Buffer,
-    readline: createReadlineModule(),
+    readline: createReadlineModule(onInput),
   };
 }
 

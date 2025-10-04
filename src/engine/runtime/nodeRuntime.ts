@@ -50,11 +50,12 @@ export class NodeRuntime {
     this.onInput = options.onInput;
     this.projectDir = `/projects/${this.projectName}`;
 
-    // ビルトインモジュールの初期化
+    // ビルトインモジュールの初期化（onInputを渡す）
     this.builtInModules = createBuiltInModules({
       projectDir: this.projectDir,
       projectId: this.projectId,
       projectName: this.projectName,
+      onInput: this.onInput,
     });
 
     // ModuleLoaderの初期化
@@ -266,6 +267,29 @@ export class NodeRuntime {
         versions: {
           node: '18.0.0',
           v8: '10.0.0',
+        },
+        stdin: {
+          on: () => {},
+          once: () => {},
+          removeListener: () => {},
+          setRawMode: () => {},
+          pause: () => {},
+          resume: () => {},
+          isTTY: true,
+        },
+        stdout: {
+          write: (data: string) => {
+            this.log(data);
+            return true;
+          },
+          isTTY: true,
+        },
+        stderr: {
+          write: (data: string) => {
+            this.error(data);
+            return true;
+          },
+          isTTY: true,
         },
       },
       Buffer: this.builtInModules.Buffer,
