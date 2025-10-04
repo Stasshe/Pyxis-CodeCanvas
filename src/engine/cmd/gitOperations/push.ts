@@ -93,33 +93,53 @@ export async function push(
     // 1. リモートHEADを取得
     const remoteRef = await githubAPI.getRef(targetBranch);
     
-    if (!remoteRef) {
-      throw new Error(
-        'Push failed: Remote repository is empty.\n\n' +
-        'Empty repositories are not supported. Please:\n' +
-        '1. Initialize the repository with a README on GitHub, or\n' +
-        '2. Push from another Git client first, or\n' +
-        '3. Create an initial commit on GitHub web interface'
-      );
-    }
+    let remoteHeadSha: string | null = null;
+    let isNewBranch = false;
     
-    const remoteHeadSha = remoteRef.object.sha;
-    console.log('[git push] Remote HEAD:', remoteHeadSha.slice(0, 7));
+    if (!remoteRef) {
+      // リモートにブランチが存在しない場合
+      console.log(`[git push] Remote branch '${targetBranch}' does not exist. Creating new branch...`);
+      isNewBranch = true;
+      
+      // デフォルトブランチ(main/master)が存在するか確認
+      const defaultBranch = await githubAPI.getRef('main').catch(() => githubAPI.getRef('master'));
+      
+      if (!defaultBranch) {
+        throw new Error(
+          'Push failed: Remote repository is empty.\n\n' +
+          'Empty repositories are not supported. Please:\n' +
+          '1. Initialize the repository with a README on GitHub, or\n' +
+          '2. Push from another Git client first, or\n' +
+          '3. Create an initial commit on GitHub web interface'
+        );
+      }
+    } else {
+      remoteHeadSha = remoteRef.object.sha;
+      console.log('[git push] Remote HEAD:', remoteHeadSha.slice(0, 7));
+    }
 
     // 2. 未pushコミット列を取得（古い順）
     let commitsToPush: any[];
-    try {
-      commitsToPush = await getCommitsToPush(fs, dir, targetBranch, remoteHeadSha);
-    } catch (error: any) {
-      if (!force && error.message.includes('Updates were rejected')) {
-        throw error;
-      }
-      // forceの場合は全コミットをpush
-      if (force) {
-        const localLog = await git.log({ fs, dir, ref: targetBranch });
-        commitsToPush = localLog.reverse();
-      } else {
-        throw error;
+    
+    if (isNewBranch) {
+      // 新しいブランチの場合は全コミットをpush
+      const localLog = await git.log({ fs, dir, ref: targetBranch });
+      commitsToPush = localLog.reverse();
+      console.log(`[git push] New branch: pushing all ${commitsToPush.length} commit(s)`);
+    } else {
+      try {
+        commitsToPush = await getCommitsToPush(fs, dir, targetBranch, remoteHeadSha);
+      } catch (error: any) {
+        if (!force && error.message.includes('Updates were rejected')) {
+          throw error;
+        }
+        // forceの場合は全コミットをpush
+        if (force) {
+          const localLog = await git.log({ fs, dir, ref: targetBranch });
+          commitsToPush = localLog.reverse();
+        } else {
+          throw error;
+        }
       }
     }
 
@@ -131,16 +151,18 @@ export async function push(
 
     // リモートツリーSHAを取得（差分アップロードのため）
     let remoteTreeSha: string | undefined;
-    try {
-      const remoteCommit = await githubAPI.getCommit(remoteHeadSha);
-      remoteTreeSha = remoteCommit.tree.sha;
-    } catch (error) {
-      console.warn('[git push] Failed to get remote tree:', error);
+    if (remoteHeadSha) {
+      try {
+        const remoteCommit = await githubAPI.getCommit(remoteHeadSha);
+        remoteTreeSha = remoteCommit.tree.sha;
+      } catch (error) {
+        console.warn('[git push] Failed to get remote tree:', error);
+      }
     }
 
     // 3. 各コミットを順番にpush
-    let parentSha = remoteHeadSha;
-    let lastCommitSha = remoteHeadSha;
+    let parentSha: string | null = remoteHeadSha;
+    let lastCommitSha: string | null = remoteHeadSha;
     const treeBuilder = new TreeBuilder(fs, dir, githubAPI);
 
     for (const commit of commitsToPush) {
@@ -153,7 +175,7 @@ export async function push(
       const commitData = await githubAPI.createCommit({
         message: commit.commit.message,
         tree: treeSha,
-        parents: [parentSha],
+        parents: parentSha ? [parentSha] : [],
         author: {
           name: commit.commit.author.name,
           email: commit.commit.author.email,
@@ -176,9 +198,21 @@ export async function push(
       remoteTreeSha = treeSha;
     }
 
+    if (!lastCommitSha) {
+      throw new Error('Failed to create commits');
+    }
+
     // 4. ブランチrefを最新のコミットに更新
     console.log('[git push] Updating branch reference...');
-    await githubAPI.updateRef(targetBranch, lastCommitSha, force);
+    
+    if (isNewBranch) {
+      // 新しいブランチを作成
+      await githubAPI.createRef(targetBranch, lastCommitSha);
+      console.log(`[git push] Created new branch '${targetBranch}'`);
+    } else {
+      // 既存のブランチを更新
+      await githubAPI.updateRef(targetBranch, lastCommitSha, force);
+    }
 
     // リモート追跡ブランチを更新
     try {
@@ -196,7 +230,12 @@ export async function push(
 
     const remoteUrl = remoteInfo.url;
     let result = `To ${remoteUrl}\n`;
-    result += `   ${remoteHeadSha.slice(0, 7)}..${lastCommitSha.slice(0, 7)}  ${targetBranch} -> ${targetBranch}\n`;
+    
+    if (isNewBranch) {
+      result += ` * [new branch]      ${targetBranch} -> ${targetBranch}\n`;
+    } else {
+      result += `   ${remoteHeadSha?.slice(0, 7) || '0000000'}..${lastCommitSha.slice(0, 7)}  ${targetBranch} -> ${targetBranch}\n`;
+    }
     
     return result;
   } catch (error: any) {

@@ -95,6 +95,19 @@ export class GitHubAPI {
   }
 
   /**
+   * 参照を作成
+   */
+  async createRef(branch: string, sha: string): Promise<GitRef> {
+    return this.request<GitRef>('/git/refs', {
+      method: 'POST',
+      body: JSON.stringify({
+        ref: `refs/heads/${branch}`,
+        sha,
+      }),
+    });
+  }
+
+  /**
    * 参照を更新
    */
   async updateRef(branch: string, sha: string, force: boolean = false): Promise<GitRef> {
@@ -110,13 +123,7 @@ export class GitHubAPI {
     } catch (error: any) {
       if (error.message.includes('404')) {
         // 参照が存在しない場合は新規作成
-        return await this.request<GitRef>('/git/refs', {
-          method: 'POST',
-          body: JSON.stringify({
-            ref: `refs/heads/${branch}`,
-            sha,
-          }),
-        });
+        return this.createRef(branch, sha);
       }
       throw error;
     }
