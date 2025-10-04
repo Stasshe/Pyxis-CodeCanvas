@@ -8,6 +8,7 @@
  */
 
 import { fileRepository } from '@/engine/core/fileRepository';
+import { normalizePath, dirname, resolveRelative } from './pathUtils';
 
 /**
  * パッケージ情報
@@ -19,6 +20,7 @@ export interface PackageJson {
   module?: string;
   type?: 'module' | 'commonjs';
   exports?: Record<string, unknown> | string;
+  imports?: Record<string, unknown>;
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
 }
@@ -67,7 +69,20 @@ export class ModuleResolver {
       };
     }
 
-    // 2. 相対パス (./, ../)
+    // 2. Package imports (#で始まる)
+    if (moduleName.startsWith('#')) {
+      const resolved = await this.resolvePackageImports(moduleName, currentFilePath);
+      if (resolved) {
+        return {
+          path: resolved.path,
+          isBuiltIn: false,
+          isNodeModule: true,
+          packageJson: resolved.packageJson,
+        };
+      }
+    }
+
+    // 3. 相対パス (./, ../)
     if (moduleName.startsWith('./') || moduleName.startsWith('../')) {
       const currentDir = this.dirname(currentFilePath);
       const resolved = this.resolvePath(currentDir, moduleName);
@@ -82,7 +97,7 @@ export class ModuleResolver {
       }
     }
 
-    // 3. エイリアス (@/)
+    // 4. エイリアス (@/)
     if (moduleName.startsWith('@/')) {
       const resolved = moduleName.replace('@/', `${this.projectDir}/src/`);
       const finalPath = await this.addExtensionIfNeeded(resolved);
@@ -171,10 +186,23 @@ export class ModuleResolver {
 
     // package.jsonを読み込み
     const packageJsonPath = `${this.projectDir}/node_modules/${packageName}/package.json`;
+    console.log('🔍 Looking for package.json at:', packageJsonPath);
+    
     const packageJson = await this.loadPackageJson(packageJsonPath);
 
     if (!packageJson) {
       console.warn('⚠️ package.json not found:', packageJsonPath);
+      
+      // デバッグ: node_modulesにどんなファイルがあるか確認
+      try {
+        const files = await fileRepository.getProjectFiles(this.projectId);
+        const nodeModuleFiles = files.filter(f => f.path.startsWith('/node_modules/' + packageName));
+        console.log(`📁 Found ${nodeModuleFiles.length} files for ${packageName}`);
+        console.log('Files:', nodeModuleFiles.map(f => `${f.path} (type: ${f.type})`));
+      } catch (e) {
+        console.error('Failed to list files:', e);
+      }
+      
       return this.tryFallbackPaths(packageName, subPath);
     }
 
@@ -200,12 +228,131 @@ export class ModuleResolver {
     }
 
     // パッケージルート - エントリーポイントを解決
-    const entryPoint = packageJson.module || packageJson.main || 'index.js';
+    let entryPoint = packageJson.module || packageJson.main || 'index.js';
+    // ./ プレフィックスを削除
+    if (entryPoint.startsWith('./')) {
+      entryPoint = entryPoint.slice(2);
+    }
+    console.log('📦 Entry point:', entryPoint, 'for', packageName);
     const fullPath = `${this.projectDir}/node_modules/${packageName}/${entryPoint}`;
     const finalPath = await this.addExtensionIfNeeded(fullPath);
 
     if (finalPath) {
+      console.log('✅ Resolved:', finalPath);
       return { path: finalPath, packageJson };
+    }
+
+    console.warn('⚠️ Entry point not found, trying fallback');
+    return this.tryFallbackPaths(packageName, subPath);
+  }
+
+  /**
+   * package.jsonのimportsフィールドを解決 (#で始まるモジュール)
+   */
+  private async resolvePackageImports(
+    moduleName: string,
+    currentFilePath: string
+  ): Promise<{ path: string; packageJson?: PackageJson } | null> {
+    console.log('📦 Resolving package imports:', moduleName, 'from', currentFilePath);
+
+    // 現在のファイルが属するパッケージのpackage.jsonを探す
+    const packageJson = await this.findPackageJson(currentFilePath);
+    if (!packageJson) {
+      console.warn('⚠️ No package.json found for:', currentFilePath);
+      return null;
+    }
+
+    // importsフィールドをチェック
+    if (!packageJson.imports) {
+      console.warn('⚠️ No imports field in package.json');
+      return null;
+    }
+
+    const imports = packageJson.imports as Record<string, unknown>;
+    const importPath = this.resolveImports(imports, moduleName);
+
+    if (!importPath) {
+      console.warn('⚠️ Import not found in package.json:', moduleName);
+      return null;
+    }
+
+    console.log('📦 Import resolved:', moduleName, '→', importPath);
+
+    // 相対パスを絶対パスに変換
+    const packageDir = dirname(currentFilePath);
+    const resolved = this.resolvePath(packageDir, importPath);
+    const finalPath = await this.addExtensionIfNeeded(resolved);
+
+    if (finalPath) {
+      return { path: finalPath, packageJson };
+    }
+
+    return null;
+  }
+
+  /**
+   * 現在のファイルが属するパッケージのpackage.jsonを探す
+   */
+  private async findPackageJson(filePath: string): Promise<PackageJson | null> {
+    let currentDir = dirname(filePath);
+
+    // node_modules内のファイルの場合、そのパッケージのpackage.jsonを探す
+    if (currentDir.includes('/node_modules/')) {
+      // /projects/new/node_modules/chalk/source/index.js
+      // → /projects/new/node_modules/chalk/package.json
+      const match = currentDir.match(/^(.*\/node_modules\/[^/]+)/);
+      if (match) {
+        const packageDir = match[1];
+        const packageJsonPath = `${packageDir}/package.json`;
+        return await this.loadPackageJson(packageJsonPath);
+      }
+    }
+
+    // プロジェクトルートまで遡る
+    while (currentDir !== '/' && currentDir !== this.projectDir) {
+      const packageJsonPath = `${currentDir}/package.json`;
+      const packageJson = await this.loadPackageJson(packageJsonPath);
+      if (packageJson) {
+        return packageJson;
+      }
+      currentDir = dirname(currentDir);
+    }
+
+    return null;
+  }
+
+  /**
+   * importsフィールドを解決
+   */
+  private resolveImports(
+    imports: Record<string, unknown>,
+    subPath: string
+  ): string | null {
+    // 完全一致
+    if (imports[subPath]) {
+      const value = imports[subPath];
+      if (typeof value === 'string') {
+        return value;
+      }
+      // 条件付きエクスポート（簡易版）
+      if (typeof value === 'object' && value !== null) {
+        const obj = value as Record<string, unknown>;
+        return (obj.default || obj.import || obj.require) as string;
+      }
+    }
+
+    // ワイルドカード (#internal/*)
+    for (const key of Object.keys(imports)) {
+      if (key.endsWith('/*')) {
+        const prefix = key.slice(0, -2);
+        if (subPath.startsWith(prefix)) {
+          const remainder = subPath.slice(prefix.length);
+          const value = imports[key];
+          if (typeof value === 'string') {
+            return value.replace('*', remainder);
+          }
+        }
+      }
     }
 
     return null;
@@ -285,10 +432,27 @@ export class ModuleResolver {
 
     try {
       const files = await fileRepository.getProjectFiles(this.projectId);
-      const normalizedPath = this.normalizePath(path);
-      const file = files.find((f) => this.normalizePath(f.path) === normalizedPath);
+      const normalizedPath = normalizePath(path, this.projectName);
+      console.log('🔍 Normalized path:', path, '→', normalizedPath);
+      
+      // デバッグ: 比較を詳細に
+      const file = files.find((f) => {
+        const normalizedFilePath = normalizePath(f.path, this.projectName);
+        const match = normalizedFilePath === normalizedPath;
+        if (f.path.includes('package.json') && f.path.includes('chalk')) {
+          console.log('Comparing:', normalizedFilePath, '===', normalizedPath, '→', match);
+        }
+        return match;
+      });
 
       if (!file) {
+        console.log('❌ File not found. Searched for:', normalizedPath);
+        console.log('Available package.json files:', 
+          files.filter(f => f.path.includes('package.json') && f.path.includes('chalk')).map(f => ({
+            path: f.path,
+            normalized: normalizePath(f.path, this.projectName)
+          }))
+        );
         return null;
       }
 
@@ -351,8 +515,8 @@ export class ModuleResolver {
 
     try {
       const files = await fileRepository.getProjectFiles(this.projectId);
-      const normalizedPath = this.normalizePath(path);
-      const exists = files.some((f) => this.normalizePath(f.path) === normalizedPath);
+      const normalizedPath = normalizePath(path, this.projectName);
+      const exists = files.some((f) => normalizePath(f.path, this.projectName) === normalizedPath);
 
       this.fileCache.set(path, exists);
       return exists;
@@ -362,29 +526,7 @@ export class ModuleResolver {
     }
   }
 
-  /**
-   * パスを正規化
-   */
-  private normalizePath(filePath: string): string {
-    let normalized = filePath;
 
-    // /projects/xxx/ を削除
-    if (normalized.startsWith(this.projectDir)) {
-      normalized = normalized.slice(this.projectDir.length);
-    }
-
-    // 先頭の / を確保
-    if (!normalized.startsWith('/')) {
-      normalized = '/' + normalized;
-    }
-
-    // 末尾の / を削除
-    if (normalized.endsWith('/') && normalized !== '/') {
-      normalized = normalized.slice(0, -1);
-    }
-
-    return normalized;
-  }
 
   /**
    * パスを解決
@@ -408,9 +550,7 @@ export class ModuleResolver {
    * ディレクトリパスを取得
    */
   private dirname(filePath: string): string {
-    const parts = filePath.split('/');
-    parts.pop();
-    return parts.join('/') || '/';
+    return dirname(filePath);
   }
 
   /**

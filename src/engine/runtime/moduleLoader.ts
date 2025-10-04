@@ -12,6 +12,7 @@ import { fileRepository } from '@/engine/core/fileRepository';
 import { ModuleCache } from './moduleCache';
 import { ModuleResolver, type PackageJson } from './moduleResolver';
 import { transpileManager } from './transpileManager';
+import { normalizePath, dirname } from './pathUtils';
 
 /**
  * モジュール実行キャッシュ（循環参照対策）
@@ -263,9 +264,13 @@ export class ModuleLoader {
   private async readFile(filePath: string): Promise<string | null> {
     try {
       const files = await fileRepository.getProjectFiles(this.projectId);
-      const file = files.find((f) => f.path === filePath);
+      
+      // パスを正規化して検索
+      const normalizedPath = normalizePath(filePath, this.projectName);
+      const file = files.find((f) => normalizePath(f.path, this.projectName) === normalizedPath);
 
       if (!file) {
+        this.error('❌ File not found:', filePath, '→', normalizedPath);
         return null;
       }
 
@@ -285,9 +290,7 @@ export class ModuleLoader {
    * ディレクトリパスを取得
    */
   private dirname(filePath: string): string {
-    const parts = filePath.split('/');
-    parts.pop();
-    return parts.join('/') || '/';
+    return dirname(filePath);
   }
 
   /**
