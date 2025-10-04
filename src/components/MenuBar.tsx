@@ -101,7 +101,7 @@ export default function MenuBar({
     <div
       style={{
         width: '3rem',
-        background: colors.mutedBg,
+        background: colors.background,
         borderRight: `1px solid ${colors.border}`,
         display: 'flex',
         flexDirection: 'column',
@@ -160,7 +160,7 @@ export default function MenuBar({
                     right: '0.25rem',
                     bottom: '0.125rem',
                     background: colors.red,
-                    color: 'white',
+                    color: colors.background,
                     fontSize: '0.75rem',
                     borderRadius: '9999px',
                     minWidth: '16px',
@@ -235,7 +235,9 @@ export default function MenuBar({
                   }}
                 >
                   <div style={{ padding: '0.5rem', borderBottom: `1px solid ${colors.border}` }}>
-                    <div style={{ fontSize: '0.875rem', fontWeight: 'bold', color: colors.fg }}>
+                    <div
+                      style={{ fontSize: '0.875rem', fontWeight: 'bold', color: colors.foreground }}
+                    >
                       {user.name || user.login}
                     </div>
                     <div style={{ fontSize: '0.75rem', color: colors.mutedFg }}>@{user.login}</div>
@@ -251,7 +253,7 @@ export default function MenuBar({
                       background: 'transparent',
                       border: 'none',
                       cursor: 'pointer',
-                      color: colors.fg,
+                      color: colors.foreground,
                       fontSize: '0.875rem',
                     }}
                     onClick={handleSignOut}
@@ -329,10 +331,10 @@ export default function MenuBar({
                     style={{
                       width: '100%',
                       padding: '0.5rem',
-                      background: colors.bg,
+                      background: colors.background,
                       border: `1px solid ${colors.border}`,
                       borderRadius: '0.25rem',
-                      color: colors.fg,
+                      color: colors.foreground,
                       fontSize: '0.875rem',
                       marginBottom: '0.5rem',
                     }}
@@ -348,7 +350,7 @@ export default function MenuBar({
                         flex: 1,
                         padding: '0.5rem',
                         background: colors.primary,
-                        color: 'white',
+                        color: colors.background,
                         border: 'none',
                         borderRadius: '0.25rem',
                         cursor: isAuthenticating ? 'not-allowed' : 'pointer',
@@ -364,7 +366,7 @@ export default function MenuBar({
                       style={{
                         padding: '0.5rem 1rem',
                         background: 'transparent',
-                        color: colors.fg,
+                        color: colors.foreground,
                         border: `1px solid ${colors.border}`,
                         borderRadius: '0.25rem',
                         cursor: 'pointer',
