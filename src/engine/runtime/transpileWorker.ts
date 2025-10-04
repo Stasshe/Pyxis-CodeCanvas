@@ -78,9 +78,7 @@ function transpile(request: TranspileRequest): TranspileResult {
 
     // ES Moduleサポート（CommonJSに変換）
     if (options.isESModule) {
-      plugins.push(
-        ['@babel/plugin-transform-modules-commonjs', { strict: false }]
-      );
+      plugins.push('@babel/plugin-transform-modules-commonjs');
     }
 
     // トランスパイル実行

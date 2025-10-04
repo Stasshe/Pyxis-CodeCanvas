@@ -209,6 +209,20 @@ export class NodeRuntime {
   private createSandbox(currentFilePath: string): Record<string, unknown> {
     const self = this;
 
+    // require関数（同期的に動作するように修正）
+    const requireFunc = (moduleName: string): unknown => {
+      // ビルトインモジュールの解決
+      const builtInModule = this.resolveBuiltInModule(moduleName);
+      if (builtInModule !== null) {
+        this.log('✅ Built-in module resolved:', moduleName);
+        return builtInModule;
+      }
+
+      // それ以外は同期的にエラー
+      this.error('❌ Module not found (async loading not supported in require):', moduleName);
+      throw new Error(`Cannot find module '${moduleName}'. Use dynamic import() for user modules.`);
+    };
+
     return {
       // グローバルオブジェクト
       console: {
@@ -252,46 +266,14 @@ export class NodeRuntime {
       },
       Buffer: this.builtInModules.Buffer,
 
-      // require関数（ModuleLoaderを使用）
-      require: (moduleName: string) => {
-        return self.require(moduleName, currentFilePath);
-      },
+      // require関数（同期的）
+      require: requireFunc,
 
       // __filename, __dirname は wrapCode で注入
     };
   }
 
-  /**
-   * モジュールを読み込み（requireの実装）
-   */
-  private async require(moduleName: string, currentFilePath: string): Promise<unknown> {
-    this.log('📦 require:', moduleName, 'from', currentFilePath);
 
-    // ビルトインモジュールの解決
-    const builtInModule = this.resolveBuiltInModule(moduleName);
-    if (builtInModule !== null) {
-      this.log('✅ Built-in module resolved:', moduleName);
-      return builtInModule;
-    }
-
-    // ModuleLoaderを使用してモジュールを読み込み
-    try {
-      const moduleExports = await this.moduleLoader.load(moduleName, currentFilePath);
-
-      // ビルトインモジュールの場合
-      if (typeof moduleExports === 'object' && moduleExports !== null) {
-        const obj = moduleExports as any;
-        if (obj.__isBuiltIn) {
-          return this.resolveBuiltInModule(obj.moduleName);
-        }
-      }
-
-      return moduleExports;
-    } catch (error) {
-      this.error('❌ Failed to load module:', moduleName, error);
-      throw new Error(`Cannot find module '${moduleName}'`);
-    }
-  }
 
   /**
    * ビルトインモジュールを解決
