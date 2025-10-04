@@ -33,14 +33,14 @@ export async function handleUnixCommand(
 
       // ========== ディレクトリ操作 ==========
       case 'cd':
-        if (args.length === 0) {
-          // 引数なしの場合はプロジェクトルートに移動
-          const projectRoot = `/projects/${currentProject}`;
-          unix.setCurrentDir(projectRoot);
-          await writeOutput(`Changed directory to ${projectRoot}`);
-        } else {
-          const result = await unix.cd(args[0], args.slice(1));
-          await writeOutput(result);
+        {
+          const targetPath = args.length === 0 ? undefined : args[0];
+          const options = args.slice(1);
+          const result = await unix.cd(targetPath || '', options);
+          // cdコマンドは通常出力なし（成功時は空文字）
+          if (result) {
+            await writeOutput(result);
+          }
         }
         break;
 

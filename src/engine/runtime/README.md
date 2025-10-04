@@ -28,7 +28,7 @@ Pyxis CodeCanvasのNode.jsランタイムは、完全にブラウザ環境で動
 │  Resolver │   │  Cache     │   │  Transpiler  │
 │           │   │            │   │              │
 │ パス解決  │   │ LRUキャッシュ│  │ TS/ESM変換   │
-│ node_modules│  │ IndexedDB  │   │ SWC wasm    │
+│ node_modules│  │ IndexedDB  │   │ babel    │
 │ エイリアス │   │ GC機能     │   │ (将来実装)  │
 └───────────┘   └────────────┘   └──────────────┘
 ```
@@ -117,11 +117,11 @@ require('@vue/runtime-core') → /projects/my-project/node_modules/@vue/runtime-
 ---
 
 ### 4. `transpileManager.ts` ⭐ NEW
-**役割**: SWC wasmを使用したトランスパイル管理
+**役割**: babelを使用したトランスパイル管理
 
 **主な機能**:
 - Web Workerの作成と管理
-- SWC wasmによるAST変換
+- babelによるAST変換
 - TypeScript/JSX/ES Module完全サポート
 - 自動メモリ管理（Worker終了）
 
@@ -142,7 +142,7 @@ console.log(result.dependencies); // 依存関係リスト
 
 **処理フロー**:
 1. Web Workerを作成
-2. SWC wasmを初期化（Worker内）
+2. babelを初期化（Worker内）
 3. AST変換を実行
 4. 結果を返却
 5. Workerを即座に終了（メモリ解放）
@@ -150,10 +150,10 @@ console.log(result.dependencies); // 依存関係リスト
 ---
 
 ### 5. `transpileWorker.ts` ⭐ NEW
-**役割**: Web Worker内でのSWC wasm実行
+**役割**: Web Worker内でのbabel実行
 
 **主な機能**:
-- SWC wasmの初期化
+- babelの初期化
 - TypeScript → JavaScript変換
 - JSX → JavaScript変換
 - ES Module → CommonJS変換
@@ -301,8 +301,8 @@ console.log(result.dependencies); // 依存関係リスト
 - [x] ビルトインモジュール
 - [x] スコープ付きパッケージ (`@vue/xxx`)
 
-### ✅ 実装済み（SWC wasm統合完了！）
-- [x] SWC wasmによる本格的なトランスパイル
+### ✅ 実装済み（babel統合完了！）
+- [x] babelによる本格的なトランスパイル
 - [x] Web Worker内でのトランスパイル実行
 - [x] TypeScript完全サポート（型チェック以外）
 - [x] JSX/TSXサポート
@@ -370,7 +370,7 @@ Cannot find module 'xxx'
 
 **回避策**:
 1. JavaScriptにトランスパイルしてから実行
-2. 将来のSWC wasm対応を待つ
+2. 将来のbabel対応を待つ
 
 ---
 
@@ -392,7 +392,7 @@ LRU GCにより、常時一定のメモリフットプリント（±数MB）を�
 
 ## 今後の拡張予定
 
-1. ✅ **SWC wasm統合**: 本格的なTypeScript/JSXサポート【完了！】
+1. ✅ **babel統合**: 本格的なTypeScript/JSXサポート【完了！】
 2. ✅ **Web Worker化**: 重い処理をWorkerに移動【完了！】
 3. **Source Map統合**: デバッグ体験の向上（SWC対応済み、統合待ち）
 4. **Workerプール**: 並列トランスパイルによる高速化

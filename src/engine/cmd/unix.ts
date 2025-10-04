@@ -116,9 +116,8 @@ export class UnixCommands {
   async cd(path: string, options: string[] = []): Promise<string> {
     const result = await this.cdCmd.execute([...options, path]);
     // cd成功時、現在のディレクトリを更新
-    this.currentDir = this.cdCmd['currentDir'];
-    this.setCurrentDir(this.currentDir);
-    return result.message;
+    this.setCurrentDir(result.newDir);
+    return result.message || '';
   }
 
   /**
