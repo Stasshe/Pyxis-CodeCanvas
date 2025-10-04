@@ -5,7 +5,6 @@ import { css } from '@codemirror/lang-css';
 import { python } from '@codemirror/lang-python';
 import { yaml } from '@codemirror/lang-yaml';
 import { html } from '@codemirror/lang-html';
-import { oneDark } from '@codemirror/theme-one-dark';
 import {
   highlightActiveLine,
   highlightActiveLineGutter,
@@ -49,7 +48,6 @@ export const getCMExtensions = (filename: string, tabSize = 2, insertSpaces = tr
     history(),
     autocompletion(),
     lineNumbers(),
-    oneDark,
     highlightActiveLine(),
     highlightActiveLineGutter(),
     highlightSpecialChars(),

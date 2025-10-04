@@ -1,5 +1,6 @@
 import CodeMirror from '@uiw/react-codemirror';
 import { getCMExtensions } from './codemirror-utils';
+import { oneDark } from '@codemirror/theme-one-dark';
 import { countCharsNoSpaces } from './editor-utils';
 
 interface CodeMirrorEditorProps {
@@ -43,6 +44,7 @@ export default function CodeMirrorEditor(props: CodeMirrorEditorProps) {
         key={tabId}
         value={content}
         height="100%"
+        theme={oneDark}
         extensions={getCMExtensions(fileName, tabSize, insertSpaces)}
         basicSetup={false}
         onChange={onChange}
