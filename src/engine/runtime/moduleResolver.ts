@@ -278,15 +278,28 @@ export class ModuleResolver {
 
     console.log('📦 Import resolved:', moduleName, '→', importPath);
 
-    // 相対パスを絶対パスに変換
-    const packageDir = dirname(currentFilePath);
+    // 相対パスを絶対パスに変換（パッケージルートから）
+    let packageDir = dirname(currentFilePath);
+    
+    // node_modules内のファイルの場合、パッケージルートを取得
+    if (packageDir.includes('/node_modules/')) {
+      const match = packageDir.match(/^(.*\/node_modules\/[^/]+)/);
+      if (match) {
+        packageDir = match[1];
+      }
+    }
+    
+    console.log('📦 Package dir:', packageDir);
     const resolved = this.resolvePath(packageDir, importPath);
+    console.log('📦 Resolved path:', resolved);
     const finalPath = await this.addExtensionIfNeeded(resolved);
 
     if (finalPath) {
+      console.log('✅ Final path:', finalPath);
       return { path: finalPath, packageJson };
     }
 
+    console.warn('⚠️ Failed to resolve import path:', resolved);
     return null;
   }
 
