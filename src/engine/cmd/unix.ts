@@ -304,19 +304,26 @@ export class UnixCommands {
   }
 
   public normalizePath(path: string): string {
-    const parts = path.split('/').filter(part => part !== '' && part !== '.');
-    const normalized: string[] = [];
-
-    for (const part of parts) {
-      if (part === '..') {
-        if (normalized.length > 0 && normalized[normalized.length - 1] !== '..') {
-          normalized.pop();
+    // 絶対パスならそのまま
+    if (path.startsWith('/')) {
+      path = path;
+    } else {
+      // カレントディレクトリ基準の相対パス
+      path = this.currentDir.replace(/\/$/, '') + '/' + path;
+    }
+    // './'や'../'を正しく解決
+    const segments = path.split('/');
+    const stack: string[] = [];
+    for (const seg of segments) {
+      if (seg === '' || seg === '.') continue;
+      if (seg === '..') {
+        if (stack.length > 0) {
+          stack.pop();
         }
       } else {
-        normalized.push(part);
+        stack.push(seg);
       }
     }
-
-    return '/' + normalized.join('/');
+    return '/' + stack.join('/');
   }
 }

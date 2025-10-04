@@ -42,16 +42,38 @@ export function useSettings(projectId?: string) {
   const excludeRegexps = useMemo(() => {
     const patterns = settings?.search?.exclude || [];
     return patterns.map((pat: string) => {
-      // glob風パターンを正規表現に変換（厳密化）
-      // "node_modules/**" → /node_modules\//
-      // "*.test.ts" → /\.test\.ts$/
+      // VSCodeのglob仕様に近い除外パターン変換
+      // 1. **/dir → どこかの階層に現れるdirディレクトリとその配下すべて
+      // 2. dir/** → 直下のdir配下すべて
+      // 3. **/foo/** → どこかの階層に現れるfoo配下すべて
+      // 4. *.ext, foo/bar なども考慮
+
+      // 1. **/dir or **/dir/ or **/dir/**
+      const m1 = pat.match(/^\*\*\/(.+?)(\/\*\*)?$/);
+      if (m1) {
+        // 例: **/node_modules, **/foo, **/foo/**
+        const dir = m1[1].replace(/[.+^${}()|[\]\\]/g, '\\$&');
+        return new RegExp(`(^|\/)${dir}($|\/)`);
+      }
+      // 2. dir/**
+      const m2 = pat.match(/^([^*?/]+)\/\*\*$/);
+      if (m2) {
+        const dir = m2[1].replace(/[.+^${}()|[\]\\]/g, '\\$&');
+        return new RegExp(`^${dir}\/`);
+      }
+      // 3. **/foo/**
+      const m3 = pat.match(/^\*\*\/(.+)\/\*\*$/);
+      if (m3) {
+        const dir = m3[1].replace(/[.+^${}()|[\]\\]/g, '\\$&');
+        return new RegExp(`(^|\/)${dir}\/`);
+      }
+      // 4. その他: glob風パターンを正規表現に変換（厳密化）
       let regexStr = pat
         .replace(/[.+^${}()|[\]\\]/g, '\\$&') // エスケープ
         .replace(/\*\*/g, '.*')
         .replace(/\*/g, '[^/]*');
       if (!regexStr.startsWith('.*') && pat.startsWith('**')) regexStr = '.*' + regexStr;
       if (pat.endsWith('/')) regexStr = regexStr + '.*';
-      // 先頭/末尾の*や**の扱いを厳密に
       if (pat.startsWith('*/')) regexStr = '[^/]*' + regexStr.slice(1);
       if (pat.endsWith('/*')) regexStr = regexStr.slice(0, -2) + '/[^/]*';
       return new RegExp('^' + regexStr + '$');
