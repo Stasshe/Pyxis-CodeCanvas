@@ -1,5 +1,4 @@
 // Unixコマンド統合クラス（新アーキテクチャ: IndexedDB優先、自動同期）
-import FS from '@isomorphic-git/lightning-fs';
 import JSZip from 'jszip';
 
 import { fileRepository } from '@/engine/core/fileRepository';
@@ -27,7 +26,6 @@ import {
  * 各コマンドの実装は unix-commands/ 配下に分割されている
  */
 export class UnixCommands {
-  public fs: FS;
   private currentDir: string;
   private projectId: string;
   private projectName: string;
@@ -49,7 +47,6 @@ export class UnixCommands {
   private treeCmd: TreeCommand;
 
   constructor(projectName: string, projectId?: string) {
-    this.fs = gitFileSystem.getFS();
     this.currentDir = gitFileSystem.getProjectDir(projectName);
     this.projectId = projectId || '';
     this.projectName = projectName;
@@ -57,8 +54,6 @@ export class UnixCommands {
     if (!this.projectId) {
       console.warn('[UnixCommands] projectId is empty! DB operations will fail.');
     }
-
-    this.ensureProjectDirectory();
 
     // 各コマンドを初期化
     this.catCmd = new CatCommand(projectName, this.currentDir, projectId);
@@ -75,14 +70,6 @@ export class UnixCommands {
     this.rmCmd = new RmCommand(projectName, this.currentDir, projectId);
     this.touchCmd = new TouchCommand(projectName, this.currentDir, projectId);
     this.treeCmd = new TreeCommand(projectName, this.currentDir, projectId);
-  }
-
-  private async ensureProjectDirectory(): Promise<void> {
-    try {
-      await this.fs.promises.stat(this.currentDir);
-    } catch {
-      await this.fs.promises.mkdir(this.currentDir, { recursive: true } as any);
-    }
   }
 
   /**
