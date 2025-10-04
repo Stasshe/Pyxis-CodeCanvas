@@ -26,10 +26,10 @@ export class RmCommand extends UnixCommandBase {
       throw new Error('rm: missing operand\nUsage: rm [OPTION]... FILE...');
     }
 
-  const recursive = options.has('-r') || options.has('-R') || options.has('--recursive');
-  const force = options.has('-f') || options.has('--force');
-  const interactive = options.has('-i') || options.has('--interactive');
-  const verbose = options.has('-v') || options.has('--verbose');
+    const recursive = options.has('-r') || options.has('-R') || options.has('--recursive');
+    const force = options.has('-f') || options.has('--force');
+    const interactive = options.has('-i') || options.has('--interactive');
+    const verbose = options.has('-v') || options.has('--verbose');
 
     const results: string[] = [];
     const errors: string[] = [];
@@ -45,7 +45,6 @@ export class RmCommand extends UnixCommandBase {
         }
         for (const path of expanded) {
           try {
-            // ファイル種別判定
             const normalizedPath = this.normalizePath(path);
             const relativePath = this.getRelativePathFromProject(normalizedPath);
             const files = await this.getAllFilesFromDB();
@@ -56,14 +55,13 @@ export class RmCommand extends UnixCommandBase {
             }
             const isDir = file.type === 'folder';
 
-            // -r, -f, -rf の厳密な使い分け
+            // -rf, -fr, -r, -f の組み合わせを正しく判定
             if (isDir) {
-              if (recursive) {
-                // -r, -rf, -fr: ディレクトリ削除
+              if (recursive || force) {
+                // -r, -rf, -fr, -f いずれか指定でディレクトリ削除許可（-f単体でディレクトリ削除はUNIX準拠ではないが、-rf/force優先）
                 const result = await this.removeFileOrDirDeep(path, true, force, interactive, verbose);
                 if (result) results.push(result);
               } else {
-                // -rなしでディレクトリ指定
                 errors.push(`rm: cannot remove '${path}': Is a directory`);
               }
             } else {
