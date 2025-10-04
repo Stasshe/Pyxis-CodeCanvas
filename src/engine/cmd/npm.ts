@@ -4,26 +4,20 @@
  * NEW ARCHITECTURE:
  * - IndexedDB (fileRepository) が単一の真実の情報源
  * - package.jsonなどの設定ファイルは IndexedDB に保存
- * - node_modulesは lightning-fs のみ（実行に必要だが .gitignore で除外）
  * - NpmInstallクラスが .gitignore を考慮して IndexedDB を更新
  * - fileRepository.createFile() を使用して自動的に管理
  */
 
-import FS from '@isomorphic-git/lightning-fs';
 
 import { NpmInstall } from './npmOperations/npmInstall';
-
-import { getFileSystem, getProjectDir } from '@/engine/core/filesystem';
 import { fileRepository } from '@/engine/core/fileRepository';
 
 export class NpmCommands {
-  private fs: FS;
   private currentDir: string;
   private projectName: string;
   private projectId: string;
 
   constructor(projectName: string, projectId: string, currentDir: string) {
-    this.fs = getFileSystem()!;
     this.projectName = projectName;
     this.projectId = projectId;
     this.currentDir = currentDir;
@@ -31,38 +25,29 @@ export class NpmCommands {
 
   async downloadAndInstallPackage(packageName: string, version: string = 'latest'): Promise<void> {
     const npmInstall = new NpmInstall(this.projectName, this.projectId);
-
-    // バッチ処理を開始
     npmInstall.startBatchProcessing();
-
     try {
       await npmInstall.installWithDependencies(packageName, version);
     } finally {
-      // バッチ処理を終了（エラーが発生してもフラッシュを実行）
       await npmInstall.finishBatchProcessing();
     }
   }
 
   async removeDirectory(dirPath: string): Promise<void> {
-    const npmInstall = new NpmInstall(this.projectName, this.projectId, true); // skipLoadingInstalledPackages
+    const npmInstall = new NpmInstall(this.projectName, this.projectId, true);
     await npmInstall.removeDirectory(dirPath);
   }
 
   // npm install コマンドの実装
   async install(packageName?: string, flags: string[] = []): Promise<string> {
     try {
-      const projectDir = getProjectDir(this.projectName);
-      const packageJsonPath = `${projectDir}/package.json`;
-      const nodeModulesDir = `${projectDir}/node_modules`;
-
-      // package.jsonの存在確認と作成
+      // IndexedDBからpackage.jsonを取得
+      let files = await fileRepository.getProjectFiles(this.projectId);
+      let packageFile = files.find(f => f.path === '/package.json');
       let packageJson: any;
-      try {
-        const packageJsonContent = await this.fs.promises.readFile(packageJsonPath, {
-          encoding: 'utf8',
-        });
-        packageJson = JSON.parse(packageJsonContent as string);
-      } catch {
+      if (packageFile) {
+        packageJson = JSON.parse(packageFile.content);
+      } else {
         // package.jsonが存在しない場合は作成
         packageJson = {
           name: this.projectName,
@@ -78,26 +63,12 @@ export class NpmCommands {
           dependencies: {},
           devDependencies: {},
         };
-        await this.fs.promises.writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2));
-
-        // NEW ARCHITECTURE: IndexedDBのみに同期
         await fileRepository.createFile(
           this.projectId,
           '/package.json',
           JSON.stringify(packageJson, null, 2),
           'file'
         );
-      }
-
-      // NEW ARCHITECTURE: node_modulesはlightning-fsに作成（実行に必要）
-      // ただし、IndexedDBには同期しない（.gitignoreで除外されるべき）
-      try {
-        await this.fs.promises.stat(nodeModulesDir);
-      } catch {
-        await this.fs.promises.mkdir(nodeModulesDir, {
-          recursive: true,
-        } as any);
-        // IndexedDBには同期しない（node_modulesは.gitignoreで除外）
       }
 
       if (!packageName) {
@@ -115,19 +86,13 @@ export class NpmCommands {
         let output = `Installing ${packageNames.length} packages...\n`;
         let installedCount = 0;
 
-        // NpmInstallインスタンスを作成（依存関係解決のため）
         const npmInstall = new NpmInstall(this.projectName, this.projectId);
-
-        // バッチ処理を開始
         npmInstall.startBatchProcessing();
-
         try {
           for (const pkg of packageNames) {
             const versionSpec = allDependencies[pkg];
-            const version = versionSpec.replace(/[\^~]/, ''); // ^1.0.0 -> 1.0.0
-
+            const version = versionSpec.replace(/[\^~]/, '');
             try {
-              // 依存関係も含めてインストール（毎回チェック）
               await npmInstall.installWithDependencies(pkg, version);
               installedCount++;
               output += `  ✓ ${pkg}@${version} (with dependencies)\n`;
@@ -136,7 +101,6 @@ export class NpmCommands {
             }
           }
         } finally {
-          // バッチ処理を終了（エラーが発生してもフラッシュを実行）
           await npmInstall.finishBatchProcessing();
         }
 
@@ -150,37 +114,26 @@ export class NpmCommands {
         // 特定パッケージのインストール
         const isDev = flags.includes('--save-dev') || flags.includes('-D');
 
-        // 既にインストール済みかチェック
-        const packageDir = `${nodeModulesDir}/${packageName}`;
+        // 既に依存関係に含まれているかチェック
         let isAlreadyInstalled = false;
-        try {
-          await this.fs.promises.stat(packageDir);
+        if ((packageJson.dependencies && packageJson.dependencies[packageName]) ||
+            (packageJson.devDependencies && packageJson.devDependencies[packageName])) {
           isAlreadyInstalled = true;
-        } catch {
-          // パッケージが存在しない場合は新規インストール
         }
 
         try {
           const packageInfo = await this.fetchPackageInfo(packageName);
           const version = packageInfo.version;
 
-          // package.jsonの依存関係オブジェクトを確保
-          if (!packageJson.dependencies) {
-            packageJson.dependencies = {};
-          }
-          if (!packageJson.devDependencies) {
-            packageJson.devDependencies = {};
-          }
+          if (!packageJson.dependencies) packageJson.dependencies = {};
+          if (!packageJson.devDependencies) packageJson.devDependencies = {};
 
-          // package.jsonに依存関係を追加（既存でも更新）
           if (isDev) {
             packageJson.devDependencies[packageName] = `^${version}`;
           } else {
             packageJson.dependencies[packageName] = `^${version}`;
           }
 
-          // NEW ARCHITECTURE: package.jsonを更新（IndexedDBとlightning-fs両方）
-          await this.fs.promises.writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2));
           await fileRepository.createFile(
             this.projectId,
             '/package.json',
@@ -191,19 +144,13 @@ export class NpmCommands {
           if (isAlreadyInstalled) {
             return `updated 1 package in ${Math.random() * 2 + 1}s\n\n~ ${packageName}@${version}\nupdated 1 package and audited 1 package in ${Math.random() * 0.5 + 0.5}s\n\nfound 0 vulnerabilities`;
           } else {
-            // パッケージを依存関係と一緒にダウンロードしてインストール
             const npmInstall = new NpmInstall(this.projectName, this.projectId);
-
-            // バッチ処理を開始
             npmInstall.startBatchProcessing();
-
             try {
               await npmInstall.installWithDependencies(packageName, version);
             } finally {
-              // バッチ処理を終了（エラーが発生してもフラッシュを実行）
               await npmInstall.finishBatchProcessing();
             }
-
             return `added packages with dependencies in ${Math.random() * 2 + 1}s\n\n+ ${packageName}@${version}\nadded packages and audited packages in ${Math.random() * 0.5 + 0.5}s\n\nfound 0 vulnerabilities`;
           }
         } catch (error) {
@@ -218,67 +165,44 @@ export class NpmCommands {
   // npm uninstall コマンドの実装
   async uninstall(packageName: string): Promise<string> {
     try {
-      const projectDir = getProjectDir(this.projectName);
-      const packageJsonPath = `${projectDir}/package.json`;
-      const nodeModulesDir = `${projectDir}/node_modules`;
-      const packageDir = `${nodeModulesDir}/${packageName}`;
-
-      // パッケージが実際に存在するかチェック
-      try {
-        await this.fs.promises.stat(packageDir);
-      } catch {
-        return `npm WARN ${packageName} package not found in node_modules`;
-      }
-
-      // package.jsonから依存関係を削除
-      let wasInDependencies = false;
-      let wasInDevDependencies = false;
-
-      try {
-        const packageJsonContent = await this.fs.promises.readFile(packageJsonPath, {
-          encoding: 'utf8',
-        });
-        const packageJson = JSON.parse(packageJsonContent as string);
-
-        // 依存関係オブジェクトが存在しない場合は作成
-        if (!packageJson.dependencies) {
-          packageJson.dependencies = {};
-        }
-        if (!packageJson.devDependencies) {
-          packageJson.devDependencies = {};
-        }
-
-        wasInDependencies = delete packageJson.dependencies[packageName];
-        wasInDevDependencies = delete packageJson.devDependencies[packageName];
-
-        if (!wasInDependencies && !wasInDevDependencies) {
-          return `npm WARN ${packageName} is not a dependency of ${this.projectName}`;
-        }
-
-        // NEW ARCHITECTURE: package.jsonを更新（IndexedDBとlightning-fs両方）
-        await this.fs.promises.writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2));
-        await fileRepository.createFile(
-          this.projectId,
-          '/package.json',
-          JSON.stringify(packageJson, null, 2),
-          'file'
-        );
-      } catch {
+      // IndexedDBからpackage.jsonを取得
+      let files = await fileRepository.getProjectFiles(this.projectId);
+      let packageFile = files.find(f => f.path === '/package.json');
+      if (!packageFile) {
         return `npm ERR! Cannot find package.json`;
       }
+      let packageJson = JSON.parse(packageFile.content);
 
-      // NEW ARCHITECTURE: 依存関係を含めてパッケージを削除
-      // NpmInstallが内部で.gitignoreを考慮してIndexedDBを更新する
-      const npmInstall = new NpmInstall(
-        this.projectName,
+      if (!packageJson.dependencies) packageJson.dependencies = {};
+      if (!packageJson.devDependencies) packageJson.devDependencies = {};
+
+      let wasInDependencies = false;
+      let wasInDevDependencies = false;
+      if (packageJson.dependencies[packageName]) {
+        wasInDependencies = true;
+        delete packageJson.dependencies[packageName];
+      }
+      if (packageJson.devDependencies[packageName]) {
+        wasInDevDependencies = true;
+        delete packageJson.devDependencies[packageName];
+      }
+
+      if (!wasInDependencies && !wasInDevDependencies) {
+        return `npm WARN ${packageName} is not a dependency of ${this.projectName}`;
+      }
+
+      await fileRepository.createFile(
         this.projectId,
-        true // skipLoadingInstalledPackages = true（軽量版）
+        '/package.json',
+        JSON.stringify(packageJson, null, 2),
+        'file'
       );
 
+      // 依存関係を含めてパッケージを削除
+      const npmInstall = new NpmInstall(this.projectName, this.projectId, true);
       try {
         const removedPackages = await npmInstall.uninstallWithDependencies(packageName);
         const totalRemoved = removedPackages.length;
-
         if (totalRemoved === 0) {
           return `removed 1 package in 0.1s\n\n- ${packageName}\nremoved 1 package and audited 0 packages in 0.1s\n\nfound 0 vulnerabilities`;
         } else {
@@ -287,25 +211,14 @@ export class NpmCommands {
         }
       } catch (error) {
         // 依存関係解決に失敗した場合は、単純にメインパッケージのみ削除
-        console.warn(
-          `[npm.uninstall] Dependency analysis failed, removing only main package: ${(error as Error).message}`
-        );
-
-        try {
-          // NEW ARCHITECTURE: lightning-fsから削除（実行環境のクリーンアップ）
-          await this.removeDirectory(packageDir);
-
-          // NEW ARCHITECTURE: IndexedDBからも削除（node_modulesは通常.gitignoreだが念のため）
-          const files = await fileRepository.getProjectFiles(this.projectId);
-          const packageFiles = files.filter(f => f.path.startsWith(`/node_modules/${packageName}`));
-          for (const file of packageFiles) {
-            await fileRepository.deleteFile(file.id);
-          }
-
-          return `removed 1 package in 0.1s\n\n- ${packageName}\nremoved 1 package and audited 0 packages in 0.1s\n\nfound 0 vulnerabilities`;
-        } catch {
-          return `npm WARN ${packageName} package not found in node_modules`;
+        console.warn(`[npm.uninstall] Dependency analysis failed, removing only main package: ${(error as Error).message}`);
+        // node_modules配下のIndexedDBファイルも念のため削除
+        const files = await fileRepository.getProjectFiles(this.projectId);
+        const packageFiles = files.filter(f => f.path.startsWith(`/node_modules/${packageName}`));
+        for (const file of packageFiles) {
+          await fileRepository.deleteFile(file.id);
         }
+        return `removed 1 package in 0.1s\n\n- ${packageName}\nremoved 1 package and audited 0 packages in 0.1s\n\nfound 0 vulnerabilities`;
       }
     } catch (error) {
       throw new Error(`npm uninstall failed: ${(error as Error).message}`);
@@ -315,45 +228,32 @@ export class NpmCommands {
   // npm list コマンドの実装
   async list(): Promise<string> {
     try {
-      const projectDir = getProjectDir(this.projectName);
-      const packageJsonPath = `${projectDir}/package.json`;
-
-      try {
-        const packageJsonContent = await this.fs.promises.readFile(packageJsonPath, {
-          encoding: 'utf8',
-        });
-        const packageJson = JSON.parse(packageJsonContent as string);
-
-        let output = `${this.projectName}@${packageJson.version} ${projectDir}\n`;
-
-        const dependencies = packageJson.dependencies || {};
-        const devDependencies = packageJson.devDependencies || {};
-
-        // 通常の依存関係
-        const depKeys = Object.keys(dependencies);
-        const devDepKeys = Object.keys(devDependencies);
-
-        if (depKeys.length === 0 && devDepKeys.length === 0) {
-          output += '(empty)';
-          return output;
-        }
-
-        depKeys.forEach((pkg, index) => {
-          const isLast = index === depKeys.length - 1 && devDepKeys.length === 0;
-          const connector = isLast ? '└── ' : '├── ';
-          output += `${connector}${pkg}@${dependencies[pkg]}\n`;
-        });
-
-        devDepKeys.forEach((pkg, index) => {
-          const isLast = index === devDepKeys.length - 1;
-          const connector = isLast ? '└── ' : '├── ';
-          output += `${connector}${pkg}@${devDependencies[pkg]} (dev)\n`;
-        });
-
-        return output.trim();
-      } catch {
+      let files = await fileRepository.getProjectFiles(this.projectId);
+      let packageFile = files.find(f => f.path === '/package.json');
+      if (!packageFile) {
         return `npm ERR! Cannot find package.json`;
       }
+      const packageJson = JSON.parse(packageFile.content);
+      let output = `${this.projectName}@${packageJson.version} (IndexedDB)\n`;
+      const dependencies = packageJson.dependencies || {};
+      const devDependencies = packageJson.devDependencies || {};
+      const depKeys = Object.keys(dependencies);
+      const devDepKeys = Object.keys(devDependencies);
+      if (depKeys.length === 0 && devDepKeys.length === 0) {
+        output += '(empty)';
+        return output;
+      }
+      depKeys.forEach((pkg, index) => {
+        const isLast = index === depKeys.length - 1 && devDepKeys.length === 0;
+        const connector = isLast ? '└── ' : '├── ';
+        output += `${connector}${pkg}@${dependencies[pkg]}\n`;
+      });
+      devDepKeys.forEach((pkg, index) => {
+        const isLast = index === devDepKeys.length - 1;
+        const connector = isLast ? '└── ' : '├── ';
+        output += `${connector}${pkg}@${devDependencies[pkg]} (dev)\n`;
+      });
+      return output.trim();
     } catch (error) {
       throw new Error(`npm list failed: ${(error as Error).message}`);
     }
@@ -362,19 +262,11 @@ export class NpmCommands {
   // npm init コマンドの実装
   async init(force = false): Promise<string> {
     try {
-      const projectDir = getProjectDir(this.projectName);
-      const packageJsonPath = `${projectDir}/package.json`;
-
-      // package.jsonが既に存在するかチェック
-      try {
-        await this.fs.promises.stat(packageJsonPath);
-        if (!force) {
-          return `package.json already exists. Use 'npm init --force' to overwrite.`;
-        }
-      } catch {
-        // package.jsonが存在しない場合は続行
+      let files = await fileRepository.getProjectFiles(this.projectId);
+      let packageFile = files.find(f => f.path === '/package.json');
+      if (packageFile && !force) {
+        return `package.json already exists. Use 'npm init --force' to overwrite.`;
       }
-
       const packageJson = {
         name: this.projectName,
         version: '1.0.0',
@@ -389,17 +281,13 @@ export class NpmCommands {
         dependencies: {},
         devDependencies: {},
       };
-
-      // NEW ARCHITECTURE: package.jsonを作成（IndexedDBとlightning-fs両方）
-      await this.fs.promises.writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2));
       await fileRepository.createFile(
         this.projectId,
         '/package.json',
         JSON.stringify(packageJson, null, 2),
         'file'
       );
-
-      return `Wrote to ${packageJsonPath}:\n\n${JSON.stringify(packageJson, null, 2)}`;
+      return `Wrote to /package.json (IndexedDB):\n\n${JSON.stringify(packageJson, null, 2)}`;
     } catch (error) {
       throw new Error(`npm init failed: ${(error as Error).message}`);
     }
@@ -408,34 +296,26 @@ export class NpmCommands {
   // npm run コマンドの実装
   async run(scriptName: string): Promise<string> {
     try {
-      const projectDir = getProjectDir(this.projectName);
-      const packageJsonPath = `${projectDir}/package.json`;
-
-      try {
-        const packageJsonContent = await this.fs.promises.readFile(packageJsonPath, {
-          encoding: 'utf8',
-        });
-        const packageJson = JSON.parse(packageJsonContent as string);
-
-        const scripts = packageJson.scripts || {};
-
-        if (!scripts[scriptName]) {
-          const availableScripts = Object.keys(scripts);
-          let output = `npm ERR! script '${scriptName}' not found\n`;
-          if (availableScripts.length > 0) {
-            output += `\nAvailable scripts:\n`;
-            availableScripts.forEach(script => {
-              output += `  ${script}: ${scripts[script]}\n`;
-            });
-          }
-          return output;
-        }
-
-        const command = scripts[scriptName];
-        return `> ${this.projectName}@${packageJson.version} ${scriptName}\n> ${command}\n\n[Script execution simulated] ${command}\n\nScript '${scriptName}' completed successfully.`;
-      } catch {
+      let files = await fileRepository.getProjectFiles(this.projectId);
+      let packageFile = files.find(f => f.path === '/package.json');
+      if (!packageFile) {
         return `npm ERR! Cannot find package.json`;
       }
+      const packageJson = JSON.parse(packageFile.content);
+      const scripts = packageJson.scripts || {};
+      if (!scripts[scriptName]) {
+        const availableScripts = Object.keys(scripts);
+        let output = `npm ERR! script '${scriptName}' not found\n`;
+        if (availableScripts.length > 0) {
+          output += `\nAvailable scripts:\n`;
+          availableScripts.forEach(script => {
+            output += `  ${script}: ${scripts[script]}\n`;
+          });
+        }
+        return output;
+      }
+      const command = scripts[scriptName];
+      return `> ${this.projectName}@${packageJson.version} ${scriptName}\n> ${command}\n\n[Script execution simulated] ${command}\n\nScript '${scriptName}' completed successfully.`;
     } catch (error) {
       throw new Error(`npm run failed: ${(error as Error).message}`);
     }
@@ -510,9 +390,8 @@ export class NpmCommands {
     }
   }
 
-  // プロジェクトディレクトリからの相対パスを取得
+  // プロジェクトディレクトリからの相対パスを取得（現状未使用）
   private getRelativePathFromProject(fullPath: string): string {
-    const projectBase = `/projects/${this.projectName}`;
-    return fullPath.replace(projectBase, '') || '/';
+    return fullPath;
   }
 }
