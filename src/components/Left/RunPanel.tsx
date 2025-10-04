@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Play, Square, FileText, Code, Settings, Trash2 } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import clsx from 'clsx';
-import { NodeJSRuntime } from '@/engine/runtime/nodeRuntime';
+import { executeNodeFile } from '@/engine/runtime/nodeRuntime';
 import { initPyodide, runPythonWithSync, setCurrentProject } from '@/engine/runtime/pyodideRuntime';
 import { useBreakpointContext } from '@/context/BreakpointContext';
 import { LOCALSTORAGE_KEY } from '@/context/config';
@@ -27,24 +27,12 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
   const [output, setOutput] = useState<OutputEntry[]>([]);
   const [inputCode, setInputCode] = useState('');
   const [selectedFile, setSelectedFile] = useState<string>('');
-  const [runtime, setRuntime] = useState<NodeJSRuntime | null>(null);
   const [isPyodideReady, setIsPyodideReady] = useState(false);
-  // activeTabは廃止
   const outputRef = useRef<HTMLDivElement>(null);
 
-  // ランタイムの初期化
+  // Pyodideプロジェクト設定
   useEffect(() => {
     if (currentProject) {
-      const newRuntime = new NodeJSRuntime(
-        currentProject.name,
-        currentProject.id,
-        (output, type) => {
-          addOutput(output, type);
-        }
-      );
-      setRuntime(newRuntime);
-      
-      // Pyodideプロジェクト設定
       setCurrentProject(currentProject.id, currentProject.name).then(() => {
         setIsPyodideReady(true);
       });
@@ -118,9 +106,34 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
     ]);
   };
 
+  // デバッグコンソールを作成
+  const createDebugConsole = () => ({
+    log: (...args: unknown[]) => {
+      const content = args.map(arg => 
+        typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+      ).join(' ');
+      addOutput(content, 'log');
+    },
+    error: (...args: unknown[]) => {
+      const content = args.map(arg => 
+        typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+      ).join(' ');
+      addOutput(content, 'error');
+    },
+    warn: (...args: unknown[]) => {
+      const content = args.map(arg => 
+        typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+      ).join(' ');
+      addOutput(content, 'log');
+    },
+    clear: () => {
+      setOutput([]);
+    },
+  });
+
   // コードを実行（自動判別: .pyならPython, それ以外はNode.js）
   const executeCode = async () => {
-    if (!inputCode.trim()) return;
+    if (!inputCode.trim() || !currentProject) return;
     setIsRunning(true);
     addOutput(`> ${inputCode}`, 'input');
     try {
@@ -131,7 +144,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
         inputCode.trimStart().startsWith('print(');
       
       if (isPython) {
-        if (!currentProject || !isPyodideReady) {
+        if (!isPyodideReady) {
           addOutput('Pythonランタイムが初期化されていません', 'error');
           return;
         }
@@ -140,13 +153,13 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
         const pythonResult = await pyodide.runPythonAsync(cleanCode);
         addOutput(String(pythonResult), 'log');
       } else {
-        if (!runtime) return;
-        const result = await runtime.executeNodeJS(inputCode);
-        if (result.success && result.output) {
-          addOutput(result.output, 'log');
-        } else if ('error' in result && result.error) {
-          addOutput(result.error, 'error');
-        }
+        // Node.js実行 - 一時ファイルとして実行
+        await executeNodeFile({
+          projectId: currentProject.id,
+          projectName: currentProject.name,
+          filePath: '/temp-code.js',
+          debugConsole: createDebugConsole(),
+        });
       }
     } catch (error) {
       addOutput(`Error: ${(error as Error).message}`, 'error');
@@ -158,7 +171,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
 
   // ファイルを実行（拡張子で自動判別）
   const executeFile = async () => {
-    if (!selectedFile) return;
+    if (!selectedFile || !currentProject) return;
     setIsRunning(true);
     const fileObj = executableFiles.find(f => f.path === selectedFile);
     const lang = fileObj?.lang || (selectedFile.endsWith('.py') ? 'python' : 'node');
@@ -166,16 +179,16 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
     localStorage.setItem(LOCALSTORAGE_KEY.LAST_EXECUTE_FILE, selectedFile);
     try {
       if (lang === 'node') {
-        if (!runtime) return;
-        const result = await runtime.executeFile(selectedFile);
-        if (result.success && result.output) {
-          addOutput(result.output, 'log');
-        } else if ('error' in result && result.error) {
-          addOutput(result.error, 'error');
-        }
+        // Node.js実行
+        await executeNodeFile({
+          projectId: currentProject.id,
+          projectName: currentProject.name,
+          filePath: `/${selectedFile}`,
+          debugConsole: createDebugConsole(),
+        });
       } else {
         // Python実行
-        if (!currentProject || !isPyodideReady) {
+        if (!isPyodideReady) {
           addOutput('Pythonランタイムが初期化されていません', 'error');
           return;
         }
@@ -336,8 +349,6 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
             </button>
           </div>
         )}
-
-        {/* サンプルコードセクション削除済み */}
       </div>
 
       {/* 出力エリア */}
