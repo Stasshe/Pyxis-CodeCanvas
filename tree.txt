@@ -41,10 +41,17 @@
 │   │   ├── fileOperationg.js
 │   │   ├── index.js
 │   │   └── readline_test.js
-│   └── text-editor
-│       ├── index.html
-│       ├── main.js
-│       └── style.css
+│   ├── test-chalk.js
+│   ├── test-module-require.js
+│   ├── test-require.js
+│   ├── text-editor
+│   │   ├── index.html
+│   │   ├── main.js
+│   │   └── style.css
+│   └── typescript
+│       ├── hello.ts
+│       ├── math.ts
+│       └── use-math.ts
 ├── initial_files_to_ts.js
 ├── next-env.d.ts
 ├── next.config.ts
@@ -243,12 +250,13 @@
 │   │   │       └── utilModule.ts
 │   │   ├── openTab.ts
 │   │   └── runtime
-│   │       ├── ARCHITECTURE.md
 │   │       ├── README.md
+│   │       ├── babelPluginAsyncRequire.ts
 │   │       ├── moduleCache.ts
 │   │       ├── moduleLoader.ts
 │   │       ├── moduleResolver.ts
 │   │       ├── nodeRuntime.ts
+│   │       ├── pathUtils.ts
 │   │       ├── pyodideRuntime.ts
 │   │       ├── transpileManager.ts
 │   │       └── transpileWorker.ts
@@ -276,11 +284,11 @@
 ├── tree.txt
 └── tsconfig.json
 
-45 directories, 232 files
+46 directories, 239 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 35398
-合計文字数: 1152766
-合計ファイルサイズ(bytes): 1240176
+合計行数: 35858
+合計文字数: 1175274
+合計ファイルサイズ(bytes): 1263442
 
-リポジトリ全体のサイズ(bytes): 2.0G	.
+リポジトリ全体のサイズ(bytes): 2.1G	.
