@@ -20,7 +20,7 @@ import {
   RmCommand,
   TouchCommand,
   TreeCommand,
-} from './unix-commands';
+} from './unixOperations';
 
 /**
  * Unixコマンドを統合して提供するクラス

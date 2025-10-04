@@ -184,24 +184,24 @@
 │   │   │   ├── npmOperations
 │   │   │   │   ├── npmDependencySize.ts
 │   │   │   │   └── npmInstall.ts
-│   │   │   ├── unix-commands
-│   │   │   │   ├── base.ts
-│   │   │   │   ├── cat.ts
-│   │   │   │   ├── cd.ts
-│   │   │   │   ├── cp.ts
-│   │   │   │   ├── echo.ts
-│   │   │   │   ├── find.ts
-│   │   │   │   ├── grep.ts
-│   │   │   │   ├── help.ts
-│   │   │   │   ├── index.ts
-│   │   │   │   ├── ls.ts
-│   │   │   │   ├── mkdir.ts
-│   │   │   │   ├── mv.ts
-│   │   │   │   ├── pwd.ts
-│   │   │   │   ├── rm.ts
-│   │   │   │   ├── touch.ts
-│   │   │   │   └── tree.ts
-│   │   │   └── unix.ts
+│   │   │   ├── unix.ts
+│   │   │   └── unixOperations
+│   │   │       ├── base.ts
+│   │   │       ├── cat.ts
+│   │   │       ├── cd.ts
+│   │   │       ├── cp.ts
+│   │   │       ├── echo.ts
+│   │   │       ├── find.ts
+│   │   │       ├── grep.ts
+│   │   │       ├── help.ts
+│   │   │       ├── index.ts
+│   │   │       ├── ls.ts
+│   │   │       ├── mkdir.ts
+│   │   │       ├── mv.ts
+│   │   │       ├── pwd.ts
+│   │   │       ├── rm.ts
+│   │   │       ├── touch.ts
+│   │   │       └── tree.ts
 │   │   ├── commitMsgAI.ts
 │   │   ├── core
 │   │   │   ├── authRepository.ts
@@ -271,12 +271,12 @@
 45 directories, 224 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 34506
-合計文字数: 1136479
-合計ファイルサイズ(bytes): 1222182
+合計行数: 34273
+合計文字数: 1132055
+合計ファイルサイズ(bytes): 1216244
 
 リポジトリ全体のサイズ(bytes): 1.8G	.
 ==========
 ビルト済みファイルの行数: 14778
-合計文字数: 22236724
-合計ファイルサイズ(bytes): 23169792
+合計文字数: 22236748
+合計ファイルサイズ(bytes): 23169778
