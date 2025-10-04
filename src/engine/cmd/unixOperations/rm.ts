@@ -26,10 +26,10 @@ export class RmCommand extends UnixCommandBase {
       throw new Error('rm: missing operand\nUsage: rm [OPTION]... FILE...');
     }
 
-    const recursive = options.has('-r') || options.has('-R') || options.has('--recursive');
-    const force = options.has('-f') || options.has('--force');
-    const interactive = options.has('-i') || options.has('--interactive');
-    const verbose = options.has('-v') || options.has('--verbose');
+  const recursive = options.has('-r') || options.has('-R') || options.has('--recursive');
+  const force = options.has('-f') || options.has('--force');
+  const interactive = options.has('-i') || options.has('--interactive');
+  const verbose = options.has('-v') || options.has('--verbose');
 
     const results: string[] = [];
     const errors: string[] = [];
@@ -45,9 +45,37 @@ export class RmCommand extends UnixCommandBase {
         }
         for (const path of expanded) {
           try {
-            const result = await this.removeFileOrDirDeep(path, recursive, force, interactive, verbose);
-            if (result) {
-              results.push(result);
+            // ファイル種別判定
+            const normalizedPath = this.normalizePath(path);
+            const relativePath = this.getRelativePathFromProject(normalizedPath);
+            const files = await this.getAllFilesFromDB();
+            const file = files.find(f => f.path === relativePath);
+            if (!file) {
+              if (!force) errors.push(`rm: cannot remove '${path}': No such file or directory`);
+              continue;
+            }
+            const isDir = file.type === 'folder';
+
+            // -r, -f, -rf の厳密な使い分け
+            if (isDir) {
+              if (recursive) {
+                // -r, -rf, -fr: ディレクトリ削除
+                const result = await this.removeFileOrDirDeep(path, true, force, interactive, verbose);
+                if (result) results.push(result);
+              } else {
+                // -rなしでディレクトリ指定
+                errors.push(`rm: cannot remove '${path}': Is a directory`);
+              }
+            } else {
+              // ファイル
+              if (recursive && !force) {
+                // -rのみでファイル指定はエラー
+                errors.push(`rm: cannot remove '${path}': Not a directory`);
+              } else {
+                // -f, -rf, 何もなし: ファイル削除
+                const result = await this.removeFileOrDirDeep(path, false, force, interactive, verbose);
+                if (result) results.push(result);
+              }
             }
           } catch (error) {
             if (!force) {
