@@ -104,11 +104,35 @@ export class NodeRuntime {
         size: fileContent.length,
       });
 
+      // トランスパイルが必要か判定
+      let code = fileContent;
+      const needsTranspile = this.needsTranspile(filePath, fileContent);
+
+      if (needsTranspile) {
+        this.log('🔄 Transpiling main file:', filePath);
+        const { transpileManager } = await import('./transpileManager');
+        
+        const isTypeScript = /\.(ts|tsx|mts|cts)$/.test(filePath);
+        const isJSX = /\.(jsx|tsx)$/.test(filePath);
+        const isESModule = this.isESModule(fileContent);
+
+        const result = await transpileManager.transpile({
+          code: fileContent,
+          filePath,
+          isTypeScript,
+          isESModule,
+          isJSX,
+        });
+
+        code = result.code;
+        this.log('✅ Transpile completed');
+      }
+
       // サンドボックス環境を構築
       const sandbox = this.createSandbox(filePath);
 
-      // ModuleLoaderを使用してモジュールを実行
-      const wrappedCode = this.wrapCode(fileContent, filePath);
+      // コードを実行
+      const wrappedCode = this.wrapCode(code, filePath);
       const executeFunc = new Function(...Object.keys(sandbox), wrappedCode);
       
       this.log('✅ Code compiled successfully');
@@ -118,6 +142,41 @@ export class NodeRuntime {
       this.error('❌ Execution failed:', error);
       throw error;
     }
+  }
+
+  /**
+   * トランスパイルが必要か判定
+   */
+  private needsTranspile(filePath: string, content: string): boolean {
+    // TypeScriptファイル
+    if (/\.(ts|tsx|mts|cts)$/.test(filePath)) {
+      return true;
+    }
+
+    // JSXファイル
+    if (/\.(jsx|tsx)$/.test(filePath)) {
+      return true;
+    }
+
+    // ES Module構文を含む
+    if (this.isESModule(content)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * ES Moduleかどうかを判定
+   */
+  private isESModule(content: string): boolean {
+    // コメントと文字列を除外して判定
+    const cleaned = content
+      .replace(/\/\/.*$/gm, '')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/(['"`])(?:(?=(\\?))\2.)*?\1/g, '');
+
+    return /^\s*(import|export)\s+/m.test(cleaned);
   }
 
   /**

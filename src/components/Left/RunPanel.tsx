@@ -154,6 +154,15 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
         addOutput(String(pythonResult), 'log');
       } else {
         // Node.js実行 - 一時ファイルとして実行
+        // 一時ファイルをIndexedDBに作成
+        const { fileRepository } = await import('@/engine/core/fileRepository');
+        await fileRepository.createFile(
+          currentProject.id,
+          '/temp-code.js',
+          inputCode,
+          'file'
+        );
+        
         await executeNodeFile({
           projectId: currentProject.id,
           projectName: currentProject.name,

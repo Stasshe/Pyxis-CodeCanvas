@@ -315,26 +315,43 @@ function ClientTerminal({
               break;
             }
             try {
-              const { NodeJSRuntime } = await import('@/engine/runtime/nodeRuntime');
-              const runtime = new NodeJSRuntime(
-                currentProject,
-                currentProjectId,
-                (out: string, type: 'log' | 'error') => {
-                  if (type === 'error') {
-                    captureWriteOutput(`\x1b[31m${out}\x1b[0m`);
-                  } else {
-                    captureWriteOutput(out);
-                  }
-                }
-              );
-              const result = await runtime.executeFile(args[0]);
-              if (result.success && result.output) {
-                await captureWriteOutput(result.output);
-              } else if (!result.success && result.error) {
-                await captureWriteOutput(`\x1b[31m${result.error}\x1b[0m`);
-              }
+              const { NodeRuntime } = await import('@/engine/runtime/nodeRuntime');
+              
+              // デバッグコンソールを設定
+              const debugConsole = {
+                log: (...args: unknown[]) => {
+                  const output = args.map(arg => 
+                    typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+                  ).join(' ');
+                  captureWriteOutput(output);
+                },
+                error: (...args: unknown[]) => {
+                  const output = args.map(arg => 
+                    typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+                  ).join(' ');
+                  captureWriteOutput(`\x1b[31m${output}\x1b[0m`);
+                },
+                warn: (...args: unknown[]) => {
+                  const output = args.map(arg => 
+                    typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+                  ).join(' ');
+                  captureWriteOutput(`\x1b[33m${output}\x1b[0m`);
+                },
+                clear: () => {
+                  // Terminal clear is handled separately
+                },
+              };
+
+              const runtime = new NodeRuntime({
+                projectId: currentProjectId,
+                projectName: currentProject,
+                filePath: args[0],
+                debugConsole,
+              });
+
+              await runtime.execute(args[0]);
             } catch (e) {
-              await captureWriteOutput(`node: エラー: ${(e as Error).message}`);
+              await captureWriteOutput(`\x1b[31mnode: エラー: ${(e as Error).message}\x1b[0m`);
             }
             break;
 
