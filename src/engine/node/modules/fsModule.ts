@@ -7,7 +7,6 @@
  */
 
 import { fileRepository } from '@/engine/core/fileRepository';
-import { gitFileSystem } from '@/engine/core/gitFileSystem';
 
 export interface FSModuleOptions {
   projectDir: string;
@@ -17,11 +16,6 @@ export interface FSModuleOptions {
 
 export function createFSModule(options: FSModuleOptions) {
   const { projectDir, projectId, projectName } = options;
-  const fs = gitFileSystem.getFS();
-
-  if (!fs) {
-    throw new Error('ファイルシステムが初期化されていません');
-  }
 
   /**
    * パスを正規化してフルパスと相対パスを取得
@@ -121,16 +115,16 @@ export function createFSModule(options: FSModuleOptions) {
      */
     readFile: async (path: string, options?: any): Promise<string | Uint8Array> => {
       try {
-        const { fullPath } = normalizePath(path);
-        const content = await fs.promises.readFile(fullPath, { encoding: 'utf8' });
-
-        // エンコーディングが指定されていない場合はUint8Arrayを返す
+        const { relativePath } = normalizePath(path);
+        const files = await fileRepository.getProjectFiles(projectId);
+        const file = files.find(f => f.path === relativePath && f.type === 'file');
+        if (!file) throw new Error(`File not found: ${path}`);
+        const content = file.content ?? '';
         if (options && options.encoding === null) {
           const encoder = new TextEncoder();
-          return encoder.encode(content as string);
+          return encoder.encode(content);
         }
-
-        return content as string;
+        return content;
       } catch (error) {
         throw new Error(`ファイルの読み取りに失敗しました: ${path} - ${(error as Error).message}`);
       }
@@ -172,9 +166,9 @@ export function createFSModule(options: FSModuleOptions) {
      */
     existsSync: async (path: string): Promise<boolean> => {
       try {
-        const { fullPath } = normalizePath(path);
-        await fs.promises.stat(fullPath);
-        return true;
+        const { relativePath } = normalizePath(path);
+        const files = await fileRepository.getProjectFiles(projectId);
+        return files.some(f => f.path === relativePath);
       } catch {
         return false;
       }
@@ -252,8 +246,15 @@ export function createFSModule(options: FSModuleOptions) {
      */
     readdir: async (path: string, options?: any): Promise<string[]> => {
       try {
-        const { fullPath } = normalizePath(path);
-        return await fs.promises.readdir(fullPath);
+        const { relativePath } = normalizePath(path);
+        const files = await fileRepository.getProjectFiles(projectId);
+        const dirPath = relativePath.endsWith('/') ? relativePath : relativePath + '/';
+        // 直下のファイル/フォルダ名のみ返す
+        const children = files
+          .filter(f => f.path.startsWith(dirPath) && f.path !== dirPath)
+          .map(f => f.path.slice(dirPath.length).split('/')[0])
+          .filter((v, i, arr) => v && arr.indexOf(v) === i);
+        return children;
       } catch (error) {
         throw new Error(`ディレクトリの読み取りに失敗しました: ${path}`);
       }
@@ -286,17 +287,15 @@ export function createFSModule(options: FSModuleOptions) {
      */
     appendFile: async (path: string, data: string, options?: any): Promise<void> => {
       try {
-        const { fullPath } = normalizePath(path);
+        const { relativePath } = normalizePath(path);
         let existingContent = '';
-
         try {
-          existingContent = (await fs.promises.readFile(fullPath, {
-            encoding: 'utf8',
-          })) as string;
+          const files = await fileRepository.getProjectFiles(projectId);
+          const file = files.find(f => f.path === relativePath && f.type === 'file');
+          if (file) existingContent = file.content ?? '';
         } catch {
           // ファイルが存在しない場合は新規作成
         }
-
         await handleWriteFile(path, existingContent + data, true);
       } catch (error) {
         throw new Error(`ファイルへの追記に失敗しました: ${path}`);
@@ -308,8 +307,18 @@ export function createFSModule(options: FSModuleOptions) {
      */
     stat: async (path: string): Promise<any> => {
       try {
-        const { fullPath } = normalizePath(path);
-        return await fs.promises.stat(fullPath);
+        const { relativePath } = normalizePath(path);
+        const files = await fileRepository.getProjectFiles(projectId);
+        const file = files.find(f => f.path === relativePath);
+        if (!file) throw new Error(`File not found: ${path}`);
+        // 疑似的なstat情報を返す
+        return {
+          isFile: () => file.type === 'file',
+          isDirectory: () => file.type === 'folder',
+          size: file.content ? file.content.length : 0,
+          mtime: file.updatedAt,
+          ctime: file.createdAt,
+        };
       } catch (error) {
         throw new Error(`ファイル情報の取得に失敗しました: ${path}`);
       }
