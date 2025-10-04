@@ -2,6 +2,7 @@ import CodeMirror from '@uiw/react-codemirror';
 import { getCMExtensions } from './codemirror-utils';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { countCharsNoSpaces } from './editor-utils';
+import { useRef, useEffect } from 'react';
 
 interface CodeMirrorEditorProps {
   tabId: string;
@@ -23,6 +24,24 @@ export default function CodeMirrorEditor(props: CodeMirrorEditorProps) {
     tabSize,
     insertSpaces,
   } = props;
+
+  // CodeMirrorインスタンスのref
+  const cmRef = useRef<any>(null);
+
+  // contentの外部変更を強制反映
+  useEffect(() => {
+    if (cmRef.current) {
+      const view = cmRef.current.view;
+      if (view && view.state.doc.toString() !== content) {
+        // カーソル位置を維持しつつ内容を更新
+        const transaction = view.state.update({
+          changes: { from: 0, to: view.state.doc.length, insert: content },
+        });
+        view.dispatch(transaction);
+      }
+    }
+  }, [content]);
+
   return (
     <div
       tabIndex={0}
@@ -42,6 +61,7 @@ export default function CodeMirrorEditor(props: CodeMirrorEditorProps) {
     >
       <CodeMirror
         key={tabId}
+        ref={cmRef}
         value={content}
         height="100%"
         theme={oneDark}
