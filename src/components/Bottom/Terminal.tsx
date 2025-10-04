@@ -350,14 +350,19 @@ function ClientTerminal({
                 // 一時的な入力バッファ
                 let inputBuffer = '';
                 
+                // readline入力モードを有効化
+                isReadlineMode = true;
+                
                 // 入力ハンドラ
-                const inputHandler = (data: string) => {
+                readlineHandler = (data: string) => {
                   if (data === '\r') {
                     // Enter押下
                     term.write('\r\n');
                     const result = inputBuffer;
                     inputBuffer = '';
-                    disposable.dispose();
+                    // readline入力モードを解除
+                    isReadlineMode = false;
+                    readlineHandler = null;
                     callback(result);
                   } else if (data === '\u007F') {
                     // Backspace
@@ -369,15 +374,15 @@ function ClientTerminal({
                     // Ctrl+C
                     term.write('^C\r\n');
                     inputBuffer = '';
-                    disposable.dispose();
+                    // readline入力モードを解除
+                    isReadlineMode = false;
+                    readlineHandler = null;
                     callback('');
                   } else if (data >= ' ' || data === '\t') {
                     inputBuffer += data;
                     term.write(data);
                   }
                 };
-                
-                const disposable = term.onData(inputHandler);
               };
 
               const runtime = new NodeRuntime({
@@ -974,9 +979,19 @@ function ClientTerminal({
       }
     });
 
+    // readline入力モードフラグ
+    let isReadlineMode = false;
+    let readlineHandler: ((data: string) => void) | null = null;
+
     // 通常のキー入力
     term.onData((data: string) => {
       if (isComposing) return;
+      
+      // readline入力モード中は専用ハンドラに委譲
+      if (isReadlineMode && readlineHandler) {
+        readlineHandler(data);
+        return;
+      }
       switch (data) {
         case '\r':
           term.writeln('');
