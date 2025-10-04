@@ -243,8 +243,15 @@
 │   │   │       └── utilModule.ts
 │   │   ├── openTab.ts
 │   │   └── runtime
+│   │       ├── ARCHITECTURE.md
+│   │       ├── README.md
+│   │       ├── moduleCache.ts
+│   │       ├── moduleLoader.ts
+│   │       ├── moduleResolver.ts
 │   │       ├── nodeRuntime.ts
-│   │       └── pyodideRuntime.ts
+│   │       ├── pyodideRuntime.ts
+│   │       ├── transpileManager.ts
+│   │       └── transpileWorker.ts
 │   ├── hooks
 │   │   ├── ai
 │   │   │   ├── useAI.ts
@@ -269,11 +276,11 @@
 ├── tree.txt
 └── tsconfig.json
 
-45 directories, 225 files
+45 directories, 232 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 34195
-合計文字数: 1132627
-合計ファイルサイズ(bytes): 1217784
+合計行数: 35398
+合計文字数: 1152766
+合計ファイルサイズ(bytes): 1240176
 
 リポジトリ全体のサイズ(bytes): 2.0G	.
