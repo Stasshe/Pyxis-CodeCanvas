@@ -36,15 +36,33 @@ function babelPluginModuleTransform() {
         node.specifiers.forEach((spec: any) => {
           if (spec.type === 'ImportDefaultSpecifier') {
             // const defaultExport = (await __require__('module')).default || await __require__('module')
+            // ES Module互換: .defaultプロパティをチェック、なければmodule自体を使う
             declarations.push({
               type: 'VariableDeclarator',
               id: spec.local,
               init: {
-                type: 'AwaitExpression',
-                argument: {
-                  type: 'CallExpression',
-                  callee: { type: 'Identifier', name: '__require__' },
-                  arguments: [{ type: 'StringLiteral', value: source }],
+                type: 'LogicalExpression',
+                operator: '||',
+                left: {
+                  type: 'MemberExpression',
+                  object: {
+                    type: 'AwaitExpression',
+                    argument: {
+                      type: 'CallExpression',
+                      callee: { type: 'Identifier', name: '__require__' },
+                      arguments: [{ type: 'StringLiteral', value: source }],
+                    },
+                  },
+                  property: { type: 'Identifier', name: 'default' },
+                  computed: false,
+                },
+                right: {
+                  type: 'AwaitExpression',
+                  argument: {
+                    type: 'CallExpression',
+                    callee: { type: 'Identifier', name: '__require__' },
+                    arguments: [{ type: 'StringLiteral', value: source }],
+                  },
                 },
               },
             });
@@ -116,6 +134,7 @@ function babelPluginModuleTransform() {
       // export文を module.exports に変換
       ExportDefaultDeclaration(path: any) {
         const { node } = path;
+        // デフォルトエクスポートは module.exports.default に代入
         path.replaceWith({
           type: 'ExpressionStatement',
           expression: {
@@ -123,8 +142,13 @@ function babelPluginModuleTransform() {
             operator: '=',
             left: {
               type: 'MemberExpression',
-              object: { type: 'Identifier', name: 'module' },
-              property: { type: 'Identifier', name: 'exports' },
+              object: {
+                type: 'MemberExpression',
+                object: { type: 'Identifier', name: 'module' },
+                property: { type: 'Identifier', name: 'exports' },
+                computed: false,
+              },
+              property: { type: 'Identifier', name: 'default' },
               computed: false,
             },
             right: node.declaration,
@@ -186,6 +210,31 @@ function babelPluginModuleTransform() {
                     computed: false,
                   },
                   right: { type: 'Identifier', name: funcName },
+                },
+              },
+            ]);
+          } else if (node.declaration.type === 'ClassDeclaration') {
+            // export class Foo {} => class Foo {}; module.exports.Foo = Foo;
+            const className = node.declaration.id.name;
+            path.replaceWithMultiple([
+              node.declaration,
+              {
+                type: 'ExpressionStatement',
+                expression: {
+                  type: 'AssignmentExpression',
+                  operator: '=',
+                  left: {
+                    type: 'MemberExpression',
+                    object: {
+                      type: 'MemberExpression',
+                      object: { type: 'Identifier', name: 'module' },
+                      property: { type: 'Identifier', name: 'exports' },
+                      computed: false,
+                    },
+                    property: { type: 'Identifier', name: className },
+                    computed: false,
+                  },
+                  right: { type: 'Identifier', name: className },
                 },
               },
             ]);
