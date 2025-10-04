@@ -12,8 +12,6 @@
 import { useState, useEffect } from 'react';
 
 import { fileRepository } from './fileRepository';
-import { gitFileSystem } from './gitFileSystem';
-import { syncManager } from './syncManager';
 import { GitCommands } from '@/engine/cmd/git';
 
 import { LOCALSTORAGE_KEY } from '@/context/config';
@@ -26,26 +24,16 @@ import { Project, ProjectFile } from '@/types/';
 const initializeProjectGit = async (project: Project, files: ProjectFile[]) => {
   try {
     console.log('[Git] Initializing for project:', project.name);
-
-    gitFileSystem.init();
-    await new Promise(resolve => setTimeout(resolve, 200));
-
-    console.log('[Git] Syncing files to GitFileSystem...');
-    await syncManager.initializeProject(project.id, project.name, files);
-    await new Promise(resolve => setTimeout(resolve, 500));
-
+    // GitFileSystemやsyncManagerへの直接同期はfileRepository側に委譲
+    // ここではGitリポジトリの初期化と初回コミットのみ行う
     const git = new GitCommands(project.name, project.id);
     try {
       await git.init();
       console.log('[Git] Repository initialized');
-
       await new Promise(resolve => setTimeout(resolve, 200));
-
       await git.add('.');
       console.log('[Git] Files staged');
-
       await new Promise(resolve => setTimeout(resolve, 200));
-
       await git.commit('Initial commit', {
         name: 'Pyxis User',
         email: 'user@pyxis.dev',
@@ -162,14 +150,11 @@ export const useProject = () => {
     try {
       await fileRepository.init();
       const files = await fileRepository.getProjectFiles(project.id);
-
       setCurrentProject(project);
       setProjectFiles(files);
-
       try {
         const git = new GitCommands(project.name, project.id);
         const currentBranch = await git.getCurrentBranch();
-
         if (currentBranch === '(no git)') {
           console.log('[Project] Git not initialized, initializing...');
           await initializeProjectGit(project, files);
@@ -194,14 +179,10 @@ export const useProject = () => {
       console.error('[Project] No current project');
       return;
     }
-
     console.log('[Project] Saving file:', path);
-
     try {
       await fileRepository.init();
-
       const existingFile = projectFiles.find(f => f.path === path);
-
       if (existingFile) {
         const updatedFile = { ...existingFile, content, updatedAt: new Date() };
         await fileRepository.saveFile(updatedFile);
@@ -210,17 +191,7 @@ export const useProject = () => {
         await fileRepository.createFile(currentProject.id, path, content, 'file');
         console.log('[Project] File created (event system will update UI)');
       }
-
-      try {
-        await syncManager.syncSingleFileToFS(
-          currentProject.name,
-          path,
-          content,
-          existingFile ? 'update' : 'create'
-        );
-      } catch (syncError) {
-        console.warn('[Project] Filesystem sync failed (non-critical):', syncError);
-      }
+      // 同期処理はfileRepository側に委譲
     } catch (error) {
       console.error('[Project] Failed to save file:', error);
       throw error;
@@ -229,24 +200,14 @@ export const useProject = () => {
 
   const createFile = async (path: string, type: 'file' | 'folder', content = '') => {
     if (!currentProject) return;
-
     console.log('[Project] Creating:', type, path);
-
     try {
       if (type === 'file') {
         await ensureParentFolders(path);
       }
-
       await fileRepository.createFile(currentProject.id, path, content, type);
       console.log('[Project] Created (event system will update UI)');
-
-      if (type === 'file') {
-        try {
-          await syncManager.syncSingleFileToFS(currentProject.name, path, content, 'create');
-        } catch (syncError) {
-          console.warn('[Project] Filesystem sync failed (non-critical):', syncError);
-        }
-      }
+      // 同期処理はfileRepository側に委譲
     } catch (error) {
       console.error('[Project] Failed to create:', error);
       throw error;
@@ -256,25 +217,16 @@ export const useProject = () => {
   const ensureParentFolders = async (filePath: string) => {
     if (!currentProject) return;
     if (filePath.lastIndexOf('/') <= 0) return;
-
     const pathParts = filePath.split('/').filter(part => part !== '');
     let currentPath = '';
-
     for (let i = 0; i < pathParts.length - 1; i++) {
       currentPath += '/' + pathParts[i];
-
       const existingFolder = projectFiles.find(f => f.path === currentPath && f.type === 'folder');
-
       if (!existingFolder) {
         console.log('[Project] Creating missing folder:', currentPath);
         try {
           await fileRepository.createFile(currentProject.id, currentPath, '', 'folder');
-
-          try {
-            await syncManager.syncSingleFileToFS(currentProject.name, currentPath, '', 'create');
-          } catch (syncError) {
-            console.warn('[Project] Folder sync failed (non-critical):', syncError);
-          }
+          // 同期処理はfileRepository側に委譲
         } catch (error) {
           console.error('[Project] Failed to create parent folder:', currentPath, error);
           throw error;
@@ -285,34 +237,11 @@ export const useProject = () => {
 
   const deleteFile = async (fileId: string) => {
     if (!currentProject) return;
-
     try {
       const fileToDelete = projectFiles.find(f => f.id === fileId);
       console.log('[Project] Deleting:', fileToDelete?.path);
-
       await fileRepository.deleteFile(fileId);
-
-      if (fileToDelete && fileToDelete.type === 'folder') {
-        const childFiles = projectFiles.filter(f => f.path.startsWith(fileToDelete.path + '/'));
-        for (const child of childFiles) {
-          await fileRepository.deleteFile(child.id);
-        }
-      }
-
-      if (fileToDelete) {
-        try {
-          await syncManager.syncSingleFileToFS(
-            currentProject.name,
-            fileToDelete.path,
-            null,
-            'delete'
-          );
-          await gitFileSystem.flush();
-        } catch (syncError) {
-          console.warn('[Project] GitFileSystem delete failed:', syncError);
-        }
-      }
-
+      // 子ファイルや同期処理もfileRepository側に委譲
       console.log('[Project] Deleted (event system will update UI)');
     } catch (error) {
       console.error('[Project] Failed to delete:', error);
@@ -341,54 +270,26 @@ export const useProject = () => {
       console.log('[Terminal] No current project');
       return;
     }
-
     console.log('[Terminal] Syncing operation:', type, path);
-
     if (path === '.') {
       console.log('[Terminal] Dummy refresh operation');
       await refreshProjectFiles();
       return;
     }
-
     try {
       if (type === 'delete') {
         const files = await fileRepository.getProjectFiles(currentProject.id);
         const fileToDelete = files.find(f => f.path === path);
-
         if (fileToDelete) {
           await fileRepository.deleteFile(fileToDelete.id);
-
-          if (fileToDelete.type === 'folder') {
-            const childFiles = files.filter(f => f.path.startsWith(path + '/'));
-            for (const child of childFiles) {
-              await fileRepository.deleteFile(child.id);
-            }
-          }
-
-          try {
-            await syncManager.syncSingleFileToFS(currentProject.name, path, null, 'delete');
-            await gitFileSystem.flush();
-          } catch (syncError) {
-            console.warn('[Terminal] Filesystem delete failed (non-critical):', syncError);
-          }
         } else {
           const childFiles = files.filter(f => f.path.startsWith(path + '/'));
           for (const child of childFiles) {
             await fileRepository.deleteFile(child.id);
           }
-
-          if (childFiles.length > 0) {
-            try {
-              await syncManager.syncSingleFileToFS(currentProject.name, path, null, 'delete');
-              await gitFileSystem.flush();
-            } catch (syncError) {
-              console.warn('[Terminal] Filesystem delete failed (non-critical):', syncError);
-            }
-          }
         }
       } else {
         const existingFile = projectFiles.find(f => f.path === path);
-
         if (existingFile) {
           const updatedFile = bufferContent
             ? {
@@ -405,22 +306,7 @@ export const useProject = () => {
                 bufferContent: undefined,
                 updatedAt: new Date(),
               };
-
           await fileRepository.saveFile(updatedFile);
-
-          if (type === 'file') {
-            try {
-              await syncManager.syncSingleFileToFS(
-                currentProject.name,
-                path,
-                bufferContent ? '' : content,
-                'update',
-                bufferContent
-              );
-            } catch (syncError) {
-              console.warn('[Terminal] Filesystem update failed (non-critical):', syncError);
-            }
-          }
         } else {
           await fileRepository.createFile(
             currentProject.id,
@@ -430,17 +316,8 @@ export const useProject = () => {
             !!bufferContent,
             bufferContent
           );
-
-          if (type === 'file' || type === 'folder') {
-            try {
-              await syncManager.syncSingleFileToFS(currentProject.name, path, content, 'create');
-            } catch (syncError) {
-              console.warn('[Terminal] Filesystem creation failed (non-critical):', syncError);
-            }
-          }
         }
       }
-
       console.log('[Terminal] Operation completed (event system will update UI)');
     } catch (error) {
       console.error('[Terminal] Failed to sync operation:', error);

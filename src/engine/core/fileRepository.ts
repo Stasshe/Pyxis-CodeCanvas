@@ -568,15 +568,13 @@ export class FileRepository {
   ): Promise<void> {
     console.log(`[FileRepository.syncToGitFileSystem] START - path: ${path}, operation: ${operation}, type: ${fileType}`);
     try {
-      // .gitignoreチェック（作成・更新時のみ）
-      if (operation !== 'delete') {
-        const shouldIgnore = await this.shouldIgnorePathForGit(projectId, path);
-        if (shouldIgnore) {
-          console.log(`[FileRepository] Skipping GitFileSystem sync for ignored path: ${path}`);
-          return;
-        }
-        console.log(`[FileRepository.syncToGitFileSystem] Path not ignored, proceeding: ${path}`);
+      // .gitignoreチェック（全ての操作で適用）
+      const shouldIgnore = await this.shouldIgnorePathForGit(projectId, path);
+      if (shouldIgnore) {
+        console.log(`[FileRepository] Skipping GitFileSystem sync for ignored path: ${path}`);
+        return;
       }
+      console.log(`[FileRepository.syncToGitFileSystem] Path not ignored, proceeding: ${path}`);
 
       // 遅延インポートで循環参照を回避
       const { syncManager } = await import('./syncManager');
