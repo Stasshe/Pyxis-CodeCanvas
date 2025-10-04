@@ -5,6 +5,8 @@ import { FileItem, EditorPane } from '@/types';
 import { useTheme } from '@/context/ThemeContext';
 import { handleFileSelect } from '@/hooks/fileSelectHandlers';
 import { flattenPanes } from '@/hooks/pane';
+import { useSettings } from '@/hooks/useSettings';
+import { useProject } from '@/engine/core/project';
 
 // FileItem[]を平坦化する関数（tab.tsと同じ実装）
 function flattenFileItems(items: FileItem[]): FileItem[] {
@@ -100,9 +102,13 @@ export default function OperationWindow({
     onClose();
   };
 
+  // 設定から除外パターンを取得
+  const { currentProject } = useProject();
+  const { isExcluded } = useSettings(currentProject?.id);
+  // 除外判定はuseSettingsから取得
   // 検索ロジック（ファイル名・フォルダ名・パスのいずれかに一致）
   const allFiles = flattenFileItems(projectFiles).filter(
-    file => file.type === 'file' && !file.path.includes('node_modules/')
+    file => file.type === 'file' && !(typeof isExcluded === 'function' && isExcluded(file.path))
   );
   const filteredFiles: FileItem[] = searchQuery
     ? allFiles.filter(file => {

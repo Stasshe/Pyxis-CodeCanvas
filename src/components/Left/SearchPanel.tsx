@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react';
 import { Search, X, FileText, Folder } from 'lucide-react';
 import { FileItem } from '@/types';
 import { useTheme } from '@/context/ThemeContext';
-import { settingsManager } from '@/engine/core/settingsManager';
-import { PyxisSettings } from '@/types/settings';
+import { useSettings } from '@/hooks/useSettings';
 
 interface SearchPanelProps {
   files: FileItem[];
@@ -34,63 +33,17 @@ export default function SearchPanel({ files, projectId, onFileOpen }: SearchPane
   const [caseSensitive, setCaseSensitive] = useState(false);
   const [wholeWord, setWholeWord] = useState(false);
   const [useRegex, setUseRegex] = useState(false);
-  const [settings, setSettings] = useState<PyxisSettings | null>(null);
+  const { isExcluded } = useSettings(projectId);
 
-  // 設定を読み込み
-  useEffect(() => {
-    const loadSettings = async () => {
-      const loaded = await settingsManager.loadSettings(projectId);
-      setSettings(loaded);
-    };
-    loadSettings();
 
-    // 設定変更リスナー
-    const unsubscribe = settingsManager.addListener(projectId, newSettings => {
-      setSettings(newSettings);
-    });
 
-    return unsubscribe;
-  }, [projectId]);
-
-  // Glob パターンマッチング（簡易版）
-  const matchGlob = (path: string, pattern: string): boolean => {
-    // ** を含む場合
-    if (pattern.includes('**')) {
-      const regexPattern = pattern
-        .replace(/\*\*/g, '.*')
-        .replace(/\*/g, '[^/]*')
-        .replace(/\?/g, '.');
-      const regex = new RegExp(`^${regexPattern}$`);
-      return regex.test(path);
-    }
-
-    // * のみの場合
-    const regexPattern = pattern.replace(/\*/g, '[^/]*').replace(/\?/g, '.');
-    const regex = new RegExp(`^${regexPattern}$`);
-    return regex.test(path);
-  };
-
-  // 除外パターンに基づいてファイルをフィルタ
-  const shouldExcludeFile = (file: FileItem): boolean => {
-    if (!settings) return false;
-
-    const excludePatterns = settings.search.exclude;
-    for (const pattern of excludePatterns) {
-      if (matchGlob(file.path, pattern)) {
-        return true;
-      }
-    }
-    return false;
-  };
-
-  // 全ファイルを再帰的に取得（除外パターンを適用）
+  // 全ファイルを再帰的に取得（isExcludedを適用）
   const getAllFiles = (items: FileItem[]): FileItem[] => {
     const result: FileItem[] = [];
-
     const traverse = (items: FileItem[]) => {
       for (const item of items) {
         if (item.type === 'file') {
-          if (!shouldExcludeFile(item)) {
+          if (!isExcluded || !isExcluded(item.path)) {
             result.push(item);
           }
         } else if (item.children) {
@@ -98,7 +51,6 @@ export default function SearchPanel({ files, projectId, onFileOpen }: SearchPane
         }
       }
     };
-
     traverse(items);
     return result;
   };
