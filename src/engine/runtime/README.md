@@ -116,7 +116,70 @@ require('@vue/runtime-core') → /projects/my-project/node_modules/@vue/runtime-
 
 ---
 
-### 4. `moduleCache.ts`
+### 4. `transpileManager.ts` ⭐ NEW
+**役割**: SWC wasmを使用したトランスパイル管理
+
+**主な機能**:
+- Web Workerの作成と管理
+- SWC wasmによるAST変換
+- TypeScript/JSX/ES Module完全サポート
+- 自動メモリ管理（Worker終了）
+
+**使用例**:
+```typescript
+import { transpileManager } from '@/engine/runtime/transpileManager';
+
+const result = await transpileManager.transpile({
+  code: 'const x: number = 1;',
+  filePath: '/src/index.ts',
+  isTypeScript: true,
+  isESModule: true,
+});
+
+console.log(result.code); // トランスパイル済みコード
+console.log(result.dependencies); // 依存関係リスト
+```
+
+**処理フロー**:
+1. Web Workerを作成
+2. SWC wasmを初期化（Worker内）
+3. AST変換を実行
+4. 結果を返却
+5. Workerを即座に終了（メモリ解放）
+
+---
+
+### 5. `transpileWorker.ts` ⭐ NEW
+**役割**: Web Worker内でのSWC wasm実行
+
+**主な機能**:
+- SWC wasmの初期化
+- TypeScript → JavaScript変換
+- JSX → JavaScript変換
+- ES Module → CommonJS変換
+- 依存関係の抽出
+
+**SWCオプション**:
+```typescript
+{
+  jsc: {
+    parser: {
+      syntax: 'typescript', // or 'ecmascript'
+      tsx: true,
+      decorators: true,
+      dynamicImport: true,
+    },
+    target: 'es2020',
+  },
+  module: {
+    type: 'commonjs', // ES Module → CommonJS
+  },
+}
+```
+
+---
+
+### 6. `moduleCache.ts`
 **役割**: トランスパイル済みモジュールのキャッシュ管理
 
 **主な機能**:
@@ -238,15 +301,22 @@ require('@vue/runtime-core') → /projects/my-project/node_modules/@vue/runtime-
 - [x] ビルトインモジュール
 - [x] スコープ付きパッケージ (`@vue/xxx`)
 
+### ✅ 実装済み（SWC wasm統合完了！）
+- [x] SWC wasmによる本格的なトランスパイル
+- [x] Web Worker内でのトランスパイル実行
+- [x] TypeScript完全サポート（型チェック以外）
+- [x] JSX/TSXサポート
+- [x] 自動メモリ管理（Worker終了）
+
 ### 🚧 一部実装
-- [ ] TypeScript変換（型アノテーション削除のみ）
+- [ ] Source Map生成（SWC対応済みだが無効化中）
 - [ ] package.json exportsフィールド（基本的な対応のみ）
+- [ ] Workerプール（現在は都度作成）
 
 ### 📝 未実装（将来対応）
-- [ ] SWC wasmによる本格的なトランスパイル
-- [ ] Source Map生成
 - [ ] 条件付きexports（node/browser）
-- [ ] Web Worker内での実行
+- [ ] Source Map統合
+- [ ] Workerプールによる並列処理
 
 ---
 
@@ -322,11 +392,13 @@ LRU GCにより、常時一定のメモリフットプリント（±数MB）を�
 
 ## 今後の拡張予定
 
-1. **SWC wasm統合**: 本格的なTypeScript/JSXサポート
-2. **Web Worker化**: 重い処理をWorkerに移動
-3. **Source Map**: デバッグ体験の向上
-4. **Hot Module Replacement**: 開発効率の向上
-5. **プラグインシステム**: カスタムトランスパイラのサポート
+1. ✅ **SWC wasm統合**: 本格的なTypeScript/JSXサポート【完了！】
+2. ✅ **Web Worker化**: 重い処理をWorkerに移動【完了！】
+3. **Source Map統合**: デバッグ体験の向上（SWC対応済み、統合待ち）
+4. **Workerプール**: 並列トランスパイルによる高速化
+5. **Hot Module Replacement**: 開発効率の向上
+6. **プラグインシステム**: カスタムトランスパイラのサポート
+7. **キャッシュ最適化**: より賢いキャッシュ戦略
 
 ---
 

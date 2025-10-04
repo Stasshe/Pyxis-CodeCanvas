@@ -11,7 +11,7 @@
 import { fileRepository } from '@/engine/core/fileRepository';
 import { ModuleCache } from './moduleCache';
 import { ModuleResolver, type PackageJson } from './moduleResolver';
-import { transformESModules } from '@/engine/node/esModuleTransformer';
+import { transpileManager } from './transpileManager';
 
 /**
  * モジュール実行キャッシュ（循環参照対策）
@@ -199,7 +199,7 @@ export class ModuleLoader {
   }
 
   /**
-   * トランスパイル
+   * トランスパイル（SWC wasm使用）
    */
   private async transpile(
     filePath: string,
@@ -207,37 +207,38 @@ export class ModuleLoader {
     isTypeScript: boolean,
     isESModule: boolean
   ): Promise<string> {
-    let code = content;
+    try {
+      this.log('🔄 Transpiling with SWC wasm:', filePath);
 
-    // TypeScript変換（TODO: SWC wasmを使用）
-    if (isTypeScript) {
-      this.warn('⚠️ TypeScript transpilation is not fully implemented yet');
-      // 現時点では型アノテーションを単純に削除
-      code = this.stripTypeAnnotations(code);
+      // ファイル拡張子からJSXを判定
+      const isJSX = /\.(jsx|tsx)$/.test(filePath);
+
+      // SWC wasmでトランスパイル
+      const result = await transpileManager.transpile({
+        code: content,
+        filePath,
+        isTypeScript,
+        isESModule,
+        isJSX,
+      });
+
+      this.log('✅ Transpile completed:', {
+        filePath,
+        originalSize: content.length,
+        transpiledSize: result.code.length,
+        dependencies: result.dependencies.length,
+      });
+
+      return result.code;
+    } catch (error) {
+      this.error('❌ Transpile failed:', filePath, error);
+      // フォールバック: 元のコードを返す
+      this.warn('⚠️ Using original code without transpilation');
+      return content;
     }
-
-    // ES Module変換
-    if (isESModule) {
-      code = transformESModules(code);
-      this.log('🔄 Transformed ES Module to CommonJS');
-    }
-
-    return code;
   }
 
-  /**
-   * 型アノテーションを削除（簡易版）
-   */
-  private stripTypeAnnotations(code: string): string {
-    // 非常に簡易的な実装（本番ではSWC/TypeScript compilerを使用すべき）
-    return code
-      .replace(/:\s*\w+(\[\])?(\s*=)/g, '$2') // 変数の型アノテーション
-      .replace(/:\s*\w+(\[\])?\s*[,;)]/g, '$1') // 関数引数の型アノテーション
-      .replace(/<\w+>/g, '') // ジェネリクス
-      .replace(/as\s+\w+/g, '') // 型アサーション
-      .replace(/interface\s+\w+\s*{[^}]*}/g, '') // interface定義
-      .replace(/type\s+\w+\s*=[^;]+;/g, ''); // type定義
-  }
+
 
   /**
    * 依存関係を抽出

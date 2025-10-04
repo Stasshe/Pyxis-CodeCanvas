@@ -1,21 +1,22 @@
 /**
- * [NEW ARCHITECTURE] ES Module Transformer
+ * [LEGACY] ES Module Transformer
  *
- * ## 役割
- * ES ModulesをCommonJS形式に変換する
+ * ## 状態
+ * ⚠️ このファイルはレガシーです。新しいコードではtranspileManager（SWC wasm）を使用してください。
  * 
- * ## 設計方針
- * - 正規表現ベースの高度な変換（将来的にSWC wasmへ移行）
- * - import/export構文の完全サポート
- * - デフォルトエクスポート/インポートの適切な処理
- * - 名前付きエクスポート/インポートの処理
- * - re-export（export ... from）のサポート
- * - 動的import()のサポート（Promise返却）
- *
- * ## 将来実装
- * - SWC wasmによるAST変換
- * - Source Map生成
- * - より高度な構文サポート
+ * ## 役割
+ * ES ModulesをCommonJS形式に変換する（正規表現ベース）
+ * 
+ * ## 使用場面
+ * - フォールバック: SWC wasmが利用できない場合
+ * - 軽量変換: 単純なES Module構文のみの場合
+ * 
+ * ## 推奨
+ * 新しいコードでは `transpileManager` を使用してください:
+ * ```typescript
+ * import { transpileManager } from '@/engine/runtime/transpileManager';
+ * const result = await transpileManager.transpile({ code, filePath });
+ * ```
  */
 
 /**
