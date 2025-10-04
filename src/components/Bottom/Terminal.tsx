@@ -372,13 +372,14 @@ function ClientTerminal({
 
                       await captureWriteOutput(`\n  Store: ${storeName} (${items.length} items)`);
 
+                      // lightning-fs系は省略表示、それ以外は全件詳細表示
+                      const isLightningFS = dbName.includes('lightning') || dbName.includes('fs');
                       if (items.length === 0) {
                         await captureWriteOutput('    (empty)');
-                      } else {
+                      } else if (isLightningFS) {
                         for (let i = 0; i < Math.min(items.length, 10); i++) {
                           const item = items[i];
                           let summary = '';
-
                           if (typeof item === 'object' && item !== null) {
                             const keys = Object.keys(item);
                             if (keys.includes('id')) summary += `id: ${item.id}, `;
@@ -394,19 +395,42 @@ function ClientTerminal({
                               summary += `content: ${contentSize} chars, `;
                             }
                             summary = summary.replace(/, $/, '');
-
                             if (summary === '') {
                               summary = `{${keys.slice(0, 3).join(', ')}${keys.length > 3 ? '...' : ''}}`;
                             }
                           } else {
                             summary = String(item).slice(0, 100);
                           }
-
                           await captureWriteOutput(`    [${i}] ${summary}`);
                         }
-
                         if (items.length > 10) {
                           await captureWriteOutput(`    ... and ${items.length - 10} more items`);
+                        }
+                      } else {
+                        // 独自実装DBは全件詳細表示
+                        for (let i = 0; i < items.length; i++) {
+                          const item = items[i];
+                          let detail = '';
+                          if (typeof item === 'object' && item !== null) {
+                            const keys = Object.keys(item);
+                            detail += '{ ';
+                            for (const key of keys) {
+                              let value = item[key];
+                              if (key === 'content' || key === 'bufferContent') {
+                                if (typeof value === 'string') {
+                                  value = value.slice(0, 10) + (value.length > 10 ? '...' : '');
+                                } else if (value && typeof value === 'object') {
+                                  value = JSON.stringify(value).slice(0, 10) + (JSON.stringify(value).length > 10 ? '...' : '');
+                                }
+                              }
+                              detail += `${key}: ${JSON.stringify(value)}, `;
+                            }
+                            detail = detail.replace(/, $/, '');
+                            detail += ' }';
+                          } else {
+                            detail = String(item).slice(0, 100);
+                          }
+                          await captureWriteOutput(`    [${i}] ${detail}`);
                         }
                       }
                     } catch (storeError) {
