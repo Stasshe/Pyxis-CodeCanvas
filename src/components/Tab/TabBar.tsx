@@ -1,4 +1,4 @@
-import { X, Plus, Menu } from 'lucide-react';
+import { X, Plus, Menu, Trash2, Save, SplitSquareVertical, SplitSquareHorizontal, Minus } from 'lucide-react';
 import clsx from 'clsx';
 import React, { useState, useRef, useEffect } from 'react';
 import { useTabCloseConfirmation } from './useTabCloseConfirmation';
@@ -14,7 +14,6 @@ interface TabBarProps {
   onTabClose: (tabId: string) => void;
   onToggleBottomPanel: () => void;
   onAddTab?: () => void;
-  addEditorPane: () => void;
   removeEditorPane: () => void;
   toggleEditorLayout: () => void;
   editorLayout: string;
@@ -30,15 +29,10 @@ interface TabBarProps {
 export default function TabBar({
   tabs,
   activeTabId,
-  isBottomPanelVisible,
   onTabClick,
   onTabClose,
-  onToggleBottomPanel,
   onAddTab,
-  addEditorPane,
   removeEditorPane,
-  toggleEditorLayout,
-  editorLayout,
   editorId,
   removeAllTabs,
   availablePanes = [],
@@ -50,6 +44,8 @@ export default function TabBar({
   // メニューの開閉状態管理
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  // メニューを閉じる関数
+  const closeMenu = () => setMenuOpen(false);
 
   // タブコンテキストメニューの状態管理
   const [tabContextMenu, setTabContextMenu] = useState<{
@@ -63,18 +59,16 @@ export default function TabBar({
   // メニュー外クリックで閉じる
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setMenuOpen(false);
+      // メニュー
+      if (menuOpen && menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        closeMenu();
       }
-      if (tabContextMenuRef.current && !tabContextMenuRef.current.contains(event.target as Node)) {
+      // タブコンテキストメニュー
+      if (tabContextMenu.isOpen && tabContextMenuRef.current && !tabContextMenuRef.current.contains(event.target as Node)) {
         setTabContextMenu({ isOpen: false, tabId: '', x: 0, y: 0 });
       }
     }
-    if (menuOpen || tabContextMenu.isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    } else {
-      document.removeEventListener('mousedown', handleClickOutside);
-    }
+    document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
@@ -189,20 +183,23 @@ export default function TabBar({
       {/* メニューボタン */}
       <div className="flex items-center h-full pl-2 pr-1 gap-1 relative">
         <button
-          className="p-1 rounded hover:bg-accent"
-          style={{ background: undefined }}
+          className="p-1 rounded focus:outline-none focus:ring-2"
+          style={{
+            background: menuOpen ? colors.accentBg : undefined,
+            boxShadow: menuOpen ? `0 2px 8px 0 ${colors.border}` : undefined,
+          }}
           onClick={() => setMenuOpen(open => !open)}
+          title="ペインメニュー"
+          onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
+          onMouseLeave={e => (e.currentTarget.style.background = menuOpen ? colors.accentBg : '')}
         >
-          <Menu
-            size={20}
-            color={colors.accentFg}
-          />
+          <Menu size={20} color={colors.accentFg} />
         </button>
         {/* メニュー表示 */}
         {menuOpen && (
           <div
             ref={menuRef}
-            className="absolute top-10 left-0 bg-card border border-border rounded shadow-lg z-10 min-w-[120px] p-2 flex flex-col gap-2"
+            className="absolute top-11 left-0 bg-card border border-border rounded-lg shadow-2xl z-20 min-w-[180px] py-2 px-1 flex flex-col gap-1"
             style={{
               background: colors.cardBg,
               borderColor: colors.border,
@@ -214,69 +211,77 @@ export default function TabBar({
               touchAction: 'manipulation',
             }}
           >
-            <div className="flex gap-1 ml-2">
-              <button
-                className="px-2 py-1 text-xs bg-accent rounded"
-                onClick={() => {
-                  setMenuOpen(false);
-                  addEditorPane();
-                }}
-                title="ペイン追加"
-              >
-                ＋
-              </button>
-              <button
-                className="px-2 py-1 text-xs bg-destructive rounded"
-                onClick={() => {
-                  setMenuOpen(false);
-                  removeEditorPane();
-                }}
-                title="ペイン削除"
-              >
-                －
-              </button>
-              {onSplitPane && (
-                <>
-                  <button
-                    className="px-2 py-1 text-xs bg-secondary rounded"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      onSplitPane('vertical');
-                    }}
-                    title="縦分割"
-                  >
-                    ｜
-                  </button>
-                  <button
-                    className="px-2 py-1 text-xs bg-secondary rounded"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      onSplitPane('horizontal');
-                    }}
-                    title="横分割"
-                  >
-                    －
-                  </button>
-                </>
-              )}
-              <button
-                className="px-2 py-1 text-xs bg-warning rounded"
-                onClick={() => {
-                  setMenuOpen(false);
-                  removeAllTabs();
-                }}
-                title="タブ全削除"
-              >
-                🗑️
-              </button>
-              <button
-                className="px-2 py-1 text-xs bg-primary rounded"
-                onClick={handleSaveRestart}
-                title="保存再起動"
-              >
-                💾
-              </button>
-            </div>
+            <button
+              className="flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors"
+              style={{ color: colors.red }}
+              onClick={() => {
+                closeMenu();
+                removeEditorPane();
+              }}
+              title="ペイン削除"
+              onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
+              onMouseLeave={e => (e.currentTarget.style.background = '')}
+            >
+              <Minus size={16} color={colors.red} />
+              <span style={{ color: colors.foreground }}>ペイン削除</span>
+            </button>
+            {onSplitPane && (
+              <>
+                <button
+                  className="flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors"
+                  style={{ color: colors.accentFg }}
+                  onClick={() => {
+                    closeMenu();
+                    onSplitPane('vertical');
+                  }}
+                  title="縦分割"
+                  onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
+                  onMouseLeave={e => (e.currentTarget.style.background = '')}
+                >
+                  <SplitSquareVertical size={16} color={colors.accentFg} />
+                  <span style={{ color: colors.foreground }}>縦分割</span>
+                </button>
+                <button
+                  className="flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors"
+                  style={{ color: colors.accentFg }}
+                  onClick={() => {
+                    closeMenu();
+                    onSplitPane('horizontal');
+                  }}
+                  title="横分割"
+                  onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
+                  onMouseLeave={e => (e.currentTarget.style.background = '')}
+                >
+                  <SplitSquareHorizontal size={16} color={colors.accentFg} />
+                  <span style={{ color: colors.foreground }}>横分割</span>
+                </button>
+              </>
+            )}
+            <button
+              className="flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors"
+              style={{ color: colors.red }}
+              onClick={() => {
+                closeMenu();
+                removeAllTabs();
+              }}
+              title="タブ全削除"
+              onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
+              onMouseLeave={e => (e.currentTarget.style.background = '')}
+            >
+              <Trash2 size={16} color={colors.red} />
+              <span style={{ color: colors.foreground }}>タブ全削除</span>
+            </button>
+            <button
+              className="flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors"
+              style={{ color: colors.primary }}
+              onClick={handleSaveRestart}
+              title="保存再起動"
+              onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
+              onMouseLeave={e => (e.currentTarget.style.background = '')}
+            >
+              <Save size={16} color={colors.primary} />
+              <span style={{ color: colors.foreground }}>保存 & 再起動</span>
+            </button>
           </div>
         )}
       </div>

@@ -14,10 +14,8 @@ import { LOCALSTORAGE_KEY } from '@/context/config';
 import {
   setTabsForPane,
   setActiveTabIdForPane,
-  addEditorPane,
   removeEditorPane,
   splitPane,
-  resizePane,
   flattenPanes,
 } from '@/hooks/pane';
 import { active } from 'd3';
@@ -200,7 +198,6 @@ export default function PaneContainer({
           const actualPaneIndex = flatPanes.findIndex(p => p.id === pane.id);
           setFileSelectState({ open: true, paneIdx: actualPaneIndex });
         }}
-        addEditorPane={() => addEditorPane(allPanes, setEditors)}
         removeEditorPane={() => {
           // ペインが1つだけなら削除しない
           if (flattenPanes(allPanes).length <= 1) return;

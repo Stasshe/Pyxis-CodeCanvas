@@ -4,58 +4,6 @@ import type { Dispatch, SetStateAction } from 'react';
 
 import type { Tab, EditorPane, EditorLayoutType } from '@/types';
 
-export function addEditorPane(
-  editors: EditorPane[],
-  setEditors: Dispatch<SetStateAction<EditorPane[]>>,
-  parentId?: string,
-  layout: EditorLayoutType = 'vertical'
-) {
-  // 既存ID一覧を取得
-  const existingIds = getAllPaneIds(editors);
-  let nextNum = 1;
-  while (existingIds.includes(`editor-${nextNum}`)) {
-    nextNum++;
-  }
-  const newId = `editor-${nextNum}`;
-
-  if (parentId) {
-    // 親ペイン内に子ペインとして追加
-    setEditors(prev => {
-      return prev.map(pane =>
-        updatePaneRecursive(pane, parentId, targetPane => ({
-          ...targetPane,
-          layout,
-          children: [
-            ...(targetPane.children || []),
-            {
-              id: newId,
-              tabs: [], // 空のタブ配列で初期化
-              activeTabId: '', // 空のアクティブタブIDで初期化
-              parentId,
-              size: 50, // デフォルトは50%
-            },
-          ],
-        }))
-      );
-    });
-  } else {
-    // ルートレベルに追加
-    const newPane: EditorPane = {
-      id: newId,
-      tabs: [], // 空のタブ配列で初期化
-      activeTabId: '', // 空のアクティブタブIDで初期化
-      size: 100 / (editors.length + 1), // 均等分割
-    };
-
-    // 既存ペインのサイズを調整
-    setEditors(prev => {
-      const totalPanes = prev.length + 1;
-      const newSize = 100 / totalPanes;
-      return [...prev.map(pane => ({ ...pane, size: newSize })), newPane];
-    });
-  }
-}
-
 export function removeEditorPane(
   editors: EditorPane[],
   setEditors: Dispatch<SetStateAction<EditorPane[]>>,
