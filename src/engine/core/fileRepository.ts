@@ -383,6 +383,7 @@ export class FileRepository {
   /**
    * ファイル作成（既存の場合は更新）
    * 自動的にGitFileSystemに非同期同期される
+   * 親ディレクトリが存在しない場合は自動的に作成される
    */
   async createFile(
     projectId: string,
@@ -414,6 +415,9 @@ export class FileRepository {
       return existingFile;
     }
 
+    // 親ディレクトリの自動作成（再帰的）
+    await this.ensureParentDirectories(projectId, path, existingFiles);
+
     // 新規ファイル作成
     const file: ProjectFile = {
       id: generateUniqueId('file'),
@@ -439,6 +443,65 @@ export class FileRepository {
     });
 
     return file;
+  }
+
+  /**
+   * 親ディレクトリが存在しない場合は再帰的に作成
+   */
+  private async ensureParentDirectories(
+    projectId: string,
+    path: string,
+    existingFiles: ProjectFile[]
+  ): Promise<void> {
+    // ルートパスの場合は何もしない
+    if (path === '/' || !path.includes('/')) {
+      return;
+    }
+
+    // 親パスを取得
+    const parentPath = path.substring(0, path.lastIndexOf('/')) || '/';
+    
+    // ルートの場合は終了
+    if (parentPath === '/' || parentPath === '') {
+      return;
+    }
+
+    // 親ディレクトリが既に存在するかチェック
+    const parentExists = existingFiles.some(f => f.path === parentPath && f.type === 'folder');
+    
+    if (!parentExists) {
+      console.log(`[FileRepository] Creating parent directory: ${parentPath}`);
+      
+      // 親の親を再帰的に作成
+      await this.ensureParentDirectories(projectId, parentPath, existingFiles);
+      
+      // 親ディレクトリを作成（saveFileを直接呼び出して再帰を避ける）
+      const parentFile: ProjectFile = {
+        id: generateUniqueId('file'),
+        projectId,
+        path: parentPath,
+        name: parentPath.split('/').pop() || '',
+        content: '',
+        type: 'folder',
+        parentPath: parentPath.substring(0, parentPath.lastIndexOf('/')) || '/',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        isBufferArray: false,
+        bufferContent: undefined,
+      };
+      
+      await this.saveFile(parentFile);
+      
+      // existingFilesにも追加して、後続の処理で使えるようにする
+      existingFiles.push(parentFile);
+      
+      // ファイル作成イベントを発火
+      this.emitChange({
+        type: 'create',
+        projectId,
+        file: parentFile,
+      });
+    }
   }
 
   /**

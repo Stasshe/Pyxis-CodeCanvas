@@ -70,15 +70,14 @@ export class NpmInstall {
     );
 
     // キューに溜まった操作を並列実行（適度な並列度で）
+    // 注: フォルダ操作は executeFileOperation で既に即座に実行されているためスキップ
     const BATCH_SIZE = 5;
     for (let i = 0; i < this.fileOperationQueue.length; i += BATCH_SIZE) {
       const batch = this.fileOperationQueue.slice(i, i + BATCH_SIZE);
       await Promise.all(
         batch.map(async op => {
           try {
-            if (op.type === 'folder') {
-              await fileRepository.createFile(this.projectId, op.path, '', 'folder');
-            } else if (op.type === 'file') {
+            if (op.type === 'file') {
               await fileRepository.createFile(this.projectId, op.path, op.content || '', 'file');
             } else if (op.type === 'delete') {
               const files = await fileRepository.getProjectFiles(this.projectId);
@@ -87,6 +86,7 @@ export class NpmInstall {
                 await fileRepository.deleteFile(fileToDelete.id);
               }
             }
+            // フォルダはスキップ（既に作成済み）
           } catch (error) {
             console.warn(`[npmInstall] Failed to execute operation for ${op.path}:`, error);
           }
@@ -106,8 +106,13 @@ export class NpmInstall {
     content?: string
   ): Promise<void> {
     if (this.batchProcessing) {
-      // バッチモードの場合はキューに追加
-      this.fileOperationQueue.push({ path, type, content });
+      // バッチモードでもフォルダは即座に作成（親ディレクトリの存在が必要なため）
+      if (type === 'folder') {
+        await fileRepository.createFile(this.projectId, path, '', 'folder');
+      } else {
+        // ファイルと削除操作はキューに追加
+        this.fileOperationQueue.push({ path, type, content });
+      }
     } else {
       // 通常モードの場合は即座に実行
       if (type === 'folder') {
