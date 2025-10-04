@@ -41,6 +41,20 @@ const commonConfig = {
       ];
       config.output.globalObject = 'globalThis';
     }
+
+    // WASMサポートを追加
+    config.experiments = {
+      ...config.experiments,
+      asyncWebAssembly: true,
+      layers: true,
+    };
+
+    // WASMファイルをassetとして扱う
+    config.module.rules.push({
+      test: /\.wasm$/,
+      type: 'asset/resource',
+    });
+
     return config;
   },
 };

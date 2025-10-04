@@ -13,6 +13,7 @@
     "preview": "npx serve out"
   },
   "dependencies": {
+    "@babel/standalone": "^7.28.4",
     "@codemirror/lang-css": "^6.3.1",
     "@codemirror/lang-html": "^6.4.9",
     "@codemirror/lang-javascript": "^6.2.4",
@@ -63,6 +64,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
+    "@types/babel__standalone": "^7.1.9",
     "@types/html2pdf.js": "^0.10.0",
     "@types/node": "^20.19.2",
     "@types/pako": "^2.0.3",

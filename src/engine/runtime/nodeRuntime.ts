@@ -139,7 +139,12 @@ export class NodeRuntime {
       await executeFunc(...Object.values(sandbox));
       this.log('✅ Execution completed');
     } catch (error) {
-      this.error('❌ Execution failed:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : '';
+      this.error('❌ Execution failed:', errorMessage);
+      if (errorStack) {
+        this.error('Stack trace:', errorStack);
+      }
       throw error;
     }
   }

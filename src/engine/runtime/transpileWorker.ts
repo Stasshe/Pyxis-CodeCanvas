@@ -2,18 +2,18 @@
  * [NEW ARCHITECTURE] Transpile Worker
  * 
  * ## 役割
- * Web Worker内でSWC wasmを使用してトランスパイルを実行
+ * Web Worker内でBabel standaloneを使用してトランスパイルを実行
  * メインスレッドをブロックせず、完了後にWorkerを即座に終了してメモリを解放
  * 
  * ## 処理フロー
- * 1. SWC wasmを初期化
+ * 1. Babel standaloneを初期化
  * 2. TypeScript/JSX/ES Moduleをトランスパイル
  * 3. 依存関係を抽出
  * 4. 結果をメインスレッドに返す
  * 5. Worker終了
  */
 
-import * as swc from '@swc/wasm-web';
+import * as Babel from '@babel/standalone';
 
 /**
  * トランスパイルリクエスト
@@ -40,76 +40,63 @@ export interface TranspileResult {
   error?: string;
 }
 
-let swcInitialized = false;
-
-/**
- * SWCを初期化
- */
-async function initializeSWC(): Promise<void> {
-  if (swcInitialized) return;
-  
-  try {
-    await swc.default();
-    swcInitialized = true;
-    console.log('✅ SWC wasm initialized in worker');
-  } catch (error) {
-    console.error('❌ Failed to initialize SWC wasm:', error);
-    throw error;
-  }
-}
-
 /**
  * トランスパイル実行
  */
-async function transpile(request: TranspileRequest): Promise<TranspileResult> {
+function transpile(request: TranspileRequest): TranspileResult {
   try {
-    // SWCを初期化
-    await initializeSWC();
-
-    // ファイル拡張子を判定
-    const ext = request.filePath.split('.').pop() || 'js';
+    const { code, filePath, options } = request;
     
-    // SWCオプションを構築
-    const swcOptions: swc.Options = {
-      filename: request.filePath,
-      sourceMaps: false, // 将来的にtrue
-      jsc: {
-        parser: request.options.isTypeScript
-          ? {
-              syntax: 'typescript',
-              tsx: request.options.isJSX || ext === 'tsx',
-              decorators: true,
-              dynamicImport: true,
-            }
-          : {
-              syntax: 'ecmascript',
-              jsx: request.options.isJSX || ext === 'jsx',
-              decorators: true,
-              dynamicImport: true,
-            },
-        target: 'es2020',
-        transform: {
-          react: {
-            runtime: 'automatic',
-            development: false,
-          },
+    // ファイル拡張子を判定
+    const ext = filePath.split('.').pop() || 'js';
+    
+    // Babelプリセットとプラグインを構築
+    const presets: [string, any][] = [];
+    const plugins: any[] = [];
+
+    // TypeScriptサポート
+    if (options.isTypeScript) {
+      presets.push([
+        'typescript',
+        {
+          isTSX: options.isJSX || ext === 'tsx',
+          allExtensions: true,
         },
-        externalHelpers: false,
-        keepClassNames: true,
-      },
-      module: {
-        type: 'commonjs',
-        strict: false,
-        strictMode: false,
-        lazy: false,
-        noInterop: false,
-      },
-      minify: false,
-      isModule: request.options.isESModule,
-    };
+      ]);
+    }
+
+    // Reactサポート
+    if (options.isJSX || ext === 'jsx' || ext === 'tsx') {
+      presets.push([
+        'react',
+        {
+          runtime: 'automatic',
+          development: false,
+        },
+      ]);
+    }
+
+    // ES Moduleサポート（CommonJSに変換）
+    if (options.isESModule) {
+      plugins.push(
+        ['@babel/plugin-transform-modules-commonjs', { strict: false }]
+      );
+    }
 
     // トランスパイル実行
-    const result = await swc.transform(request.code, swcOptions);
+    const result = Babel.transform(code, {
+      filename: filePath,
+      presets,
+      plugins,
+      sourceMaps: false, // 将来的にtrue
+      sourceType: options.isESModule ? 'module' : 'script',
+      compact: false,
+      retainLines: true,
+    });
+
+    if (!result.code) {
+      throw new Error('Babel transform returned empty code');
+    }
 
     // 依存関係を抽出
     const dependencies = extractDependencies(result.code);
@@ -117,16 +104,18 @@ async function transpile(request: TranspileRequest): Promise<TranspileResult> {
     return {
       id: request.id,
       code: result.code,
-      sourceMap: result.map,
+      sourceMap: result.map ? JSON.stringify(result.map) : undefined,
       dependencies,
     };
   } catch (error) {
-    console.error('❌ Transpile error:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('❌ Transpile error:', errorMessage);
+    
     return {
       id: request.id,
       code: '',
       dependencies: [],
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage,
     };
   }
 }
@@ -135,39 +124,41 @@ async function transpile(request: TranspileRequest): Promise<TranspileResult> {
  * 依存関係を抽出
  */
 function extractDependencies(code: string): string[] {
-  const deps: string[] = [];
-  
-  // require()を抽出
+  const dependencies = new Set<string>();
+
+  // require('module') パターン
   const requireRegex = /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
   let match;
   while ((match = requireRegex.exec(code)) !== null) {
-    deps.push(match[1]);
+    dependencies.add(match[1]);
   }
 
-  // import文を抽出（念のため）
-  const importRegex = /import\s+.*?from\s+['"]([^'"]+)['"]/g;
+  // import 文（トランスパイル後にrequireに変換されているはず）
+  // 念のため import from パターンも検出
+  const importRegex = /import\s+(?:[\w*{}\s,]+\s+from\s+)?['"]([^'"]+)['"]/g;
   while ((match = importRegex.exec(code)) !== null) {
-    deps.push(match[1]);
+    dependencies.add(match[1]);
   }
 
-  return [...new Set(deps)]; // 重複を削除
+  return Array.from(dependencies);
 }
 
 /**
- * Workerメッセージハンドラ
+ * メッセージハンドラー
  */
-self.addEventListener('message', async (event: MessageEvent<TranspileRequest>) => {
+self.addEventListener('message', (event: MessageEvent<TranspileRequest>) => {
   const request = event.data;
   
   try {
-    const result = await transpile(request);
+    const result = transpile(request);
     self.postMessage(result);
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
     self.postMessage({
       id: request.id,
       code: '',
       dependencies: [],
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage,
     } as TranspileResult);
   }
   
@@ -175,5 +166,4 @@ self.addEventListener('message', async (event: MessageEvent<TranspileRequest>) =
   self.close();
 });
 
-// 初期化メッセージ
-self.postMessage({ type: 'ready' });
+console.log('✅ Transpile worker initialized with Babel standalone');
