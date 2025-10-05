@@ -40,9 +40,5 @@
     ],
     "autoSave": "off",
     "autoSaveDelay": 1000
-  },
-  "terminal": {
-    "fontSize": 14,
-    "cursorStyle": "block"
   }
 }

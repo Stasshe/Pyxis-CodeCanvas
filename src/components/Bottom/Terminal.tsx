@@ -14,7 +14,6 @@ import { handleUnixCommand } from './TerminalUnixCommands';
 import { handleNPMCommand } from './TerminalNPMCommands';
 import { exportPage } from '@/engine/export/exportPage';
 import { LOCALSTORAGE_KEY } from '@/context/config';
-import { useSettings } from '@/hooks/useSettings';
 
 interface TerminalProps {
   height: number;
@@ -37,7 +36,6 @@ function ClientTerminal({
   const unixCommandsRef = useRef<UnixCommands | null>(null);
   const gitCommandsRef = useRef<GitCommands | null>(null);
   const npmCommandsRef = useRef<NpmCommands | null>(null);
-  const { settings } = useSettings(currentProjectId);
 
   // xterm/fitAddonをrefで保持
   useEffect(() => {
@@ -77,9 +75,6 @@ function ClientTerminal({
     const { WebLinksAddon } = require('@xterm/addon-web-links');
 
     // ターミナルの初期化
-    // settingsからターミナル見た目設定を取得
-    const terminalFontSize = settings?.terminal?.fontSize ?? 13;
-    const terminalCursorStyle = settings?.terminal?.cursorStyle ?? 'block';
     const term = new XTerm({
       theme: {
         background: colors.editorBg,
@@ -102,10 +97,9 @@ function ClientTerminal({
         brightCyan: '#29b8db',
         brightWhite: '#e5e5e5',
       },
-      fontSize: terminalFontSize,
+      fontSize: 13,
       fontFamily: 'Menlo, Monaco, "Courier New", monospace',
       cursorBlink: true,
-      cursorStyle: terminalCursorStyle,
       scrollback: 5000,
       allowTransparency: false,
       bellStyle: 'none',

@@ -32,12 +32,6 @@ export interface PyxisSettings {
     autoSave: 'off' | 'afterDelay' | 'onFocusChange' | 'onWindowChange';
     autoSaveDelay: number;
   };
-
-  // ターミナル設定
-  terminal: {
-    fontSize: number;
-    cursorStyle: 'block' | 'underline' | 'bar';
-  };
 }
 
 /**
@@ -81,9 +75,5 @@ export const DEFAULT_PYXIS_SETTINGS: PyxisSettings = {
     ],
     autoSave: 'off',
     autoSaveDelay: 1000,
-  },
-  terminal: {
-    fontSize: 13,
-    cursorStyle: 'block',
   },
 };
