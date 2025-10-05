@@ -21,7 +21,6 @@
  */
 import * as Babel from '@babel/standalone';
 import { normalizeCjsEsm } from './normalizeCjsEsm';
-import { runtimeInfo } from './runtimeLogger';
 
 // transpileWorker runs inside a WebWorker context; runtime logger may not be available here.
 // Use console for worker-level diagnostics and ensure messages are concise.
@@ -103,9 +102,7 @@ function transpile(request: TranspileRequest): TranspileResult {
       compact: false,
       retainLines: true,
     });
-
-    runtimeInfo('Babel transform completed',normalizedCode);
-
+    
     if (!result || !result.code) {
       throw new Error('Babel transform returned empty code');
     }

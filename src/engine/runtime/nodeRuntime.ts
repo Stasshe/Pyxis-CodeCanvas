@@ -78,7 +78,7 @@ export class NodeRuntime {
    */
   async execute(filePath: string): Promise<void> {
     try {
-  runtimeInfo('▶️ Executing file:', filePath);
+      runtimeInfo('▶️ Executing file:', filePath);
 
       // ModuleLoaderを初期化
       await this.moduleLoader.init();
@@ -99,7 +99,7 @@ export class NodeRuntime {
       const needsTranspile = this.needsTranspile(filePath, fileContent);
 
       if (needsTranspile) {
-  runtimeInfo('🔄 Transpiling main file:', filePath);
+        runtimeInfo('🔄 Transpiling main file:', filePath);
         
         const isTypeScript = /\.(ts|tsx|mts|cts)$/.test(filePath);
         const isJSX = /\.(jsx|tsx)$/.test(filePath);
@@ -114,7 +114,8 @@ export class NodeRuntime {
         });
 
         code = result.code;
-  runtimeInfo('✅ Transpile completed');
+        runtimeInfo('✅ Transpile completed',code);
+        fileRepository.createFile(this.projectId, '/cache/j.js', code,'file');
       }
 
       // サンドボックス環境を構築
