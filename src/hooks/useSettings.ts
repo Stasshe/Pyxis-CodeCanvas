@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 
-import { settingsManager } from '@/engine/core/settingsManager';
+import { settingsManager } from '@/engine/helper/settingsManager';
 import { PyxisSettings } from '@/types/settings';
 
 export function useSettings(projectId?: string) {

@@ -9,7 +9,7 @@ import http from 'isomorphic-git/http/web';
 
 import { parseGitHubUrl } from './github/utils';
 
-import { authRepository } from '@/engine/core/authRepository';
+import { authRepository } from '@/engine/user/authRepository';
 
 
 export interface FetchOptions {

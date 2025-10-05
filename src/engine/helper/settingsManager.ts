@@ -2,7 +2,7 @@
  * SettingsManager - .pyxis/settings.json の読み書きを管理
  */
 
-import { fileRepository } from './fileRepository';
+import { fileRepository } from '@/engine/core/fileRepository';
 
 import { PyxisSettings, DEFAULT_PYXIS_SETTINGS } from '@/types/settings';
 

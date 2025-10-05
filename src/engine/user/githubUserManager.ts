@@ -3,7 +3,7 @@
  * React Context外からもGitHubユーザー情報にアクセスできるようにする
  */
 
-import { authRepository } from '@/engine/core/authRepository';
+import { authRepository } from './authRepository';
 
 export interface GitHubUser {
   login: string;

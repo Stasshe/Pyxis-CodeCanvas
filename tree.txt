@@ -210,17 +210,13 @@
 │   │   │       └── tree.ts
 │   │   ├── commitMsgAI.ts
 │   │   ├── core
-│   │   │   ├── authRepository.ts
 │   │   │   ├── coreLogger.ts
-│   │   │   ├── crypto.ts
 │   │   │   ├── database.ts
 │   │   │   ├── fileRepository.ts
 │   │   │   ├── filesystem.ts
 │   │   │   ├── gitFileSystem.ts
-│   │   │   ├── githubUserManager.ts
 │   │   │   ├── gitignore.ts
 │   │   │   ├── project.ts
-│   │   │   ├── settingsManager.ts
 │   │   │   └── syncManager.ts
 │   │   ├── export
 │   │   │   ├── exportFolderZip.ts
@@ -233,7 +229,8 @@
 │   │   ├── fileWatcher.ts
 │   │   ├── helper
 │   │   │   ├── isBufferArray.ts
-│   │   │   └── resize.ts
+│   │   │   ├── resize.ts
+│   │   │   └── settingsManager.ts
 │   │   ├── import
 │   │   │   └── importSingleFile.ts
 │   │   ├── initialFileContents.ts
@@ -248,17 +245,21 @@
 │   │   │       ├── readlineModule.ts
 │   │   │       └── utilModule.ts
 │   │   ├── openTab.ts
-│   │   └── runtime
-│   │       ├── moduleCache.ts
-│   │       ├── moduleLoader.ts
-│   │       ├── moduleResolver.ts
-│   │       ├── nodeRuntime.ts
-│   │       ├── normalizeCjsEsm.ts
-│   │       ├── pathUtils.ts
-│   │       ├── pyodideRuntime.ts
-│   │       ├── runtimeLogger.ts
-│   │       ├── transpileManager.ts
-│   │       └── transpileWorker.ts
+│   │   ├── runtime
+│   │   │   ├── moduleCache.ts
+│   │   │   ├── moduleLoader.ts
+│   │   │   ├── moduleResolver.ts
+│   │   │   ├── nodeRuntime.ts
+│   │   │   ├── normalizeCjsEsm.ts
+│   │   │   ├── pathUtils.ts
+│   │   │   ├── pyodideRuntime.ts
+│   │   │   ├── runtimeLogger.ts
+│   │   │   ├── transpileManager.ts
+│   │   │   └── transpileWorker.ts
+│   │   └── user
+│   │       ├── authRepository.ts
+│   │       ├── crypto.ts
+│   │       └── githubUserManager.ts
 │   ├── hooks
 │   │   ├── ai
 │   │   │   ├── useAI.ts
@@ -294,15 +295,15 @@
 ├── tree.txt
 └── tsconfig.json
 
-48 directories, 247 files
+49 directories, 247 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 36800
-合計文字数: 1211976
-合計ファイルサイズ(bytes): 1301388
+合計行数: 36817
+合計文字数: 1211674
+合計ファイルサイズ(bytes): 1301111
 
-リポジトリ全体のサイズ(bytes): 2.1G	.
+リポジトリ全体のサイズ(bytes): 1.9G	.
 ==========
 ビルト済みファイルの行数: 14778
-合計文字数: 25335399
-合計ファイルサイズ(bytes): 26288513
+合計文字数: 25335823
+合計ファイルサイズ(bytes): 26288939

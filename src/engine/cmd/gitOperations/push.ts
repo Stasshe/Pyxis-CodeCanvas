@@ -11,7 +11,7 @@ import { GitHubAPI } from './github/GitHubAPI';
 import { TreeBuilder } from './github/TreeBuilder';
 import { parseGitHubUrl } from './github/utils';
 
-import { authRepository } from '@/engine/core/authRepository';
+import { authRepository } from '@/engine/user/authRepository';
 
 export interface PushOptions {
   remote?: string;

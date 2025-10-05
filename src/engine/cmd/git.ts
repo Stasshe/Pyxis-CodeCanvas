@@ -10,7 +10,7 @@ import { GitMergeOperations } from './gitOperations/merge';
 import { GitResetOperations } from './gitOperations/reset';
 import { GitRevertOperations } from './gitOperations/revert';
 
-import { authRepository } from '@/engine/core/authRepository';
+import { authRepository } from '@/engine/user/authRepository';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
 import { syncManager } from '@/engine/core/syncManager';

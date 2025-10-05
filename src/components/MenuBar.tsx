@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useState } from 'react';
-import { authRepository } from '@/engine/core/authRepository';
+import { authRepository } from '@/engine/user/authRepository';
 import { useGitHubUser } from '@/context/GitHubUserContext';
 import { MenuTab } from '../types';
 

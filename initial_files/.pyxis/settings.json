@@ -41,10 +41,6 @@
     "autoSave": "off",
     "autoSaveDelay": 1000
   },
-  "git": {
-    "enabled": true,
-    "autoFetch": false
-  },
   "terminal": {
     "fontSize": 14,
     "cursorStyle": "block"

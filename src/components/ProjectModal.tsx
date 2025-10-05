@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Plus, Folder, Trash2, Edit, GitBranch } from 'lucide-react';
 import { projectDB } from '@/engine/core/database';
 import { fileRepository } from '@/engine/core/fileRepository';
-import { authRepository } from '@/engine/core/authRepository';
+import { authRepository } from '@/engine/user/authRepository';
 import { Project } from '@/types';
 
 interface ProjectModalProps {

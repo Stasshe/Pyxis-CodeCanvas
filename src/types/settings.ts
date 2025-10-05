@@ -33,12 +33,6 @@ export interface PyxisSettings {
     autoSaveDelay: number;
   };
 
-  // Git設定
-  git: {
-    enabled: boolean;
-    autoFetch: boolean;
-  };
-
   // ターミナル設定
   terminal: {
     fontSize: number;
@@ -88,12 +82,8 @@ export const DEFAULT_PYXIS_SETTINGS: PyxisSettings = {
     autoSave: 'off',
     autoSaveDelay: 1000,
   },
-  git: {
-    enabled: true,
-    autoFetch: false,
-  },
   terminal: {
-    fontSize: 14,
+    fontSize: 13,
     cursorStyle: 'block',
   },
 };

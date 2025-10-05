@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { downloadWorkspaceZip } from '@/engine/export/exportRepo';
 import type { Project } from '@/types';
-import { settingsManager } from '@/engine/core/settingsManager';
+import { settingsManager } from '@/engine/helper/settingsManager';
 import type { PyxisSettings } from '@/types/settings';
 import { LOCALSTORAGE_KEY } from '@/context/config';
 
