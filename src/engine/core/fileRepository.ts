@@ -8,6 +8,8 @@ import { Project, ProjectFile, ChatSpace, ChatSpaceMessage } from '@/types';
 import { initialFileContents } from '@/engine/initialFileContents';
 import { LOCALSTORAGE_KEY } from '@/context/config';
 import { coreInfo, coreWarn, coreError } from '@/engine/core/coreLogger';
+import { gitFileSystem } from './gitFileSystem';
+import { parseGitignore, isPathIgnored, GitIgnoreRule } from './gitignore';
 
 // ユニークID生成関数
 const generateUniqueId = (prefix: string): string => {
@@ -33,6 +35,12 @@ export class FileRepository {
   private db: IDBDatabase | null = null;
   private static instance: FileRepository | null = null;
   private projectNameCache: Map<string, string> = new Map(); // projectId -> projectName
+
+  // .gitignore ルールのキャッシュ: projectId -> { rules(parsed), timestamp }
+  private gitignoreCache: Map<string, { rules: GitIgnoreRule[]; ts: number }> = new Map();
+
+  // キャッシュの TTL（ミリ秒） - 5分
+  private readonly GITIGNORE_CACHE_TTL_MS = 5 * 60 * 1000;
 
   // イベントリスナー管理
   private listeners: Set<FileChangeListener> = new Set();
@@ -370,7 +378,6 @@ export class FileRepository {
    */
   private async deleteProjectFromGitFS(projectName: string): Promise<void> {
     try {
-      const { gitFileSystem } = await import('./gitFileSystem');
       await gitFileSystem.deleteProject(projectName);
       coreInfo(`[FileRepository] Deleted project from GitFileSystem: ${projectName}`);
     } catch (error) {
@@ -520,6 +527,19 @@ export class FileRepository {
       request.onerror = () => reject(request.error);
       request.onsuccess = async () => {
         coreInfo(`[FileRepository] File saved: ${updatedFile.path} (${updatedFile.type})`);
+        // .gitignore の変更ならキャッシュを更新/削除
+        try {
+          if (updatedFile.path === '/.gitignore') {
+            // content が空の場合は削除とみなす
+            if (!updatedFile.content || updatedFile.content.trim() === '') {
+              this.clearGitignoreCache(updatedFile.projectId);
+            } else {
+              this.updateGitignoreCache(updatedFile.projectId, updatedFile.content);
+            }
+          }
+        } catch (e) {
+          coreWarn('[FileRepository] Failed to update gitignore cache after save:', e);
+        }
         // GitFileSystemへの自動同期（非同期・バックグラウンド実行）
         this.syncToGitFileSystem(
           updatedFile.projectId,
@@ -565,32 +585,14 @@ export class FileRepository {
         }
       }
 
-      // .gitignoreを読み込み
-      const gitignorePath = `${path.startsWith('/') ? '' : '/'}${projectName}/.gitignore`;
-      const files = await this.getProjectFiles(projectId);
-      const gitignoreFile = files.find(f => f.path === '/.gitignore');
+      // parsed rules を取得（キャッシュ利用）
+      const parsedRules = await this.getParsedGitignoreRules(projectId);
+      if (!parsedRules || parsedRules.length === 0) return false;
 
-      if (!gitignoreFile || !gitignoreFile.content) {
-        return false; // .gitignoreがない場合は無視しない
-      }
-
-      const gitignoreRules = gitignoreFile.content
-        .split('\n')
-        .map(line => line.trim())
-        .filter(line => line && !line.startsWith('#')); // コメントと空行を除外
-
-      // パスの正規化（先頭の/を削除）
       const normalizedPath = path.replace(/^\/+/, '');
-
-      // 各ルールをチェック
-      for (const rule of gitignoreRules) {
-        if (this.matchGitignoreRule(normalizedPath, rule)) {
-          coreInfo(`[FileRepository] Path "${path}" matched gitignore rule: "${rule}"`);
-          return true;
-        }
-      }
-
-      return false;
+      const ignored = isPathIgnored(parsedRules, normalizedPath, false);
+      if (ignored) coreInfo(`[FileRepository] Path "${path}" is ignored by .gitignore rules`);
+      return ignored;
     } catch (error) {
       console.warn('[FileRepository] Error checking gitignore:', error);
       return false; // エラー時は無視しない（安全側に倒す）
@@ -598,26 +600,67 @@ export class FileRepository {
   }
 
   /**
-   * .gitignoreルールとパスをマッチング（簡易実装）
+   * キャッシュから解析済みの GitIgnore ルールを返す（なければ読み込む）
    */
-  private matchGitignoreRule(path: string, rule: string): boolean {
-    // ディレクトリルール（末尾が/）
-    if (rule.endsWith('/')) {
-      const dirName = rule.slice(0, -1);
-      return path === dirName || path.startsWith(dirName + '/');
+  private async getParsedGitignoreRules(projectId: string): Promise<GitIgnoreRule[]> {
+    const entry = this.gitignoreCache.get(projectId);
+    if (entry && Date.now() - entry.ts < this.GITIGNORE_CACHE_TTL_MS) {
+      return entry.rules;
     }
 
-    // ワイルドカードルール（*を含む）
-    if (rule.includes('*')) {
-      const regexPattern = rule.replace(/\./g, '\\.').replace(/\*/g, '.*').replace(/\?/g, '.');
-      const regex = new RegExp(`^${regexPattern}$`);
-      return regex.test(path);
-    }
-
-    // 完全一致または部分一致
-    return path === rule || path.startsWith(rule + '/') || path.endsWith('/' + rule);
+    // フォールバックで既存のロード経路を使う
+    await this.getGitignoreRules(projectId); // これがキャッシュに parsed をセットする
+    const refreshed = this.gitignoreCache.get(projectId);
+    return refreshed ? refreshed.rules : [];
   }
 
+  /**
+   * 指定プロジェクトの .gitignore をキャッシュから取得、なければ読み込んでキャッシュする
+   */
+  private async getGitignoreRules(projectId: string): Promise<string[]> {
+    // キャッシュが有効か確認
+    const entry = this.gitignoreCache.get(projectId);
+    if (entry && Date.now() - entry.ts < this.GITIGNORE_CACHE_TTL_MS) {
+      return entry.rules.map(r => r.raw);
+    }
+
+    try {
+      const files = await this.getProjectFiles(projectId);
+      const gitignoreFile = files.find(f => f.path === '/.gitignore');
+      if (!gitignoreFile || !gitignoreFile.content) {
+        this.gitignoreCache.delete(projectId);
+        return [];
+      }
+
+      const parsed = parseGitignore(gitignoreFile.content);
+      this.gitignoreCache.set(projectId, { rules: parsed, ts: Date.now() });
+      return parsed.map(r => r.raw);
+    } catch (error) {
+      console.warn('[FileRepository] Failed to load .gitignore for caching:', error);
+      this.gitignoreCache.delete(projectId);
+      return [];
+    }
+  }
+
+  /**
+   * .gitignore キャッシュを更新する（content が undefined なら削除）
+   */
+  private updateGitignoreCache(projectId: string, content?: string): void {
+    if (!content) {
+      this.gitignoreCache.delete(projectId);
+      return;
+    }
+    const parsed = parseGitignore(content);
+    this.gitignoreCache.set(projectId, { rules: parsed, ts: Date.now() });
+  }
+
+  /**
+   * .gitignore キャッシュをクリア
+   */
+  private clearGitignoreCache(projectId: string): void {
+    this.gitignoreCache.delete(projectId);
+  }
+  
   /**
    * GitFileSystemへの自動同期（非同期・バックグラウンド実行）
    * 同期後にGitキャッシュも自動的にフラッシュ
@@ -643,8 +686,6 @@ export class FileRepository {
 
       // 遅延インポートで循環参照を回避
       const { syncManager } = await import('./syncManager');
-      const { gitFileSystem } = await import('./gitFileSystem');
-
       // プロジェクト名を取得
       let projectName = this.projectNameCache.get(projectId);
       if (!projectName) {
@@ -767,6 +808,19 @@ export class FileRepository {
           createdFiles.push(file);
           store.put(file);
         }
+        // トランザクション内で .gitignore が含まれていればキャッシュを更新
+        const gitignoreEntry = entries.find(e => e.path === '/.gitignore');
+        if (gitignoreEntry) {
+          try {
+            if (!gitignoreEntry.content || gitignoreEntry.content.trim() === '') {
+              this.clearGitignoreCache(projectId);
+            } else {
+              this.updateGitignoreCache(projectId, gitignoreEntry.content);
+            }
+          } catch (e) {
+            coreWarn('[FileRepository] Failed to update gitignore cache after bulk create:', e);
+          }
+        }
       } catch (error) {
         reject(error);
       }
@@ -796,6 +850,14 @@ export class FileRepository {
       request.onerror = () => reject(request.error);
       request.onsuccess = async () => {
         if (fileToDelete) {
+          // .gitignore を削除した場合はキャッシュをクリア
+          try {
+            if (fileToDelete.path === '/.gitignore') {
+              this.clearGitignoreCache(fileToDelete.projectId);
+            }
+          } catch (e) {
+            coreWarn('[FileRepository] Failed to clear gitignore cache after delete:', e);
+          }
           // GitFileSystemへの自動同期（削除）
           this.syncToGitFileSystem(fileToDelete.projectId, fileToDelete.path, '', 'delete', undefined, fileToDelete.type).catch(
             error => {

@@ -9,7 +9,8 @@
     "format": "prettier --write src/**/*.ts src/**/*.tsx",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
-    "prepare": "husky install",
+  "prepare": "husky install",
+  "test": "jest",
     "preview": "npx serve out"
   },
   "dependencies": {

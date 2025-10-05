@@ -29,83 +29,72 @@ export class SyncManager {
    * 通常のファイル操作後に呼び出される
    */
   async syncFromIndexedDBToFS(projectId: string, projectName: string): Promise<void> {
-    // console.log('[SyncManager] Syncing from IndexedDB to lightning-fs...');
-
     try {
-      // IndexedDBから全ファイルを取得
       const dbFiles = await fileRepository.getProjectFiles(projectId);
-      // console.log(`[SyncManager] Found ${dbFiles.length} files in IndexedDB`);
-
-      // lightning-fsのプロジェクトディレクトリを確保
       const projectDir = gitFileSystem.getProjectDir(projectName);
       await gitFileSystem.ensureDirectory(projectDir);
 
-      // 既存のファイルをクリア（.gitディレクトリは保持）
-      // 注意: この処理が重い場合があるため、タイムアウトを設ける
-      // console.log('[SyncManager] Clearing project directory...');
-      const clearPromise = gitFileSystem.clearProjectDirectory(projectName);
-      const clearTimeout = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Clear directory timeout')), 5000)
-      );
-      
+      // get FS snapshot (ignore errors — treat as empty)
+      let existingFsFiles: Array<{ path: string; content: string; type: 'file' | 'folder' }> = [];
       try {
-        await Promise.race([clearPromise, clearTimeout]);
-        coreInfo('[SyncManager] Project directory cleared');
-      } catch (clearError) {
-        coreWarn('[SyncManager] Failed to clear directory, proceeding anyway:', clearError);
+        existingFsFiles = await gitFileSystem.getAllFiles(projectName);
+      } catch (e) {
+        coreWarn('[SyncManager] Failed to list GitFS files, proceeding with empty FS snapshot:', e);
       }
 
-      // ディレクトリを先に作成
-      const directories = dbFiles
-        .filter(f => f.type === 'folder')
-        .sort((a, b) => a.path.length - b.path.length);
+      const existingFsMap = new Map(existingFsFiles.map(f => [f.path, f] as const));
+      const dbFilePaths = new Set(dbFiles.map(f => f.path));
 
-      // console.log(`[SyncManager] Creating ${directories.length} directories...`);
-      for (const dir of directories) {
-        const fullPath = `${projectDir}${dir.path}`;
-        try {
-          await gitFileSystem.ensureDirectory(fullPath);
-        } catch (dirError) {
-          coreWarn(`[SyncManager] Failed to create directory ${dir.path}:`, dirError);
-        }
-      }
+      // create directories first (shortest path first)
+      const dirs = dbFiles.filter(f => f.type === 'folder').sort((a, b) => a.path.length - b.path.length);
+      await Promise.all(dirs.map(d => gitFileSystem.ensureDirectory(`${projectDir}${d.path}`).catch(err => coreWarn(`[SyncManager] mkdir ${d.path} failed:`, err))));
 
-      // ファイルを作成
+      // write files (batch to avoid too many concurrent ops)
       const files = dbFiles.filter(f => f.type === 'file');
-      // console.log(`[SyncManager] Creating ${files.length} files...`);
-
-      // ファイル作成を並列処理（ただし同時実行数を制限）
-      const BATCH_SIZE = 10;
-      for (let i = 0; i < files.length; i += BATCH_SIZE) {
-        const batch = files.slice(i, i + BATCH_SIZE);
-        await Promise.all(batch.map(async (file) => {
+      coreInfo(`[SyncManager] Syncing ${files.length} files (diff)`);
+      const BATCH = 10;
+      for (let i = 0; i < files.length; i += BATCH) {
+        const batch = files.slice(i, i + BATCH);
+        await Promise.all(batch.map(async file => {
           try {
+            const fsEntry = existingFsMap.get(file.path);
+
+            // skip identical text files
+            if (!file.isBufferArray && fsEntry && fsEntry.type === 'file' && fsEntry.content === (file.content || '')) {
+              coreInfo(`[SyncManager] Skip unchanged: ${file.path}`);
+              return;
+            }
+
             if (file.isBufferArray && file.bufferContent) {
-              // バイナリファイル
-              await gitFileSystem.writeFile(
-                projectName,
-                file.path,
-                new Uint8Array(file.bufferContent)
-              );
+              await gitFileSystem.writeFile(projectName, file.path, new Uint8Array(file.bufferContent));
             } else {
-              // テキストファイル
               await gitFileSystem.writeFile(projectName, file.path, file.content || '');
             }
-          } catch (error) {
-            coreError(`[SyncManager] Failed to sync file ${file.path}:`, error);
+          } catch (err) {
+            coreError(`[SyncManager] Failed to write ${file.path}:`, err);
           }
         }));
-        
-        // バッチ間で少し待機
-        if (i + BATCH_SIZE < files.length) {
-          await new Promise(resolve => setTimeout(resolve, 10));
-        }
       }
 
-      // キャッシュフラッシュ
-      await gitFileSystem.flush();
+      // remove FS-only files (final snapshot)
+      try {
+        const finalFs = await gitFileSystem.getAllFiles(projectName);
+        for (const f of finalFs) {
+          if (!dbFilePaths.has(f.path)) {
+            try {
+              coreInfo(`[SyncManager] Deleting FS-only: ${f.path}`);
+              await gitFileSystem.deleteFile(projectName, f.path);
+            } catch (err) {
+              coreWarn(`[SyncManager] Failed to delete FS-only ${f.path}:`, err);
+            }
+          }
+        }
+      } catch (err) {
+        coreWarn('[SyncManager] Failed to cleanup FS-only files:', err);
+      }
 
-  coreInfo('[SyncManager] Sync from IndexedDB to lightning-fs completed');
+      await gitFileSystem.flush();
+      coreInfo('[SyncManager] Sync from IndexedDB to lightning-fs completed');
     } catch (error) {
       coreError('[SyncManager] Failed to sync from IndexedDB to lightning-fs:', error);
       throw error;
