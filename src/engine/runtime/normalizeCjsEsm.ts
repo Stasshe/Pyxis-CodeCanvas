@@ -18,7 +18,12 @@ export function normalizeCjsEsm(code: string): string {
   // export const/let/var foo = 1, bar = 2; -> const/let/var foo = 1, bar = 2; module.exports.foo = foo; module.exports.bar = bar;
   code = code.replace(/export\s+(const|let|var)\s+([^;]+);/g, (m, kind, decls) => {
     // decls: "foo = 1, bar = 2"
-    const declList = String(decls).split(',').map(s => s.trim());
+    // If decls is a destructuring pattern (starts with { or [), do not try to export
+    const trimmed = String(decls).trim();
+    if (/^[\{\[]/.test(trimmed)) {
+      return `${kind} ${decls};`;
+    }
+    const declList = trimmed.split(',').map(s => s.trim());
     const names: string[] = [];
     for (const d of declList) {
       // match identifier at start

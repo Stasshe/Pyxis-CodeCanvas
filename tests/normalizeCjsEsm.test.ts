@@ -111,4 +111,47 @@ describe('normalizeCjsEsm', () => {
     expect(out).toContain("const foo = await __require__('a')");
     expect(out).toContain("const { bar } = await __require__('b')");
   });
+  it('export list with aliases', () => {
+    const input = `export { a as b, c }`;
+    const out = normalizeCjsEsm(input);
+    expect(out).toContain('module.exports.b = a;');
+    expect(out).toContain('module.exports.c = c;');
+  });
+  it('export from other module', () => {
+    const input = `export { x } from 'm'`;
+    const out = normalizeCjsEsm(input);
+    // current behavior maps export list to module.exports assignments
+    expect(out).toContain('module.exports.x = x;');
+  });
+  it('export const with destructuring should keep destructure and not export members', () => {
+    const input = `export const {a, b} = obj;`;
+    const out = normalizeCjsEsm(input);
+    expect(out).toContain('const {a, b} = obj;');
+    expect(out).not.toContain('module.exports.a');
+    expect(out).not.toContain('module.exports.b');
+  });
+  it('export default arrow/async functions', () => {
+    const input1 = `export default () => {}`;
+    expect(normalizeCjsEsm(input1)).toBe("module.exports.default = () => {}");
+    const input2 = `export default async function() {}`;
+    expect(normalizeCjsEsm(input2)).toBe("module.exports.default = async function() {}");
+  });
+  it('require followed by method chain should not auto-export', () => {
+    const input = `const x = require('y')\n  .chain()`;
+    const out = normalizeCjsEsm(input);
+    expect(out).toContain("const x = await __require__('y')\n  .chain()");
+    expect(out).not.toContain('module.exports.x = x;');
+  });
+  it('import with comments and trailing comments', () => {
+    const input = `// header\nimport foo from 'a' // trailing`;
+    const out = normalizeCjsEsm(input);
+    expect(out).toContain("const foo = await __require__('a')");
+  });
+  it('export multiple let declarations', () => {
+    const input = `export let x=1, y=2;`;
+    const out = normalizeCjsEsm(input);
+    expect(out).toContain('let x=1, y=2;');
+    expect(out).toContain('module.exports.x = x;');
+    expect(out).toContain('module.exports.y = y;');
+  });
 });
