@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import {
-  addEditorPane,
   removeEditorPane,
   toggleEditorLayout,
   setTabsForPane,
@@ -220,6 +219,112 @@ export default function Home() {
   ]);
 
   const { colors } = useTheme();
+
+  // 強制的にページ全体のスクロールを無効化する（他のレイアウトや外部スタイルに影響されないように）
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const html = document.documentElement as HTMLElement;
+    const body = document.body as HTMLElement;
+
+    const prev = {
+      htmlOverflow: html.style.overflow,
+      bodyOverflow: body.style.overflow,
+      htmlHeight: html.style.height,
+      bodyHeight: body.style.height,
+      htmlOverscroll: html.style.overscrollBehavior,
+    };
+
+    // Apply forced styles
+    html.style.overflow = 'hidden';
+    body.style.overflow = 'hidden';
+    html.style.height = '100vh';
+    body.style.height = '100vh';
+    html.style.overscrollBehavior = 'none';
+
+    return () => {
+      // Restore previous inline styles on unmount
+      html.style.overflow = prev.htmlOverflow || '';
+      body.style.overflow = prev.bodyOverflow || '';
+      html.style.height = prev.htmlHeight || '';
+      body.style.height = prev.bodyHeight || '';
+      html.style.overscrollBehavior = prev.htmlOverscroll || '';
+    };
+  }, []);
+
+  // ページレベルのスクロールを防ぐ：ホイール・タッチ・キー操作を捕捉して、
+  // 実際にスクロール可能な子要素がある場合のみデフォルト動作を許可する。
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const isScrollable = (el: Element | null) => {
+      let elCur: Element | null = el;
+      while (elCur && elCur !== document.documentElement) {
+        try {
+          const style = window.getComputedStyle(elCur as Element);
+          const overflowY = style.overflowY;
+          const isScroll =
+            overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay';
+          if (
+            isScroll &&
+            (elCur as HTMLElement).scrollHeight > (elCur as HTMLElement).clientHeight
+          ) {
+            return true;
+          }
+        } catch (e) {
+          // ignore
+        }
+        elCur = elCur.parentElement;
+      }
+      return false;
+    };
+
+    const wheelHandler = (e: WheelEvent) => {
+      const target = e.target as Element | null;
+      if (!isScrollable(target)) {
+        e.preventDefault();
+      }
+    };
+
+    let touchStartY = 0;
+    const touchStart = (e: TouchEvent) => {
+      touchStartY = e.touches?.[0]?.clientY || 0;
+    };
+    const touchMove = (e: TouchEvent) => {
+      const target = e.target as Element | null;
+      if (!isScrollable(target)) {
+        e.preventDefault();
+      } else {
+        // allow
+      }
+    };
+
+    const keyHandler = (e: KeyboardEvent) => {
+      const keysToBlock = ['PageDown', 'PageUp', 'ArrowDown', 'ArrowUp', ' ', 'Home', 'End'];
+      if (!keysToBlock.includes(e.key)) return;
+      const active = document.activeElement as Element | null;
+      // allow if active element is an input/textarea or contentEditable or inside a scrollable element
+      if (active) {
+        const tag = (active.tagName || '').toLowerCase();
+        const isEditable =
+          tag === 'input' || tag === 'textarea' || (active as HTMLElement).isContentEditable;
+        if (isEditable) return;
+        if (isScrollable(active)) return;
+      }
+      e.preventDefault();
+    };
+
+    window.addEventListener('wheel', wheelHandler, { passive: false, capture: true });
+    window.addEventListener('touchstart', touchStart, { passive: true, capture: true });
+    window.addEventListener('touchmove', touchMove, { passive: false, capture: true });
+    window.addEventListener('keydown', keyHandler, { passive: false, capture: true });
+
+    return () => {
+      window.removeEventListener('wheel', wheelHandler, { capture: true } as any);
+      window.removeEventListener('touchstart', touchStart as any, { capture: true } as any);
+      window.removeEventListener('touchmove', touchMove as any, { capture: true } as any);
+      window.removeEventListener('keydown', keyHandler as any, { capture: true } as any);
+    };
+  }, []);
 
   // ペイン追加/削除/分割方向切替はpane.tsの関数を利用
 
@@ -539,7 +644,15 @@ export default function Home() {
   // }, [editors, tabs]);
 
   return (
-    <>
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
       <div
         className="w-full flex justify-end items-center overflow-hidden"
         style={{
@@ -603,7 +716,7 @@ export default function Home() {
         </button>
       </div>
       <div
-        className="h-full w-full flex overflow-hidden"
+        className="flex-1 w-full flex overflow-hidden"
         style={{
           background: colors.background,
           position: 'relative',
@@ -819,6 +932,6 @@ export default function Home() {
           currentPaneIndex={fileSelectState.paneIdx}
         />
       </div>
-    </>
+    </div>
   );
 }

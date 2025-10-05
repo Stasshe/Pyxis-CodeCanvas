@@ -8,6 +8,15 @@
 @tailwind utilities;
 
 
+/* Force-disable vertical scrolling across the app root to ensure no page-level scrollbars */
+html, body, #__next {
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+}
+
+
 :root {
   --background: 220 20% 14%;
   --foreground: 220 10% 90%;
