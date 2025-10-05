@@ -250,7 +250,6 @@
 │   │   │       └── utilModule.ts
 │   │   ├── openTab.ts
 │   │   └── runtime
-│   │       ├── README.md
 │   │       ├── babelPluginAsyncRequire.ts
 │   │       ├── moduleCache.ts
 │   │       ├── moduleLoader.ts
@@ -279,6 +278,7 @@
 │       ├── settings.ts
 │       └── vm-browserify.d.ts
 ├── tailwind.config.ts
+├── test-readline.js
 ├── tree-built-out.sh
 ├── tree.sh
 ├── tree.txt
@@ -287,12 +287,8 @@
 46 directories, 239 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 35858
-合計文字数: 1175274
-合計ファイルサイズ(bytes): 1263442
+合計行数: 36044
+合計文字数: 1181931
+合計ファイルサイズ(bytes): 1270799
 
-リポジトリ全体のサイズ(bytes): 1.9G	.
-==========
-ビルト済みファイルの行数: 14778
-合計文字数: 25232238
-合計ファイルサイズ(bytes): 26185614
+リポジトリ全体のサイズ(bytes): 2.1G	.

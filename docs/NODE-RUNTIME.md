@@ -1,36 +1,6 @@
+# Node.js Runtime - ブラウザ内JavaScript実行環境
 
-
-
-# 未チェックーこのドキュメントは実装に基づいていない可能性があります。あまり参考にしないで下さい。
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# Node.js Runtime - ブラウザ内実行環境
-
-Pyxis CodeCanvasのNode.js Runtimeは、完全にブラウザ環境で動作するNode.js互換の実行環境です。babel standaloneによる本格的なAST変換、Web Workerによるマルチスレッド処理、IndexedDBベースの永続キャッシュを備えています。
+Pyxis CodeCanvasのNode.js Runtimeは、完全にブラウザ環境内で動作するNode.js互換の実行システムです。IndexedDBをストレージとして使用し、Babel standaloneによるトランスパイル、Web Workerによる非同期処理、3層キャッシュシステムを備えています。
 
 ---
 
@@ -38,19 +8,18 @@ Pyxis CodeCanvasのNode.js Runtimeは、完全にブラウザ環境で動作す�
 
 ### 設計目標
 
-1. **完全ブラウザ環境**: サーバーを使わず、すべてクライアントで実行
-2. **Node.js互換**: require、npm packages、ビルトインモジュールをサポート
-3. **高性能**: babel standaloneによる高速トランスパイル、3層キャッシュシステム
-4. **メモリ効率**: LRU GC、Worker自動終了による一定のメモリフットプリント
-5. **拡張性**: プラグイン可能な設計、将来のHMR対応
+1. **完全ブラウザ動作**: サーバー不要、すべてクライアント側で実行
+2. **Node.js互換性**: CommonJS require、npm packages、ビルトインモジュール対応
+3. **高性能**: Babel standaloneトランスパイル、多層キャッシュによる高速化
+4. **非同期設計**: IndexedDB対応のため全モジュール読み込みを非同期化
+5. **拡張性**: プラグイン可能な設計
 
 ### 主要な特徴
 
-- **babel standalone統合**: 正規表現ではなくAST変換による正確なトランスパイル
-- **TypeScript完全サポート**: interface、generics、decorators対応
-- **JSX/TSX対応**: React自動ランタイム
-- **ES Module ⇔ CommonJS**: 双方向変換
-- **npm packages**: node_modules内のパッケージを完全サポート
+- **Babel standalone統合**: ASTベースの正確なトランスパイル
+- **TypeScript/JSX完全対応**: 型情報、Reactランタイム自動変換
+- **ES Module ⇔ CommonJS**: 双方向変換、非同期require実装
+- **npm packages対応**: node_modules内パッケージの完全サポート
 - **ビルトインモジュール**: fs、path、http、readlineなど
 
 ---
@@ -59,73 +28,75 @@ Pyxis CodeCanvasのNode.js Runtimeは、完全にブラウザ環境で動作す�
 
 ```mermaid
 graph TB
-    UserCode[ユーザーコード実行要求]
-    NodeRuntime[NodeRuntime]
-    ModuleLoader[ModuleLoader]
+    User[ユーザーコード実行要求]
+    Runtime[NodeRuntime]
+    Loader[ModuleLoader]
     
-    subgraph Resolution[モジュール解決]
+    subgraph Resolution[モジュール解決システム]
         Resolver[ModuleResolver]
-        BuiltIn[ビルトインモジュール判定]
-        PathResolve[パス解決]
+        BuiltinCheck{ビルトイン判定}
+        PathResolve[パス解決ロジック]
         PackageJSON[package.json解析]
     end
     
-    subgraph Transpile[トランスパイル]
+    subgraph TranspileSystem[トランスパイルシステム]
         Manager[TranspileManager]
         Worker[Web Worker]
-        SWC[babel standalone]
+        Babel[Babel standalone]
     end
     
-    subgraph Cache[キャッシュシステム]
+    subgraph CacheSystem[3層キャッシュ]
         ExecCache[実行キャッシュ]
-        MemCache[メモリキャッシュ]
-        DiskCache[IndexedDBキャッシュ]
+        TranspileCache[トランスパイルキャッシュ]
+        DiskCache[永続キャッシュ]
     end
     
-    subgraph Storage[ストレージ]
+    subgraph Storage[ストレージ層]
         FileRepo[fileRepository]
-        IndexedDB[(IndexedDB)]
+        IDB[(IndexedDB)]
     end
     
-    UserCode --> NodeRuntime
-    NodeRuntime --> ModuleLoader
+    User --> Runtime
+    Runtime --> Loader
+    Loader --> Resolver
     
-    ModuleLoader --> Resolver
-    Resolver --> BuiltIn
+    Resolver --> BuiltinCheck
     Resolver --> PathResolve
     PathResolve --> PackageJSON
     
-    ModuleLoader --> ExecCache
-    ExecCache -->|Miss| Manager
+    Loader --> ExecCache
+    ExecCache -->|MISS| TranspileCache
+    TranspileCache -->|MISS| Manager
     
     Manager --> Worker
-    Worker --> SWC
-    SWC -->|変換完了| Worker
+    Worker --> Babel
+    Babel --> Worker
     Worker -->|自動終了| Manager
     
-    Manager --> MemCache
-    MemCache --> DiskCache
-    DiskCache --> IndexedDB
+    Manager --> TranspileCache
+    TranspileCache --> DiskCache
+    DiskCache --> IDB
     
-    ModuleLoader --> FileRepo
-    FileRepo --> IndexedDB
+    Loader --> FileRepo
+    FileRepo --> IDB
 ```
 
 ---
 
-## コアコンポーネント
+## コアコンポーネント詳細
 
 ### 1. NodeRuntime
 
-**役割**: システム全体のエントリーポイント
+システム全体のエントリーポイント。ファイル実行の開始とサンドボックス環境の構築を担当。
 
-**責務**:
+#### 主要な責務
+
 - ファイル実行の開始
-- サンドボックス環境の構築
-- ビルトインモジュールの提供
-- グローバルオブジェクトの注入
+- サンドボックス環境構築
+- グローバルオブジェクト注入
+- ビルトインモジュール提供
 
-**処理フロー**:
+#### 処理フロー
 
 ```mermaid
 sequenceDiagram
@@ -141,211 +112,309 @@ sequenceDiagram
     Runtime->>FileRepo: readFile(filePath)
     FileRepo-->>Runtime: ファイル内容
     
+    Runtime->>Runtime: needsTranspile判定
+    
+    alt トランスパイル必要
+        Runtime->>Runtime: transpile()
+    end
+    
     Runtime->>Runtime: createSandbox()
     Runtime->>Runtime: wrapCode()
-    Runtime->>Runtime: execute in sandbox
+    Runtime->>Runtime: eval実行
+    
     Runtime-->>User: 実行完了
 ```
 
-**主要メソッド**:
-- `execute(filePath)`: ファイルを実行
-- `createSandbox(filePath)`: サンドボックス環境を構築
-- `require(moduleName)`: モジュールを読み込み
+#### サンドボックス環境の構成要素
+
+| 要素 | 説明 |
+|-----|------|
+| console | デバッグコンソールへのプロキシ |
+| setTimeout / setInterval | ブラウザのタイマーAPI |
+| Promise / Array / Object | JavaScriptビルトイン |
+| global | グローバルオブジェクト参照 |
+| process | Node.jsプロセスオブジェクトエミュレーション |
+| Buffer | バイナリデータ操作 |
+| __require__ | 非同期モジュール読み込み関数 |
+
+#### 非同期require実装
+
+従来の同期的なrequireをIndexedDB対応のため非同期化：
+
+- `require('module')` → `await __require__('module')`
+- トランスパイル時にBabelプラグインで自動変換
+- 親関数を自動的にasync化
 
 ---
 
 ### 2. ModuleLoader
 
-**役割**: モジュールの読み込みと管理
+モジュール読み込みとライフサイクル管理の中核コンポーネント。
 
-**責務**:
+#### 主要な責務
+
 - モジュール解決の調整
-- トランスパイルの管理
-- 実行キャッシュの管理
-- 循環参照の検出
+- トランスパイル処理の管理
+- 実行キャッシュ管理
+- 循環参照検出と対処
 
-**キャッシュ戦略**:
+#### キャッシュ戦略
 
 ```mermaid
-graph LR
+graph TB
     Request[require呼び出し]
     ExecCache{実行キャッシュ}
-    MemCache{メモリキャッシュ}
-    Transpile[トランスパイル]
-    Load[ファイル読み込み]
-    Execute[実行]
+    TranspileCache{トランスパイルキャッシュ}
+    FileRead[ファイル読み込み]
+    Transpile[トランスパイル実行]
+    Execute[モジュール実行]
     
     Request --> ExecCache
-    ExecCache -->|Hit| Return[exports返却]
-    ExecCache -->|Miss| MemCache
-    MemCache -->|Hit| Execute
-    MemCache -->|Miss| Load
-    Load --> Transpile
-    Transpile --> MemCache
-    MemCache --> Execute
+    ExecCache -->|HIT| ReturnExports[exportsを返却]
+    ExecCache -->|MISS| TranspileCache
+    TranspileCache -->|HIT| Execute
+    TranspileCache -->|MISS| FileRead
+    FileRead --> Transpile
+    Transpile --> TranspileCache
+    TranspileCache --> Execute
     Execute --> ExecCache
-    ExecCache --> Return
+    ExecCache --> ReturnExports
 ```
 
-**実行キャッシュの構造**:
+#### 実行キャッシュの構造
+
 | フィールド | 型 | 説明 |
 |-----------|-----|------|
-| exports | unknown | モジュールのexports |
+| exports | unknown | モジュールのexportsオブジェクト |
 | loaded | boolean | ロード完了フラグ |
-| loading | boolean | ロード中フラグ（循環参照検出） |
+| loading | boolean | ロード中フラグ、循環参照検出に使用 |
+
+#### モジュール実行の詳細
+
+各モジュールは独立した関数スコープで実行：
+
+- `module.exports` オブジェクトを注入
+- `__require__` 関数でさらにモジュール読み込み可能
+- `__filename` と `__dirname` を提供
+- evalで実行し、結果のexportsを返却
+
+#### トランスパイル判定ロジック
+
+以下の条件でトランスパイルを実行：
+
+1. 拡張子が `.ts`, `.tsx`, `.mts`, `.cts`
+2. 拡張子が `.jsx`, `.tsx`
+3. `import` または `export` 構文を含む
+4. `require()` 呼び出しを含む（非同期化のため）
 
 ---
 
 ### 3. ModuleResolver
 
-**役割**: モジュールパスの解決
+Node.js互換のモジュールパス解決システム。
 
-**責務**:
-- ビルトインモジュールの判定
-- 相対パスの解決
-- node_modulesからの解決
-- package.jsonの解析
-- exportsフィールドのサポート
+#### 主要な責務
 
-**解決優先順位**:
+- ビルトインモジュール判定
+- 相対パス解決
+- node_modules検索
+- package.json解析
+- exportsフィールド対応
+
+#### 解決優先順位
 
 ```mermaid
 graph TB
-    Start[モジュール名]
+    Start[モジュール名入力]
     BuiltIn{ビルトイン?}
+    PackageImports{#で始まる?}
     Relative{相対パス?}
-    Alias{エイリアス?}
-    NodeMods[node_modules解決]
+    Alias{@で始まる?}
+    NodeMods[node_modules検索]
     
-    BuiltInMod[ビルトインモジュール]
-    RelPath[相対パス解決]
-    AliasPath[エイリアス解決]
+    BuiltInReturn[ビルトインマーカー返却]
+    ImportsResolve[package.json imports解決]
+    RelativeResolve[相対パス解決]
+    AliasResolve[エイリアス解決]
     PkgJSON[package.json解析]
     
     Start --> BuiltIn
-    BuiltIn -->|Yes| BuiltInMod
-    BuiltIn -->|No| Relative
-    Relative -->|Yes| RelPath
-    Relative -->|No| Alias
-    Alias -->|Yes| AliasPath
-    Alias -->|No| NodeMods
+    BuiltIn -->|YES| BuiltInReturn
+    BuiltIn -->|NO| PackageImports
+    PackageImports -->|YES| ImportsResolve
+    PackageImports -->|NO| Relative
+    Relative -->|YES| RelativeResolve
+    Relative -->|NO| Alias
+    Alias -->|YES| AliasResolve
+    Alias -->|NO| NodeMods
     NodeMods --> PkgJSON
 ```
 
-**パス解決例**:
+#### ビルトインモジュール一覧
+
+fs, fs/promises, path, os, util, http, https, buffer, readline, crypto, stream, events, url, querystring, assert等
+
+#### パス解決の実例
 
 | 入力 | 解決結果 |
 |------|----------|
-| `fs` | ビルトインモジュール |
+| `fs` | ビルトインマーカー返却 |
 | `./utils` | `/projects/my-app/src/utils.js` |
-| `../config` | `/projects/my-app/config.js` |
-| `@/components/Button` | `/projects/my-app/src/components/Button.js` |
+| `../config` | `/projects/my-app/config.ts` |
+| `@/components/Button` | `/projects/my-app/src/components/Button.tsx` |
 | `lodash` | `/projects/my-app/node_modules/lodash/lodash.js` |
 | `@vue/runtime-core` | `/projects/my-app/node_modules/@vue/runtime-core/dist/runtime-core.esm-bundler.js` |
+| `#internal/utils` | package.jsonのimportsフィールドから解決 |
 
-**package.json解析**:
+#### package.json解析ロジック
 
-解決順序:
-1. `module` フィールド（ES Module優先）
-2. `main` フィールド（CommonJS）
-3. `exports` フィールド（条件付きエクスポート）
-4. `index.js` フォールバック
+エントリーポイント決定の優先順位：
+
+1. `module` フィールド - ES Module版を優先
+2. `main` フィールド - CommonJS版
+3. `exports` フィールド - 条件付きエクスポート対応
+4. `index.js` - フォールバック
+
+#### スコープ付きパッケージ対応
+
+`@vue/runtime-core` のようなスコープ付きパッケージも正しく解決：
+
+- パッケージ名: `@vue/runtime-core`
+- サブパス: なし
+- package.json位置: `/node_modules/@vue/runtime-core/package.json`
+
+#### 拡張子補完
+
+ファイルパスに拡張子がない場合、以下の順で試行：
+
+1. `.js`, `.mjs`, `.ts`, `.mts`, `.tsx`, `.jsx`, `.json`
+2. `/index.js`, `/index.mjs`, `/index.ts`, `/index.mts`, `/index.tsx`
 
 ---
 
 ### 4. TranspileManager & Web Worker
 
-**役割**: babel standaloneによる高速トランスパイル
+Babel standaloneを使用した高速トランスパイルシステム。
 
-**責務**:
+#### 主要な責務
+
 - Web Workerの作成と管理
-- babel standaloneの初期化
 - トランスパイルリクエストの処理
+- タイムアウト管理（30秒）
 - 自動メモリ管理
 
-**Worker処理フロー**:
+#### Worker処理フロー
 
 ```mermaid
 sequenceDiagram
     participant Main as メインスレッド
     participant Manager as TranspileManager
     participant Worker as Web Worker
-    participant SWC as babel standalone
+    participant Babel as Babel standalone
     
     Main->>Manager: transpile(code, options)
     Manager->>Worker: new Worker()
     
-    Worker->>SWC: initialize()
-    SWC-->>Worker: 初期化完了
-    
     Manager->>Worker: postMessage(request)
+    Note over Manager: タイムアウト設定 30秒
     
-    Worker->>SWC: transform(code, options)
-    SWC-->>Worker: AST変換結果
+    Worker->>Babel: Babel.transform()
+    Note over Worker,Babel: ASTベース変換
     
+    Babel-->>Worker: 変換結果
     Worker->>Worker: 依存関係抽出
+    
     Worker->>Manager: postMessage(result)
-    
     Worker->>Worker: self.close()
-    Note over Worker: メモリ解放
+    Note over Worker: メモリ即座解放
     
-    Manager-->>Main: 変換結果
+    Manager-->>Main: TranspileResult
 ```
 
-**SWC設定**:
+#### Babel設定の構築
 
-| 設定項目 | 値 | 説明 |
-|---------|-----|------|
-| parser.syntax | typescript / ecmascript | 構文解析モード |
-| parser.tsx | true | JSX/TSXサポート |
-| jsc.target | es2020 | 出力ターゲット |
-| module.type | commonjs | モジュール形式 |
-| transform.react.runtime | automatic | React 17+自動ランタイム |
+| 設定項目 | 条件 | 値 |
+|---------|------|-----|
+| presets: typescript | isTypeScript=true | TypeScript構文削除 |
+| presets: react | isJSX=true | JSX→React.createElement |
+| plugins: module-transform | 常に | ES Module/require変換 |
+| sourceType | isESModule=true | 'module' または 'script' |
 
-**メモリ管理**:
-- トランスパイル完了後、即座にWorkerを終了
-- babel standaloneのヒープはWorker内に隔離
+#### 変換プラグインの動作
+
+カスタムBabelプラグイン `babelPluginModuleTransform` で以下を変換：
+
+**import文の変換**
+
+- `import foo from 'bar'` → `const foo = (await __require__('bar')).default || await __require__('bar')`
+- `import { named } from 'bar'` → `const named = (await __require__('bar')).named`
+- `import * as ns from 'bar'` → `const ns = await __require__('bar')`
+
+**export文の変換**
+
+- `export default foo` → `module.exports.default = foo`
+- `export const bar = 1` → `const bar = 1; module.exports.bar = bar`
+- `export { baz }` → `module.exports.baz = baz`
+
+**require呼び出しの変換**
+
+- `require('foo')` → `await __require__('foo')`
+- 親関数を自動的に `async` 化
+
+#### メモリ管理戦略
+
+- トランスパイル完了後、即座に `self.close()` でWorker終了
+- Babel standaloneのヒープはWorker内に隔離
 - メインスレッドのメモリに影響なし
+- 各リクエストごとに新規Worker作成
 
 ---
 
 ### 5. ModuleCache
 
-**役割**: トランスパイル済みモジュールの永続キャッシュ
+トランスパイル済みコードの永続キャッシュシステム。
 
-**責務**:
+#### 主要な責務
+
+- トランスパイル結果の保存
 - LRU戦略によるキャッシュ管理
 - IndexedDBへの永続化
 - 自動GC（100MB超過時）
-- メタデータ管理
 
-**キャッシュ構造**:
+#### キャッシュ構造
+
+IndexedDB内のディレクトリ構造：
 
 ```
 /cache/
-├── modules/              トランスパイル済みコード
-│   ├── abc123.js
-│   ├── def456.js
-│   └── ...
-└── meta/                 メタデータ
-    ├── abc123.json
-    ├── def456.json
-    └── ...
+  ├── modules/
+  │     ├── abc123.js
+  │     ├── def456.js
+  │     └── ...
+  └── meta/
+        ├── abc123.json
+        ├── def456.json
+        └── ...
 ```
 
-**メタデータ形式**:
+#### キャッシュエントリの形式
 
-| フィールド | 説明 |
-|-----------|------|
-| originalPath | 元のファイルパス |
-| hash | キャッシュキー |
-| code | トランスパイル済みコード（メモリのみ） |
-| deps | 依存モジュールリスト |
-| mtime | 変換日時 |
-| lastAccess | 最終アクセス日時 |
-| size | コードサイズ |
+| フィールド | 型 | 説明 |
+|-----------|-----|------|
+| originalPath | string | 元のファイルパス |
+| hash | string | パスからハッシュ生成したキー |
+| code | string | トランスパイル済みコード |
+| sourceMap | string | ソースマップ（将来実装） |
+| deps | string[] | 依存モジュールリスト |
+| mtime | number | 変換日時 |
+| lastAccess | number | 最終アクセス日時 |
+| size | number | コードサイズ（バイト） |
 
-**GC戦略**:
+#### ハッシュ生成
+
+パス文字列から数値ハッシュを計算し、36進数文字列に変換してキーとして使用。
+
+#### GC戦略
 
 ```mermaid
 graph TB
@@ -355,13 +424,16 @@ graph TB
     Target{サイズ < 70MB?}
     Complete[GC完了]
     
-    Check -->|Yes| Sort
-    Check -->|No| Complete
+    Check -->|YES| Sort
+    Check -->|NO| Complete
     Sort --> Delete
     Delete --> Target
-    Target -->|No| Delete
-    Target -->|Yes| Complete
+    Target -->|NO| Delete
+    Target -->|YES| Complete
 ```
+
+**GC実行条件**: キャッシュ総サイズが100MBを超過  
+**削減目標**: 70MBまで削減（最もアクセスされていないものから削除）
 
 ---
 
@@ -375,255 +447,298 @@ sequenceDiagram
     participant Runtime as NodeRuntime
     participant Loader as ModuleLoader
     participant Resolver as ModuleResolver
-    participant Manager as TranspileManager
-    participant Worker as Web Worker
     participant Cache as ModuleCache
+    participant Manager as TranspileManager
     participant FileRepo as fileRepository
     
-    User->>Runtime: require('lodash')
-    Runtime->>Loader: load('lodash', currentPath)
+    User->>Runtime: execute('index.js')
+    Runtime->>Loader: init()
+    Loader->>Cache: init()
+    Cache->>FileRepo: キャッシュ読み込み
+    FileRepo-->>Cache: 既存キャッシュ
+    Cache-->>Loader: 初期化完了
+    Loader-->>Runtime: 準備完了
     
-    Loader->>Resolver: resolve('lodash', currentPath)
-    Resolver->>FileRepo: getProjectFiles()
-    FileRepo-->>Resolver: ファイル一覧
-    Resolver->>Resolver: パス解決
+    Runtime->>FileRepo: readFile('index.js')
+    FileRepo-->>Runtime: ファイル内容
+    
+    Runtime->>Runtime: トランスパイル
+    Runtime->>Runtime: コード実行開始
+    
+    Note over Runtime: require('lodash')呼び出し
+    
+    Runtime->>Loader: load('lodash', 'index.js')
+    Loader->>Resolver: resolve('lodash', 'index.js')
+    
+    Resolver->>Resolver: ビルトイン判定 NO
+    Resolver->>Resolver: node_modules検索
+    Resolver->>FileRepo: package.json読み込み
+    FileRepo-->>Resolver: package.json内容
+    Resolver->>Resolver: エントリーポイント決定
     Resolver-->>Loader: resolvedPath
     
     Loader->>Cache: get(resolvedPath)
     
-    alt キャッシュヒット
+    alt キャッシュHIT
         Cache-->>Loader: cachedCode
-    else キャッシュミス
+    else キャッシュMISS
         Loader->>FileRepo: readFile(resolvedPath)
         FileRepo-->>Loader: fileContent
         
-        Loader->>Manager: transpile(content, options)
-        Manager->>Worker: create & postMessage
-        Worker->>Worker: SWC transform
-        Worker-->>Manager: result
+        Loader->>Manager: transpile(content)
+        Manager->>Manager: Worker作成
+        Manager->>Manager: Babel変換
         Manager-->>Loader: transformedCode
         
-        Loader->>Cache: set(resolvedPath, code, meta)
-        Cache->>FileRepo: saveToIndexedDB()
+        Loader->>Cache: set(resolvedPath, code)
+        Cache->>FileRepo: 永続化
     end
     
     Loader->>Loader: executeModule(code)
     Loader-->>Runtime: moduleExports
-    Runtime-->>User: exports
+    Runtime-->>User: 実行完了
 ```
 
 ### トランスパイル詳細フロー
 
-**ステップ1: 言語判定**
+#### ステップ1: 言語判定
 
 入力: ファイルパスとコード内容
 
 判定基準:
-- 拡張子: `.ts`, `.tsx`, `.mts`, `.cts` → TypeScript
-- 拡張子: `.jsx`, `.tsx` → JSX
-- 拡張子: `.mjs`, `.mts` → ES Module
-- コード内容: `import`/`export`構文あり → ES Module
 
-**ステップ2: SWC設定構築**
+- 拡張子 `.ts`, `.tsx`, `.mts`, `.cts` → TypeScript
+- 拡張子 `.jsx`, `.tsx` → JSX
+- コード内容に `import` / `export` → ES Module
+- コード内容に `require()` → CommonJS（非同期化必要）
+
+#### ステップ2: Babel設定構築
 
 ```mermaid
 graph TB
     Input[ファイル情報]
     TS{TypeScript?}
     JSX{JSX?}
-    Config[SWC Options構築]
+    Module{ES Module?}
+    Config[Babel Options構築]
     
     Input --> TS
-    TS -->|Yes| TSConfig[parser.syntax = typescript]
-    TS -->|No| JSConfig[parser.syntax = ecmascript]
+    TS -->|YES| TSPreset[typescript preset追加]
+    TS -->|NO| NoTS[preset追加なし]
     
-    TSConfig --> JSX
-    JSConfig --> JSX
+    TSPreset --> JSX
+    NoTS --> JSX
     
-    JSX -->|Yes| JSXEnable[parser.tsx = true]
-    JSX -->|No| JSXDisable[parser.jsx = false]
+    JSX -->|YES| JSXPreset[react preset追加]
+    JSX -->|NO| NoJSX[preset追加なし]
     
-    JSXEnable --> Config
-    JSXDisable --> Config
+    JSXPreset --> Module
+    NoJSX --> Module
+    
+    Module -->|YES| ESMSource[sourceType: module]
+    Module -->|NO| ScriptSource[sourceType: script]
+    
+    ESMSource --> Config
+    ScriptSource --> Config
 ```
 
-**ステップ3: AST変換**
+#### ステップ3: AST変換
 
-babel standaloneによる処理:
+Babel standaloneによる処理:
+
 1. コードをASTに解析
-2. 型アノテーションを削除（TypeScript）
-3. JSXをReact.createElement呼び出しに変換
-4. ES Module構文をCommonJSに変換
-5. 依存関係を抽出
-6. 最適化されたコードを生成
+2. TypeScript型アノテーション削除
+3. JSXをReact関数呼び出しに変換
+4. import/export文をCommonJS変換
+5. require呼び出しを非同期化
+6. 依存関係を抽出
+7. 最適化されたコードを生成
 
-**ステップ4: 結果キャッシュ**
+#### ステップ4: キャッシュ保存
 
-メモリとディスクの2層キャッシュ:
-- メモリ: 即座にアクセス可能
-- ディスク: 永続化、次回起動時に復元
+メモリとディスクの2層に保存:
+
+- メモリ: Map構造で即座にアクセス
+- ディスク: IndexedDB、次回起動時も有効
 
 ---
 
 ## パフォーマンス特性
 
-### 初回実行
+### 初回実行時のタイミング
 
 | フェーズ | 時間 | 説明 |
 |---------|------|------|
-| ファイル読み込み | ~10ms | IndexedDBから取得 |
-| SWC初期化 | ~100-200ms | 初回のみ、Workerで実行 |
-| トランスパイル | ~50-100ms | AST変換 |
-| キャッシュ保存 | ~5ms | IndexedDBへ非同期保存 |
-| モジュール実行 | ~10ms | サンドボックス内実行 |
-| **合計** | **~175-325ms** | |
+| ファイル読み込み | ~5-10ms | IndexedDBから取得 |
+| トランスパイル | ~50-150ms | Babel変換、Workerで実行 |
+| キャッシュ保存 | ~5ms | IndexedDB非同期保存 |
+| モジュール実行 | ~5-10ms | eval実行 |
+| **合計** | **~65-175ms** | 初回のみ |
 
-### 2回目以降（キャッシュヒット）
+### 2回目以降（キャッシュHIT）
 
 | フェーズ | 時間 | 説明 |
 |---------|------|------|
-| キャッシュ読み込み | ~5ms | メモリから取得 |
-| モジュール実行 | ~10ms | サンドボックス内実行 |
-| **合計** | **~15ms** | **約20倍高速** |
+| キャッシュ読み込み | ~1-5ms | メモリから取得 |
+| モジュール実行 | ~5-10ms | eval実行 |
+| **合計** | **~6-15ms** | **約10-15倍高速** |
 
-### メモリ使用量
+### メモリフットプリント
 
 ```mermaid
 graph LR
-    Init[初期状態]
-    Load1[1つ目のモジュール]
-    Load2[2つ目のモジュール]
-    LoadN[N個目のモジュール]
+    Init[起動時: 10MB]
+    Load[モジュール読み込み: +40MB]
+    Peak[ピーク: 100MB]
     GC[GC実行]
-    Stable[安定状態]
+    Stable[安定: 50-70MB]
     
-    Init -->|+10MB| Load1
-    Load1 -->|+5MB| Load2
-    Load2 -->|...| LoadN
-    LoadN -->|100MB到達| GC
-    GC -->|70MBまで削減| Stable
-    Stable -->|一定| Stable
+    Init --> Load
+    Load --> Peak
+    Peak --> GC
+    GC --> Stable
 ```
 
-**メモリフットプリント**: 常時50-70MB（LRU GCにより一定）
+**メモリ使用量**: LRU GCにより常時50-70MBで安定
 
 ---
 
 ## ビルトインモジュール
 
-### サポートモジュール一覧
+### サポート状況
 
-| モジュール | 実装状態 | 説明 |
-|-----------|---------|------|
-| `fs` | ✅ 完全 | ファイルシステム操作（IndexedDB） |
-| `fs/promises` | ✅ 完全 | Promise版FS API |
-| `path` | ✅ 完全 | パス操作ユーティリティ |
-| `os` | ✅ 完全 | OS情報（ブラウザ環境） |
-| `util` | ✅ 完全 | ユーティリティ関数 |
-| `http` | ✅ 完全 | HTTP通信（fetch wrapper） |
-| `https` | ✅ 完全 | HTTPS通信 |
-| `buffer` | ✅ 完全 | Buffer API |
-| `readline` | ✅ 完全 | 対話的入力 |
-| その他 | 📝 計画中 | stream, events, crypto等 |
+| モジュール | 実装 | 説明 |
+|-----------|------|------|
+| `fs` | ✅ | ファイルシステム操作、fileRepository経由 |
+| `fs/promises` | ✅ | Promise版FS API |
+| `path` | ✅ | パス操作ユーティリティ |
+| `os` | ✅ | OS情報エミュレーション |
+| `util` | ✅ | ユーティリティ関数 |
+| `http` | ✅ | HTTP通信、fetch wrapper |
+| `https` | ✅ | HTTPS通信 |
+| `buffer` | ✅ | Bufferクラス |
+| `readline` | ✅ | 対話的入力 |
+| その他 | 📝 | stream, events, crypto等は計画中 |
 
-### fsモジュール実装
+### fsモジュール実装の特徴
 
-**設計方針**: IndexedDBを唯一の真実の源とする
+**設計原則**: IndexedDBを唯一の真実の源として使用
 
 ```mermaid
 graph TB
     UserCode[ユーザーコード]
     FSModule[fsモジュール]
     FileRepo[fileRepository]
-    IndexedDB[(IndexedDB)]
+    IDB[(IndexedDB)]
     GitFS[GitFileSystem]
     
-    UserCode -->|require fs| FSModule
-    FSModule -->|readFile| FileRepo
-    FileRepo --> IndexedDB
+    UserCode -->|fs.readFile| FSModule
+    FSModule --> FileRepo
+    FileRepo --> IDB
     FileRepo -.自動同期.-> GitFS
 ```
 
 **主要API**:
 
-| API | 説明 | 実装 |
-|-----|------|------|
-| `readFile` | ファイル読み込み | fileRepository経由 |
-| `writeFile` | ファイル書き込み | fileRepository経由、自動同期 |
-| `readdir` | ディレクトリ一覧 | fileRepository経由 |
-| `stat` | ファイル情報取得 | fileRepository経由 |
-| `mkdir` | ディレクトリ作成 | fileRepository経由 |
-| `unlink` | ファイル削除 | fileRepository経由、自動同期 |
+| API | 動作 |
+|-----|------|
+| `readFile` / `readFileSync` | fileRepository経由でIndexedDBから読み取り |
+| `writeFile` / `writeFileSync` | fileRepositoryに書き込み、GitFS自動同期 |
+| `readdir` / `readdirSync` | ディレクトリ一覧取得 |
+| `stat` / `statSync` | ファイル情報取得 |
+| `mkdir` / `mkdirSync` | ディレクトリ作成 |
+| `unlink` / `unlinkSync` | ファイル削除、GitFS自動同期 |
+
+### pathモジュール
+
+標準的なNode.js path APIを提供：
+
+- `join()`, `resolve()`, `dirname()`, `basename()`, `extname()`
+- プロジェクトディレクトリをベースとした解決
+
+### httpモジュール
+
+fetch APIをラップしたHTTP通信：
+
+- `http.get()`, `http.request()`
+- EventEmitterベースのレスポンスストリーム
 
 ---
 
 ## npm packages対応
 
-### インストール済みパッケージの使用
+### 動作前提
 
-**前提**: npm installは別システムで完了済み（node_modules/に配置）
+npm installは別システムで完了済みとし、`node_modules/`ディレクトリがIndexedDBに存在。
 
-**解決フロー**:
+### 解決フロー
 
 ```mermaid
 graph TB
-    Require[require lodash]
+    Require[require呼び出し]
     Check1{ビルトイン?}
     Check2{相対パス?}
-    NodeMods[node_modulesから解決]
+    NodeMods[node_modules検索]
+    ScopeCheck{スコープ付き?}
+    PkgName[パッケージ名抽出]
     PkgJSON[package.json読み込み]
     Entry[エントリーポイント決定]
     Load[ファイル読み込み]
     
     Require --> Check1
-    Check1 -->|No| Check2
-    Check2 -->|No| NodeMods
-    NodeMods --> PkgJSON
+    Check1 -->|NO| Check2
+    Check2 -->|NO| NodeMods
+    NodeMods --> ScopeCheck
+    ScopeCheck -->|YES @vue/runtime-core| ScopePackage[スコープとパッケージ名]
+    ScopeCheck -->|NO lodash| NormalPackage[パッケージ名のみ]
+    ScopePackage --> PkgName
+    NormalPackage --> PkgName
+    PkgName --> PkgJSON
     PkgJSON --> Entry
     Entry --> Load
 ```
 
-**package.json解析例**:
+### package.json解析例
 
-パッケージ: `lodash`
+**lodashパッケージ**:
+
 ```
-node_modules/lodash/package.json:
+/node_modules/lodash/package.json:
 {
   "name": "lodash",
-  "version": "4.17.21",
   "main": "lodash.js"
 }
 
-→ 解決: /node_modules/lodash/lodash.js
+→ 解決先: /node_modules/lodash/lodash.js
 ```
 
-パッケージ: `@vue/runtime-core`
+**@vue/runtime-coreパッケージ**:
+
 ```
-node_modules/@vue/runtime-core/package.json:
+/node_modules/@vue/runtime-core/package.json:
 {
   "name": "@vue/runtime-core",
-  "version": "3.3.4",
   "module": "dist/runtime-core.esm-bundler.js",
   "main": "index.js"
 }
 
-→ 解決: /node_modules/@vue/runtime-core/dist/runtime-core.esm-bundler.js
+→ 解決先: /node_modules/@vue/runtime-core/dist/runtime-core.esm-bundler.js
 ```
 
 ### サブパス解決
 
-| require呼び出し | 解決パス |
-|----------------|----------|
+| require呼び出し | 解決先 |
+|----------------|--------|
 | `lodash` | `/node_modules/lodash/lodash.js` |
 | `lodash/merge` | `/node_modules/lodash/merge.js` |
-| `@vue/runtime-core` | `/node_modules/@vue/runtime-core/dist/runtime-core.esm-bundler.js` |
-| `@vue/runtime-core/dist/runtime-core.esm-bundler.js` | 同上 |
+| `@vue/runtime-core` | package.jsonのmoduleフィールド |
+| `chalk` | `/node_modules/chalk/source/index.js` |
 
 ---
 
 ## エラーハンドリング
 
-### エラーの種類と対処
+### エラーの種類と対処法
 
 ```mermaid
 graph TB
@@ -635,10 +750,10 @@ graph TB
     Runtime[Runtime error]
     Circular[Circular dependency]
     
-    NotFoundHandle[詳細なパス情報をログ]
-    TranspileHandle[元のコードで実行試行]
-    RuntimeHandle[スタックトレース出力]
-    CircularHandle[部分的なexports返却]
+    NFHandle[詳細パス情報ログ出力]
+    THandle[エラーログ、処理中断]
+    RHandle[スタックトレース出力]
+    CHandle[部分的exportsを返却]
     
     Error --> Type
     Type --> NotFound
@@ -646,34 +761,37 @@ graph TB
     Type --> Runtime
     Type --> Circular
     
-    NotFound --> NotFoundHandle
-    Transpile --> TranspileHandle
-    Runtime --> RuntimeHandle
-    Circular --> CircularHandle
+    NotFound --> NFHandle
+    Transpile --> THandle
+    Runtime --> RHandle
+    Circular --> CHandle
 ```
 
-**エラーメッセージ例**:
+### エラーメッセージ例
 
-1. モジュール未発見:
+**1. モジュール未検出**:
+
 ```
-❌ Failed to load module: lodash
+❌ Module not found: lodash
 Cannot find module 'lodash'
 
-チェック項目:
-- ファイルがIndexedDBに存在するか
-- npm installが完了しているか
-- パスが正しいか
+対処:
+- npm installが完了しているか確認
+- node_modulesがIndexedDBに存在するか確認
+- パスが正しいか確認
 ```
 
-2. トランスパイルエラー:
+**2. トランスパイルエラー**:
+
 ```
 ❌ Transpile failed: /src/app.tsx
 SyntaxError: Unexpected token
 
-⚠️ Using original code without transpilation
+Worker error: ...
 ```
 
-3. 循環参照:
+**3. 循環参照検出**:
+
 ```
 ⚠️ Circular dependency detected: /src/a.js
 → /src/b.js
@@ -684,76 +802,74 @@ SyntaxError: Unexpected token
 
 ---
 
-## 設計の背景と理由
+## 設計の理由
 
-### なぜbabel standaloneを選択したか
-
-**比較検討**:
+### なぜBabel standaloneか
 
 | 選択肢 | メリット | デメリット | 判断 |
 |-------|---------|-----------|------|
-| 正規表現 | 軽量、簡単 | 不正確、複雑な構文に非対応 | ❌ |
-| Babel | 強力、プラグイン豊富 | 重い、バンドルサイズ大 | ❌ |
+| 正規表現 | 軽量、簡単 | 不正確、複雑構文非対応 | ❌ |
 | TypeScript Compiler | 公式、正確 | 重い、ブラウザ非対応 | ❌ |
-| babel standalone | 高速、正確、軽量 | WebAssembly必須 | ✅ |
+| esbuild-wasm | 高速 | サイズ大、機能限定 | ❌ |
+| Babel standalone | 正確、プラグイン豊富 | バンドルサイズ中 | ✅ |
 
-**決定理由**:
-- Rustベースで高速
-- wasmでブラウザ動作
-- AST変換で正確
-- バンドルサイズ小（~2MB）
+**採用理由**: ASTベースで正確、プラグインで柔軟にカスタマイズ可能、ブラウザで動作。
 
-### なぜWeb Workerを使用するか
+### なぜWeb Workerか
 
-**メインスレッドでの問題**:
-- トランスパイルに50-100ms
-- UI処理がブロック
-- メモリ使用量が増加
+**メインスレッドの問題点**:
+
+- トランスパイルに50-150ms、UI処理がブロック
+- メモリ使用量が累積
 
 **Worker使用のメリット**:
+
 - メインスレッド非ブロック
-- 並列処理可能
 - 完了後、即座にメモリ解放
-- babel standaloneヒープの隔離
+- Babelのヒープが隔離される
 
 ### なぜ3層キャッシュか
 
 **各層の役割**:
 
-1. **実行キャッシュ**: 循環参照対策、即座にアクセス
-2. **メモリキャッシュ**: トランスパイル結果、高速アクセス
-3. **IndexedDBキャッシュ**: 永続化、再起動時も有効
+1. **実行キャッシュ**: 循環参照対策、同一モジュールの再実行防止
+2. **トランスパイルキャッシュ（メモリ）**: 高速アクセス、トランスパイル結果保存
+3. **永続キャッシュ（IndexedDB）**: ブラウザ再起動後も有効
 
-**メリット**:
-- 初回: ~200ms
-- 2回目: ~15ms（約13倍高速）
-- 再起動後: ~20ms（ディスクキャッシュ）
+**効果**:
+
+- 初回: ~100ms
+- 2回目: ~10ms（約10倍高速）
+- 再起動後: ~15ms（ディスクキャッシュ）
 
 ### なぜIndexedDBを唯一の真実とするか
 
-**設計原則**:
-- データの一貫性を保証
-- 単一の書き込み先
-- 自動同期でGitFileSystemと連携
+**設計原則**: データの一貫性を単一のストレージで保証
 
-**データフロー**:
 ```
 ユーザー操作
   ↓
-fileRepository (IndexedDB)
+fileRepository（IndexedDB）
   ↓
 自動同期（バックグラウンド）
   ↓
-GitFileSystem (lightning-fs)
+GitFileSystem（lightning-fs）
 ```
+
+**メリット**: データの書き込み先が一箇所、同期処理は自動化。
+
+### なぜrequireを非同期化するか
+
+IndexedDBは非同期APIのため、ファイル読み込みが非同期になる。従来の同期的なrequireでは対応できないため、`await __require__()`に変換。
 
 ---
 
-## 使用例とベストプラクティス
+## 使用例
 
-### 基本的な使用
+### 基本的なファイル実行
 
-**TypeScriptファイル実行**:
+TypeScript、JSXファイルの実行：
+
 ```typescript
 import { executeNodeFile } from '@/engine/runtime/nodeRuntime';
 
@@ -765,95 +881,95 @@ await executeNodeFile({
 });
 ```
 
-**npm packageの使用**:
-```typescript
-// ユーザーコード
+### npm packageの使用
+
+ユーザーコード内でnpmパッケージを使用：
+
+```javascript
+// ユーザーコード: index.js
 const lodash = require('lodash');
 const result = lodash.map([1, 2, 3], x => x * 2);
 console.log(result); // [2, 4, 6]
 ```
 
-**ES Moduleの使用**:
-```typescript
-// ユーザーコード (自動的にCommonJSに変換)
+自動的に以下のように変換され実行される：
+
+```javascript
+const lodash = await __require__('lodash');
+```
+
+### ES Moduleの使用
+
+ES Module構文も自動変換：
+
+```javascript
+// ユーザーコード: utils.ts
 import { map } from 'lodash';
 export const double = (arr) => map(arr, x => x * 2);
 ```
 
-### ベストプラクティス
+自動的にCommonJSに変換：
 
-**推奨**:
-- ✅ fileRepositoryでファイル操作
-- ✅ 相対パスで自作モジュールを参照
-- ✅ package.jsonでnpm packagesを管理
-- ✅ TypeScriptで型安全に開発
-
-**非推奨**:
-- ❌ gitFileSystemへの直接書き込み
-- ❌ グローバル変数の多用
-- ❌ 巨大なファイルの同期読み込み
-- ❌ メモリリークを起こす循環参照
+```javascript
+const map = (await __require__('lodash')).map;
+module.exports.double = (arr) => map(arr, x => x * 2);
+```
 
 ---
 
 ## トラブルシューティング
 
-### よくある問題
+### よくある問題と対処
 
 **問題1: モジュールが見つからない**
 
-症状:
-```
-Cannot find module 'xxx'
-```
+症状: `Cannot find module 'xxx'`
 
 原因と対処:
-- npm installが未完了 → npm install実行
+
+- npm installが未完了 → npm installを実行
 - パスが間違っている → 相対パスを確認
-- IndexedDBに存在しない → ファイルを作成
+- IndexedDBに存在しない → ファイルを作成またはアップロード
 
 **問題2: トランスパイルが遅い**
 
 症状: 初回実行が数秒かかる
 
 原因と対処:
-- SWC初期化に時間がかかる（初回のみ）
-- 大量のファイルを読み込んでいる → 必要最小限に
-- キャッシュが効いていない → 2回目以降は高速化
+
+- 初回はBabel初期化とトランスパイルで時間がかかる（正常動作）
+- 2回目以降はキャッシュにより高速化される
 
 **問題3: メモリ不足**
 
 症状: ブラウザが重くなる
 
 原因と対処:
-- キャッシュが溜まりすぎ → 自動GCが動作、70MBまで削減
-- 循環参照によるリーク → コード設計を見直し
-- 大量のWorker起動 → 同時実行数を制限（将来実装）
+
+- キャッシュが100MB超過 → 自動GCが動作し70MBまで削減
+- キャッシュをクリアして再起動
 
 ---
 
 ## 今後の拡張計画
 
-### 短期（1-2ヶ月）
+### 短期
 
-- [ ] Source Map統合
-- [ ] Workerプール（並列トランスパイル）
-- [ ] エラーメッセージの改善
-- [ ] デバッガー統合
+- Source Map統合でデバッグ改善
+- エラーメッセージの詳細化
+- パフォーマンス計測とプロファイリング
 
-### 中期（3-6ヶ月）
+### 中期
 
-- [ ] Hot Module Replacement
-- [ ] より多くのビルトインモジュール
-- [ ] パフォーマンス最適化
-- [ ] プラグインシステム
+- より多くのビルトインモジュール実装
+- Workerプール（並列トランスパイル）
+- Hot Module Replacement
 
-### 長期（6ヶ月以上）
+### 長期
 
-- [ ] WebContainerとの統合検討
-- [ ] ネイティブアプリ対応（Tauri）
-- [ ] 分散キャッシュシステム
-- [ ] AI支援デバッグ
+- WebContainerとの統合検討
+- ネイティブアプリ対応（Tauri）
+- AI支援デバッグ機能
 
 ---
 
@@ -861,20 +977,19 @@ Cannot find module 'xxx'
 
 ### 関連ドキュメント
 
-- [CORE-ENGINE.md](./CORE-ENGINE.md) - コアエンジンの設計
+- [CORE-ENGINE.md](./CORE-ENGINE.md) - コアエンジン設計
 - [DATA-FLOW.md](./DATA-FLOW.md) - データフロー全体像
-- [src/engine/runtime/README.md](../src/engine/runtime/README.md) - 実装詳細
-- [src/engine/runtime/ARCHITECTURE.md](../src/engine/runtime/ARCHITECTURE.md) - アーキテクチャ詳細
+- [SYSTEM-OVERVIEW.md](./SYSTEM-OVERVIEW.md) - システム概要
 
 ### 外部リンク
 
-- [SWC Documentation](https://swc.rs/)
+- [Babel Documentation](https://babeljs.io/docs/)
 - [Web Workers API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API)
 - [IndexedDB API](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API)
 - [Node.js Built-in Modules](https://nodejs.org/api/)
 
 ---
 
-**最終更新**: 2025-10-04  
-**バージョン**: 3.0  
-**ステータス**: ✅ babel standalone統合完了
+**最終更新**: 2025-10-05  
+**バージョン**: 4.0  
+**ステータス**: ✅ 実装に基づいた正確なドキュメント
