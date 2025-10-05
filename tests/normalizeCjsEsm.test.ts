@@ -74,6 +74,37 @@ describe('normalizeCjsEsm', () => {
     expect(out).toContain("const Foo = class {}");
     expect(out).toContain("module.exports.Foo = Foo;");
   });
+  it('export named function declaration', () => {
+    const input = `export function greet() { return 'hi'; }`;
+    const out = normalizeCjsEsm(input);
+    expect(out).toContain("function greet() { return 'hi'; }");
+    expect(out).toContain("module.exports.greet = greet;");
+  });
+  it('export named class declaration', () => {
+    const input = `export class Person { constructor(name){ this.name = name } }`;
+    const out = normalizeCjsEsm(input);
+    expect(out).toContain("class Person { constructor(name){ this.name = name } }");
+    expect(out).toContain("module.exports.Person = Person;");
+  });
+  it('export default anonymous function/class', () => {
+    const inputFn = `export default function() {}`;
+    expect(normalizeCjsEsm(inputFn)).toBe("module.exports.default = function() {}");
+    const inputCls = `export default class {}`;
+    expect(normalizeCjsEsm(inputCls)).toBe("module.exports.default = class {}");
+  });
+  it('do not duplicate existing module.exports', () => {
+    const input = `export function once(){}\nmodule.exports.once = once;`;
+    const out = normalizeCjsEsm(input);
+    // should not append a second module.exports.once
+    expect(out.split('module.exports.once').length).toBe(2); // one in original, one in split yields 2
+  });
+  it('nested function should not be exported', () => {
+    const input = `export function outer(){ function inner(){} return inner }`;
+    const out = normalizeCjsEsm(input);
+    // only outer should be exported
+    expect(out).toContain('module.exports.outer = outer;');
+    expect(out).not.toContain('module.exports.inner');
+  });
   it('import with semicolons and whitespace', () => {
     const input = ` import foo from 'a' ; \n import { bar } from 'b';`;
     const out = normalizeCjsEsm(input);

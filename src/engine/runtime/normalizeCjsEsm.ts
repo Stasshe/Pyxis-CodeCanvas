@@ -2,6 +2,7 @@
  * import/export/requireの簡易CJS/ESM変換
  */
 export function normalizeCjsEsm(code: string): string {
+  const exportedNames = new Set<string>();
   // import * as ns from 'mod' → const ns = await __require__('mod')
   code = code.replace(/import\s+\*\s+as\s+(\w+)\s+from\s+['"]([^'"]+)['"]/g, (m, ns, mod) => {
     return `const ${ns} = await __require__('${mod}')`;
@@ -46,31 +47,19 @@ export function normalizeCjsEsm(code: string): string {
     return assigns.join(' ');
   });
   // export function NAME(...) { ... } -> function NAME(...) { ... } module.exports.NAME = NAME;
+  // remove export keyword from function declarations; collect the name so we can
+  // append module.exports.NAME = NAME; later (avoids scanning non-exported funcs)
   code = code.replace(/export\s+function\s+(\w+)\s*\(/g, (m, name) => {
+    exportedNames.add(name);
     return `function ${name}(`;
-  });
-  code = code.replace(/(function\s+(\w+)\s*\([^)]*\)\s*\{[\s\S]*?\})/g, function(m, fn, name, offset, string) {
-    // if module.exports already added inside the function text, skip
-    if (m.includes('module.exports')) return m;
-    // check preceding text to avoid double-export for default exports
-    const before = string.slice(Math.max(0, offset - 30), offset);
-    if (/module\.exports\.default\s*=\s*$/.test(before)) {
-      return m; // skip adding module.exports.NAME for default exported function
-    }
-    return `${fn} module.exports.${name} = ${name};`;
   });
   // export class NAME { ... } -> class NAME { ... } module.exports.NAME = NAME;
   code = code.replace(/export\s+class\s+(\w+)\s*/g, (m, name) => {
+    exportedNames.add(name);
     return `class ${name} `;
   });
-  code = code.replace(/(class\s+(\w+)\s*\{[\s\S]*?\})/g, function(m, cls, name, offset, string) {
-    if (m.includes('module.exports')) return m;
-    const before = string.slice(Math.max(0, offset - 30), offset);
-    if (/module\.exports\.default\s*=\s*$/.test(before)) {
-      return m;
-    }
-    return `${cls} module.exports.${name} = ${name};`;
-  });
+  // remove fragile body-matching replacements above; instead, after all transforms,
+  // we'll collect top-level function/class names and append module.exports assignments
   // メソッドチェーン対応: const ... = ...\n  .foo() ... ; のような複数行を1文として扱う
   code = code.replace(/const (\w+) = ([^;\n]+)((?:\n\s*\.[^;\n]*)*)(;|\n|$)/g, (m, name, val, chain, end) => {
     if (m.includes('module.exports')) return m;
@@ -79,5 +68,13 @@ export function normalizeCjsEsm(code: string): string {
     if (/^await __require__\s*\(/.test(val.trim())) return m;
     return `const ${name} = ${val}${chain}${end} module.exports.${name} = ${name};`;
   });
+  // Post-process: append module.exports for only those function/class names
+  // that were explicitly exported (we collected them above). This prevents
+  // exporting nested or non-exported declarations.
+  if (exportedNames.size > 0) {
+    const assigns = Array.from(exportedNames).filter(n => !new RegExp(`module\\.exports\\.${n}\\s*=`).test(code)).map(n => `module.exports.${n} = ${n};`).join(' ');
+    if (assigns) code = code + '\n' + assigns;
+  }
+
   return code;
 }
