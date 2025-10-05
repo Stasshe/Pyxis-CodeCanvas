@@ -195,33 +195,48 @@ export class NodeRuntime {
     const __require__ = (moduleName: string) => {
       runtimeInfo('📦 __require__:', moduleName);
 
-      // 実際のロード処理を行う Promise
-      const loadPromise = (async () => {
-        // ビルトインモジュールを先にチェック
-        const builtInModule = this.resolveBuiltInModule(moduleName);
-        if (builtInModule !== null) {
-          runtimeInfo('✅ Built-in module resolved:', moduleName);
-          return builtInModule;
-        }
+      // 実際のロード処理を行う Promise。
+      // built-in モジュールは同期的に解決できるため、その場合は
+      // loadPromise.__syncValue に実体を格納しておき、Proxy が同期的に
+      // 値/関数を返せるようにする。非同期モジュールは通常どおり load する。
+      let resolveFn: (v: any) => void;
+      let rejectFn: (e: any) => void;
+      const loadPromise: any = new Promise<any>((res, rej) => {
+        resolveFn = res;
+        rejectFn = rej;
+      });
 
-        // ModuleLoaderでユーザーモジュールを読み込み
-        try {
-          const moduleExports = await self.moduleLoader.load(moduleName, currentFilePath);
+      // まずビルトインモジュールを同期チェック
+      const builtInModule = this.resolveBuiltInModule(moduleName);
+      if (builtInModule !== null) {
+        runtimeInfo('✅ Built-in module resolved:', moduleName);
+        // 同期値マーカーを付与してすぐに解決
+        (loadPromise as any).__syncValue = builtInModule;
+        resolveFn!(builtInModule);
+      } else {
+        // 非ビルトイン: 非同期ロードを開始
+        (async () => {
+          try {
+            const moduleExports = await self.moduleLoader.load(moduleName, currentFilePath);
 
-          // ビルトインモジュールマーカーを処理
-          if (typeof moduleExports === 'object' && moduleExports !== null) {
-            const obj = moduleExports as any;
-            if (obj.__isBuiltIn) {
-              return this.resolveBuiltInModule(obj.moduleName);
+            // ビルトインモジュールマーカーを処理
+            if (typeof moduleExports === 'object' && moduleExports !== null) {
+              const obj = moduleExports as any;
+              if (obj.__isBuiltIn) {
+                const resolved = this.resolveBuiltInModule(obj.moduleName);
+                (loadPromise as any).__syncValue = resolved;
+                resolveFn!(resolved);
+                return;
+              }
             }
-          }
 
-          return moduleExports;
-        } catch (error) {
-          runtimeError('❌ Failed to load module:', moduleName, error);
-          throw new Error(`Cannot find module '${moduleName}'`);
-        }
-      })();
+            resolveFn!(moduleExports);
+          } catch (error) {
+            runtimeError('❌ Failed to load module:', moduleName, error);
+            rejectFn!(new Error(`Cannot find module '${moduleName}'`));
+          }
+        })();
+      }
 
       // thenable Proxy を返す。これによりプロパティアクセス（例: .promises）は
       // 同期的に thenable のプロパティ（Promise）として取得でき、`await __require__('fs').promises` が
@@ -233,11 +248,65 @@ export class NodeRuntime {
             return (target as any)[prop].bind(target);
           }
 
-          // その他のプロパティアクセスは、ロードされたモジュールから該当プロパティを返す Promise を返す
-          // 例えば `.promises` へのアクセスは Promise を返し、その後に外側で await される想定
+          // Symbol のような特殊プロパティはそのまま返す
+          if (typeof prop === 'symbol') {
+            return (target as any)[prop];
+          }
+
+          // まず同期解決済みの値があれば同期的に返す（built-in モジュール向け）
+          const syncVal = (target as any).__syncValue;
+          if (syncVal !== undefined) {
+            const v = (syncVal as any)[prop];
+            if (typeof v === 'function') {
+              // 元のオブジェクトにバインドした関数をそのまま返す（同期的）
+              return (v as Function).bind(syncVal);
+            }
+            return v;
+          }
+
+          // 非同期モジュール: Promise 解決後のプロパティを返す。関数なら thenable なラッパーを返す。
           return (target as Promise<any>).then(mod => {
             if (mod == null) return undefined;
-            return (mod as any)[prop];
+
+            const value = (mod as any)[prop];
+
+            if (typeof value === 'function') {
+              const fnWrapper = (...args: unknown[]) => {
+                return (target as Promise<any>).then(actualMod => {
+                  const actualValue = actualMod == null ? undefined : (actualMod as any)[prop];
+                  if (typeof actualValue !== 'function') {
+                    throw new Error(`Property '${String(prop)}' is not a function on module '${moduleName}'`);
+                  }
+                  return actualValue.apply(actualMod, args);
+                });
+              };
+              (fnWrapper as any).then = (onFulfilled: any, onRejected: any) => {
+                return (target as Promise<any>).then(mod => {
+                  const actualValue = mod == null ? undefined : (mod as any)[prop];
+                  return Promise.resolve(actualValue).then(onFulfilled, onRejected);
+                }, onRejected);
+              };
+              return fnWrapper;
+            }
+
+            return value;
+          });
+        },
+
+        // モジュール自体が関数として扱われた場合: __require__('x')(...)
+        apply(target, thisArg, argsList) {
+          const syncVal = (target as any).__syncValue;
+          if (syncVal !== undefined) {
+            if (typeof syncVal !== 'function') {
+              throw new Error(`Module '${moduleName}' is not callable`);
+            }
+            return (syncVal as any).apply(thisArg, argsList as any);
+          }
+          return (target as Promise<any>).then(mod => {
+            if (typeof mod !== 'function') {
+              throw new Error(`Module '${moduleName}' is not callable`);
+            }
+            return (mod as any).apply(thisArg, argsList as any);
           });
         },
       });

@@ -130,7 +130,17 @@ export class FindCommand extends UnixCommandBase {
       if (depth < minDepth || depth > maxDepth) continue;
 
       if (this.matchesFilter(file, namePattern, typeFilter)) {
-        const fullPath = `${startPath}${file.path.replace(relativePath, '')}`;
+        // file.path is stored as absolute-like path relative to project root, e.g. '/repo/sub/path'
+        // relativePath is the startPath converted to the same project-relative form
+        // remainder should be the suffix after relativePath. Ensure we join with a single '/'.
+        let remainder = file.path.replace(relativePath === '/' ? '' : relativePath, '');
+        // remainder may start with a leading '/'
+        if (remainder.startsWith('/')) remainder = remainder.slice(1);
+
+        // startPath may or may not end with '/'
+        const normalizedStart = startPath.endsWith('/') ? startPath.slice(0, -1) : startPath;
+
+        const fullPath = remainder === '' ? normalizedStart : `${normalizedStart}/${remainder}`;
         results.push(fullPath);
       }
     }
