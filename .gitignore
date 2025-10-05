@@ -49,3 +49,6 @@ memo.md
 
 src/engine/initialFileContents.ts
 public/swc.wasm
+
+
+tests/__artifacts__/*

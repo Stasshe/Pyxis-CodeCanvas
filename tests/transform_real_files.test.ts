@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@jest/globals';
-import { readFileSync } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { normalizeCjsEsm } from '@/engine/runtime/normalizeCjsEsm';
 
 describe('normalizeCjsEsm real files', () => {
@@ -12,9 +12,11 @@ describe('normalizeCjsEsm real files', () => {
     const outMath = normalizeCjsEsm(mathSrc);
     const outUse = normalizeCjsEsm(useSrc);
 
-  // quick sanity prints (kept as part of test output for inspection)
-  console.log('--- math.ts transformed ---\n', outMath.slice(0, 1000));
-  console.log('--- use-math.ts transformed ---\n', outUse.slice(0, 1000));
+    // Write artifacts for final manual inspection
+    const artifactsDir = 'tests/__artifacts__';
+    if (!existsSync(artifactsDir)) mkdirSync(artifactsDir, { recursive: true });
+    writeFileSync(`${artifactsDir}/math.transformed.ts`, outMath, 'utf8');
+    writeFileSync(`${artifactsDir}/use-math.transformed.ts`, outUse, 'utf8');
 
     // Find class Calculator in transformed math and ensure module.exports isn't inside it
     const classMatch = outMath.match(/class\s+Calculator[\s\S]*?\}/);
