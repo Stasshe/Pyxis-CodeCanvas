@@ -48,3 +48,4 @@ memo.txt
 memo.md
 
 src/engine/initialFileContents.ts
+public/swc.wasm

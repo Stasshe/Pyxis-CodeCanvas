@@ -12,290 +12,14 @@
  * 4. 結果をメインスレッドに返す
  * 5. Worker終了
  */
+import initSwc, * as swc from '@swc/wasm-web';
+import { normalizeCjsEsm } from './normalizeCjsEsm';
 
-import * as Babel from '@babel/standalone';
+// swc/wasm-webの初期化Promiseをグローバルで管理
+let swcInitPromise: Promise<void> | null = null;
+let swcInitialized = false;
 // transpileWorker runs inside a WebWorker context; runtime logger may not be available here.
 // Use console for worker-level diagnostics and ensure messages are concise.
-
-/**
- * Babel Plugin: ES Module と require() を変換
- */
-function babelPluginModuleTransform() {
-  return {
-    name: 'module-transform',
-    visitor: {
-      // import文を await __require__() に変換
-      ImportDeclaration(path: any) {
-        const { node } = path;
-        const source = node.source.value;
-        
-        // import defaultExport from 'module'
-        // import { named } from 'module'
-        // import * as namespace from 'module'
-        
-        const declarations: any[] = [];
-        
-        node.specifiers.forEach((spec: any) => {
-          if (spec.type === 'ImportDefaultSpecifier') {
-            // const defaultExport = (await __require__('module')).default || await __require__('module')
-            // ES Module互換: .defaultプロパティをチェック、なければmodule自体を使う
-            declarations.push({
-              type: 'VariableDeclarator',
-              id: spec.local,
-              init: {
-                type: 'LogicalExpression',
-                operator: '||',
-                left: {
-                  type: 'MemberExpression',
-                  object: {
-                    type: 'AwaitExpression',
-                    argument: {
-                      type: 'CallExpression',
-                      callee: { type: 'Identifier', name: '__require__' },
-                      arguments: [{ type: 'StringLiteral', value: source }],
-                    },
-                  },
-                  property: { type: 'Identifier', name: 'default' },
-                  computed: false,
-                },
-                right: {
-                  type: 'AwaitExpression',
-                  argument: {
-                    type: 'CallExpression',
-                    callee: { type: 'Identifier', name: '__require__' },
-                    arguments: [{ type: 'StringLiteral', value: source }],
-                  },
-                },
-              },
-            });
-          } else if (spec.type === 'ImportSpecifier') {
-            // const { named } = await __require__('module')
-            declarations.push({
-              type: 'VariableDeclarator',
-              id: { type: 'Identifier', name: spec.local.name },
-              init: {
-                type: 'MemberExpression',
-                object: {
-                  type: 'AwaitExpression',
-                  argument: {
-                    type: 'CallExpression',
-                    callee: { type: 'Identifier', name: '__require__' },
-                    arguments: [{ type: 'StringLiteral', value: source }],
-                  },
-                },
-                property: { type: 'Identifier', name: spec.imported.name },
-                computed: false,
-              },
-            });
-          } else if (spec.type === 'ImportNamespaceSpecifier') {
-            // const namespace = await __require__('module')
-            declarations.push({
-              type: 'VariableDeclarator',
-              id: spec.local,
-              init: {
-                type: 'AwaitExpression',
-                argument: {
-                  type: 'CallExpression',
-                  callee: { type: 'Identifier', name: '__require__' },
-                  arguments: [{ type: 'StringLiteral', value: source }],
-                },
-              },
-            });
-          }
-        });
-        
-        if (declarations.length > 0) {
-          const variableDeclaration = {
-            type: 'VariableDeclaration',
-            kind: 'const',
-            declarations,
-          };
-          path.replaceWith(variableDeclaration);
-        } else {
-          // import 'module' (side effect only)
-          path.replaceWith({
-            type: 'ExpressionStatement',
-            expression: {
-              type: 'AwaitExpression',
-              argument: {
-                type: 'CallExpression',
-                callee: { type: 'Identifier', name: '__require__' },
-                arguments: [{ type: 'StringLiteral', value: source }],
-              },
-            },
-          });
-        }
-        
-        // 親関数をasyncに
-        let functionParent = path.getFunctionParent();
-        if (functionParent) {
-          functionParent.node.async = true;
-        }
-      },
-      
-      // export文を module.exports に変換
-      ExportDefaultDeclaration(path: any) {
-        const { node } = path;
-        // デフォルトエクスポートは module.exports.default に代入
-        path.replaceWith({
-          type: 'ExpressionStatement',
-          expression: {
-            type: 'AssignmentExpression',
-            operator: '=',
-            left: {
-              type: 'MemberExpression',
-              object: {
-                type: 'MemberExpression',
-                object: { type: 'Identifier', name: 'module' },
-                property: { type: 'Identifier', name: 'exports' },
-                computed: false,
-              },
-              property: { type: 'Identifier', name: 'default' },
-              computed: false,
-            },
-            right: node.declaration,
-          },
-        });
-      },
-      
-      ExportNamedDeclaration(path: any) {
-        const { node } = path;
-        
-        if (node.declaration) {
-          // export const foo = 1; => const foo = 1; module.exports.foo = foo;
-          const assignments: any[] = [];
-          
-          if (node.declaration.type === 'VariableDeclaration') {
-            node.declaration.declarations.forEach((decl: any) => {
-              assignments.push({
-                type: 'ExpressionStatement',
-                expression: {
-                  type: 'AssignmentExpression',
-                  operator: '=',
-                  left: {
-                    type: 'MemberExpression',
-                    object: {
-                      type: 'MemberExpression',
-                      object: { type: 'Identifier', name: 'module' },
-                      property: { type: 'Identifier', name: 'exports' },
-                      computed: false,
-                    },
-                    property: { type: 'Identifier', name: decl.id.name },
-                    computed: false,
-                  },
-                  right: { type: 'Identifier', name: decl.id.name },
-                },
-              });
-            });
-            
-            // 元の宣言と代入を順番に実行
-            path.replaceWithMultiple([node.declaration, ...assignments]);
-          } else if (node.declaration.type === 'FunctionDeclaration') {
-            // export function foo() {} => function foo() {}; module.exports.foo = foo;
-            const funcName = node.declaration.id.name;
-            path.replaceWithMultiple([
-              node.declaration,
-              {
-                type: 'ExpressionStatement',
-                expression: {
-                  type: 'AssignmentExpression',
-                  operator: '=',
-                  left: {
-                    type: 'MemberExpression',
-                    object: {
-                      type: 'MemberExpression',
-                      object: { type: 'Identifier', name: 'module' },
-                      property: { type: 'Identifier', name: 'exports' },
-                      computed: false,
-                    },
-                    property: { type: 'Identifier', name: funcName },
-                    computed: false,
-                  },
-                  right: { type: 'Identifier', name: funcName },
-                },
-              },
-            ]);
-          } else if (node.declaration.type === 'ClassDeclaration') {
-            // export class Foo {} => class Foo {}; module.exports.Foo = Foo;
-            const className = node.declaration.id.name;
-            path.replaceWithMultiple([
-              node.declaration,
-              {
-                type: 'ExpressionStatement',
-                expression: {
-                  type: 'AssignmentExpression',
-                  operator: '=',
-                  left: {
-                    type: 'MemberExpression',
-                    object: {
-                      type: 'MemberExpression',
-                      object: { type: 'Identifier', name: 'module' },
-                      property: { type: 'Identifier', name: 'exports' },
-                      computed: false,
-                    },
-                    property: { type: 'Identifier', name: className },
-                    computed: false,
-                  },
-                  right: { type: 'Identifier', name: className },
-                },
-              },
-            ]);
-          } else {
-            // その他の宣言
-            path.replaceWith(node.declaration);
-          }
-        } else if (node.specifiers.length > 0) {
-          // export { foo, bar };
-          const assignments = node.specifiers.map((spec: any) => ({
-            type: 'ExpressionStatement',
-            expression: {
-              type: 'AssignmentExpression',
-              operator: '=',
-              left: {
-                type: 'MemberExpression',
-                object: {
-                  type: 'MemberExpression',
-                  object: { type: 'Identifier', name: 'module' },
-                  property: { type: 'Identifier', name: 'exports' },
-                  computed: false,
-                },
-                property: { type: 'Identifier', name: spec.exported.name },
-                computed: false,
-              },
-              right: { type: 'Identifier', name: spec.local.name },
-            },
-          }));
-          path.replaceWithMultiple(assignments);
-        }
-      },
-      
-      // require() を await __require__() に変換
-      CallExpression(path: any) {
-        const { node } = path;
-        
-        if (
-          node.callee.type === 'Identifier' &&
-          node.callee.name === 'require' &&
-          node.arguments.length === 1
-        ) {
-          node.callee.name = '__require__';
-          
-          const awaitExpression = {
-            type: 'AwaitExpression',
-            argument: node,
-          };
-          
-          path.replaceWith(awaitExpression);
-          
-          let functionParent = path.getFunctionParent();
-          if (functionParent) {
-            functionParent.node.async = true;
-          }
-        }
-      },
-    },
-  };
-}
 
 /**
  * トランスパイルリクエスト
@@ -325,56 +49,58 @@ export interface TranspileResult {
 /**
  * トランスパイル実行
  */
-function transpile(request: TranspileRequest): TranspileResult {
+async function transpile(request: TranspileRequest): Promise<TranspileResult> {
   try {
     const { code, filePath, options } = request;
-    
-    // ファイル拡張子を判定
     const ext = filePath.split('.').pop() || 'js';
-    
-    // Babelプリセットとプラグインを構築
-    const presets: [string, any][] = [];
-    const plugins: any[] = [];
 
-    // TypeScriptサポート
-    if (options.isTypeScript) {
-      presets.push([
-        'typescript',
-        {
-          isTSX: options.isJSX || ext === 'tsx',
-          allExtensions: true,
-        },
-      ]);
+    // swc/wasm-webは明示的な初期化が必要（WASMバイナリのURLを指定）
+    if (!swcInitialized) {
+      if (!swcInitPromise) {
+        // Worker内から見た絶対URLでswc.wasmを指定
+        const wasmUrl = self.location.origin + '/swc.wasm';
+        swcInitPromise = initSwc(wasmUrl).then(() => {
+          swcInitialized = true;
+        }).catch((e) => {
+          swcInitPromise = null;
+          throw e;
+        });
+      }
+      await swcInitPromise;
     }
 
-    // Reactサポート
+    // まずCJS/ESM変換の正規化
+    let normalizedCode = normalizeCjsEsm(code);
+
+    // swcでTypeScript/JSX/ESM変換
+    const jsc: any = {
+      parser: {
+        syntax: options.isTypeScript ? 'typescript' : 'ecmascript',
+        tsx: options.isJSX || ext === 'tsx',
+        jsx: options.isJSX || ext === 'jsx',
+        decorators: false,
+        dynamicImport: true,
+      },
+      target: 'es2022',
+    };
     if (options.isJSX || ext === 'jsx' || ext === 'tsx') {
-      presets.push([
-        'react',
-        {
-          runtime: 'automatic',
+      jsc.transform = {
+        react: {
           development: false,
         },
-      ]);
+      };
     }
-
-    // ES Module と require() を変換するプラグインを追加
-    plugins.push(babelPluginModuleTransform());
-
-    // トランスパイル実行
-    const result = Babel.transform(code, {
+    const swcOptions: any = {
       filename: filePath,
-      presets,
-      plugins,
-      sourceMaps: false, // 将来的にtrue
-      sourceType: options.isESModule ? 'module' : 'script',
-      compact: false,
-      retainLines: true,
-    });
-
-    if (!result.code) {
-      throw new Error('Babel transform returned empty code');
-    }
+      jsc,
+      module: {
+        type: options.isESModule ? 'es6' : 'commonjs',
+      },
+      minify: false,
+      sourceMaps: false,
+    };
+    const result = swc.transformSync(normalizedCode, swcOptions);
+    if (!result.code) throw new Error('swc transform returned empty code');
 
     // 依存関係を抽出
     const dependencies = extractDependencies(result.code);
@@ -387,13 +113,11 @@ function transpile(request: TranspileRequest): TranspileResult {
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    // Worker context: send structured log back to main thread so it can be displayed via runtime logger
-      try {
-        self.postMessage({ type: 'log', level: 'error', message: `❌ Transpile error: ${errorMessage}` });
-      } catch {
-        console.error(`postMessage failed, ❌ Transpile error: ${errorMessage}`);
-      }
-    
+    try {
+      self.postMessage({ type: 'log', level: 'error', message: `❌ Transpile error: ${errorMessage}` });
+    } catch {
+      console.error(`postMessage failed, ❌ Transpile error: ${errorMessage}`);
+    }
     return {
       id: request.id,
       code: '',
@@ -429,11 +153,10 @@ function extractDependencies(code: string): string[] {
 /**
  * メッセージハンドラー
  */
-self.addEventListener('message', (event: MessageEvent<TranspileRequest>) => {
+self.addEventListener('message', async (event: MessageEvent<TranspileRequest>) => {
   const request = event.data;
-  
   try {
-    const result = transpile(request);
+    const result = await transpile(request);
     self.postMessage(result);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -444,15 +167,13 @@ self.addEventListener('message', (event: MessageEvent<TranspileRequest>) => {
       error: errorMessage,
     } as TranspileResult);
   }
-  
-  // Worker終了（メモリ解放）
   self.close();
 });
 
 // Signal ready and log initialization to main thread
 try {
   self.postMessage({ type: 'ready' });
-  self.postMessage({ type: 'log', level: 'info', message: '✅ Transpile worker initialized with Babel standalone' });
+  self.postMessage({ type: 'log', level: 'info', message: '✅ Transpile worker initialized with swc/wasm' });
 } catch {
   // ignore
 }
