@@ -7,6 +7,7 @@
 import { fileRepository } from './fileRepository';
 import { gitFileSystem } from './gitFileSystem';
 import { ProjectFile } from '@/types';
+import { coreInfo, coreWarn, coreError } from '@/engine/core/coreLogger';
 
 export class SyncManager {
   private static instance: SyncManager | null = null;
@@ -49,9 +50,9 @@ export class SyncManager {
       
       try {
         await Promise.race([clearPromise, clearTimeout]);
-        // console.log('[SyncManager] Project directory cleared');
+        coreInfo('[SyncManager] Project directory cleared');
       } catch (clearError) {
-        console.warn('[SyncManager] Failed to clear directory, proceeding anyway:', clearError);
+        coreWarn('[SyncManager] Failed to clear directory, proceeding anyway:', clearError);
       }
 
       // ディレクトリを先に作成
@@ -65,7 +66,7 @@ export class SyncManager {
         try {
           await gitFileSystem.ensureDirectory(fullPath);
         } catch (dirError) {
-          console.warn(`[SyncManager] Failed to create directory ${dir.path}:`, dirError);
+          coreWarn(`[SyncManager] Failed to create directory ${dir.path}:`, dirError);
         }
       }
 
@@ -91,7 +92,7 @@ export class SyncManager {
               await gitFileSystem.writeFile(projectName, file.path, file.content || '');
             }
           } catch (error) {
-            console.error(`[SyncManager] Failed to sync file ${file.path}:`, error);
+            coreError(`[SyncManager] Failed to sync file ${file.path}:`, error);
           }
         }));
         
@@ -104,9 +105,9 @@ export class SyncManager {
       // キャッシュフラッシュ
       await gitFileSystem.flush();
 
-      console.log('[SyncManager] Sync from IndexedDB to lightning-fs completed');
+  coreInfo('[SyncManager] Sync from IndexedDB to lightning-fs completed');
     } catch (error) {
-      console.error('[SyncManager] Failed to sync from IndexedDB to lightning-fs:', error);
+      coreError('[SyncManager] Failed to sync from IndexedDB to lightning-fs:', error);
       throw error;
     }
   }
@@ -116,7 +117,7 @@ export class SyncManager {
    * git revert/checkout等の操作後に呼び出される
    */
   async syncFromFSToIndexedDB(projectId: string, projectName: string): Promise<void> {
-    // console.log('[SyncManager] Syncing from lightning-fs to IndexedDB...');
+  // internal: syncing from lightning-fs to IndexedDB
 
     try {
       // lightning-fsから全ファイルを取得
@@ -132,7 +133,7 @@ export class SyncManager {
       // 削除されたファイルをIndexedDBから削除
       for (const dbFile of dbFiles) {
         if (!fsFilePaths.has(dbFile.path)) {
-          console.log(`[SyncManager] Deleting file from IndexedDB: ${dbFile.path}`);
+          coreInfo(`[SyncManager] Deleting file from IndexedDB: ${dbFile.path}`);
           await fileRepository.deleteFile(dbFile.id);
         }
       }
@@ -144,21 +145,21 @@ export class SyncManager {
         if (existingFile) {
           // 既存ファイルの更新
           if (fsFile.type === 'file' && existingFile.content !== fsFile.content) {
-            console.log(`[SyncManager] Updating file in IndexedDB: ${fsFile.path}`);
+            coreInfo(`[SyncManager] Updating file in IndexedDB: ${fsFile.path}`);
             existingFile.content = fsFile.content;
             existingFile.updatedAt = new Date();
             await fileRepository.saveFile(existingFile);
           }
         } else {
           // 新規ファイルの作成
-          console.log(`[SyncManager] Creating file in IndexedDB: ${fsFile.path}`);
+          coreInfo(`[SyncManager] Creating file in IndexedDB: ${fsFile.path}`);
           await fileRepository.createFile(projectId, fsFile.path, fsFile.content, fsFile.type);
         }
       }
 
-      console.log('[SyncManager] Sync from lightning-fs to IndexedDB completed');
+      coreInfo('[SyncManager] Sync from lightning-fs to IndexedDB completed');
     } catch (error) {
-      console.error('[SyncManager] Failed to sync from lightning-fs to IndexedDB:', error);
+      coreError('[SyncManager] Failed to sync from lightning-fs to IndexedDB:', error);
       throw error;
     }
   }
@@ -173,7 +174,7 @@ export class SyncManager {
     operation: 'create' | 'update' | 'delete',
     bufferContent?: ArrayBuffer
   ): Promise<void> {
-    console.log(`[SyncManager] Syncing single file to lightning-fs: ${filePath} (${operation})`);
+  coreInfo(`[SyncManager] Syncing single file to lightning-fs: ${filePath} (${operation})`);
 
     try {
       if (operation === 'delete' || content === null) {
@@ -191,9 +192,9 @@ export class SyncManager {
       // キャッシュフラッシュ
       await gitFileSystem.flush();
 
-      console.log(`[SyncManager] Single file sync completed: ${filePath}`);
+      coreInfo(`[SyncManager] Single file sync completed: ${filePath}`);
     } catch (error) {
-      console.error(`[SyncManager] Failed to sync single file ${filePath}:`, error);
+      coreError(`[SyncManager] Failed to sync single file ${filePath}:`, error);
       throw error;
     }
   }
@@ -206,7 +207,7 @@ export class SyncManager {
     projectName: string,
     files: ProjectFile[]
   ): Promise<void> {
-    console.log('[SyncManager] Initializing project...');
+  coreInfo('[SyncManager] Initializing project...');
 
     try {
       // lightning-fsのプロジェクトディレクトリを作成
@@ -216,9 +217,9 @@ export class SyncManager {
       // ファイルを同期
       await this.syncFromIndexedDBToFS(projectId, projectName);
 
-      console.log('[SyncManager] Project initialization completed');
+      coreInfo('[SyncManager] Project initialization completed');
     } catch (error) {
-      console.error('[SyncManager] Failed to initialize project:', error);
+      coreError('[SyncManager] Failed to initialize project:', error);
       throw error;
     }
   }

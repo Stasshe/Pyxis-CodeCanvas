@@ -7,6 +7,7 @@
 import { Project, ProjectFile, ChatSpace, ChatSpaceMessage } from '@/types';
 import { initialFileContents } from '@/engine/initialFileContents';
 import { LOCALSTORAGE_KEY } from '@/context/config';
+import { coreInfo, coreWarn, coreError } from '@/engine/core/coreLogger';
 
 // ユニークID生成関数
 const generateUniqueId = (prefix: string): string => {
@@ -67,7 +68,7 @@ export class FileRepository {
       try {
         listener(event);
       } catch (error) {
-        console.warn('[FileRepository] Listener error:', error);
+        coreWarn('[FileRepository] Listener error:', error);
       }
     });
   }
@@ -82,13 +83,13 @@ export class FileRepository {
       const request = indexedDB.open(this.dbName, this.version);
 
       request.onerror = () => {
-        console.error('[FileRepository] Database initialization failed:', request.error);
+        coreError('[FileRepository] Database initialization failed:', request.error);
         reject(request.error);
       };
 
       request.onsuccess = () => {
         this.db = request.result;
-        console.log('[FileRepository] Database initialized successfully');
+        coreInfo('[FileRepository] Database initialized successfully');
         resolve();
       };
 
@@ -320,17 +321,17 @@ export class FileRepository {
 
       transaction.onerror = () => reject(transaction.error);
       transaction.oncomplete = async () => {
-        console.log(`[FileRepository] Project deleted from IndexedDB: ${projectName}`);
+        coreInfo(`[FileRepository] Project deleted from IndexedDB: ${projectName}`);
         
         // LocalStorageから最近使用したプロジェクトを削除（バックグラウンド）
         this.cleanupLocalStorage(projectId).catch(err => {
-          console.warn('[FileRepository] Failed to cleanup localStorage:', err);
+          coreWarn('[FileRepository] Failed to cleanup localStorage:', err);
         });
 
         // GitFileSystemからプロジェクトを削除（バックグラウンド）
         if (projectName) {
           this.deleteProjectFromGitFS(projectName).catch(err => {
-            console.warn('[FileRepository] Failed to delete project from GitFileSystem:', err);
+            coreWarn('[FileRepository] Failed to delete project from GitFileSystem:', err);
           });
         }
 
@@ -350,7 +351,7 @@ export class FileRepository {
         const recentProjects = JSON.parse(recentProjectsStr);
         const updatedProjects = recentProjects.filter((id: string) => id !== projectId);
         localStorage.setItem(LOCALSTORAGE_KEY.RECENT_PROJECTS, JSON.stringify(updatedProjects));
-        console.log(`[FileRepository] Removed project ${projectId} from recent projects`);
+  coreInfo(`[FileRepository] Removed project ${projectId} from recent projects`);
       }
       // エディターレイアウトやターミナル履歴など、プロジェクト固有のlocalStorageキーを削除
       const keysToRemove = [
@@ -359,8 +360,8 @@ export class FileRepository {
         LOCALSTORAGE_KEY.LAST_EXECUTE_FILE,
       ];
       keysToRemove.forEach(key => localStorage.removeItem(key));
-    } catch (error) {
-      console.error('[FileRepository] Failed to cleanup localStorage:', error);
+      } catch (error) {
+      coreError('[FileRepository] Failed to cleanup localStorage:', error);
     }
   }
 
@@ -371,9 +372,9 @@ export class FileRepository {
     try {
       const { gitFileSystem } = await import('./gitFileSystem');
       await gitFileSystem.deleteProject(projectName);
-      console.log(`[FileRepository] Deleted project from GitFileSystem: ${projectName}`);
+      coreInfo(`[FileRepository] Deleted project from GitFileSystem: ${projectName}`);
     } catch (error) {
-      console.error(`[FileRepository] Failed to delete project from GitFileSystem:`, error);
+      coreError(`[FileRepository] Failed to delete project from GitFileSystem:`, error);
       throw error;
     }
   }
@@ -470,7 +471,7 @@ export class FileRepository {
     const parentExists = existingFiles.some(f => f.path === parentPath && f.type === 'folder');
     
     if (!parentExists) {
-      console.log(`[FileRepository] Creating parent directory: ${parentPath}`);
+  coreInfo(`[FileRepository] Creating parent directory: ${parentPath}`);
       
       // 親の親を再帰的に作成
       await this.ensureParentDirectories(projectId, parentPath, existingFiles);
@@ -518,6 +519,7 @@ export class FileRepository {
 
       request.onerror = () => reject(request.error);
       request.onsuccess = async () => {
+        coreInfo(`[FileRepository] File saved: ${updatedFile.path} (${updatedFile.type})`);
         // GitFileSystemへの自動同期（非同期・バックグラウンド実行）
         this.syncToGitFileSystem(
           updatedFile.projectId,
@@ -527,7 +529,7 @@ export class FileRepository {
           updatedFile.bufferContent,
           updatedFile.type
         ).catch(error => {
-          console.warn(
+          coreWarn(
             '[FileRepository] Background sync to GitFileSystem failed (non-critical):',
             error
           );
@@ -583,7 +585,7 @@ export class FileRepository {
       // 各ルールをチェック
       for (const rule of gitignoreRules) {
         if (this.matchGitignoreRule(normalizedPath, rule)) {
-          console.log(`[FileRepository] Path "${path}" matched gitignore rule: "${rule}"`);
+          coreInfo(`[FileRepository] Path "${path}" matched gitignore rule: "${rule}"`);
           return true;
         }
       }
@@ -629,15 +631,15 @@ export class FileRepository {
     bufferContent?: ArrayBuffer,
     fileType?: 'file' | 'folder'
   ): Promise<void> {
-    console.log(`[FileRepository.syncToGitFileSystem] START - path: ${path}, operation: ${operation}, type: ${fileType}`);
+    coreInfo(`[FileRepository.syncToGitFileSystem] START - path: ${path}, operation: ${operation}, type: ${fileType}`);
     try {
       // .gitignoreチェック（全ての操作で適用）
       const shouldIgnore = await this.shouldIgnorePathForGit(projectId, path);
       if (shouldIgnore) {
-        console.log(`[FileRepository] Skipping GitFileSystem sync for ignored path: ${path}`);
+        coreInfo(`[FileRepository] Skipping GitFileSystem sync for ignored path: ${path}`);
         return;
       }
-      console.log(`[FileRepository.syncToGitFileSystem] Path not ignored, proceeding: ${path}`);
+      coreInfo(`[FileRepository.syncToGitFileSystem] Path not ignored, proceeding: ${path}`);
 
       // 遅延インポートで循環参照を回避
       const { syncManager } = await import('./syncManager');
@@ -652,28 +654,28 @@ export class FileRepository {
           projectName = project.name;
           this.projectNameCache.set(projectId, projectName);
         } else {
-          console.warn('[FileRepository] Project not found for sync:', projectId);
+          coreWarn('[FileRepository] Project not found for sync:', projectId);
           return;
         }
       }
 
       // フォルダの場合はディレクトリを作成
       if (fileType === 'folder' && operation !== 'delete') {
-        console.log(`[FileRepository.syncToGitFileSystem] Creating directory: ${path}`);
+        coreInfo(`[FileRepository.syncToGitFileSystem] Creating directory: ${path}`);
         const projectDir = gitFileSystem.getProjectDir(projectName);
         const fullPath = `${projectDir}${path}`;
         await gitFileSystem.ensureDirectory(fullPath);
       } else {
         // ファイルの場合はSyncManagerを使用して同期
-        console.log(`[FileRepository.syncToGitFileSystem] Calling syncSingleFileToFS for: ${path}`);
+        coreInfo(`[FileRepository.syncToGitFileSystem] Calling syncSingleFileToFS for: ${path}`);
         await syncManager.syncSingleFileToFS(projectName, path, content, operation, bufferContent);
       }
 
       // Git変更検知のために自動的にキャッシュフラッシュ
       await gitFileSystem.flush();
-      console.log(`[FileRepository.syncToGitFileSystem] COMPLETED - path: ${path}`);
+      coreInfo(`[FileRepository.syncToGitFileSystem] COMPLETED - path: ${path}`);
     } catch (error) {
-      console.error('[FileRepository] syncToGitFileSystem error:', error);
+      coreError('[FileRepository] syncToGitFileSystem error:', error);
       throw error;
     }
   }
@@ -686,7 +688,7 @@ export class FileRepository {
 
     // projectIdのバリデーション
     if (!projectId || typeof projectId !== 'string' || projectId.trim() === '') {
-      console.error('[FileRepository] Invalid projectId:', projectId);
+      coreError('[FileRepository] Invalid projectId:', projectId);
       throw new Error(`Invalid projectId: ${projectId}`);
     }
 

@@ -4,6 +4,7 @@
  */
 
 import FS from '@isomorphic-git/lightning-fs';
+import { coreInfo, coreWarn, coreError } from '@/engine/core/coreLogger';
 
 export class GitFileSystem {
   private fs: FS | null = null;
@@ -31,14 +32,14 @@ export class GitFileSystem {
       // 基本ディレクトリ構造を非同期で作成
       setTimeout(async () => {
         try {
-          console.log('[GitFileSystem] Initializing /projects directory...');
+          coreInfo('[GitFileSystem] Initializing /projects directory...');
           await this.fs!.promises.mkdir('/projects', { recursive: true } as any);
-          console.log('[GitFileSystem] Successfully initialized /projects directory');
+          coreInfo('[GitFileSystem] Successfully initialized /projects directory');
         } catch (error) {
           if ((error as any).code === 'EEXIST') {
-            console.log('[GitFileSystem] /projects directory already exists');
+            coreInfo('[GitFileSystem] /projects directory already exists');
           } else {
-            console.warn('[GitFileSystem] Failed to initialize /projects directory:', error);
+            coreWarn('[GitFileSystem] Failed to initialize /projects directory:', error);
           }
         }
       }, 0);
@@ -116,7 +117,7 @@ export class GitFileSystem {
     }
 
     await fs.promises.writeFile(fullPath, content);
-    console.log(`[GitFileSystem] File written: ${fullPath}`);
+    coreInfo(`[GitFileSystem] File written: ${fullPath}`);
   }
 
   /**
@@ -127,13 +128,13 @@ export class GitFileSystem {
     const projectDir = this.getProjectDir(projectName);
     const fullPath = this.normalizePath(projectDir, filePath);
 
-    console.log(`[GitFileSystem] Reading file: ${filePath} -> ${fullPath}`);
+  coreInfo(`[GitFileSystem] Reading file: ${filePath} -> ${fullPath}`);
 
     try {
       const content = await fs.promises.readFile(fullPath, { encoding: 'utf8' });
       return content as string;
     } catch (error) {
-      console.error(`[GitFileSystem] Failed to read file: ${fullPath}`, error);
+      coreError(`[GitFileSystem] Failed to read file: ${fullPath}`, error);
       throw error;
     }
   }
@@ -153,7 +154,7 @@ export class GitFileSystem {
       } else {
         await fs.promises.unlink(fullPath);
       }
-      console.log(`[GitFileSystem] Deleted: ${fullPath}`);
+      coreInfo(`[GitFileSystem] Deleted: ${fullPath}`);
     } catch (error) {
       if ((error as any).code !== 'ENOENT') {
         throw error;
@@ -182,7 +183,7 @@ export class GitFileSystem {
       }
 
       await fs.promises.rmdir(dirPath);
-    } catch (error) {
+      } catch (error) {
       // エラーは無視
     }
   }
@@ -228,7 +229,7 @@ export class GitFileSystem {
           }
         }
       } catch (error) {
-        console.warn(`[GitFileSystem] Failed to read directory ${currentPath}:`, error);
+        coreWarn(`[GitFileSystem] Failed to read directory ${currentPath}:`, error);
       }
     };
 
@@ -244,9 +245,9 @@ export class GitFileSystem {
     if ((fs as any).sync) {
       try {
         await (fs as any).sync();
-        console.log('[GitFileSystem] Cache flushed');
+        coreInfo('[GitFileSystem] Cache flushed');
       } catch (error) {
-        console.warn('[GitFileSystem] Failed to flush cache:', error);
+        coreWarn('[GitFileSystem] Failed to flush cache:', error);
       }
     }
   }
@@ -272,7 +273,7 @@ export class GitFileSystem {
           }
         }
       }
-      console.log(`[GitFileSystem] Cleared project directory: ${projectDir}`);
+      coreInfo(`[GitFileSystem] Cleared project directory: ${projectDir}`);
     } catch (error) {
       // ディレクトリが存在しない場合は無視
     }
@@ -288,10 +289,10 @@ export class GitFileSystem {
     try {
       // プロジェクトディレクトリを再帰的に削除
       await this.removeDirectoryRecursive(projectDir);
-      console.log(`[GitFileSystem] Deleted project directory: ${projectDir}`);
+      coreInfo(`[GitFileSystem] Deleted project directory: ${projectDir}`);
     } catch (error) {
       // ディレクトリが存在しない場合は無視
-      console.warn(`[GitFileSystem] Failed to delete project directory ${projectDir}:`, error);
+      coreWarn(`[GitFileSystem] Failed to delete project directory ${projectDir}:`, error);
     }
   }
 
@@ -302,27 +303,27 @@ export class GitFileSystem {
     const fs = this.getFS();
 
     try {
-      console.log('=== GitFileSystem Debug ===');
+  coreInfo('=== GitFileSystem Debug ===');
 
       // ルートディレクトリの確認
       try {
         const rootFiles = await fs.promises.readdir('/');
-        console.log('Root directory contents:', rootFiles);
+        coreInfo('Root directory contents:', rootFiles);
       } catch (error) {
-        console.log('Failed to read root directory:', error);
+        coreWarn('Failed to read root directory:', error);
       }
 
       // /projectsディレクトリの確認
       try {
         const projectsFiles = await fs.promises.readdir('/projects');
-        console.log('/projects directory contents:', projectsFiles);
+        coreInfo('/projects directory contents:', projectsFiles);
       } catch (error) {
-        console.log('/projects directory does not exist or cannot be read:', error);
+        coreWarn('/projects directory does not exist or cannot be read:', error);
       }
 
-      console.log('=== End Debug ===');
+      coreInfo('=== End Debug ===');
     } catch (error) {
-      console.error('Debug failed:', error);
+      coreError('Debug failed:', error);
     }
   }
 }

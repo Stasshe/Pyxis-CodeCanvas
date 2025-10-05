@@ -1,6 +1,6 @@
 /**
  * AuthRepository - GitHub認証情報管理
- * IndexedDBにPersonal Access Token (PAT)を暗号化して保存
+ * LocalStorageにPersonal Access Token (PAT)を暗号化して保存
  */
 
 import { encryptText, decryptText, clearEncryptionKey } from './crypto';

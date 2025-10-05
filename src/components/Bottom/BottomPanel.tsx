@@ -198,7 +198,13 @@ export default function BottomPanel({
               left: 0,
             }}
           >
-            <OutputPanel messages={outputMessages} />
+            <OutputPanel
+              messages={outputMessages}
+              onClearDisplayed={toClear => {
+                // Remove the currently displayed (filtered) messages from the full messages list
+                setOutputMessages(prev => prev.filter(m => !toClear.includes(m)));
+              }}
+            />
           </div>
           <div
             style={{
