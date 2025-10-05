@@ -1,4 +1,4 @@
-import { NpmInstall } from '../npmInstall';
+import { NpmInstall } from '@/engine/cmd/npmOperations/npmInstall';
 import { fileRepository } from '@/engine/core/fileRepository';
 
 jest.mock('@/engine/core/fileRepository', () => ({

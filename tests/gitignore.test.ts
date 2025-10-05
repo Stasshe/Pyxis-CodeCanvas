@@ -1,4 +1,4 @@
-import { parseGitignore, isPathIgnored } from '../gitignore';
+import { parseGitignore, isPathIgnored } from '@/engine/core/gitignore';
 
 describe('gitignore parser and matcher', () => {
   test('ignores node_modules and its contents', () => {
