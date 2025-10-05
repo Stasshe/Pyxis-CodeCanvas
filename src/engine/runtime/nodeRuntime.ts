@@ -200,34 +200,61 @@ export class NodeRuntime {
   private async createSandbox(currentFilePath: string): Promise<Record<string, unknown>> {
     const self = this;
 
-    // __require__ 関数（非同期・ModuleLoaderを使用）
-    const __require__ = async (moduleName: string): Promise<unknown> => {
+    // __require__ 関数（thenable Proxy を返すことで `await __require__('fs').promises` のような
+    // パターンでも正しく動作するようにする）
+    // NOTE: async function は常に Promise を返すためプロパティアクセスの優先度による問題が
+    // 発生していた。ここでは Promise をラップする thenable Proxy を返す。
+    const __require__ = (moduleName: string) => {
       runtimeInfo('📦 __require__:', moduleName);
 
-      // ビルトインモジュールを先にチェック
-      const builtInModule = this.resolveBuiltInModule(moduleName);
-      if (builtInModule !== null) {
-        runtimeInfo('✅ Built-in module resolved:', moduleName);
-        return builtInModule;
-      }
-
-      // ModuleLoaderでユーザーモジュールを読み込み
-      try {
-        const moduleExports = await self.moduleLoader.load(moduleName, currentFilePath);
-        
-        // ビルトインモジュールマーカーを処理
-        if (typeof moduleExports === 'object' && moduleExports !== null) {
-          const obj = moduleExports as any;
-          if (obj.__isBuiltIn) {
-            return this.resolveBuiltInModule(obj.moduleName);
-          }
+      // 実際のロード処理を行う Promise
+      const loadPromise = (async () => {
+        // ビルトインモジュールを先にチェック
+        const builtInModule = this.resolveBuiltInModule(moduleName);
+        if (builtInModule !== null) {
+          runtimeInfo('✅ Built-in module resolved:', moduleName);
+          return builtInModule;
         }
 
-        return moduleExports;
-      } catch (error) {
-        runtimeError('❌ Failed to load module:', moduleName, error);
-        throw new Error(`Cannot find module '${moduleName}'`);
-      }
+        // ModuleLoaderでユーザーモジュールを読み込み
+        try {
+          const moduleExports = await self.moduleLoader.load(moduleName, currentFilePath);
+
+          // ビルトインモジュールマーカーを処理
+          if (typeof moduleExports === 'object' && moduleExports !== null) {
+            const obj = moduleExports as any;
+            if (obj.__isBuiltIn) {
+              return this.resolveBuiltInModule(obj.moduleName);
+            }
+          }
+
+          return moduleExports;
+        } catch (error) {
+          runtimeError('❌ Failed to load module:', moduleName, error);
+          throw new Error(`Cannot find module '${moduleName}'`);
+        }
+      })();
+
+      // thenable Proxy を返す。これによりプロパティアクセス（例: .promises）は
+      // 同期的に thenable のプロパティ（Promise）として取得でき、`await __require__('fs').promises` が
+      // 正しく動作する。
+      const wrapper = new Proxy(loadPromise as any, {
+        get(target, prop: PropertyKey) {
+          // Promise の then/catch/finally はそのままバインドして返す（await 対応）
+          if (prop === 'then' || prop === 'catch' || prop === 'finally') {
+            return (target as any)[prop].bind(target);
+          }
+
+          // その他のプロパティアクセスは、ロードされたモジュールから該当プロパティを返す Promise を返す
+          // 例えば `.promises` へのアクセスは Promise を返し、その後に外側で await される想定
+          return (target as Promise<any>).then(mod => {
+            if (mod == null) return undefined;
+            return (mod as any)[prop];
+          });
+        },
+      });
+
+      return wrapper;
     };
 
     return {

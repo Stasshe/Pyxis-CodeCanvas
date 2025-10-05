@@ -2,6 +2,24 @@
  * import/export/requireの簡易CJS/ESM変換
  */
 export function normalizeCjsEsm(code: string): string {
+  // Protect `import.meta` and dynamic `import(...)` from accidental transforms by
+  // masking them before we run a series of regex-based replacements, then
+  // restoring them at the end. This avoids cases where patterns like
+  // `import.meta.url` or `import(...)` could be mis-recognized and mangled.
+  const placeholders: { key: string; original: string }[] = [];
+  function mask(value: string): string {
+    const key = `__NORM_PLACEHOLDER_${placeholders.length}__`;
+    placeholders.push({ key, original: value });
+    return key;
+  }
+
+  // Mask import.meta and any chained properties like import.meta.url
+  code = code.replace(/import\.meta(?:\.[A-Za-z_$][\w$]*)*/g, (m) => mask(m));
+
+  // Mask dynamic import(...) tokens so regexes that look for `import ... from` or
+  // other import patterns don't accidentally match the 'import(' sequence.
+  code = code.replace(/\bimport\s*\(/g, (m) => mask(m));
+
   // map of exportedName -> localName (handles `export { a as b }` cases)
   const exportedMap = new Map<string, string>();
   // helper: extract bound identifiers from a destructuring pattern, handling nested
@@ -306,6 +324,16 @@ export function normalizeCjsEsm(code: string): string {
       }
     }
     if (assignsArr.length > 0) code = code + '\n' + assignsArr.join(' ');
+  }
+
+  // Restore masked placeholders (reverse order for safety)
+  if (placeholders.length > 0) {
+    for (let i = placeholders.length - 1; i >= 0; i--) {
+      const p = placeholders[i];
+      // Simple global replace of the placeholder key back to original
+      const re = new RegExp(p.key.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'), 'g');
+      code = code.replace(re, p.original);
+    }
   }
 
   return code;
