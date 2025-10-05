@@ -10,8 +10,6 @@ crate-type = ["cdylib"]
 # Use a more recent swc_core that matches common swc_common versions on CI
 swc_core = { version = "0.93.4", features = ["ecma_plugin_transform"] }
 wasm-bindgen = "0.2.90"
-
-[dependencies]
 serde = { version = "1.0.140", features = ["derive"] }
 
 [patch.crates-io]
