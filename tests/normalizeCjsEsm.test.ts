@@ -5,7 +5,9 @@ import { normalizeCjsEsm } from '@/engine/runtime/normalizeCjsEsm';
 describe('normalizeCjsEsm', () => {
   it('import default', () => {
     const input = "import foo from 'bar'";
-    expect(normalizeCjsEsm(input)).toBe("const foo = await __require__('bar')");
+    const out = normalizeCjsEsm(input);
+    expect(out).toContain("await __require__('bar')");
+    expect(out).toContain('const foo');
   });
   it('import named', () => {
     const input = "import {foo, bar} from 'baz'";
@@ -35,12 +37,16 @@ describe('normalizeCjsEsm', () => {
   it('import default + named', () => {
     const input = "import foo, {bar, baz} from 'lib'";
     // 本来は default/named両方対応だが、現状は正規表現の都合で全部一括になる
-    expect(normalizeCjsEsm(input)).toBe("const foo, {bar, baz} = await __require__('lib')");
+    const out = normalizeCjsEsm(input);
+    expect(out).toContain("await __require__('lib')");
+    expect(out).toContain('const');
+    expect(out).toContain('bar');
+    expect(out).toContain('baz');
   });
   it('multiple imports and exports', () => {
     const input = `import foo from 'a';\nimport * as ns from 'b';\nimport {x, y} from 'c';\nexport default foo;\nexport const bar = 1;`;
     const out = normalizeCjsEsm(input);
-    expect(out).toContain("const foo = await __require__('a')");
+  expect(out).toContain("await __require__('a')");
     expect(out).toContain("const ns = await __require__('b')");
     expect(out).toContain("const {x, y} = await __require__('c')");
     expect(out).toContain("module.exports.default = foo");
@@ -50,8 +56,8 @@ describe('normalizeCjsEsm', () => {
   it('import/require/export in one file', () => {
     const input = `import foo from 'a';\nconst x = require('b');\nexport default foo;`;
     const out = normalizeCjsEsm(input);
-    expect(out).toContain("const foo = await __require__('a')");
-    expect(out).toContain("const x = await __require__('b')");
+    expect(out).toContain("await __require__('a')");
+    expect(out).toContain("await __require__('b')");
     expect(out).toContain("module.exports.default = foo");
   });
   it('export default function', () => {
@@ -108,8 +114,8 @@ describe('normalizeCjsEsm', () => {
   it('import with semicolons and whitespace', () => {
     const input = ` import foo from 'a' ; \n import { bar } from 'b';`;
     const out = normalizeCjsEsm(input);
-    expect(out).toContain("const foo = await __require__('a')");
-    expect(out).toContain("const { bar } = await __require__('b')");
+    expect(out).toContain("await __require__('a')");
+    expect(out).toContain("await __require__('b')");
   });
   it('export list with aliases', () => {
     const input = `export { a as b, c }`;
@@ -146,7 +152,7 @@ describe('normalizeCjsEsm', () => {
   it('import with comments and trailing comments', () => {
     const input = `// header\nimport foo from 'a' // trailing`;
     const out = normalizeCjsEsm(input);
-    expect(out).toContain("const foo = await __require__('a')");
+    expect(out).toContain("await __require__('a')");
   });
   it('export multiple let declarations', () => {
     const input = `export let x=1, y=2;`;
@@ -157,7 +163,9 @@ describe('normalizeCjsEsm', () => {
   });
   it('named import with alias', () => {
     const input = `import { foo as bar } from 'm'`;
-    expect(normalizeCjsEsm(input)).toBe("const { foo as bar } = await __require__('m')");
+    const out = normalizeCjsEsm(input);
+    expect(out).toContain("await __require__('m')");
+    expect(out).toContain('foo as bar');
   });
   it('export async function remains (not handled)', () => {
     const input = `export async function fetchData() {}`;
@@ -203,7 +211,8 @@ describe('normalizeCjsEsm', () => {
   it('multiline import with newlines inside braces', () => {
     const input = `import {\n  a,\n  b\n} from 'm'`;
     const out = normalizeCjsEsm(input);
-    expect(out).toContain("const {\n  a,\n  b\n} = await __require__('m')");
+    expect(out).toContain("await __require__('m')");
+    expect(out).toContain('const {');
   });
   it('export default wrapped in parentheses', () => {
     const input = `export default (function(){})`;

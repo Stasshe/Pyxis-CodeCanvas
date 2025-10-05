@@ -2,7 +2,8 @@
  * import/export/requireの簡易CJS/ESM変換
  */
 export function normalizeCjsEsm(code: string): string {
-  const exportedNames = new Set<string>();
+  // map of exportedName -> localName (handles `export { a as b }` cases)
+  const exportedMap = new Map<string, string>();
   // helper: extract bound identifiers from a destructuring pattern, handling nested
   // object/array patterns, rest, and default values. This is a small recursive
   // parser (not a full JS parser) aimed at typical destructuring LHS patterns.
@@ -184,8 +185,20 @@ export function normalizeCjsEsm(code: string): string {
     return `const ${ns} = await __require__('${mod}')`;
   });
   // import ... from 'mod' → const ... = await __require__('mod')
-  code = code.replace(/import\s+([\w{}\s,]+)\s+from\s+['"]([^'"]+)['"]/g, (m, vars, mod) => {
-    return `const ${vars.trim()} = await __require__('${mod}')`;
+  // handle default-only: import foo from 'mod'
+  code = code.replace(/import\s+([A-Za-z_$][\w$]*)\s+from\s+['"]([^'"]+)['"]/g, (m, def, mod) => {
+    // prefer module.default when present: wrap require result
+    return `const ${def} = (tmp => tmp && tmp.default !== undefined ? tmp.default : tmp)(await __require__('${mod}'))`;
+  });
+  // handle default + named: import foo, {a,b} from 'mod'
+  code = code.replace(/import\s+([A-Za-z_$][\w$]*)\s*,\s*\{([^}]+)\}\s+from\s+['"]([^'"]+)['"]/g, (m, def, names, mod) => {
+    // assign temp module then default and named
+    const nm = names.trim();
+    return `const __mod_tmp = await __require__('${mod}'); const ${def} = (__mod_tmp && __mod_tmp.default !== undefined) ? __mod_tmp.default : __mod_tmp; const {${nm}} = __mod_tmp`;
+  });
+  // fallback: named-only imports
+  code = code.replace(/import\s*\{([^}]+)\}\s*from\s*['"]([^'"]+)['"]/g, (m, names, mod) => {
+    return `const {${names.trim()}} = await __require__('${mod}')`;
   });
   // import 'mod' → await __require__('mod')
   code = code.replace(/import\s+['"]([^'"]+)['"]/g, (m, mod) => `await __require__('${mod}')`);
@@ -201,10 +214,9 @@ export function normalizeCjsEsm(code: string): string {
         const ids = extractIdentifiersFromPattern(trimmed);
         const head = `${kind} ${decls};`;
         if (ids.length > 0) {
-          const exports = ids.map(n => `module.exports.${n} = ${n};`).join(' ');
-          return `${head} ${exports}`;
+          for (const n of ids) exportedMap.set(n, n);
         }
-        return `${kind} ${decls};`;
+        return head;
     }
     // remove trailing comma if present and split
     const cleaned = trimmed.replace(/,\s*$/, '');
@@ -217,11 +229,31 @@ export function normalizeCjsEsm(code: string): string {
       if (nm) names.push(nm[1]);
     }
     const head = `${kind} ${decls};`;
-    const exports = names.map(n => `module.exports.${n} = ${n};`).join(' ');
-    return `${head} ${exports}`;
+    for (const n of names) exportedMap.set(n, n);
+    return head;
   });
   // require('mod') → await __require__('mod')（module.exports付与より前に変換）
   code = code.replace(/require\((['"][^'"\)]+['"])\)/g, 'await __require__($1)');
+
+  // Collect top-level const/let/var bindings for auto-exporting (previous
+  // behavior: certain assignments were auto-exported). We avoid injecting
+  // module.exports inline; instead collect names in exportedMap to emit later.
+  // This handles multi-line method chains by allowing newlines and `.foo()`
+  // continuation in the value capture.
+  code = code.replace(/(^|\n)\s*(const|let|var)\s+(\w+)\s*=\s*([^;\n]+)((?:\n\s*\.[^;\n]*)*)(;|\n|$)/g, (m, pre, kind, name, val, chain, end) => {
+    // don't auto-export if the declaration already contains module.exports
+    if (m.includes('module.exports')) return m;
+    const fullVal = String(val || '') + String(chain || '');
+    const trimmed = fullVal.trim();
+    // skip values that are results of require -> await __require__ (we don't
+    // auto-export those)
+    if (/^await\s+__require__\s*\(/.test(trimmed)) return m;
+    // skip raw dynamic import(...) (but allow await import(...))
+    if (/^import\s*\(/.test(trimmed)) return m;
+    // register for export (name exported as itself)
+    exportedMap.set(name, name);
+    return m;
+  });
   // export { a, b as c } -> module.exports.a = a; module.exports.c = b;
   code = code.replace(/export\s*\{([^}]+)\}\s*;?/g, (m, list) => {
     const parts = String(list).split(',').map(s => s.trim()).filter(Boolean);
@@ -247,32 +279,33 @@ export function normalizeCjsEsm(code: string): string {
   // remove export keyword from function declarations; collect the name so we can
   // append module.exports.NAME = NAME; later (avoids scanning non-exported funcs)
   code = code.replace(/export\s+function\s+(\w+)\s*\(/g, (m, name) => {
-    exportedNames.add(name);
+    exportedMap.set(name, name);
     return `function ${name}(`;
   });
   // export class NAME { ... } -> class NAME { ... } module.exports.NAME = NAME;
   code = code.replace(/export\s+class\s+(\w+)\s*/g, (m, name) => {
-    exportedNames.add(name);
+    exportedMap.set(name, name);
     return `class ${name} `;
   });
   // remove fragile body-matching replacements above; instead, after all transforms,
   // we'll collect top-level function/class names and append module.exports assignments
   // メソッドチェーン対応: const ... = ...\n  .foo() ... ; のような複数行を1文として扱う
-  code = code.replace(/const (\w+) = ([^;\n]+)((?:\n\s*\.[^;\n]*)*)(;|\n|$)/g, (m, name, val, chain, end) => {
-    if (m.includes('module.exports')) return m;
-    // import/require変換後の行はmodule.exports付与しない
-    if (/^\s*await __require__\s*\(/.test(val.trim())) return m;
-    if (/^await __require__\s*\(/.test(val.trim())) return m;
-    // dynamic import should not be auto-exported
-    if (/^\s*import\s*\(/.test(val.trim())) return m;
-    return `const ${name} = ${val}${chain}${end} module.exports.${name} = ${name};`;
-  });
+  // NOTE: removed automatic inline module.exports insertion for arbitrary const
+  // assignments. Exports are now collected from explicit `export` forms and
+  // emitted at the end of the file to avoid injecting into function/class
+  // bodies and to prevent duplicated assignments.
   // Post-process: append module.exports for only those function/class names
   // that were explicitly exported (we collected them above). This prevents
   // exporting nested or non-exported declarations.
-  if (exportedNames.size > 0) {
-    const assigns = Array.from(exportedNames).filter(n => !new RegExp(`module\\.exports\\.${n}\\s*=`).test(code)).map(n => `module.exports.${n} = ${n};`).join(' ');
-    if (assigns) code = code + '\n' + assigns;
+  if (exportedMap.size > 0) {
+    const assignsArr: string[] = [];
+    for (const [exported, local] of exportedMap.entries()) {
+      // avoid duplicating assignments if present already
+      if (!new RegExp(`module\\.exports\\.${exported}\\s*=`).test(code)) {
+        assignsArr.push(`module.exports.${exported} = ${local};`);
+      }
+    }
+    if (assignsArr.length > 0) code = code + '\n' + assignsArr.join(' ');
   }
 
   return code;
