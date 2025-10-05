@@ -10,6 +10,7 @@ import type * as monacoEditor from 'monaco-editor';
 import { useTheme } from '@/context/ThemeContext';
 import { Check, X } from 'lucide-react';
 import type { Tab } from '@/types';
+import { getLanguage } from '@/components/Tab/text-editor/editors/editor-utils';
 
 interface AIReviewTabProps {
   tab: Tab;
@@ -216,38 +217,8 @@ export default function AIReviewTab({
     }
   };
 
-  // ファイル拡張子から言語を推測
-  const getLanguageFromFilePath = (path: string): string => {
-    const ext = path.split('.').pop()?.toLowerCase();
-    const languageMap: Record<string, string> = {
-      js: 'javascript',
-      jsx: 'javascript',
-      ts: 'typescript',
-      tsx: 'typescript',
-      py: 'python',
-      java: 'java',
-      c: 'c',
-      cpp: 'cpp',
-      cs: 'csharp',
-      go: 'go',
-      rs: 'rust',
-      rb: 'ruby',
-      php: 'php',
-      html: 'html',
-      css: 'css',
-      scss: 'scss',
-      json: 'json',
-      xml: 'xml',
-      yaml: 'yaml',
-      yml: 'yaml',
-      md: 'markdown',
-      sh: 'shell',
-      bash: 'shell',
-    };
-    return languageMap[ext || ''] || 'plaintext';
-  };
-
-  const language = getLanguageFromFilePath(filePath);
+  // use shared utility to detect language from filename
+  const language = getLanguage(filePath);
 
   return (
     <div className="flex flex-col h-full">
