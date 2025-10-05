@@ -292,4 +292,43 @@ describe('normalizeCjsEsm', () => {
     const out = normalizeCjsEsm(input);
     expect(out).toContain('module.exports.default = { a: function(){}, b: 2 }');
   });
+  it('complex nested destructuring with arrays/objects/rest/defaults', () => {
+    const input = `export const { a: [{ b, c: [d ] }], e: { f = 3, g: { h } }, ...rest } = src;`;
+    const out = normalizeCjsEsm(input);
+    expect(out).toContain('const { a: [{ b, c: [d ] }], e: { f = 3, g: { h } }, ...rest } = src;');
+    expect(out).toContain('module.exports.b = b;');
+    expect(out).toContain('module.exports.d = d;');
+    expect(out).toContain('module.exports.f = f;');
+    expect(out).toContain('module.exports.h = h;');
+    expect(out).toContain('module.exports.rest = rest;');
+  });
+  it('computed property key and rest object', () => {
+    const input = `export const { [key]: k, ...r } = obj;`;
+    const out = normalizeCjsEsm(input);
+    expect(out).toContain('const { [key]: k, ...r } = obj;');
+    expect(out).toContain('module.exports.k = k;');
+    expect(out).toContain('module.exports.r = r;');
+  });
+  it('nested array destructuring with defaults and rest', () => {
+    const input = `export const [ , , third = fn(), [x = 1, ...y] ] = arr;`;
+    const out = normalizeCjsEsm(input);
+    expect(out).toContain('const [ , , third = fn(), [x = 1, ...y] ] = arr;');
+    expect(out).toContain('module.exports.third = third;');
+    expect(out).toContain('module.exports.x = x;');
+    expect(out).toContain('module.exports.y = y;');
+  });
+  it('destructuring with default objects and arrays containing commas/braces', () => {
+    const input = `export const { x = { y: 1, z: 2 }, w = [1,2,3] } = obj;`;
+    const out = normalizeCjsEsm(input);
+    expect(out).toContain('const { x = { y: 1, z: 2 }, w = [1,2,3] } = obj;');
+    expect(out).toContain('module.exports.x = x;');
+    expect(out).toContain('module.exports.w = w;');
+  });
+  it('alias with default and nested object', () => {
+    const input = `export const { a: aa = defaultVal, b: { c: cc = 2 } } = obj;`;
+    const out = normalizeCjsEsm(input);
+    expect(out).toContain('const { a: aa = defaultVal, b: { c: cc = 2 } } = obj;');
+    expect(out).toContain('module.exports.aa = aa;');
+    expect(out).toContain('module.exports.cc = cc;');
+  });
 });

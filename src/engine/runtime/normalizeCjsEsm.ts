@@ -3,31 +3,181 @@
  */
 export function normalizeCjsEsm(code: string): string {
   const exportedNames = new Set<string>();
-  // helper: extract bound identifiers from a destructuring pattern (crude, regex-based)
+  // helper: extract bound identifiers from a destructuring pattern, handling nested
+  // object/array patterns, rest, and default values. This is a small recursive
+  // parser (not a full JS parser) aimed at typical destructuring LHS patterns.
   function extractIdentifiersFromPattern(pattern: string): string[] {
     if (!pattern) return [];
-    // only analyze left-hand side of an assignment pattern (drop "= rhs")
-    let s = String(pattern).split('=')[0];
-    // remove comments and strings
-    s = s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
-    s = s.replace(/(['"`])(?:\\.|(?!\1).)*\1/g, '');
-    const names = new Set<string>();
-    let m: RegExpExecArray | null;
-    // identifiers after colon: foo: bar -> bar
-    const afterColonRe = /:\s*([A-Za-z_$][\w$]*)/g;
-    while ((m = afterColonRe.exec(s)) !== null) {
-      names.add(m[1]);
+    // determine left-hand side only: find top-level '=' (not inside brackets/strings)
+    const raw = String(pattern);
+    let s = raw;
+    try {
+      let depth = 0;
+      let inStr: string | null = null;
+      for (let idx = 0; idx < raw.length; idx++) {
+        const ch = raw[idx];
+        const next = raw[idx + 1];
+        if (inStr) {
+          if (ch === '\\') { idx++; continue; }
+          if (ch === inStr) { inStr = null; continue; }
+          continue;
+        }
+        if (ch === '"' || ch === "'" || ch === '`') { inStr = ch; continue; }
+        if (ch === '/' && next === '*') { idx += 2; while (idx < raw.length && !(raw[idx] === '*' && raw[idx+1] === '/')) idx++; idx++; continue; }
+        if (ch === '{' || ch === '[' || ch === '(') { depth++; continue; }
+        if (ch === '}' || ch === ']' || ch === ')') { depth = Math.max(0, depth-1); continue; }
+        if (ch === '=' && depth === 0) { s = raw.slice(0, idx); break; }
+      }
+    } catch (e) {
+      s = raw;
     }
-    // standalone identifiers (not followed by colon) - these are shorthand bindings
-    const identRe = /([A-Za-z_$][\w$]*)/g;
-    while ((m = identRe.exec(s)) !== null) {
-      const id = m[1];
-      const after = s.slice(m.index + id.length, m.index + id.length + 2);
-      if (/^\s*:/.test(after)) continue; // it's a property name
-      if (id === 'as' || id === 'from' || id === 'default') continue;
-      names.add(id);
+    const ids = new Set<string>();
+    let i = 0;
+    const len = s.length;
+
+    function isIdentStart(ch: string) {
+      return /[A-Za-z_$]/.test(ch);
     }
-    return Array.from(names);
+    function isIdentPart(ch: string) {
+      return /[A-Za-z0-9_$]/.test(ch);
+    }
+    function skipWhitespace() {
+      while (i < len && /\s/.test(s[i])) i++;
+    }
+    function skipComment(): boolean {
+      if (s[i] === '/' && s[i + 1] === '*') {
+        i += 2; while (i < len && !(s[i] === '*' && s[i + 1] === '/')) i++; i += 2; return true;
+      }
+      if (s[i] === '/' && s[i + 1] === '/') {
+        i += 2; while (i < len && s[i] !== '\n') i++; return true;
+      }
+      return false;
+    }
+    function skipSpacesAndComments() {
+      while (i < len) {
+        const before = i;
+        while (i < len && /\s/.test(s[i])) i++;
+        if (!skipComment()) break;
+        if (i === before) break;
+      }
+    }
+    function skipString() {
+      const q = s[i]; i++; while (i < len) {
+        if (s[i] === '\\') { i += 2; continue; }
+        if (s[i] === q) { i++; break; }
+        i++; }
+    }
+    function parseIdentifier(): string | null {
+      skipSpacesAndComments();
+      if (i < len && isIdentStart(s[i])) {
+        const start = i; i++; while (i < len && isIdentPart(s[i])) i++;
+        return s.slice(start, i);
+      }
+      return null;
+    }
+
+    function parsePattern(): void {
+      skipSpacesAndComments();
+      if (s[i] === '{') return parseObject();
+      if (s[i] === '[') return parseArray();
+      // otherwise nothing to parse
+    }
+
+    function parseObject() {
+      i++; // consume '{'
+      while (i < len) {
+        skipSpacesAndComments();
+        if (i >= len) break;
+        if (s[i] === '}') { i++; break; }
+        if (s[i] === ',') { i++; continue; }
+        if (s[i] === '.' && s.slice(i, i + 3) === '...') {
+          i += 3; const name = parseIdentifier(); if (name) ids.add(name); continue;
+        }
+        if (s[i] === '"' || s[i] === "'" || s[i] === '`') { skipString(); continue; }
+        if (isIdentStart(s[i])) {
+          const key = parseIdentifier();
+          skipSpacesAndComments();
+          if (s[i] === ':') {
+            i++; skipSpacesAndComments();
+            if (s[i] === '{' || s[i] === '[') { parsePattern(); }
+            else if (s[i] === '.' && s.slice(i, i + 3) === '...') { i += 3; const n = parseIdentifier(); if (n) ids.add(n); }
+            else {
+              const name = parseIdentifier(); if (name) ids.add(name);
+              skipSpacesAndComments(); if (s[i] === '=') { i++; let depth = 0; while (i < len && !(depth === 0 && (s[i] === ',' || s[i] === '}'))) {
+                if (s[i] === '{' || s[i] === '[') depth++; else if (s[i] === '}' || s[i] === ']') depth--; else if (s[i] === '"' || s[i] === "'" || s[i] === '`') skipString(); i++; }
+              }
+            }
+          } else {
+            if (key) ids.add(key);
+            // shorthand default: key = <expr> — skip the default expression
+            skipSpacesAndComments();
+            if (s[i] === '=') {
+              i++; let depth2 = 0; while (i < len && !(depth2 === 0 && (s[i] === ',' || s[i] === '}'))) {
+                if (s[i] === '{' || s[i] === '[') depth2++; else if (s[i] === '}' || s[i] === ']') depth2--; else if (s[i] === '"' || s[i] === "'" || s[i] === '`') skipString(); i++; }
+            }
+          }
+        } else if (s[i] === '{' || s[i] === '[') {
+          parsePattern();
+        } else {
+          while (i < len && s[i] !== ',' && s[i] !== '}') { if (s[i] === '"' || s[i] === "'" || s[i] === '`') skipString(); else i++; }
+        }
+      }
+    }
+
+    function parseArray() {
+      i++; // consume '['
+      while (i < len) {
+        skipSpacesAndComments();
+        if (i >= len) break;
+        if (s[i] === ']') { i++; break; }
+        if (s[i] === ',') { i++; continue; }
+        if (s[i] === '.' && s.slice(i, i + 3) === '...') { i += 3; const name = parseIdentifier(); if (name) ids.add(name); continue; }
+        if (s[i] === '{' || s[i] === '[') { parsePattern(); continue; }
+        const name = parseIdentifier(); if (name) {
+          ids.add(name);
+          skipSpacesAndComments(); if (s[i] === '=') { i++; let depth = 0; while (i < len && !(depth === 0 && (s[i] === ',' || s[i] === ']'))) {
+            if (s[i] === '{' || s[i] === '[') depth++; else if (s[i] === '}' || s[i] === ']') depth--; else if (s[i] === '"' || s[i] === "'" || s[i] === '`') skipString(); i++; }
+        }
+        } else { i++; }
+      }
+    }
+
+    skipSpacesAndComments(); if (s[i] === '{' || s[i] === '[') parsePattern();
+
+    // Supplemental regex pass: capture common binding patterns the parser may miss.
+    //  - bindings after colon: ": name"
+    //  - rest bindings: "...name"
+    //  - shorthand bindings inside braces/arrays
+    try {
+      const lhs = s;
+      let m: RegExpExecArray | null;
+      const afterColonRe = /:\s*([A-Za-z_$][\w$]*)/g;
+      while ((m = afterColonRe.exec(lhs)) !== null) ids.add(m[1]);
+      const restRe = /\.\.\.\s*([A-Za-z_$][\w$]*)/g;
+      while ((m = restRe.exec(lhs)) !== null) ids.add(m[1]);
+      // shorthand inside braces/arrays: take content between braces/brackets and
+      // grab identifiers not followed by ':' (which would be property keys)
+      const braceRe = /[\{\[]([\s\S]*?)[\}\]]/g;
+      while ((m = braceRe.exec(lhs)) !== null) {
+        const inner = m[1];
+        const identRe = /\b([A-Za-z_$][\w$]*)\b(?!\s*:)/g;
+        let im: RegExpExecArray | null;
+        while ((im = identRe.exec(inner)) !== null) {
+          const id = im[1];
+          if (id === 'as' || id === 'from' || id === 'default' || id === 'return') continue;
+          ids.add(id);
+        }
+      }
+      // cleanup: remove identifiers that are actually computed keys like [key]:
+      const computedKeyRe = /\[\s*([A-Za-z_$][\w$]*)\s*\]\s*:/g;
+      while ((m = computedKeyRe.exec(lhs)) !== null) {
+        ids.delete(m[1]);
+      }
+    } catch (e) {
+      // ignore fallback errors in supplemental pass
+    }
+
+    return Array.from(ids);
   }
   // import * as ns from 'mod' → const ns = await __require__('mod')
   code = code.replace(/import\s+\*\s+as\s+(\w+)\s+from\s+['"]([^'"]+)['"]/g, (m, ns, mod) => {
