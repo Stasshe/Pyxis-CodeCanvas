@@ -85,7 +85,7 @@ Instant preview as you type! Perfect for long-form writing.
 - Ideal for simple web development
 - No setup required, just start coding
 
-> **Note**: Currently supports HTML/CSS/JS only. WebContainer integration is a future plan (implementation being carefully considered due to iPad memory constraints).
+ > **Note**: Currently supports HTML/CSS/JS only. WebContainer is no longer needed—Pyxis implements its own fast runtime.
 
 ---
 
@@ -104,19 +104,20 @@ Instant preview as you type! Perfect for long-form writing.
 
 ---
 
-### ⚡ **Node.js Runtime - Lightning Fast Execution**
+### ⚡ **Node.js & TypeScript Runtime - Lightning Fast Execution**
 <div align="center">
   <img src="readme-assets/IMG_1469.png" alt="Node.js Execution" width="80%" />
 </div>
 
-**Custom implementation without WASM** - that's why it's incredibly fast!
+**Custom implementation without WASM**—incredibly fast, and supports not only Node.js but also TypeScript execution (via Babel Standalone and advanced normalization). The runtime allows you to use `fs`, `readline`, and even `userinterface` (for interactive console apps), just like in a real Node.js environment.
 - ⚡ **Instant execution** - No compilation, zero wait time
-- 📁 **File operations** - fs, path, readline and core modules supported
-- 🎯 **Casual coding** - Perfect for algorithm testing and learning
+- 📁 **File operations** - Full support for `fs`, `path`, `readline`, and `userinterface` modules
+- 🌀 **TypeScript/Babel support** - TypeScript runs instantly via Babel Standalone and normalization system
+- 🎯 **Casual coding** - Perfect for algorithm testing, learning, and interactive console apps
 
-Emulates file operations impossible in plain JavaScript, providing a genuine Node.js learning environment.
+Emulates file operations and interactive user input/output that are impossible in plain JavaScript, providing a genuine Node.js/TypeScript learning environment.
 
-> **Limitations**: No WASM means some features like native modules and child_process are unsupported. Sufficient for basic Node.js learning and simple scripts.
+> **Limitations**: No WASM means some features like native modules and child_process are unsupported. Sufficient for basic Node.js/TypeScript learning and simple scripts.
 
 ---
 
