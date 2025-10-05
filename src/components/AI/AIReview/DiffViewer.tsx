@@ -1,9 +1,10 @@
-'use client';
+ 'use client';
 
 import React, { useState } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { calculateDiff, groupDiffLines, calculateWordDiff } from '@/engine/ai/diffProcessor';
 import type { DiffLine, DiffBlock } from '@/engine/ai/diffProcessor';
+import { ChevronDown, ChevronRight, Check, Trash2 } from 'lucide-react';
 
 type DiffViewMode = 'block' | 'inline';
 interface DiffViewerProps {
@@ -26,6 +27,44 @@ export default function DiffViewer({
 
   const diffLines = calculateDiff(oldValue, newValue);
   const diffBlocks = groupDiffLines(diffLines);
+
+  // Helper: apply alpha to hex or rgb/rgba color strings.
+  // TODO: 簡易実装のため、エッジケースは未対応
+  //  - hsl形式には非対応
+  //  - rgbaでalphaが既にある場合は置換しない
+  //  - 不正な色文字列はそのまま返す
+  const withAlpha = (color: string | undefined, alpha = 0.12) => {
+    if (!color) return undefined;
+    const a = Math.max(0, Math.min(1, alpha));
+    // hex 7 chars: #rrggbb
+    if (color.startsWith('#')) {
+      // normalize #rgb to #rrggbb
+      if (color.length === 4) {
+        const r = color[1];
+        const g = color[2];
+        const b = color[3];
+        const hex = `#${r}${r}${g}${g}${b}${b}`;
+        // convert alpha to two-hex
+        const alphaHex = Math.round(a * 255).toString(16).padStart(2, '0');
+        return `${hex}${alphaHex}`;
+      }
+      if (color.length === 7) {
+        const alphaHex = Math.round(a * 255).toString(16).padStart(2, '0');
+        return `${color}${alphaHex}`;
+      }
+      // already has alpha or other form
+      return color;
+    }
+    // rgba or rgb
+    if (color.startsWith('rgb')) {
+      // replace existing alpha if rgba
+      const parts = color.replace(/rgba?\(|\)/g, '').split(',').map(p => p.trim());
+      const [r, g, b] = parts;
+      return `rgba(${r}, ${g}, ${b}, ${a})`;
+    }
+    // fallback: return original
+    return color;
+  };
 
   const toggleBlockExpansion = (blockIndex: number) => {
     const newExpanded = new Set(expandedBlocks);
@@ -57,7 +96,7 @@ export default function DiffViewer({
     return (
       <div
         className="font-mono text-sm border rounded"
-        style={{ borderColor: colors.border }}
+        style={{ borderColor: colors.border, background: colors.cardBg }}
       >
         {diffBlocks.map((block, blockIndex) => {
           if (block.type === 'changed') {
@@ -68,31 +107,41 @@ export default function DiffViewer({
                   className="flex gap-1 items-center px-2 py-1"
                   style={{ background: colors.mutedBg }}
                 >
-                  <span
-                    className="text-xs font-medium"
-                    style={{ color: colors.foreground }}
-                  >
-                    変更ブロック {blockIndex + 1}（行 {block.startLine}-{block.endLine}）
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {/** expand icon is not interactive here, just a visual marker */}
+                    <span style={{ display: 'inline-flex' }}>
+                      <ChevronRight size={14} color={colors.mutedFg} />
+                    </span>
+                    <span
+                      className="text-xs font-medium"
+                      style={{ color: colors.foreground }}
+                    >
+                      変更ブロック {blockIndex + 1}（行 {block.startLine}-{block.endLine}）
+                    </span>
+                  </div>
                   <button
                     className="text-xs px-2 py-1 rounded hover:opacity-90 border"
                     style={{
                       background: colors.green,
-                      color: colors.background,
+                      color: '#fff',
                       borderColor: colors.green,
                       fontWeight: 600,
                       boxShadow: '0 1px 4px 0 #0002',
                     }}
                     onClick={() => handleApplyBlock(block)}
                   >
-                    適用
+                    <span className="inline-flex items-center gap-1">
+                      <Check size={12} /> 適用
+                    </span>
                   </button>
                   <button
                     className="text-xs px-2 py-1 rounded hover:opacity-80"
-                    style={{ background: colors.red, color: colors.background }}
+                    style={{ background: colors.red, color: '#fff' }}
                     onClick={() => handleDiscardBlock(block)}
                   >
-                    破棄
+                    <span className="inline-flex items-center gap-1">
+                      <Trash2 size={12} /> 破棄
+                    </span>
                   </button>
                 </div>
                 {block.lines.map((line, lineIndex) => {
@@ -144,11 +193,17 @@ export default function DiffViewer({
                 onClick={() => toggleBlockExpansion(blockIndex)}
               >
                 <div className="flex items-center gap-2">
+                  <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                    {expandedBlocks.has(blockIndex) ? (
+                      <ChevronDown size={14} color={colors.mutedFg} />
+                    ) : (
+                      <ChevronRight size={14} color={colors.mutedFg} />
+                    )}
+                  </span>
                   <span
                     className="text-xs font-medium"
                     style={{ color: colors.foreground }}
                   >
-                    {expandedBlocks.has(blockIndex) ? '▼' : '▶'}
                     変更ブロック {blockIndex + 1}
                   </span>
                   <span
@@ -163,7 +218,7 @@ export default function DiffViewer({
                     className="text-xs px-2 py-1 rounded hover:opacity-90 border"
                     style={{
                       background: colors.green,
-                      color: colors.background,
+                      color: '#fff',
                       borderColor: colors.green,
                       fontWeight: 600,
                       boxShadow: '0 1px 4px 0 #0002',
@@ -173,17 +228,21 @@ export default function DiffViewer({
                       handleApplyBlock(block);
                     }}
                   >
-                    適用
+                    <span className="inline-flex items-center gap-1">
+                      <Check size={12} /> 適用
+                    </span>
                   </button>
                   <button
                     className="text-xs px-2 py-1 rounded hover:opacity-80"
-                    style={{ background: colors.red, color: colors.background }}
+                    style={{ background: colors.red, color: '#fff' }}
                     onClick={e => {
                       e.stopPropagation();
                       handleDiscardBlock(block);
                     }}
                   >
-                    破棄
+                    <span className="inline-flex items-center gap-1">
+                      <Trash2 size={12} /> 破棄
+                    </span>
                   </button>
                 </div>
               </div>
@@ -196,6 +255,7 @@ export default function DiffViewer({
                       key={lineIndex}
                       line={line}
                       colors={colors}
+                      withAlpha={withAlpha}
                     />
                   ))}
                 </div>
@@ -211,9 +271,10 @@ export default function DiffViewer({
                       key={lineIndex}
                       line={line}
                       colors={colors}
+                      withAlpha={withAlpha}
                     />
                   ))}
-                  <div
+                      <div
                     className="flex items-center justify-center py-2 text-xs cursor-pointer hover:opacity-80"
                     style={{
                       background: colors.mutedBg,
@@ -221,9 +282,15 @@ export default function DiffViewer({
                     }}
                     onClick={() => toggleBlockExpansion(blockIndex)}
                   >
-                    {expandedBlocks.has(blockIndex)
-                      ? '▲ 折りたたむ'
-                      : `▼ ${block.lines.length - 6}行を展開`}
+                        {expandedBlocks.has(blockIndex) ? (
+                          <span className="inline-flex items-center gap-2">
+                            <ChevronDown size={14} color={colors.mutedFg} /> 折りたたむ
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-2">
+                            <ChevronRight size={14} color={colors.mutedFg} /> {block.lines.length - 6}行を展開
+                          </span>
+                        )}
                   </div>
                   {expandedBlocks.has(blockIndex) &&
                     block.lines.slice(3, -3).map((line, lineIndex) => (
@@ -231,14 +298,16 @@ export default function DiffViewer({
                         key={lineIndex + 3}
                         line={line}
                         colors={colors}
+                        withAlpha={withAlpha}
                       />
                     ))}
                   {block.lines.slice(-3).map((line, lineIndex) => (
-                    <DiffLineComponent
-                      key={lineIndex + block.lines.length - 3}
-                      line={line}
-                      colors={colors}
-                    />
+                      <DiffLineComponent
+                        key={lineIndex + block.lines.length - 3}
+                        line={line}
+                        colors={colors}
+                        withAlpha={withAlpha}
+                      />
                   ))}
                 </>
               ) : (
@@ -247,6 +316,7 @@ export default function DiffViewer({
                     key={lineIndex}
                     line={line}
                     colors={colors}
+                    withAlpha={withAlpha}
                   />
                 ))
               )}
@@ -259,22 +329,30 @@ export default function DiffViewer({
 }
 
 // 個別の差分行コンポーネント
-function DiffLineComponent({ line, colors }: { line: DiffLine; colors: any }) {
+function DiffLineComponent({
+  line,
+  colors,
+  withAlpha,
+}: {
+  line: DiffLine;
+  colors: any;
+  withAlpha?: (color: string | undefined, alpha?: number) => string | undefined;
+}) {
   const getLineStyle = () => {
     switch (line.type) {
       case 'added':
         return {
-          background: `${colors.green}20`, // 緑系背景
+          background: withAlpha ? withAlpha(colors.green, 0.12) : `${colors.green}20`, // 緑系背景
           borderLeft: `3px solid ${colors.green}`, // 緑系ボーダー
         };
       case 'removed':
         return {
-          background: `${colors.red}20`,
+          background: withAlpha ? withAlpha(colors.red, 0.12) : `${colors.red}20`,
           borderLeft: `3px solid ${colors.red}`,
         };
       default:
         return {
-          background: 'none', // 既存行は色なし
+          background: 'transparent', // 既存行は色なし
         };
     }
   };
@@ -289,6 +367,9 @@ function DiffLineComponent({ line, colors }: { line: DiffLine; colors: any }) {
         return ' ';
     }
   };
+
+  const prefixColor =
+    line.type === 'added' ? colors.green : line.type === 'removed' ? colors.red : colors.mutedFg;
 
   return (
     <div
@@ -307,7 +388,9 @@ function DiffLineComponent({ line, colors }: { line: DiffLine; colors: any }) {
           borderRight: `1px solid ${colors.border}`,
         }}
       >
-        {line.oldLineNumber || ''}
+        {typeof line.oldLineNumber !== 'undefined' && line.oldLineNumber !== null
+          ? line.oldLineNumber
+          : ''}
       </div>
       <div
         className="flex-shrink-0 px-2 py-1 text-right min-w-[60px] text-xs"
@@ -317,19 +400,16 @@ function DiffLineComponent({ line, colors }: { line: DiffLine; colors: any }) {
           borderRight: `1px solid ${colors.border}`,
         }}
       >
-        {line.newLineNumber || ''}
+        {typeof line.newLineNumber !== 'undefined' && line.newLineNumber !== null
+          ? line.newLineNumber
+          : ''}
       </div>
 
       {/* プレフィックス */}
       <div
         className="flex-shrink-0 px-2 py-1 text-xs font-bold"
         style={{
-          color:
-            line.type === 'added'
-              ? colors.accent
-              : line.type === 'removed'
-                ? colors.red
-                : colors.mutedFg,
+          color: prefixColor,
         }}
       >
         {getLinePrefix()}
