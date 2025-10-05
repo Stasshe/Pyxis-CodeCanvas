@@ -154,4 +154,95 @@ describe('normalizeCjsEsm', () => {
     expect(out).toContain('module.exports.x = x;');
     expect(out).toContain('module.exports.y = y;');
   });
+  it('named import with alias', () => {
+    const input = `import { foo as bar } from 'm'`;
+    expect(normalizeCjsEsm(input)).toBe("const { foo as bar } = await __require__('m')");
+  });
+  it('export async function remains (not handled)', () => {
+    const input = `export async function fetchData() {}`;
+    // current regex doesn't handle `export async function` so it remains
+    expect(normalizeCjsEsm(input)).toContain('export async function fetchData()');
+  });
+  it('export star from other module remains', () => {
+    const input = `export * from 'mod'`;
+    const out = normalizeCjsEsm(input);
+    // not specially handled by current implementation
+    expect(out).toContain("export * from 'mod'");
+  });
+  it('export interface/type remains (TS-only)', () => {
+    const input = `export interface I { a: number }`;
+    const out = normalizeCjsEsm(input);
+    // runtime transform does not strip types; they remain
+    expect(out).toContain('export interface I { a: number }');
+  });
+  it('export default as re-export from module', () => {
+    const input = `export { default as Main } from 'lib'`;
+    const out = normalizeCjsEsm(input);
+    // current logic will produce assignment for alias
+    expect(out).toContain('module.exports.Main = default;');
+  });
+  it('multiline destructured export const should not export members', () => {
+    const input = `export const {\n  a,\n  b\n} = obj;`;
+    const out = normalizeCjsEsm(input);
+    expect(out).toContain('const {\n  a,\n  b\n} = obj;');
+    expect(out).not.toContain('module.exports.a');
+    expect(out).not.toContain('module.exports.b');
+  });
+  it('template literal containing export text will be changed (regex limitation)', () => {
+    const input = "const s = `export default foo`";
+    const out = normalizeCjsEsm(input);
+    // regex-based replace does not respect strings, so export default inside template is replaced
+    expect(out).toContain('`module.exports.default = foo`');
+  });
+  it('dynamic import remains untouched', () => {
+    const input = `const mod = import('dyn')`;
+    const out = normalizeCjsEsm(input);
+    expect(out).toBe(input);
+  });
+  it('multiline import with newlines inside braces', () => {
+    const input = `import {\n  a,\n  b\n} from 'm'`;
+    const out = normalizeCjsEsm(input);
+    expect(out).toContain("const {\n  a,\n  b\n} = await __require__('m')");
+  });
+  it('export default wrapped in parentheses', () => {
+    const input = `export default (function(){})`;
+    const out = normalizeCjsEsm(input);
+    expect(out).toBe("module.exports.default = (function(){})");
+  });
+  it('typescript enum remains (not touched)', () => {
+    const input = `export enum E { A, B }`;
+    const out = normalizeCjsEsm(input);
+    expect(out).toContain('export enum E { A, B }');
+  });
+  it('export with comments inside braces', () => {
+    const input = `export { /*a*/ a as b /*c*/, d }`;
+    const out = normalizeCjsEsm(input);
+    // comment content is preserved/ignored by regex capture; assignments should exist
+    expect(out).toContain('module.exports.b = a;');
+    expect(out).toContain('module.exports.d = d;');
+  });
+  it('require followed by property access should not export', () => {
+    const input = `const x = require('y').prop`;
+    const out = normalizeCjsEsm(input);
+    // require(...) is replaced but then const auto-export logic skips because value begins with await __require__
+    expect(out).toContain("const x = await __require__('y').prop");
+    expect(out).not.toContain('module.exports.x');
+  });
+  it('export default class extends', () => {
+    const input = `export default class A extends B {}`;
+    const out = normalizeCjsEsm(input);
+    expect(out).toBe("module.exports.default = class A extends B {}");
+  });
+  it('export default generator function', () => {
+    const input = `export default function* gen(){}`;
+    const out = normalizeCjsEsm(input);
+    expect(out).toBe("module.exports.default = function* gen(){}");
+  });
+  it('export var with trailing comma and comments', () => {
+    const input = `export var x = 1, /*c*/ y = 2,`;
+    const out = normalizeCjsEsm(input);
+    expect(out).toContain('var x = 1, /*c*/ y = 2,');
+    expect(out).toContain('module.exports.x = x;');
+    expect(out).toContain('module.exports.y = y;');
+  });
 });

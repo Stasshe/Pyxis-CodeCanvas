@@ -16,17 +16,20 @@ export function normalizeCjsEsm(code: string): string {
   // export default ... → module.exports.default = ...
   code = code.replace(/export\s+default\s+/g, 'module.exports.default = ');
   // export const/let/var foo = 1, bar = 2; -> const/let/var foo = 1, bar = 2; module.exports.foo = foo; module.exports.bar = bar;
-  code = code.replace(/export\s+(const|let|var)\s+([^;]+);/g, (m, kind, decls) => {
+  code = code.replace(/export\s+(const|let|var)\s+([^;]+);?/g, (m, kind, decls) => {
     // decls: "foo = 1, bar = 2"
     // If decls is a destructuring pattern (starts with { or [), do not try to export
     const trimmed = String(decls).trim();
     if (/^[\{\[]/.test(trimmed)) {
       return `${kind} ${decls};`;
     }
-    const declList = trimmed.split(',').map(s => s.trim());
+    // remove trailing comma if present and split
+    const cleaned = trimmed.replace(/,\s*$/, '');
+    const declList = cleaned.split(',').map(s => s.trim()).filter(Boolean);
     const names: string[] = [];
-    for (const d of declList) {
-      // match identifier at start
+    for (let d of declList) {
+      // strip comments before matching identifier
+      d = d.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '').trim();
       const nm = d.match(/^(\w+)/);
       if (nm) names.push(nm[1]);
     }
@@ -40,13 +43,19 @@ export function normalizeCjsEsm(code: string): string {
   code = code.replace(/export\s*\{([^}]+)\}\s*;?/g, (m, list) => {
     const parts = String(list).split(',').map(s => s.trim()).filter(Boolean);
     const assigns = parts.map(p => {
-      const asMatch = p.match(/^(\w+)\s+as\s+(\w+)$/);
+      // strip comments inside the part
+      const cleaned = p.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '').trim();
+      const asMatch = cleaned.match(/^(\w+)\s+as\s+(\w+)$/);
       if (asMatch) {
         const from = asMatch[1];
         const to = asMatch[2];
         return `module.exports.${to} = ${from};`;
       } else {
-        return `module.exports.${p} = ${p};`;
+        // cleaned might be just a name
+        const name = cleaned.match(/^(\w+)$/);
+        if (name) return `module.exports.${name[1]} = ${name[1]};`;
+        // fallback: preserve original (best-effort)
+        return `module.exports.${cleaned} = ${cleaned};`;
       }
     });
     return assigns.join(' ');
@@ -71,6 +80,8 @@ export function normalizeCjsEsm(code: string): string {
     // import/require変換後の行はmodule.exports付与しない
     if (/^\s*await __require__\s*\(/.test(val.trim())) return m;
     if (/^await __require__\s*\(/.test(val.trim())) return m;
+    // dynamic import should not be auto-exported
+    if (/^\s*import\s*\(/.test(val.trim())) return m;
     return `const ${name} = ${val}${chain}${end} module.exports.${name} = ${name};`;
   });
   // Post-process: append module.exports for only those function/class names
