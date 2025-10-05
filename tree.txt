@@ -41,9 +41,6 @@
 │   │   ├── fileOperationg.js
 │   │   ├── index.js
 │   │   └── readline_test.js
-│   ├── test-chalk.js
-│   ├── test-module-require.js
-│   ├── test-require.js
 │   ├── text-editor
 │   │   ├── index.html
 │   │   ├── main.js
@@ -53,6 +50,7 @@
 │       ├── math.ts
 │       └── use-math.ts
 ├── initial_files_to_ts.js
+├── jest.config.cjs
 ├── next-env.d.ts
 ├── next.config.ts
 ├── package-lock.json
@@ -220,6 +218,7 @@
 │   │   │   ├── filesystem.ts
 │   │   │   ├── gitFileSystem.ts
 │   │   │   ├── githubUserManager.ts
+│   │   │   ├── gitignore.ts
 │   │   │   ├── project.ts
 │   │   │   ├── settingsManager.ts
 │   │   │   └── syncManager.ts
@@ -250,11 +249,11 @@
 │   │   │       └── utilModule.ts
 │   │   ├── openTab.ts
 │   │   └── runtime
-│   │       ├── babelPluginAsyncRequire.ts
 │   │       ├── moduleCache.ts
 │   │       ├── moduleLoader.ts
 │   │       ├── moduleResolver.ts
 │   │       ├── nodeRuntime.ts
+│   │       ├── normalizeCjsEsm.ts
 │   │       ├── pathUtils.ts
 │   │       ├── pyodideRuntime.ts
 │   │       ├── runtimeLogger.ts
@@ -271,6 +270,7 @@
 │   │   ├── tab.ts
 │   │   ├── useAIReview.ts
 │   │   ├── useDiffTabHandlers.ts
+│   │   ├── useGlobalScrollLock.ts
 │   │   └── useSettings.ts
 │   └── types
 │       ├── git.ts
@@ -279,20 +279,30 @@
 │       ├── settings.ts
 │       └── vm-browserify.d.ts
 ├── tailwind.config.ts
+├── tests
+│   ├── __artifacts__
+│   │   ├── math.transformed.ts
+│   │   └── use-math.transformed.ts
+│   ├── fsRequirePromise.test.ts
+│   ├── gitignore.test.ts
+│   ├── normalizeCjsEsm.imports.test.ts
+│   ├── normalizeCjsEsm.test.ts
+│   ├── npmInstall.test.ts
+│   └── transform_real_files.test.ts
 ├── tree-built-out.sh
 ├── tree.sh
 ├── tree.txt
 └── tsconfig.json
 
-46 directories, 239 files
+48 directories, 247 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 36256
-合計文字数: 1189072
-合計ファイルサイズ(bytes): 1278143
+合計行数: 36800
+合計文字数: 1211976
+合計ファイルサイズ(bytes): 1301388
 
-リポジトリ全体のサイズ(bytes): 1.9G	.
+リポジトリ全体のサイズ(bytes): 2.1G	.
 ==========
 ビルト済みファイルの行数: 14778
-合計文字数: 25234897
-合計ファイルサイズ(bytes): 26188197
+合計文字数: 25335399
+合計ファイルサイズ(bytes): 26288513
