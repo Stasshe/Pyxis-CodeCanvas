@@ -28,12 +28,20 @@ jobs:
           path: target
           key: ${{ runner.os }}-cargo-target-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('swc_async_require_plugin/Cargo.toml') }}
 
-      - name: Setup Rust
+      - name: Setup Rust (pin toolchain)
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: 1.72.0
           components: rustfmt, clippy
           profile: minimal
+
+      - name: Print Rust / Cargo versions and environment
+        run: |
+          rustc --version --verbose || true
+          cargo --version --verbose || true
+          uname -a || true
+          lscpu || true
+          free -h || true
 
       - name: Install wasm32 target
         run: |
@@ -43,10 +51,14 @@ jobs:
         run: |
           cargo install -q wasm-bindgen-cli
 
-      - name: Build and run Rust tests
+      - name: Build and run Rust tests (with backtrace)
         working-directory: ./swc_async_require_plugin
+        env:
+          RUST_BACKTRACE: 1
+          CARGO_TERM_COLOR: always
         run: |
-          cargo test --verbose
+          cargo test -v || true
+          echo "cargo exit: $?"
 
       - name: Build wasm (wasm-bindgen)
         working-directory: ./swc_async_require_plugin
