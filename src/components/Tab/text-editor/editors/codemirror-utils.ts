@@ -5,6 +5,7 @@ import { css } from '@codemirror/lang-css';
 import { python } from '@codemirror/lang-python';
 import { yaml } from '@codemirror/lang-yaml';
 import { html } from '@codemirror/lang-html';
+import { json } from '@codemirror/lang-json';
 import {
   highlightActiveLine,
   highlightActiveLineGutter,
@@ -31,14 +32,23 @@ export const getCMExtensions = (filename: string, tabSize = 2, insertSpaces = tr
     ext.endsWith('.mjs') ||
     ext.endsWith('.ts') ||
     ext.endsWith('.tsx')
-  )
+  ) {
     lang = [javascript()];
-  else if (ext.endsWith('.md') || ext.endsWith('.markdown')) lang = [markdown()];
-  else if (ext.endsWith('.xml')) lang = [xml()];
-  else if (ext.endsWith('.css')) lang = [css()];
-  else if (ext.endsWith('.py')) lang = [python()];
-  else if (ext.endsWith('.yaml') || ext.endsWith('.yml')) lang = [yaml()];
-  else if (ext.endsWith('.html') || ext.endsWith('.htm') || ext.endsWith('.xhtml')) lang = [html()];
+  } else if (ext.endsWith('.json')) {
+    lang = [json()];
+  } else if (ext.endsWith('.md') || ext.endsWith('.markdown')) {
+    lang = [markdown()];
+  } else if (ext.endsWith('.xml')) {
+    lang = [xml()];
+  } else if (ext.endsWith('.css')) {
+    lang = [css()];
+  } else if (ext.endsWith('.py')) {
+    lang = [python()];
+  } else if (ext.endsWith('.yaml') || ext.endsWith('.yml')) {
+    lang = [yaml()];
+  } else if (ext.endsWith('.html') || ext.endsWith('.htm') || ext.endsWith('.xhtml')) {
+    lang = [html()];
+  }
 
   // インデント設定
   const indentStr = insertSpaces ? ' '.repeat(tabSize) : '\t';
