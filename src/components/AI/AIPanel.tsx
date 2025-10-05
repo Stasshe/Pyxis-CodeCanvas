@@ -140,7 +140,24 @@ export default function AIPanel({
     openAIReviewTab(filePath, originalContent, suggestedContent, setTabs, setActiveTabId, tabs);
   };
 
-  // 変更を適用
+  // suggestedContentの更新（本体には影響しない）
+  const handleUpdateSuggestedContent = (tabId: string, newContent: string) => {
+    setTabs((prevTabs: Tab[]) =>
+      prevTabs.map((t) =>
+        t.id === tabId && t.aiReviewProps
+          ? {
+              ...t,
+              aiReviewProps: {
+                ...t.aiReviewProps,
+                suggestedContent: newContent,
+              },
+            }
+          : t
+      )
+    );
+  };
+
+  // 変更を適用（suggestedContent -> contentへコピー）
   const handleApplyChanges = async (filePath: string, newContent: string) => {
     if (!currentProject) return;
 
