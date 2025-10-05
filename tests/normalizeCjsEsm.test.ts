@@ -1,6 +1,6 @@
 import { describe, it, expect } from '@jest/globals';
 // normalizeCjsEsmを直接importできるようにする
-import { normalizeCjsEsm } from './normalizeCjsEsm';
+import { normalizeCjsEsm } from '@/engine/runtime/normalizeCjsEsm';
 
 describe('normalizeCjsEsm', () => {
   it('import default', () => {
