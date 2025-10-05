@@ -1,0 +1,107 @@
+name: Rust + wasm-pack CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache cargo registry and git
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('swc_async_require_plugin/Cargo.toml') }}
+
+      - name: Cache cargo target
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-target-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('swc_async_require_plugin/Cargo.toml') }}
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+          profile: minimal
+
+      - name: Install wasm32 target
+        run: |
+          rustup target add wasm32-unknown-unknown
+
+      - name: Install wasm-bindgen-cli
+        run: |
+          cargo install -q wasm-bindgen-cli
+
+      - name: Build and run Rust tests
+        working-directory: ./swc_async_require_plugin
+        run: |
+          cargo test --verbose
+
+      - name: Build wasm (wasm-bindgen)
+        working-directory: ./swc_async_require_plugin
+        run: |
+          cargo build --release --target wasm32-unknown-unknown
+          mkdir -p pkg
+          wasm-bindgen --out-dir pkg --target web target/wasm32-unknown-unknown/release/swc_async_require_plugin.wasm || true
+
+      - name: List pkg
+        working-directory: ./swc_async_require_plugin
+        run: ls -la pkg || true
+
+      - name: Upload wasm pkg artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: swc-async-require-plugin-pkg
+          path: ./swc_async_require_plugin/pkg
+
+  js-integration:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache node modules and npm cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            node_modules
+            ~/.cache
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('**/package.json') }}
+
+      - name: Download wasm pkg artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: swc-async-require-plugin-pkg
+          path: swc_async_require_plugin/pkg-artifact
+
+      - name: Copy pkg into repo for tests
+        run: |
+          if [ -d swc_async_require_plugin/pkg-artifact ]; then
+            mkdir -p src/engine/runtime/pkg || true
+            cp -r swc_async_require_plugin/pkg-artifact/* src/engine/runtime/pkg/ || true
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run JS tests
+        run: npm test --silent
