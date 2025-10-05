@@ -14,6 +14,8 @@
  */
 
 import * as Babel from '@babel/standalone';
+// transpileWorker runs inside a WebWorker context; runtime logger may not be available here.
+// Use console for worker-level diagnostics and ensure messages are concise.
 
 /**
  * Babel Plugin: ES Module と require() を変換
@@ -385,6 +387,7 @@ function transpile(request: TranspileRequest): TranspileResult {
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
+    // Worker context: use console.error so the main thread can receive error via message
     console.error('❌ Transpile error:', errorMessage);
     
     return {

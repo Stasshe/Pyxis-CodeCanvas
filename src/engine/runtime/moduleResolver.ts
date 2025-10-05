@@ -9,6 +9,7 @@
 
 import { fileRepository } from '@/engine/core/fileRepository';
 import { normalizePath, dirname, resolveRelative } from './pathUtils';
+import { runtimeInfo, runtimeWarn, runtimeError } from './runtimeLogger';
 
 /**
  * パッケージ情報
@@ -58,7 +59,7 @@ export class ModuleResolver {
     moduleName: string,
     currentFilePath: string
   ): Promise<ResolveResult | null> {
-    console.log('🔍 Resolving module:', moduleName, 'from', currentFilePath);
+  runtimeInfo('🔍 Resolving module:', moduleName, 'from', currentFilePath);
 
     // 1. ビルトインモジュール
     if (this.isBuiltInModule(moduleName)) {
@@ -122,7 +123,7 @@ export class ModuleResolver {
       };
     }
 
-    console.warn('⚠️ Module not found:', moduleName);
+    runtimeWarn('⚠️ Module not found:', moduleName);
     return null;
   }
 
@@ -182,25 +183,25 @@ export class ModuleResolver {
       subPath = parts.slice(1).join('/');
     }
 
-    console.log('📦 Resolving node_modules:', { packageName, subPath });
+  runtimeInfo('📦 Resolving node_modules:', { packageName, subPath });
 
     // package.jsonを読み込み
     const packageJsonPath = `${this.projectDir}/node_modules/${packageName}/package.json`;
-    console.log('🔍 Looking for package.json at:', packageJsonPath);
+  runtimeInfo('🔍 Looking for package.json at:', packageJsonPath);
     
     const packageJson = await this.loadPackageJson(packageJsonPath);
 
     if (!packageJson) {
-      console.warn('⚠️ package.json not found:', packageJsonPath);
+  runtimeWarn('⚠️ package.json not found:', packageJsonPath);
       
       // デバッグ: node_modulesにどんなファイルがあるか確認
       try {
         const files = await fileRepository.getProjectFiles(this.projectId);
         const nodeModuleFiles = files.filter(f => f.path.startsWith('/node_modules/' + packageName));
-        console.log(`📁 Found ${nodeModuleFiles.length} files for ${packageName}`);
-        console.log('Files:', nodeModuleFiles.map(f => `${f.path} (type: ${f.type})`));
+        runtimeInfo(`📁 Found ${nodeModuleFiles.length} files for ${packageName}`);
+        runtimeInfo('Files:', nodeModuleFiles.map(f => `${f.path} (type: ${f.type})`));
       } catch (e) {
-        console.error('Failed to list files:', e);
+        runtimeError('Failed to list files:', e);
       }
       
       return this.tryFallbackPaths(packageName, subPath);
@@ -233,16 +234,16 @@ export class ModuleResolver {
     if (entryPoint.startsWith('./')) {
       entryPoint = entryPoint.slice(2);
     }
-    console.log('📦 Entry point:', entryPoint, 'for', packageName);
+  runtimeInfo('📦 Entry point:', entryPoint, 'for', packageName);
     const fullPath = `${this.projectDir}/node_modules/${packageName}/${entryPoint}`;
     const finalPath = await this.addExtensionIfNeeded(fullPath);
 
     if (finalPath) {
-      console.log('✅ Resolved:', finalPath);
+      runtimeInfo('✅ Resolved:', finalPath);
       return { path: finalPath, packageJson };
     }
 
-    console.warn('⚠️ Entry point not found, trying fallback');
+    runtimeWarn('⚠️ Entry point not found, trying fallback');
     return this.tryFallbackPaths(packageName, subPath);
   }
 
@@ -253,18 +254,18 @@ export class ModuleResolver {
     moduleName: string,
     currentFilePath: string
   ): Promise<{ path: string; packageJson?: PackageJson } | null> {
-    console.log('📦 Resolving package imports:', moduleName, 'from', currentFilePath);
+  runtimeInfo('📦 Resolving package imports:', moduleName, 'from', currentFilePath);
 
     // 現在のファイルが属するパッケージのpackage.jsonを探す
     const packageJson = await this.findPackageJson(currentFilePath);
     if (!packageJson) {
-      console.warn('⚠️ No package.json found for:', currentFilePath);
+      runtimeWarn('⚠️ No package.json found for:', currentFilePath);
       return null;
     }
 
     // importsフィールドをチェック
     if (!packageJson.imports) {
-      console.warn('⚠️ No imports field in package.json');
+      runtimeWarn('⚠️ No imports field in package.json');
       return null;
     }
 
@@ -272,11 +273,11 @@ export class ModuleResolver {
     const importPath = this.resolveImports(imports, moduleName);
 
     if (!importPath) {
-      console.warn('⚠️ Import not found in package.json:', moduleName);
+      runtimeWarn('⚠️ Import not found in package.json:', moduleName);
       return null;
     }
 
-    console.log('📦 Import resolved:', moduleName, '→', importPath);
+    runtimeInfo('📦 Import resolved:', moduleName, '→', importPath);
 
     // 相対パスを絶対パスに変換（パッケージルートから）
     let packageDir = dirname(currentFilePath);
@@ -289,17 +290,17 @@ export class ModuleResolver {
       }
     }
     
-    console.log('📦 Package dir:', packageDir);
+    runtimeInfo('📦 Package dir:', packageDir);
     const resolved = this.resolvePath(packageDir, importPath);
-    console.log('📦 Resolved path:', resolved);
+    runtimeInfo('📦 Resolved path:', resolved);
     const finalPath = await this.addExtensionIfNeeded(resolved);
 
     if (finalPath) {
-      console.log('✅ Final path:', finalPath);
+      runtimeInfo('✅ Final path:', finalPath);
       return { path: finalPath, packageJson };
     }
 
-    console.warn('⚠️ Failed to resolve import path:', resolved);
+    runtimeWarn('⚠️ Failed to resolve import path:', resolved);
     return null;
   }
 
@@ -446,21 +447,21 @@ export class ModuleResolver {
     try {
       const files = await fileRepository.getProjectFiles(this.projectId);
       const normalizedPath = normalizePath(path, this.projectName);
-      console.log('🔍 Normalized path:', path, '→', normalizedPath);
+  runtimeInfo('🔍 Normalized path:', path, '→', normalizedPath);
       
       // デバッグ: 比較を詳細に
       const file = files.find((f) => {
         const normalizedFilePath = normalizePath(f.path, this.projectName);
         const match = normalizedFilePath === normalizedPath;
         if (f.path.includes('package.json') && f.path.includes('chalk')) {
-          console.log('Comparing:', normalizedFilePath, '===', normalizedPath, '→', match);
+          runtimeInfo('Comparing:', normalizedFilePath, '===', normalizedPath, '→', match);
         }
         return match;
       });
 
       if (!file) {
-        console.log('❌ File not found. Searched for:', normalizedPath);
-        console.log('Available package.json files:', 
+        runtimeWarn('❌ File not found. Searched for:', normalizedPath);
+        runtimeInfo('Available package.json files:', 
           files.filter(f => f.path.includes('package.json') && f.path.includes('chalk')).map(f => ({
             path: f.path,
             normalized: normalizePath(f.path, this.projectName)
@@ -473,7 +474,7 @@ export class ModuleResolver {
       this.packageJsonCache.set(path, packageJson);
       return packageJson;
     } catch (error) {
-      console.warn('⚠️ Failed to load package.json:', path, error);
+      runtimeWarn('⚠️ Failed to load package.json:', path, error);
       return null;
     }
   }

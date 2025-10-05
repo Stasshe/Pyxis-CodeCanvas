@@ -14,6 +14,7 @@ import { fileRepository } from '@/engine/core/fileRepository';
 import { createBuiltInModules, type BuiltInModules } from '@/engine/node/builtInModule';
 import { ModuleLoader } from './moduleLoader';
 import { transpileManager } from './transpileManager';
+import { runtimeInfo, runtimeWarn, runtimeError } from './runtimeLogger';
 
 /**
  * 実行オプション
@@ -65,7 +66,7 @@ export class NodeRuntime {
       debugConsole: this.debugConsole,
     });
 
-    this.log('🚀 NodeRuntime initialized', {
+    runtimeInfo('🚀 NodeRuntime initialized', {
       projectId: this.projectId,
       projectName: this.projectName,
       projectDir: this.projectDir,
@@ -77,7 +78,7 @@ export class NodeRuntime {
    */
   async execute(filePath: string): Promise<void> {
     try {
-      this.log('▶️ Executing file:', filePath);
+  runtimeInfo('▶️ Executing file:', filePath);
 
       // ModuleLoaderを初期化
       await this.moduleLoader.init();
@@ -88,7 +89,7 @@ export class NodeRuntime {
         throw new Error(`File not found: ${filePath}`);
       }
 
-      this.log('📄 File loaded:', {
+      runtimeInfo('📄 File loaded:', {
         filePath,
         size: fileContent.length,
       });
@@ -98,7 +99,7 @@ export class NodeRuntime {
       const needsTranspile = this.needsTranspile(filePath, fileContent);
 
       if (needsTranspile) {
-        this.log('🔄 Transpiling main file:', filePath);
+  runtimeInfo('🔄 Transpiling main file:', filePath);
         
         const isTypeScript = /\.(ts|tsx|mts|cts)$/.test(filePath);
         const isJSX = /\.(jsx|tsx)$/.test(filePath);
@@ -113,7 +114,7 @@ export class NodeRuntime {
         });
 
         code = result.code;
-        this.log('✅ Transpile completed');
+  runtimeInfo('✅ Transpile completed');
       }
 
       // サンドボックス環境を構築
@@ -123,15 +124,15 @@ export class NodeRuntime {
       const wrappedCode = this.wrapCode(code, filePath);
       const executeFunc = new Function(...Object.keys(sandbox), wrappedCode);
       
-      this.log('✅ Code compiled successfully');
+      runtimeInfo('✅ Code compiled successfully');
       await executeFunc(...Object.values(sandbox));
-      this.log('✅ Execution completed');
+      runtimeInfo('✅ Execution completed');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       const errorStack = error instanceof Error ? error.stack : '';
-      this.error('❌ Execution failed:', errorMessage);
+      runtimeError('❌ Execution failed:', errorMessage);
       if (errorStack) {
-        this.error('Stack trace:', errorStack);
+        runtimeError('Stack trace:', errorStack);
       }
       throw error;
     }
@@ -200,12 +201,12 @@ export class NodeRuntime {
 
     // __require__ 関数（非同期・ModuleLoaderを使用）
     const __require__ = async (moduleName: string): Promise<unknown> => {
-      self.log('📦 __require__:', moduleName);
+      runtimeInfo('📦 __require__:', moduleName);
 
       // ビルトインモジュールを先にチェック
       const builtInModule = this.resolveBuiltInModule(moduleName);
       if (builtInModule !== null) {
-        self.log('✅ Built-in module resolved:', moduleName);
+        runtimeInfo('✅ Built-in module resolved:', moduleName);
         return builtInModule;
       }
 
@@ -223,17 +224,36 @@ export class NodeRuntime {
 
         return moduleExports;
       } catch (error) {
-        self.error('❌ Failed to load module:', moduleName, error);
+        runtimeError('❌ Failed to load module:', moduleName, error);
         throw new Error(`Cannot find module '${moduleName}'`);
       }
     };
 
     return {
       // グローバルオブジェクト
+      // sandbox console: prefer debugConsole (output from executed file). If absent, fall back to runtime logger.
       console: {
-        log: (...args: unknown[]) => this.log(...args),
-        error: (...args: unknown[]) => this.error(...args),
-        warn: (...args: unknown[]) => this.warn(...args),
+        log: (...args: unknown[]) => {
+          if (this.debugConsole && this.debugConsole.log) {
+            this.debugConsole.log(...args);
+          } else {
+            runtimeInfo(...args);
+          }
+        },
+        error: (...args: unknown[]) => {
+          if (this.debugConsole && this.debugConsole.error) {
+            this.debugConsole.error(...args);
+          } else {
+            runtimeError(...args);
+          }
+        },
+        warn: (...args: unknown[]) => {
+          if (this.debugConsole && this.debugConsole.warn) {
+            this.debugConsole.warn(...args);
+          } else {
+            runtimeWarn(...args);
+          }
+        },
         clear: () => this.debugConsole?.clear(),
       },
       setTimeout,
@@ -279,16 +299,24 @@ export class NodeRuntime {
         },
         stdout: {
           write: (data: string) => {
-            this.log(data);
-            return true;
-          },
+              if (this.debugConsole && this.debugConsole.log) {
+                this.debugConsole.log(data);
+              } else {
+                runtimeInfo(data);
+              }
+              return true;
+            },
           isTTY: true,
         },
         stderr: {
           write: (data: string) => {
-            this.error(data);
-            return true;
-          },
+              if (this.debugConsole && this.debugConsole.error) {
+                this.debugConsole.error(data);
+              } else {
+                runtimeError(data);
+              }
+              return true;
+            },
           isTTY: true,
         },
       },

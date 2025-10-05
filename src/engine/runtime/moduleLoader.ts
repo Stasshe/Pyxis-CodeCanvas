@@ -13,6 +13,7 @@ import { ModuleCache } from './moduleCache';
 import { ModuleResolver, type PackageJson } from './moduleResolver';
 import { transpileManager } from './transpileManager';
 import { normalizePath, dirname } from './pathUtils';
+import { runtimeInfo, runtimeWarn, runtimeError } from './runtimeLogger';
 
 /**
  * モジュール実行キャッシュ（循環参照対策）
@@ -64,19 +65,19 @@ export class ModuleLoader {
    * 初期化
    */
   async init(): Promise<void> {
-    this.log('🚀 Initializing ModuleLoader...');
+  runtimeInfo('🚀 Initializing ModuleLoader...');
 
     // キャッシュを初期化
     await this.cache.init();
 
-    this.log('✅ ModuleLoader initialized');
+  runtimeInfo('✅ ModuleLoader initialized');
   }
 
   /**
    * モジュールを読み込み（非同期）
    */
   async load(moduleName: string, currentFilePath: string): Promise<unknown> {
-    this.log('📦 Loading module:', moduleName, 'from', currentFilePath);
+  runtimeInfo('📦 Loading module:', moduleName, 'from', currentFilePath);
 
     // モジュールパスを解決
     const resolved = await this.resolver.resolve(moduleName, currentFilePath);
@@ -86,7 +87,7 @@ export class ModuleLoader {
 
     // ビルトインモジュールは特殊なマーカーを返す
     if (resolved.isBuiltIn) {
-      this.log('✅ Built-in module:', moduleName);
+  runtimeInfo('✅ Built-in module:', moduleName);
       return { __isBuiltIn: true, moduleName };
     }
 
@@ -96,11 +97,11 @@ export class ModuleLoader {
     if (this.executionCache[resolvedPath]) {
       const cached = this.executionCache[resolvedPath];
       if (cached.loaded) {
-        this.log('📦 Using execution cache:', resolvedPath);
+        runtimeInfo('📦 Using execution cache:', resolvedPath);
         return cached.exports;
       }
       if (cached.loading) {
-        this.log('⚠️ Circular dependency detected:', resolvedPath);
+        runtimeWarn('⚠️ Circular dependency detected:', resolvedPath);
         return cached.exports; // 部分的なexportsを返す
       }
     }
@@ -130,12 +131,12 @@ export class ModuleLoader {
       this.executionCache[resolvedPath].loaded = true;
       this.executionCache[resolvedPath].loading = false;
 
-      this.log('✅ Module loaded:', resolvedPath);
+      runtimeInfo('✅ Module loaded:', resolvedPath);
       return moduleExports;
     } catch (error) {
       // エラー時はキャッシュをクリア
       delete this.executionCache[resolvedPath];
-      this.error('❌ Failed to load module:', resolvedPath, error);
+      runtimeError('❌ Failed to load module:', resolvedPath, error);
       throw error;
     }
   }
@@ -147,7 +148,7 @@ export class ModuleLoader {
     // キャッシュをチェック
     const cached = await this.cache.get(filePath);
     if (cached) {
-      this.log('📦 Using transpile cache:', filePath);
+      runtimeInfo('📦 Using transpile cache:', filePath);
       return cached.code;
     }
 
@@ -156,7 +157,7 @@ export class ModuleLoader {
     let code = content;
 
     if (needsTranspile) {
-      this.log('🔄 Transpiling module:', filePath);
+  runtimeInfo('🔄 Transpiling module:', filePath);
       const isTypeScript = /\.(ts|tsx|mts|cts)$/.test(filePath);
       const isJSX = /\.(jsx|tsx)$/.test(filePath);
       const isESModule = this.isESModule(content);
@@ -181,7 +182,7 @@ export class ModuleLoader {
         size: result.code.length,
       });
 
-      this.log('✅ Transpile completed and cached');
+      runtimeInfo('✅ Transpile completed and cached');
     }
 
     return code;

@@ -3,7 +3,7 @@
  */
 
 import { fileRepository } from '@/engine/core/fileRepository';
-
+import { runtimeInfo, runtimeWarn, runtimeError } from '@/engine/runtime/runtimeLogger';
 export interface CacheEntry {
   originalPath: string;
   hash: string;
@@ -28,16 +28,15 @@ export class ModuleCache {
     this.projectId = projectId;
     this.projectName = projectName;
   }
-
   async init(): Promise<void> {
     if (this.initialized) return;
     
-    console.log('🗄️ Initializing module cache...');
+      runtimeInfo('🗄️ Initializing module cache...');
     await this.ensureCacheDirectories();
     await this.loadAllCacheFromDisk();
     this.initialized = true;
     
-    console.log('✅ Module cache initialized:', {
+    runtimeInfo('✅ Module cache initialized:', {
       entries: this.cache.size,
       totalSize: this.formatSize(this.getTotalSize()),
     });
@@ -49,11 +48,11 @@ export class ModuleCache {
     
     if (entry) {
       entry.lastAccess = Date.now();
-      console.log('✅ Cache HIT:', path);
+      runtimeInfo('✅ Cache HIT:', path);
       return entry;
     }
     
-    console.log('❌ Cache MISS:', path);
+      runtimeWarn('❌ Cache MISS:', path);
     return null;
   }
 
@@ -62,13 +61,13 @@ export class ModuleCache {
     const cacheEntry: CacheEntry = { ...entry, hash, lastAccess: Date.now() };
     
     this.cache.set(hash, cacheEntry);
-    console.log('💾 Saving cache:', path, `(${this.formatSize(entry.size)})`);
+      runtimeInfo('💾 Saving cache:', path, `(${this.formatSize(entry.size)})`);
     
     try {
       await this.saveToDisk(hash, cacheEntry);
-      console.log('✅ Cache saved:', path);
+        runtimeInfo('✅ Cache saved:', path);
     } catch (error) {
-      console.error('❌ Failed to save cache:', error);
+        runtimeError('❌ Failed to save cache:', error);
       this.cache.delete(hash);
       throw error;
     }
@@ -78,7 +77,7 @@ export class ModuleCache {
 
   async clear(): Promise<void> {
     this.cache.clear();
-    console.log('✅ Cache cleared');
+    runtimeInfo('✅ Cache cleared');
   }
 
   private async ensureCacheDirectories(): Promise<void> {
@@ -87,15 +86,15 @@ export class ModuleCache {
       
       if (!files.some(f => f.path === this.cacheDir)) {
         await fileRepository.createFile(this.projectId, this.cacheDir, '', 'folder');
-        console.log('📁 Created:', this.cacheDir);
+          runtimeInfo('📁 Created:', this.cacheDir);
       }
       
       if (!files.some(f => f.path === this.metaDir)) {
         await fileRepository.createFile(this.projectId, this.metaDir, '', 'folder');
-        console.log('📁 Created:', this.metaDir);
+          runtimeInfo('📁 Created:', this.metaDir);
       }
     } catch (error) {
-      console.warn('⚠️ Failed to create cache directories:', error);
+        runtimeWarn('⚠️ Failed to create cache directories:', error);
     }
   }
 
@@ -109,7 +108,7 @@ export class ModuleCache {
         f.content?.trim()
       );
       
-      console.log(`📂 Found ${metaFiles.length} cache meta files`);
+      runtimeInfo(`📂 Found ${metaFiles.length} cache meta files`);
       let loadedCount = 0;
       
       for (const metaFile of metaFiles) {
@@ -123,13 +122,13 @@ export class ModuleCache {
             loadedCount++;
           }
         } catch (error) {
-          console.warn('⚠️ Failed to parse:', metaFile.path);
+            runtimeWarn('⚠️ Failed to parse:', metaFile.path);
         }
       }
       
-      console.log(`✅ Loaded ${loadedCount} cache entries`);
+        runtimeInfo(`✅ Loaded ${loadedCount} cache entries`);
     } catch (error) {
-      console.warn('⚠️ Failed to load cache:', error);
+        runtimeWarn('⚠️ Failed to load cache:', error);
     }
   }
 
@@ -162,7 +161,7 @@ export class ModuleCache {
   private async checkCacheSize(): Promise<void> {
     const totalSize = this.getTotalSize();
     if (totalSize > this.maxCacheSize) {
-      console.log(`🗑️ Cache size exceeded (${this.formatSize(totalSize)}), running GC...`);
+        runtimeInfo(`🗑️ Cache size exceeded (${this.formatSize(totalSize)}), running GC...`);
       await this.runGC();
     }
   }
@@ -184,15 +183,14 @@ export class ModuleCache {
         currentSize -= entry.size;
         deletedCount++;
       } catch (error) {
-        console.warn('⚠️ Failed to delete:', entry.hash);
+          runtimeWarn('⚠️ Failed to delete:', entry.hash);
       }
     }
-    
-    console.log('✅ GC completed:', {
-      deleted: deletedCount,
-      before: this.formatSize(beforeSize),
-      after: this.formatSize(this.getTotalSize()),
-    });
+      runtimeInfo('✅ GC completed:', {
+        deleted: deletedCount,
+        before: this.formatSize(beforeSize),
+        after: this.formatSize(this.getTotalSize()),
+      });
   }
 
   private async deleteFromDisk(hash: string): Promise<void> {
