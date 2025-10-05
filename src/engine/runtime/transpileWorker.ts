@@ -387,8 +387,12 @@ function transpile(request: TranspileRequest): TranspileResult {
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    // Worker context: use console.error so the main thread can receive error via message
-    console.error('❌ Transpile error:', errorMessage);
+    // Worker context: send structured log back to main thread so it can be displayed via runtime logger
+      try {
+        self.postMessage({ type: 'log', level: 'error', message: `❌ Transpile error: ${errorMessage}` });
+      } catch {
+        console.error(`postMessage failed, ❌ Transpile error: ${errorMessage}`);
+      }
     
     return {
       id: request.id,
@@ -445,4 +449,10 @@ self.addEventListener('message', (event: MessageEvent<TranspileRequest>) => {
   self.close();
 });
 
-console.log('✅ Transpile worker initialized with Babel standalone');
+// Signal ready and log initialization to main thread
+try {
+  self.postMessage({ type: 'ready' });
+  self.postMessage({ type: 'log', level: 'info', message: '✅ Transpile worker initialized with Babel standalone' });
+} catch {
+  // ignore
+}

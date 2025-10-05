@@ -14,6 +14,7 @@
  */
 
 import type { TranspileRequest, TranspileResult } from './transpileWorker';
+import { runtimeInfo, runtimeWarn, runtimeError } from './runtimeLogger';
 
 /**
  * トランスパイルオプション
@@ -53,10 +54,20 @@ export class TranspileManager {
 
       // メッセージハンドラ
       worker.onmessage = (event: MessageEvent<TranspileResult | { type: string }>) => {
-        const data = event.data;
+        const data = event.data as any;
+
+        // Worker からのログメッセージを中継
+        if (data && data.type === 'log') {
+          const level = data.level || 'info';
+          const msg = data.message || '';
+          if (level === 'error') runtimeError(msg);
+          else if (level === 'warn') runtimeWarn(msg);
+          else runtimeInfo(msg);
+          return;
+        }
 
         // 初期化メッセージは無視
-        if ('type' in data && data.type === 'ready') {
+        if (data && data.type === 'ready') {
           return;
         }
 
