@@ -213,6 +213,7 @@
 │   │   ├── commitMsgAI.ts
 │   │   ├── core
 │   │   │   ├── authRepository.ts
+│   │   │   ├── coreLogger.ts
 │   │   │   ├── crypto.ts
 │   │   │   ├── database.ts
 │   │   │   ├── fileRepository.ts
@@ -239,7 +240,6 @@
 │   │   ├── initialFileContents.ts
 │   │   ├── node
 │   │   │   ├── builtInModule.ts
-│   │   │   ├── esModuleTransformer.ts
 │   │   │   └── modules
 │   │   │       ├── bufferModule.ts
 │   │   │       ├── fsModule.ts
@@ -257,6 +257,7 @@
 │   │       ├── nodeRuntime.ts
 │   │       ├── pathUtils.ts
 │   │       ├── pyodideRuntime.ts
+│   │       ├── runtimeLogger.ts
 │   │       ├── transpileManager.ts
 │   │       └── transpileWorker.ts
 │   ├── hooks
@@ -278,7 +279,6 @@
 │       ├── settings.ts
 │       └── vm-browserify.d.ts
 ├── tailwind.config.ts
-├── test-readline.js
 ├── tree-built-out.sh
 ├── tree.sh
 ├── tree.txt
@@ -287,8 +287,12 @@
 46 directories, 239 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 36044
-合計文字数: 1181931
-合計ファイルサイズ(bytes): 1270799
+合計行数: 36256
+合計文字数: 1189072
+合計ファイルサイズ(bytes): 1278143
 
-リポジトリ全体のサイズ(bytes): 2.1G	.
+リポジトリ全体のサイズ(bytes): 1.9G	.
+==========
+ビルト済みファイルの行数: 14778
+合計文字数: 25234897
+合計ファイルサイズ(bytes): 26188197
