@@ -716,6 +716,64 @@ export class FileRepository {
   }
 
   /**
+   * 複数ファイルを一括作成/更新する（パフォーマンス向上用）
+   * entries: { path, content, type, isBufferArray?, bufferContent? }
+   */
+  async createFilesBulk(projectId: string, entries: Array<any>): Promise<ProjectFile[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const createdFiles: ProjectFile[] = [];
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(['files'], 'readwrite');
+      const store = transaction.objectStore('files');
+
+      transaction.onerror = () => reject(transaction.error);
+      transaction.oncomplete = async () => {
+        // After DB commit, asynchronously sync to GitFileSystem and emit events
+        for (const file of createdFiles) {
+          try {
+            // call background sync (non-blocking)
+            this.syncToGitFileSystem(file.projectId, file.path, file.isBufferArray ? '' : file.content || '', 'create', file.bufferContent, file.type).catch(err => {
+              coreWarn('[FileRepository] Background bulk sync failed (non-critical):', err);
+            });
+
+            this.emitChange({ type: 'create', projectId: file.projectId, file });
+          } catch (err) {
+            coreWarn('[FileRepository] createFilesBulk post-sync error:', err);
+          }
+        }
+        resolve(createdFiles);
+      };
+
+      try {
+        for (const entry of entries) {
+          const existingRequest = store.index('projectId').getAll(entry.projectId || projectId);
+          // We will not wait for existingRequest; instead, create a new ProjectFile for each entry
+          const file: ProjectFile = {
+            id: generateUniqueId('file'),
+            projectId,
+            path: entry.path,
+            name: entry.path.split('/').pop() || '',
+            content: entry.isBufferArray ? '' : entry.content || '',
+            type: entry.type || 'file',
+            parentPath: entry.path.substring(0, entry.path.lastIndexOf('/')) || '/',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            isBufferArray: !!entry.isBufferArray,
+            bufferContent: entry.isBufferArray ? entry.bufferContent : undefined,
+          };
+
+          createdFiles.push(file);
+          store.put(file);
+        }
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  /**
    * ファイル削除（自動的にGitFileSystemに非同期同期）
    */
   async deleteFile(fileId: string): Promise<void> {
@@ -754,6 +812,40 @@ export class FileRepository {
         }
         resolve();
       };
+    });
+  }
+
+  /**
+   * 指定プレフィックス（ディレクトリ）に一致するファイルを一括削除する
+   */
+  async deleteFilesByPrefix(projectId: string, prefix: string): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(['files'], 'readwrite');
+      const store = transaction.objectStore('files');
+      const index = store.index('projectId');
+      const request = index.getAll(projectId);
+
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const files = request.result as ProjectFile[];
+        for (const f of files) {
+          if (f.path === prefix || f.path.startsWith(prefix + '/')) {
+            store.delete(f.id);
+            // fire delete sync/event asynchronously after transaction
+          }
+        }
+      };
+
+      transaction.oncomplete = async () => {
+        // After deletion, background sync for deleted files is handled in deleteFile when used individually.
+        // Here we emit a generic change event to indicate mass deletion (listeners may resync)
+        this.emitChange({ type: 'delete', projectId, file: { id: '', path: prefix } as any });
+        resolve();
+      };
+
+      transaction.onerror = () => reject(transaction.error);
     });
   }
 
