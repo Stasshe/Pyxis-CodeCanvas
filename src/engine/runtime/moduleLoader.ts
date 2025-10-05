@@ -143,8 +143,11 @@ export class ModuleLoader {
 
   /**
    * トランスパイル済みコードを取得
+   *
+   * Public so callers (like NodeRuntime) can reuse the same transpile + cache
+   * logic for entry/root files.
    */
-  private async getTranspiledCode(filePath: string, content: string): Promise<string> {
+  async getTranspiledCode(filePath: string, content: string): Promise<string> {
     // キャッシュをチェック
     const cached = await this.cache.get(filePath);
     if (cached) {
@@ -157,7 +160,7 @@ export class ModuleLoader {
     let code = content;
 
     if (needsTranspile) {
-  runtimeInfo('🔄 Transpiling module:', filePath);
+      runtimeInfo('🔄 Transpiling module:', filePath);
       const isTypeScript = /\.(ts|tsx|mts|cts)$/.test(filePath);
       const isJSX = /\.(jsx|tsx)$/.test(filePath);
       const isESModule = this.isESModule(content);

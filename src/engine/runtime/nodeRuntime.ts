@@ -95,27 +95,14 @@ export class NodeRuntime {
       });
 
       // トランスパイル（require → await __require__ に変換）
+      // Use ModuleLoader.getTranspiledCode so the entry file benefits from
+      // the same transpile cache and disk-backed cache as other modules.
       let code = fileContent;
-      const needsTranspile = this.needsTranspile(filePath, fileContent);
-
-      if (needsTranspile) {
-        runtimeInfo('🔄 Transpiling main file:', filePath);
-        
-        const isTypeScript = /\.(ts|tsx|mts|cts)$/.test(filePath);
-        const isJSX = /\.(jsx|tsx)$/.test(filePath);
-        const isESModule = this.isESModule(fileContent);
-
-        const result = await transpileManager.transpile({
-          code: fileContent,
-          filePath,
-          isTypeScript,
-          isESModule,
-          isJSX,
-        });
-
-        code = result.code;
-        runtimeInfo('✅ Transpile completed',code);
-        fileRepository.createFile(this.projectId, '/cache/j.js', code,'file');
+      try {
+        code = await this.moduleLoader.getTranspiledCode(filePath, fileContent);
+      } catch (e) {
+        runtimeWarn('⚠️ Failed to transpile via ModuleLoader, falling back to original code:', e);
+        code = fileContent;
       }
 
       // サンドボックス環境を構築
