@@ -4,8 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "node initial_files_to_ts.js && next dev --turbopack",
-    "build": "npm run wasm-web && node initial_files_to_ts.js && next build",
-    "wasm-web": "cp node_modules/@swc/wasm-web/wasm_bg.wasm public/swc.wasm",
+    "build": "node initial_files_to_ts.js && next build",
     "start": "node initial_files_to_ts.js && next start",
     "format": "prettier --write src/**/*.ts src/**/*.tsx",
     "lint": "next lint",
@@ -27,7 +26,6 @@
     "@codemirror/theme-one-dark": "^6.1.3",
     "@isomorphic-git/lightning-fs": "^4.6.2",
     "@monaco-editor/react": "^4.6.0",
-    "@swc/wasm-web": "^1.13.20",
     "@types/d3": "^7.4.3",
     "@uiw/react-codemirror": "^4.24.2",
     "@xterm/addon-fit": "^0.10.0",
