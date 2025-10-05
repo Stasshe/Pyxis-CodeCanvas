@@ -3,6 +3,32 @@
  */
 export function normalizeCjsEsm(code: string): string {
   const exportedNames = new Set<string>();
+  // helper: extract bound identifiers from a destructuring pattern (crude, regex-based)
+  function extractIdentifiersFromPattern(pattern: string): string[] {
+    if (!pattern) return [];
+    // only analyze left-hand side of an assignment pattern (drop "= rhs")
+    let s = String(pattern).split('=')[0];
+    // remove comments and strings
+    s = s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    s = s.replace(/(['"`])(?:\\.|(?!\1).)*\1/g, '');
+    const names = new Set<string>();
+    let m: RegExpExecArray | null;
+    // identifiers after colon: foo: bar -> bar
+    const afterColonRe = /:\s*([A-Za-z_$][\w$]*)/g;
+    while ((m = afterColonRe.exec(s)) !== null) {
+      names.add(m[1]);
+    }
+    // standalone identifiers (not followed by colon) - these are shorthand bindings
+    const identRe = /([A-Za-z_$][\w$]*)/g;
+    while ((m = identRe.exec(s)) !== null) {
+      const id = m[1];
+      const after = s.slice(m.index + id.length, m.index + id.length + 2);
+      if (/^\s*:/.test(after)) continue; // it's a property name
+      if (id === 'as' || id === 'from' || id === 'default') continue;
+      names.add(id);
+    }
+    return Array.from(names);
+  }
   // import * as ns from 'mod' → const ns = await __require__('mod')
   code = code.replace(/import\s+\*\s+as\s+(\w+)\s+from\s+['"]([^'"]+)['"]/g, (m, ns, mod) => {
     return `const ${ns} = await __require__('${mod}')`;
@@ -21,7 +47,14 @@ export function normalizeCjsEsm(code: string): string {
     // If decls is a destructuring pattern (starts with { or [), do not try to export
     const trimmed = String(decls).trim();
     if (/^[\{\[]/.test(trimmed)) {
-      return `${kind} ${decls};`;
+        // try to extract identifiers from nested destructuring and export them
+        const ids = extractIdentifiersFromPattern(trimmed);
+        const head = `${kind} ${decls};`;
+        if (ids.length > 0) {
+          const exports = ids.map(n => `module.exports.${n} = ${n};`).join(' ');
+          return `${head} ${exports}`;
+        }
+        return `${kind} ${decls};`;
     }
     // remove trailing comma if present and split
     const cleaned = trimmed.replace(/,\s*$/, '');

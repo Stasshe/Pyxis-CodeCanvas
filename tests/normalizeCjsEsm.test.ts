@@ -127,8 +127,9 @@ describe('normalizeCjsEsm', () => {
     const input = `export const {a, b} = obj;`;
     const out = normalizeCjsEsm(input);
     expect(out).toContain('const {a, b} = obj;');
-    expect(out).not.toContain('module.exports.a');
-    expect(out).not.toContain('module.exports.b');
+    // new behavior: extract identifiers from destructuring and export them
+    expect(out).toContain('module.exports.a = a;');
+    expect(out).toContain('module.exports.b = b;');
   });
   it('export default arrow/async functions', () => {
     const input1 = `export default () => {}`;
@@ -185,8 +186,8 @@ describe('normalizeCjsEsm', () => {
     const input = `export const {\n  a,\n  b\n} = obj;`;
     const out = normalizeCjsEsm(input);
     expect(out).toContain('const {\n  a,\n  b\n} = obj;');
-    expect(out).not.toContain('module.exports.a');
-    expect(out).not.toContain('module.exports.b');
+    expect(out).toContain('module.exports.a = a;');
+    expect(out).toContain('module.exports.b = b;');
   });
   it('template literal containing export text will be changed (regex limitation)', () => {
     const input = "const s = `export default foo`";
@@ -244,5 +245,51 @@ describe('normalizeCjsEsm', () => {
     expect(out).toContain('var x = 1, /*c*/ y = 2,');
     expect(out).toContain('module.exports.x = x;');
     expect(out).toContain('module.exports.y = y;');
+  });
+  it('template nested export-like text will be transformed', () => {
+    const input = "const t = `prefix export const x = 1; suffix`";
+    const out = normalizeCjsEsm(input);
+    // regex-based replace will touch text inside template literals and may also
+    // trigger auto-export for the surrounding const `t` and the inner const `x`.
+    expect(out).toContain('const x = 1;');
+    expect(out).toContain('module.exports.t = t;');
+    expect(out).toContain('module.exports.x = x;');
+  });
+  it('regex literal containing export default will be altered', () => {
+    const input = "const r = /export default/;";
+    const out = normalizeCjsEsm(input);
+    // regex literals are not protected by the replacer; outer const may be auto-exported
+    expect(out).toContain('/export default/');
+    expect(out).toContain('module.exports.r = r;');
+  });
+  it('commented export default is also transformed', () => {
+    const input = '/* export default foo */';
+    const out = normalizeCjsEsm(input);
+    expect(out).toContain('/* module.exports.default = foo */');
+  });
+  it('export with trailing comma in braces', () => {
+    const input = `export { a, }`;
+    const out = normalizeCjsEsm(input);
+    expect(out).toContain('module.exports.a = a;');
+  });
+  it('multi-line chain auto-export', () => {
+    const input = `const x = maker()\n  .one()\n  .two()`;
+    const out = normalizeCjsEsm(input);
+    expect(out).toContain('module.exports.x = x;');
+  });
+  it('await import(...) assigned to const will be auto-exported (current behavior)', () => {
+    const input = `const mod = await import('a')`;
+    const out = normalizeCjsEsm(input);
+    expect(out).toContain("module.exports.mod = mod;");
+  });
+  it('ts export equals remains', () => {
+    const input = `export = something`;
+    const out = normalizeCjsEsm(input);
+    expect(out).toContain('export = something');
+  });
+  it('export default object literal preserved', () => {
+    const input = `export default { a: function(){}, b: 2 }`;
+    const out = normalizeCjsEsm(input);
+    expect(out).toContain('module.exports.default = { a: function(){}, b: 2 }');
   });
 });
