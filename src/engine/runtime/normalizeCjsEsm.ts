@@ -234,26 +234,26 @@ export function normalizeCjsEsm(code: string): string {
   });
   // require('mod') → await __require__('mod')（module.exports付与より前に変換）
   code = code.replace(/require\((['"][^'"\)]+['"])\)/g, 'await __require__($1)');
-
-  // Collect top-level const/let/var bindings for auto-exporting (previous
-  // behavior: certain assignments were auto-exported). We avoid injecting
-  // module.exports inline; instead collect names in exportedMap to emit later.
-  // This handles multi-line method chains by allowing newlines and `.foo()`
-  // continuation in the value capture.
-  code = code.replace(/(^|\n)\s*(const|let|var)\s+(\w+)\s*=\s*([^;\n]+)((?:\n\s*\.[^;\n]*)*)(;|\n|$)/g, (m, pre, kind, name, val, chain, end) => {
-    // don't auto-export if the declaration already contains module.exports
-    if (m.includes('module.exports')) return m;
-    const fullVal = String(val || '') + String(chain || '');
-    const trimmed = fullVal.trim();
-    // skip values that are results of require -> await __require__ (we don't
-    // auto-export those)
-    if (/^await\s+__require__\s*\(/.test(trimmed)) return m;
-    // skip raw dynamic import(...) (but allow await import(...))
-    if (/^import\s*\(/.test(trimmed)) return m;
-    // register for export (name exported as itself)
-    exportedMap.set(name, name);
-    return m;
-  });
+  // code = code.replace(/(^|\n)\s*(const|let|var)\s+(\w+)\s*=\s*([^;\n]+)((?:\n\s*\.[^;\n]*)*)(;|\n|$)/g, (m, pre, kind, name, val, chain, end) => {
+  //   // don't auto-export if the declaration already contains module.exports
+  //   if (m.includes('module.exports')) return m;
+  //   const fullVal = String(val || '') + String(chain || '');
+  //   const trimmed = fullVal.trim();
+  //   // skip values that are results of require -> await __require__ (we don't
+  //   // auto-export those)
+  //   if (/^await\s+__require__\s*\(/.test(trimmed)) return m;
+  //   // skip raw dynamic import(...) (but allow await import(...))
+  //   if (/^import\s*\(/.test(trimmed)) return m;
+  //   // register for export (name exported as itself)
+  //   exportedMap.set(name, name);
+  //   return m;
+  // });
+    // NOTE: removed automatic auto-export of top-level const/let/var declarations
+  // to avoid erroneous exports being added from inside functions, templates,
+  // or other non-top-level contexts. Exports must now be explicit (via
+  // `export` keywords or `export { ... }` forms). This change prevents
+  // normalizeCjsEsm from producing unexpected `module.exports.*` assignments.
+  
   // export { a, b as c } -> module.exports.a = a; module.exports.c = b;
   code = code.replace(/export\s*\{([^}]+)\}\s*;?/g, (m, list) => {
     const parts = String(list).split(',').map(s => s.trim()).filter(Boolean);
