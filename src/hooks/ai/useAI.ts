@@ -3,6 +3,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+
 import { LOCALSTORAGE_KEY } from '@/context/config';
 import { getSelectedFileContexts } from '@/engine/ai/contextBuilder';
 import { generateCodeEdit, generateChatResponse } from '@/engine/ai/fetchAI';

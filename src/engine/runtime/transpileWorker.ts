@@ -20,6 +20,7 @@
  * feeding code into Babel.
  */
 import * as Babel from '@babel/standalone';
+
 import { normalizeCjsEsm } from './normalizeCjsEsm';
 
 // transpileWorker runs inside a WebWorker context; runtime logger may not be available here.
@@ -90,7 +91,7 @@ function transpile(request: TranspileRequest): TranspileResult {
       ]);
     }
 
-  // normalizeCjsEsm already performed module normalization; no extra plugin needed
+    // normalizeCjsEsm already performed module normalization; no extra plugin needed
 
     // トランスパイル実行
     const result = Babel.transform(normalizedCode, {

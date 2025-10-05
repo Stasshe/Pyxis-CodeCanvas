@@ -4,12 +4,13 @@
  * 変更は自動的にGitFileSystemに非同期同期される
  */
 
-import { Project, ProjectFile, ChatSpace, ChatSpaceMessage } from '@/types';
-import { initialFileContents } from '@/engine/initialFileContents';
-import { LOCALSTORAGE_KEY } from '@/context/config';
-import { coreInfo, coreWarn, coreError } from '@/engine/core/coreLogger';
 import { gitFileSystem } from './gitFileSystem';
 import { parseGitignore, isPathIgnored, GitIgnoreRule } from './gitignore';
+
+import { LOCALSTORAGE_KEY } from '@/context/config';
+import { coreInfo, coreWarn, coreError } from '@/engine/core/coreLogger';
+import { initialFileContents } from '@/engine/initialFileContents';
+import { Project, ProjectFile, ChatSpace, ChatSpaceMessage } from '@/types';
 
 // ユニークID生成関数
 const generateUniqueId = (prefix: string): string => {
@@ -359,7 +360,7 @@ export class FileRepository {
         const recentProjects = JSON.parse(recentProjectsStr);
         const updatedProjects = recentProjects.filter((id: string) => id !== projectId);
         localStorage.setItem(LOCALSTORAGE_KEY.RECENT_PROJECTS, JSON.stringify(updatedProjects));
-  coreInfo(`[FileRepository] Removed project ${projectId} from recent projects`);
+        coreInfo(`[FileRepository] Removed project ${projectId} from recent projects`);
       }
       // エディターレイアウトやターミナル履歴など、プロジェクト固有のlocalStorageキーを削除
       const keysToRemove = [
@@ -368,7 +369,7 @@ export class FileRepository {
         LOCALSTORAGE_KEY.LAST_EXECUTE_FILE,
       ];
       keysToRemove.forEach(key => localStorage.removeItem(key));
-      } catch (error) {
+    } catch (error) {
       coreError('[FileRepository] Failed to cleanup localStorage:', error);
     }
   }
@@ -478,7 +479,7 @@ export class FileRepository {
     const parentExists = existingFiles.some(f => f.path === parentPath && f.type === 'folder');
     
     if (!parentExists) {
-  coreInfo(`[FileRepository] Creating parent directory: ${parentPath}`);
+      coreInfo(`[FileRepository] Creating parent directory: ${parentPath}`);
       
       // 親の親を再帰的に作成
       await this.ensureParentDirectories(projectId, parentPath, existingFiles);

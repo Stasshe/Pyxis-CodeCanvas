@@ -10,11 +10,12 @@
  * 6. require()は非同期化（await __require__()に変換）
  */
 
+import { ModuleLoader } from './moduleLoader';
+import { runtimeInfo, runtimeWarn, runtimeError } from './runtimeLogger';
+
 import { fileRepository } from '@/engine/core/fileRepository';
 import { createBuiltInModules, type BuiltInModules } from '@/engine/node/builtInModule';
-import { ModuleLoader } from './moduleLoader';
-import { transpileManager } from './transpileManager';
-import { runtimeInfo, runtimeWarn, runtimeError } from './runtimeLogger';
+
 
 /**
  * 実行オプション
@@ -314,24 +315,24 @@ export class NodeRuntime {
         },
         stdout: {
           write: (data: string) => {
-              if (this.debugConsole && this.debugConsole.log) {
-                this.debugConsole.log(data);
-              } else {
-                runtimeInfo(data);
-              }
-              return true;
-            },
+            if (this.debugConsole && this.debugConsole.log) {
+              this.debugConsole.log(data);
+            } else {
+              runtimeInfo(data);
+            }
+            return true;
+          },
           isTTY: true,
         },
         stderr: {
           write: (data: string) => {
-              if (this.debugConsole && this.debugConsole.error) {
-                this.debugConsole.error(data);
-              } else {
-                runtimeError(data);
-              }
-              return true;
-            },
+            if (this.debugConsole && this.debugConsole.error) {
+              this.debugConsole.error(data);
+            } else {
+              runtimeError(data);
+            }
+            return true;
+          },
           isTTY: true,
         },
       },

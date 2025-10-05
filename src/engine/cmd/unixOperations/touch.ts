@@ -1,5 +1,6 @@
-import { fileRepository } from '@/engine/core/fileRepository';
 import { UnixCommandBase } from './base';
+
+import { fileRepository } from '@/engine/core/fileRepository';
 
 /**
  * touch - ファイルのタイムスタンプを更新、または空ファイルを作成

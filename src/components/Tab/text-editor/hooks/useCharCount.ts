@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+
 import { countCharsNoSpaces } from '../editors/editor-utils';
 
 /**

@@ -3,11 +3,14 @@
  * GitHub APIを使用してリモートの参照を取得
  */
 
+import FS from '@isomorphic-git/lightning-fs';
 import git from 'isomorphic-git';
 import http from 'isomorphic-git/http/web';
-import FS from '@isomorphic-git/lightning-fs';
-import { authRepository } from '@/engine/core/authRepository';
+
 import { parseGitHubUrl } from './github/utils';
+
+import { authRepository } from '@/engine/core/authRepository';
+
 
 export interface FetchOptions {
   remote?: string;

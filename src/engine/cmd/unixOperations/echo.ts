@@ -1,4 +1,3 @@
-import { fileRepository } from '@/engine/core/fileRepository';
 import { UnixCommandBase } from './base';
 
 /**

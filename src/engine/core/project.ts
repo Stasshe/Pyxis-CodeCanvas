@@ -12,9 +12,9 @@
 import { useState, useEffect } from 'react';
 
 import { fileRepository } from './fileRepository';
-import { GitCommands } from '@/engine/cmd/git';
 
 import { LOCALSTORAGE_KEY } from '@/context/config';
+import { GitCommands } from '@/engine/cmd/git';
 import { FileItem } from '@/types';
 import { Project, ProjectFile } from '@/types/';
 
@@ -293,19 +293,19 @@ export const useProject = () => {
         if (existingFile) {
           const updatedFile = bufferContent
             ? {
-                ...existingFile,
-                content: '',
-                isBufferArray: true,
-                bufferContent,
-                updatedAt: new Date(),
-              }
+              ...existingFile,
+              content: '',
+              isBufferArray: true,
+              bufferContent,
+              updatedAt: new Date(),
+            }
             : {
-                ...existingFile,
-                content,
-                isBufferArray: false,
-                bufferContent: undefined,
-                updatedAt: new Date(),
-              };
+              ...existingFile,
+              content,
+              isBufferArray: false,
+              bufferContent: undefined,
+              updatedAt: new Date(),
+            };
           await fileRepository.saveFile(updatedFile);
         } else {
           await fileRepository.createFile(

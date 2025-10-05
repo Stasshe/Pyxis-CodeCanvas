@@ -4,6 +4,7 @@
  */
 
 import FS from '@isomorphic-git/lightning-fs';
+
 import { coreInfo, coreWarn, coreError } from '@/engine/core/coreLogger';
 
 export class GitFileSystem {
@@ -128,7 +129,7 @@ export class GitFileSystem {
     const projectDir = this.getProjectDir(projectName);
     const fullPath = this.normalizePath(projectDir, filePath);
 
-  coreInfo(`[GitFileSystem] Reading file: ${filePath} -> ${fullPath}`);
+    coreInfo(`[GitFileSystem] Reading file: ${filePath} -> ${fullPath}`);
 
     try {
       const content = await fs.promises.readFile(fullPath, { encoding: 'utf8' });
@@ -183,7 +184,7 @@ export class GitFileSystem {
       }
 
       await fs.promises.rmdir(dirPath);
-      } catch (error) {
+    } catch (error) {
       // エラーは無視
     }
   }
@@ -303,7 +304,7 @@ export class GitFileSystem {
     const fs = this.getFS();
 
     try {
-  coreInfo('=== GitFileSystem Debug ===');
+      coreInfo('=== GitFileSystem Debug ===');
 
       // ルートディレクトリの確認
       try {

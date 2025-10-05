@@ -1,6 +1,7 @@
-import { useRef, useCallback } from 'react';
-import * as monaco from 'monaco-editor';
 import type { Monaco } from '@monaco-editor/react';
+import * as monaco from 'monaco-editor';
+import { useRef, useCallback } from 'react';
+
 import { getLanguage } from '../editors/editor-utils';
 
 /**

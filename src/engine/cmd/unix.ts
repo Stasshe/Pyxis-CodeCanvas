@@ -1,9 +1,6 @@
 // Unixコマンド統合クラス（新アーキテクチャ: IndexedDB優先、自動同期）
 import JSZip from 'jszip';
 
-import { fileRepository } from '@/engine/core/fileRepository';
-import { gitFileSystem } from '@/engine/core/gitFileSystem';
-
 import {
   CatCommand,
   CdCommand,
@@ -20,6 +17,10 @@ import {
   TouchCommand,
   TreeCommand,
 } from './unixOperations';
+
+import { fileRepository } from '@/engine/core/fileRepository';
+import { gitFileSystem } from '@/engine/core/gitFileSystem';
+
 
 /**
  * Unixコマンドを統合して提供するクラス

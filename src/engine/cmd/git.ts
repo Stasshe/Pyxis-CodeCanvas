@@ -10,10 +10,10 @@ import { GitMergeOperations } from './gitOperations/merge';
 import { GitResetOperations } from './gitOperations/reset';
 import { GitRevertOperations } from './gitOperations/revert';
 
-import { gitFileSystem } from '@/engine/core/gitFileSystem';
-import { fileRepository } from '@/engine/core/fileRepository';
-import { syncManager } from '@/engine/core/syncManager';
 import { authRepository } from '@/engine/core/authRepository';
+import { fileRepository } from '@/engine/core/fileRepository';
+import { gitFileSystem } from '@/engine/core/gitFileSystem';
+import { syncManager } from '@/engine/core/syncManager';
 
 /**
  * [NEW ARCHITECTURE] Git操作を管理するクラス

@@ -1,5 +1,6 @@
-import { fileRepository } from '@/engine/core/fileRepository';
 import { UnixCommandBase } from './base';
+
+import { fileRepository } from '@/engine/core/fileRepository';
 
 /**
  * mv - ファイル/ディレクトリを移動またはリネーム

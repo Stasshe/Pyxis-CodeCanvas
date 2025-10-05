@@ -2,6 +2,7 @@ import FS from '@isomorphic-git/lightning-fs';
 import git from 'isomorphic-git';
 
 import { GitFileSystemHelper } from './fileSystemHelper';
+
 import { syncManager } from '@/engine/core/syncManager';
 
 /**

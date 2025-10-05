@@ -5,6 +5,7 @@
  */
 
 import FS from '@isomorphic-git/lightning-fs';
+
 import { gitFileSystem } from './gitFileSystem';
 
 // 後方互換性のため、FSインスタンスをエクスポート

@@ -1,11 +1,17 @@
-import { javascript } from '@codemirror/lang-javascript';
-import { markdown } from '@codemirror/lang-markdown';
-import { xml } from '@codemirror/lang-xml';
+import { autocompletion } from '@codemirror/autocomplete';
+import { history } from '@codemirror/commands';
+import { defaultKeymap, historyKeymap } from '@codemirror/commands';
 import { css } from '@codemirror/lang-css';
-import { python } from '@codemirror/lang-python';
-import { yaml } from '@codemirror/lang-yaml';
 import { html } from '@codemirror/lang-html';
+import { javascript } from '@codemirror/lang-javascript';
 import { json } from '@codemirror/lang-json';
+import { markdown } from '@codemirror/lang-markdown';
+import { python } from '@codemirror/lang-python';
+import { xml } from '@codemirror/lang-xml';
+import { yaml } from '@codemirror/lang-yaml';
+import { indentUnit } from '@codemirror/language';
+import { searchKeymap } from '@codemirror/search';
+import { highlightSelectionMatches } from '@codemirror/search';
 import {
   highlightActiveLine,
   highlightActiveLineGutter,
@@ -13,16 +19,10 @@ import {
   lineNumbers,
   keymap,
 } from '@codemirror/view';
-import { history } from '@codemirror/commands';
-import { autocompletion } from '@codemirror/autocomplete';
-import { searchKeymap } from '@codemirror/search';
-import { defaultKeymap, historyKeymap } from '@codemirror/commands';
-import { highlightSelectionMatches } from '@codemirror/search';
 
 /**
  * CodeMirror用の拡張機能を取得
  */
-import { indentUnit } from '@codemirror/language';
 export const getCMExtensions = (filename: string, tabSize = 2, insertSpaces = true) => {
   const ext = filename.toLowerCase();
   let lang: any[] = [];

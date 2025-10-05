@@ -8,12 +8,13 @@
  * - 循環参照の検出
  */
 
-import { fileRepository } from '@/engine/core/fileRepository';
 import { ModuleCache } from './moduleCache';
-import { ModuleResolver, type PackageJson } from './moduleResolver';
-import { transpileManager } from './transpileManager';
+import { ModuleResolver } from './moduleResolver';
 import { normalizePath, dirname } from './pathUtils';
 import { runtimeInfo, runtimeWarn, runtimeError } from './runtimeLogger';
+import { transpileManager } from './transpileManager';
+
+import { fileRepository } from '@/engine/core/fileRepository';
 
 /**
  * モジュール実行キャッシュ（循環参照対策）
@@ -65,19 +66,19 @@ export class ModuleLoader {
    * 初期化
    */
   async init(): Promise<void> {
-  runtimeInfo('🚀 Initializing ModuleLoader...');
+    runtimeInfo('🚀 Initializing ModuleLoader...');
 
     // キャッシュを初期化
     await this.cache.init();
 
-  runtimeInfo('✅ ModuleLoader initialized');
+    runtimeInfo('✅ ModuleLoader initialized');
   }
 
   /**
    * モジュールを読み込み（非同期）
    */
   async load(moduleName: string, currentFilePath: string): Promise<unknown> {
-  runtimeInfo('📦 Loading module:', moduleName, 'from', currentFilePath);
+    runtimeInfo('📦 Loading module:', moduleName, 'from', currentFilePath);
 
     // モジュールパスを解決
     const resolved = await this.resolver.resolve(moduleName, currentFilePath);
@@ -87,7 +88,7 @@ export class ModuleLoader {
 
     // ビルトインモジュールは特殊なマーカーを返す
     if (resolved.isBuiltIn) {
-  runtimeInfo('✅ Built-in module:', moduleName);
+      runtimeInfo('✅ Built-in module:', moduleName);
       return { __isBuiltIn: true, moduleName };
     }
 
@@ -121,7 +122,7 @@ export class ModuleLoader {
       }
 
       // トランスパイル済みコードを取得（キャッシュ優先）
-      let code = await this.getTranspiledCode(resolvedPath, fileContent);
+      const code = await this.getTranspiledCode(resolvedPath, fileContent);
 
       // モジュールを実行
       const moduleExports = await this.executeModule(code, resolvedPath);

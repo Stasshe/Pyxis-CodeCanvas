@@ -27,13 +27,13 @@
  * ```
  */
 
-import { createFSModule, type FSModuleOptions } from './modules/fsModule';
-import { createPathModule } from './modules/pathModule';
-import { createOSModule } from './modules/osModule';
-import { createUtilModule } from './modules/utilModule';
-import { createHTTPModule, createHTTPSModule } from './modules/httpModule';
 import { Buffer } from './modules/bufferModule';
+import { createFSModule, type FSModuleOptions } from './modules/fsModule';
+import { createHTTPModule, createHTTPSModule } from './modules/httpModule';
+import { createOSModule } from './modules/osModule';
+import { createPathModule } from './modules/pathModule';
 import { createReadlineModule } from './modules/readlineModule';
+import { createUtilModule } from './modules/utilModule';
 
 export interface BuiltInModulesOptions {
   projectDir: string;

@@ -156,7 +156,7 @@ export function normalizeCjsEsm(code: string): string {
           ids.add(name);
           skipSpacesAndComments(); if (s[i] === '=') { i++; let depth = 0; while (i < len && !(depth === 0 && (s[i] === ',' || s[i] === ']'))) {
             if (s[i] === '{' || s[i] === '[') depth++; else if (s[i] === '}' || s[i] === ']') depth--; else if (s[i] === '"' || s[i] === "'" || s[i] === '`') skipString(); i++; }
-        }
+          }
         } else { i++; }
       }
     }
@@ -228,13 +228,13 @@ export function normalizeCjsEsm(code: string): string {
     // If decls is a destructuring pattern (starts with { or [), do not try to export
     const trimmed = String(decls).trim();
     if (/^[\{\[]/.test(trimmed)) {
-        // try to extract identifiers from nested destructuring and export them
-        const ids = extractIdentifiersFromPattern(trimmed);
-        const head = `${kind} ${decls};`;
-        if (ids.length > 0) {
-          for (const n of ids) exportedMap.set(n, n);
-        }
-        return head;
+      // try to extract identifiers from nested destructuring and export them
+      const ids = extractIdentifiersFromPattern(trimmed);
+      const head = `${kind} ${decls};`;
+      if (ids.length > 0) {
+        for (const n of ids) exportedMap.set(n, n);
+      }
+      return head;
     }
     // remove trailing comma if present and split
     const cleaned = trimmed.replace(/,\s*$/, '');
@@ -266,7 +266,7 @@ export function normalizeCjsEsm(code: string): string {
   //   exportedMap.set(name, name);
   //   return m;
   // });
-    // NOTE: removed automatic auto-export of top-level const/let/var declarations
+  // NOTE: removed automatic auto-export of top-level const/let/var declarations
   // to avoid erroneous exports being added from inside functions, templates,
   // or other non-top-level contexts. Exports must now be explicit (via
   // `export` keywords or `export { ... }` forms). This change prevents

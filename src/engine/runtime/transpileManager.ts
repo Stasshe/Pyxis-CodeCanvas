@@ -13,8 +13,8 @@
  * - メインスレッドをブロックしない
  */
 
-import type { TranspileRequest, TranspileResult } from './transpileWorker';
 import { runtimeInfo, runtimeWarn, runtimeError } from './runtimeLogger';
+import type { TranspileRequest, TranspileResult } from './transpileWorker';
 
 /**
  * トランスパイルオプション

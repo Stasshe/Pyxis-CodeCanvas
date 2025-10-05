@@ -31,7 +31,7 @@ export class ModuleCache {
   async init(): Promise<void> {
     if (this.initialized) return;
     
-      runtimeInfo('🗄️ Initializing module cache...');
+    runtimeInfo('🗄️ Initializing module cache...');
     await this.ensureCacheDirectories();
     await this.loadAllCacheFromDisk();
     this.initialized = true;
@@ -52,7 +52,7 @@ export class ModuleCache {
       return entry;
     }
     
-      runtimeWarn('❌ Cache MISS:', path);
+    runtimeWarn('❌ Cache MISS:', path);
     return null;
   }
 
@@ -61,13 +61,13 @@ export class ModuleCache {
     const cacheEntry: CacheEntry = { ...entry, hash, lastAccess: Date.now() };
     
     this.cache.set(hash, cacheEntry);
-      runtimeInfo('💾 Saving cache:', path, `(${this.formatSize(entry.size)})`);
+    runtimeInfo('💾 Saving cache:', path, `(${this.formatSize(entry.size)})`);
     
     try {
       await this.saveToDisk(hash, cacheEntry);
-        runtimeInfo('✅ Cache saved:', path);
+      runtimeInfo('✅ Cache saved:', path);
     } catch (error) {
-        runtimeError('❌ Failed to save cache:', error);
+      runtimeError('❌ Failed to save cache:', error);
       this.cache.delete(hash);
       throw error;
     }
@@ -86,15 +86,15 @@ export class ModuleCache {
       
       if (!files.some(f => f.path === this.cacheDir)) {
         await fileRepository.createFile(this.projectId, this.cacheDir, '', 'folder');
-          runtimeInfo('📁 Created:', this.cacheDir);
+        runtimeInfo('📁 Created:', this.cacheDir);
       }
       
       if (!files.some(f => f.path === this.metaDir)) {
         await fileRepository.createFile(this.projectId, this.metaDir, '', 'folder');
-          runtimeInfo('📁 Created:', this.metaDir);
+        runtimeInfo('📁 Created:', this.metaDir);
       }
     } catch (error) {
-        runtimeWarn('⚠️ Failed to create cache directories:', error);
+      runtimeWarn('⚠️ Failed to create cache directories:', error);
     }
   }
 
@@ -122,13 +122,13 @@ export class ModuleCache {
             loadedCount++;
           }
         } catch (error) {
-            runtimeWarn('⚠️ Failed to parse:', metaFile.path);
+          runtimeWarn('⚠️ Failed to parse:', metaFile.path);
         }
       }
       
-        runtimeInfo(`✅ Loaded ${loadedCount} cache entries`);
+      runtimeInfo(`✅ Loaded ${loadedCount} cache entries`);
     } catch (error) {
-        runtimeWarn('⚠️ Failed to load cache:', error);
+      runtimeWarn('⚠️ Failed to load cache:', error);
     }
   }
 
@@ -161,7 +161,7 @@ export class ModuleCache {
   private async checkCacheSize(): Promise<void> {
     const totalSize = this.getTotalSize();
     if (totalSize > this.maxCacheSize) {
-        runtimeInfo(`🗑️ Cache size exceeded (${this.formatSize(totalSize)}), running GC...`);
+      runtimeInfo(`🗑️ Cache size exceeded (${this.formatSize(totalSize)}), running GC...`);
       await this.runGC();
     }
   }
@@ -183,14 +183,14 @@ export class ModuleCache {
         currentSize -= entry.size;
         deletedCount++;
       } catch (error) {
-          runtimeWarn('⚠️ Failed to delete:', entry.hash);
+        runtimeWarn('⚠️ Failed to delete:', entry.hash);
       }
     }
-      runtimeInfo('✅ GC completed:', {
-        deleted: deletedCount,
-        before: this.formatSize(beforeSize),
-        after: this.formatSize(this.getTotalSize()),
-      });
+    runtimeInfo('✅ GC completed:', {
+      deleted: deletedCount,
+      before: this.formatSize(beforeSize),
+      after: this.formatSize(this.getTotalSize()),
+    });
   }
 
   private async deleteFromDisk(hash: string): Promise<void> {

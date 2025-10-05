@@ -10,6 +10,7 @@
 
 
 import { NpmInstall } from './npmOperations/npmInstall';
+
 import { fileRepository } from '@/engine/core/fileRepository';
 
 export class NpmCommands {
@@ -42,8 +43,8 @@ export class NpmCommands {
   async install(packageName?: string, flags: string[] = []): Promise<string> {
     try {
       // IndexedDBからpackage.jsonを取得
-      let files = await fileRepository.getProjectFiles(this.projectId);
-      let packageFile = files.find(f => f.path === '/package.json');
+      const files = await fileRepository.getProjectFiles(this.projectId);
+      const packageFile = files.find(f => f.path === '/package.json');
       let packageJson: any;
       if (packageFile) {
         packageJson = JSON.parse(packageFile.content);
@@ -142,7 +143,7 @@ export class NpmCommands {
           );
 
           // 実際にnode_modulesにインストールされているかチェック
-          let files = await fileRepository.getProjectFiles(this.projectId);
+          const files = await fileRepository.getProjectFiles(this.projectId);
           const isActuallyInstalled = files.some(f => f.path.startsWith(`/node_modules/${packageName}`));
 
           if (isInPackageJson && isActuallyInstalled) {
@@ -170,12 +171,12 @@ export class NpmCommands {
   async uninstall(packageName: string): Promise<string> {
     try {
       // IndexedDBからpackage.jsonを取得
-      let files = await fileRepository.getProjectFiles(this.projectId);
-      let packageFile = files.find(f => f.path === '/package.json');
+      const files = await fileRepository.getProjectFiles(this.projectId);
+      const packageFile = files.find(f => f.path === '/package.json');
       if (!packageFile) {
         return `npm ERR! Cannot find package.json`;
       }
-      let packageJson = JSON.parse(packageFile.content);
+      const packageJson = JSON.parse(packageFile.content);
 
       if (!packageJson.dependencies) packageJson.dependencies = {};
       if (!packageJson.devDependencies) packageJson.devDependencies = {};
@@ -232,8 +233,8 @@ export class NpmCommands {
   // npm list コマンドの実装
   async list(): Promise<string> {
     try {
-      let files = await fileRepository.getProjectFiles(this.projectId);
-      let packageFile = files.find(f => f.path === '/package.json');
+      const files = await fileRepository.getProjectFiles(this.projectId);
+      const packageFile = files.find(f => f.path === '/package.json');
       if (!packageFile) {
         return `npm ERR! Cannot find package.json`;
       }
@@ -266,8 +267,8 @@ export class NpmCommands {
   // npm init コマンドの実装
   async init(force = false): Promise<string> {
     try {
-      let files = await fileRepository.getProjectFiles(this.projectId);
-      let packageFile = files.find(f => f.path === '/package.json');
+      const files = await fileRepository.getProjectFiles(this.projectId);
+      const packageFile = files.find(f => f.path === '/package.json');
       if (packageFile && !force) {
         return `package.json already exists. Use 'npm init --force' to overwrite.`;
       }
@@ -300,8 +301,8 @@ export class NpmCommands {
   // npm run コマンドの実装
   async run(scriptName: string): Promise<string> {
     try {
-      let files = await fileRepository.getProjectFiles(this.projectId);
-      let packageFile = files.find(f => f.path === '/package.json');
+      const files = await fileRepository.getProjectFiles(this.projectId);
+      const packageFile = files.find(f => f.path === '/package.json');
       if (!packageFile) {
         return `npm ERR! Cannot find package.json`;
       }

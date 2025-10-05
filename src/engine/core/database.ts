@@ -4,8 +4,9 @@
  * @deprecated Use fileRepository directly for new code
  */
 
-import type { Project, ProjectFile, ChatSpace, ChatSpaceMessage } from '@/types';
 import { fileRepository } from './fileRepository';
+
+import type { Project, ProjectFile, ChatSpace, ChatSpaceMessage } from '@/types';
 
 class ProjectDB {
   async init(): Promise<void> {

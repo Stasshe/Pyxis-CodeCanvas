@@ -1,6 +1,7 @@
-import { useRef, useState, useCallback, useEffect } from 'react';
-import * as monaco from 'monaco-editor';
 import type { Monaco } from '@monaco-editor/react';
+import * as monaco from 'monaco-editor';
+import { useRef, useCallback, useEffect } from 'react';
+
 import { useBreakpointContext } from '@/context/BreakpointContext';
 
 export const BREAKPOINT_GUTTER_CLASS = 'pyxis-breakpoint-gutter';

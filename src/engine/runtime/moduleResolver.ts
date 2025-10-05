@@ -7,9 +7,10 @@
  * - package.jsonの解析とエントリーポイント決定
  */
 
-import { fileRepository } from '@/engine/core/fileRepository';
-import { normalizePath, dirname, resolveRelative } from './pathUtils';
+import { normalizePath, dirname } from './pathUtils';
 import { runtimeInfo, runtimeWarn, runtimeError } from './runtimeLogger';
+
+import { fileRepository } from '@/engine/core/fileRepository';
 
 /**
  * パッケージ情報
@@ -59,7 +60,7 @@ export class ModuleResolver {
     moduleName: string,
     currentFilePath: string
   ): Promise<ResolveResult | null> {
-  runtimeInfo('🔍 Resolving module:', moduleName, 'from', currentFilePath);
+    runtimeInfo('🔍 Resolving module:', moduleName, 'from', currentFilePath);
 
     // 1. ビルトインモジュール
     if (this.isBuiltInModule(moduleName)) {
@@ -183,16 +184,16 @@ export class ModuleResolver {
       subPath = parts.slice(1).join('/');
     }
 
-  runtimeInfo('📦 Resolving node_modules:', { packageName, subPath });
+    runtimeInfo('📦 Resolving node_modules:', { packageName, subPath });
 
     // package.jsonを読み込み
     const packageJsonPath = `${this.projectDir}/node_modules/${packageName}/package.json`;
-  runtimeInfo('🔍 Looking for package.json at:', packageJsonPath);
+    runtimeInfo('🔍 Looking for package.json at:', packageJsonPath);
     
     const packageJson = await this.loadPackageJson(packageJsonPath);
 
     if (!packageJson) {
-  runtimeWarn('⚠️ package.json not found:', packageJsonPath);
+      runtimeWarn('⚠️ package.json not found:', packageJsonPath);
       
       // デバッグ: node_modulesにどんなファイルがあるか確認
       try {
@@ -234,7 +235,7 @@ export class ModuleResolver {
     if (entryPoint.startsWith('./')) {
       entryPoint = entryPoint.slice(2);
     }
-  runtimeInfo('📦 Entry point:', entryPoint, 'for', packageName);
+    runtimeInfo('📦 Entry point:', entryPoint, 'for', packageName);
     const fullPath = `${this.projectDir}/node_modules/${packageName}/${entryPoint}`;
     const finalPath = await this.addExtensionIfNeeded(fullPath);
 
@@ -254,7 +255,7 @@ export class ModuleResolver {
     moduleName: string,
     currentFilePath: string
   ): Promise<{ path: string; packageJson?: PackageJson } | null> {
-  runtimeInfo('📦 Resolving package imports:', moduleName, 'from', currentFilePath);
+    runtimeInfo('📦 Resolving package imports:', moduleName, 'from', currentFilePath);
 
     // 現在のファイルが属するパッケージのpackage.jsonを探す
     const packageJson = await this.findPackageJson(currentFilePath);
@@ -447,7 +448,7 @@ export class ModuleResolver {
     try {
       const files = await fileRepository.getProjectFiles(this.projectId);
       const normalizedPath = normalizePath(path, this.projectName);
-  runtimeInfo('🔍 Normalized path:', path, '→', normalizedPath);
+      runtimeInfo('🔍 Normalized path:', path, '→', normalizedPath);
       
       // デバッグ: 比較を詳細に
       const file = files.find((f) => {

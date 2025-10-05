@@ -3,8 +3,9 @@
  * ローカルのGitツリーをGitHub上に再構築する
  */
 
-import git from 'isomorphic-git';
 import FS from '@isomorphic-git/lightning-fs';
+import git from 'isomorphic-git';
+
 import { GitHubAPI, GitTreeEntry } from './GitHubAPI';
 
 export class TreeBuilder {

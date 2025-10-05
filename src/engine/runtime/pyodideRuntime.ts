@@ -27,10 +27,10 @@ export async function initPyodide(): Promise<PyodideInterface> {
   }
 
   // @ts-ignore
-    const pyodide = await window.loadPyodide({
-        stdout: (msg: string) => runtimeInfo(msg, 'log'),
-        stderr: (msg: string) => runtimeError(msg, 'error'),
-    });
+  const pyodide = await window.loadPyodide({
+    stdout: (msg: string) => runtimeInfo(msg, 'log'),
+    stderr: (msg: string) => runtimeError(msg, 'error'),
+  });
 
   pyodideInstance = pyodide;
   return pyodide;
@@ -99,14 +99,14 @@ export async function syncPyodideFromIndexedDB(projectId: string): Promise<void>
         try {
           pyodide.FS.writeFile(pyodidePath, file.content);
         } catch (error) {
-            runtimeWarn(`Failed to write file to Pyodide: ${pyodidePath}`, error);
+          runtimeWarn(`Failed to write file to Pyodide: ${pyodidePath}`, error);
         }
       }
     }
     
-      runtimeInfo(`Synced ${files.filter(f => f.type === 'file').length} files to Pyodide`);
+    runtimeInfo(`Synced ${files.filter(f => f.type === 'file').length} files to Pyodide`);
   } catch (error) {
-      runtimeError('Failed to sync Pyodide from IndexedDB:', error);
+    runtimeError('Failed to sync Pyodide from IndexedDB:', error);
     throw error;
   }
 }
@@ -118,7 +118,7 @@ export async function syncPyodideFromIndexedDB(projectId: string): Promise<void>
  */
 export async function syncPyodideToIndexedDB(projectId: string): Promise<void> {
   if (!pyodideInstance) {
-      runtimeWarn('Pyodide not initialized');
+    runtimeWarn('Pyodide not initialized');
     return;
   }
   
@@ -159,9 +159,9 @@ export async function syncPyodideToIndexedDB(projectId: string): Promise<void> {
       }
     }
     
-      runtimeInfo(`Synced ${pyodideFiles.length} files from Pyodide to IndexedDB`);
+    runtimeInfo(`Synced ${pyodideFiles.length} files from Pyodide to IndexedDB`);
   } catch (error) {
-      runtimeError('Failed to sync Pyodide to IndexedDB:', error);
+    runtimeError('Failed to sync Pyodide to IndexedDB:', error);
     throw error;
   }
 }
@@ -197,11 +197,11 @@ function scanPyodideDirectory(
           results.push({ path: fullRelativePath, content });
         }
       } catch (error) {
-          runtimeWarn(`Failed to process: ${fullPyodidePath}`, error);
+        runtimeWarn(`Failed to process: ${fullPyodidePath}`, error);
       }
     }
   } catch (error) {
-      runtimeWarn(`Failed to read directory: ${pyodidePath}`, error);
+    runtimeWarn(`Failed to read directory: ${pyodidePath}`, error);
   }
   
   return results;

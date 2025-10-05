@@ -3,6 +3,7 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
+
 import { settingsManager } from '@/engine/core/settingsManager';
 import { PyxisSettings } from '@/types/settings';
 

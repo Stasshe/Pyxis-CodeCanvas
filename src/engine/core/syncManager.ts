@@ -6,8 +6,9 @@
 
 import { fileRepository } from './fileRepository';
 import { gitFileSystem } from './gitFileSystem';
-import { ProjectFile } from '@/types';
+
 import { coreInfo, coreWarn, coreError } from '@/engine/core/coreLogger';
+import { ProjectFile } from '@/types';
 
 export class SyncManager {
   private static instance: SyncManager | null = null;
@@ -163,7 +164,7 @@ export class SyncManager {
     operation: 'create' | 'update' | 'delete',
     bufferContent?: ArrayBuffer
   ): Promise<void> {
-  coreInfo(`[SyncManager] Syncing single file to lightning-fs: ${filePath} (${operation})`);
+    coreInfo(`[SyncManager] Syncing single file to lightning-fs: ${filePath} (${operation})`);
 
     try {
       if (operation === 'delete' || content === null) {
@@ -196,7 +197,7 @@ export class SyncManager {
     projectName: string,
     files: ProjectFile[]
   ): Promise<void> {
-  coreInfo('[SyncManager] Initializing project...');
+    coreInfo('[SyncManager] Initializing project...');
 
     try {
       // lightning-fsのプロジェクトディレクトリを作成

@@ -10,6 +10,7 @@
 
 import pako from 'pako';
 import tarStream from 'tar-stream';
+
 import { fileRepository } from '@/engine/core/fileRepository';
 
 interface PackageInfo {
@@ -529,8 +530,8 @@ export class NpmInstall {
         }
       }
 
-  // メインパッケージをインストール
-  await this.downloadAndInstallPackage(packageName, packageInfo.version, packageInfo.tarball);
+      // メインパッケージをインストール
+      await this.downloadAndInstallPackage(packageName, packageInfo.version, packageInfo.tarball);
 
       // インストール済みマークに追加
       this.installedPackages.set(packageName, packageInfo.version);

@@ -1,9 +1,9 @@
 // プロジェクトファイルが更新された時に開いているタブの内容も同期
 import { useEffect } from 'react';
 
+import { fileRepository } from '@/engine/core/fileRepository';
 import { flattenPanes } from '@/hooks/pane';
 import type { Tab, Project, FileItem } from '@/types';
-import { fileRepository } from '@/engine/core/fileRepository';
 
 // FileItem[]を平坦化する関数
 function flattenFileItems(items: FileItem[]): FileItem[] {
