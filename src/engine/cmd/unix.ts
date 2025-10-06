@@ -19,7 +19,6 @@ import {
   UnzipCommand,
 } from './unixOperations';
 
-import { fileRepository } from '@/engine/core/fileRepository';
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
 
 
@@ -112,6 +111,7 @@ export class UnixCommands {
     this.rmCmd['currentDir'] = dir;
     this.touchCmd['currentDir'] = dir;
     this.treeCmd['currentDir'] = dir;
+    this.unzipCmd['currentDir'] = dir;
   }
 
   /**

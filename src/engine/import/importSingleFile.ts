@@ -1,4 +1,5 @@
 import { UnixCommands } from '../cmd/unix';
+import { fileRepository } from '@/engine/core/fileRepository';
 
 /**
  * [NEW ARCHITECTURE] ファイルアップロード(インポート)機能
@@ -16,28 +17,24 @@ export async function importSingleFile(file: File, targetPath: string, unix: Uni
 
   console.log(`[importSingleFile] [NEW ARCHITECTURE] ファイルアップロード開始: ${targetPath}`);
 
-  // touch: fileRepository.createFile経由でDB登録 + GitFileSystemに自動同期
-  await unix.touch(targetPath);
+  // targetPath から project とプロジェクト内パスを抽出
+  const match = targetPath.match(/^\/projects\/([^/]+)(\/.*)$/);
+  const projectId = (unix as any).projectId || '';
+  const filePath = match ? match[2] : targetPath;
 
-  // テキストファイルの場合のみecho
+  if (!projectId) {
+    console.warn('[importSingleFile] projectIdが取得できませんでした:', targetPath);
+    return;
+  }
+
   if (!isBinary) {
+    // テキストファイルは直接createFileで登録（touch+echoの代替）
     const content = await file.text();
-    // echo: fileRepository.saveFile経由でDB更新 + GitFileSystemに自動同期
-    await unix.echo(content, targetPath);
+    await fileRepository.createFile(projectId, filePath, content, 'file');
   } else {
-    // バイナリファイルの場合は、touchで作成した後、直接バイナリ内容を書き込む
+    // バイナリファイルはArrayBufferを渡して作成
     const arrayBuffer = await file.arrayBuffer();
-    // projectId取得
-    const projectId = (unix as any).projectId || '';
-    // targetPathからファイルパスを抽出
-    const match = targetPath.match(/^\/projects\/([^/]+)(\/.*)$/);
-    const filePath = match ? match[2] : targetPath;
-    if (projectId) {
-      const { fileRepository } = await import('@/engine/core/fileRepository');
-      await fileRepository.createFile(projectId, filePath, '', 'file', true, arrayBuffer);
-    } else {
-      console.warn('[importSingleFile] projectIdが取得できませんでした:', targetPath);
-    }
+    await fileRepository.createFile(projectId, filePath, '', 'file', true, arrayBuffer);
   }
 
   console.log(`[importSingleFile] [NEW ARCHITECTURE] ファイルアップロード完了: ${targetPath}`);
