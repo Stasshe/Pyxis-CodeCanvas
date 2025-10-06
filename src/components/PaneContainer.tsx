@@ -11,6 +11,7 @@ import WebPreviewTab from '@/components/Tab/WebPreviewTab';
 import PaneResizer from '@/components/PaneResizer';
 import type { EditorPane, Tab, Project, FileItem } from '@/types';
 import { LOCALSTORAGE_KEY } from '@/context/config';
+import { useSettings } from '@/hooks/useSettings';
 import {
   setTabsForPane,
   setActiveTabIdForPane,
@@ -53,11 +54,10 @@ export default function PaneContainer({
   nodeRuntimeOperationInProgress,
 }: PaneContainerProps) {
   const { colors } = useTheme();
-  let wordWrapConfig: 'on' | 'off' = 'off';
-  if (typeof window !== 'undefined') {
-    wordWrapConfig =
-      localStorage.getItem(LOCALSTORAGE_KEY.MONACO_WORD_WRAP) === 'true' ? 'on' : 'off';
-  }
+  const { settings } = useSettings(
+    currentProject?.id || (pane.tabs[0] as any)?.projectId || undefined
+  );
+  const wordWrapConfig = settings?.editor.wordWrap ? 'on' : 'off';
 
   // 子ペインがある場合は分割レイアウトをレンダリング
   if (pane.children && pane.children.length > 0) {
@@ -148,6 +148,49 @@ export default function PaneContainer({
 
   // リーフペイン（実際のエディタ）をレンダリング
   const activeTab = pane.tabs.find(tab => tab.id === pane.activeTabId);
+
+  // --- 即時反映: 全ペイン・全タブの同じtabIdを持つタブのcontentを同期する ---
+  const handleTabContentChangeImmediate = (tabId: string, content: string) => {
+    setEditors(prevEditors => {
+      // まず、更新のために対象タブのpathを探す（tabIdと一致するタブを優先）
+      let targetPath: string | undefined;
+      for (const root of prevEditors) {
+        const stack: EditorPane[] = [root];
+        while (stack.length) {
+          const p = stack.pop()!;
+          for (const t of p.tabs) {
+            if (t.id === tabId) {
+              targetPath = t.path;
+              break;
+            }
+          }
+          if (targetPath) break;
+          if (p.children) stack.push(...p.children);
+        }
+        if (targetPath) break;
+      }
+
+      // ペインを再帰的に更新する関数
+      const updatePane = (pane: EditorPane): EditorPane => {
+        const updatedTabs = pane.tabs.map(t => {
+          // tabIdが一致するか、またはpathが一致するタブを同期
+          if (t.id === tabId || (targetPath && t.path === targetPath)) {
+            return { ...t, content, isDirty: true };
+          }
+          return t;
+        });
+
+        const updatedChildren = pane.children?.map(child => updatePane(child));
+        return {
+          ...pane,
+          tabs: updatedTabs,
+          ...(updatedChildren ? { children: updatedChildren } : {}),
+        };
+      };
+
+      return prevEditors.map(pane => updatePane(pane));
+    });
+  };
 
   return (
     <div
@@ -339,10 +382,7 @@ export default function PaneContainer({
               diffs={activeTab.diffProps.diffs}
               editable={activeTab.diffProps.editable}
               onContentChangeImmediate={(content: string) => {
-                // 即座にタブの内容を更新
-                if (onTabContentChange) {
-                  onTabContentChange(activeTab.id, content);
-                }
+                handleTabContentChangeImmediate(activeTab.id, content);
               }}
               onContentChange={async (content: string) => {
                 // デバウンス後の保存処理
@@ -388,7 +428,7 @@ export default function PaneContainer({
               bottomPanelHeight={200}
               isBottomPanelVisible={isBottomPanelVisible}
               wordWrapConfig={wordWrapConfig}
-              onContentChangeImmediate={onTabContentChange}
+              onContentChangeImmediate={handleTabContentChangeImmediate}
               onContentChange={async (tabId: string, content: string) => {
                 // タブ内容変更をコールバックに伝播（親コンポーネントで即時更新用に使用）
 

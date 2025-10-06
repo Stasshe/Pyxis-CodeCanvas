@@ -101,24 +101,16 @@ export default function CodeEditor({
   const handleEditorChange = useCallback(
     (value: string) => {
       if (!activeTab) return;
-      try {
-        // 即座に状態を更新
-        if (onContentChangeImmediate) {
-          onContentChangeImmediate(activeTab.id, value);
-        }
-        // デバウンス保存をトリガー
-        debouncedSave(activeTab.id, value);
-      } catch (error: any) {
-        console.error('[CodeEditor_new] Error handling change:', error);
-        // フォールバック: 最低限即座の更新は試みる
+      // 1. 即時反映: 必ず最初に呼ぶ
+      if (onContentChangeImmediate) {
         try {
-          if (onContentChangeImmediate) {
-            onContentChangeImmediate(activeTab.id, value);
-          }
-        } catch (fallbackError: any) {
-          console.error('[CodeEditor_new] Fallback save also failed:', fallbackError);
+          onContentChangeImmediate(activeTab.id, value);
+        } catch (error: any) {
+          console.error('[CodeEditor_new] Error in onContentChangeImmediate:', error);
         }
       }
+      // 2. デバウンス保存: 保存のみ担う
+      debouncedSave(activeTab.id, value);
     },
     [activeTab, onContentChangeImmediate, debouncedSave]
   );
