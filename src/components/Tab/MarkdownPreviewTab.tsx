@@ -9,14 +9,12 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
 import 'katex/dist/katex.min.css';
-import { FileItem } from '@/types';
+import { FileItem, Tab, Project } from '@/types';
 import { loadImageAsDataURL, parseMermaidContent } from './markdownUtils';
 
 interface MarkdownPreviewTabProps {
-  content: string;
-  fileName: string;
-  currentProjectName?: string;
-  projectFiles?: FileItem[];
+  activeTab: Tab;
+  currentProject?: Project;
 }
 
 // ユニークID生成用
@@ -487,11 +485,12 @@ Mermaid.displayName = 'Mermaid';
 // メモ化されたローカル画像コンポーネント
 const LocalImage = React.memo<{
   src: string;
-  alt?: string;
-  projectName?: string;
-  projectFiles?: FileItem[];
+  alt: string;
+  activeTab: Tab;
+  projectName?: string | undefined;
+  projectId?: string | undefined;
   [key: string]: any;
-}>(({ src, alt, projectName, projectFiles, ...props }) => {
+}>(({ src, alt, activeTab, projectName, projectId, ...props }) => {
   const [dataUrl, setDataUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -513,7 +512,7 @@ const LocalImage = React.memo<{
 
       // ローカル画像の場合はプロジェクトファイルまたはファイルシステムから読み込み
       try {
-        const loadedDataUrl = await loadImageAsDataURL(src, projectName, projectFiles);
+        const loadedDataUrl = await loadImageAsDataURL(src, projectName, projectId);
         if (loadedDataUrl) {
           setDataUrl(loadedDataUrl);
           console.log('Loaded local image:', src);
@@ -530,7 +529,7 @@ const LocalImage = React.memo<{
     };
 
     loadImage();
-  }, [src, projectName, projectFiles]);
+  }, [src, projectName, activeTab.path]);
 
   if (loading) {
     return (
@@ -582,7 +581,7 @@ const MemoizedCodeComponent = React.memo<{
   className?: string;
   children: React.ReactNode;
   colors: any;
-  currentProjectName?: string;
+  currentProjectName?: string | undefined;
   projectFiles?: FileItem[];
 }>(({ className, children, colors, currentProjectName, projectFiles, ...props }) => {
   const match = /language-(\w+)/.exec(className || '');
@@ -613,10 +612,8 @@ const MemoizedCodeComponent = React.memo<{
 MemoizedCodeComponent.displayName = 'MemoizedCodeComponent';
 
 const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({
-  content,
-  fileName,
-  currentProjectName,
-  projectFiles,
+  activeTab,
+  currentProject,
 }) => {
   const { colors } = useTheme();
 
@@ -628,8 +625,7 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({
         <MemoizedCodeComponent
           className={className}
           colors={colors}
-          currentProjectName={currentProjectName}
-          projectFiles={projectFiles}
+          currentProjectName={currentProject?.name}
           {...props}
         >
           {children}
@@ -638,17 +634,18 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({
       img: ({ node, src, alt, ...props }: any) => {
         const srcString = typeof src === 'string' ? src : '';
         return (
-          <LocalImage
-            src={srcString}
-            alt={alt || ''}
-            projectName={currentProjectName}
-            projectFiles={projectFiles}
-            {...props}
-          />
+  <LocalImage
+    src={srcString}
+    alt={alt || ''}
+    projectName={currentProject?.name}
+    projectId={currentProject?.id}
+    activeTab={activeTab}
+    {...props}
+      />
         );
       },
     }),
-    [colors, currentProjectName, projectFiles]
+    [colors, currentProject?.name]
   );
 
   // PDFエクスポート用: plain=trueを渡す
@@ -680,14 +677,15 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({
           <LocalImage
             src={srcString}
             alt={alt || ''}
-            projectName={currentProjectName}
-            projectFiles={projectFiles}
+            projectName={currentProject?.name}
+            projectId={currentProject?.id}
+            activeTab={activeTab}
             {...props}
           />
         );
       },
     }),
-    [colors, currentProjectName, projectFiles]
+    [colors, currentProject?.name]
   );
 
   // メイン部分もメモ化
@@ -698,10 +696,10 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({
         rehypePlugins={[rehypeKatex, rehypeRaw]}
         components={markdownComponents}
       >
-        {content}
+        {activeTab.content}
       </ReactMarkdown>
     ),
-    [content, markdownComponents]
+    [activeTab.content, markdownComponents]
   );
 
   // PDF用
@@ -712,10 +710,10 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({
         rehypePlugins={[rehypeKatex, rehypeRaw]}
         components={markdownComponentsPlain}
       >
-        {content}
+        {activeTab.content}
       </ReactMarkdown>
     ),
-    [content, markdownComponentsPlain]
+    [activeTab.content, markdownComponentsPlain]
   );
 
   // PDFエクスポート処理
@@ -758,7 +756,7 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({
         </style>
         ${container.innerHTML}
       `;
-        exportPdfFromHtml(container.innerHTML, fileName.replace(/\.[^/.]+$/, '') + '.pdf');
+  exportPdfFromHtml(container.innerHTML, (activeTab.name || 'document').replace(/\.[^/.]+$/, '') + '.pdf');
         try {
           root.unmount();
         } catch (e) {
@@ -770,12 +768,12 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({
       console.error('PDFエクスポート中にエラーが発生しました', err);
       if (document.body.contains(container)) document.body.removeChild(container);
     }
-  }, [markdownContentPlain, fileName, colors]);
+  }, [markdownContentPlain, activeTab.name, colors]);
 
   return (
     <div className="p-4 overflow-auto h-full w-full">
       <div className="flex items-center mb-2">
-        <div className="font-bold text-lg mr-2">{fileName} プレビュー</div>
+  <div className="font-bold text-lg mr-2">{activeTab.name} プレビュー</div>
         <button
           type="button"
           className="px-2 py-1 rounded bg-green-500 text-white text-xs hover:bg-green-600 transition"

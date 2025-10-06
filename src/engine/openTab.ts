@@ -1,4 +1,4 @@
-import { Tab, FileItem } from '../types';
+import { Tab, FileItem, Project } from '../types';
 /**
  * タブの重複検出・アクティブ化・新規追加を一元化する関数。
  * @param file 開くファイル情報
@@ -63,7 +63,6 @@ export const openOrActivateTab = (
     content: isBufferArray ? '' : file.content || '',
     isDirty: false,
     path: file.path,
-    fullPath: file.path,
     isCodeMirror: file.isCodeMirror,
     isBufferArray,
     bufferContent: isBufferArray ? file.bufferContent : undefined,
@@ -84,30 +83,6 @@ export const openOrActivateTab = (
 
   setTabs((currentTabs: Tab[]) => [...currentTabs, newTab]);
   setActiveTabId(tabId);
-};
-
-// これを外から使うことはない。あるならoptionが必要
-const createNewTab = (file: FileItem): Tab => {
-  console.log('[createNewTab] Creating tab for file:', {
-    name: file.name,
-    path: file.path,
-    contentLength: file.content?.length || 0,
-  });
-  // fullPath生成: projects/{repoName}/... 形式に揃える
-  let fullPath = file.path;
-  if (!fullPath.startsWith('projects/')) {
-    // repoNameはpathから推測できない場合は空文字
-    fullPath = `projects/${file.path}`;
-  }
-  return {
-    id: Date.now().toString(),
-    name: file.name,
-    content: file.content || '',
-    isDirty: false,
-    path: file.path,
-    fullPath,
-    isCodeMirror: file.isCodeMirror ?? false, // 追加
-  };
 };
 
 export const openFile = (

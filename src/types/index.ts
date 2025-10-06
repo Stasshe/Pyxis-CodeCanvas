@@ -25,7 +25,6 @@ export interface Tab {
   content: string;
   isDirty: boolean;
   path: string;
-  fullPath: string;
   preview?: boolean;
   isCodeMirror?: boolean;
   isBufferArray?: boolean; // バイナリファイルの場合true

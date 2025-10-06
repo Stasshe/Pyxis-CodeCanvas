@@ -28,7 +28,7 @@ import {
   useBottomPanelResize,
   useRightSidebarResize,
 } from '@/engine/helper/resize';
-import { openFile, openOrActivateTab } from '@/engine/openTab';
+import { openOrActivateTab } from '@/engine/openTab';
 import { useGitMonitor } from '@/hooks/gitHooks';
 import { useProject } from '@/engine/core/project';
 import { Project } from '@/types';
@@ -415,9 +415,9 @@ export default function Home() {
         jumpToLine: line,
         jumpToColumn: column,
       };
-      openFile(tabObj, tabs, setTabs, setActiveTabId);
+      openOrActivateTab(tabObj, tabs, setTabs, setActiveTabId);
     } else {
-      openFile(fileToOpen, tabs, setTabs, setActiveTabId);
+      openOrActivateTab(fileToOpen, tabs, setTabs, setActiveTabId);
     }
   };
 

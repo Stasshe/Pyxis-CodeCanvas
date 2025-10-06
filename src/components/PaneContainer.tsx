@@ -18,7 +18,6 @@ import {
   splitPane,
   flattenPanes,
 } from '@/hooks/pane';
-import { active } from 'd3';
 
 interface PaneContainerProps {
   pane: EditorPane;
@@ -384,6 +383,7 @@ export default function PaneContainer({
           ) : (
             <CodeEditor
               activeTab={activeTab}
+              currentProject={currentProject}
               isCodeMirror={activeTab?.isCodeMirror || false}
               bottomPanelHeight={200}
               isBottomPanelVisible={isBottomPanelVisible}

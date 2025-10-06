@@ -1,4 +1,4 @@
-import { getFileSystem } from '@/engine/core/filesystem';
+import { fileRepository } from '@/engine/core/fileRepository';
 import { FileItem } from '@/types';
 
 // Safe conversion of Uint8Array to base64 using chunking to avoid call stack limits
@@ -15,76 +15,24 @@ const uint8ArrayToBase64 = (uint8Array: Uint8Array): string => {
 export const loadImageAsDataURL = async (
   imagePath: string,
   projectName?: string,
-  projectFiles?: FileItem[]
+  projectId?: string
 ): Promise<string | null> => {
-  if (!projectName) return null;
-
-  if (projectFiles) {
-    const normalizedPath = imagePath.startsWith('/') ? imagePath : '/' + imagePath;
-
-    const findFileRecursively = (files: FileItem[]): FileItem | null => {
-      for (const file of files) {
-        if (
-          file.path === normalizedPath &&
-          file.type === 'file' &&
-          file.isBufferArray &&
-          file.bufferContent
-        ) {
-          return file;
-        }
-        if (file.children) {
-          const found = findFileRecursively(file.children);
-          if (found) return found;
-        }
-      }
-      return null;
-    };
-
-    const imageFile = findFileRecursively(projectFiles);
-    if (imageFile && imageFile.bufferContent) {
-      try {
-        const extension = imagePath.toLowerCase().split('.').pop();
-        let mimeType = 'image/png';
-        switch (extension) {
-          case 'jpg':
-          case 'jpeg':
-            mimeType = 'image/jpeg';
-            break;
-          case 'png':
-            mimeType = 'image/png';
-            break;
-          case 'gif':
-            mimeType = 'image/gif';
-            break;
-          case 'svg':
-            mimeType = 'image/svg+xml';
-            break;
-          case 'webp':
-            mimeType = 'image/webp';
-            break;
-        }
-
-        const uint8Array = new Uint8Array(imageFile.bufferContent);
-        const base64 = uint8ArrayToBase64(uint8Array);
-        return `data:${mimeType};base64,${base64}`;
-      } catch (error) {
-        console.warn(`Failed to load image from bufferContent: ${imagePath}`, error);
-      }
-    }
-  }
-
-  const fs = getFileSystem();
-  if (!fs) return null;
+  if (!projectName && !projectId) return null;
 
   try {
-    const normalizedPath = imagePath.startsWith('/') ? imagePath.slice(1) : imagePath;
-    const fullPath = `/projects/${projectName}/${normalizedPath}`;
-    const stat = await fs.promises.stat(fullPath);
-    if (!stat.isFile()) return null;
+    // Always fetch project files from fileRepository. Prefer projectId when provided.
+    let files: FileItem[] | undefined;
+    if (projectId) {
+      files = await fileRepository.getProjectFiles(projectId);
+    } else {
+      const projects = await fileRepository.getProjects();
+      const project = projects.find((p: any) => p.name === projectName || p.id === projectName);
+      if (!project) return null;
+      files = await fileRepository.getProjectFiles(project.id);
+    }
 
-    const fileData = await fs.promises.readFile(fullPath);
-
-    const extension = imagePath.toLowerCase().split('.').pop();
+    const normalizedPath = imagePath.startsWith('/') ? imagePath : '/' + imagePath;
+    const extension = (imagePath || '').toLowerCase().split('.').pop();
     let mimeType = 'image/png';
     switch (extension) {
       case 'jpg':
@@ -105,10 +53,49 @@ export const loadImageAsDataURL = async (
         break;
     }
 
-    const uint8Array =
-      fileData instanceof ArrayBuffer ? new Uint8Array(fileData) : new Uint8Array(fileData as any);
-    const base64 = uint8ArrayToBase64(uint8Array);
-    return `data:${mimeType};base64,${base64}`;
+    // Find the file in the project files (recursive)
+    const findFileRecursively = (filesList: FileItem[] | undefined): FileItem | null => {
+      if (!filesList) return null;
+      for (const file of filesList) {
+        // Normalize stored file.path to ensure leading slash
+        const filePath = file.path && file.path.startsWith('/') ? file.path : '/' + file.path;
+        if (filePath === normalizedPath && file.type === 'file') return file;
+        if (file.children) {
+          const found = findFileRecursively(file.children);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+
+  const imageFile = findFileRecursively(files);
+    if (!imageFile) return null;
+
+    // If bufferContent exists, convert to base64
+    if (imageFile.isBufferArray && imageFile.bufferContent) {
+      const uint8Array = new Uint8Array(imageFile.bufferContent as any);
+      const base64 = uint8ArrayToBase64(uint8Array);
+      return `data:${mimeType};base64,${base64}`;
+    }
+
+    // If content exists and looks like a data URL, return it
+    if (typeof (imageFile as any).content === 'string') {
+      const contentStr = (imageFile as any).content as string;
+      if (contentStr.startsWith('data:')) return contentStr;
+      // Otherwise assume it's raw text (e.g. SVG) or base64-encoded; try to encode
+      try {
+        if (extension === 'svg' || /^\s*</.test(contentStr)) {
+          return `data:${mimeType};utf8,${encodeURIComponent(contentStr)}`;
+        }
+        // Fallback: treat as base64 content
+        return `data:${mimeType};base64,${btoa(contentStr)}`;
+      } catch (err) {
+        console.warn('Failed to convert file content to data URL', err);
+        return null;
+      }
+    }
+
+    return null;
   } catch (error) {
     console.warn(`Failed to load image: ${imagePath}`, error);
     return null;

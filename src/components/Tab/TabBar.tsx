@@ -80,15 +80,6 @@ export default function TabBar({
     nameCount[tab.name] = (nameCount[tab.name] || 0) + 1;
   });
 
-  // repoName抽出（projects/{repoName}/以降を表示）
-  function getDisplayPath(fullPath: string) {
-    const idx = fullPath.indexOf('projects/');
-    if (idx >= 0) {
-      return fullPath.substring(idx + 'projects/'.length);
-    }
-    return fullPath;
-  }
-
   // 保存再起動用: window.dispatchEventでカスタムイベントを発火
   const handleSaveRestart = () => {
     setMenuOpen(false);
@@ -152,7 +143,7 @@ export default function TabBar({
       if (change.type === 'delete') {
         const deletedPath: string = change.path;
         // 該当ファイルに対応するタブを全て閉じる
-        const tabsToClose = tabs.filter(t => t.fullPath === deletedPath || t.path === deletedPath);
+        const tabsToClose = tabs.filter(t => t.path === deletedPath || t.path === deletedPath);
         if (tabsToClose.length > 0) {
           // それぞれのタブを閉じる（onTabCloseに処理を委ねる）
           tabsToClose.forEach(t => {
@@ -373,9 +364,9 @@ export default function TabBar({
                 {tab.name}
               </span>
               {/* パス表示（同名ファイルが複数ある場合のみ） */}
-              {nameCount[tab.name] > 1 && tab.fullPath && (
+              {nameCount[tab.name] > 1 && tab.path && (
                 <span style={{ fontSize: '0.7em', opacity: 0.7, marginTop: '2px' }}>
-                  {getDisplayPath(tab.fullPath)}
+                  {tab.path}
                 </span>
               )}
             </span>

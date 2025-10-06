@@ -16,7 +16,7 @@
 
 import { useRef, useEffect, useCallback } from 'react';
 import { useSettings } from '@/hooks/useSettings';
-import { Tab } from '@/types';
+import type { Tab, Project } from '@/types';
 import { isBufferArray } from '@/engine/helper/isBufferArray';
 import { guessMimeType } from './text-editor/editors/editor-utils';
 import { useCharCount } from './text-editor/hooks/useCharCount';
@@ -36,9 +36,8 @@ interface CodeEditorProps {
   wordWrapConfig: 'on' | 'off';
   onContentChangeImmediate: (tabId: string, content: string) => void;
   nodeRuntimeOperationInProgress?: boolean;
+  currentProject?: Project;
   isCodeMirror?: boolean;
-  currentProjectName?: string;
-  projectFiles?: any[];
 }
 
 export default function CodeEditor({
@@ -47,12 +46,11 @@ export default function CodeEditor({
   onContentChangeImmediate,
   nodeRuntimeOperationInProgress = false,
   isCodeMirror = false,
-  currentProjectName,
-  projectFiles,
+  currentProject,
   wordWrapConfig,
 }: CodeEditorProps) {
-  // プロジェクトIDをactiveTabから推測（なければundefined）
-  const projectId = (activeTab as any)?.projectId || undefined;
+  // プロジェクトIDは優先的に props の currentProject?.id を使い、なければ activeTab の projectId を参照
+  const projectId = currentProject?.id || (activeTab as any)?.projectId || undefined;
   const { settings } = useSettings(projectId);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -161,17 +159,17 @@ export default function CodeEditor({
 
   // === Markdownプレビュー ===
   if (activeTab.preview) {
-    console.log('[CodeEditor_new] Rendering Markdown preview for:', activeTab.name);
+    console.log('[CodeEditor_new] Rendering Markdown preview for:', activeTab.name, activeTab.path, currentProject?.name);
+    console.log('[CodeEditor_new] Current project files:', currentProject);
+    console.log('[CodeEditor_new] activeTab:', activeTab);
     return (
       <div
         className="flex-1 min-h-0"
         style={{ height: editorHeight }}
       >
         <MarkdownPreviewTab
-          content={activeTab.content}
-          fileName={activeTab.name}
-          currentProjectName={currentProjectName}
-          projectFiles={projectFiles}
+          activeTab={activeTab}
+          currentProject={currentProject}
         />
       </div>
     );
