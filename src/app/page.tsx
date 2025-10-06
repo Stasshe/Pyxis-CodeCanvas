@@ -486,21 +486,30 @@ export default function Home() {
 
       // ペインを再帰的に更新する関数
       const updatePane = (pane: EditorPane): EditorPane => {
+        let didChange = false;
         const updatedTabs = pane.tabs.map(t => {
           if (t.id === tabId || (targetPath && t.path === targetPath)) {
             if (!t.diffProps) {
+              if (t.content === content) return t; // 変更なし
+              didChange = true;
               return { ...t, content, isDirty: true };
             }
+
+            // diff tab: check if latterContent already matches
+            const diffProps = t.diffProps!;
+            const newDiffs = diffProps.diffs.map(diff =>
+              diff.latterContent === content ? diff : { ...diff, latterContent: content }
+            );
+            const diffChanged = newDiffs.some((d, i) => d !== diffProps.diffs[i]);
+            if (!diffChanged && t.content === content) return t;
+            didChange = didChange || diffChanged || t.content !== content;
             return {
               ...t,
               content,
               isDirty: true,
               diffProps: {
                 ...t.diffProps,
-                diffs: t.diffProps.diffs.map(diff => ({
-                  ...diff,
-                  latterContent: content,
-                })),
+                diffs: newDiffs,
               },
             };
           }
@@ -508,6 +517,9 @@ export default function Home() {
         });
 
         const updatedChildren = pane.children?.map(child => updatePane(child));
+
+        // If nothing changed, return original pane to avoid unnecessary re-renders
+        if (!didChange && (!updatedChildren || updatedChildren === pane.children)) return pane;
 
         return {
           ...pane,
