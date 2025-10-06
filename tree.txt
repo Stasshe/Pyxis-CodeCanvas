@@ -23,7 +23,9 @@
 │   ├── README.md
 │   ├── SYSTEM-OVERVIEW.md
 │   ├── UI-COMPONENTS.md
-│   └── UNIX-COMMANDS.md
+│   ├── UNIX-COMMANDS.md
+│   └── en
+│       └── NODE-RUNTIME.md
 ├── eslint.config.mjs
 ├── helper-code.txt
 ├── initial_files
@@ -52,6 +54,7 @@
 │       └── use-math.ts
 ├── initial_files_to_ts.js
 ├── jest.config.cjs
+├── memo
 ├── next-env.d.ts
 ├── next.config.ts
 ├── package-lock.json
@@ -200,6 +203,7 @@
 │   │   │       ├── echo.ts
 │   │   │       ├── find.ts
 │   │   │       ├── grep.ts
+│   │   │       ├── head.ts
 │   │   │       ├── help.ts
 │   │   │       ├── index.ts
 │   │   │       ├── ls.ts
@@ -207,8 +211,11 @@
 │   │   │       ├── mv.ts
 │   │   │       ├── pwd.ts
 │   │   │       ├── rm.ts
+│   │   │       ├── stat.ts
+│   │   │       ├── tail.ts
 │   │   │       ├── touch.ts
-│   │   │       └── tree.ts
+│   │   │       ├── tree.ts
+│   │   │       └── unzip.ts
 │   │   ├── commitMsgAI.ts
 │   │   ├── core
 │   │   │   ├── coreLogger.ts
@@ -294,17 +301,18 @@
 ├── tree-built-out.sh
 ├── tree.sh
 ├── tree.txt
-└── tsconfig.json
+├── tsconfig.json
+└── tsconfig.tsbuildinfo
 
-49 directories, 248 files
+50 directories, 255 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 36817
-合計文字数: 1211674
-合計ファイルサイズ(bytes): 1301111
+合計行数: 37905
+合計文字数: 1243471
+合計ファイルサイズ(bytes): 1333656
 
 リポジトリ全体のサイズ(bytes): 1.9G	.
 ==========
 ビルト済みファイルの行数: 14778
-合計文字数: 25335823
-合計ファイルサイズ(bytes): 26288939
+合計文字数: 25345985
+合計ファイルサイズ(bytes): 26298945
