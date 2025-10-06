@@ -202,7 +202,7 @@ export async function handleUnixCommand(
           await writeOutput('unzip: missing archive fileUsage: unzip ARCHIVE.zip [DEST_DIR]');
         } else {
           const archive = args[0];
-          const dest = args[1] || '';
+          const dest = args[1] || archive.replace(/\.zip$/, '');
           try {
             const result = await unix.unzip(archive, dest);
             await writeOutput(result);

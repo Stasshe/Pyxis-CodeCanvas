@@ -15,18 +15,16 @@ export class UnzipCommand extends UnixCommandBase {
   }
 
   async extract(zipFileName: string, destDir: string, bufferContent?: ArrayBuffer): Promise<string> {
-    // Resolve destination path using the same helpers as other commands
+    // mv等と同じパス解決ロジックに統一
     const destTarget = destDir && destDir !== '' ? destDir : '.';
-    const resolvedExtract = this.resolvePath(destTarget);
-    const normalizedDest = this.normalizePath(resolvedExtract);
+    const normalizedDest = this.normalizePath(this.resolvePath(destTarget));
 
     try {
       let zipBuffer: ArrayBuffer | undefined = bufferContent;
       if (!zipBuffer) {
-        // Resolve archive path the same way other commands do
-        const resolvedArchivePath = this.resolvePath(zipFileName);
-        const fullPath = this.normalizePath(resolvedArchivePath);
-        const relPath = this.getRelativePathFromProject(fullPath);
+        // mv等と同じく、normalizePath→getRelativePathFromProjectの順でパス解決
+        const normalizedArchivePath = this.normalizePath(this.resolvePath(zipFileName));
+        const relPath = this.getRelativePathFromProject(normalizedArchivePath);
         const files = await fileRepository.getProjectFiles(this.projectId);
         const target = files.find(f => f.path === relPath);
         if (!target) {
