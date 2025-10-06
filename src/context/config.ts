@@ -11,3 +11,9 @@ export const LOCALSTORAGE_KEY = {
 export const DEFAULT_VALUES = {
   DEFAULT_EDITOR: 'monaco',
 };
+
+// Output panel related configuration
+export const OUTPUT_CONFIG = {
+  // maximum number of messages to keep in the output panel
+  OUTPUT_MAX_MESSAGES: 30,
+};

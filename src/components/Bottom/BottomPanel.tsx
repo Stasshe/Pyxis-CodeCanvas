@@ -4,6 +4,7 @@ import Terminal from './Terminal';
 import OutputPanel, { OutputMessage } from './OutputPanel';
 import { FileItem } from '@/types';
 import { useTheme } from '@/context/ThemeContext';
+import { OUTPUT_CONFIG } from '@/context/config';
 import { useState, useRef } from 'react';
 
 interface BottomPanelProps {
@@ -35,12 +36,28 @@ export function pushMsgOutPanel(
           const newPrev = [...prev];
           // @ts-ignore
           newPrev[newPrev.length - 1] = { ...last, count: (last.count ?? 1) + 1 };
+          // Trim if over limit
+          const max = OUTPUT_CONFIG.OUTPUT_MAX_MESSAGES ?? 30;
+          if (newPrev.length > max) {
+            const start = newPrev.length - max;
+            const trimmed = newPrev.slice(start);
+            outputMessagesRef.current = trimmed;
+            return trimmed;
+          }
           outputMessagesRef.current = newPrev;
           return newPrev;
         }
       }
       // 新規メッセージ
       const next = [...prev, { message: msg, type, context }];
+      // Trim to keep only the most recent OUTPUT_MAX_MESSAGES
+      const max = OUTPUT_CONFIG.OUTPUT_MAX_MESSAGES ?? 30;
+      if (next.length > max) {
+        const start = next.length - max;
+        const trimmed = next.slice(start);
+        outputMessagesRef.current = trimmed;
+        return trimmed;
+      }
       outputMessagesRef.current = next;
       return next;
     });
