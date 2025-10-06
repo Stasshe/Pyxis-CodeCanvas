@@ -32,20 +32,25 @@ export const openOrActivateTab = (
   // 既存タブ検索
   const existing = tabs.find(tab => tab.id === tabId);
   if (existing) {
-    // 既存タブにjumpToLine/jumpToColumnを設定してアクティブ化
-    if (options?.jumpToLine !== undefined || options?.jumpToColumn !== undefined) {
+    // 優先順位: options に指定があればそれを使い、なければ file に付与された jumpToLine/jumpToColumn を使う
+    const jumpToLine =
+      options?.jumpToLine !== undefined ? options.jumpToLine : (file as any).jumpToLine;
+    const jumpToColumn =
+      options?.jumpToColumn !== undefined ? options.jumpToColumn : (file as any).jumpToColumn;
+
+    if (jumpToLine !== undefined || jumpToColumn !== undefined) {
       console.log('[openOrActivateTab] Setting jump position for existing tab:', {
         tabId,
-        jumpToLine: options.jumpToLine,
-        jumpToColumn: options.jumpToColumn,
+        jumpToLine,
+        jumpToColumn,
       });
       setTabs((currentTabs: Tab[]) =>
         currentTabs.map(tab =>
           tab.id === tabId
             ? {
                 ...tab,
-                jumpToLine: options.jumpToLine,
-                jumpToColumn: options.jumpToColumn,
+                jumpToLine,
+                jumpToColumn,
               }
             : tab
         )
@@ -63,15 +68,21 @@ export const openOrActivateTab = (
     content: isBufferArray ? '' : file.content || '',
     isDirty: false,
     path: file.path,
-    isCodeMirror: file.isCodeMirror,
+    // 後方互換: file.isCodeMirror が未定義の場合は false を明示
+    isCodeMirror: typeof file.isCodeMirror === 'boolean' ? file.isCodeMirror : false,
     isBufferArray,
     bufferContent: isBufferArray ? file.bufferContent : undefined,
     preview: options?.preview,
     webPreview: options?.webPreview,
     aiReviewProps: options?.aiReviewProps,
   };
-  if (options?.jumpToLine !== undefined) newTab.jumpToLine = options.jumpToLine;
-  if (options?.jumpToColumn !== undefined) newTab.jumpToColumn = options.jumpToColumn;
+  // 新規タブ作成時の jumpTo は options を優先し、なければ file に付与された値を使う
+  const newJumpToLine =
+    options?.jumpToLine !== undefined ? options.jumpToLine : (file as any).jumpToLine;
+  const newJumpToColumn =
+    options?.jumpToColumn !== undefined ? options.jumpToColumn : (file as any).jumpToColumn;
+  if (newJumpToLine !== undefined) newTab.jumpToLine = newJumpToLine;
+  if (newJumpToColumn !== undefined) newTab.jumpToColumn = newJumpToColumn;
 
   if (options?.jumpToLine !== undefined) {
     console.log('[openOrActivateTab] Creating new tab with jump position:', {
