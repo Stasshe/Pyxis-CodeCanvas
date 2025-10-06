@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, X, FileText, Folder } from 'lucide-react';
+import { Search, X, FileText, ChevronDown, ChevronRight } from 'lucide-react';
 import { FileItem } from '@/types';
 import { useTheme } from '@/context/ThemeContext';
 import { useSettings } from '@/hooks/useSettings';
@@ -164,11 +164,18 @@ export default function SearchPanel({ files, projectId, onFileOpen }: SearchPane
     setSearchResults([]);
   };
 
+  // per-file collapsed state
+  const [collapsedFiles, setCollapsedFiles] = useState<Record<string, boolean>>({});
+
+  const toggleFileCollapse = (key: string) => {
+    setCollapsedFiles(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', fontSize: '0.68rem' }}>
       {/* 検索入力エリア */}
-      <div style={{ padding: '0.75rem', borderBottom: `1px solid ${colors.border}` }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+      <div style={{ padding: '0.3rem', borderBottom: `1px solid ${colors.border}` }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.12rem' }}>
           {/* 検索ボックス */}
           <div style={{ position: 'relative' }}>
             <Search
@@ -188,16 +195,17 @@ export default function SearchPanel({ files, projectId, onFileOpen }: SearchPane
               placeholder="ファイル内を検索..."
               style={{
                 width: '100%',
-                paddingLeft: '2rem',
-                paddingRight: '2rem',
-                paddingTop: '0.375rem',
-                paddingBottom: '0.375rem',
+                paddingLeft: '1.4rem',
+                paddingRight: '1.2rem',
+                paddingTop: '0.14rem',
+                paddingBottom: '0.14rem',
                 background: colors.mutedBg,
                 border: `1px solid ${colors.border}`,
                 borderRadius: '0.375rem',
-                fontSize: '0.75rem',
+                fontSize: '0.64rem',
                 outline: 'none',
                 color: colors.foreground,
+                lineHeight: '1rem',
               }}
               autoFocus
             />
@@ -220,13 +228,13 @@ export default function SearchPanel({ files, projectId, onFileOpen }: SearchPane
           </div>
 
           {/* 検索オプション - コンパクトなボタン形式 */}
-          <div style={{ display: 'flex', gap: '0.25rem' }}>
+          <div style={{ display: 'flex', gap: '0.12rem' }}>
             <button
               onClick={() => setCaseSensitive(!caseSensitive)}
               style={{
-                padding: '0.375rem 0.5rem',
-                fontSize: '0.75rem',
-                borderRadius: '0.375rem',
+                padding: '0.14rem 0.28rem',
+                fontSize: '0.6rem',
+                borderRadius: '0.28rem',
                 border: `1px solid ${caseSensitive ? colors.accentBg : colors.border}`,
                 background: caseSensitive ? colors.accentBg : colors.mutedBg,
                 color: caseSensitive ? colors.accentFg : colors.mutedFg,
@@ -239,9 +247,9 @@ export default function SearchPanel({ files, projectId, onFileOpen }: SearchPane
             <button
               onClick={() => setWholeWord(!wholeWord)}
               style={{
-                padding: '0.375rem 0.5rem',
-                fontSize: '0.75rem',
-                borderRadius: '0.375rem',
+                padding: '0.25rem 0.4rem',
+                fontSize: '0.65rem',
+                borderRadius: '0.3125rem',
                 border: `1px solid ${wholeWord ? colors.accentBg : colors.border}`,
                 background: wholeWord ? colors.accentBg : colors.mutedBg,
                 color: wholeWord ? colors.accentFg : colors.mutedFg,
@@ -254,9 +262,9 @@ export default function SearchPanel({ files, projectId, onFileOpen }: SearchPane
             <button
               onClick={() => setUseRegex(!useRegex)}
               style={{
-                padding: '0.375rem 0.5rem',
-                fontSize: '0.75rem',
-                borderRadius: '0.375rem',
+                padding: '0.25rem 0.4rem',
+                fontSize: '0.65rem',
+                borderRadius: '0.3125rem',
                 border: `1px solid ${useRegex ? colors.accentBg : colors.border}`,
                 background: useRegex ? colors.accentBg : colors.mutedBg,
                 color: useRegex ? colors.accentFg : colors.mutedFg,
@@ -270,7 +278,7 @@ export default function SearchPanel({ files, projectId, onFileOpen }: SearchPane
 
           {/* 検索結果サマリー */}
           {searchQuery && (
-            <div style={{ fontSize: '0.75rem', color: colors.mutedFg }}>
+            <div style={{ fontSize: '0.62rem', color: colors.mutedFg }}>
               {isSearching ? '検索中...' : `${searchResults.length} 件の結果`}
             </div>
           )}
@@ -280,7 +288,7 @@ export default function SearchPanel({ files, projectId, onFileOpen }: SearchPane
       {/* 検索結果 */}
       <div style={{ flex: 1, overflow: 'auto' }}>
         {searchQuery && !isSearching && searchResults.length === 0 && (
-          <div style={{ padding: '0.75rem', textAlign: 'center', color: colors.mutedFg }}>
+          <div style={{ padding: '0.5rem', textAlign: 'center', color: colors.mutedFg }}>
             <Search
               size={24}
               style={{
@@ -295,96 +303,145 @@ export default function SearchPanel({ files, projectId, onFileOpen }: SearchPane
         )}
 
         {searchResults.length > 0 && (
-          <div style={{ padding: '0.25rem' }}>
-            {searchResults.map((result, index) => (
-              <div
-                key={`${result.file.id}-${result.line}-${index}`}
-                onClick={() => handleResultClick(result)}
-                style={{
-                  padding: '0.5rem',
-                  background: 'transparent',
-                  borderRadius: '0.375rem',
-                  fontSize: '0.75rem',
-                  borderBottom: `1px solid ${colors.border}`,
-                  cursor: 'pointer',
-                  marginBottom: '0.125rem',
-                }}
-                onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
-                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-              >
+          <div style={{ padding: '0.14rem' }}>
+            {/* Group results by file */}
+            {Object.values(
+              searchResults.reduce((acc: Record<string, SearchResult[]>, r) => {
+                const key = r.file.id || r.file.path;
+                if (!acc[key]) acc[key] = [];
+                acc[key].push(r);
+                return acc;
+              }, {})
+            ).map((group: SearchResult[], gIdx) => {
+              const first = group[0];
+              const key = first.file.id || first.file.path;
+              const isCollapsed = !!collapsedFiles[key];
+              return (
                 <div
+                  key={`${key}-${gIdx}`}
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.25rem',
-                    marginBottom: '0.25rem',
+                    padding: '0.18rem 0.28rem',
+                    borderRadius: '0.28rem',
+                    borderBottom: `1px solid ${colors.border}`,
+                    marginBottom: '0.125rem',
                   }}
                 >
-                  <FileText
-                    size={12}
-                    color={colors.primary}
-                    style={{ flexShrink: 0 }}
-                  />
-                  <span
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => toggleFileCollapse(key)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        toggleFileCollapse(key);
+                      }
+                    }}
                     style={{
-                      fontWeight: 500,
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      fontSize: '0.75rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.22rem',
+                      marginBottom: '0.1rem',
+                      cursor: 'pointer',
+                      userSelect: 'none',
                     }}
                   >
-                    {result.file.name}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: '0.75rem',
-                      color: colors.mutedFg,
-                      flexShrink: 0,
-                      marginLeft: 'auto',
-                    }}
-                  >
-                    {result.line}:{result.column}
-                  </span>
-                </div>
-                <div style={{ marginLeft: '0.75rem', marginBottom: '0.25rem' }}>
-                  <code
-                    style={{
-                      background: colors.mutedBg,
-                      padding: '0.25rem 0.5rem',
-                      borderRadius: '0.25rem',
-                      fontSize: '0.75rem',
-                      display: 'block',
-                      color: colors.foreground,
-                    }}
-                  >
-                    {/* 横スクロールを防ぐためoverflow-x: hiddenを追加 */}
+                    {isCollapsed ? (
+                      <ChevronRight
+                        size={14}
+                        color={colors.mutedFg}
+                      />
+                    ) : (
+                      <ChevronDown
+                        size={14}
+                        color={colors.mutedFg}
+                      />
+                    )}
+                    <FileText
+                      size={12}
+                      color={colors.primary}
+                      style={{ flexShrink: 0 }}
+                    />
                     <span
                       style={{
-                        display: 'block',
-                        overflowX: 'hidden',
+                        fontWeight: 600,
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
                         textOverflow: 'ellipsis',
-                        whiteSpace: 'pre-wrap',
+                        maxWidth: '40%',
                       }}
                     >
-                      {highlightMatch(result.content, result.matchStart, result.matchEnd)}
+                      {first.file.name}
                     </span>
-                  </code>
+                    <span
+                      style={{ color: colors.mutedFg, marginLeft: '0.3rem', fontSize: '0.6rem' }}
+                    >
+                      {group.length} hits
+                    </span>
+                    <span
+                      style={{
+                        marginLeft: 'auto',
+                        color: colors.mutedFg,
+                        fontSize: '0.62rem',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        maxWidth: '45%',
+                      }}
+                    >
+                      {first.file.path}
+                    </span>
+                  </div>
+
+                  {!isCollapsed && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.12rem' }}>
+                      {group.map((result, idx) => (
+                        <div
+                          key={`${result.file.id}-${result.line}-${idx}`}
+                          onClick={() => handleResultClick(result)}
+                          style={{
+                            padding: '0.12rem',
+                            borderRadius: '0.2rem',
+                            cursor: 'pointer',
+                            background: 'transparent',
+                          }}
+                          onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                        >
+                          <div style={{ display: 'flex', gap: '0.32rem', alignItems: 'center' }}>
+                            <span
+                              style={{
+                                color: colors.mutedFg,
+                                width: '2.6rem',
+                                flexShrink: 0,
+                                fontSize: '0.62rem',
+                              }}
+                            >
+                              {result.line}:{result.column}
+                            </span>
+                            <code
+                              style={{
+                                background: colors.mutedBg,
+                                padding: '0.08rem 0.26rem',
+                                borderRadius: '0.2rem',
+                                color: colors.foreground,
+                                display: 'block',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                maxWidth: 'calc(100% - 3.2rem)',
+                              }}
+                              title={result.content}
+                            >
+                              {highlightMatch(result.content, result.matchStart, result.matchEnd)}
+                            </code>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <div
-                  style={{
-                    marginLeft: '0.75rem',
-                    fontSize: '0.75rem',
-                    color: colors.mutedFg,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  {result.file.path}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
