@@ -6,6 +6,7 @@ import type { Tab, SingleFileDiff, FileItem } from '@/types';
 
 export function useDiffTabHandlers(
   currentProject: any,
+  tabs: Tab[],
   setTabs: React.Dispatch<React.SetStateAction<Tab[]>>,
   setActiveTabId: (id: string) => void
 ) {
@@ -88,7 +89,6 @@ export function useDiffTabHandlers(
               content: '',
               isDirty: false,
               path: filePath,
-              fullPath: filePath,
               diffProps: {
                 diffs: [
                   {
@@ -179,7 +179,6 @@ export function useDiffTabHandlers(
             content: '',
             isDirty: false,
             path: filePath,
-            fullPath: filePath,
             diffProps: {
               diffs: [
                 {
@@ -245,7 +244,8 @@ export function useDiffTabHandlers(
         content: '',
         type: 'file',
       };
-      openOrActivateTab(fileItem, [], setTabs, setActiveTabId);
+      // pass the current tabs so openOrActivateTab can properly detect/append tabs
+      openOrActivateTab(fileItem, tabs, setTabs, setActiveTabId);
       setTabs((prevTabs: Tab[]) => {
         return prevTabs.map(tab =>
           tab.id === diffTabId

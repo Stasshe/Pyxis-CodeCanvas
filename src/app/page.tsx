@@ -279,6 +279,7 @@ export default function Home() {
   // Diffタブ関連のハンドラをカスタムフックから取得
   const { handleDiffFileClick, handleDiffAllFilesClick } = useDiffTabHandlers(
     currentProject,
+    tabs,
     setTabs,
     setActiveTabId
   );
