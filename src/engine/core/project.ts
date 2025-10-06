@@ -454,23 +454,12 @@ export const useProject = () => {
         } else if (projects.length > 0) {
           await loadProject(projects[0]);
         } else {
-          setLoading(true);
-          try {
-            console.log('[Project] Creating default project...');
-            const defaultProject = await fileRepository.createProject(
+          setTimeout(() => {
+            createProject(
               'Welcome-Project',
               'Pyxis エディターへようこそ！'
             );
-
-            const files = await fileRepository.getProjectFiles(defaultProject.id);
-
-            setCurrentProject(defaultProject);
-            setProjectFiles(files);
-
-            await initializeProjectGit(defaultProject, files);
-          } finally {
-            setLoading(false);
-          }
+          }, 1000);
         }
       } catch (error) {
         console.error('[Project] Failed to initialize:', error);
