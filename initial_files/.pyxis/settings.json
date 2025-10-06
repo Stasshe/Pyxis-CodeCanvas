@@ -21,7 +21,7 @@
       "**/coverage",
       "**/.next",
       "**/.nuxt",
-      "**/.cache"
+      "**/cache"
     ],
     "useIgnoreFiles": true,
     "followSymlinks": false

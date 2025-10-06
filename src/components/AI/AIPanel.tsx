@@ -16,6 +16,7 @@ import FileContextBar from './context/FileContextBar';
 import ChangedFilesPanel from './review/ChangedFilesPanel';
 import FileSelector from './FileSelector';
 import ChatSpaceList from './ChatSpaceList';
+import ChatSpaceDropdown from './ChatSpaceDropdown';
 import { Bot, ChevronDown } from 'lucide-react';
 import type { FileItem, Project, Tab } from '@/types';
 
@@ -43,6 +44,8 @@ export default function AIPanel({
   const [mode, setMode] = useState<'ask' | 'edit'>('ask');
   const [isFileSelectorOpen, setIsFileSelectorOpen] = useState(false);
   const [showSpaceList, setShowSpaceList] = useState(false);
+  const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
+  const spaceButtonRef = React.useRef<HTMLButtonElement | null>(null);
 
   // チャットスペース管理
   const {
@@ -229,7 +232,7 @@ export default function AIPanel({
             style={{ color: colors.accent }}
           />
           <span
-            className="text-base font-semibold"
+            className="text-base font-semibold select-none overflow-hidden text-ellipsis whitespace-nowrap"
             style={{ color: colors.foreground }}
           >
             AI Assistant
@@ -254,7 +257,13 @@ export default function AIPanel({
                 display: 'inline-flex',
                 alignItems: 'center',
               }}
-              onClick={() => setShowSpaceList(!showSpaceList)}
+              ref={spaceButtonRef}
+              onClick={() => {
+                if (spaceButtonRef.current) {
+                  setAnchorRect(spaceButtonRef.current.getBoundingClientRect());
+                }
+                setShowSpaceList(prev => !prev);
+              }}
             >
               <span
                 className="truncate"
@@ -266,35 +275,24 @@ export default function AIPanel({
             </button>
 
             {showSpaceList && (
-              <div
-                className="absolute top-full left-0 mt-2 rounded-lg border shadow-xl z-50"
-                style={{
-                  background: colors.cardBg,
-                  borderColor: colors.border,
-                  width: 'min(90vw, 480px)',
-                  maxWidth: '480px',
-                  overflow: 'auto',
+              <ChatSpaceDropdown
+                anchorRect={anchorRect}
+                onClose={() => setShowSpaceList(false)}
+                chatSpaces={chatSpaces}
+                currentSpace={currentSpace}
+                onSelectSpace={space => {
+                  selectSpace(space);
                 }}
-              >
-                <ChatSpaceList
-                  chatSpaces={chatSpaces}
-                  currentSpace={currentSpace}
-                  onSelectSpace={space => {
-                    selectSpace(space);
-                    setShowSpaceList(false);
-                  }}
-                  onCreateSpace={async name => {
-                    if (chatSpaces.length >= 10) {
-                      alert('チャットスペースは最大10個までです');
-                      return;
-                    }
-                    await createNewSpace(name);
-                    setShowSpaceList(false);
-                  }}
-                  onDeleteSpace={deleteSpace}
-                  onUpdateSpaceName={updateSpaceName}
-                />
-              </div>
+                onCreateSpace={async name => {
+                  if (chatSpaces.length >= 10) {
+                    alert('チャットスペースは最大10個までです');
+                    return;
+                  }
+                  await createNewSpace(name);
+                }}
+                onDeleteSpace={deleteSpace}
+                onUpdateSpaceName={updateSpaceName}
+              />
             )}
           </div>
         </div>
