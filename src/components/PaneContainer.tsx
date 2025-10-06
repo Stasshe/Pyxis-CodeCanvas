@@ -149,48 +149,7 @@ export default function PaneContainer({
   // リーフペイン（実際のエディタ）をレンダリング
   const activeTab = pane.tabs.find(tab => tab.id === pane.activeTabId);
 
-  // --- 即時反映: 全ペイン・全タブの同じtabIdを持つタブのcontentを同期する ---
-  const handleTabContentChangeImmediate = (tabId: string, content: string) => {
-    setEditors(prevEditors => {
-      // まず、更新のために対象タブのpathを探す（tabIdと一致するタブを優先）
-      let targetPath: string | undefined;
-      for (const root of prevEditors) {
-        const stack: EditorPane[] = [root];
-        while (stack.length) {
-          const p = stack.pop()!;
-          for (const t of p.tabs) {
-            if (t.id === tabId) {
-              targetPath = t.path;
-              break;
-            }
-          }
-          if (targetPath) break;
-          if (p.children) stack.push(...p.children);
-        }
-        if (targetPath) break;
-      }
-
-      // ペインを再帰的に更新する関数
-      const updatePane = (pane: EditorPane): EditorPane => {
-        const updatedTabs = pane.tabs.map(t => {
-          // tabIdが一致するか、またはpathが一致するタブを同期
-          if (t.id === tabId || (targetPath && t.path === targetPath)) {
-            return { ...t, content, isDirty: true };
-          }
-          return t;
-        });
-
-        const updatedChildren = pane.children?.map(child => updatePane(child));
-        return {
-          ...pane,
-          tabs: updatedTabs,
-          ...(updatedChildren ? { children: updatedChildren } : {}),
-        };
-      };
-
-      return prevEditors.map(pane => updatePane(pane));
-    });
-  };
+  // 即時反映は親コンポーネントから渡された onTabContentChange を使用する
 
   return (
     <div
@@ -382,7 +341,7 @@ export default function PaneContainer({
               diffs={activeTab.diffProps.diffs}
               editable={activeTab.diffProps.editable}
               onContentChangeImmediate={(content: string) => {
-                handleTabContentChangeImmediate(activeTab.id, content);
+                if (onTabContentChange) onTabContentChange(activeTab.id, content);
               }}
               onContentChange={async (content: string) => {
                 // デバウンス後の保存処理
@@ -428,7 +387,7 @@ export default function PaneContainer({
               bottomPanelHeight={200}
               isBottomPanelVisible={isBottomPanelVisible}
               wordWrapConfig={wordWrapConfig}
-              onContentChangeImmediate={handleTabContentChangeImmediate}
+              onContentChangeImmediate={onTabContentChange}
               onContentChange={async (tabId: string, content: string) => {
                 // タブ内容変更をコールバックに伝播（親コンポーネントで即時更新用に使用）
 

@@ -466,16 +466,31 @@ export default function Home() {
   // 即座のローカル更新: 全ペインの同じファイルタブも同期（ネストされたペインにも対応）
   const handleTabContentChangeImmediate = (tabId: string, content: string) => {
     setEditors(prevEditors => {
+      // まず、更新のために対象タブのpathを探す（tabIdと一致するタブを優先）
+      let targetPath: string | undefined;
+      for (const root of prevEditors) {
+        const stack: EditorPane[] = [root];
+        while (stack.length) {
+          const p = stack.pop()!;
+          for (const t of p.tabs) {
+            if (t.id === tabId) {
+              targetPath = t.path;
+              break;
+            }
+          }
+          if (targetPath) break;
+          if (p.children) stack.push(...p.children);
+        }
+        if (targetPath) break;
+      }
+
       // ペインを再帰的に更新する関数
       const updatePane = (pane: EditorPane): EditorPane => {
         const updatedTabs = pane.tabs.map(t => {
-          // tabIdで直接照合
-          if (t.id === tabId) {
-            // 通常のタブの場合
+          if (t.id === tabId || (targetPath && t.path === targetPath)) {
             if (!t.diffProps) {
               return { ...t, content, isDirty: true };
             }
-            // diffタブの場合は、latterContentも更新
             return {
               ...t,
               content,
