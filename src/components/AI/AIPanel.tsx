@@ -205,6 +205,9 @@ export default function AIPanel({
       style={{
         background: colors.background,
         border: `1px solid ${colors.border}`,
+        overflowX: 'hidden', // prevent any horizontal scrolling caused by long content
+        boxSizing: 'border-box',
+        minWidth: 0,
       }}
     >
       {/* ヘッダー */}
@@ -213,9 +216,14 @@ export default function AIPanel({
         style={{
           borderColor: colors.border,
           background: colors.cardBg,
+          overflowX: 'hidden', // ensure header doesn't force horizontal scroll
+          minWidth: 0,
         }}
       >
-        <div className="flex items-center gap-3">
+        <div
+          className="flex items-center gap-3"
+          style={{ minWidth: 0 }}
+        >
           <Bot
             size={20}
             style={{ color: colors.accent }}
@@ -228,26 +236,44 @@ export default function AIPanel({
           </span>
 
           {/* スペース切り替え */}
-          <div className="relative">
+          <div
+            className="relative"
+            style={{ minWidth: 0 }}
+          >
             <button
               className="flex items-center gap-2 px-3 py-1.5 rounded-md hover:opacity-80 transition-all text-sm"
               style={{
                 background: colors.mutedBg,
                 color: colors.foreground,
                 border: `1px solid ${colors.border}`,
+                maxWidth: '220px',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                overflowWrap: 'anywhere',
+                display: 'inline-flex',
+                alignItems: 'center',
               }}
               onClick={() => setShowSpaceList(!showSpaceList)}
             >
-              <span className="max-w-32 truncate">{currentSpace?.name || 'スペース'}</span>
+              <span
+                className="truncate"
+                style={{ maxWidth: '160px', display: 'inline-block', overflowWrap: 'anywhere' }}
+              >
+                {currentSpace?.name || 'スペース'}
+              </span>
               <ChevronDown size={14} />
             </button>
 
             {showSpaceList && (
               <div
-                className="absolute top-full left-0 mt-2 w-80 rounded-lg border shadow-xl z-50"
+                className="absolute top-full left-0 mt-2 rounded-lg border shadow-xl z-50"
                 style={{
                   background: colors.cardBg,
                   borderColor: colors.border,
+                  width: 'min(90vw, 480px)',
+                  maxWidth: '480px',
+                  overflow: 'auto',
                 }}
               >
                 <ChatSpaceList
