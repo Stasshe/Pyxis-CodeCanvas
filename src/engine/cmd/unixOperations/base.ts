@@ -145,9 +145,12 @@ export abstract class UnixCommandBase {
 
     await this.expandPathRecursive(parts, 0, '', relativeResults);
 
+    // 重複を除去
+    const uniqueResults = Array.from(new Set(relativeResults));
+
     // 相対パスを絶対パスに戻す
     const projectRoot = this.getProjectRoot();
-    return relativeResults.map(rel => {
+    return uniqueResults.map(rel => {
       if (rel.startsWith('/')) {
         return `${projectRoot}${rel}`;
       }
@@ -201,6 +204,27 @@ export abstract class UnixCommandBase {
           return !relativePath.includes('/');
         }
       });
+
+      // 特殊ケース: '**' は0個以上のディレクトリセグメントにマッチ
+      if (part === '**') {
+        // 0個マッチさせて次のパートへ進む
+        await this.expandPathRecursive(parts, index + 1, currentPath, results);
+
+        // 1個以上マッチするケース: currentPath直下のディレクトリを再帰的に辿る
+        for (const child of childrenInDir) {
+          const fileName = child.path.split('/').pop() || '';
+
+          // child がディレクトリかどうかを判定
+          const childIsDir =
+            child.type === 'folder' || files.some(f => f.path.startsWith(child.path + '/'));
+          if (!childIsDir) continue;
+
+          const nextPath = currentPath === '' ? fileName : `${currentPath}/${fileName}`;
+          // 同じパート（index）を維持して、さらに深い階層を消費できるようにする
+          await this.expandPathRecursive(parts, index, nextPath, results);
+        }
+        return;
+      }
 
       const regex = this.globToRegex(part);
 
