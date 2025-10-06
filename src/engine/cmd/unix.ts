@@ -230,7 +230,7 @@ export class UnixCommands {
   /**
    * ZIPファイルを解凍
    */
-  async unzip(zipFileName: string, destDir: string, bufferContent: ArrayBuffer): Promise<string> {
+  async unzip(zipFileName: string, destDir: string, bufferContent?: ArrayBuffer): Promise<string> {
     const extractDir = destDir
       ? destDir.startsWith('/')
         ? destDir
@@ -239,8 +239,37 @@ export class UnixCommands {
     const normalizedDest = this.normalizePath(extractDir);
 
     try {
-      const zip = await JSZip.loadAsync(bufferContent);
+      // If bufferContent is not provided, try to load the file from FileRepository
+      let zipBuffer: ArrayBuffer | undefined = bufferContent;
+      if (!zipBuffer) {
+        // Resolve the full path and relative path in project
+        const fullPath = this.normalizePath(zipFileName.startsWith('/') ? zipFileName : `${this.currentDir}/${zipFileName}`);
+        const relPath = this.getRelativePathFromProject(fullPath);
+        // Try to find the file in repository
+        const files = await fileRepository.getProjectFiles(this.projectId);
+        const target = files.find(f => f.path === relPath);
+        if (!target) {
+          throw new Error(`archive not found: ${zipFileName}`);
+        }
+        if (target.isBufferArray && target.bufferContent) {
+          zipBuffer = target.bufferContent as ArrayBuffer;
+        } else if (target.content) {
+          // Assume base64 or text: try to convert to ArrayBuffer via TextEncoder
+          zipBuffer = new TextEncoder().encode(target.content).buffer;
+        } else {
+          throw new Error(`archive ${zipFileName} has no binary content`);
+        }
+      }
+
+      const zip = await JSZip.loadAsync(zipBuffer);
       let fileCount = 0;
+      const entries: Array<{
+        path: string;
+        content: string;
+        type: 'file' | 'folder';
+        isBufferArray?: boolean;
+        bufferContent?: ArrayBuffer;
+      }> = [];
 
       for (const relPath in zip.files) {
         const file = zip.files[relPath];
@@ -254,40 +283,34 @@ export class UnixCommands {
         const relativePath = this.getRelativePathFromProject(normalizedFilePath);
 
         if (file.dir || relPath.endsWith('/')) {
-          // ディレクトリ（自動同期＆フラッシュ）
-          await fileRepository.createFile(this.projectId, relativePath, '', 'folder');
+          entries.push({ path: relativePath, content: '', type: 'folder' });
         } else {
-          // ファイル（自動同期＆フラッシュ）
-          let content: Uint8Array | string = await file.async('uint8array');
-          let isText = false;
-          let isBufferArray = false;
-
-          try {
-            const text = new TextDecoder('utf-8', { fatal: true }).decode(content);
-            if (
-              /\.(txt|md|js|ts|jsx|tsx|json|html|css|py|sh|yml|yaml|xml|svg|csv)$/i.test(relPath)
-            ) {
-              isText = true;
-              content = text;
-            }
-          } catch {
-            isBufferArray = true;
-          }
-
-          if (isText && typeof content === 'string') {
-            await fileRepository.createFile(this.projectId, relativePath, content, 'file');
-          } else if (isBufferArray && content instanceof Uint8Array) {
-            const buffer =
-              content.buffer instanceof ArrayBuffer
-                ? content.buffer
-                : new ArrayBuffer(content.byteLength);
-            if (buffer !== content.buffer) {
-              new Uint8Array(buffer).set(content);
-            }
-            await fileRepository.createFile(this.projectId, relativePath, '', 'file', true, buffer);
+          // Try to determine if text
+          const isLikelyText = /\.(txt|md|js|ts|jsx|tsx|json|html|css|py|sh|yml|yaml|xml|svg|csv)$/i.test(relPath);
+          if (isLikelyText) {
+            const text = await file.async('string');
+            entries.push({ path: relativePath, content: text, type: 'file' });
+          } else {
+            const arrayBuffer = await file.async('arraybuffer');
+            entries.push({ path: relativePath, content: '', type: 'file', isBufferArray: true, bufferContent: arrayBuffer });
           }
         }
         fileCount++;
+      }
+
+      if (entries.length > 0) {
+        // Convert entries to the format expected by createFilesBulk: { path, content, type, isBufferArray?, bufferContent? }
+        const bulkEntries = entries.map(e => {
+          return {
+            path: e.path,
+            content: e.content,
+            type: e.type,
+            isBufferArray: e.isBufferArray,
+            bufferContent: e.bufferContent,
+          } as any;
+        });
+
+        await fileRepository.createFilesBulk(this.projectId, bulkEntries);
       }
 
       return `Unzipped ${fileCount} file(s) to ${normalizedDest}`;

@@ -26,20 +26,18 @@ export async function handleUnixCommand(
         await writeOutput(helpResult);
         break;
 
-      case 'pwd':
-        const pwdResult = await unix.pwd();
-        await writeOutput(pwdResult);
-        break;
-
-      // ========== ディレクトリ操作 ==========
-      case 'cd':
-        {
-          const targetPath = args.length === 0 ? undefined : args[0];
-          const options = args.slice(1);
-          const result = await unix.cd(targetPath || '', options);
-          // cdコマンドは通常出力なし（成功時は空文字）
-          if (result) {
+      case 'unzip':
+        // Usage: unzip ARCHIVE.zip [DEST_DIR]
+        if (args.length === 0) {
+          await writeOutput('unzip: missing archive file\nUsage: unzip ARCHIVE.zip [DEST_DIR]');
+        } else {
+          const archive = args[0];
+          const dest = args[1] || '';
+          try {
+            const result = await unix.unzip(archive, dest);
             await writeOutput(result);
+          } catch (err) {
+            await writeOutput(`unzip: ${archive}: ${(err as Error).message}`);
           }
         }
         break;
@@ -196,6 +194,22 @@ export async function handleUnixCommand(
 
       case 'whoami':
         await writeOutput('user');
+        break;
+
+      case 'unzip':
+        // Usage: unzip ARCHIVE.zip [DEST_DIR]
+        if (args.length === 0) {
+          await writeOutput('unzip: missing archive fileUsage: unzip ARCHIVE.zip [DEST_DIR]');
+        } else {
+          const archive = args[0];
+          const dest = args[1] || '';
+          try {
+            const result = await unix.unzip(archive, dest);
+            await writeOutput(result);
+          } catch (err) {
+            await writeOutput(`unzip: ${archive}: ${(err as Error).message}`);
+          }
+        }
         break;
 
       default:
