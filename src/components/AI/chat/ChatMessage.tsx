@@ -5,7 +5,6 @@
 import React, { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import * as shiki from 'shiki';
 import { useTheme } from '@/context/ThemeContext';
 import { FileCode, Clock, Copy, Check } from 'lucide-react';
 import type { ChatSpaceMessage } from '@/types';
@@ -25,35 +24,39 @@ function CodeBlock({
   value: string;
   isDark: boolean;
 }) {
-  const [html, setHtml] = useState<string>('');
   const [copied, setCopied] = useState(false);
-  const { highlightTheme } = useTheme();
 
-  useEffect(() => {
-    let mounted = true;
-    async function highlight() {
-      try {
-        const highlighter = await shiki.createHighlighter({
-          themes: [highlightTheme],
-          langs: [language || 'plaintext'],
-        });
-        const codeHtml = highlighter.codeToHtml(value, {
-          lang: language || 'plaintext',
-          theme: highlightTheme,
-        });
-        if (mounted) setHtml(codeHtml);
-      } catch (e) {
-        console.error('Shiki highlight error:', e);
-        if (mounted) {
-          setHtml(`<pre><code>${value}</code></pre>`);
-        }
-      }
-    }
-    highlight();
-    return () => {
-      mounted = false;
-    };
-  }, [language, value, highlightTheme]);
+  // Very small, synchronous highlighter: keywords, strings, comments
+  const highlight = (code: string, lang: string) => {
+    // Basic escapes
+    const esc = (s: string) =>
+      s
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+
+    let out = esc(code);
+
+    // Simple language-aware rules (JS/TS/TSX/JSON/py/sh etc.)
+    // Keywords
+    const keywords = '\\b(?:const|let|var|function|return|if|else|for|while|switch|case|break|import|from|export|class|extends|new|try|catch|finally|await|async|interface|type|implements|private|protected|public|throw|yield)\\b';
+    out = out.replace(new RegExp(keywords, 'g'), (m) => `<span style="color:${isDark ? '#9cdcfe' : '#0000ff'}; font-weight:600">${m}</span>`);
+
+    // Strings (support multiline without using 's' flag)
+    out = out.replace(/("[\s\S]*?"|'.*?'|`[\s\S]*?`)/g, (m) => `<span style="color:${isDark ? '#ce9178' : '#a31515'}">${m}</span>`);
+
+    // Comments
+    out = out.replace(/(\/\/.*?$)/gm, (m) => `<span style="color:${isDark ? '#6a9955' : '#008000'}">${m}</span>`);
+    out = out.replace(/(\/\*[\s\S]*?\*\/)/g, (m) => `<span style="color:${isDark ? '#6a9955' : '#008000'}">${m}</span>`);
+
+    // Numbers
+    out = out.replace(/\b(0x[0-9a-fA-F]+|\d+(?:\.\d+)?)\b/g, (m) => `<span style="color:${isDark ? '#b5cea8' : '#098658'}">${m}</span>`);
+
+    // Punctuation / operators
+    out = out.replace(/([=+\-*/%<>!|&^~?:]+)/g, (m) => `<span style="color:${isDark ? '#d4d4d4' : '#333'}">${m}</span>`);
+
+    return `<pre class="overflow-x-auto text-xs p-3 min-h-[48px] font-mono" style="font-size:13px;margin:0;">${out}</pre>`;
+  };
 
   const handleCopy = async () => {
     try {
@@ -78,22 +81,10 @@ function CodeBlock({
       >
         {copied ? <Check size={16} /> : <Copy size={16} />}
       </button>
-      {html ? (
-        <div
-          className="overflow-x-auto"
-          dangerouslySetInnerHTML={{ __html: html }}
-          style={{
-            fontSize: '13px',
-          }}
-        />
-      ) : (
-        <pre
-          className="overflow-x-auto bg-gray-100 dark:bg-neutral-800 text-xs p-3 min-h-[48px] font-mono"
-          style={{ fontSize: '13px', margin: 0 }}
-        >
-          <code>{value}</code>
-        </pre>
-      )}
+      <div
+        className="overflow-x-auto"
+        dangerouslySetInnerHTML={{ __html: highlight(String(value), language) }}
+      />
     </div>
   );
 }
