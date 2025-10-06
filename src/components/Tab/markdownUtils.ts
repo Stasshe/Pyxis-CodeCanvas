@@ -24,20 +24,8 @@ export const loadImageAsDataURL = async (
     // Always try to fetch project files from fileRepository. Prefer projectId when provided.
     let files: FileItem[] | undefined;
     if (projectId) {
-      try {
-        files = await fileRepository.getProjectFiles(projectId);
-      } catch (e) {
-        // ignore and try by name below
-      }
+      files = await fileRepository.getProjectFiles(projectId);
     }
-    // // If we didn't get files by id, try by projectName (some repos expose name-based lookup)
-    // if (!files && projectName) {
-    //   try {
-    //     files = await (fileRepository as any).getProjectFiles(projectName);
-    //   } catch (e) {
-    //     // ignore - may not exist
-    //   }
-    // }
 
     const extension = (imagePath || '').toLowerCase().split('.').pop();
     let mimeType = 'image/png';
@@ -82,33 +70,18 @@ export const loadImageAsDataURL = async (
     };
 
     // Build candidate paths to search in the project file tree.
+    // We expect image paths to be either relative to the markdown file (baseFilePath)
+    // or project-root relative. Keep resolution simple and deterministic.
     const candidates: string[] = [];
-
-    // If path starts with '/projects/<repo>/', extract the path part after the repo name
-    const projectsPrefixMatch = imagePath.match(/^\/projects\/[^/]+\/(.*)$/);
-    if (projectsPrefixMatch) {
-      candidates.push(normalizeSegments('/' + projectsPrefixMatch[1]));
-    }
-
-    // If the imagePath contains commas (some weird encodings), try replacing with '/'
-    if (imagePath.indexOf(',') >= 0) {
-      candidates.push(normalizeSegments('/' + imagePath.replace(/,+/g, '/')));
-    }
-
-    // Absolute-ish path with leading slash
     if (imagePath.startsWith('/')) {
+      // project-root relative
       candidates.push(normalizeSegments(imagePath));
     } else {
-      // Try relative to the baseFilePath (directory of the markdown file)
       if (baseFilePath) {
         const dir = baseFilePath.replace(/\/[^/]*$/, '').replace(/^\/?$/, '/');
         candidates.push(normalizeSegments(dir + '/' + imagePath));
-        // Also try replacing commas inside the relative resolution
-        if (imagePath.indexOf(',') >= 0) {
-          candidates.push(normalizeSegments(dir + '/' + imagePath.replace(/,+/g, '/')));
-        }
       }
-      // Also try as project-root relative
+      // fallback: treat as project-root relative
       candidates.push(normalizeSegments('/' + imagePath));
     }
 
