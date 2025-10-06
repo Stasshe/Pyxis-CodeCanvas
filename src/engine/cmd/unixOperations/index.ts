@@ -13,3 +13,4 @@ export { PwdCommand } from './pwd';
 export { RmCommand } from './rm';
 export { TouchCommand } from './touch';
 export { TreeCommand } from './tree';
+export { UnzipCommand } from './unzip';
