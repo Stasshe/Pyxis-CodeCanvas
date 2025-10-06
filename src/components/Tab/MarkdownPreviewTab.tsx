@@ -541,7 +541,9 @@ const LocalImage = React.memo<{
 
   if (loading) {
     return (
-      <div
+      <span
+        role="img"
+        aria-label="loading-image"
         style={{
           display: 'inline-block',
           padding: '8px 12px',
@@ -552,13 +554,15 @@ const LocalImage = React.memo<{
         }}
       >
         画像を読み込み中...
-      </div>
+      </span>
     );
   }
 
   if (error || !dataUrl) {
     return (
-      <div
+      <span
+        role="img"
+        aria-label="missing-image"
         style={{
           display: 'inline-block',
           padding: '8px 12px',
@@ -569,7 +573,7 @@ const LocalImage = React.memo<{
         }}
       >
         画像が見つかりません: {src}
-      </div>
+      </span>
     );
   }
 
