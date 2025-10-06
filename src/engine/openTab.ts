@@ -29,8 +29,29 @@ export const openOrActivateTab = (
   if (options?.preview) tabId = `preview-${file.path}`;
   if (options?.webPreview) tabId = `web-preview-${file.path}`;
 
-  // 既存タブ検索
-  const existing = tabs.find(tab => tab.id === tabId);
+  // 既存タブ検索: 復元されたタブはペインID接頭辞やサフィックスを含む場合がある
+  // 正規化ルール:
+  // - 比較はファイルのフルパス(path)で行う
+  // - tab.id が `${paneId}:${path}` の形式や `${something}:${path}-preview` のような形式でもマッチさせる
+  const normalizePath = (p: string | undefined) => {
+    if (!p) return '';
+    // remove any leading pane prefix like "editor-1:" or "somepane:"
+    const withoutPrefix = p.includes(':') ? p.replace(/^[^:]+:/, '') : p;
+    // remove known suffixes
+    return withoutPrefix.replace(/(-preview|-diff|-ai)$/, '');
+  };
+
+  const targetPath = normalizePath(tabId) || normalizePath(file.path);
+
+  const existing = tabs.find(tab => {
+    // direct id match
+    if (tab.id === tabId) return true;
+    // normalized id/path match
+    const tabIdNorm = normalizePath(tab.id);
+    const tabPathNorm = normalizePath(tab.path);
+    const filePathNorm = normalizePath(file.path);
+    return tabIdNorm === filePathNorm || tabPathNorm === filePathNorm;
+  });
   if (existing) {
     // 優先順位: options に指定があればそれを使い、なければ file に付与された jumpToLine/jumpToColumn を使う
     const jumpToLine =
