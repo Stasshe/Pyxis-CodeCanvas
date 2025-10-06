@@ -17,6 +17,9 @@ import {
   TouchCommand,
   TreeCommand,
   UnzipCommand,
+  HeadCommand,
+  TailCommand,
+  StatCommand,
 } from './unixOperations';
 
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
@@ -46,6 +49,9 @@ export class UnixCommands {
   private touchCmd: TouchCommand;
   private treeCmd: TreeCommand;
   private unzipCmd: UnzipCommand;
+  private headCmd: HeadCommand;
+  private tailCmd: TailCommand;
+  private statCmd: StatCommand;
 
   constructor(projectName: string, projectId?: string) {
     this.currentDir = gitFileSystem.getProjectDir(projectName);
@@ -72,6 +78,9 @@ export class UnixCommands {
     this.touchCmd = new TouchCommand(projectName, this.currentDir, projectId);
     this.treeCmd = new TreeCommand(projectName, this.currentDir, projectId);
     this.unzipCmd = new UnzipCommand(projectName, this.currentDir, projectId);
+    this.headCmd = new HeadCommand(projectName, this.currentDir, projectId);
+    this.tailCmd = new TailCommand(projectName, this.currentDir, projectId);
+    this.statCmd = new StatCommand(projectName, this.currentDir, projectId);
   }
 
   /**
@@ -111,6 +120,9 @@ export class UnixCommands {
     this.touchCmd['currentDir'] = dir;
     this.treeCmd['currentDir'] = dir;
     this.unzipCmd['currentDir'] = dir;
+    this.headCmd['currentDir'] = dir;
+    this.tailCmd['currentDir'] = dir;
+    this.statCmd['currentDir'] = dir;
   }
 
   /**
@@ -162,6 +174,27 @@ export class UnixCommands {
    */
   async cat(fileName: string): Promise<string> {
     return await this.catCmd.execute([fileName]);
+  }
+
+  /**
+   * ファイルの先頭 n 行を返す
+   */
+  async head(fileName: string, n = 10): Promise<string> {
+    return await this.headCmd.execute([`-n${n}`, fileName]);
+  }
+
+  /**
+   * ファイルの末尾 n 行を返す
+   */
+  async tail(fileName: string, n = 10): Promise<string> {
+    return await this.tailCmd.execute([`-n${n}`, fileName]);
+  }
+
+  /**
+   * ファイルの簡易 stat 情報を返す
+   */
+  async stat(path: string): Promise<string> {
+    return await this.statCmd.execute([path]);
   }
 
   /**

@@ -205,6 +205,71 @@ export async function handleUnixCommand(
         }
         break;
 
+      // ========== 表示系ユーティリティ ==========
+      case 'head':
+        if (args.length === 0) {
+          await writeOutput('head: missing file operand\nUsage: head [OPTION]... [FILE]');
+        } else {
+          // support: head -n NUM FILE
+          const options = args.filter(a => a.startsWith('-'));
+          const paths = args.filter(a => !a.startsWith('-'));
+          const file = paths[0];
+          const nOption = options.find(o => o.startsWith('-n'));
+          const n = nOption ? parseInt(nOption.replace('-n', '')) || 10 : 10;
+          try {
+            const result = (await unix.head) ? await unix.head(file, n) : await unix.cat(file);
+            await writeOutput(result);
+          } catch (err) {
+            await writeOutput(`head: ${file}: ${(err as Error).message}`);
+          }
+        }
+        break;
+
+      case 'tail':
+        if (args.length === 0) {
+          await writeOutput('tail: missing file operand\nUsage: tail [OPTION]... [FILE]');
+        } else {
+          const options = args.filter(a => a.startsWith('-'));
+          const paths = args.filter(a => !a.startsWith('-'));
+          const file = paths[0];
+          const nOption = options.find(o => o.startsWith('-n'));
+          const n = nOption ? parseInt(nOption.replace('-n', '')) || 10 : 10;
+          try {
+            const result = (await unix.tail) ? await unix.tail(file, n) : await unix.cat(file);
+            await writeOutput(result);
+          } catch (err) {
+            await writeOutput(`tail: ${file}: ${(err as Error).message}`);
+          }
+        }
+        break;
+
+      case 'stat':
+        if (args.length === 0) {
+          await writeOutput('stat: missing file operand\nUsage: stat FILE');
+        } else {
+          try {
+            if (unix.stat) {
+              const result = await unix.stat(args[0]);
+              await writeOutput(result);
+            } else {
+              await writeOutput('stat: not implemented in this environment');
+            }
+          } catch (err) {
+            await writeOutput(`stat: ${args[0]}: ${(err as Error).message}`);
+          }
+        }
+        break;
+
+      // ========== パーミッション等（未実装は説明メッセージ） ==========
+      case 'chmod':
+      case 'chown':
+        await writeOutput(`${cmd}: not supported in browser environment\nOperation skipped.`);
+        break;
+
+      case 'ln':
+        await writeOutput('ln: linking not supported in this environment');
+        break;
+
       // ========== その他のコマンド ==========
       case 'date':
         await writeOutput(new Date().toLocaleString('ja-JP'));

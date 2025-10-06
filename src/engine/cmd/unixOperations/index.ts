@@ -14,3 +14,6 @@ export { RmCommand } from './rm';
 export { TouchCommand } from './touch';
 export { TreeCommand } from './tree';
 export { UnzipCommand } from './unzip';
+export { HeadCommand } from './head';
+export { TailCommand } from './tail';
+export { StatCommand } from './stat';
