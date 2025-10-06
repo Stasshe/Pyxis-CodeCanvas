@@ -26,8 +26,14 @@ export class UnzipCommand extends UnixCommandBase {
         const normalizedArchivePath = this.normalizePath(this.resolvePath(zipFileName));
         const relPath = this.getRelativePathFromProject(normalizedArchivePath);
         const files = await fileRepository.getProjectFiles(this.projectId);
+        // デバッグログ追加
+        console.log('[unzip] zipFileName:', zipFileName);
+        console.log('[unzip] normalizedArchivePath:', normalizedArchivePath);
+        console.log('[unzip] relPath:', relPath);
+        console.log('[unzip] files:', files.map(f => f.path));
         const target = files.find(f => f.path === relPath);
         if (!target) {
+          console.error('[unzip] archive not found:', zipFileName, 'relPath:', relPath, 'files:', files.map(f => f.path));
           throw new Error(`archive not found: ${zipFileName}`);
         }
         if (target.isBufferArray && target.bufferContent) {
@@ -41,7 +47,9 @@ export class UnzipCommand extends UnixCommandBase {
 
       const zip = await JSZip.loadAsync(zipBuffer as ArrayBuffer);
       let fileCount = 0;
-      const entries: Array<any> = [];
+  const entries: Array<any> = [];
+  // track added folder paths to avoid duplicates (paths are project-relative like '/src')
+  const addedFolders = new Set<string>();
 
       for (const relPath in zip.files) {
         const file = zip.files[relPath];
@@ -55,8 +63,27 @@ export class UnzipCommand extends UnixCommandBase {
         const relativePath = this.getRelativePathFromProject(normalizedFilePath);
 
         if (file.dir || relPath.endsWith('/')) {
-          entries.push({ path: relativePath, content: '', type: 'folder' });
+          // ensure folder paths are recorded
+          if (!addedFolders.has(relativePath)) {
+            entries.push({ path: relativePath, content: '', type: 'folder' });
+            addedFolders.add(relativePath);
+          }
         } else {
+          // Ensure parent directories are present in the entries list. createFilesBulk does not
+          // automatically create parent folders, so add them explicitly (top-down).
+          const parentParts = relativePath.split('/').filter(p => p);
+          if (parentParts.length > 1) {
+            let accum = '';
+            for (let i = 0; i < parentParts.length - 1; i++) {
+              accum = accum + '/' + parentParts[i];
+              if (!addedFolders.has(accum)) {
+                entries.push({ path: accum, content: '', type: 'folder' });
+                addedFolders.add(accum);
+              }
+            }
+          }
+
+          // then push the file entry itself
           const isLikelyText = /\.(txt|md|js|ts|jsx|tsx|json|html|css|py|sh|yml|yaml|xml|svg|csv)$/i.test(relPath);
           if (isLikelyText) {
             const text = await file.async('string');
@@ -69,6 +96,7 @@ export class UnzipCommand extends UnixCommandBase {
         fileCount++;
       }
 
+      // Note: entries already contains folders (parents) followed by files; call bulk create
       if (entries.length > 0) {
         const bulkEntries = entries.map(e => ({
           path: e.path,
@@ -83,6 +111,8 @@ export class UnzipCommand extends UnixCommandBase {
 
       return `Unzipped ${fileCount} file(s) to ${normalizedDest}`;
     } catch (error) {
+      // 例外時も詳細ログ
+      console.error('[unzip] error:', error);
       throw new Error(`unzip: ${zipFileName}: ${(error as Error).message}`);
     }
   }

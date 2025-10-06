@@ -745,14 +745,6 @@ function ClientTerminal({
             term.clear();
             break;
 
-          case 'date':
-            await captureWriteOutput(new Date().toLocaleString('ja-JP'));
-            break;
-
-          case 'whoami':
-            await captureWriteOutput('user');
-            break;
-
           case 'git':
             await handleGitCommand(args, gitCommandsRef, captureWriteOutput);
             break;
@@ -776,55 +768,6 @@ function ClientTerminal({
                 );
               } catch (error) {
                 await captureWriteOutput(`Error calculating size: ${(error as Error).message}`);
-              }
-            }
-            break;
-
-          case 'unzip':
-            if (args.length === 0) {
-              await captureWriteOutput('Usage: unzip <zipfile> [destdir]');
-            } else if (!unixCommandsRef.current) {
-              await captureWriteOutput('unzip: internal error (filesystem not initialized)');
-            } else {
-              const normalizedPath = unixCommandsRef.current?.normalizePath(args[0]);
-
-              // FileRepositoryから直接取得
-              try {
-                const projects = await fileRepository.getProjects();
-                const project = projects.find(p => p.name === currentProject);
-                if (project) {
-                  const dbFiles = await fileRepository.getProjectFiles(project.id);
-                  const dbFile = dbFiles.find(f => f.path === normalizedPath);
-                  if (dbFile && dbFile.isBufferArray && dbFile.bufferContent) {
-                    const result = await unixCommandsRef.current.unzip(
-                      normalizedPath,
-                      args[1],
-                      dbFile.bufferContent
-                    );
-                    await captureWriteOutput(result);
-                  } else {
-                    await captureWriteOutput(`unzip: ファイルが見つかりません: ${args[0]}`);
-                  }
-                } else {
-                  await captureWriteOutput(
-                    `unzip: プロジェクトが見つかりません: ${currentProject}`
-                  );
-                }
-              } catch (dbError) {
-                await captureWriteOutput(`unzip: エラー: ${(dbError as Error).message}`);
-              }
-            }
-            break;
-
-          case 'tree':
-            if (!unixCommandsRef.current) {
-              await captureWriteOutput('tree: internal error (filesystem not initialized)');
-            } else {
-              try {
-                const result = await unixCommandsRef.current.tree(args[0], args.slice(1));
-                await captureWriteOutput(result);
-              } catch (e) {
-                await captureWriteOutput(`tree: エラー: ${(e as Error).message}`);
               }
             }
             break;
