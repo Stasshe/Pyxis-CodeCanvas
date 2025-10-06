@@ -15,23 +15,30 @@ const uint8ArrayToBase64 = (uint8Array: Uint8Array): string => {
 export const loadImageAsDataURL = async (
   imagePath: string,
   projectName?: string,
-  projectId?: string
+  projectId?: string,
+  baseFilePath?: string // optional path of the markdown file that references this image
 ): Promise<string | null> => {
   if (!projectName && !projectId) return null;
 
   try {
-    // Always fetch project files from fileRepository. Prefer projectId when provided.
+    // Always try to fetch project files from fileRepository. Prefer projectId when provided.
     let files: FileItem[] | undefined;
     if (projectId) {
-      files = await fileRepository.getProjectFiles(projectId);
-    } else {
-      const projects = await fileRepository.getProjects();
-      const project = projects.find((p: any) => p.name === projectName || p.id === projectName);
-      if (!project) return null;
-      files = await fileRepository.getProjectFiles(project.id);
+      try {
+        files = await fileRepository.getProjectFiles(projectId);
+      } catch (e) {
+        // ignore and try by name below
+      }
     }
+    // // If we didn't get files by id, try by projectName (some repos expose name-based lookup)
+    // if (!files && projectName) {
+    //   try {
+    //     files = await (fileRepository as any).getProjectFiles(projectName);
+    //   } catch (e) {
+    //     // ignore - may not exist
+    //   }
+    // }
 
-    const normalizedPath = imagePath.startsWith('/') ? imagePath : '/' + imagePath;
     const extension = (imagePath || '').toLowerCase().split('.').pop();
     let mimeType = 'image/png';
     switch (extension) {
@@ -53,27 +60,86 @@ export const loadImageAsDataURL = async (
         break;
     }
 
+    // Quick checks for external URLs or data URLs
+    if (!imagePath) return null;
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://') || imagePath.startsWith('data:')) {
+      return imagePath;
+    }
+
+    // Helper: normalize and resolve '..' and '.' segments
+    const normalizeSegments = (p: string) => {
+      const parts = p.split('/');
+      const stack: string[] = [];
+      for (const part of parts) {
+        if (!part || part === '.') continue;
+        if (part === '..') {
+          if (stack.length) stack.pop();
+        } else {
+          stack.push(part);
+        }
+      }
+      return '/' + stack.join('/');
+    };
+
+    // Build candidate paths to search in the project file tree.
+    const candidates: string[] = [];
+
+    // If path starts with '/projects/<repo>/', extract the path part after the repo name
+    const projectsPrefixMatch = imagePath.match(/^\/projects\/[^/]+\/(.*)$/);
+    if (projectsPrefixMatch) {
+      candidates.push(normalizeSegments('/' + projectsPrefixMatch[1]));
+    }
+
+    // If the imagePath contains commas (some weird encodings), try replacing with '/'
+    if (imagePath.indexOf(',') >= 0) {
+      candidates.push(normalizeSegments('/' + imagePath.replace(/,+/g, '/')));
+    }
+
+    // Absolute-ish path with leading slash
+    if (imagePath.startsWith('/')) {
+      candidates.push(normalizeSegments(imagePath));
+    } else {
+      // Try relative to the baseFilePath (directory of the markdown file)
+      if (baseFilePath) {
+        const dir = baseFilePath.replace(/\/[^/]*$/, '').replace(/^\/?$/, '/');
+        candidates.push(normalizeSegments(dir + '/' + imagePath));
+        // Also try replacing commas inside the relative resolution
+        if (imagePath.indexOf(',') >= 0) {
+          candidates.push(normalizeSegments(dir + '/' + imagePath.replace(/,+/g, '/')));
+        }
+      }
+      // Also try as project-root relative
+      candidates.push(normalizeSegments('/' + imagePath));
+    }
+
+    // Remove duplicates while preserving order
+    const uniqueCandidates = Array.from(new Set(candidates.filter(Boolean)));
+
     // Find the file in the project files (recursive)
-    const findFileRecursively = (filesList: FileItem[] | undefined): FileItem | null => {
+    const findFileRecursively = (filesList: FileItem[] | undefined, targetPath: string): FileItem | null => {
       if (!filesList) return null;
       for (const file of filesList) {
-        // Normalize stored file.path to ensure leading slash
         const filePath = file.path && file.path.startsWith('/') ? file.path : '/' + file.path;
-        if (filePath === normalizedPath && file.type === 'file') return file;
+        if (filePath === targetPath && file.type === 'file') return file;
         if (file.children) {
-          const found = findFileRecursively(file.children);
+          const found = findFileRecursively(file.children, targetPath);
           if (found) return found;
         }
       }
       return null;
     };
 
-  const imageFile = findFileRecursively(files);
+    let imageFile: FileItem | null = null;
+    for (const cand of uniqueCandidates) {
+      imageFile = findFileRecursively(files, cand);
+      if (imageFile) break;
+    }
+
     if (!imageFile) return null;
 
     // If bufferContent exists, convert to base64
-    if (imageFile.isBufferArray && imageFile.bufferContent) {
-      const uint8Array = new Uint8Array(imageFile.bufferContent as any);
+    if ((imageFile as any).isBufferArray && (imageFile as any).bufferContent) {
+      const uint8Array = new Uint8Array((imageFile as any).bufferContent as any);
       const base64 = uint8ArrayToBase64(uint8Array);
       return `data:${mimeType};base64,${base64}`;
     }
@@ -82,12 +148,10 @@ export const loadImageAsDataURL = async (
     if (typeof (imageFile as any).content === 'string') {
       const contentStr = (imageFile as any).content as string;
       if (contentStr.startsWith('data:')) return contentStr;
-      // Otherwise assume it's raw text (e.g. SVG) or base64-encoded; try to encode
       try {
         if (extension === 'svg' || /^\s*</.test(contentStr)) {
           return `data:${mimeType};utf8,${encodeURIComponent(contentStr)}`;
         }
-        // Fallback: treat as base64 content
         return `data:${mimeType};base64,${btoa(contentStr)}`;
       } catch (err) {
         console.warn('Failed to convert file content to data URL', err);

@@ -512,7 +512,13 @@ const LocalImage = React.memo<{
 
       // ローカル画像の場合はプロジェクトファイルまたはファイルシステムから読み込み
       try {
-        const loadedDataUrl = await loadImageAsDataURL(src, projectName, projectId);
+        const loadedDataUrl = await loadImageAsDataURL(
+          src,
+          projectName,
+          projectId,
+          // pass the path of the markdown file so relative paths can be resolved
+          (activeTab && (activeTab as any).path) || undefined
+        );
         if (loadedDataUrl) {
           setDataUrl(loadedDataUrl);
           console.log('Loaded local image:', src);
@@ -680,6 +686,8 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({
             projectName={currentProject?.name}
             projectId={currentProject?.id}
             activeTab={activeTab}
+            // Pass base path for resolution inside markdown files
+            baseFilePath={(activeTab && (activeTab as any).path) || undefined}
             {...props}
           />
         );
