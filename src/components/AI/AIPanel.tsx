@@ -143,23 +143,6 @@ export default function AIPanel({
     openAIReviewTab(filePath, originalContent, suggestedContent, setTabs, setActiveTabId, tabs);
   };
 
-  // suggestedContentの更新（本体には影響しない）
-  const handleUpdateSuggestedContent = (tabId: string, newContent: string) => {
-    setTabs((prevTabs: Tab[]) =>
-      prevTabs.map(t =>
-        t.id === tabId && t.aiReviewProps
-          ? {
-              ...t,
-              aiReviewProps: {
-                ...t.aiReviewProps,
-                suggestedContent: newContent,
-              },
-            }
-          : t
-      )
-    );
-  };
-
   // 変更を適用（suggestedContent -> contentへコピー）
   const handleApplyChanges = async (filePath: string, newContent: string) => {
     if (!currentProject) return;
@@ -274,29 +257,29 @@ export default function AIPanel({
               <ChevronDown size={14} />
             </button>
 
-            {showSpaceList && (
-              <ChatSpaceDropdown
-                anchorRect={anchorRect}
-                onClose={() => setShowSpaceList(false)}
-                chatSpaces={chatSpaces}
-                currentSpace={currentSpace}
-                onSelectSpace={space => {
-                  selectSpace(space);
-                }}
-                onCreateSpace={async name => {
-                  if (chatSpaces.length >= 10) {
-                    alert('チャットスペースは最大10個までです');
-                    return;
-                  }
-                  await createNewSpace(name);
-                }}
-                onDeleteSpace={deleteSpace}
-                onUpdateSpaceName={updateSpaceName}
-              />
-            )}
+            {/* showSpaceList is rendered inline below the header to avoid being clipped/hidden */}
           </div>
         </div>
       </div>
+
+      {/* Inline space list (renders in normal flow so it won't be hidden) */}
+      {showSpaceList && (
+        <div className="px-4 pb-2" onMouseLeave={() => setShowSpaceList(false)}>
+          <ChatSpaceList
+            chatSpaces={chatSpaces}
+            currentSpace={currentSpace}
+            onSelectSpace={space => {
+              selectSpace(space);
+              setShowSpaceList(false);
+            }}
+            onCreateSpace={async name => {
+              await createNewSpace(name);
+            }}
+            onDeleteSpace={deleteSpace}
+            onUpdateSpaceName={updateSpaceName}
+          />
+        </div>
+      )}
 
       {/* ファイルコンテキストバー */}
       {fileContexts.filter(ctx => ctx.selected).length > 0 && (

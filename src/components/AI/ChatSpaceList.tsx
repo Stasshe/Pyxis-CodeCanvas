@@ -62,7 +62,17 @@ export default function ChatSpaceList({
   };
 
   return (
-    <div className="space-y-2">
+    <div
+      className="space-y-2"
+      style={{
+        background: colors.cardBg || colors.background || '#fff',
+        color: colors.foreground || '#111827',
+        borderRadius: 8,
+        padding: 6,
+        border: `1px solid ${colors.border || '#e5e7eb'}`,
+        boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+      }}
+    >
       {/* 新規作成ボタン */}
       <button
         className="w-full flex items-center gap-2 text-xs px-2 py-1.5 rounded border hover:opacity-90 transition"
