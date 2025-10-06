@@ -49,6 +49,21 @@ export async function handleUnixCommand(
         await writeOutput(lsResult);
         break;
 
+      case 'cd':
+        if (args.length === 0) {
+          await writeOutput('cd: missing operand\nUsage: cd DIRECTORY');
+        } else {
+          const dir = args[0];
+          const result = await unix.cd(dir);
+          await writeOutput(result);
+        }
+        break;
+
+      case 'pwd':
+        const pwdResult = await unix.pwd();
+        await writeOutput(pwdResult);
+        break;
+
       case 'tree':
         const treeOptions = args.filter(arg => arg.startsWith('-'));
         const treePath = args.find(arg => !arg.startsWith('-'));

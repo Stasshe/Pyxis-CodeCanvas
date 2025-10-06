@@ -504,11 +504,24 @@ export default function FileTree({
                     } else if (label === 'インポート') {
                       const input = document.createElement('input');
                       input.type = 'file';
+                      // allow selecting folders (webkitdirectory) for folder import in supported browsers
+                      (input as any).webkitdirectory = true;
+                      (input as any).directory = true;
+                      input.multiple = true;
                       input.onchange = async (e: any) => {
-                        const file = e.target.files[0];
-                        if (!file) return;
-                        const targetAbsolutePath = `/projects/${currentProjectName}/${file.name}`;
-                        await importSingleFile(file, targetAbsolutePath, unix);
+                        const files: FileList = e.target.files;
+                        if (!files || files.length === 0) return;
+                        // If multiple files are provided (folder pick), preserve relative paths when available
+                        for (let i = 0; i < files.length; i++) {
+                          const file = files[i];
+                          // some browsers provide a webkitRelativePath to keep folder structure
+                          const relative = (file as any).webkitRelativePath || file.name;
+                          const relPathParts = relative.split('/').filter(Boolean);
+                          // build target path under project root
+                          const targetPath = '/' + relPathParts.join('/');
+                          const targetAbsolutePath = `/projects/${currentProjectName}${targetPath}`;
+                          await importSingleFile(file, targetAbsolutePath, unix);
+                        }
                         if (onRefresh) setTimeout(onRefresh, 100);
                       };
                       input.click();
@@ -559,24 +572,45 @@ export default function FileTree({
                       } else if (label === 'インポート') {
                         const input = document.createElement('input');
                         input.type = 'file';
+                        // enable folder selection
+                        (input as any).webkitdirectory = true;
+                        (input as any).directory = true;
+                        input.multiple = true;
                         input.onchange = async (e: any) => {
-                          const file = e.target.files[0];
-                          if (!file) return;
+                          const files: FileList = e.target.files;
+                          if (!files || files.length === 0) return;
                           const unix = new UnixCommands(currentProjectName, currentProjectId);
                           const item = contextMenu.item;
-                          let targetAbsolutePath = '';
+                          // base directory to place files into
+                          let baseTargetDir = '';
                           if (item) {
-                            const dirPath = item.path.substring(0, item.path.lastIndexOf('/'));
                             if (item.type === 'file') {
-                              targetAbsolutePath = `/projects/${currentProjectName}${dirPath}/${file.name}`;
+                              baseTargetDir =
+                                item.path.substring(0, item.path.lastIndexOf('/')) || '/';
                             } else if (item.type === 'folder') {
-                              targetAbsolutePath = `/projects/${currentProjectName}${item.path}/${file.name}`;
+                              baseTargetDir = item.path || '/';
                             }
                           }
-                          if (targetAbsolutePath) {
+                          for (let i = 0; i < files.length; i++) {
+                            const file = files[i];
+                            const relative = (file as any).webkitRelativePath || file.name;
+                            // If a folder was selected, webkitRelativePath may include the top folder name; we want to preserve subpaths relative to the selected folder
+                            // When selecting a folder via a file input, browsers set webkitRelativePath to something like "myFolder/sub/file.txt".
+                            // We'll strip the first path segment if the user picked a folder and the baseTargetDir points to an existing folder.
+                            const relParts = relative.split('/').filter(Boolean);
+                            let relPath = relParts.join('/');
+                            // build final path under the chosen item
+                            const normalizedBase = baseTargetDir.endsWith('/')
+                              ? baseTargetDir.slice(0, -1)
+                              : baseTargetDir;
+                            const targetAbsolutePath =
+                              `/projects/${currentProjectName}${normalizedBase}/${relPath}`.replace(
+                                '//',
+                                '/'
+                              );
                             await importSingleFile(file, targetAbsolutePath, unix);
-                            if (onRefresh) setTimeout(onRefresh, 100);
                           }
+                          if (onRefresh) setTimeout(onRefresh, 100);
                         };
                         input.click();
                       } else if (label === '削除') {
