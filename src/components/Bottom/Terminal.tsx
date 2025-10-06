@@ -316,25 +316,31 @@ function ClientTerminal({
             }
             try {
               const { NodeRuntime } = await import('@/engine/runtime/nodeRuntime');
-              
+
               // デバッグコンソールを設定
               const debugConsole = {
                 log: (...args: unknown[]) => {
-                  const output = args.map(arg => 
-                    typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-                  ).join(' ');
+                  const output = args
+                    .map(arg =>
+                      typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+                    )
+                    .join(' ');
                   captureWriteOutput(output);
                 },
                 error: (...args: unknown[]) => {
-                  const output = args.map(arg => 
-                    typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-                  ).join(' ');
+                  const output = args
+                    .map(arg =>
+                      typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+                    )
+                    .join(' ');
                   captureWriteOutput(`\x1b[31m${output}\x1b[0m`);
                 },
                 warn: (...args: unknown[]) => {
-                  const output = args.map(arg => 
-                    typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-                  ).join(' ');
+                  const output = args
+                    .map(arg =>
+                      typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+                    )
+                    .join(' ');
                   captureWriteOutput(`\x1b[33m${output}\x1b[0m`);
                 },
                 clear: () => {
@@ -346,13 +352,13 @@ function ClientTerminal({
               const onInput = (promptText: string, callback: (input: string) => void) => {
                 // プロンプトを表示
                 term.write(promptText);
-                
+
                 // 一時的な入力バッファ
                 let inputBuffer = '';
-                
+
                 // readline入力モードを有効化
                 isReadlineMode = true;
-                
+
                 // 入力ハンドラ
                 readlineHandler = (data: string) => {
                   if (data === '\r') {
@@ -481,7 +487,9 @@ function ClientTerminal({
                                 if (typeof value === 'string') {
                                   value = value.slice(0, 10) + (value.length > 10 ? '...' : '');
                                 } else if (value && typeof value === 'object') {
-                                  value = JSON.stringify(value).slice(0, 10) + (JSON.stringify(value).length > 10 ? '...' : '');
+                                  value =
+                                    JSON.stringify(value).slice(0, 10) +
+                                    (JSON.stringify(value).length > 10 ? '...' : '');
                                 }
                               }
                               detail += `${key}: ${JSON.stringify(value)}, `;
@@ -495,7 +503,9 @@ function ClientTerminal({
                         }
                       }
                     } catch (storeError) {
-                      await captureWriteOutput(`    Error accessing store ${storeName}: ${storeError}`);
+                      await captureWriteOutput(
+                        `    Error accessing store ${storeName}: ${storeError}`
+                      );
                     }
                   }
 
@@ -518,7 +528,9 @@ function ClientTerminal({
               if (otherLightningFSKeys.length === 0) {
                 await captureWriteOutput('No Lightning-FS related localStorage entries found.');
               } else {
-                await captureWriteOutput(`Lightning-FS related entries (${otherLightningFSKeys.length}):`);
+                await captureWriteOutput(
+                  `Lightning-FS related entries (${otherLightningFSKeys.length}):`
+                );
                 for (const key of otherLightningFSKeys.slice(0, 10)) {
                   const value = window.localStorage.getItem(key);
                   const size = value ? value.length : 0;
@@ -781,7 +793,7 @@ function ClientTerminal({
         if (redirect && fileName && unixCommandsRef.current) {
           // コマンド出力がない場合は空文字列として扱う
           const outputContent = capturedOutput || '';
-          
+
           // ファイルパスを解決
           const fullPath = fileName.startsWith('/')
             ? fileName
@@ -929,7 +941,7 @@ function ClientTerminal({
     // 通常のキー入力
     term.onData((data: string) => {
       if (isComposing) return;
-      
+
       // readline入力モード中は専用ハンドラに委譲
       if (isReadlineMode && readlineHandler) {
         readlineHandler(data);

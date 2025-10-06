@@ -38,8 +38,14 @@ export default function ChangedFilesPanel({
       }}
     >
       <div className="flex items-center gap-2 mb-2">
-        <FileCode size={16} style={{ color: colors.accent }} />
-        <span className="text-sm font-medium" style={{ color: colors.foreground }}>
+        <FileCode
+          size={16}
+          style={{ color: colors.accent }}
+        />
+        <span
+          className="text-sm font-medium"
+          style={{ color: colors.foreground }}
+        >
           変更提案 ({changedFiles.length})
         </span>
       </div>

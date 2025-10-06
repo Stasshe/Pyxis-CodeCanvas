@@ -204,8 +204,10 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
                 // ピンチ中心を基準にズーム
                 const tx = translateRef.current.x;
                 const ty = translateRef.current.y;
-                translateRef.current.x = pinchStart.x - (pinchStart.x - tx) * (newScale / scaleRef.current);
-                translateRef.current.y = pinchStart.y - (pinchStart.y - ty) * (newScale / scaleRef.current);
+                translateRef.current.x =
+                  pinchStart.x - (pinchStart.x - tx) * (newScale / scaleRef.current);
+                translateRef.current.y =
+                  pinchStart.y - (pinchStart.y - ty) * (newScale / scaleRef.current);
                 scaleRef.current = newScale;
                 applyTransform();
               }
@@ -617,10 +619,7 @@ const MemoizedCodeComponent = React.memo<{
 
 MemoizedCodeComponent.displayName = 'MemoizedCodeComponent';
 
-const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({
-  activeTab,
-  currentProject,
-}) => {
+const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ activeTab, currentProject }) => {
   const { colors } = useTheme();
 
   // ReactMarkdownのコンポーネントをメモ化
@@ -640,14 +639,14 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({
       img: ({ node, src, alt, ...props }: any) => {
         const srcString = typeof src === 'string' ? src : '';
         return (
-  <LocalImage
-    src={srcString}
-    alt={alt || ''}
-    projectName={currentProject?.name}
-    projectId={currentProject?.id}
-    activeTab={activeTab}
-    {...props}
-      />
+          <LocalImage
+            src={srcString}
+            alt={alt || ''}
+            projectName={currentProject?.name}
+            projectId={currentProject?.id}
+            activeTab={activeTab}
+            {...props}
+          />
         );
       },
     }),
@@ -764,7 +763,10 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({
         </style>
         ${container.innerHTML}
       `;
-  exportPdfFromHtml(container.innerHTML, (activeTab.name || 'document').replace(/\.[^/.]+$/, '') + '.pdf');
+        exportPdfFromHtml(
+          container.innerHTML,
+          (activeTab.name || 'document').replace(/\.[^/.]+$/, '') + '.pdf'
+        );
         try {
           root.unmount();
         } catch (e) {
@@ -781,7 +783,7 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({
   return (
     <div className="p-4 overflow-auto h-full w-full">
       <div className="flex items-center mb-2">
-  <div className="font-bold text-lg mr-2">{activeTab.name} プレビュー</div>
+        <div className="font-bold text-lg mr-2">{activeTab.name} プレビュー</div>
         <button
           type="button"
           className="px-2 py-1 rounded bg-green-500 text-white text-xs hover:bg-green-600 transition"

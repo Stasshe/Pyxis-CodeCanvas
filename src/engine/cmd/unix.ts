@@ -21,7 +21,6 @@ import {
 
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
 
-
 /**
  * Unixコマンドを統合して提供するクラス
  * 各コマンドの実装は unix-commands/ 配下に分割されている

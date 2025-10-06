@@ -16,7 +16,15 @@ interface ChatMessageProps {
 }
 
 // コードブロック用コンポーネント
-function CodeBlock({ language, value, isDark }: { language: string; value: string; isDark: boolean }) {
+function CodeBlock({
+  language,
+  value,
+  isDark,
+}: {
+  language: string;
+  value: string;
+  isDark: boolean;
+}) {
   const [html, setHtml] = useState<string>('');
   const [copied, setCopied] = useState(false);
   const { highlightTheme } = useTheme();
@@ -79,7 +87,10 @@ function CodeBlock({ language, value, isDark }: { language: string; value: strin
           }}
         />
       ) : (
-        <pre className="overflow-x-auto bg-gray-100 dark:bg-neutral-800 text-xs p-3 min-h-[48px] font-mono" style={{ fontSize: '13px', margin: 0 }}>
+        <pre
+          className="overflow-x-auto bg-gray-100 dark:bg-neutral-800 text-xs p-3 min-h-[48px] font-mono"
+          style={{ fontSize: '13px', margin: 0 }}
+        >
           <code>{value}</code>
         </pre>
       )}
@@ -130,9 +141,7 @@ export default function ChatMessage({ message, compact = false }: ChatMessagePro
                   <code
                     className="px-1.5 py-0.5 rounded text-xs font-mono"
                     style={{
-                      background: isUser
-                        ? 'rgba(255, 255, 255, 0.2)'
-                        : 'rgba(0, 0, 0, 0.1)',
+                      background: isUser ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)',
                       color: isUser ? colors.accentFg : colors.foreground,
                     }}
                     {...props}
@@ -143,9 +152,7 @@ export default function ChatMessage({ message, compact = false }: ChatMessagePro
               },
 
               // 段落
-              p: ({ children }) => (
-                <p className="mb-3 last:mb-0 leading-relaxed">{children}</p>
-              ),
+              p: ({ children }) => <p className="mb-3 last:mb-0 leading-relaxed">{children}</p>,
 
               // 見出し
               h1: ({ children }) => (
@@ -180,7 +187,10 @@ export default function ChatMessage({ message, compact = false }: ChatMessagePro
               // テーブル
               table: ({ children }) => (
                 <div className="overflow-x-auto my-3">
-                  <table className="min-w-full divide-y" style={{ borderColor: colors.border }}>
+                  <table
+                    className="min-w-full divide-y"
+                    style={{ borderColor: colors.border }}
+                  >
                     {children}
                   </table>
                 </div>
@@ -194,7 +204,10 @@ export default function ChatMessage({ message, compact = false }: ChatMessagePro
                 </th>
               ),
               td: ({ children }) => (
-                <td className="px-3 py-2 text-sm" style={{ borderColor: colors.border }}>
+                <td
+                  className="px-3 py-2 text-sm"
+                  style={{ borderColor: colors.border }}
+                >
                   {children}
                 </td>
               ),
@@ -219,7 +232,10 @@ export default function ChatMessage({ message, compact = false }: ChatMessagePro
 
         {/* ファイルコンテキスト表示 */}
         {message.fileContext && message.fileContext.length > 0 && (
-          <div className="mt-3 pt-3 border-t border-opacity-20" style={{ borderColor: colors.border }}>
+          <div
+            className="mt-3 pt-3 border-t border-opacity-20"
+            style={{ borderColor: colors.border }}
+          >
             <div className="flex items-center gap-2 text-xs opacity-70 flex-wrap">
               <FileCode size={14} />
               <span>参照:</span>
@@ -228,9 +244,7 @@ export default function ChatMessage({ message, compact = false }: ChatMessagePro
                   key={index}
                   className="px-2 py-0.5 rounded font-mono"
                   style={{
-                    background: isUser
-                      ? 'rgba(255, 255, 255, 0.15)'
-                      : 'rgba(0, 0, 0, 0.05)',
+                    background: isUser ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)',
                     border: `1px solid ${colors.border}`,
                   }}
                 >

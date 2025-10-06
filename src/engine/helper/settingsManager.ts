@@ -89,10 +89,10 @@ export class SettingsManager {
       }
 
       const settings = JSON.parse(settingsFile.content) as PyxisSettings;
-      
+
       // デフォルト値とマージ（新しいプロパティが追加された場合に対応）
       const mergedSettings = this.mergeWithDefaults(settings);
-      
+
       this.cache.set(projectId, mergedSettings);
       return mergedSettings;
     } catch (error) {
@@ -110,7 +110,7 @@ export class SettingsManager {
       this.isUpdating.set(projectId, true);
 
       const content = JSON.stringify(settings, null, 2);
-      
+
       // .pyxisフォルダを作成（存在しない場合）
       const files = await fileRepository.getProjectFiles(projectId);
       const pyxisFolder = files.find(f => f.path === '/.pyxis');
@@ -145,9 +145,9 @@ export class SettingsManager {
     updates: Partial<PyxisSettings> | ((current: PyxisSettings) => Partial<PyxisSettings>)
   ): Promise<void> {
     const currentSettings = await this.loadSettings(projectId);
-    
+
     const updateObj = typeof updates === 'function' ? updates(currentSettings) : updates;
-    
+
     const newSettings = this.deepMerge(currentSettings, updateObj);
     await this.saveSettings(projectId, newSettings);
   }

@@ -91,11 +91,11 @@ export function dirname(path: string): string {
 export function basename(path: string, ext?: string): string {
   const parts = path.split('/');
   let name = parts[parts.length - 1] || '';
-  
+
   if (ext && name.endsWith(ext)) {
     name = name.slice(0, -ext.length);
   }
-  
+
   return name;
 }
 
@@ -142,6 +142,6 @@ export function resolveRelative(basePath: string, relativePath: string): string 
 export function isUnder(path: string, dir: string): boolean {
   const normalizedPath = normalizePath(path);
   const normalizedDir = normalizePath(dir);
-  
+
   return normalizedPath.startsWith(normalizedDir + '/') || normalizedPath === normalizedDir;
 }

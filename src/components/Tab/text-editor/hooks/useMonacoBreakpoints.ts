@@ -91,10 +91,10 @@ export function useMonacoBreakpoints(
   // SSR対策: クライアントのみでガターCSSを注入（一度だけ）
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    
+
     const styleId = 'pyxis-breakpoint-gutter-style';
     let style = document.getElementById(styleId);
-    
+
     if (!style) {
       style = document.createElement('style');
       style.id = styleId;
@@ -126,7 +126,7 @@ export function useMonacoBreakpoints(
     if (!editorRef.current) return;
     const mon = monacoRef.current;
     if (!mon) return;
-    
+
     const editor = editorRef.current;
     const model = editor.getModel();
     if (!model || model.isDisposed()) return;
@@ -217,7 +217,7 @@ export function useMonacoBreakpoints(
       // エディターのモデルを確認
       const editor = editorRef.current;
       if (!editor) return;
-      
+
       const model = editor.getModel();
       if (!model || model.isDisposed()) {
         console.warn('[useMonacoBreakpoints] Model is not available');
@@ -227,7 +227,12 @@ export function useMonacoBreakpoints(
       // モデルの行数範囲内かチェック
       const lineCount = model.getLineCount();
       if (lineNumber > lineCount) {
-        console.warn('[useMonacoBreakpoints] Line number out of range:', lineNumber, '/', lineCount);
+        console.warn(
+          '[useMonacoBreakpoints] Line number out of range:',
+          lineNumber,
+          '/',
+          lineCount
+        );
         return;
       }
 

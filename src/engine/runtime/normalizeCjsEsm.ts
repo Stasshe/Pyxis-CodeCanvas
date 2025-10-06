@@ -14,11 +14,11 @@ export function normalizeCjsEsm(code: string): string {
   }
 
   // Mask import.meta and any chained properties like import.meta.url
-  code = code.replace(/import\.meta(?:\.[A-Za-z_$][\w$]*)*/g, (m) => mask(m));
+  code = code.replace(/import\.meta(?:\.[A-Za-z_$][\w$]*)*/g, m => mask(m));
 
   // Mask dynamic import(...) tokens so regexes that look for `import ... from` or
   // other import patterns don't accidentally match the 'import(' sequence.
-  code = code.replace(/\bimport\s*\(/g, (m) => mask(m));
+  code = code.replace(/\bimport\s*\(/g, m => mask(m));
 
   // map of exportedName -> localName (handles `export { a as b }` cases)
   const exportedMap = new Map<string, string>();
@@ -37,15 +37,38 @@ export function normalizeCjsEsm(code: string): string {
         const ch = raw[idx];
         const next = raw[idx + 1];
         if (inStr) {
-          if (ch === '\\') { idx++; continue; }
-          if (ch === inStr) { inStr = null; continue; }
+          if (ch === '\\') {
+            idx++;
+            continue;
+          }
+          if (ch === inStr) {
+            inStr = null;
+            continue;
+          }
           continue;
         }
-        if (ch === '"' || ch === "'" || ch === '`') { inStr = ch; continue; }
-        if (ch === '/' && next === '*') { idx += 2; while (idx < raw.length && !(raw[idx] === '*' && raw[idx+1] === '/')) idx++; idx++; continue; }
-        if (ch === '{' || ch === '[' || ch === '(') { depth++; continue; }
-        if (ch === '}' || ch === ']' || ch === ')') { depth = Math.max(0, depth-1); continue; }
-        if (ch === '=' && depth === 0) { s = raw.slice(0, idx); break; }
+        if (ch === '"' || ch === "'" || ch === '`') {
+          inStr = ch;
+          continue;
+        }
+        if (ch === '/' && next === '*') {
+          idx += 2;
+          while (idx < raw.length && !(raw[idx] === '*' && raw[idx + 1] === '/')) idx++;
+          idx++;
+          continue;
+        }
+        if (ch === '{' || ch === '[' || ch === '(') {
+          depth++;
+          continue;
+        }
+        if (ch === '}' || ch === ']' || ch === ')') {
+          depth = Math.max(0, depth - 1);
+          continue;
+        }
+        if (ch === '=' && depth === 0) {
+          s = raw.slice(0, idx);
+          break;
+        }
       }
     } catch (e) {
       s = raw;
@@ -65,10 +88,15 @@ export function normalizeCjsEsm(code: string): string {
     }
     function skipComment(): boolean {
       if (s[i] === '/' && s[i + 1] === '*') {
-        i += 2; while (i < len && !(s[i] === '*' && s[i + 1] === '/')) i++; i += 2; return true;
+        i += 2;
+        while (i < len && !(s[i] === '*' && s[i + 1] === '/')) i++;
+        i += 2;
+        return true;
       }
       if (s[i] === '/' && s[i + 1] === '/') {
-        i += 2; while (i < len && s[i] !== '\n') i++; return true;
+        i += 2;
+        while (i < len && s[i] !== '\n') i++;
+        return true;
       }
       return false;
     }
@@ -81,15 +109,26 @@ export function normalizeCjsEsm(code: string): string {
       }
     }
     function skipString() {
-      const q = s[i]; i++; while (i < len) {
-        if (s[i] === '\\') { i += 2; continue; }
-        if (s[i] === q) { i++; break; }
-        i++; }
+      const q = s[i];
+      i++;
+      while (i < len) {
+        if (s[i] === '\\') {
+          i += 2;
+          continue;
+        }
+        if (s[i] === q) {
+          i++;
+          break;
+        }
+        i++;
+      }
     }
     function parseIdentifier(): string | null {
       skipSpacesAndComments();
       if (i < len && isIdentStart(s[i])) {
-        const start = i; i++; while (i < len && isIdentPart(s[i])) i++;
+        const start = i;
+        i++;
+        while (i < len && isIdentPart(s[i])) i++;
         return s.slice(start, i);
       }
       return null;
@@ -107,23 +146,49 @@ export function normalizeCjsEsm(code: string): string {
       while (i < len) {
         skipSpacesAndComments();
         if (i >= len) break;
-        if (s[i] === '}') { i++; break; }
-        if (s[i] === ',') { i++; continue; }
-        if (s[i] === '.' && s.slice(i, i + 3) === '...') {
-          i += 3; const name = parseIdentifier(); if (name) ids.add(name); continue;
+        if (s[i] === '}') {
+          i++;
+          break;
         }
-        if (s[i] === '"' || s[i] === "'" || s[i] === '`') { skipString(); continue; }
+        if (s[i] === ',') {
+          i++;
+          continue;
+        }
+        if (s[i] === '.' && s.slice(i, i + 3) === '...') {
+          i += 3;
+          const name = parseIdentifier();
+          if (name) ids.add(name);
+          continue;
+        }
+        if (s[i] === '"' || s[i] === "'" || s[i] === '`') {
+          skipString();
+          continue;
+        }
         if (isIdentStart(s[i])) {
           const key = parseIdentifier();
           skipSpacesAndComments();
           if (s[i] === ':') {
-            i++; skipSpacesAndComments();
-            if (s[i] === '{' || s[i] === '[') { parsePattern(); }
-            else if (s[i] === '.' && s.slice(i, i + 3) === '...') { i += 3; const n = parseIdentifier(); if (n) ids.add(n); }
-            else {
-              const name = parseIdentifier(); if (name) ids.add(name);
-              skipSpacesAndComments(); if (s[i] === '=') { i++; let depth = 0; while (i < len && !(depth === 0 && (s[i] === ',' || s[i] === '}'))) {
-                if (s[i] === '{' || s[i] === '[') depth++; else if (s[i] === '}' || s[i] === ']') depth--; else if (s[i] === '"' || s[i] === "'" || s[i] === '`') skipString(); i++; }
+            i++;
+            skipSpacesAndComments();
+            if (s[i] === '{' || s[i] === '[') {
+              parsePattern();
+            } else if (s[i] === '.' && s.slice(i, i + 3) === '...') {
+              i += 3;
+              const n = parseIdentifier();
+              if (n) ids.add(n);
+            } else {
+              const name = parseIdentifier();
+              if (name) ids.add(name);
+              skipSpacesAndComments();
+              if (s[i] === '=') {
+                i++;
+                let depth = 0;
+                while (i < len && !(depth === 0 && (s[i] === ',' || s[i] === '}'))) {
+                  if (s[i] === '{' || s[i] === '[') depth++;
+                  else if (s[i] === '}' || s[i] === ']') depth--;
+                  else if (s[i] === '"' || s[i] === "'" || s[i] === '`') skipString();
+                  i++;
+                }
               }
             }
           } else {
@@ -131,14 +196,23 @@ export function normalizeCjsEsm(code: string): string {
             // shorthand default: key = <expr> — skip the default expression
             skipSpacesAndComments();
             if (s[i] === '=') {
-              i++; let depth2 = 0; while (i < len && !(depth2 === 0 && (s[i] === ',' || s[i] === '}'))) {
-                if (s[i] === '{' || s[i] === '[') depth2++; else if (s[i] === '}' || s[i] === ']') depth2--; else if (s[i] === '"' || s[i] === "'" || s[i] === '`') skipString(); i++; }
+              i++;
+              let depth2 = 0;
+              while (i < len && !(depth2 === 0 && (s[i] === ',' || s[i] === '}'))) {
+                if (s[i] === '{' || s[i] === '[') depth2++;
+                else if (s[i] === '}' || s[i] === ']') depth2--;
+                else if (s[i] === '"' || s[i] === "'" || s[i] === '`') skipString();
+                i++;
+              }
             }
           }
         } else if (s[i] === '{' || s[i] === '[') {
           parsePattern();
         } else {
-          while (i < len && s[i] !== ',' && s[i] !== '}') { if (s[i] === '"' || s[i] === "'" || s[i] === '`') skipString(); else i++; }
+          while (i < len && s[i] !== ',' && s[i] !== '}') {
+            if (s[i] === '"' || s[i] === "'" || s[i] === '`') skipString();
+            else i++;
+          }
         }
       }
     }
@@ -148,20 +222,46 @@ export function normalizeCjsEsm(code: string): string {
       while (i < len) {
         skipSpacesAndComments();
         if (i >= len) break;
-        if (s[i] === ']') { i++; break; }
-        if (s[i] === ',') { i++; continue; }
-        if (s[i] === '.' && s.slice(i, i + 3) === '...') { i += 3; const name = parseIdentifier(); if (name) ids.add(name); continue; }
-        if (s[i] === '{' || s[i] === '[') { parsePattern(); continue; }
-        const name = parseIdentifier(); if (name) {
+        if (s[i] === ']') {
+          i++;
+          break;
+        }
+        if (s[i] === ',') {
+          i++;
+          continue;
+        }
+        if (s[i] === '.' && s.slice(i, i + 3) === '...') {
+          i += 3;
+          const name = parseIdentifier();
+          if (name) ids.add(name);
+          continue;
+        }
+        if (s[i] === '{' || s[i] === '[') {
+          parsePattern();
+          continue;
+        }
+        const name = parseIdentifier();
+        if (name) {
           ids.add(name);
-          skipSpacesAndComments(); if (s[i] === '=') { i++; let depth = 0; while (i < len && !(depth === 0 && (s[i] === ',' || s[i] === ']'))) {
-            if (s[i] === '{' || s[i] === '[') depth++; else if (s[i] === '}' || s[i] === ']') depth--; else if (s[i] === '"' || s[i] === "'" || s[i] === '`') skipString(); i++; }
+          skipSpacesAndComments();
+          if (s[i] === '=') {
+            i++;
+            let depth = 0;
+            while (i < len && !(depth === 0 && (s[i] === ',' || s[i] === ']'))) {
+              if (s[i] === '{' || s[i] === '[') depth++;
+              else if (s[i] === '}' || s[i] === ']') depth--;
+              else if (s[i] === '"' || s[i] === "'" || s[i] === '`') skipString();
+              i++;
+            }
           }
-        } else { i++; }
+        } else {
+          i++;
+        }
       }
     }
 
-    skipSpacesAndComments(); if (s[i] === '{' || s[i] === '[') parsePattern();
+    skipSpacesAndComments();
+    if (s[i] === '{' || s[i] === '[') parsePattern();
 
     // Supplemental regex pass: capture common binding patterns the parser may miss.
     //  - bindings after colon: ": name"
@@ -209,11 +309,14 @@ export function normalizeCjsEsm(code: string): string {
     return `const ${def} = (tmp => tmp && tmp.default !== undefined ? tmp.default : tmp)(await __require__('${mod}'))`;
   });
   // handle default + named: import foo, {a,b} from 'mod'
-  code = code.replace(/import\s+([A-Za-z_$][\w$]*)\s*,\s*\{([^}]+)\}\s+from\s+['"]([^'"]+)['"]/g, (m, def, names, mod) => {
-    // assign temp module then default and named
-    const nm = names.trim();
-    return `const __mod_tmp = await __require__('${mod}'); const ${def} = (__mod_tmp && __mod_tmp.default !== undefined) ? __mod_tmp.default : __mod_tmp; const {${nm}} = __mod_tmp`;
-  });
+  code = code.replace(
+    /import\s+([A-Za-z_$][\w$]*)\s*,\s*\{([^}]+)\}\s+from\s+['"]([^'"]+)['"]/g,
+    (m, def, names, mod) => {
+      // assign temp module then default and named
+      const nm = names.trim();
+      return `const __mod_tmp = await __require__('${mod}'); const ${def} = (__mod_tmp && __mod_tmp.default !== undefined) ? __mod_tmp.default : __mod_tmp; const {${nm}} = __mod_tmp`;
+    }
+  );
   // fallback: named-only imports
   code = code.replace(/import\s*\{([^}]+)\}\s*from\s*['"]([^'"]+)['"]/g, (m, names, mod) => {
     return `const {${names.trim()}} = await __require__('${mod}')`;
@@ -238,11 +341,17 @@ export function normalizeCjsEsm(code: string): string {
     }
     // remove trailing comma if present and split
     const cleaned = trimmed.replace(/,\s*$/, '');
-    const declList = cleaned.split(',').map(s => s.trim()).filter(Boolean);
+    const declList = cleaned
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
     const names: string[] = [];
     for (let d of declList) {
       // strip comments before matching identifier
-      d = d.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '').trim();
+      d = d
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/\/\/.*$/gm, '')
+        .trim();
       const nm = d.match(/^(\w+)/);
       if (nm) names.push(nm[1]);
     }
@@ -271,13 +380,19 @@ export function normalizeCjsEsm(code: string): string {
   // or other non-top-level contexts. Exports must now be explicit (via
   // `export` keywords or `export { ... }` forms). This change prevents
   // normalizeCjsEsm from producing unexpected `module.exports.*` assignments.
-  
+
   // export { a, b as c } -> module.exports.a = a; module.exports.c = b;
   code = code.replace(/export\s*\{([^}]+)\}\s*;?/g, (m, list) => {
-    const parts = String(list).split(',').map(s => s.trim()).filter(Boolean);
+    const parts = String(list)
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
     const assigns = parts.map(p => {
       // strip comments inside the part
-      const cleaned = p.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '').trim();
+      const cleaned = p
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/\/\/.*$/gm, '')
+        .trim();
       const asMatch = cleaned.match(/^(\w+)\s+as\s+(\w+)$/);
       if (asMatch) {
         const from = asMatch[1];

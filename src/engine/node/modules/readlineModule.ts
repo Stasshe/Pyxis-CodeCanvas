@@ -1,10 +1,10 @@
 /**
  * [NEW ARCHITECTURE] readline モジュールのエミュレーション
- * 
+ *
  * ## 動作モード
  * 1. Terminal経由でnodeコマンドで実行: Terminalの入力インターフェースを使用
  * 2. RunPanel経由で実行: DebugConsoleAPIを使用
- * 
+ *
  * onInput callbackが渡された場合はそれを優先的に使用
  */
 
@@ -31,7 +31,7 @@ class Interface {
     this.output = options.output;
     this.terminal = options.terminal ?? false;
     this.onInput = options.onInput;
-    
+
     if (options.prompt) {
       this.promptStr = options.prompt;
     }
@@ -185,7 +185,9 @@ const clearScreenDown = (stream: any): boolean => {
   return true;
 };
 
-export function createReadlineModule(onInput?: (prompt: string, callback: (input: string) => void) => void) {
+export function createReadlineModule(
+  onInput?: (prompt: string, callback: (input: string) => void) => void
+) {
   return {
     createInterface: (options: ReadlineOptions): Interface => {
       // onInputが渡されている場合は優先的に使用

@@ -2,13 +2,13 @@ import { UnixCommandBase } from './base';
 
 /**
  * cat - ファイルの内容を表示
- * 
+ *
  * 使用法:
  *   cat [file...]
- * 
+ *
  * オプション:
  *   -n, --number  行番号を表示
- * 
+ *
  * 動作:
  *   - 複数のファイルを連結して表示
  *   - ファイル名が指定されない場合は標準入力から読み込み（未実装）
@@ -29,7 +29,7 @@ export class CatCommand extends UnixCommandBase {
     // 各引数に対してワイルドカード展開
     for (const arg of positional) {
       const expanded = await this.expandPathPattern(arg);
-      
+
       if (expanded.length === 0) {
         throw new Error(`cat: ${arg}: No such file or directory`);
       }
@@ -62,12 +62,14 @@ export class CatCommand extends UnixCommandBase {
     try {
       // lightning-fsから直接読み取り（Git用ワークスペース）
       const content = await this.fs.promises.readFile(normalizedPath, { encoding: 'utf8' });
-      
+
       if (showLineNumbers) {
         const lines = (content as string).split('\n');
-        return lines.map((line, index) => `${(index + 1).toString().padStart(6)} ${line}`).join('\n');
+        return lines
+          .map((line, index) => `${(index + 1).toString().padStart(6)} ${line}`)
+          .join('\n');
       }
-      
+
       return content as string;
     } catch (error) {
       throw new Error('No such file or directory');

@@ -4,18 +4,18 @@ import { fileRepository } from '@/engine/core/fileRepository';
 
 /**
  * cp - ファイル/ディレクトリをコピー
- * 
+ *
  * 使用法:
  *   cp [-r] [-R] [-f] [-i] [-n] [-v] source dest
  *   cp [-r] [-R] [-f] [-i] [-n] [-v] source... directory
- * 
+ *
  * オプション:
  *   -r, -R, --recursive  ディレクトリを再帰的にコピー
  *   -f, --force          既存のファイルを確認なしで上書き
  *   -i, --interactive    上書き前に確認
  *   -n, --no-clobber     既存のファイルを上書きしない
  *   -v, --verbose        詳細な情報を表示
- * 
+ *
  * 動作:
  *   - ワイルドカード対応（*, ?）
  *   - 再帰的コピー対応
@@ -25,7 +25,9 @@ export class CpCommand extends UnixCommandBase {
     const { options, positional } = this.parseOptions(args);
 
     if (positional.length < 2) {
-      throw new Error('cp: missing file operand\nUsage: cp [OPTION]... SOURCE DEST\n   or: cp [OPTION]... SOURCE... DIRECTORY');
+      throw new Error(
+        'cp: missing file operand\nUsage: cp [OPTION]... SOURCE DEST\n   or: cp [OPTION]... SOURCE... DIRECTORY'
+      );
     }
 
     const recursive = options.has('-r') || options.has('-R') || options.has('--recursive');
@@ -49,7 +51,7 @@ export class CpCommand extends UnixCommandBase {
 
     const dest = this.normalizePath(this.resolvePath(destArg));
     const destExists = await this.exists(dest);
-    const destIsDir = destExists && await this.isDirectory(dest);
+    const destIsDir = destExists && (await this.isDirectory(dest));
 
     const results: string[] = [];
 
@@ -60,14 +62,14 @@ export class CpCommand extends UnixCommandBase {
 
     for (const source of sources) {
       const normalizedSource = this.normalizePath(source);
-      
+
       const sourceExists = await this.exists(normalizedSource);
       if (!sourceExists) {
         throw new Error(`cp: cannot stat '${source}': No such file or directory`);
       }
 
       const sourceIsDir = await this.isDirectory(normalizedSource);
-      
+
       // ディレクトリコピーには-rオプションが必要
       if (sourceIsDir && !recursive) {
         throw new Error(`cp: -r not specified; omitting directory '${source}'`);
@@ -95,7 +97,7 @@ export class CpCommand extends UnixCommandBase {
       // コピー実行
       try {
         await this.copyFileOrDir(normalizedSource, finalDest, sourceIsDir, recursive);
-        
+
         if (verbose) {
           results.push(`'${normalizedSource}' -> '${finalDest}'`);
         }
@@ -107,7 +109,7 @@ export class CpCommand extends UnixCommandBase {
     if (verbose) {
       return results.join('\n');
     }
-    
+
     return '';
   }
 
@@ -133,14 +135,9 @@ export class CpCommand extends UnixCommandBase {
     if (isDir && recursive) {
       // ディレクトリの場合、中身も再帰的にコピー
       const childFiles = files.filter(f => f.path.startsWith(sourceRelative + '/'));
-      
+
       // 新しい場所にディレクトリを作成
-      await fileRepository.createFile(
-        this.projectId,
-        destRelative,
-        '',
-        'folder'
-      );
+      await fileRepository.createFile(this.projectId, destRelative, '', 'folder');
 
       // 子ファイルをコピー
       for (const child of childFiles) {

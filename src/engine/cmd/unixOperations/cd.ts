@@ -2,13 +2,13 @@ import { UnixCommandBase } from './base';
 
 /**
  * cd - カレントディレクトリを変更
- * 
+ *
  * 使用法:
  *   cd [directory]
- * 
+ *
  * オプション:
  *   なし（Linuxのcd組み込みコマンドに準拠）
- * 
+ *
  * 動作:
  *   - 引数なしの場合はプロジェクトルートに移動
  *   - -はサポートしない（前のディレクトリへの移動）
@@ -25,7 +25,7 @@ export class CdCommand extends UnixCommandBase {
       targetDir = this.getProjectRoot();
     } else {
       const dir = positional[0];
-      
+
       // 特殊ケース: -（前のディレクトリ）は未実装
       if (dir === '-') {
         throw new Error('cd: OLDPWD not set');

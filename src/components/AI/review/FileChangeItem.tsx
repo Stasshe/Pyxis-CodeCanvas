@@ -39,7 +39,10 @@ export default function FileChangeItem({
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <FileCode size={14} style={{ color: colors.accent }} />
+            <FileCode
+              size={14}
+              style={{ color: colors.accent }}
+            />
             <span
               className={`font-mono font-medium ${compact ? 'text-xs' : 'text-sm'} truncate`}
               style={{ color: colors.foreground }}
@@ -67,7 +70,11 @@ export default function FileChangeItem({
             <span>{suggestedLines}行</span>
             <span
               className={`ml-1 ${
-                suggestedLines > originalLines ? 'text-green-500' : suggestedLines < originalLines ? 'text-red-500' : ''
+                suggestedLines > originalLines
+                  ? 'text-green-500'
+                  : suggestedLines < originalLines
+                    ? 'text-red-500'
+                    : ''
               }`}
             >
               ({suggestedLines > originalLines ? '+' : ''}

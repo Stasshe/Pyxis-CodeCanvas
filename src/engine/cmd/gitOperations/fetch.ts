@@ -11,7 +11,6 @@ import { parseGitHubUrl } from './github/utils';
 
 import { authRepository } from '@/engine/user/authRepository';
 
-
 export interface FetchOptions {
   remote?: string;
   branch?: string;
@@ -20,26 +19,16 @@ export interface FetchOptions {
   tags?: boolean;
 }
 
-export async function fetch(
-  fs: FS,
-  dir: string,
-  options: FetchOptions = {}
-): Promise<string> {
-  const {
-    remote = 'origin',
-    branch,
-    depth,
-    prune = false,
-    tags = false,
-  } = options;
+export async function fetch(fs: FS, dir: string, options: FetchOptions = {}): Promise<string> {
+  const { remote = 'origin', branch, depth, prune = false, tags = false } = options;
 
   try {
     const token = await authRepository.getAccessToken();
-    
+
     // リモート情報を取得
     const remotes = await git.listRemotes({ fs, dir });
     const remoteInfo = remotes.find(r => r.remote === remote);
-    
+
     if (!remoteInfo) {
       throw new Error(`Remote '${remote}' not found.`);
     }
@@ -59,7 +48,7 @@ export async function fetch(
 
     const { GitHubAPI } = await import('./github/GitHubAPI');
     const githubAPI = new GitHubAPI(token, repoInfo.owner, repoInfo.repo);
-    
+
     // ブランチ指定がない場合はデフォルトブランチを取得
     let targetBranch = branch;
     if (!targetBranch) {
@@ -93,10 +82,12 @@ export async function fetch(
           username: token,
           password: 'x-oauth-basic',
         }),
-        onProgress: (progress) => {
+        onProgress: progress => {
           if (progress.phase === 'Receiving objects') {
             const percent = Math.round((progress.loaded / progress.total) * 100);
-            console.log(`[git fetch] ${progress.phase}: ${percent}% (${progress.loaded}/${progress.total})`);
+            console.log(
+              `[git fetch] ${progress.phase}: ${percent}% (${progress.loaded}/${progress.total})`
+            );
           }
         },
       });
@@ -107,10 +98,10 @@ export async function fetch(
 
     // フェッチ結果を整形
     let result = `From ${remoteInfo.url}\n`;
-    
+
     if (fetchResult.fetchHead) {
       result += ` * branch            ${targetBranch}       -> FETCH_HEAD\n`;
-      
+
       // リモート追跡ブランチの更新を確認
       try {
         const remoteTrackingRef = await git.resolveRef({
@@ -119,7 +110,9 @@ export async function fetch(
           ref: `refs/remotes/${remote}/${targetBranch}`,
         });
         result += ` * [updated]         ${remote}/${targetBranch} -> ${remote}/${targetBranch}\n`;
-        console.log(`[git fetch] Updated ${remote}/${targetBranch} to ${remoteTrackingRef.slice(0, 7)}`);
+        console.log(
+          `[git fetch] Updated ${remote}/${targetBranch} to ${remoteTrackingRef.slice(0, 7)}`
+        );
       } catch {
         console.warn(`[git fetch] Could not verify remote tracking branch update`);
       }
@@ -143,15 +136,19 @@ export async function fetch(
 /**
  * git fetch --all - 全リモートをフェッチ
  */
-export async function fetchAll(fs: FS, dir: string, options: Omit<FetchOptions, 'remote'> = {}): Promise<string> {
+export async function fetchAll(
+  fs: FS,
+  dir: string,
+  options: Omit<FetchOptions, 'remote'> = {}
+): Promise<string> {
   const remotes = await git.listRemotes({ fs, dir });
-  
+
   if (remotes.length === 0) {
     return 'No remotes configured.';
   }
 
   const results: string[] = [];
-  
+
   for (const remote of remotes) {
     try {
       const result = await fetch(fs, dir, { ...options, remote: remote.remote });
@@ -167,7 +164,11 @@ export async function fetchAll(fs: FS, dir: string, options: Omit<FetchOptions, 
 /**
  * リモートブランチ一覧を取得
  */
-export async function listRemoteBranches(fs: FS, dir: string, remote = 'origin'): Promise<string[]> {
+export async function listRemoteBranches(
+  fs: FS,
+  dir: string,
+  remote = 'origin'
+): Promise<string[]> {
   try {
     const branches = await git.listBranches({ fs, dir, remote });
     return branches;

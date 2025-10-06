@@ -76,9 +76,9 @@ export class TreeBuilder {
       }
       throw error;
     }
-    
+
     // リモートのファイルマップを作成
-    const remoteEntries = new Map<string, typeof remoteTree.tree[0]>();
+    const remoteEntries = new Map<string, (typeof remoteTree.tree)[0]>();
     for (const entry of remoteTree.tree) {
       remoteEntries.set(entry.path, entry);
     }
@@ -121,13 +121,20 @@ export class TreeBuilder {
       } else if (localEntry.type === 'tree') {
         // サブツリーの場合
         const remoteSubtreeSha = remoteEntry?.type === 'tree' ? remoteEntry.sha : undefined;
-        
+
         if (!remoteSubtreeSha || !remoteEntry || remoteEntry.sha !== localEntry.oid) {
           hasChanges = true;
           treePromises.push(
             (remoteSubtreeSha
-              ? this.buildTreeDifferential(localEntry.oid, remoteSubtreeSha, path ? `${path}/${localEntry.path}` : localEntry.path)
-              : this.buildTreeRecursive(localEntry.oid, path ? `${path}/${localEntry.path}` : localEntry.path)
+              ? this.buildTreeDifferential(
+                  localEntry.oid,
+                  remoteSubtreeSha,
+                  path ? `${path}/${localEntry.path}` : localEntry.path
+                )
+              : this.buildTreeRecursive(
+                  localEntry.oid,
+                  path ? `${path}/${localEntry.path}` : localEntry.path
+                )
             )
               .then(sha => ({
                 path: localEntry.path,
@@ -207,8 +214,8 @@ export class TreeBuilder {
     const entries: GitTreeEntry[] = [];
 
     // Blob処理とサブツリー処理を並列化
-    const blobPromises: Promise<{ entry: typeof tree.tree[0]; sha: string }>[] = [];
-    const treePromises: Promise<{ entry: typeof tree.tree[0]; sha: string }>[] = [];
+    const blobPromises: Promise<{ entry: (typeof tree.tree)[0]; sha: string }>[] = [];
+    const treePromises: Promise<{ entry: (typeof tree.tree)[0]; sha: string }>[] = [];
 
     // 各エントリを処理（並列化）
     for (const entry of tree.tree) {
@@ -216,9 +223,7 @@ export class TreeBuilder {
 
       if (entry.type === 'blob') {
         // Blobの場合は並列でアップロード
-        blobPromises.push(
-          this.uploadBlob(entry.oid, fullPath).then(sha => ({ entry, sha }))
-        );
+        blobPromises.push(this.uploadBlob(entry.oid, fullPath).then(sha => ({ entry, sha })));
       } else if (entry.type === 'tree') {
         // サブツリーも並列で構築
         treePromises.push(
@@ -229,7 +234,7 @@ export class TreeBuilder {
 
     // 全Blobを並列処理（バッチサイズで制限）
     const BATCH_SIZE = 10; // GitHub API Rate Limitを考慮
-    const blobResults: { entry: typeof tree.tree[0]; sha: string }[] = [];
+    const blobResults: { entry: (typeof tree.tree)[0]; sha: string }[] = [];
     for (let i = 0; i < blobPromises.length; i += BATCH_SIZE) {
       const batch = blobPromises.slice(i, i + BATCH_SIZE);
       const results = await Promise.all(batch);

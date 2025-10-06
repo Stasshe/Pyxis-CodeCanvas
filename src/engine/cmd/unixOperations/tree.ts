@@ -2,16 +2,16 @@ import { UnixCommandBase } from './base';
 
 /**
  * tree - ディレクトリ構造をツリー形式で表示
- * 
+ *
  * 使用法:
  *   tree [options] [directory]
- * 
+ *
  * オプション:
  *   -a              .で始まるファイルも表示
  *   -d              ディレクトリのみ表示
  *   -L level        表示する深さを指定
  *   -I pattern      パターンに一致するファイルを除外
- * 
+ *
  * 動作:
  *   - IndexedDBから情報取得
  *   - デフォルトはカレントディレクトリ
@@ -22,7 +22,7 @@ export class TreeCommand extends UnixCommandBase {
 
     const showAll = options.has('-a');
     const dirsOnly = options.has('-d');
-    
+
     let maxDepth = 999;
     if (options.has('-L')) {
       const levelIndex = args.indexOf('-L');

@@ -143,7 +143,7 @@ export default function AIPanel({
   // suggestedContentの更新（本体には影響しない）
   const handleUpdateSuggestedContent = (tabId: string, newContent: string) => {
     setTabs((prevTabs: Tab[]) =>
-      prevTabs.map((t) =>
+      prevTabs.map(t =>
         t.id === tabId && t.aiReviewProps
           ? {
               ...t,
@@ -197,8 +197,7 @@ export default function AIPanel({
   const latestEditResponse = currentSpace?.messages
     .slice()
     .reverse()
-    .find(msg => msg.mode === 'edit' && msg.type === 'assistant' && msg.editResponse)
-    ?.editResponse;
+    .find(msg => msg.mode === 'edit' && msg.type === 'assistant' && msg.editResponse)?.editResponse;
 
   return (
     <div
@@ -217,8 +216,14 @@ export default function AIPanel({
         }}
       >
         <div className="flex items-center gap-3">
-          <Bot size={20} style={{ color: colors.accent }} />
-          <span className="text-base font-semibold" style={{ color: colors.foreground }}>
+          <Bot
+            size={20}
+            style={{ color: colors.accent }}
+          />
+          <span
+            className="text-base font-semibold"
+            style={{ color: colors.foreground }}
+          >
             AI Assistant
           </span>
 
@@ -269,8 +274,6 @@ export default function AIPanel({
         </div>
       </div>
 
-
-
       {/* ファイルコンテキストバー */}
       {fileContexts.filter(ctx => ctx.selected).length > 0 && (
         <FileContextBar
@@ -286,9 +289,7 @@ export default function AIPanel({
         isProcessing={isProcessing}
         compact={false}
         emptyMessage={
-          mode === 'ask'
-            ? '質問やコード相談をしてください'
-            : 'コードの編集指示を入力してください'
+          mode === 'ask' ? '質問やコード相談をしてください' : 'コードの編集指示を入力してください'
         }
       />
 
@@ -303,10 +304,14 @@ export default function AIPanel({
         />
       )}
 
-
       {/* モードセレクター（下部に移動・小型化） */}
       <div className="px-2 pb-2 flex justify-end">
-        <ModeSelector mode={mode} onChange={setMode} disabled={isProcessing} small />
+        <ModeSelector
+          mode={mode}
+          onChange={setMode}
+          disabled={isProcessing}
+          small
+        />
       </div>
 
       {/* 入力エリア */}

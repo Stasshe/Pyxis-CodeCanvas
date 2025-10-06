@@ -7,7 +7,6 @@ import { initPyodide, runPythonWithSync, setCurrentProject } from '@/engine/runt
 import { useBreakpointContext } from '@/context/BreakpointContext';
 import { LOCALSTORAGE_KEY } from '@/context/config';
 
-
 interface RunPanelProps {
   currentProject: { id: string; name: string } | null;
   files: any[];
@@ -109,21 +108,21 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
   // デバッグコンソールを作成
   const createDebugConsole = () => ({
     log: (...args: unknown[]) => {
-      const content = args.map(arg => 
-        typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-      ).join(' ');
+      const content = args
+        .map(arg => (typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)))
+        .join(' ');
       addOutput(content, 'log');
     },
     error: (...args: unknown[]) => {
-      const content = args.map(arg => 
-        typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-      ).join(' ');
+      const content = args
+        .map(arg => (typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)))
+        .join(' ');
       addOutput(content, 'error');
     },
     warn: (...args: unknown[]) => {
-      const content = args.map(arg => 
-        typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-      ).join(' ');
+      const content = args
+        .map(arg => (typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)))
+        .join(' ');
       addOutput(content, 'log');
     },
     clear: () => {
@@ -136,11 +135,11 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
     return (prompt: string, callback: (input: string) => void) => {
       // DebugConsoleAPIを使って入力を受け取る
       const { DebugConsoleAPI } = require('@/components/Bottom/DebugConsoleAPI');
-      
+
       // プロンプトを表示
       addOutput(prompt, 'log');
       DebugConsoleAPI.write(prompt);
-      
+
       // DebugConsoleからの入力を待つ
       const unsubscribe = DebugConsoleAPI.onInput((input: string) => {
         unsubscribe();
@@ -161,7 +160,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
         inputCode.trimStart().startsWith('#!python') ||
         inputCode.trimStart().startsWith('import ') ||
         inputCode.trimStart().startsWith('print(');
-      
+
       if (isPython) {
         if (!isPyodideReady) {
           addOutput('Pythonランタイムが初期化されていません', 'error');
@@ -175,13 +174,8 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
         // Node.js実行 - 一時ファイルとして実行
         // 一時ファイルをIndexedDBに作成
         const { fileRepository } = await import('@/engine/core/fileRepository');
-        await fileRepository.createFile(
-          currentProject.id,
-          '/temp-code.js',
-          inputCode,
-          'file'
-        );
-        
+        await fileRepository.createFile(currentProject.id, '/temp-code.js', inputCode, 'file');
+
         await executeNodeFile({
           projectId: currentProject.id,
           projectName: currentProject.name,

@@ -35,8 +35,6 @@ export default function SearchPanel({ files, projectId, onFileOpen }: SearchPane
   const [useRegex, setUseRegex] = useState(false);
   const { isExcluded } = useSettings(projectId);
 
-
-
   // 全ファイルを再帰的に取得（isExcludedを適用）
   const getAllFiles = (items: FileItem[]): FileItem[] => {
     const result: FileItem[] = [];

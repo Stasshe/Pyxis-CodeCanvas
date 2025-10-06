@@ -4,17 +4,17 @@ import { fileRepository } from '@/engine/core/fileRepository';
 
 /**
  * mv - ファイル/ディレクトリを移動またはリネーム
- * 
+ *
  * 使用法:
  *   mv [-f] [-i] [-n] [-v] source dest
  *   mv [-f] [-i] [-n] [-v] source... directory
- * 
+ *
  * オプション:
  *   -f, --force          既存のファイルを確認なしで上書き
  *   -i, --interactive    上書き前に確認
  *   -n, --no-clobber     既存のファイルを上書きしない
  *   -v, --verbose        詳細な情報を表示
- * 
+ *
  * 動作:
  *   - source が1つでdestがディレクトリでない場合: リネーム
  *   - source が複数またはdestがディレクトリの場合: 移動
@@ -25,7 +25,9 @@ export class MvCommand extends UnixCommandBase {
     const { options, positional } = this.parseOptions(args);
 
     if (positional.length < 2) {
-      throw new Error('mv: missing file operand\nUsage: mv [OPTION]... SOURCE DEST\n   or: mv [OPTION]... SOURCE... DIRECTORY');
+      throw new Error(
+        'mv: missing file operand\nUsage: mv [OPTION]... SOURCE DEST\n   or: mv [OPTION]... SOURCE... DIRECTORY'
+      );
     }
 
     const force = options.has('-f') || options.has('--force');
@@ -48,7 +50,7 @@ export class MvCommand extends UnixCommandBase {
 
     const dest = this.normalizePath(this.resolvePath(destArg));
     const destExists = await this.exists(dest);
-    const destIsDir = destExists && await this.isDirectory(dest);
+    const destIsDir = destExists && (await this.isDirectory(dest));
 
     const results: string[] = [];
 
@@ -59,7 +61,7 @@ export class MvCommand extends UnixCommandBase {
 
     for (const source of sources) {
       const normalizedSource = this.normalizePath(source);
-      
+
       // 自分自身への移動はスキップ
       if (normalizedSource === dest) {
         continue;
@@ -94,7 +96,7 @@ export class MvCommand extends UnixCommandBase {
       // 移動実行
       try {
         await this.moveFileOrDir(normalizedSource, finalDest, sourceIsDir);
-        
+
         if (verbose) {
           results.push(`'${normalizedSource}' -> '${finalDest}'`);
         }
@@ -106,7 +108,7 @@ export class MvCommand extends UnixCommandBase {
     if (verbose) {
       return results.join('\n');
     }
-    
+
     return '';
   }
 
@@ -127,14 +129,9 @@ export class MvCommand extends UnixCommandBase {
     if (isDir) {
       // ディレクトリの場合、中身も移動
       const childFiles = files.filter(f => f.path.startsWith(sourceRelative + '/'));
-      
+
       // 新しい場所にディレクトリを作成
-      await fileRepository.createFile(
-        this.projectId,
-        destRelative,
-        '',
-        'folder'
-      );
+      await fileRepository.createFile(this.projectId, destRelative, '', 'folder');
 
       // 子ファイルを移動
       for (const child of childFiles) {

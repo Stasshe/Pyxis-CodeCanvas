@@ -30,12 +30,12 @@ export class ModuleCache {
   }
   async init(): Promise<void> {
     if (this.initialized) return;
-    
+
     runtimeInfo('🗄️ Initializing module cache...');
     await this.ensureCacheDirectories();
     await this.loadAllCacheFromDisk();
     this.initialized = true;
-    
+
     runtimeInfo('✅ Module cache initialized:', {
       entries: this.cache.size,
       totalSize: this.formatSize(this.getTotalSize()),
@@ -45,13 +45,13 @@ export class ModuleCache {
   async get(path: string): Promise<CacheEntry | null> {
     const hash = this.hashPath(path);
     const entry = this.cache.get(hash);
-    
+
     if (entry) {
       entry.lastAccess = Date.now();
       runtimeInfo('✅ Cache HIT:', path);
       return entry;
     }
-    
+
     runtimeWarn('❌ Cache MISS:', path);
     return null;
   }
@@ -59,10 +59,10 @@ export class ModuleCache {
   async set(path: string, entry: Omit<CacheEntry, 'hash' | 'lastAccess'>): Promise<void> {
     const hash = this.hashPath(path);
     const cacheEntry: CacheEntry = { ...entry, hash, lastAccess: Date.now() };
-    
+
     this.cache.set(hash, cacheEntry);
     runtimeInfo('💾 Saving cache:', path, `(${this.formatSize(entry.size)})`);
-    
+
     try {
       await this.saveToDisk(hash, cacheEntry);
       runtimeInfo('✅ Cache saved:', path);
@@ -71,7 +71,7 @@ export class ModuleCache {
       this.cache.delete(hash);
       throw error;
     }
-    
+
     await this.checkCacheSize();
   }
 
@@ -83,12 +83,12 @@ export class ModuleCache {
   private async ensureCacheDirectories(): Promise<void> {
     try {
       const files = await fileRepository.getProjectFiles(this.projectId);
-      
+
       if (!files.some(f => f.path === this.cacheDir)) {
         await fileRepository.createFile(this.projectId, this.cacheDir, '', 'folder');
         runtimeInfo('📁 Created:', this.cacheDir);
       }
-      
+
       if (!files.some(f => f.path === this.metaDir)) {
         await fileRepository.createFile(this.projectId, this.metaDir, '', 'folder');
         runtimeInfo('📁 Created:', this.metaDir);
@@ -101,22 +101,23 @@ export class ModuleCache {
   private async loadAllCacheFromDisk(): Promise<void> {
     try {
       const files = await fileRepository.getProjectFiles(this.projectId);
-      const metaFiles = files.filter(f => 
-        f.path.startsWith(this.metaDir) && 
-        f.path.endsWith('.json') &&
-        f.type === 'file' &&
-        f.content?.trim()
+      const metaFiles = files.filter(
+        f =>
+          f.path.startsWith(this.metaDir) &&
+          f.path.endsWith('.json') &&
+          f.type === 'file' &&
+          f.content?.trim()
       );
-      
+
       runtimeInfo(`📂 Found ${metaFiles.length} cache meta files`);
       let loadedCount = 0;
-      
+
       for (const metaFile of metaFiles) {
         try {
           const meta: Omit<CacheEntry, 'code'> = JSON.parse(metaFile.content);
           const hash = metaFile.name.replace('.json', '');
           const codeFile = files.find(f => f.path === `${this.cacheDir}/${hash}.js`);
-          
+
           if (codeFile?.content) {
             this.cache.set(hash, { ...meta, code: codeFile.content } as CacheEntry);
             loadedCount++;
@@ -125,7 +126,7 @@ export class ModuleCache {
           runtimeWarn('⚠️ Failed to parse:', metaFile.path);
         }
       }
-      
+
       runtimeInfo(`✅ Loaded ${loadedCount} cache entries`);
     } catch (error) {
       runtimeWarn('⚠️ Failed to load cache:', error);
@@ -139,7 +140,7 @@ export class ModuleCache {
       entry.code,
       'file'
     );
-    
+
     const meta: Omit<CacheEntry, 'code'> = {
       originalPath: entry.originalPath,
       hash: entry.hash,
@@ -149,7 +150,7 @@ export class ModuleCache {
       lastAccess: entry.lastAccess,
       size: entry.size,
     };
-    
+
     await fileRepository.createFile(
       this.projectId,
       `${this.metaDir}/${hash}.json`,
@@ -169,14 +170,14 @@ export class ModuleCache {
   private async runGC(): Promise<void> {
     const beforeSize = this.getTotalSize();
     const entries = Array.from(this.cache.values()).sort((a, b) => a.lastAccess - b.lastAccess);
-    
+
     let currentSize = beforeSize;
     const targetSize = this.maxCacheSize * 0.7;
     let deletedCount = 0;
-    
+
     for (const entry of entries) {
       if (currentSize <= targetSize) break;
-      
+
       this.cache.delete(entry.hash);
       try {
         await this.deleteFromDisk(entry.hash);
@@ -195,10 +196,10 @@ export class ModuleCache {
 
   private async deleteFromDisk(hash: string): Promise<void> {
     const files = await fileRepository.getProjectFiles(this.projectId);
-    
+
     const codeFile = files.find(f => f.path === `${this.cacheDir}/${hash}.js`);
     if (codeFile) await fileRepository.deleteFile(codeFile.id);
-    
+
     const metaFile = files.find(f => f.path === `${this.metaDir}/${hash}.json`);
     if (metaFile) await fileRepository.deleteFile(metaFile.id);
   }

@@ -13,7 +13,12 @@ interface ModeSelectorProps {
   small?: boolean;
 }
 
-export default function ModeSelector({ mode, onChange, disabled = false, small = false }: ModeSelectorProps) {
+export default function ModeSelector({
+  mode,
+  onChange,
+  disabled = false,
+  small = false,
+}: ModeSelectorProps) {
   const { colors } = useTheme();
 
   const modes = [
@@ -22,15 +27,16 @@ export default function ModeSelector({ mode, onChange, disabled = false, small =
   ];
 
   // サイズ調整
-  const sizeClass = small
-    ? 'gap-0.5 p-0.5 rounded-md'
-    : 'gap-1 p-1 rounded-lg';
+  const sizeClass = small ? 'gap-0.5 p-0.5 rounded-md' : 'gap-1 p-1 rounded-lg';
   const btnPad = small ? 'px-2 py-1' : 'px-4 py-2';
   const iconSize = small ? 13 : 16;
   const fontSize = small ? 'text-xs' : 'text-sm';
 
   return (
-    <div className={`flex ${sizeClass}`} style={{ background: colors.mutedBg }}>
+    <div
+      className={`flex ${sizeClass}`}
+      style={{ background: colors.mutedBg }}
+    >
       {modes.map(({ value, label, icon: Icon, description }) => (
         <button
           key={value}

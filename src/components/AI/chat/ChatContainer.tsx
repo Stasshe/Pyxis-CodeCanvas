@@ -42,16 +42,21 @@ export default function ChatContainer({
           className="flex flex-col items-center justify-center h-full text-center select-none"
           style={{ color: colors.mutedFg }}
         >
-          <MessageSquare size={48} className="mb-4 opacity-30" />
+          <MessageSquare
+            size={48}
+            className="mb-4 opacity-30"
+          />
           <div className="text-base font-medium mb-2">{emptyMessage}</div>
-          <div className="text-sm opacity-70">
-            質問やコードの相談、編集指示をしてください
-          </div>
+          <div className="text-sm opacity-70">質問やコードの相談、編集指示をしてください</div>
         </div>
       ) : (
         <>
           {messages.map(message => (
-            <ChatMessage key={message.id} message={message} compact={compact} />
+            <ChatMessage
+              key={message.id}
+              message={message}
+              compact={compact}
+            />
           ))}
 
           {/* 処理中インジケータ */}
@@ -64,7 +69,10 @@ export default function ChatContainer({
                 border: `1px solid ${colors.border}`,
               }}
             >
-              <Loader2 size={16} className="animate-spin" />
+              <Loader2
+                size={16}
+                className="animate-spin"
+              />
               <span className="text-sm">AIが応答を生成中...</span>
             </div>
           )}

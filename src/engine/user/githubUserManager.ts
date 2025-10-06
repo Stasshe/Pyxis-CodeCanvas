@@ -87,8 +87,8 @@ class GitHubUserManager {
 
       const response = await fetch('https://api.github.com/user', {
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/vnd.github.v3+json',
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/vnd.github.v3+json',
         },
       });
 

@@ -74,7 +74,7 @@ export class GitCommands {
     try {
       await this.ensureGitRepository();
       const branch = await git.currentBranch({ fs: this.fs, dir: this.dir });
-      
+
       if (!branch) {
         // detached HEAD状態 - 現在のコミットIDを取得
         try {
@@ -87,7 +87,7 @@ export class GitCommands {
         }
         return 'main';
       }
-      
+
       return branch;
     } catch {
       return '(no git)';
@@ -149,7 +149,7 @@ export class GitCommands {
           corsProxy: 'https://cors.isomorphic-git.org',
           singleBranch: true,
           depth: 10, //全部取得したら死ぬ
-          onAuth: (url) => {
+          onAuth: url => {
             if (authRepository && typeof authRepository.getAccessToken === 'function') {
               return authRepository.getAccessToken().then(token => {
                 if (token) {
@@ -539,7 +539,7 @@ export class GitCommands {
       } else if (filepath === '*' || filepath.includes('*')) {
         // ワイルドカードパターン
         const matchingFiles = await this.getMatchingFiles(this.dir, filepath);
-        
+
         // 削除されたファイルも含めてステージング対象を取得
         const status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
         const deletedFiles: string[] = [];
@@ -590,14 +590,14 @@ export class GitCommands {
       } else {
         // 単一ファイルまたはディレクトリ
         const normalizedPath = filepath.startsWith('/') ? filepath.slice(1) : filepath;
-        
+
         // まずステータスマトリックスから該当ファイルの状態を確認
         const status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
         const fileStatus = status.find(([path]) => path === normalizedPath);
-        
+
         if (fileStatus) {
           const [path, HEAD, workdir, stage] = fileStatus;
-          
+
           // 削除されたファイル (HEAD=1, workdir=0, stage=1) の場合
           if (HEAD === 1 && workdir === 0 && stage === 1) {
             console.log(`[git.add] Staging deleted file: ${path}`);
@@ -618,7 +618,7 @@ export class GitCommands {
 
         // ステータスマトリックスにない場合は直接ファイルシステムで確認
         const fullPath = `${this.dir}/${normalizedPath}`;
-        
+
         try {
           const stat = await this.fs.promises.stat(fullPath);
 
@@ -656,14 +656,16 @@ export class GitCommands {
             // ステータスを再確認
             const status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
             const fileStatus = status.find(([path]) => path === normalizedPath);
-            
+
             if (fileStatus && fileStatus[1] === 1 && fileStatus[2] === 0) {
               // 削除されたファイル
-              console.log(`[git.add] File not found but exists in git, staging deletion: ${normalizedPath}`);
+              console.log(
+                `[git.add] File not found but exists in git, staging deletion: ${normalizedPath}`
+              );
               await git.remove({ fs: this.fs, dir: this.dir, filepath: normalizedPath });
               return `Staged deletion of ${filepath}`;
             }
-            
+
             throw new Error(`pathspec '${filepath}' did not match any files`);
           }
           throw error;
@@ -702,7 +704,7 @@ export class GitCommands {
       const statusMatrix = await git.statusMatrix({ fs: this.fs, dir: this.dir });
       console.log(`[git.add] Status matrix found ${statusMatrix.length} files`);
       console.log(`[git.add] Project directory: ${this.dir}`);
-      
+
       // デバッグ: statusMatrixの内容を詳しくログ
       statusMatrix.forEach(([file, head, workdir, stage]) => {
         console.log(`[git.add] File: ${file}, HEAD=${head}, workdir=${workdir}, stage=${stage}`);
@@ -756,7 +758,7 @@ export class GitCommands {
   ): Promise<string> {
     return this.executeGitOperation(async () => {
       await this.ensureGitRepository();
-      
+
       // GitHubにログイン済みの場合は、その情報を使用
       let commitAuthor = author;
       try {
@@ -765,11 +767,11 @@ export class GitCommands {
           // GitHub APIでユーザー情報を取得
           const response = await fetch('https://api.github.com/user', {
             headers: {
-              'Authorization': `Bearer ${token}`,
-              'Accept': 'application/vnd.github.v3+json',
+              Authorization: `Bearer ${token}`,
+              Accept: 'application/vnd.github.v3+json',
             },
           });
-          
+
           if (response.ok) {
             const userData = await response.json();
             commitAuthor = {
@@ -783,7 +785,7 @@ export class GitCommands {
         console.warn('[git commit] Failed to get GitHub user info, using default:', error);
         // エラーが発生してもデフォルトのauthorで続行
       }
-      
+
       const sha = await git.commit({
         fs: this.fs,
         dir: this.dir,
@@ -838,12 +840,12 @@ export class GitCommands {
    */
   async checkoutRemote(remoteBranch: string): Promise<string> {
     await this.ensureGitRepository();
-    
+
     try {
       // リモートブランチのコミットIDを取得
       const remoteRef = `refs/remotes/${remoteBranch}`;
       let commitOid: string;
-      
+
       try {
         commitOid = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: remoteRef });
       } catch {
@@ -857,7 +859,7 @@ export class GitCommands {
         this.projectId,
         this.projectName
       );
-      
+
       return await checkoutOperations.checkout(commitOid, false);
     } catch (error) {
       throw new Error(`Failed to checkout remote branch: ${(error as Error).message}`);
@@ -876,7 +878,10 @@ export class GitCommands {
   }
 
   // git branch - ブランチ一覧/作成
-  async branch(branchName?: string, options: { delete?: boolean; remote?: boolean; all?: boolean } = {}): Promise<string> {
+  async branch(
+    branchName?: string,
+    options: { delete?: boolean; remote?: boolean; all?: boolean } = {}
+  ): Promise<string> {
     try {
       await this.ensureProjectDirectory();
       // Gitリポジトリが初期化されているかチェック
@@ -896,12 +901,14 @@ export class GitCommands {
         if (remote || all) {
           // リモートブランチを表示
           const remoteBranches: string[] = [];
-          
+
           // refs/remotes 以下のブランチを直接取得
           try {
             // originのリモートブランチを取得
             try {
-              const originBranches = await this.fs.promises.readdir(`${this.dir}/.git/refs/remotes/origin`);
+              const originBranches = await this.fs.promises.readdir(
+                `${this.dir}/.git/refs/remotes/origin`
+              );
               for (const branch of originBranches) {
                 if (branch !== '.' && branch !== '..') {
                   remoteBranches.push(`origin/${branch}`);
@@ -913,7 +920,9 @@ export class GitCommands {
 
             // upstreamのリモートブランチを取得
             try {
-              const upstreamBranches = await this.fs.promises.readdir(`${this.dir}/.git/refs/remotes/upstream`);
+              const upstreamBranches = await this.fs.promises.readdir(
+                `${this.dir}/.git/refs/remotes/upstream`
+              );
               for (const branch of upstreamBranches) {
                 if (branch !== '.' && branch !== '..') {
                   remoteBranches.push(`upstream/${branch}`);
@@ -925,16 +934,18 @@ export class GitCommands {
           } catch (error) {
             console.warn('[git branch] Failed to read remote branches:', error);
           }
-          
+
           if (all && !remote) {
             // -a: ローカルブランチも表示
             const localBranches = await git.listBranches({ fs: this.fs, dir: this.dir });
-            result += localBranches.map(b => (b === currentBranch ? `* ${b}` : `  ${b}`)).join('\n');
+            result += localBranches
+              .map(b => (b === currentBranch ? `* ${b}` : `  ${b}`))
+              .join('\n');
             if (localBranches.length > 0 && remoteBranches.length > 0) {
               result += '\n';
             }
           }
-          
+
           if (remoteBranches.length > 0) {
             result += remoteBranches.map(b => `  ${b}`).join('\n');
           } else if (!all) {
@@ -945,7 +956,7 @@ export class GitCommands {
           const branches = await git.listBranches({ fs: this.fs, dir: this.dir });
           result = branches.map(b => (b === currentBranch ? `* ${b}` : `  ${b}`)).join('\n');
         }
-        
+
         return result || 'No branches found.';
       } else if (deleteFlag) {
         // ブランチ削除
@@ -1109,13 +1120,15 @@ export class GitCommands {
   /**
    * git push - リモートにプッシュ
    */
-  async push(options: {
-    remote?: string;
-    branch?: string;
-    force?: boolean;
-  } = {}): Promise<string> {
+  async push(
+    options: {
+      remote?: string;
+      branch?: string;
+      force?: boolean;
+    } = {}
+  ): Promise<string> {
     await this.ensureGitRepository();
-    
+
     // 動的インポートで循環参照を回避
     const { push } = await import('./gitOperations/push');
     return push(this.fs, this.dir, options);
@@ -1126,7 +1139,7 @@ export class GitCommands {
    */
   async addRemote(remote: string, url: string): Promise<string> {
     await this.ensureGitRepository();
-    
+
     const { addRemote } = await import('./gitOperations/push');
     return addRemote(this.fs, this.dir, remote, url);
   }
@@ -1136,7 +1149,7 @@ export class GitCommands {
    */
   async listRemotes(): Promise<string> {
     await this.ensureGitRepository();
-    
+
     const { listRemotes } = await import('./gitOperations/push');
     return listRemotes(this.fs, this.dir);
   }
@@ -1146,7 +1159,7 @@ export class GitCommands {
    */
   async deleteRemote(remote: string): Promise<string> {
     await this.ensureGitRepository();
-    
+
     const { deleteRemote } = await import('./gitOperations/push');
     return deleteRemote(this.fs, this.dir, remote);
   }
@@ -1154,15 +1167,17 @@ export class GitCommands {
   /**
    * git fetch - リモートから変更を取得
    */
-  async fetch(options: {
-    remote?: string;
-    branch?: string;
-    depth?: number;
-    prune?: boolean;
-    tags?: boolean;
-  } = {}): Promise<string> {
+  async fetch(
+    options: {
+      remote?: string;
+      branch?: string;
+      depth?: number;
+      prune?: boolean;
+      tags?: boolean;
+    } = {}
+  ): Promise<string> {
     await this.ensureGitRepository();
-    
+
     const { fetch } = await import('./gitOperations/fetch');
     return fetch(this.fs, this.dir, options);
   }
@@ -1170,13 +1185,15 @@ export class GitCommands {
   /**
    * git fetch --all - 全リモートから変更を取得
    */
-  async fetchAll(options: {
-    depth?: number;
-    prune?: boolean;
-    tags?: boolean;
-  } = {}): Promise<string> {
+  async fetchAll(
+    options: {
+      depth?: number;
+      prune?: boolean;
+      tags?: boolean;
+    } = {}
+  ): Promise<string> {
     await this.ensureGitRepository();
-    
+
     const { fetchAll } = await import('./gitOperations/fetch');
     return fetchAll(this.fs, this.dir, options);
   }
@@ -1186,7 +1203,7 @@ export class GitCommands {
    */
   async listRemoteBranches(remote = 'origin'): Promise<string[]> {
     await this.ensureGitRepository();
-    
+
     const { listRemoteBranches } = await import('./gitOperations/fetch');
     return listRemoteBranches(this.fs, this.dir, remote);
   }
@@ -1196,7 +1213,7 @@ export class GitCommands {
    */
   async listRemoteTags(): Promise<string[]> {
     await this.ensureGitRepository();
-    
+
     const { listRemoteTags } = await import('./gitOperations/fetch');
     return listRemoteTags(this.fs, this.dir);
   }
@@ -1204,15 +1221,17 @@ export class GitCommands {
   /**
    * git pull - fetch + merge/rebase
    */
-  async pull(options: {
-    remote?: string;
-    branch?: string;
-    rebase?: boolean;
-  } = {}): Promise<string> {
+  async pull(
+    options: {
+      remote?: string;
+      branch?: string;
+      rebase?: boolean;
+    } = {}
+  ): Promise<string> {
     await this.ensureGitRepository();
-    
+
     const { remote = 'origin', branch, rebase = false } = options;
-    
+
     try {
       // 現在のブランチを取得
       let targetBranch = branch;
@@ -1232,18 +1251,22 @@ export class GitCommands {
       // 2. リモート追跡ブランチのコミットIDを取得
       const remoteBranchRef = `refs/remotes/${remote}/${targetBranch}`;
       let remoteCommitOid: string;
-      
+
       try {
-        remoteCommitOid = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: remoteBranchRef });
+        remoteCommitOid = await git.resolveRef({
+          fs: this.fs,
+          dir: this.dir,
+          ref: remoteBranchRef,
+        });
       } catch {
         throw new Error(`Remote branch '${remote}/${targetBranch}' not found after fetch`);
       }
 
       // 3. ローカルのコミットIDを取得
-      const localCommitOid = await git.resolveRef({ 
-        fs: this.fs, 
-        dir: this.dir, 
-        ref: `refs/heads/${targetBranch}` 
+      const localCommitOid = await git.resolveRef({
+        fs: this.fs,
+        dir: this.dir,
+        ref: `refs/heads/${targetBranch}`,
       });
 
       // 4. すでに最新の場合
@@ -1258,9 +1281,14 @@ export class GitCommands {
         throw new Error('git pull --rebase is not yet supported. Use merge instead.');
       } else {
         // 5. Fast-forward可能かチェック
-        const localLog = await git.log({ fs: this.fs, dir: this.dir, depth: 100, ref: targetBranch });
+        const localLog = await git.log({
+          fs: this.fs,
+          dir: this.dir,
+          depth: 100,
+          ref: targetBranch,
+        });
         const isAncestor = localLog.some(c => c.oid === remoteCommitOid);
-        
+
         if (!isAncestor) {
           // Fast-forwardできない場合はマージ
           // まずリモートブランチをdetached HEADでチェックアウト
@@ -1270,17 +1298,17 @@ export class GitCommands {
             this.projectId,
             this.projectName
           );
-          
+
           // マージ実行（リモートコミットをマージ）
           const mergeResult = await mergeOperations.merge(remoteBranchRef, {
             message: `Merge branch '${remote}/${targetBranch}'`,
           });
-          
+
           return `From ${remote}\n${mergeResult}`;
         } else {
           // Fast-forward可能
           console.log('[git pull] Fast-forwarding...');
-          
+
           // HEADを更新
           await git.writeRef({
             fs: this.fs,
@@ -1303,7 +1331,7 @@ export class GitCommands {
 
           const shortLocal = localCommitOid.slice(0, 7);
           const shortRemote = remoteCommitOid.slice(0, 7);
-          
+
           return `Updating ${shortLocal}..${shortRemote}\nFast-forward`;
         }
       }

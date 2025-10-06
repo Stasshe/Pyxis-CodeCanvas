@@ -6,7 +6,6 @@
 import FS from '@isomorphic-git/lightning-fs';
 import git from 'isomorphic-git';
 
-
 import { GitHubAPI } from './github/GitHubAPI';
 import { TreeBuilder } from './github/TreeBuilder';
 import { parseGitHubUrl } from './github/utils';
@@ -29,7 +28,7 @@ async function getCommitsToPush(
   remoteHeadSha: string | null
 ): Promise<any[]> {
   const localLog = await git.log({ fs, dir, ref: branch });
-  
+
   if (!remoteHeadSha) {
     // リモートが空の場合は全コミットを返す
     return localLog.reverse();
@@ -37,13 +36,13 @@ async function getCommitsToPush(
 
   // リモートHEADがローカル履歴に含まれているか確認
   const remoteHeadIndex = localLog.findIndex(c => c.oid === remoteHeadSha);
-  
+
   if (remoteHeadIndex === -1) {
     // リモートHEADがローカル履歴にない = non-fast-forward
     throw new Error(
       `Updates were rejected because the remote contains work that you do not have locally.\n` +
-      `This is usually caused by another repository pushing to the same ref.\n` +
-      `You may want to first integrate the remote changes (e.g., 'git pull ...') before pushing again.`
+        `This is usually caused by another repository pushing to the same ref.\n` +
+        `You may want to first integrate the remote changes (e.g., 'git pull ...') before pushing again.`
     );
   }
 
@@ -57,11 +56,7 @@ async function getCommitsToPush(
   return commitsToPush.reverse();
 }
 
-export async function push(
-  fs: FS,
-  dir: string,
-  options: PushOptions = {}
-): Promise<string> {
+export async function push(fs: FS, dir: string, options: PushOptions = {}): Promise<string> {
   const { remote = 'origin', branch, force = false } = options;
 
   try {
@@ -81,7 +76,7 @@ export async function push(
 
     const remotes = await git.listRemotes({ fs, dir });
     const remoteInfo = remotes.find(r => r.remote === remote);
-    
+
     if (!remoteInfo) {
       throw new Error(`Remote '${remote}' not found.`);
     }
@@ -92,28 +87,30 @@ export async function push(
     }
 
     const githubAPI = new GitHubAPI(token, repoInfo.owner, repoInfo.repo);
-    
+
     // 1. リモートHEADを取得
     const remoteRef = await githubAPI.getRef(targetBranch);
-    
+
     let remoteHeadSha: string | null = null;
     let isNewBranch = false;
-    
+
     if (!remoteRef) {
       // リモートにブランチが存在しない場合
-      console.log(`[git push] Remote branch '${targetBranch}' does not exist. Creating new branch...`);
+      console.log(
+        `[git push] Remote branch '${targetBranch}' does not exist. Creating new branch...`
+      );
       isNewBranch = true;
-      
+
       // デフォルトブランチ(main/master)が存在するか確認
       const defaultBranch = await githubAPI.getRef('main').catch(() => githubAPI.getRef('master'));
-      
+
       if (!defaultBranch) {
         throw new Error(
           'Push failed: Remote repository is empty.\n\n' +
-          'Empty repositories are not supported. Please:\n' +
-          '1. Initialize the repository with a README on GitHub, or\n' +
-          '2. Push from another Git client first, or\n' +
-          '3. Create an initial commit on GitHub web interface'
+            'Empty repositories are not supported. Please:\n' +
+            '1. Initialize the repository with a README on GitHub, or\n' +
+            '2. Push from another Git client first, or\n' +
+            '3. Create an initial commit on GitHub web interface'
         );
       }
     } else {
@@ -123,7 +120,7 @@ export async function push(
 
     // 2. 未pushコミット列を取得（古い順）
     let commitsToPush: any[];
-    
+
     if (isNewBranch) {
       // 新しいブランチの場合は全コミットをpush
       const localLog = await git.log({ fs, dir, ref: targetBranch });
@@ -169,7 +166,9 @@ export async function push(
     const treeBuilder = new TreeBuilder(fs, dir, githubAPI);
 
     for (const commit of commitsToPush) {
-      console.log(`[git push] Processing commit: ${commit.oid.slice(0, 7)} - ${commit.commit.message.split('\n')[0]}`);
+      console.log(
+        `[git push] Processing commit: ${commit.oid.slice(0, 7)} - ${commit.commit.message.split('\n')[0]}`
+      );
 
       // ツリーを構築（差分アップロード）
       const treeSha = await treeBuilder.buildTree(commit.oid, remoteTreeSha);
@@ -196,7 +195,7 @@ export async function push(
       // 次のコミットのparentとして使用
       parentSha = commitData.sha;
       lastCommitSha = commitData.sha;
-      
+
       // 次の差分アップロード用にremoteTreeShaを更新
       remoteTreeSha = treeSha;
     }
@@ -207,7 +206,7 @@ export async function push(
 
     // 4. ブランチrefを最新のコミットに更新
     console.log('[git push] Updating branch reference...');
-    
+
     if (isNewBranch) {
       // 新しいブランチを作成
       await githubAPI.createRef(targetBranch, lastCommitSha);
@@ -226,20 +225,23 @@ export async function push(
         value: lastCommitSha,
         force: true,
       });
-      console.log('[git push] Updated remote tracking branch:', `${remote}/${targetBranch} -> ${lastCommitSha.slice(0, 7)}`);
+      console.log(
+        '[git push] Updated remote tracking branch:',
+        `${remote}/${targetBranch} -> ${lastCommitSha.slice(0, 7)}`
+      );
     } catch (error) {
       console.warn('[git push] Failed to update remote tracking branch:', error);
     }
 
     const remoteUrl = remoteInfo.url;
     let result = `To ${remoteUrl}\n`;
-    
+
     if (isNewBranch) {
       result += ` * [new branch]      ${targetBranch} -> ${targetBranch}\n`;
     } else {
       result += `   ${remoteHeadSha?.slice(0, 7) || '0000000'}..${lastCommitSha.slice(0, 7)}  ${targetBranch} -> ${targetBranch}\n`;
     }
-    
+
     return result;
   } catch (error: any) {
     console.error('[git push] Error:', error);

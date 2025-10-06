@@ -66,13 +66,15 @@ export class GitLogOperations {
 
       // ローカルブランチを取得
       const localBranches = await git.listBranches({ fs: this.fs, dir: this.dir });
-      
+
       // リモートブランチを取得（origin/とupstream/のみ）
       const remoteBranches: string[] = [];
       try {
         // originのリモートブランチ
         try {
-          const originBranches = await this.fs.promises.readdir(`${this.dir}/.git/refs/remotes/origin`);
+          const originBranches = await this.fs.promises.readdir(
+            `${this.dir}/.git/refs/remotes/origin`
+          );
           for (const branch of originBranches) {
             if (branch !== '.' && branch !== '..') {
               remoteBranches.push(`origin/${branch}`);
@@ -84,7 +86,9 @@ export class GitLogOperations {
 
         // upstreamのリモートブランチ
         try {
-          const upstreamBranches = await this.fs.promises.readdir(`${this.dir}/.git/refs/remotes/upstream`);
+          const upstreamBranches = await this.fs.promises.readdir(
+            `${this.dir}/.git/refs/remotes/upstream`
+          );
           for (const branch of upstreamBranches) {
             if (branch !== '.' && branch !== '..') {
               remoteBranches.push(`upstream/${branch}`);
@@ -111,12 +115,13 @@ export class GitLogOperations {
       for (const branch of branches) {
         try {
           console.log(`Getting commits for branch: ${branch}`);
-          
+
           // リモートブランチの場合は refs/remotes/ プレフィックスを使用
-          const refName = branch.startsWith('origin/') || branch.startsWith('upstream/')
-            ? `refs/remotes/${branch}`
-            : branch;
-          
+          const refName =
+            branch.startsWith('origin/') || branch.startsWith('upstream/')
+              ? `refs/remotes/${branch}`
+              : branch;
+
           const branchCommits = await git.log({
             fs: this.fs,
             dir: this.dir,

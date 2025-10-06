@@ -70,11 +70,12 @@ export class GitResetOperations {
         // 現在のブランチを取得してHEADを更新
         let currentBranch: string;
         try {
-          currentBranch = await git.currentBranch({
-            fs: this.fs,
-            dir: this.dir,
-            fullname: true,
-          }) || 'HEAD';
+          currentBranch =
+            (await git.currentBranch({
+              fs: this.fs,
+              dir: this.dir,
+              fullname: true,
+            })) || 'HEAD';
         } catch {
           currentBranch = 'HEAD';
         }
@@ -130,7 +131,7 @@ export class GitResetOperations {
         // git.checkoutを使用してターゲットコミットの状態を復元
         // これによりディレクトリ構造も自動的に作成される
         console.log('[NEW ARCHITECTURE] Reset: Checking out target commit');
-        
+
         // ブランチが存在する場合はブランチ名でcheckout、detached HEAD状態の場合はOIDでcheckout
         const checkoutRef = currentBranch !== 'HEAD' ? currentBranch : targetOid;
         await git.checkout({
@@ -212,7 +213,10 @@ export class GitResetOperations {
 
       if (errorMessage.includes('not a git repository')) {
         throw new Error('fatal: not a git repository (or any of the parent directories): .git');
-      } else if (errorMessage.includes('unknown revision') || errorMessage.includes('ambiguous argument')) {
+      } else if (
+        errorMessage.includes('unknown revision') ||
+        errorMessage.includes('ambiguous argument')
+      ) {
         throw new Error(errorMessage);
       } else if (errorMessage.includes('bad revision')) {
         throw new Error(`fatal: bad revision - commit not found`);

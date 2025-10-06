@@ -28,7 +28,7 @@ export default function AIReviewTab({
   onCloseTab,
 }: AIReviewTabProps) {
   const { colors } = useTheme();
-  
+
   // 現在編集中のsuggestedContentを管理（本体には影響しない）
   const [currentSuggestedContent, setCurrentSuggestedContent] = useState(
     tab.aiReviewProps?.suggestedContent || ''
@@ -139,7 +139,7 @@ export default function AIReviewTab({
 
     // Monaco Editorのアクションを追加
     const modifiedEditor = editor.getModifiedEditor();
-    
+
     // 選択範囲を元に戻すアクション
     modifiedEditor.addAction({
       id: 'revert-selection',
@@ -147,7 +147,7 @@ export default function AIReviewTab({
       keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyZ],
       contextMenuGroupId: 'modification',
       contextMenuOrder: 1,
-      run: (ed) => {
+      run: ed => {
         const selection = ed.getSelection();
         if (!selection || !diffModel?.original || !diffModel?.modified) return;
 
@@ -228,10 +228,16 @@ export default function AIReviewTab({
         style={{ borderColor: colors.border, background: colors.cardBg }}
       >
         <div>
-          <h3 className="font-semibold" style={{ color: colors.foreground }}>
+          <h3
+            className="font-semibold"
+            style={{ color: colors.foreground }}
+          >
             AI Review: {filePath.split('/').pop()}
           </h3>
-          <p className="text-xs mt-1" style={{ color: colors.mutedFg }}>
+          <p
+            className="text-xs mt-1"
+            style={{ color: colors.mutedFg }}
+          >
             {filePath}
           </p>
         </div>
@@ -337,7 +343,8 @@ export default function AIReviewTab({
           color: colors.mutedFg,
         }}
       >
-        💡 <b>右側のエディタで直接編集できます</b>。変更は自動保存され、「全て適用」でファイルに反映されます。
+        💡 <b>右側のエディタで直接編集できます</b>
+        。変更は自動保存され、「全て適用」でファイルに反映されます。
         <br />
         右クリックメニューから「選択範囲を元に戻す」で部分的に元に戻すこともできます。
       </div>

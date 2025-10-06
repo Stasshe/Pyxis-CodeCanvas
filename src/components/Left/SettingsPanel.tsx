@@ -126,12 +126,21 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
       style={{ background: colors.background, color: colors.foreground }}
     >
       {/* ワークスペースエクスポート */}
-      <div className="px-4 py-3 border-b" style={{ borderColor: colors.border }}>
-        <h2 className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: colors.mutedFg }}>
+      <div
+        className="px-4 py-3 border-b"
+        style={{ borderColor: colors.border }}
+      >
+        <h2
+          className="text-xs font-semibold uppercase tracking-wide mb-3"
+          style={{ color: colors.mutedFg }}
+        >
           ワークスペースエクスポート
         </h2>
         <div className="space-y-2">
-          <label className="flex items-center gap-2 text-xs cursor-pointer hover:bg-opacity-50 py-1 px-2 rounded transition-colors" style={{ color: colors.foreground }}>
+          <label
+            className="flex items-center gap-2 text-xs cursor-pointer hover:bg-opacity-50 py-1 px-2 rounded transition-colors"
+            style={{ color: colors.foreground }}
+          >
             <input
               type="checkbox"
               checked={includeGit}
@@ -153,13 +162,22 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
       </div>
 
       {/* テーマ設定 */}
-      <div className="px-4 py-3 border-b" style={{ borderColor: colors.border }}>
-        <h2 className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: colors.mutedFg }}>
+      <div
+        className="px-4 py-3 border-b"
+        style={{ borderColor: colors.border }}
+      >
+        <h2
+          className="text-xs font-semibold uppercase tracking-wide mb-3"
+          style={{ color: colors.mutedFg }}
+        >
           テーマ
         </h2>
         <div className="space-y-3">
           <div>
-            <label className="block text-xs mb-1.5" style={{ color: colors.foreground }}>
+            <label
+              className="block text-xs mb-1.5"
+              style={{ color: colors.foreground }}
+            >
               カラーテーマ
             </label>
             <select
@@ -173,7 +191,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               }}
             >
               {themeList.map(name => (
-                <option key={name} value={name}>
+                <option
+                  key={name}
+                  value={name}
+                >
                   {name}
                 </option>
               ))}
@@ -181,7 +202,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
           </div>
 
           <div>
-            <label className="block text-xs mb-1.5" style={{ color: colors.foreground }}>
+            <label
+              className="block text-xs mb-1.5"
+              style={{ color: colors.foreground }}
+            >
               コードハイライト
             </label>
             <select
@@ -195,7 +219,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               }}
             >
               {highlightThemeList.map(name => (
-                <option key={name} value={name}>
+                <option
+                  key={name}
+                  value={name}
+                >
                   {name}
                 </option>
               ))}
@@ -207,16 +234,25 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               type="button"
               onClick={handleToggleColorSettings}
               className="flex items-center justify-between w-full text-xs py-1.5 px-2 rounded hover:bg-opacity-10 transition-colors"
-              style={{ color: colors.foreground, background: showColorSettings ? colors.mutedBg : 'transparent' }}
+              style={{
+                color: colors.foreground,
+                background: showColorSettings ? colors.mutedBg : 'transparent',
+              }}
             >
               <span>カラーカスタマイズ</span>
               <span className="text-[10px]">{showColorSettings ? '▼' : '▶'}</span>
             </button>
             {showColorSettings && (
-              <div className="mt-2 p-2 rounded" style={{ background: colors.cardBg }}>
+              <div
+                className="mt-2 p-2 rounded"
+                style={{ background: colors.cardBg }}
+              >
                 <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
                   {Object.entries(colors).map(([key, value]) => (
-                    <div key={key} className="flex items-center gap-2">
+                    <div
+                      key={key}
+                      className="flex items-center gap-2"
+                    >
                       <input
                         id={`theme-${key}`}
                         type="color"
@@ -242,13 +278,22 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
       </div>
 
       {/* エディター設定 */}
-      <div className="px-4 py-3 border-b" style={{ borderColor: colors.border }}>
-        <h2 className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: colors.mutedFg }}>
+      <div
+        className="px-4 py-3 border-b"
+        style={{ borderColor: colors.border }}
+      >
+        <h2
+          className="text-xs font-semibold uppercase tracking-wide mb-3"
+          style={{ color: colors.mutedFg }}
+        >
           エディター
         </h2>
         <div className="space-y-3">
           <div>
-            <label className="block text-xs mb-1.5" style={{ color: colors.foreground }}>
+            <label
+              className="block text-xs mb-1.5"
+              style={{ color: colors.foreground }}
+            >
               デフォルトエディター
             </label>
             <select
@@ -264,12 +309,18 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               <option value="monaco">Monaco Editor</option>
               <option value="codemirror">CodeMirror</option>
             </select>
-            <p className="text-[10px] mt-1" style={{ color: colors.mutedFg }}>
+            <p
+              className="text-[10px] mt-1"
+              style={{ color: colors.mutedFg }}
+            >
               LocalStorageに保存されます
             </p>
           </div>
 
-          <label className="flex items-center gap-2 text-xs cursor-pointer hover:bg-opacity-50 py-1 px-2 rounded transition-colors" style={{ color: colors.foreground }}>
+          <label
+            className="flex items-center gap-2 text-xs cursor-pointer hover:bg-opacity-50 py-1 px-2 rounded transition-colors"
+            style={{ color: colors.foreground }}
+          >
             <input
               type="checkbox"
               checked={settings.editor.wordWrap}
@@ -285,7 +336,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
           </label>
 
           <div>
-            <label className="block text-xs mb-1.5" style={{ color: colors.foreground }}>
+            <label
+              className="block text-xs mb-1.5"
+              style={{ color: colors.foreground }}
+            >
               フォントサイズ
             </label>
             <input
@@ -308,7 +362,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
           </div>
 
           <div>
-            <label className="block text-xs mb-1.5" style={{ color: colors.foreground }}>
+            <label
+              className="block text-xs mb-1.5"
+              style={{ color: colors.foreground }}
+            >
               タブサイズ
             </label>
             <input
@@ -333,12 +390,21 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
       </div>
 
       {/* API設定 */}
-      <div className="px-4 py-3 border-b" style={{ borderColor: colors.border }}>
-        <h2 className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: colors.mutedFg }}>
+      <div
+        className="px-4 py-3 border-b"
+        style={{ borderColor: colors.border }}
+      >
+        <h2
+          className="text-xs font-semibold uppercase tracking-wide mb-3"
+          style={{ color: colors.mutedFg }}
+        >
           API
         </h2>
         <div>
-          <label className="block text-xs mb-1.5" style={{ color: colors.foreground }}>
+          <label
+            className="block text-xs mb-1.5"
+            style={{ color: colors.foreground }}
+          >
             Gemini APIキー
           </label>
           <input
@@ -353,27 +419,42 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               border: `1px solid ${colors.border}`,
             }}
           />
-          <p className="text-[10px] mt-1" style={{ color: colors.mutedFg }}>
+          <p
+            className="text-[10px] mt-1"
+            style={{ color: colors.mutedFg }}
+          >
             LocalStorageに保存されます
           </p>
         </div>
       </div>
 
       {/* 検索設定 */}
-      <div className="px-4 py-3 border-b" style={{ borderColor: colors.border }}>
-        <h2 className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: colors.mutedFg }}>
+      <div
+        className="px-4 py-3 border-b"
+        style={{ borderColor: colors.border }}
+      >
+        <h2
+          className="text-xs font-semibold uppercase tracking-wide mb-3"
+          style={{ color: colors.mutedFg }}
+        >
           検索
         </h2>
         <div className="space-y-3">
           <div>
-            <label className="block text-xs mb-1.5" style={{ color: colors.foreground }}>
+            <label
+              className="block text-xs mb-1.5"
+              style={{ color: colors.foreground }}
+            >
               除外パターン
             </label>
             <textarea
               value={settings.search.exclude.join('\n')}
               onChange={e =>
                 updateSettings({
-                  search: { ...settings.search, exclude: e.target.value.split('\n').filter(Boolean) },
+                  search: {
+                    ...settings.search,
+                    exclude: e.target.value.split('\n').filter(Boolean),
+                  },
                 })
               }
               placeholder="**/node_modules&#10;**/.git"
@@ -385,12 +466,18 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
                 border: `1px solid ${colors.border}`,
               }}
             />
-            <p className="text-[10px] mt-1" style={{ color: colors.mutedFg }}>
+            <p
+              className="text-[10px] mt-1"
+              style={{ color: colors.mutedFg }}
+            >
               glob パターンを1行ごとに記述
             </p>
           </div>
 
-          <label className="flex items-center gap-2 text-xs cursor-pointer hover:bg-opacity-50 py-1 px-2 rounded transition-colors" style={{ color: colors.foreground }}>
+          <label
+            className="flex items-center gap-2 text-xs cursor-pointer hover:bg-opacity-50 py-1 px-2 rounded transition-colors"
+            style={{ color: colors.foreground }}
+          >
             <input
               type="checkbox"
               checked={settings.search.useIgnoreFiles}
@@ -409,12 +496,18 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
 
       {/* ファイル設定 */}
       <div className="px-4 py-3">
-        <h2 className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: colors.mutedFg }}>
+        <h2
+          className="text-xs font-semibold uppercase tracking-wide mb-3"
+          style={{ color: colors.mutedFg }}
+        >
           ファイル
         </h2>
         <div className="space-y-3">
           <div>
-            <label className="block text-xs mb-1.5" style={{ color: colors.foreground }}>
+            <label
+              className="block text-xs mb-1.5"
+              style={{ color: colors.foreground }}
+            >
               除外パターン
             </label>
             <textarea
@@ -433,13 +526,19 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
                 border: `1px solid ${colors.border}`,
               }}
             />
-            <p className="text-[10px] mt-1" style={{ color: colors.mutedFg }}>
+            <p
+              className="text-[10px] mt-1"
+              style={{ color: colors.mutedFg }}
+            >
               エクスプローラーで非表示にするファイル/フォルダ
             </p>
           </div>
 
           <div>
-            <label className="block text-xs mb-1.5" style={{ color: colors.foreground }}>
+            <label
+              className="block text-xs mb-1.5"
+              style={{ color: colors.foreground }}
+            >
               自動保存
             </label>
             <select

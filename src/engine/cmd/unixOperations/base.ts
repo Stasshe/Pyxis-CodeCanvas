@@ -33,12 +33,12 @@ export abstract class UnixCommandBase {
     if (path.startsWith('/')) {
       return path;
     }
-    
+
     // '.' はカレントディレクトリを表す
     if (path === '.') {
       return this.currentDir;
     }
-    
+
     // '..' で始まる場合や、パスに含まれる場合は結合してから正規化
     return `${this.currentDir}/${path}`;
   }
@@ -95,7 +95,7 @@ export abstract class UnixCommandBase {
   protected async expandGlob(pattern: string, dirPath: string): Promise<string[]> {
     const regex = this.globToRegex(pattern);
     const files = await this.getAllFilesFromDB();
-    
+
     // dirPath配下のファイル/フォルダを取得
     const dirRelative = this.getRelativePathFromProject(dirPath);
     const childrenInDir = files.filter(f => {
@@ -108,7 +108,7 @@ export abstract class UnixCommandBase {
         return f.path.startsWith(dirRelative + '/') && !relativePath.includes('/');
       }
     });
-    
+
     return childrenInDir
       .map(f => f.path.split('/').pop() || '')
       .filter(name => regex.test(name))
@@ -119,10 +119,7 @@ export abstract class UnixCommandBase {
    * globパターンを正規表現に変換
    */
   private globToRegex(pattern: string): RegExp {
-    const escaped = pattern
-      .replace(/\./g, '\\.')
-      .replace(/\*/g, '.*')
-      .replace(/\?/g, '.');
+    const escaped = pattern.replace(/\./g, '\\.').replace(/\*/g, '.*').replace(/\?/g, '.');
     return new RegExp(`^${escaped}$`);
   }
 
@@ -133,21 +130,21 @@ export abstract class UnixCommandBase {
    */
   protected async expandPathPattern(pathPattern: string): Promise<string[]> {
     const resolvedPath = this.resolvePath(pathPattern);
-    
+
     // ワイルドカードが含まれていない場合はそのまま返す
     if (!resolvedPath.includes('*') && !resolvedPath.includes('?')) {
       return [resolvedPath];
     }
 
     const normalizedPath = this.normalizePath(resolvedPath);
-    
+
     // プロジェクトルートからの相対パスに変換してから展開
     const relativePath = this.getRelativePathFromProject(normalizedPath);
     const parts = relativePath.split('/').filter(p => p);
     const relativeResults: string[] = [];
-    
+
     await this.expandPathRecursive(parts, 0, '', relativeResults);
-    
+
     // 相対パスを絶対パスに戻す
     const projectRoot = this.getProjectRoot();
     return relativeResults.map(rel => {
@@ -178,7 +175,7 @@ export abstract class UnixCommandBase {
     }
 
     const part = parts[index];
-    
+
     // ワイルドカードが含まれていない場合
     if (!part.includes('*') && !part.includes('?')) {
       const nextPath = currentPath === '' ? part : `${currentPath}/${part}`;
@@ -189,7 +186,7 @@ export abstract class UnixCommandBase {
     // ワイルドカード展開（IndexedDBから取得）
     try {
       const files = await this.getAllFilesFromDB();
-      
+
       // currentPath直下のファイル/フォルダを取得
       const currentRelative = currentPath === '' ? '/' : `/${currentPath}`;
       const childrenInDir = files.filter(f => {
@@ -204,9 +201,9 @@ export abstract class UnixCommandBase {
           return !relativePath.includes('/');
         }
       });
-      
+
       const regex = this.globToRegex(part);
-      
+
       for (const file of childrenInDir) {
         const fileName = file.path.split('/').pop() || '';
         if (regex.test(fileName)) {
@@ -240,25 +237,25 @@ export abstract class UnixCommandBase {
    */
   protected async exists(path: string): Promise<boolean> {
     const relativePath = this.getRelativePathFromProject(path);
-    
+
     // ルートディレクトリは常に存在する
     if (relativePath === '/' || relativePath === '') {
       return true;
     }
-    
+
     const file = await this.getFileFromDB(relativePath);
-    
+
     // ファイルが見つかった場合
     if (file !== undefined) {
       return true;
     }
-    
+
     // ファイルが見つからない場合、子ファイルが存在するかチェック
     // （ディレクトリ自体がDBに登録されていない場合でも、子ファイルがあれば存在する）
     const files = await this.getAllFilesFromDB();
     const parentPath = relativePath.endsWith('/') ? relativePath : relativePath + '/';
     const hasChildren = files.some(f => f.path.startsWith(parentPath) && f.path !== relativePath);
-    
+
     return hasChildren;
   }
 
@@ -267,19 +264,19 @@ export abstract class UnixCommandBase {
    */
   protected async isDirectory(path: string): Promise<boolean> {
     const relativePath = this.getRelativePathFromProject(path);
-    
+
     // ルートディレクトリは常にディレクトリ
     if (relativePath === '/' || relativePath === '') {
       return true;
     }
-    
+
     const file = await this.getFileFromDB(relativePath);
-    
+
     // ファイルが見つかった場合、その型をチェック
     if (file !== undefined) {
       return file.type === 'folder';
     }
-    
+
     // ファイルが見つからない場合、子ファイルが存在するかチェック
     // （ディレクトリ自体がDBに登録されていない場合でも、子ファイルがあればディレクトリ）
     const files = await this.getAllFilesFromDB();
@@ -287,7 +284,7 @@ export abstract class UnixCommandBase {
       const parentPath = relativePath.endsWith('/') ? relativePath : relativePath + '/';
       return f.path.startsWith(parentPath) && f.path !== relativePath;
     });
-    
+
     return hasChildren;
   }
 
@@ -311,7 +308,7 @@ export abstract class UnixCommandBase {
 
     for (let i = 0; i < args.length; i++) {
       const arg = args[i];
-      
+
       if (arg.startsWith('--')) {
         // 長いオプション
         options.add(arg);

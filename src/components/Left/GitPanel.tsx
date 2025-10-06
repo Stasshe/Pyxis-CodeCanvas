@@ -116,7 +116,10 @@ export default function GitPanel({
       // 変更ファイル数を計算してコールバックで通知
       if (onGitStatusChange) {
         const changesCount =
-          status.staged.length + status.unstaged.length + status.untracked.length + status.deleted.length;
+          status.staged.length +
+          status.unstaged.length +
+          status.untracked.length +
+          status.deleted.length;
         console.log('[GitPanel] Notifying changes count:', changesCount);
         onGitStatusChange(changesCount);
       }
@@ -169,9 +172,7 @@ export default function GitPanel({
 
               // refsをカンマ区切りからstring配列に変換
               const refs =
-                refsStr && refsStr !== ''
-                  ? refsStr.split(',').filter(r => r.trim() !== '')
-                  : [];
+                refsStr && refsStr !== '' ? refsStr.split(',').filter(r => r.trim() !== '') : [];
 
               commits.push({
                 hash,
@@ -209,9 +210,7 @@ export default function GitPanel({
                   : [];
 
               const refs =
-                refsStr && refsStr !== ''
-                  ? refsStr.split(',').filter(r => r.trim() !== '')
-                  : [];
+                refsStr && refsStr !== '' ? refsStr.split(',').filter(r => r.trim() !== '') : [];
 
               commits.push({
                 hash,
@@ -290,7 +289,7 @@ export default function GitPanel({
       staged: [],
       unstaged: [],
       untracked: [],
-      deleted: [],  // 削除されたファイル（未ステージ）
+      deleted: [], // 削除されたファイル（未ステージ）
       branch: 'main',
       ahead: 0,
       behind: 0,
@@ -362,7 +361,11 @@ export default function GitPanel({
       unstaged: status.unstaged,
       untracked: status.untracked,
       deleted: status.deleted,
-      total: status.staged.length + status.unstaged.length + status.untracked.length + status.deleted.length,
+      total:
+        status.staged.length +
+        status.unstaged.length +
+        status.untracked.length +
+        status.deleted.length,
     });
 
     return status;
@@ -456,29 +459,28 @@ export default function GitPanel({
   // コミット実行
   const handleCommit = async () => {
     if (!gitCommands || !commitMessage.trim()) return;
-    
+
     try {
       setIsCommitting(true);
       setError(null);
       console.log('[GitPanel] Starting commit process...');
-      
+
       // タイムアウト付きでコミット実行
       const commitPromise = gitCommands.commit(commitMessage.trim());
-      const timeoutPromise = new Promise((_, reject) => 
+      const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Commit timeout after 30 seconds')), 30000)
       );
-      
+
       await Promise.race([commitPromise, timeoutPromise]);
-      
+
       console.log('[GitPanel] Commit completed successfully');
       setCommitMessage('');
-      
+
       // コミット成功後、少し待ってからステータスを更新
       setTimeout(() => {
         console.log('[GitPanel] Refreshing status after commit...');
         fetchGitStatus();
       }, 500);
-      
     } catch (error) {
       console.error('Failed to commit:', error);
       setError(error instanceof Error ? error.message : 'コミットに失敗しました');
@@ -486,8 +488,6 @@ export default function GitPanel({
       setIsCommitting(false);
     }
   };
-
-
 
   // コミットメッセージ自動生成
   const handleGenerateCommitMessage = async () => {
@@ -810,8 +810,6 @@ export default function GitPanel({
               {isCommitting ? 'コミット中...' : 'コミット'}
             </button>
           </div>
-
-
         </div>
       )}
 
@@ -921,7 +919,11 @@ export default function GitPanel({
                             // 最新コミットのhashを取得
                             const latestCommit = gitRepo.commits[0];
                             // ステージング済みファイルは編集不可でdiffを表示
-                            onDiffFileClick({ commitId: latestCommit.hash, filePath: file, editable: false });
+                            onDiffFileClick({
+                              commitId: latestCommit.hash,
+                              filePath: file,
+                              editable: false,
+                            });
                           }
                         }}
                       >
@@ -986,7 +988,11 @@ export default function GitPanel({
                             // 最新コミットのhashを取得
                             const latestCommit = gitRepo.commits[0];
                             // 未ステージファイルは編集可能でdiffを表示
-                            onDiffFileClick({ commitId: latestCommit.hash, filePath: file, editable: true });
+                            onDiffFileClick({
+                              commitId: latestCommit.hash,
+                              filePath: file,
+                              editable: true,
+                            });
                           }
                         }}
                       >
@@ -1072,7 +1078,11 @@ export default function GitPanel({
                             // 最新コミットのhashを取得
                             const latestCommit = gitRepo.commits[0];
                             // 削除されたファイルは編集可能でdiffを表示
-                            onDiffFileClick({ commitId: latestCommit.hash, filePath: file, editable: true });
+                            onDiffFileClick({
+                              commitId: latestCommit.hash,
+                              filePath: file,
+                              editable: true,
+                            });
                           }
                         }}
                       >

@@ -1,4 +1,13 @@
-import { X, Plus, Menu, Trash2, Save, SplitSquareVertical, SplitSquareHorizontal, Minus } from 'lucide-react';
+import {
+  X,
+  Plus,
+  Menu,
+  Trash2,
+  Save,
+  SplitSquareVertical,
+  SplitSquareHorizontal,
+  Minus,
+} from 'lucide-react';
 import clsx from 'clsx';
 import React, { useState, useRef, useEffect } from 'react';
 import { useTabCloseConfirmation } from './useTabCloseConfirmation';
@@ -64,7 +73,11 @@ export default function TabBar({
         closeMenu();
       }
       // タブコンテキストメニュー
-      if (tabContextMenu.isOpen && tabContextMenuRef.current && !tabContextMenuRef.current.contains(event.target as Node)) {
+      if (
+        tabContextMenu.isOpen &&
+        tabContextMenuRef.current &&
+        !tabContextMenuRef.current.contains(event.target as Node)
+      ) {
         setTabContextMenu({ isOpen: false, tabId: '', x: 0, y: 0 });
       }
     }
@@ -184,7 +197,10 @@ export default function TabBar({
           onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
           onMouseLeave={e => (e.currentTarget.style.background = menuOpen ? colors.accentBg : '')}
         >
-          <Menu size={20} color={colors.accentFg} />
+          <Menu
+            size={20}
+            color={colors.accentFg}
+          />
         </button>
         {/* メニュー表示 */}
         {menuOpen && (
@@ -213,7 +229,10 @@ export default function TabBar({
               onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
               onMouseLeave={e => (e.currentTarget.style.background = '')}
             >
-              <Minus size={16} color={colors.red} />
+              <Minus
+                size={16}
+                color={colors.red}
+              />
               <span style={{ color: colors.foreground }}>ペイン削除</span>
             </button>
             {onSplitPane && (
@@ -229,7 +248,10 @@ export default function TabBar({
                   onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
                   onMouseLeave={e => (e.currentTarget.style.background = '')}
                 >
-                  <SplitSquareVertical size={16} color={colors.accentFg} />
+                  <SplitSquareVertical
+                    size={16}
+                    color={colors.accentFg}
+                  />
                   <span style={{ color: colors.foreground }}>縦分割</span>
                 </button>
                 <button
@@ -243,7 +265,10 @@ export default function TabBar({
                   onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
                   onMouseLeave={e => (e.currentTarget.style.background = '')}
                 >
-                  <SplitSquareHorizontal size={16} color={colors.accentFg} />
+                  <SplitSquareHorizontal
+                    size={16}
+                    color={colors.accentFg}
+                  />
                   <span style={{ color: colors.foreground }}>横分割</span>
                 </button>
               </>
@@ -259,7 +284,10 @@ export default function TabBar({
               onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
               onMouseLeave={e => (e.currentTarget.style.background = '')}
             >
-              <Trash2 size={16} color={colors.red} />
+              <Trash2
+                size={16}
+                color={colors.red}
+              />
               <span style={{ color: colors.foreground }}>タブ全削除</span>
             </button>
             <button
@@ -270,7 +298,10 @@ export default function TabBar({
               onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
               onMouseLeave={e => (e.currentTarget.style.background = '')}
             >
-              <Save size={16} color={colors.primary} />
+              <Save
+                size={16}
+                color={colors.primary}
+              />
               <span style={{ color: colors.foreground }}>保存 & 再起動</span>
             </button>
           </div>
@@ -456,7 +487,7 @@ export default function TabBar({
           )}
         </div>
       )}
-  {ConfirmationDialog}
-  </div>
+      {ConfirmationDialog}
+    </div>
   );
 }

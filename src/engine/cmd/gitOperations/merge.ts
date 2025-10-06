@@ -139,7 +139,7 @@ export class GitMergeOperations {
 
       // 現在のブランチを取得
       const currentBranch = await this.getCurrentBranch();
-      
+
       // detached HEAD状態ではマージできない
       if (!currentBranch) {
         return 'fatal: You are not currently on a branch.\nTo make a commit, create a new branch or switch to an existing branch.';

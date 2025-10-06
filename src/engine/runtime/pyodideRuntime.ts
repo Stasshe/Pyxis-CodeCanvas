@@ -43,7 +43,7 @@ export function getPyodide(): PyodideInterface | null {
 export async function setCurrentProject(projectId: string, projectName: string): Promise<void> {
   currentProjectId = projectId;
   currentProjectName = projectName;
-  
+
   // Pyodideが初期化されていれば、ファイルシステムを同期
   if (pyodideInstance && projectId) {
     await syncPyodideFromIndexedDB(projectId);
@@ -56,11 +56,11 @@ export async function setCurrentProject(projectId: string, projectName: string):
  */
 export async function syncPyodideFromIndexedDB(projectId: string): Promise<void> {
   const pyodide = await initPyodide();
-  
+
   try {
     // IndexedDBから全ファイルを取得
     const files = await fileRepository.getProjectFiles(projectId);
-    
+
     // Pyodideのファイルシステムをクリア（/homeディレクトリを再作成）
     try {
       const homeContents = pyodide.FS.readdir('/home');
@@ -85,16 +85,16 @@ export async function syncPyodideFromIndexedDB(projectId: string): Promise<void>
         // 既に存在する場合は無視
       }
     }
-    
+
     // 各ファイルをPyodideに書き込む
     for (const file of files) {
       if (file.type === 'file' && file.content) {
         const pyodidePath = `/home${file.path}`;
-        
+
         // ディレクトリを作成
         const dirPath = pyodidePath.substring(0, pyodidePath.lastIndexOf('/'));
         createDirectoryRecursive(pyodide, dirPath);
-        
+
         // ファイルを書き込む
         try {
           pyodide.FS.writeFile(pyodidePath, file.content);
@@ -103,7 +103,7 @@ export async function syncPyodideFromIndexedDB(projectId: string): Promise<void>
         }
       }
     }
-    
+
     runtimeInfo(`Synced ${files.filter(f => f.type === 'file').length} files to Pyodide`);
   } catch (error) {
     runtimeError('Failed to sync Pyodide from IndexedDB:', error);
@@ -121,19 +121,19 @@ export async function syncPyodideToIndexedDB(projectId: string): Promise<void> {
     runtimeWarn('Pyodide not initialized');
     return;
   }
-  
+
   try {
     // 現在のIndexedDBファイル一覧を取得
     const existingFiles = await fileRepository.getProjectFiles(projectId);
     const existingPaths = new Set(existingFiles.map(f => f.path));
-    
+
     // Pyodideの/homeディレクトリを再帰的にスキャン
     const pyodideFiles = scanPyodideDirectory(pyodideInstance, '/home', '');
-    
+
     // Pyodideのファイルを同期
     for (const { path, content } of pyodideFiles) {
       const existingFile = existingFiles.find(f => f.path === path);
-      
+
       if (existingFile) {
         // 既存ファイルの更新
         if (existingFile.content !== content) {
@@ -147,10 +147,10 @@ export async function syncPyodideToIndexedDB(projectId: string): Promise<void> {
         // 新規ファイルの作成
         await fileRepository.createFile(projectId, path, content, 'file');
       }
-      
+
       existingPaths.delete(path);
     }
-    
+
     // Pyodideに存在しないファイルを削除
     for (const path of existingPaths) {
       const file = existingFiles.find(f => f.path === path);
@@ -158,7 +158,7 @@ export async function syncPyodideToIndexedDB(projectId: string): Promise<void> {
         await fileRepository.deleteFile(file.id);
       }
     }
-    
+
     runtimeInfo(`Synced ${pyodideFiles.length} files from Pyodide to IndexedDB`);
   } catch (error) {
     runtimeError('Failed to sync Pyodide to IndexedDB:', error);
@@ -175,19 +175,19 @@ function scanPyodideDirectory(
   relativePath: string
 ): Array<{ path: string; content: string }> {
   const results: Array<{ path: string; content: string }> = [];
-  
+
   try {
     const contents = pyodide.FS.readdir(pyodidePath);
-    
+
     for (const item of contents) {
       if (item === '.' || item === '..') continue;
-      
+
       const fullPyodidePath = `${pyodidePath}/${item}`;
       const fullRelativePath = relativePath ? `${relativePath}/${item}` : `/${item}`;
-      
+
       try {
         const stat = pyodide.FS.stat(fullPyodidePath);
-        
+
         if (pyodide.FS.isDir(stat.mode)) {
           // ディレクトリの場合は再帰的にスキャン
           results.push(...scanPyodideDirectory(pyodide, fullPyodidePath, fullRelativePath));
@@ -203,7 +203,7 @@ function scanPyodideDirectory(
   } catch (error) {
     runtimeWarn(`Failed to read directory: ${pyodidePath}`, error);
   }
-  
+
   return results;
 }
 
@@ -213,7 +213,7 @@ function scanPyodideDirectory(
 function createDirectoryRecursive(pyodide: PyodideInterface, path: string): void {
   const parts = path.split('/').filter(p => p);
   let currentPath = '';
-  
+
   for (const part of parts) {
     currentPath += '/' + part;
     try {

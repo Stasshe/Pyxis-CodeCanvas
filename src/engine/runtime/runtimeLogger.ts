@@ -13,7 +13,7 @@ function safeStringify(value: unknown): string {
 }
 
 function formatArgs(args: unknown[]): string {
-  return args.map((a) => safeStringify(a)).join(' ');
+  return args.map(a => safeStringify(a)).join(' ');
 }
 
 export function runtimeInfo(...args: unknown[]): void {

@@ -167,7 +167,9 @@ export async function handleGitCommand(
 
       // ブランチ名が明示的に指定されている場合のみ作成/削除
       if (branchName && branchName.trim() !== '') {
-        const branchResult = await gitCommandsRef.current.branch(branchName, { delete: deleteFlag });
+        const branchResult = await gitCommandsRef.current.branch(branchName, {
+          delete: deleteFlag,
+        });
         await writeOutput(branchResult);
       } else {
         // -r/-aのみ、または引数なしの場合は一覧表示
@@ -363,7 +365,9 @@ export async function handleGitCommand(
           await writeOutput(`git remote: ${(error as Error).message}`);
         }
       } else {
-        await writeOutput('git remote: invalid command\nUsage: git remote [-v] | git remote add <name> <url> | git remote remove <name>');
+        await writeOutput(
+          'git remote: invalid command\nUsage: git remote [-v] | git remote add <name> <url> | git remote remove <name>'
+        );
       }
       break;
 

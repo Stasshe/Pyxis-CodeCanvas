@@ -8,7 +8,6 @@
  * - fileRepository.createFile() を使用して自動的に管理
  */
 
-
 import { NpmInstall } from './npmOperations/npmInstall';
 
 import { fileRepository } from '@/engine/core/fileRepository';
@@ -117,8 +116,10 @@ export class NpmCommands {
 
         // package.jsonに記載があるかチェック
         let isInPackageJson = false;
-        if ((packageJson.dependencies && packageJson.dependencies[packageName]) ||
-            (packageJson.devDependencies && packageJson.devDependencies[packageName])) {
+        if (
+          (packageJson.dependencies && packageJson.dependencies[packageName]) ||
+          (packageJson.devDependencies && packageJson.devDependencies[packageName])
+        ) {
           isInPackageJson = true;
         }
 
@@ -144,7 +145,9 @@ export class NpmCommands {
 
           // 実際にnode_modulesにインストールされているかチェック
           const files = await fileRepository.getProjectFiles(this.projectId);
-          const isActuallyInstalled = files.some(f => f.path.startsWith(`/node_modules/${packageName}`));
+          const isActuallyInstalled = files.some(f =>
+            f.path.startsWith(`/node_modules/${packageName}`)
+          );
 
           if (isInPackageJson && isActuallyInstalled) {
             return `updated 1 package in ${Math.random() * 2 + 1}s\n\n~ ${packageName}@${version}\nupdated 1 package and audited 1 package in ${Math.random() * 0.5 + 0.5}s\n\nfound 0 vulnerabilities`;
@@ -216,7 +219,9 @@ export class NpmCommands {
         }
       } catch (error) {
         // 依存関係解決に失敗した場合は、単純にメインパッケージのみ削除
-        console.warn(`[npm.uninstall] Dependency analysis failed, removing only main package: ${(error as Error).message}`);
+        console.warn(
+          `[npm.uninstall] Dependency analysis failed, removing only main package: ${(error as Error).message}`
+        );
         // node_modules配下のIndexedDBファイルも念のため削除
         const files = await fileRepository.getProjectFiles(this.projectId);
         const packageFiles = files.filter(f => f.path.startsWith(`/node_modules/${packageName}`));

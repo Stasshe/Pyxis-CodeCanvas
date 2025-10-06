@@ -19,8 +19,8 @@ interface DiffTabProps {
   onContentChangeImmediate?: (content: string) => void; // 編集内容の即時更新用
 }
 
-const DiffTab: React.FC<DiffTabProps> = ({ 
-  diffs, 
+const DiffTab: React.FC<DiffTabProps> = ({
+  diffs,
   editable = false,
   onContentChange,
   onContentChangeImmediate,
@@ -125,18 +125,18 @@ const DiffTab: React.FC<DiffTabProps> = ({
       // 複数ファイルのdiffでは、どのファイルが編集されたか特定が困難なため無効化
       if (editable && diffModel.modified && diffs.length === 1) {
         const modifiedEditor = editor.getModifiedEditor();
-        
+
         // 変更イベントリスナーを追加
         const disposable = diffModel.modified.onDidChangeContent(() => {
           const newContent = diffModel.modified.getValue();
-          
+
           console.log('[DiffTab] Content changed, triggering save');
-          
+
           // 即座に状態を更新
           if (onContentChangeImmediate) {
             onContentChangeImmediate(newContent);
           }
-          
+
           // デバウンス保存をトリガー
           debouncedSave(newContent);
         });

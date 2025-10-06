@@ -41,10 +41,9 @@ export class TranspileManager {
       const id = `transpile_${++this.requestId}_${Date.now()}`;
 
       // Workerを作成
-      const worker = new Worker(
-        new URL('./transpileWorker.ts', import.meta.url),
-        { type: 'module' }
-      );
+      const worker = new Worker(new URL('./transpileWorker.ts', import.meta.url), {
+        type: 'module',
+      });
 
       // タイムアウト設定（30秒）
       const timeout = setTimeout(() => {
@@ -72,9 +71,9 @@ export class TranspileManager {
         }
 
         clearTimeout(timeout);
-        
+
         const result = data as TranspileResult;
-        
+
         if (result.error) {
           reject(new Error(result.error));
         } else {
@@ -86,7 +85,7 @@ export class TranspileManager {
       };
 
       // エラーハンドラ
-      worker.onerror = (error) => {
+      worker.onerror = error => {
         clearTimeout(timeout);
         worker.terminate();
         reject(new Error(`Worker error: ${error.message}`));

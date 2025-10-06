@@ -76,7 +76,14 @@ export class NpmInstall {
     for (let i = 0; i < this.fileOperationQueue.length; i += BATCH_SIZE) {
       const batch = this.fileOperationQueue.slice(i, i + BATCH_SIZE);
       // グループ化して bulk 操作に変換
-      const filesToCreate = batch.filter(b => b.type === 'file').map(b => ({ projectId: this.projectId, path: b.path, content: b.content || '', type: 'file' }));
+      const filesToCreate = batch
+        .filter(b => b.type === 'file')
+        .map(b => ({
+          projectId: this.projectId,
+          path: b.path,
+          content: b.content || '',
+          type: 'file',
+        }));
       const deletes = batch.filter(b => b.type === 'delete').map(b => b.path);
 
       try {
@@ -147,7 +154,9 @@ export class NpmInstall {
   private async loadInstalledPackages(snapshotFiles?: Array<any>): Promise<void> {
     try {
       const files = snapshotFiles ?? (await fileRepository.getProjectFiles(this.projectId));
-      const nodeModulesFiles = files.filter(f => f.path.startsWith('/node_modules/') && f.path.endsWith('package.json'));
+      const nodeModulesFiles = files.filter(
+        f => f.path.startsWith('/node_modules/') && f.path.endsWith('package.json')
+      );
       for (const file of nodeModulesFiles) {
         try {
           const packageJson = JSON.parse(file.content);
@@ -179,13 +188,15 @@ export class NpmInstall {
   }
 
   // 全インストール済みパッケージの依存関係を分析
-  private async analyzeDependencies(snapshotFiles?: Array<any>): Promise<
-    Map<string, { dependencies: string[]; dependents: string[] }>
-  > {
+  private async analyzeDependencies(
+    snapshotFiles?: Array<any>
+  ): Promise<Map<string, { dependencies: string[]; dependents: string[] }>> {
     const dependencyGraph = new Map<string, { dependencies: string[]; dependents: string[] }>();
     try {
       const files = snapshotFiles ?? (await fileRepository.getProjectFiles(this.projectId));
-      const nodeModulesFiles = files.filter(f => f.path.startsWith('/node_modules/') && f.path.endsWith('package.json'));
+      const nodeModulesFiles = files.filter(
+        f => f.path.startsWith('/node_modules/') && f.path.endsWith('package.json')
+      );
       // まず全パッケージをマップに登録
       for (const file of nodeModulesFiles) {
         try {
@@ -419,7 +430,11 @@ export class NpmInstall {
   }
 
   // パッケージが既にインストールされているかチェック（依存関係も含めて）
-  private async isPackageInstalled(packageName: string, version: string, snapshotFiles?: Array<any>): Promise<boolean> {
+  private async isPackageInstalled(
+    packageName: string,
+    version: string,
+    snapshotFiles?: Array<any>
+  ): Promise<boolean> {
     try {
       const files = snapshotFiles ?? (await fileRepository.getProjectFiles(this.projectId));
       const packageFile = files.find(f => f.path === `/node_modules/${packageName}/package.json`);
@@ -435,7 +450,10 @@ export class NpmInstall {
   }
 
   // 依存関係が全てインストールされているかチェック
-  private async areDependenciesInstalled(dependencies: Record<string, string>, snapshotFiles?: Array<any>): Promise<boolean> {
+  private async areDependenciesInstalled(
+    dependencies: Record<string, string>,
+    snapshotFiles?: Array<any>
+  ): Promise<boolean> {
     const dependencyEntries = Object.entries(dependencies);
     if (dependencyEntries.length === 0) {
       return true;
@@ -605,7 +623,10 @@ export class NpmInstall {
               );
             } catch (e) {
               // 何らかの理由で pipeThrough が失敗した場合はフォールバックで pako を使う
-              console.warn('[npm.downloadAndInstallPackage] DecompressionStream failed, falling back to pako', e);
+              console.warn(
+                '[npm.downloadAndInstallPackage] DecompressionStream failed, falling back to pako',
+                e
+              );
               decompressedStream = await this.createPakoDecompressedStream(tarballResponse.body);
             }
           } else {
@@ -613,7 +634,10 @@ export class NpmInstall {
             decompressedStream = await this.createPakoDecompressedStream(tarballResponse.body);
           }
 
-          extractedFiles = await this.extractPackageFromStream(`/node_modules/${packageName}`, decompressedStream);
+          extractedFiles = await this.extractPackageFromStream(
+            `/node_modules/${packageName}`,
+            decompressedStream
+          );
         } else {
           // ストリーミング非対応環境では従来通り全体を読み込んでから展開
           const tarballData = await tarballResponse.arrayBuffer();
@@ -668,7 +692,9 @@ export class NpmInstall {
     decompressedStream: ReadableStream<Uint8Array>
   ): Promise<Map<string, { isDirectory: boolean; content?: string; fullPath: string }>> {
     try {
-      console.log(`[npm.extractPackageFromStream] Starting streaming tar extraction to: ${packageDir}`);
+      console.log(
+        `[npm.extractPackageFromStream] Starting streaming tar extraction to: ${packageDir}`
+      );
 
       const extract = tarStream.extract();
 
@@ -763,7 +789,9 @@ export class NpmInstall {
 
       await new Promise<void>((resolve, reject) => {
         extract.on('finish', () => {
-          console.log(`[npm.extractPackageFromStream] Tar processing completed, found ${fileEntries.size} entries`);
+          console.log(
+            `[npm.extractPackageFromStream] Tar processing completed, found ${fileEntries.size} entries`
+          );
           resolve();
         });
         extract.on('error', (error: Error) => {
@@ -773,9 +801,14 @@ export class NpmInstall {
       });
 
       // ディレクトリを深さ順でソートして Map を返す
-      const sortedDirs = Array.from(requiredDirs).sort((a, b) => a.split('/').length - b.split('/').length);
+      const sortedDirs = Array.from(requiredDirs).sort(
+        (a, b) => a.split('/').length - b.split('/').length
+      );
 
-      const extractedFiles = new Map<string, { isDirectory: boolean; content?: string; fullPath: string }>();
+      const extractedFiles = new Map<
+        string,
+        { isDirectory: boolean; content?: string; fullPath: string }
+      >();
       for (const dirPath of sortedDirs) {
         const fullPath = `${packageDir}/${dirPath}`;
         extractedFiles.set(dirPath, { isDirectory: true, fullPath });
@@ -783,7 +816,11 @@ export class NpmInstall {
 
       for (const [relativePath, entry] of fileEntries) {
         if (entry.type === 'file') {
-          extractedFiles.set(relativePath, { isDirectory: false, content: entry.content, fullPath: entry.fullPath });
+          extractedFiles.set(relativePath, {
+            isDirectory: false,
+            content: entry.content,
+            fullPath: entry.fullPath,
+          });
         }
       }
 
@@ -796,7 +833,9 @@ export class NpmInstall {
   }
 
   // pako を使って gzip 解凍をストリーミングする ReadableStream を生成
-  private async createPakoDecompressedStream(bodyStream: ReadableStream<Uint8Array>): Promise<ReadableStream<Uint8Array>> {
+  private async createPakoDecompressedStream(
+    bodyStream: ReadableStream<Uint8Array>
+  ): Promise<ReadableStream<Uint8Array>> {
     const reader = bodyStream.getReader();
     const inflate = new pako.Inflate();
 

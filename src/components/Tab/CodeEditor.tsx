@@ -1,11 +1,11 @@
 /**
  * CodeEditor_new.tsx - リファクタリング版エディターコンポーネント
- * 
+ *
  * 責務:
  * - タブの状態判定とルーティング（Monaco/CodeMirror/プレビュー/バイナリ/Welcome）
  * - デバウンス保存の制御
  * - エディター間の共通インターフェース提供
- * 
+ *
  * 保持された機能:
  * - jumpToLine/jumpToColumn
  * - ブレークポイント管理
@@ -130,7 +130,12 @@ export default function CodeEditor({
 
   // === コンテンツ復元中 ===
   if (activeTab.needsContentRestore) {
-    return <EditorPlaceholder type="loading" message="ファイル内容を復元中..." />;
+    return (
+      <EditorPlaceholder
+        type="loading"
+        message="ファイル内容を復元中..."
+      />
+    );
   }
 
   // === バイナリファイル ===
@@ -159,7 +164,12 @@ export default function CodeEditor({
 
   // === Markdownプレビュー ===
   if (activeTab.preview) {
-    console.log('[CodeEditor_new] Rendering Markdown preview for:', activeTab.name, activeTab.path, currentProject?.name);
+    console.log(
+      '[CodeEditor_new] Rendering Markdown preview for:',
+      activeTab.name,
+      activeTab.path,
+      currentProject?.name
+    );
     console.log('[CodeEditor_new] Current project files:', currentProject);
     console.log('[CodeEditor_new] activeTab:', activeTab);
     return (

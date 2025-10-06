@@ -34,13 +34,19 @@ export default function FileContextBar({
         background: colors.mutedBg,
       }}
     >
-      <div className="flex items-center gap-1 text-xs" style={{ color: colors.mutedFg }}>
+      <div
+        className="flex items-center gap-1 text-xs"
+        style={{ color: colors.mutedFg }}
+      >
         <FileCode size={14} />
         <span>コンテキスト:</span>
       </div>
 
       {selectedContexts.length === 0 ? (
-        <span className="text-xs" style={{ color: colors.mutedFg }}>
+        <span
+          className="text-xs"
+          style={{ color: colors.mutedFg }}
+        >
           ファイルが選択されていません
         </span>
       ) : (

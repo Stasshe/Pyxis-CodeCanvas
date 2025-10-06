@@ -4,13 +4,13 @@ import { fileRepository } from '@/engine/core/fileRepository';
 
 /**
  * touch - ファイルのタイムスタンプを更新、または空ファイルを作成
- * 
+ *
  * 使用法:
  *   touch [-c] file...
- * 
+ *
  * オプション:
  *   -c, --no-create  ファイルが存在しない場合は作成しない
- * 
+ *
  * 動作:
  *   - 複数のファイルを一度に作成/更新可能
  *   - ファイルが存在しない場合は空ファイルを作成
@@ -70,19 +70,14 @@ export class TouchCommand extends UnixCommandBase {
       if (parentPath !== '/') {
         const parentFullPath = this.normalizePath(`${this.getProjectRoot()}${parentPath}`);
         const parentExists = await this.exists(parentFullPath);
-        
+
         if (!parentExists) {
           throw new Error('No such file or directory');
         }
       }
 
       // 空ファイルを作成
-      await fileRepository.createFile(
-        this.projectId,
-        relativePath,
-        '',
-        'file'
-      );
+      await fileRepository.createFile(this.projectId, relativePath, '', 'file');
     }
   }
 }

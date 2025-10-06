@@ -28,12 +28,7 @@ export default function ChatInput({
   const [input, setInput] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const {
-    addToHistory,
-    goToPrevious,
-    goToNext,
-    hasHistory,
-  } = useInputHistory({
+  const { addToHistory, goToPrevious, goToNext, hasHistory } = useInputHistory({
     maxHistorySize: 100,
     storageKey: `ai-chat-history-${mode}`,
   });
@@ -99,7 +94,10 @@ export default function ChatInput({
         {/* 選択ファイル表示 */}
         {selectedFiles.length > 0 && (
           <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex items-center gap-1 text-xs" style={{ color: colors.mutedFg }}>
+            <div
+              className="flex items-center gap-1 text-xs"
+              style={{ color: colors.mutedFg }}
+            >
               <FileCode size={14} />
               <span>選択中:</span>
             </div>
@@ -171,7 +169,10 @@ export default function ChatInput({
               title="送信 (Ctrl+Enter)"
             >
               {isProcessing ? (
-                <Loader2 size={18} className="animate-spin" />
+                <Loader2
+                  size={18}
+                  className="animate-spin"
+                />
               ) : (
                 <Send size={18} />
               )}
@@ -180,7 +181,10 @@ export default function ChatInput({
         </div>
 
         {/* ヘルプテキスト */}
-        <div className="flex items-center justify-between text-xs" style={{ color: colors.mutedFg }}>
+        <div
+          className="flex items-center justify-between text-xs"
+          style={{ color: colors.mutedFg }}
+        >
           <span>Enter: 改行 / Ctrl+Enter: 送信</span>
           {hasHistory && <span>Alt+↑↓: 履歴</span>}
         </div>

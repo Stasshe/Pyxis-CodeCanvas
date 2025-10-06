@@ -15,15 +15,7 @@ interface CodeMirrorEditorProps {
 }
 
 export default function CodeMirrorEditor(props: CodeMirrorEditorProps) {
-  const {
-    tabId,
-    fileName,
-    content,
-    onChange,
-    onSelectionChange,
-    tabSize,
-    insertSpaces,
-  } = props;
+  const { tabId, fileName, content, onChange, onSelectionChange, tabSize, insertSpaces } = props;
 
   // CodeMirrorインスタンスのref
   const cmRef = useRef<any>(null);

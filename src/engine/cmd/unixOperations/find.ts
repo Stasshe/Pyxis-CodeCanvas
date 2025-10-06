@@ -2,16 +2,16 @@ import { UnixCommandBase } from './base';
 
 /**
  * find - ファイルを検索
- * 
+ *
  * 使用法:
  *   find [path...] [expression]
- * 
+ *
  * オプション/式:
  *   -name pattern   ファイル名がパターンに一致
  *   -type f|d       ファイルタイプ（f=ファイル、d=ディレクトリ）
  *   -maxdepth N     最大検索深度
  *   -mindepth N     最小検索深度
- * 
+ *
  * 動作:
  *   - IndexedDBから検索
  *   - デフォルトはカレントディレクトリ
@@ -46,7 +46,7 @@ export class FindCommand extends UnixCommandBase {
 
     for (let i = 0; i < expressions.length; i++) {
       const expr = expressions[i];
-      
+
       if (expr === '-name' && i + 1 < expressions.length) {
         const pattern = expressions[i + 1]
           .replace(/\./g, '\\.')

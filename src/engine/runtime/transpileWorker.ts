@@ -1,10 +1,10 @@
 /**
  * [NEW ARCHITECTURE] Transpile Worker
- * 
+ *
  * ## 役割
  * Web Worker内でBabel standaloneを使用してトランスパイルを実行
  * メインスレッドをブロックせず、完了後にWorkerを即座に終了してメモリを解放
- * 
+ *
  * ## 処理フロー
  * 1. Babel standaloneを初期化
  * 2. TypeScript/JSX/ES Moduleをトランスパイル
@@ -103,7 +103,7 @@ function transpile(request: TranspileRequest): TranspileResult {
       compact: false,
       retainLines: true,
     });
-    
+
     if (!result || !result.code) {
       throw new Error('Babel transform returned empty code');
     }
@@ -120,7 +120,11 @@ function transpile(request: TranspileRequest): TranspileResult {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     try {
-      self.postMessage({ type: 'log', level: 'error', message: `❌ Transpile error: ${errorMessage}` });
+      self.postMessage({
+        type: 'log',
+        level: 'error',
+        message: `❌ Transpile error: ${errorMessage}`,
+      });
     } catch {
       console.error(`postMessage failed, ❌ Transpile error: ${errorMessage}`);
     }
@@ -182,7 +186,11 @@ self.addEventListener('message', (event: MessageEvent<TranspileRequest>) => {
 // Signal ready and log initialization to main thread
 try {
   self.postMessage({ type: 'ready' });
-  self.postMessage({ type: 'log', level: 'info', message: '✅ Transpile worker initialized with Babel standalone' });
+  self.postMessage({
+    type: 'log',
+    level: 'info',
+    message: '✅ Transpile worker initialized with Babel standalone',
+  });
 } catch {
   // ignore
 }

@@ -91,7 +91,9 @@ export default function GitHistory({
 
   // 重複コミットを除去（同じ内容のコミットはリモート優先）
   // 重複グループを返しつつ、表示用コミットリストを返す
-  const deduplicateCommits = (commits: GitCommitType[]): { deduplicated: GitCommitType[], groups: Map<string, GitCommitType[]> } => {
+  const deduplicateCommits = (
+    commits: GitCommitType[]
+  ): { deduplicated: GitCommitType[]; groups: Map<string, GitCommitType[]> } => {
     const contentMap = new Map<string, GitCommitType[]>();
     commits.forEach(commit => {
       const key = commit.tree
@@ -108,10 +110,10 @@ export default function GitHistory({
         deduplicated.push(group[0]);
       } else {
         // 重複あり: リモート参照があるコミットを優先
-        const remoteCommit = group.find(c =>
-          Array.isArray(c.refs) && c.refs.some((ref: string) =>
-            ref.startsWith('origin/') || ref.startsWith('upstream/')
-          )
+        const remoteCommit = group.find(
+          c =>
+            Array.isArray(c.refs) &&
+            c.refs.some((ref: string) => ref.startsWith('origin/') || ref.startsWith('upstream/'))
         );
         if (remoteCommit) {
           deduplicated.push(remoteCommit);
@@ -162,7 +164,7 @@ export default function GitHistory({
       return baseHeight + HEADER_FOOTER_HEIGHT;
     }
     // ファイルが1つ以上なら、その分だけ高さを増やす
-    const expandedHeight = HEADER_FOOTER_HEIGHT + (displayFiles * FILE_ITEM_HEIGHT);
+    const expandedHeight = HEADER_FOOTER_HEIGHT + displayFiles * FILE_ITEM_HEIGHT;
     return baseHeight + expandedHeight;
   };
 
@@ -393,22 +395,31 @@ export default function GitHistory({
       style={{ background: colors.sidebarBg, color: colors.sidebarFg }}
     >
       {/* 重複コミット表示切り替えボタン */}
-      <div className="px-2 py-1 border-b border-gray-700 flex items-center gap-2 text-xs" style={{ background: colors.sidebarBg }}>
+      <div
+        className="px-2 py-1 border-b border-gray-700 flex items-center gap-2 text-xs"
+        style={{ background: colors.sidebarBg }}
+      >
         <button
           className="px-2 py-0.5 rounded border text-xs font-medium"
           style={{
             background: showDuplicates ? colors.gitBranchOtherBg : colors.gitBranchCurrentBg,
             color: showDuplicates ? colors.gitBranchOtherFg : colors.gitBranchCurrentFg,
-            borderColor: showDuplicates ? colors.gitBranchOtherBorder : colors.gitBranchCurrentBorder,
+            borderColor: showDuplicates
+              ? colors.gitBranchOtherBorder
+              : colors.gitBranchCurrentBorder,
             transition: 'background 0.2s',
           }}
           onClick={() => setShowDuplicates(v => !v)}
         >
           {showDuplicates ? '重複コミットを非表示' : '重複コミットも表示'}
         </button>
-        {!showDuplicates && Array.from(duplicateGroups.values()).filter(g => g.length > 1).length > 0 && (
-          <span className="text-[11px] text-gray-400">（{Array.from(duplicateGroups.values()).filter(g => g.length > 1).length}件の重複グループを非表示中）</span>
-        )}
+        {!showDuplicates &&
+          Array.from(duplicateGroups.values()).filter(g => g.length > 1).length > 0 && (
+            <span className="text-[11px] text-gray-400">
+              （{Array.from(duplicateGroups.values()).filter(g => g.length > 1).length}
+              件の重複グループを非表示中）
+            </span>
+          )}
       </div>
       <div className="flex-1 overflow-auto">
         <div
@@ -574,7 +585,10 @@ export default function GitHistory({
                             <span
                               className="font-medium truncate max-w-20 lg:max-w-32 flex-shrink-0"
                               title={commit.message}
-                              style={{ color: colors.gitCommitMsg || colors.sidebarFg, fontSize: '12px' }}
+                              style={{
+                                color: colors.gitCommitMsg || colors.sidebarFg,
+                                fontSize: '12px',
+                              }}
                             >
                               {commit.message.length > 24
                                 ? `${commit.message.substring(0, 24)}...`
@@ -607,7 +621,10 @@ export default function GitHistory({
                             {/* メタデータ */}
                             <span
                               className="flex items-center gap-1 flex-shrink-0"
-                              style={{ color: colors.gitCommitMeta || 'var(--muted-foreground)', fontSize: '11px' }}
+                              style={{
+                                color: colors.gitCommitMeta || 'var(--muted-foreground)',
+                                fontSize: '11px',
+                              }}
                             >
                               <Calendar className="w-2 h-2" />
                               <span className="whitespace-nowrap">
@@ -616,7 +633,10 @@ export default function GitHistory({
                             </span>
                             <span
                               className="flex items-center gap-1 flex-shrink-0 hidden sm:flex"
-                              style={{ color: colors.gitCommitMeta || 'var(--muted-foreground)', fontSize: '11px' }}
+                              style={{
+                                color: colors.gitCommitMeta || 'var(--muted-foreground)',
+                                fontSize: '11px',
+                              }}
                             >
                               <Hash className="w-2 h-2" />
                               <span className="font-mono">{commit.shortHash}</span>
@@ -626,7 +646,9 @@ export default function GitHistory({
                               <div className="flex gap-0.5 flex-wrap">
                                 {commit.refs.map((refName: string) => {
                                   const isCurrentBranch = refName === currentBranch;
-                                  const isRemote = refName.startsWith('origin/') || refName.startsWith('upstream/');
+                                  const isRemote =
+                                    refName.startsWith('origin/') ||
+                                    refName.startsWith('upstream/');
                                   return (
                                     <span
                                       key={refName}
@@ -635,18 +657,18 @@ export default function GitHistory({
                                         background: isCurrentBranch
                                           ? colors.gitBranchCurrentBg
                                           : isRemote
-                                          ? colors.gitBranchOtherBg
-                                          : colors.gitBranchCurrentBg,
+                                            ? colors.gitBranchOtherBg
+                                            : colors.gitBranchCurrentBg,
                                         color: isCurrentBranch
                                           ? colors.gitBranchCurrentFg
                                           : isRemote
-                                          ? colors.gitBranchOtherFg
-                                          : colors.gitBranchCurrentFg,
+                                            ? colors.gitBranchOtherFg
+                                            : colors.gitBranchCurrentFg,
                                         borderColor: isCurrentBranch
                                           ? colors.gitBranchCurrentBorder
                                           : isRemote
-                                          ? colors.gitBranchOtherBorder
-                                          : colors.gitBranchCurrentBorder,
+                                            ? colors.gitBranchOtherBorder
+                                            : colors.gitBranchCurrentBorder,
                                       }}
                                     >
                                       <GitBranch className="w-2 h-2" />
@@ -694,7 +716,7 @@ export default function GitHistory({
                         変更されたファイル:
                       </div>
                       {commitChanges.has(commit.hash) ? (
-                        <div 
+                        <div
                           className="space-y-0.5 overflow-y-auto"
                           style={{ maxHeight: '240px' }}
                         >
@@ -702,14 +724,19 @@ export default function GitHistory({
                             const changes = commitChanges.get(commit.hash)!;
                             const allFiles = [
                               ...changes.added.map(f => ({ file: f, type: 'added' as const })),
-                              ...changes.modified.map(f => ({ file: f, type: 'modified' as const })),
+                              ...changes.modified.map(f => ({
+                                file: f,
+                                type: 'modified' as const,
+                              })),
                               ...changes.deleted.map(f => ({ file: f, type: 'deleted' as const })),
                             ];
                             if (allFiles.length === 0) {
                               return (
                                 <div
                                   className="text-[11px] italic py-0.5"
-                                  style={{ color: colors.gitCommitMeta || 'var(--muted-foreground)' }}
+                                  style={{
+                                    color: colors.gitCommitMeta || 'var(--muted-foreground)',
+                                  }}
                                 >
                                   変更ファイルが見つかりません
                                 </div>
@@ -740,7 +767,9 @@ export default function GitHistory({
                                 {allFiles.length > 10 && (
                                   <div
                                     className="text-[10px] italic py-0.5 text-center"
-                                    style={{ color: colors.gitCommitMeta || 'var(--muted-foreground)' }}
+                                    style={{
+                                      color: colors.gitCommitMeta || 'var(--muted-foreground)',
+                                    }}
                                   >
                                     全{allFiles.length}ファイル (スクロール可能)
                                   </div>

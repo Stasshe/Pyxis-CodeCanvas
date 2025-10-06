@@ -56,10 +56,7 @@ export class ModuleResolver {
   /**
    * モジュールパスを解決
    */
-  async resolve(
-    moduleName: string,
-    currentFilePath: string
-  ): Promise<ResolveResult | null> {
+  async resolve(moduleName: string, currentFilePath: string): Promise<ResolveResult | null> {
     runtimeInfo('🔍 Resolving module:', moduleName, 'from', currentFilePath);
 
     // 1. ビルトインモジュール
@@ -189,22 +186,27 @@ export class ModuleResolver {
     // package.jsonを読み込み
     const packageJsonPath = `${this.projectDir}/node_modules/${packageName}/package.json`;
     runtimeInfo('🔍 Looking for package.json at:', packageJsonPath);
-    
+
     const packageJson = await this.loadPackageJson(packageJsonPath);
 
     if (!packageJson) {
       runtimeWarn('⚠️ package.json not found:', packageJsonPath);
-      
+
       // デバッグ: node_modulesにどんなファイルがあるか確認
       try {
         const files = await fileRepository.getProjectFiles(this.projectId);
-        const nodeModuleFiles = files.filter(f => f.path.startsWith('/node_modules/' + packageName));
+        const nodeModuleFiles = files.filter(f =>
+          f.path.startsWith('/node_modules/' + packageName)
+        );
         runtimeInfo(`📁 Found ${nodeModuleFiles.length} files for ${packageName}`);
-        runtimeInfo('Files:', nodeModuleFiles.map(f => `${f.path} (type: ${f.type})`));
+        runtimeInfo(
+          'Files:',
+          nodeModuleFiles.map(f => `${f.path} (type: ${f.type})`)
+        );
       } catch (e) {
         runtimeError('Failed to list files:', e);
       }
-      
+
       return this.tryFallbackPaths(packageName, subPath);
     }
 
@@ -282,7 +284,7 @@ export class ModuleResolver {
 
     // 相対パスを絶対パスに変換（パッケージルートから）
     let packageDir = dirname(currentFilePath);
-    
+
     // node_modules内のファイルの場合、パッケージルートを取得
     if (packageDir.includes('/node_modules/')) {
       const match = packageDir.match(/^(.*\/node_modules\/[^/]+)/);
@@ -290,7 +292,7 @@ export class ModuleResolver {
         packageDir = match[1];
       }
     }
-    
+
     runtimeInfo('📦 Package dir:', packageDir);
     const resolved = this.resolvePath(packageDir, importPath);
     runtimeInfo('📦 Resolved path:', resolved);
@@ -339,10 +341,7 @@ export class ModuleResolver {
   /**
    * importsフィールドを解決
    */
-  private resolveImports(
-    imports: Record<string, unknown>,
-    subPath: string
-  ): string | null {
+  private resolveImports(imports: Record<string, unknown>, subPath: string): string | null {
     // 完全一致
     if (imports[subPath]) {
       const value = imports[subPath];
@@ -449,9 +448,9 @@ export class ModuleResolver {
       const files = await fileRepository.getProjectFiles(this.projectId);
       const normalizedPath = normalizePath(path, this.projectName);
       runtimeInfo('🔍 Normalized path:', path, '→', normalizedPath);
-      
+
       // デバッグ: 比較を詳細に
-      const file = files.find((f) => {
+      const file = files.find(f => {
         const normalizedFilePath = normalizePath(f.path, this.projectName);
         const match = normalizedFilePath === normalizedPath;
         if (f.path.includes('package.json') && f.path.includes('chalk')) {
@@ -462,11 +461,14 @@ export class ModuleResolver {
 
       if (!file) {
         runtimeWarn('❌ File not found. Searched for:', normalizedPath);
-        runtimeInfo('Available package.json files:', 
-          files.filter(f => f.path.includes('package.json') && f.path.includes('chalk')).map(f => ({
-            path: f.path,
-            normalized: normalizePath(f.path, this.projectName)
-          }))
+        runtimeInfo(
+          'Available package.json files:',
+          files
+            .filter(f => f.path.includes('package.json') && f.path.includes('chalk'))
+            .map(f => ({
+              path: f.path,
+              normalized: normalizePath(f.path, this.projectName),
+            }))
         );
         return null;
       }
@@ -531,7 +533,7 @@ export class ModuleResolver {
     try {
       const files = await fileRepository.getProjectFiles(this.projectId);
       const normalizedPath = normalizePath(path, this.projectName);
-      const exists = files.some((f) => normalizePath(f.path, this.projectName) === normalizedPath);
+      const exists = files.some(f => normalizePath(f.path, this.projectName) === normalizedPath);
 
       this.fileCache.set(path, exists);
       return exists;
@@ -540,8 +542,6 @@ export class ModuleResolver {
       return false;
     }
   }
-
-
 
   /**
    * パスを解決

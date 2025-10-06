@@ -91,7 +91,7 @@ export class AuthRepository {
       return new Promise((resolve, reject) => {
         const transaction = this.db!.transaction(['auth'], 'readwrite');
         const store = transaction.objectStore('auth');
-        
+
         // 暗号化されたトークンと共に保存
         const record: EncryptedAuthData & { id: string } = {
           id: 'github',
@@ -133,7 +133,7 @@ export class AuthRepository {
           try {
             // トークンを復号化
             const accessToken = await decryptText(result.encryptedToken);
-            
+
             resolve({
               accessToken,
               user: result.user,

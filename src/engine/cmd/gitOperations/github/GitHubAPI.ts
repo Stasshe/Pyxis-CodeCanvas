@@ -56,10 +56,7 @@ export class GitHubAPI {
     this.baseUrl = `https://api.github.com/repos/${owner}/${repo}`;
   }
 
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<T> {
+  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     const response = await fetch(url, {
       ...options,
@@ -148,10 +145,7 @@ export class GitHubAPI {
   /**
    * ツリーを作成
    */
-  async createTree(
-    tree: GitTreeEntry[],
-    baseTree?: string
-  ): Promise<GitTree> {
+  async createTree(tree: GitTreeEntry[], baseTree?: string): Promise<GitTree> {
     return this.request<GitTree>('/git/trees', {
       method: 'POST',
       body: JSON.stringify({

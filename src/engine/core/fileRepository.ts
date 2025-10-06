@@ -32,7 +32,7 @@ type FileChangeListener = (event: FileChangeEvent) => void;
 
 export class FileRepository {
   private dbName = 'PyxisProjects';
-  private version = 2;
+  private version = 3;
   private db: IDBDatabase | null = null;
   private static instance: FileRepository | null = null;
   private projectNameCache: Map<string, string> = new Map(); // projectId -> projectName
@@ -107,19 +107,41 @@ export class FileRepository {
 
         // プロジェクトストア
         if (!db.objectStoreNames.contains('projects')) {
-          db.createObjectStore('projects', { keyPath: 'id' });
+          const projectStore = db.createObjectStore('projects', { keyPath: 'id' });
+          // 名前での一意制約を追加して、同名プロジェクトの重複作成を防ぐ
+          projectStore.createIndex('name', 'name', { unique: true });
+        } else {
+          // 既存ストアに name インデックスが無ければ追加（DB バージョンアップ時）
+          const projectStore = (event.target as IDBOpenDBRequest).transaction!.objectStore(
+            'projects'
+          );
+          if (!projectStore.indexNames.contains('name')) {
+            projectStore.createIndex('name', 'name', { unique: true });
+          }
         }
 
         // ファイルストア
         if (!db.objectStoreNames.contains('files')) {
           const fileStore = db.createObjectStore('files', { keyPath: 'id' });
           fileStore.createIndex('projectId', 'projectId', { unique: false });
+        } else {
+          const fileStore = (event.target as IDBOpenDBRequest).transaction!.objectStore('files');
+          if (!fileStore.indexNames.contains('projectId')) {
+            fileStore.createIndex('projectId', 'projectId', { unique: false });
+          }
         }
 
         // チャットスペースストア
         if (!db.objectStoreNames.contains('chatSpaces')) {
           const chatStore = db.createObjectStore('chatSpaces', { keyPath: 'id' });
           chatStore.createIndex('projectId', 'projectId', { unique: false });
+        } else {
+          const chatStore = (event.target as IDBOpenDBRequest).transaction!.objectStore(
+            'chatSpaces'
+          );
+          if (!chatStore.indexNames.contains('projectId')) {
+            chatStore.createIndex('projectId', 'projectId', { unique: false });
+          }
         }
       };
     });
@@ -134,9 +156,11 @@ export class FileRepository {
     await this.init();
 
     // プロジェクト名の重複チェック
+    // まず既存プロジェクトがないか名前で確認
     const existingProjects = await this.getProjects();
-    if (existingProjects.some(project => project.name === name)) {
-      throw new Error(`プロジェクト名 "${name}" は既に存在します。別の名前を使用してください。`);
+    const existing = existingProjects.find(p => p.name === name);
+    if (existing) {
+      return existing;
     }
 
     const project: Project = {
@@ -147,10 +171,28 @@ export class FileRepository {
       updatedAt: new Date(),
     };
 
-    await this.saveProject(project);
+    try {
+      await this.saveProject(project);
+    } catch (err: any) {
+      // 名前重複などの制約エラーで保存に失敗した場合、既に作成されたプロジェクトを返す
+      coreWarn(
+        '[FileRepository] saveProject failed, attempting to recover by finding existing project:',
+        err
+      );
+      const refreshed = await this.getProjects();
+      const found = refreshed.find(p => p.name === name);
+      if (found) {
+        return found;
+      }
+      throw err; // 再スロー
+    }
 
     // 初期ファイル・フォルダを再帰登録
-    await this.registerInitialFiles(project.id, initialFileContents, '');
+    try {
+      await this.registerInitialFiles(project.id, initialFileContents, '');
+    } catch (e) {
+      coreWarn('[FileRepository] registerInitialFiles failed (non-critical):', e);
+    }
 
     // 初期チャットスペースを作成
     try {
@@ -331,7 +373,7 @@ export class FileRepository {
       transaction.onerror = () => reject(transaction.error);
       transaction.oncomplete = async () => {
         coreInfo(`[FileRepository] Project deleted from IndexedDB: ${projectName}`);
-        
+
         // LocalStorageから最近使用したプロジェクトを削除（バックグラウンド）
         this.cleanupLocalStorage(projectId).catch(err => {
           coreWarn('[FileRepository] Failed to cleanup localStorage:', err);
@@ -469,7 +511,7 @@ export class FileRepository {
 
     // 親パスを取得
     const parentPath = path.substring(0, path.lastIndexOf('/')) || '/';
-    
+
     // ルートの場合は終了
     if (parentPath === '/' || parentPath === '') {
       return;
@@ -477,13 +519,13 @@ export class FileRepository {
 
     // 親ディレクトリが既に存在するかチェック
     const parentExists = existingFiles.some(f => f.path === parentPath && f.type === 'folder');
-    
+
     if (!parentExists) {
       coreInfo(`[FileRepository] Creating parent directory: ${parentPath}`);
-      
+
       // 親の親を再帰的に作成
       await this.ensureParentDirectories(projectId, parentPath, existingFiles);
-      
+
       // 親ディレクトリを作成（saveFileを直接呼び出して再帰を避ける）
       const parentFile: ProjectFile = {
         id: generateUniqueId('file'),
@@ -498,12 +540,12 @@ export class FileRepository {
         isBufferArray: false,
         bufferContent: undefined,
       };
-      
+
       await this.saveFile(parentFile);
-      
+
       // existingFilesにも追加して、後続の処理で使えるようにする
       existingFiles.push(parentFile);
-      
+
       // ファイル作成イベントを発火
       this.emitChange({
         type: 'create',
@@ -661,7 +703,7 @@ export class FileRepository {
   private clearGitignoreCache(projectId: string): void {
     this.gitignoreCache.delete(projectId);
   }
-  
+
   /**
    * GitFileSystemへの自動同期（非同期・バックグラウンド実行）
    * 同期後にGitキャッシュも自動的にフラッシュ
@@ -675,7 +717,9 @@ export class FileRepository {
     bufferContent?: ArrayBuffer,
     fileType?: 'file' | 'folder'
   ): Promise<void> {
-    coreInfo(`[FileRepository.syncToGitFileSystem] START - path: ${path}, operation: ${operation}, type: ${fileType}`);
+    coreInfo(
+      `[FileRepository.syncToGitFileSystem] START - path: ${path}, operation: ${operation}, type: ${fileType}`
+    );
     try {
       // .gitignoreチェック（全ての操作で適用）
       const shouldIgnore = await this.shouldIgnorePathForGit(projectId, path);
@@ -776,7 +820,14 @@ export class FileRepository {
         for (const file of createdFiles) {
           try {
             // call background sync (non-blocking)
-            this.syncToGitFileSystem(file.projectId, file.path, file.isBufferArray ? '' : file.content || '', 'create', file.bufferContent, file.type).catch(err => {
+            this.syncToGitFileSystem(
+              file.projectId,
+              file.path,
+              file.isBufferArray ? '' : file.content || '',
+              'create',
+              file.bufferContent,
+              file.type
+            ).catch(err => {
               coreWarn('[FileRepository] Background bulk sync failed (non-critical):', err);
             });
 
@@ -860,11 +911,16 @@ export class FileRepository {
             coreWarn('[FileRepository] Failed to clear gitignore cache after delete:', e);
           }
           // GitFileSystemへの自動同期（削除）
-          this.syncToGitFileSystem(fileToDelete.projectId, fileToDelete.path, '', 'delete', undefined, fileToDelete.type).catch(
-            error => {
-              console.warn('[FileRepository] Background delete sync failed (non-critical):', error);
-            }
-          );
+          this.syncToGitFileSystem(
+            fileToDelete.projectId,
+            fileToDelete.path,
+            '',
+            'delete',
+            undefined,
+            fileToDelete.type
+          ).catch(error => {
+            console.warn('[FileRepository] Background delete sync failed (non-critical):', error);
+          });
 
           // ファイル削除イベントを発火
           this.emitChange({

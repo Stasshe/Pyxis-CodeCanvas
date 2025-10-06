@@ -14,7 +14,11 @@ export class UnzipCommand extends UnixCommandBase {
     return await this.extract(archive, dest);
   }
 
-  async extract(zipFileName: string, destDir: string, bufferContent?: ArrayBuffer): Promise<string> {
+  async extract(
+    zipFileName: string,
+    destDir: string,
+    bufferContent?: ArrayBuffer
+  ): Promise<string> {
     // mv等と同じパス解決ロジックに統一
     const destTarget = destDir && destDir !== '' ? destDir : '.';
     const normalizedDest = this.normalizePath(this.resolvePath(destTarget));
@@ -30,10 +34,20 @@ export class UnzipCommand extends UnixCommandBase {
         console.log('[unzip] zipFileName:', zipFileName);
         console.log('[unzip] normalizedArchivePath:', normalizedArchivePath);
         console.log('[unzip] relPath:', relPath);
-        console.log('[unzip] files:', files.map(f => f.path));
+        console.log(
+          '[unzip] files:',
+          files.map(f => f.path)
+        );
         const target = files.find(f => f.path === relPath);
         if (!target) {
-          console.error('[unzip] archive not found:', zipFileName, 'relPath:', relPath, 'files:', files.map(f => f.path));
+          console.error(
+            '[unzip] archive not found:',
+            zipFileName,
+            'relPath:',
+            relPath,
+            'files:',
+            files.map(f => f.path)
+          );
           throw new Error(`archive not found: ${zipFileName}`);
         }
         if (target.isBufferArray && target.bufferContent) {
@@ -47,9 +61,9 @@ export class UnzipCommand extends UnixCommandBase {
 
       const zip = await JSZip.loadAsync(zipBuffer as ArrayBuffer);
       let fileCount = 0;
-  const entries: Array<any> = [];
-  // track added folder paths to avoid duplicates (paths are project-relative like '/src')
-  const addedFolders = new Set<string>();
+      const entries: Array<any> = [];
+      // track added folder paths to avoid duplicates (paths are project-relative like '/src')
+      const addedFolders = new Set<string>();
 
       for (const relPath in zip.files) {
         const file = zip.files[relPath];
@@ -84,13 +98,20 @@ export class UnzipCommand extends UnixCommandBase {
           }
 
           // then push the file entry itself
-          const isLikelyText = /\.(txt|md|js|ts|jsx|tsx|json|html|css|py|sh|yml|yaml|xml|svg|csv)$/i.test(relPath);
+          const isLikelyText =
+            /\.(txt|md|js|ts|jsx|tsx|json|html|css|py|sh|yml|yaml|xml|svg|csv)$/i.test(relPath);
           if (isLikelyText) {
             const text = await file.async('string');
             entries.push({ path: relativePath, content: text, type: 'file' });
           } else {
             const arrayBuffer = await file.async('arraybuffer');
-            entries.push({ path: relativePath, content: '', type: 'file', isBufferArray: true, bufferContent: arrayBuffer });
+            entries.push({
+              path: relativePath,
+              content: '',
+              type: 'file',
+              isBufferArray: true,
+              bufferContent: arrayBuffer,
+            });
           }
         }
         fileCount++;

@@ -2,14 +2,14 @@ import { UnixCommandBase } from './base';
 
 /**
  * echo - テキストを出力
- * 
+ *
  * 使用法:
  *   echo [string...]
- * 
+ *
  * オプション:
  *   -n  末尾の改行を出力しない
  *   -e  バックスラッシュエスケープを解釈
- * 
+ *
  * 動作:
  *   - 複数の引数をスペース区切りで連結
  *   - リダイレクト処理はTerminal.tsxで統一的に処理される
@@ -21,7 +21,7 @@ export class EchoCommand extends UnixCommandBase {
     }
 
     const { options, positional } = this.parseOptions(args);
-    
+
     const noNewline = options.has('-n');
     const interpretEscapes = options.has('-e');
 

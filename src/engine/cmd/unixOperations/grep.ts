@@ -2,10 +2,10 @@ import { UnixCommandBase } from './base';
 
 /**
  * grep - ファイル内のパターンを検索
- * 
+ *
  * 使用法:
  *   grep [options] pattern [file...]
- * 
+ *
  * オプション:
  *   -i, --ignore-case      大文字小文字を区別しない
  *   -v, --invert-match     一致しない行を表示
@@ -13,7 +13,7 @@ import { UnixCommandBase } from './base';
  *   -r, -R, --recursive    ディレクトリを再帰的に検索
  *   -l, --files-with-matches  一致したファイル名のみ表示
  *   -c, --count            一致した行数のみ表示
- * 
+ *
  * 動作:
  *   - ワイルドカード対応
  *   - 再帰検索対応
@@ -47,7 +47,7 @@ export class GrepCommand extends UnixCommandBase {
 
     for (const fileArg of files) {
       const expanded = await this.expandPathPattern(fileArg);
-      
+
       for (const path of expanded) {
         try {
           const normalizedPath = this.normalizePath(path);
@@ -104,7 +104,7 @@ export class GrepCommand extends UnixCommandBase {
     showFilename: boolean
   ): Promise<string | null> {
     try {
-      const content = await this.fs.promises.readFile(path, { encoding: 'utf8' }) as string;
+      const content = (await this.fs.promises.readFile(path, { encoding: 'utf8' })) as string;
       const lines = content.split('\n');
       const matches: string[] = [];
       let matchCount = 0;
@@ -112,10 +112,10 @@ export class GrepCommand extends UnixCommandBase {
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
         const isMatch = regex.test(line);
-        
+
         if ((isMatch && !invertMatch) || (!isMatch && invertMatch)) {
           matchCount++;
-          
+
           if (!filesWithMatches && !countOnly) {
             let result = '';
             if (showFilename) {
@@ -167,14 +167,12 @@ export class GrepCommand extends UnixCommandBase {
     for (const file of files) {
       if (file.type !== 'file') continue;
 
-      const isInDir = relativePath === '/' 
-        ? true 
-        : file.path.startsWith(relativePath + '/');
+      const isInDir = relativePath === '/' ? true : file.path.startsWith(relativePath + '/');
 
       if (!isInDir) continue;
 
       const fullPath = `${this.getProjectRoot()}${file.path}`;
-      
+
       try {
         const result = await this.grepFile(
           fullPath,

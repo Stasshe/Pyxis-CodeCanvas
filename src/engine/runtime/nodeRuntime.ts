@@ -16,7 +16,6 @@ import { runtimeInfo, runtimeWarn, runtimeError } from './runtimeLogger';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { createBuiltInModules, type BuiltInModules } from '@/engine/node/builtInModule';
 
-
 /**
  * 実行オプション
  */
@@ -112,7 +111,7 @@ export class NodeRuntime {
       // コードを実行（async関数としてラップ）
       const wrappedCode = this.wrapCode(code, filePath);
       const executeFunc = new Function(...Object.keys(sandbox), wrappedCode);
-      
+
       runtimeInfo('✅ Code compiled successfully');
       await executeFunc(...Object.values(sandbox));
       runtimeInfo('✅ Execution completed');
@@ -275,7 +274,9 @@ export class NodeRuntime {
                 return (target as Promise<any>).then(actualMod => {
                   const actualValue = actualMod == null ? undefined : (actualMod as any)[prop];
                   if (typeof actualValue !== 'function') {
-                    throw new Error(`Property '${String(prop)}' is not a function on module '${moduleName}'`);
+                    throw new Error(
+                      `Property '${String(prop)}' is not a function on module '${moduleName}'`
+                    );
                   }
                   return actualValue.apply(actualMod, args);
                 });
@@ -417,15 +418,15 @@ export class NodeRuntime {
    */
   private resolveBuiltInModule(moduleName: string): unknown | null {
     const builtIns: Record<string, unknown> = {
-      fs: this.builtInModules.fs,
+      'fs': this.builtInModules.fs,
       'fs/promises': this.builtInModules.fs,
-      path: this.builtInModules.path,
-      os: this.builtInModules.os,
-      util: this.builtInModules.util,
-      http: this.builtInModules.http,
-      https: this.builtInModules.https,
-      buffer: { Buffer: this.builtInModules.Buffer },
-      readline: this.builtInModules.readline,
+      'path': this.builtInModules.path,
+      'os': this.builtInModules.os,
+      'util': this.builtInModules.util,
+      'http': this.builtInModules.http,
+      'https': this.builtInModules.https,
+      'buffer': { Buffer: this.builtInModules.Buffer },
+      'readline': this.builtInModules.readline,
     };
 
     return builtIns[moduleName] || null;
@@ -439,7 +440,7 @@ export class NodeRuntime {
       const files = await fileRepository.getProjectFiles(this.projectId);
       const normalizedPath = this.normalizePath(filePath);
 
-      const file = files.find((f) => this.normalizePath(f.path) === normalizedPath);
+      const file = files.find(f => this.normalizePath(f.path) === normalizedPath);
       if (!file) {
         this.log('⚠️ File not found in IndexedDB:', normalizedPath);
         return null;

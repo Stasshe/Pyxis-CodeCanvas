@@ -1,4 +1,4 @@
- 'use client';
+'use client';
 
 import React, { useState } from 'react';
 import { useTheme } from '@/context/ThemeContext';
@@ -45,11 +45,15 @@ export default function DiffViewer({
         const b = color[3];
         const hex = `#${r}${r}${g}${g}${b}${b}`;
         // convert alpha to two-hex
-        const alphaHex = Math.round(a * 255).toString(16).padStart(2, '0');
+        const alphaHex = Math.round(a * 255)
+          .toString(16)
+          .padStart(2, '0');
         return `${hex}${alphaHex}`;
       }
       if (color.length === 7) {
-        const alphaHex = Math.round(a * 255).toString(16).padStart(2, '0');
+        const alphaHex = Math.round(a * 255)
+          .toString(16)
+          .padStart(2, '0');
         return `${color}${alphaHex}`;
       }
       // already has alpha or other form
@@ -58,7 +62,10 @@ export default function DiffViewer({
     // rgba or rgb
     if (color.startsWith('rgb')) {
       // replace existing alpha if rgba
-      const parts = color.replace(/rgba?\(|\)/g, '').split(',').map(p => p.trim());
+      const parts = color
+        .replace(/rgba?\(|\)/g, '')
+        .split(',')
+        .map(p => p.trim());
       const [r, g, b] = parts;
       return `rgba(${r}, ${g}, ${b}, ${a})`;
     }
@@ -110,7 +117,10 @@ export default function DiffViewer({
                   <div className="flex items-center gap-2">
                     {/** expand icon is not interactive here, just a visual marker */}
                     <span style={{ display: 'inline-flex' }}>
-                      <ChevronRight size={14} color={colors.mutedFg} />
+                      <ChevronRight
+                        size={14}
+                        color={colors.mutedFg}
+                      />
                     </span>
                     <span
                       className="text-xs font-medium"
@@ -195,9 +205,15 @@ export default function DiffViewer({
                 <div className="flex items-center gap-2">
                   <span style={{ display: 'inline-flex', alignItems: 'center' }}>
                     {expandedBlocks.has(blockIndex) ? (
-                      <ChevronDown size={14} color={colors.mutedFg} />
+                      <ChevronDown
+                        size={14}
+                        color={colors.mutedFg}
+                      />
                     ) : (
-                      <ChevronRight size={14} color={colors.mutedFg} />
+                      <ChevronRight
+                        size={14}
+                        color={colors.mutedFg}
+                      />
                     )}
                   </span>
                   <span
@@ -274,7 +290,7 @@ export default function DiffViewer({
                       withAlpha={withAlpha}
                     />
                   ))}
-                      <div
+                  <div
                     className="flex items-center justify-center py-2 text-xs cursor-pointer hover:opacity-80"
                     style={{
                       background: colors.mutedBg,
@@ -282,15 +298,23 @@ export default function DiffViewer({
                     }}
                     onClick={() => toggleBlockExpansion(blockIndex)}
                   >
-                        {expandedBlocks.has(blockIndex) ? (
-                          <span className="inline-flex items-center gap-2">
-                            <ChevronDown size={14} color={colors.mutedFg} /> 折りたたむ
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-2">
-                            <ChevronRight size={14} color={colors.mutedFg} /> {block.lines.length - 6}行を展開
-                          </span>
-                        )}
+                    {expandedBlocks.has(blockIndex) ? (
+                      <span className="inline-flex items-center gap-2">
+                        <ChevronDown
+                          size={14}
+                          color={colors.mutedFg}
+                        />{' '}
+                        折りたたむ
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-2">
+                        <ChevronRight
+                          size={14}
+                          color={colors.mutedFg}
+                        />{' '}
+                        {block.lines.length - 6}行を展開
+                      </span>
+                    )}
                   </div>
                   {expandedBlocks.has(blockIndex) &&
                     block.lines.slice(3, -3).map((line, lineIndex) => (
@@ -302,12 +326,12 @@ export default function DiffViewer({
                       />
                     ))}
                   {block.lines.slice(-3).map((line, lineIndex) => (
-                      <DiffLineComponent
-                        key={lineIndex + block.lines.length - 3}
-                        line={line}
-                        colors={colors}
-                        withAlpha={withAlpha}
-                      />
+                    <DiffLineComponent
+                      key={lineIndex + block.lines.length - 3}
+                      line={line}
+                      colors={colors}
+                      withAlpha={withAlpha}
+                    />
                   ))}
                 </>
               ) : (

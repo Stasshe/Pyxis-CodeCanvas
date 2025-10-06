@@ -2,10 +2,10 @@ import { UnixCommandBase } from './base';
 
 /**
  * ls - ディレクトリの内容を表示
- * 
+ *
  * 使用法:
  *   ls [options] [file...]
- * 
+ *
  * オプション:
  *   -a, --all        .で始まるファイルも表示
  *   -l               詳細情報を表示
@@ -13,7 +13,7 @@ import { UnixCommandBase } from './base';
  *   -R, --recursive  サブディレクトリも再帰的に表示
  *   -t               更新時刻でソート
  *   -r, --reverse    逆順でソート
- * 
+ *
  * 動作:
  *   - デフォルトはカレントディレクトリ
  *   - ワイルドカード対応
@@ -35,7 +35,7 @@ export class LsCommand extends UnixCommandBase {
 
     for (const target of targets) {
       const expanded = await this.expandPathPattern(target);
-      
+
       if (expanded.length === 0) {
         throw new Error(`ls: cannot access '${target}': No such file or directory`);
       }
@@ -89,7 +89,7 @@ export class LsCommand extends UnixCommandBase {
     // ディレクトリの場合
     const relativePath = this.getRelativePathFromProject(normalizedPath);
     const files = await this.getAllFilesFromDB();
-    
+
     // ディレクトリ直下のファイル/フォルダを取得
     let entries = files.filter(f => {
       if (relativePath === '/') {
@@ -131,7 +131,7 @@ export class LsCommand extends UnixCommandBase {
     }
 
     let result = '';
-    
+
     if (showHeader) {
       result += `${normalizedPath}:\n`;
     }
@@ -140,7 +140,7 @@ export class LsCommand extends UnixCommandBase {
       result += `total ${entries.length}\n`;
       for (const entry of entries) {
         const fullPath = `${normalizedPath}/${entry.path.split('/').pop()}`;
-        result += await this.formatLongEntry(fullPath, humanReadable) + '\n';
+        result += (await this.formatLongEntry(fullPath, humanReadable)) + '\n';
       }
     } else {
       result += entries
@@ -180,14 +180,14 @@ export class LsCommand extends UnixCommandBase {
   private async formatLongEntry(path: string, humanReadable: boolean): Promise<string> {
     const relativePath = this.getRelativePathFromProject(path);
     const file = await this.getFileFromDB(relativePath);
-    
+
     if (!file) {
       return '';
     }
 
     const type = file.type === 'folder' ? 'd' : '-';
     const perms = 'rw-r--r--';
-    const size = file.bufferContent ? file.bufferContent.byteLength : (file.content?.length || 0);
+    const size = file.bufferContent ? file.bufferContent.byteLength : file.content?.length || 0;
     const sizeStr = humanReadable ? this.formatSize(size) : size.toString().padStart(8);
     const date = file.updatedAt ? new Date(file.updatedAt) : new Date();
     const dateStr = date.toLocaleDateString();

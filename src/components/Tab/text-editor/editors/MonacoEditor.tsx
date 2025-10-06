@@ -50,18 +50,15 @@ export default function MonacoEditor({
     };
   }, []);
 
-  const {
-    monacoModelMapRef,
-    currentModelIdRef,
-    isModelSafe,
-    getOrCreateModel,
-    disposeAllModels,
-  } = useMonacoModels();
+  const { monacoModelMapRef, currentModelIdRef, isModelSafe, getOrCreateModel, disposeAllModels } =
+    useMonacoModels();
 
-  const {
-    updateBreakpointDecorations,
-    handleEditorGutterClick,
-  } = useMonacoBreakpoints(editorRef, monacoRef, currentModelIdRef.current, tabId);
+  const { updateBreakpointDecorations, handleEditorGutterClick } = useMonacoBreakpoints(
+    editorRef,
+    monacoRef,
+    currentModelIdRef.current,
+    tabId
+  );
 
   const isEditorSafe = useCallback(() => {
     return editorRef.current && !(editorRef.current as any)._isDisposed && isMountedRef.current;
@@ -93,7 +90,7 @@ export default function MonacoEditor({
         };
 
         editorDomNode.addEventListener('touchstart', handleTouchStart, { passive: false });
-        
+
         // クリーンアップ用に保持
         (editor as any)._pyxisTouchHandler = handleTouchStart;
         (editor as any)._pyxisEditorDomNode = editorDomNode;
@@ -220,7 +217,7 @@ export default function MonacoEditor({
           editor.setModel(model);
           currentModelIdRef.current = tabId;
           onCharCountChange(countCharsNoSpaces(content));
-          
+
           // モデル設定後にブレークポイントを適用
           setTimeout(() => {
             updateBreakpointDecorations();
@@ -237,13 +234,13 @@ export default function MonacoEditor({
     if (!isEditorSafe() || !monacoRef.current) return;
 
     const model = getOrCreateModel(monacoRef.current, tabId, content, fileName);
-    
+
     if (model && currentModelIdRef.current !== tabId) {
       try {
         editorRef.current!.setModel(model);
         currentModelIdRef.current = tabId;
         onCharCountChange(countCharsNoSpaces(model.getValue()));
-        
+
         // モデル切り替え後に少し待ってからブレークポイントを適用
         setTimeout(() => {
           updateBreakpointDecorations();
@@ -296,7 +293,7 @@ export default function MonacoEditor({
   // ブレークポイントの変更を監視して装飾を更新
   useEffect(() => {
     if (!isEditorReady || !editorRef.current || !monacoRef.current) return;
-    
+
     // ブレークポイントが変更されたら装飾を更新
     const timeoutId = setTimeout(() => {
       updateBreakpointDecorations();
@@ -314,14 +311,14 @@ export default function MonacoEditor({
         if (disposable && typeof disposable.dispose === 'function') {
           disposable.dispose();
         }
-        
+
         // タッチイベントリスナーを削除
         const touchHandler = (editorRef.current as any)._pyxisTouchHandler;
         const domNode = (editorRef.current as any)._pyxisEditorDomNode;
         if (touchHandler && domNode) {
           domNode.removeEventListener('touchstart', touchHandler);
         }
-        
+
         editorRef.current.dispose();
         editorRef.current = null;
       }

@@ -86,7 +86,8 @@ export async function handleUnixCommand(
         if (args.length === 0) {
           await writeOutput('rm: missing operand\nUsage: rm [OPTION]... FILE...');
         } else {
-          const recursive = args.includes('-r') || args.includes('-R') || args.includes('--recursive');
+          const recursive =
+            args.includes('-r') || args.includes('-R') || args.includes('--recursive');
           const fileName = args.find(arg => !arg.startsWith('-'));
           if (fileName) {
             const result = await unix.rm(fileName, recursive);
@@ -172,7 +173,9 @@ export async function handleUnixCommand(
 
       case 'grep':
         if (args.length < 2) {
-          await writeOutput('grep: missing pattern or file\nUsage: grep [OPTION]... PATTERN FILE...');
+          await writeOutput(
+            'grep: missing pattern or file\nUsage: grep [OPTION]... PATTERN FILE...'
+          );
         } else {
           const grepOptions = args.filter(arg => arg.startsWith('-'));
           const grepArgs = args.filter(arg => !arg.startsWith('-'));

@@ -50,7 +50,11 @@ export const loadImageAsDataURL = async (
 
     // Quick checks for external URLs or data URLs
     if (!imagePath) return null;
-    if (imagePath.startsWith('http://') || imagePath.startsWith('https://') || imagePath.startsWith('data:')) {
+    if (
+      imagePath.startsWith('http://') ||
+      imagePath.startsWith('https://') ||
+      imagePath.startsWith('data:')
+    ) {
       return imagePath;
     }
 
@@ -89,7 +93,10 @@ export const loadImageAsDataURL = async (
     const uniqueCandidates = Array.from(new Set(candidates.filter(Boolean)));
 
     // Find the file in the project files (recursive)
-    const findFileRecursively = (filesList: FileItem[] | undefined, targetPath: string): FileItem | null => {
+    const findFileRecursively = (
+      filesList: FileItem[] | undefined,
+      targetPath: string
+    ): FileItem | null => {
       if (!filesList) return null;
       for (const file of filesList) {
         const filePath = file.path && file.path.startsWith('/') ? file.path : '/' + file.path;
