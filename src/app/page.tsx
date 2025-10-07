@@ -399,6 +399,24 @@ export default function Home() {
     };
   }, []);
 
+  // Global fallback: capture-phase Ctrl+S handler to ensure save-restart fires
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      try {
+        if ((e.ctrlKey || e.metaKey) && e.key && e.key.toLowerCase() === 's') {
+          e.preventDefault();
+          // Dispatch the same custom event as TabBar
+          window.dispatchEvent(new CustomEvent('pyxis-save-restart'));
+        }
+      } catch (err) {
+        console.error('[GlobalCtrlS] error handling keydown', err);
+      }
+    };
+
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
+  }, []);
+
   /**
    * ファイルを開く。必要に応じて行・カラム番号でジャンプする。
    * @param file ファイル情報
