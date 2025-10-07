@@ -37,7 +37,8 @@ export interface GitTreeEntry {
   path: string;
   mode: string;
   type: 'blob' | 'tree';
-  sha?: string;
+  // sha can be null when explicitly deleting an entry via the Git Data API
+  sha?: string | null;
   content?: string;
 }
 

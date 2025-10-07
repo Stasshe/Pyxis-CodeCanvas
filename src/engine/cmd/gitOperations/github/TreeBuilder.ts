@@ -188,19 +188,29 @@ export class TreeBuilder {
     }
 
     // 削除されたファイルをチェック
+    // GitHub APIのbase_treeを使う場合、削除はエントリを含めないことで表現できますが
+    // 明示的に削除を指示するには、pathを含めてshaをnullにすることで削除を表現できます。
+    // ここでは、リモートに存在してローカルに存在しないエントリをsha:nullとして追加します。
     for (const [remotePath, remoteEntry] of remoteEntries) {
       const localEntry = localTree.tree.find(e => e.path === remotePath);
       if (!localEntry) {
         // リモートにあるがローカルにないファイル（削除された）
         hasChanges = true;
-        // GitHub APIのbase_tree方式では、削除はエントリを含めないことで表現される
+        changedEntries.push({
+          path: remotePath,
+          mode: remoteEntry.mode,
+          type: remoteEntry.type as 'blob' | 'tree',
+          sha: null,
+        });
       }
     }
 
+    // If nothing changed and the number of entries matches, reuse remote tree
     if (!hasChanges && changedEntries.length === remoteTree.tree.length) {
       return remoteTreeSha;
     }
 
+    // createTree with baseTree will apply additions/updates and deletions (sha:null)
     const treeData = await this.githubAPI.createTree(changedEntries, remoteTreeSha);
     return treeData.sha;
   }
