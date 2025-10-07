@@ -794,21 +794,51 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ activeTab, curr
     const prev = prevContentRef.current;
     const current = activeTab.content || '';
 
-    const collapseNewlines = (s: string) => s.replace(/\n{2,}/g, '\n\n');
+    const collapseNewlines = (s: string) => s.replace(/\n{3,}/g, '\n\n');
     const trimTrailingWhitespace = (s: string) => s.replace(/[\s\u00A0]+$/g, '');
 
+    // Strictly determine if newStr is the result of appending content to oldStr.
+    // Rules:
+    // - oldStr must be non-empty and strictly shorter than newStr
+    // - after trimming trailing whitespace/newlines from oldStr, it must match a prefix
+    //   of newStr (also allowing newStr to contain extra leading newlines between old and new)
+    // - edits in the middle (changes not at the end) should NOT pass
+    // - limit the comparison window to the last N characters of oldStr for performance on huge docs
     const isAppend = (oldStr: string | null, newStr: string) => {
       if (!oldStr) return false;
       if (newStr.length <= oldStr.length) return false;
-      // direct prefix (fast path)
-      if (newStr.startsWith(oldStr)) return true;
-      // allow cases where multiple newlines were inserted between old content and appended text
-      const oldCollapsed = trimTrailingWhitespace(collapseNewlines(oldStr));
-      const newCollapsed = trimTrailingWhitespace(collapseNewlines(newStr));
-      if (newCollapsed.startsWith(oldCollapsed)) return true;
-      // also allow if old content when trimmed of trailing whitespace appears at very start
-      const oldTrim = trimTrailingWhitespace(oldStr);
-      if (newStr.startsWith(oldTrim)) return true;
+
+      const MAX_WINDOW = 2000; // compare up to last 2KB of the old content
+
+      // Normalize collapsing excessive blank lines only for comparison (not for display)
+      const oldTrimmed = trimTrailingWhitespace(oldStr);
+      const newTrimmed = newStr; // keep newStr intact for prefix checks
+
+      // Fast path: exact prefix match (most common case)
+      if (newTrimmed.startsWith(oldTrimmed)) return true;
+
+      // If old is very large, compare using a window at the end of oldTrimmed
+      const start = Math.max(0, oldTrimmed.length - MAX_WINDOW);
+      const oldWindow = oldTrimmed.slice(start);
+
+      // If the new string contains oldWindow at its start and the remainder is appended,
+      // ensure that the portion of old before the window hasn't been modified by checking
+      // that the prefix of newStr (up to start) equals the corresponding prefix of oldTrimmed.
+      if (newTrimmed.startsWith(oldWindow)) {
+        // Verify the untouched prefix (if any)
+        if (start === 0) return true; // whole oldTrimmed was within window and matched
+        const oldPrefix = oldTrimmed.slice(0, start);
+        const newPrefix = newTrimmed.slice(0, start);
+        if (oldPrefix === newPrefix) return true;
+      }
+
+      // Allow a relaxed match where multiple blank lines/newline-only differences exist
+      // between end of old and start of appended content: normalize sequences of 2+ newlines
+      const normalizeNewlines = (s: string) => s.replace(/\n{2,}/g, '\n\n');
+      const oldNormalized = normalizeNewlines(oldTrimmed);
+      const newNormalized = normalizeNewlines(newTrimmed);
+      if (newNormalized.startsWith(oldNormalized)) return true;
+
       return false;
     };
 
