@@ -32,12 +32,62 @@
 
 .markdown-body ul,
 .markdown-body ol {
-  margin: 1em 0 1em 2em;
-  padding: 0;
+  margin: 1em 0 1em 1.25rem;
+  padding-left: 1.25rem; /* base indent for lists */
+  list-style-position: outside;
 }
 
 .markdown-body li {
-  margin-bottom: 0.3em;
+  margin-bottom: 0.25em;
+}
+
+/* Improve nested list spacing and bullet alignment (handles '*' and '-') */
+.markdown-body ul ul,
+.markdown-body ol ol,
+.markdown-body ul ol,
+.markdown-body ol ul {
+  margin-top: 0.15em;
+  margin-bottom: 0.15em;
+  margin-left: 1rem;
+  padding-left: 0.75rem;
+}
+
+/* Task list checkboxes */
+.markdown-body li.task-list-item {
+  list-style: none;
+}
+.markdown-body input[type="checkbox"] {
+  margin: 0 0.5rem 0 0;
+  vertical-align: text-bottom;
+  transform: translateY(1px);
+}
+
+/* Use ::marker to control bullet appearance (works in modern browsers) */
+.markdown-body ul > li::marker {
+  color: var(--markdown-bullet, #9ca3af);
+  font-size: 1em;
+}
+.markdown-body ol > li::marker {
+  color: var(--markdown-bullet, #9ca3af);
+}
+
+/* Tighter control for first-level list left offset to match preview */
+.markdown-body > ul,
+.markdown-body > ol {
+  padding-left: 1rem;
+  margin-left: 0;
+}
+
+/* Ensure nested list markers align vertically with parent text */
+.markdown-body li > ul,
+.markdown-body li > ol {
+  margin-top: 0.25em;
+  margin-bottom: 0.25em;
+}
+
+/* Align bullets for single-star lists and tighter nesting */
+.markdown-body ul > li {
+  padding-left: 0.25rem;
 }
 
 .markdown-body blockquote {
@@ -49,16 +99,22 @@
   font-style: italic;
 }
 
+/* Make blockquote content spacing closer to GitHub style */
+.markdown-body blockquote p {
+  margin: 0.35em 0;
+}
+
 .markdown-body pre {
-  background: var(--markdown-pre-bg, #222);
+  background: var(--markdown-pre-bg, #0b1220);
   color: var(--markdown-pre-fg, #e6e6e6);
-  padding: 1em;
+  padding: 0.75em 1em;
   border-radius: 6px;
-  overflow-x: auto;
-  margin: 1em auto;
-  max-width: 90%;
+  overflow: auto;
+  margin: 1em 0;
+  max-width: 100%;
   display: block;
-  text-align: left;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Segoe UI Mono', monospace;
+  font-size: 0.9em;
 }
 
 .markdown-body code {
@@ -67,6 +123,20 @@
   border-radius: 4px;
   padding: 0.2em 0.4em;
   font-size: 0.95em;
+}
+
+/* Inline code should wrap if long, and code blocks should use pre > code */
+.markdown-body pre code {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  display: block;
+  white-space: pre;
+}
+
+.markdown-body code[class^="language-"],
+.markdown-body pre[class^="language-"] {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Segoe UI Mono', monospace;
 }
 
 .markdown-body a {
@@ -100,6 +170,19 @@
   background: var(--markdown-img-bg, #222);
   border-radius: 4px;
   margin: 0.5em 0;
+}
+
+/* Make images inside links slightly visible and centered if block-level */
+.markdown-body a > img {
+  border: none;
+}
+
+/* Horizontal rule closer to GitHub */
+.markdown-body hr {
+  border: none;
+  height: 1px;
+  background: #333;
+  margin: 2em 0;
 }
 
 .markdown-body hr {
