@@ -625,6 +625,10 @@ MemoizedCodeComponent.displayName = 'MemoizedCodeComponent';
 
 const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ activeTab, currentProject }) => {
   const { colors } = useTheme();
+  // ref to markdown container for scrolling
+  const markdownContainerRef = useRef<HTMLDivElement | null>(null);
+  // keep previous content to detect append-only updates
+  const prevContentRef = useRef<string | null>(null);
 
   // ReactMarkdownのコンポーネントをメモ化
   // 通常表示用
@@ -784,8 +788,51 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ activeTab, curr
     }
   }, [markdownContentPlain, activeTab.name, colors]);
 
+  // 自動スクロール: 新しいコンテンツが「末尾に追記」された場合のみスクロールする
+  useEffect(() => {
+    if (typeof window === 'undefined') return; // SSR対策
+    const prev = prevContentRef.current;
+    const current = activeTab.content || '';
+
+    const collapseNewlines = (s: string) => s.replace(/\n{2,}/g, '\n\n');
+    const trimTrailingWhitespace = (s: string) => s.replace(/[\s\u00A0]+$/g, '');
+
+    const isAppend = (oldStr: string | null, newStr: string) => {
+      if (!oldStr) return false;
+      if (newStr.length <= oldStr.length) return false;
+      // direct prefix (fast path)
+      if (newStr.startsWith(oldStr)) return true;
+      // allow cases where multiple newlines were inserted between old content and appended text
+      const oldCollapsed = trimTrailingWhitespace(collapseNewlines(oldStr));
+      const newCollapsed = trimTrailingWhitespace(collapseNewlines(newStr));
+      if (newCollapsed.startsWith(oldCollapsed)) return true;
+      // also allow if old content when trimmed of trailing whitespace appears at very start
+      const oldTrim = trimTrailingWhitespace(oldStr);
+      if (newStr.startsWith(oldTrim)) return true;
+      return false;
+    };
+
+    try {
+      if (isAppend(prev, current)) {
+        const el = markdownContainerRef.current;
+        if (el) {
+          el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+        }
+      }
+    } catch (err) {
+      const el = markdownContainerRef.current;
+      if (el) el.scrollTop = el.scrollHeight;
+    }
+
+    // 常に最新を保存
+    prevContentRef.current = current;
+  }, [activeTab.content]);
+
   return (
-    <div className="p-4 overflow-auto h-full w-full">
+    <div
+      className="p-4 overflow-auto h-full w-full"
+      ref={markdownContainerRef}
+    >
       <div className="flex items-center mb-2">
         <div className="font-bold text-lg mr-2">{activeTab.name} プレビュー</div>
         <button
