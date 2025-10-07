@@ -29,31 +29,46 @@ function CodeBlock({
   // Very small, synchronous highlighter: keywords, strings, comments
   const highlight = (code: string, lang: string) => {
     // Basic escapes
-    const esc = (s: string) =>
-      s
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
+    const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
     let out = esc(code);
 
     // Simple language-aware rules (JS/TS/TSX/JSON/py/sh etc.)
     // Keywords
-    const keywords = '\\b(?:const|let|var|function|return|if|else|for|while|switch|case|break|import|from|export|class|extends|new|try|catch|finally|await|async|interface|type|implements|private|protected|public|throw|yield)\\b';
-    out = out.replace(new RegExp(keywords, 'g'), (m) => `<span style="color:${isDark ? '#9cdcfe' : '#0000ff'}; font-weight:600">${m}</span>`);
+    const keywords =
+      '\\b(?:const|let|var|function|return|if|else|for|while|switch|case|break|import|from|export|class|extends|new|try|catch|finally|await|async|interface|type|implements|private|protected|public|throw|yield)\\b';
+    out = out.replace(
+      new RegExp(keywords, 'g'),
+      m => `<span style="color:${isDark ? '#9cdcfe' : '#0000ff'}; font-weight:600">${m}</span>`
+    );
 
     // Strings (support multiline without using 's' flag)
-    out = out.replace(/("[\s\S]*?"|'.*?'|`[\s\S]*?`)/g, (m) => `<span style="color:${isDark ? '#ce9178' : '#a31515'}">${m}</span>`);
+    out = out.replace(
+      /("[\s\S]*?"|'.*?'|`[\s\S]*?`)/g,
+      m => `<span style="color:${isDark ? '#ce9178' : '#a31515'}">${m}</span>`
+    );
 
     // Comments
-    out = out.replace(/(\/\/.*?$)/gm, (m) => `<span style="color:${isDark ? '#6a9955' : '#008000'}">${m}</span>`);
-    out = out.replace(/(\/\*[\s\S]*?\*\/)/g, (m) => `<span style="color:${isDark ? '#6a9955' : '#008000'}">${m}</span>`);
+    out = out.replace(
+      /(\/\/.*?$)/gm,
+      m => `<span style="color:${isDark ? '#6a9955' : '#008000'}">${m}</span>`
+    );
+    out = out.replace(
+      /(\/\*[\s\S]*?\*\/)/g,
+      m => `<span style="color:${isDark ? '#6a9955' : '#008000'}">${m}</span>`
+    );
 
     // Numbers
-    out = out.replace(/\b(0x[0-9a-fA-F]+|\d+(?:\.\d+)?)\b/g, (m) => `<span style="color:${isDark ? '#b5cea8' : '#098658'}">${m}</span>`);
+    out = out.replace(
+      /\b(0x[0-9a-fA-F]+|\d+(?:\.\d+)?)\b/g,
+      m => `<span style="color:${isDark ? '#b5cea8' : '#098658'}">${m}</span>`
+    );
 
     // Punctuation / operators
-    out = out.replace(/([=+\-*/%<>!|&^~?:]+)/g, (m) => `<span style="color:${isDark ? '#d4d4d4' : '#333'}">${m}</span>`);
+    out = out.replace(
+      /([=+\-*/%<>!|&^~?:]+)/g,
+      m => `<span style="color:${isDark ? '#d4d4d4' : '#333'}">${m}</span>`
+    );
 
     return `<pre class="overflow-x-auto text-xs p-3 min-h-[48px] font-mono" style="font-size:13px;margin:0;">${out}</pre>`;
   };

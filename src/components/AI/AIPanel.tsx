@@ -264,7 +264,10 @@ export default function AIPanel({
 
       {/* Inline space list (renders in normal flow so it won't be hidden) */}
       {showSpaceList && (
-        <div className="px-4 pb-2" onMouseLeave={() => setShowSpaceList(false)}>
+        <div
+          className="px-4 pb-2"
+          onMouseLeave={() => setShowSpaceList(false)}
+        >
           <ChatSpaceList
             chatSpaces={chatSpaces}
             currentSpace={currentSpace}

@@ -455,10 +455,7 @@ export const useProject = () => {
           await loadProject(projects[0]);
         } else {
           setTimeout(() => {
-            createProject(
-              'Welcome-Project',
-              'Pyxis エディターへようこそ！'
-            );
+            createProject('Welcome-Project', 'Pyxis エディターへようこそ！');
           }, 1000);
         }
       } catch (error) {

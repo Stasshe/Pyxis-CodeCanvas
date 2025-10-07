@@ -242,7 +242,9 @@ export default function TabBar({
                   style={{ color: colors.accentFg }}
                   onClick={() => {
                     closeMenu();
-                    onSplitPane('vertical');
+                    // NOTE: swap mapping so that "縦分割" produces a vertical stacking (top/bottom)
+                    // and "横分割" produces side-by-side. Historically these were reversed.
+                    onSplitPane && onSplitPane('horizontal');
                   }}
                   title="縦分割"
                   onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
@@ -259,7 +261,8 @@ export default function TabBar({
                   style={{ color: colors.accentFg }}
                   onClick={() => {
                     closeMenu();
-                    onSplitPane('horizontal');
+                    // Complementary swap: "横分割" should produce side-by-side splitting
+                    onSplitPane && onSplitPane('vertical');
                   }}
                   title="横分割"
                   onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}

@@ -232,15 +232,33 @@ export default function Home() {
   const tabs = firstLeafPane.tabs;
   // setTabsのデバッグログを追加
   const setTabs: React.Dispatch<React.SetStateAction<Tab[]>> = update => {
-    if (flatPanes.length > 0) {
-      setTabsForPane(editors, setEditors, 0, update);
+    const currentFlat = flattenPanes(editors);
+    // ペインが一つもない場合はデフォルトのペインを作成してそこにタブを設定
+    if (currentFlat.length === 0) {
+      const newTabs = typeof update === 'function' ? update([]) : update;
+      const newEditor = {
+        id: 'editor-1',
+        tabs: newTabs,
+        activeTabId: newTabs && newTabs.length > 0 ? newTabs[0].id : '',
+      } as any;
+      setEditors([newEditor]);
+      return;
     }
+
+    // 通常フロー: 先頭のリーフペインに反映
+    setTabsForPane(editors, setEditors, 0, update);
   };
   const activeTabId = firstLeafPane.activeTabId;
   const setActiveTabId = (id: string) => {
-    if (flatPanes.length > 0) {
-      setActiveTabIdForPane(editors, setEditors, 0, id);
+    const currentFlat = flattenPanes(editors);
+    if (currentFlat.length === 0) {
+      // ペインが無い場合は新規作成してアクティブタブを設定
+      const newEditor = { id: 'editor-1', tabs: [], activeTabId: id } as any;
+      setEditors([newEditor]);
+      return;
     }
+
+    setActiveTabIdForPane(editors, setEditors, 0, id);
   };
   const setTabsForAllPanes = (update: Tab[] | ((tabs: Tab[]) => Tab[])) => {
     setEditors(prevEditors => {
