@@ -57,7 +57,7 @@ export interface TranspileResult {
 /**
  * トランスパイル実行
  */
-function transpile(request: TranspileRequest): TranspileResult {
+export function transpile(request: TranspileRequest): TranspileResult {
   try {
     const { code, filePath, options } = request;
     const ext = filePath.split('.').pop() || 'js';
@@ -92,6 +92,9 @@ function transpile(request: TranspileRequest): TranspileResult {
     }
 
     // normalizeCjsEsm already performed module normalization; no extra plugin needed
+
+    // Enable top-level await parsing (some normalized code uses await __require__)
+    plugins.push('proposal-top-level-await');
 
     // トランスパイル実行
     const result = Babel.transform(normalizedCode, {

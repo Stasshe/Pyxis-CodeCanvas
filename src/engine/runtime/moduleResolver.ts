@@ -111,7 +111,7 @@ export class ModuleResolver {
     }
 
     // 4. node_modules
-    const nodeModulePath = await this.resolveNodeModules(moduleName);
+    const nodeModulePath = await this.resolveNodeModules(moduleName, currentFilePath);
     if (nodeModulePath) {
       return {
         path: nodeModulePath.path,
@@ -163,7 +163,8 @@ export class ModuleResolver {
    * node_modulesからモジュールを解決
    */
   private async resolveNodeModules(
-    moduleName: string
+    moduleName: string,
+    currentFilePath?: string
   ): Promise<{ path: string; packageJson?: PackageJson } | null> {
     // パッケージ名とサブパスを分離
     let packageName: string;
@@ -212,7 +213,7 @@ export class ModuleResolver {
 
     // サブパス指定あり
     if (subPath) {
-      // exportsフィールドをチェック
+      // exportsフィールドをチェック（存在すれば優先）
       if (packageJson.exports) {
         const exportPath = this.resolveExports(packageJson.exports, `./${subPath}`);
         if (exportPath) {
@@ -231,7 +232,17 @@ export class ModuleResolver {
       }
     }
 
-    // パッケージルート - エントリーポイントを解決
+    // package.json.exports があれば、パッケージルートは exports['.'] を優先して解決する
+    if (packageJson.exports) {
+      const exportRoot = this.resolveExports(packageJson.exports, '.');
+      if (exportRoot) {
+        const fullPath = `${this.projectDir}/node_modules/${packageName}/${exportRoot}`;
+        const finalPath = await this.addExtensionIfNeeded(fullPath);
+        if (finalPath) return { path: finalPath, packageJson };
+      }
+    }
+
+    // パッケージルート - エントリーポイントを解決（exports が無ければ main/module を使う）
     let entryPoint = packageJson.module || packageJson.main || 'index.js';
     // ./ プレフィックスを削除
     if (entryPoint.startsWith('./')) {
@@ -342,29 +353,32 @@ export class ModuleResolver {
    * importsフィールドを解決
    */
   private resolveImports(imports: Record<string, unknown>, subPath: string): string | null {
-    // 完全一致
-    if (imports[subPath]) {
-      const value = imports[subPath];
-      if (typeof value === 'string') {
-        return value;
-      }
-      // 条件付きエクスポート（簡易版）
-      if (typeof value === 'object' && value !== null) {
-        const obj = value as Record<string, unknown>;
-        return (obj.default || obj.import || obj.require) as string;
+    // Exact match first
+    const exact = imports[subPath];
+    if (exact !== undefined) {
+      if (typeof exact === 'string') return exact;
+      if (typeof exact === 'object' && exact !== null) {
+        const obj = exact as Record<string, unknown>;
+        // prefer require -> import -> default
+        return (obj.require as string) || (obj.import as string) || (obj.default as string) || null;
       }
     }
 
-    // ワイルドカード (#internal/*)
-    for (const key of Object.keys(imports)) {
-      if (key.endsWith('/*')) {
-        const prefix = key.slice(0, -2);
-        if (subPath.startsWith(prefix)) {
-          const remainder = subPath.slice(prefix.length);
-          const value = imports[key];
-          if (typeof value === 'string') {
-            return value.replace('*', remainder);
-          }
+    // Wildcard matches (longest prefix wins)
+    const wildcardKeys = Object.keys(imports).filter(k => k.endsWith('/*'));
+    // sort by prefix length desc
+    wildcardKeys.sort((a, b) => b.length - a.length);
+    for (const key of wildcardKeys) {
+      const prefix = key.slice(0, -2);
+      if (subPath.startsWith(prefix)) {
+        const remainder = subPath.slice(prefix.length);
+        const value = imports[key];
+        if (typeof value === 'string') return value.replace('*', remainder);
+        if (typeof value === 'object' && value !== null) {
+          const obj = value as Record<string, unknown>;
+          const resolved =
+            (obj.require as string) || (obj.import as string) || (obj.default as string);
+          if (resolved) return resolved.replace('*', remainder);
         }
       }
     }
@@ -379,30 +393,55 @@ export class ModuleResolver {
     exports: Record<string, unknown> | string,
     subPath: string
   ): string | null {
+    // If exports is a string, treat as main entry
     if (typeof exports === 'string') {
-      return exports;
+      return exports.replace(/^\.\//, '');
     }
 
-    // 完全一致
-    if (exports[subPath]) {
-      const value = exports[subPath];
-      if (typeof value === 'string') {
-        return value;
-      }
-      // import/require条件
+    // Normalize subPath: accept '.' or './' prefixed values
+    let sp = subPath;
+    if (sp === './' || sp === '') sp = '.';
+    if (sp.startsWith('./')) sp = sp.slice(1); // './foo' -> '/foo' style; we'll match keys as given
+
+    // Exact match first
+    if ((exports as any)[sp] !== undefined) {
+      const value = (exports as any)[sp];
+      if (typeof value === 'string') return value.replace(/^\.\//, '');
       if (typeof value === 'object' && value !== null) {
-        return (value as any).import || (value as any).require || (value as any).default || null;
+        const obj = value as Record<string, unknown>;
+        return (obj.require as string) || (obj.import as string) || (obj.default as string) || null;
       }
     }
 
-    // . (デフォルト)
-    if (subPath === '.' && exports['.']) {
-      const value = exports['.'];
-      if (typeof value === 'string') {
-        return value;
-      }
+    // Try '.' default export
+    if ((sp === '.' || sp === '/.') && (exports as any)['.'] !== undefined) {
+      const value = (exports as any)['.'];
+      if (typeof value === 'string') return value.replace(/^\.\//, '');
       if (typeof value === 'object' && value !== null) {
-        return (value as any).import || (value as any).require || (value as any).default || null;
+        const obj = value as Record<string, unknown>;
+        return (obj.require as string) || (obj.import as string) || (obj.default as string) || null;
+      }
+    }
+
+    // Wildcard/pattern matches: keys ending with '/*' or patterns with trailing '/'
+    const exportKeys = Object.keys(exports as any).filter(k => typeof k === 'string');
+    // prefer longer keys (more specific)
+    exportKeys.sort((a, b) => b.length - a.length);
+    for (const key of exportKeys) {
+      if (!key.includes('*') && !key.endsWith('/*')) continue;
+      if (key.endsWith('/*')) {
+        const prefix = key.slice(0, -2);
+        if (sp.startsWith(prefix)) {
+          const remainder = sp.slice(prefix.length);
+          const value = (exports as any)[key];
+          if (typeof value === 'string') return value.replace('*', remainder).replace(/^\.\//, '');
+          if (typeof value === 'object' && value !== null) {
+            const obj = value as Record<string, unknown>;
+            const resolved =
+              (obj.require as string) || (obj.import as string) || (obj.default as string);
+            if (resolved) return resolved.replace('*', remainder).replace(/^\.\//, '');
+          }
+        }
       }
     }
 
