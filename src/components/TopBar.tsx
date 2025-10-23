@@ -26,7 +26,7 @@ export default function TopBar({
 }: Props) {
   return (
     <div
-      className="w-full flex justify-end items-center overflow-hidden"
+      className="w-full flex justify-end items-center overflow-hidden select-none"
       style={{
         background: colors.background,
         height: '30px',

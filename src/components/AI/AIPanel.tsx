@@ -46,6 +46,26 @@ export default function AIPanel({
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
   const spaceButtonRef = React.useRef<HTMLButtonElement | null>(null);
 
+  // Compute dropdown position relative to viewport (fixed) so it appears under the button
+  const dropdownPosition = React.useMemo(() => {
+    if (!anchorRect || typeof window === 'undefined') return null;
+    const padding = 8;
+    const desiredWidth = 320;
+    const maxAvailableRight = window.innerWidth - padding - anchorRect.left;
+    const width = Math.min(desiredWidth, Math.max(160, Math.min(360, maxAvailableRight)));
+
+    // If the dropdown would overflow the right edge, shift it left
+    let left = anchorRect.left;
+    if (left + width + padding > window.innerWidth) {
+      left = Math.max(padding, window.innerWidth - width - padding);
+    }
+
+    // place just below the button
+    const top = anchorRect.bottom + 6;
+
+    return { left, top, width };
+  }, [anchorRect]);
+
   // チャットスペース管理
   const {
     chatSpaces,
@@ -279,14 +299,21 @@ export default function AIPanel({
             </button>
 
             {/* showSpaceList is rendered inline below the header to avoid being clipped/hidden */}
-          </div>
+            </div>
         </div>
       </div>
 
-      {/* Inline space list (renders in normal flow so it won't be hidden) */}
-      {showSpaceList && (
+      {/* Absolute-positioned dropdown for space list so it doesn't affect layout */}
+      {showSpaceList && dropdownPosition && (
         <div
-          className="px-4 pb-2"
+          className="z-50"
+          style={{
+            position: 'fixed',
+            left: dropdownPosition.left,
+            top: dropdownPosition.top,
+            width: dropdownPosition.width,
+            boxSizing: 'border-box',
+          }}
           onMouseLeave={() => setShowSpaceList(false)}
         >
           <ChatSpaceList

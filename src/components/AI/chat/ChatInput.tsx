@@ -84,7 +84,7 @@ export default function ChatInput({
 
   return (
     <div
-      className="border-t"
+      className="border-t select-none"
       style={{
         borderColor: colors.border,
         background: colors.cardBg,

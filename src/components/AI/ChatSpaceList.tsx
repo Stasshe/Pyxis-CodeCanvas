@@ -71,6 +71,9 @@ export default function ChatSpaceList({
         padding: 6,
         border: `1px solid ${colors.border || '#e5e7eb'}`,
         boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+        boxSizing: 'border-box',
+        width: 320,
+        maxWidth: 'calc(100vw - 24px)',
       }}
     >
       {/* 新規作成ボタン */}
@@ -100,7 +103,7 @@ export default function ChatSpaceList({
       </button>
 
       {/* スペースリスト */}
-      <div className="space-y-1 max-h-48 overflow-y-auto">
+  <div className="space-y-1 max-h-64 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
         {chatSpaces.length === 0 ? (
           <div
             className="text-xs py-2 text-center opacity-60"
