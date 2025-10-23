@@ -12,11 +12,16 @@ Pyxis-CodeCanvas プロジェクトは、すべての参加者が安心して参
 
 現在、U22 プログラミング・コンテスト（u22 procon）の大会審査期間中のため、**いかなる Pull Request（PR）も受け付けていません**。
 
-- 審査期間中は、バグ報告・機能提案・質問等も含め、すべての Issue/PR の受付を停止しています。
+- 審査期間中は、バグ報告・機能提案・質問等も含め、すべての PR の受付を停止しています。
 - 審査終了後、受付再開のアナウンスを行います。
+- バグ報告・機能提案・質問等を含むIssueの受付は歓迎します。
 
 ご理解とご協力をお願いいたします。
 
 ---
 
-This project is currently under review for the U22 Programming Contest. **No Pull Requests or Issues will be accepted during the review period.**
+This project is currently under review for the U22 Programming Contest.
+
+During the review period we welcome Issues (bug reports, feature requests, and questions). Please open an Issue if you have feedback or encounter a problem — we appreciate your input and will review it.
+
+Pull Requests (PRs) are not being accepted during the review. PR submissions will be re-opened after the review period, and we will announce when contributions are welcome again.

@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="readme-assets/IMG_1473.png" alt="Pyxis Cover" width="100%" />
+  <img src="readme-assets/IMG_0033.png" alt="Pyxis Cover" width="100%" />
   
   # 🌟 Pyxis - Your Code Universe in a Browser
   
@@ -75,24 +75,21 @@ Instant preview as you type! Perfect for long-form writing.
 
 ---
 
-### 🔥 **Hot Module Replacement (HMR) - Quick Site Building**
+### 🔥 **Live Reload (Instant Update) - Quick Site Building**
 <div align="center">
-  <img src="readme-assets/IMG_1465.png" alt="HMR in Action" width="80%" />
+  <img src="readme-assets/IMG_0034.png" alt="Live Reload in Action" width="80%" />
 </div>
 
 **HTML/CSS/JS only** - Perfect for quick browser testing without tedious setup.
-- Real-time updates for instant feedback
+- Instant updates on file save (Live Reload)
 - Ideal for simple web development
 - No setup required, just start coding
 
- > **Note**: Currently supports HTML/CSS/JS only. WebContainer is no longer needed—Pyxis implements its own fast runtime.
+ > **Note**: Currently supports HTML/CSS/JS only. No WebContainer needed—Pyxis implements its own fast instant reload system.
 
 ---
 
 ### 🔄 **Local Git - Version Control in Browser**
-<div align="center">
-  <img src="readme-assets/IMG_1466.png" alt="Git Diff Visualization" width="80%" />
-</div>
 
 **Local Git is nearly complete!** Branch, merge, commit, reset - all major Git features in your browser.
 - 🎨 **Visual diffs** - Beautiful code change visualization
@@ -101,6 +98,14 @@ Instant preview as you type! Perfect for long-form writing.
 - 🛡️ **Safe learning** - Break anything without consequences! Perfect for Git beginners
 
 > **GitHub Integration**: Remote repository connection is on hold pending GitHub application approval. Local Git is fully functional.
+
+---
+
+### 🧠 **AI Assistant Diff Adoption UI**
+<div align="center">
+  <img src="readme-assets/IMG_0035.png" alt="AI Assistant git diff adoption UI" width="80%" />
+</div>
+Pyxis features an AI assistant that helps you review and adopt code diffs. This provides a more intuitive Git operation and review experience.
 
 ---
 
@@ -126,7 +131,11 @@ Emulates file operations and interactive user input/output that are impossible i
   <img src="readme-assets/IMG_1467.png" alt="File Operations" width="80%" />
 </div>
 
-Navigate your projects with **VS Code-like efficiency**! Quick file search, intelligent autocomplete, and powerful commands make coding a breeze.
+<div align="center">
+  <img src="readme-assets/IMG_0048.png" alt="Search" width="80%" />
+</div>
+
+Navigate your projects with **VS Code-like efficiency**! Fast file search, an operation window for quick actions, intelligent autocomplete, and a smooth, stress-free UX make navigating projects effortless.
 
 ---
 

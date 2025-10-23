@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="readme-assets/IMG_1473.png" alt="Pyxis カバー画像" width="100%" />
+  <img src="readme-assets/IMG_0033.png" alt="Pyxis カバー画像" width="100%" />
   
   # 🌟 Pyxis - Client Side Code Editor
 
@@ -72,25 +72,23 @@ StackblitzやWebContainerはWeb開発に特化した高度なIDEですが、Pyxi
 
 ---
 
-### 🔥 **ホットモジュールリプレースメント（HMR）- 簡易サイト構築**
+
+### 🔥 **ライブリロード（即時反映） - 簡易サイト構築**
 <div align="center">
-  <img src="readme-assets/IMG_1465.png" alt="HMR の動作画面" width="80%" />
+  <img src="readme-assets/IMG_0034.png" alt="Liveリロードの動作画面" width="80%" />
 </div>
 
 **HTML/CSS/JSのみ対応** - ブラウザでしかテストできないが、環境整備は面倒。そんな時に、とても便利。
-- リアルタイム更新で即座に結果確認
+- ファイル保存時に即座にブラウザへ反映（Liveリロード）
 - 簡易的なWeb開発に最適
 - セットアップ不要でサッと使える
 
- > **注意**: 現在はHTML/CSS/JSのみ対応。WebContainerは不要となり、自前実装で高速動作を実現しています。
+ > **注意**: 現在はHTML/CSS/JSのみ対応。WebContainer等は不要で、自前実装による高速な即時リロードを実現しています。
 
 ---
 
 
 ### 🔄 **Gitバージョン管理・GitHub連携**
-<div align="center">
-  <img src="readme-assets/IMG_1466.png" alt="Git 差分の可視化" width="80%" />
-</div>
 
 **主要なGit機能をブラウザ上で実現。** ブランチ、マージ、コミット、リセット、.git込みエクスポートなどに加え、**GitHubへのpush（PAT認証）にも対応**しています。
 - 🎨 **ビジュアル差分** - コード変更を美しく可視化
@@ -100,6 +98,14 @@ StackblitzやWebContainerはWeb開発に特化した高度なIDEですが、Pyxi
 - 🛡️ **安全な学習環境** - 何を壊しても大丈夫！初心者のGit練習にも最適
 
 > **注意**: GitHub連携はPersonal Access Token（PAT）認証で実現しています。リモートリポジトリへのpush/pullが可能です。
+
+---
+
+### 🧠 **AIアシスタント - 流行りのAI IDE**
+<div align="center">
+  <img src="readme-assets/IMG_0035.png" alt="AIアシスタントによるgit diff採用画面" width="80%" />
+</div>
+PyxisではAIアシスタントがコード差分の提案・採用をサポート。より直感的なDiff操作・レビュー体験が可能です。
 
 ---
 
@@ -121,12 +127,16 @@ JavaScriptでは不可能なファイルオペレーションやインタラク�
 
 ---
 
-### **スマートファイル操作 - 何でも瞬時に発見**
+### **スムーズなファイル・IDE操作**
 <div align="center">
-  <img src="readme-assets/IMG_1467.png" alt="ファイル操作" width="80%" />
+  <img src="readme-assets/IMG_1467.png" alt="ファイル　Operation Window" width="80%" />
+</div>
+<div align="center">
+  <img src="readme-assets/IMG_0048.png" alt="検索" width="80%" />
 </div>
 
-**VS Codeのような効率性**でプロジェクトをナビゲート！高速ファイル検索、インテリジェントなオートコンプリート、強力なコマンドでコーディングが楽しくなります。
+
+**VS Codeのような効率性**でプロジェクトをナビゲート！高速ファイル検索オペレーションウィンドウなど、高速化つスムーズな、ストレスフリーなUXを提供します。
 
 ---
 
@@ -175,7 +185,7 @@ JavaScriptでは不可能なファイルオペレーションやインタラク�
 - ⚡ **高速Node.js** - WASMなしで瞬時実行、ファイル操作エミュレート
 - 📝 **こだわりのMD** - Markdown/Mermaid/LaTeX、ドキュメント・ブログ執筆に最適
 - 🤖 **AIサポート** - Ask/Edit機能で効率化
-- 🔥 **HMR対応** - HTML/CSS/JS簡易サイト開発
+- 🔥 **ライブリロード対応** - HTML/CSS/JS簡易サイト開発
 - 📦 **バッファ対応** - ZIP解凍、PDF/画像/動画ビューワー
 - ⌨️ **効率的編集** - キーボードショートカットで大量テキストも快適
 - 🖼️ **マルチペーン** - 複数ウィンドウで同時作業
