@@ -24,10 +24,18 @@ export const openOrActivateTab = (
     };
   }
 ) => {
-  // タブID生成ロジック（preview/webPreview対応）
+  // Determine kind
+  const kind: 'editor' | 'preview' | 'webPreview' | 'ai' | 'diff' = options?.aiReviewProps
+    ? 'ai'
+    : options?.webPreview
+      ? 'webPreview'
+      : options?.preview
+        ? 'preview'
+        : 'editor';
+
+  // タブID生成ロジック: include kind so that same file can have multiple tab kinds
   let tabId = file.id ? String(file.id) : file.path;
-  if (options?.preview) tabId = `preview-${file.path}`;
-  if (options?.webPreview) tabId = `web-preview-${file.path}`;
+  if (kind !== 'editor') tabId = `${kind}:${file.path}`;
 
   // 既存タブ検索: 復元されたタブはペインID接頭辞やサフィックスを含む場合がある
   // 正規化ルール:
@@ -35,22 +43,34 @@ export const openOrActivateTab = (
   // - tab.id が `${paneId}:${path}` の形式や `${something}:${path}-preview` のような形式でもマッチさせる
   const normalizePath = (p: string | undefined) => {
     if (!p) return '';
-    // remove any leading pane prefix like "editor-1:" or "somepane:"
-    const withoutPrefix = p.includes(':') ? p.replace(/^[^:]+:/, '') : p;
-    // remove known suffixes
-    return withoutPrefix.replace(/(-preview|-diff|-ai)$/, '');
+    // If p contains a kind prefix like "preview:/path" or "editor:/path", strip the prefix
+    const withoutKindPrefix = p.includes(':') ? p.replace(/^[^:]+:/, '') : p;
+    // remove known suffixes used historically
+    return withoutKindPrefix.replace(/(-preview|-diff|-ai)$/, '');
   };
 
   const targetPath = normalizePath(tabId) || normalizePath(file.path);
 
+  // Find existing tab: only consider a tab a match if its normalized path equals the file path
+  // AND its kind matches. If no kind is present (older tabs), fall back to previous behavior.
   const existing = tabs.find(tab => {
     // direct id match
     if (tab.id === tabId) return true;
-    // normalized id/path match
+
+    const tabKind =
+      (tab as any).kind ||
+      (tab.id && typeof tab.id === 'string' && tab.id.includes(':')
+        ? tab.id.split(':')[0]
+        : 'editor');
     const tabIdNorm = normalizePath(tab.id);
     const tabPathNorm = normalizePath(tab.path);
     const filePathNorm = normalizePath(file.path);
-    return tabIdNorm === filePathNorm || tabPathNorm === filePathNorm;
+
+    const pathMatches = tabIdNorm === filePathNorm || tabPathNorm === filePathNorm;
+    // If tab has an explicit kind, require it to match. If not, allow match for backward compatibility.
+    const kindMatches = tabKind ? tabKind === kind || tabKind === 'editor' : true;
+
+    return pathMatches && kindMatches;
   });
   if (existing) {
     // 優先順位: options に指定があればそれを使い、なければ file に付与された jumpToLine/jumpToColumn を使う
@@ -89,6 +109,7 @@ export const openOrActivateTab = (
     content: isBufferArray ? '' : file.content || '',
     isDirty: false,
     path: file.path,
+    kind,
     // 後方互換: file.isCodeMirror が未定義の場合は false を明示
     isCodeMirror: typeof file.isCodeMirror === 'boolean' ? file.isCodeMirror : false,
     isBufferArray,

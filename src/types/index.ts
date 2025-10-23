@@ -25,6 +25,12 @@ export interface Tab {
   content: string;
   isDirty: boolean;
   path: string;
+  /**
+   * Tab kind distinguishes different tab types that may reference the same file path.
+   * Examples: 'editor' (normal code editor), 'preview' (markdown preview),
+   * 'webPreview' (browser/web preview), 'ai' (AI review), 'diff' (diff view).
+   */
+  kind?: 'editor' | 'preview' | 'webPreview' | 'ai' | 'diff';
   preview?: boolean;
   isCodeMirror?: boolean;
   isBufferArray?: boolean; // バイナリファイルの場合true
