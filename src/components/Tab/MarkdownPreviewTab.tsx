@@ -3,6 +3,7 @@ import { exportPdfFromHtml } from '@/engine/export/exportPdf';
 import { useTheme, ThemeContext } from '@/context/ThemeContext';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useSettings } from '@/hooks/useSettings';
 import mermaid from 'mermaid';
 import { HighlightedCode } from './HighlightedCode';
 import remarkMath from 'remark-math';
@@ -625,10 +626,44 @@ MemoizedCodeComponent.displayName = 'MemoizedCodeComponent';
 
 const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ activeTab, currentProject }) => {
   const { colors } = useTheme();
+  const { settings } = useSettings(currentProject?.id);
   // ref to markdown container for scrolling
   const markdownContainerRef = useRef<HTMLDivElement | null>(null);
   // keep previous content to detect append-only updates
   const prevContentRef = useRef<string | null>(null);
+
+  // determine markdown plugins based on settings
+  const [extraRemarkPlugins, setExtraRemarkPlugins] = useState<any[]>([
+    /* maybe remark-breaks */
+  ]);
+
+  useEffect(() => {
+    let mounted = true;
+    const setup = async () => {
+      const plugins: any[] = [];
+      try {
+        const mode = settings?.markdown?.singleLineBreaks || 'default';
+        if (mode === 'breaks') {
+          // dynamic import to avoid hard dependency at compile time
+          try {
+            const mod = await import('remark-breaks');
+            if (mounted) plugins.push(mod.default || mod);
+          } catch (e) {
+            console.warn(
+              '[MarkdownPreviewTab] remark-breaks not available, falling back to default linebreak behavior.'
+            );
+          }
+        }
+      } catch (e) {
+        console.warn('[MarkdownPreviewTab] failed to configure markdown plugins', e);
+      }
+      if (mounted) setExtraRemarkPlugins(plugins);
+    };
+    setup();
+    return () => {
+      mounted = false;
+    };
+  }, [settings?.markdown?.singleLineBreaks]);
 
   // ReactMarkdownのコンポーネントをメモ化
   // 通常表示用
@@ -707,14 +742,15 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ activeTab, curr
   const markdownContent = useMemo(
     () => (
       <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkMath]}
+        // include remark-gfm, remark-math and optionally remark-breaks
+        remarkPlugins={[remarkGfm, remarkMath, ...extraRemarkPlugins]}
         rehypePlugins={[rehypeKatex, rehypeRaw]}
         components={markdownComponents}
       >
         {activeTab.content}
       </ReactMarkdown>
     ),
-    [activeTab.content, markdownComponents]
+    [activeTab.content, markdownComponents, extraRemarkPlugins]
   );
 
   // PDF用

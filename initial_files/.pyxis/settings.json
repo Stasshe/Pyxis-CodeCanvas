@@ -26,6 +26,9 @@
     "useIgnoreFiles": true,
     "followSymlinks": false
   },
+  "markdown": {
+    "singleLineBreaks": "breaks"
+  },
   "files": {
     "exclude": [
       "**/.git",

@@ -32,6 +32,13 @@ export interface PyxisSettings {
     autoSave: 'off' | 'afterDelay' | 'onFocusChange' | 'onWindowChange';
     autoSaveDelay: number;
   };
+
+  // Markdown固有の設定
+  markdown: {
+    // singleLineBreaks: 'default' -> 通常のMarkdown仕様（単一改行は無視される）
+    // singleLineBreaks: 'breaks' -> remark-breaks のように単一改行を改行として扱う
+    singleLineBreaks: 'default' | 'breaks';
+  };
 }
 
 /**
@@ -64,6 +71,9 @@ export const DEFAULT_PYXIS_SETTINGS: PyxisSettings = {
     ],
     useIgnoreFiles: true,
     followSymlinks: false,
+  },
+  markdown: {
+    singleLineBreaks: 'breaks',
   },
   files: {
     exclude: ['**/.git', '**/.DS_Store', '**/Thumbs.db'],
