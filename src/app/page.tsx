@@ -31,6 +31,7 @@ import {
 import { openOrActivateTab } from '@/engine/openTab';
 import { useGitMonitor } from '@/hooks/gitHooks';
 import { useProject } from '@/engine/core/project';
+import initFileWatcherBridge from '@/engine/fileWatcherBridge';
 import { Project } from '@/types';
 import type { Tab, FileItem, MenuTab, EditorPane } from '@/types';
 import RightSidebar from '@/components/Right/RightSidebar';
@@ -69,6 +70,10 @@ export default function Home() {
 
   // 初回レンダリング後にlocalStorageから復元
   useEffect(() => {
+    // Initialize FileRepository -> window event bridge
+    if (typeof window !== 'undefined') {
+      initFileWatcherBridge();
+    }
     if (typeof window !== 'undefined') {
       try {
         const saved = window.localStorage.getItem(LOCALSTORAGE_KEY.EDITOR_LAYOUT);
