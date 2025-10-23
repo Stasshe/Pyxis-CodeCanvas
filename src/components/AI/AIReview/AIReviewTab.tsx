@@ -9,6 +9,7 @@ import type { Monaco } from '@monaco-editor/react';
 import type * as monacoEditor from 'monaco-editor';
 import { useTheme } from '@/context/ThemeContext';
 import { Check, X } from 'lucide-react';
+import { calculateDiff } from '@/engine/ai/diffProcessor';
 import type { Tab } from '@/types';
 import { getLanguage } from '@/components/Tab/text-editor/editors/editor-utils';
 
@@ -288,17 +289,38 @@ export default function AIReviewTab({
           color: colors.mutedFg,
         }}
       >
-        <div className="flex gap-4">
-          <span>元: {originalContent.split('\n').length}行</span>
-          <span>提案: {currentSuggestedContent.split('\n').length}行</span>
-          <span>
-            差分:{' '}
-            {currentSuggestedContent.split('\n').length - originalContent.split('\n').length > 0
-              ? '+'
-              : ''}
-            {currentSuggestedContent.split('\n').length - originalContent.split('\n').length}行
-          </span>
-        </div>
+          {(() => {
+            try {
+              const diffLines = calculateDiff(originalContent, currentSuggestedContent);
+              const added = diffLines.filter((l) => l.type === 'added').length;
+              const removed = diffLines.filter((l) => l.type === 'removed').length;
+              const unchanged = diffLines.filter((l) => l.type === 'unchanged').length;
+              const originalCount = unchanged + removed;
+              const suggestedCount = unchanged + added;
+
+              return (
+                <div className="flex gap-4">
+                  <span>元: {originalCount}行</span>
+                  <span>提案: {suggestedCount}行</span>
+                  <span>
+                    差分: {suggestedCount - originalCount > 0 ? '+' : ''}{suggestedCount - originalCount}行
+                  </span>
+                  <span className="ml-2" style={{ color: added > 0 ? 'var(--tw-color-green-500, #16a34a)' : colors.mutedFg }}>+{added}</span>
+                  <span style={{ color: removed > 0 ? 'var(--tw-color-red-500, #dc2626)' : colors.mutedFg }}>-{removed}</span>
+                </div>
+              );
+            } catch (e) {
+              const orig = originalContent.split('\n').length;
+              const sug = currentSuggestedContent.split('\n').length;
+              return (
+                <div className="flex gap-4">
+                  <span>元: {orig}行</span>
+                  <span>提案: {sug}行</span>
+                  <span>差分: {sug - orig}行</span>
+                </div>
+              );
+            }
+          })()}
       </div>
 
       {/* Monaco DiffEditor */}

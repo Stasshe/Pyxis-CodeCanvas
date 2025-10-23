@@ -24,8 +24,9 @@
 │   ├── SYSTEM-OVERVIEW.md
 │   ├── UI-COMPONENTS.md
 │   ├── UNIX-COMMANDS.md
-│   └── en
-│       └── NODE-RUNTIME.md
+│   ├── en
+│   │   └── NODE-RUNTIME.md
+│   └── pyxis-all.svg.svg
 ├── eslint.config.mjs
 ├── helper-code.txt
 ├── initial_files
@@ -54,7 +55,6 @@
 │       └── use-math.ts
 ├── initial_files_to_ts.js
 ├── jest.config.cjs
-├── memo
 ├── next-env.d.ts
 ├── next.config.ts
 ├── package-lock.json
@@ -75,7 +75,10 @@
 │   ├── web-app-manifest-512x512.png
 │   └── window.svg
 ├── readme-assets
-│   ├── IMG_1465.png
+│   ├── IMG_0033.png
+│   ├── IMG_0034.png
+│   ├── IMG_0035.png
+│   ├── IMG_0048.png
 │   ├── IMG_1466.png
 │   ├── IMG_1467.png
 │   ├── IMG_1469.png
@@ -94,8 +97,7 @@
 │   │   ├── AI
 │   │   │   ├── AIPanel.tsx
 │   │   │   ├── AIReview
-│   │   │   │   ├── AIReviewTab.tsx
-│   │   │   │   └── DiffViewer.tsx
+│   │   │   │   └── AIReviewTab.tsx
 │   │   │   ├── ChangedFilesList.tsx
 │   │   │   ├── ChatSpaceList.tsx
 │   │   │   ├── FileSelector.tsx
@@ -118,6 +120,7 @@
 │   │   │   ├── TerminalGitCommands.tsx
 │   │   │   ├── TerminalNPMCommands.tsx
 │   │   │   └── TerminalUnixCommands.tsx
+│   │   ├── BottomStatusBar.tsx
 │   │   ├── Confirmation.tsx
 │   │   ├── FileSelect.tsx
 │   │   ├── Left
@@ -162,7 +165,8 @@
 │   │   │   │   └── utils
 │   │   │   │       └── CharCountDetails.tsx
 │   │   │   └── useTabCloseConfirmation.tsx
-│   │   └── Toast.tsx
+│   │   ├── Toast.tsx
+│   │   └── TopBar.tsx
 │   ├── context
 │   │   ├── BreakpointContext.tsx
 │   │   ├── GitHubUserContext.tsx
@@ -189,7 +193,8 @@
 │   │   │   │   ├── merge.ts
 │   │   │   │   ├── push.ts
 │   │   │   │   ├── reset.ts
-│   │   │   │   └── revert.ts
+│   │   │   │   ├── revert.ts
+│   │   │   │   └── tree.ts
 │   │   │   ├── npm.ts
 │   │   │   ├── npmOperations
 │   │   │   │   ├── npmDependencySize.ts
@@ -235,6 +240,7 @@
 │   │   │   ├── exportSingleFile.ts
 │   │   │   └── inlineHtmlAssets.ts
 │   │   ├── fileWatcher.ts
+│   │   ├── fileWatcherBridge.ts
 │   │   ├── helper
 │   │   │   ├── isBufferArray.ts
 │   │   │   ├── resize.ts
@@ -289,9 +295,6 @@
 │       └── vm-browserify.d.ts
 ├── tailwind.config.ts
 ├── tests
-│   ├── __artifacts__
-│   │   ├── math.transformed.ts
-│   │   └── use-math.transformed.ts
 │   ├── fsRequirePromise.test.ts
 │   ├── gitignore.test.ts
 │   ├── normalizeCjsEsm.imports.test.ts
@@ -301,18 +304,17 @@
 ├── tree-built-out.sh
 ├── tree.sh
 ├── tree.txt
-├── tsconfig.json
-└── tsconfig.tsbuildinfo
+└── tsconfig.json
 
-50 directories, 255 files
+49 directories, 258 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 37905
-合計文字数: 1243471
-合計ファイルサイズ(bytes): 1333656
+合計行数: 38372
+合計文字数: 1262828
+合計ファイルサイズ(bytes): 1354563
 
-リポジトリ全体のサイズ(bytes): 1.9G	.
+リポジトリ全体のサイズ(bytes): 2.1G	.
 ==========
-ビルト済みファイルの行数: 14778
-合計文字数: 25345985
-合計ファイルサイズ(bytes): 26298945
+ビルト済みファイルの行数: 16204
+合計文字数: 27306156
+合計ファイルサイズ(bytes): 28266933

@@ -5,6 +5,7 @@
 import React from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { FileCode, Eye, Check, X } from 'lucide-react';
+import { calculateDiff } from '@/engine/ai/diffProcessor';
 import type { AIEditResponse } from '@/types';
 
 interface FileChangeItemProps {
@@ -24,8 +25,13 @@ export default function FileChangeItem({
 }: FileChangeItemProps) {
   const { colors } = useTheme();
 
-  const originalLines = file.originalContent.split('\n').length;
-  const suggestedLines = file.suggestedContent.split('\n').length;
+  // use diff processor to compute a pure diff summary (added/removed/unchanged)
+  const diffLines = calculateDiff(file.originalContent, file.suggestedContent);
+  const added = diffLines.filter((l) => l.type === 'added').length;
+  const removed = diffLines.filter((l) => l.type === 'removed').length;
+  const unchanged = diffLines.filter((l) => l.type === 'unchanged').length;
+  const originalLines = unchanged + removed;
+  const suggestedLines = unchanged + added;
   const fileName = file.path.split('/').pop() || file.path;
 
   return (
@@ -61,25 +67,21 @@ export default function FileChangeItem({
             </p>
           )}
 
-          <div
-            className="flex items-center gap-2 text-xs"
-            style={{ color: colors.mutedFg }}
-          >
-            <span>{originalLines}行</span>
-            <span>→</span>
-            <span>{suggestedLines}行</span>
-            <span
-              className={`ml-1 ${
-                suggestedLines > originalLines
-                  ? 'text-green-500'
-                  : suggestedLines < originalLines
-                    ? 'text-red-500'
-                    : ''
-              }`}
-            >
-              ({suggestedLines > originalLines ? '+' : ''}
-              {suggestedLines - originalLines})
-            </span>
+          <div className="flex items-center gap-3 text-xs" style={{ color: colors.mutedFg }}>
+            <div className="flex items-center gap-1">
+              <span>{originalLines}行</span>
+              <span className="mx-1">→</span>
+              <span>{suggestedLines}行</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs" style={{ color: added > 0 ? 'var(--tw-color-green-500, #16a34a)' : colors.mutedFg }}>
+                +{added}
+              </span>
+              <span className="text-xs" style={{ color: removed > 0 ? 'var(--tw-color-red-500, #dc2626)' : colors.mutedFg }}>
+                -{removed}
+              </span>
+            </div>
           </div>
         </div>
       </div>
