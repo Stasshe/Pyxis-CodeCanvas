@@ -1069,7 +1069,17 @@ export class GitCommands {
         }
       } catch (readError) {
         const err = readError as Error;
-        if (err.message.includes('not found')) {
+
+        // isomorphic-git のエラーメッセージは環境やバージョンで文言が異なるため柔軟に判定する。
+        // 例: "Could not find file or directory found at \"<oid>:path\"" や "not found" など。
+        const notFoundInHead =
+          err.message.includes('not found') ||
+          err.message.includes('Could not find file') ||
+          (headCommit &&
+            err.message.includes(headCommit.oid) &&
+            err.message.includes(`:${normalizedPath}`));
+
+        if (notFoundInHead) {
           // ファイルがHEADに存在しない場合（新規追加されたファイル）は削除
           if (fileExists) {
             try {
@@ -1090,6 +1100,8 @@ export class GitCommands {
             return `File ${filepath} is already removed`;
           }
         }
+
+        // 上のいずれでもない場合は想定外のエラーなので再スロー
         throw readError;
       }
     } catch (error) {
