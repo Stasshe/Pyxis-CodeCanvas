@@ -239,7 +239,7 @@ export default function AIPanel({
     >
       {/* ヘッダー */}
       <div
-        className="flex items-center justify-between px-4 py-3 border-b"
+        className="flex items-center justify-between px-4 py-3 border-b select-none"
         style={{
           borderColor: colors.border,
           background: colors.cardBg,
@@ -306,7 +306,7 @@ export default function AIPanel({
       {/* Absolute-positioned dropdown for space list so it doesn't affect layout */}
       {showSpaceList && dropdownPosition && (
         <div
-          className="z-50"
+          className="z-50 select-none"
           style={{
             position: 'fixed',
             left: dropdownPosition.left,

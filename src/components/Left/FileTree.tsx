@@ -439,11 +439,12 @@ export default function FileTree({
             {(contextMenu.item == null
               ? ['ファイル作成', 'フォルダ作成', 'インポート']
               : [
-                  '開く',
+                  // Remove '開く' for folders: only include for files
+                  contextMenu.item.type === 'file' ? '開く' : null,
                   contextMenu.item.type === 'file' && contextMenu.item.name.endsWith('.md')
                     ? 'プレビューを開く'
                     : null,
-                  'CodeMirrorで開く',
+                  contextMenu.item.type === 'file' ? 'CodeMirrorで開く' : null,
                   'ダウンロード',
                   'インポート',
                   '名前変更',
