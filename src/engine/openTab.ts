@@ -57,18 +57,26 @@ export const openOrActivateTab = (
     // direct id match
     if (tab.id === tabId) return true;
 
-    const tabKind =
-      (tab as any).kind ||
-      (tab.id && typeof tab.id === 'string' && tab.id.includes(':')
+    // Determine kind of the existing tab. If it's explicitly set, require exact match to avoid
+    // conflating AI review tabs with normal editor tabs. If it's missing (legacy tabs), treat
+    // them as 'editor' for backward compatibility.
+    const tabKind = (tab as any).kind
+      ? (tab as any).kind
+      : tab.id && typeof tab.id === 'string' && tab.id.includes(':')
         ? tab.id.split(':')[0]
-        : 'editor');
+        : 'editor';
+
     const tabIdNorm = normalizePath(tab.id);
     const tabPathNorm = normalizePath(tab.path);
     const filePathNorm = normalizePath(file.path);
 
     const pathMatches = tabIdNorm === filePathNorm || tabPathNorm === filePathNorm;
-    // If tab has an explicit kind, require it to match. If not, allow match for backward compatibility.
-    const kindMatches = tabKind ? tabKind === kind || tabKind === 'editor' : true;
+
+    // Strict kind matching rule:
+    // - If the existing tab has an explicit kind, it must equal the requested kind.
+    // - If the existing tab is a legacy tab without explicit kind, allow matching to 'editor' only.
+    const existingHasExplicitKind = typeof (tab as any).kind === 'string';
+    const kindMatches = existingHasExplicitKind ? tabKind === kind : kind === 'editor';
 
     return pathMatches && kindMatches;
   });

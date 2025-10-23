@@ -38,6 +38,14 @@ export function useProjectFilesSyncEffect({
   isRestoredFromLocalStorage: boolean;
 }) {
   useEffect(() => {
+    // normalize paths for robust comparisons (strip pane/id prefixes and ensure leading slash)
+    const normalizePath = (p?: string) => {
+      if (!p) return '';
+      const withoutKindPrefix = p.includes(':') ? p.replace(/^[^:]+:/, '') : p;
+      // remove known suffixes used historically
+      const cleaned = withoutKindPrefix.replace(/(-preview|-diff|-ai)$/, '');
+      return cleaned.startsWith('/') ? cleaned : `/${cleaned}`;
+    };
     // localStorage復元が完了していない場合は処理をスキップ
     if (!isRestoredFromLocalStorage) {
       console.log(
@@ -72,7 +80,9 @@ export function useProjectFilesSyncEffect({
       const updatedTabs = tabs
         .filter(tab => tab.content !== null) // contentがnullのタブを閉じる
         .map(tab => {
-          const correspondingFile = flattenedFiles.find(f => f.path === tab.path);
+          const correspondingFile = flattenedFiles.find(
+            f => normalizePath(f.path) === normalizePath(tab.path)
+          );
           if (!correspondingFile) {
             // if (tab.needsContentRestore) {
             //   console.log('[DEBUG] No corresponding file found for tab needing restore:', tab.path);
@@ -224,7 +234,6 @@ export function useProjectTabResetEffect({
             content: `# ${currentProject.name}\n\n${currentProject.description || ''}\n\nプロジェクトファイルはIndexedDBに保存されています。\n./${currentProject.name}/~$`,
             isDirty: false,
             path: '/',
-            fullPath: '',
           };
           return [welcomeTab];
         });
@@ -327,9 +336,17 @@ export function useActiveTabContentRestore({
         const changedFile = event.file;
         const flatPanes = flattenPanes(editors);
 
+        // normalize path helper (same logic as above)
+        const normalizePath = (p?: string) => {
+          if (!p) return '';
+          const withoutKindPrefix = p.includes(':') ? p.replace(/^[^:]+:/, '') : p;
+          const cleaned = withoutKindPrefix.replace(/(-preview|-diff|-ai)$/, '');
+          return cleaned.startsWith('/') ? cleaned : `/${cleaned}`;
+        };
+
         // 変更されたファイルのパスに対応するタブがあるかチェック
         const hasMatchingTab = flatPanes.some(pane =>
-          pane.tabs.some((tab: any) => tab.path === changedFile.path)
+          pane.tabs.some((tab: any) => normalizePath(tab.path) === normalizePath(changedFile.path))
         );
 
         if (hasMatchingTab) {
@@ -349,7 +366,7 @@ export function useActiveTabContentRestore({
                   ...editor,
                   tabs: editor.tabs.map((tab: any) => {
                     // パスが一致するタブのみ更新
-                    if (tab.path === changedFile.path) {
+                    if (normalizePath(tab.path) === normalizePath(changedFile.path)) {
                       console.log('[useActiveTabContentRestore] Updating tab:', tab.id);
                       return {
                         ...tab,

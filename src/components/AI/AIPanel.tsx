@@ -16,7 +16,6 @@ import FileContextBar from './context/FileContextBar';
 import ChangedFilesPanel from './review/ChangedFilesPanel';
 import FileSelector from './FileSelector';
 import ChatSpaceList from './ChatSpaceList';
-import ChatSpaceDropdown from './ChatSpaceDropdown';
 import { Bot, ChevronDown } from 'lucide-react';
 import type { FileItem, Project, Tab } from '@/types';
 
@@ -151,6 +150,28 @@ export default function AIPanel({
       await saveFile(filePath, newContent);
       await clearAIReview(filePath);
       closeAIReviewTab(filePath, setTabs, tabs);
+
+      // Immediately update any open editor tabs that match this file path so the
+      // editor reflects the applied changes without waiting for repository events.
+      const normalizePath = (p?: string) => {
+        if (!p) return '';
+        const withoutKindPrefix = p.includes(':') ? p.replace(/^[^:]+:/, '') : p;
+        const cleaned = withoutKindPrefix.replace(/(-preview|-diff|-ai)$/, '');
+        return cleaned.startsWith('/') ? cleaned : `/${cleaned}`;
+      };
+
+      try {
+        setTabs((prevTabs: any[]) =>
+          prevTabs.map(t =>
+            normalizePath(t.path) === normalizePath(filePath)
+              ? { ...t, content: newContent, isDirty: false }
+              : t
+          )
+        );
+      } catch (e) {
+        // non-fatal: if setTabs isn't available or fails, we still continue
+        console.warn('[AIPanel] Failed to update tabs after applyChanges:', e);
+      }
 
       // 成功メッセージを追加
       await addSpaceMessage('', 'assistant', 'edit', [], {
