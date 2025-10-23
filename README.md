@@ -7,7 +7,7 @@
   
   ### *セットアップゼロ。素早く起動、気軽にコーディング*
   
-  [![Version](https://img.shields.io/badge/version-0.5.2-blue.svg)](https://github.com/your-username/pyxis)
+  [![Version](https://img.shields.io/badge/version-0.8.4-blue.svg)](https://github.com/your-username/pyxis)
   [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
   [![Platform](https://img.shields.io/badge/platform-Web%20%7C%20iPad%20%7C%20Mobile-orange.svg)](README.md)
   [![Tauri](https://img.shields.io/badge/Tauri-Desktop-blueviolet?logo=tauri)](https://tauri.app/)
