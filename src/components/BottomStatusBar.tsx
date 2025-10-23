@@ -18,8 +18,8 @@ export default function BottomStatusBar({
   colors,
 }: Props) {
   // debounce config to avoid quick flicker when syncs are short
-  const SHOW_DELAY = 180; // ms - only show syncing indicator if sync lasts longer than this
-  const MIN_VISIBLE_AFTER_STOP = 600; // ms - keep 'Synced' or syncing indicator visible after stop to avoid flicker
+  const SHOW_DELAY = 5; // ms - only show syncing indicator if sync lasts longer than this
+  const MIN_VISIBLE_AFTER_STOP = 10; // ms - keep 'Synced' or syncing indicator visible after stop to avoid flicker
 
   const [isSyncing, setIsSyncing] = useState(false);
   const syncingCount = useRef(0);
