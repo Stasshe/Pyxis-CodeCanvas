@@ -37,8 +37,8 @@ import type { Tab, FileItem, MenuTab, EditorPane } from '@/types';
 import RightSidebar from '@/components/Right/RightSidebar';
 import FileSelectModal from '@/components/FileSelect';
 import { handleFileSelect, handleFilePreview } from '@/hooks/fileSelectHandlers';
-import { Terminal, Search } from 'lucide-react';
-import PanelRightIcon from '@/components/Right/PanelRightIcon';
+import TopBar from '@/components/TopBar';
+import BottomStatusBar from '@/components/BottomStatusBar';
 import OperationWindow from '@/components/OperationWindow';
 import { LOCALSTORAGE_KEY } from '@/context/config';
 
@@ -618,68 +618,16 @@ export default function Home() {
         flexDirection: 'column',
       }}
     >
-      <div
-        className="w-full flex justify-end items-center overflow-hidden"
-        style={{
-          background: colors.background,
-          height: '30px',
-        }}
-      >
-        <button
-          className="absolute left-1/2 transform -translate-x-1/2 h-6 flex items-center justify-center border rounded transition-colors"
-          onClick={toggleOperationWindow}
-          title="ファイル検索 (Ctrl+P)"
-          style={{
-            zIndex: 50,
-            background: isOperationWindowVisible ? colors.accentBg : colors.mutedBg,
-            color: isOperationWindowVisible ? colors.primary : colors.mutedFg,
-            borderColor: colors.border,
-            width: '35%',
-            minWidth: 180,
-            maxWidth: 500,
-            paddingLeft: 12,
-            paddingRight: 12,
-          }}
-        >
-          <Search
-            size={14}
-            color={isOperationWindowVisible ? colors.primary : colors.mutedFg}
-          />
-          <span className="ml-2 truncate">{currentProject?.name} [ファイル検索]</span>
-        </button>
-        <button
-          className={`relative right-2 h-6 px-2 flex items-center justify-center border rounded transition-colors`}
-          onClick={toggleBottomPanel}
-          title="ターミナル表示/非表示"
-          style={{
-            zIndex: 50,
-            background: isBottomPanelVisible ? colors.accentBg : colors.mutedBg,
-            color: isBottomPanelVisible ? colors.primary : colors.mutedFg,
-            borderColor: colors.border,
-          }}
-        >
-          <Terminal
-            size={8}
-            color={isBottomPanelVisible ? colors.primary : colors.mutedFg}
-          />
-        </button>
-        <button
-          className={`relative right-3 h-6 px-2 flex items-center justify-center border rounded transition-colors ml-1`}
-          onClick={toggleRightSidebar}
-          title="右パネル表示/非表示"
-          style={{
-            zIndex: 50,
-            background: isRightSidebarVisible ? colors.accentBg : colors.mutedBg,
-            color: isRightSidebarVisible ? colors.primary : colors.mutedFg,
-            borderColor: colors.border,
-          }}
-        >
-          <PanelRightIcon
-            size={16}
-            color={isRightSidebarVisible ? colors.primary : colors.mutedFg}
-          />
-        </button>
-      </div>
+      <TopBar
+        isOperationWindowVisible={isOperationWindowVisible}
+        toggleOperationWindow={toggleOperationWindow}
+        isBottomPanelVisible={isBottomPanelVisible}
+        toggleBottomPanel={toggleBottomPanel}
+        isRightSidebarVisible={isRightSidebarVisible}
+        toggleRightSidebar={toggleRightSidebar}
+        colors={colors}
+        currentProjectName={currentProject?.name}
+      />
       <div
         className="flex-1 w-full flex overflow-hidden"
         style={{
@@ -897,6 +845,13 @@ export default function Home() {
           currentPaneIndex={fileSelectState.paneIdx}
         />
       </div>
+      <BottomStatusBar
+        height={22}
+        currentProjectName={currentProject?.name}
+        gitChangesCount={gitChangesCount}
+        nodeRuntimeBusy={nodeRuntimeOperationInProgress}
+        colors={colors}
+      />
     </div>
   );
 }
