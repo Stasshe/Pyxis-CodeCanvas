@@ -1,15 +1,32 @@
 import type { Monaco } from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
-import { useRef, useCallback } from 'react';
+import { useCallback } from 'react';
 
 import { getLanguage } from '../editors/editor-utils';
 
 /**
  * Monaco Editor用のモデル管理フック
+ *
+ * NOTE:
+ * モデルは各 `MonacoEditor` コンポーネントローカルに保持すると、エディタがアンマウント
+ * されるたびに参照が失われ、結果として状態がリセットされる問題が発生する。ここではモジュー
+ * ルレベルで共有するMapとcurrentModelIdRefを用意し、複数のエディタインスタンスでモデルを
+ * 共有できるようにする（シングルトン）。明示的にモデルを破棄したい場合は `disposeModel(tabId)`
+ * や `disposeAllModels()` を呼ぶ。
  */
+
+// モジュール共有のモデルMap（シングルトン）
+const sharedModelMap: Map<string, monaco.editor.ITextModel> = new Map();
+
+// モジュール共有の currentModelIdRef 互換オブジェクト
+const sharedCurrentModelIdRef: { current: string | null } = { current: null };
+
 export function useMonacoModels() {
-  const monacoModelMapRef = useRef<Map<string, monaco.editor.ITextModel>>(new Map());
-  const currentModelIdRef = useRef<string | null>(null);
+  // return の型は以前と互換性があるように ref 互換オブジェクトを返す
+  const monacoModelMapRef = { current: sharedModelMap } as {
+    current: Map<string, monaco.editor.ITextModel>;
+  };
+  const currentModelIdRef = sharedCurrentModelIdRef;
 
   const isModelSafe = useCallback((model: monaco.editor.ITextModel | null | undefined) => {
     return model && typeof model.isDisposed === 'function' && !model.isDisposed();
@@ -76,7 +93,7 @@ export function useMonacoModels() {
     });
     monacoModelMap.clear();
     currentModelIdRef.current = null;
-  }, []);
+  }, [currentModelIdRef]);
 
   return {
     monacoModelMapRef,

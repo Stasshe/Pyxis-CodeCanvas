@@ -322,13 +322,15 @@ export default function MonacoEditor({
         editorRef.current.dispose();
         editorRef.current = null;
       }
+      // NOTE: Do NOT call `disposeAllModels()` here. Disposing all models when a single
+      // MonacoEditor instance unmounts causes all open editors' models to be cleared,
+      // which resets content when switching to non-editor tabs (preview/welcome/binary).
+      // Keep models alive across unmounts so editors can restore state when remounted.
       if (monacoRef.current) {
-        disposeAllModels();
         monacoRef.current = null;
       }
-      currentModelIdRef.current = null;
     };
-  }, [disposeAllModels]);
+  }, []);
 
   return (
     <Editor
