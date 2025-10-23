@@ -200,7 +200,7 @@ export function useDiffTabHandlers(
       // タブのアクティブ化（タブ作成後に実行）
       setActiveTabId(diffTabId);
     },
-    [currentProject, setTabs, setActiveTabId]
+    [currentProject, tabs, setTabs, setActiveTabId]
   );
 
   // コミット全体のdiffタブを開く（全ファイルを1つのタブで縦並び表示）
@@ -208,6 +208,23 @@ export function useDiffTabHandlers(
     async ({ commitId, parentCommitId }: { commitId: string; parentCommitId: string }) => {
       if (!currentProject) return;
       const git = new GitCommands(currentProject.name, currentProject.id);
+      // defensive: if parentCommitId is not provided, try to resolve it from the commit log
+      if (!parentCommitId) {
+        try {
+          const log = await git.getFormattedLog(20);
+          const lines = log.split('\n');
+          const idx = lines.findIndex(line => line.startsWith(commitId));
+          if (idx !== -1) {
+            const parts = lines[idx].split('|');
+            if (parts.length >= 5) {
+              const parentHashes = parts[4].trim();
+              parentCommitId = parentHashes.split(',')[0] || '';
+            }
+          }
+        } catch (e) {
+          console.warn('[useDiffTabHandlers] Failed to resolve parentCommitId from log:', e);
+        }
+      }
       // 差分ファイル一覧を取得
       const diffOutput = await git.diffCommits(parentCommitId, commitId);
       // 変更ファイルを抽出
