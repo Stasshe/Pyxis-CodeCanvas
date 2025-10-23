@@ -42,8 +42,8 @@ export class ModuleCache {
     });
   }
 
-  async get(path: string): Promise<CacheEntry | null> {
-    const hash = this.hashPath(path);
+  async get(path: string, version?: string): Promise<CacheEntry | null> {
+    const hash = this.hashPath(path, version);
     const entry = this.cache.get(hash);
 
     if (entry) {
@@ -56,8 +56,12 @@ export class ModuleCache {
     return null;
   }
 
-  async set(path: string, entry: Omit<CacheEntry, 'hash' | 'lastAccess'>): Promise<void> {
-    const hash = this.hashPath(path);
+  async set(
+    path: string,
+    entry: Omit<CacheEntry, 'hash' | 'lastAccess'>,
+    version?: string
+  ): Promise<void> {
+    const hash = this.hashPath(path, version);
     const cacheEntry: CacheEntry = { ...entry, hash, lastAccess: Date.now() };
 
     this.cache.set(hash, cacheEntry);
@@ -114,12 +118,22 @@ export class ModuleCache {
 
       for (const metaFile of metaFiles) {
         try {
-          const meta: Omit<CacheEntry, 'code'> = JSON.parse(metaFile.content);
+          const meta: any = JSON.parse(metaFile.content);
           const hash = metaFile.name.replace('.json', '');
           const codeFile = files.find(f => f.path === `${this.cacheDir}/${hash}.js`);
 
           if (codeFile?.content) {
-            this.cache.set(hash, { ...meta, code: codeFile.content } as CacheEntry);
+            const entry: CacheEntry = {
+              originalPath: meta.originalPath,
+              hash: meta.hash || hash,
+              code: codeFile.content,
+              sourceMap: meta.sourceMap,
+              deps: meta.deps || [],
+              mtime: meta.mtime || Date.now(),
+              lastAccess: meta.lastAccess || Date.now(),
+              size: meta.size || codeFile.content.length,
+            };
+            this.cache.set(entry.hash, entry);
             loadedCount++;
           }
         } catch (error) {
@@ -214,10 +228,15 @@ export class ModuleCache {
     return `${(bytes / (1024 * 1024)).toFixed(2)}MB`;
   }
 
-  private hashPath(path: string): string {
+  /**
+   * Compute a hash for cache keys. If version is provided, include it so that
+   * the same path with different content/version produces different keys.
+   */
+  private hashPath(path: string, version?: string): string {
+    const input = version ? `${path}|${version}` : path;
     let hash = 0;
-    for (let i = 0; i < path.length; i++) {
-      const char = path.charCodeAt(i);
+    for (let i = 0; i < input.length; i++) {
+      const char = input.charCodeAt(i);
       hash = (hash << 5) - hash + char;
       hash = hash & hash;
     }

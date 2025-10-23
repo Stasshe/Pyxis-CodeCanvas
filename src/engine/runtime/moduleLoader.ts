@@ -150,7 +150,9 @@ export class ModuleLoader {
    */
   async getTranspiledCode(filePath: string, content: string): Promise<string> {
     // キャッシュをチェック
-    const cached = await this.cache.get(filePath);
+    // Use content-based versioning so cache invalidates when file content changes
+    const version = this.computeContentVersion(content);
+    const cached = await this.cache.get(filePath, version);
     if (cached) {
       runtimeInfo('📦 Using transpile cache:', filePath);
       return cached.code;
@@ -177,19 +179,37 @@ export class ModuleLoader {
       code = result.code;
 
       // キャッシュに保存
-      await this.cache.set(filePath, {
-        originalPath: filePath,
-        code: result.code,
-        sourceMap: result.sourceMap,
-        deps: result.dependencies,
-        mtime: Date.now(),
-        size: result.code.length,
-      });
+      await this.cache.set(
+        filePath,
+        {
+          originalPath: filePath,
+          code: result.code,
+          sourceMap: result.sourceMap,
+          deps: result.dependencies,
+          mtime: Date.now(),
+          size: result.code.length,
+        },
+        version
+      );
 
       runtimeInfo('✅ Transpile completed and cached');
     }
 
     return code;
+  }
+
+  /**
+   * Compute a simple content-based version string. We keep it inexpensive (32-bit
+   * rolling hash -> base36) because content may be long and this is called frequently.
+   */
+  private computeContentVersion(content: string): string {
+    let h = 0;
+    for (let i = 0; i < content.length; i++) {
+      const ch = content.charCodeAt(i);
+      h = (h << 5) - h + ch;
+      h = h & h;
+    }
+    return Math.abs(h).toString(36);
   }
 
   /**
