@@ -34,7 +34,7 @@ export default function ModeSelector({
 
   return (
     <div
-      className={`flex ${sizeClass}`}
+      className={`flex ${sizeClass} select-none`}
       style={{ background: colors.mutedBg }}
     >
       {modes.map(({ value, label, icon: Icon, description }) => (

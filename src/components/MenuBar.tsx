@@ -99,6 +99,7 @@ export default function MenuBar({
 
   return (
     <div
+      className="select-none"
       style={{
         width: '3rem',
         background: colors.background,

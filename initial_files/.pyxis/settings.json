@@ -23,8 +23,7 @@
       "**/.nuxt",
       "**/cache"
     ],
-    "useIgnoreFiles": true,
-    "followSymlinks": false
+    "useIgnoreFiles": true
   },
   "markdown": {
     "singleLineBreaks": "breaks"
@@ -32,16 +31,7 @@
   "files": {
     "exclude": [
       "**/.git",
-      "**/.DS_Store",
-      "**/Thumbs.db"
-    ],
-    "watcherExclude": [
-      "**/.git/objects/**",
-      "**/.git/subtree-cache/**",
-      "**/node_modules/**",
-      "**/.hg/store/**"
-    ],
-    "autoSave": "off",
-    "autoSaveDelay": 1000
+      "**/cache"
+    ]
   }
 }

@@ -83,6 +83,7 @@ export default function BottomStatusBar({
 
   return (
     <div
+      className="select-none"
       style={{
         height,
         background: colors.mutedBg,

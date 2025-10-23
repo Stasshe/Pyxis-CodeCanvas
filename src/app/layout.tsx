@@ -140,7 +140,7 @@ export default function RootLayout({
           content="no"
         />
         {/* Load eruda only in development (controlled via NEXT_PUBLIC_IS_DEV or NODE_ENV) */}
-        {process.env.NEXT_PUBLIC_IS_PRODUCTION_BUILD === 'true' && (
+        {process.env.NEXT_PUBLIC_IS_PRODUCTION_BUILD !== 'true' && (
           <>
             <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
             <script dangerouslySetInnerHTML={{ __html: 'eruda.init();' }} />

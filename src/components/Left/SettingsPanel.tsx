@@ -42,6 +42,20 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
       try {
         const loadedSettings = await settingsManager.loadSettings(currentProject.id);
         setSettings(loadedSettings);
+
+        // Apply any saved custom colors into the theme context so UI reflects them
+        try {
+          if (loadedSettings.theme && loadedSettings.theme.customColors) {
+            Object.entries(loadedSettings.theme.customColors).forEach(([k, v]) => {
+              // only apply string values
+              if (typeof v === 'string') {
+                setColor(k, v);
+              }
+            });
+          }
+        } catch (e) {
+          console.warn('[SettingsPanel] Failed to apply customColors to theme context:', e);
+        }
       } catch (error) {
         console.error('[SettingsPanel] Failed to load settings:', error);
       } finally {
@@ -248,28 +262,47 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
                 style={{ background: colors.cardBg }}
               >
                 <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
-                  {Object.entries(colors).map(([key, value]) => (
-                    <div
-                      key={key}
-                      className="flex items-center gap-2"
-                    >
-                      <input
-                        id={`theme-${key}`}
-                        type="color"
-                        value={value}
-                        onChange={e => setColor(key, e.target.value)}
-                        className="w-5 h-5 rounded cursor-pointer border-0"
-                      />
-                      <label
-                        htmlFor={`theme-${key}`}
-                        className="text-[10px] cursor-pointer flex-1 truncate"
-                        style={{ color: colors.mutedFg }}
-                        title={key}
-                      >
-                        {key}
-                      </label>
-                    </div>
-                  ))}
+                  {Object.entries(colors)
+                    // only show simple string color values (hex or rgb/rgba)
+                    .filter(([_k, v]) => typeof v === 'string' && (/^#|^rgb\(/).test(v))
+                    .map(([key, value]) => (
+                      <div key={key} className="flex items-center gap-2">
+                        <input
+                          id={`theme-${key}`}
+                          type="color"
+                          value={value as string}
+                          onChange={e => {
+                            const newVal = e.target.value;
+                            // update live theme
+                            setColor(key, newVal);
+
+                            // persist into project settings as theme.customColors
+                            try {
+                              updateSettings({
+                                theme: {
+                                  ...settings.theme,
+                                  customColors: {
+                                    ...(settings.theme.customColors || {}),
+                                    [key]: newVal,
+                                  },
+                                },
+                              });
+                            } catch (err) {
+                              console.error('[SettingsPanel] Failed to persist custom color:', err);
+                            }
+                          }}
+                          className="w-5 h-5 rounded cursor-pointer border-0"
+                        />
+                        <label
+                          htmlFor={`theme-${key}`}
+                          className="text-[10px] cursor-pointer flex-1 truncate"
+                          style={{ color: colors.mutedFg }}
+                          title={key}
+                        >
+                          {key}
+                        </label>
+                      </div>
+                    ))}
                 </div>
               </div>
             )}
@@ -534,33 +567,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
             </p>
           </div>
 
-          <div>
-            <label
-              className="block text-xs mb-1.5"
-              style={{ color: colors.foreground }}
-            >
-              自動保存
-            </label>
-            <select
-              value={settings.files.autoSave}
-              onChange={e =>
-                updateSettings({
-                  files: { ...settings.files, autoSave: e.target.value as any },
-                })
-              }
-              className="w-full rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1"
-              style={{
-                background: colors.cardBg,
-                color: colors.foreground,
-                border: `1px solid ${colors.border}`,
-              }}
-            >
-              <option value="off">オフ</option>
-              <option value="afterDelay">遅延後</option>
-              <option value="onFocusChange">フォーカス変更時</option>
-              <option value="onWindowChange">ウィンドウ変更時</option>
-            </select>
-          </div>
+          {/* autoSave removed from settings */}
         </div>
       </div>
     </div>

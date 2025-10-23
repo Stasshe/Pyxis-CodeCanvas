@@ -22,15 +22,11 @@ export interface PyxisSettings {
   search: {
     exclude: string[]; // glob patterns
     useIgnoreFiles: boolean;
-    followSymlinks: boolean;
   };
 
   // ファイル設定
   files: {
     exclude: string[]; // glob patterns
-    watcherExclude: string[];
-    autoSave: 'off' | 'afterDelay' | 'onFocusChange' | 'onWindowChange';
-    autoSaveDelay: number;
   };
 
   // Markdown固有の設定
@@ -67,23 +63,14 @@ export const DEFAULT_PYXIS_SETTINGS: PyxisSettings = {
       '**/coverage',
       '**/.next',
       '**/.nuxt',
-      '**/.cache',
+      '**/cache',
     ],
     useIgnoreFiles: true,
-    followSymlinks: false,
   },
   markdown: {
     singleLineBreaks: 'breaks',
   },
   files: {
     exclude: ['**/.git', '**/.DS_Store', '**/Thumbs.db'],
-    watcherExclude: [
-      '**/.git/objects/**',
-      '**/.git/subtree-cache/**',
-      '**/node_modules/**',
-      '**/.hg/store/**',
-    ],
-    autoSave: 'off',
-    autoSaveDelay: 1000,
   },
 };
