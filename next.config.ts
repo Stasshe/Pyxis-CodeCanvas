@@ -65,9 +65,6 @@ const productionConfig = isProductionBuild
   ? {
       output: 'export',
       trailingSlash: true,
-      eslint: {
-        ignoreDuringBuilds: true,
-      },
       typescript: {
         ignoreBuildErrors: true,
       },
@@ -75,9 +72,11 @@ const productionConfig = isProductionBuild
   : {};
 
 
+
 const nextConfig = {
   ...commonConfig,
   ...productionConfig,
+  turbopack: {}, // Next.js 16 以降のTurbopack対応
 };
 
 console.log(`Building in ${isProductionBuild ? 'PRODUCTION' : 'DEVELOPMENT'} mode`);
