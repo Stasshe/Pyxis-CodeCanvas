@@ -14,7 +14,7 @@
  * - モデル管理とundo/redo履歴
  */
 
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback, useState } from 'react';
 import { useSettings } from '@/hooks/useSettings';
 import type { Tab, Project } from '@/types';
 import { isBufferArray } from '@/engine/helper/isBufferArray';
@@ -64,6 +64,51 @@ export default function CodeEditor({
   } = useCharCount(activeTab?.content);
 
   const editorHeight = '100%';
+
+  // Mobile / touch device 判定: ポインタが coarse、または画面幅が小さい、または navigator.maxTouchPoints をチェック
+  const [isMobileDevice, setIsMobileDevice] = useState(false);
+  useEffect(() => {
+    const updateIsMobile = () => {
+      try {
+        const hasTouchPoints =
+          typeof navigator !== 'undefined' &&
+          'maxTouchPoints' in navigator &&
+          (navigator.maxTouchPoints || 0) > 0;
+        const mqPointer =
+          typeof window !== 'undefined' && window.matchMedia
+            ? window.matchMedia('(pointer: coarse)')
+            : null;
+        const mqWidth =
+          typeof window !== 'undefined' && window.matchMedia
+            ? window.matchMedia('(max-width: 640px)')
+            : null;
+        const isMobile =
+          !!hasTouchPoints || (!!mqPointer && mqPointer.matches) || (!!mqWidth && mqWidth.matches);
+        setIsMobileDevice(isMobile);
+      } catch (e) {
+        setIsMobileDevice(false);
+      }
+    };
+
+    updateIsMobile();
+
+    const mqPointer =
+      typeof window !== 'undefined' && window.matchMedia
+        ? window.matchMedia('(pointer: coarse)')
+        : null;
+    const mqWidth =
+      typeof window !== 'undefined' && window.matchMedia
+        ? window.matchMedia('(max-width: 640px)')
+        : null;
+
+    mqPointer?.addEventListener?.('change', updateIsMobile);
+    mqWidth?.addEventListener?.('change', updateIsMobile);
+
+    return () => {
+      mqPointer?.removeEventListener?.('change', updateIsMobile);
+      mqWidth?.removeEventListener?.('change', updateIsMobile);
+    };
+  }, []);
 
   // デバウンス付きの保存関数（5秒）
   const debouncedSave = useCallback(
@@ -200,6 +245,7 @@ export default function CodeEditor({
           onTogglePopup={() => setShowCharCountPopup(v => !v)}
           onClosePopup={() => setShowCharCountPopup(false)}
           content={activeTab.content || ''}
+          alignLeft={isMobileDevice}
         />
       </div>
     );
@@ -231,6 +277,7 @@ export default function CodeEditor({
         onTogglePopup={() => setShowCharCountPopup(v => !v)}
         onClosePopup={() => setShowCharCountPopup(false)}
         content={activeTab.content || ''}
+        alignLeft={isMobileDevice}
       />
     </div>
   );

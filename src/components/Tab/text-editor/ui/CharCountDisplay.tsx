@@ -7,6 +7,7 @@ interface CharCountDisplayProps {
   onTogglePopup: () => void;
   onClosePopup: () => void;
   content: string;
+  alignLeft?: boolean;
 }
 
 export default function CharCountDisplay({
@@ -16,6 +17,7 @@ export default function CharCountDisplay({
   onTogglePopup,
   onClosePopup,
   content,
+  alignLeft = false,
 }: CharCountDisplayProps) {
   return (
     <>
@@ -23,7 +25,8 @@ export default function CharCountDisplay({
       <div
         style={{
           position: 'absolute',
-          right: 12,
+          right: alignLeft ? undefined : 12,
+          left: alignLeft ? 12 : undefined,
           bottom: 8,
           background: 'rgba(30,30,30,0.85)',
           color: '#d4d4d4',
@@ -46,7 +49,8 @@ export default function CharCountDisplay({
         <div
           style={{
             position: 'absolute',
-            right: 12,
+            right: alignLeft ? undefined : 12,
+            left: alignLeft ? 12 : undefined,
             bottom: 40,
             zIndex: 20,
             background: 'rgba(30,30,30,0.98)',
