@@ -70,9 +70,14 @@ export async function handleGitCommand(
         }
 
         try {
+          // ターミナルからの clone は任意でターゲットディレクトリを指定できます。
+          // 指定がない場合はリポジトリ名のサブフォルダへクローンされます。
           await writeOutput(`Cloning repository ${url}...`);
           const cloneResult = await gitCommandsRef.current.clone(url, targetDir);
           await writeOutput(cloneResult);
+          if (!targetDir) {
+            await writeOutput(`Note: No target directory specified. Repository was cloned into a subdirectory named after the repository.\nTo clone directly into a project root (like via Project manager), use the Project modal which clones into the project root.`);
+          }
         } catch (error) {
           const errorMessage = (error as Error).message;
           // ネットワークエラーやCORSエラーの場合は、より分かりやすいメッセージを表示

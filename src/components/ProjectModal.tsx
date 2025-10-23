@@ -132,7 +132,8 @@ export default function ProjectModal({
       const git = new GitCommands(project.name, project.id);
 
       // git cloneを実行（.gitを含む全ファイルがIndexedDBに同期される）
-      await git.clone(url, project.name);
+      // ProjectModalで作成した空プロジェクトのルートに直接クローンするため targetDir='.' を渡す
+      await git.clone(url, '.');
 
       // プロジェクトを選択して開く
       onProjectSelect(project);

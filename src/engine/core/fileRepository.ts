@@ -911,16 +911,22 @@ export class FileRepository {
             coreWarn('[FileRepository] Failed to clear gitignore cache after delete:', e);
           }
           // GitFileSystemへの自動同期（削除）
-          this.syncToGitFileSystem(
-            fileToDelete.projectId,
-            fileToDelete.path,
-            '',
-            'delete',
-            undefined,
-            fileToDelete.type
-          ).catch(error => {
-            console.warn('[FileRepository] Background delete sync failed (non-critical):', error);
-          });
+          // 重要: 削除はバックグラウンドでfire-and-forgetだとFSとDBが一時的に不整合になる
+          // (特に rm -r のような大量削除で顕在化するため)、ここでは同期を待機して
+          // lightning-fs 側が確実に反映されるようにする。
+          try {
+            await this.syncToGitFileSystem(
+              fileToDelete.projectId,
+              fileToDelete.path,
+              '',
+              'delete',
+              undefined,
+              fileToDelete.type
+            );
+          } catch (error) {
+            console.warn('[FileRepository] delete sync to GitFileSystem failed:', error);
+            // 失敗しても削除自体は完了しているため、処理は継続する
+          }
 
           // ファイル削除イベントを発火
           this.emitChange({
@@ -961,6 +967,29 @@ export class FileRepository {
         // After deletion, background sync for deleted files is handled in deleteFile when used individually.
         // Here we emit a generic change event to indicate mass deletion (listeners may resync)
         this.emitChange({ type: 'delete', projectId, file: { id: '', path: prefix } as any });
+
+        // Ensure GitFileSystem reflects the DB deletions.
+        // For mass deletions we call SyncManager.syncFromIndexedDBToFS to reconcile FS with DB.
+        try {
+          const { syncManager } = await import('./syncManager');
+          // Look up projectName (best-effort)
+          let projectName = this.projectNameCache.get(projectId);
+          if (!projectName) {
+            const projects = await this.getProjects();
+            const project = projects.find(p => p.id === projectId);
+            projectName = project?.name;
+            if (projectName) this.projectNameCache.set(projectId, projectName);
+          }
+
+          if (projectName) {
+            await syncManager.syncFromIndexedDBToFS(projectId, projectName);
+          } else {
+            coreWarn('[FileRepository] Could not determine projectName for bulk delete sync');
+          }
+        } catch (err) {
+          console.warn('[FileRepository] Bulk delete: syncFromIndexedDBToFS failed (non-critical):', err);
+        }
+
         resolve();
       };
 

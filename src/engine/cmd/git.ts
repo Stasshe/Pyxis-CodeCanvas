@@ -122,8 +122,12 @@ export class GitCommands {
       const baseDir = this.dir.endsWith('/') ? this.dir.slice(0, -1) : this.dir;
 
       if (targetDir) {
+        // '.' を指定された場合はプロジェクトのルートディレクトリにクローンする
+        if (targetDir === '.' || targetDir === './') {
+          cloneDir = baseDir;
+        }
         // targetDir が絶対パスでない限り、プロジェクトディレクトリ配下に作成する
-        if (targetDir.startsWith('/')) {
+        else if (targetDir.startsWith('/')) {
           cloneDir = targetDir;
         } else {
           cloneDir = `${baseDir}/${targetDir}`;
@@ -179,12 +183,16 @@ export class GitCommands {
         );
       }
 
-  // クローンしたファイルをIndexedDBに同期
-  console.log('[git clone] Syncing cloned files to IndexedDB...');
-  // baseRelativePath はプロジェクト内での相対パスとして扱うため、
-  // 先頭の不要なスラッシュは取り除いて渡す
-  const baseRelativePath = (targetDir || repoName).replace(/^\//, '');
-  await this.syncClonedFilesToIndexedDB(cloneDir, baseRelativePath);
+      // クローンしたファイルをIndexedDBに同期
+      console.log('[git clone] Syncing cloned files to IndexedDB...');
+
+      // baseRelativePath はプロジェクト内での相対パスとして扱うため、
+      // cloneDir がプロジェクトルート(baseDir)の場合は空文字にして
+      // そのままルートに同期する。そうでなければ targetDir または repoName を使う。
+      const baseRelativePath =
+        cloneDir === baseDir ? '' : ((targetDir && targetDir !== '.') ? targetDir : repoName).replace(/^\//, '');
+
+      await this.syncClonedFilesToIndexedDB(cloneDir, baseRelativePath);
 
       return `Cloning into '${targetDir || repoName}'...\nClone completed successfully.`;
     }, 'git clone failed');
