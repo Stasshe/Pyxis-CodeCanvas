@@ -89,13 +89,14 @@ export const openOrActivateTab = (
 
     if (jumpToLine !== undefined || jumpToColumn !== undefined) {
       console.log('[openOrActivateTab] Setting jump position for existing tab:', {
-        tabId,
+        // Use the actual existing tab id (may include pane prefix)
+        existingId: existing.id,
         jumpToLine,
         jumpToColumn,
       });
       setTabs((currentTabs: Tab[]) =>
         currentTabs.map(tab =>
-          tab.id === tabId
+          tab.id === existing.id
             ? {
                 ...tab,
                 jumpToLine,
@@ -105,7 +106,8 @@ export const openOrActivateTab = (
         )
       );
     }
-    setActiveTabId(tabId);
+    // Activate the actual existing tab id so UI selects the restored tab (which may include pane prefixes)
+    setActiveTabId(existing.id);
     return;
   }
 
