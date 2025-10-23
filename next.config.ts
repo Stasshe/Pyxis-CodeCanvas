@@ -15,6 +15,11 @@ const commonConfig = {
   images: {
     unoptimized: true, // 静的エクスポートでは必須
   },
+  // Expose build-time values to client code and Turbopack via NEXT_PUBLIC_*
+  env: {
+    NEXT_PUBLIC_PYXIS_VERSION: pkg.version,
+    NEXT_PUBLIC_IS_PRODUCTION_BUILD: String(isProductionBuild),
+  },
   webpack: (config: any, { isServer }: { isServer: boolean }) => {
     if (!isServer) {
       config.resolve.fallback = {
@@ -34,10 +39,11 @@ const commonConfig = {
           Buffer: ['buffer', 'Buffer'],
           process: 'process/browser',
         }),
-        // バージョンをDefinePluginで注入
+        // バージョンをDefinePluginで注入（webpack 用フォールバック）
         new (require('webpack')).DefinePlugin({
           'process.env.PYXIS_VERSION': JSON.stringify(pkg.version),
-          'process.env.IS_DEV': isProductionBuild,
+          // 保守的に string 化して注入（webpack のみ）
+          'process.env.NEXT_PUBLIC_IS_PRODUCTION_BUILD': JSON.stringify(isProductionBuild),
         }),
       ];
       config.output.globalObject = 'globalThis';

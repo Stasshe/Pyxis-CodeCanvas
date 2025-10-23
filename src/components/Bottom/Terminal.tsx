@@ -176,7 +176,7 @@ function ClientTerminal({
     }, 100);
 
     // 初期メッセージ
-    const pyxisVersion = process.env.PYXIS_VERSION || '(dev)';
+    const pyxisVersion = process.env.NEXT_PUBLIC_PYXIS_VERSION || '(dev)';
     term.writeln(`Pyxis Terminal v${pyxisVersion} [NEW ARCHITECTURE]`);
     term.writeln('Type "help" for available commands.');
 
