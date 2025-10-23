@@ -13,6 +13,9 @@ import { ProjectFile } from '@/types';
 export class SyncManager {
   private static instance: SyncManager | null = null;
 
+  // simple event listeners map
+  private listeners: Map<string, Set<(...args: any[]) => void>> = new Map();
+
   private constructor() {}
 
   /**
@@ -25,11 +28,35 @@ export class SyncManager {
     return SyncManager.instance;
   }
 
+  // event emitter helpers
+  on(event: string, cb: (...args: any[]) => void) {
+    if (!this.listeners.has(event)) this.listeners.set(event, new Set());
+    this.listeners.get(event)!.add(cb);
+  }
+
+  off(event: string, cb: (...args: any[]) => void) {
+    this.listeners.get(event)?.delete(cb);
+  }
+
+  private emit(event: string, ...args: any[]) {
+    const s = this.listeners.get(event);
+    if (!s) return;
+    for (const cb of Array.from(s)) {
+      try {
+        cb(...args);
+      } catch (e) {
+        coreWarn('[SyncManager] listener error', e);
+      }
+    }
+  }
+
   /**
    * IndexedDB → lightning-fs への同期
    * 通常のファイル操作後に呼び出される
    */
   async syncFromIndexedDBToFS(projectId: string, projectName: string): Promise<void> {
+    // notify listeners that a sync is starting
+    this.emit('sync:start', { projectId, projectName, direction: 'db->fs' });
     try {
       const dbFiles = await fileRepository.getProjectFiles(projectId);
       const projectDir = gitFileSystem.getProjectDir(projectName);
@@ -115,8 +142,12 @@ export class SyncManager {
 
       await gitFileSystem.flush();
       coreInfo('[SyncManager] Sync from IndexedDB to lightning-fs completed');
+      // notify listeners that sync finished successfully
+      this.emit('sync:stop', { projectId, projectName, direction: 'db->fs', success: true });
     } catch (error) {
       coreError('[SyncManager] Failed to sync from IndexedDB to lightning-fs:', error);
+      // notify listeners that sync stopped with error
+      this.emit('sync:stop', { projectId, projectName, direction: 'db->fs', success: false, error });
       throw error;
     }
   }
@@ -127,6 +158,9 @@ export class SyncManager {
    */
   async syncFromFSToIndexedDB(projectId: string, projectName: string): Promise<void> {
     // internal: syncing from lightning-fs to IndexedDB
+
+    // notify listeners that a sync is starting
+    this.emit('sync:start', { projectId, projectName, direction: 'fs->db' });
 
     try {
       // lightning-fsから全ファイルを取得
@@ -167,8 +201,10 @@ export class SyncManager {
       }
 
       coreInfo('[SyncManager] Sync from lightning-fs to IndexedDB completed');
+      this.emit('sync:stop', { projectId, projectName, direction: 'fs->db', success: true });
     } catch (error) {
       coreError('[SyncManager] Failed to sync from lightning-fs to IndexedDB:', error);
+      this.emit('sync:stop', { projectId, projectName, direction: 'fs->db', success: false, error });
       throw error;
     }
   }
@@ -184,6 +220,8 @@ export class SyncManager {
     bufferContent?: ArrayBuffer
   ): Promise<void> {
     coreInfo(`[SyncManager] Syncing single file to lightning-fs: ${filePath} (${operation})`);
+    // emit start for single-file sync
+    this.emit('sync:start', { projectName, filePath, operation, direction: 'single:db->fs' });
 
     try {
       if (operation === 'delete' || content === null) {
@@ -200,10 +238,11 @@ export class SyncManager {
 
       // キャッシュフラッシュ
       await gitFileSystem.flush();
-
       coreInfo(`[SyncManager] Single file sync completed: ${filePath}`);
+      this.emit('sync:stop', { projectName, filePath, operation, direction: 'single:db->fs', success: true });
     } catch (error) {
       coreError(`[SyncManager] Failed to sync single file ${filePath}:`, error);
+      this.emit('sync:stop', { projectName, filePath, operation, direction: 'single:db->fs', success: false, error });
       throw error;
     }
   }
@@ -217,6 +256,8 @@ export class SyncManager {
     files: ProjectFile[]
   ): Promise<void> {
     coreInfo('[SyncManager] Initializing project...');
+    // emit start for project initialization
+    this.emit('sync:start', { projectId, projectName, direction: 'init' });
 
     try {
       // lightning-fsのプロジェクトディレクトリを作成
@@ -227,8 +268,10 @@ export class SyncManager {
       await this.syncFromIndexedDBToFS(projectId, projectName);
 
       coreInfo('[SyncManager] Project initialization completed');
+      this.emit('sync:stop', { projectId, projectName, direction: 'init', success: true });
     } catch (error) {
       coreError('[SyncManager] Failed to initialize project:', error);
+      this.emit('sync:stop', { projectId, projectName, direction: 'init', success: false, error });
       throw error;
     }
   }

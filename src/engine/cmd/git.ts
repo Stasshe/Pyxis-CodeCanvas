@@ -115,13 +115,21 @@ export class GitCommands {
       const repoName = url.split('/').pop()?.replace('.git', '') || 'repository';
 
       // クローン先ディレクトリを決定
+      // NOTE: これまではプロジェクトの親ディレクトリにクローン先を作成しており、
+      // プロジェクトディレクトリと同階層にフォルダが生成される問題があった。
+      // 正しくは現在のプロジェクトディレクトリの中にクローン先を作ること。
       let cloneDir: string;
-      const currentRepoName = this.dir.split('/').pop() || 'project';
+      const baseDir = this.dir.endsWith('/') ? this.dir.slice(0, -1) : this.dir;
 
       if (targetDir) {
-        cloneDir = `${this.dir.replace(`/${currentRepoName}`, '')}/${targetDir}`;
+        // targetDir が絶対パスでない限り、プロジェクトディレクトリ配下に作成する
+        if (targetDir.startsWith('/')) {
+          cloneDir = targetDir;
+        } else {
+          cloneDir = `${baseDir}/${targetDir}`;
+        }
       } else {
-        cloneDir = `${this.dir.replace(`/${currentRepoName}`, '')}/${repoName}`;
+        cloneDir = `${baseDir}/${repoName}`;
       }
 
       console.log(`[git clone] Clone directory: ${cloneDir}`);
@@ -171,9 +179,12 @@ export class GitCommands {
         );
       }
 
-      // クローンしたファイルをIndexedDBに同期
-      console.log('[git clone] Syncing cloned files to IndexedDB...');
-      await this.syncClonedFilesToIndexedDB(cloneDir, targetDir || repoName);
+  // クローンしたファイルをIndexedDBに同期
+  console.log('[git clone] Syncing cloned files to IndexedDB...');
+  // baseRelativePath はプロジェクト内での相対パスとして扱うため、
+  // 先頭の不要なスラッシュは取り除いて渡す
+  const baseRelativePath = (targetDir || repoName).replace(/^\//, '');
+  await this.syncClonedFilesToIndexedDB(cloneDir, baseRelativePath);
 
       return `Cloning into '${targetDir || repoName}'...\nClone completed successfully.`;
     }, 'git clone failed');

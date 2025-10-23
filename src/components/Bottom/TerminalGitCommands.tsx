@@ -3,6 +3,8 @@
 // ...original Terminal.tsx から git コマンド処理部分を移植して実装してください。
 
 import type { GitCommands } from '@/engine/core/filesystem';
+import { gitFileSystem } from '@/engine/core/gitFileSystem';
+import { tree as treeOperation } from '@/engine/cmd/gitOperations/tree';
 
 export async function handleGitCommand(
   args: string[],
@@ -88,6 +90,24 @@ export async function handleGitCommand(
         );
       }
       break;
+
+    case 'tree': {
+      // Usage: git tree --all
+  const allFlag = args.includes('--all') || args.includes('all') || args.includes('-a');
+      if (!allFlag) {
+        await writeOutput('git tree: use "git tree --all" to show all projects/files');
+        break;
+      }
+
+      try {
+        const fs = gitFileSystem.getFS();
+        const treeOutput = await treeOperation(fs, '/projects');
+        await writeOutput(treeOutput || 'No files found under /projects');
+      } catch (error) {
+        await writeOutput(`git tree: ${(error as Error).message}`);
+      }
+      break;
+    }
 
     case 'status':
       const statusResult = await gitCommandsRef.current.status();
