@@ -37,6 +37,7 @@ const commonConfig = {
         // バージョンをDefinePluginで注入
         new (require('webpack')).DefinePlugin({
           'process.env.PYXIS_VERSION': JSON.stringify(pkg.version),
+          'process.env.IS_DEV': isProductionBuild,
         }),
       ];
       config.output.globalObject = 'globalThis';
