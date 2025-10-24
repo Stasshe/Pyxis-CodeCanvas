@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from '@/context/I18nContext';
 
 // Lightning-FSの仮想ファイルシステム取得関数
 import { getFileSystem } from '@/engine/core/filesystem';
@@ -15,6 +16,7 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({ filePath, currentProjectN
   const [fileContent, setFileContent] = useState('');
   const folderWatcherRef = useRef<FolderWatcher | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const { t } = useTranslation();
 
   console.log('[web previewtab]', filePath);
 
@@ -41,7 +43,7 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({ filePath, currentProjectN
 
         if (files.length === 0) {
           console.warn('[DEBUG] ディレクトリが空です:', resolvedPath);
-          setFileContent('<h1>ディレクトリが空です</h1>');
+          setFileContent(`<h1>${t('webPreviewTab.emptyDirectory')}</h1>`);
           return;
         }
 
@@ -51,7 +53,7 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({ filePath, currentProjectN
           setFileContent(inlinedContent);
         } catch (err) {
           console.error('[DEBUG] HTMLアセットのインライン化に失敗しました:', err);
-          setFileContent('<h1>HTMLアセットのインライン化に失敗しました</h1>');
+          setFileContent(`<h1>${t('webPreviewTab.inlineHtmlFailed')}</h1>`);
         }
       } else {
         const content = await fs.promises.readFile(resolvedPath, { encoding: 'utf8' });
@@ -60,7 +62,7 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({ filePath, currentProjectN
       }
     } catch (e) {
       console.error('[DEBUG] ファイルまたはフォルダの取得中にエラーが発生しました:', e);
-      setFileContent('<h1>ファイルまたはフォルダが見つかりません</h1>');
+      setFileContent(`<h1>${t('webPreviewTab.notFound')}</h1>`);
     }
   };
 

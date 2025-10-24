@@ -2,6 +2,7 @@ import React, { useRef, useEffect } from 'react';
 import { DiffEditor } from '@monaco-editor/react';
 import type { Monaco } from '@monaco-editor/react';
 import type * as monacoEditor from 'monaco-editor';
+import { useTranslation } from '@/context/I18nContext';
 
 interface SingleFileDiff {
   formerFullPath: string;
@@ -155,8 +156,9 @@ const DiffTab: React.FC<DiffTabProps> = ({
     }
   };
 
+  const { t } = useTranslation();
   if (diffs.length === 0) {
-    return <div style={{ padding: 16, color: '#aaa' }}>差分ファイルがありません</div>;
+    return <div style={{ padding: 16, color: '#aaa' }}>{t('diffTab.noDiffFiles')}</div>;
   }
 
   // allfiles時のみ左側にファイルリスト
@@ -192,7 +194,7 @@ const DiffTab: React.FC<DiffTabProps> = ({
               letterSpacing: 0.5,
             }}
           >
-            ファイル一覧
+            {t('diffTab.fileList')}
           </div>
           {diffs.map((diff, idx) => (
             <div

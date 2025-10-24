@@ -1,4 +1,5 @@
 import CharCountDetails from '../utils/CharCountDetails';
+import { useTranslation } from '@/context/I18nContext';
 
 interface CharCountDisplayProps {
   charCount: number;
@@ -19,6 +20,7 @@ export default function CharCountDisplay({
   content,
   alignLeft = false,
 }: CharCountDisplayProps) {
+  const { t } = useTranslation();
   return (
     <>
       {/* 文字数カウント表示バー（クリックでポップアップ展開） */}
@@ -39,11 +41,11 @@ export default function CharCountDisplay({
           boxShadow: showCharCountPopup ? '0 2px 8px rgba(0,0,0,0.25)' : undefined,
         }}
         onClick={onTogglePopup}
-        title="クリックで詳細表示"
+        title={t('charCountDisplay.clickForDetails')}
       >
         {selectionCount !== null
-          ? `選択範囲: ${selectionCount}文字（スペース除外）/ 全体: ${charCount}文字（スペース除外）`
-          : `全体: ${charCount}文字（スペース除外）`}
+          ? t('charCountDisplay.selectedAndTotal', { params: { selectionCount, charCount } })
+          : t('charCountDisplay.total', { params: { charCount } })}
       </div>
       {showCharCountPopup && (
         <div
@@ -76,7 +78,7 @@ export default function CharCountDisplay({
               }}
               onClick={onClosePopup}
             >
-              閉じる
+              {t('charCountDisplay.close')}
             </button>
           </div>
         </div>

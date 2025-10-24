@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Confirmation } from '@/components/Confirmation';
+import { useTranslation } from '@/context/I18nContext';
 
 export function useTabCloseConfirmation() {
   const [confirmState, setConfirmState] = useState<{
@@ -23,13 +24,14 @@ export function useTabCloseConfirmation() {
     }
   };
 
+  const { t } = useTranslation();
   const ConfirmationDialog = (
     <Confirmation
       open={confirmState.open}
-      title="変更を破棄しますか？"
-      message="このタブには保存されていない変更があります。本当に閉じますか？"
-      confirmText="破棄して閉じる"
-      cancelText="キャンセル"
+      title={t('tabCloseConfirmation.discardChangesTitle')}
+      message={t('tabCloseConfirmation.discardChangesMessage')}
+      confirmText={t('tabCloseConfirmation.discardAndClose')}
+      cancelText={t('tabCloseConfirmation.cancel')}
       onConfirm={() => {
         confirmState.onConfirm?.();
       }}

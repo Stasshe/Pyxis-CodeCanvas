@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { exportPdfFromHtml } from '@/engine/export/exportPdf';
 import { useTheme, ThemeContext } from '@/context/ThemeContext';
+import { useTranslation } from '@/context/I18nContext';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useSettings } from '@/hooks/useSettings';
@@ -627,6 +628,7 @@ MemoizedCodeComponent.displayName = 'MemoizedCodeComponent';
 const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ activeTab, currentProject }) => {
   const { colors } = useTheme();
   const { settings } = useSettings(currentProject?.id);
+  const { t } = useTranslation();
   // ref to markdown container for scrolling
   const markdownContainerRef = useRef<HTMLDivElement | null>(null);
   // keep previous content to detect append-only updates
@@ -900,15 +902,15 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ activeTab, curr
       ref={markdownContainerRef}
     >
       <div className="flex items-center mb-2">
-        <div className="font-bold text-lg mr-2">{activeTab.name} プレビュー</div>
+        <div className="font-bold text-lg mr-2">{activeTab.name} {t('markdownPreview.preview')}</div>
         <button
           type="button"
           className="px-2 py-1 rounded bg-green-500 text-white text-xs hover:bg-green-600 transition"
           style={{ marginLeft: 4 }}
           onClick={handleExportPdf}
-          title="PDFエクスポート"
+          title={t('markdownPreview.exportPdf')}
         >
-          PDFエクスポート
+          {t('markdownPreview.exportPdf')}
         </button>
       </div>
       <div

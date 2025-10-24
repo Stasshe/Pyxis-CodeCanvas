@@ -62,6 +62,9 @@
     "signOut": "サインアウト",
     "signOutConfirm": "GitHubからサインアウトしますか？"
   },
+  "binaryTab": {
+    "unsupportedFormat": "このファイル形式は表示できません"
+  },
   "bottom": {
     "debugConsole": "デバッグコンソール",
     "output": "出力",
@@ -87,6 +90,12 @@
     "reason": "変更理由",
     "review": "レビュー"
   },
+  "charCountDisplay": {
+    "clickForDetails": "クリックで詳細表示",
+    "close": "閉じる",
+    "selectedAndTotal": "選択範囲: {selectionCount}文字（スペース除外）/ 全体: {charCount}文字（スペース除外）",
+    "total": "全体: {charCount}文字（スペース除外）"
+  },
   "chatSpaceList": {
     "confirmDelete": "このスペースを削除しますか？",
     "create": "新しいスペースを作成",
@@ -102,6 +111,15 @@
     "lines": "行",
     "original": "元",
     "suggested": "提案"
+  },
+  "diffTab": {
+    "fileList": "ファイル一覧",
+    "noDiffFiles": "差分ファイルがありません"
+  },
+  "editorPlaceholder": {
+    "loadingEditor": "エディターを読み込み中...",
+    "loadingFile": "ファイル内容を復元中...",
+    "selectFile": "ファイルを選択してください"
   },
   "fileTree": {
     "alert": {
@@ -175,6 +193,10 @@
   "leftSidebar": {
     "createFile": "新規ファイル作成",
     "createFolder": "新規フォルダ作成"
+  },
+  "markdownPreview": {
+    "exportPdf": "PDFエクスポート",
+    "preview": "プレビュー"
   },
   "menu": {
     "files": "ファイル",
@@ -264,11 +286,22 @@
     "splitVertical": "縦に分割",
     "tabActions": "タブ操作"
   },
+  "tabCloseConfirmation": {
+    "cancel": "キャンセル",
+    "discardAndClose": "破棄して閉じる",
+    "discardChangesMessage": "このタブには保存されていない変更があります。本当に閉じますか？",
+    "discardChangesTitle": "変更を破棄しますか？"
+  },
   "topBar": {
     "searchLabel": "ファイル検索",
     "searchTitle": "ファイル検索 (Ctrl+P)",
     "toggleRightPanel": "右パネル表示/非表示",
     "toggleTerminal": "ターミナル表示/非表示"
+  },
+  "webPreviewTab": {
+    "emptyDirectory": "ディレクトリが空です",
+    "inlineHtmlFailed": "HTMLアセットのインライン化に失敗しました",
+    "notFound": "ファイルまたはフォルダが見つかりません"
   },
   "welcome": {
     "clientSideNote": "このアプリは完全にクライアントサイドで動作し、サーバーには一切データを送信しません。",
