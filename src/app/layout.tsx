@@ -3,7 +3,6 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/context/ThemeContext';
-import { BreakpointProvider } from '@/context/BreakpointContext';
 import { GitHubUserProvider } from '@/context/GitHubUserContext';
 import { I18nProvider } from '@/context/I18nContext';
 import { ToastContainer } from '@/components/Toast';
@@ -152,14 +151,12 @@ export default function RootLayout({
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased h-full`}>
         <I18nProvider>
-          <BreakpointProvider>
-            <ThemeProvider>
-              <GitHubUserProvider>
-                {children}
-                <ToastContainer />
-              </GitHubUserProvider>
-            </ThemeProvider>
-          </BreakpointProvider>
+          <ThemeProvider>
+            <GitHubUserProvider>
+              {children}
+              <ToastContainer />
+            </GitHubUserProvider>
+          </ThemeProvider>
         </I18nProvider>
         {/* Register service worker to enable icon caching (only on client/runtime) */}
         <script

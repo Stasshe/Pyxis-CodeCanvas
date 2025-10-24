@@ -4,7 +4,6 @@ import * as monaco from 'monaco-editor';
 import { useTheme } from '@/context/ThemeContext';
 import { getLanguage, countCharsNoSpaces } from './editor-utils';
 import { useMonacoModels } from '../hooks/useMonacoModels';
-import { useMonacoBreakpoints } from '../hooks/useMonacoBreakpoints';
 import EditorPlaceholder from '../ui/EditorPlaceholder';
 
 // グローバルフラグ: テーマ定義を一度だけ実行
@@ -53,12 +52,7 @@ export default function MonacoEditor({
   const { monacoModelMapRef, currentModelIdRef, isModelSafe, getOrCreateModel, disposeAllModels } =
     useMonacoModels();
 
-  const { updateBreakpointDecorations, handleEditorGutterClick } = useMonacoBreakpoints(
-    editorRef,
-    monacoRef,
-    currentModelIdRef.current,
-    tabId
-  );
+  // No breakpoint/gutter handling
 
   const isEditorSafe = useCallback(() => {
     return editorRef.current && !(editorRef.current as any)._isDisposed && isMountedRef.current;
@@ -70,35 +64,7 @@ export default function MonacoEditor({
     monacoRef.current = mon;
     setIsEditorReady(true);
 
-    // ブレークポイントのクリック/タッチイベントを登録
-    if (typeof window !== 'undefined') {
-      // マウスダウンイベント（PC + タッチデバイス両対応）
-      const mouseDisposable = editor.onMouseDown((e: monaco.editor.IEditorMouseEvent) => {
-        handleEditorGutterClick(e);
-      });
-
-      // タッチデバイス用の追加対応: ダブルクリック防止
-      const editorDomNode = editor.getDomNode();
-      if (editorDomNode) {
-        const handleTouchStart = (e: TouchEvent) => {
-          // グリフマージン領域のタッチかチェック
-          const target = e.target as HTMLElement;
-          if (target && target.closest('.margin-view-overlays')) {
-            // タッチの遅延を防ぐ
-            e.preventDefault();
-          }
-        };
-
-        editorDomNode.addEventListener('touchstart', handleTouchStart, { passive: false });
-
-        // クリーンアップ用に保持
-        (editor as any)._pyxisTouchHandler = handleTouchStart;
-        (editor as any)._pyxisEditorDomNode = editorDomNode;
-      }
-
-      // クリーンアップ用にdisposableを保持
-      (editor as any)._pyxisBreakpointDisposable = mouseDisposable;
-    }
+    // Gutter and breakpoint click handling removed.
 
     // テーマ定義（初回のみ）
     if (!isThemeDefined) {
@@ -218,10 +184,7 @@ export default function MonacoEditor({
           currentModelIdRef.current = tabId;
           onCharCountChange(countCharsNoSpaces(content));
 
-          // モデル設定後にブレークポイントを適用
-          setTimeout(() => {
-            updateBreakpointDecorations();
-          }, 100);
+          // No breakpoint decorations to apply
         } catch (e: any) {
           console.warn('[MonacoEditor] Initial setModel failed:', e?.message);
         }
@@ -241,10 +204,7 @@ export default function MonacoEditor({
         currentModelIdRef.current = tabId;
         onCharCountChange(countCharsNoSpaces(model.getValue()));
 
-        // モデル切り替え後に少し待ってからブレークポイントを適用
-        setTimeout(() => {
-          updateBreakpointDecorations();
-        }, 50);
+        // No breakpoint decorations to apply
       } catch (e: any) {
         console.warn('[MonacoEditor] setModel failed:', e?.message);
       }
@@ -291,34 +251,13 @@ export default function MonacoEditor({
   }, [jumpToLine, jumpToColumn, isEditorReady]);
 
   // ブレークポイントの変更を監視して装飾を更新
-  useEffect(() => {
-    if (!isEditorReady || !editorRef.current || !monacoRef.current) return;
-
-    // ブレークポイントが変更されたら装飾を更新
-    const timeoutId = setTimeout(() => {
-      updateBreakpointDecorations();
-    }, 50);
-
-    return () => clearTimeout(timeoutId);
-  }, [isEditorReady, updateBreakpointDecorations, tabId]);
+  // No breakpoint-decoration watcher necessary
 
   // クリーンアップ
   useEffect(() => {
     return () => {
       if (editorRef.current) {
-        // ブレークポイント用のイベントリスナーを削除
-        const disposable = (editorRef.current as any)._pyxisBreakpointDisposable;
-        if (disposable && typeof disposable.dispose === 'function') {
-          disposable.dispose();
-        }
-
-        // タッチイベントリスナーを削除
-        const touchHandler = (editorRef.current as any)._pyxisTouchHandler;
-        const domNode = (editorRef.current as any)._pyxisEditorDomNode;
-        if (touchHandler && domNode) {
-          domNode.removeEventListener('touchstart', touchHandler);
-        }
-
+        // Remove and dispose editor
         editorRef.current.dispose();
         editorRef.current = null;
       }
@@ -404,7 +343,7 @@ export default function MonacoEditor({
           verticalScrollbarSize: 14,
           horizontalScrollbarSize: 14,
         },
-        glyphMargin: true,
+        glyphMargin: false,
       }}
       loading={<EditorPlaceholder type="editor-loading" />}
     />

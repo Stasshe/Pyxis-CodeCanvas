@@ -5,7 +5,6 @@ import { useTranslation } from '@/context/I18nContext';
 import clsx from 'clsx';
 import { executeNodeFile } from '@/engine/runtime/nodeRuntime';
 import { initPyodide, runPythonWithSync, setCurrentProject } from '@/engine/runtime/pyodideRuntime';
-import { useBreakpointContext } from '@/context/BreakpointContext';
 import { LOCALSTORAGE_KEY } from '@/context/config';
 
 interface RunPanelProps {
@@ -21,7 +20,6 @@ interface OutputEntry {
 }
 
 export default function RunPanel({ currentProject, files }: RunPanelProps) {
-  const { breakpointsMap } = useBreakpointContext();
   const { colors } = useTheme();
   const { t } = useTranslation();
   const [isRunning, setIsRunning] = useState(false);
