@@ -10,6 +10,7 @@ import { UnixCommands } from '@/engine/cmd/unix';
 import { isBufferArray } from '@/engine/helper/isBufferArray';
 import { importSingleFile } from '@/engine/import/importSingleFile';
 import { fileRepository } from '@/engine/core/fileRepository';
+import { parseGitignore, isPathIgnored, GitIgnoreRule } from '@/engine/core/gitignore';
 
 interface FileTreeProps {
   items: FileItem[];
@@ -52,6 +53,7 @@ export default function FileTree({
     item: FileItem | null;
   } | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
+  const [gitignoreRules, setGitignoreRules] = useState<GitIgnoreRule[] | null>(null);
 
   // ドラッグ&ドロップ用(フォルダ対応)
   const handleDrop = async (e: React.DragEvent<HTMLDivElement>, targetPath?: string) => {
@@ -134,6 +136,36 @@ export default function FileTree({
       );
     }
   }, [expandedFolders, level, currentProjectName, isExpandedFoldersRestored]);
+
+  // .gitignore を読み込んでルールを解析してキャッシュする
+  useEffect(() => {
+    let mounted = true;
+    const loadGitignore = async () => {
+      if (!currentProjectId) {
+        setGitignoreRules(null);
+        return;
+      }
+      try {
+        const files = await fileRepository.getProjectFiles(currentProjectId);
+        const gitignore = files.find(f => f.path === '/.gitignore' && f.content);
+        if (gitignore && gitignore.content) {
+          const parsed = parseGitignore(gitignore.content);
+          if (mounted) setGitignoreRules(parsed);
+        } else {
+          if (mounted) setGitignoreRules([]);
+        }
+      } catch (e) {
+        // on error, don't mark anything ignored
+        if (mounted) setGitignoreRules([]);
+      }
+    };
+
+    loadGitignore();
+
+    return () => {
+      mounted = false;
+    };
+  }, [currentProjectId, items]);
 
   // 初回読み込み時にlocalStorageからexpandedFoldersを復元(itemsが空の場合はスキップ)
   useEffect(() => {
@@ -264,6 +296,10 @@ export default function FileTree({
     >
       {items.map(item => {
         const isExpanded = expandedFolders.has(item.id);
+        const isIgnored =
+          gitignoreRules && gitignoreRules.length > 0
+            ? isPathIgnored(gitignoreRules, item.path.replace(/^\/+/, ''), item.type === 'folder')
+            : false;
         return (
           <div
             key={item.id}
@@ -334,7 +370,12 @@ export default function FileTree({
                       return '/vscode-icons/folder.svg';
                     })()}
                     alt="folder"
-                    style={{ width: 16, height: 16, verticalAlign: 'middle' }}
+                    style={{
+                      width: 16,
+                      height: 16,
+                      verticalAlign: 'middle',
+                      opacity: isIgnored ? 0.55 : 1,
+                    }}
                   />
                 </>
               ) : (
@@ -349,14 +390,19 @@ export default function FileTree({
                       return '/vscode-icons/file.svg';
                     })()}
                     alt="file"
-                    style={{ width: 16, height: 16, verticalAlign: 'middle' }}
+                    style={{
+                      width: 16,
+                      height: 16,
+                      verticalAlign: 'middle',
+                      opacity: isIgnored ? 0.55 : 1,
+                    }}
                   />
                 </>
               )}
               <span
                 style={{
                   fontSize: '0.875rem',
-                  color: colors.foreground,
+                  color: isIgnored ? colors.mutedFg : colors.foreground,
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
