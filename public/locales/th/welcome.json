@@ -1,0 +1,30 @@
+{
+  "welcome": {
+    "clientSideNote": "แอปนี้ทำงานบนฝั่งไคลเอนต์ทั้งหมดและจะไม่ส่งข้อมูลใดๆ ไปยังเซิร์ฟเวอร์",
+    "features": {
+      "clientIDE": "IDE ทำงานบนฝั่งไคลเอนต์เต็มรูปแบบ (ไม่ต้องใช้เซิร์ฟเวอร์, โฮสต์แบบ static)",
+      "gitHistory": "ประวัติ Git, การจัดการสาขา และกราฟคอมมิต",
+      "languages": "การไฮไลต์หลายภาษา: Cpp, HTML, CSS, JavaScript, Python เป็นต้น",
+      "mermaid": "เรนเดอร์ไดอะแกรมแบบเรียลไทม์ด้วย Mermaid",
+      "monaco": "ประสบการณ์แก้ไขแบบ VS Code ด้วย Monaco Editor",
+      "nodeRuntime": "รันไทม์ Node.js, npm, คำสั่ง Unix และ Git ใช้งานในเบราว์เซอร์ได้",
+      "responsive": "UI ที่ตอบสนอง เหมาะสำหรับ iPad",
+      "title": "คุณสมบัติหลักของ Pyxis"
+    },
+    "hmrHint": "ลอง HMR และ WebPreview โดยการกดค้างที่โฟลเดอร์หน้าแรกที่สร้างขึ้น",
+    "indexeddbInfo": "ไฟล์ของโปรเจกต์นี้ถูกเก็บใน IndexedDB",
+    "mainFeatures": {
+      "download": "ดาวน์โหลดไฟล์ Git / โปรเจกต์",
+      "importExport": "นำเข้า, ดาวน์โหลดไฟล์ และส่งออกเป็น zip",
+      "latex": "เรนเดอร์สมการ LaTeX และรองรับ Mermaid/HTML",
+      "theme": "สลับสีธีมและรองรับหลายจอ",
+      "title": "ฟีเจอร์หลัก"
+    },
+    "specialThanks": {
+      "contributors": "isomorphic-git, Monaco Editor, xterm.js, Mermaid, KaTeX, Pyodide และผู้ร่วมพัฒนา OSS ทุกคน",
+      "thanksVisit": "ขอบคุณที่มาเยี่ยมชม!",
+      "title": "ขอขอบคุณเป็นพิเศษ"
+    },
+    "title": "ยินดีต้อนรับ!"
+  }
+}

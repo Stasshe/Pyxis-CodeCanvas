@@ -1,0 +1,356 @@
+{
+  "action": {
+    "authenticating": "جارٍ المصادقة...",
+    "cancel": "إلغاء",
+    "refresh": "تحديث",
+    "retry": "أعد المحاولة"
+  },
+  "ai": {
+    "changedFilesList": {
+      "noChangedFiles": "لا توجد ملفات مُعدلة"
+    },
+    "chatContainer": {
+      "generating": "الذكاء الاصطناعي يقوم بإنشاء استجابة...",
+      "suggest": "يرجى طرح الأسئلة أو طلبات الشيفرة."
+    },
+    "chatMessage": {
+      "copyCode": "نسخ الشيفرة",
+      "reference": "مرجع:"
+    },
+    "context": {
+      "select": "اختر ملفات"
+    },
+    "fileChangeItem": {
+      "apply": "تطبيق",
+      "confirm": "تأكيد",
+      "discard": "تجاهل"
+    },
+    "fileContextBar": {
+      "addFile": "+ إضافة ملف",
+      "context": "السياق:",
+      "noFileSelected": "لم يتم اختيار ملف"
+    },
+    "hints": {
+      "enterSend": "Enter: سطر جديد / Ctrl+Enter: إرسال",
+      "history": "Alt+↑↓: السجل"
+    },
+    "input": {
+      "ask": "اسأل الذكاء الاصطناعي أو استشر حول الشيفرة...",
+      "edit": "أدخل تعليمات لتحرير الشيفرة..."
+    },
+    "selectedLabel": "المحدد:",
+    "sendTitle": "إرسال (Ctrl+Enter)"
+  },
+  "aiReviewTab": {
+    "applyAll": "تطبيق الكل",
+    "autoSaveAndApply": "يتم حفظ التغييرات تلقائيًا وتنطبق على الملف بواسطة 'تطبيق الكل'.",
+    "discard": "تجاهل",
+    "discardAllAndRevert": "تجاهل الكل واستعادة",
+    "editRightDirectly": "يمكنك التحرير مباشرة في المحرر الأيمن",
+    "notFound": "بيانات مراجعة AI غير موجودة",
+    "revert": "استعادة",
+    "revertSelectionHint": "يمكنك أيضًا التراجع جزئيًا بالنقر بزر الماوس الأيمن واختيار 'استعادة التحديد'."
+  },
+  "auth": {
+    "authFailed": "فشل مصادقة GitHub",
+    "authSuccess": "تمت المصادقة على GitHub بنجاح!",
+    "clickToOpenMenu": "انقر لفتح القائمة",
+    "patDescription": "<0>انقر هنا</0> لإنشاء رمز وصول شخصي (PAT) (مطلوب نطاق repo)",
+    "patPlaceholder": "ghp_xxxxxxxxxxxx",
+    "patPrompt": "رمز الوصول الشخصي لـ GitHub",
+    "signIn": "تسجيل الدخول",
+    "signOut": "تسجيل الخروج",
+    "signOutConfirm": "هل أنت متأكد أنك تريد تسجيل الخروج من GitHub؟"
+  },
+  "binaryTab": {
+    "unsupportedFormat": "لا يمكن عرض تنسيق الملف هذا"
+  },
+  "bottom": {
+    "debugConsole": "وحدة تحكم التصحيح",
+    "output": "المخرجات",
+    "outputPanel": {
+      "all": "الكل",
+      "clear": "مسح",
+      "clearTooltip": "مسح المخرجات المعروضة حاليًا",
+      "contextLabel": "السياق",
+      "empty": "لا توجد مخرجات",
+      "typeLabel": "النوع"
+    },
+    "terminal": "الطرفية",
+    "terminalInitializing": "جاري تهيئة الطرفية..."
+  },
+  "changedFilesList": {
+    "apply": "تطبيق",
+    "applyAll": "تطبيق الكل",
+    "changedFiles": "الملفات المُعدلة",
+    "discard": "تجاهل",
+    "discardAll": "تجاهل الكل",
+    "others": "الآخرون",
+    "preview": "معاينة",
+    "reason": "السبب",
+    "review": "مراجعة"
+  },
+  "charCountDisplay": {
+    "clickForDetails": "انقر للتفاصيل",
+    "close": "إغلاق",
+    "selectedAndTotal": "المحدد: {selectionCount} حرفًا (بدون مسافات) / الإجمالي: {charCount} حرفًا (بدون مسافات)",
+    "total": "الإجمالي: {charCount} حرفًا (بدون مسافات)"
+  },
+  "chatSpaceList": {
+    "confirmDelete": "هل أنت متأكد أنك تريد حذف هذه المساحة؟",
+    "create": "إنشاء مساحة جديدة",
+    "delete": "حذف",
+    "empty": "لا توجد مساحات بعد",
+    "rename": "إعادة التسمية"
+  },
+  "confirmation": {
+    "title": "تأكيد"
+  },
+  "diff": {
+    "diff": "فرق",
+    "lines": "أسطر",
+    "original": "الأصل",
+    "suggested": "المقترح"
+  },
+  "diffTab": {
+    "fileList": "قائمة الملفات",
+    "noDiffFiles": "لا توجد ملفات فرق"
+  },
+  "editorPlaceholder": {
+    "loadingEditor": "جارٍ تحميل المحرر...",
+    "loadingFile": "جارٍ استعادة محتوى الملف...",
+    "selectFile": "يرجى اختيار ملف"
+  },
+  "fileTree": {
+    "alert": {
+      "renameFailed": "فشل إعادة التسمية: {error}"
+    },
+    "menu": {
+      "createFile": "إنشاء ملف",
+      "createFolder": "إنشاء مجلد",
+      "delete": "حذف",
+      "download": "تنزيل",
+      "import": "استيراد",
+      "open": "فتح",
+      "openCodeMirror": "فتح في CodeMirror",
+      "openPreview": "فتح المعاينة",
+      "rename": "إعادة التسمية",
+      "webPreview": "معاينة ويب"
+    },
+    "prompt": {
+      "newFileName": "أدخل اسم الملف الجديد:",
+      "newFolderName": "أدخل اسم المجلد الجديد:",
+      "rename": "أدخل الاسم الجديد:"
+    }
+  },
+  "git": {
+    "apiKeyPlaceholder": "أدخل مفتاح Gemini API",
+    "changes": "التغييرات",
+    "commit": "التزام",
+    "commitMessagePlaceholder": "أدخل رسالة الالتزام...",
+    "committing": "جارٍ الالتزام...",
+    "deleted": "محذوف",
+    "deleteUntracked": "حذف الملف",
+    "discard": "تجاهل",
+    "errorOccurred": "حدث خطأ",
+    "generateCommitMessage": "توليد بواسطة AI",
+    "generating": "جارٍ الإنشاء...",
+    "history": "السجل",
+    "infoNotAvailable": "تعذر جلب معلومات git",
+    "loadingStatus": "جارٍ تحميل حالة git...",
+    "noChanges": "لا توجد تغييرات",
+    "noHistory": "لا يوجد تاريخ التزامات",
+    "operationError": "حدث خطأ أثناء الوصول إلى git",
+    "projectSelect": "يرجى اختيار مشروع",
+    "restore": "استعادة الملف",
+    "stage": "وضع على المرحلة",
+    "stageAll": "تضمين الكل",
+    "staged": "تم التضمين",
+    "stageDelete": "تضمين الحذف",
+    "unstage": "إزالة من المرحلة",
+    "unstageAll": "إزالة الكل من المرحلة",
+    "unstaged": "غير مضمن",
+    "untracked": "غير متتبع",
+    "viewDiffEditable": "عرض الفرق (قابل للتحرير)",
+    "viewDiffReadonly": "عرض الفرق (للقراءة فقط)"
+  },
+  "gitHistory": {
+    "allFilesScrollable": "جميع {count} الملفات (قابلة للتمرير)",
+    "changedFiles": "الملفات المُعدلة:",
+    "daysAgo": "منذ {days} أيام",
+    "duplicateGroupsHidden": "({count} مجموعات مكررة مخفية)",
+    "hideDuplicates": "إخفاء الالتزامات المكررة",
+    "hoursAgo": "منذ {hours} ساعات",
+    "justNow": "الآن",
+    "loadingChanges": "جارٍ تحميل معلومات التغيير...",
+    "minutesAgo": "منذ {minutes} دقائق",
+    "noChangedFiles": "لم يتم العثور على ملفات مُعدلة",
+    "showAllFilesDiff": "عرض جميع فروق الملفات لهذا الالتزام",
+    "showDuplicates": "إظهار الالتزامات المكررة",
+    "showFileDiff": "عرض الفرق لهذا الملف"
+  },
+  "highlightedCode": {
+    "copyCode": "نسخ الشيفرة"
+  },
+  "leftSidebar": {
+    "createFile": "إنشاء ملف جديد",
+    "createFolder": "إنشاء مجلد جديد"
+  },
+  "markdownPreview": {
+    "downloadSvg": "تنزيل SVG",
+    "exportPdf": "تصدير PDF",
+    "generatingMermaid": "جارٍ إنشاء مخطط Mermaid...",
+    "imageNotFound": "الصورة غير موجودة: {src}",
+    "loadingImage": "جارٍ تحميل الصورة...",
+    "preview": "معاينة",
+    "reset": "إعادة تعيين",
+    "zoomIn": "تكبير",
+    "zoomOut": "تصغير"
+  },
+  "menu": {
+    "files": "الملفات",
+    "git": "Git",
+    "project": "إدارة المشروع",
+    "run": "تشغيل",
+    "search": "بحث",
+    "settings": "الإعدادات"
+  },
+  "operationWindow": {
+    "closeByEsc": "إغلاق بزر ESC",
+    "footerHelp": "استخدم ↑↓ للاختيار، Enter للفتح",
+    "mdPreviewDialogHelp": "Tab/←→ للتبديل، Enter للتأكيد، ESC للإغلاق",
+    "mdPreviewPrompt": "فتح في معاينة Markdown؟",
+    "noFilesFound": "لم يتم العثور على ملفات",
+    "openInEditor": "فتح في المحرر",
+    "openInPreview": "فتح في المعاينة",
+    "searchPlaceholder": "ابحث باسم الملف/المجلد أو المسار..."
+  },
+  "projectModal": {
+    "cancel": "إلغاء",
+    "clone": "استنساخ من GitHub",
+    "cloneFromGitHub": "استنساخ من GitHub",
+    "cloneSuccess": "تم الاستنساخ بنجاح",
+    "create": "إنشاء",
+    "created": "تم الإنشاء",
+    "deleteConfirm": "هل أنت متأكد أنك تريد حذف هذا المشروع؟",
+    "deleteProject": "حذف المشروع",
+    "description": "الوصف",
+    "descriptionOptional": "الوصف (اختياري)",
+    "descriptionPlaceholder": "أدخل وصف المشروع...",
+    "editProject": "تعديل المشروع",
+    "inputRepoUrl": "رابط المستودع",
+    "loading": "جارٍ التحميل...",
+    "nameHint": "استخدم أحرف أبجدية رقمية وواصلات",
+    "nameValidation": "يمكن أن يحتوي اسم المشروع على أحرف أبجدية رقمية وواصلات فقط. لا تُستخدم اليابانية. ستُستبدل المسافات بواصلات.",
+    "newProject": "مشروع جديد",
+    "noProjects": "لم يتم العثور على مشاريع",
+    "open": "فتح",
+    "projectName": "اسم المشروع",
+    "projectNameOptional": "اسم المشروع (اختياري)",
+    "projectNameOptionalPlaceholder": "اسم المشروع (اختياري)...",
+    "projectNamePlaceholder": "أدخل اسم المشروع...",
+    "repoUrl": "رابط المستودع",
+    "repoUrlPlaceholder": "https://github.com/owner/repo",
+    "save": "حفظ",
+    "title": "إدارة المشروع",
+    "updated": "تم التحديث"
+  },
+  "right": {
+    "aiUnavailable": "مساعد AI غير متاح"
+  },
+  "run": {
+    "clearOutput": "مسح المخرجات",
+    "execute": "تنفيذ",
+    "executeHint": "اضغط Ctrl+Enter (Cmd+Enter) للتنفيذ",
+    "executionStopped": "توقف التنفيذ",
+    "fileContentError": "تعذر الحصول على محتوى الملف",
+    "inputPlaceholder": "أدخل شيفرة Node.js...",
+    "languageNode": "Node.js",
+    "languagePython": "Python",
+    "noOutput": "لا توجد مخرجات",
+    "noProject": "افتح مشروعًا لتنفيذ Node.js",
+    "outputHint": "عند تنفيذ JavaScript/Node.js/Python، ستعرض النتائج هنا. يمكن تنفيذ Node.js و js في نفس الملف.",
+    "runtimeNotReady": "بيئة Python غير مُهيأة",
+    "searchFile": "ابحث عن ملف للتنفيذ...",
+    "stop": "إيقاف",
+    "title": "بيئة التنفيذ"
+  },
+  "searchPanel": {
+    "caseSensitive": "حساسية حالة الأحرف",
+    "noResults": "لم يتم العثور على نتائج",
+    "resultCount": "{count} نتائج",
+    "searchInFiles": "ابحث في الملفات...",
+    "searching": "جارٍ البحث...",
+    "useRegex": "استخدام تعابير عادية",
+    "wholeWord": "كلمة كاملة"
+  },
+  "settingsPanel": {
+    "api": {
+      "apiKeyPlaceholder": "أدخل مفتاح API",
+      "geminiApiKey": "مفتاح Gemini API",
+      "savedToLocalStorage": "تم الحفظ في LocalStorage",
+      "title": "API"
+    },
+    "editor": {
+      "defaultEditor": "المحرر الافتراضي",
+      "fontSize": "حجم الخط",
+      "savedToLocalStorage": "تم الحفظ في LocalStorage",
+      "tabSize": "حجم التبويب",
+      "title": "المحرر",
+      "wordWrap": "تفعيل التفاف السطور"
+    },
+    "export": {
+      "exporting": "جارٍ التصدير...",
+      "includeGit": "تضمين دليل .git",
+      "title": "تصدير مساحة العمل",
+      "zipDownload": "تنزيل ZIP"
+    },
+    "files": {
+      "excludeHint": "الملفات/المجلدات المخفية في المستكشف",
+      "excludePattern": "نمط الاستبعاد",
+      "title": "الملفات"
+    },
+    "loading": "جارٍ تحميل الإعدادات...",
+    "search": {
+      "excludePattern": "نمط الاستبعاد",
+      "globPatternHint": "اكتب نمط glob واحدًا في كل سطر",
+      "title": "البحث",
+      "useIgnoreFiles": "استخدام ملفات التجاهل مثل .gitignore"
+    },
+    "theme": {
+      "colorCustomize": "تخصيص الألوان",
+      "colorTheme": "سمة الألوان",
+      "highlightTheme": "سمة التمييز",
+      "language": "اللغة",
+      "title": "السمة"
+    }
+  },
+  "tabBar": {
+    "closeTab": "إغلاق التبويب",
+    "moveToPane": "نقل إلى اللوحة",
+    "paneMenu": "قائمة اللوحة",
+    "removeAllTabs": "إزالة كل التبويبات",
+    "removePane": "إزالة اللوحة",
+    "saveRestart": "حفظ وإعادة تشغيل",
+    "splitHorizontal": "تقسيم أفقي",
+    "splitVertical": "تقسيم عمودي",
+    "tabActions": "إجراءات التبويب"
+  },
+  "tabCloseConfirmation": {
+    "cancel": "إلغاء",
+    "discardAndClose": "تجاهل وإغلاق",
+    "discardChangesMessage": "هناك تغييرات غير محفوظة في هذا التبويب. هل أنت متأكد أنك تريد إغلاقه؟",
+    "discardChangesTitle": "تجاهل التغييرات؟"
+  },
+  "topBar": {
+    "searchLabel": "بحث الملفات",
+    "searchTitle": "بحث الملفات (Ctrl+P)",
+    "toggleRightPanel": "تبديل اللوحة اليمنى",
+    "toggleTerminal": "تبديل الطرفية"
+  },
+  "webPreviewTab": {
+    "emptyDirectory": "المجلد فارغ",
+    "inlineHtmlFailed": "فشل تضمين أصول HTML",
+    "notFound": "الملف أو المجلد غير موجود"
+  }
+}

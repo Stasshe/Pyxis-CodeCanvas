@@ -1,0 +1,356 @@
+{
+  "action": {
+    "authenticating": "กำลังยืนยันตัวตน...",
+    "cancel": "ยกเลิก",
+    "refresh": "รีเฟรช",
+    "retry": "ลองใหม่"
+  },
+  "ai": {
+    "changedFilesList": {
+      "noChangedFiles": "ไม่มีไฟล์ที่เปลี่ยนแปลง"
+    },
+    "chatContainer": {
+      "generating": "AI กำลังสร้างคำตอบ...",
+      "suggest": "กรุณาถามคำถามหรือต้องการให้เขียนโค้ด"
+    },
+    "chatMessage": {
+      "copyCode": "คัดลอกโค้ด",
+      "reference": "อ้างอิง:"
+    },
+    "context": {
+      "select": "เลือกไฟล์"
+    },
+    "fileChangeItem": {
+      "apply": "ใช้",
+      "confirm": "ยืนยัน",
+      "discard": "ยกเลิก"
+    },
+    "fileContextBar": {
+      "addFile": "+ เพิ่มไฟล์",
+      "context": "บริบท:",
+      "noFileSelected": "ยังไม่ได้เลือกไฟล์"
+    },
+    "hints": {
+      "enterSend": "Enter: ขึ้นบรรทัดใหม่ / Ctrl+Enter: ส่ง",
+      "history": "Alt+↑↓: ประวัติ"
+    },
+    "input": {
+      "ask": "ถาม AI หรือปรึกษาเกี่ยวกับโค้ด...",
+      "edit": "ใส่คำสั่งเพื่อแก้ไขโค้ด..."
+    },
+    "selectedLabel": "ที่เลือก:",
+    "sendTitle": "ส่ง (Ctrl+Enter)"
+  },
+  "aiReviewTab": {
+    "applyAll": "ใช้ทั้งหมด",
+    "autoSaveAndApply": "การเปลี่ยนแปลงถูกบันทึกอัตโนมัติและสะท้อนในไฟล์ด้วย 'ใช้ทั้งหมด'",
+    "discard": "ยกเลิก",
+    "discardAllAndRevert": "ยกเลิกทั้งหมดและคืนสภาพ",
+    "editRightDirectly": "คุณสามารถแก้ไขโดยตรงในตัวแก้ไขด้านขวา",
+    "notFound": "ไม่พบข้อมูลการตรวจสอบโดย AI",
+    "revert": "คืนค่ากลับ",
+    "revertSelectionHint": "คุณยังสามารถคืนค่าบางส่วนได้โดยคลิกขวาแล้วเลือก 'คืนค่าที่เลือก'"
+  },
+  "auth": {
+    "authFailed": "การยืนยันตัวตน GitHub ล้มเหลว",
+    "authSuccess": "การยืนยันตัวตน GitHub สำเร็จ!",
+    "clickToOpenMenu": "คลิกเพื่อเปิดเมนู",
+    "patDescription": "<0>คลิกที่นี่</0> เพื่อสร้าง PAT (ต้องมีสิทธิ์ repo)",
+    "patPlaceholder": "ghp_xxxxxxxxxxxx",
+    "patPrompt": "GitHub Personal Access Token",
+    "signIn": "เข้าสู่ระบบ",
+    "signOut": "ออกจากระบบ",
+    "signOutConfirm": "แน่ใจหรือว่าต้องการออกจากระบบ GitHub?"
+  },
+  "binaryTab": {
+    "unsupportedFormat": "รูปแบบไฟล์นี้ไม่สามารถแสดงได้"
+  },
+  "bottom": {
+    "debugConsole": "คอนโซลดีบัก",
+    "output": "ผลลัพธ์",
+    "outputPanel": {
+      "all": "ทั้งหมด",
+      "clear": "ล้าง",
+      "clearTooltip": "ล้างผลลัพธ์ที่แสดงอยู่",
+      "contextLabel": "บริบท",
+      "empty": "ไม่มีผลลัพธ์",
+      "typeLabel": "ประเภท"
+    },
+    "terminal": "เทอร์มินัล",
+    "terminalInitializing": "กำลังเริ่มต้นเทอร์มินัล..."
+  },
+  "changedFilesList": {
+    "apply": "ใช้",
+    "applyAll": "ใช้ทั้งหมด",
+    "changedFiles": "ไฟล์ที่เปลี่ยนแปลง",
+    "discard": "ยกเลิก",
+    "discardAll": "ยกเลิกทั้งหมด",
+    "others": "คนอื่นๆ",
+    "preview": "แสดงตัวอย่าง",
+    "reason": "เหตุผล",
+    "review": "ตรวจสอบ"
+  },
+  "charCountDisplay": {
+    "clickForDetails": "คลิกเพื่อดูรายละเอียด",
+    "close": "ปิด",
+    "selectedAndTotal": "ที่เลือก: {selectionCount} อักษร (ไม่รวมช่องว่าง) / ทั้งหมด: {charCount} อักษร (ไม่รวมช่องว่าง)",
+    "total": "ทั้งหมด: {charCount} อักษร (ไม่รวมช่องว่าง)"
+  },
+  "chatSpaceList": {
+    "confirmDelete": "แน่ใจหรือว่าต้องการลบพื้นที่นี้?",
+    "create": "สร้างพื้นที่ใหม่",
+    "delete": "ลบ",
+    "empty": "ยังไม่มีพื้นที่",
+    "rename": "เปลี่ยนชื่อ"
+  },
+  "confirmation": {
+    "title": "ยืนยัน"
+  },
+  "diff": {
+    "diff": "ความแตกต่าง",
+    "lines": "บรรทัด",
+    "original": "ต้นฉบับ",
+    "suggested": "ข้อเสนอ"
+  },
+  "diffTab": {
+    "fileList": "รายการไฟล์",
+    "noDiffFiles": "ไม่มีไฟล์ที่ต่างกัน"
+  },
+  "editorPlaceholder": {
+    "loadingEditor": "กำลังโหลดตัวแก้ไข...",
+    "loadingFile": "กำลังคืนค่าเนื้อหาไฟล์...",
+    "selectFile": "กรุณาเลือกไฟล์"
+  },
+  "fileTree": {
+    "alert": {
+      "renameFailed": "การเปลี่ยนชื่อล้มเหลว: {error}"
+    },
+    "menu": {
+      "createFile": "สร้างไฟล์",
+      "createFolder": "สร้างโฟลเดอร์",
+      "delete": "ลบ",
+      "download": "ดาวน์โหลด",
+      "import": "นำเข้า",
+      "open": "เปิด",
+      "openCodeMirror": "เปิดใน CodeMirror",
+      "openPreview": "เปิดตัวอย่าง",
+      "rename": "เปลี่ยนชื่อ",
+      "webPreview": "WebPreview"
+    },
+    "prompt": {
+      "newFileName": "ใส่ชื่อไฟล์ใหม่:",
+      "newFolderName": "ใส่ชื่อโฟลเดอร์ใหม่:",
+      "rename": "ใส่ชื่อใหม่:"
+    }
+  },
+  "git": {
+    "apiKeyPlaceholder": "ใส่คีย์ API ของ Gemini",
+    "changes": "การเปลี่ยนแปลง",
+    "commit": "คอมมิต",
+    "commitMessagePlaceholder": "ใส่ข้อความคอมมิต...",
+    "committing": "กำลังคอมมิต...",
+    "deleted": "ถูกลบ",
+    "deleteUntracked": "ลบไฟล์",
+    "discard": "ยกเลิก",
+    "errorOccurred": "เกิดข้อผิดพลาด",
+    "generateCommitMessage": "สร้างโดย AI",
+    "generating": "กำลังสร้าง...",
+    "history": "ประวัติ",
+    "infoNotAvailable": "ไม่สามารถดึงข้อมูล git ได้",
+    "loadingStatus": "กำลังโหลดสถานะ git...",
+    "noChanges": "ไม่มีการเปลี่ยนแปลง",
+    "noHistory": "ไม่มีประวัติการคอมมิต",
+    "operationError": "เกิดข้อผิดพลาดขณะเข้าถึง git",
+    "projectSelect": "กรุณาเลือกโปรเจกต์",
+    "restore": "คืนค่าไฟล์",
+    "stage": "เพิ่มเข้า staging",
+    "stageAll": "เพิ่มทั้งหมด",
+    "staged": "อยู่ใน staging",
+    "stageDelete": "เพิ่มการลบเข้า staging",
+    "unstage": "ยกเลิก staging",
+    "unstageAll": "ยกเลิก staging ทั้งหมด",
+    "unstaged": "ยังไม่ถูก staged",
+    "untracked": "ยังไม่ถูกติดตาม",
+    "viewDiffEditable": "ดู diff (แก้ไขได้)",
+    "viewDiffReadonly": "ดู diff (อ่านอย่างเดียว)"
+  },
+  "gitHistory": {
+    "allFilesScrollable": "ทั้งหมด {count} ไฟล์ (เลื่อนดูได้)",
+    "changedFiles": "ไฟล์ที่เปลี่ยนแปลง:",
+    "daysAgo": "{days} วันที่ผ่านมา",
+    "duplicateGroupsHidden": "({count} กลุ่มซ้ำถูกซ่อน)",
+    "hideDuplicates": "ซ่อนคอมมิตซ้ำ",
+    "hoursAgo": "{hours} ชั่วโมงที่แล้ว",
+    "justNow": "เมื่อสักครู่",
+    "loadingChanges": "กำลังโหลดข้อมูลการเปลี่ยนแปลง...",
+    "minutesAgo": "{minutes} นาทีที่แล้ว",
+    "noChangedFiles": "ไม่พบไฟล์ที่เปลี่ยนแปลง",
+    "showAllFilesDiff": "แสดง diff ของไฟล์ทั้งหมดสำหรับคอมมิตนี้",
+    "showDuplicates": "แสดงคอมมิตซ้ำ",
+    "showFileDiff": "แสดง diff สำหรับไฟล์นี้"
+  },
+  "highlightedCode": {
+    "copyCode": "คัดลอกโค้ด"
+  },
+  "leftSidebar": {
+    "createFile": "สร้างไฟล์ใหม่",
+    "createFolder": "สร้างโฟลเดอร์ใหม่"
+  },
+  "markdownPreview": {
+    "downloadSvg": "ดาวน์โหลด SVG",
+    "exportPdf": "ส่งออกเป็น PDF",
+    "generatingMermaid": "กำลังสร้างแผนภูมิ Mermaid...",
+    "imageNotFound": "ไม่พบรูปภาพ: {src}",
+    "loadingImage": "กำลังโหลดรูปภาพ...",
+    "preview": "ดูตัวอย่าง",
+    "reset": "รีเซ็ต",
+    "zoomIn": "ซูมเข้า",
+    "zoomOut": "ซูมออก"
+  },
+  "menu": {
+    "files": "ไฟล์",
+    "git": "Git",
+    "project": "การจัดการโปรเจกต์",
+    "run": "รัน",
+    "search": "ค้นหา",
+    "settings": "การตั้งค่า"
+  },
+  "operationWindow": {
+    "closeByEsc": "ปิดด้วย ESC",
+    "footerHelp": "ใช้ ↑↓ เพื่อเลือก, Enter เพื่อเปิด",
+    "mdPreviewDialogHelp": "Tab/←→ เพื่อสลับ, Enter เพื่อยืนยัน, ESC เพื่อปิด",
+    "mdPreviewPrompt": "เปิดในตัวดู Markdown?",
+    "noFilesFound": "ไม่พบไฟล์",
+    "openInEditor": "เปิดในตัวแก้ไข",
+    "openInPreview": "เปิดตัวอย่าง",
+    "searchPlaceholder": "ค้นหาชื่อไฟล์/โฟลเดอร์หรือเส้นทาง..."
+  },
+  "projectModal": {
+    "cancel": "ยกเลิก",
+    "clone": "โคลนจาก GitHub",
+    "cloneFromGitHub": "โคลนจาก GitHub",
+    "cloneSuccess": "โคลนสำเร็จ",
+    "create": "สร้าง",
+    "created": "สร้างแล้ว",
+    "deleteConfirm": "แน่ใจหรือว่าต้องการลบโปรเจกต์นี้?",
+    "deleteProject": "ลบโปรเจกต์",
+    "description": "คำอธิบาย",
+    "descriptionOptional": "คำอธิบาย (ไม่บังคับ)",
+    "descriptionPlaceholder": "ใส่คำอธิบายโปรเจกต์...",
+    "editProject": "แก้ไขโปรเจกต์",
+    "inputRepoUrl": "URL ของรีโพซิทอรี",
+    "loading": "กำลังโหลด...",
+    "nameHint": "ใช้ตัวอักษรภาษาอังกฤษและขีดกลาง",
+    "nameValidation": "ชื่อโปรเจกต์ต้องประกอบด้วยตัวอักษรและขีดกลางเท่านั้น ห้ามมีตัวอักษรญี่ปุ่น ช่องว่างจะถูกแทนที่ด้วยขีดกลาง",
+    "newProject": "โปรเจกต์ใหม่",
+    "noProjects": "ไม่พบโปรเจกต์",
+    "open": "เปิด",
+    "projectName": "ชื่อโปรเจกต์",
+    "projectNameOptional": "ชื่อโปรเจกต์ (ไม่บังคับ)",
+    "projectNameOptionalPlaceholder": "ชื่อโปรเจกต์ (ไม่บังคับ)...",
+    "projectNamePlaceholder": "ใส่ชื่อโปรเจกต์...",
+    "repoUrl": "Repository URL",
+    "repoUrlPlaceholder": "https://github.com/owner/repo",
+    "save": "บันทึก",
+    "title": "การจัดการโปรเจกต์",
+    "updated": "อัปเดตแล้ว"
+  },
+  "right": {
+    "aiUnavailable": "ผู้ช่วย AI ใช้งานไม่ได้"
+  },
+  "run": {
+    "clearOutput": "ล้างผลลัพธ์",
+    "execute": "รัน",
+    "executeHint": "กด Ctrl+Enter (Cmd+Enter) เพื่อรัน",
+    "executionStopped": "การรันหยุดลง",
+    "fileContentError": "ไม่สามารถดึงเนื้อหาไฟล์ได้",
+    "inputPlaceholder": "ใส่โค้ด Node.js...",
+    "languageNode": "Node.js",
+    "languagePython": "Python",
+    "noOutput": "ไม่มีผลลัพธ์",
+    "noProject": "เปิดโปรเจกต์เพื่อรัน Node.js",
+    "outputHint": "เมื่อรัน JavaScript/Node.js/Python ผลลัพธ์จะแสดงที่นี่ Node.js และ js สามารถรันในไฟล์เดียวกันได้",
+    "runtimeNotReady": "สภาพแวดล้อม Python ยังไม่ถูกเริ่ม",
+    "searchFile": "ค้นหาไฟล์เพื่อรัน...",
+    "stop": "หยุด",
+    "title": "สภาพแวดล้อมการรัน"
+  },
+  "searchPanel": {
+    "caseSensitive": "ตรงตัวพิมพ์ใหญ่/เล็ก",
+    "noResults": "ไม่พบผลลัพธ์",
+    "resultCount": "{count} ผลลัพธ์",
+    "searchInFiles": "ค้นหาในไฟล์...",
+    "searching": "กำลังค้นหา...",
+    "useRegex": "ใช้ Regex",
+    "wholeWord": "ตรงคำทั้งหมด"
+  },
+  "settingsPanel": {
+    "api": {
+      "apiKeyPlaceholder": "ใส่คีย์ API",
+      "geminiApiKey": "คีย์ Gemini API",
+      "savedToLocalStorage": "บันทึกใน LocalStorage",
+      "title": "API"
+    },
+    "editor": {
+      "defaultEditor": "ตัวแก้ไขเริ่มต้น",
+      "fontSize": "ขนาดฟอนต์",
+      "savedToLocalStorage": "บันทึกใน LocalStorage",
+      "tabSize": "ขนาด Tab",
+      "title": "ตัวแก้ไข",
+      "wordWrap": "เปิดการตัดคำอัตโนมัติ"
+    },
+    "export": {
+      "exporting": "กำลังส่งออก...",
+      "includeGit": "รวม .git",
+      "title": "การส่งออก Workspace",
+      "zipDownload": "ดาวน์โหลด ZIP"
+    },
+    "files": {
+      "excludeHint": "ไฟล์/โฟลเดอร์ที่ถูกซ่อนใน Explorer",
+      "excludePattern": "แพตเทิร์นที่ยกเว้น",
+      "title": "ไฟล์"
+    },
+    "loading": "กำลังโหลดการตั้งค่า...",
+    "search": {
+      "excludePattern": "แพตเทิร์นที่ยกเว้น",
+      "globPatternHint": "เขียนแพตเทิร์น glob หนึ่งบรรทัดต่อหนึ่ง",
+      "title": "ค้นหา",
+      "useIgnoreFiles": "ใช้ไฟล์ ignore เช่น .gitignore"
+    },
+    "theme": {
+      "colorCustomize": "ปรับแต่งสี",
+      "colorTheme": "ธีมสี",
+      "highlightTheme": "ธีมการเน้นโค้ด",
+      "language": "ภาษา",
+      "title": "ธีม"
+    }
+  },
+  "tabBar": {
+    "closeTab": "ปิดแท็บ",
+    "moveToPane": "ย้ายไปยัง pane",
+    "paneMenu": "เมนู pane",
+    "removeAllTabs": "ปิดแท็บทั้งหมด",
+    "removePane": "ลบ pane",
+    "saveRestart": "บันทึกและรีสตาร์ท",
+    "splitHorizontal": "แยกแนวนอน",
+    "splitVertical": "แยกแนวตั้ง",
+    "tabActions": "การกระทำของแท็บ"
+  },
+  "tabCloseConfirmation": {
+    "cancel": "ยกเลิก",
+    "discardAndClose": "ทิ้งและปิด",
+    "discardChangesMessage": "มีการเปลี่ยนแปลงที่ยังไม่ได้บันทึกในแท็บนี้ แน่ใจหรือว่าต้องการปิด?",
+    "discardChangesTitle": "ทิ้งการเปลี่ยนแปลง?"
+  },
+  "topBar": {
+    "searchLabel": "ค้นหาไฟล์",
+    "searchTitle": "ค้นหาไฟล์ (Ctrl+P)",
+    "toggleRightPanel": "สลับแผงขวา",
+    "toggleTerminal": "สลับเทอร์มินัล"
+  },
+  "webPreviewTab": {
+    "emptyDirectory": "โฟลเดอร์ว่าง",
+    "inlineHtmlFailed": "แทรกทรัพยากร HTML ไม่สำเร็จ",
+    "notFound": "ไม่พบไฟล์หรือโฟลเดอร์"
+  }
+}

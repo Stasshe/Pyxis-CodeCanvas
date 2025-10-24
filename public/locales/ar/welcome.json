@@ -1,0 +1,30 @@
+{
+  "welcome": {
+    "clientSideNote": "يعمل هذا التطبيق بالكامل على جهة العميل ولا يرسل أي بيانات إلى الخوادم.",
+    "features": {
+      "clientIDE": "بيئة تطوير متكاملة على جهة العميل بالكامل (لا حاجة لخادم، استضافة ثابتة)",
+      "gitHistory": "سجل Git وإدارة الفروع ورسم التزام",
+      "languages": "تمييز لغات متعدد: Cpp، HTML، CSS، JavaScript، Python، إلخ.",
+      "mermaid": "عرض فوري للمخططات والرسوم التسلسلية باستخدام Mermaid",
+      "monaco": "تجربة تحرير شبيهة بـ VS Code مع محرر Monaco",
+      "nodeRuntime": "بيئة تشغيل Node.js، npm، أوامر Unix و Git متاحة في المتصفح",
+      "responsive": "واجهة متجاوبة مُحسّنة لجهاز iPad",
+      "title": "الميزات الأساسية لـ Pyxis"
+    },
+    "hmrHint": "جرّب HMR و WebPreview بالضغط الطويل على مجلد الصفحة الرئيسية المُنشأ.",
+    "indexeddbInfo": "تُخزن ملفات هذا المشروع في IndexedDB.",
+    "mainFeatures": {
+      "download": "تنزيل Git / ملفات المشروع",
+      "importExport": "استيراد، تنزيل الملفات وتصدير ZIP",
+      "latex": "عرض معادلات LaTeX ودعم Mermaid/HTML",
+      "theme": "تغيير سمة الألوان ودعم شاشات متعددة",
+      "title": "الميزات الرئيسية"
+    },
+    "specialThanks": {
+      "contributors": "isomorphic-git, Monaco Editor, xterm.js, Mermaid, KaTeX, Pyodide وكل مساهمي OSS.",
+      "thanksVisit": "شكرًا لزيارتك!",
+      "title": "شكر خاص"
+    },
+    "title": "مرحبًا!"
+  }
+}
