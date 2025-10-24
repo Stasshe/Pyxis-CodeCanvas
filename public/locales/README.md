@@ -35,7 +35,7 @@ flowchart TD
 How to extract translations
 - Run the extraction script:
 ```bash
-bash scripts/i18n-extract.sh
+bash i18n.sh
 ```
 
 Output location

@@ -17,6 +17,7 @@
   [![Bundle Size](https://img.shields.io/badge/bundle--size-1.04MB-purple?logo=next.js)](#)
   
   **[🚀 Try Pyxis Now](https://pyxis-code.onrender.com)** | **[📖 日本語版](README.md)**
+  **i18n — supports 18 languages!**
 </div>
 
 ---

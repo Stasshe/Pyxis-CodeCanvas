@@ -1,5 +1,4 @@
 // Unixコマンド統合クラス（新アーキテクチャ: IndexedDB優先、自動同期）
-import JSZip from 'jszip';
 
 import {
   CatCommand,

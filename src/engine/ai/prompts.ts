@@ -41,12 +41,12 @@ export const ASK_PROMPT_TEMPLATE = (
   const history =
     previousMessages && previousMessages.length > 0
       ? previousMessages
-          .slice(-5)
-          .map(
-            msg =>
-              `### ${msg.type === 'user' ? 'User' : 'Assistant'}: ${msg.mode === 'edit' ? 'Edit' : 'Chat'}\n${msg.content}`
-          )
-          .join('\n\n')
+        .slice(-5)
+        .map(
+          msg =>
+            `### ${msg.type === 'user' ? 'User' : 'Assistant'}: ${msg.mode === 'edit' ? 'Edit' : 'Chat'}\n${msg.content}`
+        )
+        .join('\n\n')
       : '';
 
   const fileContexts = files
@@ -82,12 +82,12 @@ export const EDIT_PROMPT_TEMPLATE = (
   const history =
     previousMessages && previousMessages.length > 0
       ? previousMessages
-          .slice(-5)
-          .map(
-            msg =>
-              `### ${msg.type === 'user' ? 'User' : 'Assistant'}: ${msg.mode === 'edit' ? 'Edit' : 'Chat'}\n${msg.content}`
-          )
-          .join('\n\n')
+        .slice(-5)
+        .map(
+          msg =>
+            `### ${msg.type === 'user' ? 'User' : 'Assistant'}: ${msg.mode === 'edit' ? 'Edit' : 'Chat'}\n${msg.content}`
+        )
+        .join('\n\n')
       : '';
 
   const fileContexts = files

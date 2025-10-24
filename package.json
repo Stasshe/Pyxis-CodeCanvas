@@ -1,14 +1,14 @@
 {
   "name": "pyxis",
-  "version": "0.8.4",
+  "version": "0.9.0",
   "private": true,
   "scripts": {
     "dev": "node initial_files_to_ts.js && next dev --turbopack",
     "build": "node initial_files_to_ts.js && next build",
     "start": "node initial_files_to_ts.js && next start",
     "format": "bash scripts/format_locales.sh && prettier --write src/**/*.ts src/**/*.tsx",
-    "lint": "next lint",
-    "lint:fix": "next lint --fix",
+    "lint": "eslint --cache --ext .ts,.tsx,.js,.jsx . --max-warnings=0",
+    "lint:fix": "eslint --cache --ext .ts,.tsx,.js,.jsx . --fix",
     "prepare": "husky install",
     "test": "jest",
     "preview": "npx serve out"

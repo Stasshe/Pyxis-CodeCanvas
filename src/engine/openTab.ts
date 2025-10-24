@@ -1,4 +1,4 @@
-import { Tab, FileItem, Project } from '../types';
+import { Tab, FileItem } from '../types';
 /**
  * タブの重複検出・アクティブ化・新規追加を一元化する関数。
  * @param file 開くファイル情報

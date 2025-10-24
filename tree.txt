@@ -73,10 +73,79 @@
 │   ├── icon0.svg
 │   ├── icon1.png
 │   ├── locales
+│   │   ├── README.md
+│   │   ├── ar
+│   │   │   ├── common.json
+│   │   │   ├── detail.json
+│   │   │   └── welcome.json
+│   │   ├── de
+│   │   │   ├── common.json
+│   │   │   ├── detail.json
+│   │   │   └── welcome.json
 │   │   ├── en
-│   │   │   └── common.json
-│   │   └── ja
-│   │       └── common.json
+│   │   │   ├── common.json
+│   │   │   ├── detail.json
+│   │   │   └── welcome.json
+│   │   ├── es
+│   │   │   ├── common.json
+│   │   │   ├── detail.json
+│   │   │   └── welcome.json
+│   │   ├── fr
+│   │   │   ├── common.json
+│   │   │   ├── detail.json
+│   │   │   └── welcome.json
+│   │   ├── id
+│   │   │   ├── common.json
+│   │   │   ├── detail.json
+│   │   │   └── welcome.json
+│   │   ├── it
+│   │   │   ├── common.json
+│   │   │   ├── detail.json
+│   │   │   └── welcome.json
+│   │   ├── ja
+│   │   │   ├── common.json
+│   │   │   ├── detail.json
+│   │   │   └── welcome.json
+│   │   ├── ko
+│   │   │   ├── common.json
+│   │   │   ├── detail.json
+│   │   │   └── welcome.json
+│   │   ├── nl
+│   │   │   ├── common.json
+│   │   │   ├── detail.json
+│   │   │   └── welcome.json
+│   │   ├── pl
+│   │   │   ├── common.json
+│   │   │   ├── detail.json
+│   │   │   └── welcome.json
+│   │   ├── pt
+│   │   │   ├── common.json
+│   │   │   ├── detail.json
+│   │   │   └── welcome.json
+│   │   ├── ru
+│   │   │   ├── common.json
+│   │   │   ├── detail.json
+│   │   │   └── welcome.json
+│   │   ├── sv
+│   │   │   ├── common.json
+│   │   │   ├── detail.json
+│   │   │   └── welcome.json
+│   │   ├── th
+│   │   │   ├── common.json
+│   │   │   ├── detail.json
+│   │   │   └── welcome.json
+│   │   ├── vi
+│   │   │   ├── common.json
+│   │   │   ├── detail.json
+│   │   │   └── welcome.json
+│   │   ├── zh
+│   │   │   ├── common.json
+│   │   │   ├── detail.json
+│   │   │   └── welcome.json
+│   │   └── zh-TW
+│   │       ├── common.json
+│   │       ├── detail.json
+│   │       └── welcome.json
 │   ├── manifest.json
 │   ├── sw.js
 │   ├── web-app-manifest-192x192.png
@@ -95,9 +164,14 @@
 │   └── IMG_1473.png
 ├── sampleNode.js
 ├── scripts
+│   ├── README.md
+│   ├── apply_missing_keys.js
+│   ├── compare_locale_keys.sh
 │   ├── flatten_json_keys.pl
 │   ├── format_json.js
 │   ├── format_locales.sh
+│   ├── i18n-auto-add-missing.js
+│   ├── i18n-compare-missing-keys-results.txt
 │   ├── i18n-detect-results.txt
 │   ├── i18n-detect.sh
 │   ├── i18n-exclude.txt
@@ -179,7 +253,6 @@
 │   │   │   │   │   └── editor-utils.ts
 │   │   │   │   ├── hooks
 │   │   │   │   │   ├── useCharCount.ts
-│   │   │   │   │   ├── useMonacoBreakpoints.ts
 │   │   │   │   │   └── useMonacoModels.ts
 │   │   │   │   ├── ui
 │   │   │   │   │   ├── CharCountDisplay.tsx
@@ -190,7 +263,6 @@
 │   │   ├── Toast.tsx
 │   │   └── TopBar.tsx
 │   ├── context
-│   │   ├── BreakpointContext.tsx
 │   │   ├── GitHubUserContext.tsx
 │   │   ├── I18nContext.tsx
 │   │   ├── ThemeContext.tsx
@@ -324,6 +396,9 @@
 │       └── vm-browserify.d.ts
 ├── tailwind.config.ts
 ├── tests
+│   ├── __artifacts__
+│   │   ├── math.transformed.ts
+│   │   └── use-math.transformed.ts
 │   ├── fsRequirePromise.test.ts
 │   ├── gitignore.test.ts
 │   ├── normalizeCjsEsm.imports.test.ts
@@ -336,15 +411,15 @@
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-54 directories, 283 files
+71 directories, 341 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 39220
-合計文字数: 1288343
-合計ファイルサイズ(bytes): 1378381
+合計行数: 39339
+合計文字数: 1293406
+合計ファイルサイズ(bytes): 1379288
 
 開発時のdev container全体のサイズ(bytes): 2.3G	.
 ==========
-ビルト済みファイルの行数: 16822
-合計文字数: 27355159
-合計ファイルサイズ(bytes): 28315354
+ビルト済みファイルの行数: 23597
+合計文字数: 27581128
+合計ファイルサイズ(bytes): 28569320

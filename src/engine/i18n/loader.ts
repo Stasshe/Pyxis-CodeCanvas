@@ -3,8 +3,8 @@
  * 翻訳リソースの動的ロードとキャッシュ管理
  */
 
-import type { Locale } from './types';
 import { loadTranslationCache, saveTranslationCache } from './storage';
+import type { Locale } from './types';
 
 /**
  * メモリキャッシュ（高速アクセス用）

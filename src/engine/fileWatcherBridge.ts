@@ -1,6 +1,6 @@
+import { coreWarn, coreInfo } from '@/engine/core/coreLogger';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { notifyFileChange } from '@/engine/fileWatcher';
-import { coreWarn, coreInfo } from '@/engine/core/coreLogger';
 
 /**
  * Advanced FileRepository -> window FILE_CHANGE_EVENT bridge.

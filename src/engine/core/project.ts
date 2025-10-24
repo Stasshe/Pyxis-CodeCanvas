@@ -293,19 +293,19 @@ export const useProject = () => {
         if (existingFile) {
           const updatedFile = bufferContent
             ? {
-                ...existingFile,
-                content: '',
-                isBufferArray: true,
-                bufferContent,
-                updatedAt: new Date(),
-              }
+              ...existingFile,
+              content: '',
+              isBufferArray: true,
+              bufferContent,
+              updatedAt: new Date(),
+            }
             : {
-                ...existingFile,
-                content,
-                isBufferArray: false,
-                bufferContent: undefined,
-                updatedAt: new Date(),
-              };
+              ...existingFile,
+              content,
+              isBufferArray: false,
+              bufferContent: undefined,
+              updatedAt: new Date(),
+            };
           await fileRepository.saveFile(updatedFile);
         } else {
           await fileRepository.createFile(
