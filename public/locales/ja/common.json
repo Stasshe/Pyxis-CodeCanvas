@@ -1,93 +1,174 @@
 {
-  "operationWindow": {
-    "mdPreviewPrompt": "Markdownプレビューで開きますか？",
-    "openInPreview": "プレビューで開く",
-    "openInEditor": "通常エディタで開く",
-    "mdPreviewDialogHelp": "Tab/←→ で切替, Enterで決定, ESCで閉じる",
-    "searchPlaceholder": "ファイル名・フォルダ名・パス いずれかで検索...",
-    "noFilesFound": "ファイルが見つかりません",
-    "footerHelp": "↑↓ で選択, Enter で開く",
-    "closeByEsc": "ESC で閉じる"
-  },
   "action": {
+    "authenticating": "認証中...",
     "cancel": "キャンセル",
     "refresh": "更新",
-    "authenticating": "認証中...",
     "retry": "再試行"
+  },
+  "ai": {
+    "context": {
+      "select": "ファイルを選択"
+    },
+    "hints": {
+      "enterSend": "Enter: 改行 / Ctrl+Enter: 送信",
+      "history": "Alt+↑↓: 履歴"
+    },
+    "input": {
+      "ask": "AIに質問やコード相談をしてください...",
+      "edit": "コードの編集指示を入力してください..."
+    },
+    "selectedLabel": "選択中:",
+    "sendTitle": "送信 (Ctrl+Enter)"
+  },
+  "aiReviewTab": {
+    "applyAll": "全て適用",
+    "autoSaveAndApply": "。変更は自動保存され、「全て適用」でファイルに反映されます。",
+    "discard": "破棄",
+    "discardAllAndRevert": "全ての変更を破棄して元に戻す",
+    "editRightDirectly": "右側のエディタで直接編集できます",
+    "notFound": "AIレビューデータが見つかりません",
+    "revert": "元に戻す",
+    "revertSelectionHint": "右クリックメニューから「選択範囲を元に戻す」で部分的に元に戻すこともできます。"
+  },
+  "auth": {
+    "authFailed": "GitHub認証に失敗しました",
+    "authSuccess": "GitHub認証に成功しました！",
+    "clickToOpenMenu": "クリックしてメニューを開く",
+    "patDescription": "<0>ここをクリック</0>してPATを作成（repo スコープが必要）",
+    "patPlaceholder": "ghp_xxxxxxxxxxxx",
+    "patPrompt": "GitHub Personal Access Token",
+    "signIn": "サインイン",
+    "signOut": "サインアウト",
+    "signOutConfirm": "GitHubからサインアウトしますか？"
+  },
+  "bottom": {
+    "debugConsole": "デバッグコンソール",
+    "output": "出力",
+    "outputPanel": {
+      "all": "全て",
+      "clear": "クリア",
+      "clearTooltip": "現在表示されている出力をクリア",
+      "contextLabel": "処理名",
+      "empty": "出力はありません",
+      "typeLabel": "タイプ"
+    },
+    "terminal": "ターミナル",
+    "terminalInitializing": "ターミナルを初期化中..."
+  },
+  "changedFilesList": {
+    "apply": "適用",
+    "applyAll": "全て適用",
+    "changedFiles": "変更されたファイル",
+    "discard": "破棄",
+    "discardAll": "全て破棄",
+    "others": "他",
+    "preview": "変更プレビュー",
+    "reason": "変更理由",
+    "review": "レビュー"
+  },
+  "chatSpaceList": {
+    "confirmDelete": "このスペースを削除しますか？",
+    "create": "新しいスペースを作成",
+    "delete": "削除",
+    "empty": "まだスペースがありません",
+    "rename": "名前を変更"
+  },
+  "diff": {
+    "diff": "差分",
+    "lines": "行",
+    "original": "元",
+    "suggested": "提案"
+  },
+  "fileTree": {
+    "alert": {
+      "renameFailed": "名前変更に失敗しました: {error}"
+    },
+    "menu": {
+      "createFile": "ファイル作成",
+      "createFolder": "フォルダ作成",
+      "delete": "削除",
+      "download": "ダウンロード",
+      "import": "インポート",
+      "open": "開く",
+      "openCodeMirror": "CodeMirrorで開く",
+      "openPreview": "プレビューを開く",
+      "rename": "名前変更",
+      "webPreview": "WebPreview"
+    },
+    "prompt": {
+      "newFileName": "新しいファイル名を入力してください:",
+      "newFolderName": "新しいフォルダ名を入力してください:",
+      "rename": "新しい名前を入力してください:"
+    }
+  },
+  "git": {
+    "apiKeyPlaceholder": "Gemini APIキーを入力",
+    "changes": "変更",
+    "commit": "コミット",
+    "commitMessagePlaceholder": "コミットメッセージを入力...",
+    "committing": "コミット中...",
+    "deleted": "削除済み",
+    "deleteUntracked": "ファイルを削除",
+    "discard": "破棄",
+    "errorOccurred": "エラーが発生しました",
+    "generateCommitMessage": "AIで生成",
+    "generating": "生成中...",
+    "history": "履歴",
+    "infoNotAvailable": "Git情報を取得できませんでした",
+    "loadingStatus": "Git状態を読み込み中...",
+    "noChanges": "変更はありません",
+    "noHistory": "コミット履歴がありません",
+    "operationError": "Git操作でエラーが発生しました",
+    "projectSelect": "プロジェクトを選択してください",
+    "restore": "ファイルを復元",
+    "stage": "ステージング",
+    "stageAll": "全てステージング",
+    "staged": "ステージング済み",
+    "stageDelete": "削除をステージング",
+    "unstage": "ステージング解除",
+    "unstageAll": "全てアンステージング",
+    "unstaged": "未ステージング",
+    "untracked": "未追跡",
+    "viewDiffEditable": "差分を表示（編集可能）",
+    "viewDiffReadonly": "差分を表示（編集不可）"
   },
   "menu": {
     "files": "ファイル",
-    "search": "検索",
     "git": "Git",
+    "project": "プロジェクト管理",
     "run": "実行",
-    "settings": "設定",
-    "project": "プロジェクト管理"
+    "search": "検索",
+    "settings": "設定"
   },
-  "topBar": {
-    "searchTitle": "ファイル検索 (Ctrl+P)",
-    "searchLabel": "ファイル検索",
-    "toggleTerminal": "ターミナル表示/非表示",
-    "toggleRightPanel": "右パネル表示/非表示"
-  },
-  "auth": {
-    "signIn": "サインイン",
-    "signOut": "サインアウト",
-    "patPrompt": "GitHub Personal Access Token",
-    "patDescription": "<0>ここをクリック</0>してPATを作成（repo スコープが必要）",
-    "patPlaceholder": "ghp_xxxxxxxxxxxx",
-    "clickToOpenMenu": "クリックしてメニューを開く",
-    "authSuccess": "GitHub認証に成功しました！",
-    "authFailed": "GitHub認証に失敗しました",
-    "signOutConfirm": "GitHubからサインアウトしますか？"
-  },
-  "git": {
-    "changes": "変更",
-    "staged": "ステージング済み",
-    "unstaged": "未ステージング",
-    "commit": "コミット",
-    "stage": "ステージング",
-    "unstage": "ステージング解除",
-    "discard": "破棄",
-    "generateCommitMessage": "AIで生成",
-    "projectSelect": "プロジェクトを選択してください",
-    "loadingStatus": "Git状態を読み込み中...",
-    "operationError": "Git操作でエラーが発生しました",
-    "errorOccurred": "エラーが発生しました",
-    "infoNotAvailable": "Git情報を取得できませんでした",
-    "apiKeyPlaceholder": "Gemini APIキーを入力",
-    "commitMessagePlaceholder": "コミットメッセージを入力...",
-    "generating": "生成中...",
-    "committing": "コミット中...",
-    "stageAll": "全てステージング",
-    "unstageAll": "全てアンステージング",
-    "noChanges": "変更はありません",
-    "deleted": "削除済み",
-    "untracked": "未追跡",
-    "viewDiffReadonly": "差分を表示（編集不可）",
-    "viewDiffEditable": "差分を表示（編集可能）",
-    "stageDelete": "削除をステージング",
-    "restore": "ファイルを復元",
-    "deleteUntracked": "ファイルを削除",
-    "history": "履歴",
-    "noHistory": "コミット履歴がありません"
+  "operationWindow": {
+    "closeByEsc": "ESC で閉じる",
+    "footerHelp": "↑↓ で選択, Enter で開く",
+    "mdPreviewDialogHelp": "Tab/←→ で切替, Enterで決定, ESCで閉じる",
+    "mdPreviewPrompt": "Markdownプレビューで開きますか？",
+    "noFilesFound": "ファイルが見つかりません",
+    "openInEditor": "通常エディタで開く",
+    "openInPreview": "プレビューで開く",
+    "searchPlaceholder": "ファイル名・フォルダ名・パス いずれかで検索..."
   },
   "projectModal": {
-    "title": "プロジェクト管理",
-    "editProject": "プロジェクト編集",
-    "deleteProject": "プロジェクト削除",
-    "description": "説明",
     "cancel": "キャンセル",
-    "save": "保存",
     "clone": "GitHubからクローン",
     "cloneFromGitHub": "GitHubからクローン",
+    "cloneSuccess": "クローンに成功しました",
     "create": "作成",
     "created": "作成済み",
+    "deleteConfirm": "本当にこのプロジェクトを削除しますか？",
+    "deleteProject": "プロジェクト削除",
+    "description": "説明",
     "descriptionOptional": "説明（任意）",
     "descriptionPlaceholder": "プロジェクトの説明を入力してください...",
+    "editProject": "プロジェクト編集",
     "inputRepoUrl": "リポジトリURLを入力",
     "loading": "読み込み中...",
     "nameHint": "英数字とハイフンのみ使用できます",
+    "nameValidation": "プロジェクト名は英数字・ハイフンのみ使用できます。日本語不可・空白は-に変換されます。",
     "newProject": "新しいプロジェクト",
+    "noProjects": "プロジェクトがありません",
     "open": "開く",
     "projectName": "プロジェクト名",
     "projectNameOptional": "プロジェクト名（任意）",
@@ -95,11 +176,29 @@
     "projectNamePlaceholder": "プロジェクト名を入力してください...",
     "repoUrl": "リポジトリURL",
     "repoUrlPlaceholder": "https://github.com/owner/repo",
-    "updated": "更新されました",
-    "nameValidation": "プロジェクト名は英数字・ハイフンのみ使用できます。日本語不可・空白は-に変換されます。",
-    "deleteConfirm": "本当にこのプロジェクトを削除しますか？",
-    "cloneSuccess": "クローンに成功しました",
-    "noProjects": "プロジェクトがありません"
+    "save": "保存",
+    "title": "プロジェクト管理",
+    "updated": "更新されました"
+  },
+  "right": {
+    "aiUnavailable": "AI Assistant機能が利用できません"
+  },
+  "run": {
+    "clearOutput": "出力をクリア",
+    "execute": "実行",
+    "executeHint": "Ctrl+Enter (Cmd+Enter) で実行",
+    "executionStopped": "Execution stopped",
+    "fileContentError": "ファイル内容が取得できません",
+    "inputPlaceholder": "Node.jsコードを入力してください...",
+    "languageNode": "Node.js",
+    "languagePython": "Python",
+    "noOutput": "No output",
+    "noProject": "プロジェクトを開いてNode.jsコードを実行してください",
+    "outputHint": "Javascript/Node.js/Pythonコードを実行すると、ここに結果が表示されます。Node.jsと、jsは、同じファイルで実行できます。",
+    "runtimeNotReady": "Pythonランタイムが初期化されていません",
+    "searchFile": "実行するファイル名を検索...",
+    "stop": "停止",
+    "title": "実行環境"
   },
   "tabBar": {
     "closeTab": "タブを閉じる",
@@ -112,137 +211,38 @@
     "splitVertical": "縦に分割",
     "tabActions": "タブ操作"
   },
-  "bottom": {
-    "output": "出力",
-    "debugConsole": "デバッグコンソール",
-    "terminal": "ターミナル",
-    "outputPanel": {
-      "contextLabel": "処理名",
-      "typeLabel": "タイプ",
-      "all": "全て",
-      "clear": "クリア",
-      "clearTooltip": "現在表示されている出力をクリア",
-      "empty": "出力はありません"
-    },
-    "terminalInitializing": "ターミナルを初期化中..."
-  },
-  "right": {
-    "aiUnavailable": "AI Assistant機能が利用できません"
-  },
-  "ai": {
-    "context": {
-      "select": "ファイルを選択"
-    },
-    "input": {
-      "ask": "AIに質問やコード相談をしてください...",
-      "edit": "コードの編集指示を入力してください..."
-    },
-    "selectedLabel": "選択中:",
-    "sendTitle": "送信 (Ctrl+Enter)",
-    "hints": {
-      "enterSend": "Enter: 改行 / Ctrl+Enter: 送信",
-      "history": "Alt+↑↓: 履歴"
-    }
-  },
-  "run": {
-    "title": "実行環境",
-    "execute": "実行",
-    "stop": "停止",
-    "clearOutput": "出力をクリア",
-    "searchFile": "実行するファイル名を検索...",
-    "noProject": "プロジェクトを開いてNode.jsコードを実行してください",
-    "inputPlaceholder": "Node.jsコードを入力してください...",
-    "executeHint": "Ctrl+Enter (Cmd+Enter) で実行",
-    "outputHint": "Javascript/Node.js/Pythonコードを実行すると、ここに結果が表示されます。Node.jsと、jsは、同じファイルで実行できます。",
-    "runtimeNotReady": "Pythonランタイムが初期化されていません",
-    "fileContentError": "ファイル内容が取得できません",
-    "noOutput": "No output",
-    "executionStopped": "Execution stopped",
-    "languageNode": "Node.js",
-    "languagePython": "Python"
+  "topBar": {
+    "searchLabel": "ファイル検索",
+    "searchTitle": "ファイル検索 (Ctrl+P)",
+    "toggleRightPanel": "右パネル表示/非表示",
+    "toggleTerminal": "ターミナル表示/非表示"
   },
   "welcome": {
-    "title": "ようこそ！",
-    "indexeddbInfo": "このプロジェクトのファイルはIndexedDBに保存されています。",
     "clientSideNote": "このアプリは完全にクライアントサイドで動作し、サーバーには一切データを送信しません。",
-    "hmrHint": "HMR、WebPreviewは、デフォルトで生成される homepage フォルダを長押しして試してください。",
     "features": {
-      "title": "Pyxisの主な特徴",
       "clientIDE": "完全クライアントサイドIDE（サーバー不要・静的ホスティング）",
-      "nodeRuntime": "Node.jsランタイム・npm・Unixコマンド・Gitをブラウザで利用可能",
-      "monaco": "VS Codeライクな編集体験・Monaco Editor搭載",
       "gitHistory": "Git履歴・ブランチ管理・コミットグラフ表示",
-      "responsive": "iPadにも最適化されたレスポンシブUI",
       "languages": "Cpp, HTML, CSS, JavaScript, Pythonなど多言語Highlight対応",
-      "mermaid": "Mermaid記法でフローチャートやシーケンス図をリアルタイム描画"
+      "mermaid": "Mermaid記法でフローチャートやシーケンス図をリアルタイム描画",
+      "monaco": "VS Codeライクな編集体験・Monaco Editor搭載",
+      "nodeRuntime": "Node.jsランタイム・npm・Unixコマンド・Gitをブラウザで利用可能",
+      "responsive": "iPadにも最適化されたレスポンシブUI",
+      "title": "Pyxisの主な特徴"
     },
+    "hmrHint": "HMR、WebPreviewは、デフォルトで生成される homepage フォルダを長押しして試してください。",
+    "indexeddbInfo": "このプロジェクトのファイルはIndexedDBに保存されています。",
     "mainFeatures": {
-      "title": "主要機能",
-      "latex": "LaTeX数式レンダリング・MermaidHTML記法対応",
+      "download": "Git/プロジェクトファイルのダウンロード",
       "importExport": "ファイルのインポート・ダウンロード・zipエクスポート",
+      "latex": "LaTeX数式レンダリング・MermaidHTML記法対応",
       "theme": "テーマカラー変更・複数モニター対応",
-      "download": "Git/プロジェクトファイルのダウンロード"
+      "title": "主要機能"
     },
     "specialThanks": {
-      "title": "Special Thanks",
       "contributors": "isomorphic-git, Monaco Editor, xterm.js, Mermaid, KaTeX, Pyodide and all OSS contributors.",
-      "thanksVisit": "ご来訪ありがとうございます！"
-    }
-  },
-  "aiReviewTab": {
-    "notFound": "AIレビューデータが見つかりません",
-    "discardAllAndRevert": "全ての変更を破棄して元に戻す",
-    "revert": "元に戻す",
-    "applyAll": "全て適用",
-    "discard": "破棄",
-    "editRightDirectly": "右側のエディタで直接編集できます",
-    "autoSaveAndApply": "。変更は自動保存され、「全て適用」でファイルに反映されます。",
-    "revertSelectionHint": "右クリックメニューから「選択範囲を元に戻す」で部分的に元に戻すこともできます。"
-  },
-  "diff": {
-    "original": "元",
-    "suggested": "提案",
-    "diff": "差分",
-    "lines": "行"
-  },
-  "changedFilesList": {
-    "changedFiles": "変更されたファイル",
-    "review": "レビュー",
-    "apply": "適用",
-    "discard": "破棄",
-    "reason": "変更理由",
-    "preview": "変更プレビュー",
-    "others": "他",
-    "applyAll": "全て適用",
-    "discardAll": "全て破棄"
-  },
-  "fileTree": {
-    "menu": {
-      "createFile": "ファイル作成",
-      "createFolder": "フォルダ作成",
-      "import": "インポート",
-      "open": "開く",
-      "openPreview": "プレビューを開く",
-      "openCodeMirror": "CodeMirrorで開く",
-      "download": "ダウンロード",
-      "rename": "名前変更",
-      "delete": "削除",
-      "webPreview": "WebPreview"
+      "thanksVisit": "ご来訪ありがとうございます！",
+      "title": "Special Thanks"
     },
-    "prompt": {
-      "newFileName": "新しいファイル名を入力してください:",
-      "newFolderName": "新しいフォルダ名を入力してください:",
-      "rename": "新しい名前を入力してください:"
-    },
-    "alert": {
-      "renameFailed": "名前変更に失敗しました: {error}"
-    }
-  },
-  "chatSpaceList": {
-    "create": "新しいスペースを作成",
-    "empty": "まだスペースがありません",
-    "rename": "名前を変更",
-    "delete": "削除",
-    "confirmDelete": "このスペースを削除しますか？"
+    "title": "ようこそ！"
   }
 }
