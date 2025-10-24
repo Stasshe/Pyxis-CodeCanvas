@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTheme } from '@/context/ThemeContext';
+import { useTranslation } from '@/context/I18nContext';
 import AIPanel from '@/components/AI/AIPanel';
 import type { FileItem, Project, Tab } from '@/types';
 
@@ -32,6 +33,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
   clearAIReview,
 }) => {
   const { colors } = useTheme();
+  const { t } = useTranslation();
 
   // AIレビューをクリアする関数
   const handleClearAIReview = async (filePath: string): Promise<void> => {
@@ -71,7 +73,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
               />
             ) : (
               <div style={{ padding: 16, color: colors.mutedFg, textAlign: 'center' }}>
-                AI Assistant機能が利用できません
+                {t('right.aiUnavailable')}
               </div>
             ))}
         </div>

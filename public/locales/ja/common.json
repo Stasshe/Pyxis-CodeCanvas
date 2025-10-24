@@ -112,6 +112,14 @@
     "title": "出力",
     "noMessages": "出力メッセージはありません"
   },
+  "bottom": {
+    "output": "出力",
+    "debugConsole": "デバッグコンソール",
+    "terminal": "ターミナル"
+  },
+  "right": {
+    "aiUnavailable": "AI Assistant機能が利用できません"
+  },
   "ai": {
     "title": "AI アシスタント",
     "space": "スペース",
@@ -152,5 +160,56 @@
     "executionStopped": "Execution stopped",
     "languageNode": "Node.js",
     "languagePython": "Python"
+  }
+  ,
+  "welcome": {
+    "title": "ようこそ！",
+    "indexeddbInfo": "このプロジェクトのファイルはIndexedDBに保存されています。",
+    "clientSideNote": "このアプリは完全にクライアントサイドで動作し、サーバーには一切データを送信しません。",
+    "hmrHint": "HMR、WebPreviewは、デフォルトで生成される homepage フォルダを長押しして試してください。",
+    "features": {
+      "title": "Pyxisの主な特徴",
+      "clientIDE": "完全クライアントサイドIDE（サーバー不要・静的ホスティング）",
+      "nodeRuntime": "Node.jsランタイム・npm・Unixコマンド・Gitをブラウザで利用可能",
+      "monaco": "VS Codeライクな編集体験・Monaco Editor搭載",
+      "gitHistory": "Git履歴・ブランチ管理・コミットグラフ表示",
+      "responsive": "iPadにも最適化されたレスポンシブUI",
+      "languages": "Cpp, HTML, CSS, JavaScript, Pythonなど多言語Highlight対応",
+      "mermaid": "Mermaid記法でフローチャートやシーケンス図をリアルタイム描画"
+    },
+    "mainFeatures": {
+      "title": "主要機能",
+      "latex": "LaTeX数式レンダリング・MermaidHTML記法対応",
+      "importExport": "ファイルのインポート・ダウンロード・zipエクスポート",
+      "theme": "テーマカラー変更・複数モニター対応",
+      "download": "Git/プロジェクトファイルのダウンロード"
+    },
+    "specialThanks": {
+      "title": "Special Thanks",
+      "contributors": "isomorphic-git, Monaco Editor, xterm.js, Mermaid, KaTeX, Pyodide and all OSS contributors.",
+      "thanksVisit": "ご来訪ありがとうございます！"
+    }
+  },
+  "fileTree": {
+    "menu": {
+      "createFile": "ファイル作成",
+      "createFolder": "フォルダ作成",
+      "import": "インポート",
+      "open": "開く",
+      "openPreview": "プレビューを開く",
+      "openCodeMirror": "CodeMirrorで開く",
+      "download": "ダウンロード",
+      "rename": "名前変更",
+      "delete": "削除",
+      "webPreview": "WebPreview"
+    },
+    "prompt": {
+      "newFileName": "新しいファイル名を入力してください:",
+      "newFolderName": "新しいフォルダ名を入力してください:",
+      "rename": "新しい名前を入力してください:"
+    },
+    "alert": {
+      "renameFailed": "名前変更に失敗しました: {error}"
+    }
   }
 }

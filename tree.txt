@@ -19,6 +19,7 @@
 │   ├── CORE-ENGINE.md
 │   ├── DATA-FLOW.md
 │   ├── GITHUB-INTEGRATION.md
+│   ├── I18N-SYSTEM.md
 │   ├── NODE-RUNTIME.md
 │   ├── README.md
 │   ├── SYSTEM-OVERVIEW.md
@@ -70,7 +71,13 @@
 │   ├── globe.svg
 │   ├── icon0.svg
 │   ├── icon1.png
+│   ├── locales
+│   │   ├── en
+│   │   │   └── common.json
+│   │   └── ja
+│   │       └── common.json
 │   ├── manifest.json
+│   ├── sw.js
 │   ├── web-app-manifest-192x192.png
 │   ├── web-app-manifest-512x512.png
 │   └── window.svg
@@ -123,6 +130,7 @@
 │   │   ├── BottomStatusBar.tsx
 │   │   ├── Confirmation.tsx
 │   │   ├── FileSelect.tsx
+│   │   ├── LanguageSelector.tsx
 │   │   ├── Left
 │   │   │   ├── FileTree.tsx
 │   │   │   ├── GitHistory.tsx
@@ -166,10 +174,12 @@
 │   │   │   │       └── CharCountDetails.tsx
 │   │   │   └── useTabCloseConfirmation.tsx
 │   │   ├── Toast.tsx
-│   │   └── TopBar.tsx
+│   │   ├── TopBar.tsx
+│   │   └── examples
 │   ├── context
 │   │   ├── BreakpointContext.tsx
 │   │   ├── GitHubUserContext.tsx
+│   │   ├── I18nContext.tsx
 │   │   ├── ThemeContext.tsx
 │   │   └── config.ts
 │   ├── engine
@@ -245,6 +255,12 @@
 │   │   │   ├── isBufferArray.ts
 │   │   │   ├── resize.ts
 │   │   │   └── settingsManager.ts
+│   │   ├── i18n
+│   │   │   ├── index.ts
+│   │   │   ├── loader.ts
+│   │   │   ├── storage.ts
+│   │   │   ├── translator.ts
+│   │   │   └── types.ts
 │   │   ├── import
 │   │   │   └── importSingleFile.ts
 │   │   ├── initialFileContents.ts
@@ -304,17 +320,14 @@
 ├── tree-built-out.sh
 ├── tree.sh
 ├── tree.txt
-└── tsconfig.json
+├── tsconfig.json
+└── tsconfig.tsbuildinfo
 
-49 directories, 258 files
+54 directories, 270 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 38399
-合計文字数: 1264311
-合計ファイルサイズ(bytes): 1356000
+合計行数: 39148
+合計文字数: 1284679
+合計ファイルサイズ(bytes): 1377136
 
 リポジトリ全体のサイズ(bytes): 2.2G	.
-==========
-ビルト済みファイルの行数: 16203
-合計文字数: 27316504
-合計ファイルサイズ(bytes): 28277261

@@ -112,6 +112,14 @@
     "title": "Output",
     "noMessages": "No output messages"
   },
+  "bottom": {
+    "output": "Output",
+    "debugConsole": "Debug Console",
+    "terminal": "Terminal"
+  },
+  "right": {
+    "aiUnavailable": "AI Assistant is unavailable"
+  },
   "ai": {
     "title": "AI Assistant",
     "space": "Space",
@@ -152,5 +160,56 @@
     "executionStopped": "Execution stopped",
     "languageNode": "Node.js",
     "languagePython": "Python"
+  }
+  ,
+  "welcome": {
+    "title": "Welcome!",
+    "indexeddbInfo": "This project's files are stored in IndexedDB.",
+    "clientSideNote": "This app runs fully client-side and does not send any data to servers.",
+    "hmrHint": "Try HMR and WebPreview by long-pressing the generated homepage folder.",
+    "features": {
+      "title": "Key features of Pyxis",
+      "clientIDE": "Fully client-side IDE (no server required, static hosting)",
+      "nodeRuntime": "Node.js runtime, npm, Unix commands and Git available in the browser",
+      "monaco": "VS Code-like editing experience with Monaco Editor",
+      "gitHistory": "Git history, branch management and commit graph",
+      "responsive": "Responsive UI optimized for iPad",
+      "languages": "Multi-language highlighting: Cpp, HTML, CSS, JavaScript, Python, etc.",
+      "mermaid": "Real-time rendering of flowcharts and sequence diagrams with Mermaid"
+    },
+    "mainFeatures": {
+      "title": "Main features",
+      "latex": "LaTeX math rendering and Mermaid/HTML support",
+      "importExport": "Import, download files and zip export",
+      "theme": "Theme color switching and multi-monitor support",
+      "download": "Download Git / project files"
+    },
+    "specialThanks": {
+      "title": "Special Thanks",
+      "contributors": "isomorphic-git, Monaco Editor, xterm.js, Mermaid, KaTeX, Pyodide and all OSS contributors.",
+      "thanksVisit": "Thank you for visiting!"
+    }
+  },
+  "fileTree": {
+    "menu": {
+      "createFile": "Create file",
+      "createFolder": "Create folder",
+      "import": "Import",
+      "open": "Open",
+      "openPreview": "Open preview",
+      "openCodeMirror": "Open in CodeMirror",
+      "download": "Download",
+      "rename": "Rename",
+      "delete": "Delete",
+      "webPreview": "WebPreview"
+    },
+    "prompt": {
+      "newFileName": "Enter new file name:",
+      "newFolderName": "Enter new folder name:",
+      "rename": "Enter new name:"
+    },
+    "alert": {
+      "renameFailed": "Rename failed: {error}"
+    }
   }
 }

@@ -6,6 +6,7 @@ import { FileItem } from '@/types';
 import { useTheme } from '@/context/ThemeContext';
 import { OUTPUT_CONFIG } from '@/context/config';
 import { useState, useRef } from 'react';
+import { useTranslation } from '@/context/I18nContext';
 
 interface BottomPanelProps {
   height: number;
@@ -74,6 +75,7 @@ export default function BottomPanel({
   onResize,
 }: BottomPanelProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'output' | 'terminal' | 'debug'>('terminal');
   const [outputMessages, setOutputMessages] = useState<OutputMessage[]>([]);
   outputMessagesRef.current = outputMessages;
@@ -135,7 +137,7 @@ export default function BottomPanel({
                 activeTab === 'output' ? colors.primary : colors.mutedFg)
             }
           >
-            出力
+            {t('bottom.output')}
           </button>
           <button
             className="tab-btn"
@@ -163,7 +165,7 @@ export default function BottomPanel({
                 activeTab === 'debug' ? colors.primary : colors.mutedFg)
             }
           >
-            デバッグコンソール
+            {t('bottom.debugConsole')}
           </button>
           <button
             className="tab-btn"
@@ -191,7 +193,7 @@ export default function BottomPanel({
                 activeTab === 'terminal' ? colors.primary : colors.mutedFg)
             }
           >
-            ターミナル
+            {t('bottom.terminal')}
           </button>
           {currentProject && (
             <span
