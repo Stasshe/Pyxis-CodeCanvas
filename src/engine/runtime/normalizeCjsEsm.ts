@@ -382,6 +382,42 @@ export function normalizeCjsEsm(code: string): string {
   // normalizeCjsEsm from producing unexpected `module.exports.*` assignments.
 
   // export { a, b as c } -> module.exports.a = a; module.exports.c = b;
+  // Handle `export { ... } from 'mod'` first to avoid leaving a trailing `from 'mod'`
+  code = code.replace(/export\s*\{([^}]+)\}\s*from\s*['"]([^'"]+)['"]\s*;?/g, (m, list, mod) => {
+    // import the module first, then re-export named bindings from it
+    const parts = String(list)
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+    const assigns: string[] = [];
+    const tmp = `__rexp_${Math.random().toString(36).slice(2, 8)}`;
+    assigns.push(`const ${tmp} = await __require__('${mod}');`);
+    for (const p of parts) {
+      const cleaned = p
+        .replace(/\/\*[^*]*\*+(?:[^/*][^*]*\*+)*\//g, '')
+        .replace(/\/\/.*$/gm, '')
+        .trim();
+      const asMatch = cleaned.match(/^(\w+)\s+as\s+(\w+)$/);
+      if (asMatch) {
+        const from = asMatch[1];
+        const to = asMatch[2];
+        assigns.push(`module.exports.${to} = ${tmp}.${from};`);
+      } else {
+        const nameMatch = cleaned.match(/^(\w+)$/);
+        if (nameMatch) assigns.push(`module.exports.${nameMatch[1]} = ${tmp}.${nameMatch[1]};`);
+        else assigns.push(`// unhandled export clause: ${cleaned}`);
+      }
+    }
+    return assigns.join(' ');
+  });
+
+  // export * from 'mod' -> copy all exports except default
+  code = code.replace(/export\s+\*\s+from\s+['"]([^'"]+)['"]\s*;?/g, (m, mod) => {
+    const tmp = `__rexp_${Math.random().toString(36).slice(2, 8)}`;
+    return `const ${tmp} = await __require__('${mod}'); for (const k in ${tmp}) { if (k !== 'default') module.exports[k] = ${tmp}[k]; }`;
+  });
+
+  // export { a, b as c } -> module.exports.a = a; module.exports.c = b;
   code = code.replace(/export\s*\{([^}]+)\}\s*;?/g, (m, list) => {
     const parts = String(list)
       .split(',')

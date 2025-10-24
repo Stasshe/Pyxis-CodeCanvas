@@ -216,7 +216,24 @@ export class NodeRuntime {
         // 非ビルトイン: 非同期ロードを開始
         (async () => {
           try {
-            const moduleExports = await self.moduleLoader.load(moduleName, currentFilePath);
+            // Support package.json "imports" specifiers like `#ansi-styles`.
+            // If the specifier starts with `#`, try to resolve it via the project's package.json
+            // and use the resolved path/target when loading.
+            let toLoad = moduleName;
+            try {
+              if (typeof moduleName === 'string' && moduleName.startsWith('#')) {
+                const resolved = await self.resolveImportSpecifier(moduleName, currentFilePath);
+                if (resolved) {
+                  runtimeInfo('🔗 Resolved import specifier', moduleName, '->', resolved);
+                  toLoad = resolved;
+                }
+              }
+            } catch (e) {
+              // resolution failure should not crash the loader; fall back to original name
+              runtimeWarn('⚠️ Failed to resolve import specifier:', moduleName, e);
+            }
+
+            const moduleExports = await self.moduleLoader.load(toLoad, currentFilePath);
 
             // ビルトインモジュールマーカーを処理
             if (typeof moduleExports === 'object' && moduleExports !== null) {
@@ -430,6 +447,77 @@ export class NodeRuntime {
     };
 
     return builtIns[moduleName] || null;
+  }
+
+  /**
+   * package.json の "imports" を解決する (specifier が # で始まる場合)
+   * - project の package.json を探し、imports マッピングを参照する
+   * - 条件付きマッピングがある場合は 'node' を優先し、なければ 'default' を使う
+   * - './' で始まるローカルパスは projectDir を基準に展開して返す
+   */
+  private async resolveImportSpecifier(
+    specifier: string,
+    _currentFilePath: string
+  ): Promise<string | null> {
+    try {
+      const files = await fileRepository.getProjectFiles(this.projectId);
+
+      // package.json はプロジェクトルートにあるはずなので normalizePath === '/package.json' で探す
+      const pkgFile = files.find(f => this.normalizePath(f.path) === '/package.json');
+      if (!pkgFile || !pkgFile.content) return null;
+
+      let pkgJson: any;
+      try {
+        pkgJson = JSON.parse(pkgFile.content);
+      } catch (e) {
+        runtimeWarn('⚠️ Failed to parse package.json for imports resolution:', e);
+        return null;
+      }
+
+      const imports = pkgJson.imports;
+      if (!imports) return null;
+
+      const mapping = imports[specifier];
+      if (mapping === undefined) return null;
+
+      let target: string | null = null;
+      if (typeof mapping === 'string') {
+        target = mapping;
+      } else if (typeof mapping === 'object' && mapping !== null) {
+        // prefer 'node', then 'default'
+        if (typeof mapping.node === 'string') target = mapping.node;
+        else if (typeof mapping.default === 'string') target = mapping.default;
+        else {
+          // fallback: first string property
+          for (const k of Object.keys(mapping)) {
+            if (typeof mapping[k] === 'string') {
+              target = mapping[k];
+              break;
+            }
+          }
+        }
+      }
+
+      if (!target) return null;
+
+      // ローカル相対パスなら projectDir を基準に絶対パス化
+      if (target.startsWith('./')) {
+        const rel = target.slice(2).replace(/^\/+|^\/+/g, '');
+        const resolved = this.projectDir.replace(/\/$/, '') + '/' + rel.replace(/^\/+/, '');
+        return resolved;
+      }
+
+      // 先頭スラッシュは projectDir をプレフィックスして扱う
+      if (target.startsWith('/')) {
+        return this.projectDir.replace(/\/$/, '') + target;
+      }
+
+      // それ以外はパッケージ名などの可能性があるのでそのまま返す
+      return target;
+    } catch (error) {
+      runtimeWarn('⚠️ Error while resolving import specifier:', specifier, error);
+      return null;
+    }
   }
 
   /**

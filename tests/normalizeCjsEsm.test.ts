@@ -126,8 +126,9 @@ describe('normalizeCjsEsm', () => {
   it('export from other module', () => {
     const input = `export { x } from 'm'`;
     const out = normalizeCjsEsm(input);
-    // current behavior maps export list to module.exports assignments
-    expect(out).toContain('module.exports.x = x;');
+    // new behavior: module is required and named export is assigned from the imported module
+    expect(out).toContain("await __require__('m')");
+    expect(out).toContain('module.exports.x =');
   });
   it('export const with destructuring should keep destructure and not export members', () => {
     const input = `export const {a, b} = obj;`;
@@ -172,11 +173,13 @@ describe('normalizeCjsEsm', () => {
     // current regex doesn't handle `export async function` so it remains
     expect(normalizeCjsEsm(input)).toContain('export async function fetchData()');
   });
-  it('export star from other module remains', () => {
+  it('export star from other module is transformed to copy exports', () => {
     const input = `export * from 'mod'`;
     const out = normalizeCjsEsm(input);
-    // not specially handled by current implementation
-    expect(out).toContain("export * from 'mod'");
+    // should await the module and copy non-default keys to module.exports
+    expect(out).toContain("await __require__('mod')");
+    expect(out).toMatch(/for \(const k in __rexp_[a-z0-9]+\)/);
+    expect(out).toContain('module.exports[k] =');
   });
   it('export interface/type remains (TS-only)', () => {
     const input = `export interface I { a: number }`;
@@ -188,7 +191,8 @@ describe('normalizeCjsEsm', () => {
     const input = `export { default as Main } from 'lib'`;
     const out = normalizeCjsEsm(input);
     // current logic will produce assignment for alias
-    expect(out).toContain('module.exports.Main = default;');
+    expect(out).toContain("await __require__('lib')");
+    expect(out).toContain('module.exports.Main =');
   });
   it('multiline destructured export const should not export members', () => {
     const input = `export const {\n  a,\n  b\n} = obj;`;
