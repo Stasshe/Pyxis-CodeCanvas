@@ -244,7 +244,17 @@ function parseEditResponse(
   if (changedFiles.length > 0 && (!message || message.replace(/\s/g, '').length < 10)) {
     message = `${changedFiles.length}個のファイルの編集を提案しました。`;
   } else if (!message || message.replace(/\s/g, '').length < 10) {
-    message = 'レスポンスの解析に失敗しました。プロンプトを調整してください。';
+    // 解析に失敗した場合はユーザがデバッグできるように raw のレスポンスを
+    // メッセージの下にコードブロックとして追加する
+    const failureNote = 'レスポンスの解析に失敗しました。プロンプトを調整してください。';
+
+    // triple-backtick がレスポンス内にあるとコードブロックが壊れるため、
+    // 0-width space を挿入して中断する（視認上は変わらない）
+    const safeResponse = response.replace(/```/g, '```' + '\u200B');
+
+    const rawBlock = `\n\n---\n\nRaw response:\n\n\`\`\`text\n${safeResponse}\n\`\`\``;
+
+    message = failureNote + rawBlock;
   }
 
   return {
