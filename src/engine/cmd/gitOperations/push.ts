@@ -164,6 +164,46 @@ export async function push(fs: FS, dir: string, options: PushOptions = {}): Prom
     let parentSha: string | null = remoteHeadSha;
     let lastCommitSha: string | null = remoteHeadSha;
     const treeBuilder = new TreeBuilder(fs, dir, githubAPI);
+    // Optimize: if some of the local commits already exist on the remote, don't recreate them.
+    // Find the latest commit in `commitsToPush` that already exists remotely and only create
+    // the commits after it. This avoids re-creating history that already exists on GitHub
+    // (common when resetting to an older commit and force-pushing).
+    if (commitsToPush.length > 0) {
+      let lastExistingIndex = -1;
+      // Iterate from newest to oldest to find the latest one that exists remotely
+      for (let i = commitsToPush.length - 1; i >= 0; i--) {
+        const c = commitsToPush[i];
+        try {
+          // If the commit exists remotely, getCommit will succeed
+          await githubAPI.getCommit(c.oid);
+          lastExistingIndex = i;
+          break;
+        } catch (err) {
+          // not found -> keep searching earlier commits
+        }
+      }
+
+      if (lastExistingIndex >= 0) {
+        // Use the existing commit as the parent and only create later commits
+        parentSha = commitsToPush[lastExistingIndex].oid;
+        // Slice commitsToPush to only include commits that don't exist remotely
+        commitsToPush = commitsToPush.slice(lastExistingIndex + 1);
+        console.log(
+          `[git push] Detected ${lastExistingIndex + 1} existing commit(s) on remote; creating ${commitsToPush.length} new commit(s)`
+        );
+      } else {
+        // None of the local commits exist remotely. In this case, if remoteHeadSha is not
+        // part of the local history (non-fast-forward), we should start creating commits
+        // with no parent (initial commit) rather than trying to attach to an unknown remote parent.
+        if (!remoteHeadSha) {
+          parentSha = null;
+        } else {
+          // If remoteHeadSha exists but wasn't found in local history, reset parent to null
+          // to avoid creating commits that reference an unrelated remote parent.
+          parentSha = null;
+        }
+      }
+    }
 
     for (const commit of commitsToPush) {
       console.log(
