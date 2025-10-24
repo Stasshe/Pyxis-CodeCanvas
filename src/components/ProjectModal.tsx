@@ -230,16 +230,14 @@ export default function ProjectModal({
                   <Plus size={16} />
                   {t('projectModal.newProject')}
                 </button>
-                {isGitHubAuthenticated && (
-                  <button
-                    onClick={() => setIsCloning(true)}
-                    className="flex items-center gap-2 px-3 py-2 bg-secondary text-secondary-foreground rounded hover:bg-secondary/90"
-                    disabled={loading}
-                  >
-                    <GitBranch size={16} />
-                    {t('projectModal.cloneFromGitHub')}
-                  </button>
-                )}
+                <button
+                  onClick={() => setIsCloning(true)}
+                  className="flex items-center gap-2 px-3 py-2 bg-secondary text-secondary-foreground rounded hover:bg-secondary/90"
+                  disabled={loading}
+                >
+                  <GitBranch size={16} />
+                  {t('projectModal.cloneFromGitHub')}
+                </button>
               </div>
             ) : isCreating ? (
               <div className="bg-muted p-4 rounded border">

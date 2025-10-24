@@ -13,6 +13,7 @@
     },
     "hmrHint": "Try HMR and WebPreview by long-pressing the generated homepage folder.",
     "indexeddbInfo": "This project's files are stored in IndexedDB.",
+  "githubNote": "GitHub integration has no known bugs to our knowledge, but avoid extreme actions such as using it on very large repositories or closing the browser mid-operation.",
     "mainFeatures": {
       "download": "Download Git / project files",
       "importExport": "Import, download files and zip export",

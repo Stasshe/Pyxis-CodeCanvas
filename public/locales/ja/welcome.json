@@ -13,6 +13,7 @@
     },
     "hmrHint": "HMR、WebPreviewは、デフォルトで生成される homepage フォルダを長押しして試してください。",
     "indexeddbInfo": "このプロジェクトのファイルはIndexedDBに保存されています。",
+  "githubNote": "GitHubとの連携は、現状で既知のバグは確認されていませんが、中規模以上のリポジトリや、途中でブラウザを閉じる等の無茶な操作は避けてください。",
     "mainFeatures": {
       "download": "Git/プロジェクトファイルのダウンロード",
       "importExport": "ファイルのインポート・ダウンロード・zipエクスポート",

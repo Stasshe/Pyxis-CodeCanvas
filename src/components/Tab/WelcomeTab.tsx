@@ -32,6 +32,9 @@ export default function WelcomeTab() {
           <div className="bg-card p-6 rounded-lg shadow-lg text-sm mb-8">
             <p className="mb-2 text-base">{t('welcome.hmrHint')}</p>
           </div>
+          <div className="bg-card p-6 rounded-lg shadow-lg text-sm mb-8">
+            <p className="mb-2 text-base">{t('welcome.githubNote')}</p>
+          </div>
           <section className="mb-8">
             <h3 className="text-xl font-semibold mb-4 pb-2 border-b">
               {t('welcome.features.title')}
