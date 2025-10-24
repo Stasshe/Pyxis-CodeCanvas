@@ -60,6 +60,12 @@ export default function OperationWindow({
 
   // ファイル選択ハンドラ
   const handleFileSelectInOperation = (file: FileItem) => {
+    // AIモードの場合は.mdの確認ダイアログは不要なので直接処理する
+    if (aiMode) {
+      actuallyOpenFile(file, false);
+      return;
+    }
+
     if (file.name.toLowerCase().endsWith('.md')) {
       setMdPreviewPrompt({ file });
       return;
