@@ -1,0 +1,133 @@
+{
+  "app": {
+    "name": "Pyxis CodeCanvas",
+    "tagline": "Browser-based Code Editor"
+  },
+  "action": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "create": "Create",
+    "open": "Open",
+    "close": "Close",
+    "confirm": "Confirm",
+    "edit": "Edit",
+    "add": "Add",
+    "remove": "Remove",
+    "refresh": "Refresh",
+    "search": "Search",
+    "clear": "Clear",
+    "copy": "Copy",
+    "paste": "Paste",
+    "cut": "Cut",
+    "undo": "Undo",
+    "redo": "Redo",
+    "loading": "Loading...",
+    "authenticating": "Authenticating..."
+  },
+  "menu": {
+    "files": "Files",
+    "search": "Search",
+    "git": "Git",
+    "run": "Run",
+    "settings": "Settings",
+    "project": "Project Management"
+  },
+  "file": {
+    "new": "New File",
+    "newFolder": "New Folder",
+    "rename": "Rename",
+    "duplicate": "Duplicate",
+    "download": "Download",
+    "upload": "Upload"
+  },
+  "auth": {
+    "signIn": "Sign In",
+    "signOut": "Sign Out",
+    "signedInAs": "Signed in as",
+    "patPrompt": "GitHub Personal Access Token",
+    "patDescription": "<0>Click here</0> to create a PAT (repo scope required)",
+    "patPlaceholder": "ghp_xxxxxxxxxxxx",
+    "clickToOpenMenu": "Click to open menu",
+    "authSuccess": "GitHub authentication successful!",
+    "authFailed": "GitHub authentication failed",
+    "signOutConfirm": "Are you sure you want to sign out from GitHub?"
+  },
+  "git": {
+    "changes": "Changes",
+    "staged": "Staged",
+    "unstaged": "Unstaged",
+    "commit": "Commit",
+    "push": "Push",
+    "pull": "Pull",
+    "branch": "Branch",
+    "merge": "Merge",
+    "stash": "Stash",
+    "stage": "Stage",
+    "unstage": "Unstage",
+    "discard": "Discard",
+    "commitMessage": "Commit message",
+    "generateCommitMessage": "Generate with AI",
+    "viewDiff": "View Diff",
+    "viewAllDiffs": "View All Diffs"
+  },
+  "editor": {
+    "welcome": "Welcome",
+    "unsavedChanges": "Unsaved changes",
+    "preview": "Preview",
+    "split": "Split",
+    "closeTab": "Close tab",
+    "closeOthers": "Close others",
+    "closeAll": "Close all"
+  },
+  "terminal": {
+    "title": "Terminal",
+    "clear": "Clear terminal",
+    "initializing": "Terminal initializing"
+  },
+  "output": {
+    "title": "Output",
+    "noMessages": "No output messages"
+  },
+  "ai": {
+    "title": "AI Assistant",
+    "space": "Space",
+    "chat": "Chat",
+    "review": "Review",
+    "mode": {
+      "chat": "Chat",
+      "code": "Code",
+      "plan": "Plan"
+    },
+    "context": {
+      "add": "Add context",
+      "remove": "Remove",
+      "select": "Select files"
+    },
+    "placeholder": "Ask AI assistant..."
+  },
+  "project": {
+    "create": "Create Project",
+    "open": "Open Project",
+    "delete": "Delete Project",
+    "name": "Project Name",
+    "description": "Description"
+  },
+  "run": {
+    "title": "Execution Environment",
+    "execute": "Execute",
+    "stop": "Stop",
+    "clearOutput": "Clear output",
+    "searchFile": "Search for a file to execute...",
+    "noProject": "Open a project to execute Node.js code",
+    "inputPlaceholder": "Enter Node.js code...",
+    "executeHint": "Press Ctrl+Enter (Cmd+Enter) to execute",
+    "outputHint": "When you execute JavaScript/Node.js/Python code, the results will be displayed here. Node.js and js can be executed in the same file.",
+    "runtimeNotReady": "Python runtime is not initialized",
+    "fileContentError": "Unable to get file content",
+    "noOutput": "No output",
+    "executionStopped": "Execution stopped",
+    "languageNode": "Node.js",
+    "languagePython": "Python"
+  }
+}

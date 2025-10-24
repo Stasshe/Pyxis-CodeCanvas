@@ -5,6 +5,7 @@ import './globals.css';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { BreakpointProvider } from '@/context/BreakpointContext';
 import { GitHubUserProvider } from '@/context/GitHubUserContext';
+import { I18nProvider } from '@/context/I18nContext';
 import { ToastContainer } from '@/components/Toast';
 
 const geistSans = Geist({
@@ -150,14 +151,16 @@ export default function RootLayout({
         <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased h-full`}>
-        <BreakpointProvider>
-          <ThemeProvider>
-            <GitHubUserProvider>
-              {children}
-              <ToastContainer />
-            </GitHubUserProvider>
-          </ThemeProvider>
-        </BreakpointProvider>
+        <I18nProvider>
+          <BreakpointProvider>
+            <ThemeProvider>
+              <GitHubUserProvider>
+                {children}
+                <ToastContainer />
+              </GitHubUserProvider>
+            </ThemeProvider>
+          </BreakpointProvider>
+        </I18nProvider>
         {/* Register service worker to enable icon caching (only on client/runtime) */}
         <script
           dangerouslySetInnerHTML={{

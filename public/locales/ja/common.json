@@ -1,0 +1,133 @@
+{
+  "app": {
+    "name": "Pyxis CodeCanvas",
+    "tagline": "ブラウザベースのコードエディタ"
+  },
+  "action": {
+    "save": "保存",
+    "cancel": "キャンセル",
+    "delete": "削除",
+    "create": "作成",
+    "open": "開く",
+    "close": "閉じる",
+    "confirm": "確認",
+    "edit": "編集",
+    "add": "追加",
+    "remove": "削除",
+    "refresh": "更新",
+    "search": "検索",
+    "clear": "クリア",
+    "copy": "コピー",
+    "paste": "貼り付け",
+    "cut": "切り取り",
+    "undo": "元に戻す",
+    "redo": "やり直す",
+    "loading": "読み込み中...",
+    "authenticating": "認証中..."
+  },
+  "menu": {
+    "files": "ファイル",
+    "search": "検索",
+    "git": "Git",
+    "run": "実行",
+    "settings": "設定",
+    "project": "プロジェクト管理"
+  },
+  "file": {
+    "new": "新規ファイル",
+    "newFolder": "新規フォルダ",
+    "rename": "名前を変更",
+    "duplicate": "複製",
+    "download": "ダウンロード",
+    "upload": "アップロード"
+  },
+  "auth": {
+    "signIn": "サインイン",
+    "signOut": "サインアウト",
+    "signedInAs": "サインイン中",
+    "patPrompt": "GitHub Personal Access Token",
+    "patDescription": "<0>ここをクリック</0>してPATを作成（repo スコープが必要）",
+    "patPlaceholder": "ghp_xxxxxxxxxxxx",
+    "clickToOpenMenu": "クリックしてメニューを開く",
+    "authSuccess": "GitHub認証に成功しました！",
+    "authFailed": "GitHub認証に失敗しました",
+    "signOutConfirm": "GitHubからサインアウトしますか？"
+  },
+  "git": {
+    "changes": "変更",
+    "staged": "ステージング済み",
+    "unstaged": "未ステージング",
+    "commit": "コミット",
+    "push": "プッシュ",
+    "pull": "プル",
+    "branch": "ブランチ",
+    "merge": "マージ",
+    "stash": "スタッシュ",
+    "stage": "ステージング",
+    "unstage": "ステージング解除",
+    "discard": "破棄",
+    "commitMessage": "コミットメッセージ",
+    "generateCommitMessage": "AIで生成",
+    "viewDiff": "差分を表示",
+    "viewAllDiffs": "全ての差分を表示"
+  },
+  "editor": {
+    "welcome": "ようこそ",
+    "unsavedChanges": "未保存の変更",
+    "preview": "プレビュー",
+    "split": "分割",
+    "closeTab": "タブを閉じる",
+    "closeOthers": "他のタブを閉じる",
+    "closeAll": "すべて閉じる"
+  },
+  "terminal": {
+    "title": "ターミナル",
+    "clear": "ターミナルをクリア",
+    "initializing": "ターミナル初期化中"
+  },
+  "output": {
+    "title": "出力",
+    "noMessages": "出力メッセージはありません"
+  },
+  "ai": {
+    "title": "AI アシスタント",
+    "space": "スペース",
+    "chat": "チャット",
+    "review": "レビュー",
+    "mode": {
+      "chat": "チャット",
+      "code": "コード",
+      "plan": "プラン"
+    },
+    "context": {
+      "add": "コンテキストを追加",
+      "remove": "削除",
+      "select": "ファイルを選択"
+    },
+    "placeholder": "AIアシスタントに質問..."
+  },
+  "project": {
+    "create": "プロジェクトを作成",
+    "open": "プロジェクトを開く",
+    "delete": "プロジェクトを削除",
+    "name": "プロジェクト名",
+    "description": "説明"
+  },
+  "run": {
+    "title": "実行環境",
+    "execute": "実行",
+    "stop": "停止",
+    "clearOutput": "出力をクリア",
+    "searchFile": "実行するファイル名を検索...",
+    "noProject": "プロジェクトを開いてNode.jsコードを実行してください",
+    "inputPlaceholder": "Node.jsコードを入力してください...",
+    "executeHint": "Ctrl+Enter (Cmd+Enter) で実行",
+    "outputHint": "Javascript/Node.js/Pythonコードを実行すると、ここに結果が表示されます。Node.jsと、jsは、同じファイルで実行できます。",
+    "runtimeNotReady": "Pythonランタイムが初期化されていません",
+    "fileContentError": "ファイル内容が取得できません",
+    "noOutput": "No output",
+    "executionStopped": "Execution stopped",
+    "languageNode": "Node.js",
+    "languagePython": "Python"
+  }
+}

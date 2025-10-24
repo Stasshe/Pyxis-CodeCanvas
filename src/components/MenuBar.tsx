@@ -12,13 +12,14 @@ import { useTheme } from '../context/ThemeContext';
 import { useState } from 'react';
 import { authRepository } from '@/engine/user/authRepository';
 import { useGitHubUser } from '@/context/GitHubUserContext';
+import { useTranslation } from '@/context/I18nContext';
 import { MenuTab } from '../types';
 
 interface MenuBarProps {
   activeMenuTab: MenuTab;
   onMenuTabClick: (tab: MenuTab) => void;
   onProjectClick: () => void;
-  gitChangesCount?: number; // Git変更ファイル数
+  gitChangesCount?: number;
 }
 
 export default function MenuBar({
@@ -29,22 +30,21 @@ export default function MenuBar({
 }: MenuBarProps) {
   const { colors } = useTheme();
   const { user, fetchUser, clearUser } = useGitHubUser();
+  const { t } = useTranslation();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showPATInput, setShowPATInput] = useState(false);
   const [patInput, setPATInput] = useState('');
   const [isAuthenticating, setIsAuthenticating] = useState(false);
 
-  // GitHub Personal Access Token (PAT) でサインイン
   const handleSignIn = async () => {
     if (!patInput.trim()) {
-      alert('Personal Access Token を入力してください。');
+      alert(t('auth.patPrompt'));
       return;
     }
 
     setIsAuthenticating(true);
 
     try {
-      // PATを使用してユーザー情報を取得
       const userResponse = await fetch('https://api.github.com/user', {
         headers: {
           Authorization: `Bearer ${patInput}`,
@@ -53,7 +53,7 @@ export default function MenuBar({
       });
 
       if (!userResponse.ok) {
-        throw new Error('GitHub認証に失敗しました。トークンが無効です。');
+        throw new Error(t('auth.authFailed'));
       }
 
       const userData = await userResponse.json();
@@ -66,36 +66,41 @@ export default function MenuBar({
         id: userData.id,
       };
 
-      // IndexedDBに保存（暗号化される）
       await authRepository.saveAuth({
         accessToken: patInput,
         user: githubUser,
         createdAt: Date.now(),
       });
 
-      // GitHubUserContextを更新
       await fetchUser();
 
       setPATInput('');
       setShowPATInput(false);
       console.log('[MenuBar] GitHub authentication successful');
-      alert('GitHub認証に成功しました！');
+      alert(t('auth.authSuccess'));
     } catch (error) {
       console.error('[MenuBar] Authentication failed:', error);
-      alert(`GitHub認証に失敗しました: ${(error as Error).message}`);
+      alert(`${t('auth.authFailed')}: ${(error as Error).message}`);
     } finally {
       setIsAuthenticating(false);
     }
   };
 
-  // サインアウト
   const handleSignOut = async () => {
-    if (confirm('GitHubからサインアウトしますか？')) {
+    if (confirm(t('auth.signOutConfirm'))) {
       await authRepository.clearAuth();
       clearUser();
       setShowUserMenu(false);
     }
   };
+
+  const menuTabs: Array<{ id: MenuTab; label: string }> = [
+    { id: 'files', label: t('menu.files') },
+    { id: 'search', label: t('menu.search') },
+    { id: 'git', label: t('menu.git') },
+    { id: 'run', label: t('menu.run') },
+    { id: 'settings', label: t('menu.settings') },
+  ];
 
   return (
     <div
@@ -111,23 +116,22 @@ export default function MenuBar({
         userSelect: 'none',
       }}
     >
-      {/* 上部のメニューボタン */}
       <div style={{ display: 'flex', flexDirection: 'column' }}>
-        {['files', 'search', 'git', 'run', 'settings'].map(tab => {
+        {menuTabs.map(({ id, label }) => {
           const Icon =
-            tab === 'files'
+            id === 'files'
               ? FileText
-              : tab === 'search'
+              : id === 'search'
                 ? Search
-                : tab === 'git'
+                : id === 'git'
                   ? GitBranch
-                  : tab === 'run'
+                  : id === 'run'
                     ? Play
                     : Settings;
-          const isActive = activeMenuTab === tab;
+          const isActive = activeMenuTab === id;
           return (
             <button
-              key={tab}
+              key={id}
               style={{
                 height: '3rem',
                 width: '3rem',
@@ -136,25 +140,15 @@ export default function MenuBar({
                 justifyContent: 'center',
                 background: isActive ? colors.accentBg : 'transparent',
                 color: isActive ? colors.accentFg : colors.sidebarIconFg,
-                position: tab === 'git' ? 'relative' : undefined,
+                position: id === 'git' ? 'relative' : undefined,
                 border: 'none',
                 cursor: 'pointer',
               }}
-              onClick={() => onMenuTabClick(tab as MenuTab)}
-              title={
-                tab === 'files'
-                  ? 'ファイル'
-                  : tab === 'search'
-                    ? '検索'
-                    : tab === 'git'
-                      ? 'Git'
-                      : tab === 'run'
-                        ? '実行'
-                        : '設定'
-              }
+              onClick={() => onMenuTabClick(id)}
+              title={label}
             >
               <Icon size={20} />
-              {tab === 'git' && gitChangesCount > 0 && (
+              {id === 'git' && gitChangesCount > 0 && (
                 <span
                   style={{
                     position: 'absolute',
@@ -180,9 +174,7 @@ export default function MenuBar({
           );
         })}
       </div>
-      {/* 伸縮領域 */}
       <div style={{ flex: 1, minHeight: 0 }}></div>
-      {/* 下部ボタン群 */}
       <div
         style={{
           display: 'flex',
@@ -190,7 +182,6 @@ export default function MenuBar({
           borderTop: `1px solid ${colors.border}`,
         }}
       >
-        {/* GitHub認証ボタン */}
         <div style={{ position: 'relative' }}>
           {user ? (
             <>
@@ -207,7 +198,7 @@ export default function MenuBar({
                   padding: 0,
                 }}
                 onClick={() => setShowUserMenu(!showUserMenu)}
-                title={`${user.name || user.login} - クリックしてメニューを開く`}
+                title={`${user.name || user.login} - ${t('auth.clickToOpenMenu')}`}
               >
                 <img
                   src={user.avatar_url}
@@ -260,7 +251,7 @@ export default function MenuBar({
                     onClick={handleSignOut}
                   >
                     <LogOut size={16} />
-                    <span>サインアウト</span>
+                    <span>{t('auth.signOut')}</span>
                   </button>
                 </div>
               )}
@@ -280,7 +271,7 @@ export default function MenuBar({
                   cursor: 'pointer',
                 }}
                 onClick={() => setShowPATInput(!showPATInput)}
-                title="GitHubにサインイン（PAT）"
+                title={t('auth.signIn')}
               >
                 <LogIn size={20} />
               </button>
@@ -308,7 +299,7 @@ export default function MenuBar({
                         marginBottom: '0.25rem',
                       }}
                     >
-                      GitHub Personal Access Token
+                      {t('auth.patPrompt')}
                     </div>
                     <div
                       style={{ fontSize: '0.75rem', color: colors.mutedFg, marginBottom: '0.5rem' }}
@@ -319,16 +310,15 @@ export default function MenuBar({
                         rel="noopener noreferrer"
                         style={{ color: colors.primary, textDecoration: 'underline' }}
                       >
-                        ここをクリック
+                        {t('auth.patDescription', { fallback: 'Click here' })}
                       </a>
-                      してPATを作成（repo スコープが必要）
                     </div>
                   </div>
                   <input
                     type="password"
                     value={patInput}
                     onChange={e => setPATInput(e.target.value)}
-                    placeholder="ghp_xxxxxxxxxxxx"
+                    placeholder={t('auth.patPlaceholder')}
                     style={{
                       width: '100%',
                       padding: '0.5rem',
@@ -361,7 +351,7 @@ export default function MenuBar({
                       onClick={handleSignIn}
                       disabled={isAuthenticating}
                     >
-                      {isAuthenticating ? '認証中...' : 'サインイン'}
+                      {isAuthenticating ? t('action.authenticating') : t('auth.signIn')}
                     </button>
                     <button
                       style={{
@@ -378,7 +368,7 @@ export default function MenuBar({
                         setPATInput('');
                       }}
                     >
-                      キャンセル
+                      {t('action.cancel')}
                     </button>
                   </div>
                 </div>
@@ -386,7 +376,6 @@ export default function MenuBar({
             </>
           )}
         </div>
-        {/* プロジェクトボタン */}
         <button
           style={{
             height: '3rem',
@@ -400,7 +389,7 @@ export default function MenuBar({
             cursor: 'pointer',
           }}
           onClick={onProjectClick}
-          title="プロジェクト管理"
+          title={t('menu.project')}
         >
           <FolderOpen size={20} />
         </button>

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Play, Square, FileText, Code, Settings, Trash2 } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
+import { useTranslation } from '@/context/I18nContext';
 import clsx from 'clsx';
 import { executeNodeFile } from '@/engine/runtime/nodeRuntime';
 import { initPyodide, runPythonWithSync, setCurrentProject } from '@/engine/runtime/pyodideRuntime';
@@ -22,6 +23,7 @@ interface OutputEntry {
 export default function RunPanel({ currentProject, files }: RunPanelProps) {
   const { breakpointsMap } = useBreakpointContext();
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const [isRunning, setIsRunning] = useState(false);
   const [output, setOutput] = useState<OutputEntry[]>([]);
   const [inputCode, setInputCode] = useState('');
@@ -163,7 +165,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
 
       if (isPython) {
         if (!isPyodideReady) {
-          addOutput('Pythonランタイムが初期化されていません', 'error');
+          addOutput(t('run.runtimeNotReady'), 'error');
           return;
         }
         const pyodide = await initPyodide();
@@ -213,11 +215,11 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
       } else {
         // Python実行
         if (!isPyodideReady) {
-          addOutput('Pythonランタイムが初期化されていません', 'error');
+          addOutput(t('run.runtimeNotReady'), 'error');
           return;
         }
         if (!fileObj || !fileObj.content) {
-          addOutput('ファイル内容が取得できません', 'error');
+          addOutput(t('run.fileContentError'), 'error');
           return;
         }
         // runPythonWithSyncで自動同期
@@ -229,7 +231,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
         } else if (pythonResult.result) {
           addOutput(String(pythonResult.result), 'log');
         } else {
-          addOutput('No output', 'log');
+          addOutput(t('run.noOutput'), 'log');
         }
       }
     } catch (error) {
@@ -242,7 +244,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
   // 実行を停止
   const stopExecution = () => {
     setIsRunning(false);
-    addOutput('Execution stopped', 'log');
+    addOutput(t('run.executionStopped'), 'log');
   };
 
   // 出力をクリア
@@ -261,7 +263,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
             size={48}
             style={{ margin: '0 auto 1rem', color: colors.mutedFg }}
           />
-          <p>プロジェクトを開いてNode.jsコードを実行してください</p>
+          <p>{t('run.noProject')}</p>
         </div>
       </div>
     );
@@ -287,7 +289,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
               className="font-semibold"
               style={{ color: colors.foreground }}
             >
-              実行環境
+              {t('run.title')}
             </span>
           </div>
           <div className="flex gap-2">
@@ -295,7 +297,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
               onClick={clearOutput}
               className="p-1.5 hover:bg-accent rounded"
               style={{ color: colors.mutedFg }}
-              title="出力をクリア"
+              title={t('run.clearOutput')}
             >
               <Trash2 size={14} />
             </button>
@@ -315,7 +317,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
                 }}
                 onFocus={() => setFileSuggestOpen(true)}
                 onBlur={() => setTimeout(() => setFileSuggestOpen(false), 150)}
-                placeholder={'実行するファイル名を検索...'}
+                placeholder={t('run.searchFile')}
                 className="w-full px-2 py-1 border rounded text-sm"
                 style={{
                   background: colors.background,
@@ -351,7 +353,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
                         className="ml-2 text-xs"
                         style={{ color: colors.mutedFg }}
                       >
-                        ({file.lang === 'python' ? 'Python' : 'Node.js'})
+                        ({file.lang === 'python' ? t('run.languagePython') : t('run.languageNode')})
                       </span>
                     </li>
                   ))}
@@ -369,7 +371,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
               }}
             >
               <Play size={12} />
-              実行
+              {t('run.execute')}
             </button>
           </div>
         )}
@@ -384,7 +386,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
         >
           {output.length === 0 ? (
             <div style={{ color: colors.mutedFg }}>
-              Javascript/Node.js/Pythonコードを実行すると、ここに結果が表示されます。Node.jsと、jsは、同じファイルで実行できます。
+              {t('run.outputHint')}
             </div>
           ) : (
             output.map(entry => (
@@ -418,7 +420,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
             <textarea
               value={inputCode}
               onChange={e => setInputCode(e.target.value)}
-              placeholder="Node.jsコードを入力してください..."
+              placeholder={t('run.inputPlaceholder')}
               className="flex-1 px-3 py-2 border rounded font-mono text-sm resize-none"
               style={{
                 background: colors.background,
@@ -445,7 +447,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
                 }}
               >
                 <Play size={14} />
-                実行
+                {t('run.execute')}
               </button>
               {isRunning && (
                 <button
@@ -454,7 +456,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
                   style={{ background: colors.red, color: 'white' }}
                 >
                   <Square size={14} />
-                  停止
+                  {t('run.stop')}
                 </button>
               )}
             </div>
@@ -463,7 +465,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
             className="text-xs mt-2"
             style={{ color: colors.mutedFg }}
           >
-            Ctrl+Enter (Cmd+Enter) で実行
+            {t('run.executeHint')}
           </div>
         </div>
       </div>
