@@ -1,0 +1,30 @@
+{
+  "welcome": {
+    "clientSideNote": "此应用完全在客户端运行，不会将任何数据发送到服务器。",
+    "features": {
+      "clientIDE": "完全客户端 IDE（无需服务器，支持静态托管）",
+      "gitHistory": "Git 历史、分支管理和提交图",
+      "languages": "多语言高亮：C++、HTML、CSS、JavaScript、Python 等",
+      "mermaid": "使用 Mermaid 实时渲染流程图和时序图",
+      "monaco": "基于 Monaco Editor 的类 VS Code 编辑体验",
+      "nodeRuntime": "浏览器内可用的 Node.js 运行时、npm、Unix 命令和 Git",
+      "responsive": "为 iPad 优化的响应式界面",
+      "title": "Pyxis 的主要特性"
+    },
+    "hmrHint": "长按生成的主页文件夹，尝试 HMR 与 WebPreview。",
+    "indexeddbInfo": "本项目的文件存储在 IndexedDB 中。",
+    "mainFeatures": {
+      "download": "下载 Git / 项目文件",
+      "importExport": "导入、下载文件并导出为 ZIP",
+      "latex": "LaTeX 数学渲染以及 Mermaid/HTML 支持",
+      "theme": "主题色切换与多显示器支持",
+      "title": "主要功能"
+    },
+    "specialThanks": {
+      "contributors": "感谢 isomorphic-git、Monaco Editor、xterm.js、Mermaid、KaTeX、Pyodide 及所有开源贡献者。",
+      "thanksVisit": "感谢你的访问！",
+      "title": "特别鸣谢"
+    },
+    "title": "欢迎！"
+  }
+}
