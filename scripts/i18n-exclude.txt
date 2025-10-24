@@ -1,0 +1,5 @@
+# i18n exclude patterns (one per line). These are matched as fixed substrings against file paths.
+# Adjust as needed. Paths are relative to repo root (or absolute if you prefer).
+
+
+src/engine/initialFIleContents.ts

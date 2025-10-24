@@ -52,3 +52,5 @@ public/swc.wasm
 
 
 tests/__artifacts__/*
+
+scripts/*results.txt
