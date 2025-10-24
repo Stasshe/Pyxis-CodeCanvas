@@ -43,7 +43,6 @@ export type Locale = typeof SUPPORTED_LOCALES[number];
 アラビア語	ar	中東・北アフリカ
 ヒンディー語	hi	インド
 タイ語	th	タイ
-ベトナム語	vi	ベトナム
 ポーランド語	pl	東欧
 */
 

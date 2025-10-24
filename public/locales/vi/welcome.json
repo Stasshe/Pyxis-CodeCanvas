@@ -1,0 +1,30 @@
+{
+  "welcome": {
+    "clientSideNote": "Ứng dụng này chạy hoàn toàn phía client và không gửi dữ liệu đến máy chủ.",
+    "features": {
+      "clientIDE": "IDE hoàn toàn phía client (không cần server, có thể host tĩnh)",
+      "gitHistory": "Lịch sử Git, quản lý nhánh và đồ thị commit",
+      "languages": "Tô sáng nhiều ngôn ngữ: Cpp, HTML, CSS, JavaScript, Python, v.v.",
+      "mermaid": "Hiển thị theo thời gian thực sơ đồ flow và sequence bằng Mermaid",
+      "monaco": "Trải nghiệm chỉnh sửa giống VS Code với Monaco Editor",
+      "nodeRuntime": "Runtime Node.js, npm, lệnh Unix và Git có trong trình duyệt",
+      "responsive": "Giao diện đáp ứng, tối ưu cho iPad",
+      "title": "Tính năng chính của Pyxis"
+    },
+    "hmrHint": "Thử HMR và WebPreview bằng cách nhấn giữ thư mục homepage được tạo.",
+    "indexeddbInfo": "Các tệp của dự án này được lưu trong IndexedDB.",
+    "mainFeatures": {
+      "download": "Tải xuống Git / tệp dự án",
+      "importExport": "Nhập, xuất tệp và tải ZIP",
+      "latex": "Kết xuất công thức LaTeX và hỗ trợ Mermaid/HTML",
+      "theme": "Chuyển đổi chủ đề màu và hỗ trợ đa màn hình",
+      "title": "Tính năng chính"
+    },
+    "specialThanks": {
+      "contributors": "isomorphic-git, Monaco Editor, xterm.js, Mermaid, KaTeX, Pyodide và tất cả các đóng góp OSS.",
+      "thanksVisit": "Cảm ơn bạn đã ghé thăm!",
+      "title": "Lời cảm ơn đặc biệt"
+    },
+    "title": "Chào mừng!"
+  }
+}
