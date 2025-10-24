@@ -39,7 +39,7 @@ export default function FileContextBar({
         style={{ color: colors.mutedFg }}
       >
         <FileCode size={14} />
-        <span>コンテキスト:</span>
+        <span>{require('@/context/I18nContext').useTranslation().t('ai.fileContextBar.context')}</span>
       </div>
 
       {selectedContexts.length === 0 ? (
@@ -47,7 +47,7 @@ export default function FileContextBar({
           className="text-xs"
           style={{ color: colors.mutedFg }}
         >
-          ファイルが選択されていません
+          {require('@/context/I18nContext').useTranslation().t('ai.fileContextBar.noFileSelected')}
         </span>
       ) : (
         selectedContexts.map(ctx => (
@@ -78,7 +78,7 @@ export default function FileContextBar({
             border: `1px solid ${colors.border}`,
           }}
         >
-          + ファイルを追加
+          {require('@/context/I18nContext').useTranslation().t('ai.fileContextBar.addFile')}
         </button>
       )}
     </div>

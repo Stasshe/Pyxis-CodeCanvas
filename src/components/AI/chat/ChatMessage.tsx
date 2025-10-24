@@ -6,6 +6,7 @@ import React, { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useTheme } from '@/context/ThemeContext';
+import { useTranslation } from '@/context/I18nContext';
 import { FileCode, Clock, Copy, Check } from 'lucide-react';
 import type { ChatSpaceMessage } from '@/types';
 
@@ -25,6 +26,7 @@ function CodeBlock({
   isDark: boolean;
 }) {
   const [copied, setCopied] = useState(false);
+  const { t } = useTranslation();
 
   // Very small, synchronous highlighter: keywords, strings, comments
   const highlight = (code: string, lang: string) => {
@@ -92,7 +94,7 @@ function CodeBlock({
           background: 'rgba(0, 0, 0, 0.7)',
           color: '#fff',
         }}
-        title="コードをコピー"
+        title={t('ai.chatMessage.copyCode')}
       >
         {copied ? <Check size={16} /> : <Copy size={16} />}
       </button>
@@ -106,6 +108,7 @@ function CodeBlock({
 
 export default function ChatMessage({ message, compact = false }: ChatMessageProps) {
   const { colors, highlightTheme } = useTheme();
+  const { t } = useTranslation();
   const isUser = message.type === 'user';
   const isDark = highlightTheme.includes('dark');
 
@@ -244,7 +247,7 @@ export default function ChatMessage({ message, compact = false }: ChatMessagePro
           >
             <div className="flex items-center gap-2 text-xs opacity-70 flex-wrap">
               <FileCode size={14} />
-              <span>参照:</span>
+              <span>{t('ai.chatMessage.reference')}</span>
               {message.fileContext.map((filePath, index) => (
                 <span
                   key={index}

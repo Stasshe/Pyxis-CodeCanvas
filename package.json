@@ -6,7 +6,7 @@
     "dev": "node initial_files_to_ts.js && next dev --turbopack",
     "build": "node initial_files_to_ts.js && next build",
     "start": "node initial_files_to_ts.js && next start",
-    "format": "prettier --write src/**/*.ts src/**/*.tsx",
+    "format": "bash scripts/format_locales.sh && prettier --write src/**/*.ts src/**/*.tsx",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
     "prepare": "husky install",

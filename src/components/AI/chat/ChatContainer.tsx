@@ -4,6 +4,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { useTheme } from '@/context/ThemeContext';
+import { useTranslation } from '@/context/I18nContext';
 import ChatMessage from './ChatMessage';
 import { Loader2, MessageSquare } from 'lucide-react';
 import type { ChatSpaceMessage } from '@/types';
@@ -22,6 +23,7 @@ export default function ChatContainer({
   emptyMessage = 'AIとチャットを開始してください',
 }: ChatContainerProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // 新しいメッセージが追加されたら自動スクロール
@@ -47,7 +49,7 @@ export default function ChatContainer({
             className="mb-4 opacity-30"
           />
           <div className="text-base font-medium mb-2">{emptyMessage}</div>
-          <div className="text-sm opacity-70">質問やコードの相談、編集指示をしてください</div>
+          <div className="text-sm opacity-70">{t('ai.chatContainer.suggest')}</div>
         </div>
       ) : (
         <>
@@ -73,7 +75,7 @@ export default function ChatContainer({
                 size={16}
                 className="animate-spin"
               />
-              <span className="text-sm">AIが応答を生成中...</span>
+              <span className="text-sm">{t('ai.chatContainer.generating')}</span>
             </div>
           )}
         </>

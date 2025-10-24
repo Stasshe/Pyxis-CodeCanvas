@@ -31,7 +31,7 @@ export default function ChangedFilesList({
         className={`text-center ${compact ? 'text-xs' : 'text-sm'} py-8`}
         style={{ color: colors.mutedFg }}
       >
-        変更されたファイルはありません
+        {t('ai.changedFilesList.noChangedFiles')}
       </div>
     );
   }

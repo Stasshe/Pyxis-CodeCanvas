@@ -1,6 +1,7 @@
 import React from 'react';
 import { Check, X } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import { useTranslation } from '../context/I18nContext';
 
 export type ConfirmationProps = {
   open: boolean;
@@ -13,7 +14,7 @@ export type ConfirmationProps = {
 };
 export const Confirmation: React.FC<ConfirmationProps> = ({
   open,
-  title = '確認',
+  title = undefined,
   message = '本当に実行しますか？',
   confirmText = 'OK',
   cancelText = 'キャンセル',
@@ -21,6 +22,7 @@ export const Confirmation: React.FC<ConfirmationProps> = ({
   onCancel,
 }) => {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   if (!open) return null;
   return (
     <div
@@ -37,14 +39,12 @@ export const Confirmation: React.FC<ConfirmationProps> = ({
         }}
         className="rounded-lg shadow-xl p-6 min-w-[320px] max-w-[90vw]"
       >
-        {title && (
-          <h2
-            className="text-lg font-bold mb-2"
-            style={{ color: colors.foreground }}
-          >
-            {title}
-          </h2>
-        )}
+        <h2
+          className="text-lg font-bold mb-2"
+          style={{ color: colors.foreground }}
+        >
+          {title ?? t('confirmation.title')}
+        </h2>
         <div
           className="mb-4"
           style={{ color: colors.mutedFg }}

@@ -6,8 +6,29 @@
     "retry": "Retry"
   },
   "ai": {
+    "changedFilesList": {
+      "noChangedFiles": "No changed files"
+    },
+    "chatContainer": {
+      "generating": "AI is generating a response...",
+      "suggest": "Please ask questions or code requests."
+    },
+    "chatMessage": {
+      "copyCode": "Copy code",
+      "reference": "Reference:"
+    },
     "context": {
       "select": "Select files"
+    },
+    "fileChangeItem": {
+      "apply": "Apply",
+      "confirm": "Confirm",
+      "discard": "Discard"
+    },
+    "fileContextBar": {
+      "addFile": "+ Add file",
+      "context": "Context:",
+      "noFileSelected": "No file selected"
     },
     "hints": {
       "enterSend": "Enter: newline / Ctrl+Enter: send",
@@ -73,6 +94,9 @@
     "empty": "No spaces yet",
     "rename": "Rename"
   },
+  "confirmation": {
+    "title": "Confirmation"
+  },
   "diff": {
     "diff": "Diff",
     "lines": "lines",
@@ -131,6 +155,13 @@
     "untracked": "Untracked",
     "viewDiffEditable": "View diff (editable)",
     "viewDiffReadonly": "View diff (read-only)"
+  },
+  "highlightedCode": {
+    "copyCode": "Copy code"
+  },
+  "leftSidebar": {
+    "createFile": "Create new file",
+    "createFolder": "Create new folder"
   },
   "menu": {
     "files": "Files",

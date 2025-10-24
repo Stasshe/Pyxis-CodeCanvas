@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useTheme } from '@/context/ThemeContext';
+import { useTranslation } from '@/context/I18nContext';
 import * as shiki from 'shiki';
 import { Copy, Check } from 'lucide-react';
 
@@ -13,6 +14,7 @@ export function HighlightedCode({
   plain?: boolean;
 }) {
   const { highlightTheme } = useTheme();
+  const { t } = useTranslation();
   const [html, setHtml] = useState<string>('');
   const [copied, setCopied] = useState(false);
 
@@ -71,10 +73,9 @@ export function HighlightedCode({
 
   return (
     <div style={{ position: 'relative', margin: 0, minHeight: '100px' }}>
-      {' '}
       {/* 高さを固定 */}
       <button
-        aria-label="コードをコピー"
+        aria-label={t('highlightedCode.copyCode')}
         onClick={handleCopy}
         style={{
           position: 'absolute',

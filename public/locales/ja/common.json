@@ -6,8 +6,29 @@
     "retry": "再試行"
   },
   "ai": {
+    "changedFilesList": {
+      "noChangedFiles": "変更されたファイルはありません"
+    },
+    "chatContainer": {
+      "generating": "AIが応答を生成中...",
+      "suggest": "質問やコードの相談、編集指示をしてください"
+    },
+    "chatMessage": {
+      "copyCode": "コードをコピー",
+      "reference": "参照:"
+    },
     "context": {
       "select": "ファイルを選択"
+    },
+    "fileChangeItem": {
+      "apply": "適用",
+      "confirm": "確認",
+      "discard": "破棄"
+    },
+    "fileContextBar": {
+      "addFile": "+ ファイルを追加",
+      "context": "コンテキスト:",
+      "noFileSelected": "ファイルが選択されていません"
     },
     "hints": {
       "enterSend": "Enter: 改行 / Ctrl+Enter: 送信",
@@ -73,6 +94,9 @@
     "empty": "まだスペースがありません",
     "rename": "名前を変更"
   },
+  "confirmation": {
+    "title": "確認"
+  },
   "diff": {
     "diff": "差分",
     "lines": "行",
@@ -131,6 +155,13 @@
     "untracked": "未追跡",
     "viewDiffEditable": "差分を表示（編集可能）",
     "viewDiffReadonly": "差分を表示（編集不可）"
+  },
+  "highlightedCode": {
+    "copyCode": "コードをコピー"
+  },
+  "leftSidebar": {
+    "createFile": "新規ファイル作成",
+    "createFolder": "新規フォルダ作成"
   },
   "menu": {
     "files": "ファイル",

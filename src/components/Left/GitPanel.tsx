@@ -697,7 +697,6 @@ export default function GitPanel({
       {/* コミット */}
       {gitRepo.status.staged.length > 0 && (
         <div style={{ padding: '0.3rem', borderBottom: `1px solid ${colors.border}` }}>
-          {/* <h4 style={{ fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: colors.foreground }}>コミット</h4> */}
           {/* APIキー入力欄（未保存時のみ表示） */}
           {!hasApiKey && (
             <input

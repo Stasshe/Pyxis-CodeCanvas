@@ -4,6 +4,7 @@
 
 import React from 'react';
 import { useTheme } from '@/context/ThemeContext';
+import { useTranslation } from '@/context/I18nContext';
 import { FileCode, Eye, Check, X } from 'lucide-react';
 import { calculateDiff } from '@/engine/ai/diffProcessor';
 import type { AIEditResponse } from '@/types';
@@ -24,6 +25,7 @@ export default function FileChangeItem({
   compact = false,
 }: FileChangeItemProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
 
   // use diff processor to compute a pure diff summary (added/removed/unchanged)
   const diffLines = calculateDiff(file.originalContent, file.suggestedContent);
@@ -100,7 +102,7 @@ export default function FileChangeItem({
               }}
             >
               <Eye size={14} />
-              <span>確認</span>
+              <span>{t('ai.fileChangeItem.confirm')}</span>
             </button>
           )}
 
@@ -114,7 +116,7 @@ export default function FileChangeItem({
               }}
             >
               <Check size={14} />
-              <span>適用</span>
+              <span>{t('ai.fileChangeItem.apply')}</span>
             </button>
           )}
 
@@ -129,7 +131,7 @@ export default function FileChangeItem({
               }}
             >
               <X size={14} />
-              <span>破棄</span>
+              <span>{t('ai.fileChangeItem.discard')}</span>
             </button>
           )}
         </div>

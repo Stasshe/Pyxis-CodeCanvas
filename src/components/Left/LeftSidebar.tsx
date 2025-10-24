@@ -1,5 +1,6 @@
 import { FolderOpen, FilePlus, FolderPlus } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
+import { useTranslation } from '@/context/I18nContext';
 import { MenuTab, FileItem } from '@/types';
 import type { Project } from '@/types';
 import FileTree from './FileTree';
@@ -43,6 +44,7 @@ export default function LeftSidebar({
   onDiffAllFilesClick,
 }: LeftSidebarProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
 
   return (
     <>
@@ -88,7 +90,7 @@ export default function LeftSidebar({
                 </span>
                 {/* [NEW ARCHITECTURE] 新規ファイル作成 - fileRepository直接呼び出し */}
                 <button
-                  title="新規ファイル作成"
+                  title={t('leftSidebar.createFile')}
                   style={{
                     background: 'none',
                     border: 'none',
@@ -113,7 +115,7 @@ export default function LeftSidebar({
                 </button>
                 {/* [NEW ARCHITECTURE] 新規フォルダ作成 - fileRepository直接呼び出し */}
                 <button
-                  title="新規フォルダ作成"
+                  title={t('leftSidebar.createFolder')}
                   style={{
                     background: 'none',
                     border: 'none',
