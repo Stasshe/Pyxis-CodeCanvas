@@ -8,27 +8,35 @@ import type enCommon from '../../../public/locales/en/common.json';
 /**
  * サポートする言語コード
  */
-export type Locale =
-  | 'en'
-  | 'ja'
-  | 'es'
-  | 'fr'
-  | 'de'
-  | 'zh'
-  | 'zh-TW'
-  | 'ko'
-  | 'it'
-  | 'pt'
-  | 'ru'
-  | 'nl'
-  | 'tr'
-  | 'ar'
-  | 'hi'
-  | 'th'
-  | 'vi'
-  | 'id'
-  | 'sv'
-  | 'pl';
+/**
+ * Supported locales (single source of truth).
+ * Use the readonly tuple below as the runtime list, and derive
+ * the `Locale` type from it so we don't duplicate the allowed values.
+ */
+export const SUPPORTED_LOCALES = [
+  'en',
+  'ja',
+  'es',
+  'fr',
+  'de',
+  'zh',
+  'zh-TW',
+  'ko',
+  'it',
+  'pt',
+  'ru',
+  'nl',
+  'tr',
+  'ar',
+  'hi',
+  'th',
+  'vi',
+  'id',
+  'sv',
+  'pl',
+] as const;
+
+export type Locale = typeof SUPPORTED_LOCALES[number];
 
 /*
 トルコ語	tr	トルコ・中央アジア
@@ -36,7 +44,6 @@ export type Locale =
 ヒンディー語	hi	インド
 タイ語	th	タイ
 ベトナム語	vi	ベトナム
-インドネシア語	id	インドネシア
 ポーランド語	pl	東欧
 */
 
@@ -47,6 +54,18 @@ export type Locale =
 export type TranslationResources = {
   common: typeof enCommon;
 };
+
+
+
+/**
+ * Runtime type guard to check whether a string is a supported Locale.
+ */
+export function isSupportedLocale(x: unknown): x is Locale {
+  return (
+    typeof x === 'string' &&
+    (SUPPORTED_LOCALES as readonly string[]).includes(x)
+  );
+}
 
 /**
  * ネストされたオブジェクトからキーパスを生成する型ユーティリティ

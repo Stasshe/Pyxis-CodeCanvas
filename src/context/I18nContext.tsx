@@ -12,14 +12,15 @@ import type {
   TranslationKey,
   TranslateOptions,
 } from '@/engine/i18n/types';
+import { isSupportedLocale } from '@/engine/i18n/types';
 import { loadTranslations, preloadTranslations } from '@/engine/i18n/loader';
 import { createTranslator } from '@/engine/i18n/translator';
 import { cleanExpiredCache } from '@/engine/i18n/storage';
+import { DEFAULT_LOCALE, LOCALSTORAGE_KEY } from './config';
 
 const I18nContext = createContext<I18nContextValue | undefined>(undefined);
 
-const LOCALE_STORAGE_KEY = 'pyxis-locale';
-const DEFAULT_LOCALE: Locale = 'en';
+const LOCALE_STORAGE_KEY = LOCALSTORAGE_KEY.LOCALE;
 
 /**
  * ブラウザの言語設定から推奨ロケールを取得
@@ -29,8 +30,8 @@ function detectBrowserLocale(): Locale {
 
   const browserLang = navigator.language.split('-')[0].toLowerCase();
 
-  // サポートされている言語かチェック
-  if (browserLang === 'ja' || browserLang === 'en') {
+  // サポートされている言語かチェック（ランタイム）
+  if (isSupportedLocale(browserLang)) {
     return browserLang as Locale;
   }
 
@@ -45,7 +46,7 @@ function getSavedLocale(): Locale | null {
 
   try {
     const saved = localStorage.getItem(LOCALE_STORAGE_KEY);
-    if (saved === 'en' || saved === 'ja') {
+    if (saved && isSupportedLocale(saved)) {
       return saved as Locale;
     }
   } catch (error) {

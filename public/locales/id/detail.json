@@ -1,0 +1,17 @@
+{
+  "charCountDetails": {
+    "lines": "Baris",
+    "words": "Kata",
+    "chars": "Karakter",
+    "charsNoSpaces": "Karakter (tanpa spasi)",
+    "zenkaku": "Karakter lebar penuh",
+    "hankaku": "Karakter lebar setengah",
+    "digits": "Digit",
+    "alpha": "Huruf",
+    "symbols": "Simbol",
+    "spaces": "Spasi",
+    "newlines": "Baris baru",
+    "maxLineLen": "Panjang baris maks",
+    "avgLineLen": "Rata-rata panjang baris"
+  }
+}
