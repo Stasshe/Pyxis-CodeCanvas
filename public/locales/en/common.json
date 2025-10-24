@@ -2,7 +2,8 @@
   "action": {
     "cancel": "Cancel",
     "refresh": "Refresh",
-    "authenticating": "Authenticating..."
+    "authenticating": "Authenticating...",
+    "retry": "Retry"
   },
   "menu": {
     "files": "Files",
@@ -68,10 +69,38 @@
     "cancel": "Cancel",
     "save": "Save",
     "clone": "Clone from GitHub",
+    "cloneFromGitHub": "Clone from GitHub",
+    "create": "Create",
+    "created": "Created",
+    "descriptionOptional": "Description (optional)",
+    "descriptionPlaceholder": "Enter project description...",
+    "inputRepoUrl": "Repository URL",
+    "loading": "Loading...",
+    "nameHint": "Use alphanumeric characters and hyphens",
+    "newProject": "New Project",
+    "open": "Open",
+    "projectName": "Project name",
+    "projectNameOptional": "Project name (optional)",
+    "projectNameOptionalPlaceholder": "Optional project name...",
+    "projectNamePlaceholder": "Enter project name...",
+    "repoUrl": "Repository URL",
+    "repoUrlPlaceholder": "https://github.com/owner/repo",
+    "updated": "Updated",
     "nameValidation": "Project name can only contain alphanumeric characters and hyphens. No Japanese. Spaces will be replaced with hyphens.",
     "deleteConfirm": "Are you sure you want to delete this project?",
     "cloneSuccess": "Clone succeeded",
     "noProjects": "No projects found"
+  },
+  "tabBar": {
+    "closeTab": "Close tab",
+    "moveToPane": "Move to pane",
+    "paneMenu": "Pane menu",
+    "removeAllTabs": "Remove all tabs",
+    "removePane": "Remove pane",
+    "saveRestart": "Save and restart",
+    "splitHorizontal": "Split horizontally",
+    "splitVertical": "Split vertically",
+    "tabActions": "Tab actions"
   },
   "bottom": {
     "output": "Output",

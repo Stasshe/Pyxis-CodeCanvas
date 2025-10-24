@@ -2,7 +2,8 @@
   "action": {
     "cancel": "キャンセル",
     "refresh": "更新",
-    "authenticating": "認証中..."
+    "authenticating": "認証中...",
+    "retry": "再試行"
   },
   "menu": {
     "files": "ファイル",
@@ -68,10 +69,38 @@
     "cancel": "キャンセル",
     "save": "保存",
     "clone": "GitHubからクローン",
+    "cloneFromGitHub": "GitHubからクローン",
+    "create": "作成",
+    "created": "作成済み",
+    "descriptionOptional": "説明（任意）",
+    "descriptionPlaceholder": "プロジェクトの説明を入力してください...",
+    "inputRepoUrl": "リポジトリURLを入力",
+    "loading": "読み込み中...",
+    "nameHint": "英数字とハイフンのみ使用できます",
+    "newProject": "新しいプロジェクト",
+    "open": "開く",
+    "projectName": "プロジェクト名",
+    "projectNameOptional": "プロジェクト名（任意）",
+    "projectNameOptionalPlaceholder": "任意のプロジェクト名...",
+    "projectNamePlaceholder": "プロジェクト名を入力してください...",
+    "repoUrl": "リポジトリURL",
+    "repoUrlPlaceholder": "https://github.com/owner/repo",
+    "updated": "更新されました",
     "nameValidation": "プロジェクト名は英数字・ハイフンのみ使用できます。日本語不可・空白は-に変換されます。",
     "deleteConfirm": "本当にこのプロジェクトを削除しますか？",
     "cloneSuccess": "クローンに成功しました",
     "noProjects": "プロジェクトがありません"
+  },
+  "tabBar": {
+    "closeTab": "タブを閉じる",
+    "moveToPane": "ペインに移動",
+    "paneMenu": "ペインメニュー",
+    "removeAllTabs": "全てのタブを閉じる",
+    "removePane": "ペインを削除",
+    "saveRestart": "保存して再起動",
+    "splitHorizontal": "横に分割",
+    "splitVertical": "縦に分割",
+    "tabActions": "タブ操作"
   },
   "bottom": {
     "output": "出力",
