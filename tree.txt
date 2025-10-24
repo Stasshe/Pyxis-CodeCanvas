@@ -30,6 +30,7 @@
 │   └── pyxis-all.svg.svg
 ├── eslint.config.mjs
 ├── helper-code.txt
+├── i18n.sh
 ├── initial_files
 │   ├── README.md
 │   ├── docs
@@ -93,6 +94,18 @@
 │   ├── IMG_1471.png
 │   └── IMG_1473.png
 ├── sampleNode.js
+├── scripts
+│   ├── flatten_json_keys.pl
+│   ├── format_json.js
+│   ├── format_locales.sh
+│   ├── i18n-detect-results.txt
+│   ├── i18n-detect.sh
+│   ├── i18n-exclude.txt
+│   ├── i18n-missing-keys-results.txt
+│   ├── i18n-missing-keys.sh
+│   ├── one_file_i18n_extract.pl
+│   ├── one_file_t_extract.pl
+│   └── remove_unused_i18n_keys.js
 ├── src
 │   ├── app
 │   │   ├── Toast.css
@@ -126,6 +139,7 @@
 │   │   │   ├── Terminal.tsx
 │   │   │   ├── TerminalGitCommands.tsx
 │   │   │   ├── TerminalNPMCommands.tsx
+│   │   │   ├── TerminalPyxisCommands.tsx
 │   │   │   └── TerminalUnixCommands.tsx
 │   │   ├── BottomStatusBar.tsx
 │   │   ├── Confirmation.tsx
@@ -174,8 +188,7 @@
 │   │   │   │       └── CharCountDetails.tsx
 │   │   │   └── useTabCloseConfirmation.tsx
 │   │   ├── Toast.tsx
-│   │   ├── TopBar.tsx
-│   │   └── examples
+│   │   └── TopBar.tsx
 │   ├── context
 │   │   ├── BreakpointContext.tsx
 │   │   ├── GitHubUserContext.tsx
@@ -323,11 +336,15 @@
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-54 directories, 270 files
+54 directories, 283 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 39148
-合計文字数: 1284679
-合計ファイルサイズ(bytes): 1377136
+合計行数: 39220
+合計文字数: 1288343
+合計ファイルサイズ(bytes): 1378381
 
-リポジトリ全体のサイズ(bytes): 2.2G	.
+開発時のdev container全体のサイズ(bytes): 2.3G	.
+==========
+ビルト済みファイルの行数: 16822
+合計文字数: 27355159
+合計ファイルサイズ(bytes): 28315354

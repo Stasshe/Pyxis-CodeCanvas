@@ -6,13 +6,12 @@ import { UnixCommands } from '@/engine/cmd/unix';
 import { GitCommands } from '@/engine/cmd/git';
 import { NpmCommands } from '@/engine/cmd/npm';
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
-import { syncManager } from '@/engine/core/syncManager';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
 import { handleGitCommand } from './TerminalGitCommands';
 import { handleUnixCommand } from './TerminalUnixCommands';
 import { handleNPMCommand } from './TerminalNPMCommands';
-import { exportPage } from '@/engine/export/exportPage';
+import { handlePyxisCommand } from './TerminalPyxisCommands';
 import { LOCALSTORAGE_KEY } from '@/context/config';
 
 interface TerminalProps {
@@ -404,354 +403,31 @@ function ClientTerminal({
               await captureWriteOutput(`\x1b[31mnode: エラー: ${(e as Error).message}\x1b[0m`);
             }
             break;
-
-          case 'debug-db':
-            try {
-              await captureWriteOutput('=== IndexedDB & Lightning-FS Debug Information ===\n');
-
-              const dbs = await (window.indexedDB.databases ? window.indexedDB.databases() : []);
-
-              for (const dbInfo of dbs) {
-                const dbName = dbInfo.name;
-                if (!dbName) continue;
-
-                await captureWriteOutput(`\n--- Database: ${dbName} (v${dbInfo.version}) ---`);
-
-                try {
-                  const req = window.indexedDB.open(dbName);
-                  const db = await new Promise<IDBDatabase>((resolve, reject) => {
-                    req.onsuccess = () => resolve(req.result);
-                    req.onerror = () => reject(req.error);
-                  });
-
-                  const objectStoreNames = Array.from(db.objectStoreNames);
-                  await captureWriteOutput(`Object Stores: ${objectStoreNames.join(', ')}`);
-
-                  for (const storeName of objectStoreNames) {
-                    try {
-                      const tx = db.transaction(storeName, 'readonly');
-                      const store = tx.objectStore(storeName);
-                      const getAllReq = store.getAll();
-                      const items = await new Promise<any[]>((resolve, reject) => {
-                        getAllReq.onsuccess = () => resolve(getAllReq.result);
-                        getAllReq.onerror = () => reject(getAllReq.error);
-                      });
-
-                      await captureWriteOutput(`\n  Store: ${storeName} (${items.length} items)`);
-
-                      // lightning-fs系は省略表示、それ以外は全件詳細表示
-                      const isLightningFS = dbName.includes('lightning') || dbName.includes('fs');
-                      if (items.length === 0) {
-                        await captureWriteOutput('    (empty)');
-                      } else if (isLightningFS) {
-                        for (let i = 0; i < Math.min(items.length, 10); i++) {
-                          const item = items[i];
-                          let summary = '';
-                          if (typeof item === 'object' && item !== null) {
-                            const keys = Object.keys(item);
-                            if (keys.includes('id')) summary += `id: ${item.id}, `;
-                            if (keys.includes('name')) summary += `name: ${item.name}, `;
-                            if (keys.includes('path')) summary += `path: ${item.path}, `;
-                            if (keys.includes('type')) summary += `type: ${item.type}, `;
-                            if (keys.includes('projectId')) summary += `repo: ${item.projectId}, `;
-                            if (keys.includes('content')) {
-                              const contentSize =
-                                typeof item.content === 'string'
-                                  ? item.content.length
-                                  : JSON.stringify(item.content).length;
-                              summary += `content: ${contentSize} chars, `;
-                            }
-                            summary = summary.replace(/, $/, '');
-                            if (summary === '') {
-                              summary = `{${keys.slice(0, 3).join(', ')}${keys.length > 3 ? '...' : ''}}`;
-                            }
-                          } else {
-                            summary = String(item).slice(0, 100);
-                          }
-                          await captureWriteOutput(`    [${i}] ${summary}`);
-                        }
-                        if (items.length > 10) {
-                          await captureWriteOutput(`    ... and ${items.length - 10} more items`);
-                        }
-                      } else {
-                        // 独自実装DBは全件詳細表示
-                        for (let i = 0; i < items.length; i++) {
-                          const item = items[i];
-                          let detail = '';
-                          if (typeof item === 'object' && item !== null) {
-                            const keys = Object.keys(item);
-                            detail += '{ ';
-                            for (const key of keys) {
-                              let value = item[key];
-                              if (key === 'content' || key === 'bufferContent') {
-                                if (typeof value === 'string') {
-                                  value = value.slice(0, 10) + (value.length > 10 ? '...' : '');
-                                } else if (value && typeof value === 'object') {
-                                  value =
-                                    JSON.stringify(value).slice(0, 10) +
-                                    (JSON.stringify(value).length > 10 ? '...' : '');
-                                }
-                              }
-                              detail += `${key}: ${JSON.stringify(value)}, `;
-                            }
-                            detail = detail.replace(/, $/, '');
-                            detail += ' }';
-                          } else {
-                            detail = String(item).slice(0, 100);
-                          }
-                          await captureWriteOutput(`    [${i}] ${detail}`);
-                        }
-                      }
-                    } catch (storeError) {
-                      await captureWriteOutput(
-                        `    Error accessing store ${storeName}: ${storeError}`
-                      );
-                    }
-                  }
-
-                  db.close();
-                } catch (dbError) {
-                  await captureWriteOutput(`  Error opening database ${dbName}: ${dbError}`);
-                }
-              }
-
-              await captureWriteOutput('\n--- LocalStorage (Lightning-FS/pyxis-fs related) ---');
-              const otherLightningFSKeys = [];
-              for (let i = 0; i < window.localStorage.length; i++) {
-                const key = window.localStorage.key(i);
-                if (!key) continue;
-                if (key.startsWith('fs/') || key.includes('lightning')) {
-                  otherLightningFSKeys.push(key);
-                }
-              }
-
-              if (otherLightningFSKeys.length === 0) {
-                await captureWriteOutput('No Lightning-FS related localStorage entries found.');
-              } else {
-                await captureWriteOutput(
-                  `Lightning-FS related entries (${otherLightningFSKeys.length}):`
-                );
-                for (const key of otherLightningFSKeys.slice(0, 10)) {
-                  const value = window.localStorage.getItem(key);
-                  const size = value ? value.length : 0;
-                  await captureWriteOutput(`  ${key}: ${size} chars`);
-                }
-              }
-
-              await captureWriteOutput('\n--- File System Statistics ---');
-              try {
-                const fs = gitFileSystem.getFS();
-                if (fs) {
-                  try {
-                    const projectsExists = await fs.promises.stat('/projects').catch(() => null);
-                    if (projectsExists) {
-                      const projectDirs = await fs.promises.readdir('/projects');
-                      await captureWriteOutput(`Projects in filesystem: ${projectDirs.length}`);
-
-                      for (const dir of projectDirs.slice(0, 10)) {
-                        if (dir === '.' || dir === '..') continue;
-                        try {
-                          const projectPath = `/projects/${dir}`;
-                          const files = await fs.promises.readdir(projectPath);
-                          await captureWriteOutput(`  ${dir}: ${files.length} files/dirs`);
-                        } catch {
-                          await captureWriteOutput(`  ${dir}: (inaccessible)`);
-                        }
-                      }
-                    } else {
-                      await captureWriteOutput('No /projects directory found in filesystem');
-                    }
-                  } catch (fsError) {
-                    await captureWriteOutput(`Error reading filesystem: ${fsError}`);
-                  }
-                } else {
-                  await captureWriteOutput('Filesystem not initialized');
-                }
-              } catch (importError) {
-                await captureWriteOutput(`Error importing filesystem: ${importError}`);
-              }
-
-              await captureWriteOutput('\n=== Debug Information Complete ===');
-            } catch (e) {
-              await captureWriteOutput(`debug-db: エラー: ${(e as Error).message}`);
+          
+          // New namespaced form: pyxis <category> <action> [...]
+          case 'pyxis': {
+            if (args.length === 0) {
+              await captureWriteOutput('pyxis: missing subcommand. Usage: pyxis <category> <action> [args]');
+              break;
             }
-            break;
-
-          case 'memory-clean':
-            try {
-              const fs = gitFileSystem.getFS();
-              if (!fs) {
-                await captureWriteOutput('memory-clean: ファイルシステムが初期化できませんでした');
-                break;
-              }
-
-              await fileRepository.init();
-
-              const allProjects = await fileRepository.getProjects();
-              const allDbPaths = new Map<string, Set<string>>();
-
-              for (const project of allProjects) {
-                const projectFiles = await fileRepository.getProjectFiles(project.id);
-                allDbPaths.set(project.name, new Set(projectFiles.map(f => f.path)));
-              }
-
-              async function removeFileOrDirectory(fs: any, path: string): Promise<void> {
-                try {
-                  const stat = await fs.promises.stat(path);
-                  if (stat.isDirectory()) {
-                    const files = await fs.promises.readdir(path);
-                    for (const file of files) {
-                      await removeFileOrDirectory(fs, `${path}/${file}`);
-                    }
-                    await fs.promises.rmdir(path);
-                    console.log(`[memory-clean] Removed directory: ${path}`);
-                  } else {
-                    await fs.promises.unlink(path);
-                    console.log(`[memory-clean] Removed file: ${path}`);
-                  }
-                  if (fs && typeof (fs as any).sync === 'function') {
-                    await (fs as any).sync();
-                  }
-                } catch (err) {
-                  console.warn(`[memory-clean] Failed to remove: ${path}`, err);
-                  throw err;
-                }
-              }
-
-              async function cleanProjectDirectory(
-                fs: any,
-                projectName: string,
-                dirPath: string,
-                cleaned: string[]
-              ): Promise<void> {
-                const dbPaths = allDbPaths.get(projectName);
-                if (!dbPaths) {
-                  try {
-                    await removeFileOrDirectory(fs, dirPath);
-                    cleaned.push(`${projectName}/ (project not in DB)`);
-                  } catch {}
-                  return;
-                }
-
-                try {
-                  const files = await fs.promises.readdir(dirPath);
-                  for (const file of files) {
-                    const fullPath = `${dirPath}/${file}`;
-                    const relativePath = fullPath.replace(`/projects/${projectName}`, '') || '/';
-
-                    if (file === '.git') {
-                      continue;
-                    }
-
-                    if (!dbPaths.has(relativePath)) {
-                      await removeFileOrDirectory(fs, fullPath);
-                      cleaned.push(`${projectName}${relativePath}`);
-                    } else {
-                      try {
-                        const stat = await fs.promises.stat(fullPath);
-                        if (stat.isDirectory()) {
-                          await cleanProjectDirectory(fs, projectName, fullPath, cleaned);
-                        }
-                      } catch {}
-                    }
-                  }
-                } catch {}
-              }
-
-              const cleaned: string[] = [];
-
-              try {
-                await fs.promises.stat('/projects');
-                const projectDirs = await fs.promises.readdir('/projects');
-
-                for (const dir of projectDirs) {
-                  if (dir === '.' || dir === '..') continue;
-
-                  const projectPath = `/projects/${dir}`;
-                  try {
-                    const stat = await fs.promises.stat(projectPath);
-                    if (stat.isDirectory()) {
-                      await cleanProjectDirectory(fs, dir, projectPath, cleaned);
-                    }
-                  } catch {}
-                }
-              } catch (e) {}
-
-              if (cleaned.length > 0) {
-                await captureWriteOutput(
-                  `memory-clean: 以下のファイル・ディレクトリを削除しました:\n${cleaned.join('\n')}`
-                );
-              } else {
-                await captureWriteOutput('memory-clean: 削除対象のファイルは見つかりませんでした');
-              }
-            } catch (e) {
-              await captureWriteOutput(`memory-clean: エラー: ${(e as Error).message}`);
+            const category = args[0];
+            const action = args[1];
+            if (!action) {
+              await captureWriteOutput('pyxis: missing action. Usage: pyxis <category> <action> [args]');
+              break;
             }
+            const combined = `${category}-${action}`;
+            const subArgs = args.slice(2);
+            await handlePyxisCommand(
+              combined,
+              subArgs,
+              { unixCommandsRef, gitCommandsRef, npmCommandsRef },
+              currentProject,
+              currentProjectId,
+              captureWriteOutput
+            );
             break;
-
-          case 'fs-clean':
-            try {
-              const fs = gitFileSystem.getFS();
-              if (!fs) {
-                await captureWriteOutput('fs-clean: ファイルシステムが初期化できませんでした');
-                break;
-              }
-              async function removeAll(fs: any, dirPath: string): Promise<void> {
-                try {
-                  const stat = await fs.promises.stat(dirPath);
-                  if (stat.isDirectory()) {
-                    const files = await fs.promises.readdir(dirPath);
-                    for (const file of files) {
-                      await removeAll(fs, `${dirPath}/${file}`);
-                    }
-                    await fs.promises.rmdir(dirPath);
-                  } else {
-                    await fs.promises.unlink(dirPath);
-                  }
-                  if (fs && typeof (fs as any).sync === 'function') {
-                    await (fs as any).sync();
-                  }
-                } catch (err) {
-                  console.warn(`[fs-clean] Failed to remove: ${dirPath}`, err);
-                }
-              }
-              try {
-                await removeAll(fs, '/projects');
-                await captureWriteOutput('fs-clean: /projects配下を全て削除しました');
-              } catch (e) {
-                await captureWriteOutput(`fs-clean: /projects削除エラー: ${(e as Error).message}`);
-              }
-              await captureWriteOutput('fs-clean: 完了');
-            } catch (e) {
-              await captureWriteOutput(`fs-clean: エラー: ${(e as Error).message}`);
-            }
-            break;
-
-          case 'export':
-            if (args[0]?.toLowerCase() === '--page' && args[1]) {
-              const targetPath = args[1].startsWith('/')
-                ? args[1]
-                : `${unixCommandsRef.current?.pwd()}/${args[1]}`;
-              const normalizedPath = unixCommandsRef.current?.normalizePath(targetPath);
-              if (normalizedPath) {
-                await exportPage(normalizedPath, writeOutput, unixCommandsRef);
-              } else {
-                await writeOutput('無効なパスが指定されました。');
-              }
-            } else if (args[0]?.toLowerCase() === '--indexeddb') {
-              const win = window.open('about:blank', '_blank');
-              if (!win) {
-                await writeOutput('about:blankの新規タブを開けませんでした。');
-                break;
-              }
-              const mod = await import('@/engine/export/exportIndexeddb');
-              mod.exportIndexeddbHtmlWithWindow(writeOutput, win);
-            } else {
-              await writeOutput(
-                'export: サポートされているのは "export --page <path>" または "export --indexeddb" のみです'
-              );
-            }
-            break;
+          }
 
           case 'clear':
             term.clear();
@@ -763,25 +439,6 @@ function ClientTerminal({
 
           case 'npm':
             await handleNPMCommand(args, npmCommandsRef, captureWriteOutput);
-            break;
-
-          case 'npm-size':
-            if (args.length === 0) {
-              await captureWriteOutput('Usage: npm-size <package-name>');
-            } else {
-              const packageName = args[0];
-              try {
-                const { calculateDependencySize } = await import(
-                  '@/engine/cmd/npmOperations/npmDependencySize'
-                );
-                const size = await calculateDependencySize(packageName);
-                await captureWriteOutput(
-                  `Total size of ${packageName} and its dependencies: ${size.toFixed(2)} kB`
-                );
-              } catch (error) {
-                await captureWriteOutput(`Error calculating size: ${(error as Error).message}`);
-              }
-            }
             break;
 
           default:
