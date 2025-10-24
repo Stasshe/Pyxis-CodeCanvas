@@ -64,14 +64,15 @@ export default function TopBar({
         title={t('topBar.toggleTerminal')}
         style={{
           zIndex: 50,
-          background: isBottomPanelVisible ? colors.accentBg : colors.mutedBg,
-          color: isBottomPanelVisible ? colors.primary : colors.mutedFg,
+          background: colors.accentBg,
+          color: colors.primary,
           borderColor: colors.border,
         }}
       >
         <Terminal
-          size={8}
-          color={isBottomPanelVisible ? colors.primary : colors.mutedFg}
+          size={14}
+          color={colors.primary}
+          strokeWidth={2.2}
         />
       </button>
       <button
@@ -80,14 +81,15 @@ export default function TopBar({
         title={t('topBar.toggleRightPanel')}
         style={{
           zIndex: 50,
-          background: isRightSidebarVisible ? colors.accentBg : colors.mutedBg,
-          color: isRightSidebarVisible ? colors.primary : colors.mutedFg,
+          background: colors.accentBg,
+          color: colors.primary,
           borderColor: colors.border,
         }}
       >
         <PanelRightIcon
-          size={16}
-          color={isRightSidebarVisible ? colors.primary : colors.mutedFg}
+          size={18}
+          color={colors.primary}
+          strokeWidth={2.2}
         />
       </button>
     </div>
