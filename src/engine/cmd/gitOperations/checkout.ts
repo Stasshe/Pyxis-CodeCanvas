@@ -55,8 +55,12 @@ export class GitCheckoutOperations {
         return `Already on '${branchName}'`;
       }
 
-      let targetCommitHash: string;
+      let targetCommitHash: string | undefined;
       let isNewBranch = createNew;
+      // resolvedFromRemote: whether the ref was resolved from refs/remotes/...
+      let resolvedFromRemote = false;
+      // resolvedFromLocal: whether the ref was resolved from refs/heads/...
+      let resolvedFromLocal = false;
 
       if (createNew) {
         try {
@@ -67,29 +71,64 @@ export class GitCheckoutOperations {
         await git.branch({ fs: this.fs, dir: this.dir, ref: branchName });
       } else {
         try {
-          try {
-            targetCommitHash = await git.resolveRef({
-              fs: this.fs,
-              dir: this.dir,
-              ref: `refs/heads/${branchName}`,
-            });
-          } catch {
+          // Try resolving remote refs first (e.g. "origin/main").
+          // Some branch names also contain slashes (e.g. "feature/x"),
+          // so prefer remotes when the ref matches refs/remotes/...
+          if (branchName.includes('/')) {
             try {
-              const expandedOid = await git.expandOid({
+              targetCommitHash = await git.resolveRef({
                 fs: this.fs,
                 dir: this.dir,
-                oid: branchName,
+                ref: `refs/remotes/${branchName}`,
               });
-              targetCommitHash = expandedOid;
-              isNewBranch = false;
+              resolvedFromRemote = true;
             } catch {
+              // ignore and try other resolutions
+            }
+          }
+
+          // If not resolved from remote, try local heads
+          if (!targetCommitHash) {
+            try {
+              targetCommitHash = await git.resolveRef({
+                fs: this.fs,
+                dir: this.dir,
+                ref: `refs/heads/${branchName}`,
+              });
+              resolvedFromLocal = true;
+            } catch {
+              // try resolving as a full ref or oid-ish
               try {
-                const branches = await git.listBranches({ fs: this.fs, dir: this.dir });
-                throw new Error(
-                  `pathspec '${branchName}' did not match any file(s) known to git\nAvailable branches: ${branches.join(', ')}`
-                );
+                // Sometimes callers pass a full ref or a short oid; try resolveRef as-is
+                targetCommitHash = await git.resolveRef({
+                  fs: this.fs,
+                  dir: this.dir,
+                  ref: branchName,
+                });
+                // If caller passed a full ref like refs/remotes/origin/main, mark accordingly
+                if (branchName.startsWith('refs/remotes/')) resolvedFromRemote = true;
+                if (branchName.startsWith('refs/heads/')) resolvedFromLocal = true;
               } catch {
-                throw new Error(`pathspec '${branchName}' did not match any file(s) known to git`);
+                try {
+                  const expandedOid = await git.expandOid({
+                    fs: this.fs,
+                    dir: this.dir,
+                    oid: branchName,
+                  });
+                  targetCommitHash = expandedOid;
+                  isNewBranch = false;
+                } catch {
+                  try {
+                    const branches = await git.listBranches({ fs: this.fs, dir: this.dir });
+                    throw new Error(
+                      `pathspec '${branchName}' did not match any file(s) known to git\nAvailable branches: ${branches.join(', ')}`
+                    );
+                  } catch {
+                    throw new Error(
+                      `pathspec '${branchName}' did not match any file(s) known to git`
+                    );
+                  }
+                }
               }
             }
           }
@@ -102,9 +141,14 @@ export class GitCheckoutOperations {
       const beforeFiles = await this.getAllFiles(this.dir);
       console.log('[NEW ARCHITECTURE] Checkout: Before files count:', beforeFiles.length);
 
-      // チェックアウト実行
-      console.log('[NEW ARCHITECTURE] Executing git checkout:', branchName);
-      await git.checkout({ fs: this.fs, dir: this.dir, ref: branchName });
+      // チェックアウト実行: resolvedFromLocal が true の場合はローカルブランチ名でチェックアウト。
+      // それ以外はコミットOIDでチェックアウト（detached HEAD）することで
+      // "origin/<something>" の誤解釈や、短いOIDがリモート参照として扱われる問題を避ける。
+      const checkoutRef =
+        resolvedFromLocal && !createNew ? branchName : targetCommitHash || branchName;
+
+      console.log('[NEW ARCHITECTURE] Executing git checkout (ref):', checkoutRef);
+      await git.checkout({ fs: this.fs, dir: this.dir, ref: checkoutRef });
       console.log('[NEW ARCHITECTURE] Checkout completed');
 
       // チェックアウト後のファイル数を記録
@@ -117,6 +161,10 @@ export class GitCheckoutOperations {
       console.log('[NEW ARCHITECTURE] Reverse sync completed');
 
       // ターゲットコミットの情報を取得
+      if (!targetCommitHash) {
+        throw new Error(`Failed to resolve ref: ${branchName}`);
+      }
+
       const targetCommit = await git.readCommit({
         fs: this.fs,
         dir: this.dir,
@@ -128,8 +176,8 @@ export class GitCheckoutOperations {
       if (createNew) {
         result = `Switched to a new branch '${branchName}'`;
       } else if (
-        branchName.length >= 7 &&
-        branchName === targetCommitHash.slice(0, branchName.length)
+        resolvedFromRemote ||
+        (branchName.length >= 7 && branchName === targetCommitHash.slice(0, branchName.length))
       ) {
         const shortHash = targetCommitHash.slice(0, 7);
         const commitMessage = targetCommit.commit.message.split('\n')[0];
