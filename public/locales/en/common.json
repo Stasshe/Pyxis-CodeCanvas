@@ -352,6 +352,5 @@
     "emptyDirectory": "Directory is empty",
     "inlineHtmlFailed": "Failed to inline HTML assets",
     "notFound": "File or folder not found"
-  },
-  "welcome": {}
+  }
 }

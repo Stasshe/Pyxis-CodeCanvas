@@ -352,6 +352,5 @@
     "emptyDirectory": "ディレクトリが空です",
     "inlineHtmlFailed": "HTMLアセットのインライン化に失敗しました",
     "notFound": "ファイルまたはフォルダが見つかりません"
-  },
-  "welcome": {}
+  }
 }
