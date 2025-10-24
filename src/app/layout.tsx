@@ -158,6 +158,26 @@ export default function RootLayout({
             </GitHubUserProvider>
           </ThemeProvider>
         </BreakpointProvider>
+        {/* Register service worker to enable icon caching (only on client/runtime) */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+            if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+              window.addEventListener('load', function() {
+                navigator.serviceWorker
+                  .register('/sw.js')
+                  .then(function(reg) {
+                    // registration successful
+                    // console.log('ServiceWorker registration successful with scope: ', reg.scope);
+                  })
+                  .catch(function(err) {
+                    console.error('ServiceWorker registration failed: ', err);
+                  });
+              });
+            }
+          `,
+          }}
+        />
       </body>
     </html>
   );
