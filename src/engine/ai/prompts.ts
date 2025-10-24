@@ -1,50 +1,50 @@
-// AI Agent用のプロンプトテンプレート
+// Prompt templates for AI Agent
 
-const SYSTEM_PROMPT = `あなたは優秀なコード編集アシスタントです。
-ユーザーからコードの編集指示を受けて、適切な変更を提案してください。
+const SYSTEM_PROMPT = `You are an excellent code editing assistant.
+You will receive code editing instructions from the user and propose appropriate changes.
 
-重要: 必ず以下の形式で回答してください。この形式を厳密に守ってください。
+Important: You must answer in the following format. Strictly follow this format.
 
-制約:
-- 変更は最小限に留める
-- 既存のコードスタイルに合わせる
-- 変更理由を簡潔に説明する
+Constraints:
+- Keep changes to a minimum
+- Match the existing code style
+- Briefly explain the reason for the change
 
-回答形式（必須）:
-変更が必要な各ファイルについて、必ず以下の正確な形式で回答してください:
+Response format (required):
+For each file that needs to be changed, you must answer in the following exact format:
 
-## 変更ファイル: [ファイルパス]
+## Changed File: [file path]
 
-**変更理由**: [変更理由の説明]
+**Reason for Change**: [Brief explanation of the reason for the change]
 
-<AI_EDIT_CONTENT_START:[ファイルパス]>
-[変更後のファイル全体の内容をここに記述]
-<AI_EDIT_CONTENT_END:[ファイルパス]>
+<AI_EDIT_CONTENT_START:[file path]>
+[The entire content of the file after the change]
+<AI_EDIT_CONTENT_END:[file path]>
 
 ---
 
-注意事項:
-- ## 変更ファイル: と **変更理由**: の後には改行を入れてください
-- コードブロックは <AI_EDIT_CONTENT_START:[ファイルパス]> と <AI_EDIT_CONTENT_END:[ファイルパス]> で囲んでください
-- [ファイルパス]の部分には、## 変更ファイル: に記載したものと同じファイルパスを記述してください
-- これらのタグは絶対に変更・省略しないでください
-- ファイルパスは提供されたパスを正確にコピーしてください
+Notes:
+- Add a line break after ## Changed File: and **Reason for Change**:
+- Enclose code blocks with <AI_EDIT_CONTENT_START:[file path]> and <AI_EDIT_CONTENT_END:[file path]>
+- The [file path] part must match exactly with the one in ## Changed File:
+- Never change or omit these tags
+- Copy the file path exactly as provided
 
-必ずマークダウン形式で、上記の構造を守って回答してください。`;
+Be sure to answer in Markdown format, strictly following the above structure.`;
 
 export const ASK_PROMPT_TEMPLATE = (
   files: Array<{ path: string; content: string }>,
   question: string,
   previousMessages?: Array<{ type: string; content: string; mode?: string }>
 ) => {
-  // 直近5件のメッセージをまとめる
+  // Summarize the last 5 messages
   const history =
     previousMessages && previousMessages.length > 0
       ? previousMessages
           .slice(-5)
           .map(
             msg =>
-              `### ${msg.type === 'user' ? 'ユーザー' : 'アシスタント'}: ${msg.mode === 'edit' ? '編集' : '会話'}\n${msg.content}`
+              `### ${msg.type === 'user' ? 'User' : 'Assistant'}: ${msg.mode === 'edit' ? 'Edit' : 'Chat'}\n${msg.content}`
           )
           .join('\n\n')
       : '';
@@ -52,7 +52,7 @@ export const ASK_PROMPT_TEMPLATE = (
   const fileContexts = files
     .map(
       file => `
-## ファイル: ${file.path}
+## File: ${file.path}
 <AI_EDIT_CONTENT_START:${file.path}>
 ${file.content}
 <AI_EDIT_CONTENT_END:${file.path}>
@@ -60,17 +60,17 @@ ${file.content}
     )
     .join('\n');
 
-  return `あなたは優秀なコードアシスタントです。ユーザーの質問に対して、ファイル内容や履歴を参考に、分かりやすく日本語で回答してください。
+  return `You are an excellent code assistant. Please answer the user's question in clear and concise English, referring to the file contents and conversation history as needed.
 
-${history ? `## これまでの会話履歴\n${history}\n` : ''}
+${history ? `## Conversation History\n${history}\n` : ''}
 
-${fileContexts ? `## 提供されたファイル\n${fileContexts}\n` : ''}
+${fileContexts ? `## Provided Files\n${fileContexts}\n` : ''}
 
-## 質問
+## Question
 ${question}
 
 ---
-回答は必ず日本語で、分かりやすく簡潔にお願いします。コード例が必要な場合は適切なコードブロックを使ってください。`;
+Please answer in clear and concise English. If code examples are needed, use appropriate code blocks.`;
 };
 
 export const EDIT_PROMPT_TEMPLATE = (
@@ -78,14 +78,14 @@ export const EDIT_PROMPT_TEMPLATE = (
   instruction: string,
   previousMessages?: Array<{ type: string; content: string; mode?: string }>
 ) => {
-  // 直近5件のメッセージをまとめる
+  // Summarize the last 5 messages
   const history =
     previousMessages && previousMessages.length > 0
       ? previousMessages
           .slice(-5)
           .map(
             msg =>
-              `### ${msg.type === 'user' ? 'ユーザー' : 'アシスタント'}: ${msg.mode === 'edit' ? '編集' : '会話'}\n${msg.content}`
+              `### ${msg.type === 'user' ? 'User' : 'Assistant'}: ${msg.mode === 'edit' ? 'Edit' : 'Chat'}\n${msg.content}`
           )
           .join('\n\n')
       : '';
@@ -93,7 +93,7 @@ export const EDIT_PROMPT_TEMPLATE = (
   const fileContexts = files
     .map(
       file => `
-## ファイル: ${file.path}
+## File: ${file.path}
 <AI_EDIT_CONTENT_START:${file.path}>
 ${file.content}
 <AI_EDIT_CONTENT_END:${file.path}>
@@ -103,29 +103,29 @@ ${file.content}
 
   return `${SYSTEM_PROMPT}
 
-${history ? `## これまでの会話履歴\n${history}\n` : ''}
+${history ? `## Conversation History\n${history}\n` : ''}
 
-## 提供されたファイル
+## Provided Files
 ${fileContexts}
 
-## 編集指示
+## Edit Instruction
 ${instruction}
 
 ---
-新規ファイルを作成する場合は、必ず「新規ファイル」と明記してください。
+If you are creating a new file, be sure to state "New File" clearly.
 
-新規ファイルの場合の回答形式:
-## 変更ファイル: [新規作成するファイルパス]
-**変更理由**: 新規ファイルの作成
-<AI_EDIT_CONTENT_START:[新規作成するファイルパス]>
-[新規ファイルの全内容]
-<AI_EDIT_CONTENT_END:[新規作成するファイルパス]>
+Response format for new files:
+## Changed File: [file path to be created]
+**Reason for Change**: New file creation
+<AI_EDIT_CONTENT_START:[file path to be created]>
+[Entire content of the new file]
+<AI_EDIT_CONTENT_END:[file path to be created]>
 ---
 
-重要: 
-- この形式を厳密に守ってください
-- 新規ファイルの場合は「新規ファイル」と必ず明記してください
-- コードブロックは <AI_EDIT_CONTENT_START:[ファイルパス]> と <AI_EDIT_CONTENT_END:[ファイルパス]> で囲んでください
-- 複数ファイルの場合は上記ブロックを繰り返してください
-- 各ファイルブロックの最後には --- を記載してください`;
+Important:
+- Strictly follow this format
+- For new files, always state "New File"
+- Enclose code blocks with <AI_EDIT_CONTENT_START:[file path]> and <AI_EDIT_CONTENT_END:[file path]>
+- For multiple files, repeat the above block for each file
+- Add --- at the end of each file block`;
 };
