@@ -1,28 +1,7 @@
 {
-  "app": {
-    "name": "Pyxis CodeCanvas",
-    "tagline": "ブラウザベースのコードエディタ"
-  },
   "action": {
-    "save": "保存",
     "cancel": "キャンセル",
-    "delete": "削除",
-    "create": "作成",
-    "open": "開く",
-    "close": "閉じる",
-    "confirm": "確認",
-    "edit": "編集",
-    "add": "追加",
-    "remove": "削除",
     "refresh": "更新",
-    "search": "検索",
-    "clear": "クリア",
-    "copy": "コピー",
-    "paste": "貼り付け",
-    "cut": "切り取り",
-    "undo": "元に戻す",
-    "redo": "やり直す",
-    "loading": "読み込み中...",
     "authenticating": "認証中..."
   },
   "menu": {
@@ -39,18 +18,9 @@
     "toggleTerminal": "ターミナル表示/非表示",
     "toggleRightPanel": "右パネル表示/非表示"
   },
-  "file": {
-    "new": "新規ファイル",
-    "newFolder": "新規フォルダ",
-    "rename": "名前を変更",
-    "duplicate": "複製",
-    "download": "ダウンロード",
-    "upload": "アップロード"
-  },
   "auth": {
     "signIn": "サインイン",
     "signOut": "サインアウト",
-    "signedInAs": "サインイン中",
     "patPrompt": "GitHub Personal Access Token",
     "patDescription": "<0>ここをクリック</0>してPATを作成（repo スコープが必要）",
     "patPlaceholder": "ghp_xxxxxxxxxxxx",
@@ -64,18 +34,10 @@
     "staged": "ステージング済み",
     "unstaged": "未ステージング",
     "commit": "コミット",
-    "push": "プッシュ",
-    "pull": "プル",
-    "branch": "ブランチ",
-    "merge": "マージ",
-    "stash": "スタッシュ",
     "stage": "ステージング",
     "unstage": "ステージング解除",
     "discard": "破棄",
-    "commitMessage": "コミットメッセージ",
     "generateCommitMessage": "AIで生成",
-    "viewDiff": "差分を表示",
-    "viewAllDiffs": "全ての差分を表示",
     "projectSelect": "プロジェクトを選択してください",
     "loadingStatus": "Git状態を読み込み中...",
     "operationError": "Git操作でエラーが発生しました",
@@ -96,56 +58,20 @@
     "restore": "ファイルを復元",
     "deleteUntracked": "ファイルを削除",
     "history": "履歴",
-    "noHistory": "コミット履歴がありません",
-    "commitFailed": "コミットに失敗しました",
-    "geminiError": "Gemini APIエラー"
+    "noHistory": "コミット履歴がありません"
   },
   "projectModal": {
     "title": "プロジェクト管理",
-    "createProject": "新規プロジェクト作成",
     "editProject": "プロジェクト編集",
     "deleteProject": "プロジェクト削除",
-    "selectProject": "プロジェクトを選択",
-    "name": "プロジェクト名",
     "description": "説明",
-    "actions": "操作",
-    "confirm": "確認",
     "cancel": "キャンセル",
     "save": "保存",
-    "close": "閉じる",
     "clone": "GitHubからクローン",
-    "cloneUrl": "クローンURL",
-    "cloneProjectName": "プロジェクト名 (任意)",
-    "isGitHubAuthenticated": "GitHub認証済み",
-    "notGitHubAuthenticated": "GitHub未認証",
     "nameValidation": "プロジェクト名は英数字・ハイフンのみ使用できます。日本語不可・空白は-に変換されます。",
     "deleteConfirm": "本当にこのプロジェクトを削除しますか？",
-    "deleteSuccess": "プロジェクトを削除しました",
-    "createSuccess": "プロジェクトを作成しました",
-    "editSuccess": "プロジェクトを編集しました",
     "cloneSuccess": "クローンに成功しました",
-    "cloneFailed": "クローンに失敗しました",
-    "loadFailed": "プロジェクトの読み込みに失敗しました",
-    "noProjects": "プロジェクトがありません",
-    "current": "現在のプロジェクト"
-  },
-  "editor": {
-    "welcome": "ようこそ",
-    "unsavedChanges": "未保存の変更",
-    "preview": "プレビュー",
-    "split": "分割",
-    "closeTab": "タブを閉じる",
-    "closeOthers": "他のタブを閉じる",
-    "closeAll": "すべて閉じる"
-  },
-  "terminal": {
-    "title": "ターミナル",
-    "clear": "ターミナルをクリア",
-    "initializing": "ターミナル初期化中"
-  },
-  "output": {
-    "title": "出力",
-    "noMessages": "出力メッセージはありません"
+    "noProjects": "プロジェクトがありません"
   },
   "bottom": {
     "output": "出力",
@@ -156,21 +82,9 @@
     "aiUnavailable": "AI Assistant機能が利用できません"
   },
   "ai": {
-    "title": "AI アシスタント",
-    "space": "スペース",
-    "chat": "チャット",
-    "review": "レビュー",
-    "mode": {
-      "chat": "チャット",
-      "code": "コード",
-      "plan": "プラン"
-    },
     "context": {
-      "add": "コンテキストを追加",
-      "remove": "削除",
       "select": "ファイルを選択"
     },
-    "placeholder": "AIアシスタントに質問...",
     "input": {
       "ask": "AIに質問やコード相談をしてください...",
       "edit": "コードの編集指示を入力してください..."
@@ -181,13 +95,6 @@
       "enterSend": "Enter: 改行 / Ctrl+Enter: 送信",
       "history": "Alt+↑↓: 履歴"
     }
-  },
-  "project": {
-    "create": "プロジェクトを作成",
-    "open": "プロジェクトを開く",
-    "delete": "プロジェクトを削除",
-    "name": "プロジェクト名",
-    "description": "説明"
   },
   "run": {
     "title": "実行環境",
@@ -251,18 +158,13 @@
     "lines": "行"
   },
   "changedFilesList": {
-    "noChangedFiles": "変更されたファイルはありません",
     "changedFiles": "変更されたファイル",
     "review": "レビュー",
     "apply": "適用",
     "discard": "破棄",
     "reason": "変更理由",
     "preview": "変更プレビュー",
-    "lines": "行",
     "others": "他",
-    "original": "元",
-    "suggested": "新",
-    "diff": "差分",
     "applyAll": "全て適用",
     "discardAll": "全て破棄"
   },

@@ -1,1 +1,193 @@
-{}
+{
+  "action": {
+    "cancel": "Cancel",
+    "refresh": "Refresh",
+    "authenticating": "Authenticating..."
+  },
+  "menu": {
+    "files": "Files",
+    "search": "Search",
+    "git": "Git",
+    "run": "Run",
+    "settings": "Settings",
+    "project": "Project Management"
+  },
+  "topBar": {
+    "searchTitle": "File search (Ctrl+P)",
+    "searchLabel": "File search",
+    "toggleTerminal": "Toggle terminal",
+    "toggleRightPanel": "Toggle right panel"
+  },
+  "auth": {
+    "signIn": "Sign In",
+    "signOut": "Sign Out",
+    "patPrompt": "GitHub Personal Access Token",
+    "patDescription": "<0>Click here</0> to create a PAT (repo scope required)",
+    "patPlaceholder": "ghp_xxxxxxxxxxxx",
+    "clickToOpenMenu": "Click to open menu",
+    "authSuccess": "GitHub authentication successful!",
+    "authFailed": "GitHub authentication failed",
+    "signOutConfirm": "Are you sure you want to sign out from GitHub?"
+  },
+  "git": {
+    "changes": "Changes",
+    "staged": "Staged",
+    "unstaged": "Unstaged",
+    "commit": "Commit",
+    "stage": "Stage",
+    "unstage": "Unstage",
+    "discard": "Discard",
+    "generateCommitMessage": "Generate with AI",
+    "projectSelect": "Please select a project",
+    "loadingStatus": "Loading git status...",
+    "operationError": "An error occurred while accessing git",
+    "errorOccurred": "An error occurred",
+    "infoNotAvailable": "Could not fetch git information",
+    "apiKeyPlaceholder": "Enter Gemini API key",
+    "commitMessagePlaceholder": "Enter commit message...",
+    "generating": "Generating...",
+    "committing": "Committing...",
+    "stageAll": "Stage all",
+    "unstageAll": "Unstage all",
+    "noChanges": "No changes",
+    "deleted": "Deleted",
+    "untracked": "Untracked",
+    "viewDiffReadonly": "View diff (read-only)",
+    "viewDiffEditable": "View diff (editable)",
+    "stageDelete": "Stage deletion",
+    "restore": "Restore file",
+    "deleteUntracked": "Delete file",
+    "history": "History",
+    "noHistory": "No commit history"
+  },
+  "projectModal": {
+    "title": "Project Management",
+    "editProject": "Edit Project",
+    "deleteProject": "Delete Project",
+    "description": "Description",
+    "cancel": "Cancel",
+    "save": "Save",
+    "clone": "Clone from GitHub",
+    "nameValidation": "Project name can only contain alphanumeric characters and hyphens. No Japanese. Spaces will be replaced with hyphens.",
+    "deleteConfirm": "Are you sure you want to delete this project?",
+    "cloneSuccess": "Clone succeeded",
+    "noProjects": "No projects found"
+  },
+  "bottom": {
+    "output": "Output",
+    "debugConsole": "Debug Console",
+    "terminal": "Terminal"
+  },
+  "right": {
+    "aiUnavailable": "AI Assistant is unavailable"
+  },
+  "ai": {
+    "context": {
+      "select": "Select files"
+    },
+    "input": {
+      "ask": "Ask the AI questions or consult about code...",
+      "edit": "Enter instructions to edit code..."
+    },
+    "selectedLabel": "Selected:",
+    "sendTitle": "Send (Ctrl+Enter)",
+    "hints": {
+      "enterSend": "Enter: newline / Ctrl+Enter: send",
+      "history": "Alt+↑↓: history"
+    }
+  },
+  "run": {
+    "title": "Execution Environment",
+    "execute": "Execute",
+    "stop": "Stop",
+    "clearOutput": "Clear output",
+    "searchFile": "Search for a file to execute...",
+    "noProject": "Open a project to execute Node.js code",
+    "inputPlaceholder": "Enter Node.js code...",
+    "executeHint": "Press Ctrl+Enter (Cmd+Enter) to execute",
+    "outputHint": "When you execute JavaScript/Node.js/Python code, the results will be displayed here. Node.js and js can be executed in the same file.",
+    "runtimeNotReady": "Python runtime is not initialized",
+    "fileContentError": "Unable to get file content",
+    "noOutput": "No output",
+    "executionStopped": "Execution stopped",
+    "languageNode": "Node.js",
+    "languagePython": "Python"
+  },
+  "welcome": {
+    "title": "Welcome!",
+    "indexeddbInfo": "This project's files are stored in IndexedDB.",
+    "clientSideNote": "This app runs fully client-side and does not send any data to servers.",
+    "hmrHint": "Try HMR and WebPreview by long-pressing the generated homepage folder.",
+    "features": {
+      "title": "Key features of Pyxis",
+      "clientIDE": "Fully client-side IDE (no server required, static hosting)",
+      "nodeRuntime": "Node.js runtime, npm, Unix commands and Git available in the browser",
+      "monaco": "VS Code-like editing experience with Monaco Editor",
+      "gitHistory": "Git history, branch management and commit graph",
+      "responsive": "Responsive UI optimized for iPad",
+      "languages": "Multi-language highlighting: Cpp, HTML, CSS, JavaScript, Python, etc.",
+      "mermaid": "Real-time rendering of flowcharts and sequence diagrams with Mermaid"
+    },
+    "mainFeatures": {
+      "title": "Main features",
+      "latex": "LaTeX math rendering and Mermaid/HTML support",
+      "importExport": "Import, download files and zip export",
+      "theme": "Theme color switching and multi-monitor support",
+      "download": "Download Git / project files"
+    },
+    "specialThanks": {
+      "title": "Special Thanks",
+      "contributors": "isomorphic-git, Monaco Editor, xterm.js, Mermaid, KaTeX, Pyodide and all OSS contributors.",
+      "thanksVisit": "Thank you for visiting!"
+    }
+  },
+  "aiReviewTab": {
+    "notFound": "AI review data not found",
+    "discardAllAndRevert": "Discard all changes and revert",
+    "revert": "Revert",
+    "applyAll": "Apply all",
+    "discard": "Discard",
+    "editRightDirectly": "You can edit directly in the right editor",
+    "autoSaveAndApply": "Changes are auto-saved and reflected in the file with 'Apply all'.",
+    "revertSelectionHint": "You can also partially revert by right-clicking and selecting 'Revert selection'."
+  },
+  "diff": {
+    "original": "Original",
+    "suggested": "Suggested",
+    "diff": "Diff",
+    "lines": "lines"
+  },
+  "changedFilesList": {
+    "changedFiles": "Changed files",
+    "review": "Review",
+    "apply": "Apply",
+    "discard": "Discard",
+    "reason": "Reason",
+    "preview": "Preview",
+    "others": "others",
+    "applyAll": "Apply all",
+    "discardAll": "Discard all"
+  },
+  "fileTree": {
+    "menu": {
+      "createFile": "Create file",
+      "createFolder": "Create folder",
+      "import": "Import",
+      "open": "Open",
+      "openPreview": "Open preview",
+      "openCodeMirror": "Open in CodeMirror",
+      "download": "Download",
+      "rename": "Rename",
+      "delete": "Delete",
+      "webPreview": "WebPreview"
+    },
+    "prompt": {
+      "newFileName": "Enter new file name:",
+      "newFolderName": "Enter new folder name:",
+      "rename": "Enter new name:"
+    },
+    "alert": {
+      "renameFailed": "Rename failed: {error}"
+    }
+  }
+}
