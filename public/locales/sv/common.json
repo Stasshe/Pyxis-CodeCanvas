@@ -1,0 +1,355 @@
+{
+  "action": {
+    "authenticating": "Autentiserar...",
+    "cancel": "Avbryt",
+    "refresh": "Uppdatera",
+    "retry": "Försök igen"
+  },
+  "ai": {
+    "changedFilesList": {
+      "noChangedFiles": "Inga ändrade filer"
+    },
+    "chatContainer": {
+      "generating": "AI genererar ett svar...",
+      "suggest": "Ställ frågor eller be om kod."
+    },
+    "chatMessage": {
+      "copyCode": "Kopiera kod",
+      "reference": "Referens:"
+    },
+    "context": {
+      "select": "Välj filer"
+    },
+    "fileChangeItem": {
+      "apply": "Tillämpa",
+      "confirm": "Bekräfta",
+      "discard": "Förkasta"
+    },
+    "fileContextBar": {
+      "addFile": "+ Lägg till fil",
+      "context": "Kontext:",
+      "noFileSelected": "Ingen fil vald"
+    },
+    "hints": {
+      "enterSend": "Enter: ny rad / Ctrl+Enter: skicka",
+      "history": "Alt+↑↓: historik"
+    },
+    "input": {
+      "ask": "Ställ AI frågor eller be om hjälp med kod...",
+      "edit": "Ange instruktioner för att redigera kod..."
+    },
+    "selectedLabel": "Vald:",
+    "sendTitle": "Skicka (Ctrl+Enter)"
+  },
+  "aiReviewTab": {
+    "applyAll": "Tillämpa alla",
+    "autoSaveAndApply": "Ändringar sparas automatiskt och tillämpas i filen med 'Tillämpa alla'.",
+    "discard": "Förkasta",
+    "discardAllAndRevert": "Förkasta allt och återställ",
+    "editRightDirectly": "Du kan redigera direkt i den högra editorn",
+    "notFound": "AI-granskningsdata hittades inte",
+    "revert": "Återställ",
+    "revertSelectionHint": "Du kan också delvis återställa genom att högerklicka och välja 'Återställ val'."
+  },
+  "auth": {
+    "authFailed": "GitHub-autentisering misslyckades",
+    "authSuccess": "GitHub-autentisering lyckades!",
+    "clickToOpenMenu": "Klicka för att öppna menyn",
+    "patDescription": "<0>Klicka här</0> för att skapa en PAT (repo-scop krävs)",
+    "patPlaceholder": "ghp_xxxxxxxxxxxx",
+    "patPrompt": "GitHub Personal Access Token",
+    "signIn": "Logga in",
+    "signOut": "Logga ut",
+    "signOutConfirm": "Är du säker på att du vill logga ut från GitHub?"
+  },
+  "binaryTab": {
+    "unsupportedFormat": "Detta filformat kan inte visas"
+  },
+  "bottom": {
+    "debugConsole": "Debug-konsol",
+    "output": "Utdata",
+    "outputPanel": {
+      "all": "Allt",
+      "clear": "Rensa",
+      "clearTooltip": "Rensa visade utdata",
+      "contextLabel": "Kontext",
+      "empty": "Inga utdata",
+      "typeLabel": "Typ"
+    },
+    "terminal": "Terminal",
+    "terminalInitializing": "Initierar terminal..."
+  },
+  "changedFilesList": {
+    "apply": "Tillämpa",
+    "applyAll": "Tillämpa alla",
+    "changedFiles": "Ändrade filer",
+    "discard": "Förkasta",
+    "discardAll": "Förkasta alla",
+    "others": "andra",
+    "preview": "Förhandsgranska",
+    "reason": "Orsak",
+    "review": "Granska"
+  },
+  "charCountDisplay": {
+    "clickForDetails": "Klicka för detaljer",
+    "close": "Stäng",
+    "selectedAndTotal": "Valt: {selectionCount} tecken (utan mellanslag) / Totalt: {charCount} tecken (utan mellanslag)",
+    "total": "Totalt: {charCount} tecken (utan mellanslag)"
+  },
+  "chatSpaceList": {
+    "confirmDelete": "Är du säker på att du vill ta bort detta utrymme?",
+    "create": "Skapa nytt utrymme",
+    "delete": "Ta bort",
+    "empty": "Inga utrymmen ännu",
+    "rename": "Byt namn"
+  },
+  "confirmation": {
+    "title": "Bekräftelse"
+  },
+  "diff": {
+    "diff": "Diff",
+    "lines": "rader",
+    "original": "Ursprunglig",
+    "suggested": "Föreslagen"
+  },
+  "diffTab": {
+    "fileList": "Fillista",
+    "noDiffFiles": "Inga diff-filer"
+  },
+  "editorPlaceholder": {
+    "loadingEditor": "Laddar editor...",
+    "loadingFile": "Återställer filinnehåll...",
+    "selectFile": "Vänligen välj en fil"
+  },
+  "fileTree": {
+    "alert": {
+      "renameFailed": "Byt namn misslyckades: {error}"
+    },
+    "menu": {
+      "createFile": "Skapa fil",
+      "createFolder": "Skapa mapp",
+      "delete": "Ta bort",
+      "download": "Ladda ner",
+      "import": "Importera",
+      "open": "Öppna",
+      "openCodeMirror": "Öppna i CodeMirror",
+      "openPreview": "Öppna förhandsvisning",
+      "rename": "Byt namn",
+      "webPreview": "Webbförhandsvisning"
+    },
+    "prompt": {
+      "newFileName": "Ange nytt filnamn:",
+      "newFolderName": "Ange nytt mappnamn:",
+      "rename": "Ange nytt namn:"
+    }
+  },
+  "git": {
+    "apiKeyPlaceholder": "Ange Gemini API-nyckel",
+    "changes": "Ändringar",
+    "commit": "Commit",
+    "commitMessagePlaceholder": "Ange commit-meddelande...",
+    "committing": "Committar...",
+    "deleted": "Borttagen",
+    "deleteUntracked": "Ta bort fil",
+    "discard": "Förkasta",
+    "errorOccurred": "Ett fel uppstod",
+    "generateCommitMessage": "Generera med AI",
+    "generating": "Genererar...",
+    "history": "Historik",
+    "infoNotAvailable": "Kunde inte hämta git-information",
+    "loadingStatus": "Laddar git-status...",
+    "noChanges": "Inga ändringar",
+    "noHistory": "Ingen commit-historik",
+    "operationError": "Ett fel uppstod vid åtkomst till git",
+    "projectSelect": "Välj ett projekt",
+    "restore": "Återställ fil",
+    "stage": "Stage",
+    "stageAll": "Stagea alla",
+    "staged": "Staged",
+    "stageDelete": "Stagea borttagning",
+    "unstage": "Unstage",
+    "unstageAll": "Unstagea alla",
+    "unstaged": "Unstaged",
+    "untracked": "Untracked",
+    "viewDiffEditable": "Visa diff (redigerbar)",
+    "viewDiffReadonly": "Visa diff (skrivskyddad)"
+  },
+  "gitHistory": {
+    "allFilesScrollable": "Alla {count} filer (rullningsbar)",
+    "changedFiles": "Ändrade filer:",
+    "daysAgo": "{days} dagar sedan",
+    "duplicateGroupsHidden": "({count} dubblettgrupper dolda)",
+    "hideDuplicates": "Dölj dubbletter",
+    "hoursAgo": "{hours} timmar sedan",
+    "justNow": "precis nu",
+    "loadingChanges": "Laddar ändringsinfo...",
+    "minutesAgo": "{minutes} minuter sedan",
+    "noChangedFiles": "Inga ändrade filer hittades",
+    "showAllFilesDiff": "Visa alla fildiffar för denna commit",
+    "showDuplicates": "Visa dubbletter",
+    "showFileDiff": "Visa diff för denna fil"
+  },
+  "highlightedCode": {
+    "copyCode": "Kopiera kod"
+  },
+  "leftSidebar": {
+    "createFile": "Skapa ny fil",
+    "createFolder": "Skapa ny mapp"
+  },
+  "markdownPreview": {
+    "downloadSvg": "Ladda ner SVG",
+    "exportPdf": "Exportera PDF",
+    "generatingMermaid": "Genererar Mermaid-diagram...",
+    "imageNotFound": "Bild hittades inte: {src}",
+    "loadingImage": "Laddar bild...",
+    "preview": "Förhandsvisning",
+    "reset": "Återställ",
+    "zoomIn": "Zooma in",
+    "zoomOut": "Zooma ut"
+  },
+  "menu": {
+    "files": "Filer",
+    "git": "Git",
+    "project": "Projekt",
+    "run": "Kör",
+    "search": "Sök",
+    "settings": "Inställningar"
+  },
+  "operationWindow": {
+    "closeByEsc": "Stäng med ESC",
+    "footerHelp": "Använd ↑↓ för att välja, Enter för att öppna",
+    "mdPreviewDialogHelp": "Tab/←→ för att växla, Enter för att bekräfta, ESC för att stänga",
+    "mdPreviewPrompt": "Öppna i Markdown-förhandsvisning?",
+    "noFilesFound": "Inga filer hittades",
+    "openInEditor": "Öppna i editor",
+    "openInPreview": "Öppna i förhandsvisning",
+    "searchPlaceholder": "Sök efter fil-/mappnamn eller sökväg..."
+  },
+  "projectModal": {
+    "cancel": "Avbryt",
+    "clone": "Klona från GitHub",
+    "cloneFromGitHub": "Klona från GitHub",
+    "cloneSuccess": "Kloning lyckades",
+    "create": "Skapa",
+    "created": "Skapad",
+    "deleteConfirm": "Är du säker på att du vill ta bort detta projekt?",
+    "deleteProject": "Ta bort projekt",
+    "description": "Beskrivning",
+    "descriptionOptional": "Beskrivning (valfritt)",
+    "descriptionPlaceholder": "Ange projektsbeskrivning...",
+    "editProject": "Redigera projekt",
+    "inputRepoUrl": "Repository URL",
+    "loading": "Laddar...",
+    "nameHint": "Använd alfanumeriska tecken och bindestreck",
+    "nameValidation": "Projektnamn får endast innehålla alfanumeriska tecken och bindestreck. Ingen japanska. Mellanslag ersätts med bindestreck.",
+    "newProject": "Nytt projekt",
+    "noProjects": "Inga projekt hittades",
+    "open": "Öppna",
+    "projectName": "Projektnamn",
+    "projectNameOptional": "Projektnamn (valfritt)",
+    "projectNameOptionalPlaceholder": "Valfritt projektnamn...",
+    "projectNamePlaceholder": "Ange projektnamn...",
+    "repoUrl": "Repository URL",
+    "save": "Spara",
+    "title": "Projekt",
+    "updated": "Uppdaterad"
+  },
+  "right": {
+    "aiUnavailable": "AI-assistenten är otillgänglig"
+  },
+  "run": {
+    "clearOutput": "Rensa utdata",
+    "execute": "Kör",
+    "executeHint": "Tryck Ctrl+Enter (Cmd+Enter) för att köra",
+    "executionStopped": "Körning stoppad",
+    "fileContentError": "Kan inte hämta filinnehåll",
+    "inputPlaceholder": "Ange Node.js-kod...",
+    "languageNode": "Node.js",
+    "languagePython": "Python",
+    "noOutput": "Inga utdata",
+    "noProject": "Öppna ett projekt för att köra Node.js-kod",
+    "outputHint": "När du kör JavaScript/Node.js/Python-kod visas resultaten här. Node.js och js kan köras i samma fil.",
+    "runtimeNotReady": "Python-runtime är inte initierad",
+    "searchFile": "Sök efter en fil att köra...",
+    "stop": "Stoppa",
+    "title": "Körningsmiljö"
+  },
+  "searchPanel": {
+    "caseSensitive": "Skiftlägeskänslig",
+    "noResults": "Inga resultat hittades",
+    "resultCount": "{count} resultat",
+    "searchInFiles": "Sök i filer...",
+    "searching": "Söker...",
+    "useRegex": "Använd regex",
+    "wholeWord": "Hela ord"
+  },
+  "settingsPanel": {
+    "api": {
+      "apiKeyPlaceholder": "Ange API-nyckel",
+      "geminiApiKey": "Gemini API-nyckel",
+      "savedToLocalStorage": "Sparat i LocalStorage",
+      "title": "API"
+    },
+    "editor": {
+      "defaultEditor": "Standardeditor",
+      "fontSize": "Teckenstorlek",
+      "savedToLocalStorage": "Sparat i LocalStorage",
+      "tabSize": "Tabbstorlek",
+      "title": "Editor",
+      "wordWrap": "Aktivera radbrytning"
+    },
+    "export": {
+      "exporting": "Exporterar...",
+      "includeGit": "Inkludera .git-mapp",
+      "title": "Exportera arbetsyta",
+      "zipDownload": "Ladda ner ZIP"
+    },
+    "files": {
+      "excludeHint": "Filer/mappar dolda i utforskaren",
+      "excludePattern": "Exkludera-mönster",
+      "title": "Filer"
+    },
+    "loading": "Laddar inställningar...",
+    "search": {
+      "excludePattern": "Exkludera-mönster",
+      "globPatternHint": "Skriv ett glob-mönster per rad",
+      "title": "Sök",
+      "useIgnoreFiles": "Använd ignore-filer som .gitignore"
+    },
+    "theme": {
+      "colorCustomize": "Anpassa färger",
+      "colorTheme": "Färgtema",
+      "highlightTheme": "Kodmarkerings-tema",
+      "language": "Språk",
+      "title": "Tema"
+    }
+  },
+  "tabBar": {
+    "closeTab": "Stäng flik",
+    "moveToPane": "Flytta till panel",
+    "paneMenu": "Panelmeny",
+    "removeAllTabs": "Ta bort alla flikar",
+    "removePane": "Ta bort panel",
+    "saveRestart": "Spara och starta om",
+    "splitHorizontal": "Dela horisontellt",
+    "splitVertical": "Dela vertikalt",
+    "tabActions": "Flikåtgärder"
+  },
+  "tabCloseConfirmation": {
+    "cancel": "Avbryt",
+    "discardAndClose": "Förkasta och stäng",
+    "discardChangesMessage": "Det finns osparade ändringar i denna flik. Är du säker på att du vill stänga den?",
+    "discardChangesTitle": "Förkasta ändringar?"
+  },
+  "topBar": {
+    "searchLabel": "Filsökning",
+    "searchTitle": "Filsökning (Ctrl+P)",
+    "toggleRightPanel": "Växla höger panel",
+    "toggleTerminal": "Växla terminal"
+  },
+  "webPreviewTab": {
+    "emptyDirectory": "Mappen är tom",
+    "inlineHtmlFailed": "Misslyckades med att inlinea HTML-resurser",
+    "notFound": "Fil eller mapp hittades inte"
+  }
+}

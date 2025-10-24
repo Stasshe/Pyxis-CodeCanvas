@@ -67,11 +67,11 @@ export default function LeftSidebar({
             className="text-xs font-medium uppercase tracking-wide select-none"
             style={{ color: colors.sidebarTitleFg }}
           >
-            {activeMenuTab === 'files' && 'エクスプローラー'}
-            {activeMenuTab === 'search' && '検索'}
-            {activeMenuTab === 'git' && 'ソース管理'}
-            {activeMenuTab === 'run' && '実行'}
-            {activeMenuTab === 'settings' && '設定'}
+            {activeMenuTab === 'files' && 'Explorer'}
+            {activeMenuTab === 'search' && 'Search'}
+            {activeMenuTab === 'git' && 'Git'}
+            {activeMenuTab === 'run' && 'Run'}
+            {activeMenuTab === 'settings' && 'Settings'}
           </span>
         </div>
         <div className="flex-1 overflow-auto">
