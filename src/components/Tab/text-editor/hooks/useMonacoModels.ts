@@ -52,9 +52,19 @@ export function useMonacoModels() {
 
       if (!model) {
         try {
-          const newModel = mon.editor.createModel(content, getLanguage(fileName));
+          // Create a URI that includes the file name/extension. Monaco's
+          // TypeScript/JavaScript language service infers JSX/TSX parsing
+          // and many diagnostics based on the model's URI (file extension).
+          // If we create a model without a URI or extension, diagnostics may
+          // not be produced as expected.
+          const safeFileName = fileName && fileName.length > 0 ? fileName : `untitled-${tabId}`;
+          // Ensure leading slash so path looks like /path/to/file.ext
+          const path = safeFileName.startsWith('/') ? safeFileName : `/${safeFileName}`;
+          const uri = mon.Uri.parse(`inmemory://model${path}`);
+
+          const newModel = mon.editor.createModel(content, getLanguage(fileName), uri);
           monacoModelMap.set(tabId, newModel);
-          console.debug('[useMonacoModels] Created new model for:', tabId);
+          console.debug('[useMonacoModels] Created new model for:', tabId, 'uri:', uri.toString());
           return newModel;
         } catch (createError: any) {
           console.error('[useMonacoModels] Model creation failed:', createError);

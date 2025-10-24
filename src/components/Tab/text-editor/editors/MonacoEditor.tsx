@@ -69,27 +69,6 @@ export default function MonacoEditor({
     // テーマ定義（初回のみ）
     if (!isThemeDefined) {
       try {
-        // React型定義を非同期で読み込み（エラーは無視）
-        Promise.all([
-          fetch('https://unpkg.com/@types/react/index.d.ts').then(r => r.text()),
-          fetch('https://unpkg.com/@types/react-dom/index.d.ts').then(r => r.text()),
-        ])
-          .then(([reactTypes, reactDomTypes]) => {
-            if (monacoRef.current) {
-              monacoRef.current.languages.typescript.typescriptDefaults.addExtraLib(
-                reactTypes,
-                'file:///node_modules/@types/react/index.d.ts'
-              );
-              monacoRef.current.languages.typescript.typescriptDefaults.addExtraLib(
-                reactDomTypes,
-                'file:///node_modules/@types/react-dom/index.d.ts'
-              );
-            }
-          })
-          .catch(e => {
-            console.warn('[MonacoEditor] Failed to load React type definitions:', e);
-          });
-
         mon.editor.defineTheme('pyxis-custom', {
           base: 'vs-dark',
           inherit: true,
