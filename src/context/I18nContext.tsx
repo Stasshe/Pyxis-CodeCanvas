@@ -88,17 +88,35 @@ export function I18nProvider({ children, defaultLocale }: I18nProviderProps) {
   const loadLocale = useCallback(async (newLocale: Locale) => {
     setIsLoading(true);
     try {
-      const data = await loadTranslations(newLocale, 'common');
-      setTranslations(data);
+      // Load multiple namespaces that components expect to access.
+      // WelcomeTab uses `welcome.*` keys stored in `welcome.json`, while
+      // most UI strings live in `common.json`.
+      const namespaces = ['common', 'welcome'];
+
+      const results = await Promise.all(namespaces.map(ns => loadTranslations(newLocale, ns)));
+
+      // Merge namespace objects into a single translations object. Later namespaces
+      // will override earlier keys if they clash (not expected here).
+      const merged = Object.assign({}, ...results);
+
+      setTranslations(merged);
       setLocaleState(newLocale);
       saveLocale(newLocale);
     } catch (error) {
       console.error(`[i18n] Failed to load locale '${newLocale}':`, error);
       // フォールバック: デフォルトロケールを試す
       if (newLocale !== DEFAULT_LOCALE) {
-        const fallbackData = await loadTranslations(DEFAULT_LOCALE, 'common');
-        setTranslations(fallbackData);
-        setLocaleState(DEFAULT_LOCALE);
+        try {
+          const namespaces = ['common', 'welcome'];
+          const results = await Promise.all(
+            namespaces.map(ns => loadTranslations(DEFAULT_LOCALE, ns))
+          );
+          const merged = Object.assign({}, ...results);
+          setTranslations(merged);
+          setLocaleState(DEFAULT_LOCALE);
+        } catch (err) {
+          console.error('[i18n] Failed to load fallback locale translations:', err);
+        }
       }
     } finally {
       setIsLoading(false);
