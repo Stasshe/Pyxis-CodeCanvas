@@ -87,11 +87,11 @@ export function I18nProvider({ children, defaultLocale }: I18nProviderProps) {
    */
   const loadLocale = useCallback(async (newLocale: Locale) => {
     setIsLoading(true);
+    const namespaces = ['common', 'welcome', 'detail'];
     try {
       // Load multiple namespaces that components expect to access.
       // WelcomeTab uses `welcome.*` keys stored in `welcome.json`, while
       // most UI strings live in `common.json`.
-      const namespaces = ['common', 'welcome'];
 
       const results = await Promise.all(namespaces.map(ns => loadTranslations(newLocale, ns)));
 
@@ -107,7 +107,6 @@ export function I18nProvider({ children, defaultLocale }: I18nProviderProps) {
       // フォールバック: デフォルトロケールを試す
       if (newLocale !== DEFAULT_LOCALE) {
         try {
-          const namespaces = ['common', 'welcome'];
           const results = await Promise.all(
             namespaces.map(ns => loadTranslations(DEFAULT_LOCALE, ns))
           );

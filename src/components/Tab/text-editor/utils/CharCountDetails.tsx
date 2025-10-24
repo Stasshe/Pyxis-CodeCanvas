@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { useTranslation } from '@/context/I18nContext';
 
 interface CharCountDetailsProps {
   content: string;
@@ -63,6 +64,7 @@ function avgLineLength(text: string): number {
 }
 
 const CharCountDetails: React.FC<CharCountDetailsProps> = ({ content }) => {
+  const { t } = useTranslation();
   const stats = useMemo(
     () => ({
       lines: countLines(content),
@@ -92,19 +94,45 @@ const CharCountDetails: React.FC<CharCountDetailsProps> = ({ content }) => {
         fontSize: 14,
       }}
     >
-      <div>行数: {stats.lines}</div>
-      <div>単語数: {stats.words}</div>
-      <div>文字数: {stats.chars}</div>
-      <div>文字数（スペース除外）: {stats.charsNoSpaces}</div>
-      <div>全角文字数: {stats.zenkaku}</div>
-      <div>半角文字数: {stats.hankaku}</div>
-      <div>数字: {stats.digits}</div>
-      <div>英字: {stats.alpha}</div>
-      <div>記号: {stats.symbols}</div>
-      <div>空白: {stats.spaces}</div>
-      <div>改行: {stats.newlines}</div>
-      <div>最大行長: {stats.maxLineLen}</div>
-      <div>平均行長: {stats.avgLineLen}</div>
+      <div>
+        {t('charCountDetails.lines')}: {stats.lines}
+      </div>
+      <div>
+        {t('charCountDetails.words')}: {stats.words}
+      </div>
+      <div>
+        {t('charCountDetails.chars')}: {stats.chars}
+      </div>
+      <div>
+        {t('charCountDetails.charsNoSpaces')}: {stats.charsNoSpaces}
+      </div>
+      <div>
+        {t('charCountDetails.zenkaku')}: {stats.zenkaku}
+      </div>
+      <div>
+        {t('charCountDetails.hankaku')}: {stats.hankaku}
+      </div>
+      <div>
+        {t('charCountDetails.digits')}: {stats.digits}
+      </div>
+      <div>
+        {t('charCountDetails.alpha')}: {stats.alpha}
+      </div>
+      <div>
+        {t('charCountDetails.symbols')}: {stats.symbols}
+      </div>
+      <div>
+        {t('charCountDetails.spaces')}: {stats.spaces}
+      </div>
+      <div>
+        {t('charCountDetails.newlines')}: {stats.newlines}
+      </div>
+      <div>
+        {t('charCountDetails.maxLineLen')}: {stats.maxLineLen}
+      </div>
+      <div>
+        {t('charCountDetails.avgLineLen')}: {stats.avgLineLen}
+      </div>
     </div>
   );
 };

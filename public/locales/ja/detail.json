@@ -1,0 +1,17 @@
+{
+  "charCountDetails": {
+    "lines": "行数",
+    "words": "単語数",
+    "chars": "文字数",
+    "charsNoSpaces": "文字数（スペース除外）",
+    "zenkaku": "全角文字数",
+    "hankaku": "半角文字数",
+    "digits": "数字",
+    "alpha": "英字",
+    "symbols": "記号",
+    "spaces": "空白",
+    "newlines": "改行",
+    "maxLineLen": "最大行長",
+    "avgLineLen": "平均行長"
+  }
+}

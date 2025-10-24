@@ -1,0 +1,17 @@
+{
+  "charCountDetails": {
+    "lines": "Rader",
+    "words": "Ord",
+    "chars": "Tecken",
+    "charsNoSpaces": "Tecken (utan mellanslag)",
+    "zenkaku": "Fullbreddstecken",
+    "hankaku": "Halvbreddstecken",
+    "digits": "Siffror",
+    "alpha": "Bokstäver",
+    "symbols": "Symboler",
+    "spaces": "Mellanslag",
+    "newlines": "Radbrytningar",
+    "maxLineLen": "Max radlängd",
+    "avgLineLen": "Genomsnittlig radlängd"
+  }
+}

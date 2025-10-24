@@ -1,0 +1,17 @@
+{
+  "charCountDetails": {
+    "lines": "Regels",
+    "words": "Woorden",
+    "chars": "Tekens",
+    "charsNoSpaces": "Tekens (zonder spaties)",
+    "zenkaku": "Volledige breedte tekens",
+    "hankaku": "Halve breedte tekens",
+    "digits": "Cijfers",
+    "alpha": "Letters",
+    "symbols": "Symbolen",
+    "spaces": "Spaties",
+    "newlines": "Nieuwe regels",
+    "maxLineLen": "Maximale regellengte",
+    "avgLineLen": "Gemiddelde regellengte"
+  }
+}
