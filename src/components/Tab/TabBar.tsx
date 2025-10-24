@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import React, { useState, useRef, useEffect } from 'react';
+import { useTranslation } from '@/context/I18nContext';
 import { useTabCloseConfirmation } from './useTabCloseConfirmation';
 import { Tab } from '@/types';
 import { FILE_CHANGE_EVENT } from '@/engine/fileWatcher';
@@ -49,6 +50,7 @@ export default function TabBar({
   onSplitPane,
 }: TabBarProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const { requestClose, ConfirmationDialog } = useTabCloseConfirmation();
   // メニューの開閉状態管理
   const [menuOpen, setMenuOpen] = useState(false);
@@ -179,7 +181,7 @@ export default function TabBar({
             boxShadow: menuOpen ? `0 2px 8px 0 ${colors.border}` : undefined,
           }}
           onClick={() => setMenuOpen(open => !open)}
-          title="ペインメニュー"
+          title={t('tabBar.paneMenu')}
           onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
           onMouseLeave={e => (e.currentTarget.style.background = menuOpen ? colors.accentBg : '')}
         >
@@ -211,7 +213,7 @@ export default function TabBar({
                 closeMenu();
                 removeEditorPane();
               }}
-              title="ペイン削除"
+              title={t('tabBar.removePane')}
               onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
               onMouseLeave={e => (e.currentTarget.style.background = '')}
             >
@@ -219,7 +221,7 @@ export default function TabBar({
                 size={16}
                 color={colors.red}
               />
-              <span style={{ color: colors.foreground }}>ペイン削除</span>
+                  <span style={{ color: colors.foreground }}>{t('tabBar.removePane')}</span>
             </button>
             {onSplitPane && (
               <>
@@ -232,7 +234,7 @@ export default function TabBar({
                     // and "横分割" produces side-by-side. Historically these were reversed.
                     onSplitPane && onSplitPane('horizontal');
                   }}
-                  title="縦分割"
+                  title={t('tabBar.splitVertical')}
                   onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
                   onMouseLeave={e => (e.currentTarget.style.background = '')}
                 >
@@ -240,7 +242,7 @@ export default function TabBar({
                     size={16}
                     color={colors.accentFg}
                   />
-                  <span style={{ color: colors.foreground }}>縦分割</span>
+                  <span style={{ color: colors.foreground }}>{t('tabBar.splitVertical')}</span>
                 </button>
                 <button
                   className="flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors"
@@ -250,7 +252,7 @@ export default function TabBar({
                     // Complementary swap: "横分割" should produce side-by-side splitting
                     onSplitPane && onSplitPane('vertical');
                   }}
-                  title="横分割"
+                  title={t('tabBar.splitHorizontal')}
                   onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
                   onMouseLeave={e => (e.currentTarget.style.background = '')}
                 >
@@ -258,7 +260,7 @@ export default function TabBar({
                     size={16}
                     color={colors.accentFg}
                   />
-                  <span style={{ color: colors.foreground }}>横分割</span>
+                  <span style={{ color: colors.foreground }}>{t('tabBar.splitHorizontal')}</span>
                 </button>
               </>
             )}
@@ -269,7 +271,7 @@ export default function TabBar({
                 closeMenu();
                 removeAllTabs();
               }}
-              title="タブ全削除"
+              title={t('tabBar.removeAllTabs')}
               onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
               onMouseLeave={e => (e.currentTarget.style.background = '')}
             >
@@ -277,13 +279,13 @@ export default function TabBar({
                 size={16}
                 color={colors.red}
               />
-              <span style={{ color: colors.foreground }}>タブ全削除</span>
+              <span style={{ color: colors.foreground }}>{t('tabBar.removeAllTabs')}</span>
             </button>
             <button
               className="flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors"
               style={{ color: colors.primary }}
               onClick={handleSaveRestart}
-              title="保存再起動"
+              title={t('tabBar.saveRestart')}
               onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
               onMouseLeave={e => (e.currentTarget.style.background = '')}
             >
@@ -291,7 +293,7 @@ export default function TabBar({
                 size={16}
                 color={colors.primary}
               />
-              <span style={{ color: colors.foreground }}>保存 & 再起動</span>
+              <span style={{ color: colors.foreground }}>{t('tabBar.saveRestart')}</span>
             </button>
           </div>
         )}
@@ -443,7 +445,7 @@ export default function TabBar({
             touchAction: 'manipulation',
           }}
         >
-          <div className="text-xs text-muted-foreground mb-2 px-2">タブアクション</div>
+          <div className="text-xs text-muted-foreground mb-2 px-2">{t('tabBar.tabActions')}</div>
           <button
             className="w-full text-left px-2 py-1 text-sm hover:bg-accent rounded"
             onClick={() => {
@@ -454,13 +456,13 @@ export default function TabBar({
               setTabContextMenu({ isOpen: false, tabId: '', x: 0, y: 0 });
             }}
           >
-            タブを閉じる
+            {t('tabBar.closeTab')}
           </button>
 
           {/* ペイン移動メニュー */}
           {availablePanes.length > 1 && (
             <>
-              <div className="text-xs text-muted-foreground mt-3 mb-2 px-2">ペインに移動</div>
+              <div className="text-xs text-muted-foreground mt-3 mb-2 px-2">{t('tabBar.moveToPane')}</div>
               {availablePanes
                 .filter(pane => pane.id !== editorId) // 現在のペインは除外
                 .map(pane => (
