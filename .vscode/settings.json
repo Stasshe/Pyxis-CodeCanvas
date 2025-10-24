@@ -8,7 +8,6 @@
   },
   "files.autoSave": "onFocusChange",
   "files.exclude": {
-    "**/node_modules": true,
     "**/.git": true,
     ".next/**": true,
     "out/**": true
@@ -17,12 +16,10 @@
     "**/.git/objects/**": true,
     "**/.git/subtree-cache/**": true,
     "**/.hg/store/**": true,
-    "**/node_modules/**": true,
     "**/public/vscode-icons/**": true,
     ".next/**": true
   },
   "search.exclude": {
-    "**/node_modules": true,
     "**/.git": true,
     "public/vscode-icons/**": true,
     ".next/**": true,

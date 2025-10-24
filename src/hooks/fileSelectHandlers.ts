@@ -74,7 +74,6 @@ export function handleFileSelect({
           content: fileToOpen.content || '',
           isDirty: false,
           path: fileToOpen.path,
-          fullPath: fileToOpen.path,
           isCodeMirror: fileToOpen.isCodeMirror ?? false,
         };
         newTabs = [...targetPane.tabs, newTab];
@@ -137,7 +136,6 @@ export function handleFilePreview({
           isDirty: false,
           path: fileToPreview.path,
           preview: true,
-          fullPath: fileToPreview.path,
           isCodeMirror: fileToPreview.isCodeMirror ?? false,
           isBufferArray: fileToPreview.isBufferArray,
           bufferContent: fileToPreview.bufferContent,

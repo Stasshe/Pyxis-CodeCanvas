@@ -33,15 +33,7 @@ export function useGitMonitor({
         return;
       }
       try {
-        const gitCommands = new GitCommands(
-          currentProject.name,
-          currentProject.id,
-          async (path: string, type: 'file' | 'folder' | 'delete', content?: string) => {
-            setTimeout(() => {
-              setGitRefreshTrigger((prev: number) => prev + 1);
-            }, 200);
-          }
-        );
+        const gitCommands = new GitCommands(currentProject.name, currentProject.id);
         const statusResult = await gitCommands.status();
         const changesCount = parseGitStatus(statusResult);
         setGitChangesCount(changesCount);
