@@ -72,20 +72,6 @@ function humanizeKey(key) {
     .trim();
   const words = spaced.split(' ').filter(Boolean);
   const capitalized = words.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-
-  const lc = last.toLowerCase();
-  // small heuristics for nicer defaults
-  if (lc === 'title') return capitalized;
-  if (lc === 'description') return capitalized;
-  if (lc === 'download') return 'Download';
-  if (lc === 'importexport' || lc === 'import_export' || lc === 'importExport') return 'Import / Export';
-  if (lc === 'latex') return 'LaTeX';
-  if (lc === 'theme') return 'Theme';
-  if (lc === 'contributors') return 'Contributors';
-  if (lc === 'thanksvisit' || lc === 'thanks_visit' || lc === 'thanksVisit') return 'Thanks for visiting';
-  if (lc === 'clientsidenote' || lc === 'clientSideNote'.toLowerCase()) return 'Note: client-side only';
-  if (lc === 'hmrhint' || lc === 'hmrHint'.toLowerCase()) return 'Hot Module Replacement enabled';
-
   return capitalized;
 }
 
