@@ -5,11 +5,12 @@
   
   ### *Zero Setup. Quick Start, Easy Coding*
 
-  [![Version](https://img.shields.io/badge/version-0.8.4-blue.svg)](https://github.com/your-username/pyxis)
+  [![Version](https://img.shields.io/badge/version-0.9.0-blue.svg)](https://github.com/your-username/pyxis)
   [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
   [![Platform](https://img.shields.io/badge/platform-Web%20%7C%20iPad%20%7C%20Mobile-orange.svg)](README.md)
+  [![Languages](https://img.shields.io/badge/languages-18-blue.svg)](#)
   [![Tauri](https://img.shields.io/badge/Tauri-Desktop-blueviolet?logo=tauri)](https://tauri.app/)
-  [![Next.js](https://img.shields.io/badge/Next.js-15-blue?logo=next.js)](https://nextjs.org/)
+  [![Next.js](https://img.shields.io/badge/Next.js-16-blue?logo=next.js)](https://nextjs.org/)
   [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4.1-38bdf8?logo=tailwindcss)](https://tailwindcss.com/)
   [![TypeScript](https://img.shields.io/badge/TypeScript-v5-3178c6?logo=typescript)](https://www.typescriptlang.org/)
   [![React](https://img.shields.io/badge/React-19-61dafb?logo=react)](https://react.dev/)
@@ -17,7 +18,6 @@
   [![Bundle Size](https://img.shields.io/badge/bundle--size-1.04MB-purple?logo=next.js)](#)
   
   **[🚀 Try Pyxis Now](https://pyxis-code.onrender.com)** | **[📖 日本語版](README.md)**
-  **i18n — supports 18 languages!**
 </div>
 
 ---
@@ -26,6 +26,7 @@
 
 - **Pyxis is a high-mobility browser IDE designed for iPad that launches in just 1 second.**
 - **Since Pyxis is a static site, there is no need to start a server, and as a result, no charges are incurred.**
+- **🌍 Available in 18 languages, comfortable for users worldwide!**
 
 ### 🎯 Built For
 
@@ -166,6 +167,7 @@ Navigate your projects with **VS Code-like efficiency**! Fast file search, an op
 - **Works everywhere** - Web, iPad, mobile, any modern browser
 - **Multi-pane support** for complex projects
 - **Buffer content support** - unzip files, view PDFs, images, videos
+- **🌍 Multilingual Support** - Available in 18 languages, comfortable for users worldwide
 
 ### 🖥️ **Tauri Desktop Support**
 - **Windows/Mac/Linux** native app experience

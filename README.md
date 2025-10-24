@@ -7,11 +7,12 @@
   
   ### *セットアップゼロ。素早く起動、気軽にコーディング*
   
-  [![Version](https://img.shields.io/badge/version-0.8.4-blue.svg)](https://github.com/your-username/pyxis)
+  [![Version](https://img.shields.io/badge/version-0.9.0-blue.svg)](https://github.com/your-username/pyxis)
   [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
   [![Platform](https://img.shields.io/badge/platform-Web%20%7C%20iPad%20%7C%20Mobile-orange.svg)](README.md)
+  [![Languages](https://img.shields.io/badge/languages-18-blue.svg)](#)
   [![Tauri](https://img.shields.io/badge/Tauri-Desktop-blueviolet?logo=tauri)](https://tauri.app/)
-  [![Next.js](https://img.shields.io/badge/Next.js-15-blue?logo=next.js)](https://nextjs.org/)
+  [![Next.js](https://img.shields.io/badge/Next.js-16-blue?logo=next.js)](https://nextjs.org/)
   [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4.1-38bdf8?logo=tailwindcss)](https://tailwindcss.com/)
   [![TypeScript](https://img.shields.io/badge/TypeScript-v5-3178c6?logo=typescript)](https://www.typescriptlang.org/)
   [![React](https://img.shields.io/badge/React-19-61dafb?logo=react)](https://react.dev/)
@@ -19,7 +20,6 @@
   [![Bundle Size](https://img.shields.io/badge/bundle--size-1.04MB-purple?logo=next.js)](#)
   
   **[🚀 Pyxis を今すぐ試す](https://pyxis-code.onrender.com)**
-  **i18n — 18ヶ国語に対応！**
 </div>
 
 ---
@@ -28,6 +28,7 @@
 
 - **Pyxisは、iPad向けに設計された1秒で起動する高機動なブラウザIDEです。**
 - **静的サイトなので、サーバー起動が必要なく、また課金も一切発生しません。**
+- **🌍 18ヶ国語対応で、世界中のユーザーが快適に利用可能！**
 
 ### 🎯 こんな人のために作りました
 
@@ -172,6 +173,7 @@ JavaScriptでは不可能なファイルオペレーションやインタラク�
 - **どこでも動く** - Web、iPad、モバイル、全てのモダンブラウザ
 - **マルチペーン対応** で複雑なプロジェクトも楽々
 - **バッファコンテンツ対応** - zip解凍、PDF、画像、動画表示
+- **🌍 多言語対応** - 18ヶ国語で利用可能、世界中のユーザーが快適に
 
 --- 
 
