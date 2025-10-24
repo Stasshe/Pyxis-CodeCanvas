@@ -291,38 +291,68 @@ export default function AIReviewTab({
           color: colors.mutedFg,
         }}
       >
-          {(() => {
-            try {
-              const diffLines = calculateDiff(originalContent, currentSuggestedContent);
-              const added = diffLines.filter((l) => l.type === 'added').length;
-              const removed = diffLines.filter((l) => l.type === 'removed').length;
-              const unchanged = diffLines.filter((l) => l.type === 'unchanged').length;
-              const originalCount = unchanged + removed;
-              const suggestedCount = unchanged + added;
+        {(() => {
+          try {
+            const diffLines = calculateDiff(originalContent, currentSuggestedContent);
+            const added = diffLines.filter(l => l.type === 'added').length;
+            const removed = diffLines.filter(l => l.type === 'removed').length;
+            const unchanged = diffLines.filter(l => l.type === 'unchanged').length;
+            const originalCount = unchanged + removed;
+            const suggestedCount = unchanged + added;
 
-              return (
-                <div className="flex gap-4">
-                  <span>{t('diff.original')}: {originalCount}{t('diff.lines')}</span>
-                  <span>{t('diff.suggested')}: {suggestedCount}{t('diff.lines')}</span>
-                  <span>
-                    {t('diff.diff')}: {suggestedCount - originalCount > 0 ? '+' : ''}{suggestedCount - originalCount}{t('diff.lines')}
-                  </span>
-                  <span className="ml-2" style={{ color: added > 0 ? 'var(--tw-color-green-500, #16a34a)' : colors.mutedFg }}>+{added}</span>
-                  <span style={{ color: removed > 0 ? 'var(--tw-color-red-500, #dc2626)' : colors.mutedFg }}>-{removed}</span>
-                </div>
-              );
-            } catch (e) {
-              const orig = originalContent.split('\n').length;
-              const sug = currentSuggestedContent.split('\n').length;
-              return (
-                <div className="flex gap-4">
-                  <span>{t('diff.original')}: {orig}{t('diff.lines')}</span>
-                  <span>{t('diff.suggested')}: {sug}{t('diff.lines')}</span>
-                  <span>{t('diff.diff')}: {sug - orig}{t('diff.lines')}</span>
-                </div>
-              );
-            }
-          })()}
+            return (
+              <div className="flex gap-4">
+                <span>
+                  {t('diff.original')}: {originalCount}
+                  {t('diff.lines')}
+                </span>
+                <span>
+                  {t('diff.suggested')}: {suggestedCount}
+                  {t('diff.lines')}
+                </span>
+                <span>
+                  {t('diff.diff')}: {suggestedCount - originalCount > 0 ? '+' : ''}
+                  {suggestedCount - originalCount}
+                  {t('diff.lines')}
+                </span>
+                <span
+                  className="ml-2"
+                  style={{
+                    color: added > 0 ? 'var(--tw-color-green-500, #16a34a)' : colors.mutedFg,
+                  }}
+                >
+                  +{added}
+                </span>
+                <span
+                  style={{
+                    color: removed > 0 ? 'var(--tw-color-red-500, #dc2626)' : colors.mutedFg,
+                  }}
+                >
+                  -{removed}
+                </span>
+              </div>
+            );
+          } catch (e) {
+            const orig = originalContent.split('\n').length;
+            const sug = currentSuggestedContent.split('\n').length;
+            return (
+              <div className="flex gap-4">
+                <span>
+                  {t('diff.original')}: {orig}
+                  {t('diff.lines')}
+                </span>
+                <span>
+                  {t('diff.suggested')}: {sug}
+                  {t('diff.lines')}
+                </span>
+                <span>
+                  {t('diff.diff')}: {sug - orig}
+                  {t('diff.lines')}
+                </span>
+              </div>
+            );
+          }
+        })()}
       </div>
 
       {/* Monaco DiffEditor */}
@@ -367,7 +397,13 @@ export default function AIReviewTab({
           color: colors.mutedFg,
         }}
       >
-        <span role="img" aria-label="hint">💡</span> <b>{t('aiReviewTab.editRightDirectly')}</b>
+        <span
+          role="img"
+          aria-label="hint"
+        >
+          💡
+        </span>{' '}
+        <b>{t('aiReviewTab.editRightDirectly')}</b>
         {t('aiReviewTab.autoSaveAndApply')}
         <br />
         {t('aiReviewTab.revertSelectionHint')}

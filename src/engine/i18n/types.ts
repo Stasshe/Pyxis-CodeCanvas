@@ -8,7 +8,39 @@ import type enCommon from '../../../public/locales/en/common.json';
 /**
  * サポートする言語コード
  */
-export type Locale = 'en' | 'ja';
+export type Locale =
+  | 'en'
+  | 'ja'
+  | 'es'
+  | 'fr'
+  | 'de'
+  | 'zh'
+  | 'zh-TW'
+  | 'ko'
+  | 'it'
+  | 'pt'
+  | 'ru'
+  | 'nl'
+  | 'tr'
+  | 'ar'
+  | 'hi'
+  | 'th'
+  | 'vi'
+  | 'id'
+  | 'sv'
+  | 'pl';
+
+/*
+オランダ語	nl	ヨーロッパで広く使用
+トルコ語	tr	トルコ・中央アジア
+アラビア語	ar	中東・北アフリカ
+ヒンディー語	hi	インド
+タイ語	th	タイ
+ベトナム語	vi	ベトナム
+インドネシア語	id	インドネシア
+スウェーデン語	sv	北欧
+ポーランド語	pl	東欧
+*/
 
 /**
  * 翻訳リソースの型

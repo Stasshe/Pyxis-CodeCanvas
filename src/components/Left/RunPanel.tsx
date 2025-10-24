@@ -385,9 +385,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
           style={{ background: colors.background, color: colors.foreground }}
         >
           {output.length === 0 ? (
-            <div style={{ color: colors.mutedFg }}>
-              {t('run.outputHint')}
-            </div>
+            <div style={{ color: colors.mutedFg }}>{t('run.outputHint')}</div>
           ) : (
             output.map(entry => (
               <div

@@ -71,7 +71,7 @@ export default function GitPanel({
       const fs = (gitCommands as any).fs;
       if (fs && (fs as any).sync) {
         try {
-          await (fs).sync();
+          await fs.sync();
           console.log('[GitPanel] FileSystem synced before status check');
         } catch (syncError) {
           console.warn('[GitPanel] FileSystem sync failed:', syncError);
@@ -555,7 +555,7 @@ export default function GitPanel({
             color: colors.mutedFg,
           }}
         />
-  <p style={{ fontSize: '0.875rem' }}>{t('git.projectSelect')}</p>
+        <p style={{ fontSize: '0.875rem' }}>{t('git.projectSelect')}</p>
       </div>
     );
   }
@@ -573,7 +573,7 @@ export default function GitPanel({
             color: colors.mutedFg,
           }}
         />
-  <p style={{ fontSize: '0.875rem' }}>{t('git.loadingStatus')}</p>
+        <p style={{ fontSize: '0.875rem' }}>{t('git.loadingStatus')}</p>
       </div>
     );
   }
@@ -590,8 +590,8 @@ export default function GitPanel({
             color: colors.red,
           }}
         />
-  <p style={{ fontSize: '0.875rem', marginBottom: '0.5rem' }}>{t('git.errorOccurred')}</p>
-  <p style={{ fontSize: '0.75rem', color: colors.mutedFg }}>{error}</p>
+        <p style={{ fontSize: '0.875rem', marginBottom: '0.5rem' }}>{t('git.errorOccurred')}</p>
+        <p style={{ fontSize: '0.75rem', color: colors.mutedFg }}>{error}</p>
         <button
           onClick={fetchGitStatus}
           style={{
@@ -604,7 +604,7 @@ export default function GitPanel({
             border: 'none',
             cursor: 'pointer',
           }}
-          >
+        >
           {t('action.retry')}
         </button>
       </div>
@@ -624,7 +624,7 @@ export default function GitPanel({
             color: colors.mutedFg,
           }}
         />
-  <p style={{ fontSize: '0.875rem' }}>{t('git.infoNotAvailable')}</p>
+        <p style={{ fontSize: '0.875rem' }}>{t('git.infoNotAvailable')}</p>
       </div>
     );
   }
@@ -669,7 +669,9 @@ export default function GitPanel({
             <div style={{ fontSize: '0.75rem', color: colors.mutedFg }}>
               <span style={{ fontWeight: 500 }}>{gitRepo.currentBranch}</span>
               {gitRepo.commits.length > 0 && (
-                <span style={{ marginLeft: '0.5rem' }}>• {gitRepo.commits.length} {t('git.commit')}</span>
+                <span style={{ marginLeft: '0.5rem' }}>
+                  • {gitRepo.commits.length} {t('git.commit')}
+                </span>
               )}
             </div>
           </h3>
@@ -1073,7 +1075,7 @@ export default function GitPanel({
                           textDecoration: 'underline',
                         }}
                         className="select-text"
-                          title={t('git.viewDiffEditable')}
+                        title={t('git.viewDiffEditable')}
                         onClick={async () => {
                           if (onDiffFileClick && gitRepo.commits.length > 0) {
                             // 最新コミットのhashを取得

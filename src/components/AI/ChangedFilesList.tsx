@@ -138,7 +138,10 @@ export default function ChangedFilesList({
               className="flex gap-2 text-xs items-center"
               style={{ color: colors.mutedFg }}
             >
-              <span>{file.originalContent.split('\n').length}{t('diff.lines')}</span>
+              <span>
+                {file.originalContent.split('\n').length}
+                {t('diff.lines')}
+              </span>
               <svg
                 className="w-2 h-2"
                 fill="none"
@@ -152,7 +155,10 @@ export default function ChangedFilesList({
                   d="M9 5l7 7-7 7"
                 />
               </svg>
-              <span>{file.suggestedContent.split('\n').length}{t('diff.lines')}</span>
+              <span>
+                {file.suggestedContent.split('\n').length}
+                {t('diff.lines')}
+              </span>
               <span>
                 (
                 {file.suggestedContent.split('\n').length -
@@ -278,7 +284,8 @@ export default function ChangedFilesList({
                   className="mt-1"
                   style={{ color: colors.mutedFg }}
                 >
-                  ... {t('changedFilesList.others')} {file.suggestedContent.split('\n').length - 3} {t('diff.lines')}
+                  ... {t('changedFilesList.others')} {file.suggestedContent.split('\n').length - 3}{' '}
+                  {t('diff.lines')}
                 </div>
               )}
             </div>
@@ -289,15 +296,22 @@ export default function ChangedFilesList({
             className="flex gap-4 text-xs mt-2"
             style={{ color: colors.mutedFg }}
           >
-            <span>{t('diff.original')}: {file.originalContent.split('\n').length}{t('diff.lines')}</span>
-            <span>{t('diff.suggested')}: {file.suggestedContent.split('\n').length}{t('diff.lines')}</span>
             <span>
-              {t('diff.diff')}: {' '}
+              {t('diff.original')}: {file.originalContent.split('\n').length}
+              {t('diff.lines')}
+            </span>
+            <span>
+              {t('diff.suggested')}: {file.suggestedContent.split('\n').length}
+              {t('diff.lines')}
+            </span>
+            <span>
+              {t('diff.diff')}:{' '}
               {file.suggestedContent.split('\n').length - file.originalContent.split('\n').length >
               0
                 ? '+'
                 : ''}
-              {file.suggestedContent.split('\n').length - file.originalContent.split('\n').length}{t('diff.lines')}
+              {file.suggestedContent.split('\n').length - file.originalContent.split('\n').length}
+              {t('diff.lines')}
             </span>
           </div>
         </div>

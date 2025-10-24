@@ -404,17 +404,21 @@ function ClientTerminal({
               await captureWriteOutput(`\x1b[31mnode: エラー: ${(e as Error).message}\x1b[0m`);
             }
             break;
-          
+
           // New namespaced form: pyxis <category> <action> [...]
           case 'pyxis': {
             if (args.length === 0) {
-              await captureWriteOutput('pyxis: missing subcommand. Usage: pyxis <category> <action> [args]');
+              await captureWriteOutput(
+                'pyxis: missing subcommand. Usage: pyxis <category> <action> [args]'
+              );
               break;
             }
             const category = args[0];
             const action = args[1];
             if (!action) {
-              await captureWriteOutput('pyxis: missing action. Usage: pyxis <category> <action> [args]');
+              await captureWriteOutput(
+                'pyxis: missing action. Usage: pyxis <category> <action> [args]'
+              );
               break;
             }
             const combined = `${category}-${action}`;

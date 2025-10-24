@@ -64,8 +64,11 @@ export async function loadTranslations(
 /**
  * 翻訳リソースをプリロード（起動時に使用）
  */
-export async function preloadTranslations(locale: Locale, namespaces: string[] = ['common']): Promise<void> {
-  await Promise.all(namespaces.map((ns) => loadTranslations(locale, ns)));
+export async function preloadTranslations(
+  locale: Locale,
+  namespaces: string[] = ['common']
+): Promise<void> {
+  await Promise.all(namespaces.map(ns => loadTranslations(locale, ns)));
 }
 
 /**
@@ -86,6 +89,6 @@ export function clearMemoryCacheForLocale(locale: Locale): void {
       keysToDelete.push(key);
     }
   }
-  keysToDelete.forEach((key) => memoryCache.delete(key));
+  keysToDelete.forEach(key => memoryCache.delete(key));
   console.log(`[i18n-loader] Cleared ${keysToDelete.length} entries for locale '${locale}'`);
 }

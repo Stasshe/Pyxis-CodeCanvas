@@ -281,7 +281,9 @@ export default function SearchPanel({ files, projectId, onFileOpen }: SearchPane
           {/* 検索結果サマリー */}
           {searchQuery && (
             <div style={{ fontSize: '0.62rem', color: colors.mutedFg }}>
-              {isSearching ? t('searchPanel.searching') : t('searchPanel.resultCount', { params: { count: searchResults.length } })}
+              {isSearching
+                ? t('searchPanel.searching')
+                : t('searchPanel.resultCount', { params: { count: searchResults.length } })}
             </div>
           )}
         </div>

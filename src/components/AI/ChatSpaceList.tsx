@@ -105,7 +105,10 @@ export default function ChatSpaceList({
       </button>
 
       {/* スペースリスト */}
-  <div className="space-y-1 max-h-64 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
+      <div
+        className="space-y-1 max-h-64 overflow-y-auto"
+        style={{ scrollbarWidth: 'thin' }}
+      >
         {chatSpaces.length === 0 ? (
           <div
             className="text-xs py-2 text-center opacity-60"

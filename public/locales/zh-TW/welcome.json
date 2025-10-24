@@ -1,0 +1,30 @@
+{
+  "welcome": {
+    "clientSideNote": "此應用完全在用戶端執行，不會將任何資料傳送到伺服器。",
+    "features": {
+      "clientIDE": "完全用戶端的 IDE（不需伺服器，適合靜態託管）",
+      "gitHistory": "Git 歷史、分支管理與提交圖",
+      "languages": "支援多種語言的語法高亮：C++, HTML, CSS, JavaScript, Python 等",
+      "mermaid": "使用 Mermaid 即時渲染流程圖與序列圖",
+      "monaco": "類 VS Code 的編輯體驗（Monaco Editor）",
+      "nodeRuntime": "內建 Node.js 執行環境、npm、Unix 指令與 Git（於瀏覽器內）",
+      "responsive": "為 iPad 最佳化的響應式 UI",
+      "title": "Pyxis 的主要功能"
+    },
+    "hmrHint": "長按產生的 homepage 資料夾以嘗試 HMR 與 WebPreview。",
+    "indexeddbInfo": "此專案的檔案儲存在 IndexedDB 中。",
+    "mainFeatures": {
+      "download": "下載 Git / 專案檔案",
+      "importExport": "匯入、下載檔案與 ZIP 匯出",
+      "latex": "LaTeX 數學排版與 Mermaid/HTML 支援",
+      "theme": "主題色切換與多螢幕支援",
+      "title": "主要功能"
+    },
+    "specialThanks": {
+      "contributors": "感謝 isomorphic-git、Monaco Editor、xterm.js、Mermaid、KaTeX、Pyodide 與所有開源貢獻者。",
+      "thanksVisit": "感謝你的造訪！",
+      "title": "特別感謝"
+    },
+    "title": "歡迎！"
+  }
+}

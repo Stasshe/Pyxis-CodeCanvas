@@ -74,7 +74,9 @@ export async function handleGitCommand(
           const cloneResult = await gitCommandsRef.current.clone(url, targetDir);
           await writeOutput(cloneResult);
           if (!targetDir) {
-            await writeOutput(`Note: No target directory specified. Repository was cloned into a subdirectory named after the repository.\nTo clone directly into a project root (like via Project manager), use the Project modal which clones into the project root.`);
+            await writeOutput(
+              `Note: No target directory specified. Repository was cloned into a subdirectory named after the repository.\nTo clone directly into a project root (like via Project manager), use the Project modal which clones into the project root.`
+            );
           }
         } catch (error) {
           const errorMessage = (error as Error).message;
@@ -93,7 +95,6 @@ export async function handleGitCommand(
         );
       }
       break;
-
 
     case 'status':
       const statusResult = await gitCommandsRef.current.status();

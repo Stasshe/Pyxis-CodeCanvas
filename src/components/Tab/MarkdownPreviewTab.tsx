@@ -386,53 +386,74 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
             zIndex: 20,
           }}
         >
-              <div
-                className="select-none"
-                style={{
-                  display: 'flex',
-                  gap: 6,
-                  background: 'rgba(255,255,255,0.85)',
-                  padding: '6px',
-                  borderRadius: 6,
-                }}
-              >
-                <button
-                  type="button"
-                  aria-label={t ? t('markdownPreview.zoomIn') : 'ズームイン'}
-                  onClick={handleZoomIn}
-                  style={{ margin: '0 4px', padding: '4px 8px', borderRadius: 4, border: '1px solid #ccc', background: '#fff' }}
-                >
-                  ＋{/* lucide-react推奨: ここは仮のテキスト。アイコン化は別途 */}
-                  {t ? t('markdownPreview.zoomIn') : 'ズームイン'}
-                </button>
-                <button
-                  type="button"
-                  aria-label={t ? t('markdownPreview.zoomOut') : 'ズームアウト'}
-                  onClick={handleZoomOut}
-                  style={{ margin: '0 4px', padding: '4px 8px', borderRadius: 4, border: '1px solid #ccc', background: '#fff' }}
-                >
-                  －
-                  {t ? t('markdownPreview.zoomOut') : 'ズームアウト'}
-                </button>
-                <button
-                  type="button"
-                  aria-label={t ? t('markdownPreview.reset') : 'リセット'}
-                  onClick={handleResetView}
-                  style={{ margin: '0 4px', padding: '4px 8px', borderRadius: 4, border: '1px solid #ccc', background: '#fff' }}
-                >
-                  ⟳
-                  {t ? t('markdownPreview.reset') : 'リセット'}
-                </button>
-                <button
-                  type="button"
-                  aria-label={t ? t('markdownPreview.downloadSvg') : 'SVGダウンロード'}
-                  onClick={handleDownloadSvg}
-                  style={{ margin: '0 4px', padding: '4px 8px', borderRadius: 4, border: '1px solid #ccc', background: '#fff' }}
-                >
-                  ⬇
-                  {t ? t('markdownPreview.downloadSvg') : 'SVGダウンロード'}
-                </button>
-              </div>
+          <div
+            className="select-none"
+            style={{
+              display: 'flex',
+              gap: 6,
+              background: 'rgba(255,255,255,0.85)',
+              padding: '6px',
+              borderRadius: 6,
+            }}
+          >
+            <button
+              type="button"
+              aria-label={t ? t('markdownPreview.zoomIn') : 'ズームイン'}
+              onClick={handleZoomIn}
+              style={{
+                margin: '0 4px',
+                padding: '4px 8px',
+                borderRadius: 4,
+                border: '1px solid #ccc',
+                background: '#fff',
+              }}
+            >
+              ＋{/* lucide-react推奨: ここは仮のテキスト。アイコン化は別途 */}
+              {t ? t('markdownPreview.zoomIn') : 'ズームイン'}
+            </button>
+            <button
+              type="button"
+              aria-label={t ? t('markdownPreview.zoomOut') : 'ズームアウト'}
+              onClick={handleZoomOut}
+              style={{
+                margin: '0 4px',
+                padding: '4px 8px',
+                borderRadius: 4,
+                border: '1px solid #ccc',
+                background: '#fff',
+              }}
+            >
+              －{t ? t('markdownPreview.zoomOut') : 'ズームアウト'}
+            </button>
+            <button
+              type="button"
+              aria-label={t ? t('markdownPreview.reset') : 'リセット'}
+              onClick={handleResetView}
+              style={{
+                margin: '0 4px',
+                padding: '4px 8px',
+                borderRadius: 4,
+                border: '1px solid #ccc',
+                background: '#fff',
+              }}
+            >
+              ⟳{t ? t('markdownPreview.reset') : 'リセット'}
+            </button>
+            <button
+              type="button"
+              aria-label={t ? t('markdownPreview.downloadSvg') : 'SVGダウンロード'}
+              onClick={handleDownloadSvg}
+              style={{
+                margin: '0 4px',
+                padding: '4px 8px',
+                borderRadius: 4,
+                border: '1px solid #ccc',
+                background: '#fff',
+              }}
+            >
+              ⬇{t ? t('markdownPreview.downloadSvg') : 'SVGダウンロード'}
+            </button>
+          </div>
         </div>
       )}
 
@@ -548,7 +569,9 @@ const LocalImage = React.memo<{
           color: '#cc0000',
         }}
       >
-        {t ? t('markdownPreview.imageNotFound', { params: { src } }) : `画像が見つかりません: ${src}`}
+        {t
+          ? t('markdownPreview.imageNotFound', { params: { src } })
+          : `画像が見つかりません: ${src}`}
       </span>
     );
   }
@@ -876,7 +899,9 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ activeTab, curr
       ref={markdownContainerRef}
     >
       <div className="flex items-center mb-2">
-        <div className="font-bold text-lg mr-2">{activeTab.name} {t('markdownPreview.preview')}</div>
+        <div className="font-bold text-lg mr-2">
+          {activeTab.name} {t('markdownPreview.preview')}
+        </div>
         <button
           type="button"
           className="px-2 py-1 rounded bg-green-500 text-white text-xs hover:bg-green-600 transition"

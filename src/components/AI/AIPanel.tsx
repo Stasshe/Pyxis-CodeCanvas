@@ -299,7 +299,7 @@ export default function AIPanel({
             </button>
 
             {/* showSpaceList is rendered inline below the header to avoid being clipped/hidden */}
-            </div>
+          </div>
         </div>
       </div>
 

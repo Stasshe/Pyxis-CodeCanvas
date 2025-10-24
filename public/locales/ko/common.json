@@ -1,0 +1,356 @@
+{
+  "action": {
+    "authenticating": "인증 중...",
+    "cancel": "취소",
+    "refresh": "새로고침",
+    "retry": "다시 시도"
+  },
+  "ai": {
+    "changedFilesList": {
+      "noChangedFiles": "변경된 파일이 없습니다"
+    },
+    "chatContainer": {
+      "generating": "AI가 응답을 생성 중입니다...",
+      "suggest": "질문이나 코드 요청을 해보세요."
+    },
+    "chatMessage": {
+      "copyCode": "코드 복사",
+      "reference": "참고:"
+    },
+    "context": {
+      "select": "파일 선택"
+    },
+    "fileChangeItem": {
+      "apply": "적용",
+      "confirm": "확인",
+      "discard": "버리기"
+    },
+    "fileContextBar": {
+      "addFile": "+ 파일 추가",
+      "context": "컨텍스트:",
+      "noFileSelected": "선택된 파일이 없습니다"
+    },
+    "hints": {
+      "enterSend": "Enter: 줄바꿈 / Ctrl+Enter: 전송",
+      "history": "Alt+↑↓: 히스토리"
+    },
+    "input": {
+      "ask": "AI에게 질문하거나 코드 관련 상담을 하세요...",
+      "edit": "코드 수정을 위한 지시를 입력하세요..."
+    },
+    "selectedLabel": "선택됨:",
+    "sendTitle": "전송 (Ctrl+Enter)"
+  },
+  "aiReviewTab": {
+    "applyAll": "모두 적용",
+    "autoSaveAndApply": "변경사항은 자동으로 저장되며 '모두 적용'으로 파일에 반영됩니다.",
+    "discard": "버리기",
+    "discardAllAndRevert": "모두 버리고 되돌리기",
+    "editRightDirectly": "오른쪽 에디터에서 직접 편집할 수 있습니다",
+    "notFound": "AI 리뷰 데이터를 찾을 수 없습니다",
+    "revert": "되돌리기",
+    "revertSelectionHint": "오른쪽 클릭 후 '선택 항목 되돌리기'로 부분 되돌리기도 가능합니다."
+  },
+  "auth": {
+    "authFailed": "GitHub 인증에 실패했습니다",
+    "authSuccess": "GitHub 인증에 성공했습니다!",
+    "clickToOpenMenu": "메뉴 열기 클릭",
+    "patDescription": "<0>여기 클릭</0>하여 PAT를 생성하세요(리포지토리 범위 필요)",
+    "patPlaceholder": "ghp_xxxxxxxxxxxx",
+    "patPrompt": "GitHub 개인 액세스 토큰",
+    "signIn": "로그인",
+    "signOut": "로그아웃",
+    "signOutConfirm": "GitHub에서 로그아웃 하시겠습니까?"
+  },
+  "binaryTab": {
+    "unsupportedFormat": "이 파일 형식은 표시할 수 없습니다"
+  },
+  "bottom": {
+    "debugConsole": "디버그 콘솔",
+    "output": "출력",
+    "outputPanel": {
+      "all": "전체",
+      "clear": "지우기",
+      "clearTooltip": "현재 표시된 출력을 지웁니다",
+      "contextLabel": "컨텍스트",
+      "empty": "출력이 없습니다",
+      "typeLabel": "타입"
+    },
+    "terminal": "터미널",
+    "terminalInitializing": "터미널 초기화 중..."
+  },
+  "changedFilesList": {
+    "apply": "적용",
+    "applyAll": "모두 적용",
+    "changedFiles": "변경된 파일",
+    "discard": "버리기",
+    "discardAll": "모두 버리기",
+    "others": "기타",
+    "preview": "미리보기",
+    "reason": "사유",
+    "review": "검토"
+  },
+  "charCountDisplay": {
+    "clickForDetails": "자세히 보기 클릭",
+    "close": "닫기",
+    "selectedAndTotal": "선택: {selectionCount}자(공백 제외) / 전체: {charCount}자(공백 제외)",
+    "total": "전체: {charCount}자(공백 제외)"
+  },
+  "chatSpaceList": {
+    "confirmDelete": "이 스페이스를 삭제하시겠습니까?",
+    "create": "새 스페이스 생성",
+    "delete": "삭제",
+    "empty": "아직 스페이스가 없습니다",
+    "rename": "이름 변경"
+  },
+  "confirmation": {
+    "title": "확인"
+  },
+  "diff": {
+    "diff": "차이",
+    "lines": "줄",
+    "original": "원본",
+    "suggested": "제안됨"
+  },
+  "diffTab": {
+    "fileList": "파일 목록",
+    "noDiffFiles": "차이 파일이 없습니다"
+  },
+  "editorPlaceholder": {
+    "loadingEditor": "에디터 로딩 중...",
+    "loadingFile": "파일 내용을 복원하는 중...",
+    "selectFile": "파일을 선택하세요"
+  },
+  "fileTree": {
+    "alert": {
+      "renameFailed": "이름 변경 실패: {error}"
+    },
+    "menu": {
+      "createFile": "파일 생성",
+      "createFolder": "폴더 생성",
+      "delete": "삭제",
+      "download": "다운로드",
+      "import": "가져오기",
+      "open": "열기",
+      "openCodeMirror": "CodeMirror로 열기",
+      "openPreview": "미리보기 열기",
+      "rename": "이름 변경",
+      "webPreview": "웹 미리보기"
+    },
+    "prompt": {
+      "newFileName": "새 파일 이름 입력:",
+      "newFolderName": "새 폴더 이름 입력:",
+      "rename": "새 이름 입력:"
+    }
+  },
+  "git": {
+    "apiKeyPlaceholder": "Gemini API 키 입력",
+    "changes": "변경사항",
+    "commit": "커밋",
+    "commitMessagePlaceholder": "커밋 메시지 입력...",
+    "committing": "커밋 중...",
+    "deleted": "삭제됨",
+    "deleteUntracked": "파일 삭제",
+    "discard": "버리기",
+    "errorOccurred": "오류가 발생했습니다",
+    "generateCommitMessage": "AI로 커밋 메시지 생성",
+    "generating": "생성 중...",
+    "history": "히스토리",
+    "infoNotAvailable": "Git 정보를 가져올 수 없습니다",
+    "loadingStatus": "Git 상태 로딩 중...",
+    "noChanges": "변경사항이 없습니다",
+    "noHistory": "커밋 히스토리가 없습니다",
+    "operationError": "git 접근 중 오류가 발생했습니다",
+    "projectSelect": "프로젝트를 선택하세요",
+    "restore": "파일 복원",
+    "stage": "스테이지",
+    "stageAll": "모두 스테이지",
+    "staged": "스테이징됨",
+    "stageDelete": "삭제 스테이지",
+    "unstage": "언스테이지",
+    "unstageAll": "모두 언스테이지",
+    "unstaged": "언스테이징됨",
+    "untracked": "추적되지 않음",
+    "viewDiffEditable": "차이 보기(편집 가능)",
+    "viewDiffReadonly": "차이 보기(읽기 전용)"
+  },
+  "gitHistory": {
+    "allFilesScrollable": "전체 {count} 파일(스크롤 가능)",
+    "changedFiles": "변경된 파일:",
+    "daysAgo": "{days}일 전",
+    "duplicateGroupsHidden": "({count}개의 중복 그룹 숨김)",
+    "hideDuplicates": "중복 숨기기",
+    "hoursAgo": "{hours}시간 전",
+    "justNow": "방금 전",
+    "loadingChanges": "변경 정보 로딩 중...",
+    "minutesAgo": "{minutes}분 전",
+    "noChangedFiles": "변경된 파일을 찾을 수 없습니다",
+    "showAllFilesDiff": "이 커밋의 모든 파일 차이 보기",
+    "showDuplicates": "중복 보기",
+    "showFileDiff": "이 파일의 차이 보기"
+  },
+  "highlightedCode": {
+    "copyCode": "코드 복사"
+  },
+  "leftSidebar": {
+    "createFile": "새 파일 생성",
+    "createFolder": "새 폴더 생성"
+  },
+  "markdownPreview": {
+    "downloadSvg": "SVG로 다운로드",
+    "exportPdf": "PDF로 내보내기",
+    "generatingMermaid": "Mermaid 다이어그램 생성 중...",
+    "imageNotFound": "이미지를 찾을 수 없습니다: {src}",
+    "loadingImage": "이미지 로딩 중...",
+    "preview": "미리보기",
+    "reset": "리셋",
+    "zoomIn": "확대",
+    "zoomOut": "축소"
+  },
+  "menu": {
+    "files": "파일",
+    "git": "Git",
+    "project": "프로젝트 관리",
+    "run": "실행",
+    "search": "검색",
+    "settings": "설정"
+  },
+  "operationWindow": {
+    "closeByEsc": "ESC로 닫기",
+    "footerHelp": "↑↓로 선택, Enter로 열기",
+    "mdPreviewDialogHelp": "Tab/←→로 전환, Enter로 확인, ESC로 닫기",
+    "mdPreviewPrompt": "Markdown 미리보기로 열겠습니까?",
+    "noFilesFound": "파일을 찾을 수 없습니다",
+    "openInEditor": "에디터에서 열기",
+    "openInPreview": "미리보기에서 열기",
+    "searchPlaceholder": "파일/폴더 이름 또는 경로로 검색..."
+  },
+  "projectModal": {
+    "cancel": "취소",
+    "clone": "GitHub에서 클론",
+    "cloneFromGitHub": "GitHub에서 클론",
+    "cloneSuccess": "클론 성공",
+    "create": "생성",
+    "created": "생성됨",
+    "deleteConfirm": "이 프로젝트를 삭제하시겠습니까?",
+    "deleteProject": "프로젝트 삭제",
+    "description": "설명",
+    "descriptionOptional": "설명(선택)",
+    "descriptionPlaceholder": "프로젝트 설명 입력...",
+    "editProject": "프로젝트 편집",
+    "inputRepoUrl": "리포지토리 URL",
+    "loading": "로딩 중...",
+    "nameHint": "영숫자와 하이픈만 사용하세요",
+    "nameValidation": "프로젝트 이름은 영숫자와 하이픈만 허용합니다. 공백은 하이픈으로 대체됩니다.",
+    "newProject": "새 프로젝트",
+    "noProjects": "프로젝트가 없습니다",
+    "open": "열기",
+    "projectName": "프로젝트 이름",
+    "projectNameOptional": "프로젝트 이름(선택)",
+    "projectNameOptionalPlaceholder": "선택적 프로젝트 이름...",
+    "projectNamePlaceholder": "프로젝트 이름 입력...",
+    "repoUrl": "리포지토리 URL",
+    "repoUrlPlaceholder": "https://github.com/owner/repo",
+    "save": "저장",
+    "title": "프로젝트 관리",
+    "updated": "업데이트됨"
+  },
+  "right": {
+    "aiUnavailable": "AI 어시스턴트를 사용할 수 없습니다"
+  },
+  "run": {
+    "clearOutput": "출력 지우기",
+    "execute": "실행",
+    "executeHint": "Ctrl+Enter (Cmd+Enter)로 실행",
+    "executionStopped": "실행 중지",
+    "fileContentError": "파일 내용을 가져올 수 없습니다",
+    "inputPlaceholder": "Node.js 코드를 입력하세요...",
+    "languageNode": "Node.js",
+    "languagePython": "Python",
+    "noOutput": "출력이 없습니다",
+    "noProject": "실행할 프로젝트를 열어주세요",
+    "outputHint": "JavaScript/Node.js/Python 코드를 실행하면 결과가 여기 표시됩니다. Node.js와 js는 동일 파일에서 실행할 수 있습니다.",
+    "runtimeNotReady": "Python 런타임이 초기화되지 않았습니다",
+    "searchFile": "실행할 파일을 검색하세요...",
+    "stop": "중지",
+    "title": "실행 환경"
+  },
+  "searchPanel": {
+    "caseSensitive": "대소문자 구분",
+    "noResults": "결과가 없습니다",
+    "resultCount": "{count}개의 결과",
+    "searchInFiles": "파일에서 검색...",
+    "searching": "검색 중...",
+    "useRegex": "정규식 사용",
+    "wholeWord": "전체 단어"
+  },
+  "settingsPanel": {
+    "api": {
+      "apiKeyPlaceholder": "API 키 입력",
+      "geminiApiKey": "Gemini API 키",
+      "savedToLocalStorage": "LocalStorage에 저장됨",
+      "title": "API"
+    },
+    "editor": {
+      "defaultEditor": "기본 에디터",
+      "fontSize": "글꼴 크기",
+      "savedToLocalStorage": "LocalStorage에 저장됨",
+      "tabSize": "탭 크기",
+      "title": "에디터",
+      "wordWrap": "단어 줄바꿈 사용"
+    },
+    "export": {
+      "exporting": "내보내는 중...",
+      "includeGit": ".git 디렉토리 포함",
+      "title": "워크스페이스 내보내기",
+      "zipDownload": "ZIP 다운로드"
+    },
+    "files": {
+      "excludeHint": "탐색기에서 숨길 파일/폴더",
+      "excludePattern": "제외 패턴",
+      "title": "파일"
+    },
+    "loading": "설정 로딩 중...",
+    "search": {
+      "excludePattern": "제외 패턴",
+      "globPatternHint": "한 줄에 하나의 glob 패턴을 작성하세요",
+      "title": "검색",
+      "useIgnoreFiles": ".gitignore 같은 파일 사용"
+    },
+    "theme": {
+      "colorCustomize": "색상 사용자화",
+      "colorTheme": "컬러 테마",
+      "highlightTheme": "코드 하이라이트",
+      "language": "언어",
+      "title": "테마"
+    }
+  },
+  "tabBar": {
+    "closeTab": "탭 닫기",
+    "moveToPane": "팬으로 이동",
+    "paneMenu": "팬 메뉴",
+    "removeAllTabs": "모든 탭 제거",
+    "removePane": "팬 제거",
+    "saveRestart": "저장 및 재시작",
+    "splitHorizontal": "가로 분할",
+    "splitVertical": "세로 분할",
+    "tabActions": "탭 동작"
+  },
+  "tabCloseConfirmation": {
+    "cancel": "취소",
+    "discardAndClose": "버리고 닫기",
+    "discardChangesMessage": "이 탭에 저장되지 않은 변경사항이 있습니다. 닫으시겠습니까?",
+    "discardChangesTitle": "변경사항 버리기?"
+  },
+  "topBar": {
+    "searchLabel": "파일 검색",
+    "searchTitle": "파일 검색 (Ctrl+P)",
+    "toggleRightPanel": "오른쪽 패널 토글",
+    "toggleTerminal": "터미널 토글"
+  },
+  "webPreviewTab": {
+    "emptyDirectory": "디렉토리가 비어 있습니다",
+    "inlineHtmlFailed": "HTML 자산 인라인 실패",
+    "notFound": "파일 또는 폴더를 찾을 수 없습니다"
+  }
+}

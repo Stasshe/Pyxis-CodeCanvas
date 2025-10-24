@@ -33,7 +33,9 @@ export default function WelcomeTab() {
             <p className="mb-2 text-base">{t('welcome.hmrHint')}</p>
           </div>
           <section className="mb-8">
-            <h3 className="text-xl font-semibold mb-4 pb-2 border-b">{t('welcome.features.title')}</h3>
+            <h3 className="text-xl font-semibold mb-4 pb-2 border-b">
+              {t('welcome.features.title')}
+            </h3>
             <ul className="space-y-2 text-base">
               <li className="flex items-center gap-2">
                 <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0"></span>
@@ -66,7 +68,9 @@ export default function WelcomeTab() {
             </ul>
           </section>
           <section>
-            <h3 className="text-xl font-semibold mb-4 pb-2 border-b">{t('welcome.mainFeatures.title')}</h3>
+            <h3 className="text-xl font-semibold mb-4 pb-2 border-b">
+              {t('welcome.mainFeatures.title')}
+            </h3>
             <ul className="space-y-2 text-base">
               <li className="flex items-center gap-2">
                 <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0"></span>
@@ -87,7 +91,9 @@ export default function WelcomeTab() {
             </ul>
           </section>
           <section className="mt-12">
-            <h3 className="text-xl font-semibold mb-4 pb-2 border-b">{t('welcome.specialThanks.title')}</h3>
+            <h3 className="text-xl font-semibold mb-4 pb-2 border-b">
+              {t('welcome.specialThanks.title')}
+            </h3>
             <ul className="space-y-2 text-base">
               <li>{t('welcome.specialThanks.contributors')}</li>
               <li>{t('welcome.specialThanks.thanksVisit')}</li>

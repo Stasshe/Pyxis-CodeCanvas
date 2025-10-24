@@ -418,7 +418,11 @@ export default function GitHistory({
         {!showDuplicates &&
           Array.from(duplicateGroups.values()).filter(g => g.length > 1).length > 0 && (
             <span className="text-[11px] text-gray-400">
-              {t('gitHistory.duplicateGroupsHidden', { params: { count: Array.from(duplicateGroups.values()).filter(g => g.length > 1).length } })}
+              {t('gitHistory.duplicateGroupsHidden', {
+                params: {
+                  count: Array.from(duplicateGroups.values()).filter(g => g.length > 1).length,
+                },
+              })}
             </span>
           )}
       </div>
@@ -710,12 +714,12 @@ export default function GitHistory({
                         marginTop: '2px',
                       }}
                     >
-                        <div
-                          className="text-[11px] mb-1 font-medium"
-                          style={{ color: colors.gitCommitMeta || 'var(--muted-foreground)' }}
-                        >
-                          {t('gitHistory.changedFiles')}
-                        </div>
+                      <div
+                        className="text-[11px] mb-1 font-medium"
+                        style={{ color: colors.gitCommitMeta || 'var(--muted-foreground)' }}
+                      >
+                        {t('gitHistory.changedFiles')}
+                      </div>
                       {commitChanges.has(commit.hash) ? (
                         <div
                           className="space-y-0.5 overflow-y-auto"
@@ -772,7 +776,9 @@ export default function GitHistory({
                                       color: colors.gitCommitMeta || 'var(--muted-foreground)',
                                     }}
                                   >
-                                    {t('gitHistory.allFilesScrollable', { params: { count: allFiles.length } })}
+                                    {t('gitHistory.allFilesScrollable', {
+                                      params: { count: allFiles.length },
+                                    })}
                                   </div>
                                 )}
                               </>

@@ -15,8 +15,26 @@ interface LanguageSelectorProps {
 }
 
 const LOCALE_NAMES: Record<Locale, string> = {
-  en: 'English',
-  ja: '日本語',
+  'en': 'English',
+  'ja': '日本語',
+  'es': 'Español',
+  'fr': 'Français',
+  'de': 'Deutsch',
+  'zh': '中文',
+  'zh-TW': '繁體中文',
+  'ko': '한국어',
+  'it': 'Italiano',
+  'pt': 'Português',
+  'ru': 'Русский',
+  'nl': 'Nederlands',
+  'tr': 'Türkçe',
+  'ar': 'العربية',
+  'hi': 'हिन्दी',
+  'th': 'ไทย',
+  'vi': 'Tiếng Việt',
+  'id': 'Bahasa Indonesia',
+  'sv': 'Svenska',
+  'pl': 'Polski',
 };
 
 export default function LanguageSelector({ className = '' }: LanguageSelectorProps) {

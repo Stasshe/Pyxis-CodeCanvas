@@ -1,0 +1,356 @@
+{
+  "action": {
+    "authenticating": "Аутентификация...",
+    "cancel": "Отмена",
+    "refresh": "Обновить",
+    "retry": "Повторить"
+  },
+  "ai": {
+    "changedFilesList": {
+      "noChangedFiles": "Нет изменённых файлов"
+    },
+    "chatContainer": {
+      "generating": "ИИ генерирует ответ...",
+      "suggest": "Пожалуйста, задавайте вопросы или просьбы по коду."
+    },
+    "chatMessage": {
+      "copyCode": "Копировать код",
+      "reference": "Ссылка:"
+    },
+    "context": {
+      "select": "Выбрать файлы"
+    },
+    "fileChangeItem": {
+      "apply": "Применить",
+      "confirm": "Подтвердить",
+      "discard": "Отменить"
+    },
+    "fileContextBar": {
+      "addFile": "+ Добавить файл",
+      "context": "Контекст:",
+      "noFileSelected": "Файл не выбран"
+    },
+    "hints": {
+      "enterSend": "Enter: новая строка / Ctrl+Enter: отправить",
+      "history": "Alt+↑↓: история"
+    },
+    "input": {
+      "ask": "Задайте ИИ вопросы или проконсультируйтесь по коду...",
+      "edit": "Введите инструкции для редактирования кода..."
+    },
+    "selectedLabel": "Выбрано:",
+    "sendTitle": "Отправить (Ctrl+Enter)"
+  },
+  "aiReviewTab": {
+    "applyAll": "Применить все",
+    "autoSaveAndApply": "Изменения автоматически сохраняются и отражаются в файле с 'Применить все'.",
+    "discard": "Отменить",
+    "discardAllAndRevert": "Отменить все и восстановить",
+    "editRightDirectly": "Вы можете редактировать прямо в правом редакторе",
+    "notFound": "Данные AI-обзора не найдены",
+    "revert": "Восстановить",
+    "revertSelectionHint": "Вы также можете частично восстановить, щёлкнув правой кнопкой и выбрав 'Восстановить выбор'."
+  },
+  "auth": {
+    "authFailed": "Аутентификация GitHub не удалась",
+    "authSuccess": "Аутентификация GitHub прошла успешно!",
+    "clickToOpenMenu": "Кликните, чтобы открыть меню",
+    "patDescription": "<0>Нажмите здесь</0>, чтобы создать PAT (требуется область repo)",
+    "patPlaceholder": "ghp_xxxxxxxxxxxx",
+    "patPrompt": "Персональный токен доступа GitHub",
+    "signIn": "Войти",
+    "signOut": "Выйти",
+    "signOutConfirm": "Вы уверены, что хотите выйти из GitHub?"
+  },
+  "binaryTab": {
+    "unsupportedFormat": "Этот формат файла не может быть отображён"
+  },
+  "bottom": {
+    "debugConsole": "Консоль отладки",
+    "output": "Вывод",
+    "outputPanel": {
+      "all": "Все",
+      "clear": "Очистить",
+      "clearTooltip": "Очистить текущий отображаемый вывод",
+      "contextLabel": "Контекст",
+      "empty": "Нет вывода",
+      "typeLabel": "Тип"
+    },
+    "terminal": "Терминал",
+    "terminalInitializing": "Инициализация терминала..."
+  },
+  "changedFilesList": {
+    "apply": "Применить",
+    "applyAll": "Применить все",
+    "changedFiles": "Изменённые файлы",
+    "discard": "Отменить",
+    "discardAll": "Отменить все",
+    "others": "другие",
+    "preview": "Предпросмотр",
+    "reason": "Причина",
+    "review": "Обзор"
+  },
+  "charCountDisplay": {
+    "clickForDetails": "Кликните для деталей",
+    "close": "Закрыть",
+    "selectedAndTotal": "Выбрано: {selectionCount} символов (без пробелов) / Всего: {charCount} символов (без пробелов)",
+    "total": "Всего: {charCount} символов (без пробелов)"
+  },
+  "chatSpaceList": {
+    "confirmDelete": "Вы уверены, что хотите удалить это пространство?",
+    "create": "Создать новое пространство",
+    "delete": "Удалить",
+    "empty": "Пока нет пространств",
+    "rename": "Переименовать"
+  },
+  "confirmation": {
+    "title": "Подтверждение"
+  },
+  "diff": {
+    "diff": "Различия",
+    "lines": "строк",
+    "original": "Исходный",
+    "suggested": "Предложенный"
+  },
+  "diffTab": {
+    "fileList": "Список файлов",
+    "noDiffFiles": "Нет файлов с различиями"
+  },
+  "editorPlaceholder": {
+    "loadingEditor": "Загрузка редактора...",
+    "loadingFile": "Восстановление содержимого файла...",
+    "selectFile": "Пожалуйста, выберите файл"
+  },
+  "fileTree": {
+    "alert": {
+      "renameFailed": "Ошибка переименования: {error}"
+    },
+    "menu": {
+      "createFile": "Создать файл",
+      "createFolder": "Создать папку",
+      "delete": "Удалить",
+      "download": "Скачать",
+      "import": "Импортировать",
+      "open": "Открыть",
+      "openCodeMirror": "Открыть в CodeMirror",
+      "openPreview": "Открыть предпросмотр",
+      "rename": "Переименовать",
+      "webPreview": "WebPreview"
+    },
+    "prompt": {
+      "newFileName": "Введите имя нового файла:",
+      "newFolderName": "Введите имя новой папки:",
+      "rename": "Введите новое имя:"
+    }
+  },
+  "git": {
+    "apiKeyPlaceholder": "Введите ключ Gemini API",
+    "changes": "Изменения",
+    "commit": "Коммит",
+    "commitMessagePlaceholder": "Введите сообщение коммита...",
+    "committing": "Выполняется коммит...",
+    "deleted": "Удалено",
+    "deleteUntracked": "Удалить файл",
+    "discard": "Отменить",
+    "errorOccurred": "Произошла ошибка",
+    "generateCommitMessage": "Сгенерировать с помощью ИИ",
+    "generating": "Генерация...",
+    "history": "История",
+    "infoNotAvailable": "Не удалось получить информацию git",
+    "loadingStatus": "Загрузка статуса git...",
+    "noChanges": "Нет изменений",
+    "noHistory": "Нет истории коммитов",
+    "operationError": "Ошибка при доступе к git",
+    "projectSelect": "Пожалуйста, выберите проект",
+    "restore": "Восстановить файл",
+    "stage": "Добавить в индекс",
+    "stageAll": "Добавить всё",
+    "staged": "В индексe",
+    "stageDelete": "Добавить удаление в индекс",
+    "unstage": "Удалить из индекса",
+    "unstageAll": "Удалить всё из индекса",
+    "unstaged": "Не в индексe",
+    "untracked": "Неотслеживаемый",
+    "viewDiffEditable": "Просмотр различий (редактируемо)",
+    "viewDiffReadonly": "Просмотр различий (только чтение)"
+  },
+  "gitHistory": {
+    "allFilesScrollable": "Все {count} файлов (прокручиваемо)",
+    "changedFiles": "Изменённые файлы:",
+    "daysAgo": "{days} дней назад",
+    "duplicateGroupsHidden": "({count} скрытых повторяющихся групп)",
+    "hideDuplicates": "Скрыть дубликаты",
+    "hoursAgo": "{hours} часов назад",
+    "justNow": "только что",
+    "loadingChanges": "Загрузка информации об изменениях...",
+    "minutesAgo": "{minutes} минут назад",
+    "noChangedFiles": "Не найдено изменённых файлов",
+    "showAllFilesDiff": "Показать различия для всех файлов этого коммита",
+    "showDuplicates": "Показать дубликаты",
+    "showFileDiff": "Показать различия для этого файла"
+  },
+  "highlightedCode": {
+    "copyCode": "Копировать код"
+  },
+  "leftSidebar": {
+    "createFile": "Создать новый файл",
+    "createFolder": "Создать новую папку"
+  },
+  "markdownPreview": {
+    "downloadSvg": "Скачать SVG",
+    "exportPdf": "Экспорт в PDF",
+    "generatingMermaid": "Генерация диаграммы Mermaid...",
+    "imageNotFound": "Изображение не найдено: {src}",
+    "loadingImage": "Загрузка изображения...",
+    "preview": "Предпросмотр",
+    "reset": "Сброс",
+    "zoomIn": "Увеличить",
+    "zoomOut": "Уменьшить"
+  },
+  "menu": {
+    "files": "Файлы",
+    "git": "Git",
+    "project": "Управление проектом",
+    "run": "Запуск",
+    "search": "Поиск",
+    "settings": "Настройки"
+  },
+  "operationWindow": {
+    "closeByEsc": "Закрыть ESC",
+    "footerHelp": "Используйте ↑↓ для выбора, Enter для открытия",
+    "mdPreviewDialogHelp": "Tab/←→ для переключения, Enter для подтверждения, ESC для закрытия",
+    "mdPreviewPrompt": "Открыть в Markdown предпросмотре?",
+    "noFilesFound": "Файлы не найдены",
+    "openInEditor": "Открыть в редакторе",
+    "openInPreview": "Открыть в предпросмотре",
+    "searchPlaceholder": "Поиск по имени файла/папки или пути..."
+  },
+  "projectModal": {
+    "cancel": "Отмена",
+    "clone": "Клонировать из GitHub",
+    "cloneFromGitHub": "Клонировать из GitHub",
+    "cloneSuccess": "Клонирование успешно",
+    "create": "Создать",
+    "created": "Создано",
+    "deleteConfirm": "Вы уверены, что хотите удалить этот проект?",
+    "deleteProject": "Удалить проект",
+    "description": "Описание",
+    "descriptionOptional": "Описание (опционально)",
+    "descriptionPlaceholder": "Введите описание проекта...",
+    "editProject": "Редактировать проект",
+    "inputRepoUrl": "URL репозитория",
+    "loading": "Загрузка...",
+    "nameHint": "Используйте буквенно-цифровые символы и дефисы",
+    "nameValidation": "Имя проекта может содержать только буквенно-цифровые символы и дефисы. Пробелы будут заменены на дефисы.",
+    "newProject": "Новый проект",
+    "noProjects": "Проекты не найдены",
+    "open": "Открыть",
+    "projectName": "Имя проекта",
+    "projectNameOptional": "Имя проекта (опционально)",
+    "projectNameOptionalPlaceholder": "Необязательное имя проекта...",
+    "projectNamePlaceholder": "Введите имя проекта...",
+    "repoUrl": "URL репозитория",
+    "repoUrlPlaceholder": "https://github.com/owner/repo",
+    "save": "Сохранить",
+    "title": "Управление проектом",
+    "updated": "Обновлено"
+  },
+  "right": {
+    "aiUnavailable": "Помощник ИИ недоступен"
+  },
+  "run": {
+    "clearOutput": "Очистить вывод",
+    "execute": "Выполнить",
+    "executeHint": "Нажмите Ctrl+Enter (Cmd+Enter) для выполнения",
+    "executionStopped": "Выполнение остановлено",
+    "fileContentError": "Невозможно получить содержимое файла",
+    "inputPlaceholder": "Введите код Node.js...",
+    "languageNode": "Node.js",
+    "languagePython": "Python",
+    "noOutput": "Нет вывода",
+    "noProject": "Откройте проект для выполнения Node.js кода",
+    "outputHint": "Когда вы выполняете JavaScript/Node.js/Python код, результаты будут отображаться здесь. Node.js и js можно запускать в одном файле.",
+    "runtimeNotReady": "Python runtime не инициализирован",
+    "searchFile": "Найдите файл для выполнения...",
+    "stop": "Остановить",
+    "title": "Среда выполнения"
+  },
+  "searchPanel": {
+    "caseSensitive": "Чувствительность к регистру",
+    "noResults": "Результаты не найдены",
+    "resultCount": "{count} результатов",
+    "searchInFiles": "Поиск в файлах...",
+    "searching": "Поиск...",
+    "useRegex": "Использовать regex",
+    "wholeWord": "Целое слово"
+  },
+  "settingsPanel": {
+    "api": {
+      "apiKeyPlaceholder": "Введите ключ API",
+      "geminiApiKey": "Gemini API Key",
+      "savedToLocalStorage": "Сохранено в LocalStorage",
+      "title": "API"
+    },
+    "editor": {
+      "defaultEditor": "Редактор по умолчанию",
+      "fontSize": "Размер шрифта",
+      "savedToLocalStorage": "Сохранено в LocalStorage",
+      "tabSize": "Размер таба",
+      "title": "Редактор",
+      "wordWrap": "Включить перенос строк"
+    },
+    "export": {
+      "exporting": "Экспорт...",
+      "includeGit": "Включить .git директорию",
+      "title": "Экспорт рабочего пространства",
+      "zipDownload": "Скачать ZIP"
+    },
+    "files": {
+      "excludeHint": "Файлы/папки, скрытые в проводнике",
+      "excludePattern": "Шаблон исключения",
+      "title": "Файлы"
+    },
+    "loading": "Загрузка настроек...",
+    "search": {
+      "excludePattern": "Шаблон исключения",
+      "globPatternHint": "Напишите один glob-шаблон на строку",
+      "title": "Поиск",
+      "useIgnoreFiles": "Использовать файлы игнорирования, такие как .gitignore"
+    },
+    "theme": {
+      "colorCustomize": "Настройка цвета",
+      "colorTheme": "Тема цвета",
+      "highlightTheme": "Тема подсветки",
+      "language": "Язык",
+      "title": "Тема"
+    }
+  },
+  "tabBar": {
+    "closeTab": "Закрыть вкладку",
+    "moveToPane": "Переместить в панель",
+    "paneMenu": "Меню панели",
+    "removeAllTabs": "Закрыть все вкладки",
+    "removePane": "Удалить панель",
+    "saveRestart": "Сохранить и перезапустить",
+    "splitHorizontal": "Разделить горизонтально",
+    "splitVertical": "Разделить вертикально",
+    "tabActions": "Действия вкладки"
+  },
+  "tabCloseConfirmation": {
+    "cancel": "Отмена",
+    "discardAndClose": "Отменить и закрыть",
+    "discardChangesMessage": "В этой вкладке есть несохранённые изменения. Вы уверены, что хотите её закрыть?",
+    "discardChangesTitle": "Отменить изменения?"
+  },
+  "topBar": {
+    "searchLabel": "Поиск файлов",
+    "searchTitle": "Поиск файлов (Ctrl+P)",
+    "toggleRightPanel": "Переключить правую панель",
+    "toggleTerminal": "Переключить терминал"
+  },
+  "webPreviewTab": {
+    "emptyDirectory": "Папка пуста",
+    "inlineHtmlFailed": "Не удалось встроить HTML-ресурсы",
+    "notFound": "Файл или папка не найдены"
+  }
+}

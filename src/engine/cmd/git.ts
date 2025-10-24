@@ -190,7 +190,9 @@ export class GitCommands {
       // cloneDir がプロジェクトルート(baseDir)の場合は空文字にして
       // そのままルートに同期する。そうでなければ targetDir または repoName を使う。
       const baseRelativePath =
-        cloneDir === baseDir ? '' : ((targetDir && targetDir !== '.') ? targetDir : repoName).replace(/^\//, '');
+        cloneDir === baseDir
+          ? ''
+          : (targetDir && targetDir !== '.' ? targetDir : repoName).replace(/^\//, '');
 
       await this.syncClonedFilesToIndexedDB(cloneDir, baseRelativePath);
 

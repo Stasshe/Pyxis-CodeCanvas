@@ -29,9 +29,9 @@ export default function FileChangeItem({
 
   // use diff processor to compute a pure diff summary (added/removed/unchanged)
   const diffLines = calculateDiff(file.originalContent, file.suggestedContent);
-  const added = diffLines.filter((l) => l.type === 'added').length;
-  const removed = diffLines.filter((l) => l.type === 'removed').length;
-  const unchanged = diffLines.filter((l) => l.type === 'unchanged').length;
+  const added = diffLines.filter(l => l.type === 'added').length;
+  const removed = diffLines.filter(l => l.type === 'removed').length;
+  const unchanged = diffLines.filter(l => l.type === 'unchanged').length;
   const originalLines = unchanged + removed;
   const suggestedLines = unchanged + added;
   const fileName = file.path.split('/').pop() || file.path;
@@ -69,7 +69,10 @@ export default function FileChangeItem({
             </p>
           )}
 
-          <div className="flex items-center gap-3 text-xs" style={{ color: colors.mutedFg }}>
+          <div
+            className="flex items-center gap-3 text-xs"
+            style={{ color: colors.mutedFg }}
+          >
             <div className="flex items-center gap-1">
               <span>{originalLines}行</span>
               <span className="mx-1">→</span>
@@ -77,10 +80,16 @@ export default function FileChangeItem({
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-xs" style={{ color: added > 0 ? 'var(--tw-color-green-500, #16a34a)' : colors.mutedFg }}>
+              <span
+                className="text-xs"
+                style={{ color: added > 0 ? 'var(--tw-color-green-500, #16a34a)' : colors.mutedFg }}
+              >
                 +{added}
               </span>
-              <span className="text-xs" style={{ color: removed > 0 ? 'var(--tw-color-red-500, #dc2626)' : colors.mutedFg }}>
+              <span
+                className="text-xs"
+                style={{ color: removed > 0 ? 'var(--tw-color-red-500, #dc2626)' : colors.mutedFg }}
+              >
                 -{removed}
               </span>
             </div>

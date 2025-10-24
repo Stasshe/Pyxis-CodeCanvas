@@ -1,0 +1,30 @@
+{
+  "welcome": {
+    "clientSideNote": "이 앱은 완전히 클라이언트 측에서 실행되며 서버로 데이터를 전송하지 않습니다.",
+    "features": {
+      "clientIDE": "완전한 클라이언트 측 IDE(서버 불필요, 정적 호스팅 가능)",
+      "gitHistory": "Git 히스토리, 브랜치 관리 및 커밋 그래프",
+      "languages": "다중 언어 하이라이팅: Cpp, HTML, CSS, JavaScript, Python 등",
+      "mermaid": "Mermaid로 플로우차트 및 시퀀스 다이어그램 실시간 렌더링",
+      "monaco": "Monaco Editor로 VS Code와 유사한 편집 경험",
+      "nodeRuntime": "브라우저 내 Node.js 런타임, npm, Unix 명령 및 Git 사용 가능",
+      "responsive": "iPad에 최적화된 반응형 UI",
+      "title": "Pyxis의 주요 기능"
+    },
+    "hmrHint": "생성된 홈페이지 폴더를 길게 눌러 HMR과 WebPreview를 시도해보세요.",
+    "indexeddbInfo": "이 프로젝트의 파일은 IndexedDB에 저장됩니다.",
+    "mainFeatures": {
+      "download": "Git / 프로젝트 파일 다운로드",
+      "importExport": "파일 가져오기, 다운로드 및 ZIP 내보내기",
+      "latex": "LaTeX 수식 렌더링 및 Mermaid/HTML 지원",
+      "theme": "테마 색상 전환 및 다중 모니터 지원",
+      "title": "주요 기능"
+    },
+    "specialThanks": {
+      "contributors": "isomorphic-git, Monaco Editor, xterm.js, Mermaid, KaTeX, Pyodide 및 모든 OSS 기여자들에게 감사드립니다.",
+      "thanksVisit": "방문해 주셔서 감사합니다!",
+      "title": "특별 감사"
+    },
+    "title": "환영합니다!"
+  }
+}

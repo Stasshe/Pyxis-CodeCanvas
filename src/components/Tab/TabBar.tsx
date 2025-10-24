@@ -221,7 +221,7 @@ export default function TabBar({
                 size={16}
                 color={colors.red}
               />
-                  <span style={{ color: colors.foreground }}>{t('tabBar.removePane')}</span>
+              <span style={{ color: colors.foreground }}>{t('tabBar.removePane')}</span>
             </button>
             {onSplitPane && (
               <>
@@ -462,7 +462,9 @@ export default function TabBar({
           {/* ペイン移動メニュー */}
           {availablePanes.length > 1 && (
             <>
-              <div className="text-xs text-muted-foreground mt-3 mb-2 px-2">{t('tabBar.moveToPane')}</div>
+              <div className="text-xs text-muted-foreground mt-3 mb-2 px-2">
+                {t('tabBar.moveToPane')}
+              </div>
               {availablePanes
                 .filter(pane => pane.id !== editorId) // 現在のペインは除外
                 .map(pane => (

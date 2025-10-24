@@ -143,7 +143,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
       className="h-full overflow-y-auto"
       style={{ background: colors.background, color: colors.foreground }}
     >
-  {/* ワークスペースエクスポート */}
+      {/* ワークスペースエクスポート */}
       <div
         className="px-4 py-3 border-b"
         style={{ borderColor: colors.border }}
@@ -174,12 +174,14 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
             onClick={handleExport}
             disabled={isExporting}
           >
-            {isExporting ? t('settingsPanel.export.exporting') : t('settingsPanel.export.zipDownload')}
+            {isExporting
+              ? t('settingsPanel.export.exporting')
+              : t('settingsPanel.export.zipDownload')}
           </button>
         </div>
       </div>
 
-  {/* テーマ設定 */}
+      {/* テーマ設定 */}
       <div
         className="px-4 py-3 border-b"
         style={{ borderColor: colors.border }}
@@ -270,9 +272,15 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               <span>{t('settingsPanel.theme.colorCustomize')}</span>
               <span className="text-[10px]">
                 {showColorSettings ? (
-                  <ChevronDown size={14} strokeWidth={2} />
+                  <ChevronDown
+                    size={14}
+                    strokeWidth={2}
+                  />
                 ) : (
-                  <ChevronRight size={14} strokeWidth={2} />
+                  <ChevronRight
+                    size={14}
+                    strokeWidth={2}
+                  />
                 )}
               </span>
             </button>
@@ -284,9 +292,12 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
                 <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
                   {Object.entries(colors)
                     // only show simple string color values (hex or rgb/rgba)
-                    .filter(([_k, v]) => typeof v === 'string' && (/^#|^rgb\(/).test(v))
+                    .filter(([_k, v]) => typeof v === 'string' && /^#|^rgb\(/.test(v))
                     .map(([key, value]) => (
-                      <div key={key} className="flex items-center gap-2">
+                      <div
+                        key={key}
+                        className="flex items-center gap-2"
+                      >
                         <input
                           id={`theme-${key}`}
                           type="color"
@@ -330,7 +341,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
         </div>
       </div>
 
-  {/* エディター設定 */}
+      {/* エディター設定 */}
       <div
         className="px-4 py-3 border-b"
         style={{ borderColor: colors.border }}
@@ -442,7 +453,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
         </div>
       </div>
 
-  {/* API設定 */}
+      {/* API設定 */}
       <div
         className="px-4 py-3 border-b"
         style={{ borderColor: colors.border }}
@@ -481,7 +492,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
         </div>
       </div>
 
-  {/* 検索設定 */}
+      {/* 検索設定 */}
       <div
         className="px-4 py-3 border-b"
         style={{ borderColor: colors.border }}
@@ -547,7 +558,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
         </div>
       </div>
 
-  {/* ファイル設定 */}
+      {/* ファイル設定 */}
       <div className="px-4 py-3">
         <h2
           className="text-xs font-semibold uppercase tracking-wide mb-3"

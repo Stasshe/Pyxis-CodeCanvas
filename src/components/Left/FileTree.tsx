@@ -437,208 +437,225 @@ export default function FileTree({
             padding: '2px 0',
           }}
         >
-              <ul className="py-0">
-                {/* build menu items with keys to avoid comparing translated strings */}
-                {(() => {
-                  const menuItems: Array<{ key: string; label: string }> =
-                    contextMenu && contextMenu.item == null
-                      ? [
-                          { key: 'createFile', label: t('fileTree.menu.createFile') },
-                          { key: 'createFolder', label: t('fileTree.menu.createFolder') },
-                          { key: 'import', label: t('fileTree.menu.import') },
-                        ]
-                      : [
-                          contextMenu && contextMenu.item && contextMenu.item.type === 'file'
-                            ? { key: 'open', label: t('fileTree.menu.open') }
-                            : null,
-                          contextMenu &&
-                          contextMenu.item &&
-                          contextMenu.item.type === 'file' &&
-                          contextMenu.item.name.endsWith('.md')
-                            ? { key: 'openPreview', label: t('fileTree.menu.openPreview') }
-                            : null,
-                          contextMenu && contextMenu.item && contextMenu.item.type === 'file'
-                            ? { key: 'openCodeMirror', label: t('fileTree.menu.openCodeMirror') }
-                            : null,
-                          { key: 'download', label: t('fileTree.menu.download') },
-                          { key: 'import', label: t('fileTree.menu.import') },
-                          { key: 'rename', label: t('fileTree.menu.rename') },
-                          { key: 'delete', label: t('fileTree.menu.delete') },
-                          contextMenu && contextMenu.item && contextMenu.item.type === 'folder'
-                            ? { key: 'createFolder', label: t('fileTree.menu.createFolder') }
-                            : null,
-                          contextMenu && contextMenu.item && contextMenu.item.type === 'folder'
-                            ? { key: 'createFile', label: t('fileTree.menu.createFile') }
-                            : null,
-                          { key: 'webPreview', label: t('fileTree.menu.webPreview') },
-                        ].filter(Boolean) as Array<{ key: string; label: string }>;
+          <ul className="py-0">
+            {/* build menu items with keys to avoid comparing translated strings */}
+            {(() => {
+              const menuItems: Array<{ key: string; label: string }> =
+                contextMenu && contextMenu.item == null
+                  ? [
+                      { key: 'createFile', label: t('fileTree.menu.createFile') },
+                      { key: 'createFolder', label: t('fileTree.menu.createFolder') },
+                      { key: 'import', label: t('fileTree.menu.import') },
+                    ]
+                  : ([
+                      contextMenu && contextMenu.item && contextMenu.item.type === 'file'
+                        ? { key: 'open', label: t('fileTree.menu.open') }
+                        : null,
+                      contextMenu &&
+                      contextMenu.item &&
+                      contextMenu.item.type === 'file' &&
+                      contextMenu.item.name.endsWith('.md')
+                        ? { key: 'openPreview', label: t('fileTree.menu.openPreview') }
+                        : null,
+                      contextMenu && contextMenu.item && contextMenu.item.type === 'file'
+                        ? { key: 'openCodeMirror', label: t('fileTree.menu.openCodeMirror') }
+                        : null,
+                      { key: 'download', label: t('fileTree.menu.download') },
+                      { key: 'import', label: t('fileTree.menu.import') },
+                      { key: 'rename', label: t('fileTree.menu.rename') },
+                      { key: 'delete', label: t('fileTree.menu.delete') },
+                      contextMenu && contextMenu.item && contextMenu.item.type === 'folder'
+                        ? { key: 'createFolder', label: t('fileTree.menu.createFolder') }
+                        : null,
+                      contextMenu && contextMenu.item && contextMenu.item.type === 'folder'
+                        ? { key: 'createFile', label: t('fileTree.menu.createFile') }
+                        : null,
+                      { key: 'webPreview', label: t('fileTree.menu.webPreview') },
+                    ].filter(Boolean) as Array<{ key: string; label: string }>);
 
-                  const handleMenuAction = async (key: string, menuItem: FileItem | null) => {
-                    setContextMenu(null);
-                    const unix = new UnixCommands(currentProjectName, currentProjectId);
+              const handleMenuAction = async (key: string, menuItem: FileItem | null) => {
+                setContextMenu(null);
+                const unix = new UnixCommands(currentProjectName, currentProjectId);
 
-                    if (key === 'createFile') {
-                      const fileName = prompt(t('fileTree.prompt.newFileName'));
-                      if (fileName && currentProjectId) {
-                        const newFilePath = fileName.startsWith('/') ? fileName : '/' + fileName;
-                        await fileRepository.createFile(currentProjectId, newFilePath, '', 'file');
-                        if (onRefresh) setTimeout(onRefresh, 100);
-                      }
-                      return;
+                if (key === 'createFile') {
+                  const fileName = prompt(t('fileTree.prompt.newFileName'));
+                  if (fileName && currentProjectId) {
+                    const newFilePath = fileName.startsWith('/') ? fileName : '/' + fileName;
+                    await fileRepository.createFile(currentProjectId, newFilePath, '', 'file');
+                    if (onRefresh) setTimeout(onRefresh, 100);
+                  }
+                  return;
+                }
+
+                if (key === 'createFolder') {
+                  const folderName = prompt(t('fileTree.prompt.newFolderName'));
+                  if (folderName && currentProjectId) {
+                    const newFolderPath = folderName.startsWith('/')
+                      ? folderName
+                      : '/' + folderName;
+                    await fileRepository.createFile(currentProjectId, newFolderPath, '', 'folder');
+                    if (onRefresh) setTimeout(onRefresh, 100);
+                  }
+                  return;
+                }
+
+                if (key === 'import' && !menuItem) {
+                  const input = document.createElement('input');
+                  input.type = 'file';
+                  (input as any).webkitdirectory = true;
+                  (input as any).directory = true;
+                  input.multiple = true;
+                  input.onchange = async (e: any) => {
+                    const files: FileList = e.target.files;
+                    if (!files || files.length === 0) return;
+                    for (let i = 0; i < files.length; i++) {
+                      const file = files[i];
+                      const relative = (file as any).webkitRelativePath || file.name;
+                      const relPathParts = relative.split('/').filter(Boolean);
+                      const targetPath = '/' + relPathParts.join('/');
+                      const targetAbsolutePath = `/projects/${currentProjectName}${targetPath}`;
+                      await importSingleFile(file, targetAbsolutePath, unix);
                     }
-
-                    if (key === 'createFolder') {
-                      const folderName = prompt(t('fileTree.prompt.newFolderName'));
-                      if (folderName && currentProjectId) {
-                        const newFolderPath = folderName.startsWith('/') ? folderName : '/' + folderName;
-                        await fileRepository.createFile(currentProjectId, newFolderPath, '', 'folder');
-                        if (onRefresh) setTimeout(onRefresh, 100);
-                      }
-                      return;
-                    }
-
-                    if (key === 'import' && !menuItem) {
-                      const input = document.createElement('input');
-                      input.type = 'file';
-                      (input as any).webkitdirectory = true;
-                      (input as any).directory = true;
-                      input.multiple = true;
-                      input.onchange = async (e: any) => {
-                        const files: FileList = e.target.files;
-                        if (!files || files.length === 0) return;
-                        for (let i = 0; i < files.length; i++) {
-                          const file = files[i];
-                          const relative = (file as any).webkitRelativePath || file.name;
-                          const relPathParts = relative.split('/').filter(Boolean);
-                          const targetPath = '/' + relPathParts.join('/');
-                          const targetAbsolutePath = `/projects/${currentProjectName}${targetPath}`;
-                          await importSingleFile(file, targetAbsolutePath, unix);
-                        }
-                        if (onRefresh) setTimeout(onRefresh, 100);
-                      };
-                      input.click();
-                      return;
-                    }
-
-                    // actions for existing item
-                    if (!menuItem) return;
-
-                    if (key === 'open') {
-                      onFileOpen(menuItem);
-                    } else if (key === 'openPreview') {
-                      handlePreview(menuItem);
-                    } else if (key === 'openCodeMirror') {
-                      if (menuItem && menuItem.type === 'file') onFileOpen({ ...menuItem, isCodeMirror: true });
-                    } else if (key === 'download') {
-                      const item = menuItem;
-                      if (item.type === 'file') {
-                        let content = item.content;
-                        if (typeof content !== 'string') content = 'error fetching content';
-                        exportSingleFile({
-                          name: item.name,
-                          content,
-                          isBufferArray: item.isBufferArray,
-                          bufferContent: item.bufferContent,
-                        });
-                      } else if (item.type === 'folder') {
-                        await exportFolderZip(item);
-                      }
-                    } else if (key === 'import') {
-                      const input = document.createElement('input');
-                      input.type = 'file';
-                      (input as any).webkitdirectory = true;
-                      (input as any).directory = true;
-                      input.multiple = true;
-                      input.onchange = async (e: any) => {
-                        const files: FileList = e.target.files;
-                        if (!files || files.length === 0) return;
-                        const unixLocal = new UnixCommands(currentProjectName, currentProjectId);
-                        let baseTargetDir = '';
-                        if (menuItem) {
-                          if (menuItem.type === 'file') baseTargetDir = menuItem.path.substring(0, menuItem.path.lastIndexOf('/')) || '/';
-                          else if (menuItem.type === 'folder') baseTargetDir = menuItem.path || '/';
-                        }
-                        for (let i = 0; i < files.length; i++) {
-                          const file = files[i];
-                          const relative = (file as any).webkitRelativePath || file.name;
-                          const relParts = relative.split('/').filter(Boolean);
-                          const relPath = relParts.join('/');
-                          const normalizedBase = baseTargetDir.endsWith('/') ? baseTargetDir.slice(0, -1) : baseTargetDir;
-                          const targetAbsolutePath = `/projects/${currentProjectName}${normalizedBase}/${relPath}`.replace('//', '/');
-                          await importSingleFile(file, targetAbsolutePath, unixLocal);
-                        }
-                        if (onRefresh) setTimeout(onRefresh, 100);
-                      };
-                      input.click();
-                    } else if (key === 'rename') {
-                      const item = menuItem;
-                      const newName = prompt(t('fileTree.prompt.rename'), item.name);
-                      if (newName && newName !== item.name) {
-                        try {
-                          const lastSlash = item.path.lastIndexOf('/');
-                          const oldPath = `/projects/${currentProjectName}${item.path}`;
-                          const newPath = `/projects/${currentProjectName}${item.path.substring(0, lastSlash + 1)}${newName}`;
-                          await unix.rename(oldPath, newPath);
-                          if (onRefresh) setTimeout(onRefresh, 100);
-                        } catch (error: any) {
-                          alert(t('fileTree.alert.renameFailed', { params: { error: error.message } }));
-                        }
-                      }
-                    } else if (key === 'delete') {
-                      const item = menuItem;
-                      if (item && currentProjectId) {
-                        await fileRepository.deleteFile(item.id);
-                        if (onRefresh) setTimeout(onRefresh, 100);
-                      }
-                    } else if (key === 'webPreview') {
-                      handleWebPreview(menuItem);
-                    } else if (key === 'createFolder' && menuItem) {
-                      const folderName = prompt(t('fileTree.prompt.newFolderName'));
-                      if (folderName && currentProjectId) {
-                        const newFolderPath = menuItem.path.endsWith('/') ? menuItem.path + folderName : menuItem.path + '/' + folderName;
-                        await fileRepository.createFile(currentProjectId, newFolderPath, '', 'folder');
-                        if (onRefresh) setTimeout(onRefresh, 100);
-                      }
-                    } else if (key === 'createFile' && menuItem) {
-                      const fileName = prompt(t('fileTree.prompt.newFileName'));
-                      if (fileName && currentProjectId) {
-                        const newFilePath = menuItem.path.endsWith('/') ? menuItem.path + fileName : menuItem.path + '/' + fileName;
-                        await fileRepository.createFile(currentProjectId, newFilePath, '', 'file');
-                        if (onRefresh) setTimeout(onRefresh, 100);
-                      }
-                    }
+                    if (onRefresh) setTimeout(onRefresh, 100);
                   };
+                  input.click();
+                  return;
+                }
 
-                  return menuItems.map((mi, idx) => (
-                    <li
-                      key={mi.key}
-                      style={{
-                        padding: '0.5rem',
-                        cursor: 'pointer',
-                        fontSize: '0.75rem',
-                        background: menuHoveredIdx === idx ? colors.accentBg : 'transparent',
-                        color: colors.foreground,
-                        borderTop: idx === 2 ? `1px solid ${colors.border}` : undefined,
-                        lineHeight: '1.2',
-                        minHeight: '24px',
-                        userSelect: 'none',
-                        WebkitUserSelect: 'none',
-                        WebkitTouchCallout: 'none',
-                        MozUserSelect: 'none',
-                        msUserSelect: 'none',
-                        touchAction: 'manipulation',
-                      }}
-                      onMouseEnter={() => setMenuHoveredIdx(idx)}
-                      onMouseLeave={() => setMenuHoveredIdx(null)}
-                      onTouchStart={() => setMenuHoveredIdx(idx)}
-                      onTouchEnd={() => setMenuHoveredIdx(null)}
-                      onClick={() => void handleMenuAction(mi.key, contextMenu ? contextMenu.item : null)}
-                    >
-                      {mi.label}
-                    </li>
-                  ));
-                })()}
-              </ul>
+                // actions for existing item
+                if (!menuItem) return;
+
+                if (key === 'open') {
+                  onFileOpen(menuItem);
+                } else if (key === 'openPreview') {
+                  handlePreview(menuItem);
+                } else if (key === 'openCodeMirror') {
+                  if (menuItem && menuItem.type === 'file')
+                    onFileOpen({ ...menuItem, isCodeMirror: true });
+                } else if (key === 'download') {
+                  const item = menuItem;
+                  if (item.type === 'file') {
+                    let content = item.content;
+                    if (typeof content !== 'string') content = 'error fetching content';
+                    exportSingleFile({
+                      name: item.name,
+                      content,
+                      isBufferArray: item.isBufferArray,
+                      bufferContent: item.bufferContent,
+                    });
+                  } else if (item.type === 'folder') {
+                    await exportFolderZip(item);
+                  }
+                } else if (key === 'import') {
+                  const input = document.createElement('input');
+                  input.type = 'file';
+                  (input as any).webkitdirectory = true;
+                  (input as any).directory = true;
+                  input.multiple = true;
+                  input.onchange = async (e: any) => {
+                    const files: FileList = e.target.files;
+                    if (!files || files.length === 0) return;
+                    const unixLocal = new UnixCommands(currentProjectName, currentProjectId);
+                    let baseTargetDir = '';
+                    if (menuItem) {
+                      if (menuItem.type === 'file')
+                        baseTargetDir =
+                          menuItem.path.substring(0, menuItem.path.lastIndexOf('/')) || '/';
+                      else if (menuItem.type === 'folder') baseTargetDir = menuItem.path || '/';
+                    }
+                    for (let i = 0; i < files.length; i++) {
+                      const file = files[i];
+                      const relative = (file as any).webkitRelativePath || file.name;
+                      const relParts = relative.split('/').filter(Boolean);
+                      const relPath = relParts.join('/');
+                      const normalizedBase = baseTargetDir.endsWith('/')
+                        ? baseTargetDir.slice(0, -1)
+                        : baseTargetDir;
+                      const targetAbsolutePath =
+                        `/projects/${currentProjectName}${normalizedBase}/${relPath}`.replace(
+                          '//',
+                          '/'
+                        );
+                      await importSingleFile(file, targetAbsolutePath, unixLocal);
+                    }
+                    if (onRefresh) setTimeout(onRefresh, 100);
+                  };
+                  input.click();
+                } else if (key === 'rename') {
+                  const item = menuItem;
+                  const newName = prompt(t('fileTree.prompt.rename'), item.name);
+                  if (newName && newName !== item.name) {
+                    try {
+                      const lastSlash = item.path.lastIndexOf('/');
+                      const oldPath = `/projects/${currentProjectName}${item.path}`;
+                      const newPath = `/projects/${currentProjectName}${item.path.substring(0, lastSlash + 1)}${newName}`;
+                      await unix.rename(oldPath, newPath);
+                      if (onRefresh) setTimeout(onRefresh, 100);
+                    } catch (error: any) {
+                      alert(t('fileTree.alert.renameFailed', { params: { error: error.message } }));
+                    }
+                  }
+                } else if (key === 'delete') {
+                  const item = menuItem;
+                  if (item && currentProjectId) {
+                    await fileRepository.deleteFile(item.id);
+                    if (onRefresh) setTimeout(onRefresh, 100);
+                  }
+                } else if (key === 'webPreview') {
+                  handleWebPreview(menuItem);
+                } else if (key === 'createFolder' && menuItem) {
+                  const folderName = prompt(t('fileTree.prompt.newFolderName'));
+                  if (folderName && currentProjectId) {
+                    const newFolderPath = menuItem.path.endsWith('/')
+                      ? menuItem.path + folderName
+                      : menuItem.path + '/' + folderName;
+                    await fileRepository.createFile(currentProjectId, newFolderPath, '', 'folder');
+                    if (onRefresh) setTimeout(onRefresh, 100);
+                  }
+                } else if (key === 'createFile' && menuItem) {
+                  const fileName = prompt(t('fileTree.prompt.newFileName'));
+                  if (fileName && currentProjectId) {
+                    const newFilePath = menuItem.path.endsWith('/')
+                      ? menuItem.path + fileName
+                      : menuItem.path + '/' + fileName;
+                    await fileRepository.createFile(currentProjectId, newFilePath, '', 'file');
+                    if (onRefresh) setTimeout(onRefresh, 100);
+                  }
+                }
+              };
+
+              return menuItems.map((mi, idx) => (
+                <li
+                  key={mi.key}
+                  style={{
+                    padding: '0.5rem',
+                    cursor: 'pointer',
+                    fontSize: '0.75rem',
+                    background: menuHoveredIdx === idx ? colors.accentBg : 'transparent',
+                    color: colors.foreground,
+                    borderTop: idx === 2 ? `1px solid ${colors.border}` : undefined,
+                    lineHeight: '1.2',
+                    minHeight: '24px',
+                    userSelect: 'none',
+                    WebkitUserSelect: 'none',
+                    WebkitTouchCallout: 'none',
+                    MozUserSelect: 'none',
+                    msUserSelect: 'none',
+                    touchAction: 'manipulation',
+                  }}
+                  onMouseEnter={() => setMenuHoveredIdx(idx)}
+                  onMouseLeave={() => setMenuHoveredIdx(null)}
+                  onTouchStart={() => setMenuHoveredIdx(idx)}
+                  onTouchEnd={() => setMenuHoveredIdx(null)}
+                  onClick={() =>
+                    void handleMenuAction(mi.key, contextMenu ? contextMenu.item : null)
+                  }
+                >
+                  {mi.label}
+                </li>
+              ));
+            })()}
+          </ul>
         </div>
       )}
     </div>

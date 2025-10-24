@@ -147,7 +147,13 @@ export class SyncManager {
     } catch (error) {
       coreError('[SyncManager] Failed to sync from IndexedDB to lightning-fs:', error);
       // notify listeners that sync stopped with error
-      this.emit('sync:stop', { projectId, projectName, direction: 'db->fs', success: false, error });
+      this.emit('sync:stop', {
+        projectId,
+        projectName,
+        direction: 'db->fs',
+        success: false,
+        error,
+      });
       throw error;
     }
   }
@@ -204,7 +210,13 @@ export class SyncManager {
       this.emit('sync:stop', { projectId, projectName, direction: 'fs->db', success: true });
     } catch (error) {
       coreError('[SyncManager] Failed to sync from lightning-fs to IndexedDB:', error);
-      this.emit('sync:stop', { projectId, projectName, direction: 'fs->db', success: false, error });
+      this.emit('sync:stop', {
+        projectId,
+        projectName,
+        direction: 'fs->db',
+        success: false,
+        error,
+      });
       throw error;
     }
   }
@@ -239,10 +251,23 @@ export class SyncManager {
       // キャッシュフラッシュ
       await gitFileSystem.flush();
       coreInfo(`[SyncManager] Single file sync completed: ${filePath}`);
-      this.emit('sync:stop', { projectName, filePath, operation, direction: 'single:db->fs', success: true });
+      this.emit('sync:stop', {
+        projectName,
+        filePath,
+        operation,
+        direction: 'single:db->fs',
+        success: true,
+      });
     } catch (error) {
       coreError(`[SyncManager] Failed to sync single file ${filePath}:`, error);
-      this.emit('sync:stop', { projectName, filePath, operation, direction: 'single:db->fs', success: false, error });
+      this.emit('sync:stop', {
+        projectName,
+        filePath,
+        operation,
+        direction: 'single:db->fs',
+        success: false,
+        error,
+      });
       throw error;
     }
   }

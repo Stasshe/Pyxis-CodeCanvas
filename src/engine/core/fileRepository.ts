@@ -987,7 +987,10 @@ export class FileRepository {
             coreWarn('[FileRepository] Could not determine projectName for bulk delete sync');
           }
         } catch (err) {
-          console.warn('[FileRepository] Bulk delete: syncFromIndexedDBToFS failed (non-critical):', err);
+          console.warn(
+            '[FileRepository] Bulk delete: syncFromIndexedDBToFS failed (non-critical):',
+            err
+          );
         }
 
         resolve();

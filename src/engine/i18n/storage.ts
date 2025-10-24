@@ -20,7 +20,7 @@ function openDB(): Promise<IDBDatabase> {
     request.onerror = () => reject(request.error);
     request.onsuccess = () => resolve(request.result);
 
-    request.onupgradeneeded = (event) => {
+    request.onupgradeneeded = event => {
       const db = (event.target as IDBOpenDBRequest).result;
 
       // translationsストアを作成
@@ -163,7 +163,7 @@ export async function cleanExpiredCache(): Promise<void> {
     await new Promise<void>((resolve, reject) => {
       const request = index.openCursor();
 
-      request.onsuccess = (event) => {
+      request.onsuccess = event => {
         const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
         if (cursor) {
           const entry = cursor.value as TranslationCacheEntry & { id: string };

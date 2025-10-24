@@ -94,13 +94,13 @@ export default function ChatInput({
         {/* 選択ファイル表示 */}
         {selectedFiles.length > 0 && (
           <div className="flex items-center gap-2 flex-wrap">
-              <div
-                className="flex items-center gap-1 text-xs"
-                style={{ color: colors.mutedFg }}
-              >
-                <FileCode size={14} />
-                <span>{t('ai.selectedLabel')}</span>
-              </div>
+            <div
+              className="flex items-center gap-1 text-xs"
+              style={{ color: colors.mutedFg }}
+            >
+              <FileCode size={14} />
+              <span>{t('ai.selectedLabel')}</span>
+            </div>
             {selectedFiles.map((file, index) => (
               <span
                 key={index}

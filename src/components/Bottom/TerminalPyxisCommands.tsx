@@ -148,9 +148,7 @@ export async function handlePyxisCommand(
           if (otherLightningFSKeys.length === 0) {
             await writeOutput('No Lightning-FS related localStorage entries found.');
           } else {
-            await writeOutput(
-              `Lightning-FS related entries (${otherLightningFSKeys.length}):`
-            );
+            await writeOutput(`Lightning-FS related entries (${otherLightningFSKeys.length}):`);
             for (const key of otherLightningFSKeys.slice(0, 10)) {
               const value = window.localStorage.getItem(key);
               const size = value ? value.length : 0;
