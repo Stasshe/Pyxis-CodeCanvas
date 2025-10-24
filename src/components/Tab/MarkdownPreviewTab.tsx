@@ -32,6 +32,8 @@ let mermaidIdCounter = 0;
 
 // メモ化されたMermaidコンポーネント
 const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) => {
+  // i18n
+  const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
   // chart内容ごとにIDを固定
   const idRef = useMemo(
@@ -70,7 +72,7 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
               <animateTransform attributeName="transform" type="rotate" from="0 20 20" to="360 20 20" dur="1s" repeatCount="indefinite"/>
             </circle>
           </svg>
-          <span style="margin-left:10px;color:#4ade80;font-size:14px;">Mermaid図表を生成中...</span>
+          <span style=\"margin-left:10px;color:#4ade80;font-size:14px;\">${t ? t('markdownPreview.generatingMermaid') : 'Mermaid図表を生成中...'}</span>
         </div>
       `;
       try {
@@ -384,83 +386,53 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
             zIndex: 20,
           }}
         >
-          <div
-            className="select-none"
-            style={{
-              display: 'flex',
-              gap: 6,
-              background: 'rgba(255,255,255,0.85)',
-              padding: '6px',
-              borderRadius: 6,
-            }}
-          >
-            <button
-              type="button"
-              onClick={handleZoomIn}
-              style={{
-                padding: '4px 8px',
-                background: '#60a5fa',
-                color: '#fff',
-                borderRadius: '4px',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '12px',
-              }}
-              title="ズームイン"
-            >
-              ＋
-            </button>
-            <button
-              type="button"
-              onClick={handleZoomOut}
-              style={{
-                padding: '4px 8px',
-                background: '#60a5fa',
-                color: '#fff',
-                borderRadius: '4px',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '12px',
-              }}
-              title="ズームアウト"
-            >
-              －
-            </button>
-            <button
-              type="button"
-              onClick={handleResetView}
-              style={{
-                padding: '4px 8px',
-                background: '#94a3b8',
-                color: '#fff',
-                borderRadius: '4px',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '12px',
-              }}
-              title="リセット"
-            >
-              リセット
-            </button>
-            <button
-              type="button"
-              onClick={handleDownloadSvg}
-              style={{
-                padding: '4px 8px',
-                background: '#38bdf8',
-                color: '#fff',
-                borderRadius: '4px',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '12px',
-                marginLeft: '4px',
-                boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
-              }}
-              title="SVGダウンロード"
-            >
-              SVG
-            </button>
-          </div>
+              <div
+                className="select-none"
+                style={{
+                  display: 'flex',
+                  gap: 6,
+                  background: 'rgba(255,255,255,0.85)',
+                  padding: '6px',
+                  borderRadius: 6,
+                }}
+              >
+                <button
+                  type="button"
+                  aria-label={t ? t('markdownPreview.zoomIn') : 'ズームイン'}
+                  onClick={handleZoomIn}
+                  style={{ margin: '0 4px', padding: '4px 8px', borderRadius: 4, border: '1px solid #ccc', background: '#fff' }}
+                >
+                  ＋{/* lucide-react推奨: ここは仮のテキスト。アイコン化は別途 */}
+                  {t ? t('markdownPreview.zoomIn') : 'ズームイン'}
+                </button>
+                <button
+                  type="button"
+                  aria-label={t ? t('markdownPreview.zoomOut') : 'ズームアウト'}
+                  onClick={handleZoomOut}
+                  style={{ margin: '0 4px', padding: '4px 8px', borderRadius: 4, border: '1px solid #ccc', background: '#fff' }}
+                >
+                  －
+                  {t ? t('markdownPreview.zoomOut') : 'ズームアウト'}
+                </button>
+                <button
+                  type="button"
+                  aria-label={t ? t('markdownPreview.reset') : 'リセット'}
+                  onClick={handleResetView}
+                  style={{ margin: '0 4px', padding: '4px 8px', borderRadius: 4, border: '1px solid #ccc', background: '#fff' }}
+                >
+                  ⟳
+                  {t ? t('markdownPreview.reset') : 'リセット'}
+                </button>
+                <button
+                  type="button"
+                  aria-label={t ? t('markdownPreview.downloadSvg') : 'SVGダウンロード'}
+                  onClick={handleDownloadSvg}
+                  style={{ margin: '0 4px', padding: '4px 8px', borderRadius: 4, border: '1px solid #ccc', background: '#fff' }}
+                >
+                  ⬇
+                  {t ? t('markdownPreview.downloadSvg') : 'SVGダウンロード'}
+                </button>
+              </div>
         </div>
       )}
 
@@ -498,6 +470,8 @@ const LocalImage = React.memo<{
   const [dataUrl, setDataUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  // i18n
+  const { t } = useTranslation();
 
   useEffect(() => {
     const loadImage = async () => {
@@ -555,7 +529,7 @@ const LocalImage = React.memo<{
           color: '#666',
         }}
       >
-        画像を読み込み中...
+        {t ? t('markdownPreview.loadingImage') : '画像を読み込み中...'}
       </span>
     );
   }
@@ -574,7 +548,7 @@ const LocalImage = React.memo<{
           color: '#cc0000',
         }}
       >
-        画像が見つかりません: {src}
+        {t ? t('markdownPreview.imageNotFound', { params: { src } }) : `画像が見つかりません: ${src}`}
       </span>
     );
   }

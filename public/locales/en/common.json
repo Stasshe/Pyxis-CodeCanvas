@@ -185,7 +185,9 @@
     "loadingChanges": "Loading change info...",
     "minutesAgo": "{minutes} minutes ago",
     "noChangedFiles": "No changed files found",
-    "showDuplicates": "Show duplicate commits"
+    "showAllFilesDiff": "Show all file diffs for this commit",
+    "showDuplicates": "Show duplicate commits",
+    "showFileDiff": "Show diff for this file"
   },
   "highlightedCode": {
     "copyCode": "Copy code"
@@ -195,8 +197,15 @@
     "createFolder": "Create new folder"
   },
   "markdownPreview": {
+    "downloadSvg": "Download SVG",
     "exportPdf": "Export PDF",
-    "preview": "Preview"
+    "generatingMermaid": "Generating Mermaid diagram...",
+    "imageNotFound": "Image not found: {src}",
+    "loadingImage": "Loading image...",
+    "preview": "Preview",
+    "reset": "Reset",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out"
   },
   "menu": {
     "files": "Files",
@@ -275,6 +284,47 @@
     "useRegex": "Use regex",
     "wholeWord": "Whole word"
   },
+  "settingsPanel": {
+    "api": {
+      "apiKeyPlaceholder": "Enter API key",
+      "geminiApiKey": "Gemini API Key",
+      "savedToLocalStorage": "Saved to LocalStorage",
+      "title": "API"
+    },
+    "editor": {
+      "defaultEditor": "Default Editor",
+      "fontSize": "Font Size",
+      "savedToLocalStorage": "Saved to LocalStorage",
+      "tabSize": "Tab Size",
+      "title": "Editor",
+      "wordWrap": "Enable word wrap"
+    },
+    "export": {
+      "exporting": "Exporting...",
+      "includeGit": "Include .git directory",
+      "title": "Workspace Export",
+      "zipDownload": "Download ZIP"
+    },
+    "files": {
+      "excludeHint": "Files/folders hidden in explorer",
+      "excludePattern": "Exclude Pattern",
+      "title": "Files"
+    },
+    "loading": "Loading settings...",
+    "search": {
+      "excludePattern": "Exclude Pattern",
+      "globPatternHint": "Write one glob pattern per line",
+      "title": "Search",
+      "useIgnoreFiles": "Use ignore files like .gitignore"
+    },
+    "theme": {
+      "colorCustomize": "Color Customize",
+      "colorTheme": "Color Theme",
+      "highlightTheme": "Code Highlight",
+      "language": "Language",
+      "title": "Theme"
+    }
+  },
   "tabBar": {
     "closeTab": "Close tab",
     "moveToPane": "Move to pane",
@@ -303,32 +353,5 @@
     "inlineHtmlFailed": "Failed to inline HTML assets",
     "notFound": "File or folder not found"
   },
-  "welcome": {
-    "clientSideNote": "This app runs fully client-side and does not send any data to servers.",
-    "features": {
-      "clientIDE": "Fully client-side IDE (no server required, static hosting)",
-      "gitHistory": "Git history, branch management and commit graph",
-      "languages": "Multi-language highlighting: Cpp, HTML, CSS, JavaScript, Python, etc.",
-      "mermaid": "Real-time rendering of flowcharts and sequence diagrams with Mermaid",
-      "monaco": "VS Code-like editing experience with Monaco Editor",
-      "nodeRuntime": "Node.js runtime, npm, Unix commands and Git available in the browser",
-      "responsive": "Responsive UI optimized for iPad",
-      "title": "Key features of Pyxis"
-    },
-    "hmrHint": "Try HMR and WebPreview by long-pressing the generated homepage folder.",
-    "indexeddbInfo": "This project's files are stored in IndexedDB.",
-    "mainFeatures": {
-      "download": "Download Git / project files",
-      "importExport": "Import, download files and zip export",
-      "latex": "LaTeX math rendering and Mermaid/HTML support",
-      "theme": "Theme color switching and multi-monitor support",
-      "title": "Main features"
-    },
-    "specialThanks": {
-      "contributors": "isomorphic-git, Monaco Editor, xterm.js, Mermaid, KaTeX, Pyodide and all OSS contributors.",
-      "thanksVisit": "Thank you for visiting!",
-      "title": "Special Thanks"
-    },
-    "title": "Welcome!"
-  }
+  "welcome": {}
 }

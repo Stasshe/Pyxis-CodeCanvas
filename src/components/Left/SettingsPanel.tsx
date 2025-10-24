@@ -15,6 +15,7 @@ interface SettingsPanelProps {
 const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
   const [includeGit, setIncludeGit] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const { t } = useTranslation();
   const {
     colors,
     setColor,
@@ -132,7 +133,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
         className="h-full flex items-center justify-center"
         style={{ background: colors.background, color: colors.mutedFg }}
       >
-        <p className="text-xs">設定を読み込み中...</p>
+        <p className="text-xs">{t('settingsPanel.loading')}</p>
       </div>
     );
   }
@@ -142,7 +143,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
       className="h-full overflow-y-auto"
       style={{ background: colors.background, color: colors.foreground }}
     >
-      {/* ワークスペースエクスポート */}
+  {/* ワークスペースエクスポート */}
       <div
         className="px-4 py-3 border-b"
         style={{ borderColor: colors.border }}
@@ -151,7 +152,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
           className="text-xs font-semibold uppercase tracking-wide mb-3"
           style={{ color: colors.mutedFg }}
         >
-          ワークスペースエクスポート
+          {t('settingsPanel.export.title')}
         </h2>
         <div className="space-y-2">
           <label
@@ -165,7 +166,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               className="rounded"
               style={{ accentColor: colors.accentBg }}
             />
-            <span>.git ディレクトリも含める</span>
+            <span>{t('settingsPanel.export.includeGit')}</span>
           </label>
           <button
             className="w-full px-3 py-1.5 rounded text-xs font-medium disabled:opacity-50 hover:opacity-90 transition-opacity"
@@ -173,12 +174,12 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
             onClick={handleExport}
             disabled={isExporting}
           >
-            {isExporting ? 'エクスポート中...' : 'ZIPダウンロード'}
+            {isExporting ? t('settingsPanel.export.exporting') : t('settingsPanel.export.zipDownload')}
           </button>
         </div>
       </div>
 
-      {/* テーマ設定 */}
+  {/* テーマ設定 */}
       <div
         className="px-4 py-3 border-b"
         style={{ borderColor: colors.border }}
@@ -187,7 +188,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
           className="text-xs font-semibold uppercase tracking-wide mb-3"
           style={{ color: colors.mutedFg }}
         >
-          テーマ
+          {t('settingsPanel.theme.title')}
         </h2>
         <div className="space-y-3">
           <div>
@@ -195,7 +196,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               className="block text-xs mb-1.5"
               style={{ color: colors.foreground }}
             >
-              カラーテーマ
+              {t('settingsPanel.theme.colorTheme')}
             </label>
             <select
               value={themeName}
@@ -223,7 +224,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               className="block text-xs mb-1.5"
               style={{ color: colors.foreground }}
             >
-              コードハイライト
+              {t('settingsPanel.theme.highlightTheme')}
             </label>
             <select
               value={highlightTheme}
@@ -251,7 +252,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               className="block text-xs mb-1.5"
               style={{ color: colors.foreground }}
             >
-              Language / 言語
+              {t('settingsPanel.theme.language')}
             </label>
             <LanguageSelector />
           </div>
@@ -266,7 +267,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
                 background: showColorSettings ? colors.mutedBg : 'transparent',
               }}
             >
-              <span>カラーカスタマイズ</span>
+              <span>{t('settingsPanel.theme.colorCustomize')}</span>
               <span className="text-[10px]">
                 {showColorSettings ? (
                   <ChevronDown size={14} strokeWidth={2} />
@@ -329,7 +330,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
         </div>
       </div>
 
-      {/* エディター設定 */}
+  {/* エディター設定 */}
       <div
         className="px-4 py-3 border-b"
         style={{ borderColor: colors.border }}
@@ -338,7 +339,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
           className="text-xs font-semibold uppercase tracking-wide mb-3"
           style={{ color: colors.mutedFg }}
         >
-          エディター
+          {t('settingsPanel.editor.title')}
         </h2>
         <div className="space-y-3">
           <div>
@@ -346,7 +347,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               className="block text-xs mb-1.5"
               style={{ color: colors.foreground }}
             >
-              デフォルトエディター
+              {t('settingsPanel.editor.defaultEditor')}
             </label>
             <select
               value={defaultEditor}
@@ -365,7 +366,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               className="text-[10px] mt-1"
               style={{ color: colors.mutedFg }}
             >
-              LocalStorageに保存されます
+              {t('settingsPanel.editor.savedToLocalStorage')}
             </p>
           </div>
 
@@ -384,7 +385,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               className="rounded"
               style={{ accentColor: colors.accentBg }}
             />
-            <span>折り返しを有効化</span>
+            <span>{t('settingsPanel.editor.wordWrap')}</span>
           </label>
 
           <div>
@@ -392,7 +393,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               className="block text-xs mb-1.5"
               style={{ color: colors.foreground }}
             >
-              フォントサイズ
+              {t('settingsPanel.editor.fontSize')}
             </label>
             <input
               type="number"
@@ -418,7 +419,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               className="block text-xs mb-1.5"
               style={{ color: colors.foreground }}
             >
-              タブサイズ
+              {t('settingsPanel.editor.tabSize')}
             </label>
             <input
               type="number"
@@ -441,7 +442,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
         </div>
       </div>
 
-      {/* API設定 */}
+  {/* API設定 */}
       <div
         className="px-4 py-3 border-b"
         style={{ borderColor: colors.border }}
@@ -450,20 +451,20 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
           className="text-xs font-semibold uppercase tracking-wide mb-3"
           style={{ color: colors.mutedFg }}
         >
-          API
+          {t('settingsPanel.api.title')}
         </h2>
         <div>
           <label
             className="block text-xs mb-1.5"
             style={{ color: colors.foreground }}
           >
-            Gemini APIキー
+            {t('settingsPanel.api.geminiApiKey')}
           </label>
           <input
             type="password"
             value={apiKey}
             onChange={handleApiKeyChange}
-            placeholder="APIキーを入力"
+            placeholder={t('settingsPanel.api.apiKeyPlaceholder')}
             className="w-full rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1"
             style={{
               background: colors.cardBg,
@@ -475,12 +476,12 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
             className="text-[10px] mt-1"
             style={{ color: colors.mutedFg }}
           >
-            LocalStorageに保存されます
+            {t('settingsPanel.api.savedToLocalStorage')}
           </p>
         </div>
       </div>
 
-      {/* 検索設定 */}
+  {/* 検索設定 */}
       <div
         className="px-4 py-3 border-b"
         style={{ borderColor: colors.border }}
@@ -489,7 +490,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
           className="text-xs font-semibold uppercase tracking-wide mb-3"
           style={{ color: colors.mutedFg }}
         >
-          検索
+          {t('settingsPanel.search.title')}
         </h2>
         <div className="space-y-3">
           <div>
@@ -497,7 +498,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               className="block text-xs mb-1.5"
               style={{ color: colors.foreground }}
             >
-              除外パターン
+              {t('settingsPanel.search.excludePattern')}
             </label>
             <textarea
               value={settings.search.exclude.join('\n')}
@@ -522,7 +523,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               className="text-[10px] mt-1"
               style={{ color: colors.mutedFg }}
             >
-              glob パターンを1行ごとに記述
+              {t('settingsPanel.search.globPatternHint')}
             </p>
           </div>
 
@@ -541,18 +542,18 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               className="rounded"
               style={{ accentColor: colors.accentBg }}
             />
-            <span>.gitignoreなどの無視ファイルを使用</span>
+            <span>{t('settingsPanel.search.useIgnoreFiles')}</span>
           </label>
         </div>
       </div>
 
-      {/* ファイル設定 */}
+  {/* ファイル設定 */}
       <div className="px-4 py-3">
         <h2
           className="text-xs font-semibold uppercase tracking-wide mb-3"
           style={{ color: colors.mutedFg }}
         >
-          ファイル
+          {t('settingsPanel.files.title')}
         </h2>
         <div className="space-y-3">
           <div>
@@ -560,7 +561,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               className="block text-xs mb-1.5"
               style={{ color: colors.foreground }}
             >
-              除外パターン
+              {t('settingsPanel.files.excludePattern')}
             </label>
             <textarea
               value={settings.files.exclude.join('\n')}
@@ -582,7 +583,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               className="text-[10px] mt-1"
               style={{ color: colors.mutedFg }}
             >
-              エクスプローラーで非表示にするファイル/フォルダ
+              {t('settingsPanel.files.excludeHint')}
             </p>
           </div>
 

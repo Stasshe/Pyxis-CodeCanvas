@@ -185,7 +185,9 @@
     "loadingChanges": "変更情報を読み込み中...",
     "minutesAgo": "{minutes}分前",
     "noChangedFiles": "変更ファイルが見つかりません",
-    "showDuplicates": "重複コミットも表示"
+    "showAllFilesDiff": "このコミットの全ファイルdiffを表示",
+    "showDuplicates": "重複コミットも表示",
+    "showFileDiff": "このファイルの差分を表示"
   },
   "highlightedCode": {
     "copyCode": "コードをコピー"
@@ -195,8 +197,15 @@
     "createFolder": "新規フォルダ作成"
   },
   "markdownPreview": {
+    "downloadSvg": "SVGダウンロード",
     "exportPdf": "PDFエクスポート",
-    "preview": "プレビュー"
+    "generatingMermaid": "Mermaid図表を生成中...",
+    "imageNotFound": "画像が見つかりません: {src}",
+    "loadingImage": "画像を読み込み中...",
+    "preview": "プレビュー",
+    "reset": "リセット",
+    "zoomIn": "ズームイン",
+    "zoomOut": "ズームアウト"
   },
   "menu": {
     "files": "ファイル",
@@ -275,6 +284,47 @@
     "useRegex": "正規表現を使用",
     "wholeWord": "単語単位で検索"
   },
+  "settingsPanel": {
+    "api": {
+      "apiKeyPlaceholder": "APIキーを入力",
+      "geminiApiKey": "Gemini APIキー",
+      "savedToLocalStorage": "LocalStorageに保存されます",
+      "title": "API"
+    },
+    "editor": {
+      "defaultEditor": "デフォルトエディター",
+      "fontSize": "フォントサイズ",
+      "savedToLocalStorage": "LocalStorageに保存されます",
+      "tabSize": "タブサイズ",
+      "title": "エディター",
+      "wordWrap": "折り返しを有効化"
+    },
+    "export": {
+      "exporting": "エクスポート中...",
+      "includeGit": ".git ディレクトリも含める",
+      "title": "ワークスペースエクスポート",
+      "zipDownload": "ZIPダウンロード"
+    },
+    "files": {
+      "excludeHint": "エクスプローラーで非表示にするファイル/フォルダ",
+      "excludePattern": "除外パターン",
+      "title": "ファイル"
+    },
+    "loading": "設定を読み込み中...",
+    "search": {
+      "excludePattern": "除外パターン",
+      "globPatternHint": "glob パターンを1行ごとに記述",
+      "title": "検索",
+      "useIgnoreFiles": ".gitignoreなどの無視ファイルを使用"
+    },
+    "theme": {
+      "colorCustomize": "カラーカスタマイズ",
+      "colorTheme": "カラーテーマ",
+      "highlightTheme": "コードハイライト",
+      "language": "Language / 言語",
+      "title": "テーマ"
+    }
+  },
   "tabBar": {
     "closeTab": "タブを閉じる",
     "moveToPane": "ペインに移動",
@@ -303,32 +353,5 @@
     "inlineHtmlFailed": "HTMLアセットのインライン化に失敗しました",
     "notFound": "ファイルまたはフォルダが見つかりません"
   },
-  "welcome": {
-    "clientSideNote": "このアプリは完全にクライアントサイドで動作し、サーバーには一切データを送信しません。",
-    "features": {
-      "clientIDE": "完全クライアントサイドIDE（サーバー不要・静的ホスティング）",
-      "gitHistory": "Git履歴・ブランチ管理・コミットグラフ表示",
-      "languages": "Cpp, HTML, CSS, JavaScript, Pythonなど多言語Highlight対応",
-      "mermaid": "Mermaid記法でフローチャートやシーケンス図をリアルタイム描画",
-      "monaco": "VS Codeライクな編集体験・Monaco Editor搭載",
-      "nodeRuntime": "Node.jsランタイム・npm・Unixコマンド・Gitをブラウザで利用可能",
-      "responsive": "iPadにも最適化されたレスポンシブUI",
-      "title": "Pyxisの主な特徴"
-    },
-    "hmrHint": "HMR、WebPreviewは、デフォルトで生成される homepage フォルダを長押しして試してください。",
-    "indexeddbInfo": "このプロジェクトのファイルはIndexedDBに保存されています。",
-    "mainFeatures": {
-      "download": "Git/プロジェクトファイルのダウンロード",
-      "importExport": "ファイルのインポート・ダウンロード・zipエクスポート",
-      "latex": "LaTeX数式レンダリング・MermaidHTML記法対応",
-      "theme": "テーマカラー変更・複数モニター対応",
-      "title": "主要機能"
-    },
-    "specialThanks": {
-      "contributors": "isomorphic-git, Monaco Editor, xterm.js, Mermaid, KaTeX, Pyodide and all OSS contributors.",
-      "thanksVisit": "ご来訪ありがとうございます！",
-      "title": "Special Thanks"
-    },
-    "title": "ようこそ！"
-  }
+  "welcome": {}
 }

@@ -601,7 +601,7 @@ export default function GitHistory({
                               onDiffAllFilesClick && (
                                 <button
                                   className="ml-1 p-0.5 rounded hover:bg-gray-700"
-                                  title="このコミットの全ファイルdiffを表示"
+                                  title={t('gitHistory.showAllFilesDiff')}
                                   style={{
                                     verticalAlign: 'middle',
                                     display: 'inline-flex',
@@ -754,7 +754,7 @@ export default function GitHistory({
                                         onDiffFileClick({ commitId: commit.hash, filePath: file });
                                       }
                                     }}
-                                    title="このファイルの差分を表示"
+                                    title={t('gitHistory.showFileDiff')}
                                   >
                                     {getFileIcon(type)}
                                     <span

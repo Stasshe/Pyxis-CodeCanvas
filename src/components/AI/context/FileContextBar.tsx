@@ -4,6 +4,7 @@
 
 import React from 'react';
 import { useTheme } from '@/context/ThemeContext';
+import { useTranslation } from '@/context/I18nContext';
 import { FileCode, X } from 'lucide-react';
 import type { AIFileContext } from '@/types';
 
@@ -19,6 +20,7 @@ export default function FileContextBar({
   onOpenSelector,
 }: FileContextBarProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
 
   const selectedContexts = contexts.filter(ctx => ctx.selected);
 
@@ -39,7 +41,7 @@ export default function FileContextBar({
         style={{ color: colors.mutedFg }}
       >
         <FileCode size={14} />
-        <span>{require('@/context/I18nContext').useTranslation().t('ai.fileContextBar.context')}</span>
+        <span>{t('ai.fileContextBar.context')}</span>
       </div>
 
       {selectedContexts.length === 0 ? (
@@ -47,7 +49,7 @@ export default function FileContextBar({
           className="text-xs"
           style={{ color: colors.mutedFg }}
         >
-          {require('@/context/I18nContext').useTranslation().t('ai.fileContextBar.noFileSelected')}
+          {t('ai.fileContextBar.noFileSelected')}
         </span>
       ) : (
         selectedContexts.map(ctx => (
@@ -78,7 +80,7 @@ export default function FileContextBar({
             border: `1px solid ${colors.border}`,
           }}
         >
-          {require('@/context/I18nContext').useTranslation().t('ai.fileContextBar.addFile')}
+          {t('ai.fileContextBar.addFile')}
         </button>
       )}
     </div>
