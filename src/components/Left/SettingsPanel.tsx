@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import { downloadWorkspaceZip } from '@/engine/export/exportRepo';
 import type { Project } from '@/types';
@@ -266,7 +267,13 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               }}
             >
               <span>カラーカスタマイズ</span>
-              <span className="text-[10px]">{showColorSettings ? '▼' : '▶'}</span>
+              <span className="text-[10px]">
+                {showColorSettings ? (
+                  <ChevronDown size={14} strokeWidth={2} />
+                ) : (
+                  <ChevronRight size={14} strokeWidth={2} />
+                )}
+              </span>
             </button>
             {showColorSettings && (
               <div

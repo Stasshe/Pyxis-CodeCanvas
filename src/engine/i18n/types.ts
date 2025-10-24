@@ -59,7 +59,8 @@ export interface I18nContextValue {
   /** 言語を変更する関数 */
   setLocale: (locale: Locale) => Promise<void>;
   /** 翻訳関数 */
-  t: (key: TranslationKey, options?: TranslateOptions) => string;
+  // key を string に拡張して、実装側で安全にキャストできるようにする
+  t: (key: string | TranslationKey, options?: TranslateOptions) => string;
   /** ローディング状態 */
   isLoading: boolean;
 }

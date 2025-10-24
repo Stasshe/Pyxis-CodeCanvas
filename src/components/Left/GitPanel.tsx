@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '@/context/ThemeContext';
+import { useTranslation } from '@/context/I18nContext';
 import { generateCommitMessage } from '@/engine/commitMsgAI';
 import {
   GitBranch,
@@ -42,6 +43,7 @@ export default function GitPanel({
   onDiffAllFilesClick,
 }: GitPanelProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const [gitRepo, setGitRepo] = useState<GitRepository | null>(null);
   const [commitMessage, setCommitMessage] = useState('');
   const [isCommitting, setIsCommitting] = useState(false);
@@ -69,7 +71,7 @@ export default function GitPanel({
       const fs = (gitCommands as any).fs;
       if (fs && (fs as any).sync) {
         try {
-          await (fs as any).sync();
+          await (fs).sync();
           console.log('[GitPanel] FileSystem synced before status check');
         } catch (syncError) {
           console.warn('[GitPanel] FileSystem sync failed:', syncError);
@@ -125,7 +127,7 @@ export default function GitPanel({
       }
     } catch (error) {
       console.error('Failed to fetch git status:', error);
-      setError(error instanceof Error ? error.message : 'Git操作でエラーが発生しました');
+      setError(error instanceof Error ? error.message : t('git.operationError'));
       setGitRepo(null);
       // エラー時は変更ファイル数を0にリセット
       if (onGitStatusChange) {
@@ -553,7 +555,7 @@ export default function GitPanel({
             color: colors.mutedFg,
           }}
         />
-        <p style={{ fontSize: '0.875rem' }}>プロジェクトを選択してください</p>
+  <p style={{ fontSize: '0.875rem' }}>{t('git.projectSelect')}</p>
       </div>
     );
   }
@@ -571,7 +573,7 @@ export default function GitPanel({
             color: colors.mutedFg,
           }}
         />
-        <p style={{ fontSize: '0.875rem' }}>Git状態を読み込み中...</p>
+  <p style={{ fontSize: '0.875rem' }}>{t('git.loadingStatus')}</p>
       </div>
     );
   }
@@ -588,8 +590,8 @@ export default function GitPanel({
             color: colors.red,
           }}
         />
-        <p style={{ fontSize: '0.875rem', marginBottom: '0.5rem' }}>エラーが発生しました</p>
-        <p style={{ fontSize: '0.75rem', color: colors.mutedFg }}>{error}</p>
+  <p style={{ fontSize: '0.875rem', marginBottom: '0.5rem' }}>{t('git.errorOccurred')}</p>
+  <p style={{ fontSize: '0.75rem', color: colors.mutedFg }}>{error}</p>
         <button
           onClick={fetchGitStatus}
           style={{
@@ -602,8 +604,8 @@ export default function GitPanel({
             border: 'none',
             cursor: 'pointer',
           }}
-        >
-          再試行
+          >
+          {t('action.retry')}
         </button>
       </div>
     );
@@ -622,7 +624,7 @@ export default function GitPanel({
             color: colors.mutedFg,
           }}
         />
-        <p style={{ fontSize: '0.875rem' }}>Git情報を取得できませんでした</p>
+  <p style={{ fontSize: '0.875rem' }}>{t('git.infoNotAvailable')}</p>
       </div>
     );
   }
@@ -667,7 +669,7 @@ export default function GitPanel({
             <div style={{ fontSize: '0.75rem', color: colors.mutedFg }}>
               <span style={{ fontWeight: 500 }}>{gitRepo.currentBranch}</span>
               {gitRepo.commits.length > 0 && (
-                <span style={{ marginLeft: '0.5rem' }}>• {gitRepo.commits.length} コミット</span>
+                <span style={{ marginLeft: '0.5rem' }}>• {gitRepo.commits.length} {t('git.commit')}</span>
               )}
             </div>
           </h3>
@@ -681,7 +683,7 @@ export default function GitPanel({
               cursor: 'pointer',
             }}
             className="select-none"
-            title="更新"
+            title={t('action.refresh')}
             onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
           >
@@ -702,7 +704,7 @@ export default function GitPanel({
               type="text"
               value={apiKey}
               onChange={handleApiKeyChange}
-              placeholder="Gemini APIキーを入力"
+              placeholder={t('git.apiKeyPlaceholder')}
               style={{
                 width: '100%',
                 marginBottom: '0.5rem',
@@ -718,7 +720,7 @@ export default function GitPanel({
           <textarea
             value={commitMessage}
             onChange={e => setCommitMessage(e.target.value)}
-            placeholder="コミットメッセージを入力..."
+            placeholder={t('git.commitMessagePlaceholder')}
             style={{
               width: '100%',
               height: '4rem',
@@ -769,7 +771,7 @@ export default function GitPanel({
                   className="select-none"
                 />
               )}
-              {isGenerating ? '生成中...' : '自動生成'}
+              {isGenerating ? t('git.generating') : t('git.generateCommitMessage')}
             </button>
             <button
               onClick={handleCommit}
@@ -807,7 +809,7 @@ export default function GitPanel({
                   className="select-none"
                 />
               )}
-              {isCommitting ? 'コミット中...' : 'コミット'}
+              {isCommitting ? t('git.committing') : t('git.commit')}
             </button>
           </div>
         </div>
@@ -833,7 +835,7 @@ export default function GitPanel({
             }}
           >
             <h4 style={{ fontSize: '0.875rem', fontWeight: 500, color: colors.foreground }}>
-              変更
+              {t('git.changes')}
             </h4>
             {hasChanges && (
               <div style={{ display: 'flex', gap: '0.25rem' }}>
@@ -847,7 +849,7 @@ export default function GitPanel({
                     fontSize: '0.75rem',
                     cursor: 'pointer',
                   }}
-                  title="全てステージング"
+                  title={t('git.stageAll')}
                   className="select-none"
                   onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
@@ -867,7 +869,7 @@ export default function GitPanel({
                     fontSize: '0.75rem',
                     cursor: 'pointer',
                   }}
-                  title="全てアンステージング"
+                  title={t('git.unstageAll')}
                   className="select-none"
                   onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
@@ -882,14 +884,14 @@ export default function GitPanel({
           </div>
 
           {!hasChanges ? (
-            <p style={{ fontSize: '0.75rem', color: colors.mutedFg }}>変更はありません</p>
+            <p style={{ fontSize: '0.75rem', color: colors.mutedFg }}>{t('git.noChanges')}</p>
           ) : (
             <div>
               {/* ステージされたファイル */}
               {gitRepo.status.staged.length > 0 && (
                 <div>
                   <p style={{ fontSize: '0.75rem', color: '#22c55e', marginBottom: '0.25rem' }}>
-                    ステージ済み ({gitRepo.status.staged.length})
+                    {t('git.staged')} ({gitRepo.status.staged.length})
                   </p>
                   {gitRepo.status.staged.map(file => (
                     <div
@@ -913,7 +915,7 @@ export default function GitPanel({
                           textDecoration: 'underline',
                         }}
                         className="select-text"
-                        title="diffを表示（編集不可）"
+                        title={t('git.viewDiffReadonly')}
                         onClick={async () => {
                           if (onDiffFileClick && gitRepo.commits.length > 0) {
                             // 最新コミットのhashを取得
@@ -939,7 +941,7 @@ export default function GitPanel({
                           border: 'none',
                           cursor: 'pointer',
                         }}
-                        title="アンステージング"
+                        title={t('git.unstage')}
                         className="select-none"
                         onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
@@ -958,7 +960,7 @@ export default function GitPanel({
               {gitRepo.status.unstaged.length > 0 && (
                 <div>
                   <p style={{ fontSize: '0.75rem', color: '#f59e42', marginBottom: '0.25rem' }}>
-                    変更済み ({gitRepo.status.unstaged.length})
+                    {t('git.unstaged')} ({gitRepo.status.unstaged.length})
                   </p>
                   {gitRepo.status.unstaged.map(file => (
                     <div
@@ -982,7 +984,7 @@ export default function GitPanel({
                           textDecoration: 'underline',
                         }}
                         className="select-text"
-                        title="diffを表示（編集可能）"
+                        title={t('git.viewDiffEditable')}
                         onClick={async () => {
                           if (onDiffFileClick && gitRepo.commits.length > 0) {
                             // 最新コミットのhashを取得
@@ -1008,7 +1010,7 @@ export default function GitPanel({
                             border: 'none',
                             cursor: 'pointer',
                           }}
-                          title="ステージング"
+                          title={t('git.stage')}
                           className="select-none"
                           onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
                           onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
@@ -1028,7 +1030,7 @@ export default function GitPanel({
                             cursor: 'pointer',
                             color: colors.red,
                           }}
-                          title="変更を破棄"
+                          title={t('git.discard')}
                           className="select-none"
                           onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
                           onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
@@ -1048,7 +1050,7 @@ export default function GitPanel({
               {gitRepo.status.deleted.length > 0 && (
                 <div>
                   <p style={{ fontSize: '0.75rem', color: colors.red, marginBottom: '0.25rem' }}>
-                    削除済み ({gitRepo.status.deleted.length})
+                    {t('git.deleted')} ({gitRepo.status.deleted.length})
                   </p>
                   {gitRepo.status.deleted.map(file => (
                     <div
@@ -1072,7 +1074,7 @@ export default function GitPanel({
                           textDecoration: 'underline',
                         }}
                         className="select-text"
-                        title="diffを表示（編集可能）"
+                          title={t('git.viewDiffEditable')}
                         onClick={async () => {
                           if (onDiffFileClick && gitRepo.commits.length > 0) {
                             // 最新コミットのhashを取得
@@ -1098,7 +1100,7 @@ export default function GitPanel({
                             border: 'none',
                             cursor: 'pointer',
                           }}
-                          title="削除をステージング"
+                          title={t('git.stageDelete')}
                           className="select-none"
                           onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
                           onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
@@ -1118,7 +1120,7 @@ export default function GitPanel({
                             cursor: 'pointer',
                             color: colors.red,
                           }}
-                          title="ファイルを復元"
+                          title={t('git.restore')}
                           className="select-none"
                           onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
                           onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
@@ -1140,7 +1142,7 @@ export default function GitPanel({
                   <p
                     style={{ fontSize: '0.75rem', color: colors.primary, marginBottom: '0.25rem' }}
                   >
-                    未追跡 ({gitRepo.status.untracked.length})
+                    {t('git.untracked')} ({gitRepo.status.untracked.length})
                   </p>
                   {gitRepo.status.untracked.map(file => (
                     <div
@@ -1175,7 +1177,7 @@ export default function GitPanel({
                             border: 'none',
                             cursor: 'pointer',
                           }}
-                          title="ステージング"
+                          title={t('git.stage')}
                           className="select-none"
                           onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
                           onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
@@ -1195,7 +1197,7 @@ export default function GitPanel({
                             cursor: 'pointer',
                             color: colors.red,
                           }}
-                          title="ファイルを削除"
+                          title={t('git.deleteUntracked')}
                           className="select-none"
                           onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
                           onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
@@ -1227,13 +1229,13 @@ export default function GitPanel({
             }}
           >
             <Clock style={{ width: '1rem', height: '1rem', color: colors.mutedFg }} />
-            履歴 ({gitRepo.commits.length})
+            {t('git.history')} ({gitRepo.commits.length})
           </h4>
         </div>
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
           {gitRepo.commits.length === 0 ? (
             <div style={{ padding: '0.75rem' }}>
-              <p style={{ fontSize: '0.75rem', color: colors.mutedFg }}>コミット履歴がありません</p>
+              <p style={{ fontSize: '0.75rem', color: colors.mutedFg }}>{t('git.noHistory')}</p>
             </div>
           ) : (
             <GitHistory

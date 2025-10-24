@@ -120,13 +120,14 @@ export function I18nProvider({ children, defaultLocale }: I18nProviderProps) {
    * 翻訳関数
    */
   const t = useCallback(
-    (key: TranslationKey, options?: TranslateOptions): string => {
+    (key: string | TranslationKey, options?: TranslateOptions): string => {
       if (isLoading || Object.keys(translations).length === 0) {
         return options?.fallback || options?.defaultValue || key;
       }
 
       const translator = createTranslator(translations);
-      return translator(key, options);
+      // translator expects a TranslationKey; cast here after runtime checks
+      return translator(key as TranslationKey, options);
     },
     [translations, isLoading]
   );
