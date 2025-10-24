@@ -33,6 +33,12 @@
     "settings": "設定",
     "project": "プロジェクト管理"
   },
+  "topBar": {
+    "searchTitle": "ファイル検索 (Ctrl+P)",
+    "searchLabel": "ファイル検索",
+    "toggleTerminal": "ターミナル表示/非表示",
+    "toggleRightPanel": "右パネル表示/非表示"
+  },
   "file": {
     "new": "新規ファイル",
     "newFolder": "新規フォルダ",
@@ -135,7 +141,17 @@
       "remove": "削除",
       "select": "ファイルを選択"
     },
-    "placeholder": "AIアシスタントに質問..."
+    "placeholder": "AIアシスタントに質問...",
+    "input": {
+      "ask": "AIに質問やコード相談をしてください...",
+      "edit": "コードの編集指示を入力してください..."
+    },
+    "selectedLabel": "選択中:",
+    "sendTitle": "送信 (Ctrl+Enter)",
+    "hints": {
+      "enterSend": "Enter: 改行 / Ctrl+Enter: 送信",
+      "history": "Alt+↑↓: 履歴"
+    }
   },
   "project": {
     "create": "プロジェクトを作成",
@@ -189,6 +205,38 @@
       "contributors": "isomorphic-git, Monaco Editor, xterm.js, Mermaid, KaTeX, Pyodide and all OSS contributors.",
       "thanksVisit": "ご来訪ありがとうございます！"
     }
+  },
+  "aiReviewTab": {
+    "notFound": "AIレビューデータが見つかりません",
+    "discardAllAndRevert": "全ての変更を破棄して元に戻す",
+    "revert": "元に戻す",
+    "applyAll": "全て適用",
+    "discard": "破棄",
+    "editRightDirectly": "右側のエディタで直接編集できます",
+    "autoSaveAndApply": "。変更は自動保存され、「全て適用」でファイルに反映されます。",
+    "revertSelectionHint": "右クリックメニューから「選択範囲を元に戻す」で部分的に元に戻すこともできます。"
+  },
+  "diff": {
+    "original": "元",
+    "suggested": "提案",
+    "diff": "差分",
+    "lines": "行"
+  },
+  "changedFilesList": {
+    "noChangedFiles": "変更されたファイルはありません",
+    "changedFiles": "変更されたファイル",
+    "review": "レビュー",
+    "apply": "適用",
+    "discard": "破棄",
+    "reason": "変更理由",
+    "preview": "変更プレビュー",
+    "lines": "行",
+    "others": "他",
+    "original": "元",
+    "suggested": "新",
+    "diff": "差分",
+    "applyAll": "全て適用",
+    "discardAll": "全て破棄"
   },
   "fileTree": {
     "menu": {

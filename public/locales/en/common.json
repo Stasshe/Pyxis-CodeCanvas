@@ -33,6 +33,12 @@
     "settings": "Settings",
     "project": "Project Management"
   },
+  "topBar": {
+    "searchTitle": "File search (Ctrl+P)",
+    "searchLabel": "File search",
+    "toggleTerminal": "Toggle terminal",
+    "toggleRightPanel": "Toggle right panel"
+  },
   "file": {
     "new": "New File",
     "newFolder": "New Folder",
@@ -135,7 +141,17 @@
       "remove": "Remove",
       "select": "Select files"
     },
-    "placeholder": "Ask AI assistant..."
+    "placeholder": "Ask AI assistant...",
+    "input": {
+      "ask": "Ask the AI questions or consult about code...",
+      "edit": "Enter instructions to edit code..."
+    },
+    "selectedLabel": "Selected:",
+    "sendTitle": "Send (Ctrl+Enter)",
+    "hints": {
+      "enterSend": "Enter: newline / Ctrl+Enter: send",
+      "history": "Alt+↑↓: history"
+    }
   },
   "project": {
     "create": "Create Project",
@@ -189,6 +205,38 @@
       "contributors": "isomorphic-git, Monaco Editor, xterm.js, Mermaid, KaTeX, Pyodide and all OSS contributors.",
       "thanksVisit": "Thank you for visiting!"
     }
+  },
+  "aiReviewTab": {
+    "notFound": "AI review data not found",
+    "discardAllAndRevert": "Discard all changes and revert",
+    "revert": "Revert",
+    "applyAll": "Apply all",
+    "discard": "Discard",
+    "editRightDirectly": "You can edit directly in the right editor",
+    "autoSaveAndApply": "Changes are auto-saved and reflected in the file with 'Apply all'.",
+    "revertSelectionHint": "You can also partially revert by right-clicking and selecting 'Revert selection'."
+  },
+  "diff": {
+    "original": "Original",
+    "suggested": "Suggested",
+    "diff": "Diff",
+    "lines": "lines"
+  },
+  "changedFilesList": {
+    "noChangedFiles": "No changed files",
+    "changedFiles": "Changed files",
+    "review": "Review",
+    "apply": "Apply",
+    "discard": "Discard",
+    "reason": "Reason",
+    "preview": "Preview",
+    "lines": "lines",
+    "others": "others",
+    "original": "Original",
+    "suggested": "Suggested",
+    "diff": "Diff",
+    "applyAll": "Apply all",
+    "discardAll": "Discard all"
   },
   "fileTree": {
     "menu": {

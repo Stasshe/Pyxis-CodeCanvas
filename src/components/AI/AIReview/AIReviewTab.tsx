@@ -8,6 +8,7 @@ import { DiffEditor } from '@monaco-editor/react';
 import type { Monaco } from '@monaco-editor/react';
 import type * as monacoEditor from 'monaco-editor';
 import { useTheme } from '@/context/ThemeContext';
+import { useTranslation } from '@/context/I18nContext';
 import { Check, X } from 'lucide-react';
 import { calculateDiff } from '@/engine/ai/diffProcessor';
 import type { Tab } from '@/types';
@@ -29,6 +30,7 @@ export default function AIReviewTab({
   onCloseTab,
 }: AIReviewTabProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
 
   // 現在編集中のsuggestedContentを管理（本体には影響しない）
   const [currentSuggestedContent, setCurrentSuggestedContent] = useState(
@@ -51,7 +53,7 @@ export default function AIReviewTab({
         className="flex items-center justify-center h-full"
         style={{ color: colors.mutedFg }}
       >
-        AIレビューデータが見つかりません
+        {t('aiReviewTab.notFound')}
       </div>
     );
   }
@@ -251,9 +253,9 @@ export default function AIReviewTab({
               borderColor: colors.border,
             }}
             onClick={handleRevertToOriginal}
-            title="全ての変更を破棄して元に戻す"
+            title={t('aiReviewTab.discardAllAndRevert')}
           >
-            元に戻す
+            {t('aiReviewTab.revert')}
           </button>
           <button
             className="px-3 py-1.5 text-sm rounded border hover:opacity-90 transition-all inline-flex items-center gap-1.5"
@@ -267,7 +269,7 @@ export default function AIReviewTab({
             onClick={handleApplyAll}
           >
             <Check size={16} />
-            全て適用
+            {t('aiReviewTab.applyAll')}
           </button>
           <button
             className="px-3 py-1.5 text-sm rounded hover:opacity-80 transition-opacity inline-flex items-center gap-1.5"
@@ -275,7 +277,7 @@ export default function AIReviewTab({
             onClick={handleDiscardAll}
           >
             <X size={16} />
-            破棄
+            {t('aiReviewTab.discard')}
           </button>
         </div>
       </div>
@@ -300,10 +302,10 @@ export default function AIReviewTab({
 
               return (
                 <div className="flex gap-4">
-                  <span>元: {originalCount}行</span>
-                  <span>提案: {suggestedCount}行</span>
+                  <span>{t('diff.original')}: {originalCount}{t('diff.lines')}</span>
+                  <span>{t('diff.suggested')}: {suggestedCount}{t('diff.lines')}</span>
                   <span>
-                    差分: {suggestedCount - originalCount > 0 ? '+' : ''}{suggestedCount - originalCount}行
+                    {t('diff.diff')}: {suggestedCount - originalCount > 0 ? '+' : ''}{suggestedCount - originalCount}{t('diff.lines')}
                   </span>
                   <span className="ml-2" style={{ color: added > 0 ? 'var(--tw-color-green-500, #16a34a)' : colors.mutedFg }}>+{added}</span>
                   <span style={{ color: removed > 0 ? 'var(--tw-color-red-500, #dc2626)' : colors.mutedFg }}>-{removed}</span>
@@ -314,9 +316,9 @@ export default function AIReviewTab({
               const sug = currentSuggestedContent.split('\n').length;
               return (
                 <div className="flex gap-4">
-                  <span>元: {orig}行</span>
-                  <span>提案: {sug}行</span>
-                  <span>差分: {sug - orig}行</span>
+                  <span>{t('diff.original')}: {orig}{t('diff.lines')}</span>
+                  <span>{t('diff.suggested')}: {sug}{t('diff.lines')}</span>
+                  <span>{t('diff.diff')}: {sug - orig}{t('diff.lines')}</span>
                 </div>
               );
             }
@@ -365,10 +367,10 @@ export default function AIReviewTab({
           color: colors.mutedFg,
         }}
       >
-        💡 <b>右側のエディタで直接編集できます</b>
-        。変更は自動保存され、「全て適用」でファイルに反映されます。
+        <span role="img" aria-label="hint">💡</span> <b>{t('aiReviewTab.editRightDirectly')}</b>
+        {t('aiReviewTab.autoSaveAndApply')}
         <br />
-        右クリックメニューから「選択範囲を元に戻す」で部分的に元に戻すこともできます。
+        {t('aiReviewTab.revertSelectionHint')}
       </div>
     </div>
   );

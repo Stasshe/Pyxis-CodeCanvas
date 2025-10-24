@@ -6,6 +6,7 @@ import React, { useState, KeyboardEvent, useRef, useEffect } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { useInputHistory } from '@/hooks/ai/useInputHistory';
 import { Send, Loader2, FileCode } from 'lucide-react';
+import { useTranslation } from '@/context/I18nContext';
 
 interface ChatInputProps {
   mode: 'ask' | 'edit';
@@ -77,10 +78,9 @@ export default function ChatInput({
     }
   };
 
-  const placeholder =
-    mode === 'ask'
-      ? 'AIに質問やコード相談をしてください...'
-      : 'コードの編集指示を入力してください...';
+  const { t } = useTranslation();
+
+  const placeholder = mode === 'ask' ? t('ai.input.ask') : t('ai.input.edit');
 
   return (
     <div
@@ -94,13 +94,13 @@ export default function ChatInput({
         {/* 選択ファイル表示 */}
         {selectedFiles.length > 0 && (
           <div className="flex items-center gap-2 flex-wrap">
-            <div
-              className="flex items-center gap-1 text-xs"
-              style={{ color: colors.mutedFg }}
-            >
-              <FileCode size={14} />
-              <span>選択中:</span>
-            </div>
+              <div
+                className="flex items-center gap-1 text-xs"
+                style={{ color: colors.mutedFg }}
+              >
+                <FileCode size={14} />
+                <span>{t('ai.selectedLabel')}</span>
+              </div>
             {selectedFiles.map((file, index) => (
               <span
                 key={index}
@@ -148,7 +148,7 @@ export default function ChatInput({
                   background: colors.mutedBg,
                   color: colors.mutedFg,
                 }}
-                title="ファイルを選択"
+                title={t('ai.context.select')}
               >
                 <FileCode size={18} />
               </button>
@@ -166,7 +166,7 @@ export default function ChatInput({
                 background: colors.accent,
                 color: colors.accentFg,
               }}
-              title="送信 (Ctrl+Enter)"
+              title={t('ai.sendTitle')}
             >
               {isProcessing ? (
                 <Loader2
@@ -185,8 +185,8 @@ export default function ChatInput({
           className="flex items-center justify-between text-xs"
           style={{ color: colors.mutedFg }}
         >
-          <span>Enter: 改行 / Ctrl+Enter: 送信</span>
-          {hasHistory && <span>Alt+↑↓: 履歴</span>}
+          <span>{t('ai.hints.enterSend')}</span>
+          {hasHistory && <span>{t('ai.hints.history')}</span>}
         </div>
       </div>
     </div>
