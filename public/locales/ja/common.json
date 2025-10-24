@@ -156,6 +156,19 @@
     "viewDiffEditable": "差分を表示（編集可能）",
     "viewDiffReadonly": "差分を表示（編集不可）"
   },
+  "gitHistory": {
+    "allFilesScrollable": "全{count}ファイル (スクロール可能)",
+    "changedFiles": "変更されたファイル:",
+    "daysAgo": "{days}日前",
+    "duplicateGroupsHidden": "（{count}件の重複グループを非表示中）",
+    "hideDuplicates": "重複コミットを非表示",
+    "hoursAgo": "{hours}時間前",
+    "justNow": "たった今",
+    "loadingChanges": "変更情報を読み込み中...",
+    "minutesAgo": "{minutes}分前",
+    "noChangedFiles": "変更ファイルが見つかりません",
+    "showDuplicates": "重複コミットも表示"
+  },
   "highlightedCode": {
     "copyCode": "コードをコピー"
   },
@@ -230,6 +243,15 @@
     "searchFile": "実行するファイル名を検索...",
     "stop": "停止",
     "title": "実行環境"
+  },
+  "searchPanel": {
+    "caseSensitive": "大文字小文字を区別",
+    "noResults": "結果が見つかりませんでした",
+    "resultCount": "{count} 件の結果",
+    "searchInFiles": "ファイル内を検索...",
+    "searching": "検索中...",
+    "useRegex": "正規表現を使用",
+    "wholeWord": "単語単位で検索"
   },
   "tabBar": {
     "closeTab": "タブを閉じる",

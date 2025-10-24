@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Search, X, FileText, ChevronDown, ChevronRight } from 'lucide-react';
 import { FileItem } from '@/types';
 import { useTheme } from '@/context/ThemeContext';
+import { useTranslation } from '@/context/I18nContext';
 import { useSettings } from '@/hooks/useSettings';
 
 interface SearchPanelProps {
@@ -27,6 +28,7 @@ interface SearchResult {
 
 export default function SearchPanel({ files, projectId, onFileOpen }: SearchPanelProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -192,7 +194,7 @@ export default function SearchPanel({ files, projectId, onFileOpen }: SearchPane
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder="ファイル内を検索..."
+              placeholder={t('searchPanel.searchInFiles')}
               style={{
                 width: '100%',
                 paddingLeft: '1.4rem',
@@ -240,7 +242,7 @@ export default function SearchPanel({ files, projectId, onFileOpen }: SearchPane
                 color: caseSensitive ? colors.accentFg : colors.mutedFg,
                 cursor: 'pointer',
               }}
-              title="大文字小文字を区別"
+              title={t('searchPanel.caseSensitive')}
             >
               Aa
             </button>
@@ -255,7 +257,7 @@ export default function SearchPanel({ files, projectId, onFileOpen }: SearchPane
                 color: wholeWord ? colors.accentFg : colors.mutedFg,
                 cursor: 'pointer',
               }}
-              title="単語単位で検索"
+              title={t('searchPanel.wholeWord')}
             >
               Ab
             </button>
@@ -270,7 +272,7 @@ export default function SearchPanel({ files, projectId, onFileOpen }: SearchPane
                 color: useRegex ? colors.accentFg : colors.mutedFg,
                 cursor: 'pointer',
               }}
-              title="正規表現を使用"
+              title={t('searchPanel.useRegex')}
             >
               .*
             </button>
@@ -279,7 +281,7 @@ export default function SearchPanel({ files, projectId, onFileOpen }: SearchPane
           {/* 検索結果サマリー */}
           {searchQuery && (
             <div style={{ fontSize: '0.62rem', color: colors.mutedFg }}>
-              {isSearching ? '検索中...' : `${searchResults.length} 件の結果`}
+              {isSearching ? t('searchPanel.searching') : t('searchPanel.resultCount', { params: { count: searchResults.length } })}
             </div>
           )}
         </div>
@@ -298,7 +300,7 @@ export default function SearchPanel({ files, projectId, onFileOpen }: SearchPane
                 color: colors.mutedFg,
               }}
             />
-            <p style={{ fontSize: '0.75rem' }}>結果が見つかりませんでした</p>
+            <p style={{ fontSize: '0.75rem' }}>{t('searchPanel.noResults')}</p>
           </div>
         )}
 

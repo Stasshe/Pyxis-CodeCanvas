@@ -156,6 +156,19 @@
     "viewDiffEditable": "View diff (editable)",
     "viewDiffReadonly": "View diff (read-only)"
   },
+  "gitHistory": {
+    "allFilesScrollable": "All {count} files (scrollable)",
+    "changedFiles": "Changed files:",
+    "daysAgo": "{days} days ago",
+    "duplicateGroupsHidden": "({count} duplicate groups hidden)",
+    "hideDuplicates": "Hide duplicate commits",
+    "hoursAgo": "{hours} hours ago",
+    "justNow": "just now",
+    "loadingChanges": "Loading change info...",
+    "minutesAgo": "{minutes} minutes ago",
+    "noChangedFiles": "No changed files found",
+    "showDuplicates": "Show duplicate commits"
+  },
   "highlightedCode": {
     "copyCode": "Copy code"
   },
@@ -230,6 +243,15 @@
     "searchFile": "Search for a file to execute...",
     "stop": "Stop",
     "title": "Execution Environment"
+  },
+  "searchPanel": {
+    "caseSensitive": "Case sensitive",
+    "noResults": "No results found",
+    "resultCount": "{count} results",
+    "searchInFiles": "Search in files...",
+    "searching": "Searching...",
+    "useRegex": "Use regex",
+    "wholeWord": "Whole word"
   },
   "tabBar": {
     "closeTab": "Close tab",

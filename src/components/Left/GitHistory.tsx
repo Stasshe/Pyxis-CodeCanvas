@@ -17,6 +17,7 @@ import {
 import { GitCommit as GitCommitType } from '@/types/git';
 import { GitCommands } from '@/engine/cmd/git';
 import { useTheme } from '@/context/ThemeContext';
+import { useTranslation } from '@/context/I18nContext';
 
 interface GitHistoryProps {
   commits: GitCommitType[];
@@ -363,6 +364,7 @@ export default function GitHistory({
   };
 
   // 相対時間を取得
+  const { t } = useTranslation();
   const getRelativeTime = (timestamp: number): string => {
     const now = Date.now();
     const diff = now - timestamp;
@@ -370,10 +372,10 @@ export default function GitHistory({
     const hours = Math.floor(diff / 3600000);
     const days = Math.floor(diff / 86400000);
 
-    if (minutes < 1) return 'たった今';
-    if (minutes < 60) return `${minutes}分前`;
-    if (hours < 24) return `${hours}時間前`;
-    if (days < 7) return `${days}日前`;
+    if (minutes < 1) return t('gitHistory.justNow');
+    if (minutes < 60) return t('gitHistory.minutesAgo', { params: { minutes } });
+    if (hours < 24) return t('gitHistory.hoursAgo', { params: { hours } });
+    if (days < 7) return t('gitHistory.daysAgo', { params: { days } });
     return new Date(timestamp).toLocaleDateString('ja-JP');
   };
 
@@ -411,13 +413,12 @@ export default function GitHistory({
           }}
           onClick={() => setShowDuplicates(v => !v)}
         >
-          {showDuplicates ? '重複コミットを非表示' : '重複コミットも表示'}
+          {showDuplicates ? t('gitHistory.hideDuplicates') : t('gitHistory.showDuplicates')}
         </button>
         {!showDuplicates &&
           Array.from(duplicateGroups.values()).filter(g => g.length > 1).length > 0 && (
             <span className="text-[11px] text-gray-400">
-              （{Array.from(duplicateGroups.values()).filter(g => g.length > 1).length}
-              件の重複グループを非表示中）
+              {t('gitHistory.duplicateGroupsHidden', { params: { count: Array.from(duplicateGroups.values()).filter(g => g.length > 1).length } })}
             </span>
           )}
       </div>
@@ -709,12 +710,12 @@ export default function GitHistory({
                         marginTop: '2px',
                       }}
                     >
-                      <div
-                        className="text-[11px] mb-1 font-medium"
-                        style={{ color: colors.gitCommitMeta || 'var(--muted-foreground)' }}
-                      >
-                        変更されたファイル:
-                      </div>
+                        <div
+                          className="text-[11px] mb-1 font-medium"
+                          style={{ color: colors.gitCommitMeta || 'var(--muted-foreground)' }}
+                        >
+                          {t('gitHistory.changedFiles')}
+                        </div>
                       {commitChanges.has(commit.hash) ? (
                         <div
                           className="space-y-0.5 overflow-y-auto"
@@ -738,7 +739,7 @@ export default function GitHistory({
                                     color: colors.gitCommitMeta || 'var(--muted-foreground)',
                                   }}
                                 >
-                                  変更ファイルが見つかりません
+                                  {t('gitHistory.noChangedFiles')}
                                 </div>
                               );
                             }
@@ -771,7 +772,7 @@ export default function GitHistory({
                                       color: colors.gitCommitMeta || 'var(--muted-foreground)',
                                     }}
                                   >
-                                    全{allFiles.length}ファイル (スクロール可能)
+                                    {t('gitHistory.allFilesScrollable', { params: { count: allFiles.length } })}
                                   </div>
                                 )}
                               </>
@@ -783,7 +784,7 @@ export default function GitHistory({
                           className="text-[11px] py-0.5"
                           style={{ color: colors.gitCommitMeta || 'var(--muted-foreground)' }}
                         >
-                          変更情報を読み込み中...
+                          {t('gitHistory.loadingChanges')}
                         </div>
                       )}
                     </div>
