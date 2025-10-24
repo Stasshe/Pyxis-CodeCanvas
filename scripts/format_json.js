@@ -47,7 +47,25 @@ async function main() {
       process.exit(3);
     }
 
-    const formatted = JSON.stringify(parsed, null, 2) + "\n";
+      // Recursively sort object keys alphabetically so output is deterministic
+      function sortKeys(value) {
+        if (Array.isArray(value)) {
+          return value.map(sortKeys);
+        }
+        if (value && typeof value === "object") {
+          // null check above; plain objects will be handled here
+          const keys = Object.keys(value).sort((a, b) => a.localeCompare(b));
+          const out = {};
+          for (const k of keys) {
+            out[k] = sortKeys(value[k]);
+          }
+          return out;
+        }
+        return value;
+      }
+
+      const sorted = sortKeys(parsed);
+      const formatted = JSON.stringify(sorted, null, 2) + "\n";
 
     // If formatted content is identical bytes (taking BOM into account), skip writing
     const outBuf = Buffer.from(formatted, "utf8");

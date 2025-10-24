@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useTheme } from '@/context/ThemeContext';
+import { useTranslation } from '@/context/I18nContext';
 
 type OutputType = 'info' | 'error' | 'warn' | 'check';
 
@@ -25,6 +26,7 @@ const getTypeColor = (colors: any): Record<OutputType, string> => ({
 
 export default function OutputPanel({ messages, onClearDisplayed }: OutputPanelProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const [contextFilter, setContextFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState<OutputType | 'all'>('all');
 
@@ -79,7 +81,7 @@ export default function OutputPanel({ messages, onClearDisplayed }: OutputPanelP
         }}
       >
         <label style={{ fontSize: '10px', color: colors.mutedFg }}>
-          処理名:
+          {t('bottom.outputPanel.contextLabel')}:
           <select
             style={{
               marginLeft: 4,
@@ -93,7 +95,7 @@ export default function OutputPanel({ messages, onClearDisplayed }: OutputPanelP
             value={contextFilter}
             onChange={e => setContextFilter(e.target.value)}
           >
-            <option value="">全て</option>
+            <option value="">{t('bottom.outputPanel.all')}</option>
             {contextList.map(ctx => (
               <option
                 key={ctx}
@@ -105,7 +107,7 @@ export default function OutputPanel({ messages, onClearDisplayed }: OutputPanelP
           </select>
         </label>
         <label style={{ fontSize: '10px', color: colors.mutedFg }}>
-          タイプ:
+          {t('bottom.outputPanel.typeLabel')}:
           <select
             style={{
               marginLeft: 4,
@@ -124,7 +126,7 @@ export default function OutputPanel({ messages, onClearDisplayed }: OutputPanelP
                 key={type}
                 value={type}
               >
-                {type === 'all' ? '全て' : type}
+                {type === 'all' ? t('bottom.outputPanel.all') : type}
               </option>
             ))}
           </select>
@@ -144,14 +146,14 @@ export default function OutputPanel({ messages, onClearDisplayed }: OutputPanelP
             color: colors.editorFg,
             cursor: 'pointer',
           }}
-          title="現在表示されている出力をクリア"
+          title={t('bottom.outputPanel.clearTooltip')}
         >
-          クリア
+          {t('bottom.outputPanel.clear')}
         </button>
       </div>
       {filtered.length === 0 ? (
         <div style={{ color: colors.mutedFg, fontSize: '10px', padding: '4px 0' }}>
-          出力はありません
+          {t('bottom.outputPanel.empty')}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>

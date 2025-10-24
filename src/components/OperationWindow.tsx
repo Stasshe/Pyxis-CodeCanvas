@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from '@/context/I18nContext';
 import { FileItem, EditorPane } from '@/types';
 import { useTheme } from '@/context/ThemeContext';
 import { handleFileSelect } from '@/hooks/fileSelectHandlers';
@@ -49,6 +50,7 @@ export default function OperationWindow({
   aiMode = false,
 }: OperationWindowProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [mdPreviewPrompt, setMdPreviewPrompt] = useState<null | { file: FileItem }>(null);
@@ -271,7 +273,7 @@ export default function OperationWindow({
                 color: colors.foreground,
               }}
             >
-              Markdownプレビューで開きますか？
+              {t('operationWindow.mdPreviewPrompt')}
             </div>
             <div style={{ color: colors.mutedFg, fontSize: '13px', marginBottom: '12px' }}>
               {mdPreviewPrompt.file.name}
@@ -298,7 +300,7 @@ export default function OperationWindow({
                   setMdPreviewPrompt(null);
                 }}
               >
-                プレビューで開く
+                {t('operationWindow.openInPreview')}
               </button>
               <button
                 style={{
@@ -321,11 +323,11 @@ export default function OperationWindow({
                   setMdPreviewPrompt(null);
                 }}
               >
-                通常エディタで開く
+                {t('operationWindow.openInEditor')}
               </button>
             </div>
             <div style={{ fontSize: '12px', color: colors.mutedFg, marginTop: '8px' }}>
-              Tab/←→ で切替, Enterで決定, ESCで閉じる
+              {t('operationWindow.mdPreviewDialogHelp')}
             </div>
           </div>
         </div>
@@ -364,7 +366,7 @@ export default function OperationWindow({
             <input
               ref={inputRef}
               type="text"
-              placeholder="ファイル名・フォルダ名・パス いずれかで検索..."
+              placeholder={t('operationWindow.searchPlaceholder')}
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               style={{
@@ -398,7 +400,7 @@ export default function OperationWindow({
                   color: colors.mutedFg,
                 }}
               >
-                ファイルが見つかりません
+                {t('operationWindow.noFilesFound')}
               </div>
             ) : (
               filteredFiles.map((file, index) => {
@@ -525,7 +527,7 @@ export default function OperationWindow({
               justifyContent: 'space-between',
             }}
           >
-            <span>↑↓ で選択, Enter で開く</span>
+            <span>{t('operationWindow.footerHelp')}</span>
             <span
               style={{
                 cursor: 'pointer',
@@ -534,14 +536,14 @@ export default function OperationWindow({
               onClick={onClose}
               tabIndex={0}
               role="button"
-              aria-label="ESC で閉じる"
+              aria-label={t('operationWindow.closeByEsc')}
               onKeyDown={e => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   onClose();
                 }
               }}
             >
-              ESC で閉じる
+              {t('operationWindow.closeByEsc')}
             </span>
           </div>
         </div>

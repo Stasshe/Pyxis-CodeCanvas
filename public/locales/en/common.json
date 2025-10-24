@@ -1,4 +1,14 @@
 {
+  "operationWindow": {
+    "mdPreviewPrompt": "Open in Markdown preview?",
+    "openInPreview": "Open in Preview",
+    "openInEditor": "Open in Editor",
+    "mdPreviewDialogHelp": "Tab/←→ to switch, Enter to confirm, ESC to close",
+    "searchPlaceholder": "Search by file/folder name or path...",
+    "noFilesFound": "No files found",
+    "footerHelp": "Use ↑↓ to select, Enter to open",
+    "closeByEsc": "Close with ESC"
+  },
   "action": {
     "cancel": "Cancel",
     "refresh": "Refresh",
@@ -105,7 +115,16 @@
   "bottom": {
     "output": "Output",
     "debugConsole": "Debug Console",
-    "terminal": "Terminal"
+    "terminal": "Terminal",
+    "outputPanel": {
+      "contextLabel": "Context",
+      "typeLabel": "Type",
+      "all": "All",
+      "clear": "Clear",
+      "clearTooltip": "Clear currently displayed output",
+      "empty": "No output"
+    },
+    "terminalInitializing": "Initializing terminal..."
   },
   "right": {
     "aiUnavailable": "AI Assistant is unavailable"
@@ -218,5 +237,12 @@
     "alert": {
       "renameFailed": "Rename failed: {error}"
     }
+  },
+  "chatSpaceList": {
+    "create": "Create new space",
+    "empty": "No spaces yet",
+    "rename": "Rename",
+    "delete": "Delete",
+    "confirmDelete": "Are you sure you want to delete this space?"
   }
 }

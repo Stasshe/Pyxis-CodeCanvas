@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useTheme } from '@/context/ThemeContext';
+import { useTranslation } from '@/context/I18nContext';
 import type { ChatSpace } from '@/types';
 
 interface ChatSpaceListProps {
@@ -22,6 +23,7 @@ export default function ChatSpaceList({
   onUpdateSpaceName,
 }: ChatSpaceListProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
 
@@ -99,7 +101,7 @@ export default function ChatSpaceList({
             d="M12 6v6m0 0v6m0-6h6m-6 0H6"
           />
         </svg>
-        新しいスペースを作成
+        {t('chatSpaceList.create')}
       </button>
 
       {/* スペースリスト */}
@@ -109,7 +111,7 @@ export default function ChatSpaceList({
             className="text-xs py-2 text-center opacity-60"
             style={{ color: colors.mutedFg }}
           >
-            まだスペースがありません
+            {t('chatSpaceList.empty')}
           </div>
         ) : (
           chatSpaces.map(space => (
@@ -244,7 +246,7 @@ export default function ChatSpaceList({
                         e.stopPropagation();
                         handleEditStart(space);
                       }}
-                      title="名前を変更"
+                      title={t('chatSpaceList.rename')}
                     >
                       <svg
                         className="w-3 h-3"
@@ -265,11 +267,11 @@ export default function ChatSpaceList({
                       style={{ color: colors.destructive }}
                       onClick={e => {
                         e.stopPropagation();
-                        if (confirm('このスペースを削除しますか？')) {
+                        if (confirm(t('chatSpaceList.confirmDelete'))) {
                           onDeleteSpace(space.id);
                         }
                       }}
-                      title="削除"
+                      title={t('chatSpaceList.delete')}
                     >
                       <svg
                         className="w-3 h-3"

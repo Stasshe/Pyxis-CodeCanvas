@@ -1,4 +1,14 @@
 {
+  "operationWindow": {
+    "mdPreviewPrompt": "Markdownプレビューで開きますか？",
+    "openInPreview": "プレビューで開く",
+    "openInEditor": "通常エディタで開く",
+    "mdPreviewDialogHelp": "Tab/←→ で切替, Enterで決定, ESCで閉じる",
+    "searchPlaceholder": "ファイル名・フォルダ名・パス いずれかで検索...",
+    "noFilesFound": "ファイルが見つかりません",
+    "footerHelp": "↑↓ で選択, Enter で開く",
+    "closeByEsc": "ESC で閉じる"
+  },
   "action": {
     "cancel": "キャンセル",
     "refresh": "更新",
@@ -105,7 +115,16 @@
   "bottom": {
     "output": "出力",
     "debugConsole": "デバッグコンソール",
-    "terminal": "ターミナル"
+    "terminal": "ターミナル",
+    "outputPanel": {
+      "contextLabel": "処理名",
+      "typeLabel": "タイプ",
+      "all": "全て",
+      "clear": "クリア",
+      "clearTooltip": "現在表示されている出力をクリア",
+      "empty": "出力はありません"
+    },
+    "terminalInitializing": "ターミナルを初期化中..."
   },
   "right": {
     "aiUnavailable": "AI Assistant機能が利用できません"
@@ -218,5 +237,12 @@
     "alert": {
       "renameFailed": "名前変更に失敗しました: {error}"
     }
+  },
+  "chatSpaceList": {
+    "create": "新しいスペースを作成",
+    "empty": "まだスペースがありません",
+    "rename": "名前を変更",
+    "delete": "削除",
+    "confirmDelete": "このスペースを削除しますか？"
   }
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useTheme } from '@/context/ThemeContext';
+import { useTranslation } from '@/context/I18nContext';
 import { UnixCommands } from '@/engine/cmd/unix';
 import { GitCommands } from '@/engine/cmd/git';
 import { NpmCommands } from '@/engine/cmd/npm';
@@ -780,6 +781,7 @@ export default function Terminal({
   }, []);
 
   const { colors } = useTheme();
+  const { t } = useTranslation();
   if (!isMounted) {
     return (
       <div
@@ -790,7 +792,7 @@ export default function Terminal({
           className="text-sm"
           style={{ color: colors.mutedFg }}
         >
-          ターミナルを初期化中...
+          {t('bottom.terminalInitializing')}
         </div>
       </div>
     );
