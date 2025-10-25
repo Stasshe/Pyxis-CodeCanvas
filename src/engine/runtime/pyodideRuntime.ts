@@ -307,7 +307,7 @@ _pyxis_stdout = sys.stdout
 _pyxis_stringio = io.StringIO()
 sys.stdout = _pyxis_stringio
 try:
-  exec("""${code.replace(/\\/g, '\\').replace(/"/g, '\"')}""", globals())
+  exec("""${code.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n')}""", globals())
   _pyxis_result = _pyxis_stringio.getvalue()
 finally:
   sys.stdout = _pyxis_stdout
