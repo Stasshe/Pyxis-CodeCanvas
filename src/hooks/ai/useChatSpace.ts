@@ -144,6 +144,52 @@ export const useChatSpace = (projectId: string | null) => {
         );
       }
 
+      // If this is an assistant edit response and an existing assistant edit
+      // message is present, update that message instead of appending a new one.
+      if (
+        type === 'assistant' &&
+        mode === 'edit' &&
+        editResponse &&
+        currentSpace.messages &&
+        currentSpace.messages.length > 0
+      ) {
+        const existing = currentSpace.messages
+          .slice()
+          .reverse()
+          .find(m => m.type === 'assistant' && m.mode === 'edit' && m.editResponse);
+
+        if (existing) {
+          // merge content and editResponse into existing message
+          const updated = await projectDB.updateChatSpaceMessage(currentSpace.id, existing.id, {
+            content,
+            editResponse,
+            timestamp: new Date(),
+          });
+
+          if (updated) {
+            setCurrentSpace(prev => {
+              if (!prev) return null;
+              return {
+                ...prev,
+                messages: prev.messages.map(m => (m.id === updated.id ? updated : m)),
+              };
+            });
+
+            setChatSpaces(prev =>
+              prev.map(space =>
+                space.id === currentSpace.id
+                  ? { ...space, messages: space.messages.map(m => (m.id === updated.id ? updated : m)), updatedAt: new Date() }
+                  : space
+              ).sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+            );
+
+            return updated;
+          }
+          // fallback to append if update failed
+        }
+      }
+
+      // default: append a new message
       const newMessage = await projectDB.addMessageToChatSpace(currentSpace.id, {
         type,
         content,
