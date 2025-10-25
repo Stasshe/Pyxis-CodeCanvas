@@ -1,0 +1,17 @@
+{
+  "charCountDetails": {
+    "lines": "पंक्तियाँ",
+    "words": "शब्द",
+    "chars": "अक्षर",
+    "charsNoSpaces": "अक्षर (रिक्ति छोड़कर)",
+    "zenkaku": "पूर्ण-चौड़ाई अक्षर",
+    "hankaku": "अर्ध-चौड़ाई अक्षर",
+    "digits": "अंक",
+    "alpha": "वर्णमाला",
+    "symbols": "प्रतीक",
+    "spaces": "रिक्तियाँ",
+    "newlines": "नए पंक्तियाँ",
+    "maxLineLen": "अधिकतम पंक्ति लंबाई",
+    "avgLineLen": "औसत पंक्ति लंबाई"
+  }
+}
