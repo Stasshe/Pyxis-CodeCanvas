@@ -87,6 +87,14 @@ class ProjectDB {
     return fileRepository.addMessageToChatSpace(chatSpaceId, message);
   }
 
+  async updateChatSpaceMessage(
+    chatSpaceId: string,
+    messageId: string,
+    updates: Partial<ChatSpaceMessage>
+  ): Promise<ChatSpaceMessage | null> {
+    return fileRepository.updateChatSpaceMessage(chatSpaceId, messageId, updates);
+  }
+
   async updateChatSpaceSelectedFiles(chatSpaceId: string, selectedFiles: string[]): Promise<void> {
     return fileRepository.updateChatSpaceSelectedFiles(chatSpaceId, selectedFiles);
   }
