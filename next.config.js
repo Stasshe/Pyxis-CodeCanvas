@@ -13,7 +13,7 @@ if (basePathEnv && !basePathEnv.startsWith('/')) {
 }
 // 空文字の場合は undefined にして Next のデフォルト挙動に委ねる
 const configuredBasePath = basePathEnv || undefined;
-
+console.log(`Configured basePath: ${configuredBasePath}`);
 // package.jsonからバージョン取得
 const pkg = require('./package.json');
 
@@ -97,6 +97,10 @@ const nextConfig = {
   ...commonConfig,
   ...productionConfig,
   turbopack: {}, // Next.js 16 以降のTurbopack対応
+  // NEXT_PUBLIC_BASE_PATH に基づき Next の basePath / assetPrefix を設定
+  // 空文字の場合は undefined にすることで Next のデフォルト挙動に委ねる
+  basePath: configuredBasePath,
+  assetPrefix: configuredBasePath || undefined,
 };
 
 console.log(`Building in ${isProductionBuild ? 'PRODUCTION' : 'DEVELOPMENT'} mode`);
