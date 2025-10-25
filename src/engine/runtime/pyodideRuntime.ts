@@ -40,6 +40,32 @@ export function getPyodide(): PyodideInterface | null {
   return pyodideInstance;
 }
 
+/**
+ * Convert a project (IndexedDB) path to a path appropriate for Pyodide's /home
+ * If project paths include a leading /pyodide prefix, strip it so files end up under /home/<path>
+ */
+function normalizePathToPyodide(projectPath: string): string {
+  if (!projectPath) return projectPath;
+  // ensure leading slash
+  const p = projectPath.startsWith('/') ? projectPath : `/${projectPath}`;
+  if (p === '/pyodide') return '/';
+  if (p.startsWith('/pyodide/')) return p.replace('/pyodide', '');
+  return p;
+}
+
+/**
+ * Convert a pyodide relative path (returned from scan) into the project path used in IndexedDB
+ * If pyodide contains a /pyodide prefix, drop it.
+ */
+function normalizePathFromPyodide(pyodideRelativePath: string): string {
+  if (!pyodideRelativePath) return pyodideRelativePath;
+  // ensure leading slash
+  const p = pyodideRelativePath.startsWith('/') ? pyodideRelativePath : `/${pyodideRelativePath}`;
+  if (p === '/pyodide') return '/';
+  if (p.startsWith('/pyodide/')) return p.replace('/pyodide', '');
+  return p;
+}
+
 export async function setCurrentProject(projectId: string, projectName: string): Promise<void> {
   currentProjectId = projectId;
   currentProjectName = projectName;
@@ -89,7 +115,9 @@ export async function syncPyodideFromIndexedDB(projectId: string): Promise<void>
     // 各ファイルをPyodideに書き込む
     for (const file of files) {
       if (file.type === 'file' && file.content) {
-        const pyodidePath = `/home${file.path}`;
+        // project path -> pyodide path mapping
+        const normalizedProjectPath = normalizePathToPyodide(file.path);
+        const pyodidePath = `/home${normalizedProjectPath}`;
 
         // ディレクトリを作成
         const dirPath = pyodidePath.substring(0, pyodidePath.lastIndexOf('/'));
@@ -132,7 +160,10 @@ export async function syncPyodideToIndexedDB(projectId: string): Promise<void> {
 
     // Pyodideのファイルを同期
     for (const { path, content } of pyodideFiles) {
-      const existingFile = existingFiles.find(f => f.path === path);
+      // pyodide -> project path mapping
+      const projectPath = normalizePathFromPyodide(path);
+
+      const existingFile = existingFiles.find(f => f.path === projectPath);
 
       if (existingFile) {
         // 既存ファイルの更新
@@ -145,10 +176,10 @@ export async function syncPyodideToIndexedDB(projectId: string): Promise<void> {
         }
       } else {
         // 新規ファイルの作成
-        await fileRepository.createFile(projectId, path, content, 'file');
+        await fileRepository.createFile(projectId, projectPath, content, 'file');
       }
 
-      existingPaths.delete(path);
+      existingPaths.delete(projectPath);
     }
 
     // Pyodideに存在しないファイルを削除
