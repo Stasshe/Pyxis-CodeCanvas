@@ -62,7 +62,6 @@ jobs:
           # You may remove this line if you want to manage the configuration yourself.
           static_site_generator: next
           generator_config_file: next.config.js
-          cache: ${{ steps.detect-package-manager.outputs.manager }}
       - name: Restore cache
         uses: actions/cache@v4
         with:
@@ -85,6 +84,8 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: ./out
+      - name: List file
+        run: ls -la && ls -la out
 
   # Deployment job
   deploy:
