@@ -1,8 +1,9 @@
 // 統合AIフック
 
-'use client';
+"use client";
 
 import { useState, useCallback, useEffect } from 'react';
+import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
 
 import { LOCALSTORAGE_KEY } from '@/context/config';
 import { getSelectedFileContexts } from '@/engine/ai/contextBuilder';
@@ -50,6 +51,20 @@ export function useAI(props?: UseAIProps) {
     ) => {
       if (props?.onAddMessage) {
         await props.onAddMessage(content, type, mode, fileContext, editResponse);
+      }
+      // Always push assistant responses to the BottomPanel so user sees AI replies
+      try {
+        if (type === 'assistant') {
+          // map mode to a small context label
+          const ctx = mode === 'edit' ? 'AI (edit)' : 'AI';
+          // Ensure content is a string
+          const msg = typeof content === 'string' ? content : JSON.stringify(content);
+          pushMsgOutPanel(msg, 'info', ctx);
+        }
+      } catch (e) {
+        // non-fatal: ensure UI doesn't break if push fails
+        // eslint-disable-next-line no-console
+        console.warn('[useAI] pushMsgOutPanel failed', e);
       }
     },
     [props?.onAddMessage]
