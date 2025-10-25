@@ -3,7 +3,7 @@
  * 翻訳リソースの動的ロードとキャッシュ管理
  */
 
-import { loadTranslationCache, saveTranslationCache } from './storage';
+import { loadTranslationCache, saveTranslationCache } from './storage-adapter';
 import type { Locale } from './types';
 
 /**

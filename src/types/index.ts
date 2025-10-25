@@ -30,7 +30,7 @@ export interface Tab {
    * Examples: 'editor' (normal code editor), 'preview' (markdown preview),
    * 'webPreview' (browser/web preview), 'ai' (AI review), 'diff' (diff view).
    */
-  kind?: 'editor' | 'preview' | 'webPreview' | 'ai' | 'diff';
+  kind?: 'editor' | 'preview' | 'webPreview' | 'ai' | 'diff' | 'settings';
   preview?: boolean;
   isCodeMirror?: boolean;
   isBufferArray?: boolean; // バイナリファイルの場合true

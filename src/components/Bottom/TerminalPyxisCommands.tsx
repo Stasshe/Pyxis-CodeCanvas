@@ -8,7 +8,7 @@ import { gitFileSystem } from '@/engine/core/gitFileSystem';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { exportPage } from '@/engine/export/exportPage';
 import { LOCALSTORAGE_KEY } from '@/context/config';
-import { clearAllTranslationCache, deleteTranslationCache } from '@/engine/i18n/storage';
+import { clearAllTranslationCache, deleteTranslationCache } from '@/engine/i18n/storage-adapter';
 import { tree as treeOperation } from '@/engine/cmd/gitOperations/tree';
 
 // npm dependency size util is loaded dynamically where needed
