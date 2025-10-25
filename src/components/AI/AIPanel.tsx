@@ -170,8 +170,10 @@ export default function AIPanel({
     if (!currentProject) return;
 
     try {
+      // 1) Save file first
       await saveFile(filePath, newContent);
-      await clearAIReview(filePath);
+
+      // 2) Close any open review tab for this file so editor state updates immediately
       closeAIReviewTab(filePath, setTabs, tabs);
 
       // Immediately update any open editor tabs that match this file path so the
@@ -197,10 +199,43 @@ export default function AIPanel({
       }
 
       // 成功メッセージを追加
-      await addSpaceMessage('', 'assistant', 'edit', [], {
-        changedFiles: [],
-        message: `✅ ${filePath} の変更が適用されました。`,
-      });
+      // Update chat to reflect that this file was applied. Recompute the
+      // latest edit response at the time of handling to avoid stale closures.
+      try {
+        const prev = currentSpace?.messages
+          .slice()
+          .reverse()
+          .find(msg => msg.mode === 'edit' && msg.type === 'assistant' && msg.editResponse)
+          ?.editResponse;
+
+        if (prev && prev.changedFiles && prev.changedFiles.length > 0) {
+          const remaining = prev.changedFiles.filter(f => f.path !== filePath);
+          if (remaining.length > 0) {
+            await addSpaceMessage('', 'assistant', 'edit', [], {
+              ...prev,
+              changedFiles: remaining,
+              message: `✅ ${filePath} を適用しました。残り ${remaining.length} 個の提案があります。`,
+            });
+          } else {
+            // no remaining proposals: add a plain assistant note (no editResponse)
+            await addSpaceMessage(`✅ ${filePath} の変更が適用されました。`, 'assistant', 'ask');
+          }
+        } else {
+          // no previous edit response available: add a plain assistant note
+          await addSpaceMessage(`✅ ${filePath} の変更が適用されました。`, 'assistant', 'ask');
+        }
+      } catch (e) {
+        console.warn('[AIPanel] Failed to append updated edit message', e);
+        await addSpaceMessage(`✅ ${filePath} の変更が適用されました。`, 'assistant', 'ask');
+      }
+
+      // Finally, clear AI review metadata for this file. Do this after updating
+      // the chat so the edit response update remains the latest visible state.
+      try {
+        await clearAIReview(filePath);
+      } catch (e) {
+        console.warn('[AIPanel] clearAIReview failed after apply:', e);
+      }
     } catch (error) {
       console.error('Failed to apply changes:', error);
       alert(`変更の適用に失敗しました: ${(error as Error).message}`);
@@ -210,13 +245,42 @@ export default function AIPanel({
   // 変更を破棄
   const handleDiscardChanges = async (filePath: string) => {
     try {
-      await clearAIReview(filePath);
+      // Close the review tab immediately so UI updates.
       closeAIReviewTab(filePath, setTabs, tabs);
 
-      await addSpaceMessage('', 'assistant', 'edit', [], {
-        changedFiles: [],
-        message: `❌ ${filePath} の変更が破棄されました。`,
-      });
+      // Re-evaluate latest edit response at action time to avoid stale closures
+      try {
+        const prev = currentSpace?.messages
+          .slice()
+          .reverse()
+          .find(msg => msg.mode === 'edit' && msg.type === 'assistant' && msg.editResponse)
+          ?.editResponse;
+
+        if (prev && prev.changedFiles && prev.changedFiles.length > 0) {
+          const remaining = prev.changedFiles.filter(f => f.path !== filePath);
+          if (remaining.length > 0) {
+            await addSpaceMessage('', 'assistant', 'edit', [], {
+              ...prev,
+              changedFiles: remaining,
+              message: `❌ ${filePath} を破棄しました。残り ${remaining.length} 個の提案があります。`,
+            });
+          } else {
+            await addSpaceMessage(`❌ ${filePath} の変更が破棄されました。`, 'assistant', 'ask');
+          }
+        } else {
+          await addSpaceMessage(`❌ ${filePath} の変更が破棄されました。`, 'assistant', 'ask');
+        }
+      } catch (e) {
+        console.warn('[AIPanel] Failed to append updated edit message after discard', e);
+        await addSpaceMessage(`❌ ${filePath} の変更が破棄されました。`, 'assistant', 'ask');
+      }
+
+      // Finally clear ai review metadata for this file
+      try {
+        await clearAIReview(filePath);
+      } catch (e) {
+        console.warn('[AIPanel] clearAIReview failed after discard:', e);
+      }
     } catch (error) {
       console.error('Failed to discard changes:', error);
       alert(`変更の破棄に失敗しました: ${(error as Error).message}`);
