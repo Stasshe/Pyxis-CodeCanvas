@@ -33,7 +33,7 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    "next.config.ts",
+    "next.config.js",
     ".next/dev/types/**/*.ts",
     ".next\\dev/types/**/*.ts",
     ".next\\dev/types/**/*.ts"

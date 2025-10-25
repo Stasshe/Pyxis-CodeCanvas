@@ -5,8 +5,6 @@
 name: Deploy Next.js site to GitHub Pages (artifact flow)
 
 on:
-  push:
-    branches: ["main"]
   workflow_dispatch:
 
 jobs:

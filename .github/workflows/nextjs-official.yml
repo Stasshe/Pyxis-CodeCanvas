@@ -61,7 +61,8 @@ jobs:
           #
           # You may remove this line if you want to manage the configuration yourself.
           static_site_generator: next
-          generator_config_file: next.config.ts
+          generator_config_file: next.config.js
+          cache: ${{ steps.detect-package-manager.outputs.manager }}
       - name: Restore cache
         uses: actions/cache@v4
         with:
@@ -78,7 +79,7 @@ jobs:
         env:
           BUILD_MODE: production
           NEXT_PUBLIC_IS_PRODUCTION_BUILD: 'true'
-          NEXT_PUBLIC_BASE_PATH: ${{ steps.setup-pages.outputs.base_path }}
+          NEXT_PUBLIC_BASE_PATH: 'Pyxis-CodeCanvas'
         run: ${{ steps.detect-package-manager.outputs.runner }} npm run build
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
