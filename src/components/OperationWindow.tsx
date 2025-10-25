@@ -8,6 +8,7 @@ import { handleFileSelect } from '@/hooks/fileSelectHandlers';
 import { flattenPanes } from '@/hooks/pane';
 import { useSettings } from '@/hooks/useSettings';
 import { useProject } from '@/engine/core/project';
+import { getIconForFile } from 'vscode-icons-js';
 
 // FileItem[]を平坦化する関数（tab.tsと同じ実装）
 function flattenFileItems(items: FileItem[]): FileItem[] {
@@ -24,6 +25,62 @@ function flattenFileItems(items: FileItem[]): FileItem[] {
 
   traverse(items);
   return result;
+}
+
+// --- fuzzy matching helpers ---
+function levenshtein(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  const dp: number[] = Array(n + 1)
+    .fill(0)
+    .map((_, i) => i);
+  for (let i = 1; i <= m; i++) {
+    let prev = dp[0];
+    dp[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const tmp = dp[j];
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      dp[j] = Math.min(dp[j] + 1, dp[j - 1] + 1, prev + cost);
+      prev = tmp;
+    }
+  }
+  return dp[n];
+}
+
+// subsequence match: returns true if `q` is a subsequence of `s`
+function isSubsequence(q: string, s: string): boolean {
+  if (!q) return true;
+  let qi = 0;
+  for (let i = 0; i < s.length && qi < q.length; i++) {
+    if (s[i] === q[qi]) qi++;
+  }
+  return qi === q.length;
+}
+
+// scoring: higher is better
+function scoreMatch(text: string, query: string): number {
+  if (!query) return 100;
+  const t = text.toLowerCase();
+  const q = query.toLowerCase();
+  // exact substring match
+  if (t.includes(q)) return 80 + (q.length / Math.max(1, t.length)) * 20;
+  // subsequence match (fuzzy typed characters in order)
+  if (isSubsequence(q, t)) return 50 + (q.length / Math.max(1, t.length)) * 30;
+  // edit distance (allow small typos)
+  const dist = levenshtein(q, t);
+  const maxLen = Math.max(q.length, t.length);
+  const normalized = 1 - Math.min(dist / Math.max(1, maxLen), 1);
+  return Math.floor(normalized * 40); // 0..40
+}
+
+function getIconSrcForFile(name: string) {
+  const iconPath = getIconForFile(name) || getIconForFile('');
+  if (iconPath && iconPath.endsWith('.svg')) {
+    return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath.split('/').pop()}`;
+  }
+  return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/file.svg`;
 }
 
 interface OperationWindowProps {
@@ -118,17 +175,26 @@ export default function OperationWindow({
   const allFiles = flattenFileItems(projectFiles).filter(
     file => file.type === 'file' && !(typeof isExcluded === 'function' && isExcluded(file.path))
   );
-  const filteredFiles: FileItem[] = searchQuery
-    ? allFiles.filter(file => {
-        const q = searchQuery.toLowerCase();
-        const folders = file.path.split('/').slice(0, -1);
-        return (
-          file.name.toLowerCase().includes(q) ||
-          folders.some(folder => folder.toLowerCase().includes(q)) ||
-          file.path.toLowerCase().includes(q)
-        );
-      })
-    : allFiles;
+  // Enhanced fuzzy/typo-tolerant filtering + scoring
+  const filteredFiles: FileItem[] = (() => {
+    if (!searchQuery) return allFiles;
+    const q = searchQuery.trim();
+    const scored: Array<{ file: FileItem; score: number }> = [];
+    for (const file of allFiles) {
+      // consider name, path, and folder parts
+      const nameScore = scoreMatch(file.name, q);
+      const pathScore = scoreMatch(file.path, q);
+      const folders = file.path.split('/').slice(0, -1);
+      const folderScores = folders.map(f => scoreMatch(f, q));
+      const bestFolderScore = folderScores.length ? Math.max(...folderScores) : 0;
+      const best = Math.max(nameScore, pathScore, bestFolderScore);
+      // threshold: allow approximate matches; keep anything with non-zero score
+      if (best > 0) scored.push({ file, score: best });
+    }
+    // sort descending by score, then by name
+    scored.sort((a, b) => b.score - a.score || a.file.name.localeCompare(b.file.name));
+    return scored.map(s => s.file);
+  })();
 
   // 選択されたアイテムにスクロールする関数
   const scrollToSelectedItem = (index: number) => {
@@ -499,22 +565,42 @@ export default function OperationWindow({
                     }}
                     onMouseEnter={() => setSelectedIndex(index)}
                   >
-                    <span
+                    {/* file icon similar to FileTree */}
+                    <img
+                      src={getIconSrcForFile(file.name)}
+                      alt="icon"
                       style={{
-                        fontSize: '10px',
-                        fontFamily: 'monospace',
+                        width: 16,
+                        height: 16,
+                        verticalAlign: 'middle',
+                        opacity: 1,
                       }}
-                    >
-                      {pathElem}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: '14px',
-                        fontWeight: '500',
-                      }}
-                    >
-                      {nameElem}
-                    </span>
+                    />
+                    <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                      <span
+                        style={{
+                          fontSize: '10px',
+                          fontFamily: 'monospace',
+                          color: index === selectedIndex ? colors.cardBg : colors.mutedFg,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                      >
+                        {pathElem}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: '14px',
+                          fontWeight: '500',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                      >
+                        {nameElem}
+                      </span>
+                    </div>
                   </div>
                 );
               })
