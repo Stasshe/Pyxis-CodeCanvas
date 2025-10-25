@@ -115,6 +115,9 @@ export default function OperationWindow({
   const [mdDialogSelected, setMdDialogSelected] = useState<0 | 1>(0); // 0: プレビュー, 1: 通常エディタ
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  // 固定アイテム高さを定義（スクロール計算と見た目の基準にする）
+  // VSCode のようによりコンパクトに表示するため 28px に設定
+  const ITEM_HEIGHT = 28; // px
 
   // ファイル選択ハンドラ
   const handleFileSelectInOperation = (file: FileItem) => {
@@ -202,7 +205,7 @@ export default function OperationWindow({
     if (!listRef.current) return;
 
     const listElement = listRef.current;
-    const itemHeight = 38;
+    const itemHeight = ITEM_HEIGHT;
     const containerHeight = listElement.clientHeight;
     const scrollTop = listElement.scrollTop;
 
@@ -553,7 +556,11 @@ export default function OperationWindow({
                   <div
                     key={file.id}
                     style={{
-                      padding: '8px 12px',
+                      // 固定高さにしてレイアウトを安定させる
+                      height: ITEM_HEIGHT,
+                      boxSizing: 'border-box',
+                      // よりコンパクトに
+                      padding: '4px 8px',
                       background: index === selectedIndex ? colors.primary : 'transparent',
                       color: index === selectedIndex ? colors.cardBg : colors.foreground,
                       cursor: 'pointer',
@@ -576,32 +583,35 @@ export default function OperationWindow({
                       src={getIconSrcForFile(file.name)}
                       alt="icon"
                       style={{
-                        width: 16,
-                        height: 16,
+                        width: 12,
+                        height: 12,
                         verticalAlign: 'middle',
                         opacity: 1,
+                        flex: '0 0 12px',
                       }}
                     />
                     <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                       <span
                         style={{
-                          fontSize: '10px',
+                          fontSize: '8px',
                           fontFamily: 'monospace',
                           color: index === selectedIndex ? colors.cardBg : colors.mutedFg,
                           whiteSpace: 'nowrap',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
+                          lineHeight: '10px',
                         }}
                       >
                         {pathElem}
                       </span>
                       <span
                         style={{
-                          fontSize: '14px',
+                          fontSize: '12px',
                           fontWeight: '500',
                           whiteSpace: 'nowrap',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
+                          lineHeight: '14px',
                         }}
                       >
                         {nameElem}
