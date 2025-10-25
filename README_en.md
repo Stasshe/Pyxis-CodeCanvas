@@ -17,7 +17,7 @@
   [![Last Commit](https://img.shields.io/github/last-commit/Stasshe/Pyxis-Client-Side-Code-Editor?logo=github)](https://github.com/Stasshe/Pyxis-Client-Side-Code-Editor/commits/main)
   [![Bundle Size](https://img.shields.io/badge/bundle--size-1.04MB-purple?logo=next.js)](#)
   
-  **[🚀 Try Pyxis Now](https://pyxis-code.onrender.com)** | **[📖 日本語版](README.md)**
+  **[🚀 Try Pyxis Now](https://Stasshe.github.io/Pyxis-CodeCanvas)** | **[📖 日本語版](README.md)**
 </div>
 
 ---
@@ -264,7 +264,7 @@ git merge main
 ## 🚀 Quick Start Guide
 
 ### **1. Just Click and Code!**
-1. 🌐 **[Open Pyxis](https://pyxis-code.onrender.com)** in any browser
+1. 🌐 **[Open Pyxis](https://Stasshe.github.io/Pyxis-CodeCanvas)** in any browser
 2. 📝 **Start typing** - no sign up, no downloads needed
 3. 🎯 **Try the examples**
 
@@ -378,7 +378,7 @@ MIT License - Use it, modify it, love it! See [LICENSE](LICENSE) for details.
 
 ## 🚀 Ready to Code Without Limits?
 
-**[✨ Launch Pyxis Now](https://pyxis-code.onrender.com)**
+**[✨ Launch Pyxis Now](https://Stasshe.github.io/Pyxis-CodeCanvas)**
 
 *No downloads. No setup. Just pure coding.* ✨
 

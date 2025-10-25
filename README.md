@@ -19,7 +19,7 @@
   [![Last Commit](https://img.shields.io/github/last-commit/Stasshe/Pyxis-Client-Side-Code-Editor?logo=github)](https://github.com/Stasshe/Pyxis-Client-Side-Code-Editor/commits/main)
   [![Bundle Size](https://img.shields.io/badge/bundle--size-1.04MB-purple?logo=next.js)](#)
   
-  **[🚀 Pyxis を今すぐ試す](https://pyxis-code.onrender.com)**
+  **[🚀 Pyxis を今すぐ試す](https://Stasshe.github.io/Pyxis-CodeCanvas)**
 </div>
 
 ---
@@ -272,7 +272,7 @@ rl.question('お名前は？ ', (name) => {
 ## 🚀 クイックスタートガイド
 
 ### **1. クリックしてコーディング開始！**
-1. 🌐 **[Pyxis を開く](https://pyxis-code.onrender.com)** - どのブラウザでも
+1. 🌐 **[Pyxis を開く](https://Stasshe.github.io/Pyxis-CodeCanvas)** - どのブラウザでも
 2. 📝 **タイプ開始** - サインアップ不要、ダウンロード不要
 3. 🎯 **下の例を試す** - 即座に体験
 
@@ -399,7 +399,7 @@ MIT License - 使って、改造して。詳細は[LICENSE](LICENSE)をご覧く
 
 ## 🚀 制限なしのコーディングの準備はできましたか？
 
-**[✨ Pyxis を今すぐ起動](https://pyxis-code.onrender.com)**
+**[✨ Pyxis を今すぐ起動](https://Stasshe.github.io/Pyxis-CodeCanvas)**
 
 *ダウンロード不要。セットアップ不要。純粋なコーディング。* ✨
 
