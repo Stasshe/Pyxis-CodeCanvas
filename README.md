@@ -403,6 +403,8 @@ MIT License - 使って、改造して。詳細は[LICENSE](LICENSE)をご覧く
 
 *ダウンロード不要。セットアップ不要。純粋なコーディング。* ✨
 
+**Dev Server: [pyxis-code.onrender.com](https://pyxis-code.onrender.com)**
+
 ---
 
 ### シェアしよう
