@@ -63,10 +63,22 @@ jobs:
             ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json', '**/yarn.lock') }}-
       - name: Install dependencies
         run: ${{ steps.detect-package-manager.outputs.manager }} ${{ steps.detect-package-manager.outputs.command }}
+      - name: Clean previous export output
+        run: |
+          # Ensure previous export is removed so the uploaded artifact is always fresh
+          rm -rf ./out || true
+          ls -la || true
       - name: Build with Next.js
         run: npm run build
-      - name: Create .nojekyll file
-        run: touch ./out/.nojekyll && ls -la
+      - name: Create .nojekyll and deployment metadata
+        run: |
+          # Create .nojekyll so GitHub Pages won't run Jekyll
+          mkdir -p ./out
+          touch ./out/.nojekyll
+          # Add a small metadata file with a timestamp to ensure the artifact content changes every run
+          date -u +"%Y-%m-%dT%H:%M:%SZ" > ./out/deploy-timestamp.txt
+          echo "deployed_by=github-actions" >> ./out/deploy-timestamp.txt
+          ls -la ./out
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
