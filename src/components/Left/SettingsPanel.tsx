@@ -81,9 +81,24 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
     // 設定変更リスナーを登録
     const unsubscribe = settingsManager.addListener(currentProject.id, newSettings => {
       setSettings(newSettings);
-      // テーマも更新
+
+      // テーマをまず更新（基礎テーマに戻す）
       setTheme(newSettings.theme.colorTheme);
       setHighlightTheme(newSettings.theme.highlightTheme);
+
+      // settings に保存された customColors があれば、基礎テーマ適用後に上書きして再適用する
+      // これにより、保存→通知で基礎テーマに戻される際のフリッカーを防ぐ
+      try {
+        if (newSettings.theme && newSettings.theme.customColors) {
+          Object.entries(newSettings.theme.customColors).forEach(([k, v]) => {
+            if (typeof v === 'string') {
+              setColor(k, v);
+            }
+          });
+        }
+      } catch (e) {
+        console.warn('[SettingsPanel] Failed to reapply customColors on settings update:', e);
+      }
     });
 
     return () => {
