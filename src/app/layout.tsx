@@ -37,9 +37,11 @@ export const metadata: Metadata = {
   authors: [{ name: 'Pyxis Project' }],
   creator: 'Pyxis Project',
   icons: {
-    icon: '/favicon.ico',
-    shortcut: '/favicon.ico',
-    apple: '/apple-touch-icon.png',
+    // basePath を考慮して動的にパスを生成（build-time に置換される NEXT_PUBLIC_* を利用）
+    // NEXT_PUBLIC_BASE_PATH は next.config.js で env に注入済み
+    icon: `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/favicon.ico`,
+    shortcut: `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/favicon.ico`,
+    apple: `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/apple-touch-icon.png`,
   },
   openGraph: {
     title: 'Pyxis - クライアントサイド IDE & ターミナル',
@@ -49,7 +51,7 @@ export const metadata: Metadata = {
     siteName: 'Pyxis',
     images: [
       {
-        url: '/apple-touch-icon.png',
+        url: `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/apple-touch-icon.png`,
         width: 512,
         height: 512,
         alt: 'Pyxis Logo',
@@ -65,7 +67,7 @@ export const metadata: Metadata = {
       'Node.js ランタイムと Git サポートを完全内蔵したクライアントサイド IDE。iPad/モバイル/PC で動作。VS Code ライクな編集、Git バージョン管理、npm 実行、オフライン対応。',
     images: [
       {
-        url: '/apple-touch-icon.png',
+        url: `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/apple-touch-icon.png`,
         alt: 'Pyxis Logo',
       },
     ],
@@ -77,6 +79,10 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // basePath を runtime で組み立て。NEXT_PUBLIC_BASE_PATH は next.config の env で注入済み
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+  const swPath = `${basePath}/sw.js`;
+  const manifestPath = `${basePath}/manifest.json`;
   return (
     <html
       lang="en"
@@ -85,17 +91,17 @@ export default function RootLayout({
       <head>
         <link
           rel="icon"
-          href="/favicon.ico"
+          href={`${basePath}/favicon.ico`}
           sizes="any"
         />
         <link
           rel="icon"
           type="image/svg+xml"
-          href="/file.svg"
+          href={`${basePath}/file.svg`}
         />
         <link
           rel="apple-touch-icon"
-          href="/apple-touch-icon.png"
+          href={`${basePath}/apple-touch-icon.png`}
           sizes="180x180"
         />
         <meta
@@ -105,7 +111,7 @@ export default function RootLayout({
         {/* PWA manifest & service worker */}
         <link
           rel="manifest"
-          href="/manifest.json"
+          href={manifestPath}
         />
         <meta
           name="apple-mobile-web-app-capable"
@@ -129,7 +135,7 @@ export default function RootLayout({
         />
         <meta
           name="msapplication-starturl"
-          content="/"
+          content={basePath || '/'}
         />
         <meta
           name="msapplication-TileColor"
@@ -162,10 +168,47 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `
+            // expose basePath to runtime
+            try {
+              window.__PYXIS_BASE_PATH = '${basePath}';
+            } catch (e) {}
+
+            // Monkey-patch fetch to prefix absolute-path requests with basePath.
+            // This lets code that does 'fetch("/locales/...")' or similar keep working
+            // without changing every call site.
+            (function() {
+              try {
+                var bp = (window && window.__PYXIS_BASE_PATH) || '';
+                if (!bp) return;
+                var _origFetch = window.fetch.bind(window);
+                window.fetch = function(input, init) {
+                  try {
+                    if (typeof input === 'string') {
+                      if (input.startsWith('/') && !input.startsWith(bp + '/')) {
+                        input = bp + input;
+                      }
+                    } else if (input && input.url) {
+                      // Request object
+                      var reqUrl = new URL(input.url, location.origin);
+                      if (reqUrl.pathname.startsWith('/') && !reqUrl.pathname.startsWith(bp + '/')) {
+                        var newUrl = bp + reqUrl.pathname + reqUrl.search;
+                        input = new Request(newUrl, input);
+                      }
+                    }
+                  } catch (e) {
+                    // ignore and fallback to original input
+                  }
+                  return _origFetch(input, init);
+                };
+              } catch (e) {
+                // noop
+              }
+            })();
+
             if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
               window.addEventListener('load', function() {
                 navigator.serviceWorker
-                  .register('/sw.js')
+                  .register('${swPath}')
                   .then(function(reg) {
                     // registration successful
                     // console.log('ServiceWorker registration successful with scope: ', reg.scope);

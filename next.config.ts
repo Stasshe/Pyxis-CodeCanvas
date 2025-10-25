@@ -30,7 +30,7 @@ const commonConfig = {
     NEXT_PUBLIC_IS_PRODUCTION_BUILD: String(isProductionBuild),
     NEXT_PUBLIC_BASE_PATH: basePathEnv || '',
   },
-  webpack: (config, { isServer }) => {
+  webpack: (config: any, { isServer }: { isServer: boolean }) => {
   if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
