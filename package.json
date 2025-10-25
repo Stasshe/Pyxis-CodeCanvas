@@ -1,6 +1,6 @@
 {
   "name": "pyxis",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "private": true,
   "scripts": {
     "dev": "node initial_files_to_ts.js && next dev --turbopack",
@@ -11,6 +11,7 @@
     "lint:fix": "eslint --cache --ext .ts,.tsx,.js,.jsx . --fix",
     "prepare": "husky install",
     "test": "jest",
+    "update": "npm run build && node scripts/update-readmes-version.js && ./tree.sh && ./tree-built-out.sh",
     "preview": "npx serve out"
   },
   "dependencies": {

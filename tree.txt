@@ -179,7 +179,8 @@
 │   ├── i18n-missing-keys.sh
 │   ├── one_file_i18n_extract.pl
 │   ├── one_file_t_extract.pl
-│   └── remove_unused_i18n_keys.js
+│   ├── remove_unused_i18n_keys.js
+│   └── update-readmes-version.js
 ├── src
 │   ├── app
 │   │   ├── Toast.css
@@ -411,15 +412,15 @@
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-71 directories, 341 files
+71 directories, 342 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 39339
-合計文字数: 1293406
-合計ファイルサイズ(bytes): 1379288
+合計行数: 39863
+合計文字数: 1314150
+合計ファイルサイズ(bytes): 1402596
 
 開発時のdev container全体のサイズ(bytes): 2.3G	.
 ==========
-ビルト済みファイルの行数: 23597
-合計文字数: 27581128
-合計ファイルサイズ(bytes): 28569320
+ビルト済みファイルの行数: 23623
+合計文字数: 27588589
+合計ファイルサイズ(bytes): 28578395

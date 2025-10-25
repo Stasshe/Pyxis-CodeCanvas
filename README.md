@@ -1,13 +1,13 @@
 <div align="center">
-  <img src="readme-assets/IMG_0033.png" alt="Pyxis カバー画像" width="100%" />
+  <img src="readme-assets/IMG_0033.png" alt="Pyxis Cover" width="100%" />
   
   # 🌟 Pyxis - Client Side Code Editor
 
   ## [📖 English Version README](README_en.md)
   
-  ### *セットアップゼロ。素早く起動、気軽にコーディング*
-  
-  [![Version](https://img.shields.io/badge/version-0.9.0-blue.svg)](https://github.com/your-username/pyxis)
+  ### *Zero Setup. Quick Start, Easy Coding*
+
+  [![Version](https://img.shields.io/badge/version-0.9.1-blue.svg)](https://github.com/your-username/pyxis)
   [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
   [![Platform](https://img.shields.io/badge/platform-Web%20%7C%20iPad%20%7C%20Mobile-orange.svg)](README.md)
   [![Languages](https://img.shields.io/badge/languages-18-blue.svg)](#)
@@ -28,7 +28,14 @@
 
 - **Pyxisは、iPad向けに設計された1秒で起動する高機動なブラウザIDEです。**
 - **静的サイトなので、サーバー起動が必要なく、また課金も一切発生しません。**
-- **🌍 18ヶ国語対応で、世界中のユーザーが快適に利用可能！**
+
+### 🌍 **世界18ヶ国語対応 - グローバルなコーディング体験**
+
+**Pyxisはあなたの言語で動作します。** 
+
+> 日本語 • English • 中文 • 繁體中文 • 한국어 • Español • Français • Deutsch • Italiano • Português • Русский • Nederlands • Türkçe • العربية • हिन्दी • ไทย • Tiếng Việt • Bahasa Indonesia • Svenska • Polski
+
+世界中の開発者が母国語でPyxisを快適に利用できます。
 
 ### 🎯 こんな人のために作りました
 
@@ -173,7 +180,7 @@ JavaScriptでは不可能なファイルオペレーションやインタラク�
 - **どこでも動く** - Web、iPad、モバイル、全てのモダンブラウザ
 - **マルチペーン対応** で複雑なプロジェクトも楽々
 - **バッファコンテンツ対応** - zip解凍、PDF、画像、動画表示
-- **🌍 多言語対応** - 18ヶ国語で利用可能、世界中のユーザーが快適に
+- **🌍 18ヶ国語対応** - 日本語、英語、中国語、韓国語、スペイン語、フランス語、ドイツ語、イタリア語、ポルトガル語、ロシア語、オランダ語、トルコ語、アラビア語、ヒンディー語、タイ語、ベトナム語、インドネシア語、スウェーデン語、ポーランド語に対応
 
 --- 
 
@@ -183,9 +190,8 @@ JavaScriptでは不可能なファイルオペレーションやインタラク�
 - ⚡ **1秒起動** - サーバーレス静的ホスティングによる驚異的な速度
 - 📱 **iPad最優先** - 実際にiPadで開発、デュアルエディター搭載
 - 🎯 **気軽さ重視** - VSCodeほど本格的ではないが、メモ帳をはるかに超える機能
-
 - 🔄 **Gitバージョン管理・GitHub連携** - ブランチ、マージ、リセット、.git込みダウンロード、PAT認証push/pull
-- ⚡ **高速Node.js** - WASMなしで瞬時実行、ファイル操作エミュレート
+- ⚡ **高速Node.js** - 瞬時実行、ファイル操作エミュレート
 - 📝 **こだわりのMD** - Markdown/Mermaid/LaTeX、ドキュメント・ブログ執筆に最適
 - 🤖 **AIサポート** - Ask/Edit機能で効率化
 - 🔥 **ライブリロード対応** - HTML/CSS/JS簡易サイト開発
@@ -242,8 +248,7 @@ JavaScriptでは不可能なファイルオペレーションやインタラク�
 ### **Pyxisのデータベース・ファイルシステム設計に興味がある方へ**
 - Pyxisの内部アーキテクチャやデータベース設計、ファイルシステムの詳細な仕様\n
 - **非常に高度な内容**をまとめた[Development/DATABASE.md](Development/DATABASE.md)をご覧ください。
-\n\n> 
-データフローやIndexedDBの構造、仮想ファイルシステムの仕組みなど、\n> 開発者・研究者向けの深い技術情報を掲載しています。
+データフローやIndexedDBの構造、仮想ファイルシステムの仕組みなど、開発者・研究者向けの深い技術情報を掲載しています。
 
 ### 🎨 **作れるもの**
 

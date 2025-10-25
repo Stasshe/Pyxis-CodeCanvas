@@ -5,7 +5,7 @@
   
   ### *Zero Setup. Quick Start, Easy Coding*
 
-  [![Version](https://img.shields.io/badge/version-0.9.0-blue.svg)](https://github.com/your-username/pyxis)
+  [![Version](https://img.shields.io/badge/version-0.9.1-blue.svg)](https://github.com/your-username/pyxis)
   [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
   [![Platform](https://img.shields.io/badge/platform-Web%20%7C%20iPad%20%7C%20Mobile-orange.svg)](README.md)
   [![Languages](https://img.shields.io/badge/languages-18-blue.svg)](#)
@@ -26,7 +26,14 @@
 
 - **Pyxis is a high-mobility browser IDE designed for iPad that launches in just 1 second.**
 - **Since Pyxis is a static site, there is no need to start a server, and as a result, no charges are incurred.**
-- **🌍 Available in 18 languages, comfortable for users worldwide!**
+
+### 🌍 **18 Languages Worldwide - Global Coding Experience**
+
+**Pyxis speaks your language.**
+
+> 日本語 • English • 中文 • 繁體中文 • 한국어 • Español • Français • Deutsch • Italiano • Português • Русский • Nederlands • Türkçe • العربية • हिन्दी • ไทย • Tiếng Việt • Bahasa Indonesia • Svenska • Polski
+
+Break language barriers with a truly global IDE. Developers worldwide can use Pyxis comfortably in their native language.
 
 ### 🎯 Built For
 
@@ -167,7 +174,7 @@ Navigate your projects with **VS Code-like efficiency**! Fast file search, an op
 - **Works everywhere** - Web, iPad, mobile, any modern browser
 - **Multi-pane support** for complex projects
 - **Buffer content support** - unzip files, view PDFs, images, videos
-- **🌍 Multilingual Support** - Available in 18 languages, comfortable for users worldwide
+- **🌍 18 Languages Support** - Available in Japanese, English, Chinese, Traditional Chinese, Korean, Spanish, French, German, Italian, Portuguese, Russian, Dutch, Turkish, Arabic, Hindi, Thai, Vietnamese, Indonesian, Swedish, and Polish
 
 ### 🖥️ **Tauri Desktop Support**
 - **Windows/Mac/Linux** native app experience
