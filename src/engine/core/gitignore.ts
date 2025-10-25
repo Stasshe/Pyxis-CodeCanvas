@@ -126,3 +126,60 @@ export function isPathIgnored(rules: GitIgnoreRule[], path: string, isDir = fals
   }
   return ignored;
 }
+
+/**
+ * Ensure a given ignore entry (e.g. "node_modules") exists in a .gitignore content string.
+ *
+ * This function is pure and does not touch any filesystem. It returns the new content and
+ * whether it was changed. Callers should persist the returned content when `changed === true`.
+ *
+ * - If `content` is undefined/null/empty, a new minimal .gitignore content is returned.
+ * - If the entry (or common variants) already exists, the original content is returned and
+ *   `changed` will be false.
+ *
+ * @param content existing .gitignore content or undefined
+ * @param entry ignore entry to ensure (default: 'node_modules')
+ */
+export function ensureGitignoreContains(
+  content: string | undefined,
+  entry: string = 'node_modules'
+): { content: string; changed: boolean } {
+  const normalizedEntry = entry.trim();
+
+  // Prepare canonical variants we consider equivalent
+  const variants = new Set<string>([
+    normalizedEntry,
+    normalizedEntry + '/',
+    '/' + normalizedEntry,
+    '/' + normalizedEntry + '/',
+  ]);
+
+  if (!content || content.trim() === '') {
+    const header = `# Auto-generated .gitignore by Pyxis\n# Keep common ignores below\n`;
+    const newContent = header + normalizedEntry + '\n';
+    return { content: newContent, changed: true };
+  }
+
+  // Check existing lines for an equivalent entry (ignore comments/blank lines)
+  const lines = content.split(/\r?\n/);
+  for (const raw of lines) {
+    const line = raw.replace(/\\ /g, ' ').trim();
+    if (!line || line.startsWith('#')) continue;
+    // strip possible trailing spaces
+    if (variants.has(line)) {
+      return { content, changed: false };
+    }
+    // also consider patterns like "/node_modules/*" or "node_modules/**" as present
+    if (line.startsWith(normalizedEntry) || line.includes(normalizedEntry)) {
+      // e.g. "node_modules/**" or "**/node_modules" -> treat as present
+      if (line === normalizedEntry || line.startsWith(normalizedEntry + '/') || line.includes(`/${normalizedEntry}`) || line.includes(normalizedEntry + '*')) {
+        return { content, changed: false };
+      }
+    }
+  }
+
+  // Not found -> append at end (preserve trailing newline behavior)
+  const needsTrailingNewline = content.endsWith('\n') || content.endsWith('\r');
+  const appended = (needsTrailingNewline ? content : content + '\n') + normalizedEntry + '\n';
+  return { content: appended, changed: true };
+}

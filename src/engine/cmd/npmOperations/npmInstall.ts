@@ -12,6 +12,7 @@ import pako from 'pako';
 import tarStream from 'tar-stream';
 
 import { fileRepository } from '@/engine/core/fileRepository';
+import { ensureGitignoreContains } from '@/engine/core/gitignore';
 
 interface PackageInfo {
   name: string;
@@ -476,7 +477,11 @@ export class NpmInstall {
   }
 
   // 依存関係を再帰的にインストール
-  async installWithDependencies(packageName: string, version: string = 'latest'): Promise<void> {
+  async installWithDependencies(
+    packageName: string,
+    version: string = 'latest',
+    options?: { autoAddGitignore?: boolean; ignoreEntry?: string }
+  ): Promise<void> {
     const resolvedVersion = this.resolveVersion(version);
     const packageKey = `${packageName}@${resolvedVersion}`;
 
@@ -490,6 +495,23 @@ export class NpmInstall {
 
     // ファイル一覧を1回だけ取得してスナップショットとして再利用（IndexedDB往復を削減）
     const snapshotFiles = await fileRepository.getProjectFiles(this.projectId);
+
+    // 常に /.gitignore を作成または更新して node_modules を含める
+    try {
+      const files = snapshotFiles; // snapshot を先に取得しているので再利用
+      const gitignoreFile = files.find(f => f.path === '/.gitignore');
+      const currentContent = gitignoreFile ? gitignoreFile.content : undefined;
+      const entry = options?.ignoreEntry || 'node_modules';
+      const { content: newContent, changed } = ensureGitignoreContains(currentContent, entry);
+      if (changed) {
+        // createFile は既存を更新するので存在チェックは不要
+        await fileRepository.createFile(this.projectId, '/.gitignore', newContent, 'file');
+        console.log(`[npm.installWithDependencies] /.gitignore created/updated to include '${entry}'`);
+      }
+    } catch (e) {
+      console.warn('[npm.installWithDependencies] Failed to ensure /.gitignore:', e);
+      // 失敗してもインストール処理は続行
+    }
 
     // ファイルシステムでのインストール状況をチェック（毎回チェック）
     if (await this.isPackageInstalled(packageName, resolvedVersion, snapshotFiles)) {
