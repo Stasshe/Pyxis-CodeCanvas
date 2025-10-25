@@ -47,7 +47,7 @@ export const metadata: Metadata = {
     title: 'Pyxis - クライアントサイド IDE & ターミナル',
     description:
       'Node.js ランタイムと Git サポートを完全内蔵したクライアントサイド IDE。iPad/モバイル/PC で動作。VS Code ライクな編集、Git バージョン管理、npm 実行、オフライン対応。',
-    url: 'https://pyxis-code.onrender.com',
+    url: 'https://Stasshe.github.io/Pyxis-CodeCanvas',
     siteName: 'Pyxis',
     images: [
       {
@@ -64,7 +64,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Pyxis - クライアントサイド IDE & ターミナル',
     description:
-      'Node.js ランタイムと Git サポートを完全内蔵したクライアントサイド IDE。iPad/モバイル/PC で動作。VS Code ライクな編集、Git バージョン管理、npm 実行、オフライン対応。',
+      'Node.js ランタイムと Git サポートを内蔵したクライアントサイドIDE。iPad/モバイル/PC で動作。VS Code ライクな編集、Git バージョン管理、npm 実行、オフライン対応。',
     images: [
       {
         url: `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/apple-touch-icon.png`,
