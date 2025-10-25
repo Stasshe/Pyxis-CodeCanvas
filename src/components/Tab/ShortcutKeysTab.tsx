@@ -99,6 +99,8 @@ export default function ShortcutKeysTab() {
     view: '表示',
     execution: '実行',
     tab: 'タブ',
+    git: 'Git',
+    project: 'プロジェクト',
     other: 'その他',
   };
 

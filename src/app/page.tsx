@@ -21,6 +21,7 @@ import LeftSidebar from '@/components/Left/LeftSidebar';
 import PaneContainer from '@/components/PaneContainer';
 import PaneResizer from '@/components/PaneResizer';
 import { useDiffTabHandlers } from '@/hooks/useDiffTabHandlers';
+import { useKeyBinding } from '@/hooks/useKeyBindings';
 import BottomPanel from '@/components/Bottom/BottomPanel';
 import ProjectModal from '@/components/ProjectModal';
 import {
@@ -265,6 +266,16 @@ export default function Home() {
 
     setActiveTabIdForPane(editors, setEditors, 0, id);
   };
+  // ショートカットキー設定タブを開くハンドラ（Pane内タブを開くためのon/handleパターン）
+  const handleOpenShortcutKeys = () => {
+    // use openOrActivateTab to open a settings/shortcuts tab in the first leaf pane
+    openOrActivateTab(
+      { name: 'Shortcut Keys', path: 'settings/shortcuts' } as any,
+      tabs,
+      setTabs,
+      setActiveTabId
+    );
+  };
   const setTabsForAllPanes = (update: Tab[] | ((tabs: Tab[]) => Tab[])) => {
     setEditors(prevEditors => {
       return prevEditors.map(editor => {
@@ -385,24 +396,111 @@ export default function Home() {
     setIsOperationWindowVisible(!isOperationWindowVisible);
   };
 
-  // Ctrl+P でOperation Windowを開く
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
-        e.preventDefault();
-        // フォーカスのあるペインまたは最後に選択したペインを使用
-        const focusedPaneIndex = fileSelectState.paneIdx ?? 0;
-        setIsOperationWindowVisible(true);
-        // ペインインデックスを設定
-        setFileSelectState(prev => ({ ...prev, paneIdx: focusedPaneIndex }));
-      }
-    };
+  // 重要なショートカットキーを登録
+  // Quick Open (Ctrl+P)
+  useKeyBinding(
+    'quickOpen',
+    () => {
+      const focusedPaneIndex = fileSelectState.paneIdx ?? 0;
+      setIsOperationWindowVisible(true);
+      setFileSelectState(prev => ({ ...prev, paneIdx: focusedPaneIndex }));
+    },
+    [fileSelectState.paneIdx]
+  );
 
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, []);
+  // 左サイドバーの表示切替 (Ctrl+B)
+  useKeyBinding(
+    'toggleLeftSidebar',
+    () => {
+      setIsLeftSidebarVisible(prev => !prev);
+    },
+    []
+  );
+
+  // 右サイドバーの表示切替 (Ctrl+Shift+B)
+  useKeyBinding(
+    'toggleRightSidebar',
+    () => {
+      setIsRightSidebarVisible(prev => !prev);
+    },
+    []
+  );
+
+  // ボトムパネルの表示切替 (Ctrl+J)
+  useKeyBinding(
+    'toggleBottomPanel',
+    () => {
+      setIsBottomPanelVisible(prev => !prev);
+    },
+    []
+  );
+
+  // 設定を開く (Ctrl+,)
+  useKeyBinding(
+    'openSettings',
+    () => {
+      setActiveMenuTab('settings');
+      setIsLeftSidebarVisible(true);
+    },
+    []
+  );
+
+  // ショートカットキー設定を開く (Ctrl+K Ctrl+S)
+  useKeyBinding(
+    'openShortcutKeys',
+    () => {
+      handleOpenShortcutKeys();
+    },
+    []
+  );
+
+  // Gitパネルを開く (Ctrl+Shift+G)
+  useKeyBinding(
+    'openGit',
+    () => {
+      setActiveMenuTab('git');
+      setIsLeftSidebarVisible(true);
+    },
+    []
+  );
+
+  // ターミナルを開く (Ctrl+`)
+  useKeyBinding(
+    'openTerminal',
+    () => {
+      setIsBottomPanelVisible(true);
+    },
+    []
+  );
+
+  // プロジェクトを開く (Ctrl+Shift+O)
+  useKeyBinding(
+    'openProject',
+    () => {
+      setIsProjectModalOpen(true);
+    },
+    []
+  );
+
+  // ファイル検索を開く (Ctrl+Shift+F)
+  useKeyBinding(
+    'globalSearch',
+    () => {
+      setActiveMenuTab('search');
+      setIsLeftSidebarVisible(true);
+    },
+    []
+  );
+
+  // 実行パネルを開く
+  useKeyBinding(
+    'runFile',
+    () => {
+      setActiveMenuTab('run');
+      setIsLeftSidebarVisible(true);
+    },
+    []
+  );
 
   // Global fallback: capture-phase Ctrl+S handler to ensure save-restart fires
   useEffect(() => {
@@ -681,6 +779,7 @@ export default function Home() {
             }}
             onDiffFileClick={handleDiffFileClick}
             onDiffAllFilesClick={handleDiffAllFilesClick}
+            onOpenShortcutKeys={handleOpenShortcutKeys}
           />
         )}
 

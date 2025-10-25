@@ -25,6 +25,7 @@ interface LeftSidebarProps {
   onGitStatusChange?: (changesCount: number) => void;
   onDiffFileClick?: (params: { commitId: string; filePath: string; editable?: boolean }) => void;
   onDiffAllFilesClick?: (params: { commitId: string; parentCommitId: string }) => void;
+  onOpenShortcutKeys?: () => void;
 }
 
 export default function LeftSidebar({
@@ -42,6 +43,7 @@ export default function LeftSidebar({
   onGitStatusChange,
   onDiffFileClick,
   onDiffAllFilesClick,
+  onOpenShortcutKeys,
 }: LeftSidebarProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
@@ -187,7 +189,12 @@ export default function LeftSidebar({
               />
             </div>
           )}
-          {activeMenuTab === 'settings' && <SettingsPanel currentProject={currentProject} />}
+          {activeMenuTab === 'settings' && (
+            <SettingsPanel
+              currentProject={currentProject}
+              onOpenShortcutKeys={onOpenShortcutKeys}
+            />
+          )}
         </div>
       </div>
       {/* Resizer */}

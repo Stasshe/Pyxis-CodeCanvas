@@ -30,15 +30,44 @@ export type Binding = {
 const KEYBINDINGS_STORAGE_ID = 'user-keybindings';
 
 export const DEFAULT_BINDINGS: Binding[] = [
+  // File operations
   { id: 'openFile', name: 'Open File', combo: 'Ctrl+O', category: 'file' },
   { id: 'saveFile', name: 'Save File', combo: 'Ctrl+S', category: 'file' },
-  { id: 'find', name: 'Find', combo: 'Ctrl+F', category: 'search' },
-  { id: 'toggleSidebar', name: 'Toggle Sidebar', combo: 'Ctrl+B', category: 'view' },
-  { id: 'runFile', name: 'Run File', combo: 'Ctrl+R', category: 'execution' },
+  { id: 'quickOpen', name: 'Quick Open', combo: 'Ctrl+P', category: 'file' },
+
+  // Search
+  { id: 'find', name: 'Find in File', combo: 'Ctrl+F', category: 'search' },
+  { id: 'globalSearch', name: 'Global Search', combo: 'Ctrl+Shift+F', category: 'search' },
+
+  // View
+  { id: 'toggleLeftSidebar', name: 'Toggle Left Sidebar', combo: 'Ctrl+B', category: 'view' },
+  {
+    id: 'toggleRightSidebar',
+    name: 'Toggle Right Sidebar',
+    combo: 'Ctrl+Shift+B',
+    category: 'view',
+  },
+  { id: 'toggleBottomPanel', name: 'Toggle Bottom Panel', combo: 'Ctrl+J', category: 'view' },
+  { id: 'openSettings', name: 'Open Settings', combo: 'Ctrl+,', category: 'view' },
+  { id: 'openShortcutKeys', name: 'Open Shortcut Keys', combo: 'Ctrl+K Ctrl+S', category: 'view' },
+
+  // Tab management
   { id: 'newTab', name: 'New Tab', combo: 'Ctrl+T', category: 'tab' },
   { id: 'closeTab', name: 'Close Tab', combo: 'Ctrl+W', category: 'tab' },
   { id: 'nextTab', name: 'Next Tab', combo: 'Ctrl+Tab', category: 'tab' },
   { id: 'prevTab', name: 'Previous Tab', combo: 'Ctrl+Shift+Tab', category: 'tab' },
+  { id: 'reopenClosedTab', name: 'Reopen Closed Tab', combo: 'Ctrl+Shift+T', category: 'tab' },
+
+  // Git
+  { id: 'openGit', name: 'Open Git Panel', combo: 'Ctrl+Shift+G', category: 'git' },
+  { id: 'gitCommit', name: 'Git Commit', combo: 'Ctrl+Enter', category: 'git' },
+
+  // Execution
+  { id: 'runFile', name: 'Open Run Panel', combo: 'Ctrl+Shift+R', category: 'execution' },
+  { id: 'openTerminal', name: 'Open Terminal', combo: 'Ctrl+`', category: 'execution' },
+
+  // Project
+  { id: 'openProject', name: 'Open Project', combo: 'Ctrl+Shift+O', category: 'project' },
 ];
 
 /**
