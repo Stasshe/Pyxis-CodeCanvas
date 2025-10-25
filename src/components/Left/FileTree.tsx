@@ -365,9 +365,11 @@ export default function FileTree({
                           getIconForFolder('')
                         : getIconForFolder(item.name) || getIconForFolder('');
                       if (iconPath && iconPath.endsWith('.svg')) {
-                        return `/vscode-icons/${iconPath.split('/').pop()}`;
+                        return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath
+                          .split('/')
+                          .pop()}`;
                       }
-                      return '/vscode-icons/folder.svg';
+                      return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/folder.svg`;
                     })()}
                     alt="folder"
                     style={{
@@ -385,9 +387,11 @@ export default function FileTree({
                     src={(() => {
                       const iconPath = getIconForFile(item.name) || getIconForFile('');
                       if (iconPath && iconPath.endsWith('.svg')) {
-                        return `/vscode-icons/${iconPath.split('/').pop()}`;
+                        return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath
+                          .split('/')
+                          .pop()}`;
                       }
-                      return '/vscode-icons/file.svg';
+                      return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/file.svg`;
                     })()}
                     alt="file"
                     style={{

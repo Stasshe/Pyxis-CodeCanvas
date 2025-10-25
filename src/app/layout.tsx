@@ -168,43 +168,6 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `
-            // expose basePath to runtime
-            try {
-              window.__PYXIS_BASE_PATH = '${basePath}';
-            } catch (e) {}
-
-            // Monkey-patch fetch to prefix absolute-path requests with basePath.
-            // This lets code that does 'fetch("/locales/...")' or similar keep working
-            // without changing every call site.
-            (function() {
-              try {
-                var bp = (window && window.__PYXIS_BASE_PATH) || '';
-                if (!bp) return;
-                var _origFetch = window.fetch.bind(window);
-                window.fetch = function(input, init) {
-                  try {
-                    if (typeof input === 'string') {
-                      if (input.startsWith('/') && !input.startsWith(bp + '/')) {
-                        input = bp + input;
-                      }
-                    } else if (input && input.url) {
-                      // Request object
-                      var reqUrl = new URL(input.url, location.origin);
-                      if (reqUrl.pathname.startsWith('/') && !reqUrl.pathname.startsWith(bp + '/')) {
-                        var newUrl = bp + reqUrl.pathname + reqUrl.search;
-                        input = new Request(newUrl, input);
-                      }
-                    }
-                  } catch (e) {
-                    // ignore and fallback to original input
-                  }
-                  return _origFetch(input, init);
-                };
-              } catch (e) {
-                // noop
-              }
-            })();
-
             if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
               window.addEventListener('load', function() {
                 navigator.serviceWorker

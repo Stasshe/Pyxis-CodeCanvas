@@ -34,7 +34,7 @@ export async function loadTranslations(
 
   // 3. HTTPで取得
   try {
-    const response = await fetch(`/locales/${locale}/${namespace}.json`);
+    const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/locales/${locale}/${namespace}.json`);
 
     if (!response.ok) {
       throw new Error(`Failed to load translations: ${response.status} ${response.statusText}`);

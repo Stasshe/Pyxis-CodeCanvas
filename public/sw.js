@@ -1,10 +1,30 @@
 // Service Worker for Pyxis
 // Purpose: keep icons cached (they don't change) and use cache-first strategy for them.
 const ICON_CACHE = 'pyxis-icons-v1';
+
+// Derive basePath from the service worker script location.
+// When deployed to a subpath (e.g. /repo-name/), sw.js will be served at
+// /repo-name/sw.js and self.location.pathname will contain that prefix.
+// We remove the trailing '/sw.js' to get the basePath ('' for root).
+const _swPath = (self && self.location && self.location.pathname) || '/sw.js';
+let BASE_PATH = '';
+try {
+  if (_swPath.endsWith('/sw.js')) {
+    BASE_PATH = _swPath.slice(0, -'/sw.js'.length) || '';
+  } else {
+    BASE_PATH = '';
+  }
+} catch (e) {
+  BASE_PATH = '';
+}
+
+// Normalize so BASE_PATH does not end with a slash (unless it's empty)
+if (BASE_PATH && BASE_PATH.endsWith('/')) BASE_PATH = BASE_PATH.slice(0, -1);
+
 const PRECACHE_URLS = [
-  '/favicon.ico',
-  '/apple-touch-icon.png',
-  '/file.svg'
+  `${BASE_PATH}/favicon.ico`,
+  `${BASE_PATH}/apple-touch-icon.png`,
+  `${BASE_PATH}/file.svg`,
 ];
 
 self.addEventListener('install', (event) => {
@@ -28,8 +48,10 @@ function isIconRequest(request) {
     const url = new URL(request.url);
     // Same-origin and path starts with /vscode-icons/ OR matches our precached icon paths
     if (url.origin === location.origin) {
-      if (url.pathname.startsWith('/vscode-icons/')) return true;
-      if (PRECACHE_URLS.includes(url.pathname)) return true;
+      const p = url.pathname || '';
+      // check both unprefixed and basePath-prefixed paths
+      if (p.startsWith(`${BASE_PATH}/vscode-icons/`) || p.startsWith('/vscode-icons/')) return true;
+      if (PRECACHE_URLS.includes(p)) return true;
     }
   } catch (e) {
     // ignore malformed URLs

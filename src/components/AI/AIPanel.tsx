@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '@/context/ThemeContext';
+import { useTranslation } from '@/context/I18nContext';
 import { useChatSpace } from '@/hooks/ai/useChatSpace';
 import { useAI } from '@/hooks/ai/useAI';
 import { useAIReview } from '@/hooks/useAIReview';
@@ -40,6 +41,7 @@ export default function AIPanel({
   clearAIReview,
 }: AIPanelProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const [mode, setMode] = useState<'ask' | 'edit'>('ask');
   const [isFileSelectorOpen, setIsFileSelectorOpen] = useState(false);
   const [showSpaceList, setShowSpaceList] = useState(false);
@@ -347,7 +349,7 @@ export default function AIPanel({
         isProcessing={isProcessing}
         compact={false}
         emptyMessage={
-          mode === 'ask' ? '質問やコード相談をしてください' : 'コードの編集指示を入力してください'
+          mode === 'ask' ? t('AI.ask') : t('AI.edit')
         }
       />
 
