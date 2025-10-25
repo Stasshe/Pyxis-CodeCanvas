@@ -61,6 +61,7 @@ jobs:
           #
           # You may remove this line if you want to manage the configuration yourself.
           static_site_generator: next
+          generator_config_file: next.config.ts
       - name: Restore cache
         uses: actions/cache@v4
         with:
@@ -74,6 +75,10 @@ jobs:
       - name: Install dependencies
         run: ${{ steps.detect-package-manager.outputs.manager }} ${{ steps.detect-package-manager.outputs.command }}
       - name: Build with Next.js
+        env:
+          BUILD_MODE: production
+          NEXT_PUBLIC_IS_PRODUCTION_BUILD: 'true'
+          NEXT_PUBLIC_BASE_PATH: ${{ steps.setup-pages.outputs.base_path }}
         run: ${{ steps.detect-package-manager.outputs.runner }} npm run build
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
