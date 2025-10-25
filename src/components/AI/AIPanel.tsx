@@ -45,6 +45,7 @@ export default function AIPanel({
   const [mode, setMode] = useState<'ask' | 'edit'>('ask');
   const [isFileSelectorOpen, setIsFileSelectorOpen] = useState(false);
   const [showSpaceList, setShowSpaceList] = useState(false);
+  const [isChangedFilesMinimized, setIsChangedFilesMinimized] = useState(false);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
   const spaceButtonRef = React.useRef<HTMLButtonElement | null>(null);
 
@@ -353,15 +354,48 @@ export default function AIPanel({
         }
       />
 
-      {/* 変更ファイル一覧（Editモードで変更がある場合のみ表示） */}
+      {/* 変更ファイル一覧（Editモードで変更がある場合のみ表示）
+          ここではパネルを最小化できるようにし、最小化中は ChangedFilesPanel 本体を描画しないことで
+          「採用」などのアクションボタン類を表示しないようにする */}
       {mode === 'edit' && latestEditResponse && latestEditResponse.changedFiles.length > 0 && (
-        <ChangedFilesPanel
-          changedFiles={latestEditResponse.changedFiles}
-          onOpenReview={handleOpenReview}
-          onApplyChanges={handleApplyChanges}
-          onDiscardChanges={handleDiscardChanges}
-          compact={false}
-        />
+        <div className="px-3 pt-2">
+          <div
+            className="flex items-center justify-between px-3 py-1 rounded-md"
+            style={{
+              background: colors.mutedBg,
+              border: `1px solid ${colors.border}`,
+              color: colors.foreground,
+            }}
+          >
+            <div className="text-sm font-medium">変更ファイル</div>
+            <div className="flex items-center gap-2">
+              <div className="text-xs opacity-80">{latestEditResponse.changedFiles.length} 個</div>
+              <button
+                type="button"
+                aria-label={isChangedFilesMinimized ? '展開する' : '最小化する'}
+                title={isChangedFilesMinimized ? '展開する' : '最小化する'}
+                className="p-1 rounded hover:opacity-80"
+                onClick={() => setIsChangedFilesMinimized(prev => !prev)}
+                style={{ color: colors.foreground }}
+              >
+                <ChevronDown size={14} style={{ transform: isChangedFilesMinimized ? 'rotate(-180deg)' : 'none' }} />
+              </button>
+            </div>
+          </div>
+
+          {/* パネル本体は最小化時は非表示にする（これにより採用ボタン等も表示されない） */}
+          {!isChangedFilesMinimized && (
+            <div className="mt-2">
+              <ChangedFilesPanel
+                changedFiles={latestEditResponse.changedFiles}
+                onOpenReview={handleOpenReview}
+                onApplyChanges={handleApplyChanges}
+                onDiscardChanges={handleDiscardChanges}
+                compact={false}
+              />
+            </div>
+          )}
+        </div>
       )}
 
       {/* モードセレクター（下部に移動・小型化） */}

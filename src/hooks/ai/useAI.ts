@@ -114,7 +114,7 @@ export function useAI(props?: UseAIProps) {
           // レスポンスをパース
           const allOriginalFiles = [
             ...selectedFiles,
-            ...extractNewFilePathsFromResponse(response).map(path => ({ path, content: '' })),
+            ...extractNewFilePathsFromResponse(response, selectedFiles.map(f => f.path)).map(path => ({ path, content: '' })),
           ];
           const editResponse = parseEditResponse(response, allOriginalFiles);
 
@@ -189,18 +189,20 @@ export function useAI(props?: UseAIProps) {
 }
 
 // 新規ファイルパスを抽出
-function extractNewFilePathsFromResponse(response: string): string[] {
+function extractNewFilePathsFromResponse(response: string, _selectedPaths: string[] = []): string[] {
+  // Simpler, more robust rule: any file that appears in a <AI_EDIT_CONTENT_START:...> block
+  // will be treated as a candidate new file. The parse step that receives the list
+  // (`parseEditResponse`) will match these candidates against the provided original
+  // files and only add changedFiles when appropriate. This ensures that even when
+  // the response omits explicit "新規" keywords, we still consider the AI's
+  // file blocks for creation.
   const fileBlockPattern = /<AI_EDIT_CONTENT_START:(.+?)>/g;
-  const reasonPattern =
-    /##\s*変更ファイル:\s*(.+?)\n+\*\*変更理由\*\*:\s*新規ファイルの作成(?=\n\s*<AI_EDIT_CONTENT_START:)/g;
   const foundPaths: string[] = [];
-
-  const reasonMatches = [...response.matchAll(reasonPattern)].map(r => r[1].trim());
 
   let match;
   while ((match = fileBlockPattern.exec(response)) !== null) {
     const filePath = match[1].trim();
-    if (reasonMatches.includes(filePath)) {
+    if (filePath) {
       foundPaths.push(filePath);
     }
   }

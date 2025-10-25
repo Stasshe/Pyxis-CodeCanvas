@@ -97,54 +97,74 @@ export default function FileChangeItem({
         </div>
       </div>
 
-      {/* アクションボタン */}
-      {(onOpenReview || onApply || onDiscard) && (
-        <div className="flex items-center gap-2 mt-2">
-          {onOpenReview && (
-            <button
-              onClick={() => onOpenReview(file.path, file.originalContent, file.suggestedContent)}
-              className="flex items-center gap-1 px-2 py-1 rounded text-xs hover:opacity-80 transition-all"
-              style={{
-                background: colors.mutedBg,
-                color: colors.foreground,
-                border: `1px solid ${colors.border}`,
-              }}
-            >
-              <Eye size={14} />
-              <span>{t('ai.fileChangeItem.confirm')}</span>
-            </button>
-          )}
+      {/* アクションボタン: 常に表示する。ハンドラが渡されていない場合は見た目を無効化し、安全に no-op とする */}
+      <div className="flex items-center gap-2 mt-2">
+        {/* 確認 (レビュー) */}
+        <button
+          onClick={() => {
+            if (onOpenReview) {
+              onOpenReview(file.path, file.originalContent, file.suggestedContent);
+            } else {
+              // ハンドラがない場合は no-op でログ出力（安全策）
+              console.warn('[FileChangeItem] onOpenReview handler not provided');
+            }
+          }}
+          className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-all ${onOpenReview ? 'hover:opacity-80' : 'opacity-50 cursor-not-allowed'}`}
+          style={{
+            background: colors.mutedBg,
+            color: colors.foreground,
+            border: `1px solid ${colors.border}`,
+          }}
+          aria-disabled={!onOpenReview}
+          title={!onOpenReview ? t('ai.fileChangeItem.noHandler') : undefined}
+        >
+          <Eye size={14} />
+          <span>{t('ai.fileChangeItem.confirm')}</span>
+        </button>
 
-          {onApply && (
-            <button
-              onClick={() => onApply(file.path, file.suggestedContent)}
-              className="flex items-center gap-1 px-2 py-1 rounded text-xs hover:opacity-90 transition-all"
-              style={{
-                background: colors.accent,
-                color: colors.accentFg,
-              }}
-            >
-              <Check size={14} />
-              <span>{t('ai.fileChangeItem.apply')}</span>
-            </button>
-          )}
+        {/* 採用 */}
+        <button
+          onClick={() => {
+            if (onApply) {
+              onApply(file.path, file.suggestedContent);
+            } else {
+              console.warn('[FileChangeItem] onApply handler not provided');
+            }
+          }}
+          className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-all ${onApply ? 'hover:opacity-90' : 'opacity-50 cursor-not-allowed'}`}
+          style={{
+            background: colors.accent,
+            color: colors.accentFg,
+          }}
+          aria-disabled={!onApply}
+          title={!onApply ? t('ai.fileChangeItem.noHandler') : undefined}
+        >
+          <Check size={14} />
+          <span>{t('ai.fileChangeItem.apply')}</span>
+        </button>
 
-          {onDiscard && (
-            <button
-              onClick={() => onDiscard(file.path)}
-              className="flex items-center gap-1 px-2 py-1 rounded text-xs hover:opacity-80 transition-all"
-              style={{
-                background: 'transparent',
-                color: colors.mutedFg,
-                border: `1px solid ${colors.border}`,
-              }}
-            >
-              <X size={14} />
-              <span>{t('ai.fileChangeItem.discard')}</span>
-            </button>
-          )}
-        </div>
-      )}
+        {/* 破棄 */}
+        <button
+          onClick={() => {
+            if (onDiscard) {
+              onDiscard(file.path);
+            } else {
+              console.warn('[FileChangeItem] onDiscard handler not provided');
+            }
+          }}
+          className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-all ${onDiscard ? 'hover:opacity-80' : 'opacity-50 cursor-not-allowed'}`}
+          style={{
+            background: 'transparent',
+            color: colors.mutedFg,
+            border: `1px solid ${colors.border}`,
+          }}
+          aria-disabled={!onDiscard}
+          title={!onDiscard ? t('ai.fileChangeItem.noHandler') : undefined}
+        >
+          <X size={14} />
+          <span>{t('ai.fileChangeItem.discard')}</span>
+        </button>
+      </div>
     </div>
   );
 }
