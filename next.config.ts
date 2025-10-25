@@ -5,6 +5,15 @@
 const isProductionBuild = process.env.BUILD_MODE === 'production';
 console.log(`isProductionBuild: ${isProductionBuild}`);
 
+// GH Pages 等でリポジトリ名が basePath になるケースがあるため、
+// 環境変数 NEXT_PUBLIC_BASE_PATH を参照して basePath/assetPrefix を設定できるようにする。
+let basePathEnv = process.env.NEXT_PUBLIC_BASE_PATH || '';
+if (basePathEnv && !basePathEnv.startsWith('/')) {
+  basePathEnv = '/' + basePathEnv;
+}
+// 空文字の場合は undefined にして Next のデフォルト挙動に委ねる
+const configuredBasePath = basePathEnv || undefined;
+
 // package.jsonからバージョン取得
 const pkg = require('./package.json');
 
@@ -19,9 +28,10 @@ const commonConfig = {
   env: {
     NEXT_PUBLIC_PYXIS_VERSION: pkg.version,
     NEXT_PUBLIC_IS_PRODUCTION_BUILD: String(isProductionBuild),
+    NEXT_PUBLIC_BASE_PATH: basePathEnv || '',
   },
   webpack: (config: any, { isServer }: { isServer: boolean }) => {
-    if (!isServer) {
+  if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
         fs: false,
@@ -44,6 +54,10 @@ const commonConfig = {
           'process.env.PYXIS_VERSION': JSON.stringify(pkg.version),
           // 保守的に string 化して注入（webpack のみ）
           'process.env.NEXT_PUBLIC_IS_PRODUCTION_BUILD': JSON.stringify(isProductionBuild),
+        }),
+        // base path を webpack 側でも定義しておく
+        new (require('webpack')).DefinePlugin({
+          'process.env.NEXT_PUBLIC_BASE_PATH': JSON.stringify(basePathEnv || ''),
         }),
       ];
       config.output.globalObject = 'globalThis';

@@ -1,0 +1,67 @@
+# Sample workflow for building and deploying a Next.js site to GitHub Pages
+#
+# To get started with Next.js see: https://nextjs.org/docs/getting-started
+#
+name: Deploy Next.js site to gh-pages (force-overwrite out/)
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies (no cache)
+        run: npm ci
+
+      - name: Determine repo name for basePath
+        # write REPO_NAME to $GITHUB_ENV so later steps can reference it
+        run: |
+          echo "REPO_NAME=$(basename $GITHUB_REPOSITORY)" >> $GITHUB_ENV
+
+      - name: Build (production) and export to out/
+        env:
+          BUILD_MODE: production
+          NEXT_PUBLIC_IS_PRODUCTION_BUILD: 'true'
+          NEXT_PUBLIC_BASE_PATH: '/${{ env.REPO_NAME }}'
+        run: |
+          # build and ensure static export (next export)
+          npm run build
+
+      - name: Deploy out/ to gh-pages (force overwrite)
+        env:
+          REPO: ${{ github.repository }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ ! -d out ]; then
+            echo "Error: out/ directory not found. Did the export step succeed?"
+            ls -la
+            exit 1
+          fi
+
+          cd out
+          # init a fresh git repo containing only the exported files
+          git init
+          git checkout -b gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          # include commit short SHA for traceability
+          git commit -m "chore(deploy): deploy ${GITHUB_SHA} [skip ci]" || true
+
+          # Force push to gh-pages branch to make out/ exactly match branch contents every run
+          git push --force "https://x-access-token:${TOKEN}@github.com/${REPO}.git" gh-pages
