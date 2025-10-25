@@ -267,17 +267,56 @@ export async function runPythonWithSync(
   // 実行前: IndexedDBからPyodideへ同期
   await syncPyodideFromIndexedDB(projectId);
 
+  // --- 追加: import文から必要なパッケージを自動ロード ---
+  // import文を抽出
+  const importRegex = /^\s*import\s+([\w_]+)|^\s*from\s+([\w_]+)\s+import/mg;
+  const packages = new Set<string>();
+  let match;
+  while ((match = importRegex.exec(code)) !== null) {
+    if (match[1]) packages.add(match[1]);
+    if (match[2]) packages.add(match[2]);
+  }
+  // Pyodide標準パッケージリスト（必要なら拡張）
+  const pyodidePackages = [
+    'numpy', 'pandas', 'matplotlib', 'scipy', 'sklearn', 'sympy', 'networkx', 'seaborn', 'statsmodels', 'micropip',
+    'bs4', 'lxml', 'pyyaml', 'requests', 'pyodide', 'pyparsing', 'dateutil', 'jedi', 'pytz', 'sqlalchemy', 'pyarrow',
+    'bokeh', 'plotly', 'altair', 'openpyxl', 'xlrd', 'xlsxwriter', 'jsonschema', 'pillow', 'pygments', 'pytest', 'tqdm',
+    'pycrypto', 'pycryptodome', 'pyjwt', 'pyopenssl', 'pyperclip', 'pyzbar', 'pyzmq', 'pywavelets', 'pywebview', 'pywin32',
+    'pyinstaller', 'pycparser', 'pyflakes', 'pygal', 'pyglet', 'pygraphviz', 'pygtrie', 'pyhdf', 'pyjokes', 'pyld', 'pymongo',
+    'pynput', 'pyodbc', 'pyproj', 'pyqt5', 'pyqtgraph', 'pyserial', 'pyspark', 'pytest', 'python-dateutil', 'python-docx',
+    'python-pptx', 'python-telegram-bot', 'pytz', 'pyvis', 'pyyaml', 'pyzmq', 'scikit-image', 'scikit-learn', 'scipy', 'seaborn',
+    'shapely', 'sklearn', 'sqlalchemy', 'statsmodels', 'sympy', 'tqdm', 'xlrd', 'xlsxwriter', 'zipp'
+  ];
+  const toLoad = Array.from(packages).filter(pkg => pyodidePackages.includes(pkg));
+  if (toLoad.length > 0) {
+    try {
+      await pyodide.loadPackage(toLoad);
+    } catch (e) {
+      runtimeWarn(`Pyodide package load failed: ${toLoad.join(', ')}`, e);
+    }
+  }
+
   // print出力を必ず取得するため、exec+StringIOでstdoutをキャプチャ
   let result: any = undefined;
   let stdout = '';
   let stderr = '';
-  const captureCode = `
-import sys\nimport io\n_pyxis_stdout = sys.stdout\n_pyxis_stringio = io.StringIO()\nsys.stdout = _pyxis_stringio\ntry:\n    exec(\"\"\"${code.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n')}\"\"\", globals())\n    _pyxis_result = _pyxis_stringio.getvalue()\nfinally:\n    sys.stdout = _pyxis_stdout\ndel _pyxis_stringio\ndel _pyxis_stdout\n`;
+    const captureCode = `
+import sys
+import io
+_pyxis_stdout = sys.stdout
+_pyxis_stringio = io.StringIO()
+sys.stdout = _pyxis_stringio
+try:
+  exec("""${code.replace(/\\/g, '\\').replace(/"/g, '\"')}""", globals())
+  _pyxis_result = _pyxis_stringio.getvalue()
+finally:
+  sys.stdout = _pyxis_stdout
+del _pyxis_stringio
+del _pyxis_stdout
+`;
   try {
     await pyodide.runPythonAsync(captureCode);
-    // @ts-ignore
     stdout = (pyodide as any).globals.get('_pyxis_result') || '';
-    // @ts-ignore
     (pyodide as any).globals.set('_pyxis_result', undefined);
     result = stdout;
   } catch (e: any) {
