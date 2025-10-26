@@ -1001,6 +1001,33 @@ export class FileRepository {
   }
 
   /**
+   * フォルダを再帰的に削除（一括削除版・高速）
+   */
+  async deleteFileRecursiveFast(fileId: string): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const fileToDelete = await new Promise<ProjectFile | null>((resolve, reject) => {
+      const transaction = this.db!.transaction(['files'], 'readonly');
+      const store = transaction.objectStore('files');
+      const request = store.get(fileId);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result || null);
+    });
+
+    if (!fileToDelete) {
+      throw new Error(`File with id ${fileId} not found`);
+    }
+
+    if (fileToDelete.type === 'folder') {
+      // フォルダの場合、prefixを使って一括削除
+      await this.deleteFilesByPrefix(fileToDelete.projectId, fileToDelete.path);
+    } else {
+      // ファイルの場合は通常の削除
+      await this.deleteFile(fileId);
+    }
+  }
+
+  /**
    * AIレビュー状態をクリア
    */
   async clearAIReview(projectId: string, filePath: string): Promise<void> {
