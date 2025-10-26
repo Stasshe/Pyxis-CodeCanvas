@@ -61,7 +61,7 @@ export default function WelcomeTab() {
                   <p>
                     For a stable experience, please visit{' '}
                     <a
-                      href="https://sstasshe.github.io/Pyxis-CodeCanvas"
+                      href="https://stasshe.github.io/Pyxis-CodeCanvas"
                       className="underline text-blue-600"
                       target="_blank"
                       rel="noopener noreferrer"
