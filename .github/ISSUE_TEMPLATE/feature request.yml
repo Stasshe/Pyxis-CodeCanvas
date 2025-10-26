@@ -1,0 +1,65 @@
+name: 💡 Feature request
+description: Suggest a new feature or improvement for Pyxis CodeCanvas
+title: "[Feature] "
+labels: [enhancement]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 💡 Pyxis CodeCanvas Feature Request
+        Thanks for sharing your idea! Please describe it as clearly as possible so we can evaluate and discuss it effectively.
+
+  - type: input
+    id: summary
+    attributes:
+      label: 🧠 Summary
+      description: A short description of your feature idea.
+      placeholder: e.g. Add terminal split view or drag-to-resize panels.
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: 🎯 Motivation
+      description: What problem would this feature solve or improve?
+      placeholder: e.g. When running two processes, I want to view both terminals at once without switching.
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 🧩 Proposed Solution
+      description: How do you imagine this feature working in Pyxis?
+      placeholder: |
+        e.g. Allow multiple terminals side-by-side.
+        - Each terminal keeps its own runtime (Node.js / Python)
+        - Tabs can be rearranged by drag & drop
+        - Works persistently using IndexedDB
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: 🧱 Area of Pyxis
+      description: Which area does this feature relate to?
+      options:
+        - UI / UX
+        - File system (OPFS / IndexedDB)
+        - Git / GitHub integration
+        - Runtime (Node.js / Python)
+        - Transpiler / Compiler (JS / TS)
+        - AI Assistant / Code Review
+        - Internationalization (i18n)
+        - Other
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 🔄 Alternatives Considered
+      description: Have you considered any alternative approaches or workarounds?
+      placeholder: e.g. I can currently open two browser tabs as a workaround, but syncing states is inconvenient.
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: 💬 Additional Context
+      description: Add screenshots, mockups, related discussions, or any other helpful info.
+      placeholder: e.g. “This idea is inspired by VS Code’s split editor behavior.”

@@ -28,52 +28,43 @@ function flattenFileItems(items: FileItem[]): FileItem[] {
   return result;
 }
 
-// --- fuzzy matching helpers ---
-function levenshtein(a: string, b: string): number {
-  const m = a.length;
-  const n = b.length;
-  if (m === 0) return n;
-  if (n === 0) return m;
-  const dp: number[] = Array(n + 1)
-    .fill(0)
-    .map((_, i) => i);
-  for (let i = 1; i <= m; i++) {
-    let prev = dp[0];
-    dp[0] = i;
-    for (let j = 1; j <= n; j++) {
-      const tmp = dp[j];
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      dp[j] = Math.min(dp[j] + 1, dp[j - 1] + 1, prev + cost);
-      prev = tmp;
-    }
-  }
-  return dp[n];
-}
-
-// subsequence match: returns true if `q` is a subsequence of `s`
-function isSubsequence(q: string, s: string): boolean {
-  if (!q) return true;
-  let qi = 0;
-  for (let i = 0; i < s.length && qi < q.length; i++) {
-    if (s[i] === q[qi]) qi++;
-  }
-  return qi === q.length;
-}
-
-// scoring: higher is better
+// --- VSCode-style matching helpers ---
+// CamelCase/snake_case boundaries を考慮したスコアリング
 function scoreMatch(text: string, query: string): number {
   if (!query) return 100;
   const t = text.toLowerCase();
   const q = query.toLowerCase();
-  // exact substring match
-  if (t.includes(q)) return 80 + (q.length / Math.max(1, t.length)) * 20;
-  // subsequence match (fuzzy typed characters in order)
-  if (isSubsequence(q, t)) return 50 + (q.length / Math.max(1, t.length)) * 30;
-  // edit distance (allow small typos)
-  const dist = levenshtein(q, t);
-  const maxLen = Math.max(q.length, t.length);
-  const normalized = 1 - Math.min(dist / Math.max(1, maxLen), 1);
-  return Math.floor(normalized * 40); // 0..40
+  
+  // 完全一致
+  if (t === q) return 100;
+  
+  // 前方一致（高スコア）
+  if (t.startsWith(q)) return 90;
+  
+  // 部分文字列一致
+  const idx = t.indexOf(q);
+  if (idx !== -1) {
+    // 単語の境界で始まる場合はスコアを上げる
+    const isBoundary = idx === 0 || text[idx - 1] === '/' || text[idx - 1] === '_' || text[idx - 1] === '-';
+    return isBoundary ? 85 : 70;
+  }
+  
+  // CamelCase マッチング (e.g., "ow" matches "OperationWindow")
+  const camelIndices: number[] = [];
+  let queryIdx = 0;
+  for (let i = 0; i < text.length && queryIdx < query.length; i++) {
+    if (text[i].toLowerCase() === query[queryIdx].toLowerCase()) {
+      const isUpperCase = text[i] === text[i].toUpperCase() && text[i] !== text[i].toLowerCase();
+      const isBoundary = i === 0 || text[i - 1] === '/' || text[i - 1] === '_' || text[i - 1] === '-';
+      if (isUpperCase || isBoundary || queryIdx > 0) {
+        camelIndices.push(i);
+        queryIdx++;
+      }
+    }
+  }
+  if (queryIdx === query.length) return 60;
+  
+  return 0; // マッチしない
 }
 
 function getIconSrcForFile(name: string) {
@@ -116,8 +107,7 @@ export default function OperationWindow({
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   // 固定アイテム高さを定義（スクロール計算と見た目の基準にする）
-  // VSCode のようによりコンパクトに表示するため 28px に設定
-  const ITEM_HEIGHT = 28; // px
+  const ITEM_HEIGHT = 22; // VSCodeに合わせてよりコンパクトに
 
   // ファイル選択ハンドラ
   const handleFileSelectInOperation = (file: FileItem) => {
@@ -179,24 +169,46 @@ export default function OperationWindow({
   const allFiles = flattenFileItems(projectFiles).filter(
     file => file.type === 'file' && !(typeof isExcluded === 'function' && isExcluded(file.path))
   );
-  // Enhanced fuzzy/typo-tolerant filtering + scoring
+  
+  // Enhanced VSCode-style filtering + scoring
   const filteredFiles: FileItem[] = (() => {
     if (!searchQuery) return allFiles;
     const q = searchQuery.trim();
-    const scored: Array<{ file: FileItem; score: number }> = [];
+    const scored: Array<{ file: FileItem; score: number; matchedPart: string }> = [];
+    
     for (const file of allFiles) {
-      // consider name, path, and folder parts
-      const nameScore = scoreMatch(file.name, q);
+      const fileName = file.name;
+      const fileNameNoExt = fileName.substring(0, fileName.lastIndexOf('.')) || fileName;
+      const pathParts = file.path.split('/');
+      
+      // ファイル名のスコア（最優先）
+      const nameScore = scoreMatch(fileName, q);
+      // 拡張子なしファイル名のスコア
+      const nameNoExtScore = scoreMatch(fileNameNoExt, q);
+      // パス全体のスコア
       const pathScore = scoreMatch(file.path, q);
-      const folders = file.path.split('/').slice(0, -1);
-      const folderScores = folders.map(f => scoreMatch(f, q));
-      const bestFolderScore = folderScores.length ? Math.max(...folderScores) : 0;
-      const best = Math.max(nameScore, pathScore, bestFolderScore);
-      // threshold: allow approximate matches; keep anything with non-zero score
-      if (best > 0) scored.push({ file, score: best });
+      // 各パス要素のスコア
+      const partScores = pathParts.map(part => scoreMatch(part, q));
+      const bestPartScore = Math.max(...partScores, 0);
+      
+      const best = Math.max(nameScore, nameNoExtScore, pathScore, bestPartScore);
+      
+      // スコアが0より大きい（何らかのマッチがある）場合のみ含める
+      if (best > 0) {
+        scored.push({ 
+          file, 
+          score: best,
+          matchedPart: nameScore >= bestPartScore ? 'name' : 'path'
+        });
+      }
     }
-    // sort descending by score, then by name
-    scored.sort((a, b) => b.score - a.score || a.file.name.localeCompare(b.file.name));
+    
+    // スコア降順、同スコアなら名前の辞書順
+    scored.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.file.name.localeCompare(b.file.name);
+    });
+    
     return scored.map(s => s.file);
   })();
 
@@ -485,21 +497,26 @@ export default function OperationWindow({
               </div>
             ) : (
               filteredFiles.map((file, index) => {
-                // highlight helper
-                function highlight(text: string, query: string, isSelected: boolean) {
-                  if (!query) return text;
-                  const idx = text.toLowerCase().indexOf(query.toLowerCase());
-                  if (idx === -1) return text;
+                // VSCode風のハイライト関数（一致部分を正確に検出）
+                function highlightMatch(text: string, query: string, isSelected: boolean) {
+                  if (!query) return <>{text}</>;
+                  
+                  const lowerText = text.toLowerCase();
+                  const lowerQuery = query.toLowerCase();
+                  const idx = lowerText.indexOf(lowerQuery);
+                  
+                  if (idx === -1) return <>{text}</>;
+                  
                   return (
                     <>
                       {text.slice(0, idx)}
                       <span
                         style={{
-                          background: isSelected ? colors.primary : colors.accentBg,
+                          background: isSelected ? 'rgba(255,255,255,0.3)' : colors.accentBg,
                           color: isSelected ? colors.cardBg : colors.primary,
-                          fontWeight: isSelected ? 'bold' : 'normal',
+                          fontWeight: 'bold',
                           borderRadius: '2px',
-                          padding: '0 2px',
+                          padding: '0 1px',
                         }}
                       >
                         {text.slice(idx, idx + query.length)}
@@ -508,115 +525,75 @@ export default function OperationWindow({
                     </>
                   );
                 }
-                // highlight logic: ファイル名・フォルダ名・パスのいずれかに一致した部分をハイライト
-                let pathElem: React.ReactNode = file.path;
-                let nameElem: React.ReactNode = file.name;
-                const q = searchQuery.toLowerCase();
-                // highlight file name
-                if (file.name.toLowerCase().includes(q)) {
-                  nameElem = highlight(file.name, searchQuery, index === selectedIndex);
-                }
-                // highlight folder part in path
-                const folders = file.path.split('/').slice(0, -1);
-                if (folders.some(folder => folder.toLowerCase().includes(q))) {
-                  const folderElems = folders.map((folder, i) =>
-                    folder.toLowerCase().includes(q) ? (
-                      <span
-                        key={i}
-                        style={{
-                          background: index === selectedIndex ? colors.primary : colors.accentBg,
-                          color: index === selectedIndex ? colors.cardBg : colors.primary,
-                          fontWeight: index === selectedIndex ? 'bold' : 'normal',
-                          borderRadius: '2px',
-                          padding: '0 2px',
-                        }}
-                      >
-                        {folder}
-                      </span>
-                    ) : (
-                      folder
-                    )
-                  );
-                  const joinedFolders = folderElems
-                    .slice(1)
-                    .reduce<
-                      React.ReactNode[]
-                    >((prev, curr, i) => [...prev, <span key={i + 'sep'}>/</span>, curr], [folderElems[0]]);
-                  pathElem = (
-                    <>
-                      {joinedFolders}
-                      {'/'}
-                      {file.name}
-                    </>
-                  );
-                } else if (file.path.toLowerCase().includes(q)) {
-                  pathElem = highlight(file.path, searchQuery, index === selectedIndex);
-                }
+                
+                const isSelected = index === selectedIndex;
+                const pathParts = file.path.split('/');
+                const dirPath = pathParts.slice(0, -1).join('/');
+                
                 return (
                   <div
                     key={file.id}
                     style={{
-                      // 固定高さにしてレイアウトを安定させる
                       height: ITEM_HEIGHT,
                       boxSizing: 'border-box',
-                      // よりコンパクトに
-                      padding: '4px 8px',
-                      background: index === selectedIndex ? colors.primary : 'transparent',
-                      color: index === selectedIndex ? colors.cardBg : colors.foreground,
+                      padding: '2px 12px',
+                      background: isSelected ? colors.primary : 'transparent',
+                      color: isSelected ? colors.cardBg : colors.foreground,
                       cursor: 'pointer',
-                      borderBottom: `1px solid ${colors.border}`,
                       display: 'flex',
                       alignItems: 'center',
                       gap: '8px',
-                      border: index === selectedIndex ? `2px solid ${colors.accentBg}` : undefined,
-                      fontWeight: index === selectedIndex ? 'bold' : 'normal',
-                      borderRadius: index === selectedIndex ? '6px' : undefined,
-                      boxShadow: index === selectedIndex ? '0 0 0 2px rgba(0,0,0,0.08)' : undefined,
+                      borderLeft: isSelected ? `3px solid ${colors.accentBg}` : '3px solid transparent',
+                      transition: 'background 0.1s ease',
                     }}
                     onClick={() => {
                       handleFileSelectInOperation(file);
                     }}
                     onMouseEnter={() => setSelectedIndex(index)}
                   >
-                    {/* file icon similar to FileTree */}
+                    {/* ファイルアイコン */}
                     <img
                       src={getIconSrcForFile(file.name)}
                       alt="icon"
                       style={{
-                        width: 12,
-                        height: 12,
-                        verticalAlign: 'middle',
-                        opacity: 1,
-                        flex: '0 0 12px',
+                        width: 16,
+                        height: 16,
+                        flex: '0 0 16px',
                       }}
                     />
-                    <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                    
+                    {/* ファイル名（左寄せ） */}
+                    <span
+                      style={{
+                        fontSize: '13px',
+                        fontWeight: isSelected ? '600' : '400',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        minWidth: '120px',
+                        maxWidth: '200px',
+                      }}
+                    >
+                      {highlightMatch(file.name, searchQuery, isSelected)}
+                    </span>
+                    
+                    {/* パス（右側に配置、右寄せ） */}
+                    {dirPath && (
                       <span
                         style={{
-                          fontSize: '8px',
+                          fontSize: '11px',
+                          color: isSelected ? 'rgba(255,255,255,0.8)' : colors.mutedFg,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          marginLeft: 'auto',
                           fontFamily: 'monospace',
-                          color: index === selectedIndex ? colors.cardBg : colors.mutedFg,
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          lineHeight: '10px',
+                          textAlign: 'right',
                         }}
                       >
-                        {pathElem}
+                        {highlightMatch(dirPath, searchQuery, isSelected)}
                       </span>
-                      <span
-                        style={{
-                          fontSize: '12px',
-                          fontWeight: '500',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          lineHeight: '14px',
-                        }}
-                      >
-                        {nameElem}
-                      </span>
-                    </div>
+                    )}
                   </div>
                 );
               })
