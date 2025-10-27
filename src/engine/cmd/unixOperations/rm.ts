@@ -142,9 +142,13 @@ export class RmCommand extends UnixCommandBase {
 
     // ディレクトリの場合、配下すべてを再帰的に削除
     if (isDir) {
-      // Use the fast bulk recursive delete provided by FileRepository
-      // This is much faster than deleting each child one-by-one
-      await fileRepository.deleteFileRecursiveFast(file.id);
+      // 自分自身も含めて、relativePathで始まるもの全て
+      const allFiles = files.filter(
+        f => f.path === relativePath || f.path.startsWith(relativePath + '/')
+      );
+      for (const child of allFiles) {
+        await fileRepository.deleteFile(child.id);
+      }
       if (verbose) {
         return `removed directory '${normalizedPath}'`;
       }
