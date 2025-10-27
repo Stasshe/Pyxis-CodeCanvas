@@ -172,7 +172,12 @@ export function ensureGitignoreContains(
     // also consider patterns like "/node_modules/*" or "node_modules/**" as present
     if (line.startsWith(normalizedEntry) || line.includes(normalizedEntry)) {
       // e.g. "node_modules/**" or "**/node_modules" -> treat as present
-      if (line === normalizedEntry || line.startsWith(normalizedEntry + '/') || line.includes(`/${normalizedEntry}`) || line.includes(normalizedEntry + '*')) {
+      if (
+        line === normalizedEntry ||
+        line.startsWith(normalizedEntry + '/') ||
+        line.includes(`/${normalizedEntry}`) ||
+        line.includes(normalizedEntry + '*')
+      ) {
         return { content, changed: false };
       }
     }

@@ -506,7 +506,9 @@ export class NpmInstall {
       if (changed) {
         // createFile は既存を更新するので存在チェックは不要
         await fileRepository.createFile(this.projectId, '/.gitignore', newContent, 'file');
-        console.log(`[npm.installWithDependencies] /.gitignore created/updated to include '${entry}'`);
+        console.log(
+          `[npm.installWithDependencies] /.gitignore created/updated to include '${entry}'`
+        );
       }
     } catch (e) {
       console.warn('[npm.installWithDependencies] Failed to ensure /.gitignore:', e);

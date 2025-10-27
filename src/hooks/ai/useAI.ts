@@ -1,6 +1,6 @@
 // 統合AIフック
 
-"use client";
+'use client';
 
 import { useState, useCallback, useEffect } from 'react';
 import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
@@ -114,7 +114,10 @@ export function useAI(props?: UseAIProps) {
           // レスポンスをパース
           const allOriginalFiles = [
             ...selectedFiles,
-            ...extractNewFilePathsFromResponse(response, selectedFiles.map(f => f.path)).map(path => ({ path, content: '' })),
+            ...extractNewFilePathsFromResponse(
+              response,
+              selectedFiles.map(f => f.path)
+            ).map(path => ({ path, content: '' })),
           ];
           const editResponse = parseEditResponse(response, allOriginalFiles);
 
@@ -189,7 +192,10 @@ export function useAI(props?: UseAIProps) {
 }
 
 // 新規ファイルパスを抽出
-function extractNewFilePathsFromResponse(response: string, _selectedPaths: string[] = []): string[] {
+function extractNewFilePathsFromResponse(
+  response: string,
+  _selectedPaths: string[] = []
+): string[] {
   // Simpler, more robust rule: any file that appears in a <AI_EDIT_CONTENT_START:...> block
   // will be treated as a candidate new file. The parse step that receives the list
   // (`parseEditResponse`) will match these candidates against the provided original

@@ -36,7 +36,7 @@ export const SUPPORTED_LOCALES = [
   'pl',
 ] as const;
 
-export type Locale = typeof SUPPORTED_LOCALES[number];
+export type Locale = (typeof SUPPORTED_LOCALES)[number];
 
 /*
 トルコ語	tr	トルコ・中央アジア
@@ -52,16 +52,11 @@ export type TranslationResources = {
   common: typeof enCommon;
 };
 
-
-
 /**
  * Runtime type guard to check whether a string is a supported Locale.
  */
 export function isSupportedLocale(x: unknown): x is Locale {
-  return (
-    typeof x === 'string' &&
-    (SUPPORTED_LOCALES as readonly string[]).includes(x)
-  );
+  return typeof x === 'string' && (SUPPORTED_LOCALES as readonly string[]).includes(x);
 }
 
 /**
