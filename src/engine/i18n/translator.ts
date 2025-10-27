@@ -50,7 +50,7 @@ export function createTranslator(translations: Record<string, unknown>) {
         text = options.defaultValue;
       } else {
         // デフォルト: キーをそのまま返す
-        console.warn(`[i18n] Translation not found: ${key}`);
+        // console.warn(`[i18n] Translation not found: ${key}`);
         return key;
       }
     }

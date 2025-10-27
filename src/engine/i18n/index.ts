@@ -11,5 +11,4 @@ export { I18nProvider, useI18n, useTranslation } from '@/context/I18nContext';
 
 // Utilities (開発/デバッグ用)
 export { loadTranslations, preloadTranslations, clearMemoryCache } from './loader';
-export { clearAllTranslationCache, cleanExpiredCache } from './storage';
 export { createTranslator, translatePlural } from './translator';
