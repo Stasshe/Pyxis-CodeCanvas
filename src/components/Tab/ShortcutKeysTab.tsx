@@ -42,28 +42,73 @@ export default function ShortcutKeysTab() {
   const startCapture = (id: string) => {
     setEditingId(id);
     setError(null);
+    setPreviewCombo('');
   };
 
   const stopCapture = () => {
     setEditingId(null);
     setError(null);
+    setPreviewCombo('');
   };
+
+  const [previewCombo, setPreviewCombo] = useState<string>('');
 
   useEffect(() => {
     if (!editingId) return;
 
-    const handler = (e: KeyboardEvent) => {
-      e.preventDefault();
-      const formatted = formatKeyEvent(e);
-      if (!formatted) return;
+    const isModifierKey = (key: string) =>
+      key === 'Control' || key === 'Meta' || key === 'Alt' || key === 'Shift';
 
-      const duplicate = bindings.find(b => b.combo === formatted && b.id !== editingId);
+    const computeCombo = (e: KeyboardEvent) => {
+      const parts: string[] = [];
+      const isMac =
+        typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
+      if (isMac) {
+        if (e.metaKey) parts.push('Cmd');
+        if (e.ctrlKey) parts.push('Ctrl');
+      } else {
+        if (e.ctrlKey) parts.push('Ctrl');
+        if (e.metaKey) parts.push('Meta');
+      }
+      if (e.altKey) parts.push('Alt');
+      if (e.shiftKey) parts.push('Shift');
+
+      const key = e.key;
+      if (isModifierKey(key)) return parts.join('+');
+
+      const normalized = key.length === 1 ? key.toUpperCase() : key;
+      parts.push(normalized);
+      return parts.join('+');
+    };
+
+    const handler = (e: KeyboardEvent) => {
+      try {
+        e.preventDefault();
+      } catch (err) {}
+
+      // Cancel on Escape
+      if (e.key === 'Escape') {
+        stopCapture();
+        return;
+      }
+
+      const combo = computeCombo(e);
+      // If user is only pressing modifiers, update preview and wait
+      if (isModifierKey(e.key)) {
+        setPreviewCombo(combo);
+        return;
+      }
+
+      // Final key (non-modifier) pressed: validate and save
+      if (!combo) return;
+
+      const duplicate = bindings.find(b => b.combo === combo && b.id !== editingId);
       if (duplicate) {
         setError(`Already assigned to: ${duplicate.name}`);
         return;
       }
 
-      const newBindings = bindings.map(b => (b.id === editingId ? { ...b, combo: formatted } : b));
+      const newBindings = bindings.map(b => (b.id === editingId ? { ...b, combo } : b));
       updateBindings(newBindings);
       stopCapture();
     };
@@ -112,8 +157,22 @@ export default function ShortcutKeysTab() {
 
   return (
     <div className="p-4 h-full overflow-auto">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold">ショートカットキー設定</h2>
+      <div
+        className="flex items-center justify-between mb-4"
+        style={{
+          background: 'hsl(var(--card))',
+          color: 'hsl(var(--card-foreground))',
+          padding: '0.5rem',
+          borderRadius: '0.375rem',
+          border: '1px solid hsl(var(--border))',
+        }}
+      >
+        <h2
+          className="text-xl font-semibold"
+          style={{ margin: 0 }}
+        >
+          ショートカットキー設定
+        </h2>
         <div className="flex items-center gap-2">
           <button
             className="btn btn-sm flex items-center gap-2"
@@ -128,18 +187,47 @@ export default function ShortcutKeysTab() {
       <div className="space-y-6">
         {groupedBindings.map(([category, categoryBindings]) => (
           <div key={category}>
-            <h3 className="text-sm font-semibold mb-2 text-muted-foreground">
+            <div
+              style={{
+                display: 'inline-block',
+                padding: '0.125rem 0.5rem',
+                borderRadius: '0.25rem',
+                background: 'hsl(var(--secondary))',
+                color: 'hsl(var(--secondary-foreground))',
+                fontSize: '0.9rem',
+                fontWeight: 600,
+                marginBottom: '0.5rem',
+              }}
+            >
               {categoryNames[category] || category}
-            </h3>
+            </div>
             <div
               className="rounded border p-2"
               style={{ borderColor: 'var(--border)' }}
             >
-              <table className="w-full table-fixed">
+              <table
+                className="w-full table-fixed"
+                style={{ borderCollapse: 'separate', borderSpacing: 0 }}
+              >
                 <thead>
-                  <tr className="text-left text-sm text-muted">
-                    <th className="w-3/5">アクション</th>
-                    <th className="w-2/5">ショートカット</th>
+                  <tr
+                    style={{
+                      background: 'hsl(var(--input))',
+                      color: 'hsl(var(--muted-foreground))',
+                    }}
+                  >
+                    <th
+                      className="w-3/5"
+                      style={{ textAlign: 'left', padding: '0.5rem' }}
+                    >
+                      アクション
+                    </th>
+                    <th
+                      className="w-2/5"
+                      style={{ textAlign: 'left', padding: '0.5rem' }}
+                    >
+                      ショートカット
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -152,12 +240,24 @@ export default function ShortcutKeysTab() {
                       <td className="py-2">{b.name}</td>
                       <td className="py-2">
                         <div className="flex items-center gap-2">
-                          <div className="px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 text-sm font-mono">
+                          <div
+                            style={{
+                              background: 'hsl(var(--muted))',
+                              color: 'hsl(var(--muted-foreground))',
+                              padding: '0.125rem 0.5rem',
+                              borderRadius: '0.25rem',
+                              fontFamily:
+                                'ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Segoe UI Mono", monospace',
+                              fontSize: '0.875rem',
+                            }}
+                          >
                             {formatKeyComboForDisplay(b.combo)}
                           </div>
                           {editingId === b.id ? (
                             <div className="flex items-center gap-2">
-                              <div className="text-sm text-muted">キーを押してください...</div>
+                              <div className="text-sm text-muted">
+                                編集中…（ポップアップで入力中）
+                              </div>
                               <button
                                 className="btn btn-sm"
                                 onClick={stopCapture}
@@ -184,6 +284,95 @@ export default function ShortcutKeysTab() {
         ))}
       </div>
 
+      {/* Capture modal */}
+      {editingId && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 60,
+          }}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'rgba(0,0,0,0.45)',
+            }}
+            onClick={stopCapture}
+          />
+
+          <div
+            style={{
+              position: 'relative',
+              background: 'hsl(var(--card))',
+              color: 'hsl(var(--card-foreground))',
+              border: '1px solid hsl(var(--border))',
+              padding: '1rem 1.25rem',
+              borderRadius: '0.5rem',
+              minWidth: 380,
+              maxWidth: '90%',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.35)',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontWeight: 700 }}>キー割り当てを編集</div>
+              <button
+                className="btn btn-sm"
+                onClick={stopCapture}
+                aria-label="キャンセル"
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            <div style={{ marginTop: '0.75rem' }}>
+              <div style={{ marginBottom: '0.5rem', color: 'hsl(var(--muted-foreground))' }}>
+                編集対象: {bindings.find(b => b.id === editingId)?.name || ''}
+              </div>
+
+              <div
+                style={{
+                  marginTop: '0.5rem',
+                  padding: '0.75rem',
+                  borderRadius: '0.375rem',
+                  background: 'hsl(var(--muted))',
+                  color: 'hsl(var(--muted-foreground))',
+                  fontFamily:
+                    'ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Segoe UI Mono", monospace',
+                  fontSize: '1.05rem',
+                  textAlign: 'center',
+                }}
+              >
+                {previewCombo || 'キーを押してください...'}
+              </div>
+
+              <div
+                style={{
+                  marginTop: '0.75rem',
+                  display: 'flex',
+                  gap: '0.5rem',
+                  justifyContent: 'flex-end',
+                }}
+              >
+                <button
+                  className="btn"
+                  onClick={stopCapture}
+                >
+                  キャンセル
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {error && <div className="mt-3 text-sm text-red-600">{error}</div>}
 
       {duplicates.length > 0 && (
@@ -199,13 +388,31 @@ export default function ShortcutKeysTab() {
         </div>
       )}
 
-      <div className="mt-6 text-sm text-muted">
-        <div>編集方法: 編集ボタンを押したあと、割り当てたいキーを実際に押してください。</div>
-        <div className="mt-2">💡 Mac: Cmd キー、Windows/Linux: Ctrl キーが自動的に対応されます</div>
-        <div className="mt-2">
+      <div
+        style={{
+          marginTop: '1.5rem',
+          background: 'hsl(var(--popover))',
+          color: 'hsl(var(--popover-foreground))',
+          border: '1px solid hsl(var(--border))',
+          padding: '0.75rem',
+          borderRadius: '0.375rem',
+          fontSize: '0.95rem',
+          lineHeight: 1.4,
+        }}
+      >
+        <div style={{ marginBottom: '0.5rem', fontWeight: 600 }}>編集方法</div>
+        <div>編集ボタンを押したあと、割り当てたいキーを実際に押してください。</div>
+        <div style={{ marginTop: '0.5rem', color: 'hsl(var(--muted-foreground))' }}>
+          💡 Mac: Cmd キー、Windows/Linux: Ctrl キーが自動的に対応されます
+        </div>
+        <div style={{ marginTop: '0.5rem', color: 'hsl(var(--muted-foreground))' }}>
           注意: ブラウザやOSが予約しているキーはキャプチャできない場合があります。
         </div>
-        <div className="mt-2 text-xs">💾 IndexedDB (pyxis-global) に自動保存されます</div>
+        <div
+          style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: 'hsl(var(--muted-foreground))' }}
+        >
+          💾 IndexedDB (pyxis-global) に自動保存されます
+        </div>
       </div>
     </div>
   );
