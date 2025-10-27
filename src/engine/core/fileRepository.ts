@@ -1179,54 +1179,56 @@ export class FileRepository {
     });
   }
 
-    /**
-     * チャットスペース内の既存メッセージを更新する（部分更新をサポート）
-     * 主に editResponse を差し替える用途で使う想定
-     */
-    async updateChatSpaceMessage(
-      chatSpaceId: string,
-      messageId: string,
-      updates: Partial<ChatSpaceMessage>
-    ): Promise<ChatSpaceMessage | null> {
-      if (!this.db) throw new Error('Database not initialized');
+  /**
+   * チャットスペース内の既存メッセージを更新する（部分更新をサポート）
+   * 主に editResponse を差し替える用途で使う想定
+   */
+  async updateChatSpaceMessage(
+    chatSpaceId: string,
+    messageId: string,
+    updates: Partial<ChatSpaceMessage>
+  ): Promise<ChatSpaceMessage | null> {
+    if (!this.db) throw new Error('Database not initialized');
 
-      const transaction = this.db.transaction(['chatSpaces'], 'readwrite');
-      const store = transaction.objectStore('chatSpaces');
-      const chatSpaceRequest = store.get(chatSpaceId);
+    const transaction = this.db.transaction(['chatSpaces'], 'readwrite');
+    const store = transaction.objectStore('chatSpaces');
+    const chatSpaceRequest = store.get(chatSpaceId);
 
-      return new Promise((resolve, reject) => {
-        chatSpaceRequest.onsuccess = () => {
-          const chatSpace = chatSpaceRequest.result as ChatSpace | undefined;
-          if (!chatSpace) {
-            resolve(null);
-            return;
-          }
+    return new Promise((resolve, reject) => {
+      chatSpaceRequest.onsuccess = () => {
+        const chatSpace = chatSpaceRequest.result as ChatSpace | undefined;
+        if (!chatSpace) {
+          resolve(null);
+          return;
+        }
 
-          const idx = (chatSpace.messages || []).findIndex((m: ChatSpaceMessage) => m.id === messageId);
-          if (idx === -1) {
-            resolve(null);
-            return;
-          }
+        const idx = (chatSpace.messages || []).findIndex(
+          (m: ChatSpaceMessage) => m.id === messageId
+        );
+        if (idx === -1) {
+          resolve(null);
+          return;
+        }
 
-          const existing = chatSpace.messages[idx];
-          const updatedMessage: ChatSpaceMessage = {
-            ...existing,
-            ...updates,
-            // updated timestamp unless explicitly provided
-            timestamp: updates.timestamp ? updates.timestamp : new Date(),
-          };
-
-          chatSpace.messages[idx] = updatedMessage;
-          chatSpace.updatedAt = new Date();
-
-          const putRequest = store.put(chatSpace);
-          putRequest.onerror = () => reject(putRequest.error);
-          putRequest.onsuccess = () => resolve(updatedMessage);
+        const existing = chatSpace.messages[idx];
+        const updatedMessage: ChatSpaceMessage = {
+          ...existing,
+          ...updates,
+          // updated timestamp unless explicitly provided
+          timestamp: updates.timestamp ? updates.timestamp : new Date(),
         };
 
-        chatSpaceRequest.onerror = () => reject(chatSpaceRequest.error);
-      });
-    }
+        chatSpace.messages[idx] = updatedMessage;
+        chatSpace.updatedAt = new Date();
+
+        const putRequest = store.put(chatSpace);
+        putRequest.onerror = () => reject(putRequest.error);
+        putRequest.onsuccess = () => resolve(updatedMessage);
+      };
+
+      chatSpaceRequest.onerror = () => reject(chatSpaceRequest.error);
+    });
+  }
 
   /**
    * チャットスペースの選択ファイル更新

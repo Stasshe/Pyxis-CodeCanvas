@@ -3,12 +3,18 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { Edit2, RefreshCw, X } from 'lucide-react';
-import { useKeyBindings, DEFAULT_BINDINGS, formatKeyComboForDisplay, type Binding } from '@/hooks/useKeyBindings';
+import {
+  useKeyBindings,
+  DEFAULT_BINDINGS,
+  formatKeyComboForDisplay,
+  type Binding,
+} from '@/hooks/useKeyBindings';
 
 function formatKeyEvent(e: KeyboardEvent) {
   const parts: string[] = [];
-  
-  const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
+
+  const isMac =
+    typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
   if (isMac) {
     if (e.metaKey) parts.push('Cmd');
     if (e.ctrlKey) parts.push('Ctrl');
@@ -16,7 +22,7 @@ function formatKeyEvent(e: KeyboardEvent) {
     if (e.ctrlKey) parts.push('Ctrl');
     if (e.metaKey) parts.push('Meta');
   }
-  
+
   if (e.altKey) parts.push('Alt');
   if (e.shiftKey) parts.push('Shift');
 
@@ -125,7 +131,10 @@ export default function ShortcutKeysTab() {
             <h3 className="text-sm font-semibold mb-2 text-muted-foreground">
               {categoryNames[category] || category}
             </h3>
-            <div className="rounded border p-2" style={{ borderColor: 'var(--border)' }}>
+            <div
+              className="rounded border p-2"
+              style={{ borderColor: 'var(--border)' }}
+            >
               <table className="w-full table-fixed">
                 <thead>
                   <tr className="text-left text-sm text-muted">
@@ -135,7 +144,11 @@ export default function ShortcutKeysTab() {
                 </thead>
                 <tbody>
                   {categoryBindings.map(b => (
-                    <tr key={b.id} className="align-top border-t" style={{ borderColor: 'var(--border)' }}>
+                    <tr
+                      key={b.id}
+                      className="align-top border-t"
+                      style={{ borderColor: 'var(--border)' }}
+                    >
                       <td className="py-2">{b.name}</td>
                       <td className="py-2">
                         <div className="flex items-center gap-2">
@@ -145,12 +158,18 @@ export default function ShortcutKeysTab() {
                           {editingId === b.id ? (
                             <div className="flex items-center gap-2">
                               <div className="text-sm text-muted">キーを押してください...</div>
-                              <button className="btn btn-sm" onClick={stopCapture}>
+                              <button
+                                className="btn btn-sm"
+                                onClick={stopCapture}
+                              >
                                 <X size={14} /> キャンセル
                               </button>
                             </div>
                           ) : (
-                            <button className="btn btn-sm flex items-center gap-2" onClick={() => startCapture(b.id)}>
+                            <button
+                              className="btn btn-sm flex items-center gap-2"
+                              onClick={() => startCapture(b.id)}
+                            >
                               <Edit2 size={14} /> 編集
                             </button>
                           )}
@@ -165,16 +184,16 @@ export default function ShortcutKeysTab() {
         ))}
       </div>
 
-      {error && (
-        <div className="mt-3 text-sm text-red-600">{error}</div>
-      )}
+      {error && <div className="mt-3 text-sm text-red-600">{error}</div>}
 
       {duplicates.length > 0 && (
         <div className="mt-4 text-sm text-orange-700">
           <strong>重複:</strong>
           <ul>
             {duplicates.map(d => (
-              <li key={d.combo}>{d.combo} → {d.names.join(', ')}</li>
+              <li key={d.combo}>
+                {d.combo} → {d.names.join(', ')}
+              </li>
             ))}
           </ul>
         </div>
@@ -183,7 +202,9 @@ export default function ShortcutKeysTab() {
       <div className="mt-6 text-sm text-muted">
         <div>編集方法: 編集ボタンを押したあと、割り当てたいキーを実際に押してください。</div>
         <div className="mt-2">💡 Mac: Cmd キー、Windows/Linux: Ctrl キーが自動的に対応されます</div>
-        <div className="mt-2">注意: ブラウザやOSが予約しているキーはキャプチャできない場合があります。</div>
+        <div className="mt-2">
+          注意: ブラウザやOSが予約しているキーはキャプチャできない場合があります。
+        </div>
         <div className="mt-2 text-xs">💾 IndexedDB (pyxis-global) に自動保存されます</div>
       </div>
     </div>

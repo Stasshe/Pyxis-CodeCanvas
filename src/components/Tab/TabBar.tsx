@@ -138,35 +138,51 @@ export default function TabBar({
 
   // ショートカットキーの登録
   // 新しいタブを追加
-  useKeyBinding('newTab', () => {
-    if (onAddTab) onAddTab();
-  }, [onAddTab]);
+  useKeyBinding(
+    'newTab',
+    () => {
+      if (onAddTab) onAddTab();
+    },
+    [onAddTab]
+  );
 
   // タブを閉じる
-  useKeyBinding('closeTab', () => {
-    if (activeTabId) {
-      const activeTab = tabs.find(t => t.id === activeTabId);
-      if (activeTab) {
-        requestClose(activeTab.id, activeTab.isDirty, onTabClose);
+  useKeyBinding(
+    'closeTab',
+    () => {
+      if (activeTabId) {
+        const activeTab = tabs.find(t => t.id === activeTabId);
+        if (activeTab) {
+          requestClose(activeTab.id, activeTab.isDirty, onTabClose);
+        }
       }
-    }
-  }, [activeTabId, tabs, onTabClose, requestClose]);
+    },
+    [activeTabId, tabs, onTabClose, requestClose]
+  );
 
   // 次のタブへ移動
-  useKeyBinding('nextTab', () => {
-    if (tabs.length === 0) return;
-    const currentIndex = tabs.findIndex(t => t.id === activeTabId);
-    const nextIndex = (currentIndex + 1) % tabs.length;
-    onTabClick(tabs[nextIndex].id);
-  }, [tabs, activeTabId, onTabClick]);
+  useKeyBinding(
+    'nextTab',
+    () => {
+      if (tabs.length === 0) return;
+      const currentIndex = tabs.findIndex(t => t.id === activeTabId);
+      const nextIndex = (currentIndex + 1) % tabs.length;
+      onTabClick(tabs[nextIndex].id);
+    },
+    [tabs, activeTabId, onTabClick]
+  );
 
   // 前のタブへ移動
-  useKeyBinding('prevTab', () => {
-    if (tabs.length === 0) return;
-    const currentIndex = tabs.findIndex(t => t.id === activeTabId);
-    const prevIndex = (currentIndex - 1 + tabs.length) % tabs.length;
-    onTabClick(tabs[prevIndex].id);
-  }, [tabs, activeTabId, onTabClick]);
+  useKeyBinding(
+    'prevTab',
+    () => {
+      if (tabs.length === 0) return;
+      const currentIndex = tabs.findIndex(t => t.id === activeTabId);
+      const prevIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+      onTabClick(tabs[prevIndex].id);
+    },
+    [tabs, activeTabId, onTabClick]
+  );
 
   // ファイル削除イベントを受けて、該当ファイルのタブを閉じる
   useEffect(() => {

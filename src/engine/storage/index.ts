@@ -1,17 +1,17 @@
 /**
  * Pyxis Global Storage Layer
  * IndexedDBを使用した汎用的なデータ永続化とキャッシュ管理
- * 
+ *
  * 使用例:
  * ```typescript
  * import { storageService } from '@/engine/storage';
- * 
+ *
  * // データの保存
  * await storageService.set('translations', 'en-common', { hello: 'Hello' });
- * 
+ *
  * // データの取得（自動キャッシュ）
  * const data = await storageService.get('translations', 'en-common');
- * 
+ *
  * // データの削除
  * await storageService.delete('translations', 'en-common');
  * ```
@@ -25,12 +25,12 @@ const DB_VERSION = 1;
  * 新しいストアを追加する場合は、ここに追加してください
  */
 export const STORES = {
-  TRANSLATIONS: 'translations',      // i18n翻訳データ
-  KEYBINDINGS: 'keybindings',        // ショートカットキー設定
+  TRANSLATIONS: 'translations', // i18n翻訳データ
+  KEYBINDINGS: 'keybindings', // ショートカットキー設定
   USER_PREFERENCES: 'user_preferences', // ユーザー設定
 } as const;
 
-export type StoreName = typeof STORES[keyof typeof STORES];
+export type StoreName = (typeof STORES)[keyof typeof STORES];
 
 /**
  * ストレージエントリの基本型
@@ -84,12 +84,12 @@ class MemoryCache {
   has(key: string): boolean {
     const entry = this.cache.get(key);
     if (!entry) return false;
-    
+
     if (entry.expiresAt && Date.now() > entry.expiresAt) {
       this.cache.delete(key);
       return false;
     }
-    
+
     return true;
   }
 }
@@ -155,12 +155,7 @@ class PyxisStorage {
    * @param data 保存するデータ
    * @param options オプション（TTL等）
    */
-  async set<T>(
-    storeName: StoreName,
-    id: string,
-    data: T,
-    options?: StorageOptions
-  ): Promise<void> {
+  async set<T>(storeName: StoreName, id: string, data: T, options?: StorageOptions): Promise<void> {
     try {
       const db = await this.init();
       const tx = db.transaction(storeName, 'readwrite');

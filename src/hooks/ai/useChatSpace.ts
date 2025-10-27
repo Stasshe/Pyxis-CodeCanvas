@@ -176,11 +176,17 @@ export const useChatSpace = (projectId: string | null) => {
             });
 
             setChatSpaces(prev =>
-              prev.map(space =>
-                space.id === currentSpace.id
-                  ? { ...space, messages: space.messages.map(m => (m.id === updated.id ? updated : m)), updatedAt: new Date() }
-                  : space
-              ).sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+              prev
+                .map(space =>
+                  space.id === currentSpace.id
+                    ? {
+                        ...space,
+                        messages: space.messages.map(m => (m.id === updated.id ? updated : m)),
+                        updatedAt: new Date(),
+                      }
+                    : space
+                )
+                .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
             );
 
             return updated;

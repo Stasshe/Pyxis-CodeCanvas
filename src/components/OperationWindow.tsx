@@ -34,28 +34,30 @@ function scoreMatch(text: string, query: string): number {
   if (!query) return 100;
   const t = text.toLowerCase();
   const q = query.toLowerCase();
-  
+
   // 完全一致
   if (t === q) return 100;
-  
+
   // 前方一致（高スコア）
   if (t.startsWith(q)) return 90;
-  
+
   // 部分文字列一致
   const idx = t.indexOf(q);
   if (idx !== -1) {
     // 単語の境界で始まる場合はスコアを上げる
-    const isBoundary = idx === 0 || text[idx - 1] === '/' || text[idx - 1] === '_' || text[idx - 1] === '-';
+    const isBoundary =
+      idx === 0 || text[idx - 1] === '/' || text[idx - 1] === '_' || text[idx - 1] === '-';
     return isBoundary ? 85 : 70;
   }
-  
+
   // CamelCase マッチング (e.g., "ow" matches "OperationWindow")
   const camelIndices: number[] = [];
   let queryIdx = 0;
   for (let i = 0; i < text.length && queryIdx < query.length; i++) {
     if (text[i].toLowerCase() === query[queryIdx].toLowerCase()) {
       const isUpperCase = text[i] === text[i].toUpperCase() && text[i] !== text[i].toLowerCase();
-      const isBoundary = i === 0 || text[i - 1] === '/' || text[i - 1] === '_' || text[i - 1] === '-';
+      const isBoundary =
+        i === 0 || text[i - 1] === '/' || text[i - 1] === '_' || text[i - 1] === '-';
       if (isUpperCase || isBoundary || queryIdx > 0) {
         camelIndices.push(i);
         queryIdx++;
@@ -63,7 +65,7 @@ function scoreMatch(text: string, query: string): number {
     }
   }
   if (queryIdx === query.length) return 60;
-  
+
   return 0; // マッチしない
 }
 
@@ -169,18 +171,18 @@ export default function OperationWindow({
   const allFiles = flattenFileItems(projectFiles).filter(
     file => file.type === 'file' && !(typeof isExcluded === 'function' && isExcluded(file.path))
   );
-  
+
   // Enhanced VSCode-style filtering + scoring
   const filteredFiles: FileItem[] = (() => {
     if (!searchQuery) return allFiles;
     const q = searchQuery.trim();
     const scored: Array<{ file: FileItem; score: number; matchedPart: string }> = [];
-    
+
     for (const file of allFiles) {
       const fileName = file.name;
       const fileNameNoExt = fileName.substring(0, fileName.lastIndexOf('.')) || fileName;
       const pathParts = file.path.split('/');
-      
+
       // ファイル名のスコア（最優先）
       const nameScore = scoreMatch(fileName, q);
       // 拡張子なしファイル名のスコア
@@ -190,25 +192,25 @@ export default function OperationWindow({
       // 各パス要素のスコア
       const partScores = pathParts.map(part => scoreMatch(part, q));
       const bestPartScore = Math.max(...partScores, 0);
-      
+
       const best = Math.max(nameScore, nameNoExtScore, pathScore, bestPartScore);
-      
+
       // スコアが0より大きい（何らかのマッチがある）場合のみ含める
       if (best > 0) {
-        scored.push({ 
-          file, 
+        scored.push({
+          file,
           score: best,
-          matchedPart: nameScore >= bestPartScore ? 'name' : 'path'
+          matchedPart: nameScore >= bestPartScore ? 'name' : 'path',
         });
       }
     }
-    
+
     // スコア降順、同スコアなら名前の辞書順
     scored.sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
       return a.file.name.localeCompare(b.file.name);
     });
-    
+
     return scored.map(s => s.file);
   })();
 
@@ -500,13 +502,13 @@ export default function OperationWindow({
                 // VSCode風のハイライト関数（一致部分を正確に検出）
                 function highlightMatch(text: string, query: string, isSelected: boolean) {
                   if (!query) return <>{text}</>;
-                  
+
                   const lowerText = text.toLowerCase();
                   const lowerQuery = query.toLowerCase();
                   const idx = lowerText.indexOf(lowerQuery);
-                  
+
                   if (idx === -1) return <>{text}</>;
-                  
+
                   return (
                     <>
                       {text.slice(0, idx)}
@@ -525,11 +527,11 @@ export default function OperationWindow({
                     </>
                   );
                 }
-                
+
                 const isSelected = index === selectedIndex;
                 const pathParts = file.path.split('/');
                 const dirPath = pathParts.slice(0, -1).join('/');
-                
+
                 return (
                   <div
                     key={file.id}
@@ -543,7 +545,9 @@ export default function OperationWindow({
                       display: 'flex',
                       alignItems: 'center',
                       gap: '8px',
-                      borderLeft: isSelected ? `3px solid ${colors.accentBg}` : '3px solid transparent',
+                      borderLeft: isSelected
+                        ? `3px solid ${colors.accentBg}`
+                        : '3px solid transparent',
                       transition: 'background 0.1s ease',
                     }}
                     onClick={() => {
@@ -561,7 +565,7 @@ export default function OperationWindow({
                         flex: '0 0 16px',
                       }}
                     />
-                    
+
                     {/* ファイル名（左寄せ） */}
                     <span
                       style={{
@@ -576,7 +580,7 @@ export default function OperationWindow({
                     >
                       {highlightMatch(file.name, searchQuery, isSelected)}
                     </span>
-                    
+
                     {/* パス（右側に配置、右寄せ） */}
                     {dirPath && (
                       <span

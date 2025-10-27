@@ -354,9 +354,7 @@ export default function AIPanel({
         messages={messages}
         isProcessing={isProcessing}
         compact={false}
-        emptyMessage={
-          mode === 'ask' ? t('AI.ask') : t('AI.edit')
-        }
+        emptyMessage={mode === 'ask' ? t('AI.ask') : t('AI.edit')}
       />
 
       {/* 変更ファイル一覧（Editモードで変更がある場合のみ表示）
@@ -383,7 +381,10 @@ export default function AIPanel({
                 onClick={() => setIsChangedFilesMinimized(prev => !prev)}
                 style={{ color: colors.foreground }}
               >
-                <ChevronDown size={14} style={{ transform: isChangedFilesMinimized ? 'rotate(-180deg)' : 'none' }} />
+                <ChevronDown
+                  size={14}
+                  style={{ transform: isChangedFilesMinimized ? 'rotate(-180deg)' : 'none' }}
+                />
               </button>
             </div>
           </div>

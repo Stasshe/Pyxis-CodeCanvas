@@ -254,27 +254,43 @@ export function useDiffTabHandlers(
         });
       }
       const diffTabId = `diff-all-${parentCommitId}-${commitId}`;
-      const fileItem: FileItem = {
-        id: diffTabId,
-        name: `Diff: ${parentCommitId ? parentCommitId.slice(0, 6) : ''}..${commitId ? commitId.slice(0, 6) : ''}`,
-        path: '',
-        content: '',
-        type: 'file',
-      };
-      // pass the current tabs so openOrActivateTab can properly detect/append tabs
-      openOrActivateTab(fileItem, tabs, setTabs, setActiveTabId);
+
+      // Create or update the diff-all tab directly to avoid collisions with
+      // existing editor tabs that may have empty paths. This ensures the
+      // tab always contains the expected diffProps and is activated.
       setTabs((prevTabs: Tab[]) => {
-        return prevTabs.map(tab =>
-          tab.id === diffTabId
-            ? {
-                ...tab,
-                diffProps: {
-                  diffs,
-                },
-              }
-            : tab
-        );
+        const existing = prevTabs.find(t => t.id === diffTabId);
+        if (existing) {
+          // update diffProps if missing or stale
+          return prevTabs.map(tab =>
+            tab.id === diffTabId
+              ? {
+                  ...tab,
+                  diffProps: {
+                    diffs,
+                  },
+                }
+              : tab
+          );
+        }
+
+        // create a new tab for the multi-file diff
+        const newTab: Tab = {
+          id: diffTabId,
+          name: `Diff: ${parentCommitId ? parentCommitId.slice(0, 6) : ''}..${commitId ? commitId.slice(0, 6) : ''}`,
+          content: '',
+          isDirty: false,
+          path: '',
+          diffProps: {
+            diffs,
+          },
+        } as any;
+
+        return [...prevTabs, newTab];
       });
+
+      // Activate the diff-all tab
+      setActiveTabId(diffTabId);
     },
     [currentProject, setTabs, setActiveTabId]
   );

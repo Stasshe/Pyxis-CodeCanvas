@@ -269,7 +269,7 @@ export async function runPythonWithSync(
 
   // --- 追加: import文から必要なパッケージを自動ロード ---
   // import文を抽出
-  const importRegex = /^\s*import\s+([\w_]+)|^\s*from\s+([\w_]+)\s+import/mg;
+  const importRegex = /^\s*import\s+([\w_]+)|^\s*from\s+([\w_]+)\s+import/gm;
   const packages = new Set<string>();
   let match;
   while ((match = importRegex.exec(code)) !== null) {
@@ -278,14 +278,88 @@ export async function runPythonWithSync(
   }
   // Pyodide標準パッケージリスト（必要なら拡張）
   const pyodidePackages = [
-    'numpy', 'pandas', 'matplotlib', 'scipy', 'sklearn', 'sympy', 'networkx', 'seaborn', 'statsmodels', 'micropip',
-    'bs4', 'lxml', 'pyyaml', 'requests', 'pyodide', 'pyparsing', 'dateutil', 'jedi', 'pytz', 'sqlalchemy', 'pyarrow',
-    'bokeh', 'plotly', 'altair', 'openpyxl', 'xlrd', 'xlsxwriter', 'jsonschema', 'pillow', 'pygments', 'pytest', 'tqdm',
-    'pycrypto', 'pycryptodome', 'pyjwt', 'pyopenssl', 'pyperclip', 'pyzbar', 'pyzmq', 'pywavelets', 'pywebview', 'pywin32',
-    'pyinstaller', 'pycparser', 'pyflakes', 'pygal', 'pyglet', 'pygraphviz', 'pygtrie', 'pyhdf', 'pyjokes', 'pyld', 'pymongo',
-    'pynput', 'pyodbc', 'pyproj', 'pyqt5', 'pyqtgraph', 'pyserial', 'pyspark', 'pytest', 'python-dateutil', 'python-docx',
-    'python-pptx', 'python-telegram-bot', 'pytz', 'pyvis', 'pyyaml', 'pyzmq', 'scikit-image', 'scikit-learn', 'scipy', 'seaborn',
-    'shapely', 'sklearn', 'sqlalchemy', 'statsmodels', 'sympy', 'tqdm', 'xlrd', 'xlsxwriter', 'zipp'
+    'numpy',
+    'pandas',
+    'matplotlib',
+    'scipy',
+    'sklearn',
+    'sympy',
+    'networkx',
+    'seaborn',
+    'statsmodels',
+    'micropip',
+    'bs4',
+    'lxml',
+    'pyyaml',
+    'requests',
+    'pyodide',
+    'pyparsing',
+    'dateutil',
+    'jedi',
+    'pytz',
+    'sqlalchemy',
+    'pyarrow',
+    'bokeh',
+    'plotly',
+    'altair',
+    'openpyxl',
+    'xlrd',
+    'xlsxwriter',
+    'jsonschema',
+    'pillow',
+    'pygments',
+    'pytest',
+    'tqdm',
+    'pycrypto',
+    'pycryptodome',
+    'pyjwt',
+    'pyopenssl',
+    'pyperclip',
+    'pyzbar',
+    'pyzmq',
+    'pywavelets',
+    'pywebview',
+    'pywin32',
+    'pyinstaller',
+    'pycparser',
+    'pyflakes',
+    'pygal',
+    'pyglet',
+    'pygraphviz',
+    'pygtrie',
+    'pyhdf',
+    'pyjokes',
+    'pyld',
+    'pymongo',
+    'pynput',
+    'pyodbc',
+    'pyproj',
+    'pyqt5',
+    'pyqtgraph',
+    'pyserial',
+    'pyspark',
+    'pytest',
+    'python-dateutil',
+    'python-docx',
+    'python-pptx',
+    'python-telegram-bot',
+    'pytz',
+    'pyvis',
+    'pyyaml',
+    'pyzmq',
+    'scikit-image',
+    'scikit-learn',
+    'scipy',
+    'seaborn',
+    'shapely',
+    'sklearn',
+    'sqlalchemy',
+    'statsmodels',
+    'sympy',
+    'tqdm',
+    'xlrd',
+    'xlsxwriter',
+    'zipp',
   ];
   const toLoad = Array.from(packages).filter(pkg => pyodidePackages.includes(pkg));
   if (toLoad.length > 0) {
@@ -300,7 +374,7 @@ export async function runPythonWithSync(
   let result: any = undefined;
   let stdout = '';
   let stderr = '';
-    const captureCode = `
+  const captureCode = `
 import sys
 import io
 _pyxis_stdout = sys.stdout
