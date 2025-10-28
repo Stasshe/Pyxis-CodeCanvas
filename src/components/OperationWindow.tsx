@@ -9,6 +9,7 @@ import { flattenPanes } from '@/hooks/pane';
 import { useSettings } from '@/hooks/useSettings';
 import { useProject } from '@/engine/core/project';
 import { getIconForFile } from 'vscode-icons-js';
+import { formatKeyComboForDisplay } from '@/hooks/useKeyBindings';
 
 // FileItem[]を平坦化する関数（tab.tsと同じ実装）
 function flattenFileItems(items: FileItem[]): FileItem[] {
@@ -452,6 +453,11 @@ export default function OperationWindow({
         >
           {/* 検索入力欄のみ */}
           <div style={{ padding: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+              <span style={{ fontSize: '12px', color: colors.mutedFg }}>
+                Quick Open - {formatKeyComboForDisplay('Ctrl+P')}
+              </span>
+            </div>
             <input
               ref={inputRef}
               type="text"

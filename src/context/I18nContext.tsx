@@ -15,7 +15,7 @@ import type {
 import { isSupportedLocale } from '@/engine/i18n/types';
 import { loadTranslations, preloadTranslations } from '@/engine/i18n/loader';
 import { createTranslator } from '@/engine/i18n/translator';
-import { cleanExpiredCache } from '@/engine/i18n/storage';
+import { cleanExpiredCache } from '@/engine/i18n/storage-adapter';
 import { DEFAULT_LOCALE, LOCALSTORAGE_KEY } from './config';
 
 const I18nContext = createContext<I18nContextValue | undefined>(undefined);

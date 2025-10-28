@@ -8,6 +8,7 @@ import CodeEditor from '@/components/Tab/CodeEditor';
 import DiffTab from '@/components/Tab/DiffTab';
 import AIReviewTab from '@/components/AI/AIReview/AIReviewTab';
 import WebPreviewTab from '@/components/Tab/WebPreviewTab';
+import ShortcutKeysTab from '@/components/Tab/ShortcutKeysTab';
 import PaneResizer from '@/components/PaneResizer';
 import type { EditorPane, Tab, Project, FileItem } from '@/types';
 import { LOCALSTORAGE_KEY } from '@/context/config';
@@ -379,6 +380,8 @@ export default function PaneContainer({
                 }
               }}
             />
+          ) : activeTab.kind === 'settings' || activeTab.path === 'settings/shortcuts' ? (
+            <ShortcutKeysTab />
           ) : (
             <CodeEditor
               activeTab={activeTab}

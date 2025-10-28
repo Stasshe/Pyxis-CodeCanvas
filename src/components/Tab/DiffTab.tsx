@@ -3,6 +3,7 @@ import { DiffEditor } from '@monaco-editor/react';
 import type { Monaco } from '@monaco-editor/react';
 import type * as monacoEditor from 'monaco-editor';
 import { useTranslation } from '@/context/I18nContext';
+import { getLanguage } from '@/components/Tab/text-editor/editors/editor-utils';
 
 interface SingleFileDiff {
   formerFullPath: string;
@@ -12,6 +13,8 @@ interface SingleFileDiff {
   formerContent: string;
   latterContent: string;
 }
+
+// Use shared getLanguage utility from editor-utils to infer Monaco language ids.
 
 interface DiffTabProps {
   diffs: SingleFileDiff[];
@@ -261,7 +264,7 @@ const DiffTab: React.FC<DiffTabProps> = ({
                 <DiffEditor
                   width="100%"
                   height="100%"
-                  language="plaintext"
+                  language={getLanguage(diff.latterFullPath || diff.formerFullPath)}
                   original={diff.formerContent}
                   modified={diff.latterContent}
                   theme="pyxis-custom"

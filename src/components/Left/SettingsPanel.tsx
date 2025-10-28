@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, Keyboard } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import { downloadWorkspaceZip } from '@/engine/export/exportRepo';
 import type { Project } from '@/types';
@@ -11,8 +11,9 @@ import { useTranslation } from '@/context/I18nContext';
 
 interface SettingsPanelProps {
   currentProject: Project; // 現在のプロジェクト
+  onOpenShortcutKeys?: () => void; // handler to open the shortcut keys tab in the pane container
 }
-const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
+const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject, onOpenShortcutKeys }) => {
   const [includeGit, setIncludeGit] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const { t } = useTranslation();
@@ -272,6 +273,25 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               {t('settingsPanel.theme.language')}
             </label>
             <LanguageSelector />
+          </div>
+
+          <div>
+            <button
+              type="button"
+              onClick={() => {
+                // Use provided handler to open the shortcut keys tab in the pane (on/handle pattern)
+                if (onOpenShortcutKeys) onOpenShortcutKeys();
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded text-xs hover:bg-opacity-10 transition-colors"
+              style={{
+                color: colors.foreground,
+                background: 'transparent',
+                border: `1px solid ${colors.border}`,
+              }}
+            >
+              <Keyboard size={14} />
+              <span>ショートカットキー設定</span>
+            </button>
           </div>
 
           <div>

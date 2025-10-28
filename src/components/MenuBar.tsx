@@ -13,6 +13,7 @@ import { useState } from 'react';
 import { authRepository } from '@/engine/user/authRepository';
 import { useGitHubUser } from '@/context/GitHubUserContext';
 import { useTranslation } from '@/context/I18nContext';
+import { useKeyBinding } from '@/hooks/useKeyBindings';
 import { MenuTab } from '../types';
 
 interface MenuBarProps {
@@ -101,6 +102,15 @@ export default function MenuBar({
     { id: 'run', label: t('menu.run') },
     { id: 'settings', label: t('menu.settings') },
   ];
+
+  // グローバル検索ショートカット (Ctrl+Shift+F)
+  useKeyBinding(
+    'globalSearch',
+    () => {
+      onMenuTabClick('search');
+    },
+    [onMenuTabClick]
+  );
 
   return (
     <div
