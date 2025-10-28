@@ -62,87 +62,15 @@ export function useMonacoModels() {
           const path = safeFileName.startsWith('/') ? safeFileName : `/${safeFileName}`;
           const uri = mon.Uri.parse(`inmemory://model${path}`);
 
-          // If a model with this URI already exists in Monaco, reuse it instead of creating a new one.
-          try {
-            const existing = mon.editor.getModel(uri);
-            if (existing && !existing.isDisposed()) {
-              // Ensure language mode matches the requested language
-              try {
-                const desiredLang = getLanguage(fileName);
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                if (
-                  (mon.languages as any) &&
-                  typeof (mon.languages as any).setTextModelLanguage === 'function'
-                ) {
-                  try {
-                    (mon.languages as any).setTextModelLanguage(existing, desiredLang);
-                  } catch (e) {
-                    // ignore if cannot set
-                  }
-                }
-              } catch (e) {}
-
-              monacoModelMap.set(tabId, existing);
-              console.debug(
-                '[useMonacoModels] Reusing existing model for:',
-                tabId,
-                'uri:',
-                uri.toString()
-              );
-              return existing;
-            }
-
-            const newModel = mon.editor.createModel(content, getLanguage(fileName), uri);
-            monacoModelMap.set(tabId, newModel);
-            console.debug(
-              '[useMonacoModels] Created new model for:',
-              tabId,
-              'uri:',
-              uri.toString()
-            );
-            return newModel;
-          } catch (createError: any) {
-            // Some Monaco versions may throw if the model was created concurrently elsewhere.
-            console.warn('[useMonacoModels] Model creation failed:', createError);
-            try {
-              const recovered = mon.editor.getModel(uri);
-              if (recovered && !recovered.isDisposed()) {
-                // Ensure language mode is set for recovered model as well
-                try {
-                  const desiredLang = getLanguage(fileName);
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  if (
-                    (mon.languages as any) &&
-                    typeof (mon.languages as any).setTextModelLanguage === 'function'
-                  ) {
-                    try {
-                      (mon.languages as any).setTextModelLanguage(recovered, desiredLang);
-                    } catch (e) {
-                      // ignore
-                    }
-                  }
-                } catch (e) {}
-
-                monacoModelMap.set(tabId, recovered);
-                console.debug(
-                  '[useMonacoModels] Recovered existing model after create failure for:',
-                  tabId,
-                  'uri:',
-                  uri.toString()
-                );
-                return recovered;
-              }
-            } catch (err) {
-              console.error('[useMonacoModels] Failed to recover model after create error:', err);
-            }
-            return null;
-          }
+          const newModel = mon.editor.createModel(content, getLanguage(fileName), uri);
+          monacoModelMap.set(tabId, newModel);
+          console.debug('[useMonacoModels] Created new model for:', tabId, 'uri:', uri.toString());
+          return newModel;
         } catch (createError: any) {
           console.error('[useMonacoModels] Model creation failed:', createError);
           return null;
         }
       }
-
       return model;
     },
     [isModelSafe]

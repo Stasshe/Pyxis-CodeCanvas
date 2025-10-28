@@ -66,7 +66,6 @@ export function pushMsgOutPanel(
 }
 
 import DebugConsole from './DebugConsole';
-import ProblemsPanel from './ProblemsPanel';
 
 export default function BottomPanel({
   height,
@@ -198,34 +197,6 @@ export default function BottomPanel({
           >
             {t('bottom.terminal')}
           </button>
-          <button
-            className="tab-btn"
-            style={{
-              position: 'relative',
-              fontSize: '11px',
-              fontWeight: 500,
-              textTransform: 'uppercase',
-              letterSpacing: '0.04em',
-              padding: '2px 12px 0 12px',
-              background: 'none',
-              border: 'none',
-              outline: 'none',
-              color: activeTab === 'problems' ? colors.primary : colors.mutedFg,
-              cursor: 'pointer',
-              borderBottom:
-                activeTab === 'problems' ? `2px solid ${colors.primary}` : `2px solid transparent`,
-              transition: 'color 0.2s, border-bottom 0.2s',
-              marginLeft: '2px',
-            }}
-            onClick={() => setActiveTab('problems')}
-            onMouseOver={e => (e.currentTarget.style.color = colors.primary)}
-            onMouseOut={e =>
-              (e.currentTarget.style.color =
-                activeTab === 'problems' ? colors.primary : colors.mutedFg)
-            }
-          >
-            {t('bottom.problems') || 'Problems'}
-          </button>
           {currentProject && (
             <span
               className="ml-2 text-xs"
@@ -272,23 +243,6 @@ export default function BottomPanel({
               currentProject={currentProject}
               currentProjectId={currentProjectId}
               isActive={activeTab === 'terminal'}
-            />
-          </div>
-          <div
-            style={{
-              height: '100%',
-              width: '100%',
-              position: activeTab === 'problems' ? 'static' : 'absolute',
-              visibility: activeTab === 'problems' ? 'visible' : 'hidden',
-              pointerEvents: activeTab === 'problems' ? 'auto' : 'none',
-              top: 0,
-              left: 0,
-            }}
-          >
-            <ProblemsPanel
-              isActive={activeTab === 'problems'}
-              projectFiles={projectFiles}
-              currentProjectId={currentProjectId}
             />
           </div>
           <div

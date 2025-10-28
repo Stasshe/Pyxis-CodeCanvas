@@ -601,31 +601,6 @@ export default function Home() {
     };
   }, [saveFile]);
 
-  // Global handler: open file requests from other components (ProblemsPanel, etc.)
-  useEffect(() => {
-    const handler = (e: Event) => {
-      try {
-        const detail = (e as CustomEvent).detail as {
-          path?: string;
-          line?: number;
-          column?: number;
-        };
-        if (!detail || !detail.path) return;
-        // find matching file in projectFiles or construct a minimal FileItem
-        const target = projectFiles.find(f => f.path === detail.path) || {
-          path: detail.path,
-          name: detail.path.split('/').pop() || detail.path,
-          content: '',
-        };
-        handleFileOpen(target as any, detail.line, detail.column);
-      } catch (err) {
-        console.error('[pyxis-open-file] handler error', err);
-      }
-    };
-    window.addEventListener('pyxis-open-file', handler as EventListener);
-    return () => window.removeEventListener('pyxis-open-file', handler as EventListener);
-  }, [projectFiles, tabs]);
-
   // 即座のローカル更新専用関数
   // 即座のローカル更新: 全ペインの同じファイルタブも同期（ネストされたペインにも対応）
   const handleTabContentChangeImmediate = (tabId: string, content: string) => {
