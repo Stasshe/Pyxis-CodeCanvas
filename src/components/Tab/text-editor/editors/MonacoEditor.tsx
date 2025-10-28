@@ -116,6 +116,30 @@ export default function MonacoEditor({
       console.warn('[MonacoEditor] Failed to set theme:', e);
     }
 
+    // Expose debug helpers to the window for development / troubleshooting.
+    // NOTE: This is intentionally simple and intended for developer debugging only.
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__pyxis_monaco = mon;
+      // helper to list model URIs
+      (window as any).__pyxis_getModelUris = () =>
+        mon.editor.getModels().map(m => m.uri.toString());
+      // helper to get all markers
+      (window as any).__pyxis_getAllMarkers = () => mon.editor.getModelMarkers({});
+      // helper to get markers for a specific model uri
+      (window as any).__pyxis_getMarkersFor = (uri: string) => {
+        try {
+          const u = mon.Uri.parse(uri);
+          return mon.editor.getModelMarkers({ resource: u });
+        } catch (err) {
+          console.warn('[MonacoEditor] __pyxis_getMarkersFor parse failed', uri, err);
+          return [];
+        }
+      };
+    } catch (e) {
+      /* ignore */
+    }
+
     // TypeScript/JavaScript設定
     mon.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
       noSemanticValidation: false,
