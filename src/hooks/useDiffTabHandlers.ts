@@ -240,10 +240,47 @@ export function useDiffTabHandlers(
         }
       }
       // 各ファイルごとにdiff情報を取得
+      // new file / deleted file の場合、片方のコミットには存在しないため
+      // getFileContentAtCommit が失敗する可能性がある。個別に try/catch して
+      // 存在しない場合は空文字列を入れることで diff 表示を可能にする。
       const diffs: SingleFileDiff[] = [];
       for (const filePath of files) {
-        const latterContent = await git.getFileContentAtCommit(commitId, filePath);
-        const formerContent = await git.getFileContentAtCommit(parentCommitId, filePath);
+        let latterContent = '';
+        let formerContent = '';
+
+        // Latter content: content at `commitId` (may not exist for deleted files)
+        try {
+          if (commitId) {
+            latterContent = await git.getFileContentAtCommit(commitId, filePath);
+          }
+        } catch (e) {
+          // deleted file or other error — fall back to empty content
+          console.warn('[useDiffTabHandlers] Failed to read latterContent', {
+            filePath,
+            commitId,
+            error: e,
+          });
+          latterContent = '';
+        }
+
+        // Former content: content at `parentCommitId` (may not exist for newly added files or root commit)
+        try {
+          if (parentCommitId) {
+            formerContent = await git.getFileContentAtCommit(parentCommitId, filePath);
+          } else {
+            // No parent (root commit) -> former content is empty
+            formerContent = '';
+          }
+        } catch (e) {
+          // new file or other error — fall back to empty content
+          console.warn('[useDiffTabHandlers] Failed to read formerContent', {
+            filePath,
+            parentCommitId,
+            error: e,
+          });
+          formerContent = '';
+        }
+
         diffs.push({
           formerFullPath: filePath,
           formerCommitId: parentCommitId,
