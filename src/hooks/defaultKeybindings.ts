@@ -1,5 +1,4 @@
 import { Binding } from './keybindingUtils';
-
 export const DEFAULT_BINDINGS: Binding[] = [
   // File operations
   { id: 'openFile', name: 'Open File', combo: 'Ctrl+O', category: 'file' },
@@ -40,8 +39,8 @@ export const DEFAULT_BINDINGS: Binding[] = [
 
   // Git
   { id: 'openGit', name: 'Open Git Panel', combo: 'Ctrl+Shift+G', category: 'git' },
-  { id: 'gitCommit', name: 'Git Commit', combo: 'Ctrl+Shift+Enter', category: 'git' },
-  { id: 'gitPush', name: 'Git Push', combo: 'Ctrl+Alt+Shift+P', category: 'git' },
+  { id: 'gitCommit', name: 'Git Commit', combo: 'Ctrl+Enter', category: 'git' },
+  { id: 'gitPush', name: 'Git Push', combo: 'Ctrl+Shift+P', category: 'git' },
   { id: 'gitPull', name: 'Git Pull', combo: 'Ctrl+Alt+P', category: 'git' },
 
   // Execution
