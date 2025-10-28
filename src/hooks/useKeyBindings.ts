@@ -19,6 +19,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { storageService, STORES } from '@/engine/storage';
+import { formatKeyEvent, normalizeKeyCombo, formatKeyComboForDisplay } from './keybindingUtils';
 
 export type Binding = {
   id: string;
@@ -78,6 +79,16 @@ export const DEFAULT_BINDINGS: Binding[] = [
   { id: 'openTerminal', name: 'Open Terminal', combo: 'Ctrl+`', category: 'execution' },
   { id: 'runSelection', name: 'Run Selection', combo: 'Ctrl+Enter', category: 'execution' },
 
+  // Additional Pyxis-specific / useful editor shortcuts
+  { id: 'saveAll', name: 'Save All', combo: 'Ctrl+K S', category: 'file' },
+  { id: 'formatDocument', name: 'Format Document', combo: 'Shift+Alt+F', category: 'file' },
+  { id: 'undo', name: 'Undo', combo: 'Ctrl+Z', category: 'edit' },
+  { id: 'redo', name: 'Redo', combo: 'Ctrl+Shift+Z', category: 'edit' },
+  { id: 'goToLine', name: 'Go to Line', combo: 'Ctrl+G', category: 'navigation' },
+  { id: 'toggleZenMode', name: 'Toggle Zen Mode', combo: 'Ctrl+K Z', category: 'view' },
+  { id: 'togglePreview', name: 'Toggle Preview', combo: 'Ctrl+K V', category: 'view' },
+  { id: 'revealInFileTree', name: 'Reveal in File Tree', combo: 'Ctrl+Shift+E', category: 'view' },
+
   // Project
   { id: 'openProject', name: 'Open Project', combo: 'Ctrl+Shift+O', category: 'project' },
   { id: 'closeProject', name: 'Close Project', combo: 'Ctrl+Alt+F4', category: 'project' },
@@ -98,50 +109,7 @@ export const DEFAULT_BINDINGS: Binding[] = [
   },
 ];
 
-/**
- * キーイベントを正規化したキーコンボ文字列に変換
- * Mac: Cmd, Windows/Linux: Ctrl を統一的に扱う
- */
-function formatKeyEvent(e: KeyboardEvent): string {
-  const parts: string[] = [];
-
-  // Ctrl/Cmd の統一的な扱い
-  const isMac =
-    typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
-  if (isMac) {
-    if (e.metaKey) parts.push('Cmd');
-    if (e.ctrlKey) parts.push('Ctrl'); // Macでも Ctrl キーは別扱い
-  } else {
-    if (e.ctrlKey) parts.push('Ctrl');
-    if (e.metaKey) parts.push('Meta'); // Windows キー等
-  }
-
-  if (e.altKey) parts.push('Alt');
-  if (e.shiftKey) parts.push('Shift');
-
-  const key = e.key;
-  // 修飾キーのみは無視
-  if (key === 'Control' || key === 'Meta' || key === 'Alt' || key === 'Shift') return '';
-
-  // キーの正規化
-  const normalized = key.length === 1 ? key.toUpperCase() : key;
-  parts.push(normalized);
-
-  return parts.join('+');
-}
-
-/**
- * キーコンボを正規化（Ctrl/Cmdを統一）
- */
-function normalizeKeyCombo(combo: string): string {
-  const isMac =
-    typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
-  if (isMac) {
-    // Mac: Ctrl → Cmd に変換
-    return combo.replace(/^Ctrl\+/, 'Cmd+').replace(/\+Ctrl\+/, '+Cmd+');
-  }
-  return combo;
-}
+// key formatting utilities are extracted to ./keybindingUtils.ts
 
 /**
  * グローバルキーバインディング管理
@@ -334,9 +302,5 @@ export function useKeyBinding(
   }, [actionId, registerAction, ...deps]);
 }
 
-/**
- * キーコンボを表示用にフォーマット
- */
-export function formatKeyComboForDisplay(combo: string): string {
-  return normalizeKeyCombo(combo);
-}
+// re-export display formatter from utils
+export { formatKeyComboForDisplay };
