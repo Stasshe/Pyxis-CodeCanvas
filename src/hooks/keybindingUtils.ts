@@ -1,6 +1,13 @@
 /**
  * Keybinding helper utilities extracted from useKeyBindings for reuse and clarity.
  */
+export type Binding = {
+  id: string;
+  name: string;
+  combo: string;
+  category?: string;
+};
+
 export function formatKeyEvent(e: KeyboardEvent): string {
   const parts: string[] = [];
 

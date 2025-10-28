@@ -3,36 +3,9 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { Edit2, RefreshCw, X } from 'lucide-react';
-import {
-  useKeyBindings,
-  DEFAULT_BINDINGS,
-  formatKeyComboForDisplay,
-  type Binding,
-} from '@/hooks/useKeyBindings';
-
-function formatKeyEvent(e: KeyboardEvent) {
-  const parts: string[] = [];
-
-  const isMac =
-    typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
-  if (isMac) {
-    if (e.metaKey) parts.push('Cmd');
-    if (e.ctrlKey) parts.push('Ctrl');
-  } else {
-    if (e.ctrlKey) parts.push('Ctrl');
-    if (e.metaKey) parts.push('Meta');
-  }
-
-  if (e.altKey) parts.push('Alt');
-  if (e.shiftKey) parts.push('Shift');
-
-  const key = e.key;
-  if (key === 'Control' || key === 'Meta' || key === 'Alt' || key === 'Shift') return '';
-
-  const normalized = key.length === 1 ? key.toUpperCase() : key;
-  parts.push(normalized);
-  return parts.join('+');
-}
+import { useKeyBindings, formatKeyComboForDisplay } from '@/hooks/useKeyBindings';
+import { DEFAULT_BINDINGS } from '@/hooks/defaultKeybindings';
+import { Binding } from '@/hooks/keybindingUtils';
 
 export default function ShortcutKeysTab() {
   const { bindings, updateBindings } = useKeyBindings();
