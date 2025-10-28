@@ -210,9 +210,24 @@ export class GitCommands {
         `[syncClonedFilesToIndexedDB] Processing: ${clonePath}, base: ${baseRelativePath}`
       );
 
+      // パス正規化関数
+      const normalizePath = (base: string, entry?: string) => {
+        let path = base ? base.replace(/^\/+|\/+$/g, '') : '';
+        if (entry) path = path ? `${path}/${entry}` : entry;
+        path = '/' + path;
+        path = path.replace(/\/+/g, '/');
+        if (path === '/') return path;
+        return path.replace(/\/+$/, '');
+      };
+
       // ルートフォルダを作成
       if (baseRelativePath) {
-        await fileRepository.createFile(this.projectId, `/${baseRelativePath}`, '', 'folder');
+        await fileRepository.createFile(
+          this.projectId,
+          normalizePath(baseRelativePath),
+          '',
+          'folder'
+        );
       }
 
       const entries = await this.fs.promises.readdir(clonePath);
@@ -222,8 +237,8 @@ export class GitCommands {
       for (const entry of entries) {
         if (entry === '.' || entry === '..' || entry === '.git') continue;
 
-        const fullPath = `${clonePath}/${entry}`;
-        const relativePath = `/${baseRelativePath}/${entry}`;
+        const fullPath = `${clonePath}${clonePath.endsWith('/') ? '' : '/'}${entry}`;
+        const relativePath = normalizePath(baseRelativePath, entry);
 
         try {
           const stat = await this.fs.promises.stat(fullPath);
@@ -280,7 +295,9 @@ export class GitCommands {
 
       // サブディレクトリ再帰
       for (const dir of directories) {
-        await this.syncClonedFilesToIndexedDB(dir.fullPath, `${baseRelativePath}/${dir.name}`);
+        // dir.relativePathは '/dir1/dir2' 形式なので、先頭スラッシュ除去して渡す
+        const nextBase = dir.relativePath.replace(/^\//, '');
+        await this.syncClonedFilesToIndexedDB(dir.fullPath, nextBase);
       }
     } catch (readdirError) {
       console.error(`Failed to read directory ${clonePath}:`, readdirError);
