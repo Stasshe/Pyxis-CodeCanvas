@@ -552,8 +552,8 @@ export default function FileTree({
                 if (key === 'import' && !menuItem) {
                   const input = document.createElement('input');
                   input.type = 'file';
-                  (input as any).webkitdirectory = true;
-                  (input as any).directory = true;
+                  // allow selecting multiple files (including images). Do not force directory picker
+                  // (previously webkitdirectory was set which prevented selecting single files on some browsers)
                   input.multiple = true;
                   input.onchange = async (e: any) => {
                     const files: FileList = e.target.files;
@@ -599,8 +599,7 @@ export default function FileTree({
                 } else if (key === 'import') {
                   const input = document.createElement('input');
                   input.type = 'file';
-                  (input as any).webkitdirectory = true;
-                  (input as any).directory = true;
+                  // allow selecting multiple files for import into the selected folder/file target
                   input.multiple = true;
                   input.onchange = async (e: any) => {
                     const files: FileList = e.target.files;
