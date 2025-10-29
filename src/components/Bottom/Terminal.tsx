@@ -415,16 +415,29 @@ function ClientTerminal({
             }
             const category = args[0];
             const action = args[1];
+
+            // If there is no action token, the category itself is required to have an action
             if (!action) {
               await captureWriteOutput(
                 'pyxis: missing action. Usage: pyxis <category> <action> [args]'
               );
               break;
             }
-            const combined = `${category}-${action}`;
-            const subArgs = args.slice(2);
+
+            // If the action token looks like a flag (starts with '-'), do NOT merge it into the command name.
+            // Treat it as an argument for the category command: `pyxis export --indexeddb` -> cmd: 'export', args: ['--indexeddb']
+            let cmdToCall: string;
+            let subArgs: string[];
+            if (action.startsWith('-')) {
+              cmdToCall = category;
+              subArgs = args.slice(1); // include the flag and following args
+            } else {
+              cmdToCall = `${category}-${action}`;
+              subArgs = args.slice(2);
+            }
+
             await handlePyxisCommand(
-              combined,
+              cmdToCall,
               subArgs,
               { unixCommandsRef, gitCommandsRef, npmCommandsRef },
               currentProject,

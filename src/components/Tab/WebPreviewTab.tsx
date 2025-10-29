@@ -2,8 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from '@/context/I18nContext';
 
 // Lightning-FSの仮想ファイルシステム取得関数
-import { getFileSystem } from '@/engine/core/filesystem';
 import { inlineHtmlAssets } from '@/engine/export/inlineHtmlAssets';
+import { fileRepository } from '@/engine/core/fileRepository';
 import { FolderWatcher, type FileChangeEvent } from '@/engine/fileWatcher';
 
 interface WebPreviewTabProps {
@@ -29,18 +29,26 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({ filePath, currentProjectN
   // ファイルシステムから直接ファイル内容を取得
   const fetchFileContent = async () => {
     try {
-      const fs = getFileSystem();
-      if (!fs) {
-        console.error('[DEBUG] ファイルシステムが初期化されていません');
+      // Use fileRepository (IndexedDB) as the source of truth (new architecture)
+      await fileRepository.init();
+      const projects = await fileRepository.getProjects();
+      const project = projects.find(p => p.name === currentProjectName);
+      if (!project) {
+        console.error('[DEBUG] プロジェクトが見つかりません:', currentProjectName);
+        setFileContent(`<h1>${t('webPreviewTab.notFound')}</h1>`);
         return;
       }
 
-      const resolvedPath = resolveFilePath(filePath); // パスを解決
-      const stats = await fs.promises.stat(resolvedPath);
+      const projectFiles = await fileRepository.getProjectFiles(project.id);
 
-      if (stats.isDirectory()) {
-        const files = await fs.promises.readdir(resolvedPath);
+      const resolvedPath = resolveFilePath(filePath); // e.g. /projects/<project>/path
+      const targetRel = resolvedPath.replace(`/projects/${currentProjectName}`, '') || '/';
 
+      const hasChildren = projectFiles.some(f => f.parentPath === targetRel);
+      const isFolderEntry = projectFiles.find(f => f.path === targetRel && f.type === 'folder');
+
+      if (hasChildren || isFolderEntry) {
+        const files = projectFiles.filter(f => f.parentPath === targetRel).map(f => f.name);
         if (files.length === 0) {
           console.warn('[DEBUG] ディレクトリが空です:', resolvedPath);
           setFileContent(`<h1>${t('webPreviewTab.emptyDirectory')}</h1>`);
@@ -48,7 +56,18 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({ filePath, currentProjectN
         }
 
         try {
-          const inlinedContent = await inlineHtmlAssets(files, resolvedPath, fs);
+          const read = async (fullPath: string) => {
+            const rel = fullPath.replace(`/projects/${currentProjectName}`, '') || '/';
+            const f = projectFiles.find(x => x.path === rel);
+            if (!f) throw new Error(`ファイルが見つかりません: ${rel}`);
+            if (f.isBufferArray && f.bufferContent) {
+              const decoder = new TextDecoder('utf-8');
+              return decoder.decode(f.bufferContent as ArrayBuffer);
+            }
+            return f.content || '';
+          };
+
+          const inlinedContent = await inlineHtmlAssets(files, resolvedPath, read);
           console.log('[DEBUG] inlineHtmlAssetsの結果:', inlinedContent);
           setFileContent(inlinedContent);
         } catch (err) {
@@ -56,9 +75,24 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({ filePath, currentProjectN
           setFileContent(`<h1>${t('webPreviewTab.inlineHtmlFailed')}</h1>`);
         }
       } else {
-        const content = await fs.promises.readFile(resolvedPath, { encoding: 'utf8' });
-        console.log('[DEBUG] ファイル内容を取得しました:', content);
-        setFileContent(content);
+        try {
+          const readFile = async (fullPath: string) => {
+            const rel = fullPath.replace(`/projects/${currentProjectName}`, '') || '/';
+            const f = projectFiles.find(x => x.path === rel);
+            if (!f) throw new Error(`ファイルが見つかりません: ${rel}`);
+            if (f.isBufferArray && f.bufferContent) {
+              const decoder = new TextDecoder('utf-8');
+              return decoder.decode(f.bufferContent as ArrayBuffer);
+            }
+            return f.content || '';
+          };
+          const content = await readFile(resolvedPath);
+          console.log('[DEBUG] ファイル内容を取得しました:', content);
+          setFileContent(content);
+        } catch (e) {
+          console.error('[DEBUG] ファイルまたはフォルダの取得中にエラーが発生しました:', e);
+          setFileContent(`<h1>${t('webPreviewTab.notFound')}</h1>`);
+        }
       }
     } catch (e) {
       console.error('[DEBUG] ファイルまたはフォルダの取得中にエラーが発生しました:', e);

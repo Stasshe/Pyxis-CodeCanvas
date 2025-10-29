@@ -380,17 +380,47 @@ export async function handlePyxisCommand(
       }
 
       case 'export':
-        if (args[0]?.toLowerCase() === '--page' && args[1]) {
-          const targetPath = args[1].startsWith('/')
-            ? args[1]
-            : `${unixCommandsRef?.current?.pwd()}/${args[1]}`;
+      case 'export-page':
+      case 'export--page':
+      case 'export---page':
+      case 'export-indexeddb':
+      case 'export--indexeddb':
+      case 'export---indexeddb': {
+        // Accept variants where the subcommand was merged into the command name
+        // e.g. `export-page`, `export---page`, `export indexedb` ended up as `export-indexeddb`, etc.
+        const cmdLower = cmd.toLowerCase();
+        const localArgs = [...args];
+
+        // If the command name encodes the subcommand, inject the expected flag into args
+        if (
+          cmdLower.includes('page') &&
+          !(
+            localArgs[0]?.toLowerCase().startsWith('--page') ||
+            localArgs[0]?.toLowerCase() === 'page'
+          )
+        ) {
+          localArgs.unshift('--page');
+        }
+        if (
+          cmdLower.includes('indexedb') &&
+          !(
+            localArgs[0]?.toLowerCase().startsWith('--indexeddb') ||
+            localArgs[0]?.toLowerCase() === 'indexedb'
+          )
+        ) {
+          localArgs.unshift('--indexeddb');
+        }
+
+        if (localArgs[0]?.toLowerCase() === '--page' && localArgs[1]) {
+          const cwd = unixCommandsRef?.current ? await unixCommandsRef.current.pwd() : '';
+          const targetPath = localArgs[1].startsWith('/') ? localArgs[1] : `${cwd}/${localArgs[1]}`;
           const normalizedPath = unixCommandsRef?.current?.normalizePath(targetPath);
           if (normalizedPath) {
             await exportPage(normalizedPath, writeOutput, unixCommandsRef);
           } else {
             await writeOutput('無効なパスが指定されました。');
           }
-        } else if (args[0]?.toLowerCase() === '--indexeddb') {
+        } else if (localArgs[0]?.toLowerCase() === '--indexeddb') {
           const win = window.open('about:blank', '_blank');
           if (!win) {
             await writeOutput('about:blankの新規タブを開けませんでした。');
@@ -404,6 +434,7 @@ export async function handlePyxisCommand(
           );
         }
         break;
+      }
 
       case 'npm-size':
         if (args.length === 0) {
