@@ -348,16 +348,31 @@ export async function handlePyxisCommand(
       case 'git tree':
       case 'git-tree': {
         // original: git tree --all
+        // New behavior: if --all/-a/all provided -> show all projects (/projects)
+        // Otherwise, if a currentProject is set, show only that project's tree.
+        // If no currentProject, fall back to instructing to use --all.
         const allFlag = args.includes('--all') || args.includes('all') || args.includes('-a');
-        if (!allFlag) {
-          await writeOutput('git tree: use "git tree --all" to show all projects/files');
-          break;
-        }
 
         try {
           const fs = gitFileSystem.getFS();
-          const treeOutput = await treeOperation(fs, '/projects');
-          await writeOutput(treeOutput || 'No files found under /projects');
+          if (!fs) {
+            await writeOutput('git tree: filesystem not initialized');
+            break;
+          }
+
+          if (allFlag) {
+            const treeOutput = await treeOperation(fs, '/projects');
+            await writeOutput(treeOutput || 'No files found under /projects');
+          } else if (currentProject) {
+            // show tree for current project only
+            const projectPath = `/projects/${currentProject}`;
+            const treeOutput = await treeOperation(fs, projectPath);
+            await writeOutput(treeOutput || `No files found under ${projectPath}`);
+          } else {
+            await writeOutput(
+              'git tree: no current project selected. Use "git tree --all" to show all projects/files or open a project first.'
+            );
+          }
         } catch (error) {
           await writeOutput(`git tree: ${(error as Error).message}`);
         }
