@@ -226,9 +226,39 @@ export class ModuleLoader {
       return await this.load(moduleName, filePath);
     };
 
-    // コードをラップして実行
+    // Prepare a sandboxed console that forwards to the ModuleLoader's debugConsole
+    // if present, otherwise falls back to runtime logger. This console will be
+    // passed into executed modules so their `console.log` calls are captured
+    // by the runtime/debug UI.
+    const sandboxConsole = {
+      log: (...args: unknown[]) => {
+        if (this.debugConsole && this.debugConsole.log) {
+          this.debugConsole.log(...args);
+        } else {
+          runtimeInfo(...args);
+        }
+      },
+      error: (...args: unknown[]) => {
+        if (this.debugConsole && this.debugConsole.error) {
+          this.debugConsole.error(...args);
+        } else {
+          runtimeError(...args);
+        }
+      },
+      warn: (...args: unknown[]) => {
+        if (this.debugConsole && this.debugConsole.warn) {
+          this.debugConsole.warn(...args);
+        } else {
+          runtimeWarn(...args);
+        }
+      },
+      clear: () => {},
+    };
+
+    // コードをラップして実行。console を受け取るようにして、モジュール内の
+    // console.log 呼び出しがここで用意した sandboxConsole を使うようにする。
     const wrappedCode = `
-      (async function(module, exports, __require__, __filename, __dirname) {
+      (async function(module, exports, __require__, __filename, __dirname, console) {
         ${code}
         return module.exports;
       })
@@ -236,7 +266,14 @@ export class ModuleLoader {
 
     try {
       const executeFunc = eval(wrappedCode);
-      const result = await executeFunc(module, exports, __require__, __filename, __dirname);
+      const result = await executeFunc(
+        module,
+        exports,
+        __require__,
+        __filename,
+        __dirname,
+        sandboxConsole as any
+      );
       return result;
     } catch (error) {
       this.error('❌ Module execution failed:', filePath);
