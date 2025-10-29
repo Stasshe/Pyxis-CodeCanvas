@@ -29,11 +29,10 @@ export const DEFAULT_BINDINGS: Binding[] = [
   // Execution
   { id: 'runFile', name: 'Open Run Panel', combo: 'Ctrl+Shift+R', category: 'execution' },
   { id: 'openTerminal', name: 'Open Terminal', combo: 'Ctrl+@', category: 'execution' },
-  { id: 'runSelection', name: 'Run Selection', combo: 'Ctrl+Enter', category: 'execution' },
+  { id: 'runSelection', name: 'Run Selection', combo: 'Ctrl+Alt+R', category: 'execution' },
 
   // Additional Pyxis-specific / useful editor shortcuts
   { id: 'saveAll', name: 'Save All', combo: 'Ctrl+K', category: 'file' },
-  { id: 'goToLine', name: 'Go to Line', combo: 'Ctrl+G', category: 'navigation' },
   { id: 'togglePreview', name: 'Toggle Preview', combo: 'Ctrl+K V', category: 'view' },
 
   // Project

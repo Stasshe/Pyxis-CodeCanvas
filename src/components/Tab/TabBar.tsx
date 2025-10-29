@@ -146,6 +146,15 @@ export default function TabBar({
     [onAddTab]
   );
 
+  // 新しいファイル (default: Ctrl+N) - map to onAddTab if available
+  useKeyBinding(
+    'newFile',
+    () => {
+      if (onAddTab) onAddTab();
+    },
+    [onAddTab]
+  );
+
   // タブを閉じる
   useKeyBinding(
     'closeTab',
