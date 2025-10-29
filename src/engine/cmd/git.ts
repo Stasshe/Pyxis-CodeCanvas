@@ -104,7 +104,14 @@ export class GitCommands {
   }
 
   // git clone - リモートリポジトリをクローン
-  async clone(url: string, targetDir?: string): Promise<string> {
+  // options.skipDotGit: when true, remove the .git directory after cloning so
+  // that clones initiated from the terminal do not create a git metadata folder
+  // inside the project filesystem.
+  async clone(
+    url: string,
+    targetDir?: string,
+    options: { skipDotGit?: boolean } = {}
+  ): Promise<string> {
     return this.executeGitOperation(async () => {
       // URLの妥当性を簡易チェック
       if (!url || typeof url !== 'string' || !url.trim()) {
@@ -185,6 +192,45 @@ export class GitCommands {
 
       // クローンしたファイルをIndexedDBに同期
       console.log('[git clone] Syncing cloned files to IndexedDB...');
+
+      // If requested, remove the .git directory entirely so that terminal clones
+      // do not leave git metadata in the project filesystem.
+      if (options.skipDotGit) {
+        try {
+          const gitPath = cloneDir.endsWith('/') ? `${cloneDir}.git` : `${cloneDir}/.git`;
+          // recursive remove helper (lightning-fs may not support rm with recursive flag)
+          const removeRecursive = async (p: string) => {
+            try {
+              const entries = await this.fs.promises.readdir(p);
+              for (const entry of entries) {
+                const full = `${p}/${entry}`;
+                try {
+                  const st = await this.fs.promises.stat(full);
+                  if (st.isDirectory()) {
+                    await removeRecursive(full);
+                  } else {
+                    await this.fs.promises.unlink(full);
+                  }
+                } catch (e) {
+                  // ignore individual remove errors
+                }
+              }
+              try {
+                await this.fs.promises.rmdir(p);
+              } catch (e) {
+                // ignore
+              }
+            } catch (e) {
+              // directory does not exist or cannot be read - ignore
+            }
+          };
+
+          await removeRecursive(gitPath);
+          console.log('[git clone] .git directory removed as requested (skipDotGit=true)');
+        } catch (removeError) {
+          console.warn('[git clone] Failed to remove .git directory:', removeError);
+        }
+      }
 
       // baseRelativePath はプロジェクト内での相対パスとして扱うため、
       // cloneDir がプロジェクトルート(baseDir)の場合は空文字にして

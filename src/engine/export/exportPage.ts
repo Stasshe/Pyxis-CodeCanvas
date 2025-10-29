@@ -1,4 +1,5 @@
 import { inlineHtmlAssets } from './inlineHtmlAssets';
+import { fileRepository } from '@/engine/core/fileRepository';
 
 export const exportPage = async (
   path: string,
@@ -6,7 +7,40 @@ export const exportPage = async (
   unixCommandsRef: any
 ) => {
   try {
-    const fs = unixCommandsRef.current?.fs;
+    // Determine projectName and relative path from an absolute path like /projects/<projectName>/...
+    const parts = path.split('/').filter(p => p !== '');
+    if (parts.length < 2 || parts[0] !== 'projects') {
+      await writeOutput('無効なパスです。/projects/<projectName>/... の形式で指定してください。');
+      return;
+    }
+    const projectName = parts[1];
+    const relativePath = '/' + parts.slice(2).join('/');
+
+    // Lookup projectId from fileRepository
+    await fileRepository.init();
+    const projects = await fileRepository.getProjects();
+    const project = projects.find(p => p.name === projectName);
+    if (!project) {
+      await writeOutput(`プロジェクトが見つかりません: ${projectName}`);
+      return;
+    }
+    const projectId = project.id;
+
+    // Load all project files once
+    const projectFiles = await fileRepository.getProjectFiles(projectId);
+
+    // Helper to read a fullPath (/projects/<projectName>/...)
+    const repoRead = async (fullPath: string) => {
+      const rel = fullPath.replace(`/projects/${projectName}`, '') || '/';
+      const f = projectFiles.find(x => x.path === rel);
+      if (!f) throw new Error(`ファイルが見つかりません: ${rel}`);
+      if (f.isBufferArray && f.bufferContent) {
+        // try to decode as utf8
+        const decoder = new TextDecoder('utf-8');
+        return decoder.decode(f.bufferContent as ArrayBuffer);
+      }
+      return f.content || '';
+    };
     const newWindow = window.open('about:blank', '_blank');
     if (!newWindow) {
       await writeOutput('新しいタブを開けませんでした。ポップアップブロックを確認してください。');
@@ -28,16 +62,17 @@ export const exportPage = async (
       return;
     }
 
-    let stat: any = null;
-    try {
-      stat = await fs.promises.stat(path);
-    } catch {}
+    // Determine whether the path refers to a directory or file inside the project
+    const targetRel = relativePath === '/' ? '/' : relativePath.replace(/\\/g, '/');
+    const hasChildren = projectFiles.some(f => f.parentPath === targetRel);
+    const isFolderEntry = projectFiles.find(f => f.path === targetRel && f.type === 'folder');
 
-    if (stat && stat.isDirectory()) {
-      const files = await fs.promises.readdir(path);
+    if (hasChildren || isFolderEntry) {
+      // Directory
+      const childFiles = projectFiles.filter(f => f.parentPath === targetRel).map(f => f.name);
       let htmlContent: string;
       try {
-        htmlContent = await inlineHtmlAssets(files, path, fs);
+        htmlContent = await inlineHtmlAssets(childFiles, path, repoRead);
       } catch (err: any) {
         await writeOutput(err.message || 'HTMLインライン化中にエラーが発生しました。');
         return;
@@ -58,15 +93,17 @@ export const exportPage = async (
       iframeDoc.body.appendChild(erudaScript);
 
       // index.htmlまたは最初のhtmlファイル名を取得
-      let htmlFile = files.find((f: string) => f.toLowerCase() === 'index.html');
+      let htmlFile = childFiles.find((f: string) => f.toLowerCase() === 'index.html');
       if (!htmlFile) {
-        htmlFile = files.find((f: string) => f.endsWith('.html'));
+        htmlFile = childFiles.find((f: string) => f.endsWith('.html'));
       }
       const htmlPath = htmlFile ? path + '/' + htmlFile : path;
       await writeOutput(`フォルダ内のページが新しいタブのiframe内で開かれました: ${htmlPath}`);
     } else {
-      const content = await fs.promises.readFile(path, { encoding: 'utf8' });
-      if (!content) {
+      let content: string;
+      try {
+        content = await repoRead(path);
+      } catch (err: any) {
         await writeOutput(`指定されたファイルが見つかりません: ${path}`);
         return;
       }

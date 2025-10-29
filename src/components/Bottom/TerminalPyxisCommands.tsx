@@ -348,16 +348,31 @@ export async function handlePyxisCommand(
       case 'git tree':
       case 'git-tree': {
         // original: git tree --all
+        // New behavior: if --all/-a/all provided -> show all projects (/projects)
+        // Otherwise, if a currentProject is set, show only that project's tree.
+        // If no currentProject, fall back to instructing to use --all.
         const allFlag = args.includes('--all') || args.includes('all') || args.includes('-a');
-        if (!allFlag) {
-          await writeOutput('git tree: use "git tree --all" to show all projects/files');
-          break;
-        }
 
         try {
           const fs = gitFileSystem.getFS();
-          const treeOutput = await treeOperation(fs, '/projects');
-          await writeOutput(treeOutput || 'No files found under /projects');
+          if (!fs) {
+            await writeOutput('git tree: filesystem not initialized');
+            break;
+          }
+
+          if (allFlag) {
+            const treeOutput = await treeOperation(fs, '/projects');
+            await writeOutput(treeOutput || 'No files found under /projects');
+          } else if (currentProject) {
+            // show tree for current project only
+            const projectPath = `/projects/${currentProject}`;
+            const treeOutput = await treeOperation(fs, projectPath);
+            await writeOutput(treeOutput || `No files found under ${projectPath}`);
+          } else {
+            await writeOutput(
+              'git tree: no current project selected. Use "git tree --all" to show all projects/files or open a project first.'
+            );
+          }
         } catch (error) {
           await writeOutput(`git tree: ${(error as Error).message}`);
         }
@@ -365,17 +380,47 @@ export async function handlePyxisCommand(
       }
 
       case 'export':
-        if (args[0]?.toLowerCase() === '--page' && args[1]) {
-          const targetPath = args[1].startsWith('/')
-            ? args[1]
-            : `${unixCommandsRef?.current?.pwd()}/${args[1]}`;
+      case 'export-page':
+      case 'export--page':
+      case 'export---page':
+      case 'export-indexeddb':
+      case 'export--indexeddb':
+      case 'export---indexeddb': {
+        // Accept variants where the subcommand was merged into the command name
+        // e.g. `export-page`, `export---page`, `export indexedb` ended up as `export-indexeddb`, etc.
+        const cmdLower = cmd.toLowerCase();
+        const localArgs = [...args];
+
+        // If the command name encodes the subcommand, inject the expected flag into args
+        if (
+          cmdLower.includes('page') &&
+          !(
+            localArgs[0]?.toLowerCase().startsWith('--page') ||
+            localArgs[0]?.toLowerCase() === 'page'
+          )
+        ) {
+          localArgs.unshift('--page');
+        }
+        if (
+          cmdLower.includes('indexedb') &&
+          !(
+            localArgs[0]?.toLowerCase().startsWith('--indexeddb') ||
+            localArgs[0]?.toLowerCase() === 'indexedb'
+          )
+        ) {
+          localArgs.unshift('--indexeddb');
+        }
+
+        if (localArgs[0]?.toLowerCase() === '--page' && localArgs[1]) {
+          const cwd = unixCommandsRef?.current ? await unixCommandsRef.current.pwd() : '';
+          const targetPath = localArgs[1].startsWith('/') ? localArgs[1] : `${cwd}/${localArgs[1]}`;
           const normalizedPath = unixCommandsRef?.current?.normalizePath(targetPath);
           if (normalizedPath) {
             await exportPage(normalizedPath, writeOutput, unixCommandsRef);
           } else {
             await writeOutput('無効なパスが指定されました。');
           }
-        } else if (args[0]?.toLowerCase() === '--indexeddb') {
+        } else if (localArgs[0]?.toLowerCase() === '--indexeddb') {
           const win = window.open('about:blank', '_blank');
           if (!win) {
             await writeOutput('about:blankの新規タブを開けませんでした。');
@@ -389,6 +434,7 @@ export async function handlePyxisCommand(
           );
         }
         break;
+      }
 
       case 'npm-size':
         if (args.length === 0) {
