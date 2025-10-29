@@ -35,6 +35,15 @@ interface TabBarProps {
   onMoveTabToPane?: (tabId: string, targetPaneId: string) => void;
   // ペイン分割機能
   onSplitPane?: (direction: 'vertical' | 'horizontal') => void;
+  // プレビュー用コールバック（mdファイルをpreviewで開く）
+  onOpenPreview?: (file: {
+    name: string;
+    path?: string;
+    content?: string;
+    isCodeMirror?: boolean;
+    isBufferArray?: boolean;
+    bufferContent?: any;
+  }) => void;
 }
 
 export default function TabBar({
@@ -49,6 +58,7 @@ export default function TabBar({
   availablePanes = [],
   onMoveTabToPane,
   onSplitPane,
+  onOpenPreview,
 }: TabBarProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
@@ -504,6 +514,31 @@ export default function TabBar({
           }}
         >
           <div className="text-xs text-muted-foreground mb-2 px-2">{t('tabBar.tabActions')}</div>
+          {/* Markdownプレビュー (mdファイルのみ表示) */}
+          {(() => {
+            const tab = tabs.find(t => t.id === tabContextMenu.tabId);
+            if (tab && tab.path && tab.path.endsWith('.md') && onOpenPreview) {
+              return (
+                <button
+                  className="w-full text-left px-2 py-1 text-sm hover:bg-accent rounded"
+                  onClick={() => {
+                    onOpenPreview({
+                      name: tab.name,
+                      path: tab.path,
+                      content: tab.content,
+                      isCodeMirror: tab.isCodeMirror,
+                      isBufferArray: tab.isBufferArray,
+                      bufferContent: tab.bufferContent,
+                    });
+                    setTabContextMenu({ isOpen: false, tabId: '', x: 0, y: 0 });
+                  }}
+                >
+                  {t('tabBar.openPreview')}
+                </button>
+              );
+            }
+            return null;
+          })()}
           <button
             className="w-full text-left px-2 py-1 text-sm hover:bg-accent rounded"
             onClick={() => {

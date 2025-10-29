@@ -20,6 +20,7 @@ import {
   splitPane,
   flattenPanes,
 } from '@/hooks/pane';
+import { handleFilePreview } from '@/hooks/fileSelectHandlers';
 
 interface PaneContainerProps {
   pane: EditorPane;
@@ -262,6 +263,28 @@ export default function PaneContainer({
         }}
         onSplitPane={direction => {
           splitPane(allPanes, setEditors, pane.id, direction);
+        }}
+        onOpenPreview={file => {
+          const flatPanes = flattenPanes(allPanes);
+          const actualPaneIndex = flatPanes.findIndex(p => p.id === pane.id);
+          // call existing handler to create a preview tab in this pane
+          if (actualPaneIndex >= 0) {
+            handleFilePreview({
+              file: {
+                name: file.name,
+                path: file.path,
+                content: file.content,
+                isCodeMirror: file.isCodeMirror,
+                isBufferArray: file.isBufferArray,
+                bufferContent: file.bufferContent,
+              } as any,
+              fileSelectState: { open: true, paneIdx: actualPaneIndex },
+              currentProject: currentProject || null,
+              projectFiles: [],
+              editors: allPanes,
+              setEditors: setEditors as any,
+            });
+          }
         }}
       />
 
