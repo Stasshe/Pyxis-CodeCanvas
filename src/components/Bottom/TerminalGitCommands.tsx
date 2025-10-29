@@ -71,7 +71,12 @@ export async function handleGitCommand(
           // ターミナルからの clone は任意でターゲットディレクトリを指定できます。
           // 指定がない場合はリポジトリ名のサブフォルダへクローンされます。
           await writeOutput(`Cloning repository ${url}...`);
-          const cloneResult = await gitCommandsRef.current.clone(url, targetDir);
+          // When cloning from the terminal (not Project modal), we explicitly
+          // remove .git metadata so terminal clones do not create git metadata
+          // inside the project filesystem.
+          const cloneResult = await gitCommandsRef.current.clone(url, targetDir, {
+            skipDotGit: true,
+          });
           await writeOutput(cloneResult);
           if (!targetDir) {
             await writeOutput(
