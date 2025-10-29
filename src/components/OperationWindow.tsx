@@ -108,6 +108,8 @@ export default function OperationWindow({
   const [mdDialogSelected, setMdDialogSelected] = useState<0 | 1>(0); // 0: プレビュー, 1: 通常エディタ
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const { currentProject } = useProject();
+  const { isExcluded } = useSettings();
   // 固定アイテム高さを定義（スクロール計算と見た目の基準にする）
   const ITEM_HEIGHT = 22; // VSCodeに合わせてよりコンパクトに
 
@@ -144,7 +146,7 @@ export default function OperationWindow({
         mod.handleFilePreview({
           file,
           fileSelectState: { open: true, paneIdx },
-          currentProject: null,
+          currentProject,
           projectFiles,
           editors,
           setEditors,
@@ -154,7 +156,7 @@ export default function OperationWindow({
       handleFileSelect({
         file,
         fileSelectState: { open: true, paneIdx },
-        currentProject: null,
+        currentProject,
         projectFiles,
         editors,
         setEditors,
@@ -164,8 +166,6 @@ export default function OperationWindow({
   };
 
   // 設定から除外パターンを取得
-  const { currentProject } = useProject();
-  const { isExcluded } = useSettings(currentProject?.id);
   // 除外判定はuseSettingsから取得
   // 検索ロジック（ファイル名・フォルダ名・パスのいずれかに一致）
   const allFiles = flattenFileItems(projectFiles).filter(

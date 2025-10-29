@@ -62,6 +62,28 @@ export function useMonacoModels() {
           const path = safeFileName.startsWith('/') ? safeFileName : `/${safeFileName}`;
           const uri = mon.Uri.parse(`inmemory://model${path}`);
 
+          // If a model with this URI already exists in Monaco, reuse it rather than
+          // attempting to create a new one. createModel will throw if the same URI
+          // is used twice, which happens when the same file is opened in multiple
+          // panes (different tabId) but we build the URI only from the filename.
+          try {
+            const existingModel = mon.editor.getModel(uri);
+            if (isModelSafe(existingModel)) {
+              // Cache under the current tabId for fast lookup and return the model.
+              monacoModelMap.set(tabId, existingModel as monaco.editor.ITextModel);
+              console.debug(
+                '[useMonacoModels] Reusing existing model for:',
+                tabId,
+                'uri:',
+                uri.toString()
+              );
+              return existingModel as monaco.editor.ITextModel;
+            }
+          } catch (e) {
+            // getModel shouldn't normally throw, but be defensive.
+            console.warn('[useMonacoModels] mon.editor.getModel failed:', e);
+          }
+
           const newModel = mon.editor.createModel(content, getLanguage(fileName), uri);
           monacoModelMap.set(tabId, newModel);
           console.debug('[useMonacoModels] Created new model for:', tabId, 'uri:', uri.toString());
