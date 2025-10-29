@@ -108,6 +108,21 @@ export default function RootLayout({
           name="theme-color"
           content="#18181b"
         />
+        {/* Google Analytics */}
+        <script
+          async
+          src="https://www.googletagmanager.com/gtag/js?id=G-7K55SSBCPF"
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', 'G-7K55SSBCPF');
+            `,
+          }}
+        />
         {/* PWA manifest & service worker */}
         <link
           rel="manifest"
