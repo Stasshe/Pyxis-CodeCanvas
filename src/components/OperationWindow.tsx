@@ -8,6 +8,7 @@ import { handleFileSelect } from '@/hooks/fileSelectHandlers';
 import { flattenPanes } from '@/hooks/pane';
 import { useSettings } from '@/hooks/useSettings';
 import { useProject } from '@/engine/core/project';
+import { parseGitignore, isPathIgnored } from '@/engine/core/gitignore';
 import { getIconForFile } from 'vscode-icons-js';
 import { formatKeyComboForDisplay } from '@/hooks/useKeyBindings';
 
@@ -168,9 +169,32 @@ export default function OperationWindow({
   // 設定から除外パターンを取得
   // 除外判定はuseSettingsから取得
   // 検索ロジック（ファイル名・フォルダ名・パスのいずれかに一致）
-  const allFiles = flattenFileItems(projectFiles).filter(
-    file => file.type === 'file' && !(typeof isExcluded === 'function' && isExcluded(file.path))
-  );
+  // Parse .gitignore from project files (if present) and build rules
+  const gitignoreRules = React.useMemo(() => {
+    try {
+      const flat = flattenFileItems(projectFiles);
+      const git = flat.find(f => f.name === '.gitignore' || f.path === '.gitignore');
+      if (!git || !git.content) return [] as any[];
+      return parseGitignore(git.content);
+    } catch (err) {
+      // If parsing fails for any reason, don't block file listing
+      return [] as any[];
+    }
+  }, [projectFiles]);
+
+  const allFiles = flattenFileItems(projectFiles).filter(file => {
+    if (file.type !== 'file') return false;
+    if (typeof isExcluded === 'function' && isExcluded(file.path)) return false;
+    // If .gitignore rules exist, hide matching paths
+    if (gitignoreRules && gitignoreRules.length > 0) {
+      try {
+        if (isPathIgnored(gitignoreRules, file.path, false)) return false;
+      } catch (e) {
+        // ignore errors and fall back to showing the file
+      }
+    }
+    return true;
+  });
 
   // Enhanced VSCode-style filtering + scoring
   const filteredFiles: FileItem[] = (() => {
