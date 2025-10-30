@@ -11,6 +11,10 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
 import 'katex/dist/katex.min.css';
+// Note: bracket-style math (\(...\), \[...\]) can be lost by the markdown parser
+// because backslashes are processed as escapes. To reliably support bracket
+// delimiters we preprocess the raw markdown string before parsing. This
+// preserves code fences and inline code by skipping conversion inside them.
 import { FileItem, Tab, Project } from '@/types';
 import { loadImageAsDataURL, parseMermaidContent } from './markdownUtils';
 
@@ -653,6 +657,8 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ activeTab, curr
             );
           }
         }
+        // No AST-level conversion here. Bracket-style math is handled by
+        // preprocessing the raw markdown string (see `processedContent` below)
       } catch (e) {
         console.warn('[MarkdownPreviewTab] failed to configure markdown plugins', e);
       }
@@ -662,7 +668,7 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ activeTab, curr
     return () => {
       mounted = false;
     };
-  }, [settings?.markdown?.singleLineBreaks]);
+  }, [settings?.markdown?.singleLineBreaks, settings?.markdown?.math?.delimiter]);
 
   // ReactMarkdownのコンポーネントをメモ化
   // 通常表示用
@@ -738,18 +744,53 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ activeTab, curr
   );
 
   // メイン部分もメモ化
+  // Preprocess the raw markdown to convert bracket-style math delimiters
+  // into dollar-style, while skipping code fences and inline code.
+  const processedContent = useMemo(() => {
+    const src = activeTab.content || '';
+    const delimiter = settings?.markdown?.math?.delimiter || 'dollar';
+    if (delimiter === 'dollar') return src;
+
+    const convertInNonCode = (text: string) => {
+      // Split by code fences (```...```) and keep them intact
+      return text
+        .split(/(```[\s\S]*?```)/g)
+        .map(part => {
+          if (/^```/.test(part)) return part; // code fence, leave
+          // Within non-fence parts, also preserve inline code `...`
+          return part
+            .split(/(`[^`]*`)/g)
+            .map(seg => {
+              if (/^`/.test(seg)) return seg; // inline code
+              // replace \(...\) -> $...$ and \[...\] -> $$...$$
+              return seg
+                .replace(/\\\(([\s\S]+?)\\\)/g, (_m, g) => `$${g}$`)
+                .replace(/\\\[([\s\S]+?)\\\]/g, (_m, g) => `$$${g}$$`);
+            })
+            .join('');
+        })
+        .join('');
+    };
+
+    if (delimiter === 'bracket' || delimiter === 'both') {
+      return convertInNonCode(src);
+    }
+
+    return src;
+  }, [activeTab.content, settings?.markdown?.math?.delimiter]);
+
   const markdownContent = useMemo(
     () => (
       <ReactMarkdown
-        // include remark-gfm, remark-math and optionally remark-breaks
-        remarkPlugins={[remarkGfm, remarkMath, ...extraRemarkPlugins]}
+        // include remark-gfm, optional conversion plugins, then remark-math
+        remarkPlugins={[remarkGfm, ...extraRemarkPlugins, remarkMath]}
         rehypePlugins={[rehypeKatex, rehypeRaw]}
         components={markdownComponents}
       >
-        {activeTab.content}
+        {processedContent}
       </ReactMarkdown>
     ),
-    [activeTab.content, markdownComponents, extraRemarkPlugins]
+    [processedContent, markdownComponents, extraRemarkPlugins]
   );
 
   // PDF用
@@ -760,7 +801,7 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ activeTab, curr
         rehypePlugins={[rehypeKatex, rehypeRaw]}
         components={markdownComponentsPlain}
       >
-        {activeTab.content}
+        {processedContent}
       </ReactMarkdown>
     ),
     [activeTab.content, markdownComponentsPlain]

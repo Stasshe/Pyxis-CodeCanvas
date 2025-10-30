@@ -26,7 +26,10 @@
     "useIgnoreFiles": true
   },
   "markdown": {
-    "singleLineBreaks": "breaks"
+    "singleLineBreaks": "breaks",
+    "math": {
+      "delimiter": "both"
+    }
   },
   "files": {
     "exclude": [
