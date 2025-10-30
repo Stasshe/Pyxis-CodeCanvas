@@ -485,6 +485,45 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject, onOpenSho
               }}
             />
           </div>
+
+          <div>
+            <label
+              className="block text-xs mb-1.5"
+              style={{ color: colors.foreground }}
+            >
+              {t('settingsPanel.markdown.mathDelimiter')}
+            </label>
+            <select
+              value={settings.markdown?.math?.delimiter || 'dollar'}
+              onChange={e =>
+                updateSettings({
+                  markdown: {
+                    ...settings.markdown,
+                    math: {
+                      ...(settings.markdown?.math || {}),
+                      delimiter: e.target.value as 'dollar' | 'bracket' | 'both',
+                    },
+                  },
+                })
+              }
+              className="w-full rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1"
+              style={{
+                background: colors.cardBg,
+                color: colors.foreground,
+                border: `1px solid ${colors.border}`,
+              }}
+            >
+              <option value="dollar">$ ... $ / $$ ... $$</option>
+              <option value="bracket">\\(...\\) / \\[...\\]</option>
+              <option value="both">Both</option>
+            </select>
+            <p
+              className="text-[10px] mt-1"
+              style={{ color: colors.mutedFg }}
+            >
+              {t('settingsPanel.markdown.mathDelimiterHint')}
+            </p>
+          </div>
         </div>
       </div>
 

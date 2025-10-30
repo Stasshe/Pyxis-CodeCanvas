@@ -34,6 +34,13 @@ export interface PyxisSettings {
     // singleLineBreaks: 'default' -> 通常のMarkdown仕様（単一改行は無視される）
     // singleLineBreaks: 'breaks' -> remark-breaks のように単一改行を改行として扱う
     singleLineBreaks: 'default' | 'breaks';
+    // math 設定: LaTeX 数式のデリミタ設定
+    // 'dollar' -> $...$ (inline) / $$...$$ (display)
+    // 'bracket' -> \(...\) (inline) / \[...\] (display)
+    // 'both' -> accept both styles
+    math: {
+      delimiter: 'dollar' | 'bracket' | 'both';
+    };
   };
 }
 
@@ -69,6 +76,9 @@ export const DEFAULT_PYXIS_SETTINGS: PyxisSettings = {
   },
   markdown: {
     singleLineBreaks: 'breaks',
+    math: {
+      delimiter: 'dollar',
+    },
   },
   files: {
     exclude: ['**/.git', '**/.DS_Store', '**/Thumbs.db'],
