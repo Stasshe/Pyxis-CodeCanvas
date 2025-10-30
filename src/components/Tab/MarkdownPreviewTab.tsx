@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { ZoomIn, ZoomOut, RefreshCw, Download } from 'lucide-react';
 import { exportPdfFromHtml } from '@/engine/export/exportPdf';
 import { useTheme, ThemeContext } from '@/context/ThemeContext';
 import { useTranslation } from '@/context/I18nContext';
@@ -409,10 +410,17 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
                 padding: '4px 8px',
                 borderRadius: 4,
                 border: '1px solid #ccc',
-                background: '#fff',
+                background: colors.background,
+                color: colors.foreground,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
               }}
             >
-              ＋{/* lucide-react推奨: ここは仮のテキスト。アイコン化は別途 */}
+              <ZoomIn
+                size={18}
+                style={{ verticalAlign: 'middle' }}
+              />
               {t ? t('markdownPreview.zoomIn') : 'ズームイン'}
             </button>
             <button
@@ -424,10 +432,18 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
                 padding: '4px 8px',
                 borderRadius: 4,
                 border: '1px solid #ccc',
-                background: '#fff',
+                background: colors.background,
+                color: colors.foreground,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
               }}
             >
-              －{t ? t('markdownPreview.zoomOut') : 'ズームアウト'}
+              <ZoomOut
+                size={18}
+                style={{ verticalAlign: 'middle' }}
+              />
+              {t ? t('markdownPreview.zoomOut') : 'ズームアウト'}
             </button>
             <button
               type="button"
@@ -438,10 +454,18 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
                 padding: '4px 8px',
                 borderRadius: 4,
                 border: '1px solid #ccc',
-                background: '#fff',
+                background: colors.background,
+                color: colors.foreground,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
               }}
             >
-              ⟳{t ? t('markdownPreview.reset') : 'リセット'}
+              <RefreshCw
+                size={18}
+                style={{ verticalAlign: 'middle' }}
+              />
+              {t ? t('markdownPreview.reset') : 'リセット'}
             </button>
             <button
               type="button"
@@ -452,10 +476,18 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
                 padding: '4px 8px',
                 borderRadius: 4,
                 border: '1px solid #ccc',
-                background: '#fff',
+                background: colors.background,
+                color: colors.foreground,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
               }}
             >
-              ⬇{t ? t('markdownPreview.downloadSvg') : 'SVGダウンロード'}
+              <Download
+                size={18}
+                style={{ verticalAlign: 'middle' }}
+              />
+              {t ? t('markdownPreview.downloadSvg') : 'SVGダウンロード'}
             </button>
           </div>
         </div>
