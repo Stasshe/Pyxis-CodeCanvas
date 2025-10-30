@@ -110,7 +110,7 @@ export class GitCommands {
   async clone(
     url: string,
     targetDir?: string,
-    options: { skipDotGit?: boolean } = {}
+    options: { skipDotGit?: boolean; maxGitObjects?: number } = {}
   ): Promise<string> {
     return this.executeGitOperation(async () => {
       // URLの妥当性を簡易チェック
@@ -160,6 +160,8 @@ export class GitCommands {
 
       // リポジトリをクローン
       try {
+        // .gitオブジェクトの最大取得数を制限する（depthで近似）
+        const depth = options.maxGitObjects ?? 10;
         await git.clone({
           fs: this.fs,
           http,
@@ -167,7 +169,7 @@ export class GitCommands {
           url,
           corsProxy: 'https://cors.isomorphic-git.org',
           singleBranch: true,
-          depth: 10, //全部取得したら死ぬ
+          depth,
           onAuth: url => {
             if (authRepository && typeof authRepository.getAccessToken === 'function') {
               return authRepository.getAccessToken().then(token => {
