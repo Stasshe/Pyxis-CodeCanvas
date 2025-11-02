@@ -207,14 +207,21 @@ export function I18nProvider({ children, defaultLocale }: I18nProviderProps) {
       console.error('[i18n] Failed to clean expired cache:', err);
     });
 
-    // 拡張機能の変更を監視（言語パックのアンインストール/無効化に対応）
+    // 拡張機能の変更を監視（言語パックの有効化/無効化/アンインストールに対応）
     const unsubscribe = extensionManager.addChangeListener(event => {
       // 言語パック拡張機能の変更の場合
       if (event.manifest?.onlyOne === 'lang-pack') {
-        if (event.type === 'disabled' || event.type === 'uninstalled') {
+        const eventLocale = event.manifest.id.replace('pyxis.lang.', '');
+
+        if (event.type === 'enabled') {
+          // 言語パックが有効化された場合、その言語に自動的に切り替え
+          if (isSupportedLocale(eventLocale)) {
+            console.log(`[i18n] Language pack '${eventLocale}' enabled. Switching locale...`);
+            loadLocale(eventLocale as Locale);
+          }
+        } else if (event.type === 'disabled' || event.type === 'uninstalled') {
           // 現在の言語が無効化/アンインストールされた場合
-          const disabledLocale = event.manifest.id.replace('pyxis.lang.', '');
-          if (disabledLocale === locale) {
+          if (eventLocale === locale) {
             // 有効な言語パックに切り替え
             const enabledLocales = getEnabledLocales();
             const firstEnabled = Array.from(enabledLocales)[0];
