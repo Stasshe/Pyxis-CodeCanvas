@@ -128,14 +128,7 @@ export function I18nProvider({ children, defaultLocale }: I18nProviderProps) {
     setIsLoading(true);
     const namespaces = ['common', 'welcome', 'detail'];
     try {
-      // Load multiple namespaces that components expect to access.
-      // WelcomeTab uses `welcome.*` keys stored in `welcome.json`, while
-      // most UI strings live in `common.json`.
-
       const results = await Promise.all(namespaces.map(ns => loadTranslations(newLocale, ns)));
-
-      // Merge namespace objects into a single translations object. Later namespaces
-      // will override earlier keys if they clash (not expected here).
       const merged = Object.assign({}, ...results);
 
       setTranslations(merged);
@@ -193,7 +186,6 @@ export function I18nProvider({ children, defaultLocale }: I18nProviderProps) {
       }
 
       const translator = createTranslator(translations);
-      // translator expects a TranslationKey; cast here after runtime checks
       return translator(key as TranslationKey, options);
     },
     [translations, isLoading]
@@ -204,81 +196,58 @@ export function I18nProvider({ children, defaultLocale }: I18nProviderProps) {
    */
   useEffect(() => {
     const unsubscribe = extensionManager.addChangeListener(event => {
-      console.log(
-        '[i18n] Extension change event:',
-        event.type,
-        event.extensionId,
-        'current locale:',
-        locale
-      );
-
       // 言語パック拡張機能の変更の場合
       if (event.manifest?.onlyOne === 'lang-pack') {
         const eventLocale = event.manifest.id.replace('pyxis.lang.', '');
-        console.log(
-          '[i18n] Language pack event detected. Event locale:',
-          eventLocale,
-          'Current locale:',
-          locale
-        );
 
         if (event.type === 'enabled') {
           // 言語パックが有効化された場合、その言語に自動的に切り替え
           if (isSupportedLocale(eventLocale)) {
-            console.log(`[i18n] Language pack '${eventLocale}' enabled. Switching locale...`);
             loadLocale(eventLocale as Locale);
           }
         } else if (event.type === 'disabled') {
           // 無効化された場合、現在の言語がそれなら切り替え
-          console.log(
-            `[i18n] disabled event: eventLocale=${eventLocale}, currentLocale=${locale}, match=${eventLocale === locale}`
-          );
           if (eventLocale === locale) {
-            console.log(
-              `[i18n] Current locale '${locale}' was disabled. Finding next language pack...`
-            );
             // インストール済みの言語パックの中から適当に選んで切り替え
             extensionManager
               .getInstalledExtensions()
               .then(installed => {
-                console.log(`[i18n] Total installed extensions: ${installed.length}`);
                 const installedLangPacks = installed.filter(
                   ext =>
                     ext.manifest &&
                     ext.manifest.onlyOne === 'lang-pack' &&
                     ext.manifest.id !== event.manifest?.id
                 );
-                console.log(
-                  `[i18n] Found ${installedLangPacks.length} other language packs:`,
-                  installedLangPacks.map(e => e.manifest.id)
-                );
 
                 if (installedLangPacks.length > 0) {
                   // 最初のインストール済み言語パックを有効化
                   const nextLangPack = installedLangPacks[0];
-                  const nextLocale = nextLangPack.manifest.id.replace('pyxis.lang.', '');
-                  console.log(`[i18n] Switching to '${nextLocale}' (${nextLangPack.manifest.id})`);
                   extensionManager.enableExtension(nextLangPack.manifest.id);
                 } else {
-                  // インストール済みの言語パックがない場合、デフォルト（英語）にフォールバック
-                  console.log(`[i18n] No installed language packs available. Falling back to 'en'`);
-                  if (isSupportedLocale('en')) {
-                    loadLocale('en' as Locale);
-                  }
+                  // インストール済みの言語パックがない場合、英語パックをインストール・有効化
+                  extensionManager
+                    .installExtension('/extensions/lang-packs/en/manifest.json')
+                    .then(installed => {
+                      if (installed) {
+                        return extensionManager.enableExtension('pyxis.lang.en');
+                      }
+                    })
+                    .catch(err => {
+                      console.error('[i18n] Failed to install/enable English pack:', err);
+                      // 最終フォールバック: 直接ロード
+                      if (isSupportedLocale('en')) {
+                        loadLocale('en' as Locale);
+                      }
+                    });
                 }
               })
               .catch(err => {
                 console.error('[i18n] Failed to switch language pack:', err);
               });
-          } else {
-            console.log(
-              `[i18n] Disabled locale '${eventLocale}' is not current locale '${locale}', ignoring`
-            );
           }
         } else if (event.type === 'uninstalled') {
           // アンインストール時はキャッシュをクリア
           if (isSupportedLocale(eventLocale)) {
-            console.log(`[i18n] Clearing cache for uninstalled locale: ${eventLocale}`);
             clearAllCacheForLocale(eventLocale as Locale).catch(err => {
               console.error(`[i18n] Failed to clear cache for locale '${eventLocale}':`, err);
             });
@@ -287,7 +256,7 @@ export function I18nProvider({ children, defaultLocale }: I18nProviderProps) {
       }
     });
     return unsubscribe;
-  }, [locale, loadLocale]); // localeが変更されたらリスナーを再登録
+  }, [locale, loadLocale]);
 
   /**
    * 初回マウント時の処理

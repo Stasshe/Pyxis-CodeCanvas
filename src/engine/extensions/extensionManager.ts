@@ -159,8 +159,9 @@ class ExtensionManager {
 
       // IndexedDBに保存
       await saveInstalledExtension(installed);
-
-      console.log('[ExtensionManager] Extension installed:', manifest.id);
+      // 自動有効化
+      await this.enableExtension(manifest.id);
+      
       return installed;
     } catch (error) {
       console.error('[ExtensionManager] Failed to install extension:', error);
