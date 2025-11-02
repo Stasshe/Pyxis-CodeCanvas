@@ -5,7 +5,7 @@
  * IndexedDB + public/locales のハイブリッドキャッシュ
  */
 
-import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
+import type { ExtensionContext, ExtensionActivation } from '../_shared/types.js';
 
 /**
  * サポートする言語のリスト

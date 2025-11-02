@@ -1,7 +1,7 @@
 /**
  * Pyxis Extensions Builder
  * 
- * src/extensions/ 内のTypeScriptファイルをトランスパイルして
+ * extensions/ 内のTypeScriptファイルをトランスパイルして
  * public/extensions/ に配置する
  */
 
@@ -9,7 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
-const EXTENSIONS_SRC = path.join(__dirname, 'src', 'extensions');
+const EXTENSIONS_SRC = path.join(__dirname, 'extensions');
 const EXTENSIONS_DIST = path.join(__dirname, 'public', 'extensions');
 
 /**
@@ -94,7 +94,7 @@ function buildExtensions() {
           isolatedModules: true,
           noEmit: false,
         },
-        include: ['src/extensions/**/*.ts'],
+        include: ['extensions/**/*.ts'],
         exclude: ['node_modules']
       };
       
