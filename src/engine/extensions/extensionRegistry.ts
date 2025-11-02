@@ -5,6 +5,7 @@
 
 import type { ExtensionRegistry, ExtensionManifest } from './types';
 import { fetchExtensionManifest } from './extensionLoader';
+import { extensionInfo, extensionError } from './extensionsLogger';
 
 const REGISTRY_URL = (process.env.NEXT_PUBLIC_BASE_PATH || '') + '/extensions/registry.json';
 
@@ -21,23 +22,26 @@ const CACHE_TTL = 5 * 60 * 1000; // 5分
 export async function fetchRegistry(forceRefresh = false): Promise<ExtensionRegistry | null> {
   // キャッシュチェック
   if (!forceRefresh && cachedRegistry && Date.now() - lastFetch < CACHE_TTL) {
+    extensionInfo('Using cached registry');
     return cachedRegistry;
   }
 
   try {
+    extensionInfo(`Fetching registry from: ${REGISTRY_URL}`);
     const response = await fetch(REGISTRY_URL);
     if (!response.ok) {
-      console.error(`[ExtensionRegistry] Failed to fetch registry (${response.status})`);
+      extensionError(`Failed to fetch registry: ${REGISTRY_URL} (${response.status})`);
       return null;
     }
 
     const registry = await response.json();
+    extensionInfo(`Registry loaded successfully with ${registry.extensions.length} extensions`);
     cachedRegistry = registry;
     lastFetch = Date.now();
 
     return registry;
   } catch (error) {
-    console.error('[ExtensionRegistry] Error fetching registry:', error);
+    extensionError('Error fetching registry:', error);
     return null;
   }
 }
@@ -47,19 +51,28 @@ export async function fetchRegistry(forceRefresh = false): Promise<ExtensionRegi
  */
 export async function fetchAllManifests(): Promise<ExtensionManifest[]> {
   const registry = await fetchRegistry();
-  if (!registry) return [];
+  if (!registry) {
+    extensionError('Registry is null');
+    return [];
+  }
 
+  extensionInfo(`Fetching all manifests for ${registry.extensions.length} extensions`);
   const manifests: ExtensionManifest[] = [];
 
   await Promise.all(
     registry.extensions.map(async entry => {
-      const manifest = await fetchExtensionManifest(entry.manifestUrl);
-      if (manifest) {
-        manifests.push(manifest);
+      try {
+        const manifest = await fetchExtensionManifest(entry.manifestUrl);
+        if (manifest) {
+          manifests.push(manifest);
+        }
+      } catch (error) {
+        extensionError(`Failed to load manifest from ${entry.manifestUrl}:`, error);
       }
     })
   );
 
+  extensionInfo(`Successfully loaded ${manifests.length} manifests`);
   return manifests;
 }
 
@@ -70,21 +83,30 @@ export async function fetchManifestsByType(
   type: string
 ): Promise<ExtensionManifest[]> {
   const registry = await fetchRegistry();
-  if (!registry) return [];
+  if (!registry) {
+    extensionError(`Registry is null (type: ${type})`);
+    return [];
+  }
 
   const entries = registry.extensions.filter(e => e.type === type);
+  extensionInfo(`Found ${entries.length} extensions of type: ${type}`);
 
   const manifests: ExtensionManifest[] = [];
 
   await Promise.all(
     entries.map(async entry => {
-      const manifest = await fetchExtensionManifest(entry.manifestUrl);
-      if (manifest) {
-        manifests.push(manifest);
+      try {
+        const manifest = await fetchExtensionManifest(entry.manifestUrl);
+        if (manifest) {
+          manifests.push(manifest);
+        }
+      } catch (error) {
+        extensionError(`Failed to load manifest from ${entry.manifestUrl}:`, error);
       }
     })
   );
 
+  extensionInfo(`Successfully loaded ${manifests.length} manifests of type: ${type}`);
   return manifests;
 }
 

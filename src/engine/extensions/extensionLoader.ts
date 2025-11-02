@@ -9,6 +9,7 @@ import type {
   ExtensionContext,
   ExtensionActivation,
 } from './types';
+import { extensionInfo, extensionError } from './extensionsLogger';
 
 /**
  * 拡張機能のベースURL（public/extensions/）
@@ -26,16 +27,18 @@ export async function fetchExtensionManifest(
       ? manifestUrl
       : `${EXTENSIONS_BASE_URL}/${manifestUrl}`;
 
+    extensionInfo(`Fetching manifest from: ${url}`);
     const response = await fetch(url);
     if (!response.ok) {
-      console.error(`[ExtensionLoader] Failed to fetch manifest: ${url} (${response.status})`);
+      extensionError(`Failed to fetch manifest: ${url} (${response.status})`);
       return null;
     }
 
     const manifest = await response.json();
+    extensionInfo(`Manifest loaded: ${manifest.id}`);
     return manifest as ExtensionManifest;
   } catch (error) {
-    console.error('[ExtensionLoader] Error fetching manifest:', error);
+    extensionError('Error fetching manifest:', error);
     return null;
   }
 }
@@ -63,15 +66,16 @@ export async function fetchExtensionFile(
     
     const url = `${EXTENSIONS_BASE_URL}/${manifestDir}/${filePath}`;
 
+    extensionInfo(`Fetching extension file: ${url}`);
     const response = await fetch(url);
     if (!response.ok) {
-      console.error(`[ExtensionLoader] Failed to fetch file: ${url} (${response.status})`);
+      extensionError(`Failed to fetch file: ${url} (${response.status})`);
       return null;
     }
 
     return await response.text();
   } catch (error) {
-    console.error('[ExtensionLoader] Error fetching file:', error);
+    extensionError('Error fetching file:', error);
     return null;
   }
 }
@@ -84,21 +88,23 @@ export async function fetchExtensionCode(manifest: ExtensionManifest): Promise<{
   files: Record<string, string>;
 } | null> {
   try {
+    extensionInfo(`Fetching extension code for: ${manifest.id}`);
     // エントリーポイントを取得
     const entryCode = await fetchExtensionFile(manifest, manifest.entry);
     if (!entryCode) {
-      console.error('[ExtensionLoader] Failed to load entry point');
+      extensionError('Failed to load entry point');
       return null;
     }
-
     // 追加ファイルを取得
     const files: Record<string, string> = {};
     if (manifest.files && manifest.files.length > 0) {
+      extensionInfo(`Loading ${manifest.files.length} additional files`);
       await Promise.all(
         manifest.files.map(async filePath => {
           const code = await fetchExtensionFile(manifest, filePath);
           if (code) {
             files[filePath] = code;
+            extensionInfo(`Loaded additional file: ${filePath}`);
           }
         })
       );
@@ -106,7 +112,7 @@ export async function fetchExtensionCode(manifest: ExtensionManifest): Promise<{
 
     return { entryCode, files };
   } catch (error) {
-    console.error('[ExtensionLoader] Error fetching extension code:', error);
+    extensionError('Error fetching extension code:', error);
     return null;
   }
 }
@@ -119,6 +125,7 @@ export async function loadExtensionModule(
   context: ExtensionContext
 ): Promise<ExtensionExports | null> {
   try {
+    extensionInfo('Loading extension module');
     // import文を含むコードをdata URLとしてES Moduleで実行
     // Blob + URL.createObjectURL を使ってdynamic importで読み込む
     const blob = new Blob([entryCode], { type: 'application/javascript' });
@@ -130,10 +137,11 @@ export async function loadExtensionModule(
 
       // activate関数の存在を確認
       if (typeof module.activate !== 'function') {
-        console.error('[ExtensionLoader] Extension must export an activate function');
+        extensionError('Extension must export an activate function');
         return null;
       }
 
+      extensionInfo('Extension module loaded successfully');
       return module as ExtensionExports;
     } catch (importError) {
       throw importError;
@@ -142,8 +150,7 @@ export async function loadExtensionModule(
       URL.revokeObjectURL(url);
     }
   } catch (error) {
-    console.error('[ExtensionLoader] Error loading extension module:', error);
-    console.error('Error details:', error);
+    extensionError('Error loading extension module:', error);
     return null;
   }
 }
@@ -156,10 +163,12 @@ export async function activateExtension(
   context: ExtensionContext
 ): Promise<ExtensionActivation | null> {
   try {
+    extensionInfo('Activating extension');
     const activation = await exports.activate(context);
+    extensionInfo('Extension activated successfully');
     return activation;
   } catch (error) {
-    console.error('[ExtensionLoader] Error activating extension:', error);
+    extensionError('Error activating extension:', error);
     return null;
   }
 }
@@ -170,9 +179,11 @@ export async function activateExtension(
 export async function deactivateExtension(exports: ExtensionExports): Promise<void> {
   try {
     if (exports.deactivate) {
+      extensionInfo('Deactivating extension');
       await exports.deactivate();
+      extensionInfo('Extension deactivated successfully');
     }
   } catch (error) {
-    console.error('[ExtensionLoader] Error deactivating extension:', error);
+    extensionError('Error deactivating extension:', error);
   }
 }
