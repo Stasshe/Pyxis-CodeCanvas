@@ -8,6 +8,7 @@ import SearchPanel from './SearchPanel';
 import GitPanel from './GitPanel';
 import RunPanel from './RunPanel';
 import SettingsPanel from './SettingsPanel';
+import ExtensionsPanel from './ExtensionsPanel';
 import { fileRepository } from '@/engine/core/fileRepository';
 
 interface LeftSidebarProps {
@@ -73,6 +74,7 @@ export default function LeftSidebar({
             {activeMenuTab === 'search' && 'Search'}
             {activeMenuTab === 'git' && 'Git'}
             {activeMenuTab === 'run' && 'Run'}
+            {activeMenuTab === 'extensions' && 'Extensions'}
             {activeMenuTab === 'settings' && 'Settings'}
           </span>
         </div>
@@ -187,6 +189,11 @@ export default function LeftSidebar({
                 currentProject={currentProject}
                 files={files}
               />
+            </div>
+          )}
+          {activeMenuTab === 'extensions' && (
+            <div className="h-full">
+              <ExtensionsPanel />
             </div>
           )}
           {activeMenuTab === 'settings' && (

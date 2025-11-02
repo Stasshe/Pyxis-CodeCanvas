@@ -1,0 +1,22 @@
+{
+  "id": "pyxis.lang.ja",
+  "name": "Japanese Language Pack",
+  "version": "1.0.0",
+  "type": "service",
+  "description": "日本語言語パック (Japanese Language Pack)",
+  "author": "Pyxis Team",
+  "icon": "/extensions/pyxis/lang-packs/ja/icon.svg",
+  "homepage": "https://github.com/Stasshe/Pyxis-CodeCanvas",
+  "dependencies": [],
+  "entry": "index.js",
+  "files": [],
+  "provides": {
+    "services": ["language-pack"],
+    "locale": "ja"
+  },
+  "metadata": {
+    "publishedAt": "2025-11-02T00:00:00Z",
+    "updatedAt": "2025-11-02T00:00:00Z",
+    "tags": ["language", "i18n", "japanese", "ja"]
+  }
+}

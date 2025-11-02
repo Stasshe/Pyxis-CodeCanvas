@@ -1,0 +1,318 @@
+/**
+ * Extension Manager
+ * 拡張機能のライフサイクルを統合管理
+ */
+
+import {
+  ExtensionStatus,
+  type ExtensionManifest,
+  type InstalledExtension,
+  type ExtensionExports,
+  type ExtensionContext,
+  type ExtensionActivation,
+} from './types';
+import {
+  saveInstalledExtension,
+  loadInstalledExtension,
+  loadAllInstalledExtensions,
+  deleteInstalledExtension,
+} from './storage-adapter';
+import {
+  fetchExtensionManifest,
+  fetchExtensionCode,
+  loadExtensionModule,
+  activateExtension,
+  deactivateExtension,
+} from './extensionLoader';
+import { storageService, STORES } from '@/engine/storage';
+
+/**
+ * アクティブな拡張機能のキャッシュ
+ */
+interface ActiveExtension {
+  manifest: ExtensionManifest;
+  exports: ExtensionExports;
+  activation: ExtensionActivation;
+}
+
+/**
+ * Extension Manager
+ */
+class ExtensionManager {
+  /** アクティブな拡張機能 (extensionId -> ActiveExtension) */
+  private activeExtensions: Map<string, ActiveExtension> = new Map();
+
+  /** 初期化済みフラグ */
+  private initialized = false;
+
+  /**
+   * 初期化
+   */
+  async init(): Promise<void> {
+    if (this.initialized) return;
+
+    console.log('[ExtensionManager] Initializing...');
+
+    // インストール済み & 有効化済みの拡張機能を読み込み
+    const installed = await loadAllInstalledExtensions();
+    const enabled = installed.filter(ext => ext.enabled);
+
+    for (const ext of enabled) {
+      try {
+        await this.enableExtension(ext.manifest.id);
+      } catch (error) {
+        console.error(`[ExtensionManager] Failed to enable extension: ${ext.manifest.id}`, error);
+      }
+    }
+
+    this.initialized = true;
+    console.log(`[ExtensionManager] Initialized with ${this.activeExtensions.size} extensions`);
+  }
+
+  /**
+   * 拡張機能をインストール
+   */
+  async installExtension(manifestUrl: string): Promise<InstalledExtension | null> {
+    try {
+      console.log('[ExtensionManager] Installing extension:', manifestUrl);
+
+      // マニフェストを取得
+      const manifest = await fetchExtensionManifest(manifestUrl);
+      if (!manifest) {
+        throw new Error('Failed to fetch manifest');
+      }
+
+      // 既にインストール済みかチェック
+      const existing = await loadInstalledExtension(manifest.id);
+      if (existing) {
+        console.log('[ExtensionManager] Extension already installed:', manifest.id);
+        return existing;
+      }
+
+      // 依存関係をチェック & 自動インストール
+      if (manifest.dependencies && manifest.dependencies.length > 0) {
+        for (const depId of manifest.dependencies) {
+          const dep = await loadInstalledExtension(depId);
+          if (!dep) {
+            console.warn(
+              `[ExtensionManager] Dependency not found: ${depId}. Please install it first.`
+            );
+          }
+        }
+      }
+
+      // コードを取得
+      const code = await fetchExtensionCode(manifest);
+      if (!code) {
+        throw new Error('Failed to fetch extension code');
+      }
+
+      // インストール情報を作成
+      const installed: InstalledExtension = {
+        manifest,
+        status: ExtensionStatus.INSTALLED,
+        installedAt: Date.now(),
+        updatedAt: Date.now(),
+        enabled: false,
+        cache: {
+          entryCode: code.entryCode,
+          files: code.files,
+          cachedAt: Date.now(),
+        },
+      };
+
+      // IndexedDBに保存
+      await saveInstalledExtension(installed);
+
+      console.log('[ExtensionManager] Extension installed:', manifest.id);
+      return installed;
+    } catch (error) {
+      console.error('[ExtensionManager] Failed to install extension:', error);
+      return null;
+    }
+  }
+
+  /**
+   * 拡張機能を有効化
+   */
+  async enableExtension(extensionId: string): Promise<boolean> {
+    try {
+      console.log('[ExtensionManager] Enabling extension:', extensionId);
+
+      // 既に有効化されているかチェック
+      if (this.activeExtensions.has(extensionId)) {
+        console.log('[ExtensionManager] Extension already enabled:', extensionId);
+        return true;
+      }
+
+      // インストール済み拡張を取得
+      const installed = await loadInstalledExtension(extensionId);
+      if (!installed) {
+        throw new Error('Extension not installed');
+      }
+
+      // コンテキストを作成
+      const context = this.createExtensionContext(extensionId);
+
+      // モジュールをロード
+      const exports = await loadExtensionModule(installed.cache.entryCode, context);
+      if (!exports) {
+        throw new Error('Failed to load extension module');
+      }
+
+      // アクティベート
+      const activation = await activateExtension(exports, context);
+      if (!activation) {
+        throw new Error('Failed to activate extension');
+      }
+
+      // アクティブリストに追加
+      this.activeExtensions.set(extensionId, {
+        manifest: installed.manifest,
+        exports,
+        activation,
+      });
+
+      // 状態を更新
+      installed.enabled = true;
+      installed.status = ExtensionStatus.ENABLED;
+      installed.updatedAt = Date.now();
+      await saveInstalledExtension(installed);
+
+      console.log('[ExtensionManager] Extension enabled:', extensionId);
+      return true;
+    } catch (error) {
+      console.error('[ExtensionManager] Failed to enable extension:', extensionId, error);
+      return false;
+    }
+  }
+
+  /**
+   * 拡張機能を無効化
+   */
+  async disableExtension(extensionId: string): Promise<boolean> {
+    try {
+      console.log('[ExtensionManager] Disabling extension:', extensionId);
+
+      const active = this.activeExtensions.get(extensionId);
+      if (!active) {
+        console.log('[ExtensionManager] Extension not active:', extensionId);
+        return true;
+      }
+
+      // デアクティベート
+      await deactivateExtension(active.exports);
+
+      // アクティブリストから削除
+      this.activeExtensions.delete(extensionId);
+
+      // 状態を更新
+      const installed = await loadInstalledExtension(extensionId);
+      if (installed) {
+        installed.enabled = false;
+        installed.status = ExtensionStatus.INSTALLED;
+        installed.updatedAt = Date.now();
+        await saveInstalledExtension(installed);
+      }
+
+      console.log('[ExtensionManager] Extension disabled:', extensionId);
+      return true;
+    } catch (error) {
+      console.error('[ExtensionManager] Failed to disable extension:', extensionId, error);
+      return false;
+    }
+  }
+
+  /**
+   * 拡張機能をアンインストール
+   */
+  async uninstallExtension(extensionId: string): Promise<boolean> {
+    try {
+      console.log('[ExtensionManager] Uninstalling extension:', extensionId);
+
+      // 有効化されている場合は無効化
+      if (this.activeExtensions.has(extensionId)) {
+        await this.disableExtension(extensionId);
+      }
+
+      // IndexedDBから削除
+      await deleteInstalledExtension(extensionId);
+
+      console.log('[ExtensionManager] Extension uninstalled:', extensionId);
+      return true;
+    } catch (error) {
+      console.error('[ExtensionManager] Failed to uninstall extension:', extensionId, error);
+      return false;
+    }
+  }
+
+  /**
+   * インストール済み拡張機能のリストを取得
+   */
+  async getInstalledExtensions(): Promise<InstalledExtension[]> {
+    return await loadAllInstalledExtensions();
+  }
+
+  /**
+   * 有効化済み拡張機能のリストを取得
+   */
+  getActiveExtensions(): ActiveExtension[] {
+    return Array.from(this.activeExtensions.values());
+  }
+
+  /**
+   * 特定の拡張機能のアクティベーション結果を取得
+   */
+  getExtensionActivation(extensionId: string): ExtensionActivation | null {
+    const active = this.activeExtensions.get(extensionId);
+    return active ? active.activation : null;
+  }
+
+  /**
+   * 全ての有効化済みビルトインモジュールを取得
+   */
+  getAllBuiltInModules(): Record<string, unknown> {
+    const modules: Record<string, unknown> = {};
+
+    for (const active of this.activeExtensions.values()) {
+      if (active.activation.builtInModules) {
+        Object.assign(modules, active.activation.builtInModules);
+      }
+    }
+
+    return modules;
+  }
+
+  /**
+   * ExtensionContextを作成
+   */
+  private createExtensionContext(extensionId: string): ExtensionContext {
+    return {
+      extensionId,
+      storage: {
+        get: async <T>(key: string) => {
+          const fullKey = `${extensionId}:${key}`;
+          return await storageService.get<T>(STORES.EXTENSIONS, fullKey);
+        },
+        set: async <T>(key: string, value: T) => {
+          const fullKey = `${extensionId}:${key}`;
+          await storageService.set(STORES.EXTENSIONS, fullKey, value);
+        },
+        delete: async (key: string) => {
+          const fullKey = `${extensionId}:${key}`;
+          await storageService.delete(STORES.EXTENSIONS, fullKey);
+        },
+      },
+      logger: {
+        info: (...args: unknown[]) => console.log(`[${extensionId}]`, ...args),
+        warn: (...args: unknown[]) => console.warn(`[${extensionId}]`, ...args),
+        error: (...args: unknown[]) => console.error(`[${extensionId}]`, ...args),
+      },
+    };
+  }
+}
+
+/**
+ * グローバルインスタンス
+ */
+export const extensionManager = new ExtensionManager();

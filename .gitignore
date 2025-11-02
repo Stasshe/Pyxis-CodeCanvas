@@ -48,11 +48,13 @@ memo.txt
 memo.md
 
 src/engine/initialFileContents.ts
-public/swc.wasm
-
+public/extensions/
+!public/extensions/registry.json
 
 tests/__artifacts__/*
 
 scripts/*results.txt
 
 .eslintcache
+
+

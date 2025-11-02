@@ -6,6 +6,7 @@ import { ThemeProvider } from '@/context/ThemeContext';
 import { GitHubUserProvider } from '@/context/GitHubUserContext';
 import { I18nProvider } from '@/context/I18nContext';
 import { ToastContainer } from '@/components/Toast';
+import ExtensionInitializer from '@/components/ExtensionInitializer';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -175,6 +176,7 @@ export default function RootLayout({
           <ThemeProvider>
             <GitHubUserProvider>
               {children}
+              <ExtensionInitializer />
               <ToastContainer />
             </GitHubUserProvider>
           </ThemeProvider>

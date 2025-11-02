@@ -1,0 +1,21 @@
+{
+  "id": "pyxis.typescript-runtime",
+  "name": "TypeScript Runtime",
+  "version": "1.0.0",
+  "type": "transpiler",
+  "description": "TypeScript/JSX/TSXファイルのトランスパイルをサポート。Babel standaloneを使用した高速なコンパイル。",
+  "author": "Pyxis Team",
+  "icon": "/extensions/pyxis/typescript-runtime/icon.svg",
+  "homepage": "https://github.com/Stasshe/Pyxis-CodeCanvas",
+  "dependencies": [],
+  "entry": "index.js",
+  "files": [],
+  "provides": {
+    "runtimeFeatures": ["typescript", "tsx", "jsx"]
+  },
+  "metadata": {
+    "publishedAt": "2025-11-02T00:00:00Z",
+    "updatedAt": "2025-11-02T00:00:00Z",
+    "tags": ["typescript", "transpiler", "compiler", "jsx", "react"]
+  }
+}
