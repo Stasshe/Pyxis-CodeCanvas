@@ -5,7 +5,7 @@
  * 既存のtranspileManagerをラップして提供
  */
 
-import type { ExtensionContext, ExtensionActivation } from '../_shared/types.js';
+import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
 
 export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
   context.logger?.info('TypeScript Runtime Extension activating...');

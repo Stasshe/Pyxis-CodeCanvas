@@ -49,7 +49,6 @@ memo.md
 
 src/engine/initialFileContents.ts
 public/extensions/
-!public/extensions/registry.json
 
 tests/__artifacts__/*
 
