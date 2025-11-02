@@ -8,7 +8,7 @@ import { Download, Trash2, Settings as SettingsIcon, Check, Loader } from 'lucid
 import { useTheme } from '@/context/ThemeContext';
 import { useTranslation } from '@/context/I18nContext';
 import { extensionManager } from '@/engine/extensions/extensionManager';
-import { fetchRegistry } from '@/engine/extensions/extensionRegistry';
+import { fetchRegistry, fetchAllManifests } from '@/engine/extensions/extensionRegistry';
 import type { InstalledExtension, ExtensionManifest, ExtensionRegistry } from '@/engine/extensions/types';
 
 export default function ExtensionsPanel() {
@@ -28,15 +28,28 @@ export default function ExtensionsPanel() {
     try {
       // インストール済み拡張機能を取得
       const installedExts = await extensionManager.getInstalledExtensions();
-      setInstalled(installedExts);
+      
+      // manifestがnullのものを除外
+      const validInstalled = installedExts.filter(ext => ext.manifest !== null);
+      setInstalled(validInstalled);
 
       // 利用可能な拡張機能を取得
-      const registry = await fetchRegistry();
-      if (registry) {
-        // manifestUrlからマニフェストを取得する必要があるが、
-        // ここでは簡易的にインストール済みでないものを表示
-        setAvailable([]);
-      }
+      const allManifests = await fetchAllManifests();
+      console.log('[ExtensionsPanel] All manifests:', allManifests);
+      
+      // インストール済みのIDリスト
+      const installedIds = new Set(validInstalled.map(ext => ext.manifest.id));
+      console.log('[ExtensionsPanel] Installed IDs:', Array.from(installedIds));
+      
+      // インストール済みでない拡張機能をフィルター
+      const availableManifests = allManifests.filter((m: ExtensionManifest) => !installedIds.has(m.id));
+      setAvailable(availableManifests);
+      
+      console.log('[ExtensionsPanel] Loaded:', {
+        installed: validInstalled.length,
+        allManifests: allManifests.length,
+        available: availableManifests.length,
+      });
     } catch (error) {
       console.error('[ExtensionsPanel] Failed to load extensions:', error);
     } finally {
@@ -145,7 +158,7 @@ export default function ExtensionsPanel() {
                 No extensions installed
               </div>
             ) : (
-              installed.map((ext) => (
+              installed.filter(ext => ext && ext.manifest).map((ext) => (
                 <div
                   key={ext.manifest.id}
                   className="p-3 rounded border"
@@ -237,41 +250,57 @@ export default function ExtensionsPanel() {
                 No available extensions
               </div>
             ) : (
-              available.map((manifest) => (
-                <div
-                  key={manifest.id}
-                  className="p-3 rounded border"
-                  style={{
-                    background: colors.background,
-                    borderColor: colors.border,
-                  }}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <h3
-                        className="text-sm font-semibold"
-                        style={{ color: colors.foreground }}
+              available.map((manifest) => {
+                // manifestUrlを構築: idから推測
+                let manifestUrl = '';
+                if (manifest.id.startsWith('pyxis.lang.')) {
+                  const locale = manifest.id.replace('pyxis.lang.', '');
+                  manifestUrl = `/extensions/lang-packs/${locale}/manifest.json`;
+                } else if (manifest.id === 'pyxis.typescript-runtime') {
+                  manifestUrl = '/extensions/typescript-runtime/manifest.json';
+                } else if (manifest.id === 'pyxis.i18n-service') {
+                  manifestUrl = '/extensions/i18n-service/manifest.json';
+                } else {
+                  const name = manifest.id.replace('pyxis.', '');
+                  manifestUrl = `/extensions/${name}/manifest.json`;
+                }
+
+                return (
+                  <div
+                    key={manifest.id}
+                    className="p-3 rounded border"
+                    style={{
+                      background: colors.background,
+                      borderColor: colors.border,
+                    }}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h3
+                          className="text-sm font-semibold"
+                          style={{ color: colors.foreground }}
+                        >
+                          {manifest.name}
+                        </h3>
+                        <p
+                          className="text-xs mt-1"
+                          style={{ color: colors.mutedFg }}
+                        >
+                          {manifest.description}
+                        </p>
+                      </div>
+                      <button
+                        className="p-1.5 rounded hover:bg-opacity-10 transition-colors"
+                        style={{ color: colors.primary }}
+                        onClick={() => handleInstall(manifestUrl)}
+                        title="Install"
                       >
-                        {manifest.name}
-                      </h3>
-                      <p
-                        className="text-xs mt-1"
-                        style={{ color: colors.mutedFg }}
-                      >
-                        {manifest.description}
-                      </p>
+                        <Download size={16} />
+                      </button>
                     </div>
-                    <button
-                      className="p-1.5 rounded hover:bg-opacity-10 transition-colors"
-                      style={{ color: colors.primary }}
-                      onClick={() => handleInstall(manifest.id)}
-                      title="Install"
-                    >
-                      <Download size={16} />
-                    </button>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         )}

@@ -1,9 +1,9 @@
 {
-  "id": "pyxis.lang.en",
-  "name": "English Language Pack",
+  "id": "pyxis.lang.ja",
+  "name": "Japanese Language Pack",
   "version": "1.0.0",
   "type": "service",
-  "description": "English Language Pack",
+  "description": "日本語言語パック",
   "author": "Pyxis Team",
   "dependencies": [],
   "entry": "index.js"

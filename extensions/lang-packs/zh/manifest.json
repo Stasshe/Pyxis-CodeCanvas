@@ -1,9 +1,9 @@
 {
-  "id": "pyxis.lang.en",
-  "name": "English Language Pack",
+  "id": "pyxis.lang.zh",
+  "name": "Chinese (Simplified) Language Pack",
   "version": "1.0.0",
   "type": "service",
-  "description": "English Language Pack",
+  "description": "简体中文语言包",
   "author": "Pyxis Team",
   "dependencies": [],
   "entry": "index.js"
