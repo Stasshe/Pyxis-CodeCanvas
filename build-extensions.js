@@ -91,7 +91,6 @@ function buildExtensions() {
           isolatedModules: true,
           noEmit: false,
           incremental: false, // 増分ビルドを無効化
-          tsBuildInfoFile: null, // ビルド情報ファイルを無効化
         },
         include: ['extensions/**/*.ts'],
         exclude: ['node_modules']

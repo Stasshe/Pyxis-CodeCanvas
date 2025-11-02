@@ -74,7 +74,7 @@ export class TranspileManager {
     }
     
     // 拡張機能が見つからない
-    const errorMsg = `No transpiler extension found for ${options.filePath}. Please install TypeScript Runtime extension.`;
+    const errorMsg = `No transpiler extension found. Please install a compatible transpiler extension.`;
     runtimeError(errorMsg);
     throw new Error(errorMsg);
   }

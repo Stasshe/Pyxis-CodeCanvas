@@ -160,7 +160,7 @@ export class GitCommands {
 
       // リポジトリをクローン
       try {
-        // .gitオブジェクトの最大取得数を制限する（depthで近似）
+        // コミット履歴の深さを制限（これによりgitオブジェクトの取得数も制限される）
         const depth = options.maxGitObjects ?? 10;
         await git.clone({
           fs: this.fs,

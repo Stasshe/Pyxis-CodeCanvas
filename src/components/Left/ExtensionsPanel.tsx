@@ -6,14 +6,12 @@
 import { useState, useEffect } from 'react';
 import { Download, Trash2, Power, PowerOff, Loader, Package, CheckCircle2 } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
-import { useTranslation } from '@/context/I18nContext';
 import { extensionManager } from '@/engine/extensions/extensionManager';
 import { fetchAllManifests } from '@/engine/extensions/extensionRegistry';
 import type { InstalledExtension, ExtensionManifest } from '@/engine/extensions/types';
 
 export default function ExtensionsPanel() {
   const { colors } = useTheme();
-  const { t } = useTranslation();
   const [installed, setInstalled] = useState<InstalledExtension[]>([]);
   const [available, setAvailable] = useState<ExtensionManifest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,13 +29,7 @@ export default function ExtensionsPanel() {
       console.log('[ExtensionsPanel] Raw installed:', installedExts.length);
       
       // manifestがnullまたはundefinedのものを除外
-      const validInstalled = installedExts.filter(ext => {
-        if (!ext || !ext.manifest) {
-          console.warn('[ExtensionsPanel] Invalid extension found:', ext);
-          return false;
-        }
-        return true;
-      });
+      const validInstalled = installedExts.filter(ext => ext?.manifest);
       
       console.log('[ExtensionsPanel] Valid installed:', validInstalled.length);
       setInstalled(validInstalled);

@@ -127,9 +127,6 @@ export async function loadExtensionModule(
     try {
       // Dynamic importでモジュールをロード
       const module = await import(/* webpackIgnore: true */ url);
-      
-      // URLをクリーンアップ
-      URL.revokeObjectURL(url);
 
       // activate関数の存在を確認
       if (typeof module.activate !== 'function') {
@@ -139,8 +136,10 @@ export async function loadExtensionModule(
 
       return module as ExtensionExports;
     } catch (importError) {
-      URL.revokeObjectURL(url);
       throw importError;
+    } finally {
+      // URLをクリーンアップ（成功/失敗に関わらず実行）
+      URL.revokeObjectURL(url);
     }
   } catch (error) {
     console.error('[ExtensionLoader] Error loading extension module:', error);

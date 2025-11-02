@@ -17,11 +17,7 @@ import type {
   TranslateOptions,
 } from '@/engine/i18n/types';
 import { isSupportedLocale } from '@/engine/i18n/types';
-import {
-  loadTranslations,
-  preloadTranslations,
-  clearAllCacheForLocale,
-} from '@/engine/i18n/loader';
+import { loadTranslations, clearAllCacheForLocale } from '@/engine/i18n/loader';
 import { createTranslator } from '@/engine/i18n/translator';
 import { cleanExpiredCache } from '@/engine/i18n/storage-adapter';
 import { DEFAULT_LOCALE, LOCALSTORAGE_KEY } from './config';
@@ -83,9 +79,21 @@ function getSavedLocale(): Locale | null {
       if (enabledLocales.has(saved)) {
         return saved as Locale;
       }
-      console.warn(
-        `[i18n] Saved locale '${saved}' is not enabled. Language pack extension may be disabled.`
-      );
+      console.warn(`[i18n] Saved locale '${saved}' is not enabled. Trying related locales...`);
+
+      // 関連するロケールを試す (e.g., 'zh' if 'zh-TW' is not available)
+      const baseLocale = saved.split('-')[0];
+      if (baseLocale !== saved && enabledLocales.has(baseLocale)) {
+        console.log(`[i18n] Falling back to related locale: ${baseLocale}`);
+        return baseLocale as Locale;
+      }
+
+      // zh -> zh-TW のパターンも試す
+      const variants = Array.from(enabledLocales).filter(loc => loc.startsWith(baseLocale));
+      if (variants.length > 0) {
+        console.log(`[i18n] Falling back to related locale variant: ${variants[0]}`);
+        return variants[0] as Locale;
+      }
     }
   } catch (error) {
     console.error('[i18n] Failed to get saved locale:', error);
