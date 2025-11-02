@@ -278,10 +278,25 @@ export default function Home() {
   };
   const setTabsForAllPanes = (update: Tab[] | ((tabs: Tab[]) => Tab[])) => {
     setEditors(prevEditors => {
-      return prevEditors.map(editor => {
-        const updatedTabs = typeof update === 'function' ? update(editor.tabs) : update;
-        return { ...editor, tabs: updatedTabs };
-      });
+      // Recursively update all panes (including nested ones)
+      const updatePane = (pane: EditorPane): EditorPane => {
+        // Update tabs in this pane
+        const updatedTabs = typeof update === 'function' ? update(pane.tabs) : update;
+        const updatedPane = { ...pane, tabs: updatedTabs };
+
+        // If this pane has nested panes, update them recursively
+        if ((pane as any).leftPane || (pane as any).rightPane) {
+          return {
+            ...updatedPane,
+            leftPane: (pane as any).leftPane ? updatePane((pane as any).leftPane) : undefined,
+            rightPane: (pane as any).rightPane ? updatePane((pane as any).rightPane) : undefined,
+          } as any;
+        }
+
+        return updatedPane;
+      };
+
+      return prevEditors.map(editor => updatePane(editor));
     });
   };
 
@@ -886,6 +901,7 @@ export default function Home() {
                 setActiveTabId={setActiveTabId}
                 saveFile={saveFile}
                 clearAIReview={clearAIReview}
+                setTabsForAllPanes={setTabsForAllPanes}
               />
             </>
           )}

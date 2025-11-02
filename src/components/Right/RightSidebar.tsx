@@ -17,6 +17,7 @@ interface RightSidebarProps {
   setActiveTabId?: (id: string) => void;
   saveFile?: (filePath: string, content: string) => Promise<void>;
   clearAIReview?: (filePath: string) => Promise<void>;
+  setTabsForAllPanes: (update: Tab[] | ((tabs: Tab[]) => Tab[])) => void;
 }
 
 const RightSidebar: React.FC<RightSidebarProps> = ({
@@ -31,6 +32,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
   setActiveTabId,
   saveFile,
   clearAIReview,
+  setTabsForAllPanes,
 }) => {
   const { colors } = useTheme();
   const { t } = useTranslation();
@@ -60,7 +62,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
         <div style={{ flex: 1, overflow: 'auto' }}>
           {children ||
             // デフォルトでAI Panelを表示
-            (setTabs && setActiveTabId && saveFile ? (
+            (setTabs && setActiveTabId && saveFile && setTabsForAllPanes ? (
               <AIPanel
                 projectFiles={projectFiles}
                 currentProject={currentProject}
@@ -70,6 +72,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                 setActiveTabId={setActiveTabId}
                 saveFile={saveFile}
                 clearAIReview={handleClearAIReview}
+                setTabsForAllPanes={setTabsForAllPanes}
               />
             ) : (
               <div style={{ padding: 16, color: colors.mutedFg, textAlign: 'center' }}>

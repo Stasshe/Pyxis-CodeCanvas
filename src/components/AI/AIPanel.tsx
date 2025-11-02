@@ -29,6 +29,7 @@ interface AIPanelProps {
   setActiveTabId: (id: string) => void;
   saveFile: (filePath: string, content: string) => Promise<void>;
   clearAIReview: (filePath: string) => Promise<void>;
+  setTabsForAllPanes: (update: Tab[] | ((tabs: Tab[]) => Tab[])) => void;
 }
 
 export default function AIPanel({
@@ -39,6 +40,7 @@ export default function AIPanel({
   setActiveTabId,
   saveFile,
   clearAIReview,
+  setTabsForAllPanes,
 }: AIPanelProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
@@ -173,14 +175,29 @@ export default function AIPanel({
       // 1) Save file first
       await saveFile(filePath, newContent);
 
-      // 2) Close any open review tab for this file so editor state updates immediately
+      // 2) Immediately update all open tabs with the same file path to ensure instant reflection
+      // This ensures that any editor tabs showing this file get updated content immediately
+      // Use setTabsForAllPanes to update tabs across all panes
+      const updateFn = (prevTabs: Tab[]) => {
+        return prevTabs.map((tab: Tab) => {
+          if (tab.path === filePath && !tab.aiReviewProps) {
+            return {
+              ...tab,
+              content: newContent,
+              isDirty: false,
+            };
+          }
+          return tab;
+        });
+      };
+
+      // Update all panes
+      setTabsForAllPanes(updateFn);
+
+      // 3) Close any open review tab for this file so editor state updates immediately
       closeAIReviewTab(filePath, setTabs, tabs);
 
-      // Note: Tab content updates across all panes are handled automatically by the
-      // file repository event system (useActiveTabContentRestore hook in tab.ts).
-      // No need to update tabs directly here.
-
-      // Finally, clear AI review metadata for this file. Do this after updating
+      // 4) Clear AI review metadata for this file. Do this after updating
       // the chat so the edit response update remains the latest visible state.
       try {
         await clearAIReview(filePath);
