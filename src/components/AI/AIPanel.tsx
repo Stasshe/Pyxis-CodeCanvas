@@ -176,27 +176,9 @@ export default function AIPanel({
       // 2) Close any open review tab for this file so editor state updates immediately
       closeAIReviewTab(filePath, setTabs, tabs);
 
-      // Immediately update any open editor tabs that match this file path so the
-      // editor reflects the applied changes without waiting for repository events.
-      const normalizePath = (p?: string) => {
-        if (!p) return '';
-        const withoutKindPrefix = p.includes(':') ? p.replace(/^[^:]+:/, '') : p;
-        const cleaned = withoutKindPrefix.replace(/(-preview|-diff|-ai)$/, '');
-        return cleaned.startsWith('/') ? cleaned : `/${cleaned}`;
-      };
-
-      try {
-        setTabs((prevTabs: any[]) =>
-          prevTabs.map(t =>
-            normalizePath(t.path) === normalizePath(filePath)
-              ? { ...t, content: newContent, isDirty: false }
-              : t
-          )
-        );
-      } catch (e) {
-        // non-fatal: if setTabs isn't available or fails, we still continue
-        console.warn('[AIPanel] Failed to update tabs after applyChanges:', e);
-      }
+      // Note: Tab content updates across all panes are handled automatically by the
+      // file repository event system (useActiveTabContentRestore hook in tab.ts).
+      // No need to update tabs directly here.
 
       // Finally, clear AI review metadata for this file. Do this after updating
       // the chat so the edit response update remains the latest visible state.
