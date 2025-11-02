@@ -374,6 +374,7 @@ export function useActiveTabContentRestore({
                         bufferContent: tab.isBufferArray
                           ? (changedFile as any).bufferContent
                           : undefined,
+                        isDirty: false, // ファイルが保存されたので、タブを非ダーティ状態にする
                       };
                     }
                     return tab;
