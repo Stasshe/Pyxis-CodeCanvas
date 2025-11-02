@@ -1,12 +1,16 @@
 .
 ├── CODE_OF_CONDUCT.md
 ├── Development
+│   ├── EXTENSION-SYSTEM.md
 │   ├── NEW-ARCHITECTURE.md
 │   ├── NodeJSRuntime-new-arc.md
 │   ├── TODO.md
 │   ├── Tauri-Setup.md
 │   ├── ai-agent-implementation-plan.md
 │   ├── all-flow.svg
+│   ├── docs
+│   │   ├── STORAGE-KEYBINDINGS.md
+│   │   └── en
 │   └── git-deletion-detection-analysis.md
 ├── FreeAPIGenerativeAI-Model.md
 ├── LICENSE
@@ -14,6 +18,7 @@
 ├── README_en.md
 ├── SHORT_README.md
 ├── bashCmd.txt
+├── build-extensions.js
 ├── docs
 │   ├── AI-SYSTEM.md
 │   ├── CORE-ENGINE.md
@@ -29,6 +34,78 @@
 │   │   └── NODE-RUNTIME.md
 │   └── pyxis-all.svg.svg
 ├── eslint.config.mjs
+├── extensions
+│   ├── README.md
+│   ├── _shared
+│   │   └── types.ts
+│   ├── i18n-service
+│   │   ├── index.ts
+│   │   └── manifest.json
+│   ├── lang-packs
+│   │   ├── ar
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── de
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── en
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── es
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── fr
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── hi
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── id
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── it
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── ja
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── ko
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── nl
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── pl
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── pt
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── ru
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── sv
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── th
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── tr
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── vi
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── zh
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   └── zh-TW
+│   │       ├── index.ts
+│   │       └── manifest.json
+│   ├── registry.json
+│   └── typescript-runtime
+│       ├── index.ts
+│       └── manifest.json
 ├── helper-code.txt
 ├── i18n.sh
 ├── initial_files
@@ -46,6 +123,7 @@
 │   │   ├── fibonacci.py
 │   │   ├── fileOperationg.js
 │   │   ├── index.js
+│   │   ├── math.js
 │   │   └── readline_test.js
 │   ├── text-editor
 │   │   ├── index.html
@@ -66,6 +144,78 @@
 ├── public
 │   ├── apple-touch-icon-precomposed.png
 │   ├── apple-touch-icon.png
+│   ├── extensions
+│   │   ├── README.md
+│   │   ├── _shared
+│   │   │   └── types.js
+│   │   ├── i18n-service
+│   │   │   ├── index.js
+│   │   │   └── manifest.json
+│   │   ├── lang-packs
+│   │   │   ├── ar
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── de
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── en
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── es
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── fr
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── hi
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── id
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── it
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── ja
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── ko
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── nl
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── pl
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── pt
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── ru
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── sv
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── th
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── tr
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── vi
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── zh
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   └── zh-TW
+│   │   │       ├── index.js
+│   │   │       └── manifest.json
+│   │   ├── registry.json
+│   │   └── typescript-runtime
+│   │       ├── index.js
+│   │       └── manifest.json
 │   ├── favicon.ico
 │   ├── favicon.png
 │   ├── file.svg
@@ -91,6 +241,10 @@
 │   │   │   ├── detail.json
 │   │   │   └── welcome.json
 │   │   ├── fr
+│   │   │   ├── common.json
+│   │   │   ├── detail.json
+│   │   │   └── welcome.json
+│   │   ├── hi
 │   │   │   ├── common.json
 │   │   │   ├── detail.json
 │   │   │   └── welcome.json
@@ -134,6 +288,10 @@
 │   │   │   ├── common.json
 │   │   │   ├── detail.json
 │   │   │   └── welcome.json
+│   │   ├── tr
+│   │   │   ├── common.json
+│   │   │   ├── detail.json
+│   │   │   └── welcome.json
 │   │   ├── vi
 │   │   │   ├── common.json
 │   │   │   ├── detail.json
@@ -148,6 +306,7 @@
 │   │       └── welcome.json
 │   ├── manifest.json
 │   ├── sw.js
+│   ├── tsconfig.extensions.tsbuildinfo
 │   ├── web-app-manifest-192x192.png
 │   ├── web-app-manifest-512x512.png
 │   └── window.svg
@@ -218,9 +377,12 @@
 │   │   │   └── TerminalUnixCommands.tsx
 │   │   ├── BottomStatusBar.tsx
 │   │   ├── Confirmation.tsx
+│   │   ├── ExtensionInitializer.tsx
 │   │   ├── FileSelect.tsx
+│   │   ├── KeyComboClient.tsx
 │   │   ├── LanguageSelector.tsx
 │   │   ├── Left
+│   │   │   ├── ExtensionsPanel.tsx
 │   │   │   ├── FileTree.tsx
 │   │   │   ├── GitHistory.tsx
 │   │   │   ├── GitPanel.tsx
@@ -242,6 +404,7 @@
 │   │   │   ├── DiffTab.tsx
 │   │   │   ├── HighlightedCode.tsx
 │   │   │   ├── MarkdownPreviewTab.tsx
+│   │   │   ├── ShortcutKeysTab.tsx
 │   │   │   ├── TabBar.tsx
 │   │   │   ├── WebPreviewTab.tsx
 │   │   │   ├── WelcomeTab.tsx
@@ -273,7 +436,8 @@
 │   │   │   ├── contextBuilder.ts
 │   │   │   ├── diffProcessor.ts
 │   │   │   ├── fetchAI.ts
-│   │   │   └── prompts.ts
+│   │   │   ├── prompts.ts
+│   │   │   └── responseParser.ts
 │   │   ├── cmd
 │   │   │   ├── git.ts
 │   │   │   ├── gitOperations
@@ -335,6 +499,14 @@
 │   │   │   ├── exportRepo.ts
 │   │   │   ├── exportSingleFile.ts
 │   │   │   └── inlineHtmlAssets.ts
+│   │   ├── extensions
+│   │   │   ├── autoInstaller.ts
+│   │   │   ├── extensionLoader.ts
+│   │   │   ├── extensionManager.ts
+│   │   │   ├── extensionRegistry.ts
+│   │   │   ├── index.ts
+│   │   │   ├── storage-adapter.ts
+│   │   │   └── types.ts
 │   │   ├── fileWatcher.ts
 │   │   ├── fileWatcherBridge.ts
 │   │   ├── helper
@@ -344,7 +516,7 @@
 │   │   ├── i18n
 │   │   │   ├── index.ts
 │   │   │   ├── loader.ts
-│   │   │   ├── storage.ts
+│   │   │   ├── storage-adapter.ts
 │   │   │   ├── translator.ts
 │   │   │   └── types.ts
 │   │   ├── import
@@ -362,6 +534,7 @@
 │   │   │       └── utilModule.ts
 │   │   ├── openTab.ts
 │   │   ├── runtime
+│   │   │   ├── extendedBuiltInModules.ts
 │   │   │   ├── moduleCache.ts
 │   │   │   ├── moduleLoader.ts
 │   │   │   ├── moduleResolver.ts
@@ -372,6 +545,8 @@
 │   │   │   ├── runtimeLogger.ts
 │   │   │   ├── transpileManager.ts
 │   │   │   └── transpileWorker.ts
+│   │   ├── storage
+│   │   │   └── index.ts
 │   │   └── user
 │   │       ├── authRepository.ts
 │   │       ├── crypto.ts
@@ -381,13 +556,16 @@
 │   │   │   ├── useAI.ts
 │   │   │   ├── useChatSpace.ts
 │   │   │   └── useInputHistory.ts
+│   │   ├── defaultKeybindings.ts
 │   │   ├── fileSelectHandlers.ts
 │   │   ├── gitHooks.ts
+│   │   ├── keybindingUtils.ts
 │   │   ├── pane.ts
 │   │   ├── tab.ts
 │   │   ├── useAIReview.ts
 │   │   ├── useDiffTabHandlers.ts
 │   │   ├── useGlobalScrollLock.ts
+│   │   ├── useKeyBindings.ts
 │   │   └── useSettings.ts
 │   └── types
 │       ├── git.ts
@@ -400,6 +578,7 @@
 │   ├── __artifacts__
 │   │   ├── math.transformed.ts
 │   │   └── use-math.transformed.ts
+│   ├── aiResponseParser.test.ts
 │   ├── fsRequirePromise.test.ts
 │   ├── gitignore.test.ts
 │   ├── normalizeCjsEsm.imports.test.ts
@@ -412,15 +591,11 @@
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-71 directories, 342 files
+127 directories, 465 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 39863
-合計文字数: 1314150
-合計ファイルサイズ(bytes): 1402596
+合計行数: 43583
+合計文字数: 1420925
+合計ファイルサイズ(bytes): 1518267
 
-開発時のdev container全体のサイズ(bytes): 2.3G	.
-==========
-ビルト済みファイルの行数: 23623
-合計文字数: 27588589
-合計ファイルサイズ(bytes): 28578395
+開発時のdev container全体のサイズ(bytes): 2.2G	.

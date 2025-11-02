@@ -7,6 +7,7 @@ import {
   Play,
   LogIn,
   LogOut,
+  Package,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useState } from 'react';
@@ -100,6 +101,7 @@ export default function MenuBar({
     { id: 'search', label: t('menu.search') },
     { id: 'git', label: t('menu.git') },
     { id: 'run', label: t('menu.run') },
+    { id: 'extensions', label: t('menu.extensions', { fallback: 'Extensions' }) },
     { id: 'settings', label: t('menu.settings') },
   ];
 
@@ -137,7 +139,9 @@ export default function MenuBar({
                   ? GitBranch
                   : id === 'run'
                     ? Play
-                    : Settings;
+                    : id === 'extensions'
+                      ? Package
+                      : Settings;
           const isActive = activeMenuTab === id;
           return (
             <button

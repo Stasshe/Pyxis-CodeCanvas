@@ -131,7 +131,8 @@ export default function ProjectModal({
 
       // git cloneを実行（.gitを含む全ファイルがIndexedDBに同期される）
       // ProjectModalで作成した空プロジェクトのルートに直接クローンするため targetDir='.' を渡す
-      await git.clone(url, '.');
+      // 最大100件まで.gitオブジェクトを読み込む
+      await git.clone(url, '.', { maxGitObjects: 100 });
 
       // プロジェクトを選択して開く
       onProjectSelect(project);

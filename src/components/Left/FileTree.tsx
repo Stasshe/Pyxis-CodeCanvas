@@ -647,7 +647,7 @@ export default function FileTree({
                 } else if (key === 'delete') {
                   const item = menuItem;
                   if (item && currentProjectId) {
-                    await fileRepository.deleteFileRecursiveFast(item.id);
+                    await fileRepository.deleteFile(item.id);
                     if (onRefresh) setTimeout(onRefresh, 100);
                   }
                 } else if (key === 'webPreview') {

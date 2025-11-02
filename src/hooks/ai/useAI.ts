@@ -9,6 +9,11 @@ import { LOCALSTORAGE_KEY } from '@/context/config';
 import { getSelectedFileContexts } from '@/engine/ai/contextBuilder';
 import { generateCodeEdit, generateChatResponse } from '@/engine/ai/fetchAI';
 import { EDIT_PROMPT_TEMPLATE, ASK_PROMPT_TEMPLATE } from '@/engine/ai/prompts';
+import {
+  parseEditResponse,
+  extractFilePathsFromResponse,
+  validateResponse,
+} from '@/engine/ai/responseParser';
 import type { AIFileContext, AIEditResponse, ChatSpaceMessage } from '@/types';
 
 interface UseAIProps {
@@ -111,15 +116,30 @@ export function useAI(props?: UseAIProps) {
           const prompt = EDIT_PROMPT_TEMPLATE(selectedFiles, content, previousMessages);
           const response = await generateCodeEdit(prompt, apiKey);
 
+          // レスポンスのバリデーション
+          const validation = validateResponse(response);
+          if (!validation.isValid) {
+            console.warn('[useAI] Response validation errors:', validation.errors);
+          }
+          if (validation.warnings.length > 0) {
+            console.warn('[useAI] Response validation warnings:', validation.warnings);
+          }
+
           // レスポンスをパース
           const allOriginalFiles = [
             ...selectedFiles,
-            ...extractNewFilePathsFromResponse(
-              response,
-              selectedFiles.map(f => f.path)
-            ).map(path => ({ path, content: '' })),
+            ...extractFilePathsFromResponse(response).map((path: string) => ({
+              path,
+              content: '',
+            })),
           ];
-          const editResponse = parseEditResponse(response, allOriginalFiles);
+          const parseResult = parseEditResponse(response, allOriginalFiles);
+
+          // AIEditResponse形式に変換
+          const editResponse: AIEditResponse = {
+            changedFiles: parseResult.changedFiles,
+            message: parseResult.message,
+          };
 
           // 詳細メッセージを生成
           let detailedMessage = editResponse.message;
@@ -191,97 +211,4 @@ export function useAI(props?: UseAIProps) {
   };
 }
 
-// 新規ファイルパスを抽出
-function extractNewFilePathsFromResponse(
-  response: string,
-  _selectedPaths: string[] = []
-): string[] {
-  // Simpler, more robust rule: any file that appears in a <AI_EDIT_CONTENT_START:...> block
-  // will be treated as a candidate new file. The parse step that receives the list
-  // (`parseEditResponse`) will match these candidates against the provided original
-  // files and only add changedFiles when appropriate. This ensures that even when
-  // the response omits explicit "新規" keywords, we still consider the AI's
-  // file blocks for creation.
-  const fileBlockPattern = /<AI_EDIT_CONTENT_START:(.+?)>/g;
-  const foundPaths: string[] = [];
 
-  let match;
-  while ((match = fileBlockPattern.exec(response)) !== null) {
-    const filePath = match[1].trim();
-    if (filePath) {
-      foundPaths.push(filePath);
-    }
-  }
-  return foundPaths;
-}
-
-// AI編集レスポンスをパース
-function parseEditResponse(
-  response: string,
-  originalFiles: Array<{ path: string; content: string }>
-): AIEditResponse {
-  const changedFiles: AIEditResponse['changedFiles'] = [];
-  let message = '';
-
-  const normalizePath = (path: string) => path.replace(/^\/|\/$/g, '').toLowerCase();
-
-  const fileBlockPattern =
-    /<AI_EDIT_CONTENT_START:(.+?)>\s*\n([\s\S]*?)\n\s*<AI_EDIT_CONTENT_END:\1>/g;
-  const reasonPattern =
-    /##\s*変更ファイル:\s*(.+?)\n+\*\*変更理由\*\*:\s*(.+?)(?=\n\s*<AI_EDIT_CONTENT_START:)/g;
-
-  const reasonMatches = [...response.matchAll(reasonPattern)];
-
-  let match;
-  while ((match = fileBlockPattern.exec(response)) !== null) {
-    const filePathFromTag = match[1].trim();
-    const suggestedContent = match[2];
-
-    const reasonMatch = reasonMatches.find(r => r[1].trim() === filePathFromTag);
-    const explanation = reasonMatch ? reasonMatch[2].trim() : 'No explanation provided';
-
-    const normalizedFilePath = normalizePath(filePathFromTag);
-    const originalFile = originalFiles.find(f => normalizePath(f.path) === normalizedFilePath);
-
-    if (originalFile) {
-      changedFiles.push({
-        path: originalFile.path,
-        originalContent: originalFile.content,
-        suggestedContent,
-        explanation,
-      });
-    }
-  }
-
-  let cleaned = response.replace(
-    /<AI_EDIT_CONTENT_START:[^>]+>[\s\S]*?<AI_EDIT_CONTENT_END:[^>]+>/g,
-    ''
-  );
-  cleaned = cleaned
-    .replace(/^##\s*変更ファイル:.*$/gm, '')
-    .replace(/^\*\*変更理由\*\*:.+$/gm, '')
-    .replace(/^---$/gm, '');
-  message = cleaned.trim();
-
-  // messageが空、または10文字未満でも、changedFilesが1件以上あれば必ず編集提案メッセージを返す
-  if (changedFiles.length > 0 && (!message || message.replace(/\s/g, '').length < 10)) {
-    message = `${changedFiles.length}個のファイルの編集を提案しました。`;
-  } else if (!message || message.replace(/\s/g, '').length < 10) {
-    // 解析に失敗した場合はユーザがデバッグできるように raw のレスポンスを
-    // メッセージの下にコードブロックとして追加する
-    const failureNote = 'レスポンスの解析に失敗しました。プロンプトを調整してください。';
-
-    // triple-backtick がレスポンス内にあるとコードブロックが壊れるため、
-    // 0-width space を挿入して中断する（視認上は変わらない）
-    const safeResponse = response.replace(/```/g, '```' + '\u200B');
-
-    const rawBlock = `\n\n---\n\nRaw response:\n\n\`\`\`text\n${safeResponse}\n\`\`\``;
-
-    message = failureNote + rawBlock;
-  }
-
-  return {
-    changedFiles,
-    message,
-  };
-}

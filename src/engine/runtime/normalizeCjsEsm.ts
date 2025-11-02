@@ -1,5 +1,5 @@
 /**
- * import/export/requireの簡易CJS/ESM変換
+ * import/export/requireの超速CJS/ESM変換
  */
 export function normalizeCjsEsm(code: string): string {
   // Protect `import.meta` and dynamic `import(...)` from accidental transforms by

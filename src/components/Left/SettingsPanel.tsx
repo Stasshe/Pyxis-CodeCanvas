@@ -6,7 +6,6 @@ import type { Project } from '@/types';
 import { settingsManager } from '@/engine/helper/settingsManager';
 import type { PyxisSettings } from '@/types/settings';
 import { LOCALSTORAGE_KEY } from '@/context/config';
-import LanguageSelector from '@/components/LanguageSelector';
 import { useTranslation } from '@/context/I18nContext';
 
 interface SettingsPanelProps {
@@ -263,16 +262,6 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject, onOpenSho
                 </option>
               ))}
             </select>
-          </div>
-
-          <div>
-            <label
-              className="block text-xs mb-1.5"
-              style={{ color: colors.foreground }}
-            >
-              {t('settingsPanel.theme.language')}
-            </label>
-            <LanguageSelector />
           </div>
 
           <div>

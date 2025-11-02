@@ -110,7 +110,7 @@ export class GitCommands {
   async clone(
     url: string,
     targetDir?: string,
-    options: { skipDotGit?: boolean } = {}
+    options: { skipDotGit?: boolean; maxGitObjects?: number } = {}
   ): Promise<string> {
     return this.executeGitOperation(async () => {
       // URLの妥当性を簡易チェック
@@ -160,6 +160,8 @@ export class GitCommands {
 
       // リポジトリをクローン
       try {
+        // コミット履歴の深さを制限（これによりgitオブジェクトの取得数も制限される）
+        const depth = options.maxGitObjects ?? 10;
         await git.clone({
           fs: this.fs,
           http,
@@ -167,7 +169,7 @@ export class GitCommands {
           url,
           corsProxy: 'https://cors.isomorphic-git.org',
           singleBranch: true,
-          depth: 10, //全部取得したら死ぬ
+          depth,
           onAuth: url => {
             if (authRepository && typeof authRepository.getAccessToken === 'function') {
               return authRepository.getAccessToken().then(token => {
@@ -1128,23 +1130,25 @@ export class GitCommands {
           filepath: normalizedPath,
         });
 
+        // 親ディレクトリを確認し、存在しなければ作成
+        const parentDir = normalizedPath.substring(0, normalizedPath.lastIndexOf('/'));
+        if (parentDir) {
+          const fullParentPath = `${this.dir}/${parentDir}`;
+          await GitFileSystemHelper.ensureDirectory(this.fs, fullParentPath);
+        }
+
         // ファイルをワーキングディレクトリに書き戻す
         await this.fs.promises.writeFile(`${this.dir}/${normalizedPath}`, blob);
 
-        // IndexedDBにも同期
+        // IndexedDBにも同期（親フォルダも作成）- fileRepository.createFile を使用
         const content =
           typeof blob === 'string' ? blob : new TextDecoder().decode(blob as Uint8Array);
-        await fileRepository.saveFile({
-          id: '', // 既存のファイルを検索して更新
-          projectId: this.projectId,
-          path: `/${normalizedPath}`,
-          name: normalizedPath.split('/').pop() || '',
-          content,
-          type: 'file',
-          parentPath: `/${normalizedPath.substring(0, normalizedPath.lastIndexOf('/'))}` || '/',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        });
+        
+        const filePath = `/${normalizedPath}`;
+        
+        // createFile は自動的に親ディレクトリを作成し、既存ファイルの場合は更新する
+        // これにより、fileRepository の体系的なエラーハンドリングとイベントシステムを活用できる
+        await fileRepository.createFile(this.projectId, filePath, content, 'file');
 
         if (!fileExists) {
           return `Restored deleted file ${filepath}`;

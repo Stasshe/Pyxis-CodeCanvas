@@ -40,6 +40,24 @@ export async function deleteTranslationCache(locale: Locale, namespace: string):
 }
 
 /**
+ * 特定のロケールの全ての翻訳キャッシュを削除
+ */
+export async function deleteAllTranslationCacheForLocale(locale: Locale): Promise<void> {
+  // 一般的なnamespaceをすべて削除
+  const commonNamespaces = ['common', 'welcome', 'detail'];
+  
+  for (const namespace of commonNamespaces) {
+    try {
+      await deleteTranslationCache(locale, namespace);
+    } catch (error) {
+      console.error(`[i18n-storage] Failed to delete cache for ${locale}-${namespace}:`, error);
+    }
+  }
+  
+  console.log(`[i18n-storage] Deleted all translation cache for locale: ${locale}`);
+}
+
+/**
  * 全ての翻訳キャッシュをクリア
  */
 export async function clearAllTranslationCache(): Promise<void> {

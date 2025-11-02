@@ -3,9 +3,10 @@
   "version": "0.9.2",
   "private": true,
   "scripts": {
-    "dev": "node initial_files_to_ts.js && next dev --turbopack",
-    "build": "node initial_files_to_ts.js && next build",
-    "start": "node initial_files_to_ts.js && next start",
+    "dev": "npm run setup-build && next dev --turbopack",
+    "build": "npm run setup-build && next build",
+    "start": "npm run setup-build && next start",
+    "setup-build": "node initial_files_to_ts.js && node build-extensions.js && cp extensions/registry.json public/extensions/registry.json",
     "format": "bash scripts/format_locales.sh && prettier --write src/**/*.ts src/**/*.tsx",
     "lint": "eslint --cache --ext .ts,.tsx,.js,.jsx . --max-warnings=0",
     "lint:fix": "eslint --cache --ext .ts,.tsx,.js,.jsx . --fix",

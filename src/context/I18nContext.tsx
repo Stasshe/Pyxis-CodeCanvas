@@ -1,6 +1,10 @@
 /**
  * i18n Context Provider
  * グローバルなi18n状態管理
+ *
+ * 言語パック拡張機能と連携:
+ * - 有効化された言語パック拡張機能のみが使用可能
+ * - ユーザーが言語を切り替えるには、対応する言語パック拡張機能を有効化する必要がある
  */
 
 'use client';
@@ -13,26 +17,48 @@ import type {
   TranslateOptions,
 } from '@/engine/i18n/types';
 import { isSupportedLocale } from '@/engine/i18n/types';
-import { loadTranslations, preloadTranslations } from '@/engine/i18n/loader';
+import { loadTranslations, clearAllCacheForLocale } from '@/engine/i18n/loader';
 import { createTranslator } from '@/engine/i18n/translator';
 import { cleanExpiredCache } from '@/engine/i18n/storage-adapter';
 import { DEFAULT_LOCALE, LOCALSTORAGE_KEY } from './config';
+import { extensionManager } from '@/engine/extensions/extensionManager';
 
 const I18nContext = createContext<I18nContextValue | undefined>(undefined);
 
 const LOCALE_STORAGE_KEY = LOCALSTORAGE_KEY.LOCALE;
 
 /**
+ * 有効化された言語パック拡張機能から利用可能な言語を取得
+ */
+function getEnabledLocales(): Set<string> {
+  const langPacks = extensionManager.getEnabledLanguagePacks();
+  return new Set(langPacks.map(pack => pack.locale));
+}
+
+/**
  * ブラウザの言語設定から推奨ロケールを取得
+ * 有効化された言語パック拡張機能の中から選択
  */
 function detectBrowserLocale(): Locale {
   if (typeof navigator === 'undefined') return DEFAULT_LOCALE;
 
   const browserLang = navigator.language.split('-')[0].toLowerCase();
+  const enabledLocales = getEnabledLocales();
 
-  // サポートされている言語かチェック（ランタイム）
-  if (isSupportedLocale(browserLang)) {
+  // 有効化された言語パックの中にブラウザ言語があるかチェック
+  if (enabledLocales.has(browserLang) && isSupportedLocale(browserLang)) {
     return browserLang as Locale;
+  }
+
+  // 有効化された言語パックの中にデフォルト言語があるかチェック
+  if (enabledLocales.has(DEFAULT_LOCALE)) {
+    return DEFAULT_LOCALE;
+  }
+
+  // どれもなければ、有効化された最初の言語パックを使用
+  const firstEnabled = Array.from(enabledLocales)[0];
+  if (firstEnabled && isSupportedLocale(firstEnabled)) {
+    return firstEnabled as Locale;
   }
 
   return DEFAULT_LOCALE;
@@ -40,6 +66,7 @@ function detectBrowserLocale(): Locale {
 
 /**
  * localStorageから保存されたロケールを取得
+ * 有効化された言語パック拡張機能の中から選択
  */
 function getSavedLocale(): Locale | null {
   if (typeof localStorage === 'undefined') return null;
@@ -47,7 +74,26 @@ function getSavedLocale(): Locale | null {
   try {
     const saved = localStorage.getItem(LOCALE_STORAGE_KEY);
     if (saved && isSupportedLocale(saved)) {
-      return saved as Locale;
+      // 保存された言語が有効化された言語パックの中にあるかチェック
+      const enabledLocales = getEnabledLocales();
+      if (enabledLocales.has(saved)) {
+        return saved as Locale;
+      }
+      console.warn(`[i18n] Saved locale '${saved}' is not enabled. Trying related locales...`);
+
+      // 関連するロケールを試す (e.g., 'zh' if 'zh-TW' is not available)
+      const baseLocale = saved.split('-')[0];
+      if (baseLocale !== saved && enabledLocales.has(baseLocale)) {
+        console.log(`[i18n] Falling back to related locale: ${baseLocale}`);
+        return baseLocale as Locale;
+      }
+
+      // zh -> zh-TW のパターンも試す
+      const variants = Array.from(enabledLocales).filter(loc => loc.startsWith(baseLocale));
+      if (variants.length > 0) {
+        console.log(`[i18n] Falling back to related locale variant: ${variants[0]}`);
+        return variants[0] as Locale;
+      }
     }
   } catch (error) {
     console.error('[i18n] Failed to get saved locale:', error);
@@ -90,14 +136,7 @@ export function I18nProvider({ children, defaultLocale }: I18nProviderProps) {
     setIsLoading(true);
     const namespaces = ['common', 'welcome', 'detail'];
     try {
-      // Load multiple namespaces that components expect to access.
-      // WelcomeTab uses `welcome.*` keys stored in `welcome.json`, while
-      // most UI strings live in `common.json`.
-
       const results = await Promise.all(namespaces.map(ns => loadTranslations(newLocale, ns)));
-
-      // Merge namespace objects into a single translations object. Later namespaces
-      // will override earlier keys if they clash (not expected here).
       const merged = Object.assign({}, ...results);
 
       setTranslations(merged);
@@ -125,10 +164,21 @@ export function I18nProvider({ children, defaultLocale }: I18nProviderProps) {
 
   /**
    * ロケール変更ハンドラ
+   * 有効化された言語パック拡張機能のみを許可
    */
   const setLocale = useCallback(
     async (newLocale: Locale) => {
       if (newLocale === locale) return;
+
+      // 有効化された言語パックの中にあるかチェック
+      const enabledLocales = getEnabledLocales();
+      if (!enabledLocales.has(newLocale)) {
+        console.error(
+          `[i18n] Cannot set locale '${newLocale}'. Language pack extension is not enabled.`
+        );
+        return;
+      }
+
       await loadLocale(newLocale);
     },
     [locale, loadLocale]
@@ -144,11 +194,77 @@ export function I18nProvider({ children, defaultLocale }: I18nProviderProps) {
       }
 
       const translator = createTranslator(translations);
-      // translator expects a TranslationKey; cast here after runtime checks
       return translator(key as TranslationKey, options);
     },
     [translations, isLoading]
   );
+
+  /**
+   * 拡張機能の変更を監視（言語パックの有効化/無効化/アンインストールに対応）
+   */
+  useEffect(() => {
+    const unsubscribe = extensionManager.addChangeListener(event => {
+      // 言語パック拡張機能の変更の場合
+      if (event.manifest?.onlyOne === 'lang-pack') {
+        const eventLocale = event.manifest.id.replace('pyxis.lang.', '');
+
+        if (event.type === 'enabled') {
+          // 言語パックが有効化された場合、その言語に自動的に切り替え
+          if (isSupportedLocale(eventLocale)) {
+            loadLocale(eventLocale as Locale);
+          }
+        } else if (event.type === 'disabled') {
+          // 無効化された場合、現在の言語がそれなら切り替え
+          if (eventLocale === locale) {
+            // インストール済みの言語パックの中から適当に選んで切り替え
+            extensionManager
+              .getInstalledExtensions()
+              .then(installed => {
+                const installedLangPacks = installed.filter(
+                  ext =>
+                    ext.manifest &&
+                    ext.manifest.onlyOne === 'lang-pack' &&
+                    ext.manifest.id !== event.manifest?.id
+                );
+
+                if (installedLangPacks.length > 0) {
+                  // 最初のインストール済み言語パックを有効化
+                  const nextLangPack = installedLangPacks[0];
+                  extensionManager.enableExtension(nextLangPack.manifest.id);
+                } else {
+                  // インストール済みの言語パックがない場合、英語パックをインストール・有効化
+                  extensionManager
+                    .installExtension('/extensions/lang-packs/en/manifest.json')
+                    .then(installed => {
+                      if (installed) {
+                        return extensionManager.enableExtension('pyxis.lang.en');
+                      }
+                    })
+                    .catch(err => {
+                      console.error('[i18n] Failed to install/enable English pack:', err);
+                      // 最終フォールバック: 直接ロード
+                      if (isSupportedLocale('en')) {
+                        loadLocale('en' as Locale);
+                      }
+                    });
+                }
+              })
+              .catch(err => {
+                console.error('[i18n] Failed to switch language pack:', err);
+              });
+          }
+        } else if (event.type === 'uninstalled') {
+          // アンインストール時はキャッシュをクリア
+          if (isSupportedLocale(eventLocale)) {
+            clearAllCacheForLocale(eventLocale as Locale).catch(err => {
+              console.error(`[i18n] Failed to clear cache for locale '${eventLocale}':`, err);
+            });
+          }
+        }
+      }
+    });
+    return unsubscribe;
+  }, [locale, loadLocale]);
 
   /**
    * 初回マウント時の処理

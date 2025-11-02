@@ -2,19 +2,19 @@
  * [NEW ARCHITECTURE] Transpile Manager
  *
  * ## 役割
- * - Web Workerの管理
- * - トランスパイルリクエストのキューイング
- * - 結果の返却
- * - Workerプールの管理（将来実装）
+ * - 拡張機能システムと統合したトランスパイル管理
+ * - トランスパイル機能は全て拡張機能から提供
+ * - フォールバックなし: 拡張機能がなければエラー
  *
  * ## 設計方針
- * - 各トランスパイルは独立したWorkerで実行
- * - 完了後、即座にWorkerを終了してメモリ解放
+ * - 拡張機能のtranspilerを使用（TypeScript, JSX等）
+ * - 拡張機能未インストールの場合は明確なエラーを返す
  * - メインスレッドをブロックしない
  */
 
 import { runtimeInfo, runtimeWarn, runtimeError } from './runtimeLogger';
-import type { TranspileRequest, TranspileResult } from './transpileWorker';
+import type { TranspileResult } from './transpileWorker';
+import { extensionManager } from '@/engine/extensions/extensionManager';
 
 /**
  * トランスパイルオプション
@@ -35,76 +35,76 @@ export class TranspileManager {
 
   /**
    * コードをトランスパイル
+   * 
+   * 拡張機能のtranspilerを使用。
+   * 対応する拡張機能がない場合はエラーを投げる。
    */
   async transpile(options: TranspileOptions): Promise<TranspileResult> {
-    return new Promise((resolve, reject) => {
-      const id = `transpile_${++this.requestId}_${Date.now()}`;
-
-      // Workerを作成
-      const worker = new Worker(new URL('./transpileWorker.ts', import.meta.url), {
-        type: 'module',
-      });
-
-      // タイムアウト設定（30秒）
-      const timeout = setTimeout(() => {
-        worker.terminate();
-        reject(new Error(`Transpile timeout: ${options.filePath}`));
-      }, 30000);
-
-      // メッセージハンドラ
-      worker.onmessage = (event: MessageEvent<TranspileResult | { type: string }>) => {
-        const data = event.data as any;
-
-        // Worker からのログメッセージを中継
-        if (data && data.type === 'log') {
-          const level = data.level || 'info';
-          const msg = data.message || '';
-          if (level === 'error') runtimeError(msg);
-          else if (level === 'warn') runtimeWarn(msg);
-          else runtimeInfo(msg);
-          return;
+    const id = `transpile_${++this.requestId}_${Date.now()}`;
+    
+    // 有効な拡張機能を取得
+    const activeExtensions = extensionManager.getActiveExtensions();
+    
+    // transpiler機能を持つ拡張機能を探す
+    for (const ext of activeExtensions) {
+      if (ext.activation.runtimeFeatures?.transpiler) {
+        try {
+          runtimeInfo(`🔌 Using extension transpiler: ${ext.manifest.id}`);
+          
+          const result = await ext.activation.runtimeFeatures.transpiler(options.code, {
+            filePath: options.filePath,
+            isTypeScript: options.isTypeScript,
+            isJSX: options.isJSX,
+          });
+          
+          // 拡張機能が依存関係を返す場合はそれを使用、なければフォールバック
+          const deps = (result as any).dependencies || this.extractDependencies(result.code);
+          
+          return {
+            id,
+            code: result.code,
+            sourceMap: (result as any).map,
+            dependencies: deps,
+          };
+        } catch (error) {
+          runtimeError(`❌ Extension transpiler failed: ${ext.manifest.id}`, error);
+          throw error;
         }
+      }
+    }
+    
+    // 拡張機能が見つからない
+    const errorMsg = `No transpiler extension found. Please install a compatible transpiler extension.`;
+    runtimeError(errorMsg);
+    throw new Error(errorMsg);
+  }
 
-        // 初期化メッセージは無視
-        if (data && data.type === 'ready') {
-          return;
-        }
+  /**
+   * コードから依存関係を抽出
+   */
+  private extractDependencies(code: string): string[] {
+    const dependencies = new Set<string>();
 
-        clearTimeout(timeout);
+    // require('module') パターン
+    const requireRegex = /require\s*\(\s*['"]([^'\"]+)['"]\s*\)/g;
+    let match;
+    while ((match = requireRegex.exec(code)) !== null) {
+      dependencies.add(match[1]);
+    }
 
-        const result = data as TranspileResult;
+    // import ... from 'module' パターン
+    const importRegex = /import\s+.*?\s+from\s+['"]([^'\"]+)['"]/g;
+    while ((match = importRegex.exec(code)) !== null) {
+      dependencies.add(match[1]);
+    }
 
-        if (result.error) {
-          reject(new Error(result.error));
-        } else {
-          resolve(result);
-        }
+    // import('module') 動的インポート
+    const dynamicImportRegex = /import\s*\(\s*['"]([^'\"]+)['"]\s*\)/g;
+    while ((match = dynamicImportRegex.exec(code)) !== null) {
+      dependencies.add(match[1]);
+    }
 
-        // Workerは自動的に終了するが、念のため
-        worker.terminate();
-      };
-
-      // エラーハンドラ
-      worker.onerror = error => {
-        clearTimeout(timeout);
-        worker.terminate();
-        reject(new Error(`Worker error: ${error.message}`));
-      };
-
-      // リクエストを送信
-      const request: TranspileRequest = {
-        id,
-        code: options.code,
-        filePath: options.filePath,
-        options: {
-          isTypeScript: options.isTypeScript ?? false,
-          isESModule: options.isESModule ?? false,
-          isJSX: options.isJSX ?? false,
-        },
-      };
-
-      worker.postMessage(request);
-    });
+    return Array.from(dependencies);
   }
 
   /**

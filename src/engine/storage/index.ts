@@ -18,7 +18,7 @@
  */
 
 const DB_NAME = 'pyxis-global';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // extensionsストア追加のためバージョンアップ
 
 /**
  * ストアの定義
@@ -28,6 +28,7 @@ export const STORES = {
   TRANSLATIONS: 'translations', // i18n翻訳データ
   KEYBINDINGS: 'keybindings', // ショートカットキー設定
   USER_PREFERENCES: 'user_preferences', // ユーザー設定
+  EXTENSIONS: 'extensions', // 拡張機能データ
 } as const;
 
 export type StoreName = (typeof STORES)[keyof typeof STORES];
@@ -124,6 +125,7 @@ class PyxisStorage {
 
       request.onupgradeneeded = event => {
         const db = (event.target as IDBOpenDBRequest).result;
+        const oldVersion = event.oldVersion;
 
         // 各ストアを作成
         for (const storeName of Object.values(STORES)) {
@@ -131,10 +133,11 @@ class PyxisStorage {
             const store = db.createObjectStore(storeName, { keyPath: 'id' });
             store.createIndex('timestamp', 'timestamp', { unique: false });
             store.createIndex('expiresAt', 'expiresAt', { unique: false });
+            console.log(`[PyxisStorage] Created store: ${storeName}`);
           }
         }
 
-        console.log('[PyxisStorage] Database upgraded to version', DB_VERSION);
+        console.log(`[PyxisStorage] Database upgraded from version ${oldVersion} to ${DB_VERSION}`);
       };
     });
 
