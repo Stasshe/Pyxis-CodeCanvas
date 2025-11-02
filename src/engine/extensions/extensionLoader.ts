@@ -24,7 +24,7 @@ export async function fetchExtensionManifest(
 ): Promise<ExtensionManifest | null> {
   try {
     const url = manifestUrl.startsWith('/')
-      ? manifestUrl
+      ? (process.env.NEXT_PUBLIC_BASE_PATH || '') + manifestUrl
       : `${EXTENSIONS_BASE_URL}/${manifestUrl}`;
 
     extensionInfo(`Fetching manifest from: ${url}`);
