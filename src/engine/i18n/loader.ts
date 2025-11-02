@@ -94,3 +94,17 @@ export function clearMemoryCacheForLocale(locale: Locale): void {
   keysToDelete.forEach(key => memoryCache.delete(key));
   console.log(`[i18n-loader] Cleared ${keysToDelete.length} entries for locale '${locale}'`);
 }
+
+/**
+ * 特定のロケールの全てのキャッシュ（メモリ + IndexedDB）をクリア
+ */
+export async function clearAllCacheForLocale(locale: Locale): Promise<void> {
+  // メモリキャッシュをクリア
+  clearMemoryCacheForLocale(locale);
+  
+  // IndexedDBキャッシュをクリア
+  const { deleteAllTranslationCacheForLocale } = await import('./storage-adapter');
+  await deleteAllTranslationCacheForLocale(locale);
+  
+  console.log(`[i18n-loader] Cleared all cache (memory + IndexedDB) for locale '${locale}'`);
+}
