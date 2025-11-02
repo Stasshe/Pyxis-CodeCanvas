@@ -7,6 +7,9 @@
 │   ├── Tauri-Setup.md
 │   ├── ai-agent-implementation-plan.md
 │   ├── all-flow.svg
+│   ├── docs
+│   │   ├── STORAGE-KEYBINDINGS.md
+│   │   └── en
 │   └── git-deletion-detection-analysis.md
 ├── FreeAPIGenerativeAI-Model.md
 ├── LICENSE
@@ -46,6 +49,7 @@
 │   │   ├── fibonacci.py
 │   │   ├── fileOperationg.js
 │   │   ├── index.js
+│   │   ├── math.js
 │   │   └── readline_test.js
 │   ├── text-editor
 │   │   ├── index.html
@@ -94,6 +98,10 @@
 │   │   │   ├── common.json
 │   │   │   ├── detail.json
 │   │   │   └── welcome.json
+│   │   ├── hi
+│   │   │   ├── common.json
+│   │   │   ├── detail.json
+│   │   │   └── welcome.json
 │   │   ├── id
 │   │   │   ├── common.json
 │   │   │   ├── detail.json
@@ -131,6 +139,10 @@
 │   │   │   ├── detail.json
 │   │   │   └── welcome.json
 │   │   ├── th
+│   │   │   ├── common.json
+│   │   │   ├── detail.json
+│   │   │   └── welcome.json
+│   │   ├── tr
 │   │   │   ├── common.json
 │   │   │   ├── detail.json
 │   │   │   └── welcome.json
@@ -242,6 +254,7 @@
 │   │   │   ├── DiffTab.tsx
 │   │   │   ├── HighlightedCode.tsx
 │   │   │   ├── MarkdownPreviewTab.tsx
+│   │   │   ├── ShortcutKeysTab.tsx
 │   │   │   ├── TabBar.tsx
 │   │   │   ├── WebPreviewTab.tsx
 │   │   │   ├── WelcomeTab.tsx
@@ -344,7 +357,7 @@
 │   │   ├── i18n
 │   │   │   ├── index.ts
 │   │   │   ├── loader.ts
-│   │   │   ├── storage.ts
+│   │   │   ├── storage-adapter.ts
 │   │   │   ├── translator.ts
 │   │   │   └── types.ts
 │   │   ├── import
@@ -372,6 +385,8 @@
 │   │   │   ├── runtimeLogger.ts
 │   │   │   ├── transpileManager.ts
 │   │   │   └── transpileWorker.ts
+│   │   ├── storage
+│   │   │   └── index.ts
 │   │   └── user
 │   │       ├── authRepository.ts
 │   │       ├── crypto.ts
@@ -381,13 +396,16 @@
 │   │   │   ├── useAI.ts
 │   │   │   ├── useChatSpace.ts
 │   │   │   └── useInputHistory.ts
+│   │   ├── defaultKeybindings.ts
 │   │   ├── fileSelectHandlers.ts
 │   │   ├── gitHooks.ts
+│   │   ├── keybindingUtils.ts
 │   │   ├── pane.ts
 │   │   ├── tab.ts
 │   │   ├── useAIReview.ts
 │   │   ├── useDiffTabHandlers.ts
 │   │   ├── useGlobalScrollLock.ts
+│   │   ├── useKeyBindings.ts
 │   │   └── useSettings.ts
 │   └── types
 │       ├── git.ts
@@ -412,15 +430,15 @@
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-71 directories, 342 files
+76 directories, 355 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 39863
-合計文字数: 1314150
-合計ファイルサイズ(bytes): 1402596
+合計行数: 41741
+合計文字数: 1370074
+合計ファイルサイズ(bytes): 1461953
 
-開発時のdev container全体のサイズ(bytes): 2.3G	.
+開発時のdev container全体のサイズ(bytes): 2.2G	.
 ==========
-ビルト済みファイルの行数: 23623
-合計文字数: 27588589
-合計ファイルサイズ(bytes): 28578395
+ビルト済みファイルの行数: 24460
+合計文字数: 27809303
+合計ファイルサイズ(bytes): 28810402
