@@ -13,7 +13,7 @@ import type {
 /**
  * 拡張機能のベースURL（public/extensions/）
  */
-const EXTENSIONS_BASE_URL = '/extensions';
+const EXTENSIONS_BASE_URL = (process.env.NEXT_PUBLIC_BASE_PATH || '') + '/extensions';
 
 /**
  * 拡張機能のマニフェストを取得
