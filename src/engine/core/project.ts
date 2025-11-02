@@ -182,7 +182,9 @@ export const useProject = () => {
     console.log('[Project] Saving file:', path);
     try {
       await fileRepository.init();
-      const existingFile = projectFiles.find(f => f.path === path);
+      // Always fetch fresh file data from fileRepository (same as Terminal does)
+      const files = await fileRepository.getProjectFiles(currentProject.id);
+      const existingFile = files.find(f => f.path === path);
       if (existingFile) {
         const updatedFile = { ...existingFile, content, updatedAt: new Date() };
         await fileRepository.saveFile(updatedFile);

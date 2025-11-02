@@ -9,6 +9,7 @@ import { useChatSpace } from '@/hooks/ai/useChatSpace';
 import { useAI } from '@/hooks/ai/useAI';
 import { useAIReview } from '@/hooks/useAIReview';
 import { buildAIFileContextList } from '@/engine/ai/contextBuilder';
+import { fileRepository } from '@/engine/core/fileRepository';
 import { LOCALSTORAGE_KEY } from '@/context/config';
 import ChatContainer from './chat/ChatContainer';
 import ChatInput from './chat/ChatInput';
@@ -29,7 +30,6 @@ interface AIPanelProps {
   setActiveTabId: (id: string) => void;
   saveFile: (filePath: string, content: string) => Promise<void>;
   clearAIReview: (filePath: string) => Promise<void>;
-  setTabsForAllPanes: (update: Tab[] | ((tabs: Tab[]) => Tab[])) => void;
 }
 
 export default function AIPanel({
@@ -40,7 +40,6 @@ export default function AIPanel({
   setActiveTabId,
   saveFile,
   clearAIReview,
-  setTabsForAllPanes,
 }: AIPanelProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
@@ -168,44 +167,47 @@ export default function AIPanel({
   };
 
   // 変更を適用（suggestedContent -> contentへコピー）
+  // Terminalと同じアプローチ：fileRepositoryに保存し、イベントシステムに任せる
   const handleApplyChanges = async (filePath: string, newContent: string) => {
     if (!currentProject) return;
 
     try {
-      // 1) Save file first
-      await saveFile(filePath, newContent);
-
-      // 2) Immediately update all open tabs with the same file path to ensure instant reflection
-      // This ensures that any editor tabs showing this file get updated content immediately
-      // Use setTabsForAllPanes to update tabs across all panes
-      const updateFn = (prevTabs: Tab[]) => {
-        return prevTabs.map((tab: Tab) => {
-          if (tab.path === filePath && !tab.aiReviewProps) {
-            return {
-              ...tab,
-              content: newContent,
-              isDirty: false,
-            };
-          }
-          return tab;
-        });
-      };
-
-      // Update all panes
-      setTabsForAllPanes(updateFn);
-
-      // 3) Close any open review tab for this file so editor state updates immediately
-      closeAIReviewTab(filePath, setTabs, tabs);
-
-      // 4) Clear AI review metadata for this file. Do this after updating
-      // the chat so the edit response update remains the latest visible state.
-      try {
-        await clearAIReview(filePath);
-      } catch (e) {
-        console.warn('[AIPanel] clearAIReview failed after apply:', e);
+      console.log('[AIPanel] Applying changes to:', filePath);
+      
+      // fileRepositoryに直接保存（Terminalと同じ）
+      // これにより、fileRepository.emitChange → useActiveTabContentRestore → タブ更新
+      await fileRepository.init();
+      const files = await fileRepository.getProjectFiles(currentProject.id);
+      const existingFile = files.find(f => f.path === filePath);
+      
+      if (existingFile) {
+        const updatedFile = {
+          ...existingFile,
+          content: newContent,
+          updatedAt: new Date(),
+        };
+        await fileRepository.saveFile(updatedFile);
+        console.log('[AIPanel] File saved (event system will update all tabs)');
+      } else {
+        // ファイルが存在しない場合は作成
+        await fileRepository.createFile(currentProject.id, filePath, newContent, 'file');
+        console.log('[AIPanel] File created (event system will update all tabs)');
       }
+
+      // レビュータブを閉じる（非同期タイミング問題を避けるため、少し待つ）
+      setTimeout(() => {
+        closeAIReviewTab(filePath, setTabs, tabs);
+      }, 100);
+
+      // AIレビューメタデータをクリア（非同期・エラー無視）
+      clearAIReview(filePath).catch(e => {
+        console.warn('[AIPanel] clearAIReview failed (non-critical):', e);
+      });
+
+      // Note: タブのcontentは fileRepository.emitChange → useActiveTabContentRestore
+      // により自動的に更新される。手動更新は不要。
     } catch (error) {
-      console.error('Failed to apply changes:', error);
+      console.error('[AIPanel] Failed to apply changes:', error);
       alert(`変更の適用に失敗しました: ${(error as Error).message}`);
     }
   };

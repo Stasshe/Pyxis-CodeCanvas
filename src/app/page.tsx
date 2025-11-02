@@ -901,7 +901,6 @@ export default function Home() {
                 setActiveTabId={setActiveTabId}
                 saveFile={saveFile}
                 clearAIReview={clearAIReview}
-                setTabsForAllPanes={setTabsForAllPanes}
               />
             </>
           )}

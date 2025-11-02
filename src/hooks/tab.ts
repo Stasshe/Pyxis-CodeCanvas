@@ -318,7 +318,7 @@ export function useActiveTabContentRestore({
 
   // ファイル変更イベントをリッスンして、開いているタブのコンテンツを自動更新
   useEffect(() => {
-    if (!isRestoredFromLocalStorage || !editors.length) {
+    if (!isRestoredFromLocalStorage) {
       return;
     }
 
@@ -334,57 +334,66 @@ export function useActiveTabContentRestore({
       // 作成・更新イベントの場合、該当するタブのコンテンツを更新
       if (event.type === 'create' || event.type === 'update') {
         const changedFile = event.file;
-        const flatPanes = flattenPanes(editors);
 
-        // normalize path helper (same logic as above)
-        const normalizePath = (p?: string) => {
-          if (!p) return '';
-          const withoutKindPrefix = p.includes(':') ? p.replace(/^[^:]+:/, '') : p;
-          const cleaned = withoutKindPrefix.replace(/(-preview|-diff|-ai)$/, '');
-          return cleaned.startsWith('/') ? cleaned : `/${cleaned}`;
-        };
+        // Use functional update to always get latest editors state
+        setEditors((currentEditors: any[]) => {
+          if (!currentEditors.length) return currentEditors;
 
-        // 変更されたファイルのパスに対応するタブがあるかチェック
-        const hasMatchingTab = flatPanes.some(pane =>
-          pane.tabs.some((tab: any) => normalizePath(tab.path) === normalizePath(changedFile.path))
-        );
+          const flatPanes = flattenPanes(currentEditors);
 
-        if (hasMatchingTab) {
+          // normalize path helper (same logic as above)
+          const normalizePath = (p?: string) => {
+            if (!p) return '';
+            const withoutKindPrefix = p.includes(':') ? p.replace(/^[^:]+:/, '') : p;
+            const cleaned = withoutKindPrefix.replace(/(-preview|-diff|-ai)$/, '');
+            return cleaned.startsWith('/') ? cleaned : `/${cleaned}`;
+          };
+
+          // 変更されたファイルのパスに対応するタブがあるかチェック
+          const hasMatchingTab = flatPanes.some(pane =>
+            pane.tabs.some(
+              (tab: any) => normalizePath(tab.path) === normalizePath(changedFile.path)
+            )
+          );
+
+          if (!hasMatchingTab) {
+            return currentEditors; // No matching tabs, return unchanged
+          }
+
           console.log('[useActiveTabContentRestore] Updating tab content for:', changedFile.path);
 
-          setEditors((prevEditors: any[]) => {
-            const updatePaneRecursive = (panes: any[]): any[] => {
-              return panes.map(editor => {
-                if (editor.children && editor.children.length > 0) {
-                  return {
-                    ...editor,
-                    children: updatePaneRecursive(editor.children),
-                  };
-                }
-                // リーフペインの場合、該当するタブのコンテンツを更新
+          // 再帰的にペインを更新
+          const updatePaneRecursive = (panes: any[]): any[] => {
+            return panes.map(editor => {
+              if (editor.children && editor.children.length > 0) {
                 return {
                   ...editor,
-                  tabs: editor.tabs.map((tab: any) => {
-                    // パスが一致するタブのみ更新
-                    if (normalizePath(tab.path) === normalizePath(changedFile.path)) {
-                      console.log('[useActiveTabContentRestore] Updating tab:', tab.id);
-                      return {
-                        ...tab,
-                        content: (changedFile as any).content || '',
-                        bufferContent: tab.isBufferArray
-                          ? (changedFile as any).bufferContent
-                          : undefined,
-                        isDirty: false, // ファイルが保存されたので、タブを非ダーティ状態にする
-                      };
-                    }
-                    return tab;
-                  }),
+                  children: updatePaneRecursive(editor.children),
                 };
-              });
-            };
-            return updatePaneRecursive(prevEditors);
-          });
-        }
+              }
+              // リーフペインの場合、該当するタブのコンテンツを更新
+              return {
+                ...editor,
+                tabs: editor.tabs.map((tab: any) => {
+                  // パスが一致するタブのみ更新
+                  if (normalizePath(tab.path) === normalizePath(changedFile.path)) {
+                    console.log('[useActiveTabContentRestore] Updating tab:', tab.id);
+                    return {
+                      ...tab,
+                      content: (changedFile as any).content || '',
+                      bufferContent: tab.isBufferArray
+                        ? (changedFile as any).bufferContent
+                        : undefined,
+                      isDirty: false, // ファイルが保存されたので、タブを非ダーティ状態にする
+                    };
+                  }
+                  return tab;
+                }),
+              };
+            });
+          };
+          return updatePaneRecursive(currentEditors);
+        });
       }
     });
 
