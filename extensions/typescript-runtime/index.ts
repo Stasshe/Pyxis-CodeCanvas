@@ -91,10 +91,7 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
       context.logger?.info(`🔄 Transpiling: ${filePath}`);
       
       try {
-        // ステップ1: CJS/ESM正規化
-        const normalizedCode = normalizeCjsEsm(code);
-        
-        // ステップ2: Babelプリセットとプラグインを構築
+        // ステップ1: Babelプリセットとプラグインを構築
         const presets: [string, any][] = [];
         const plugins: any[] = [];
 
@@ -120,29 +117,33 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
           ]);
         }
 
-        // ステップ3: Babelでトランスパイル
-        const result = Babel.transform(normalizedCode, {
+        // ステップ2: BabelでTypeScript/JSXをトランスパイル
+        // この時点ではモジュール変換は行わない（ES Module構文を保持）
+        const babelResult = Babel.transform(code, {
           filename: filePath,
           presets,
           plugins,
           sourceMaps: false,
-          sourceType: 'module',
+          sourceType: 'module', // ES Moduleとして処理
           compact: false,
           retainLines: true,
         });
 
-        if (!result || !result.code) {
+        if (!babelResult || !babelResult.code) {
           throw new Error('Babel transform returned empty code');
         }
 
-        // ステップ4: 依存関係を抽出
-        const dependencies = extractDependencies(result.code);
+        // ステップ3: CJS/ESM正規化（import/exportを__require__に変換）
+        const normalizedCode = normalizeCjsEsm(babelResult.code);
 
-        context.logger?.info(`✅ Transpiled: ${filePath} (${code.length} -> ${result.code.length} bytes, ${dependencies.length} deps)`);
+        // ステップ4: 依存関係を抽出
+        const dependencies = extractDependencies(normalizedCode);
+
+        context.logger?.info(`✅ Transpiled: ${filePath} (${code.length} -> ${normalizedCode.length} bytes, ${dependencies.length} deps)`);
         
         return {
-          code: result.code,
-          map: result.map ? JSON.stringify(result.map) : undefined,
+          code: normalizedCode,
+          map: babelResult.map ? JSON.stringify(babelResult.map) : undefined,
           dependencies,
         };
       } catch (error) {
