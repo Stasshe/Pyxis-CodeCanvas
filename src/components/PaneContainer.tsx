@@ -33,7 +33,6 @@ interface PaneContainerProps {
   refreshProjectFiles?: () => Promise<void>;
   setGitRefreshTrigger: (fn: (prev: number) => number) => void;
   setFileSelectState: (state: { open: boolean; paneIdx: number | null }) => void;
-  onTabContentChange: (tabId: string, content: string) => void | ((content: string) => void);
   isBottomPanelVisible: boolean;
   toggleBottomPanel: () => void;
   nodeRuntimeOperationInProgress: boolean;
@@ -50,7 +49,6 @@ export default function PaneContainer({
   refreshProjectFiles,
   setGitRefreshTrigger,
   setFileSelectState,
-  onTabContentChange,
   isBottomPanelVisible,
   toggleBottomPanel,
   nodeRuntimeOperationInProgress,
@@ -94,7 +92,6 @@ export default function PaneContainer({
                 refreshProjectFiles={refreshProjectFiles}
                 setGitRefreshTrigger={setGitRefreshTrigger}
                 setFileSelectState={setFileSelectState}
-                onTabContentChange={onTabContentChange}
                 isBottomPanelVisible={isBottomPanelVisible}
                 toggleBottomPanel={toggleBottomPanel}
                 nodeRuntimeOperationInProgress={nodeRuntimeOperationInProgress}
@@ -151,7 +148,7 @@ export default function PaneContainer({
   // リーフペイン（実際のエディタ）をレンダリング
   const activeTab = pane.tabs.find(tab => tab.id === pane.activeTabId);
 
-  // 即時反映は親コンポーネントから渡された onTabContentChange を使用する
+  // [REMOVED] onTabContentChange - fileRepositoryのイベントシステムで自動更新
 
   return (
     <div
@@ -364,9 +361,6 @@ export default function PaneContainer({
             <DiffTab
               diffs={activeTab.diffProps.diffs}
               editable={activeTab.diffProps.editable}
-              onContentChangeImmediate={(content: string) => {
-                if (onTabContentChange) onTabContentChange(activeTab.id, content);
-              }}
               onContentChange={async (content: string) => {
                 // デバウンス後の保存処理
                 // Diffタブの場合、latterFullPathをファイルパスとして使用
@@ -413,7 +407,6 @@ export default function PaneContainer({
               bottomPanelHeight={200}
               isBottomPanelVisible={isBottomPanelVisible}
               wordWrapConfig={wordWrapConfig}
-              onContentChangeImmediate={onTabContentChange}
               onContentChange={async (tabId: string, content: string) => {
                 // タブ内容変更をコールバックに伝播（親コンポーネントで即時更新用に使用）
 

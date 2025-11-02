@@ -34,7 +34,6 @@ interface CodeEditorProps {
   isBottomPanelVisible: boolean;
   onContentChange: (tabId: string, content: string) => void;
   wordWrapConfig: 'on' | 'off';
-  onContentChangeImmediate: (tabId: string, content: string) => void;
   nodeRuntimeOperationInProgress?: boolean;
   currentProject?: Project;
   isCodeMirror?: boolean;
@@ -43,7 +42,6 @@ interface CodeEditorProps {
 export default function CodeEditor({
   activeTab,
   onContentChange,
-  onContentChangeImmediate,
   nodeRuntimeOperationInProgress = false,
   isCodeMirror = false,
   currentProject,
@@ -142,22 +140,16 @@ export default function CodeEditor({
     };
   }, []);
 
-  // エディター変更ハンドラー（即座の状態更新 + デバウンス保存）
+  // エディター変更ハンドラー（デバウンス保存のみ）
+  // [REMOVED] onContentChangeImmediate - fileRepositoryのイベントシステムで自動更新
+  // ユーザー入力時はデバウンス保存のみ行い、タブの更新はfileRepository.emitChangeに任せる
   const handleEditorChange = useCallback(
     (value: string) => {
       if (!activeTab) return;
-      // 1. 即時反映: 必ず最初に呼ぶ
-      if (onContentChangeImmediate) {
-        try {
-          onContentChangeImmediate(activeTab.id, value);
-        } catch (error: any) {
-          console.error('[CodeEditor_new] Error in onContentChangeImmediate:', error);
-        }
-      }
-      // 2. デバウンス保存: 保存のみ担う
+      // デバウンス保存のみ実行
       debouncedSave(activeTab.id, value);
     },
-    [activeTab, onContentChangeImmediate, debouncedSave]
+    [activeTab, debouncedSave]
   );
 
   // === タブなし ===

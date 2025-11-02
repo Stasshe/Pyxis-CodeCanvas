@@ -313,14 +313,14 @@ export default function Home() {
     clearAIReview,
   } = useProject();
 
-  // [NEW ARCHITECTURE] タブコンテンツの自動更新は無効化
-  // useActiveTabContentRestoreフックがオンデマンドで復元を行う
-  // projectFilesの変更を監視して全タブを更新するのは無限ループの原因となるため削除
-  // 代わりに、以下の戦略を採用：
-  // 1. localStorage復元時: useActiveTabContentRestoreがアクティブタブの内容を復元
-  // 2. タブ切り替え時: useActiveTabContentRestoreがアクティブタブの内容を復元
-  // 3. ファイル編集時: handleTabContentChangeImmediateが即座に更新
-  // 4. 外部変更（Git等）: refreshProjectFiles後、useActiveTabContentRestoreが次回アクティブ時に復元
+  // [NEW ARCHITECTURE] タブコンテンツは完全にfileRepositoryのイベントシステムで管理
+  // 全てのファイル操作はfileRepository経由で行われ、変更は自動的にemitChangeで通知される
+  // useActiveTabContentRestoreがfileRepository.addChangeListenerでイベントを受信し、タブを更新
+  //
+  // フロー：
+  // 1. ファイル保存: fileRepository.saveFile() → emitChange() → useActiveTabContentRestore → タブ更新
+  // 2. エディタ入力: デバウンス保存のみ（タブの即時更新は不要、Monacoがvalueプロップで自動同期）
+  // 3. 外部変更: Terminal/AI/Git → fileRepository → emitChange → タブ自動更新
 
   const handleLeftResize = useLeftSidebarResize(leftSidebarWidth, setLeftSidebarWidth);
   const handleBottomResize = useBottomPanelResize(bottomPanelHeight, setBottomPanelHeight);
@@ -830,7 +830,6 @@ export default function Home() {
                       refreshProjectFiles={refreshProjectFiles}
                       setGitRefreshTrigger={setGitRefreshTrigger}
                       setFileSelectState={setFileSelectState}
-                      onTabContentChange={handleTabContentChangeImmediate}
                       isBottomPanelVisible={isBottomPanelVisible}
                       toggleBottomPanel={toggleBottomPanel}
                       nodeRuntimeOperationInProgress={nodeRuntimeOperationInProgress}
