@@ -109,6 +109,9 @@ export interface ExtensionManifest {
     apis?: Record<string, unknown>;
   };
 
+  /** 同じグループで同時に1つのみ有効化を許可 (例: "lang-pack") */
+  onlyOne?: string;
+
   /** メタデータ */
   metadata: {
     /** 公開日 */

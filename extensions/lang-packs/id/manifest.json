@@ -1,11 +1,19 @@
 {
   "id": "pyxis.lang.id",
-  "name": "Language Pack - id",
+  "name": "Indonesian Language Pack",
   "version": "1.0.0",
   "type": "service",
-  "description": "Language pack for id locale",
+  "description": "Indonesian language pack",
   "author": "Pyxis Team",
   "dependencies": [],
   "entry": "index.js",
-  "files": []
+  "onlyOne": "lang-pack",
+  "provides": {
+    "services": ["language-pack"]
+  },
+  "metadata": {
+    "publishedAt": "2025-11-02T00:00:00Z",
+    "updatedAt": "2025-11-02T00:00:00Z",
+    "tags": ["language", "i18n"]
+  }
 }

@@ -36,6 +36,17 @@ interface ActiveExtension {
 }
 
 /**
+ * 拡張機能の変更イベント
+ */
+export type ExtensionChangeEvent = {
+  type: 'enabled' | 'disabled' | 'installed' | 'uninstalled';
+  extensionId: string;
+  manifest?: ExtensionManifest;
+};
+
+type ExtensionChangeListener = (event: ExtensionChangeEvent) => void;
+
+/**
  * Extension Manager
  */
 class ExtensionManager {
@@ -44,6 +55,31 @@ class ExtensionManager {
 
   /** 初期化済みフラグ */
   private initialized = false;
+
+  /** 変更イベントリスナー */
+  private changeListeners: Set<ExtensionChangeListener> = new Set();
+
+  /**
+   * 変更イベントリスナーを登録
+   */
+  addChangeListener(listener: ExtensionChangeListener): () => void {
+    this.changeListeners.add(listener);
+    // アンサブスクライブ関数を返す
+    return () => this.changeListeners.delete(listener);
+  }
+
+  /**
+   * 変更イベントを発火
+   */
+  private emitChange(event: ExtensionChangeEvent): void {
+    this.changeListeners.forEach(listener => {
+      try {
+        listener(event);
+      } catch (error) {
+        console.error('[ExtensionManager] Error in change listener:', error);
+      }
+    });
+  }
 
   /**
    * 初期化
@@ -151,6 +187,26 @@ class ExtensionManager {
         throw new Error('Extension not installed');
       }
 
+      // onlyOneグループのチェック: 同じグループの他の拡張機能を無効化
+      if (installed.manifest.onlyOne) {
+        const group = installed.manifest.onlyOne;
+        console.log(`[ExtensionManager] onlyOne group detected: ${group}. Checking for conflicts...`);
+        
+        // 同じグループで有効化されている拡張機能を探す
+        const allInstalled = await loadAllInstalledExtensions();
+        const conflictingExtensions = allInstalled.filter(
+          ext => ext.manifest?.onlyOne === group && 
+                 ext.enabled && 
+                 ext.manifest?.id !== extensionId
+        );
+
+        // 競合する拡張機能を無効化
+        for (const conflict of conflictingExtensions) {
+          console.log(`[ExtensionManager] Disabling conflicting extension: ${conflict.manifest.id}`);
+          await this.disableExtension(conflict.manifest.id);
+        }
+      }
+
       // コンテキストを作成
       const context = this.createExtensionContext(extensionId);
 
@@ -178,6 +234,13 @@ class ExtensionManager {
       installed.status = ExtensionStatus.ENABLED;
       installed.updatedAt = Date.now();
       await saveInstalledExtension(installed);
+
+      // 変更イベントを発火
+      this.emitChange({
+        type: 'enabled',
+        extensionId,
+        manifest: installed.manifest,
+      });
 
       console.log('[ExtensionManager] Extension enabled:', extensionId);
       return true;
@@ -213,6 +276,13 @@ class ExtensionManager {
         installed.status = ExtensionStatus.INSTALLED;
         installed.updatedAt = Date.now();
         await saveInstalledExtension(installed);
+
+        // 変更イベントを発火
+        this.emitChange({
+          type: 'disabled',
+          extensionId,
+          manifest: installed.manifest,
+        });
       }
 
       console.log('[ExtensionManager] Extension disabled:', extensionId);
@@ -230,6 +300,10 @@ class ExtensionManager {
     try {
       console.log('[ExtensionManager] Uninstalling extension:', extensionId);
 
+      // マニフェストを保存しておく（イベント発火用）
+      const installed = await loadInstalledExtension(extensionId);
+      const manifest = installed?.manifest;
+
       // 有効化されている場合は無効化
       if (this.activeExtensions.has(extensionId)) {
         await this.disableExtension(extensionId);
@@ -237,6 +311,15 @@ class ExtensionManager {
 
       // IndexedDBから削除
       await deleteInstalledExtension(extensionId);
+
+      // 変更イベントを発火
+      if (manifest) {
+        this.emitChange({
+          type: 'uninstalled',
+          extensionId,
+          manifest,
+        });
+      }
 
       console.log('[ExtensionManager] Extension uninstalled:', extensionId);
       return true;
@@ -261,11 +344,16 @@ class ExtensionManager {
   }
 
   /**
-   * 特定の拡張機能のアクティベーション結果を取得
+   * 有効化されている全ての言語パックを取得
    */
-  getExtensionActivation(extensionId: string): ExtensionActivation | null {
-    const active = this.activeExtensions.get(extensionId);
-    return active ? active.activation : null;
+  getEnabledLanguagePacks(): Array<{ locale: string; name: string; nativeName: string }> {
+    const langPacks: Array<{ locale: string; name: string; nativeName: string }> = [];
+    for (const active of this.activeExtensions.values()) {
+      if (active.activation.services && active.activation.services['language-pack']) {
+        langPacks.push(active.activation.services['language-pack'] as { locale: string; name: string; nativeName: string });
+      }
+    }
+    return langPacks;
   }
 
   /**

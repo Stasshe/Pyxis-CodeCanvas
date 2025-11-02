@@ -1,6 +1,10 @@
 /**
  * i18n Context Provider
  * グローバルなi18n状態管理
+ *
+ * 言語パック拡張機能と連携:
+ * - 有効化された言語パック拡張機能のみが使用可能
+ * - ユーザーが言語を切り替えるには、対応する言語パック拡張機能を有効化する必要がある
  */
 
 'use client';
@@ -17,22 +21,44 @@ import { loadTranslations, preloadTranslations } from '@/engine/i18n/loader';
 import { createTranslator } from '@/engine/i18n/translator';
 import { cleanExpiredCache } from '@/engine/i18n/storage-adapter';
 import { DEFAULT_LOCALE, LOCALSTORAGE_KEY } from './config';
+import { extensionManager } from '@/engine/extensions/extensionManager';
 
 const I18nContext = createContext<I18nContextValue | undefined>(undefined);
 
 const LOCALE_STORAGE_KEY = LOCALSTORAGE_KEY.LOCALE;
 
 /**
+ * 有効化された言語パック拡張機能から利用可能な言語を取得
+ */
+function getEnabledLocales(): Set<string> {
+  const langPacks = extensionManager.getEnabledLanguagePacks();
+  return new Set(langPacks.map(pack => pack.locale));
+}
+
+/**
  * ブラウザの言語設定から推奨ロケールを取得
+ * 有効化された言語パック拡張機能の中から選択
  */
 function detectBrowserLocale(): Locale {
   if (typeof navigator === 'undefined') return DEFAULT_LOCALE;
 
   const browserLang = navigator.language.split('-')[0].toLowerCase();
+  const enabledLocales = getEnabledLocales();
 
-  // サポートされている言語かチェック（ランタイム）
-  if (isSupportedLocale(browserLang)) {
+  // 有効化された言語パックの中にブラウザ言語があるかチェック
+  if (enabledLocales.has(browserLang) && isSupportedLocale(browserLang)) {
     return browserLang as Locale;
+  }
+
+  // 有効化された言語パックの中にデフォルト言語があるかチェック
+  if (enabledLocales.has(DEFAULT_LOCALE)) {
+    return DEFAULT_LOCALE;
+  }
+
+  // どれもなければ、有効化された最初の言語パックを使用
+  const firstEnabled = Array.from(enabledLocales)[0];
+  if (firstEnabled && isSupportedLocale(firstEnabled)) {
+    return firstEnabled as Locale;
   }
 
   return DEFAULT_LOCALE;
@@ -40,17 +66,22 @@ function detectBrowserLocale(): Locale {
 
 /**
  * localStorageから保存されたロケールを取得
+ * 有効化された言語パック拡張機能の中から選択
  */
 function getSavedLocale(): Locale | null {
   if (typeof localStorage === 'undefined') return null;
-  if (typeof window !== 'undefined') {
-    return null;
-  }
 
   try {
     const saved = localStorage.getItem(LOCALE_STORAGE_KEY);
     if (saved && isSupportedLocale(saved)) {
-      return saved as Locale;
+      // 保存された言語が有効化された言語パックの中にあるかチェック
+      const enabledLocales = getEnabledLocales();
+      if (enabledLocales.has(saved)) {
+        return saved as Locale;
+      }
+      console.warn(
+        `[i18n] Saved locale '${saved}' is not enabled. Language pack extension may be disabled.`
+      );
     }
   } catch (error) {
     console.error('[i18n] Failed to get saved locale:', error);
@@ -128,10 +159,21 @@ export function I18nProvider({ children, defaultLocale }: I18nProviderProps) {
 
   /**
    * ロケール変更ハンドラ
+   * 有効化された言語パック拡張機能のみを許可
    */
   const setLocale = useCallback(
     async (newLocale: Locale) => {
       if (newLocale === locale) return;
+
+      // 有効化された言語パックの中にあるかチェック
+      const enabledLocales = getEnabledLocales();
+      if (!enabledLocales.has(newLocale)) {
+        console.error(
+          `[i18n] Cannot set locale '${newLocale}'. Language pack extension is not enabled.`
+        );
+        return;
+      }
+
       await loadLocale(newLocale);
     },
     [locale, loadLocale]
@@ -164,6 +206,32 @@ export function I18nProvider({ children, defaultLocale }: I18nProviderProps) {
     cleanExpiredCache().catch(err => {
       console.error('[i18n] Failed to clean expired cache:', err);
     });
+
+    // 拡張機能の変更を監視（言語パックのアンインストール/無効化に対応）
+    const unsubscribe = extensionManager.addChangeListener(event => {
+      // 言語パック拡張機能の変更の場合
+      if (event.manifest?.onlyOne === 'lang-pack') {
+        if (event.type === 'disabled' || event.type === 'uninstalled') {
+          // 現在の言語が無効化/アンインストールされた場合
+          const disabledLocale = event.manifest.id.replace('pyxis.lang.', '');
+          if (disabledLocale === locale) {
+            // 有効な言語パックに切り替え
+            const enabledLocales = getEnabledLocales();
+            const firstEnabled = Array.from(enabledLocales)[0];
+            if (firstEnabled && isSupportedLocale(firstEnabled)) {
+              console.log(
+                `[i18n] Current locale '${locale}' was disabled. Switching to '${firstEnabled}'`
+              );
+              loadLocale(firstEnabled as Locale);
+            } else {
+              console.warn('[i18n] No enabled language packs available');
+            }
+          }
+        }
+      }
+    });
+
+    return unsubscribe;
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const value: I18nContextValue = {

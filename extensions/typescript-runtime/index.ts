@@ -91,59 +91,71 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
       context.logger?.info(`🔄 Transpiling: ${filePath}`);
       
       try {
-        // ステップ1: Babelプリセットとプラグインを構築
-        const presets: [string, any][] = [];
-        const plugins: any[] = [];
+        let finalCode: string;
+        let sourceMap: string | undefined;
+        
+        // TypeScriptまたはJSXの場合: Babel → normalizeCjsEsm
+        if (isTypeScript || isJSX) {
+          // ステップ1: Babelプリセットとプラグインを構築
+          const presets: [string, any][] = [];
+          const plugins: any[] = [];
 
-        // TypeScriptサポート
-        if (isTypeScript) {
-          presets.push([
-            'typescript',
-            {
-              isTSX: isJSX || ext === 'tsx',
-              allExtensions: true,
-            },
-          ]);
+          // TypeScriptサポート
+          if (isTypeScript) {
+            presets.push([
+              'typescript',
+              {
+                isTSX: isJSX || ext === 'tsx',
+                allExtensions: true,
+              },
+            ]);
+          }
+
+          // Reactサポート
+          if (isJSX || ext === 'jsx' || ext === 'tsx') {
+            presets.push([
+              'react',
+              {
+                runtime: 'automatic',
+                development: false,
+              },
+            ]);
+          }
+
+          // ステップ2: BabelでTypeScript/JSXをトランスパイル
+          const babelResult = Babel.transform(code, {
+            filename: filePath,
+            presets,
+            plugins,
+            sourceMaps: false,
+            sourceType: 'module',
+            compact: false,
+            retainLines: true,
+          });
+
+          if (!babelResult || !babelResult.code) {
+            throw new Error('Babel transform returned empty code');
+          }
+
+          // ステップ3: CJS/ESM正規化
+          finalCode = normalizeCjsEsm(babelResult.code);
+          sourceMap = babelResult.map ? JSON.stringify(babelResult.map) : undefined;
+        } 
+        // 普通のJSの場合: normalizeCjsEsmのみ
+        else {
+          // CJS/ESM正規化のみ実行
+          finalCode = normalizeCjsEsm(code);
+          sourceMap = undefined;
         }
 
-        // Reactサポート
-        if (isJSX || ext === 'jsx' || ext === 'tsx') {
-          presets.push([
-            'react',
-            {
-              runtime: 'automatic',
-              development: false,
-            },
-          ]);
-        }
+        // 依存関係を抽出
+        const dependencies = extractDependencies(finalCode);
 
-        // ステップ2: BabelでTypeScript/JSXをトランスパイル
-        // この時点ではモジュール変換は行わない（ES Module構文を保持）
-        const babelResult = Babel.transform(code, {
-          filename: filePath,
-          presets,
-          plugins,
-          sourceMaps: false,
-          sourceType: 'module', // ES Moduleとして処理
-          compact: false,
-          retainLines: true,
-        });
-
-        if (!babelResult || !babelResult.code) {
-          throw new Error('Babel transform returned empty code');
-        }
-
-        // ステップ3: CJS/ESM正規化（import/exportを__require__に変換）
-        const normalizedCode = normalizeCjsEsm(babelResult.code);
-
-        // ステップ4: 依存関係を抽出
-        const dependencies = extractDependencies(normalizedCode);
-
-        context.logger?.info(`✅ Transpiled: ${filePath} (${code.length} -> ${normalizedCode.length} bytes, ${dependencies.length} deps)`);
+        context.logger?.info(`✅ Transpiled: ${filePath} (${code.length} -> ${finalCode.length} bytes, ${dependencies.length} deps)`);
         
         return {
-          code: normalizedCode,
-          map: babelResult.map ? JSON.stringify(babelResult.map) : undefined,
+          code: finalCode,
+          map: sourceMap,
           dependencies,
         };
       } catch (error) {
