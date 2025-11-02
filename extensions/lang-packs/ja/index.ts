@@ -13,7 +13,7 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
     services: {
       'language-pack': {
         locale: 'ja',
-        name: 'Japanese',
+        name: '日本語',
         nativeName: '日本語',
       },
     },

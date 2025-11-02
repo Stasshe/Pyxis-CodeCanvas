@@ -6,7 +6,7 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
     services: {
       'language-pack': {
         locale: 'ko',
-        name: 'Korean',
+        name: '한국어',
         nativeName: '한국어',
       },
     },
