@@ -112,6 +112,14 @@ export interface ExtensionManifest {
   /** 同じグループで同時に1つのみ有効化を許可 (例: "lang-pack") */
   onlyOne?: string;
 
+  /** パックグループ情報 (UIでグループ化表示する際に使用) */
+  packGroup?: {
+    /** グループID (例: "language-packs") */
+    id: string;
+    /** グループ名 (例: "Language Packs") */
+    name: string;
+  };
+
   /** メタデータ */
   metadata: {
     /** 公開日 */

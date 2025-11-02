@@ -9,11 +9,20 @@
   "entry": "index.js",
   "onlyOne": "lang-pack",
   "provides": {
-    "services": ["language-pack"]
+    "services": [
+      "language-pack"
+    ]
   },
   "metadata": {
     "publishedAt": "2025-11-02T00:00:00Z",
     "updatedAt": "2025-11-02T00:00:00Z",
-    "tags": ["language", "i18n"]
+    "tags": [
+      "language",
+      "i18n"
+    ]
+  },
+  "packGroup": {
+    "id": "language-packs",
+    "name": "Language Packs"
   }
 }
