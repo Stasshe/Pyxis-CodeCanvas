@@ -880,71 +880,138 @@ export class FileRepository {
   }
 
   /**
-   * ファイル削除（自動的にGitFileSystemに非同期同期）
+   * ファイル情報を取得（内部ヘルパー）
    */
-  async deleteFile(fileId: string): Promise<void> {
+  private async getFileById(fileId: string): Promise<ProjectFile | null> {
     if (!this.db) throw new Error('Database not initialized');
-
-    // 削除前にファイル情報を取得（同期用）
-    const fileToDelete = await new Promise<ProjectFile | null>((resolve, reject) => {
+    
+    return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction(['files'], 'readonly');
       const store = transaction.objectStore('files');
       const request = store.get(fileId);
       request.onerror = () => reject(request.error);
       request.onsuccess = () => resolve(request.result || null);
     });
+  }
+
+  /**
+   * 削除後の共通処理（gitignoreキャッシュクリア、同期、イベント発火）
+   */
+  private async handlePostDeletion(
+    projectId: string,
+    deletedFiles: ProjectFile[],
+    isRecursive: boolean = false
+  ): Promise<void> {
+    // .gitignoreが削除されていればキャッシュをクリア
+    const hasGitignore = deletedFiles.some(f => f.path === '/.gitignore');
+    if (hasGitignore) {
+      try {
+        this.clearGitignoreCache(projectId);
+      } catch (e) {
+        coreWarn('[FileRepository] Failed to clear gitignore cache after delete:', e);
+      }
+    }
+
+    // GitFileSystemへの同期
+    try {
+      if (isRecursive || deletedFiles.length > 5) {
+        // 大量削除の場合は全体同期
+        const { syncManager } = await import('./syncManager');
+        let projectName = this.projectNameCache.get(projectId);
+        if (!projectName) {
+          const projects = await this.getProjects();
+          const project = projects.find(p => p.id === projectId);
+          projectName = project?.name;
+          if (projectName) this.projectNameCache.set(projectId, projectName);
+        }
+        if (projectName) {
+          await syncManager.syncFromIndexedDBToFS(projectId, projectName);
+        }
+      } else {
+        // 少数削除の場合は個別同期
+        for (const file of deletedFiles) {
+          await this.syncToGitFileSystem(
+            projectId,
+            file.path,
+            '',
+            'delete',
+            undefined,
+            file.type
+          );
+        }
+      }
+    } catch (error) {
+      coreWarn('[FileRepository] Post-deletion sync failed (non-critical):', error);
+    }
+
+    // イベント発火
+    for (const file of deletedFiles) {
+      this.emitChange({
+        type: 'delete',
+        projectId,
+        file: { id: file.id, path: file.path },
+      });
+    }
+  }
+
+  /**
+   * ファイル削除（単一または再帰）
+   * フォルダの場合は自動的に配下も削除される
+   */
+  async deleteFile(fileId: string): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const fileToDelete = await this.getFileById(fileId);
+    if (!fileToDelete) {
+      throw new Error(`File with id ${fileId} not found`);
+    }
+
+    const { projectId, path, type } = fileToDelete;
+    const deletedFiles: ProjectFile[] = [];
 
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction(['files'], 'readwrite');
       const store = transaction.objectStore('files');
-      const request = store.delete(fileId);
+      const index = store.index('projectId');
 
-      request.onerror = () => reject(request.error);
-      request.onsuccess = async () => {
-        if (fileToDelete) {
-          // .gitignore を削除した場合はキャッシュをクリア
-          try {
-            if (fileToDelete.path === '/.gitignore') {
-              this.clearGitignoreCache(fileToDelete.projectId);
+      if (type === 'folder') {
+        // フォルダの場合は配下も含めて削除
+        const request = index.getAll(projectId);
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+          const allFiles = request.result as ProjectFile[];
+          for (const f of allFiles) {
+            if (f.path === path || f.path.startsWith(path + '/')) {
+              store.delete(f.id);
+              deletedFiles.push(f);
             }
-          } catch (e) {
-            coreWarn('[FileRepository] Failed to clear gitignore cache after delete:', e);
           }
-          // GitFileSystemへの自動同期（削除）
-          // 重要: 削除はバックグラウンドでfire-and-forgetだとFSとDBが一時的に不整合になる
-          // (特に rm -r のような大量削除で顕在化するため)、ここでは同期を待機して
-          // lightning-fs 側が確実に反映されるようにする。
-          try {
-            await this.syncToGitFileSystem(
-              fileToDelete.projectId,
-              fileToDelete.path,
-              '',
-              'delete',
-              undefined,
-              fileToDelete.type
-            );
-          } catch (error) {
-            console.warn('[FileRepository] delete sync to GitFileSystem failed:', error);
-            // 失敗しても削除自体は完了しているため、処理は継続する
-          }
+        };
+      } else {
+        // ファイルの場合は単一削除
+        const request = store.delete(fileId);
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+          deletedFiles.push(fileToDelete);
+        };
+      }
 
-          // ファイル削除イベントを発火
-          this.emitChange({
-            type: 'delete',
-            projectId: fileToDelete.projectId,
-            file: { id: fileToDelete.id, path: fileToDelete.path },
-          });
-        }
+      transaction.onerror = () => reject(transaction.error);
+      transaction.oncomplete = async () => {
+        await this.handlePostDeletion(projectId, deletedFiles, type === 'folder');
         resolve();
       };
     });
   }
 
   /**
-   * 指定プレフィックス（ディレクトリ）に一致するファイルを一括削除する
+   * 指定プレフィックス（ディレクトリ）に一致するファイルを一括削除
+   * @deprecated deleteFile を使用してください（フォルダを渡せば自動的に再帰削除されます）
    */
   async deleteFilesByPrefix(projectId: string, prefix: string): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
+
+    const deletedFiles: ProjectFile[] = [];
 
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction(['files'], 'readwrite');
@@ -958,73 +1025,17 @@ export class FileRepository {
         for (const f of files) {
           if (f.path === prefix || f.path.startsWith(prefix + '/')) {
             store.delete(f.id);
-            // fire delete sync/event asynchronously after transaction
+            deletedFiles.push(f);
           }
         }
-      };
-
-      transaction.oncomplete = async () => {
-        // After deletion, background sync for deleted files is handled in deleteFile when used individually.
-        // Here we emit a generic change event to indicate mass deletion (listeners may resync)
-        this.emitChange({ type: 'delete', projectId, file: { id: '', path: prefix } as any });
-
-        // Ensure GitFileSystem reflects the DB deletions.
-        // For mass deletions we call SyncManager.syncFromIndexedDBToFS to reconcile FS with DB.
-        try {
-          const { syncManager } = await import('./syncManager');
-          // Look up projectName (best-effort)
-          let projectName = this.projectNameCache.get(projectId);
-          if (!projectName) {
-            const projects = await this.getProjects();
-            const project = projects.find(p => p.id === projectId);
-            projectName = project?.name;
-            if (projectName) this.projectNameCache.set(projectId, projectName);
-          }
-
-          if (projectName) {
-            await syncManager.syncFromIndexedDBToFS(projectId, projectName);
-          } else {
-            coreWarn('[FileRepository] Could not determine projectName for bulk delete sync');
-          }
-        } catch (err) {
-          console.warn(
-            '[FileRepository] Bulk delete: syncFromIndexedDBToFS failed (non-critical):',
-            err
-          );
-        }
-
-        resolve();
       };
 
       transaction.onerror = () => reject(transaction.error);
+      transaction.oncomplete = async () => {
+        await this.handlePostDeletion(projectId, deletedFiles, true);
+        resolve();
+      };
     });
-  }
-
-  /**
-   * フォルダを再帰的に削除（一括削除版・高速）
-   */
-  async deleteFileRecursiveFast(fileId: string): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
-
-    const fileToDelete = await new Promise<ProjectFile | null>((resolve, reject) => {
-      const transaction = this.db!.transaction(['files'], 'readonly');
-      const store = transaction.objectStore('files');
-      const request = store.get(fileId);
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve(request.result || null);
-    });
-
-    if (!fileToDelete) {
-      throw new Error(`File with id ${fileId} not found`);
-    }
-
-    if (fileToDelete.type === 'folder') {
-      // フォルダの場合、prefixを使って一括削除
-      await this.deleteFilesByPrefix(fileToDelete.projectId, fileToDelete.path);
-    } else {
-      // ファイルの場合は通常の削除
-      await this.deleteFile(fileId);
-    }
   }
 
   /**

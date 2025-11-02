@@ -92,15 +92,12 @@ export class NpmInstall {
           await fileRepository.createFilesBulk(this.projectId, filesToCreate as any);
         }
 
-        // deletes はプレフィックス単位で削除可能な場合、deleteFilesByPrefix を使う
-        for (const delPath of deletes) {
-          // If delPath is a directory prefix (endsWith '/'), use prefix delete
-          if (delPath.endsWith('/')) {
-            await fileRepository.deleteFilesByPrefix(this.projectId, delPath.replace(/\/+$/, ''));
-          } else {
-            // exact path - delete by finding file id first
-            const files = await fileRepository.getProjectFiles(this.projectId);
-            const fileToDelete = files.find(f => f.path === delPath);
+        // 削除対象のファイルを一括取得してから削除
+        if (deletes.length > 0) {
+          const files = await fileRepository.getProjectFiles(this.projectId);
+          for (const delPath of deletes) {
+            const normalizedPath = delPath.replace(/\/+$/, '');
+            const fileToDelete = files.find(f => f.path === normalizedPath);
             if (fileToDelete) {
               await fileRepository.deleteFile(fileToDelete.id);
             }
@@ -137,15 +134,11 @@ export class NpmInstall {
       } else if (type === 'file') {
         await fileRepository.createFile(this.projectId, path, content || '', 'file');
       } else if (type === 'delete') {
-        // try prefix delete first (directory)
-        if (path.endsWith('/')) {
-          await fileRepository.deleteFilesByPrefix(this.projectId, path.replace(/\/+$/, ''));
-        } else {
-          const files = await fileRepository.getProjectFiles(this.projectId);
-          const fileToDelete = files.find(f => f.path === path);
-          if (fileToDelete) {
-            await fileRepository.deleteFile(fileToDelete.id);
-          }
+        const normalizedPath = path.replace(/\/+$/, '');
+        const files = await fileRepository.getProjectFiles(this.projectId);
+        const fileToDelete = files.find(f => f.path === normalizedPath);
+        if (fileToDelete) {
+          await fileRepository.deleteFile(fileToDelete.id);
         }
       }
     }

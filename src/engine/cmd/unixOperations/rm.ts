@@ -34,6 +34,9 @@ export class RmCommand extends UnixCommandBase {
     const results: string[] = [];
     const errors: string[] = [];
 
+    // ファイル一覧を一度だけ取得（パフォーマンス最適化）
+    const files = await this.getAllFilesFromDB();
+
     for (const arg of positional) {
       try {
         const expanded = await this.expandPathPattern(arg);
@@ -47,7 +50,6 @@ export class RmCommand extends UnixCommandBase {
           try {
             const normalizedPath = this.normalizePath(path);
             const relativePath = this.getRelativePathFromProject(normalizedPath);
-            const files = await this.getAllFilesFromDB();
             const file = files.find(f => f.path === relativePath);
             if (!file) {
               if (!force) errors.push(`rm: cannot remove '${path}': No such file or directory`);
@@ -58,9 +60,10 @@ export class RmCommand extends UnixCommandBase {
             // -rf, -fr, -r, -f の組み合わせを正しく判定
             if (isDir) {
               if (recursive || force) {
-                // -r, -rf, -fr, -f いずれか指定でディレクトリ削除許可（-f単体でディレクトリ削除はUNIX準拠ではないが、-rf/force優先）
+                // -r, -rf, -fr, -f いずれか指定でディレクトリ削除許可
                 const result = await this.removeFileOrDirDeep(
-                  path,
+                  file.id,
+                  normalizedPath,
                   true,
                   force,
                   interactive,
@@ -73,12 +76,13 @@ export class RmCommand extends UnixCommandBase {
             } else {
               // ファイル
               if (recursive && !force) {
-                // -rのみでファイル指定はエラー
+                // -rのみでファイル指定はエラー（UNIX準拠）
                 errors.push(`rm: cannot remove '${path}': Not a directory`);
               } else {
                 // -f, -rf, 何もなし: ファイル削除
                 const result = await this.removeFileOrDirDeep(
-                  path,
+                  file.id,
+                  normalizedPath,
                   false,
                   force,
                   interactive,
@@ -111,55 +115,37 @@ export class RmCommand extends UnixCommandBase {
   }
 
   /**
-   * ディレクトリを再帰的に削除（rm -rf対応）
+   * ファイル/ディレクトリを削除（再帰削除も自動対応）
+   * fileRepository.deleteFile()がフォルダの場合は自動的に配下も削除してくれる
    */
   private async removeFileOrDirDeep(
-    path: string,
+    fileId: string,
+    normalizedPath: string,
     recursive: boolean,
     force: boolean,
     interactive: boolean,
     verbose: boolean
   ): Promise<string | null> {
-    const normalizedPath = this.normalizePath(path);
-    const relativePath = this.getRelativePathFromProject(normalizedPath);
-    const files = await this.getAllFilesFromDB();
-    const file = files.find(f => f.path === relativePath);
-
-    if (!file) {
-      if (force) return null;
-      throw new Error('No such file or directory');
-    }
-
-    const isDir = file.type === 'folder';
-    if (isDir && !recursive) {
-      throw new Error('Is a directory');
-    }
-
     // インタラクティブモード（未実装）
     if (interactive) {
       // 実装する場合は、ユーザー入力を受け取る仕組みが必要
     }
 
-    // ディレクトリの場合、配下すべてを再帰的に削除
-    if (isDir) {
-      // 自分自身も含めて、relativePathで始まるもの全て
-      const allFiles = files.filter(
-        f => f.path === relativePath || f.path.startsWith(relativePath + '/')
-      );
-      for (const child of allFiles) {
-        await fileRepository.deleteFile(child.id);
-      }
-      if (verbose) {
-        return `removed directory '${normalizedPath}'`;
-      }
-      return null;
-    } else {
-      // ファイル
-      await fileRepository.deleteFile(file.id);
-      if (verbose) {
-        return `removed '${normalizedPath}'`;
-      }
-      return null;
+    // 削除前にタイプを判定（verboseメッセージ用）
+    const files = await this.getAllFilesFromDB();
+    const file = files.find(f => f.id === fileId);
+    const isDir = file?.type === 'folder';
+
+    // deleteFile()は自動的に:
+    // - フォルダの場合は配下も再帰的に削除
+    // - gitignoreキャッシュをクリア
+    // - GitFileSystemに同期
+    // - イベントを発火
+    await fileRepository.deleteFile(fileId);
+
+    if (verbose) {
+      return isDir ? `removed directory '${normalizedPath}'` : `removed '${normalizedPath}'`;
     }
+    return null;
   }
 }
