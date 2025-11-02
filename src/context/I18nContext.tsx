@@ -43,6 +43,9 @@ function detectBrowserLocale(): Locale {
  */
 function getSavedLocale(): Locale | null {
   if (typeof localStorage === 'undefined') return null;
+  if (typeof window !== 'undefined') {
+    return null;
+  }
 
   try {
     const saved = localStorage.getItem(LOCALE_STORAGE_KEY);
