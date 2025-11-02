@@ -10,6 +10,9 @@ import type { InstalledExtension, ExtensionManifest } from './types';
  * インストール済み拡張機能をIndexedDBに保存
  */
 export async function saveInstalledExtension(extension: InstalledExtension): Promise<void> {
+  if (!extension.manifest) {
+    throw new Error('Cannot save extension: manifest is null or undefined');
+  }
   await storageService.set(STORES.EXTENSIONS, extension.manifest.id, extension);
 }
 
@@ -27,7 +30,8 @@ export async function loadInstalledExtension(
  */
 export async function loadAllInstalledExtensions(): Promise<InstalledExtension[]> {
   const entries = await storageService.getAll<InstalledExtension>(STORES.EXTENSIONS);
-  return entries.map(entry => entry.data);
+  // manifestがnull/undefinedのものは除外
+  return entries.map(entry => entry.data).filter(ext => ext && ext.manifest);
 }
 
 /**

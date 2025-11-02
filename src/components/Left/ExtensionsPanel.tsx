@@ -26,32 +26,27 @@ export default function ExtensionsPanel() {
     try {
       // インストール済み拡張機能を取得
       const installedExts = await extensionManager.getInstalledExtensions();
-      console.log('[ExtensionsPanel] Raw installed:', installedExts.length);
-      
-      // manifestがnullまたはundefinedのものを除外
-      const validInstalled = installedExts.filter(ext => ext?.manifest);
-      
-      console.log('[ExtensionsPanel] Valid installed:', validInstalled.length);
-      setInstalled(validInstalled);
+      console.log('[ExtensionsPanel] Installed:', installedExts.length);
+      setInstalled(installedExts);
 
       // 利用可能な拡張機能を取得
       const allManifests = await fetchAllManifests();
       console.log('[ExtensionsPanel] All manifests from registry:', allManifests.length);
-      
+
       // インストール済みのIDリスト
-      const installedIds = new Set(validInstalled.map(ext => ext.manifest!.id));
+      const installedIds = new Set(installedExts.map(ext => ext.manifest.id));
       console.log('[ExtensionsPanel] Installed IDs:', Array.from(installedIds));
-      
+
       // インストール済みでない拡張機能をフィルター
       const availableManifests = allManifests.filter(m => {
         const isInstalled = installedIds.has(m.id);
         console.log(`[ExtensionsPanel] Manifest ${m.id}: installed=${isInstalled}`);
         return !isInstalled;
       });
-      
+
       console.log('[ExtensionsPanel] Available after filter:', availableManifests.length);
       setAvailable(availableManifests);
-      
+
     } catch (error) {
       console.error('[ExtensionsPanel] Failed to load extensions:', error);
     } finally {
