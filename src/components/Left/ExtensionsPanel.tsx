@@ -260,6 +260,7 @@ export default function ExtensionsPanel() {
 
     const filteredPacks: ExtensionPack[] = [];
     const filteredOthers: InstalledExtension[] = [];
+    const packsToExpand: string[] = [];
 
     filtered.forEach(ext => {
       const pack = packs.find(p => 
@@ -276,13 +277,24 @@ export default function ExtensionsPanel() {
             extensions: packFiltered,
             description: `${packFiltered.length} extension${packFiltered.length > 1 ? 's' : ''}`,
           });
-          // 検索時は自動展開
-          setExpandedPacks(prev => new Set(prev).add(pack.id));
+          // 検索時に展開するパックを記録（状態更新はしない）
+          packsToExpand.push(pack.id);
         }
       } else {
         filteredOthers.push(ext);
       }
     });
+
+    // 検索時は自動展開（一度だけ実行）
+    if (packsToExpand.length > 0) {
+      setTimeout(() => {
+        setExpandedPacks(prev => {
+          const next = new Set(prev);
+          packsToExpand.forEach(id => next.add(id));
+          return next;
+        });
+      }, 0);
+    }
 
     return { packs: filteredPacks, others: filteredOthers };
   };
@@ -298,6 +310,7 @@ export default function ExtensionsPanel() {
 
     const filteredPacks: AvailablePack[] = [];
     const filteredOthers: ExtensionManifest[] = [];
+    const packsToExpand: string[] = [];
 
     filtered.forEach(ext => {
       const pack = packs.find(p => 
@@ -314,13 +327,24 @@ export default function ExtensionsPanel() {
             extensions: packFiltered,
             description: `${packFiltered.length} extension${packFiltered.length > 1 ? 's' : ''}`,
           });
-          // 検索時は自動展開
-          setExpandedPacks(prev => new Set(prev).add(pack.id));
+          // 検索時に展開するパックを記録（状態更新はしない）
+          packsToExpand.push(pack.id);
         }
       } else {
         filteredOthers.push(ext);
       }
     });
+
+    // 検索時は自動展開（一度だけ実行）
+    if (packsToExpand.length > 0) {
+      setTimeout(() => {
+        setExpandedPacks(prev => {
+          const next = new Set(prev);
+          packsToExpand.forEach(id => next.add(id));
+          return next;
+        });
+      }, 0);
+    }
 
     return { packs: filteredPacks, others: filteredOthers };
   };
