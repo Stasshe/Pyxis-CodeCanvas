@@ -289,6 +289,8 @@ class ExtensionManager {
   private createExtensionContext(extensionId: string): ExtensionContext {
     return {
       extensionId,
+      extensionPath: `/extensions/${extensionId.replace(/\./g, '/')}`,
+      version: '1.0.0',
       storage: {
         get: async <T>(key: string) => {
           const fullKey = `${extensionId}:${key}`;
@@ -307,6 +309,21 @@ class ExtensionManager {
         info: (...args: unknown[]) => console.log(`[${extensionId}]`, ...args),
         warn: (...args: unknown[]) => console.warn(`[${extensionId}]`, ...args),
         error: (...args: unknown[]) => console.error(`[${extensionId}]`, ...args),
+      },
+      getSystemModule: async <T = any>(moduleName: string): Promise<T> => {
+        // システムモジュールへのアクセスを提供
+        switch (moduleName) {
+          case 'transpileManager': {
+            const { transpileManager } = await import('@/engine/runtime/transpileManager');
+            return transpileManager as T;
+          }
+          case 'storageService': {
+            const { storageService } = await import('@/engine/storage');
+            return storageService as T;
+          }
+          default:
+            throw new Error(`System module not found: ${moduleName}`);
+        }
       },
     };
   }

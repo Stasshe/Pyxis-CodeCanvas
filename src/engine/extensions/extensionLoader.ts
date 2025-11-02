@@ -49,7 +49,18 @@ export async function fetchExtensionFile(
 ): Promise<string | null> {
   try {
     // マニフェストのディレクトリを取得
-    const manifestDir = manifest.id.replace(/\./g, '/');
+    // manifest.idから拡張機能のパスを生成
+    // 例: "pyxis.typescript-runtime" -> "typescript-runtime"
+    //     "pyxis.lang.ja" -> "lang-packs/ja"
+    let manifestDir: string;
+    if (manifest.id.startsWith('pyxis.lang.')) {
+      const locale = manifest.id.replace('pyxis.lang.', '');
+      manifestDir = `lang-packs/${locale}`;
+    } else {
+      const name = manifest.id.replace('pyxis.', '');
+      manifestDir = name;
+    }
+    
     const url = `${EXTENSIONS_BASE_URL}/${manifestDir}/${filePath}`;
 
     const response = await fetch(url);
@@ -108,32 +119,32 @@ export async function loadExtensionModule(
   context: ExtensionContext
 ): Promise<ExtensionExports | null> {
   try {
-    // モジュール環境を構築
-    const moduleWrapper = `
-      return (async function(context) {
-        const exports = {};
-        const module = { exports };
-        
-        ${entryCode}
-        
-        // CommonJS形式をサポート
-        return module.exports.default || module.exports;
-      })
-    `;
+    // import文を含むコードをdata URLとしてES Moduleで実行
+    // Blob + URL.createObjectURL を使ってdynamic importで読み込む
+    const blob = new Blob([entryCode], { type: 'application/javascript' });
+    const url = URL.createObjectURL(blob);
 
-    // コードを実行
-    const moduleFunc = new Function(moduleWrapper)();
-    const extensionExports = await moduleFunc(context);
+    try {
+      // Dynamic importでモジュールをロード
+      const module = await import(/* webpackIgnore: true */ url);
+      
+      // URLをクリーンアップ
+      URL.revokeObjectURL(url);
 
-    // activate関数の存在を確認
-    if (typeof extensionExports.activate !== 'function') {
-      console.error('[ExtensionLoader] Extension must export an activate function');
-      return null;
+      // activate関数の存在を確認
+      if (typeof module.activate !== 'function') {
+        console.error('[ExtensionLoader] Extension must export an activate function');
+        return null;
+      }
+
+      return module as ExtensionExports;
+    } catch (importError) {
+      URL.revokeObjectURL(url);
+      throw importError;
     }
-
-    return extensionExports as ExtensionExports;
   } catch (error) {
     console.error('[ExtensionLoader] Error loading extension module:', error);
+    console.error('Error details:', error);
     return null;
   }
 }

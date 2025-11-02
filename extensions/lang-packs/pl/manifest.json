@@ -1,0 +1,11 @@
+{
+  "id": "pyxis.lang.pl",
+  "name": "Language Pack - pl",
+  "version": "1.0.0",
+  "type": "service",
+  "description": "Language pack for pl locale",
+  "author": "Pyxis Team",
+  "dependencies": [],
+  "entry": "index.js",
+  "files": []
+}

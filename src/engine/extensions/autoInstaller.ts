@@ -53,7 +53,8 @@ export async function autoInstallExtensions(): Promise<void> {
       try {
         console.log(`[ExtensionAutoInstaller] Installing default extension: ${ext.manifestUrl}`);
         await extensionManager.installExtension(ext.manifestUrl);
-        await extensionManager.enableExtension(ext.manifestUrl.replace(/\/manifest\.json$/, ''));
+        // manifestUrlから拡張機能IDを取得 (extension idで有効化)
+        await extensionManager.enableExtension(ext.id);
       } catch (error) {
         console.error(`[ExtensionAutoInstaller] Failed to install ${ext.manifestUrl}:`, error);
       }

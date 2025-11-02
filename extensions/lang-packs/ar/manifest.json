@@ -1,0 +1,11 @@
+{
+  "id": "pyxis.lang.ar",
+  "name": "Language Pack - ar",
+  "version": "1.0.0",
+  "type": "service",
+  "description": "Language pack for ar locale",
+  "author": "Pyxis Team",
+  "dependencies": [],
+  "entry": "index.js",
+  "files": []
+}

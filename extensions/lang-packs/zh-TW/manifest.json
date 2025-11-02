@@ -1,0 +1,11 @@
+{
+  "id": "pyxis.lang.zh-TW",
+  "name": "Language Pack - zh-TW",
+  "version": "1.0.0",
+  "type": "service",
+  "description": "Language pack for zh-TW locale",
+  "author": "Pyxis Team",
+  "dependencies": [],
+  "entry": "index.js",
+  "files": []
+}

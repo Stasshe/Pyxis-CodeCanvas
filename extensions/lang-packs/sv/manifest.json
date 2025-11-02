@@ -1,0 +1,11 @@
+{
+  "id": "pyxis.lang.sv",
+  "name": "Language Pack - sv",
+  "version": "1.0.0",
+  "type": "service",
+  "description": "Language pack for sv locale",
+  "author": "Pyxis Team",
+  "dependencies": [],
+  "entry": "index.js",
+  "files": []
+}

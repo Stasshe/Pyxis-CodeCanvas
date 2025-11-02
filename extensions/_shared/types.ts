@@ -25,6 +25,7 @@ export interface ExtensionContext {
     set: <T>(key: string, value: T) => Promise<void>;
     delete: (key: string) => Promise<void>;
   };
+  getSystemModule?: <T = any>(moduleName: string) => Promise<T>;
 }
 
 export interface ExtensionActivation {

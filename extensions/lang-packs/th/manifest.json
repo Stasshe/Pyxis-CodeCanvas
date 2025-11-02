@@ -1,0 +1,11 @@
+{
+  "id": "pyxis.lang.th",
+  "name": "Language Pack - th",
+  "version": "1.0.0",
+  "type": "service",
+  "description": "Language pack for th locale",
+  "author": "Pyxis Team",
+  "dependencies": [],
+  "entry": "index.js",
+  "files": []
+}

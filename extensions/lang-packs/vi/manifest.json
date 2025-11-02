@@ -1,0 +1,11 @@
+{
+  "id": "pyxis.lang.vi",
+  "name": "Language Pack - vi",
+  "version": "1.0.0",
+  "type": "service",
+  "description": "Language pack for vi locale",
+  "author": "Pyxis Team",
+  "dependencies": [],
+  "entry": "index.js",
+  "files": []
+}

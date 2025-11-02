@@ -172,6 +172,9 @@ export interface ExtensionRegistry {
 
   /** 利用可能な拡張機能のリスト */
   extensions: Array<{
+    /** 拡張機能のID */
+    id: string;
+
     /** マニフェストURL (相対パス) */
     manifestUrl: string;
 
@@ -193,6 +196,12 @@ export interface ExtensionContext {
   /** 拡張機能のID */
   extensionId: string;
 
+  /** 拡張機能のパス */
+  extensionPath: string;
+
+  /** バージョン */
+  version: string;
+
   /** Storage API */
   storage: {
     get: <T>(key: string) => Promise<T | null>;
@@ -206,6 +215,9 @@ export interface ExtensionContext {
     warn: (...args: unknown[]) => void;
     error: (...args: unknown[]) => void;
   };
+
+  /** システムモジュールへのアクセス (オプション) */
+  getSystemModule?: <T = any>(moduleName: string) => Promise<T>;
 
   /** 他の拡張機能との通信 (オプション) */
   messaging?: {
