@@ -31,12 +31,21 @@ def fibonacci(n):
 if __name__ == "__main__":
     # Factorial
     num = 5
-    print(f"The factorial of {num} is {factorial(num)}")
+    factorial_result = factorial(num)
+    print(f"The factorial of {num} is {factorial_result}")
 
     # Prime check
     prime_candidate = 29
-    print(f"Is {prime_candidate} a prime number? {'Yes' if is_prime(prime_candidate) else 'No'}")
+    prime_result = is_prime(prime_candidate)
+    print(f"Is {prime_candidate} a prime number? {'Yes' if prime_result else 'No'}")
 
     # Fibonacci sequence
     fib_count = 10
-    print(f"The first {fib_count} numbers in the Fibonacci sequence are: {fibonacci(fib_count)}")
+    fibonacci_sequence = fibonacci(fib_count)
+    print(f"The first {fib_count} numbers in the Fibonacci sequence are: {fibonacci_sequence}")
+
+    # Write output to file
+    with open("output.txt", "w") as f:
+        f.write(f"The factorial of {num} is {factorial_result}\n")
+        f.write(f"Is {prime_candidate} a prime number? {'Yes' if prime_result else 'No'}\n")
+        f.write(f"The first {fib_count} numbers in the Fibonacci sequence are: {fibonacci_sequence}\n")
