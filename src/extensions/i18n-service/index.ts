@@ -38,7 +38,7 @@ class I18nService {
    */
   async setLocale(locale: string): Promise<void> {
     if (!SUPPORTED_LOCALES.includes(locale)) {
-      this.context.logger.warn(`Locale not supported: ${locale}, falling back to 'en'`);
+    this.context.logger?.warn(`Locale not supported: ${locale}, falling back to 'en'`);
       locale = 'en';
     }
 
@@ -64,10 +64,10 @@ class I18nService {
 
     // IndexedDBキャッシュをチェック
     const cacheKey = `translations:${locale}`;
-    const cached = await this.context.storage.get<TranslationData>(cacheKey);
+  const cached = await this.context.storage?.get<TranslationData>(cacheKey);
     
     if (cached) {
-      this.context.logger.info(`i18n: Loaded from cache - ${locale}`);
+  this.context.logger?.info(`i18n: Loaded from cache - ${locale}`);
       this.translations.set(locale, cached);
       return cached;
     }
@@ -85,12 +85,14 @@ class I18nService {
       this.translations.set(locale, data);
       
       // IndexedDBキャッシュに保存（7日間）
-      await this.context.storage.set(cacheKey, data);
-      
-      this.context.logger.info(`i18n: Fetched and cached - ${locale}`);
+      if (this.context.storage) {
+        await this.context.storage.set(cacheKey, data);
+      }
+
+      this.context.logger?.info(`i18n: Fetched and cached - ${locale}`);
       return data;
     } catch (error) {
-      this.context.logger.error(`i18n: Failed to load ${locale}`, error);
+  this.context.logger?.error(`i18n: Failed to load ${locale}`, error);
       return null;
     }
   }
@@ -144,10 +146,12 @@ class I18nService {
     // IndexedDBキャッシュもクリア
     for (const locale of SUPPORTED_LOCALES) {
       const cacheKey = `translations:${locale}`;
-      await this.context.storage.delete(cacheKey);
+      if (this.context.storage) {
+        await this.context.storage.delete(cacheKey);
+      }
     }
     
-    this.context.logger.info('i18n: Cache cleared');
+  this.context.logger?.info('i18n: Cache cleared');
   }
 }
 
@@ -155,14 +159,14 @@ class I18nService {
  * 拡張機能のアクティベーション
  */
 export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
-  context.logger.info('i18n Service Extension activating...');
+  context.logger?.info('i18n Service Extension activating...');
 
   const i18nService = new I18nService(context);
 
   // デフォルト言語をロード
   await i18nService.setLocale('en');
 
-  context.logger.info('i18n Service Extension activated');
+  context.logger?.info('i18n Service Extension activated');
 
   return {
     services: {
