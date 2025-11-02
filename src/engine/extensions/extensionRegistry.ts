@@ -6,7 +6,7 @@
 import type { ExtensionRegistry, ExtensionManifest } from './types';
 import { fetchExtensionManifest } from './extensionLoader';
 
-const REGISTRY_URL = '/extensions/registry.json';
+const REGISTRY_URL = (process.env.NEXT_PUBLIC_BASE_PATH || '') + '/extensions/registry.json';
 
 /**
  * キャッシュされたレジストリ

@@ -1,7 +1,6 @@
 .
 ├── CODE_OF_CONDUCT.md
 ├── Development
-│   ├── EXTENSION-SYSTEM.md
 │   ├── NEW-ARCHITECTURE.md
 │   ├── NodeJSRuntime-new-arc.md
 │   ├── TODO.md
@@ -23,6 +22,7 @@
 │   ├── AI-SYSTEM.md
 │   ├── CORE-ENGINE.md
 │   ├── DATA-FLOW.md
+│   ├── EXTENSION-SYSTEM.md
 │   ├── GITHUB-INTEGRATION.md
 │   ├── I18N-SYSTEM.md
 │   ├── NODE-RUNTIME.md
@@ -38,9 +38,6 @@
 │   ├── README.md
 │   ├── _shared
 │   │   └── types.ts
-│   ├── i18n-service
-│   │   ├── index.ts
-│   │   └── manifest.json
 │   ├── lang-packs
 │   │   ├── ar
 │   │   │   ├── index.ts
@@ -148,9 +145,6 @@
 │   │   ├── README.md
 │   │   ├── _shared
 │   │   │   └── types.js
-│   │   ├── i18n-service
-│   │   │   ├── index.js
-│   │   │   └── manifest.json
 │   │   ├── lang-packs
 │   │   │   ├── ar
 │   │   │   │   ├── index.js
@@ -380,7 +374,6 @@
 │   │   ├── ExtensionInitializer.tsx
 │   │   ├── FileSelect.tsx
 │   │   ├── KeyComboClient.tsx
-│   │   ├── LanguageSelector.tsx
 │   │   ├── Left
 │   │   │   ├── ExtensionsPanel.tsx
 │   │   │   ├── FileTree.tsx
@@ -591,11 +584,15 @@
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-127 directories, 465 files
+125 directories, 460 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 43583
-合計文字数: 1420925
-合計ファイルサイズ(bytes): 1518267
+合計行数: 43716
+合計文字数: 1425945
+合計ファイルサイズ(bytes): 1524790
 
-開発時のdev container全体のサイズ(bytes): 2.2G	.
+開発時のdev container全体のサイズ(bytes): 2.4G	.
+==========
+ビルト済みファイルの行数: 25826
+合計文字数: 25613489
+合計ファイルサイズ(bytes): 26606173
