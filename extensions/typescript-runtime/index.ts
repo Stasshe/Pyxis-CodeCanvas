@@ -2,7 +2,7 @@
  * Pyxis TypeScript Runtime Extension
  * 
  * TypeScript/JSX/TSXファイルのトランスパイルをサポート
- * 既存のtranspileManagerをラップして提供
+ * Babel standaloneをCDN経由でロードして使用
  */
 
 import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
@@ -10,35 +10,143 @@ import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
 export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
   context.logger?.info('TypeScript Runtime Extension activating...');
 
-  // contextから既存のtranspileManagerを取得
-  let transpileManager: any;
-  if (context.getSystemModule) {
-    try {
-      transpileManager = await context.getSystemModule('transpileManager');
-      context.logger?.info('Loaded transpileManager from system');
-    } catch (error) {
-      context.logger?.error('Failed to load transpileManager:', error);
-      throw new Error('Failed to load TypeScript transpiler');
+  // Babel standaloneをCDN経由で動的にロード
+  let Babel: any;
+  try {
+    // グローバルにBabelが既に存在するかチェック
+    if ((window as any).Babel) {
+      Babel = (window as any).Babel;
+      context.logger?.info('✅ Babel standalone already loaded');
+    } else {
+      // CDNからBabel standaloneをロード
+      context.logger?.info('📦 Loading Babel standalone from CDN...');
+      
+      await new Promise<void>((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/@babel/standalone@7.28.4/babel.min.js';
+        script.onload = () => {
+          if ((window as any).Babel) {
+            Babel = (window as any).Babel;
+            context.logger?.info('✅ Babel standalone loaded from CDN');
+            resolve();
+          } else {
+            reject(new Error('Babel not found after script load'));
+          }
+        };
+        script.onerror = () => {
+          reject(new Error('Failed to load Babel from CDN'));
+        };
+        document.head.appendChild(script);
+      });
     }
-  } else {
-    throw new Error('getSystemModule not available in context');
+  } catch (error) {
+    context.logger?.error('❌ Failed to load Babel standalone:', error);
+    throw new Error('Failed to load Babel standalone');
+  }
+
+  // normalizeCjsEsmユーティリティを取得
+  let normalizeCjsEsm: any;
+  try {
+    if (context.getSystemModule) {
+      const module = await context.getSystemModule('normalizeCjsEsm');
+      normalizeCjsEsm = (module as any).normalizeCjsEsm;
+      context.logger?.info('✅ normalizeCjsEsm loaded');
+    }
+  } catch (error) {
+    context.logger?.warn('⚠️ Failed to load normalizeCjsEsm, will skip normalization:', error);
+    // フォールバック: 正規化なし
+    normalizeCjsEsm = (code: string) => code;
+  }
+
+  /**
+   * 依存関係を抽出
+   */
+  function extractDependencies(code: string): string[] {
+    const dependencies = new Set<string>();
+
+    // require('module') パターン
+    const requireRegex = /require\s*\(\s*['"]([^'\"]+)['"]\s*\)/g;
+    let match;
+    while ((match = requireRegex.exec(code)) !== null) {
+      dependencies.add(match[1]);
+    }
+
+    // import 文
+    const importRegex = /import\s+(?:[\w*{}\s,]+\s+from\s+)?['"]([^'\"]+)['"]/g;
+    while ((match = importRegex.exec(code)) !== null) {
+      dependencies.add(match[1]);
+    }
+
+    return Array.from(dependencies);
   }
 
   const runtimeFeatures = {
     /**
-     * TypeScriptトランスパイラ
+     * TypeScriptトランスパイラ（Babel standalone使用）
      */
     transpiler: async (code: string, options: any = {}) => {
-      const { filePath = 'unknown.ts' } = options;
+      const { filePath = 'unknown.ts', isTypeScript, isJSX } = options;
+      const ext = filePath.split('.').pop() || 'js';
       
-      context.logger?.info(`Transpiling via extension: ${filePath}`);
+      context.logger?.info(`🔄 Transpiling: ${filePath}`);
       
       try {
-        const result = await transpileManager.transpile(code, filePath);
-        context.logger?.info(`Transpiled: ${filePath} (${code.length} -> ${result.length} bytes)`);
-        return { code: result };
+        // ステップ1: CJS/ESM正規化
+        const normalizedCode = normalizeCjsEsm(code);
+        
+        // ステップ2: Babelプリセットとプラグインを構築
+        const presets: [string, any][] = [];
+        const plugins: any[] = [];
+
+        // TypeScriptサポート
+        if (isTypeScript) {
+          presets.push([
+            'typescript',
+            {
+              isTSX: isJSX || ext === 'tsx',
+              allExtensions: true,
+            },
+          ]);
+        }
+
+        // Reactサポート
+        if (isJSX || ext === 'jsx' || ext === 'tsx') {
+          presets.push([
+            'react',
+            {
+              runtime: 'automatic',
+              development: false,
+            },
+          ]);
+        }
+
+        // ステップ3: Babelでトランスパイル
+        const result = Babel.transform(normalizedCode, {
+          filename: filePath,
+          presets,
+          plugins,
+          sourceMaps: false,
+          sourceType: 'module',
+          compact: false,
+          retainLines: true,
+        });
+
+        if (!result || !result.code) {
+          throw new Error('Babel transform returned empty code');
+        }
+
+        // ステップ4: 依存関係を抽出
+        const dependencies = extractDependencies(result.code);
+
+        context.logger?.info(`✅ Transpiled: ${filePath} (${code.length} -> ${result.code.length} bytes, ${dependencies.length} deps)`);
+        
+        return {
+          code: result.code,
+          map: result.map ? JSON.stringify(result.map) : undefined,
+          dependencies,
+        };
       } catch (error) {
-        context.logger?.error(`Transpile failed for ${filePath}:`, error);
+        context.logger?.error(`❌ Transpile failed for ${filePath}:`, error);
         throw error;
       }
     },
@@ -56,7 +164,7 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
     },
   };
 
-  context.logger?.info('TypeScript Runtime Extension activated');
+  context.logger?.info('✅ TypeScript Runtime Extension activated');
 
   return {
     runtimeFeatures,

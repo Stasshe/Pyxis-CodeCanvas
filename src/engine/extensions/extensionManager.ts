@@ -317,9 +317,17 @@ class ExtensionManager {
             const { transpileManager } = await import('@/engine/runtime/transpileManager');
             return transpileManager as T;
           }
+          case 'fileRepository': {
+            const { fileRepository } = await import('@/engine/core/fileRepository');
+            return fileRepository as T;
+          }
           case 'storageService': {
             const { storageService } = await import('@/engine/storage');
             return storageService as T;
+          }
+          case 'normalizeCjsEsm': {
+            const module = await import('@/engine/runtime/normalizeCjsEsm');
+            return module as T;
           }
           default:
             throw new Error(`System module not found: ${moduleName}`);

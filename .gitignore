@@ -43,6 +43,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+tsconfig.extensions.json
+tsconfig.extensions.tsbuildinfo
 
 memo.txt
 memo.md

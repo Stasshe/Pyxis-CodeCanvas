@@ -30,7 +30,11 @@ export interface ExtensionContext {
 
 export interface ExtensionActivation {
   runtimeFeatures?: {
-    transpiler?: (code: string, options?: any) => Promise<{ code: string; map?: string }>;
+    transpiler?: (code: string, options?: any) => Promise<{ 
+      code: string; 
+      map?: string;
+      dependencies?: string[];
+    }>;
     supportedExtensions?: string[];
     needsTranspile?: (filePath: string) => boolean;
     builtInModules?: Record<string, unknown>;

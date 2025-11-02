@@ -57,11 +57,14 @@ export class TranspileManager {
             isJSX: options.isJSX,
           });
           
+          // 拡張機能が依存関係を返す場合はそれを使用、なければフォールバック
+          const deps = (result as any).dependencies || this.extractDependencies(result.code);
+          
           return {
             id,
             code: result.code,
             sourceMap: (result as any).map,
-            dependencies: this.extractDependencies(result.code),
+            dependencies: deps,
           };
         } catch (error) {
           runtimeError(`❌ Extension transpiler failed: ${ext.manifest.id}`, error);

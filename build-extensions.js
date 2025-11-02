@@ -45,18 +45,13 @@ function buildExtensions() {
     return;
   }
   
-  // public/extensions/ をクリーンアップ (registry.json以外)
+  // public/extensions/ を完全にクリーンアップ
+  console.log('🧹 Cleaning output directory...');
   if (fs.existsSync(EXTENSIONS_DIST)) {
-    const files = fs.readdirSync(EXTENSIONS_DIST);
-    for (const file of files) {
-      if (file !== 'registry.json') {
-        const filePath = path.join(EXTENSIONS_DIST, file);
-        fs.rmSync(filePath, { recursive: true, force: true });
-      }
-    }
-  } else {
-    fs.mkdirSync(EXTENSIONS_DIST, { recursive: true });
+    fs.rmSync(EXTENSIONS_DIST, { recursive: true, force: true });
   }
+  fs.mkdirSync(EXTENSIONS_DIST, { recursive: true });
+  console.log('✅ Output directory cleaned\n');
   
   let totalFiles = 0;
   let successFiles = 0;
@@ -78,6 +73,8 @@ function buildExtensions() {
       
       // 一時的なtsconfig.jsonを作成
       const tsconfigPath = path.join(__dirname, 'tsconfig.extensions.json');
+      const tsbuildInfoPath = path.join(__dirname, 'tsconfig.extensions.tsbuildinfo');
+      
       const tsconfig = {
         compilerOptions: {
           target: 'ES2020',
@@ -93,6 +90,8 @@ function buildExtensions() {
           resolveJsonModule: true,
           isolatedModules: true,
           noEmit: false,
+          incremental: false, // 増分ビルドを無効化
+          tsBuildInfoFile: null, // ビルド情報ファイルを無効化
         },
         include: ['extensions/**/*.ts'],
         exclude: ['node_modules']
@@ -100,7 +99,12 @@ function buildExtensions() {
       
       fs.writeFileSync(tsconfigPath, JSON.stringify(tsconfig, null, 2));
       
-      // tscを実行
+      // 既存のビルド情報ファイルを削除（念のため）
+      if (fs.existsSync(tsbuildInfoPath)) {
+        fs.unlinkSync(tsbuildInfoPath);
+      }
+      
+      // tscを実行（incremental: falseで毎回クリーンビルド）
       execSync(`npx tsc -p ${tsconfigPath}`, {
         stdio: 'inherit',
         cwd: __dirname,
@@ -108,6 +112,11 @@ function buildExtensions() {
       
       // 一時ファイルを削除
       fs.unlinkSync(tsconfigPath);
+      
+      // ビルド情報ファイルが生成されていたら削除
+      if (fs.existsSync(tsbuildInfoPath)) {
+        fs.unlinkSync(tsbuildInfoPath);
+      }
       
       successFiles = tsFiles.length;
       console.log(`\n✅ Transpiled ${successFiles} files\n`);
@@ -117,8 +126,13 @@ function buildExtensions() {
       // エラーが起きても一時ファイルをクリーンアップ
       try {
         const tsconfigPath = path.join(__dirname, 'tsconfig.extensions.json');
+        const tsbuildInfoPath = path.join(__dirname, 'tsconfig.extensions.tsbuildinfo');
+        
         if (fs.existsSync(tsconfigPath)) {
           fs.unlinkSync(tsconfigPath);
+        }
+        if (fs.existsSync(tsbuildInfoPath)) {
+          fs.unlinkSync(tsbuildInfoPath);
         }
       } catch {}
     }
