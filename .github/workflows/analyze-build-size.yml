@@ -1,0 +1,51 @@
+name: Analyze Pages Artifact
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      # Pages artifactを取得
+      - name: Download latest Pages artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: github-pages   # ← actions/upload-pages-artifact のデフォルト名
+          path: ./out
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install source-map-explorer
+        run: npm install -g source-map-explorer
+
+      - name: Analyze bundle sizes
+        run: |
+          npx source-map-explorer "out/**/*.js" --json report.json || echo "{}" > report.json
+          node -e '
+          const fs = require("fs");
+          const report = JSON.parse(fs.readFileSync("report.json", "utf8"));
+          const entries = Object.entries(report);
+          if (entries.length === 0) {
+            console.log("No JS bundles found.");
+            fs.writeFileSync("summary.md", "No JS bundles found in output.");
+          } else {
+            let total = 0;
+            let table = "| File | Size (KB) |\n|------|-----------|\n";
+            for (const [name, d] of entries) {
+              const kb = (d.totalBytes / 1024).toFixed(2);
+              table += `| ${name} | ${kb} |\n`;
+              total += d.totalBytes;
+            }
+            const totalKB = (total / 1024).toFixed(2);
+            fs.writeFileSync("summary.md", `## 📦 Build Size Summary\n\n${table}\n\n**Total:** ${totalKB} KB`);
+          }'
+
+      - name: Add summary to GitHub UI
+        run: cat summary.md >> $GITHUB_STEP_SUMMARY
