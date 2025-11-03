@@ -16,12 +16,15 @@ function NoteTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
   useEffect(() => {
     const timer = setTimeout(() => {
       const tabData = (tab as any).data;
+      const noteKey = tabData?.noteKey || `note-tab-${tab.id}`;
+      
       if (content !== tabData?.content) {
         setIsSaving(true);
-        localStorage.setItem(`note-tab-${tab.id}`, content);
+        localStorage.setItem(noteKey, content);
+        localStorage.setItem(`${noteKey}-timestamp`, Date.now().toString());
         
         window.dispatchEvent(new CustomEvent('note-updated', { 
-          detail: { noteKey: `note-tab-${tab.id}` } 
+          detail: { noteKey } 
         }));
         
         setTimeout(() => setIsSaving(false), 500);
@@ -82,17 +85,23 @@ function NoteTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
 // サイドバーパネルコンポーネント（TSX構文使用）
 function createNotesListPanel(context: ExtensionContext) {
   return function NotesListPanel({ extensionId, panelId, isActive, state }: any) {
-    const [notes, setNotes] = useState<Array<{ key: string; content: string }>>([]);
+    const [notes, setNotes] = useState<Array<{ key: string; content: string; timestamp: number }>>([]);
+    const [hoveredKey, setHoveredKey] = useState<string | null>(null);
+    const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
     const loadNotes = () => {
-      const allNotes: Array<{ key: string; content: string }> = [];
+      const allNotes: Array<{ key: string; content: string; timestamp: number }> = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
         if (key && key.startsWith('note-tab-')) {
           const content = localStorage.getItem(key) || '';
-          allNotes.push({ key, content });
+          const timestampStr = localStorage.getItem(`${key}-timestamp`);
+          const timestamp = timestampStr ? parseInt(timestampStr, 10) : Date.now();
+          allNotes.push({ key, content, timestamp });
         }
       }
+      // 最新順にソート
+      allNotes.sort((a, b) => b.timestamp - a.timestamp);
       setNotes(allNotes);
     };
 
@@ -122,27 +131,62 @@ function createNotesListPanel(context: ExtensionContext) {
       }
     };
 
+    const deleteNote = (noteKey: string, e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (confirmDelete === noteKey) {
+        localStorage.removeItem(noteKey);
+        localStorage.removeItem(`${noteKey}-timestamp`);
+        loadNotes();
+        setConfirmDelete(null);
+        context.logger?.info(`Note deleted: ${noteKey}`);
+      } else {
+        setConfirmDelete(noteKey);
+        setTimeout(() => setConfirmDelete(null), 3000);
+      }
+    };
+
     const createNewNote = () => {
       if (context.tabs) {
+        const timestamp = Date.now();
+        const newKey = `note-tab-${timestamp}`;
+        localStorage.setItem(`${newKey}-timestamp`, timestamp.toString());
+        
         context.tabs.createTab({
           title: '📝 New Note',
           icon: 'FileText',
           closable: true,
           activateAfterCreate: true,
-          data: { content: '' },
+          data: { content: '', noteKey: newKey },
         });
       }
+    };
+
+    const formatDate = (timestamp: number) => {
+      const now = Date.now();
+      const diff = now - timestamp;
+      const minutes = Math.floor(diff / 60000);
+      const hours = Math.floor(diff / 3600000);
+      const days = Math.floor(diff / 86400000);
+
+      if (minutes < 1) return 'Just now';
+      if (minutes < 60) return `${minutes}m ago`;
+      if (hours < 24) return `${hours}h ago`;
+      if (days < 7) return `${days}d ago`;
+      
+      const date = new Date(timestamp);
+      return date.toLocaleDateString();
     };
 
     // TSX構文で記述！
     return (
       <div
         style={{
-          padding: '16px',
+          padding: '12px',
           color: '#d4d4d4',
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
+          background: '#1e1e1e',
         }}
       >
         {/* ヘッダー */}
@@ -151,10 +195,24 @@ function createNotesListPanel(context: ExtensionContext) {
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            marginBottom: '16px',
+            marginBottom: '12px',
+            paddingBottom: '8px',
+            borderBottom: '1px solid #333',
           }}
         >
-          <h3 style={{ fontSize: '14px', margin: 0 }}>Your Notes</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '16px' }}>📝</span>
+            <h3 style={{ fontSize: '13px', margin: 0, fontWeight: 600 }}>Notes</h3>
+            <span style={{ 
+              fontSize: '11px', 
+              color: '#888',
+              background: '#2d2d2d',
+              padding: '2px 6px',
+              borderRadius: '10px',
+            }}>
+              {notes.length}
+            </span>
+          </div>
           <button
             onClick={createNewNote}
             style={{
@@ -162,9 +220,17 @@ function createNotesListPanel(context: ExtensionContext) {
               color: '#fff',
               border: 'none',
               borderRadius: '4px',
-              padding: '4px 8px',
+              padding: '6px 10px',
               fontSize: '12px',
               cursor: 'pointer',
+              fontWeight: 500,
+              transition: 'background 0.2s',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = '#1177bb';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = '#0e639c';
             }}
           >
             + New
@@ -172,41 +238,128 @@ function createNotesListPanel(context: ExtensionContext) {
         </div>
         
         {/* ノート一覧 */}
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
           {notes.length === 0 ? (
-            <p style={{ color: '#888', fontSize: '12px' }}>
-              No notes yet. Click "+ New" to create one.
-            </p>
+            <div style={{ 
+              textAlign: 'center', 
+              padding: '32px 16px',
+              color: '#888',
+            }}>
+              <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.5 }}>📝</div>
+              <p style={{ fontSize: '13px', margin: '0 0 8px 0' }}>
+                No notes yet
+              </p>
+              <p style={{ fontSize: '11px', margin: 0, color: '#666' }}>
+                Click "+ New" to create your first note
+              </p>
+            </div>
           ) : (
-            notes.map(({ key, content }, idx) => {
-              const preview = content.slice(0, 50) || 'Empty note';
-              const lines = content.split('\n');
-              const title = lines[0] || `Note ${idx + 1}`;
+            notes.map(({ key, content, timestamp }, idx) => {
+              const lines = content.split('\n').filter(line => line.trim());
+              const title = lines[0]?.slice(0, 30) || 'Untitled Note';
+              const preview = lines.slice(1).join(' ').slice(0, 60) || 'No content';
+              const wordCount = content.split(/\s+/).filter(w => w).length;
+              const isHovered = hoveredKey === key;
+              const isConfirmingDelete = confirmDelete === key;
               
               return (
                 <div
                   key={key}
                   onClick={() => openNote(key)}
+                  onMouseEnter={() => setHoveredKey(key)}
+                  onMouseLeave={() => setHoveredKey(null)}
                   style={{
-                    padding: '8px',
-                    marginBottom: '4px',
-                    background: '#2d2d2d',
-                    borderRadius: '4px',
+                    padding: '12px',
+                    marginBottom: '8px',
+                    background: isHovered ? '#2d2d2d' : '#252525',
+                    borderRadius: '6px',
                     cursor: 'pointer',
                     fontSize: '12px',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = '#3d3d3d';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = '#2d2d2d';
+                    border: '1px solid',
+                    borderColor: isHovered ? '#3d3d3d' : 'transparent',
+                    transition: 'all 0.2s',
+                    position: 'relative',
                   }}
                 >
-                  <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>
-                    {title}
+                  {/* タイトル */}
+                  <div style={{ 
+                    fontWeight: 600, 
+                    marginBottom: '6px',
+                    fontSize: '13px',
+                    color: '#e0e0e0',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                    gap: '8px',
+                  }}>
+                    <span style={{ 
+                      flex: 1,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {title}
+                    </span>
+                    {isHovered && (
+                      <button
+                        onClick={(e) => deleteNote(key, e)}
+                        style={{
+                          background: isConfirmingDelete ? '#c62828' : '#333',
+                          color: isConfirmingDelete ? '#fff' : '#999',
+                          border: 'none',
+                          borderRadius: '3px',
+                          padding: '4px 8px',
+                          fontSize: '11px',
+                          cursor: 'pointer',
+                          fontWeight: 500,
+                          transition: 'all 0.2s',
+                          flexShrink: 0,
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isConfirmingDelete) {
+                            e.currentTarget.style.background = '#444';
+                            e.currentTarget.style.color = '#fff';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isConfirmingDelete) {
+                            e.currentTarget.style.background = '#333';
+                            e.currentTarget.style.color = '#999';
+                          }
+                        }}
+                      >
+                        {isConfirmingDelete ? 'Confirm?' : 'Delete'}
+                      </button>
+                    )}
                   </div>
-                  <div style={{ color: '#888', fontSize: '11px' }}>
+                  
+                  {/* プレビュー */}
+                  <div style={{ 
+                    color: '#999', 
+                    fontSize: '11px',
+                    lineHeight: '1.5',
+                    marginBottom: '8px',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                  }}>
                     {preview}
+                  </div>
+                  
+                  {/* メタ情報 */}
+                  <div style={{ 
+                    display: 'flex', 
+                    gap: '12px',
+                    fontSize: '10px',
+                    color: '#666',
+                  }}>
+                    <span>{formatDate(timestamp)}</span>
+                    <span>•</span>
+                    <span>{wordCount} words</span>
+                    <span>•</span>
+                    <span>{lines.length} lines</span>
                   </div>
                 </div>
               );
