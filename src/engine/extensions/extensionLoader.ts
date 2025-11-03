@@ -119,27 +119,37 @@ export async function fetchExtensionCode(manifest: ExtensionManifest): Promise<{
 
 /**
  * import文を書き換えてグローバル変数から取得するように変換
+ * 
+ * Note: 文字列置換は推奨される方法ではないが、static siteの制約上、
+ * ブラウザでdynamic importする際にReactを解決する最も現実的な方法。
+ * Import Mapsは既存のバンドルと競合する可能性があるため採用していない。
  */
 function transformImports(code: string): string {
   // React関連のimportを書き換え
   let transformed = code;
   
   // import React, { ... } from 'react' を書き換え
+  // 例: import React, { useState, useEffect } from 'react'
+  //  -> const React = window.__PYXIS_REACT__; const { useState, useEffect } = React;
   transformed = transformed.replace(
-    /import\s+React\s*,\s*\{([^}]+)\}\s+from\s+['"]react['"]/g,
-    'const React = window.__PYXIS_REACT__; const {$1} = React'
+    /import\s+React\s*,\s*\{([^}]+)\}\s+from\s+['"]react['"];?/g,
+    'const React = window.__PYXIS_REACT__; const {$1} = React;'
   );
   
   // import React from 'react' を書き換え
+  // 例: import React from 'react'
+  //  -> const React = window.__PYXIS_REACT__;
   transformed = transformed.replace(
-    /import\s+React\s+from\s+['"]react['"]/g,
-    'const React = window.__PYXIS_REACT__'
+    /import\s+React\s+from\s+['"]react['"];?/g,
+    'const React = window.__PYXIS_REACT__;'
   );
   
   // import { ... } from 'react' を書き換え
+  // 例: import { useState, useEffect } from 'react'
+  //  -> const { useState, useEffect } = window.__PYXIS_REACT__;
   transformed = transformed.replace(
-    /import\s+\{([^}]+)\}\s+from\s+['"]react['"]/g,
-    'const {$1} = window.__PYXIS_REACT__'
+    /import\s+\{([^}]+)\}\s+from\s+['"]react['"];?/g,
+    'const {$1} = window.__PYXIS_REACT__;'
   );
   
   return transformed;
