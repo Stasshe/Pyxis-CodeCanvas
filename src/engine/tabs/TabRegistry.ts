@@ -11,10 +11,22 @@ class TabRegistry {
   /**
    * タブタイプを登録
    */
-  register(definition: TabTypeDefinition): void {
-    if (this.registry.has(definition.kind)) {
-      console.warn(`[TabRegistry] Tab type "${definition.kind}" is already registered. Overwriting.`);
+  register(definition: TabTypeDefinition, options?: { overwrite?: boolean }): void {
+    const exists = this.registry.has(definition.kind);
+    if (exists && !options?.overwrite) {
+      // 既に登録済みの場合は上書きしない（明示的に overwrite=true が渡された場合のみ上書き）
+      console.info(
+        `[TabRegistry] Tab type "${definition.kind}" is already registered; skipping registration.`
+      );
+      return;
     }
+
+    if (exists && options?.overwrite) {
+      console.warn(
+        `[TabRegistry] Tab type "${definition.kind}" is already registered. Overwriting.`
+      );
+    }
+
     this.registry.set(definition.kind, definition);
     console.log(`[TabRegistry] Registered tab type: ${definition.kind}`);
   }
