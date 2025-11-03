@@ -100,7 +100,6 @@ export class TabAPI {
    */
   createTab(options: CreateTabOptions): string {
     const store = useTabStore.getState();
-    const tabId = `ext-${this.extensionId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const tabKind = `extension:${this.extensionId}`;
 
     // TabRegistryに登録されているか確認
@@ -111,6 +110,25 @@ export class TabAPI {
       );
       throw new Error(`Extension tab type not registered: ${tabKind}`);
     }
+
+    // 重複チェック: noteKeyが指定されている場合、同じnoteKeyを持つタブを探す
+    if (options.data && (options.data as any).noteKey) {
+      const noteKey = (options.data as any).noteKey;
+      for (const pane of store.panes) {
+        const existingTab = pane.tabs.find(tab => {
+          return tab.kind === tabKind && 
+                 (tab as any).data?.noteKey === noteKey;
+        });
+        
+        if (existingTab) {
+          console.log(`[TabAPI] Tab already exists for noteKey: ${noteKey}, activating existing tab`);
+          store.activateTab(pane.id, existingTab.id);
+          return existingTab.id;
+        }
+      }
+    }
+
+    const tabId = `ext-${this.extensionId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
     // 新しいタブオブジェクトを作成（BaseTabの形式に準拠）
     const newTab: any = {
