@@ -78,6 +78,15 @@ export default function TabBar({ paneId }: TabBarProps) {
     };
   }, [menuOpen, tabContextMenu.isOpen]);
 
+  // タッチタイマーのクリーンアップ
+  useEffect(() => {
+    return () => {
+      if (touchTimerRef.current) {
+        clearTimeout(touchTimerRef.current);
+      }
+    };
+  }, []);
+
   // 同名ファイルの重複チェック
   const nameCount: Record<string, number> = {};
   tabs.forEach(tab => {
@@ -131,6 +140,42 @@ export default function TabBar({ paneId }: TabBarProps) {
       x: e.clientX,
       y: e.clientY,
     });
+  };
+
+  // タッチデバイス用の長押しハンドラ
+  const touchTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent, tabId: string) => {
+    const touch = e.touches[0];
+    touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
+
+    touchTimerRef.current = setTimeout(() => {
+      if (touchStartPosRef.current) {
+        setTabContextMenu({
+          isOpen: true,
+          tabId,
+          x: touchStartPosRef.current.x,
+          y: touchStartPosRef.current.y,
+        });
+      }
+    }, 500); // 500ms長押し
+  };
+
+  const handleTouchEnd = () => {
+    if (touchTimerRef.current) {
+      clearTimeout(touchTimerRef.current);
+      touchTimerRef.current = null;
+    }
+    touchStartPosRef.current = null;
+  };
+
+  const handleTouchMove = () => {
+    // タッチ移動時は長押しをキャンセル
+    if (touchTimerRef.current) {
+      clearTimeout(touchTimerRef.current);
+      touchTimerRef.current = null;
+    }
   };
 
   // ショートカットキーの登録
@@ -314,7 +359,7 @@ export default function TabBar({ paneId }: TabBarProps) {
       </div>
 
       {/* タブリスト */}
-      <div className="flex items-center overflow-x-auto flex-1">
+      <div className="flex items-center overflow-x-auto flex-1 select-none">
         {tabs.map(tab => {
           const isActive = tab.id === activeTabId;
           const isDuplicate = nameCount[tab.name] > 1;
@@ -332,6 +377,9 @@ export default function TabBar({ paneId }: TabBarProps) {
               }}
               onClick={() => handleTabClick(tab.id)}
               onContextMenu={e => handleTabRightClick(e, tab.id)}
+              onTouchStart={e => handleTouchStart(e, tab.id)}
+              onTouchEnd={handleTouchEnd}
+              onTouchMove={handleTouchMove}
             >
               <TabIcon
                 kind={tab.kind}
@@ -379,7 +427,7 @@ export default function TabBar({ paneId }: TabBarProps) {
       {tabContextMenu.isOpen && (
         <div
           ref={tabContextMenuRef}
-          className="fixed bg-card border border-border rounded shadow-lg z-50 min-w-[150px] p-2"
+          className="fixed bg-card border border-border rounded shadow-lg z-50 min-w-[150px] p-2 select-none"
           style={{
             background: colors.cardBg,
             borderColor: colors.border,

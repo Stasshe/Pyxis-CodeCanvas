@@ -147,7 +147,7 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
             />
           ) : (
             <div
-              className="flex flex-col h-full gap-2"
+              className="flex flex-col h-full gap-2 select-none"
               style={{
                 color: colors.mutedFg,
                 display: 'flex',

@@ -135,11 +135,19 @@ export const useTabStore = create<TabStore>((set, get) => ({
   openTab: (file, options = {}) => {
     const state = get();
     const kind = options.kind || 'editor';
-    const targetPaneId = options.paneId || state.activePane || state.panes[0]?.id;
+    let targetPaneId = options.paneId || state.activePane || state.panes[0]?.id;
 
+    // ペインが存在しない場合は新しいペインを作成
     if (!targetPaneId) {
-      console.error('[TabStore] No pane available to open tab');
-      return;
+      const newPaneId = `pane-1`;
+      const newPane: EditorPane = {
+        id: newPaneId,
+        tabs: [],
+        activeTabId: '',
+      };
+      get().addPane(newPane);
+      targetPaneId = newPaneId;
+      set({ activePane: newPaneId });
     }
 
     const tabDef = tabRegistry.get(kind);
