@@ -1,6 +1,7 @@
 .
 ├── CODE_OF_CONDUCT.md
 ├── Development
+│   ├── EXTENSION-TAB-SIDEBAR-API.md
 │   ├── NEW-ARCHITECTURE.md
 │   ├── NodeJSRuntime-new-arc.md
 │   ├── TAB-MANAGEMENT-ARCHITECTURE.md
@@ -26,6 +27,7 @@
 │   ├── DATA-FLOW.md
 │   ├── EXTENSION-SYSTEM.md
 │   ├── GITHUB-INTEGRATION.md
+│   ├── HOW-TO-CREATE-EXTENSION.md
 │   ├── I18N-SYSTEM.md
 │   ├── NODE-RUNTIME.md
 │   ├── README.md
@@ -39,6 +41,7 @@
 ├── extensions
 │   ├── README.md
 │   ├── _shared
+│   │   ├── systemModuleTypes.ts
 │   │   └── types.ts
 │   ├── lang-packs
 │   │   ├── ar
@@ -102,7 +105,12 @@
 │   │       ├── index.ts
 │   │       └── manifest.json
 │   ├── note-tab
+│   │   ├── index.tsx
+│   │   └── manifest.json
 │   ├── registry.json
+│   ├── todo-panel
+│   │   ├── index.tsx
+│   │   └── manifest.json
 │   └── typescript-runtime
 │       ├── index.ts
 │       ├── manifest.json
@@ -148,6 +156,7 @@
 │   ├── extensions
 │   │   ├── README.md
 │   │   ├── _shared
+│   │   │   ├── systemModuleTypes.js
 │   │   │   └── types.js
 │   │   ├── lang-packs
 │   │   │   ├── ar
@@ -210,7 +219,13 @@
 │   │   │   └── zh-TW
 │   │   │       ├── index.js
 │   │   │       └── manifest.json
+│   │   ├── note-tab
+│   │   │   ├── index.js
+│   │   │   └── manifest.json
 │   │   ├── registry.json
+│   │   ├── todo-panel
+│   │   │   ├── index.js
+│   │   │   └── manifest.json
 │   │   └── typescript-runtime
 │   │       ├── index.js
 │   │       ├── manifest.json
@@ -305,7 +320,6 @@
 │   │       └── welcome.json
 │   ├── manifest.json
 │   ├── sw.js
-│   ├── tsconfig.extensions.tsbuildinfo
 │   ├── web-app-manifest-192x192.png
 │   ├── web-app-manifest-512x512.png
 │   └── window.svg
@@ -380,6 +394,7 @@
 │   │   ├── FileSelect.tsx
 │   │   ├── KeyComboClient.tsx
 │   │   ├── Left
+│   │   │   ├── ExtensionPanelRenderer.tsx
 │   │   │   ├── ExtensionsPanel.tsx
 │   │   │   ├── FileTree.tsx
 │   │   │   ├── GitHistory.tsx
@@ -510,6 +525,10 @@
 │   │   │   ├── extensionsLogger.ts
 │   │   │   ├── index.ts
 │   │   │   ├── storage-adapter.ts
+│   │   │   ├── system-api
+│   │   │   │   ├── SidebarAPI.ts
+│   │   │   │   └── TabAPI.ts
+│   │   │   ├── systemModuleTypes.ts
 │   │   │   └── types.ts
 │   │   ├── fileWatcher.ts
 │   │   ├── fileWatcherBridge.ts
@@ -579,6 +598,7 @@
 │   │   ├── keybindingUtils.ts
 │   │   ├── useAIReview.ts
 │   │   ├── useDiffTabHandlers.ts
+│   │   ├── useExtensionPanels.ts
 │   │   ├── useGlobalScrollLock.ts
 │   │   ├── useKeyBindings.ts
 │   │   ├── useProjectWelcome.ts
@@ -611,15 +631,11 @@
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-131 directories, 481 files
+135 directories, 497 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 44094
-合計文字数: 1425422
-合計ファイルサイズ(bytes): 1523581
+合計行数: 45025
+合計文字数: 1450319
+合計ファイルサイズ(bytes): 1551364
 
 開発時のdev container全体のサイズ(bytes): 2.5G	.
-==========
-ビルト済みファイルの行数: 25927
-合計文字数: 24994209
-合計ファイルサイズ(bytes): 25976959
