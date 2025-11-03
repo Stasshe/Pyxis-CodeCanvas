@@ -165,8 +165,17 @@ export async function loadExtensionModule(
   try {
     extensionInfo('Loading extension module');
     
+    // Reactが利用可能か確認
+    if (typeof window !== 'undefined' && !(window as any).__PYXIS_REACT__) {
+      extensionError('React is not available in global scope. Extension manager may not be initialized.');
+      return null;
+    }
+    
     // import文を書き換え
     const transformedCode = transformImports(entryCode);
+    
+    // デバッグ: 変換後のコードの最初の部分をログ出力
+    console.log('[ExtensionLoader] Transformed code preview:', transformedCode.slice(0, 500));
     
     // import文を含むコードをdata URLとしてES Moduleで実行
     // Blob + URL.createObjectURL を使ってdynamic importで読み込む
@@ -211,6 +220,14 @@ export async function activateExtension(
     return activation;
   } catch (error) {
     extensionError('Error activating extension:', error);
+    // より詳細なエラー情報を出力
+    if (error instanceof Error) {
+      console.error('[ExtensionLoader] Activation error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+      });
+    }
     return null;
   }
 }

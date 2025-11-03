@@ -206,12 +206,6 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
     context.logger?.info('Notes sidebar panel registered');
   }
 
-  // タブコンポーネントを動的に登録
-  const tabRegistry = await context.getSystemModule?.('tabRegistry');
-  if (tabRegistry) {
-    // Note: この部分はTabAPIが自動的に処理するため、通常は不要
-  }
-
   return {
     services: {
       'note-tab': {
