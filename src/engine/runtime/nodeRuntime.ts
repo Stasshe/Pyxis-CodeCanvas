@@ -97,13 +97,9 @@ export class NodeRuntime {
       // トランスパイル（require → await __require__ に変換）
       // Use ModuleLoader.getTranspiledCode so the entry file benefits from
       // the same transpile cache and disk-backed cache as other modules.
-      let code = fileContent;
-      try {
-        code = await this.moduleLoader.getTranspiledCode(filePath, fileContent);
-      } catch (e) {
-        runtimeWarn('⚠️ Failed to transpile via ModuleLoader, falling back to original code:', e);
-        code = fileContent;
-      }
+      // Don't fallback to simple transpile; always use ModuleLoader.
+      // Don't fallback to original code.
+      const code = await this.moduleLoader.getTranspiledCode(filePath, fileContent);
 
       // サンドボックス環境を構築
       const sandbox = await this.createSandbox(filePath);
