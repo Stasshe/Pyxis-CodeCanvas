@@ -96,63 +96,180 @@ function NoteTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
 }
 
 // サイドバーパネルコンポーネント
-function NotesListPanel({ extensionId, panelId, isActive, state }: any) {
-  const [notes, setNotes] = useState<string[]>([]);
+// contextを保持するために、activate内で作成される必要がある
+function createNotesListPanel(context: ExtensionContext) {
+  return function NotesListPanel({ extensionId, panelId, isActive, state }: any) {
+    const [notes, setNotes] = useState<Array<{ key: string; content: string }>>([]);
 
-  useEffect(() => {
-    // localStorageから全てのノートを取得
-    const allNotes: string[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith('note-tab-')) {
-        allNotes.push(key);
+    // ノートを再読み込み
+    const loadNotes = () => {
+      const allNotes: Array<{ key: string; content: string }> = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('note-tab-')) {
+          const content = localStorage.getItem(key) || '';
+          allNotes.push({ key, content });
+        }
       }
-    }
-    setNotes(allNotes);
-  }, [isActive]);
+      setNotes(allNotes);
+    };
 
-  return React.createElement(
-    'div',
-    {
-      style: {
-        padding: '16px',
-        color: '#d4d4d4',
-      },
-    },
-    [
-      React.createElement(
-        'h3',
-        {
-          key: 'title',
-          style: { marginBottom: '16px', fontSize: '14px' },
+    useEffect(() => {
+      loadNotes();
+    }, [isActive]);
+
+    // ノートをクリックして開く
+    const openNote = (noteKey: string) => {
+      const content = localStorage.getItem(noteKey) || '';
+      const noteTitle = content.split('\n')[0].slice(0, 20) || 'Untitled Note';
+      
+      if (context.tabs) {
+        context.tabs.createTab({
+          title: `📝 ${noteTitle}`,
+          icon: 'FileText',
+          closable: true,
+          activateAfterCreate: true,
+          data: {
+            content,
+            noteKey,
+          },
+        });
+      }
+    };
+
+    // 新規ノート作成
+    const createNewNote = () => {
+      if (context.tabs) {
+        context.tabs.createTab({
+          title: '📝 New Note',
+          icon: 'FileText',
+          closable: true,
+          activateAfterCreate: true,
+          data: {
+            content: '',
+          },
+        });
+      }
+    };
+
+    return React.createElement(
+      'div',
+      {
+        style: {
+          padding: '16px',
+          color: '#d4d4d4',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
         },
-        'Your Notes'
-      ),
-      React.createElement(
-        'div',
-        { key: 'list' },
-        notes.length === 0
-          ? React.createElement('p', { style: { color: '#888', fontSize: '12px' } }, 'No notes yet')
-          : notes.map((noteKey, idx) =>
-              React.createElement(
-                'div',
-                {
-                  key: noteKey,
-                  style: {
-                    padding: '8px',
-                    marginBottom: '4px',
-                    background: '#2d2d2d',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '12px',
-                  },
+      },
+      [
+        // ヘッダー
+        React.createElement(
+          'div',
+          {
+            key: 'header',
+            style: {
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '16px',
+            },
+          },
+          [
+            React.createElement(
+              'h3',
+              {
+                key: 'title',
+                style: { fontSize: '14px', margin: 0 },
+              },
+              'Your Notes'
+            ),
+            React.createElement(
+              'button',
+              {
+                key: 'new-btn',
+                onClick: createNewNote,
+                style: {
+                  background: '#0e639c',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '4px',
+                  padding: '4px 8px',
+                  fontSize: '12px',
+                  cursor: 'pointer',
                 },
-                `Note ${idx + 1}`
+              },
+              '+ New'
+            ),
+          ]
+        ),
+        // ノート一覧
+        React.createElement(
+          'div',
+          {
+            key: 'list',
+            style: {
+              flex: 1,
+              overflowY: 'auto',
+            },
+          },
+          notes.length === 0
+            ? React.createElement(
+                'p',
+                { style: { color: '#888', fontSize: '12px' } },
+                'No notes yet. Click "+ New" to create one.'
               )
-            )
-      ),
-    ]
-  );
+            : notes.map(({ key, content }, idx) => {
+                const preview = content.slice(0, 50) || 'Empty note';
+                const lines = content.split('\n');
+                const title = lines[0] || `Note ${idx + 1}`;
+                
+                return React.createElement(
+                  'div',
+                  {
+                    key: key,
+                    onClick: () => openNote(key),
+                    style: {
+                      padding: '8px',
+                      marginBottom: '4px',
+                      background: '#2d2d2d',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      transition: 'background 0.2s',
+                    },
+                    onMouseEnter: function(this: HTMLElement) {
+                      this.style.background = '#3d3d3d';
+                    },
+                    onMouseLeave: function(this: HTMLElement) {
+                      this.style.background = '#2d2d2d';
+                    },
+                  },
+                  [
+                    React.createElement(
+                      'div',
+                      {
+                        key: 'title',
+                        style: { fontWeight: 'bold', marginBottom: '4px' },
+                      },
+                      title
+                    ),
+                    React.createElement(
+                      'div',
+                      {
+                        key: 'preview',
+                        style: { color: '#888', fontSize: '11px' },
+                      },
+                      preview
+                    ),
+                  ]
+                );
+              })
+        ),
+      ]
+    );
+  };
 }
 
 /**
@@ -193,13 +310,15 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
     return null;
   };
 
-  // サイドバーパネルを登録
+  // サイドバーパネルを登録（contextを渡すためにcreateNotesListPanelを使用）
   if (context.sidebar) {
+    const NotesListPanelWithContext = createNotesListPanel(context);
+    
     context.sidebar.createPanel({
       id: 'notes-list',
       title: 'Notes',
       icon: 'StickyNote',
-      component: NotesListPanel,
+      component: NotesListPanelWithContext,
       order: 50,
     });
 
