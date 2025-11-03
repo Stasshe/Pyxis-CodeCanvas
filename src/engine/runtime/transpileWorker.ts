@@ -2,23 +2,18 @@
  * [NEW ARCHITECTURE] Transpile Worker
  *
  * ## 役割
- * Web Worker内でBabel standaloneを使用してトランスパイルを実行
+ * Web Worker内でnormalizeCjsEsmを実行
  * メインスレッドをブロックせず、完了後にWorkerを即座に終了してメモリを解放
  *
  * ## 処理フロー
- * 1. Babel standaloneを初期化
- * 2. TypeScript/JSX/ES Moduleをトランスパイル
- * 3. 依存関係を抽出
- * 4. 結果をメインスレッドに返す
- * 5. Worker終了
- */
-/**
- * [NEW ARCHITECTURE] Transpile Worker (Legacy - Not Used)
+ * 1. normalizeCjsEsmでCJS/ESM変換
+ * 2. 依存関係を抽出
+ * 3. 結果をメインスレッドに返す
+ * 4. Worker終了
  *
- * このファイルは現在使用されていません。
- * トランスパイル処理は拡張機能 (extensions/typescript-runtime) で実行されます。
- *
- * @deprecated Use extension-based transpiler instead
+ * ## 注意
+ * TypeScript/JSXのトランスパイルは拡張機能 (extensions/typescript-runtime) で実行
+ * このWorkerはビルトインのCJS/ESM変換のみを担当
  */
 
 import { normalizeCjsEsm } from './normalizeCjsEsm';
@@ -53,7 +48,7 @@ export interface TranspileResult {
 
 /**
  * トランスパイル実行
- * @deprecated この実装は使用されていません
+ * normalizeCjsEsmによるCJS/ESM変換のみを行う
  */
 function transpile(request: TranspileRequest): TranspileResult {
   try {
@@ -142,7 +137,7 @@ try {
   self.postMessage({
     type: 'log',
     level: 'info',
-    message: '⚠️ Transpile worker initialized (legacy - not used)',
+    message: '✅ Transpile worker initialized (normalizeCjsEsm)',
   });
 } catch {
   // ignore
