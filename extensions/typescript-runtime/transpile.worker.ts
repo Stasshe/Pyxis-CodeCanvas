@@ -4,12 +4,12 @@
  * Web Worker内でトランスパイルを実行
  * 
  * このファイルはpublic/extensions/にビルドされ、
- * Workerとして実行される。TypeScript CompilerはCDNからロード。
+ * Workerとして実行される。Babel StandaloneはCDNからロード。
  */
 
-// TypeScript Compiler API (グローバルから参照)
+// Babel Standalone (グローバルから参照)
 // 親スレッドでロード済みと仮定、または動的にロード
-declare const ts: any;
+declare const Babel: any;
 
 // Web Worker グローバル関数
 declare function importScripts(...urls: string[]): void;
@@ -20,6 +20,8 @@ interface TranspileRequest {
   filePath: string;
   isTypeScript?: boolean;
   isJSX?: boolean;
+  normalizeCjsEsm: string; // normalizeCjsEsm関数のコード文字列
+  extractDependencies: string; // extractDependencies関数のコード文字列
 }
 
 interface TranspileResponse {
@@ -30,17 +32,22 @@ interface TranspileResponse {
   error?: string;
 }
 
-// normalizeCjsEsm関数（Worker内で実行されるため、シンプルに実装）
-function normalizeCjsEsm(code: string): string {
-  // require → import変換の基本的な処理
-  // より高度な変換が必要な場合は、メインスレッドから渡されたコードを使う
-  return code
-    .replace(/const\s+(\w+)\s*=\s*require\s*\(\s*['"]([^'"]+)['"]\s*\)/g, "import $1 from '$2'")
-    .replace(/module\.exports\s*=\s*/g, 'export default ')
-    .replace(/exports\.(\w+)\s*=/g, 'export const $1 =');
+// メインスレッドから渡された関数を保持
+let normalizeCjsEsm: ((code: string) => string) | null = null;
+let extractDependencies: ((code: string) => string[]) | null = null;
+
+// 関数を動的に初期化
+function initializeFunctions(normalizeCjsEsmCode?: string, extractDependenciesCode?: string) {
+  if (normalizeCjsEsmCode && !normalizeCjsEsm) {
+    normalizeCjsEsm = new Function('code', normalizeCjsEsmCode) as (code: string) => string;
+  }
+  if (extractDependenciesCode && !extractDependencies) {
+    extractDependencies = new Function('code', extractDependenciesCode) as (code: string) => string[];
+  }
 }
 
-function extractDependencies(code: string): string[] {
+// フォールバック用の簡易実装
+function fallbackExtractDependencies(code: string): string[] {
   const dependencies = new Set<string>();
 
   // require('module')
@@ -59,41 +66,47 @@ function extractDependencies(code: string): string[] {
   return Array.from(dependencies);
 }
 
-// TypeScriptトランスパイル処理
+// TypeScript/JSXトランスパイル処理（Babel Standalone使用）
 function transpileTypeScript(code: string, filePath: string, isJSX: boolean): string {
-  if (typeof ts === 'undefined') {
-    throw new Error('TypeScript compiler not loaded');
+  if (typeof Babel === 'undefined') {
+    throw new Error('Babel not loaded');
   }
 
-  const compilerOptions: any = {
-    target: ts.ScriptTarget.ES2020,
-    module: ts.ModuleKind.ES2020,
-    jsx: isJSX ? ts.JsxEmit.React : undefined,
-    esModuleInterop: true,
-    allowSyntheticDefaultImports: true,
-    moduleResolution: ts.ModuleResolutionKind.NodeJs,
-    lib: ['ES2020', 'DOM'],
-  };
+  const presets = ['typescript'];
+  const plugins: string[] = [];
 
-  const result = ts.transpileModule(code, {
-    compilerOptions,
-    fileName: filePath,
-  });
+  if (isJSX) {
+    presets.push('react');
+  }
 
-  return result.outputText;
+  try {
+    const result = Babel.transform(code, {
+      presets,
+      plugins,
+      filename: filePath,
+    });
+
+    return result.code || code;
+  } catch (error) {
+    throw new Error(
+      `Babel transpile error: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
 }
 
-// Worker初期化: TypeScript Compiler APIをロード
-if (typeof ts === 'undefined') {
-  // CDNからTypeScriptをロード
-  importScripts('https://unpkg.com/typescript@5.7.3/lib/typescript.js');
+// Babel Standaloneをロード
+if (typeof Babel === 'undefined') {
+  importScripts('https://unpkg.com/@babel/standalone@7.26.5/babel.min.js');
 }
 
 // メッセージハンドラー
 self.addEventListener('message', (event: MessageEvent<TranspileRequest>) => {
-  const { id, code, filePath, isTypeScript, isJSX } = event.data;
+  const { id, code, filePath, isTypeScript, isJSX, normalizeCjsEsm: normalizeCjsEsmCode, extractDependencies: extractDependenciesCode } = event.data;
 
   try {
+    // 関数を初期化（初回のみ）
+    initializeFunctions(normalizeCjsEsmCode, extractDependenciesCode);
+
     let transpiledCode = code;
 
     // TypeScript/JSXの場合はトランスパイル
@@ -102,10 +115,14 @@ self.addEventListener('message', (event: MessageEvent<TranspileRequest>) => {
     }
 
     // CJS/ESM正規化
-    const normalizedCode = normalizeCjsEsm(transpiledCode);
+    const normalizedCode = normalizeCjsEsm 
+      ? normalizeCjsEsm(transpiledCode)
+      : transpiledCode;
 
     // 依存関係抽出
-    const dependencies = extractDependencies(normalizedCode);
+    const dependencies = extractDependencies
+      ? extractDependencies(normalizedCode)
+      : fallbackExtractDependencies(normalizedCode);
 
     const response: TranspileResponse = {
       id,

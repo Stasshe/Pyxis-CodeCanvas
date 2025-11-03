@@ -109,6 +109,10 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
           reject(new Error(`Worker error: ${error.message}`));
         };
         
+        // normalizeCjsEsmとextractDependenciesの関数本体を文字列として取得
+        const normalizeCjsEsmCode = normalizeCjsEsm.toString().replace(/^function\s+\w*\s*\([^)]*\)\s*{|}$/g, '');
+        const extractDependenciesCode = extractDependencies.toString().replace(/^function\s+\w*\s*\([^)]*\)\s*{|}$/g, '');
+        
         // リクエスト送信
         worker.postMessage({
           id,
@@ -116,6 +120,8 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
           filePath,
           isTypeScript,
           isJSX,
+          normalizeCjsEsm: normalizeCjsEsmCode,
+          extractDependencies: extractDependenciesCode,
         });
         
       } catch (error) {
