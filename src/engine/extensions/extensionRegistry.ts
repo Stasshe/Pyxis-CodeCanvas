@@ -79,9 +79,7 @@ export async function fetchAllManifests(): Promise<ExtensionManifest[]> {
 /**
  * 特定のタイプの拡張機能を取得
  */
-export async function fetchManifestsByType(
-  type: string
-): Promise<ExtensionManifest[]> {
+export async function fetchManifestsByType(type: string): Promise<ExtensionManifest[]> {
   const registry = await fetchRegistry();
   if (!registry) {
     extensionError(`Registry is null (type: ${type})`);

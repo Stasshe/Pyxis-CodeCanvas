@@ -215,20 +215,20 @@ export default function MonacoEditor({
       try {
         console.log('[MonacoEditor] Force refresh triggered for tabId:', tabId);
         const model = editorRef.current!.getModel();
-        
+
         if (isModelSafe(model)) {
           // モデルの値を再適用してUI同期
           const currentValue = model!.getValue();
           if (currentValue !== content) {
             model!.setValue(content);
           }
-          
+
           // レイアウトを強制更新
           editorRef.current!.layout();
-          
+
           // 文字数も再計算
           onCharCountChange(countCharsNoSpaces(content));
-          
+
           console.log('[MonacoEditor] ✓ Force refresh completed');
         }
       } catch (e) {

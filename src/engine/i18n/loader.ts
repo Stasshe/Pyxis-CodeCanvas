@@ -101,10 +101,10 @@ export function clearMemoryCacheForLocale(locale: Locale): void {
 export async function clearAllCacheForLocale(locale: Locale): Promise<void> {
   // メモリキャッシュをクリア
   clearMemoryCacheForLocale(locale);
-  
+
   // IndexedDBキャッシュをクリア
   const { deleteAllTranslationCacheForLocale } = await import('./storage-adapter');
   await deleteAllTranslationCacheForLocale(locale);
-  
+
   console.log(`[i18n-loader] Cleared all cache (memory + IndexedDB) for locale '${locale}'`);
 }

@@ -884,7 +884,7 @@ export class FileRepository {
    */
   private async getFileById(fileId: string): Promise<ProjectFile | null> {
     if (!this.db) throw new Error('Database not initialized');
-    
+
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction(['files'], 'readonly');
       const store = transaction.objectStore('files');
@@ -930,14 +930,7 @@ export class FileRepository {
       } else {
         // 少数削除の場合は個別同期
         for (const file of deletedFiles) {
-          await this.syncToGitFileSystem(
-            projectId,
-            file.path,
-            '',
-            'delete',
-            undefined,
-            file.type
-          );
+          await this.syncToGitFileSystem(projectId, file.path, '', 'delete', undefined, file.type);
         }
       }
     } catch (error) {

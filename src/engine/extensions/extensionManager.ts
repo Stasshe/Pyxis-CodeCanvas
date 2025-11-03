@@ -26,7 +26,6 @@ import {
   type ExtensionActivation,
 } from './types';
 
-
 /**
  * アクティブな拡張機能のキャッシュ
  */
@@ -169,7 +168,7 @@ class ExtensionManager {
       await saveInstalledExtension(installed);
       // 自動有効化
       await this.enableExtension(manifest.id);
-      
+
       return installed;
     } catch (error) {
       console.error('[ExtensionManager] Failed to install extension:', error);
@@ -199,19 +198,21 @@ class ExtensionManager {
       // onlyOneグループのチェック: 同じグループの他の拡張機能を無効化
       if (installed.manifest.onlyOne) {
         const group = installed.manifest.onlyOne;
-        console.log(`[ExtensionManager] onlyOne group detected: ${group}. Checking for conflicts...`);
-        
+        console.log(
+          `[ExtensionManager] onlyOne group detected: ${group}. Checking for conflicts...`
+        );
+
         // 同じグループで有効化されている拡張機能を探す
         const allInstalled = await loadAllInstalledExtensions();
         const conflictingExtensions = allInstalled.filter(
-          ext => ext.manifest?.onlyOne === group && 
-                 ext.enabled && 
-                 ext.manifest?.id !== extensionId
+          ext => ext.manifest?.onlyOne === group && ext.enabled && ext.manifest?.id !== extensionId
         );
 
         // 競合する拡張機能を無効化
         for (const conflict of conflictingExtensions) {
-          console.log(`[ExtensionManager] Disabling conflicting extension: ${conflict.manifest.id}`);
+          console.log(
+            `[ExtensionManager] Disabling conflicting extension: ${conflict.manifest.id}`
+          );
           await this.disableExtension(conflict.manifest.id);
         }
       }
@@ -371,7 +372,13 @@ class ExtensionManager {
     const langPacks: Array<{ locale: string; name: string; nativeName: string }> = [];
     for (const active of this.activeExtensions.values()) {
       if (active.activation.services && active.activation.services['language-pack']) {
-        langPacks.push(active.activation.services['language-pack'] as { locale: string; name: string; nativeName: string });
+        langPacks.push(
+          active.activation.services['language-pack'] as {
+            locale: string;
+            name: string;
+            nativeName: string;
+          }
+        );
       }
     }
     return langPacks;
@@ -399,7 +406,7 @@ class ExtensionManager {
     // TabAPIとSidebarAPIのインスタンスを作成
     const { TabAPI } = await import('./system-api/TabAPI');
     const { SidebarAPI } = await import('./system-api/SidebarAPI');
-    
+
     const context: ExtensionContext = {
       extensionId,
       extensionPath: `/extensions/${extensionId.replace(/\./g, '/')}`,
@@ -455,7 +462,8 @@ class ExtensionManager {
       createPanel: (definition: any) => sidebarAPI.createPanel(definition),
       updatePanel: (panelId: string, state: any) => sidebarAPI.updatePanel(panelId, state),
       removePanel: (panelId: string) => sidebarAPI.removePanel(panelId),
-      onPanelActivate: (panelId: string, callback: any) => sidebarAPI.onPanelActivate(panelId, callback),
+      onPanelActivate: (panelId: string, callback: any) =>
+        sidebarAPI.onPanelActivate(panelId, callback),
     };
 
     // APIインスタンスを保存（dispose用）

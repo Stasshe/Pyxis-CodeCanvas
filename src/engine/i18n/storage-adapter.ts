@@ -46,7 +46,7 @@ export async function deleteTranslationCache(locale: Locale, namespace: string):
 export async function deleteAllTranslationCacheForLocale(locale: Locale): Promise<void> {
   // 一般的なnamespaceをすべて削除
   const commonNamespaces = ['common', 'welcome', 'detail'];
-  
+
   for (const namespace of commonNamespaces) {
     try {
       await deleteTranslationCache(locale, namespace);
@@ -54,7 +54,7 @@ export async function deleteAllTranslationCacheForLocale(locale: Locale): Promis
       console.error(`[i18n-storage] Failed to delete cache for ${locale}-${namespace}:`, error);
     }
   }
-  
+
   console.log(`[i18n-storage] Deleted all translation cache for locale: ${locale}`);
 }
 

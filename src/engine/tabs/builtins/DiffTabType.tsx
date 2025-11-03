@@ -23,9 +23,9 @@ const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
         ...updatedDiffs[0],
         latterContent: content,
       };
-      updateTab(diffTab.paneId, diffTab.id, { 
+      updateTab(diffTab.paneId, diffTab.id, {
         diffs: updatedDiffs,
-        isDirty: true 
+        isDirty: true,
       } as Partial<DiffTab>);
     }
   };
@@ -60,17 +60,17 @@ export const DiffTabType: TabTypeDefinition = {
   canEdit: false,
   canPreview: false,
   component: DiffTabRenderer,
-  
+
   createTab: (data, options): DiffTab => {
     // dataには { files: SingleFileDiff | SingleFileDiff[], editable: boolean } が渡される
     const files = data.files;
     const isMultiFile = Array.isArray(files);
     const diffs = isMultiFile ? files : [files];
-    
+
     // タブIDとラベルを生成
     let tabId: string;
     let tabName: string;
-    
+
     if (isMultiFile) {
       // 複数ファイルのDiff（コミット全体）
       const firstDiff = diffs[0];
@@ -82,7 +82,7 @@ export const DiffTabType: TabTypeDefinition = {
       tabId = `diff-${diff.formerCommitId}-${diff.latterCommitId}-${diff.formerFullPath}`;
       tabName = `Diff: ${diff.formerFullPath.split('/').pop()} (${diff.formerCommitId?.slice(0, 6) || ''}..${diff.latterCommitId?.slice(0, 6) || ''})`;
     }
-    
+
     return {
       id: tabId,
       name: tabName,
@@ -93,7 +93,7 @@ export const DiffTabType: TabTypeDefinition = {
       editable: data.editable ?? false,
     };
   },
-  
+
   shouldReuseTab: (existingTab, newFile, options) => {
     return existingTab.path === newFile.path && existingTab.kind === 'diff';
   },

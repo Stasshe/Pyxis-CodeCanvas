@@ -40,7 +40,11 @@ export default function AIReviewTab({
   const suggestedContent = aiTab.suggestedContent || '';
   const filePath = aiTab.filePath || aiTab.path || '';
 
-  console.log('[AIReviewTab] Data:', { originalContent: originalContent.length, suggestedContent: suggestedContent.length, filePath });
+  console.log('[AIReviewTab] Data:', {
+    originalContent: originalContent.length,
+    suggestedContent: suggestedContent.length,
+    filePath,
+  });
 
   // 現在編集中のsuggestedContentを管理（本体には影響しない）
   const [currentSuggestedContent, setCurrentSuggestedContent] = useState(suggestedContent);

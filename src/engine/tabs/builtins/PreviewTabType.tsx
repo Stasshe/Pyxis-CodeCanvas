@@ -28,7 +28,7 @@ export const PreviewTabType: TabTypeDefinition = {
   displayName: 'Preview',
   canEdit: false,
   canPreview: false,
-  
+
   createTab: (data: unknown, options?: OpenTabOptions) => {
     const fileItem = data as FileItem;
     const tabId = `preview-${fileItem.path}`;

@@ -59,8 +59,7 @@ export function extractFileBlocks(response: string): Array<{ path: string; conte
 
   // フォールバック: ENDタグのパスが一致しない場合も拾う
   if (blocks.length === 0) {
-    const loosePattern =
-      /<AI_EDIT_CONTENT_START:(.+?)>\s*\n([\s\S]*?)<AI_EDIT_CONTENT_END:(.+?)>/g;
+    const loosePattern = /<AI_EDIT_CONTENT_START:(.+?)>\s*\n([\s\S]*?)<AI_EDIT_CONTENT_END:(.+?)>/g;
     let looseMatch;
     while ((looseMatch = loosePattern.exec(response)) !== null) {
       const startPath = looseMatch[1].trim();
@@ -77,7 +76,8 @@ export function extractFileBlocks(response: string): Array<{ path: string; conte
 
   // さらなるフォールバック: 閉じタグがない場合
   if (blocks.length === 0) {
-    const unclosedPattern = /<AI_EDIT_CONTENT_START:(.+?)>\s*\n([\s\S]*?)(?=<AI_EDIT_CONTENT_START:|$)/g;
+    const unclosedPattern =
+      /<AI_EDIT_CONTENT_START:(.+?)>\s*\n([\s\S]*?)(?=<AI_EDIT_CONTENT_START:|$)/g;
     let unclosedMatch;
     while ((unclosedMatch = unclosedPattern.exec(response)) !== null) {
       const path = unclosedMatch[1].trim();
@@ -103,8 +103,7 @@ export function extractReasons(response: string): Map<string, string> {
   const reasonMap = new Map<string, string>();
 
   // パターン1: ## 変更ファイル: ... **変更理由**: ... (最優先、改行まで)
-  const reasonPattern1 =
-    /##\s*変更ファイル:\s*(.+?)\s*\n+\*\*変更理由\*\*:\s*(.+?)(?=\n)/gs;
+  const reasonPattern1 = /##\s*変更ファイル:\s*(.+?)\s*\n+\*\*変更理由\*\*:\s*(.+?)(?=\n)/gs;
 
   let match1;
   while ((match1 = reasonPattern1.exec(response)) !== null) {
@@ -138,7 +137,8 @@ export function extractReasons(response: string): Map<string, string> {
   }
 
   // パターン4: ## File: ... Reason: ... (英語版)
-  const reasonPattern4 = /##\s*(?:File|ファイル):\s*(.+?)\s*\n+(?:\*\*)?(?:Reason|理由)(?:\*\*)?:\s*(.+?)(?=\n)/gs;
+  const reasonPattern4 =
+    /##\s*(?:File|ファイル):\s*(.+?)\s*\n+(?:\*\*)?(?:Reason|理由)(?:\*\*)?:\s*(.+?)(?=\n)/gs;
 
   let match4;
   while ((match4 = reasonPattern4.exec(response)) !== null) {
@@ -150,7 +150,8 @@ export function extractReasons(response: string): Map<string, string> {
   }
 
   // パターン5: 変更: ファイルパス - 理由
-  const reasonPattern5 = /^(?:変更|Change|Modified):\s*(.+?\.(?:ts|tsx|js|jsx|json|md|css|html|py|java|go|rs))\s*[-:]\s*(.+)$/gm;
+  const reasonPattern5 =
+    /^(?:変更|Change|Modified):\s*(.+?\.(?:ts|tsx|js|jsx|json|md|css|html|py|java|go|rs))\s*[-:]\s*(.+)$/gm;
 
   let match5;
   while ((match5 = reasonPattern5.exec(response)) !== null) {
@@ -185,7 +186,10 @@ export function cleanupMessage(response: string): string {
   cleaned = cleaned.replace(/^\*\*(?:ファイル名|File Name|Filename)\*\*:.+$/gm, '');
   cleaned = cleaned.replace(/^\*\*(?:理由|Reason)\*\*:.+$/gm, '');
   cleaned = cleaned.replace(/^(?:Reason|理由):\s*.+$/gm, ''); // 単体のReason行
-  cleaned = cleaned.replace(/^(?:変更|Change|Modified):\s*.+?\.(?:ts|tsx|js|jsx|json|md|css|html|py|java|go|rs)\s*[-:].*$/gm, '');
+  cleaned = cleaned.replace(
+    /^(?:変更|Change|Modified):\s*.+?\.(?:ts|tsx|js|jsx|json|md|css|html|py|java|go|rs)\s*[-:].*$/gm,
+    ''
+  );
   cleaned = cleaned.replace(/^---+$/gm, '');
 
   // コードブロックのマーカーを削除（```の中身は保持）
@@ -207,9 +211,7 @@ export function parseEditResponse(
   const changedFiles: ParsedFile[] = [];
 
   // パスの正規化マップを作成
-  const normalizedOriginalFiles = new Map(
-    originalFiles.map(f => [normalizePath(f.path), f])
-  );
+  const normalizedOriginalFiles = new Map(originalFiles.map(f => [normalizePath(f.path), f]));
 
   // ファイルブロックを抽出
   const fileBlocks = extractFileBlocks(response);

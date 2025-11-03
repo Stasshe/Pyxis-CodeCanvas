@@ -64,7 +64,7 @@ export async function fetchExtensionFile(
       const name = manifest.id.replace('pyxis.', '');
       manifestDir = name;
     }
-    
+
     const url = `${EXTENSIONS_BASE_URL}/${manifestDir}/${filePath}`;
 
     extensionInfo(`Fetching extension file: ${url}`);
@@ -127,19 +127,21 @@ export async function loadExtensionModule(
 ): Promise<ExtensionExports | null> {
   try {
     extensionInfo('Loading extension module');
-    
+
     // Reactが利用可能か確認
     if (typeof window !== 'undefined' && !(window as any).__PYXIS_REACT__) {
-      extensionError('React is not available in global scope. Ensure ExtensionManager.initialize() has been called before loading extensions.');
+      extensionError(
+        'React is not available in global scope. Ensure ExtensionManager.initialize() has been called before loading extensions.'
+      );
       return null;
     }
-    
+
     // import文を書き換え
     const transformedCode = transformImports(entryCode);
-    
+
     // デバッグ: 変換後のコードの最初の部分をログ出力
     console.log('[ExtensionLoader] Transformed code preview:', transformedCode.slice(0, 500));
-    
+
     // import文を含むコードをdata URLとしてES Moduleで実行
     // Blob + URL.createObjectURL を使ってdynamic importで読み込む
     const blob = new Blob([transformedCode], { type: 'application/javascript' });

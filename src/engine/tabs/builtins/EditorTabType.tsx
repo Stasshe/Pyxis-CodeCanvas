@@ -16,13 +16,13 @@ const EditorTabComponent: React.FC<TabComponentProps> = ({ tab, isActive }) => {
   const { settings } = useSettings(currentProject?.id);
   const updateTab = useTabStore(state => state.updateTab);
   const { setGitRefreshTrigger } = useGitContext();
-  
+
   const wordWrapConfig = settings?.editor?.wordWrap ? 'on' : 'off';
 
   const handleContentChange = async (tabId: string, content: string) => {
     // タブのコンテンツを更新（isDirtyをtrue）
     updateTab(editorTab.paneId, tabId, { content, isDirty: true } as Partial<EditorTab>);
-    
+
     // ファイルを保存
     if (saveFile && editorTab.path) {
       await saveFile(editorTab.path, content);
@@ -61,7 +61,7 @@ export const EditorTabType: TabTypeDefinition = {
   canEdit: true,
   canPreview: false,
   component: EditorTabComponent,
-  
+
   createTab: (file, options): EditorTab => {
     const tabId = file.path || file.name || `editor-${Date.now()}`;
     return {
@@ -79,7 +79,7 @@ export const EditorTabType: TabTypeDefinition = {
       jumpToColumn: options?.jumpToColumn,
     };
   },
-  
+
   shouldReuseTab: (existingTab, newFile, options) => {
     return existingTab.path === newFile.path && existingTab.kind === 'editor';
   },

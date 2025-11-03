@@ -18,7 +18,7 @@ export const WelcomeTabType: TabTypeDefinition = {
   displayName: 'Welcome',
   canEdit: false,
   canPreview: false,
-  
+
   createTab: (data: unknown, options?: OpenTabOptions) => {
     const tabId = 'welcome';
     const paneId = options?.targetPaneId || '';

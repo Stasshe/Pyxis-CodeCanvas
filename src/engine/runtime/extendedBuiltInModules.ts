@@ -15,10 +15,10 @@ export interface ExtendedBuiltInModulesOptions {
 
 /**
  * 拡張機能システムと統合したビルトインモジュールを作成
- * 
+ *
  * - 既存のビルトインモジュール（fs, path等）
  * - 拡張機能が提供するビルトインモジュール
- * 
+ *
  * を統合して返す
  */
 export async function createExtendedBuiltInModules(
@@ -39,7 +39,7 @@ export async function createExtendedBuiltInModules(
 
 /**
  * 特定のビルトインモジュールを解決
- * 
+ *
  * 1. 拡張機能から提供されているかチェック
  * 2. なければコアモジュールから取得
  */

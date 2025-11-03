@@ -27,11 +27,7 @@ interface AIPanelProps {
   currentProjectId?: string;
 }
 
-export default function AIPanel({
-  projectFiles,
-  currentProject,
-  currentProjectId,
-}: AIPanelProps) {
+export default function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
   const [mode, setMode] = useState<'ask' | 'edit'>('ask');
@@ -93,7 +89,7 @@ export default function AIPanel({
 
   // レビュー機能
   const { openAIReviewTab, closeAIReviewTab } = useAIReview();
-  
+
   // プロジェクト操作
   const { saveFile, clearAIReview } = useProject();
 

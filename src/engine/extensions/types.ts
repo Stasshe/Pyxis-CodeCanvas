@@ -25,19 +25,19 @@ declare global {
 export enum ExtensionType {
   /** ビルトインモジュール (fs, path等) */
   BUILTIN_MODULE = 'builtin-module',
-  
+
   /** サービス拡張 (i18n, Git統合など) */
   SERVICE = 'service',
-  
+
   /** トランスパイラ (TypeScript, JSX等) */
   TRANSPILER = 'transpiler',
-  
+
   /** 言語ランタイム (Python, Rust等) */
   LANGUAGE_RUNTIME = 'language-runtime',
-  
+
   /** ツール (linter, formatter等) */
   TOOL = 'tool',
-  
+
   /** UI拡張 */
   UI = 'ui',
 }
@@ -48,19 +48,19 @@ export enum ExtensionType {
 export enum ExtensionStatus {
   /** 利用可能（未インストール） */
   AVAILABLE = 'available',
-  
+
   /** インストール中 */
   INSTALLING = 'installing',
-  
+
   /** インストール済み（無効） */
   INSTALLED = 'installed',
-  
+
   /** 有効化済み */
   ENABLED = 'enabled',
-  
+
   /** エラー */
   ERROR = 'error',
-  
+
   /** 更新中 */
   UPDATING = 'updating',
 }
@@ -232,9 +232,7 @@ export interface ExtensionContext {
   };
 
   /** システムモジュールへのアクセス (型安全) */
-  getSystemModule?: <T extends SystemModuleName>(
-    moduleName: T
-  ) => Promise<SystemModuleMap[T]>;
+  getSystemModule?: <T extends SystemModuleName>(moduleName: T) => Promise<SystemModuleMap[T]>;
 
   /** 他の拡張機能との通信 (オプション) */
   messaging?: {

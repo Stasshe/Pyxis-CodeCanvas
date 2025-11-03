@@ -151,7 +151,11 @@ const DiffTab: React.FC<DiffTabProps> = ({
       // 編集可能で単一ファイルのとき、modifiedモデルの変更を監視して
       // 即時ハンドラ(onImmediateContentChange)を呼び、デバウンス保存を走らせる
       const isEditableSingle = editable && diffs.length === 1;
-      if (isEditableSingle && diffModel.modified && typeof diffModel.modified.onDidChangeContent === 'function') {
+      if (
+        isEditableSingle &&
+        diffModel.modified &&
+        typeof diffModel.modified.onDidChangeContent === 'function'
+      ) {
         const listener = diffModel.modified.onDidChangeContent(() => {
           try {
             const current = diffModel.modified.getValue();

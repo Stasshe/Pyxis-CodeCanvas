@@ -4,7 +4,18 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Download, Trash2, Power, PowerOff, Loader, Package, CheckCircle2, Search, ChevronDown, ChevronRight } from 'lucide-react';
+import {
+  Download,
+  Trash2,
+  Power,
+  PowerOff,
+  Loader,
+  Package,
+  CheckCircle2,
+  Search,
+  ChevronDown,
+  ChevronRight,
+} from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import { extensionManager } from '@/engine/extensions/extensionManager';
 import { fetchAllManifests } from '@/engine/extensions/extensionRegistry';
@@ -30,7 +41,9 @@ export default function ExtensionsPanel() {
   const { colors } = useTheme();
   const [installed, setInstalled] = useState<InstalledExtension[]>([]);
   const [available, setAvailable] = useState<ExtensionManifest[]>([]);
-  const [availableWithRegistry, setAvailableWithRegistry] = useState<Map<string, string>>(new Map());
+  const [availableWithRegistry, setAvailableWithRegistry] = useState<Map<string, string>>(
+    new Map()
+  );
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'installed' | 'available'>('installed');
   const [searchQuery, setSearchQuery] = useState('');
@@ -72,7 +85,6 @@ export default function ExtensionsPanel() {
 
       console.log('[ExtensionsPanel] Available after filter:', availableManifests.length);
       setAvailable(availableManifests);
-
     } catch (error) {
       console.error('[ExtensionsPanel] Failed to load extensions:', error);
     } finally {
@@ -82,13 +94,13 @@ export default function ExtensionsPanel() {
 
   const handleInstall = async (manifest: ExtensionManifest) => {
     const manifestUrl = availableWithRegistry.get(manifest.id);
-    
+
     if (!manifestUrl) {
       console.error('[ExtensionsPanel] No manifest URL found for:', manifest.id);
       alert(`Failed to install ${manifest.name}: Manifest URL not found in registry`);
       return;
     }
-    
+
     try {
       console.log('[ExtensionsPanel] Installing:', manifest.id, 'from', manifestUrl);
       await extensionManager.installExtension(manifestUrl);
@@ -127,24 +139,24 @@ export default function ExtensionsPanel() {
 
   const getExtensionTypeLabel = (type: string) => {
     const labels: Record<string, string> = {
-      transpiler: 'Transpiler',
-      service: 'Service',
+      'transpiler': 'Transpiler',
+      'service': 'Service',
       'builtin-module': 'Built-in Module',
       'language-runtime': 'Language Runtime',
-      tool: 'Tool',
-      ui: 'UI',
+      'tool': 'Tool',
+      'ui': 'UI',
     };
     return labels[type] || type;
   };
 
   const getExtensionTypeBadgeColor = (type: string): string => {
     const colorMap: Record<string, string> = {
-      transpiler: colors.blue,
-      service: colors.purple,
+      'transpiler': colors.blue,
+      'service': colors.purple,
       'builtin-module': colors.green,
       'language-runtime': colors.orange,
-      tool: colors.yellow,
-      ui: colors.cyan,
+      'tool': colors.yellow,
+      'ui': colors.cyan,
     };
     return colorMap[type] || colors.mutedFg;
   };
@@ -228,24 +240,26 @@ export default function ExtensionsPanel() {
   // 検索フィルター (Installed)
   const filterInstalledExtensions = (extensions: InstalledExtension[]) => {
     if (!searchQuery.trim()) return extensions;
-    
+
     const query = searchQuery.toLowerCase();
-    return extensions.filter(ext => 
-      ext.manifest.name.toLowerCase().includes(query) ||
-      ext.manifest.id.toLowerCase().includes(query) ||
-      ext.manifest.description.toLowerCase().includes(query)
+    return extensions.filter(
+      ext =>
+        ext.manifest.name.toLowerCase().includes(query) ||
+        ext.manifest.id.toLowerCase().includes(query) ||
+        ext.manifest.description.toLowerCase().includes(query)
     );
   };
 
   // 検索フィルター (Available)
   const filterAvailableExtensions = (extensions: ExtensionManifest[]) => {
     if (!searchQuery.trim()) return extensions;
-    
+
     const query = searchQuery.toLowerCase();
-    return extensions.filter(ext => 
-      ext.name.toLowerCase().includes(query) ||
-      ext.id.toLowerCase().includes(query) ||
-      ext.description.toLowerCase().includes(query)
+    return extensions.filter(
+      ext =>
+        ext.name.toLowerCase().includes(query) ||
+        ext.id.toLowerCase().includes(query) ||
+        ext.description.toLowerCase().includes(query)
     );
   };
 
@@ -263,13 +277,11 @@ export default function ExtensionsPanel() {
     const packsToExpand: string[] = [];
 
     filtered.forEach(ext => {
-      const pack = packs.find(p => 
-        p.extensions.some(e => e.manifest.id === ext.manifest.id)
-      );
+      const pack = packs.find(p => p.extensions.some(e => e.manifest.id === ext.manifest.id));
 
       if (pack) {
         if (!filteredPacks.find(p => p.id === pack.id)) {
-          const packFiltered = pack.extensions.filter(e => 
+          const packFiltered = pack.extensions.filter(e =>
             filtered.some(f => f.manifest.id === e.manifest.id)
           );
           filteredPacks.push({
@@ -313,15 +325,11 @@ export default function ExtensionsPanel() {
     const packsToExpand: string[] = [];
 
     filtered.forEach(ext => {
-      const pack = packs.find(p => 
-        p.extensions.some(e => e.id === ext.id)
-      );
+      const pack = packs.find(p => p.extensions.some(e => e.id === ext.id));
 
       if (pack) {
         if (!filteredPacks.find(p => p.id === pack.id)) {
-          const packFiltered = pack.extensions.filter(e => 
-            filtered.some(f => f.id === e.id)
-          );
+          const packFiltered = pack.extensions.filter(e => filtered.some(f => f.id === e.id));
           filteredPacks.push({
             ...pack,
             extensions: packFiltered,
@@ -350,10 +358,14 @@ export default function ExtensionsPanel() {
   };
 
   // レンダリング用コンポーネント
-  const renderInstalledExtension = (ext: InstalledExtension, isInPack = false, packName?: string) => {
+  const renderInstalledExtension = (
+    ext: InstalledExtension,
+    isInPack = false,
+    packName?: string
+  ) => {
     if (!ext.manifest) return null;
     const typeColor = getExtensionTypeBadgeColor(ext.manifest.type);
-    
+
     return (
       <div
         key={ext.manifest.id}
@@ -367,7 +379,10 @@ export default function ExtensionsPanel() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               {isInPack && searchQuery && packName && (
-                <span className="text-xs" style={{ color: colors.mutedFg }}>
+                <span
+                  className="text-xs"
+                  style={{ color: colors.mutedFg }}
+                >
                   {packName} &gt;
                 </span>
               )}
@@ -451,9 +466,13 @@ export default function ExtensionsPanel() {
     );
   };
 
-  const renderAvailableExtension = (manifest: ExtensionManifest, isInPack = false, packName?: string) => {
+  const renderAvailableExtension = (
+    manifest: ExtensionManifest,
+    isInPack = false,
+    packName?: string
+  ) => {
     const typeColor = getExtensionTypeBadgeColor(manifest.type);
-    
+
     return (
       <div
         key={manifest.id}
@@ -467,7 +486,10 @@ export default function ExtensionsPanel() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               {isInPack && searchQuery && packName && (
-                <span className="text-xs" style={{ color: colors.mutedFg }}>
+                <span
+                  className="text-xs"
+                  style={{ color: colors.mutedFg }}
+                >
                   {packName} &gt;
                 </span>
               )}
@@ -529,7 +551,10 @@ export default function ExtensionsPanel() {
         className="flex flex-col items-center justify-center h-full"
         style={{ color: colors.mutedFg }}
       >
-        <Loader size={32} className="animate-spin mb-3" />
+        <Loader
+          size={32}
+          className="animate-spin mb-3"
+        />
         <span className="text-sm">Loading extensions...</span>
       </div>
     );
@@ -539,14 +564,23 @@ export default function ExtensionsPanel() {
   const { packs: availablePacks, others: availableOthers } = processAvailableWithSearch();
 
   return (
-    <div className="flex flex-col h-full" style={{ background: colors.sidebarBg }}>
+    <div
+      className="flex flex-col h-full"
+      style={{ background: colors.sidebarBg }}
+    >
       {/* ヘッダー */}
       <div
         className="flex items-center px-4 py-3 border-b"
         style={{ borderColor: colors.border }}
       >
-        <Package size={18} style={{ color: colors.primary }} />
-        <h2 className="ml-2 text-sm font-semibold" style={{ color: colors.foreground }}>
+        <Package
+          size={18}
+          style={{ color: colors.primary }}
+        />
+        <h2
+          className="ml-2 text-sm font-semibold"
+          style={{ color: colors.foreground }}
+        >
           Extensions
         </h2>
       </div>
@@ -581,7 +615,10 @@ export default function ExtensionsPanel() {
       </div>
 
       {/* 検索バー */}
-      <div className="p-3 border-b" style={{ borderColor: colors.border }}>
+      <div
+        className="p-3 border-b"
+        style={{ borderColor: colors.border }}
+      >
         <div
           className="flex items-center gap-2 px-3 py-2 rounded-md border"
           style={{
@@ -589,12 +626,15 @@ export default function ExtensionsPanel() {
             borderColor: colors.border,
           }}
         >
-          <Search size={14} style={{ color: colors.mutedFg }} />
+          <Search
+            size={14}
+            style={{ color: colors.mutedFg }}
+          />
           <input
             type="text"
             placeholder="Search extensions..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={e => setSearchQuery(e.target.value)}
             className="flex-1 text-sm bg-transparent outline-none"
             style={{ color: colors.foreground }}
           />
@@ -610,19 +650,27 @@ export default function ExtensionsPanel() {
                 className="flex flex-col items-center justify-center py-12 text-center"
                 style={{ color: colors.mutedFg }}
               >
-                <Package size={48} className="mb-3 opacity-30" />
+                <Package
+                  size={48}
+                  className="mb-3 opacity-30"
+                />
                 <p className="text-sm">
                   {searchQuery ? 'No matching extensions found' : 'No extensions installed'}
                 </p>
                 <p className="text-xs mt-1 opacity-70">
-                  {searchQuery ? 'Try a different search term' : 'Browse available extensions to get started'}
+                  {searchQuery
+                    ? 'Try a different search term'
+                    : 'Browse available extensions to get started'}
                 </p>
               </div>
             ) : (
               <>
                 {/* パック表示 */}
-                {installedPacks.map((pack) => (
-                  <div key={pack.id} className="space-y-2">
+                {installedPacks.map(pack => (
+                  <div
+                    key={pack.id}
+                    className="space-y-2"
+                  >
                     {/* パックヘッダー */}
                     <button
                       className="w-full flex items-center gap-2 p-3 rounded-lg border transition-all hover:shadow-sm"
@@ -633,16 +681,31 @@ export default function ExtensionsPanel() {
                       onClick={() => togglePack(pack.id)}
                     >
                       {expandedPacks.has(pack.id) ? (
-                        <ChevronDown size={16} style={{ color: colors.mutedFg }} />
+                        <ChevronDown
+                          size={16}
+                          style={{ color: colors.mutedFg }}
+                        />
                       ) : (
-                        <ChevronRight size={16} style={{ color: colors.mutedFg }} />
+                        <ChevronRight
+                          size={16}
+                          style={{ color: colors.mutedFg }}
+                        />
                       )}
-                      <Package size={16} style={{ color: colors.primary }} />
+                      <Package
+                        size={16}
+                        style={{ color: colors.primary }}
+                      />
                       <div className="flex-1 text-left">
-                        <h3 className="text-sm font-semibold" style={{ color: colors.foreground }}>
+                        <h3
+                          className="text-sm font-semibold"
+                          style={{ color: colors.foreground }}
+                        >
                           {pack.name}
                         </h3>
-                        <p className="text-xs" style={{ color: colors.mutedFg }}>
+                        <p
+                          className="text-xs"
+                          style={{ color: colors.mutedFg }}
+                        >
                           {pack.description}
                         </p>
                       </div>
@@ -651,14 +714,14 @@ export default function ExtensionsPanel() {
                     {/* パック内の拡張機能 */}
                     {expandedPacks.has(pack.id) && (
                       <div className="ml-6 space-y-2">
-                        {pack.extensions.map((ext) => renderInstalledExtension(ext, true, pack.name))}
+                        {pack.extensions.map(ext => renderInstalledExtension(ext, true, pack.name))}
                       </div>
                     )}
                   </div>
                 ))}
 
                 {/* 通常の拡張機能 */}
-                {installedOthers.map((ext) => renderInstalledExtension(ext, false))}
+                {installedOthers.map(ext => renderInstalledExtension(ext, false))}
               </>
             )}
           </div>
@@ -671,19 +734,27 @@ export default function ExtensionsPanel() {
                 className="flex flex-col items-center justify-center py-12 text-center"
                 style={{ color: colors.mutedFg }}
               >
-                <CheckCircle2 size={48} className="mb-3 opacity-30" />
+                <CheckCircle2
+                  size={48}
+                  className="mb-3 opacity-30"
+                />
                 <p className="text-sm">
                   {searchQuery ? 'No matching extensions found' : 'All extensions installed'}
                 </p>
                 <p className="text-xs mt-1 opacity-70">
-                  {searchQuery ? 'Try a different search term' : 'You have all available extensions'}
+                  {searchQuery
+                    ? 'Try a different search term'
+                    : 'You have all available extensions'}
                 </p>
               </div>
             ) : (
               <>
                 {/* パック表示 */}
-                {availablePacks.map((pack) => (
-                  <div key={pack.id} className="space-y-2">
+                {availablePacks.map(pack => (
+                  <div
+                    key={pack.id}
+                    className="space-y-2"
+                  >
                     {/* パックヘッダー */}
                     <button
                       className="w-full flex items-center gap-2 p-3 rounded-lg border transition-all hover:shadow-sm"
@@ -694,16 +765,31 @@ export default function ExtensionsPanel() {
                       onClick={() => togglePack(pack.id)}
                     >
                       {expandedPacks.has(pack.id) ? (
-                        <ChevronDown size={16} style={{ color: colors.mutedFg }} />
+                        <ChevronDown
+                          size={16}
+                          style={{ color: colors.mutedFg }}
+                        />
                       ) : (
-                        <ChevronRight size={16} style={{ color: colors.mutedFg }} />
+                        <ChevronRight
+                          size={16}
+                          style={{ color: colors.mutedFg }}
+                        />
                       )}
-                      <Package size={16} style={{ color: colors.primary }} />
+                      <Package
+                        size={16}
+                        style={{ color: colors.primary }}
+                      />
                       <div className="flex-1 text-left">
-                        <h3 className="text-sm font-semibold" style={{ color: colors.foreground }}>
+                        <h3
+                          className="text-sm font-semibold"
+                          style={{ color: colors.foreground }}
+                        >
                           {pack.name}
                         </h3>
-                        <p className="text-xs" style={{ color: colors.mutedFg }}>
+                        <p
+                          className="text-xs"
+                          style={{ color: colors.mutedFg }}
+                        >
                           {pack.description}
                         </p>
                       </div>
@@ -712,14 +798,16 @@ export default function ExtensionsPanel() {
                     {/* パック内の拡張機能 */}
                     {expandedPacks.has(pack.id) && (
                       <div className="ml-6 space-y-2">
-                        {pack.extensions.map((manifest) => renderAvailableExtension(manifest, true, pack.name))}
+                        {pack.extensions.map(manifest =>
+                          renderAvailableExtension(manifest, true, pack.name)
+                        )}
                       </div>
                     )}
                   </div>
                 ))}
 
                 {/* 通常の拡張機能 */}
-                {availableOthers.map((manifest) => renderAvailableExtension(manifest, false))}
+                {availableOthers.map(manifest => renderAvailableExtension(manifest, false))}
               </>
             )}
           </div>

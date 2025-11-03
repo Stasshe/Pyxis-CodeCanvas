@@ -187,9 +187,7 @@ export default function LeftSidebar({
               <ExtensionsPanel />
             </div>
           )}
-          {activeMenuTab === 'settings' && (
-            <SettingsPanel currentProject={currentProject} />
-          )}
+          {activeMenuTab === 'settings' && <SettingsPanel currentProject={currentProject} />}
           {/* 拡張パネルを全て表示（アクティブなものだけを表示） */}
           {extensionPanels.map(panel => {
             const panelMenuTab = `extension:${panel.extensionId}.${panel.panelId}`;

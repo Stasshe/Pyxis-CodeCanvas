@@ -76,21 +76,21 @@ export const AIReviewTabType: TabTypeDefinition = {
   canEdit: true,
   canPreview: false,
   component: AIReviewTabRenderer,
-  
+
   createTab: (file, options): AIReviewTab => {
     const tabId = `ai:${file.path || file.name || Date.now()}`;
     const aiReviewProps = options?.aiReviewProps;
-    
+
     console.log('[AIReviewTabType] createTab called with:', {
       file,
       options,
       aiReviewProps,
     });
-    
+
     if (!aiReviewProps) {
       console.warn('[AIReviewTabType] aiReviewProps is missing in options!');
     }
-    
+
     const tab: AIReviewTab = {
       id: tabId,
       name: `AI Review: ${file.path?.split('/').pop() || 'unknown'}`,
@@ -101,7 +101,7 @@ export const AIReviewTabType: TabTypeDefinition = {
       suggestedContent: aiReviewProps?.suggestedContent || '',
       filePath: aiReviewProps?.filePath || file.path || '',
     };
-    
+
     console.log('[AIReviewTabType] Created tab:', {
       id: tab.id,
       name: tab.name,
@@ -109,10 +109,10 @@ export const AIReviewTabType: TabTypeDefinition = {
       suggestedContentLength: tab.suggestedContent.length,
       filePath: tab.filePath,
     });
-    
+
     return tab;
   },
-  
+
   shouldReuseTab: (existingTab, newFile, options) => {
     return existingTab.path === newFile.path && existingTab.kind === 'ai';
   },

@@ -22,9 +22,19 @@
   font-weight: 700;
 }
 
-.markdown-body h1 { font-size: 2em; border-bottom: 1px solid #333; padding-bottom: 0.3em; }
-.markdown-body h2 { font-size: 1.5em; border-bottom: 1px solid #333; padding-bottom: 0.3em; }
-.markdown-body h3 { font-size: 1.2em; }
+.markdown-body h1 {
+  font-size: 2em;
+  border-bottom: 1px solid #333;
+  padding-bottom: 0.3em;
+}
+.markdown-body h2 {
+  font-size: 1.5em;
+  border-bottom: 1px solid #333;
+  padding-bottom: 0.3em;
+}
+.markdown-body h3 {
+  font-size: 1.2em;
+}
 
 .markdown-body p {
   margin: 1em 0;
@@ -56,7 +66,7 @@
 .markdown-body li.task-list-item {
   list-style: none;
 }
-.markdown-body input[type="checkbox"] {
+.markdown-body input[type='checkbox'] {
   margin: 0 0.5rem 0 0;
   vertical-align: text-bottom;
   transform: translateY(1px);
@@ -113,7 +123,8 @@
   margin: 1em 0;
   max-width: 100%;
   display: block;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Segoe UI Mono', monospace;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Segoe UI Mono', monospace;
   font-size: 0.9em;
 }
 
@@ -134,9 +145,10 @@
   white-space: pre;
 }
 
-.markdown-body code[class^="language-"],
-.markdown-body pre[class^="language-"] {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Segoe UI Mono', monospace;
+.markdown-body code[class^='language-'],
+.markdown-body pre[class^='language-'] {
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Segoe UI Mono', monospace;
 }
 
 .markdown-body a {

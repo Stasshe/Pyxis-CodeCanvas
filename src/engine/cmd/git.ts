@@ -1143,9 +1143,9 @@ export class GitCommands {
         // IndexedDBにも同期（親フォルダも作成）- fileRepository.createFile を使用
         const content =
           typeof blob === 'string' ? blob : new TextDecoder().decode(blob as Uint8Array);
-        
+
         const filePath = `/${normalizedPath}`;
-        
+
         // createFile は自動的に親ディレクトリを作成し、既存ファイルの場合は更新する
         // これにより、fileRepository の体系的なエラーハンドリングとイベントシステムを活用できる
         await fileRepository.createFile(this.projectId, filePath, content, 'file');

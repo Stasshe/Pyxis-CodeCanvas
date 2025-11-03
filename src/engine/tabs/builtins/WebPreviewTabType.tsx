@@ -30,7 +30,7 @@ export const WebPreviewTabType: TabTypeDefinition = {
   canEdit: false,
   canPreview: true,
   component: WebPreviewTabRenderer,
-  
+
   createTab: (file, options): WebPreviewTab => {
     const tabId = `webPreview:${file.path || file.name || Date.now()}`;
     return {
@@ -43,7 +43,7 @@ export const WebPreviewTabType: TabTypeDefinition = {
       projectName: options?.projectName as string | undefined,
     };
   },
-  
+
   shouldReuseTab: (existingTab, newFile, options) => {
     return existingTab.path === newFile.path && existingTab.kind === 'webPreview';
   },

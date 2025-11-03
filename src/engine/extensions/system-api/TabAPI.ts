@@ -68,7 +68,7 @@ export class TabAPI {
    */
   registerTabType(component: any): void {
     const tabKind = `extension:${this.extensionId}`;
-    
+
     if (tabRegistry.has(tabKind as any)) {
       console.warn(`[TabAPI] Tab type already registered: ${tabKind}`);
       return;
@@ -81,17 +81,18 @@ export class TabAPI {
       canEdit: false,
       canPreview: false,
       component: component,
-      createTab: (data: any, opts?: any) => ({
-        id: data.id || `ext-${Date.now()}`,
-        name: data.title || data.name || 'Extension Tab',
-        kind: tabKind as any,
-        path: data.path || `extension:${this.extensionId}`,
-        paneId: opts?.paneId || '',
-        closable: data.closable !== false,
-        ...data,
-      } as any),
+      createTab: (data: any, opts?: any) =>
+        ({
+          id: data.id || `ext-${Date.now()}`,
+          name: data.title || data.name || 'Extension Tab',
+          kind: tabKind as any,
+          path: data.path || `extension:${this.extensionId}`,
+          paneId: opts?.paneId || '',
+          closable: data.closable !== false,
+          ...data,
+        }) as any,
     });
-    
+
     console.log(`[TabAPI] Registered extension tab type: ${tabKind}`);
   }
 
@@ -106,7 +107,7 @@ export class TabAPI {
     if (!tabRegistry.has(tabKind as any)) {
       console.error(
         `[TabAPI] Tab type not registered: ${tabKind}. ` +
-        `Call context.tabs.registerTabType(YourComponent) in activate() first.`
+          `Call context.tabs.registerTabType(YourComponent) in activate() first.`
       );
       throw new Error(`Extension tab type not registered: ${tabKind}`);
     }
@@ -116,12 +117,13 @@ export class TabAPI {
       const noteKey = (options.data as any).noteKey;
       for (const pane of store.panes) {
         const existingTab = pane.tabs.find(tab => {
-          return tab.kind === tabKind && 
-                 (tab as any).data?.noteKey === noteKey;
+          return tab.kind === tabKind && (tab as any).data?.noteKey === noteKey;
         });
-        
+
         if (existingTab) {
-          console.log(`[TabAPI] Tab already exists for noteKey: ${noteKey}, activating existing tab`);
+          console.log(
+            `[TabAPI] Tab already exists for noteKey: ${noteKey}, activating existing tab`
+          );
           store.activateTab(pane.id, existingTab.id);
           return existingTab.id;
         }
@@ -249,7 +251,9 @@ export class TabAPI {
    */
   onTabClose(tabId: string, callback: TabCloseCallback): void {
     if (!this.isOwnedTab(tabId)) {
-      console.error(`[TabAPI] Cannot register close callback for tab ${tabId}: not owned by ${this.extensionId}`);
+      console.error(
+        `[TabAPI] Cannot register close callback for tab ${tabId}: not owned by ${this.extensionId}`
+      );
       return;
     }
     this.closeCallbacks.set(tabId, callback);
@@ -276,7 +280,7 @@ export class TabAPI {
 
   /**
    * このタブが拡張機能によって所有されているかチェック
-   * 
+   *
    * Note: createTab()で生成されたタブIDの形式に依存している。
    * タブIDは createTab() 内で厳密に制御されており、
    * `ext-${extensionId}-${timestamp}-${random}` の形式のみが許可される。
@@ -293,14 +297,17 @@ export class TabAPI {
    * システムのopenTabを使ってファイルを開く
    * 拡張機能が通常のエディタタブを開くために使用
    */
-  openSystemTab(file: any, options?: {
-    kind?: string;
-    jumpToLine?: number;
-    jumpToColumn?: number;
-    activateAfterOpen?: boolean;
-  }): void {
+  openSystemTab(
+    file: any,
+    options?: {
+      kind?: string;
+      jumpToLine?: number;
+      jumpToColumn?: number;
+      activateAfterOpen?: boolean;
+    }
+  ): void {
     const store = useTabStore.getState();
-    
+
     try {
       // システムのopenTabを呼び出す
       store.openTab(file, {
@@ -309,7 +316,7 @@ export class TabAPI {
         jumpToColumn: options?.jumpToColumn,
         activateAfterOpen: options?.activateAfterOpen ?? true,
       });
-      
+
       console.log(`[TabAPI] Opened system tab for file: ${file.path}`);
     } catch (error) {
       console.error(`[TabAPI] Failed to open system tab:`, error);

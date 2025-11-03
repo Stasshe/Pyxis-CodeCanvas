@@ -213,10 +213,7 @@ export default function FileTree({
     } else {
       const defaultEditor =
         typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
-      openTab(
-        { ...item, isCodeMirror: defaultEditor === 'codemirror' },
-        { kind: 'editor' }
-      );
+      openTab({ ...item, isCodeMirror: defaultEditor === 'codemirror' }, { kind: 'editor' });
     }
   };
 

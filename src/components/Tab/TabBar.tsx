@@ -6,7 +6,16 @@ import { useTabContext } from '@/context/TabContext';
 import { useFileSelector } from '@/context/FileSelectorContext';
 import { useTranslation } from '@/context/I18nContext';
 import { useKeyBinding } from '@/hooks/useKeyBindings';
-import { Menu, Plus, X, SplitSquareVertical, SplitSquareHorizontal, Trash2, Save, Minus } from 'lucide-react';
+import {
+  Menu,
+  Plus,
+  X,
+  SplitSquareVertical,
+  SplitSquareHorizontal,
+  Trash2,
+  Save,
+  Minus,
+} from 'lucide-react';
 import { useTabCloseConfirmation } from './useTabCloseConfirmation';
 import { TabIcon } from './TabIcon';
 
@@ -24,17 +33,9 @@ export default function TabBar({ paneId }: TabBarProps) {
   const { t } = useTranslation();
   const { requestClose, ConfirmationDialog } = useTabCloseConfirmation();
   const { openFileSelector } = useFileSelector();
-  
-  const {
-    getPane,
-    activateTab,
-    closeTab,
-    openTab,
-    removePane,
-    moveTab,
-    splitPane,
-    panes,
-  } = useTabContext();
+
+  const { getPane, activateTab, closeTab, openTab, removePane, moveTab, splitPane, panes } =
+    useTabContext();
 
   const pane = getPane(paneId);
   if (!pane) return null;
@@ -200,7 +201,10 @@ export default function TabBar({ paneId }: TabBarProps) {
           onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
           onMouseLeave={e => (e.currentTarget.style.background = menuOpen ? colors.accentBg : '')}
         >
-          <Menu size={20} color={colors.accentFg} />
+          <Menu
+            size={20}
+            color={colors.accentFg}
+          />
         </button>
 
         {/* メニュー表示 */}
@@ -264,7 +268,9 @@ export default function TabBar({ paneId }: TabBarProps) {
                 size={16}
                 color={colors.accentFg}
               />
-              <span style={{ color: (colors as any).foreground }}>{t('tabBar.splitHorizontal')}</span>
+              <span style={{ color: (colors as any).foreground }}>
+                {t('tabBar.splitHorizontal')}
+              </span>
             </button>
             {/* 区切り線 */}
             <div className="h-px bg-border my-1" />
@@ -325,9 +331,14 @@ export default function TabBar({ paneId }: TabBarProps) {
                 maxWidth: '200px',
               }}
               onClick={() => handleTabClick(tab.id)}
-              onContextMenu={(e) => handleTabRightClick(e, tab.id)}
+              onContextMenu={e => handleTabRightClick(e, tab.id)}
             >
-              <TabIcon kind={tab.kind} filename={tab.name} size={14} color={colors.fg} />
+              <TabIcon
+                kind={tab.kind}
+                filename={tab.name}
+                size={14}
+                color={colors.fg}
+              />
               <span
                 className="text-sm truncate flex-1"
                 style={{ color: colors.fg }}
@@ -335,17 +346,18 @@ export default function TabBar({ paneId }: TabBarProps) {
               >
                 {displayName}
               </span>
-              {(tab as any).isDirty && (
-                <span className="w-2 h-2 rounded-full bg-accent" />
-              )}
+              {(tab as any).isDirty && <span className="w-2 h-2 rounded-full bg-accent" />}
               <button
                 className="hover:bg-accent rounded p-0.5"
-                onClick={(e) => {
+                onClick={e => {
                   e.stopPropagation();
                   handleTabClose(tab.id);
                 }}
               >
-                <X size={14} color={colors.fg} />
+                <X
+                  size={14}
+                  color={colors.fg}
+                />
               </button>
             </div>
           );
@@ -356,7 +368,10 @@ export default function TabBar({ paneId }: TabBarProps) {
           className="h-full px-3 flex items-center justify-center flex-shrink-0 hover:bg-accent"
           onClick={handleAddTab}
         >
-          <Plus size={16} color={colors.accentFg} />
+          <Plus
+            size={16}
+            color={colors.accentFg}
+          />
         </button>
       </div>
 

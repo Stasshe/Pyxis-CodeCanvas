@@ -23,6 +23,6 @@ export function registerBuiltinTabs() {
   tabRegistry.register(WelcomeTabType);
   tabRegistry.register(PreviewTabType);
   tabRegistry.register(BinaryTabType);
-  
+
   console.log('[TabRegistry] Builtin tab types registered');
 }

@@ -57,7 +57,7 @@ export default function GitHistory({
   const svgRef = useRef<SVGSVGElement>(null);
   const gitCommands =
     currentProject && currentProjectId ? new GitCommands(currentProject, currentProjectId) : null;
-  
+
   // [NEW ARCHITECTURE] Diff タブハンドラー
   const { handleDiffFileClick, handleDiffAllFilesClick } = useDiffTabHandlers({
     name: currentProject,
@@ -758,7 +758,10 @@ export default function GitHistory({
                                     className="flex items-center gap-1 text-[11px] py-0.5 cursor-pointer hover:underline"
                                     onClick={async () => {
                                       if (handleDiffFileClick) {
-                                        await handleDiffFileClick({ commitId: commit.hash, filePath: file });
+                                        await handleDiffFileClick({
+                                          commitId: commit.hash,
+                                          filePath: file,
+                                        });
                                       }
                                     }}
                                     title={t('gitHistory.showFileDiff')}

@@ -1,6 +1,6 @@
 /**
  * System Module Type Definitions
- * 
+ *
  * 拡張機能がアクセスできるシステムモジュールの型定義
  * getSystemModule の型推論を正確にするための型マップ
  */
@@ -34,9 +34,9 @@ export interface NormalizeCjsEsmModule {
  * この型を使用して getSystemModule の戻り値型を推論する
  */
 export interface SystemModuleMap {
-  'fileRepository': FileRepository;
-  'storageService': PyxisStorage;
-  'normalizeCjsEsm': NormalizeCjsEsmModule;
+  fileRepository: FileRepository;
+  storageService: PyxisStorage;
+  normalizeCjsEsm: NormalizeCjsEsmModule;
 }
 
 /**

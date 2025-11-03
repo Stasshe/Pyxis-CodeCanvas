@@ -1,6 +1,6 @@
 /**
  * Extension Auto-installer
- * 
+ *
  * アプリケーション起動時に実行され、以下を行う:
  * 1. ブラウザ言語を検出
  * 2. 対応する言語パックを自動インストール
@@ -15,9 +15,9 @@ import { fetchRegistry } from './extensionRegistry';
  */
 function detectBrowserLocale(): string {
   if (typeof window === 'undefined') return 'en';
-  
+
   const lang = navigator.language || (navigator as any).userLanguage || 'en';
-  
+
   // 'ja-JP' -> 'ja', 'en-US' -> 'en' のように変換
   return lang.split('-')[0].toLowerCase();
 }
@@ -34,7 +34,7 @@ function localeToExtensionId(locale: string): string {
  */
 export async function autoInstallExtensions(): Promise<void> {
   console.log('[ExtensionAutoInstaller] Starting auto-installation...');
-  
+
   try {
     // レジストリを取得
     const registry = await fetchRegistry();
@@ -62,7 +62,7 @@ export async function autoInstallExtensions(): Promise<void> {
 
     // 検出された言語に対応する言語パックをインストール
     const langPackId = localeToExtensionId(detectedLocale);
-    const langPackEntry = registry.extensions.find(e => 
+    const langPackEntry = registry.extensions.find(e =>
       e.manifestUrl.includes(`lang-packs/${detectedLocale}/`)
     );
 

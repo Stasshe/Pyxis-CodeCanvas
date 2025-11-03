@@ -33,11 +33,11 @@ export const SettingsTabType: TabTypeDefinition = {
   canEdit: false,
   canPreview: false,
   component: SettingsTabRenderer,
-  
+
   createTab: (file, options): SettingsTab => {
     const settingsType = file.settingsType || 'general';
     const tabId = `settings:${settingsType}`;
-    
+
     return {
       id: tabId,
       name: file.name || 'Settings',
@@ -47,9 +47,11 @@ export const SettingsTabType: TabTypeDefinition = {
       settingsType,
     };
   },
-  
+
   shouldReuseTab: (existingTab, newFile, options) => {
     const existingSettings = existingTab as SettingsTab;
-    return existingSettings.settingsType === newFile.settingsType && existingTab.kind === 'settings';
+    return (
+      existingSettings.settingsType === newFile.settingsType && existingTab.kind === 'settings'
+    );
   },
 };

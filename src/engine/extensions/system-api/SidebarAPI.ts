@@ -64,7 +64,7 @@ class SidebarRegistry {
    */
   register(extensionId: string, definition: SidebarPanelDefinition): void {
     const fullId = `${extensionId}.${definition.id}`;
-    
+
     if (this.panels.has(fullId)) {
       console.warn(`[SidebarRegistry] Panel ${fullId} is already registered. Overwriting.`);
     }
@@ -85,7 +85,7 @@ class SidebarRegistry {
   unregister(extensionId: string, panelId: string): void {
     const fullId = `${extensionId}.${panelId}`;
     const deleted = this.panels.delete(fullId);
-    
+
     if (deleted) {
       this.activateCallbacks.delete(fullId);
       console.log(`[SidebarRegistry] Unregistered panel: ${fullId}`);
@@ -98,7 +98,7 @@ class SidebarRegistry {
    */
   unregisterAll(extensionId: string): void {
     const toDelete: string[] = [];
-    
+
     for (const [fullId, panel] of this.panels.entries()) {
       if (panel.extensionId === extensionId) {
         toDelete.push(fullId);
@@ -111,7 +111,9 @@ class SidebarRegistry {
     }
 
     if (toDelete.length > 0) {
-      console.log(`[SidebarRegistry] Unregistered ${toDelete.length} panels for extension: ${extensionId}`);
+      console.log(
+        `[SidebarRegistry] Unregistered ${toDelete.length} panels for extension: ${extensionId}`
+      );
       this.notifyChange();
     }
   }
@@ -141,7 +143,7 @@ class SidebarRegistry {
   updatePanelState(extensionId: string, panelId: string, state: any): void {
     const fullId = `${extensionId}.${panelId}`;
     const panel = this.panels.get(fullId);
-    
+
     if (panel) {
       panel.state = { ...panel.state, ...state };
       console.log(`[SidebarRegistry] Updated state for panel: ${fullId}`);
@@ -154,11 +156,11 @@ class SidebarRegistry {
    */
   onPanelActivate(extensionId: string, panelId: string, callback: PanelActivateCallback): void {
     const fullId = `${extensionId}.${panelId}`;
-    
+
     if (!this.activateCallbacks.has(fullId)) {
       this.activateCallbacks.set(fullId, new Set());
     }
-    
+
     this.activateCallbacks.get(fullId)!.add(callback);
   }
 
@@ -168,7 +170,7 @@ class SidebarRegistry {
   notifyPanelActivate(extensionId: string, panelId: string): void {
     const fullId = `${extensionId}.${panelId}`;
     const callbacks = this.activateCallbacks.get(fullId);
-    
+
     if (callbacks) {
       callbacks.forEach(callback => {
         Promise.resolve(callback(panelId)).catch(err => {

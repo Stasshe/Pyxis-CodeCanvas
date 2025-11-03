@@ -34,15 +34,15 @@ export class TranspileManager {
 
   /**
    * コードをトランスパイル
-   * 
+   *
    * Web Worker経由でnormalizeCjsEsmによるCJS/ESM変換を行う。
    * TypeScript/JSXのトランスパイルは拡張機能の責任。
    */
   async transpile(options: TranspileOptions): Promise<TranspileResult> {
     const id = `transpile_${++this.requestId}_${Date.now()}`;
-    
+
     runtimeInfo('🔄 Normalizing CJS/ESM (Web Worker):', options.filePath);
-    
+
     return new Promise((resolve, reject) => {
       try {
         // Workerを作成
@@ -79,7 +79,7 @@ export class TranspileManager {
         };
 
         // エラーハンドラー
-        worker.onerror = (error) => {
+        worker.onerror = error => {
           clearTimeout(timeout);
           worker.terminate();
           runtimeError('❌ Worker error:', error);

@@ -17,7 +17,6 @@ import { transpileManager } from './transpileManager';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { extensionManager } from '@/engine/extensions/extensionManager';
 
-
 /**
  * モジュール実行キャッシュ（循環参照対策）
  */
@@ -179,13 +178,13 @@ export class ModuleLoader {
           if (ext.activation.runtimeFeatures?.transpiler) {
             try {
               runtimeInfo(`🔌 Using extension transpiler: ${ext.manifest.id}`);
-              
-              const result = await ext.activation.runtimeFeatures.transpiler(content, {
+
+              const result = (await ext.activation.runtimeFeatures.transpiler(content, {
                 filePath,
                 isTypeScript,
                 isJSX,
-              }) as { code: string; map?: string; dependencies?: string[] };
-              
+              })) as { code: string; map?: string; dependencies?: string[] };
+
               code = result.code;
               const deps = result.dependencies || [];
 
@@ -214,9 +213,11 @@ export class ModuleLoader {
         }
 
         if (!transpiled) {
-          throw new Error(`No transpiler extension found for ${filePath}. Please install TypeScript runtime extension.`);
+          throw new Error(
+            `No transpiler extension found for ${filePath}. Please install TypeScript runtime extension.`
+          );
         }
-      } 
+      }
       // 普通のJSの場合はnormalizeCjsEsmのみ
       else {
         const result = await transpileManager.transpile({

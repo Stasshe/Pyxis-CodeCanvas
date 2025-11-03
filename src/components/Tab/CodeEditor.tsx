@@ -58,7 +58,8 @@ export default function CodeEditor({
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // コンテンツ復元中かどうかを判定
-  const isRestoringContent = activeTab && (activeTab as any).needsContentRestore && !isContentRestored;
+  const isRestoringContent =
+    activeTab && (activeTab as any).needsContentRestore && !isContentRestored;
 
   const {
     charCount,
