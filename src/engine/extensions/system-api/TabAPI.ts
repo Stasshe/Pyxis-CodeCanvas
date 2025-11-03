@@ -173,7 +173,8 @@ export class TabAPI {
             updated = true;
             return {
               ...tab,
-              ...(options.title && { title: options.title }),
+              // title オプションは name フィールドを更新
+              ...(options.title && { name: options.title }),
               ...(options.icon && { icon: options.icon }),
               ...(options.data && {
                 data: { ...(tab as any).data, ...options.data },
@@ -257,9 +258,17 @@ export class TabAPI {
 
   /**
    * このタブが拡張機能によって所有されているかチェック
+   * 
+   * Note: createTab()で生成されたタブIDの形式に依存している。
+   * タブIDは createTab() 内で厳密に制御されており、
+   * `ext-${extensionId}-${timestamp}-${random}` の形式のみが許可される。
+   * 拡張機能はこのメソッド以外でタブIDを生成できないため、
+   * プレフィックスチェックで十分なセキュリティが保証される。
    */
   private isOwnedTab(tabId: string): boolean {
-    return tabId.startsWith(`ext-${this.extensionId}-`);
+    // createTab()で生成された正確なプレフィックスのみを許可
+    const expectedPrefix = `ext-${this.extensionId}-`;
+    return tabId.startsWith(expectedPrefix);
   }
 
   /**

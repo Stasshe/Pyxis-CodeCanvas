@@ -427,8 +427,11 @@ class ExtensionManager {
             return module as SystemModuleMap[T];
           }
           default: {
+            // TypeScriptの網羅性チェック用の変数
+            // 実行時には到達しないが、型エラーメッセージを改善するために使用
             const exhaustiveCheck: never = moduleName;
-            throw new Error(`System module not found: ${JSON.stringify(exhaustiveCheck)}`);
+            // 実際のエラーメッセージでは元のmoduleNameを文字列として出力
+            throw new Error(`System module not found: ${String(moduleName)}`);
           }
         }
       },

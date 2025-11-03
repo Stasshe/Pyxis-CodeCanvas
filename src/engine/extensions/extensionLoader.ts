@@ -123,36 +123,28 @@ export async function fetchExtensionCode(manifest: ExtensionManifest): Promise<{
  * Note: 文字列置換は推奨される方法ではないが、static siteの制約上、
  * ブラウザでdynamic importする際にReactを解決する最も現実的な方法。
  * Import Mapsは既存のバンドルと競合する可能性があるため採用していない。
+ * 
+ * 正規表現の順序を最適化し、一度のパスで全パターンを処理することで
+ * 既に変換されたコードに対する誤った再変換を防止する。
  */
 function transformImports(code: string): string {
-  // React関連のimportを書き換え
-  let transformed = code;
-  
-  // import React, { ... } from 'react' を書き換え
-  // 例: import React, { useState, useEffect } from 'react'
-  //  -> const React = window.__PYXIS_REACT__; const { useState, useEffect } = React;
-  transformed = transformed.replace(
-    /import\s+React\s*,\s*\{([^}]+)\}\s+from\s+['"]react['"];?/g,
-    'const React = window.__PYXIS_REACT__; const {$1} = React;'
+  // すべてのReact importパターンを単一の正規表現で処理
+  // 複数行にまたがる可能性があるため、各パターンを順番に適用
+  return code.replace(
+    /import\s+React\s*,\s*\{([^}]+)\}\s+from\s+['"]react['"];?|import\s+React\s+from\s+['"]react['"];?|import\s+\{([^}]+)\}\s+from\s+['"]react['"];?/g,
+    (match, namedImportsWithDefault, namedImportsOnly) => {
+      // import React, { ... } from 'react'
+      if (namedImportsWithDefault) {
+        return `const React = window.__PYXIS_REACT__; const {${namedImportsWithDefault}} = React;`;
+      }
+      // import { ... } from 'react' (Reactのdefaultなし)
+      if (namedImportsOnly) {
+        return `const {${namedImportsOnly}} = window.__PYXIS_REACT__;`;
+      }
+      // import React from 'react'
+      return 'const React = window.__PYXIS_REACT__;';
+    }
   );
-  
-  // import React from 'react' を書き換え
-  // 例: import React from 'react'
-  //  -> const React = window.__PYXIS_REACT__;
-  transformed = transformed.replace(
-    /import\s+React\s+from\s+['"]react['"];?/g,
-    'const React = window.__PYXIS_REACT__;'
-  );
-  
-  // import { ... } from 'react' を書き換え
-  // 例: import { useState, useEffect } from 'react'
-  //  -> const { useState, useEffect } = window.__PYXIS_REACT__;
-  transformed = transformed.replace(
-    /import\s+\{([^}]+)\}\s+from\s+['"]react['"];?/g,
-    'const {$1} = window.__PYXIS_REACT__;'
-  );
-  
-  return transformed;
 }
 
 /**
