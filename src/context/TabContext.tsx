@@ -32,6 +32,9 @@ interface TabContextValue {
   getAllTabs: () => Tab[];
   findTabByPath: (path: string, kind?: string) => { paneId: string; tab: Tab } | null;
 
+  // ファイル選択UI
+  openFileSelector: (paneId: string) => void;
+
   // セッション管理
   isLoading: boolean;
   isRestored: boolean;
@@ -131,6 +134,25 @@ export const TabProvider: React.FC<TabProviderProps> = ({ children }) => {
     }
   };
 
+  // ファイル選択UIを開く（グローバル状態として管理）
+  const [fileSelectorState, setFileSelectorState] = useState<{
+    isOpen: boolean;
+    targetPaneId: string | null;
+  }>({
+    isOpen: false,
+    targetPaneId: null,
+  });
+
+  const openFileSelector = (paneId: string) => {
+    setFileSelectorState({ isOpen: true, targetPaneId: paneId });
+  };
+
+  // グローバルに公開（OperationWindowが使用）
+  if (typeof window !== 'undefined') {
+    (window as any).__pyxisFileSelectorState = fileSelectorState;
+    (window as any).__pyxisSetFileSelectorState = setFileSelectorState;
+  }
+
   const value: TabContextValue = {
     openTab: store.openTab,
     closeTab: store.closeTab,
@@ -152,6 +174,7 @@ export const TabProvider: React.FC<TabProviderProps> = ({ children }) => {
     getTab: store.getTab,
     getAllTabs: store.getAllTabs,
     findTabByPath: store.findTabByPath,
+    openFileSelector,
     isLoading,
     isRestored: !isLoading, // isLoadingの逆がisRestored
     saveSession,

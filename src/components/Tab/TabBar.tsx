@@ -31,6 +31,7 @@ export default function TabBar({ paneId }: TabBarProps) {
     moveTab,
     splitPane,
     panes,
+    openFileSelector,
   } = useTabContext();
 
   const pane = getPane(paneId);
@@ -93,9 +94,7 @@ export default function TabBar({ paneId }: TabBarProps) {
 
   // 新しいタブを追加（ファイル選択モーダルを開く）
   const handleAddTab = () => {
-    // TODO: ファイル選択モーダルを開く処理
-    // とりあえずカスタムイベントを発火
-    window.dispatchEvent(new CustomEvent('pyxis-open-file-selector', { detail: { paneId } }));
+    openFileSelector(paneId);
   };
 
   // ペインを削除

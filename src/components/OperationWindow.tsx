@@ -83,6 +83,7 @@ interface OperationWindowProps {
   projectFiles: FileItem[];
   onFileSelect?: (file: FileItem) => void; // AI用モード用
   aiMode?: boolean; // AI用モード（ファイルをタブで開かない）
+  targetPaneId?: string | null; // ファイルを開くペインのID
 }
 
 export default function OperationWindow({
@@ -91,6 +92,7 @@ export default function OperationWindow({
   projectFiles,
   onFileSelect,
   aiMode = false,
+  targetPaneId,
 }: OperationWindowProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
@@ -135,11 +137,12 @@ export default function OperationWindow({
       typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
     const fileWithEditor = { ...file, isCodeMirror: defaultEditor === 'codemirror' };
 
-    if (preview) {
-      openTab(fileWithEditor, { kind: 'preview' });
-    } else {
-      openTab(fileWithEditor, { kind: 'editor' });
-    }
+    // targetPaneIdが指定されている場合はそのペインで開く
+    const options = targetPaneId
+      ? { paneId: targetPaneId, kind: preview ? 'preview' : 'editor' }
+      : { kind: preview ? 'preview' : 'editor' };
+
+    openTab(fileWithEditor, options as any);
     onClose();
   };
 

@@ -44,12 +44,33 @@ export default function Home() {
   const [isBottomPanelVisible, setIsBottomPanelVisible] = useState(true);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [isOperationWindowVisible, setIsOperationWindowVisible] = useState(false);
+  const [operationWindowTargetPaneId, setOperationWindowTargetPaneId] = useState<string | null>(
+    null
+  );
   const [gitRefreshTrigger, setGitRefreshTrigger] = useState(0);
   const [gitChangesCount, setGitChangesCount] = useState(0);
   const [nodeRuntimeOperationInProgress, setNodeRuntimeOperationInProgress] = useState(false);
 
   const { colors } = useTheme();
   const { panes, isLoading: isTabsLoading, isRestored, openTab, setPanes } = useTabContext();
+
+  // ファイル選択UIの状態を監視
+  useEffect(() => {
+    const checkFileSelectorState = () => {
+      const state = (window as any).__pyxisFileSelectorState;
+      if (state && state.isOpen) {
+        setOperationWindowTargetPaneId(state.targetPaneId);
+        setIsOperationWindowVisible(true);
+        // 状態をリセット
+        if ((window as any).__pyxisSetFileSelectorState) {
+          (window as any).__pyxisSetFileSelectorState({ isOpen: false, targetPaneId: null });
+        }
+      }
+    };
+
+    const interval = setInterval(checkFileSelectorState, 100);
+    return () => clearInterval(interval);
+  }, []);
 
   // プロジェクト管理
   const { currentProject, projectFiles, loadProject, createProject, refreshProjectFiles } =
@@ -213,18 +234,6 @@ export default function Home() {
     },
     []
   );
-
-  // ファイル選択モーダルのイベントリスナー
-  useEffect(() => {
-    const handleOpenFileSelector = (e: Event) => {
-      const custom = e as CustomEvent<{ paneId: string }>;
-      setIsOperationWindowVisible(true);
-    };
-    window.addEventListener('pyxis-open-file-selector', handleOpenFileSelector);
-    return () => {
-      window.removeEventListener('pyxis-open-file-selector', handleOpenFileSelector);
-    };
-  }, []);
 
   return (
     <div
@@ -424,8 +433,12 @@ export default function Home() {
 
         <OperationWindow
           isVisible={isOperationWindowVisible}
-          onClose={() => setIsOperationWindowVisible(false)}
+          onClose={() => {
+            setIsOperationWindowVisible(false);
+            setOperationWindowTargetPaneId(null);
+          }}
           projectFiles={projectFiles}
+          targetPaneId={operationWindowTargetPaneId}
         />
       </div>
 
