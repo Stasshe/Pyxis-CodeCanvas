@@ -173,39 +173,21 @@ export default function AIPanel({
 
     try {
       console.log('[AIPanel] Applying changes to:', filePath);
-      
-      // fileRepositoryに直接保存（Terminalと同じ）
-      // これにより、fileRepository.emitChange → useActiveTabContentRestore → タブ更新
-      await fileRepository.init();
-      const files = await fileRepository.getProjectFiles(currentProject.id);
-      const existingFile = files.find(f => f.path === filePath);
-      
-      if (existingFile) {
-        const updatedFile = {
-          ...existingFile,
-          content: newContent,
-          updatedAt: new Date(),
-        };
-        await fileRepository.saveFile(updatedFile);
-        console.log('[AIPanel] File saved (event system will update all tabs)');
-      } else {
-        // ファイルが存在しない場合は作成
-        await fileRepository.createFile(currentProject.id, filePath, newContent, 'file');
-        console.log('[AIPanel] File created (event system will update all tabs)');
-      }
 
-      // レビュータブを閉じる（非同期タイミング問題を避けるため、少し待つ）
-      setTimeout(() => {
-        closeAIReviewTab(filePath, setTabs, tabs);
-      }, 100);
+      // Use the provided saveFile prop (consistent with Terminal/project flow).
+      // This delegates to the project layer which in turn calls fileRepository and
+      // ensures any side-effects (sync, indexing) happen consistently.
+      await saveFile(filePath, newContent);
 
-      // AIレビューメタデータをクリア（非同期・エラー無視）
+      // Clear AI review metadata for this file (non-blocking)
       clearAIReview(filePath).catch(e => {
         console.warn('[AIPanel] clearAIReview failed (non-critical):', e);
       });
 
-      // Note: タブのcontentは fileRepository.emitChange → useActiveTabContentRestore
-      // により自動的に更新される。手動更新は不要。
+      // NOTE: Do NOT manually close the review tab here. The caller (AIReviewTab)
+      // already handles closing when appropriate. Closing here caused timing races
+      // with editor debounced saves and resulted in overwrites on active tabs.
+      // Rely on fileRepository.emitChange -> useActiveTabContentRestore to update tabs.
     } catch (error) {
       console.error('[AIPanel] Failed to apply changes:', error);
       alert(`変更の適用に失敗しました: ${(error as Error).message}`);

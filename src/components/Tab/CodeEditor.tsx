@@ -123,9 +123,14 @@ export default function CodeEditor({
       const currentTabId = tabId;
       const currentContent = content;
 
-      saveTimeoutRef.current = setTimeout(() => {
-        console.log('[CodeEditor_new] Debounced save triggered for:', currentTabId);
-        onContentChange(currentTabId, currentContent);
+      // One-shot: schedule single save after debounce interval. No retries.
+      saveTimeoutRef.current = setTimeout(async () => {
+        try {
+          console.log('[CodeEditor_new] Debounced save triggered for:', currentTabId);
+          await onContentChange(currentTabId, currentContent);
+        } catch (e) {
+          console.error('[CodeEditor_new] Debounced save failed:', e);
+        }
       }, 5000);
     },
     [onContentChange, nodeRuntimeOperationInProgress]
