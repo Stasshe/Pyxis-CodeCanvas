@@ -18,7 +18,6 @@ import { useTranslation } from '@/context/I18nContext';
 import { useKeyBinding } from '@/hooks/useKeyBindings';
 import { MenuTab } from '../types';
 import { useExtensionPanels } from '@/hooks/useExtensionPanels';
-import { sidebarRegistry } from '@/engine/extensions/system-api/SidebarAPI';
 
 interface MenuBarProps {
   activeMenuTab: MenuTab;

@@ -12,7 +12,6 @@ import ExtensionsPanel from './ExtensionsPanel';
 import ExtensionPanelRenderer from './ExtensionPanelRenderer';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { useExtensionPanels } from '@/hooks/useExtensionPanels';
-import { sidebarRegistry } from '@/engine/extensions/system-api/SidebarAPI';
 
 interface LeftSidebarProps {
   activeMenuTab: MenuTab;
