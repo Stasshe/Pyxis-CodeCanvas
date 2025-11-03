@@ -145,29 +145,6 @@ export default function Home() {
   const toggleRightSidebar = () => setIsRightSidebarVisible(!isRightSidebarVisible);
   const toggleOperationWindow = () => setIsOperationWindowVisible(!isOperationWindowVisible);
 
-  // ファイルを開く（新アーキテクチャ）
-  const handleFileOpen = (file: FileItem, line?: number, column?: number) => {
-    // 最新のプロジェクトファイルからコンテンツを取得
-    let fileToOpen = file;
-    if (currentProject && projectFiles.length > 0) {
-      const latestFile = projectFiles.find(f => f.path === file.path);
-      if (latestFile) {
-        fileToOpen = {
-          ...file,
-          content: latestFile.content,
-          isBufferArray: (latestFile as any).isBufferArray,
-          bufferContent: (latestFile as any).bufferContent,
-        };
-      }
-    }
-
-    openTab(fileToOpen, {
-      kind: 'editor',
-      jumpToLine: line,
-      jumpToColumn: column,
-    });
-  };
-
   // プロジェクト選択
   const handleProjectSelect = async (project: Project) => {
     // タブを全てクリア
@@ -289,13 +266,6 @@ export default function Home() {
             leftSidebarWidth={leftSidebarWidth}
             files={projectFiles}
             currentProject={currentProject!}
-            onFileOpen={handleFileOpen}
-            onFilePreview={file => {
-              openTab(file, { kind: 'preview' });
-            }}
-            onWebPreview={(file: FileItem) => {
-              openTab(file, { kind: 'webPreview' });
-            }}
             onResize={handleLeftResize}
             onGitRefresh={() => {
               if (currentProject && loadProject) {
@@ -393,16 +363,6 @@ export default function Home() {
           isVisible={isOperationWindowVisible}
           onClose={() => setIsOperationWindowVisible(false)}
           projectFiles={projectFiles}
-          editors={panes}
-          setEditors={update => {
-            if (typeof update === 'function') {
-              setPanes(update(panes));
-            } else {
-              setPanes(update);
-            }
-          }}
-          setFileSelectState={() => {}}
-          currentPaneIndex={0}
         />
       </div>
 

@@ -2,10 +2,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from '@/context/I18nContext';
-import { FileItem, EditorPane } from '@/types';
+import { FileItem } from '@/types';
 import { useTheme } from '@/context/ThemeContext';
-import { handleFileSelect } from '@/hooks/fileSelectHandlers';
-import { flattenPanes } from '@/hooks/pane';
+import { useTabContext } from '@/context/TabContext';
 import { useSettings } from '@/hooks/useSettings';
 import { useProject } from '@/engine/core/project';
 import { parseGitignore, isPathIgnored } from '@/engine/core/gitignore';
@@ -82,11 +81,7 @@ interface OperationWindowProps {
   isVisible: boolean;
   onClose: () => void;
   projectFiles: FileItem[];
-  onFileSelect?: (file: FileItem) => void;
-  editors: EditorPane[];
-  setEditors: React.Dispatch<React.SetStateAction<EditorPane[]>>;
-  setFileSelectState: (state: { open: boolean; paneIdx: number | null }) => void;
-  currentPaneIndex?: number | null; // 現在のペインインデックス
+  onFileSelect?: (file: FileItem) => void; // AI用モード用
   aiMode?: boolean; // AI用モード（ファイルをタブで開かない）
 }
 
@@ -95,14 +90,11 @@ export default function OperationWindow({
   onClose,
   projectFiles,
   onFileSelect,
-  editors,
-  setEditors,
-  setFileSelectState,
-  currentPaneIndex,
   aiMode = false,
 }: OperationWindowProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
+  const { openTab } = useTabContext();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [mdPreviewPrompt, setMdPreviewPrompt] = useState<null | { file: FileItem }>(null);
@@ -138,30 +130,15 @@ export default function OperationWindow({
       onClose();
       return;
     }
-    const flatPanes = flattenPanes(editors);
-    if (flatPanes.length === 0) return;
-    const paneIdx = currentPaneIndex ?? 0;
+
+    const defaultEditor =
+      typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
+    const fileWithEditor = { ...file, isCodeMirror: defaultEditor === 'codemirror' };
+
     if (preview) {
-      // mdプレビューで開く
-      import('@/hooks/fileSelectHandlers').then(mod => {
-        mod.handleFilePreview({
-          file,
-          fileSelectState: { open: true, paneIdx },
-          currentProject,
-          projectFiles,
-          editors,
-          setEditors,
-        });
-      });
+      openTab(fileWithEditor, { kind: 'preview' });
     } else {
-      handleFileSelect({
-        file,
-        fileSelectState: { open: true, paneIdx },
-        currentProject,
-        projectFiles,
-        editors,
-        setEditors,
-      });
+      openTab(fileWithEditor, { kind: 'editor' });
     }
     onClose();
   };
@@ -329,9 +306,6 @@ export default function OperationWindow({
     filteredFiles,
     selectedIndex,
     onClose,
-    editors,
-    setEditors,
-    setFileSelectState,
     handleFileSelectInOperation,
     mdPreviewPrompt,
     mdDialogSelected,
