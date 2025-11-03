@@ -13,6 +13,7 @@ import { ModuleResolver } from './moduleResolver';
 import { normalizePath, dirname } from './pathUtils';
 import { runtimeInfo, runtimeWarn, runtimeError } from './runtimeLogger';
 import { transpileManager } from './transpileManager';
+import { extensionManager } from '@/engine/extensions/extensionManager';
 
 import { fileRepository } from '@/engine/core/fileRepository';
 
@@ -166,33 +167,83 @@ export class ModuleLoader {
       runtimeInfo('🔄 Transpiling module:', filePath);
       const isTypeScript = /\.(ts|tsx|mts|cts)$/.test(filePath);
       const isJSX = /\.(jsx|tsx)$/.test(filePath);
-      const isESModule = this.isESModule(content);
 
-      const result = await transpileManager.transpile({
-        code: content,
-        filePath,
-        isTypeScript,
-        isESModule,
-        isJSX,
-      });
+      // TypeScript/JSXの場合は拡張機能のトランスパイラを使用
+      if (isTypeScript || isJSX) {
+        const activeExtensions = extensionManager.getActiveExtensions();
+        let transpiled = false;
 
-      code = result.code;
+        // transpiler機能を持つ拡張機能を探す
+        for (const ext of activeExtensions) {
+          if (ext.activation.runtimeFeatures?.transpiler) {
+            try {
+              runtimeInfo(`🔌 Using extension transpiler: ${ext.manifest.id}`);
+              
+              const result = await ext.activation.runtimeFeatures.transpiler(content, {
+                filePath,
+                isTypeScript,
+                isJSX,
+              }) as { code: string; map?: string; dependencies?: string[] };
+              
+              code = result.code;
+              const deps = result.dependencies || [];
 
-      // キャッシュに保存
-      await this.cache.set(
-        filePath,
-        {
-          originalPath: filePath,
-          code: result.code,
-          sourceMap: result.sourceMap,
-          deps: result.dependencies,
-          mtime: Date.now(),
-          size: result.code.length,
-        },
-        version
-      );
+              // キャッシュに保存
+              await this.cache.set(
+                filePath,
+                {
+                  originalPath: filePath,
+                  code: result.code,
+                  sourceMap: result.map,
+                  deps,
+                  mtime: Date.now(),
+                  size: result.code.length,
+                },
+                version
+              );
 
-      runtimeInfo('✅ Transpile completed and cached');
+              transpiled = true;
+              runtimeInfo('✅ Transpile completed (extension) and cached');
+              break;
+            } catch (error) {
+              runtimeError(`❌ Extension transpiler failed: ${ext.manifest.id}`, error);
+              throw error;
+            }
+          }
+        }
+
+        if (!transpiled) {
+          throw new Error(`No transpiler extension found for ${filePath}. Please install TypeScript runtime extension.`);
+        }
+      } 
+      // 普通のJSの場合はnormalizeCjsEsmのみ
+      else {
+        const result = await transpileManager.transpile({
+          code: content,
+          filePath,
+          isTypeScript: false,
+          isESModule: this.isESModule(content),
+          isJSX: false,
+        });
+
+        code = result.code;
+
+        // キャッシュに保存
+        await this.cache.set(
+          filePath,
+          {
+            originalPath: filePath,
+            code: result.code,
+            sourceMap: result.sourceMap,
+            deps: result.dependencies,
+            mtime: Date.now(),
+            size: result.code.length,
+          },
+          version
+        );
+
+        runtimeInfo('✅ Transpile completed (normalizeCjsEsm) and cached');
+      }
     }
 
     return code;

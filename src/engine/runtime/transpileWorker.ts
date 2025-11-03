@@ -2,32 +2,24 @@
  * [NEW ARCHITECTURE] Transpile Worker
  *
  * ## 役割
- * Web Worker内でBabel standaloneを使用してトランスパイルを実行
+ * Web Worker内でnormalizeCjsEsmを実行
  * メインスレッドをブロックせず、完了後にWorkerを即座に終了してメモリを解放
  *
  * ## 処理フロー
- * 1. Babel standaloneを初期化
- * 2. TypeScript/JSX/ES Moduleをトランスパイル
- * 3. 依存関係を抽出
- * 4. 結果をメインスレッドに返す
- * 5. Worker終了
- */
-/**
- * [NEW ARCHITECTURE] Transpile Worker (Babel standalone)
+ * 1. normalizeCjsEsmでCJS/ESM変換
+ * 2. 依存関係を抽出
+ * 3. 結果をメインスレッドに返す
+ * 4. Worker終了
  *
- * Replaced the swc/wasm implementation with a lightweight Babel standalone
- * implementation. normalizeCjsEsm is still used to normalize CJS/ESM before
- * feeding code into Babel.
+ * ## 注意
+ * TypeScript/JSXのトランスパイルは拡張機能 (extensions/typescript-runtime) で実行
+ * このWorkerはビルトインのCJS/ESM変換のみを担当
  */
-import * as Babel from '@babel/standalone';
 
 import { normalizeCjsEsm } from './normalizeCjsEsm';
 
 // transpileWorker runs inside a WebWorker context; runtime logger may not be available here.
 // Use console for worker-level diagnostics and ensure messages are concise.
-
-// normalizeCjsEsm already handles CJS/ESM import/export/require transformations,
-// so an additional Babel plugin for module transform is unnecessary here.
 
 /**
  * トランスパイルリクエスト
@@ -56,65 +48,21 @@ export interface TranspileResult {
 
 /**
  * トランスパイル実行
+ * normalizeCjsEsmによるCJS/ESM変換のみを行う
  */
 function transpile(request: TranspileRequest): TranspileResult {
   try {
-    const { code, filePath, options } = request;
-    const ext = filePath.split('.').pop() || 'js';
+    const { code } = request;
 
-    // まずCJS/ESM変換の正規化
+    // CJS/ESM正規化のみ実行
     const normalizedCode = normalizeCjsEsm(code);
 
-    // Babelプリセットとプラグインを構築
-    const presets: [string, any][] = [];
-    const plugins: any[] = [];
-
-    // TypeScriptサポート
-    if (options.isTypeScript) {
-      presets.push([
-        'typescript',
-        {
-          isTSX: options.isJSX || ext === 'tsx',
-          allExtensions: true,
-        },
-      ]);
-    }
-
-    // Reactサポート
-    if (options.isJSX || ext === 'jsx' || ext === 'tsx') {
-      presets.push([
-        'react',
-        {
-          runtime: 'automatic',
-          development: false,
-        },
-      ]);
-    }
-
-    // normalizeCjsEsm already performed module normalization; no extra plugin needed
-
-    // トランスパイル実行
-    const result = Babel.transform(normalizedCode, {
-      filename: filePath,
-      presets,
-      plugins,
-      sourceMaps: false,
-      sourceType: 'module', // トップレベルawaitを常に許可
-      compact: false,
-      retainLines: true,
-    });
-
-    if (!result || !result.code) {
-      throw new Error('Babel transform returned empty code');
-    }
-
     // 依存関係を抽出
-    const dependencies = extractDependencies(result.code);
+    const dependencies = extractDependencies(normalizedCode);
 
     return {
       id: request.id,
-      code: result.code,
-      sourceMap: result.map ? JSON.stringify(result.map) : undefined,
+      code: normalizedCode,
       dependencies,
     };
   } catch (error) {
@@ -189,7 +137,7 @@ try {
   self.postMessage({
     type: 'log',
     level: 'info',
-    message: '✅ Transpile worker initialized with Babel standalone',
+    message: '✅ Transpile worker initialized (normalizeCjsEsm)',
   });
 } catch {
   // ignore

@@ -14,7 +14,7 @@ const REGISTRY_URL = (process.env.NEXT_PUBLIC_BASE_PATH || '') + '/extensions/re
  */
 let cachedRegistry: ExtensionRegistry | null = null;
 let lastFetch: number = 0;
-const CACHE_TTL = 5 * 60 * 1000; // 5分
+const CACHE_TTL = 1 * 60 * 1000; // 5分
 
 /**
  * レジストリを取得

@@ -1,5 +1,4 @@
 // src/engine/tabs/types.ts
-import { ReactNode } from 'react';
 
 /**
  * タブの種類を表す型

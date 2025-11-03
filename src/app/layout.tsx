@@ -175,6 +175,12 @@ export default function RootLayout({
         <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased h-full`}>
+        {/* Set base path for runtime access */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.__NEXT_PUBLIC_BASE_PATH__ = '${basePath}';`,
+          }}
+        />
         <I18nProvider>
           <ThemeProvider>
             <GitHubUserProvider>

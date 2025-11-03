@@ -2,19 +2,18 @@
  * [NEW ARCHITECTURE] Transpile Manager
  *
  * ## 役割
- * - 拡張機能システムと統合したトランスパイル管理
- * - トランスパイル機能は全て拡張機能から提供
- * - フォールバックなし: 拡張機能がなければエラー
+ * - normalizeCjsEsmによるCJS/ESM変換のみをサポート
+ * - TypeScript/JSXのトランスパイルは拡張機能の責任
+ * - Web Workerを使用してメインスレッドをブロックしない
  *
  * ## 設計方針
- * - 拡張機能のtranspilerを使用（TypeScript, JSX等）
- * - 拡張機能未インストールの場合は明確なエラーを返す
- * - メインスレッドをブロックしない
+ * - TypeScriptはビルトインで保証されていないため、ここではサポートしない
+ * - CJS/ESM変換のみを行う（transpileWorker経由でnormalizeCjsEsm使用）
+ * - moduleLoaderから使用される
  */
 
 import { runtimeInfo, runtimeWarn, runtimeError } from './runtimeLogger';
-import type { TranspileResult } from './transpileWorker';
-import { extensionManager } from '@/engine/extensions/extensionManager';
+import type { TranspileResult, TranspileRequest } from './transpileWorker';
 
 /**
  * トランスパイルオプション
@@ -36,105 +35,74 @@ export class TranspileManager {
   /**
    * コードをトランスパイル
    * 
-   * 拡張機能のtranspilerを使用。
-   * 対応する拡張機能がない場合はエラーを投げる。
+   * Web Worker経由でnormalizeCjsEsmによるCJS/ESM変換を行う。
+   * TypeScript/JSXのトランスパイルは拡張機能の責任。
    */
   async transpile(options: TranspileOptions): Promise<TranspileResult> {
     const id = `transpile_${++this.requestId}_${Date.now()}`;
     
-    // 有効な拡張機能を取得
-    const activeExtensions = extensionManager.getActiveExtensions();
+    runtimeInfo('🔄 Normalizing CJS/ESM (Web Worker):', options.filePath);
     
-    // transpiler機能を持つ拡張機能を探す
-    for (const ext of activeExtensions) {
-      if (ext.activation.runtimeFeatures?.transpiler) {
-        try {
-          runtimeInfo(`🔌 Using extension transpiler: ${ext.manifest.id}`);
-          
-          const result = await ext.activation.runtimeFeatures.transpiler(options.code, {
-            filePath: options.filePath,
-            isTypeScript: options.isTypeScript,
-            isJSX: options.isJSX,
-          });
-          
-          // 拡張機能が依存関係を返す場合はそれを使用、なければフォールバック
-          const deps = (result as any).dependencies || this.extractDependencies(result.code);
-          
-          return {
-            id,
-            code: result.code,
-            sourceMap: (result as any).map,
-            dependencies: deps,
-          };
-        } catch (error) {
-          runtimeError(`❌ Extension transpiler failed: ${ext.manifest.id}`, error);
-          throw error;
-        }
+    return new Promise((resolve, reject) => {
+      try {
+        // Workerを作成
+        const workerUrl = new URL('./transpileWorker.ts', import.meta.url);
+        const worker = new Worker(workerUrl, { type: 'module' });
+
+        // タイムアウト設定
+        const timeout = setTimeout(() => {
+          worker.terminate();
+          reject(new Error('Transpile timeout'));
+        }, 10000); // 10秒
+
+        // レスポンスハンドラー
+        worker.onmessage = (event: MessageEvent<TranspileResult | { type: string }>) => {
+          const data = event.data;
+
+          // 初期化メッセージやログメッセージは無視
+          if ('type' in data && data.type === 'ready') {
+            return;
+          }
+          if ('type' in data && data.type === 'log') {
+            return;
+          }
+
+          // 結果を処理
+          clearTimeout(timeout);
+          worker.terminate();
+
+          if ('error' in data && data.error) {
+            reject(new Error(data.error));
+          } else {
+            resolve(data as TranspileResult);
+          }
+        };
+
+        // エラーハンドラー
+        worker.onerror = (error) => {
+          clearTimeout(timeout);
+          worker.terminate();
+          runtimeError('❌ Worker error:', error);
+          reject(new Error(`Worker error: ${error.message}`));
+        };
+
+        // リクエストを送信
+        const request: TranspileRequest = {
+          id,
+          code: options.code,
+          filePath: options.filePath,
+          options: {
+            isTypeScript: options.isTypeScript || false,
+            isESModule: options.isESModule || false,
+            isJSX: options.isJSX || false,
+          },
+        };
+        worker.postMessage(request);
+      } catch (error) {
+        runtimeError('❌ Transpile failed:', options.filePath, error);
+        reject(error);
       }
-    }
-    
-    // 拡張機能が見つからない
-    const errorMsg = `No transpiler extension found. Please install a compatible transpiler extension.`;
-    runtimeError(errorMsg);
-    throw new Error(errorMsg);
-  }
-
-  /**
-   * コードから依存関係を抽出
-   */
-  private extractDependencies(code: string): string[] {
-    const dependencies = new Set<string>();
-
-    // require('module') パターン
-    const requireRegex = /require\s*\(\s*['"]([^'\"]+)['"]\s*\)/g;
-    let match;
-    while ((match = requireRegex.exec(code)) !== null) {
-      dependencies.add(match[1]);
-    }
-
-    // import ... from 'module' パターン
-    const importRegex = /import\s+.*?\s+from\s+['"]([^'\"]+)['"]/g;
-    while ((match = importRegex.exec(code)) !== null) {
-      dependencies.add(match[1]);
-    }
-
-    // import('module') 動的インポート
-    const dynamicImportRegex = /import\s*\(\s*['"]([^'\"]+)['"]\s*\)/g;
-    while ((match = dynamicImportRegex.exec(code)) !== null) {
-      dependencies.add(match[1]);
-    }
-
-    return Array.from(dependencies);
-  }
-
-  /**
-   * ファイルパスから言語を判定
-   */
-  detectLanguage(filePath: string): {
-    isTypeScript: boolean;
-    isESModule: boolean;
-    isJSX: boolean;
-  } {
-    const ext = filePath.split('.').pop()?.toLowerCase() || '';
-
-    return {
-      isTypeScript: ['ts', 'tsx', 'mts', 'cts'].includes(ext),
-      isESModule: ['mjs', 'mts', 'jsx', 'tsx'].includes(ext),
-      isJSX: ['jsx', 'tsx'].includes(ext),
-    };
-  }
-
-  /**
-   * コードからES Moduleかどうかを判定
-   */
-  isESModule(code: string): boolean {
-    // コメントと文字列を除外して判定
-    const cleaned = code
-      .replace(/\/\/.*$/gm, '')
-      .replace(/\/\*[\s\S]*?\*\//g, '')
-      .replace(/(['"`])(?:(?=(\\?))\2.)*?\1/g, '');
-
-    return /^\s*(import|export)\s+/m.test(cleaned);
+    });
   }
 }
 
