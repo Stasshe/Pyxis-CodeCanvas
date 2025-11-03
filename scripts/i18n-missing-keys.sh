@@ -9,7 +9,9 @@ set -euo pipefail
 
 ROOT=src
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-EN_DIR="$SCRIPT_DIR/../public/locales/en"
+# repository root (one level up from scripts)
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+EN_DIR="$REPO_ROOT/locales/en"
 EN_JSON="$EN_DIR/common.json"
 
 # Default output file (behaves like scripts/i18n-detect.sh)
@@ -54,16 +56,16 @@ if [ -d "$EN_DIR" ]; then
   sort -u "$PRESENT_KEYS_TMP" -o "$PRESENT_KEYS_TMP"
   SOURCE_DESC="merged: $FILES_LIST"
 else
-  # fallback: check single file at repo-root public/locales/en/common.json
-  if [ -f "public/locales/en/common.json" ]; then
-    perl "$SCRIPT_DIR/flatten_json_keys.pl" "public/locales/en/common.json" | sort -u > "$PRESENT_KEYS_TMP"
+  # fallback: check single file at repo-root locales/en/common.json
+  if [ -f "$REPO_ROOT/locales/en/common.json" ]; then
+    perl "$SCRIPT_DIR/flatten_json_keys.pl" "$REPO_ROOT/locales/en/common.json" | sort -u > "$PRESENT_KEYS_TMP"
     if command -v readlink >/dev/null 2>&1; then
-      SOURCE_DESC="$(readlink -f "public/locales/en/common.json")"
+      SOURCE_DESC="$(readlink -f "$REPO_ROOT/locales/en/common.json")"
     else
-      SOURCE_DESC="public/locales/en/common.json"
+      SOURCE_DESC="$REPO_ROOT/locales/en/common.json"
     fi
   else
-    echo "English JSON not found (tried: $EN_DIR and public/locales/en/common.json)" >&2
+  echo "English JSON not found (tried: $EN_DIR and $REPO_ROOT/locales/en/common.json)" >&2
     rm -f "$PRESENT_KEYS_TMP"
     exit 2
   fi

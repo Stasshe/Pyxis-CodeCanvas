@@ -254,9 +254,6 @@
     "title": "Manajemen Proyek",
     "updated": "Diperbarui"
   },
-  "right": {
-    "aiUnavailable": "Asisten AI tidak tersedia"
-  },
   "run": {
     "clearOutput": "Bersihkan output",
     "execute": "Jalankan",
@@ -320,7 +317,6 @@
       "colorCustomize": "Kustomisasi Warna",
       "colorTheme": "Tema Warna",
       "highlightTheme": "Highlight Kode",
-      "language": "Bahasa",
       "title": "Tema"
     }
   },
@@ -332,8 +328,7 @@
     "removePane": "Hapus pane",
     "saveRestart": "Simpan dan restart",
     "splitHorizontal": "Bagi horizontal",
-    "splitVertical": "Bagi vertikal",
-    "tabActions": "Aksi tab"
+    "splitVertical": "Bagi vertikal"
   },
   "tabCloseConfirmation": {
     "cancel": "Batal",

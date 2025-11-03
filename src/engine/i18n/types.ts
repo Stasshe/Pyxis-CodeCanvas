@@ -3,7 +3,7 @@
  * 型安全なi18n実装のための型定義
  */
 
-import type enCommon from '../../../public/locales/en/common.json';
+import type enCommon from '../../../locales/en/common.json';
 
 /**
  * サポートする言語コード

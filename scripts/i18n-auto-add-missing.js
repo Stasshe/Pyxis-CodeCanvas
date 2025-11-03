@@ -96,8 +96,8 @@ async function main() {
     return;
   }
 
-  const enPath = path.join(REPO_ROOT, 'public', 'locales', 'en', 'common.json');
-  const jaPath = path.join(REPO_ROOT, 'public', 'locales', 'ja', 'common.json');
+  const enPath = path.join(REPO_ROOT, 'locales', 'en', 'common.json');
+  const jaPath = path.join(REPO_ROOT, 'locales', 'ja', 'common.json');
 
   const enJson = loadJsonMaybe(enPath);
   const jaExists = fs.existsSync(jaPath);

@@ -254,9 +254,6 @@
     "title": "Projektverwaltung",
     "updated": "Aktualisiert"
   },
-  "right": {
-    "aiUnavailable": "KI-Assistent nicht verfügbar"
-  },
   "run": {
     "clearOutput": "Ausgabe löschen",
     "execute": "Ausführen",
@@ -320,7 +317,6 @@
       "colorCustomize": "Farbanpassung",
       "colorTheme": "Farbschema",
       "highlightTheme": "Code-Highlight",
-      "language": "Sprache",
       "title": "Theme"
     }
   },
@@ -332,8 +328,7 @@
     "removePane": "Bereich entfernen",
     "saveRestart": "Speichern und neu starten",
     "splitHorizontal": "Horizontal teilen",
-    "splitVertical": "Vertikal teilen",
-    "tabActions": "Tab-Aktionen"
+    "splitVertical": "Vertikal teilen"
   },
   "tabCloseConfirmation": {
     "cancel": "Abbrechen",

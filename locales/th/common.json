@@ -255,9 +255,6 @@
     "title": "การจัดการโปรเจกต์",
     "updated": "อัปเดตแล้ว"
   },
-  "right": {
-    "aiUnavailable": "ผู้ช่วย AI ใช้งานไม่ได้"
-  },
   "run": {
     "clearOutput": "ล้างผลลัพธ์",
     "execute": "รัน",
@@ -321,7 +318,6 @@
       "colorCustomize": "ปรับแต่งสี",
       "colorTheme": "ธีมสี",
       "highlightTheme": "ธีมการเน้นโค้ด",
-      "language": "ภาษา",
       "title": "ธีม"
     }
   },
@@ -333,8 +329,7 @@
     "removePane": "ลบ pane",
     "saveRestart": "บันทึกและรีสตาร์ท",
     "splitHorizontal": "แยกแนวนอน",
-    "splitVertical": "แยกแนวตั้ง",
-    "tabActions": "การกระทำของแท็บ"
+    "splitVertical": "แยกแนวตั้ง"
   },
   "tabCloseConfirmation": {
     "cancel": "ยกเลิก",

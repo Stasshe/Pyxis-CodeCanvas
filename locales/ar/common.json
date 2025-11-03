@@ -255,9 +255,6 @@
     "title": "إدارة المشروع",
     "updated": "تم التحديث"
   },
-  "right": {
-    "aiUnavailable": "مساعد AI غير متاح"
-  },
   "run": {
     "clearOutput": "مسح المخرجات",
     "execute": "تنفيذ",
@@ -321,7 +318,6 @@
       "colorCustomize": "تخصيص الألوان",
       "colorTheme": "سمة الألوان",
       "highlightTheme": "سمة التمييز",
-      "language": "اللغة",
       "title": "السمة"
     }
   },
@@ -333,8 +329,7 @@
     "removePane": "إزالة اللوحة",
     "saveRestart": "حفظ وإعادة تشغيل",
     "splitHorizontal": "تقسيم أفقي",
-    "splitVertical": "تقسيم عمودي",
-    "tabActions": "إجراءات التبويب"
+    "splitVertical": "تقسيم عمودي"
   },
   "tabCloseConfirmation": {
     "cancel": "إلغاء",

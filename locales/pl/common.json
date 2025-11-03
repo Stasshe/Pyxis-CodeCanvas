@@ -255,9 +255,6 @@
     "title": "Zarządzanie projektem",
     "updated": "Zaktualizowano"
   },
-  "right": {
-    "aiUnavailable": "Asystent AI jest niedostępny"
-  },
   "run": {
     "clearOutput": "Wyczyść wyjście",
     "execute": "Wykonaj",
@@ -321,7 +318,6 @@
       "colorCustomize": "Dostosuj kolory",
       "colorTheme": "Motyw kolorów",
       "highlightTheme": "Motyw podświetlania",
-      "language": "Język",
       "title": "Motyw"
     }
   },
@@ -333,8 +329,7 @@
     "removePane": "Usuń panel",
     "saveRestart": "Zapisz i uruchom ponownie",
     "splitHorizontal": "Podział poziomy",
-    "splitVertical": "Podział pionowy",
-    "tabActions": "Akcje zakładki"
+    "splitVertical": "Podział pionowy"
   },
   "tabCloseConfirmation": {
     "cancel": "Anuluj",

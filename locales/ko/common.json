@@ -255,9 +255,6 @@
     "title": "프로젝트 관리",
     "updated": "업데이트됨"
   },
-  "right": {
-    "aiUnavailable": "AI 어시스턴트를 사용할 수 없습니다"
-  },
   "run": {
     "clearOutput": "출력 지우기",
     "execute": "실행",
@@ -321,7 +318,6 @@
       "colorCustomize": "색상 사용자화",
       "colorTheme": "컬러 테마",
       "highlightTheme": "코드 하이라이트",
-      "language": "언어",
       "title": "테마"
     }
   },
@@ -333,8 +329,7 @@
     "removePane": "팬 제거",
     "saveRestart": "저장 및 재시작",
     "splitHorizontal": "가로 분할",
-    "splitVertical": "세로 분할",
-    "tabActions": "탭 동작"
+    "splitVertical": "세로 분할"
   },
   "tabCloseConfirmation": {
     "cancel": "취소",

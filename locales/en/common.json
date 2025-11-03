@@ -255,9 +255,6 @@
     "title": "Project Management",
     "updated": "Updated"
   },
-  "right": {
-    "aiUnavailable": "AI Assistant is unavailable"
-  },
   "run": {
     "clearOutput": "Clear output",
     "execute": "Execute",
@@ -321,7 +318,6 @@
       "colorCustomize": "Color Customize",
       "colorTheme": "Color Theme",
       "highlightTheme": "Code Highlight",
-      "language": "Language",
       "title": "Theme"
     }
   },
@@ -333,8 +329,7 @@
     "removePane": "Remove pane",
     "saveRestart": "Save and restart",
     "splitHorizontal": "Split horizontally",
-    "splitVertical": "Split vertically",
-    "tabActions": "Tab actions"
+    "splitVertical": "Split vertically"
   },
   "tabCloseConfirmation": {
     "cancel": "Cancel",

@@ -254,9 +254,6 @@
     "title": "प्रोजेक्ट प्रबंधन",
     "updated": "अपडेट किया गया"
   },
-  "right": {
-    "aiUnavailable": "AI सहायक अनुपलभ्द है"
-  },
   "run": {
     "clearOutput": "आउटपुट साफ़ करें",
     "execute": "चालन करें",
@@ -320,7 +317,6 @@
       "colorCustomize": "रंग अनुकूलित करें",
       "colorTheme": "रंग थीम",
       "highlightTheme": "कोड हाइलाइट थीम",
-      "language": "भाषा",
       "title": "थीम"
     }
   },
@@ -332,8 +328,7 @@
     "removePane": "पेन हटाएँ",
     "saveRestart": "सहेजें और पुनरारंभ करें",
     "splitHorizontal": "क्षैतिज विभाजन",
-    "splitVertical": "ऊर्ध्वाधर विभाजन",
-    "tabActions": "टैब क्रियाएँ"
+    "splitVertical": "ऊर्ध्वाधर विभाजन"
   },
   "tabCloseConfirmation": {
     "cancel": "रद्द करें",

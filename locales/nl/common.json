@@ -254,9 +254,6 @@
     "title": "Projectbeheer",
     "updated": "Bijgewerkt"
   },
-  "right": {
-    "aiUnavailable": "AI-assistent is niet beschikbaar"
-  },
   "run": {
     "clearOutput": "Output wissen",
     "execute": "Uitvoeren",
@@ -320,7 +317,6 @@
       "colorCustomize": "Kleur aanpassen",
       "colorTheme": "Kleurthema",
       "highlightTheme": "Highlight-thema",
-      "language": "Taal",
       "title": "Thema"
     }
   },
@@ -332,8 +328,7 @@
     "removePane": "Pane verwijderen",
     "saveRestart": "Opslaan en herstarten",
     "splitHorizontal": "Horizontaal splitsen",
-    "splitVertical": "Verticaal splitsen",
-    "tabActions": "Tab-acties"
+    "splitVertical": "Verticaal splitsen"
   },
   "tabCloseConfirmation": {
     "cancel": "Annuleren",

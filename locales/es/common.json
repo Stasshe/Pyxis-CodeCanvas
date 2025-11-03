@@ -255,9 +255,6 @@
     "title": "Gestión de proyecto",
     "updated": "Actualizado"
   },
-  "right": {
-    "aiUnavailable": "El asistente AI no está disponible"
-  },
   "run": {
     "clearOutput": "Borrar salida",
     "execute": "Ejecutar",
@@ -321,7 +318,6 @@
       "colorCustomize": "Personalizar color",
       "colorTheme": "Tema de color",
       "highlightTheme": "Resaltado de código",
-      "language": "Idioma",
       "title": "Tema"
     }
   },
@@ -333,8 +329,7 @@
     "removePane": "Eliminar panel",
     "saveRestart": "Guardar y reiniciar",
     "splitHorizontal": "Dividir horizontalmente",
-    "splitVertical": "Dividir verticalmente",
-    "tabActions": "Acciones de pestaña"
+    "splitVertical": "Dividir verticalmente"
   },
   "tabCloseConfirmation": {
     "cancel": "Cancelar",

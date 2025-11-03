@@ -255,9 +255,6 @@
     "title": "Gestion de projet",
     "updated": "Mis à jour"
   },
-  "right": {
-    "aiUnavailable": "Assistant IA indisponible"
-  },
   "run": {
     "clearOutput": "Effacer la sortie",
     "execute": "Exécuter",
@@ -321,7 +318,6 @@
       "colorCustomize": "Personnalisation des couleurs",
       "colorTheme": "Thème de couleurs",
       "highlightTheme": "Thème de surlignage",
-      "language": "Langue",
       "title": "Thème"
     }
   },
@@ -333,8 +329,7 @@
     "removePane": "Supprimer le volet",
     "saveRestart": "Enregistrer et redémarrer",
     "splitHorizontal": "Diviser horizontalement",
-    "splitVertical": "Diviser verticalement",
-    "tabActions": "Actions d'onglet"
+    "splitVertical": "Diviser verticalement"
   },
   "tabCloseConfirmation": {
     "cancel": "Annuler",

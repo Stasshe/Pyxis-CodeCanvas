@@ -253,9 +253,6 @@
     "title": "Quản lý dự án",
     "updated": "Đã cập nhật"
   },
-  "right": {
-    "aiUnavailable": "Trợ lý AI không khả dụng"
-  },
   "run": {
     "clearOutput": "Xóa kết quả",
     "execute": "Thực thi",
@@ -316,7 +313,6 @@
       "colorCustomize": "Tùy chỉnh màu",
       "colorTheme": "Giao diện màu",
       "highlightTheme": "Giao diện tô sáng",
-      "language": "Ngôn ngữ",
       "title": "Giao diện"
     }
   },
@@ -328,8 +324,7 @@
     "removePane": "Xóa pane",
     "saveRestart": "Lưu và khởi động lại",
     "splitHorizontal": "Chia ngang",
-    "splitVertical": "Chia dọc",
-    "tabActions": "Hành động tab"
+    "splitVertical": "Chia dọc"
   },
   "tabCloseConfirmation": {
     "cancel": "Hủy",

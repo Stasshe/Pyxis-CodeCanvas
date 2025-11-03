@@ -3,7 +3,7 @@
 
 // remove_unused_i18n_keys.js
 // Scan `src` for used translation keys (t('key')) and remove unused keys
-// from JSON files under `public/locales/**/*.json`.
+// from JSON files under `locales/**/*.json` (located at the repository root).
 // Usage:
 //   node scripts/remove_unused_i18n_keys.js --dry-run    # show what would be removed (default)
 //   node scripts/remove_unused_i18n_keys.js --apply      # perform removals (creates backups when --backup)
@@ -12,7 +12,9 @@
 const fs = require("fs");
 const path = require("path");
 
-const ROOT = process.cwd();
+// Resolve repository root relative to this script so behavior does not depend on
+// the current working directory when the script is invoked.
+const ROOT = path.resolve(__dirname, '..');
 
 const argv = process.argv.slice(2);
 const OPTS = {
@@ -97,7 +99,7 @@ function deleteKeyByPath(obj, pathParts) {
 
 async function main() {
   const srcRoot = path.join(OPTS.rootDir, "src");
-  const publicRoot = path.join(OPTS.rootDir, "public", "locales");
+  const localesRoot = path.join(OPTS.rootDir, "locales");
 
   log(`Scanning source files under: ${srcRoot}`);
   const srcFiles = await getFiles(srcRoot, [".js", ".jsx", ".ts", ".tsx"]);
@@ -112,10 +114,10 @@ async function main() {
   }
   log(`Found ${usedKeys.size} unique used keys in source.`);
 
-  log(`Scanning JSON files under: ${publicRoot}`);
-  const jsonFiles = await getFiles(publicRoot, [".json"]);
+  log(`Scanning JSON files under: ${localesRoot}`);
+  const jsonFiles = await getFiles(localesRoot, [".json"]);
   if (!jsonFiles.length) {
-    log("No JSON files found under public/locales/. Nothing to do.");
+    log("No JSON files found under locales/. Nothing to do.");
     return;
   }
 

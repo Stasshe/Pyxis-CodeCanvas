@@ -2,12 +2,12 @@
 set -euo pipefail
 
 # format_locales.sh
-# Format all public/locales/*/common.json files with 2-space indentation (in-place)
+# Format all locales/*/common.json files with 2-space indentation (in-place)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-find "$ROOT/public/locales" -mindepth 2 -maxdepth 2 -type f -name 'common.json' | while IFS= read -r file; do
+find "$ROOT/locales" -mindepth 2 -maxdepth 2 -type f -name 'common.json' | while IFS= read -r file; do
   if command -v node >/dev/null 2>&1; then
     node "$SCRIPT_DIR/format_json.js" "$file"
   else

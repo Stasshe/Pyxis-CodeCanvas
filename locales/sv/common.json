@@ -254,9 +254,6 @@
     "title": "Projekt",
     "updated": "Uppdaterad"
   },
-  "right": {
-    "aiUnavailable": "AI-assistenten är otillgänglig"
-  },
   "run": {
     "clearOutput": "Rensa utdata",
     "execute": "Kör",
@@ -320,7 +317,6 @@
       "colorCustomize": "Anpassa färger",
       "colorTheme": "Färgtema",
       "highlightTheme": "Kodmarkerings-tema",
-      "language": "Språk",
       "title": "Tema"
     }
   },
@@ -332,8 +328,7 @@
     "removePane": "Ta bort panel",
     "saveRestart": "Spara och starta om",
     "splitHorizontal": "Dela horisontellt",
-    "splitVertical": "Dela vertikalt",
-    "tabActions": "Flikåtgärder"
+    "splitVertical": "Dela vertikalt"
   },
   "tabCloseConfirmation": {
     "cancel": "Avbryt",

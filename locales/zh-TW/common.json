@@ -255,9 +255,6 @@
     "title": "專案管理",
     "updated": "已更新"
   },
-  "right": {
-    "aiUnavailable": "AI 助手不可用"
-  },
   "run": {
     "clearOutput": "清除輸出",
     "execute": "執行",
@@ -321,7 +318,6 @@
       "colorCustomize": "自訂色彩",
       "colorTheme": "配色主題",
       "highlightTheme": "語法主題",
-      "language": "語言",
       "title": "主題"
     }
   },
@@ -333,8 +329,7 @@
     "removePane": "移除面板",
     "saveRestart": "儲存並重新啟動",
     "splitHorizontal": "水平分割",
-    "splitVertical": "垂直分割",
-    "tabActions": "分頁操作"
+    "splitVertical": "垂直分割"
   },
   "tabCloseConfirmation": {
     "cancel": "取消",

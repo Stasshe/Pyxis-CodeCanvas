@@ -255,9 +255,6 @@
     "title": "项目管理",
     "updated": "已更新"
   },
-  "right": {
-    "aiUnavailable": "AI 助手不可用"
-  },
   "run": {
     "clearOutput": "清除输出",
     "execute": "执行",
@@ -321,7 +318,6 @@
       "colorCustomize": "颜色自定义",
       "colorTheme": "配色主题",
       "highlightTheme": "代码高亮主题",
-      "language": "语言",
       "title": "主题"
     }
   },
@@ -333,8 +329,7 @@
     "removePane": "移除面板",
     "saveRestart": "保存并重启",
     "splitHorizontal": "水平拆分",
-    "splitVertical": "垂直拆分",
-    "tabActions": "选项卡操作"
+    "splitVertical": "垂直拆分"
   },
   "tabCloseConfirmation": {
     "cancel": "取消",

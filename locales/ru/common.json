@@ -255,9 +255,6 @@
     "title": "Управление проектом",
     "updated": "Обновлено"
   },
-  "right": {
-    "aiUnavailable": "Помощник ИИ недоступен"
-  },
   "run": {
     "clearOutput": "Очистить вывод",
     "execute": "Выполнить",
@@ -321,7 +318,6 @@
       "colorCustomize": "Настройка цвета",
       "colorTheme": "Тема цвета",
       "highlightTheme": "Тема подсветки",
-      "language": "Язык",
       "title": "Тема"
     }
   },
@@ -333,8 +329,7 @@
     "removePane": "Удалить панель",
     "saveRestart": "Сохранить и перезапустить",
     "splitHorizontal": "Разделить горизонтально",
-    "splitVertical": "Разделить вертикально",
-    "tabActions": "Действия вкладки"
+    "splitVertical": "Разделить вертикально"
   },
   "tabCloseConfirmation": {
     "cancel": "Отмена",

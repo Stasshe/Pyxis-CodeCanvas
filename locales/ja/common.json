@@ -255,9 +255,6 @@
     "title": "プロジェクト管理",
     "updated": "更新されました"
   },
-  "right": {
-    "aiUnavailable": "AI Assistant機能が利用できません"
-  },
   "run": {
     "clearOutput": "出力をクリア",
     "execute": "実行",
@@ -321,7 +318,6 @@
       "colorCustomize": "カラーカスタマイズ",
       "colorTheme": "カラーテーマ",
       "highlightTheme": "コードハイライト",
-      "language": "Language / 言語",
       "title": "テーマ"
     }
   },
@@ -333,8 +329,7 @@
     "removePane": "ペインを削除",
     "saveRestart": "保存して再起動",
     "splitHorizontal": "横に分割",
-    "splitVertical": "縦に分割",
-    "tabActions": "タブ操作"
+    "splitVertical": "縦に分割"
   },
   "tabCloseConfirmation": {
     "cancel": "キャンセル",

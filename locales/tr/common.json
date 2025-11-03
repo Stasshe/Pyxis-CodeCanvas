@@ -255,9 +255,6 @@
     "title": "Proje Yönetimi",
     "updated": "Güncellendi"
   },
-  "right": {
-    "aiUnavailable": "AI Asistanı kullanılamıyor"
-  },
   "run": {
     "clearOutput": "Çıktıyı temizle",
     "execute": "Çalıştır",
@@ -321,7 +318,6 @@
       "colorCustomize": "Renk Özelleştirme",
       "colorTheme": "Renk Teması",
       "highlightTheme": "Kod Vurgulama",
-      "language": "Dil",
       "title": "Tema"
     }
   },
@@ -333,8 +329,7 @@
     "removePane": "Paneli kaldır",
     "saveRestart": "Kaydet ve yeniden başlat",
     "splitHorizontal": "Yatay böl",
-    "splitVertical": "Dikey böl",
-    "tabActions": "Sekme işlemleri"
+    "splitVertical": "Dikey böl"
   },
   "tabCloseConfirmation": {
     "cancel": "İptal",

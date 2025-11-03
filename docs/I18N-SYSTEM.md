@@ -269,7 +269,7 @@ const title = t('myFeature.title');
 export type Locale = 'en' | 'ja' | 'es'; // 'es'を追加
 ```
 
-2. `public/locales/es/common.json`を作成
+2. `locales/es/common.json`を作成
 
 3. `LanguageSelector`コンポーネントに追加
 
