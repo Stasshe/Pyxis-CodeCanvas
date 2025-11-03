@@ -29,7 +29,8 @@ function TodoTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
     
     setLoading(true);
     try {
-      const { fileRepository } = await context.getSystemModule('fileRepository');
+      // fileRepositoryの型は自動的に FileRepository として推論される
+      const fileRepository = await context.getSystemModule('fileRepository');
       
       // 全プロジェクトを取得
       const projects = await fileRepository.getProjects();
@@ -44,7 +45,7 @@ function TodoTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
 
           // ファイル内容からTODOを検索
           const lines = file.content.split('\n');
-          lines.forEach((line, index) => {
+          lines.forEach((line: string, index: number) => {
             // TODO:, TODO , FIXME:, FIXME などを検索
             const todoMatch = line.match(/(?:TODO|FIXME)\s*[:：]\s*(.+)/i);
             if (todoMatch) {
@@ -267,7 +268,8 @@ function createTodoSidebarPanel(context: ExtensionContext) {
       
       setLoading(true);
       try {
-        const { fileRepository } = await context.getSystemModule('fileRepository');
+        // fileRepositoryの型は自動的に FileRepository として推論される
+        const fileRepository = await context.getSystemModule('fileRepository');
         
         const projects = await fileRepository.getProjects();
         let count = 0;
@@ -279,7 +281,7 @@ function createTodoSidebarPanel(context: ExtensionContext) {
             if (file.type !== 'file' || file.isBufferArray) continue;
 
             const lines = file.content.split('\n');
-            lines.forEach((line) => {
+            lines.forEach((line: string) => {
               if (/(?:TODO|FIXME)\s*[:：]/i.test(line)) {
                 count++;
               }

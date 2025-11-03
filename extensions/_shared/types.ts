@@ -3,6 +3,11 @@
  * 各拡張機能が必要とする共通の型定義
  */
 
+import type { 
+  SystemModuleName as _SystemModuleName, 
+  SystemModuleMap as _SystemModuleMap 
+} from './systemModuleTypes';
+
 export type ExtensionType =
   | 'transpiler'
   | 'service'
@@ -10,6 +15,16 @@ export type ExtensionType =
   | 'language-runtime'
   | 'tool'
   | 'ui';
+
+/**
+ * システムモジュール名（再エクスポート）
+ */
+export type SystemModuleName = _SystemModuleName;
+
+/**
+ * システムモジュールの型マップ（再エクスポート）
+ */
+export type SystemModuleMap = _SystemModuleMap;
 
 export interface ExtensionContext {
   extensionId: string;
@@ -20,7 +35,15 @@ export interface ExtensionContext {
     warn: (message: string, ...args: unknown[]) => void;
     error: (message: string, ...args: unknown[]) => void;
   };
-  getSystemModule?: <T = any>(moduleName: string) => Promise<T>;
+  /** 
+   * システムモジュールへのアクセス（型安全）
+   * @example
+   * const fileRepo = await context.getSystemModule('fileRepository');
+   * const storage = await context.getSystemModule('storageService');
+   */
+  getSystemModule?: <T extends SystemModuleName>(
+    moduleName: T
+  ) => Promise<SystemModuleMap[T]>;
   
   /** Tab API - 拡張機能が自分のタブを作成・管理 */
   tabs?: {

@@ -18,20 +18,19 @@ interface TranspileResponse {
 export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
   context.logger?.info('TypeScript Runtime Extension activating...');
 
-  // normalizeCjsEsmユーティリティを取得
+  // normalizeCjsEsmユーティリティを取得（型推論により自動的に正しい型が得られる）
+  if (!context.getSystemModule) {
+    throw new Error('getSystemModule not available');
+  }
+  
   let normalizeCjsEsm: (code: string) => string;
   try {
-    if (context.getSystemModule) {
-      // getSystemModule('normalizeCjsEsm')はモジュール全体を返す
-      // { normalizeCjsEsm: function }
-      const module = await context.getSystemModule<{ normalizeCjsEsm: (code: string) => string }>('normalizeCjsEsm');
-      normalizeCjsEsm = module.normalizeCjsEsm;
-      context.logger?.info('✅ normalizeCjsEsm loaded');
-    } else {
-      throw new Error('getSystemModule not available');
-    }
+    // moduleの型は自動的に NormalizeCjsEsmModule として推論される
+    const module = await context.getSystemModule('normalizeCjsEsm');
+    normalizeCjsEsm = module.normalizeCjsEsm;
+    context.logger?.info('✅ normalizeCjsEsm loaded');
   } catch (error) {
-    context.logger?.warn('⚠️ Failed to load normalizeCjsEsm, using fallback:', error);
+    context.logger?.warn('⚠️ Failed to load normalizeCjsEsm:', error);
     throw new Error('normalizeCjsEsm is required but could not be loaded');
   }
 

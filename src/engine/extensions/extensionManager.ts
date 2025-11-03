@@ -11,6 +11,7 @@ import {
   type ExtensionContext,
   type ExtensionActivation,
 } from './types';
+import type { SystemModuleName, SystemModuleMap } from './systemModuleTypes';
 import {
   saveInstalledExtension,
   loadInstalledExtension,
@@ -408,23 +409,27 @@ class ExtensionManager {
         warn: (...args: unknown[]) => console.warn(`[${extensionId}]`, ...args),
         error: (...args: unknown[]) => console.error(`[${extensionId}]`, ...args),
       },
-      getSystemModule: async <T = any>(moduleName: string): Promise<T> => {
-        // システムモジュールへのアクセスを提供
+      getSystemModule: async <T extends SystemModuleName>(
+        moduleName: T
+      ): Promise<SystemModuleMap[T]> => {
+        // システムモジュールへのアクセスを提供（型安全）
         switch (moduleName) {
           case 'fileRepository': {
             const { fileRepository } = await import('@/engine/core/fileRepository');
-            return fileRepository as T;
+            return fileRepository as SystemModuleMap[T];
           }
           case 'storageService': {
             const { storageService } = await import('@/engine/storage');
-            return storageService as T;
+            return storageService as SystemModuleMap[T];
           }
           case 'normalizeCjsEsm': {
             const module = await import('@/engine/runtime/normalizeCjsEsm');
-            return module as T;
+            return module as SystemModuleMap[T];
           }
-          default:
-            throw new Error(`System module not found: ${moduleName}`);
+          default: {
+            const exhaustiveCheck: never = moduleName;
+            throw new Error(`System module not found: ${exhaustiveCheck}`);
+          }
         }
       },
     };

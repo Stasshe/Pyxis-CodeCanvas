@@ -8,6 +8,8 @@
  * - Extension Context: 実行環境
  */
 
+import type { SystemModuleMap, SystemModuleName } from './systemModuleTypes';
+
 /**
  * グローバル型定義の拡張
  */
@@ -229,8 +231,10 @@ export interface ExtensionContext {
     error: (...args: unknown[]) => void;
   };
 
-  /** システムモジュールへのアクセス (オプション) */
-  getSystemModule?: <T = any>(moduleName: string) => Promise<T>;
+  /** システムモジュールへのアクセス (型安全) */
+  getSystemModule?: <T extends SystemModuleName>(
+    moduleName: T
+  ) => Promise<SystemModuleMap[T]>;
 
   /** 他の拡張機能との通信 (オプション) */
   messaging?: {
