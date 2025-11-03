@@ -53,16 +53,36 @@ export const DiffTabType: TabTypeDefinition = {
   canPreview: false,
   component: DiffTabRenderer,
   
-  createTab: (file, options): DiffTab => {
-    const tabId = `diff:${file.path || file.name || Date.now()}`;
+  createTab: (data, options): DiffTab => {
+    // dataには { files: SingleFileDiff | SingleFileDiff[], editable: boolean } が渡される
+    const files = data.files;
+    const isMultiFile = Array.isArray(files);
+    const diffs = isMultiFile ? files : [files];
+    
+    // タブIDとラベルを生成
+    let tabId: string;
+    let tabName: string;
+    
+    if (isMultiFile) {
+      // 複数ファイルのDiff（コミット全体）
+      const firstDiff = diffs[0];
+      tabId = `diff-all-${firstDiff.formerCommitId}-${firstDiff.latterCommitId}`;
+      tabName = `Diff: ${firstDiff.formerCommitId?.slice(0, 6) || ''}..${firstDiff.latterCommitId?.slice(0, 6) || ''}`;
+    } else {
+      // 単一ファイルのDiff
+      const diff = diffs[0];
+      tabId = `diff-${diff.formerCommitId}-${diff.latterCommitId}-${diff.formerFullPath}`;
+      tabName = `Diff: ${diff.formerFullPath.split('/').pop()} (${diff.formerCommitId?.slice(0, 6) || ''}..${diff.latterCommitId?.slice(0, 6) || ''})`;
+    }
+    
     return {
       id: tabId,
-      name: `Diff: ${file.name}`,
+      name: tabName,
       kind: 'diff',
-      path: file.path || '',
+      path: isMultiFile ? '' : diffs[0].formerFullPath,
       paneId: options?.paneId || '',
-      diffs: options?.diffProps?.diffs || [],
-      editable: options?.diffProps?.editable || false,
+      diffs: diffs,
+      editable: data.editable ?? false,
     };
   },
   

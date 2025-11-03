@@ -18,14 +18,13 @@ import { GitCommit as GitCommitType } from '@/types/git';
 import { GitCommands } from '@/engine/cmd/git';
 import { useTheme } from '@/context/ThemeContext';
 import { useTranslation } from '@/context/I18nContext';
+import { useDiffTabHandlers } from '@/hooks/useDiffTabHandlers';
 
 interface GitHistoryProps {
   commits: GitCommitType[];
   currentProject?: string;
   currentProjectId?: string;
   currentBranch: string;
-  onDiffFileClick?: (params: { commitId: string; filePath: string; editable?: boolean }) => void;
-  onDiffAllFilesClick?: (params: { commitId: string; parentCommitId: string }) => void;
 }
 
 interface CommitChanges {
@@ -47,8 +46,6 @@ export default function GitHistory({
   currentProject,
   currentProjectId,
   currentBranch,
-  onDiffFileClick,
-  onDiffAllFilesClick,
 }: GitHistoryProps) {
   const [extendedCommits, setExtendedCommits] = useState<ExtendedCommit[]>([]);
   const [expandedCommits, setExpandedCommits] = useState<Set<string>>(new Set());
@@ -60,6 +57,12 @@ export default function GitHistory({
   const svgRef = useRef<SVGSVGElement>(null);
   const gitCommands =
     currentProject && currentProjectId ? new GitCommands(currentProject, currentProjectId) : null;
+  
+  // [NEW ARCHITECTURE] Diff タブハンドラー
+  const { handleDiffFileClick, handleDiffAllFilesClick } = useDiffTabHandlers({
+    name: currentProject,
+    id: currentProjectId,
+  });
 
   // トポロジカルソート: 親→子の順に並べる
   const topoSortCommits = (commits: GitCommitType[]): GitCommitType[] => {
@@ -602,7 +605,7 @@ export default function GitHistory({
                             {/* Diffタブを開くアイコン */}
                             {commit.parentHashes &&
                               commit.parentHashes.length > 0 &&
-                              onDiffAllFilesClick && (
+                              handleDiffAllFilesClick && (
                                 <button
                                   className="ml-1 p-0.5 rounded hover:bg-gray-700"
                                   title={t('gitHistory.showAllFilesDiff')}
@@ -612,9 +615,9 @@ export default function GitHistory({
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                   }}
-                                  onClick={e => {
+                                  onClick={async e => {
                                     e.stopPropagation();
-                                    onDiffAllFilesClick({
+                                    await handleDiffAllFilesClick({
                                       commitId: commit.hash,
                                       parentCommitId: commit.parentHashes[0],
                                     });
@@ -753,9 +756,9 @@ export default function GitHistory({
                                   <div
                                     key={index}
                                     className="flex items-center gap-1 text-[11px] py-0.5 cursor-pointer hover:underline"
-                                    onClick={() => {
-                                      if (onDiffFileClick) {
-                                        onDiffFileClick({ commitId: commit.hash, filePath: file });
+                                    onClick={async () => {
+                                      if (handleDiffFileClick) {
+                                        await handleDiffFileClick({ commitId: commit.hash, filePath: file });
                                       }
                                     }}
                                     title={t('gitHistory.showFileDiff')}

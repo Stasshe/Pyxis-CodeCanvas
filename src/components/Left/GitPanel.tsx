@@ -22,6 +22,7 @@ import { GitRepository, GitCommit as GitCommitType, GitStatus } from '@/types/gi
 import { GitCommands } from '@/engine/cmd/git';
 import GitHistory from './GitHistory';
 import { LOCALSTORAGE_KEY } from '@/context/config';
+import { useDiffTabHandlers } from '@/hooks/useDiffTabHandlers';
 
 interface GitPanelProps {
   currentProject?: string;
@@ -29,8 +30,6 @@ interface GitPanelProps {
   onRefresh?: () => void;
   gitRefreshTrigger?: number;
   onGitStatusChange?: (changesCount: number) => void; // Git変更状態のコールバック
-  onDiffFileClick?: (params: { commitId: string; filePath: string; editable?: boolean }) => void;
-  onDiffAllFilesClick?: (params: { commitId: string; parentCommitId: string }) => void;
 }
 
 export default function GitPanel({
@@ -39,8 +38,6 @@ export default function GitPanel({
   onRefresh,
   gitRefreshTrigger,
   onGitStatusChange,
-  onDiffFileClick,
-  onDiffAllFilesClick,
 }: GitPanelProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
@@ -51,6 +48,12 @@ export default function GitPanel({
   const [error, setError] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+
+  // [NEW ARCHITECTURE] Diff タブハンドラー
+  const { handleDiffFileClick, handleDiffAllFilesClick } = useDiffTabHandlers({
+    name: currentProject,
+    id: currentProjectId,
+  });
 
   // Git操作用のコマンドインスタンス（新アーキテクチャ）
   const gitCommands =
@@ -918,11 +921,11 @@ export default function GitPanel({
                         className="select-text"
                         title={t('git.viewDiffReadonly')}
                         onClick={async () => {
-                          if (onDiffFileClick && gitRepo.commits.length > 0) {
+                          if (handleDiffFileClick && gitRepo.commits.length > 0) {
                             // 最新コミットのhashを取得
                             const latestCommit = gitRepo.commits[0];
                             // ステージング済みファイルは編集不可でdiffを表示
-                            onDiffFileClick({
+                            await handleDiffFileClick({
                               commitId: latestCommit.hash,
                               filePath: file,
                               editable: false,
@@ -987,11 +990,11 @@ export default function GitPanel({
                         className="select-text"
                         title={t('git.viewDiffEditable')}
                         onClick={async () => {
-                          if (onDiffFileClick && gitRepo.commits.length > 0) {
+                          if (handleDiffFileClick && gitRepo.commits.length > 0) {
                             // 最新コミットのhashを取得
                             const latestCommit = gitRepo.commits[0];
                             // 未ステージファイルは編集可能でdiffを表示
-                            onDiffFileClick({
+                            await handleDiffFileClick({
                               commitId: latestCommit.hash,
                               filePath: file,
                               editable: true,
@@ -1077,11 +1080,11 @@ export default function GitPanel({
                         className="select-text"
                         title={t('git.viewDiffEditable')}
                         onClick={async () => {
-                          if (onDiffFileClick && gitRepo.commits.length > 0) {
+                          if (handleDiffFileClick && gitRepo.commits.length > 0) {
                             // 最新コミットのhashを取得
                             const latestCommit = gitRepo.commits[0];
                             // 削除されたファイルは編集可能でdiffを表示
-                            onDiffFileClick({
+                            await handleDiffFileClick({
                               commitId: latestCommit.hash,
                               filePath: file,
                               editable: true,
@@ -1244,8 +1247,6 @@ export default function GitPanel({
               currentProject={currentProject}
               currentProjectId={currentProjectId}
               currentBranch={gitRepo.currentBranch}
-              onDiffFileClick={onDiffFileClick}
-              onDiffAllFilesClick={onDiffAllFilesClick}
             />
           )}
         </div>

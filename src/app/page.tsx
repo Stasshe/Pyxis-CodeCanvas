@@ -281,14 +281,6 @@ export default function Home() {
                 });
               }
             }}
-            onDiffFileClick={file => {
-              // TODO: Diff機能の実装
-              console.log('[TODO] Diff file:', file);
-            }}
-            onDiffAllFilesClick={() => {
-              // TODO: Diff All機能の実装
-              console.log('[TODO] Diff all files');
-            }}
             onOpenShortcutKeys={() => {
               openTab(
                 {

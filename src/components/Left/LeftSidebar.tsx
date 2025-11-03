@@ -21,8 +21,6 @@ interface LeftSidebarProps {
   gitRefreshTrigger?: number;
   onRefresh?: () => void; // [NEW ARCHITECTURE] ファイルツリー再読み込み用
   onGitStatusChange?: (changesCount: number) => void;
-  onDiffFileClick?: (params: { commitId: string; filePath: string; editable?: boolean }) => void;
-  onDiffAllFilesClick?: (params: { commitId: string; parentCommitId: string }) => void;
   onOpenShortcutKeys?: () => void;
 }
 
@@ -36,8 +34,6 @@ export default function LeftSidebar({
   gitRefreshTrigger,
   onRefresh,
   onGitStatusChange,
-  onDiffFileClick,
-  onDiffAllFilesClick,
   onOpenShortcutKeys,
 }: LeftSidebarProps) {
   const { colors } = useTheme();
@@ -168,8 +164,6 @@ export default function LeftSidebar({
                 onRefresh={onGitRefresh}
                 gitRefreshTrigger={gitRefreshTrigger}
                 onGitStatusChange={onGitStatusChange}
-                onDiffFileClick={onDiffFileClick}
-                onDiffAllFilesClick={onDiffAllFilesClick}
               />
             </div>
           )}
