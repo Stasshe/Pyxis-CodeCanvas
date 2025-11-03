@@ -3,11 +3,13 @@
 ├── Development
 │   ├── NEW-ARCHITECTURE.md
 │   ├── NodeJSRuntime-new-arc.md
+│   ├── TAB-MANAGEMENT-ARCHITECTURE.md
 │   ├── TODO.md
 │   ├── Tauri-Setup.md
 │   ├── ai-agent-implementation-plan.md
 │   ├── all-flow.svg
 │   ├── docs
+│   │   ├── CONTENT-RESTORATION.md
 │   │   ├── STORAGE-KEYBINDINGS.md
 │   │   └── en
 │   └── git-deletion-detection-analysis.md
@@ -99,10 +101,12 @@
 │   │   └── zh-TW
 │   │       ├── index.ts
 │   │       └── manifest.json
+│   ├── note-tab
 │   ├── registry.json
 │   └── typescript-runtime
 │       ├── index.ts
-│       └── manifest.json
+│       ├── manifest.json
+│       └── transpile.worker.ts
 ├── helper-code.txt
 ├── i18n.sh
 ├── initial_files
@@ -209,7 +213,8 @@
 │   │   ├── registry.json
 │   │   └── typescript-runtime
 │   │       ├── index.js
-│   │       └── manifest.json
+│   │       ├── manifest.json
+│   │       └── transpile.worker.js
 │   ├── favicon.ico
 │   ├── favicon.png
 │   ├── file.svg
@@ -340,8 +345,7 @@
 │   │   ├── globals.css
 │   │   ├── layout.tsx
 │   │   ├── markdown.css
-│   │   ├── page.tsx
-│   │   └── page.tsx.backup
+│   │   └── page.tsx
 │   ├── components
 │   │   ├── AI
 │   │   │   ├── AIPanel.tsx
@@ -387,7 +391,6 @@
 │   │   ├── MenuBar.tsx
 │   │   ├── OperationWindow.tsx
 │   │   ├── PaneContainer.tsx
-│   │   ├── PaneContainer.tsx.backup
 │   │   ├── PaneResizer.tsx
 │   │   ├── ProjectModal.tsx
 │   │   ├── Right
@@ -401,7 +404,7 @@
 │   │   │   ├── MarkdownPreviewTab.tsx
 │   │   │   ├── ShortcutKeysTab.tsx
 │   │   │   ├── TabBar.tsx
-│   │   │   ├── TabBar.tsx.backup
+│   │   │   ├── TabIcon.tsx
 │   │   │   ├── WebPreviewTab.tsx
 │   │   │   ├── WelcomeTab.tsx
 │   │   │   ├── markdownUtils.ts
@@ -422,8 +425,10 @@
 │   │   │   └── useTabCloseConfirmation.tsx
 │   │   ├── TabInitializer.tsx
 │   │   ├── Toast.tsx
-│   │   └── TopBar.tsx
+│   │   ├── TopBar.tsx
+│   │   └── examples
 │   ├── context
+│   │   ├── FileSelectorContext.tsx
 │   │   ├── GitHubUserContext.tsx
 │   │   ├── I18nContext.tsx
 │   │   ├── TabContext.tsx
@@ -531,7 +536,6 @@
 │   │   │       ├── pathModule.ts
 │   │   │       ├── readlineModule.ts
 │   │   │       └── utilModule.ts
-│   │   ├── openTab.ts
 │   │   ├── runtime
 │   │   │   ├── extendedBuiltInModules.ts
 │   │   │   ├── moduleCache.ts
@@ -544,16 +548,20 @@
 │   │   │   ├── runtimeLogger.ts
 │   │   │   ├── transpileManager.ts
 │   │   │   └── transpileWorker.ts
+│   │   ├── sidebar
 │   │   ├── storage
 │   │   │   └── index.ts
 │   │   ├── tabs
 │   │   │   ├── TabRegistry.ts
 │   │   │   ├── builtins
 │   │   │   │   ├── AIReviewTabType.tsx
+│   │   │   │   ├── BinaryTabType.tsx
 │   │   │   │   ├── DiffTabType.tsx
 │   │   │   │   ├── EditorTabType.tsx
+│   │   │   │   ├── PreviewTabType.tsx
 │   │   │   │   ├── SettingsTabType.tsx
 │   │   │   │   ├── WebPreviewTabType.tsx
+│   │   │   │   ├── WelcomeTabType.tsx
 │   │   │   │   └── index.ts
 │   │   │   ├── registerBuiltinTabs.ts
 │   │   │   └── types.ts
@@ -567,17 +575,17 @@
 │   │   │   ├── useChatSpace.ts
 │   │   │   └── useInputHistory.ts
 │   │   ├── defaultKeybindings.ts
-│   │   ├── fileSelectHandlers.ts
 │   │   ├── gitHooks.ts
 │   │   ├── keybindingUtils.ts
-│   │   ├── pane.ts
-│   │   ├── tab.ts
 │   │   ├── useAIReview.ts
 │   │   ├── useDiffTabHandlers.ts
 │   │   ├── useGlobalScrollLock.ts
 │   │   ├── useKeyBindings.ts
-│   │   └── useSettings.ts
+│   │   ├── useProjectWelcome.ts
+│   │   ├── useSettings.ts
+│   │   └── useTabContentRestore.ts
 │   ├── stores
+│   │   ├── sessionStorage.ts
 │   │   └── tabStore.ts
 │   └── types
 │       ├── git.ts
@@ -603,11 +611,15 @@
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-128 directories, 476 files
+131 directories, 481 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 43971
-合計文字数: 1423225
-合計ファイルサイズ(bytes): 1520877
+合計行数: 44094
+合計文字数: 1425422
+合計ファイルサイズ(bytes): 1523581
 
-開発時のdev container全体のサイズ(bytes): 2.4G	.
+開発時のdev container全体のサイズ(bytes): 2.5G	.
+==========
+ビルト済みファイルの行数: 25927
+合計文字数: 24994209
+合計ファイルサイズ(bytes): 25976959

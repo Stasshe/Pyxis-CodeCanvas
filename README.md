@@ -7,7 +7,7 @@
   
   ### *Zero Setup. Quick Start, Easy Coding*
 
-  [![Version](https://img.shields.io/badge/version-0.10.0-blue.svg)](https://github.com/your-username/pyxis)
+  [![Version](https://img.shields.io/badge/version-0.11.0-blue.svg)](https://github.com/your-username/pyxis)
   [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
   [![Platform](https://img.shields.io/badge/platform-Web%20%7C%20iPad%20%7C%20Mobile-orange.svg)](README.md)
   [![Languages](https://img.shields.io/badge/languages-18-blue.svg)](#)
@@ -176,11 +176,20 @@ JavaScriptでは不可能なファイルオペレーションやインタラク�
 - **コンテキスト保持** - ファイルを開いたまま、AIに質問・編集依頼
 - **統合された体験** - VSCodeを開くほどではないが、AIの力は欲しい時に最適
 
+###  **拡張機能システム - 柔軟なカスタマイズ**
+- **動的ロード** - TypeScript拡張機能をブラウザ上で動的にロード・実行
+- **18ヶ国語対応** - 言語パック拡張で多言語サポート
+- **TypeScriptランタイム** - トランスパイラを拡張機能として実装
+- **独立性と安全性** - 各拡張機能は独立したモジュールとして動作
+- **永続化** - IndexedDBによる拡張機能のキャッシュと管理
+- **カスタム拡張** - 独自の拡張機能を作成して機能を追加可能
+
 ### 🌐 **ユニバーサル互換性**
 - **どこでも動く** - Web、iPad、モバイル、全てのモダンブラウザ
 - **マルチペーン対応** で複雑なプロジェクトも楽々
 - **バッファコンテンツ対応** - zip解凍、PDF、画像、動画表示
 - **🌍 18ヶ国語対応** - 日本語、英語、中国語、韓国語、スペイン語、フランス語、ドイツ語、イタリア語、ポルトガル語、ロシア語、オランダ語、トルコ語、アラビア語、ヒンディー語、タイ語、ベトナム語、インドネシア語、スウェーデン語、ポーランド語に対応
+- **拡張機能システム** - 言語パック、トランスパイラ、カスタム機能を動的に追加
 
 --- 
 
@@ -198,6 +207,7 @@ JavaScriptでは不可能なファイルオペレーションやインタラク�
 - 📦 **バッファ対応** - ZIP解凍、PDF/画像/動画ビューワー
 - ⌨️ **効率的編集** - キーボードショートカットで大量テキストも快適
 - 🖼️ **マルチペーン** - 複数ウィンドウで同時作業
+- 🧩 **拡張機能アーキテクチャ** - 動的ロード、依存関係管理、永続化でモジュラーな設計
 
 ### **安全性**
 ブラウザ上だから**何をしても壊れない**。PC環境で何かを削除すると取り返しがつかないが、Pyxisなら安心。初心者のGit学習にも最適。

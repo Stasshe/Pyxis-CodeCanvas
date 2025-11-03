@@ -5,7 +5,7 @@
   
   ### *Zero Setup. Quick Start, Easy Coding*
 
-  [![Version](https://img.shields.io/badge/version-0.10.0-blue.svg)](https://github.com/your-username/pyxis)
+  [![Version](https://img.shields.io/badge/version-0.11.0-blue.svg)](https://github.com/your-username/pyxis)
   [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
   [![Platform](https://img.shields.io/badge/platform-Web%20%7C%20iPad%20%7C%20Mobile-orange.svg)](README.md)
   [![Languages](https://img.shields.io/badge/languages-18-blue.svg)](#)
@@ -170,11 +170,20 @@ Navigate your projects with **VS Code-like efficiency**! Fast file search, an op
 - **Context retention** - Ask AI and request edits while keeping files open
 - **Integrated experience** - Not quite VS Code level, but perfect when you need AI power
 
+### 🧩 **Extension System - Flexible Customization**
+- **Dynamic Loading** - Load and execute TypeScript extensions in the browser
+- **18 Languages** - Multi-language support via language pack extensions
+- **TypeScript Runtime** - Transpiler implemented as an extension
+- **Independence & Safety** - Each extension operates as an isolated module
+- **Persistence** - Extension caching and management via IndexedDB
+- **Custom Extensions** - Create your own extensions to add features
+
 ### 🌐 **Universal Compatibility**
 - **Works everywhere** - Web, iPad, mobile, any modern browser
 - **Multi-pane support** for complex projects
 - **Buffer content support** - unzip files, view PDFs, images, videos
 - **🌍 18 Languages Support** - Available in Japanese, English, Chinese, Traditional Chinese, Korean, Spanish, French, German, Italian, Portuguese, Russian, Dutch, Turkish, Arabic, Hindi, Thai, Vietnamese, Indonesian, Swedish, and Polish
+- **Extension System** - Dynamically add language packs, transpilers, and custom features
 
 ### 🖥️ **Tauri Desktop Support**
 - **Windows/Mac/Linux** native app experience
