@@ -1,9 +1,9 @@
 {
   "id": "pyxis.todo-panel",
-  "name": "TODO Panel Extension",
-  "version": "1.0.0",
+  "name": "TODO Scanner",
+  "version": "2.0.0",
   "type": "ui",
-  "description": "Provides a TODO list sidebar panel with task management features",
+  "description": "Scans workspace files for TODO and FIXME comments with quick navigation",
   "author": "Pyxis Team",
   "entry": "index.js",
   "provides": {
@@ -11,7 +11,7 @@
   },
   "metadata": {
     "publishedAt": "2025-01-01T00:00:00Z",
-    "updatedAt": "2025-01-01T00:00:00Z",
-    "tags": ["ui", "productivity", "todo", "task-management"]
+    "updatedAt": "2025-02-03T00:00:00Z",
+    "tags": ["ui", "productivity", "todo", "scanner", "fixme"]
   }
 }

@@ -411,10 +411,6 @@ class ExtensionManager {
       getSystemModule: async <T = any>(moduleName: string): Promise<T> => {
         // システムモジュールへのアクセスを提供
         switch (moduleName) {
-          case 'transpileManager': {
-            const { transpileManager } = await import('@/engine/runtime/transpileManager');
-            return transpileManager as T;
-          }
           case 'fileRepository': {
             const { fileRepository } = await import('@/engine/core/fileRepository');
             return fileRepository as T;
@@ -444,6 +440,7 @@ class ExtensionManager {
       closeTab: (tabId: string) => tabAPI.closeTab(tabId),
       onTabClose: (tabId: string, callback: any) => tabAPI.onTabClose(tabId, callback),
       getTabData: (tabId: string) => tabAPI.getTabData(tabId),
+      openSystemTab: (file: any, options?: any) => tabAPI.openSystemTab(file, options),
     };
 
     context.sidebar = {

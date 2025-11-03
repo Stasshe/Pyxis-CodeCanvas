@@ -263,6 +263,34 @@ export class TabAPI {
   }
 
   /**
+   * システムのopenTabを使ってファイルを開く
+   * 拡張機能が通常のエディタタブを開くために使用
+   */
+  openSystemTab(file: any, options?: {
+    kind?: string;
+    jumpToLine?: number;
+    jumpToColumn?: number;
+    activateAfterOpen?: boolean;
+  }): void {
+    const store = useTabStore.getState();
+    
+    try {
+      // システムのopenTabを呼び出す
+      store.openTab(file, {
+        kind: options?.kind || 'editor',
+        jumpToLine: options?.jumpToLine,
+        jumpToColumn: options?.jumpToColumn,
+        activateAfterOpen: options?.activateAfterOpen ?? true,
+      });
+      
+      console.log(`[TabAPI] Opened system tab for file: ${file.path}`);
+    } catch (error) {
+      console.error(`[TabAPI] Failed to open system tab:`, error);
+      throw error;
+    }
+  }
+
+  /**
    * クリーンアップ - 全てのタブを閉じる
    */
   dispose(): void {

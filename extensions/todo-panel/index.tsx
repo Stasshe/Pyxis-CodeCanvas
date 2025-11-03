@@ -1,51 +1,110 @@
 /**
- * TODO Panel Extension (TSX版)
- * TODOリストをサイドバーに追加し、タスク管理タブも提供
+ * TODO Panel Extension
+ * Pyxis内のファイルから TODO: コメントを検索して一覧表示
  */
 
 import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
 import React, { useState, useEffect } from 'react';
 
-interface Todo {
+interface TodoItem {
   id: string;
   text: string;
-  completed: boolean;
-  createdAt: number;
+  filePath: string;
+  line: number;
+  projectId: string;
+  projectName: string;
+  file: any; // ファイルオブジェクト
 }
 
-// TODOタブコンポーネント（TSX構文使用）
+// TODOタブコンポーネント
 function TodoTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
-  const [todos, setTodos] = useState<Todo[]>((tab as any).data?.todos || []);
-  const [newTodoText, setNewTodoText] = useState('');
+  const [todos, setTodos] = useState<TodoItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [filter, setFilter] = useState('');
+  const context: ExtensionContext = (tab as any).data?.context;
 
-  // 自動保存
-  useEffect(() => {
-    localStorage.setItem('todo-tab-data', JSON.stringify(todos));
+  // TODO検索関数
+  const scanTodos = async () => {
+    if (!context?.getSystemModule) return;
     
-    // カスタムイベントを発火してサイドバーを更新
-    window.dispatchEvent(new CustomEvent('todo-updated'));
-  }, [todos]);
+    setLoading(true);
+    try {
+      const { fileRepository } = await context.getSystemModule('fileRepository');
+      
+      // 全プロジェクトを取得
+      const projects = await fileRepository.getProjects();
+      const allTodos: TodoItem[] = [];
 
-  const addTodo = () => {
-    if (newTodoText.trim()) {
-      const newTodo: Todo = {
-        id: Date.now().toString(),
-        text: newTodoText,
-        completed: false,
-        createdAt: Date.now(),
-      };
-      setTodos([...todos, newTodo]);
-      setNewTodoText('');
+      for (const project of projects) {
+        // プロジェクトの全ファイルを取得
+        const files = await fileRepository.getProjectFiles(project.id);
+
+        for (const file of files) {
+          if (file.type !== 'file' || file.isBufferArray) continue;
+
+          // ファイル内容からTODOを検索
+          const lines = file.content.split('\n');
+          lines.forEach((line, index) => {
+            // TODO:, TODO , FIXME:, FIXME などを検索
+            const todoMatch = line.match(/(?:TODO|FIXME)\s*[:：]\s*(.+)/i);
+            if (todoMatch) {
+              allTodos.push({
+                id: `${project.id}-${file.path}-${index}`,
+                text: todoMatch[1].trim(),
+                filePath: file.path,
+                line: index + 1,
+                projectId: project.id,
+                projectName: project.name,
+                file: file, // ファイルオブジェクトを保存
+              });
+            }
+          });
+        }
+      }
+
+      setTodos(allTodos);
+    } catch (error) {
+      console.error('Failed to scan TODOs:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const toggleTodo = (id: string) => {
-    setTodos(todos.map(todo => (todo.id === id ? { ...todo, completed: !todo.completed } : todo)));
+  // 初回ロード
+  useEffect(() => {
+    if (isActive && context) {
+      scanTodos();
+    }
+  }, [isActive, context]);
+
+  // TODOをクリックしたときにファイルを開く
+  const handleTodoClick = (todo: TodoItem) => {
+    if (!context?.tabs?.openSystemTab) {
+      context.logger?.error('openSystemTab is not available');
+      return;
+    }
+
+    try {
+      // システムのopenTabを使ってファイルを開く
+      context.tabs.openSystemTab(todo.file, {
+        kind: 'editor',
+        jumpToLine: todo.line,
+        activateAfterOpen: true,
+      });
+      
+      context.logger?.info(`Opened file: ${todo.filePath} at line ${todo.line}`);
+    } catch (error) {
+      context.logger?.error('Failed to open file:', error);
+    }
   };
 
-  const deleteTodo = (id: string) => {
-    setTodos(todos.filter(todo => todo.id !== id));
-  };
+  // フィルタリング
+  const filteredTodos = todos.filter(todo =>
+    filter === '' ||
+    todo.text.toLowerCase().includes(filter.toLowerCase()) ||
+    todo.filePath.toLowerCase().includes(filter.toLowerCase()) ||
+    todo.projectName.toLowerCase().includes(filter.toLowerCase())
+  );
 
   return (
     <div
@@ -67,14 +126,14 @@ function TodoTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
         }}
       >
         <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold' }}>
-          ✅ TODO List
+          📋 TODO Scanner
         </h2>
         <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#888' }}>
-          {todos.filter(t => !t.completed).length} tasks remaining
+          {todos.length} TODOs found • {filteredTodos.length} shown
         </p>
       </div>
 
-      {/* 入力フォーム */}
+      {/* ツールバー */}
       <div
         style={{
           padding: '16px',
@@ -85,10 +144,9 @@ function TodoTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
       >
         <input
           type="text"
-          value={newTodoText}
-          onChange={(e) => setNewTodoText(e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' && addTodo()}
-          placeholder="Add a new task..."
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder="Filter by text, file, or project..."
           style={{
             flex: 1,
             padding: '8px 12px',
@@ -101,19 +159,20 @@ function TodoTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
           }}
         />
         <button
-          onClick={addTodo}
+          onClick={scanTodos}
+          disabled={loading}
           style={{
             padding: '8px 16px',
-            background: '#0e639c',
+            background: loading ? '#555' : '#0e639c',
             border: 'none',
             borderRadius: '4px',
             color: '#fff',
-            cursor: 'pointer',
+            cursor: loading ? 'not-allowed' : 'pointer',
             fontSize: '14px',
             fontWeight: 'bold',
           }}
         >
-          Add
+          {loading ? 'Scanning...' : '🔄 Refresh'}
         </button>
       </div>
 
@@ -125,114 +184,132 @@ function TodoTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
           overflowY: 'auto',
         }}
       >
-        {todos.length === 0 ? (
+        {loading ? (
           <p style={{ color: '#888', textAlign: 'center', marginTop: '32px' }}>
-            No tasks yet. Add one above!
+            🔍 Scanning workspace for TODOs...
           </p>
+        ) : filteredTodos.length === 0 ? (
+          <div style={{ textAlign: 'center', marginTop: '32px' }}>
+            <p style={{ color: '#888', fontSize: '16px' }}>
+              {filter ? '🔍 No TODOs match your filter' : '✅ No TODOs found in workspace'}
+            </p>
+            {!filter && todos.length === 0 && (
+              <p style={{ color: '#666', fontSize: '12px', marginTop: '8px' }}>
+                Add TODO: or FIXME: comments in your code to see them here
+              </p>
+            )}
+          </div>
         ) : (
-          todos.map(todo => (
-            <div
-              key={todo.id}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                padding: '12px',
-                marginBottom: '8px',
-                background: '#2d2d2d',
-                borderRadius: '4px',
-                borderLeft: todo.completed ? '3px solid #4caf50' : '3px solid #0e639c',
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={todo.completed}
-                onChange={() => toggleTodo(todo.id)}
-                style={{ cursor: 'pointer' }}
-              />
-              <span
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {filteredTodos.map(todo => (
+              <div
+                key={todo.id}
+                onClick={() => handleTodoClick(todo)}
                 style={{
-                  flex: 1,
-                  textDecoration: todo.completed ? 'line-through' : 'none',
-                  color: todo.completed ? '#888' : '#d4d4d4',
-                }}
-              >
-                {todo.text}
-              </span>
-              <button
-                onClick={() => deleteTodo(todo.id)}
-                style={{
-                  padding: '4px 8px',
-                  background: '#d32f2f',
-                  border: 'none',
+                  padding: '12px',
+                  background: '#2d2d2d',
                   borderRadius: '4px',
-                  color: '#fff',
+                  borderLeft: '3px solid #0e639c',
                   cursor: 'pointer',
-                  fontSize: '12px',
+                  transition: 'all 0.2s',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#3d3d3d';
+                  e.currentTarget.style.borderLeftColor = '#1e7bbe';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = '#2d2d2d';
+                  e.currentTarget.style.borderLeftColor = '#0e639c';
                 }}
               >
-                🗑️
-              </button>
-            </div>
-          ))
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: '12px' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '14px', color: '#d4d4d4', marginBottom: '6px', fontWeight: '500' }}>
+                      {todo.text}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#888', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        📁 <span style={{ color: '#7cb342' }}>{todo.projectName}</span>
+                      </span>
+                      <span style={{ color: '#555' }}>•</span>
+                      <span style={{ fontFamily: 'monospace', color: '#64b5f6' }}>{todo.filePath}</span>
+                    </div>
+                  </div>
+                  <div style={{ 
+                    fontSize: '11px', 
+                    color: '#888',
+                    background: '#1e1e1e',
+                    padding: '4px 8px',
+                    borderRadius: '3px',
+                    whiteSpace: 'nowrap',
+                    fontFamily: 'monospace'
+                  }}>
+                    L{todo.line}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>
   );
 }
 
-// サイドバーパネルコンポーネントを作成する関数
+// サイドバーパネルコンポーネント
 function createTodoSidebarPanel(context: ExtensionContext) {
   return function TodoSidebarPanel({ extensionId, panelId, isActive, state }: any) {
-    const [todos, setTodos] = useState<Todo[]>([]);
+    const [todoCount, setTodoCount] = useState(0);
+    const [loading, setLoading] = useState(false);
 
-    const loadTodos = () => {
-      const savedData = localStorage.getItem('todo-tab-data');
-      if (savedData) {
-        try {
-          setTodos(JSON.parse(savedData));
-        } catch (e) {
-          console.error('Failed to parse TODO data', e);
+    const loadTodoCount = async () => {
+      if (!isActive || !context.getSystemModule) return;
+      
+      setLoading(true);
+      try {
+        const { fileRepository } = await context.getSystemModule('fileRepository');
+        
+        const projects = await fileRepository.getProjects();
+        let count = 0;
+
+        for (const project of projects) {
+          const files = await fileRepository.getProjectFiles(project.id);
+
+          for (const file of files) {
+            if (file.type !== 'file' || file.isBufferArray) continue;
+
+            const lines = file.content.split('\n');
+            lines.forEach((line) => {
+              if (/(?:TODO|FIXME)\s*[:：]/i.test(line)) {
+                count++;
+              }
+            });
+          }
         }
+
+        setTodoCount(count);
+      } catch (error) {
+        console.error('Failed to count TODOs:', error);
+      } finally {
+        setLoading(false);
       }
     };
 
     useEffect(() => {
-      loadTodos();
-
-      // TODO更新イベントをリッスン
-      const handleTodoUpdate = () => loadTodos();
-      window.addEventListener('todo-updated', handleTodoUpdate);
-
-      return () => {
-        window.removeEventListener('todo-updated', handleTodoUpdate);
-      };
+      loadTodoCount();
     }, [isActive]);
 
     const openTodoTab = () => {
       if (context.tabs) {
-        const savedData = localStorage.getItem('todo-tab-data');
-        let todos: Todo[] = [];
-        if (savedData) {
-          try {
-            todos = JSON.parse(savedData);
-          } catch (e) {
-            console.error('Failed to parse TODO data', e);
-          }
-        }
-
         context.tabs.createTab({
-          title: '✅ TODO List',
+          title: '📋 TODO Scanner',
           icon: 'ListTodo',
           closable: true,
           activateAfterCreate: true,
-          data: { todos },
+          data: { context },
         });
       }
     };
-
-    const incompleteTodos = todos.filter(t => !t.completed);
-    const completedCount = todos.filter(t => t.completed).length;
 
     return (
       <div
@@ -255,65 +332,66 @@ function createTodoSidebarPanel(context: ExtensionContext) {
         >
           <div>
             <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 'bold' }}>
-              ✅ TODO List
+              📋 TODO
             </h3>
             <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#888' }}>
-              {incompleteTodos.length} active • {completedCount} completed
+              {loading ? '🔍 Scanning...' : `${todoCount} found`}
             </p>
           </div>
           <button
             onClick={openTodoTab}
             style={{
-              padding: '4px 8px',
+              padding: '6px 12px',
               background: '#0e639c',
               color: '#fff',
               border: 'none',
               borderRadius: '4px',
               fontSize: '11px',
               cursor: 'pointer',
+              fontWeight: 'bold',
             }}
           >
             Open
           </button>
         </div>
 
-        {/* TODOリスト */}
+        {/* 説明 */}
         <div style={{ flex: 1, overflowY: 'auto' }}>
-          {incompleteTodos.length === 0 ? (
-            <p style={{ color: '#888', fontSize: '12px' }}>
-              All tasks completed! 🎉
+          <div
+            style={{
+              padding: '12px',
+              background: '#2d2d2d',
+              borderRadius: '4px',
+              fontSize: '12px',
+              color: '#888',
+              borderLeft: '3px solid #0e639c',
+            }}
+          >
+            <p style={{ margin: '0 0 8px 0' }}>
+              Scans workspace for <strong style={{ color: '#d4d4d4' }}>TODO:</strong> and <strong style={{ color: '#d4d4d4' }}>FIXME:</strong> comments
             </p>
-          ) : (
-            <>
-              {incompleteTodos.slice(0, 5).map(todo => (
-                <div
-                  key={todo.id}
-                  onClick={openTodoTab}
-                  style={{
-                    padding: '8px',
-                    marginBottom: '4px',
-                    background: '#2d2d2d',
-                    borderRadius: '4px',
-                    fontSize: '12px',
-                    borderLeft: '2px solid #0e639c',
-                    cursor: 'pointer',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = '#3d3d3d';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = '#2d2d2d';
-                  }}
-                >
-                  {todo.text.length > 30 ? todo.text.substring(0, 30) + '...' : todo.text}
-                </div>
-              ))}
-              {incompleteTodos.length > 5 && (
-                <p style={{ marginTop: '8px', fontSize: '12px', color: '#888', textAlign: 'center' }}>
-                  +{incompleteTodos.length - 5} more tasks
-                </p>
-              )}
-            </>
+            <p style={{ margin: 0 }}>
+              Click <strong style={{ color: '#d4d4d4' }}>Open</strong> to view all TODOs and jump to their locations
+            </p>
+          </div>
+
+          {todoCount > 0 && (
+            <div
+              style={{
+                marginTop: '16px',
+                padding: '16px',
+                background: '#2d2d2d',
+                borderRadius: '4px',
+                textAlign: 'center',
+              }}
+            >
+              <div style={{ fontSize: '36px', fontWeight: 'bold', color: '#0e639c' }}>
+                {todoCount}
+              </div>
+              <div style={{ color: '#888', marginTop: '4px', fontSize: '12px' }}>
+                {todoCount === 1 ? 'TODO found' : 'TODOs found'}
+              </div>
+            </div>
           )}
         </div>
       </div>
@@ -325,9 +403,9 @@ function createTodoSidebarPanel(context: ExtensionContext) {
  * 拡張機能のactivate関数
  */
 export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
-  context.logger?.info('TODO Panel Extension (TSX) activated!');
+  context.logger?.info('TODO Scanner Extension activated!');
 
-  // タブコンポーネントを登録（最初に実行）
+  // タブコンポーネントを登録
   if (context.tabs) {
     context.tabs.registerTabType(TodoTabComponent);
     context.logger?.info('TODO tab component registered');
@@ -336,28 +414,16 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
   // TODOタブを作成するコマンド
   const createTodoTab = () => {
     if (context.tabs) {
-      // 既存のTODOデータを読み込み
-      const savedData = localStorage.getItem('todo-tab-data');
-      let todos: Todo[] = [];
-      if (savedData) {
-        try {
-          todos = JSON.parse(savedData);
-        } catch (e) {
-          console.error('Failed to parse TODO data', e);
-        }
-      }
-
       const tabId = context.tabs.createTab({
-        title: '✅ TODO List',
+        title: '📋 TODO Scanner',
         icon: 'ListTodo',
         closable: true,
         activateAfterCreate: true,
-        data: { todos },
+        data: { context },
       });
 
       context.logger?.info(`Created TODO tab: ${tabId}`);
 
-      // タブが閉じられた時
       context.tabs.onTabClose(tabId, async (closedTabId: string) => {
         context.logger?.info(`TODO tab closed: ${closedTabId}`);
       });
@@ -372,15 +438,14 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
     const TodoSidebarPanelWithContext = createTodoSidebarPanel(context);
 
     context.sidebar.createPanel({
-      id: 'todo-list',
+      id: 'todo-scanner',
       title: 'TODO',
       icon: 'CheckSquare',
       component: TodoSidebarPanelWithContext,
       order: 45,
     });
 
-    // パネルがアクティブになった時
-    context.sidebar.onPanelActivate('todo-list', async (panelId: string) => {
+    context.sidebar.onPanelActivate('todo-scanner', async (panelId: string) => {
       context.logger?.info(`TODO panel activated: ${panelId}`);
     });
 
@@ -389,12 +454,12 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
 
   return {
     services: {
-      'todo-panel': {
+      'todo-scanner': {
         createTodoTab,
       },
     },
     commands: {
-      'todo.create': createTodoTab,
+      'todo.scan': createTodoTab,
       'todo.open': createTodoTab,
     },
   };
@@ -404,5 +469,5 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
  * 拡張機能のdeactivate関数
  */
 export async function deactivate(): Promise<void> {
-  console.log('TODO Panel Extension (TSX) deactivated');
+  console.log('TODO Scanner Extension deactivated');
 }

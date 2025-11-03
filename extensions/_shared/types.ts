@@ -41,6 +41,12 @@ export interface ExtensionContext {
     closeTab: (tabId: string) => boolean;
     onTabClose: (tabId: string, callback: (tabId: string) => void | Promise<void>) => void;
     getTabData: <T = any>(tabId: string) => T | null;
+    openSystemTab: (file: any, options?: {
+      kind?: string;
+      jumpToLine?: number;
+      jumpToColumn?: number;
+      activateAfterOpen?: boolean;
+    }) => void;
   };
   
   /** Sidebar API - 拡張機能がサイドバーパネルを追加 */
