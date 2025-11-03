@@ -2,17 +2,19 @@
 import React from 'react';
 import { TabTypeDefinition, WebPreviewTab, TabComponentProps } from '../types';
 import WebPreviewTabComponent from '@/components/Tab/WebPreviewTab';
+import { useProject } from '@/engine/core/project';
 
 /**
  * Webプレビュータブのコンポーネント
  */
 const WebPreviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   const webTab = tab as WebPreviewTab;
+  const { currentProject } = useProject();
 
   return (
     <WebPreviewTabComponent
       filePath={webTab.path}
-      currentProjectName={undefined} // プロジェクト名はコンテキストから取得
+      currentProjectName={currentProject?.name}
     />
   );
 };
