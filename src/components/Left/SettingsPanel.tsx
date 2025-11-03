@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronDown, ChevronRight, Keyboard } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
+import { useTabContext } from '@/context/TabContext';
 import { downloadWorkspaceZip } from '@/engine/export/exportRepo';
 import type { Project } from '@/types';
 import { settingsManager } from '@/engine/helper/settingsManager';
@@ -10,12 +11,12 @@ import { useTranslation } from '@/context/I18nContext';
 
 interface SettingsPanelProps {
   currentProject: Project; // 現在のプロジェクト
-  onOpenShortcutKeys?: () => void; // handler to open the shortcut keys tab in the pane container
 }
-const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject, onOpenShortcutKeys }) => {
+const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
   const [includeGit, setIncludeGit] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const { t } = useTranslation();
+  const { openTab } = useTabContext();
   const {
     colors,
     setColor,
@@ -268,8 +269,11 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject, onOpenSho
             <button
               type="button"
               onClick={() => {
-                // Use provided handler to open the shortcut keys tab in the pane (on/handle pattern)
-                if (onOpenShortcutKeys) onOpenShortcutKeys();
+                // [NEW ARCHITECTURE] Open shortcut keys settings tab using TabContext
+                openTab(
+                  { name: 'Shortcut Keys', settingsType: 'shortcuts' },
+                  { kind: 'settings' }
+                );
               }}
               className="w-full flex items-center gap-2 px-3 py-2 rounded text-xs hover:bg-opacity-10 transition-colors"
               style={{

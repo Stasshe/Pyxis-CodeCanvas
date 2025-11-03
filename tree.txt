@@ -340,7 +340,8 @@
 │   │   ├── globals.css
 │   │   ├── layout.tsx
 │   │   ├── markdown.css
-│   │   └── page.tsx
+│   │   ├── page.tsx
+│   │   └── page.tsx.backup
 │   ├── components
 │   │   ├── AI
 │   │   │   ├── AIPanel.tsx
@@ -386,6 +387,7 @@
 │   │   ├── MenuBar.tsx
 │   │   ├── OperationWindow.tsx
 │   │   ├── PaneContainer.tsx
+│   │   ├── PaneContainer.tsx.backup
 │   │   ├── PaneResizer.tsx
 │   │   ├── ProjectModal.tsx
 │   │   ├── Right
@@ -399,6 +401,7 @@
 │   │   │   ├── MarkdownPreviewTab.tsx
 │   │   │   ├── ShortcutKeysTab.tsx
 │   │   │   ├── TabBar.tsx
+│   │   │   ├── TabBar.tsx.backup
 │   │   │   ├── WebPreviewTab.tsx
 │   │   │   ├── WelcomeTab.tsx
 │   │   │   ├── markdownUtils.ts
@@ -417,11 +420,13 @@
 │   │   │   │   └── utils
 │   │   │   │       └── CharCountDetails.tsx
 │   │   │   └── useTabCloseConfirmation.tsx
+│   │   ├── TabInitializer.tsx
 │   │   ├── Toast.tsx
 │   │   └── TopBar.tsx
 │   ├── context
 │   │   ├── GitHubUserContext.tsx
 │   │   ├── I18nContext.tsx
+│   │   ├── TabContext.tsx
 │   │   ├── ThemeContext.tsx
 │   │   └── config.ts
 │   ├── engine
@@ -497,6 +502,7 @@
 │   │   │   ├── extensionLoader.ts
 │   │   │   ├── extensionManager.ts
 │   │   │   ├── extensionRegistry.ts
+│   │   │   ├── extensionsLogger.ts
 │   │   │   ├── index.ts
 │   │   │   ├── storage-adapter.ts
 │   │   │   └── types.ts
@@ -540,6 +546,17 @@
 │   │   │   └── transpileWorker.ts
 │   │   ├── storage
 │   │   │   └── index.ts
+│   │   ├── tabs
+│   │   │   ├── TabRegistry.ts
+│   │   │   ├── builtins
+│   │   │   │   ├── AIReviewTabType.tsx
+│   │   │   │   ├── DiffTabType.tsx
+│   │   │   │   ├── EditorTabType.tsx
+│   │   │   │   ├── SettingsTabType.tsx
+│   │   │   │   ├── WebPreviewTabType.tsx
+│   │   │   │   └── index.ts
+│   │   │   ├── registerBuiltinTabs.ts
+│   │   │   └── types.ts
 │   │   └── user
 │   │       ├── authRepository.ts
 │   │       ├── crypto.ts
@@ -560,6 +577,8 @@
 │   │   ├── useGlobalScrollLock.ts
 │   │   ├── useKeyBindings.ts
 │   │   └── useSettings.ts
+│   ├── stores
+│   │   └── tabStore.ts
 │   └── types
 │       ├── git.ts
 │       ├── index.ts
@@ -584,15 +603,11 @@
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-125 directories, 460 files
+128 directories, 476 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 43716
-合計文字数: 1425945
-合計ファイルサイズ(bytes): 1524790
+合計行数: 43971
+合計文字数: 1423225
+合計ファイルサイズ(bytes): 1520877
 
 開発時のdev container全体のサイズ(bytes): 2.4G	.
-==========
-ビルト済みファイルの行数: 25826
-合計文字数: 25613489
-合計ファイルサイズ(bytes): 26606173

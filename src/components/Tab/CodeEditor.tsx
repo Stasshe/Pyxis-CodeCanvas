@@ -16,20 +16,16 @@
 
 import { useRef, useEffect, useCallback, useState } from 'react';
 import { useSettings } from '@/hooks/useSettings';
-import type { Tab, Project } from '@/types';
-import { isBufferArray } from '@/engine/helper/isBufferArray';
-import { guessMimeType } from './text-editor/editors/editor-utils';
+import type { Project } from '@/types';
+import type { EditorTab } from '@/engine/tabs/types';
 import { useCharCount } from './text-editor/hooks/useCharCount';
-import MarkdownPreviewTab from './MarkdownPreviewTab';
-import WelcomeTab from './WelcomeTab';
-import BinaryTabContent from './BinaryTabContent';
 import MonacoEditor from './text-editor/editors/MonacoEditor';
 import CodeMirrorEditor from './text-editor/editors/CodeMirrorEditor';
 import CharCountDisplay from './text-editor/ui/CharCountDisplay';
 import EditorPlaceholder from './text-editor/ui/EditorPlaceholder';
 
 interface CodeEditorProps {
-  activeTab: Tab | undefined;
+  activeTab: EditorTab | undefined;
   bottomPanelHeight: number;
   isBottomPanelVisible: boolean;
   onContentChange: (tabId: string, content: string) => void;
@@ -171,63 +167,6 @@ export default function CodeEditor({
   // === タブなし ===
   if (!activeTab) {
     return <EditorPlaceholder type="no-tab" />;
-  }
-
-  // === コンテンツ復元中 ===
-  if (activeTab.needsContentRestore) {
-    return (
-      <EditorPlaceholder
-        type="loading"
-        message="ファイル内容を復元中..."
-      />
-    );
-  }
-
-  // === バイナリファイル ===
-  if (isBufferArray((activeTab as any).bufferContent)) {
-    return (
-      <BinaryTabContent
-        activeTab={activeTab}
-        editorHeight={editorHeight}
-        guessMimeType={guessMimeType}
-        isBufferArray={isBufferArray}
-      />
-    );
-  }
-
-  // === Welcomeタブ ===
-  if (activeTab.id === 'welcome') {
-    return (
-      <div
-        className="flex-1 min-h-0"
-        style={{ height: editorHeight }}
-      >
-        <WelcomeTab />
-      </div>
-    );
-  }
-
-  // === Markdownプレビュー ===
-  if (activeTab.preview) {
-    console.log(
-      '[CodeEditor_new] Rendering Markdown preview for:',
-      activeTab.name,
-      activeTab.path,
-      currentProject?.name
-    );
-    console.log('[CodeEditor_new] Current project files:', currentProject);
-    console.log('[CodeEditor_new] activeTab:', activeTab);
-    return (
-      <div
-        className="flex-1 min-h-0"
-        style={{ height: editorHeight }}
-      >
-        <MarkdownPreviewTab
-          activeTab={activeTab}
-          currentProject={currentProject}
-        />
-      </div>
-    );
   }
 
   // === CodeMirrorエディター ===

@@ -8,6 +8,7 @@ import { useTranslation } from '@/context/I18nContext';
 import { useChatSpace } from '@/hooks/ai/useChatSpace';
 import { useAI } from '@/hooks/ai/useAI';
 import { useAIReview } from '@/hooks/useAIReview';
+import { useProject } from '@/engine/core/project';
 import { buildAIFileContextList } from '@/engine/ai/contextBuilder';
 import { LOCALSTORAGE_KEY } from '@/context/config';
 import ChatContainer from './chat/ChatContainer';
@@ -24,21 +25,12 @@ interface AIPanelProps {
   projectFiles: FileItem[];
   currentProject: Project | null;
   currentProjectId?: string;
-  tabs: Tab[];
-  setTabs: (update: any) => void;
-  setActiveTabId: (id: string) => void;
-  saveFile: (filePath: string, content: string) => Promise<void>;
-  clearAIReview: (filePath: string) => Promise<void>;
 }
 
 export default function AIPanel({
   projectFiles,
   currentProject,
-  tabs,
-  setTabs,
-  setActiveTabId,
-  saveFile,
-  clearAIReview,
+  currentProjectId,
 }: AIPanelProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
@@ -101,6 +93,9 @@ export default function AIPanel({
 
   // レビュー機能
   const { openAIReviewTab, closeAIReviewTab } = useAIReview();
+  
+  // プロジェクト操作
+  const { saveFile, clearAIReview } = useProject();
 
   // プロジェクトファイルが変更されたときにコンテキストを更新
   useEffect(() => {
@@ -162,26 +157,28 @@ export default function AIPanel({
     originalContent: string,
     suggestedContent: string
   ) => {
-    openAIReviewTab(filePath, originalContent, suggestedContent, setTabs, setActiveTabId, tabs);
+    openAIReviewTab(filePath, originalContent, suggestedContent);
   };
 
   // 変更を適用（suggestedContent -> contentへコピー）
   // Terminalと同じアプローチ：fileRepositoryに保存し、イベントシステムに任せる
   const handleApplyChanges = async (filePath: string, newContent: string) => {
-    if (!currentProject) return;
+    if (!currentProject || !saveFile) return;
 
     try {
       console.log('[AIPanel] Applying changes to:', filePath);
 
-      // Use the provided saveFile prop (consistent with Terminal/project flow).
+      // Use the saveFile from useProject() (consistent with Terminal/project flow).
       // This delegates to the project layer which in turn calls fileRepository and
       // ensures any side-effects (sync, indexing) happen consistently.
       await saveFile(filePath, newContent);
 
       // Clear AI review metadata for this file (non-blocking)
-      clearAIReview(filePath).catch(e => {
-        console.warn('[AIPanel] clearAIReview failed (non-critical):', e);
-      });
+      if (clearAIReview) {
+        clearAIReview(filePath).catch((e: Error) => {
+          console.warn('[AIPanel] clearAIReview failed (non-critical):', e);
+        });
+      }
 
       // NOTE: Do NOT manually close the review tab here. The caller (AIReviewTab)
       // already handles closing when appropriate. Closing here caused timing races
@@ -197,12 +194,14 @@ export default function AIPanel({
   const handleDiscardChanges = async (filePath: string) => {
     try {
       // Close the review tab immediately so UI updates.
-      closeAIReviewTab(filePath, setTabs, tabs);
+      closeAIReviewTab(filePath);
       // Finally clear ai review metadata for this file
-      try {
-        await clearAIReview(filePath);
-      } catch (e) {
-        console.warn('[AIPanel] clearAIReview failed after discard:', e);
+      if (clearAIReview) {
+        try {
+          await clearAIReview(filePath);
+        } catch (e) {
+          console.warn('[AIPanel] clearAIReview failed after discard:', e);
+        }
       }
     } catch (error) {
       console.error('Failed to discard changes:', error);

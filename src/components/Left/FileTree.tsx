@@ -1,6 +1,7 @@
 import { useTheme } from '@/context/ThemeContext';
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from '@/context/I18nContext';
+import { useTabContext } from '@/context/TabContext';
 import { exportSingleFile } from '@/engine/export/exportSingleFile';
 import { exportFolderZip } from '@/engine/export/exportFolderZip';
 import { ChevronDown, ChevronRight } from 'lucide-react';
@@ -14,15 +15,6 @@ import { parseGitignore, isPathIgnored, GitIgnoreRule } from '@/engine/core/giti
 
 interface FileTreeProps {
   items: FileItem[];
-  /**
-   * ファイルを開く。行・カラム指定でジャンプする場合はline/columnを指定。
-   * @param file ファイル情報
-   * @param line 行番号(1始まり、省略可)
-   * @param column カラム番号(1始まり、省略可)
-   */
-  onFileOpen: (file: FileItem, line?: number, column?: number) => void;
-  onFilePreview?: (file: FileItem) => void;
-  onWebPreview?: (file: FileItem) => void;
   level?: number;
   currentProjectName: string;
   currentProjectId?: string;
@@ -32,10 +24,7 @@ interface FileTreeProps {
 
 export default function FileTree({
   items,
-  onFileOpen,
   level = 0,
-  onFilePreview,
-  onWebPreview,
   currentProjectName,
   currentProjectId,
   onRefresh,
@@ -43,6 +32,7 @@ export default function FileTree({
 }: FileTreeProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
+  const { openTab } = useTabContext();
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
   const [menuHoveredIdx, setMenuHoveredIdx] = useState<number | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
@@ -223,11 +213,10 @@ export default function FileTree({
     } else {
       const defaultEditor =
         typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
-      if (defaultEditor === 'codemirror') {
-        onFileOpen({ ...item, isCodeMirror: true });
-      } else {
-        onFileOpen({ ...item, isCodeMirror: false });
-      }
+      openTab(
+        { ...item, isCodeMirror: defaultEditor === 'codemirror' },
+        { kind: 'editor' }
+      );
     }
   };
 
@@ -238,15 +227,21 @@ export default function FileTree({
 
   const handlePreview = (item: FileItem) => {
     setContextMenu(null);
-    if (item.type === 'file' && item.name.endsWith('.md') && onFilePreview) {
-      onFilePreview(item);
+    if (item.type === 'file' && item.name.endsWith('.md')) {
+      openTab(item, { kind: 'preview' });
     }
   };
 
   const handleWebPreview = (item: FileItem) => {
     setContextMenu(null);
     if (item.type === 'file' || item.type === 'folder') {
-      onWebPreview && onWebPreview(item);
+      console.log('[FileTree] Opening webPreview for item:', {
+        name: item.name,
+        path: item.path,
+        type: item.type,
+        projectName: currentProjectName,
+      });
+      openTab(item, { kind: 'webPreview', projectName: currentProjectName });
     }
   };
 
@@ -419,10 +414,7 @@ export default function FileTree({
             {item.type === 'folder' && item.children && isExpanded && (
               <FileTree
                 items={item.children}
-                onFileOpen={onFileOpen}
                 level={level + 1}
-                onFilePreview={onFilePreview}
-                onWebPreview={onWebPreview}
                 currentProjectName={currentProjectName}
                 currentProjectId={currentProjectId}
                 onRefresh={onRefresh}
@@ -576,12 +568,12 @@ export default function FileTree({
                 if (!menuItem) return;
 
                 if (key === 'open') {
-                  onFileOpen(menuItem);
+                  openTab(menuItem, { kind: 'editor' });
                 } else if (key === 'openPreview') {
                   handlePreview(menuItem);
                 } else if (key === 'openCodeMirror') {
                   if (menuItem && menuItem.type === 'file')
-                    onFileOpen({ ...menuItem, isCodeMirror: true });
+                    openTab({ ...menuItem, isCodeMirror: true }, { kind: 'editor' });
                 } else if (key === 'download') {
                   const item = menuItem;
                   if (item.type === 'file') {

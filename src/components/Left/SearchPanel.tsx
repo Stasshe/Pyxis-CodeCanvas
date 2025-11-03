@@ -4,17 +4,11 @@ import { FileItem } from '@/types';
 import { useTheme } from '@/context/ThemeContext';
 import { useTranslation } from '@/context/I18nContext';
 import { useSettings } from '@/hooks/useSettings';
+import { useTabContext } from '@/context/TabContext';
 
 interface SearchPanelProps {
   files: FileItem[];
   projectId: string; // 設定読み込み用
-  /**
-   * ファイルを開く。行・カラム指定でジャンプする場合はline/columnを指定。
-   * @param file ファイル情報
-   * @param line 行番号(1始まり、省略可)
-   * @param column カラム番号(1始まり、省略可)
-   */
-  onFileOpen: (file: FileItem, line?: number, column?: number) => void;
 }
 
 interface SearchResult {
@@ -26,9 +20,10 @@ interface SearchResult {
   matchEnd: number;
 }
 
-export default function SearchPanel({ files, projectId, onFileOpen }: SearchPanelProps) {
+export default function SearchPanel({ files, projectId }: SearchPanelProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
+  const { openTab } = useTabContext();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -130,13 +125,15 @@ export default function SearchPanel({ files, projectId, onFileOpen }: SearchPane
     }
     const fileWithJump = {
       ...result.file,
-      jumpToLine: result.line,
-      jumpToColumn: result.column,
       isCodeMirror,
       isBufferArray: result.file.isBufferArray,
       bufferContent: result.file.bufferContent,
     };
-    onFileOpen(fileWithJump, result.line, result.column);
+    openTab(fileWithJump, {
+      kind: 'editor',
+      jumpToLine: result.line,
+      jumpToColumn: result.column,
+    });
   };
 
   const highlightMatch = (content: string, matchStart: number, matchEnd: number) => {

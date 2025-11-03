@@ -16,17 +16,11 @@ interface LeftSidebarProps {
   leftSidebarWidth: number;
   files: FileItem[];
   currentProject: Project;
-  onFileOpen: (file: FileItem) => void;
-  onFilePreview?: (file: FileItem) => void;
-  onWebPreview?: (file: FileItem) => void;
   onResize: (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => void;
   onGitRefresh?: () => void;
   gitRefreshTrigger?: number;
   onRefresh?: () => void; // [NEW ARCHITECTURE] ファイルツリー再読み込み用
   onGitStatusChange?: (changesCount: number) => void;
-  onDiffFileClick?: (params: { commitId: string; filePath: string; editable?: boolean }) => void;
-  onDiffAllFilesClick?: (params: { commitId: string; parentCommitId: string }) => void;
-  onOpenShortcutKeys?: () => void;
 }
 
 export default function LeftSidebar({
@@ -34,17 +28,11 @@ export default function LeftSidebar({
   leftSidebarWidth,
   files,
   currentProject,
-  onFileOpen,
-  onFilePreview,
-  onWebPreview,
   onResize,
   onGitRefresh,
   gitRefreshTrigger,
   onRefresh,
   onGitStatusChange,
-  onDiffFileClick,
-  onDiffAllFilesClick,
-  onOpenShortcutKeys,
 }: LeftSidebarProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
@@ -152,9 +140,6 @@ export default function LeftSidebar({
               </div>
               <FileTree
                 items={files}
-                onFileOpen={onFileOpen}
-                onFilePreview={onFilePreview}
-                onWebPreview={onWebPreview}
                 currentProjectName={currentProject?.name ?? ''}
                 currentProjectId={currentProject?.id ?? ''}
                 onRefresh={onRefresh}
@@ -166,7 +151,6 @@ export default function LeftSidebar({
               <SearchPanel
                 files={files}
                 projectId={currentProject.id}
-                onFileOpen={onFileOpen}
               />
             </div>
           )}
@@ -178,8 +162,6 @@ export default function LeftSidebar({
                 onRefresh={onGitRefresh}
                 gitRefreshTrigger={gitRefreshTrigger}
                 onGitStatusChange={onGitStatusChange}
-                onDiffFileClick={onDiffFileClick}
-                onDiffAllFilesClick={onDiffAllFilesClick}
               />
             </div>
           )}
@@ -197,10 +179,7 @@ export default function LeftSidebar({
             </div>
           )}
           {activeMenuTab === 'settings' && (
-            <SettingsPanel
-              currentProject={currentProject}
-              onOpenShortcutKeys={onOpenShortcutKeys}
-            />
+            <SettingsPanel currentProject={currentProject} />
           )}
         </div>
       </div>

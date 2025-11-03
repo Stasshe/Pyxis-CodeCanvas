@@ -1,66 +1,43 @@
 // src/components/PaneContainer.tsx
 'use client';
 
-import React from 'react';
+import React, { createContext, useContext } from 'react';
 import { useTheme } from '@/context/ThemeContext';
+import { useTabContext } from '@/context/TabContext';
 import TabBar from '@/components/Tab/TabBar';
-import CodeEditor from '@/components/Tab/CodeEditor';
-import DiffTab from '@/components/Tab/DiffTab';
-import AIReviewTab from '@/components/AI/AIReview/AIReviewTab';
-import WebPreviewTab from '@/components/Tab/WebPreviewTab';
-import ShortcutKeysTab from '@/components/Tab/ShortcutKeysTab';
 import PaneResizer from '@/components/PaneResizer';
-import type { EditorPane, Tab, Project, FileItem } from '@/types';
-import { LOCALSTORAGE_KEY } from '@/context/config';
-import { useSettings } from '@/hooks/useSettings';
-import {
-  setTabsForPane,
-  setActiveTabIdForPane,
-  removeEditorPane,
-  splitPane,
-  flattenPanes,
-} from '@/hooks/pane';
-import { handleFilePreview } from '@/hooks/fileSelectHandlers';
+import { tabRegistry } from '@/engine/tabs/TabRegistry';
+import type { EditorPane } from '@/types';
 
 interface PaneContainerProps {
   pane: EditorPane;
-  paneIndex: number;
-  allPanes: EditorPane[];
-  setEditors: React.Dispatch<React.SetStateAction<EditorPane[]>>;
-  currentProject?: Project;
-  saveFile?: (path: string, content: string) => Promise<void>;
-  clearAIReview?: (path: string) => Promise<void>;
-  refreshProjectFiles?: () => Promise<void>;
   setGitRefreshTrigger: (fn: (prev: number) => number) => void;
-  setFileSelectState: (state: { open: boolean; paneIdx: number | null }) => void;
-  isBottomPanelVisible: boolean;
-  toggleBottomPanel: () => void;
-  nodeRuntimeOperationInProgress: boolean;
-  // 即時ローカル編集反映ハンドラ（page.tsx の handleTabContentChangeImmediate を受け取る）
-  onTabContentChangeImmediate?: (tabId: string, content: string) => void;
 }
 
-export default function PaneContainer({
-  pane,
-  paneIndex,
-  allPanes,
-  setEditors,
-  currentProject,
-  saveFile,
-  clearAIReview,
-  refreshProjectFiles,
-  setGitRefreshTrigger,
-  setFileSelectState,
-  isBottomPanelVisible,
-  toggleBottomPanel,
-  nodeRuntimeOperationInProgress,
-  onTabContentChangeImmediate,
-}: PaneContainerProps) {
+// Git連携のためのContext
+interface GitContextValue {
+  setGitRefreshTrigger: (fn: (prev: number) => number) => void;
+}
+
+const GitContext = createContext<GitContextValue | null>(null);
+
+export const useGitContext = () => {
+  const context = useContext(GitContext);
+  if (!context) {
+    throw new Error('useGitContext must be used within PaneContainer');
+  }
+  return context;
+};
+
+/**
+ * PaneContainer: 自律的かつ機能完全なペインコンポーネント
+ * - TabContextを通じた自律的なタブ操作
+ * - TabRegistryによる動的なタブコンポーネントレンダリング
+ * - 即時反映、保存、Git連携などの全機能を保持
+ */
+export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContainerProps) {
   const { colors } = useTheme();
-  const { settings } = useSettings(
-    currentProject?.id || (pane.tabs[0] as any)?.projectId || undefined
-  );
-  const wordWrapConfig = settings?.editor.wordWrap ? 'on' : 'off';
+  const { globalActiveTab, setPanes, panes: allPanes } = useTabContext();
 
   // 子ペインがある場合は分割レイアウトをレンダリング
   if (pane.children && pane.children.length > 0) {
@@ -86,19 +63,7 @@ export default function PaneContainer({
             >
               <PaneContainer
                 pane={childPane}
-                paneIndex={childIndex}
-                allPanes={allPanes}
-                setEditors={setEditors}
-                currentProject={currentProject}
-                saveFile={saveFile}
-                clearAIReview={clearAIReview}
-                refreshProjectFiles={refreshProjectFiles}
                 setGitRefreshTrigger={setGitRefreshTrigger}
-                setFileSelectState={setFileSelectState}
-                onTabContentChangeImmediate={onTabContentChangeImmediate}
-                isBottomPanelVisible={isBottomPanelVisible}
-                toggleBottomPanel={toggleBottomPanel}
-                nodeRuntimeOperationInProgress={nodeRuntimeOperationInProgress}
               />
             </div>
 
@@ -126,19 +91,22 @@ export default function PaneContainer({
                       size: rightSize,
                     };
 
-                    // 親ペインを更新
-                    setEditors(prev => {
-                      const updatePaneRecursive = (panes: EditorPane[]): EditorPane[] => {
-                        return panes.map(p =>
-                          p.id === pane.id
-                            ? { ...p, children: updatedChildren }
-                            : p.children
-                              ? { ...p, children: updatePaneRecursive(p.children) }
-                              : p
-                        );
-                      };
-                      return updatePaneRecursive(prev);
-                    });
+                    // 親ペインを更新（再帰的にペインツリーを更新）
+                    const updatePaneRecursive = (panes: EditorPane[]): EditorPane[] => {
+                      return panes.map(p => {
+                        if (p.id === pane.id) {
+                          // 該当するペインの子を更新
+                          return { ...p, children: updatedChildren };
+                        }
+                        if (p.children) {
+                          // 再帰的に探索
+                          return { ...p, children: updatePaneRecursive(p.children) };
+                        }
+                        return p;
+                      });
+                    };
+
+                    setPanes(updatePaneRecursive(allPanes));
                   }}
                 />
               </div>
@@ -151,312 +119,45 @@ export default function PaneContainer({
 
   // リーフペイン（実際のエディタ）をレンダリング
   const activeTab = pane.tabs.find(tab => tab.id === pane.activeTabId);
+  const isGloballyActive = globalActiveTab === pane.activeTabId;
 
-  // [REMOVED] onTabContentChange - fileRepositoryのイベントシステムで自動更新
+  // TabRegistryからコンポーネントを取得
+  const TabComponent = activeTab ? tabRegistry.get(activeTab.kind)?.component : null;
 
   return (
-    <div
-      className="flex flex-col overflow-hidden"
-      style={{
-        width: '100%',
-        height: '100%',
-        background: colors.background,
-        border: `1px solid ${colors.border}`,
-      }}
-    >
-      <TabBar
-        tabs={pane.tabs}
-        activeTabId={pane.activeTabId}
-        onTabClick={tabId => {
-          const flatPanes = flattenPanes(allPanes);
-          const actualPaneIndex = flatPanes.findIndex(p => p.id === pane.id);
-          if (actualPaneIndex >= 0) {
-            setActiveTabIdForPane(allPanes, setEditors, actualPaneIndex, tabId);
-          }
+    <GitContext.Provider value={{ setGitRefreshTrigger }}>
+      <div
+        className="flex flex-col overflow-hidden"
+        style={{
+          width: '100%',
+          height: '100%',
+          background: colors.background,
+          border: `1px solid ${isGloballyActive ? colors.accentBg : colors.border}`,
         }}
-        onTabClose={tabId => {
-          const flatPanes = flattenPanes(allPanes);
-          const actualPaneIndex = flatPanes.findIndex(p => p.id === pane.id);
-          if (actualPaneIndex >= 0) {
-            setTabsForPane(
-              allPanes,
-              setEditors,
-              actualPaneIndex,
-              pane.tabs.filter(t => t.id !== tabId)
-            );
-            if (pane.activeTabId === tabId) {
-              const newActive = pane.tabs.filter(t => t.id !== tabId);
-              setActiveTabIdForPane(
-                allPanes,
-                setEditors,
-                actualPaneIndex,
-                newActive.length > 0 ? newActive[0].id : ''
-              );
-            }
-          }
-        }}
-        isBottomPanelVisible={isBottomPanelVisible}
-        onToggleBottomPanel={toggleBottomPanel}
-        onAddTab={() => {
-          const flatPanes = flattenPanes(allPanes);
-          const actualPaneIndex = flatPanes.findIndex(p => p.id === pane.id);
-          setFileSelectState({ open: true, paneIdx: actualPaneIndex });
-        }}
-        removeEditorPane={() => {
-          // ペインが1つだけなら削除しない
-          if (flattenPanes(allPanes).length <= 1) return;
-          removeEditorPane(allPanes, setEditors, pane.id);
-        }}
-        toggleEditorLayout={() => {
-          // 個別ペインの分割方式は現在未実装
-        }}
-        editorLayout="vertical" // 個別レイアウトは今後実装
-        editorId={pane.id}
-        removeAllTabs={() => {
-          const flatPanes = flattenPanes(allPanes);
-          const actualPaneIndex = flatPanes.findIndex(p => p.id === pane.id);
-          if (actualPaneIndex >= 0) {
-            setTabsForPane(allPanes, setEditors, actualPaneIndex, []);
-          }
-        }}
-        availablePanes={flattenPanes(allPanes).map((p, idx) => ({
-          id: p.id,
-          name: `ペイン ${idx + 1}`,
-        }))}
-        onMoveTabToPane={(tabId, targetPaneId) => {
-          // タブ移動のロジック
-          const sourceTab = pane.tabs.find(t => t.id === tabId);
-          if (!sourceTab) return;
+      >
+        {/* タブバー */}
+        <TabBar paneId={pane.id} />
 
-          const flatPanes = flattenPanes(allPanes);
-          const sourcePaneIndex = flatPanes.findIndex(p => p.id === pane.id);
-          const targetPaneIndex = flatPanes.findIndex(p => p.id === targetPaneId);
-
-          if (sourcePaneIndex >= 0 && targetPaneIndex >= 0) {
-            // 移動元から削除
-            setTabsForPane(
-              allPanes,
-              setEditors,
-              sourcePaneIndex,
-              pane.tabs.filter(t => t.id !== tabId)
-            );
-
-            // 移動先に追加
-            setTabsForPane(allPanes, setEditors, targetPaneIndex, prevTabs => [
-              ...prevTabs,
-              sourceTab,
-            ]);
-
-            // 移動先でアクティブに
-            setActiveTabIdForPane(allPanes, setEditors, targetPaneIndex, tabId);
-
-            // 移動元のアクティブタブ調整
-            if (pane.activeTabId === tabId) {
-              const remainingTabs = pane.tabs.filter(t => t.id !== tabId);
-              setActiveTabIdForPane(
-                allPanes,
-                setEditors,
-                sourcePaneIndex,
-                remainingTabs.length > 0 ? remainingTabs[0].id : ''
-              );
-            }
-          }
-        }}
-        onSplitPane={direction => {
-          splitPane(allPanes, setEditors, pane.id, direction);
-        }}
-        onOpenPreview={file => {
-          const flatPanes = flattenPanes(allPanes);
-          const actualPaneIndex = flatPanes.findIndex(p => p.id === pane.id);
-          // call existing handler to create a preview tab in this pane
-          if (actualPaneIndex >= 0) {
-            handleFilePreview({
-              file: {
-                name: file.name,
-                path: file.path,
-                content: file.content,
-                isCodeMirror: file.isCodeMirror,
-                isBufferArray: file.isBufferArray,
-                bufferContent: file.bufferContent,
-              } as any,
-              fileSelectState: { open: true, paneIdx: actualPaneIndex },
-              currentProject: currentProject || null,
-              projectFiles: [],
-              editors: allPanes,
-              setEditors: setEditors as any,
-            });
-          }
-        }}
-      />
-
-      {/* エディタコンテンツ */}
-      <div className="flex-1 overflow-hidden">
-        {activeTab &&
-          (activeTab.webPreview ? (
-            <WebPreviewTab
-              filePath={activeTab.path}
-              currentProjectName={currentProject?.name}
-            />
-          ) : activeTab.aiReviewProps ? (
-            <AIReviewTab
+        {/* エディタコンテンツ - TabRegistryで動的レンダリング */}
+        <div className="flex-1 overflow-hidden">
+          {activeTab && TabComponent ? (
+            <TabComponent
               tab={activeTab}
-              onApplyChanges={async (filePath: string, content: string) => {
-                if (!currentProject || !saveFile) return;
-                try {
-                  await saveFile(filePath, content);
-                  if (clearAIReview) await clearAIReview(filePath);
-                  if (refreshProjectFiles) await refreshProjectFiles();
-                  setGitRefreshTrigger(prev => prev + 1);
-                } catch (error) {
-                  console.error('Failed to apply AI review changes:', error);
-                }
-              }}
-              onDiscardChanges={async (filePath: string) => {
-                try {
-                  if (clearAIReview) await clearAIReview(filePath);
-                  if (refreshProjectFiles) await refreshProjectFiles();
-                } catch (error) {
-                  console.error('Failed to discard AI review changes:', error);
-                }
-              }}
-              onCloseTab={(filePath: string) => {
-                const flatPanes = flattenPanes(allPanes);
-                const actualPaneIndex = flatPanes.findIndex(p => p.id === pane.id);
-                if (actualPaneIndex >= 0) {
-                  setTabsForPane(
-                    allPanes,
-                    setEditors,
-                    actualPaneIndex,
-                    pane.tabs.filter(tab => !(tab.aiReviewProps?.filePath === filePath))
-                  );
-                }
-              }}
-              onUpdateSuggestedContent={(tabId: string, newContent: string) => {
-                setEditors(prev => {
-                  const updatePaneRecursive = (panes: EditorPane[]): EditorPane[] => {
-                    return panes.map(p => {
-                      if (p.id === pane.id) {
-                        return {
-                          ...p,
-                          tabs: p.tabs.map(t =>
-                            t.id === tabId && t.aiReviewProps
-                              ? {
-                                  ...t,
-                                  aiReviewProps: {
-                                    ...t.aiReviewProps,
-                                    suggestedContent: newContent,
-                                  },
-                                }
-                              : t
-                          ),
-                        };
-                      }
-                      if (p.children) {
-                        return { ...p, children: updatePaneRecursive(p.children) };
-                      }
-                      return p;
-                    });
-                  };
-                  return updatePaneRecursive(prev);
-                });
-              }}
+              isActive={isGloballyActive}
             />
-          ) : activeTab.diffProps ? (
-            <DiffTab
-              diffs={activeTab.diffProps.diffs}
-              editable={activeTab.diffProps.editable}
-              onImmediateContentChange={content => {
-                try {
-                  onTabContentChangeImmediate && onTabContentChangeImmediate(activeTab.id, content);
-                } catch (e) {
-                  console.error('[PaneContainer] onTabContentChangeImmediate failed', e);
-                }
-              }}
-              onContentChange={async (content: string) => {
-                // デバウンス後の保存処理
-                // Diffタブの場合、latterFullPathをファイルパスとして使用
-                const filePath = activeTab.diffProps?.diffs[0]?.latterFullPath;
-
-                if (currentProject && saveFile && filePath) {
-                  try {
-                    console.log('[PaneContainer] Saving diff content to:', filePath);
-                    await saveFile(filePath, content);
-
-                    // 保存成功後はisDirtyフラグをクリア
-                    setEditors(prev => {
-                      const updatePaneRecursive = (panes: EditorPane[]): EditorPane[] => {
-                        return panes.map(p => {
-                          if (!p.children) {
-                            return {
-                              ...p,
-                              tabs: p.tabs.map(t =>
-                                t.id === activeTab.id ? { ...t, isDirty: false } : t
-                              ),
-                            };
-                          }
-                          return { ...p, children: updatePaneRecursive(p.children) };
-                        });
-                      };
-                      return updatePaneRecursive(prev);
-                    });
-
-                    // Git状態の更新をトリガー
-                    setGitRefreshTrigger(prev => prev + 1);
-                  } catch (error) {
-                    console.error('[PaneContainer] Failed to save diff content:', error);
-                  }
-                }
-              }}
-            />
-          ) : activeTab.kind === 'settings' || activeTab.path === 'settings/shortcuts' ? (
-            <ShortcutKeysTab />
           ) : (
-            <CodeEditor
-              activeTab={activeTab}
-              currentProject={currentProject}
-              isCodeMirror={activeTab?.isCodeMirror || false}
-              bottomPanelHeight={200}
-              isBottomPanelVisible={isBottomPanelVisible}
-              wordWrapConfig={wordWrapConfig}
-              // 即時反映用ハンドラ（全ペーンのisDirtyを立てる）を渡す
-              onImmediateContentChange={onTabContentChangeImmediate}
-              onContentChange={async (tabId: string, content: string) => {
-                // タブ内容変更をコールバックに伝播（親コンポーネントで即時更新用に使用）
-
-                // プロジェクトとファイルが有効な場合は保存処理を実行
-                if (currentProject && saveFile && activeTab?.path) {
-                  try {
-                    // ファイルの保存を実行
-                    await saveFile(activeTab.path, content);
-
-                    // 保存成功後はisDirtyフラグをクリア
-                    setEditors(prev => {
-                      const updatePaneRecursive = (panes: EditorPane[]): EditorPane[] => {
-                        return panes.map(p => {
-                          if (!p.children) {
-                            return {
-                              ...p,
-                              tabs: p.tabs.map(t =>
-                                t.path === activeTab.path ? { ...t, isDirty: false } : t
-                              ),
-                            };
-                          }
-                          return { ...p, children: updatePaneRecursive(p.children) };
-                        });
-                      };
-                      return updatePaneRecursive(prev);
-                    });
-
-                    // Git状態の更新をトリガー
-                    setGitRefreshTrigger(prev => prev + 1);
-                  } catch (error) {
-                    console.error('Failed to save file:', error);
-                  }
-                }
-              }}
-            />
-          ))}
+            <div
+              className="flex flex-col items-center justify-center h-full gap-2"
+              style={{ color: colors.mutedFg }}
+            >
+              <span style={{ fontWeight: 500, fontSize: '1.1em' }}>No active tab</span>
+              <span style={{ fontSize: '0.95em', opacity: 0.8 }}>
+                Please select a tab from above or create a new one to start editing.
+              </span>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </GitContext.Provider>
   );
 }

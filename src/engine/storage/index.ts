@@ -18,7 +18,7 @@
  */
 
 const DB_NAME = 'pyxis-global';
-const DB_VERSION = 2; // extensionsストア追加のためバージョンアップ
+const DB_VERSION = 3; // extensionsストア追加のためバージョンアップ
 
 /**
  * ストアの定義
@@ -29,6 +29,7 @@ export const STORES = {
   KEYBINDINGS: 'keybindings', // ショートカットキー設定
   USER_PREFERENCES: 'user_preferences', // ユーザー設定
   EXTENSIONS: 'extensions', // 拡張機能データ
+  TAB_STATE: 'tab_state', // タブ・ペイン状態
 } as const;
 
 export type StoreName = (typeof STORES)[keyof typeof STORES];

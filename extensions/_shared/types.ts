@@ -20,11 +20,6 @@ export interface ExtensionContext {
     warn: (message: string, ...args: unknown[]) => void;
     error: (message: string, ...args: unknown[]) => void;
   };
-  storage?: {
-    get: <T>(key: string) => Promise<T | null>;
-    set: <T>(key: string, value: T) => Promise<void>;
-    delete: (key: string) => Promise<void>;
-  };
   getSystemModule?: <T = any>(moduleName: string) => Promise<T>;
 }
 

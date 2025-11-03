@@ -1,15 +1,16 @@
 import { useCallback } from 'react';
 
 import { GitCommands } from '@/engine/cmd/git';
-import { openOrActivateTab } from '@/engine/openTab';
-import type { Tab, SingleFileDiff, FileItem } from '@/types';
+import { useTabContext } from '@/context/TabContext';
+import type { SingleFileDiff } from '@/types';
 
-export function useDiffTabHandlers(
-  currentProject: any,
-  tabs: Tab[],
-  setTabs: React.Dispatch<React.SetStateAction<Tab[]>>,
-  setActiveTabId: (id: string) => void
-) {
+/**
+ * [NEW ARCHITECTURE] Git Diff タブを開くための Hook
+ * TabContext を使用して、Diff タブを開く
+ */
+export function useDiffTabHandlers(currentProject: any) {
+  const { openTab } = useTabContext();
+
   // ファイル単体のdiffタブを開く
   const handleDiffFileClick = useCallback(
     async ({
@@ -32,6 +33,7 @@ export function useDiffTabHandlers(
         const formerCommitId = commitId;
         const latterCommitId = 'WORKDIR';
         const formerContent = await git.getFileContentAtCommit(formerCommitId, filePath);
+
         // working directoryの内容
         let latterContent = '';
         try {
@@ -65,50 +67,27 @@ export function useDiffTabHandlers(
           console.error('[useDiffTabHandlers] Failed to read latterContent:', e);
           latterContent = '';
         }
-        const diffTabId = `diff-${formerCommitId}-WORKDIR-${filePath}`;
 
-        // 既存タブを検索して、あれば更新してアクティブ化
-        setTabs((prevTabs: Tab[]) => {
-          const existingTab = prevTabs.find(tab => tab.id === diffTabId);
+        // [NEW ARCHITECTURE] openTab with kind: 'diff'
+        const diffData: SingleFileDiff = {
+          formerFullPath: filePath,
+          formerCommitId: formerCommitId,
+          latterFullPath: filePath,
+          latterCommitId: 'WORKDIR',
+          formerContent,
+          latterContent,
+        };
 
-          if (existingTab) {
-            // 既存のworking directory diffタブがある場合は、常に内容を保持
-            // （編集内容を失わないため）
-            console.log(
-              '[useDiffTabHandlers] Existing WD diff tab found, preserving content:',
-              diffTabId
-            );
-            setActiveTabId(diffTabId);
-            return prevTabs;
-          } else {
-            // 新規タブを作成
-            console.log('[useDiffTabHandlers] Creating new diff tab:', diffTabId);
-            const newTab: Tab = {
-              id: diffTabId,
-              name: `Diff: ${filePath} (${formerCommitId ? formerCommitId.slice(0, 6) : ''}..WD)`,
-              content: '',
-              isDirty: false,
-              path: filePath,
-              diffProps: {
-                diffs: [
-                  {
-                    formerFullPath: filePath,
-                    formerCommitId: formerCommitId,
-                    latterFullPath: filePath,
-                    latterCommitId: 'WORKDIR',
-                    formerContent,
-                    latterContent,
-                  },
-                ],
-                editable: editable ?? true,
-              },
-            };
-            setActiveTabId(diffTabId);
-            return [...prevTabs, newTab];
-          }
-        });
+        openTab(
+          {
+            files: diffData,
+            editable: editable ?? true,
+          },
+          { kind: 'diff' }
+        );
         return;
       }
+
       // 通常のコミット間diff
       // 指定コミットの親を取得
       const log = await git.getFormattedLog(20);
@@ -152,55 +131,25 @@ export function useDiffTabHandlers(
         formerContent = '';
       }
 
-      const diffTabId = `diff-${formerCommitId}-${latterCommitId}-${filePath}`;
+      // [NEW ARCHITECTURE] openTab with kind: 'diff'
+      const diffData: SingleFileDiff = {
+        formerFullPath: filePath,
+        formerCommitId: formerCommitId,
+        latterFullPath: filePath,
+        latterCommitId: latterCommitId,
+        formerContent,
+        latterContent,
+      };
 
-      // 既存タブを検索
-      let shouldCreateNewTab = false;
-      setTabs((prevTabs: Tab[]) => {
-        const existingTab = prevTabs.find(tab => tab.id === diffTabId);
-
-        if (existingTab) {
-          // コミット間のdiffは常に編集不可なので、内容を更新しない
-          console.log(
-            '[useDiffTabHandlers] Activating existing diff tab (commit-to-commit):',
-            diffTabId
-          );
-          return prevTabs;
-        } else {
-          shouldCreateNewTab = true;
-          // 新規タブを作成
-          console.log('[useDiffTabHandlers] Creating new diff tab:', diffTabId, {
-            formerContentLength: formerContent.length,
-            latterContentLength: latterContent.length,
-          });
-          const newTab: Tab = {
-            id: diffTabId,
-            name: `Diff: ${filePath} (${formerCommitId ? formerCommitId.slice(0, 6) : ''}..${latterCommitId ? latterCommitId.slice(0, 6) : ''})`,
-            content: '',
-            isDirty: false,
-            path: filePath,
-            diffProps: {
-              diffs: [
-                {
-                  formerFullPath: filePath,
-                  formerCommitId: formerCommitId,
-                  latterFullPath: filePath,
-                  latterCommitId: latterCommitId,
-                  formerContent,
-                  latterContent,
-                },
-              ],
-              editable: editable ?? false,
-            },
-          };
-          return [...prevTabs, newTab];
-        }
-      });
-
-      // タブのアクティブ化（タブ作成後に実行）
-      setActiveTabId(diffTabId);
+      openTab(
+        {
+          files: diffData,
+          editable: editable ?? false,
+        },
+        { kind: 'diff' }
+      );
     },
-    [currentProject, tabs, setTabs, setActiveTabId]
+    [currentProject, openTab]
   );
 
   // コミット全体のdiffタブを開く（全ファイルを1つのタブで縦並び表示）
@@ -208,6 +157,7 @@ export function useDiffTabHandlers(
     async ({ commitId, parentCommitId }: { commitId: string; parentCommitId: string }) => {
       if (!currentProject) return;
       const git = new GitCommands(currentProject.name, currentProject.id);
+
       // defensive: if parentCommitId is not provided, try to resolve it from the commit log
       if (!parentCommitId) {
         try {
@@ -225,8 +175,10 @@ export function useDiffTabHandlers(
           console.warn('[useDiffTabHandlers] Failed to resolve parentCommitId from log:', e);
         }
       }
+
       // 差分ファイル一覧を取得
       const diffOutput = await git.diffCommits(parentCommitId, commitId);
+
       // 変更ファイルを抽出
       const files: string[] = [];
       const lines = diffOutput.split('\n');
@@ -239,10 +191,8 @@ export function useDiffTabHandlers(
           }
         }
       }
+
       // 各ファイルごとにdiff情報を取得
-      // new file / deleted file の場合、片方のコミットには存在しないため
-      // getFileContentAtCommit が失敗する可能性がある。個別に try/catch して
-      // 存在しない場合は空文字列を入れることで diff 表示を可能にする。
       const diffs: SingleFileDiff[] = [];
       for (const filePath of files) {
         let latterContent = '';
@@ -254,7 +204,6 @@ export function useDiffTabHandlers(
             latterContent = await git.getFileContentAtCommit(commitId, filePath);
           }
         } catch (e) {
-          // deleted file or other error — fall back to empty content
           console.warn('[useDiffTabHandlers] Failed to read latterContent', {
             filePath,
             commitId,
@@ -268,11 +217,9 @@ export function useDiffTabHandlers(
           if (parentCommitId) {
             formerContent = await git.getFileContentAtCommit(parentCommitId, filePath);
           } else {
-            // No parent (root commit) -> former content is empty
             formerContent = '';
           }
         } catch (e) {
-          // new file or other error — fall back to empty content
           console.warn('[useDiffTabHandlers] Failed to read formerContent', {
             filePath,
             parentCommitId,
@@ -290,46 +237,18 @@ export function useDiffTabHandlers(
           latterContent,
         });
       }
-      const diffTabId = `diff-all-${parentCommitId}-${commitId}`;
 
-      // Create or update the diff-all tab directly to avoid collisions with
-      // existing editor tabs that may have empty paths. This ensures the
-      // tab always contains the expected diffProps and is activated.
-      setTabs((prevTabs: Tab[]) => {
-        const existing = prevTabs.find(t => t.id === diffTabId);
-        if (existing) {
-          // update diffProps if missing or stale
-          return prevTabs.map(tab =>
-            tab.id === diffTabId
-              ? {
-                  ...tab,
-                  diffProps: {
-                    diffs,
-                  },
-                }
-              : tab
-          );
-        }
-
-        // create a new tab for the multi-file diff
-        const newTab: Tab = {
-          id: diffTabId,
-          name: `Diff: ${parentCommitId ? parentCommitId.slice(0, 6) : ''}..${commitId ? commitId.slice(0, 6) : ''}`,
-          content: '',
-          isDirty: false,
-          path: '',
-          diffProps: {
-            diffs,
-          },
-        } as any;
-
-        return [...prevTabs, newTab];
-      });
-
-      // Activate the diff-all tab
-      setActiveTabId(diffTabId);
+      // [NEW ARCHITECTURE] openTab with kind: 'diff' and multiple files
+      openTab(
+        {
+          files: diffs,
+          editable: false,
+          isMultiFile: true,
+        },
+        { kind: 'diff' }
+      );
     },
-    [currentProject, setTabs, setActiveTabId]
+    [currentProject, openTab]
   );
 
   return { handleDiffFileClick, handleDiffAllFilesClick };
