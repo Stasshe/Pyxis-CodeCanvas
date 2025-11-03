@@ -20,12 +20,15 @@ interface DiffTabProps {
   diffs: SingleFileDiff[];
   editable?: boolean; // 編集可能かどうか（true: 編集可能, false: 読み取り専用）
   onContentChange?: (content: string) => void; // 編集内容の保存用（デバウンス後）
+  // 即時反映用ハンドラ: 編集が発生したら即座に呼ばれる（isDirty フラグ立てに使用）
+  onImmediateContentChange?: (content: string) => void;
 }
 
 const DiffTab: React.FC<DiffTabProps> = ({
   diffs,
   editable = false,
   onContentChange,
+  onImmediateContentChange,
 }) => {
   // 各diff領域へのref
   const diffRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -88,6 +91,16 @@ const DiffTab: React.FC<DiffTabProps> = ({
         }
       });
 
+      // リスナ破棄
+      listenersRef.current.forEach((l, idx) => {
+        try {
+          if (l && typeof l.dispose === 'function') l.dispose();
+        } catch (e) {
+          /* ignore */
+        }
+      });
+      listenersRef.current.clear();
+
       editorsRef.current.clear();
       modelsRef.current.clear();
     };
@@ -107,6 +120,9 @@ const DiffTab: React.FC<DiffTabProps> = ({
     }, 5000); // CodeEditorと同じく5秒
   };
 
+  // 編集リスナの参照を保持（cleanupのため）
+  const listenersRef = React.useRef<Map<number, any>>(new Map());
+
   // DiffEditorマウント時のハンドラ
   const handleDiffEditorMount = (
     editor: monacoEditor.editor.IStandaloneDiffEditor,
@@ -122,6 +138,33 @@ const DiffTab: React.FC<DiffTabProps> = ({
         original: diffModel.original,
         modified: diffModel.modified,
       });
+      // 既にリスナがあれば破棄
+      const existing = listenersRef.current.get(idx);
+      if (existing && typeof existing.dispose === 'function') {
+        try {
+          existing.dispose();
+        } catch (e) {
+          /* ignore */
+        }
+      }
+
+      // 編集可能で単一ファイルのとき、modifiedモデルの変更を監視して
+      // 即時ハンドラ(onImmediateContentChange)を呼び、デバウンス保存を走らせる
+      const isEditableSingle = editable && diffs.length === 1;
+      if (isEditableSingle && diffModel.modified && typeof diffModel.modified.onDidChangeContent === 'function') {
+        const listener = diffModel.modified.onDidChangeContent(() => {
+          try {
+            const current = diffModel.modified.getValue();
+            // 即時反映ハンドラ（タブ全体の isDirty を立てる用途）
+            onImmediateContentChange && onImmediateContentChange(current);
+            // デバウンス保存
+            debouncedSave(current);
+          } catch (e) {
+            console.error('[DiffTab] immediate change handler failed', e);
+          }
+        });
+        listenersRef.current.set(idx, listener);
+      }
     }
   };
 

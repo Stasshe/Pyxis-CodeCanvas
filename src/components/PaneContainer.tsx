@@ -365,6 +365,13 @@ export default function PaneContainer({
             <DiffTab
               diffs={activeTab.diffProps.diffs}
               editable={activeTab.diffProps.editable}
+              onImmediateContentChange={content => {
+                try {
+                  onTabContentChangeImmediate && onTabContentChangeImmediate(activeTab.id, content);
+                } catch (e) {
+                  console.error('[PaneContainer] onTabContentChangeImmediate failed', e);
+                }
+              }}
               onContentChange={async (content: string) => {
                 // デバウンス後の保存処理
                 // Diffタブの場合、latterFullPathをファイルパスとして使用
