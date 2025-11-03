@@ -235,7 +235,13 @@ export default function FileTree({
   const handleWebPreview = (item: FileItem) => {
     setContextMenu(null);
     if (item.type === 'file' || item.type === 'folder') {
-      openTab(item, { kind: 'webPreview' });
+      console.log('[FileTree] Opening webPreview for item:', {
+        name: item.name,
+        path: item.path,
+        type: item.type,
+        projectName: currentProjectName,
+      });
+      openTab(item, { kind: 'webPreview', projectName: currentProjectName });
     }
   };
 

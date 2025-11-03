@@ -11,10 +11,13 @@ const WebPreviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   const webTab = tab as WebPreviewTab;
   const { currentProject } = useProject();
 
+  // タブに保存されたprojectNameを優先、なければcurrentProjectから取得
+  const projectName = webTab.projectName || currentProject?.name;
+
   return (
     <WebPreviewTabComponent
       filePath={webTab.path}
-      currentProjectName={currentProject?.name}
+      currentProjectName={projectName}
     />
   );
 };
@@ -39,6 +42,7 @@ export const WebPreviewTabType: TabTypeDefinition = {
       path: file.path || '',
       paneId: options?.paneId || '',
       url: options?.webPreviewUrl,
+      projectName: options?.projectName as string | undefined,
     };
   },
   

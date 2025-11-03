@@ -48,6 +48,7 @@ export interface PreviewTab extends BaseTab {
 export interface WebPreviewTab extends BaseTab {
   kind: 'webPreview';
   url?: string;
+  projectName?: string; // プロジェクト名を保存
 }
 
 /**
