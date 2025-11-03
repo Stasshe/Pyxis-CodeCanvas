@@ -21,6 +21,41 @@ export interface ExtensionContext {
     error: (message: string, ...args: unknown[]) => void;
   };
   getSystemModule?: <T = any>(moduleName: string) => Promise<T>;
+  
+  /** Tab API - 拡張機能が自分のタブを作成・管理 */
+  tabs?: {
+    registerTabType: (component: any) => void;
+    createTab: (options: {
+      title: string;
+      icon?: string;
+      closable?: boolean;
+      activateAfterCreate?: boolean;
+      paneId?: string;
+      data?: any;
+    }) => string;
+    updateTab: (tabId: string, options: {
+      title?: string;
+      icon?: string;
+      data?: any;
+    }) => boolean;
+    closeTab: (tabId: string) => boolean;
+    onTabClose: (tabId: string, callback: (tabId: string) => void | Promise<void>) => void;
+    getTabData: <T = any>(tabId: string) => T | null;
+  };
+  
+  /** Sidebar API - 拡張機能がサイドバーパネルを追加 */
+  sidebar?: {
+    createPanel: (definition: {
+      id: string;
+      title: string;
+      icon: string;
+      component: any;
+      order?: number;
+    }) => void;
+    updatePanel: (panelId: string, state: any) => void;
+    removePanel: (panelId: string) => void;
+    onPanelActivate: (panelId: string, callback: (panelId: string) => void | Promise<void>) => void;
+  };
 }
 
 export interface ExtensionActivation {
@@ -35,5 +70,6 @@ export interface ExtensionActivation {
     builtInModules?: Record<string, unknown>;
   };
   services?: Record<string, unknown>;
+  commands?: Record<string, (...args: any[]) => any>;
   dispose?: () => void;
 }

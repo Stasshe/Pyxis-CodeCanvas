@@ -90,7 +90,7 @@ export async function fetchExtensionCode(manifest: ExtensionManifest): Promise<{
   try {
     extensionInfo(`Fetching extension code for: ${manifest.id}`);
     // エントリーポイントを取得
-    const entryCode = await fetchExtensionFile(manifest, manifest.entry);
+    const entryCode = await fetchExtensionFile(manifest, manifest.entry || 'index.js');
     if (!entryCode) {
       extensionError('Failed to load entry point');
       return null;
@@ -118,6 +118,34 @@ export async function fetchExtensionCode(manifest: ExtensionManifest): Promise<{
 }
 
 /**
+ * import文を書き換えてグローバル変数から取得するように変換
+ */
+function transformImports(code: string): string {
+  // React関連のimportを書き換え
+  let transformed = code;
+  
+  // import React, { ... } from 'react' を書き換え
+  transformed = transformed.replace(
+    /import\s+React\s*,\s*\{([^}]+)\}\s+from\s+['"]react['"]/g,
+    'const React = window.__PYXIS_REACT__; const {$1} = React'
+  );
+  
+  // import React from 'react' を書き換え
+  transformed = transformed.replace(
+    /import\s+React\s+from\s+['"]react['"]/g,
+    'const React = window.__PYXIS_REACT__'
+  );
+  
+  // import { ... } from 'react' を書き換え
+  transformed = transformed.replace(
+    /import\s+\{([^}]+)\}\s+from\s+['"]react['"]/g,
+    'const {$1} = window.__PYXIS_REACT__'
+  );
+  
+  return transformed;
+}
+
+/**
  * 拡張機能のコードを実行してモジュールをロード
  */
 export async function loadExtensionModule(
@@ -126,9 +154,13 @@ export async function loadExtensionModule(
 ): Promise<ExtensionExports | null> {
   try {
     extensionInfo('Loading extension module');
+    
+    // import文を書き換え
+    const transformedCode = transformImports(entryCode);
+    
     // import文を含むコードをdata URLとしてES Moduleで実行
     // Blob + URL.createObjectURL を使ってdynamic importで読み込む
-    const blob = new Blob([entryCode], { type: 'application/javascript' });
+    const blob = new Blob([transformedCode], { type: 'application/javascript' });
     const url = URL.createObjectURL(blob);
 
     try {

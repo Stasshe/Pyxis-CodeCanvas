@@ -89,6 +89,13 @@ class ExtensionManager {
 
     console.log('[ExtensionManager] Initializing...');
 
+    // Reactをグローバルに提供（拡張機能から使えるように）
+    if (typeof window !== 'undefined') {
+      const React = await import('react');
+      (window as any).__PYXIS_REACT__ = React;
+      console.log('[ExtensionManager] React provided globally for extensions');
+    }
+
     // インストール済み & 有効化済みの拡張機能を読み込み
     const installed = await loadAllInstalledExtensions();
     const enabled = installed.filter(ext => ext.enabled);
@@ -209,7 +216,7 @@ class ExtensionManager {
       }
 
       // コンテキストを作成
-      const context = this.createExtensionContext(extensionId);
+      const context = await this.createExtensionContext(extensionId);
 
       // モジュールをロード
       const exports = await loadExtensionModule(installed.cache.entryCode, context);
@@ -223,12 +230,13 @@ class ExtensionManager {
         throw new Error('Failed to activate extension');
       }
 
-      // アクティブリストに追加
+      // アクティブリストに追加（contextも保存）
       this.activeExtensions.set(extensionId, {
         manifest: installed.manifest,
         exports,
         activation,
-      });
+        _context: context,
+      } as any);
 
       // 状態を更新
       installed.enabled = true;
@@ -262,6 +270,17 @@ class ExtensionManager {
       if (!active) {
         console.log('[ExtensionManager] Extension not active:', extensionId);
         return true;
+      }
+
+      // TabAPIとSidebarAPIをクリーンアップ
+      const context = (active as any)._context;
+      if (context) {
+        if ((context as any)._tabAPI) {
+          (context as any)._tabAPI.dispose();
+        }
+        if ((context as any)._sidebarAPI) {
+          (context as any)._sidebarAPI.dispose();
+        }
       }
 
       // デアクティベート
@@ -375,8 +394,12 @@ class ExtensionManager {
   /**
    * ExtensionContextを作成
    */
-  private createExtensionContext(extensionId: string): ExtensionContext {
-    return {
+  private async createExtensionContext(extensionId: string): Promise<ExtensionContext> {
+    // TabAPIとSidebarAPIのインスタンスを作成
+    const { TabAPI } = await import('./system-api/TabAPI');
+    const { SidebarAPI } = await import('./system-api/SidebarAPI');
+    
+    const context: ExtensionContext = {
       extensionId,
       extensionPath: `/extensions/${extensionId.replace(/\./g, '/')}`,
       version: '1.0.0',
@@ -409,6 +432,32 @@ class ExtensionManager {
         }
       },
     };
+
+    // TabAPIとSidebarAPIを初期化して追加
+    const tabAPI = new TabAPI(context);
+    const sidebarAPI = new SidebarAPI(context);
+
+    context.tabs = {
+      registerTabType: (component: any) => tabAPI.registerTabType(component),
+      createTab: (options: any) => tabAPI.createTab(options),
+      updateTab: (tabId: string, options: any) => tabAPI.updateTab(tabId, options),
+      closeTab: (tabId: string) => tabAPI.closeTab(tabId),
+      onTabClose: (tabId: string, callback: any) => tabAPI.onTabClose(tabId, callback),
+      getTabData: (tabId: string) => tabAPI.getTabData(tabId),
+    };
+
+    context.sidebar = {
+      createPanel: (definition: any) => sidebarAPI.createPanel(definition),
+      updatePanel: (panelId: string, state: any) => sidebarAPI.updatePanel(panelId, state),
+      removePanel: (panelId: string) => sidebarAPI.removePanel(panelId),
+      onPanelActivate: (panelId: string, callback: any) => sidebarAPI.onPanelActivate(panelId, callback),
+    };
+
+    // APIインスタンスを保存（dispose用）
+    (context as any)._tabAPI = tabAPI;
+    (context as any)._sidebarAPI = sidebarAPI;
+
+    return context;
   }
 }
 

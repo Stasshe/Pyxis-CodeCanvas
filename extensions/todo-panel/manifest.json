@@ -1,0 +1,17 @@
+{
+  "id": "pyxis.todo-panel",
+  "name": "TODO Panel Extension",
+  "version": "1.0.0",
+  "type": "ui",
+  "description": "Provides a TODO list sidebar panel with task management features",
+  "author": "Pyxis Team",
+  "entry": "index.js",
+  "provides": {
+    "services": ["todo-panel"]
+  },
+  "metadata": {
+    "publishedAt": "2025-01-01T00:00:00Z",
+    "updatedAt": "2025-01-01T00:00:00Z",
+    "tags": ["ui", "productivity", "todo", "task-management"]
+  }
+}

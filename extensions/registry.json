@@ -147,6 +147,20 @@
       "manifestUrl": "/extensions/lang-packs/sv/manifest.json",
       "defaultEnabled": false,
       "recommended": false
+    },
+    {
+      "id": "pyxis.note-tab",
+      "type": "ui",
+      "manifestUrl": "/extensions/note-tab/manifest.json",
+      "defaultEnabled": false,
+      "recommended": true
+    },
+    {
+      "id": "pyxis.todo-panel",
+      "type": "ui",
+      "manifestUrl": "/extensions/todo-panel/manifest.json",
+      "defaultEnabled": false,
+      "recommended": true
     }
   ]
 }

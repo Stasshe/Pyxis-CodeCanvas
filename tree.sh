@@ -1,4 +1,4 @@
-tree -I 'node_modules|.next|out|vscode-icons' > tree.txt
+tree -I 'node_modules|.next|out|vscode-icons|public/extensions' > tree.txt
 
 echo "" >> tree.txt
 echo "src/*.ts, *.tsx の統計:" >> tree.txt

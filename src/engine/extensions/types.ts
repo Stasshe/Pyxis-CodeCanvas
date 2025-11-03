@@ -9,6 +9,15 @@
  */
 
 /**
+ * グローバル型定義の拡張
+ */
+declare global {
+  interface Window {
+    __PYXIS_REACT__?: typeof import('react');
+  }
+}
+
+/**
  * 拡張機能の種類
  */
 export enum ExtensionType {
@@ -227,6 +236,24 @@ export interface ExtensionContext {
   messaging?: {
     send: (targetId: string, message: unknown) => Promise<unknown>;
     onMessage: (handler: (message: unknown) => unknown) => void;
+  };
+
+  /** Tab API - 拡張機能が自分のタブを作成・管理 */
+  tabs?: {
+    registerTabType: (component: any) => void;
+    createTab: (options: any) => string;
+    updateTab: (tabId: string, options: any) => boolean;
+    closeTab: (tabId: string) => boolean;
+    onTabClose: (tabId: string, callback: (tabId: string) => void | Promise<void>) => void;
+    getTabData: <T = any>(tabId: string) => T | null;
+  };
+
+  /** Sidebar API - 拡張機能がサイドバーパネルを追加 */
+  sidebar?: {
+    createPanel: (definition: any) => void;
+    updatePanel: (panelId: string, state: any) => void;
+    removePanel: (panelId: string) => void;
+    onPanelActivate: (panelId: string, callback: (panelId: string) => void | Promise<void>) => void;
   };
 }
 
