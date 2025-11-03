@@ -324,6 +324,7 @@
   "tabBar": {
     "closeTab": "关闭标签",
     "moveToPane": "移动到面板",
+    "openPreview": "Open Preview",
     "paneMenu": "面板菜单",
     "removeAllTabs": "关闭所有标签",
     "removePane": "移除面板",

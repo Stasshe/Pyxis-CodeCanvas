@@ -324,6 +324,7 @@
   "tabBar": {
     "closeTab": "Cerrar pestaña",
     "moveToPane": "Mover al panel",
+    "openPreview": "Open Preview",
     "paneMenu": "Menú del panel",
     "removeAllTabs": "Cerrar todas las pestañas",
     "removePane": "Eliminar panel",

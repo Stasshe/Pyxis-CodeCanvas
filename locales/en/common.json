@@ -324,6 +324,7 @@
   "tabBar": {
     "closeTab": "Close tab",
     "moveToPane": "Move to pane",
+    "openPreview": "Open Preview",
     "paneMenu": "Pane menu",
     "removeAllTabs": "Remove all tabs",
     "removePane": "Remove pane",

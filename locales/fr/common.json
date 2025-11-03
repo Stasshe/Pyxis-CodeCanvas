@@ -324,6 +324,7 @@
   "tabBar": {
     "closeTab": "Fermer l'onglet",
     "moveToPane": "Déplacer vers le volet",
+    "openPreview": "Open Preview",
     "paneMenu": "Menu du volet",
     "removeAllTabs": "Fermer tous les onglets",
     "removePane": "Supprimer le volet",

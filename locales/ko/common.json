@@ -324,6 +324,7 @@
   "tabBar": {
     "closeTab": "탭 닫기",
     "moveToPane": "팬으로 이동",
+    "openPreview": "Open Preview",
     "paneMenu": "팬 메뉴",
     "removeAllTabs": "모든 탭 제거",
     "removePane": "팬 제거",

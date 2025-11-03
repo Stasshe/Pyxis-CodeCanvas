@@ -435,6 +435,31 @@ export default function TabBar({ paneId }: TabBarProps) {
             top: `${tabContextMenu.y}px`,
           }}
         >
+          {/* mdファイルの場合、プレビューを開くボタンを表示 */}
+          {(() => {
+            const tab = tabs.find(t => t.id === tabContextMenu.tabId);
+            const isMdFile = tab?.name.toLowerCase().endsWith('.md');
+            return (
+              isMdFile && (
+                <button
+                  className="w-full text-left px-2 py-1 text-sm hover:bg-accent rounded"
+                  onClick={() => {
+                    const tab = tabs.find(t => t.id === tabContextMenu.tabId);
+                    if (tab) {
+                      openTab(
+                        { name: tab.name, path: tab.path, content: (tab as any).content },
+                        { kind: 'preview', paneId }
+                      );
+                    }
+                    setTabContextMenu({ isOpen: false, tabId: '', x: 0, y: 0 });
+                  }}
+                >
+                  {t('tabBar.openPreview')}
+                </button>
+              )
+            );
+          })()}
+
           <button
             className="w-full text-left px-2 py-1 text-sm hover:bg-accent rounded"
             onClick={() => {

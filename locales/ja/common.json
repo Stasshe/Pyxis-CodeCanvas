@@ -324,6 +324,7 @@
   "tabBar": {
     "closeTab": "タブを閉じる",
     "moveToPane": "ペインに移動",
+    "openPreview": "プレビューを開く",
     "paneMenu": "ペインメニュー",
     "removeAllTabs": "全て閉じる",
     "removePane": "ペインを削除",

@@ -324,6 +324,7 @@
   "tabBar": {
     "closeTab": "Fechar aba",
     "moveToPane": "Mover para painel",
+    "openPreview": "Open Preview",
     "paneMenu": "Menu de painel",
     "removeAllTabs": "Remover todas as abas",
     "removePane": "Remover painel",

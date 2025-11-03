@@ -323,6 +323,7 @@
   "tabBar": {
     "closeTab": "Tab schließen",
     "moveToPane": "In Bereich verschieben",
+    "openPreview": "Open Preview",
     "paneMenu": "Bereichsmenü",
     "removeAllTabs": "Alle Tabs entfernen",
     "removePane": "Bereich entfernen",
