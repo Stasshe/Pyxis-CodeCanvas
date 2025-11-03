@@ -216,7 +216,7 @@ export default function TabBar({ paneId }: TabBarProps) {
             {/* タブ管理ボタン (dev ブランチに合わせた見た目/順序) */}
             <button
               className="flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors"
-              style={{ color: (colors as any).red }}
+              style={{ color: colors.red }}
               onClick={() => {
                 closeMenu();
                 handleRemovePane();

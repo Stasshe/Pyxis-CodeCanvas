@@ -46,7 +46,7 @@ export default function Home() {
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [gitRefreshTrigger, setGitRefreshTrigger] = useState(0);
   const [gitChangesCount, setGitChangesCount] = useState(0);
-  const [nodeRuntimeOperationInProgress, setNodeRuntimeOperationInProgress] = useState(false);
+  const [nodeRuntimeOperationInProgress] = useState(false);
 
   const { colors } = useTheme();
   const { panes, isLoading: isTabsLoading, isRestored, openTab, setPanes } = useTabContext();

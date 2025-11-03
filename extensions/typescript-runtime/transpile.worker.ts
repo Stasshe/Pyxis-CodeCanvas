@@ -2,12 +2,17 @@
  * TypeScript Runtime Extension - Transpile Worker
  * 
  * Web Worker内でトランスパイルを実行
- * TypeScript API + normalizeCjsEsm を使用
+ * 
+ * このファイルはpublic/extensions/にビルドされ、
+ * Workerとして実行される。TypeScript CompilerはCDNからロード。
  */
 
-// TypeScript コンパイラAPIをインポート
-// ブラウザ環境では動的にロードされることを想定
+// TypeScript Compiler API (グローバルから参照)
+// 親スレッドでロード済みと仮定、または動的にロード
 declare const ts: any;
+
+// Web Worker グローバル関数
+declare function importScripts(...urls: string[]): void;
 
 interface TranspileRequest {
   id: string;
@@ -76,6 +81,12 @@ function transpileTypeScript(code: string, filePath: string, isJSX: boolean): st
   });
 
   return result.outputText;
+}
+
+// Worker初期化: TypeScript Compiler APIをロード
+if (typeof ts === 'undefined') {
+  // CDNからTypeScriptをロード
+  importScripts('https://unpkg.com/typescript@5.7.3/lib/typescript.js');
 }
 
 // メッセージハンドラー

@@ -22,21 +22,17 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
   let normalizeCjsEsm: (code: string) => string;
   try {
     if (context.getSystemModule) {
-      const module = await context.getSystemModule('normalizeCjsEsm');
-      normalizeCjsEsm = (module as any).normalizeCjsEsm;
+      // getSystemModule('normalizeCjsEsm')はモジュール全体を返す
+      // { normalizeCjsEsm: function }
+      const module = await context.getSystemModule<{ normalizeCjsEsm: (code: string) => string }>('normalizeCjsEsm');
+      normalizeCjsEsm = module.normalizeCjsEsm;
       context.logger?.info('✅ normalizeCjsEsm loaded');
     } else {
       throw new Error('getSystemModule not available');
     }
   } catch (error) {
     context.logger?.warn('⚠️ Failed to load normalizeCjsEsm, using fallback:', error);
-    // フォールバック: シンプルな実装
-    normalizeCjsEsm = (code: string) => {
-      return code
-        .replace(/const\s+(\w+)\s*=\s*require\s*\(\s*['"]([^'"]+)['"]\s*\)/g, "import $1 from '$2'")
-        .replace(/module\.exports\s*=\s*/g, 'export default ')
-        .replace(/exports\.(\w+)\s*=/g, 'export const $1 =');
-    };
+    throw new Error('normalizeCjsEsm is required but could not be loaded');
   }
 
   /**
@@ -45,13 +41,13 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
   function extractDependencies(code: string): string[] {
     const dependencies = new Set<string>();
 
-    const requireRegex = /require\s*\(\s*['"]([^'\"]+)['"]\s*\)/g;
+    const requireRegex = /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
     let match;
     while ((match = requireRegex.exec(code)) !== null) {
       dependencies.add(match[1]);
     }
 
-    const importRegex = /import\s+(?:[\w*{}\s,]+\s+from\s+)?['"]([^'\"]+)['"]/g;
+    const importRegex = /import\s+(?:[\w*{}\s,]+\s+from\s+)?['"]([^'"]+)['"]/g;
     while ((match = importRegex.exec(code)) !== null) {
       dependencies.add(match[1]);
     }
@@ -61,123 +57,55 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
 
   /**
    * Web Workerを使用してトランスパイル
+   * transpile.worker.tsファイルを使用
    */
   async function transpileWithWorker(code: string, filePath: string, isTypeScript: boolean, isJSX: boolean): Promise<TranspileResponse> {
     return new Promise((resolve, reject) => {
       const id = `transpile_${Date.now()}_${Math.random()}`;
       
       try {
-        // normalizeCjsEsm関数を文字列化
-        const normalizeCjsEsmStr = normalizeCjsEsm.toString();
+        // Workerファイルのパスを取得
+        // NEXT_PUBLIC_BASE_PATHを考慮してパスを構築
+        const basePath = typeof window !== 'undefined' 
+          ? (window as any).__NEXT_PUBLIC_BASE_PATH__ || ''
+          : '';
+        const workerPath = `${basePath}/extensions/typescript-runtime/transpile.worker.js`;
         
-        // Worker用のコードを作成
-        const workerCode = `
-          // TypeScript Compiler APIをCDNからロード
-          importScripts('https://unpkg.com/typescript@5.7.3/lib/typescript.js');
-          
-          // normalizeCjsEsm関数（渡された実装を使用）
-          const normalizeCjsEsm = ${normalizeCjsEsmStr};
-          
-          // 依存関係抽出
-          function extractDependencies(code) {
-            const dependencies = new Set();
-            const requireRegex = /require\\s*\\(\\s*['"]([^'\"]+)['"\\s*\\)/g;
-            let match;
-            while ((match = requireRegex.exec(code)) !== null) {
-              dependencies.add(match[1]);
-            }
-            const importRegex = /import\\s+(?:[\\w*{}\\s,]+\\s+from\\s+)?['"]([^'\"]+)['"]/g;
-            while ((match = importRegex.exec(code)) !== null) {
-              dependencies.add(match[1]);
-            }
-            return Array.from(dependencies);
-          }
-          
-          // TypeScriptトランスパイル
-          function transpileTypeScript(code, filePath, isJSX) {
-            if (typeof ts === 'undefined') {
-              throw new Error('TypeScript compiler not available');
-            }
-            
-            const result = ts.transpileModule(code, {
-              compilerOptions: {
-                target: ts.ScriptTarget.ES2020,
-                module: ts.ModuleKind.ES2020,
-                jsx: isJSX ? ts.JsxEmit.ReactJSX : undefined,
-                jsxImportSource: 'react',
-                esModuleInterop: true,
-                allowSyntheticDefaultImports: true,
-              },
-              fileName: filePath,
-            });
-            
-            return result.outputText;
-          }
-          
-          // メッセージハンドラー
-          self.addEventListener('message', (event) => {
-            const { id, code, filePath, isTypeScript, isJSX } = event.data;
-            
-            try {
-              let transpiledCode = code;
-              
-              // TypeScript/JSXの場合はトランスパイル
-              if (isTypeScript || isJSX) {
-                transpiledCode = transpileTypeScript(code, filePath, isJSX);
-              }
-              
-              // CJS/ESM正規化（渡されたnormalizeCjsEsmを使用）
-              const normalizedCode = normalizeCjsEsm(transpiledCode);
-              
-              // 依存関係抽出
-              const dependencies = extractDependencies(normalizedCode);
-              
-              self.postMessage({
-                id,
-                code: normalizedCode,
-                dependencies,
-              });
-            } catch (error) {
-              self.postMessage({
-                id,
-                code: '',
-                dependencies: [],
-                error: error.message,
-              });
-            }
-            
-            // Worker終了
-            self.close();
-          });
-        `;
+        context.logger?.info(`📦 Loading worker from: ${workerPath}`);
         
-        const blob = new Blob([workerCode], { type: 'application/javascript' });
-        const workerUrl = URL.createObjectURL(blob);
-        const worker = new Worker(workerUrl);
+        const worker = new Worker(workerPath);
         
         // タイムアウト設定
         const timeout = setTimeout(() => {
           worker.terminate();
-          URL.revokeObjectURL(workerUrl);
           reject(new Error('Transpile timeout'));
         }, 30000); // 30秒
         
-        worker.onmessage = (event: MessageEvent<TranspileResponse>) => {
+        worker.onmessage = (event: MessageEvent) => {
+          const data = event.data;
+          
+          // 初期化メッセージは無視
+          if (data.type === 'ready') {
+            context.logger?.info('✅ Worker ready');
+            return;
+          }
+          
+          // 結果を処理
           clearTimeout(timeout);
           worker.terminate();
-          URL.revokeObjectURL(workerUrl);
           
-          if (event.data.error) {
-            reject(new Error(event.data.error));
+          const response = data as TranspileResponse;
+          
+          if (response.error) {
+            reject(new Error(response.error));
           } else {
-            resolve(event.data);
+            resolve(response);
           }
         };
         
         worker.onerror = (error) => {
           clearTimeout(timeout);
           worker.terminate();
-          URL.revokeObjectURL(workerUrl);
           reject(new Error(`Worker error: ${error.message}`));
         };
         
