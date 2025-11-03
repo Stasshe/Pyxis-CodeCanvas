@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { useTabContext } from '@/context/TabContext';
+import { useFileSelector } from '@/context/FileSelectorContext';
 import useGlobalScrollLock from '@/hooks/useGlobalScrollLock';
 import { useKeyBinding } from '@/hooks/useKeyBindings';
 import MenuBar from '@/components/MenuBar';
@@ -43,34 +44,17 @@ export default function Home() {
   const [isLeftSidebarVisible, setIsLeftSidebarVisible] = useState(true);
   const [isBottomPanelVisible, setIsBottomPanelVisible] = useState(true);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
-  const [isOperationWindowVisible, setIsOperationWindowVisible] = useState(false);
-  const [operationWindowTargetPaneId, setOperationWindowTargetPaneId] = useState<string | null>(
-    null
-  );
   const [gitRefreshTrigger, setGitRefreshTrigger] = useState(0);
   const [gitChangesCount, setGitChangesCount] = useState(0);
   const [nodeRuntimeOperationInProgress, setNodeRuntimeOperationInProgress] = useState(false);
 
   const { colors } = useTheme();
   const { panes, isLoading: isTabsLoading, isRestored, openTab, setPanes } = useTabContext();
-
-  // ファイル選択UIの状態を監視
-  useEffect(() => {
-    const checkFileSelectorState = () => {
-      const state = (window as any).__pyxisFileSelectorState;
-      if (state && state.isOpen) {
-        setOperationWindowTargetPaneId(state.targetPaneId);
-        setIsOperationWindowVisible(true);
-        // 状態をリセット
-        if ((window as any).__pyxisSetFileSelectorState) {
-          (window as any).__pyxisSetFileSelectorState({ isOpen: false, targetPaneId: null });
-        }
-      }
-    };
-
-    const interval = setInterval(checkFileSelectorState, 100);
-    return () => clearInterval(interval);
-  }, []);
+  const {
+    isOpen: isOperationWindowVisible,
+    targetPaneId: operationWindowTargetPaneId,
+    closeFileSelector,
+  } = useFileSelector();
 
   // プロジェクト管理
   const { currentProject, projectFiles, loadProject, createProject, refreshProjectFiles } =
@@ -165,7 +149,20 @@ export default function Home() {
 
   const toggleBottomPanel = () => setIsBottomPanelVisible(!isBottomPanelVisible);
   const toggleRightSidebar = () => setIsRightSidebarVisible(!isRightSidebarVisible);
-  const toggleOperationWindow = () => setIsOperationWindowVisible(!isOperationWindowVisible);
+
+  // OperationWindowのトグル用（QuickOpen用）
+  const { openFileSelector } = useFileSelector();
+  const toggleOperationWindow = () => {
+    if (isOperationWindowVisible) {
+      closeFileSelector();
+    } else {
+      // QuickOpenの場合はpaneIdなし（アクティブなペインを使用）
+      const activePaneId = panes.find(p => p.activeTabId)?.id || panes[0]?.id;
+      if (activePaneId) {
+        openFileSelector(activePaneId);
+      }
+    }
+  };
 
   // プロジェクト選択
   const handleProjectSelect = async (project: Project) => {
@@ -186,7 +183,7 @@ export default function Home() {
   };
 
   // ショートカットキーの登録
-  useKeyBinding('quickOpen', () => setIsOperationWindowVisible(true), []);
+  useKeyBinding('quickOpen', toggleOperationWindow, [panes]);
   useKeyBinding('toggleLeftSidebar', () => setIsLeftSidebarVisible(prev => !prev), []);
   useKeyBinding('toggleRightSidebar', () => setIsRightSidebarVisible(prev => !prev), []);
   useKeyBinding('toggleBottomPanel', () => setIsBottomPanelVisible(prev => !prev), []);
@@ -433,10 +430,7 @@ export default function Home() {
 
         <OperationWindow
           isVisible={isOperationWindowVisible}
-          onClose={() => {
-            setIsOperationWindowVisible(false);
-            setOperationWindowTargetPaneId(null);
-          }}
+          onClose={closeFileSelector}
           projectFiles={projectFiles}
           targetPaneId={operationWindowTargetPaneId}
         />

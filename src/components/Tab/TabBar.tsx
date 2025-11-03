@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { useTabContext } from '@/context/TabContext';
+import { useFileSelector } from '@/context/FileSelectorContext';
 import { useTranslation } from '@/context/I18nContext';
 import { useKeyBinding } from '@/hooks/useKeyBindings';
 import { Menu, Plus, X, FileText, SplitSquareVertical, SplitSquareHorizontal } from 'lucide-react';
@@ -21,6 +22,7 @@ export default function TabBar({ paneId }: TabBarProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
   const { requestClose, ConfirmationDialog } = useTabCloseConfirmation();
+  const { openFileSelector } = useFileSelector();
   
   const {
     getPane,
@@ -31,7 +33,6 @@ export default function TabBar({ paneId }: TabBarProps) {
     moveTab,
     splitPane,
     panes,
-    openFileSelector,
   } = useTabContext();
 
   const pane = getPane(paneId);

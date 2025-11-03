@@ -6,6 +6,7 @@ import { ThemeProvider } from '@/context/ThemeContext';
 import { GitHubUserProvider } from '@/context/GitHubUserContext';
 import { I18nProvider } from '@/context/I18nContext';
 import { TabProvider } from '@/context/TabContext';
+import { FileSelectorProvider } from '@/context/FileSelectorContext';
 import { ToastContainer } from '@/components/Toast';
 import ExtensionInitializer from '@/components/ExtensionInitializer';
 import TabInitializer from '@/components/TabInitializer';
@@ -178,10 +179,12 @@ export default function RootLayout({
           <ThemeProvider>
             <GitHubUserProvider>
               <TabProvider>
-                {children}
-                <TabInitializer />
-                <ExtensionInitializer />
-                <ToastContainer />
+                <FileSelectorProvider>
+                  {children}
+                  <TabInitializer />
+                  <ExtensionInitializer />
+                  <ToastContainer />
+                </FileSelectorProvider>
               </TabProvider>
             </GitHubUserProvider>
           </ThemeProvider>
