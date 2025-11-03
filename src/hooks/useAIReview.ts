@@ -21,14 +21,14 @@ export function useAIReview() {
         type: 'file',
       };
 
-      openTab(
-        {
-          ...fileItem,
+      openTab(fileItem, {
+        kind: 'ai',
+        aiReviewProps: {
           originalContent,
           suggestedContent,
+          filePath,
         },
-        { kind: 'ai' }
-      );
+      });
     },
     [openTab]
   );

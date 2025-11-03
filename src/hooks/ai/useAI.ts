@@ -126,14 +126,33 @@ export function useAI(props?: UseAIProps) {
           }
 
           // レスポンスをパース
+          const responsePaths = extractFilePathsFromResponse(response);
+          console.log('[useAI] Selected files:', selectedFiles.map(f => ({ path: f.path, contentLength: f.content.length })));
+          console.log('[useAI] Response paths:', responsePaths);
+          
+          // 重複を避けるため、既に selectedFiles に含まれているパスを除外
+          const selectedPathsSet = new Set(selectedFiles.map(f => f.path));
+          const newPaths = responsePaths.filter((path: string) => !selectedPathsSet.has(path));
+          
+          console.log('[useAI] New paths (not in selected):', newPaths);
+          
           const allOriginalFiles = [
             ...selectedFiles,
-            ...extractFilePathsFromResponse(response).map((path: string) => ({
+            ...newPaths.map((path: string) => ({
               path,
-              content: '',
+              content: '', // 新規ファイルまたは未選択ファイルは空
             })),
           ];
+          
+          console.log('[useAI] All original files for parsing:', allOriginalFiles.map(f => ({ path: f.path, contentLength: f.content.length })));
+          
           const parseResult = parseEditResponse(response, allOriginalFiles);
+          
+          console.log('[useAI] Parse result:', parseResult.changedFiles.map(f => ({ 
+            path: f.path, 
+            originalLength: f.originalContent.length, 
+            suggestedLength: f.suggestedContent.length 
+          })));
 
           // AIEditResponse形式に変換
           const editResponse: AIEditResponse = {

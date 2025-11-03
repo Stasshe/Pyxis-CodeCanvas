@@ -32,10 +32,18 @@ export default function AIReviewTab({
   const { colors } = useTheme();
   const { t } = useTranslation();
 
+  console.log('[AIReviewTab] Rendering with tab:', tab);
+
+  // AIReviewTab型にキャスト
+  const aiTab = tab as any;
+  const originalContent = aiTab.originalContent || '';
+  const suggestedContent = aiTab.suggestedContent || '';
+  const filePath = aiTab.filePath || aiTab.path || '';
+
+  console.log('[AIReviewTab] Data:', { originalContent: originalContent.length, suggestedContent: suggestedContent.length, filePath });
+
   // 現在編集中のsuggestedContentを管理（本体には影響しない）
-  const [currentSuggestedContent, setCurrentSuggestedContent] = useState(
-    tab.aiReviewProps?.suggestedContent || ''
-  );
+  const [currentSuggestedContent, setCurrentSuggestedContent] = useState(suggestedContent);
 
   // DiffEditorとモデルの参照
   const diffEditorRef = useRef<monacoEditor.editor.IStandaloneDiffEditor | null>(null);
@@ -47,7 +55,7 @@ export default function AIReviewTab({
   // デバウンス保存用のタイマー
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  if (!tab.aiReviewProps) {
+  if (!originalContent && !suggestedContent) {
     return (
       <div
         className="flex items-center justify-center h-full"
@@ -57,8 +65,6 @@ export default function AIReviewTab({
       </div>
     );
   }
-
-  const { originalContent, filePath } = tab.aiReviewProps;
 
   // クリーンアップ
   useEffect(() => {

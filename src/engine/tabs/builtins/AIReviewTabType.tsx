@@ -49,16 +49,15 @@ const AIReviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
     updateTab(aiTab.paneId, tabId, { suggestedContent: newContent } as Partial<AIReviewTab>);
   };
 
+  console.log('[AIReviewTabRenderer] Rendering AIReviewTab with:', {
+    originalContent: aiTab.originalContent?.length,
+    suggestedContent: aiTab.suggestedContent?.length,
+    filePath: aiTab.filePath,
+  });
+
   return (
     <AIReviewTabComponent
-      tab={{
-        ...aiTab,
-        aiReviewProps: {
-          originalContent: aiTab.originalContent,
-          suggestedContent: aiTab.suggestedContent,
-          filePath: aiTab.filePath,
-        },
-      } as any}
+      tab={aiTab}
       onApplyChanges={handleApplyChanges}
       onDiscardChanges={handleDiscardChanges}
       onCloseTab={handleCloseTab}
@@ -80,18 +79,38 @@ export const AIReviewTabType: TabTypeDefinition = {
   
   createTab: (file, options): AIReviewTab => {
     const tabId = `ai:${file.path || file.name || Date.now()}`;
-    const aiProps = options?.aiReviewProps;
+    const aiReviewProps = options?.aiReviewProps;
     
-    return {
+    console.log('[AIReviewTabType] createTab called with:', {
+      file,
+      options,
+      aiReviewProps,
+    });
+    
+    if (!aiReviewProps) {
+      console.warn('[AIReviewTabType] aiReviewProps is missing in options!');
+    }
+    
+    const tab: AIReviewTab = {
       id: tabId,
-      name: `AI Review: ${file.name}`,
+      name: `AI Review: ${file.path?.split('/').pop() || 'unknown'}`,
       kind: 'ai',
       path: file.path || '',
       paneId: options?.paneId || '',
-      originalContent: aiProps?.originalContent || '',
-      suggestedContent: aiProps?.suggestedContent || '',
-      filePath: aiProps?.filePath || file.path || '',
+      originalContent: aiReviewProps?.originalContent || '',
+      suggestedContent: aiReviewProps?.suggestedContent || '',
+      filePath: aiReviewProps?.filePath || file.path || '',
     };
+    
+    console.log('[AIReviewTabType] Created tab:', {
+      id: tab.id,
+      name: tab.name,
+      originalContentLength: tab.originalContent.length,
+      suggestedContentLength: tab.suggestedContent.length,
+      filePath: tab.filePath,
+    });
+    
+    return tab;
   },
   
   shouldReuseTab: (existingTab, newFile, options) => {
