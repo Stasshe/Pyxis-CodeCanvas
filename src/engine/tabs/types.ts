@@ -85,9 +85,34 @@ export interface SettingsTab extends BaseTab {
 }
 
 /**
+ * ウェルカムタブ
+ */
+export interface WelcomeTab extends BaseTab {
+  kind: 'welcome';
+}
+
+/**
+ * バイナリタブ
+ */
+export interface BinaryTab extends BaseTab {
+  kind: 'binary';
+  content: string;
+  bufferContent?: ArrayBuffer;
+  type?: string;
+}
+
+/**
  * すべてのタブ型のユニオン
  */
-export type Tab = EditorTab | PreviewTab | WebPreviewTab | AIReviewTab | DiffTab | SettingsTab;
+export type Tab =
+  | EditorTab
+  | PreviewTab
+  | WebPreviewTab
+  | AIReviewTab
+  | DiffTab
+  | SettingsTab
+  | WelcomeTab
+  | BinaryTab;
 
 /**
  * タブを開くときのオプション
@@ -96,7 +121,6 @@ export interface OpenTabOptions {
   kind?: TabKind;
   paneId?: string; // 指定されない場合はアクティブなペイン
   makeActive?: boolean; // デフォルトtrue
-  preview?: boolean;
   jumpToLine?: number;
   jumpToColumn?: number;
   // kind別の追加オプション

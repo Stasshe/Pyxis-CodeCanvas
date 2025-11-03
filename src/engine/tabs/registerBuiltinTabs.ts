@@ -6,6 +6,9 @@ import {
   AIReviewTabType,
   WebPreviewTabType,
   SettingsTabType,
+  WelcomeTabType,
+  PreviewTabType,
+  BinaryTabType,
 } from './builtins';
 
 /**
@@ -17,6 +20,9 @@ export function registerBuiltinTabs() {
   tabRegistry.register(AIReviewTabType);
   tabRegistry.register(WebPreviewTabType);
   tabRegistry.register(SettingsTabType);
+  tabRegistry.register(WelcomeTabType);
+  tabRegistry.register(PreviewTabType);
+  tabRegistry.register(BinaryTabType);
   
   console.log('[TabRegistry] Builtin tab types registered');
 }
