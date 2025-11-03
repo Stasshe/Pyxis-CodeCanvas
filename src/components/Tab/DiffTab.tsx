@@ -121,7 +121,7 @@ const DiffTab: React.FC<DiffTabProps> = ({
   };
 
   // 編集リスナの参照を保持（cleanupのため）
-  const listenersRef = React.useRef<Map<number, any>>(new Map());
+  const listenersRef = useRef<Map<number, any>>(new Map());
 
   // DiffEditorマウント時のハンドラ
   const handleDiffEditorMount = (

@@ -9,7 +9,6 @@ import { useChatSpace } from '@/hooks/ai/useChatSpace';
 import { useAI } from '@/hooks/ai/useAI';
 import { useAIReview } from '@/hooks/useAIReview';
 import { buildAIFileContextList } from '@/engine/ai/contextBuilder';
-import { fileRepository } from '@/engine/core/fileRepository';
 import { LOCALSTORAGE_KEY } from '@/context/config';
 import ChatContainer from './chat/ChatContainer';
 import ChatInput from './chat/ChatInput';
