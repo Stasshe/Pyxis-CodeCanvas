@@ -380,20 +380,6 @@ class ExtensionManager {
       extensionId,
       extensionPath: `/extensions/${extensionId.replace(/\./g, '/')}`,
       version: '1.0.0',
-      storage: {
-        get: async <T>(key: string) => {
-          const fullKey = `${extensionId}:${key}`;
-          return await storageService.get<T>(STORES.EXTENSIONS, fullKey);
-        },
-        set: async <T>(key: string, value: T) => {
-          const fullKey = `${extensionId}:${key}`;
-          await storageService.set(STORES.EXTENSIONS, fullKey, value);
-        },
-        delete: async (key: string) => {
-          const fullKey = `${extensionId}:${key}`;
-          await storageService.delete(STORES.EXTENSIONS, fullKey);
-        },
-      },
       logger: {
         info: (...args: unknown[]) => console.log(`[${extensionId}]`, ...args),
         warn: (...args: unknown[]) => console.warn(`[${extensionId}]`, ...args),
