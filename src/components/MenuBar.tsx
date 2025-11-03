@@ -152,7 +152,11 @@ export default function MenuBar({
       <div style={{ display: 'flex', flexDirection: 'column' }}>
         {allMenuTabs.map(({ id, label, icon }) => {
           // Lucide Reactからアイコンを動的に取得
-          const IconComponent = (LucideIcons as any)[icon] || Package;
+          let IconComponent = (LucideIcons as any)[icon];
+          if (!IconComponent) {
+            console.warn(`Invalid icon: ${icon}`);
+            IconComponent = Package;
+          }
           const isActive = activeMenuTab === id;
 
           return (

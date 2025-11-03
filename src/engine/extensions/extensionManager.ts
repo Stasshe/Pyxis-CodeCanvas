@@ -428,7 +428,7 @@ class ExtensionManager {
           }
           default: {
             const exhaustiveCheck: never = moduleName;
-            throw new Error(`System module not found: ${exhaustiveCheck}`);
+            throw new Error(`System module not found: ${JSON.stringify(exhaustiveCheck)}`);
           }
         }
       },

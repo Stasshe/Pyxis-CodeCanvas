@@ -167,7 +167,7 @@ export async function loadExtensionModule(
     
     // Reactが利用可能か確認
     if (typeof window !== 'undefined' && !(window as any).__PYXIS_REACT__) {
-      extensionError('React is not available in global scope. Extension manager may not be initialized.');
+      extensionError('React is not available in global scope. Ensure ExtensionManager.initialize() has been called before loading extensions.');
       return null;
     }
     
