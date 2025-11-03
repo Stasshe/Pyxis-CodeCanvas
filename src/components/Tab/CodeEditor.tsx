@@ -37,6 +37,8 @@ interface CodeEditorProps {
   nodeRuntimeOperationInProgress?: boolean;
   currentProject?: Project;
   isCodeMirror?: boolean;
+  // 即時ローカル編集反映ハンドラ: 全ペーンの同ファイルタブに対して isDirty を立てる
+  onImmediateContentChange?: (tabId: string, content: string) => void;
 }
 
 export default function CodeEditor({
@@ -44,6 +46,7 @@ export default function CodeEditor({
   onContentChange,
   nodeRuntimeOperationInProgress = false,
   isCodeMirror = false,
+  onImmediateContentChange,
   currentProject,
   wordWrapConfig,
 }: CodeEditorProps) {
@@ -151,10 +154,18 @@ export default function CodeEditor({
   const handleEditorChange = useCallback(
     (value: string) => {
       if (!activeTab) return;
+      // 即時フラグ反映（isDirty を全ペーンに立てる）
+      try {
+        onImmediateContentChange?.(activeTab.id, value);
+      } catch (e) {
+        // 保険: 何か例外が起きても保存は続行する
+        console.error('[CodeEditor_new] onImmediateContentChange handler failed', e);
+      }
+
       // デバウンス保存のみ実行
       debouncedSave(activeTab.id, value);
     },
-    [activeTab, debouncedSave]
+    [activeTab, debouncedSave, onImmediateContentChange]
   );
 
   // === タブなし ===

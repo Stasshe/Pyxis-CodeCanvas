@@ -829,6 +829,8 @@ export default function Home() {
                       clearAIReview={clearAIReview}
                       refreshProjectFiles={refreshProjectFiles}
                       setGitRefreshTrigger={setGitRefreshTrigger}
+                      // 即時ローカル編集反映（isDirtyフラグを立てるためにPaneContainer/CodeEditorへ渡す）
+                      onTabContentChangeImmediate={handleTabContentChangeImmediate}
                       setFileSelectState={setFileSelectState}
                       isBottomPanelVisible={isBottomPanelVisible}
                       toggleBottomPanel={toggleBottomPanel}

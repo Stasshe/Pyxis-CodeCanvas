@@ -36,6 +36,8 @@ interface PaneContainerProps {
   isBottomPanelVisible: boolean;
   toggleBottomPanel: () => void;
   nodeRuntimeOperationInProgress: boolean;
+  // 即時ローカル編集反映ハンドラ（page.tsx の handleTabContentChangeImmediate を受け取る）
+  onTabContentChangeImmediate?: (tabId: string, content: string) => void;
 }
 
 export default function PaneContainer({
@@ -52,6 +54,7 @@ export default function PaneContainer({
   isBottomPanelVisible,
   toggleBottomPanel,
   nodeRuntimeOperationInProgress,
+  onTabContentChangeImmediate,
 }: PaneContainerProps) {
   const { colors } = useTheme();
   const { settings } = useSettings(
@@ -92,6 +95,7 @@ export default function PaneContainer({
                 refreshProjectFiles={refreshProjectFiles}
                 setGitRefreshTrigger={setGitRefreshTrigger}
                 setFileSelectState={setFileSelectState}
+                onTabContentChangeImmediate={onTabContentChangeImmediate}
                 isBottomPanelVisible={isBottomPanelVisible}
                 toggleBottomPanel={toggleBottomPanel}
                 nodeRuntimeOperationInProgress={nodeRuntimeOperationInProgress}
@@ -407,6 +411,8 @@ export default function PaneContainer({
               bottomPanelHeight={200}
               isBottomPanelVisible={isBottomPanelVisible}
               wordWrapConfig={wordWrapConfig}
+              // 即時反映用ハンドラ（全ペーンのisDirtyを立てる）を渡す
+              onImmediateContentChange={onTabContentChangeImmediate}
               onContentChange={async (tabId: string, content: string) => {
                 // タブ内容変更をコールバックに伝播（親コンポーネントで即時更新用に使用）
 
