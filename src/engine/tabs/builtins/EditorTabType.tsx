@@ -5,6 +5,7 @@ import CodeEditor from '@/components/Tab/CodeEditor';
 import { useTabStore } from '@/stores/tabStore';
 import { useProject } from '@/engine/core/project';
 import { useSettings } from '@/hooks/useSettings';
+import { useGitContext } from '@/components/PaneContainer';
 
 /**
  * エディタタブのコンポーネント
@@ -14,23 +15,26 @@ const EditorTabComponent: React.FC<TabComponentProps> = ({ tab, isActive }) => {
   const { saveFile, currentProject } = useProject();
   const { settings } = useSettings(currentProject?.id);
   const updateTab = useTabStore(state => state.updateTab);
+  const { setGitRefreshTrigger } = useGitContext();
   
   const wordWrapConfig = settings?.editor?.wordWrap ? 'on' : 'off';
 
   const handleContentChange = async (tabId: string, content: string) => {
-    // タブのコンテンツを更新
+    // タブのコンテンツを更新（isDirtyをtrue）
     updateTab(editorTab.paneId, tabId, { content, isDirty: true } as Partial<EditorTab>);
     
     // ファイルを保存
     if (saveFile && editorTab.path) {
       await saveFile(editorTab.path, content);
       updateTab(editorTab.paneId, tabId, { isDirty: false } as Partial<EditorTab>);
+      // Git状態を更新
+      setGitRefreshTrigger(prev => prev + 1);
     }
   };
 
   const handleImmediateContentChange = (tabId: string, content: string) => {
-    // 即座にタブのコンテンツを更新（デバウンスなし）
-    updateTab(editorTab.paneId, tabId, { content } as Partial<EditorTab>);
+    // 即座にタブのコンテンツを更新（isDirtyをtrue）
+    updateTab(editorTab.paneId, tabId, { content, isDirty: true } as Partial<EditorTab>);
   };
 
   return (

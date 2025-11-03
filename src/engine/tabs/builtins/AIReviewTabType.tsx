@@ -4,6 +4,7 @@ import { TabTypeDefinition, AIReviewTab, TabComponentProps } from '../types';
 import AIReviewTabComponent from '@/components/AI/AIReview/AIReviewTab';
 import { useTabStore } from '@/stores/tabStore';
 import { useProject } from '@/engine/core/project';
+import { useGitContext } from '@/components/PaneContainer';
 
 /**
  * AIレビュータブのコンポーネント
@@ -12,14 +13,20 @@ const AIReviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   const aiTab = tab as AIReviewTab;
   const closeTab = useTabStore(state => state.closeTab);
   const updateTab = useTabStore(state => state.updateTab);
-  const { saveFile, clearAIReview } = useProject();
+  const { saveFile, clearAIReview, refreshProjectFiles } = useProject();
+  const { setGitRefreshTrigger } = useGitContext();
 
   const handleApplyChanges = async (filePath: string, content: string) => {
     if (saveFile) {
       await saveFile(filePath, content);
+      // Git状態を更新
+      setGitRefreshTrigger(prev => prev + 1);
     }
     if (clearAIReview) {
       await clearAIReview(filePath);
+    }
+    if (refreshProjectFiles) {
+      await refreshProjectFiles();
     }
     closeTab(aiTab.paneId, aiTab.id);
   };
@@ -27,6 +34,9 @@ const AIReviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   const handleDiscardChanges = async (filePath: string) => {
     if (clearAIReview) {
       await clearAIReview(filePath);
+    }
+    if (refreshProjectFiles) {
+      await refreshProjectFiles();
     }
     closeTab(aiTab.paneId, aiTab.id);
   };

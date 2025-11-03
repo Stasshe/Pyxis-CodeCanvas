@@ -11,6 +11,7 @@ interface TabContextValue {
   closeTab: (paneId: string, tabId: string) => void;
   activateTab: (paneId: string, tabId: string) => void;
   updateTab: (paneId: string, tabId: string, updates: Partial<Tab>) => void;
+  updateTabContent: (tabId: string, content: string, immediate?: boolean) => void;
   moveTab: (fromPaneId: string, toPaneId: string, tabId: string) => void;
 
   // ペイン操作
@@ -113,11 +114,29 @@ export const TabProvider: React.FC<TabProviderProps> = ({ children }) => {
     return () => clearTimeout(timer);
   }, [store.panes, store.activePane, store.globalActiveTab, isLoading]);
 
+  // タブコンテンツ更新（即時反映用）
+  const updateTabContent = (tabId: string, content: string, immediate = false) => {
+    // 全ペインからタブを検索
+    const allTabs = store.getAllTabs();
+    const tabInfo = allTabs.find(t => t.id === tabId);
+
+    if (tabInfo) {
+      const result = store.findTabByPath(tabInfo.path || '', tabInfo.kind);
+      if (result) {
+        const updates: Partial<Tab> = immediate
+          ? ({ content, isDirty: true } as any)
+          : ({ content, isDirty: false } as any);
+        store.updateTab(result.paneId, tabId, updates);
+      }
+    }
+  };
+
   const value: TabContextValue = {
     openTab: store.openTab,
     closeTab: store.closeTab,
     activateTab: store.activateTab,
     updateTab: store.updateTab,
+    updateTabContent,
     moveTab: store.moveTab,
     setPanes: store.setPanes,
     addPane: store.addPane,

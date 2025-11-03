@@ -4,6 +4,7 @@ import { TabTypeDefinition, DiffTab, TabComponentProps } from '../types';
 import DiffTabComponent from '@/components/Tab/DiffTab';
 import { useTabStore } from '@/stores/tabStore';
 import { useProject } from '@/engine/core/project';
+import { useGitContext } from '@/components/PaneContainer';
 
 /**
  * Diffタブのコンポーネント
@@ -12,16 +13,20 @@ const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   const diffTab = tab as DiffTab;
   const updateTab = useTabStore(state => state.updateTab);
   const { saveFile } = useProject();
+  const { setGitRefreshTrigger } = useGitContext();
 
   const handleImmediateContentChange = (content: string) => {
-    // 即座にコンテンツを更新
+    // 即座にコンテンツを更新（isDirtyをtrue）
     if (diffTab.diffs.length > 0) {
       const updatedDiffs = [...diffTab.diffs];
       updatedDiffs[0] = {
         ...updatedDiffs[0],
         latterContent: content,
       };
-      updateTab(diffTab.paneId, diffTab.id, { diffs: updatedDiffs } as Partial<DiffTab>);
+      updateTab(diffTab.paneId, diffTab.id, { 
+        diffs: updatedDiffs,
+        isDirty: true 
+      } as Partial<DiffTab>);
     }
   };
 
@@ -29,6 +34,9 @@ const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
     // ファイルを保存
     if (saveFile && diffTab.path && diffTab.editable) {
       await saveFile(diffTab.path, content);
+      updateTab(diffTab.paneId, diffTab.id, { isDirty: false } as Partial<DiffTab>);
+      // Git状態を更新
+      setGitRefreshTrigger(prev => prev + 1);
     }
   };
 

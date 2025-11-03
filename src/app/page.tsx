@@ -303,12 +303,80 @@ export default function Home() {
         >
           {/* メインエディタエリア */}
           <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-            <div className="flex-1 overflow-hidden">
-              {panes.map(pane => (
-                <PaneContainer
-                  key={pane.id}
-                  pane={pane}
-                />
+            <div
+              className="flex-1 overflow-hidden flex flex-row"
+              style={{ position: 'relative' }}
+            >
+              {panes.map((pane, idx) => (
+                <React.Fragment key={pane.id}>
+                  <div
+                    style={{
+                      width: panes.length > 1 ? `${pane.size || 100 / panes.length}%` : '100%',
+                      height: '100%',
+                      position: 'relative',
+                      overflow: 'hidden',
+                      flexShrink: 0,
+                      flexGrow: 0,
+                    }}
+                  >
+                    <PaneContainer
+                      pane={pane}
+                      setGitRefreshTrigger={setGitRefreshTrigger}
+                    />
+                  </div>
+
+                  {/* ルートレベルペイン間のリサイザー */}
+                  {idx < panes.length - 1 && (
+                    <div
+                      style={{
+                        position: 'relative',
+                        width: '6px',
+                        height: '100%',
+                        flexShrink: 0,
+                        flexGrow: 0,
+                        cursor: 'col-resize',
+                        background: colors.border,
+                        zIndex: 10,
+                      }}
+                      onMouseDown={e => {
+                        e.preventDefault();
+                        const startX = e.clientX;
+                        const startLeftSize = pane.size || 100 / panes.length;
+                        const startRightSize = panes[idx + 1]?.size || 100 / panes.length;
+
+                        const handleMouseMove = (moveEvent: MouseEvent) => {
+                          const container = e.currentTarget.parentElement;
+                          if (!container) return;
+
+                          const containerWidth = container.clientWidth;
+                          const delta = moveEvent.clientX - startX;
+                          const deltaPercent = (delta / containerWidth) * 100;
+                          const newLeftSize = Math.max(
+                            10,
+                            Math.min(90, startLeftSize + deltaPercent)
+                          );
+                          const newRightSize = Math.max(
+                            10,
+                            Math.min(90, startRightSize - deltaPercent)
+                          );
+
+                          const updatedPanes = [...panes];
+                          updatedPanes[idx] = { ...pane, size: newLeftSize };
+                          updatedPanes[idx + 1] = { ...updatedPanes[idx + 1], size: newRightSize };
+                          setPanes(updatedPanes);
+                        };
+
+                        const handleMouseUp = () => {
+                          document.removeEventListener('mousemove', handleMouseMove);
+                          document.removeEventListener('mouseup', handleMouseUp);
+                        };
+
+                        document.addEventListener('mousemove', handleMouseMove);
+                        document.addEventListener('mouseup', handleMouseUp);
+                      }}
+                    />
+                  )}
+                </React.Fragment>
               ))}
             </div>
 
