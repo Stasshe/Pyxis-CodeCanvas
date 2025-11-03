@@ -3,9 +3,9 @@
  * public/extensions/registry.json を管理
  */
 
-import type { ExtensionRegistry, ExtensionManifest } from './types';
 import { fetchExtensionManifest } from './extensionLoader';
 import { extensionInfo, extensionError } from './extensionsLogger';
+import type { ExtensionRegistry, ExtensionManifest } from './types';
 
 const REGISTRY_URL = (process.env.NEXT_PUBLIC_BASE_PATH || '') + '/extensions/registry.json';
 

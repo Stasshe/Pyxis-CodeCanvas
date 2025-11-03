@@ -8,6 +8,17 @@
  * - Extension Context: 実行環境
  */
 
+import type { SystemModuleMap, SystemModuleName } from './systemModuleTypes';
+
+/**
+ * グローバル型定義の拡張
+ */
+declare global {
+  interface Window {
+    __PYXIS_REACT__?: typeof import('react');
+  }
+}
+
 /**
  * 拡張機能の種類
  */
@@ -220,13 +231,34 @@ export interface ExtensionContext {
     error: (...args: unknown[]) => void;
   };
 
-  /** システムモジュールへのアクセス (オプション) */
-  getSystemModule?: <T = any>(moduleName: string) => Promise<T>;
+  /** システムモジュールへのアクセス (型安全) */
+  getSystemModule?: <T extends SystemModuleName>(
+    moduleName: T
+  ) => Promise<SystemModuleMap[T]>;
 
   /** 他の拡張機能との通信 (オプション) */
   messaging?: {
     send: (targetId: string, message: unknown) => Promise<unknown>;
     onMessage: (handler: (message: unknown) => unknown) => void;
+  };
+
+  /** Tab API - 拡張機能が自分のタブを作成・管理 */
+  tabs?: {
+    registerTabType: (component: any) => void;
+    createTab: (options: any) => string;
+    updateTab: (tabId: string, options: any) => boolean;
+    closeTab: (tabId: string) => boolean;
+    onTabClose: (tabId: string, callback: (tabId: string) => void | Promise<void>) => void;
+    getTabData: <T = any>(tabId: string) => T | null;
+    openSystemTab: (file: any, options?: any) => void;
+  };
+
+  /** Sidebar API - 拡張機能がサイドバーパネルを追加 */
+  sidebar?: {
+    createPanel: (definition: any) => void;
+    updatePanel: (panelId: string, state: any) => void;
+    removePanel: (panelId: string) => void;
+    onPanelActivate: (panelId: string, callback: (panelId: string) => void | Promise<void>) => void;
   };
 }
 

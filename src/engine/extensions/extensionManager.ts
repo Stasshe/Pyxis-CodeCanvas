@@ -4,6 +4,20 @@
  */
 
 import {
+  fetchExtensionManifest,
+  fetchExtensionCode,
+  loadExtensionModule,
+  activateExtension,
+  deactivateExtension,
+} from './extensionLoader';
+import {
+  saveInstalledExtension,
+  loadInstalledExtension,
+  loadAllInstalledExtensions,
+  deleteInstalledExtension,
+} from './storage-adapter';
+import type { SystemModuleName, SystemModuleMap } from './systemModuleTypes';
+import {
   ExtensionStatus,
   type ExtensionManifest,
   type InstalledExtension,
@@ -11,20 +25,7 @@ import {
   type ExtensionContext,
   type ExtensionActivation,
 } from './types';
-import {
-  saveInstalledExtension,
-  loadInstalledExtension,
-  loadAllInstalledExtensions,
-  deleteInstalledExtension,
-} from './storage-adapter';
-import {
-  fetchExtensionManifest,
-  fetchExtensionCode,
-  loadExtensionModule,
-  activateExtension,
-  deactivateExtension,
-} from './extensionLoader';
-import { storageService, STORES } from '@/engine/storage';
+
 
 /**
  * アクティブな拡張機能のキャッシュ
@@ -88,6 +89,13 @@ class ExtensionManager {
     if (this.initialized) return;
 
     console.log('[ExtensionManager] Initializing...');
+
+    // Reactをグローバルに提供（拡張機能から使えるように）
+    if (typeof window !== 'undefined') {
+      const React = await import('react');
+      (window as any).__PYXIS_REACT__ = React;
+      console.log('[ExtensionManager] React provided globally for extensions');
+    }
 
     // インストール済み & 有効化済みの拡張機能を読み込み
     const installed = await loadAllInstalledExtensions();
@@ -209,7 +217,7 @@ class ExtensionManager {
       }
 
       // コンテキストを作成
-      const context = this.createExtensionContext(extensionId);
+      const context = await this.createExtensionContext(extensionId);
 
       // モジュールをロード
       const exports = await loadExtensionModule(installed.cache.entryCode, context);
@@ -223,12 +231,13 @@ class ExtensionManager {
         throw new Error('Failed to activate extension');
       }
 
-      // アクティブリストに追加
+      // アクティブリストに追加（contextも保存）
       this.activeExtensions.set(extensionId, {
         manifest: installed.manifest,
         exports,
         activation,
-      });
+        _context: context,
+      } as any);
 
       // 状態を更新
       installed.enabled = true;
@@ -262,6 +271,17 @@ class ExtensionManager {
       if (!active) {
         console.log('[ExtensionManager] Extension not active:', extensionId);
         return true;
+      }
+
+      // TabAPIとSidebarAPIをクリーンアップ
+      const context = (active as any)._context;
+      if (context) {
+        if ((context as any)._tabAPI) {
+          (context as any)._tabAPI.dispose();
+        }
+        if ((context as any)._sidebarAPI) {
+          (context as any)._sidebarAPI.dispose();
+        }
       }
 
       // デアクティベート
@@ -375,8 +395,12 @@ class ExtensionManager {
   /**
    * ExtensionContextを作成
    */
-  private createExtensionContext(extensionId: string): ExtensionContext {
-    return {
+  private async createExtensionContext(extensionId: string): Promise<ExtensionContext> {
+    // TabAPIとSidebarAPIのインスタンスを作成
+    const { TabAPI } = await import('./system-api/TabAPI');
+    const { SidebarAPI } = await import('./system-api/SidebarAPI');
+    
+    const context: ExtensionContext = {
       extensionId,
       extensionPath: `/extensions/${extensionId.replace(/\./g, '/')}`,
       version: '1.0.0',
@@ -385,30 +409,60 @@ class ExtensionManager {
         warn: (...args: unknown[]) => console.warn(`[${extensionId}]`, ...args),
         error: (...args: unknown[]) => console.error(`[${extensionId}]`, ...args),
       },
-      getSystemModule: async <T = any>(moduleName: string): Promise<T> => {
-        // システムモジュールへのアクセスを提供
+      getSystemModule: async <T extends SystemModuleName>(
+        moduleName: T
+      ): Promise<SystemModuleMap[T]> => {
+        // システムモジュールへのアクセスを提供（型安全）
         switch (moduleName) {
-          case 'transpileManager': {
-            const { transpileManager } = await import('@/engine/runtime/transpileManager');
-            return transpileManager as T;
-          }
           case 'fileRepository': {
             const { fileRepository } = await import('@/engine/core/fileRepository');
-            return fileRepository as T;
+            return fileRepository as SystemModuleMap[T];
           }
           case 'storageService': {
             const { storageService } = await import('@/engine/storage');
-            return storageService as T;
+            return storageService as SystemModuleMap[T];
           }
           case 'normalizeCjsEsm': {
             const module = await import('@/engine/runtime/normalizeCjsEsm');
-            return module as T;
+            return module as SystemModuleMap[T];
           }
-          default:
-            throw new Error(`System module not found: ${moduleName}`);
+          default: {
+            // TypeScriptの網羅性チェック用の変数
+            // 実行時には到達しないが、型エラーメッセージを改善するために使用
+            const exhaustiveCheck: never = moduleName;
+            // 実際のエラーメッセージでは元のmoduleNameを文字列として出力
+            throw new Error(`System module not found: ${String(moduleName)}`);
+          }
         }
       },
     };
+
+    // TabAPIとSidebarAPIを初期化して追加
+    const tabAPI = new TabAPI(context);
+    const sidebarAPI = new SidebarAPI(context);
+
+    context.tabs = {
+      registerTabType: (component: any) => tabAPI.registerTabType(component),
+      createTab: (options: any) => tabAPI.createTab(options),
+      updateTab: (tabId: string, options: any) => tabAPI.updateTab(tabId, options),
+      closeTab: (tabId: string) => tabAPI.closeTab(tabId),
+      onTabClose: (tabId: string, callback: any) => tabAPI.onTabClose(tabId, callback),
+      getTabData: (tabId: string) => tabAPI.getTabData(tabId),
+      openSystemTab: (file: any, options?: any) => tabAPI.openSystemTab(file, options),
+    };
+
+    context.sidebar = {
+      createPanel: (definition: any) => sidebarAPI.createPanel(definition),
+      updatePanel: (panelId: string, state: any) => sidebarAPI.updatePanel(panelId, state),
+      removePanel: (panelId: string) => sidebarAPI.removePanel(panelId),
+      onPanelActivate: (panelId: string, callback: any) => sidebarAPI.onPanelActivate(panelId, callback),
+    };
+
+    // APIインスタンスを保存（dispose用）
+    (context as any)._tabAPI = tabAPI;
+    (context as any)._sidebarAPI = sidebarAPI;
+
+    return context;
   }
 }
 

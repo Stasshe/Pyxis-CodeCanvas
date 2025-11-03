@@ -9,6 +9,7 @@ import {
   LogOut,
   Package,
 } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useState } from 'react';
 import { authRepository } from '@/engine/user/authRepository';
@@ -16,6 +17,7 @@ import { useGitHubUser } from '@/context/GitHubUserContext';
 import { useTranslation } from '@/context/I18nContext';
 import { useKeyBinding } from '@/hooks/useKeyBindings';
 import { MenuTab } from '../types';
+import { useExtensionPanels } from '@/hooks/useExtensionPanels';
 
 interface MenuBarProps {
   activeMenuTab: MenuTab;
@@ -96,14 +98,32 @@ export default function MenuBar({
     }
   };
 
-  const menuTabs: Array<{ id: MenuTab; label: string }> = [
-    { id: 'files', label: t('menu.files') },
-    { id: 'search', label: t('menu.search') },
-    { id: 'git', label: t('menu.git') },
-    { id: 'run', label: t('menu.run') },
-    { id: 'extensions', label: t('menu.extensions', { fallback: 'Extensions' }) },
-    { id: 'settings', label: t('menu.settings') },
+  // 拡張機能のパネルを取得
+  const extensionPanels = useExtensionPanels();
+
+  // 組み込みメニュータブ
+  const builtinMenuTabs: Array<{ id: MenuTab; label: string; icon: string }> = [
+    { id: 'files', label: t('menu.files'), icon: 'FileText' },
+    { id: 'search', label: t('menu.search'), icon: 'Search' },
+    { id: 'git', label: t('menu.git'), icon: 'GitBranch' },
+    { id: 'run', label: t('menu.run'), icon: 'Play' },
+    { id: 'extensions', label: t('menu.extensions', { fallback: 'Extensions' }), icon: 'Package' },
+    { id: 'settings', label: t('menu.settings'), icon: 'Settings' },
   ];
+
+  // 拡張パネルをメニュータブに追加
+  const extensionMenuTabs = extensionPanels.map(panel => ({
+    id: `extension:${panel.extensionId}.${panel.panelId}` as MenuTab,
+    label: panel.title,
+    icon: panel.icon,
+    order: panel.order,
+  }));
+
+  // 全メニュータブ（組み込み + 拡張）
+  const allMenuTabs = [
+    ...builtinMenuTabs.map((tab, index) => ({ ...tab, order: index * 10 })),
+    ...extensionMenuTabs,
+  ].sort((a, b) => a.order - b.order);
 
   // グローバル検索ショートカット (Ctrl+Shift+F)
   useKeyBinding(
@@ -129,20 +149,15 @@ export default function MenuBar({
       }}
     >
       <div style={{ display: 'flex', flexDirection: 'column' }}>
-        {menuTabs.map(({ id, label }) => {
-          const Icon =
-            id === 'files'
-              ? FileText
-              : id === 'search'
-                ? Search
-                : id === 'git'
-                  ? GitBranch
-                  : id === 'run'
-                    ? Play
-                    : id === 'extensions'
-                      ? Package
-                      : Settings;
+        {allMenuTabs.map(({ id, label, icon }) => {
+          // Lucide Reactからアイコンを動的に取得
+          let IconComponent = (LucideIcons as any)[icon];
+          if (!IconComponent) {
+            console.warn(`Invalid icon: ${icon}`);
+            IconComponent = Package;
+          }
           const isActive = activeMenuTab === id;
+
           return (
             <button
               key={id}
@@ -161,7 +176,7 @@ export default function MenuBar({
               onClick={() => onMenuTabClick(id)}
               title={label}
             >
-              <Icon size={20} />
+              <IconComponent size={20} />
               {id === 'git' && gitChangesCount > 0 && (
                 <span
                   style={{

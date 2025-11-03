@@ -3,13 +3,14 @@
  * 拡張機能のコードをfetchしてロード・実行する
  */
 
+import { extensionInfo, extensionError } from './extensionsLogger';
+import { transformImports } from './transformImports';
 import type {
   ExtensionManifest,
   ExtensionExports,
   ExtensionContext,
   ExtensionActivation,
 } from './types';
-import { extensionInfo, extensionError } from './extensionsLogger';
 
 /**
  * 拡張機能のベースURL（public/extensions/）
@@ -90,7 +91,7 @@ export async function fetchExtensionCode(manifest: ExtensionManifest): Promise<{
   try {
     extensionInfo(`Fetching extension code for: ${manifest.id}`);
     // エントリーポイントを取得
-    const entryCode = await fetchExtensionFile(manifest, manifest.entry);
+    const entryCode = await fetchExtensionFile(manifest, manifest.entry || 'index.js');
     if (!entryCode) {
       extensionError('Failed to load entry point');
       return null;
@@ -126,9 +127,22 @@ export async function loadExtensionModule(
 ): Promise<ExtensionExports | null> {
   try {
     extensionInfo('Loading extension module');
+    
+    // Reactが利用可能か確認
+    if (typeof window !== 'undefined' && !(window as any).__PYXIS_REACT__) {
+      extensionError('React is not available in global scope. Ensure ExtensionManager.initialize() has been called before loading extensions.');
+      return null;
+    }
+    
+    // import文を書き換え
+    const transformedCode = transformImports(entryCode);
+    
+    // デバッグ: 変換後のコードの最初の部分をログ出力
+    console.log('[ExtensionLoader] Transformed code preview:', transformedCode.slice(0, 500));
+    
     // import文を含むコードをdata URLとしてES Moduleで実行
     // Blob + URL.createObjectURL を使ってdynamic importで読み込む
-    const blob = new Blob([entryCode], { type: 'application/javascript' });
+    const blob = new Blob([transformedCode], { type: 'application/javascript' });
     const url = URL.createObjectURL(blob);
 
     try {
@@ -169,6 +183,14 @@ export async function activateExtension(
     return activation;
   } catch (error) {
     extensionError('Error activating extension:', error);
+    // より詳細なエラー情報を出力
+    if (error instanceof Error) {
+      console.error('[ExtensionLoader] Activation error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+      });
+    }
     return null;
   }
 }

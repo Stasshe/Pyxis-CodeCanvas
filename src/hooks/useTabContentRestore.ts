@@ -1,7 +1,8 @@
 // src/hooks/useTabContentRestore.ts
 import { useEffect, useRef, useCallback } from 'react';
-import { useTabStore } from '@/stores/tabStore';
+
 import { fileRepository } from '@/engine/core/fileRepository';
+import { useTabStore } from '@/stores/tabStore';
 import { FileItem, EditorPane } from '@/types';
 
 // FileItem[]を平坦化する関数

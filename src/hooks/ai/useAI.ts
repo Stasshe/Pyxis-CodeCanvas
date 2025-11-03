@@ -3,8 +3,8 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
 
+import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
 import { LOCALSTORAGE_KEY } from '@/context/config';
 import { getSelectedFileContexts } from '@/engine/ai/contextBuilder';
 import { generateCodeEdit, generateChatResponse } from '@/engine/ai/fetchAI';
@@ -68,7 +68,7 @@ export function useAI(props?: UseAIProps) {
         }
       } catch (e) {
         // non-fatal: ensure UI doesn't break if push fails
-        // eslint-disable-next-line no-console
+         
         console.warn('[useAI] pushMsgOutPanel failed', e);
       }
     },

@@ -9,7 +9,9 @@ import GitPanel from './GitPanel';
 import RunPanel from './RunPanel';
 import SettingsPanel from './SettingsPanel';
 import ExtensionsPanel from './ExtensionsPanel';
+import ExtensionPanelRenderer from './ExtensionPanelRenderer';
 import { fileRepository } from '@/engine/core/fileRepository';
+import { useExtensionPanels } from '@/hooks/useExtensionPanels';
 
 interface LeftSidebarProps {
   activeMenuTab: MenuTab;
@@ -36,6 +38,12 @@ export default function LeftSidebar({
 }: LeftSidebarProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
+  const extensionPanels = useExtensionPanels();
+
+  // 拡張パネルがアクティブかチェック
+  const activeExtensionPanel = extensionPanels.find(
+    panel => `extension:${panel.extensionId}.${panel.panelId}` === activeMenuTab
+  );
 
   return (
     <>
@@ -64,6 +72,7 @@ export default function LeftSidebar({
             {activeMenuTab === 'run' && 'Run'}
             {activeMenuTab === 'extensions' && 'Extensions'}
             {activeMenuTab === 'settings' && 'Settings'}
+            {activeExtensionPanel && activeExtensionPanel.title}
           </span>
         </div>
         <div className="flex-1 overflow-auto">
@@ -181,6 +190,21 @@ export default function LeftSidebar({
           {activeMenuTab === 'settings' && (
             <SettingsPanel currentProject={currentProject} />
           )}
+          {/* 拡張パネルを全て表示（アクティブなものだけを表示） */}
+          {extensionPanels.map(panel => {
+            const panelMenuTab = `extension:${panel.extensionId}.${panel.panelId}`;
+            if (activeMenuTab === panelMenuTab) {
+              return (
+                <ExtensionPanelRenderer
+                  key={panelMenuTab}
+                  extensionId={panel.extensionId}
+                  panelId={panel.panelId}
+                  isActive={true}
+                />
+              );
+            }
+            return null;
+          })}
         </div>
       </div>
       {/* Resizer */}

@@ -40,11 +40,11 @@ let extractDependencies: ((code: string) => string[]) | null = null;
 function initializeFunctions(normalizeCjsEsmCode?: string, extractDependenciesCode?: string) {
   if (normalizeCjsEsmCode && !normalizeCjsEsm) {
     // 関数全体の文字列を評価して関数として取得
-    // eslint-disable-next-line no-eval
+     
     normalizeCjsEsm = eval(`(${normalizeCjsEsmCode})`) as (code: string) => string;
   }
   if (extractDependenciesCode && !extractDependencies) {
-    // eslint-disable-next-line no-eval
+     
     extractDependencies = eval(`(${extractDependenciesCode})`) as (code: string) => string[];
   }
 }

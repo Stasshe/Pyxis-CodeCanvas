@@ -56,11 +56,11 @@ function buildExtensions() {
   let totalFiles = 0;
   let successFiles = 0;
   
-  // TypeScriptファイルのリストを収集
+  // TypeScript/TSXファイルのリストを収集
   const tsFiles = [];
   walkDir(EXTENSIONS_SRC, (srcPath) => {
     const ext = path.extname(srcPath);
-    if (ext === '.ts') {
+    if (ext === '.ts' || ext === '.tsx') {
       tsFiles.push(srcPath);
       totalFiles++;
     }
@@ -69,7 +69,7 @@ function buildExtensions() {
   // tscでトランスパイル (一括処理)
   if (tsFiles.length > 0) {
     try {
-      console.log(`📦 Transpiling ${tsFiles.length} TypeScript files with tsc...\n`);
+      console.log(`📦 Transpiling ${tsFiles.length} TypeScript/TSX files with tsc...\n`);
       
       // 一時的なtsconfig.jsonを作成
       const tsconfigPath = path.join(__dirname, 'tsconfig.extensions.json');
@@ -90,9 +90,13 @@ function buildExtensions() {
           resolveJsonModule: true,
           isolatedModules: true,
           noEmit: false,
-          incremental: false, // 増分ビルドを無効化
+          incremental: false,
+          // JSX設定
+          jsx: 'react',  // TSXをReact.createElementに変換
+          jsxFactory: 'React.createElement',
+          jsxFragmentFactory: 'React.Fragment',
         },
-        include: ['extensions/**/*.ts'],
+        include: ['extensions/**/*.ts', 'extensions/**/*.tsx'],
         exclude: ['node_modules']
       };
       
@@ -150,7 +154,7 @@ function buildExtensions() {
     }
   });
   
-  console.log(`\n✨ Extensions built: ${successFiles}/${totalFiles} TypeScript files`);
+  console.log(`\n✨ Extensions built: ${successFiles}/${totalFiles} TypeScript/TSX files`);
 }
 
 // 実行

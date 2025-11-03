@@ -7,7 +7,7 @@ import unusedImports from 'eslint-plugin-unused-imports';
 export default [
   eslint.configs.recommended,
   {
-    files: ['src/**/*.ts'],
+    files: ['src/**/*.ts', 'extensions/**/*.ts', 'extensions/**/*.tsx'],
     languageOptions: {
       parser: tsparser,
       parserOptions: {

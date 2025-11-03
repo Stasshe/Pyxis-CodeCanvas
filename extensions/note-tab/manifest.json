@@ -1,0 +1,17 @@
+{
+  "id": "pyxis.note-tab",
+  "name": "Note Tab Extension",
+  "version": "1.0.0",
+  "type": "ui",
+  "description": "Provides a simple note-taking tab for quick notes and todos",
+  "author": "Pyxis Team",
+  "entry": "index.js",
+  "provides": {
+    "services": ["note-tab"]
+  },
+  "metadata": {
+    "publishedAt": "2025-01-01T00:00:00Z",
+    "updatedAt": "2025-01-01T00:00:00Z",
+    "tags": ["ui", "productivity", "notes"]
+  }
+}
