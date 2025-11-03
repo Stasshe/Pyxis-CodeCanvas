@@ -1,3 +1,4 @@
+Root
 .
 ├── CODE_OF_CONDUCT.md
 ├── Development
@@ -38,83 +39,6 @@
 │   │   └── NODE-RUNTIME.md
 │   └── pyxis-all.svg.svg
 ├── eslint.config.mjs
-├── extensions
-│   ├── README.md
-│   ├── _shared
-│   │   ├── systemModuleTypes.ts
-│   │   └── types.ts
-│   ├── lang-packs
-│   │   ├── ar
-│   │   │   ├── index.ts
-│   │   │   └── manifest.json
-│   │   ├── de
-│   │   │   ├── index.ts
-│   │   │   └── manifest.json
-│   │   ├── en
-│   │   │   ├── index.ts
-│   │   │   └── manifest.json
-│   │   ├── es
-│   │   │   ├── index.ts
-│   │   │   └── manifest.json
-│   │   ├── fr
-│   │   │   ├── index.ts
-│   │   │   └── manifest.json
-│   │   ├── hi
-│   │   │   ├── index.ts
-│   │   │   └── manifest.json
-│   │   ├── id
-│   │   │   ├── index.ts
-│   │   │   └── manifest.json
-│   │   ├── it
-│   │   │   ├── index.ts
-│   │   │   └── manifest.json
-│   │   ├── ja
-│   │   │   ├── index.ts
-│   │   │   └── manifest.json
-│   │   ├── ko
-│   │   │   ├── index.ts
-│   │   │   └── manifest.json
-│   │   ├── nl
-│   │   │   ├── index.ts
-│   │   │   └── manifest.json
-│   │   ├── pl
-│   │   │   ├── index.ts
-│   │   │   └── manifest.json
-│   │   ├── pt
-│   │   │   ├── index.ts
-│   │   │   └── manifest.json
-│   │   ├── ru
-│   │   │   ├── index.ts
-│   │   │   └── manifest.json
-│   │   ├── sv
-│   │   │   ├── index.ts
-│   │   │   └── manifest.json
-│   │   ├── th
-│   │   │   ├── index.ts
-│   │   │   └── manifest.json
-│   │   ├── tr
-│   │   │   ├── index.ts
-│   │   │   └── manifest.json
-│   │   ├── vi
-│   │   │   ├── index.ts
-│   │   │   └── manifest.json
-│   │   ├── zh
-│   │   │   ├── index.ts
-│   │   │   └── manifest.json
-│   │   └── zh-TW
-│   │       ├── index.ts
-│   │       └── manifest.json
-│   ├── note-tab
-│   │   ├── index.tsx
-│   │   └── manifest.json
-│   ├── registry.json
-│   ├── todo-panel
-│   │   ├── index.tsx
-│   │   └── manifest.json
-│   └── typescript-runtime
-│       ├── index.ts
-│       ├── manifest.json
-│       └── transpile.worker.ts
 ├── helper-code.txt
 ├── i18n.sh
 ├── initial_files
@@ -153,171 +77,12 @@
 ├── public
 │   ├── apple-touch-icon-precomposed.png
 │   ├── apple-touch-icon.png
-│   ├── extensions
-│   │   ├── README.md
-│   │   ├── _shared
-│   │   │   ├── systemModuleTypes.js
-│   │   │   └── types.js
-│   │   ├── lang-packs
-│   │   │   ├── ar
-│   │   │   │   ├── index.js
-│   │   │   │   └── manifest.json
-│   │   │   ├── de
-│   │   │   │   ├── index.js
-│   │   │   │   └── manifest.json
-│   │   │   ├── en
-│   │   │   │   ├── index.js
-│   │   │   │   └── manifest.json
-│   │   │   ├── es
-│   │   │   │   ├── index.js
-│   │   │   │   └── manifest.json
-│   │   │   ├── fr
-│   │   │   │   ├── index.js
-│   │   │   │   └── manifest.json
-│   │   │   ├── hi
-│   │   │   │   ├── index.js
-│   │   │   │   └── manifest.json
-│   │   │   ├── id
-│   │   │   │   ├── index.js
-│   │   │   │   └── manifest.json
-│   │   │   ├── it
-│   │   │   │   ├── index.js
-│   │   │   │   └── manifest.json
-│   │   │   ├── ja
-│   │   │   │   ├── index.js
-│   │   │   │   └── manifest.json
-│   │   │   ├── ko
-│   │   │   │   ├── index.js
-│   │   │   │   └── manifest.json
-│   │   │   ├── nl
-│   │   │   │   ├── index.js
-│   │   │   │   └── manifest.json
-│   │   │   ├── pl
-│   │   │   │   ├── index.js
-│   │   │   │   └── manifest.json
-│   │   │   ├── pt
-│   │   │   │   ├── index.js
-│   │   │   │   └── manifest.json
-│   │   │   ├── ru
-│   │   │   │   ├── index.js
-│   │   │   │   └── manifest.json
-│   │   │   ├── sv
-│   │   │   │   ├── index.js
-│   │   │   │   └── manifest.json
-│   │   │   ├── th
-│   │   │   │   ├── index.js
-│   │   │   │   └── manifest.json
-│   │   │   ├── tr
-│   │   │   │   ├── index.js
-│   │   │   │   └── manifest.json
-│   │   │   ├── vi
-│   │   │   │   ├── index.js
-│   │   │   │   └── manifest.json
-│   │   │   ├── zh
-│   │   │   │   ├── index.js
-│   │   │   │   └── manifest.json
-│   │   │   └── zh-TW
-│   │   │       ├── index.js
-│   │   │       └── manifest.json
-│   │   ├── note-tab
-│   │   │   ├── index.js
-│   │   │   └── manifest.json
-│   │   ├── registry.json
-│   │   ├── todo-panel
-│   │   │   ├── index.js
-│   │   │   └── manifest.json
-│   │   └── typescript-runtime
-│   │       ├── index.js
-│   │       ├── manifest.json
-│   │       └── transpile.worker.js
 │   ├── favicon.ico
 │   ├── favicon.png
 │   ├── file.svg
 │   ├── globe.svg
 │   ├── icon0.svg
 │   ├── icon1.png
-│   ├── locales
-│   │   ├── README.md
-│   │   ├── ar
-│   │   │   ├── common.json
-│   │   │   ├── detail.json
-│   │   │   └── welcome.json
-│   │   ├── de
-│   │   │   ├── common.json
-│   │   │   ├── detail.json
-│   │   │   └── welcome.json
-│   │   ├── en
-│   │   │   ├── common.json
-│   │   │   ├── detail.json
-│   │   │   └── welcome.json
-│   │   ├── es
-│   │   │   ├── common.json
-│   │   │   ├── detail.json
-│   │   │   └── welcome.json
-│   │   ├── fr
-│   │   │   ├── common.json
-│   │   │   ├── detail.json
-│   │   │   └── welcome.json
-│   │   ├── hi
-│   │   │   ├── common.json
-│   │   │   ├── detail.json
-│   │   │   └── welcome.json
-│   │   ├── id
-│   │   │   ├── common.json
-│   │   │   ├── detail.json
-│   │   │   └── welcome.json
-│   │   ├── it
-│   │   │   ├── common.json
-│   │   │   ├── detail.json
-│   │   │   └── welcome.json
-│   │   ├── ja
-│   │   │   ├── common.json
-│   │   │   ├── detail.json
-│   │   │   └── welcome.json
-│   │   ├── ko
-│   │   │   ├── common.json
-│   │   │   ├── detail.json
-│   │   │   └── welcome.json
-│   │   ├── nl
-│   │   │   ├── common.json
-│   │   │   ├── detail.json
-│   │   │   └── welcome.json
-│   │   ├── pl
-│   │   │   ├── common.json
-│   │   │   ├── detail.json
-│   │   │   └── welcome.json
-│   │   ├── pt
-│   │   │   ├── common.json
-│   │   │   ├── detail.json
-│   │   │   └── welcome.json
-│   │   ├── ru
-│   │   │   ├── common.json
-│   │   │   ├── detail.json
-│   │   │   └── welcome.json
-│   │   ├── sv
-│   │   │   ├── common.json
-│   │   │   ├── detail.json
-│   │   │   └── welcome.json
-│   │   ├── th
-│   │   │   ├── common.json
-│   │   │   ├── detail.json
-│   │   │   └── welcome.json
-│   │   ├── tr
-│   │   │   ├── common.json
-│   │   │   ├── detail.json
-│   │   │   └── welcome.json
-│   │   ├── vi
-│   │   │   ├── common.json
-│   │   │   ├── detail.json
-│   │   │   └── welcome.json
-│   │   ├── zh
-│   │   │   ├── common.json
-│   │   │   ├── detail.json
-│   │   │   └── welcome.json
-│   │   └── zh-TW
-│   │       ├── common.json
-│   │       ├── detail.json
-│   │       └── welcome.json
 │   ├── manifest.json
 │   ├── sw.js
 │   ├── web-app-manifest-192x192.png
@@ -517,20 +282,6 @@
 │   │   │   ├── exportRepo.ts
 │   │   │   ├── exportSingleFile.ts
 │   │   │   └── inlineHtmlAssets.ts
-│   │   ├── extensions
-│   │   │   ├── autoInstaller.ts
-│   │   │   ├── extensionLoader.ts
-│   │   │   ├── extensionManager.ts
-│   │   │   ├── extensionRegistry.ts
-│   │   │   ├── extensionsLogger.ts
-│   │   │   ├── index.ts
-│   │   │   ├── storage-adapter.ts
-│   │   │   ├── system-api
-│   │   │   │   ├── SidebarAPI.ts
-│   │   │   │   └── TabAPI.ts
-│   │   │   ├── systemModuleTypes.ts
-│   │   │   ├── transformImports.ts
-│   │   │   └── types.ts
 │   │   ├── fileWatcher.ts
 │   │   ├── fileWatcherBridge.ts
 │   │   ├── helper
@@ -633,15 +384,97 @@
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-135 directories, 499 files
+60 directories, 324 files
+
+=================================
+
+extensions/ 以下のディレクトリ構造:
+.
+├── README.md
+├── _shared
+│   ├── systemModuleTypes.ts
+│   └── types.ts
+├── lang-packs
+│   ├── ar
+│   │   ├── index.ts
+│   │   └── manifest.json
+│   ├── de
+│   │   ├── index.ts
+│   │   └── manifest.json
+│   ├── en
+│   │   ├── index.ts
+│   │   └── manifest.json
+│   ├── es
+│   │   ├── index.ts
+│   │   └── manifest.json
+│   ├── fr
+│   │   ├── index.ts
+│   │   └── manifest.json
+│   ├── hi
+│   │   ├── index.ts
+│   │   └── manifest.json
+│   ├── id
+│   │   ├── index.ts
+│   │   └── manifest.json
+│   ├── it
+│   │   ├── index.ts
+│   │   └── manifest.json
+│   ├── ja
+│   │   ├── index.ts
+│   │   └── manifest.json
+│   ├── ko
+│   │   ├── index.ts
+│   │   └── manifest.json
+│   ├── nl
+│   │   ├── index.ts
+│   │   └── manifest.json
+│   ├── pl
+│   │   ├── index.ts
+│   │   └── manifest.json
+│   ├── pt
+│   │   ├── index.ts
+│   │   └── manifest.json
+│   ├── ru
+│   │   ├── index.ts
+│   │   └── manifest.json
+│   ├── sv
+│   │   ├── index.ts
+│   │   └── manifest.json
+│   ├── th
+│   │   ├── index.ts
+│   │   └── manifest.json
+│   ├── tr
+│   │   ├── index.ts
+│   │   └── manifest.json
+│   ├── vi
+│   │   ├── index.ts
+│   │   └── manifest.json
+│   ├── zh
+│   │   ├── index.ts
+│   │   └── manifest.json
+│   └── zh-TW
+│       ├── index.ts
+│       └── manifest.json
+├── note-tab
+│   ├── index.tsx
+│   └── manifest.json
+├── registry.json
+├── todo-panel
+│   ├── index.tsx
+│   └── manifest.json
+└── typescript-runtime
+    ├── index.ts
+    ├── manifest.json
+    └── transpile.worker.ts
+
+26 directories, 51 files
+
+=================================
+
 
 src/*.ts, *.tsx の統計:
 合計行数: 45065
-合計文字数: 1451119
-合計ファイルサイズ(bytes): 1552928
+合計文字数: 1451112
+合計ファイルサイズ(bytes): 1552921
 
 開発時のdev container全体のサイズ(bytes): 2.5G	.
-==========
-ビルト済みファイルの行数: 26788
-合計文字数: 25584958
-合計ファイルサイズ(bytes): 26570134

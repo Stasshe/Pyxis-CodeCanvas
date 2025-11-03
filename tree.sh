@@ -1,4 +1,15 @@
-tree -I 'node_modules|.next|out|vscode-icons' > tree.txt
+echo "Root" > tree.txt
+tree -I 'node_modules|.next|out|vscode-icons|locales|extensions' >> tree.txt
+echo "" >> tree.txt
+echo "=================================" >> tree.txt
+echo "" >> tree.txt
+echo "extensions/ 以下のディレクトリ構造:" >> tree.txt
+cd extensions
+tree >> ../tree.txt
+cd ..
+echo "" >> tree.txt
+echo "=================================" >> tree.txt
+echo "" >> tree.txt
 
 echo "" >> tree.txt
 echo "src/*.ts, *.tsx の統計:" >> tree.txt
