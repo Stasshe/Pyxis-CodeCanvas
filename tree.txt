@@ -529,6 +529,7 @@
 │   │   │   │   ├── SidebarAPI.ts
 │   │   │   │   └── TabAPI.ts
 │   │   │   ├── systemModuleTypes.ts
+│   │   │   ├── transformImports.ts
 │   │   │   └── types.ts
 │   │   ├── fileWatcher.ts
 │   │   ├── fileWatcherBridge.ts
@@ -624,6 +625,7 @@
 │   ├── normalizeCjsEsm.imports.test.ts
 │   ├── normalizeCjsEsm.test.ts
 │   ├── npmInstall.test.ts
+│   ├── reactImportTransform.test.ts
 │   └── transform_real_files.test.ts
 ├── tree-built-out.sh
 ├── tree.sh
@@ -631,11 +633,15 @@
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-135 directories, 497 files
+135 directories, 499 files
 
 src/*.ts, *.tsx の統計:
-合計行数: 45025
-合計文字数: 1450319
-合計ファイルサイズ(bytes): 1551364
+合計行数: 45065
+合計文字数: 1451119
+合計ファイルサイズ(bytes): 1552928
 
 開発時のdev container全体のサイズ(bytes): 2.5G	.
+==========
+ビルト済みファイルの行数: 26788
+合計文字数: 25584958
+合計ファイルサイズ(bytes): 26570134
