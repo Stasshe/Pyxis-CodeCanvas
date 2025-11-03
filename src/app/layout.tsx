@@ -5,8 +5,10 @@ import './globals.css';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { GitHubUserProvider } from '@/context/GitHubUserContext';
 import { I18nProvider } from '@/context/I18nContext';
+import { TabProvider } from '@/context/TabContext';
 import { ToastContainer } from '@/components/Toast';
 import ExtensionInitializer from '@/components/ExtensionInitializer';
+import TabInitializer from '@/components/TabInitializer';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -175,9 +177,12 @@ export default function RootLayout({
         <I18nProvider>
           <ThemeProvider>
             <GitHubUserProvider>
-              {children}
-              <ExtensionInitializer />
-              <ToastContainer />
+              <TabProvider>
+                {children}
+                <TabInitializer />
+                <ExtensionInitializer />
+                <ToastContainer />
+              </TabProvider>
             </GitHubUserProvider>
           </ThemeProvider>
         </I18nProvider>

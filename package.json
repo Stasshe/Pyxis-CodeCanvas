@@ -64,7 +64,8 @@
     "tar-stream": "^3.1.7",
     "vm-browserify": "^1.1.2",
     "vscode-icons-js": "^11.6.1",
-    "yaml": "^2.8.1"
+    "yaml": "^2.8.1",
+    "zustand": "^5.0.8"
   },
   "devDependencies": {
     "@babel/helper-plugin-utils": "^7.27.1",
