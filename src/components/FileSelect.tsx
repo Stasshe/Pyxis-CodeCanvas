@@ -10,37 +10,23 @@ export default function FileSelectModal({
   onClose,
   files,
   onFileSelect,
-  currentProjectName,
-  onFilePreview,
-  editors,
-  setEditors,
-  setFileSelectState,
-  currentPaneIndex,
+  aiMode,
 }: {
   isOpen: boolean;
   onClose: () => void;
   files: FileItem[];
-  onFileSelect: (file: FileItem) => void;
-  currentProjectName?: string;
-  onFilePreview?: (file: FileItem) => void;
-  editors: EditorPane[];
-  setEditors: React.Dispatch<React.SetStateAction<EditorPane[]>>;
-  setFileSelectState: (state: { open: boolean; paneIdx: number | null }) => void;
-  currentPaneIndex: number | null;
+  onFileSelect?: (file: FileItem) => void;
+  aiMode?: boolean;
 }) {
-  const { colors } = useTheme();
   if (!isOpen) return null;
-  // OperationWindowに一任。FileTreeや入力欄は不要。
+  // [NEW ARCHITECTURE] OperationWindowに一任。FileTreeや入力欄は不要。
   return (
     <OperationWindow
       isVisible={isOpen}
       onClose={onClose}
       projectFiles={files}
       onFileSelect={onFileSelect}
-      editors={editors}
-      setEditors={setEditors}
-      setFileSelectState={setFileSelectState}
-      currentPaneIndex={currentPaneIndex}
+      aiMode={aiMode}
     />
   );
 }
