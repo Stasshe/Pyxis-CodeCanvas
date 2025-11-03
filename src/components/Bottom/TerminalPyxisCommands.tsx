@@ -10,6 +10,7 @@ import { exportPage } from '@/engine/export/exportPage';
 import { LOCALSTORAGE_KEY } from '@/context/config';
 import { clearAllTranslationCache, deleteTranslationCache } from '@/engine/i18n/storage-adapter';
 import { tree as treeOperation } from '@/engine/cmd/gitOperations/tree';
+import { storageService, STORES } from '@/engine/storage';
 
 // npm dependency size util is loaded dynamically where needed
 
@@ -472,6 +473,217 @@ export async function handlePyxisCommand(
           }
         } catch (e) {
           await writeOutput(`i18n-clear: エラー: ${(e as Error).message}`);
+        }
+        break;
+
+      case 'storage-tree':
+      case 'storage tree':
+        // Display pyxis-global IndexedDB structure (excluding lightning-fs and pyxis-project)
+        try {
+          await writeOutput('=== Pyxis Storage (pyxis-global) ===\n');
+
+          const allStores = Object.values(STORES);
+          let totalEntries = 0;
+
+          for (const storeName of allStores) {
+            try {
+              const entries = await storageService.getAll(storeName);
+              totalEntries += entries.length;
+
+              await writeOutput(`\n📁 ${storeName} (${entries.length} entries)`);
+
+              if (entries.length === 0) {
+                await writeOutput('  (empty)');
+              } else {
+                for (let i = 0; i < Math.min(entries.length, 10); i++) {
+                  const entry = entries[i];
+                  const timestamp = new Date(entry.timestamp).toLocaleString('ja-JP');
+                  const expires = entry.expiresAt
+                    ? ` | expires: ${new Date(entry.expiresAt).toLocaleString('ja-JP')}`
+                    : '';
+                  const dataSize =
+                    typeof entry.data === 'string'
+                      ? entry.data.length
+                      : JSON.stringify(entry.data).length;
+
+                  await writeOutput(
+                    `  [${i + 1}] id: ${entry.id} | ${dataSize} bytes | ${timestamp}${expires}`
+                  );
+                }
+
+                if (entries.length > 10) {
+                  await writeOutput(`  ... and ${entries.length - 10} more entries`);
+                }
+              }
+            } catch (err) {
+              await writeOutput(`  Error reading store ${storeName}: ${(err as Error).message}`);
+            }
+          }
+
+          await writeOutput(
+            `\n📊 Total: ${totalEntries} entries across ${allStores.length} stores`
+          );
+        } catch (e) {
+          await writeOutput(`storage-tree: エラー: ${(e as Error).message}`);
+        }
+        break;
+
+      case 'storage-clear':
+      case 'storage clear':
+        // Clear pyxis-global IndexedDB
+        // usage: storage-clear              -> clear all stores
+        //        storage-clear <store-name> -> clear specific store
+        try {
+          if (args.length === 0) {
+            await storageService.clearAll();
+            await writeOutput('storage-clear: 全てのストアを削除しました');
+          } else {
+            const storeName = args[0];
+            const validStores = Object.values(STORES);
+
+            if (validStores.includes(storeName as any)) {
+              await storageService.clear(storeName as any);
+              await writeOutput(`storage-clear: ${storeName} を削除しました`);
+            } else {
+              await writeOutput(
+                `storage-clear: 無効なストア名です。有効なストア: ${validStores.join(', ')}`
+              );
+            }
+          }
+        } catch (e) {
+          await writeOutput(`storage-clear: エラー: ${(e as Error).message}`);
+        }
+        break;
+
+      case 'storage-get':
+      case 'storage get':
+        // Get specific entry from pyxis-global
+        // usage: storage-get <store-name> <entry-id>
+        try {
+          if (args.length < 2) {
+            await writeOutput('Usage: storage-get <store-name> <entry-id>');
+          } else {
+            const storeName = args[0];
+            const entryId = args[1];
+            const validStores = Object.values(STORES);
+
+            if (!validStores.includes(storeName as any)) {
+              await writeOutput(
+                `storage-get: 無効なストア名です。有効なストア: ${validStores.join(', ')}`
+              );
+              break;
+            }
+
+            const data = await storageService.get(storeName as any, entryId);
+
+            if (data === null) {
+              await writeOutput(`storage-get: ${storeName}/${entryId} が見つかりませんでした`);
+            } else {
+              await writeOutput(`=== ${storeName}/${entryId} ===`);
+              const dataStr = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+              await writeOutput(dataStr);
+            }
+          }
+        } catch (e) {
+          await writeOutput(`storage-get: エラー: ${(e as Error).message}`);
+        }
+        break;
+
+      case 'storage-delete':
+      case 'storage delete':
+        // Delete specific entry from pyxis-global
+        // usage: storage-delete <store-name> <entry-id>
+        try {
+          if (args.length < 2) {
+            await writeOutput('Usage: storage-delete <store-name> <entry-id>');
+          } else {
+            const storeName = args[0];
+            const entryId = args[1];
+            const validStores = Object.values(STORES);
+
+            if (!validStores.includes(storeName as any)) {
+              await writeOutput(
+                `storage-delete: 無効なストア名です。有効なストア: ${validStores.join(', ')}`
+              );
+              break;
+            }
+
+            await storageService.delete(storeName as any, entryId);
+            await writeOutput(`storage-delete: ${storeName}/${entryId} を削除しました`);
+          }
+        } catch (e) {
+          await writeOutput(`storage-delete: エラー: ${(e as Error).message}`);
+        }
+        break;
+
+      case 'storage-clean':
+      case 'storage clean':
+        // Clean expired entries from pyxis-global
+        try {
+          await writeOutput('storage-clean: 期限切れエントリを削除中...');
+          await storageService.cleanExpired();
+          await writeOutput('storage-clean: 完了');
+        } catch (e) {
+          await writeOutput(`storage-clean: エラー: ${(e as Error).message}`);
+        }
+        break;
+
+      case 'storage-stats':
+      case 'storage stats':
+        // Display storage statistics
+        try {
+          await writeOutput('=== Pyxis Storage Statistics ===\n');
+
+          const allStores = Object.values(STORES);
+          let totalEntries = 0;
+          let totalSize = 0;
+          let expiredCount = 0;
+
+          for (const storeName of allStores) {
+            try {
+              const entries = await storageService.getAll(storeName);
+              let storeSize = 0;
+              let storeExpired = 0;
+              const now = Date.now();
+
+              for (const entry of entries) {
+                const dataSize =
+                  typeof entry.data === 'string'
+                    ? entry.data.length
+                    : JSON.stringify(entry.data).length;
+                storeSize += dataSize;
+
+                if (entry.expiresAt && now > entry.expiresAt) {
+                  storeExpired++;
+                }
+              }
+
+              totalEntries += entries.length;
+              totalSize += storeSize;
+              expiredCount += storeExpired;
+
+              const storeSizeKB = (storeSize / 1024).toFixed(2);
+              await writeOutput(
+                `${storeName}: ${entries.length} entries, ${storeSizeKB} KB${storeExpired > 0 ? ` (${storeExpired} expired)` : ''}`
+              );
+            } catch (err) {
+              await writeOutput(`${storeName}: Error - ${(err as Error).message}`);
+            }
+          }
+
+          const totalSizeKB = (totalSize / 1024).toFixed(2);
+          const totalSizeMB = (totalSize / (1024 * 1024)).toFixed(2);
+
+          await writeOutput(
+            `\n📊 Total: ${totalEntries} entries, ${totalSizeKB} KB (${totalSizeMB} MB)`
+          );
+          if (expiredCount > 0) {
+            await writeOutput(
+              `⚠️  ${expiredCount} expired entries (run 'storage-clean' to remove)`
+            );
+          }
+        } catch (e) {
+          await writeOutput(`storage-stats: エラー: ${(e as Error).message}`);
         }
         break;
 
