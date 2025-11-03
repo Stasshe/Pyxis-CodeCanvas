@@ -18,6 +18,8 @@ interface TabContextValue {
   removePane: (paneId: string) => void;
   updatePane: (paneId: string, updates: Partial<EditorPane>) => void;
   setActivePane: (paneId: string | null) => void;
+  splitPane: (paneId: string, direction: 'horizontal' | 'vertical') => void;
+  resizePane: (paneId: string, newSize: number) => void;
 
   // 状態取得
   panes: EditorPane[];
@@ -45,18 +47,23 @@ interface TabProviderProps {
 
 export const TabProvider: React.FC<TabProviderProps> = ({ children }) => {
   const store = useTabStore();
+  const [isHydrated, setIsHydrated] = React.useState(false);
 
-  // 初期化: デフォルトペインを作成
+  // Zustand persistの復元完了を待つ
   useEffect(() => {
-    if (store.panes.length === 0) {
-      const defaultPane: EditorPane = {
-        id: 'pane-1',
-        tabs: [],
-        activeTabId: '',
-      };
-      store.addPane(defaultPane);
-      store.setActivePane(defaultPane.id);
-    }
+    const checkHydration = async () => {
+      // persist APIを使って復元状態を確認
+      const state = useTabStore.getState();
+      console.log('[TabContext] Initial state check, panes:', state.panes.length);
+
+      // 少し待ってからhydration完了とみなす
+      setTimeout(() => {
+        setIsHydrated(true);
+        console.log('[TabContext] Hydration complete');
+      }, 50);
+    };
+
+    checkHydration();
   }, []);
 
   const value: TabContextValue = {
@@ -70,6 +77,8 @@ export const TabProvider: React.FC<TabProviderProps> = ({ children }) => {
     removePane: store.removePane,
     updatePane: store.updatePane,
     setActivePane: store.setActivePane,
+    splitPane: store.splitPane,
+    resizePane: store.resizePane,
     panes: store.panes,
     activePane: store.activePane,
     globalActiveTab: store.globalActiveTab,

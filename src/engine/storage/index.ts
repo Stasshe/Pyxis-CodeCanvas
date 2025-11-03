@@ -29,6 +29,7 @@ export const STORES = {
   KEYBINDINGS: 'keybindings', // ショートカットキー設定
   USER_PREFERENCES: 'user_preferences', // ユーザー設定
   EXTENSIONS: 'extensions', // 拡張機能データ
+  TAB_STATE: 'tab_state', // タブ・ペイン状態
 } as const;
 
 export type StoreName = (typeof STORES)[keyof typeof STORES];

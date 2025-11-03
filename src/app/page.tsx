@@ -17,6 +17,8 @@ import {
 } from '@/engine/helper/resize';
 import { useProject } from '@/engine/core/project';
 import initFileWatcherBridge from '@/engine/fileWatcherBridge';
+import { useTabContentRestore } from '@/hooks/useTabContentRestore';
+import { useProjectWelcome } from '@/hooks/useProjectWelcome';
 import { Project } from '@/types';
 import type { FileItem, MenuTab } from '@/types';
 import RightSidebar from '@/components/Right/RightSidebar';
@@ -46,11 +48,30 @@ export default function Home() {
   const [nodeRuntimeOperationInProgress, setNodeRuntimeOperationInProgress] = useState(false);
 
   const { colors } = useTheme();
-  const { panes, openTab, setPanes } = useTabContext();
+  const { panes: rawPanes, openTab, setPanes } = useTabContext();
+
+  // 重複したペインIDを除去（Zustand persistの復元タイミング問題への対策）
+  const panes = React.useMemo(() => {
+    const seen = new Set<string>();
+    return rawPanes.filter(pane => {
+      if (seen.has(pane.id)) {
+        console.warn('[page.tsx] Duplicate pane detected:', pane.id);
+        return false;
+      }
+      seen.add(pane.id);
+      return true;
+    });
+  }, [rawPanes]);
 
   // プロジェクト管理
   const { currentProject, projectFiles, loadProject, createProject, refreshProjectFiles } =
     useProject();
+
+  // タブコンテンツの復元と自動更新
+  useTabContentRestore(projectFiles);
+
+  // プロジェクト読み込み時のWelcomeタブ
+  useProjectWelcome(currentProject);
 
   // リサイズハンドラ
   const handleLeftResize = useLeftSidebarResize(leftSidebarWidth, setLeftSidebarWidth);
