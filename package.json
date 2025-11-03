@@ -71,7 +71,6 @@
     "@babel/helper-plugin-utils": "^7.27.1",
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
-    "@types/babel__standalone": "^7.1.9",
     "@types/html2pdf.js": "^0.10.0",
     "@types/jest": "29.5.3",
     "@types/node": "^20.19.2",
