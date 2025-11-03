@@ -35,6 +35,7 @@ interface TabContextValue {
   // セッション管理
   isLoading: boolean;
   isRestored: boolean;
+  isContentRestored: boolean; // コンテンツ復元完了フラグ
   saveSession: () => Promise<void>;
 }
 
@@ -55,6 +56,7 @@ interface TabProviderProps {
 export const TabProvider: React.FC<TabProviderProps> = ({ children }) => {
   const store = useTabStore();
   const [isLoading, setIsLoading] = useState(true);
+  const [isContentRestored, setIsContentRestored] = useState(false);
 
   // IndexedDBからセッションを復元
   useEffect(() => {
@@ -70,14 +72,44 @@ export const TabProvider: React.FC<TabProviderProps> = ({ children }) => {
         }
 
         console.log('[TabContext] Session restored successfully');
+
+        // タブが1つもない場合は即座にコンテンツ復元完了とする
+        const hasAnyTabs = session.tabs.panes.some((pane: any) => {
+          const checkPane = (p: any): boolean => {
+            if (p.tabs && p.tabs.length > 0) return true;
+            if (p.children) return p.children.some(checkPane);
+            return false;
+          };
+          return checkPane(pane);
+        });
+
+        if (!hasAnyTabs) {
+          console.log('[TabContext] No tabs to restore, marking as completed immediately');
+          setIsContentRestored(true);
+        }
       } catch (error) {
         console.error('[TabContext] Failed to restore session:', error);
+        // エラー時もコンテンツ復元完了としてUIをブロックしない
+        setIsContentRestored(true);
       } finally {
         setIsLoading(false);
       }
     };
 
     restoreSession();
+  }, []);
+
+  // コンテンツ復元完了イベントのリスナー
+  useEffect(() => {
+    const handleContentRestored = () => {
+      console.log('[TabContext] Content restoration completed');
+      setIsContentRestored(true);
+    };
+
+    window.addEventListener('pyxis-content-restored', handleContentRestored);
+    return () => {
+      window.removeEventListener('pyxis-content-restored', handleContentRestored);
+    };
   }, []);
 
   // セッション保存関数
@@ -154,6 +186,7 @@ export const TabProvider: React.FC<TabProviderProps> = ({ children }) => {
     findTabByPath: store.findTabByPath,
     isLoading,
     isRestored: !isLoading, // isLoadingの逆がisRestored
+    isContentRestored, // コンテンツ復元完了フラグ
     saveSession,
   };
 

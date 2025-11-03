@@ -12,10 +12,15 @@
  * - 文字数カウント
  * - デバウンス保存
  * - モデル管理とundo/redo履歴
+ *
+ * 改善点:
+ * - コンテンツ復元中はエディターをブロック（データ不整合防止）
+ * - 復元完了後に確実にエディターを再描画
  */
 
 import { useRef, useEffect, useCallback, useState } from 'react';
 import { useSettings } from '@/hooks/useSettings';
+import { useTabContext } from '@/context/TabContext';
 import type { Project } from '@/types';
 import type { EditorTab } from '@/engine/tabs/types';
 import { useCharCount } from './text-editor/hooks/useCharCount';
@@ -49,7 +54,11 @@ export default function CodeEditor({
   // プロジェクトIDは優先的に props の currentProject?.id を使い、なければ activeTab の projectId を参照
   const projectId = currentProject?.id || (activeTab as any)?.projectId || undefined;
   const { settings } = useSettings(projectId);
+  const { isContentRestored } = useTabContext();
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // コンテンツ復元中かどうかを判定
+  const isRestoringContent = activeTab && (activeTab as any).needsContentRestore && !isContentRestored;
 
   const {
     charCount,
@@ -167,6 +176,18 @@ export default function CodeEditor({
   // === タブなし ===
   if (!activeTab) {
     return <EditorPlaceholder type="no-tab" />;
+  }
+
+  // === コンテンツ復元中 ===
+  if (isRestoringContent) {
+    return (
+      <div
+        className="flex-1 min-h-0 relative flex items-center justify-center"
+        style={{ height: editorHeight }}
+      >
+        <div className="text-muted-foreground">Restoring content...</div>
+      </div>
+    );
   }
 
   // === CodeMirrorエディター ===

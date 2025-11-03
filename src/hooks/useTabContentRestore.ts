@@ -1,5 +1,5 @@
 // src/hooks/useTabContentRestore.ts
-import { useEffect } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useTabStore } from '@/stores/tabStore';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { FileItem, EditorPane } from '@/types';
@@ -41,91 +41,138 @@ function flattenPanes(panes: EditorPane[]): EditorPane[] {
  * タブのコンテンツを復元するカスタムフック
  *
  * 以下の2つの役割を持つ:
- * 1. IndexedDB復元後、needsContentRestoreフラグがあるタブのコンテンツを復元
+ * 1. IndexedDB復元後、needsContentRestoreフラグがあるタブのコンテンツを確実に復元
  * 2. FileRepositoryからのファイル変更イベントを監視し、開いているタブを自動更新
+ *
+ * 改善点:
+ * - 復元を1回だけ確実に実行（重複実行防止）
+ * - 復元状態を明示的に追跡
+ * - Monaco内部状態の強制同期
  */
 export function useTabContentRestore(projectFiles: FileItem[], isRestored: boolean) {
   const store = useTabStore();
+  const restorationCompleted = useRef(false);
+  const restorationInProgress = useRef(false);
 
   // パスを正規化する関数
-  const normalizePath = (p?: string) => {
+  const normalizePath = useCallback((p?: string) => {
     if (!p) return '';
     const withoutKindPrefix = p.includes(':') ? p.replace(/^[^:]+:/, '') : p;
     const cleaned = withoutKindPrefix.replace(/(-preview|-diff|-ai)$/, '');
     return cleaned.startsWith('/') ? cleaned : `/${cleaned}`;
-  };
+  }, []);
 
-  // 1. IndexedDB復元完了後、needsContentRestoreフラグのあるタブを復元
-  useEffect(() => {
-    // IndexedDB復元が完了していない、またはペインがない場合はスキップ
-    if (!isRestored || !store.panes.length) {
-      console.log('[useTabContentRestore] Waiting for session restoration...', {
-        isRestored,
-        panesLength: store.panes.length,
-      });
+  // コンテンツ復元を実行する関数（1回だけ確実に実行）
+  const performContentRestoration = useCallback(() => {
+    if (restorationCompleted.current || restorationInProgress.current) {
       return;
     }
 
-    // ペインをフラット化して、needsContentRestoreなタブが1つでもあれば復元
+    if (!isRestored || !store.panes.length) {
+      return;
+    }
+
     const flatPanes = flattenPanes(store.panes);
-    const needsRestore = flatPanes.some(pane =>
-      pane.tabs.some((tab: any) => tab.needsContentRestore)
+    const tabsNeedingRestore = flatPanes.flatMap(pane =>
+      pane.tabs.filter((tab: any) => tab.needsContentRestore)
     );
 
-    if (!needsRestore) {
+    // 復元が不要な場合も完了イベントを発火
+    if (tabsNeedingRestore.length === 0) {
+      restorationCompleted.current = true;
+      console.log('[useTabContentRestore] No tabs need restoration, marking as completed');
+      // 完了イベントを発火（復元不要でもUIのローディングを解除するため）
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('pyxis-content-restored'));
+      }, 100);
       return;
     }
 
-    console.log('[useTabContentRestore] Starting content restoration...');
+    // プロジェクトファイルがまだロードされていない場合は待機
+    if (!projectFiles.length) {
+      return;
+    }
 
-    // プロジェクトファイルを平坦化
+    restorationInProgress.current = true;
+    console.log(
+      '[useTabContentRestore] Starting content restoration for',
+      tabsNeedingRestore.length,
+      'tabs'
+    );
+
     const flattenedFiles = flattenFileItems(projectFiles);
 
-    // setPanesを使って再帰的に全ペインを更新
-    const updatePaneRecursive = (panes: EditorPane[]): EditorPane[] => {
-      return panes.map(pane => {
-        if (pane.children && pane.children.length > 0) {
-          return {
-            ...pane,
-            children: updatePaneRecursive(pane.children),
-          };
-        }
-        // リーフペインの場合、全タブを復元
-        return {
-          ...pane,
-          tabs: pane.tabs.map((tab: any) => {
-            if (!tab.needsContentRestore) return tab;
-            const correspondingFile = flattenedFiles.find(
-              f => normalizePath(f.path) === normalizePath(tab.path)
-            );
-            if (!correspondingFile) {
-              console.warn('[useTabContentRestore] File not found for tab:', tab.path);
-              return tab;
+    // 復元を非同期で実行（Monaco内部状態の同期を確実にするため）
+    requestAnimationFrame(() => {
+      try {
+        const updatePaneRecursive = (panes: EditorPane[]): EditorPane[] => {
+          return panes.map(pane => {
+            if (pane.children && pane.children.length > 0) {
+              return {
+                ...pane,
+                children: updatePaneRecursive(pane.children),
+              };
             }
-            console.log('[useTabContentRestore] Restoring tab:', tab.path);
-            return {
-              ...tab,
-              content: correspondingFile.content || '',
-              bufferContent: tab.isBufferArray ? correspondingFile.bufferContent : undefined,
-              isDirty: false,
-              needsContentRestore: false,
-            };
-          }),
-        };
-      });
-    };
 
-    store.setPanes(updatePaneRecursive(store.panes));
-  }, [
-    // 全ペインのタブIDとneedsContentRestoreフラグを監視（devブランチと同じ）
-    flattenPanes(store.panes)
-      .map(pane =>
-        pane.tabs.map((tab: any) => tab.id + ':' + (tab.needsContentRestore ? '1' : '0')).join(',')
-      )
-      .join(','),
-    projectFiles.length,
-    isRestored,
-  ]);
+            // リーフペインの場合、全タブを復元
+            return {
+              ...pane,
+              tabs: pane.tabs.map((tab: any) => {
+                if (!tab.needsContentRestore) return tab;
+
+                const correspondingFile = flattenedFiles.find(
+                  f => normalizePath(f.path) === normalizePath(tab.path)
+                );
+
+                if (!correspondingFile) {
+                  console.warn('[useTabContentRestore] File not found for tab:', tab.path);
+                  // ファイルが見つからない場合でもフラグは解除
+                  return {
+                    ...tab,
+                    needsContentRestore: false,
+                  };
+                }
+
+                console.log('[useTabContentRestore] ✓ Restored:', tab.path);
+
+                return {
+                  ...tab,
+                  content: correspondingFile.content || '',
+                  bufferContent: tab.isBufferArray ? correspondingFile.bufferContent : undefined,
+                  isDirty: false,
+                  needsContentRestore: false,
+                };
+              }),
+            };
+          });
+        };
+
+        store.setPanes(updatePaneRecursive(store.panes));
+
+        // 復元完了をマーク
+        restorationCompleted.current = true;
+        restorationInProgress.current = false;
+        console.log('[useTabContentRestore] Content restoration completed successfully');
+
+        // Monaco強制再描画イベントを発火（100ms後）
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('pyxis-force-monaco-refresh'));
+          // コンテンツ復元完了イベントも発火
+          window.dispatchEvent(new CustomEvent('pyxis-content-restored'));
+        }, 100);
+      } catch (error) {
+        console.error('[useTabContentRestore] Restoration failed:', error);
+        restorationInProgress.current = false;
+        // 失敗してもフラグは立てる（無限ループ防止）
+        restorationCompleted.current = true;
+      }
+    });
+  }, [isRestored, store, projectFiles, normalizePath]);
+
+  // 1. IndexedDB復元完了後、コンテンツを復元（1回だけ）
+  useEffect(() => {
+    performContentRestoration();
+  }, [performContentRestoration]);
 
   // 2. ファイル変更イベントのリスニング（devブランチと同じロジック）
   useEffect(() => {

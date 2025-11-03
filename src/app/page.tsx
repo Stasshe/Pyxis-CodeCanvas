@@ -49,7 +49,14 @@ export default function Home() {
   const [nodeRuntimeOperationInProgress] = useState(false);
 
   const { colors } = useTheme();
-  const { panes, isLoading: isTabsLoading, isRestored, openTab, setPanes } = useTabContext();
+  const {
+    panes,
+    isLoading: isTabsLoading,
+    isRestored,
+    isContentRestored,
+    openTab,
+    setPanes,
+  } = useTabContext();
   const {
     isOpen: isOperationWindowVisible,
     targetPaneId: operationWindowTargetPaneId,
@@ -261,14 +268,16 @@ export default function Home() {
         }}
       >
         {/* セッション復元中のローディング表示 */}
-        {isTabsLoading && (
+        {(isTabsLoading || (isRestored && !isContentRestored)) && (
           <div
             className="absolute inset-0 flex items-center justify-center z-50"
             style={{
               background: 'rgba(0, 0, 0, 0.5)',
             }}
           >
-            <div className="text-white text-lg">Loading session...</div>
+            <div className="text-white text-lg">
+              {isTabsLoading ? 'Loading session...' : 'Restoring content...'}
+            </div>
           </div>
         )}
 

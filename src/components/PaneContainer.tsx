@@ -147,7 +147,7 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
             />
           ) : (
             <div
-              className="flex flex-col items-center justify-center h-full gap-2"
+              className="flex flex-col items-center justify-center h-full gap-2 align-middle p-4 center-text"
               style={{ color: colors.mutedFg }}
             >
               <span style={{ fontWeight: 500, fontSize: '1.1em' }}>No active tab</span>

@@ -193,6 +193,10 @@ export default function MonacoEditor({
     if (isModelSafe(model) && model!.getValue() !== content) {
       try {
         model!.setValue(content);
+        // 強制的にエディタを再レイアウト（表示更新を確実にする）
+        if (isEditorSafe()) {
+          editorRef.current!.layout();
+        }
       } catch (e: any) {
         console.warn('[MonacoEditor] Model setValue failed:', e?.message);
       }
@@ -202,6 +206,41 @@ export default function MonacoEditor({
       onCharCountChange(countCharsNoSpaces(model!.getValue()));
     }
   }, [tabId, content, isEditorSafe, getOrCreateModel, isModelSafe, fileName]);
+
+  // 強制再描画イベントのリスナー（復元後のUI同期用）
+  useEffect(() => {
+    const handleForceRefresh = () => {
+      if (!isEditorSafe() || !monacoRef.current) return;
+
+      try {
+        console.log('[MonacoEditor] Force refresh triggered for tabId:', tabId);
+        const model = editorRef.current!.getModel();
+        
+        if (isModelSafe(model)) {
+          // モデルの値を再適用してUI同期
+          const currentValue = model!.getValue();
+          if (currentValue !== content) {
+            model!.setValue(content);
+          }
+          
+          // レイアウトを強制更新
+          editorRef.current!.layout();
+          
+          // 文字数も再計算
+          onCharCountChange(countCharsNoSpaces(content));
+          
+          console.log('[MonacoEditor] ✓ Force refresh completed');
+        }
+      } catch (e) {
+        console.warn('[MonacoEditor] Force refresh failed:', e);
+      }
+    };
+
+    window.addEventListener('pyxis-force-monaco-refresh', handleForceRefresh);
+    return () => {
+      window.removeEventListener('pyxis-force-monaco-refresh', handleForceRefresh);
+    };
+  }, [tabId, content, isEditorSafe, isModelSafe, onCharCountChange]);
 
   // ジャンプ機能
   useEffect(() => {
