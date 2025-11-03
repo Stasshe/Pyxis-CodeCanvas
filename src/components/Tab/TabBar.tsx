@@ -6,8 +6,9 @@ import { useTabContext } from '@/context/TabContext';
 import { useFileSelector } from '@/context/FileSelectorContext';
 import { useTranslation } from '@/context/I18nContext';
 import { useKeyBinding } from '@/hooks/useKeyBindings';
-import { Menu, Plus, X, FileText, SplitSquareVertical, SplitSquareHorizontal, Trash2, Save, Minus } from 'lucide-react';
+import { Menu, Plus, X, SplitSquareVertical, SplitSquareHorizontal, Trash2, Save, Minus } from 'lucide-react';
 import { useTabCloseConfirmation } from './useTabCloseConfirmation';
+import { TabIcon } from './TabIcon';
 
 interface TabBarProps {
   paneId: string;
@@ -326,7 +327,7 @@ export default function TabBar({ paneId }: TabBarProps) {
               onClick={() => handleTabClick(tab.id)}
               onContextMenu={(e) => handleTabRightClick(e, tab.id)}
             >
-              <FileText size={14} color={colors.fg} />
+              <TabIcon kind={tab.kind} filename={tab.name} size={14} color={colors.fg} />
               <span
                 className="text-sm truncate flex-1"
                 style={{ color: colors.fg }}
