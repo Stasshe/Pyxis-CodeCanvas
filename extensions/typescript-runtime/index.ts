@@ -113,6 +113,21 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
         const normalizeCjsEsmCode = normalizeCjsEsm.toString().replace(/^function\s+\w*\s*\([^)]*\)\s*{|}$/g, '');
         const extractDependenciesCode = extractDependencies.toString().replace(/^function\s+\w*\s*\([^)]*\)\s*{|}$/g, '');
         
+        // デバッグ: 関数コードが正しく取得できているか確認
+        context.logger?.info(`📝 normalizeCjsEsm code length: ${normalizeCjsEsmCode.length}`);
+        context.logger?.info(`📝 extractDependencies code length: ${extractDependenciesCode.length}`);
+        
+        if (!normalizeCjsEsmCode || normalizeCjsEsmCode.length < 10) {
+          reject(new Error('normalizeCjsEsm function code extraction failed'));
+          worker.terminate();
+          return;
+        }
+        if (!extractDependenciesCode || extractDependenciesCode.length < 10) {
+          reject(new Error('extractDependencies function code extraction failed'));
+          worker.terminate();
+          return;
+        }
+        
         // リクエスト送信
         worker.postMessage({
           id,

@@ -104,25 +104,56 @@ self.addEventListener('message', (event: MessageEvent<TranspileRequest>) => {
   const { id, code, filePath, isTypeScript, isJSX, normalizeCjsEsm: normalizeCjsEsmCode, extractDependencies: extractDependenciesCode } = event.data;
 
   try {
+    // Babelのロード確認
+    if (typeof Babel === 'undefined') {
+      throw new Error('Babel is not loaded. CDN may be blocked or importScripts failed.');
+    }
+
+    // 関数コードの受信確認
+    if (!normalizeCjsEsmCode) {
+      throw new Error('normalizeCjsEsm code not provided from main thread');
+    }
+    if (!extractDependenciesCode) {
+      throw new Error('extractDependencies code not provided from main thread');
+    }
+
     // 関数を初期化（初回のみ）
-    initializeFunctions(normalizeCjsEsmCode, extractDependenciesCode);
+    try {
+      initializeFunctions(normalizeCjsEsmCode, extractDependenciesCode);
+    } catch (fnError) {
+      throw new Error(`Function initialization failed: ${fnError instanceof Error ? fnError.message : String(fnError)}`);
+    }
 
     let transpiledCode = code;
 
     // TypeScript/JSXの場合はトランスパイル
     if (isTypeScript || isJSX) {
-      transpiledCode = transpileTypeScript(code, filePath, isJSX || false);
+      try {
+        transpiledCode = transpileTypeScript(code, filePath, isJSX || false);
+      } catch (tsError) {
+        throw new Error(`TypeScript transpile failed: ${tsError instanceof Error ? tsError.message : String(tsError)}`);
+      }
     }
 
     // CJS/ESM正規化
-    const normalizedCode = normalizeCjsEsm 
-      ? normalizeCjsEsm(transpiledCode)
-      : transpiledCode;
+    let normalizedCode: string;
+    try {
+      normalizedCode = normalizeCjsEsm 
+        ? normalizeCjsEsm(transpiledCode)
+        : transpiledCode;
+    } catch (normError) {
+      throw new Error(`normalizeCjsEsm failed: ${normError instanceof Error ? normError.message : String(normError)}`);
+    }
 
     // 依存関係抽出
-    const dependencies = extractDependencies
-      ? extractDependencies(normalizedCode)
-      : fallbackExtractDependencies(normalizedCode);
+    let dependencies: string[];
+    try {
+      dependencies = extractDependencies
+        ? extractDependencies(normalizedCode)
+        : fallbackExtractDependencies(normalizedCode);
+    } catch (depError) {
+      throw new Error(`extractDependencies failed: ${depError instanceof Error ? depError.message : String(depError)}`);
+    }
 
     const response: TranspileResponse = {
       id,
@@ -133,11 +164,12 @@ self.addEventListener('message', (event: MessageEvent<TranspileRequest>) => {
     self.postMessage(response);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
     const response: TranspileResponse = {
       id,
       code: '',
       dependencies: [],
-      error: errorMessage,
+      error: `[Worker Error] ${errorMessage}${errorStack ? '\nStack: ' + errorStack : ''}`,
     };
     self.postMessage(response);
   }
