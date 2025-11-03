@@ -7,6 +7,8 @@ export const LOCALSTORAGE_KEY = {
   LAST_EXECUTE_FILE: 'pyxis_last_executed_file',
   TERMINAL_HISTORY: 'pyxis_terminal_history_',
   LOCALE: 'pyxis-locale',
+  UI_STATE: 'pyxis-ui-state',
+  TAB_STATE: 'pyxis-tab-state',
 };
 
 export const DEFAULT_VALUES = {

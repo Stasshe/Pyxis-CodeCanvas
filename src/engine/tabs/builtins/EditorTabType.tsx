@@ -4,14 +4,18 @@ import { TabTypeDefinition, EditorTab, TabComponentProps, OpenTabOptions } from 
 import CodeEditor from '@/components/Tab/CodeEditor';
 import { useTabStore } from '@/stores/tabStore';
 import { useProject } from '@/engine/core/project';
+import { useSettings } from '@/hooks/useSettings';
 
 /**
  * エディタタブのコンポーネント
  */
 const EditorTabComponent: React.FC<TabComponentProps> = ({ tab, isActive }) => {
   const editorTab = tab as EditorTab;
-  const { saveFile } = useProject();
+  const { saveFile, currentProject } = useProject();
+  const { settings } = useSettings(currentProject?.id);
   const updateTab = useTabStore(state => state.updateTab);
+  
+  const wordWrapConfig = settings?.editor?.wordWrap ? 'on' : 'off';
 
   const handleContentChange = async (tabId: string, content: string) => {
     // タブのコンテンツを更新
@@ -32,11 +36,11 @@ const EditorTabComponent: React.FC<TabComponentProps> = ({ tab, isActive }) => {
   return (
     <CodeEditor
       activeTab={editorTab}
-      currentProject={undefined} // プロジェクトはコンテキストから取得
+      currentProject={currentProject || undefined}
       isCodeMirror={editorTab.isCodeMirror || false}
       bottomPanelHeight={200}
       isBottomPanelVisible={false}
-      wordWrapConfig="off"
+      wordWrapConfig={wordWrapConfig}
       onContentChange={handleContentChange}
       onImmediateContentChange={handleImmediateContentChange}
     />
