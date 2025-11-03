@@ -5,7 +5,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useTabContext } from '@/context/TabContext';
 import { useTranslation } from '@/context/I18nContext';
 import { useKeyBinding } from '@/hooks/useKeyBindings';
-import { Menu, Plus, X, FileText } from 'lucide-react';
+import { Menu, Plus, X, FileText, SplitSquareVertical, SplitSquareHorizontal } from 'lucide-react';
 import { useTabCloseConfirmation } from './useTabCloseConfirmation';
 
 interface TabBarProps {
@@ -29,6 +29,7 @@ export default function TabBar({ paneId }: TabBarProps) {
     openTab,
     removePane,
     moveTab,
+    splitPane,
     panes,
   } = useTabContext();
 
@@ -209,6 +210,7 @@ export default function TabBar({ paneId }: TabBarProps) {
               borderColor: colors.border,
             }}
           >
+            {/* タブ管理ボタン */}
             <button
               className="w-full text-left px-2 py-1 text-sm hover:bg-accent rounded"
               onClick={() => {
@@ -227,6 +229,33 @@ export default function TabBar({ paneId }: TabBarProps) {
             >
               {t('tabBar.closePane')}
             </button>
+            {/* 区切り線 */}
+            <div className="h-px bg-border my-1" />
+            {/* ペイン分割ボタン */}
+            <button
+              className="flex items-center gap-2 px-2 py-1 text-sm hover:bg-accent rounded"
+              onClick={() => {
+                splitPane(paneId, 'horizontal');
+                setMenuOpen(false);
+              }}
+              title={t('tabBar.splitVertical')}
+            >
+              <SplitSquareVertical size={16} color={colors.accentFg} />
+              <span>{t('tabBar.splitVertical')}</span>
+            </button>
+            <button
+              className="flex items-center gap-2 px-2 py-1 text-sm hover:bg-accent rounded"
+              onClick={() => {
+                splitPane(paneId, 'vertical');
+                setMenuOpen(false);
+              }}
+              title={t('tabBar.splitHorizontal')}
+            >
+              <SplitSquareHorizontal size={16} color={colors.accentFg} />
+              <span>{t('tabBar.splitHorizontal')}</span>
+            </button>
+
+
           </div>
         )}
       </div>

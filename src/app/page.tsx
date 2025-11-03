@@ -19,6 +19,7 @@ import { useProject } from '@/engine/core/project';
 import initFileWatcherBridge from '@/engine/fileWatcherBridge';
 import { useTabContentRestore } from '@/hooks/useTabContentRestore';
 import { useProjectWelcome } from '@/hooks/useProjectWelcome';
+import { sessionStorage } from '@/stores/sessionStorage';
 import { Project } from '@/types';
 import type { FileItem, MenuTab } from '@/types';
 import RightSidebar from '@/components/Right/RightSidebar';
@@ -48,20 +49,7 @@ export default function Home() {
   const [nodeRuntimeOperationInProgress, setNodeRuntimeOperationInProgress] = useState(false);
 
   const { colors } = useTheme();
-  const { panes: rawPanes, openTab, setPanes } = useTabContext();
-
-  // 重複したペインIDを除去（Zustand persistの復元タイミング問題への対策）
-  const panes = React.useMemo(() => {
-    const seen = new Set<string>();
-    return rawPanes.filter(pane => {
-      if (seen.has(pane.id)) {
-        console.warn('[page.tsx] Duplicate pane detected:', pane.id);
-        return false;
-      }
-      seen.add(pane.id);
-      return true;
-    });
-  }, [rawPanes]);
+  const { panes, isLoading: isTabsLoading, openTab, setPanes } = useTabContext();
 
   // プロジェクト管理
   const { currentProject, projectFiles, loadProject, createProject, refreshProjectFiles } =
@@ -88,69 +76,61 @@ export default function Home() {
     }
   }, []);
 
-  // UI状態のlocalStorage永続化
+  // UI状態の復元と保存（sessionStorage統合）
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    const restoreUIState = async () => {
       try {
-        const uiState = {
-          isLeftSidebarVisible,
-          isRightSidebarVisible,
-          isBottomPanelVisible,
-          leftSidebarWidth,
-          rightSidebarWidth,
-          bottomPanelHeight,
-        };
-        window.localStorage.setItem(LOCALSTORAGE_KEY.UI_STATE, JSON.stringify(uiState));
-      } catch (e) {
-        console.error('[page.tsx] Failed to save UI state:', e);
+        const session = await sessionStorage.load();
+        setLeftSidebarWidth(session.ui.leftSidebarWidth);
+        setRightSidebarWidth(session.ui.rightSidebarWidth);
+        setBottomPanelHeight(session.ui.bottomPanelHeight);
+        setIsLeftSidebarVisible(session.ui.isLeftSidebarVisible);
+        setIsRightSidebarVisible(session.ui.isRightSidebarVisible);
+        setIsBottomPanelVisible(session.ui.isBottomPanelVisible);
+        console.log('[page.tsx] UI state restored from session');
+      } catch (error) {
+        console.error('[page.tsx] Failed to restore UI state:', error);
       }
-    }
+    };
+
+    restoreUIState();
+  }, []);
+
+  // UI状態の自動保存（sessionStorage統合）
+  useEffect(() => {
+    if (isTabsLoading) return; // タブ読み込み中は保存しない
+
+    const timer = setTimeout(async () => {
+      try {
+        const session = await sessionStorage.load();
+        const updatedSession = {
+          ...session,
+          ui: {
+            leftSidebarWidth,
+            rightSidebarWidth,
+            bottomPanelHeight,
+            isLeftSidebarVisible,
+            isRightSidebarVisible,
+            isBottomPanelVisible,
+          },
+        };
+        await sessionStorage.save(updatedSession);
+        console.log('[page.tsx] UI state saved to session');
+      } catch (error) {
+        console.error('[page.tsx] Failed to save UI state:', error);
+      }
+    }, 1000); // 1秒のデバウンス
+
+    return () => clearTimeout(timer);
   }, [
-    isLeftSidebarVisible,
-    isRightSidebarVisible,
-    isBottomPanelVisible,
+    isTabsLoading,
     leftSidebarWidth,
     rightSidebarWidth,
     bottomPanelHeight,
+    isLeftSidebarVisible,
+    isRightSidebarVisible,
+    isBottomPanelVisible,
   ]);
-
-  // UI状態の復元
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = window.localStorage.getItem(LOCALSTORAGE_KEY.UI_STATE);
-        if (saved) {
-          const uiState = JSON.parse(saved);
-          if (typeof uiState.isLeftSidebarVisible === 'boolean')
-            setIsLeftSidebarVisible(uiState.isLeftSidebarVisible);
-          if (typeof uiState.isRightSidebarVisible === 'boolean')
-            setIsRightSidebarVisible(uiState.isRightSidebarVisible);
-          if (typeof uiState.isBottomPanelVisible === 'boolean')
-            setIsBottomPanelVisible(uiState.isBottomPanelVisible);
-          if (typeof uiState.leftSidebarWidth === 'number')
-            setLeftSidebarWidth(uiState.leftSidebarWidth);
-          if (typeof uiState.rightSidebarWidth === 'number')
-            setRightSidebarWidth(uiState.rightSidebarWidth);
-          if (typeof uiState.bottomPanelHeight === 'number')
-            setBottomPanelHeight(uiState.bottomPanelHeight);
-        }
-      } catch (e) {
-        console.error('[page.tsx] Failed to restore UI state:', e);
-      }
-    }
-  }, []);
-
-  // Git状態監視（簡易版）
-  useEffect(() => {
-    if (!currentProject) return;
-    // TODO: Git状態監視のロジックをフックに移動
-    const interval = setInterval(() => {
-      if (refreshProjectFiles) {
-        refreshProjectFiles();
-      }
-    }, 60000);
-    return () => clearInterval(interval);
-  }, [currentProject, refreshProjectFiles]);
 
   // メニュータブクリック
   const handleMenuTabClick = (tab: MenuTab) => {
@@ -274,6 +254,18 @@ export default function Home() {
           position: 'relative',
         }}
       >
+        {/* セッション復元中のローディング表示 */}
+        {isTabsLoading && (
+          <div
+            className="absolute inset-0 flex items-center justify-center z-50"
+            style={{
+              background: 'rgba(0, 0, 0, 0.5)',
+            }}
+          >
+            <div className="text-white text-lg">Loading session...</div>
+          </div>
+        )}
+
         <MenuBar
           activeMenuTab={activeMenuTab}
           onMenuTabClick={handleMenuTabClick}

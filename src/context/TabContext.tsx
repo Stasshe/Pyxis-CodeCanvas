@@ -1,8 +1,9 @@
 // src/context/TabContext.tsx
 'use client';
-import React, { createContext, useContext, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, ReactNode, useState } from 'react';
 import { useTabStore } from '@/stores/tabStore';
 import { OpenTabOptions, Tab, EditorPane } from '@/engine/tabs/types';
+import { sessionStorage } from '@/stores/sessionStorage';
 
 interface TabContextValue {
   // タブ操作
@@ -29,6 +30,10 @@ interface TabContextValue {
   getTab: (paneId: string, tabId: string) => Tab | null;
   getAllTabs: () => Tab[];
   findTabByPath: (path: string, kind?: string) => { paneId: string; tab: Tab } | null;
+
+  // セッション管理
+  isLoading: boolean;
+  saveSession: () => Promise<void>;
 }
 
 const TabContext = createContext<TabContextValue | null>(null);
@@ -47,24 +52,65 @@ interface TabProviderProps {
 
 export const TabProvider: React.FC<TabProviderProps> = ({ children }) => {
   const store = useTabStore();
-  const [isHydrated, setIsHydrated] = React.useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Zustand persistの復元完了を待つ
+  // IndexedDBからセッションを復元
   useEffect(() => {
-    const checkHydration = async () => {
-      // persist APIを使って復元状態を確認
-      const state = useTabStore.getState();
-      console.log('[TabContext] Initial state check, panes:', state.panes.length);
+    const restoreSession = async () => {
+      try {
+        console.log('[TabContext] Loading session from IndexedDB...');
+        const session = await sessionStorage.load();
 
-      // 少し待ってからhydration完了とみなす
-      setTimeout(() => {
-        setIsHydrated(true);
-        console.log('[TabContext] Hydration complete');
-      }, 50);
+        // TabStoreに状態を復元
+        store.setPanes(session.tabs.panes);
+        if (session.tabs.activePane) {
+          store.setActivePane(session.tabs.activePane);
+        }
+
+        console.log('[TabContext] Session restored successfully');
+      } catch (error) {
+        console.error('[TabContext] Failed to restore session:', error);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
-    checkHydration();
+    restoreSession();
   }, []);
+
+  // セッション保存関数
+  const saveSession = async () => {
+    const session = {
+      version: 1,
+      lastSaved: Date.now(),
+      tabs: {
+        panes: store.panes,
+        activePane: store.activePane,
+        globalActiveTab: store.globalActiveTab,
+      },
+      ui: {
+        // UIStateはpage.tsxから渡される想定（後で統合）
+        leftSidebarWidth: 240,
+        rightSidebarWidth: 240,
+        bottomPanelHeight: 200,
+        isLeftSidebarVisible: true,
+        isRightSidebarVisible: true,
+        isBottomPanelVisible: true,
+      },
+    };
+    await sessionStorage.save(session);
+  };
+
+  // TabStore の変更を監視して自動保存
+  useEffect(() => {
+    if (isLoading) return; // 初期ロード中は保存しない
+
+    const timer = setTimeout(() => {
+      saveSession().catch(console.error);
+    }, 1000); // 1秒のデバウンス
+
+    return () => clearTimeout(timer);
+  }, [store.panes, store.activePane, store.globalActiveTab, isLoading]);
 
   const value: TabContextValue = {
     openTab: store.openTab,
@@ -86,6 +132,8 @@ export const TabProvider: React.FC<TabProviderProps> = ({ children }) => {
     getTab: store.getTab,
     getAllTabs: store.getAllTabs,
     findTabByPath: store.findTabByPath,
+    isLoading,
+    saveSession,
   };
 
   return <TabContext.Provider value={value}>{children}</TabContext.Provider>;
