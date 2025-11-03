@@ -6,7 +6,7 @@ import { useTabContext } from '@/context/TabContext';
 import { useFileSelector } from '@/context/FileSelectorContext';
 import { useTranslation } from '@/context/I18nContext';
 import { useKeyBinding } from '@/hooks/useKeyBindings';
-import { Menu, Plus, X, FileText, SplitSquareVertical, SplitSquareHorizontal } from 'lucide-react';
+import { Menu, Plus, X, FileText, SplitSquareVertical, SplitSquareHorizontal, Trash2, Save, Minus } from 'lucide-react';
 import { useTabCloseConfirmation } from './useTabCloseConfirmation';
 
 interface TabBarProps {
@@ -44,6 +44,8 @@ export default function TabBar({ paneId }: TabBarProps) {
   // メニューの開閉状態管理
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  // メニューを閉じるヘルパー
+  const closeMenu = () => setMenuOpen(false);
 
   // タブコンテキストメニューの状態管理
   const [tabContextMenu, setTabContextMenu] = useState<{
@@ -210,52 +212,96 @@ export default function TabBar({ paneId }: TabBarProps) {
               borderColor: colors.border,
             }}
           >
-            {/* タブ管理ボタン */}
+            {/* タブ管理ボタン (dev ブランチに合わせた見た目/順序) */}
             <button
-              className="w-full text-left px-2 py-1 text-sm hover:bg-accent rounded"
+              className="flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors"
+              style={{ color: (colors as any).red }}
               onClick={() => {
-                handleRemoveAllTabs();
-                setMenuOpen(false);
+                closeMenu();
+                handleRemovePane();
               }}
+              title={t('tabBar.removePane')}
+              onMouseEnter={e => (e.currentTarget.style.background = (colors as any).accentBg)}
+              onMouseLeave={e => (e.currentTarget.style.background = '')}
             >
-              {t('tabBar.closeAllTabs')}
+              <Minus
+                size={16}
+                color={(colors as any).red}
+              />
+              <span style={{ color: (colors as any).foreground }}>{t('tabBar.removePane')}</span>
+            </button>
+            {/* ペイン分割 (dev と同じスタイルと順序) */}
+            <button
+              className="flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors"
+              style={{ color: colors.accentFg }}
+              onClick={() => {
+                closeMenu();
+                splitPane(paneId, 'horizontal');
+              }}
+              title={t('tabBar.splitVertical')}
+              onMouseEnter={e => (e.currentTarget.style.background = (colors as any).accentBg)}
+              onMouseLeave={e => (e.currentTarget.style.background = '')}
+            >
+              <SplitSquareVertical
+                size={16}
+                color={colors.accentFg}
+              />
+              <span style={{ color: (colors as any).foreground }}>{t('tabBar.splitVertical')}</span>
             </button>
             <button
-              className="w-full text-left px-2 py-1 text-sm hover:bg-accent rounded"
+              className="flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors"
+              style={{ color: colors.accentFg }}
               onClick={() => {
-                handleRemovePane();
-                setMenuOpen(false);
+                closeMenu();
+                splitPane(paneId, 'vertical');
               }}
+              title={t('tabBar.splitHorizontal')}
+              onMouseEnter={e => (e.currentTarget.style.background = (colors as any).accentBg)}
+              onMouseLeave={e => (e.currentTarget.style.background = '')}
             >
-              {t('tabBar.closePane')}
+              <SplitSquareHorizontal
+                size={16}
+                color={colors.accentFg}
+              />
+              <span style={{ color: (colors as any).foreground }}>{t('tabBar.splitHorizontal')}</span>
             </button>
             {/* 区切り線 */}
             <div className="h-px bg-border my-1" />
-            {/* ペイン分割ボタン */}
             <button
-              className="flex items-center gap-2 px-2 py-1 text-sm hover:bg-accent rounded"
+              className="flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors"
+              style={{ color: (colors as any).red }}
               onClick={() => {
-                splitPane(paneId, 'horizontal');
-                setMenuOpen(false);
+                closeMenu();
+                handleRemoveAllTabs();
               }}
-              title={t('tabBar.splitVertical')}
+              title={t('tabBar.removeAllTabs')}
+              onMouseEnter={e => (e.currentTarget.style.background = (colors as any).accentBg)}
+              onMouseLeave={e => (e.currentTarget.style.background = '')}
             >
-              <SplitSquareVertical size={16} color={colors.accentFg} />
-              <span>{t('tabBar.splitVertical')}</span>
+              <Trash2
+                size={16}
+                color={(colors as any).red}
+              />
+              <span style={{ color: (colors as any).foreground }}>{t('tabBar.removeAllTabs')}</span>
             </button>
             <button
-              className="flex items-center gap-2 px-2 py-1 text-sm hover:bg-accent rounded"
+              className="flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors"
+              style={{ color: (colors as any).primary }}
               onClick={() => {
-                splitPane(paneId, 'vertical');
-                setMenuOpen(false);
+                closeMenu();
+                // 保存して再起動 (dev に合わせる)
+                window.dispatchEvent(new CustomEvent('pyxis-save-restart'));
               }}
-              title={t('tabBar.splitHorizontal')}
+              title={t('tabBar.saveRestart')}
+              onMouseEnter={e => (e.currentTarget.style.background = (colors as any).accentBg)}
+              onMouseLeave={e => (e.currentTarget.style.background = '')}
             >
-              <SplitSquareHorizontal size={16} color={colors.accentFg} />
-              <span>{t('tabBar.splitHorizontal')}</span>
+              <Save
+                size={16}
+                color={(colors as any).primary}
+              />
+              <span style={{ color: (colors as any).foreground }}>{t('tabBar.saveRestart')}</span>
             </button>
-
-
           </div>
         )}
       </div>
