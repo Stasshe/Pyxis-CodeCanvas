@@ -49,14 +49,14 @@ export default function Home() {
   const [nodeRuntimeOperationInProgress, setNodeRuntimeOperationInProgress] = useState(false);
 
   const { colors } = useTheme();
-  const { panes, isLoading: isTabsLoading, openTab, setPanes } = useTabContext();
+  const { panes, isLoading: isTabsLoading, isRestored, openTab, setPanes } = useTabContext();
 
   // プロジェクト管理
   const { currentProject, projectFiles, loadProject, createProject, refreshProjectFiles } =
     useProject();
 
   // タブコンテンツの復元と自動更新
-  useTabContentRestore(projectFiles);
+  useTabContentRestore(projectFiles, isRestored);
 
   // プロジェクト読み込み時のWelcomeタブ
   useProjectWelcome(currentProject);

@@ -33,6 +33,7 @@ interface TabContextValue {
 
   // セッション管理
   isLoading: boolean;
+  isRestored: boolean;
   saveSession: () => Promise<void>;
 }
 
@@ -133,6 +134,7 @@ export const TabProvider: React.FC<TabProviderProps> = ({ children }) => {
     getAllTabs: store.getAllTabs,
     findTabByPath: store.findTabByPath,
     isLoading,
+    isRestored: !isLoading, // isLoadingの逆がisRestored
     saveSession,
   };
 

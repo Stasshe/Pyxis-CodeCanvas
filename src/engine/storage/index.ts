@@ -18,7 +18,7 @@
  */
 
 const DB_NAME = 'pyxis-global';
-const DB_VERSION = 2; // extensionsストア追加のためバージョンアップ
+const DB_VERSION = 3; // extensionsストア追加のためバージョンアップ
 
 /**
  * ストアの定義
