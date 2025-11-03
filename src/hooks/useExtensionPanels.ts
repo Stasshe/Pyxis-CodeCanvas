@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
+
 import { sidebarRegistry } from '@/engine/extensions/system-api/SidebarAPI';
 
 export interface ExtensionPanelInfo {

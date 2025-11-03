@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 
-import { GitCommands } from '@/engine/cmd/git';
 import { useTabContext } from '@/context/TabContext';
+import { GitCommands } from '@/engine/cmd/git';
 import type { SingleFileDiff } from '@/types';
 
 /**

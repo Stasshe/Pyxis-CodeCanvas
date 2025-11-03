@@ -3,8 +3,9 @@
  * Pyxis内のファイルから TODO: コメントを検索して一覧表示
  */
 
-import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
 import React, { useState, useEffect } from 'react';
+
+import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
 
 interface TodoItem {
   id: string;

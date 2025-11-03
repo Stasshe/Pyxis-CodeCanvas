@@ -4,9 +4,9 @@
  */
 
 import type { ExtensionContext } from '../types';
-import { useTabStore } from '@/stores/tabStore';
-import type { BaseTab } from '@/engine/tabs/types';
+
 import { tabRegistry } from '@/engine/tabs/TabRegistry';
+import { useTabStore } from '@/stores/tabStore';
 
 /**
  * 拡張機能用タブデータ

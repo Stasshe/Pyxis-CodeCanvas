@@ -132,7 +132,6 @@ class SessionStorageManager {
       return panes.map(pane => ({
         ...pane,
         tabs: pane.tabs.map(tab => {
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const { content, bufferContent, needsContentRestore, ...tabRest } = tab as any;
           return tabRest;
         }),

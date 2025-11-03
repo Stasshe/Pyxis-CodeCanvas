@@ -12,7 +12,7 @@
  * - moduleLoaderから使用される
  */
 
-import { runtimeInfo, runtimeWarn, runtimeError } from './runtimeLogger';
+import { runtimeInfo, runtimeError } from './runtimeLogger';
 import type { TranspileResult, TranspileRequest } from './transpileWorker';
 
 /**

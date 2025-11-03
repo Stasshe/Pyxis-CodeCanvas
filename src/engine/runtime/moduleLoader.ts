@@ -13,9 +13,10 @@ import { ModuleResolver } from './moduleResolver';
 import { normalizePath, dirname } from './pathUtils';
 import { runtimeInfo, runtimeWarn, runtimeError } from './runtimeLogger';
 import { transpileManager } from './transpileManager';
-import { extensionManager } from '@/engine/extensions/extensionManager';
 
 import { fileRepository } from '@/engine/core/fileRepository';
+import { extensionManager } from '@/engine/extensions/extensionManager';
+
 
 /**
  * モジュール実行キャッシュ（循環参照対策）

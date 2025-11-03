@@ -4,6 +4,20 @@
  */
 
 import {
+  fetchExtensionManifest,
+  fetchExtensionCode,
+  loadExtensionModule,
+  activateExtension,
+  deactivateExtension,
+} from './extensionLoader';
+import {
+  saveInstalledExtension,
+  loadInstalledExtension,
+  loadAllInstalledExtensions,
+  deleteInstalledExtension,
+} from './storage-adapter';
+import type { SystemModuleName, SystemModuleMap } from './systemModuleTypes';
+import {
   ExtensionStatus,
   type ExtensionManifest,
   type InstalledExtension,
@@ -11,21 +25,7 @@ import {
   type ExtensionContext,
   type ExtensionActivation,
 } from './types';
-import type { SystemModuleName, SystemModuleMap } from './systemModuleTypes';
-import {
-  saveInstalledExtension,
-  loadInstalledExtension,
-  loadAllInstalledExtensions,
-  deleteInstalledExtension,
-} from './storage-adapter';
-import {
-  fetchExtensionManifest,
-  fetchExtensionCode,
-  loadExtensionModule,
-  activateExtension,
-  deactivateExtension,
-} from './extensionLoader';
-import { storageService, STORES } from '@/engine/storage';
+
 
 /**
  * アクティブな拡張機能のキャッシュ

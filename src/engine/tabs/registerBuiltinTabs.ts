@@ -1,5 +1,4 @@
 // src/engine/tabs/registerBuiltinTabs.ts
-import { tabRegistry } from './TabRegistry';
 import {
   EditorTabType,
   DiffTabType,
@@ -10,6 +9,7 @@ import {
   PreviewTabType,
   BinaryTabType,
 } from './builtins';
+import { tabRegistry } from './TabRegistry';
 
 /**
  * ビルトインタブタイプを登録

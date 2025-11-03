@@ -3,8 +3,9 @@
  * TSX構文を使用した実装例
  */
 
-import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
 import React, { useState, useEffect } from 'react';
+
+import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
 
 // メモタブコンポーネント（TSX構文使用）
 function NoteTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {

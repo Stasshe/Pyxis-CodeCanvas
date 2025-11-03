@@ -3,13 +3,13 @@
  * 拡張機能のコードをfetchしてロード・実行する
  */
 
+import { extensionInfo, extensionError } from './extensionsLogger';
 import type {
   ExtensionManifest,
   ExtensionExports,
   ExtensionContext,
   ExtensionActivation,
 } from './types';
-import { extensionInfo, extensionError } from './extensionsLogger';
 
 /**
  * 拡張機能のベースURL（public/extensions/）

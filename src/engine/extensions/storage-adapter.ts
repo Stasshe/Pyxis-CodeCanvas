@@ -3,8 +3,9 @@
  * 拡張機能データをIndexedDBに保存するアダプター
  */
 
+import type { InstalledExtension } from './types';
+
 import { storageService, STORES } from '@/engine/storage';
-import type { InstalledExtension, ExtensionManifest } from './types';
 
 /**
  * インストール済み拡張機能をIndexedDBに保存

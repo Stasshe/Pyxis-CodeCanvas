@@ -1,7 +1,8 @@
 // src/stores/tabStore.ts
 import { create } from 'zustand';
-import { EditorPane, Tab, OpenTabOptions } from '@/engine/tabs/types';
+
 import { tabRegistry } from '@/engine/tabs/TabRegistry';
+import { EditorPane, Tab, OpenTabOptions } from '@/engine/tabs/types';
 
 interface TabStore {
   // ペイン管理

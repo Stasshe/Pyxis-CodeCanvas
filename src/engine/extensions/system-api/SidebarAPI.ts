@@ -3,8 +3,9 @@
  * 拡張機能がサイドバーパネルを追加するためのAPI
  */
 
-import type { ExtensionContext } from '../types';
 import type { ComponentType } from 'react';
+
+import type { ExtensionContext } from '../types';
 
 /**
  * サイドバーパネルの定義
