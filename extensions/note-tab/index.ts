@@ -19,6 +19,12 @@ function NoteTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
         setIsSaving(true);
         // ここでcontextのAPIを使って保存
         localStorage.setItem(`note-tab-${tab.id}`, content);
+        
+        // カスタムイベントを発火してノートリストを更新
+        window.dispatchEvent(new CustomEvent('note-updated', { 
+          detail: { noteKey: `note-tab-${tab.id}` } 
+        }));
+        
         setTimeout(() => setIsSaving(false), 500);
       }
     }, 1000);
@@ -116,6 +122,17 @@ function createNotesListPanel(context: ExtensionContext) {
 
     useEffect(() => {
       loadNotes();
+      
+      // ノート更新イベントをリッスン
+      const handleNoteUpdate = () => {
+        loadNotes();
+      };
+      
+      window.addEventListener('note-updated', handleNoteUpdate);
+      
+      return () => {
+        window.removeEventListener('note-updated', handleNoteUpdate);
+      };
     }, [isActive]);
 
     // ノートをクリックして開く
