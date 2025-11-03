@@ -278,10 +278,25 @@ export default function Home() {
   };
   const setTabsForAllPanes = (update: Tab[] | ((tabs: Tab[]) => Tab[])) => {
     setEditors(prevEditors => {
-      return prevEditors.map(editor => {
-        const updatedTabs = typeof update === 'function' ? update(editor.tabs) : update;
-        return { ...editor, tabs: updatedTabs };
-      });
+      // Recursively update all panes (including nested ones)
+      const updatePane = (pane: EditorPane): EditorPane => {
+        // Update tabs in this pane
+        const updatedTabs = typeof update === 'function' ? update(pane.tabs) : update;
+        const updatedPane = { ...pane, tabs: updatedTabs };
+
+        // If this pane has nested panes, update them recursively
+        if ((pane as any).leftPane || (pane as any).rightPane) {
+          return {
+            ...updatedPane,
+            leftPane: (pane as any).leftPane ? updatePane((pane as any).leftPane) : undefined,
+            rightPane: (pane as any).rightPane ? updatePane((pane as any).rightPane) : undefined,
+          } as any;
+        }
+
+        return updatedPane;
+      };
+
+      return prevEditors.map(editor => updatePane(editor));
     });
   };
 
@@ -298,14 +313,14 @@ export default function Home() {
     clearAIReview,
   } = useProject();
 
-  // [NEW ARCHITECTURE] タブコンテンツの自動更新は無効化
-  // useActiveTabContentRestoreフックがオンデマンドで復元を行う
-  // projectFilesの変更を監視して全タブを更新するのは無限ループの原因となるため削除
-  // 代わりに、以下の戦略を採用：
-  // 1. localStorage復元時: useActiveTabContentRestoreがアクティブタブの内容を復元
-  // 2. タブ切り替え時: useActiveTabContentRestoreがアクティブタブの内容を復元
-  // 3. ファイル編集時: handleTabContentChangeImmediateが即座に更新
-  // 4. 外部変更（Git等）: refreshProjectFiles後、useActiveTabContentRestoreが次回アクティブ時に復元
+  // [NEW ARCHITECTURE] タブコンテンツは完全にfileRepositoryのイベントシステムで管理
+  // 全てのファイル操作はfileRepository経由で行われ、変更は自動的にemitChangeで通知される
+  // useActiveTabContentRestoreがfileRepository.addChangeListenerでイベントを受信し、タブを更新
+  //
+  // フロー：
+  // 1. ファイル保存: fileRepository.saveFile() → emitChange() → useActiveTabContentRestore → タブ更新
+  // 2. エディタ入力: デバウンス保存のみ（タブの即時更新は不要、Monacoがvalueプロップで自動同期）
+  // 3. 外部変更: Terminal/AI/Git → fileRepository → emitChange → タブ自動更新
 
   const handleLeftResize = useLeftSidebarResize(leftSidebarWidth, setLeftSidebarWidth);
   const handleBottomResize = useBottomPanelResize(bottomPanelHeight, setBottomPanelHeight);
@@ -814,8 +829,9 @@ export default function Home() {
                       clearAIReview={clearAIReview}
                       refreshProjectFiles={refreshProjectFiles}
                       setGitRefreshTrigger={setGitRefreshTrigger}
+                      // 即時ローカル編集反映（isDirtyフラグを立てるためにPaneContainer/CodeEditorへ渡す）
+                      onTabContentChangeImmediate={handleTabContentChangeImmediate}
                       setFileSelectState={setFileSelectState}
-                      onTabContentChange={handleTabContentChangeImmediate}
                       isBottomPanelVisible={isBottomPanelVisible}
                       toggleBottomPanel={toggleBottomPanel}
                       nodeRuntimeOperationInProgress={nodeRuntimeOperationInProgress}

@@ -34,18 +34,19 @@ interface CodeEditorProps {
   isBottomPanelVisible: boolean;
   onContentChange: (tabId: string, content: string) => void;
   wordWrapConfig: 'on' | 'off';
-  onContentChangeImmediate: (tabId: string, content: string) => void;
   nodeRuntimeOperationInProgress?: boolean;
   currentProject?: Project;
   isCodeMirror?: boolean;
+  // 即時ローカル編集反映ハンドラ: 全ペーンの同ファイルタブに対して isDirty を立てる
+  onImmediateContentChange?: (tabId: string, content: string) => void;
 }
 
 export default function CodeEditor({
   activeTab,
   onContentChange,
-  onContentChangeImmediate,
   nodeRuntimeOperationInProgress = false,
   isCodeMirror = false,
+  onImmediateContentChange,
   currentProject,
   wordWrapConfig,
 }: CodeEditorProps) {
@@ -125,9 +126,14 @@ export default function CodeEditor({
       const currentTabId = tabId;
       const currentContent = content;
 
-      saveTimeoutRef.current = setTimeout(() => {
-        console.log('[CodeEditor_new] Debounced save triggered for:', currentTabId);
-        onContentChange(currentTabId, currentContent);
+      // One-shot: schedule single save after debounce interval. No retries.
+      saveTimeoutRef.current = setTimeout(async () => {
+        try {
+          console.log('[CodeEditor_new] Debounced save triggered for:', currentTabId);
+          await onContentChange(currentTabId, currentContent);
+        } catch (e) {
+          console.error('[CodeEditor_new] Debounced save failed:', e);
+        }
       }, 5000);
     },
     [onContentChange, nodeRuntimeOperationInProgress]
@@ -142,22 +148,24 @@ export default function CodeEditor({
     };
   }, []);
 
-  // エディター変更ハンドラー（即座の状態更新 + デバウンス保存）
+  // エディター変更ハンドラー（デバウンス保存のみ）
+  // [REMOVED] onContentChangeImmediate - fileRepositoryのイベントシステムで自動更新
+  // ユーザー入力時はデバウンス保存のみ行い、タブの更新はfileRepository.emitChangeに任せる
   const handleEditorChange = useCallback(
     (value: string) => {
       if (!activeTab) return;
-      // 1. 即時反映: 必ず最初に呼ぶ
-      if (onContentChangeImmediate) {
-        try {
-          onContentChangeImmediate(activeTab.id, value);
-        } catch (error: any) {
-          console.error('[CodeEditor_new] Error in onContentChangeImmediate:', error);
-        }
+      // 即時フラグ反映（isDirty を全ペーンに立てる）
+      try {
+        onImmediateContentChange?.(activeTab.id, value);
+      } catch (e) {
+        // 保険: 何か例外が起きても保存は続行する
+        console.error('[CodeEditor_new] onImmediateContentChange handler failed', e);
       }
-      // 2. デバウンス保存: 保存のみ担う
+
+      // デバウンス保存のみ実行
       debouncedSave(activeTab.id, value);
     },
-    [activeTab, onContentChangeImmediate, debouncedSave]
+    [activeTab, debouncedSave, onImmediateContentChange]
   );
 
   // === タブなし ===

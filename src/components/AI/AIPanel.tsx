@@ -166,29 +166,29 @@ export default function AIPanel({
   };
 
   // 変更を適用（suggestedContent -> contentへコピー）
+  // Terminalと同じアプローチ：fileRepositoryに保存し、イベントシステムに任せる
   const handleApplyChanges = async (filePath: string, newContent: string) => {
     if (!currentProject) return;
 
     try {
-      // 1) Save file first
+      console.log('[AIPanel] Applying changes to:', filePath);
+
+      // Use the provided saveFile prop (consistent with Terminal/project flow).
+      // This delegates to the project layer which in turn calls fileRepository and
+      // ensures any side-effects (sync, indexing) happen consistently.
       await saveFile(filePath, newContent);
 
-      // 2) Close any open review tab for this file so editor state updates immediately
-      closeAIReviewTab(filePath, setTabs, tabs);
+      // Clear AI review metadata for this file (non-blocking)
+      clearAIReview(filePath).catch(e => {
+        console.warn('[AIPanel] clearAIReview failed (non-critical):', e);
+      });
 
-      // Note: Tab content updates across all panes are handled automatically by the
-      // file repository event system (useActiveTabContentRestore hook in tab.ts).
-      // No need to update tabs directly here.
-
-      // Finally, clear AI review metadata for this file. Do this after updating
-      // the chat so the edit response update remains the latest visible state.
-      try {
-        await clearAIReview(filePath);
-      } catch (e) {
-        console.warn('[AIPanel] clearAIReview failed after apply:', e);
-      }
+      // NOTE: Do NOT manually close the review tab here. The caller (AIReviewTab)
+      // already handles closing when appropriate. Closing here caused timing races
+      // with editor debounced saves and resulted in overwrites on active tabs.
+      // Rely on fileRepository.emitChange -> useActiveTabContentRestore to update tabs.
     } catch (error) {
-      console.error('Failed to apply changes:', error);
+      console.error('[AIPanel] Failed to apply changes:', error);
       alert(`変更の適用に失敗しました: ${(error as Error).message}`);
     }
   };
