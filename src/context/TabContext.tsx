@@ -4,7 +4,6 @@ import React, { createContext, useContext, useEffect, ReactNode, useState } from
 import { useTabStore } from '@/stores/tabStore';
 import { OpenTabOptions, Tab, EditorPane } from '@/engine/tabs/types';
 import { sessionStorage } from '@/stores/sessionStorage';
-import { useFileSelector as useFileSelectorHook } from '@/context/FileSelectorContext';
 
 interface TabContextValue {
   // タブ操作

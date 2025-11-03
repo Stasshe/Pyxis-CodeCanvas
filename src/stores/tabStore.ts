@@ -52,16 +52,58 @@ export const useTabStore = create<TabStore>((set, get) => ({
 
   removePane: paneId =>
     set(state => {
-      const removePaneRecursive = (panes: EditorPane[]): EditorPane[] => {
-        return panes
-          .filter(p => p.id !== paneId)
-          .map(p => ({
-            ...p,
-            children: p.children ? removePaneRecursive(p.children) : undefined,
-          }));
+      // ルートレベルから削除する場合
+      const rootFiltered = state.panes.filter(p => p.id !== paneId);
+      if (rootFiltered.length !== state.panes.length) {
+        // ルートレベルで削除された場合、残りペインのサイズを調整
+        if (rootFiltered.length > 0) {
+          const newSize = 100 / rootFiltered.length;
+          const adjusted = rootFiltered.map(pane => ({ ...pane, size: newSize }));
+          return {
+            panes: adjusted,
+            activePane: state.activePane === paneId ? null : state.activePane,
+            globalActiveTab: state.activePane === paneId ? null : state.globalActiveTab,
+          };
+        }
+        return {
+          panes: [],
+          activePane: null,
+          globalActiveTab: null,
+        };
+      }
+
+      // 子ペインから削除する場合（再帰的）
+      const removePaneRecursive = (pane: EditorPane): EditorPane => {
+        if (!pane.children) return pane;
+
+        // 再帰的に子ペインを探索し、targetIdを削除
+        const updatedChildren = pane.children
+          .map(child => (child.id === paneId ? null : removePaneRecursive(child)))
+          .filter(Boolean) as EditorPane[];
+
+        // 子ペインが1つだけ残った場合、その子を現在のペインに昇格
+        if (updatedChildren.length === 1) {
+          const remainingChild = updatedChildren[0];
+          // 親ペインのsizeを維持
+          return {
+            ...remainingChild,
+            size: pane.size,
+          };
+        }
+
+        // サイズを再調整
+        if (updatedChildren.length > 0) {
+          const newSize = 100 / updatedChildren.length;
+          return {
+            ...pane,
+            children: updatedChildren.map(child => ({ ...child, size: newSize })),
+          };
+        }
+
+        return { ...pane, children: updatedChildren };
       };
 
-      const newPanes = removePaneRecursive(state.panes);
+      const newPanes = state.panes.map(pane => removePaneRecursive(pane));
 
       return {
         panes: newPanes,

@@ -37,7 +37,7 @@ export const useGitContext = () => {
  */
 export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContainerProps) {
   const { colors } = useTheme();
-  const { globalActiveTab } = useTabContext();
+  const { globalActiveTab, setPanes, panes: allPanes } = useTabContext();
 
   // 子ペインがある場合は分割レイアウトをレンダリング
   if (pane.children && pane.children.length > 0) {
@@ -91,9 +91,22 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
                       size: rightSize,
                     };
 
-                    // 親ペインを更新（TabContext経由）
-                    // Note: この部分は後でTabContextに適切なメソッドを追加する必要がある
-                    console.log('[PaneContainer] Resize:', leftSize, rightSize);
+                    // 親ペインを更新（再帰的にペインツリーを更新）
+                    const updatePaneRecursive = (panes: EditorPane[]): EditorPane[] => {
+                      return panes.map(p => {
+                        if (p.id === pane.id) {
+                          // 該当するペインの子を更新
+                          return { ...p, children: updatedChildren };
+                        }
+                        if (p.children) {
+                          // 再帰的に探索
+                          return { ...p, children: updatePaneRecursive(p.children) };
+                        }
+                        return p;
+                      });
+                    };
+
+                    setPanes(updatePaneRecursive(allPanes));
                   }}
                 />
               </div>
