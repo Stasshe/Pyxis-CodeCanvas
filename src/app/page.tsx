@@ -281,16 +281,6 @@ export default function Home() {
                 });
               }
             }}
-            onOpenShortcutKeys={() => {
-              openTab(
-                {
-                  name: 'Shortcut Keys',
-                  path: 'settings/shortcuts',
-                  settingsType: 'shortcuts',
-                } as any,
-                { kind: 'settings' }
-              );
-            }}
           />
         )}
 

@@ -4,9 +4,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { useTabContext } from '@/context/TabContext';
 import { useTranslation } from '@/context/I18nContext';
-import { useKeyBinding } from '@/hooks/useKeyBinding';
+import { useKeyBinding } from '@/hooks/useKeyBindings';
 import { Menu, Plus, X, FileText } from 'lucide-react';
-import { useTabCloseConfirmation } from '@/hooks/useTabCloseConfirmation';
+import { useTabCloseConfirmation } from './useTabCloseConfirmation';
 
 interface TabBarProps {
   paneId: string;

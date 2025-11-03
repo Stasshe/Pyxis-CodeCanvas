@@ -21,7 +21,6 @@ interface LeftSidebarProps {
   gitRefreshTrigger?: number;
   onRefresh?: () => void; // [NEW ARCHITECTURE] ファイルツリー再読み込み用
   onGitStatusChange?: (changesCount: number) => void;
-  onOpenShortcutKeys?: () => void;
 }
 
 export default function LeftSidebar({
@@ -34,7 +33,6 @@ export default function LeftSidebar({
   gitRefreshTrigger,
   onRefresh,
   onGitStatusChange,
-  onOpenShortcutKeys,
 }: LeftSidebarProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
@@ -181,10 +179,7 @@ export default function LeftSidebar({
             </div>
           )}
           {activeMenuTab === 'settings' && (
-            <SettingsPanel
-              currentProject={currentProject}
-              onOpenShortcutKeys={onOpenShortcutKeys}
-            />
+            <SettingsPanel currentProject={currentProject} />
           )}
         </div>
       </div>
