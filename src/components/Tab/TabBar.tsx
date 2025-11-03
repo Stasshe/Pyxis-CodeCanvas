@@ -405,7 +405,7 @@ export default function TabBar({ paneId }: TabBarProps) {
                 >
                   <div
                     className="w-2.5 h-2.5 rounded-full"
-                    style={{ backgroundColor: '#ffffff' }}
+                    style={{ backgroundColor: colors.foreground }}
                   />
                 </button>
               ) : (
