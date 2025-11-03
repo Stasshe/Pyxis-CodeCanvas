@@ -4,6 +4,7 @@
  */
 
 import { extensionInfo, extensionError } from './extensionsLogger';
+import { transformImports } from './transformImports';
 import type {
   ExtensionManifest,
   ExtensionExports,
@@ -115,36 +116,6 @@ export async function fetchExtensionCode(manifest: ExtensionManifest): Promise<{
     extensionError('Error fetching extension code:', error);
     return null;
   }
-}
-
-/**
- * import文を書き換えてグローバル変数から取得するように変換
- * 
- * Note: 文字列置換は推奨される方法ではないが、static siteの制約上、
- * ブラウザでdynamic importする際にReactを解決する最も現実的な方法。
- * Import Mapsは既存のバンドルと競合する可能性があるため採用していない。
- * 
- * 正規表現の順序を最適化し、一度のパスで全パターンを処理することで
- * 既に変換されたコードに対する誤った再変換を防止する。
- */
-function transformImports(code: string): string {
-  // すべてのReact importパターンを単一の正規表現で処理
-  // 複数行にまたがる可能性があるため、各パターンを順番に適用
-  return code.replace(
-    /import\s+React\s*,\s*\{([^}]+)\}\s+from\s+['"]react['"];?|import\s+React\s+from\s+['"]react['"];?|import\s+\{([^}]+)\}\s+from\s+['"]react['"];?/g,
-    (match, namedImportsWithDefault, namedImportsOnly) => {
-      // import React, { ... } from 'react'
-      if (namedImportsWithDefault) {
-        return `const React = window.__PYXIS_REACT__; const {${namedImportsWithDefault}} = React;`;
-      }
-      // import { ... } from 'react' (Reactのdefaultなし)
-      if (namedImportsOnly) {
-        return `const {${namedImportsOnly}} = window.__PYXIS_REACT__;`;
-      }
-      // import React from 'react'
-      return 'const React = window.__PYXIS_REACT__;';
-    }
-  );
 }
 
 /**
