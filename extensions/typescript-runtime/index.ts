@@ -73,7 +73,15 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
         
         context.logger?.info(`📦 Loading worker from: ${workerPath}`);
         
-        const worker = new Worker(workerPath);
+        let worker: Worker;
+        try {
+          worker = new Worker(workerPath);
+        } catch (workerError) {
+          const errorMsg = `Failed to create Worker from ${workerPath}: ${workerError instanceof Error ? workerError.message : String(workerError)}`;
+          context.logger?.error(`🔴 ${errorMsg}`);
+          reject(new Error(errorMsg));
+          return;
+        }
         
         // タイムアウト設定
         const timeout = setTimeout(() => {
@@ -97,8 +105,10 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
           const response = data as TranspileResponse;
           
           if (response.error) {
+            context.logger?.error(`🔴 Worker returned error for ${filePath}:`, response.error);
             reject(new Error(response.error));
           } else {
+            context.logger?.info(`✅ Worker success for ${filePath}`);
             resolve(response);
           }
         };
@@ -106,12 +116,14 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
         worker.onerror = (error) => {
           clearTimeout(timeout);
           worker.terminate();
-          reject(new Error(`Worker error: ${error.message}`));
+          const errorMsg = `Worker error for ${filePath}: ${error.message || 'Unknown error'}`;
+          context.logger?.error(`🔴 ${errorMsg}`, error);
+          reject(new Error(errorMsg));
         };
         
-        // normalizeCjsEsmとextractDependenciesの関数本体を文字列として取得
-        const normalizeCjsEsmCode = normalizeCjsEsm.toString().replace(/^function\s+\w*\s*\([^)]*\)\s*{|}$/g, '');
-        const extractDependenciesCode = extractDependencies.toString().replace(/^function\s+\w*\s*\([^)]*\)\s*{|}$/g, '');
+        // normalizeCjsEsmとextractDependenciesの関数全体を文字列として取得
+        const normalizeCjsEsmCode = normalizeCjsEsm.toString();
+        const extractDependenciesCode = extractDependencies.toString();
         
         // デバッグ: 関数コードが正しく取得できているか確認
         context.logger?.info(`📝 normalizeCjsEsm code length: ${normalizeCjsEsmCode.length}`);
@@ -140,7 +152,9 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
         });
         
       } catch (error) {
-        reject(error);
+        const errorMsg = `transpileWithWorker caught error: ${error instanceof Error ? error.message : String(error)}`;
+        context.logger?.error(`🔴 ${errorMsg}`, error);
+        reject(new Error(errorMsg));
       }
     });
   }
@@ -180,8 +194,18 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
           };
         }
       } catch (error) {
-        context.logger?.error(`❌ Transpile failed for ${filePath}:`, error);
-        throw error;
+        // エラーの詳細情報を取得
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorStack = error instanceof Error ? error.stack : undefined;
+        
+        context.logger?.error(`❌ Transpile failed for ${filePath}:`, {
+          message: errorMessage,
+          stack: errorStack,
+          error: error,
+        });
+        
+        // エラーを再スローして上位でキャッチできるようにする
+        throw new Error(`Transpile failed for ${filePath}: ${errorMessage}`);
       }
     },
 

@@ -39,10 +39,13 @@ let extractDependencies: ((code: string) => string[]) | null = null;
 // 関数を動的に初期化
 function initializeFunctions(normalizeCjsEsmCode?: string, extractDependenciesCode?: string) {
   if (normalizeCjsEsmCode && !normalizeCjsEsm) {
-    normalizeCjsEsm = new Function('code', normalizeCjsEsmCode) as (code: string) => string;
+    // 関数全体の文字列を評価して関数として取得
+    // eslint-disable-next-line no-eval
+    normalizeCjsEsm = eval(`(${normalizeCjsEsmCode})`) as (code: string) => string;
   }
   if (extractDependenciesCode && !extractDependencies) {
-    extractDependencies = new Function('code', extractDependenciesCode) as (code: string) => string[];
+    // eslint-disable-next-line no-eval
+    extractDependencies = eval(`(${extractDependenciesCode})`) as (code: string) => string[];
   }
 }
 
