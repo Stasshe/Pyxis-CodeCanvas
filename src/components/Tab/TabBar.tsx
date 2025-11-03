@@ -394,19 +394,34 @@ export default function TabBar({ paneId }: TabBarProps) {
               >
                 {displayName}
               </span>
-              {(tab as any).isDirty && <span className="w-2 h-2 rounded-full bg-accent" />}
-              <button
-                className="hover:bg-accent rounded p-0.5"
-                onClick={e => {
-                  e.stopPropagation();
-                  handleTabClose(tab.id);
-                }}
-              >
-                <X
-                  size={14}
-                  color={colors.fg}
-                />
-              </button>
+              {(tab as any).isDirty ? (
+                <button
+                  className="hover:bg-accent rounded p-0.5 flex items-center justify-center"
+                  onClick={e => {
+                    e.stopPropagation();
+                    handleTabClose(tab.id);
+                  }}
+                  title={t('tabBar.unsavedChanges')}
+                >
+                  <div
+                    className="w-2.5 h-2.5 rounded-full"
+                    style={{ backgroundColor: '#ffffff' }}
+                  />
+                </button>
+              ) : (
+                <button
+                  className="hover:bg-accent rounded p-0.5"
+                  onClick={e => {
+                    e.stopPropagation();
+                    handleTabClose(tab.id);
+                  }}
+                >
+                  <X
+                    size={14}
+                    color={colors.fg}
+                  />
+                </button>
+              )}
             </div>
           );
         })}
