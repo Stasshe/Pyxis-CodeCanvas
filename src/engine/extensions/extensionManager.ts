@@ -429,10 +429,6 @@ class ExtensionManager {
             const { fileRepository } = await import('@/engine/core/fileRepository');
             return fileRepository as SystemModuleMap[T];
           }
-          case 'storageService': {
-            const { storageService } = await import('@/engine/storage');
-            return storageService as SystemModuleMap[T];
-          }
           case 'normalizeCjsEsm': {
             const module = await import('@/engine/runtime/normalizeCjsEsm');
             return module as SystemModuleMap[T];

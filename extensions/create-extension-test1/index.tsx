@@ -44,6 +44,7 @@ function createCreateExtensionTest1Panel(context: ExtensionContext) {
     const openTab = () => {
       if (context.tabs) {
         const tabId = context.tabs.createTab({
+          id: 'create-extension-test1-tab',
           type: 'create-extension-test1',
           title: 'create-extension-test1-name',
           data: {},

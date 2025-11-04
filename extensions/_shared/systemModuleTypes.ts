@@ -28,17 +28,6 @@ export interface FileRepository {
   addChangeListener(listener: (event: any) => void): () => void;
 }
 
-/**
- * PyxisStorage - グローバルストレージAPI
- */
-export interface PyxisStorage {
-  set<T>(storeName: string, id: string, data: T, options?: { ttl?: number }): Promise<void>;
-  get<T>(storeName: string, id: string): Promise<T | null>;
-  getAll<T>(storeName: string): Promise<T[]>;
-  delete(storeName: string, id: string): Promise<void>;
-  deleteAll(storeName: string): Promise<void>;
-  has(storeName: string, id: string): Promise<boolean>;
-}
 
 /**
  * normalizeCjsEsm - CommonJS/ES Module変換ユーティリティ
@@ -66,7 +55,6 @@ export interface NormalizeCjsEsmModule {
  */
 export interface SystemModuleMap {
   fileRepository: FileRepository;
-  storageService: PyxisStorage;
   normalizeCjsEsm: NormalizeCjsEsmModule;
 }
 
