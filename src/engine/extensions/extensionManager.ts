@@ -220,8 +220,12 @@ class ExtensionManager {
       // コンテキストを作成
       const context = await this.createExtensionContext(extensionId);
 
-      // モジュールをロード
-      const exports = await loadExtensionModule(installed.cache.entryCode, context);
+      // モジュールをロード（追加ファイルも渡す）
+      const exports = await loadExtensionModule(
+        installed.cache.entryCode,
+        installed.cache.files || {},
+        context
+      );
       if (!exports) {
         throw new Error('Failed to load extension module');
       }

@@ -154,7 +154,63 @@ function buildExtensions() {
     }
   });
   
+  // manifest.jsonを更新して追加ファイルリストを自動生成
+  console.log('\n📝 Updating manifests with file lists...\n');
+  updateManifestsWithFileLists();
+  
   console.log(`\n✨ Extensions built: ${successFiles}/${totalFiles} TypeScript/TSX files`);
+}
+
+/**
+ * 各拡張機能のmanifest.jsonを更新して、追加ファイルのリストを自動生成
+ */
+function updateManifestsWithFileLists() {
+  const extensionDirs = fs.readdirSync(EXTENSIONS_DIST, { withFileTypes: true })
+    .filter(dirent => dirent.isDirectory())
+    .map(dirent => dirent.name);
+  
+  for (const extDir of extensionDirs) {
+    const extPath = path.join(EXTENSIONS_DIST, extDir);
+    const manifestPath = path.join(extPath, 'manifest.json');
+    
+    // manifest.jsonがない場合はスキップ
+    if (!fs.existsSync(manifestPath)) {
+      continue;
+    }
+    
+    try {
+      // manifestを読み込み
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+      
+      // エントリーポイントを取得（デフォルトはindex.js）
+      const entryFile = manifest.entry || 'index.js';
+      
+      // ディレクトリ内の全.jsファイルを取得
+      const allFiles = [];
+      walkDir(extPath, (filePath) => {
+        const relativePath = path.relative(extPath, filePath);
+        const ext = path.extname(filePath);
+        
+        // .jsファイルのみ対象、manifest.jsonとエントリーファイルは除外
+        if (ext === '.js' && relativePath !== entryFile && relativePath !== 'manifest.json') {
+          allFiles.push(relativePath);
+        }
+      });
+      
+      // 追加ファイルがある場合のみfilesフィールドを追加
+      if (allFiles.length > 0) {
+        manifest.files = allFiles;
+        
+        // manifestを書き戻し
+        fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+        
+        console.log(`✅ Updated ${extDir}/manifest.json with ${allFiles.length} additional files:`);
+        allFiles.forEach(file => console.log(`   - ${file}`));
+      }
+    } catch (error) {
+      console.error(`❌ Failed to update manifest for ${extDir}:`, error.message);
+    }
+  }
 }
 
 // 実行

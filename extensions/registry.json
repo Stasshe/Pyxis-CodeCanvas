@@ -161,6 +161,13 @@
       "manifestUrl": "/extensions/todo-panel/manifest.json",
       "defaultEnabled": false,
       "recommended": true
+    },
+    {
+      "id": "pyxis.test-multi-file",
+      "type": "service",
+      "manifestUrl": "/extensions/test-multi-file/manifest.json",
+      "defaultEnabled": false,
+      "recommended": false
     }
   ]
 }
