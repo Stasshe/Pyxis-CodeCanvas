@@ -95,13 +95,17 @@ async function bundleWithEsbuild(entryPoint, outfile, extDir) {
       platform: 'browser',
       format: 'esm',
       target: 'es2020',
-      jsx: 'transform',
-      jsxFactory: 'React.createElement',
-      jsxFragment: 'React.Fragment',
+      // TypeScriptのコンパイラオプションを明示的に上書き
+      tsconfigRaw: {
+        compilerOptions: {
+          jsx: 'react', // react-jsxではなくreactを使用
+          jsxFactory: 'window.__PYXIS_REACT__.createElement',
+          jsxFragmentFactory: 'window.__PYXIS_REACT__.Fragment',
+        }
+      },
       external: [
         'react',
         'react-dom',
-        'react/jsx-runtime',
         'react-dom/client',
       ],
       loader: {
@@ -121,6 +125,11 @@ async function bundleWithEsbuild(entryPoint, outfile, extDir) {
     // React のimportをグローバル参照に書き換え
     let code = fs.readFileSync(outfile, 'utf-8');
     
+    // React.createElementを使用する場合、Reactを先頭で定義する必要がある
+    // まずReactの定義があるか確認
+    const hasReactImport = /import\s+React\s+from\s+["']react["']/.test(code) ||
+                          /import\s+\{[^}]*\}\s+from\s+["']react["']/.test(code);
+    
     // import React from "react" -> const React = window.__PYXIS_REACT__
     code = code.replace(
       /import\s+React\s+from\s+["']react["'];?/g,
@@ -136,6 +145,11 @@ async function bundleWithEsbuild(entryPoint, outfile, extDir) {
       }
     );
     
+    // Reactのimportがない場合、React.createElementのために先頭で定義を追加
+    if (!hasReactImport && code.includes('React.createElement')) {
+      code = 'const React = window.__PYXIS_REACT__;\n' + code;
+    }
+    
     // import ReactDOM from "react-dom"
     code = code.replace(
       /import\s+\w+\s+from\s+["']react-dom["'];?/g,
@@ -145,6 +159,14 @@ async function bundleWithEsbuild(entryPoint, outfile, extDir) {
     // import { ... } from "react-dom"
     code = code.replace(
       /import\s+\{([^}]+)\}\s+from\s+["']react-dom["'];?/g,
+      (match, imports) => {
+        return `const {${imports}} = window.__PYXIS_REACT_DOM__;`;
+      }
+    );
+    
+    // import { ... } from "react-dom/client"
+    code = code.replace(
+      /import\s+\{([^}]+)\}\s+from\s+["']react-dom\/client["'];?/g,
       (match, imports) => {
         return `const {${imports}} = window.__PYXIS_REACT_DOM__;`;
       }

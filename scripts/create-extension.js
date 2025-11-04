@@ -542,6 +542,12 @@ async function main() {
       return;
     }
 
+    // npm/pnpmライブラリを使用するか確認
+    const usePnpm = await confirm('\nnpm/pnpmライブラリを使用しますか? (chart.js, lodash-esなど)');
+    if (usePnpm) {
+      config.usePnpm = true;
+    }
+
     // ディレクトリ作成
     const extensionDir = path.join(__dirname, '..', 'extensions', id);
     if (fs.existsSync(extensionDir)) {
@@ -580,11 +586,48 @@ async function main() {
     fs.writeFileSync(readmePath, generateREADME(config));
     console.log(`✅ 作成: README.md`);
 
+    // pnpmライブラリを使用する場合
+    if (config.usePnpm) {
+      // package.jsonを作成
+      const packageJsonPath = path.join(extensionDir, 'package.json');
+      const packageJson = {
+        name: id,
+        version: '1.0.0',
+        private: true,
+        description: config.description,
+        dependencies: {},
+        devDependencies: {
+          '@types/react': '^19'
+        }
+      };
+      fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2) + '\n');
+      console.log(`✅ 作成: package.json`);
+
+      // ガイドをコピー
+      const guideSrc = path.join(__dirname, 'extensions', 'EXTENSION-PNPM-GUIDE.md');
+      const guideDest = path.join(extensionDir, 'PNPM-GUIDE.md');
+      if (fs.existsSync(guideSrc)) {
+        fs.copyFileSync(guideSrc, guideDest);
+        console.log(`✅ コピー: PNPM-GUIDE.md (重要な注意事項)`);
+      }
+    }
+
     console.log('\n🎉 拡張機能のテンプレート作成完了！\n');
     console.log('次のステップ:');
-    console.log(`  1. extensions/${id}/index.${config.fileExtension} を編集`);
-    console.log('  2. node build-extensions.js を実行（registry.jsonも自動生成されます）');
-    console.log('  3. npm run dev で確認\n');
+    if (config.usePnpm) {
+      console.log(`  1. cd extensions/${id}`);
+      console.log('  2. pnpm install (依存関係をインストール)');
+      console.log('  3. pnpm add <library-name> (ライブラリを追加)');
+      console.log(`  4. extensions/${id}/index.${config.fileExtension} を編集`);
+      console.log('  5. node build-extensions.js を実行（プロジェクトルートで）');
+      console.log('  6. npm run dev で確認');
+      console.log('\n⚠️  重要: PNPM-GUIDE.md を必ず読んでください！');
+    } else {
+      console.log(`  1. extensions/${id}/index.${config.fileExtension} を編集`);
+      console.log('  2. node build-extensions.js を実行（registry.jsonも自動生成されます）');
+      console.log('  3. npm run dev で確認');
+    }
+    console.log('');
 
   } catch (error) {
     console.error('❌ エラーが発生しました:', error);
