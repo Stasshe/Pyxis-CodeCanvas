@@ -31,9 +31,10 @@ extensions/
 
 ## 開発フロー
 
-1. **拡張機能を作成** - `extensions/<extension-name>/`にTypeScript/TSXで記述
-2. **ビルド実行** - `node build-extensions.js`
+1. **拡張機能を作成** - `npm run create-extension`で対話形式でテンプレート作成、または手動で`extensions/<extension-name>/`にTypeScript/TSXで記述
+2. **ビルド実行** - `node build-extensions.js`（`registry.json`も自動生成されます）
 3. **自動配置** - `public/extensions/`にトランスパイル済みJavaScriptが配置される
+4. **ビルド&配置** - `npm run setup-build`で一括でできます。
 
 ## 拡張機能の種類
 
@@ -66,10 +67,11 @@ npm run create-extension
 5. タグ（オプション）
 
 テンプレートには以下が含まれます:
-- ✅ `manifest.json` - メタデータ
+- ✅ `manifest.json` - メタデータ（`defaultEnabled`フィールド含む）
 - ✅ `index.ts` または `index.tsx` - メインコード
 - ✅ `README.md` - ドキュメント
-- ✅ (オプション) `registry.json` への自動登録
+
+**重要:** `registry.json`は`node build-extensions.js`実行時に自動生成されます。手動での編集は不要です。
 
 ### 📝 手動作成
 
@@ -89,6 +91,7 @@ mkdir -p extensions/my-extension
   "type": "ui",
   "description": "拡張機能の説明",
   "author": "Your Name",
+  "defaultEnabled": false,
   "entry": "index.js",
   "metadata": {
     "publishedAt": "2025-01-01T00:00:00Z",
@@ -97,7 +100,9 @@ mkdir -p extensions/my-extension
 }
 ```
 
-**注意:** `provides` フィールドは不要です（マニフェストに書いても読み取られません）
+**重要フィールド:**
+- `defaultEnabled`: `true`にするとPyxis起動時に自動的に有効化されます
+- `provides` フィールドは不要です（読み取られません）
 
 #### 3. index.tsx を作成 (TSX推奨)
 

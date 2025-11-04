@@ -158,6 +158,10 @@ function buildExtensions() {
   console.log('\n📝 Updating manifests with file lists...\n');
   updateManifestsWithFileLists();
   
+  // registry.jsonを自動生成
+  console.log('\n📝 Generating registry.json...\n');
+  generateRegistry();
+  
   console.log(`\n✨ Extensions built: ${successFiles}/${totalFiles} TypeScript/TSX files`);
 }
 
@@ -211,6 +215,64 @@ function updateManifestsWithFileLists() {
       console.error(`❌ Failed to update manifest for ${extDir}:`, error.message);
     }
   }
+}
+
+/**
+ * registry.jsonを自動生成
+ * 各拡張機能のmanifest.jsonを読み取り、レジストリエントリを作成
+ */
+function generateRegistry() {
+  const registry = {
+    version: '1.0.0',
+    extensions: []
+  };
+  
+  // EXTENSIONS_DISTを走査して全ての拡張機能を見つける
+  function scanExtensions(dir, basePath = '') {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      
+      const fullPath = path.join(dir, entry.name);
+      const manifestPath = path.join(fullPath, 'manifest.json');
+      
+      // manifest.jsonがあればレジストリに追加
+      if (fs.existsSync(manifestPath)) {
+        try {
+          const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+          const relativePath = path.join(basePath, entry.name).replace(/\\/g, '/');
+          
+          registry.extensions.push({
+            id: manifest.id,
+            type: manifest.type,
+            manifestUrl: `/extensions/${relativePath}/manifest.json`,
+            defaultEnabled: manifest.defaultEnabled || false
+          });
+          
+          console.log(`✅ Added to registry: ${manifest.id} (defaultEnabled: ${manifest.defaultEnabled || false})`);
+        } catch (error) {
+          console.error(`❌ Failed to read manifest: ${manifestPath}`, error.message);
+        }
+      } else {
+        // サブディレクトリを再帰的にスキャン（例: lang-packs/ja/）
+        scanExtensions(fullPath, path.join(basePath, entry.name));
+      }
+    }
+  }
+  
+  scanExtensions(EXTENSIONS_DIST);
+  
+  // registry.jsonを書き出し
+  const registryPath = path.join(EXTENSIONS_DIST, 'registry.json');
+  fs.writeFileSync(registryPath, JSON.stringify(registry, null, 2) + '\n');
+  
+  console.log(`\n✅ Generated registry.json with ${registry.extensions.length} extensions`);
+  
+  // extensions/registry.jsonもコピー（開発用）
+  const devRegistryPath = path.join(EXTENSIONS_SRC, 'registry.json');
+  fs.copyFileSync(registryPath, devRegistryPath);
+  console.log(`✅ Copied to extensions/registry.json`);
 }
 
 // 実行

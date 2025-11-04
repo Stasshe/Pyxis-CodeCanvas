@@ -203,9 +203,6 @@ export interface ExtensionRegistry {
     /** 種類 */
     type: ExtensionType;
 
-    /** 推奨 (オプション) */
-    recommended?: boolean;
-
     /** デフォルトで有効 (オプション) */
     defaultEnabled?: boolean;
   }>;

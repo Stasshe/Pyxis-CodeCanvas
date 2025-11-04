@@ -60,3 +60,4 @@ scripts/i18n/*results.txt
 .eslintcache
 
 
+extensions/registry.json

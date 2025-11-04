@@ -54,14 +54,11 @@ UIコンポーネントのタイプを選択してください:
 ✅ 作成: index.tsx
 ✅ 作成: README.md
 
-registry.jsonに追加しますか? (y/n): y
-✅ registry.jsonに追加しました
-
 🎉 拡張機能のテンプレート作成完了！
 
 次のステップ:
   1. extensions/hello-world/index.tsx を編集
-  2. node build-extensions.js を実行
+  2. node build-extensions.js を実行（registry.jsonも自動生成されます）
   3. npm run dev で確認
 ```
 
@@ -98,9 +95,6 @@ registry.jsonに追加しますか? (y/n): y
 ✅ 作成: index.ts
 ✅ 作成: README.md
 
-registry.jsonに追加しますか? (y/n): y
-✅ registry.jsonに追加しました
-
 🎉 拡張機能のテンプレート作成完了！
 ```
 
@@ -118,6 +112,7 @@ registry.jsonに追加しますか? (y/n): y
   "type": "ui",
   "description": "サンプルの拡張機能",
   "author": "Pyxis Team",
+  "defaultEnabled": false,
   "entry": "index.js",
   "metadata": {
     "publishedAt": "2025-11-04T00:00:00Z",
@@ -125,6 +120,8 @@ registry.jsonに追加しますか? (y/n): y
   }
 }
 ```
+
+**注意:** `defaultEnabled` をtrueにすると、Pyxis起動時に自動的に有効化されます。
 
 ### index.tsx (UI拡張機能の場合)
 

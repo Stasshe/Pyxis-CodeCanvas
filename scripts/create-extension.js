@@ -99,6 +99,7 @@ function generateManifest(config) {
     type: config.type,
     description: config.description,
     author: config.author,
+    defaultEnabled: false,
     entry: 'index.js'
   };
 
@@ -167,6 +168,18 @@ function create${componentName}Panel(context: ExtensionContext) {
       }
     }, [isActive]);
 
+    // タブを開く関数
+    const openTab = () => {
+      if (context.tabs) {
+        const tabId = context.tabs.createTab({
+          type: '${id}',
+          title: '${name}',
+          data: {},
+        });
+        context.logger?.info(\`Tab opened: \${tabId}\`);
+      }
+    };
+
     return (
       <div
         style={{
@@ -181,6 +194,26 @@ function create${componentName}Panel(context: ExtensionContext) {
         <div style={{ marginBottom: '8px', fontWeight: 'bold' }}>
           ${name}
         </div>
+        
+        ${componentType === 'both' ? `{/* タブを開くボタン */}
+        <button
+          onClick={openTab}
+          style={{
+            width: '100%',
+            padding: '8px',
+            marginBottom: '8px',
+            background: '#007acc',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '12px',
+          }}
+        >
+          Open ${name} Tab
+        </button>
+        
+        ` : ''}
         {/* ここにパネルのコンテンツを追加 */}
         <div style={{ fontSize: '12px', color: '#888' }}>
           パネルID: {panelId}
@@ -203,10 +236,18 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
 `;
 
   if (componentType === 'tab' || componentType === 'both') {
-    code += `  // タブコンポーネントを登録
+    code += `  // タブタイプを登録
   if (context.tabs) {
+    // タブタイプとして登録（${id}というタイプ名で識別される）
     context.tabs.registerTabType(${componentName}TabComponent);
-    context.logger?.info('Tab component registered');
+    context.logger?.info('Tab type "${id}" registered');
+    
+    ${componentType === 'tab' ? `// デフォルトでタブを1つ開く
+    context.tabs.createTab({
+      type: '${id}',
+      title: '${name}',
+      data: {},
+    });` : ''}
   }
 
 `;
@@ -538,28 +579,10 @@ async function main() {
     fs.writeFileSync(readmePath, generateREADME(config));
     console.log(`✅ 作成: README.md`);
 
-    // レジストリに追加するかどうか
-    const addToRegistry = await confirm('\nregistry.jsonに追加しますか?');
-    if (addToRegistry) {
-      const registryPath = path.join(__dirname, '..', 'extensions', 'registry.json');
-      const registry = JSON.parse(fs.readFileSync(registryPath, 'utf-8'));
-      
-      registry.extensions.push({
-        id: `pyxis.${id}`,
-        type: type,
-        manifestUrl: `/extensions/${id}/manifest.json`,
-        defaultEnabled: false,
-        recommended: false
-      });
-
-      fs.writeFileSync(registryPath, JSON.stringify(registry, null, 2) + '\n');
-      console.log('✅ registry.jsonに追加しました');
-    }
-
     console.log('\n🎉 拡張機能のテンプレート作成完了！\n');
     console.log('次のステップ:');
     console.log(`  1. extensions/${id}/index.${config.fileExtension} を編集`);
-    console.log('  2. node build-extensions.js を実行');
+    console.log('  2. node build-extensions.js を実行（registry.jsonも自動生成されます）');
     console.log('  3. npm run dev で確認\n');
 
   } catch (error) {
