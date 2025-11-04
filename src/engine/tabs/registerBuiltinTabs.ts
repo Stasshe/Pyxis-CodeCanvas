@@ -8,6 +8,7 @@ import {
   WelcomeTabType,
   PreviewTabType,
   BinaryTabType,
+  ExtensionInfoTabType,
 } from './builtins';
 import { tabRegistry } from './TabRegistry';
 
@@ -23,6 +24,7 @@ export function registerBuiltinTabs() {
   tabRegistry.register(WelcomeTabType);
   tabRegistry.register(PreviewTabType);
   tabRegistry.register(BinaryTabType);
+  tabRegistry.register(ExtensionInfoTabType);
 
   console.log('[TabRegistry] Builtin tab types registered');
 }

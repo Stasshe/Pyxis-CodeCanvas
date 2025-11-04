@@ -99,7 +99,7 @@ class MemoryCache {
 /**
  * IndexedDB管理クラス
  */
-export class PyxisStorage {
+class PyxisStorage {
   private db: IDBDatabase | null = null;
   private initPromise: Promise<IDBDatabase> | null = null;
   private cache = new MemoryCache();

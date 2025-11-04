@@ -85,6 +85,6 @@ export default [
     },
   },
   {
-    ignores: ['out', 'node_modules', '*.js', '.next', 'dist', 'build', 'public', 'coverage', '**/*.d.ts'],
+    ignores: ['out', 'node_modules', '*.js', '.next', 'dist', 'build', 'public', 'coverage', '**/*.d.ts', 'scripts/extensions/samples'],
   },
 ];

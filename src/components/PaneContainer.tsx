@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext } from 'react';
 import { useTheme } from '@/context/ThemeContext';
-import { useTabContext } from '@/context/TabContext';
+import { useTabStore } from '@/stores/tabStore';
 import TabBar from '@/components/Tab/TabBar';
 import PaneResizer from '@/components/PaneResizer';
 import { tabRegistry } from '@/engine/tabs/TabRegistry';
@@ -37,7 +37,7 @@ export const useGitContext = () => {
  */
 export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContainerProps) {
   const { colors } = useTheme();
-  const { globalActiveTab, setPanes, panes: allPanes } = useTabContext();
+  const { globalActiveTab, setPanes, panes: allPanes } = useTabStore();
 
   // 子ペインがある場合は分割レイアウトをレンダリング
   if (pane.children && pane.children.length > 0) {

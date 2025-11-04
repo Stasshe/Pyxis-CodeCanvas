@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronDown, ChevronRight, Keyboard } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
-import { useTabContext } from '@/context/TabContext';
+import { useTabStore } from '@/stores/tabStore';
 import { downloadWorkspaceZip } from '@/engine/export/exportRepo';
 import type { Project } from '@/types';
 import { settingsManager } from '@/engine/helper/settingsManager';
@@ -16,7 +16,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
   const [includeGit, setIncludeGit] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const { t } = useTranslation();
-  const { openTab } = useTabContext();
+  const { openTab } = useTabStore();
   const {
     colors,
     setColor,

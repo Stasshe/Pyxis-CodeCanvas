@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from '@/context/I18nContext';
 import { FileItem } from '@/types';
 import { useTheme } from '@/context/ThemeContext';
-import { useTabContext } from '@/context/TabContext';
+import { useTabStore } from '@/stores/tabStore';
 import { useSettings } from '@/hooks/useSettings';
 import { useProject } from '@/engine/core/project';
 import { parseGitignore, isPathIgnored } from '@/engine/core/gitignore';
@@ -96,7 +96,7 @@ export default function OperationWindow({
 }: OperationWindowProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
-  const { openTab } = useTabContext();
+  const { openTab } = useTabStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [mdPreviewPrompt, setMdPreviewPrompt] = useState<null | { file: FileItem }>(null);

@@ -4,7 +4,7 @@ import { FileItem } from '@/types';
 import { useTheme } from '@/context/ThemeContext';
 import { useTranslation } from '@/context/I18nContext';
 import { useSettings } from '@/hooks/useSettings';
-import { useTabContext } from '@/context/TabContext';
+import { useTabStore } from '@/stores/tabStore';
 
 interface SearchPanelProps {
   files: FileItem[];
@@ -23,7 +23,7 @@ interface SearchResult {
 export default function SearchPanel({ files, projectId }: SearchPanelProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
-  const { openTab } = useTabContext();
+  const { openTab } = useTabStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);

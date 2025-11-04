@@ -20,7 +20,7 @@
 
 import { useRef, useEffect, useCallback, useState } from 'react';
 import { useSettings } from '@/hooks/useSettings';
-import { useTabContext } from '@/context/TabContext';
+import { useTabStore } from '@/stores/tabStore';
 import type { Project } from '@/types';
 import type { EditorTab } from '@/engine/tabs/types';
 import { useCharCount } from './text-editor/hooks/useCharCount';
@@ -52,14 +52,19 @@ export default function CodeEditor({
   wordWrapConfig,
 }: CodeEditorProps) {
   // プロジェクトIDは優先的に props の currentProject?.id を使い、なければ activeTab の projectId を参照
-  const projectId = currentProject?.id || (activeTab as any)?.projectId || undefined;
+  const projectId =
+    currentProject?.id ||
+    (activeTab && 'projectId' in activeTab ? (activeTab as any).projectId : undefined);
   const { settings } = useSettings(projectId);
-  const { isContentRestored } = useTabContext();
+  const { isContentRestored } = useTabStore();
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // コンテンツ復元中かどうかを判定
   const isRestoringContent =
-    activeTab && (activeTab as any).needsContentRestore && !isContentRestored;
+    activeTab &&
+    'needsContentRestore' in activeTab &&
+    (activeTab as any).needsContentRestore &&
+    !isContentRestored;
 
   const {
     charCount,
@@ -231,8 +236,8 @@ export default function CodeEditor({
         fileName={activeTab.name}
         content={activeTab.content}
         wordWrapConfig={wordWrapConfig}
-        jumpToLine={(activeTab as any).jumpToLine}
-        jumpToColumn={(activeTab as any).jumpToColumn}
+        jumpToLine={activeTab.jumpToLine}
+        jumpToColumn={activeTab.jumpToColumn}
         onChange={handleEditorChange}
         onCharCountChange={setCharCount}
         onSelectionCountChange={setSelectionCount}

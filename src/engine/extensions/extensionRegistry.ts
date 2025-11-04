@@ -117,13 +117,3 @@ export async function getDefaultEnabledExtensions(): Promise<string[]> {
 
   return registry.extensions.filter(e => e.defaultEnabled).map(e => e.manifestUrl);
 }
-
-/**
- * 推奨拡張機能のリストを取得
- */
-export async function getRecommendedExtensions(): Promise<string[]> {
-  const registry = await fetchRegistry();
-  if (!registry) return [];
-
-  return registry.extensions.filter(e => e.recommended).map(e => e.manifestUrl);
-}

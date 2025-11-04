@@ -28,17 +28,6 @@ export interface FileRepository {
   addChangeListener(listener: (event: any) => void): () => void;
 }
 
-/**
- * PyxisStorage - グローバルストレージAPI
- */
-export interface PyxisStorage {
-  set<T>(storeName: string, id: string, data: T, options?: { ttl?: number }): Promise<void>;
-  get<T>(storeName: string, id: string): Promise<T | null>;
-  getAll<T>(storeName: string): Promise<T[]>;
-  delete(storeName: string, id: string): Promise<void>;
-  deleteAll(storeName: string): Promise<void>;
-  has(storeName: string, id: string): Promise<boolean>;
-}
 
 /**
  * normalizeCjsEsm - CommonJS/ES Module変換ユーティリティ
@@ -62,12 +51,42 @@ export interface NormalizeCjsEsmModule {
 }
 
 /**
+ * CommandRegistry - コマンド登録・実行API
+ */
+export interface CommandRegistry {
+  // コマンド登録
+  registerCommand(
+    commandName: string,
+    handler: (args: string[], context: CommandContext) => Promise<string>
+  ): () => void;
+  
+  // コマンド実行
+  executeCommand(commandName: string, args: string[]): Promise<string>;
+  
+  // コマンド一覧取得
+  getRegisteredCommands(): string[];
+  
+  // コマンド登録確認
+  hasCommand(commandName: string): boolean;
+}
+
+/**
+ * コマンド実行時のコンテキスト
+ */
+export interface CommandContext {
+  projectName: string;
+  projectId: string;
+  currentDirectory: string;
+  fileSystem: any; // FS instance
+}
+
+/**
  * システムモジュールの型マップ
  */
 export interface SystemModuleMap {
   fileRepository: FileRepository;
-  storageService: PyxisStorage;
   normalizeCjsEsm: NormalizeCjsEsmModule;
+  commandRegistry: CommandRegistry;
 }
 
 /**

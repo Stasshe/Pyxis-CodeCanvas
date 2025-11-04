@@ -92,8 +92,10 @@ class ExtensionManager {
     // Reactをグローバルに提供（拡張機能から使えるように）
     if (typeof window !== 'undefined') {
       const React = await import('react');
+      const ReactDOM = await import('react-dom');
       (window as any).__PYXIS_REACT__ = React;
-      console.log('[ExtensionManager] React provided globally for extensions');
+      (window as any).__PYXIS_REACT_DOM__ = ReactDOM;
+      console.log('[ExtensionManager] React and ReactDOM provided globally for extensions');
     }
 
     // インストール済み & 有効化済みの拡張機能を読み込み
@@ -220,8 +222,12 @@ class ExtensionManager {
       // コンテキストを作成
       const context = await this.createExtensionContext(extensionId);
 
-      // モジュールをロード
-      const exports = await loadExtensionModule(installed.cache.entryCode, context);
+      // モジュールをロード（追加ファイルも渡す）
+      const exports = await loadExtensionModule(
+        installed.cache.entryCode,
+        installed.cache.files || {},
+        context
+      );
       if (!exports) {
         throw new Error('Failed to load extension module');
       }
@@ -270,8 +276,8 @@ class ExtensionManager {
 
       const active = this.activeExtensions.get(extensionId);
       if (!active) {
-        console.log('[ExtensionManager] Extension not active:', extensionId);
-        return true;
+        console.log('[ExtensionManager] Extension not enabled:', extensionId);
+        return false;
       }
 
       // TabAPIとSidebarAPIをクリーンアップ
@@ -284,6 +290,10 @@ class ExtensionManager {
           (context as any)._sidebarAPI.dispose();
         }
       }
+
+      // コマンドをクリーンアップ
+      const { commandRegistry } = await import('./commandRegistry');
+      commandRegistry.unregisterExtensionCommands(extensionId);
 
       // デアクティベート
       await deactivateExtension(active.exports);
@@ -303,7 +313,6 @@ class ExtensionManager {
         this.emitChange({
           type: 'disabled',
           extensionId,
-          manifest: installed.manifest,
         });
       }
 
@@ -425,13 +434,13 @@ class ExtensionManager {
             const { fileRepository } = await import('@/engine/core/fileRepository');
             return fileRepository as SystemModuleMap[T];
           }
-          case 'storageService': {
-            const { storageService } = await import('@/engine/storage');
-            return storageService as SystemModuleMap[T];
-          }
           case 'normalizeCjsEsm': {
             const module = await import('@/engine/runtime/normalizeCjsEsm');
             return module as SystemModuleMap[T];
+          }
+          case 'commandRegistry': {
+            const { commandRegistry } = await import('./commandRegistry');
+            return commandRegistry as SystemModuleMap[T];
           }
           default: {
             // TypeScriptの網羅性チェック用の変数
@@ -464,6 +473,23 @@ class ExtensionManager {
       removePanel: (panelId: string) => sidebarAPI.removePanel(panelId),
       onPanelActivate: (panelId: string, callback: any) =>
         sidebarAPI.onPanelActivate(panelId, callback),
+    };
+
+    // Commands APIを追加
+    const { commandRegistry } = await import('./commandRegistry');
+    context.commands = {
+      registerCommand: (commandName: string, handler: any) => {
+        // ハンドラーをラップして、ExtensionContextを含むCommandContextを作成
+        const wrappedHandler = async (args: string[], cmdContext: any) => {
+          // ExtensionContext全体をCommandContextとしてマージ
+          const fullContext = {
+            ...context, // ExtensionContext全体（getSystemModule, logger等を含む）
+            ...cmdContext, // Terminal側から渡されるプロジェクト情報
+          };
+          return handler(args, fullContext);
+        };
+        return commandRegistry.registerCommand(extensionId, commandName, wrappedHandler);
+      },
     };
 
     // APIインスタンスを保存（dispose用）

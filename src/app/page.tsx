@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
-import { useTabContext } from '@/context/TabContext';
+import { useTabStore } from '@/stores/tabStore';
 import { useFileSelector } from '@/context/FileSelectorContext';
 import useGlobalScrollLock from '@/hooks/useGlobalScrollLock';
 import { useKeyBinding } from '@/hooks/useKeyBindings';
@@ -56,7 +56,7 @@ export default function Home() {
     isContentRestored,
     openTab,
     setPanes,
-  } = useTabContext();
+  } = useTabStore();
   const {
     isOpen: isOperationWindowVisible,
     targetPaneId: operationWindowTargetPaneId,

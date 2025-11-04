@@ -2,7 +2,7 @@
 'use client';
 import React, { useState, useRef, useEffect } from 'react';
 import { useTheme } from '@/context/ThemeContext';
-import { useTabContext } from '@/context/TabContext';
+import { useTabStore } from '@/stores/tabStore';
 import { useFileSelector } from '@/context/FileSelectorContext';
 import { useTranslation } from '@/context/I18nContext';
 import { useKeyBinding } from '@/hooks/useKeyBindings';
@@ -35,7 +35,7 @@ export default function TabBar({ paneId }: TabBarProps) {
   const { openFileSelector } = useFileSelector();
 
   const { getPane, activateTab, closeTab, openTab, removePane, moveTab, splitPane, panes } =
-    useTabContext();
+    useTabStore();
 
   const pane = getPane(paneId);
   if (!pane) return null;

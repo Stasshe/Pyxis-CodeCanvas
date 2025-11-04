@@ -11,7 +11,7 @@ const fs = require('fs');
 const path = require('path');
 
 function readPkgVersion() {
-  const pkgPath = path.join(__dirname, '..', 'package.json');
+  const pkgPath = path.join(__dirname, '..', '..', 'package.json');
   const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
   return pkg.version;
 }
@@ -50,7 +50,7 @@ function updateFile(filePath, version) {
 
 function main() {
   const version = readPkgVersion();
-  const repoRoot = path.join(__dirname, '..');
+  const repoRoot = path.join(__dirname, '..', '..');
   const targets = [
     path.join(repoRoot, 'README.md'),
     path.join(repoRoot, 'README_en.md')

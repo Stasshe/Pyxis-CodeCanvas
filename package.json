@@ -1,19 +1,22 @@
 {
   "name": "pyxis",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "private": true,
   "scripts": {
-    "dev": "npm run setup-build && next dev --turbopack",
-    "build": "npm run setup-build && next build",
-    "start": "npm run setup-build && next start",
-    "setup-build": "rm -rf public/locales && cp -r locales public/locales && node initial_files_to_ts.js && node build-extensions.js && cp extensions/registry.json public/extensions/registry.json",
-    "format": "bash scripts/format_locales.sh && npx prettier --write src/",
+    "dev": "pnpm run setup-build && next dev --turbopack",
+    "build": "pnpm run setup-build && next build",
+    "start": "pnpm run setup-build && next start",
+    "setup-build": "rm -rf public/locales && cp -r locales public/locales && node scripts/build/initial_files_to_ts.js && node scripts/build/build-extensions.js && cp extensions/registry.json public/extensions/registry.json",
+    "format": "bash scripts/i18n/format_locales.sh && pnpm exec prettier --write src/",
     "lint": "eslint --cache --ext .ts,.tsx,.js,.jsx . --max-warnings=0",
     "lint:fix": "eslint --cache --ext .ts,.tsx,.js,.jsx . --fix",
     "prepare": "husky install",
     "test": "jest",
-    "update": "npm i && npm run build && node scripts/update-readmes-version.js && ./tree.sh && ./tree-built-out.sh",
-    "preview": "npx serve out"
+    "update": "pnpm install && pnpm run build && node scripts/chore/update-readmes-version.js && ./tree.sh && ./tree-built-out.sh",
+    "preview": "pnpm exec serve out",
+    "create-extension": "node scripts/extensions/create-extension.js",
+    "clean": "rm -rf node_modules package-lock.json",
+    "reinstall": "pnpm run clean && pnpm install"
   },
   "dependencies": {
     "@codemirror/lang-css": "^6.3.1",
@@ -80,6 +83,7 @@
     "@types/react-syntax-highlighter": "^15.5.13",
     "@types/tar-stream": "^3.1.4",
     "depcheck": "^1.4.7",
+    "esbuild": "^0.25.12",
     "eslint": "^9",
     "eslint-config-next": "15.3.4",
     "eslint-plugin-unused-imports": "^4.2.0",
@@ -91,6 +95,12 @@
     "ts-jest": "29.1.0",
     "ts-prune": "^0.10.3",
     "typescript": "^5",
-    "unimported": "^1.31.1"
+    "unimported": "^1.31.1",
+    "chalk": "^4.1.2",
+    "enquirer": "^2.3.6",
+    "ora": "^5.4.1",
+    "boxen": "^5.1.2",
+    "cli-table3": "^0.6.2",
+    "figures": "^3.2.0"
   }
 }

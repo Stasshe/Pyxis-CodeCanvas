@@ -2,12 +2,11 @@
 
 import { useCallback } from 'react';
 
-import { useTabContext } from '@/context/TabContext';
 import { useTabStore } from '@/stores/tabStore';
 import type { FileItem } from '@/types';
 
 export function useAIReview() {
-  const { openTab, closeTab } = useTabContext();
+  const { openTab, closeTab } = useTabStore();
 
   // [NEW ARCHITECTURE] AIレビュータブを開く
   const openAIReviewTab = useCallback(

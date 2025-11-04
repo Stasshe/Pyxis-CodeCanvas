@@ -41,7 +41,7 @@ export const BinaryTabType: TabTypeDefinition = {
       kind: 'binary',
       paneId,
       content: fileItem.content || '',
-      bufferContent: (fileItem as any).bufferContent,
+      bufferContent: fileItem.bufferContent,
       type: fileItem.type,
     } as BinaryTab;
   },

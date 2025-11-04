@@ -1,7 +1,7 @@
 import { useTheme } from '@/context/ThemeContext';
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from '@/context/I18nContext';
-import { useTabContext } from '@/context/TabContext';
+import { useTabStore } from '@/stores/tabStore';
 import { exportSingleFile } from '@/engine/export/exportSingleFile';
 import { exportFolderZip } from '@/engine/export/exportFolderZip';
 import { ChevronDown, ChevronRight } from 'lucide-react';
@@ -32,7 +32,7 @@ export default function FileTree({
 }: FileTreeProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
-  const { openTab } = useTabContext();
+  const { openTab } = useTabStore();
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
   const [menuHoveredIdx, setMenuHoveredIdx] = useState<number | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());

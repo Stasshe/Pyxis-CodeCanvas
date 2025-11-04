@@ -272,10 +272,8 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
     context.logger?.info('TODO sidebar panel registered');
   }
 
-  return {
-    services: {},
-    commands: {},
-  };
+  // UI拡張機能なので、services/commandsは不要
+  return {};
 }
 
 /**

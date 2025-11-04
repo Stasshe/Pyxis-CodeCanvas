@@ -14,7 +14,7 @@ const path = require("path");
 
 // Resolve repository root relative to this script so behavior does not depend on
 // the current working directory when the script is invoked.
-const ROOT = path.resolve(__dirname, '..');
+const ROOT = path.resolve(__dirname, '../..');
 
 const argv = process.argv.slice(2);
 const OPTS = {

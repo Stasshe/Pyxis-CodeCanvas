@@ -120,9 +120,14 @@ export async function fetchExtensionCode(manifest: ExtensionManifest): Promise<{
 
 /**
  * 拡張機能のコードを実行してモジュールをロード
+ *
+ * @param entryCode エントリーポイントのコード
+ * @param additionalFiles 追加ファイルのマップ (ファイル名 -> コード)
+ * @param context 拡張機能のコンテキスト
  */
 export async function loadExtensionModule(
   entryCode: string,
+  additionalFiles: Record<string, string>,
   context: ExtensionContext
 ): Promise<ExtensionExports | null> {
   try {
@@ -136,20 +141,77 @@ export async function loadExtensionModule(
       return null;
     }
 
-    // import文を書き換え
-    const transformedCode = transformImports(entryCode);
-
-    // デバッグ: 変換後のコードの最初の部分をログ出力
-    console.log('[ExtensionLoader] Transformed code preview:', transformedCode.slice(0, 500));
-
-    // import文を含むコードをdata URLとしてES Moduleで実行
-    // Blob + URL.createObjectURL を使ってdynamic importで読み込む
-    const blob = new Blob([transformedCode], { type: 'application/javascript' });
-    const url = URL.createObjectURL(blob);
+    // Blob URLのマップを作成（クリーンアップのため）
+    const blobUrls: string[] = [];
 
     try {
+      // Import Mapを作成
+      const importMap: Record<string, string> = {};
+
+      // 追加ファイルをBlobURLとして登録
+      for (const [filePath, code] of Object.entries(additionalFiles)) {
+        const transformedCode = transformImports(code);
+        const blob = new Blob([transformedCode], { type: 'application/javascript' });
+        const url = URL.createObjectURL(blob);
+        blobUrls.push(url);
+
+        // 相対パスをimport mapに登録
+        // 例: "helper.js" -> "./" + "helper.js" = "./helper.js"
+        //     "utils/math.js" -> "./" + "utils/math.js" = "./utils/math.js"
+        const normalizedPath = filePath.startsWith('./') ? filePath : `./${filePath}`;
+
+        // 拡張子なしのパスもマッピング（TypeScriptの import './helper' に対応）
+        const pathWithoutExt = normalizedPath.replace(/\.(js|ts|tsx)$/, '');
+
+        importMap[normalizedPath] = url;
+        importMap[pathWithoutExt] = url;
+
+        extensionInfo(`Mapped module: ${normalizedPath} -> ${url.slice(0, 50)}...`);
+      }
+
+      // エントリーコードを変換し、相対importをBlobURLに書き換え
+      let transformedEntryCode = transformImports(entryCode);
+
+      // 相対importをBlobURLに書き換え
+      // import { ... } from './module' 形式
+      transformedEntryCode = transformedEntryCode.replace(
+        /from\s+['"](\.[^'"]+)['"]/g,
+        (match, importPath) => {
+          // 拡張子を正規化
+          let normalizedImportPath = importPath;
+
+          // 拡張子がない場合は .js を試す
+          if (!importPath.match(/\.(js|ts|tsx)$/)) {
+            const withJs = `${importPath}.js`;
+            if (importMap[withJs]) {
+              normalizedImportPath = withJs;
+            }
+          }
+
+          const resolvedUrl = importMap[normalizedImportPath];
+          if (resolvedUrl) {
+            extensionInfo(`Resolved import: ${importPath} -> ${resolvedUrl.slice(0, 50)}...`);
+            return `from '${resolvedUrl}'`;
+          }
+
+          extensionError(`Failed to resolve import: ${importPath}`);
+          return match; // 解決できない場合は元のまま
+        }
+      );
+
+      // デバッグ: 変換後のコードの最初の部分をログ出力
+      console.log(
+        '[ExtensionLoader] Transformed code preview:',
+        transformedEntryCode.slice(0, 500)
+      );
+
+      // エントリーポイントをBlobURLとして作成
+      const entryBlob = new Blob([transformedEntryCode], { type: 'application/javascript' });
+      const entryUrl = URL.createObjectURL(entryBlob);
+      blobUrls.push(entryUrl);
+
       // Dynamic importでモジュールをロード
-      const module = await import(/* webpackIgnore: true */ url);
+      const module = await import(/* webpackIgnore: true */ entryUrl);
 
       // activate関数の存在を確認
       if (typeof module.activate !== 'function') {
@@ -159,11 +221,9 @@ export async function loadExtensionModule(
 
       extensionInfo('Extension module loaded successfully');
       return module as ExtensionExports;
-    } catch (importError) {
-      throw importError;
     } finally {
-      // URLをクリーンアップ（成功/失敗に関わらず実行）
-      URL.revokeObjectURL(url);
+      // 全てのBlobURLをクリーンアップ
+      blobUrls.forEach(url => URL.revokeObjectURL(url));
     }
   } catch (error) {
     extensionError('Error loading extension module:', error);

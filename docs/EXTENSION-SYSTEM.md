@@ -1,546 +1,995 @@
-# 拡張機能システム (Extension System)
+# Extension System
 
-Pyxisの拡張機能システムは、コア機能を拡張し、新しい言語サポート、トランスパイラ、サービスなどを動的に追加できる仕組みを提供します。
+Pyxisの拡張機能システムは、動的なモジュール読み込み、型安全なAPI、IndexedDBによる永続化を組み合わせ、ブラウザ環境で完全に独立した拡張機能エコシステムを実現しています。
 
 ## 目次
 
-- [システム概要](#システム概要)
-- [アーキテクチャ](#アーキテクチャ)
-- [拡張機能のライフサイクル](#拡張機能のライフサイクル)
-- [拡張機能の種類](#拡張機能の種類)
-- [レジストリシステム](#レジストリシステム)
-- [ストレージ管理](#ストレージ管理)
-- [i18nシステムとの統合](#i18nシステムとの統合)
-- [開発ワークフロー](#開発ワークフロー)
+1. [基盤となる仕組み](#基盤となる仕組み)
+2. [TypeScriptトランスパイル拡張機能](#typescriptトランスパイル拡張機能)
+3. [サイドバーパネル拡張機能](#サイドバーパネル拡張機能)
+4. [カスタムタブ拡張機能](#カスタムタブ拡張機能)
+5. [ターミナルコマンド拡張機能](#ターミナルコマンド拡張機能)
+6. [API提供の仕組み](#api提供の仕組み)
+7. [拡張機能の配信とビルド](#拡張機能の配信とビルド)
 
 ---
 
-## システム概要
+## 基盤となる仕組み
 
-### 設計思想
-
-Pyxisの拡張機能システムは以下の原則に基づいて設計されています：
-
-- **動的ロード**: ブラウザ環境でTypeScript拡張機能を動的にロード・実行
-- **分離と独立性**: 各拡張機能は独立したモジュールとして動作
-- **依存関係管理**: 拡張機能間の依存関係を明示的に管理
-- **永続化**: IndexedDBを使用して拡張機能のコードとメタデータを保存
-- **型安全性**: TypeScriptの型システムを活用した安全な拡張機能API
-
-### 主要コンポーネント
-
-| コンポーネント | 役割 | ファイル |
-|-------------|------|---------|
-| Extension Manager | 拡張機能のライフサイクル全体を管理 | `extensionManager.ts` |
-| Extension Loader | 拡張機能のロード・実行を担当 | `extensionLoader.ts` |
-| Extension Registry | 利用可能な拡張機能のカタログ管理 | `extensionRegistry.ts` |
-| Storage Adapter | IndexedDBへの永続化を抽象化 | `storage-adapter.ts` |
-| Auto Installer | 初回起動時の自動インストール | `autoInstaller.ts` |
-
----
-
-## アーキテクチャ
-
-### 全体構成図
+### アーキテクチャ概要
 
 ```mermaid
 graph TB
-    subgraph User Interface
-        EP[ExtensionsPanel]
-        I18N[I18nContext]
-    end
-
-    subgraph Extension Manager Layer
-        EM[ExtensionManager]
-        EL[ExtensionLoader]
-        ER[ExtensionRegistry]
-        AI[AutoInstaller]
-    end
-
-    subgraph Storage Layer
-        SA[StorageAdapter]
-        IDB[(IndexedDB)]
-    end
-
-    subgraph Extensions
-        TS[TypeScript Runtime]
-        LP[Language Packs]
-        CUSTOM[Custom Extensions]
-    end
-
-    subgraph Build System
-        BUILD[build-extensions.js]
-        SRC[extensions/]
-        DIST[public/extensions/]
-    end
-
-    EP -->|install/enable/disable| EM
-    I18N -->|get lang packs| EM
-    EM -->|load module| EL
-    EM -->|fetch manifest| ER
-    EM -->|save/load| SA
-    SA --> IDB
-    EL -->|fetch code| DIST
-    ER -->|fetch registry| DIST
-    AI -->|auto install| EM
-    BUILD -->|transpile| SRC
-    BUILD -->|output| DIST
-    EM -->|activate| TS
-    EM -->|activate| LP
-    EM -->|activate| CUSTOM
+    Registry[Extension Registry]
+    Manager[Extension Manager]
+    Loader[Extension Loader]
+    Storage[IndexedDB Storage]
+    
+    Registry -->|Registry JSON| Manager
+    Manager -->|Lifecycle Control| Loader
+    Loader -->|Dynamic Import| BlobURL[Blob URL Modules]
+    Manager <-->|Persist| Storage
+    
+    BlobURL -->|Execute| ExtCode[Extension Code]
+    ExtCode -->|activate| Context[Extension Context]
+    
+    Context -->|Tabs API| TabRegistry
+    Context -->|Sidebar API| SidebarRegistry
+    Context -->|Commands API| CommandRegistry
+    Context -->|System Modules| FileRepository
 ```
 
-### データフロー
+### Extension Manager
 
-```mermaid
-sequenceDiagram
-    participant User
-    participant EM as ExtensionManager
-    participant EL as ExtensionLoader
-    participant SA as StorageAdapter
-    participant IDB as IndexedDB
-    participant EXT as Extension Code
-
-    User->>EM: installExtension(manifestUrl)
-    EM->>EL: fetchExtensionManifest(url)
-    EL->>EXT: fetch manifest.json
-    EXT-->>EL: manifest
-    EL-->>EM: manifest
-    EM->>EL: fetchExtensionCode(manifest)
-    EL->>EXT: fetch entry + files
-    EXT-->>EL: code
-    EL-->>EM: code
-    EM->>SA: saveInstalledExtension(data)
-    SA->>IDB: store extension data
-    EM->>EM: enableExtension(id)
-    EM->>EL: loadExtensionModule(code)
-    EL->>EXT: dynamic import
-    EXT-->>EL: exports
-    EL-->>EM: exports
-    EM->>EL: activateExtension(exports)
-    EL->>EXT: call activate()
-    EXT-->>EL: activation result
-    EL-->>EM: activation
-    EM-->>User: installed & enabled
-```
-
----
-
-## 拡張機能のライフサイクル
-
-### 状態遷移
+Extension Managerは拡張機能のライフサイクルを統一的に管理します。
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Available: Registry に登録
-    Available --> Installing: installExtension()
-    Installing --> Installed: 成功
-    Installing --> Error: 失敗
-    Installed --> Enabled: enableExtension()
-    Enabled --> Installed: disableExtension()
-    Installed --> [*]: uninstallExtension()
-    Enabled --> [*]: uninstallExtension()
-    Error --> [*]: uninstallExtension()
+    [*] --> NotInstalled
+    NotInstalled --> Installing: installExtension
+    Installing --> Installed: Success
+    Installing --> NotInstalled: Failure
+    
+    Installed --> Enabling: enableExtension
+    Enabling --> Enabled: Success
+    Enabling --> Installed: Failure
+    
+    Enabled --> Disabling: disableExtension
+    Disabling --> Installed: Success
+    
+    Installed --> Uninstalling: uninstallExtension
+    Enabled --> Uninstalling: uninstallExtension
+    Uninstalling --> [*]: Success
 ```
 
-### 状態の詳細
+**主要な処理フロー**
 
-| 状態 | 説明 | 操作可能なアクション |
-|-----|------|-------------------|
-| **Available** | レジストリに登録されているが未インストール | install |
-| **Installing** | インストール処理中 | - |
-| **Installed** | インストール済みだが無効 | enable, uninstall |
-| **Enabled** | 有効化され実行中 | disable, uninstall |
-| **Error** | エラー状態 | uninstall |
-| **Updating** | 更新処理中 | - |
+| フェーズ | 処理内容 | 関連コンポーネント |
+|---------|---------|-------------------|
+| Install | マニフェストとコードをfetchし、IndexedDBに保存 | `extensionLoader.ts`, `storage-adapter.ts` |
+| Enable | モジュールを動的ロード、activateを実行 | `extensionLoader.ts`, `TabAPI`, `SidebarAPI`, `CommandRegistry` |
+| Disable | deactivateを実行、API登録を削除 | `extensionManager.ts` |
+| Uninstall | IndexedDBからデータ削除 | `storage-adapter.ts` |
 
-### ライフサイクルメソッド
+**onlyOneグループの制御**
 
-#### 1. インストール (Install)
+マニフェストの`onlyOne`フィールドにより、同一グループ内では1つの拡張機能のみが有効化できます。言語パック（`pyxis.lang.*`）はすべて`onlyOne: "language-pack"`を持ち、言語切り替え時に自動的に排他制御されます。
 
-```mermaid
-graph LR
-    A[manifestUrl] --> B[fetch manifest]
-    B --> C{Already installed?}
-    C -->|Yes| D[Return existing]
-    C -->|No| E[Check dependencies]
-    E --> F[Fetch code]
-    F --> G[Create InstalledExtension]
-    G --> H[Save to IndexedDB]
-    H --> I[Auto enable]
-    I --> J[Return installed]
+```typescript
+// enableExtension内での処理
+if (installed.manifest.onlyOne) {
+  const group = installed.manifest.onlyOne;
+  const conflictingExtensions = allInstalled.filter(
+    ext => ext.manifest?.onlyOne === group && 
+           ext.enabled && 
+           ext.manifest?.id !== extensionId
+  );
+  
+  for (const conflict of conflictingExtensions) {
+    await this.disableExtension(conflict.manifest.id);
+  }
+}
 ```
 
-#### 2. 有効化 (Enable)
+### IndexedDB Storage
 
-```mermaid
-graph LR
-    A[extensionId] --> B{Already active?}
-    B -->|Yes| C[Return true]
-    B -->|No| D[Load from IndexedDB]
-    D --> E{onlyOne group?}
-    E -->|Yes| F[Disable conflicting]
-    E -->|No| G[Create context]
-    F --> G
-    G --> H[Load module]
-    H --> I[Call activate]
-    I --> J[Cache activation]
-    J --> K[Update state]
-    K --> L[Emit event]
+拡張機能データはIndexedDBの`extensions`ストアに保存されます。
+
+**保存データ構造**
+
+```typescript
+interface InstalledExtension {
+  manifest: ExtensionManifest;
+  status: ExtensionStatus;
+  installedAt: number;
+  updatedAt: number;
+  enabled: boolean;
+  cache: {
+    entryCode: string;           // エントリーポイントのコード
+    files: Record<string, string>; // 追加ファイル群
+    cachedAt: number;
+  };
+}
 ```
 
-#### 3. 無効化 (Disable)
+**キャッシュ戦略**
 
-```mermaid
-graph LR
-    A[extensionId] --> B{Is active?}
-    B -->|No| C[Return true]
-    B -->|Yes| D[Call deactivate]
-    D --> E[Remove from cache]
-    E --> F[Update state]
-    F --> G[Save to IndexedDB]
-    G --> H[Emit event]
-```
-
----
-
-## 拡張機能の種類
-
-### 種類と用途
-
-| 種類 | 用途 | 提供機能 | 例 |
-|-----|------|---------|---|
-| **transpiler** | コードトランスパイル | `runtimeFeatures.transpiler` | TypeScript, JSX |
-| **service** | システムサービス | `services.*` | i18n, Git統合 |
-| **builtin-module** | Node.js互換モジュール | `runtimeFeatures.builtInModules` | fs, path |
-| **language-runtime** | 言語実行環境 | 言語固有のランタイム | Python, Ruby |
-| **tool** | 開発ツール | コマンドやユーティリティ | linter, formatter |
-| **ui** | UI拡張 | UIコンポーネント | カスタムパネル |
-
-### 拡張機能の構造
-
-各拡張機能は以下の構造を持ちます：
-
-```
-extensions/
-└── example-extension/
-    ├── manifest.json     # メタデータ
-    ├── index.ts          # エントリーポイント
-    └── [additional files] # 追加ファイル（オプション）
-```
-
-### Manifest形式
-
-Manifestは拡張機能のメタデータを定義します：
-
-| フィールド | 型 | 説明 |
-|----------|---|------|
-| `id` | string | 一意な識別子 例: `pyxis.typescript-runtime` |
-| `name` | string | 表示名 |
-| `version` | string | バージョン (semver形式) |
-| `type` | ExtensionType | 拡張機能の種類 |
-| `description` | string | 説明文 |
-| `author` | string | 作者名 |
-| `entry` | string | エントリーポイントの相対パス |
-| `dependencies` | string[] | 依存する拡張機能のID（オプション） |
-| `provides` | object | 提供する機能の定義 |
-| `onlyOne` | string | 排他制御グループ名（オプション） |
-
-### Extension Context
-
-拡張機能が実行時に受け取るコンテキスト：
-
-| プロパティ | 型 | 説明 |
-|----------|---|------|
-| `extensionId` | string | 拡張機能のID |
-| `extensionPath` | string | 拡張機能のベースパス |
-| `version` | string | 拡張機能のバージョン |
-| `logger` | object | ログ出力API（オプション） |
-| `storage` | object | 永続化ストレージAPI（オプション） |
-| `getSystemModule` | function | システムモジュール取得API（オプション） |
-
-### Activation Result
-
-`activate()`関数が返すべき構造：
-
-| プロパティ | 型 | 説明 |
-|----------|---|------|
-| `runtimeFeatures` | object | ランタイム機能（オプション） |
-| `services` | object | サービスAPI（オプション） |
-| `dispose` | function | クリーンアップ関数（オプション） |
-
----
-
-## レジストリシステム
-
-### レジストリの役割
-
-レジストリは利用可能な拡張機能のカタログとして機能します。
-
-**ファイル**: `public/extensions/registry.json`
-
-### レジストリ構造
-
-| フィールド | 説明 |
-|----------|------|
-| `version` | レジストリのバージョン |
-| `extensions` | 拡張機能のリスト |
-| `extensions[].id` | 拡張機能ID |
-| `extensions[].type` | 種類 |
-| `extensions[].manifestUrl` | Manifestへの相対パス |
-| `extensions[].defaultEnabled` | 初回起動時に自動有効化するか |
-| `extensions[].recommended` | 推奨マーク |
-
-### キャッシュ戦略
-
-レジストリは5分間キャッシュされます：
-
-- 初回アクセス: fetchしてキャッシュ
-- 5分以内: キャッシュから返却
-- 5分経過後: 再fetchしてキャッシュ更新
-- `forceRefresh=true`: 強制再fetch
-
-### 自動インストーラー
-
-初回起動時、以下の処理が自動実行されます：
-
-```mermaid
-graph TB
-    A[App起動] --> B{初回起動?}
-    B -->|Yes| C[ブラウザ言語検出]
-    B -->|No| D[終了]
-    C --> E[レジストリ取得]
-    E --> F[defaultEnabled拡張をインストール]
-    F --> G[検出言語の言語パックをインストール]
-    G --> H[拡張機能を有効化]
-    H --> D
-```
-
-**処理内容**:
-1. ブラウザ言語を検出 例: `ja`, `en`
-2. `defaultEnabled: true`の拡張機能をインストール
-3. 検出された言語に対応する言語パックをインストール・有効化
-
----
-
-## ストレージ管理
-
-### IndexedDB構造
-
-拡張機能データは以下の形式で保存されます：
-
-| Store名 | キー | 値 |
-|--------|-----|---|
-| `extensions` | `extensionId` | `InstalledExtension` |
-
-### InstalledExtension構造
-
-| フィールド | 説明 |
-|----------|------|
-| `manifest` | 拡張機能のManifest |
-| `status` | 現在の状態 |
-| `installedAt` | インストール日時 (timestamp) |
-| `updatedAt` | 最終更新日時 (timestamp) |
-| `enabled` | 有効化状態 |
-| `cache.entryCode` | エントリーポイントのコード |
-| `cache.files` | 追加ファイルのコード |
-| `cache.cachedAt` | キャッシュ日時 (timestamp) |
-
-### コードキャッシュ戦略
-
-拡張機能のコードは以下の理由でキャッシュされます：
-
-- **パフォーマンス**: ネットワークリクエストを削減
-- **オフライン対応**: インターネット接続なしでも動作
-- **一貫性**: バージョン固定による動作の安定性
-
-キャッシュは拡張機能のアンインストール時にクリアされます。
-
----
-
-## i18nシステムとの統合
-
-### 言語パック拡張機能
-
-Pyxisのi18nシステムは拡張機能システムと深く統合されています。
-
-#### 統合の仕組み
-
-```mermaid
-graph LR
-    A[User] --> B[UI: 言語切り替え]
-    B --> C[拡張機能パネルで言語パックを有効化]
-    C --> D[ExtensionManager]
-    D --> E[言語パック拡張をenable]
-    E --> F[I18nContext]
-    F --> G[getEnabledLanguagePacks]
-    G --> H[利用可能な言語リストを更新]
-    H --> I[新しい言語で翻訳をロード]
-```
-
-#### I18nContext との連携
-
-`I18nContext`は以下の方法で拡張機能システムと連携します：
-
-| 処理 | 説明 |
-|-----|------|
-| **利用可能言語の取得** | `extensionManager.getEnabledLanguagePacks()`を呼び出し、有効化された言語パックのリストを取得 |
-| **言語切り替え検証** | 選択された言語の言語パック拡張が有効化されているか確認 |
-| **自動フォールバック** | 保存された言語が無効化されている場合、有効な言語にフォールバック |
-
-#### 言語パック拡張の実装例
-
-言語パック拡張は以下の構造で実装されています：
-
-**Manifest**: `extensions/lang-packs/ja/manifest.json`
-- `type`: `"service"`
-- `onlyOne`: `"lang-pack"` - 同時に複数の言語パックを有効化できない
-
-**エントリーポイント**: `extensions/lang-packs/ja/index.ts`
-- `activate()`関数で以下を返却：
-  - `services['language-pack']`: ロケールと言語名の情報
-
-#### onlyOneグループ制御
-
-言語パックは`onlyOne: "lang-pack"`グループに属します。
-
-**動作**:
-- 新しい言語パックを有効化すると、同じグループの他の拡張機能が自動的に無効化される
-- これにより、常に1つの言語のみがアクティブな状態を保証
-
-### 翻訳データのロード
-
-言語パック拡張の有効化後、i18nシステムは以下のフローで翻訳をロードします：
+拡張機能のコードは初回インストール時にIndexedDBにキャッシュされます。これにより、2回目以降の起動時はネットワークリクエストなしで拡張機能を有効化できます。
 
 ```mermaid
 sequenceDiagram
     participant User
-    participant I18N as I18nContext
-    participant EM as ExtensionManager
-    participant Loader as TranslationLoader
-    participant HTTP
-
-    User->>I18N: setLocale("ja")
-    I18N->>EM: getEnabledLanguagePacks()
-    EM-->>I18N: [ja, ...]
-    I18N->>I18N: 言語が有効か確認
-    I18N->>Loader: loadTranslations("ja", "common")
-    Loader->>HTTP: fetch /locales/ja/common.json
-    HTTP-->>Loader: translation data
-    Loader-->>I18N: translations
-    I18N->>I18N: 翻訳を適用
+    participant Manager
+    participant Storage
+    participant Network
+    
+    User->>Manager: installExtension
+    Manager->>Network: fetchExtensionCode
+    Network-->>Manager: code
+    Manager->>Storage: saveInstalledExtension
+    Note over Storage: Cache: entryCode + files
+    
+    User->>Manager: enableExtension (2回目以降)
+    Manager->>Storage: loadInstalledExtension
+    Storage-->>Manager: cached code
+    Note over Manager: Network不要
 ```
 
-**注意点**:
-- 翻訳ファイル自体 (`public/locales/**`) は拡張機能システムとは独立
-- 言語パック拡張は「どの言語が利用可能か」を定義するのみ
-- 実際の翻訳データはi18nシステムが直接ロード
+### Extension Loader
+
+Extension Loaderは動的なモジュールローディングを実現します。
+
+**Blob URLによるモジュール解決**
+
+拡張機能のコードはfetchされた後、Blob URLとして一時的にブラウザメモリ上に展開されます。これにより`import()`でJavaScriptモジュールとしてロードできます。
+
+```mermaid
+graph LR
+    FetchedCode[Fetched Code]
+    Transform[transformImports]
+    Blob[Blob Object]
+    BlobURL[Blob URL]
+    DynamicImport[Dynamic Import]
+    
+    FetchedCode -->|React import変換| Transform
+    Transform --> Blob
+    Blob -->|URL.createObjectURL| BlobURL
+    BlobURL -->|import| DynamicImport
+    DynamicImport -->|cleanup| Revoke[URL.revokeObjectURL]
+```
+
+**複数ファイル対応**
+
+マニフェストの`files`配列に追加ファイルを指定できます。
+
+```json
+{
+  "id": "pyxis.test-multi-file",
+  "entry": "index.js",
+  "files": ["helper.js", "utils.js"]
+}
+```
+
+各ファイルはBlobURLとして登録され、Import Mapで相対パスから解決されます。
+
+```typescript
+// 追加ファイルをBlobURLとして登録
+for (const [filePath, code] of Object.entries(additionalFiles)) {
+  const transformedCode = transformImports(code);
+  const blob = new Blob([transformedCode], { type: 'application/javascript' });
+  const url = URL.createObjectURL(blob);
+  
+  const normalizedPath = filePath.startsWith('./') ? filePath : `./${filePath}`;
+  const pathWithoutExt = normalizedPath.replace(/\.(js|ts|tsx)$/, '');
+  
+  importMap[normalizedPath] = url;
+  importMap[pathWithoutExt] = url;
+}
+```
+
+**React/ReactDOMのグローバル提供**
+
+PyxisはReactをバンドルしており、拡張機能はそれを共有します。Extension Managerの初期化時に`window.__PYXIS_REACT__`として提供されます。
+
+```typescript
+// ExtensionManager.init()内
+const React = await import('react');
+const ReactDOM = await import('react-dom');
+(window as any).__PYXIS_REACT__ = React;
+(window as any).__PYXIS_REACT_DOM__ = ReactDOM;
+```
+
+拡張機能コード内の`import React from 'react'`は`transformImports`により以下に変換されます。
+
+```typescript
+// 変換前
+import React from 'react';
+
+// 変換後
+const React = window.__PYXIS_REACT__;
+```
+
+### Extension Context
+
+各拡張機能には専用の`ExtensionContext`が提供されます。
+
+**ExtensionContextの構成**
+
+| プロパティ | 型 | 説明 |
+|-----------|---|------|
+| `extensionId` | `string` | 拡張機能の一意なID |
+| `extensionPath` | `string` | 拡張機能のパス |
+| `version` | `string` | 拡張機能のバージョン |
+| `logger` | `Logger` | ロガーAPI |
+| `getSystemModule` | `Function` | システムモジュールへのアクセス |
+| `tabs` | `TabAPI` | タブ管理API |
+| `sidebar` | `SidebarAPI` | サイドバーAPI |
+| `commands` | `CommandsAPI` | コマンドAPI |
+
+**型安全なgetSystemModule**
+
+`getSystemModule`は型推論により、要求したモジュール名に応じた正確な型を返します。
+
+```typescript
+// systemModuleTypes.ts
+export interface SystemModuleMap {
+  fileRepository: FileRepository;
+  normalizeCjsEsm: NormalizeCjsEsmModule;
+  commandRegistry: CommandRegistry;
+}
+
+// 使用例（拡張機能内）
+const fileRepo = await context.getSystemModule('fileRepository');
+// fileRepoはFileRepository型として推論される
+```
+
+### 変更イベント
+
+Extension Managerは拡張機能の状態変化を通知します。
+
+```typescript
+export type ExtensionChangeEvent = {
+  type: 'enabled' | 'disabled' | 'installed' | 'uninstalled';
+  extensionId: string;
+  manifest?: ExtensionManifest;
+};
+
+extensionManager.addChangeListener((event) => {
+  if (event.type === 'enabled') {
+    // 拡張機能が有効化された
+  }
+});
+```
+
+UIコンポーネントはこのイベントを購読し、リアルタイムで表示を更新します。
 
 ---
 
-## 開発ワークフロー
+## TypeScriptトランスパイル拡張機能
 
-### ビルドシステム
+TypeScriptトランスパイル機能は`pyxis.typescript-runtime`拡張機能として実装されています。
 
-`build-extensions.js`が拡張機能のビルドを担当します。
-
-#### ビルドプロセス
+### 動作の仕組み
 
 ```mermaid
 graph TB
-    A[extensions/ のTypeScript] --> B[TypeScript Compiler]
-    B --> C[Transpile to JavaScript]
-    C --> D[public/extensions/ に出力]
-    D --> E[manifest.jsonをコピー]
-    E --> F[registry.jsonを生成]
+    Runtime[Node Runtime]
+    Manager[Transpile Manager]
+    Worker[Transpile Worker]
+    Extension[typescript-runtime Extension]
+    Babel[Babel Standalone]
+    
+    Runtime -->|Request transpile| Manager
+    Manager -->|Check| Extension
+    Extension -->|Provide| TranspilerFunc[transpiler Function]
+    Manager -->|Offload| Worker
+    Worker -->|Use| Babel
+    Worker -->|Return| TranspiledCode[Transpiled Code]
+    TranspiledCode --> Runtime
 ```
 
-#### ビルドコマンド
+**transpiler拡張機能の登録**
 
-開発時にビルドスクリプトを手動実行：
+拡張機能は`activate()`で`runtimeFeatures.transpiler`を返します。
 
-```bash
-node build-extensions.js
+```typescript
+export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
+  return {
+    runtimeFeatures: {
+      transpiler: async (code: string, options: any) => {
+        // Babelを使用してTypeScript/JSXをトランスパイル
+        const result = Babel.transform(code, {
+          presets: ['typescript', 'react'],
+          filename: options.filename || 'module.ts',
+        });
+        return { code: result.code || '' };
+      },
+    },
+  };
+}
 ```
 
-**処理内容**:
-1. `public/extensions/`をクリーンアップ
-2. `extensions/`配下の全TypeScriptファイルをトランスパイル
-3. 出力を`public/extensions/`に配置
-4. `manifest.json`を各拡張機能ディレクトリにコピー
-5. `registry.json`を自動生成（オプション）
+**TranspileManagerによる統合**
 
-### 拡張機能の作成手順
+TranspileManagerは有効化されたtranspiler拡張機能を検出し、Node Runtimeに提供します。
 
-新しい拡張機能を作成する標準的な手順：
-
-#### ステップ1: ディレクトリ作成
-
-```bash
-mkdir -p extensions/my-extension
+```typescript
+// TranspileManager
+export function getActiveTranspiler(): TranspilerFunction | null {
+  const extensions = extensionManager.getActiveExtensions();
+  
+  for (const ext of extensions) {
+    if (ext.activation.runtimeFeatures?.transpiler) {
+      return ext.activation.runtimeFeatures.transpiler;
+    }
+  }
+  
+  return null;
+}
 ```
 
-#### ステップ2: Manifest作成
+**Web Workerでの並列処理**
 
-`extensions/my-extension/manifest.json`:
-- 必須フィールドを記述
-- `type`と`provides`を適切に設定
+実際のトランスパイル処理はWeb Workerに委譲され、UIスレッドをブロックしません。
 
-#### ステップ3: エントリーポイント作成
-
-`extensions/my-extension/index.ts`:
-- `activate(context: ExtensionContext)`関数を実装
-- `deactivate()`関数を実装（オプション）
-- 適切な`ExtensionActivation`を返却
-
-#### ステップ4: ビルド
-
-```bash
-node build-extensions.js
+```mermaid
+sequenceDiagram
+    participant Runtime
+    participant Manager
+    participant Worker
+    participant Extension
+    
+    Runtime->>Manager: transpile(code)
+    Manager->>Extension: get transpiler()
+    Extension-->>Manager: transpiler function
+    Manager->>Worker: postMessage(code, transpiler)
+    Worker->>Worker: execute transpiler
+    Worker-->>Manager: onmessage(result)
+    Manager-->>Runtime: transpiled code
 ```
 
-#### ステップ5: レジストリに登録
+---
 
-`extensions/registry.json`に以下を追加：
-- `id`: 拡張機能のID
-- `type`: 種類
-- `manifestUrl`: Manifestへのパス
-- `defaultEnabled`: 自動有効化の有無（オプション）
+## サイドバーパネル拡張機能
 
-#### ステップ6: テスト
+拡張機能はSidebar APIを使用してカスタムパネルを追加できます。
 
-ブラウザでアプリケーションを起動し、拡張機能パネルから手動インストール・有効化してテスト。
+### SidebarRegistryのアーキテクチャ
 
-### 型定義の共有
+```mermaid
+graph TB
+    Extension[Extension]
+    SidebarAPI[Sidebar API]
+    Registry[Sidebar Registry]
+    UI[LeftSidebar Component]
+    Renderer[ExtensionPanelRenderer]
+    
+    Extension -->|createPanel| SidebarAPI
+    SidebarAPI -->|register| Registry
+    Registry -->|notify change| UI
+    UI -->|render| Renderer
+    Renderer -->|mount| PanelComponent[Panel Component]
+```
 
-`extensions/_shared/types.ts`に共通型が定義されています。
+**パネル登録の流れ**
 
-**重要な型**:
-- `ExtensionContext`: 拡張機能が受け取るコンテキスト
-- `ExtensionActivation`: activate関数の戻り値型
+1. 拡張機能が`context.sidebar.createPanel()`を呼び出す
+2. SidebarAPIがSidebarRegistryにパネルを登録
+3. SidebarRegistryが変更イベントを発火
+4. UIコンポーネントがパネル一覧を再取得
+5. ExtensionPanelRendererがパネルコンポーネントを描画
 
-拡張機能はこれらの型をインポートして使用します。
+**実装例（todo-panel拡張機能）**
 
-### デバッグ
+```typescript
+export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
+  // サイドバーパネルを作成
+  context.sidebar?.createPanel({
+    id: 'todo-scanner',
+    title: 'TODO',
+    icon: 'ListTodo',
+    component: TodoSidebarPanel,
+    order: 50,
+  });
+  
+  return {};
+}
+```
 
-拡張機能のデバッグには以下のログが有用です：
+**パネルコンポーネントのProps**
 
-- `[ExtensionManager]`: ライフサイクル管理
-- `[ExtensionLoader]`: ロード・実行
-- `[ExtensionAutoInstaller]`: 自動インストール
+```typescript
+export interface SidebarPanelProps {
+  extensionId: string;  // 拡張機能ID
+  panelId: string;      // パネルID
+  isActive: boolean;    // パネルがアクティブか
+  state?: any;          // パネルの状態
+}
+```
 
-ブラウザのDevToolsコンソールでこれらのログをフィルタして確認できます。
+**状態管理**
+
+パネルごとに独立した状態を持つことができます。
+
+```typescript
+// 拡張機能側で状態を更新
+context.sidebar?.updatePanel('todo-scanner', {
+  todoCount: 42,
+  lastScan: Date.now(),
+});
+
+// パネルコンポーネントで状態を受け取る
+function TodoSidebarPanel({ state }: SidebarPanelProps) {
+  return <div>TODOs: {state?.todoCount}</div>;
+}
+```
+
+---
+
+## カスタムタブ拡張機能
+
+拡張機能はTab APIを使用して独自のタブを作成できます。
+
+### TabRegistryとの統合
+
+```mermaid
+graph TB
+    Extension[Extension]
+    TabAPI[Tab API]
+    TabRegistry[Tab Registry]
+    TabStore[Tab Store]
+    TabBar[TabBar Component]
+    
+    Extension -->|registerTabType| TabAPI
+    TabAPI -->|register| TabRegistry
+    
+    Extension -->|createTab| TabAPI
+    TabAPI -->|openTab| TabStore
+    TabStore -->|update state| TabBar
+    
+    TabBar -->|resolve component| TabRegistry
+    TabRegistry -->|return| TabComponent[Tab Component]
+```
+
+**タブタイプの登録**
+
+拡張機能は`activate()`時にタブコンポーネントを登録します。
+
+```typescript
+export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
+  // タブタイプを登録
+  context.tabs?.registerTabType(NoteTabComponent);
+  
+  return {};
+}
+```
+
+タブタイプは`extension:${extensionId}`というKind文字列で識別されます。TabRegistryはこのKindとコンポーネントのマッピングを保持します。
+
+**タブの作成**
+
+```typescript
+// 拡張機能内でタブを作成
+const tabId = context.tabs?.createTab({
+  id: 'my-note-1',           // オプション: 指定すると同じIDのタブを再利用
+  title: 'My Note',
+  icon: 'FileText',
+  closable: true,
+  activateAfterCreate: true,
+  data: { content: 'Hello' }, // 任意のデータ
+});
+```
+
+**タブIDとセキュリティ**
+
+タブIDは`extension:${extensionId}:${id}`の形式で生成されます。拡張機能は自分が作成したタブのみ操作できます。
+
+```typescript
+private isOwnedTab(tabId: string): boolean {
+  const expectedPrefix = `extension:${this.extensionId}`;
+  return tabId.startsWith(expectedPrefix);
+}
+```
+
+**タブの更新とクローズ**
+
+```typescript
+// タブの内容を更新
+context.tabs?.updateTab(tabId, {
+  title: 'New Title',
+  data: { content: 'Updated content' },
+});
+
+// タブを閉じる
+context.tabs?.closeTab(tabId);
+
+// クローズコールバックの登録
+context.tabs?.onTabClose(tabId, async (tabId) => {
+  // クリーンアップ処理
+  await saveData();
+});
+```
+
+**システムタブの開く**
+
+拡張機能は`openSystemTab`を使用してPyxisのエディタタブを開くことができます。
+
+```typescript
+context.tabs?.openSystemTab(file, {
+  kind: 'editor',
+  jumpToLine: 42,
+  activateAfterOpen: true,
+});
+```
+
+---
+
+## ターミナルコマンド拡張機能
+
+拡張機能はCommands APIを使用してカスタムターミナルコマンドを追加できます。
+
+### CommandRegistryのアーキテクチャ
+
+```mermaid
+graph TB
+    Extension[Extension]
+    CommandsAPI[Commands API]
+    Registry[Command Registry]
+    Terminal[Terminal Component]
+    
+    Extension -->|registerCommand| CommandsAPI
+    CommandsAPI -->|register| Registry
+    
+    Terminal -->|executeCommand| Registry
+    Registry -->|invoke handler| Extension
+    Extension -->|return output| Terminal
+```
+
+**コマンドの登録**
+
+```typescript
+export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
+  context.commands?.registerCommand('hello', async (args, cmdContext) => {
+    const name = args.length > 0 ? args.join(' ') : 'World';
+    return `Hello, ${name}!\nProject: ${cmdContext.projectName}`;
+  });
+  
+  return {};
+}
+```
+
+**CommandContextの構造**
+
+コマンドハンドラーには`CommandContext`が渡されます。これは`ExtensionContext`を拡張したものです。
+
+```typescript
+export interface CommandContext extends ExtensionContext {
+  projectName: string;        // プロジェクト名
+  projectId: string;          // プロジェクトID
+  currentDirectory: string;   // 現在のディレクトリ
+}
+```
+
+**システムモジュールへのアクセス**
+
+コマンドハンドラー内で`getSystemModule`を使用して、fileRepositoryなどにアクセスできます。
+
+```typescript
+async function fileinfoCommand(args: string[], context: CommandContext): Promise<string> {
+  const filePath = args[0];
+  
+  // fileRepositoryを取得
+  const fileRepository = await context.getSystemModule('fileRepository');
+  
+  // ファイル情報を取得
+  const files = await fileRepository.getProjectFiles(context.projectId);
+  const file = files.find(f => f.path === filePath);
+  
+  if (!file) {
+    return `Error: File not found: ${filePath}`;
+  }
+  
+  return `Path: ${file.path}\nSize: ${file.content.length} bytes`;
+}
+```
+
+**コマンドの実行フロー**
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Terminal
+    participant Registry
+    participant Extension
+    participant FileRepo
+    
+    User->>Terminal: hello world
+    Terminal->>Registry: executeCommand('hello', ['world'], context)
+    Registry->>Extension: handler(['world'], context)
+    Extension-->>Registry: "Hello, world!"
+    Registry-->>Terminal: output
+    Terminal->>User: display output
+```
+
+**コマンドの登録解除**
+
+拡張機能が無効化されると、登録されたコマンドは自動的に削除されます。
+
+```typescript
+// extensionManager.disableExtension内
+commandRegistry.unregisterExtensionCommands(extensionId);
+```
+
+---
+
+## API提供の仕組み
+
+Pyxisは拡張機能に対して、複数のレイヤーでAPIを提供します。
+
+### API提供の全体像
+
+```mermaid
+graph TB
+    Extension[Extension Code]
+    
+    Extension -->|Context| ExtensionContext
+    
+    ExtensionContext -->|Direct API| TabAPI
+    ExtensionContext -->|Direct API| SidebarAPI
+    ExtensionContext -->|Direct API| CommandsAPI
+    ExtensionContext -->|Direct API| Logger
+    
+    ExtensionContext -->|getSystemModule| SystemModules
+    
+    SystemModules -->|fileRepository| FileRepo[File Repository]
+    SystemModules -->|commandRegistry| CommandReg[Command Registry]
+    SystemModules -->|normalizeCjsEsm| Normalizer[CJS/ESM Normalizer]
+    
+    TabAPI -->|Internal| TabRegistry
+    TabAPI -->|Internal| TabStore
+    
+    SidebarAPI -->|Internal| SidebarRegistry
+    
+    CommandsAPI -->|Internal| CommandRegistry
+```
+
+### レイヤー1: Direct API
+
+Direct APIは`ExtensionContext`の直接のプロパティとして提供されます。
+
+| API | 用途 | 特徴 |
+|-----|------|------|
+| `tabs` | タブ管理 | 拡張機能がUIタブを作成・制御 |
+| `sidebar` | サイドバー管理 | 拡張機能がサイドバーパネルを追加 |
+| `commands` | コマンド管理 | ターミナルコマンドの登録 |
+| `logger` | ロギング | 拡張機能IDプレフィックス付きログ |
+
+**APIインスタンスの作成**
+
+ExtensionManagerは各拡張機能に対して専用のAPIインスタンスを作成します。
+
+```typescript
+private async createExtensionContext(extensionId: string): Promise<ExtensionContext> {
+  const tabAPI = new TabAPI(context);
+  const sidebarAPI = new SidebarAPI(context);
+  
+  const context: ExtensionContext = {
+    extensionId,
+    tabs: {
+      registerTabType: (component) => tabAPI.registerTabType(component),
+      createTab: (options) => tabAPI.createTab(options),
+      updateTab: (tabId, options) => tabAPI.updateTab(tabId, options),
+      closeTab: (tabId) => tabAPI.closeTab(tabId),
+      onTabClose: (tabId, callback) => tabAPI.onTabClose(tabId, callback),
+      getTabData: (tabId) => tabAPI.getTabData(tabId),
+      openSystemTab: (file, options) => tabAPI.openSystemTab(file, options),
+    },
+    sidebar: {
+      createPanel: (definition) => sidebarAPI.createPanel(definition),
+      updatePanel: (panelId, state) => sidebarAPI.updatePanel(panelId, state),
+      removePanel: (panelId) => sidebarAPI.removePanel(panelId),
+      onPanelActivate: (panelId, callback) => sidebarAPI.onPanelActivate(panelId, callback),
+    },
+    commands: {
+      registerCommand: (commandName, handler) => {
+        return commandRegistry.registerCommand(extensionId, commandName, handler);
+      },
+    },
+  };
+  
+  // APIインスタンスを保存（dispose用）
+  (context as any)._tabAPI = tabAPI;
+  (context as any)._sidebarAPI = sidebarAPI;
+  
+  return context;
+}
+```
+
+**dispose処理**
+
+拡張機能が無効化されるとき、APIインスタンスの`dispose()`が呼ばれ、登録されたすべてのリソースがクリーンアップされます。
+
+```typescript
+async disableExtension(extensionId: string): Promise<boolean> {
+  const active = this.activeExtensions.get(extensionId);
+  
+  const context = (active as any)._context;
+  if (context) {
+    if ((context as any)._tabAPI) {
+      (context as any)._tabAPI.dispose();
+    }
+    if ((context as any)._sidebarAPI) {
+      (context as any)._sidebarAPI.dispose();
+    }
+  }
+  
+  commandRegistry.unregisterExtensionCommands(extensionId);
+}
+```
+
+### レイヤー2: System Modules
+
+System ModulesはPyxisの内部APIへの型安全なアクセスを提供します。
+
+**型マップによる型推論**
+
+```typescript
+// systemModuleTypes.ts
+export interface SystemModuleMap {
+  fileRepository: FileRepository;
+  normalizeCjsEsm: NormalizeCjsEsmModule;
+  commandRegistry: CommandRegistry;
+}
+
+// ExtensionContext内のgetSystemModule
+getSystemModule: async <T extends SystemModuleName>(
+  moduleName: T
+): Promise<SystemModuleMap[T]> => {
+  switch (moduleName) {
+    case 'fileRepository':
+      return fileRepository as SystemModuleMap[T];
+    case 'normalizeCjsEsm':
+      return module as SystemModuleMap[T];
+    case 'commandRegistry':
+      return commandRegistry as SystemModuleMap[T];
+    default:
+      throw new Error(`System module not found: ${String(moduleName)}`);
+  }
+}
+```
+
+これにより、拡張機能側では型推論が効きます。
+
+```typescript
+// 拡張機能内
+const fileRepo = await context.getSystemModule('fileRepository');
+// fileRepoはFileRepository型
+
+const normalizer = await context.getSystemModule('normalizeCjsEsm');
+// normalizerはNormalizeCjsEsmModule型
+```
+
+**System Modulesの追加方法**
+
+1. `systemModuleTypes.ts`の`SystemModuleMap`に型を追加
+2. `ExtensionContext`の`getSystemModule`のswitch文に実装を追加
+3. ドキュメントを更新
+
+### レイヤー3: Built-in Modules
+
+Built-in Modules（`fs`, `path`等）は`builtin-module`タイプの拡張機能として提供されます。
+
+```typescript
+export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
+  return {
+    builtInModules: {
+      'node:fs': fsModule,
+      'node:path': pathModule,
+      'node:os': osModule,
+      // ...
+    },
+  };
+}
+```
+
+Node Runtimeは有効化されたbuilt-in module拡張機能を検出し、`require()`時に解決します。
+
+```mermaid
+sequenceDiagram
+    participant UserCode
+    participant Runtime
+    participant Manager
+    participant Extension
+    
+    UserCode->>Runtime: require('node:fs')
+    Runtime->>Manager: getAllBuiltInModules()
+    Manager->>Extension: get builtInModules
+    Extension-->>Manager: { 'node:fs': fsModule }
+    Manager-->>Runtime: builtInModules
+    Runtime-->>UserCode: fsModule
+```
+
+---
+
+## 拡張機能の配信とビルド
+
+### 配信形態
+
+Pyxisの拡張機能は静的ファイルとして配信されます。
+
+**ディレクトリ構造**
+
+```
+public/extensions/
+├── registry.json                   # 拡張機能レジストリ
+├── typescript-runtime/
+│   ├── manifest.json
+│   └── index.js                   # バンドル済みJS
+├── lang-packs/
+│   ├── ja/
+│   │   ├── manifest.json
+│   │   └── index.js
+│   └── en/
+│       ├── manifest.json
+│       └── index.js
+├── note-tab/
+│   ├── manifest.json
+│   └── index.js
+└── sample-command/
+    ├── manifest.json
+    └── index.js
+```
+
+### Registry JSON
+
+`registry.json`は利用可能な拡張機能の一覧を定義します。
+
+```json
+{
+  "version": "1.0.0",
+  "extensions": [
+    {
+      "id": "pyxis.typescript-runtime",
+      "type": "transpiler",
+      "manifestUrl": "/extensions/typescript-runtime/manifest.json",
+      "defaultEnabled": true
+    },
+    {
+      "id": "pyxis.lang.ja",
+      "type": "service",
+      "manifestUrl": "/extensions/lang-packs/ja/manifest.json",
+      "defaultEnabled": false
+    }
+  ]
+}
+```
+
+**Auto Installer**
+
+アプリケーション起動時、Auto Installerが以下を実行します。
+
+1. `registry.json`を取得
+2. `defaultEnabled: true`の拡張機能をインストール
+3. ブラウザ言語を検出し、対応する言語パックをインストール
+
+```typescript
+export async function initializeExtensions(): Promise<void> {
+  await extensionManager.init();
+  
+  if (await isFirstRun()) {
+    await autoInstallExtensions();
+  }
+}
+```
+
+### ビルドプロセス
+
+拡張機能のビルドは`build-extensions.js`により自動化されています。
+
+```mermaid
+graph TB
+    Source[extensions/ Source]
+    Builder[build-extensions.js]
+    Transpile[esbuild Transpile]
+    Bundle[Bundle npm packages]
+    Output[public/extensions/]
+    
+    Source -->|Scan| Builder
+    Builder -->|TypeScript/TSX| Transpile
+    Builder -->|Has package.json?| Bundle
+    Transpile --> Output
+    Bundle --> Output
+    
+    Builder -->|Copy| Manifest[manifest.json]
+    Manifest --> Output
+```
+
+**主要な処理**
+
+| ステップ | 処理内容 |
+|---------|---------|
+| ソーススキャン | `extensions/`以下の全ディレクトリを走査 |
+| TypeScript/TSXトランスパイル | esbuildでJSに変換 |
+| npm/pnpmライブラリのバンドル | `package.json`がある場合、依存関係を含めてバンドル |
+| React外部化 | `react`と`react-dom`は外部化（Pyxis本体を使用） |
+| manifest.jsonのコピー | そのまま出力ディレクトリにコピー |
+| registry.jsonの生成 | 全拡張機能の一覧を生成 |
+
+**esbuild設定**
+
+```javascript
+await esbuild.build({
+  entryPoints: [entryPath],
+  bundle: true,
+  format: 'esm',
+  target: 'es2020',
+  outfile: outPath,
+  external: ['react', 'react-dom'],  // React外部化
+  loader: {
+    '.ts': 'ts',
+    '.tsx': 'tsx',
+    '.js': 'js',
+    '.jsx': 'jsx',
+  },
+});
+```
+
+**Reactの扱い**
+
+拡張機能のビルド時、`react`と`react-dom`はバンドルから除外されます（`external`設定）。実行時には`transformImports`により、グローバル変数`window.__PYXIS_REACT__`への参照に変換されます。
+
+これにより、以下のメリットがあります。
+
+- 拡張機能のバンドルサイズが削減される
+- Pyxis本体とReactのバージョンが統一される
+- メモリ使用量が削減される
+
+### マニフェスト仕様
+
+**基本フィールド**
+
+| フィールド | 型 | 必須 | 説明 |
+|----------|---|------|------|
+| `id` | `string` | ✓ | 拡張機能の一意なID |
+| `name` | `string` | ✓ | 表示名 |
+| `version` | `string` | ✓ | バージョン（semver） |
+| `type` | `ExtensionType` | ✓ | 拡張機能の種類 |
+| `description` | `string` | | 説明文 |
+| `author` | `string` | | 作者名 |
+| `entry` | `string` | | エントリーポイント（デフォルト: `index.js`） |
+| `files` | `string[]` | | 追加ファイルのリスト |
+| `dependencies` | `string[]` | | 依存拡張機能のID |
+| `defaultEnabled` | `boolean` | | デフォルトで有効化するか |
+| `onlyOne` | `string` | | 排他グループ名 |
+| `metadata` | `object` | | メタデータ |
+
+**ExtensionType**
+
+```typescript
+export enum ExtensionType {
+  BUILTIN_MODULE = 'builtin-module',    // fs, path等
+  SERVICE = 'service',                  // i18n, Git統合
+  TRANSPILER = 'transpiler',            // TypeScript, JSX
+  LANGUAGE_RUNTIME = 'language-runtime', // Python, Rust
+  TOOL = 'tool',                        // linter, formatter
+  UI = 'ui',                            // タブ、サイドバー
+}
+```
 
 ---
 
 ## まとめ
 
-Pyxisの拡張機能システムは、以下の特徴を持つ柔軟で拡張性の高い設計です：
+Pyxisの拡張機能システムは以下の特徴を持ちます。
 
-- **動的性**: ブラウザ環境で拡張機能を動的にロード・実行
-- **永続性**: IndexedDBによるコードとメタデータのキャッシュ
-- **型安全性**: TypeScriptの型システムによる安全なAPI
-- **統合性**: i18nシステムなど他のコアシステムとの密な統合
-- **自動化**: 初回起動時の自動インストール・言語検出
+| 特徴 | 説明 |
+|------|------|
+| **完全なブラウザ動作** | サーバー不要。IndexedDBとfetchのみで完結 |
+| **動的モジュールローディング** | Blob URLとDynamic Importによる実行時ロード |
+| **型安全なAPI** | TypeScript型推論によるコンパイル時検証 |
+| **独立したライフサイクル** | 各拡張機能は独立してインストール・有効化・無効化可能 |
+| **キャッシュ機構** | IndexedDBによる永続化で高速起動 |
+| **柔軟な拡張ポイント** | タブ、サイドバー、コマンド、トランスパイラ等 |
+| **React共有** | Pyxis本体のReactを共有してバンドルサイズ削減 |
 
-この設計により、Pyxisは柔軟に機能を拡張でき、ユーザーは必要な機能のみを有効化できる効率的なシステムとなっています。
+この設計により、Pyxisはブラウザ上で動作しながら、VS Codeのような拡張可能なIDEとしての機能を実現しています。

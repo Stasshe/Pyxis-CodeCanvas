@@ -6,8 +6,8 @@ set -euo pipefail
 # Output is written to scripts/i18n-compare-missing-keys.txt
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# repository root (one level up from scripts)
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+# repository root (two levels up from scripts/i18n)
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 LOCALES_DIR="$REPO_ROOT/locales"
 BASE_LOCALE="en"
 OUTPUT_FILE="$SCRIPT_DIR/i18n-compare-missing-keys-results.txt"

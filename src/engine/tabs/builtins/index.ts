@@ -10,3 +10,4 @@ export { SettingsTabType } from './SettingsTabType';
 export { WelcomeTabType } from './WelcomeTabType';
 export { PreviewTabType } from './PreviewTabType';
 export { BinaryTabType } from './BinaryTabType';
+export { ExtensionInfoTabType } from './ExtensionInfoTabType';

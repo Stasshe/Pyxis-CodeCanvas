@@ -16,11 +16,12 @@ import 'katex/dist/katex.min.css';
 // because backslashes are processed as escapes. To reliably support bracket
 // delimiters we preprocess the raw markdown string before parsing. This
 // preserves code fences and inline code by skipping conversion inside them.
-import { FileItem, Tab, Project } from '@/types';
+import { FileItem, Project } from '@/types';
+import type { PreviewTab } from '@/engine/tabs/types';
 import { loadImageAsDataURL, parseMermaidContent } from './markdownUtils';
 
 interface MarkdownPreviewTabProps {
-  activeTab: Tab;
+  activeTab: PreviewTab;
   currentProject?: Project;
 }
 
@@ -519,7 +520,7 @@ Mermaid.displayName = 'Mermaid';
 const LocalImage = React.memo<{
   src: string;
   alt: string;
-  activeTab: Tab;
+  activeTab: PreviewTab;
   projectName?: string | undefined;
   projectId?: string | undefined;
   [key: string]: any;
@@ -552,7 +553,7 @@ const LocalImage = React.memo<{
           projectName,
           projectId,
           // pass the path of the markdown file so relative paths can be resolved
-          (activeTab && (activeTab as any).path) || undefined
+          activeTab.path
         );
         if (loadedDataUrl) {
           setDataUrl(loadedDataUrl);
@@ -766,7 +767,7 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ activeTab, curr
             projectId={currentProject?.id}
             activeTab={activeTab}
             // Pass base path for resolution inside markdown files
-            baseFilePath={(activeTab && (activeTab as any).path) || undefined}
+            baseFilePath={activeTab.path}
             {...props}
           />
         );

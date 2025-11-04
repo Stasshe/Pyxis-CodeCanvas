@@ -4,7 +4,15 @@
  * タブの種類を表す型
  * 'editor' | 'preview' | 'webPreview' | 'ai' | 'diff' | 'settings' | string (拡張機能用)
  */
-export type TabKind = 'editor' | 'preview' | 'webPreview' | 'ai' | 'diff' | 'settings' | string;
+export type TabKind =
+  | 'editor'
+  | 'preview'
+  | 'webPreview'
+  | 'ai'
+  | 'diff'
+  | 'settings'
+  | 'extension-info'
+  | string;
 
 /**
  * ベースとなるタブインターフェース
@@ -102,6 +110,15 @@ export interface BinaryTab extends BaseTab {
 }
 
 /**
+ * 拡張機能詳細タブ
+ */
+export interface ExtensionInfoTab extends BaseTab {
+  kind: 'extension-info';
+  manifest: any; // ExtensionManifest
+  isEnabled: boolean;
+}
+
+/**
  * すべてのタブ型のユニオン
  */
 export type Tab =
@@ -112,7 +129,8 @@ export type Tab =
   | DiffTab
   | SettingsTab
   | WelcomeTab
-  | BinaryTab;
+  | BinaryTab
+  | ExtensionInfoTab;
 
 /**
  * タブを開くときのオプション
@@ -177,4 +195,28 @@ export interface EditorPane {
   size?: number;
   children?: EditorPane[];
   parentId?: string;
+}
+
+/**
+ * 型ガード: contentプロパティを持つタブ
+ */
+export function hasContent(tab: Tab): tab is EditorTab | PreviewTab {
+  return tab.kind === 'editor' || tab.kind === 'preview';
+}
+
+/**
+ * 型ガード: bufferContentプロパティを持つタブ
+ */
+export function hasBufferContent(tab: Tab): tab is EditorTab | BinaryTab {
+  return (
+    (tab.kind === 'editor' && 'bufferContent' in tab) ||
+    (tab.kind === 'binary' && 'bufferContent' in tab)
+  );
+}
+
+/**
+ * 型ガード: jumpToLineプロパティを持つタブ
+ */
+export function hasJumpToLine(tab: Tab): tab is EditorTab {
+  return tab.kind === 'editor';
 }

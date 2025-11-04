@@ -5,14 +5,10 @@
   "type": "service",
   "description": "日本語言語パック",
   "author": "Pyxis Team",
+  "defaultEnabled": false,
   "dependencies": [],
   "entry": "index.js",
   "onlyOne": "lang-pack",
-  "provides": {
-    "services": [
-      "language-pack"
-    ]
-  },
   "metadata": {
     "publishedAt": "2025-11-02T00:00:00Z",
     "updatedAt": "2025-11-02T00:00:00Z",

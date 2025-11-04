@@ -6,7 +6,7 @@
  */
 
 import type { FileRepository } from '@/engine/core/fileRepository';
-import type { PyxisStorage } from '@/engine/storage';
+import type { CommandRegistry } from './commandRegistry';
 
 /**
  * normalizeCjsEsmモジュールの型定義
@@ -35,8 +35,8 @@ export interface NormalizeCjsEsmModule {
  */
 export interface SystemModuleMap {
   fileRepository: FileRepository;
-  storageService: PyxisStorage;
   normalizeCjsEsm: NormalizeCjsEsmModule;
+  commandRegistry: CommandRegistry;
 }
 
 /**

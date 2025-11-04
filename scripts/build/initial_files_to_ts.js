@@ -2,8 +2,10 @@
 const fs = require('fs');
 const path = require('path');
 
-const inputDir = path.join(__dirname, 'initial_files');
-const outputFile = path.join(__dirname, 'src/engine/initialFileContents.ts');
+// Resolve repo root (script lives in scripts/build/)
+const ROOT_DIR = path.resolve(__dirname, '..', '..');
+const inputDir = path.join(ROOT_DIR, 'initial_files');
+const outputFile = path.join(ROOT_DIR, 'src', 'engine', 'initialFileContents.ts');
 
 function walk(dir) {
   const result = {};
@@ -53,5 +55,7 @@ ${indent.slice(2)}}`;
 
 const ts = `export const initialFileContents = ${objToTs(initialFileContents)};\n`;
 
+// ensure output directory exists
+fs.mkdirSync(path.dirname(outputFile), { recursive: true });
 fs.writeFileSync(outputFile, ts, 'utf8');
-console.log('initialFileContents.ts generated!');
+console.log(`initialFileContents.ts generated at ${outputFile}`);

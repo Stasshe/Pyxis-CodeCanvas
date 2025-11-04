@@ -2,7 +2,12 @@ Root
 .
 ├── CODE_OF_CONDUCT.md
 ├── Development
+│   ├── COMMAND-EXTENSION.md
+│   ├── EXTENSION-CODE-SPLITTING.md
+│   ├── EXTENSION-NPM-LIBRARIES.md
 │   ├── EXTENSION-TAB-SIDEBAR-API.md
+│   ├── MODULE-CACHE-STRATEGY.md
+│   ├── MULTI-FILE-EXTENSION-SUPPORT.md
 │   ├── NEW-ARCHITECTURE.md
 │   ├── NodeJSRuntime-new-arc.md
 │   ├── TAB-MANAGEMENT-ARCHITECTURE.md
@@ -20,8 +25,6 @@ Root
 ├── README.md
 ├── README_en.md
 ├── SHORT_README.md
-├── bashCmd.txt
-├── build-extensions.js
 ├── docs
 │   ├── AI-SYSTEM.md
 │   ├── CORE-ENGINE.md
@@ -66,12 +69,11 @@ Root
 │       ├── hello.ts
 │       ├── math.ts
 │       └── use-math.ts
-├── initial_files_to_ts.js
 ├── jest.config.cjs
 ├── next-env.d.ts
 ├── next.config.ts
-├── package-lock.json
 ├── package.json
+├── pnpm-lock.yaml
 ├── postcss.config.js
 ├── prettier.config.mjs
 ├── public
@@ -93,31 +95,36 @@ Root
 │   ├── IMG_0034.png
 │   ├── IMG_0035.png
 │   ├── IMG_0048.png
+│   ├── IMG_0113.png
 │   ├── IMG_1466.png
 │   ├── IMG_1467.png
 │   ├── IMG_1469.png
 │   ├── IMG_1470.png
 │   ├── IMG_1471.png
 │   └── IMG_1473.png
-├── sampleNode.js
 ├── scripts
-│   ├── README.md
-│   ├── apply_missing_keys.js
-│   ├── compare_locale_keys.sh
-│   ├── flatten_json_keys.pl
-│   ├── format_json.js
-│   ├── format_locales.sh
-│   ├── i18n-auto-add-missing.js
-│   ├── i18n-compare-missing-keys-results.txt
-│   ├── i18n-detect-results.txt
-│   ├── i18n-detect.sh
-│   ├── i18n-exclude.txt
-│   ├── i18n-missing-keys-results.txt
-│   ├── i18n-missing-keys.sh
-│   ├── one_file_i18n_extract.pl
-│   ├── one_file_t_extract.pl
-│   ├── remove_unused_i18n_keys.js
-│   └── update-readmes-version.js
+│   ├── build
+│   │   ├── build-extensions.js
+│   │   └── initial_files_to_ts.js
+│   ├── chore
+│   │   └── update-readmes-version.js
+│   └── i18n
+│       ├── README.md
+│       ├── apply_missing_keys.js
+│       ├── compare_locale_keys.sh
+│       ├── flatten_json_keys.pl
+│       ├── format_json.js
+│       ├── format_locales.sh
+│       ├── i18n-auto-add-missing.js
+│       ├── i18n-compare-missing-keys-results.txt
+│       ├── i18n-detect-results.txt
+│       ├── i18n-detect.sh
+│       ├── i18n-exclude.txt
+│       ├── i18n-missing-keys-results.txt
+│       ├── i18n-missing-keys.sh
+│       ├── one_file_i18n_extract.pl
+│       ├── one_file_t_extract.pl
+│       └── remove_unused_i18n_keys.js
 ├── src
 │   ├── app
 │   │   ├── Toast.css
@@ -212,6 +219,7 @@ Root
 │   │   ├── GitHubUserContext.tsx
 │   │   ├── I18nContext.tsx
 │   │   ├── TabContext.tsx
+│   │   ├── TabContext.tsx.backup
 │   │   ├── ThemeContext.tsx
 │   │   └── config.ts
 │   ├── engine
@@ -329,6 +337,7 @@ Root
 │   │   │   │   ├── BinaryTabType.tsx
 │   │   │   │   ├── DiffTabType.tsx
 │   │   │   │   ├── EditorTabType.tsx
+│   │   │   │   ├── ExtensionInfoTabType.tsx
 │   │   │   │   ├── PreviewTabType.tsx
 │   │   │   │   ├── SettingsTabType.tsx
 │   │   │   │   ├── WebPreviewTabType.tsx
@@ -371,6 +380,7 @@ Root
 │   │   ├── math.transformed.ts
 │   │   └── use-math.transformed.ts
 │   ├── aiResponseParser.test.ts
+│   ├── extensionLoader.multifile.test.ts
 │   ├── fsRequirePromise.test.ts
 │   ├── gitignore.test.ts
 │   ├── normalizeCjsEsm.imports.test.ts
@@ -384,7 +394,7 @@ Root
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-60 directories, 324 files
+63 directories, 331 files
 
 =================================
 
@@ -394,6 +404,16 @@ extensions/ 以下のディレクトリ構造:
 ├── _shared
 │   ├── systemModuleTypes.ts
 │   └── types.ts
+├── chart-extension
+│   ├── README.md
+│   ├── index.tsx
+│   ├── manifest.json
+│   ├── node_modules
+│   │   ├── @types
+│   │   │   └── react -> ../.pnpm/@types+react@19.2.2/node_modules/@types/react
+│   │   └── chart.js -> .pnpm/chart.js@4.5.1/node_modules/chart.js
+│   ├── package.json
+│   └── pnpm-lock.yaml
 ├── lang-packs
 │   ├── ar
 │   │   ├── index.ts
@@ -459,22 +479,36 @@ extensions/ 以下のディレクトリ構造:
 │   ├── index.tsx
 │   └── manifest.json
 ├── registry.json
+├── sample-command
+│   ├── README.md
+│   ├── index.ts
+│   └── manifest.json
+├── test-multi-file
+│   ├── helper.ts
+│   ├── index.tsx
+│   ├── manifest.json
+│   └── utils.ts
 ├── todo-panel
 │   ├── index.tsx
 │   └── manifest.json
-└── typescript-runtime
-    ├── index.ts
-    ├── manifest.json
-    └── transpile.worker.ts
+├── typescript-runtime
+│   ├── index.ts
+│   ├── manifest.json
+│   └── transpile.worker.ts
+└── ui-copilot-ref
 
-26 directories, 51 files
+34 directories, 63 files
 
 =================================
 
 
 src/*.ts, *.tsx の統計:
-合計行数: 45065
-合計文字数: 1451112
-合計ファイルサイズ(bytes): 1552921
+合計行数: 46292
+合計文字数: 1486791
+合計ファイルサイズ(bytes): 1591532
 
-開発時のdev container全体のサイズ(bytes): 2.5G	.
+開発時のdev container全体のサイズ(bytes): 3.3G	.
+==========
+ビルト済みファイルの行数: 41078
+合計文字数: 26003411
+合計ファイルサイズ(bytes): 26986506

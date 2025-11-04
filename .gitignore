@@ -1,7 +1,7 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-/node_modules
+**/node_modules/
 /.pnp
 .pnp.*
 .yarn/*
@@ -55,8 +55,14 @@ public/locales/
 
 tests/__artifacts__/*
 
-scripts/*results.txt
+scripts/i18n/*results.txt
 
 .eslintcache
 
 
+extensions/registry.json
+extensions/**/PNPM-GUIDE.md
+
+
+# npm lock file (use pnpm instead)
+package-lock.json

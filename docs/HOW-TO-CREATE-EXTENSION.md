@@ -28,21 +28,26 @@ Pyxis拡張機能は、Pyxisエディタに新しい機能を追加するため�
 - ✅ **データの永続化**: localStorageでデータを保存
 - ✅ **動的ロード**: ユーザーが必要に応じて拡張機能をインストール/有効化
 
-### 技術的制約
 
-Pyxisの拡張機能には、以下の制約があります:
+### 技術的制約・最新仕様
 
-1. **Static Site**: Pyxisは静的サイトとしてホスティングされるため、サーバーサイド処理は使用できません
-2. **動的Import**: 拡張機能はビルド時ではなく、ランタイムに動的にimportされます
-3. **React提供**: Reactはグローバルスコープ(`window.__PYXIS_REACT__`)から提供されます
-4. **JSX不可**: TypeScriptファイルは`React.createElement`にトランスパイルされます
+Pyxis拡張機能は、完全なブラウザ動作・型安全なAPI・TSX構文推奨・IndexedDBキャッシュ・Reactグローバル提供など、最新の設計思想に基づいています。
+
+1. **Static Site**: Pyxisは静的サイトとしてホスティングされるため、サーバーサイド処理は不可
+2. **動的Import**: 拡張機能はランタイムにBlob URL経由でimportされます
+3. **React提供**: Reactは`window.__PYXIS_REACT__`としてグローバル提供され、import文は自動変換されます
+4. **TSX推奨**: JSX/TSX構文が利用可能。ビルド時に`React.createElement`へ変換されます
+5. **型安全API**: ExtensionContext・TabAPI・SidebarAPI・CommandsAPIはTypeScript型で完全管理
+6. **IndexedDBキャッシュ**: インストール済み拡張機能はIndexedDBに保存され、2回目以降は高速起動
+
 
 ### 設計原則
 
-1. **最小権限の原則**: 拡張機能は自分が作成したリソースのみを操作可能
-2. **宣言的API**: マニフェストで機能を宣言し、実行時にAPIで操作
-3. **型安全性**: TypeScriptで完全に型付け
-4. **自動クリーンアップ**: 拡張機能の無効化時に自動でリソースを解放
+1. **最小権限の原則**: 拡張機能は自分が作成したタブ・パネル・コマンドのみ操作可能
+2. **宣言的API**: manifest.jsonで機能宣言、実行時はExtensionContext経由でAPI操作
+3. **型安全性**: TypeScript型で全API・データを管理
+4. **自動クリーンアップ**: 無効化時にAPIインスタンスのdisposeでリソース解放
+5. **React共有**: Pyxis本体のReactを全拡張機能で共有
 
 ---
 
@@ -53,9 +58,9 @@ Pyxisの拡張機能には、以下の制約があります:
 ```
 extensions/
   my-extension/
-    ├── manifest.json    # 拡張機能のメタデータ
-    ├── index.ts         # エントリーポイント
-    └── README.md        # ドキュメント(オプション)
+  ├── manifest.json    # 拡張機能のメタデータ
+  ├── index.ts         # エントリーポイント
+  └── README.md        # ドキュメント(オプション)
 ```
 
 ### 1. manifest.json
@@ -71,9 +76,6 @@ extensions/
   "description": "Example extension for Pyxis",
   "author": "Your Name",
   "entry": "index.js",
-  "provides": {
-    "services": ["my-service"]
-  },
   "metadata": {
     "publishedAt": "2025-01-01T00:00:00Z",
     "updatedAt": "2025-01-01T00:00:00Z",
@@ -93,30 +95,37 @@ extensions/
 | `description` | string | ✅ | 説明 |
 | `author` | string | ✅ | 作者名 |
 | `entry` | string | ✅ | エントリーポイント (通常は`index.js`) |
-| `provides` | object | ❌ | 提供するサービス |
 | `metadata` | object | ❌ | その他のメタデータ |
 
-### 2. index.ts
 
-拡張機能のエントリーポイントです。`activate`関数と`deactivate`関数をエクスポートします:
+### 2. index.tsx（TSX推奨）
 
-```typescript
+拡張機能のエントリーポイントは`activate`/`deactivate`関数をエクスポートします。TSX構文でUIを記述できます。
+
+```tsx
 import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
+import React, { useState } from 'react';
+
+function MyTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
+  const [count, setCount] = useState(0);
+  return (
+    <div style={{ padding: '16px', background: '#1e1e1e', color: '#d4d4d4' }}>
+      <h2>My Custom Tab</h2>
+      <p>Count: {count}</p>
+      <button onClick={() => setCount(count + 1)}>Increment</button>
+    </div>
+  );
+}
 
 export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
-  // 拡張機能の初期化処理
   context.logger?.info('Extension activated!');
-  
-  // タブやパネルの登録
-  
-  return {
-    services: {},
-    commands: {},
-  };
+  if (context.tabs) {
+    context.tabs.registerTabType(MyTabComponent);
+  }
+  return {};
 }
 
 export async function deactivate(): Promise<void> {
-  // クリーンアップ処理
   console.log('Extension deactivated');
 }
 ```
@@ -178,51 +187,35 @@ EOF
 }
 ```
 
+
 ### ステップ 5: ビルド
 
 ```bash
 # プロジェクトルートで実行
-node build-extensions.js
+pnpm run setup-build
 ```
 
-これで`public/extensions/my-extension/`にJSファイルが生成されます。
+これで`public/extensions/my-extension/`にバンドル済みJSファイルが生成されます。
+
 
 ### ステップ 6: 開発サーバーで確認
 
 ```bash
-npm run dev
+pnpm run dev
 ```
 
 ブラウザで開き、拡張機能パネルから「My Extension」をインストール・有効化してください。
 
 ---
 
-## TSX構文の使用
 
-### TSXとは
+### TSX構文の使用（推奨）
 
-TSX (TypeScript + JSX) を使用すると、`React.createElement`を使わずに、HTMLライクな構文でUIを記述できます。
-
-```tsx
-// TSX構文
-<div style={{ padding: '16px' }}>
-  <h2>Hello</h2>
-  <button onClick={handleClick}>Click me</button>
-</div>
-
-// 上記は以下にトランスパイルされます
-React.createElement('div', { style: { padding: '16px' } },
-  React.createElement('h2', null, 'Hello'),
-  React.createElement('button', { onClick: handleClick }, 'Click me')
-)
-```
-
-### TSXの使い方
+TSX (TypeScript + JSX) を使うことで、HTMLライクな構文でUIを記述できます。ビルド時に自動的に`React.createElement`へ変換されます。
 
 #### 1. ファイル名を`.tsx`にする
 
 ```bash
-# index.ts → index.tsx にリネーム
 mv extensions/my-extension/index.ts extensions/my-extension/index.tsx
 ```
 
@@ -234,37 +227,21 @@ import React, { useState } from 'react';
 
 function MyTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
   const [count, setCount] = useState(0);
-
-  // TSX構文で記述できる！
   return (
     <div style={{ padding: '16px', background: '#1e1e1e', color: '#d4d4d4' }}>
       <h2>My Custom Tab</h2>
       <p>Count: {count}</p>
-      <button
-        onClick={() => setCount(count + 1)}
-        style={{
-          padding: '8px 16px',
-          background: '#0e639c',
-          color: '#fff',
-          border: 'none',
-          borderRadius: '4px',
-          cursor: 'pointer',
-        }}
-      >
-        Increment
-      </button>
+      <button onClick={() => setCount(count + 1)}>Increment</button>
     </div>
   );
 }
 
 export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
   context.logger?.info('Extension activated!');
-
   if (context.tabs) {
     context.tabs.registerTabType(MyTabComponent);
   }
-
-  return { services: {} };
+  return {};
 }
 
 export async function deactivate(): Promise<void> {
@@ -275,20 +252,8 @@ export async function deactivate(): Promise<void> {
 #### 3. ビルド
 
 ```bash
-node build-extensions.js
+pnpm run setup-build
 ```
-
-ビルドスクリプトが自動的にTSXを`React.createElement`に変換します。
-
-### TSX vs React.createElement
-
-| 特徴 | TSX | React.createElement |
-|-----|-----|---------------------|
-| **可読性** | ✅ 高い | ❌ 低い |
-| **記述量** | ✅ 少ない | ❌ 多い |
-| **ネスト** | ✅ 直感的 | ❌ 複雑になりがち |
-| **イベントハンドラ** | ✅ JSライク | ❌ オブジェクトで指定 |
-| **ビルド後** | 同じ | 同じ |
 
 **推奨:** TSXを使用してください。開発体験が大幅に向上します。
 
@@ -339,18 +304,16 @@ function NoteTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
 
 ### 注意事項
 
+
 1. **Reactのimportは必須**
-   ```tsx
-   import React from 'react'; // 必ず記述
-   ```
-
-2. **ビルド時に変換される**
-   - TSX → `React.createElement`
-   - `import React from 'react'` → `const React = window.__PYXIS_REACT__`
-
+  ```tsx
+  import React from 'react'; // 必ず記述
+  ```
+2. **ビルド時に自動変換**
+  - TSX → `React.createElement`
+  - `import React from 'react'` → `const React = window.__PYXIS_REACT__`（自動変換）
 3. **Reactはバンドルされない**
-   - ビルド後のJSファイルにReactは含まれません
-   - ランタイムで`window.__PYXIS_REACT__`から取得されます
+  - 実行時はPyxis本体のReactを共有
 
 ---
 
@@ -434,36 +397,20 @@ graph LR
 
 タブの内容を描画するReactコンポーネントを作成します。**TabComponentProps**に準拠する必要があります:
 
-```typescript
+```tsx
 import React, { useState, useEffect } from 'react';
 
-// TabComponentProps: { tab: any; isActive: boolean }
 function MyTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
   const tabData = (tab as any).data;
   const [content, setContent] = useState(tabData?.content || '');
 
-  return React.createElement(
-    'div',
-    {
-      style: {
-        width: '100%',
-        height: '100%',
-        padding: '16px',
-        background: '#1e1e1e',
-        color: '#d4d4d4',
-      },
-    },
-    [
-      React.createElement(
-        'h2',
-        { key: 'title', style: { marginBottom: '16px' } },
-        'My Custom Tab'
-      ),
-      React.createElement('textarea', {
-        key: 'textarea',
-        value: content,
-        onChange: (e: any) => setContent(e.target.value),
-        style: {
+  return (
+    <div style={{ width: '100%', height: '100%', padding: '16px', background: '#1e1e1e', color: '#d4d4d4' }}>
+      <h2 style={{ marginBottom: '16px' }}>My Custom Tab</h2>
+      <textarea
+        value={content}
+        onChange={e => setContent(e.target.value)}
+        style={{
           width: '100%',
           height: '300px',
           padding: '8px',
@@ -471,16 +418,16 @@ function MyTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
           color: '#d4d4d4',
           border: '1px solid #444',
           borderRadius: '4px',
-        },
-      }),
-    ]
+        }}
+      />
+    </div>
   );
 }
 ```
 
 **重要な注意点:**
 
-1. **JSX構文は使えません**: `React.createElement`を使用してください
+1. **TSX構文が推奨**: JSX/TSXで記述し、ビルド時に自動変換されます
 2. **Props**: `{ tab, isActive }` を受け取る必要があります
 3. **tab.data**: `createTab`で渡したデータが`tab.data`に格納されています
 4. **isActive**: タブがアクティブかどうか
@@ -695,29 +642,21 @@ graph LR
 
 サイドバーパネルの内容を描画するReactコンポーネントを作成します:
 
-```typescript
+```tsx
 import React, { useState, useEffect } from 'react';
 
 function MyPanelComponent({ extensionId, panelId, isActive, state }: any) {
   const [items, setItems] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // パネルがアクティブになったときにデータをロード
   useEffect(() => {
     if (isActive) {
-      loadItems();
+      setLoading(true);
+      const saved = localStorage.getItem(`${extensionId}-items`);
+      if (saved) setItems(JSON.parse(saved));
+      setLoading(false);
     }
-  }, [isActive]);
-
-  const loadItems = () => {
-    setLoading(true);
-    // localStorageからデータを取得
-    const saved = localStorage.getItem(`${extensionId}-items`);
-    if (saved) {
-      setItems(JSON.parse(saved));
-    }
-    setLoading(false);
-  };
+  }, [isActive, extensionId]);
 
   const addItem = () => {
     const newItem = `Item ${items.length + 1}`;
@@ -726,74 +665,27 @@ function MyPanelComponent({ extensionId, panelId, isActive, state }: any) {
     localStorage.setItem(`${extensionId}-items`, JSON.stringify(updated));
   };
 
-  return React.createElement(
-    'div',
-    {
-      style: {
-        padding: '16px',
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        background: '#1e1e1e',
-        color: '#d4d4d4',
-      },
-    },
-    [
-      // ヘッダー
-      React.createElement(
-        'div',
-        {
-          key: 'header',
-          style: {
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '16px',
-          },
-        },
-        [
-          React.createElement('h3', { key: 'title', style: { margin: 0 } }, 'My Panel'),
-          React.createElement(
-            'button',
-            {
-              key: 'add-btn',
-              onClick: addItem,
-              style: {
-                padding: '4px 8px',
-                background: '#0e639c',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-              },
-            },
-            '+ Add'
-          ),
-        ]
-      ),
-      // アイテムリスト
-      React.createElement(
-        'div',
-        { key: 'items', style: { flex: 1, overflowY: 'auto' } },
-        loading
-          ? React.createElement('p', null, 'Loading...')
-          : items.map((item, idx) =>
-              React.createElement(
-                'div',
-                {
-                  key: idx,
-                  style: {
-                    padding: '8px',
-                    marginBottom: '4px',
-                    background: '#2d2d2d',
-                    borderRadius: '4px',
-                  },
-                },
-                item
-              )
-            )
-      ),
-    ]
+  return (
+    <div style={{ padding: '16px', height: '100%', display: 'flex', flexDirection: 'column', background: '#1e1e1e', color: '#d4d4d4' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+        <h3 style={{ margin: 0 }}>My Panel</h3>
+        <button
+          onClick={addItem}
+          style={{ padding: '4px 8px', background: '#0e639c', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+        >
+          + Add
+        </button>
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto' }}>
+        {loading ? (
+          <p>Loading...</p>
+        ) : (
+          items.map((item, idx) => (
+            <div key={idx} style={{ padding: '8px', marginBottom: '4px', background: '#2d2d2d', borderRadius: '4px' }}>{item}</div>
+          ))
+        )}
+      </div>
+    </div>
   );
 }
 ```
@@ -931,6 +823,8 @@ context.sidebar.onPanelActivate('my-panel', async (panelId) => {
 
 #### 1. マニフェスト (`manifest.json`)
 
+※ `provides`フィールドは完全廃止済み。manifest.jsonに記載しないでください。
+
 ```json
 {
   "id": "pyxis.note-tab",
@@ -940,9 +834,6 @@ context.sidebar.onPanelActivate('my-panel', async (panelId) => {
   "description": "Provides a simple note-taking tab for quick notes and todos",
   "author": "Pyxis Team",
   "entry": "index.js",
-  "provides": {
-    "services": ["note-tab"]
-  },
   "metadata": {
     "publishedAt": "2025-01-01T00:00:00Z",
     "updatedAt": "2025-01-01T00:00:00Z",
@@ -1420,43 +1311,44 @@ export async function activate(context: ExtensionContext) {
 
 ---
 
+
 ## まとめ
 
-### 拡張機能開発の流れ
+### 拡張機能開発の流れ（最新版）
 
 1. **準備**
-   - `extensions/my-extension/` ディレクトリを作成
-   - `manifest.json` と `index.ts` を作成
-   - `extensions/registry.json` に登録
+  - `extensions/my-extension/` ディレクトリを作成
+  - `manifest.json` と `index.tsx` を作成（TSX推奨）
+  - `extensions/registry.json` に登録
 
 2. **実装**
-   - タブコンポーネント作成 (`React.createElement`を使用)
-   - パネルコンポーネント作成（オプション）
-   - `activate` 関数で登録
+  - タブコンポーネント作成（TSX構文推奨）
+  - パネルコンポーネント作成（オプション）
+  - `activate` 関数でAPI登録
 
 3. **ビルド**
-   ```bash
-   node build-extensions.js
-   ```
+  ```bash
+  pnpm run setup-build
+  ```
 
 4. **テスト**
-   ```bash
-   npm run dev
-   ```
-   - ブラウザで拡張機能パネルを開く
-   - 拡張機能をインストール・有効化
-   - タブやパネルが表示されるか確認
+  ```bash
+  pnpm run dev
+  ```
+  - ブラウザで拡張機能パネルを開く
+  - 拡張機能をインストール・有効化
+  - タブやパネルが表示されるか確認
 
 5. **デバッグ**
-   - ブラウザのコンソールでログを確認
-   - `context.logger` で情報を出力
-   - localStorageの内容を確認 (DevTools > Application > Local Storage)
+  - ブラウザのコンソールでログを確認
+  - `context.logger` で情報を出力
+  - localStorageの内容を確認 (DevTools > Application > Local Storage)
 
 ### 重要なポイント
 
 ✅ **DO (推奨)**
 - `registerTabType()`を最初に呼ぶ
-- `React.createElement`を使用
+- TSX構文で記述（JSX/TSX→自動変換）
 - localStorageでデータを永続化
 - エラーハンドリングを実装
 - `context.logger`でログを出力
@@ -1464,7 +1356,6 @@ export async function activate(context: ExtensionContext) {
 - `onTabClose`でクリーンアップ
 
 ❌ **DON'T (非推奨)**
-- JSX構文を使用
 - `registerTabType()`を呼ばずに`createTab()`
 - 他の拡張機能のタブを操作
 - サーバーサイド処理を期待

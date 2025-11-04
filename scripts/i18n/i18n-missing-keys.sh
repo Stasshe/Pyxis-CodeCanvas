@@ -9,8 +9,8 @@ set -euo pipefail
 
 ROOT=src
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# repository root (one level up from scripts)
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+# repository root (two levels up from scripts/i18n)
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 EN_DIR="$REPO_ROOT/locales/en"
 EN_JSON="$EN_DIR/common.json"
 

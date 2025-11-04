@@ -20,6 +20,8 @@ export interface ExtensionTabData {
  * タブ作成オプション
  */
 export interface CreateTabOptions {
+  /** タブの一意識別子（オプション）。指定すると同じIDのタブを再利用します */
+  id?: string;
   /** タブのタイトル */
   title: string;
   /** タブのアイコン（オプション） */
@@ -98,6 +100,7 @@ export class TabAPI {
 
   /**
    * 新しいタブを作成
+   * TabStore の openTab を使用するため、重複チェックは自動的に行われる
    */
   createTab(options: CreateTabOptions): string {
     const store = useTabStore.getState();
@@ -112,64 +115,30 @@ export class TabAPI {
       throw new Error(`Extension tab type not registered: ${tabKind}`);
     }
 
-    // 重複チェック: noteKeyが指定されている場合、同じnoteKeyを持つタブを探す
-    if (options.data && (options.data as any).noteKey) {
-      const noteKey = (options.data as any).noteKey;
-      for (const pane of store.panes) {
-        const existingTab = pane.tabs.find(tab => {
-          return tab.kind === tabKind && (tab as any).data?.noteKey === noteKey;
-        });
+    // pathの生成: idが指定されている場合はそれを使う
+    const tabPath = options.id
+      ? `extension:${this.extensionId}:${options.id}`
+      : `extension:${this.extensionId}`;
 
-        if (existingTab) {
-          console.log(
-            `[TabAPI] Tab already exists for noteKey: ${noteKey}, activating existing tab`
-          );
-          store.activateTab(pane.id, existingTab.id);
-          return existingTab.id;
-        }
+    // TabStore の openTab を使用（重複チェックと既存タブのアクティブ化を自動処理）
+    store.openTab(
+      {
+        path: tabPath,
+        name: options.title,
+        title: options.title,
+        icon: options.icon,
+        closable: options.closable,
+        data: options.data,
+      },
+      {
+        kind: tabKind,
+        paneId: options.paneId,
+        makeActive: options.activateAfterCreate !== false,
       }
-    }
-
-    const tabId = `ext-${this.extensionId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-
-    // 新しいタブオブジェクトを作成（BaseTabの形式に準拠）
-    const newTab: any = {
-      id: tabId,
-      name: options.title,
-      kind: tabKind,
-      path: `extension:${this.extensionId}/${tabId}`,
-      paneId: '', // setPanesで設定される
-      icon: options.icon,
-      closable: options.closable ?? true,
-      data: options.data,
-    };
-
-    // ペインIDの決定
-    const targetPaneId = options.paneId || store.panes[0]?.id;
-    if (!targetPaneId) {
-      throw new Error('No pane available to open tab');
-    }
-
-    // タブを追加
-    store.setPanes(
-      store.panes.map(pane => {
-        if (pane.id === targetPaneId) {
-          return {
-            ...pane,
-            tabs: [...pane.tabs, newTab as any],
-          };
-        }
-        return pane;
-      })
     );
 
-    // アクティブ化
-    if (options.activateAfterCreate !== false) {
-      store.activateTab(targetPaneId, tabId);
-    }
-
-    console.log(`[TabAPI] Created tab: ${tabId} for extension: ${this.extensionId}`);
-    return tabId;
+    console.log(`[TabAPI] Opened tab: ${tabPath} for extension: ${this.extensionId}`);
+    return tabPath;
   }
 
   /**
@@ -196,6 +165,7 @@ export class TabAPI {
               // title オプションは name フィールドを更新
               ...(options.title && { name: options.title }),
               ...(options.icon && { icon: options.icon }),
+              // 拡張機能用の任意データフィールド（型定義外）
               ...(options.data && {
                 data: { ...(tab as any).data, ...options.data },
               }),
@@ -270,6 +240,7 @@ export class TabAPI {
 
     const store = useTabStore.getState();
     for (const pane of store.panes) {
+      // 拡張機能タブの任意データにアクセス（型定義外のプロパティ）
       const tab = pane.tabs.find(t => t.id === tabId) as any;
       if (tab && tab.data) {
         return tab.data as T;
@@ -281,15 +252,15 @@ export class TabAPI {
   /**
    * このタブが拡張機能によって所有されているかチェック
    *
-   * Note: createTab()で生成されたタブIDの形式に依存している。
+   * Note: createTab()で生成されたタブID（path）の形式に依存している。
    * タブIDは createTab() 内で厳密に制御されており、
-   * `ext-${extensionId}-${timestamp}-${random}` の形式のみが許可される。
+   * `extension:${extensionId}:` または `extension:${extensionId}` の形式のみが許可される。
    * 拡張機能はこのメソッド以外でタブIDを生成できないため、
    * プレフィックスチェックで十分なセキュリティが保証される。
    */
   private isOwnedTab(tabId: string): boolean {
     // createTab()で生成された正確なプレフィックスのみを許可
-    const expectedPrefix = `ext-${this.extensionId}-`;
+    const expectedPrefix = `extension:${this.extensionId}`;
     return tabId.startsWith(expectedPrefix);
   }
 

@@ -5,14 +5,12 @@
   "type": "transpiler",
   "description": "TypeScript/JSX/TSXファイルのトランスパイルをサポート。Babel standaloneを使用した高速なコンパイル。",
   "author": "Pyxis Team",
+  "defaultEnabled": true,
   "icon": "/extensions/pyxis/typescript-runtime/icon.svg",
   "homepage": "https://github.com/Stasshe/Pyxis-CodeCanvas",
   "dependencies": [],
   "entry": "index.js",
   "files": [],
-  "provides": {
-    "runtimeFeatures": ["typescript", "tsx", "jsx"]
-  },
   "metadata": {
     "publishedAt": "2025-11-02T00:00:00Z",
     "updatedAt": "2025-11-02T00:00:00Z",

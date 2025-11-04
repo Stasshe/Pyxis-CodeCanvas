@@ -10,6 +10,7 @@ import {
   Power,
   PowerOff,
   Loader,
+  RotateCw,
   Package,
   CheckCircle2,
   Search,
@@ -20,6 +21,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { extensionManager } from '@/engine/extensions/extensionManager';
 import { fetchAllManifests } from '@/engine/extensions/extensionRegistry';
 import type { InstalledExtension, ExtensionManifest } from '@/engine/extensions/types';
+import { useTabStore } from '@/stores/tabStore';
 
 interface ExtensionPack {
   id: string;
@@ -111,6 +113,24 @@ export default function ExtensionsPanel() {
     }
   };
 
+  // 更新（キャッシュ削除して再インストール）
+  const handleUpdate = async (extensionId: string, manifestUrl: string, extensionName: string) => {
+    if (!manifestUrl) {
+      alert(`Failed to update ${extensionName}: Manifest URL not found in registry`);
+      return;
+    }
+    try {
+      // アンインストール
+      await extensionManager.uninstallExtension(extensionId);
+      // 再インストール
+      await extensionManager.installExtension(manifestUrl);
+      await loadExtensions();
+    } catch (error) {
+      console.error('[ExtensionsPanel] Failed to update extension:', error);
+      alert(`Failed to update ${extensionName}: ${(error as Error).message}`);
+    }
+  };
+
   const handleToggle = async (extensionId: string, currentlyEnabled: boolean) => {
     try {
       if (currentlyEnabled) {
@@ -135,6 +155,27 @@ export default function ExtensionsPanel() {
         alert(`Failed to uninstall: ${(error as Error).message}`);
       }
     }
+  };
+
+  /**
+   * 拡張機能の詳細タブを開く
+   */
+  const openExtensionInfoTab = (manifest: ExtensionManifest, isEnabled: boolean) => {
+    const { openTab } = useTabStore.getState();
+
+    openTab(
+      {
+        kind: 'extension-info',
+        name: manifest.name,
+        path: `extension-info/${manifest.id}`,
+        manifest,
+        isEnabled,
+      },
+      {
+        kind: 'extension-info',
+        makeActive: true,
+      }
+    );
   };
 
   const getExtensionTypeLabel = (type: string) => {
@@ -366,6 +407,8 @@ export default function ExtensionsPanel() {
     if (!ext.manifest) return null;
     const typeColor = getExtensionTypeBadgeColor(ext.manifest.type);
 
+    // レジストリからmanifestUrl取得
+    const manifestUrl = availableWithRegistry.get(ext.manifest.id);
     return (
       <div
         key={ext.manifest.id}
@@ -387,8 +430,10 @@ export default function ExtensionsPanel() {
                 </span>
               )}
               <h3
-                className="text-sm font-semibold truncate"
+                className="text-sm font-semibold truncate cursor-pointer hover:underline"
                 style={{ color: colors.foreground }}
+                onClick={() => openExtensionInfoTab(ext.manifest, ext.enabled)}
+                title="Click to view extension details"
               >
                 {ext.manifest.name}
               </h3>
@@ -427,9 +472,12 @@ export default function ExtensionsPanel() {
           </span>
         </div>
 
-        <div className="flex gap-2">
+        <div
+          className="flex flex-wrap gap-2"
+          style={{ minWidth: 0, maxWidth: '100%', overflow: 'hidden' }}
+        >
           <button
-            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs rounded transition-all hover:opacity-80"
+            className="min-w-[90px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs rounded transition-all hover:opacity-80"
             style={{
               background: ext.enabled ? colors.orange + '15' : colors.primary + '15',
               color: ext.enabled ? colors.orange : colors.primary,
@@ -450,7 +498,7 @@ export default function ExtensionsPanel() {
             )}
           </button>
           <button
-            className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs rounded transition-all hover:opacity-80"
+            className="min-w-[90px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs rounded transition-all hover:opacity-80"
             style={{
               background: colors.red + '15',
               color: colors.red,
@@ -460,6 +508,20 @@ export default function ExtensionsPanel() {
           >
             <Trash2 size={12} />
             Uninstall
+          </button>
+          <button
+            className="min-w-[90px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs rounded transition-all hover:opacity-80"
+            style={{
+              background: colors.blue + '15',
+              color: colors.blue,
+              border: `1px solid ${colors.blue}30`,
+            }}
+            onClick={() => handleUpdate(ext.manifest.id, manifestUrl || '', ext.manifest.name)}
+            disabled={!manifestUrl}
+            title={manifestUrl ? 'Update extension' : 'Manifest URL not found'}
+          >
+            <Loader size={12} />
+            Update
           </button>
         </div>
       </div>
@@ -494,8 +556,10 @@ export default function ExtensionsPanel() {
                 </span>
               )}
               <h3
-                className="text-sm font-semibold truncate"
+                className="text-sm font-semibold truncate cursor-pointer hover:underline"
                 style={{ color: colors.foreground }}
+                onClick={() => openExtensionInfoTab(manifest, false)}
+                title="Click to view extension details"
               >
                 {manifest.name}
               </h3>
@@ -570,19 +634,42 @@ export default function ExtensionsPanel() {
     >
       {/* ヘッダー */}
       <div
-        className="flex items-center px-4 py-3 border-b"
+        className="flex items-center justify-between px-4 py-3 border-b"
         style={{ borderColor: colors.border }}
       >
-        <Package
-          size={18}
-          style={{ color: colors.primary }}
-        />
-        <h2
-          className="ml-2 text-sm font-semibold"
-          style={{ color: colors.foreground }}
-        >
-          Extensions
-        </h2>
+        <div className="flex items-center">
+          <Package
+            size={18}
+            style={{ color: colors.primary }}
+          />
+          <h2
+            className="ml-2 text-sm font-semibold"
+            style={{ color: colors.foreground }}
+          >
+            Extensions
+          </h2>
+        </div>
+
+        {/* Reload button (right end) */}
+        <div>
+          <button
+            className="flex items-center gap-2 px-3 py-1.5 rounded text-sm transition-all hover:opacity-80"
+            style={{
+              background: colors.background,
+              color: colors.mutedFg,
+              border: `1px solid ${colors.border}`,
+            }}
+            onClick={() => loadExtensions()}
+            title="Reload extensions"
+            disabled={loading}
+          >
+            <RotateCw
+              size={16}
+              className={loading ? 'animate-spin' : ''}
+              style={{ color: colors.mutedFg }}
+            />
+          </button>
+        </div>
       </div>
 
       {/* タブ */}

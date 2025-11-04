@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import { useTabContext } from '@/context/TabContext';
+import { useTabStore } from '@/stores/tabStore';
 import { GitCommands } from '@/engine/cmd/git';
 import type { SingleFileDiff } from '@/types';
 
@@ -9,7 +9,7 @@ import type { SingleFileDiff } from '@/types';
  * TabContext を使用して、Diff タブを開く
  */
 export function useDiffTabHandlers(currentProject: any) {
-  const { openTab } = useTabContext();
+  const { openTab } = useTabStore();
 
   // ファイル単体のdiffタブを開く
   const handleDiffFileClick = useCallback(

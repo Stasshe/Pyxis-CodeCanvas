@@ -379,25 +379,6 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
     context.logger?.info('Note tab component registered');
   }
 
-  const createNoteTab = () => {
-    if (context.tabs) {
-      const tabId = context.tabs.createTab({
-        title: '📝 Quick Note',
-        icon: 'FileText',
-        closable: true,
-        activateAfterCreate: true,
-        data: { content: '' },
-      });
-
-      context.tabs.onTabClose(tabId, async (closedTabId: string) => {
-        context.logger?.info(`Note tab closed: ${closedTabId}`);
-      });
-
-      return tabId;
-    }
-    return null;
-  };
-
   if (context.sidebar) {
     const NotesListPanelWithContext = createNotesListPanel(context);
     
@@ -412,11 +393,9 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
     context.logger?.info('Notes sidebar panel registered');
   }
 
-  return {
-    services: {
-      'note-tab': { createNoteTab },
-    },
-  };
+  // UI拡張機能なので、services/commandsは不要
+  // createNoteTabは使われていないため削除
+  return {};
 }
 
 export async function deactivate(): Promise<void> {

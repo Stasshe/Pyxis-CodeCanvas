@@ -27,7 +27,6 @@ interface ModuleExecutionCache {
     loading: boolean;
   };
 }
-
 /**
  * Module Loader Options
  */
@@ -189,18 +188,15 @@ export class ModuleLoader {
               const deps = result.dependencies || [];
 
               // キャッシュに保存
-              await this.cache.set(
-                filePath,
-                {
-                  originalPath: filePath,
-                  code: result.code,
-                  sourceMap: result.map,
-                  deps,
-                  mtime: Date.now(),
-                  size: result.code.length,
-                },
-                version
-              );
+              await this.cache.set(filePath, {
+                originalPath: filePath,
+                contentHash: version,
+                code: result.code,
+                sourceMap: result.map,
+                deps,
+                mtime: Date.now(),
+                size: result.code.length,
+              });
 
               transpiled = true;
               runtimeInfo('✅ Transpile completed (extension) and cached');
@@ -231,18 +227,15 @@ export class ModuleLoader {
         code = result.code;
 
         // キャッシュに保存
-        await this.cache.set(
-          filePath,
-          {
-            originalPath: filePath,
-            code: result.code,
-            sourceMap: result.sourceMap,
-            deps: result.dependencies,
-            mtime: Date.now(),
-            size: result.code.length,
-          },
-          version
-        );
+        await this.cache.set(filePath, {
+          originalPath: filePath,
+          contentHash: version,
+          code: result.code,
+          sourceMap: result.sourceMap,
+          deps: result.dependencies,
+          mtime: Date.now(),
+          size: result.code.length,
+        });
 
         runtimeInfo('✅ Transpile completed (normalizeCjsEsm) and cached');
       }
