@@ -379,25 +379,6 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
     context.logger?.info('Note tab component registered');
   }
 
-  const createNoteTab = () => {
-    if (context.tabs) {
-      const tabId = context.tabs.createTab({
-        title: '📝 Quick Note',
-        icon: 'FileText',
-        closable: true,
-        activateAfterCreate: true,
-        data: { content: '' },
-      });
-
-      context.tabs.onTabClose(tabId, async (closedTabId: string) => {
-        context.logger?.info(`Note tab closed: ${closedTabId}`);
-      });
-
-      return tabId;
-    }
-    return null;
-  };
-
   if (context.sidebar) {
     const NotesListPanelWithContext = createNotesListPanel(context);
     
