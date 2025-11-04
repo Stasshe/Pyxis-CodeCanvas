@@ -266,7 +266,8 @@ async function transpileAllWithTsc() {
       fs.unlinkSync(tsbuildInfoPath);
     }
     
-    execSync(`npx tsc -p ${tsconfigPath}`, {
+    // pnpmを使用してtscを実行（.npmrcの設定warningを回避）
+    execSync(`pnpm exec tsc -p ${tsconfigPath}`, {
       stdio: 'inherit',
       cwd: __dirname,
     });
