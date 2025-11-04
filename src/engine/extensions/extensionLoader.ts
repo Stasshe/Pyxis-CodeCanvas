@@ -130,12 +130,12 @@ export async function fetchExtensionCode(manifest: ExtensionManifest): Promise<{
  * 拡張機能のコードを実行してモジュールをロード
  *
  * @param entryCode エントリーポイントのコード
- * @param additionalFiles 追加ファイルのマップ (ファイル名 -> コード)
+ * @param additionalFiles 追加ファイルのマップ (ファイル名 -> コードまたはBlob)
  * @param context 拡張機能のコンテキスト
  */
 export async function loadExtensionModule(
   entryCode: string,
-  additionalFiles: Record<string, string>,
+  additionalFiles: Record<string, string | Blob>,
   context: ExtensionContext
 ): Promise<ExtensionExports | null> {
   try {
@@ -161,7 +161,11 @@ export async function loadExtensionModule(
         let url: string;
 
         // If the file is a data URL (binary stored as data:<mime>;base64,...) create a blob from it
-        if (typeof code === 'string' && code.startsWith('data:')) {
+        const isBlobLike =
+          code && typeof code === 'object' && 'size' in (code as any) && 'type' in (code as any);
+        if (isBlobLike) {
+          url = URL.createObjectURL(code as Blob);
+        } else if (typeof code === 'string' && code.startsWith('data:')) {
           try {
             const blob = dataUrlToBlob(code);
             url = URL.createObjectURL(blob);

@@ -80,3 +80,18 @@ export function dataUrlToBlob(dataUrl: string): Blob {
 }
 
 export { binaryExts };
+
+export function uint8ToBlob(uint8: Uint8Array, filePath?: string): Blob {
+  let mime = 'application/octet-stream';
+  if (filePath) {
+    const lower = filePath.toLowerCase();
+    const ext = binaryExts.find(e => lower.endsWith(e)) || '';
+    mime = extToMime(ext);
+  }
+  // Ensure we pass an ArrayBuffer (not the entire underlying buffer)
+  const ab = uint8.buffer.slice(
+    uint8.byteOffset,
+    uint8.byteOffset + uint8.byteLength
+  ) as unknown as ArrayBuffer;
+  return new Blob([ab], { type: mime });
+}
