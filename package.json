@@ -1,6 +1,6 @@
 {
   "name": "pyxis",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "private": true,
   "scripts": {
     "dev": "pnpm run setup-build && next dev --turbopack",
@@ -12,7 +12,7 @@
     "lint:fix": "eslint --cache --ext .ts,.tsx,.js,.jsx . --fix",
     "prepare": "husky install",
     "test": "jest",
-    "update": "pnpm install && pnpm run build && node scripts/update-readmes-version.js && ./tree.sh && ./tree-built-out.sh",
+    "update": "pnpm install && pnpm run build && node scripts/chore/update-readmes-version.js && ./tree.sh && ./tree-built-out.sh",
     "preview": "pnpm exec serve out",
     "create-extension": "node scripts/extensions/create-extension.js",
     "clean": "rm -rf node_modules package-lock.json",

@@ -70,7 +70,6 @@ Root
 │       ├── math.ts
 │       └── use-math.ts
 ├── jest.config.cjs
-├── memo.txt
 ├── next-env.d.ts
 ├── next.config.ts
 ├── package.json
@@ -96,6 +95,7 @@ Root
 │   ├── IMG_0034.png
 │   ├── IMG_0035.png
 │   ├── IMG_0048.png
+│   ├── IMG_0113.png
 │   ├── IMG_1466.png
 │   ├── IMG_1467.png
 │   ├── IMG_1469.png
@@ -106,6 +106,8 @@ Root
 │   ├── build
 │   │   ├── build-extensions.js
 │   │   └── initial_files_to_ts.js
+│   ├── chore
+│   │   └── update-readmes-version.js
 │   └── i18n
 │       ├── README.md
 │       ├── apply_missing_keys.js
@@ -122,8 +124,7 @@ Root
 │       ├── i18n-missing-keys.sh
 │       ├── one_file_i18n_extract.pl
 │       ├── one_file_t_extract.pl
-│       ├── remove_unused_i18n_keys.js
-│       └── update-readmes-version.js
+│       └── remove_unused_i18n_keys.js
 ├── src
 │   ├── app
 │   │   ├── Toast.css
@@ -393,7 +394,7 @@ Root
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-62 directories, 331 files
+63 directories, 331 files
 
 =================================
 
@@ -502,8 +503,12 @@ extensions/ 以下のディレクトリ構造:
 
 
 src/*.ts, *.tsx の統計:
-合計行数: 46276
-合計文字数: 1486142
-合計ファイルサイズ(bytes): 1590955
+合計行数: 46292
+合計文字数: 1486791
+合計ファイルサイズ(bytes): 1591532
 
-開発時のdev container全体のサイズ(bytes): 3.2G	.
+開発時のdev container全体のサイズ(bytes): 3.3G	.
+==========
+ビルト済みファイルの行数: 41078
+合計文字数: 26003411
+合計ファイルサイズ(bytes): 26986506
