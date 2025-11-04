@@ -242,13 +242,6 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
     // タブタイプとして登録（${id}というタイプ名で識別される）
     context.tabs.registerTabType(${componentName}TabComponent);
     context.logger?.info('Tab type "${id}" registered');
-    
-    ${componentType === 'tab' ? `// デフォルトでタブを1つ開く
-    context.tabs.createTab({
-      type: '${id}',
-      title: '${name}',
-      data: {},
-    });` : ''}
   }
 
 `;

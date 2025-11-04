@@ -150,17 +150,7 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
   // タブコンポーネントを登録
   if (context.tabs) {
     context.tabs.registerTabType(ChartTabComponent);
-    
-    // サンプルタブを作成
-    const tabId = context.tabs.createTab({
-      title: '📊 Chart Example',
-      icon: 'BarChart3',
-      closable: true,
-      activateAfterCreate: true,
-      data: {},
-    });
-    
-    context.logger?.info(`Chart tab created: ${tabId}`);
+    context.logger?.info('Chart tab type registered');
   }
   
   return {};

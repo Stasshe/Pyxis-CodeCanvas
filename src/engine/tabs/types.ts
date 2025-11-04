@@ -102,6 +102,15 @@ export interface BinaryTab extends BaseTab {
 }
 
 /**
+ * 拡張機能詳細タブ
+ */
+export interface ExtensionInfoTab extends BaseTab {
+  kind: 'extension-info';
+  manifest: any; // ExtensionManifest
+  isEnabled: boolean;
+}
+
+/**
  * すべてのタブ型のユニオン
  */
 export type Tab =
@@ -112,7 +121,8 @@ export type Tab =
   | DiffTab
   | SettingsTab
   | WelcomeTab
-  | BinaryTab;
+  | BinaryTab
+  | ExtensionInfoTab;
 
 /**
  * タブを開くときのオプション

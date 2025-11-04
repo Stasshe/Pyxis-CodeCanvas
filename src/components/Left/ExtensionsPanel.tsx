@@ -20,6 +20,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { extensionManager } from '@/engine/extensions/extensionManager';
 import { fetchAllManifests } from '@/engine/extensions/extensionRegistry';
 import type { InstalledExtension, ExtensionManifest } from '@/engine/extensions/types';
+import { useTabStore } from '@/stores/tabStore';
 
 interface ExtensionPack {
   id: string;
@@ -153,6 +154,20 @@ export default function ExtensionsPanel() {
         alert(`Failed to uninstall: ${(error as Error).message}`);
       }
     }
+  };
+
+  /**
+   * 拡張機能の詳細タブを開く
+   */
+  const openExtensionInfoTab = (manifest: ExtensionManifest, isEnabled: boolean) => {
+    const { openTab } = useTabStore.getState();
+
+    openTab({
+      kind: 'extension-info',
+      name: manifest.name,
+      manifest,
+      isEnabled,
+    });
   };
 
   const getExtensionTypeLabel = (type: string) => {
@@ -407,8 +422,10 @@ export default function ExtensionsPanel() {
                 </span>
               )}
               <h3
-                className="text-sm font-semibold truncate"
+                className="text-sm font-semibold truncate cursor-pointer hover:underline"
                 style={{ color: colors.foreground }}
+                onClick={() => openExtensionInfoTab(ext.manifest, ext.enabled)}
+                title="Click to view extension details"
               >
                 {ext.manifest.name}
               </h3>
@@ -531,8 +548,10 @@ export default function ExtensionsPanel() {
                 </span>
               )}
               <h3
-                className="text-sm font-semibold truncate"
+                className="text-sm font-semibold truncate cursor-pointer hover:underline"
                 style={{ color: colors.foreground }}
+                onClick={() => openExtensionInfoTab(manifest, false)}
+                title="Click to view extension details"
               >
                 {manifest.name}
               </h3>
