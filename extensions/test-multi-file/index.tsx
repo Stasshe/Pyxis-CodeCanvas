@@ -137,35 +137,9 @@ export function activate(context: ExtensionContext): ExtensionActivation {
     context.logger?.info('Multi-File Test sidebar panel registered');
   }
 
-  return {
-    services: {
-      'test-service': {
-        helperFunction,
-        HelperClass,
-        helperConstant,
-        utils,
-        add,
-        multiply,
-        testAll: () => {
-          const helperInstance = new HelperClass('Test message');
-          return {
-            helperResult: helperFunction(),
-            helperMessage: helperInstance.getMessage(),
-            helperConstant,
-            utilsVersion: utils.version,
-            mathResults: { 
-              sum: add(5, 3), 
-              product: multiply(5, 3), 
-              sum2: utils.add(10, 20) 
-            }
-          };
-        }
-      }
-    },
-    dispose: () => {
-      console.log('[test-multi-file] Disposing extension...');
-    }
-  };
+  // UI拡張機能なので、services/commandsは不要
+  // テスト用の関数は残しておくが、返却する必要はない
+  return {};
 }
 
 export function deactivate(): void {

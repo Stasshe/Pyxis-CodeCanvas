@@ -37,12 +37,16 @@ extensions/
 
 ## 拡張機能の種類
 
-- **transpiler**: TypeScript/JSX などのトランスパイラ
-- **service**: i18n、テーマなどのサービス
-- **builtin-module**: Node.js 互換モジュール (fs, path など)
-- **language-runtime**: Python、Ruby などのランタイム
-- **tool**: ユーティリティツール
-- **ui**: UI コンポーネント（カスタムタブ、サイドバーパネル）
+| タイプ | 説明 | React必須 | 返り値 |
+|--------|------|-----------|--------|
+| **transpiler** | TypeScript/JSX などのトランスパイラ | ❌ | `runtimeFeatures` |
+| **service** | 言語パック（i18nなど） | ❌ | `services` |
+| **builtin-module** | Node.js 互換モジュール (fs, path など) | ❌ | `builtInModules` |
+| **ui** | カスタムタブ、サイドバーパネル | ✅ | `{}` (空) |
+
+**重要:** 
+- **UI拡張機能** (`type: "ui"`) は React を使用して `context.tabs` / `context.sidebar` APIでUIを登録します
+- **非UI拡張機能** (`transpiler`, `service`, `builtin-module`) は React 不要で、機能のみを提供します
 
 ## 新しい拡張機能の作成
 
@@ -63,15 +67,14 @@ mkdir -p extensions/my-extension
   "description": "拡張機能の説明",
   "author": "Your Name",
   "entry": "index.js",
-  "provides": {
-    "services": ["my-service"]
-  },
   "metadata": {
     "publishedAt": "2025-01-01T00:00:00Z",
     "tags": ["ui", "productivity"]
   }
 }
 ```
+
+**注意:** `provides` フィールドは不要です（マニフェストに書いても読み取られません）
 
 ### 3. index.tsx を作成 (TSX推奨)
 
@@ -124,13 +127,8 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
     });
   }
   
-  return {
-    services: {
-      'my-service': {
-        // your API
-      },
-    },
-  };
+  // UI拡張機能なので、services/commandsは不要
+  return {};
 }
 
 export async function deactivate(): Promise<void> {
@@ -403,11 +401,11 @@ context.sidebar.onPanelActivate('my-panel', (panelId) => {
 
 ### Q: TSXとTypeScriptどちらを使うべき？
 
-**A: TSXを推奨します。** 直感的で読みやすく、Reactのベストプラクティスに沿っています。
+**A: UI拡張機能の場合はTSXを推奨します。** 直感的で読みやすく、Reactのベストプラクティスに沿っています。非UI拡張機能（transpiler, serviceなど）の場合はTypeScript (.ts) で十分です。
 
 ### Q: Reactをimportする必要がある？
 
-**A: はい。** `import React from 'react'` は必須です。ビルド時に`const React = window.__PYXIS_REACT__`に変換されます。
+**A: UI拡張機能の場合のみ必須です。** `import React from 'react'` は必須で、ビルド時に`const React = window.__PYXIS_REACT__`に変換されます。非UI拡張機能（typescript-runtime, lang-packsなど）ではReactは不要です。
 
 ### Q: npm パッケージは使える？
 

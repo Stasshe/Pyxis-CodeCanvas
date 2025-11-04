@@ -275,10 +275,10 @@ export interface ExtensionExports {
  * 拡張機能のアクティベーション結果
  */
 export interface ExtensionActivation {
-  /** ビルトインモジュールの実装 (該当する場合) */
+  /** ビルトインモジュールの実装 (builtin-moduleタイプの拡張機能のみ) */
   builtInModules?: Record<string, unknown>;
 
-  /** Runtime機能の実装 (該当する場合) */
+  /** Runtime機能の実装 (transpilerタイプの拡張機能のみ) */
   runtimeFeatures?: {
     /** TypeScript等のトランスパイラ */
     transpiler?: (code: string, options: unknown) => Promise<{ code: string }>;
@@ -287,10 +287,7 @@ export interface ExtensionActivation {
     [key: string]: unknown;
   };
 
-  /** コマンドの実装 (該当する場合) */
-  commands?: Record<string, (...args: unknown[]) => Promise<unknown>>;
-
-  /** サービスの実装 (該当する場合) */
+  /** サービスの実装 (serviceタイプの拡張機能のみ。現在は language-pack のみ使用) */
   services?: Record<string, unknown>;
 
   /** その他のAPI */

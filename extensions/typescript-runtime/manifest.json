@@ -10,9 +10,6 @@
   "dependencies": [],
   "entry": "index.js",
   "files": [],
-  "provides": {
-    "runtimeFeatures": ["typescript", "tsx", "jsx"]
-  },
   "metadata": {
     "publishedAt": "2025-11-02T00:00:00Z",
     "updatedAt": "2025-11-02T00:00:00Z",

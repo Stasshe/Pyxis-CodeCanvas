@@ -412,11 +412,9 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
     context.logger?.info('Notes sidebar panel registered');
   }
 
-  return {
-    services: {
-      'note-tab': { createNoteTab },
-    },
-  };
+  // UI拡張機能なので、services/commandsは不要
+  // createNoteTabは使われていないため削除
+  return {};
 }
 
 export async function deactivate(): Promise<void> {
