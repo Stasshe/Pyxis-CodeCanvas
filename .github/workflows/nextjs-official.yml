@@ -53,8 +53,7 @@ jobs:
         with:
           node-version: "20"
           cache: ${{ steps.detect-package-manager.outputs.manager }}
-      - name: Setup pnpm (when detected)
-        if: steps.detect-package-manager.outputs.manager == 'pnpm'
+      - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 8
