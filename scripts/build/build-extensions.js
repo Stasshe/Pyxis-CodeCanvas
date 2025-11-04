@@ -120,12 +120,19 @@ function installDependencies(dir) {
     const packageManager = fs.existsSync(path.join(dir, 'pnpm-lock.yaml')) ? 'pnpm' :
                           fs.existsSync(path.join(dir, 'yarn.lock')) ? 'yarn' :
                           'npm';
-    
-    execSync(`${packageManager} install`, {
+
+    // CI 環境では pnpm の frozen-lockfile が有効になっていることがあるため
+    // ロックファイルの不整合でビルドが止まらないように --no-frozen-lockfile を付与
+    let installCmd = `${packageManager} install`;
+    if (packageManager === 'pnpm') {
+      installCmd += ' --no-frozen-lockfile';
+    }
+
+    execSync(installCmd, {
       cwd: dir,
       stdio: 'inherit',
     });
-    
+
     console.log(`✅ Dependencies installed with ${packageManager}\n`);
     return true;
   } catch (error) {
