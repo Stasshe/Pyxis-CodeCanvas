@@ -287,8 +287,8 @@ git merge main
 ### **How to use Tauri Desktop version**
 1. Clone the repository and switch to the `tauri` branch
 2. Install Rust and Node.js
-3. Run `npm install` to install dependencies
-4. Run `npx tauri dev` to launch the desktop app
+3. Run `pnpm install` to install dependencies
+4. Run `pnpm exec tauri dev` to launch the desktop app
 5. Enjoy the same Pyxis experience on desktop!
 
 ### **2. Your First Pyxis Project**
@@ -341,14 +341,28 @@ $$E = mc^2$$
 
 ---
 
-## インストール方法
+## Installation
+
+### Recommended: pnpm (Fast & Efficient)
+```bash
+# Install pnpm (if not installed)
+npm install -g pnpm
+
+# Install dependencies
+pnpm install
+
+# Development server
+pnpm run dev
+
+# Production build
+pnpm run build
+pnpm run preview
 ```
-npm i
 
-#development server
+### npm also works
+```bash
+npm install
 npm run dev
-
-#production mode
 npm run build
 npm run preview
 ```

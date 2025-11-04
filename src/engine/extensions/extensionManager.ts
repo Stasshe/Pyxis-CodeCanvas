@@ -92,8 +92,10 @@ class ExtensionManager {
     // Reactをグローバルに提供（拡張機能から使えるように）
     if (typeof window !== 'undefined') {
       const React = await import('react');
+      const ReactDOM = await import('react-dom');
       (window as any).__PYXIS_REACT__ = React;
-      console.log('[ExtensionManager] React provided globally for extensions');
+      (window as any).__PYXIS_REACT_DOM__ = ReactDOM;
+      console.log('[ExtensionManager] React and ReactDOM provided globally for extensions');
     }
 
     // インストール済み & 有効化済みの拡張機能を読み込み

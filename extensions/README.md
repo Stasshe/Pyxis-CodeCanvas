@@ -32,9 +32,10 @@ extensions/
 ## 開発フロー
 
 1. **拡張機能を作成** - `npm run create-extension`で対話形式でテンプレート作成、または手動で`extensions/<extension-name>/`にTypeScript/TSXで記述
-2. **ビルド実行** - `node build-extensions.js`（`registry.json`も自動生成されます）
-3. **自動配置** - `public/extensions/`にトランスパイル済みJavaScriptが配置される
-4. **ビルド&配置** - `npm run setup-build`で一括でできます。
+2. **npmライブラリを使いたい場合** - `package.json`を追加して`pnpm install`（詳細は `/docs/EXTENSION-NPM-LIBRARIES.md` 参照）
+3. **ビルド実行** - `node build-extensions.js`（`registry.json`も自動生成されます）
+4. **自動配置** - `public/extensions/`にバンドル済みJavaScriptが配置される
+5. **ビルド&配置** - `npm run setup-build`で一括でできます。
 
 ## 拡張機能の種類
 
@@ -294,8 +295,19 @@ return React.createElement(
 
 ## ビルドシステム
 
-`build-extensions.js` は:
-- **TypeScript/TSX ファイル**を **tsc** でトランスパイル
+`build-extensions.js` は2つのモードで動作します:
+
+### 📦 esbuildモード (package.jsonがある場合)
+
+- **TypeScript/TSX バンドル**: esbuildで依存関係をバンドル
+- **npm/pnpm/yarn サポート**: 自動的に依存関係をインストール
+- **React外部化**: React/ReactDOMはPyxis本体を使用
+- **Tree-shaking**: 使われていないコードを削除
+- `public/extensions/` に出力
+
+### 📝 tscモード (package.jsonがない場合)
+
+- **TypeScript/TSX トランスパイル**: tscで単純にトランスパイル
   - TSX → `React.createElement` に変換
   - `import React from 'react'` → `const React = window.__PYXIS_REACT__` に変換
 - **JSON/画像/Markdown ファイル**をコピー
@@ -312,14 +324,18 @@ node build-extensions.js
 ```tsx
 // 開発時 (index.tsx)
 import React from 'react';
+import { debounce } from 'lodash-es';
 <div>Hello</div>
 
-// ビルド後 (index.js)
+// ビルド後 (index.js) - esbuildモード
 const React = window.__PYXIS_REACT__;
+// lodash-esがバンドルされている
 React.createElement('div', null, 'Hello')
 ```
 
-**重要:** Reactはバンドルされません。ランタイムで`window.__PYXIS_REACT__`から提供されます。
+**重要:** React/ReactDOMはバンドルされません。ランタイムで`window.__PYXIS_REACT__`と`window.__PYXIS_REACT_DOM__`から提供されます。
+
+**詳細:** `/docs/EXTENSION-NPM-LIBRARIES.md` を参照
 
 ## レジストリ
 
@@ -345,9 +361,14 @@ React.createElement('div', null, 'Hello')
 
 - **言語**: TypeScript / TSX
 - **UI**: React (グローバルスコープから提供)
-- **トランスパイラ**: tsc (TypeScript Compiler)
-  - JSX設定: `jsx: 'react'`
+- **バンドラー**: 
+  - esbuild (package.jsonがある場合)
+  - tsc (package.jsonがない場合)
+- **JSX設定**: 
+  - `jsx: 'transform'` (esbuild) または `jsx: 'react'` (tsc)
   - JSX Factory: `React.createElement`
+- **依存関係**: npm/pnpm/yarnでインストール
+- **外部化**: React/ReactDOMはPyxis本体を使用
 - **配置**: 静的ファイルとして`public/extensions/`
 - **ロード**: fetch + IndexedDBキャッシュ
 - **アーキテクチャ**: Static Site (サーバーサイド処理なし)
@@ -437,7 +458,9 @@ context.sidebar.onPanelActivate('my-panel', (panelId) => {
 
 ### Q: npm パッケージは使える？
 
-**A: いいえ。** Pyxisは静的サイトで、拡張機能は動的にロードされます。React以外の外部パッケージは使用できません。
+**A: はい！(v0.12.0以降)** 拡張機能ディレクトリに`package.json`を追加し、`pnpm install`すれば使用できます。esbuildで自動的にバンドルされます。詳細は `/docs/EXTENSION-NPM-LIBRARIES.md` を参照してください。
+
+**注意:** React/ReactDOMはPyxis本体のものを使用するため、依存関係に含めないでください。
 
 ### Q: データを永続化するには？
 

@@ -294,8 +294,8 @@ rl.question('お名前は？ ', (name) => {
 ### Tauriデスクトップ版の使い方
 1. リポジトリをクローンし、tauriブランチに切り替え
 2. RustとNode.jsをインストール
-3. npm install で依存を導入
-4. npx tauri dev でデスクトップアプリを起動
+3. pnpm install で依存を導入
+4. pnpm exec tauri dev でデスクトップアプリを起動
 5. Web版と同じPyxis体験をデスクトップで！
 * [Tauri Setup Guide](./Development/Tauri-Setup.md)
 
@@ -361,13 +361,27 @@ $$E = mc^2$$
 ---
 
 ## インストール方法
+
+### 推奨: pnpm (高速・効率的)
+```bash
+# pnpmをインストール (未インストールの場合)
+npm install -g pnpm
+
+# 依存関係をインストール
+pnpm install
+
+# 開発サーバー起動
+pnpm run dev
+
+# 本番ビルド
+pnpm run build
+pnpm run preview
 ```
-npm i
 
-#development server
+### npm でも可能
+```bash
+npm install
 npm run dev
-
-#production mode
 npm run build
 npm run preview
 ```
