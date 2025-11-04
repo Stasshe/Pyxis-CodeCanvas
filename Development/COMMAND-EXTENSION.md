@@ -20,9 +20,6 @@ Pyxisの拡張機能システムでは、ターミナルに独自コマンドを
   "description": "ターミナルコマンドを追加するサンプル拡張機能",
   "author": "Pyxis Team",
   "entry": "index.js",
-  "provides": {
-    "commands": ["hello", "fileinfo"]
-  },
   "metadata": {
     "publishedAt": "2025-11-04T00:00:00.000Z",
     "updatedAt": "2025-11-04T00:00:00.000Z",
@@ -246,9 +243,8 @@ async function helloCommand(args: string[], context: any): Promise<string> {
 ### コマンドが認識されない
 
 1. 拡張機能が有効化されているか確認
-2. `manifest.json` の `provides.commands` にコマンド名が含まれているか確認
-3. ビルドが成功しているか確認（`pnpm run setup-build`）
-4. ブラウザのコンソールでエラーを確認
+2. ビルドが成功しているか確認（`pnpm run setup-build`）
+3. ブラウザのコンソールでエラーを確認
 
 ### ファイルシステムにアクセスできない
 

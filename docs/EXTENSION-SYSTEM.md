@@ -961,7 +961,6 @@ await esbuild.build({
 | `dependencies` | `string[]` | | 依存拡張機能のID |
 | `defaultEnabled` | `boolean` | | デフォルトで有効化するか |
 | `onlyOne` | `string` | | 排他グループ名 |
-| `provides` | `object` | | 提供する機能の宣言 |
 | `metadata` | `object` | | メタデータ |
 
 **ExtensionType**

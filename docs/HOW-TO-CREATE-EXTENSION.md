@@ -58,9 +58,9 @@ Pyxis拡張機能は、完全なブラウザ動作・型安全なAPI・TSX構文
 ```
 extensions/
   my-extension/
-    ├── manifest.json    # 拡張機能のメタデータ
-    ├── index.ts         # エントリーポイント
-    └── README.md        # ドキュメント(オプション)
+  ├── manifest.json    # 拡張機能のメタデータ
+  ├── index.ts         # エントリーポイント
+  └── README.md        # ドキュメント(オプション)
 ```
 
 ### 1. manifest.json
@@ -76,9 +76,6 @@ extensions/
   "description": "Example extension for Pyxis",
   "author": "Your Name",
   "entry": "index.js",
-  "provides": {
-    "services": ["my-service"]
-  },
   "metadata": {
     "publishedAt": "2025-01-01T00:00:00Z",
     "updatedAt": "2025-01-01T00:00:00Z",
@@ -98,7 +95,6 @@ extensions/
 | `description` | string | ✅ | 説明 |
 | `author` | string | ✅ | 作者名 |
 | `entry` | string | ✅ | エントリーポイント (通常は`index.js`) |
-| `provides` | object | ❌ | 提供するサービス |
 | `metadata` | object | ❌ | その他のメタデータ |
 
 
@@ -401,36 +397,20 @@ graph LR
 
 タブの内容を描画するReactコンポーネントを作成します。**TabComponentProps**に準拠する必要があります:
 
-```typescript
+```tsx
 import React, { useState, useEffect } from 'react';
 
-// TabComponentProps: { tab: any; isActive: boolean }
 function MyTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
   const tabData = (tab as any).data;
   const [content, setContent] = useState(tabData?.content || '');
 
-  return React.createElement(
-    'div',
-    {
-      style: {
-        width: '100%',
-        height: '100%',
-        padding: '16px',
-        background: '#1e1e1e',
-        color: '#d4d4d4',
-      },
-    },
-    [
-      React.createElement(
-        'h2',
-        { key: 'title', style: { marginBottom: '16px' } },
-        'My Custom Tab'
-      ),
-      React.createElement('textarea', {
-        key: 'textarea',
-        value: content,
-        onChange: (e: any) => setContent(e.target.value),
-        style: {
+  return (
+    <div style={{ width: '100%', height: '100%', padding: '16px', background: '#1e1e1e', color: '#d4d4d4' }}>
+      <h2 style={{ marginBottom: '16px' }}>My Custom Tab</h2>
+      <textarea
+        value={content}
+        onChange={e => setContent(e.target.value)}
+        style={{
           width: '100%',
           height: '300px',
           padding: '8px',
@@ -438,9 +418,9 @@ function MyTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
           color: '#d4d4d4',
           border: '1px solid #444',
           borderRadius: '4px',
-        },
-      }),
-    ]
+        }}
+      />
+    </div>
   );
 }
 ```
@@ -662,29 +642,21 @@ graph LR
 
 サイドバーパネルの内容を描画するReactコンポーネントを作成します:
 
-```typescript
+```tsx
 import React, { useState, useEffect } from 'react';
 
 function MyPanelComponent({ extensionId, panelId, isActive, state }: any) {
   const [items, setItems] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // パネルがアクティブになったときにデータをロード
   useEffect(() => {
     if (isActive) {
-      loadItems();
+      setLoading(true);
+      const saved = localStorage.getItem(`${extensionId}-items`);
+      if (saved) setItems(JSON.parse(saved));
+      setLoading(false);
     }
-  }, [isActive]);
-
-  const loadItems = () => {
-    setLoading(true);
-    // localStorageからデータを取得
-    const saved = localStorage.getItem(`${extensionId}-items`);
-    if (saved) {
-      setItems(JSON.parse(saved));
-    }
-    setLoading(false);
-  };
+  }, [isActive, extensionId]);
 
   const addItem = () => {
     const newItem = `Item ${items.length + 1}`;
@@ -693,74 +665,27 @@ function MyPanelComponent({ extensionId, panelId, isActive, state }: any) {
     localStorage.setItem(`${extensionId}-items`, JSON.stringify(updated));
   };
 
-  return React.createElement(
-    'div',
-    {
-      style: {
-        padding: '16px',
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        background: '#1e1e1e',
-        color: '#d4d4d4',
-      },
-    },
-    [
-      // ヘッダー
-      React.createElement(
-        'div',
-        {
-          key: 'header',
-          style: {
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '16px',
-          },
-        },
-        [
-          React.createElement('h3', { key: 'title', style: { margin: 0 } }, 'My Panel'),
-          React.createElement(
-            'button',
-            {
-              key: 'add-btn',
-              onClick: addItem,
-              style: {
-                padding: '4px 8px',
-                background: '#0e639c',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-              },
-            },
-            '+ Add'
-          ),
-        ]
-      ),
-      // アイテムリスト
-      React.createElement(
-        'div',
-        { key: 'items', style: { flex: 1, overflowY: 'auto' } },
-        loading
-          ? React.createElement('p', null, 'Loading...')
-          : items.map((item, idx) =>
-              React.createElement(
-                'div',
-                {
-                  key: idx,
-                  style: {
-                    padding: '8px',
-                    marginBottom: '4px',
-                    background: '#2d2d2d',
-                    borderRadius: '4px',
-                  },
-                },
-                item
-              )
-            )
-      ),
-    ]
+  return (
+    <div style={{ padding: '16px', height: '100%', display: 'flex', flexDirection: 'column', background: '#1e1e1e', color: '#d4d4d4' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+        <h3 style={{ margin: 0 }}>My Panel</h3>
+        <button
+          onClick={addItem}
+          style={{ padding: '4px 8px', background: '#0e639c', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+        >
+          + Add
+        </button>
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto' }}>
+        {loading ? (
+          <p>Loading...</p>
+        ) : (
+          items.map((item, idx) => (
+            <div key={idx} style={{ padding: '8px', marginBottom: '4px', background: '#2d2d2d', borderRadius: '4px' }}>{item}</div>
+          ))
+        )}
+      </div>
+    </div>
   );
 }
 ```
@@ -898,6 +823,8 @@ context.sidebar.onPanelActivate('my-panel', async (panelId) => {
 
 #### 1. マニフェスト (`manifest.json`)
 
+※ `provides`フィールドは完全廃止済み。manifest.jsonに記載しないでください。
+
 ```json
 {
   "id": "pyxis.note-tab",
@@ -907,9 +834,6 @@ context.sidebar.onPanelActivate('my-panel', async (panelId) => {
   "description": "Provides a simple note-taking tab for quick notes and todos",
   "author": "Pyxis Team",
   "entry": "index.js",
-  "provides": {
-    "services": ["note-tab"]
-  },
   "metadata": {
     "publishedAt": "2025-01-01T00:00:00Z",
     "updatedAt": "2025-01-01T00:00:00Z",
