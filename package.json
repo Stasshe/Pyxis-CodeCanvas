@@ -10,7 +10,6 @@
     "format": "bash scripts/i18n/format_locales.sh && pnpm exec prettier --write src/",
     "lint": "eslint --cache --ext .ts,.tsx,.js,.jsx . --max-warnings=0",
     "lint:fix": "eslint --cache --ext .ts,.tsx,.js,.jsx . --fix",
-    "prepare": "husky install",
     "test": "jest",
     "update": "pnpm install && pnpm run build && node scripts/chore/update-readmes-version.js && ./tree.sh && ./tree-built-out.sh",
     "preview": "pnpm exec serve out",
