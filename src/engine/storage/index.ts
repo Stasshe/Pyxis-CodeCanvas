@@ -50,6 +50,8 @@ export interface StorageEntry<T = unknown> {
 export interface StorageOptions {
   /** キャッシュの有効期限（ミリ秒）。指定しない場合は無期限 */
   ttl?: number;
+  /** メモリキャッシュに保存するかどうか（デフォルト true）。大きな Blob/ArrayBuffer を避けたい場合は false を指定 */
+  cache?: boolean;
 }
 
 /**
@@ -181,9 +183,37 @@ class PyxisStorage {
         request.onerror = () => reject(request.error);
       });
 
-      // メモリキャッシュにも保存
+      // メモリキャッシュにも保存（デフォルト true）。
+      // 大きなバイナリはキャッシュを避けるため、options.cache = false を使える。
+      const shouldCache = options?.cache !== undefined ? options.cache : true;
+      const containsBinary = (obj: unknown): boolean => {
+        if (!obj) return false;
+        // Blob
+        if (typeof Blob !== 'undefined' && obj instanceof Blob) return true;
+        // ArrayBuffer
+        if (obj instanceof ArrayBuffer) return true;
+        // TypedArray
+        if (ArrayBuffer.isView(obj)) return true;
+        // plain object/array traversal
+        if (typeof obj === 'object') {
+          try {
+            for (const key of Object.keys(obj as any)) {
+              if (containsBinary((obj as any)[key])) return true;
+            }
+          } catch (e) {
+            // ignore non-iterable objects
+          }
+        }
+        return false;
+      };
+
       const cacheKey = this.getCacheKey(storeName, id);
-      this.cache.set(cacheKey, data, expiresAt);
+      if (shouldCache && !containsBinary(data)) {
+        this.cache.set(cacheKey, data, expiresAt);
+      } else {
+        // remove any existing in-memory cache for this key to avoid stale large entries
+        this.cache.delete(cacheKey);
+      }
 
       console.log(`[PyxisStorage] Saved: ${storeName}/${id}`);
     } catch (error) {
@@ -230,8 +260,29 @@ class PyxisStorage {
         return null;
       }
 
-      // メモリキャッシュに保存
-      this.cache.set(cacheKey, entry.data, entry.expiresAt);
+      // メモリキャッシュに保存（ただしデータにバイナリが含まれる場合はキャッシュしない）
+      const containsBinary = (obj: unknown): boolean => {
+        if (!obj) return false;
+        if (typeof Blob !== 'undefined' && obj instanceof Blob) return true;
+        if (obj instanceof ArrayBuffer) return true;
+        if (ArrayBuffer.isView(obj)) return true;
+        if (typeof obj === 'object') {
+          try {
+            for (const key of Object.keys(obj as any)) {
+              if (containsBinary((obj as any)[key])) return true;
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
+        return false;
+      };
+
+      if (!containsBinary(entry.data)) {
+        this.cache.set(cacheKey, entry.data, entry.expiresAt);
+      } else {
+        this.cache.delete(cacheKey);
+      }
 
       console.log(`[PyxisStorage] Loaded: ${storeName}/${id}`);
       return entry.data;

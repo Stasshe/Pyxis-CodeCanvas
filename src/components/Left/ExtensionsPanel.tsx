@@ -3,7 +3,7 @@
  * 拡張機能の管理UI
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Download,
   Trash2,
@@ -16,6 +16,7 @@ import {
   Search,
   ChevronDown,
   ChevronRight,
+  Upload,
 } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import { extensionManager } from '@/engine/extensions/extensionManager';
@@ -50,6 +51,7 @@ export default function ExtensionsPanel() {
   const [activeTab, setActiveTab] = useState<'installed' | 'available'>('installed');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedPacks, setExpandedPacks] = useState<Set<string>>(new Set());
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     loadExtensions();
@@ -650,8 +652,31 @@ export default function ExtensionsPanel() {
           </h2>
         </div>
 
-        {/* Reload button (right end) */}
-        <div>
+        {/* Reload / Import (ZIP) buttons (right end) */}
+        <div className="flex items-center gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".zip"
+            style={{ display: 'none' }}
+            onChange={async e => {
+              const f = e.target.files && e.target.files[0];
+              if (!f) return;
+              setLoading(true);
+              try {
+                await extensionManager.installExtensionFromZip(f);
+                await loadExtensions();
+              } catch (err) {
+                console.error('[ExtensionsPanel] Failed to import ZIP:', err);
+                alert(`Failed to import ZIP: ${(err as Error).message || err}`);
+              } finally {
+                setLoading(false);
+                // clear value so same file can be selected again
+                if (e.target) (e.target as HTMLInputElement).value = '';
+              }
+            }}
+          />
+
           <button
             className="flex items-center gap-2 px-3 py-1.5 rounded text-sm transition-all hover:opacity-80"
             style={{
@@ -666,6 +691,23 @@ export default function ExtensionsPanel() {
             <RotateCw
               size={16}
               className={loading ? 'animate-spin' : ''}
+              style={{ color: colors.mutedFg }}
+            />
+          </button>
+
+          <button
+            className="flex items-center gap-2 px-3 py-1.5 rounded text-sm transition-all hover:opacity-80"
+            style={{
+              background: colors.background,
+              color: colors.mutedFg,
+              border: `1px solid ${colors.border}`,
+            }}
+            onClick={() => fileInputRef.current?.click()}
+            title="Import extension (.zip)"
+            disabled={loading}
+          >
+            <Upload
+              size={16}
               style={{ color: colors.mutedFg }}
             />
           </button>

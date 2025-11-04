@@ -175,7 +175,8 @@ export interface InstalledExtension {
     entryCode: string;
 
     /** 追加ファイルのコード (ファイルパス -> コード) */
-    files?: Record<string, string>;
+    // files can be string (JS/text/data URL) or Blob for binary assets
+    files?: Record<string, string | Blob>;
 
     /** キャッシュ日時 */
     cachedAt: number;

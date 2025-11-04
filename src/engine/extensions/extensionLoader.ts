@@ -5,6 +5,7 @@
 
 import { extensionInfo, extensionError } from './extensionsLogger';
 import { transformImports } from './transformImports';
+import { isBinaryExt, toDataUrlFromUint8, dataUrlToBlob } from './binaryUtils';
 import type {
   ExtensionManifest,
   ExtensionExports,
@@ -74,6 +75,13 @@ export async function fetchExtensionFile(
       return null;
     }
 
+    // Determine if this file should be treated as binary (images, wasm, fonts, videos, audio, etc.)
+    if (isBinaryExt(filePath)) {
+      const arrayBuffer = await response.arrayBuffer();
+      const uint8 = new Uint8Array(arrayBuffer);
+      return toDataUrlFromUint8(uint8, filePath);
+    }
+
     return await response.text();
   } catch (error) {
     extensionError('Error fetching file:', error);
@@ -122,12 +130,12 @@ export async function fetchExtensionCode(manifest: ExtensionManifest): Promise<{
  * 拡張機能のコードを実行してモジュールをロード
  *
  * @param entryCode エントリーポイントのコード
- * @param additionalFiles 追加ファイルのマップ (ファイル名 -> コード)
+ * @param additionalFiles 追加ファイルのマップ (ファイル名 -> コードまたはBlob)
  * @param context 拡張機能のコンテキスト
  */
 export async function loadExtensionModule(
   entryCode: string,
-  additionalFiles: Record<string, string>,
+  additionalFiles: Record<string, string | Blob>,
   context: ExtensionContext
 ): Promise<ExtensionExports | null> {
   try {
@@ -150,9 +158,28 @@ export async function loadExtensionModule(
 
       // 追加ファイルをBlobURLとして登録
       for (const [filePath, code] of Object.entries(additionalFiles)) {
-        const transformedCode = transformImports(code);
-        const blob = new Blob([transformedCode], { type: 'application/javascript' });
-        const url = URL.createObjectURL(blob);
+        let url: string;
+
+        // If the file is a data URL (binary stored as data:<mime>;base64,...) create a blob from it
+        const isBlobLike =
+          code && typeof code === 'object' && 'size' in (code as any) && 'type' in (code as any);
+        if (isBlobLike) {
+          url = URL.createObjectURL(code as Blob);
+        } else if (typeof code === 'string' && code.startsWith('data:')) {
+          try {
+            const blob = dataUrlToBlob(code);
+            url = URL.createObjectURL(blob);
+          } catch (e) {
+            // fallback to treating as text module
+            const transformedCode = transformImports(code as string);
+            const blob = new Blob([transformedCode], { type: 'application/javascript' });
+            url = URL.createObjectURL(blob);
+          }
+        } else {
+          const transformedCode = transformImports(code as string);
+          const blob = new Blob([transformedCode], { type: 'application/javascript' });
+          url = URL.createObjectURL(blob);
+        }
         blobUrls.push(url);
 
         // 相対パスをimport mapに登録
