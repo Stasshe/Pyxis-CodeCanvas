@@ -22,9 +22,6 @@ export default function FileSelector({ isOpen, onClose, files, onFileSelect }: F
       onClose={onClose}
       projectFiles={files}
       onFileSelect={onFileSelect}
-      editors={[]} // ダミー値（AIモードでは使用されない）
-      setEditors={() => {}} // ダミー値（AIモードでは使用されない）
-      setFileSelectState={() => {}} // ダミー値（AIモードでは使用されない）
       aiMode={true} // AI用モード
     />
   );
