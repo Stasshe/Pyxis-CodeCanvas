@@ -263,15 +263,22 @@ class ExtensionManager {
           const candidates = [filePath, `./${filePath}`, filePath.replace(/^\//, '')];
           const resolved = resolveZipPath(candidates);
           if (!resolved) {
-            throw new Error(`Required file listed in manifest.files not found in ZIP: ${filePath}`);
+            // 個別ファイルが見つからない場合は警告して続行（fetchExtensionCode に合わせる）
+            console.warn(
+              `[ExtensionManager] File listed in manifest.files not found in ZIP (skipping): ${filePath}`
+            );
+            continue;
           }
 
           const content = await zip.file(resolved)!.async('string');
-          // normalize stored key to be relative to manifest root (remove manifestDir/ prefix if present)
-          let key = resolved;
-          if (manifestDir && key.startsWith(`${manifestDir}/`))
-            key = key.slice(manifestDir.length + 1);
-          filesMap[key] = content;
+          // store under the manifest-declared path (normalize leading ./ or /)
+          const normalizedKey = filePath.replace(/^\.\//, '').replace(/^\//, '');
+          filesMap[normalizedKey] = content;
+        }
+
+        // manifest.files が宣言されているのに一つもロードできなければエラー
+        if (Object.keys(filesMap).length === 0) {
+          throw new Error('manifest.files declared but no matching files found inside ZIP');
         }
       }
 
