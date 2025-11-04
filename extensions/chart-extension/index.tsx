@@ -5,12 +5,9 @@ import { Chart, ChartConfiguration, registerables } from 'chart.js';
 // Chart.jsの全コンポーネントを登録
 Chart.register(...registerables);
 
-interface ChartTabComponentProps {
-  tab: any;
-  isActive: boolean;
-}
+// Sidebar Panel Component
 
-function ChartTabComponent({ tab, isActive }: ChartTabComponentProps) {
+function ChartSidebarPanel(props: any) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const chartRef = useRef<Chart | null>(null);
   const [chartType, setChartType] = useState<'line' | 'bar' | 'pie'>('line');
@@ -87,7 +84,6 @@ function ChartTabComponent({ tab, isActive }: ChartTabComponentProps) {
         <p style={{ margin: '0 0 16px 0', color: '#888' }}>
           Chart.jsライブラリを使用したチャート表示例
         </p>
-        
         <div style={{ display: 'flex', gap: '8px' }}>
           <button
             onClick={() => setChartType('line')}
@@ -130,7 +126,6 @@ function ChartTabComponent({ tab, isActive }: ChartTabComponentProps) {
           </button>
         </div>
       </div>
-      
       <div style={{ 
         flex: 1, 
         background: '#2d2d2d', 
@@ -146,13 +141,16 @@ function ChartTabComponent({ tab, isActive }: ChartTabComponentProps) {
 
 export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
   context.logger?.info('Chart Extension activating...');
-  
-  // タブコンポーネントを登録
-  if (context.tabs) {
-    context.tabs.registerTabType(ChartTabComponent);
-    context.logger?.info('Chart tab type registered');
+  // サイドバーにパネルを追加
+  if (context.sidebar) {
+    context.sidebar.createPanel({
+      id: 'chart-sidebar-panel',
+      title: 'Chart',
+      icon: 'bar-chart', // lucide-reactのアイコン名
+      component: ChartSidebarPanel,
+    });
+    context.logger?.info('Chart sidebar panel registered');
   }
-  
   return {};
 }
 
