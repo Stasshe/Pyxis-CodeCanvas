@@ -169,11 +169,11 @@ function create${componentName}Panel(context: ExtensionContext) {
     }, [isActive]);
 
     // タブを開く関数
-    // Note: id を指定すると、同じ id のタブがあれば再利用されます
+    // Note: id を指定すると、同じ id のタブがあれば再利用されます（TabStore の openTab と同じ挙動）
     const openTab = () => {
       if (context.tabs) {
         const tabId = context.tabs.createTab({
-          id: '${id}-main',
+          id: 'main', // extension:${id}:main として識別される
           title: '${name}',
           activateAfterCreate: true,
         });

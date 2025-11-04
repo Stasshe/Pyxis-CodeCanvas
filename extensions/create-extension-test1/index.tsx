@@ -41,11 +41,11 @@ function createCreateExtensionTest1Panel(context: ExtensionContext) {
     }, [isActive]);
 
     // タブを開く関数
-    // Note: id を指定すると、同じ id のタブがあれば再利用されます
+    // Note: id を指定すると、同じ id のタブがあれば再利用されます（TabStore の openTab と同じ挙動）
     const openTab = () => {
       if (context.tabs) {
         const tabId = context.tabs.createTab({
-          id: 'create-extension-test1-main',
+          id: 'main', // extension:create-extension-test1:main として識別される
           title: 'create-extension-test1-name',
           activateAfterCreate: true,
         });
