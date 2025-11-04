@@ -1,25 +1,27 @@
-# カスタムコマンド拡張機能の作成ガイド
+
+# Pyxis カスタムコマンド拡張機能 最新ガイド
+
 
 ## 概要
 
-Pyxisの拡張機能システムを使用して、ターミナルに新しいコマンドを追加できます。
+Pyxisの拡張機能システムでは、ターミナルに独自コマンドを追加できます。コマンドはExtensionContext経由で型安全に登録・実行され、Pyxisのファイルシステムやシステムモジュールにもアクセス可能です。
 
 ## 基本構造
+
 
 ### 1. マニフェストファイル (`manifest.json`)
 
 ```json
 {
-  "id": "pyxis.my-command",
-  "name": "My Command Extension",
+  "id": "pyxis.sample-command",
+  "name": "Sample Command Extension",
   "version": "1.0.0",
   "type": "tool",
-  "description": "カスタムコマンドを追加",
-  "author": "Your Name",
-  "defaultEnabled": false,
+  "description": "ターミナルコマンドを追加するサンプル拡張機能",
+  "author": "Pyxis Team",
   "entry": "index.js",
   "provides": {
-    "commands": ["mycommand", "anothercommand"]
+    "commands": ["hello", "fileinfo"]
   },
   "metadata": {
     "publishedAt": "2025-11-04T00:00:00.000Z",
@@ -29,44 +31,113 @@ Pyxisの拡張機能システムを使用して、ターミナルに新しいコ
 }
 ```
 
+
 ### 2. エントリーファイル (`index.ts`)
+
+最新のサンプル実装（sample-command拡張機能）:
 
 ```typescript
 import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
 
 /**
- * コマンドハンドラーの実装
+ * helloコマンドの実装
  */
-async function myCommand(args: string[], context: any): Promise<string> {
-  // args: コマンドライン引数の配列
-  // context: 実行コンテキスト
-  //   - projectName: string - プロジェクト名
-  //   - projectId: string - プロジェクトID
-  //   - currentDirectory: string - 現在のディレクトリ
-  //   - fileSystem: any - Pyxisのファイルシステムインスタンス
+async function helloCommand(args: string[], context: any): Promise<string> {
+  const name = args.length > 0 ? args.join(' ') : 'World';
+  return `Hello, ${name}!\nProject: ${context.projectName}\nCurrent Directory: ${context.currentDirectory}`;
+}
 
+/**
+ * fileinfoコマンドの実装
+ * 指定されたファイルの情報を表示
+ * SSOT: fileRepository を使用
+ */
+async function fileinfoCommand(args: string[], context: any): Promise<string> {
   if (args.length === 0) {
-    return 'Usage: mycommand <argument>';
+    return 'Usage: fileinfo <filepath>';
   }
 
-  let output = `Command executed with: ${args.join(' ')}\n`;
-  output += `Project: ${context.projectName}\n`;
-  output += `Current Directory: ${context.currentDirectory}\n`;
+  const filePath = args[0];
 
-  return output;
+  if (!context.getSystemModule) {
+    return 'Error: System modules not available';
+  }
+
+  try {
+    // fileRepositoryを取得（SSOT）
+    const fileRepository = await context.getSystemModule('fileRepository');
+
+    // ファイルパスを正規化（相対パスを絶対パスに）
+    let normalizedPath = filePath;
+    if (!filePath.startsWith('/')) {
+      // 現在のディレクトリからの相対パス
+      const relativeCurrent = context.currentDirectory.replace(`/projects/${context.projectName}`, '');
+      normalizedPath = relativeCurrent === '' 
+        ? `/${filePath}` 
+        : `${relativeCurrent}/${filePath}`;
+    } else {
+      // 絶対パスの場合、プロジェクトルートからの相対パスに変換
+      normalizedPath = filePath.replace(`/projects/${context.projectName}`, '');
+    }
+
+    // プロジェクトの全ファイルを取得
+    const files = await fileRepository.getProjectFiles(context.projectId);
+    
+    // 指定されたファイルを検索
+    const file = files.find((f: any) => f.path === normalizedPath);
+
+    if (!file) {
+      return `Error: File not found: ${normalizedPath}\nSearched in project: ${context.projectName}`;
+    }
+
+    // ファイル情報を表示
+    let output = `File Information (from FileRepository):\n`;
+    output += `  Path: ${file.path}\n`;
+    output += `  Type: ${file.language}\n`;
+    output += `  Size: ${file.content ? file.content.length : 0} bytes\n`;
+    output += `  Created: ${new Date(file.createdAt).toLocaleString()}\n`;
+    output += `  Modified: ${new Date(file.updatedAt).toLocaleString()}\n`;
+
+    // ファイルの内容の最初の数行を表示
+    if (file.content) {
+      const lines = file.content.split('\n').slice(0, 5);
+      output += `\nFirst 5 lines:\n`;
+      lines.forEach((line: string, i: number) => {
+        output += `  ${i + 1}: ${line}\n`;
+      });
+      if (file.content.split('\n').length > 5) {
+        output += `  ... (${file.content.split('\n').length - 5} more lines)\n`;
+      }
+    } else {
+      output += `\n(File is empty)\n`;
+    }
+
+    return output;
+  } catch (error) {
+    return `Error: ${(error as Error).message}`;
+  }
 }
 
 /**
  * activate関数
  */
 export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
-  context.logger?.info('My Command Extension activating...');
+  context.logger?.info('Sample Command Extension activating...');
 
   // コマンドを登録
   if (context.commands) {
-    context.commands.registerCommand('mycommand', myCommand);
-    context.logger?.info('Registered command: mycommand');
+    // helloコマンド
+    context.commands.registerCommand('hello', helloCommand);
+    context.logger?.info('Registered command: hello');
+
+    // fileinfoコマンド
+    context.commands.registerCommand('fileinfo', fileinfoCommand);
+    context.logger?.info('Registered command: fileinfo');
+  } else {
+    context.logger?.warn('Commands API not available');
   }
+
+  context.logger?.info('Sample Command Extension activated');
 
   return {};
 }
@@ -75,156 +146,45 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
  * deactivate関数
  */
 export async function deactivate(): Promise<void> {
-  console.log('My Command Extension deactivated');
+  console.log('Sample Command Extension deactivated');
 }
 ```
+
 
 ## コマンドハンドラーの詳細
 
 ### 引数
 
-#### `args: string[]`
-コマンドライン引数の配列。コマンド名は含まれません。
-
-例：`mycommand arg1 arg2 arg3` → `['arg1', 'arg2', 'arg3']`
-
-#### `context: CommandContext`
-実行コンテキストオブジェクト：
-
-- `projectName: string` - 現在のプロジェクト名
-- `projectId: string` - プロジェクトID（IndexedDB参照用）
-- `currentDirectory: string` - 現在のディレクトリ（絶対パス）
-- `getSystemModule: <T>(moduleName: T) => Promise<SystemModuleMap[T]>` - システムモジュールへのアクセス
+- `args: string[]` : コマンドライン引数（コマンド名は含まれません）
+- `context: CommandContext` : 実行コンテキスト
+  - `projectName: string` : プロジェクト名
+  - `projectId: string` : プロジェクトID
+  - `currentDirectory: string` : 現在のディレクトリ（絶対パス）
+  - `getSystemModule: <T>(moduleName: T) => Promise<SystemModuleMap[T]>` : システムモジュールへの型安全アクセス
 
 ### 戻り値
 
-`Promise<string>` - ターミナルに出力される文字列
+- `Promise<string>` : ターミナルに出力される文字列
 
-## ファイルシステムの使用
-
-拡張機能のコマンドは、Pyxisの内部ファイルシステム（lightning-fs）を使用できます。
-
-### 例：ファイル一覧を取得
-
-```typescript
-async function listFilesCommand(args: string[], context: any): Promise<string> {
-  const fs = context.fileSystem;
-  
-  if (!fs) {
-    return 'Error: File system not available';
-  }
-
-  try {
-    const files = await fs.promises.readdir(context.currentDirectory);
-    let output = `Files in ${context.currentDirectory}:\n`;
-    
-    for (const file of files) {
-      output += `  - ${file}\n`;
-    }
-    
-    return output;
-  } catch (error) {
-    return `Error: ${(error as Error).message}`;
-  }
-}
-```
-
-### 例：ファイルを読み込む
-
-```typescript
-async function readFileCommand(args: string[], context: any): Promise<string> {
-  if (args.length === 0) {
-    return 'Usage: readfile <filename>';
-  }
-
-  const fs = context.fileSystem;
-  const filename = args[0];
-  
-  // 相対パスを絶対パスに変換
-  let filePath = filename;
-  if (!filename.startsWith('/')) {
-    filePath = `${context.currentDirectory}/${filename}`;
-  }
-
-  try {
-    const content = await fs.promises.readFile(filePath, 'utf8');
-    return content;
-  } catch (error) {
-    return `Error reading file: ${(error as Error).message}`;
-  }
-}
-```
-
-### 例：ファイルを書き込む
-
-```typescript
-async function writeFileCommand(args: string[], context: any): Promise<string> {
-  if (args.length < 2) {
-    return 'Usage: writefile <filename> <content>';
-  }
-
-  const fs = context.fileSystem;
-  const filename = args[0];
-  const content = args.slice(1).join(' ');
-  
-  let filePath = filename;
-  if (!filename.startsWith('/')) {
-    filePath = `${context.currentDirectory}/${filename}`;
-  }
-
-  try {
-    await fs.promises.writeFile(filePath, content, 'utf8');
-    return `File written: ${filePath}`;
-  } catch (error) {
-    return `Error writing file: ${(error as Error).message}`;
-  }
-}
-```
 
 ## システムモジュールの使用
 
-拡張機能は、Pyxisのシステムモジュールにもアクセスできます。
-
-### 例：FileRepositoryを使用
+コマンドハンドラーでは、`context.getSystemModule`を使ってPyxisの内部API（fileRepository等）に型安全にアクセスできます。
 
 ```typescript
-async function myCommand(args: string[], context: any): Promise<string> {
-  // FileRepositoryを取得（Extension Contextから）
-  const extensionContext = (context as any)._extensionContext;
-  
-  if (extensionContext?.getSystemModule) {
-    const fileRepository = await extensionContext.getSystemModule('fileRepository');
-    
-    // プロジェクトのファイル一覧を取得
-    const files = await fileRepository.getProjectFiles(context.projectId);
-    
-    let output = `Files in project (from IndexedDB):\n`;
-    files.forEach(file => {
-      output += `  - ${file.path} (${file.language})\n`;
-    });
-    
-    return output;
-  }
-  
-  return 'System modules not available';
-}
+const fileRepository = await context.getSystemModule('fileRepository');
+const files = await fileRepository.getProjectFiles(context.projectId);
 ```
+
+
+
 
 ## テンプレートから作成
 
-簡単に始めるには、テンプレート生成スクリプトを使用できます：
-
-```bash
-node scripts/create-extension.js
-```
-
-手順：
-1. タイプを選択: `Command/Tool`
-2. 拡張機能IDを入力（例：`my-command`）
-3. 名前、説明、作者などを入力
-4. npm/pnpmライブラリを使用するか選択
+`pnpm run create-extension` で対話的にテンプレートを生成できます。
 
 ## ビルドとテスト
+
 
 ### ビルド
 
@@ -232,10 +192,11 @@ node scripts/create-extension.js
 pnpm run setup-build
 ```
 
-これにより：
-- TypeScriptがJavaScriptにトランスパイルされる
-- `public/extensions/` にビルド済みファイルが配置される
-- `registry.json` が自動更新される
+これにより:
+- TypeScript/TSXがバンドル済みJSに変換
+- `public/extensions/` にビルド済みファイルが配置
+- `registry.json` が自動更新
+
 
 ### テスト
 
@@ -244,23 +205,25 @@ pnpm run setup-build
 3. 拡張機能パネルから有効化
 4. ターミナルでコマンドを実行
 
+
 ## 実例：Sample Command Extension
 
-Pyxisには、サンプルとして `sample-command` 拡張機能が含まれています：
+Pyxisには、完全なサンプルとして `sample-command` 拡張機能が含まれています：
 
 - **hello [name]** - 挨拶メッセージを表示
 - **fileinfo <filepath>** - ファイル情報を表示
 
-ソースコード：`extensions/sample-command/`
+実装例は `extensions/sample-command/index.ts` を参照してください。
+
 
 ## ベストプラクティス
 
 ### 1. エラーハンドリング
 
 ```typescript
-async function myCommand(args: string[], context: any): Promise<string> {
+async function fileinfoCommand(args: string[], context: any): Promise<string> {
   try {
-    // コマンドの処理
+    // ...処理
   } catch (error) {
     return `Error: ${(error as Error).message}`;
   }
@@ -270,47 +233,11 @@ async function myCommand(args: string[], context: any): Promise<string> {
 ### 2. ヘルプメッセージ
 
 ```typescript
-async function myCommand(args: string[], context: any): Promise<string> {
+async function helloCommand(args: string[], context: any): Promise<string> {
   if (args.length === 0 || args[0] === '--help') {
-    return `Usage: mycommand <arg1> [arg2]
-    
-Description:
-  This command does something useful
-  
-Examples:
-  mycommand value1
-  mycommand value1 value2
-`;
+    return `Usage: hello [name]\n\nExamples:\n  hello Alice\n  hello Bob`;
   }
-  
-  // コマンドの処理
-}
-```
-
-### 3. オプション解析
-
-```typescript
-async function myCommand(args: string[], context: any): Promise<string> {
-  const options = {
-    verbose: false,
-    output: null,
-  };
-  
-  const positional: string[] = [];
-  
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
-    
-    if (arg === '-v' || arg === '--verbose') {
-      options.verbose = true;
-    } else if (arg === '-o' || arg === '--output') {
-      options.output = args[++i];
-    } else {
-      positional.push(arg);
-    }
-  }
-  
-  // オプションを使用して処理
+  // ...処理
 }
 ```
 
@@ -364,14 +291,14 @@ async function longRunningCommand(args: string[], context: any): Promise<string>
 }
 ```
 
+
 ## まとめ
 
-Pyxisのコマンド拡張機能システムを使用すると：
+Pyxisのコマンド拡張機能システムを使えば：
 
-- ✅ ターミナルに新しいコマンドを追加できる
-- ✅ Pyxisの内部ファイルシステムにアクセスできる
-- ✅ システムモジュール（FileRepository等）を使用できる
-- ✅ ビルド済みファイルは自動的に配置される
-- ✅ 動的に有効化・無効化できる
+- ✅ ターミナルに新しいコマンドを型安全に追加できる
+- ✅ ExtensionContext経由でAPI・システムモジュールにアクセスできる
+- ✅ ビルド・配信・有効化・無効化が自動化
+- ✅ サンプル実装（sample-command）が完全な参考例
 
-詳細は [拡張機能システム全体のドキュメント](./HOW-TO-CREATE-EXTENSION.md) を参照してください。
+詳細は [拡張機能システム全体のドキュメント](../docs/EXTENSION-SYSTEM.md) も参照してください。
