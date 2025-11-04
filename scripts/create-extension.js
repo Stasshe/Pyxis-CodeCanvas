@@ -85,7 +85,7 @@ const EXTENSION_TYPES = [
 
 // UIコンポーネントタイプ
 const UI_COMPONENT_TYPES = [
-  { value: 'tab', label: 'Custom Tab', description: 'カスタムタブのみ' },
+  { value: 'tab', label: 'Custom Tab', description: 'カスタムタブのみ(開くボタンを作成できないので非推奨)' },
   { value: 'sidebar', label: 'Sidebar Panel', description: 'サイドバーパネルのみ' },
   { value: 'both', label: 'Tab + Sidebar', description: 'タブとサイドバー両方' }
 ];
