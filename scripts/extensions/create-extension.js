@@ -112,20 +112,33 @@ function loadTemplate(templateName) {
 }
 
 // テンプレートタグを置換
-function replaceTags(content, replacements) {
+function replaceTags(content, replacements, options = {}) {
   let result = content;
   // タグの長さ順で降順ソート（長いタグから置換）
   const sortedTags = Object.keys(replacements).sort((a, b) => b.length - a.length);
-  for (const tag of sortedTags) {
-    const value = replacements[tag];
-    const regex = new RegExp(tag.replace(/([.*+?^=!:${}()|\[\]\/\\])/g, "\\$1"), 'g');
-    result = result.replace(regex, value);
+  // 複数パスで置換（あるプレースホルダの値に別のプレースホルダが含まれる場合に対応）
+  let changed = true;
+  let passes = 0;
+  const MAX_PASSES = 10;
+  while (changed && passes < MAX_PASSES) {
+    changed = false;
+    passes += 1;
+    for (const tag of sortedTags) {
+      const value = replacements[tag] || '';
+      const regex = new RegExp(tag.replace(/([.*+?^=!:${}()|\[\]\/\\])/g, "\\$1"), 'g');
+      const newResult = result.replace(regex, value);
+      if (newResult !== result) changed = true;
+      result = newResult;
+    }
   }
+
   // 置換後に__[A-Z0-9_]+__形式のタグが残っていないかチェック
   const leftover = result.match(/__([A-Z0-9_]+)__/g);
-  if (leftover) {
-    console.warn('⚠️ テンプレートタグの置換漏れ:', leftover);
+  const suppress = options && options.suppressLeftoverWarning;
+  if (!suppress && leftover && leftover.length > 0) {
+    console.warn('⚠️ テンプレートタグの置換漏れ:', Array.from(new Set(leftover)));
   }
+
   return result;
 }
 
@@ -182,13 +195,14 @@ function generateUIExtension(config) {
     // タブを開くボタンを含めるかどうか
     if (componentType === 'both') {
       const openTabButton = loadTemplate('open-tab-button.template.tsx');
+      // 部分的な置換（まだ他のタグが残る可能性があるため警告は抑制）
       sidebarComponent = replaceTags(sidebarComponent, {
         '__OPEN_TAB_BUTTON__': openTabButton
-      });
+      }, { suppressLeftoverWarning: true });
     } else {
       sidebarComponent = replaceTags(sidebarComponent, {
         '__OPEN_TAB_BUTTON__': ''
-      });
+      }, { suppressLeftoverWarning: true });
     }
   }
   

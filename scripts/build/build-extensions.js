@@ -355,6 +355,12 @@ async function buildExtensions() {
   const extensionDirs = fs.readdirSync(EXTENSIONS_SRC, { withFileTypes: true })
     .filter(dirent => dirent.isDirectory())
     .filter(dirent => !dirent.name.startsWith('_')) // _shared などを除外
+    .filter(dirent => {
+      // emptyフォルダはパス
+      const extSrcDir = path.join(EXTENSIONS_SRC, dirent.name);
+      const files = fs.readdirSync(extSrcDir);
+      return files.length > 0;
+    })
     .map(dirent => dirent.name);
   
   let totalSuccess = 0;
@@ -376,6 +382,12 @@ async function buildExtensions() {
       // manifest.json がない場合はサブディレクトリをスキャン
       const subDirs = fs.readdirSync(extSrcDir, { withFileTypes: true })
         .filter(dirent => dirent.isDirectory())
+        .filter(dirent => {
+          // emptyフォルダはパス
+          const subSrcDir = path.join(extSrcDir, dirent.name);
+          const files = fs.readdirSync(subSrcDir);
+          return files.length > 0;
+        })
         .map(dirent => dirent.name);
       
       if (subDirs.length > 0) {
