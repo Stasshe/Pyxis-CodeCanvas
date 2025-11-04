@@ -55,7 +55,7 @@ jobs:
           cache: ${{ steps.detect-package-manager.outputs.manager }}
       - name: Setup pnpm (when detected)
         if: steps.detect-package-manager.outputs.manager == 'pnpm'
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v4
         with:
           version: 8
       - name: Restore cache
@@ -69,13 +69,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json', '**/yarn.lock') }}-
       - name: Install dependencies
-        run: ${{ steps.detect-package-manager.outputs.manager }} ${{ steps.detect-package-manager.outputs.command }}
+        run: pnpm install
       - name: Build with Next.js
         env:
           BUILD_MODE: production
           NEXT_PUBLIC_IS_PRODUCTION_BUILD: 'true'
           NEXT_PUBLIC_BASE_PATH: 'Pyxis-CodeCanvas'
-        run: ${{ steps.detect-package-manager.outputs.runner }} pnpm run build
+        run: pnpm run build
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
