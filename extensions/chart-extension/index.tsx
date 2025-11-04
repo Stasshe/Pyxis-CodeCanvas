@@ -146,7 +146,9 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
     context.sidebar.createPanel({
       id: 'chart-sidebar-panel',
       title: 'Chart',
-      icon: 'bar-chart', // lucide-reactのアイコン名
+      // Use a lucide-react icon export name (PascalCase). "bar-chart" is not valid;
+      // change to a valid icon name so MenuBar can resolve it dynamically.
+      icon: 'BarChart3',
       component: ChartSidebarPanel,
     });
     context.logger?.info('Chart sidebar panel registered');
