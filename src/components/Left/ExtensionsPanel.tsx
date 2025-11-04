@@ -111,6 +111,24 @@ export default function ExtensionsPanel() {
     }
   };
 
+  // 更新（キャッシュ削除して再インストール）
+  const handleUpdate = async (extensionId: string, manifestUrl: string, extensionName: string) => {
+    if (!manifestUrl) {
+      alert(`Failed to update ${extensionName}: Manifest URL not found in registry`);
+      return;
+    }
+    try {
+      // アンインストール
+      await extensionManager.uninstallExtension(extensionId);
+      // 再インストール
+      await extensionManager.installExtension(manifestUrl);
+      await loadExtensions();
+    } catch (error) {
+      console.error('[ExtensionsPanel] Failed to update extension:', error);
+      alert(`Failed to update ${extensionName}: ${(error as Error).message}`);
+    }
+  };
+
   const handleToggle = async (extensionId: string, currentlyEnabled: boolean) => {
     try {
       if (currentlyEnabled) {
@@ -366,6 +384,8 @@ export default function ExtensionsPanel() {
     if (!ext.manifest) return null;
     const typeColor = getExtensionTypeBadgeColor(ext.manifest.type);
 
+    // レジストリからmanifestUrl取得
+    const manifestUrl = availableWithRegistry.get(ext.manifest.id);
     return (
       <div
         key={ext.manifest.id}
@@ -427,9 +447,12 @@ export default function ExtensionsPanel() {
           </span>
         </div>
 
-        <div className="flex gap-2">
+        <div
+          className="flex flex-wrap gap-2"
+          style={{ minWidth: 0, maxWidth: '100%', overflow: 'hidden' }}
+        >
           <button
-            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs rounded transition-all hover:opacity-80"
+            className="min-w-[90px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs rounded transition-all hover:opacity-80"
             style={{
               background: ext.enabled ? colors.orange + '15' : colors.primary + '15',
               color: ext.enabled ? colors.orange : colors.primary,
@@ -450,7 +473,7 @@ export default function ExtensionsPanel() {
             )}
           </button>
           <button
-            className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs rounded transition-all hover:opacity-80"
+            className="min-w-[90px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs rounded transition-all hover:opacity-80"
             style={{
               background: colors.red + '15',
               color: colors.red,
@@ -460,6 +483,20 @@ export default function ExtensionsPanel() {
           >
             <Trash2 size={12} />
             Uninstall
+          </button>
+          <button
+            className="min-w-[90px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs rounded transition-all hover:opacity-80"
+            style={{
+              background: colors.blue + '15',
+              color: colors.blue,
+              border: `1px solid ${colors.blue}30`,
+            }}
+            onClick={() => handleUpdate(ext.manifest.id, manifestUrl || '', ext.manifest.name)}
+            disabled={!manifestUrl}
+            title={manifestUrl ? 'Update extension' : 'Manifest URL not found'}
+          >
+            <Loader size={12} />
+            Update
           </button>
         </div>
       </div>
