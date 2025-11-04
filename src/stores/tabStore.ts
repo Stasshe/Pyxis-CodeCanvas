@@ -154,18 +154,43 @@ export const useTabStore = create<TabStore>((set, get) => ({
     const state = get();
     const kind = options.kind || file.kind || 'editor';
     let targetPaneId = options.paneId || state.activePane || state.panes[0]?.id;
+    // もし全体でタブが一つもない場合は、優先順に
+    // 1) options.paneId
+    // 2) 現在の state.activePane（存在かつ有効なペイン）
+    // 3) 子を持たない leaf ペイン
+    // 4) 新規ペイン作成
+    const allTabs = get().getAllTabs();
+    if (allTabs.length === 0) {
+      if (options.paneId) {
+        targetPaneId = options.paneId;
+      } else if (state.activePane && get().getPane(state.activePane)) {
+        targetPaneId = state.activePane;
+      } else {
+        // leaf ペインを探索（深さ優先）
+        const findLeafPane = (panes: EditorPane[]): EditorPane | null => {
+          for (const p of panes) {
+            if (!p.children || p.children.length === 0) return p;
+            const found = findLeafPane(p.children);
+            if (found) return found;
+          }
+          return null;
+        };
 
-    // ペインが存在しない場合は新しいペインを作成
-    if (!targetPaneId) {
-      const newPaneId = `pane-1`;
-      const newPane: EditorPane = {
-        id: newPaneId,
-        tabs: [],
-        activeTabId: '',
-      };
-      get().addPane(newPane);
-      targetPaneId = newPaneId;
-      set({ activePane: newPaneId });
+        const leaf = findLeafPane(get().panes);
+        if (leaf) {
+          targetPaneId = leaf.id;
+        } else if (!targetPaneId) {
+          // ペインが一つも存在しない場合は新規ペインを作る
+          const existingIds = get().panes.map(p => p.id);
+          let nextNum = 1;
+          while (existingIds.includes(`pane-${nextNum}`)) nextNum++;
+          const newPaneId = `pane-${nextNum}`;
+          const newPane: EditorPane = { id: newPaneId, tabs: [], activeTabId: '' };
+          get().addPane(newPane);
+          targetPaneId = newPaneId;
+          set({ activePane: newPaneId });
+        }
+      }
     }
 
     const tabDef = tabRegistry.get(kind);
