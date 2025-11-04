@@ -459,9 +459,40 @@ function ClientTerminal({
             await handleNPMCommand(args, npmCommandsRef, captureWriteOutput);
             break;
 
-          default:
-            await handleUnixCommand(cmd, args, unixCommandsRef, currentProject, captureWriteOutput);
+          default: {
+            // カスタムコマンドをチェック
+            const { commandRegistry } = await import('@/engine/extensions/commandRegistry');
+            if (commandRegistry.hasCommand(cmd)) {
+              try {
+                const { gitFileSystem } = await import('@/engine/core/gitFileSystem');
+                const fs = gitFileSystem.getFS();
+                const currentDir = unixCommandsRef.current
+                  ? await unixCommandsRef.current.pwd()
+                  : `/projects/${currentProject}`;
+
+                const result = await commandRegistry.executeCommand(cmd, args, {
+                  projectName: currentProject,
+                  projectId: currentProjectId,
+                  currentDirectory: currentDir,
+                  fileSystem: fs,
+                });
+
+                await captureWriteOutput(result);
+              } catch (error) {
+                await captureWriteOutput(`Error: ${(error as Error).message}`);
+              }
+            } else {
+              // 通常のUnixコマンドとして処理
+              await handleUnixCommand(
+                cmd,
+                args,
+                unixCommandsRef,
+                currentProject,
+                captureWriteOutput
+              );
+            }
             break;
+          }
         }
 
         // リダイレクト処理

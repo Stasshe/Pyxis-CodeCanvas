@@ -61,6 +61,13 @@ const EXTENSION_TYPES = [
     fileExtension: 'tsx'
   },
   {
+    value: 'tool',
+    label: 'Command/Tool',
+    description: 'ターミナルコマンドやツールを追加',
+    usesReact: false,
+    fileExtension: 'ts'
+  },
+  {
     value: 'transpiler',
     label: 'Transpiler',
     description: 'コードのトランスパイル機能を提供',
@@ -382,6 +389,77 @@ export async function deactivate(): Promise<void> {
 `;
 }
 
+function generateCommandExtension(config) {
+  const { name, description } = config;
+  
+  return `/**
+ * ${name}
+ * ${description}
+ */
+
+import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
+
+/**
+ * カスタムコマンドの実装
+ */
+async function myCommand(args: string[], context: any): Promise<string> {
+  // args: コマンドライン引数の配列
+  // context.projectName: プロジェクト名
+  // context.projectId: プロジェクトID
+  // context.currentDirectory: 現在のディレクトリ
+  // context.fileSystem: ファイルシステムインスタンス
+
+  if (args.length === 0) {
+    return 'Usage: mycommand <argument>';
+  }
+
+  const arg = args[0];
+  let output = \`Command executed with argument: \${arg}\\n\`;
+  output += \`Project: \${context.projectName}\\n\`;
+  output += \`Current Directory: \${context.currentDirectory}\\n\`;
+
+  // ファイルシステムを使用する例
+  try {
+    const fs = context.fileSystem;
+    if (fs) {
+      const files = await fs.promises.readdir(context.currentDirectory);
+      output += \`\\nFiles in current directory: \${files.length}\\n\`;
+    }
+  } catch (error) {
+    output += \`\\nError reading directory: \${(error as Error).message}\\n\`;
+  }
+
+  return output;
+}
+
+/**
+ * 拡張機能のactivate関数
+ */
+export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
+  context.logger?.info('${name} activating...');
+
+  // コマンドを登録
+  if (context.commands) {
+    context.commands.registerCommand('mycommand', myCommand);
+    context.logger?.info('Registered command: mycommand');
+  } else {
+    context.logger?.warn('Commands API not available');
+  }
+
+  context.logger?.info('${name} activated');
+
+  return {};
+}
+
+/**
+ * 拡張機能のdeactivate関数
+ */
+export async function deactivate(): Promise<void> {
+  console.log('${name} deactivated');
+}
+`;
+}
+
 function generateBuiltinModuleExtension(config) {
   const { name, description } = config;
   
@@ -563,6 +641,8 @@ async function main() {
     
     if (type === 'ui') {
       indexContent = generateUIExtension(config);
+    } else if (type === 'tool') {
+      indexContent = generateCommandExtension(config);
     } else if (type === 'transpiler') {
       indexContent = generateTranspilerExtension(config);
     } else if (type === 'service') {

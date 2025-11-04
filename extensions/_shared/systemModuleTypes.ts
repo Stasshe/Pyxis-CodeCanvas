@@ -51,11 +51,42 @@ export interface NormalizeCjsEsmModule {
 }
 
 /**
+ * CommandRegistry - コマンド登録・実行API
+ */
+export interface CommandRegistry {
+  // コマンド登録
+  registerCommand(
+    commandName: string,
+    handler: (args: string[], context: CommandContext) => Promise<string>
+  ): () => void;
+  
+  // コマンド実行
+  executeCommand(commandName: string, args: string[]): Promise<string>;
+  
+  // コマンド一覧取得
+  getRegisteredCommands(): string[];
+  
+  // コマンド登録確認
+  hasCommand(commandName: string): boolean;
+}
+
+/**
+ * コマンド実行時のコンテキスト
+ */
+export interface CommandContext {
+  projectName: string;
+  projectId: string;
+  currentDirectory: string;
+  fileSystem: any; // FS instance
+}
+
+/**
  * システムモジュールの型マップ
  */
 export interface SystemModuleMap {
   fileRepository: FileRepository;
   normalizeCjsEsm: NormalizeCjsEsmModule;
+  commandRegistry: CommandRegistry;
 }
 
 /**

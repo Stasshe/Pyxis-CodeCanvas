@@ -276,8 +276,8 @@ class ExtensionManager {
 
       const active = this.activeExtensions.get(extensionId);
       if (!active) {
-        console.log('[ExtensionManager] Extension not active:', extensionId);
-        return true;
+        console.log('[ExtensionManager] Extension not enabled:', extensionId);
+        return false;
       }
 
       // TabAPIとSidebarAPIをクリーンアップ
@@ -290,6 +290,10 @@ class ExtensionManager {
           (context as any)._sidebarAPI.dispose();
         }
       }
+
+      // コマンドをクリーンアップ
+      const { commandRegistry } = await import('./commandRegistry');
+      commandRegistry.unregisterExtensionCommands(extensionId);
 
       // デアクティベート
       await deactivateExtension(active.exports);
@@ -309,7 +313,6 @@ class ExtensionManager {
         this.emitChange({
           type: 'disabled',
           extensionId,
-          manifest: installed.manifest,
         });
       }
 
@@ -435,6 +438,10 @@ class ExtensionManager {
             const module = await import('@/engine/runtime/normalizeCjsEsm');
             return module as SystemModuleMap[T];
           }
+          case 'commandRegistry': {
+            const { commandRegistry } = await import('./commandRegistry');
+            return commandRegistry as SystemModuleMap[T];
+          }
           default: {
             // TypeScriptの網羅性チェック用の変数
             // 実行時には到達しないが、型エラーメッセージを改善するために使用
@@ -466,6 +473,14 @@ class ExtensionManager {
       removePanel: (panelId: string) => sidebarAPI.removePanel(panelId),
       onPanelActivate: (panelId: string, callback: any) =>
         sidebarAPI.onPanelActivate(panelId, callback),
+    };
+
+    // Commands APIを追加
+    const { commandRegistry } = await import('./commandRegistry');
+    context.commands = {
+      registerCommand: (commandName: string, handler: any) => {
+        return commandRegistry.registerCommand(extensionId, commandName, handler);
+      },
     };
 
     // APIインスタンスを保存（dispose用）

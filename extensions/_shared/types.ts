@@ -90,6 +90,14 @@ export interface ExtensionContext {
     removePanel: (panelId: string) => void;
     onPanelActivate: (panelId: string, callback: (panelId: string) => void | Promise<void>) => void;
   };
+
+  /** Commands API - 拡張機能がターミナルコマンドを追加 */
+  commands?: {
+    registerCommand: (
+      commandName: string,
+      handler: (args: string[], context: any) => Promise<string>
+    ) => () => void;
+  };
 }
 
 /**

@@ -1,0 +1,18 @@
+{
+  "id": "pyxis.sample-command",
+  "name": "Sample Command Extension",
+  "version": "1.0.0",
+  "type": "tool",
+  "description": "カスタムコマンドを追加するサンプル拡張機能",
+  "author": "Pyxis Team",
+  "defaultEnabled": false,
+  "entry": "index.js",
+  "provides": {
+    "commands": ["hello", "fileinfo"]
+  },
+  "metadata": {
+    "publishedAt": "2025-11-04T00:00:00.000Z",
+    "updatedAt": "2025-11-04T00:00:00.000Z",
+    "tags": ["command", "sample", "tool"]
+  }
+}
