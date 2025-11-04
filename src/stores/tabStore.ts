@@ -463,10 +463,14 @@ export const useTabStore = create<TabStore>((set, get) => ({
     if (tabInfo) {
       const result = get().findTabByPath(tabInfo.path || '', tabInfo.kind);
       if (result) {
-        const updates: Partial<Tab> = immediate
-          ? ({ content, isDirty: true } as any)
-          : ({ content, isDirty: false } as any);
-        get().updateTab(result.paneId, tabId, updates);
+        // contentとisDirtyを持つタブ（EditorTab, PreviewTab）のみ更新
+        if (tabInfo.kind === 'editor' || tabInfo.kind === 'preview') {
+          const updates: Partial<Tab> = {
+            content,
+            isDirty: immediate ? true : false,
+          };
+          get().updateTab(result.paneId, tabId, updates);
+        }
       }
     }
   },

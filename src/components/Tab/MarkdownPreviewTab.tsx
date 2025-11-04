@@ -16,15 +16,15 @@ import 'katex/dist/katex.min.css';
 // because backslashes are processed as escapes. To reliably support bracket
 // delimiters we preprocess the raw markdown string before parsing. This
 // preserves code fences and inline code by skipping conversion inside them.
-import { FileItem, Tab, Project } from '@/types';
+import { FileItem, Project } from '@/types';
+import type { PreviewTab } from '@/engine/tabs/types';
 import { loadImageAsDataURL, parseMermaidContent } from './markdownUtils';
-import { fileRepository } from '@/engine/core/fileRepository';
-import { FolderWatcher, type FileChangeEvent } from '@/engine/fileWatcher';
 
 interface MarkdownPreviewTabProps {
-  activeTab: Tab;
+  activeTab: PreviewTab;
   currentProject?: Project;
 }
+
 // ユニークID生成用
 let mermaidIdCounter = 0;
 
@@ -520,7 +520,7 @@ Mermaid.displayName = 'Mermaid';
 const LocalImage = React.memo<{
   src: string;
   alt: string;
-  activeTab: Tab;
+  activeTab: PreviewTab;
   projectName?: string | undefined;
   projectId?: string | undefined;
   [key: string]: any;
@@ -553,7 +553,7 @@ const LocalImage = React.memo<{
           projectName,
           projectId,
           // pass the path of the markdown file so relative paths can be resolved
-          (activeTab && (activeTab as any).path) || undefined
+          activeTab.path
         );
         if (loadedDataUrl) {
           setDataUrl(loadedDataUrl);
@@ -668,13 +668,6 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ activeTab, curr
   // keep previous content to detect append-only updates
   const prevContentRef = useRef<string | null>(null);
 
-  // fileContent is the canonical markdown content displayed in the preview.
-  // If the editor/tab provides content directly we prefer it; otherwise we
-  // load the content from fileRepository using activeTab.path and watch for
-  // changes with FolderWatcher so the preview auto-updates.
-  const [fileContent, setFileContent] = useState<string>((activeTab as any).content || '');
-  const folderWatcherRef = useRef<FolderWatcher | null>(null);
-
   // determine markdown plugins based on settings
   const [extraRemarkPlugins, setExtraRemarkPlugins] = useState<any[]>([
     /* maybe remark-breaks */
@@ -709,106 +702,6 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ activeTab, curr
       mounted = false;
     };
   }, [settings?.markdown?.singleLineBreaks, settings?.markdown?.math?.delimiter]);
-
-  // Load content from fileRepository when activeTab doesn't provide it, and
-  // set up a FolderWatcher so the preview auto-refreshes when the file changes.
-  useEffect(() => {
-    let mounted = true;
-
-    const fetchContent = async () => {
-      // Prefer in-memory content if provided by the tab/editor
-      if ((activeTab as any).content) {
-        if (mounted) setFileContent((activeTab as any).content || '');
-        return;
-      }
-
-      if (!currentProject || !activeTab || !(activeTab as any).path) {
-        if (mounted) setFileContent('');
-        return;
-      }
-
-      try {
-        await fileRepository.init();
-        const projectFiles = await fileRepository.getProjectFiles(currentProject.id);
-        const rel =
-          (activeTab as any).path && (activeTab as any).path.startsWith('/')
-            ? (activeTab as any).path
-            : '/' + ((activeTab as any).path || '');
-        const target = projectFiles.find(f => {
-          const p = f.path && f.path.startsWith('/') ? f.path : '/' + f.path;
-          return p === rel;
-        });
-
-        if (!target) {
-          if (mounted) setFileContent('');
-          return;
-        }
-
-        if ((target as any).isBufferArray && (target as any).bufferContent) {
-          const decoder = new TextDecoder('utf-8');
-          const decoded = decoder.decode((target as any).bufferContent as ArrayBuffer);
-          if (mounted) setFileContent(decoded);
-          return;
-        }
-
-        if (typeof (target as any).content === 'string') {
-          if (mounted) setFileContent((target as any).content || '');
-          return;
-        }
-
-        if (mounted) setFileContent('');
-      } catch (err) {
-        console.warn('[MarkdownPreviewTab] failed to load file content', err);
-        if (mounted) setFileContent('');
-      }
-    };
-
-    fetchContent();
-
-    // Setup folder/file watcher to auto-refresh the preview
-    try {
-      if (currentProject?.name && (activeTab as any).path) {
-        const watchPath = (activeTab as any).path.endsWith('/')
-          ? (activeTab as any).path
-          : (activeTab as any).path.substring(0, (activeTab as any).path.lastIndexOf('/')) || '/';
-
-        const watcher = new FolderWatcher(watchPath, currentProject.name);
-        folderWatcherRef.current = watcher;
-
-        const handler = (event: FileChangeEvent) => {
-          // Slight delay to allow writes to complete
-          setTimeout(() => {
-            fetchContent();
-          }, 100);
-        };
-
-        watcher.addListener(handler);
-
-        return () => {
-          try {
-            watcher.removeListener(handler);
-            watcher.destroy();
-          } catch (e) {
-            /* ignore */
-          }
-          folderWatcherRef.current = null;
-          mounted = false;
-        };
-      }
-    } catch (e) {
-      console.warn('[MarkdownPreviewTab] failed to setup watcher', e);
-    }
-
-    return () => {
-      mounted = false;
-    };
-  }, [
-    activeTab,
-    activeTab.path,
-    (activeTab as any).content,
-    currentProject?.id,
-    currentProject?.name,
-  ]);
 
   // ReactMarkdownのコンポーネントをメモ化
   // 通常表示用
@@ -874,7 +767,7 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ activeTab, curr
             projectId={currentProject?.id}
             activeTab={activeTab}
             // Pass base path for resolution inside markdown files
-            baseFilePath={(activeTab && (activeTab as any).path) || undefined}
+            baseFilePath={activeTab.path}
             {...props}
           />
         );
@@ -887,7 +780,7 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ activeTab, curr
   // Preprocess the raw markdown to convert bracket-style math delimiters
   // into dollar-style, while skipping code fences and inline code.
   const processedContent = useMemo(() => {
-    const src = fileContent || '';
+    const src = activeTab.content || '';
     const delimiter = settings?.markdown?.math?.delimiter || 'dollar';
     if (delimiter === 'dollar') return src;
 
@@ -917,7 +810,7 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ activeTab, curr
     }
 
     return src;
-  }, [fileContent, settings?.markdown?.math?.delimiter]);
+  }, [activeTab.content, settings?.markdown?.math?.delimiter]);
 
   const markdownContent = useMemo(
     () => (
@@ -944,7 +837,7 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ activeTab, curr
         {processedContent}
       </ReactMarkdown>
     ),
-    [fileContent, markdownComponentsPlain]
+    [activeTab.content, markdownComponentsPlain]
   );
 
   // PDFエクスポート処理
@@ -1008,7 +901,7 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ activeTab, curr
   useEffect(() => {
     if (typeof window === 'undefined') return; // SSR対策
     const prev = prevContentRef.current;
-    const current = fileContent || '';
+    const current = activeTab.content || '';
 
     const collapseNewlines = (s: string) => s.replace(/\n{3,}/g, '\n\n');
     const trimTrailingWhitespace = (s: string) => s.replace(/[\s\u00A0]+$/g, '');
@@ -1072,7 +965,7 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ activeTab, curr
 
     // 常に最新を保存
     prevContentRef.current = current;
-  }, [fileContent]);
+  }, [activeTab.content]);
 
   return (
     <div

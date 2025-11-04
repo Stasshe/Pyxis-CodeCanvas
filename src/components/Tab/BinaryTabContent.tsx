@@ -3,9 +3,10 @@ import { FileText } from 'lucide-react';
 import { useTranslation } from '@/context/I18nContext';
 import MarkdownPreviewTab from './MarkdownPreviewTab';
 import WelcomeTab from './WelcomeTab';
+import { BinaryTab, EditorTab } from '@/engine/tabs/types';
 
 interface BinaryTabContentProps {
-  activeTab: any;
+  activeTab: BinaryTab | EditorTab;
   editorHeight: string;
   guessMimeType: (fileName: string, buffer?: ArrayBuffer) => string;
   isBufferArray: (arg: any) => boolean;
@@ -21,8 +22,8 @@ const BinaryTabContent: React.FC<BinaryTabContentProps> = ({
   isBufferArray,
 }) => {
   const { t } = useTranslation();
-  if (!isBufferArray((activeTab as any).bufferContent)) return null;
-  const buffer = (activeTab as any).bufferContent as ArrayBuffer | undefined;
+  if (!('bufferContent' in activeTab) || !isBufferArray(activeTab.bufferContent)) return null;
+  const buffer = activeTab.bufferContent as ArrayBuffer | undefined;
   const mime = guessMimeType(activeTab.name, buffer);
   // 画像ならimg表示
   if (mime.startsWith('image/') && buffer) {

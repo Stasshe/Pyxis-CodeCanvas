@@ -196,3 +196,27 @@ export interface EditorPane {
   children?: EditorPane[];
   parentId?: string;
 }
+
+/**
+ * 型ガード: contentプロパティを持つタブ
+ */
+export function hasContent(tab: Tab): tab is EditorTab | PreviewTab {
+  return tab.kind === 'editor' || tab.kind === 'preview';
+}
+
+/**
+ * 型ガード: bufferContentプロパティを持つタブ
+ */
+export function hasBufferContent(tab: Tab): tab is EditorTab | BinaryTab {
+  return (
+    (tab.kind === 'editor' && 'bufferContent' in tab) ||
+    (tab.kind === 'binary' && 'bufferContent' in tab)
+  );
+}
+
+/**
+ * 型ガード: jumpToLineプロパティを持つタブ
+ */
+export function hasJumpToLine(tab: Tab): tab is EditorTab {
+  return tab.kind === 'editor';
+}

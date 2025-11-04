@@ -165,6 +165,7 @@ export class TabAPI {
               // title オプションは name フィールドを更新
               ...(options.title && { name: options.title }),
               ...(options.icon && { icon: options.icon }),
+              // 拡張機能用の任意データフィールド（型定義外）
               ...(options.data && {
                 data: { ...(tab as any).data, ...options.data },
               }),
@@ -239,6 +240,7 @@ export class TabAPI {
 
     const store = useTabStore.getState();
     for (const pane of store.panes) {
+      // 拡張機能タブの任意データにアクセス（型定義外のプロパティ）
       const tab = pane.tabs.find(t => t.id === tabId) as any;
       if (tab && tab.data) {
         return tab.data as T;
