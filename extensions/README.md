@@ -1,304 +1,201 @@
-# Pyxis Extensions
+extensions/
 
-このディレクトリには、Pyxisの拡張機能のソースコード(TypeScript/TSX)が含まれています。
+# Pyxis Extensions - 2025年新アーキテクチャ
+
+このディレクトリには、Pyxisの拡張機能(TypeScript/TSX)のソースコードが含まれています。
+
+---
+
+## 🚀 2025年・新拡張機能アーキテクチャ
+
+### 1. **pnpmライブラリ完全対応**
+- 各拡張機能ごとに`package.json`を配置し、`pnpm install`でnpmライブラリが利用可能
+- `chart.js`や`lodash`など、ほぼ全てのnpmパッケージが使えます
+- esbuildによる依存バンドルで高速・安全
+- React/ReactDOMはPyxis本体からグローバル提供（依存不要）
+
+### 2. **Terminalコマンド拡張**
+- 拡張機能から独自のターミナルコマンドを追加可能
+- `context.terminal.registerCommand`でコマンド名・実装・引数・説明を登録
+- ユーザーはPyxisのターミナルUIから直接コマンド実行
+- コマンドはNode.js/TypeScriptで記述可能
+- コマンドの引数・補完・説明も拡張機能側で定義
+
+---
 
 ## ディレクトリ構造
 
 ```
-extensions/
-├── _shared/
-│   └── types.ts              # 共通型定義
-├── typescript-runtime/
-│   ├── index.ts              # TypeScript/JSX トランスパイラ
-│   └── manifest.json
-├── note-tab/
-│   ├── index.tsx             # ノートタブ拡張機能 (TSX使用)
-│   └── manifest.json
-├── todo-panel/
-│   ├── index.tsx             # TODOパネル拡張機能 (TSX使用)
-│   └── manifest.json
-└── lang-packs/
-    ├── ja/                   # 日本語パック
-    │   ├── index.ts
-    │   └── manifest.json
-    ├── en/                   # 英語パック
-    │   ├── index.ts
-    │   └── manifest.json
-    └── zh/                   # 中国語パック
-        ├── index.ts
-        └── manifest.json
+
+├── _shared/              # 共通型定義
+├── chart-extension/      # Chart.jsなど外部ライブラリ利用例
+├── typescript-runtime/   # TypeScript/JSXトランスパイラ
+├── note-tab/             # ノートタブ拡張機能
+├── todo-panel/           # TODOパネル拡張機能
+├── lang-packs/           # 多言語パック
+└── ...
 ```
 
-## 開発フロー
+---
 
-1. **拡張機能を作成** - `npm run create-extension`で対話形式でテンプレート作成、または手動で`extensions/<extension-name>/`にTypeScript/TSXで記述
-2. **npmライブラリを使いたい場合** - `package.json`を追加して`pnpm install`（詳細は `/docs/EXTENSION-NPM-LIBRARIES.md` 参照）
-3. **ビルド実行** - `node build-extensions.js`（`registry.json`も自動生成されます）
-4. **自動配置** - `public/extensions/`にバンドル済みJavaScriptが配置される
-5. **ビルド&配置** - `npm run setup-build`で一括でできます。
+## 開発フロー（2025年版）
+
+1. **拡張機能テンプレート作成**
+    - `npm run create-extension`で対話生成
+    - または手動で`extensions/<name>/`ディレクトリ作成
+2. **npmライブラリ追加**
+    - `package.json`を作成し、`pnpm install chart.js lodash`などで依存追加
+    - TypeScript/TSXで自由にimport可能
+3. **Terminalコマンド追加**
+    - `context.terminal.registerCommand`でコマンドを登録
+    - コマンドはNode.js/TypeScriptで実装
+4. **ビルド**
+    - `node build-extensions.js`でesbuildバンドル
+    - 依存も自動バンドル
+5. **自動配置**
+    - `public/extensions/`にバンドル済みJS配置
+6. **一括ビルド**
+    - `npm run setup-build`で全拡張機能を一括ビルド
+
+---
 
 ## 拡張機能の種類
 
-| タイプ | 説明 | React必須 | 返り値 |
-|--------|------|-----------|--------|
-| **transpiler** | TypeScript/JSX などのトランスパイラ | ❌ | `runtimeFeatures` |
-| **service** | 言語パック（i18nなど） | ❌ | `services` |
-| **builtin-module** | Node.js 互換モジュール (fs, path など) | ❌ | `builtInModules` |
-| **ui** | カスタムタブ、サイドバーパネル | ✅ | `{}` (空) |
+| タイプ | 説明 | React必須 | 返り値 | npmライブラリ | Terminalコマンド |
+|--------|------|-----------|--------|--------------|-----------------|
+| **transpiler** | TypeScript/JSX等のトランスパイラ | ❌ | `runtimeFeatures` | ✅ | ✅ |
+| **service** | 言語パック（i18n等） | ❌ | `services` | ✅ | ✅ |
+| **builtin-module** | Node.js互換モジュール | ❌ | `builtInModules` | ✅ | ✅ |
+| **ui** | カスタムタブ/サイドバー | ✅ | `{}` | ✅ | ✅ |
 
-**重要:** 
-- **UI拡張機能** (`type: "ui"`) は React を使用して `context.tabs` / `context.sidebar` APIでUIを登録します
-- **非UI拡張機能** (`transpiler`, `service`, `builtin-module`) は React 不要で、機能のみを提供します
+---
 
-## 新しい拡張機能の作成
+## Terminalコマンド拡張の例
 
-### 🚀 クイックスタート（推奨）
-
-対話形式でテンプレートを自動生成:
-
-```bash
-npm run create-extension
+```typescript
+// index.ts
+export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
+  context.terminal?.registerCommand({
+    name: 'hello',
+    description: 'Hello Worldを表示',
+    args: [{ name: 'name', type: 'string', required: false }],
+    handler: async ({ name }) => {
+      return `Hello, ${name || 'World'}!`;
+    }
+  });
+  // ...他のAPI登録
+  return {};
+}
 ```
 
-以下の情報を入力するだけで、拡張機能のひな形が完成します:
-1. 拡張機能タイプ（UI/Transpiler/Service/Built-in Module）
-2. 拡張機能ID（例: `my-extension`）
-3. 名前と説明
-4. UI拡張の場合はコンポーネントタイプ（Tab/Sidebar/Both）
-5. タグ（オプション）
+---
 
-テンプレートには以下が含まれます:
-- ✅ `manifest.json` - メタデータ（`defaultEnabled`フィールド含む）
-- ✅ `index.ts` または `index.tsx` - メインコード
-- ✅ `README.md` - ドキュメント
+## npmライブラリ利用例
 
-**重要:** `registry.json`は`node build-extensions.js`実行時に自動生成されます。手動での編集は不要です。
+```typescript
+// index.tsx
+import Chart from 'chart.js/auto';
+import _ from 'lodash';
 
-### 📝 手動作成
-
-#### 1. ディレクトリ作成
-
-```bash
-mkdir -p extensions/my-extension
+function MyChartTab() {
+  // Chart.jsやlodashがそのまま使える！
+  // ...
+}
 ```
 
-#### 2. manifest.json を作成
+---
+
+## manifest.json 例
 
 ```json
 {
-  "id": "pyxis.my-extension",
-  "name": "My Extension",
+  "id": "pyxis.chart-extension",
+  "name": "Chart Extension",
   "version": "1.0.0",
   "type": "ui",
-  "description": "拡張機能の説明",
+  "description": "Chart.jsを使ったグラフ表示拡張",
   "author": "Your Name",
   "defaultEnabled": false,
   "entry": "index.js",
   "metadata": {
     "publishedAt": "2025-01-01T00:00:00Z",
-    "tags": ["ui", "productivity"]
+    "tags": ["ui", "chart", "productivity"]
   }
 }
 ```
 
-**重要フィールド:**
-- `defaultEnabled`: `true`にするとPyxis起動時に自動的に有効化されます
-- `provides` フィールドは不要です（読み取られません）
+---
 
-#### 3. index.tsx を作成 (TSX推奨)
-
-```tsx
-import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
-import React, { useState } from 'react';
-
-// タブコンポーネント（TSX構文）
-function MyTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
-  const [count, setCount] = useState(0);
-
-  return (
-    <div style={{ padding: '16px', background: '#1e1e1e', color: '#d4d4d4' }}>
-      <h2>My Custom Tab</h2>
-      <p>Count: {count}</p>
-      <button
-        onClick={() => setCount(count + 1)}
-        style={{
-          padding: '8px 16px',
-          background: '#0e639c',
-          color: '#fff',
-          border: 'none',
-          borderRadius: '4px',
-          cursor: 'pointer',
-        }}
-      >
-        Increment
-      </button>
-    </div>
-  );
-}
-
-export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
-  context.logger?.info('My Extension activating...');
-  
-  // タブコンポーネントを登録
-  if (context.tabs) {
-    context.tabs.registerTabType(MyTabComponent);
-    context.logger?.info('Tab component registered');
-  }
-  
-  // サイドバーパネルを登録（オプション）
-  if (context.sidebar) {
-    context.sidebar.createPanel({
-      id: 'my-panel',
-      title: 'My Panel',
-      icon: 'Package',
-      component: MyPanelComponent,
-      order: 50,
-    });
-  }
-  
-  // UI拡張機能なので、services/commandsは不要
-  return {};
-}
-
-export async function deactivate(): Promise<void> {
-  console.log('[My Extension] Deactivating...');
-}
-```
-
-**または、React.createElementを使用 (index.ts)**
-
-```typescript
-import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
-import React, { useState } from 'react';
-
-function MyTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
-  const [count, setCount] = useState(0);
-
-  return React.createElement(
-    'div',
-    { style: { padding: '16px' } },
-    [
-      React.createElement('h2', { key: 'title' }, 'My Custom Tab'),
-      React.createElement('p', { key: 'count' }, `Count: ${count}`),
-      React.createElement(
-        'button',
-        {
-          key: 'button',
-          onClick: () => setCount(count + 1),
-          style: { padding: '8px 16px', cursor: 'pointer' },
-        },
-        'Increment'
-      ),
-    ]
-  );
-}
-
-// ... 残りは同じ
-```
-
-#### 4. レジストリに登録
-
-`extensions/registry.json` に拡張機能を追加:
+## registry.json 例
 
 ```json
 {
-  "id": "pyxis.my-extension",
+  "id": "pyxis.chart-extension",
   "type": "ui",
-  "manifestUrl": "/extensions/my-extension/manifest.json",
+  "manifestUrl": "/extensions/chart-extension/manifest.json",
   "defaultEnabled": false,
   "recommended": false
 }
 ```
 
-#### 5. ビルドして配置
+---
 
-```bash
-node build-extensions.js
-```
+## 型定義・API
 
-ビルドされた拡張機能は `public/extensions/` に配置されます。
+- `ExtensionContext`に`terminal`プロパティ追加
+- `terminal.registerCommand`でコマンド拡張
+- npmライブラリは`pnpm install`で自由に追加
+- UI拡張はTSX推奨
+- 詳細は`_shared/types.ts`参照
 
-#### 6. 開発サーバーで確認
+---
 
-```bash
-npm run dev
-```
+## よくある質問（2025年版）
 
-ブラウザで拡張機能パネルから「My Extension」をインストール・有効化してください。
+### Q: npmライブラリは本当に何でも使える？
+**A: ほぼ全て使えます。Chart.js, lodash, dayjs, axiosなど主要ライブラリは全てOK。React/ReactDOMはPyxis本体から提供されるので依存不要です。**
 
-## 既存の拡張機能
+### Q: Terminalコマンドはどんなものが作れる？
+**A: Node.js/TypeScriptで記述できる任意のコマンド。引数・補完・説明も自由に定義可能。UI拡張からもコマンド登録できます。**
 
-| 拡張機能 | 種類 | ファイル | 説明 |
-|---------|------|---------|------|
-| typescript-runtime | transpiler | index.ts | TypeScript/JSX/TSXのトランスパイル |
-| note-tab | ui | index.tsx | シンプルなノートタブ (TSX使用) |
-| todo-panel | ui | index.tsx | TODOリスト管理 (TSX使用) |
-| lang-packs/* | service | index.ts | 言語パック (ja, en, zh など) |
+### Q: 旧拡張機能との互換性は？
+**A: 後方互換性は気にせず、新API・新構造で記述してください。**
 
-## 型定義について
+---
 
-`_shared/types.ts` には共通の型定義があります:
+## 参考ドキュメント
+- `/docs/EXTENSION-SYSTEM.md` - 拡張機能システム設計
+- `/docs/EXTENSION-TAB-SIDEBAR-API.md` - タブ/サイドバーAPI
+- `/docs/EXTENSION-NPM-LIBRARIES.md` - npmライブラリ利用ガイド
+- `/docs/SYSTEM-OVERVIEW.md` - システム全体概要
 
-- **ExtensionContext**: 拡張機能のコンテキスト
-  - `extensionId`: 拡張機能のID
-  - `logger`: ロガー (info, warn, error)
-  - `tabs`: Tab API (タブ作成・管理)
-  - `sidebar`: Sidebar API (サイドバーパネル作成・管理)
-  - `getSystemModule`: システムモジュールの取得
-- **ExtensionActivation**: activate() の戻り値型
-  - `services`: 提供するサービス
-  - `commands`: コマンド
-  - `dispose`: クリーンアップ関数
-- **ExtensionType**: 拡張機能の種類
+---
 
-拡張機能は外部依存を持たず、自己完結している必要があります。
-型定義の import は相対パスで `../_shared/types` を使用してください。
+## サンプル拡張機能
+- **Chart Extension** (`extensions/chart-extension/`) - Chart.js利用例
+- **Note Tab** (`extensions/note-tab/`) - ノートタブ
+- **TODO Panel** (`extensions/todo-panel/`) - TODOリスト
+- **TypeScript Runtime** (`extensions/typescript-runtime/`) - トランスパイラ
+- **Lang Packs** (`extensions/lang-packs/`) - 多言語パック
 
-## TSX vs TypeScript
+---
 
-### TSX (推奨) - HTMLライクな構文
+## 技術スタック
+- TypeScript / TSX
+- React (グローバル)
+- esbuild (package.jsonあり)
+- tsc (package.jsonなし)
+- pnpm (依存管理)
+- IndexedDB (キャッシュ)
+- Node.js API互換
 
-```tsx
-// ファイル名: index.tsx
-return (
-  <div style={{ padding: '16px' }}>
-    <h2>Hello</h2>
-    <button onClick={handleClick}>Click</button>
-  </div>
-);
-```
+---
 
-**メリット:**
-- ✅ 直感的で読みやすい
-- ✅ ネストが深くても見やすい
-- ✅ JSXのベストプラクティス
+## まとめ
 
-### TypeScript - React.createElement
-
-```typescript
-// ファイル名: index.ts
-return React.createElement(
-  'div',
-  { style: { padding: '16px' } },
-  [
-    React.createElement('h2', { key: 'title' }, 'Hello'),
-    React.createElement('button', { key: 'btn', onClick: handleClick }, 'Click'),
-  ]
-);
-```
-
-**メリット:**
-- ✅ JSXに慣れていない人にもわかりやすい
-- ✅ ビルド後のコードが想像しやすい
-
-**どちらもビルド後は同じコードになります。**
-
-## ビルドシステム
-
-`build-extensions.js` は2つのモードで動作します:
-
-### 📦 esbuildモード (package.jsonがある場合)
-
+Pyxis拡張機能は2025年から**npmライブラリ・Terminalコマンド拡張**に完全対応。
+Chart.jsやlodashなど外部ライブラリを自由に使い、独自コマンドも追加可能。
+新API・新構造で、より強力な拡張機能開発が可能です。
 - **TypeScript/TSX バンドル**: esbuildで依存関係をバンドル
 - **npm/pnpm/yarn サポート**: 自動的に依存関係をインストール
 - **React外部化**: React/ReactDOMはPyxis本体を使用
@@ -373,64 +270,153 @@ React.createElement('div', null, 'Hello')
 - **ロード**: fetch + IndexedDBキャッシュ
 - **アーキテクチャ**: Static Site (サーバーサイド処理なし)
 
-## API
 
-### Tab API
+## API（2025年最新版）
 
-拡張機能がカスタムタブを作成・管理できます。
+### 拡張機能テンプレート生成
 
+- `pnpm run create-extension`で対話式テンプレート生成（推奨）
+- 必要な情報（ID/名前/タイプ/UI種別など）を入力するだけで、`manifest.json`・`index.tsx`・`README.md`が自動生成
+- 生成直後のコードは、カスタムタブ・サイドバー両方のサンプルを含む
+
+---
+
+### Tab API（カスタムタブ）
+
+- `context.tabs.registerTabType(Component)` でタブコンポーネントを登録
+- `context.tabs.createTab({ ... })` でタブ作成
+- `context.tabs.updateTab(tabId, { ... })` でタブ更新
+- `context.tabs.closeTab(tabId)` でタブを閉じる
+- `context.tabs.onTabClose(tabId, cb)` でクローズイベント登録
+
+**実装例（TSX/Javascript）:**
 ```typescript
-// タブコンポーネントを登録
+// タブコンポーネント登録
 context.tabs.registerTabType(MyTabComponent);
 
-// タブを作成
+// タブ作成
 const tabId = context.tabs.createTab({
-  title: '📝 My Tab',
+  id: 'main',
+  title: 'ui-ref',
   icon: 'FileText',
   closable: true,
+  activateAfterCreate: true,
   data: { content: 'Hello' },
 });
 
-// タブを更新
-context.tabs.updateTab(tabId, {
-  title: 'Updated Title',
-  data: { content: 'New content' },
-});
-
-// タブを閉じる
-context.tabs.closeTab(tabId);
-
-// タブのクローズイベント
+// クローズイベント
 context.tabs.onTabClose(tabId, (closedTabId) => {
-  console.log('Tab closed:', closedTabId);
+  // クリーンアップ処理
 });
 ```
 
-### Sidebar API
+**Props:**
+- `tab`（タブ情報）
+- `isActive`（アクティブ状態）
 
-拡張機能がサイドバーにパネルを追加できます。
+---
 
+### Sidebar API（レフトサイドバー）
+
+- `context.sidebar.createPanel({ ... })` でサイドバーパネル追加
+- `context.sidebar.updatePanel(panelId, state)` で状態更新
+- `context.sidebar.removePanel(panelId)` で削除
+- `context.sidebar.onPanelActivate(panelId, cb)` でアクティブイベント
+
+**実装例:**
 ```typescript
-// パネルを作成
+const Panel = createUiCopilotRefPanel(context);
 context.sidebar.createPanel({
-  id: 'my-panel',
-  title: 'My Panel',
+  id: 'ui-copilot-ref-panel',
+  title: 'ui-ref',
   icon: 'Package',
-  component: MyPanelComponent,
+  component: Panel,
   order: 50,
 });
-
-// パネルの状態を更新
-context.sidebar.updatePanel('my-panel', { items: [...] });
-
-// パネルを削除
-context.sidebar.removePanel('my-panel');
-
-// パネルのアクティブイベント
-context.sidebar.onPanelActivate('my-panel', (panelId) => {
-  console.log('Panel activated:', panelId);
+context.sidebar.onPanelActivate('ui-copilot-ref-panel', (panelId) => {
+  // パネルがアクティブ化された時の処理
 });
 ```
+
+**Props:**
+- `extensionId`（拡張ID）
+- `panelId`（パネルID）
+- `isActive`（アクティブ状態）
+- `state`（パネル状態）
+
+---
+
+### ベストプラクティス
+
+- タブ/パネルの登録は`activate`関数内で行う
+- クローズ/アクティブイベントでリソース管理・永続化
+- npmライブラリは`pnpm install`で自由に追加
+- UIはTSX推奨（React/JSX構文）
+- APIはVSCodeライクな設計
+
+---
+
+### 実装サンプル（テンプレート生成直後のコード例）
+
+```typescript
+import React, { useState, useEffect } from 'react';
+import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
+
+function MyTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
+  // ...タブの内容
+}
+
+function createMyPanel(context: ExtensionContext) {
+  return function MyPanel({ extensionId, panelId, isActive, state }: any) {
+    // ...パネルの内容
+  };
+}
+
+export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
+  context.tabs?.registerTabType(MyTabComponent);
+  if (context.sidebar) {
+    const Panel = createMyPanel(context);
+    context.sidebar.createPanel({
+      id: 'my-panel',
+      title: 'My Panel',
+      icon: 'Package',
+      component: Panel,
+      order: 50,
+    });
+  }
+  return {};
+}
+```
+
+---
+
+### よくある質問（2025年版）
+
+- **Q: タブ/サイドバーは複数同時に作れる？**
+  - A: 可能。IDで一意管理され、同じIDなら再利用される
+- **Q: CLIテンプレート生成後は何を編集すればいい？**
+  - A: `index.tsx`のタブ・パネルコンポーネントを編集。APIは全て使える
+- **Q: npmライブラリは制限ある？**
+  - A: 主要ライブラリは全て利用可能。React/ReactDOMはPyxis本体から提供
+- **Q: API仕様はどこで確認？**
+  - A: `/Development/EXTENSION-TAB-SIDEBAR-API.md`・`_shared/types.ts`・サンプル拡張機能を参照
+
+---
+
+### 参考: 最新API仕様のポイント
+
+- activate関数で必ず`registerTabType`/`createPanel`を呼ぶ
+- propsは必ず型定義に準拠
+- クリーンアップは`onTabClose`/`onPanelActivate`で
+- npmライブラリは自由にimport可能
+
+---
+
+## まとめ
+
+Pyxis拡張機能は2025年から「CLIテンプレート生成」「npmライブラリ完全対応」「Terminalコマンド拡張」「VSCodeライクなTab/Sidebar API」に刷新。
+タブ・サイドバーの追加/管理はAPIで直感的に実装でき、サンプルやテンプレートも充実。
+API仕様は随時最新化されているため、公式ドキュメント・サンプルを参照してください。
 
 ## サンプル拡張機能
 

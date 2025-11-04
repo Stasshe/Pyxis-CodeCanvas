@@ -131,7 +131,32 @@ Pyxis features an AI assistant that helps you review and adopt code diffs. This 
 
 Emulates file operations and interactive user input/output that are impossible in plain JavaScript, providing a genuine Node.js/TypeScript learning environment.
 
+
 > **Limitations**: No WASM means some features like native modules and child_process are unsupported. Sufficient for basic Node.js/TypeScript learning and simple scripts.
+
+---
+
+### 🧩 Pyxis Extension System - Next Generation (2025)
+
+<div align="center">
+  <img src="readme-assets/IMG_1516.png" alt="Pyxis Extension System UI" width="80%" />
+</div>
+
+One of Pyxis's biggest features is its "Extension System." You can add VSCode-like UI extensions, use any npm library, create custom terminal commands, language packs, transpilers, and service extensions—all in TypeScript/TSX.
+
+#### Highlights
+- **CLI Template Generation**: Instantly scaffold new extensions with `pnpm run create-extension`. Even beginners can start developing extensions right away.
+- **Full npm Library Support**: Use any external library you want.
+- **Terminal Command Extensions**: Add custom commands via API and run them from Pyxis's terminal UI.
+- **VSCode-like UI Extensions**: Add custom tabs and sidebar panels via API. Build intuitive UIs with React/TSX.
+- **Language Packs & Service Extensions**: Add language packs or custom services as extensions.
+- **Safe Sandbox Architecture**: Each extension runs independently and safely. IndexedDB is used for persistence and caching.
+
+Pyxis extensions offer flexibility and power unmatched by any other browser IDE: VSCode-level UI extensions on Web/iPad, extensible terminal commands, and instant development with official templates.
+
+See `/extensions/README.md` and `/Development/EXTENSION-TAB-SIDEBAR-API.md` for details.
+
+---
 
 ---
 
@@ -169,14 +194,6 @@ Navigate your projects with **VS Code-like efficiency**! Fast file search, an op
 - **Ask & Edit features** - Eliminates repetitive copy-paste in regular browsers
 - **Context retention** - Ask AI and request edits while keeping files open
 - **Integrated experience** - Not quite VS Code level, but perfect when you need AI power
-
-### 🧩 **Extension System - Flexible Customization**
-- **Dynamic Loading** - Load and execute TypeScript extensions in the browser
-- **18 Languages** - Multi-language support via language pack extensions
-- **TypeScript Runtime** - Transpiler implemented as an extension
-- **Independence & Safety** - Each extension operates as an isolated module
-- **Persistence** - Extension caching and management via IndexedDB
-- **Custom Extensions** - Create your own extensions to add features
 
 ### 🌐 **Universal Compatibility**
 - **Works everywhere** - Web, iPad, mobile, any modern browser
