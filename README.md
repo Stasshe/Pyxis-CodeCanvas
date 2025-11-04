@@ -140,7 +140,7 @@ JavaScriptでは不可能なファイルオペレーションやインタラク�
 ### 🧩 Pyxis拡張機能システム - 2025年新世代
 
 <div align="center">
-  <img src="readme-assets/IMG_1516.png" alt="Pyxis Extension System UI" width="80%" />
+  <img src="readme-assets/IMG_0113.png" alt="Pyxis Extension System UI" width="80%" />
 </div>
 
 Pyxis最大の特徴のひとつが「拡張機能システム」です。VSCodeライクなUI拡張・npmライブラリ完全対応・Terminalコマンド拡張・多言語パック・トランスパイラ・サービス拡張など、あらゆる機能をTypeScript/TSXで自由に追加できます。
