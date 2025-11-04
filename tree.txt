@@ -17,8 +17,7 @@ Root
 │   ├── all-flow.svg
 │   ├── docs
 │   │   ├── CONTENT-RESTORATION.md
-│   │   ├── STORAGE-KEYBINDINGS.md
-│   │   └── en
+│   │   └── STORAGE-KEYBINDINGS.md
 │   └── git-deletion-detection-analysis.md
 ├── FreeAPIGenerativeAI-Model.md
 ├── LICENSE
@@ -97,6 +96,7 @@ Root
 │   ├── IMG_0035.png
 │   ├── IMG_0048.png
 │   ├── IMG_0113.png
+│   ├── IMG_0117.png
 │   ├── IMG_1466.png
 │   ├── IMG_1467.png
 │   ├── IMG_1469.png
@@ -117,11 +117,8 @@ Root
 │       ├── format_json.js
 │       ├── format_locales.sh
 │       ├── i18n-auto-add-missing.js
-│       ├── i18n-compare-missing-keys-results.txt
-│       ├── i18n-detect-results.txt
 │       ├── i18n-detect.sh
 │       ├── i18n-exclude.txt
-│       ├── i18n-missing-keys-results.txt
 │       ├── i18n-missing-keys.sh
 │       ├── one_file_i18n_extract.pl
 │       ├── one_file_t_extract.pl
@@ -213,8 +210,7 @@ Root
 │   │   │   └── useTabCloseConfirmation.tsx
 │   │   ├── TabInitializer.tsx
 │   │   ├── Toast.tsx
-│   │   ├── TopBar.tsx
-│   │   └── examples
+│   │   └── TopBar.tsx
 │   ├── context
 │   │   ├── FileSelectorContext.tsx
 │   │   ├── GitHubUserContext.tsx
@@ -328,7 +324,6 @@ Root
 │   │   │   ├── runtimeLogger.ts
 │   │   │   ├── transpileManager.ts
 │   │   │   └── transpileWorker.ts
-│   │   ├── sidebar
 │   │   ├── storage
 │   │   │   └── index.ts
 │   │   ├── tabs
@@ -377,9 +372,6 @@ Root
 │       └── vm-browserify.d.ts
 ├── tailwind.config.ts
 ├── tests
-│   ├── __artifacts__
-│   │   ├── math.transformed.ts
-│   │   └── use-math.transformed.ts
 │   ├── aiResponseParser.test.ts
 │   ├── extensionLoader.multifile.test.ts
 │   ├── fsRequirePromise.test.ts
@@ -392,10 +384,9 @@ Root
 ├── tree-built-out.sh
 ├── tree.sh
 ├── tree.txt
-├── tsconfig.json
-└── tsconfig.tsbuildinfo
+└── tsconfig.json
 
-63 directories, 332 files
+59 directories, 327 files
 
 =================================
 
@@ -410,8 +401,6 @@ extensions/ 以下のディレクトリ構造:
 │   ├── index.tsx
 │   ├── manifest.json
 │   ├── node_modules
-│   │   ├── @types
-│   │   │   └── react -> ../.pnpm/@types+react@19.2.2/node_modules/@types/react
 │   │   └── chart.js -> ../../../node_modules/.pnpm/chart.js@4.5.1/node_modules/chart.js
 │   └── package.json
 ├── lang-packs
@@ -491,24 +480,23 @@ extensions/ 以下のディレクトリ構造:
 ├── todo-panel
 │   ├── index.tsx
 │   └── manifest.json
-├── typescript-runtime
-│   ├── index.ts
-│   ├── manifest.json
-│   └── transpile.worker.ts
-└── ui-copilot-ref
+└── typescript-runtime
+    ├── index.ts
+    ├── manifest.json
+    └── transpile.worker.ts
 
-34 directories, 62 files
+31 directories, 62 files
 
 =================================
 
 
 src/*.ts, *.tsx の統計:
-合計行数: 46292
-合計文字数: 1486791
-合計ファイルサイズ(bytes): 1591532
+合計行数: 46674
+合計文字数: 1500273
+合計ファイルサイズ(bytes): 1605868
 
-開発時のdev container全体のサイズ(bytes): 3.3G	.
+開発時のdev container全体のサイズ(bytes): 1.7G	.
 ==========
-ビルト済みファイルの行数: 41078
-合計文字数: 26003330
-合計ファイルサイズ(bytes): 26986425
+ビルト済みファイルの行数: 41075
+合計文字数: 26024415
+合計ファイルサイズ(bytes): 27007510
