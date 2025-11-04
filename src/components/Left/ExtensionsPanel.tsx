@@ -162,12 +162,19 @@ export default function ExtensionsPanel() {
   const openExtensionInfoTab = (manifest: ExtensionManifest, isEnabled: boolean) => {
     const { openTab } = useTabStore.getState();
 
-    openTab({
-      kind: 'extension-info',
-      name: manifest.name,
-      manifest,
-      isEnabled,
-    });
+    openTab(
+      {
+        kind: 'extension-info',
+        name: manifest.name,
+        path: `extension-info/${manifest.id}`,
+        manifest,
+        isEnabled,
+      },
+      {
+        kind: 'extension-info',
+        makeActive: true,
+      }
+    );
   };
 
   const getExtensionTypeLabel = (type: string) => {

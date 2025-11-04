@@ -4,7 +4,15 @@
  * タブの種類を表す型
  * 'editor' | 'preview' | 'webPreview' | 'ai' | 'diff' | 'settings' | string (拡張機能用)
  */
-export type TabKind = 'editor' | 'preview' | 'webPreview' | 'ai' | 'diff' | 'settings' | string;
+export type TabKind =
+  | 'editor'
+  | 'preview'
+  | 'webPreview'
+  | 'ai'
+  | 'diff'
+  | 'settings'
+  | 'extension-info'
+  | string;
 
 /**
  * ベースとなるタブインターフェース

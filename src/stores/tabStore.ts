@@ -134,8 +134,10 @@ export const useTabStore = create<TabStore>((set, get) => ({
 
   openTab: (file, options = {}) => {
     const state = get();
-    const kind = options.kind || 'editor';
+    const kind = options.kind || file.kind || 'editor';
     let targetPaneId = options.paneId || state.activePane || state.panes[0]?.id;
+
+    console.log('[TabStore] openTab called:', { file, options, kind });
 
     // ペインが存在しない場合は新しいペインを作成
     if (!targetPaneId) {
