@@ -1,0 +1,28 @@
+Missing i18n keys (keys used with t(...) but missing in: merged: common.json, detail.json, welcome.json):
+
+MISSING_KEY AI.ask
+  src/components/AI/AIPanel.tsx:338
+MISSING_KEY AI.edit
+  src/components/AI/AIPanel.tsx:338
+MISSING_KEY ai.fileChangeItem.noHandler
+  src/components/AI/review/FileChangeItem.tsx:119
+MISSING_KEY ai.fileChangeItem.noHandler
+  src/components/AI/review/FileChangeItem.tsx:140
+MISSING_KEY ai.fileChangeItem.noHandler
+  src/components/AI/review/FileChangeItem.tsx:162
+MISSING_KEY menu.extensions
+  src/components/MenuBar.tsx:110
+MISSING_KEY settingsPanel.markdown.mathDelimiter
+  src/components/Left/SettingsPanel.tsx:487
+MISSING_KEY settingsPanel.markdown.mathDelimiterHint
+  src/components/Left/SettingsPanel.tsx:517
+\nSummary: 8 missing i18n key(s) (listed above).
+First up to 20 missing keys:
+  MISSING_KEY AI.ask
+  MISSING_KEY AI.edit
+  MISSING_KEY ai.fileChangeItem.noHandler
+  MISSING_KEY ai.fileChangeItem.noHandler
+  MISSING_KEY ai.fileChangeItem.noHandler
+  MISSING_KEY menu.extensions
+  MISSING_KEY settingsPanel.markdown.mathDelimiter
+  MISSING_KEY settingsPanel.markdown.mathDelimiterHint

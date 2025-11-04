@@ -50,13 +50,36 @@ extensions/
 
 ## 新しい拡張機能の作成
 
-### 1. ディレクトリ作成
+### 🚀 クイックスタート（推奨）
+
+対話形式でテンプレートを自動生成:
+
+```bash
+npm run create-extension
+```
+
+以下の情報を入力するだけで、拡張機能のひな形が完成します:
+1. 拡張機能タイプ（UI/Transpiler/Service/Built-in Module）
+2. 拡張機能ID（例: `my-extension`）
+3. 名前と説明
+4. UI拡張の場合はコンポーネントタイプ（Tab/Sidebar/Both）
+5. タグ（オプション）
+
+テンプレートには以下が含まれます:
+- ✅ `manifest.json` - メタデータ
+- ✅ `index.ts` または `index.tsx` - メインコード
+- ✅ `README.md` - ドキュメント
+- ✅ (オプション) `registry.json` への自動登録
+
+### 📝 手動作成
+
+#### 1. ディレクトリ作成
 
 ```bash
 mkdir -p extensions/my-extension
 ```
 
-### 2. manifest.json を作成
+#### 2. manifest.json を作成
 
 ```json
 {
@@ -76,7 +99,7 @@ mkdir -p extensions/my-extension
 
 **注意:** `provides` フィールドは不要です（マニフェストに書いても読み取られません）
 
-### 3. index.tsx を作成 (TSX推奨)
+#### 3. index.tsx を作成 (TSX推奨)
 
 ```tsx
 import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
@@ -167,7 +190,7 @@ function MyTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
 // ... 残りは同じ
 ```
 
-### 4. レジストリに登録
+#### 4. レジストリに登録
 
 `extensions/registry.json` に拡張機能を追加:
 
@@ -181,7 +204,7 @@ function MyTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
 }
 ```
 
-### 5. ビルドして配置
+#### 5. ビルドして配置
 
 ```bash
 node build-extensions.js
@@ -189,7 +212,7 @@ node build-extensions.js
 
 ビルドされた拡張機能は `public/extensions/` に配置されます。
 
-### 6. 開発サーバーで確認
+#### 6. 開発サーバーで確認
 
 ```bash
 npm run dev

@@ -7,13 +7,14 @@
     "build": "npm run setup-build && next build",
     "start": "npm run setup-build && next start",
     "setup-build": "rm -rf public/locales && cp -r locales public/locales && node initial_files_to_ts.js && node build-extensions.js && cp extensions/registry.json public/extensions/registry.json",
-    "format": "bash scripts/format_locales.sh && npx prettier --write src/",
+    "format": "bash scripts/i18n/format_locales.sh && npx prettier --write src/",
     "lint": "eslint --cache --ext .ts,.tsx,.js,.jsx . --max-warnings=0",
     "lint:fix": "eslint --cache --ext .ts,.tsx,.js,.jsx . --fix",
     "prepare": "husky install",
     "test": "jest",
     "update": "npm i && npm run build && node scripts/update-readmes-version.js && ./tree.sh && ./tree-built-out.sh",
-    "preview": "npx serve out"
+    "preview": "npx serve out",
+    "create-extension": "node scripts/create-extension.js"
   },
   "dependencies": {
     "@codemirror/lang-css": "^6.3.1",
