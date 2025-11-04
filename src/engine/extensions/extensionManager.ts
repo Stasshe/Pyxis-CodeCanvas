@@ -271,12 +271,12 @@ class ExtensionManager {
           }
 
           // decide whether to read as binary based on extension (use shared util)
-          const { isBinaryExt, toDataUrlFromUint8 } = await import('./binaryUtils');
+          const { isBinaryExt, uint8ToBlob } = await import('./binaryUtils');
           if (isBinaryExt(filePath)) {
             const uint8 = await zip.file(resolved)!.async('uint8array');
-            const dataUrl = toDataUrlFromUint8(uint8, filePath);
+            const blob = uint8ToBlob(uint8, filePath);
             const normalizedKey = filePath.replace(/^\.\//, '').replace(/^\//, '');
-            filesMap[normalizedKey] = dataUrl;
+            filesMap[normalizedKey] = blob as any;
           } else {
             const content = await zip.file(resolved)!.async('string');
             const normalizedKey = filePath.replace(/^\.\//, '').replace(/^\//, '');

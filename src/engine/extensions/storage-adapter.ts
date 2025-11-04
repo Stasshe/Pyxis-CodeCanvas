@@ -6,6 +6,7 @@
 import type { InstalledExtension } from './types';
 
 import { storageService, STORES } from '@/engine/storage';
+import { dataUrlToBlob } from './binaryUtils';
 
 /**
  * インストール済み拡張機能をIndexedDBに保存
@@ -14,7 +15,25 @@ export async function saveInstalledExtension(extension: InstalledExtension): Pro
   if (!extension.manifest) {
     throw new Error('Cannot save extension: manifest is null or undefined');
   }
-  await storageService.set(STORES.EXTENSIONS, extension.manifest.id, extension);
+  // Convert any data URL strings inside extension.cache.files to Blobs to avoid storing large base64 strings
+  try {
+    if (extension.cache && extension.cache.files) {
+      for (const [key, value] of Object.entries(extension.cache.files)) {
+        if (typeof value === 'string' && value.startsWith('data:')) {
+          try {
+            (extension.cache.files as Record<string, string | Blob>)[key] = dataUrlToBlob(value);
+          } catch (e) {
+            console.warn('[saveInstalledExtension] Failed to convert data URL to Blob for', key, e);
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[saveInstalledExtension] Error normalizing files before save:', e);
+  }
+
+  // For extension entries, avoid caching binary payloads in memory by default
+  await storageService.set(STORES.EXTENSIONS, extension.manifest.id, extension, { cache: false });
 }
 
 /**
