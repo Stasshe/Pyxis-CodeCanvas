@@ -20,6 +20,8 @@ export interface ExtensionTabData {
  * タブ作成オプション
  */
 export interface CreateTabOptions {
+  /** タブの一意識別子（オプション）。指定すると同じIDのタブを再利用します */
+  id?: string;
   /** タブのタイトル */
   title: string;
   /** タブのアイコン（オプション） */
@@ -112,18 +114,16 @@ export class TabAPI {
       throw new Error(`Extension tab type not registered: ${tabKind}`);
     }
 
-    // 重複チェック: noteKeyが指定されている場合、同じnoteKeyを持つタブを探す
-    if (options.data && (options.data as any).noteKey) {
-      const noteKey = (options.data as any).noteKey;
+    // 重複チェック: idが指定されている場合、同じidを持つタブを探す
+    if (options.id) {
+      const customId = options.id;
       for (const pane of store.panes) {
         const existingTab = pane.tabs.find(tab => {
-          return tab.kind === tabKind && (tab as any).data?.noteKey === noteKey;
+          return tab.kind === tabKind && (tab as any).customId === customId;
         });
 
         if (existingTab) {
-          console.log(
-            `[TabAPI] Tab already exists for noteKey: ${noteKey}, activating existing tab`
-          );
+          console.log(`[TabAPI] Tab already exists with id: ${customId}, activating existing tab`);
           store.activateTab(pane.id, existingTab.id);
           return existingTab.id;
         }
@@ -141,6 +141,7 @@ export class TabAPI {
       paneId: '', // setPanesで設定される
       icon: options.icon,
       closable: options.closable ?? true,
+      customId: options.id, // ユーザー指定のIDを保存
       data: options.data,
     };
 

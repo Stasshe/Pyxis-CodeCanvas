@@ -169,12 +169,13 @@ function create${componentName}Panel(context: ExtensionContext) {
     }, [isActive]);
 
     // タブを開く関数
+    // Note: id を指定すると、同じ id のタブがあれば再利用されます
     const openTab = () => {
       if (context.tabs) {
         const tabId = context.tabs.createTab({
-          type: '${id}',
+          id: '${id}-main',
           title: '${name}',
-          data: {},
+          activateAfterCreate: true,
         });
         context.logger?.info(\`Tab opened: \${tabId}\`);
       }
