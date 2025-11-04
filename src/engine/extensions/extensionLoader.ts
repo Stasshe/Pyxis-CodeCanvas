@@ -5,6 +5,7 @@
 
 import { extensionInfo, extensionError } from './extensionsLogger';
 import { transformImports } from './transformImports';
+import { isBinaryExt, toDataUrlFromUint8, dataUrlToBlob } from './binaryUtils';
 import type {
   ExtensionManifest,
   ExtensionExports,
@@ -72,6 +73,13 @@ export async function fetchExtensionFile(
     if (!response.ok) {
       extensionError(`Failed to fetch file: ${url} (${response.status})`);
       return null;
+    }
+
+    // Determine if this file should be treated as binary (images, wasm, fonts, videos, audio, etc.)
+    if (isBinaryExt(filePath)) {
+      const arrayBuffer = await response.arrayBuffer();
+      const uint8 = new Uint8Array(arrayBuffer);
+      return toDataUrlFromUint8(uint8, filePath);
     }
 
     return await response.text();
@@ -150,9 +158,24 @@ export async function loadExtensionModule(
 
       // 追加ファイルをBlobURLとして登録
       for (const [filePath, code] of Object.entries(additionalFiles)) {
-        const transformedCode = transformImports(code);
-        const blob = new Blob([transformedCode], { type: 'application/javascript' });
-        const url = URL.createObjectURL(blob);
+        let url: string;
+
+        // If the file is a data URL (binary stored as data:<mime>;base64,...) create a blob from it
+        if (typeof code === 'string' && code.startsWith('data:')) {
+          try {
+            const blob = dataUrlToBlob(code);
+            url = URL.createObjectURL(blob);
+          } catch (e) {
+            // fallback to treating as text module
+            const transformedCode = transformImports(code as string);
+            const blob = new Blob([transformedCode], { type: 'application/javascript' });
+            url = URL.createObjectURL(blob);
+          }
+        } else {
+          const transformedCode = transformImports(code as string);
+          const blob = new Blob([transformedCode], { type: 'application/javascript' });
+          url = URL.createObjectURL(blob);
+        }
         blobUrls.push(url);
 
         // 相対パスをimport mapに登録
