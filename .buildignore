@@ -1,0 +1,23 @@
+# Build script ignore patterns
+# Files and directories that should not be copied to public/extensions/
+
+# Dependencies
+node_modules
+
+# Package manager files
+package.json
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# Source files (will be compiled)
+*.ts
+*.tsx
+
+# Build artifacts
+*.tsbuildinfo
+tsconfig.extensions.json
+
+
+PNPM-GUIDE.md
+README.md

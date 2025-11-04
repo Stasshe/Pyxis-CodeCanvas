@@ -21,6 +21,57 @@ const EXTENSIONS_SRC = path.join(__dirname, 'extensions');
 const EXTENSIONS_DIST = path.join(__dirname, 'public', 'extensions');
 
 /**
+ * .buildignoreファイルを読み込み
+ */
+function loadBuildIgnore() {
+  const buildIgnorePath = path.join(__dirname, '.buildignore');
+  
+  if (!fs.existsSync(buildIgnorePath)) {
+    return [];
+  }
+  
+  const content = fs.readFileSync(buildIgnorePath, 'utf-8');
+  
+  return content
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line && !line.startsWith('#')); // 空行とコメントを除外
+}
+
+/**
+ * ファイル/ディレクトリが除外対象かチェック
+ */
+function shouldIgnore(relativePath, basename, ignorePatterns) {
+  // node_modulesディレクトリは常に除外
+  if (relativePath.includes('node_modules')) {
+    return true;
+  }
+  
+  // ignoreパターンとマッチするかチェック
+  for (const pattern of ignorePatterns) {
+    // 完全一致（ファイル名）
+    if (basename === pattern) {
+      return true;
+    }
+    
+    // 拡張子パターン (*.ts など)
+    if (pattern.startsWith('*.')) {
+      const ext = pattern.slice(1); // '*.ts' -> '.ts'
+      if (basename.endsWith(ext)) {
+        return true;
+      }
+    }
+    
+    // パスに含まれるパターン
+    if (relativePath.includes(pattern)) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+/**
  * ディレクトリを再帰的に走査
  */
 function walkDir(dir, callback) {
@@ -121,8 +172,6 @@ async function bundleWithEsbuild(entryPoint, outfile, extDir) {
       sourcemap: false,
       logLevel: 'warning',
     });
-        
-    fs.writeFileSync(outfile, code);
     
     console.log(`✅ Bundled to ${path.relative(__dirname, outfile)}\n`);
     return true;
@@ -230,6 +279,9 @@ async function transpileAllWithTsc() {
     
     console.log(`\n✅ Transpiled ${nonBundledDirs.length} extensions with tsc\n`);
     
+    // .buildignoreを読み込み
+    const ignorePatterns = loadBuildIgnore();
+    
     // JSON, 画像, Markdownファイルをコピー (非バンドル拡張機能のみ)
     for (const dirPath of nonBundledDirs) {
       const srcDir = path.join(EXTENSIONS_SRC, dirPath);
@@ -240,13 +292,8 @@ async function transpileAllWithTsc() {
         const ext = path.extname(srcPath);
         const basename = path.basename(srcPath);
         
-        // node_modulesは除外
-        if (relativePath.includes('node_modules')) {
-          return;
-        }
-        
-        // package.json, lockファイルは除外
-        if (['package.json', 'pnpm-lock.yaml', 'package-lock.json', 'yarn.lock'].includes(basename)) {
+        // .buildignoreのパターンでチェック
+        if (shouldIgnore(relativePath, basename, ignorePatterns)) {
           return;
         }
         
@@ -434,19 +481,17 @@ async function buildSingleExtension(srcDir, distDir, displayName) {
       console.log(`📝 No package.json - will transpile with tsc (batch mode)\n`);
     }
     
-    // JSON, 画像, Markdownファイルをコピー (node_modules、package.json、lockファイルは除外)
+    // .buildignoreを読み込み
+    const ignorePatterns = loadBuildIgnore();
+    
+    // JSON, 画像, Markdownファイルをコピー
     walkDir(srcDir, (srcPath) => {
       const relativePath = path.relative(srcDir, srcPath);
       const ext = path.extname(srcPath);
       const basename = path.basename(srcPath);
       
-      // 除外するファイル/ディレクトリ
-      if (relativePath.includes('node_modules')) {
-        return;
-      }
-      
-      // package.json, pnpm-lock.yaml, package-lock.json, yarn.lockは除外
-      if (['package.json', 'pnpm-lock.yaml', 'package-lock.json', 'yarn.lock'].includes(basename)) {
+      // .buildignoreのパターンでチェック
+      if (shouldIgnore(relativePath, basename, ignorePatterns)) {
         return;
       }
       
@@ -535,7 +580,7 @@ function generateRegistry() {
             defaultEnabled: manifest.defaultEnabled || false
           });
           
-          console.log(`✅ Added to registry: ${manifest.id}`);
+          // console.log(`✅ Added to registry: ${manifest.id}`);
         } catch (error) {
           console.error(`❌ Failed to read manifest: ${manifestPath}`, error.message);
         }
