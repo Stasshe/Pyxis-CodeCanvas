@@ -179,6 +179,146 @@ class ExtensionManager {
   }
 
   /**
+   * ローカルのZIPファイルから拡張機能をインストール
+   * - manifest.json が必須
+   * - ZIP内のファイル構成はトップレベルフォルダを含む場合があるため、manifest.json の位置を基準に相対パスを正規化して保存する
+   */
+  async installExtensionFromZip(file: File | Blob): Promise<InstalledExtension | null> {
+    try {
+      console.log('[ExtensionManager] Installing extension from ZIP');
+
+      // 動的にJSZipをロード（ブラウザ向けに既に package.json に含まれている）
+      const JSZipModule = await import('jszip');
+      const JSZip = (JSZipModule as any).default || JSZipModule;
+
+      const zip = await JSZip.loadAsync(file);
+
+      // manifest.json を探す: まずルートの manifest.json を優先
+      let manifestPath: string | null = null;
+      if (zip.file('manifest.json')) {
+        manifestPath = 'manifest.json';
+      } else {
+        // ルート以外を探す（最初に見つかった manifest.json を使う）
+        zip.forEach((relativePath: string) => {
+          if (!manifestPath && relativePath.toLowerCase().endsWith('manifest.json')) {
+            manifestPath = relativePath;
+          }
+        });
+      }
+
+      if (!manifestPath) {
+        throw new Error('manifest.json not found inside ZIP');
+      }
+
+      const manifestText = await zip.file(manifestPath)!.async('string');
+      const manifest = JSON.parse(manifestText) as any;
+
+      if (!manifest || !manifest.id) {
+        throw new Error('Invalid manifest.json: missing id');
+      }
+
+      // manifest.entry が無ければデフォルトを使う
+      if (!manifest.entry) manifest.entry = 'index.js';
+
+      // manifestPath のディレクトリを求め、ファイルの相対パスを正規化する
+      const lastSlash = manifestPath.lastIndexOf('/');
+      const manifestDir = lastSlash === -1 ? '' : manifestPath.slice(0, lastSlash);
+
+      // ヘルパー: 与えられた candidate パスから zip 内で実在するものを返す
+      const resolveZipPath = (candidatePaths: string[]) => {
+        for (const p of candidatePaths) {
+          const normalized = p.replace(/^\.\//, '');
+          // try with and without manifestDir prefix
+          if (zip.file(normalized)) return normalized;
+          if (manifestDir && zip.file(`${manifestDir}/${normalized}`))
+            return `${manifestDir}/${normalized}`;
+        }
+        return null;
+      };
+
+      const entryCandidates = [
+        manifest.entry,
+        `./${manifest.entry}`,
+        manifest.entry.replace(/^\//, ''),
+      ];
+      const resolvedEntryPath = resolveZipPath(entryCandidates);
+      if (!resolvedEntryPath) {
+        throw new Error(`Entry file not found in ZIP: ${manifest.entry}`);
+      }
+
+      // 全ファイルを読み込んでキャッシュ用の map を作る
+      const filesMap: Record<string, string> = {};
+      const readPromises: Promise<void>[] = [];
+
+      zip.forEach((relativePath: string, fileEntry: any) => {
+        if (fileEntry.dir) return; // ディレクトリは無視
+
+        // manifest とエントリは別扱い
+        if (relativePath === manifestPath) return;
+        if (relativePath === resolvedEntryPath) return;
+
+        // 相対パス: manifestDir があればそれを削る
+        let rel = relativePath;
+        if (manifestDir && rel.startsWith(`${manifestDir}/`)) {
+          rel = rel.slice(manifestDir.length + 1);
+        }
+
+        // 同様に entry のパスは manifest に対して相対にする
+        const p = rel;
+
+        const pPromise = zip
+          .file(relativePath)!
+          .async('string')
+          .then((content: string) => {
+            filesMap[p] = content;
+          });
+        readPromises.push(pPromise as Promise<void>);
+      });
+
+      // エントリのコードを読み込む
+      const entryCode = await zip.file(resolvedEntryPath)!.async('string');
+
+      await Promise.all(readPromises);
+
+      // manifest.entry を extension root 相対（manifestDir を削った形）に更新
+      let normalizedEntry = resolvedEntryPath;
+      if (manifestDir && normalizedEntry.startsWith(`${manifestDir}/`)) {
+        normalizedEntry = normalizedEntry.slice(manifestDir.length + 1);
+      }
+      manifest.entry = normalizedEntry;
+
+      // インストール情報を作成
+      const installed: InstalledExtension = {
+        manifest,
+        status: ExtensionStatus.INSTALLED,
+        installedAt: Date.now(),
+        updatedAt: Date.now(),
+        enabled: false,
+        cache: {
+          entryCode,
+          files: Object.keys(filesMap).length > 0 ? filesMap : undefined,
+          cachedAt: Date.now(),
+        },
+      };
+
+      // IndexedDB に保存
+      await saveInstalledExtension(installed);
+
+      // 自動有効化を試みる
+      try {
+        await this.enableExtension(manifest.id);
+      } catch (err) {
+        console.warn('[ExtensionManager] Failed to auto-enable extension from ZIP:', err);
+      }
+
+      return installed;
+    } catch (error) {
+      console.error('[ExtensionManager] Failed to install extension from ZIP:', error);
+      return null;
+    }
+  }
+
+  /**
    * 拡張機能を有効化
    */
   async enableExtension(extensionId: string): Promise<boolean> {
