@@ -3,14 +3,22 @@
  * 拡張機能が追加するカスタムコマンドを管理
  */
 
+import type { ExtensionContext } from './types';
+
 /**
  * コマンド実行時のコンテキスト
+ *
+ * ExtensionContextを拡張して、コマンド実行に必要な情報を追加
  */
-export interface CommandContext {
+export interface CommandContext extends ExtensionContext {
+  /** プロジェクト名 */
   projectName: string;
+
+  /** プロジェクトID (IndexedDB参照用) */
   projectId: string;
+
+  /** 現在のディレクトリ (絶対パス) */
   currentDirectory: string;
-  fileSystem: any; // FS instance from gitFileSystem
 }
 
 /**

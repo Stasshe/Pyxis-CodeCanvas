@@ -479,7 +479,16 @@ class ExtensionManager {
     const { commandRegistry } = await import('./commandRegistry');
     context.commands = {
       registerCommand: (commandName: string, handler: any) => {
-        return commandRegistry.registerCommand(extensionId, commandName, handler);
+        // ハンドラーをラップして、ExtensionContextを含むCommandContextを作成
+        const wrappedHandler = async (args: string[], cmdContext: any) => {
+          // ExtensionContext全体をCommandContextとしてマージ
+          const fullContext = {
+            ...context, // ExtensionContext全体（getSystemModule, logger等を含む）
+            ...cmdContext, // Terminal側から渡されるプロジェクト情報
+          };
+          return handler(args, fullContext);
+        };
+        return commandRegistry.registerCommand(extensionId, commandName, wrappedHandler);
       },
     };
 

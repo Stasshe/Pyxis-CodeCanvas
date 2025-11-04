@@ -16,6 +16,8 @@ async function helloCommand(args: string[], context: any): Promise<string> {
 /**
  * fileinfoコマンドの実装
  * 指定されたファイルの情報を表示
+ * 
+ * SSOT: fileRepository を使用
  */
 async function fileinfoCommand(args: string[], context: any): Promise<string> {
   if (args.length === 0) {
@@ -23,44 +25,58 @@ async function fileinfoCommand(args: string[], context: any): Promise<string> {
   }
 
   const filePath = args[0];
-  const fs = context.fileSystem;
 
-  if (!fs) {
-    return 'Error: File system not available';
+  if (!context.getSystemModule) {
+    return 'Error: System modules not available';
   }
 
   try {
-    // ファイルパスを解決（相対パスを絶対パスに）
-    let fullPath = filePath;
+    // fileRepositoryを取得（SSOT）
+    const fileRepository = await context.getSystemModule('fileRepository');
+
+    // ファイルパスを正規化（相対パスを絶対パスに）
+    let normalizedPath = filePath;
     if (!filePath.startsWith('/')) {
-      fullPath = `${context.currentDirectory}/${filePath}`;
+      // 現在のディレクトリからの相対パス
+      const relativeCurrent = context.currentDirectory.replace(`/projects/${context.projectName}`, '');
+      normalizedPath = relativeCurrent === '' 
+        ? `/${filePath}` 
+        : `${relativeCurrent}/${filePath}`;
+    } else {
+      // 絶対パスの場合、プロジェクトルートからの相対パスに変換
+      normalizedPath = filePath.replace(`/projects/${context.projectName}`, '');
     }
 
-    // ファイル情報を取得
-    const stat = await fs.promises.stat(fullPath);
+    // プロジェクトの全ファイルを取得
+    const files = await fileRepository.getProjectFiles(context.projectId);
     
-    let output = `File Information:\n`;
-    output += `  Path: ${fullPath}\n`;
-    output += `  Type: ${stat.isDirectory() ? 'Directory' : 'File'}\n`;
-    output += `  Size: ${stat.size} bytes\n`;
-    output += `  Modified: ${new Date(stat.mtime).toISOString()}\n`;
-    output += `  Mode: ${stat.mode.toString(8)}\n`;
+    // 指定されたファイルを検索
+    const file = files.find((f: any) => f.path === normalizedPath);
 
-    if (!stat.isDirectory()) {
-      // ファイルの場合、内容の最初の数行を表示
-      try {
-        const content = await fs.promises.readFile(fullPath, 'utf8');
-        const lines = content.split('\n').slice(0, 5);
-        output += `\nFirst 5 lines:\n`;
-        lines.forEach((line: string, i: number) => {
-          output += `  ${i + 1}: ${line}\n`;
-        });
-        if (content.split('\n').length > 5) {
-          output += `  ... (${content.split('\n').length - 5} more lines)\n`;
-        }
-      } catch (readError) {
-        output += `\n(Unable to read file content)\n`;
+    if (!file) {
+      return `Error: File not found: ${normalizedPath}\nSearched in project: ${context.projectName}`;
+    }
+
+    // ファイル情報を表示
+    let output = `File Information (from FileRepository):\n`;
+    output += `  Path: ${file.path}\n`;
+    output += `  Type: ${file.language}\n`;
+    output += `  Size: ${file.content ? file.content.length : 0} bytes\n`;
+    output += `  Created: ${new Date(file.createdAt).toLocaleString()}\n`;
+    output += `  Modified: ${new Date(file.updatedAt).toLocaleString()}\n`;
+
+    // ファイルの内容の最初の数行を表示
+    if (file.content) {
+      const lines = file.content.split('\n').slice(0, 5);
+      output += `\nFirst 5 lines:\n`;
+      lines.forEach((line: string, i: number) => {
+        output += `  ${i + 1}: ${line}\n`;
+      });
+      if (file.content.split('\n').length > 5) {
+        output += `  ... (${file.content.split('\n').length - 5} more lines)\n`;
       }
+    } else {
+      output += `\n(File is empty)\n`;
     }
 
     return output;

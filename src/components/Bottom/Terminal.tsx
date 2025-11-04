@@ -464,18 +464,17 @@ function ClientTerminal({
             const { commandRegistry } = await import('@/engine/extensions/commandRegistry');
             if (commandRegistry.hasCommand(cmd)) {
               try {
-                const { gitFileSystem } = await import('@/engine/core/gitFileSystem');
-                const fs = gitFileSystem.getFS();
                 const currentDir = unixCommandsRef.current
                   ? await unixCommandsRef.current.pwd()
                   : `/projects/${currentProject}`;
 
+                // コマンド実行に必要な最小限の情報を渡す
+                // ExtensionManagerのラッパーでExtensionContextがマージされる
                 const result = await commandRegistry.executeCommand(cmd, args, {
                   projectName: currentProject,
                   projectId: currentProjectId,
                   currentDirectory: currentDir,
-                  fileSystem: fs,
-                });
+                } as any);
 
                 await captureWriteOutput(result);
               } catch (error) {

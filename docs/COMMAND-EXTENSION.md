@@ -94,7 +94,7 @@ export async function deactivate(): Promise<void> {
 - `projectName: string` - 現在のプロジェクト名
 - `projectId: string` - プロジェクトID（IndexedDB参照用）
 - `currentDirectory: string` - 現在のディレクトリ（絶対パス）
-- `fileSystem: any` - Pyxisのファイルシステムインスタンス（lightning-fs）
+- `getSystemModule: <T>(moduleName: T) => Promise<SystemModuleMap[T]>` - システムモジュールへのアクセス
 
 ### 戻り値
 
