@@ -58,35 +58,40 @@ const EXTENSION_TYPES = [
     label: 'UI Extension',
     description: 'カスタムタブやサイドバーパネルを追加',
     usesReact: true,
-    fileExtension: 'tsx'
+    fileExtension: 'tsx',
+    templateFile: 'ui-extension.template.tsx'
   },
   {
     value: 'tool',
     label: 'Command/Tool',
     description: 'ターミナルコマンドやツールを追加',
     usesReact: false,
-    fileExtension: 'ts'
+    fileExtension: 'ts',
+    templateFile: 'command-extension.template.ts'
   },
   {
     value: 'transpiler',
     label: 'Transpiler',
     description: 'コードのトランスパイル機能を提供',
     usesReact: false,
-    fileExtension: 'ts'
+    fileExtension: 'ts',
+    templateFile: 'transpiler-extension.template.ts'
   },
   {
     value: 'service',
     label: 'Service',
     description: '言語パックやテーマなどのサービス',
     usesReact: false,
-    fileExtension: 'ts'
+    fileExtension: 'ts',
+    templateFile: 'service-extension.template.ts'
   },
   {
     value: 'builtin-module',
     label: 'Built-in Module',
     description: 'Node.js互換モジュール (fs, pathなど)',
     usesReact: false,
-    fileExtension: 'ts'
+    fileExtension: 'ts',
+    templateFile: 'builtin-module-extension.template.ts'
   }
 ];
 
@@ -96,6 +101,30 @@ const UI_COMPONENT_TYPES = [
   { value: 'sidebar', label: 'Sidebar Panel', description: 'サイドバーパネルのみ' },
   { value: 'both', label: 'Tab + Sidebar', description: 'タブとサイドバー両方' }
 ];
+
+// テンプレートファイルを読み込む
+function loadTemplate(templateName) {
+  const templatePath = path.join(__dirname, 'samples', templateName);
+  if (!fs.existsSync(templatePath)) {
+    throw new Error(`Template file not found: ${templatePath}`);
+  }
+  return fs.readFileSync(templatePath, 'utf8');
+}
+
+// テンプレートタグを置換
+function replaceTags(content, replacements) {
+  let result = content;
+  for (const [tag, value] of Object.entries(replacements)) {
+    const regex = new RegExp(tag, 'g');
+    result = result.replace(regex, value);
+  }
+  return result;
+}
+
+// コンポーネント名を生成（キャメルケース）
+function toComponentName(id) {
+  return id.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('');
+}
 
 // テンプレート生成関数
 function generateManifest(config) {
@@ -122,388 +151,65 @@ function generateManifest(config) {
 
 function generateUIExtension(config) {
   const { id, name, componentType } = config;
-  const componentName = id.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('');
+  const componentName = toComponentName(id);
   
-  let code = `/**
- * ${name}
- * ${config.description}
- */
-
-import React, { useState, useEffect } from 'react';
-import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
-
-`;
-
-  // Tab Component
+  // メインテンプレートを読み込む
+  let template = loadTemplate('ui-extension.template.tsx');
+  
+  // コンポーネントの生成
+  let tabComponent = '';
+  let sidebarComponent = '';
+  let tabRegistration = '';
+  let sidebarRegistration = '';
+  
   if (componentType === 'tab' || componentType === 'both') {
-    code += `// カスタムタブコンポーネント
-function ${componentName}TabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
-  const [data, setData] = useState((tab as any).data || {});
-
-  return (
-    <div
-      style={{
-        width: '100%',
-        height: '100%',
-        padding: '16px',
-        background: '#1e1e1e',
-        color: '#d4d4d4',
-      }}
-    >
-      <h2>${name} Tab</h2>
-      <p>タブID: {tab.id}</p>
-      <p>アクティブ: {isActive ? 'Yes' : 'No'}</p>
-      {/* ここにタブのコンテンツを追加 */}
-    </div>
-  );
-}
-
-`;
+    tabComponent = loadTemplate('tab-component.template.tsx');
+    tabRegistration = loadTemplate('tab-registration.template.ts');
   }
-
-  // Sidebar Panel
+  
   if (componentType === 'sidebar' || componentType === 'both') {
-    code += `// サイドバーパネルコンポーネント
-function create${componentName}Panel(context: ExtensionContext) {
-  return function ${componentName}Panel({ extensionId, panelId, isActive, state }: any) {
-    const [items, setItems] = useState<any[]>([]);
-
-    useEffect(() => {
-      if (isActive) {
-        // パネルがアクティブになった時の処理
-        context.logger?.info('Panel activated');
-      }
-    }, [isActive]);
-
-    // タブを開く関数
-    // Note: id を指定すると、同じ id のタブがあれば再利用されます（TabStore の openTab と同じ挙動）
-    const openTab = () => {
-      if (context.tabs) {
-        const tabId = context.tabs.createTab({
-          id: 'main', // extension:${id}:main として識別される
-          title: '${name}',
-          activateAfterCreate: true,
-        });
-        context.logger?.info(\`Tab opened: \${tabId}\`);
-      }
-    };
-
-    return (
-      <div
-        style={{
-          width: '100%',
-          height: '100%',
-          padding: '8px',
-          background: '#1e1e1e',
-          color: '#d4d4d4',
-          overflow: 'auto',
-        }}
-      >
-        <div style={{ marginBottom: '8px', fontWeight: 'bold' }}>
-          ${name}
-        </div>
-        
-        ${componentType === 'both' ? `{/* タブを開くボタン */}
-        <button
-          onClick={openTab}
-          style={{
-            width: '100%',
-            padding: '8px',
-            marginBottom: '8px',
-            background: '#007acc',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '12px',
-          }}
-        >
-          Open ${name} Tab
-        </button>
-        
-        ` : ''}
-        {/* ここにパネルのコンテンツを追加 */}
-        <div style={{ fontSize: '12px', color: '#888' }}>
-          パネルID: {panelId}
-        </div>
-      </div>
-    );
-  };
-}
-
-`;
-  }
-
-  // Activate function
-  code += `/**
- * 拡張機能のactivate関数
- */
-export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
-  context.logger?.info('${name} activating...');
-
-`;
-
-  if (componentType === 'tab' || componentType === 'both') {
-    code += `  // タブタイプを登録
-  if (context.tabs) {
-    // タブタイプとして登録（${id}というタイプ名で識別される）
-    context.tabs.registerTabType(${componentName}TabComponent);
-    context.logger?.info('Tab type "${id}" registered');
-  }
-
-`;
-  }
-
-  if (componentType === 'sidebar' || componentType === 'both') {
-    code += `  // サイドバーパネルを登録
-  if (context.sidebar) {
-    const Panel = create${componentName}Panel(context);
+    sidebarComponent = loadTemplate('sidebar-component.template.tsx');
+    sidebarRegistration = loadTemplate('sidebar-registration.template.ts');
     
-    context.sidebar.createPanel({
-      id: '${id}-panel',
-      title: '${name}',
-      icon: 'Package',
-      component: Panel,
-      order: 50,
-    });
-
-    context.sidebar.onPanelActivate('${id}-panel', async (panelId: string) => {
-      context.logger?.info(\`Panel activated: \${panelId}\`);
-    });
-
-    context.logger?.info('Sidebar panel registered');
-  }
-
-`;
-  }
-
-  code += `  return {};
-}
-
-/**
- * 拡張機能のdeactivate関数
- */
-export async function deactivate(): Promise<void> {
-  console.log('${name} deactivated');
-}
-`;
-
-  return code;
-}
-
-function generateTranspilerExtension(config) {
-  const { name, description } = config;
-  
-  return `/**
- * ${name}
- * ${description}
- */
-
-import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
-
-/**
- * コードをトランスパイル
- */
-async function transpile(code: string, options: any): Promise<{ code: string }> {
-  // ここにトランスパイル処理を実装
-  context.logger?.info('Transpiling code...');
-  
-  // 例: 単純な変換
-  const transformedCode = code;
-  
-  return { code: transformedCode };
-}
-
-/**
- * 拡張機能のactivate関数
- */
-export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
-  context.logger?.info('${name} activating...');
-
-  const runtimeFeatures = {
-    transpiler: transpile,
-    
-    // サポートするファイルタイプ
-    canTranspile: (filePath: string): boolean => {
-      return /\\.(ext)$/.test(filePath); // 適切な拡張子に変更
-    },
-  };
-
-  context.logger?.info('${name} activated');
-
-  return {
-    runtimeFeatures,
-  };
-}
-
-/**
- * 拡張機能のdeactivate関数
- */
-export async function deactivate(): Promise<void> {
-  console.log('${name} deactivated');
-}
-`;
-}
-
-function generateServiceExtension(config) {
-  const { name, description } = config;
-  
-  return `/**
- * ${name}
- * ${description}
- */
-
-import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
-
-/**
- * 拡張機能のactivate関数
- */
-export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
-  context.logger?.info('${name} activating...');
-
-  // サービスの実装
-  const myService = {
-    // ここにサービスのAPIを実装
-    version: '1.0.0',
-    
-    doSomething: () => {
-      context.logger?.info('Service method called');
-    },
-  };
-
-  context.logger?.info('${name} activated');
-
-  return {
-    services: {
-      'my-service': myService,
-    },
-  };
-}
-
-/**
- * 拡張機能のdeactivate関数
- */
-export async function deactivate(): Promise<void> {
-  console.log('${name} deactivated');
-}
-`;
-}
-
-function generateCommandExtension(config) {
-  const { name, description } = config;
-  
-  return `/**
- * ${name}
- * ${description}
- */
-
-import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
-
-/**
- * カスタムコマンドの実装
- */
-async function myCommand(args: string[], context: any): Promise<string> {
-  // args: コマンドライン引数の配列
-  // context.projectName: プロジェクト名
-  // context.projectId: プロジェクトID
-  // context.currentDirectory: 現在のディレクトリ
-  // context.fileSystem: ファイルシステムインスタンス
-
-  if (args.length === 0) {
-    return 'Usage: mycommand <argument>';
-  }
-
-  const arg = args[0];
-  let output = \`Command executed with argument: \${arg}\\n\`;
-  output += \`Project: \${context.projectName}\\n\`;
-  output += \`Current Directory: \${context.currentDirectory}\\n\`;
-
-  // ファイルシステムを使用する例
-  try {
-    const fs = context.fileSystem;
-    if (fs) {
-      const files = await fs.promises.readdir(context.currentDirectory);
-      output += \`\\nFiles in current directory: \${files.length}\\n\`;
+    // タブを開くボタンを含めるかどうか
+    if (componentType === 'both') {
+      const openTabButton = loadTemplate('open-tab-button.template.tsx');
+      sidebarComponent = replaceTags(sidebarComponent, {
+        '__OPEN_TAB_BUTTON__': openTabButton
+      });
+    } else {
+      sidebarComponent = replaceTags(sidebarComponent, {
+        '__OPEN_TAB_BUTTON__': ''
+      });
     }
-  } catch (error) {
-    output += \`\\nError reading directory: \${(error as Error).message}\\n\`;
   }
-
-  return output;
-}
-
-/**
- * 拡張機能のactivate関数
- */
-export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
-  context.logger?.info('${name} activating...');
-
-  // コマンドを登録
-  if (context.commands) {
-    context.commands.registerCommand('mycommand', myCommand);
-    context.logger?.info('Registered command: mycommand');
-  } else {
-    context.logger?.warn('Commands API not available');
-  }
-
-  context.logger?.info('${name} activated');
-
-  return {};
-}
-
-/**
- * 拡張機能のdeactivate関数
- */
-export async function deactivate(): Promise<void> {
-  console.log('${name} deactivated');
-}
-`;
-}
-
-function generateBuiltinModuleExtension(config) {
-  const { name, description } = config;
   
-  return `/**
- * ${name}
- * ${description}
- */
-
-import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
-
-/**
- * モジュールの実装
- */
-const myModule = {
-  // ここにモジュールのAPIを実装
-  version: '1.0.0',
-  
-  someFunction: () => {
-    return 'Hello from built-in module';
-  },
-};
-
-/**
- * 拡張機能のactivate関数
- */
-export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
-  context.logger?.info('${name} activating...');
-
-  context.logger?.info('${name} activated');
-
-  return {
-    builtInModules: {
-      'my-module': myModule,
-    },
+  // すべてのタグを置換
+  const replacements = {
+    '__EXTENSION_NAME__': name,
+    '__EXTENSION_DESCRIPTION__': config.description,
+    '__EXTENSION_ID__': id,
+    '__COMPONENT_NAME__': componentName,
+    '__TAB_COMPONENT__': tabComponent,
+    '__SIDEBAR_COMPONENT__': sidebarComponent,
+    '__TAB_REGISTRATION__': tabRegistration,
+    '__SIDEBAR_REGISTRATION__': sidebarRegistration
   };
+  
+  return replaceTags(template, replacements);
 }
 
-/**
- * 拡張機能のdeactivate関数
- */
-export async function deactivate(): Promise<void> {
-  console.log('${name} deactivated');
-}
-`;
+function generateExtensionFromTemplate(config, templateFile) {
+  const template = loadTemplate(templateFile);
+  
+  const replacements = {
+    '__EXTENSION_NAME__': config.name,
+    '__EXTENSION_DESCRIPTION__': config.description,
+    '__EXTENSION_ID__': config.id,
+    '__COMPONENT_NAME__': toComponentName(config.id)
+  };
+  
+  return replaceTags(template, replacements);
 }
 
 function generateREADME(config) {
@@ -547,7 +253,7 @@ MIT
 // メイン処理
 async function main() {
   console.log('');
-  console.log('🚀 Pyxis Extension Template Generator');
+  console.log('��� Pyxis Extension Template Generator');
   console.log('=====================================\n');
 
   try {
@@ -590,11 +296,12 @@ async function main() {
       tags,
       componentType,
       fileExtension: typeConfig.fileExtension,
-      usesReact: typeConfig.usesReact
+      usesReact: typeConfig.usesReact,
+      templateFile: typeConfig.templateFile
     };
 
     // 確認
-    console.log('\n📋 設定確認:');
+    console.log('\n��� 設定確認:');
     console.log('  ID:', config.id);
     console.log('  名前:', config.name);
     console.log('  タイプ:', config.type);
@@ -641,14 +348,8 @@ async function main() {
     
     if (type === 'ui') {
       indexContent = generateUIExtension(config);
-    } else if (type === 'tool') {
-      indexContent = generateCommandExtension(config);
-    } else if (type === 'transpiler') {
-      indexContent = generateTranspilerExtension(config);
-    } else if (type === 'service') {
-      indexContent = generateServiceExtension(config);
-    } else if (type === 'builtin-module') {
-      indexContent = generateBuiltinModuleExtension(config);
+    } else {
+      indexContent = generateExtensionFromTemplate(config, config.templateFile);
     }
 
     fs.writeFileSync(indexPath, indexContent);
@@ -685,7 +386,7 @@ async function main() {
       }
     }
 
-    console.log('\n🎉 拡張機能のテンプレート作成完了！\n');
+    console.log('\n��� 拡張機能のテンプレート作成完了！\n');
     console.log('次のステップ:');
     if (config.usePnpm) {
       console.log(`  1. cd extensions/${id}`);
