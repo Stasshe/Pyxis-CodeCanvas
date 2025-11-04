@@ -398,8 +398,12 @@ async function buildExtensions() {
           const subDistDir = path.join(extDistDir, subDir);
           
           const result = await buildSingleExtension(subSrcDir, subDistDir, `${dirName}/${subDir}`);
-          if (result) totalSuccess++;
-          else totalFailed++;
+          if (result) {
+            totalSuccess++;
+          } else {
+            console.error(`❌ Build failed for ${dirName}/${subDir}. Stopping further builds.`);
+            process.exit(1);
+          }
         }
         
         continue;
@@ -408,8 +412,12 @@ async function buildExtensions() {
     
     // manifest.json がある場合は直接ビルド
     const result = await buildSingleExtension(extSrcDir, extDistDir, dirName);
-    if (result) totalSuccess++;
-    else totalFailed++;
+    if (result) {
+      totalSuccess++;
+    } else {
+      console.error(`❌ Build failed for ${dirName}. Stopping further builds.`);
+      process.exit(1);
+    }
   }
   
   console.log(`\n${'='.repeat(60)}`);
@@ -422,7 +430,10 @@ async function buildExtensions() {
   // package.jsonがない拡張機能をtscで一括トランスパイル
   console.log('📦 Transpiling non-bundled extensions with tsc...\n');
   const tscSuccess = await transpileAllWithTsc();
-  
+  if (!tscSuccess) {
+    console.error('❌ tsc transpile failed. Exiting.');
+    process.exit(1);
+  }
   console.log(`\n${'='.repeat(60)}`);
   console.log(`✨ Final Build Summary`);
   console.log(`${'='.repeat(60)}`);

@@ -391,10 +391,7 @@ async function main() {
         version: '1.0.0',
         private: true,
         description: config.description,
-        dependencies: {},
-        devDependencies: {
-          '@types/react': '^19'
-        }
+        dependencies: {}
       };
       fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2) + '\n');
       console.log(`✅ 作成: package.json`);

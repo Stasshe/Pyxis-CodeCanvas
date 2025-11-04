@@ -10,6 +10,7 @@ import {
   Power,
   PowerOff,
   Loader,
+  RotateCw,
   Package,
   CheckCircle2,
   Search,
@@ -633,19 +634,42 @@ export default function ExtensionsPanel() {
     >
       {/* ヘッダー */}
       <div
-        className="flex items-center px-4 py-3 border-b"
+        className="flex items-center justify-between px-4 py-3 border-b"
         style={{ borderColor: colors.border }}
       >
-        <Package
-          size={18}
-          style={{ color: colors.primary }}
-        />
-        <h2
-          className="ml-2 text-sm font-semibold"
-          style={{ color: colors.foreground }}
-        >
-          Extensions
-        </h2>
+        <div className="flex items-center">
+          <Package
+            size={18}
+            style={{ color: colors.primary }}
+          />
+          <h2
+            className="ml-2 text-sm font-semibold"
+            style={{ color: colors.foreground }}
+          >
+            Extensions
+          </h2>
+        </div>
+
+        {/* Reload button (right end) */}
+        <div>
+          <button
+            className="flex items-center gap-2 px-3 py-1.5 rounded text-sm transition-all hover:opacity-80"
+            style={{
+              background: colors.background,
+              color: colors.mutedFg,
+              border: `1px solid ${colors.border}`,
+            }}
+            onClick={() => loadExtensions()}
+            title="Reload extensions"
+            disabled={loading}
+          >
+            <RotateCw
+              size={16}
+              className={loading ? 'animate-spin' : ''}
+              style={{ color: colors.mutedFg }}
+            />
+          </button>
+        </div>
       </div>
 
       {/* タブ */}
