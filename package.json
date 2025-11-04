@@ -95,6 +95,12 @@
     "ts-jest": "29.1.0",
     "ts-prune": "^0.10.3",
     "typescript": "^5",
-    "unimported": "^1.31.1"
+    "unimported": "^1.31.1",
+    "chalk": "^4.1.2",
+    "enquirer": "^2.3.6",
+    "ora": "^5.4.1",
+    "boxen": "^5.1.2",
+    "cli-table3": "^0.6.2",
+    "figures": "^3.2.0"
   }
 }

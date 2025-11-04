@@ -113,7 +113,7 @@ function hasNodeModules(dir) {
  * 依存関係をインストール
  */
 function installDependencies(dir) {
-  console.log(`�� Installing dependencies in ${path.basename(dir)}...`);
+  console.log(`Installing dependencies in ${path.basename(dir)}...`);
   
   try {
     // pnpm, npm, yarn の優先順で試す
@@ -485,7 +485,7 @@ async function buildSingleExtension(srcDir, distDir, displayName) {
     
     // package.json がある場合
     if (hasPackageJson(srcDir)) {
-      console.log(`�� Found package.json - using esbuild bundler`);
+      console.log(`Found package.json - using esbuild bundler`);
       
       // node_modules がない場合はインストール
       if (!hasNodeModules(srcDir)) {
@@ -497,7 +497,7 @@ async function buildSingleExtension(srcDir, distDir, displayName) {
       
       // esbuild でバンドル
       const outfile = path.join(distDir, entryFile);
-      const success = await bundleWithEsbuild(entryPoint, outfile, srcDir);
+  const success = await bundleWithEsbuild(entryPoint, outfile, srcDir);
       
       if (!success) {
         return false;

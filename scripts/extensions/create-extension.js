@@ -7,48 +7,43 @@
 
 const fs = require('fs');
 const path = require('path');
-const readline = require('readline');
 
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout
-});
+// Improved CLI UX libraries (installed as devDependencies)
+const { Input, Select, Confirm } = require('enquirer');
+const chalk = require('chalk');
+const ora = require('ora');
+const boxen = require('boxen');
+const figures = require('figures');
 
-// プロンプト関数
-function prompt(question) {
-  return new Promise((resolve) => {
-    rl.question(question, (answer) => {
-      resolve(answer.trim());
-    });
-  });
+// Prompt wrappers using enquirer for a nicer UX
+async function prompt(question, initial) {
+  const input = new Input({ message: question, initial: initial || '' });
+  try {
+    const answer = await input.run();
+    return (answer || '').trim();
+  } catch (err) {
+    return '';
+  }
 }
 
-// 選択肢プロンプト
-function select(question, options) {
-  return new Promise((resolve) => {
-    console.log('\n' + question);
-    options.forEach((opt, idx) => {
-      console.log(`  ${idx + 1}. ${opt.label} - ${opt.description}`);
-    });
-    rl.question('\n選択してください (1-' + options.length + '): ', (answer) => {
-      const index = parseInt(answer) - 1;
-      if (index >= 0 && index < options.length) {
-        resolve(options[index].value);
-      } else {
-        console.log('❌ 無効な選択です。もう一度入力してください。');
-        resolve(select(question, options));
-      }
-    });
-  });
+async function select(question, options) {
+  const choices = options.map(opt => ({ name: opt.value, message: `${opt.label} — ${opt.description}` }));
+  const selectPrompt = new Select({ name: 'choice', message: question, choices });
+  try {
+    const answer = await selectPrompt.run();
+    return answer;
+  } catch (err) {
+    throw err;
+  }
 }
 
-// 確認プロンプト
-function confirm(question) {
-  return new Promise((resolve) => {
-    rl.question(question + ' (y/n): ', (answer) => {
-      resolve(answer.toLowerCase() === 'y');
-    });
-  });
+async function confirm(question) {
+  const confirmPrompt = new Confirm({ message: question });
+  try {
+    return await confirmPrompt.run();
+  } catch (err) {
+    return false;
+  }
 }
 
 // 拡張機能タイプの定義
@@ -274,9 +269,7 @@ MIT
 
 // メイン処理
 async function main() {
-  console.log('');
-  console.log('��� Pyxis Extension Template Generator');
-  console.log('=====================================\n');
+  console.log('\n' + boxen(chalk.bold.cyan('Pyxis Extension Template Generator'), { padding: 1, margin: 1, borderStyle: 'round', borderColor: 'cyan' }));
 
   try {
     // 拡張機能タイプの選択
@@ -286,15 +279,13 @@ async function main() {
     // 基本情報の入力
     const id = await prompt('拡張機能ID (例: my-extension): ');
     if (!id || !/^[a-z0-9-]+$/.test(id)) {
-      console.log('❌ IDは小文字英数字とハイフンのみ使用できます');
-      rl.close();
+      console.log(chalk.red(figures.cross + ' IDは小文字英数字とハイフンのみ使用できます'));
       return;
     }
 
     const name = await prompt('拡張機能名 (例: My Extension): ');
     if (!name) {
-      console.log('❌ 拡張機能名は必須です');
-      rl.close();
+      console.log(chalk.red(figures.cross + ' 拡張機能名は必須です'));
       return;
     }
 
@@ -323,22 +314,21 @@ async function main() {
     };
 
     // 確認
-    console.log('\n��� 設定確認:');
-    console.log('  ID:', config.id);
-    console.log('  名前:', config.name);
-    console.log('  タイプ:', config.type);
+    console.log('\n' + boxen(chalk.bold('設定確認'), { padding: 1 }));
+    console.log(`  ${chalk.cyan('ID:')} ${config.id}`);
+    console.log(`  ${chalk.cyan('名前:')} ${config.name}`);
+    console.log(`  ${chalk.cyan('タイプ:')} ${config.type}`);
     if (config.componentType) {
-      console.log('  コンポーネント:', config.componentType);
+      console.log(`  ${chalk.cyan('コンポーネント:')} ${config.componentType}`);
     }
-    console.log('  説明:', config.description);
-    console.log('  作者:', config.author);
-    console.log('  タグ:', config.tags.join(', ') || '(なし)');
-    console.log('  React使用:', config.usesReact ? 'はい' : 'いいえ');
+    console.log(`  ${chalk.cyan('説明:')} ${config.description}`);
+    console.log(`  ${chalk.cyan('作者:')} ${config.author}`);
+    console.log(`  ${chalk.cyan('タグ:')} ${config.tags.join(', ') || '(なし)'}`);
+    console.log(`  ${chalk.cyan('React使用:')} ${config.usesReact ? chalk.green('はい') : chalk.yellow('いいえ')}`);
 
     const confirmed = await confirm('\nこの設定で作成しますか?');
     if (!confirmed) {
-      console.log('❌ キャンセルされました');
-      rl.close();
+      console.log(chalk.yellow(figures.cross + ' キャンセルされました'));
       return;
     }
 
@@ -351,8 +341,7 @@ async function main() {
     // ディレクトリ作成
     const extensionDir = path.join(__dirname, '..', '..', 'extensions', id);
     if (fs.existsSync(extensionDir)) {
-      console.log(`❌ 拡張機能 "${id}" は既に存在します`);
-      rl.close();
+      console.log(chalk.red(figures.cross + ` 拡張機能 "${id}" は既に存在します`));
       return;
     }
 
@@ -405,8 +394,8 @@ async function main() {
       }
     }
 
-    console.log('\n��� 拡張機能のテンプレート作成完了！\n');
-    console.log('次のステップ:');
+    console.log('\n' + boxen(chalk.bold.green('拡張機能のテンプレート作成完了！'), { padding: 1 }));
+    console.log(chalk.bold('次のステップ:'));
     if (config.usePnpm) {
       console.log(`  1. cd extensions/${id}`);
       console.log('  2. pnpm install (依存関係をインストール)');
@@ -423,9 +412,7 @@ async function main() {
     console.log('');
 
   } catch (error) {
-    console.error('❌ エラーが発生しました:', error);
-  } finally {
-    rl.close();
+    console.error(chalk.red('❌ エラーが発生しました:'), error);
   }
 }
 
