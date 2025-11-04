@@ -17,8 +17,10 @@ const path = require('path');
 const { execSync } = require('child_process');
 const esbuild = require('esbuild');
 
-const EXTENSIONS_SRC = path.join(__dirname, 'extensions');
-const EXTENSIONS_DIST = path.join(__dirname, 'public', 'extensions');
+// Resolve project root (script is in scripts/build/) and use it for paths
+const ROOT_DIR = path.resolve(__dirname, '..', '..');
+const EXTENSIONS_SRC = path.join(ROOT_DIR, 'extensions');
+const EXTENSIONS_DIST = path.join(ROOT_DIR, 'public', 'extensions');
 
 /**
  * .buildignoreファイルを読み込み
@@ -224,8 +226,8 @@ async function transpileAllWithTsc() {
     nonBundledDirs.forEach(dir => console.log(`   - ${dir}`));
     console.log('');
     
-    const tsconfigPath = path.join(__dirname, 'tsconfig.extensions.json');
-    const tsbuildInfoPath = path.join(__dirname, 'tsconfig.extensions.tsbuildinfo');
+  const tsconfigPath = path.join(ROOT_DIR, 'tsconfig.extensions.json');
+  const tsbuildInfoPath = path.join(ROOT_DIR, 'tsconfig.extensions.tsbuildinfo');
     
     const tsconfig = {
       compilerOptions: {
@@ -269,7 +271,7 @@ async function transpileAllWithTsc() {
     // pnpmを使用してtscを実行（.npmrcの設定warningを回避）
     execSync(`pnpm exec tsc -p ${tsconfigPath}`, {
       stdio: 'inherit',
-      cwd: __dirname,
+      cwd: ROOT_DIR,
     });
     
     fs.unlinkSync(tsconfigPath);
@@ -315,8 +317,8 @@ async function transpileAllWithTsc() {
     console.error('❌ TypeScript compilation failed:', error.message);
     
     try {
-      const tsconfigPath = path.join(__dirname, 'tsconfig.extensions.json');
-      const tsbuildInfoPath = path.join(__dirname, 'tsconfig.extensions.tsbuildinfo');
+        const tsconfigPath = path.join(ROOT_DIR, 'tsconfig.extensions.json');
+        const tsbuildInfoPath = path.join(ROOT_DIR, 'tsconfig.extensions.tsbuildinfo');
       
       if (fs.existsSync(tsconfigPath)) {
         fs.unlinkSync(tsconfigPath);

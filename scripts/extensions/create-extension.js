@@ -620,7 +620,7 @@ async function main() {
     }
 
     // ディレクトリ作成
-    const extensionDir = path.join(__dirname, '..', 'extensions', id);
+    const extensionDir = path.join(__dirname, '..', '..', 'extensions', id);
     if (fs.existsSync(extensionDir)) {
       console.log(`❌ 拡張機能 "${id}" は既に存在します`);
       rl.close();
@@ -677,7 +677,7 @@ async function main() {
       console.log(`✅ 作成: package.json`);
 
       // ガイドをコピー
-      const guideSrc = path.join(__dirname, 'extensions', 'EXTENSION-PNPM-GUIDE.md');
+      const guideSrc = path.join(__dirname, 'EXTENSION-PNPM-GUIDE.md');
       const guideDest = path.join(extensionDir, 'PNPM-GUIDE.md');
       if (fs.existsSync(guideSrc)) {
         fs.copyFileSync(guideSrc, guideDest);
