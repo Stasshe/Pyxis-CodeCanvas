@@ -114,9 +114,17 @@ function loadTemplate(templateName) {
 // テンプレートタグを置換
 function replaceTags(content, replacements) {
   let result = content;
-  for (const [tag, value] of Object.entries(replacements)) {
-    const regex = new RegExp(tag, 'g');
+  // タグの長さ順で降順ソート（長いタグから置換）
+  const sortedTags = Object.keys(replacements).sort((a, b) => b.length - a.length);
+  for (const tag of sortedTags) {
+    const value = replacements[tag];
+    const regex = new RegExp(tag.replace(/([.*+?^=!:${}()|\[\]\/\\])/g, "\\$1"), 'g');
     result = result.replace(regex, value);
+  }
+  // 置換後に__[A-Z0-9_]+__形式のタグが残っていないかチェック
+  const leftover = result.match(/__([A-Z0-9_]+)__/g);
+  if (leftover) {
+    console.warn('⚠️ テンプレートタグの置換漏れ:', leftover);
   }
   return result;
 }
@@ -253,7 +261,7 @@ MIT
 // メイン処理
 async function main() {
   console.log('');
-  console.log('��� Pyxis Extension Template Generator');
+  console.log('��� Pyxis Extension Template Generator');
   console.log('=====================================\n');
 
   try {
@@ -301,7 +309,7 @@ async function main() {
     };
 
     // 確認
-    console.log('\n��� 設定確認:');
+    console.log('\n��� 設定確認:');
     console.log('  ID:', config.id);
     console.log('  名前:', config.name);
     console.log('  タイプ:', config.type);
@@ -386,7 +394,7 @@ async function main() {
       }
     }
 
-    console.log('\n��� 拡張機能のテンプレート作成完了！\n');
+    console.log('\n��� 拡張機能のテンプレート作成完了！\n');
     console.log('次のステップ:');
     if (config.usePnpm) {
       console.log(`  1. cd extensions/${id}`);
