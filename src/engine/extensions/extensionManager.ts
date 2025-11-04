@@ -246,39 +246,8 @@ class ExtensionManager {
         throw new Error(`Entry file not found in ZIP: ${manifest.entry}`);
       }
 
-      // 全ファイルを読み込んでキャッシュ用の map を作る
-      const filesMap: Record<string, string> = {};
-      const readPromises: Promise<void>[] = [];
-
-      zip.forEach((relativePath: string, fileEntry: any) => {
-        if (fileEntry.dir) return; // ディレクトリは無視
-
-        // manifest とエントリは別扱い
-        if (relativePath === manifestPath) return;
-        if (relativePath === resolvedEntryPath) return;
-
-        // 相対パス: manifestDir があればそれを削る
-        let rel = relativePath;
-        if (manifestDir && rel.startsWith(`${manifestDir}/`)) {
-          rel = rel.slice(manifestDir.length + 1);
-        }
-
-        // 同様に entry のパスは manifest に対して相対にする
-        const p = rel;
-
-        const pPromise = zip
-          .file(relativePath)!
-          .async('string')
-          .then((content: string) => {
-            filesMap[p] = content;
-          });
-        readPromises.push(pPromise as Promise<void>);
-      });
-
       // エントリのコードを読み込む
       const entryCode = await zip.file(resolvedEntryPath)!.async('string');
-
-      await Promise.all(readPromises);
 
       // manifest.entry を extension root 相対（manifestDir を削った形）に更新
       let normalizedEntry = resolvedEntryPath;
@@ -286,6 +255,25 @@ class ExtensionManager {
         normalizedEntry = normalizedEntry.slice(manifestDir.length + 1);
       }
       manifest.entry = normalizedEntry;
+
+      // 追加ファイルは manifest.files に基づいて読み込む（extensionLoader.fetchExtensionCode と同じ挙動）
+      const filesMap: Record<string, string> = {};
+      if (manifest.files && manifest.files.length > 0) {
+        for (const filePath of manifest.files) {
+          const candidates = [filePath, `./${filePath}`, filePath.replace(/^\//, '')];
+          const resolved = resolveZipPath(candidates);
+          if (!resolved) {
+            throw new Error(`Required file listed in manifest.files not found in ZIP: ${filePath}`);
+          }
+
+          const content = await zip.file(resolved)!.async('string');
+          // normalize stored key to be relative to manifest root (remove manifestDir/ prefix if present)
+          let key = resolved;
+          if (manifestDir && key.startsWith(`${manifestDir}/`))
+            key = key.slice(manifestDir.length + 1);
+          filesMap[key] = content;
+        }
+      }
 
       // インストール情報を作成
       const installed: InstalledExtension = {
