@@ -266,8 +266,20 @@ async function transpileAllWithTsc() {
       walkDir(srcDir, (srcPath) => {
         const relativePath = path.relative(srcDir, srcPath);
         const ext = path.extname(srcPath);
+        const basename = path.basename(srcPath);
         
-        if (['.json', '.svg', '.png', '.jpg', '.md', '.css'].includes(ext)) {
+        // node_modulesは除外
+        if (relativePath.includes('node_modules')) {
+          return;
+        }
+        
+        // package.json, lockファイルは除外
+        if (['package.json', 'pnpm-lock.yaml', 'package-lock.json', 'yarn.lock'].includes(basename)) {
+          return;
+        }
+        
+        // manifest.json, 画像, Markdown, CSSファイルのみコピー
+        if (basename === 'manifest.json' || ['.svg', '.png', '.jpg', '.md', '.css'].includes(ext)) {
           const distPath = path.join(distDir, relativePath);
           fs.mkdirSync(path.dirname(distPath), { recursive: true });
           fs.copyFileSync(srcPath, distPath);
@@ -450,17 +462,24 @@ async function buildSingleExtension(srcDir, distDir, displayName) {
       console.log(`📝 No package.json - will transpile with tsc (batch mode)\n`);
     }
     
-    // JSON, 画像, Markdownファイルをコピー (node_modulesは除外)
+    // JSON, 画像, Markdownファイルをコピー (node_modules、package.json、lockファイルは除外)
     walkDir(srcDir, (srcPath) => {
       const relativePath = path.relative(srcDir, srcPath);
       const ext = path.extname(srcPath);
+      const basename = path.basename(srcPath);
       
-      // node_modules内のファイルはスキップ
+      // 除外するファイル/ディレクトリ
       if (relativePath.includes('node_modules')) {
         return;
       }
       
-      if (['.json', '.svg', '.png', '.jpg', '.md', '.css'].includes(ext)) {
+      // package.json, pnpm-lock.yaml, package-lock.json, yarn.lockは除外
+      if (['package.json', 'pnpm-lock.yaml', 'package-lock.json', 'yarn.lock'].includes(basename)) {
+        return;
+      }
+      
+      // manifest.json, 画像, Markdown, CSSファイルのみコピー
+      if (basename === 'manifest.json' || ['.svg', '.png', '.jpg', '.md', '.css'].includes(ext)) {
         const distPath = path.join(distDir, relativePath);
         fs.mkdirSync(path.dirname(distPath), { recursive: true });
         fs.copyFileSync(srcPath, distPath);
