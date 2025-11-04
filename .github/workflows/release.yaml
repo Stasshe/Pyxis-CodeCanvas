@@ -15,11 +15,16 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Get version from package.json
         id: version
@@ -96,8 +101,8 @@ jobs:
             
             ### 📦 インストール方法
             ```bash
-            npm install
-            npm run dev
+            pnpm install
+            pnpm run dev
             ```
             
             **完全な変更履歴**: [比較を表示](https://github.com/${{ github.repository }}/compare/${{ steps.prev_tag.outputs.prev_tag }}...v${{ steps.version.outputs.version }})
