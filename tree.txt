@@ -74,6 +74,7 @@ Root
 ├── next.config.ts
 ├── package.json
 ├── pnpm-lock.yaml
+├── pnpm-workspace.yaml
 ├── postcss.config.js
 ├── prettier.config.mjs
 ├── public
@@ -394,7 +395,7 @@ Root
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-63 directories, 331 files
+63 directories, 332 files
 
 =================================
 
@@ -411,9 +412,8 @@ extensions/ 以下のディレクトリ構造:
 │   ├── node_modules
 │   │   ├── @types
 │   │   │   └── react -> ../.pnpm/@types+react@19.2.2/node_modules/@types/react
-│   │   └── chart.js -> .pnpm/chart.js@4.5.1/node_modules/chart.js
-│   ├── package.json
-│   └── pnpm-lock.yaml
+│   │   └── chart.js -> ../../../node_modules/.pnpm/chart.js@4.5.1/node_modules/chart.js
+│   └── package.json
 ├── lang-packs
 │   ├── ar
 │   │   ├── index.ts
@@ -497,7 +497,7 @@ extensions/ 以下のディレクトリ構造:
 │   └── transpile.worker.ts
 └── ui-copilot-ref
 
-34 directories, 63 files
+34 directories, 62 files
 
 =================================
 
@@ -510,5 +510,5 @@ src/*.ts, *.tsx の統計:
 開発時のdev container全体のサイズ(bytes): 3.3G	.
 ==========
 ビルト済みファイルの行数: 41078
-合計文字数: 26003411
-合計ファイルサイズ(bytes): 26986506
+合計文字数: 26003330
+合計ファイルサイズ(bytes): 26986425
