@@ -55,7 +55,7 @@ public/locales/
 
 tests/__artifacts__/*
 
-scripts/*results.txt
+scripts/i18n/*results.txt
 
 .eslintcache
 
