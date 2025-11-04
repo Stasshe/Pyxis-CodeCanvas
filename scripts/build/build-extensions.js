@@ -389,14 +389,14 @@ async function buildExtensions() {
           return files.length > 0;
         })
         .map(dirent => dirent.name);
-      
+
       if (subDirs.length > 0) {
         console.log(`📁 Processing subdirectories: ${subDirs.join(', ')}\n`);
-        
+
         for (const subDir of subDirs) {
           const subSrcDir = path.join(extSrcDir, subDir);
           const subDistDir = path.join(extDistDir, subDir);
-          
+
           const result = await buildSingleExtension(subSrcDir, subDistDir, `${dirName}/${subDir}`);
           if (result) {
             totalSuccess++;
@@ -405,7 +405,11 @@ async function buildExtensions() {
             process.exit(1);
           }
         }
-        
+
+        continue;
+      } else {
+        // No manifest and no non-empty subdirectories: skip this folder instead of failing
+        console.log(`⚠️  No manifest.json and no subdirectories in ${dirName}, skipping...\n`);
         continue;
       }
     }
