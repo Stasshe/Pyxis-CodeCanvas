@@ -10,6 +10,13 @@ interface TabStore {
   activePane: string | null; // グローバルにアクティブなペイン
   globalActiveTab: string | null; // グローバルにアクティブなタブ（1つだけ）
 
+  // セッション管理
+  isLoading: boolean;
+  isRestored: boolean;
+  isContentRestored: boolean;
+  setIsLoading: (loading: boolean) => void;
+  setIsContentRestored: (restored: boolean) => void;
+
   // ペイン操作
   setPanes: (panes: EditorPane[]) => void;
   addPane: (pane: EditorPane) => void;
@@ -24,6 +31,7 @@ interface TabStore {
   closeTab: (paneId: string, tabId: string) => void;
   activateTab: (paneId: string, tabId: string) => void;
   updateTab: (paneId: string, tabId: string, updates: Partial<Tab>) => void;
+  updateTabContent: (tabId: string, content: string, immediate?: boolean) => void;
   moveTab: (fromPaneId: string, toPaneId: string, tabId: string) => void;
 
   // ユーティリティ
@@ -31,12 +39,22 @@ interface TabStore {
   getTab: (paneId: string, tabId: string) => Tab | null;
   getAllTabs: () => Tab[];
   findTabByPath: (path: string, kind?: string) => { paneId: string; tab: Tab } | null;
+
+  // セッション管理
+  saveSession: () => Promise<void>;
+  loadSession: () => Promise<void>;
 }
 
 export const useTabStore = create<TabStore>((set, get) => ({
   panes: [],
   activePane: null,
   globalActiveTab: null,
+  isLoading: true,
+  isRestored: false,
+  isContentRestored: false,
+
+  setIsLoading: (loading: boolean) => set({ isLoading: loading, isRestored: !loading }),
+  setIsContentRestored: (restored: boolean) => set({ isContentRestored: restored }),
 
   setPanes: panes => set({ panes }),
 
@@ -136,8 +154,6 @@ export const useTabStore = create<TabStore>((set, get) => ({
     const state = get();
     const kind = options.kind || file.kind || 'editor';
     let targetPaneId = options.paneId || state.activePane || state.panes[0]?.id;
-
-    console.log('[TabStore] openTab called:', { file, options, kind });
 
     // ペインが存在しない場合は新しいペインを作成
     if (!targetPaneId) {
@@ -413,5 +429,78 @@ export const useTabStore = create<TabStore>((set, get) => ({
 
   resizePane: (paneId, newSize) => {
     get().updatePane(paneId, { size: newSize });
+  },
+
+  updateTabContent: (tabId: string, content: string, immediate = false) => {
+    const allTabs = get().getAllTabs();
+    const tabInfo = allTabs.find(t => t.id === tabId);
+
+    if (tabInfo) {
+      const result = get().findTabByPath(tabInfo.path || '', tabInfo.kind);
+      if (result) {
+        const updates: Partial<Tab> = immediate
+          ? ({ content, isDirty: true } as any)
+          : ({ content, isDirty: false } as any);
+        get().updateTab(result.paneId, tabId, updates);
+      }
+    }
+  },
+
+  saveSession: async () => {
+    const state = get();
+    const { sessionStorage } = await import('@/stores/sessionStorage');
+    const session = {
+      version: 1,
+      lastSaved: Date.now(),
+      tabs: {
+        panes: state.panes,
+        activePane: state.activePane,
+        globalActiveTab: state.globalActiveTab,
+      },
+      ui: {
+        leftSidebarWidth: 240,
+        rightSidebarWidth: 240,
+        bottomPanelHeight: 200,
+        isLeftSidebarVisible: true,
+        isRightSidebarVisible: true,
+        isBottomPanelVisible: true,
+      },
+    };
+    await sessionStorage.save(session);
+  },
+
+  loadSession: async () => {
+    try {
+      const { sessionStorage } = await import('@/stores/sessionStorage');
+      console.log('[TabStore] Loading session from IndexedDB...');
+      const session = await sessionStorage.load();
+
+      set({
+        panes: session.tabs.panes,
+        activePane: session.tabs.activePane || null,
+      });
+
+      console.log('[TabStore] Session restored successfully');
+
+      // タブが1つもない場合は即座にコンテンツ復元完了とする
+      const hasAnyTabs = session.tabs.panes.some((pane: any) => {
+        const checkPane = (p: any): boolean => {
+          if (p.tabs && p.tabs.length > 0) return true;
+          if (p.children) return p.children.some(checkPane);
+          return false;
+        };
+        return checkPane(pane);
+      });
+
+      if (!hasAnyTabs) {
+        console.log('[TabStore] No tabs to restore, marking as completed immediately');
+        set({ isContentRestored: true });
+      }
+    } catch (error) {
+      console.error('[TabStore] Failed to restore session:', error);
+      set({ isContentRestored: true });
+    } finally {
+      set({ isLoading: false, isRestored: true });
+    }
   },
 }));
