@@ -137,7 +137,7 @@ JavaScriptでは不可能なファイルオペレーションやインタラク�
 
 ---
 
-### 🧩 Pyxis拡張機能システム - 2025年新世代
+### 🧩 Pyxis拡張機能システム
 
 <div align="center">
   <img src="readme-assets/IMG_0113.png" alt="Pyxis Extension System UI" width="80%" />
@@ -155,7 +155,7 @@ Pyxis最大の特徴のひとつが「拡張機能システム」です。VSCode
 
 「VSCode級のUI拡張がWeb/iPadで動く」「Terminalコマンドも拡張可能」「公式テンプレートで即開発」など、他にない柔軟性と拡張性を持っています。
 
-詳細は `/extensions/README.md` や `/Development/EXTENSION-TAB-SIDEBAR-API.md` を参照。
+詳細は [Extension Readme](/extensions/README.md) や、より詳細な[EXTENSION-SYSTEM](/docs/EXTENSION-SYSTEM.md)を参照。
 
 ---
 

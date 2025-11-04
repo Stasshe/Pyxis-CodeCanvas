@@ -136,7 +136,7 @@ Emulates file operations and interactive user input/output that are impossible i
 
 ---
 
-### 🧩 Pyxis Extension System - Next Generation (2025)
+### 🧩 Pyxis Extension System
 
 <div align="center">
   <img src="readme-assets/IMG_0113.png" alt="Pyxis Extension System UI" width="80%" />
