@@ -61,5 +61,8 @@ scripts/i18n/*results.txt
 
 
 extensions/registry.json
+extensions/**/PNPM-GUIDE.md
+
+
 # npm lock file (use pnpm instead)
 package-lock.json
