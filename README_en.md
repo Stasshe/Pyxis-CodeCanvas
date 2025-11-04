@@ -142,6 +142,10 @@ Emulates file operations and interactive user input/output that are impossible i
   <img src="readme-assets/IMG_0113.png" alt="Pyxis Extension System UI" width="80%" />
 </div>
 
+<div align="center">
+  <img src="readme-assets/IMG_0117.png" alt="Template CLI Screenshot" width="80%" />
+</div>
+
 One of Pyxis's biggest features is its "Extension System." You can add VSCode-like UI extensions, use any npm library, create custom terminal commands, language packs, transpilers, and service extensions—all in TypeScript/TSX.
 
 #### Highlights

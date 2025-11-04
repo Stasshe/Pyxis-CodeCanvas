@@ -143,6 +143,10 @@ JavaScriptでは不可能なファイルオペレーションやインタラク�
   <img src="readme-assets/IMG_0113.png" alt="Pyxis Extension System UI" width="80%" />
 </div>
 
+<div align="center">
+  <img src="readme-assets/IMG_0117.png" alt="Template CLI Screenshot" width="80%" />
+</div>
+
 Pyxis最大の特徴のひとつが「拡張機能システム」です。VSCodeライクなUI拡張・npmライブラリ完全対応・Terminalコマンド拡張・多言語パック・トランスパイラ・サービス拡張など、あらゆる機能をTypeScript/TSXで自由に追加できます。
 
 #### 主なポイント

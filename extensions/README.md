@@ -42,6 +42,11 @@ extensions/
 
 1. **拡張機能テンプレート作成**
     - `npm run create-extension`で対話生成
+
+<div align="center">
+  <img src="../readme-assets/IMG_0117.png" alt="テンプレート作成CLIの様子" width="80%" />
+</div>
+
     - または手動で`extensions/<name>/`ディレクトリ作成
 2. **npmライブラリ追加**
     - `package.json`を作成し、`pnpm install chart.js lodash`などで依存追加
