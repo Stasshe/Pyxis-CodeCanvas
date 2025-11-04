@@ -20,7 +20,7 @@
 
 import { useRef, useEffect, useCallback, useState } from 'react';
 import { useSettings } from '@/hooks/useSettings';
-import { useTabContext } from '@/context/TabContext';
+import { useTabStore } from '@/stores/tabStore';
 import type { Project } from '@/types';
 import type { EditorTab } from '@/engine/tabs/types';
 import { useCharCount } from './text-editor/hooks/useCharCount';
@@ -54,7 +54,7 @@ export default function CodeEditor({
   // プロジェクトIDは優先的に props の currentProject?.id を使い、なければ activeTab の projectId を参照
   const projectId = currentProject?.id || (activeTab as any)?.projectId || undefined;
   const { settings } = useSettings(projectId);
-  const { isContentRestored } = useTabContext();
+  const { isContentRestored } = useTabStore();
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // コンテンツ復元中かどうかを判定

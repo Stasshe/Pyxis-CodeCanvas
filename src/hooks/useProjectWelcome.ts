@@ -1,14 +1,14 @@
 // src/hooks/useProjectWelcome.ts
 import { useEffect } from 'react';
 
-import { useTabContext } from '@/context/TabContext';
+import { useTabStore } from '@/stores/tabStore';
 import { Project } from '@/types';
 
 /**
  * プロジェクト読み込み時にWelcomeタブを開くカスタムフック
  */
 export function useProjectWelcome(currentProject: Project | null) {
-  const { panes, openTab } = useTabContext();
+  const { panes, openTab } = useTabStore();
 
   useEffect(() => {
     if (!currentProject) {
