@@ -91,8 +91,10 @@ export default function RootLayout({
     <html
       lang="en"
       className="h-full"
+      translate="no"
     >
       <head>
+        <meta name="google" content="notranslate" />
         <link
           rel="icon"
           href={`${basePath}/favicon.ico`}
