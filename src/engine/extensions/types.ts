@@ -178,7 +178,7 @@ export interface ExtensionContext {
   };
 
   /** システムモジュールへのアクセス (型安全) */
-  getSystemModule?: <T extends keyof SystemModuleMap>(
+  getSystemModule: <T extends keyof SystemModuleMap>(
     moduleName: T
   ) => Promise<SystemModuleMap[T]>;
 
@@ -189,7 +189,7 @@ export interface ExtensionContext {
   };
 
   /** Tab API - 拡張機能が自分のタブを作成・管理 */
-  tabs?: {
+  tabs: {
     registerTabType: (component: any) => void;
     createTab: (options: CreateTabOptions) => string;
     updateTab: (tabId: string, options: UpdateTabOptions) => boolean;
@@ -208,7 +208,7 @@ export interface ExtensionContext {
   };
 
   /** Sidebar API - 拡張機能がサイドバーパネルを追加 */
-  sidebar?: {
+  sidebar: {
     createPanel: (definition: SidebarPanelDefinition) => void;
     updatePanel: (panelId: string, state: any) => void;
     removePanel: (panelId: string) => void;
@@ -219,7 +219,7 @@ export interface ExtensionContext {
   };
 
   /** Commands API - 拡張機能がターミナルコマンドを追加 */
-  commands?: {
+  commands: {
     registerCommand: (commandName: string, handler: CommandHandler) => () => void;
   };
 }

@@ -82,8 +82,8 @@ function createTodoSidebarPanel(context: ExtensionContext) {
 
     // TODOをクリックしたときにファイルを開く
     const handleTodoClick = (todo: TodoItem) => {
-      if (!context?.tabs?.openSystemTab) {
-        context.logger?.error('openSystemTab is not available');
+      if (!context?.tabs.openSystemTab) {
+        context.logger.error('openSystemTab is not available');
         return;
       }
 
@@ -95,9 +95,9 @@ function createTodoSidebarPanel(context: ExtensionContext) {
           activateAfterOpen: true,
         });
         
-        context.logger?.info(`Opened file: ${todo.filePath} at line ${todo.line}`);
+        context.logger.info(`Opened file: ${todo.filePath} at line ${todo.line}`);
       } catch (error) {
-        context.logger?.error('Failed to open file:', error);
+        context.logger.error('Failed to open file:', error);
       }
     };
 
@@ -265,10 +265,10 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
     });
 
     context.sidebar.onPanelActivate('todo-scanner', async (panelId: string) => {
-      context.logger?.info(`TODO panel activated: ${panelId}`);
+      context.logger.info(`TODO panel activated: ${panelId}`);
     });
 
-    context.logger?.info('TODO sidebar panel registered');
+    context.logger.info('TODO sidebar panel registered');
   }
 
   // UI拡張機能なので、services/commandsは不要

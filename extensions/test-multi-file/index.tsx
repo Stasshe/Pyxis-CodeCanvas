@@ -130,10 +130,10 @@ export function activate(context: ExtensionContext): ExtensionActivation {
     });
 
     context.sidebar.onPanelActivate('test-multi-file-panel', async (panelId: string) => {
-      context.logger?.info(`Multi-File Test panel activated: ${panelId}`);
+      context.logger.info(`Multi-File Test panel activated: ${panelId}`);
     });
 
-    context.logger?.info('Multi-File Test sidebar panel registered');
+    context.logger.info('Multi-File Test sidebar panel registered');
   }
 
   // UI拡張機能なので、services/commandsは不要

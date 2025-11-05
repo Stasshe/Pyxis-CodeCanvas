@@ -555,10 +555,24 @@ class ExtensionManager {
    * ExtensionContextを作成
    */
   private async createExtensionContext(extensionId: string): Promise<ExtensionContext> {
-    // TabAPIとSidebarAPIのインスタンスを作成
+    // Load APIs we need to wire into the context. Import commandRegistry here so
+    // we can create a fully-typed `ExtensionContext` literal (no `as` cast).
     const { TabAPI } = await import('./system-api/TabAPI');
     const { SidebarAPI } = await import('./system-api/SidebarAPI');
+    const { commandRegistry } = await import('./commandRegistry');
 
+    // Helper used for strict initial stubs: if a consumer calls an API too
+    // early, throw a useful error. We'll overwrite these stubs with real
+    // implementations below.
+    const notInitialized = (fnName: string) => (..._args: any[]) => {
+      throw new Error(
+        `[Extension:${extensionId}] ${fnName} called before extension context was fully initialized`
+      );
+    };
+
+    // Create a fully-populated ExtensionContext literal so TypeScript verifies
+    // all required properties at compile time. Use strict stubs for tabs and
+    // sidebar; commands uses commandRegistry and wraps handlers.
     const context: ExtensionContext = {
       extensionId,
       extensionPath: `/extensions/${extensionId.replace(/\./g, '/')}`,
@@ -571,7 +585,7 @@ class ExtensionManager {
       getSystemModule: async <T extends SystemModuleName>(
         moduleName: T
       ): Promise<SystemModuleMap[T]> => {
-        // システムモジュールへのアクセスを提供（型安全）
+      // システムモジュールへのアクセスを提供（型安全）
         switch (moduleName) {
           case 'fileRepository': {
             const { fileRepository } = await import('@/engine/core/fileRepository');
@@ -594,9 +608,39 @@ class ExtensionManager {
           }
         }
       },
+      // strict stubs — will be replaced after real API instances are created
+      tabs: {
+        registerTabType: notInitialized('tabs.registerTabType'),
+        createTab: notInitialized('tabs.createTab'),
+        updateTab: notInitialized('tabs.updateTab'),
+        closeTab: notInitialized('tabs.closeTab'),
+        onTabClose: notInitialized('tabs.onTabClose'),
+        getTabData: notInitialized('tabs.getTabData'),
+        openSystemTab: notInitialized('tabs.openSystemTab'),
+      },
+      sidebar: {
+        createPanel: notInitialized('sidebar.createPanel'),
+        updatePanel: notInitialized('sidebar.updatePanel'),
+        removePanel: notInitialized('sidebar.removePanel'),
+        onPanelActivate: notInitialized('sidebar.onPanelActivate'),
+      },
+      commands: {
+        registerCommand: (commandName: string, handler: any) => {
+          // wrap the handler so callers receive a merged CommandContext
+          const wrappedHandler = async (args: string[], cmdContext: any) => {
+            const fullContext = {
+              ...context,
+              ...cmdContext,
+            };
+            return handler(args, fullContext);
+          };
+          return commandRegistry.registerCommand(extensionId, commandName, wrappedHandler);
+        },
+      },
     };
 
-    // TabAPIとSidebarAPIを初期化して追加
+    // Initialize real API instances and overwrite the strict stubs with
+    // concrete implementations.
     const tabAPI = new TabAPI(context);
     const sidebarAPI = new SidebarAPI(context);
 
@@ -618,22 +662,8 @@ class ExtensionManager {
         sidebarAPI.onPanelActivate(panelId, callback),
     };
 
-    // Commands APIを追加
-    const { commandRegistry } = await import('./commandRegistry');
-    context.commands = {
-      registerCommand: (commandName: string, handler: any) => {
-        // ハンドラーをラップして、ExtensionContextを含むCommandContextを作成
-        const wrappedHandler = async (args: string[], cmdContext: any) => {
-          // ExtensionContext全体をCommandContextとしてマージ
-          const fullContext = {
-            ...context, // ExtensionContext全体（getSystemModule, logger等を含む）
-            ...cmdContext, // Terminal側から渡されるプロジェクト情報
-          };
-          return handler(args, fullContext);
-        };
-        return commandRegistry.registerCommand(extensionId, commandName, wrappedHandler);
-      },
-    };
+    // commands was created above with a working implementation that uses the
+    // imported commandRegistry — nothing more to do here.
 
     // APIインスタンスを保存（dispose用）
     (context as any)._tabAPI = tabAPI;

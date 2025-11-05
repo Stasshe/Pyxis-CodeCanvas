@@ -295,7 +295,7 @@ function createNotesListPanel(context: ExtensionContext) {
         deleteNoteByKey(noteKey);
         loadNotes();
         setConfirmDelete(null);
-        context.logger?.info(`Note deleted: ${noteKey}`);
+        context.logger.info(`Note deleted: ${noteKey}`);
       } else {
         setConfirmDelete(noteKey);
         setTimeout(() => setConfirmDelete(null), 3000);
@@ -548,7 +548,7 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
       component: NotesListPanelWithContext,
     });
 
-    context.logger?.info('Notes sidebar panel registered');
+    context.logger.info('Notes sidebar panel registered');
   }
 
   // UI拡張機能なので、services/commandsは不要

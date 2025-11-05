@@ -151,7 +151,7 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
       icon: 'BarChart3',
       component: ChartSidebarPanel,
     });
-    context.logger?.info('Chart sidebar panel registered');
+    context.logger.info('Chart sidebar panel registered');
   }
   return {};
 }

@@ -200,13 +200,13 @@ export interface ExtensionContext {
   };
 
   /** Tab API - extension-facing tabs API */
-  tabs?: ExtensionTabsAPI;
+  tabs: ExtensionTabsAPI;
 
   /** Sidebar API */
-  sidebar?: ExtensionSidebarAPI;
+  sidebar: ExtensionSidebarAPI;
 
   /** Commands API */
-  commands?: ExtensionCommandsAPI;
+  commands: ExtensionCommandsAPI;
 }
 
 /**
