@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from '@/context/I18nContext';
 import { FileItem } from '@/types';
 import { useTheme } from '@/context/ThemeContext';
@@ -150,7 +150,7 @@ export default function OperationWindow({
   // 除外判定はuseSettingsから取得
   // 検索ロジック（ファイル名・フォルダ名・パスのいずれかに一致）
   // Parse .gitignore from project files (if present) and build rules
-  const gitignoreRules = React.useMemo(() => {
+  const gitignoreRules = useMemo(() => {
     try {
       const flat = flattenFileItems(projectFiles);
       const git = flat.find(f => f.name === '.gitignore' || f.path === '.gitignore');

@@ -1064,26 +1064,7 @@ function MyTabComponent({ tab, isActive }: any) {
 
 ### 4. パフォーマンス最適化
 
-React.memoやuseCallbackを使用してパフォーマンスを最適化しましょう:
-
-```typescript
-// コンポーネントのメモ化
-const MyPanelComponent = React.memo(({ extensionId, panelId, isActive, state }: any) => {
-  const [items, setItems] = useState([]);
-
-  // コールバックのメモ化
-  const handleItemClick = React.useCallback((itemId: string) => {
-  context.logger.info(`Item clicked: ${itemId}`);
-    // アイテムを開く処理
-  }, []);
-
-  const handleDelete = React.useCallback((itemId: string) => {
-    setItems(prev => prev.filter(item => item.id !== itemId));
-  }, []);
-
-  return React.createElement('div', { /* ... */ });
-});
-```
+useMemoやuseCallbackを使用してパフォーマンスを最適化しましょう:
 
 ### 5. コンポーネント間の通信
 
