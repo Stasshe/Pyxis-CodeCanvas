@@ -416,16 +416,24 @@ export class StreamShell {
           }
         }
 
-        // Fallback to unix handler
+        // Fallback to unix handler (returns structured {code, output})
         try {
           const { handleUnixCommand } = await import('../handlers/unixHandler');
-          let captured = '';
-          await handleUnixCommand(cmd, args, this.projectName, this.projectId, async (out: string) => {
-            captured += out + '\n';
+          const res = await handleUnixCommand(cmd, args, this.projectName, this.projectId, async (out: string) => {
+            // also stream partial output immediately where possible
+            try {
+              proc.writeStdout(out);
+            } catch (e) {}
           });
-          if (captured) proc.writeStdout(captured.trimEnd());
+          // ensure any returned output is written
+          if (res && res.output) {
+            try {
+              proc.writeStdout(String(res.output).trimEnd());
+            } catch (e) {}
+          }
           proc.endStdout();
-          proc.exit(0);
+          proc.endStderr();
+          proc.exit(res && typeof res.code === 'number' ? res.code : 0);
           return;
         } catch (e: any) {
           proc.writeStderr(`Command not found: ${cmd}\n`);

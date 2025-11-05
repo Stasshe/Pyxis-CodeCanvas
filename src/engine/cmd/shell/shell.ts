@@ -207,11 +207,10 @@ export class Shell {
             // prefer builtins above. Here we call handleUnixCommand via imports to preserve
             // existing behavior for other commands.
             const { handleUnixCommand } = await import('../handlers/unixHandler');
-            let captured = '';
-            await handleUnixCommand(cmd, args, this.projectName, this.projectId, async (out: string) => {
-              captured += out + '\n';
+            const res = await handleUnixCommand(cmd, args, this.projectName, this.projectId, async (out: string) => {
+              // ignore streaming callback here; we'll use the returned output
             });
-            return { stdout: captured.trimEnd(), stderr: '', code: 0 };
+            return { stdout: (res && res.output) ? String(res.output).trimEnd() : '', stderr: '', code: res && typeof res.code === 'number' ? res.code : 0 };
           } catch (e: any) {
             return { stdout: '', stderr: `Command not found: ${cmd}`, code: 127 };
           }
