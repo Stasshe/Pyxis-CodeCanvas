@@ -117,8 +117,11 @@ Root
 │       ├── format_json.js
 │       ├── format_locales.sh
 │       ├── i18n-auto-add-missing.js
+│       ├── i18n-compare-missing-keys-results.txt
+│       ├── i18n-detect-results.txt
 │       ├── i18n-detect.sh
 │       ├── i18n-exclude.txt
+│       ├── i18n-missing-keys-results.txt
 │       ├── i18n-missing-keys.sh
 │       ├── one_file_i18n_extract.pl
 │       ├── one_file_t_extract.pl
@@ -384,9 +387,10 @@ Root
 ├── tree-built-out.sh
 ├── tree.sh
 ├── tree.txt
-└── tsconfig.json
+├── tsconfig.json
+└── tsconfig.tsbuildinfo
 
-59 directories, 327 files
+59 directories, 331 files
 
 =================================
 
@@ -394,6 +398,7 @@ extensions/ 以下のディレクトリ構造:
 .
 ├── README.md
 ├── _shared
+│   ├── README.md
 │   ├── systemModuleTypes.ts
 │   └── types.ts
 ├── chart-extension
@@ -403,6 +408,7 @@ extensions/ 以下のディレクトリ構造:
 │   ├── node_modules
 │   │   └── chart.js -> ../../../node_modules/.pnpm/chart.js@4.5.1/node_modules/chart.js
 │   └── package.json
+├── command-test4
 ├── lang-packs
 │   ├── ar
 │   │   ├── index.ts
@@ -485,18 +491,18 @@ extensions/ 以下のディレクトリ構造:
     ├── manifest.json
     └── transpile.worker.ts
 
-31 directories, 62 files
+32 directories, 63 files
 
 =================================
 
 
 src/*.ts, *.tsx の統計:
-合計行数: 46674
-合計文字数: 1500273
-合計ファイルサイズ(bytes): 1605868
+合計行数: 46753
+合計文字数: 1506902
+合計ファイルサイズ(bytes): 1612525
 
-開発時のdev container全体のサイズ(bytes): 1.7G	.
+開発時のdev container全体のサイズ(bytes): 1.9G	.
 ==========
-ビルト済みファイルの行数: 41075
-合計文字数: 26024415
-合計ファイルサイズ(bytes): 27007510
+ビルト済みファイルの行数: 41227
+合計文字数: 26038673
+合計ファイルサイズ(bytes): 27022450
