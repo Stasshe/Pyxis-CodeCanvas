@@ -84,19 +84,16 @@ function ClientTerminal({
           '/projects/' + currentProject
         );
       } catch (e) {
-        // Fallback to direct construction if registry import fails (backwards compat)
+        // Do NOT fallback to direct construction here — enforce single responsibility:
+        // Terminal must rely on the terminalCommandRegistry to provide instances.
         if (!mounted) return;
-        console.warn(
-          '[Terminal] terminal registry load failed, falling back to direct instances',
-          e
+        console.error('[Terminal] terminal registry load failed — builtin commands not initialized', e);
+        pushMsgOutPanel(
+          'Terminal: failed to load terminalCommandRegistry — builtin commands unavailable',
+          'error',
+          'Terminal'
         );
-        unixCommandsRef.current = new UnixCommands(currentProject, currentProjectId);
-        gitCommandsRef.current = new GitCommands(currentProject, currentProjectId);
-        npmCommandsRef.current = new NpmCommands(
-          currentProject,
-          currentProjectId,
-          '/projects/' + currentProject
-        );
+        // Leave refs null so callers can handle the absence explicitly.
       }
     };
 
