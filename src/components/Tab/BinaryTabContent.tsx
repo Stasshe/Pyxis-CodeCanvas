@@ -1,8 +1,6 @@
 import React from 'react';
 import { FileText } from 'lucide-react';
 import { useTranslation } from '@/context/I18nContext';
-import MarkdownPreviewTab from './MarkdownPreviewTab';
-import WelcomeTab from './WelcomeTab';
 import { BinaryTab, EditorTab } from '@/engine/tabs/types';
 
 interface BinaryTabContentProps {

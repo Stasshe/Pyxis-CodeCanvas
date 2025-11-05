@@ -14,7 +14,7 @@ import { useState, useEffect } from 'react';
 import { fileRepository } from './fileRepository';
 
 import { LOCALSTORAGE_KEY } from '@/context/config';
-import { GitCommands } from '@/engine/cmd/git';
+import { terminalCommandRegistry } from '@/engine/cmd/global/terminalRegistry';
 import { FileItem } from '@/types';
 import { Project, ProjectFile } from '@/types/';
 
@@ -26,7 +26,7 @@ const initializeProjectGit = async (project: Project, files: ProjectFile[]) => {
     console.log('[Git] Initializing for project:', project.name);
     // GitFileSystemやsyncManagerへの直接同期はfileRepository側に委譲
     // ここではGitリポジトリの初期化と初回コミットのみ行う
-    const git = new GitCommands(project.name, project.id);
+  const git = terminalCommandRegistry.getGitCommands(project.name, project.id);
     try {
       await git.init();
       console.log('[Git] Repository initialized');
@@ -153,7 +153,7 @@ export const useProject = () => {
       setCurrentProject(project);
       setProjectFiles(files);
       try {
-        const git = new GitCommands(project.name, project.id);
+  const git = terminalCommandRegistry.getGitCommands(project.name, project.id);
         const currentBranch = await git.getCurrentBranch();
         if (currentBranch === '(no git)') {
           console.log('[Project] Git not initialized, initializing...');

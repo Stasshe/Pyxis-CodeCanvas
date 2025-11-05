@@ -7,7 +7,7 @@ import { exportFolderZip } from '@/engine/export/exportFolderZip';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { getIconForFile, getIconForFolder, getIconForOpenFolder } from 'vscode-icons-js';
 import { FileItem } from '@/types';
-import { UnixCommands } from '@/engine/cmd/unix';
+import { terminalCommandRegistry } from '@/engine/cmd/global/terminalRegistry';
 import { isBufferArray } from '@/engine/helper/isBufferArray';
 import { importSingleFile } from '@/engine/import/importSingleFile';
 import { fileRepository } from '@/engine/core/fileRepository';
@@ -57,10 +57,9 @@ export default function FileTree({
         return new Promise<void>(resolve => {
           if (item.isFile) {
             item.file(async (file: File) => {
-              const unix = new UnixCommands(currentProjectName, currentProjectId);
               const importPath = `${path}${file.name}`;
               const absolutePath = `/projects/${currentProjectName}${importPath}`;
-              await importSingleFile(file, absolutePath, unix);
+              await importSingleFile(file, absolutePath, currentProjectName, currentProjectId);
               resolve();
             });
           } else if (item.isDirectory) {
@@ -98,10 +97,9 @@ export default function FileTree({
 
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const unix = new UnixCommands(currentProjectName, currentProjectId);
         const importPath = targetPath ? `${targetPath}/${file.name}` : `/${file.name}`;
         const absolutePath = `/projects/${currentProjectName}${importPath}`;
-        await importSingleFile(file, absolutePath, unix);
+        await importSingleFile(file, absolutePath, currentProjectName, currentProjectId);
       }
 
       // [NEW ARCHITECTURE] ファイルツリー再読み込み
@@ -213,7 +211,9 @@ export default function FileTree({
     } else {
       const defaultEditor =
         typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
-      openTab({ ...item, isCodeMirror: defaultEditor === 'codemirror' }, { kind: 'editor' });
+      // バイナリファイルは binary タブで開く
+      const kind = item.isBufferArray ? 'binary' : 'editor';
+      openTab({ ...item, isCodeMirror: defaultEditor === 'codemirror' }, { kind });
     }
   };
 
@@ -514,7 +514,10 @@ export default function FileTree({
 
               const handleMenuAction = async (key: string, menuItem: FileItem | null) => {
                 setContextMenu(null);
-                const unix = new UnixCommands(currentProjectName, currentProjectId);
+                const unix = terminalCommandRegistry.getUnixCommands(
+                  currentProjectName,
+                  currentProjectId || ''
+                );
 
                 if (key === 'createFile') {
                   const fileName = prompt(t('fileTree.prompt.newFileName'));
@@ -553,7 +556,7 @@ export default function FileTree({
                       const relPathParts = relative.split('/').filter(Boolean);
                       const targetPath = '/' + relPathParts.join('/');
                       const targetAbsolutePath = `/projects/${currentProjectName}${targetPath}`;
-                      await importSingleFile(file, targetAbsolutePath, unix);
+                      await importSingleFile(file, targetAbsolutePath, currentProjectName, currentProjectId);
                     }
                     if (onRefresh) setTimeout(onRefresh, 100);
                   };
@@ -564,13 +567,21 @@ export default function FileTree({
                 // actions for existing item
                 if (!menuItem) return;
 
-                if (key === 'open') {
-                  openTab(menuItem, { kind: 'editor' });
+                  if (key === 'open') {
+                  // バイナリファイルは binary、そうでなければ editor
+                  const kind = menuItem && (menuItem as FileItem).isBufferArray ? 'binary' : 'editor';
+                  openTab(menuItem, { kind });
                 } else if (key === 'openPreview') {
                   handlePreview(menuItem);
                 } else if (key === 'openCodeMirror') {
-                  if (menuItem && menuItem.type === 'file')
-                    openTab({ ...menuItem, isCodeMirror: true }, { kind: 'editor' });
+                  if (menuItem && menuItem.type === 'file') {
+                    // CodeMirrorはテキスト向け。バイナリの場合は binary で開く。
+                    if ((menuItem as FileItem).isBufferArray) {
+                      openTab(menuItem, { kind: 'binary' });
+                    } else {
+                      openTab({ ...menuItem, isCodeMirror: true }, { kind: 'editor' });
+                    }
+                  }
                 } else if (key === 'download') {
                   const item = menuItem;
                   if (item.type === 'file') {
@@ -593,7 +604,6 @@ export default function FileTree({
                   input.onchange = async (e: any) => {
                     const files: FileList = e.target.files;
                     if (!files || files.length === 0) return;
-                    const unixLocal = new UnixCommands(currentProjectName, currentProjectId);
                     let baseTargetDir = '';
                     if (menuItem) {
                       if (menuItem.type === 'file')
@@ -614,7 +624,7 @@ export default function FileTree({
                           '//',
                           '/'
                         );
-                      await importSingleFile(file, targetAbsolutePath, unixLocal);
+                      await importSingleFile(file, targetAbsolutePath, currentProjectName, currentProjectId);
                     }
                     if (onRefresh) setTimeout(onRefresh, 100);
                   };

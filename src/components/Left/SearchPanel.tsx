@@ -129,8 +129,10 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
       isBufferArray: result.file.isBufferArray,
       bufferContent: result.file.bufferContent,
     };
+    // バイナリファイルの場合は binary タブで開く
+    const kind = result.file.isBufferArray ? 'binary' : 'editor';
     openTab(fileWithJump, {
-      kind: 'editor',
+      kind,
       jumpToLine: result.line,
       jumpToColumn: result.column,
     });

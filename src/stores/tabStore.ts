@@ -150,9 +150,11 @@ export const useTabStore = create<TabStore>((set, get) => ({
 
   setActivePane: paneId => set({ activePane: paneId }),
 
-  openTab: (file, options = {}) => {
+    openTab: (file, options = {}) => {
     const state = get();
-    const kind = options.kind || file.kind || 'editor';
+    // 優先順位: options.kind -> file.kind -> (buffer arrayなら'binary') -> 'editor'
+    const kind =
+      options.kind || file.kind || (file && (file.isBufferArray === true || file.isBufferArray) ? 'binary' : 'editor');
     let targetPaneId = options.paneId || state.activePane || state.panes[0]?.id;
     // もし全体でタブが一つもない場合は、優先順に
     // 1) options.paneId

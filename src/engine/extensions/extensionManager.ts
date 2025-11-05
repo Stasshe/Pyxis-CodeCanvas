@@ -599,6 +599,11 @@ class ExtensionManager {
             const { commandRegistry } = await import('./commandRegistry');
             return commandRegistry as SystemModuleMap[T];
           }
+          case 'systemBuiltinCommands': {
+            // Provide registry that returns singleton command instances per project
+            const { terminalCommandRegistry } = await import('@/engine/cmd/global/terminalRegistry');
+            return terminalCommandRegistry as unknown as SystemModuleMap[T];
+          }
           default: {
             // TypeScriptの網羅性チェック用の変数
             // 実行時には到達しないが、型エラーメッセージを改善するために使用

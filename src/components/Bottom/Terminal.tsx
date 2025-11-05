@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { useTranslation } from '@/context/I18nContext';
-import { UnixCommands } from '@/engine/cmd/unix';
-import { GitCommands } from '@/engine/cmd/git';
-import { NpmCommands } from '@/engine/cmd/npm';
+import type { UnixCommands } from '@/engine/cmd/global/unix';
+import type { GitCommands } from '@/engine/cmd/global/git';
+import type { NpmCommands } from '@/engine/cmd/global/npm';
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
@@ -13,6 +13,7 @@ import { handleGitCommand } from './TerminalGitCommands';
 import { handleUnixCommand } from './TerminalUnixCommands';
 import { handleNPMCommand } from './TerminalNPMCommands';
 import { handlePyxisCommand } from './TerminalPyxisCommands';
+import { handleVimCommand } from '@/engine/cmd/vim';
 import { LOCALSTORAGE_KEY } from '@/context/config';
 
 interface TerminalProps {
@@ -61,13 +62,42 @@ function ClientTerminal({
     };
 
     initializeTerminal();
-    unixCommandsRef.current = new UnixCommands(currentProject, currentProjectId);
-    gitCommandsRef.current = new GitCommands(currentProject, currentProjectId);
-    npmCommandsRef.current = new NpmCommands(
-      currentProject,
-      currentProjectId,
-      '/projects/' + currentProject
-    );
+
+    // Use shared registry to ensure singleton instances per project.
+    // Use a named async function + mounted flag for readability and to avoid updating refs after unmount.
+    let mounted = true;
+    const loadRegistry = async () => {
+      try {
+        const { terminalCommandRegistry } = await import('@/engine/cmd/global/terminalRegistry');
+        if (!mounted) return;
+        unixCommandsRef.current = terminalCommandRegistry.getUnixCommands(
+          currentProject,
+          currentProjectId
+        );
+        gitCommandsRef.current = terminalCommandRegistry.getGitCommands(
+          currentProject,
+          currentProjectId
+        );
+        npmCommandsRef.current = terminalCommandRegistry.getNpmCommands(
+          currentProject,
+          currentProjectId,
+          '/projects/' + currentProject
+        );
+      } catch (e) {
+        // Do NOT fallback to direct construction here — enforce single responsibility:
+        // Terminal must rely on the terminalCommandRegistry to provide instances.
+        if (!mounted) return;
+        console.error('[Terminal] terminal registry load failed — builtin commands not initialized', e);
+        pushMsgOutPanel(
+          'Terminal: failed to load terminalCommandRegistry — builtin commands unavailable',
+          'error',
+          'Terminal'
+        );
+        // Leave refs null so callers can handle the absence explicitly.
+      }
+    };
+
+    loadRegistry();
 
     // xterm関連のモジュールをrequire（クライアントサイドでのみ実行）
     const { Terminal: XTerm } = require('@xterm/xterm');
@@ -391,15 +421,35 @@ function ClientTerminal({
                 };
               };
 
+              // Resolve file path relative to current working directory when a relative
+              // path is provided so that `node ./src/index.js` behaves like a real shell.
+              let entryPath = args[0];
+              try {
+                if (unixCommandsRef.current) {
+                  // If path is not absolute, join with cwd and normalize
+                  if (!entryPath.startsWith('/')) {
+                    const cwd = await unixCommandsRef.current.pwd();
+                    const combined = cwd.replace(/\/$/, '') + '/' + entryPath;
+                    entryPath = unixCommandsRef.current.normalizePath(combined);
+                  } else {
+                    // absolute path — normalize to collapse ./ ../ if any
+                    entryPath = unixCommandsRef.current.normalizePath(entryPath);
+                  }
+                }
+              } catch (e) {
+                // Fallback to original arg if any error occurs during resolution
+                entryPath = args[0];
+              }
+
               const runtime = new NodeRuntime({
                 projectId: currentProjectId,
                 projectName: currentProject,
-                filePath: args[0],
+                filePath: entryPath,
                 debugConsole,
                 onInput,
               });
 
-              await runtime.execute(args[0]);
+              await runtime.execute(entryPath);
             } catch (e) {
               await captureWriteOutput(`\x1b[31mnode: エラー: ${(e as Error).message}\x1b[0m`);
             }
@@ -457,6 +507,16 @@ function ClientTerminal({
 
           case 'npm':
             await handleNPMCommand(args, npmCommandsRef, captureWriteOutput);
+            break;
+
+          case 'vim':
+            await handleVimCommand(
+              args,
+              unixCommandsRef,
+              captureWriteOutput,
+              currentProject,
+              currentProjectId
+            );
             break;
 
           default: {
@@ -776,6 +836,8 @@ function ClientTerminal({
 
     // クリーンアップ
     return () => {
+      // prevent updates from async tasks after unmount
+      mounted = false;
       if (terminalRef.current) {
         terminalRef.current.removeEventListener('touchstart', handleTouchStart);
         terminalRef.current.removeEventListener('touchmove', handleTouchMove);

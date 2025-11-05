@@ -1,15 +1,15 @@
 // TerminalPyxisCommands.tsx
 // Pyxis独自のターミナルコマンドをまとめたモジュール
 
-import type { UnixCommands } from '@/engine/cmd/unix';
-import type { GitCommands } from '@/engine/cmd/git';
-import type { NpmCommands } from '@/engine/cmd/npm';
+import type { UnixCommands } from '@/engine/cmd/global/unix';
+import type { GitCommands } from '@/engine/cmd/global/git';
+import type { NpmCommands } from '@/engine/cmd/global/npm';
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { exportPage } from '@/engine/export/exportPage';
 import { LOCALSTORAGE_KEY } from '@/context/config';
 import { clearAllTranslationCache, deleteTranslationCache } from '@/engine/i18n/storage-adapter';
-import { tree as treeOperation } from '@/engine/cmd/gitOperations/tree';
+import { tree as treeOperation } from '@/engine/cmd/global/gitOperations/tree';
 import { storageService, STORES } from '@/engine/storage';
 
 // npm dependency size util is loaded dynamically where needed
@@ -444,7 +444,7 @@ export async function handlePyxisCommand(
           const packageName = args[0];
           try {
             const { calculateDependencySize } = await import(
-              '@/engine/cmd/npmOperations/npmDependencySize'
+              '@/engine/cmd/global/npmOperations/npmDependencySize'
             );
             const size = await calculateDependencySize(packageName);
             await writeOutput(

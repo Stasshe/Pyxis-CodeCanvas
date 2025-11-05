@@ -19,7 +19,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { GitRepository, GitCommit as GitCommitType, GitStatus } from '@/types/git';
-import { GitCommands } from '@/engine/cmd/git';
+import { terminalCommandRegistry } from '@/engine/cmd/global/terminalRegistry';
 import GitHistory from './GitHistory';
 import { LOCALSTORAGE_KEY } from '@/context/config';
 import { useDiffTabHandlers } from '@/hooks/useDiffTabHandlers';
@@ -57,7 +57,9 @@ export default function GitPanel({
 
   // Git操作用のコマンドインスタンス（新アーキテクチャ）
   const gitCommands =
-    currentProject && currentProjectId ? new GitCommands(currentProject, currentProjectId) : null;
+    currentProject && currentProjectId
+      ? terminalCommandRegistry.getGitCommands(currentProject, currentProjectId)
+      : null;
 
   // Git状態を取得
   const fetchGitStatus = async () => {

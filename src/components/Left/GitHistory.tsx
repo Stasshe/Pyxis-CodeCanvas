@@ -15,7 +15,7 @@ import {
   FileDiff,
 } from 'lucide-react';
 import { GitCommit as GitCommitType } from '@/types/git';
-import { GitCommands } from '@/engine/cmd/git';
+import { terminalCommandRegistry } from '@/engine/cmd/global/terminalRegistry';
 import { useTheme } from '@/context/ThemeContext';
 import { useTranslation } from '@/context/I18nContext';
 import { useDiffTabHandlers } from '@/hooks/useDiffTabHandlers';
@@ -56,7 +56,9 @@ export default function GitHistory({
   const [duplicateGroups, setDuplicateGroups] = useState<Map<string, GitCommitType[]>>(new Map());
   const svgRef = useRef<SVGSVGElement>(null);
   const gitCommands =
-    currentProject && currentProjectId ? new GitCommands(currentProject, currentProjectId) : null;
+    currentProject && currentProjectId
+      ? terminalCommandRegistry.getGitCommands(currentProject, currentProjectId)
+      : null;
 
   // [NEW ARCHITECTURE] Diff タブハンドラー
   const { handleDiffFileClick, handleDiffAllFilesClick } = useDiffTabHandlers({

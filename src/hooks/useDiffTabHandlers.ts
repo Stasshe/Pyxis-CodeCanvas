@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 
 import { useTabStore } from '@/stores/tabStore';
-import { GitCommands } from '@/engine/cmd/git';
+import { terminalCommandRegistry } from '@/engine/cmd/global/terminalRegistry';
 import type { SingleFileDiff } from '@/types';
 
 /**
@@ -23,7 +23,10 @@ export function useDiffTabHandlers(currentProject: any) {
       editable?: boolean;
     }) => {
       if (!currentProject) return;
-      const git = new GitCommands(currentProject.name, currentProject.id);
+      const git = terminalCommandRegistry.getGitCommands(
+        currentProject.name,
+        currentProject.id
+      );
 
       // working directory vs コミット のdiffの場合（editableがtrueの場合のみ）
       // GitPanelのunstaged/stagedファイルから開かれた場合
@@ -156,7 +159,10 @@ export function useDiffTabHandlers(currentProject: any) {
   const handleDiffAllFilesClick = useCallback(
     async ({ commitId, parentCommitId }: { commitId: string; parentCommitId: string }) => {
       if (!currentProject) return;
-      const git = new GitCommands(currentProject.name, currentProject.id);
+      const git = terminalCommandRegistry.getGitCommands(
+        currentProject.name,
+        currentProject.id
+      );
 
       // defensive: if parentCommitId is not provided, try to resolve it from the commit log
       if (!parentCommitId) {
