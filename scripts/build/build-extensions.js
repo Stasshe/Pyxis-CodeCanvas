@@ -579,6 +579,19 @@ function updateManifestWithFiles(distDir) {
     
     if (allFiles.length > 0) {
       manifest.files = allFiles;
+      // also attach README.md content to manifest if present (optional field)
+      // README.md will be saved as raw markdown string in `readme` field
+      const readmeCandidates = fs.readdirSync(distDir || '').filter(f => f.toLowerCase() === 'readme.md');
+      if (readmeCandidates.length > 0) {
+        try {
+          const readmePath = path.join(distDir, readmeCandidates[0]);
+          const readmeContent = fs.readFileSync(readmePath, 'utf-8');
+          // save raw markdown to manifest.readme (JSON.stringify will escape properly when writing file)
+          manifest.readme = readmeContent;
+        } catch (e) {
+          console.error(`❌ Failed to read README.md for manifest augmentation: ${e.message}`);
+        }
+      }
       fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
       console.log(`📝 Updated manifest with ${allFiles.length} additional files`);
     }

@@ -1,6 +1,13 @@
 // src/engine/tabs/builtins/ExtensionInfoTabType.tsx
 import React from 'react';
 import { Package, CheckCircle2, XCircle, Calendar, Tag, User } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
+// rehype-sanitize may not have built-in TypeScript types; silence missing-type errors
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+import rehypeSanitize from 'rehype-sanitize';
 import { TabTypeDefinition, TabComponentProps, ExtensionInfoTab } from '../types';
 import { useTheme } from '@/context/ThemeContext';
 import type { ExtensionManifest } from '@/engine/extensions/types';
@@ -47,22 +54,22 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
         color: colors.foreground,
       }}
     >
-      <div className="max-w-4xl mx-auto p-8">
+      <div className="max-w-6xl mx-auto p-6">
         {/* ヘッダー */}
-        <div className="mb-8">
-          <div className="flex items-start gap-4 mb-4">
+        <div className="mb-6">
+          <div className="flex items-start gap-4 mb-2">
             <div
-              className="p-4 rounded-lg"
+              className="p-3 rounded-lg"
               style={{ background: colors.primary + '20' }}
             >
               <Package
-                size={32}
+                size={28}
                 style={{ color: colors.primary }}
               />
             </div>
             <div className="flex-1">
-              <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-3xl font-bold">{manifest.name}</h1>
+              <div className="flex items-center gap-3 mb-1">
+                <h1 className="text-2xl font-bold">{manifest.name}</h1>
                 {isEnabled ? (
                   <span
                     className="flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium"
@@ -88,7 +95,7 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
                 )}
               </div>
               <p
-                className="text-lg"
+                className="text-sm"
                 style={{ color: colors.mutedFg }}
               >
                 {manifest.description}
@@ -97,179 +104,205 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
           </div>
         </div>
 
-        {/* 詳細情報 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-          {/* ID */}
-          <div
-            className="p-4 rounded-lg border"
-            style={{
-              background: colors.sidebarBg,
-              borderColor: colors.border,
-            }}
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <Package
-                size={16}
-                style={{ color: colors.primary }}
-              />
-              <span className="text-sm font-semibold">Extension ID</span>
-            </div>
-            <code
-              className="text-sm px-2 py-1 rounded"
+        {/* コンテンツ: 左に README (大きめ)、右に manifest 情報 */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* README */}
+          <div className="md:col-span-2">
+            <div
+              className="p-4 rounded-lg border h-full"
               style={{
-                background: colors.mutedBg,
-                color: colors.foreground,
+                background: colors.sidebarBg,
+                borderColor: colors.border,
               }}
             >
-              {manifest.id}
-            </code>
-          </div>
-
-          {/* バージョン */}
-          <div
-            className="p-4 rounded-lg border"
-            style={{
-              background: colors.sidebarBg,
-              borderColor: colors.border,
-            }}
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <Tag
-                size={16}
-                style={{ color: colors.primary }}
-              />
-              <span className="text-sm font-semibold">Version</span>
-            </div>
-            <span className="text-sm font-mono">{manifest.version}</span>
-          </div>
-
-          {/* タイプ */}
-          <div
-            className="p-4 rounded-lg border"
-            style={{
-              background: colors.sidebarBg,
-              borderColor: colors.border,
-            }}
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <Package
-                size={16}
-                style={{ color: colors.primary }}
-              />
-              <span className="text-sm font-semibold">Type</span>
-            </div>
-            <span
-              className="text-sm px-3 py-1 rounded font-medium inline-block"
-              style={{
-                background: typeColor + '20',
-                color: typeColor,
-              }}
-            >
-              {getExtensionTypeLabel(manifest.type)}
-            </span>
-          </div>
-
-          {/* 作者 */}
-          <div
-            className="p-4 rounded-lg border"
-            style={{
-              background: colors.sidebarBg,
-              borderColor: colors.border,
-            }}
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <User
-                size={16}
-                style={{ color: colors.primary }}
-              />
-              <span className="text-sm font-semibold">Author</span>
-            </div>
-            <span className="text-sm">{manifest.author || 'Unknown'}</span>
-          </div>
-        </div>
-
-        {/* メタデータ */}
-        {manifest.metadata && (
-          <div
-            className="p-4 rounded-lg border mb-8"
-            style={{
-              background: colors.sidebarBg,
-              borderColor: colors.border,
-            }}
-          >
-            <div className="flex items-center gap-2 mb-4">
-              <Calendar
-                size={16}
-                style={{ color: colors.primary }}
-              />
-              <span className="text-sm font-semibold">Metadata</span>
-            </div>
-
-            {manifest.metadata.publishedAt && (
-              <div className="mb-3">
-                <span
-                  className="text-xs"
-                  style={{ color: colors.mutedFg }}
-                >
-                  Published:
-                </span>
-                <span className="text-sm ml-2">
-                  {new Date(manifest.metadata.publishedAt).toLocaleDateString()}
-                </span>
+              <div className="mb-4">
+                <h2 className="text-lg font-semibold">Readme</h2>
+                <span className="text-xs" style={{ color: colors.mutedFg }}>{manifest.readme ? 'README.md' : 'No README available'}</span>
               </div>
-            )}
 
-            {manifest.metadata.tags && manifest.metadata.tags.length > 0 && (
-              <div>
-                <span
-                  className="text-xs mb-2 block"
-                  style={{ color: colors.mutedFg }}
-                >
-                  Tags:
-                </span>
-                <div className="flex flex-wrap gap-2">
-                  {manifest.metadata.tags.map((tag: string, idx: number) => (
-                    <span
-                      key={idx}
-                      className="text-xs px-2 py-1 rounded"
-                      style={{
-                        background: colors.primary + '15',
-                        color: colors.primary,
+              <div className="prose max-w-none" style={{ color: colors.foreground }}>
+                {manifest.readme ? (
+                  <div style={{ maxHeight: 'calc(100vh - 260px)', overflowY: 'auto', paddingRight: 8 }}>
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      rehypePlugins={[rehypeRaw, rehypeSanitize]}
+                      components={{
+                        img: (props: any) => (
+                          // ensure images do not overflow
+                          // eslint-disable-next-line jsx-a11y/alt-text
+                          <img {...props} style={{ maxWidth: '100%', height: 'auto' }} />
+                        ),
+                        pre: (props: any) => (
+                          <pre {...props} style={{ overflowX: 'auto', padding: '0.75rem', background: colors.mutedBg }} />
+                        ),
+                        code: (props: any) => {
+                          const { inline, className, children, ...rest } = props;
+                          return (
+                            <code
+                              {...rest}
+                              className={className}
+                              style={{
+                                whiteSpace: inline ? 'normal' : 'pre',
+                                display: inline ? 'inline' : 'block',
+                              }}
+                            >
+                              {String(children)}
+                            </code>
+                          );
+                        },
                       }}
                     >
-                      {tag}
-                    </span>
-                  ))}
+                      {manifest.readme}
+                    </ReactMarkdown>
+                  </div>
+                ) : (
+                  <div className="text-sm" style={{ color: colors.mutedFg }}>
+                    {manifest.description || 'No README available for this extension.'}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* manifest の詳細 (右カラム) */}
+          <div>
+            <div
+              className="p-4 rounded-lg border mb-4"
+              style={{
+                background: colors.sidebarBg,
+                borderColor: colors.border,
+              }}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <Package
+                  size={16}
+                  style={{ color: colors.primary }}
+                />
+                <span className="text-sm font-semibold">Extension ID</span>
+              </div>
+              <code
+                className="text-sm px-2 py-1 rounded"
+                style={{
+                  background: colors.mutedBg,
+                  color: colors.foreground,
+                }}
+              >
+                {manifest.id}
+              </code>
+            </div>
+
+            <div
+              className="p-4 rounded-lg border mb-4"
+              style={{
+                background: colors.sidebarBg,
+                borderColor: colors.border,
+              }}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <Tag
+                  size={16}
+                  style={{ color: colors.primary }}
+                />
+                <span className="text-sm font-semibold">Version</span>
+              </div>
+              <span className="text-sm font-mono">{manifest.version}</span>
+            </div>
+
+            <div
+              className="p-4 rounded-lg border mb-4"
+              style={{
+                background: colors.sidebarBg,
+                borderColor: colors.border,
+              }}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <Package
+                  size={16}
+                  style={{ color: colors.primary }}
+                />
+                <span className="text-sm font-semibold">Type</span>
+              </div>
+              <span
+                className="text-sm px-3 py-1 rounded font-medium inline-block"
+                style={{
+                  background: typeColor + '20',
+                  color: typeColor,
+                }}
+              >
+                {getExtensionTypeLabel(manifest.type)}
+              </span>
+            </div>
+
+            <div
+              className="p-4 rounded-lg border mb-4"
+              style={{
+                background: colors.sidebarBg,
+                borderColor: colors.border,
+              }}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <User
+                  size={16}
+                  style={{ color: colors.primary }}
+                />
+                <span className="text-sm font-semibold">Author</span>
+              </div>
+              <span className="text-sm">{manifest.author || 'Unknown'}</span>
+            </div>
+
+            {manifest.metadata && (
+              <div
+                className="p-4 rounded-lg border mb-4"
+                style={{
+                  background: colors.sidebarBg,
+                  borderColor: colors.border,
+                }}
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <Calendar
+                    size={16}
+                    style={{ color: colors.primary }}
+                  />
+                  <span className="text-sm font-semibold">Metadata</span>
                 </div>
+
+                {manifest.metadata.publishedAt && (
+                  <div className="mb-2">
+                    <span className="text-xs" style={{ color: colors.mutedFg }}>Published:</span>
+                    <span className="text-sm ml-2">{new Date(manifest.metadata.publishedAt).toLocaleDateString()}</span>
+                  </div>
+                )}
+
+                {manifest.metadata.tags && manifest.metadata.tags.length > 0 && (
+                  <div>
+                    <span className="text-xs mb-2 block" style={{ color: colors.mutedFg }}>Tags:</span>
+                    <div className="flex flex-wrap gap-2">
+                      {manifest.metadata.tags.map((tag: string, idx: number) => (
+                        <span key={idx} className="text-xs px-2 py-1 rounded" style={{ background: colors.primary + '15', color: colors.primary }}>{tag}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
-          </div>
-        )}
 
-        {/* Entry Point */}
-        <div
-          className="p-4 rounded-lg border"
-          style={{
-            background: colors.sidebarBg,
-            borderColor: colors.border,
-          }}
-        >
-          <div className="flex items-center gap-2 mb-2">
-            <Package
-              size={16}
-              style={{ color: colors.primary }}
-            />
-            <span className="text-sm font-semibold">Entry Point</span>
+            <div
+              className="p-4 rounded-lg border"
+              style={{
+                background: colors.sidebarBg,
+                borderColor: colors.border,
+              }}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <Package
+                  size={16}
+                  style={{ color: colors.primary }}
+                />
+                <span className="text-sm font-semibold">Entry Point</span>
+              </div>
+              <code className="text-sm px-2 py-1 rounded" style={{ background: colors.mutedBg, color: colors.foreground }}>{manifest.entry}</code>
+            </div>
           </div>
-          <code
-            className="text-sm px-2 py-1 rounded"
-            style={{
-              background: colors.mutedBg,
-              color: colors.foreground,
-            }}
-          >
-            {manifest.entry}
-          </code>
         </div>
       </div>
     </div>
