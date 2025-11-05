@@ -63,13 +63,8 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
   context.logger.info('__EXTENSION_NAME__ activating...');
 
   // コマンドを登録
-  if (context.commands) {
-    context.commands.registerCommand('mycommand', myCommand);
-    context.logger.info('Registered command: mycommand');
-  } else {
-    context.logger.warn('Commands API not available');
-  }
-
+  context.commands.registerCommand('mycommand', myCommand);
+  context.logger.info('Registered command: mycommand');
   context.logger.info('__EXTENSION_NAME__ activated');
 
   return {};

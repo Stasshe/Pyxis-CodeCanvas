@@ -10,19 +10,6 @@ function create__COMPONENT_NAME__Panel(context: ExtensionContext) {
       }
     }, [isActive]);
 
-    // タブを開く関数
-    // Note: id を指定すると、同じ id のタブがあれば再利用されます（TabStore の openTab と同じ挙動）
-    const openTab = () => {
-      if (context.tabs) {
-        const tabId = context.tabs.createTab({
-          id: '__EXTENSION_ID__:main', // extension-specific stable id
-          title: '__EXTENSION_NAME__',
-          activateAfterCreate: true,
-        });
-        context.logger.info(`Tab opened: ${tabId}`);
-      }
-    };
-
     return (
       <div
         style={{
