@@ -143,7 +143,7 @@ stateDiagram-v2
 
 ### GitCommands
 
-**ファイル**: `src/engine/cmd/git.ts`
+**ファイル**: `src/engine/cmd/global/git.ts`
 
 #### アーキテクチャ
 
@@ -218,7 +218,7 @@ sequenceDiagram
 
 ### TreeBuilder
 
-**ファイル**: `src/engine/cmd/gitOperations/github/TreeBuilder.ts`
+**ファイル**: `src/engine/cmd/global/gitOperations/github/TreeBuilder.ts`
 
 #### ツリー再構築プロセス
 
@@ -251,7 +251,7 @@ graph TD
 
 ### GitHubAPI
 
-**ファイル**: `src/engine/cmd/gitOperations/github/GitHubAPI.ts`
+**ファイル**: `src/engine/cmd/global/gitOperations/github/GitHubAPI.ts`
 
 #### API エンドポイント
 
@@ -278,7 +278,7 @@ graph TD
 
 ## URL解析とリポジトリ特定
 
-**ファイル**: `src/engine/cmd/gitOperations/github/utils.ts`
+**ファイル**: `src/engine/cmd/global/gitOperations/github/utils.ts`
 
 ### サポートするURL形式
 

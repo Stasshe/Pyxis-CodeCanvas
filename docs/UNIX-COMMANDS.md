@@ -315,7 +315,7 @@ lightning-fs（Git用ワークスペース）
 ### 1. コマンドクラスを作成
 
 ```typescript
-// src/engine/cmd/unix-commands/newcommand.ts
+// src/engine/cmd/global/git-commands/newcommand.ts
 import { UnixCommandBase } from './base';
 
 export class NewCommand extends UnixCommandBase {

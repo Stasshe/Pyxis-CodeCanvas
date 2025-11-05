@@ -1,4 +1,4 @@
-import { UnixCommands } from '../cmd/unix';
+import { terminalCommandRegistry } from '../cmd/global/terminalRegistry';
 
 import { fileRepository } from '@/engine/core/fileRepository';
 
@@ -10,7 +10,7 @@ import { fileRepository } from '@/engine/core/fileRepository';
  * @param targetPath 保存先パス(例: /projects/project/foo.txt)
  * @param unix UnixCommandsインスタンス(プロジェクトごとに生成済みのものを渡す)
  */
-export async function importSingleFile(file: File, targetPath: string, unix: UnixCommands) {
+export async function importSingleFile(file: File, targetPath: string, projectName: string, projectId?: string) {
   // バイナリ拡張子リスト
   const binaryExt =
     /\.(png|jpg|jpeg|gif|bmp|webp|svg|pdf|zip|ico|tar|gz|rar|exe|dll|so|mp3|mp4|avi|mov|woff|woff2|ttf|eot)$/i;
@@ -18,10 +18,9 @@ export async function importSingleFile(file: File, targetPath: string, unix: Uni
 
   console.log(`[importSingleFile] [NEW ARCHITECTURE] ファイルアップロード開始: ${targetPath}`);
 
-  // targetPath から project とプロジェクト内パスを抽出
-  const match = targetPath.match(/^\/projects\/([^/]+)(\/.*)$/);
-  const projectId = (unix as any).projectId || '';
-  const filePath = match ? match[2] : targetPath;
+  // targetPath からプロジェクト内パスを抽出
+  const match = targetPath.match(/^\/projects\/[^/]+(\/.*)$/);
+  const filePath = match ? match[1] : targetPath;
 
   if (!projectId) {
     console.warn('[importSingleFile] projectIdが取得できませんでした:', targetPath);

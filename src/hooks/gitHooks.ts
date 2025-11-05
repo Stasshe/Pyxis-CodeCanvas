@@ -2,8 +2,7 @@
 // page.tsx から Git 関連のロジックを分離
 import type { Dispatch, SetStateAction } from 'react';
 
-import { GitCommands } from '@/engine/cmd/git';
-import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
+import { terminalCommandRegistry } from '@/engine/cmd/global/terminalRegistry';
 import type { Tab, FileItem, Project } from '@/types';
 
 export function useGitMonitor({

@@ -125,9 +125,9 @@ export default function ProjectModal({
       // 空のプロジェクトを作成（デフォルトファイル無し）
       const project = await fileRepository.createEmptyProject(name);
 
-      // GitCommandsを動的インポートしてclone実行
-      const { GitCommands } = await import('@/engine/cmd/git');
-      const git = new GitCommands(project.name, project.id);
+      // GitCommandsはregistry経由で取得（シングルトン管理）
+      const { terminalCommandRegistry } = await import('@/engine/cmd/global/terminalRegistry');
+      const git = terminalCommandRegistry.getGitCommands(project.name, project.id);
 
       // git cloneを実行（.gitを含む全ファイルがIndexedDBに同期される）
       // ProjectModalで作成した空プロジェクトのルートに直接クローンするため targetDir='.' を渡す

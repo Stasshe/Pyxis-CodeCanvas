@@ -10,9 +10,9 @@
 
 import type { FileRepository } from '@/engine/core/fileRepository';
 import type { CommandRegistry } from './commandRegistry';
-import type { UnixCommands } from '@/engine/cmd/unix';
-import type { GitCommands } from '@/engine/cmd/git';
-import type { NpmCommands } from '@/engine/cmd/npm';
+import type { UnixCommands } from '@/engine/cmd/global/unix';
+import type { GitCommands } from '@/engine/cmd/global/git';
+import type { NpmCommands } from '@/engine/cmd/global/npm';
 
 /**
  * normalizeCjsEsmモジュールの型定義

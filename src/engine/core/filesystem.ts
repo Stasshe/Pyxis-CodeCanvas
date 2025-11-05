@@ -38,8 +38,3 @@ export const debugFileSystem = async (): Promise<void> => {
 export const ensureDirectoryExists = async (fs: FS, dirPath: string): Promise<void> => {
   return gitFileSystem.ensureDirectory(dirPath);
 };
-
-// Cmd classes export (for backward compatibility)
-export { UnixCommands } from '@/engine/cmd/unix';
-export { GitCommands } from '@/engine/cmd/git';
-export { NpmCommands } from '@/engine/cmd/npm';

@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { useTranslation } from '@/context/I18nContext';
-import { UnixCommands } from '@/engine/cmd/unix';
-import { GitCommands } from '@/engine/cmd/git';
-import { NpmCommands } from '@/engine/cmd/npm';
+import { UnixCommands } from '@/engine/cmd/global/unix';
+import { GitCommands } from '@/engine/cmd/global/git';
+import { NpmCommands } from '@/engine/cmd/global/npm';
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
@@ -13,6 +13,7 @@ import { handleGitCommand } from './TerminalGitCommands';
 import { handleUnixCommand } from './TerminalUnixCommands';
 import { handleNPMCommand } from './TerminalNPMCommands';
 import { handlePyxisCommand } from './TerminalPyxisCommands';
+import { handleVimCommand } from '@/engine/cmd/vim';
 import { LOCALSTORAGE_KEY } from '@/context/config';
 
 interface TerminalProps {
@@ -67,7 +68,7 @@ function ClientTerminal({
     let mounted = true;
     const loadRegistry = async () => {
       try {
-        const { terminalCommandRegistry } = await import('@/engine/cmd/terminalRegistry');
+        const { terminalCommandRegistry } = await import('@/engine/cmd/global/terminalRegistry');
         if (!mounted) return;
         unixCommandsRef.current = terminalCommandRegistry.getUnixCommands(
           currentProject,
@@ -509,6 +510,16 @@ function ClientTerminal({
 
           case 'npm':
             await handleNPMCommand(args, npmCommandsRef, captureWriteOutput);
+            break;
+
+          case 'vim':
+            await handleVimCommand(
+              args,
+              unixCommandsRef,
+              captureWriteOutput,
+              currentProject,
+              currentProjectId
+            );
             break;
 
           default: {

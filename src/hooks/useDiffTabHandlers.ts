@@ -1,8 +1,7 @@
 import { useCallback } from 'react';
 
 import { useTabStore } from '@/stores/tabStore';
-import { GitCommands } from '@/engine/cmd/git';
-import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
+import { terminalCommandRegistry } from '@/engine/cmd/global/terminalRegistry';
 import type { SingleFileDiff } from '@/types';
 
 /**

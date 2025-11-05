@@ -19,7 +19,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { GitRepository, GitCommit as GitCommitType, GitStatus } from '@/types/git';
-import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
+import { terminalCommandRegistry } from '@/engine/cmd/global/terminalRegistry';
 import GitHistory from './GitHistory';
 import { LOCALSTORAGE_KEY } from '@/context/config';
 import { useDiffTabHandlers } from '@/hooks/useDiffTabHandlers';

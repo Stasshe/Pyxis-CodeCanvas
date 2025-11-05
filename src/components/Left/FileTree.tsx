@@ -7,8 +7,7 @@ import { exportFolderZip } from '@/engine/export/exportFolderZip';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { getIconForFile, getIconForFolder, getIconForOpenFolder } from 'vscode-icons-js';
 import { FileItem } from '@/types';
-import { UnixCommands } from '@/engine/cmd/unix';
-import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
+import { terminalCommandRegistry } from '@/engine/cmd/global/terminalRegistry';
 import { isBufferArray } from '@/engine/helper/isBufferArray';
 import { importSingleFile } from '@/engine/import/importSingleFile';
 import { fileRepository } from '@/engine/core/fileRepository';
@@ -58,13 +57,9 @@ export default function FileTree({
         return new Promise<void>(resolve => {
           if (item.isFile) {
             item.file(async (file: File) => {
-              const unix = terminalCommandRegistry.getUnixCommands(
-                currentProjectName,
-                currentProjectId
-              );
               const importPath = `${path}${file.name}`;
               const absolutePath = `/projects/${currentProjectName}${importPath}`;
-              await importSingleFile(file, absolutePath, unix);
+              await importSingleFile(file, absolutePath, currentProjectName, currentProjectId);
               resolve();
             });
           } else if (item.isDirectory) {
@@ -102,13 +97,9 @@ export default function FileTree({
 
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const unix = terminalCommandRegistry.getUnixCommands(
-          currentProjectName,
-          currentProjectId
-        );
         const importPath = targetPath ? `${targetPath}/${file.name}` : `/${file.name}`;
         const absolutePath = `/projects/${currentProjectName}${importPath}`;
-        await importSingleFile(file, absolutePath, unix);
+        await importSingleFile(file, absolutePath, currentProjectName, currentProjectId);
       }
 
       // [NEW ARCHITECTURE] ファイルツリー再読み込み
@@ -563,7 +554,7 @@ export default function FileTree({
                       const relPathParts = relative.split('/').filter(Boolean);
                       const targetPath = '/' + relPathParts.join('/');
                       const targetAbsolutePath = `/projects/${currentProjectName}${targetPath}`;
-                      await importSingleFile(file, targetAbsolutePath, unix);
+                      await importSingleFile(file, targetAbsolutePath, currentProjectName, currentProjectId);
                     }
                     if (onRefresh) setTimeout(onRefresh, 100);
                   };
@@ -627,7 +618,7 @@ export default function FileTree({
                           '//',
                           '/'
                         );
-                      await importSingleFile(file, targetAbsolutePath, unixLocal);
+                      await importSingleFile(file, targetAbsolutePath, currentProjectName, currentProjectId);
                     }
                     if (onRefresh) setTimeout(onRefresh, 100);
                   };
