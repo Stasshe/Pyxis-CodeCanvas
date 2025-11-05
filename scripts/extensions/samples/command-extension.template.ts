@@ -4,11 +4,12 @@
  */
 
 import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
+import type { FileRepository, CommandContext } from '../_shared/systemModuleTypes';
 
 /**
  * カスタムコマンドの実装
  */
-async function myCommand(args: string[], context: any): Promise<string> {
+async function myCommand(args: string[], context: CommandContext): Promise<string> {
   // args: コマンドライン引数の配列
   // context.projectName: プロジェクト名
   // context.projectId: プロジェクトID
@@ -31,14 +32,16 @@ async function myCommand(args: string[], context: any): Promise<string> {
       return output;
     }
 
-    const fileRepository = await context.getSystemModule('fileRepository');
-    const files = await fileRepository.getProjectFiles(context.projectId);
+    // getSystemModule is typed to only allow known system modules.
+    const fileRepository = (await context.getSystemModule('fileRepository')) as FileRepository;
+    const files = await fileRepository.getProjectFiles(context.projectId || '');
     output += `\nTotal files in project: ${files.length}\n`;
 
     // 現在のディレクトリのファイル数をカウント
     const currentDirPrefix = context.currentDirectory.replace(`/projects/${context.projectName}`, '');
     const filesInCurrentDir = files.filter((f: any) => {
-      const dir = f.path.substring(0, f.path.lastIndexOf('/'));
+      const idx = (f.path || '').lastIndexOf('/');
+      const dir = idx >= 0 ? f.path.substring(0, idx) : '';
       return dir === currentDirPrefix || (currentDirPrefix === '' && !f.path.includes('/'));
     });
     output += `Files in current directory: ${filesInCurrentDir.length}\n`;

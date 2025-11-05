@@ -15,7 +15,7 @@ function create__COMPONENT_NAME__Panel(context: ExtensionContext) {
     const openTab = () => {
       if (context.tabs) {
         const tabId = context.tabs.createTab({
-          id: 'main', // extension:__EXTENSION_ID__:main として識別される
+          id: '__EXTENSION_ID__:main', // extension-specific stable id
           title: '__EXTENSION_NAME__',
           activateAfterCreate: true,
         });

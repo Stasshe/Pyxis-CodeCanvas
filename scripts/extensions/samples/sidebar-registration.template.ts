@@ -7,7 +7,6 @@ if (context.sidebar) {
     title: '__EXTENSION_NAME__',
     icon: 'Package',
     component: Panel,
-    order: 50,
   });
 
   context.sidebar.onPanelActivate('__EXTENSION_ID__-panel', async (panelId: string) => {
