@@ -10,6 +10,15 @@ function create__COMPONENT_NAME__Panel(context: ExtensionContext) {
       }
     }, [isActive]);
 
+    const openTab = () => {
+      context.tabs.openTab({
+        type: '__EXTENSION_ID__:main',
+        title: '__EXTENSION_NAME__ Tab',
+        icon: 'File',
+        state: {},
+      });
+    }
+
     return (
       <div
         style={{
