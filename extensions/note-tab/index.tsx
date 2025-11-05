@@ -546,7 +546,6 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
       title: 'Notes',
       icon: 'StickyNote',
       component: NotesListPanelWithContext,
-      order: 50,
     });
 
     context.logger?.info('Notes sidebar panel registered');

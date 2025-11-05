@@ -1,18 +1,17 @@
 /**
- * Extension System Types (extension-facing)
+ * Extension System Types (Extension-Facing)
  *
  * This file contains the stable, extension-facing types. It is intentionally
  * focused and minimal so extension authors have a clear import surface.
  * Internal/engine types live under `src/engine/...` and should not be
  * imported by extensions.
+ *
+ * 拡張機能開発者向けの型定義
+ * エンジン側の実装と一致していますが、ファイルとしては完全に独立しています。
  */
 
-import type {
-  SystemModuleName as _SystemModuleName,
-  SystemModuleMap as _SystemModuleMap,
-} from './systemModuleTypes';
-
 /**
+ * 拡張機能の種類
  * Extension categories; stable values consumed by extension manifests.
  */
 export enum ExtensionType {
@@ -24,74 +23,212 @@ export enum ExtensionType {
   UI = 'ui',
 }
 
-/** Re-export system module names and map for convenience in extensions */
-export type SystemModuleName = _SystemModuleName;
-export type SystemModuleMap = _SystemModuleMap;
+/**
+ * システムモジュール関連の型定義
+ * Re-export from systemModuleTypes for convenience
+ */
+export type { SystemModuleName, SystemModuleMap } from './systemModuleTypes';
 
 /**
- * Resource-local tab creation options used by extensions.
- * - `id` is the stable resource identifier within the extension (eg. a note id).
- * - The runtime composes the final global tab id as `${kind}:${path}` where
- *   `kind` is the tab kind (for extensions: `extension:<extensionId>`) and
- *   `path` is this `id` (or provided path string).
- *
- * Note: Use stable unique IDs (UUID) for resources when the same resource
- * should always map to the same tab.
+ * 拡張機能用タブデータ
+ * 拡張機能が定義する任意のデータ
  */
-export interface ExtensionCreateTabOptions {
-  id?: string;
-  title: string;
-  icon?: string;
-  closable?: boolean;
-  activateAfterCreate?: boolean;
-  paneId?: string;
-  data?: any; // extension-controlled arbitrary data
+export interface ExtensionTabData {
+  [key: string]: unknown;
 }
 
 /**
- * Minimal Tabs API exposed to extensions. Keep `data` as `any` to allow
- * extensions to store arbitrary payloads.
+ * タブ作成オプション
+ * Resource-local tab creation options used by extensions.
+ */
+export interface CreateTabOptions {
+  /**
+   * タブの一意識別子（オプション）
+   * 指定すると同じIDのタブを再利用します
+   * The stable resource identifier within the extension (eg. a note id).
+   */
+  id?: string;
+  /** タブのタイトル */
+  title: string;
+  /** タブのアイコン（オプション・Lucide React icon name） */
+  icon?: string;
+  /** タブが閉じられるか（デフォルト: true） */
+  closable?: boolean;
+  /** 作成後にアクティブ化するか（デフォルト: true） */
+  activateAfterCreate?: boolean;
+  /** 開くペインID（オプション） */
+  paneId?: string;
+  /** 拡張機能固有のデータ */
+  data?: ExtensionTabData;
+}
+
+/**
+ * タブ更新オプション
+ */
+export interface UpdateTabOptions {
+  /** 新しいタイトル */
+  title?: string;
+  /** 新しいアイコン */
+  icon?: string;
+  /** 拡張機能固有のデータ（部分更新） */
+  data?: Partial<ExtensionTabData>;
+}
+
+/**
+ * タブクローズコールバック
+ */
+export type TabCloseCallback = (tabId: string) => void | Promise<void>;
+
+/**
+ * Tabs API - 拡張機能がタブを管理
+ * Minimal Tabs API exposed to extensions.
  */
 export interface ExtensionTabsAPI {
   registerTabType: (component: any) => void;
-  createTab: (options: ExtensionCreateTabOptions) => string;
-  updateTab: (tabId: string, options: { title?: string; icon?: string; data?: any }) => boolean;
+  createTab: (options: CreateTabOptions) => string;
+  updateTab: (tabId: string, options: UpdateTabOptions) => boolean;
   closeTab: (tabId: string) => boolean;
-  onTabClose: (tabId: string, callback: (tabId: string) => void | Promise<void>) => void;
-  getTabData: <T = any>(tabId: string) => T | null;
-  openSystemTab: (file: any, options?: any) => void;
+  onTabClose: (tabId: string, callback: TabCloseCallback) => void;
+  getTabData: <T = ExtensionTabData>(tabId: string) => T | null;
+  openSystemTab: (
+    file: any,
+    options?: {
+      kind?: string;
+      jumpToLine?: number;
+      jumpToColumn?: number;
+      activateAfterOpen?: boolean;
+    }
+  ) => void;
 }
 
 /**
+ * サイドバーパネル定義
+ */
+export interface SidebarPanelDefinition {
+  /** パネルID (拡張機能内で一意) */
+  id: string;
+  /** パネルタイトル */
+  title: string;
+  /** パネルアイコン (Lucide React icon name) */
+  icon: string;
+  /** パネルコンポーネント */
+  component: React.ComponentType<any>;
+  /** 初期状態 (オプション) */
+  initialState?: any;
+}
+
+/**
+ * Sidebar API - 拡張機能がサイドバーパネルを追加
+ */
+export interface ExtensionSidebarAPI {
+  createPanel: (definition: SidebarPanelDefinition) => void;
+  updatePanel: (panelId: string, state: any) => void;
+  removePanel: (panelId: string) => void;
+  onPanelActivate: (
+    panelId: string,
+    callback: (panelId: string) => void | Promise<void>
+  ) => void;
+}
+
+/**
+ * コマンド実行時のコンテキスト
+ */
+export interface CommandContext {
+  /** プロジェクト名 */
+  projectName: string;
+  /** プロジェクトID */
+  projectId: string;
+  /** 現在のディレクトリ */
+  currentDirectory: string;
+  /** 拡張機能のコンテキスト全体（getSystemModule等も含む） */
+  [key: string]: any;
+}
+
+/**
+ * コマンドハンドラー
+ */
+export type CommandHandler = (
+  args: string[],
+  context: CommandContext
+) => Promise<string>;
+
+/**
+ * Commands API - 拡張機能がターミナルコマンドを追加
+ */
+export interface ExtensionCommandsAPI {
+  registerCommand: (commandName: string, handler: CommandHandler) => () => void;
+}
+
+/**
+ * 拡張機能の実行コンテキスト
  * The execution context passed to extension entrypoints (activate).
  * This is what extension authors should type their `context` parameter as.
  */
 export interface ExtensionContext {
+  /** 拡張機能のID */
   extensionId: string;
+  /** 拡張機能のパス */
   extensionPath: string;
+  /** バージョン */
   version: string;
-  logger: { info: (...args: unknown[]) => void; warn: (...args: unknown[]) => void; error: (...args: unknown[]) => void };
+
+  /** Logger API */
+  logger: {
+    info: (...args: unknown[]) => void;
+    warn: (...args: unknown[]) => void;
+    error: (...args: unknown[]) => void;
+  };
+
   /**
-   * Narrowed to only the system modules the runtime exposes. Keep this
-   * extension-facing surface stable but aligned with what the engine
-   * actually provides.
+   * システムモジュールへのアクセス (型安全)
+   * Narrowed to only the system modules the runtime exposes.
    */
   getSystemModule?: <T extends 'fileRepository' | 'normalizeCjsEsm' | 'commandRegistry'>(
     moduleName: T
-  ) => Promise<SystemModuleMap[T]>;
-  messaging?: { send: (targetId: string, message: unknown) => Promise<unknown>; onMessage: (handler: (message: unknown) => unknown) => void };
-  // extension-facing tabs API
+  ) => Promise<import('./systemModuleTypes').SystemModuleMap[T]>;
+
+  /** 他の拡張機能との通信 (オプション・未実装) */
+  messaging?: {
+    send: (targetId: string, message: unknown) => Promise<unknown>;
+    onMessage: (handler: (message: unknown) => unknown) => void;
+  };
+
+  /** Tab API - extension-facing tabs API */
   tabs?: ExtensionTabsAPI;
-  sidebar?: { createPanel: (definition: any) => void; updatePanel: (panelId: string, state: any) => void; removePanel: (panelId: string) => void; onPanelActivate: (panelId: string, callback: (panelId: string) => void | Promise<void>) => void };
-  commands?: { registerCommand: (commandName: string, handler: (args: string[], context: any) => Promise<string>) => () => void };
+
+  /** Sidebar API */
+  sidebar?: ExtensionSidebarAPI;
+
+  /** Commands API */
+  commands?: ExtensionCommandsAPI;
 }
 
 /**
+ * 拡張機能のアクティベーション結果
  * Activation result returned by an extension's activate() function.
  */
 export interface ExtensionActivation {
+  /** ビルトインモジュールの実装 (builtin-moduleタイプの拡張機能のみ) */
   builtInModules?: Record<string, unknown>;
-  runtimeFeatures?: { transpiler?: (code: string, options: unknown) => Promise<{ code: string }>; [key: string]: unknown };
+
+  /** Runtime機能の実装 (transpilerタイプの拡張機能のみ) */
+  runtimeFeatures?: {
+    transpiler?: (code: string, options: unknown) => Promise<{ code: string }>;
+    [key: string]: unknown;
+  };
+
+  /** サービスの実装 (serviceタイプの拡張機能のみ) */
   services?: Record<string, unknown>;
+
+  /** その他のAPI */
   [key: string]: unknown;
+}
+
+/**
+ * 拡張機能のエクスポート
+ * Extension entrypoint exports
+ */
+export interface ExtensionExports {
+  activate: (context: ExtensionContext) => Promise<ExtensionActivation>;
+  deactivate?: () => Promise<void>;
 }
