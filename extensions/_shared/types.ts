@@ -189,9 +189,9 @@ export interface ExtensionContext {
    * システムモジュールへのアクセス (型安全)
    * Narrowed to only the system modules the runtime exposes.
    */
-  getSystemModule: <T extends 'fileRepository' | 'normalizeCjsEsm' | 'commandRegistry'>(
-    moduleName: T
-  ) => Promise<import('./systemModuleTypes').SystemModuleMap[T]>;
+  // Use the shared GetSystemModule type to avoid repeating the module map/type logic.
+  // This keeps the extension-facing API concise and aligned with the engine's types.
+  getSystemModule: GetSystemModule;
 
   /** 他の拡張機能との通信 (オプション・未実装) */
   messaging?: {
