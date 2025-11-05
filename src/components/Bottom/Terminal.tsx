@@ -62,10 +62,13 @@ function ClientTerminal({
 
     initializeTerminal();
 
-    // Use shared registry to ensure singleton instances per project. Run inside async fn.
-    (async () => {
+    // Use shared registry to ensure singleton instances per project.
+    // Use a named async function + mounted flag for readability and to avoid updating refs after unmount.
+    let mounted = true;
+    const loadRegistry = async () => {
       try {
         const { terminalCommandRegistry } = await import('@/engine/cmd/terminalRegistry');
+        if (!mounted) return;
         unixCommandsRef.current = terminalCommandRegistry.getUnixCommands(
           currentProject,
           currentProjectId
@@ -81,6 +84,7 @@ function ClientTerminal({
         );
       } catch (e) {
         // Fallback to direct construction if registry import fails (backwards compat)
+        if (!mounted) return;
         console.warn(
           '[Terminal] terminal registry load failed, falling back to direct instances',
           e
@@ -93,7 +97,9 @@ function ClientTerminal({
           '/projects/' + currentProject
         );
       }
-    })();
+    };
+
+    loadRegistry();
 
     // xterm関連のモジュールをrequire（クライアントサイドでのみ実行）
     const { Terminal: XTerm } = require('@xterm/xterm');
@@ -802,6 +808,8 @@ function ClientTerminal({
 
     // クリーンアップ
     return () => {
+      // prevent updates from async tasks after unmount
+      mounted = false;
       if (terminalRef.current) {
         terminalRef.current.removeEventListener('touchstart', handleTouchStart);
         terminalRef.current.removeEventListener('touchmove', handleTouchMove);
