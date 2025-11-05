@@ -339,7 +339,14 @@ async function main() {
           '__EXTENSION_DESCRIPTION__': config.description || '',
           '__EXTENSION_ID__': config.id || '',
           '__FILE_EXTENSION__': config.fileExtension || '',
-          '__COMPONENT_NAME__': toComponentName(config.id || '')
+          '__COMPONENT_NAME__': toComponentName(config.id || ''),
+          '__EXTENSION_TYPE__': config.type || '',
+          '__COMPONENT_TYPE__': config.componentType || '',
+          '__USES_REACT__': config.usesReact ? 'yes' : 'no',
+          '__TAGS__': (config.tags && config.tags.length) ? config.tags.join(', ') : '(none)',
+          '__AUTHOR__': config.author || '',
+          '__USE_PNPM__': config.usePnpm ? 'yes' : 'no',
+          '__CREATED_AT__': (new Date()).toISOString()
         };
 
         const rendered = replaceTags(sampleContent, replacements);
@@ -385,12 +392,12 @@ async function main() {
       console.log('  3. pnpm add <library-name> (ライブラリを追加)');
       console.log(`  4. extensions/${id}/index.${config.fileExtension} を編集`);
       console.log('  5. node build-extensions.js を実行（プロジェクトルートで）');
-      console.log('  6. npm run dev で確認');
+      console.log('  6. pnpm run dev で確認');
       console.log('\n⚠️  重要: PNPM-GUIDE.md を必ず読んでください！');
     } else {
       console.log(`  1. extensions/${id}/index.${config.fileExtension} を編集`);
       console.log('  2. node build-extensions.js を実行（registry.jsonも自動生成されます）');
-      console.log('  3. npm run dev で確認');
+      console.log('  3. pnpm run dev で確認');
     }
     console.log('');
 
