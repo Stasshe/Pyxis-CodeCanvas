@@ -359,18 +359,8 @@ export class StreamShell {
             proc.exit(1);
             return;
           }
-          const lines = String(content).split('\n');
-          for (const rawLine of lines) {
-            const line = rawLine.trim();
-            if (!line || line.startsWith('#')) continue;
-            const res = await this.run(line);
-            // pipe stdout of subcommand into this proc's stdout
-            if (res.stdout) proc.writeStdout(res.stdout);
-            if (res.stderr) proc.writeStderr(res.stderr);
-            if (res.code !== 0) {
-              // continue executing by default (like /bin/sh) - not stopping
-            }
-          }
+          // Improved script execution: handle control flow (if/for/while) and positional args
+          await this.runScript(String(content), args, proc).catch(() => {});
           proc.endStdout();
           proc.endStderr();
           proc.exit(0);
@@ -449,6 +439,175 @@ export class StreamShell {
     })();
 
     return proc;
+  }
+
+  // Execute a script text with simple control flow support (if/for/while)
+  // args: positional args passed to the script (argv[1..])
+  private async runScript(text: string, args: string[], proc: Process) {
+    const lines = text.split('\n');
+
+    const interpolate = (line: string, localVars: Record<string, string>) => {
+      // positional args $1..$9
+      let out = line;
+      for (let i = 1; i <= 9; i++) {
+        out = out.replace(new RegExp(`\\$${i}\\b`, 'g'), args[i - 1] || '');
+      }
+      // replace local vars $VAR
+      for (const k of Object.keys(localVars)) {
+        out = out.replace(new RegExp('\\$' + k + '\\b', 'g'), localVars[k]);
+      }
+      return out;
+    };
+
+    const MAX_LOOP = 10000;
+
+    // run a range [start, end) of lines; supports break/continue signaling via return value
+    const runRange = async (
+      start: number,
+      end: number,
+      localVars: Record<string, string>
+    ): Promise<'ok' | 'break' | 'continue'> => {
+      for (let i = start; i < end; i++) {
+        let raw = lines[i] ?? '';
+        const trimmed = raw.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+
+        // if ... then ... [else|elif] fi
+        if (trimmed.startsWith('if ')) {
+          // find matching fi with nesting
+          let depth = 0;
+          let j = i;
+          let thenIndex = -1;
+          let elseIndex = -1;
+          for (; j < lines.length; j++) {
+            const t = (lines[j] || '').trim();
+            if (t.startsWith('if ')) depth++;
+            if (t === 'then' && thenIndex === -1) thenIndex = j;
+            if ((t === 'else' || t.startsWith('elif ')) && elseIndex === -1) elseIndex = j;
+            if (t === 'fi') {
+              depth--;
+              if (depth < 0) break; // matched
+            }
+          }
+          const condLine = trimmed.slice(3).trim();
+          const condRes = await this.run(interpolate(condLine, localVars));
+          // compute blocks
+          const thenStart = thenIndex + 1;
+          const thenEnd = elseIndex !== -1 ? elseIndex : j;
+          const elseStart = elseIndex !== -1 ? elseIndex + 1 : -1;
+          const elseEnd = j;
+
+          if (condRes.code === 0) {
+            const r = await runRange(thenStart, thenEnd, { ...localVars });
+            if (r !== 'ok') return r;
+          } else {
+            if (elseIndex !== -1) {
+              // handle simple elif by treating the elif line as if it were an if
+              const elseLine = (lines[elseIndex] || '').trim();
+              if (elseLine.startsWith('elif ')) {
+                // convert `elif cond` + rest into an if block by recursion: create a tiny sub-block
+                // build a synthetic block: lines[elseIndex] .. lines[j]
+                const subLines = lines.slice(elseIndex, j + 1).join('\n');
+                await this.runScript(subLines, args, proc);
+              } else {
+                const r = await runRange(elseStart, elseEnd, { ...localVars });
+                if (r !== 'ok') return r;
+              }
+            }
+          }
+          i = j; // advance to fi
+          continue;
+        }
+
+        // for VAR in a b c; do ...; done
+        if (trimmed.startsWith('for ')) {
+          // parse `for VAR in items`
+          const m = trimmed.match(/^for\s+(\w+)\s+in\s+(.*)$/);
+          if (!m) continue;
+          const varName = m[1];
+          const itemsStr = m[2].trim();
+          // find `do` and matching `done`
+          let doIndex = -1;
+          let doneIndex = -1;
+          for (let j = i + 1; j < lines.length; j++) {
+            const t = (lines[j] || '').trim();
+            if (t === 'do' && doIndex === -1) doIndex = j;
+            if (t === 'done') {
+              doneIndex = j;
+              break;
+            }
+          }
+          if (doIndex === -1 || doneIndex === -1) {
+            i = doneIndex === -1 ? lines.length : doneIndex;
+            continue;
+          }
+          const bodyStart = doIndex + 1;
+          const bodyEnd = doneIndex;
+
+          // split items by whitespace after interpolation
+          const interpItems = interpolate(itemsStr, localVars);
+          const items = interpItems.split(/\s+/).filter(Boolean);
+          let iter = 0;
+          for (const it of items) {
+            if (++iter > MAX_LOOP) break;
+            const lv = { ...localVars };
+            lv[varName] = it;
+            const r = await runRange(bodyStart, bodyEnd, lv);
+            if (r === 'break') break;
+            if (r === 'continue') continue;
+          }
+          i = doneIndex;
+          continue;
+        }
+
+        // while cond; do ...; done
+        if (trimmed.startsWith('while ')) {
+          const condLine = trimmed.slice(6).trim();
+          // find do/done
+          let doIndex = -1;
+          let doneIndex = -1;
+          for (let j = i + 1; j < lines.length; j++) {
+            const t = (lines[j] || '').trim();
+            if (t === 'do' && doIndex === -1) doIndex = j;
+            if (t === 'done') {
+              doneIndex = j;
+              break;
+            }
+          }
+          if (doIndex === -1 || doneIndex === -1) {
+            i = doneIndex === -1 ? lines.length : doneIndex;
+            continue;
+          }
+          const bodyStart = doIndex + 1;
+          const bodyEnd = doneIndex;
+          let count = 0;
+          while (true) {
+            if (++count > MAX_LOOP) break;
+            const cres = await this.run(interpolate(condLine, localVars));
+            if (cres.code !== 0) break;
+            const r = await runRange(bodyStart, bodyEnd, { ...localVars });
+            if (r === 'break') break;
+            if (r === 'continue') continue;
+          }
+          i = doneIndex;
+          continue;
+        }
+
+        // break / continue
+        if (trimmed === 'break') return 'break';
+        if (trimmed === 'continue') return 'continue';
+
+        // regular command: interpolate and execute
+        const execLine = interpolate(trimmed, localVars);
+        const res = await this.run(execLine);
+        if (res.stdout) proc.writeStdout(res.stdout);
+        if (res.stderr) proc.writeStderr(res.stderr);
+        // continue even on non-zero exit - matching simple shell behavior unless script uses conditional
+      }
+      return 'ok';
+    };
+
+    await runRange(0, lines.length, {});
   }
 
   // Run full pipeline line and resolve final stdout/stderr and code
