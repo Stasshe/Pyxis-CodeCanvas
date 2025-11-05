@@ -77,7 +77,6 @@ export interface CommandContext {
   projectName: string;
   projectId: string;
   currentDirectory: string;
-  fileSystem: any; // FS instance
 }
 
 /**

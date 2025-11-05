@@ -114,24 +114,6 @@ export interface ExtensionManifest {
   /** 追加で必要なファイル (オプション) */
   files?: string[];
 
-  /** 拡張機能が提供する機能 */
-  provides: {
-    /** ビルトインモジュール名 (例: ["fs", "path"]) */
-    builtInModules?: string[];
-
-    /** Runtimeサポート (例: ["typescript", "jsx"]) */
-    runtimeFeatures?: string[];
-
-    /** コマンド (例: ["tsc", "eslint"]) */
-    commands?: string[];
-
-    /** サービス (例: ["i18n", "git"]) */
-    services?: string[];
-
-    /** その他のAPI */
-    apis?: Record<string, unknown>;
-  };
-
   /** 同じグループで同時に1つのみ有効化を許可 (例: "lang-pack") */
   onlyOne?: string;
 
@@ -223,6 +205,13 @@ export interface ExtensionRegistry {
 
 /**
  * 拡張機能の実行コンテキスト
+ */
+/**
+ * Runtime ExtensionContext used by the engine when calling extensions.
+ *
+ * This type is derived from the extension-facing `ExtensionContext` but
+ * replaces the lightweight `tabs` surface with the runtime `TabAPI` class
+ * so engine implementors can pass the real API instance.
  */
 export interface ExtensionContext {
   /** 拡張機能のID */
