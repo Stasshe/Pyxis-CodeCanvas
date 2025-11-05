@@ -290,8 +290,8 @@ export class StreamShell {
       })();
     }
 
-    // Launch handler async
-    (async () => {
+  // Launch handler async
+  (async () => {
   // yield to next tick so caller (StreamShell.run) can attach stdout/stderr
   // listeners to this proc. Prevents races where a fast builtin writes
   // and ends before listeners are attached. Use setTimeout(0) for broad
@@ -442,6 +442,32 @@ export class StreamShell {
         return;
       }
     })();
+
+    // Defensive watchdog: if a handler never calls proc.exit(), avoid hanging forever.
+    // Timeout can be configured via process.env.SHELL_PROCESS_TIMEOUT_MS (milliseconds).
+    const defaultTimeout = 15000; // 15s
+    const toMs = Number(process.env.SHELL_PROCESS_TIMEOUT_MS || defaultTimeout) || defaultTimeout;
+    const watchdog = setTimeout(() => {
+      try {
+        proc.writeStderr(`Shell: command timed out after ${toMs}ms\n`);
+      } catch (e) {}
+      try {
+        proc.endStdout();
+      } catch (e) {}
+      try {
+        proc.endStderr();
+      } catch (e) {}
+      try {
+        proc.exit(124); // 124 like timeout
+      } catch (e) {}
+    }, toMs);
+
+    // Clear watchdog when the process exits normally
+    proc.on('exit', () => {
+      try {
+        clearTimeout(watchdog);
+      } catch (e) {}
+    });
 
     return proc;
   }
@@ -678,6 +704,10 @@ export class StreamShell {
     } catch (e) {
       const pieces = this.splitPipes(line);
       segs = pieces.map(p => this.parseSegment(p));
+    }
+    // If nothing to run, return immediately
+    if (!segs || segs.length === 0) {
+      return { stdout: '', stderr: '', code: 0 };
     }
     const procs: Process[] = [];
 
