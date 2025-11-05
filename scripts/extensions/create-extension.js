@@ -229,47 +229,6 @@ function generateExtensionFromTemplate(config, templateFile) {
   return replaceTags(template, replacements);
 }
 
-function generateREADME(config) {
-  return `# ${config.name}
-
-${config.description}
-
-## 概要
-
-このディレクトリには \`${config.name}\` 拡張機能が含まれています。
-
-## 開発
-
-\`\`\`bash
-# 拡張機能をビルド
-node build-extensions.js
-
-# 開発サーバー起動
-pnpm run dev
-
-# ライブラリインストールはルートディレクトリで
-pnpm install
-\`\`\`
-
-## 使い方
-
-1. Pyxisを開く
-2. 拡張機能パネルから「${config.name}」を有効化
-${config.type === 'ui' && config.componentType === 'tab' ? '3. タブバーから新しいタブを作成' : ''}
-${config.type === 'ui' && config.componentType === 'sidebar' ? '3. サイドバーに「${config.name}」パネルが表示されます' : ''}
-
-## ファイル構成
-
-- \`index.${config.fileExtension}\` - メインコード
-- \`manifest.json\` - 拡張機能のメタデータ
-- \`README.md\` - このファイル
-
-## License
-
-MIT
-`;
-}
-
 // メイン処理
 async function main() {
   console.log('\n' + boxen(chalk.bold.cyan('Pyxis Extension Template Generator'), { padding: 1, margin: 1, borderStyle: 'round', borderColor: 'cyan' }));
@@ -286,10 +245,10 @@ async function main() {
       return;
     }
 
-    const name = await prompt('拡張機能名 (例: My Extension): ');
+    let name = await prompt('拡張機能名 (例: My Extension): ');
     if (!name) {
-      console.log(chalk.red(figures.cross + ' 拡張機能名は必須です'));
-      return;
+      name = id;
+      console.log(chalk.yellow(figures.info + ' 拡張機能名が未入力のため、IDと同じ値を使用します: ' + name));
     }
 
     const description = await prompt('説明: ');
@@ -329,7 +288,7 @@ async function main() {
     console.log(`  ${chalk.cyan('タグ:')} ${config.tags.join(', ') || '(なし)'}`);
     console.log(`  ${chalk.cyan('React使用:')} ${config.usesReact ? chalk.green('はい') : chalk.yellow('いいえ')}`);
 
-    const confirmed = await confirm('\nこの設定で作成しますか?');
+    const confirmed = await new Confirm({ message: '\nこの設定で作成しますか?', initial: true }).run();
     if (!confirmed) {
       console.log(chalk.yellow(figures.cross + ' キャンセルされました'));
       return;
@@ -369,10 +328,31 @@ async function main() {
     fs.writeFileSync(indexPath, indexContent);
     console.log(`✅ 作成: index.${config.fileExtension}`);
 
-    // README.md作成
+    // README.md作成（samples/README.mdを読み込み、プレースホルダを置換して書き出す）
     const readmePath = path.join(extensionDir, 'README.md');
-    fs.writeFileSync(readmePath, generateREADME(config));
-    console.log(`✅ 作成: README.md`);
+    const sampleReadmePath = path.join(__dirname, 'samples', 'README.md');
+    if (fs.existsSync(sampleReadmePath)) {
+      try {
+        const sampleContent = fs.readFileSync(sampleReadmePath, 'utf8');
+        const replacements = {
+          '__EXTENSION_NAME__': config.name || '',
+          '__EXTENSION_DESCRIPTION__': config.description || '',
+          '__EXTENSION_ID__': config.id || '',
+          '__FILE_EXTENSION__': config.fileExtension || '',
+          '__COMPONENT_NAME__': toComponentName(config.id || '')
+        };
+
+        const rendered = replaceTags(sampleContent, replacements);
+        fs.writeFileSync(readmePath, rendered);
+        console.log(`✅ 作成: README.md (samples/README.md -> rendered)`);
+      } catch (err) {
+        console.log(chalk.red(figures.cross + ' README のレンダリング中にエラーが発生しました:'), err);
+        return;
+      }
+    } else {
+      console.log(`⚠️ README.mdのサンプルが見つかりません: ${sampleReadmePath}`);
+      return;
+    }
 
     // pnpmライブラリを使用する場合
     if (config.usePnpm) {
