@@ -211,7 +211,9 @@ export default function FileTree({
     } else {
       const defaultEditor =
         typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
-      openTab({ ...item, isCodeMirror: defaultEditor === 'codemirror' }, { kind: 'editor' });
+      // バイナリファイルは binary タブで開く
+      const kind = item.isBufferArray ? 'binary' : 'editor';
+      openTab({ ...item, isCodeMirror: defaultEditor === 'codemirror' }, { kind });
     }
   };
 
@@ -565,13 +567,21 @@ export default function FileTree({
                 // actions for existing item
                 if (!menuItem) return;
 
-                if (key === 'open') {
-                  openTab(menuItem, { kind: 'editor' });
+                  if (key === 'open') {
+                  // バイナリファイルは binary、そうでなければ editor
+                  const kind = menuItem && (menuItem as FileItem).isBufferArray ? 'binary' : 'editor';
+                  openTab(menuItem, { kind });
                 } else if (key === 'openPreview') {
                   handlePreview(menuItem);
                 } else if (key === 'openCodeMirror') {
-                  if (menuItem && menuItem.type === 'file')
-                    openTab({ ...menuItem, isCodeMirror: true }, { kind: 'editor' });
+                  if (menuItem && menuItem.type === 'file') {
+                    // CodeMirrorはテキスト向け。バイナリの場合は binary で開く。
+                    if ((menuItem as FileItem).isBufferArray) {
+                      openTab(menuItem, { kind: 'binary' });
+                    } else {
+                      openTab({ ...menuItem, isCodeMirror: true }, { kind: 'editor' });
+                    }
+                  }
                 } else if (key === 'download') {
                   const item = menuItem;
                   if (item.type === 'file') {
