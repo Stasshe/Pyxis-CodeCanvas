@@ -280,6 +280,11 @@ export class StreamShell {
 
     // Launch handler async
     (async () => {
+  // yield to next tick so caller (StreamShell.run) can attach stdout/stderr
+  // listeners to this proc. Prevents races where a fast builtin writes
+  // and ends before listeners are attached. Use setTimeout(0) for broad
+  // environment compatibility.
+  await new Promise(r => setTimeout(r, 0));
       if (!seg.tokens || seg.tokens.length === 0) {
         proc.endStdout();
         proc.endStderr();

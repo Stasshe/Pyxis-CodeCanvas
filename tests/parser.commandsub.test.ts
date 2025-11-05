@@ -1,6 +1,20 @@
 import StreamShell from '@/engine/cmd/shell/streamShell';
 
 describe('StreamShell command-substitution and variable expansion', () => {
+  test('simple echo returns text', async () => {
+    const mockUnix: any = {
+      echo: async (t: string) => t,
+      cat: async (path: string) => `file:${path}`,
+      pwd: async () => '/projects/default',
+      ls: async () => '',
+      head: async () => '',
+      tail: async () => '',
+      grep: async () => '',
+    };
+    const shell = new StreamShell({ projectName: 'default', projectId: 'p1', unix: mockUnix });
+    const res = await shell.run('echo a');
+    expect(res.stdout.trim()).toBe('a');
+  });
   test('echo with $(...) substitution', async () => {
     const mockUnix: any = {
       echo: async (t: string) => t,
