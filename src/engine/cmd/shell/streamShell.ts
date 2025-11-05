@@ -272,6 +272,15 @@ export class StreamShell {
     const ifs = (process.env.IFS ?? ' \t\n').replace(/\\t/g, '\t').replace(/\\n/g, '\n');
     const isIfsWhitespace = /[ \t\n]/.test(ifs);
 
+    const escapeForCharClass = (ch: string) => {
+      // escape regex special chars inside character class
+      if (ch === '\\') return '\\\\';
+      if (ch === ']') return '\\]';
+      if (ch === '-') return '\\-';
+      if (ch === '^') return '\\^';
+      return ch.replace(/([\\\]\-\^])/g, m => '\\' + m);
+    };
+
     const splitOnIFS = (s: string): string[] => {
       if (!s) return [''];
       if (isIfsWhitespace) {
@@ -279,8 +288,8 @@ export class StreamShell {
         return s.split(/\s+/).filter(Boolean);
       }
       // split on any IFS char, preserve empty fields
-      const chars = Array.from(new Set(ifs.split(''))).map(c => (c === ' ' ? '\\s' : c)).join('|');
-      const re = new RegExp(chars);
+      const chars = Array.from(new Set(ifs.split(''))).map(c => escapeForCharClass(c)).join('');
+      const re = new RegExp('[' + chars + ']');
       return s.split(re).filter(x => x !== undefined);
     };
 
@@ -300,14 +309,38 @@ export class StreamShell {
           const files = await this.fileRepository.getProjectFiles(this.projectId);
           const names = files.map((f: any) => (f.path || '').replace(/^\//, ''));
           // convert simple glob pattern to regex (supports *, ?, [..])
-          let reStr = '^' + pattern.split('').map(ch => {
-            if (ch === '*') return '[^/]*';
-            if (ch === '?') return '[^/]';
-            if (ch === '[') return '[';
-            if (ch === ']') return ']';
-            return ch.replace(/[\.\+\^\$\{\}\(\)\|]/g, m => '\\' + m);
-          }).join('') + '$';
-          const re = new RegExp(reStr);
+              // convert simple glob pattern to regex (supports *, ?, [..]) safely
+              const parts: string[] = [];
+              for (let i = 0; i < pattern.length; i++) {
+                const ch = pattern[i];
+                if (ch === '*') {
+                  parts.push('[^/]*');
+                  continue;
+                }
+                if (ch === '?') {
+                  parts.push('[^/]');
+                  continue;
+                }
+                if (ch === '[') {
+                  // consume until matching ]
+                  let j = i + 1;
+                  let cls = '';
+                  while (j < pattern.length && pattern[j] !== ']') {
+                    const c = pattern[j++];
+                    // escape special inside class
+                    if (c === '\\' || c === ']' || c === '-') cls += '\\' + c;
+                    else cls += c;
+                  }
+                  // move i to closing bracket or end
+                  i = Math.min(j, pattern.length - 1);
+                  parts.push('[' + cls + ']');
+                  continue;
+                }
+                // escape regexp meta
+                parts.push(ch.replace(/[\\.\+\^\$\{\}\(\)\|]/g, m => '\\' + m));
+              }
+              const reStr = '^' + parts.join('') + '$';
+              const re = new RegExp(reStr);
           const matched = names.filter((n: string) => re.test(n)).sort();
           if (matched.length > 0) return matched;
         } catch (e) {}

@@ -44,15 +44,17 @@ function extractCommandSubstitutions(line: string): { line: string; map: Record<
       i++;
       continue;
     }
-    if (ch === '`' && !inSingle && !inDouble) {
+    // allow backticks except inside single quotes; backticks may appear inside double quotes
+    if (ch === '`' && !inSingle) {
       let j = i + 1;
       let buf = '';
       while (j < line.length && line[j] !== '`') {
         buf += line[j++];
       }
-      if (j >= line.length || line[j] !== '`') throw new ParseError('Unterminated backtick command substitution', i);
-      const key = `__CMD_SUB_${id++}__`;
-      map[key] = { cmd: buf, quote: null };
+        if (j >= line.length || line[j] !== '`') throw new ParseError('Unterminated backtick command substitution', i);
+        const key = `__CMD_SUB_${id++}__`;
+        // If we're inside double quotes, record that so the executor can avoid field-splitting
+        map[key] = { cmd: buf, quote: inDouble ? 'double' : null };
       out += key;
       i = j + 1;
       continue;
@@ -215,16 +217,6 @@ export function parseCommandLine(line: string, env: Record<string, string> = pro
     cur = { raw: '', tokens: [], stdinFile: null, stdoutFile: null, append: false, background: false };
   };
 
-  const stripOuterQuotes = (s: string) => {
-    if (!s || s.length < 2) return s;
-    const first = s[0];
-    const last = s[s.length - 1];
-    if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
-      return s.slice(1, -1);
-    }
-    return s;
-  };
-
   const makeTokenFromRaw = (raw: any): Token => {
     const s = String(raw);
     let quote: 'single' | 'double' | null = null;
@@ -276,26 +268,16 @@ export function parseCommandLine(line: string, env: Record<string, string> = pro
 
     // word token
     const rawTok = String(tok);
-    // detect outer quotes
-    let quote: 'single' | 'double' | null = null;
-    let text = rawTok;
-    if (text.length >= 2) {
-      const f = text[0];
-      const l = text[text.length - 1];
-      if ((f === '"' && l === '"') || (f === "'" && l === "'")) {
-        quote = f === "'" ? 'single' : 'double';
-        text = text.slice(1, -1);
-      }
-    }
+    const tkn = makeTokenFromRaw(rawTok);
 
-    // If this token is a placeholder for command-substitution, embed the cmd
-    if (text.startsWith('__CMD_SUB_') && extracted.map[text]) {
-      const info = extracted.map[text];
-      cur.tokens.push({ text, quote: info.quote ?? quote, cmdSub: info.cmd });
+    // If this token is exactly a command-substitution placeholder, attach cmdSub
+    if (tkn.text.startsWith('__CMD_SUB_') && extracted.map[tkn.text]) {
+      const info = extracted.map[tkn.text];
+      cur.tokens.push({ text: tkn.text, quote: info.quote ?? tkn.quote, cmdSub: info.cmd });
       continue;
     }
 
-    cur.tokens.push({ text, quote, cmdSub: undefined });
+    cur.tokens.push({ text: tkn.text, quote: tkn.quote, cmdSub: undefined });
   }
 
   pushCur();
