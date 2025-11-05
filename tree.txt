@@ -156,15 +156,10 @@ Root
 │   │   │   ├── DebugConsole.tsx
 │   │   │   ├── DebugConsoleAPI.ts
 │   │   │   ├── OutputPanel.tsx
-│   │   │   ├── Terminal.tsx
-│   │   │   ├── TerminalGitCommands.tsx
-│   │   │   ├── TerminalNPMCommands.tsx
-│   │   │   ├── TerminalPyxisCommands.tsx
-│   │   │   └── TerminalUnixCommands.tsx
+│   │   │   └── Terminal.tsx
 │   │   ├── BottomStatusBar.tsx
 │   │   ├── Confirmation.tsx
 │   │   ├── ExtensionInitializer.tsx
-│   │   ├── FileSelect.tsx
 │   │   ├── KeyComboClient.tsx
 │   │   ├── Left
 │   │   │   ├── ExtensionPanelRenderer.tsx
@@ -219,7 +214,6 @@ Root
 │   │   ├── GitHubUserContext.tsx
 │   │   ├── I18nContext.tsx
 │   │   ├── TabContext.tsx
-│   │   ├── TabContext.tsx.backup
 │   │   ├── ThemeContext.tsx
 │   │   └── config.ts
 │   ├── engine
@@ -230,48 +224,56 @@ Root
 │   │   │   ├── prompts.ts
 │   │   │   └── responseParser.ts
 │   │   ├── cmd
-│   │   │   ├── git.ts
-│   │   │   ├── gitOperations
-│   │   │   │   ├── checkout.ts
-│   │   │   │   ├── diff.ts
-│   │   │   │   ├── fetch.ts
-│   │   │   │   ├── fileSystemHelper.ts
-│   │   │   │   ├── github
-│   │   │   │   │   ├── GitHubAPI.ts
-│   │   │   │   │   ├── TreeBuilder.ts
-│   │   │   │   │   └── utils.ts
-│   │   │   │   ├── log.ts
-│   │   │   │   ├── merge.ts
-│   │   │   │   ├── push.ts
-│   │   │   │   ├── reset.ts
-│   │   │   │   ├── revert.ts
-│   │   │   │   └── tree.ts
-│   │   │   ├── npm.ts
-│   │   │   ├── npmOperations
-│   │   │   │   ├── npmDependencySize.ts
-│   │   │   │   └── npmInstall.ts
-│   │   │   ├── unix.ts
-│   │   │   └── unixOperations
-│   │   │       ├── base.ts
-│   │   │       ├── cat.ts
-│   │   │       ├── cd.ts
-│   │   │       ├── cp.ts
-│   │   │       ├── echo.ts
-│   │   │       ├── find.ts
-│   │   │       ├── grep.ts
-│   │   │       ├── head.ts
-│   │   │       ├── help.ts
-│   │   │       ├── index.ts
-│   │   │       ├── ls.ts
-│   │   │       ├── mkdir.ts
-│   │   │       ├── mv.ts
-│   │   │       ├── pwd.ts
-│   │   │       ├── rm.ts
-│   │   │       ├── stat.ts
-│   │   │       ├── tail.ts
-│   │   │       ├── touch.ts
-│   │   │       ├── tree.ts
-│   │   │       └── unzip.ts
+│   │   │   ├── global
+│   │   │   │   ├── git.ts
+│   │   │   │   ├── gitOperations
+│   │   │   │   │   ├── checkout.ts
+│   │   │   │   │   ├── diff.ts
+│   │   │   │   │   ├── fetch.ts
+│   │   │   │   │   ├── fileSystemHelper.ts
+│   │   │   │   │   ├── github
+│   │   │   │   │   │   ├── GitHubAPI.ts
+│   │   │   │   │   │   ├── TreeBuilder.ts
+│   │   │   │   │   │   └── utils.ts
+│   │   │   │   │   ├── log.ts
+│   │   │   │   │   ├── merge.ts
+│   │   │   │   │   ├── push.ts
+│   │   │   │   │   ├── reset.ts
+│   │   │   │   │   ├── revert.ts
+│   │   │   │   │   └── tree.ts
+│   │   │   │   ├── npm.ts
+│   │   │   │   ├── npmOperations
+│   │   │   │   │   ├── npmDependencySize.ts
+│   │   │   │   │   └── npmInstall.ts
+│   │   │   │   ├── unix.ts
+│   │   │   │   └── unixOperations
+│   │   │   │       ├── base.ts
+│   │   │   │       ├── cat.ts
+│   │   │   │       ├── cd.ts
+│   │   │   │       ├── cp.ts
+│   │   │   │       ├── echo.ts
+│   │   │   │       ├── find.ts
+│   │   │   │       ├── grep.ts
+│   │   │   │       ├── head.ts
+│   │   │   │       ├── help.ts
+│   │   │   │       ├── index.ts
+│   │   │   │       ├── ls.ts
+│   │   │   │       ├── mkdir.ts
+│   │   │   │       ├── mv.ts
+│   │   │   │       ├── pwd.ts
+│   │   │   │       ├── rm.ts
+│   │   │   │       ├── stat.ts
+│   │   │   │       ├── tail.ts
+│   │   │   │       ├── touch.ts
+│   │   │   │       ├── tree.ts
+│   │   │   │       └── unzip.ts
+│   │   │   ├── handlers
+│   │   │   │   ├── gitHandler.ts
+│   │   │   │   ├── npmHandler.ts
+│   │   │   │   ├── pyxisHandler.ts
+│   │   │   │   └── unixHandler.ts
+│   │   │   ├── terminalRegistry.ts
+│   │   │   └── vim.ts
 │   │   ├── commitMsgAI.ts
 │   │   ├── core
 │   │   │   ├── coreLogger.ts
@@ -375,6 +377,9 @@ Root
 │       └── vm-browserify.d.ts
 ├── tailwind.config.ts
 ├── tests
+│   ├── __artifacts__
+│   │   ├── math.transformed.ts
+│   │   └── use-math.transformed.ts
 │   ├── aiResponseParser.test.ts
 │   ├── extensionLoader.multifile.test.ts
 │   ├── fsRequirePromise.test.ts
@@ -390,7 +395,7 @@ Root
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-59 directories, 331 files
+62 directories, 333 files
 
 =================================
 
@@ -497,12 +502,8 @@ extensions/ 以下のディレクトリ構造:
 
 
 src/*.ts, *.tsx の統計:
-合計行数: 46753
-合計文字数: 1506902
-合計ファイルサイズ(bytes): 1612525
+合計行数: 46918
+合計文字数: 1512582
+合計ファイルサイズ(bytes): 1617697
 
-開発時のdev container全体のサイズ(bytes): 1.9G	.
-==========
-ビルト済みファイルの行数: 41227
-合計文字数: 26038673
-合計ファイルサイズ(bytes): 27022450
+開発時のdev container全体のサイズ(bytes): 1.2G	.
