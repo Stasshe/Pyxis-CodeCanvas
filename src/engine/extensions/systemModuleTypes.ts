@@ -52,3 +52,8 @@ export type SystemModuleName = keyof SystemModuleMap;
  * システムモジュールの型を取得
  */
 export type SystemModuleType<T extends SystemModuleName> = SystemModuleMap[T];
+
+/**
+ * getSystemModule のヘルパー型
+ */
+export type GetSystemModule = <T extends SystemModuleName>(moduleName: T) => Promise<SystemModuleMap[T]>;

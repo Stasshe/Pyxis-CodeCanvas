@@ -9,6 +9,8 @@
  * Terminal側から渡される基本情報のみを含む
  * 実際にはExtensionManagerでExtensionContext全体とマージされる
  */
+import type { GetSystemModule } from './systemModuleTypes';
+
 export interface CommandContext {
   /** プロジェクト名 */
   projectName: string;
@@ -26,7 +28,15 @@ export interface CommandContext {
 /**
  * コマンドハンドラー
  */
-export type CommandHandler = (args: string[], context: CommandContext) => Promise<string>;
+/**
+ * 実行時に渡されるコマンドコンテキスト (ExtensionManager によって getSystemModule 等が追加される)
+ */
+export type CommandExecutionContext = CommandContext & { getSystemModule: GetSystemModule };
+
+/**
+ * コマンドハンドラー
+ */
+export type CommandHandler = (args: string[], context: CommandExecutionContext) => Promise<string>;
 
 /**
  * 登録されたコマンド情報
@@ -104,7 +114,7 @@ export class CommandRegistry {
   async executeCommand(
     commandName: string,
     args: string[],
-    context: CommandContext
+    context: CommandExecutionContext
   ): Promise<string> {
     const registered = this.commands.get(commandName);
 

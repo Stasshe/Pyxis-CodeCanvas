@@ -3,13 +3,16 @@
  * __EXTENSION_DESCRIPTION__
  */
 
-import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
-import type { FileRepository, CommandContext } from '../_shared/systemModuleTypes';
+import type { ExtensionContext, ExtensionActivation, CommandContext } from '../_shared/types';
+import type { FileRepository, GetSystemModule } from '../_shared/systemModuleTypes';
 
 /**
  * カスタムコマンドの実装
  */
-async function myCommand(args: string[], context: CommandContext): Promise<string> {
+async function myCommand(
+  args: string[],
+  context: CommandContext & { getSystemModule: GetSystemModule }
+): Promise<string> {
   // args: コマンドライン引数の配列
   // context.projectName: プロジェクト名
   // context.projectId: プロジェクトID
@@ -27,9 +30,9 @@ async function myCommand(args: string[], context: CommandContext): Promise<strin
 
   // fileRepositoryを使用する例（SSOT）
   try {
-    // extension manager は getSystemModule を提供します（テンプレートでは存在する前提で呼び出します）
-    // fileRepository を取得
-    const fileRepository = await (context as any).getSystemModule('fileRepository');
+  // extension manager は実行時に getSystemModule を提供します（前提）
+  // fileRepository を取得
+    const fileRepository = await context.getSystemModule('fileRepository');
     if (!fileRepository) {
       output += '\nWarning: fileRepository not provided by runtime\n';
       return output;

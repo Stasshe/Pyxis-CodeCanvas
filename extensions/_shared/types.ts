@@ -27,6 +27,7 @@ export enum ExtensionType {
  * システムモジュール関連の型定義
  * Re-export from systemModuleTypes for convenience
  */
+import type { GetSystemModule } from './systemModuleTypes';
 export type { SystemModuleName, SystemModuleMap } from './systemModuleTypes';
 
 /**
@@ -147,9 +148,14 @@ export interface CommandContext {
 /**
  * コマンドハンドラー
  */
+/**
+ * コマンドハンドラー
+ * 実行時には ExtensionManager により `getSystemModule` を含む形で拡張されるため
+ * handler が受け取る context には getSystemModule が存在します。
+ */
 export type CommandHandler = (
   args: string[],
-  context: CommandContext
+  context: CommandContext & { getSystemModule: GetSystemModule }
 ) => Promise<string>;
 
 /**
@@ -183,7 +189,7 @@ export interface ExtensionContext {
    * システムモジュールへのアクセス (型安全)
    * Narrowed to only the system modules the runtime exposes.
    */
-  getSystemModule?: <T extends 'fileRepository' | 'normalizeCjsEsm' | 'commandRegistry'>(
+  getSystemModule: <T extends 'fileRepository' | 'normalizeCjsEsm' | 'commandRegistry'>(
     moduleName: T
   ) => Promise<import('./systemModuleTypes').SystemModuleMap[T]>;
 
