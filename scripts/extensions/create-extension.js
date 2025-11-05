@@ -245,7 +245,10 @@ ${config.description}
 node build-extensions.js
 
 # 開発サーバー起動
-npm run dev
+pnpm run dev
+
+# ライブラリインストールはルートディレクトリで
+pnpm install
 \`\`\`
 
 ## 使い方
