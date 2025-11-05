@@ -21,9 +21,9 @@ const myModule = {
  * 拡張機能のactivate関数
  */
 export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
-  context.logger?.info('__EXTENSION_NAME__ activating...');
+  context.logger.info('__EXTENSION_NAME__ activating...');
 
-  context.logger?.info('__EXTENSION_NAME__ activated');
+  context.logger.info('__EXTENSION_NAME__ activated');
 
   return {
     builtInModules: {

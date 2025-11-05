@@ -27,13 +27,14 @@ async function myCommand(args: string[], context: CommandContext): Promise<strin
 
   // fileRepositoryを使用する例（SSOT）
   try {
-    if (!context.getSystemModule) {
-      output += '\nWarning: System modules not available\n';
+    // extension manager は getSystemModule を提供します（テンプレートでは存在する前提で呼び出します）
+    // fileRepository を取得
+    const fileRepository = await (context as any).getSystemModule('fileRepository');
+    if (!fileRepository) {
+      output += '\nWarning: fileRepository not provided by runtime\n';
       return output;
     }
 
-    // getSystemModule is typed to only allow known system modules.
-    const fileRepository = (await context.getSystemModule('fileRepository')) as FileRepository;
     const files = await fileRepository.getProjectFiles(context.projectId || '');
     output += `\nTotal files in project: ${files.length}\n`;
 
@@ -46,7 +47,7 @@ async function myCommand(args: string[], context: CommandContext): Promise<strin
     });
     output += `Files in current directory: ${filesInCurrentDir.length}\n`;
   } catch (error) {
-    output += `\nError accessing file repository: ${(error as Error).message}\n`;
+    output += `\nError accessing file repository: ${error && (error as Error).message ? (error as Error).message : String(error)}\n`;
   }
 
   return output;
@@ -56,17 +57,17 @@ async function myCommand(args: string[], context: CommandContext): Promise<strin
  * 拡張機能のactivate関数
  */
 export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
-  context.logger?.info('__EXTENSION_NAME__ activating...');
+  context.logger.info('__EXTENSION_NAME__ activating...');
 
   // コマンドを登録
   if (context.commands) {
     context.commands.registerCommand('mycommand', myCommand);
-    context.logger?.info('Registered command: mycommand');
+    context.logger.info('Registered command: mycommand');
   } else {
-    context.logger?.warn('Commands API not available');
+    context.logger.warn('Commands API not available');
   }
 
-  context.logger?.info('__EXTENSION_NAME__ activated');
+  context.logger.info('__EXTENSION_NAME__ activated');
 
   return {};
 }

@@ -1,4 +1,5 @@
 // サイドバーパネルを登録
+// Sidebar API が存在するかどうかをチェックして安全に呼び出します
 if (context.sidebar) {
   const Panel = create__COMPONENT_NAME__Panel(context);
   
@@ -10,8 +11,10 @@ if (context.sidebar) {
   });
 
   context.sidebar.onPanelActivate('__EXTENSION_ID__-panel', async (panelId: string) => {
-    context.logger?.info(`Panel activated: ${panelId}`);
+    context.logger.info(`Panel activated: ${panelId}`);
   });
 
-  context.logger?.info('Sidebar panel registered');
+  context.logger.info('Sidebar panel registered');
+} else {
+  context.logger.warn('Sidebar API not available; skipping panel registration');
 }

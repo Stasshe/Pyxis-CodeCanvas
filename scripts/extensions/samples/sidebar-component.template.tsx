@@ -6,7 +6,7 @@ function create__COMPONENT_NAME__Panel(context: ExtensionContext) {
     useEffect(() => {
       if (isActive) {
         // パネルがアクティブになった時の処理
-        context.logger?.info('Panel activated');
+        context.logger.info('Panel activated');
       }
     }, [isActive]);
 
@@ -19,7 +19,7 @@ function create__COMPONENT_NAME__Panel(context: ExtensionContext) {
           title: '__EXTENSION_NAME__',
           activateAfterCreate: true,
         });
-        context.logger?.info(`Tab opened: ${tabId}`);
+        context.logger.info(`Tab opened: ${tabId}`);
       }
     };
 

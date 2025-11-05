@@ -7,7 +7,7 @@ Chart.register(...registerables);
 
 // Sidebar Panel Component
 
-function ChartSidebarPanel(props: any) {
+function ChartSidebarPanel() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const chartRef = useRef<Chart | null>(null);
   const [chartType, setChartType] = useState<'line' | 'bar' | 'pie'>('line');
