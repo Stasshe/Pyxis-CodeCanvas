@@ -514,7 +514,7 @@ export default function FileTree({
                 setContextMenu(null);
                 const unix = terminalCommandRegistry.getUnixCommands(
                   currentProjectName,
-                  currentProjectId
+                  currentProjectId || ''
                 );
 
                 if (key === 'createFile') {
@@ -594,10 +594,6 @@ export default function FileTree({
                   input.onchange = async (e: any) => {
                     const files: FileList = e.target.files;
                     if (!files || files.length === 0) return;
-                    const unixLocal = terminalCommandRegistry.getUnixCommands(
-                      currentProjectName,
-                      currentProjectId
-                    );
                     let baseTargetDir = '';
                     if (menuItem) {
                       if (menuItem.type === 'file')

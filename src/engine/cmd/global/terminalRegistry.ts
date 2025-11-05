@@ -1,45 +1,103 @@
-/**
- * terminalRegistry
- *
- * シングルトンで Unix/Git/Npm コマンドインスタンスをプロジェクト単位で管理する
- */
+
 import { UnixCommands } from './unix';
 import { GitCommands } from './git';
 import { NpmCommands } from './npm';
 
-type Key = string;
+type ProjectEntry = {
+  unix?: UnixCommands;
+  git?: GitCommands;
+  npm?: NpmCommands;
+  createdAt: number;
+};
 
-const makeKey = (projectName: string, projectId?: string) => `${projectName}::${projectId || ''}`;
+/**
+ * TerminalCommandRegistry
+ * - Provides per-project singleton instances of command classes (Git/Unix/Npm)
+ * - Keeps lifecycle management (disposeProject / clearAll)
+ * - Instances are created lazily on first request
+ */
+class TerminalCommandRegistry {
+  private projects = new Map<string, ProjectEntry>();
 
-class TerminalRegistry {
-  private unixMap = new Map<Key, UnixCommands>();
-  private gitMap = new Map<Key, GitCommands>();
-  private npmMap = new Map<Key, NpmCommands>();
-
-  getUnixCommands(projectName: string, projectId?: string): UnixCommands {
-    const key = makeKey(projectName, projectId);
-    if (!this.unixMap.has(key)) {
-      this.unixMap.set(key, new UnixCommands(projectName, projectId));
+  private getOrCreateEntry(projectId: string): ProjectEntry {
+    let entry = this.projects.get(projectId);
+    if (!entry) {
+      entry = { createdAt: Date.now() } as ProjectEntry;
+      this.projects.set(projectId, entry);
     }
-    return this.unixMap.get(key)!;
+    return entry;
   }
 
-  getGitCommands(projectName: string, projectId?: string): GitCommands {
-    const key = makeKey(projectName, projectId);
-    if (!this.gitMap.has(key)) {
-      this.gitMap.set(key, new GitCommands(projectName, projectId || ''));
+  getUnixCommands(projectName: string, projectId: string): UnixCommands {
+    const entry = this.getOrCreateEntry(projectId);
+    if (!entry.unix) {
+      // Construct UnixCommands using the existing constructor signature
+      entry.unix = new UnixCommands(projectName, projectId);
     }
-    return this.gitMap.get(key)!;
+    return entry.unix!;
   }
 
-  getNpmCommands(projectName: string, projectId?: string, projectPath?: string): NpmCommands {
-    const key = makeKey(projectName, projectId);
-    if (!this.npmMap.has(key)) {
-      // NpmCommands signature: (projectName, projectId, projectPath)
-      this.npmMap.set(key, new NpmCommands(projectName, projectId || '', projectPath || `/projects/${projectName}`));
+  getGitCommands(projectName: string, projectId: string): GitCommands {
+    const entry = this.getOrCreateEntry(projectId);
+    if (!entry.git) {
+      entry.git = new GitCommands(projectName, projectId);
     }
-    return this.npmMap.get(key)!;
+    return entry.git!;
+  }
+
+  getNpmCommands(projectName: string, projectId: string, currentDir = '/'): NpmCommands {
+    const entry = this.getOrCreateEntry(projectId);
+    if (!entry.npm) {
+      entry.npm = new NpmCommands(projectName, projectId, currentDir);
+    }
+    return entry.npm!;
+  }
+
+  /**
+   * Dispose and remove all command instances for a project
+   */
+  async disposeProject(projectId: string): Promise<void> {
+    const entry = this.projects.get(projectId);
+    if (!entry) return;
+
+    // Call dispose if provided on each command
+    try {
+      if (entry.git && typeof (entry.git as any).dispose === 'function') {
+        await (entry.git as any).dispose();
+      }
+    } catch (e) {
+      console.warn('[terminalRegistry] dispose git failed', e);
+    }
+    try {
+      if (entry.unix && typeof (entry.unix as any).dispose === 'function') {
+        await (entry.unix as any).dispose();
+      }
+    } catch (e) {
+      console.warn('[terminalRegistry] dispose unix failed', e);
+    }
+    try {
+      if (entry.npm && typeof (entry.npm as any).dispose === 'function') {
+        await (entry.npm as any).dispose();
+      }
+    } catch (e) {
+      console.warn('[terminalRegistry] dispose npm failed', e);
+    }
+
+    this.projects.delete(projectId);
+  }
+
+  /**
+   * Clear all cached instances (useful for tests)
+   */
+  async clearAll(): Promise<void> {
+    const keys = Array.from(this.projects.keys());
+    for (const k of keys) {
+      await this.disposeProject(k);
+    }
+    this.projects.clear();
   }
 }
 
-export const terminalCommandRegistry = new TerminalRegistry();
+export const terminalCommandRegistry = new TerminalCommandRegistry();
+
+export default terminalCommandRegistry;

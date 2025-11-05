@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { useTranslation } from '@/context/I18nContext';
-import { UnixCommands } from '@/engine/cmd/global/unix';
-import { GitCommands } from '@/engine/cmd/global/git';
-import { NpmCommands } from '@/engine/cmd/global/npm';
+import type { UnixCommands } from '@/engine/cmd/global/unix';
+import type { GitCommands } from '@/engine/cmd/global/git';
+import type { NpmCommands } from '@/engine/cmd/global/npm';
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
