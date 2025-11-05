@@ -10,9 +10,11 @@ export class ParseError extends Error {
   }
 }
 
+export type Token = { text: string; quote: 'single' | 'double' | null; cmdSub?: string };
+
 export type Segment = {
   raw: string;
-  tokens: string[];
+  tokens: Token[];
   stdinFile?: string | null;
   stdoutFile?: string | null;
   append?: boolean;
@@ -207,7 +209,7 @@ export function parseCommandLine(line: string, env: Record<string, string> = pro
 
   const pushCur = () => {
     if (cur.tokens.length > 0 || cur.stdinFile || cur.stdoutFile) {
-      cur.raw = cur.tokens.join(' ');
+      cur.raw = cur.tokens.map(t => t.text).join(' ');
       segs.push(cur);
     }
     cur = { raw: '', tokens: [], stdinFile: null, stdoutFile: null, append: false, background: false };
@@ -223,6 +225,21 @@ export function parseCommandLine(line: string, env: Record<string, string> = pro
     return s;
   };
 
+  const makeTokenFromRaw = (raw: any): Token => {
+    const s = String(raw);
+    let quote: 'single' | 'double' | null = null;
+    let text = s;
+    if (text.length >= 2) {
+      const f = text[0];
+      const l = text[text.length - 1];
+      if ((f === '"' && l === '"') || (f === "'" && l === "'")) {
+        quote = f === "'" ? 'single' : 'double';
+        text = text.slice(1, -1);
+      }
+    }
+    return { text, quote };
+  };
+
   for (let i = 0; i < toks.length; i++) {
     const tok = toks[i];
     if (typeof tok === 'object' && 'op' in tok) {
@@ -233,15 +250,15 @@ export function parseCommandLine(line: string, env: Record<string, string> = pro
       }
       if (op === '>' || op === '>>') {
         const next = toks[++i];
-        const file = typeof next === 'string' ? next : String((next as any).op);
-        cur.stdoutFile = file;
+        const tkn = makeTokenFromRaw(next);
+        cur.stdoutFile = tkn.text;
         cur.append = op === '>>';
         continue;
       }
       if (op === '<') {
         const next = toks[++i];
-        const file = typeof next === 'string' ? next : String((next as any).op);
-        cur.stdinFile = file;
+        const tkn = makeTokenFromRaw(next);
+        cur.stdinFile = tkn.text;
         continue;
       }
       if (op === '&') {
@@ -253,19 +270,32 @@ export function parseCommandLine(line: string, env: Record<string, string> = pro
         continue;
       }
       // unknown op -> treat as token
-      cur.tokens.push(op);
+      cur.tokens.push({ text: op, quote: null });
       continue;
     }
 
     // word token
     const rawTok = String(tok);
-    const unq = stripOuterQuotes(rawTok);
-    if (unq.startsWith('__CMD_SUB_') && extracted.map[unq]) {
-      const info = extracted.map[unq];
-      cur.tokens.push(JSON.stringify({ cmdSub: info.cmd, quote: info.quote }));
+    // detect outer quotes
+    let quote: 'single' | 'double' | null = null;
+    let text = rawTok;
+    if (text.length >= 2) {
+      const f = text[0];
+      const l = text[text.length - 1];
+      if ((f === '"' && l === '"') || (f === "'" && l === "'")) {
+        quote = f === "'" ? 'single' : 'double';
+        text = text.slice(1, -1);
+      }
+    }
+
+    // If this token is a placeholder for command-substitution, embed the cmd
+    if (text.startsWith('__CMD_SUB_') && extracted.map[text]) {
+      const info = extracted.map[text];
+      cur.tokens.push({ text, quote: info.quote ?? quote, cmdSub: info.cmd });
       continue;
     }
-    cur.tokens.push(unq);
+
+    cur.tokens.push({ text, quote, cmdSub: undefined });
   }
 
   pushCur();

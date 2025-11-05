@@ -104,9 +104,11 @@ type ShellOptions = {
   commandRegistry?: any;
 };
 
+type TokenObj = { text: string; quote: 'single' | 'double' | null; cmdSub?: string };
 type Segment = {
   raw: string;
-  tokens: string[];
+  // tokens may be TokenObj (from parser) or plain strings (after splitting/globbing)
+  tokens: Array<string | TokenObj>;
   stdinFile?: string | null;
   stdoutFile?: string | null;
   append?: boolean;
@@ -222,7 +224,8 @@ export class StreamShell {
       seg.stdinFile = inMatch[3];
     }
 
-    seg.tokens = this.tokenize(s);
+    // tokenize returns strings (quotes stripped); convert to TokenObj (unknown quote)
+    seg.tokens = this.tokenize(s).map(t => ({ text: t, quote: null }));
     return seg;
   }
 
@@ -235,37 +238,107 @@ export class StreamShell {
     const builtins = adaptBuiltins && unix ? adaptBuiltins(unix) : null;
 
     // Resolve command-substitution markers in tokens before launching handler.
-    // parser encoded command-substitution as JSON-stringified objects like
-    // '{"cmdSub":"inner"}'. Detect and run them, replacing the token with
-    // the stdout split by whitespace.
+    // parser now provides tokens as objects with optional cmdSub and quote.
     if (seg.tokens && seg.tokens.length > 0) {
-      const resolvedTokens: string[] = [];
-      for (const t of seg.tokens) {
-        if (typeof t === 'string') {
-          const trimmed = t.trim();
-          if (trimmed.startsWith('{') && trimmed.includes('cmdSub')) {
-            try {
-              const parsed = JSON.parse(trimmed);
-              if (parsed && parsed.cmdSub) {
-                const subRes = await this.run(parsed.cmdSub);
-                const out = String(subRes.stdout || '');
-                // If substitution was quoted, preserve as single token (do not split);
-                // otherwise split on whitespace into multiple tokens
-                if (parsed.quote === 'single' || parsed.quote === 'double') {
-                  resolvedTokens.push(out);
-                } else {
-                  const parts = out.trim().split(/\s+/).filter(Boolean);
-                  resolvedTokens.push(...parts);
-                }
-                continue;
-              }
-            } catch (e) {}
+      const withCmdSub: TokenObj[] = [];
+      for (const tk of seg.tokens) {
+        // tk may be a plain string or a TokenObj
+        if (typeof tk !== 'string' && tk.cmdSub) {
+          try {
+            const subRes = await this.run(tk.cmdSub);
+            const out = String(subRes.stdout || '');
+            // If substitution was quoted, preserve as single token
+            if (tk.quote === 'single' || tk.quote === 'double') {
+              withCmdSub.push({ text: out, quote: tk.quote });
+            } else {
+              // unquoted: place the substitution text (may be split later by IFS)
+              withCmdSub.push({ text: out, quote: null });
+            }
+            continue;
+          } catch (e) {
+            // on error, leave as empty
+            withCmdSub.push({ text: '', quote: typeof tk === 'string' ? null : tk.quote });
+            continue;
           }
         }
-        resolvedTokens.push(String(t));
+        // normalize plain strings to TokenObj
+        if (typeof tk === 'string') withCmdSub.push({ text: tk, quote: null });
+        else withCmdSub.push(tk);
       }
-      seg.tokens = resolvedTokens;
+      seg.tokens = withCmdSub;
     }
+
+    // Field splitting (IFS) and pathname expansion (glob)
+    const ifs = (process.env.IFS ?? ' \t\n').replace(/\\t/g, '\t').replace(/\\n/g, '\n');
+    const isIfsWhitespace = /[ \t\n]/.test(ifs);
+
+    const splitOnIFS = (s: string): string[] => {
+      if (!s) return [''];
+      if (isIfsWhitespace) {
+        // treat runs of whitespace as single separator and trim edges
+        return s.split(/\s+/).filter(Boolean);
+      }
+      // split on any IFS char, preserve empty fields
+      const chars = Array.from(new Set(ifs.split(''))).map(c => (c === ' ' ? '\\s' : c)).join('|');
+      const re = new RegExp(chars);
+      return s.split(re).filter(x => x !== undefined);
+    };
+
+    const hasGlob = (s: string) => /[*?\[]/.test(s);
+
+    const globExpand = async (pattern: string): Promise<string[]> => {
+      // Prefer unix.glob if available
+      if (unix && typeof unix.glob === 'function') {
+        try {
+          const res = await unix.glob(pattern).catch(() => null);
+          if (Array.isArray(res) && res.length > 0) return res;
+        } catch (e) {}
+      }
+      // Fallback to fileRepository listing
+      if (this.fileRepository && typeof this.fileRepository.getProjectFiles === 'function') {
+        try {
+          const files = await this.fileRepository.getProjectFiles(this.projectId);
+          const names = files.map((f: any) => (f.path || '').replace(/^\//, ''));
+          // convert simple glob pattern to regex (supports *, ?, [..])
+          let reStr = '^' + pattern.split('').map(ch => {
+            if (ch === '*') return '[^/]*';
+            if (ch === '?') return '[^/]';
+            if (ch === '[') return '[';
+            if (ch === ']') return ']';
+            return ch.replace(/[\.\+\^\$\{\}\(\)\|]/g, m => '\\' + m);
+          }).join('') + '$';
+          const re = new RegExp(reStr);
+          const matched = names.filter((n: string) => re.test(n)).sort();
+          if (matched.length > 0) return matched;
+        } catch (e) {}
+      }
+      // no expansion
+      return [pattern];
+    };
+
+    // Now perform splitting and globbing to produce final argv array
+    const finalWords: string[] = [];
+    const tokenObjs = seg.tokens as TokenObj[];
+    for (const tk of tokenObjs) {
+      if (tk.quote === 'single' || tk.quote === 'double') {
+        // quoted: no field splitting, no globbing
+        finalWords.push(tk.text);
+        continue;
+      }
+      // unquoted: perform IFS splitting
+      const parts = splitOnIFS(tk.text);
+      for (const p of parts) {
+        if (hasGlob(p) && p !== '') {
+          const matches = await globExpand(p);
+          for (const m of matches) finalWords.push(m);
+        } else if (p !== '') {
+          finalWords.push(p);
+        }
+      }
+    }
+
+    // Replace seg.tokens with final words (plain strings) for execution
+    (seg as any).tokens = finalWords;
 
     // helper to set foreground process (cleared when exits)
     const setForeground = (p: Process | null) => {
@@ -304,8 +377,10 @@ export class StreamShell {
         return;
       }
 
-      const cmd = seg.tokens[0];
-      const args = seg.tokens.slice(1);
+      // seg.tokens may be string[] or TokenObj[]; coerce to strings for execution
+      const rawTokens = seg.tokens as any[];
+      const cmd = String(rawTokens[0] ?? '');
+      const args = rawTokens.slice(1).map((t: any) => String(t));
 
       // Provide a small context for handlers
       const ctx = {
