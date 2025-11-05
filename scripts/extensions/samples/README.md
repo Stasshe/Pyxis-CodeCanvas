@@ -4,68 +4,45 @@ __EXTENSION_DESCRIPTION__
 
 ---
 
-概要
+## 概要
 
-このディレクトリは、`__EXTENSION_NAME__`（ID: `__EXTENSION_ID__`）拡張機能用のテンプレート README です。
-このファイルはテンプレートとして使用され、`create-extension.js` 実行時にサンプルの README をコピーして使用します。
-プレースホルダはダブルアンダースコアで囲まれた大文字トークン（例: `__EXTENSION_NAME__`）になっており、実際の値で置換されます。
+この拡張機能は、Pyxis プラットフォーム上で動作するカスタム機能を提供します。以下の手順に従ってセットアップしてください。
 
-使い方（開発者向け）
+## セットアップ手順
 
-1. 拡張機能ディレクトリへ移動
+1. **拡張機能ディレクトリへ移動**
 
-```bash
-cd extensions/__EXTENSION_ID__
-```
+   ```bash
+   cd extensions/__EXTENSION_ID__
+   ```
 
-2. 依存関係を追加 (必要に応じて)
+2. **依存関係のインストール（必要に応じて）**
 
-```bash
-# ルートプロジェクトに pnpm がある想定
-pnpm install
-# ローカルで個別に依存を管理したい場合
-pnpm add <package-name>
-```
+   ```bash
+   pnpm install
+   ```
 
-3. 開発/ビルド
+3. **ビルドと起動**
 
-```bash
-# ビルド（プロジェクトルートでの実行が必要な場合があります）
-node build-extensions.js
+   ```bash
+   # ビルド
+   node build-extensions.js
 
-# 起動（プロジェクトに合わせてコマンドを変更）
-pm run dev
-```
+   # 開発サーバーの起動
+   pnpm run dev
+   ```
 
-ファイル構成（例）
+## ファイル構成
 
-- `index.__FILE_EXTENSION__` - メインエントリポイント（テンプレート済み）
-- `manifest.json` - メタデータ（ID, name, version 等）
+- `index.__FILE_EXTENSION__` - 拡張機能のエントリポイント
+- `manifest.json` - メタデータ（ID、名前、バージョンなど）
 - `README.md` - このファイル
-- `package.json` - （`pnpm` 使用時に生成されることがある）
 
-コードサンプル（簡単な index ファイルの例）
+## 開発に関する注意点
 
-```js
-// index.__FILE_EXTENSION__
-// プレースホルダ: __COMPONENT_NAME__ や __EXTENSION_NAME__ を使用してテンプレート注入されます
-console.log('This is the __EXTENSION_NAME__ extension (id: __EXTENSION_ID__)');
+- 必要に応じて `pnpm add <package-name>` を使用してライブラリを追加してください。
+- ビルドスクリプト `node build-extensions.js` を実行して、拡張機能を登録してください。
 
-export function activate(context) {
-  // 初期化コード
-}
+## ライセンス
 
-export default {};
-```
-
-よくある注入プレースホルダ
-
-- `__EXTENSION_ID__` — 小文字ハイフン形式の ID
-- `__EXTENSION_NAME__` — 表示用の名前
-- `__EXTENSION_DESCRIPTION__` — 説明文
-- `__FILE_EXTENSION__` — `ts` / `tsx` など
-- `__COMPONENT_NAME__` — キャメルケース化されたコンポーネント名
-
-必要に応じてこのテンプレートを編集してください。
-
-License: MIT
+MIT
