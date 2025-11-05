@@ -251,26 +251,24 @@ function createTodoSidebarPanel(context: ExtensionContext) {
  * 拡張機能のactivate関数
  */
 export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
-  context.logger?.info('TODO Scanner Extension activated!');
+  context.logger.info('TODO Scanner Extension activated!');
 
   // サイドバーパネルを登録
-  if (context.sidebar) {
-    const TodoSidebarPanelWithContext = createTodoSidebarPanel(context);
+  const TodoSidebarPanelWithContext = createTodoSidebarPanel(context);
 
-    context.sidebar.createPanel({
-      id: 'todo-scanner',
-      title: 'TODO',
-      icon: 'CheckSquare',
-      component: TodoSidebarPanelWithContext,
-    });
+  context.sidebar.createPanel({
+    id: 'todo-scanner',
+    title: 'TODO',
+    icon: 'CheckSquare',
+    component: TodoSidebarPanelWithContext,
+  });
 
-    context.sidebar.onPanelActivate('todo-scanner', async (panelId: string) => {
-      context.logger.info(`TODO panel activated: ${panelId}`);
-    });
+  context.sidebar.onPanelActivate('todo-scanner', async (panelId: string) => {
+    context.logger.info(`TODO panel activated: ${panelId}`);
+  });
 
-    context.logger.info('TODO sidebar panel registered');
-  }
-
+  context.logger.info('TODO sidebar panel registered');
+  
   // UI拡張機能なので、services/commandsは不要
   return {};
 }

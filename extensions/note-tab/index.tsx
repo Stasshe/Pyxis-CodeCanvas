@@ -275,18 +275,16 @@ function createNotesListPanel(context: ExtensionContext) {
       const note = loadNote(noteKey);
       const noteTitle = note.content.split('\n')[0].slice(0, 20) || 'Untitled Note';
 
-      if (context.tabs) {
-        // derive an id from the storage key suffix and pass as tab id
-        const suffix = storageKeyToSuffix(noteKey);
-        context.tabs.createTab({
-          id: suffix,
-          title: `📝 ${noteTitle}`,
-          icon: 'FileText',
-          closable: true,
-          activateAfterCreate: true,
-          data: { content: note.content, id: suffix },
-        });
-      }
+      // derive an id from the storage key suffix and pass as tab id
+      const suffix = storageKeyToSuffix(noteKey);
+      context.tabs.createTab({
+        id: suffix,
+        title: `📝 ${noteTitle}`,
+        icon: 'FileText',
+        closable: true,
+        activateAfterCreate: true,
+        data: { content: note.content, id: suffix },
+      });
     };
 
     const deleteNote = (noteKey: string, e: React.MouseEvent) => {
@@ -303,21 +301,19 @@ function createNotesListPanel(context: ExtensionContext) {
     };
 
     const createNewNote = () => {
-      if (context.tabs) {
-        const suffix = generateId();
-        // save under a suffix-only key so storage key becomes STORAGE_PREFIX + suffix
-        saveNote(suffix, '');
-        context.tabs.createTab({
-          id: suffix,
-          title: '📝 New Note',
-          icon: 'FileText',
-          closable: true,
-          activateAfterCreate: true,
-          data: { content: '', id: suffix },
-        });
-        // refresh list shortly after save
-        setTimeout(loadNotes, 100);
-      }
+      const suffix = generateId();
+      // save under a suffix-only key so storage key becomes STORAGE_PREFIX + suffix
+      saveNote(suffix, '');
+      context.tabs.createTab({
+        id: suffix,
+        title: '📝 New Note',
+        icon: 'FileText',
+        closable: true,
+        activateAfterCreate: true,
+        data: { content: '', id: suffix },
+      });
+      // refresh list shortly after save
+      setTimeout(loadNotes, 100);
     };
 
     const formatDate = (timestamp: number) => {
@@ -531,25 +527,20 @@ function createNotesListPanel(context: ExtensionContext) {
 }
 
 export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
-  context.logger?.info('Note Tab Extension (TSX) activated!');
+  context.logger.info('Note Tab Extension (TSX) activated!');
+  context.tabs.registerTabType(NoteTabComponent);
+  context.logger.info('Note tab component registered');
 
-  if (context.tabs) {
-    context.tabs.registerTabType(NoteTabComponent);
-    context.logger?.info('Note tab component registered');
-  }
-
-  if (context.sidebar) {
-    const NotesListPanelWithContext = createNotesListPanel(context);
-    
-    context.sidebar.createPanel({
-      id: 'notes-list',
-      title: 'Notes',
-      icon: 'StickyNote',
-      component: NotesListPanelWithContext,
-    });
-
-    context.logger.info('Notes sidebar panel registered');
-  }
+  const NotesListPanelWithContext = createNotesListPanel(context);
+  
+  context.sidebar.createPanel({
+    id: 'notes-list',
+    title: 'Notes',
+    icon: 'StickyNote',
+    component: NotesListPanelWithContext,
+  });
+  
+  context.logger.info('Notes sidebar panel registered');
 
   // UI拡張機能なので、services/commandsは不要
   // createNoteTabは使われていないため削除
