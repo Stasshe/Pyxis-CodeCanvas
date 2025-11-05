@@ -47,8 +47,8 @@ describe('Complex parser/executor behaviors (IFS/quoting/command-subst)', () => 
 
     const shell = new StreamShell({ projectName: 'p', projectId: 'p1', unix: mockUnix, commandRegistry });
     const res = await shell.run('reportArgs "$(echo a b)"');
-    // POSIX expectation would be ["a b"], but current impl does simple split -> ['a','b']
-    expect(res.stdout.trim()).toBe(JSON.stringify(['a', 'b']));
+  // POSIX expectation would be ["a b"]; current implementation preserves quoted substitution as single arg
+  expect(res.stdout.trim()).toBe(JSON.stringify(['a b']));
   });
 
   test('nested substitutions and quoting interactions', async () => {

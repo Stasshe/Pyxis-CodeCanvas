@@ -119,6 +119,7 @@ export class StreamShell {
   private projectName: string;
   private projectId: string;
   private commandRegistry: any;
+  private foregroundProc: Process | null = null;
 
   constructor(opts: ShellOptions) {
     this.projectName = opts.projectName;
@@ -240,28 +241,41 @@ export class StreamShell {
     if (seg.tokens && seg.tokens.length > 0) {
       const resolvedTokens: string[] = [];
       for (const t of seg.tokens) {
-        if (typeof t === 'string' && t.trim().startsWith('{') && t.includes('cmdSub')) {
-          try {
-            const parsed = JSON.parse(t);
-            if (parsed && parsed.cmdSub) {
-              // run the inner command synchronously (await)
-              const subRes = await this.run(parsed.cmdSub);
-              // command-substitution executed (debug removed)
-              const out = String(subRes.stdout || '').trim();
-              if (out === '') continue;
-              // simple word-splitting on whitespace
-              const parts = out.split(/\s+/).filter(Boolean);
-              resolvedTokens.push(...parts);
-              continue;
-            }
-          } catch (e) {
-            // fallthrough to push original token
+        if (typeof t === 'string') {
+          const trimmed = t.trim();
+          if (trimmed.startsWith('{') && trimmed.includes('cmdSub')) {
+            try {
+              const parsed = JSON.parse(trimmed);
+              if (parsed && parsed.cmdSub) {
+                const subRes = await this.run(parsed.cmdSub);
+                const out = String(subRes.stdout || '');
+                // If substitution was quoted, preserve as single token (do not split);
+                // otherwise split on whitespace into multiple tokens
+                if (parsed.quote === 'single' || parsed.quote === 'double') {
+                  resolvedTokens.push(out);
+                } else {
+                  const parts = out.trim().split(/\s+/).filter(Boolean);
+                  resolvedTokens.push(...parts);
+                }
+                continue;
+              }
+            } catch (e) {}
           }
         }
         resolvedTokens.push(String(t));
       }
       seg.tokens = resolvedTokens;
     }
+
+    // helper to set foreground process (cleared when exits)
+    const setForeground = (p: Process | null) => {
+      this.foregroundProc = p;
+      if (p) {
+        p.on('exit', () => {
+          if (this.foregroundProc === p) this.foregroundProc = null;
+        });
+      }
+    };
 
     // If stdinFile is provided, read it and pipe into proc.stdin
     if (seg.stdinFile && unix) {
@@ -432,6 +446,8 @@ export class StreamShell {
       procs.push(p);
     }
 
+    // foregroundProc will be set after wiring and before waiting for exits
+
     // wire up pipes: proc[i].stdout -> proc[i+1].stdin
     for (let i = 0; i < procs.length - 1; i++) {
       procs[i].stdout.pipe(procs[i + 1].stdin);
@@ -442,6 +458,19 @@ export class StreamShell {
 
     // If last has stdout redirection, capture and write to file when done
     const lastSeg = segs[segs.length - 1];
+
+    // set foreground to last process unless background flag
+    if (lastSeg && !lastSeg.background) {
+      this.foregroundProc = procs[procs.length - 1];
+      // clear when exited
+      this.foregroundProc.on('exit', () => {
+        if (this.foregroundProc && this.foregroundProc?.pid === procs[procs.length - 1].pid) {
+          this.foregroundProc = null;
+        }
+      });
+    } else {
+      this.foregroundProc = null;
+    }
 
     const outChunks: string[] = [];
     last.stdout.on('data', (chunk: Buffer | string) => {
@@ -488,6 +517,13 @@ export class StreamShell {
     // return last exit code or first non-zero
     const code = exits.length ? exits[exits.length - 1].code : 0;
     return { stdout: finalOut, stderr: finalErr, code };
+  }
+
+  // Kill the current foreground process with given signal
+  killForeground(signal: string = 'SIGINT') {
+    try {
+      if (this.foregroundProc) this.foregroundProc.kill(signal);
+    } catch (e) {}
   }
 }
 

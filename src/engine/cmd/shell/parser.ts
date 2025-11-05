@@ -29,13 +29,27 @@ function normalizeWordTok(tok: any): string {
 // shell-quote can tokenize the rest safely. We support simple backticks and
 // $(...) forms (with balanced parens). Returns { line, map } where map maps
 // placeholder -> inner command string.
-function extractCommandSubstitutions(line: string): { line: string; map: Record<string, string> } {
-  const map: Record<string, string> = {};
+function extractCommandSubstitutions(line: string): { line: string; map: Record<string, { cmd: string; quote: 'single' | 'double' | null }> } {
+  const map: Record<string, { cmd: string; quote: 'single' | 'double' | null }> = {};
   let out = '';
   let i = 0;
   let id = 0;
+  let inSingle = false;
+  let inDouble = false;
   while (i < line.length) {
     const ch = line[i];
+    if (ch === "'" && !inDouble) {
+      inSingle = !inSingle;
+      out += ch;
+      i++;
+      continue;
+    }
+    if (ch === '"' && !inSingle) {
+      inDouble = !inDouble;
+      out += ch;
+      i++;
+      continue;
+    }
     if (ch === '`') {
       // backtick until next unescaped backtick
       let j = i + 1;
@@ -44,7 +58,7 @@ function extractCommandSubstitutions(line: string): { line: string; map: Record<
         buf += line[j++];
       }
       const key = `__CMD_SUB_${id++}__`;
-      map[key] = buf;
+      map[key] = { cmd: buf, quote: inSingle ? 'single' : inDouble ? 'double' : null };
       out += key;
       i = j + 1;
       continue;
@@ -73,7 +87,7 @@ function extractCommandSubstitutions(line: string): { line: string; map: Record<
         buf += line[j++];
       }
       const key = `__CMD_SUB_${id++}__`;
-      map[key] = buf;
+      map[key] = { cmd: buf, quote: inSingle ? 'single' : inDouble ? 'double' : null };
       out += key;
       i = j;
       continue;
@@ -193,7 +207,8 @@ export function parseCommandLine(line: string, env: Record<string, string> = pro
     // a special marker token object so the executor can resolve it.
     if (typeof rawTok === 'string' && rawTok.startsWith('__CMD_SUB_') && extracted.map[rawTok]) {
       // keep as JSON-ish marker in the token array (executor should detect)
-      cur.tokens.push(JSON.stringify({ cmdSub: extracted.map[rawTok] }));
+      const info = extracted.map[rawTok];
+      cur.tokens.push(JSON.stringify({ cmdSub: info.cmd, quote: info.quote }));
       continue;
     }
 
