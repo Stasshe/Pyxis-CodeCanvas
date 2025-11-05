@@ -423,15 +423,35 @@ function ClientTerminal({
                 };
               };
 
+              // Resolve file path relative to current working directory when a relative
+              // path is provided so that `node ./src/index.js` behaves like a real shell.
+              let entryPath = args[0];
+              try {
+                if (unixCommandsRef.current) {
+                  // If path is not absolute, join with cwd and normalize
+                  if (!entryPath.startsWith('/')) {
+                    const cwd = await unixCommandsRef.current.pwd();
+                    const combined = cwd.replace(/\/$/, '') + '/' + entryPath;
+                    entryPath = unixCommandsRef.current.normalizePath(combined);
+                  } else {
+                    // absolute path — normalize to collapse ./ ../ if any
+                    entryPath = unixCommandsRef.current.normalizePath(entryPath);
+                  }
+                }
+              } catch (e) {
+                // Fallback to original arg if any error occurs during resolution
+                entryPath = args[0];
+              }
+
               const runtime = new NodeRuntime({
                 projectId: currentProjectId,
                 projectName: currentProject,
-                filePath: args[0],
+                filePath: entryPath,
                 debugConsole,
                 onInput,
               });
 
-              await runtime.execute(args[0]);
+              await runtime.execute(entryPath);
             } catch (e) {
               await captureWriteOutput(`\x1b[31mnode: エラー: ${(e as Error).message}\x1b[0m`);
             }
