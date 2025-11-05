@@ -71,7 +71,14 @@ export interface ExtensionContext {
   extensionPath: string;
   version: string;
   logger: { info: (...args: unknown[]) => void; warn: (...args: unknown[]) => void; error: (...args: unknown[]) => void };
-  getSystemModule?: <T extends SystemModuleName>(moduleName: T) => Promise<SystemModuleMap[T]>;
+  /**
+   * Narrowed to only the system modules the runtime exposes. Keep this
+   * extension-facing surface stable but aligned with what the engine
+   * actually provides.
+   */
+  getSystemModule?: <T extends 'fileRepository' | 'normalizeCjsEsm' | 'commandRegistry'>(
+    moduleName: T
+  ) => Promise<SystemModuleMap[T]>;
   messaging?: { send: (targetId: string, message: unknown) => Promise<unknown>; onMessage: (handler: (message: unknown) => unknown) => void };
   // extension-facing tabs API
   tabs?: ExtensionTabsAPI;

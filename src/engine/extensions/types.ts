@@ -231,7 +231,19 @@ export interface ExtensionContext {
   };
 
   /** システムモジュールへのアクセス (型安全) */
-  getSystemModule?: <T extends SystemModuleName>(moduleName: T) => Promise<SystemModuleMap[T]>;
+  /**
+   * システムモジュールへのアクセス (型安全)
+   *
+   * NOTE: This is the engine/internal surface. Only the system modules
+   * that the runtime actually provides should be accepted here. Keep this
+   * file independent from the extension-facing `_shared` types so the
+   * engine may evolve its internal surface without affecting extensions.
+   */
+  getSystemModule?: <T extends
+    | 'fileRepository'
+    | 'normalizeCjsEsm'
+    | 'commandRegistry'
+  >(moduleName: T) => Promise<SystemModuleMap[T]>;
 
   /** 他の拡張機能との通信 (オプション) */
   messaging?: {
@@ -240,7 +252,22 @@ export interface ExtensionContext {
   };
 
   /** Tab API - 拡張機能が自分のタブを作成・管理 */
-  tabs?: TabAPI;
+  /**
+   * Runtime-facing minimal Tabs API surface used by the engine when creating
+   * an ExtensionContext. This intentionally differs from the full `TabAPI`
+   * class shape which contains internal fields (dispose, ownership flags,
+   * etc.). The engine will provide a lightweight object with the methods
+   * below when passing the context to extensions or internal loaders.
+   */
+  tabs?: {
+    registerTabType: (component: any) => void;
+    createTab: (options: any) => string;
+    updateTab: (tabId: string, options: { title?: string; icon?: string; data?: any }) => boolean;
+    closeTab: (tabId: string) => boolean;
+    onTabClose: (tabId: string, callback: (tabId: string) => void | Promise<void>) => void;
+    getTabData: <T = any>(tabId: string) => T | null;
+    openSystemTab: (file: any, options?: any) => void;
+  };
 
   /** Sidebar API - 拡張機能がサイドバーパネルを追加 */
   sidebar?: {
