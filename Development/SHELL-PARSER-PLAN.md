@@ -140,4 +140,47 @@
 - Terminal integration (Ctrl+C signal propagation) remains to be implemented: StreamShell exposes Process.kill; next is wiring Terminal to call kill on the foreground Process (or adding a `killForeground` API).
 - Background job table, glob expansion, and full subshell AST handling are planned next.
 
+## Control flow: if / loops (design)
+
+目的: スクリプトファイル内の基本的な制御構造をサポートし、初期デモや簡易スクリプトが動作するようにする。
+
+対象構文（最低限実装するもの）
+- if / then / else / elif / fi
+- for VAR in ...; do ...; done
+- while <condition>; do ...; done
+- break / continue（ループ内での制御）
+
+設計方針（簡潔）
+- StreamShell はバイナリ実行ではなく "ライン実行型" の簡易スクリプト実行を採る。つまり、スクリプトファイルは行単位で読み込み、制御構造は行指向で解析・実行される（完全な POSIX シェルのパーサではなく、デモ用途に十分な実装）。
+- 条件評価は `StreamShell.run(conditionLine)` を使い、その戻り値の exit code === 0 を真とみなす。これにより既存のコマンドや拡張コマンドが条件式に使える。
+- ループの反復要素は `for VAR in a b c` のように列挙形式をサポートする。各反復でローカル変数 (VAR) を文字列置換（`$VAR`）で展開する。
+- 位置引数 `$1`..`$9` をサポートし、スクリプト実行時に渡された引数を利用できる。
+- 無限ループ回避のため上限（例えば 10000 回）を入れる（テストでのハング防止）。
+
+制限とエッジケース
+- 複雑なクォートや IFS の完全な再現は対象外。簡易なトークン置換で対応する。
+- `elif` は `else` 内の `if` とみなして再帰的に評価する実装を与える（POSIX と同等のネストを実現）。
+- ループ内で `break` / `continue` を検出し、呼び出し側へ伝播させる。
+
+実装の流れ（短期）
+1. `StreamShell` に `runScript(text: string, args: string[], proc: Process)` ヘルパを追加する。現在のファイル単純実行ループをこのヘルパに置換する。
+2. `runScript` は行配列をインデックス走査し、`if`/`for`/`while` の開始を検出したら対応する終端トークン（`fi`/`done`）まで範囲を収集し、再帰的に評価する。
+3. 条件は `this.run(condLine)` を呼び、コード === 0 を真と判定する。
+4. 位置引数とローカル変数は実行時に展開する（単純な `$VAR` 置換）。
+5. テストを追加して主要ケースをカバーする（ネスト、else、break/continue、空行・コメント）。
+
+テストケース（例）
+- if branch true:
+  - スクリプト: if echo hello; then echo ok; else echo nok; fi
+  - 期待: prints `ok`
+- for loop:
+  - スクリプト: for x in a b; do echo $x; done
+  - 期待: prints `a` then `b`
+- while loop:
+  - スクリプト: i=0; while echo 1; do echo hi; break; done
+  - 期待: prints `hi` once (break respected)
+
+次のアクション
+- まず `StreamShell` のスクリプト実行を拡張して上記の最小要件を満たします。実装後にテストを追加して回帰確認を行います。
+
 See the repository tests (`pnpm test`) for current automated coverage. The next development focus is improving quoted substitution behavior and adding Terminal integration for Ctrl+C.
