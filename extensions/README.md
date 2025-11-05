@@ -378,7 +378,7 @@ function createMyPanel(context: ExtensionContext) {
 }
 
 export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
-  context.tabs?.registerTabType(MyTabComponent);
+  context.tabs.registerTabType(MyTabComponent);
   if (context.sidebar) {
     const Panel = createMyPanel(context);
     context.sidebar.createPanel({

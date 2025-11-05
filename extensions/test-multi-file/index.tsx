@@ -121,22 +121,19 @@ export function activate(context: ExtensionContext): ExtensionActivation {
   console.log('[test-multi-file] Context:', context);
 
   // サイドバーパネルを登録
-  if (context.sidebar) {
-    context.sidebar.createPanel({
-      id: 'test-multi-file-panel',
-      title: 'Multi-File Test',
-      icon: 'TestTube',
-      component: TestMultiFilePanel,
-      order: 100,
-    });
+  context.sidebar.createPanel({
+    id: 'test-multi-file-panel',
+    title: 'Multi-File Test',
+    icon: 'TestTube',
+    component: TestMultiFilePanel,
+  });
 
-    context.sidebar.onPanelActivate('test-multi-file-panel', async (panelId: string) => {
-      context.logger?.info(`Multi-File Test panel activated: ${panelId}`);
-    });
+  context.sidebar.onPanelActivate('test-multi-file-panel', async (panelId: string) => {
+    context.logger.info(`Multi-File Test panel activated: ${panelId}`);
+  });
 
-    context.logger?.info('Multi-File Test sidebar panel registered');
-  }
-
+  context.logger.info('Multi-File Test sidebar panel registered');
+  
   // UI拡張機能なので、services/commandsは不要
   // テスト用の関数は残しておくが、返却する必要はない
   return {};

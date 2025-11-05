@@ -27,7 +27,12 @@ async function prompt(question, initial) {
 }
 
 async function select(question, options) {
-  const choices = options.map(opt => ({ name: opt.value, message: `${opt.label} — ${opt.description}` }));
+  const choices = options.map(opt => ({
+    name: opt.value,
+    // Show an explicit recommended marker when the option has recommended: true
+    // Only the "オススメ！" label is colored red using chalk
+    message: `${opt.label} — ${opt.description}${opt.recommended ? ' — ' + chalk.red('オススメ！') : ''}`
+  }));
   const selectPrompt = new Select({ name: 'choice', message: question, choices });
   try {
     const answer = await selectPrompt.run();
@@ -52,6 +57,7 @@ const EXTENSION_TYPES = [
     value: 'ui',
     label: 'UI Extension',
     description: 'カスタムタブやサイドバーパネルを追加',
+    recommended: true,
     usesReact: true,
     fileExtension: 'tsx',
     templateFile: 'ui-extension.template.tsx'
@@ -60,6 +66,7 @@ const EXTENSION_TYPES = [
     value: 'tool',
     label: 'Command/Tool',
     description: 'ターミナルコマンドやツールを追加',
+    recommended: true,
     usesReact: false,
     fileExtension: 'ts',
     templateFile: 'command-extension.template.ts'
@@ -92,9 +99,9 @@ const EXTENSION_TYPES = [
 
 // UIコンポーネントタイプ
 const UI_COMPONENT_TYPES = [
-  { value: 'tab', label: 'Custom Tab', description: 'カスタムタブのみ(開くボタンを作成できないので非推奨)' },
   { value: 'sidebar', label: 'Sidebar Panel', description: 'サイドバーパネルのみ' },
-  { value: 'both', label: 'Tab + Sidebar', description: 'タブとサイドバー両方' }
+  { value: 'both', label: 'Tab + Sidebar', description: 'タブとサイドバー両方' },
+  { value: 'tab', label: 'Custom Tab', description: 'カスタムタブのみ(開くボタンを作成できないので非推奨)' },
 ];
 
 // テンプレートファイルを読み込む
@@ -229,44 +236,6 @@ function generateExtensionFromTemplate(config, templateFile) {
   return replaceTags(template, replacements);
 }
 
-function generateREADME(config) {
-  return `# ${config.name}
-
-${config.description}
-
-## 概要
-
-このディレクトリには \`${config.name}\` 拡張機能が含まれています。
-
-## 開発
-
-\`\`\`bash
-# 拡張機能をビルド
-node build-extensions.js
-
-# 開発サーバー起動
-npm run dev
-\`\`\`
-
-## 使い方
-
-1. Pyxisを開く
-2. 拡張機能パネルから「${config.name}」を有効化
-${config.type === 'ui' && config.componentType === 'tab' ? '3. タブバーから新しいタブを作成' : ''}
-${config.type === 'ui' && config.componentType === 'sidebar' ? '3. サイドバーに「${config.name}」パネルが表示されます' : ''}
-
-## ファイル構成
-
-- \`index.${config.fileExtension}\` - メインコード
-- \`manifest.json\` - 拡張機能のメタデータ
-- \`README.md\` - このファイル
-
-## License
-
-MIT
-`;
-}
-
 // メイン処理
 async function main() {
   console.log('\n' + boxen(chalk.bold.cyan('Pyxis Extension Template Generator'), { padding: 1, margin: 1, borderStyle: 'round', borderColor: 'cyan' }));
@@ -283,10 +252,10 @@ async function main() {
       return;
     }
 
-    const name = await prompt('拡張機能名 (例: My Extension): ');
+    let name = await prompt('拡張機能名 (例: My Extension): ');
     if (!name) {
-      console.log(chalk.red(figures.cross + ' 拡張機能名は必須です'));
-      return;
+      name = id;
+      console.log(chalk.yellow(figures.info + ' 拡張機能名が未入力のため、IDと同じ値を使用します: ' + name));
     }
 
     const description = await prompt('説明: ');
@@ -326,7 +295,7 @@ async function main() {
     console.log(`  ${chalk.cyan('タグ:')} ${config.tags.join(', ') || '(なし)'}`);
     console.log(`  ${chalk.cyan('React使用:')} ${config.usesReact ? chalk.green('はい') : chalk.yellow('いいえ')}`);
 
-    const confirmed = await confirm('\nこの設定で作成しますか?');
+    const confirmed = await new Confirm({ message: '\nこの設定で作成しますか?', initial: true }).run();
     if (!confirmed) {
       console.log(chalk.yellow(figures.cross + ' キャンセルされました'));
       return;
@@ -366,10 +335,38 @@ async function main() {
     fs.writeFileSync(indexPath, indexContent);
     console.log(`✅ 作成: index.${config.fileExtension}`);
 
-    // README.md作成
+    // README.md作成（samples/README.mdを読み込み、プレースホルダを置換して書き出す）
     const readmePath = path.join(extensionDir, 'README.md');
-    fs.writeFileSync(readmePath, generateREADME(config));
-    console.log(`✅ 作成: README.md`);
+    const sampleReadmePath = path.join(__dirname, 'samples', 'README.md');
+    if (fs.existsSync(sampleReadmePath)) {
+      try {
+        const sampleContent = fs.readFileSync(sampleReadmePath, 'utf8');
+        const replacements = {
+          '__EXTENSION_NAME__': config.name || '',
+          '__EXTENSION_DESCRIPTION__': config.description || '',
+          '__EXTENSION_ID__': config.id || '',
+          '__FILE_EXTENSION__': config.fileExtension || '',
+          '__COMPONENT_NAME__': toComponentName(config.id || ''),
+          '__EXTENSION_TYPE__': config.type || '',
+          '__COMPONENT_TYPE__': config.componentType || '',
+          '__USES_REACT__': config.usesReact ? 'yes' : 'no',
+          '__TAGS__': (config.tags && config.tags.length) ? config.tags.join(', ') : '(none)',
+          '__AUTHOR__': config.author || '',
+          '__USE_PNPM__': config.usePnpm ? 'yes' : 'no',
+          '__CREATED_AT__': (new Date()).toISOString()
+        };
+
+        const rendered = replaceTags(sampleContent, replacements);
+        fs.writeFileSync(readmePath, rendered);
+        console.log(`✅ 作成: README.md (samples/README.md -> rendered)`);
+      } catch (err) {
+        console.log(chalk.red(figures.cross + ' README のレンダリング中にエラーが発生しました:'), err);
+        return;
+      }
+    } else {
+      console.log(`⚠️ README.mdのサンプルが見つかりません: ${sampleReadmePath}`);
+      return;
+    }
 
     // pnpmライブラリを使用する場合
     if (config.usePnpm) {
@@ -402,12 +399,12 @@ async function main() {
       console.log('  3. pnpm add <library-name> (ライブラリを追加)');
       console.log(`  4. extensions/${id}/index.${config.fileExtension} を編集`);
       console.log('  5. node build-extensions.js を実行（プロジェクトルートで）');
-      console.log('  6. npm run dev で確認');
+      console.log('  6. pnpm run dev で確認');
       console.log('\n⚠️  重要: PNPM-GUIDE.md を必ず読んでください！');
     } else {
       console.log(`  1. extensions/${id}/index.${config.fileExtension} を編集`);
       console.log('  2. node build-extensions.js を実行（registry.jsonも自動生成されます）');
-      console.log('  3. npm run dev で確認');
+      console.log('  3. pnpm run dev で確認');
     }
     console.log('');
 

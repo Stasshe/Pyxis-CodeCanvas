@@ -384,7 +384,7 @@ graph TB
 ```typescript
 export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
   // サイドバーパネルを作成
-  context.sidebar?.createPanel({
+  context.sidebar.createPanel({
     id: 'todo-scanner',
     title: 'TODO',
     icon: 'ListTodo',
@@ -413,7 +413,7 @@ export interface SidebarPanelProps {
 
 ```typescript
 // 拡張機能側で状態を更新
-context.sidebar?.updatePanel('todo-scanner', {
+context.sidebar.updatePanel('todo-scanner', {
   todoCount: 42,
   lastScan: Date.now(),
 });
@@ -458,7 +458,7 @@ graph TB
 ```typescript
 export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
   // タブタイプを登録
-  context.tabs?.registerTabType(NoteTabComponent);
+  context.tabs.registerTabType(NoteTabComponent);
   
   return {};
 }
@@ -470,7 +470,7 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
 
 ```typescript
 // 拡張機能内でタブを作成
-const tabId = context.tabs?.createTab({
+const tabId = context.tabs.createTab({
   id: 'my-note-1',           // オプション: 指定すると同じIDのタブを再利用
   title: 'My Note',
   icon: 'FileText',
@@ -495,16 +495,16 @@ private isOwnedTab(tabId: string): boolean {
 
 ```typescript
 // タブの内容を更新
-context.tabs?.updateTab(tabId, {
+context.tabs.updateTab(tabId, {
   title: 'New Title',
   data: { content: 'Updated content' },
 });
 
 // タブを閉じる
-context.tabs?.closeTab(tabId);
+context.tabs.closeTab(tabId);
 
 // クローズコールバックの登録
-context.tabs?.onTabClose(tabId, async (tabId) => {
+context.tabs.onTabClose(tabId, async (tabId) => {
   // クリーンアップ処理
   await saveData();
 });
@@ -515,7 +515,7 @@ context.tabs?.onTabClose(tabId, async (tabId) => {
 拡張機能は`openSystemTab`を使用してPyxisのエディタタブを開くことができます。
 
 ```typescript
-context.tabs?.openSystemTab(file, {
+context.tabs.openSystemTab(file, {
   kind: 'editor',
   jumpToLine: 42,
   activateAfterOpen: true,
@@ -549,7 +549,7 @@ graph TB
 
 ```typescript
 export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
-  context.commands?.registerCommand('hello', async (args, cmdContext) => {
+  context.commands.registerCommand('hello', async (args, cmdContext) => {
     const name = args.length > 0 ? args.join(' ') : 'World';
     return `Hello, ${name}!\nProject: ${cmdContext.projectName}`;
   });

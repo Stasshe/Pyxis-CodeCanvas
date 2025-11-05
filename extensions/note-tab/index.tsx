@@ -3,34 +3,195 @@
  * TSX構文を使用した実装例
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
+
+// --- Storage abstraction -------------------------------------------------
+const OLD_PREFIX = 'note-tab-';
+const STORAGE_PREFIX = 'note-tab-v2-';
+
+function normalizeKey(rawKey: string) {
+  if (!rawKey) return STORAGE_PREFIX + Date.now();
+  if (rawKey.startsWith(STORAGE_PREFIX)) return rawKey;
+  if (rawKey.startsWith(OLD_PREFIX)) {
+    const suffix = rawKey.slice(OLD_PREFIX.length);
+    return STORAGE_PREFIX + suffix;
+  }
+  // If a full key-like string but not prefixed, prefix it
+  return STORAGE_PREFIX + rawKey;
+}
+
+// generate stable unique id for new notes
+function generateId() {
+  try {
+    // use native UUID if available
+    // @ts-ignore
+    if (typeof crypto !== 'undefined' && typeof (crypto as any).randomUUID === 'function') {
+      // @ts-ignore
+      return (crypto as any).randomUUID();
+    }
+  } catch (e) {}
+
+  // fallback to random hex-based id
+  const s4 = () => Math.floor((1 + Math.random()) * 0x10000).toString(16).substring(1);
+  return `${s4()}${s4()}-${s4()}-${s4()}-${s4()}-${s4()}${s4()}${s4()}`;
+}
+
+function saveNote(rawKey: string, content: string) {
+  const key = normalizeKey(rawKey);
+  const now = Date.now();
+  const payload = JSON.stringify({ version: 2, content, updatedAt: now });
+  try {
+    localStorage.setItem(key, payload);
+  } catch (e) {
+    console.error('saveNote failed', e);
+  }
+  // notify
+  window.dispatchEvent(new CustomEvent('note-updated', { detail: { noteKey: key } }));
+  return key;
+}
+
+function loadNote(rawKey: string) {
+  const key = normalizeKey(rawKey);
+  const raw = localStorage.getItem(key);
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      return { content: parsed.content || '', updatedAt: parsed.updatedAt || Date.now() };
+    } catch (e) {
+      // fallthrough to fallback
+      console.warn('malformed note payload, falling back to raw', e);
+    }
+  }
+
+  // Fallback for old format (note-tab-KEY and note-tab-KEY-timestamp)
+  if (rawKey && rawKey.startsWith(OLD_PREFIX) && !rawKey.startsWith(STORAGE_PREFIX)) {
+    const content = localStorage.getItem(rawKey) || '';
+    const ts = localStorage.getItem(`${rawKey}-timestamp`);
+    return { content, updatedAt: ts ? parseInt(ts, 10) : Date.now() };
+  }
+
+  return { content: '', updatedAt: Date.now() };
+}
+
+function listNotes() {
+  const results: Array<{ key: string; content: string; timestamp: number }> = [];
+
+  // Simple migration: move old keys (note-tab-*) to namespaced keys
+  const toMigrate: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (!k) continue;
+    if (k.startsWith(OLD_PREFIX) && !k.startsWith(STORAGE_PREFIX)) {
+      toMigrate.push(k);
+    }
+  }
+
+  toMigrate.forEach((oldKey) => {
+    try {
+      const content = localStorage.getItem(oldKey) || '';
+      const ts = localStorage.getItem(`${oldKey}-timestamp`);
+      const suffix = oldKey.slice(OLD_PREFIX.length);
+      const newKey = STORAGE_PREFIX + suffix;
+      const payload = JSON.stringify({ version: 2, content, updatedAt: ts ? parseInt(ts, 10) : Date.now() });
+      localStorage.setItem(newKey, payload);
+      localStorage.removeItem(oldKey);
+      localStorage.removeItem(`${oldKey}-timestamp`);
+    } catch (e) {
+      console.warn('migration failed for', oldKey, e);
+    }
+  });
+
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key) continue;
+    if (!key.startsWith(STORAGE_PREFIX)) continue;
+    const raw = localStorage.getItem(key) || '';
+    try {
+      const parsed = JSON.parse(raw);
+      results.push({ key, content: parsed.content || '', timestamp: parsed.updatedAt || Date.now() });
+    } catch (e) {
+      // Fallback: keep raw string
+      results.push({ key, content: raw, timestamp: Date.now() });
+    }
+  }
+
+  // newest first
+  results.sort((a, b) => b.timestamp - a.timestamp);
+  return results;
+}
+
+function deleteNoteByKey(rawKey: string) {
+  const key = normalizeKey(rawKey);
+  try {
+    localStorage.removeItem(key);
+  } catch (e) {
+    console.warn('deleteNote failed', e);
+  }
+  window.dispatchEvent(new CustomEvent('note-updated', { detail: { noteKey: key } }));
+}
+
+// ------------------------------------------------------------------------
+// Helper: derive storage suffix from a storage key
+function storageKeyToSuffix(storageKey: string) {
+  if (!storageKey) return storageKey;
+  if (storageKey.startsWith(STORAGE_PREFIX)) return storageKey.slice(STORAGE_PREFIX.length);
+  if (storageKey.startsWith(OLD_PREFIX)) return storageKey.slice(OLD_PREFIX.length);
+  return storageKey;
+}
+
+// Helper: get suffix/id from tab.id (format: extension:extensionId[:id])
+function getSuffixFromTabId(tabId: string) {
+  if (!tabId) return null;
+  const parts = tabId.split(':');
+  if (parts.length >= 3) return parts.slice(2).join(':');
+  return null;
+}
 
 // メモタブコンポーネント（TSX構文使用）
 function NoteTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
   const [content, setContent] = useState((tab as any).data?.content || '');
   const [isSaving, setIsSaving] = useState(false);
+  const saveTimer = useRef<number | null>(null);
 
-  // 自動保存
+  // Load note content when tab changes (support when opening existing note)
   useEffect(() => {
-    const timer = setTimeout(() => {
-      const tabData = (tab as any).data;
-      const noteKey = tabData?.noteKey || `note-tab-${tab.id}`;
-      
-      if (content !== tabData?.content) {
-        setIsSaving(true);
-        localStorage.setItem(noteKey, content);
-        localStorage.setItem(`${noteKey}-timestamp`, Date.now().toString());
-        
-        window.dispatchEvent(new CustomEvent('note-updated', { 
-          detail: { noteKey } 
-        }));
-        
-        setTimeout(() => setIsSaving(false), 500);
+    const suffix = getSuffixFromTabId((tab as any).id) || (tab as any).data?.id || null;
+    if (suffix) {
+      const note = loadNote(suffix);
+      setContent(note.content || '');
+    } else {
+      // fallback to inline data if provided
+      setContent((tab as any).data?.content || '');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab.id]);
+
+  // Auto-save with debounce and a storage abstraction
+  useEffect(() => {
+    const tabData = (tab as any).data || {};
+    const suffix = getSuffixFromTabId((tab as any).id) || tabData.id || `${Date.now()}`;
+    const noteKeyRaw = suffix;
+    // clear previous timer
+    if (saveTimer.current) {
+      window.clearTimeout(saveTimer.current);
+    }
+
+    saveTimer.current = window.setTimeout(() => {
+      const normalizedKey = saveNote(noteKeyRaw, content);
+      setIsSaving(true);
+      // small visual delay before turning off saving indicator
+      setTimeout(() => setIsSaving(false), 350);
+    }, 750);
+
+    return () => {
+      if (saveTimer.current) {
+        window.clearTimeout(saveTimer.current);
+        saveTimer.current = null;
       }
-    }, 1000);
-    return () => clearTimeout(timer);
+    };
+    // only depend on content and tab id/key
   }, [content, tab.id]);
 
   // TSX構文で記述！
@@ -90,19 +251,13 @@ function createNotesListPanel(context: ExtensionContext) {
     const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
     const loadNotes = () => {
-      const allNotes: Array<{ key: string; content: string; timestamp: number }> = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith('note-tab-')) {
-          const content = localStorage.getItem(key) || '';
-          const timestampStr = localStorage.getItem(`${key}-timestamp`);
-          const timestamp = timestampStr ? parseInt(timestampStr, 10) : Date.now();
-          allNotes.push({ key, content, timestamp });
-        }
+      try {
+        const allNotes = listNotes();
+        setNotes(allNotes);
+      } catch (e) {
+        console.error('loadNotes failed', e);
+        setNotes([]);
       }
-      // 最新順にソート
-      allNotes.sort((a, b) => b.timestamp - a.timestamp);
-      setNotes(allNotes);
     };
 
     useEffect(() => {
@@ -117,28 +272,28 @@ function createNotesListPanel(context: ExtensionContext) {
     }, [isActive]);
 
     const openNote = (noteKey: string) => {
-      const content = localStorage.getItem(noteKey) || '';
-      const noteTitle = content.split('\n')[0].slice(0, 20) || 'Untitled Note';
-      
-      if (context.tabs) {
-        context.tabs.createTab({
-          title: `📝 ${noteTitle}`,
-          icon: 'FileText',
-          closable: true,
-          activateAfterCreate: true,
-          data: { content, noteKey },
-        });
-      }
+      const note = loadNote(noteKey);
+      const noteTitle = note.content.split('\n')[0].slice(0, 20) || 'Untitled Note';
+
+      // derive an id from the storage key suffix and pass as tab id
+      const suffix = storageKeyToSuffix(noteKey);
+      context.tabs.createTab({
+        id: suffix,
+        title: `📝 ${noteTitle}`,
+        icon: 'FileText',
+        closable: true,
+        activateAfterCreate: true,
+        data: { content: note.content, id: suffix },
+      });
     };
 
     const deleteNote = (noteKey: string, e: React.MouseEvent) => {
       e.stopPropagation();
       if (confirmDelete === noteKey) {
-        localStorage.removeItem(noteKey);
-        localStorage.removeItem(`${noteKey}-timestamp`);
+        deleteNoteByKey(noteKey);
         loadNotes();
         setConfirmDelete(null);
-        context.logger?.info(`Note deleted: ${noteKey}`);
+        context.logger.info(`Note deleted: ${noteKey}`);
       } else {
         setConfirmDelete(noteKey);
         setTimeout(() => setConfirmDelete(null), 3000);
@@ -146,19 +301,19 @@ function createNotesListPanel(context: ExtensionContext) {
     };
 
     const createNewNote = () => {
-      if (context.tabs) {
-        const timestamp = Date.now();
-        const newKey = `note-tab-${timestamp}`;
-        localStorage.setItem(`${newKey}-timestamp`, timestamp.toString());
-        
-        context.tabs.createTab({
-          title: '📝 New Note',
-          icon: 'FileText',
-          closable: true,
-          activateAfterCreate: true,
-          data: { content: '', noteKey: newKey },
-        });
-      }
+      const suffix = generateId();
+      // save under a suffix-only key so storage key becomes STORAGE_PREFIX + suffix
+      saveNote(suffix, '');
+      context.tabs.createTab({
+        id: suffix,
+        title: '📝 New Note',
+        icon: 'FileText',
+        closable: true,
+        activateAfterCreate: true,
+        data: { content: '', id: suffix },
+      });
+      // refresh list shortly after save
+      setTimeout(loadNotes, 100);
     };
 
     const formatDate = (timestamp: number) => {
@@ -372,26 +527,20 @@ function createNotesListPanel(context: ExtensionContext) {
 }
 
 export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
-  context.logger?.info('Note Tab Extension (TSX) activated!');
+  context.logger.info('Note Tab Extension (TSX) activated!');
+  context.tabs.registerTabType(NoteTabComponent);
+  context.logger.info('Note tab component registered');
 
-  if (context.tabs) {
-    context.tabs.registerTabType(NoteTabComponent);
-    context.logger?.info('Note tab component registered');
-  }
-
-  if (context.sidebar) {
-    const NotesListPanelWithContext = createNotesListPanel(context);
-    
-    context.sidebar.createPanel({
-      id: 'notes-list',
-      title: 'Notes',
-      icon: 'StickyNote',
-      component: NotesListPanelWithContext,
-      order: 50,
-    });
-
-    context.logger?.info('Notes sidebar panel registered');
-  }
+  const NotesListPanelWithContext = createNotesListPanel(context);
+  
+  context.sidebar.createPanel({
+    id: 'notes-list',
+    title: 'Notes',
+    icon: 'StickyNote',
+    component: NotesListPanelWithContext,
+  });
+  
+  context.logger.info('Notes sidebar panel registered');
 
   // UI拡張機能なので、services/commandsは不要
   // createNoteTabは使われていないため削除

@@ -7,7 +7,7 @@ Chart.register(...registerables);
 
 // Sidebar Panel Component
 
-function ChartSidebarPanel(props: any) {
+function ChartSidebarPanel() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const chartRef = useRef<Chart | null>(null);
   const [chartType, setChartType] = useState<'line' | 'bar' | 'pie'>('line');
@@ -140,19 +140,17 @@ function ChartSidebarPanel(props: any) {
 }
 
 export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
-  context.logger?.info('Chart Extension activating...');
+  context.logger.info('Chart Extension activating...');
   // サイドバーにパネルを追加
-  if (context.sidebar) {
-    context.sidebar.createPanel({
-      id: 'chart-sidebar-panel',
-      title: 'Chart',
-      // Use a lucide-react icon export name (PascalCase). "bar-chart" is not valid;
-      // change to a valid icon name so MenuBar can resolve it dynamically.
-      icon: 'BarChart3',
-      component: ChartSidebarPanel,
-    });
-    context.logger?.info('Chart sidebar panel registered');
-  }
+  context.sidebar.createPanel({
+    id: 'chart-sidebar-panel',
+    title: 'Chart',
+    // Use a lucide-react icon export name (PascalCase). "bar-chart" is not valid;
+    // change to a valid icon name so MenuBar can resolve it dynamically.
+    icon: 'BarChart3',
+    component: ChartSidebarPanel,
+  });
+  context.logger.info('Chart sidebar panel registered');
   return {};
 }
 

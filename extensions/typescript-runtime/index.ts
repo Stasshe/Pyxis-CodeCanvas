@@ -16,7 +16,7 @@ interface TranspileResponse {
 }
 
 export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
-  context.logger?.info('TypeScript Runtime Extension activating...');
+  context.logger.info('TypeScript Runtime Extension activating...');
 
   // normalizeCjsEsmユーティリティを取得（型推論により自動的に正しい型が得られる）
   if (!context.getSystemModule) {
@@ -28,9 +28,9 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
     // moduleの型は自動的に NormalizeCjsEsmModule として推論される
     const module = await context.getSystemModule('normalizeCjsEsm');
     normalizeCjsEsm = module.normalizeCjsEsm;
-    context.logger?.info('✅ normalizeCjsEsm loaded');
+    context.logger.info('✅ normalizeCjsEsm loaded');
   } catch (error) {
-    context.logger?.warn('⚠️ Failed to load normalizeCjsEsm:', error);
+    context.logger.warn('⚠️ Failed to load normalizeCjsEsm:', error);
     throw new Error('normalizeCjsEsm is required but could not be loaded');
   }
 
@@ -70,14 +70,14 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
           : '';
         const workerPath = `${basePath}/extensions/typescript-runtime/transpile.worker.js`;
         
-        context.logger?.info(`📦 Loading worker from: ${workerPath}`);
+        context.logger.info(`📦 Loading worker from: ${workerPath}`);
         
         let worker: Worker;
         try {
           worker = new Worker(workerPath);
         } catch (workerError) {
           const errorMsg = `Failed to create Worker from ${workerPath}: ${workerError instanceof Error ? workerError.message : String(workerError)}`;
-          context.logger?.error(`🔴 ${errorMsg}`);
+          context.logger.error(`🔴 ${errorMsg}`);
           reject(new Error(errorMsg));
           return;
         }
@@ -93,7 +93,7 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
           
           // 初期化メッセージは無視
           if (data.type === 'ready') {
-            context.logger?.info('✅ Worker ready');
+            context.logger.info('✅ Worker ready');
             return;
           }
           
@@ -104,10 +104,10 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
           const response = data as TranspileResponse;
           
           if (response.error) {
-            context.logger?.error(`🔴 Worker returned error for ${filePath}:`, response.error);
+            context.logger.error(`🔴 Worker returned error for ${filePath}:`, response.error);
             reject(new Error(response.error));
           } else {
-            context.logger?.info(`✅ Worker success for ${filePath}`);
+            context.logger.info(`✅ Worker success for ${filePath}`);
             resolve(response);
           }
         };
@@ -116,7 +116,7 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
           clearTimeout(timeout);
           worker.terminate();
           const errorMsg = `Worker error for ${filePath}: ${error.message || 'Unknown error'}`;
-          context.logger?.error(`🔴 ${errorMsg}`, error);
+          context.logger.error(`🔴 ${errorMsg}`, error);
           reject(new Error(errorMsg));
         };
         
@@ -125,8 +125,8 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
         const extractDependenciesCode = extractDependencies.toString();
         
         // デバッグ: 関数コードが正しく取得できているか確認
-        context.logger?.info(`📝 normalizeCjsEsm code length: ${normalizeCjsEsmCode.length}`);
-        context.logger?.info(`📝 extractDependencies code length: ${extractDependenciesCode.length}`);
+        context.logger.info(`📝 normalizeCjsEsm code length: ${normalizeCjsEsmCode.length}`);
+        context.logger.info(`📝 extractDependencies code length: ${extractDependenciesCode.length}`);
         
         if (!normalizeCjsEsmCode || normalizeCjsEsmCode.length < 10) {
           reject(new Error('normalizeCjsEsm function code extraction failed'));
@@ -152,7 +152,7 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
         
       } catch (error) {
         const errorMsg = `transpileWithWorker caught error: ${error instanceof Error ? error.message : String(error)}`;
-        context.logger?.error(`🔴 ${errorMsg}`, error);
+        context.logger.error(`🔴 ${errorMsg}`, error);
         reject(new Error(errorMsg));
       }
     });
@@ -165,14 +165,14 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
     transpiler: async (code: string, options: any = {}) => {
       const { filePath = 'unknown.ts', isTypeScript, isJSX } = options;
       
-      context.logger?.info(`🔄 Transpiling: ${filePath}`);
+      context.logger.info(`🔄 Transpiling: ${filePath}`);
       
       try {
         // TypeScriptまたはJSXの場合: Web Workerでトランスパイル
         if (isTypeScript || isJSX) {
           const result = await transpileWithWorker(code, filePath, isTypeScript || false, isJSX || false);
           
-          context.logger?.info(`✅ Transpiled: ${filePath} (${code.length} -> ${result.code.length} bytes, ${result.dependencies.length} deps)`);
+          context.logger.info(`✅ Transpiled: ${filePath} (${code.length} -> ${result.code.length} bytes, ${result.dependencies.length} deps)`);
           
           return {
             code: result.code,
@@ -185,7 +185,7 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
           const finalCode = normalizeCjsEsm(code);
           const dependencies = extractDependencies(finalCode);
           
-          context.logger?.info(`✅ Normalized: ${filePath} (${code.length} -> ${finalCode.length} bytes, ${dependencies.length} deps)`);
+          context.logger.info(`✅ Normalized: ${filePath} (${code.length} -> ${finalCode.length} bytes, ${dependencies.length} deps)`);
           
           return {
             code: finalCode,
@@ -197,7 +197,7 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
         const errorMessage = error instanceof Error ? error.message : String(error);
         const errorStack = error instanceof Error ? error.stack : undefined;
         
-        context.logger?.error(`❌ Transpile failed for ${filePath}:`, {
+        context.logger.error(`❌ Transpile failed for ${filePath}:`, {
           message: errorMessage,
           stack: errorStack,
           error: error,
@@ -221,7 +221,7 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
     },
   };
 
-  context.logger?.info('✅ TypeScript Runtime Extension activated');
+  context.logger.info('✅ TypeScript Runtime Extension activated');
 
   return {
     runtimeFeatures,

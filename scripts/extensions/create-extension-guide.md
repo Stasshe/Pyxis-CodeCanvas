@@ -5,7 +5,7 @@
 ## 使い方
 
 ```bash
-npm run create-extension
+pnpm run create-extension
 ```
 
 ## 実行例

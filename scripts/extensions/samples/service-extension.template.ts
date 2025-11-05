@@ -9,7 +9,7 @@ import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
  * 拡張機能のactivate関数
  */
 export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
-  context.logger?.info('__EXTENSION_NAME__ activating...');
+  context.logger.info('__EXTENSION_NAME__ activating...');
 
   // サービスの実装
   const myService = {
@@ -17,11 +17,11 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
     version: '1.0.0',
     
     doSomething: () => {
-      context.logger?.info('Service method called');
+      context.logger.info('Service method called');
     },
   };
 
-  context.logger?.info('__EXTENSION_NAME__ activated');
+  context.logger.info('__EXTENSION_NAME__ activated');
 
   return {
     services: {

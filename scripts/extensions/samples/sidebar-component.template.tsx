@@ -6,21 +6,23 @@ function create__COMPONENT_NAME__Panel(context: ExtensionContext) {
     useEffect(() => {
       if (isActive) {
         // パネルがアクティブになった時の処理
-        context.logger?.info('Panel activated');
+        context.logger.info('Panel activated');
       }
     }, [isActive]);
 
-    // タブを開く関数
+    // カスタムタブを開く関数
+    //　レフトサイドバーのものではないことに注意してください。
     // Note: id を指定すると、同じ id のタブがあれば再利用されます（TabStore の openTab と同じ挙動）
+    // 詳しくは__shared/types.tsのコメントを参照してください
+    // 実装部分は、TabAPIと、TabStoreのcreateTabを参照してください
+
     const openTab = () => {
-      if (context.tabs) {
-        const tabId = context.tabs.createTab({
-          id: 'main', // extension:__EXTENSION_ID__:main として識別される
-          title: '__EXTENSION_NAME__',
-          activateAfterCreate: true,
-        });
-        context.logger?.info(`Tab opened: ${tabId}`);
-      }
+      const tabId = context.tabs.createTab({
+        id: '__EXTENSION_ID__:main', // extension-specific stable id
+        title: '__EXTENSION_NAME__',
+        activateAfterCreate: true,
+      });
+      context.logger.info(`Tab opened: ${tabId}`);
     };
 
     return (

@@ -119,22 +119,22 @@ async function fileinfoCommand(args: string[], context: any): Promise<string> {
  * activate関数
  */
 export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
-  context.logger?.info('Sample Command Extension activating...');
+  context.logger.info('Sample Command Extension activating...');
 
   // コマンドを登録
   if (context.commands) {
     // helloコマンド
     context.commands.registerCommand('hello', helloCommand);
-    context.logger?.info('Registered command: hello');
+    context.logger.info('Registered command: hello');
 
     // fileinfoコマンド
     context.commands.registerCommand('fileinfo', fileinfoCommand);
-    context.logger?.info('Registered command: fileinfo');
+    context.logger.info('Registered command: fileinfo');
   } else {
-    context.logger?.warn('Commands API not available');
+    context.logger.warn('Commands API not available');
   }
 
-  context.logger?.info('Sample Command Extension activated');
+  context.logger.info('Sample Command Extension activated');
 
   return {};
 }

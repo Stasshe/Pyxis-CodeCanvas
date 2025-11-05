@@ -2,7 +2,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { useTranslation } from '@/context/I18nContext';
 import { useChatSpace } from '@/hooks/ai/useChatSpace';
@@ -35,10 +35,10 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
   const [showSpaceList, setShowSpaceList] = useState(false);
   const [isChangedFilesMinimized, setIsChangedFilesMinimized] = useState(false);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
-  const spaceButtonRef = React.useRef<HTMLButtonElement | null>(null);
+  const spaceButtonRef = useRef<HTMLButtonElement | null>(null);
 
   // Compute dropdown position relative to viewport (fixed) so it appears under the button
-  const dropdownPosition = React.useMemo(() => {
+  const dropdownPosition = useMemo(() => {
     if (!anchorRect || typeof window === 'undefined') return null;
     const padding = 8;
     const desiredWidth = 320;

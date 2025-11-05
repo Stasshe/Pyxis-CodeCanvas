@@ -96,7 +96,7 @@ function MyTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
 }
 
 export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
-  context.logger?.info('My Extension activating...');
+  context.logger.info('My Extension activating...');
   
   if (context.tabs) {
     context.tabs.registerTabType(MyTabComponent);

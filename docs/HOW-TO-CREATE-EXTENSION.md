@@ -118,7 +118,7 @@ function MyTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
 }
 
 export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
-  context.logger?.info('Extension activated!');
+  context.logger.info('Extension activated!');
   if (context.tabs) {
     context.tabs.registerTabType(MyTabComponent);
   }
@@ -164,7 +164,7 @@ cat > index.ts << 'EOF'
 import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
 
 export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
-  context.logger?.info('My Extension activated!');
+  context.logger.info('My Extension activated!');
   return { services: {} };
 }
 
@@ -237,7 +237,7 @@ function MyTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
 }
 
 export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
-  context.logger?.info('Extension activated!');
+  context.logger.info('Extension activated!');
   if (context.tabs) {
     context.tabs.registerTabType(MyTabComponent);
   }
@@ -322,18 +322,27 @@ function NoteTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
 拡張機能は`ExtensionContext`を通じて、以下のAPIにアクセスできます:
 
 ### ExtensionContext
-
+実際には、型定義は_share/を参照してください。
 ```typescript
 interface ExtensionContext {
   extensionId: string;        // 拡張機能のID
   extensionPath: string;      // 拡張機能のパス
   version: string;            // バージョン
-  logger?: Logger;            // ロガー
-  getSystemModule?: <T>(moduleName: string) => Promise<T>;
+  // ロガーはランタイムが必ず提供します（非 optional）
+  logger: Logger;
+  // getSystemModule はランタイムが必ず提供します。拡張機能はこれを使って型安全にシステムモジュールへアクセスできます。
+  getSystemModule: <T extends 'fileRepository' | 'normalizeCjsEsm' | 'commandRegistry'>(
+    moduleName: T
+  ) => Promise<import('../_shared/systemModuleTypes').SystemModuleMap[T]>;
   tabs?: TabAPI;              // タブAPI
   sidebar?: SidebarAPI;       // サイドバーAPI
 }
 ```
+
+注意: ランタイムの契約として、`ExtensionContext.logger` と `ExtensionContext.getSystemModule` は必ず提供されます。
+また、ターミナルコマンドのハンドラーに渡される `CommandContext` は実行時に拡張され、同じ `getSystemModule` ヘルパーを持ちます。
+従ってコマンドハンドラー内では `context.getSystemModule(...)` を直接呼び出してシステムモジュールへアクセスできます。
+
 
 ### Logger
 
@@ -348,9 +357,9 @@ interface Logger {
 使用例:
 
 ```typescript
-context.logger?.info('This is an info message');
-context.logger?.warn('This is a warning');
-context.logger?.error('This is an error', errorObject);
+context.logger.info('This is an info message');
+context.logger.warn('This is a warning');
+context.logger.error('This is an error', errorObject);
 ```
 
 ### 利用可能なもの
@@ -440,8 +449,8 @@ function MyTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
 export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
   // 【重要】最初にコンポーネントを登録
   if (context.tabs) {
-    context.tabs.registerTabType(MyTabComponent);
-    context.logger?.info('Tab component registered');
+  context.tabs.registerTabType(MyTabComponent);
+  context.logger.info('Tab component registered');
   }
   
   // ...残りの処理
@@ -472,7 +481,7 @@ const tabId = context.tabs.createTab({
   },
 });
 
-context.logger?.info(`Created tab: ${tabId}`);
+context.logger.info(`Created tab: ${tabId}`);
 ```
 
 ### Tab API メソッド一覧
@@ -521,7 +530,7 @@ const tabId = context.tabs.createTab({
   },
 });
 
-context.logger?.info(`Created tab with ID: ${tabId}`);
+context.logger.info(`Created tab with ID: ${tabId}`);
 ```
 
 #### `updateTab(tabId: string, options: UpdateTabOptions): boolean`
@@ -551,8 +560,8 @@ const success = context.tabs.updateTab(tabId, {
   },
 });
 
-if (success) {
-  context.logger?.info('Tab updated successfully');
+  if (success) {
+  context.logger.info('Tab updated successfully');
 }
 ```
 
@@ -570,10 +579,10 @@ if (success) {
 **例:**
 
 ```typescript
-const closed = context.tabs.closeTab(tabId);
-if (closed) {
-  context.logger?.info('Tab closed successfully');
-}
+  const closed = context.tabs.closeTab(tabId);
+  if (closed) {
+    context.logger.info('Tab closed successfully');
+  }
 ```
 
 #### `onTabClose(tabId: string, callback: (tabId: string) => void | Promise<void>): void`
@@ -587,7 +596,7 @@ if (closed) {
 **例:**
 
 ```typescript
-context.tabs.onTabClose(tabId, async (closedTabId) => {
+  context.tabs.onTabClose(tabId, async (closedTabId) => {
   // データを保存
   const data = context.tabs.getTabData(closedTabId);
   if (data) {
@@ -597,7 +606,7 @@ context.tabs.onTabClose(tabId, async (closedTabId) => {
   // イベントリスナーを削除
   window.removeEventListener('my-event', handler);
   
-  context.logger?.info(`Tab ${closedTabId} closed and cleaned up`);
+    context.logger.info(`Tab ${closedTabId} closed and cleaned up`);
 });
 ```
 
@@ -714,7 +723,7 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
       order: 50,
     });
 
-    context.logger?.info('Panel registered');
+    context.logger.info('Panel registered');
   }
 
   return { services: {} };
@@ -785,7 +794,7 @@ context.sidebar.updatePanel('my-panel', {
 
 ```typescript
 context.sidebar.removePanel('my-panel');
-context.logger?.info('Panel removed');
+  context.logger.info('Panel removed');
 ```
 
 #### `onPanelActivate(panelId: string, callback: (panelId: string) => void | Promise<void>): void`
@@ -800,7 +809,7 @@ context.logger?.info('Panel removed');
 
 ```typescript
 context.sidebar.onPanelActivate('my-panel', async (panelId) => {
-  context.logger?.info(`Panel ${panelId} activated`);
+  context.logger.info(`Panel ${panelId} activated`);
   
   // データをロード
   const data = await fetchData();
@@ -884,12 +893,12 @@ function MyPanelComponent({ extensionId, panelId, isActive, state }: any) {
 }
 
 export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
-  context.logger?.info('Extension activated!');
+  context.logger.info('Extension activated!');
 
   // 【重要】最初にタブコンポーネントを登録
   if (context.tabs) {
-    context.tabs.registerTabType(MyTabComponent);
-    context.logger?.info('Tab component registered');
+  context.tabs.registerTabType(MyTabComponent);
+  context.logger.info('Tab component registered');
   }
 
   // タブを作成するコマンド
@@ -904,7 +913,7 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
 
       // クローズ時のクリーンアップ
       context.tabs.onTabClose(tabId, () => {
-        context.logger?.info('Tab closed');
+        context.logger.info('Tab closed');
       });
 
       return tabId;
@@ -923,7 +932,7 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
     });
 
     context.sidebar.onPanelActivate('my-panel', () => {
-      context.logger?.info('Panel activated');
+      context.logger.info('Panel activated');
     });
   }
 
@@ -975,7 +984,7 @@ context.tabs.onTabClose(tabId, async (closedTabId) => {
   // タイマーをクリア
   clearInterval(autoSaveTimer);
   
-  context.logger?.info(`Cleaned up tab: ${closedTabId}`);
+  context.logger.info(`Cleaned up tab: ${closedTabId}`);
 });
 ```
 
@@ -1005,7 +1014,7 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
     
     return { services: {} };
   } catch (error) {
-    context.logger?.error('Failed to activate extension:', error);
+  context.logger.error('Failed to activate extension:', error);
     // エラーをユーザーに通知
     alert('拡張機能の初期化に失敗しました');
     throw error;
@@ -1055,26 +1064,7 @@ function MyTabComponent({ tab, isActive }: any) {
 
 ### 4. パフォーマンス最適化
 
-React.memoやuseCallbackを使用してパフォーマンスを最適化しましょう:
-
-```typescript
-// コンポーネントのメモ化
-const MyPanelComponent = React.memo(({ extensionId, panelId, isActive, state }: any) => {
-  const [items, setItems] = useState([]);
-
-  // コールバックのメモ化
-  const handleItemClick = React.useCallback((itemId: string) => {
-    context.logger?.info(`Item clicked: ${itemId}`);
-    // アイテムを開く処理
-  }, []);
-
-  const handleDelete = React.useCallback((itemId: string) => {
-    setItems(prev => prev.filter(item => item.id !== itemId));
-  }, []);
-
-  return React.createElement('div', { /* ... */ });
-});
-```
+useMemoやuseCallbackを使用してパフォーマンスを最適化しましょう:
 
 ### 5. コンポーネント間の通信
 
@@ -1109,23 +1099,23 @@ useEffect(() => {
 
 ```typescript
 export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
-  context.logger?.info('Extension activation started');
+  context.logger.info('Extension activation started');
   
   try {
     if (context.tabs) {
       context.tabs.registerTabType(MyTabComponent);
-      context.logger?.info('Tab component registered successfully');
+      context.logger.info('Tab component registered successfully');
     }
     
     if (context.sidebar) {
       context.sidebar.createPanel({ /* ... */ });
-      context.logger?.info('Sidebar panel created successfully');
+      context.logger.info('Sidebar panel created successfully');
     }
     
-    context.logger?.info('Extension activated successfully');
+    context.logger.info('Extension activated successfully');
     return { services: {} };
   } catch (error) {
-    context.logger?.error('Extension activation failed:', error);
+  context.logger.error('Extension activation failed:', error);
     throw error;
   }
 }
@@ -1150,7 +1140,7 @@ function MyTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
 }
 
 // createTabでも型を指定
-const tabId = context.tabs?.createTab({
+const tabId = context.tabs.createTab({
   title: 'New Note',
   data: {
     content: '',
@@ -1172,13 +1162,13 @@ const tabId = context.tabs?.createTab({
    ```typescript
    // ❌ 悪い例
    export async function activate(context: ExtensionContext) {
-     context.tabs?.createTab({ title: 'My Tab' }); // エラー！
+     context.tabs.createTab({ title: 'My Tab' }); // エラー！
    }
    
    // ✅ 良い例
    export async function activate(context: ExtensionContext) {
-     context.tabs?.registerTabType(MyTabComponent); // 最初に登録
-     context.tabs?.createTab({ title: 'My Tab' }); // これで表示される
+     context.tabs.registerTabType(MyTabComponent); // 最初に登録
+     context.tabs.createTab({ title: 'My Tab' }); // これで表示される
    }
    ```
 
@@ -1196,12 +1186,12 @@ const tabId = context.tabs?.createTab({
 1. **アイコン名が間違っている**
    ```typescript
    // ❌ 悪い例
-   context.sidebar?.createPanel({
+   context.sidebar.createPanel({
      icon: 'invalid-icon-name', // このアイコンは存在しない
    });
    
    // ✅ 良い例
-   context.sidebar?.createPanel({
+   context.sidebar.createPanel({
      icon: 'Package', // 正しいLucideアイコン名
    });
    ```
@@ -1300,7 +1290,7 @@ function MyTabComponent({ tab, isActive }: any) {
 export async function activate(context: ExtensionContext) {
   // チェックを入れる
   if (!context.tabs) {
-    context.logger?.error('Tab API is not available');
+    context.logger.error('Tab API is not available');
     return { services: {} };
   }
 
