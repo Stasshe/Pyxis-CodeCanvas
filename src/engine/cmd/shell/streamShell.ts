@@ -328,13 +328,18 @@ export class StreamShell {
             const text = String(maybeContent);
             const firstLine = text.split('\n', 1)[0] || '';
             if (cmd.endsWith('.sh') || firstLine.startsWith('#!')) {
-              const lines = text.split('\n');
-              for (const rawLine of lines) {
-                const line = rawLine.trim();
-                if (!line || line.startsWith('#')) continue;
-                const res = await this.run(line);
-                if (res.stdout) proc.writeStdout(res.stdout);
-                if (res.stderr) proc.writeStderr(res.stderr);
+              // Execute the script using the shell's script runner so that
+              // multi-line control flow, functions and quoting are handled
+              // as a single unit instead of naive per-line execution.
+              // Build argv with script name followed by provided args.
+              const scriptArgs = [cmd, ...args];
+              try {
+                await this.runScript(String(text), scriptArgs, proc);
+              } catch (e) {
+                // propagate error to stderr
+                try {
+                  proc.writeStderr(String((e as any)?.message ?? e));
+                } catch {}
               }
               proc.endStdout();
               proc.endStderr();
