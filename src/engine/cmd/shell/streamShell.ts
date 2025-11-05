@@ -715,13 +715,29 @@ export class StreamShell {
   // Run full pipeline line and resolve final stdout/stderr and code
   async run(line: string): Promise<{ stdout: string; stderr: string; code: number | null }> {
     let segs: any[] = [];
+    // Prefer the dedicated parser. If the parser module cannot be imported
+    // (e.g. not present in some environments), fall back to the simple
+    // tokenizer. BUT if the parser is present and throws during parsing,
+    // treat that as a real parse error and abort immediately (do not retry).
+    let parserModule: any = null;
     try {
-      const parser = await import('./parser');
-      segs = parser.parseCommandLine(line);
-  // parsed segments (debug removed)
-    } catch (e) {
+      parserModule = await import('./parser');
+    } catch (impErr) {
+      // import failed: fallback to simpler parser
       const pieces = this.splitPipes(line);
       segs = pieces.map(p => this.parseSegment(p));
+    }
+
+    if (parserModule) {
+      try {
+        segs = parserModule.parseCommandLine(line);
+      } catch (parseErr: any) {
+        // Return an immediate parse error result. Use exit code 2 to signal
+        // a shell misuse/parse error (conventional), and include the message
+        // on stderr so callers/tests can assert on it.
+        const msg = String(parseErr && parseErr.message ? parseErr.message : parseErr);
+        return { stdout: '', stderr: `Parse error: ${msg}\n`, code: 2 };
+      }
     }
     // If nothing to run, return immediately
     if (!segs || segs.length === 0) {
