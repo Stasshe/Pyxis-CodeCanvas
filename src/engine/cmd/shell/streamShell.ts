@@ -447,12 +447,23 @@ export class StreamShell {
     const lines = text.split('\n');
 
     const interpolate = (line: string, localVars: Record<string, string>) => {
-      // positional args $1..$9
+      // Supports $0 (script name), $1..$9, $@ (all args), and local vars $VAR or ${VAR}
       let out = line;
+      // $@ -> all args after script name
+      out = out.replace(/\$@/g, args && args.length > 1 ? args.slice(1).join(' ') : '');
+      // $0 -> script name (args[0])
+      out = out.replace(/\$0\b/g, args[0] || '');
+      // positional $1..$9 -> args[1]..args[9]
       for (let i = 1; i <= 9; i++) {
-        out = out.replace(new RegExp(`\\$${i}\\b`, 'g'), args[i - 1] || '');
+        const val = args[i] || '';
+        out = out.replace(new RegExp(`\\$${i}\\b`, 'g'), val);
       }
-      // replace local vars $VAR
+      // ${VAR} style
+      out = out.replace(/\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g, (_, name) => {
+        if (name in localVars) return localVars[name];
+        return '';
+      });
+      // $VAR style (word boundary)
       for (const k of Object.keys(localVars)) {
         out = out.replace(new RegExp('\\$' + k + '\\b', 'g'), localVars[k]);
       }
