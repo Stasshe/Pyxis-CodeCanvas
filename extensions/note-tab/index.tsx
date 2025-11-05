@@ -22,6 +22,22 @@ function normalizeKey(rawKey: string) {
   return STORAGE_PREFIX + rawKey;
 }
 
+// generate stable unique id for new notes
+function generateId() {
+  try {
+    // use native UUID if available
+    // @ts-ignore
+    if (typeof crypto !== 'undefined' && typeof (crypto as any).randomUUID === 'function') {
+      // @ts-ignore
+      return (crypto as any).randomUUID();
+    }
+  } catch (e) {}
+
+  // fallback to random hex-based id
+  const s4 = () => Math.floor((1 + Math.random()) * 0x10000).toString(16).substring(1);
+  return `${s4()}${s4()}-${s4()}-${s4()}-${s4()}-${s4()}${s4()}${s4()}`;
+}
+
 function saveNote(rawKey: string, content: string) {
   const key = normalizeKey(rawKey);
   const now = Date.now();
@@ -288,7 +304,7 @@ function createNotesListPanel(context: ExtensionContext) {
 
     const createNewNote = () => {
       if (context.tabs) {
-        const suffix = Date.now().toString();
+        const suffix = generateId();
         // save under a suffix-only key so storage key becomes STORAGE_PREFIX + suffix
         saveNote(suffix, '');
         context.tabs.createTab({

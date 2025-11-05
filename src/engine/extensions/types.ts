@@ -8,6 +8,17 @@
  * - Extension Context: 実行環境
  */
 
+/* --------------------------------------------------------------------------
+ * NOTICE (engine/internal)
+ *
+ * This file contains runtime/internal type definitions used by the engine
+ * implementation under `src/`. These types are allowed to change more
+ * frequently and are not intended to be imported by extension authors.
+ *
+ * If you are developing an extension, import types from
+ * `extensions/_shared/types.ts` (the extension-facing, stable surface).
+ * ------------------------------------------------------------------------- */
+
 import type { SystemModuleMap, SystemModuleName } from './systemModuleTypes';
 import type { TabAPI } from './system-api/TabAPI';
 
