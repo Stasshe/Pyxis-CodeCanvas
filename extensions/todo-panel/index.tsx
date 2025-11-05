@@ -262,7 +262,6 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
       title: 'TODO',
       icon: 'CheckSquare',
       component: TodoSidebarPanelWithContext,
-      order: 45,
     });
 
     context.sidebar.onPanelActivate('todo-scanner', async (panelId: string) => {

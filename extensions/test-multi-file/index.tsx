@@ -127,7 +127,6 @@ export function activate(context: ExtensionContext): ExtensionActivation {
       title: 'Multi-File Test',
       icon: 'TestTube',
       component: TestMultiFilePanel,
-      order: 100,
     });
 
     context.sidebar.onPanelActivate('test-multi-file-panel', async (panelId: string) => {
