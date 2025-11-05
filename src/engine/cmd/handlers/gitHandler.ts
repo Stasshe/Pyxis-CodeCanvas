@@ -1,66 +1,56 @@
-// TerminalGitCommands.tsx
-// Terminalのgitコマンド処理部分を分割
-// ...original Terminal.tsx から git コマンド処理部分を移植して実装してください。
-
-import type { GitCommands } from '@/engine/cmd/global/git';
+import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 
 export async function handleGitCommand(
   args: string[],
-  gitCommandsRef: React.RefObject<GitCommands | null>,
+  projectName: string,
+  projectId: string,
   writeOutput: (output: string) => Promise<void>
 ) {
-  if (!gitCommandsRef.current || !args[0]) {
+  if (!args[0]) {
     await writeOutput('git: missing command');
     return;
   }
+
+  const git = terminalCommandRegistry.getGitCommands(projectName, projectId);
   const gitCmd = args[0];
+
   switch (gitCmd) {
     case 'fetch': {
-      // git fetch [remote] [branch]
       const remote = args[1] && !args[1].startsWith('-') ? args[1] : undefined;
       const branch = args[2] && !args[2].startsWith('-') ? args[2] : undefined;
       try {
-        const fetchResult = await gitCommandsRef.current.fetch({ remote, branch });
+        const fetchResult = await git.fetch({ remote, branch });
         await writeOutput(fetchResult);
       } catch (error) {
         const msg = (error as Error).message || '';
-        // fetchは空リポジトリでも内部でハンドリングされるので、それ以外のエラーのみ表示
         await writeOutput(`git fetch: ${msg}`);
       }
       break;
     }
 
     case 'pull': {
-      // git pull [remote] [branch]
       const remote = args[1] && !args[1].startsWith('-') ? args[1] : undefined;
       const branch = args[2] && !args[2].startsWith('-') ? args[2] : undefined;
       try {
-        const pullResult = await gitCommandsRef.current.pull({ remote, branch });
+        const pullResult = await git.pull({ remote, branch });
         await writeOutput(pullResult);
       } catch (error) {
         await writeOutput(`git pull: ${(error as Error).message}`);
       }
       break;
     }
+
     case 'init':
-      const initMessage = `git init: Command not available from terminal
-プロジェクトの初期化は左下の「プロジェクト管理」ボタンから
-新規プロジェクトを作成してください。
-新規プロジェクトには自動でGitリポジトリが設定されます。`;
-      await writeOutput(initMessage);
+      await writeOutput(
+        `git init: Command not available from terminal\nプロジェクトの初期化は左下の「プロジェクト管理」ボタンから\n新規プロジェクトを作成してください。\n新規プロジェクトには自動でGitリポジトリが設定されます。`
+      );
       break;
 
     case 'clone':
       if (args[1]) {
         const url = args[1].trim();
-        const targetDir = args[2]?.trim(); // オプションのターゲットディレクトリ
-
-        // URLの基本的な妥当性チェック
-        if (
-          !url.startsWith('http://') &&
-          !url.startsWith('https://') &&
-          !url.startsWith('git://')
-        ) {
+        const targetDir = args[2]?.trim();
+        if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('git://')) {
           await writeOutput(
             'git clone: invalid repository URL (must start with http://, https://, or git://)'
           );
@@ -68,15 +58,8 @@ export async function handleGitCommand(
         }
 
         try {
-          // ターミナルからの clone は任意でターゲットディレクトリを指定できます。
-          // 指定がない場合はリポジトリ名のサブフォルダへクローンされます。
           await writeOutput(`Cloning repository ${url}...`);
-          // When cloning from the terminal (not Project modal), we explicitly
-          // remove .git metadata so terminal clones do not create git metadata
-          // inside the project filesystem.
-          const cloneResult = await gitCommandsRef.current.clone(url, targetDir, {
-            skipDotGit: true,
-          });
+          const cloneResult = await git.clone(url, targetDir, { skipDotGit: true });
           await writeOutput(cloneResult);
           if (!targetDir) {
             await writeOutput(
@@ -84,84 +67,79 @@ export async function handleGitCommand(
             );
           }
         } catch (error) {
-          const errorMessage = (error as Error).message;
-          // ネットワークエラーやCORSエラーの場合は、より分かりやすいメッセージを表示
+          const errorMessage = (error as Error).message || String(error);
           if (errorMessage.includes('CORS') || errorMessage.includes('fetch')) {
-            await writeOutput(
-              `git clone: Failed to clone repository. This may be due to CORS restrictions or network issues.\nTry using a repository that supports CORS or is hosted on a platform that allows cross-origin requests.`
-            );
+            await writeOutput(`git clone: network/CORS error: ${errorMessage}`);
           } else {
             await writeOutput(`git clone: ${errorMessage}`);
           }
         }
       } else {
-        await writeOutput(
-          'git clone: missing repository URL\nUsage: git clone <repository-url> [directory]'
-        );
+        await writeOutput('git clone: missing repository URL\nUsage: git clone <repository-url> [directory]');
       }
       break;
 
     case 'status':
-      const statusResult = await gitCommandsRef.current.status();
-      await writeOutput(statusResult);
+      try {
+        const statusResult = await git.status();
+        await writeOutput(statusResult);
+      } catch (e) {
+        await writeOutput(`git status: ${(e as Error).message}`);
+      }
       break;
 
     case 'add':
       if (args[1]) {
-        const addResult = await gitCommandsRef.current.add(args[1]);
+        const addResult = await git.add(args[1]);
         await writeOutput(addResult);
       } else {
         await writeOutput('git add: missing file argument');
       }
       break;
 
-    case 'commit':
+    case 'commit': {
       const messageIndex = args.indexOf('-m');
       if (messageIndex !== -1 && args[messageIndex + 1]) {
-        const message = args
-          .slice(messageIndex + 1)
-          .join(' ')
-          .replace(/['"]/g, '');
-        const commitResult = await gitCommandsRef.current.commit(message);
+        const message = args.slice(messageIndex + 1).join(' ').replace(/['\"]/g, '');
+        const commitResult = await git.commit(message);
         await writeOutput(commitResult);
       } else {
         await writeOutput('git commit: missing -m flag and message');
       }
       break;
+    }
 
-    case 'log':
-      const logResult = await gitCommandsRef.current.log();
+    case 'log': {
+      const logResult = await git.log();
       await writeOutput(logResult);
       break;
+    }
 
     case 'checkout': {
       if (args[1]) {
         const createNew = args.includes('-b');
         let branchName: string;
-
         if (createNew) {
-          // -bフラグがある場合、-bの次の引数がブランチ名
           const bIndex = args.indexOf('-b');
           branchName = args[bIndex + 1];
           if (!branchName) {
-            await writeOutput('git checkout: option requires an argument -- b');
+            await writeOutput('git checkout: missing branch name after -b');
             break;
           }
         } else {
           branchName = args[1];
         }
 
-        // origin/xxx の場合はリモートブランチとして扱う
-        if (/^[\w-]+\//.test(branchName)) {
-          // 例: git checkout origin/main
+        if (/^[\\w-]+\//.test(branchName)) {
+          // remote branch like origin/main -> use checkoutRemote helper which handles fetch/resolve
           try {
-            const result = await gitCommandsRef.current.checkoutRemote(branchName);
+            const result = await git.checkoutRemote(branchName.replace(/^refs\/remotes\//, ''));
             await writeOutput(result);
           } catch (error) {
             await writeOutput(`git checkout: ${(error as Error).message}`);
           }
         } else {
-          const checkoutResult = await gitCommandsRef.current.checkout(branchName, createNew);
+          const checkoutResult = await git.checkout(branchName, createNew);
           await writeOutput(checkoutResult);
         }
       } else {
@@ -174,21 +152,13 @@ export async function handleGitCommand(
       const deleteFlag = args.includes('-d') || args.includes('-D');
       const remoteFlag = args.includes('-r');
       const allFlag = args.includes('-a');
-      // -r/-a 以外で - で始まらない最初の引数をブランチ名とみなす
       const branchName = args.find(arg => !arg.startsWith('-') && arg !== 'branch');
 
-      // ブランチ名が明示的に指定されている場合のみ作成/削除
       if (branchName && branchName.trim() !== '') {
-        const branchResult = await gitCommandsRef.current.branch(branchName, {
-          delete: deleteFlag,
-        });
+        const branchResult = await git.branch(branchName, { delete: deleteFlag });
         await writeOutput(branchResult);
       } else {
-        // -r/-aのみ、または引数なしの場合は一覧表示
-        const branchResult = await gitCommandsRef.current.branch(undefined, {
-          remote: remoteFlag,
-          all: allFlag,
-        });
+        const branchResult = await git.branch(undefined, { remote: remoteFlag, all: allFlag });
         await writeOutput(branchResult);
       }
       break;
@@ -196,7 +166,7 @@ export async function handleGitCommand(
 
     case 'revert':
       if (args[1]) {
-        const revertResult = await gitCommandsRef.current.revert(args[1]);
+        const revertResult = await git.revert(args[1]);
         await writeOutput(revertResult);
       } else {
         await writeOutput('git revert: missing commit hash');
@@ -205,102 +175,62 @@ export async function handleGitCommand(
 
     case 'reset': {
       if (args.includes('--hard') && args[args.indexOf('--hard') + 1]) {
-        // git reset --hard <commit>
         const commitHash = args[args.indexOf('--hard') + 1];
-        // origin/xxx の場合もOK
         try {
-          const resetResult = await gitCommandsRef.current.reset({
-            hard: true,
-            commit: commitHash,
-          });
+          const resetResult = await git.reset({ hard: true, commit: commitHash });
           await writeOutput(resetResult);
         } catch (error) {
           await writeOutput(`git reset: ${(error as Error).message}`);
         }
       } else if (args[1]) {
-        // git reset <filepath>
-        const resetResult = await gitCommandsRef.current.reset({
-          filepath: args[1],
-        });
+        const resetResult = await git.reset({ filepath: args[1] });
         await writeOutput(resetResult);
       } else {
-        // git reset (全ファイルをアンステージング)
-        const resetResult = await gitCommandsRef.current.reset();
+        const resetResult = await git.reset();
         await writeOutput(resetResult);
       }
       break;
     }
 
-    case 'diff':
-      console.log('git diff args:', args);
-
-      // argsから'diff'を除外してdiffArgsを作成
+    case 'diff': {
       const diffArgs = args.filter(arg => arg !== 'diff');
-      console.log('filtered diff args:', diffArgs);
-
       if (diffArgs.includes('--staged') || diffArgs.includes('--cached')) {
-        // git diff --staged [filepath]
         const filepath = diffArgs.find(arg => !arg.startsWith('--'));
-        console.log('Staged diff for filepath:', filepath);
-        const diffResult = await gitCommandsRef.current.diff({
-          staged: true,
-          filepath,
-        });
+        const diffResult = await git.diff({ staged: true, filepath });
         await writeOutput(diffResult);
       } else if (diffArgs.length === 1 && !diffArgs[0].startsWith('-')) {
-        // git diff <branch> の場合
         const branchName = diffArgs[0];
-        const diffResult = await gitCommandsRef.current.diff({ branchName });
+        const diffResult = await git.diff({ branchName });
         await writeOutput(diffResult);
       } else if (
         diffArgs.length >= 2 &&
         !diffArgs[0].startsWith('-') &&
         !diffArgs[1].startsWith('-')
       ) {
-        // git diff <commit1> <commit2> [filepath]
-        console.log('Commit diff:', diffArgs[0], 'vs', diffArgs[1]);
-        const filepath = diffArgs[2]; // 3番目の引数がファイルパス（オプション）
-        const diffResult = await gitCommandsRef.current.diff({
-          commit1: diffArgs[0],
-          commit2: diffArgs[1],
-          filepath,
-        });
+        const filepath = diffArgs[2];
+        const diffResult = await git.diff({ commit1: diffArgs[0], commit2: diffArgs[1], filepath });
         await writeOutput(diffResult);
       } else {
-        // git diff [filepath] - ワーキングディレクトリの変更
         const filepath = diffArgs.find(arg => !arg.startsWith('-'));
-        console.log('Working directory diff for filepath:', filepath);
-        const diffResult = await gitCommandsRef.current.diff({ filepath });
+        const diffResult = await git.diff({ filepath });
         await writeOutput(diffResult);
       }
       break;
+    }
 
     case 'merge':
       if (args.includes('--abort')) {
-        // git merge --abort
-        const mergeAbortResult = await gitCommandsRef.current.merge('', {
-          abort: true,
-        });
+        const mergeAbortResult = await git.merge('', { abort: true });
         await writeOutput(mergeAbortResult);
       } else if (args[1]) {
-        // git merge <branch> [--no-ff] [-m "message"]
         const branchName = args[1];
         const noFf = args.includes('--no-ff');
         let message: string | undefined;
-
-        // -m フラグでメッセージを指定
         const messageIndex = args.indexOf('-m');
         if (messageIndex !== -1 && args[messageIndex + 1]) {
-          message = args
-            .slice(messageIndex + 1)
-            .join(' ')
-            .replace(/['"]/g, '');
+          message = args.slice(messageIndex + 1).join(' ').replace(/['\"]/g, '');
         }
-
-        const mergeResult = await gitCommandsRef.current.merge(branchName, {
-          noFf,
-          message,
-        });
+        const mergeResult = await git.merge(branchName, { noFf, message });
         await writeOutput(mergeResult);
       } else {
         await writeOutput('git merge: missing branch name');
@@ -308,39 +238,23 @@ export async function handleGitCommand(
       break;
 
     case 'push': {
-      // git push [remote] [branch] [--force]
       const remote = args[1] && !args[1].startsWith('-') ? args[1] : undefined;
       const branch = args[2] && !args[2].startsWith('-') ? args[2] : undefined;
       const force = args.includes('--force') || args.includes('-f');
 
       try {
-        const pushResult = await gitCommandsRef.current.push({
-          remote,
-          branch,
-          force,
-        });
+        const pushResult = await git.push({ remote, branch, force });
         await writeOutput(pushResult);
 
-        // push成功後にfetchしてからreset --hard origin/{pushしたブランチ}を自動実行
         let usedBranch = branch;
         if (!usedBranch && typeof pushResult === 'string') {
           const match = pushResult.match(/\s([\w\-]+) -> [\w\-]+/);
-          if (match && match[1]) {
-            usedBranch = match[1];
-          }
+          if (match && match[1]) usedBranch = match[1];
         }
         if (usedBranch) {
-          // まずfetch
-          const fetchResult = await gitCommandsRef.current.fetch({
-            remote: 'origin',
-            branch: usedBranch,
-          });
+          const fetchResult = await git.fetch({ remote: 'origin', branch: usedBranch });
           await writeOutput(`(auto) git fetch origin ${usedBranch}\n${fetchResult}`);
-          // その後reset --hard
-          const resetResult = await gitCommandsRef.current.reset({
-            hard: true,
-            commit: `origin/${usedBranch}`,
-          });
+          const resetResult = await git.reset({ hard: true, commit: `origin/${usedBranch}` });
           await writeOutput(`(auto) git reset --hard origin/${usedBranch}\n${resetResult}`);
         }
       } catch (error) {
@@ -350,28 +264,24 @@ export async function handleGitCommand(
       break;
     }
 
-    case 'remote':
-      // git remote add/remove/list
+    case 'remote': {
       if (args[1] === 'add' && args[2] && args[3]) {
-        // git remote add <name> <url>
         try {
-          const addResult = await gitCommandsRef.current.addRemote(args[2], args[3]);
+          const addResult = await git.addRemote(args[2], args[3]);
           await writeOutput(addResult);
         } catch (error) {
           await writeOutput(`git remote add: ${(error as Error).message}`);
         }
       } else if (args[1] === 'remove' && args[2]) {
-        // git remote remove <name>
         try {
-          const removeResult = await gitCommandsRef.current.deleteRemote(args[2]);
+          const removeResult = await git.deleteRemote(args[2]);
           await writeOutput(removeResult);
         } catch (error) {
           await writeOutput(`git remote remove: ${(error as Error).message}`);
         }
       } else if (args[1] === '-v' || !args[1]) {
-        // git remote [-v]
         try {
-          const listResult = await gitCommandsRef.current.listRemotes();
+          const listResult = await git.listRemotes();
           await writeOutput(listResult);
         } catch (error) {
           await writeOutput(`git remote: ${(error as Error).message}`);
@@ -382,9 +292,12 @@ export async function handleGitCommand(
         );
       }
       break;
+    }
 
     default:
       await writeOutput(`git: '${gitCmd}' is not a git command`);
       break;
   }
 }
+
+export default handleGitCommand;

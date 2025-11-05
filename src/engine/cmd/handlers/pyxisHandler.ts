@@ -1,9 +1,7 @@
-// TerminalPyxisCommands.tsx
-// Pyxis独自のターミナルコマンドをまとめたモジュール
-
 import type { UnixCommands } from '@/engine/cmd/global/unix';
 import type { GitCommands } from '@/engine/cmd/global/git';
 import type { NpmCommands } from '@/engine/cmd/global/npm';
+import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { exportPage } from '@/engine/export/exportPage';
@@ -12,21 +10,21 @@ import { clearAllTranslationCache, deleteTranslationCache } from '@/engine/i18n/
 import { tree as treeOperation } from '@/engine/cmd/global/gitOperations/tree';
 import { storageService, STORES } from '@/engine/storage';
 
-// npm dependency size util is loaded dynamically where needed
-
 export async function handlePyxisCommand(
   cmd: string,
   args: string[],
-  refs: {
-    unixCommandsRef: React.RefObject<UnixCommands | null>;
-    gitCommandsRef: React.RefObject<GitCommands | null>;
-    npmCommandsRef: React.RefObject<NpmCommands | null>;
-  },
-  currentProject: string,
-  currentProjectId: string,
+  projectName: string,
+  projectId: string,
   writeOutput: (output: string) => Promise<void>
 ) {
-  const { unixCommandsRef, gitCommandsRef, npmCommandsRef } = refs;
+  // Obtain registry instances
+  const unixInst: UnixCommands = terminalCommandRegistry.getUnixCommands(projectName, projectId);
+  const gitInst: GitCommands = terminalCommandRegistry.getGitCommands(projectName, projectId);
+  const npmInst: NpmCommands = terminalCommandRegistry.getNpmCommands(
+    projectName,
+    projectId,
+    `/projects/${projectName}`
+  );
 
   try {
     switch (cmd) {
@@ -348,10 +346,6 @@ export async function handlePyxisCommand(
 
       case 'git tree':
       case 'git-tree': {
-        // original: git tree --all
-        // New behavior: if --all/-a/all provided -> show all projects (/projects)
-        // Otherwise, if a currentProject is set, show only that project's tree.
-        // If no currentProject, fall back to instructing to use --all.
         const allFlag = args.includes('--all') || args.includes('all') || args.includes('-a');
 
         try {
@@ -364,9 +358,8 @@ export async function handlePyxisCommand(
           if (allFlag) {
             const treeOutput = await treeOperation(fs, '/projects');
             await writeOutput(treeOutput || 'No files found under /projects');
-          } else if (currentProject) {
-            // show tree for current project only
-            const projectPath = `/projects/${currentProject}`;
+          } else if (projectName) {
+            const projectPath = `/projects/${projectName}`;
             const treeOutput = await treeOperation(fs, projectPath);
             await writeOutput(treeOutput || `No files found under ${projectPath}`);
           } else {
@@ -387,12 +380,9 @@ export async function handlePyxisCommand(
       case 'export-indexeddb':
       case 'export--indexeddb':
       case 'export---indexeddb': {
-        // Accept variants where the subcommand was merged into the command name
-        // e.g. `export-page`, `export---page`, `export indexedb` ended up as `export-indexeddb`, etc.
         const cmdLower = cmd.toLowerCase();
         const localArgs = [...args];
 
-        // If the command name encodes the subcommand, inject the expected flag into args
         if (
           cmdLower.includes('page') &&
           !(
@@ -413,11 +403,11 @@ export async function handlePyxisCommand(
         }
 
         if (localArgs[0]?.toLowerCase() === '--page' && localArgs[1]) {
-          const cwd = unixCommandsRef?.current ? await unixCommandsRef.current.pwd() : '';
+          const cwd = unixInst ? await unixInst.pwd() : '';
           const targetPath = localArgs[1].startsWith('/') ? localArgs[1] : `${cwd}/${localArgs[1]}`;
-          const normalizedPath = unixCommandsRef?.current?.normalizePath(targetPath);
+          const normalizedPath = unixInst?.normalizePath(targetPath);
           if (normalizedPath) {
-            await exportPage(normalizedPath, writeOutput, unixCommandsRef);
+            await exportPage(normalizedPath, writeOutput, unixInst);
           } else {
             await writeOutput('無効なパスが指定されました。');
           }
@@ -457,8 +447,6 @@ export async function handlePyxisCommand(
         break;
 
       case 'i18n-clear':
-        // usage: i18n-clear             -> clear all
-        //        i18n-clear <locale> <namespace> -> delete specific entry
         try {
           if (args.length === 0) {
             await clearAllTranslationCache();
@@ -478,7 +466,6 @@ export async function handlePyxisCommand(
 
       case 'storage-tree':
       case 'storage tree':
-        // Display pyxis-global IndexedDB structure (excluding lightning-fs and pyxis-project)
         try {
           await writeOutput('=== Pyxis Storage (pyxis-global) ===\n');
 
@@ -530,9 +517,6 @@ export async function handlePyxisCommand(
 
       case 'storage-clear':
       case 'storage clear':
-        // Clear pyxis-global IndexedDB
-        // usage: storage-clear              -> clear all stores
-        //        storage-clear <store-name> -> clear specific store
         try {
           if (args.length === 0) {
             await storageService.clearAll();
@@ -557,8 +541,6 @@ export async function handlePyxisCommand(
 
       case 'storage-get':
       case 'storage get':
-        // Get specific entry from pyxis-global
-        // usage: storage-get <store-name> <entry-id>
         try {
           if (args.length < 2) {
             await writeOutput('Usage: storage-get <store-name> <entry-id>');
@@ -591,8 +573,6 @@ export async function handlePyxisCommand(
 
       case 'storage-delete':
       case 'storage delete':
-        // Delete specific entry from pyxis-global
-        // usage: storage-delete <store-name> <entry-id>
         try {
           if (args.length < 2) {
             await writeOutput('Usage: storage-delete <store-name> <entry-id>');
@@ -618,7 +598,6 @@ export async function handlePyxisCommand(
 
       case 'storage-clean':
       case 'storage clean':
-        // Clean expired entries from pyxis-global
         try {
           await writeOutput('storage-clean: 期限切れエントリを削除中...');
           await storageService.cleanExpired();
@@ -630,7 +609,6 @@ export async function handlePyxisCommand(
 
       case 'storage-stats':
       case 'storage stats':
-        // Display storage statistics
         try {
           await writeOutput('=== Pyxis Storage Statistics ===\n');
 
@@ -648,9 +626,7 @@ export async function handlePyxisCommand(
 
               for (const entry of entries) {
                 const dataSize =
-                  typeof entry.data === 'string'
-                    ? entry.data.length
-                    : JSON.stringify(entry.data).length;
+                  typeof entry.data === 'string' ? entry.data.length : JSON.stringify(entry.data).length;
                 storeSize += dataSize;
 
                 if (entry.expiresAt && now > entry.expiresAt) {
@@ -678,9 +654,7 @@ export async function handlePyxisCommand(
             `\n📊 Total: ${totalEntries} entries, ${totalSizeKB} KB (${totalSizeMB} MB)`
           );
           if (expiredCount > 0) {
-            await writeOutput(
-              `⚠️  ${expiredCount} expired entries (run 'storage-clean' to remove)`
-            );
+            await writeOutput(`⚠️  ${expiredCount} expired entries (run 'storage-clean' to remove)`);
           }
         } catch (e) {
           await writeOutput(`storage-stats: エラー: ${(e as Error).message}`);
