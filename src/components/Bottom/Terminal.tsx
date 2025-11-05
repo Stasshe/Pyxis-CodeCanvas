@@ -9,10 +9,10 @@ import type { NpmCommands } from '@/engine/cmd/global/npm';
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
-import { handleGitCommand } from './TerminalGitCommands';
-import { handleUnixCommand } from './TerminalUnixCommands';
-import { handleNPMCommand } from './TerminalNPMCommands';
-import { handlePyxisCommand } from './TerminalPyxisCommands';
+import { handleGitCommand } from '@/engine/cmd/handlers/gitHandler';
+import { handleUnixCommand } from '@/engine/cmd/handlers/unixHandler';
+import { handleNPMCommand } from '@/engine/cmd/handlers/npmHandler';
+import { handlePyxisCommand } from '@/engine/cmd/handlers/pyxisHandler';
 import { handleVimCommand } from '@/engine/cmd/vim';
 import { LOCALSTORAGE_KEY } from '@/context/config';
 
@@ -486,14 +486,7 @@ function ClientTerminal({
               subArgs = args.slice(2);
             }
 
-            await handlePyxisCommand(
-              cmdToCall,
-              subArgs,
-              { unixCommandsRef, gitCommandsRef, npmCommandsRef },
-              currentProject,
-              currentProjectId,
-              captureWriteOutput
-            );
+            await handlePyxisCommand(cmdToCall, subArgs, currentProject, currentProjectId, captureWriteOutput);
             break;
           }
 
@@ -502,11 +495,11 @@ function ClientTerminal({
             break;
 
           case 'git':
-            await handleGitCommand(args, gitCommandsRef, captureWriteOutput);
+            await handleGitCommand(args, currentProject, currentProjectId, captureWriteOutput);
             break;
 
           case 'npm':
-            await handleNPMCommand(args, npmCommandsRef, captureWriteOutput);
+            await handleNPMCommand(args, currentProject, currentProjectId, captureWriteOutput);
             break;
 
           case 'vim':
@@ -542,13 +535,7 @@ function ClientTerminal({
               }
             } else {
               // 通常のUnixコマンドとして処理
-              await handleUnixCommand(
-                cmd,
-                args,
-                unixCommandsRef,
-                currentProject,
-                captureWriteOutput
-              );
+              await handleUnixCommand(cmd, args, currentProject, currentProjectId, captureWriteOutput);
             }
             break;
           }
