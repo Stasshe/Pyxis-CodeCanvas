@@ -246,9 +246,7 @@ export class StreamShell {
             if (parsed && parsed.cmdSub) {
               // run the inner command synchronously (await)
               const subRes = await this.run(parsed.cmdSub);
-              // debug
-              // eslint-disable-next-line no-console
-              console.error('[shell] cmdSub run ->', parsed.cmdSub, '=>', JSON.stringify(subRes));
+              // command-substitution executed (debug removed)
               const out = String(subRes.stdout || '').trim();
               if (out === '') continue;
               // simple word-splitting on whitespace
@@ -421,9 +419,7 @@ export class StreamShell {
     try {
       const parser = await import('./parser');
       segs = parser.parseCommandLine(line);
-      // debug
-      // eslint-disable-next-line no-console
-      console.error('[shell] parsed segs ->', JSON.stringify(segs));
+  // parsed segments (debug removed)
     } catch (e) {
       const pieces = this.splitPipes(line);
       segs = pieces.map(p => this.parseSegment(p));

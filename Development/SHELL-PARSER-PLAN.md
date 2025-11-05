@@ -115,3 +115,29 @@
 
 最後に
 この計画をベースに、まず parser を実装（`parser.ts`）してから StreamShell に結合する流れで進めます。実装段階で小さなプロトタイプを作りながら段階的に置き換えていくのが安全です。次は `parser.ts` を実装しますか？それとも先に `package.json` に `shell-quote` を追加して依存をインストールしましょうか。
+
+---
+
+### Progress update (2025-11-05)
+
+- Parser implemented (partial):
+  - Command-substitution detection (`$(...)` and `` `...` ``) is implemented as a placeholder extraction. The parser emits markers which the executor resolves.
+  - Variable expansion (`${VAR}` and `$VAR`) implemented with basic quoting awareness (single-quote suppression, double-quote allowed).
+
+- Executor/StreamShell changes:
+  - `src/engine/cmd/shell/builtins.ts` added: an adapter that turns Promise-based UnixCommands into stream-aware builtins (echo, cat, head, tail, grep, ls, pwd, cd).
+  - `src/engine/cmd/shell/streamShell.ts` updated to use the builtins adapter and to resolve command-substitution markers by invoking `StreamShell.run` recursively and replacing tokens with the subcommand stdout (simple whitespace splitting).
+  - Race conditions between fast builtins and stdout listener attachment were mitigated by yielding to next tick before handlers run.
+
+- Tests added:
+  - `tests/parser.unit.test.ts` verifies parser markers and variable expansion.
+  - `tests/parser.commandsub.test.ts` verifies basic and nested command-substitution and variable expansion integration with StreamShell.
+
+### Current limitations / Next steps
+
+- Quoted command-substitution semantics: when a command-substitution appears inside quotes (e.g. `"$(echo a b)"`), POSIX shells preserve whitespace as a single argument. Current implementation replaces markers and performs a simple whitespace split, losing information about whether the substitution was quoted. This means quoted substitutions are not fully POSIX-compliant yet.
+- Word-splitting and IFS: only simple whitespace splitting is implemented. Implementing full IFS behavior and proper word-splitting requires tracking quote-context from parser through to executor.
+- Terminal integration (Ctrl+C signal propagation) remains to be implemented: StreamShell exposes Process.kill; next is wiring Terminal to call kill on the foreground Process (or adding a `killForeground` API).
+- Background job table, glob expansion, and full subshell AST handling are planned next.
+
+See the repository tests (`pnpm test`) for current automated coverage. The next development focus is improving quoted substitution behavior and adding Terminal integration for Ctrl+C.
