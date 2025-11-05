@@ -443,13 +443,23 @@ export class StreamShell {
       }
     })();
 
-    // Defensive watchdog: if a handler never calls proc.exit(), avoid hanging forever.
-    // Timeout can be configured via process.env.SHELL_PROCESS_TIMEOUT_MS (milliseconds).
-    const defaultTimeout = 15000; // 15s
+  // Defensive watchdog: if a handler never calls proc.exit(), avoid hanging forever.
+  // Timeout can be configured via process.env.SHELL_PROCESS_TIMEOUT_MS (milliseconds).
+  // Use a shorter default to fail fast and avoid large log bursts in constrained environments.
+  const defaultTimeout = 5000; // 5s
     const toMs = Number(process.env.SHELL_PROCESS_TIMEOUT_MS || defaultTimeout) || defaultTimeout;
+    let finished = false;
+    proc.on('exit', () => {
+      finished = true;
+    });
+
     const watchdog = setTimeout(() => {
+      if (finished) return;
+      // Minimal, single-line message to avoid log storms. Prefer console.error so it
+      // is visible even if consumer hasn't attached stderr listeners yet.
+      console.error(`StreamShell: command timed out after ${toMs}ms (pid=${proc.pid})`);
       try {
-        proc.writeStderr(`Shell: command timed out after ${toMs}ms\n`);
+        proc.writeStderr(`StreamShell: command timed out after ${toMs}ms\n`);
       } catch (e) {}
       try {
         proc.endStdout();
