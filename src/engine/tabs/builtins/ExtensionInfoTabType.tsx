@@ -1,12 +1,10 @@
 // src/engine/tabs/builtins/ExtensionInfoTabType.tsx
-import React from 'react';
+'use client';
+import React, { useEffect, useState } from 'react';
 import { Package, CheckCircle2, XCircle, Calendar, Tag, User } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
-// rehype-sanitize may not have built-in TypeScript types; silence missing-type errors
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore
 import rehypeSanitize from 'rehype-sanitize';
 import { TabTypeDefinition, TabComponentProps, ExtensionInfoTab } from '../types';
 import { useTheme } from '@/context/ThemeContext';
@@ -45,6 +43,22 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   };
 
   const typeColor = getExtensionTypeBadgeColor(manifest.type);
+
+  const [isWide, setIsWide] = useState<boolean>(typeof window !== 'undefined' ? window.innerWidth >= 720 : false);
+
+  useEffect(() => {
+    const onResize = () => setIsWide(window.innerWidth >= 720);
+    if (typeof window !== 'undefined') {
+      window.addEventListener('resize', onResize);
+      // initial
+      onResize();
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('resize', onResize);
+      }
+    };
+  }, []);
 
   return (
     <div
@@ -90,7 +104,7 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
                     }}
                   >
                     <XCircle size={14} />
-                    Disabled
+                    Disabled/Uninstalled
                   </span>
                 )}
               </div>
@@ -105,11 +119,11 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
         </div>
 
         {/* コンテンツ: 左に README (大きめ)、右に manifest 情報 */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className={`flex ${isWide ? 'flex-row' : 'flex-col'} gap-6`}>
           {/* README */}
-          <div className="md:col-span-2">
+          <div style={isWide ? { width: '66.666%' } : { width: '100%' }}>
             <div
-              className="p-4 rounded-lg border h-full"
+              className="p-4 rounded-lg border h-full flex flex-col"
               style={{
                 background: colors.sidebarBg,
                 borderColor: colors.border,
@@ -120,7 +134,7 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
                 <span className="text-xs" style={{ color: colors.mutedFg }}>{manifest.readme ? 'README.md' : 'No README available'}</span>
               </div>
 
-              <div className="prose max-w-none" style={{ color: colors.foreground }}>
+              <div className="prose max-w-none flex-1" style={{ color: colors.foreground }}>
                 {manifest.readme ? (
                   <div style={{ maxHeight: 'calc(100vh - 260px)', overflowY: 'auto', paddingRight: 8 }}>
                     <ReactMarkdown
@@ -165,7 +179,7 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
           </div>
 
           {/* manifest の詳細 (右カラム) */}
-          <div>
+          <div className="md:w-1/3">
             <div
               className="p-4 rounded-lg border mb-4"
               style={{
