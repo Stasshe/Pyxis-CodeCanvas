@@ -3,6 +3,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 
 import { GitCommands } from '@/engine/cmd/git';
+import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import type { Tab, FileItem, Project } from '@/types';
 
 export function useGitMonitor({
@@ -33,7 +34,10 @@ export function useGitMonitor({
         return;
       }
       try {
-        const gitCommands = new GitCommands(currentProject.name, currentProject.id);
+        const gitCommands = terminalCommandRegistry.getGitCommands(
+          currentProject.name,
+          currentProject.id
+        );
         const statusResult = await gitCommands.status();
         const changesCount = parseGitStatus(statusResult);
         setGitChangesCount(changesCount);

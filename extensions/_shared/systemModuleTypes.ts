@@ -94,10 +94,66 @@ export interface CommandRegistry {
 /**
  * システムモジュールの型マップ
  */
+// Public (extension-facing) minimal shapes for terminal command classes.
+export interface UnixCommandsPublic {
+  pwd(): Promise<string>;
+  getRelativePath(): string;
+  getRelativePathFromProject(fullPath: string): string;
+  normalizePath(path: string): string;
+  ls(path?: string, options?: string[]): Promise<string>;
+  cd(path: string, options?: string[]): Promise<string>;
+  mkdir(dirName: string, recursive?: boolean): Promise<string>;
+  touch(fileName: string): Promise<string>;
+  rm(fileName: string, recursive?: boolean): Promise<string>;
+  cat(fileName: string): Promise<string>;
+  head(fileName: string, n?: number): Promise<string>;
+  tail(fileName: string, n?: number): Promise<string>;
+  stat(path: string): Promise<string>;
+  echo(text: string): Promise<string>;
+  mv(source: string, destination: string): Promise<string>;
+  cp(source: string, destination: string, options?: string[]): Promise<string>;
+  tree(path?: string, options?: string[]): Promise<string>;
+  find(path?: string, options?: string[]): Promise<string>;
+  grep(pattern: string, files: string[], options?: string[]): Promise<string>;
+  help(command?: string): Promise<string>;
+  unzip(zipFileName: string, destDir: string, bufferContent?: ArrayBuffer): Promise<string>;
+}
+
+export interface GitCommandsPublic {
+  getCurrentBranch(): Promise<string>;
+  status(): Promise<string>;
+  init(): Promise<string>;
+  clone(url: string, targetDir?: string, options?: { skipDotGit?: boolean; maxGitObjects?: number }): Promise<string>;
+  add(filepath: string): Promise<string>;
+  commit(message: string, author?: { name: string; email: string }): Promise<string>;
+  push(options?: { remote?: string; branch?: string; force?: boolean }): Promise<string>;
+  pull(options?: { remote?: string; branch?: string; rebase?: boolean }): Promise<string>;
+  branch(branchName?: string, options?: { delete?: boolean; remote?: boolean; all?: boolean }): Promise<string>;
+  checkout(branchName: string, createNew?: boolean): Promise<string>;
+  log(depth?: number): Promise<string>;
+  diff(options?: { staged?: boolean; filepath?: string; commit1?: string; commit2?: string; branchName?: string }): Promise<string>;
+}
+
+export interface NpmCommandsPublic {
+  downloadAndInstallPackage(packageName: string, version?: string): Promise<void>;
+  removeDirectory(dirPath: string): Promise<void>;
+  install(packageName?: string, flags?: string[]): Promise<string>;
+  uninstall(packageName: string): Promise<string>;
+  list(): Promise<string>;
+  init(force?: boolean): Promise<string>;
+  run(scriptName: string): Promise<string>;
+}
+
 export interface SystemModuleMap {
   fileRepository: FileRepository;
   normalizeCjsEsm: NormalizeCjsEsmModule;
   commandRegistry: CommandRegistry;
+  /** Terminal/CLI commands provider exposed to extensions */
+  systemBuiltinCommands: {
+    getUnixCommands: (projectName: string, projectId?: string) => UnixCommandsPublic;
+    getGitCommands: (projectName: string, projectId?: string) => GitCommandsPublic;
+    getNpmCommands: (projectName: string, projectId?: string, projectPath?: string) => NpmCommandsPublic;
+  };
 }
 
 /**

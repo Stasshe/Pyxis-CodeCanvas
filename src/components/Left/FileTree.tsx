@@ -8,6 +8,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { getIconForFile, getIconForFolder, getIconForOpenFolder } from 'vscode-icons-js';
 import { FileItem } from '@/types';
 import { UnixCommands } from '@/engine/cmd/unix';
+import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import { isBufferArray } from '@/engine/helper/isBufferArray';
 import { importSingleFile } from '@/engine/import/importSingleFile';
 import { fileRepository } from '@/engine/core/fileRepository';
@@ -57,7 +58,10 @@ export default function FileTree({
         return new Promise<void>(resolve => {
           if (item.isFile) {
             item.file(async (file: File) => {
-              const unix = new UnixCommands(currentProjectName, currentProjectId);
+              const unix = terminalCommandRegistry.getUnixCommands(
+                currentProjectName,
+                currentProjectId
+              );
               const importPath = `${path}${file.name}`;
               const absolutePath = `/projects/${currentProjectName}${importPath}`;
               await importSingleFile(file, absolutePath, unix);
@@ -98,7 +102,10 @@ export default function FileTree({
 
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const unix = new UnixCommands(currentProjectName, currentProjectId);
+        const unix = terminalCommandRegistry.getUnixCommands(
+          currentProjectName,
+          currentProjectId
+        );
         const importPath = targetPath ? `${targetPath}/${file.name}` : `/${file.name}`;
         const absolutePath = `/projects/${currentProjectName}${importPath}`;
         await importSingleFile(file, absolutePath, unix);
@@ -514,7 +521,10 @@ export default function FileTree({
 
               const handleMenuAction = async (key: string, menuItem: FileItem | null) => {
                 setContextMenu(null);
-                const unix = new UnixCommands(currentProjectName, currentProjectId);
+                const unix = terminalCommandRegistry.getUnixCommands(
+                  currentProjectName,
+                  currentProjectId
+                );
 
                 if (key === 'createFile') {
                   const fileName = prompt(t('fileTree.prompt.newFileName'));
@@ -593,7 +603,10 @@ export default function FileTree({
                   input.onchange = async (e: any) => {
                     const files: FileList = e.target.files;
                     if (!files || files.length === 0) return;
-                    const unixLocal = new UnixCommands(currentProjectName, currentProjectId);
+                    const unixLocal = terminalCommandRegistry.getUnixCommands(
+                      currentProjectName,
+                      currentProjectId
+                    );
                     let baseTargetDir = '';
                     if (menuItem) {
                       if (menuItem.type === 'file')

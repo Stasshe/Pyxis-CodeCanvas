@@ -61,13 +61,39 @@ function ClientTerminal({
     };
 
     initializeTerminal();
-    unixCommandsRef.current = new UnixCommands(currentProject, currentProjectId);
-    gitCommandsRef.current = new GitCommands(currentProject, currentProjectId);
-    npmCommandsRef.current = new NpmCommands(
-      currentProject,
-      currentProjectId,
-      '/projects/' + currentProject
-    );
+
+    // Use shared registry to ensure singleton instances per project. Run inside async fn.
+    (async () => {
+      try {
+        const { terminalCommandRegistry } = await import('@/engine/cmd/terminalRegistry');
+        unixCommandsRef.current = terminalCommandRegistry.getUnixCommands(
+          currentProject,
+          currentProjectId
+        );
+        gitCommandsRef.current = terminalCommandRegistry.getGitCommands(
+          currentProject,
+          currentProjectId
+        );
+        npmCommandsRef.current = terminalCommandRegistry.getNpmCommands(
+          currentProject,
+          currentProjectId,
+          '/projects/' + currentProject
+        );
+      } catch (e) {
+        // Fallback to direct construction if registry import fails (backwards compat)
+        console.warn(
+          '[Terminal] terminal registry load failed, falling back to direct instances',
+          e
+        );
+        unixCommandsRef.current = new UnixCommands(currentProject, currentProjectId);
+        gitCommandsRef.current = new GitCommands(currentProject, currentProjectId);
+        npmCommandsRef.current = new NpmCommands(
+          currentProject,
+          currentProjectId,
+          '/projects/' + currentProject
+        );
+      }
+    })();
 
     // xterm関連のモジュールをrequire（クライアントサイドでのみ実行）
     const { Terminal: XTerm } = require('@xterm/xterm');
