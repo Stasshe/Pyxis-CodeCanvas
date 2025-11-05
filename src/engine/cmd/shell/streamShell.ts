@@ -319,6 +319,30 @@ export class StreamShell {
 
       // Builtin implementations stream-aware
       try {
+        // If the command looks like a path to a file (./script.sh or /path/to/script)
+        // attempt to read it from the project's filesystem and, if it's a shell
+        // script (ends with .sh or has a shebang), execute it line-by-line.
+        if (unix && (cmd.includes('/') || cmd.endsWith('.sh'))) {
+          const maybeContent = await unix.cat(cmd).catch(() => null);
+          if (maybeContent !== null) {
+            const text = String(maybeContent);
+            const firstLine = text.split('\n', 1)[0] || '';
+            if (cmd.endsWith('.sh') || firstLine.startsWith('#!')) {
+              const lines = text.split('\n');
+              for (const rawLine of lines) {
+                const line = rawLine.trim();
+                if (!line || line.startsWith('#')) continue;
+                const res = await this.run(line);
+                if (res.stdout) proc.writeStdout(res.stdout);
+                if (res.stderr) proc.writeStderr(res.stderr);
+              }
+              proc.endStdout();
+              proc.endStderr();
+              proc.exit(0);
+              return;
+            }
+          }
+        }
         // sh / bash => execute script file by reading and running lines sequentially
   if (cmd === 'sh' || cmd === 'bash') {
           if (args.length === 0) {
