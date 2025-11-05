@@ -1,7 +1,7 @@
 
-import { UnixCommands } from './unix';
-import { GitCommands } from './git';
-import { NpmCommands } from './npm';
+import { UnixCommands } from './global/unix';
+import { GitCommands } from './global/git';
+import { NpmCommands } from './global/npm';
 
 type ProjectEntry = {
   unix?: UnixCommands;

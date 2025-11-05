@@ -14,7 +14,7 @@ import { useState, useEffect } from 'react';
 import { fileRepository } from './fileRepository';
 
 import { LOCALSTORAGE_KEY } from '@/context/config';
-import { terminalCommandRegistry } from '@/engine/cmd/global/terminalRegistry';
+import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import { FileItem } from '@/types';
 import { Project, ProjectFile } from '@/types/';
 

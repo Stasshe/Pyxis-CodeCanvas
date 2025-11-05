@@ -126,7 +126,7 @@ export default function ProjectModal({
       const project = await fileRepository.createEmptyProject(name);
 
       // GitCommandsはregistry経由で取得（シングルトン管理）
-      const { terminalCommandRegistry } = await import('@/engine/cmd/global/terminalRegistry');
+      const { terminalCommandRegistry } = await import('@/engine/cmd/terminalRegistry');
       const git = terminalCommandRegistry.getGitCommands(project.name, project.id);
 
       // git cloneを実行（.gitを含む全ファイルがIndexedDBに同期される）

@@ -68,7 +68,7 @@ function ClientTerminal({
     let mounted = true;
     const loadRegistry = async () => {
       try {
-        const { terminalCommandRegistry } = await import('@/engine/cmd/global/terminalRegistry');
+        const { terminalCommandRegistry } = await import('@/engine/cmd/terminalRegistry');
         if (!mounted) return;
         unixCommandsRef.current = terminalCommandRegistry.getUnixCommands(
           currentProject,

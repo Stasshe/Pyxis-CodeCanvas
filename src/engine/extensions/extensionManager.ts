@@ -601,7 +601,7 @@ class ExtensionManager {
           }
           case 'systemBuiltinCommands': {
             // Provide registry that returns singleton command instances per project
-            const { terminalCommandRegistry } = await import('@/engine/cmd/global/terminalRegistry');
+            const { terminalCommandRegistry } = await import('@/engine/cmd/terminalRegistry');
             return terminalCommandRegistry as unknown as SystemModuleMap[T];
           }
           default: {

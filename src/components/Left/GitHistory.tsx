@@ -15,7 +15,7 @@ import {
   FileDiff,
 } from 'lucide-react';
 import { GitCommit as GitCommitType } from '@/types/git';
-import { terminalCommandRegistry } from '@/engine/cmd/global/terminalRegistry';
+import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import { useTheme } from '@/context/ThemeContext';
 import { useTranslation } from '@/context/I18nContext';
 import { useDiffTabHandlers } from '@/hooks/useDiffTabHandlers';

@@ -1,4 +1,4 @@
-import { terminalCommandRegistry } from '../cmd/global/terminalRegistry';
+import { terminalCommandRegistry } from '../cmd/terminalRegistry';
 
 import { fileRepository } from '@/engine/core/fileRepository';
 

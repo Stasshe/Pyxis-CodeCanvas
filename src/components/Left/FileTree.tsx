@@ -7,7 +7,7 @@ import { exportFolderZip } from '@/engine/export/exportFolderZip';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { getIconForFile, getIconForFolder, getIconForOpenFolder } from 'vscode-icons-js';
 import { FileItem } from '@/types';
-import { terminalCommandRegistry } from '@/engine/cmd/global/terminalRegistry';
+import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import { isBufferArray } from '@/engine/helper/isBufferArray';
 import { importSingleFile } from '@/engine/import/importSingleFile';
 import { fileRepository } from '@/engine/core/fileRepository';
