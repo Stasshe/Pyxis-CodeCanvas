@@ -449,8 +449,50 @@ export class StreamShell {
     const interpolate = (line: string, localVars: Record<string, string>) => {
       // Supports $0 (script name), $1..$9, $@ (all args), and local vars $VAR or ${VAR}
       let out = line;
-      // $@ -> all args after script name
-      out = out.replace(/\$@/g, args && args.length > 1 ? args.slice(1).join(' ') : '');
+      // Replace $@ with context-sensitive expansion:
+      // - inside single quotes: no expansion
+      // - inside double quotes: join args with spaces (escape double-quotes inside args)
+      // - unquoted: expand to individually single-quoted args so word boundaries are preserved
+      const replaceAt = (s: string) => {
+        let res = '';
+        let i = 0;
+        while (i < s.length) {
+          const idx = s.indexOf('$@', i);
+          if (idx === -1) {
+            res += s.slice(i);
+            break;
+          }
+          res += s.slice(i, idx);
+          // determine quote context at idx
+          let inS = false;
+          let inD = false;
+          for (let j = 0; j < idx; j++) {
+            const ch = s[j];
+            if (ch === "'" && !inD) inS = !inS;
+            if (ch === '"' && !inS) inD = !inD;
+          }
+          if (inS) {
+            // no expansion inside single quotes
+            res += '$@';
+          } else if (inD) {
+            // join args and escape double quotes
+            const joined = (args && args.length > 1 ? args.slice(1) : []).map(a => String(a).replace(/"/g, '\\"')).join(' ');
+            res += joined;
+          } else {
+            // unquoted: expand to individually single-quoted args
+            const parts = (args && args.length > 1 ? args.slice(1) : []).map(a => {
+              const s = String(a);
+              // escape single quotes by closing, inserting \"'\", and reopening
+              const esc = s.replace(/'/g, "'\\''");
+              return "'" + esc + "'";
+            });
+            res += parts.join(' ');
+          }
+          i = idx + 2;
+        }
+        return res;
+      };
+      out = replaceAt(out);
       // $0 -> script name (args[0])
       out = out.replace(/\$0\b/g, args[0] || '');
       // positional $1..$9 -> args[1]..args[9]

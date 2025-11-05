@@ -17,6 +17,7 @@ describe('StreamShell script positional args', () => {
       'args.sh': `echo $0
 echo $1
 echo $@
+echo "$@"
 `,
     };
 
@@ -29,10 +30,12 @@ echo $@
   const shell = new StreamShellArgs({ projectName: 'default', projectId: 'p1', unix: mockUnix });
     const res = await shell.run('sh args.sh one two three');
     const out = String(res.stdout || '');
-    // echo in our builtins writes raw tokens without newline, so we expect concatenated tokens
-    // We call echo three times; each returns its argument as-is.
-    expect(out).toContain('args.sh');
-    expect(out).toContain('one');
-    expect(out).toContain('two three');
+  // Expect $0, $1 and both unquoted and quoted $@ expansions
+  expect(out).toContain('args.sh');
+  expect(out).toContain('one');
+  // unquoted $@ expands to separate args which echo joins with spaces -> 'two three'
+  expect(out).toContain('two three');
+  // quoted "$@" should produce single argument 'two three' as well
+  expect(out).toContain('two three');
   });
 });
