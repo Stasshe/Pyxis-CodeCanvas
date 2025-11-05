@@ -85,10 +85,15 @@ export class TabAPI {
       component: component,
       createTab: (data: any, opts?: any) =>
         ({
+          // id: logical resource id within the extension (e.g. note id)
           id: data.id || `ext-${data.name}`,
+          // name/title for display
           name: data.title || data.name || 'Extension Tab',
           kind: tabKind as any,
-          path: data.path || `extension:${this.extensionId}`,
+          // path: resource identifier WITHOUT the kind prefix. The TabStore
+          // composes the final tab id as `${kind}:${path}`. For extensions,
+          // use data.path or data.id (resource id) here.
+          path: data.path || data.id || data.name || '',
           paneId: opts?.paneId || '',
           closable: data.closable !== false,
           ...data,
@@ -115,15 +120,16 @@ export class TabAPI {
       throw new Error(`Extension tab type not registered: ${tabKind}`);
     }
 
-    // pathの生成: idが指定されている場合はそれを使う
-    const tabPath = options.id
-      ? `extension:${this.extensionId}:${options.id}`
-      : `extension:${this.extensionId}`;
+    // resourcePath の生成: options.id は "resource id" (例: note の id)
+    // TabStore will compose the actual tab id as `${kind}:${resourcePath}`.
+    const resourcePath = options.id || '';
 
     // TabStore の openTab を使用（重複チェックと既存タブのアクティブ化を自動処理）
     store.openTab(
       {
-        path: tabPath,
+        // pass the resource identifier (no kind prefix). TabStore will
+        // combine the kind and this path to produce the unique tab id.
+        path: resourcePath,
         name: options.title,
         title: options.title,
         icon: options.icon,
@@ -137,8 +143,11 @@ export class TabAPI {
       }
     );
 
-    console.log(`[TabAPI] Opened tab: ${tabPath} for extension: ${this.extensionId}`);
-    return tabPath;
+    // Try to resolve the actual created tab id from the store (best effort)
+    const found = store.findTabByPath(resourcePath, tabKind);
+    const createdTabId = found?.tab?.id || `${tabKind}:${resourcePath || options.title}`;
+    console.log(`[TabAPI] Opened tab: ${createdTabId} for extension: ${this.extensionId}`);
+    return createdTabId;
   }
 
   /**

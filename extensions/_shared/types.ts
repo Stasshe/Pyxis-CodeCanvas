@@ -85,6 +85,16 @@ export interface ExtensionContext {
       paneId?: string;
       data?: any; // 拡張機能側で任意のデータを保持するため any
     }) => string;
+    /**
+     * Note about `id` format:
+     * - When you pass `id` here, it becomes the tab-specific identifier portion.
+     * - The system composes the final tab path as `extension:<extensionId>:<id>`.
+     * - If you omit `id`, the system will generate a suffix (timestamp/UUID) and
+     *   use `extension:<extensionId>:<generated>` as the tab path.
+     *
+     * This means extensions should provide unique `id` values when they want
+     * to open different notes in separate tabs. The `data` field remains `any`.
+     */
     updateTab: (tabId: string, options: { title?: string; icon?: string; data?: any }) => boolean;
     closeTab: (tabId: string) => boolean;
     onTabClose: (tabId: string, callback: (tabId: string) => void | Promise<void>) => void;
