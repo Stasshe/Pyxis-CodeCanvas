@@ -494,6 +494,56 @@ export class StreamShell {
   // args: positional args passed to the script (argv[1..])
   private async runScript(text: string, args: string[], proc: Process) {
     const lines = text.split('\n');
+    // Helper: evaluate command-substitutions in a string (supports $(...) and `...`)
+    // Replaces occurrences with the stdout of the inner command (trimmed).
+    const evalCommandSubstitutions = async (s: string, localVars: Record<string, string>): Promise<string> => {
+      // handle backticks first (non-nested simple support)
+      let out = s;
+      // backticks: `...` (non nested)
+      while (true) {
+        const bt = out.indexOf('`');
+        if (bt === -1) break;
+        let j = bt + 1;
+        let buf = '';
+        while (j < out.length && out[j] !== '`') {
+          buf += out[j++];
+        }
+        if (j >= out.length) break; // unterminated - leave as-is
+        const inner = buf;
+        const res = await this.run(inner);
+        const replacement = String(res.stdout || '');
+        out = out.slice(0, bt) + replacement + out.slice(j + 1);
+      }
+
+      // handle $(...) with nesting
+      const findMatching = (str: string, start: number) => {
+        let depth = 0;
+        for (let k = start; k < str.length; k++) {
+          if (str[k] === '(') depth++;
+          if (str[k] === ')') {
+            depth--;
+            if (depth === 0) return k;
+          }
+        }
+        return -1;
+      };
+
+      while (true) {
+        const idx = out.indexOf('$(');
+        if (idx === -1) break;
+        const openPos = idx + 1; // position of '('
+        const end = findMatching(out, openPos);
+        if (end === -1) break; // unterminated - stop
+        const inner = out.slice(openPos + 1, end);
+        // recursively evaluate inner substitutions first
+        const innerEval = await evalCommandSubstitutions(inner, localVars);
+        const res = await this.run(innerEval);
+        const replacement = String(res.stdout || '');
+        out = out.slice(0, idx) + replacement + out.slice(end + 1);
+      }
+
+      return out;
+    };
 
     const interpolate = (line: string, localVars: Record<string, string>) => {
       // Supports $0 (script name), $1..$9, $@ (all args), and local vars $VAR or ${VAR}
@@ -699,8 +749,37 @@ export class StreamShell {
         if (trimmed === 'break') return 'break';
         if (trimmed === 'continue') return 'continue';
 
-        // regular command: interpolate and execute
-        const execLine = interpolate(trimmed, localVars);
+        // regular command or assignment: interpolate and execute
+        let execLine = interpolate(trimmed, localVars);
+
+        // handle `set ...` as a noop for now (common in scripts)
+        if (execLine.startsWith('set ')) {
+          // ignore set flags (e.g. -euo pipefail) for now
+          continue;
+        }
+
+        // assignment-only: VAR=VALUE (no command)
+        const assignMatch = execLine.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/s);
+        if (assignMatch) {
+          const name = assignMatch[1];
+          let rhs = assignMatch[2] ?? '';
+          // trim surrounding quotes if present
+          rhs = rhs.trim();
+          if ((rhs.startsWith("'") && rhs.endsWith("'")) || (rhs.startsWith('"') && rhs.endsWith('"'))) {
+            rhs = rhs.slice(1, -1);
+          }
+          // evaluate command substitutions in rhs
+          try {
+            const evaluated = await evalCommandSubstitutions(rhs, localVars);
+            // store into localVars for subsequent interpolation
+            localVars[name] = evaluated;
+          } catch (e) {
+            // fallback: raw assignment
+            localVars[name] = rhs;
+          }
+          continue;
+        }
+
         const res = await this.run(execLine);
         if (res.stdout) proc.writeStdout(res.stdout);
         if (res.stderr) proc.writeStderr(res.stderr);
