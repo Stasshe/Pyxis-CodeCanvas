@@ -477,8 +477,14 @@ export class StreamShell {
 
   // Run full pipeline line and resolve final stdout/stderr and code
   async run(line: string): Promise<{ stdout: string; stderr: string; code: number | null }> {
-    const pieces = this.splitPipes(line);
-    const segs = pieces.map(p => this.parseSegment(p));
+    let segs: any[] = [];
+    try {
+      const parser = await import('./parser');
+      segs = parser.parseCommandLine(line);
+    } catch (e) {
+      const pieces = this.splitPipes(line);
+      segs = pieces.map(p => this.parseSegment(p));
+    }
     const procs: Process[] = [];
 
     // create processes
