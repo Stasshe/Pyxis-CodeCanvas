@@ -1,7 +1,7 @@
 {
   "id": "pyxis.todo-panel",
   "name": "TODO Scanner",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "type": "ui",
   "description": "Scans workspace files for TODO and FIXME comments with quick navigation",
   "author": "Pyxis Team",

@@ -75,8 +75,17 @@ export interface ExtensionContext {
   /** Tab API - 拡張機能が自分のタブを作成・管理 */
   tabs?: {
     registerTabType: (component: any) => void;
-    createTab: (options: any) => string;
-    updateTab: (tabId: string, options: any) => boolean;
+    /** 型安全なタブAPIの簡易定義 (拡張機能側用) */
+    createTab: (options: {
+      id?: string;
+      title: string;
+      icon?: string;
+      closable?: boolean;
+      activateAfterCreate?: boolean;
+      paneId?: string;
+      data?: any; // 拡張機能側で任意のデータを保持するため any
+    }) => string;
+    updateTab: (tabId: string, options: { title?: string; icon?: string; data?: any }) => boolean;
     closeTab: (tabId: string) => boolean;
     onTabClose: (tabId: string, callback: (tabId: string) => void | Promise<void>) => void;
     getTabData: <T = any>(tabId: string) => T | null;

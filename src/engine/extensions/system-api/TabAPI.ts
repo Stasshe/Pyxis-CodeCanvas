@@ -85,7 +85,7 @@ export class TabAPI {
       component: component,
       createTab: (data: any, opts?: any) =>
         ({
-          id: data.id || `ext-${Date.now()}`,
+          id: data.id || `ext-${data.name}`,
           name: data.title || data.name || 'Extension Tab',
           kind: tabKind as any,
           path: data.path || `extension:${this.extensionId}`,

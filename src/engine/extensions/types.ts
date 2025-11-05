@@ -9,6 +9,7 @@
  */
 
 import type { SystemModuleMap, SystemModuleName } from './systemModuleTypes';
+import type { TabAPI } from './system-api/TabAPI';
 
 /**
  * グローバル型定義の拡張
@@ -239,15 +240,7 @@ export interface ExtensionContext {
   };
 
   /** Tab API - 拡張機能が自分のタブを作成・管理 */
-  tabs?: {
-    registerTabType: (component: any) => void;
-    createTab: (options: any) => string;
-    updateTab: (tabId: string, options: any) => boolean;
-    closeTab: (tabId: string) => boolean;
-    onTabClose: (tabId: string, callback: (tabId: string) => void | Promise<void>) => void;
-    getTabData: <T = any>(tabId: string) => T | null;
-    openSystemTab: (file: any, options?: any) => void;
-  };
+  tabs?: TabAPI;
 
   /** Sidebar API - 拡張機能がサイドバーパネルを追加 */
   sidebar?: {
