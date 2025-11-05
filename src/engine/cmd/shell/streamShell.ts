@@ -230,6 +230,40 @@ export class StreamShell {
     const proc = new Process();
     // lazily obtain unix commands if not injected
     const unix = await this.getUnix().catch(() => this.unix);
+    const adaptBuiltins = await import('./builtins').then(m => m.default).catch(() => null);
+    const builtins = adaptBuiltins && unix ? adaptBuiltins(unix) : null;
+
+    // Resolve command-substitution markers in tokens before launching handler.
+    // parser encoded command-substitution as JSON-stringified objects like
+    // '{"cmdSub":"inner"}'. Detect and run them, replacing the token with
+    // the stdout split by whitespace.
+    if (seg.tokens && seg.tokens.length > 0) {
+      const resolvedTokens: string[] = [];
+      for (const t of seg.tokens) {
+        if (typeof t === 'string' && t.trim().startsWith('{') && t.includes('cmdSub')) {
+          try {
+            const parsed = JSON.parse(t);
+            if (parsed && parsed.cmdSub) {
+              // run the inner command synchronously (await)
+              const subRes = await this.run(parsed.cmdSub);
+              // debug
+              // eslint-disable-next-line no-console
+              console.error('[shell] cmdSub run ->', parsed.cmdSub, '=>', JSON.stringify(subRes));
+              const out = String(subRes.stdout || '').trim();
+              if (out === '') continue;
+              // simple word-splitting on whitespace
+              const parts = out.split(/\s+/).filter(Boolean);
+              resolvedTokens.push(...parts);
+              continue;
+            }
+          } catch (e) {
+            // fallthrough to push original token
+          }
+        }
+        resolvedTokens.push(String(t));
+      }
+      seg.tokens = resolvedTokens;
+    }
 
     // If stdinFile is provided, read it and pipe into proc.stdin
     if (seg.stdinFile && unix) {
@@ -302,119 +336,20 @@ export class StreamShell {
           return;
         }
 
-        // Common builtins
-        switch (cmd) {
-          case 'echo': {
-            const text = args.join(' ');
-            proc.writeStdout(text + '\n');
+        // Use the builtins adapter if available (stream-friendly wrappers)
+        if (builtins && typeof builtins[cmd] === 'function') {
+          try {
+            await builtins[cmd](ctx, args);
+            // builtins are expected to manage stdout/stderr end; ensure process exit
             proc.endStdout();
+            proc.endStderr();
             proc.exit(0);
             return;
-          }
-      case 'pwd': {
-        const p = await unix.pwd();
-            proc.writeStdout(p + '\n');
+          } catch (e: any) {
+            proc.writeStderr(String(e && e.message ? e.message : e));
             proc.endStdout();
-            proc.exit(0);
-            return;
-          }
-          case 'cat': {
-            if (args.length === 0) {
-              // pipe stdin to stdout
-              proc.stdinStream.pipe(proc.stdoutStream);
-              proc.stdinStream.on('end', () => {
-                proc.endStdout();
-                proc.exit(0);
-              });
-              // ensure if signal, we exit
-              proc.on('signal', () => {
-                proc.exit(null, 'SIGINT');
-              });
-              return;
-            }
-            const out = await unix.cat(args[0]);
-            proc.writeStdout(String(out));
-            proc.endStdout();
-            proc.exit(0);
-            return;
-          }
-          case 'head': {
-            if (args.length === 0) {
-              // read stdin first 10 lines
-              const buf: string[] = [];
-              for await (const chunk of proc.stdinStream) {
-                buf.push(String(chunk));
-              }
-              const text = buf.join('');
-              const out = text.split('\n').slice(0, 10).join('\n');
-              proc.writeStdout(out);
-              proc.endStdout();
-              proc.exit(0);
-              return;
-            }
-            const nOpt = args.find(a => a.startsWith('-n'));
-            let n = 10;
-            let fileArg = args[0];
-            if (nOpt) {
-              n = parseInt(nOpt.replace('-n', '')) || 10;
-              fileArg = args[1] || fileArg;
-            }
-            const out = await unix.head(fileArg, n);
-            proc.writeStdout(out);
-            proc.endStdout();
-            proc.exit(0);
-            return;
-          }
-          case 'tail': {
-            if (args.length === 0) {
-              const buf: string[] = [];
-                for await (const chunk of proc.stdinStream) {
-                  buf.push(String(chunk));
-                }
-              const text = buf.join('');
-              const out = text.split('\n').slice(-10).join('\n');
-              proc.writeStdout(out);
-              proc.endStdout();
-              proc.exit(0);
-              return;
-            }
-            const nOpt = args.find(a => a.startsWith('-n'));
-            let n = 10;
-            let fileArg = args[0];
-            if (nOpt) {
-              n = parseInt(nOpt.replace('-n', '')) || 10;
-              fileArg = args[1] || fileArg;
-            }
-            const out = await unix.tail(fileArg, n);
-            proc.writeStdout(out);
-            proc.endStdout();
-            proc.exit(0);
-            return;
-          }
-          case 'grep': {
-            if (args.length === 0) {
-              proc.writeStderr('grep: missing pattern\n');
-              proc.endStdout();
-              proc.exit(2);
-              return;
-            }
-            const pattern = args[0];
-            const files = args.slice(1);
-            if (files.length === 0) {
-              // operate on stdin
-              const buf: string[] = [];
-              for await (const chunk of proc.stdinStream) buf.push(String(chunk));
-              const regex = new RegExp(pattern);
-              const lines = buf.join('').split('\n').filter(l => regex.test(l));
-              proc.writeStdout(lines.join('\n'));
-              proc.endStdout();
-              proc.exit(0);
-              return;
-            }
-            const out = await unix.grep(pattern, files);
-            proc.writeStdout(out);
-            proc.endStdout();
-            proc.exit(0);
+            proc.endStderr();
+            proc.exit(1);
             return;
           }
         }
@@ -481,6 +416,9 @@ export class StreamShell {
     try {
       const parser = await import('./parser');
       segs = parser.parseCommandLine(line);
+      // debug
+      // eslint-disable-next-line no-console
+      console.error('[shell] parsed segs ->', JSON.stringify(segs));
     } catch (e) {
       const pieces = this.splitPipes(line);
       segs = pieces.map(p => this.parseSegment(p));
