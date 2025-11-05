@@ -27,7 +27,12 @@ async function prompt(question, initial) {
 }
 
 async function select(question, options) {
-  const choices = options.map(opt => ({ name: opt.value, message: `${opt.label} — ${opt.description}` }));
+  const choices = options.map(opt => ({
+    name: opt.value,
+    // Show an explicit recommended marker when the option has recommended: true
+    // Only the "オススメ！" label is colored red using chalk
+    message: `${opt.label} — ${opt.description}${opt.recommended ? ' — ' + chalk.red('オススメ！') : ''}`
+  }));
   const selectPrompt = new Select({ name: 'choice', message: question, choices });
   try {
     const answer = await selectPrompt.run();
@@ -52,6 +57,7 @@ const EXTENSION_TYPES = [
     value: 'ui',
     label: 'UI Extension',
     description: 'カスタムタブやサイドバーパネルを追加',
+    recommended: true,
     usesReact: true,
     fileExtension: 'tsx',
     templateFile: 'ui-extension.template.tsx'
@@ -60,6 +66,7 @@ const EXTENSION_TYPES = [
     value: 'tool',
     label: 'Command/Tool',
     description: 'ターミナルコマンドやツールを追加',
+    recommended: true,
     usesReact: false,
     fileExtension: 'ts',
     templateFile: 'command-extension.template.ts'
@@ -92,9 +99,9 @@ const EXTENSION_TYPES = [
 
 // UIコンポーネントタイプ
 const UI_COMPONENT_TYPES = [
-  { value: 'tab', label: 'Custom Tab', description: 'カスタムタブのみ(開くボタンを作成できないので非推奨)' },
   { value: 'sidebar', label: 'Sidebar Panel', description: 'サイドバーパネルのみ' },
-  { value: 'both', label: 'Tab + Sidebar', description: 'タブとサイドバー両方' }
+  { value: 'both', label: 'Tab + Sidebar', description: 'タブとサイドバー両方' },
+  { value: 'tab', label: 'Custom Tab', description: 'カスタムタブのみ(開くボタンを作成できないので非推奨)' },
 ];
 
 // テンプレートファイルを読み込む
