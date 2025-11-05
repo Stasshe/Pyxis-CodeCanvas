@@ -3,6 +3,15 @@
 
 import shellQuote from 'shell-quote';
 
+export class ParseError extends Error {
+  public pos: number | null;
+  constructor(message: string, pos: number | null = null) {
+    super(message);
+    this.name = 'ParseError';
+    this.pos = pos;
+  }
+}
+
 export type Segment = {
   raw: string;
   tokens: string[];
@@ -57,6 +66,10 @@ function extractCommandSubstitutions(line: string): { line: string; map: Record<
       while (j < line.length && line[j] !== '`') {
         buf += line[j++];
       }
+      if (j >= line.length || line[j] !== '`') {
+        // unterminated backtick
+        throw new ParseError('Unterminated backtick command substitution', i);
+      }
       const key = `__CMD_SUB_${id++}__`;
       map[key] = { cmd: buf, quote: inSingle ? 'single' : inDouble ? 'double' : null };
       out += key;
@@ -85,6 +98,10 @@ function extractCommandSubstitutions(line: string): { line: string; map: Record<
           continue;
         }
         buf += line[j++];
+      }
+      if (depth > 0) {
+        // unterminated $( ... )
+        throw new ParseError('Unterminated $(...) command substitution', i);
       }
       const key = `__CMD_SUB_${id++}__`;
       map[key] = { cmd: buf, quote: inSingle ? 'single' : inDouble ? 'double' : null };
@@ -157,7 +174,15 @@ export function parseCommandLine(line: string, env: Record<string, string> = pro
   }
 
   const expandedLine = expandVariables(extracted.line);
-  const toks = shellQuote.parse(expandedLine);
+  let toks: any[];
+  try {
+    toks = shellQuote.parse(expandedLine);
+  } catch (e: any) {
+    // Re-wrap shell-quote errors with ParseError including original message and
+    // a hint about the original input.
+    const msg = e && e.message ? e.message : String(e);
+    throw new ParseError(`shell-quote parse error: ${msg}`, null);
+  }
   const segs: Segment[] = [];
   let cur: Segment = { raw: '', tokens: [], stdinFile: null, stdoutFile: null, append: false, background: false };
 
