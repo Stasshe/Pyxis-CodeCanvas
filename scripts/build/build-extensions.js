@@ -579,20 +579,38 @@ function updateManifestWithFiles(distDir) {
 
     // Always attempt to attach README.md if present in the distDir, regardless of allFiles
     let changed = false;
+    // First, prefer README in the distDir (was copied). If not present (for example
+    // it's excluded via .buildignore), try to read README from the source extension
+    // directory and embed its contents into the manifest without copying the file.
     try {
-      const readmeCandidates = fs.readdirSync(distDir || '').filter(f => f.toLowerCase() === 'readme.md');
-      if (readmeCandidates.length > 0) {
-        try {
-          const readmePath = path.join(distDir, readmeCandidates[0]);
-          const readmeContent = fs.readFileSync(readmePath, 'utf-8');
-          manifest.readme = readmeContent;
-          changed = true;
-        } catch (e) {
-          console.error(`❌ Failed to read README.md for manifest augmentation: ${e.message}`);
+      const readmeInDist = fs.existsSync(path.join(distDir, 'README.md')) || fs.existsSync(path.join(distDir, 'readme.md'));
+      if (readmeInDist) {
+        const readmePath = fs.existsSync(path.join(distDir, 'README.md')) ? path.join(distDir, 'README.md') : path.join(distDir, 'readme.md');
+        const readmeContent = fs.readFileSync(readmePath, 'utf-8');
+        manifest.readme = readmeContent;
+        changed = true;
+      } else {
+        // Try to locate the original source README.md inside extensions/ and read it
+        const relative = path.relative(EXTENSIONS_DIST, distDir).replace(/\\/g, '/');
+        const srcDir = path.join(EXTENSIONS_SRC, relative);
+        const srcReadmePath = fs.existsSync(path.join(srcDir, 'README.md')) ? path.join(srcDir, 'README.md') :
+                              fs.existsSync(path.join(srcDir, 'readme.md')) ? path.join(srcDir, 'readme.md') : null;
+
+        if (srcReadmePath) {
+          try {
+            const readmeContent = fs.readFileSync(srcReadmePath, 'utf-8');
+            manifest.readme = readmeContent;
+            // Note: we intentionally DO NOT copy README.md into distDir when it was ignored.
+            console.log(`📝 Attached README to manifest (source only): ${path.relative(EXTENSIONS_SRC, srcReadmePath)}`);
+            changed = true;
+          } catch (e) {
+            console.error(`❌ Failed to read README.md from source for manifest augmentation: ${e.message}`);
+          }
         }
       }
     } catch (e) {
-      // If distDir isn't readable for some reason, ignore and continue
+      // If reading fails for any reason, continue without README
+      console.error(`❌ Error while attempting to attach README to manifest: ${e.message}`);
     }
 
     if (allFiles.length > 0) {
