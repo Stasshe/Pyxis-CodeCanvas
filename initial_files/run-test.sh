@@ -16,8 +16,7 @@ fi
 
 echo "== run-test.sh: Environment =="
 echo "PWD: $(pwd)"
-echo "Node: $(node -v || echo 'node not found')"
-echo "pnpm: $(pnpm -v || echo 'pnpm not found')"
+tree
 echo "---"
 for i in {1..5}; do
   echo "カウント: $i"
