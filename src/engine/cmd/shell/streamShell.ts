@@ -486,9 +486,7 @@ export class StreamShell {
         // Use the builtins adapter if available (stream-friendly wrappers)
         if (builtins && typeof builtins[cmd] === 'function') {
           try {
-            // DEBUG: log certain builtin invocations for pipeline diagnosis
-            // eslint-disable-next-line no-console
-            if (['cat', 'head', 'tail'].includes(cmd)) console.error('[DEBUG builtin] cmd=', cmd, 'args=', args);
+            
             await builtins[cmd](ctx, args);
             // builtins are expected to manage stdout/stderr end; ensure process exit
             proc.endStdout();
@@ -1300,9 +1298,7 @@ export class StreamShell {
       }
     }
 
-  // DEBUG: temporary trace of pipeline result
-  // eslint-disable-next-line no-console
-  console.error('[DEBUG run] finalOut:', finalOut, 'finalErr:', finalErr, 'exits:', exits.map(e => e.code));
+  // return last exit code or first non-zero
   // return last exit code or first non-zero
   const code = exits.length ? exits[exits.length - 1].code : 0;
   return { stdout: finalOut, stderr: finalErr, code };
