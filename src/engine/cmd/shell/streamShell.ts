@@ -87,7 +87,19 @@ export class Process extends EventEmitter {
 
   writeStdout(chunk: string | Buffer) {
     try {
-      this._stdout.write(typeof chunk === 'string' ? chunk : String(chunk));
+      if (chunk === undefined || chunk === null) {
+        this._stdout.write('');
+      } else if (typeof chunk === 'object') {
+        try {
+          this._stdout.write(JSON.stringify(chunk));
+        } catch (e) {
+          this._stdout.write(String(chunk));
+        }
+      } else if (typeof chunk === 'string') {
+        this._stdout.write(chunk);
+      } else {
+        this._stdout.write(String(chunk));
+      }
     } catch (e) {
       try { this._stdout.write(String(chunk)); } catch {}
     }
@@ -95,7 +107,19 @@ export class Process extends EventEmitter {
 
   writeStderr(chunk: string | Buffer) {
     try {
-      this._stderr.write(typeof chunk === 'string' ? chunk : String(chunk));
+      if (chunk === undefined || chunk === null) {
+        this._stderr.write('');
+      } else if (typeof chunk === 'object') {
+        try {
+          this._stderr.write(JSON.stringify(chunk));
+        } catch (e) {
+          this._stderr.write(String(chunk));
+        }
+      } else if (typeof chunk === 'string') {
+        this._stderr.write(chunk);
+      } else {
+        this._stderr.write(String(chunk));
+      }
     } catch (e) {
       try { this._stderr.write(String(chunk)); } catch {}
     }
@@ -509,6 +533,12 @@ export class StreamShell {
         projectId: this.projectId,
       } as any;
 
+      // Normalizer for values written to stdout/stderr to avoid '[object Object]'
+      const normalizeForWrite = (v: any) => {
+        if (v === undefined || v === null) return '';
+        return typeof v === 'object' ? JSON.stringify(v) : String(v);
+      };
+
       // Builtin implementations stream-aware
       try {
         // If the command looks like a path to a file (./script.sh or /path/to/script)
@@ -530,9 +560,10 @@ export class StreamShell {
               } catch (e) {
                 // propagate error to stderr
                 try {
-                  proc.writeStderr(String((e as any)?.message ?? e));
+                    proc.writeStderr(normalizeForWrite((e as any)?.message ?? e));
                 } catch {}
               }
+              // finished running script
               proc.endStdout();
               proc.endStderr();
               proc.exit(0);
@@ -595,7 +626,7 @@ export class StreamShell {
             return;
           } catch (e: any) {
             
-            proc.writeStderr(String(e && e.message ? e.message : e));
+            proc.writeStderr(normalizeForWrite(e && e.message ? e.message : e));
             proc.endStdout();
             proc.endStderr();
             proc.exit(1);
@@ -621,7 +652,7 @@ export class StreamShell {
             proc.exit(0);
             return;
           } catch (e: any) {
-            proc.writeStderr(String(e.message || e));
+            proc.writeStderr(normalizeForWrite(e.message || e));
             proc.endStdout();
             proc.endStderr();
             proc.exit(1);
@@ -670,14 +701,15 @@ export class StreamShell {
           const res = await handleUnixCommand(cmd, args, this.projectName, this.projectId, async (out: string) => {
             // also stream partial output immediately where possible
             try {
-              proc.writeStdout(out);
+              proc.writeStdout(normalizeForWrite(out));
             } catch (e) {}
           }, stdinContent);
           // ensure any returned output is written; on non-zero exit treat as stderr
           if (res && res.output) {
             try {
-              if (res.code && res.code !== 0) proc.writeStderr(String(res.output).trimEnd());
-              else proc.writeStdout(String(res.output).trimEnd());
+              const outStr = normalizeForWrite(res.output).trimEnd();
+              if (res.code && res.code !== 0) proc.writeStderr(outStr);
+              else proc.writeStdout(outStr);
             } catch (e) {}
           }
           proc.endStdout();
@@ -701,7 +733,7 @@ export class StreamShell {
               proc.exit(code);
               return;
             }
-            proc.writeStderr(String(e && e.message ? e.message : e));
+            proc.writeStderr(normalizeForWrite(e && e.message ? e.message : e));
             proc.endStdout();
             proc.endStderr();
             proc.exit(1);

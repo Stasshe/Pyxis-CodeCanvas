@@ -12,11 +12,15 @@ export async function handleUnixCommand(
 
   let out = '';
   let exitCode = 0;
+  let streamed = false;
 
   const append = async (s: string, code?: number) => {
-    out += s;
+    // Normalize non-string values to avoid '[object Object]' when concatenating
+    const str = s === undefined || s === null ? '' : (typeof s === 'object' ? JSON.stringify(s) : String(s));
+    out += str;
     try {
-      await writeOutput(s);
+      await writeOutput(str);
+      streamed = true;
     } catch (e) {
       // ignore writeOutput errors
     }
@@ -229,7 +233,7 @@ export async function handleUnixCommand(
             const result = await unix.grep(pattern, files, grepOptions);
             // grep should return non-zero exit code when no matches found
             const code = result && String(result).length > 0 ? 0 : 1;
-            await append(result, code);1
+            await append(result, code);
           }
         }
         break;
@@ -315,7 +319,7 @@ export async function handleUnixCommand(
     await append(`Error: ${(error as Error).message}\n`, 1);
   }
 
-  return { code: exitCode, output: out };
+  return { code: exitCode, output: streamed ? '' : out };
 }
 
 export default handleUnixCommand;
