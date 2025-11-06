@@ -416,8 +416,11 @@ export class StreamShell {
       const args = rawTokens.slice(1).map((t: any) => String(t));
 
       // Provide a small context for handlers
+      // Note: use the readable side of stdin (stdinStream) so builtins can
+      // read from it when connected via pipe. stdout/stderr use the writable
+      // stream backing so handlers can write into them.
       const ctx = {
-        stdin: proc.stdin,
+        stdin: proc.stdinStream,
         stdout: proc.stdoutStream,
         stderr: proc.stderrStream,
         onSignal: (fn: (sig: string) => void) => proc.on('signal', fn),
@@ -483,6 +486,9 @@ export class StreamShell {
         // Use the builtins adapter if available (stream-friendly wrappers)
         if (builtins && typeof builtins[cmd] === 'function') {
           try {
+            // DEBUG: log certain builtin invocations for pipeline diagnosis
+            // eslint-disable-next-line no-console
+            if (['cat', 'head', 'tail'].includes(cmd)) console.error('[DEBUG builtin] cmd=', cmd, 'args=', args);
             await builtins[cmd](ctx, args);
             // builtins are expected to manage stdout/stderr end; ensure process exit
             proc.endStdout();
@@ -1294,9 +1300,12 @@ export class StreamShell {
       }
     }
 
-    // return last exit code or first non-zero
-    const code = exits.length ? exits[exits.length - 1].code : 0;
-    return { stdout: finalOut, stderr: finalErr, code };
+  // DEBUG: temporary trace of pipeline result
+  // eslint-disable-next-line no-console
+  console.error('[DEBUG run] finalOut:', finalOut, 'finalErr:', finalErr, 'exits:', exits.map(e => e.code));
+  // return last exit code or first non-zero
+  const code = exits.length ? exits[exits.length - 1].code : 0;
+  return { stdout: finalOut, stderr: finalErr, code };
   }
 
   // Kill the current foreground process with given signal
