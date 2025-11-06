@@ -17,6 +17,8 @@ export type Segment = {
   tokens: Token[];
   stdinFile?: string | null;
   stdoutFile?: string | null;
+  stderrFile?: string | null;
+  stderrToStdout?: boolean;
   append?: boolean;
   background?: boolean;
 };
@@ -241,10 +243,40 @@ export function parseCommandLine(line: string, env: Record<string, string> = pro
         continue;
       }
       if (op === '>' || op === '>>') {
-        const next = toks[++i];
+        // check if previous token in cur is a numeric fd (e.g. '2>file' or '2> file')
+        let fd: number | null = null;
+        if (cur.tokens.length > 0) {
+          const last = cur.tokens[cur.tokens.length - 1];
+          if (last && typeof last.text === 'string' && last.quote === null && /^\d+$/.test(last.text)) {
+            fd = Number(last.text);
+            cur.tokens.pop();
+          }
+        }
+
+        // next token may be '&' indicating fd duplication (e.g. '2>&1')
+        let next = toks[++i];
+        if (typeof next === 'object' && next.op === '&') {
+          // consume following token as the target fd
+          const target = toks[++i];
+          const tkn2 = makeTokenFromRaw(target);
+          const targetFd = tkn2.text;
+          if (fd === 2 && targetFd === '1') {
+            cur.stderrToStdout = true;
+          } else if (fd === 1 && targetFd === '2') {
+            // uncommon but support 1>&2 -> route stdout to stderr by marking stdoutFile as stderr
+            cur.stderrToStdout = true;
+          }
+          cur.append = op === '>>';
+          continue;
+        }
+
         const tkn = makeTokenFromRaw(next);
-        cur.stdoutFile = tkn.text;
-        cur.append = op === '>>';
+        if (fd === 2) {
+          cur.stderrFile = tkn.text;
+        } else {
+          cur.stdoutFile = tkn.text;
+          cur.append = op === '>>';
+        }
         continue;
       }
       if (op === '<') {

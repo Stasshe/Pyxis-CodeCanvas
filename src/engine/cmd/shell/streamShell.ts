@@ -112,6 +112,8 @@ type Segment = {
   tokens: Array<string | TokenObj>;
   stdinFile?: string | null;
   stdoutFile?: string | null;
+  stderrFile?: string | null;
+  stderrToStdout?: boolean;
   append?: boolean;
   background?: boolean;
 };
@@ -1360,9 +1362,16 @@ export class StreamShell {
       outChunks.push(String(chunk));
     });
     const errChunks: string[] = [];
-    last.stderr.on('data', (chunk: Buffer | string) => {
-      errChunks.push(String(chunk));
-    });
+    // If stderr was redirected to stdout (2>&1), collect stderr into outChunks
+    if (lastSeg && lastSeg.stderrToStdout) {
+      last.stderr.on('data', (chunk: Buffer | string) => {
+        outChunks.push(String(chunk));
+      });
+    } else {
+      last.stderr.on('data', (chunk: Buffer | string) => {
+        errChunks.push(String(chunk));
+      });
+    }
 
     const exits = await Promise.all(procs.map(p => p.wait()));
 
@@ -1381,48 +1390,76 @@ export class StreamShell {
       } catch (e) {}
     }
 
-    // handle stdout redirection
-  if (lastSeg.stdoutFile && this.fileRepository) {
-      // resolve path relative to project (UnixCommands helpers can normalize)
-      const targetPath = lastSeg.stdoutFile;
-      try {
-        const fullContent = finalOut;
-        // read existing if append
-        let contentToWrite = fullContent;
-        if (lastSeg.append) {
+    // handle stdout/stderr redirection
+    if ((lastSeg && (lastSeg.stdoutFile || lastSeg.stderrFile || lastSeg.stderrToStdout)) && this.fileRepository) {
+      // If stdout was redirected, write finalOut to that file (respect append)
+      if (lastSeg.stdoutFile) {
+        const targetPath = lastSeg.stdoutFile;
+        try {
+          const fullContent = finalOut;
+          // read existing if append
+          let contentToWrite = fullContent;
+          if (lastSeg.append) {
+            const files = await this.fileRepository.getProjectFiles(this.projectId);
+            const existing = files.find((f: any) => f.path === targetPath || f.path === `/${targetPath}`);
+            if (existing && existing.content) {
+              contentToWrite = existing.content + contentToWrite;
+            }
+          }
+          // create or save
           const files = await this.fileRepository.getProjectFiles(this.projectId);
           const existing = files.find((f: any) => f.path === targetPath || f.path === `/${targetPath}`);
-          if (existing && existing.content) {
-            contentToWrite = existing.content + contentToWrite;
+          if (existing) {
+            await this.fileRepository.saveFile({ ...existing, content: contentToWrite, updatedAt: new Date() });
+          } else {
+            await this.fileRepository.createFile(this.projectId, targetPath.startsWith('/') ? targetPath : `/${targetPath}`, contentToWrite, 'file');
           }
+        } catch (e) {
+          // ignore but include in stderr
         }
-        // create or save
-        const files = await this.fileRepository.getProjectFiles(this.projectId);
-        const existing = files.find((f: any) => f.path === targetPath || f.path === `/${targetPath}`);
-        if (existing) {
-          await this.fileRepository.saveFile({ ...existing, content: contentToWrite, updatedAt: new Date() });
-        } else {
-          await this.fileRepository.createFile(this.projectId, targetPath.startsWith('/') ? targetPath : `/${targetPath}`, contentToWrite, 'file');
-        }
-      } catch (e) {
-        // ignore but include in stderr
       }
-      // NOTE: current implementation writes stdout to file but does not
-      // interpret stderr redirection operators such as '2>&1'. To support
-      // constructs like `>/dev/null 2>&1` or `2>/dev/null`, we need to parse
-      // and apply redirections for stderr when wiring processes or when
-      // interpreting segment metadata. A simple approach is to detect
-      // stderr redirection tokens on the segment and, if present, route
-      // `proc.stderr` to the same target stream used for stdout.
-      // Consider extending `Segment` to include stderrFile and flags, and
-      // perform the routing before collecting finalOut/finalErr.
+
+      // If stderr was redirected to stdout (2>&1) and stdout was redirected to a file,
+      // ensure stderr content is also written to the same stdout file.
+      if (lastSeg.stderrToStdout && lastSeg.stdoutFile) {
+        const targetPath = lastSeg.stdoutFile;
+        try {
+          const combined = finalOut + finalErr;
+          const files = await this.fileRepository.getProjectFiles(this.projectId);
+          const existing = files.find((f: any) => f.path === targetPath || f.path === `/${targetPath}`);
+          if (existing) {
+            await this.fileRepository.saveFile({ ...existing, content: combined, updatedAt: new Date() });
+          } else {
+            await this.fileRepository.createFile(this.projectId, targetPath.startsWith('/') ? targetPath : `/${targetPath}`, combined, 'file');
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      // If stderr was redirected to its own file, write finalErr to that file
+      if (lastSeg.stderrFile) {
+        const stderrPath = lastSeg.stderrFile;
+        try {
+          const files = await this.fileRepository.getProjectFiles(this.projectId);
+          const existing = files.find((f: any) => f.path === stderrPath || f.path === `/${stderrPath}`);
+          if (existing) {
+            await this.fileRepository.saveFile({ ...existing, content: finalErr, updatedAt: new Date() });
+          } else {
+            await this.fileRepository.createFile(this.projectId, stderrPath.startsWith('/') ? stderrPath : `/${stderrPath}`, finalErr, 'file');
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
     }
 
-    // If the last segment redirected stdout to a file, the shell should not
-    // include that output on the returned stdout (it was written to file).
+    // Determine returned stdout/stderr: if redirected to files, do not include in return
     const code = exits.length ? exits[exits.length - 1].code : 0;
     const returnedStdout = lastSeg && lastSeg.stdoutFile ? '' : finalOut;
-    return { stdout: returnedStdout, stderr: finalErr, code };
+    // If stderr was redirected to file or to stdout, suppress returned stderr
+    const returnedStderr = lastSeg && (lastSeg.stderrFile || lastSeg.stderrToStdout) ? '' : finalErr;
+    return { stdout: returnedStdout, stderr: returnedStderr, code };
   }
 
   // Kill the current foreground process with given signal
