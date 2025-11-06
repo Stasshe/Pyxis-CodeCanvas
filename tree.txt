@@ -10,6 +10,7 @@ Root
 │   ├── MULTI-FILE-EXTENSION-SUPPORT.md
 │   ├── NEW-ARCHITECTURE.md
 │   ├── NodeJSRuntime-new-arc.md
+│   ├── SHELL-PARSER-PLAN.md
 │   ├── TAB-MANAGEMENT-ARCHITECTURE.md
 │   ├── TODO.md
 │   ├── Tauri-Setup.md
@@ -34,9 +35,9 @@ Root
 │   ├── I18N-SYSTEM.md
 │   ├── NODE-RUNTIME.md
 │   ├── README.md
+│   ├── SHELL-SYSTEM.md
 │   ├── SYSTEM-OVERVIEW.md
 │   ├── UI-COMPONENTS.md
-│   ├── UNIX-COMMANDS.md
 │   ├── en
 │   │   └── NODE-RUNTIME.md
 │   └── pyxis-all.svg.svg
@@ -53,6 +54,7 @@ Root
 │   │   ├── index.html
 │   │   ├── main.js
 │   │   └── style.css
+│   ├── run-test.sh
 │   ├── src
 │   │   ├── debugConsoleDemo.js
 │   │   ├── fibonacci.py
@@ -69,6 +71,7 @@ Root
 │       ├── math.ts
 │       └── use-math.ts
 ├── jest.config.cjs
+├── jest.setup.js
 ├── next-env.d.ts
 ├── next.config.ts
 ├── package.json
@@ -272,6 +275,11 @@ Root
 │   │   │   │   ├── npmHandler.ts
 │   │   │   │   ├── pyxisHandler.ts
 │   │   │   │   └── unixHandler.ts
+│   │   │   ├── shell
+│   │   │   │   ├── braceExpand.ts
+│   │   │   │   ├── builtins.ts
+│   │   │   │   ├── parser.ts
+│   │   │   │   └── streamShell.ts
 │   │   │   ├── terminalRegistry.ts
 │   │   │   └── vim.ts
 │   │   ├── commitMsgAI.ts
@@ -369,11 +377,15 @@ Root
 │   ├── stores
 │   │   ├── sessionStorage.ts
 │   │   └── tabStore.ts
+│   ├── tests
+│   │   ├── parser.unterminated.test.ts
+│   │   └── unixHandler.command-not-found.test.ts
 │   └── types
 │       ├── git.ts
 │       ├── index.ts
 │       ├── path-browserify.d.ts
 │       ├── settings.ts
+│       ├── shell-quote.d.ts
 │       └── vm-browserify.d.ts
 ├── tailwind.config.ts
 ├── tests
@@ -381,13 +393,25 @@ Root
 │   │   ├── math.transformed.ts
 │   │   └── use-math.transformed.ts
 │   ├── aiResponseParser.test.ts
+│   ├── all-sh.test.ts
 │   ├── extensionLoader.multifile.test.ts
 │   ├── fsRequirePromise.test.ts
 │   ├── gitignore.test.ts
 │   ├── normalizeCjsEsm.imports.test.ts
 │   ├── normalizeCjsEsm.test.ts
-│   ├── npmInstall.test.ts
+│   ├── parser.ast.test.ts
+│   ├── parser.commandsub.test.ts
+│   ├── parser.complex.test.ts
+│   ├── parser.unit.test.ts
 │   ├── reactImportTransform.test.ts
+│   ├── redirection.test.ts
+│   ├── redirection_extra.test.ts
+│   ├── run-test-script.test.ts
+│   ├── run_test_script.test.ts
+│   ├── script.args.test.ts
+│   ├── script.control.inline.test.ts
+│   ├── script.control.test.ts
+│   ├── shell.stream.test.ts
 │   └── transform_real_files.test.ts
 ├── tree-built-out.sh
 ├── tree.sh
@@ -395,7 +419,7 @@ Root
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-62 directories, 333 files
+64 directories, 355 files
 
 =================================
 
@@ -502,8 +526,12 @@ extensions/ 以下のディレクトリ構造:
 
 
 src/*.ts, *.tsx の統計:
-合計行数: 46918
-合計文字数: 1512582
-合計ファイルサイズ(bytes): 1617697
+合計行数: 49671
+合計文字数: 1613504
+合計ファイルサイズ(bytes): 1718941
 
 開発時のdev container全体のサイズ(bytes): 1.2G	.
+==========
+ビルト済みファイルの行数: 41239
+合計文字数: 26092276
+合計ファイルサイズ(bytes): 27076231
