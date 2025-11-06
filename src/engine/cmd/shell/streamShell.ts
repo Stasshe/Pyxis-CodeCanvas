@@ -813,8 +813,38 @@ export class StreamShell {
         lines.push(p);
       }
     }
+    // Evaluate simple arithmetic $(( ... )) where used in assignments
+    // This helper evaluates numeric arithmetic expressions found as $((...)).
+    // Note: it intentionally only supports numeric expressions composed of
+    // digits, whitespace and arithmetic operators. Variable names are replaced
+    // with numeric values from `localVars` before evaluation.
+    const evalArithmeticInString = (s: string, localVars: Record<string, string>) => {
+      return s.replace(/\$\(\((.*?)\)\)/g, (_, expr) => {
+        // replace variable names with numeric values from localVars
+        const safe = expr.replace(/\b([A-Za-z_][A-Za-z0-9_]*)\b/g, (m: string) => {
+          if (/^\d+$/.test(m)) return m;
+          const v = localVars[m];
+          return String(Number(v || 0));
+        });
+        // allow only digits, spaces and arithmetic operators
+        if (!/^[0-9+\-*/()%\s]+$/.test(safe)) return '0';
+        try {
+          // eslint-disable-next-line no-new-func
+          const val = Function(`return (${safe})`)();
+          return String(Number(val));
+        } catch (e) {
+          return '0';
+        }
+      });
+    };
+
     // Helper: evaluate command-substitutions in a string (supports $(...) and `...`)
     // Replaces occurrences with the stdout of the inner command (trimmed).
+    // ALSO: after expanding command-substitutions, run arithmetic expansion
+    // ($((...))) so arithmetic expressions inside the result are evaluated.
+    // Previously this function did not evaluate $((...)); that caused some
+    // scripts to leave arithmetic expressions unexpanded. We now evaluate
+    // arithmetic here using the localVars context.
     const evalCommandSubstitutions = async (s: string, localVars: Record<string, string>): Promise<string> => {
       // handle backticks first (non-nested simple support)
       let out = s;
@@ -861,29 +891,18 @@ export class StreamShell {
         out = out.slice(0, idx) + replacement + out.slice(end + 1);
       }
 
+      // After command-substitutions, also perform arithmetic expansion $((...))
+      // so expressions inside the resulting string are evaluated using localVars.
+      try {
+        out = evalArithmeticInString(out, localVars);
+      } catch (e) {
+        // if arithmetic expansion fails, leave the string as-is
+      }
+
       return out;
     };
 
-    // Evaluate simple arithmetic $(( ... )) where used in assignments
-    const evalArithmeticInString = (s: string, localVars: Record<string, string>) => {
-      return s.replace(/\$\(\((.*?)\)\)/g, (_, expr) => {
-        // replace variable names with numeric values from localVars
-  const safe = expr.replace(/\b([A-Za-z_][A-Za-z0-9_]*)\b/g, (m: string) => {
-          if (/^\d+$/.test(m)) return m;
-          const v = localVars[m];
-          return String(Number(v || 0));
-        });
-        // allow only digits, spaces and arithmetic operators
-        if (!/^[0-9+\-*/()%\s]+$/.test(safe)) return '0';
-        try {
-          // eslint-disable-next-line no-new-func
-          const val = Function(`return (${safe})`)();
-          return String(Number(val));
-        } catch (e) {
-          return '0';
-        }
-      });
-    };
+    
 
     const interpolate = (line: string, localVars: Record<string, string>) => {
       // Supports $0 (script name), $1..$9, $@ (all args), and local vars $VAR or ${VAR}
@@ -1342,7 +1361,7 @@ export class StreamShell {
       } catch (e) {}
     }
 
-  // handle stdout redirection
+    // handle stdout redirection
   if (lastSeg.stdoutFile && this.fileRepository) {
       // resolve path relative to project (UnixCommands helpers can normalize)
       const targetPath = lastSeg.stdoutFile;
@@ -1368,6 +1387,15 @@ export class StreamShell {
       } catch (e) {
         // ignore but include in stderr
       }
+      // NOTE: current implementation writes stdout to file but does not
+      // interpret stderr redirection operators such as '2>&1'. To support
+      // constructs like `>/dev/null 2>&1` or `2>/dev/null`, we need to parse
+      // and apply redirections for stderr when wiring processes or when
+      // interpreting segment metadata. A simple approach is to detect
+      // stderr redirection tokens on the segment and, if present, route
+      // `proc.stderr` to the same target stream used for stdout.
+      // Consider extending `Segment` to include stderrFile and flags, and
+      // perform the routing before collecting finalOut/finalErr.
     }
 
     // If the last segment redirected stdout to a file, the shell should not
