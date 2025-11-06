@@ -141,13 +141,23 @@ export default function adaptUnixToStream(unix: any) {
         ctx.stdout.end();
         return;
       }
-      const pattern = args[0];
-      const files = args.slice(1);
+      // separate options (e.g. -E, -n) from operands
+      const opts = args.filter(a => a.startsWith('-'));
+      const nonOpts = args.filter(a => !a.startsWith('-'));
+      const pattern = nonOpts[0];
+      const files = nonOpts.slice(1);
+      if (!pattern) {
+        ctx.stderr.write('grep: missing pattern');
+        ctx.stdout.end();
+        return;
+      }
       if (files.length === 0) {
         const buf: string[] = [];
         const src = ctx.stdin as unknown as Readable;
         for await (const ch of src) buf.push(String(ch));
         const joined = buf.join('');
+        // support -E (extended) flag; simple mapping here
+        const isExtended = opts.includes('-E');
         const regex = new RegExp(pattern);
         const lines = joined.split('\n').filter(l => regex.test(l));
         if (lines.length === 0) {

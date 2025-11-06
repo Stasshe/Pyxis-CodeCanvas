@@ -530,6 +530,23 @@ export class StreamShell {
           const { handleUnixCommand } = await import('../handlers/unixHandler');
           // collect stdin content (if any) before invoking handler; the stdin stream
           // may already be piped from a previous process by the time this runs
+          // Wait for run() to wire up pipes before attempting to read any stdin buffer
+          await new Promise<void>((resolve) => {
+            let resolved = false;
+            const onReady = () => {
+              if (resolved) return;
+              resolved = true;
+              resolve();
+            };
+            proc.once('pipes-ready', onReady);
+            // Safety timeout: if run() doesn't emit pipes-ready soon, continue
+            setTimeout(() => {
+              if (resolved) return;
+              resolved = true;
+              resolve();
+            }, 50);
+          });
+
           const readStdin = async (): Promise<string | null> => {
             return await new Promise((resolve) => {
               let buf = '';
@@ -538,11 +555,9 @@ export class StreamShell {
               s.on('data', (c: any) => { buf += String(c); });
               s.on('end', () => resolve(buf));
               s.on('close', () => resolve(buf));
-              // wait a short moment for data to arrive from a piped producer
+              // small delay to allow piped producer to write
               setTimeout(() => {
-                // If stream is still not ended but we have content, return it
                 if (buf.length > 0) return resolve(buf);
-                // otherwise resolve null and let handler decide
                 resolve(null);
               }, 20);
             });
@@ -972,11 +987,11 @@ export class StreamShell {
           // forward any output from condition evaluation to the script process
           if (condEval.stdout) proc.writeStdout(condEval.stdout);
           if (condEval.stderr) proc.writeStderr(condEval.stderr);
-          if (condEval.code === 0) {
+            if (condEval.code === 0) {
             // then block starts after thenIdx
             const thenStart = (thenIdx === -1 ? i + 1 : thenIdx + 1);
             const thenEnd = (elifs.length > 0 ? elifs[0] : (elseIdx !== -1 ? elseIdx : fiIdx));
-            const r = await runRange(thenStart, thenEnd, { ...localVars });
+            const r = await runRange(thenStart, thenEnd, localVars);
             if (r !== 'ok') return r;
           } else {
             // check elifs in order
@@ -998,10 +1013,10 @@ export class StreamShell {
               // forward outputs from elif condition
               if (eRes.stdout) proc.writeStdout(eRes.stdout);
               if (eRes.stderr) proc.writeStderr(eRes.stderr);
-              if (eRes.code === 0) {
+                if (eRes.code === 0) {
                 const eThenStart = eIdx + 1;
                 const eThenEnd = (k + 1 < elifs.length ? elifs[k + 1] : (elseIdx !== -1 ? elseIdx : fiIdx));
-                const r = await runRange(eThenStart, eThenEnd, { ...localVars });
+                const r = await runRange(eThenStart, eThenEnd, localVars);
                 if (r !== 'ok') return r;
                 matched = true;
                 break;
@@ -1059,9 +1074,9 @@ export class StreamShell {
           let iter = 0;
           for (const it of items) {
             if (++iter > MAX_LOOP) break;
-            const lv = { ...localVars };
-            lv[varName] = it;
-            const r = await runRange(bodyStart, bodyEnd, lv);
+            // set loop variable in localVars (shell variables are global in this scope)
+            localVars[varName] = it;
+            const r = await runRange(bodyStart, bodyEnd, localVars);
             if (r === 'break') break;
             if (r === 'continue') continue;
           }
@@ -1103,12 +1118,12 @@ export class StreamShell {
           while (true) {
             if (++count > MAX_LOOP) break;
             const cres = await this.run(interpolate(condLine, localVars));
-            
             // forward outputs from while condition
             if (cres.stdout) proc.writeStdout(cres.stdout);
             if (cres.stderr) proc.writeStderr(cres.stderr);
+            // trace removed; condition outputs are forwarded above
             if (cres.code !== 0) break;
-            const r = await runRange(bodyStart, bodyEnd, { ...localVars });
+            const r = await runRange(bodyStart, bodyEnd, localVars);
             if (r === 'break') break;
             if (r === 'continue') continue;
           }
@@ -1207,6 +1222,15 @@ export class StreamShell {
     // wire up pipes: proc[i].stdout -> proc[i+1].stdin
     for (let i = 0; i < procs.length - 1; i++) {
       procs[i].stdout.pipe(procs[i + 1].stdin);
+    }
+
+    // Notify processes that pipes have been wired so handlers that may pre-read
+    // stdin can safely inspect the stream. This avoids races where handlers
+    // start reading before the pipes are connected.
+    for (const p of procs) {
+      try {
+        p.emit('pipes-ready');
+      } catch (e) {}
     }
 
     // Collect output from last process
