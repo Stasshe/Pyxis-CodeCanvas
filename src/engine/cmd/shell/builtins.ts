@@ -169,6 +169,87 @@ export default function adaptUnixToStream(unix: any) {
   obj['['] = evaluateTest;
   obj['test'] = evaluateTest;
 
+  // true: do nothing and succeed (POSIX semantics)
+  obj.true = async (ctx: StreamCtx, _args: string[] = []) => {
+    // no output, successful exit
+    ctx.stdout.end();
+  };
+
+  // type: identify how a name would be interpreted by the shell.
+  // Support common flags: -t (print a single word type), -a (all matches), -p (print path-like info when possible)
+  obj.type = async (ctx: StreamCtx, args: string[] = []) => {
+    const opts = { a: false, t: false, p: false };
+    const names: string[] = [];
+    for (const a of args) {
+      if (a && a.startsWith('-') && a.length > 1) {
+        for (let i = 1; i < a.length; i++) {
+          const ch = a[i];
+          if (ch === 'a') opts.a = true;
+          else if (ch === 't') opts.t = true;
+          else if (ch === 'p') opts.p = true;
+          // ignore unknown flags for now (shells often return usage)
+        }
+      } else {
+        names.push(a);
+      }
+    }
+    if (names.length === 0) {
+      throw new Error('type: missing operand');
+    }
+
+    for (const name of names) {
+      // collect possible matches in order: builtin -> unix-provided command
+      const isBuiltin = !!obj[name];
+      const isUnixFn = !!(unix && typeof unix[name] === 'function');
+
+      if (opts.t) {
+        if (isBuiltin) {
+          ctx.stdout.write('builtin\n');
+        } else if (isUnixFn) {
+          // treat unix-provided commands as "file" for -t semantics
+          ctx.stdout.write('file\n');
+        } else {
+          throw new Error(`type: not found: ${name}`);
+        }
+        continue;
+      }
+
+      if (opts.a) {
+        let any = false;
+        if (isBuiltin) {
+          ctx.stdout.write(`${name} is a shell builtin\n`);
+          any = true;
+        }
+        if (isUnixFn) {
+          // we don't have a real filesystem PATH to resolve, so print a descriptive line
+          if (opts.p) {
+            ctx.stdout.write(`${name}\n`);
+          } else {
+            ctx.stdout.write(`${name} is a shell command\n`);
+          }
+          any = true;
+        }
+        if (!any) throw new Error(`type: not found: ${name}`);
+        continue;
+      }
+
+      // default single-name behavior: print a single descriptive line
+      if (isBuiltin) {
+        ctx.stdout.write(`${name} is a shell builtin\n`);
+      } else if (isUnixFn) {
+        if (opts.p) {
+          // best-effort: print the name as a path-like hint since we don't have PATH lookup
+          ctx.stdout.write(`${name}\n`);
+        } else {
+          ctx.stdout.write(`${name} is a shell command\n`);
+        }
+      } else {
+        throw new Error(`type: not found: ${name}`);
+      }
+    }
+    ctx.stdout.end();
+  };
+
   // cat: if no args -> stream stdin to stdout; otherwise read file via unix.cat
   if (typeof unix.cat === 'function') {
     obj.cat = async (ctx: StreamCtx, args: string[] = []) => {

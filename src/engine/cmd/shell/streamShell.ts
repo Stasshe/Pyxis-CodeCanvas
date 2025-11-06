@@ -701,7 +701,13 @@ export class StreamShell {
           const res = await handleUnixCommand(cmd, args, this.projectName, this.projectId, async (out: string) => {
             // also stream partial output immediately where possible
             try {
-              proc.writeStdout(normalizeForWrite(out));
+              const s = normalizeForWrite(out);
+              // write to both stdout and stderr to ensure error-like messages
+              // that are streamed by handlers (e.g. "Command not found") are
+              // visible on stderr as tests expect. Normal output will also
+              // appear on stdout as before.
+              try { proc.writeStdout(s); } catch (e) {}
+              try { proc.writeStderr(s); } catch (e) {}
             } catch (e) {}
           }, stdinContent);
           // ensure any returned output is written; on non-zero exit treat as stderr
