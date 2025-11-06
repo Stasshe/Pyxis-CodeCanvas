@@ -187,6 +187,19 @@ function tokenizeLine(line: string): Array<string | { op: string }> {
         i += 2;
         continue;
       }
+      // logical operators
+      if (ch === '&' && line[i + 1] === '&') {
+        if (cur !== '') { tokens.push(cur); cur = ''; }
+        tokens.push({ op: '&&' });
+        i += 2;
+        continue;
+      }
+      if (ch === '|' && line[i + 1] === '|') {
+        if (cur !== '') { tokens.push(cur); cur = ''; }
+        tokens.push({ op: '||' });
+        i += 2;
+        continue;
+      }
       if (ch === '|' || ch === '<' || ch === '>' || ch === '&' || ch === ';') {
         if (cur !== '') { tokens.push(cur); cur = ''; }
         tokens.push({ op: ch });
@@ -243,6 +256,14 @@ export function parseCommandLine(line: string, env: Record<string, string> = pro
       const op = tok.op;
       if (op === '|') {
         pushCur();
+        continue;
+      }
+      if (op === '&&' || op === '||') {
+        // end current segment and mark it with a logical operator linking to the next
+        pushCur();
+        if (segs.length > 0) {
+          (segs[segs.length - 1] as any).logicalOp = op;
+        }
         continue;
       }
       if (op === '>' || op === '>>') {
