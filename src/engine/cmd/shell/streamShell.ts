@@ -527,16 +527,37 @@ export class StreamShell {
         // Fallback to unix handler (returns structured {code, output})
         try {
           const { handleUnixCommand } = await import('../handlers/unixHandler');
+          // collect stdin content (if any) before invoking handler; the stdin stream
+          // may already be piped from a previous process by the time this runs
+          const readStdin = async (): Promise<string | null> => {
+            return await new Promise((resolve) => {
+              let buf = '';
+              const s = proc.stdinStream as any;
+              if (!s || typeof s.on !== 'function') return resolve(null);
+              s.on('data', (c: any) => { buf += String(c); });
+              s.on('end', () => resolve(buf));
+              s.on('close', () => resolve(buf));
+              // wait a short moment for data to arrive from a piped producer
+              setTimeout(() => {
+                // If stream is still not ended but we have content, return it
+                if (buf.length > 0) return resolve(buf);
+                // otherwise resolve null and let handler decide
+                resolve(null);
+              }, 20);
+            });
+          };
+          const stdinContent = await readStdin();
           const res = await handleUnixCommand(cmd, args, this.projectName, this.projectId, async (out: string) => {
             // also stream partial output immediately where possible
             try {
               proc.writeStdout(out);
             } catch (e) {}
-          });
-          // ensure any returned output is written
+          }, stdinContent);
+          // ensure any returned output is written; on non-zero exit treat as stderr
           if (res && res.output) {
             try {
-              proc.writeStdout(String(res.output).trimEnd());
+              if (res.code && res.code !== 0) proc.writeStderr(String(res.output).trimEnd());
+              else proc.writeStdout(String(res.output).trimEnd());
             } catch (e) {}
           }
           proc.endStdout();
@@ -601,8 +622,66 @@ export class StreamShell {
   // Execute a script text with simple control flow support (if/for/while)
   // args: positional args passed to the script (argv[1..])
   private async runScript(text: string, args: string[], proc: Process) {
-    // Split the script into physical lines first
-    const rawLines = text.split('\n');
+    // Split the script into physical lines first BUT respect quotes, backticks and $(...)
+    // so multi-line quoted strings are preserved as a single logical line.
+    const splitPhysicalLines = (src: string): string[] => {
+      const out: string[] = [];
+      let cur = '';
+      let inS = false;
+      let inD = false;
+      let inBT = false;
+      let parenDepth = 0; // for $(...)
+      for (let i = 0; i < src.length; i++) {
+        const ch = src[i];
+        if (ch === '\\') {
+          // copy escape and next char if present
+          cur += ch;
+          if (i + 1 < src.length) cur += src[++i];
+          continue;
+        }
+        if (ch === '`' && !inS && !inD) {
+          inBT = !inBT;
+          cur += ch;
+          continue;
+        }
+        if (ch === '"' && !inS && !inBT) {
+          inD = !inD;
+          cur += ch;
+          continue;
+        }
+        if (ch === "'" && !inD && !inBT) {
+          inS = !inS;
+          cur += ch;
+          continue;
+        }
+        if (!inS && !inD && !inBT) {
+          if (ch === '$' && src[i + 1] === '(') {
+            parenDepth++;
+            cur += ch;
+            continue;
+          }
+          if (ch === '(' && parenDepth > 0) {
+            cur += ch;
+            continue;
+          }
+          if (ch === ')') {
+            if (parenDepth > 0) parenDepth--;
+            cur += ch;
+            continue;
+          }
+          if (ch === '\n' && parenDepth === 0) {
+            out.push(cur);
+            cur = '';
+            continue;
+          }
+        }
+        cur += ch;
+      }
+      if (cur !== '') out.push(cur);
+      return out;
+    };
+
+    const rawLines = splitPhysicalLines(text);
     // Helper: split a line at top-level semicolons (not inside quotes, backticks, or $(...)).
     // This lets us treat `if cond; then cmd; fi` and multi-line variants uniformly.
     const splitTopLevelSemicolons = (s: string): string[] => {
@@ -719,6 +798,27 @@ export class StreamShell {
       }
 
       return out;
+    };
+
+    // Evaluate simple arithmetic $(( ... )) where used in assignments
+    const evalArithmeticInString = (s: string, localVars: Record<string, string>) => {
+      return s.replace(/\$\(\((.*?)\)\)/g, (_, expr) => {
+        // replace variable names with numeric values from localVars
+  const safe = expr.replace(/\b([A-Za-z_][A-Za-z0-9_]*)\b/g, (m: string) => {
+          if (/^\d+$/.test(m)) return m;
+          const v = localVars[m];
+          return String(Number(v || 0));
+        });
+        // allow only digits, spaces and arithmetic operators
+        if (!/^[0-9+\-*/()%\s]+$/.test(safe)) return '0';
+        try {
+          // eslint-disable-next-line no-new-func
+          const val = Function(`return (${safe})`)();
+          return String(Number(val));
+        } catch (e) {
+          return '0';
+        }
+      });
     };
 
     const interpolate = (line: string, localVars: Record<string, string>) => {
@@ -867,6 +967,14 @@ export class StreamShell {
 
           // evaluate condition
           const condEval = await this.run(interpolate(condLine, localVars));
+          // DEBUG: log condition evaluation (temporary)
+          // eslint-disable-next-line no-console
+          console.error('[DEBUG] IF condLine:', interpolate(condLine, localVars));
+          // eslint-disable-next-line no-console
+          console.error('[DEBUG] IF result code:', condEval.code, 'stdout:', String(condEval.stdout).slice(0,100));
+          // forward any output from condition evaluation to the script process
+          if (condEval.stdout) proc.writeStdout(condEval.stdout);
+          if (condEval.stderr) proc.writeStderr(condEval.stderr);
           if (condEval.code === 0) {
             // then block starts after thenIdx
             const thenStart = (thenIdx === -1 ? i + 1 : thenIdx + 1);
@@ -889,6 +997,14 @@ export class StreamShell {
                 if (trailing) lines.splice(eIdx + 1, 0, trailing);
               }
               const eRes = await this.run(interpolate(eCond, localVars));
+              // DEBUG: log elif evaluation
+              // eslint-disable-next-line no-console
+              console.error('[DEBUG] ELIF condLine:', interpolate(eCond, localVars));
+              // eslint-disable-next-line no-console
+              console.error('[DEBUG] ELIF result code:', eRes.code, 'stdout:', String(eRes.stdout).slice(0,100));
+              // forward outputs from elif condition
+              if (eRes.stdout) proc.writeStdout(eRes.stdout);
+              if (eRes.stderr) proc.writeStderr(eRes.stderr);
               if (eRes.code === 0) {
                 const eThenStart = eIdx + 1;
                 const eThenEnd = (k + 1 < elifs.length ? elifs[k + 1] : (elseIdx !== -1 ? elseIdx : fiIdx));
@@ -994,6 +1110,14 @@ export class StreamShell {
           while (true) {
             if (++count > MAX_LOOP) break;
             const cres = await this.run(interpolate(condLine, localVars));
+            // DEBUG: log while condition
+            // eslint-disable-next-line no-console
+            console.error('[DEBUG] WHILE condLine:', interpolate(condLine, localVars));
+            // eslint-disable-next-line no-console
+            console.error('[DEBUG] WHILE result code:', cres.code, 'stdout:', String(cres.stdout).slice(0,100));
+            // forward outputs from while condition
+            if (cres.stdout) proc.writeStdout(cres.stdout);
+            if (cres.stderr) proc.writeStderr(cres.stderr);
             if (cres.code !== 0) break;
             const r = await runRange(bodyStart, bodyEnd, { ...localVars });
             if (r === 'break') break;
@@ -1026,6 +1150,8 @@ export class StreamShell {
           if ((rhs.startsWith("'") && rhs.endsWith("'")) || (rhs.startsWith('"') && rhs.endsWith('"'))) {
             rhs = rhs.slice(1, -1);
           }
+          // handle arithmetic expansion $((...)) before command-substitution
+          rhs = evalArithmeticInString(rhs, localVars);
           // evaluate command substitutions in rhs
           try {
             const evaluated = await evalCommandSubstitutions(rhs, localVars);
@@ -1037,7 +1163,6 @@ export class StreamShell {
           }
           continue;
         }
-
         const res = await this.run(execLine);
         if (res.stdout) proc.writeStdout(res.stdout);
         if (res.stderr) proc.writeStderr(res.stderr);

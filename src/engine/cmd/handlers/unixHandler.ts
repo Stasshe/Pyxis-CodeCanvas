@@ -5,7 +5,8 @@ export async function handleUnixCommand(
   args: string[],
   projectName: string,
   projectId: string,
-  writeOutput: (output: string) => Promise<void>
+  writeOutput: (output: string) => Promise<void>,
+  stdinContent: string | null = null
 ): Promise<{ code: number; output: string }> {
   const unix = terminalCommandRegistry.getUnixCommands(projectName, projectId);
 
@@ -202,15 +203,35 @@ export async function handleUnixCommand(
         if (args.length < 2) {
           await append('grep: missing pattern or file\nUsage: grep [OPTION]... PATTERN FILE...');
         } else {
+          // DEBUG: show grep args
+          // eslint-disable-next-line no-console
+          console.error('[DEBUG] handleUnixCommand grep args:', args);
           const grepOptions = args.filter(arg => arg.startsWith('-'));
           const grepArgs = args.filter(arg => !arg.startsWith('-'));
           const pattern = grepArgs[0];
           const files = grepArgs.slice(1);
           if (files.length === 0) {
-            await append('grep: missing file operand');
+            // no files -> read from stdinContent
+            if (stdinContent !== null) {
+              // DEBUG: inspect stdin and pattern
+              // eslint-disable-next-line no-console
+              console.error('[DEBUG] grep stdin:', String(stdinContent).slice(0,200));
+              // eslint-disable-next-line no-console
+              console.error('[DEBUG] grep pattern:', pattern);
+              const regex = new RegExp(pattern);
+              const lines = String(stdinContent).split('\n');
+              const matches = lines.filter(l => regex.test(l));
+              const result = matches.join('\n');
+              const code = matches.length > 0 ? 0 : 1;
+              await append(result, code);
+            } else {
+              await append('grep: missing file operand', 2);
+            }
           } else {
             const result = await unix.grep(pattern, files, grepOptions);
-            await append(result);
+            // grep should return non-zero exit code when no matches found
+            const code = result && String(result).length > 0 ? 0 : 1;
+            await append(result, code);1
           }
         }
         break;
