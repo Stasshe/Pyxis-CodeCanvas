@@ -31,7 +31,20 @@ export default function adaptUnixToStream(unix: any) {
         } else {
           res = await fn.apply(unix, args || []);
         }
-        if (res !== undefined && res !== null) ctx.stdout.write(String(res));
+        if (res !== undefined && res !== null) {
+          // Normalize common structured return shapes into printable text.
+          // Many unix helpers may return objects like { output, code } or { stdout }.
+          // Prefer known fields, otherwise serialize to JSON to avoid '[object Object]'.
+          let outStr = '';
+          if (typeof res === 'object') {
+            if ('output' in res) outStr = String((res as any).output ?? '');
+            else if ('stdout' in res) outStr = String((res as any).stdout ?? '');
+            else outStr = JSON.stringify(res);
+          } else {
+            outStr = String(res);
+          }
+          if (outStr) ctx.stdout.write(outStr);
+        }
       } catch (e: any) {
         ctx.stderr.write(String(e && e.message ? e.message : e));
       }
@@ -69,30 +82,87 @@ export default function adaptUnixToStream(unix: any) {
       // strip trailing ']' if present
       if (args.length > 0 && args[args.length - 1] === ']') args = args.slice(0, -1);
       let ok = false;
+      // Common unary tests
       if (args.length === 0) {
         ok = false;
       } else if (args.length === 1) {
+        // [ STRING ] -> true if non-empty
         ok = String(args[0]).length > 0;
-      } else if (args.length === 2 && args[0] === '-n') {
-        ok = String(args[1]).length > 0;
-      } else if (args.length >= 3 && args[1] === '!=') {
-        ok = String(args[0]) !== String(args[2]);
-      } else if (args.length >= 3 && args[1] === '=') {
-        ok = String(args[0]) === String(args[2]);
-      } else {
-        // unsupported: fall back to false
-        ok = false;
+      } else if (args.length === 2) {
+        // -n STRING  or -z STRING or unary file tests
+        const op = args[0];
+        const val = args[1];
+        if (op === '-n') ok = String(val).length > 0;
+        else if (op === '-z') ok = String(val).length === 0;
+        else if (op === '-f' || op === '-d') {
+          // file/directory test via unix.stat if available
+          const path = String(val);
+          if (typeof unix?.stat === 'function') {
+            try {
+              const st = await unix.stat(path).catch(() => null);
+              // treat any non-null result as existence; if -d is requested and st.type exists, check
+              if (st) {
+                if (op === '-f') {
+                  // prefer to check a 'type' or 'isDirectory' flag if present
+                  if (typeof st === 'object') {
+                    ok = !(st as any).isDirectory;
+                    if ((st as any).type === 'file') ok = true;
+                  } else {
+                    ok = true;
+                  }
+                } else {
+                  if (typeof st === 'object') {
+                    ok = !!(st as any).isDirectory || (st as any).type === 'directory';
+                  } else {
+                    ok = true;
+                  }
+                }
+              } else ok = false;
+            } catch (e) {
+              ok = false;
+            }
+          } else {
+            ok = false;
+          }
+        } else {
+          ok = false;
+        }
+      } else if (args.length >= 3) {
+        // binary ops: string (=, !=) or numeric (-eq, -ne, -gt, -lt, -ge, -le)
+        const a = args[0];
+        const op = args[1];
+        const b = args[2];
+        if (op === '=' || op === '==') ok = String(a) === String(b);
+        else if (op === '!=') ok = String(a) !== String(b);
+        else if (op === '-eq' || op === '-ne' || op === '-gt' || op === '-lt' || op === '-ge' || op === '-le') {
+          const na = Number(a);
+          const nb = Number(b);
+          if (Number.isNaN(na) || Number.isNaN(nb)) {
+            ok = false;
+          } else {
+            switch (op) {
+              case '-eq': ok = na === nb; break;
+              case '-ne': ok = na !== nb; break;
+              case '-gt': ok = na > nb; break;
+              case '-lt': ok = na < nb; break;
+              case '-ge': ok = na >= nb; break;
+              case '-le': ok = na <= nb; break;
+            }
+          }
+        } else {
+          // unsupported operators fall back to false
+          ok = false;
+        }
       }
       if (!ok) {
         // signal non-zero exit without emitting stderr text
-        const e: any = new Error('');
-        (e as any).code = 1;
-        throw e;
+        throw { __silent: true, code: 1 } as any;
       }
       ctx.stdout.end();
     } catch (e: any) {
       ctx.stdout.end();
-      // propagate error to caller (adapter will handle exit code)
+      // propagate silent failure marker if present, otherwise rethrow
+      if (e && e.__silent) throw e;
       throw e;
     }
   };

@@ -86,11 +86,19 @@ export class Process extends EventEmitter {
   }
 
   writeStdout(chunk: string | Buffer) {
-    this._stdout.write(chunk);
+    try {
+      this._stdout.write(typeof chunk === 'string' ? chunk : String(chunk));
+    } catch (e) {
+      try { this._stdout.write(String(chunk)); } catch {}
+    }
   }
 
   writeStderr(chunk: string | Buffer) {
-    this._stderr.write(chunk);
+    try {
+      this._stderr.write(typeof chunk === 'string' ? chunk : String(chunk));
+    } catch (e) {
+      try { this._stderr.write(String(chunk)); } catch {}
+    }
   }
 
   endStdout() {
@@ -683,13 +691,22 @@ export class StreamShell {
           proc.exit(127);
           return;
         }
-      } catch (err: any) {
-        proc.writeStderr(String(err.message || err));
-        proc.endStdout();
-        proc.endStderr();
-        proc.exit(1);
-        return;
-      }
+        } catch (e: any) {
+            // Support silent failure marker objects thrown by builtins (e.g. { __silent: true, code: 1 })
+            // If present, do not print the object to stderr — just exit with provided code.
+            if (e && (e as any).__silent) {
+              const code = typeof (e as any).code === 'number' ? (e as any).code : 1;
+              try { proc.endStdout(); } catch {}
+              try { proc.endStderr(); } catch {}
+              proc.exit(code);
+              return;
+            }
+            proc.writeStderr(String(e && e.message ? e.message : e));
+            proc.endStdout();
+            proc.endStderr();
+            proc.exit(1);
+            return;
+          }
     })();
 
   // Defensive watchdog: if a handler never calls proc.exit(), avoid hanging forever.
