@@ -10,7 +10,6 @@ import { gitFileSystem } from '@/engine/core/gitFileSystem';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
 import { handleGitCommand } from '@/engine/cmd/handlers/gitHandler';
-import { handleUnixCommand } from '@/engine/cmd/handlers/unixHandler';
 import { handleNPMCommand } from '@/engine/cmd/handlers/npmHandler';
 import { handlePyxisCommand } from '@/engine/cmd/handlers/pyxisHandler';
 import { handleVimCommand } from '@/engine/cmd/vim';
@@ -553,14 +552,12 @@ function ClientTerminal({
               }
             } else {
               // 通常のUnixコマンドとして処理
-                  if (shellRef.current) {
-                    // delegate entire baseCommand to StreamShell which handles pipes/redirection/subst
-                    const res = await shellRef.current.run(baseCommand);
-                    if (res.stdout) await captureWriteOutput(String(res.stdout));
-                    if (res.stderr) await captureWriteOutput(String(res.stderr));
-                  } else {
-                    await handleUnixCommand(cmd, args, currentProject, currentProjectId, captureWriteOutput);
-                  }
+              if (shellRef.current) {
+                // delegate entire baseCommand to StreamShell which handles pipes/redirection/subst
+                const res = await shellRef.current.run(baseCommand);
+                if (res.stdout) await captureWriteOutput(String(res.stdout));
+                if (res.stderr) await captureWriteOutput(String(res.stderr));
+              }
             }
             break;
           }
