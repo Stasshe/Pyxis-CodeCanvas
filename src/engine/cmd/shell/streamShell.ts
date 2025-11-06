@@ -1038,6 +1038,28 @@ export class StreamShell {
       }
     };
 
+    // Evaluate a condition used in if/elif/while. Supports leading '!' negation
+    // operators (possibly multiple) by stripping them, evaluating the inner
+    // command, and inverting the exit code if needed. Returns the same shape
+    // as this.run() (stdout, stderr, code) with code possibly inverted.
+    const runCondition = async (condExpr: string, localVars: Record<string, string>) => {
+      if (!condExpr) return { stdout: '', stderr: '', code: 1 };
+      // count leading ! operators
+      let s = condExpr.trimStart();
+      let neg = 0;
+      while (s.startsWith('!')) {
+        neg++;
+        s = s.slice(1).trimStart();
+      }
+      if (!s) return { stdout: '', stderr: '', code: neg % 2 === 1 ? 0 : 1 };
+      // evaluate expansions then run
+      const evaled = await evaluateLine(s, localVars);
+      const res = await this.run(evaled);
+      const codeNum = typeof res.code === 'number' ? res.code : 0;
+      const finalCode = neg % 2 === 1 ? (codeNum === 0 ? 1 : 0) : codeNum;
+      return { stdout: res.stdout, stderr: res.stderr, code: finalCode };
+    };
+
     // brace expansion for runScript uses shared expandBraces utility (handles nested, lists, ranges)
 
     const MAX_LOOP = 10000;
@@ -1119,12 +1141,12 @@ export class StreamShell {
           }
 
           // evaluate condition
-          const condEval = await this.run(await evaluateLine(condLine, localVars));
-          
+          const condEval = await runCondition(condLine, localVars);
+
           // forward any output from condition evaluation to the script process
           if (condEval.stdout) proc.writeStdout(condEval.stdout);
           if (condEval.stderr) proc.writeStderr(condEval.stderr);
-            if (condEval.code === 0) {
+          if (condEval.code === 0) {
             // then block starts after thenIdx
             const thenStart = (thenIdx === -1 ? i + 1 : thenIdx + 1);
             const thenEnd = (elifs.length > 0 ? elifs[0] : (elseIdx !== -1 ? elseIdx : fiIdx));
@@ -1145,12 +1167,12 @@ export class StreamShell {
                 const trailing = m[1] ? m[1].trim() : '';
                 if (trailing) lines.splice(eIdx + 1, 0, trailing);
               }
-              const eRes = await this.run(await evaluateLine(eCond, localVars));
-              
+              const eRes = await runCondition(eCond, localVars);
+
               // forward outputs from elif condition
               if (eRes.stdout) proc.writeStdout(eRes.stdout);
               if (eRes.stderr) proc.writeStderr(eRes.stderr);
-                if (eRes.code === 0) {
+              if (eRes.code === 0) {
                 const eThenStart = eIdx + 1;
                 const eThenEnd = (k + 1 < elifs.length ? elifs[k + 1] : (elseIdx !== -1 ? elseIdx : fiIdx));
                 const r = await runRange(eThenStart, eThenEnd, localVars);
@@ -1261,7 +1283,7 @@ export class StreamShell {
           let count = 0;
           while (true) {
             if (++count > MAX_LOOP) break;
-            const cres = await this.run(await evaluateLine(condLine, localVars));
+            const cres = await runCondition(condLine, localVars);
             // (condition evaluation output is forwarded below when appropriate)
             // forward outputs from while condition
             if (cres.stdout) proc.writeStdout(cres.stdout);
