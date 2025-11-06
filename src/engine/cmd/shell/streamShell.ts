@@ -1119,7 +1119,7 @@ export class StreamShell {
           }
           const bodyStart = doIdx + 1;
           const bodyEnd = doneIdx;
-          const interpItems = interpolate(itemsStr, localVars);
+          const interpItems = await evalCommandSubstitutions(interpolate(itemsStr, localVars), localVars);
           // split items and support simple brace expansion (e.g. {1..5})
           const rawItems = interpItems.split(/\s+/).filter(Boolean);
           const items: string[] = [];
@@ -1175,6 +1175,7 @@ export class StreamShell {
           while (true) {
             if (++count > MAX_LOOP) break;
             const cres = await this.run(interpolate(condLine, localVars));
+            // (condition evaluation output is forwarded below when appropriate)
             // forward outputs from while condition
             if (cres.stdout) proc.writeStdout(cres.stdout);
             if (cres.stderr) proc.writeStderr(cres.stderr);
@@ -1223,6 +1224,12 @@ export class StreamShell {
             localVars[name] = rhs;
           }
           continue;
+        }
+        // For non-assignment commands, perform command-substitution expansion
+        try {
+          execLine = await evalCommandSubstitutions(execLine, localVars);
+        } catch (e) {
+          // ignore substitution errors and use original execLine
         }
         const res = await this.run(execLine);
         if (res.stdout) proc.writeStdout(res.stdout);
@@ -1335,8 +1342,8 @@ export class StreamShell {
       } catch (e) {}
     }
 
-    // handle stdout redirection
-    if (lastSeg.stdoutFile && this.fileRepository) {
+  // handle stdout redirection
+  if (lastSeg.stdoutFile && this.fileRepository) {
       // resolve path relative to project (UnixCommands helpers can normalize)
       const targetPath = lastSeg.stdoutFile;
       try {
@@ -1363,10 +1370,11 @@ export class StreamShell {
       }
     }
 
-  // return last exit code or first non-zero
-  // return last exit code or first non-zero
-  const code = exits.length ? exits[exits.length - 1].code : 0;
-  return { stdout: finalOut, stderr: finalErr, code };
+    // If the last segment redirected stdout to a file, the shell should not
+    // include that output on the returned stdout (it was written to file).
+    const code = exits.length ? exits[exits.length - 1].code : 0;
+    const returnedStdout = lastSeg && lastSeg.stdoutFile ? '' : finalOut;
+    return { stdout: returnedStdout, stderr: finalErr, code };
   }
 
   // Kill the current foreground process with given signal
