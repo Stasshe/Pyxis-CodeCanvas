@@ -62,6 +62,43 @@ export default function adaptUnixToStream(unix: any) {
     }
   }
 
+  // Provide '[' and 'test' builtin to evaluate simple conditional expressions.
+  // Supports patterns used in run-test.sh: [ -n STRING ] and [ A != B ] and [ STRING ]
+  const evaluateTest = async (ctx: StreamCtx, args: string[] = []) => {
+    try {
+      // strip trailing ']' if present
+      if (args.length > 0 && args[args.length - 1] === ']') args = args.slice(0, -1);
+      let ok = false;
+      if (args.length === 0) {
+        ok = false;
+      } else if (args.length === 1) {
+        ok = String(args[0]).length > 0;
+      } else if (args.length === 2 && args[0] === '-n') {
+        ok = String(args[1]).length > 0;
+      } else if (args.length >= 3 && args[1] === '!=') {
+        ok = String(args[0]) !== String(args[2]);
+      } else if (args.length >= 3 && args[1] === '=') {
+        ok = String(args[0]) === String(args[2]);
+      } else {
+        // unsupported: fall back to false
+        ok = false;
+      }
+      if (!ok) {
+        // signal non-zero exit without emitting stderr text
+        const e: any = new Error('');
+        (e as any).code = 1;
+        throw e;
+      }
+      ctx.stdout.end();
+    } catch (e: any) {
+      ctx.stdout.end();
+      // propagate error to caller (adapter will handle exit code)
+      throw e;
+    }
+  };
+  obj['['] = evaluateTest;
+  obj['test'] = evaluateTest;
+
   // cat: if no args -> stream stdin to stdout; otherwise read file via unix.cat
   if (typeof unix.cat === 'function') {
     obj.cat = async (ctx: StreamCtx, args: string[] = []) => {
