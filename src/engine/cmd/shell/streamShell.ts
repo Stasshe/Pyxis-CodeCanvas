@@ -487,9 +487,15 @@ export class StreamShell {
             // builtins are expected to manage stdout/stderr end; ensure process exit
             proc.endStdout();
             proc.endStderr();
+            // DEBUG: builtins success
+            // eslint-disable-next-line no-console
+            console.error('[DEBUG] builtins succeeded for', cmd);
             proc.exit(0);
             return;
           } catch (e: any) {
+            // DEBUG: builtins error
+            // eslint-disable-next-line no-console
+            console.error('[DEBUG] builtins error for', cmd, e);
             proc.writeStderr(String(e && e.message ? e.message : e));
             proc.endStdout();
             proc.endStderr();

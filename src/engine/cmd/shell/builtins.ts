@@ -76,13 +76,22 @@ export default function adaptUnixToStream(unix: any) {
         const out = buf.join('').split('\n').slice(0, 10).join('\n');
         ctx.stdout.write(out);
       } else {
-        const nOpt = args.find((a: string) => a.startsWith('-n'));
+        // support '-n 5' and '-n5' forms
         let n = 10;
-        let fileArg = args[0];
-        if (nOpt) {
-          n = parseInt(nOpt.replace('-n', '')) || 10;
-          fileArg = args[1] || fileArg;
+        let fileArg: string | undefined;
+        // find explicit -n option
+        const nIndex = args.findIndex(a => a === '-n' || a.startsWith('-n'));
+        if (nIndex !== -1) {
+          const nOpt = args[nIndex];
+          if (nOpt === '-n') {
+            n = parseInt(args[nIndex + 1]) || 10;
+          } else {
+            n = parseInt(nOpt.replace('-n', '')) || 10;
+          }
         }
+        // find file arg (first non-option)
+        const nonOpts = args.filter(a => !a.startsWith('-'));
+        fileArg = nonOpts[0];
         const out = await unix.head(fileArg, n);
         ctx.stdout.write(String(out));
       }
@@ -101,13 +110,20 @@ export default function adaptUnixToStream(unix: any) {
         const out = buf.join('').split('\n').slice(-10).join('\n');
         ctx.stdout.write(out);
       } else {
-        const nOpt = args.find((a: string) => a.startsWith('-n'));
+        // support '-n 5' and '-n5' forms
         let n = 10;
-        let fileArg = args[0];
-        if (nOpt) {
-          n = parseInt(nOpt.replace('-n', '')) || 10;
-          fileArg = args[1] || fileArg;
+        let fileArg: string | undefined;
+        const nIndex = args.findIndex(a => a === '-n' || a.startsWith('-n'));
+        if (nIndex !== -1) {
+          const nOpt = args[nIndex];
+          if (nOpt === '-n') {
+            n = parseInt(args[nIndex + 1]) || 10;
+          } else {
+            n = parseInt(nOpt.replace('-n', '')) || 10;
+          }
         }
+        const nonOpts = args.filter(a => !a.startsWith('-'));
+        fileArg = nonOpts[0];
         const out = await unix.tail(fileArg, n);
         ctx.stdout.write(String(out));
       }
@@ -131,15 +147,34 @@ export default function adaptUnixToStream(unix: any) {
         const buf: string[] = [];
         const src = ctx.stdin as unknown as Readable;
         for await (const ch of src) buf.push(String(ch));
+        const joined = buf.join('');
+        // DEBUG: show stdin content for grep
+        // eslint-disable-next-line no-console
+        console.error('[DEBUG] builtins.grep stdin:', String(joined).slice(0,200));
+        // eslint-disable-next-line no-console
+        console.error('[DEBUG] builtins.grep pattern:', pattern);
         const regex = new RegExp(pattern);
-        const lines = buf.join('').split('\n').filter(l => regex.test(l));
+        const lines = joined.split('\n').filter(l => regex.test(l));
+        // DEBUG: matched lines count
+        // eslint-disable-next-line no-console
+        console.error('[DEBUG] builtins.grep matches:', lines.length, 'lines->', lines.slice(0,5));
+        if (lines.length === 0) {
+          // no match -> signal non-zero exit by throwing with silent message
+          throw { message: '', code: 1 };
+        }
         ctx.stdout.write(lines.join('\n'));
       } else {
         const out = await unix.grep(pattern, files);
+        if (!out || String(out).length === 0) throw { message: '', code: 1 };
         ctx.stdout.write(String(out));
       }
     } catch (e: any) {
-      ctx.stderr.write(String(e && e.message ? e.message : e));
+      // If this is a silent exit-code signal (we threw {code: N}), rethrow so
+      // the caller (createProcessForSegment) can set the process exit code.
+      if (e && typeof e.code === 'number') throw e;
+      // otherwise write error message if present
+      const msg = (e && e.message) ? String(e.message) : '';
+      if (msg) ctx.stderr.write(msg);
     }
     ctx.stdout.end();
   };
