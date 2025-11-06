@@ -20,6 +20,8 @@ export type Segment = {
   stderrFile?: string | null;
   stderrToStdout?: boolean;
   stdoutToStderr?: boolean;
+  fdDup?: Array<{ from: number; to: number }>;
+  fdFiles?: Record<number, { path: string; append: boolean }>;
   append?: boolean;
   background?: boolean;
 };
@@ -261,22 +263,30 @@ export function parseCommandLine(line: string, env: Record<string, string> = pro
           const target = toks[++i];
           const tkn2 = makeTokenFromRaw(target);
           const targetFd = tkn2.text;
-          if (fd === 2 && targetFd === '1') {
-            cur.stderrToStdout = true;
-          } else if (fd === 1 && targetFd === '2') {
-            // 1>&2 -> route stdout to stderr
-            cur.stdoutToStderr = true;
-          }
+          // record generalized fd duplication mapping
+          const fromFd = fd;
+          const toFd = /^\d+$/.test(targetFd) ? Number(targetFd) : NaN;
+          cur.fdDup = cur.fdDup || [];
+          if (fromFd !== null && !isNaN(toFd)) cur.fdDup.push({ from: fromFd as number, to: toFd });
+          // set convenience flags for common 1/2 mappings
+          if (fromFd === 2 && toFd === 1) cur.stderrToStdout = true;
+          if (fromFd === 1 && toFd === 2) cur.stdoutToStderr = true;
           cur.append = op === '>>';
           continue;
         }
 
         const tkn = makeTokenFromRaw(next);
-        if (fd === 2) {
-          cur.stderrFile = tkn.text;
-        } else {
+        // record fd-specific file redirection
+        cur.fdFiles = cur.fdFiles || {};
+        const targetFd = fd === null ? 1 : fd;
+        cur.fdFiles[targetFd] = { path: tkn.text, append: op === '>>' };
+        // keep convenience fields for common fds 1 and 2
+        if (targetFd === 1) {
           cur.stdoutFile = tkn.text;
           cur.append = op === '>>';
+        }
+        if (targetFd === 2) {
+          cur.stderrFile = tkn.text;
         }
         continue;
       }
@@ -294,6 +304,11 @@ export function parseCommandLine(line: string, env: Record<string, string> = pro
           const outOp = toks[++i] as any;
           const next = toks[++i];
           const tkn = makeTokenFromRaw(next);
+          // write both stdout(1) and stderr(2) to the same file
+          cur.fdFiles = cur.fdFiles || {};
+          cur.fdFiles[1] = { path: tkn.text, append: outOp.op === '>>' };
+          cur.fdFiles[2] = { path: tkn.text, append: outOp.op === '>>' };
+          // convenience
           cur.stdoutFile = tkn.text;
           cur.stderrFile = tkn.text;
           cur.append = outOp.op === '>>';

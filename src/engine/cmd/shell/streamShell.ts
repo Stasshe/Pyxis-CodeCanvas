@@ -20,6 +20,8 @@ export class Process extends EventEmitter {
   private _stdin: PassThrough;
   private _stdout: PassThrough;
   private _stderr: PassThrough;
+  // map of additional file-descriptor write streams (1 and 2 point to stdout/stderr)
+  private _fdMap: Map<number, PassThrough>;
   public pid: number;
   private exited = false;
   private exitPromise: Promise<ProcExit>;
@@ -30,6 +32,10 @@ export class Process extends EventEmitter {
     this._stdin = new PassThrough();
     this._stdout = new PassThrough();
     this._stderr = new PassThrough();
+    this._fdMap = new Map();
+    // fd 1 -> stdout, fd 2 -> stderr
+    this._fdMap.set(1, this._stdout);
+    this._fdMap.set(2, this._stderr);
     this.stdin = this._stdin as unknown as Writable;
     this.stdout = this._stdout as unknown as Readable;
     this.stderr = this._stderr as unknown as Readable;
@@ -37,6 +43,33 @@ export class Process extends EventEmitter {
     this.exitPromise = new Promise(resolve => {
       this.resolveExit = resolve;
     });
+  }
+
+  // Return a writable stream for the given fd. Creates a PassThrough for unknown fds.
+  getFdWrite(fd: number): PassThrough {
+    if (!this._fdMap.has(fd)) {
+      const p = new PassThrough();
+      this._fdMap.set(fd, p);
+    }
+    return this._fdMap.get(fd)!;
+  }
+
+  // Duplicate fd 'from' to 'to' within this process (so writes to `from` go to same stream as `to`).
+  setFdDup(from: number, to: number) {
+    const target = this.getFdWrite(to);
+    this._fdMap.set(from, target);
+    // if duplicating stdout or stderr, update the public streams so builtins
+    // that write to ctx.stdout / ctx.stderr see the duplicated destination
+    if (from === 1) {
+      this._stdout = target;
+      this.stdout = this._stdout as unknown as Readable;
+      this._fdMap.set(1, target);
+    }
+    if (from === 2) {
+      this._stderr = target;
+      this.stderr = this._stderr as unknown as Readable;
+      this._fdMap.set(2, target);
+    }
   }
 
   // expose internal streams where needed
@@ -240,6 +273,18 @@ export class StreamShell {
     const unix = await this.getUnix().catch(() => this.unix);
     const adaptBuiltins = await import('./builtins').then(m => m.default).catch(() => null);
     const builtins = adaptBuiltins && unix ? adaptBuiltins(unix) : null;
+
+    // apply any fd duplication mappings for this segment so that writes to
+    // higher-numbered fds route to the intended target fds (e.g. 3>&1)
+    if ((seg as any).fdDup && Array.isArray((seg as any).fdDup)) {
+      for (const d of (seg as any).fdDup) {
+        try {
+          if (typeof d.from === 'number' && typeof d.to === 'number') {
+            proc.setFdDup(d.from, d.to);
+          }
+        } catch (e) {}
+      }
+    }
 
     // Resolve command-substitution markers in tokens before launching handler.
     // parser now provides tokens as objects with optional cmdSub and quote.
@@ -1358,33 +1403,78 @@ export class StreamShell {
       this.foregroundProc = null;
     }
 
-    const outChunks: string[] = [];
-    const errChunks: string[] = [];
-    // Route stdout into appropriate collection (may be routed to stderr)
-    if (lastSeg && lastSeg.stdoutToStderr) {
-      last.stdout.on('data', (chunk: Buffer | string) => {
-        errChunks.push(String(chunk));
-      });
-    } else {
-      last.stdout.on('data', (chunk: Buffer | string) => {
-        outChunks.push(String(chunk));
-      });
-    }
-    // Route stderr into appropriate collection (may be routed to stdout)
-    if (lastSeg && lastSeg.stderrToStdout) {
-      last.stderr.on('data', (chunk: Buffer | string) => {
-        outChunks.push(String(chunk));
-      });
-    } else {
-      last.stderr.on('data', (chunk: Buffer | string) => {
-        errChunks.push(String(chunk));
-      });
+    // Collect data for every fd we care about into per-fd buffers.
+    const fdBuffers: Record<number, string[]> = {};
+    // per-path serialization promises to avoid concurrent read/save races
+    const writeQueues: Record<string, Promise<void>> = {};
+    const pathState: Record<string, { created: boolean }> = {};
+
+    const enqueueWrite = (path: string, append: boolean, chunk: string) => {
+      const key = path.startsWith('/') ? path : `/${path}`;
+      const job = async () => {
+        try {
+          // if append mode, read existing once per write; for overwrite, if not created, treat as truncate on first write
+          const files = await this.fileRepository.getProjectFiles(this.projectId);
+          const existing = files.find((f: any) => f.path === key || f.path === key.replace(/^\//, ''));
+          if (!existing) {
+            // create new file
+            await this.fileRepository.createFile(this.projectId, key, chunk, 'file');
+            pathState[key] = { created: true };
+          } else {
+            // append to existing content
+            const newContent = existing.content + chunk;
+            await this.fileRepository.saveFile({ ...existing, content: newContent, updatedAt: new Date() });
+            pathState[key] = { created: true };
+          }
+        } catch (e) {
+          // swallow write errors to avoid crashing the shell
+        }
+      };
+      writeQueues[key] = (writeQueues[key] || Promise.resolve()).then(job).catch(() => {});
+      return writeQueues[key];
+    };
+    const watchFd = (fd: number) => {
+      if (fdBuffers[fd]) return;
+      fdBuffers[fd] = [];
+      try {
+        const stream = last.getFdWrite(fd);
+        // If this fd is configured to write to a file, stream writes directly
+        // to fileRepository as chunks arrive. Otherwise accumulate in buffer.
+        const fdFiles = (lastSeg as any)?.fdFiles || {};
+        const fileInfo = fdFiles[fd];
+        if (fileInfo && this.fileRepository) {
+          // streaming write: on each chunk, enqueue a write
+          stream.on('data', (chunk: Buffer | string) => {
+            const s = String(chunk);
+            enqueueWrite(fileInfo.path, !!fileInfo.append, s);
+            // also keep buffer so returned outputs (if any) can be composed when needed
+            fdBuffers[fd].push(s);
+          });
+        } else {
+          stream.on('data', (chunk: Buffer | string) => {
+            fdBuffers[fd].push(String(chunk));
+          });
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+
+    // always watch stdout(1) and stderr(2)
+    watchFd(1);
+    watchFd(2);
+    // also watch any fd-files configured on last segment
+    if (lastSeg && (lastSeg as any).fdFiles) {
+      for (const k of Object.keys((lastSeg as any).fdFiles)) {
+        const fdn = Number(k);
+        if (!Number.isNaN(fdn)) watchFd(fdn);
+      }
     }
 
     const exits = await Promise.all(procs.map(p => p.wait()));
 
-    const finalOut = outChunks.join('');
-    const finalErr = errChunks.join('');
+    const finalOut = (fdBuffers[1] || []).join('');
+    const finalErr = (fdBuffers[2] || []).join('');
 
     // Debug: optionally print final outputs when debugging is enabled
     if (process.env.DEBUG_STREAMSHELL) {
@@ -1398,34 +1488,40 @@ export class StreamShell {
       } catch (e) {}
     }
 
-    // handle stdout/stderr redirection to files (support &>, 2>&1, 1>&2)
-    if ((lastSeg && (lastSeg.stdoutFile || lastSeg.stderrFile || lastSeg.stderrToStdout || lastSeg.stdoutToStderr)) && this.fileRepository) {
+    // handle stdout/stderr/fd redirection to files (support &>, 2>&1, 1>&2, N>file)
+    if (lastSeg && this.fileRepository && ((lastSeg as any).fdFiles || lastSeg.stdoutFile || lastSeg.stderrFile || lastSeg.stderrToStdout || lastSeg.stdoutToStderr)) {
       const writes: Record<string, string> = {};
-      const add = (path: string | undefined | null, content: string) => {
+      const appendMap: Record<string, boolean> = {};
+      const add = (path: string | undefined | null, content: string, append: boolean = false) => {
         if (!path) return;
         const key = path.startsWith('/') ? path : `/${path}`;
         writes[key] = (writes[key] || '') + content;
+        appendMap[key] = appendMap[key] || append;
       };
 
-      // Determine where stdout should go
-      if (lastSeg.stdoutFile) {
-        add(lastSeg.stdoutFile, finalOut);
-      } else if (lastSeg.stdoutToStderr && lastSeg.stderrFile) {
-        add(lastSeg.stderrFile, finalOut);
+      // fdFiles entries (explicit numeric fd -> file)
+      if ((lastSeg as any).fdFiles) {
+        for (const k of Object.keys((lastSeg as any).fdFiles)) {
+          const fdn = Number(k);
+          if (Number.isNaN(fdn)) continue;
+          const info = (lastSeg as any).fdFiles[fdn];
+          const content = (fdBuffers[fdn] || []).join('');
+          add(info.path, content, !!info.append);
+        }
       }
 
-      // Determine where stderr should go
-      if (lastSeg.stderrFile) {
-        add(lastSeg.stderrFile, finalErr);
-      } else if (lastSeg.stderrToStdout && lastSeg.stdoutFile) {
-        add(lastSeg.stdoutFile, finalErr);
-      }
+      // backward-compatible stdout/stderr fields
+      if (lastSeg.stdoutFile) add(lastSeg.stdoutFile, finalOut, !!lastSeg.append);
+      else if (lastSeg.stdoutToStderr && lastSeg.stderrFile) add(lastSeg.stderrFile, finalOut, !!lastSeg.append);
 
-      // Perform writes respecting append flag
+      if (lastSeg.stderrFile) add(lastSeg.stderrFile, finalErr, false);
+      else if (lastSeg.stderrToStdout && lastSeg.stdoutFile) add(lastSeg.stdoutFile, finalErr, !!lastSeg.append);
+
+      // Perform writes respecting per-path append flags
       for (const pth of Object.keys(writes)) {
         try {
           let contentToWrite = writes[pth];
-          if (lastSeg.append) {
+          if (appendMap[pth]) {
             const files = await this.fileRepository.getProjectFiles(this.projectId);
             const existing = files.find((f: any) => f.path === pth || f.path === pth.replace(/^\//, ''));
             if (existing && existing.content) contentToWrite = existing.content + contentToWrite;
@@ -1445,9 +1541,10 @@ export class StreamShell {
 
     // Determine returned stdout/stderr: if redirected to files, do not include in return
     const code = exits.length ? exits[exits.length - 1].code : 0;
-    const returnedStdout = lastSeg && (lastSeg.stdoutFile || lastSeg.stdoutToStderr) ? '' : finalOut;
-    // Suppress returned stderr only if it was redirected to a file (or merged into a file via 2>&1 + >file)
-    const returnedStderr = lastSeg && (lastSeg.stderrFile || (lastSeg.stderrToStdout && lastSeg.stdoutFile)) ? '' : finalErr;
+    const lastFdFiles = lastSeg ? (lastSeg as any).fdFiles : undefined;
+    const returnedStdout = lastSeg && ((lastSeg.stdoutFile) || (lastSeg.stdoutToStderr) || (lastFdFiles && lastFdFiles[1])) ? '' : finalOut;
+    // Suppress returned stderr if it was redirected to a file or merged into stdout via 2>&1
+    const returnedStderr = lastSeg && ((lastSeg.stderrFile) || lastSeg.stderrToStdout || (lastFdFiles && lastFdFiles[2])) ? '' : finalErr;
     return { stdout: returnedStdout, stderr: returnedStderr, code };
   }
 
