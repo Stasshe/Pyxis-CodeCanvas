@@ -970,6 +970,26 @@ export class StreamShell {
       return out;
     };
 
+    // Unified evaluation pipeline for a script fragment:
+    // 1) parameter/variable and positional interpolation (interpolate)
+    // 2) command substitutions (`...` and $(...))
+    // 3) arithmetic expansion $((...))
+    // This centralizes the expansion order so callers don't need to mix
+    // interpolate/evalCommandSubstitutions/evalArithmeticInString calls.
+    const evaluateLine = async (lineStr: string, localVars: Record<string, string>) => {
+      // first do variable/positional interpolation
+      const afterInterp = interpolate(lineStr, localVars);
+      // then expand command substitutions and nested arithmetic
+      const afterCmdSub = await evalCommandSubstitutions(afterInterp, localVars);
+      // finally arithmetic expansion (already applied inside evalCommandSubstitutions for nested results,
+      // but run again here for safety on direct inputs)
+      try {
+        return evalArithmeticInString(afterCmdSub, localVars);
+      } catch (e) {
+        return afterCmdSub;
+      }
+    };
+
     // brace expansion for runScript uses shared expandBraces utility (handles nested, lists, ranges)
 
     const MAX_LOOP = 10000;
@@ -1051,7 +1071,7 @@ export class StreamShell {
           }
 
           // evaluate condition
-          const condEval = await this.run(interpolate(condLine, localVars));
+          const condEval = await this.run(await evaluateLine(condLine, localVars));
           
           // forward any output from condition evaluation to the script process
           if (condEval.stdout) proc.writeStdout(condEval.stdout);
@@ -1077,7 +1097,7 @@ export class StreamShell {
                 const trailing = m[1] ? m[1].trim() : '';
                 if (trailing) lines.splice(eIdx + 1, 0, trailing);
               }
-              const eRes = await this.run(interpolate(eCond, localVars));
+              const eRes = await this.run(await evaluateLine(eCond, localVars));
               
               // forward outputs from elif condition
               if (eRes.stdout) proc.writeStdout(eRes.stdout);
@@ -1138,7 +1158,7 @@ export class StreamShell {
           }
           const bodyStart = doIdx + 1;
           const bodyEnd = doneIdx;
-          const interpItems = await evalCommandSubstitutions(interpolate(itemsStr, localVars), localVars);
+          const interpItems = await evaluateLine(itemsStr, localVars);
           // split items and support simple brace expansion (e.g. {1..5})
           const rawItems = interpItems.split(/\s+/).filter(Boolean);
           const items: string[] = [];
@@ -1193,7 +1213,7 @@ export class StreamShell {
           let count = 0;
           while (true) {
             if (++count > MAX_LOOP) break;
-            const cres = await this.run(interpolate(condLine, localVars));
+            const cres = await this.run(await evaluateLine(condLine, localVars));
             // (condition evaluation output is forwarded below when appropriate)
             // forward outputs from while condition
             if (cres.stdout) proc.writeStdout(cres.stdout);
@@ -1213,7 +1233,7 @@ export class StreamShell {
         if (trimmed === 'continue') return 'continue';
 
         // regular command or assignment: interpolate and execute
-        let execLine = interpolate(trimmed, localVars);
+  let execLine = interpolate(trimmed, localVars);
 
         // handle `set ...` as a noop for now (common in scripts)
         if (execLine.startsWith('set ')) {
@@ -1244,11 +1264,11 @@ export class StreamShell {
           }
           continue;
         }
-        // For non-assignment commands, perform command-substitution expansion
+        // For non-assignment commands, perform full evaluation pipeline
         try {
-          execLine = await evalCommandSubstitutions(execLine, localVars);
+          execLine = await evaluateLine(execLine, localVars);
         } catch (e) {
-          // ignore substitution errors and use original execLine
+          // ignore evaluation errors and use original execLine
         }
         const res = await this.run(execLine);
         if (res.stdout) proc.writeStdout(res.stdout);
