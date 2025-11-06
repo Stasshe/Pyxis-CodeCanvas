@@ -302,6 +302,50 @@ export class StreamShell {
 
     const hasGlob = (s: string) => /[*?\[]/.test(s);
 
+    // simple brace expansion detection (e.g. {1..5})
+    const hasBrace = (s: string) => /\{[^}]+\}/.test(s);
+
+    const braceExpand = (pattern: string): string[] => {
+      // support simple numeric ranges like {1..5} or {05..10}
+      const re = /\{(-?\d+)\.\.(-?\d+)\}/;
+      const m = pattern.match(re);
+      if (!m) return [pattern];
+      const a = parseInt(m[1], 10);
+      const b = parseInt(m[2], 10);
+      // width for zero-padding
+      const width = Math.max(m[1].replace('-', '').length, m[2].replace('-', '').length);
+      const out: string[] = [];
+      if (a <= b) {
+        for (let v = a; v <= b; v++) {
+          const num = String(v).padStart(width, '0');
+          out.push(pattern.replace(re, num));
+        }
+      } else {
+        for (let v = a; v >= b; v--) {
+          const num = String(v).padStart(width, '0');
+          out.push(pattern.replace(re, num));
+        }
+      }
+      return out;
+    };
+
+    // brace expansion helper for runScript (numeric ranges)
+    const braceExpandRun = (pattern: string): string[] => {
+      const re = /\{(-?\d+)\.\.(-?\d+)\}/;
+      const m = pattern.match(re);
+      if (!m) return [pattern];
+      const a = parseInt(m[1], 10);
+      const b = parseInt(m[2], 10);
+      const width = Math.max(m[1].replace('-', '').length, m[2].replace('-', '').length);
+      const out: string[] = [];
+      if (a <= b) {
+        for (let v = a; v <= b; v++) out.push(pattern.replace(re, String(v).padStart(width, '0')));
+      } else {
+        for (let v = a; v >= b; v--) out.push(pattern.replace(re, String(v).padStart(width, '0')));
+      }
+      return out;
+    };
+
     const globExpand = async (pattern: string): Promise<string[]> => {
       // Prefer unix.glob if available
       if (unix && typeof unix.glob === 'function') {
@@ -356,7 +400,7 @@ export class StreamShell {
       return [pattern];
     };
 
-    // Now perform splitting and globbing to produce final argv array
+    // Now perform splitting and globbing (and brace expansion) to produce final argv array
     const finalWords: string[] = [];
     const tokenObjs = seg.tokens as TokenObj[];
     for (const tk of tokenObjs) {
@@ -368,6 +412,20 @@ export class StreamShell {
       // unquoted: perform IFS splitting
       const parts = splitOnIFS(tk.text);
       for (const p of parts) {
+        if (p === '') continue;
+        // brace expansion (e.g. {1..5})
+        if (hasBrace(p)) {
+          const bexp = braceExpand(p);
+          for (const bp of bexp) {
+            if (hasGlob(bp) && bp !== '') {
+              const matches = await globExpand(bp);
+              for (const m of matches) finalWords.push(m);
+            } else if (bp !== '') {
+              finalWords.push(bp);
+            }
+          }
+          continue;
+        }
         if (hasGlob(p) && p !== '') {
           const matches = await globExpand(p);
           for (const m of matches) finalWords.push(m);
@@ -934,6 +992,23 @@ export class StreamShell {
       return out;
     };
 
+    // brace expansion helper local to runScript (numeric ranges)
+    const braceExpandInRunScript = (pattern: string): string[] => {
+      const re = /\{(-?\d+)\.\.(-?\d+)\}/;
+      const m = pattern.match(re);
+      if (!m) return [pattern];
+      const a = parseInt(m[1], 10);
+      const b = parseInt(m[2], 10);
+      const width = Math.max(m[1].replace('-', '').length, m[2].replace('-', '').length);
+      const out: string[] = [];
+      if (a <= b) {
+        for (let v = a; v <= b; v++) out.push(pattern.replace(re, String(v).padStart(width, '0')));
+      } else {
+        for (let v = a; v >= b; v--) out.push(pattern.replace(re, String(v).padStart(width, '0')));
+      }
+      return out;
+    };
+
     const MAX_LOOP = 10000;
 
     // run a range [start, end) of lines; supports break/continue signaling via return value
@@ -1101,7 +1176,16 @@ export class StreamShell {
           const bodyStart = doIdx + 1;
           const bodyEnd = doneIdx;
           const interpItems = interpolate(itemsStr, localVars);
-          const items = interpItems.split(/\s+/).filter(Boolean);
+          // split items and support simple brace expansion (e.g. {1..5})
+          const rawItems = interpItems.split(/\s+/).filter(Boolean);
+          const items: string[] = [];
+          for (const it of rawItems) {
+            if (/\{(-?\d+)\.\.(-?\d+)\}/.test(it)) {
+              items.push(...braceExpandInRunScript(it));
+            } else {
+              items.push(it);
+            }
+          }
           let iter = 0;
           for (const it of items) {
             if (++iter > MAX_LOOP) break;
