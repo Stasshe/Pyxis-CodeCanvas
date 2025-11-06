@@ -104,9 +104,11 @@ type ShellOptions = {
   commandRegistry?: any;
 };
 
+type TokenObj = { text: string; quote: 'single' | 'double' | null; cmdSub?: string };
 type Segment = {
   raw: string;
-  tokens: string[];
+  // tokens may be TokenObj (from parser) or plain strings (after splitting/globbing)
+  tokens: Array<string | TokenObj>;
   stdinFile?: string | null;
   stdoutFile?: string | null;
   append?: boolean;
@@ -222,7 +224,8 @@ export class StreamShell {
       seg.stdinFile = inMatch[3];
     }
 
-    seg.tokens = this.tokenize(s);
+    // tokenize returns strings (quotes stripped); convert to TokenObj (unknown quote)
+    seg.tokens = this.tokenize(s).map(t => ({ text: t, quote: null }));
     return seg;
   }
 
@@ -235,37 +238,140 @@ export class StreamShell {
     const builtins = adaptBuiltins && unix ? adaptBuiltins(unix) : null;
 
     // Resolve command-substitution markers in tokens before launching handler.
-    // parser encoded command-substitution as JSON-stringified objects like
-    // '{"cmdSub":"inner"}'. Detect and run them, replacing the token with
-    // the stdout split by whitespace.
+    // parser now provides tokens as objects with optional cmdSub and quote.
     if (seg.tokens && seg.tokens.length > 0) {
-      const resolvedTokens: string[] = [];
-      for (const t of seg.tokens) {
-        if (typeof t === 'string') {
-          const trimmed = t.trim();
-          if (trimmed.startsWith('{') && trimmed.includes('cmdSub')) {
-            try {
-              const parsed = JSON.parse(trimmed);
-              if (parsed && parsed.cmdSub) {
-                const subRes = await this.run(parsed.cmdSub);
-                const out = String(subRes.stdout || '');
-                // If substitution was quoted, preserve as single token (do not split);
-                // otherwise split on whitespace into multiple tokens
-                if (parsed.quote === 'single' || parsed.quote === 'double') {
-                  resolvedTokens.push(out);
-                } else {
-                  const parts = out.trim().split(/\s+/).filter(Boolean);
-                  resolvedTokens.push(...parts);
-                }
-                continue;
-              }
-            } catch (e) {}
+      const withCmdSub: TokenObj[] = [];
+      for (const tk of seg.tokens) {
+        // tk may be a plain string or a TokenObj
+        if (typeof tk !== 'string' && tk.cmdSub) {
+          try {
+            const subRes = await this.run(tk.cmdSub);
+            const out = String(subRes.stdout || '');
+            // If substitution was quoted, preserve as single token
+            if (tk.quote === 'single' || tk.quote === 'double') {
+              withCmdSub.push({ text: out, quote: tk.quote });
+            } else {
+              // unquoted: place the substitution text (may be split later by IFS)
+              withCmdSub.push({ text: out, quote: null });
+            }
+            continue;
+          } catch (e) {
+            // on error, leave as empty
+            withCmdSub.push({ text: '', quote: typeof tk === 'string' ? null : tk.quote });
+            continue;
           }
         }
-        resolvedTokens.push(String(t));
+        // normalize plain strings to TokenObj
+        if (typeof tk === 'string') withCmdSub.push({ text: tk, quote: null });
+        else withCmdSub.push(tk);
       }
-      seg.tokens = resolvedTokens;
+      seg.tokens = withCmdSub;
     }
+
+    // Field splitting (IFS) and pathname expansion (glob)
+    const ifs = (process.env.IFS ?? ' \t\n').replace(/\\t/g, '\t').replace(/\\n/g, '\n');
+    const isIfsWhitespace = /[ \t\n]/.test(ifs);
+
+    const escapeForCharClass = (ch: string) => {
+      // escape regex special chars inside character class
+      if (ch === '\\') return '\\\\';
+      if (ch === ']') return '\\]';
+      if (ch === '-') return '\\-';
+      if (ch === '^') return '\\^';
+      return ch.replace(/([\\\]\-\^])/g, m => '\\' + m);
+    };
+
+    const splitOnIFS = (s: string): string[] => {
+      if (!s) return [''];
+      if (isIfsWhitespace) {
+        // treat runs of whitespace as single separator and trim edges
+        return s.split(/\s+/).filter(Boolean);
+      }
+      // split on any IFS char, preserve empty fields
+      const chars = Array.from(new Set(ifs.split(''))).map(c => escapeForCharClass(c)).join('');
+      const re = new RegExp('[' + chars + ']');
+      return s.split(re).filter(x => x !== undefined);
+    };
+
+    const hasGlob = (s: string) => /[*?\[]/.test(s);
+
+    const globExpand = async (pattern: string): Promise<string[]> => {
+      // Prefer unix.glob if available
+      if (unix && typeof unix.glob === 'function') {
+        try {
+          const res = await unix.glob(pattern).catch(() => null);
+          if (Array.isArray(res) && res.length > 0) return res;
+        } catch (e) {}
+      }
+      // Fallback to fileRepository listing
+      if (this.fileRepository && typeof this.fileRepository.getProjectFiles === 'function') {
+        try {
+          const files = await this.fileRepository.getProjectFiles(this.projectId);
+          const names = files.map((f: any) => (f.path || '').replace(/^\//, ''));
+          // convert simple glob pattern to regex (supports *, ?, [..])
+              // convert simple glob pattern to regex (supports *, ?, [..]) safely
+              const parts: string[] = [];
+              for (let i = 0; i < pattern.length; i++) {
+                const ch = pattern[i];
+                if (ch === '*') {
+                  parts.push('[^/]*');
+                  continue;
+                }
+                if (ch === '?') {
+                  parts.push('[^/]');
+                  continue;
+                }
+                if (ch === '[') {
+                  // consume until matching ]
+                  let j = i + 1;
+                  let cls = '';
+                  while (j < pattern.length && pattern[j] !== ']') {
+                    const c = pattern[j++];
+                    // escape special inside class
+                    if (c === '\\' || c === ']' || c === '-') cls += '\\' + c;
+                    else cls += c;
+                  }
+                  // move i to closing bracket or end
+                  i = Math.min(j, pattern.length - 1);
+                  parts.push('[' + cls + ']');
+                  continue;
+                }
+                // escape regexp meta
+                parts.push(ch.replace(/[\\.\+\^\$\{\}\(\)\|]/g, m => '\\' + m));
+              }
+              const reStr = '^' + parts.join('') + '$';
+              const re = new RegExp(reStr);
+          const matched = names.filter((n: string) => re.test(n)).sort();
+          if (matched.length > 0) return matched;
+        } catch (e) {}
+      }
+      // no expansion
+      return [pattern];
+    };
+
+    // Now perform splitting and globbing to produce final argv array
+    const finalWords: string[] = [];
+    const tokenObjs = seg.tokens as TokenObj[];
+    for (const tk of tokenObjs) {
+      if (tk.quote === 'single' || tk.quote === 'double') {
+        // quoted: no field splitting, no globbing
+        finalWords.push(tk.text);
+        continue;
+      }
+      // unquoted: perform IFS splitting
+      const parts = splitOnIFS(tk.text);
+      for (const p of parts) {
+        if (hasGlob(p) && p !== '') {
+          const matches = await globExpand(p);
+          for (const m of matches) finalWords.push(m);
+        } else if (p !== '') {
+          finalWords.push(p);
+        }
+      }
+    }
+
+    // Replace seg.tokens with final words (plain strings) for execution
+    (seg as any).tokens = finalWords;
 
     // helper to set foreground process (cleared when exits)
     const setForeground = (p: Process | null) => {
@@ -304,12 +410,17 @@ export class StreamShell {
         return;
       }
 
-      const cmd = seg.tokens[0];
-      const args = seg.tokens.slice(1);
+      // seg.tokens may be string[] or TokenObj[]; coerce to strings for execution
+      const rawTokens = seg.tokens as any[];
+      const cmd = String(rawTokens[0] ?? '');
+      const args = rawTokens.slice(1).map((t: any) => String(t));
 
       // Provide a small context for handlers
+      // Note: use the readable side of stdin (stdinStream) so builtins can
+      // read from it when connected via pipe. stdout/stderr use the writable
+      // stream backing so handlers can write into them.
       const ctx = {
-        stdin: proc.stdin,
+        stdin: proc.stdinStream,
         stdout: proc.stdoutStream,
         stderr: proc.stderrStream,
         onSignal: (fn: (sig: string) => void) => proc.on('signal', fn),
@@ -375,6 +486,7 @@ export class StreamShell {
         // Use the builtins adapter if available (stream-friendly wrappers)
         if (builtins && typeof builtins[cmd] === 'function') {
           try {
+            
             await builtins[cmd](ctx, args);
             // builtins are expected to manage stdout/stderr end; ensure process exit
             proc.endStdout();
@@ -382,6 +494,7 @@ export class StreamShell {
             proc.exit(0);
             return;
           } catch (e: any) {
+            
             proc.writeStderr(String(e && e.message ? e.message : e));
             proc.endStdout();
             proc.endStderr();
@@ -419,16 +532,52 @@ export class StreamShell {
         // Fallback to unix handler (returns structured {code, output})
         try {
           const { handleUnixCommand } = await import('../handlers/unixHandler');
+          // collect stdin content (if any) before invoking handler; the stdin stream
+          // may already be piped from a previous process by the time this runs
+          // Wait for run() to wire up pipes before attempting to read any stdin buffer
+          await new Promise<void>((resolve) => {
+            let resolved = false;
+            const onReady = () => {
+              if (resolved) return;
+              resolved = true;
+              resolve();
+            };
+            proc.once('pipes-ready', onReady);
+            // Safety timeout: if run() doesn't emit pipes-ready soon, continue
+            setTimeout(() => {
+              if (resolved) return;
+              resolved = true;
+              resolve();
+            }, 50);
+          });
+
+          const readStdin = async (): Promise<string | null> => {
+            return await new Promise((resolve) => {
+              let buf = '';
+              const s = proc.stdinStream as any;
+              if (!s || typeof s.on !== 'function') return resolve(null);
+              s.on('data', (c: any) => { buf += String(c); });
+              s.on('end', () => resolve(buf));
+              s.on('close', () => resolve(buf));
+              // small delay to allow piped producer to write
+              setTimeout(() => {
+                if (buf.length > 0) return resolve(buf);
+                resolve(null);
+              }, 20);
+            });
+          };
+          const stdinContent = await readStdin();
           const res = await handleUnixCommand(cmd, args, this.projectName, this.projectId, async (out: string) => {
             // also stream partial output immediately where possible
             try {
               proc.writeStdout(out);
             } catch (e) {}
-          });
-          // ensure any returned output is written
+          }, stdinContent);
+          // ensure any returned output is written; on non-zero exit treat as stderr
           if (res && res.output) {
             try {
-              proc.writeStdout(String(res.output).trimEnd());
+              if (res.code && res.code !== 0) proc.writeStderr(String(res.output).trimEnd());
+              else proc.writeStdout(String(res.output).trimEnd());
             } catch (e) {}
           }
           proc.endStdout();
@@ -493,8 +642,66 @@ export class StreamShell {
   // Execute a script text with simple control flow support (if/for/while)
   // args: positional args passed to the script (argv[1..])
   private async runScript(text: string, args: string[], proc: Process) {
-    // Split the script into physical lines first
-    const rawLines = text.split('\n');
+    // Split the script into physical lines first BUT respect quotes, backticks and $(...)
+    // so multi-line quoted strings are preserved as a single logical line.
+    const splitPhysicalLines = (src: string): string[] => {
+      const out: string[] = [];
+      let cur = '';
+      let inS = false;
+      let inD = false;
+      let inBT = false;
+      let parenDepth = 0; // for $(...)
+      for (let i = 0; i < src.length; i++) {
+        const ch = src[i];
+        if (ch === '\\') {
+          // copy escape and next char if present
+          cur += ch;
+          if (i + 1 < src.length) cur += src[++i];
+          continue;
+        }
+        if (ch === '`' && !inS && !inD) {
+          inBT = !inBT;
+          cur += ch;
+          continue;
+        }
+        if (ch === '"' && !inS && !inBT) {
+          inD = !inD;
+          cur += ch;
+          continue;
+        }
+        if (ch === "'" && !inD && !inBT) {
+          inS = !inS;
+          cur += ch;
+          continue;
+        }
+        if (!inS && !inD && !inBT) {
+          if (ch === '$' && src[i + 1] === '(') {
+            parenDepth++;
+            cur += ch;
+            continue;
+          }
+          if (ch === '(' && parenDepth > 0) {
+            cur += ch;
+            continue;
+          }
+          if (ch === ')') {
+            if (parenDepth > 0) parenDepth--;
+            cur += ch;
+            continue;
+          }
+          if (ch === '\n' && parenDepth === 0) {
+            out.push(cur);
+            cur = '';
+            continue;
+          }
+        }
+        cur += ch;
+      }
+      if (cur !== '') out.push(cur);
+      return out;
+    };
+
+    const rawLines = splitPhysicalLines(text);
     // Helper: split a line at top-level semicolons (not inside quotes, backticks, or $(...)).
     // This lets us treat `if cond; then cmd; fi` and multi-line variants uniformly.
     const splitTopLevelSemicolons = (s: string): string[] => {
@@ -611,6 +818,27 @@ export class StreamShell {
       }
 
       return out;
+    };
+
+    // Evaluate simple arithmetic $(( ... )) where used in assignments
+    const evalArithmeticInString = (s: string, localVars: Record<string, string>) => {
+      return s.replace(/\$\(\((.*?)\)\)/g, (_, expr) => {
+        // replace variable names with numeric values from localVars
+  const safe = expr.replace(/\b([A-Za-z_][A-Za-z0-9_]*)\b/g, (m: string) => {
+          if (/^\d+$/.test(m)) return m;
+          const v = localVars[m];
+          return String(Number(v || 0));
+        });
+        // allow only digits, spaces and arithmetic operators
+        if (!/^[0-9+\-*/()%\s]+$/.test(safe)) return '0';
+        try {
+          // eslint-disable-next-line no-new-func
+          const val = Function(`return (${safe})`)();
+          return String(Number(val));
+        } catch (e) {
+          return '0';
+        }
+      });
     };
 
     const interpolate = (line: string, localVars: Record<string, string>) => {
@@ -759,11 +987,15 @@ export class StreamShell {
 
           // evaluate condition
           const condEval = await this.run(interpolate(condLine, localVars));
-          if (condEval.code === 0) {
+          
+          // forward any output from condition evaluation to the script process
+          if (condEval.stdout) proc.writeStdout(condEval.stdout);
+          if (condEval.stderr) proc.writeStderr(condEval.stderr);
+            if (condEval.code === 0) {
             // then block starts after thenIdx
             const thenStart = (thenIdx === -1 ? i + 1 : thenIdx + 1);
             const thenEnd = (elifs.length > 0 ? elifs[0] : (elseIdx !== -1 ? elseIdx : fiIdx));
-            const r = await runRange(thenStart, thenEnd, { ...localVars });
+            const r = await runRange(thenStart, thenEnd, localVars);
             if (r !== 'ok') return r;
           } else {
             // check elifs in order
@@ -781,10 +1013,14 @@ export class StreamShell {
                 if (trailing) lines.splice(eIdx + 1, 0, trailing);
               }
               const eRes = await this.run(interpolate(eCond, localVars));
-              if (eRes.code === 0) {
+              
+              // forward outputs from elif condition
+              if (eRes.stdout) proc.writeStdout(eRes.stdout);
+              if (eRes.stderr) proc.writeStderr(eRes.stderr);
+                if (eRes.code === 0) {
                 const eThenStart = eIdx + 1;
                 const eThenEnd = (k + 1 < elifs.length ? elifs[k + 1] : (elseIdx !== -1 ? elseIdx : fiIdx));
-                const r = await runRange(eThenStart, eThenEnd, { ...localVars });
+                const r = await runRange(eThenStart, eThenEnd, localVars);
                 if (r !== 'ok') return r;
                 matched = true;
                 break;
@@ -842,9 +1078,9 @@ export class StreamShell {
           let iter = 0;
           for (const it of items) {
             if (++iter > MAX_LOOP) break;
-            const lv = { ...localVars };
-            lv[varName] = it;
-            const r = await runRange(bodyStart, bodyEnd, lv);
+            // set loop variable in localVars (shell variables are global in this scope)
+            localVars[varName] = it;
+            const r = await runRange(bodyStart, bodyEnd, localVars);
             if (r === 'break') break;
             if (r === 'continue') continue;
           }
@@ -886,8 +1122,12 @@ export class StreamShell {
           while (true) {
             if (++count > MAX_LOOP) break;
             const cres = await this.run(interpolate(condLine, localVars));
+            // forward outputs from while condition
+            if (cres.stdout) proc.writeStdout(cres.stdout);
+            if (cres.stderr) proc.writeStderr(cres.stderr);
+            // trace removed; condition outputs are forwarded above
             if (cres.code !== 0) break;
-            const r = await runRange(bodyStart, bodyEnd, { ...localVars });
+            const r = await runRange(bodyStart, bodyEnd, localVars);
             if (r === 'break') break;
             if (r === 'continue') continue;
           }
@@ -918,6 +1158,8 @@ export class StreamShell {
           if ((rhs.startsWith("'") && rhs.endsWith("'")) || (rhs.startsWith('"') && rhs.endsWith('"'))) {
             rhs = rhs.slice(1, -1);
           }
+          // handle arithmetic expansion $((...)) before command-substitution
+          rhs = evalArithmeticInString(rhs, localVars);
           // evaluate command substitutions in rhs
           try {
             const evaluated = await evalCommandSubstitutions(rhs, localVars);
@@ -929,7 +1171,6 @@ export class StreamShell {
           }
           continue;
         }
-
         const res = await this.run(execLine);
         if (res.stdout) proc.writeStdout(res.stdout);
         if (res.stderr) proc.writeStderr(res.stderr);
@@ -985,6 +1226,15 @@ export class StreamShell {
     // wire up pipes: proc[i].stdout -> proc[i+1].stdin
     for (let i = 0; i < procs.length - 1; i++) {
       procs[i].stdout.pipe(procs[i + 1].stdin);
+    }
+
+    // Notify processes that pipes have been wired so handlers that may pre-read
+    // stdin can safely inspect the stream. This avoids races where handlers
+    // start reading before the pipes are connected.
+    for (const p of procs) {
+      try {
+        p.emit('pipes-ready');
+      } catch (e) {}
     }
 
     // Collect output from last process
@@ -1048,9 +1298,10 @@ export class StreamShell {
       }
     }
 
-    // return last exit code or first non-zero
-    const code = exits.length ? exits[exits.length - 1].code : 0;
-    return { stdout: finalOut, stderr: finalErr, code };
+  // return last exit code or first non-zero
+  // return last exit code or first non-zero
+  const code = exits.length ? exits[exits.length - 1].code : 0;
+  return { stdout: finalOut, stderr: finalErr, code };
   }
 
   // Kill the current foreground process with given signal
