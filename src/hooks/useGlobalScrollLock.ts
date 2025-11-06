@@ -119,6 +119,29 @@ export function useGlobalScrollLock() {
       }
     };
 
+    // Best-effort detection for editor-originated keyboard events
+    const isFromEditor = (el: Element | null) => {
+      let cur = el;
+      while (cur && cur !== document.documentElement) {
+        const cls = (cur.className || '') as string;
+        const id = (cur.id || '') as string;
+        const role = cur.getAttribute && cur.getAttribute('role');
+        if (
+          cls.includes('monaco') ||
+          cls.includes('minimap') ||
+          cls.includes('editor') ||
+          id.includes('monaco') ||
+          id.includes('minimap') ||
+          role === 'editor' ||
+          role === 'presentation'
+        ) {
+          return true;
+        }
+        cur = cur.parentElement;
+      }
+      return false;
+    };
+
     let touchStartY = 0;
     const touchStart = (e: TouchEvent) => {
       touchStartY = e.touches?.[0]?.clientY || 0;
@@ -147,6 +170,13 @@ export function useGlobalScrollLock() {
       const keysToBlock = ['PageDown', 'PageUp', 'ArrowDown', 'ArrowUp', ' ', 'Home', 'End'];
       if (!keysToBlock.includes(e.key)) return;
       const active = document.activeElement as Element | null;
+      // If the event target or active element appears to be part of Monaco (or
+      // other in-app editors), allow it to handle the key event. This prevents
+      // blocking space/arrow keys inside editors in browsers that don't make the
+      // internal textarea the activeElement consistently (Chrome vs Safari).
+      const target = e.target as Element | null;
+      if (isFromEditor(target) || isFromEditor(active)) return;
+
       if (active) {
         const tag = (active.tagName || '').toLowerCase();
         const isEditable =
