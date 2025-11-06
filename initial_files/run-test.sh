@@ -26,3 +26,4 @@ echo "---"
 for i in {1..5}; do
   echo "カウント: $i"
 done
+echo "run-test.sh finished successfully"

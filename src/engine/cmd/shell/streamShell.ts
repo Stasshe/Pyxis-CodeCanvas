@@ -230,7 +230,7 @@ export class StreamShell {
   }
 
   // Create a process for a segment. Handler can use streams and listen for 'signal' events.
-  private async createProcessForSegment(seg: Segment): Promise<Process> {
+  private async createProcessForSegment(seg: Segment, originalLine?: string): Promise<Process> {
     const proc = new Process();
     // lazily obtain unix commands if not injected
     const unix = await this.getUnix().catch(() => this.unix);
@@ -468,7 +468,7 @@ export class StreamShell {
           }
         }
         // sh / bash => execute script file by reading and running lines sequentially
-  if (cmd === 'sh' || cmd === 'bash') {
+        if (cmd === 'sh' || cmd === 'bash') {
           if (args.length === 0) {
             proc.writeStderr('Usage: sh <file>\n');
             proc.endStdout();
@@ -476,7 +476,26 @@ export class StreamShell {
             return;
           }
           const path = args[0];
-          const content = await unix.cat(path).catch(() => null);
+          let content = await unix.cat(path).catch(() => null);
+          // Special-case: when the command line came from a Windows environment the
+          // path may contain backslashes which the parser treats as escapes and
+          // removes. If initial attempt failed, try to recover the original
+          // argument from the unparsed originalLine (if provided) so that
+          // absolute Windows paths can be read by unix.cat.
+          if ((content === null || content === undefined) && originalLine) {
+            try {
+              const re = /\bsh\s+([^\s]+)/i;
+              const m = originalLine.match(re);
+              if (m && m[1]) {
+                let origPath = m[1];
+                // strip surrounding quotes if any
+                if ((origPath.startsWith('"') && origPath.endsWith('"')) || (origPath.startsWith("'") && origPath.endsWith("'"))) {
+                  origPath = origPath.slice(1, -1);
+                }
+                content = await unix.cat(origPath).catch(() => null);
+              }
+            } catch (e) {}
+          }
           if (content === null) {
             proc.writeStderr(`sh: ${path}: No such file\n`);
             proc.endStdout();
@@ -1225,7 +1244,7 @@ export class StreamShell {
 
     // create processes
     for (const seg of segs) {
-      const p = await this.createProcessForSegment(seg);
+      const p = await this.createProcessForSegment(seg, line);
       procs.push(p);
     }
 
@@ -1277,6 +1296,18 @@ export class StreamShell {
 
     const finalOut = outChunks.join('');
     const finalErr = errChunks.join('');
+
+    // Debug: optionally print final outputs when debugging is enabled
+    if (process.env.DEBUG_STREAMSHELL) {
+      try {
+        // Use console.error so it's visible in test output even when stdout is captured
+        // stringify to avoid binary chunks causing display issues
+        // eslint-disable-next-line no-console
+        console.error('StreamShell: finalOut:', JSON.stringify(String(finalOut)));
+        // eslint-disable-next-line no-console
+        console.error('StreamShell: finalErr:', JSON.stringify(String(finalErr)));
+      } catch (e) {}
+    }
 
     // handle stdout redirection
     if (lastSeg.stdoutFile && this.fileRepository) {
