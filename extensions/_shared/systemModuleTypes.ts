@@ -144,6 +144,27 @@ export interface NpmCommandsPublic {
   run(scriptName: string): Promise<string>;
 }
 
+/**
+ * StreamShell - extension-facing minimal stream-shell interface
+ * This is intentionally a lightweight, self-contained description so
+ * extension code can interact with a shell instance without importing
+ * engine internals from `src/`.
+ */
+export interface StreamShell {
+  /**
+   * Execute a single command line (pipeline allowed) and return collected
+   * stdout/stderr and exit code. Mirrors StreamShell.run(...) behavior.
+   */
+  run(line: string): Promise<{ stdout: string; stderr: string; code: number | null }>;
+
+  /** Kill the current foreground process (if any) with an optional signal. */
+  killForeground?(signal?: string): void;
+
+  /** Optional helpers to inspect the shell's project context. */
+  getProjectId?(): string | undefined;
+  getProjectName?(): string | undefined;
+}
+
 export interface SystemModuleMap {
   fileRepository: FileRepository;
   normalizeCjsEsm: NormalizeCjsEsmModule;
@@ -153,6 +174,11 @@ export interface SystemModuleMap {
     getUnixCommands: (projectName: string, projectId?: string) => UnixCommandsPublic;
     getGitCommands: (projectName: string, projectId?: string) => GitCommandsPublic;
     getNpmCommands: (projectName: string, projectId?: string, projectPath?: string) => NpmCommandsPublic;
+    getShell: (
+      projectName: string,
+      projectId?: string,
+      opts?: { unix?: any; commandRegistry?: any; fileRepository?: any }
+    ) => Promise<StreamShell | null>;
   };
 }
 

@@ -13,6 +13,7 @@ import type { CommandRegistry } from './commandRegistry';
 import type { UnixCommands } from '@/engine/cmd/global/unix';
 import type { GitCommands } from '@/engine/cmd/global/git';
 import type { NpmCommands } from '@/engine/cmd/global/npm';
+import type { StreamShell } from '@/engine/cmd/shell/streamShell';
 
 /**
  * normalizeCjsEsmモジュールの型定義
@@ -49,6 +50,15 @@ export interface SystemModuleMap {
     getUnixCommands: (projectName: string, projectId?: string) => UnixCommands;
     getGitCommands: (projectName: string, projectId?: string) => GitCommands;
     getNpmCommands: (projectName: string, projectId?: string, projectPath?: string) => NpmCommands;
+    /**
+     * Construct or return a per-project StreamShell instance.
+     * Matches TerminalCommandRegistry.getShell which may return null on failure.
+     */
+    getShell: (
+      projectName: string,
+      projectId?: string,
+      opts?: { unix?: any; commandRegistry?: any; fileRepository?: any }
+    ) => Promise<StreamShell | null>;
   };
 }
 
