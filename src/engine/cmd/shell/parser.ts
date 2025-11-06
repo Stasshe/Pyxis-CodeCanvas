@@ -19,6 +19,7 @@ export type Segment = {
   stdoutFile?: string | null;
   stderrFile?: string | null;
   stderrToStdout?: boolean;
+  stdoutToStderr?: boolean;
   append?: boolean;
   background?: boolean;
 };
@@ -263,8 +264,8 @@ export function parseCommandLine(line: string, env: Record<string, string> = pro
           if (fd === 2 && targetFd === '1') {
             cur.stderrToStdout = true;
           } else if (fd === 1 && targetFd === '2') {
-            // uncommon but support 1>&2 -> route stdout to stderr by marking stdoutFile as stderr
-            cur.stderrToStdout = true;
+            // 1>&2 -> route stdout to stderr
+            cur.stdoutToStderr = true;
           }
           cur.append = op === '>>';
           continue;
@@ -286,6 +287,19 @@ export function parseCommandLine(line: string, env: Record<string, string> = pro
         continue;
       }
       if (op === '&') {
+        // Support &> redirection (both stdout and stderr to file), e.g. '&> file' or '&>> file'
+        const lookahead = toks[i + 1];
+        if (typeof lookahead === 'object' && (lookahead.op === '>' || lookahead.op === '>>')) {
+          // consume '>' or '>>'
+          const outOp = toks[++i] as any;
+          const next = toks[++i];
+          const tkn = makeTokenFromRaw(next);
+          cur.stdoutFile = tkn.text;
+          cur.stderrFile = tkn.text;
+          cur.append = outOp.op === '>>';
+          continue;
+        }
+        // otherwise '&' as background operator
         cur.background = true;
         continue;
       }
