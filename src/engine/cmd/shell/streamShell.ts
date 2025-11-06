@@ -240,19 +240,26 @@ export class StreamShell {
     // Resolve command-substitution markers in tokens before launching handler.
     // parser now provides tokens as objects with optional cmdSub and quote.
     if (seg.tokens && seg.tokens.length > 0) {
-      const withCmdSub: TokenObj[] = [];
-      for (const tk of seg.tokens) {
+      // debug: inspect incoming token shapes
+  const withCmdSub: TokenObj[] = [];
+  for (const tk of seg.tokens) {
         // tk may be a plain string or a TokenObj
         if (typeof tk !== 'string' && tk.cmdSub) {
           try {
             const subRes = await this.run(tk.cmdSub);
-            const out = String(subRes.stdout || '');
+            const rawOut = String(subRes.stdout || '');
+            
+            // normalize command-substitution output: remove trailing newline(s)
+            // and collapse internal newlines to spaces so quoted substitutions
+            // remain a single word. This approximates POSIX behavior for
+            // command-substitutions inside quotes.
+            const normalized = rawOut.replace(/\r?\n/g, ' ').replace(/\s+$/g, '');
             // If substitution was quoted, preserve as single token
             if (tk.quote === 'single' || tk.quote === 'double') {
-              withCmdSub.push({ text: out, quote: tk.quote });
+              withCmdSub.push({ text: normalized, quote: tk.quote });
             } else {
               // unquoted: place the substitution text (may be split later by IFS)
-              withCmdSub.push({ text: out, quote: null });
+              withCmdSub.push({ text: rawOut, quote: null });
             }
             continue;
           } catch (e) {
@@ -369,6 +376,7 @@ export class StreamShell {
         }
       }
     }
+    
 
     // Replace seg.tokens with final words (plain strings) for execution
     (seg as any).tokens = finalWords;

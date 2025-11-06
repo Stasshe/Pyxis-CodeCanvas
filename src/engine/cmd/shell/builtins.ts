@@ -20,8 +20,17 @@ export default function adaptUnixToStream(unix: any) {
   const makeSimple = (name: string) => {
     return async (ctx: StreamCtx, args: string[] = []) => {
       try {
-        // some unix implementations accept (arg) or (args...); we call with spread
-        const res = await unix[name].apply(unix, args || []);
+        // some unix implementations accept a single joined string (e.g. mock echo)
+        // while others accept multiple args. If the implementation's arity is
+        // <= 1 we pass the joined args as a single parameter; otherwise spread.
+        let res: any;
+        const fn = unix[name];
+        if (typeof fn === 'function' && (fn.length || 0) <= 1) {
+          const joined = args && args.length > 0 ? args.join(' ') : '';
+          res = await fn.call(unix, joined);
+        } else {
+          res = await fn.apply(unix, args || []);
+        }
         if (res !== undefined && res !== null) ctx.stdout.write(String(res));
       } catch (e: any) {
         ctx.stderr.write(String(e && e.message ? e.message : e));
