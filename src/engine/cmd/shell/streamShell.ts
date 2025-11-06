@@ -617,7 +617,6 @@ export class StreamShell {
         // Use the builtins adapter if available (stream-friendly wrappers)
         if (builtins && typeof builtins[cmd] === 'function') {
           try {
-            
             await builtins[cmd](ctx, args);
             // builtins are expected to manage stdout/stderr end; ensure process exit
             proc.endStdout();
@@ -625,7 +624,18 @@ export class StreamShell {
             proc.exit(0);
             return;
           } catch (e: any) {
-            
+            // Some builtins (like the test/[ implementation) signal failures by
+            // throwing a special marker { __silent: true, code: n } so callers can
+            // treat them as normal non-zero exits without emitting text. Ensure
+            // we handle that here (previously only the outer catch handled it),
+            // otherwise the thrown object may be printed as JSON.
+            if (e && (e as any).__silent) {
+              const code = typeof (e as any).code === 'number' ? (e as any).code : 1;
+              try { proc.endStdout(); } catch {}
+              try { proc.endStderr(); } catch {}
+              proc.exit(code);
+              return;
+            }
             proc.writeStderr(normalizeForWrite(e && e.message ? e.message : e));
             proc.endStdout();
             proc.endStderr();
@@ -1437,48 +1447,20 @@ export class StreamShell {
     if (!segs || segs.length === 0) {
       return { stdout: '', stderr: '', code: 0 };
     }
-    const procs: Process[] = [];
-
-    // create processes
-    for (const seg of segs) {
-      const p = await this.createProcessForSegment(seg, line);
-      procs.push(p);
+    // Support logical operators (&&, ||) by grouping segments into command-groups
+    // separated by logical operators. Each group is executed as a pipeline, and
+    // the group's exit code controls whether the next group runs based on the
+    // logical operator linking them.
+    const groups: Array<{ segs: any[]; opAfter?: string | null }> = [];
+    let curGroup: any[] = [];
+    for (const s of segs) {
+      curGroup.push(s);
+      if ((s as any).logicalOp) {
+        groups.push({ segs: curGroup, opAfter: (s as any).logicalOp });
+        curGroup = [];
+      }
     }
-
-    // foregroundProc will be set after wiring and before waiting for exits
-
-    // wire up pipes: proc[i].stdout -> proc[i+1].stdin
-    for (let i = 0; i < procs.length - 1; i++) {
-      procs[i].stdout.pipe(procs[i + 1].stdin);
-    }
-
-    // Notify processes that pipes have been wired so handlers that may pre-read
-    // stdin can safely inspect the stream. This avoids races where handlers
-    // start reading before the pipes are connected.
-    for (const p of procs) {
-      try {
-        p.emit('pipes-ready');
-      } catch (e) {}
-    }
-
-    // Collect output from last process
-    const last = procs[procs.length - 1];
-
-    // If last has stdout redirection, capture and write to file when done
-    const lastSeg = segs[segs.length - 1];
-
-    // set foreground to last process unless background flag
-    if (lastSeg && !lastSeg.background) {
-      this.foregroundProc = procs[procs.length - 1];
-      // clear when exited
-      this.foregroundProc.on('exit', () => {
-        if (this.foregroundProc && this.foregroundProc?.pid === procs[procs.length - 1].pid) {
-          this.foregroundProc = null;
-        }
-      });
-    } else {
-      this.foregroundProc = null;
-    }
+    if (curGroup.length > 0) groups.push({ segs: curGroup, opAfter: null });
 
     // Collect data for every fd we care about into per-fd buffers.
     const fdBuffers: Record<number, string[]> = {};
@@ -1490,15 +1472,12 @@ export class StreamShell {
       const key = path.startsWith('/') ? path : `/${path}`;
       const job = async () => {
         try {
-          // if append mode, read existing once per write; for overwrite, if not created, treat as truncate on first write
           const files = await this.fileRepository.getProjectFiles(this.projectId);
           const existing = files.find((f: any) => f.path === key || f.path === key.replace(/^\//, ''));
           if (!existing) {
-            // create new file
             await this.fileRepository.createFile(this.projectId, key, chunk, 'file');
             pathState[key] = { created: true };
           } else {
-            // append to existing content
             const newContent = existing.content + chunk;
             await this.fileRepository.saveFile({ ...existing, content: newContent, updatedAt: new Date() });
             pathState[key] = { created: true };
@@ -1510,45 +1489,107 @@ export class StreamShell {
       writeQueues[key] = (writeQueues[key] || Promise.resolve()).then(job).catch(() => {});
       return writeQueues[key];
     };
-    const watchFd = (fd: number) => {
-      if (fdBuffers[fd]) return;
-      fdBuffers[fd] = [];
+
+    const watchProc = (proc: Process, seg: any) => {
+      // attach watchers for fds of interest on the provided process
       try {
-        const stream = last.getFdWrite(fd);
-        // If this fd is configured to write to a file, stream writes directly
-        // to fileRepository as chunks arrive. Otherwise accumulate in buffer.
-        const fdFiles = (lastSeg as any)?.fdFiles || {};
-        const fileInfo = fdFiles[fd];
-        if (fileInfo && this.fileRepository) {
-          // streaming write: on each chunk, enqueue a write
-          stream.on('data', (chunk: Buffer | string) => {
-            const s = String(chunk);
-            enqueueWrite(fileInfo.path, !!fileInfo.append, s);
-            // also keep buffer so returned outputs (if any) can be composed when needed
-            fdBuffers[fd].push(s);
-          });
-        } else {
-          stream.on('data', (chunk: Buffer | string) => {
-            fdBuffers[fd].push(String(chunk));
-          });
+        const watchFdFor = (fd: number) => {
+          if (fdBuffers[fd]) return;
+          fdBuffers[fd] = [];
+          try {
+            const stream = proc.getFdWrite(fd);
+            const fdFiles = (seg as any)?.fdFiles || {};
+            const fileInfo = fdFiles[fd];
+            if (fileInfo && this.fileRepository) {
+              stream.on('data', (chunk: Buffer | string) => {
+                const s = String(chunk);
+                enqueueWrite(fileInfo.path, !!fileInfo.append, s);
+                fdBuffers[fd].push(s);
+              });
+            } else {
+              stream.on('data', (chunk: Buffer | string) => {
+                fdBuffers[fd].push(String(chunk));
+              });
+            }
+          } catch (e) {
+            // ignore
+          }
+        };
+        watchFdFor(1);
+        watchFdFor(2);
+        if (seg && (seg as any).fdFiles) {
+          for (const k of Object.keys((seg as any).fdFiles)) {
+            const fdn = Number(k);
+            if (!Number.isNaN(fdn)) watchFdFor(fdn);
+          }
         }
       } catch (e) {
         // ignore
       }
     };
 
-    // always watch stdout(1) and stderr(2)
-    watchFd(1);
-    watchFd(2);
-    // also watch any fd-files configured on last segment
-    if (lastSeg && (lastSeg as any).fdFiles) {
-      for (const k of Object.keys((lastSeg as any).fdFiles)) {
-        const fdn = Number(k);
-        if (!Number.isNaN(fdn)) watchFd(fdn);
+    // Execute groups sequentially honoring logical ops
+    let lastExitCode: number | null = 0;
+    let overallLastSeg: any = segs[segs.length - 1];
+    let overallLastProcs: Process[] = [];
+    for (let gi = 0; gi < groups.length; gi++) {
+      const group = groups[gi];
+      // Determine if we should skip this group based on previous group's opAfter
+      if (gi > 0) {
+        const prevOp = groups[gi - 1].opAfter;
+        if (prevOp === '&&' && (lastExitCode === null || lastExitCode !== 0)) {
+          // skip this group
+          lastExitCode = 1;
+          continue;
+        }
+        if (prevOp === '||' && (lastExitCode === null || lastExitCode === 0)) {
+          // skip this group
+          lastExitCode = 0;
+          continue;
+        }
       }
-    }
 
-    const exits = await Promise.all(procs.map(p => p.wait()));
+      // create processes for this group's segments
+      const procs: Process[] = [];
+      for (const seg of group.segs) {
+        const p = await this.createProcessForSegment(seg, line);
+        procs.push(p);
+      }
+
+      // wire up pipes within the group
+      for (let i = 0; i < procs.length - 1; i++) {
+        procs[i].stdout.pipe(procs[i + 1].stdin);
+      }
+
+      // notify pipes-ready
+      for (const p of procs) {
+        try { p.emit('pipes-ready'); } catch (e) {}
+      }
+
+      // watch the group's last proc outputs so we accumulate stdout/stderr
+      const lastProc = procs[procs.length - 1];
+      const lastSegOfGroup = group.segs[group.segs.length - 1];
+      watchProc(lastProc, lastSegOfGroup);
+
+      // set foregroundProc only if this group is the final overall group and not background
+      if (gi === groups.length - 1 && lastSegOfGroup && !lastSegOfGroup.background) {
+        this.foregroundProc = lastProc;
+        this.foregroundProc.on('exit', () => {
+          if (this.foregroundProc && this.foregroundProc?.pid === lastProc.pid) this.foregroundProc = null;
+        });
+      } else if (gi === groups.length - 1) {
+        this.foregroundProc = null;
+      }
+
+      // wait for group's procs to exit
+      const exits = await Promise.all(procs.map(p => p.wait()));
+      const exitOfLast = exits.length ? exits[exits.length - 1].code : 0;
+      lastExitCode = exitOfLast === null ? 0 : exitOfLast;
+
+      // keep reference to overall last procs/seg for post-processing
+      overallLastProcs = procs;
+      overallLastSeg = lastSegOfGroup;
+    }
 
     const finalOut = (fdBuffers[1] || []).join('');
     const finalErr = (fdBuffers[2] || []).join('');
@@ -1566,7 +1607,7 @@ export class StreamShell {
     }
 
     // handle stdout/stderr/fd redirection to files (support &>, 2>&1, 1>&2, N>file)
-    if (lastSeg && this.fileRepository && ((lastSeg as any).fdFiles || lastSeg.stdoutFile || lastSeg.stderrFile || lastSeg.stderrToStdout || lastSeg.stdoutToStderr)) {
+    if (overallLastSeg && this.fileRepository && ((overallLastSeg as any).fdFiles || overallLastSeg.stdoutFile || overallLastSeg.stderrFile || overallLastSeg.stderrToStdout || overallLastSeg.stdoutToStderr)) {
       const writes: Record<string, string> = {};
       const appendMap: Record<string, boolean> = {};
       const add = (path: string | undefined | null, content: string, append: boolean = false) => {
@@ -1577,22 +1618,22 @@ export class StreamShell {
       };
 
       // fdFiles entries (explicit numeric fd -> file)
-      if ((lastSeg as any).fdFiles) {
-        for (const k of Object.keys((lastSeg as any).fdFiles)) {
+      if ((overallLastSeg as any).fdFiles) {
+        for (const k of Object.keys((overallLastSeg as any).fdFiles)) {
           const fdn = Number(k);
           if (Number.isNaN(fdn)) continue;
-          const info = (lastSeg as any).fdFiles[fdn];
+          const info = (overallLastSeg as any).fdFiles[fdn];
           const content = (fdBuffers[fdn] || []).join('');
           add(info.path, content, !!info.append);
         }
       }
 
       // backward-compatible stdout/stderr fields
-      if (lastSeg.stdoutFile) add(lastSeg.stdoutFile, finalOut, !!lastSeg.append);
-      else if (lastSeg.stdoutToStderr && lastSeg.stderrFile) add(lastSeg.stderrFile, finalOut, !!lastSeg.append);
+      if (overallLastSeg.stdoutFile) add(overallLastSeg.stdoutFile, finalOut, !!overallLastSeg.append);
+      else if (overallLastSeg.stdoutToStderr && overallLastSeg.stderrFile) add(overallLastSeg.stderrFile, finalOut, !!overallLastSeg.append);
 
-      if (lastSeg.stderrFile) add(lastSeg.stderrFile, finalErr, false);
-      else if (lastSeg.stderrToStdout && lastSeg.stdoutFile) add(lastSeg.stdoutFile, finalErr, !!lastSeg.append);
+      if (overallLastSeg.stderrFile) add(overallLastSeg.stderrFile, finalErr, false);
+      else if (overallLastSeg.stderrToStdout && overallLastSeg.stdoutFile) add(overallLastSeg.stdoutFile, finalErr, !!overallLastSeg.append);
 
       // Perform writes respecting per-path append flags
       for (const pth of Object.keys(writes)) {
@@ -1617,11 +1658,11 @@ export class StreamShell {
     }
 
     // Determine returned stdout/stderr: if redirected to files, do not include in return
-    const code = exits.length ? exits[exits.length - 1].code : 0;
-    const lastFdFiles = lastSeg ? (lastSeg as any).fdFiles : undefined;
-    const returnedStdout = lastSeg && ((lastSeg.stdoutFile) || (lastSeg.stdoutToStderr) || (lastFdFiles && lastFdFiles[1])) ? '' : finalOut;
+    const code = typeof lastExitCode === 'number' ? lastExitCode : 0;
+    const lastFdFiles = overallLastSeg ? (overallLastSeg as any).fdFiles : undefined;
+    const returnedStdout = overallLastSeg && ((overallLastSeg.stdoutFile) || (overallLastSeg.stdoutToStderr) || (lastFdFiles && lastFdFiles[1])) ? '' : finalOut;
     // Suppress returned stderr if it was redirected to a file or merged into stdout via 2>&1
-    const returnedStderr = lastSeg && ((lastSeg.stderrFile) || lastSeg.stderrToStdout || (lastFdFiles && lastFdFiles[2])) ? '' : finalErr;
+    const returnedStderr = overallLastSeg && ((overallLastSeg.stderrFile) || overallLastSeg.stderrToStdout || (lastFdFiles && lastFdFiles[2])) ? '' : finalErr;
     return { stdout: returnedStdout, stderr: returnedStderr, code };
   }
 
