@@ -10,7 +10,6 @@ import { gitFileSystem } from '@/engine/core/gitFileSystem';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
 import { handleGitCommand } from '@/engine/cmd/handlers/gitHandler';
-import { handleUnixCommand } from '@/engine/cmd/handlers/unixHandler';
 import { handleNPMCommand } from '@/engine/cmd/handlers/npmHandler';
 import { handlePyxisCommand } from '@/engine/cmd/handlers/pyxisHandler';
 import { handleVimCommand } from '@/engine/cmd/vim';
@@ -37,6 +36,7 @@ function ClientTerminal({
   const unixCommandsRef = useRef<UnixCommands | null>(null);
   const gitCommandsRef = useRef<GitCommands | null>(null);
   const npmCommandsRef = useRef<NpmCommands | null>(null);
+  const shellRef = useRef<any>(null);
 
   // xterm/fitAddonをrefで保持
   useEffect(() => {
@@ -83,6 +83,23 @@ function ClientTerminal({
           currentProjectId,
           '/projects/' + currentProject
         );
+        // create or obtain a StreamShell instance from the shared registry so it's a per-project singleton
+        try {
+          let extRegistry: any = null;
+          try {
+            const mod = await import('@/engine/extensions/commandRegistry');
+            extRegistry = mod.commandRegistry;
+          } catch {}
+          const shellInst = await terminalCommandRegistry.getShell(currentProject, currentProjectId, {
+            unix: unixCommandsRef.current,
+            commandRegistry: extRegistry,
+            fileRepository,
+          });
+          if (shellInst) shellRef.current = shellInst;
+        } catch (e) {
+          // non-fatal — Terminal will fallback to existing handlers
+          console.error('[Terminal] failed to initialize StreamShell via registry', e);
+        }
       } catch (e) {
         // Do NOT fallback to direct construction here — enforce single responsibility:
         // Terminal must rely on the terminalCommandRegistry to provide instances.
@@ -535,7 +552,12 @@ function ClientTerminal({
               }
             } else {
               // 通常のUnixコマンドとして処理
-              await handleUnixCommand(cmd, args, currentProject, currentProjectId, captureWriteOutput);
+              if (shellRef.current) {
+                // delegate entire baseCommand to StreamShell which handles pipes/redirection/subst
+                const res = await shellRef.current.run(baseCommand);
+                if (res.stdout) await captureWriteOutput(String(res.stdout));
+                if (res.stderr) await captureWriteOutput(String(res.stderr));
+              }
             }
             break;
           }
@@ -738,6 +760,12 @@ function ClientTerminal({
           break;
         case '\u0003':
           term.writeln('^C');
+          // send SIGINT to foreground process if available
+          try {
+            if (shellRef.current && typeof shellRef.current.killForeground === 'function') {
+              shellRef.current.killForeground();
+            }
+          } catch (e) {}
           currentLine = '';
           cursorPos = 0;
           historyIndex = -1;

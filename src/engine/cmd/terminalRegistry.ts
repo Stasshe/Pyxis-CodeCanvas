@@ -7,6 +7,7 @@ type ProjectEntry = {
   unix?: UnixCommands;
   git?: GitCommands;
   npm?: NpmCommands;
+  shell?: any;
   createdAt: number;
 };
 
@@ -51,6 +52,23 @@ class TerminalCommandRegistry {
       entry.npm = new NpmCommands(projectName, projectId, currentDir);
     }
     return entry.npm!;
+  }
+
+  // Return or lazily construct a StreamShell instance for the project.
+  async getShell(projectName: string, projectId: string, opts?: { unix?: any; commandRegistry?: any; fileRepository?: any }) {
+    const entry = this.getOrCreateEntry(projectId);
+    if (entry.shell) return entry.shell;
+    try {
+      const { default: StreamShell } = await import('./shell/streamShell');
+      // prefer provided unix from opts, otherwise use registry's unix commands
+      const unix = opts && opts.unix ? opts.unix : this.getUnixCommands(projectName, projectId);
+      const commandRegistry = opts && opts.commandRegistry ? opts.commandRegistry : undefined;
+      entry.shell = new StreamShell({ projectName, projectId, unix, commandRegistry, fileRepository: opts && opts.fileRepository });
+      return entry.shell;
+    } catch (e) {
+      console.error('[terminalRegistry] failed to construct StreamShell', e);
+      return null;
+    }
   }
 
   /**
