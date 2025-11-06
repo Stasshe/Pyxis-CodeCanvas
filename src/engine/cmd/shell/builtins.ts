@@ -148,16 +148,8 @@ export default function adaptUnixToStream(unix: any) {
         const src = ctx.stdin as unknown as Readable;
         for await (const ch of src) buf.push(String(ch));
         const joined = buf.join('');
-        // DEBUG: show stdin content for grep
-        // eslint-disable-next-line no-console
-        console.error('[DEBUG] builtins.grep stdin:', String(joined).slice(0,200));
-        // eslint-disable-next-line no-console
-        console.error('[DEBUG] builtins.grep pattern:', pattern);
         const regex = new RegExp(pattern);
         const lines = joined.split('\n').filter(l => regex.test(l));
-        // DEBUG: matched lines count
-        // eslint-disable-next-line no-console
-        console.error('[DEBUG] builtins.grep matches:', lines.length, 'lines->', lines.slice(0,5));
         if (lines.length === 0) {
           // no match -> signal non-zero exit by throwing with silent message
           throw { message: '', code: 1 };

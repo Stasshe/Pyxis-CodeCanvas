@@ -487,15 +487,10 @@ export class StreamShell {
             // builtins are expected to manage stdout/stderr end; ensure process exit
             proc.endStdout();
             proc.endStderr();
-            // DEBUG: builtins success
-            // eslint-disable-next-line no-console
-            console.error('[DEBUG] builtins succeeded for', cmd);
             proc.exit(0);
             return;
           } catch (e: any) {
-            // DEBUG: builtins error
-            // eslint-disable-next-line no-console
-            console.error('[DEBUG] builtins error for', cmd, e);
+            
             proc.writeStderr(String(e && e.message ? e.message : e));
             proc.endStdout();
             proc.endStderr();
@@ -973,11 +968,7 @@ export class StreamShell {
 
           // evaluate condition
           const condEval = await this.run(interpolate(condLine, localVars));
-          // DEBUG: log condition evaluation (temporary)
-          // eslint-disable-next-line no-console
-          console.error('[DEBUG] IF condLine:', interpolate(condLine, localVars));
-          // eslint-disable-next-line no-console
-          console.error('[DEBUG] IF result code:', condEval.code, 'stdout:', String(condEval.stdout).slice(0,100));
+          
           // forward any output from condition evaluation to the script process
           if (condEval.stdout) proc.writeStdout(condEval.stdout);
           if (condEval.stderr) proc.writeStderr(condEval.stderr);
@@ -1003,11 +994,7 @@ export class StreamShell {
                 if (trailing) lines.splice(eIdx + 1, 0, trailing);
               }
               const eRes = await this.run(interpolate(eCond, localVars));
-              // DEBUG: log elif evaluation
-              // eslint-disable-next-line no-console
-              console.error('[DEBUG] ELIF condLine:', interpolate(eCond, localVars));
-              // eslint-disable-next-line no-console
-              console.error('[DEBUG] ELIF result code:', eRes.code, 'stdout:', String(eRes.stdout).slice(0,100));
+              
               // forward outputs from elif condition
               if (eRes.stdout) proc.writeStdout(eRes.stdout);
               if (eRes.stderr) proc.writeStderr(eRes.stderr);
@@ -1116,11 +1103,7 @@ export class StreamShell {
           while (true) {
             if (++count > MAX_LOOP) break;
             const cres = await this.run(interpolate(condLine, localVars));
-            // DEBUG: log while condition
-            // eslint-disable-next-line no-console
-            console.error('[DEBUG] WHILE condLine:', interpolate(condLine, localVars));
-            // eslint-disable-next-line no-console
-            console.error('[DEBUG] WHILE result code:', cres.code, 'stdout:', String(cres.stdout).slice(0,100));
+            
             // forward outputs from while condition
             if (cres.stdout) proc.writeStdout(cres.stdout);
             if (cres.stderr) proc.writeStderr(cres.stderr);

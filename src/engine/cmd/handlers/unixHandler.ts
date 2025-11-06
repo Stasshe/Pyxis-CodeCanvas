@@ -203,9 +203,7 @@ export async function handleUnixCommand(
         if (args.length < 2) {
           await append('grep: missing pattern or file\nUsage: grep [OPTION]... PATTERN FILE...');
         } else {
-          // DEBUG: show grep args
-          // eslint-disable-next-line no-console
-          console.error('[DEBUG] handleUnixCommand grep args:', args);
+          
           const grepOptions = args.filter(arg => arg.startsWith('-'));
           const grepArgs = args.filter(arg => !arg.startsWith('-'));
           const pattern = grepArgs[0];
