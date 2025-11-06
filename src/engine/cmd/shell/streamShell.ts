@@ -1,5 +1,6 @@
 import { PassThrough, Readable, Writable } from 'stream';
 import EventEmitter from 'events';
+import expandBraces from './braceExpand';
 
 /**
  * Stream-based Shell
@@ -302,49 +303,7 @@ export class StreamShell {
 
     const hasGlob = (s: string) => /[*?\[]/.test(s);
 
-    // simple brace expansion detection (e.g. {1..5})
-    const hasBrace = (s: string) => /\{[^}]+\}/.test(s);
-
-    const braceExpand = (pattern: string): string[] => {
-      // support simple numeric ranges like {1..5} or {05..10}
-      const re = /\{(-?\d+)\.\.(-?\d+)\}/;
-      const m = pattern.match(re);
-      if (!m) return [pattern];
-      const a = parseInt(m[1], 10);
-      const b = parseInt(m[2], 10);
-      // width for zero-padding
-      const width = Math.max(m[1].replace('-', '').length, m[2].replace('-', '').length);
-      const out: string[] = [];
-      if (a <= b) {
-        for (let v = a; v <= b; v++) {
-          const num = String(v).padStart(width, '0');
-          out.push(pattern.replace(re, num));
-        }
-      } else {
-        for (let v = a; v >= b; v--) {
-          const num = String(v).padStart(width, '0');
-          out.push(pattern.replace(re, num));
-        }
-      }
-      return out;
-    };
-
-    // brace expansion helper for runScript (numeric ranges)
-    const braceExpandRun = (pattern: string): string[] => {
-      const re = /\{(-?\d+)\.\.(-?\d+)\}/;
-      const m = pattern.match(re);
-      if (!m) return [pattern];
-      const a = parseInt(m[1], 10);
-      const b = parseInt(m[2], 10);
-      const width = Math.max(m[1].replace('-', '').length, m[2].replace('-', '').length);
-      const out: string[] = [];
-      if (a <= b) {
-        for (let v = a; v <= b; v++) out.push(pattern.replace(re, String(v).padStart(width, '0')));
-      } else {
-        for (let v = a; v >= b; v--) out.push(pattern.replace(re, String(v).padStart(width, '0')));
-      }
-      return out;
-    };
+    // brace expansion handled by separate utility `expandBraces` imported above
 
     const globExpand = async (pattern: string): Promise<string[]> => {
       // Prefer unix.glob if available
@@ -413,9 +372,9 @@ export class StreamShell {
       const parts = splitOnIFS(tk.text);
       for (const p of parts) {
         if (p === '') continue;
-        // brace expansion (e.g. {1..5})
-        if (hasBrace(p)) {
-          const bexp = braceExpand(p);
+        // brace expansion (supports nested, comma lists and numeric ranges)
+        const bexp = expandBraces(p);
+        if (bexp.length > 1 || bexp[0] !== p) {
           for (const bp of bexp) {
             if (hasGlob(bp) && bp !== '') {
               const matches = await globExpand(bp);
@@ -992,22 +951,7 @@ export class StreamShell {
       return out;
     };
 
-    // brace expansion helper local to runScript (numeric ranges)
-    const braceExpandInRunScript = (pattern: string): string[] => {
-      const re = /\{(-?\d+)\.\.(-?\d+)\}/;
-      const m = pattern.match(re);
-      if (!m) return [pattern];
-      const a = parseInt(m[1], 10);
-      const b = parseInt(m[2], 10);
-      const width = Math.max(m[1].replace('-', '').length, m[2].replace('-', '').length);
-      const out: string[] = [];
-      if (a <= b) {
-        for (let v = a; v <= b; v++) out.push(pattern.replace(re, String(v).padStart(width, '0')));
-      } else {
-        for (let v = a; v >= b; v--) out.push(pattern.replace(re, String(v).padStart(width, '0')));
-      }
-      return out;
-    };
+    // brace expansion for runScript uses shared expandBraces utility (handles nested, lists, ranges)
 
     const MAX_LOOP = 10000;
 
@@ -1180,11 +1124,9 @@ export class StreamShell {
           const rawItems = interpItems.split(/\s+/).filter(Boolean);
           const items: string[] = [];
           for (const it of rawItems) {
-            if (/\{(-?\d+)\.\.(-?\d+)\}/.test(it)) {
-              items.push(...braceExpandInRunScript(it));
-            } else {
-              items.push(it);
-            }
+            const expanded = expandBraces(it);
+            if (expanded.length > 1 || expanded[0] !== it) items.push(...expanded);
+            else items.push(it);
           }
           let iter = 0;
           for (const it of items) {
