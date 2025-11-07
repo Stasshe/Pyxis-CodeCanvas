@@ -840,7 +840,8 @@ export class FileRepository {
       type: 'file' | 'folder';
       isBufferArray?: boolean;
       bufferContent?: ArrayBuffer;
-    }>
+    }>,
+    skipSync: boolean = false
   ): Promise<ProjectFile[]> {
     if (!this.db) throw new Error('Database not initialized');
 
@@ -857,6 +858,11 @@ export class FileRepository {
           coreInfo(
             `[FileRepository] Starting optimized bulk sync for ${createdFiles.length} files...`
           );
+          if (skipSync) {
+            coreInfo('[FileRepository] Skipping sync as per skipSync flag.');
+            resolve(createdFiles);
+            return;
+          }
 
           const { syncManager } = await import('./syncManager');
           let projectName = this.projectNameCache.get(projectId);
