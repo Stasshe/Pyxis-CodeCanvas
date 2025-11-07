@@ -1,4 +1,6 @@
 import { UnixCommandBase } from './base';
+import { fileRepository } from '@/engine/core/fileRepository';
+import type { ProjectFile } from '@/types';
 
 /**
  * cat - ファイルの内容を表示
@@ -61,7 +63,8 @@ export class CatCommand extends UnixCommandBase {
 
     // プロジェクト内の相対パスに変換して DB から取得
     const relative = this.getRelativePathFromProject(normalizedPath);
-    const file = await this.getFileFromDB(relative);
+    // Bypass cached getFileFromDB to ensure we read the latest content from DB
+    const file: ProjectFile | null = await fileRepository.getFileByPath(this.projectId, relative);
 
     if (!file) {
       throw new Error('No such file or directory');
