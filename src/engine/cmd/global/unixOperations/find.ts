@@ -24,27 +24,32 @@ import type { ProjectFile } from '@/types';
  */
 export class FindCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
-    const { positional } = this.parseOptions(args);
+    // デバッグ: args, positional, expressions
+    console.log('[find.execute] args:', args);
+      // デバッグ: args
+      console.log('[find.execute] args:', args);
 
     // パスと式を分離
     const paths: string[] = [];
     let expressionStart = 0;
 
-    for (let i = 0; i < positional.length; i++) {
-      if (positional[i].startsWith('-')) {
-        expressionStart = i;
-        break;
-      }
-      paths.push(positional[i]);
+      for (let i = 0; i < args.length; i++) {
+        if (args[i].startsWith('-')) {
+          expressionStart = i;
+          break;
+        }
+        paths.push(args[i]);
     }
 
     // デフォルトはカレントディレクトリ
     if (paths.length === 0) paths.push(this.currentDir);
 
-    const expressions = positional.slice(expressionStart);
+      const expressions = args.slice(expressionStart);
+      console.log('[find.execute] expressions:', expressions);
 
     // 式を解析
     const criteria = this.parseExpressions(expressions);
+    console.log('[find.execute] criteria:', criteria);
 
     const results: string[] = [];
 
@@ -234,6 +239,11 @@ export class FindCommand extends UnixCommandBase {
     const results: string[] = [];
     const normalizedStart = startPath.endsWith('/') ? startPath.slice(0, -1) : startPath;
 
+    // デバッグ: パラメータ出力
+    console.log('[findFiles] startPath:', startPath);
+    console.log('[findFiles] relativePath:', relativePath);
+    console.log('[findFiles] criteria:', criteria);
+
     // 開始パス自体をチェック（depth 0）
     const startFile = await this.cachedGetFile(relativePath);
     if (startFile) {
@@ -244,7 +254,9 @@ export class FindCommand extends UnixCommandBase {
 
     // 子要素を取得して検索
     const prefix = relativePath === '/' ? '' : `${relativePath}/`;
+    console.log('[findFiles] prefix:', prefix);
     const files: ProjectFile[] = await this.cachedGetFilesByPrefix(prefix);
+    console.log('[findFiles] files:', files.map(f => ({ path: f.path, name: f.name, type: f.type })));
 
     // POSIX準拠: prefix以下の全ファイル・ディレクトリを再帰的に検索
     for (const file of files) {
