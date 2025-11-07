@@ -20,10 +20,12 @@ import type { ProjectFile } from '@/types';
  * 動作:
  *   - ワイルドカード対応
  *   - 再帰検索対応
- *   - lightning-fsから読み取り
  */
 export class GrepCommand extends UnixCommandBase {
-  async execute(args: string[], stdinContent: string | null = null): Promise<string> {
+  async execute(
+    args: string[],
+    stdin: NodeJS.ReadableStream | string | null = null
+  ): Promise<string> {
     const { options, positional } = this.parseOptions(args);
 
     if (positional.length === 0) {
@@ -62,9 +64,24 @@ export class GrepCommand extends UnixCommandBase {
       files = [this.currentDir];
     }
 
-    // If no files provided and stdinContent exists, search stdin (linux grep behavior)
-    if (files.length === 0 && stdinContent !== null) {
-      const lines = String(stdinContent).split('\n');
+    // If no files provided and stdin exists, read and search stdin (linux grep behavior)
+    if (files.length === 0 && stdin !== null) {
+      let contentStr = '';
+      if (typeof stdin === 'string') {
+        contentStr = stdin;
+      } else {
+        // read from stream until end
+        contentStr = await new Promise<string>(resolve => {
+          let buf = '';
+          const s = stdin as NodeJS.ReadableStream;
+          s.on('data', (c: any) => (buf += String(c)));
+          s.on('end', () => resolve(buf));
+          s.on('close', () => resolve(buf));
+          // If stream is already ended or no events, give a tick to allow producers
+          setTimeout(() => resolve(buf), 50);
+        });
+      }
+      const lines = String(contentStr).split('\n');
       const matches: string[] = [];
       let matchCount = 0;
 

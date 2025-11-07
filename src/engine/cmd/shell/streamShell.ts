@@ -745,19 +745,17 @@ export class StreamShell {
             this.projectName,
             this.projectId,
             async (out: string) => {
-              // also stream partial output immediately where possible
+              // stream partial output to stdout
               try {
                 const s = normalizeForWrite(out);
-                // write to both stdout and stderr to ensure error-like messages
-                // that are streamed by handlers (e.g. "Command not found") are
-                // visible on stderr as tests expect. Normal output will also
-                // appear on stdout as before.
-                try {
-                  proc.writeStdout(s);
-                } catch (e) {}
-                try {
-                  proc.writeStderr(s);
-                } catch (e) {}
+                proc.writeStdout(s);
+              } catch (e) {}
+            },
+            async (errOut: string) => {
+              // stream partial errors to stderr
+              try {
+                const s = normalizeForWrite(errOut);
+                proc.writeStderr(s);
               } catch (e) {}
             },
             stdinContent

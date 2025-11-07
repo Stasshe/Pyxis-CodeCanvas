@@ -261,9 +261,9 @@ export class UnixCommands {
     pattern: string,
     files: string[],
     options: string[] = [],
-    stdinContent: string | null = null
+    stdin: NodeJS.ReadableStream | string | null = null
   ): Promise<string> {
-    return await this.grepCmd.execute([...options, pattern, ...files], stdinContent);
+    return await this.grepCmd.execute([...options, pattern, ...files], stdin);
   }
 
   /**

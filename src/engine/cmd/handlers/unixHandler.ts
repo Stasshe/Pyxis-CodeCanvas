@@ -6,7 +6,8 @@ export async function handleUnixCommand(
   projectName: string,
   projectId: string,
   writeOutput: (output: string) => Promise<void>,
-  stdinContent: string | null = null
+  writeError: (err: string) => Promise<void>,
+  stdin: NodeJS.ReadableStream | string | null = null
 ): Promise<{ code: number; output: string }> {
   const unix = terminalCommandRegistry.getUnixCommands(projectName, projectId);
 
@@ -25,6 +26,16 @@ export async function handleUnixCommand(
     } catch (e) {
       // ignore writeOutput errors
     }
+    if (code !== undefined) exitCode = code;
+  };
+
+  const appendError = async (s: string, code?: number) => {
+    const str = s === undefined || s === null ? '' : String(s);
+    // errors should not be added to regular out to avoid mixing streams when streamed
+    try {
+      await writeError(str);
+      streamed = true;
+    } catch (e) {}
     if (code !== undefined) exitCode = code;
   };
 
@@ -208,11 +219,34 @@ export async function handleUnixCommand(
           const files = grepArgs.slice(1);
 
           try {
-            const result = await unix.grep(pattern, files, grepOptions, stdinContent);
-            const code = result && String(result).length > 0 ? 0 : 1;
-            await append(result, code);
+            const result = await unix.grep(pattern, files, grepOptions, stdin);
+            // Separate error lines (those starting with 'grep: ') from normal matches
+            const lines = String(result || '').split(/\r?\n/).filter(l => l !== '');
+            const errorLines = lines.filter(l => l.startsWith('grep: '));
+            const matchLines = lines.filter(l => !l.startsWith('grep: '));
+
+            // stream matches to stdout
+            if (matchLines.length > 0) {
+              await append(matchLines.join('\n') + '\n');
+            }
+
+            // stream errors to stderr and set appropriate exit code
+            if (errorLines.length > 0) {
+              await appendError(errorLines.join('\n') + '\n', 2);
+              // if there were matches as well, overall exit should be 2 (error)
+              // otherwise, code already set to 2 by appendError
+            } else {
+              // set exit code based on whether matches were found
+              const code = matchLines.length > 0 ? 0 : 1;
+              if (!streamed) {
+                // if nothing was streamed yet, return combined output via append so makeUnixBridge can handle it
+                await append(matchLines.join('\n'), code);
+              } else {
+                exitCode = code;
+              }
+            }
           } catch (err) {
-            await append(`grep: ${(err as Error).message}`, 2);
+            await appendError(`grep: ${(err as Error).message}\n`, 2);
           }
         }
         break;

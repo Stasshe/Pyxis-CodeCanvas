@@ -1,9 +1,9 @@
-import { Writable } from 'stream';
+import { Readable, Writable } from 'stream';
 
 import handleUnixCommand from '../handlers/unixHandler';
 
 export type StreamCtx = {
-  stdin: Writable;
+  stdin: Readable;
   stdout: Writable;
   stderr: Writable;
   onSignal: (fn: (sig: string) => void) => void;
@@ -45,39 +45,26 @@ const makeUnixBridge = (name: string) => {
       const projectId = ctx.projectId || '';
 
       // stdin内容を事前に読み取り（grep等で必要）
-      const stdinContent = await new Promise<string | null>(resolve => {
-        if (!ctx.stdin || typeof (ctx.stdin as any).on !== 'function') {
-          return resolve(null);
-        }
+        // Pass the stdin stream directly to the handler so commands like grep
+        // can read from stdin interactively (block until data) if needed.
+        const stdinStream = ctx.stdin && typeof (ctx.stdin as any).on === 'function' ? ctx.stdin : null;
 
-        let buf = '';
-        const src = ctx.stdin as any;
-        let resolved = false;
+      const writeError = async (s: string) => {
+        try {
+          if (s === undefined || s === null) return;
+          ctx.stderr.write(String(s));
+        } catch (e) {}
+      };
 
-        const finish = (content: string | null) => {
-          if (resolved) return;
-          resolved = true;
-          resolve(content);
-        };
-
-        src.on('data', (c: any) => {
-          buf += String(c);
-        });
-        src.on('end', () => finish(buf || null));
-        src.on('close', () => finish(buf || null));
-
-        // タイムアウト（stdin無し判定）
-        setTimeout(() => finish(buf || null), 50);
-      });
-
-      const result = await handleUnixCommand(
-        name,
-        nArgs,
-        projectName,
-        projectId,
-        writeOutput,
-        stdinContent
-      );
+        const result = await handleUnixCommand(
+          name,
+          nArgs,
+          projectName,
+          projectId,
+          writeOutput,
+          writeError,
+          stdinStream
+        );
 
       exitCode = result.code ?? 0;
 
