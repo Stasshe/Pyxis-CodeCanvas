@@ -119,7 +119,28 @@ export class RmCommand extends UnixCommandBase {
         
         // 削除実行（fileRepository.deleteFile は自動的に子ファイルも削除）
         await fileRepository.deleteFile(target.file.id);
-        
+
+        // キャッシュの更新: mv.ts と同様に、削除したファイル/ディレクトリと関連する prefix を無効化
+        try {
+          const relative = this.getRelativePathFromProject(target.path);
+
+          if (isDir) {
+            // ディレクトリ削除時は、そのディレクトリ以下の prefix を無効化
+            const dirPrefix = relative === '/' ? '/' : relative;
+            const parent = relative === '/' ? '/' : relative.replace(/\/[^/]*$/, '') || '/';
+            this.invalidatePrefix(dirPrefix);
+            this.invalidatePrefix(parent);
+            this.deleteCacheFile(relative);
+          } else {
+            // ファイル削除時はファイルキャッシュを削除し、親ディレクトリの prefix を無効化
+            this.deleteCacheFile(relative);
+            const parent = relative.endsWith('/') ? relative : relative.replace(/\/[^/]*$/, '') || '/';
+            this.invalidatePrefix(parent || '/');
+          }
+        } catch (e) {
+          console.warn('[rm] cache update error:', e);
+        }
+
         // 削除成功を記録
         if (verbose) {
           deletedPaths.push(
