@@ -377,11 +377,10 @@ export class ModuleLoader {
    */
   private async readFile(filePath: string): Promise<string | null> {
     try {
-      const files = await fileRepository.getProjectFiles(this.projectId);
-
+      await fileRepository.init();
       // パスを正規化して検索
       const normalizedPath = normalizePath(filePath, this.projectName);
-      const file = files.find(f => normalizePath(f.path, this.projectName) === normalizedPath);
+      const file = await fileRepository.getFileByPath(this.projectId, normalizedPath);
 
       if (!file) {
         this.error('❌ File not found:', filePath, '→', normalizedPath);

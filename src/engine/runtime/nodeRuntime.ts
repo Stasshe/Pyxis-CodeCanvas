@@ -456,10 +456,9 @@ export class NodeRuntime {
     _currentFilePath: string
   ): Promise<string | null> {
     try {
-      const files = await fileRepository.getProjectFiles(this.projectId);
-
+      await fileRepository.init();
       // package.json はプロジェクトルートにあるはずなので normalizePath === '/package.json' で探す
-      const pkgFile = files.find(f => this.normalizePath(f.path) === '/package.json');
+      const pkgFile = await fileRepository.getFileByPath(this.projectId, '/package.json');
       if (!pkgFile || !pkgFile.content) return null;
 
       let pkgJson: any;
@@ -521,10 +520,10 @@ export class NodeRuntime {
    */
   private async readFile(filePath: string): Promise<string | null> {
     try {
-      const files = await fileRepository.getProjectFiles(this.projectId);
+      await fileRepository.init();
       const normalizedPath = this.normalizePath(filePath);
 
-      const file = files.find(f => this.normalizePath(f.path) === normalizedPath);
+      const file = await fileRepository.getFileByPath(this.projectId, normalizedPath);
       if (!file) {
         this.log('⚠️ File not found in IndexedDB:', normalizedPath);
         return null;

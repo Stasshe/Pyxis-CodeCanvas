@@ -194,15 +194,15 @@ export class ModuleResolver {
 
       // デバッグ: node_modulesにどんなファイルがあるか確認
       try {
-        const files = await fileRepository.getProjectFiles(this.projectId);
-        const nodeModuleFiles = files.filter(f =>
-          f.path.startsWith('/node_modules/' + packageName)
-        );
-        runtimeInfo(`📁 Found ${nodeModuleFiles.length} files for ${packageName}`);
-        runtimeInfo(
-          'Files:',
-          nodeModuleFiles.map(f => `${f.path} (type: ${f.type})`)
-        );
+          const nodeModuleFiles = await fileRepository.getFilesByPrefix(
+            this.projectId,
+            `/node_modules/${packageName}`
+          );
+          runtimeInfo(`📁 Found ${nodeModuleFiles.length} files for ${packageName}`);
+          runtimeInfo(
+            'Files:',
+            nodeModuleFiles.map(f => `${f.path} (type: ${f.type})`)
+          );
       } catch (e) {
         runtimeError('Failed to list files:', e);
       }
@@ -445,31 +445,13 @@ export class ModuleResolver {
     }
 
     try {
-      const files = await fileRepository.getProjectFiles(this.projectId);
+      await fileRepository.init();
       const normalizedPath = normalizePath(path, this.projectName);
       runtimeInfo('🔍 Normalized path:', path, '→', normalizedPath);
 
-      // デバッグ: 比較を詳細に
-      const file = files.find(f => {
-        const normalizedFilePath = normalizePath(f.path, this.projectName);
-        const match = normalizedFilePath === normalizedPath;
-        if (f.path.includes('package.json') && f.path.includes('chalk')) {
-          runtimeInfo('Comparing:', normalizedFilePath, '===', normalizedPath, '→', match);
-        }
-        return match;
-      });
-
+      const file = await fileRepository.getFileByPath(this.projectId, normalizedPath);
       if (!file) {
         runtimeWarn('❌ File not found. Searched for:', normalizedPath);
-        runtimeInfo(
-          'Available package.json files:',
-          files
-            .filter(f => f.path.includes('package.json') && f.path.includes('chalk'))
-            .map(f => ({
-              path: f.path,
-              normalized: normalizePath(f.path, this.projectName),
-            }))
-        );
         return null;
       }
 
@@ -531,9 +513,10 @@ export class ModuleResolver {
     }
 
     try {
-      const files = await fileRepository.getProjectFiles(this.projectId);
+      await fileRepository.init();
       const normalizedPath = normalizePath(path, this.projectName);
-      const exists = files.some(f => normalizePath(f.path, this.projectName) === normalizedPath);
+      const file = await fileRepository.getFileByPath(this.projectId, normalizedPath);
+      const exists = !!file;
 
       this.fileCache.set(path, exists);
       return exists;

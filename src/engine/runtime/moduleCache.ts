@@ -170,14 +170,15 @@ export class ModuleCache {
 
   private async ensureCacheDirectories(): Promise<void> {
     try {
-      const files = await fileRepository.getProjectFiles(this.projectId);
-
-      if (!files.some(f => f.path === this.cacheDir)) {
+      await fileRepository.init();
+      const cacheDirFile = await fileRepository.getFileByPath(this.projectId, this.cacheDir);
+      if (!cacheDirFile) {
         await fileRepository.createFile(this.projectId, this.cacheDir, '', 'folder');
         runtimeInfo('📁 Created:', this.cacheDir);
       }
 
-      if (!files.some(f => f.path === this.metaDir)) {
+      const metaDirFile = await fileRepository.getFileByPath(this.projectId, this.metaDir);
+      if (!metaDirFile) {
         await fileRepository.createFile(this.projectId, this.metaDir, '', 'folder');
         runtimeInfo('📁 Created:', this.metaDir);
       }
@@ -188,24 +189,24 @@ export class ModuleCache {
 
   private async loadAllCacheFromDisk(): Promise<void> {
     try {
-      const files = await fileRepository.getProjectFiles(this.projectId);
-      const metaFiles = files.filter(
-        f =>
-          f.path.startsWith(this.metaDir) &&
-          f.path.endsWith('.json') &&
-          f.type === 'file' &&
-          f.content?.trim()
+      await fileRepository.init();
+      const metaFiles = await fileRepository.getFilesByPrefix(this.projectId, this.metaDir);
+      const filteredMetaFiles = metaFiles.filter(
+        f => f.path.endsWith('.json') && f.type === 'file' && f.content?.trim()
       );
 
       runtimeInfo(`📂 Found ${metaFiles.length} cache meta files`);
       let loadedCount = 0;
 
-      for (const metaFile of metaFiles) {
+      for (const metaFile of filteredMetaFiles) {
         try {
           const meta: any = JSON.parse(metaFile.content);
           const originalPath = meta.originalPath;
           const safeFileName = this.pathToSafeFileName(originalPath);
-          const codeFile = files.find(f => f.path === `${this.cacheDir}/${safeFileName}.js`);
+          const codeFile = await fileRepository.getFileByPath(
+            this.projectId,
+            `${this.cacheDir}/${safeFileName}.js`
+          );
 
           if (codeFile?.content && originalPath) {
             const entry: CacheEntry = {
@@ -303,13 +304,17 @@ export class ModuleCache {
   }
 
   private async deleteFromDisk(path: string): Promise<void> {
-    const files = await fileRepository.getProjectFiles(this.projectId);
     const safeFileName = this.pathToSafeFileName(path);
-
-    const codeFile = files.find(f => f.path === `${this.cacheDir}/${safeFileName}.js`);
+    const codeFile = await fileRepository.getFileByPath(
+      this.projectId,
+      `${this.cacheDir}/${safeFileName}.js`
+    );
     if (codeFile) await fileRepository.deleteFile(codeFile.id);
 
-    const metaFile = files.find(f => f.path === `${this.metaDir}/${safeFileName}.json`);
+    const metaFile = await fileRepository.getFileByPath(
+      this.projectId,
+      `${this.metaDir}/${safeFileName}.json`
+    );
     if (metaFile) await fileRepository.deleteFile(metaFile.id);
   }
 
