@@ -157,7 +157,9 @@ export const useTabStore = create<TabStore>((set, get) => ({
       options.kind ||
       file.kind ||
       (file && (file.isBufferArray === true || file.isBufferArray) ? 'binary' : 'editor');
-    let targetPaneId = options.paneId || state.activePane || state.panes[0]?.id;
+    // 初期は options または global active pane を優先し、まだない場合は null にして
+    // 後続のロジックで "leaf pane" の探索や新規作成を正しく行えるようにする
+    let targetPaneId = options.paneId || state.activePane || null;
     // もし全体でタブが一つもない場合は、優先順に
     // 1) options.paneId
     // 2) 現在の state.activePane（存在かつ有効なペイン）
@@ -195,6 +197,37 @@ export const useTabStore = create<TabStore>((set, get) => ({
           set({ activePane: newPaneId });
         }
       }
+
+      // ここまでで targetPaneId が未決定であれば、まず既存の最初のペインを試す。
+      // それも無ければ新規ペインを作成して targetPaneId を決定する。
+      if (!targetPaneId) {
+        const firstPaneId = state.panes[0]?.id;
+        if (firstPaneId) {
+          targetPaneId = firstPaneId;
+        } else {
+          // 既存ペインが全く無い場合は新規作成
+          const existingIds = get().panes.map(p => p.id);
+          let nextNum = 1;
+          while (existingIds.includes(`pane-${nextNum}`)) nextNum++;
+          const newPaneId = `pane-${nextNum}`;
+          const newPane: EditorPane = { id: newPaneId, tabs: [], activeTabId: '' };
+          get().addPane(newPane);
+          targetPaneId = newPaneId;
+          set({ activePane: newPaneId });
+        }
+      }
+
+      // 最終確認ガード（型安全性確保）
+      if (!targetPaneId) {
+        console.error('[TabStore] No pane available to open tab in');
+        return;
+      }
+    }
+
+    // 最終ガード：ここで targetPaneId が決まっていなければ処理を中止して型の安全性を確保
+    if (!targetPaneId) {
+      console.error('[TabStore] No pane available to open tab in (final guard)');
+      return;
     }
 
     const tabDef = tabRegistry.get(kind);
