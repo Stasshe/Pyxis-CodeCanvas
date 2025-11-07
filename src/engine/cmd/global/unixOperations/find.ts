@@ -14,8 +14,13 @@ import type { ProjectFile } from '@/types';
  *   -path pattern   : パス全体に対する glob
  *   -ipath pattern  : 大文字小文字を無視したパス glob
  *   -type f|d       : ファイル/ディレクトリ
- *   -maxdepth N
- *   -mindepth N
+ *   -maxdepth N     : 最大探索深度
+ *   -mindepth N     : 最小探索深度
+ *
+ * 例:
+ *   find . -name "*.js"
+ *   find . -iname readme
+ *   find /projects/myapp -type f -name "*.ts"
  */
 export class FindCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
@@ -33,57 +38,20 @@ export class FindCommand extends UnixCommandBase {
       paths.push(positional[i]);
     }
 
+    // デフォルトはカレントディレクトリ
     if (paths.length === 0) paths.push(this.currentDir);
 
     const expressions = positional.slice(expressionStart);
 
     // 式を解析
-    let namePattern: RegExp | null = null;
-    let pathPattern: RegExp | null = null;
-    let typeFilter: 'file' | 'folder' | null = null;
-    let maxDepth = Number.MAX_SAFE_INTEGER;
-    let minDepth = 0;
-
-    for (let i = 0; i < expressions.length; i++) {
-      const expr = expressions[i];
-      if (expr === '-name' && i + 1 < expressions.length) {
-        namePattern = this.globToRegExp(expressions[i + 1], false);
-        i++;
-      } else if (expr === '-iname' && i + 1 < expressions.length) {
-        namePattern = this.globToRegExp(expressions[i + 1], true);
-        i++;
-      } else if (expr === '-path' && i + 1 < expressions.length) {
-        pathPattern = this.globToRegExp(expressions[i + 1], false);
-        i++;
-      } else if (expr === '-ipath' && i + 1 < expressions.length) {
-        pathPattern = this.globToRegExp(expressions[i + 1], true);
-        i++;
-      } else if (expr === '-type' && i + 1 < expressions.length) {
-        const t = expressions[i + 1];
-        if (t === 'f') typeFilter = 'file';
-        else if (t === 'd') typeFilter = 'folder';
-        i++;
-      } else if (expr === '-maxdepth' && i + 1 < expressions.length) {
-        maxDepth = parseInt(expressions[i + 1], 10) || Number.MAX_SAFE_INTEGER;
-        i++;
-      } else if (expr === '-mindepth' && i + 1 < expressions.length) {
-        minDepth = parseInt(expressions[i + 1], 10) || 0;
-        i++;
-      }
-    }
+    const criteria = this.parseExpressions(expressions);
 
     const results: string[] = [];
 
+    // 各パスに対して検索実行
     for (const p of paths) {
       const normalizedPath = this.normalizePath(this.resolvePath(p));
-      const found = await this.findFiles(
-        normalizedPath,
-        namePattern,
-        pathPattern,
-        typeFilter,
-        maxDepth,
-        minDepth
-      );
+      const found = await this.findFiles(normalizedPath, criteria);
       results.push(...found);
     }
 
@@ -101,90 +69,266 @@ export class FindCommand extends UnixCommandBase {
   }
 
   /**
-   * glob を RegExp に変換（basename か path のどちらでも利用可）
+   * 検索式を解析して条件オブジェクトを返す
+   */
+  private parseExpressions(expressions: string[]): SearchCriteria {
+    const criteria: SearchCriteria = {
+      namePattern: null,
+      pathPattern: null,
+      typeFilter: null,
+      maxDepth: Number.MAX_SAFE_INTEGER,
+      minDepth: 0,
+    };
+
+    for (let i = 0; i < expressions.length; i++) {
+      const expr = expressions[i];
+      const nextArg = expressions[i + 1];
+
+      switch (expr) {
+        case '-name':
+          if (nextArg) {
+            criteria.namePattern = this.globToRegExp(nextArg, false);
+            i++;
+          }
+          break;
+
+        case '-iname':
+          if (nextArg) {
+            criteria.namePattern = this.globToRegExp(nextArg, true);
+            i++;
+          }
+          break;
+
+        case '-path':
+          if (nextArg) {
+            criteria.pathPattern = this.globToRegExp(nextArg, false);
+            i++;
+          }
+          break;
+
+        case '-ipath':
+          if (nextArg) {
+            criteria.pathPattern = this.globToRegExp(nextArg, true);
+            i++;
+          }
+          break;
+
+        case '-type':
+          if (nextArg) {
+            if (nextArg === 'f') criteria.typeFilter = 'file';
+            else if (nextArg === 'd') criteria.typeFilter = 'folder';
+            i++;
+          }
+          break;
+
+        case '-maxdepth':
+          if (nextArg) {
+            const depth = parseInt(nextArg, 10);
+            if (!isNaN(depth) && depth >= 0) {
+              criteria.maxDepth = depth;
+            }
+            i++;
+          }
+          break;
+
+        case '-mindepth':
+          if (nextArg) {
+            const depth = parseInt(nextArg, 10);
+            if (!isNaN(depth) && depth >= 0) {
+              criteria.minDepth = depth;
+            }
+            i++;
+          }
+          break;
+      }
+    }
+
+    return criteria;
+  }
+
+  /**
+   * glob パターンを正規表現に変換
+   * 
+   * サポートするパターン:
+   *   * : 任意の文字列（0文字以上）
+   *   ? : 任意の1文字
+   *   [abc] : a, b, c のいずれか
+   *   [!abc] または [^abc] : a, b, c 以外
+   *   
+   * @param pattern - globパターン
+   * @param ignoreCase - 大文字小文字を区別しない場合true
    */
   private globToRegExp(pattern: string, ignoreCase = false): RegExp {
-    // globパターンを厳密にbasename一致するように変換
-    // 例: "readme" → /^readme$/i, "*.md" → /^.*\.md$/i
-    let i = 0;
     let res = '';
+    let i = 0;
+
     while (i < pattern.length) {
       const ch = pattern[i];
+
       if (ch === '*') {
         res += '.*';
+        i++;
       } else if (ch === '?') {
         res += '.';
+        i++;
       } else if (ch === '[') {
+        // 文字クラス [abc] または [!abc]
         let j = i + 1;
         let cls = '';
+
+        // 否定文字クラス
         if (j < pattern.length && (pattern[j] === '!' || pattern[j] === '^')) {
           cls += '^';
           j++;
         }
+
+        // 文字クラスの内容を収集
         while (j < pattern.length && pattern[j] !== ']') {
-          const c = pattern[j++];
-          if (c === '\\') cls += '\\\\';
-          else cls += c.replace(/([\\\]])/, '\\$1');
+          const c = pattern[j];
+          if (c === '\\' && j + 1 < pattern.length) {
+            // エスケープシーケンス
+            cls += '\\\\';
+            j++;
+            cls += pattern[j];
+            j++;
+          } else if (c === ']') {
+            // 閉じ括弧
+            break;
+          } else {
+            // 通常の文字（-と]はエスケープ）
+            if (c === '-' || c === '\\') {
+              cls += '\\' + c;
+            } else {
+              cls += c;
+            }
+            j++;
+          }
         }
+
         res += '[' + cls + ']';
-        while (i < pattern.length && pattern[i] !== ']') i++;
+        i = j + 1; // ']' の次に進む
+      } else if (ch === '\\' && i + 1 < pattern.length) {
+        // エスケープされた文字
+        const nextCh = pattern[i + 1];
+        if (/[.+^${}()|[\]\\]/.test(nextCh)) {
+          res += '\\' + nextCh;
+        } else {
+          res += nextCh;
+        }
+        i += 2;
       } else {
-        res += ch.replace(/[.*+?^${}()|[\\]\\]/g, m => '\\' + m);
+        // 通常の文字（正規表現メタ文字はエスケープ）
+        if (/[.+^${}()|[\]\\]/.test(ch)) {
+          res += '\\' + ch;
+        } else {
+          res += ch;
+        }
+        i++;
       }
-      i++;
     }
-    // basename一致のみ
+
+    // 完全一致パターンを生成
     return new RegExp('^' + res + '$', ignoreCase ? 'i' : '');
   }
 
+  /**
+   * 指定されたパスからファイルを検索
+   */
   private async findFiles(
     startPath: string,
-    namePattern: RegExp | null,
-    pathPattern: RegExp | null,
-    typeFilter: 'file' | 'folder' | null,
-    maxDepth: number,
-    minDepth: number
+    criteria: SearchCriteria
   ): Promise<string[]> {
     const relativePath = this.getRelativePathFromProject(startPath);
     const results: string[] = [];
-
     const normalizedStart = startPath.endsWith('/') ? startPath.slice(0, -1) : startPath;
 
-    // startPath 自身をチェック
+    // 開始パス自体をチェック（depth 0）
     const startFile = await this.cachedGetFile(relativePath);
     if (startFile) {
-      const depth = 0;
-      if (depth >= minDepth && depth <= maxDepth) {
-        const baseName = startFile.path.split('/').pop() || '';
-        const nameOk = namePattern ? namePattern.test(baseName) : true;
-        const pathOk = pathPattern ? pathPattern.test(normalizedStart) : true;
-        if (nameOk && pathOk && (!typeFilter || startFile.type === typeFilter)) {
-          results.push(normalizedStart);
-        }
+      if (this.matchesCriteria(startFile, normalizedStart, 0, criteria)) {
+        results.push(normalizedStart);
       }
     }
 
-    // prefix で子を取得
+    // 子要素を取得して検索
     const prefix = relativePath === '/' ? '' : `${relativePath}/`;
     const files: ProjectFile[] = await this.cachedGetFilesByPrefix(prefix);
 
     for (const file of files) {
-      let relativeToStart = file.path.startsWith(prefix) ? file.path.substring(prefix.length) : file.path;
+      // 相対パスを計算
+      let relativeToStart = file.path.startsWith(prefix) 
+        ? file.path.substring(prefix.length) 
+        : file.path;
       relativeToStart = relativeToStart.replace(/^\/+/, '');
 
-      const depth = relativeToStart === '' ? 0 : relativeToStart.split('/').filter(p => p).length;
-      if (depth < minDepth || depth > maxDepth) continue;
+      // 深度を計算
+      const depth = relativeToStart === '' 
+        ? 0 
+        : relativeToStart.split('/').filter(p => p).length;
 
-      const fullPath = relativeToStart === '' ? normalizedStart : `${normalizedStart}/${relativeToStart}`;
-      const baseName = file.path.split('/').pop() || '';
-      // namePatternがある場合、basenameが厳密一致する場合のみ
-      const nameOk = namePattern ? namePattern.test(baseName) : true;
-      const pathOk = pathPattern ? pathPattern.test(fullPath) : true;
-      if (nameOk && pathOk && (!typeFilter || file.type === typeFilter)) {
+      // 深度チェック
+      if (depth < criteria.minDepth || depth > criteria.maxDepth) {
+        continue;
+      }
+
+      // フルパスを構築
+      const fullPath = relativeToStart === '' 
+        ? normalizedStart 
+        : `${normalizedStart}/${relativeToStart}`;
+
+      // 条件に一致するかチェック
+      if (this.matchesCriteria(file, fullPath, depth, criteria)) {
         results.push(fullPath);
       }
     }
 
     return results;
   }
+
+  /**
+   * ファイルが検索条件に一致するかチェック
+   */
+  private matchesCriteria(
+    file: ProjectFile,
+    fullPath: string,
+    depth: number,
+    criteria: SearchCriteria
+  ): boolean {
+    // basename を取得
+    const baseName = file.path.split('/').pop() || '';
+
+    // -name / -iname チェック
+    if (criteria.namePattern) {
+      if (!criteria.namePattern.test(baseName)) {
+        return false;
+      }
+    }
+
+    // -path / -ipath チェック
+    if (criteria.pathPattern) {
+      if (!criteria.pathPattern.test(fullPath)) {
+        return false;
+      }
+    }
+
+    // -type チェック
+    if (criteria.typeFilter) {
+      if (file.type !== criteria.typeFilter) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+}
+
+/**
+ * 検索条件の型定義
+ */
+interface SearchCriteria {
+  namePattern: RegExp | null;
+  pathPattern: RegExp | null;
+  typeFilter: 'file' | 'folder' | null;
+  maxDepth: number;
+  minDepth: number;
 }
