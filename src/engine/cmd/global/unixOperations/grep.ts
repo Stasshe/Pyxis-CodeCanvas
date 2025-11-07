@@ -1,4 +1,5 @@
 import { UnixCommandBase } from './base';
+
 import type { ProjectFile } from '@/types';
 // use cached helpers from UnixCommandBase instead of direct fileRepository access
 
@@ -177,7 +178,7 @@ export class GrepCommand extends UnixCommandBase {
   ): Promise<string[]> {
     const relativePath = this.getRelativePathFromProject(dirPath);
     const prefix = relativePath === '/' ? '' : `${relativePath}/`;
-  const files: ProjectFile[] = await this.cachedGetFilesByPrefix(prefix);
+    const files: ProjectFile[] = await this.cachedGetFilesByPrefix(prefix);
     const results: string[] = [];
 
     for (const file of files) {

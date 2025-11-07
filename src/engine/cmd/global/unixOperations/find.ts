@@ -1,4 +1,5 @@
 import { UnixCommandBase } from './base';
+
 import type { ProjectFile } from '@/types';
 
 /**
@@ -126,7 +127,8 @@ export class FindCommand extends UnixCommandBase {
 
       if (this.matchesFilter(file, namePattern, typeFilter)) {
         const normalizedStart = startPath.endsWith('/') ? startPath.slice(0, -1) : startPath;
-        const fullPath = relativeToStart === '' ? normalizedStart : `${normalizedStart}/${relativeToStart}`;
+        const fullPath =
+          relativeToStart === '' ? normalizedStart : `${normalizedStart}/${relativeToStart}`;
         results.push(fullPath);
       }
     }

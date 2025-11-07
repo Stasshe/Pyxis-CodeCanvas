@@ -86,7 +86,11 @@ export abstract class UnixCommandBase {
 
       if (key.startsWith('file:')) {
         const filePath = key.slice('file:'.length);
-        if (filePath === prefix || filePath.startsWith(normalized) || normalized.startsWith(filePath)) {
+        if (
+          filePath === prefix ||
+          filePath.startsWith(normalized) ||
+          normalized.startsWith(filePath)
+        ) {
           this.cache.delete(key);
         }
       }
@@ -172,8 +176,8 @@ export abstract class UnixCommandBase {
 
     // dirPath配下のファイル/フォルダを取得（プレフィックス検索で絞る）
     const dirRelative = this.getRelativePathFromProject(dirPath);
-  const prefix = dirRelative === '/' ? '' : `${dirRelative}/`;
-  const files = await this.cachedGetFilesByPrefix(prefix);
+    const prefix = dirRelative === '/' ? '' : `${dirRelative}/`;
+    const files = await this.cachedGetFilesByPrefix(prefix);
 
     const childrenInDir = files.filter((f: ProjectFile) => {
       if (dirRelative === '/') {
@@ -267,8 +271,8 @@ export abstract class UnixCommandBase {
     try {
       // currentPath直下のファイル/フォルダを取得（プレフィックス検索で絞る）
       const currentRelative = currentPath === '' ? '/' : `/${currentPath}`;
-  const prefix = currentRelative === '/' ? '' : `${currentRelative}/`;
-  const files: ProjectFile[] = await this.cachedGetFilesByPrefix(prefix);
+      const prefix = currentRelative === '/' ? '' : `${currentRelative}/`;
+      const files: ProjectFile[] = await this.cachedGetFilesByPrefix(prefix);
       const childrenInDir = files.filter((f: ProjectFile) => {
         if (currentRelative === '/') {
           // ルート直下
@@ -321,7 +325,7 @@ export abstract class UnixCommandBase {
    * IndexedDBからファイルを取得
    */
   protected async getFileFromDB(relativePath: string): Promise<ProjectFile | undefined> {
-  const file = await this.cachedGetFile(relativePath);
+    const file = await this.cachedGetFile(relativePath);
     return file || undefined;
   }
 
@@ -352,9 +356,11 @@ export abstract class UnixCommandBase {
 
     // ファイルが見つからない場合、子ファイルが存在するかチェック
     // （ディレクトリ自体がDBに登録されていない場合でも、子ファイルがあれば存在する）
-  const parentPath = relativePath.endsWith('/') ? relativePath : relativePath + '/';
-  const files = await this.cachedGetFilesByPrefix(parentPath);
-  const hasChildren = files.some((f: ProjectFile) => f.path.startsWith(parentPath) && f.path !== relativePath);
+    const parentPath = relativePath.endsWith('/') ? relativePath : relativePath + '/';
+    const files = await this.cachedGetFilesByPrefix(parentPath);
+    const hasChildren = files.some(
+      (f: ProjectFile) => f.path.startsWith(parentPath) && f.path !== relativePath
+    );
 
     return hasChildren;
   }
@@ -379,9 +385,11 @@ export abstract class UnixCommandBase {
 
     // ファイルが見つからない場合、子ファイルが存在するかチェック
     // （ディレクトリ自体がDBに登録されていない場合でも、子ファイルがあればディレクトリ）
-  const parentPath = relativePath.endsWith('/') ? relativePath : relativePath + '/';
-  const files = await this.cachedGetFilesByPrefix(parentPath);
-    const hasChildren = files.some((f: ProjectFile) => f.path.startsWith(parentPath) && f.path !== relativePath);
+    const parentPath = relativePath.endsWith('/') ? relativePath : relativePath + '/';
+    const files = await this.cachedGetFilesByPrefix(parentPath);
+    const hasChildren = files.some(
+      (f: ProjectFile) => f.path.startsWith(parentPath) && f.path !== relativePath
+    );
 
     return hasChildren;
   }

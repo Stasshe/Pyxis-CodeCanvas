@@ -1,5 +1,6 @@
-import { PassThrough, Readable, Writable } from 'stream';
 import EventEmitter from 'events';
+import { PassThrough, Readable, Writable } from 'stream';
+
 import expandBraces from './braceExpand';
 
 /**
@@ -101,7 +102,9 @@ export class Process extends EventEmitter {
         this._stdout.write(String(chunk));
       }
     } catch (e) {
-      try { this._stdout.write(String(chunk)); } catch {}
+      try {
+        this._stdout.write(String(chunk));
+      } catch {}
     }
   }
 
@@ -121,7 +124,9 @@ export class Process extends EventEmitter {
         this._stderr.write(String(chunk));
       }
     } catch (e) {
-      try { this._stderr.write(String(chunk)); } catch {}
+      try {
+        this._stderr.write(String(chunk));
+      } catch {}
     }
   }
 
@@ -263,7 +268,14 @@ export class StreamShell {
 
   // Parse a single segment for tokens and redirections
   private parseSegment(raw: string): Segment {
-    const seg: Segment = { raw, tokens: [], stdinFile: null, stdoutFile: null, append: false, background: false };
+    const seg: Segment = {
+      raw,
+      tokens: [],
+      stdinFile: null,
+      stdoutFile: null,
+      append: false,
+      background: false,
+    };
     // Handle background symbol & at end
     let s = raw.trim();
     if (s.endsWith('&')) {
@@ -322,14 +334,14 @@ export class StreamShell {
     // parser now provides tokens as objects with optional cmdSub and quote.
     if (seg.tokens && seg.tokens.length > 0) {
       // debug: inspect incoming token shapes
-  const withCmdSub: TokenObj[] = [];
-  for (const tk of seg.tokens) {
+      const withCmdSub: TokenObj[] = [];
+      for (const tk of seg.tokens) {
         // tk may be a plain string or a TokenObj
         if (typeof tk !== 'string' && tk.cmdSub) {
           try {
             const subRes = await this.run(tk.cmdSub);
             const rawOut = String(subRes.stdout || '');
-            
+
             // normalize command-substitution output: remove trailing newline(s)
             // and collapse internal newlines to spaces so quoted substitutions
             // remain a single word. This approximates POSIX behavior for
@@ -376,7 +388,9 @@ export class StreamShell {
         return s.split(/\s+/).filter(Boolean);
       }
       // split on any IFS char, preserve empty fields
-      const chars = Array.from(new Set(ifs.split(''))).map(c => escapeForCharClass(c)).join('');
+      const chars = Array.from(new Set(ifs.split('')))
+        .map(c => escapeForCharClass(c))
+        .join('');
       const re = new RegExp('[' + chars + ']');
       return s.split(re).filter(x => x !== undefined);
     };
@@ -399,38 +413,38 @@ export class StreamShell {
           const files = await this.fileRepository.getProjectFiles(this.projectId);
           const names = files.map((f: any) => (f.path || '').replace(/^\//, ''));
           // convert simple glob pattern to regex (supports *, ?, [..])
-              // convert simple glob pattern to regex (supports *, ?, [..]) safely
-              const parts: string[] = [];
-              for (let i = 0; i < pattern.length; i++) {
-                const ch = pattern[i];
-                if (ch === '*') {
-                  parts.push('[^/]*');
-                  continue;
-                }
-                if (ch === '?') {
-                  parts.push('[^/]');
-                  continue;
-                }
-                if (ch === '[') {
-                  // consume until matching ]
-                  let j = i + 1;
-                  let cls = '';
-                  while (j < pattern.length && pattern[j] !== ']') {
-                    const c = pattern[j++];
-                    // escape special inside class
-                    if (c === '\\' || c === ']' || c === '-') cls += '\\' + c;
-                    else cls += c;
-                  }
-                  // move i to closing bracket or end
-                  i = Math.min(j, pattern.length - 1);
-                  parts.push('[' + cls + ']');
-                  continue;
-                }
-                // escape regexp meta
-                parts.push(ch.replace(/[\\.\+\^\$\{\}\(\)\|]/g, m => '\\' + m));
+          // convert simple glob pattern to regex (supports *, ?, [..]) safely
+          const parts: string[] = [];
+          for (let i = 0; i < pattern.length; i++) {
+            const ch = pattern[i];
+            if (ch === '*') {
+              parts.push('[^/]*');
+              continue;
+            }
+            if (ch === '?') {
+              parts.push('[^/]');
+              continue;
+            }
+            if (ch === '[') {
+              // consume until matching ]
+              let j = i + 1;
+              let cls = '';
+              while (j < pattern.length && pattern[j] !== ']') {
+                const c = pattern[j++];
+                // escape special inside class
+                if (c === '\\' || c === ']' || c === '-') cls += '\\' + c;
+                else cls += c;
               }
-              const reStr = '^' + parts.join('') + '$';
-              const re = new RegExp(reStr);
+              // move i to closing bracket or end
+              i = Math.min(j, pattern.length - 1);
+              parts.push('[' + cls + ']');
+              continue;
+            }
+            // escape regexp meta
+            parts.push(ch.replace(/[\\.\+\^\$\{\}\(\)\|]/g, m => '\\' + m));
+          }
+          const reStr = '^' + parts.join('') + '$';
+          const re = new RegExp(reStr);
           const matched = names.filter((n: string) => re.test(n)).sort();
           if (matched.length > 0) return matched;
         } catch (e) {}
@@ -473,7 +487,6 @@ export class StreamShell {
         }
       }
     }
-    
 
     // Replace seg.tokens with final words (plain strings) for execution
     (seg as any).tokens = finalWords;
@@ -501,13 +514,13 @@ export class StreamShell {
       })();
     }
 
-  // Launch handler async
-  (async () => {
-  // yield to next tick so caller (StreamShell.run) can attach stdout/stderr
-  // listeners to this proc. Prevents races where a fast builtin writes
-  // and ends before listeners are attached. Use setTimeout(0) for broad
-  // environment compatibility.
-  await new Promise(r => setTimeout(r, 0));
+    // Launch handler async
+    (async () => {
+      // yield to next tick so caller (StreamShell.run) can attach stdout/stderr
+      // listeners to this proc. Prevents races where a fast builtin writes
+      // and ends before listeners are attached. Use setTimeout(0) for broad
+      // environment compatibility.
+      await new Promise(r => setTimeout(r, 0));
       if (!seg.tokens || seg.tokens.length === 0) {
         proc.endStdout();
         proc.endStderr();
@@ -590,7 +603,10 @@ export class StreamShell {
               if (m && m[2]) {
                 let origPath = m[2];
                 // strip surrounding quotes if any
-                if ((origPath.startsWith('"') && origPath.endsWith('"')) || (origPath.startsWith("'") && origPath.endsWith("'"))) {
+                if (
+                  (origPath.startsWith('"') && origPath.endsWith('"')) ||
+                  (origPath.startsWith("'") && origPath.endsWith("'"))
+                ) {
                   origPath = origPath.slice(1, -1);
                 }
                 content = await unix.cat(origPath).catch(() => null);
@@ -630,8 +646,12 @@ export class StreamShell {
             // otherwise the thrown object may be printed as JSON.
             if (e && (e as any).__silent) {
               const code = typeof (e as any).code === 'number' ? (e as any).code : 1;
-              try { proc.endStdout(); } catch {}
-              try { proc.endStderr(); } catch {}
+              try {
+                proc.endStdout();
+              } catch {}
+              try {
+                proc.endStderr();
+              } catch {}
               proc.exit(code);
               return;
             }
@@ -644,7 +664,11 @@ export class StreamShell {
         }
 
         // Extension/registered command
-        if (this.commandRegistry && this.commandRegistry.hasCommand && this.commandRegistry.hasCommand(cmd)) {
+        if (
+          this.commandRegistry &&
+          this.commandRegistry.hasCommand &&
+          this.commandRegistry.hasCommand(cmd)
+        ) {
           try {
             const cwd = await unix.pwd();
             const res: any = await this.commandRegistry.executeCommand(cmd, args, {
@@ -675,7 +699,7 @@ export class StreamShell {
           // collect stdin content (if any) before invoking handler; the stdin stream
           // may already be piped from a previous process by the time this runs
           // Wait for run() to wire up pipes before attempting to read any stdin buffer
-          await new Promise<void>((resolve) => {
+          await new Promise<void>(resolve => {
             let resolved = false;
             const onReady = () => {
               if (resolved) return;
@@ -692,11 +716,13 @@ export class StreamShell {
           });
 
           const readStdin = async (): Promise<string | null> => {
-            return await new Promise((resolve) => {
+            return await new Promise(resolve => {
               let buf = '';
               const s = proc.stdinStream as any;
               if (!s || typeof s.on !== 'function') return resolve(null);
-              s.on('data', (c: any) => { buf += String(c); });
+              s.on('data', (c: any) => {
+                buf += String(c);
+              });
               s.on('end', () => resolve(buf));
               s.on('close', () => resolve(buf));
               // small delay to allow piped producer to write
@@ -707,18 +733,29 @@ export class StreamShell {
             });
           };
           const stdinContent = await readStdin();
-          const res = await handleUnixCommand(cmd, args, this.projectName, this.projectId, async (out: string) => {
-            // also stream partial output immediately where possible
-            try {
-              const s = normalizeForWrite(out);
-              // write to both stdout and stderr to ensure error-like messages
-              // that are streamed by handlers (e.g. "Command not found") are
-              // visible on stderr as tests expect. Normal output will also
-              // appear on stdout as before.
-              try { proc.writeStdout(s); } catch (e) {}
-              try { proc.writeStderr(s); } catch (e) {}
-            } catch (e) {}
-          }, stdinContent);
+          const res = await handleUnixCommand(
+            cmd,
+            args,
+            this.projectName,
+            this.projectId,
+            async (out: string) => {
+              // also stream partial output immediately where possible
+              try {
+                const s = normalizeForWrite(out);
+                // write to both stdout and stderr to ensure error-like messages
+                // that are streamed by handlers (e.g. "Command not found") are
+                // visible on stderr as tests expect. Normal output will also
+                // appear on stdout as before.
+                try {
+                  proc.writeStdout(s);
+                } catch (e) {}
+                try {
+                  proc.writeStderr(s);
+                } catch (e) {}
+              } catch (e) {}
+            },
+            stdinContent
+          );
           // ensure any returned output is written; on non-zero exit treat as stderr
           if (res && res.output) {
             try {
@@ -738,28 +775,32 @@ export class StreamShell {
           proc.exit(127);
           return;
         }
-        } catch (e: any) {
-            // Support silent failure marker objects thrown by builtins (e.g. { __silent: true, code: 1 })
-            // If present, do not print the object to stderr — just exit with provided code.
-            if (e && (e as any).__silent) {
-              const code = typeof (e as any).code === 'number' ? (e as any).code : 1;
-              try { proc.endStdout(); } catch {}
-              try { proc.endStderr(); } catch {}
-              proc.exit(code);
-              return;
-            }
-            proc.writeStderr(normalizeForWrite(e && e.message ? e.message : e));
+      } catch (e: any) {
+        // Support silent failure marker objects thrown by builtins (e.g. { __silent: true, code: 1 })
+        // If present, do not print the object to stderr — just exit with provided code.
+        if (e && (e as any).__silent) {
+          const code = typeof (e as any).code === 'number' ? (e as any).code : 1;
+          try {
             proc.endStdout();
+          } catch {}
+          try {
             proc.endStderr();
-            proc.exit(1);
-            return;
-          }
+          } catch {}
+          proc.exit(code);
+          return;
+        }
+        proc.writeStderr(normalizeForWrite(e && e.message ? e.message : e));
+        proc.endStdout();
+        proc.endStderr();
+        proc.exit(1);
+        return;
+      }
     })();
 
-  // Defensive watchdog: if a handler never calls proc.exit(), avoid hanging forever.
-  // Timeout can be configured via process.env.SHELL_PROCESS_TIMEOUT_MS (milliseconds).
-  // Use a shorter default to fail fast and avoid large log bursts in constrained environments.
-  const defaultTimeout = 5000; // 5s
+    // Defensive watchdog: if a handler never calls proc.exit(), avoid hanging forever.
+    // Timeout can be configured via process.env.SHELL_PROCESS_TIMEOUT_MS (milliseconds).
+    // Use a shorter default to fail fast and avoid large log bursts in constrained environments.
+    const defaultTimeout = 5000; // 5s
     const toMs = Number(process.env.SHELL_PROCESS_TIMEOUT_MS || defaultTimeout) || defaultTimeout;
     let finished = false;
     proc.on('exit', () => {
@@ -941,7 +982,7 @@ export class StreamShell {
         // allow only digits, spaces and arithmetic operators
         if (!/^[0-9+\-*/()%\s]+$/.test(safe)) return '0';
         try {
-          // eslint-disable-next-line no-new-func
+           
           const val = Function(`return (${safe})`)();
           return String(Number(val));
         } catch (e) {
@@ -957,7 +998,10 @@ export class StreamShell {
     // Previously this function did not evaluate $((...)); that caused some
     // scripts to leave arithmetic expressions unexpanded. We now evaluate
     // arithmetic here using the localVars context.
-    const evalCommandSubstitutions = async (s: string, localVars: Record<string, string>): Promise<string> => {
+    const evalCommandSubstitutions = async (
+      s: string,
+      localVars: Record<string, string>
+    ): Promise<string> => {
       // handle backticks first (non-nested simple support)
       let out = s;
       // backticks: `...` (non nested)
@@ -1014,8 +1058,6 @@ export class StreamShell {
       return out;
     };
 
-    
-
     const interpolate = (line: string, localVars: Record<string, string>) => {
       // Supports $0 (script name), $1..$9, $@ (all args), and local vars $VAR or ${VAR}
       let out = line;
@@ -1046,7 +1088,9 @@ export class StreamShell {
             res += '$@';
           } else if (inD) {
             // join args and escape double quotes
-            const joined = (args && args.length > 1 ? args.slice(1) : []).map(a => String(a).replace(/"/g, '\\"')).join(' ');
+            const joined = (args && args.length > 1 ? args.slice(1) : [])
+              .map(a => String(a).replace(/"/g, '\\"'))
+              .join(' ');
             res += joined;
           } else {
             // unquoted: expand to individually single-quoted args
@@ -1135,11 +1179,18 @@ export class StreamShell {
       localVars: Record<string, string>
     ): Promise<'ok' | 'break' | 'continue' | { exit: number }> => {
       for (let i = start; i < end; i++) {
-        let raw = lines[i] ?? '';
+        const raw = lines[i] ?? '';
         const trimmed = raw.trim();
         if (!trimmed || trimmed.startsWith('#')) continue;
         // Skip structural tokens that may appear as separate statements after splitting
-        if (trimmed === 'then' || trimmed === 'fi' || trimmed === 'do' || trimmed === 'done' || trimmed === 'else' || trimmed.startsWith('elif ')) {
+        if (
+          trimmed === 'then' ||
+          trimmed === 'fi' ||
+          trimmed === 'do' ||
+          trimmed === 'done' ||
+          trimmed === 'else' ||
+          trimmed.startsWith('elif ')
+        ) {
           continue;
         }
 
@@ -1182,7 +1233,7 @@ export class StreamShell {
           let fiIdx = -1;
           const elifs: number[] = [];
           let elseIdx = -1;
-          for (let j = (thenIdx === -1 ? i + 1 : thenIdx + 1); j < lines.length; j++) {
+          for (let j = thenIdx === -1 ? i + 1 : thenIdx + 1; j < lines.length; j++) {
             const t = (lines[j] || '').trim();
             if (/^if\b/.test(t)) {
               depth++;
@@ -1212,8 +1263,8 @@ export class StreamShell {
           if (condEval.stderr) proc.writeStderr(condEval.stderr);
           if (condEval.code === 0) {
             // then block starts after thenIdx
-            const thenStart = (thenIdx === -1 ? i + 1 : thenIdx + 1);
-            const thenEnd = (elifs.length > 0 ? elifs[0] : (elseIdx !== -1 ? elseIdx : fiIdx));
+            const thenStart = thenIdx === -1 ? i + 1 : thenIdx + 1;
+            const thenEnd = elifs.length > 0 ? elifs[0] : elseIdx !== -1 ? elseIdx : fiIdx;
             const r = await runRange(thenStart, thenEnd, localVars);
             if (r !== 'ok') return r;
           } else {
@@ -1238,7 +1289,8 @@ export class StreamShell {
               if (eRes.stderr) proc.writeStderr(eRes.stderr);
               if (eRes.code === 0) {
                 const eThenStart = eIdx + 1;
-                const eThenEnd = (k + 1 < elifs.length ? elifs[k + 1] : (elseIdx !== -1 ? elseIdx : fiIdx));
+                const eThenEnd =
+                  k + 1 < elifs.length ? elifs[k + 1] : elseIdx !== -1 ? elseIdx : fiIdx;
                 const r = await runRange(eThenStart, eThenEnd, localVars);
                 if (r !== 'ok') return r;
                 matched = true;
@@ -1371,7 +1423,7 @@ export class StreamShell {
         if (trimmed === 'continue') return 'continue';
 
         // regular command or assignment: interpolate and execute
-  let execLine = interpolate(trimmed, localVars);
+        let execLine = interpolate(trimmed, localVars);
 
         // handle `set ...` as a noop for now (common in scripts)
         if (execLine.startsWith('set ')) {
@@ -1386,7 +1438,10 @@ export class StreamShell {
           let rhs = assignMatch[2] ?? '';
           // trim surrounding quotes if present
           rhs = rhs.trim();
-          if ((rhs.startsWith("'") && rhs.endsWith("'")) || (rhs.startsWith('"') && rhs.endsWith('"'))) {
+          if (
+            (rhs.startsWith("'") && rhs.endsWith("'")) ||
+            (rhs.startsWith('"') && rhs.endsWith('"'))
+          ) {
             rhs = rhs.slice(1, -1);
           }
           // handle arithmetic expansion $((...)) before command-substitution
@@ -1421,7 +1476,9 @@ export class StreamShell {
     // If an exit object was returned from the script body, terminate the
     // script process with the provided code immediately.
     if (typeof result === 'object' && result && 'exit' in result) {
-      try { proc.exit(result.exit); } catch (e) {}
+      try {
+        proc.exit(result.exit);
+      } catch (e) {}
       return;
     }
   }
@@ -1483,13 +1540,19 @@ export class StreamShell {
       const job = async () => {
         try {
           const files = await this.fileRepository.getProjectFiles(this.projectId);
-          const existing = files.find((f: any) => f.path === key || f.path === key.replace(/^\//, ''));
+          const existing = files.find(
+            (f: any) => f.path === key || f.path === key.replace(/^\//, '')
+          );
           if (!existing) {
             await this.fileRepository.createFile(this.projectId, key, chunk, 'file');
             pathState[key] = { created: true };
           } else {
             const newContent = existing.content + chunk;
-            await this.fileRepository.saveFile({ ...existing, content: newContent, updatedAt: new Date() });
+            await this.fileRepository.saveFile({
+              ...existing,
+              content: newContent,
+              updatedAt: new Date(),
+            });
             pathState[key] = { created: true };
           }
         } catch (e) {
@@ -1573,7 +1636,9 @@ export class StreamShell {
 
       // notify pipes-ready
       for (const p of procs) {
-        try { p.emit('pipes-ready'); } catch (e) {}
+        try {
+          p.emit('pipes-ready');
+        } catch (e) {}
       }
 
       // watch the group's last proc outputs so we accumulate stdout/stderr
@@ -1585,7 +1650,8 @@ export class StreamShell {
       if (gi === groups.length - 1 && lastSegOfGroup && !lastSegOfGroup.background) {
         this.foregroundProc = lastProc;
         this.foregroundProc.on('exit', () => {
-          if (this.foregroundProc && this.foregroundProc?.pid === lastProc.pid) this.foregroundProc = null;
+          if (this.foregroundProc && this.foregroundProc?.pid === lastProc.pid)
+            this.foregroundProc = null;
         });
       } else if (gi === groups.length - 1) {
         this.foregroundProc = null;
@@ -1609,15 +1675,23 @@ export class StreamShell {
       try {
         // Use console.error so it's visible in test output even when stdout is captured
         // stringify to avoid binary chunks causing display issues
-        // eslint-disable-next-line no-console
+         
         console.error('StreamShell: finalOut:', JSON.stringify(String(finalOut)));
-        // eslint-disable-next-line no-console
+         
         console.error('StreamShell: finalErr:', JSON.stringify(String(finalErr)));
       } catch (e) {}
     }
 
     // handle stdout/stderr/fd redirection to files (support &>, 2>&1, 1>&2, N>file)
-    if (overallLastSeg && this.fileRepository && ((overallLastSeg as any).fdFiles || overallLastSeg.stdoutFile || overallLastSeg.stderrFile || overallLastSeg.stderrToStdout || overallLastSeg.stdoutToStderr)) {
+    if (
+      overallLastSeg &&
+      this.fileRepository &&
+      ((overallLastSeg as any).fdFiles ||
+        overallLastSeg.stdoutFile ||
+        overallLastSeg.stderrFile ||
+        overallLastSeg.stderrToStdout ||
+        overallLastSeg.stdoutToStderr)
+    ) {
       const writes: Record<string, string> = {};
       const appendMap: Record<string, boolean> = {};
       const add = (path: string | undefined | null, content: string, append: boolean = false) => {
@@ -1639,11 +1713,14 @@ export class StreamShell {
       }
 
       // backward-compatible stdout/stderr fields
-      if (overallLastSeg.stdoutFile) add(overallLastSeg.stdoutFile, finalOut, !!overallLastSeg.append);
-      else if (overallLastSeg.stdoutToStderr && overallLastSeg.stderrFile) add(overallLastSeg.stderrFile, finalOut, !!overallLastSeg.append);
+      if (overallLastSeg.stdoutFile)
+        add(overallLastSeg.stdoutFile, finalOut, !!overallLastSeg.append);
+      else if (overallLastSeg.stdoutToStderr && overallLastSeg.stderrFile)
+        add(overallLastSeg.stderrFile, finalOut, !!overallLastSeg.append);
 
       if (overallLastSeg.stderrFile) add(overallLastSeg.stderrFile, finalErr, false);
-      else if (overallLastSeg.stderrToStdout && overallLastSeg.stdoutFile) add(overallLastSeg.stdoutFile, finalErr, !!overallLastSeg.append);
+      else if (overallLastSeg.stderrToStdout && overallLastSeg.stdoutFile)
+        add(overallLastSeg.stdoutFile, finalErr, !!overallLastSeg.append);
 
       // Perform writes respecting per-path append flags
       for (const pth of Object.keys(writes)) {
@@ -1651,13 +1728,21 @@ export class StreamShell {
           let contentToWrite = writes[pth];
           if (appendMap[pth]) {
             const files = await this.fileRepository.getProjectFiles(this.projectId);
-            const existing = files.find((f: any) => f.path === pth || f.path === pth.replace(/^\//, ''));
+            const existing = files.find(
+              (f: any) => f.path === pth || f.path === pth.replace(/^\//, '')
+            );
             if (existing && existing.content) contentToWrite = existing.content + contentToWrite;
           }
           const files = await this.fileRepository.getProjectFiles(this.projectId);
-          const existing = files.find((f: any) => f.path === pth || f.path === pth.replace(/^\//, ''));
+          const existing = files.find(
+            (f: any) => f.path === pth || f.path === pth.replace(/^\//, '')
+          );
           if (existing) {
-            await this.fileRepository.saveFile({ ...existing, content: contentToWrite, updatedAt: new Date() });
+            await this.fileRepository.saveFile({
+              ...existing,
+              content: contentToWrite,
+              updatedAt: new Date(),
+            });
           } else {
             await this.fileRepository.createFile(this.projectId, pth, contentToWrite, 'file');
           }
@@ -1670,9 +1755,21 @@ export class StreamShell {
     // Determine returned stdout/stderr: if redirected to files, do not include in return
     const code = typeof lastExitCode === 'number' ? lastExitCode : 0;
     const lastFdFiles = overallLastSeg ? (overallLastSeg as any).fdFiles : undefined;
-    const returnedStdout = overallLastSeg && ((overallLastSeg.stdoutFile) || (overallLastSeg.stdoutToStderr) || (lastFdFiles && lastFdFiles[1])) ? '' : finalOut;
+    const returnedStdout =
+      overallLastSeg &&
+      (overallLastSeg.stdoutFile ||
+        overallLastSeg.stdoutToStderr ||
+        (lastFdFiles && lastFdFiles[1]))
+        ? ''
+        : finalOut;
     // Suppress returned stderr if it was redirected to a file or merged into stdout via 2>&1
-    const returnedStderr = overallLastSeg && ((overallLastSeg.stderrFile) || overallLastSeg.stderrToStdout || (lastFdFiles && lastFdFiles[2])) ? '' : finalErr;
+    const returnedStderr =
+      overallLastSeg &&
+      (overallLastSeg.stderrFile ||
+        overallLastSeg.stderrToStdout ||
+        (lastFdFiles && lastFdFiles[2]))
+        ? ''
+        : finalErr;
     return { stdout: returnedStdout, stderr: returnedStderr, code };
   }
 

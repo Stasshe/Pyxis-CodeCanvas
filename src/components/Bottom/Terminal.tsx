@@ -90,11 +90,15 @@ function ClientTerminal({
             const mod = await import('@/engine/extensions/commandRegistry');
             extRegistry = mod.commandRegistry;
           } catch {}
-          const shellInst = await terminalCommandRegistry.getShell(currentProject, currentProjectId, {
-            unix: unixCommandsRef.current,
-            commandRegistry: extRegistry,
-            fileRepository,
-          });
+          const shellInst = await terminalCommandRegistry.getShell(
+            currentProject,
+            currentProjectId,
+            {
+              unix: unixCommandsRef.current,
+              commandRegistry: extRegistry,
+              fileRepository,
+            }
+          );
           if (shellInst) shellRef.current = shellInst;
         } catch (e) {
           // non-fatal — Terminal will fallback to existing handlers
@@ -104,7 +108,10 @@ function ClientTerminal({
         // Do NOT fallback to direct construction here — enforce single responsibility:
         // Terminal must rely on the terminalCommandRegistry to provide instances.
         if (!mounted) return;
-        console.error('[Terminal] terminal registry load failed — builtin commands not initialized', e);
+        console.error(
+          '[Terminal] terminal registry load failed — builtin commands not initialized',
+          e
+        );
         pushMsgOutPanel(
           'Terminal: failed to load terminalCommandRegistry — builtin commands unavailable',
           'error',
@@ -503,7 +510,13 @@ function ClientTerminal({
               subArgs = args.slice(2);
             }
 
-            await handlePyxisCommand(cmdToCall, subArgs, currentProject, currentProjectId, captureWriteOutput);
+            await handlePyxisCommand(
+              cmdToCall,
+              subArgs,
+              currentProject,
+              currentProjectId,
+              captureWriteOutput
+            );
             break;
           }
 
@@ -582,7 +595,10 @@ function ClientTerminal({
             if (append) {
               // Use indexed single-file lookup for append
               try {
-                const existingFile = await fileRepository.getFileByPath(currentProjectId, relativePath);
+                const existingFile = await fileRepository.getFileByPath(
+                  currentProjectId,
+                  relativePath
+                );
                 if (existingFile && existingFile.content) {
                   content = existingFile.content + content;
                 }

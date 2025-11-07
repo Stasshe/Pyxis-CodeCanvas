@@ -153,7 +153,7 @@ export const useProject = () => {
       setCurrentProject(project);
       setProjectFiles(files);
       try {
-  const git = terminalCommandRegistry.getGitCommands(project.name, project.id);
+        const git = terminalCommandRegistry.getGitCommands(project.name, project.id);
         const currentBranch = await git.getCurrentBranch();
         if (currentBranch === '(no git)') {
           console.log('[Project] Git not initialized, initializing...');
@@ -185,7 +185,13 @@ export const useProject = () => {
       // Query single file directly instead of pulling all project files
       const existingFile = await fileRepository.getFileByPath(currentProject.id, path);
       if (existingFile) {
-        const updatedFile = { ...existingFile, content, isBufferArray: false, bufferContent: undefined, updatedAt: new Date() };
+        const updatedFile = {
+          ...existingFile,
+          content,
+          isBufferArray: false,
+          bufferContent: undefined,
+          updatedAt: new Date(),
+        };
         await fileRepository.saveFile(updatedFile);
         console.log('[Project] File updated (event system will update UI)');
       } else {
@@ -295,19 +301,19 @@ export const useProject = () => {
         if (existingFile) {
           const updatedFile = bufferContent
             ? {
-                ...existingFile,
-                content: '',
-                isBufferArray: true,
-                bufferContent,
-                updatedAt: new Date(),
-              }
+              ...existingFile,
+              content: '',
+              isBufferArray: true,
+              bufferContent,
+              updatedAt: new Date(),
+            }
             : {
-                ...existingFile,
-                content,
-                isBufferArray: false,
-                bufferContent: undefined,
-                updatedAt: new Date(),
-              };
+              ...existingFile,
+              content,
+              isBufferArray: false,
+              bufferContent: undefined,
+              updatedAt: new Date(),
+            };
           await fileRepository.saveFile(updatedFile);
         } else {
           await fileRepository.createFile(

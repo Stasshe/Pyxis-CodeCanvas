@@ -96,10 +96,7 @@ export class NpmInstall {
         if (deletes.length > 0) {
           for (const delPath of deletes) {
             const normalizedPath = delPath.replace(/\/+$/, '');
-            const fileToDelete = await fileRepository.getFileByPath(
-              this.projectId,
-              normalizedPath
-            );
+            const fileToDelete = await fileRepository.getFileByPath(this.projectId, normalizedPath);
             if (fileToDelete) {
               await fileRepository.deleteFile(fileToDelete.id);
             }
@@ -137,10 +134,7 @@ export class NpmInstall {
         await fileRepository.createFile(this.projectId, path, content || '', 'file');
       } else if (type === 'delete') {
         const normalizedPath = path.replace(/\/+$/, '');
-        const fileToDelete = await fileRepository.getFileByPath(
-          this.projectId,
-          normalizedPath
-        );
+        const fileToDelete = await fileRepository.getFileByPath(this.projectId, normalizedPath);
         if (fileToDelete) {
           await fileRepository.deleteFile(fileToDelete.id);
         }
@@ -515,12 +509,12 @@ export class NpmInstall {
       return;
     }
 
-  // ファイル一覧を1回だけ取得してスナップショットとして再利用（IndexedDB往復を削減）
-  // ただし全件取得は避け、node_modules 配下はプレフィックス、ルート設定は単一取得で済ませる
-  const nodeFiles = await fileRepository.getFilesByPrefix(this.projectId, '/node_modules/');
-  const packageFile = await fileRepository.getFileByPath(this.projectId, '/package.json');
-  const gitignoreFile = await fileRepository.getFileByPath(this.projectId, '/.gitignore');
-  const snapshotFiles = [packageFile, gitignoreFile, ...(nodeFiles || [])].filter(Boolean as any);
+    // ファイル一覧を1回だけ取得してスナップショットとして再利用（IndexedDB往復を削減）
+    // ただし全件取得は避け、node_modules 配下はプレフィックス、ルート設定は単一取得で済ませる
+    const nodeFiles = await fileRepository.getFilesByPrefix(this.projectId, '/node_modules/');
+    const packageFile = await fileRepository.getFileByPath(this.projectId, '/package.json');
+    const gitignoreFile = await fileRepository.getFileByPath(this.projectId, '/.gitignore');
+    const snapshotFiles = [packageFile, gitignoreFile, ...(nodeFiles || [])].filter(Boolean as any);
 
     // 常に /.gitignore を作成または更新して node_modules を含める
     try {

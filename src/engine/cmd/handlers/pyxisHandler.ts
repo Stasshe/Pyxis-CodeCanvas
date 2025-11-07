@@ -1,13 +1,12 @@
-import type { UnixCommands } from '@/engine/cmd/global/unix';
 import type { GitCommands } from '@/engine/cmd/global/git';
-import type { NpmCommands } from '@/engine/cmd/global/npm';
-import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
-import { gitFileSystem } from '@/engine/core/gitFileSystem';
-import { fileRepository } from '@/engine/core/fileRepository';
-import { exportPage } from '@/engine/export/exportPage';
-import { LOCALSTORAGE_KEY } from '@/context/config';
-import { clearAllTranslationCache, deleteTranslationCache } from '@/engine/i18n/storage-adapter';
 import { tree as treeOperation } from '@/engine/cmd/global/gitOperations/tree';
+import type { NpmCommands } from '@/engine/cmd/global/npm';
+import type { UnixCommands } from '@/engine/cmd/global/unix';
+import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
+import { fileRepository } from '@/engine/core/fileRepository';
+import { gitFileSystem } from '@/engine/core/gitFileSystem';
+import { exportPage } from '@/engine/export/exportPage';
+import { clearAllTranslationCache, deleteTranslationCache } from '@/engine/i18n/storage-adapter';
 import { storageService, STORES } from '@/engine/storage';
 
 export async function handlePyxisCommand(
@@ -626,7 +625,9 @@ export async function handlePyxisCommand(
 
               for (const entry of entries) {
                 const dataSize =
-                  typeof entry.data === 'string' ? entry.data.length : JSON.stringify(entry.data).length;
+                  typeof entry.data === 'string'
+                    ? entry.data.length
+                    : JSON.stringify(entry.data).length;
                 storeSize += dataSize;
 
                 if (entry.expiresAt && now > entry.expiresAt) {
@@ -654,7 +655,9 @@ export async function handlePyxisCommand(
             `\n📊 Total: ${totalEntries} entries, ${totalSizeKB} KB (${totalSizeMB} MB)`
           );
           if (expiredCount > 0) {
-            await writeOutput(`⚠️  ${expiredCount} expired entries (run 'storage-clean' to remove)`);
+            await writeOutput(
+              `⚠️  ${expiredCount} expired entries (run 'storage-clean' to remove)`
+            );
           }
         } catch (e) {
           await writeOutput(`storage-stats: エラー: ${(e as Error).message}`);

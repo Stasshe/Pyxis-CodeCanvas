@@ -28,7 +28,10 @@ export type Segment = {
 
 // Extract command-substitution segments and replace them with placeholders so
 // our tokenizer can safely treat them as words. Supports backticks and $(...).
-function extractCommandSubstitutions(line: string): { line: string; map: Record<string, { cmd: string; quote: 'single' | 'double' | null }> } {
+function extractCommandSubstitutions(line: string): {
+  line: string;
+  map: Record<string, { cmd: string; quote: 'single' | 'double' | null }>;
+} {
   const map: Record<string, { cmd: string; quote: 'single' | 'double' | null }> = {};
   let out = '';
   let i = 0;
@@ -56,10 +59,11 @@ function extractCommandSubstitutions(line: string): { line: string; map: Record<
       while (j < line.length && line[j] !== '`') {
         buf += line[j++];
       }
-        if (j >= line.length || line[j] !== '`') throw new ParseError('Unterminated backtick command substitution', i);
-        const key = `__CMD_SUB_${id++}__`;
-        // If we're inside double quotes, record that so the executor can avoid field-splitting
-        map[key] = { cmd: buf, quote: inDouble ? 'double' : null };
+      if (j >= line.length || line[j] !== '`')
+        throw new ParseError('Unterminated backtick command substitution', i);
+      const key = `__CMD_SUB_${id++}__`;
+      // If we're inside double quotes, record that so the executor can avoid field-splitting
+      map[key] = { cmd: buf, quote: inDouble ? 'double' : null };
       out += key;
       i = j + 1;
       continue;
@@ -182,32 +186,47 @@ function tokenizeLine(line: string): Array<string | { op: string }> {
     if (!inSingle && !inDouble) {
       // check multi-char operators first
       if (ch === '>' && line[i + 1] === '>') {
-        if (cur !== '') { tokens.push(cur); cur = ''; }
+        if (cur !== '') {
+          tokens.push(cur);
+          cur = '';
+        }
         tokens.push({ op: '>>' });
         i += 2;
         continue;
       }
       // logical operators
       if (ch === '&' && line[i + 1] === '&') {
-        if (cur !== '') { tokens.push(cur); cur = ''; }
+        if (cur !== '') {
+          tokens.push(cur);
+          cur = '';
+        }
         tokens.push({ op: '&&' });
         i += 2;
         continue;
       }
       if (ch === '|' && line[i + 1] === '|') {
-        if (cur !== '') { tokens.push(cur); cur = ''; }
+        if (cur !== '') {
+          tokens.push(cur);
+          cur = '';
+        }
         tokens.push({ op: '||' });
         i += 2;
         continue;
       }
       if (ch === '|' || ch === '<' || ch === '>' || ch === '&' || ch === ';') {
-        if (cur !== '') { tokens.push(cur); cur = ''; }
+        if (cur !== '') {
+          tokens.push(cur);
+          cur = '';
+        }
         tokens.push({ op: ch });
         i++;
         continue;
       }
       if (/\t|\s/.test(ch)) {
-        if (cur !== '') { tokens.push(cur); cur = ''; }
+        if (cur !== '') {
+          tokens.push(cur);
+          cur = '';
+        }
         i++;
         continue;
       }
@@ -219,20 +238,37 @@ function tokenizeLine(line: string): Array<string | { op: string }> {
   return tokens;
 }
 
-export function parseCommandLine(line: string, env: Record<string, string> = process.env as any): Segment[] {
+export function parseCommandLine(
+  line: string,
+  env: Record<string, string> = process.env as any
+): Segment[] {
   const extracted = extractCommandSubstitutions(line);
   const expanded = expandVariables(extracted.line, env);
   const toks = tokenizeLine(expanded);
 
   const segs: Segment[] = [];
-  let cur: Segment = { raw: '', tokens: [], stdinFile: null, stdoutFile: null, append: false, background: false };
+  let cur: Segment = {
+    raw: '',
+    tokens: [],
+    stdinFile: null,
+    stdoutFile: null,
+    append: false,
+    background: false,
+  };
 
   const pushCur = () => {
     if (cur.tokens.length > 0 || cur.stdinFile || cur.stdoutFile) {
       cur.raw = cur.tokens.map(t => t.text).join(' ');
       segs.push(cur);
     }
-    cur = { raw: '', tokens: [], stdinFile: null, stdoutFile: null, append: false, background: false };
+    cur = {
+      raw: '',
+      tokens: [],
+      stdinFile: null,
+      stdoutFile: null,
+      append: false,
+      background: false,
+    };
   };
 
   const makeTokenFromRaw = (raw: any): Token => {
@@ -271,14 +307,19 @@ export function parseCommandLine(line: string, env: Record<string, string> = pro
         let fd: number | null = null;
         if (cur.tokens.length > 0) {
           const last = cur.tokens[cur.tokens.length - 1];
-          if (last && typeof last.text === 'string' && last.quote === null && /^\d+$/.test(last.text)) {
+          if (
+            last &&
+            typeof last.text === 'string' &&
+            last.quote === null &&
+            /^\d+$/.test(last.text)
+          ) {
             fd = Number(last.text);
             cur.tokens.pop();
           }
         }
 
         // next token may be '&' indicating fd duplication (e.g. '2>&1')
-        let next = toks[++i];
+        const next = toks[++i];
         if (typeof next === 'object' && next.op === '&') {
           // consume following token as the target fd
           const target = toks[++i];

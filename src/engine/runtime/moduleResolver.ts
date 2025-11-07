@@ -194,15 +194,15 @@ export class ModuleResolver {
 
       // デバッグ: node_modulesにどんなファイルがあるか確認
       try {
-          const nodeModuleFiles = await fileRepository.getFilesByPrefix(
-            this.projectId,
-            `/node_modules/${packageName}`
-          );
-          runtimeInfo(`📁 Found ${nodeModuleFiles.length} files for ${packageName}`);
-          runtimeInfo(
-            'Files:',
-            nodeModuleFiles.map(f => `${f.path} (type: ${f.type})`)
-          );
+        const nodeModuleFiles = await fileRepository.getFilesByPrefix(
+          this.projectId,
+          `/node_modules/${packageName}`
+        );
+        runtimeInfo(`📁 Found ${nodeModuleFiles.length} files for ${packageName}`);
+        runtimeInfo(
+          'Files:',
+          nodeModuleFiles.map(f => `${f.path} (type: ${f.type})`)
+        );
       } catch (e) {
         runtimeError('Failed to list files:', e);
       }

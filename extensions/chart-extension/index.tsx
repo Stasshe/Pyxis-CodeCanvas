@@ -1,6 +1,7 @@
-import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
-import React, { useState, useEffect, useRef } from 'react';
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
+import React, { useState, useEffect, useRef } from 'react';
+
+import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
 
 // Chart.jsの全コンポーネントを登録
 Chart.register(...registerables);

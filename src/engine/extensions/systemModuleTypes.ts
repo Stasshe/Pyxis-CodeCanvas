@@ -8,12 +8,13 @@
  * strict type safety within the engine code.
  */
 
-import type { FileRepository } from '@/engine/core/fileRepository';
 import type { CommandRegistry } from './commandRegistry';
-import type { UnixCommands } from '@/engine/cmd/global/unix';
+
 import type { GitCommands } from '@/engine/cmd/global/git';
 import type { NpmCommands } from '@/engine/cmd/global/npm';
+import type { UnixCommands } from '@/engine/cmd/global/unix';
 import type { StreamShell } from '@/engine/cmd/shell/streamShell';
+import type { FileRepository } from '@/engine/core/fileRepository';
 
 /**
  * normalizeCjsEsmモジュールの型定義
@@ -75,4 +76,6 @@ export type SystemModuleType<T extends SystemModuleName> = SystemModuleMap[T];
 /**
  * getSystemModule のヘルパー型
  */
-export type GetSystemModule = <T extends SystemModuleName>(moduleName: T) => Promise<SystemModuleMap[T]>;
+export type GetSystemModule = <T extends SystemModuleName>(
+  moduleName: T
+) => Promise<SystemModuleMap[T]>;

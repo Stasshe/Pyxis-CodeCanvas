@@ -3,10 +3,10 @@
  * 拡張機能データをIndexedDBに保存するアダプター
  */
 
+import { dataUrlToBlob } from './binaryUtils';
 import type { InstalledExtension } from './types';
 
 import { storageService, STORES } from '@/engine/storage';
-import { dataUrlToBlob } from './binaryUtils';
 
 /**
  * インストール済み拡張機能をIndexedDBに保存

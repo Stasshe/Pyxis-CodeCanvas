@@ -35,8 +35,8 @@ export class RmCommand extends UnixCommandBase {
     const results: string[] = [];
     const errors: string[] = [];
 
-  // ファイル一覧を一度だけ取得（パフォーマンス最適化）
-  // ここでは個別パスでキャッシュを利用して検索する（全件取得はしない）
+    // ファイル一覧を一度だけ取得（パフォーマンス最適化）
+    // ここでは個別パスでキャッシュを利用して検索する（全件取得はしない）
 
     for (const arg of positional) {
       try {
@@ -47,7 +47,7 @@ export class RmCommand extends UnixCommandBase {
           }
           continue;
         }
-        
+
         // 各展開されたパスを個別に処理（エラーがあっても継続）
         for (const path of expanded) {
           try {
@@ -123,11 +123,11 @@ export class RmCommand extends UnixCommandBase {
 
     // エラーがあっても、成功した削除がある場合は出力
     const output: string[] = [];
-    
+
     if (verbose && results.length > 0) {
       output.push(results.join('\n'));
     }
-    
+
     // エラーメッセージは最後にまとめて出力
     if (errors.length > 0) {
       output.push(errors.join('\n'));
@@ -159,8 +159,8 @@ export class RmCommand extends UnixCommandBase {
       // 実装する場合は、ユーザー入力を受け取る仕組みが必要
     }
 
-  // 削除前にタイプを判定（verboseメッセージ用）
-  // path からファイル情報を再取得して type を確認する（ID での直接取得は内部 private のため）
+    // 削除前にタイプを判定（verboseメッセージ用）
+    // path からファイル情報を再取得して type を確認する（ID での直接取得は内部 private のため）
     const relativePath = this.getRelativePathFromProject(normalizedPath);
     const file = await this.cachedGetFile(relativePath);
     const isDir = file?.type === 'folder';

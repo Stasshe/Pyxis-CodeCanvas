@@ -558,7 +558,12 @@ export default function FileTree({
                       const relPathParts = relative.split('/').filter(Boolean);
                       const targetPath = '/' + relPathParts.join('/');
                       const targetAbsolutePath = `/projects/${currentProjectName}${targetPath}`;
-                      await importSingleFile(file, targetAbsolutePath, currentProjectName, currentProjectId);
+                      await importSingleFile(
+                        file,
+                        targetAbsolutePath,
+                        currentProjectName,
+                        currentProjectId
+                      );
                     }
                     if (onRefresh) setTimeout(onRefresh, 100);
                   };
@@ -569,9 +574,10 @@ export default function FileTree({
                 // actions for existing item
                 if (!menuItem) return;
 
-                  if (key === 'open') {
+                if (key === 'open') {
                   // バイナリファイルは binary、そうでなければ editor
-                  const kind = menuItem && (menuItem as FileItem).isBufferArray ? 'binary' : 'editor';
+                  const kind =
+                    menuItem && (menuItem as FileItem).isBufferArray ? 'binary' : 'editor';
                   openTab(menuItem, { kind });
                 } else if (key === 'openPreview') {
                   handlePreview(menuItem);
@@ -626,7 +632,12 @@ export default function FileTree({
                           '//',
                           '/'
                         );
-                      await importSingleFile(file, targetAbsolutePath, currentProjectName, currentProjectId);
+                      await importSingleFile(
+                        file,
+                        targetAbsolutePath,
+                        currentProjectName,
+                        currentProjectId
+                      );
                     }
                     if (onRefresh) setTimeout(onRefresh, 100);
                   };

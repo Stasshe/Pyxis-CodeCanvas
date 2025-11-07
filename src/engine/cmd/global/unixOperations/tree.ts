@@ -1,4 +1,5 @@
 import { UnixCommandBase } from './base';
+
 import type { ProjectFile } from '@/types';
 
 /**
@@ -66,9 +67,9 @@ export class TreeCommand extends UnixCommandBase {
     ): Promise<string> => {
       if (depth > maxDepth) return '';
 
-  const relativePath = this.getRelativePathFromProject(dirPath);
-  const dirPrefix = relativePath === '/' ? '' : `${relativePath}/`;
-  const files: ProjectFile[] = await this.cachedGetFilesByPrefix(dirPrefix);
+      const relativePath = this.getRelativePathFromProject(dirPath);
+      const dirPrefix = relativePath === '/' ? '' : `${relativePath}/`;
+      const files: ProjectFile[] = await this.cachedGetFilesByPrefix(dirPrefix);
 
       // ディレクトリ直下のファイル/フォルダを取得
       let entries = files.filter((f: ProjectFile) => {

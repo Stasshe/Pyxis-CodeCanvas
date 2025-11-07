@@ -179,8 +179,12 @@ export class MvCommand extends UnixCommandBase {
         this.deleteCacheFile(sourceRelative);
         this.deleteCacheFile(destRelative);
         // invalidate 親ディレクトリ prefixes
-        const srcParent = sourceRelative.endsWith('/') ? sourceRelative : sourceRelative.replace(/\/[^/]*$/, '');
-        const dstParent = destRelative.endsWith('/') ? destRelative : destRelative.replace(/\/[^/]*$/, '');
+        const srcParent = sourceRelative.endsWith('/')
+          ? sourceRelative
+          : sourceRelative.replace(/\/[^/]*$/, '');
+        const dstParent = destRelative.endsWith('/')
+          ? destRelative
+          : destRelative.replace(/\/[^/]*$/, '');
         this.invalidatePrefix(srcParent || '/');
         this.invalidatePrefix(dstParent || '/');
       } catch (e) {

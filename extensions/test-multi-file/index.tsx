@@ -4,10 +4,10 @@
  */
 
 import React, { useState } from 'react';
+
 import { helperFunction, HelperClass, helperConstant } from './helper';
 import utils from './utils';
 import { add, multiply } from './utils';
-
 import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
 
 /**

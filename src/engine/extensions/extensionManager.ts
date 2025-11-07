@@ -564,11 +564,13 @@ class ExtensionManager {
     // Helper used for strict initial stubs: if a consumer calls an API too
     // early, throw a useful error. We'll overwrite these stubs with real
     // implementations below.
-    const notInitialized = (fnName: string) => (..._args: any[]) => {
-      throw new Error(
-        `[Extension:${extensionId}] ${fnName} called before extension context was fully initialized`
-      );
-    };
+    const notInitialized =
+      (fnName: string) =>
+        (..._args: any[]) => {
+          throw new Error(
+            `[Extension:${extensionId}] ${fnName} called before extension context was fully initialized`
+          );
+        };
 
     // Create a fully-populated ExtensionContext literal so TypeScript verifies
     // all required properties at compile time. Use strict stubs for tabs and
@@ -585,7 +587,7 @@ class ExtensionManager {
       getSystemModule: async <T extends SystemModuleName>(
         moduleName: T
       ): Promise<SystemModuleMap[T]> => {
-      // システムモジュールへのアクセスを提供（型安全）
+        // システムモジュールへのアクセスを提供（型安全）
         switch (moduleName) {
           case 'fileRepository': {
             const { fileRepository } = await import('@/engine/core/fileRepository');

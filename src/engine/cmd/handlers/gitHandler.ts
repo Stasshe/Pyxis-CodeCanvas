@@ -50,7 +50,11 @@ export async function handleGitCommand(
       if (args[1]) {
         const url = args[1].trim();
         const targetDir = args[2]?.trim();
-        if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('git://')) {
+        if (
+          !url.startsWith('http://') &&
+          !url.startsWith('https://') &&
+          !url.startsWith('git://')
+        ) {
           await writeOutput(
             'git clone: invalid repository URL (must start with http://, https://, or git://)'
           );
@@ -75,7 +79,9 @@ export async function handleGitCommand(
           }
         }
       } else {
-        await writeOutput('git clone: missing repository URL\nUsage: git clone <repository-url> [directory]');
+        await writeOutput(
+          'git clone: missing repository URL\nUsage: git clone <repository-url> [directory]'
+        );
       }
       break;
 
@@ -100,7 +106,10 @@ export async function handleGitCommand(
     case 'commit': {
       const messageIndex = args.indexOf('-m');
       if (messageIndex !== -1 && args[messageIndex + 1]) {
-        const message = args.slice(messageIndex + 1).join(' ').replace(/['\"]/g, '');
+        const message = args
+          .slice(messageIndex + 1)
+          .join(' ')
+          .replace(/['\"]/g, '');
         const commitResult = await git.commit(message);
         await writeOutput(commitResult);
       } else {
@@ -228,7 +237,10 @@ export async function handleGitCommand(
         let message: string | undefined;
         const messageIndex = args.indexOf('-m');
         if (messageIndex !== -1 && args[messageIndex + 1]) {
-          message = args.slice(messageIndex + 1).join(' ').replace(/['\"]/g, '');
+          message = args
+            .slice(messageIndex + 1)
+            .join(' ')
+            .replace(/['\"]/g, '');
         }
         const mergeResult = await git.merge(branchName, { noFf, message });
         await writeOutput(mergeResult);

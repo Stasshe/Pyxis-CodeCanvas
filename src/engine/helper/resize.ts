@@ -55,7 +55,6 @@ export const useRightSidebarResize = (
     document.addEventListener('touchend', handleEnd);
   };
 };
-import { useCallback } from 'react';
 
 export const useLeftSidebarResize = (
   leftSidebarWidth: number,

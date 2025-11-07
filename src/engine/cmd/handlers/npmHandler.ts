@@ -11,7 +11,11 @@ export async function handleNPMCommand(
     return;
   }
 
-  const npm = terminalCommandRegistry.getNpmCommands(projectName, projectId, `/projects/${projectName}`);
+  const npm = terminalCommandRegistry.getNpmCommands(
+    projectName,
+    projectId,
+    `/projects/${projectName}`
+  );
   const npmCmd = args[0];
 
   switch (npmCmd) {

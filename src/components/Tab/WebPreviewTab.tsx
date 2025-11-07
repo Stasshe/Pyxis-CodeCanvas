@@ -49,7 +49,9 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({ filePath, currentProjectN
       const immediateChildren = childrenUnderPrefix.filter(f => f.parentPath === targetRel);
 
       const hasChildren = immediateChildren.length > 0;
-      const isFolderEntry = await fileRepository.getFileByPath(project.id, targetRel).catch(() => null);
+      const isFolderEntry = await fileRepository
+        .getFileByPath(project.id, targetRel)
+        .catch(() => null);
 
       if (hasChildren || (isFolderEntry && (isFolderEntry as any).type === 'folder')) {
         const files = immediateChildren.map(f => f.name);
@@ -82,9 +84,10 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({ filePath, currentProjectN
         try {
           const f = await fileRepository.getFileByPath(project.id, targetRel);
           if (!f) throw new Error(`ファイルが見つかりません: ${targetRel}`);
-          const content = (f as any).isBufferArray && (f as any).bufferContent
-            ? new TextDecoder('utf-8').decode((f as any).bufferContent as ArrayBuffer)
-            : (f as any).content || '';
+          const content =
+            (f as any).isBufferArray && (f as any).bufferContent
+              ? new TextDecoder('utf-8').decode((f as any).bufferContent as ArrayBuffer)
+              : (f as any).content || '';
           console.log('[DEBUG] ファイル内容を取得しました:', content);
           setFileContent(content);
         } catch (e) {

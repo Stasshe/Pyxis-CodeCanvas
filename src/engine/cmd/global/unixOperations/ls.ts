@@ -1,4 +1,5 @@
 import { UnixCommandBase } from './base';
+
 import type { ProjectFile } from '@/types';
 
 /**
@@ -89,8 +90,8 @@ export class LsCommand extends UnixCommandBase {
 
     // ディレクトリの場合
     const relativePath = this.getRelativePathFromProject(normalizedPath);
-  const prefix = relativePath === '/' ? '' : `${relativePath}/`;
-  const files: ProjectFile[] = await this.cachedGetFilesByPrefix(prefix);
+    const prefix = relativePath === '/' ? '' : `${relativePath}/`;
+    const files: ProjectFile[] = await this.cachedGetFilesByPrefix(prefix);
 
     // ディレクトリ直下のファイル/フォルダを取得
     let entries = files.filter((f: ProjectFile) => {
