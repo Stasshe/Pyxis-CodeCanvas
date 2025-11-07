@@ -1,4 +1,6 @@
 import { UnixCommandBase } from './base';
+import { fileRepository } from '@/engine/core/fileRepository';
+import type { ProjectFile } from '@/types';
 
 /**
  * find - ファイルを検索
@@ -99,11 +101,10 @@ export class FindCommand extends UnixCommandBase {
     minDepth: number
   ): Promise<string[]> {
     const relativePath = this.getRelativePathFromProject(startPath);
-    const files = await this.getAllFilesFromDB();
     const results: string[] = [];
 
     // startPath自体が条件に一致するかチェック
-    const startFile = files.find(f => f.path === relativePath);
+    const startFile = await fileRepository.getFileByPath(this.projectId, relativePath);
     if (startFile) {
       const depth = 0;
       if (depth >= minDepth && depth <= maxDepth) {
@@ -113,34 +114,20 @@ export class FindCommand extends UnixCommandBase {
       }
     }
 
-    // 子ファイルを検索
-    for (const file of files) {
-      if (relativePath === '/') {
-        // ルートからの検索
-        if (!file.path.startsWith('/')) continue;
-      } else {
-        // 特定ディレクトリ配下の検索
-        if (!file.path.startsWith(relativePath + '/')) continue;
-      }
+    // 子ファイルを検索（prefix で絞る）
+    const prefix = relativePath === '/' ? '' : `${relativePath}/`;
+    const files: ProjectFile[] = await fileRepository.getFilesByPrefix(this.projectId, prefix);
 
+    for (const file of files) {
       // 深度計算
-      const relativeToStart = file.path.replace(relativePath === '/' ? '' : relativePath + '/', '');
+      const relativeToStart = file.path.replace(prefix, '');
       const depth = relativeToStart.split('/').filter(p => p).length;
 
       if (depth < minDepth || depth > maxDepth) continue;
 
       if (this.matchesFilter(file, namePattern, typeFilter)) {
-        // file.path is stored as absolute-like path relative to project root, e.g. '/repo/sub/path'
-        // relativePath is the startPath converted to the same project-relative form
-        // remainder should be the suffix after relativePath. Ensure we join with a single '/'.
-        let remainder = file.path.replace(relativePath === '/' ? '' : relativePath, '');
-        // remainder may start with a leading '/'
-        if (remainder.startsWith('/')) remainder = remainder.slice(1);
-
-        // startPath may or may not end with '/'
         const normalizedStart = startPath.endsWith('/') ? startPath.slice(0, -1) : startPath;
-
-        const fullPath = remainder === '' ? normalizedStart : `${normalizedStart}/${remainder}`;
+        const fullPath = relativeToStart === '' ? normalizedStart : `${normalizedStart}/${relativeToStart}`;
         results.push(fullPath);
       }
     }

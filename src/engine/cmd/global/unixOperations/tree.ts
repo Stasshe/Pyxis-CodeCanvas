@@ -1,4 +1,6 @@
 import { UnixCommandBase } from './base';
+import { fileRepository } from '@/engine/core/fileRepository';
+import type { ProjectFile } from '@/types';
 
 /**
  * tree - ディレクトリ構造をツリー形式で表示
@@ -65,16 +67,17 @@ export class TreeCommand extends UnixCommandBase {
     ): Promise<string> => {
       if (depth > maxDepth) return '';
 
-      const relativePath = this.getRelativePathFromProject(dirPath);
-      const files = await this.getAllFilesFromDB();
+  const relativePath = this.getRelativePathFromProject(dirPath);
+  const dirPrefix = relativePath === '/' ? '' : `${relativePath}/`;
+  const files: ProjectFile[] = await fileRepository.getFilesByPrefix(this.projectId, dirPrefix);
 
       // ディレクトリ直下のファイル/フォルダを取得
-      let entries = files.filter(f => {
+      let entries = files.filter((f: ProjectFile) => {
         if (relativePath === '/') {
-          return f.path.split('/').filter(p => p).length === 1;
+          return f.path.split('/').filter((p: string) => p).length === 1;
         } else {
-          const childPath = f.path.replace(relativePath + '/', '');
-          return f.path.startsWith(relativePath + '/') && !childPath.includes('/');
+          const childPath = f.path.replace(dirPrefix, '');
+          return f.path.startsWith(dirPrefix) && !childPath.includes('/');
         }
       });
 
