@@ -21,6 +21,7 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
 import { useSettings } from '@/hooks/useSettings';
 import { useTabStore } from '@/stores/tabStore';
+import { useKeyBinding } from '@/hooks/useKeyBindings';
 import type { Project } from '@/types';
 import type { EditorTab } from '@/engine/tabs/types';
 import { useCharCount } from './text-editor/hooks/useCharCount';
@@ -177,6 +178,36 @@ export default function CodeEditor({
       debouncedSave(activeTab.id, value);
     },
     [activeTab, debouncedSave, onImmediateContentChange]
+  );
+
+  // Ctrl+S 等のキーボードショートカットで即時保存するハンドラを登録
+  // 意図: デバウンスによる遅延保存とは別に、ユーザーが明示的に保存を要求したら即時に保存を行う
+  useKeyBinding(
+    'saveFile',
+    async () => {
+      if (!activeTab) return;
+      // コンテンツ復元中やランタイム操作中は保存を無視
+      if (isRestoringContent) return;
+      if (nodeRuntimeOperationInProgress) {
+        console.log('[CodeEditor] Save skipped during NodeRuntime operation');
+        return;
+      }
+
+      // 既存のデバウンスタイマーをクリアして即時保存
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        // @ts-ignore - NodeJS.Timeout 型 とブラウザのタイマー型の差を無視
+        saveTimeoutRef.current = null;
+      }
+
+      try {
+        await onContentChange(activeTab.id, activeTab.content);
+      } catch (e) {
+        console.error('[CodeEditor] Immediate save failed:', e);
+      }
+    },
+    // 依存: アクティブタブやコンテンツ、状態フラグ
+    [activeTab?.id, activeTab?.content, isRestoringContent, nodeRuntimeOperationInProgress, onContentChange]
   );
 
   // === タブなし ===
