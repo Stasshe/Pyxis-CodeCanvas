@@ -149,7 +149,7 @@ export const useProject = () => {
     setLoading(true);
     try {
       await fileRepository.init();
-      const files = await fileRepository.getProjectFiles(project.id);
+      const files = await fileRepository.getFilesByPrefix(project.id, '/');
       setCurrentProject(project);
       setProjectFiles(files);
       try {
@@ -255,7 +255,7 @@ export const useProject = () => {
     if (!currentProject) return;
 
     try {
-      const files = await fileRepository.getProjectFiles(currentProject.id);
+      const files = await fileRepository.getFilesByPrefix(currentProject.id, '/');
       setProjectFiles(files);
     } catch (error) {
       console.error('[Project] Failed to refresh:', error);
@@ -335,7 +335,7 @@ export const useProject = () => {
       console.log('[Project] Creating new project:', name);
       const newProject = await fileRepository.createProject(name, description);
 
-      const files = await fileRepository.getProjectFiles(newProject.id);
+      const files = await fileRepository.getFilesByPrefix(newProject.id, '/');
 
       setCurrentProject(newProject);
       setProjectFiles(files);
