@@ -1,5 +1,4 @@
 import { UnixCommandBase } from './base';
-import { fileRepository } from '@/engine/core/fileRepository';
 import type { ProjectFile } from '@/types';
 
 /**
@@ -104,7 +103,7 @@ export class FindCommand extends UnixCommandBase {
     const results: string[] = [];
 
     // startPath自体が条件に一致するかチェック
-    const startFile = await fileRepository.getFileByPath(this.projectId, relativePath);
+    const startFile = await this.cachedGetFile(relativePath);
     if (startFile) {
       const depth = 0;
       if (depth >= minDepth && depth <= maxDepth) {
@@ -116,7 +115,7 @@ export class FindCommand extends UnixCommandBase {
 
     // 子ファイルを検索（prefix で絞る）
     const prefix = relativePath === '/' ? '' : `${relativePath}/`;
-    const files: ProjectFile[] = await fileRepository.getFilesByPrefix(this.projectId, prefix);
+    const files: ProjectFile[] = await this.cachedGetFilesByPrefix(prefix);
 
     for (const file of files) {
       // 深度計算

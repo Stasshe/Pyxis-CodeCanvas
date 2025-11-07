@@ -124,9 +124,7 @@ export class CpCommand extends UnixCommandBase {
   ): Promise<void> {
     const sourceRelative = this.getRelativePathFromProject(source);
     const destRelative = this.getRelativePathFromProject(dest);
-
-    const files = await this.getAllFilesFromDB();
-    const sourceFile = files.find(f => f.path === sourceRelative);
+    const sourceFile = await this.cachedGetFile(sourceRelative);
 
     if (!sourceFile) {
       throw new Error('Source file not found in database');
@@ -134,7 +132,8 @@ export class CpCommand extends UnixCommandBase {
 
     if (isDir && recursive) {
       // ディレクトリの場合、中身も再帰的にコピー
-      const childFiles = files.filter(f => f.path.startsWith(sourceRelative + '/'));
+      const prefix = sourceRelative === '/' ? '' : `${sourceRelative}/`;
+      const childFiles = await this.cachedGetFilesByPrefix(prefix);
 
       // 新しい場所にディレクトリを作成
       await fileRepository.createFile(this.projectId, destRelative, '', 'folder');

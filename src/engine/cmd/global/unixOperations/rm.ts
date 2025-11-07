@@ -35,8 +35,8 @@ export class RmCommand extends UnixCommandBase {
     const results: string[] = [];
     const errors: string[] = [];
 
-    // ファイル一覧を一度だけ取得（パフォーマンス最適化）
-    const files = await this.getAllFilesFromDB();
+  // ファイル一覧を一度だけ取得（パフォーマンス最適化）
+  // ここでは個別パスでキャッシュを利用して検索する（全件取得はしない）
 
     for (const arg of positional) {
       try {
@@ -53,7 +53,7 @@ export class RmCommand extends UnixCommandBase {
           try {
             const normalizedPath = this.normalizePath(path);
             const relativePath = this.getRelativePathFromProject(normalizedPath);
-            const file = files.find(f => f.path === relativePath);
+            const file = await this.cachedGetFile(relativePath);
 
             // ファイルエントリが見つからない場合の扱い
             if (!file) {
@@ -159,9 +159,10 @@ export class RmCommand extends UnixCommandBase {
       // 実装する場合は、ユーザー入力を受け取る仕組みが必要
     }
 
-    // 削除前にタイプを判定（verboseメッセージ用）
-    const files = await this.getAllFilesFromDB();
-    const file = files.find(f => f.id === fileId);
+  // 削除前にタイプを判定（verboseメッセージ用）
+  // path からファイル情報を再取得して type を確認する（ID での直接取得は内部 private のため）
+    const relativePath = this.getRelativePathFromProject(normalizedPath);
+    const file = await this.cachedGetFile(relativePath);
     const isDir = file?.type === 'folder';
 
     // deleteFile()は自動的に:

@@ -1,5 +1,4 @@
 import { UnixCommandBase } from './base';
-import { fileRepository } from '@/engine/core/fileRepository';
 import type { ProjectFile } from '@/types';
 
 /**
@@ -69,7 +68,7 @@ export class TreeCommand extends UnixCommandBase {
 
   const relativePath = this.getRelativePathFromProject(dirPath);
   const dirPrefix = relativePath === '/' ? '' : `${relativePath}/`;
-  const files: ProjectFile[] = await fileRepository.getFilesByPrefix(this.projectId, dirPrefix);
+  const files: ProjectFile[] = await this.cachedGetFilesByPrefix(dirPrefix);
 
       // ディレクトリ直下のファイル/フォルダを取得
       let entries = files.filter((f: ProjectFile) => {
