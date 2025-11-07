@@ -1,4 +1,5 @@
 import { Writable, Readable } from 'stream';
+import handleUnixCommand from '../handlers/unixHandler';
 
 export type StreamCtx = {
   stdin: Writable;
@@ -15,38 +16,69 @@ export type StreamCtx = {
 export default function adaptUnixToStream(unix: any) {
   const obj: Record<string, any> = {};
 
+  // Normalize mixed-token args into plain strings. Tokens may be strings or
+  // objects like { text, quote, cmdSub } produced by the shell tokenizer.
+  // Additionally expand grouped short flags (e.g. -rf -> -r, -f) so option
+  // detection is robust.
+  const normalizeArgs = (args?: Array<string | { text?: string }>): string[] => {
+    if (!args || args.length === 0) return [];
+    const flat = args.map(a => {
+      if (typeof a === 'string') return a;
+      if (a && typeof a === 'object' && 'text' in a && typeof (a as any).text === 'string') return (a as any).text;
+      return String(a);
+    });
+    // expand grouped short flags like -rf into ['-r','-f'] but keep options
+    // with attached values (-n10) intact
+    const expanded: string[] = [];
+    for (const token of flat) {
+      if (!token || typeof token !== 'string') continue;
+      if (token.startsWith('--') || !token.startsWith('-') || token === '-') {
+        expanded.push(token);
+        continue;
+      }
+      // token starts with single '-' and has multiple letters (grouped flags) or may be like -n10
+      if (token.length > 2 && !/^-n\d+/i.test(token)) {
+        // split into individual short flags like -r -f -x
+        const chars = token.slice(1).split('');
+        for (const ch of chars) expanded.push(`-${ch}`);
+      } else {
+        expanded.push(token);
+      }
+    }
+    return expanded;
+  };
+
   // Helper to create simple wrappers that call unix.<cmd>(...args) and write the
   // returned string (if any) to stdout, with basic error handling.
   const makeSimple = (name: string) => {
-    return async (ctx: StreamCtx, args: string[] = []) => {
+    return async (ctx: StreamCtx, args: Array<string | { text?: string }> = []) => {
+      // Delegate to central unix handler to keep option parsing and behavior
+      // consistent with other code paths (unixHandler). For stream-aware
+      // commands (cat/head/tail/grep) we keep specialized implementations
+      // elsewhere in this file.
+      const nArgs = normalizeArgs(args || []);
+      let streamed = false;
+      const writeOutput = async (s: string) => {
+        if (s === undefined || s === null) return;
+        streamed = true;
+        try {
+          ctx.stdout.write(String(s));
+        } catch (e) {
+          // ignore
+        }
+      };
       try {
-        // some unix implementations accept a single joined string (e.g. mock echo)
-        // while others accept multiple args. If the implementation's arity is
-        // <= 1 we pass the joined args as a single parameter; otherwise spread.
-        let res: any;
-        const fn = unix[name];
-        if (typeof fn === 'function' && (fn.length || 0) <= 1) {
-          const joined = args && args.length > 0 ? args.join(' ') : '';
-          res = await fn.call(unix, joined);
-        } else {
-          res = await fn.apply(unix, args || []);
+        const projectName = ctx.projectName || '';
+        const projectId = ctx.projectId || '';
+        const result = await handleUnixCommand(name, nArgs, projectName, projectId, writeOutput);
+        // If handler didn't stream but returned output, write it
+        if (!streamed && result && result.output) {
+          ctx.stdout.write(String(result.output));
         }
-        if (res !== undefined && res !== null) {
-          // Normalize common structured return shapes into printable text.
-          // Many unix helpers may return objects like { output, code } or { stdout }.
-          // Prefer known fields, otherwise serialize to JSON to avoid '[object Object]'.
-          let outStr = '';
-          if (typeof res === 'object') {
-            if ('output' in res) outStr = String((res as any).output ?? '');
-            else if ('stdout' in res) outStr = String((res as any).stdout ?? '');
-            else outStr = JSON.stringify(res);
-          } else {
-            outStr = String(res);
-          }
-          if (outStr) ctx.stdout.write(outStr);
-        }
+        // Respect handler exit semantics; errors are surfaced via stderr
       } catch (e: any) {
-        ctx.stderr.write(String(e && e.message ? e.message : e));
+        const msg = e && e.message ? String(e.message) : String(e);
+        ctx.stderr.write(msg);
       }
       ctx.stdout.end();
     };
@@ -252,8 +284,9 @@ export default function adaptUnixToStream(unix: any) {
 
   // cat: if no args -> stream stdin to stdout; otherwise read file via unix.cat
   if (typeof unix.cat === 'function') {
-    obj.cat = async (ctx: StreamCtx, args: string[] = []) => {
-      if (!args || args.length === 0) {
+    obj.cat = async (ctx: StreamCtx, args: Array<string | { text?: string }> = []) => {
+      const nArgs = normalizeArgs(args);
+      if (!nArgs || nArgs.length === 0) {
         // stream stdin -> stdout preserving streaming semantics
         const src = ctx.stdin as unknown as Readable;
         // pipe will end stdout by default when src ends
@@ -267,7 +300,7 @@ export default function adaptUnixToStream(unix: any) {
         return;
       }
       try {
-        const content = await unix.cat(args[0]);
+        const content = await unix.cat(nArgs[0]);
         ctx.stdout.write(String(content));
       } catch (e: any) {
         ctx.stderr.write(String(e && e.message ? e.message : e));
@@ -281,19 +314,20 @@ export default function adaptUnixToStream(unix: any) {
     obj.head = async (ctx: StreamCtx, args: string[] = []) => {
       try {
         let n = 10;
-        const nIndex = args ? args.findIndex(a => a === '-n' || a.startsWith('-n')) : -1;
+        const nArgs = normalizeArgs(args);
+        const nIndex = nArgs ? nArgs.findIndex(a => a === '-n' || a.startsWith('-n')) : -1;
         if (nIndex !== -1) {
-          const nOpt = args[nIndex];
+          const nOpt = nArgs[nIndex];
           if (nOpt === '-n') {
-            n = parseInt(args[nIndex + 1]) || 10;
+            n = parseInt(nArgs[nIndex + 1]) || 10;
           } else {
             n = parseInt(nOpt.replace('-n', '')) || 10;
           }
         }
         const nonOpts: string[] = [];
-        if (args && args.length > 0) {
-          for (let i = 0; i < args.length; i++) {
-            const a = args[i];
+        if (nArgs && nArgs.length > 0) {
+          for (let i = 0; i < nArgs.length; i++) {
+            const a = nArgs[i];
             if (a === '-n') { i++; continue; }
             if (a.startsWith('-n') && a.length > 2) continue;
             if (a.startsWith('-')) continue;
@@ -322,19 +356,20 @@ export default function adaptUnixToStream(unix: any) {
     obj.tail = async (ctx: StreamCtx, args: string[] = []) => {
       try {
         let n = 10;
-        const nIndex = args ? args.findIndex(a => a === '-n' || a.startsWith('-n')) : -1;
+        const nArgs = normalizeArgs(args);
+        const nIndex = nArgs ? nArgs.findIndex(a => a === '-n' || a.startsWith('-n')) : -1;
         if (nIndex !== -1) {
-          const nOpt = args[nIndex];
+          const nOpt = nArgs[nIndex];
           if (nOpt === '-n') {
-            n = parseInt(args[nIndex + 1]) || 10;
+            n = parseInt(nArgs[nIndex + 1]) || 10;
           } else {
             n = parseInt(nOpt.replace('-n', '')) || 10;
           }
         }
         const nonOpts: string[] = [];
-        if (args && args.length > 0) {
-          for (let i = 0; i < args.length; i++) {
-            const a = args[i];
+        if (nArgs && nArgs.length > 0) {
+          for (let i = 0; i < nArgs.length; i++) {
+            const a = nArgs[i];
             if (a === '-n') { i++; continue; }
             if (a.startsWith('-n') && a.length > 2) continue;
             if (a.startsWith('-')) continue;
@@ -360,16 +395,17 @@ export default function adaptUnixToStream(unix: any) {
   }
 
   if (typeof unix.grep === 'function') {
-    obj.grep = async (ctx: StreamCtx, args: string[] = []) => {
+    obj.grep = async (ctx: StreamCtx, args: Array<string | { text?: string }> = []) => {
       try {
-        if (!args || args.length === 0) {
+        const nArgs = normalizeArgs(args);
+        if (!nArgs || nArgs.length === 0) {
           ctx.stderr.write('grep: missing pattern');
           ctx.stderr.end();
           ctx.stdout.end();
           return;
         }
-        const opts = args.filter(a => a.startsWith('-'));
-        const nonOpts = args.filter(a => !a.startsWith('-'));
+        const opts = nArgs.filter(a => a.startsWith('-'));
+        const nonOpts = nArgs.filter(a => !a.startsWith('-'));
         const pattern = nonOpts[0];
         const files = nonOpts.slice(1);
         if (!pattern) {

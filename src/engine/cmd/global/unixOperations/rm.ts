@@ -51,16 +51,32 @@ export class RmCommand extends UnixCommandBase {
             const normalizedPath = this.normalizePath(path);
             const relativePath = this.getRelativePathFromProject(normalizedPath);
             const file = files.find(f => f.path === relativePath);
+
+            // ファイルエントリが見つからない場合の扱い:
+            // - エントリが存在しないが配下のファイルがあればディレクトリ扱いとして再帰削除できるようにする
             if (!file) {
-              if (!force) errors.push(`rm: cannot remove '${path}': No such file or directory`);
+              // 存在チェック（ディレクトリ判定）
+              const isDirByExist = await this.isDirectory(normalizedPath);
+              if (isDirByExist) {
+                if (recursive) {
+                  // relativePath が '/' の場合、deleteFilesByPrefix に空文字を渡すと全ファイルにマッチする
+                  const prefix = relativePath === '/' ? '' : relativePath;
+                  await fileRepository.deleteFilesByPrefix(this.projectId, prefix);
+                  if (verbose) results.push(`removed directory '${normalizedPath}'`);
+                } else {
+                  errors.push(`rm: cannot remove '${path}': Is a directory`);
+                }
+              } else {
+                if (!force) errors.push(`rm: cannot remove '${path}': No such file or directory`);
+              }
               continue;
             }
+
             const isDir = file.type === 'folder';
 
-            // -rf, -fr, -r, -f の組み合わせを正しく判定
+            // ディレクトリは -r が指定されている場合のみ削除を許可する（force 単体では許可しない）
             if (isDir) {
-              if (recursive || force) {
-                // -r, -rf, -fr, -f いずれか指定でディレクトリ削除許可
+              if (recursive) {
                 const result = await this.removeFileOrDirDeep(
                   file.id,
                   normalizedPath,
@@ -74,12 +90,11 @@ export class RmCommand extends UnixCommandBase {
                 errors.push(`rm: cannot remove '${path}': Is a directory`);
               }
             } else {
-              // ファイル
+              // 通常のファイル削除
               if (recursive && !force) {
                 // -rのみでファイル指定はエラー（UNIX準拠）
                 errors.push(`rm: cannot remove '${path}': Not a directory`);
               } else {
-                // -f, -rf, 何もなし: ファイル削除
                 const result = await this.removeFileOrDirDeep(
                   file.id,
                   normalizedPath,

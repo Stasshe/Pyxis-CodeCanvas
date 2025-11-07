@@ -1,7 +1,6 @@
 import FS from '@isomorphic-git/lightning-fs';
 
 import { fileRepository } from '@/engine/core/fileRepository';
-import { gitFileSystem } from '@/engine/core/gitFileSystem';
 import type { ProjectFile } from '@/types';
 
 /**
@@ -9,13 +8,11 @@ import type { ProjectFile } from '@/types';
  * 共通のユーティリティメソッドと状態管理を提供
  */
 export abstract class UnixCommandBase {
-  protected fs: FS;
   protected currentDir: string;
   protected projectId: string;
   protected projectName: string;
 
   constructor(projectName: string, currentDir: string, projectId?: string) {
-    this.fs = gitFileSystem.getFS();
     this.projectName = projectName;
     this.currentDir = currentDir;
     this.projectId = projectId || '';
@@ -75,7 +72,7 @@ export abstract class UnixCommandBase {
    * プロジェクトルートディレクトリを取得
    */
   protected getProjectRoot(): string {
-    return gitFileSystem.getProjectDir(this.projectName);
+    return '/projects/' + this.projectName;
   }
 
   /**
