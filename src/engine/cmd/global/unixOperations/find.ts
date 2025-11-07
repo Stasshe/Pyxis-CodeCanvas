@@ -24,10 +24,7 @@ import type { ProjectFile } from '@/types';
  */
 export class FindCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
-    // デバッグ: args, positional, expressions
-    console.log('[find.execute] args:', args);
-      // デバッグ: args
-      console.log('[find.execute] args:', args);
+    // ...existing code...
 
     // パスと式を分離
     const paths: string[] = [];
@@ -44,12 +41,10 @@ export class FindCommand extends UnixCommandBase {
     // デフォルトはカレントディレクトリ
     if (paths.length === 0) paths.push(this.currentDir);
 
-      const expressions = args.slice(expressionStart);
-      console.log('[find.execute] expressions:', expressions);
+  const expressions = args.slice(expressionStart);
 
     // 式を解析
     const criteria = this.parseExpressions(expressions);
-    console.log('[find.execute] criteria:', criteria);
 
     const results: string[] = [];
 
@@ -239,10 +234,7 @@ export class FindCommand extends UnixCommandBase {
     const results: string[] = [];
     const normalizedStart = startPath.endsWith('/') ? startPath.slice(0, -1) : startPath;
 
-    // デバッグ: パラメータ出力
-    console.log('[findFiles] startPath:', startPath);
-    console.log('[findFiles] relativePath:', relativePath);
-    console.log('[findFiles] criteria:', criteria);
+  // ...existing code...
 
     // 開始パス自体をチェック（depth 0）
     const startFile = await this.cachedGetFile(relativePath);
@@ -254,9 +246,7 @@ export class FindCommand extends UnixCommandBase {
 
     // 子要素を取得して検索
     const prefix = relativePath === '/' ? '' : `${relativePath}/`;
-    console.log('[findFiles] prefix:', prefix);
     const files: ProjectFile[] = await this.cachedGetFilesByPrefix(prefix);
-    console.log('[findFiles] files:', files.map(f => ({ path: f.path, name: f.name, type: f.type })));
 
     // POSIX準拠: prefix以下の全ファイル・ディレクトリを再帰的に検索
     for (const file of files) {
