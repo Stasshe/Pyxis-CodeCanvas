@@ -24,6 +24,9 @@ export interface FileRepository {
   createFile(projectId: string, path: string, content: string, language?: string): Promise<any>;
   getFile(fileId: string): Promise<any | null>;
   getProjectFiles(projectId: string): Promise<any[]>;
+  // 新しいベストプラクティス API
+  getFileByPath(projectId: string, path: string): Promise<any | null>;
+  getFilesByPrefix(projectId: string, prefix: string): Promise<any[]>;
   updateFileContent(fileId: string, content: string): Promise<void>;
   deleteFile(fileId: string): Promise<void>;
 

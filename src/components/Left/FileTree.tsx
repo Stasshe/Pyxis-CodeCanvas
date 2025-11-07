@@ -125,7 +125,9 @@ export default function FileTree({
     }
   }, [expandedFolders, level, currentProjectName, isExpandedFoldersRestored]);
 
-  // .gitignore を読み込んでルールを解析してキャッシュする
+  // .gitignore を読み込んでルールを解析する
+  // NOTE: FileTree は UI コンポーネントなのでコマンドキャッシュを使わず、
+  // 単一ファイル取得 API (getFileByPath) を使って効率的に読み込む。
   useEffect(() => {
     let mounted = true;
     const loadGitignore = async () => {
@@ -134,26 +136,26 @@ export default function FileTree({
         return;
       }
       try {
-        const files = await fileRepository.getProjectFiles(currentProjectId);
-        const gitignore = files.find(f => f.path === '/.gitignore' && f.content);
-        if (gitignore && gitignore.content) {
-          const parsed = parseGitignore(gitignore.content);
+        // 単一ファイル取得を使って .gitignore を読み込む（全件取得は避ける）
+        const gitignoreFile = await fileRepository.getFileByPath(currentProjectId, '/.gitignore');
+        if (gitignoreFile && gitignoreFile.content) {
+          const parsed = parseGitignore(gitignoreFile.content);
           if (mounted) setGitignoreRules(parsed);
         } else {
           if (mounted) setGitignoreRules([]);
         }
       } catch (e) {
-        // on error, don't mark anything ignored
         if (mounted) setGitignoreRules([]);
       }
     };
 
+    // only reload when project changes; avoid reloading on every items change to reduce overhead
     loadGitignore();
 
     return () => {
       mounted = false;
     };
-  }, [currentProjectId, items]);
+  }, [currentProjectId]);
 
   // 初回読み込み時にlocalStorageからexpandedFoldersを復元(itemsが空の場合はスキップ)
   useEffect(() => {
@@ -556,7 +558,12 @@ export default function FileTree({
                       const relPathParts = relative.split('/').filter(Boolean);
                       const targetPath = '/' + relPathParts.join('/');
                       const targetAbsolutePath = `/projects/${currentProjectName}${targetPath}`;
-                      await importSingleFile(file, targetAbsolutePath, currentProjectName, currentProjectId);
+                      await importSingleFile(
+                        file,
+                        targetAbsolutePath,
+                        currentProjectName,
+                        currentProjectId
+                      );
                     }
                     if (onRefresh) setTimeout(onRefresh, 100);
                   };
@@ -567,9 +574,10 @@ export default function FileTree({
                 // actions for existing item
                 if (!menuItem) return;
 
-                  if (key === 'open') {
+                if (key === 'open') {
                   // バイナリファイルは binary、そうでなければ editor
-                  const kind = menuItem && (menuItem as FileItem).isBufferArray ? 'binary' : 'editor';
+                  const kind =
+                    menuItem && (menuItem as FileItem).isBufferArray ? 'binary' : 'editor';
                   openTab(menuItem, { kind });
                 } else if (key === 'openPreview') {
                   handlePreview(menuItem);
@@ -624,7 +632,12 @@ export default function FileTree({
                           '//',
                           '/'
                         );
-                      await importSingleFile(file, targetAbsolutePath, currentProjectName, currentProjectId);
+                      await importSingleFile(
+                        file,
+                        targetAbsolutePath,
+                        currentProjectName,
+                        currentProjectId
+                      );
                     }
                     if (onRefresh) setTimeout(onRefresh, 100);
                   };

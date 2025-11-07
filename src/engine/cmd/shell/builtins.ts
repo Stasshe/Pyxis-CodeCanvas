@@ -1,4 +1,5 @@
-import { Writable, Readable } from 'stream';
+import { Writable } from 'stream';
+
 import handleUnixCommand from '../handlers/unixHandler';
 
 export type StreamCtx = {
@@ -15,7 +16,7 @@ const normalizeArgs = (args?: Array<string | { text?: string }>): string[] => {
   if (!args || args.length === 0) return [];
   return args.map(a => {
     if (typeof a === 'string') return a;
-    if (a && typeof a === 'object' && 'text' in a && typeof (a as any).text === 'string') 
+    if (a && typeof a === 'object' && 'text' in a && typeof (a as any).text === 'string')
       return (a as any).text;
     return String(a);
   });
@@ -29,7 +30,7 @@ const makeUnixBridge = (name: string) => {
   return async (ctx: StreamCtx, args: Array<string | { text?: string }> = []) => {
     const nArgs = normalizeArgs(args || []);
     let exitCode = 0;
-    
+
     const writeOutput = async (s: string) => {
       if (s === undefined || s === null) return;
       try {
@@ -42,36 +43,38 @@ const makeUnixBridge = (name: string) => {
     try {
       const projectName = ctx.projectName || '';
       const projectId = ctx.projectId || '';
-      
+
       // stdin内容を事前に読み取り（grep等で必要）
-      const stdinContent = await new Promise<string | null>((resolve) => {
+      const stdinContent = await new Promise<string | null>(resolve => {
         if (!ctx.stdin || typeof (ctx.stdin as any).on !== 'function') {
           return resolve(null);
         }
-        
+
         let buf = '';
         const src = ctx.stdin as any;
         let resolved = false;
-        
+
         const finish = (content: string | null) => {
           if (resolved) return;
           resolved = true;
           resolve(content);
         };
-        
-        src.on('data', (c: any) => { buf += String(c); });
+
+        src.on('data', (c: any) => {
+          buf += String(c);
+        });
         src.on('end', () => finish(buf || null));
         src.on('close', () => finish(buf || null));
-        
+
         // タイムアウト（stdin無し判定）
         setTimeout(() => finish(buf || null), 50);
       });
 
       const result = await handleUnixCommand(
-        name, 
-        nArgs, 
-        projectName, 
-        projectId, 
+        name,
+        nArgs,
+        projectName,
+        projectId,
         writeOutput,
         stdinContent
       );
@@ -95,7 +98,7 @@ const makeUnixBridge = (name: string) => {
 
     ctx.stdout.end();
     ctx.stderr.end();
-    
+
     // 非ゼロ終了時は例外を投げてシェルに伝播
     if (exitCode !== 0) {
       throw { __silent: true, code: exitCode };
@@ -111,9 +114,25 @@ export default function adaptUnixToStream(unix: any) {
 
   // 全てunixHandlerに統一委譲
   const commands = [
-    'echo', 'pwd', 'ls', 'cd', 'mkdir', 'touch', 'rm', 'cp', 'mv', 
-    'rename', 'tree', 'find', 'help', 'unzip', 'stat', 'cat',
-    'head', 'tail', 'grep'
+    'echo',
+    'pwd',
+    'ls',
+    'cd',
+    'mkdir',
+    'touch',
+    'rm',
+    'cp',
+    'mv',
+    'rename',
+    'tree',
+    'find',
+    'help',
+    'unzip',
+    'stat',
+    'cat',
+    'head',
+    'tail',
+    'grep',
   ];
 
   for (const cmd of commands) {
@@ -128,7 +147,7 @@ export default function adaptUnixToStream(unix: any) {
       }
 
       let ok = false;
-      
+
       if (args.length === 0) {
         ok = false;
       } else if (args.length === 1) {
@@ -136,7 +155,7 @@ export default function adaptUnixToStream(unix: any) {
       } else if (args.length === 2) {
         const op = args[0];
         const val = args[1];
-        
+
         if (op === '-n') ok = String(val).length > 0;
         else if (op === '-z') ok = String(val).length === 0;
         else if (op === '-f' || op === '-d') {
@@ -145,13 +164,15 @@ export default function adaptUnixToStream(unix: any) {
               const st = await unix.stat(String(val)).catch(() => null);
               if (st) {
                 if (op === '-f') {
-                  ok = typeof st === 'object' 
-                    ? (!(st as any).isDirectory && (st as any).type !== 'directory')
-                    : true;
+                  ok =
+                    typeof st === 'object'
+                      ? !(st as any).isDirectory && (st as any).type !== 'directory'
+                      : true;
                 } else {
-                  ok = typeof st === 'object'
-                    ? ((st as any).isDirectory || (st as any).type === 'directory')
-                    : true;
+                  ok =
+                    typeof st === 'object'
+                      ? (st as any).isDirectory || (st as any).type === 'directory'
+                      : true;
                 }
               }
             } catch (e) {
@@ -163,7 +184,7 @@ export default function adaptUnixToStream(unix: any) {
         const a = args[0];
         const op = args[1];
         const b = args[2];
-        
+
         if (op === '=' || op === '==') ok = String(a) === String(b);
         else if (op === '!=') ok = String(a) !== String(b);
         else if (['-eq', '-ne', '-gt', '-lt', '-ge', '-le'].includes(op)) {
@@ -171,12 +192,24 @@ export default function adaptUnixToStream(unix: any) {
           const nb = Number(b);
           if (!Number.isNaN(na) && !Number.isNaN(nb)) {
             switch (op) {
-              case '-eq': ok = na === nb; break;
-              case '-ne': ok = na !== nb; break;
-              case '-gt': ok = na > nb; break;
-              case '-lt': ok = na < nb; break;
-              case '-ge': ok = na >= nb; break;
-              case '-le': ok = na <= nb; break;
+              case '-eq':
+                ok = na === nb;
+                break;
+              case '-ne':
+                ok = na !== nb;
+                break;
+              case '-gt':
+                ok = na > nb;
+                break;
+              case '-lt':
+                ok = na < nb;
+                break;
+              case '-ge':
+                ok = na >= nb;
+                break;
+              case '-le':
+                ok = na <= nb;
+                break;
             }
           }
         }
@@ -195,13 +228,15 @@ export default function adaptUnixToStream(unix: any) {
 
   obj['['] = evaluateTest;
   obj['test'] = evaluateTest;
-  obj['true'] = async (ctx: StreamCtx) => { ctx.stdout.end(); };
+  obj['true'] = async (ctx: StreamCtx) => {
+    ctx.stdout.end();
+  };
 
   // type コマンド（シェル内部）
   obj.type = async (ctx: StreamCtx, args: string[] = []) => {
     const opts = { a: false, t: false, p: false };
     const names: string[] = [];
-    
+
     for (const a of args) {
       if (a && a.startsWith('-') && a.length > 1) {
         for (let i = 1; i < a.length; i++) {

@@ -1,5 +1,8 @@
 import { UnixCommandBase } from './base';
 
+import type { ProjectFile } from '@/types';
+// use cached helpers from UnixCommandBase instead of direct fileRepository access
+
 /**
  * grep - ファイル内のパターンを検索
  *
@@ -104,7 +107,20 @@ export class GrepCommand extends UnixCommandBase {
     showFilename: boolean
   ): Promise<string | null> {
     try {
-      const content = (await this.fs.promises.readFile(path, { encoding: 'utf8' })) as string;
+      // DB からファイルを取得
+      const relative = this.getRelativePathFromProject(path);
+      const file = await this.getFileFromDB(relative);
+      if (!file) throw new Error('No such file or directory');
+
+      let content = '';
+      if (file.isBufferArray && file.bufferContent) {
+        const decoder = new TextDecoder('utf-8');
+        content = decoder.decode(file.bufferContent as ArrayBuffer);
+      } else if (typeof file.content === 'string') {
+        content = file.content;
+      } else {
+        content = '';
+      }
       const lines = content.split('\n');
       const matches: string[] = [];
       let matchCount = 0;
@@ -161,15 +177,12 @@ export class GrepCommand extends UnixCommandBase {
     showFilename: boolean
   ): Promise<string[]> {
     const relativePath = this.getRelativePathFromProject(dirPath);
-    const files = await this.getAllFilesFromDB();
+    const prefix = relativePath === '/' ? '' : `${relativePath}/`;
+    const files: ProjectFile[] = await this.cachedGetFilesByPrefix(prefix);
     const results: string[] = [];
 
     for (const file of files) {
       if (file.type !== 'file') continue;
-
-      const isInDir = relativePath === '/' ? true : file.path.startsWith(relativePath + '/');
-
-      if (!isInDir) continue;
 
       const fullPath = `${this.getProjectRoot()}${file.path}`;
 

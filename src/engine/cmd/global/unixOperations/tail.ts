@@ -15,7 +15,18 @@ export class TailCommand extends UnixCommandBase {
     if (isDir) throw new Error('Is a directory');
 
     try {
-      const content = (await this.fs.promises.readFile(path, { encoding: 'utf8' })) as string;
+      const relative = this.getRelativePathFromProject(path);
+      const file = await this.getFileFromDB(relative);
+      if (!file) throw new Error('No such file or directory');
+
+      let content = '';
+      if (file.isBufferArray && file.bufferContent) {
+        const decoder = new TextDecoder('utf-8');
+        content = decoder.decode(file.bufferContent as ArrayBuffer);
+      } else if (typeof file.content === 'string') {
+        content = file.content;
+      }
+
       const lines = content.split(/\r?\n/);
       return lines.slice(Math.max(lines.length - n, 0)).join('\n');
     } catch (e) {

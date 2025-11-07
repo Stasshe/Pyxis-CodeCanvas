@@ -207,7 +207,13 @@ export default function CodeEditor({
       }
     },
     // 依存: アクティブタブやコンテンツ、状態フラグ
-    [activeTab?.id, activeTab?.content, isRestoringContent, nodeRuntimeOperationInProgress, onContentChange]
+    [
+      activeTab?.id,
+      activeTab?.content,
+      isRestoringContent,
+      nodeRuntimeOperationInProgress,
+      onContentChange,
+    ]
   );
 
   // === タブなし ===

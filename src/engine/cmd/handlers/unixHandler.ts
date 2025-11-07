@@ -16,7 +16,8 @@ export async function handleUnixCommand(
 
   const append = async (s: string, code?: number) => {
     // Normalize non-string values to avoid '[object Object]' when concatenating
-    const str = s === undefined || s === null ? '' : (typeof s === 'object' ? JSON.stringify(s) : String(s));
+    const str =
+      s === undefined || s === null ? '' : typeof s === 'object' ? JSON.stringify(s) : String(s);
     out += str;
     try {
       await writeOutput(str);
@@ -120,14 +121,8 @@ export async function handleUnixCommand(
         if (args.length === 0) {
           await append('rm: missing operand\nUsage: rm [OPTION]... FILE...');
         } else {
-          const recursive = args.includes('-r') || args.includes('-R') || args.includes('--recursive');
-          const fileName = args.find(arg => !arg.startsWith('-'));
-          if (fileName) {
-            const result = await unix.rm(fileName, recursive);
-            await append(result);
-          } else {
-            await append('rm: missing file operand');
-          }
+          const result = await unix.rm(args);
+          await append(result);
         }
         break;
       }
@@ -207,7 +202,6 @@ export async function handleUnixCommand(
         if (args.length < 2) {
           await append('grep: missing pattern or file\nUsage: grep [OPTION]... PATTERN FILE...');
         } else {
-          
           const grepOptions = args.filter(arg => arg.startsWith('-'));
           const grepArgs = args.filter(arg => !arg.startsWith('-'));
           const pattern = grepArgs[0];
@@ -216,9 +210,9 @@ export async function handleUnixCommand(
             // no files -> read from stdinContent
             if (stdinContent !== null) {
               // DEBUG: inspect stdin and pattern
-              // eslint-disable-next-line no-console
-              console.error('[DEBUG] grep stdin:', String(stdinContent).slice(0,200));
-              // eslint-disable-next-line no-console
+               
+              console.error('[DEBUG] grep stdin:', String(stdinContent).slice(0, 200));
+               
               console.error('[DEBUG] grep pattern:', pattern);
               const regex = new RegExp(pattern);
               const lines = String(stdinContent).split('\n');

@@ -32,7 +32,7 @@ type FileChangeListener = (event: FileChangeEvent) => void;
 
 export class FileRepository {
   private dbName = 'PyxisProjects';
-  private version = 3;
+  private version = 4;
   private db: IDBDatabase | null = null;
   private static instance: FileRepository | null = null;
   private projectNameCache: Map<string, string> = new Map(); // projectId -> projectName
@@ -124,10 +124,24 @@ export class FileRepository {
         if (!db.objectStoreNames.contains('files')) {
           const fileStore = db.createObjectStore('files', { keyPath: 'id' });
           fileStore.createIndex('projectId', 'projectId', { unique: false });
+          // compound index for efficient lookup by projectId + path
+          // keyPath as array allows querying with [projectId, path]
+          try {
+            fileStore.createIndex('projectId_path', ['projectId', 'path'], { unique: false });
+          } catch (e) {
+            // ignore if not supported
+          }
         } else {
           const fileStore = (event.target as IDBOpenDBRequest).transaction!.objectStore('files');
           if (!fileStore.indexNames.contains('projectId')) {
             fileStore.createIndex('projectId', 'projectId', { unique: false });
+          }
+          if (!fileStore.indexNames.contains('projectId_path')) {
+            try {
+              fileStore.createIndex('projectId_path', ['projectId', 'path'], { unique: false });
+            } catch (e) {
+              // ignore if not supported
+            }
           }
         }
 
@@ -802,10 +816,32 @@ export class FileRepository {
   }
 
   /**
-   * 複数ファイルを一括作成/更新する（パフォーマンス向上用）
-   * entries: { path, content, type, isBufferArray?, bufferContent? }
+   * FileRepository - 最適化されたバルク処理
+   * git clone等の大量ファイル作成時に個別同期ではなく一括同期を使用
    */
-  async createFilesBulk(projectId: string, entries: Array<any>): Promise<ProjectFile[]> {
+
+  // fileRepository.ts に追加するメソッド
+
+  /**
+   * 複数ファイルを一括作成/更新する（最適化版 - 一括同期対応）
+   * git clone等の大量ファイル作成時に使用
+   * 個別同期ではなく、最後に一括同期を実行することで大幅に高速化
+   *
+   * @param projectId プロジェクトID
+   * @param entries ファイルエントリの配列
+   * @param useOptimizedSync true の場合、個別同期をスキップして最後に一括同期
+   * @returns 作成されたファイルの配列
+   */
+  async createFilesBulk(
+    projectId: string,
+    entries: Array<{
+      path: string;
+      content: string;
+      type: 'file' | 'folder';
+      isBufferArray?: boolean;
+      bufferContent?: ArrayBuffer;
+    }>
+  ): Promise<ProjectFile[]> {
     if (!this.db) throw new Error('Database not initialized');
 
     const createdFiles: ProjectFile[] = [];
@@ -816,33 +852,51 @@ export class FileRepository {
 
       transaction.onerror = () => reject(transaction.error);
       transaction.oncomplete = async () => {
-        // After DB commit, asynchronously sync to GitFileSystem and emit events
-        for (const file of createdFiles) {
-          try {
-            // call background sync (non-blocking)
-            this.syncToGitFileSystem(
-              file.projectId,
-              file.path,
-              file.isBufferArray ? '' : file.content || '',
-              'create',
-              file.bufferContent,
-              file.type
-            ).catch(err => {
-              coreWarn('[FileRepository] Background bulk sync failed (non-critical):', err);
-            });
+        try {
+          // 🚀 個別同期をスキップして一括同期を実行
+          coreInfo(
+            `[FileRepository] Starting optimized bulk sync for ${createdFiles.length} files...`
+          );
 
-            this.emitChange({ type: 'create', projectId: file.projectId, file });
-          } catch (err) {
-            coreWarn('[FileRepository] createFilesBulk post-sync error:', err);
+          const { syncManager } = await import('./syncManager');
+          let projectName = this.projectNameCache.get(projectId);
+
+          if (!projectName) {
+            const projects = await this.getProjects();
+            const project = projects.find(p => p.id === projectId);
+            projectName = project?.name;
+            if (projectName) {
+              this.projectNameCache.set(projectId, projectName);
+            }
           }
+
+          if (projectName) {
+            // 一括同期（100ファイルでも1回の処理）
+            await syncManager.syncFromIndexedDBToFS(projectId, projectName);
+            coreInfo('[FileRepository] Optimized bulk sync completed');
+          } else {
+            coreWarn('[FileRepository] Project name not found, skipping sync');
+          }
+
+          // イベント発火
+          for (const file of createdFiles) {
+            this.emitChange({ type: 'create', projectId: file.projectId, file });
+          }
+
+          resolve(createdFiles);
+        } catch (error) {
+          coreError('[FileRepository] Optimized bulk sync error:', error);
+          // 同期エラーでもファイル作成は成功しているので resolve
+          resolve(createdFiles);
         }
-        resolve(createdFiles);
       };
 
       try {
+        // .gitignore チェック用
+        let hasGitignore = false;
+        let gitignoreContent = '';
+
         for (const entry of entries) {
-          const existingRequest = store.index('projectId').getAll(entry.projectId || projectId);
-          // We will not wait for existingRequest; instead, create a new ProjectFile for each entry
           const file: ProjectFile = {
             id: generateUniqueId('file'),
             projectId,
@@ -859,15 +913,21 @@ export class FileRepository {
 
           createdFiles.push(file);
           store.put(file);
+
+          // .gitignore の検出
+          if (entry.path === '/.gitignore' && !entry.isBufferArray) {
+            hasGitignore = true;
+            gitignoreContent = entry.content || '';
+          }
         }
-        // トランザクション内で .gitignore が含まれていればキャッシュを更新
-        const gitignoreEntry = entries.find(e => e.path === '/.gitignore');
-        if (gitignoreEntry) {
+
+        // .gitignore キャッシュ更新
+        if (hasGitignore) {
           try {
-            if (!gitignoreEntry.content || gitignoreEntry.content.trim() === '') {
+            if (!gitignoreContent || gitignoreContent.trim() === '') {
               this.clearGitignoreCache(projectId);
             } else {
-              this.updateGitignoreCache(projectId, gitignoreEntry.content);
+              this.updateGitignoreCache(projectId, gitignoreContent);
             }
           } catch (e) {
             coreWarn('[FileRepository] Failed to update gitignore cache after bulk create:', e);
@@ -891,6 +951,132 @@ export class FileRepository {
       const request = store.get(fileId);
       request.onerror = () => reject(request.error);
       request.onsuccess = () => resolve(request.result || null);
+    });
+  }
+
+  /**
+   * プロジェクト内のパスでファイルを取得（path はプロジェクトルート相対パス）
+   * 可能な限りインデックスを使って効率的に取得する。
+   */
+  async getFileByPath(projectId: string, path: string): Promise<ProjectFile | null> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    // 正規化: leading slash を許容しているのでそのまま使う
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(['files'], 'readonly');
+      const store = transaction.objectStore('files');
+
+      // 優先: compound index があればそれを使う
+      if (store.indexNames.contains('projectId_path')) {
+        try {
+          const idx = store.index('projectId_path');
+          const req = idx.get([projectId, path]);
+          req.onerror = () => reject(req.error);
+          req.onsuccess = () => resolve(req.result || null);
+          return;
+        } catch (e) {
+          // fallthrough to fallback
+        }
+      }
+
+      // フォールバック: projectId インデックスから全取得してフィルタ（従来の方法）
+      if (store.indexNames.contains('projectId')) {
+        const idx = store.index('projectId');
+        const req = idx.getAll(projectId);
+        req.onerror = () => reject(req.error);
+        req.onsuccess = () => {
+          const files = req.result as ProjectFile[];
+          const found = files.find(f => f.path === path) || null;
+          resolve(found);
+        };
+        return;
+      }
+
+      // 最後の手段: 全件走査
+      const allReq = store.getAll();
+      allReq.onerror = () => reject(allReq.error);
+      allReq.onsuccess = () => {
+        const files = allReq.result as ProjectFile[];
+        const found = files.find(f => f.projectId === projectId && f.path === path) || null;
+        resolve(found);
+      };
+    });
+  }
+
+  /**
+   * 指定プレフィックスに一致するファイルを取得（path はプロジェクトルート相対パス）
+   * 例: prefix === '/src/' -> '/src/' 以下の全ファイルを返す
+   */
+  async getFilesByPrefix(projectId: string, prefix: string): Promise<ProjectFile[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(['files'], 'readonly');
+      const store = transaction.objectStore('files');
+
+      // 可能であれば projectId_path インデックスを使って範囲検索
+      if (store.indexNames.contains('projectId_path')) {
+        try {
+          const idx = store.index('projectId_path');
+          const lower: any = [projectId, prefix];
+          const upper: any = [projectId, prefix + '\uffff'];
+          const range = IDBKeyRange.bound(lower, upper);
+          const req = idx.getAll(range);
+          req.onerror = () => reject(req.error);
+          req.onsuccess = () => {
+            const files = req.result.map((f: any) => ({
+              ...f,
+              createdAt: new Date(f.createdAt),
+              updatedAt: new Date(f.updatedAt),
+              bufferContent: f.isBufferArray ? f.bufferContent : undefined,
+            }));
+            resolve(files as ProjectFile[]);
+          };
+          return;
+        } catch (e) {
+          // fallthrough
+        }
+      }
+
+      // フォールバック: projectId インデックスで絞ってから prefix フィルタ
+      if (store.indexNames.contains('projectId')) {
+        const idx = store.index('projectId');
+        const req = idx.getAll(projectId);
+        req.onerror = () => reject(req.error);
+        req.onsuccess = () => {
+          const files = (req.result as any[])
+            .filter(f => {
+              if (!prefix || prefix === '') return true;
+              return (f.path || '').startsWith(prefix);
+            })
+            .map(f => ({
+              ...f,
+              createdAt: new Date(f.createdAt),
+              updatedAt: new Date(f.updatedAt),
+              bufferContent: f.isBufferArray ? f.bufferContent : undefined,
+            }));
+          resolve(files as ProjectFile[]);
+        };
+        return;
+      }
+
+      // 最後の手段: 全件取得してフィルタ
+      const allReq = store.getAll();
+      allReq.onerror = () => reject(allReq.error);
+      allReq.onsuccess = () => {
+        const files = (allReq.result as any[])
+          .filter(f => {
+            if (!prefix || prefix === '') return true;
+            return (f.path || '').startsWith(prefix);
+          })
+          .map(f => ({
+            ...f,
+            createdAt: new Date(f.createdAt),
+            updatedAt: new Date(f.updatedAt),
+            bufferContent: f.isBufferArray ? f.bufferContent : undefined,
+          }));
+        resolve(files as ProjectFile[]);
+      };
     });
   }
 

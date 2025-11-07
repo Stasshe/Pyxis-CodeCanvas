@@ -76,8 +76,8 @@ export class SettingsManager {
    */
   async loadSettings(projectId: string): Promise<PyxisSettings> {
     try {
-      const files = await fileRepository.getProjectFiles(projectId);
-      const settingsFile = files.find(f => f.path === SETTINGS_PATH);
+      // Use path-based lookup to avoid reading the entire project file list
+      const settingsFile = await fileRepository.getFileByPath(projectId, SETTINGS_PATH);
 
       if (!settingsFile || !settingsFile.content) {
         // 設定ファイルがない場合はデフォルトを作成
@@ -111,8 +111,7 @@ export class SettingsManager {
       const content = JSON.stringify(settings, null, 2);
 
       // .pyxisフォルダを作成（存在しない場合）
-      const files = await fileRepository.getProjectFiles(projectId);
-      const pyxisFolder = files.find(f => f.path === '/.pyxis');
+      const pyxisFolder = await fileRepository.getFileByPath(projectId, '/.pyxis');
       if (!pyxisFolder) {
         await fileRepository.createFile(projectId, '/.pyxis', '', 'folder');
       }

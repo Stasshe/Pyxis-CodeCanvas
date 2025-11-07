@@ -26,7 +26,7 @@ const initializeProjectGit = async (project: Project, files: ProjectFile[]) => {
     console.log('[Git] Initializing for project:', project.name);
     // GitFileSystemやsyncManagerへの直接同期はfileRepository側に委譲
     // ここではGitリポジトリの初期化と初回コミットのみ行う
-  const git = terminalCommandRegistry.getGitCommands(project.name, project.id);
+    const git = terminalCommandRegistry.getGitCommands(project.name, project.id);
     try {
       await git.init();
       console.log('[Git] Repository initialized');
@@ -149,11 +149,11 @@ export const useProject = () => {
     setLoading(true);
     try {
       await fileRepository.init();
-      const files = await fileRepository.getProjectFiles(project.id);
+      const files = await fileRepository.getFilesByPrefix(project.id, '/');
       setCurrentProject(project);
       setProjectFiles(files);
       try {
-  const git = terminalCommandRegistry.getGitCommands(project.name, project.id);
+        const git = terminalCommandRegistry.getGitCommands(project.name, project.id);
         const currentBranch = await git.getCurrentBranch();
         if (currentBranch === '(no git)') {
           console.log('[Project] Git not initialized, initializing...');
@@ -182,11 +182,16 @@ export const useProject = () => {
     console.log('[Project] Saving file:', path);
     try {
       await fileRepository.init();
-      // Always fetch fresh file data from fileRepository (same as Terminal does)
-      const files = await fileRepository.getProjectFiles(currentProject.id);
-      const existingFile = files.find(f => f.path === path);
+      // Query single file directly instead of pulling all project files
+      const existingFile = await fileRepository.getFileByPath(currentProject.id, path);
       if (existingFile) {
-        const updatedFile = { ...existingFile, content, updatedAt: new Date() };
+        const updatedFile = {
+          ...existingFile,
+          content,
+          isBufferArray: false,
+          bufferContent: undefined,
+          updatedAt: new Date(),
+        };
         await fileRepository.saveFile(updatedFile);
         console.log('[Project] File updated (event system will update UI)');
       } else {
@@ -223,16 +228,17 @@ export const useProject = () => {
     let currentPath = '';
     for (let i = 0; i < pathParts.length - 1; i++) {
       currentPath += '/' + pathParts[i];
-      const existingFolder = projectFiles.find(f => f.path === currentPath && f.type === 'folder');
-      if (!existingFolder) {
-        console.log('[Project] Creating missing folder:', currentPath);
-        try {
+      // Query whether the folder exists directly from the repository instead of relying on cached projectFiles
+      try {
+        await fileRepository.init();
+        const existingFolder = await fileRepository.getFileByPath(currentProject.id, currentPath);
+        if (!existingFolder || existingFolder.type !== 'folder') {
+          console.log('[Project] Creating missing folder:', currentPath);
           await fileRepository.createFile(currentProject.id, currentPath, '', 'folder');
-          // 同期処理はfileRepository側に委譲
-        } catch (error) {
-          console.error('[Project] Failed to create parent folder:', currentPath, error);
-          throw error;
         }
+      } catch (error) {
+        console.error('[Project] Failed to create parent folder:', currentPath, error);
+        throw error;
       }
     }
   };
@@ -255,7 +261,7 @@ export const useProject = () => {
     if (!currentProject) return;
 
     try {
-      const files = await fileRepository.getProjectFiles(currentProject.id);
+      const files = await fileRepository.getFilesByPrefix(currentProject.id, '/');
       setProjectFiles(files);
     } catch (error) {
       console.error('[Project] Failed to refresh:', error);
@@ -279,35 +285,35 @@ export const useProject = () => {
       return;
     }
     try {
+      await fileRepository.init();
       if (type === 'delete') {
-        const files = await fileRepository.getProjectFiles(currentProject.id);
-        const fileToDelete = files.find(f => f.path === path);
+        const fileToDelete = await fileRepository.getFileByPath(currentProject.id, path);
         if (fileToDelete) {
           await fileRepository.deleteFile(fileToDelete.id);
         } else {
-          const childFiles = files.filter(f => f.path.startsWith(path + '/'));
+          const childFiles = await fileRepository.getFilesByPrefix(currentProject.id, path + '/');
           for (const child of childFiles) {
             await fileRepository.deleteFile(child.id);
           }
         }
       } else {
-        const existingFile = projectFiles.find(f => f.path === path);
+        const existingFile = await fileRepository.getFileByPath(currentProject.id, path);
         if (existingFile) {
           const updatedFile = bufferContent
             ? {
-                ...existingFile,
-                content: '',
-                isBufferArray: true,
-                bufferContent,
-                updatedAt: new Date(),
-              }
+              ...existingFile,
+              content: '',
+              isBufferArray: true,
+              bufferContent,
+              updatedAt: new Date(),
+            }
             : {
-                ...existingFile,
-                content,
-                isBufferArray: false,
-                bufferContent: undefined,
-                updatedAt: new Date(),
-              };
+              ...existingFile,
+              content,
+              isBufferArray: false,
+              bufferContent: undefined,
+              updatedAt: new Date(),
+            };
           await fileRepository.saveFile(updatedFile);
         } else {
           await fileRepository.createFile(
@@ -335,7 +341,7 @@ export const useProject = () => {
       console.log('[Project] Creating new project:', name);
       const newProject = await fileRepository.createProject(name, description);
 
-      const files = await fileRepository.getProjectFiles(newProject.id);
+      const files = await fileRepository.getFilesByPrefix(newProject.id, '/');
 
       setCurrentProject(newProject);
       setProjectFiles(files);

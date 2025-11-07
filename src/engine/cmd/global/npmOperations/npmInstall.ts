@@ -92,12 +92,11 @@ export class NpmInstall {
           await fileRepository.createFilesBulk(this.projectId, filesToCreate as any);
         }
 
-        // 削除対象のファイルを一括取得してから削除
+        // 削除対象のファイルはインデックス検索で単一取得してから削除
         if (deletes.length > 0) {
-          const files = await fileRepository.getProjectFiles(this.projectId);
           for (const delPath of deletes) {
             const normalizedPath = delPath.replace(/\/+$/, '');
-            const fileToDelete = files.find(f => f.path === normalizedPath);
+            const fileToDelete = await fileRepository.getFileByPath(this.projectId, normalizedPath);
             if (fileToDelete) {
               await fileRepository.deleteFile(fileToDelete.id);
             }
@@ -135,8 +134,7 @@ export class NpmInstall {
         await fileRepository.createFile(this.projectId, path, content || '', 'file');
       } else if (type === 'delete') {
         const normalizedPath = path.replace(/\/+$/, '');
-        const files = await fileRepository.getProjectFiles(this.projectId);
-        const fileToDelete = files.find(f => f.path === normalizedPath);
+        const fileToDelete = await fileRepository.getFileByPath(this.projectId, normalizedPath);
         if (fileToDelete) {
           await fileRepository.deleteFile(fileToDelete.id);
         }
@@ -147,9 +145,10 @@ export class NpmInstall {
   // 既存のインストール済みパッケージを読み込む
   private async loadInstalledPackages(snapshotFiles?: Array<any>): Promise<void> {
     try {
-      const files = snapshotFiles ?? (await fileRepository.getProjectFiles(this.projectId));
+      const files =
+        snapshotFiles ?? (await fileRepository.getFilesByPrefix(this.projectId, '/node_modules/'));
       const nodeModulesFiles = files.filter(
-        f => f.path.startsWith('/node_modules/') && f.path.endsWith('package.json')
+        (f: any) => f.path.startsWith('/node_modules/') && f.path.endsWith('package.json')
       );
       for (const file of nodeModulesFiles) {
         try {
@@ -173,9 +172,11 @@ export class NpmInstall {
   }
 
   async removeDirectory(dirPath: string): Promise<void> {
-    // IndexedDB上でディレクトリ配下のファイルを全て削除
-    const files = await fileRepository.getProjectFiles(this.projectId);
-    const targets = files.filter(f => f.path === dirPath || f.path.startsWith(dirPath + '/'));
+    // IndexedDB上でディレクトリ配下のファイルをすべて削除（プレフィックス検索で効率化）
+    const targets = await fileRepository.getFilesByPrefix(this.projectId, dirPath);
+    // また単一ファイルの可能性があるため明示的にチェック
+    const exact = await fileRepository.getFileByPath(this.projectId, dirPath);
+    if (exact) targets.unshift(exact);
     for (const file of targets) {
       await fileRepository.deleteFile(file.id);
     }
@@ -187,9 +188,10 @@ export class NpmInstall {
   ): Promise<Map<string, { dependencies: string[]; dependents: string[] }>> {
     const dependencyGraph = new Map<string, { dependencies: string[]; dependents: string[] }>();
     try {
-      const files = snapshotFiles ?? (await fileRepository.getProjectFiles(this.projectId));
+      const files =
+        snapshotFiles ?? (await fileRepository.getFilesByPrefix(this.projectId, '/node_modules/'));
       const nodeModulesFiles = files.filter(
-        f => f.path.startsWith('/node_modules/') && f.path.endsWith('package.json')
+        (f: any) => f.path.startsWith('/node_modules/') && f.path.endsWith('package.json')
       );
       // まず全パッケージをマップに登録
       for (const file of nodeModulesFiles) {
@@ -230,8 +232,12 @@ export class NpmInstall {
   private async getRootDependencies(snapshotFiles?: Array<any>): Promise<Set<string>> {
     const rootDeps = new Set<string>();
     try {
-      const files = snapshotFiles ?? (await fileRepository.getProjectFiles(this.projectId));
-      const packageFile = files.find(f => f.path === '/package.json');
+      let packageFile: any | null = null;
+      if (snapshotFiles) {
+        packageFile = snapshotFiles.find((f: any) => f.path === '/package.json');
+      } else {
+        packageFile = await fileRepository.getFileByPath(this.projectId, '/package.json');
+      }
       if (!packageFile) return rootDeps;
       const packageJson = JSON.parse(packageFile.content);
       const dependencies = Object.keys(packageJson.dependencies || {});
@@ -430,12 +436,21 @@ export class NpmInstall {
     snapshotFiles?: Array<any>
   ): Promise<boolean> {
     try {
-      const files = snapshotFiles ?? (await fileRepository.getProjectFiles(this.projectId));
-      const packageFile = files.find(f => f.path === `/node_modules/${packageName}/package.json`);
+      let packageFile: any | null = null;
+      if (snapshotFiles) {
+        packageFile = snapshotFiles.find(
+          (f: any) => f.path === `/node_modules/${packageName}/package.json`
+        );
+      } else {
+        packageFile = await fileRepository.getFileByPath(
+          this.projectId,
+          `/node_modules/${packageName}/package.json`
+        );
+      }
       if (!packageFile) return false;
       const packageJson = JSON.parse(packageFile.content);
       if (packageJson.version === version) {
-        return await this.areDependenciesInstalled(packageJson.dependencies || {}, files);
+        return await this.areDependenciesInstalled(packageJson.dependencies || {}, snapshotFiles);
       }
       return false;
     } catch {
@@ -452,10 +467,18 @@ export class NpmInstall {
     if (dependencyEntries.length === 0) {
       return true;
     }
-    const files = snapshotFiles ?? (await fileRepository.getProjectFiles(this.projectId));
+    const files = snapshotFiles ?? undefined;
     for (const [depName, depVersionSpec] of dependencyEntries) {
       const depVersion = this.resolveVersion(depVersionSpec);
-      const depPackageFile = files.find(f => f.path === `/node_modules/${depName}/package.json`);
+      let depPackageFile: any | null = null;
+      if (files) {
+        depPackageFile = files.find((f: any) => f.path === `/node_modules/${depName}/package.json`);
+      } else {
+        depPackageFile = await fileRepository.getFileByPath(
+          this.projectId,
+          `/node_modules/${depName}/package.json`
+        );
+      }
       if (!depPackageFile) return false;
       try {
         const depPackageJson = JSON.parse(depPackageFile.content);
@@ -487,13 +510,17 @@ export class NpmInstall {
     }
 
     // ファイル一覧を1回だけ取得してスナップショットとして再利用（IndexedDB往復を削減）
-    const snapshotFiles = await fileRepository.getProjectFiles(this.projectId);
+    // ただし全件取得は避け、node_modules 配下はプレフィックス、ルート設定は単一取得で済ませる
+    const nodeFiles = await fileRepository.getFilesByPrefix(this.projectId, '/node_modules/');
+    const packageFile = await fileRepository.getFileByPath(this.projectId, '/package.json');
+    const gitignoreFile = await fileRepository.getFileByPath(this.projectId, '/.gitignore');
+    const snapshotFiles = [packageFile, gitignoreFile, ...(nodeFiles || [])].filter(Boolean as any);
 
     // 常に /.gitignore を作成または更新して node_modules を含める
     try {
       const files = snapshotFiles; // snapshot を先に取得しているので再利用
-      const gitignoreFile = files.find(f => f.path === '/.gitignore');
-      const currentContent = gitignoreFile ? gitignoreFile.content : undefined;
+      const gitignoreEntry = files.find((f: any) => f && f.path === '/.gitignore');
+      const currentContent = gitignoreEntry ? gitignoreEntry.content : undefined;
       const entry = options?.ignoreEntry || 'node_modules';
       const { content: newContent, changed } = ensureGitignoreContains(currentContent, entry);
       if (changed) {

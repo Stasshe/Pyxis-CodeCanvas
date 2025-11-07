@@ -21,10 +21,10 @@ export const loadImageAsDataURL = async (
   if (!projectName && !projectId) return null;
 
   try {
-    // Always try to fetch project files from fileRepository. Prefer projectId when provided.
+    // Prefer indexed single-file lookup when projectId is available
     let files: FileItem[] | undefined;
     if (projectId) {
-      files = await fileRepository.getProjectFiles(projectId);
+      // we'll try to resolve candidate paths via getFileByPath instead of loading the whole tree
     }
 
     const extension = (imagePath || '').toLowerCase().split('.').pop();
@@ -92,30 +92,24 @@ export const loadImageAsDataURL = async (
     // Remove duplicates while preserving order
     const uniqueCandidates = Array.from(new Set(candidates.filter(Boolean)));
 
-    // Find the file in the project files (recursive)
-    const findFileRecursively = (
-      filesList: FileItem[] | undefined,
-      targetPath: string
-    ): FileItem | null => {
-      if (!filesList) return null;
-      for (const file of filesList) {
-        const filePath = file.path && file.path.startsWith('/') ? file.path : '/' + file.path;
-        if (filePath === targetPath && file.type === 'file') return file;
-        if (file.children) {
-          const found = findFileRecursively(file.children, targetPath);
-          if (found) return found;
+    // Try candidate paths using indexed lookup when possible
+    let imageFile: FileItem | null = null;
+    if (projectId) {
+      for (const cand of uniqueCandidates) {
+        try {
+          const f = await fileRepository.getFileByPath(projectId, cand);
+          if (f && f.type === 'file') {
+            imageFile = f as FileItem;
+            break;
+          }
+        } catch (err) {
+          // ignore and try next candidate
         }
       }
+    } else {
+      // No projectId: conservative fallback (no project files loaded)
       return null;
-    };
-
-    let imageFile: FileItem | null = null;
-    for (const cand of uniqueCandidates) {
-      imageFile = findFileRecursively(files, cand);
-      if (imageFile) break;
     }
-
-    if (!imageFile) return null;
 
     // If bufferContent exists, convert to base64
     if ((imageFile as any).isBufferArray && (imageFile as any).bufferContent) {

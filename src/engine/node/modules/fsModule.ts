@@ -55,9 +55,9 @@ export function createFSModule(options: FSModuleOptions) {
     const parentPath = relativePath.substring(0, relativePath.lastIndexOf('/'));
     if (parentPath) {
       try {
-        const existingFiles = await fileRepository.getProjectFiles(projectId);
-        const folderExists = existingFiles.some(f => f.path === parentPath && f.type === 'folder');
-
+        // Prefer direct lookup of the parent folder instead of listing all files
+        const folder = await fileRepository.getFileByPath(projectId, parentPath);
+        const folderExists = folder && folder.type === 'folder';
         if (!folderExists) {
           await fileRepository.createFile(projectId, parentPath, '', 'folder');
         }
@@ -68,8 +68,7 @@ export function createFSModule(options: FSModuleOptions) {
 
     // IndexedDBに保存（自動的にGitFileSystemに同期される）
     try {
-      const existingFiles = await fileRepository.getProjectFiles(projectId);
-      const existingFile = existingFiles.find(f => f.path === relativePath);
+      const existingFile = await fileRepository.getFileByPath(projectId, relativePath);
 
       if (existingFile) {
         // 既存ファイルを更新
@@ -116,8 +115,7 @@ export function createFSModule(options: FSModuleOptions) {
     readFile: async (path: string, options?: any): Promise<string | Uint8Array> => {
       try {
         const { relativePath } = normalizePath(path);
-        const files = await fileRepository.getProjectFiles(projectId);
-        const file = files.find(f => f.path === relativePath && f.type === 'file');
+        const file = await fileRepository.getFileByPath(projectId, relativePath);
         if (!file) throw new Error(`File not found: ${path}`);
         const content = file.content ?? '';
         if (options && options.encoding === null) {
@@ -208,18 +206,15 @@ export function createFSModule(options: FSModuleOptions) {
       const recursive = options?.recursive || false;
 
       try {
-        const existingFiles = await fileRepository.getProjectFiles(projectId);
-
         if (recursive) {
-          // 再帰的にディレクトリを作成
+          // 再帰的にディレクトリを作成 - check each path with targeted lookup
           const parts = relativePath.split('/').filter(Boolean);
           let currentPath = '';
 
           for (const part of parts) {
             currentPath += `/${part}`;
-            const folderExists = existingFiles.some(
-              f => f.path === currentPath && f.type === 'folder'
-            );
+            const folder = await fileRepository.getFileByPath(projectId, currentPath);
+            const folderExists = folder && folder.type === 'folder';
 
             if (!folderExists) {
               await fileRepository.createFile(projectId, currentPath, '', 'folder');
@@ -227,9 +222,8 @@ export function createFSModule(options: FSModuleOptions) {
           }
         } else {
           // 単一ディレクトリを作成
-          const folderExists = existingFiles.some(
-            f => f.path === relativePath && f.type === 'folder'
-          );
+          const folder = await fileRepository.getFileByPath(projectId, relativePath);
+          const folderExists = folder && folder.type === 'folder';
 
           if (!folderExists) {
             await fileRepository.createFile(projectId, relativePath, '', 'folder');
@@ -247,8 +241,12 @@ export function createFSModule(options: FSModuleOptions) {
     readdir: async (path: string, options?: any): Promise<string[]> => {
       try {
         const { relativePath } = normalizePath(path);
-        const files = await fileRepository.getProjectFiles(projectId);
         const dirPath = relativePath.endsWith('/') ? relativePath : relativePath + '/';
+        // Use prefix-based listing to avoid loading all files
+        const files =
+          typeof fileRepository.getFilesByPrefix === 'function'
+            ? await fileRepository.getFilesByPrefix(projectId, dirPath)
+            : await fileRepository.getProjectFiles(projectId);
         // 直下のファイル/フォルダ名のみ返す
         const children = files
           .filter(f => f.path.startsWith(dirPath) && f.path !== dirPath)
@@ -268,9 +266,7 @@ export function createFSModule(options: FSModuleOptions) {
       const { relativePath } = normalizePath(path);
 
       try {
-        const existingFiles = await fileRepository.getProjectFiles(projectId);
-        const file = existingFiles.find(f => f.path === relativePath);
-
+        const file = await fileRepository.getFileByPath(projectId, relativePath);
         if (file) {
           await fileRepository.deleteFile(file.id);
         } else {
@@ -290,8 +286,7 @@ export function createFSModule(options: FSModuleOptions) {
         const { relativePath } = normalizePath(path);
         let existingContent = '';
         try {
-          const files = await fileRepository.getProjectFiles(projectId);
-          const file = files.find(f => f.path === relativePath && f.type === 'file');
+          const file = await fileRepository.getFileByPath(projectId, relativePath);
           if (file) existingContent = file.content ?? '';
         } catch {
           // ファイルが存在しない場合は新規作成
@@ -308,8 +303,7 @@ export function createFSModule(options: FSModuleOptions) {
     stat: async (path: string): Promise<any> => {
       try {
         const { relativePath } = normalizePath(path);
-        const files = await fileRepository.getProjectFiles(projectId);
-        const file = files.find(f => f.path === relativePath);
+        const file = await fileRepository.getFileByPath(projectId, relativePath);
         if (!file) throw new Error(`File not found: ${path}`);
         // 疑似的なstat情報を返す
         return {

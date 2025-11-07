@@ -15,14 +15,14 @@
  * `extensions/_shared/types.ts` (the extension-facing, stable surface).
  */
 
-import type { SystemModuleMap } from './systemModuleTypes';
+import type { CommandHandler } from './commandRegistry';
 import type {
   CreateTabOptions,
   UpdateTabOptions,
   TabCloseCallback,
   ExtensionTabData,
 } from './system-api/TabAPI';
-import type { CommandHandler } from './commandRegistry';
+import type { SystemModuleMap } from './systemModuleTypes';
 
 /**
  * 拡張機能の種類
@@ -178,9 +178,7 @@ export interface ExtensionContext {
   };
 
   /** システムモジュールへのアクセス (型安全) */
-  getSystemModule: <T extends keyof SystemModuleMap>(
-    moduleName: T
-  ) => Promise<SystemModuleMap[T]>;
+  getSystemModule: <T extends keyof SystemModuleMap>(moduleName: T) => Promise<SystemModuleMap[T]>;
 
   /** 他の拡張機能との通信 (オプション・未実装) */
   messaging?: {
@@ -212,10 +210,7 @@ export interface ExtensionContext {
     createPanel: (definition: SidebarPanelDefinition) => void;
     updatePanel: (panelId: string, state: any) => void;
     removePanel: (panelId: string) => void;
-    onPanelActivate: (
-      panelId: string,
-      callback: (panelId: string) => void | Promise<void>
-    ) => void;
+    onPanelActivate: (panelId: string, callback: (panelId: string) => void | Promise<void>) => void;
   };
 
   /** Commands API - 拡張機能がターミナルコマンドを追加 */

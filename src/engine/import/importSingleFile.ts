@@ -1,4 +1,3 @@
-import { terminalCommandRegistry } from '../cmd/terminalRegistry';
 
 import { fileRepository } from '@/engine/core/fileRepository';
 
@@ -10,7 +9,12 @@ import { fileRepository } from '@/engine/core/fileRepository';
  * @param targetPath 保存先パス(例: /projects/project/foo.txt)
  * @param unix UnixCommandsインスタンス(プロジェクトごとに生成済みのものを渡す)
  */
-export async function importSingleFile(file: File, targetPath: string, projectName: string, projectId?: string) {
+export async function importSingleFile(
+  file: File,
+  targetPath: string,
+  projectName: string,
+  projectId?: string
+) {
   // バイナリ拡張子リスト
   const binaryExt =
     /\.(png|jpg|jpeg|gif|bmp|webp|svg|pdf|zip|ico|tar|gz|rar|exe|dll|so|mp3|mp4|avi|mov|woff|woff2|ttf|eot)$/i;

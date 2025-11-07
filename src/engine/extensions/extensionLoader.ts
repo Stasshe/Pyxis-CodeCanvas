@@ -3,9 +3,9 @@
  * 拡張機能のコードをfetchしてロード・実行する
  */
 
+import { isBinaryExt, toDataUrlFromUint8, dataUrlToBlob } from './binaryUtils';
 import { extensionInfo, extensionError } from './extensionsLogger';
 import { transformImports } from './transformImports';
-import { isBinaryExt, toDataUrlFromUint8, dataUrlToBlob } from './binaryUtils';
 import type {
   ExtensionManifest,
   ExtensionExports,

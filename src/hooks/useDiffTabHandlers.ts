@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 
-import { useTabStore } from '@/stores/tabStore';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
+import { useTabStore } from '@/stores/tabStore';
 import type { SingleFileDiff } from '@/types';
 
 /**
@@ -23,10 +23,7 @@ export function useDiffTabHandlers(currentProject: any) {
       editable?: boolean;
     }) => {
       if (!currentProject) return;
-      const git = terminalCommandRegistry.getGitCommands(
-        currentProject.name,
-        currentProject.id
-      );
+      const git = terminalCommandRegistry.getGitCommands(currentProject.name, currentProject.id);
 
       // working directory vs コミット のdiffの場合（editableがtrueの場合のみ）
       // GitPanelのunstaged/stagedファイルから開かれた場合
@@ -43,11 +40,13 @@ export function useDiffTabHandlers(currentProject: any) {
           // まずfileRepositoryから最新の内容を取得を試みる
           const { fileRepository } = await import('@/engine/core/fileRepository');
           try {
-            const allFiles = await fileRepository.getProjectFiles(currentProject.id);
-            const targetFile = allFiles.find(f => f.path === filePath);
-            if (targetFile && targetFile.content) {
-              latterContent = targetFile.content;
-              console.log('[useDiffTabHandlers] Read latterContent from fileRepository (latest)');
+            // Use indexed lookup for a single file (preferred per FILE_REPOSITORY_BEST_PRACTICES)
+            const file = await fileRepository.getFileByPath(currentProject.id, filePath);
+            if (file && file.content) {
+              latterContent = file.content;
+              console.log(
+                '[useDiffTabHandlers] Read latterContent from fileRepository (getFileByPath)'
+              );
             } else {
               throw new Error('File not found in repository');
             }
@@ -159,10 +158,7 @@ export function useDiffTabHandlers(currentProject: any) {
   const handleDiffAllFilesClick = useCallback(
     async ({ commitId, parentCommitId }: { commitId: string; parentCommitId: string }) => {
       if (!currentProject) return;
-      const git = terminalCommandRegistry.getGitCommands(
-        currentProject.name,
-        currentProject.id
-      );
+      const git = terminalCommandRegistry.getGitCommands(currentProject.name, currentProject.id);
 
       // defensive: if parentCommitId is not provided, try to resolve it from the commit log
       if (!parentCommitId) {

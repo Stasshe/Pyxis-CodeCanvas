@@ -3,9 +3,9 @@ import { ParseError } from '@/engine/cmd/shell/parser';
 
 describe('parser unterminated command-substitution errors', () => {
   test('unterminated backtick throws ParseError with pos', () => {
-    expect(() => parseCommandLine("echo `unterminated")).toThrowError(ParseError);
+    expect(() => parseCommandLine('echo `unterminated')).toThrowError(ParseError);
     try {
-      parseCommandLine("echo `unterminated");
+      parseCommandLine('echo `unterminated');
     } catch (e: any) {
       expect(e).toBeInstanceOf(ParseError);
       expect(e.message).toMatch(/Unterminated backtick/);

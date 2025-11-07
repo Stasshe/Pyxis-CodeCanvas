@@ -10,11 +10,17 @@ const makeUnixMock = () => ({
 
 describe('StreamShell / unixHandler integration', () => {
   test('nonexistent command yields exit 127 and command not found message', async () => {
-    const shell = new StreamShell({ projectName: 'p', projectId: 'p', unix: makeUnixMock() as any });
+    const shell = new StreamShell({
+      projectName: 'p',
+      projectId: 'p',
+      unix: makeUnixMock() as any,
+    });
 
     const res = await shell.run('this-command-does-not-exist');
 
     expect(res.code).toBe(127);
-    expect(res.stderr.includes('Command not found') || res.stdout.includes('Command not found')).toBe(true);
+    expect(
+      res.stderr.includes('Command not found') || res.stdout.includes('Command not found')
+    ).toBe(true);
   });
 });

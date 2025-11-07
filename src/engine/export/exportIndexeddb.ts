@@ -238,14 +238,14 @@ export async function exportIndexeddbHtml(): Promise<string> {
     </div>
     <div id='dbs'>
       ${allData
-        .map(
-          (db, dbIdx) => `
+    .map(
+      (db, dbIdx) => `
         <div class='db'>
           <div class='db-header' onclick='toggleDb(${dbIdx}, this)'><span class='arrow'>▶</span>DB: ${db.name} (v${db.version}) <span class='count'>[${db.stores.length} stores]</span></div>
           <div class='db-content collapsed'>
             ${db.stores
-              .map(
-                (store, storeIdx) => `
+    .map(
+      (store, storeIdx) => `
               <div class='store'>
                 <div class='store-header' onclick='toggleStore(${dbIdx},${storeIdx}, this)'><span class='arrow'>▶</span>Store: ${store.name} <span class='count'>[${store.items.length} items]</span></div>
                 <div class='items collapsed' id='items-${dbIdx}-${storeIdx}'>
@@ -253,13 +253,13 @@ export async function exportIndexeddbHtml(): Promise<string> {
                 </div>
               </div>
             `
-              )
-              .join('')}
+    )
+    .join('')}
           </div>
         </div>
       `
-        )
-        .join('')}
+    )
+    .join('')}
     </div>
     <div class='footer'>Generated at ${new Date().toLocaleString('ja-JP')}</div>
     <script>

@@ -44,7 +44,9 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
 
   const typeColor = getExtensionTypeBadgeColor(manifest.type);
 
-  const [isWide, setIsWide] = useState<boolean>(typeof window !== 'undefined' ? window.innerWidth >= 720 : false);
+  const [isWide, setIsWide] = useState<boolean>(
+    typeof window !== 'undefined' ? window.innerWidth >= 720 : false
+  );
 
   useEffect(() => {
     const onResize = () => setIsWide(window.innerWidth >= 720);
@@ -131,12 +133,22 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
             >
               <div className="mb-4">
                 <h2 className="text-lg font-semibold">Readme</h2>
-                <span className="text-xs" style={{ color: colors.mutedFg }}>{manifest.readme ? 'README.md' : 'No README available'}</span>
+                <span
+                  className="text-xs"
+                  style={{ color: colors.mutedFg }}
+                >
+                  {manifest.readme ? 'README.md' : 'No README available'}
+                </span>
               </div>
 
-              <div className="prose max-w-none flex-1" style={{ color: colors.foreground }}>
+              <div
+                className="prose max-w-none flex-1"
+                style={{ color: colors.foreground }}
+              >
                 {manifest.readme ? (
-                  <div style={{ maxHeight: 'calc(100vh - 260px)', overflowY: 'auto', paddingRight: 8 }}>
+                  <div
+                    style={{ maxHeight: 'calc(100vh - 260px)', overflowY: 'auto', paddingRight: 8 }}
+                  >
                     <ReactMarkdown
                       remarkPlugins={[remarkGfm]}
                       rehypePlugins={[rehypeRaw, rehypeSanitize]}
@@ -144,10 +156,20 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
                         img: (props: any) => (
                           // ensure images do not overflow
                           // eslint-disable-next-line jsx-a11y/alt-text
-                          <img {...props} style={{ maxWidth: '100%', height: 'auto' }} />
+                          <img
+                            {...props}
+                            style={{ maxWidth: '100%', height: 'auto' }}
+                          />
                         ),
                         pre: (props: any) => (
-                          <pre {...props} style={{ overflowX: 'auto', padding: '0.75rem', background: colors.mutedBg }} />
+                          <pre
+                            {...props}
+                            style={{
+                              overflowX: 'auto',
+                              padding: '0.75rem',
+                              background: colors.mutedBg,
+                            }}
+                          />
                         ),
                         code: (props: any) => {
                           const { inline, className, children, ...rest } = props;
@@ -170,7 +192,10 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
                     </ReactMarkdown>
                   </div>
                 ) : (
-                  <div className="text-sm" style={{ color: colors.mutedFg }}>
+                  <div
+                    className="text-sm"
+                    style={{ color: colors.mutedFg }}
+                  >
                     {manifest.description || 'No README available for this extension.'}
                   </div>
                 )}
@@ -282,17 +307,35 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
 
                 {manifest.metadata.publishedAt && (
                   <div className="mb-2">
-                    <span className="text-xs" style={{ color: colors.mutedFg }}>Published:</span>
-                    <span className="text-sm ml-2">{new Date(manifest.metadata.publishedAt).toLocaleDateString()}</span>
+                    <span
+                      className="text-xs"
+                      style={{ color: colors.mutedFg }}
+                    >
+                      Published:
+                    </span>
+                    <span className="text-sm ml-2">
+                      {new Date(manifest.metadata.publishedAt).toLocaleDateString()}
+                    </span>
                   </div>
                 )}
 
                 {manifest.metadata.tags && manifest.metadata.tags.length > 0 && (
                   <div>
-                    <span className="text-xs mb-2 block" style={{ color: colors.mutedFg }}>Tags:</span>
+                    <span
+                      className="text-xs mb-2 block"
+                      style={{ color: colors.mutedFg }}
+                    >
+                      Tags:
+                    </span>
                     <div className="flex flex-wrap gap-2">
                       {manifest.metadata.tags.map((tag: string, idx: number) => (
-                        <span key={idx} className="text-xs px-2 py-1 rounded" style={{ background: colors.primary + '15', color: colors.primary }}>{tag}</span>
+                        <span
+                          key={idx}
+                          className="text-xs px-2 py-1 rounded"
+                          style={{ background: colors.primary + '15', color: colors.primary }}
+                        >
+                          {tag}
+                        </span>
                       ))}
                     </div>
                   </div>
@@ -314,7 +357,12 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
                 />
                 <span className="text-sm font-semibold">Entry Point</span>
               </div>
-              <code className="text-sm px-2 py-1 rounded" style={{ background: colors.mutedBg, color: colors.foreground }}>{manifest.entry}</code>
+              <code
+                className="text-sm px-2 py-1 rounded"
+                style={{ background: colors.mutedBg, color: colors.foreground }}
+              >
+                {manifest.entry}
+              </code>
             </div>
           </div>
         </div>
