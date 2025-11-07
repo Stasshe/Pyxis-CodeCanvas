@@ -148,6 +148,20 @@ export class MvCommand extends UnixCommandBase {
 
       // 元のディレクトリを削除
       await fileRepository.deleteFile(sourceFile.id);
+
+      // キャッシュを無効化: 移動元と移動先の prefix と関連ファイル
+      try {
+        // sourceRelative が '/' の場合はルート全体を無効化
+        const srcPrefix = sourceRelative === '/' ? '/' : sourceRelative;
+        const dstPrefix = destRelative === '/' ? '/' : destRelative;
+        this.invalidatePrefix(srcPrefix);
+        this.invalidatePrefix(dstPrefix);
+        this.deleteCacheFile(sourceRelative);
+        this.deleteCacheFile(destRelative);
+      } catch (e) {
+        // キャッシュ操作は失敗しても処理に影響させない
+        console.warn('[mv] cache invalidate error:', e);
+      }
     } else {
       // ファイルの場合
       await fileRepository.createFile(
@@ -159,6 +173,19 @@ export class MvCommand extends UnixCommandBase {
         sourceFile.bufferContent
       );
       await fileRepository.deleteFile(sourceFile.id);
+
+      // 単一ファイルのキャッシュを更新/削除
+      try {
+        this.deleteCacheFile(sourceRelative);
+        this.deleteCacheFile(destRelative);
+        // invalidate 親ディレクトリ prefixes
+        const srcParent = sourceRelative.endsWith('/') ? sourceRelative : sourceRelative.replace(/\/[^/]*$/, '');
+        const dstParent = destRelative.endsWith('/') ? destRelative : destRelative.replace(/\/[^/]*$/, '');
+        this.invalidatePrefix(srcParent || '/');
+        this.invalidatePrefix(dstParent || '/');
+      } catch (e) {
+        console.warn('[mv] cache update error:', e);
+      }
     }
   }
 }

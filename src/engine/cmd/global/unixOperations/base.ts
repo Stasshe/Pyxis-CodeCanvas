@@ -47,6 +47,60 @@ export abstract class UnixCommandBase {
   }
 
   /**
+   * キャッシュに単一ファイルを設定する（null を設定すると明示的に存在しないことを示す）
+   * relativePath はプロジェクト相対パス（先頭スラッシュあり）
+   */
+  protected setCacheFile(relativePath: string, file: ProjectFile | null): void {
+    const key = `file:${relativePath}`;
+    this.cache.set(key, file);
+  }
+
+  /**
+   * キャッシュから単一ファイルエントリを削除する
+   */
+  protected deleteCacheFile(relativePath: string): void {
+    const key = `file:${relativePath}`;
+    this.cache.delete(key);
+  }
+
+  /**
+   * prefix に一致するキャッシュ（prefix: と file:）を無効化する
+   * prefix はプロジェクト相対パスで先頭スラッシュあり。例: '/' or '/src/'
+   */
+  protected invalidatePrefix(prefix: string): void {
+    // Normalize prefix for matching stored keys
+    const normalized = prefix === '/' || prefix === '' ? '/' : prefix.replace(/\/$/, '') + '/';
+
+    for (const key of Array.from(this.cache.keys())) {
+      if (key.startsWith('prefix:')) {
+        const cachedPrefix = key.slice('prefix:'.length);
+        // If cachedPrefix starts with normalized or normalized starts with cachedPrefix, clear it
+        if (
+          cachedPrefix === prefix ||
+          cachedPrefix.startsWith(normalized) ||
+          normalized.startsWith(cachedPrefix)
+        ) {
+          this.cache.delete(key);
+        }
+      }
+
+      if (key.startsWith('file:')) {
+        const filePath = key.slice('file:'.length);
+        if (filePath === prefix || filePath.startsWith(normalized) || normalized.startsWith(filePath)) {
+          this.cache.delete(key);
+        }
+      }
+    }
+  }
+
+  /**
+   * インスタンスキャッシュを全消去する（テスト用・デバッグ用）
+   */
+  protected clearCache(): void {
+    this.cache.clear();
+  }
+
+  /**
    * 相対パスを絶対パスに変換
    */
   protected resolvePath(path: string): string {
