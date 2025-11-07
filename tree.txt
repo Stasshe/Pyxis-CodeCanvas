@@ -75,7 +75,6 @@ Root
 ├── jest.setup.js
 ├── next-env.d.ts
 ├── next.config.ts
-├── package-lock.json
 ├── package.json
 ├── pnpm-lock.yaml
 ├── pnpm-workspace.yaml
@@ -102,6 +101,7 @@ Root
 │   ├── IMG_0048.png
 │   ├── IMG_0113.png
 │   ├── IMG_0117.png
+│   ├── IMG_0126.png
 │   ├── IMG_1466.png
 │   ├── IMG_1467.png
 │   ├── IMG_1469.png
@@ -395,6 +395,7 @@ Root
 │   ├── aiResponseParser.test.ts
 │   ├── all-sh.test.ts
 │   ├── extensionLoader.multifile.test.ts
+│   ├── findCommand.posix.test.ts
 │   ├── fsRequirePromise.test.ts
 │   ├── gitignore.test.ts
 │   ├── normalizeCjsEsm.imports.test.ts
@@ -419,7 +420,7 @@ Root
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-65 directories, 354 files
+65 directories, 355 files
 
 =================================
 
@@ -537,12 +538,12 @@ extensions/ 以下のディレクトリ構造:
 
 
 src/*.ts, *.tsx の統計:
-合計行数: 50090
-合計文字数: 1617623
-合計ファイルサイズ(bytes): 1725029
+合計行数: 50482
+合計文字数: 1630014
+合計ファイルサイズ(bytes): 1738768
 
 開発時のdev container全体のサイズ(bytes): 2.6G	.
 ==========
-ビルト済みファイルの行数: 41238
-合計文字数: 26390037
-合計ファイルサイズ(bytes): 27374036
+ビルト済みファイルの行数: 41239
+合計文字数: 26427220
+合計ファイルサイズ(bytes): 27411219
