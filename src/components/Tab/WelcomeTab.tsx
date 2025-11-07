@@ -5,15 +5,6 @@ export default function WelcomeTab() {
   const { t } = useTranslation();
   const [isDevServer, setIsDevServer] = useState(false);
   const [lang, setLang] = useState<'en' | 'ja'>('en');
-
-  useEffect(() => {
-    const host = window.location.hostname;
-    if (host.includes('onrender.com')) {
-      setIsDevServer(true);
-    }
-    setLang(navigator.language.startsWith('ja') ? 'ja' : 'en');
-  }, []);
-
   return (
     <div
       className="h-full flex flex-col items-center text-muted-foreground overflow-hidden"
@@ -33,7 +24,7 @@ export default function WelcomeTab() {
           </div>
 
           {/* 🟡 onrender.com向け注意表示 */}
-          {isDevServer && (
+          {process.env.NEXT_PUBLIC_IS_DEV_SERVER && (
             <div className="bg-yellow-100 text-yellow-800 p-4 rounded-lg shadow mb-8 border border-yellow-300">
               {lang === 'ja' ? (
                 <>
