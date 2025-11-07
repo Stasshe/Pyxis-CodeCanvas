@@ -144,6 +144,104 @@ export interface NpmCommandsPublic {
   run(scriptName: string): Promise<string>;
 }
 
+/**
+ * Process exit shape returned by various shell helpers.
+ */
+export type ProcExit = {
+  code: number | null;
+  /** Signal name when process was killed, e.g. 'SIGINT' */
+  signal?: string | null;
+};
+
+/**
+ * Minimal readable stream-like interface used by builtins/handlers.
+ * Designed to be compatible with Node.js streams but intentionally
+ * small so the extension-facing API doesn't require Node types.
+ */
+export interface ReadableLike {
+  on(event: 'data', cb: (chunk: Buffer | string) => void): this;
+  on(event: 'end' | 'close', cb: () => void): this;
+  on(event: 'error', cb: (err: Error) => void): this;
+}
+
+/**
+ * Minimal writable stream-like interface used by builtins/handlers.
+ */
+export interface WritableLike {
+  write(chunk: Buffer | string): boolean;
+  end(): void;
+  on(event: 'error', cb: (err: Error) => void): this;
+}
+
+/**
+ * A handle representing a running subprocess inside the StreamShell.
+ * This mirrors the engine-side Process class (stdin/stdout/stderr, pid,
+ * wait(), kill()). It is exposed here so extensions that call lower-level
+ * APIs (if available) can type-check against it.
+ */
+export interface ShellProcessHandle {
+  pid: number;
+  stdin: WritableLike;
+  stdout: ReadableLike;
+  stderr: ReadableLike;
+  /**
+   * Wait for the process to exit and receive final exit info.
+   */
+  wait(): Promise<ProcExit>;
+  /** Kill the process with a signal (default: SIGINT)
+   * Note: implementations may queue a 'signal' event before actually
+   * resolving the wait() promise.
+   */
+  kill(signal?: string): void;
+}
+
+/**
+ * Result returned by StreamShell.run(). Kept strict and explicit so
+ * callers can rely on the exact fields produced by the engine.
+ */
+export interface ShellRunResult {
+  stdout: string;
+  stderr: string;
+  /** Numeric exit code or null when process was terminated by signal */
+  code: number | null;
+}
+
+/**
+ * StreamShell - extension-facing, strongly-typed description.
+ * This mirrors the runtime behavior implemented in the engine but
+ * remains self-contained (no imports from `src/`). Keep signatures
+ * conservative (don't add required runtime-only features).
+ */
+export interface StreamShell {
+  /**
+   * Execute a single command-line (can include pipelines, redirections,
+   * logical operators, and script invocations). Returns collected
+   * stdout/stderr and the exit code. The call resolves when the
+   * pipeline completes (or times out inside the engine).
+   */
+  run(line: string): Promise<ShellRunResult>;
+
+  /**
+   * Kill the current foreground process (if any) with an optional signal.
+   * This is a convenience that forwards to the shell's foreground process
+   * handler. It MUST be safe to call even if no foreground process exists.
+   */
+  killForeground?(signal?: string): void;
+
+  /**
+   * If the implementation exposes low-level process handles, this method
+   * will create one for the provided (already-parsed) command segment.
+   * This is optional and may be undefined on some runtimes. The engine's
+   * default StreamShell does not expose a public createProcess API, but
+   * the type is provided for completeness.
+   */
+  createProcessHandle?(cmdLine: string): Promise<ShellProcessHandle>;
+
+  /** Helpers to inspect the shell context (optional). */
+  getProjectId?(): string | undefined;
+  getProjectName?(): string | undefined;
+}
+
 export interface SystemModuleMap {
   fileRepository: FileRepository;
   normalizeCjsEsm: NormalizeCjsEsmModule;
@@ -153,6 +251,11 @@ export interface SystemModuleMap {
     getUnixCommands: (projectName: string, projectId?: string) => UnixCommandsPublic;
     getGitCommands: (projectName: string, projectId?: string) => GitCommandsPublic;
     getNpmCommands: (projectName: string, projectId?: string, projectPath?: string) => NpmCommandsPublic;
+    getShell: (
+      projectName: string,
+      projectId?: string,
+      opts?: { unix?: any; commandRegistry?: any; fileRepository?: any }
+    ) => Promise<StreamShell | null>;
   };
 }
 

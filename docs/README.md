@@ -124,7 +124,29 @@ Gemini AI統合、コードレビュー、チャット機能の実装につい�
 
 ---
 
-### 6. [DATA-FLOW.md](./DATA-FLOW.md)
+### 7. [SHELL-SYSTEM.md](./SHELL-SYSTEM.md)
+**Shell実行システム**
+
+ブラウザ上でPOSIX準拠のシェルスクリプトを実行するための仕組みについて説明します。
+
+**主な内容:**
+- Shellアーキテクチャ全体像
+- Process抽象化（stdin/stdout/stderr）
+- AST Parser（コマンドライン解析）
+- パイプライン処理とストリーム接続
+- リダイレクション（>, >>, <, 2>&1など）
+- 制御構文（if/for/while）
+- 変数展開とコマンド置換
+- Builtinsアダプター
+- スクリプト実行フロー
+- エラーハンドリングとタイムアウト
+- パフォーマンス最適化
+
+**対象読者:** ターミナル機能を拡張する開発者、シェルコマンドの実装を理解したい人
+
+---
+
+### 8. [DATA-FLOW.md](./DATA-FLOW.md)
 **データフローと状態管理**
 
 システム全体のデータフロー、状態遷移、イベント伝播について詳細に説明します。
@@ -313,6 +335,7 @@ erDiagram
 | Git コミット | Git Panel | GitCommands → isomorphic-git | GitFileSystem | DATA-FLOW.md §4.1 |
 | AI レビュー | Editor | Context Builder → AI Engine | AI Review Tab | DATA-FLOW.md §6.1 |
 | コード実行 | Terminal | Node Runtime → Built-in Modules | Output Panel | DATA-FLOW.md §5.1 |
+| Shell実行 | Terminal | StreamShell → Parser → Process | stdout/stderr | SHELL-SYSTEM.md §3 |
 
 ### 主要なコンポーネント
 
@@ -324,6 +347,8 @@ erDiagram
 | Terminal | src/components/Bottom/ | ターミナルUI | UI-COMPONENTS.md §5.2 |
 | fetchAI | src/engine/ai/ | AI APIクライアント | AI-SYSTEM.md §2.1 |
 | esModuleTransformer | src/engine/node/ | ES6変換 | NODE-RUNTIME.md §2 |
+| StreamShell | src/engine/cmd/shell/ | シェル実行エンジン | SHELL-SYSTEM.md §3.2 |
+| AST Parser | src/engine/cmd/shell/ | コマンドライン解析 | SHELL-SYSTEM.md §3.4 |
 
 ---
 
@@ -365,6 +390,10 @@ erDiagram
 | **SyncManager** | 2つのストレージ間の同期を制御 |
 | **Built-in Modules** | ブラウザでエミュレートされたNode.jsコアモジュール |
 | **Context Builder** | AI用のコンテキストを収集・構築 |
+| **StreamShell** | シェルスクリプトの実行エンジン |
+| **Process** | シェル内の仮想プロセス抽象化 |
+| **Segment** | パース後のコマンドセグメント（AST） |
+| **Pipeline** | パイプでつながれた複数コマンド |
 
 ---
 

@@ -17,6 +17,7 @@ import { fileRepository } from '@/engine/core/fileRepository';
  * 動作:
  *   - ワイルドカード対応（*, ?）
  *   - 再帰的削除対応
+ *   - エラーが発生しても他のファイルの削除を継続
  */
 export class RmCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
@@ -46,21 +47,40 @@ export class RmCommand extends UnixCommandBase {
           }
           continue;
         }
+        
+        // 各展開されたパスを個別に処理（エラーがあっても継続）
         for (const path of expanded) {
           try {
             const normalizedPath = this.normalizePath(path);
             const relativePath = this.getRelativePathFromProject(normalizedPath);
             const file = files.find(f => f.path === relativePath);
+
+            // ファイルエントリが見つからない場合の扱い
             if (!file) {
-              if (!force) errors.push(`rm: cannot remove '${path}': No such file or directory`);
+              const isDirByExist = await this.isDirectory(normalizedPath);
+              if (isDirByExist) {
+                if (recursive) {
+                  const prefix = relativePath === '/' ? '' : relativePath;
+                  await fileRepository.deleteFilesByPrefix(this.projectId, prefix);
+                  if (verbose) results.push(`removed directory '${normalizedPath}'`);
+                } else {
+                  // -r なしでディレクトリ → エラーだが継続
+                  errors.push(`rm: cannot remove '${path}': Is a directory`);
+                }
+              } else {
+                if (!force) {
+                  errors.push(`rm: cannot remove '${path}': No such file or directory`);
+                }
+              }
               continue;
             }
+
             const isDir = file.type === 'folder';
 
-            // -rf, -fr, -r, -f の組み合わせを正しく判定
+            // ディレクトリの処理
             if (isDir) {
-              if (recursive || force) {
-                // -r, -rf, -fr, -f いずれか指定でディレクトリ削除許可
+              if (recursive) {
+                // -r 指定ありなら削除
                 const result = await this.removeFileOrDirDeep(
                   file.id,
                   normalizedPath,
@@ -71,47 +91,55 @@ export class RmCommand extends UnixCommandBase {
                 );
                 if (result) results.push(result);
               } else {
+                // -r なしでディレクトリ → エラーだが継続
                 errors.push(`rm: cannot remove '${path}': Is a directory`);
               }
             } else {
-              // ファイル
-              if (recursive && !force) {
-                // -rのみでファイル指定はエラー（UNIX準拠）
-                errors.push(`rm: cannot remove '${path}': Not a directory`);
-              } else {
-                // -f, -rf, 何もなし: ファイル削除
-                const result = await this.removeFileOrDirDeep(
-                  file.id,
-                  normalizedPath,
-                  false,
-                  force,
-                  interactive,
-                  verbose
-                );
-                if (result) results.push(result);
-              }
+              // 通常のファイル削除（-r の有無に関わらず削除可能）
+              const result = await this.removeFileOrDirDeep(
+                file.id,
+                normalizedPath,
+                false,
+                force,
+                interactive,
+                verbose
+              );
+              if (result) results.push(result);
             }
           } catch (error) {
+            // 個別ファイルのエラーは記録して継続
             if (!force) {
               errors.push(`rm: cannot remove '${path}': ${(error as Error).message}`);
             }
           }
         }
       } catch (error) {
+        // ワイルドカード展開エラーは記録して継続
         if (!force) {
           errors.push(`rm: ${(error as Error).message}`);
         }
       }
     }
 
+    // エラーがあっても、成功した削除がある場合は出力
+    const output: string[] = [];
+    
+    if (verbose && results.length > 0) {
+      output.push(results.join('\n'));
+    }
+    
+    // エラーメッセージは最後にまとめて出力
     if (errors.length > 0) {
-      throw new Error(errors.join('\n'));
+      output.push(errors.join('\n'));
     }
 
-    if (verbose && results.length > 0) {
-      return results.join('\n');
+    // エラーがあっても処理は続行されたので、出力を返す
+    // 全てのファイルが失敗した場合のみ例外を投げる
+    if (errors.length > 0 && results.length === 0 && !force) {
+      throw new Error(output.join('\n'));
     }
-    return '';
+
+    return output.join('\n');
   }
 
   /**
