@@ -104,8 +104,10 @@ export class FindCommand extends UnixCommandBase {
    * glob を RegExp に変換（basename か path のどちらでも利用可）
    */
   private globToRegExp(pattern: string, ignoreCase = false): RegExp {
+    // globパターンを厳密にbasename一致するように変換
+    // 例: "readme" → /^readme$/i, "*.md" → /^.*\.md$/i
     let i = 0;
-    let res = '^';
+    let res = '';
     while (i < pattern.length) {
       const ch = pattern[i];
       if (ch === '*') {
@@ -113,7 +115,6 @@ export class FindCommand extends UnixCommandBase {
       } else if (ch === '?') {
         res += '.';
       } else if (ch === '[') {
-        // character class
         let j = i + 1;
         let cls = '';
         if (j < pattern.length && (pattern[j] === '!' || pattern[j] === '^')) {
@@ -132,8 +133,8 @@ export class FindCommand extends UnixCommandBase {
       }
       i++;
     }
-    res += '$';
-    return new RegExp(res, ignoreCase ? 'i' : '');
+    // basename一致のみ
+    return new RegExp('^' + res + '$', ignoreCase ? 'i' : '');
   }
 
   private async findFiles(
@@ -168,7 +169,6 @@ export class FindCommand extends UnixCommandBase {
     const files: ProjectFile[] = await this.cachedGetFilesByPrefix(prefix);
 
     for (const file of files) {
-      // relativeToStart を正規化（先頭スラッシュ除去）
       let relativeToStart = file.path.startsWith(prefix) ? file.path.substring(prefix.length) : file.path;
       relativeToStart = relativeToStart.replace(/^\/+/, '');
 
@@ -177,6 +177,7 @@ export class FindCommand extends UnixCommandBase {
 
       const fullPath = relativeToStart === '' ? normalizedStart : `${normalizedStart}/${relativeToStart}`;
       const baseName = file.path.split('/').pop() || '';
+      // namePatternがある場合、basenameが厳密一致する場合のみ
       const nameOk = namePattern ? namePattern.test(baseName) : true;
       const pathOk = pathPattern ? pathPattern.test(fullPath) : true;
       if (nameOk && pathOk && (!typeFilter || file.type === typeFilter)) {

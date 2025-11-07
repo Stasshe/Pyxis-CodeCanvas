@@ -201,10 +201,10 @@ export async function handleUnixCommand(
       }
 
       case 'find': {
-        const findOptions = args.filter(arg => arg.startsWith('-'));
-        const findPaths = args.filter(arg => !arg.startsWith('-'));
-        const findPath = findPaths.length > 0 ? findPaths[0] : undefined;
-        const findResult = await unix.find(findPath, findOptions);
+        // Pass the original args through so option parameters (like -iname <pattern>)
+        // are not misclassified as paths by earlier naive splitting.
+        // unix.find will parse the args array itself.
+        const findResult = await unix.find( args);
         await append(findResult);
         break;
       }

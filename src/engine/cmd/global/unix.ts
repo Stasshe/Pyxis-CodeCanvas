@@ -246,12 +246,8 @@ export class UnixCommands {
   /**
    * ファイルを検索
    */
-  async find(path?: string, options: string[] = []): Promise<string> {
-    const args = [...options];
-    if (path) {
-      args.unshift(path);
-    }
-    return await this.findCmd.execute(args);
+  async find(options: string[] = []): Promise<string> {
+    return await this.findCmd.execute(options);
   }
 
   /**
