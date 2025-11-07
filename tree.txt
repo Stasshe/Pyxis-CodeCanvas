@@ -6,6 +6,7 @@ Root
 │   ├── EXTENSION-CODE-SPLITTING.md
 │   ├── EXTENSION-NPM-LIBRARIES.md
 │   ├── EXTENSION-TAB-SIDEBAR-API.md
+│   ├── FILE_REPOSITORY_BEST_PRACTICES.md
 │   ├── MODULE-CACHE-STRATEGY.md
 │   ├── MULTI-FILE-EXTENSION-SUPPORT.md
 │   ├── NEW-ARCHITECTURE.md
@@ -74,6 +75,7 @@ Root
 ├── jest.setup.js
 ├── next-env.d.ts
 ├── next.config.ts
+├── package-lock.json
 ├── package.json
 ├── pnpm-lock.yaml
 ├── pnpm-workspace.yaml
@@ -120,11 +122,8 @@ Root
 │       ├── format_json.js
 │       ├── format_locales.sh
 │       ├── i18n-auto-add-missing.js
-│       ├── i18n-compare-missing-keys-results.txt
-│       ├── i18n-detect-results.txt
 │       ├── i18n-detect.sh
 │       ├── i18n-exclude.txt
-│       ├── i18n-missing-keys-results.txt
 │       ├── i18n-missing-keys.sh
 │       ├── one_file_i18n_extract.pl
 │       ├── one_file_t_extract.pl
@@ -354,10 +353,11 @@ Root
 │   │   │   │   └── index.ts
 │   │   │   ├── registerBuiltinTabs.ts
 │   │   │   └── types.ts
-│   │   └── user
-│   │       ├── authRepository.ts
-│   │       ├── crypto.ts
-│   │       └── githubUserManager.ts
+│   │   ├── user
+│   │   │   ├── authRepository.ts
+│   │   │   ├── crypto.ts
+│   │   │   └── githubUserManager.ts
+│   │   └── webcontainer
 │   ├── hooks
 │   │   ├── ai
 │   │   │   ├── useAI.ts
@@ -419,7 +419,7 @@ Root
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-64 directories, 355 files
+65 directories, 354 files
 
 =================================
 
@@ -435,9 +435,20 @@ extensions/ 以下のディレクトリ構造:
 │   ├── index.tsx
 │   ├── manifest.json
 │   ├── node_modules
+│   │   ├── @kurkle
+│   │   │   └── color
+│   │   │       ├── LICENSE.md
+│   │   │       ├── README.md
+│   │   │       ├── dist
+│   │   │       │   ├── color.cjs
+│   │   │       │   ├── color.d.ts
+│   │   │       │   ├── color.esm.js
+│   │   │       │   ├── color.min.js
+│   │   │       │   └── color.min.js.map
+│   │   │       └── package.json
 │   │   └── chart.js -> ../../../node_modules/.pnpm/chart.js@4.5.1/node_modules/chart.js
+│   ├── package-lock.json
 │   └── package.json
-├── command-test4
 ├── lang-packs
 │   ├── ar
 │   │   ├── index.ts
@@ -520,18 +531,18 @@ extensions/ 以下のディレクトリ構造:
     ├── manifest.json
     └── transpile.worker.ts
 
-32 directories, 63 files
+34 directories, 72 files
 
 =================================
 
 
 src/*.ts, *.tsx の統計:
-合計行数: 49671
-合計文字数: 1613504
-合計ファイルサイズ(bytes): 1718941
+合計行数: 50090
+合計文字数: 1617623
+合計ファイルサイズ(bytes): 1725029
 
-開発時のdev container全体のサイズ(bytes): 1.2G	.
+開発時のdev container全体のサイズ(bytes): 2.6G	.
 ==========
-ビルト済みファイルの行数: 41239
-合計文字数: 26092276
-合計ファイルサイズ(bytes): 27076231
+ビルト済みファイルの行数: 41238
+合計文字数: 26390037
+合計ファイルサイズ(bytes): 27374036
