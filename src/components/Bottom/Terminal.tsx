@@ -580,16 +580,19 @@ function ClientTerminal({
 
             // 追記モードの場合、既存のコンテンツを先頭に追加
             if (append) {
-              const files = await fileRepository.getProjectFiles(currentProjectId);
-              const existingFile = files.find(f => f.path === relativePath);
-              if (existingFile && existingFile.content) {
-                content = existingFile.content + content;
+              // Use indexed single-file lookup for append
+              try {
+                const existingFile = await fileRepository.getFileByPath(currentProjectId, relativePath);
+                if (existingFile && existingFile.content) {
+                  content = existingFile.content + content;
+                }
+              } catch (e) {
+                // ignore and proceed with content as-is
               }
             }
 
             // ファイルを保存または更新
-            const files = await fileRepository.getProjectFiles(currentProjectId);
-            const existingFile = files.find(f => f.path === relativePath);
+            const existingFile = await fileRepository.getFileByPath(currentProjectId, relativePath);
 
             if (existingFile) {
               await fileRepository.saveFile({

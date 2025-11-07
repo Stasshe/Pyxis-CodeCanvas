@@ -43,11 +43,11 @@ export function useDiffTabHandlers(currentProject: any) {
           // まずfileRepositoryから最新の内容を取得を試みる
           const { fileRepository } = await import('@/engine/core/fileRepository');
           try {
-            const allFiles = await fileRepository.getProjectFiles(currentProject.id);
-            const targetFile = allFiles.find(f => f.path === filePath);
-            if (targetFile && targetFile.content) {
-              latterContent = targetFile.content;
-              console.log('[useDiffTabHandlers] Read latterContent from fileRepository (latest)');
+            // Use indexed lookup for a single file (preferred per FILE_REPOSITORY_BEST_PRACTICES)
+            const file = await fileRepository.getFileByPath(currentProject.id, filePath);
+            if (file && file.content) {
+              latterContent = file.content;
+              console.log('[useDiffTabHandlers] Read latterContent from fileRepository (getFileByPath)');
             } else {
               throw new Error('File not found in repository');
             }

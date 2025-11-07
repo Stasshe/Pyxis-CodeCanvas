@@ -271,12 +271,12 @@ export abstract class UnixCommandBase {
     return file || undefined;
   }
 
-  /**
-   * IndexedDBから全ファイルを取得
-   */
-  protected async getAllFilesFromDB(): Promise<ProjectFile[]> {
-    return await fileRepository.getProjectFiles(this.projectId);
-  }
+  // /**
+  //  * IndexedDBから全ファイルを取得
+  //  */
+  // protected async getAllFilesFromDB(): Promise<ProjectFile[]> {
+  //   return await fileRepository.getProjectFiles(this.projectId);
+  // }
 
   /**
    * ファイルの存在をチェック（IndexedDBベース）

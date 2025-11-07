@@ -37,18 +37,16 @@ function createTodoSidebarPanel(context: ExtensionContext) {
         const allTodos: TodoItem[] = [];
 
         for (const project of projects) {
-          // プロジェクトの全ファイルを取得
-          const files = await fileRepository.getProjectFiles(project.id);
+          // プロジェクト配下を効率的に走査（プレフィックス検索）
+          // root 配下全体をスキャンする場合は prefix = '/' を渡す
+          const files = await fileRepository.getFilesByPrefix(project.id, '/');
 
           for (const file of files) {
             if (file.type !== 'file' || file.isBufferArray) continue;
 
             // ファイル内容からTODOを検索
-            const lines = file.content.split('\n');
+            const lines = (file.content || '').split('\n');
             lines.forEach((line: string, index: number) => {
-              // TODO:, TODO , FIXME:, FIXME などを検索
-              // 国際化対応: ASCII コロン (:) と全角コロン (：) の両方をサポート
-              // 日本語などの全角文字環境でのTODOコメントにも対応
               const todoMatch = line.match(/(?:TODO|FIXME)\s*[:：]\s*(.+)/i);
               if (todoMatch) {
                 allTodos.push({

@@ -47,11 +47,8 @@ async function fileinfoCommand(args: string[], context: any): Promise<string> {
       normalizedPath = filePath.replace(`/projects/${context.projectName}`, '');
     }
 
-    // プロジェクトの全ファイルを取得
-    const files = await fileRepository.getProjectFiles(context.projectId);
-    
-    // 指定されたファイルを検索
-    const file = files.find((f: any) => f.path === normalizedPath);
+    // 単一ファイルをインデックスで取得（推奨）
+    const file = await fileRepository.getFileByPath(context.projectId, normalizedPath);
 
     if (!file) {
       return `Error: File not found: ${normalizedPath}\nSearched in project: ${context.projectName}`;

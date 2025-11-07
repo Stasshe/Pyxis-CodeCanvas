@@ -39,16 +39,20 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({ filePath, currentProjectN
         return;
       }
 
-      const projectFiles = await fileRepository.getProjectFiles(project.id);
-
+      // Use prefix search and single-file lookup rather than loading whole project
       const resolvedPath = resolveFilePath(filePath); // e.g. /projects/<project>/path
       const targetRel = resolvedPath.replace(`/projects/${currentProjectName}`, '') || '/';
 
-      const hasChildren = projectFiles.some(f => f.parentPath === targetRel);
-      const isFolderEntry = projectFiles.find(f => f.path === targetRel && f.type === 'folder');
+      // get immediate children by prefix, then filter by parentPath
+      const prefix = targetRel === '/' ? '/' : `${targetRel}/`;
+      const childrenUnderPrefix = await fileRepository.getFilesByPrefix(project.id, prefix);
+      const immediateChildren = childrenUnderPrefix.filter(f => f.parentPath === targetRel);
 
-      if (hasChildren || isFolderEntry) {
-        const files = projectFiles.filter(f => f.parentPath === targetRel).map(f => f.name);
+      const hasChildren = immediateChildren.length > 0;
+      const isFolderEntry = await fileRepository.getFileByPath(project.id, targetRel).catch(() => null);
+
+      if (hasChildren || (isFolderEntry && (isFolderEntry as any).type === 'folder')) {
+        const files = immediateChildren.map(f => f.name);
         if (files.length === 0) {
           console.warn('[DEBUG] ディレクトリが空です:', resolvedPath);
           setFileContent(`<h1>${t('webPreviewTab.emptyDirectory')}</h1>`);
@@ -58,13 +62,13 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({ filePath, currentProjectN
         try {
           const read = async (fullPath: string) => {
             const rel = fullPath.replace(`/projects/${currentProjectName}`, '') || '/';
-            const f = projectFiles.find(x => x.path === rel);
+            const f = await fileRepository.getFileByPath(project.id, rel);
             if (!f) throw new Error(`ファイルが見つかりません: ${rel}`);
-            if (f.isBufferArray && f.bufferContent) {
+            if ((f as any).isBufferArray && (f as any).bufferContent) {
               const decoder = new TextDecoder('utf-8');
-              return decoder.decode(f.bufferContent as ArrayBuffer);
+              return decoder.decode((f as any).bufferContent as ArrayBuffer);
             }
-            return f.content || '';
+            return (f as any).content || '';
           };
 
           const inlinedContent = await inlineHtmlAssets(files, resolvedPath, read);
@@ -76,17 +80,11 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({ filePath, currentProjectN
         }
       } else {
         try {
-          const readFile = async (fullPath: string) => {
-            const rel = fullPath.replace(`/projects/${currentProjectName}`, '') || '/';
-            const f = projectFiles.find(x => x.path === rel);
-            if (!f) throw new Error(`ファイルが見つかりません: ${rel}`);
-            if (f.isBufferArray && f.bufferContent) {
-              const decoder = new TextDecoder('utf-8');
-              return decoder.decode(f.bufferContent as ArrayBuffer);
-            }
-            return f.content || '';
-          };
-          const content = await readFile(resolvedPath);
+          const f = await fileRepository.getFileByPath(project.id, targetRel);
+          if (!f) throw new Error(`ファイルが見つかりません: ${targetRel}`);
+          const content = (f as any).isBufferArray && (f as any).bufferContent
+            ? new TextDecoder('utf-8').decode((f as any).bufferContent as ArrayBuffer)
+            : (f as any).content || '';
           console.log('[DEBUG] ファイル内容を取得しました:', content);
           setFileContent(content);
         } catch (e) {

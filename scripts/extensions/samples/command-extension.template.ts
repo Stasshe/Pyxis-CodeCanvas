@@ -38,12 +38,15 @@ async function myCommand(
       return output;
     }
 
-    const files = await fileRepository.getProjectFiles(context.projectId || '');
-    output += `\nTotal files in project: ${files.length}\n`;
+    // total files (use prefix '/')
+    const allFiles = await fileRepository.getFilesByPrefix(context.projectId || '', '/');
+    output += `\nTotal files in project: ${allFiles.length}\n`;
 
-    // 現在のディレクトリのファイル数をカウント
+    // 現在のディレクトリのファイル数をカウント（prefix検索 + 親ディレクトリフィルタ）
     const currentDirPrefix = context.currentDirectory.replace(`/projects/${context.projectName}`, '');
-    const filesInCurrentDir = files.filter((f: any) => {
+      const dirPrefix = currentDirPrefix === '' ? '/' : `${currentDirPrefix}/`;
+      const filesUnderDir = await fileRepository.getFilesByPrefix(context.projectId || '', dirPrefix);
+      const filesInCurrentDir = filesUnderDir.filter((f: any) => {
       const idx = (f.path || '').lastIndexOf('/');
       const dir = idx >= 0 ? f.path.substring(0, idx) : '';
       return dir === currentDirPrefix || (currentDirPrefix === '' && !f.path.includes('/'));
