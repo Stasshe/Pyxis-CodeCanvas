@@ -199,35 +199,20 @@ export async function handleUnixCommand(
       }
 
       case 'grep': {
-        if (args.length < 2) {
-          await append('grep: missing pattern or file\nUsage: grep [OPTION]... PATTERN FILE...');
+        if (args.length < 1) {
+          await append('grep: missing pattern\nUsage: grep [OPTION]... PATTERN [FILE]...');
         } else {
           const grepOptions = args.filter(arg => arg.startsWith('-'));
           const grepArgs = args.filter(arg => !arg.startsWith('-'));
           const pattern = grepArgs[0];
           const files = grepArgs.slice(1);
-          if (files.length === 0) {
-            // no files -> read from stdinContent
-            if (stdinContent !== null) {
-              // DEBUG: inspect stdin and pattern
-               
-              console.error('[DEBUG] grep stdin:', String(stdinContent).slice(0, 200));
-               
-              console.error('[DEBUG] grep pattern:', pattern);
-              const regex = new RegExp(pattern);
-              const lines = String(stdinContent).split('\n');
-              const matches = lines.filter(l => regex.test(l));
-              const result = matches.join('\n');
-              const code = matches.length > 0 ? 0 : 1;
-              await append(result, code);
-            } else {
-              await append('grep: missing file operand', 2);
-            }
-          } else {
-            const result = await unix.grep(pattern, files, grepOptions);
-            // grep should return non-zero exit code when no matches found
+
+          try {
+            const result = await unix.grep(pattern, files, grepOptions, stdinContent);
             const code = result && String(result).length > 0 ? 0 : 1;
             await append(result, code);
+          } catch (err) {
+            await append(`grep: ${(err as Error).message}`, 2);
           }
         }
         break;

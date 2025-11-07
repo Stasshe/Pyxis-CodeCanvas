@@ -23,27 +23,65 @@ import type { ProjectFile } from '@/types';
  *   - lightning-fsから読み取り
  */
 export class GrepCommand extends UnixCommandBase {
-  async execute(args: string[]): Promise<string> {
+  async execute(args: string[], stdinContent: string | null = null): Promise<string> {
     const { options, positional } = this.parseOptions(args);
 
     if (positional.length === 0) {
       throw new Error('grep: no pattern specified\nUsage: grep [OPTION]... PATTERN [FILE]...');
     }
 
-    const pattern = positional[0];
-    const files = positional.slice(1);
+  const pattern = positional[0];
+  let files = positional.slice(1);
 
-    const ignoreCase = options.has('-i') || options.has('--ignore-case');
+    // ファイル指定が無い場合は、カレントディレクトリ配下を再帰検索する挙動にする
+    // 端末でのパイプ入力を期待するユースケース（stdin）には既存の unixHandler が対応するため
+    // ここではユーザが単に `grep pattern` としたときの利便性を高める
+    if (files.length === 0) {
+      files = [this.currentDir];
+    }
+
+  const ignoreCase = options.has('-i') || options.has('--ignore-case');
     const invertMatch = options.has('-v') || options.has('--invert-match');
     const showLineNumber = options.has('-n') || options.has('--line-number');
     const recursive = options.has('-r') || options.has('-R') || options.has('--recursive');
     const filesWithMatches = options.has('-l') || options.has('--files-with-matches');
     const countOnly = options.has('-c') || options.has('--count');
+  const fixedStrings = options.has('-F') || options.has('--fixed-strings');
+  const extendedRegexp = options.has('-E') || options.has('--extended-regexp');
 
-    const regex = new RegExp(pattern, ignoreCase ? 'i' : '');
+    // Build regex according to options (-F: fixed strings, -E: extended regexp)
+    let regex: RegExp;
+    try {
+      if (fixedStrings) {
+        // escape regex metacharacters to treat pattern as fixed string
+        const esc = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        regex = new RegExp(esc, ignoreCase ? 'i' : '');
+      } else {
+        // For JS RegExp, -E (extended) and default behave similarly; keep simple
+        regex = new RegExp(pattern, ignoreCase ? 'i' : '');
+      }
+    } catch (e) {
+      throw new Error(`grep: invalid regular expression: ${(e as Error).message}`);
+    }
 
-    if (files.length === 0) {
-      throw new Error('grep: no files specified');
+    // If no files provided and stdinContent exists, search stdin (linux grep behavior)
+    if (files.length === 0 && stdinContent !== null) {
+      const lines = String(stdinContent).split('\n');
+      const matches: string[] = [];
+      let matchCount = 0;
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const isMatch = regex.test(line);
+        if ((isMatch && !invertMatch) || (!isMatch && invertMatch)) {
+          matchCount++;
+          matches.push(line);
+        }
+      }
+
+      if (matchCount === 0) return '';
+      if (countOnly) return String(matchCount);
+      return matches.join('\n');
     }
 
     const results: string[] = [];
@@ -51,12 +89,12 @@ export class GrepCommand extends UnixCommandBase {
     for (const fileArg of files) {
       const expanded = await this.expandPathPattern(fileArg);
 
-      for (const path of expanded) {
+  for (const path of expanded) {
         try {
           const normalizedPath = this.normalizePath(path);
           const isDir = await this.isDirectory(normalizedPath);
 
-          if (isDir) {
+            if (isDir) {
             if (recursive) {
               const dirResults = await this.grepDirectory(
                 normalizedPath,

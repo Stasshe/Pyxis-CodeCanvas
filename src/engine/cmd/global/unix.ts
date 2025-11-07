@@ -257,8 +257,13 @@ export class UnixCommands {
   /**
    * ファイル内容を検索
    */
-  async grep(pattern: string, files: string[], options: string[] = []): Promise<string> {
-    return await this.grepCmd.execute([...options, pattern, ...files]);
+  async grep(
+    pattern: string,
+    files: string[],
+    options: string[] = [],
+    stdinContent: string | null = null
+  ): Promise<string> {
+    return await this.grepCmd.execute([...options, pattern, ...files], stdinContent);
   }
 
   /**
