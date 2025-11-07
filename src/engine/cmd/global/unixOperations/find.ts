@@ -159,12 +159,15 @@ export class FindCommand extends UnixCommandBase {
    * @param ignoreCase - 大文字小文字を区別しない場合true
    */
   private globToRegExp(pattern: string, ignoreCase = false): RegExp {
+    // ワイルドカードが含まれていない場合は完全一致
+    if (!pattern.includes('*') && !pattern.includes('?') && !pattern.includes('[')) {
+      // そのまま完全一致
+      return new RegExp('^' + pattern.replace(/[.+^${}()|[\\]\\]/g, '\\$&') + '$', ignoreCase ? 'i' : '');
+    }
     let res = '';
     let i = 0;
-
     while (i < pattern.length) {
       const ch = pattern[i];
-
       if (ch === '*') {
         res += '.*';
         i++;
@@ -172,30 +175,22 @@ export class FindCommand extends UnixCommandBase {
         res += '.';
         i++;
       } else if (ch === '[') {
-        // 文字クラス [abc] または [!abc]
         let j = i + 1;
         let cls = '';
-
-        // 否定文字クラス
         if (j < pattern.length && (pattern[j] === '!' || pattern[j] === '^')) {
           cls += '^';
           j++;
         }
-
-        // 文字クラスの内容を収集
         while (j < pattern.length && pattern[j] !== ']') {
           const c = pattern[j];
           if (c === '\\' && j + 1 < pattern.length) {
-            // エスケープシーケンス
-            cls += '\\\\';
+            cls += '\\';
             j++;
             cls += pattern[j];
             j++;
           } else if (c === ']') {
-            // 閉じ括弧
             break;
           } else {
-            // 通常の文字（-と]はエスケープ）
             if (c === '-' || c === '\\') {
               cls += '\\' + c;
             } else {
@@ -204,21 +199,18 @@ export class FindCommand extends UnixCommandBase {
             j++;
           }
         }
-
         res += '[' + cls + ']';
-        i = j + 1; // ']' の次に進む
+        i = j + 1;
       } else if (ch === '\\' && i + 1 < pattern.length) {
-        // エスケープされた文字
         const nextCh = pattern[i + 1];
-        if (/[.+^${}()|[\]\\]/.test(nextCh)) {
+        if (/[.+^${}()|[\\]\\]/.test(nextCh)) {
           res += '\\' + nextCh;
         } else {
           res += nextCh;
         }
         i += 2;
       } else {
-        // 通常の文字（正規表現メタ文字はエスケープ）
-        if (/[.+^${}()|[\]\\]/.test(ch)) {
+        if (/[.+^${}()|[\\]\\]/.test(ch)) {
           res += '\\' + ch;
         } else {
           res += ch;
@@ -226,8 +218,6 @@ export class FindCommand extends UnixCommandBase {
         i++;
       }
     }
-
-    // 完全一致パターンを生成
     return new RegExp('^' + res + '$', ignoreCase ? 'i' : '');
   }
 
@@ -254,16 +244,21 @@ export class FindCommand extends UnixCommandBase {
     const prefix = relativePath === '/' ? '' : `${relativePath}/`;
     const files: ProjectFile[] = await this.cachedGetFilesByPrefix(prefix);
 
-    for (const file of files) {
-      // 相対パスを計算
-      let relativeToStart = file.path.startsWith(prefix) 
-        ? file.path.substring(prefix.length) 
+    // prefix直下のみ（サブディレクトリ除外）のファイルだけを対象にする
+    const directChildren = files.filter(f => {
+      const rel = f.path.startsWith(prefix) ? f.path.substring(prefix.length) : f.path;
+      return rel !== '' && !rel.includes('/');
+    });
+
+    for (const file of directChildren) {
+      let relativeToStart = file.path.startsWith(prefix)
+        ? file.path.substring(prefix.length)
         : file.path;
       relativeToStart = relativeToStart.replace(/^\/+/, '');
 
       // 深度を計算
-      const depth = relativeToStart === '' 
-        ? 0 
+      const depth = relativeToStart === ''
+        ? 0
         : relativeToStart.split('/').filter(p => p).length;
 
       // 深度チェック
@@ -272,8 +267,8 @@ export class FindCommand extends UnixCommandBase {
       }
 
       // フルパスを構築
-      const fullPath = relativeToStart === '' 
-        ? normalizedStart 
+      const fullPath = relativeToStart === ''
+        ? normalizedStart
         : `${normalizedStart}/${relativeToStart}`;
 
       // 条件に一致するかチェック
@@ -294,11 +289,12 @@ export class FindCommand extends UnixCommandBase {
     depth: number,
     criteria: SearchCriteria
   ): boolean {
-    // basename を取得
-    const baseName = file.path.split('/').pop() || '';
+    // basename は ProjectFile の name プロパティを使う
+    const baseName = file.name || '';
 
     // -name / -iname チェック
     if (criteria.namePattern) {
+      // namePatternはbasenameに対してのみ適用
       if (!criteria.namePattern.test(baseName)) {
         return false;
       }
@@ -306,6 +302,7 @@ export class FindCommand extends UnixCommandBase {
 
     // -path / -ipath チェック
     if (criteria.pathPattern) {
+      // pathPatternはfullPath（絶対パス）に対して適用
       if (!criteria.pathPattern.test(fullPath)) {
         return false;
       }
