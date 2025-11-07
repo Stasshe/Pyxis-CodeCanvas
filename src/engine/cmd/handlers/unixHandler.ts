@@ -121,15 +121,8 @@ export async function handleUnixCommand(
         if (args.length === 0) {
           await append('rm: missing operand\nUsage: rm [OPTION]... FILE...');
         } else {
-          const recursive =
-            args.includes('-r') || args.includes('-R') || args.includes('--recursive');
-          const fileName = args.find(arg => !arg.startsWith('-'));
-          if (fileName) {
-            const result = await unix.rm(fileName, recursive);
-            await append(result);
-          } else {
-            await append('rm: missing file operand');
-          }
+          const result = await unix.rm(args);
+          await append(result);
         }
         break;
       }

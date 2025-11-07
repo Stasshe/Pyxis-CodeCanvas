@@ -24,6 +24,10 @@ export class RmCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
     const { options, positional } = this.parseOptions(args);
 
+  console.log('[rm] args:', args);
+  console.log('[rm] positional:', positional);
+  console.log('[rm] positional.length:', positional.length, positional);
+
     if (positional.length === 0) {
       throw new Error('rm: missing operand\nUsage: rm [OPTION]... FILE...');
     }
@@ -40,8 +44,10 @@ export class RmCommand extends UnixCommandBase {
     const targetsToDelete: Array<{ path: string; file: any }> = [];
 
     for (const arg of positional) {
+      console.log('[rm] processing arg:', arg);
       try {
         const expanded = await this.expandPathPattern(arg);
+        console.log('[rm] expanded to:', expanded);
         
         if (expanded.length === 0) {
           if (!force) {
@@ -119,28 +125,7 @@ export class RmCommand extends UnixCommandBase {
         
         // 削除実行（fileRepository.deleteFile は自動的に子ファイルも削除）
         await fileRepository.deleteFile(target.file.id);
-
-        // キャッシュの更新: mv.ts と同様に、削除したファイル/ディレクトリと関連する prefix を無効化
-        try {
-          const relative = this.getRelativePathFromProject(target.path);
-
-          if (isDir) {
-            // ディレクトリ削除時は、そのディレクトリ以下の prefix を無効化
-            const dirPrefix = relative === '/' ? '/' : relative;
-            const parent = relative === '/' ? '/' : relative.replace(/\/[^/]*$/, '') || '/';
-            this.invalidatePrefix(dirPrefix);
-            this.invalidatePrefix(parent);
-            this.deleteCacheFile(relative);
-          } else {
-            // ファイル削除時はファイルキャッシュを削除し、親ディレクトリの prefix を無効化
-            this.deleteCacheFile(relative);
-            const parent = relative.endsWith('/') ? relative : relative.replace(/\/[^/]*$/, '') || '/';
-            this.invalidatePrefix(parent || '/');
-          }
-        } catch (e) {
-          console.warn('[rm] cache update error:', e);
-        }
-
+        
         // 削除成功を記録
         if (verbose) {
           deletedPaths.push(

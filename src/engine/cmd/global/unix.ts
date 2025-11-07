@@ -161,11 +161,19 @@ export class UnixCommands {
   }
 
   /**
-   * ファイル/ディレクトリを削除
+   * ファイル/ディレクトリを削除（複数ファイル・オプション対応）
    */
-  async rm(fileName: string, recursive = false): Promise<string> {
-    const options = recursive ? ['-r'] : [];
-    return await this.rmCmd.execute([...options, fileName]);
+  async rm(args: string[]): Promise<string>;
+  async rm(fileName: string, recursive?: boolean): Promise<string>;
+  async rm(arg1: string | string[], recursive = false): Promise<string> {
+    if (Array.isArray(arg1)) {
+      // rm(args: string[])
+      return await this.rmCmd.execute(arg1);
+    } else {
+      // rm(fileName: string, recursive?: boolean)
+      const options = recursive ? ['-r'] : [];
+      return await this.rmCmd.execute([...options, arg1]);
+    }
   }
 
   /**

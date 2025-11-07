@@ -488,6 +488,8 @@ export class StreamShell {
       }
     }
 
+    // デバッグ: グロブ展開・分割後の引数を出力
+    console.log('[shell] finalWords:', finalWords);
     // Replace seg.tokens with final words (plain strings) for execution
     (seg as any).tokens = finalWords;
 
