@@ -545,7 +545,27 @@ export class StreamShell {
         // attempt to read it from the project's filesystem and, if it's a shell
         // script (ends with .sh or has a shebang), execute it line-by-line.
         if (unix && (cmd.includes('/') || cmd.endsWith('.sh'))) {
-          const maybeContent = await unix.cat(cmd).catch(() => null);
+          // Try to resolve relative paths against the current working directory
+          let scriptPath = cmd;
+          try {
+            if (!scriptPath.startsWith('/')) {
+              const cwd = await unix.pwd().catch(() => `/projects/${this.projectName}`);
+              scriptPath = `${cwd}/${scriptPath}`;
+            }
+            // Allow unix to normalize (resolve .., //, etc.) if available
+            if (typeof unix.normalizePath === 'function') {
+              scriptPath = unix.normalizePath(scriptPath);
+            }
+          } catch (e) {
+            // ignore and continue with original cmd
+          }
+
+          // attempt to read resolved path first, fallback to original
+          let maybeContent = await unix.cat(scriptPath).catch(() => null);
+          if (maybeContent === null && scriptPath !== cmd) {
+            maybeContent = await unix.cat(cmd).catch(() => null);
+          }
+
           if (maybeContent !== null) {
             const text = String(maybeContent);
             const firstLine = text.split('\n', 1)[0] || '';
@@ -560,7 +580,7 @@ export class StreamShell {
               } catch (e) {
                 // propagate error to stderr
                 try {
-                    proc.writeStderr(normalizeForWrite((e as any)?.message ?? e));
+                  proc.writeStderr(normalizeForWrite((e as any)?.message ?? e));
                 } catch {}
               }
               // finished running script
@@ -579,33 +599,54 @@ export class StreamShell {
             proc.exit(2);
             return;
           }
-          const path = args[0];
+          let path = args[0];
+
+          // Resolve relative paths against cwd and normalize if possible
+          try {
+            if (!path.startsWith('/')) {
+              const cwd = await unix.pwd().catch(() => `/projects/${this.projectName}`);
+              path = `${cwd}/${path}`;
+            }
+            if (typeof unix.normalizePath === 'function') {
+              path = unix.normalizePath(path);
+            }
+          } catch (e) {
+            // ignore and try original
+          }
+
           let content = await unix.cat(path).catch(() => null);
-          // Special-case: when the command line came from a Windows environment the
-          // path may contain backslashes which the parser treats as escapes and
-          // removes. If initial attempt failed, try to recover the original
-          // argument from the unparsed originalLine (if provided) so that
-          // absolute Windows paths can be read by unix.cat.
+
+          // Windows-style path fallback: recover original argument from originalLine
           if ((content === null || content === undefined) && originalLine) {
             try {
-              const re = /\bsh\s+([^\s]+)/i;
+              const re = /\b(sh|bash)\s+([^\s]+)/i;
               const m = originalLine.match(re);
-              if (m && m[1]) {
-                let origPath = m[1];
+              if (m && m[2]) {
+                let origPath = m[2];
                 // strip surrounding quotes if any
                 if ((origPath.startsWith('"') && origPath.endsWith('"')) || (origPath.startsWith("'") && origPath.endsWith("'"))) {
                   origPath = origPath.slice(1, -1);
+                }
+                // if origPath is relative, resolve against cwd
+                if (!origPath.startsWith('/')) {
+                  const cwd = await unix.pwd().catch(() => `/projects/${this.projectName}`);
+                  origPath = `${cwd}/${origPath}`;
+                }
+                if (typeof unix.normalizePath === 'function') {
+                  origPath = unix.normalizePath(origPath);
                 }
                 content = await unix.cat(origPath).catch(() => null);
               }
             } catch (e) {}
           }
+
           if (content === null) {
-            proc.writeStderr(`sh: ${path}: No such file\n`);
+            proc.writeStderr(`sh: ${args[0]}: No such file\n`);
             proc.endStdout();
             proc.exit(1);
             return;
           }
+
           // Improved script execution: handle control flow (if/for/while) and positional args
           await this.runScript(String(content), args, proc).catch(() => {});
           proc.endStdout();
