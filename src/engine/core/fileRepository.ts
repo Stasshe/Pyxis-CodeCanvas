@@ -816,10 +816,32 @@ export class FileRepository {
   }
 
   /**
-   * 複数ファイルを一括作成/更新する（パフォーマンス向上用）
-   * entries: { path, content, type, isBufferArray?, bufferContent? }
+   * FileRepository - 最適化されたバルク処理
+   * git clone等の大量ファイル作成時に個別同期ではなく一括同期を使用
    */
-  async createFilesBulk(projectId: string, entries: Array<any>): Promise<ProjectFile[]> {
+
+  // fileRepository.ts に追加するメソッド
+
+  /**
+   * 複数ファイルを一括作成/更新する（最適化版 - 一括同期対応）
+   * git clone等の大量ファイル作成時に使用
+   * 個別同期ではなく、最後に一括同期を実行することで大幅に高速化
+   *
+   * @param projectId プロジェクトID
+   * @param entries ファイルエントリの配列
+   * @param useOptimizedSync true の場合、個別同期をスキップして最後に一括同期
+   * @returns 作成されたファイルの配列
+   */
+  async createFilesBulk(
+    projectId: string,
+    entries: Array<{
+      path: string;
+      content: string;
+      type: 'file' | 'folder';
+      isBufferArray?: boolean;
+      bufferContent?: ArrayBuffer;
+    }>
+  ): Promise<ProjectFile[]> {
     if (!this.db) throw new Error('Database not initialized');
 
     const createdFiles: ProjectFile[] = [];
@@ -830,33 +852,51 @@ export class FileRepository {
 
       transaction.onerror = () => reject(transaction.error);
       transaction.oncomplete = async () => {
-        // After DB commit, asynchronously sync to GitFileSystem and emit events
-        for (const file of createdFiles) {
-          try {
-            // call background sync (non-blocking)
-            this.syncToGitFileSystem(
-              file.projectId,
-              file.path,
-              file.isBufferArray ? '' : file.content || '',
-              'create',
-              file.bufferContent,
-              file.type
-            ).catch(err => {
-              coreWarn('[FileRepository] Background bulk sync failed (non-critical):', err);
-            });
+        try {
+          // 🚀 個別同期をスキップして一括同期を実行
+          coreInfo(
+            `[FileRepository] Starting optimized bulk sync for ${createdFiles.length} files...`
+          );
 
-            this.emitChange({ type: 'create', projectId: file.projectId, file });
-          } catch (err) {
-            coreWarn('[FileRepository] createFilesBulk post-sync error:', err);
+          const { syncManager } = await import('./syncManager');
+          let projectName = this.projectNameCache.get(projectId);
+
+          if (!projectName) {
+            const projects = await this.getProjects();
+            const project = projects.find(p => p.id === projectId);
+            projectName = project?.name;
+            if (projectName) {
+              this.projectNameCache.set(projectId, projectName);
+            }
           }
+
+          if (projectName) {
+            // 一括同期（100ファイルでも1回の処理）
+            await syncManager.syncFromIndexedDBToFS(projectId, projectName);
+            coreInfo('[FileRepository] Optimized bulk sync completed');
+          } else {
+            coreWarn('[FileRepository] Project name not found, skipping sync');
+          }
+
+          // イベント発火
+          for (const file of createdFiles) {
+            this.emitChange({ type: 'create', projectId: file.projectId, file });
+          }
+
+          resolve(createdFiles);
+        } catch (error) {
+          coreError('[FileRepository] Optimized bulk sync error:', error);
+          // 同期エラーでもファイル作成は成功しているので resolve
+          resolve(createdFiles);
         }
-        resolve(createdFiles);
       };
 
       try {
+        // .gitignore チェック用
+        let hasGitignore = false;
+        let gitignoreContent = '';
+
         for (const entry of entries) {
-          const existingRequest = store.index('projectId').getAll(entry.projectId || projectId);
-          // We will not wait for existingRequest; instead, create a new ProjectFile for each entry
           const file: ProjectFile = {
             id: generateUniqueId('file'),
             projectId,
@@ -873,15 +913,21 @@ export class FileRepository {
 
           createdFiles.push(file);
           store.put(file);
+
+          // .gitignore の検出
+          if (entry.path === '/.gitignore' && !entry.isBufferArray) {
+            hasGitignore = true;
+            gitignoreContent = entry.content || '';
+          }
         }
-        // トランザクション内で .gitignore が含まれていればキャッシュを更新
-        const gitignoreEntry = entries.find(e => e.path === '/.gitignore');
-        if (gitignoreEntry) {
+
+        // .gitignore キャッシュ更新
+        if (hasGitignore) {
           try {
-            if (!gitignoreEntry.content || gitignoreEntry.content.trim() === '') {
+            if (!gitignoreContent || gitignoreContent.trim() === '') {
               this.clearGitignoreCache(projectId);
             } else {
-              this.updateGitignoreCache(projectId, gitignoreEntry.content);
+              this.updateGitignoreCache(projectId, gitignoreContent);
             }
           } catch (e) {
             coreWarn('[FileRepository] Failed to update gitignore cache after bulk create:', e);

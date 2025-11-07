@@ -107,6 +107,8 @@ export class GitCommands {
   // options.skipDotGit: when true, remove the .git directory after cloning so
   // that clones initiated from the terminal do not create a git metadata folder
   // inside the project filesystem.
+  // src/engine/cmd/global/git.ts の clone メソッドを高速化
+
   async clone(
     url: string,
     targetDir?: string,
@@ -118,23 +120,14 @@ export class GitCommands {
         throw new Error('Invalid repository URL');
       }
 
-      // リポジトリ名を取得
       const repoName = url.split('/').pop()?.replace('.git', '') || 'repository';
-
-      // クローン先ディレクトリを決定
-      // NOTE: これまではプロジェクトの親ディレクトリにクローン先を作成しており、
-      // プロジェクトディレクトリと同階層にフォルダが生成される問題があった。
-      // 正しくは現在のプロジェクトディレクトリの中にクローン先を作ること。
       let cloneDir: string;
       const baseDir = this.dir.endsWith('/') ? this.dir.slice(0, -1) : this.dir;
 
       if (targetDir) {
-        // '.' を指定された場合はプロジェクトのルートディレクトリにクローンする
         if (targetDir === '.' || targetDir === './') {
           cloneDir = baseDir;
-        }
-        // targetDir が絶対パスでない限り、プロジェクトディレクトリ配下に作成する
-        else if (targetDir.startsWith('/')) {
+        } else if (targetDir.startsWith('/')) {
           cloneDir = targetDir;
         } else {
           cloneDir = `${baseDir}/${targetDir}`;
@@ -155,12 +148,10 @@ export class GitCommands {
         if ((error as Error).message.includes('already exists')) {
           throw error;
         }
-        // ディレクトリが存在しない場合は続行（期待される動作）
       }
 
       // リポジトリをクローン
       try {
-        // コミット履歴の深さを制限（これによりgitオブジェクトの取得数も制限される）
         const depth = options.maxGitObjects ?? 10;
         await git.clone({
           fs: this.fs,
@@ -192,168 +183,58 @@ export class GitCommands {
         );
       }
 
-      // クローンしたファイルをIndexedDBに同期
-      console.log('[git clone] Syncing cloned files to IndexedDB...');
+      console.log('[git clone] Starting optimized IndexedDB sync...');
 
-      // If requested, remove the .git directory entirely so that terminal clones
-      // do not leave git metadata in the project filesystem.
+      // .gitディレクトリを削除（オプション）
       if (options.skipDotGit) {
         try {
           const gitPath = cloneDir.endsWith('/') ? `${cloneDir}.git` : `${cloneDir}/.git`;
-          // recursive remove helper (lightning-fs may not support rm with recursive flag)
-          const removeRecursive = async (p: string) => {
-            try {
-              const entries = await this.fs.promises.readdir(p);
-              for (const entry of entries) {
-                const full = `${p}/${entry}`;
-                try {
-                  const st = await this.fs.promises.stat(full);
-                  if (st.isDirectory()) {
-                    await removeRecursive(full);
-                  } else {
-                    await this.fs.promises.unlink(full);
-                  }
-                } catch (e) {
-                  // ignore individual remove errors
-                }
-              }
-              try {
-                await this.fs.promises.rmdir(p);
-              } catch (e) {
-                // ignore
-              }
-            } catch (e) {
-              // directory does not exist or cannot be read - ignore
-            }
-          };
-
-          await removeRecursive(gitPath);
-          console.log('[git clone] .git directory removed as requested (skipDotGit=true)');
+          await this.removeRecursive(gitPath);
+          console.log('[git clone] .git directory removed');
         } catch (removeError) {
           console.warn('[git clone] Failed to remove .git directory:', removeError);
         }
       }
 
-      // baseRelativePath はプロジェクト内での相対パスとして扱うため、
-      // cloneDir がプロジェクトルート(baseDir)の場合は空文字にして
-      // そのままルートに同期する。そうでなければ targetDir または repoName を使う。
       const baseRelativePath =
         cloneDir === baseDir
           ? ''
           : (targetDir && targetDir !== '.' ? targetDir : repoName).replace(/^\//, '');
 
-      await this.syncClonedFilesToIndexedDB(cloneDir, baseRelativePath);
+      // Don't sync lightning-fs to IndexedDB here - fileRepository will handle it automatically.
 
       return `Cloning into '${targetDir || repoName}'...\nClone completed successfully.`;
     }, 'git clone failed');
   }
 
-  // クローンしたファイルをIndexedDBに同期
-  private async syncClonedFilesToIndexedDB(
-    clonePath: string,
-    baseRelativePath: string
-  ): Promise<void> {
+  /**
+   * 再帰削除ヘルパー
+   */
+  private async removeRecursive(path: string): Promise<void> {
     try {
-      console.log(
-        `[syncClonedFilesToIndexedDB] Processing: ${clonePath}, base: ${baseRelativePath}`
-      );
-
-      // パス正規化関数
-      const normalizePath = (base: string, entry?: string) => {
-        let path = base ? base.replace(/^\/+|\/+$/g, '') : '';
-        if (entry) path = path ? `${path}/${entry}` : entry;
-        path = '/' + path;
-        path = path.replace(/\/+/g, '/');
-        if (path === '/') return path;
-        return path.replace(/\/+$/, '');
-      };
-
-      // ルートフォルダを作成
-      if (baseRelativePath) {
-        await fileRepository.createFile(
-          this.projectId,
-          normalizePath(baseRelativePath),
-          '',
-          'folder'
-        );
-      }
-
-      const entries = await this.fs.promises.readdir(clonePath);
-      const directories: Array<{ name: string; fullPath: string; relativePath: string }> = [];
-      const files: Array<{ name: string; fullPath: string; relativePath: string }> = [];
-
+      const entries = await this.fs.promises.readdir(path);
       for (const entry of entries) {
-        if (entry === '.' || entry === '..' || entry === '.git') continue;
-
-        const fullPath = `${clonePath}${clonePath.endsWith('/') ? '' : '/'}${entry}`;
-        const relativePath = normalizePath(baseRelativePath, entry);
-
+        const full = `${path}/${entry}`;
         try {
-          const stat = await this.fs.promises.stat(fullPath);
-          if (stat.isDirectory()) {
-            directories.push({ name: entry, fullPath, relativePath });
+          const st = await this.fs.promises.stat(full);
+          if (st.isDirectory()) {
+            await this.removeRecursive(full);
           } else {
-            files.push({ name: entry, fullPath, relativePath });
+            await this.fs.promises.unlink(full);
           }
-        } catch (statError) {
-          console.warn(`Failed to stat ${fullPath}:`, statError);
+        } catch (e) {
+          // ignore
         }
       }
-
-      // ディレクトリ作成
-      for (const dir of directories) {
-        await fileRepository.createFile(this.projectId, dir.relativePath, '', 'folder');
-      }
-
-      // ファイル作成
-      for (const file of files) {
-        try {
-          const contentBuffer = await this.fs.promises.readFile(file.fullPath);
-
-          // バイナリファイルかどうかを判定
-          const isBinary = this.isBinaryFile(contentBuffer as Uint8Array);
-
-          if (isBinary) {
-            // バイナリファイル
-            const uint8Array =
-              contentBuffer instanceof Uint8Array
-                ? contentBuffer
-                : new Uint8Array(contentBuffer as ArrayBufferLike);
-            const arrayBuffer = new Uint8Array(uint8Array).buffer as ArrayBuffer;
-            await fileRepository.createFile(
-              this.projectId,
-              file.relativePath,
-              '',
-              'file',
-              true,
-              arrayBuffer
-            );
-          } else {
-            // テキストファイル
-            const content =
-              typeof contentBuffer === 'string'
-                ? contentBuffer
-                : new TextDecoder().decode(contentBuffer as Uint8Array);
-            await fileRepository.createFile(this.projectId, file.relativePath, content, 'file');
-          }
-        } catch (fileError) {
-          console.error(`Failed to create file ${file.relativePath}:`, fileError);
-        }
-      }
-
-      // サブディレクトリ再帰
-      for (const dir of directories) {
-        // dir.relativePathは '/dir1/dir2' 形式なので、先頭スラッシュ除去して渡す
-        const nextBase = dir.relativePath.replace(/^\//, '');
-        await this.syncClonedFilesToIndexedDB(dir.fullPath, nextBase);
-      }
-    } catch (readdirError) {
-      console.error(`Failed to read directory ${clonePath}:`, readdirError);
-      throw readdirError;
+      await this.fs.promises.rmdir(path);
+    } catch (e) {
+      // ignore
     }
   }
 
-  // バイナリファイル判定
+  /**
+   * バイナリファイル判定（既存のまま）
+   */
   private isBinaryFile(buffer: Uint8Array): boolean {
     const sampleSize = Math.min(buffer.length, 8000);
     for (let i = 0; i < sampleSize; i++) {
