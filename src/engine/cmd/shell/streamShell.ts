@@ -1175,7 +1175,7 @@ export class StreamShell {
       start: number,
       end: number,
       localVars: Record<string, string>
-    ): Promise<'ok' | 'break' | 'continue'> => {
+    ): Promise<'ok' | 'break' | 'continue' | { exit: number }> => {
       for (let i = start; i < end; i++) {
         let raw = lines[i] ?? '';
         const trimmed = raw.trim();
@@ -1351,6 +1351,8 @@ export class StreamShell {
             const r = await runRange(bodyStart, bodyEnd, localVars);
             if (r === 'break') break;
             if (r === 'continue') continue;
+            // propagate exit objects upward so scripts terminate immediately
+            if (typeof r === 'object' && r && 'exit' in r) return r;
           }
           i = doneIdx;
           continue;
@@ -1399,6 +1401,8 @@ export class StreamShell {
             const r = await runRange(bodyStart, bodyEnd, localVars);
             if (r === 'break') break;
             if (r === 'continue') continue;
+            // propagate exit upward so while-loop and enclosing script stop
+            if (typeof r === 'object' && r && 'exit' in r) return r;
           }
           i = doneIdx;
           continue;
@@ -1454,7 +1458,14 @@ export class StreamShell {
       return 'ok';
     };
 
-    await runRange(0, lines.length, {});
+    const result = await runRange(0, lines.length, {});
+
+    // If an exit object was returned from the script body, terminate the
+    // script process with the provided code immediately.
+    if (typeof result === 'object' && result && 'exit' in result) {
+      try { proc.exit(result.exit); } catch (e) {}
+      return;
+    }
   }
 
   // Run full pipeline line and resolve final stdout/stderr and code
