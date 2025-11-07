@@ -31,25 +31,15 @@ export class UnzipCommand extends UnixCommandBase {
         // mv等と同じく、normalizePath→getRelativePathFromProjectの順でパス解決
         const normalizedArchivePath = this.normalizePath(this.resolvePath(zipFileName));
         const relPath = this.getRelativePathFromProject(normalizedArchivePath);
-        const files = await fileRepository.getProjectFiles(this.projectId);
+        // Try to fetch the archive directly by path to avoid loading all project files
+        const target = await fileRepository.getFileByPath(this.projectId, relPath);
         // デバッグログ追加
         console.log('[unzip] zipFileName:', zipFileName);
         console.log('[unzip] normalizedArchivePath:', normalizedArchivePath);
         console.log('[unzip] relPath:', relPath);
-        console.log(
-          '[unzip] files:',
-          files.map(f => f.path)
-        );
-        const target = files.find(f => f.path === relPath);
+        console.log('[unzip] target:', target ? target.path : null);
         if (!target) {
-          console.error(
-            '[unzip] archive not found:',
-            zipFileName,
-            'relPath:',
-            relPath,
-            'files:',
-            files.map(f => f.path)
-          );
+          console.error('[unzip] archive not found:', zipFileName, 'relPath:', relPath);
           throw new Error(`archive not found: ${zipFileName}`);
         }
         if (target.isBufferArray && target.bufferContent) {

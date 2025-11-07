@@ -408,9 +408,13 @@ export class StreamShell {
         } catch (e) {}
       }
       // Fallback to fileRepository listing
-      if (this.fileRepository && typeof this.fileRepository.getProjectFiles === 'function') {
+      if (this.fileRepository) {
         try {
-          const files = await this.fileRepository.getProjectFiles(this.projectId);
+          // Prefer prefix-based listing when available to avoid loading all project files
+          let files: any[] = [];
+          if (this.fileRepository.getFilesByPrefix) {
+            files = await this.fileRepository.getFilesByPrefix(this.projectId, '/');
+          }
           const names = files.map((f: any) => (f.path || '').replace(/^\//, ''));
           // convert simple glob pattern to regex (supports *, ?, [..])
           // convert simple glob pattern to regex (supports *, ?, [..]) safely
@@ -1537,26 +1541,27 @@ export class StreamShell {
     const writeQueues: Record<string, Promise<void>> = {};
     const pathState: Record<string, { created: boolean }> = {};
 
-    const enqueueWrite = (path: string, append: boolean, chunk: string) => {
+      const enqueueWrite = (path: string, append: boolean, chunk: string) => {
       const key = path.startsWith('/') ? path : `/${path}`;
       const job = async () => {
         try {
-          const files = await this.fileRepository.getProjectFiles(this.projectId);
-          const existing = files.find(
-            (f: any) => f.path === key || f.path === key.replace(/^\//, '')
-          );
-          if (!existing) {
-            await this.fileRepository.createFile(this.projectId, key, chunk, 'file');
-            pathState[key] = { created: true };
-          } else {
-            const newContent = existing.content + chunk;
-            await this.fileRepository.saveFile({
-              ...existing,
-              content: newContent,
-              updatedAt: new Date(),
-            });
-            pathState[key] = { created: true };
-          }
+            // Fetch the single file by path to avoid full project scan
+            const existing =
+              typeof this.fileRepository.getFileByPath === 'function'
+                ? await this.fileRepository.getFileByPath(this.projectId, key)
+                : null;
+            if (!existing) {
+              await this.fileRepository.createFile(this.projectId, key, chunk, 'file');
+              pathState[key] = { created: true };
+            } else {
+              const newContent = (existing.content || '') + chunk;
+              await this.fileRepository.saveFile({
+                ...existing,
+                content: newContent,
+                updatedAt: new Date(),
+              });
+              pathState[key] = { created: true };
+            }
         } catch (e) {
           // swallow write errors to avoid crashing the shell
         }
@@ -1729,16 +1734,16 @@ export class StreamShell {
         try {
           let contentToWrite = writes[pth];
           if (appendMap[pth]) {
-            const files = await this.fileRepository.getProjectFiles(this.projectId);
-            const existing = files.find(
-              (f: any) => f.path === pth || f.path === pth.replace(/^\//, '')
-            );
+            const existing =
+              typeof this.fileRepository.getFileByPath === 'function'
+                ? await this.fileRepository.getFileByPath(this.projectId, pth)
+                : null;
             if (existing && existing.content) contentToWrite = existing.content + contentToWrite;
           }
-          const files = await this.fileRepository.getProjectFiles(this.projectId);
-          const existing = files.find(
-            (f: any) => f.path === pth || f.path === pth.replace(/^\//, '')
-          );
+          const existing =
+            typeof this.fileRepository.getFileByPath === 'function'
+              ? await this.fileRepository.getFileByPath(this.projectId, pth)
+              : null;
           if (existing) {
             await this.fileRepository.saveFile({
               ...existing,
