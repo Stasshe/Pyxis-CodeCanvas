@@ -71,7 +71,7 @@ export class FindCommand extends UnixCommandBase {
   /**
    * 検索式を解析して条件オブジェクトを返す
    */
-  private parseExpressions(expressions: string[]): SearchCriteria {
+  protected parseExpressions(expressions: string[]): SearchCriteria {
     const criteria: SearchCriteria = {
       namePattern: null,
       pathPattern: null,
@@ -159,11 +159,12 @@ export class FindCommand extends UnixCommandBase {
    * @param ignoreCase - 大文字小文字を区別しない場合true
    */
   private globToRegExp(pattern: string, ignoreCase = false): RegExp {
-    // ワイルドカードが含まれていない場合は完全一致
+    // POSIX: ワイルドカードなしは完全一致（basenameのみ）
     if (!pattern.includes('*') && !pattern.includes('?') && !pattern.includes('[')) {
-      // そのまま完全一致
-      return new RegExp('^' + pattern.replace(/[.+^${}()|[\\]\\]/g, '\\$&') + '$', ignoreCase ? 'i' : '');
+      // 例: find . -iname readme → basenameが"readme"のみ一致
+      return new RegExp('^' + pattern.replace(/[.+^${}()|\[\]]/g, '\\$&') + '$', ignoreCase ? 'i' : '');
     }
+    // ワイルドカードありはglob展開
     let res = '';
     let i = 0;
     while (i < pattern.length) {
@@ -203,14 +204,14 @@ export class FindCommand extends UnixCommandBase {
         i = j + 1;
       } else if (ch === '\\' && i + 1 < pattern.length) {
         const nextCh = pattern[i + 1];
-        if (/[.+^${}()|[\\]\\]/.test(nextCh)) {
+        if (/[.+^${}()|\[\]]/.test(nextCh)) {
           res += '\\' + nextCh;
         } else {
           res += nextCh;
         }
         i += 2;
       } else {
-        if (/[.+^${}()|[\\]\\]/.test(ch)) {
+        if (/[.+^${}()|\[\]]/.test(ch)) {
           res += '\\' + ch;
         } else {
           res += ch;
@@ -218,13 +219,14 @@ export class FindCommand extends UnixCommandBase {
         i++;
       }
     }
+    // basename完全一致
     return new RegExp('^' + res + '$', ignoreCase ? 'i' : '');
   }
 
   /**
    * 指定されたパスからファイルを検索
    */
-  private async findFiles(
+  protected async findFiles(
     startPath: string,
     criteria: SearchCriteria
   ): Promise<string[]> {
@@ -244,13 +246,8 @@ export class FindCommand extends UnixCommandBase {
     const prefix = relativePath === '/' ? '' : `${relativePath}/`;
     const files: ProjectFile[] = await this.cachedGetFilesByPrefix(prefix);
 
-    // prefix直下のみ（サブディレクトリ除外）のファイルだけを対象にする
-    const directChildren = files.filter(f => {
-      const rel = f.path.startsWith(prefix) ? f.path.substring(prefix.length) : f.path;
-      return rel !== '' && !rel.includes('/');
-    });
-
-    for (const file of directChildren) {
+    // POSIX準拠: prefix以下の全ファイル・ディレクトリを再帰的に検索
+    for (const file of files) {
       let relativeToStart = file.path.startsWith(prefix)
         ? file.path.substring(prefix.length)
         : file.path;
@@ -270,6 +267,13 @@ export class FindCommand extends UnixCommandBase {
       const fullPath = relativeToStart === ''
         ? normalizedStart
         : `${normalizedStart}/${relativeToStart}`;
+
+      // POSIX: -type指定時はそのtypeのみ、-name/-iname指定時はfileのみ
+      if (criteria.typeFilter) {
+        if (file.type !== criteria.typeFilter) continue;
+      } else if (criteria.namePattern) {
+        if (file.type !== 'file') continue;
+      }
 
       // 条件に一致するかチェック
       if (this.matchesCriteria(file, fullPath, depth, criteria)) {
@@ -292,9 +296,8 @@ export class FindCommand extends UnixCommandBase {
     // basename は ProjectFile の name プロパティを使う
     const baseName = file.name || '';
 
-    // -name / -iname チェック
-    if (criteria.namePattern) {
-      // namePatternはbasenameに対してのみ適用
+    // -name / -iname チェック（POSIX: ファイルのみ判定）
+    if (criteria.namePattern && file.type === 'file') {
       if (!criteria.namePattern.test(baseName)) {
         return false;
       }
