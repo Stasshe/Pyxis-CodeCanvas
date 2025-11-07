@@ -1,5 +1,3 @@
-import FS from '@isomorphic-git/lightning-fs';
-
 import { fileRepository } from '@/engine/core/fileRepository';
 import type { ProjectFile } from '@/types';
 
@@ -242,8 +240,8 @@ export abstract class UnixCommandBase {
    * IndexedDBからファイルを取得
    */
   protected async getFileFromDB(relativePath: string): Promise<ProjectFile | undefined> {
-    const files = await fileRepository.getProjectFiles(this.projectId);
-    return files.find(f => f.path === relativePath);
+    const file = await fileRepository.getFileByPath(this.projectId, relativePath);
+    return file || undefined;
   }
 
   /**

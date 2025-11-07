@@ -48,7 +48,7 @@ export class CatCommand extends UnixCommandBase {
   }
 
   /**
-   * ファイルの内容を読み取る（lightning-fsから直接読み取り）
+   * ファイルの内容を読み取る（IndexedDB の FileRepository を使用）
    */
   private async readFile(path: string, showLineNumbers: boolean): Promise<string> {
     const normalizedPath = this.normalizePath(path);
@@ -59,20 +59,34 @@ export class CatCommand extends UnixCommandBase {
       throw new Error('Is a directory');
     }
 
-    try {
-      // lightning-fsから直接読み取り（Git用ワークスペース）
-      const content = await this.fs.promises.readFile(normalizedPath, { encoding: 'utf8' });
+    // プロジェクト内の相対パスに変換して DB から取得
+    const relative = this.getRelativePathFromProject(normalizedPath);
+    const file = await this.getFileFromDB(relative);
 
-      if (showLineNumbers) {
-        const lines = (content as string).split('\n');
-        return lines
-          .map((line, index) => `${(index + 1).toString().padStart(6)} ${line}`)
-          .join('\n');
-      }
-
-      return content as string;
-    } catch (error) {
+    if (!file) {
       throw new Error('No such file or directory');
     }
+
+    // ファイルがバイナリとして保存されている場合は bufferContent を TextDecoder でデコード
+    let contentStr = '';
+    if (file.isBufferArray && file.bufferContent) {
+      // UTF-8 デコードを想定（必要ならオプション対応を追加）
+      const decoder = new TextDecoder('utf-8');
+      contentStr = decoder.decode(file.bufferContent as ArrayBuffer);
+    } else if (typeof file.content === 'string') {
+      contentStr = file.content;
+    } else {
+      // その他は空文字列とする
+      contentStr = '';
+    }
+
+    if (showLineNumbers) {
+      const lines = contentStr.split('\n');
+      // 行番号幅は行数に応じて算出（最低幅は6）
+      const width = Math.max(6, String(lines.length).length + 1);
+      return lines.map((line, idx) => `${(idx + 1).toString().padStart(width)} ${line}`).join('\n');
+    }
+
+    return contentStr;
   }
 }

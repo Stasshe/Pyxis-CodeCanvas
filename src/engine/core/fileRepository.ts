@@ -32,7 +32,7 @@ type FileChangeListener = (event: FileChangeEvent) => void;
 
 export class FileRepository {
   private dbName = 'PyxisProjects';
-  private version = 3;
+  private version = 4;
   private db: IDBDatabase | null = null;
   private static instance: FileRepository | null = null;
   private projectNameCache: Map<string, string> = new Map(); // projectId -> projectName
@@ -124,10 +124,24 @@ export class FileRepository {
         if (!db.objectStoreNames.contains('files')) {
           const fileStore = db.createObjectStore('files', { keyPath: 'id' });
           fileStore.createIndex('projectId', 'projectId', { unique: false });
+          // compound index for efficient lookup by projectId + path
+          // keyPath as array allows querying with [projectId, path]
+          try {
+            fileStore.createIndex('projectId_path', ['projectId', 'path'], { unique: false });
+          } catch (e) {
+            // ignore if not supported
+          }
         } else {
           const fileStore = (event.target as IDBOpenDBRequest).transaction!.objectStore('files');
           if (!fileStore.indexNames.contains('projectId')) {
             fileStore.createIndex('projectId', 'projectId', { unique: false });
+          }
+          if (!fileStore.indexNames.contains('projectId_path')) {
+            try {
+              fileStore.createIndex('projectId_path', ['projectId', 'path'], { unique: false });
+            } catch (e) {
+              // ignore if not supported
+            }
           }
         }
 
@@ -891,6 +905,55 @@ export class FileRepository {
       const request = store.get(fileId);
       request.onerror = () => reject(request.error);
       request.onsuccess = () => resolve(request.result || null);
+    });
+  }
+
+  /**
+   * プロジェクト内のパスでファイルを取得（path はプロジェクトルート相対パス）
+   * 可能な限りインデックスを使って効率的に取得する。
+   */
+  async getFileByPath(projectId: string, path: string): Promise<ProjectFile | null> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    // 正規化: leading slash を許容しているのでそのまま使う
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(['files'], 'readonly');
+      const store = transaction.objectStore('files');
+
+      // 優先: compound index があればそれを使う
+      if (store.indexNames.contains('projectId_path')) {
+        try {
+          const idx = store.index('projectId_path');
+          const req = idx.get([projectId, path]);
+          req.onerror = () => reject(req.error);
+          req.onsuccess = () => resolve(req.result || null);
+          return;
+        } catch (e) {
+          // fallthrough to fallback
+        }
+      }
+
+      // フォールバック: projectId インデックスから全取得してフィルタ（従来の方法）
+      if (store.indexNames.contains('projectId')) {
+        const idx = store.index('projectId');
+        const req = idx.getAll(projectId);
+        req.onerror = () => reject(req.error);
+        req.onsuccess = () => {
+          const files = req.result as ProjectFile[];
+          const found = files.find(f => f.path === path) || null;
+          resolve(found);
+        };
+        return;
+      }
+
+      // 最後の手段: 全件走査
+      const allReq = store.getAll();
+      allReq.onerror = () => reject(allReq.error);
+      allReq.onsuccess = () => {
+        const files = allReq.result as ProjectFile[];
+        const found = files.find(f => f.projectId === projectId && f.path === path) || null;
+        resolve(found);
+      };
     });
   }
 

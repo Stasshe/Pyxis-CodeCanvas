@@ -545,27 +545,7 @@ export class StreamShell {
         // attempt to read it from the project's filesystem and, if it's a shell
         // script (ends with .sh or has a shebang), execute it line-by-line.
         if (unix && (cmd.includes('/') || cmd.endsWith('.sh'))) {
-          // Try to resolve relative paths against the current working directory
-          let scriptPath = cmd;
-          try {
-            if (!scriptPath.startsWith('/')) {
-              const cwd = await unix.pwd().catch(() => `/projects/${this.projectName}`);
-              scriptPath = `${cwd}/${scriptPath}`;
-            }
-            // Allow unix to normalize (resolve .., //, etc.) if available
-            if (typeof unix.normalizePath === 'function') {
-              scriptPath = unix.normalizePath(scriptPath);
-            }
-          } catch (e) {
-            // ignore and continue with original cmd
-          }
-
-          // attempt to read resolved path first, fallback to original
-          let maybeContent = await unix.cat(scriptPath).catch(() => null);
-          if (maybeContent === null && scriptPath !== cmd) {
-            maybeContent = await unix.cat(cmd).catch(() => null);
-          }
-
+          const maybeContent = await unix.cat(cmd).catch(() => null);
           if (maybeContent !== null) {
             const text = String(maybeContent);
             const firstLine = text.split('\n', 1)[0] || '';

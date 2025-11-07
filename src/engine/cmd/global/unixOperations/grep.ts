@@ -104,7 +104,20 @@ export class GrepCommand extends UnixCommandBase {
     showFilename: boolean
   ): Promise<string | null> {
     try {
-      const content = (await this.fs.promises.readFile(path, { encoding: 'utf8' })) as string;
+      // DB からファイルを取得
+      const relative = this.getRelativePathFromProject(path);
+      const file = await this.getFileFromDB(relative);
+      if (!file) throw new Error('No such file or directory');
+
+      let content = '';
+      if (file.isBufferArray && file.bufferContent) {
+        const decoder = new TextDecoder('utf-8');
+        content = decoder.decode(file.bufferContent as ArrayBuffer);
+      } else if (typeof file.content === 'string') {
+        content = file.content;
+      } else {
+        content = '';
+      }
       const lines = content.split('\n');
       const matches: string[] = [];
       let matchCount = 0;
