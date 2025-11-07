@@ -41,9 +41,8 @@ export class NpmCommands {
   // npm install コマンドの実装
   async install(packageName?: string, flags: string[] = []): Promise<string> {
     try {
-      // IndexedDBからpackage.jsonを取得
-      const files = await fileRepository.getProjectFiles(this.projectId);
-      const packageFile = files.find(f => f.path === '/package.json');
+      // IndexedDBからpackage.jsonを単一取得（インデックス経由）
+      const packageFile = await fileRepository.getFileByPath(this.projectId, '/package.json');
       let packageJson: any;
       if (packageFile) {
         packageJson = JSON.parse(packageFile.content);
@@ -143,11 +142,12 @@ export class NpmCommands {
             'file'
           );
 
-          // 実際にnode_modulesにインストールされているかチェック
-          const files = await fileRepository.getProjectFiles(this.projectId);
-          const isActuallyInstalled = files.some(f =>
-            f.path.startsWith(`/node_modules/${packageName}`)
+          // 実際にnode_modulesにインストールされているかチェック（プレフィックス検索）
+          const nodeFiles = await fileRepository.getFilesByPrefix(
+            this.projectId,
+            `/node_modules/${packageName}`
           );
+          const isActuallyInstalled = nodeFiles.length > 0;
 
           if (isInPackageJson && isActuallyInstalled) {
             return `updated 1 package in ${Math.random() * 2 + 1}s\n\n~ ${packageName}@${version}\nupdated 1 package and audited 1 package in ${Math.random() * 0.5 + 0.5}s\n\nfound 0 vulnerabilities`;
@@ -173,9 +173,8 @@ export class NpmCommands {
   // npm uninstall コマンドの実装
   async uninstall(packageName: string): Promise<string> {
     try {
-      // IndexedDBからpackage.jsonを取得
-      const files = await fileRepository.getProjectFiles(this.projectId);
-      const packageFile = files.find(f => f.path === '/package.json');
+      // IndexedDBからpackage.jsonを単一取得（インデックス経由）
+      const packageFile = await fileRepository.getFileByPath(this.projectId, '/package.json');
       if (!packageFile) {
         return `npm ERR! Cannot find package.json`;
       }
@@ -222,9 +221,11 @@ export class NpmCommands {
         console.warn(
           `[npm.uninstall] Dependency analysis failed, removing only main package: ${(error as Error).message}`
         );
-        // node_modules配下のIndexedDBファイルも念のため削除
-        const files = await fileRepository.getProjectFiles(this.projectId);
-        const packageFiles = files.filter(f => f.path.startsWith(`/node_modules/${packageName}`));
+        // node_modules配下のIndexedDBファイルも念のため削除（プレフィックス検索）
+        const packageFiles = await fileRepository.getFilesByPrefix(
+          this.projectId,
+          `/node_modules/${packageName}`
+        );
         for (const file of packageFiles) {
           await fileRepository.deleteFile(file.id);
         }
@@ -238,8 +239,7 @@ export class NpmCommands {
   // npm list コマンドの実装
   async list(): Promise<string> {
     try {
-      const files = await fileRepository.getProjectFiles(this.projectId);
-      const packageFile = files.find(f => f.path === '/package.json');
+      const packageFile = await fileRepository.getFileByPath(this.projectId, '/package.json');
       if (!packageFile) {
         return `npm ERR! Cannot find package.json`;
       }
@@ -272,8 +272,7 @@ export class NpmCommands {
   // npm init コマンドの実装
   async init(force = false): Promise<string> {
     try {
-      const files = await fileRepository.getProjectFiles(this.projectId);
-      const packageFile = files.find(f => f.path === '/package.json');
+      const packageFile = await fileRepository.getFileByPath(this.projectId, '/package.json');
       if (packageFile && !force) {
         return `package.json already exists. Use 'npm init --force' to overwrite.`;
       }
@@ -306,8 +305,7 @@ export class NpmCommands {
   // npm run コマンドの実装
   async run(scriptName: string): Promise<string> {
     try {
-      const files = await fileRepository.getProjectFiles(this.projectId);
-      const packageFile = files.find(f => f.path === '/package.json');
+      const packageFile = await fileRepository.getFileByPath(this.projectId, '/package.json');
       if (!packageFile) {
         return `npm ERR! Cannot find package.json`;
       }
