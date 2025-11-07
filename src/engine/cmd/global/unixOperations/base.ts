@@ -20,17 +20,10 @@ export abstract class UnixCommandBase {
     }
   }
 
-  // 短期メモリキャッシュ（インスタンスライフタイム）
-  private cache: Map<string, any> = new Map();
-
-  /**
-   * インスタンス内キャッシュから単一ファイル取得（relativePath はプロジェクト相対パス）
-   */
+  // NOTE: Caching disabled - direct DB reads are performed to ensure latest data is returned.
+  // The methods keep their names for backward compatibility but do not store any cache.
   protected async cachedGetFile(relativePath: string): Promise<ProjectFile | undefined> {
-    const key = `file:${relativePath}`;
-    if (this.cache.has(key)) return this.cache.get(key);
     const file = await fileRepository.getFileByPath(this.projectId, relativePath);
-    this.cache.set(key, file || null);
     return file || undefined;
   }
 
@@ -39,69 +32,41 @@ export abstract class UnixCommandBase {
    * prefix 例: '/src/' （先頭スラッシュを含むプロジェクト相対パス）
    */
   protected async cachedGetFilesByPrefix(prefix: string): Promise<ProjectFile[]> {
-    const key = `prefix:${prefix}`;
-    if (this.cache.has(key)) return this.cache.get(key) as ProjectFile[];
-    const files = await fileRepository.getFilesByPrefix(this.projectId, prefix);
-    this.cache.set(key, files);
-    return files;
+    return await fileRepository.getFilesByPrefix(this.projectId, prefix);
   }
 
   /**
    * キャッシュに単一ファイルを設定する（null を設定すると明示的に存在しないことを示す）
    * relativePath はプロジェクト相対パス（先頭スラッシュあり）
    */
+  // No-op: caching removed. Method kept for compatibility.
   protected setCacheFile(relativePath: string, file: ProjectFile | null): void {
-    const key = `file:${relativePath}`;
-    this.cache.set(key, file);
+    return;
   }
 
   /**
    * キャッシュから単一ファイルエントリを削除する
    */
+  // No-op: caching removed. Method kept for compatibility.
   protected deleteCacheFile(relativePath: string): void {
-    const key = `file:${relativePath}`;
-    this.cache.delete(key);
+    return;
   }
 
   /**
    * prefix に一致するキャッシュ（prefix: と file:）を無効化する
    * prefix はプロジェクト相対パスで先頭スラッシュあり。例: '/' or '/src/'
    */
+  // No-op: caching removed. Method kept for compatibility.
   protected invalidatePrefix(prefix: string): void {
-    // Normalize prefix for matching stored keys
-    const normalized = prefix === '/' || prefix === '' ? '/' : prefix.replace(/\/$/, '') + '/';
-
-    for (const key of Array.from(this.cache.keys())) {
-      if (key.startsWith('prefix:')) {
-        const cachedPrefix = key.slice('prefix:'.length);
-        // If cachedPrefix starts with normalized or normalized starts with cachedPrefix, clear it
-        if (
-          cachedPrefix === prefix ||
-          cachedPrefix.startsWith(normalized) ||
-          normalized.startsWith(cachedPrefix)
-        ) {
-          this.cache.delete(key);
-        }
-      }
-
-      if (key.startsWith('file:')) {
-        const filePath = key.slice('file:'.length);
-        if (
-          filePath === prefix ||
-          filePath.startsWith(normalized) ||
-          normalized.startsWith(filePath)
-        ) {
-          this.cache.delete(key);
-        }
-      }
-    }
+    return;
   }
 
   /**
    * インスタンスキャッシュを全消去する（テスト用・デバッグ用）
    */
+  // No-op: caching removed. Method kept for compatibility.
   protected clearCache(): void {
-    this.cache.clear();
+    return;
   }
 
   /**
