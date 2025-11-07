@@ -958,6 +958,83 @@ export class FileRepository {
   }
 
   /**
+   * 指定プレフィックスに一致するファイルを取得（path はプロジェクトルート相対パス）
+   * 例: prefix === '/src/' -> '/src/' 以下の全ファイルを返す
+   */
+  async getFilesByPrefix(projectId: string, prefix: string): Promise<ProjectFile[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(['files'], 'readonly');
+      const store = transaction.objectStore('files');
+
+      // 可能であれば projectId_path インデックスを使って範囲検索
+      if (store.indexNames.contains('projectId_path')) {
+        try {
+          const idx = store.index('projectId_path');
+          const lower: any = [projectId, prefix];
+          const upper: any = [projectId, prefix + '\uffff'];
+          const range = IDBKeyRange.bound(lower, upper);
+          const req = idx.getAll(range);
+          req.onerror = () => reject(req.error);
+          req.onsuccess = () => {
+            const files = req.result.map((f: any) => ({
+              ...f,
+              createdAt: new Date(f.createdAt),
+              updatedAt: new Date(f.updatedAt),
+              bufferContent: f.isBufferArray ? f.bufferContent : undefined,
+            }));
+            resolve(files as ProjectFile[]);
+          };
+          return;
+        } catch (e) {
+          // fallthrough
+        }
+      }
+
+      // フォールバック: projectId インデックスで絞ってから prefix フィルタ
+      if (store.indexNames.contains('projectId')) {
+        const idx = store.index('projectId');
+        const req = idx.getAll(projectId);
+        req.onerror = () => reject(req.error);
+        req.onsuccess = () => {
+          const files = (req.result as any[])
+            .filter(f => {
+              if (!prefix || prefix === '') return true;
+              return (f.path || '').startsWith(prefix);
+            })
+            .map(f => ({
+              ...f,
+              createdAt: new Date(f.createdAt),
+              updatedAt: new Date(f.updatedAt),
+              bufferContent: f.isBufferArray ? f.bufferContent : undefined,
+            }));
+          resolve(files as ProjectFile[]);
+        };
+        return;
+      }
+
+      // 最後の手段: 全件取得してフィルタ
+      const allReq = store.getAll();
+      allReq.onerror = () => reject(allReq.error);
+      allReq.onsuccess = () => {
+        const files = (allReq.result as any[])
+          .filter(f => {
+            if (!prefix || prefix === '') return true;
+            return (f.path || '').startsWith(prefix);
+          })
+          .map(f => ({
+            ...f,
+            createdAt: new Date(f.createdAt),
+            updatedAt: new Date(f.updatedAt),
+            bufferContent: f.isBufferArray ? f.bufferContent : undefined,
+          }));
+        resolve(files as ProjectFile[]);
+      };
+    });
+  }
+
+  /**
    * 削除後の共通処理（gitignoreキャッシュクリア、同期、イベント発火）
    */
   private async handlePostDeletion(

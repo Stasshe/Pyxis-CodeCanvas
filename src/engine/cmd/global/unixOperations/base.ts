@@ -89,25 +89,27 @@ export abstract class UnixCommandBase {
    */
   protected async expandGlob(pattern: string, dirPath: string): Promise<string[]> {
     const regex = this.globToRegex(pattern);
-    const files = await this.getAllFilesFromDB();
 
-    // dirPath配下のファイル/フォルダを取得
+    // dirPath配下のファイル/フォルダを取得（プレフィックス検索で絞る）
     const dirRelative = this.getRelativePathFromProject(dirPath);
-    const childrenInDir = files.filter(f => {
+    const prefix = dirRelative === '/' ? '' : `${dirRelative}/`;
+    const files = await fileRepository.getFilesByPrefix(this.projectId, prefix);
+
+    const childrenInDir = files.filter((f: ProjectFile) => {
       if (dirRelative === '/') {
         // ルートの場合、直下のみ
-        return f.path.split('/').filter(p => p).length === 1;
+        return f.path.split('/').filter((p: string) => p).length === 1;
       } else {
         // 指定ディレクトリの直下のみ
-        const relativePath = f.path.replace(dirRelative + '/', '');
-        return f.path.startsWith(dirRelative + '/') && !relativePath.includes('/');
+        const relativePath = f.path.replace(prefix, '');
+        return f.path.startsWith(prefix) && !relativePath.includes('/');
       }
     });
 
     return childrenInDir
-      .map(f => f.path.split('/').pop() || '')
-      .filter(name => regex.test(name))
-      .map(name => `${dirPath}/${name}`);
+      .map((f: ProjectFile) => f.path.split('/').pop() || '')
+      .filter((name: string) => regex.test(name))
+      .map((name: string) => `${dirPath}/${name}`);
   }
 
   /**
@@ -183,17 +185,16 @@ export abstract class UnixCommandBase {
 
     // ワイルドカード展開（IndexedDBから取得）
     try {
-      const files = await this.getAllFilesFromDB();
-
-      // currentPath直下のファイル/フォルダを取得
+      // currentPath直下のファイル/フォルダを取得（プレフィックス検索で絞る）
       const currentRelative = currentPath === '' ? '/' : `/${currentPath}`;
-      const childrenInDir = files.filter(f => {
+      const prefix = currentRelative === '/' ? '' : `${currentRelative}/`;
+      const files: ProjectFile[] = await fileRepository.getFilesByPrefix(this.projectId, prefix);
+      const childrenInDir = files.filter((f: ProjectFile) => {
         if (currentRelative === '/') {
           // ルート直下
-          return f.path.split('/').filter(p => p).length === 1;
+          return f.path.split('/').filter((p: string) => p).length === 1;
         } else {
           // 指定ディレクトリ直下
-          const prefix = currentRelative + '/';
           if (!f.path.startsWith(prefix)) return false;
           const relativePath = f.path.substring(prefix.length);
           return !relativePath.includes('/');
@@ -271,9 +272,9 @@ export abstract class UnixCommandBase {
 
     // ファイルが見つからない場合、子ファイルが存在するかチェック
     // （ディレクトリ自体がDBに登録されていない場合でも、子ファイルがあれば存在する）
-    const files = await this.getAllFilesFromDB();
-    const parentPath = relativePath.endsWith('/') ? relativePath : relativePath + '/';
-    const hasChildren = files.some(f => f.path.startsWith(parentPath) && f.path !== relativePath);
+  const parentPath = relativePath.endsWith('/') ? relativePath : relativePath + '/';
+  const files = await fileRepository.getFilesByPrefix(this.projectId, parentPath);
+  const hasChildren = files.some((f: ProjectFile) => f.path.startsWith(parentPath) && f.path !== relativePath);
 
     return hasChildren;
   }
@@ -298,11 +299,9 @@ export abstract class UnixCommandBase {
 
     // ファイルが見つからない場合、子ファイルが存在するかチェック
     // （ディレクトリ自体がDBに登録されていない場合でも、子ファイルがあればディレクトリ）
-    const files = await this.getAllFilesFromDB();
-    const hasChildren = files.some(f => {
-      const parentPath = relativePath.endsWith('/') ? relativePath : relativePath + '/';
-      return f.path.startsWith(parentPath) && f.path !== relativePath;
-    });
+    const parentPath = relativePath.endsWith('/') ? relativePath : relativePath + '/';
+    const files = await fileRepository.getFilesByPrefix(this.projectId, parentPath);
+    const hasChildren = files.some((f: ProjectFile) => f.path.startsWith(parentPath) && f.path !== relativePath);
 
     return hasChildren;
   }

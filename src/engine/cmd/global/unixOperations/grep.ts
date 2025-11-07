@@ -1,4 +1,6 @@
 import { UnixCommandBase } from './base';
+import type { ProjectFile } from '@/types';
+import { fileRepository } from '@/engine/core/fileRepository';
 
 /**
  * grep - ファイル内のパターンを検索
@@ -174,15 +176,12 @@ export class GrepCommand extends UnixCommandBase {
     showFilename: boolean
   ): Promise<string[]> {
     const relativePath = this.getRelativePathFromProject(dirPath);
-    const files = await this.getAllFilesFromDB();
+    const prefix = relativePath === '/' ? '' : `${relativePath}/`;
+    const files: ProjectFile[] = await fileRepository.getFilesByPrefix(this.projectId, prefix);
     const results: string[] = [];
 
     for (const file of files) {
       if (file.type !== 'file') continue;
-
-      const isInDir = relativePath === '/' ? true : file.path.startsWith(relativePath + '/');
-
-      if (!isInDir) continue;
 
       const fullPath = `${this.getProjectRoot()}${file.path}`;
 

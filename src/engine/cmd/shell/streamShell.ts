@@ -579,21 +579,7 @@ export class StreamShell {
             proc.exit(2);
             return;
           }
-          let path = args[0];
-
-          // Resolve relative paths against cwd and normalize if possible
-          try {
-            if (!path.startsWith('/')) {
-              const cwd = await unix.pwd().catch(() => `/projects/${this.projectName}`);
-              path = `${cwd}/${path}`;
-            }
-            if (typeof unix.normalizePath === 'function') {
-              path = unix.normalizePath(path);
-            }
-          } catch (e) {
-            // ignore and try original
-          }
-
+          const path = args[0];
           let content = await unix.cat(path).catch(() => null);
 
           // Windows-style path fallback: recover original argument from originalLine
@@ -606,14 +592,6 @@ export class StreamShell {
                 // strip surrounding quotes if any
                 if ((origPath.startsWith('"') && origPath.endsWith('"')) || (origPath.startsWith("'") && origPath.endsWith("'"))) {
                   origPath = origPath.slice(1, -1);
-                }
-                // if origPath is relative, resolve against cwd
-                if (!origPath.startsWith('/')) {
-                  const cwd = await unix.pwd().catch(() => `/projects/${this.projectName}`);
-                  origPath = `${cwd}/${origPath}`;
-                }
-                if (typeof unix.normalizePath === 'function') {
-                  origPath = unix.normalizePath(origPath);
                 }
                 content = await unix.cat(origPath).catch(() => null);
               }
