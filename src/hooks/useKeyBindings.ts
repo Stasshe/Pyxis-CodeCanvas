@@ -146,9 +146,18 @@ if (typeof window !== 'undefined') {
   window.addEventListener(
     'keydown',
     (e: KeyboardEvent) => {
-      // 入力フィールド内では無効化
+      // 入力フィールド内では通常は無効化するが、
+      // Ctrl/Cmd 等の修飾キーが押されている場合はショートカットを許可する。
+      // これは Monaco 等のエディターが contentEditable を使う場合でも
+      // Cmd+S がブラウザの「ページを保存」に渡されるのを防ぐため。
       const target = e.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+      const isTextInput =
+        target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+
+      // modifier が押されている場合はエディター内でもショートカットを処理する
+      const hasModifier = e.ctrlKey || e.metaKey || e.altKey;
+
+      if (isTextInput && !hasModifier) {
         return;
       }
 
