@@ -87,7 +87,7 @@ export default function DebugConsole({ height, isActive }: DebugConsoleProps) {
         }, 50);
       }, 100);
 
-      term.writeln('\x1b[1;36m[Debug Console]\x1b[0m デバッグ出力はこちらに表示されます。');
+      term.writeln('\x1b[1;36m[Debug Console]\x1b[0m Debug Output is shown here.');
       scrollToBottom();
 
       // 後方互換性のためのログリスナー（従来のlog()メソッド用）

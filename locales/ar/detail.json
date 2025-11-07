@@ -1,0 +1,17 @@
+{
+  "charCountDetails": {
+    "lines": "أسطر",
+    "words": "كلمات",
+    "chars": "حروف",
+    "charsNoSpaces": "حروف (بدون مسافات)",
+    "zenkaku": "حروف بعرض كامل",
+    "hankaku": "حروف بعرض نصف",
+    "digits": "أرقام",
+    "alpha": "أحرف أبجدية",
+    "symbols": "رموز",
+    "spaces": "مسافات",
+    "newlines": "أسطر جديدة",
+    "maxLineLen": "أقصى طول سطر",
+    "avgLineLen": "متوسط طول السطر"
+  }
+}

@@ -1,5 +1,10 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { DiffEditor } from '@monaco-editor/react';
+import type { Monaco } from '@monaco-editor/react';
+import type * as monacoEditor from 'monaco-editor';
+import { useTranslation } from '@/context/I18nContext';
+import { isBufferArray } from '@/engine/helper/isBufferArray';
+import { getLanguage } from '@/components/Tab/text-editor/editors/editor-utils';
 
 interface SingleFileDiff {
   formerFullPath: string;
@@ -10,13 +15,195 @@ interface SingleFileDiff {
   latterContent: string;
 }
 
+// Use shared getLanguage utility from editor-utils to infer Monaco language ids.
+
 interface DiffTabProps {
   diffs: SingleFileDiff[];
+  editable?: boolean; // 編集可能かどうか（true: 編集可能, false: 読み取り専用）
+  onContentChange?: (content: string) => void; // 編集内容の保存用（デバウンス後）
+  // 即時反映用ハンドラ: 編集が発生したら即座に呼ばれる（isDirty フラグ立てに使用）
+  onImmediateContentChange?: (content: string) => void;
 }
 
-const DiffTab: React.FC<DiffTabProps> = ({ diffs }) => {
+const DiffTab: React.FC<DiffTabProps> = ({
+  diffs,
+  editable = false,
+  onContentChange,
+  onImmediateContentChange,
+}) => {
   // 各diff領域へのref
   const diffRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  // DiffEditorインスタンスとモデルを管理
+  const editorsRef = useRef<Map<number, monacoEditor.editor.IStandaloneDiffEditor>>(new Map());
+  const modelsRef = useRef<
+    Map<
+      number,
+      { original: monacoEditor.editor.ITextModel; modified: monacoEditor.editor.ITextModel }
+    >
+  >(new Map());
+
+  // デバウンス保存用のタイマー
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // クリーンアップ処理
+  useEffect(() => {
+    return () => {
+      // デバウンスタイマーをクリア
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+
+      // エディタをリセットしてからモデルを破棄
+      editorsRef.current.forEach((editor, idx) => {
+        try {
+          // まずエディタのモデルをnullに設定
+          const diffModel = editor.getModel();
+          if (diffModel) {
+            editor.setModel(null);
+          }
+        } catch (e) {
+          console.warn(`[DiffTab] Failed to reset editor ${idx}:`, e);
+        }
+      });
+
+      // エディタを破棄
+      editorsRef.current.forEach((editor, idx) => {
+        try {
+          if (editor && typeof editor.dispose === 'function') {
+            editor.dispose();
+          }
+        } catch (e) {
+          console.warn(`[DiffTab] Failed to dispose editor ${idx}:`, e);
+        }
+      });
+
+      // 最後にモデルを破棄
+      modelsRef.current.forEach((models, idx) => {
+        try {
+          if (models.original && !models.original.isDisposed()) {
+            models.original.dispose();
+          }
+          if (models.modified && !models.modified.isDisposed()) {
+            models.modified.dispose();
+          }
+        } catch (e) {
+          console.warn(`[DiffTab] Failed to dispose models ${idx}:`, e);
+        }
+      });
+
+      // リスナ破棄
+      listenersRef.current.forEach((l, idx) => {
+        try {
+          if (l && typeof l.dispose === 'function') l.dispose();
+        } catch (e) {
+          /* ignore */
+        }
+      });
+      listenersRef.current.clear();
+
+      editorsRef.current.clear();
+      modelsRef.current.clear();
+    };
+  }, []);
+
+  // デバウンス付き保存関数
+  const debouncedSave = (content: string) => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    saveTimeoutRef.current = setTimeout(() => {
+      console.log('[DiffTab] Debounced save triggered');
+      if (onContentChange) {
+        onContentChange(content);
+      }
+    }, 5000); // CodeEditorと同じく5秒
+  };
+
+  // 編集リスナの参照を保持（cleanupのため）
+  const listenersRef = useRef<Map<number, any>>(new Map());
+
+  // 簡易バイナリ判定: NULバイトや制御文字の割合が高ければバイナリと見なす
+  const isBinaryContent = (content: any) => {
+    if (!content) return false;
+    // まずバイナリ配列判定ユーティリティを利用
+    try {
+      if (isBufferArray(content)) return true;
+    } catch (e) {
+      // ignore
+    }
+
+    // 文字列としてのチェック
+    if (typeof content === 'string') {
+      // NUL が含まれていれば明らかにバイナリ
+      if (content.indexOf('\0') !== -1) return true;
+      // サンプルを切り出して非表示可能な制御文字の割合を計測
+      const sample = content.slice(0, 1024);
+      if (sample.length === 0) return false;
+      let nonPrintable = 0;
+      for (let i = 0; i < sample.length; i++) {
+        const code = sample.charCodeAt(i);
+        // タブ(9)、LF(10)、CR(13) はテキストとして許容
+        if (code === 9 || code === 10 || code === 13) continue;
+        if (code < 32 || code > 126) nonPrintable++;
+      }
+      // 非表示可能文字がサンプルの30%以上ならバイナリと推定
+      return nonPrintable / sample.length > 0.3;
+    }
+
+    // その他の型（オブジェクトなど）はバイナリ扱いしない
+    return false;
+  };
+
+  // DiffEditorマウント時のハンドラ
+  const handleDiffEditorMount = (
+    editor: monacoEditor.editor.IStandaloneDiffEditor,
+    monaco: Monaco,
+    idx: number
+  ) => {
+    editorsRef.current.set(idx, editor);
+
+    // モデルを取得して保存
+    const diffModel = editor.getModel();
+    if (diffModel) {
+      modelsRef.current.set(idx, {
+        original: diffModel.original,
+        modified: diffModel.modified,
+      });
+      // 既にリスナがあれば破棄
+      const existing = listenersRef.current.get(idx);
+      if (existing && typeof existing.dispose === 'function') {
+        try {
+          existing.dispose();
+        } catch (e) {
+          /* ignore */
+        }
+      }
+
+      // 編集可能で単一ファイルのとき、modifiedモデルの変更を監視して
+      // 即時ハンドラ(onImmediateContentChange)を呼び、デバウンス保存を走らせる
+      const isEditableSingle = editable && diffs.length === 1;
+      if (
+        isEditableSingle &&
+        diffModel.modified &&
+        typeof diffModel.modified.onDidChangeContent === 'function'
+      ) {
+        const listener = diffModel.modified.onDidChangeContent(() => {
+          try {
+            const current = diffModel.modified.getValue();
+            // 即時反映ハンドラ（タブ全体の isDirty を立てる用途）
+            onImmediateContentChange && onImmediateContentChange(current);
+            // デバウンス保存
+            debouncedSave(current);
+          } catch (e) {
+            console.error('[DiffTab] immediate change handler failed', e);
+          }
+        });
+        listenersRef.current.set(idx, listener);
+      }
+    }
+  };
 
   // ファイルリストクリック時に該当diff領域へスクロール
   const handleFileClick = (idx: number) => {
@@ -26,8 +213,9 @@ const DiffTab: React.FC<DiffTabProps> = ({ diffs }) => {
     }
   };
 
+  const { t } = useTranslation();
   if (diffs.length === 0) {
-    return <div style={{ padding: 16, color: '#aaa' }}>差分ファイルがありません</div>;
+    return <div style={{ padding: 16, color: '#aaa' }}>{t('diffTab.noDiffFiles')}</div>;
   }
 
   // allfiles時のみ左側にファイルリスト
@@ -63,7 +251,7 @@ const DiffTab: React.FC<DiffTabProps> = ({ diffs }) => {
               letterSpacing: 0.5,
             }}
           >
-            ファイル一覧
+            {t('diffTab.fileList')}
           </div>
           {diffs.map((diff, idx) => (
             <div
@@ -127,24 +315,58 @@ const DiffTab: React.FC<DiffTabProps> = ({ diffs }) => {
                 </div>
               </div>
               <div style={{ height: 360, minHeight: 0 }}>
-                <DiffEditor
-                  width="100%"
-                  height="100%"
-                  language="plaintext"
-                  original={diff.formerContent}
-                  modified={diff.latterContent}
-                  theme="pyxis-custom"
-                  options={{
-                    renderSideBySide: true,
-                    readOnly: true,
-                    minimap: { enabled: false },
-                    scrollBeyondLastLine: false,
-                    fontSize: 14,
-                    wordWrap: 'on',
-                    lineNumbers: 'on',
-                    automaticLayout: true,
-                  }}
-                />
+                {(() => {
+                  const formerBinary = isBinaryContent(diff.formerContent);
+                  const latterBinary = isBinaryContent(diff.latterContent);
+                  const isBinary = formerBinary || latterBinary;
+                  if (isBinary) {
+                    return (
+                      <div
+                        style={{
+                          height: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: '#1f2328',
+                          color: '#ccc',
+                          fontSize: 13,
+                        }}
+                      >
+                        <div style={{ padding: 12, textAlign: 'center' }}>
+                          <div style={{ fontWeight: 'bold', marginBottom: 6 }}>
+                            {t('diffTab.binaryFile') || 'バイナリファイルは表示できません'}
+                          </div>
+                          <div style={{ color: '#999', fontSize: 12 }}>
+                            {diff.latterFullPath || diff.formerFullPath}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <DiffEditor
+                      width="100%"
+                      height="100%"
+                      language={getLanguage(diff.latterFullPath || diff.formerFullPath)}
+                      original={diff.formerContent}
+                      modified={diff.latterContent}
+                      theme="pyxis-custom"
+                      onMount={(editor, monaco) => handleDiffEditorMount(editor, monaco, idx)}
+                      options={{
+                        renderSideBySide: true,
+                        // 単一ファイルのdiffかつeditableがtrueの場合のみ編集可能
+                        readOnly: !(editable && diffs.length === 1),
+                        minimap: { enabled: false },
+                        scrollBeyondLastLine: false,
+                        fontSize: 14,
+                        wordWrap: 'on',
+                        lineNumbers: 'on',
+                        automaticLayout: true,
+                      }}
+                    />
+                  );
+                })()}
               </div>
             </div>
           );

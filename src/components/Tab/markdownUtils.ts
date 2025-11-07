@@ -1,4 +1,4 @@
-import { getFileSystem } from '@/engine/core/filesystem';
+import { fileRepository } from '@/engine/core/fileRepository';
 import { FileItem } from '@/types';
 
 // Safe conversion of Uint8Array to base64 using chunking to avoid call stack limits
@@ -15,76 +15,19 @@ const uint8ArrayToBase64 = (uint8Array: Uint8Array): string => {
 export const loadImageAsDataURL = async (
   imagePath: string,
   projectName?: string,
-  projectFiles?: FileItem[]
+  projectId?: string,
+  baseFilePath?: string // optional path of the markdown file that references this image
 ): Promise<string | null> => {
-  if (!projectName) return null;
-
-  if (projectFiles) {
-    const normalizedPath = imagePath.startsWith('/') ? imagePath : '/' + imagePath;
-
-    const findFileRecursively = (files: FileItem[]): FileItem | null => {
-      for (const file of files) {
-        if (
-          file.path === normalizedPath &&
-          file.type === 'file' &&
-          file.isBufferArray &&
-          file.bufferContent
-        ) {
-          return file;
-        }
-        if (file.children) {
-          const found = findFileRecursively(file.children);
-          if (found) return found;
-        }
-      }
-      return null;
-    };
-
-    const imageFile = findFileRecursively(projectFiles);
-    if (imageFile && imageFile.bufferContent) {
-      try {
-        const extension = imagePath.toLowerCase().split('.').pop();
-        let mimeType = 'image/png';
-        switch (extension) {
-          case 'jpg':
-          case 'jpeg':
-            mimeType = 'image/jpeg';
-            break;
-          case 'png':
-            mimeType = 'image/png';
-            break;
-          case 'gif':
-            mimeType = 'image/gif';
-            break;
-          case 'svg':
-            mimeType = 'image/svg+xml';
-            break;
-          case 'webp':
-            mimeType = 'image/webp';
-            break;
-        }
-
-        const uint8Array = new Uint8Array(imageFile.bufferContent);
-        const base64 = uint8ArrayToBase64(uint8Array);
-        return `data:${mimeType};base64,${base64}`;
-      } catch (error) {
-        console.warn(`Failed to load image from bufferContent: ${imagePath}`, error);
-      }
-    }
-  }
-
-  const fs = getFileSystem();
-  if (!fs) return null;
+  if (!projectName && !projectId) return null;
 
   try {
-    const normalizedPath = imagePath.startsWith('/') ? imagePath.slice(1) : imagePath;
-    const fullPath = `/projects/${projectName}/${normalizedPath}`;
-    const stat = await fs.promises.stat(fullPath);
-    if (!stat.isFile()) return null;
+    // Prefer indexed single-file lookup when projectId is available
+    let files: FileItem[] | undefined;
+    if (projectId) {
+      // we'll try to resolve candidate paths via getFileByPath instead of loading the whole tree
+    }
 
-    const fileData = await fs.promises.readFile(fullPath);
-
-    const extension = imagePath.toLowerCase().split('.').pop();
+    const extension = (imagePath || '').toLowerCase().split('.').pop();
     let mimeType = 'image/png';
     switch (extension) {
       case 'jpg':
@@ -105,10 +48,92 @@ export const loadImageAsDataURL = async (
         break;
     }
 
-    const uint8Array =
-      fileData instanceof ArrayBuffer ? new Uint8Array(fileData) : new Uint8Array(fileData as any);
-    const base64 = uint8ArrayToBase64(uint8Array);
-    return `data:${mimeType};base64,${base64}`;
+    // Quick checks for external URLs or data URLs
+    if (!imagePath) return null;
+    if (
+      imagePath.startsWith('http://') ||
+      imagePath.startsWith('https://') ||
+      imagePath.startsWith('data:')
+    ) {
+      return imagePath;
+    }
+
+    // Helper: normalize and resolve '..' and '.' segments
+    const normalizeSegments = (p: string) => {
+      const parts = p.split('/');
+      const stack: string[] = [];
+      for (const part of parts) {
+        if (!part || part === '.') continue;
+        if (part === '..') {
+          if (stack.length) stack.pop();
+        } else {
+          stack.push(part);
+        }
+      }
+      return '/' + stack.join('/');
+    };
+
+    // Build candidate paths to search in the project file tree.
+    // We expect image paths to be either relative to the markdown file (baseFilePath)
+    // or project-root relative. Keep resolution simple and deterministic.
+    const candidates: string[] = [];
+    if (imagePath.startsWith('/')) {
+      // project-root relative
+      candidates.push(normalizeSegments(imagePath));
+    } else {
+      if (baseFilePath) {
+        const dir = baseFilePath.replace(/\/[^/]*$/, '').replace(/^\/?$/, '/');
+        candidates.push(normalizeSegments(dir + '/' + imagePath));
+      }
+      // fallback: treat as project-root relative
+      candidates.push(normalizeSegments('/' + imagePath));
+    }
+
+    // Remove duplicates while preserving order
+    const uniqueCandidates = Array.from(new Set(candidates.filter(Boolean)));
+
+    // Try candidate paths using indexed lookup when possible
+    let imageFile: FileItem | null = null;
+    if (projectId) {
+      for (const cand of uniqueCandidates) {
+        try {
+          const f = await fileRepository.getFileByPath(projectId, cand);
+          if (f && f.type === 'file') {
+            imageFile = f as FileItem;
+            break;
+          }
+        } catch (err) {
+          // ignore and try next candidate
+        }
+      }
+    } else {
+      // No projectId: conservative fallback (no project files loaded)
+      return null;
+    }
+
+    // If bufferContent exists, convert to base64
+    if ((imageFile as any).isBufferArray && (imageFile as any).bufferContent) {
+      const uint8Array = new Uint8Array((imageFile as any).bufferContent as any);
+      const base64 = uint8ArrayToBase64(uint8Array);
+      return `data:${mimeType};base64,${base64}`;
+    }
+
+    // If content exists and looks like a data URL, return it
+    if (typeof (imageFile as any).content === 'string') {
+      const contentStr = (imageFile as any).content as string;
+      if (contentStr.startsWith('data:')) return contentStr;
+      try {
+        if (extension === 'svg' || /^\s*</.test(contentStr)) {
+          return `data:${mimeType};utf8,${encodeURIComponent(contentStr)}`;
+        }
+        return `data:${mimeType};base64,${btoa(contentStr)}`;
+      } catch (err) {
+        console.warn('Failed to convert file content to data URL', err);
+        return null;
+      }
+    }
+
+    return null;
   } catch (error) {
     console.warn(`Failed to load image: ${imagePath}`, error);
     return null;

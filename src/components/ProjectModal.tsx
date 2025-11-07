@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
-import { X, Plus, Folder, Trash2, Edit } from 'lucide-react';
+import { useTranslation } from '@/context/I18nContext';
+import { X, Plus, Folder, Trash2, Edit, GitBranch } from 'lucide-react';
 import { projectDB } from '@/engine/core/database';
+import { fileRepository } from '@/engine/core/fileRepository';
+import { authRepository } from '@/engine/user/authRepository';
 import { Project } from '@/types';
 
 interface ProjectModalProps {
@@ -20,16 +23,32 @@ export default function ProjectModal({
 }: ProjectModalProps) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isCreating, setIsCreating] = useState(false);
+  const [isCloning, setIsCloning] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectDescription, setNewProjectDescription] = useState('');
+  const [cloneUrl, setCloneUrl] = useState('');
+  const [cloneProjectName, setCloneProjectName] = useState('');
   const [loading, setLoading] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [isGitHubAuthenticated, setIsGitHubAuthenticated] = useState(false);
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (isOpen) {
       loadProjects();
+      checkGitHubAuth();
     }
   }, [isOpen]);
+
+  const checkGitHubAuth = async () => {
+    try {
+      const isAuth = await authRepository.isAuthenticated();
+      setIsGitHubAuthenticated(isAuth);
+    } catch (error) {
+      console.error('Failed to check GitHub auth:', error);
+      setIsGitHubAuthenticated(false);
+    }
+  };
 
   const loadProjects = async () => {
     setLoading(true);
@@ -51,9 +70,7 @@ export default function ProjectModal({
     // reponame: 英数字・ハイフンのみ、空白は-に置換、日本語不可
     name = name.replace(/\s+/g, '-');
     if (!/^[a-zA-Z0-9-]+$/.test(name)) {
-      alert(
-        'プロジェクト名は英数字とハイフンのみ使用できます。日本語や記号、スペースは使えません。'
-      );
+      alert(t('projectModal.nameValidation'));
       return;
     }
 
@@ -75,6 +92,61 @@ export default function ProjectModal({
       await loadProjects();
     } catch (error) {
       console.error('Failed to create project:', error);
+      alert(`プロジェクト作成に失敗しました: ${(error as Error).message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCloneProject = async () => {
+    const url = cloneUrl.trim();
+    let name = cloneProjectName.trim();
+
+    if (!url) {
+      alert(t('projectModal.inputRepoUrl'));
+      return;
+    }
+
+    // プロジェクト名が未入力の場合、URLから推測
+    if (!name) {
+      const repoName = url.split('/').pop()?.replace('.git', '') || '';
+      name = repoName.replace(/\s+/g, '-');
+    }
+
+    // プロジェクト名のバリデーション
+    name = name.replace(/\s+/g, '-');
+    if (!/^[a-zA-Z0-9-]+$/.test(name)) {
+      alert(t('projectModal.nameValidation'));
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // 空のプロジェクトを作成（デフォルトファイル無し）
+      const project = await fileRepository.createEmptyProject(name);
+
+      // GitCommandsはregistry経由で取得（シングルトン管理）
+      const { terminalCommandRegistry } = await import('@/engine/cmd/terminalRegistry');
+      const git = terminalCommandRegistry.getGitCommands(project.name, project.id);
+
+      // git cloneを実行（.gitを含む全ファイルがIndexedDBに同期される）
+      // ProjectModalで作成した空プロジェクトのルートに直接クローンするため targetDir='.' を渡す
+      // 最大100件まで.gitオブジェクトを読み込む
+      await git.clone(url, '.', { maxGitObjects: 100 });
+
+      // プロジェクトを選択して開く
+      onProjectSelect(project);
+
+      setCloneUrl('');
+      setCloneProjectName('');
+      setIsCloning(false);
+      onClose();
+      await loadProjects();
+
+      alert(t('projectModal.cloneSuccess'));
+    } catch (error) {
+      console.error('Failed to clone project:', error);
+      alert(`クローンに失敗しました: ${(error as Error).message}`);
     } finally {
       setLoading(false);
     }
@@ -100,7 +172,7 @@ export default function ProjectModal({
   const handleDeleteProject = async (projectId: string, e: React.MouseEvent) => {
     e.stopPropagation();
 
-    if (!confirm('このプロジェクトを削除しますか？この操作は取り消せません。')) {
+    if (!confirm(t('projectModal.deleteConfirm'))) {
       return;
     }
 
@@ -138,7 +210,7 @@ export default function ProjectModal({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-card border border-border rounded-lg shadow-lg w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col">
         <div className="flex items-center justify-between p-4 border-b border-border">
-          <h2 className="text-lg font-semibold">プロジェクト管理</h2>
+          <h2 className="text-lg font-semibold">{t('projectModal.title')}</h2>
           <button
             onClick={onClose}
             className="p-1 hover:bg-accent rounded"
@@ -149,34 +221,48 @@ export default function ProjectModal({
 
         <div className="flex-1 overflow-auto p-4">
           <div className="mb-4">
-            {!isCreating ? (
-              <button
-                onClick={() => setIsCreating(true)}
-                className="flex items-center gap-2 px-3 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
-                disabled={loading}
-              >
-                <Plus size={16} />
-                新しいプロジェクト
-              </button>
-            ) : (
+            {!isCreating && !isCloning ? (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setIsCreating(true)}
+                  className="flex items-center gap-2 px-3 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
+                  disabled={loading}
+                >
+                  <Plus size={16} />
+                  {t('projectModal.newProject')}
+                </button>
+                <button
+                  onClick={() => setIsCloning(true)}
+                  className="flex items-center gap-2 px-3 py-2 bg-secondary text-secondary-foreground rounded hover:bg-secondary/90"
+                  disabled={loading}
+                >
+                  <GitBranch size={16} />
+                  {t('projectModal.cloneFromGitHub')}
+                </button>
+              </div>
+            ) : isCreating ? (
               <div className="bg-muted p-4 rounded border">
                 <div className="mb-3">
-                  <label className="block text-sm font-medium mb-1">プロジェクト名</label>
+                  <label className="block text-sm font-medium mb-1">
+                    {t('projectModal.projectName')}
+                  </label>
                   <input
                     type="text"
                     value={newProjectName}
                     onChange={e => setNewProjectName(e.target.value)}
-                    placeholder="マイプロジェクト"
+                    placeholder={t('projectModal.projectNamePlaceholder')}
                     className="w-full px-3 py-2 bg-background border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
                     autoFocus
                   />
                 </div>
                 <div className="mb-3">
-                  <label className="block text-sm font-medium mb-1">説明（オプション）</label>
+                  <label className="block text-sm font-medium mb-1">
+                    {t('projectModal.descriptionOptional')}
+                  </label>
                   <textarea
                     value={newProjectDescription}
                     onChange={e => setNewProjectDescription(e.target.value)}
-                    placeholder="プロジェクトの説明..."
+                    placeholder={t('projectModal.descriptionPlaceholder')}
                     rows={2}
                     className="w-full px-3 py-2 bg-background border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary resize-none"
                   />
@@ -187,7 +273,7 @@ export default function ProjectModal({
                     disabled={!newProjectName.trim() || loading}
                     className="px-3 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
                   >
-                    作成
+                    {t('projectModal.create')}
                   </button>
                   <button
                     onClick={() => {
@@ -197,7 +283,55 @@ export default function ProjectModal({
                     }}
                     className="px-3 py-2 bg-secondary text-secondary-foreground rounded hover:bg-secondary/90"
                   >
-                    キャンセル
+                    {t('projectModal.cancel')}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-muted p-4 rounded border">
+                <div className="mb-3">
+                  <label className="block text-sm font-medium mb-1">
+                    {t('projectModal.repoUrl')}
+                  </label>
+                  <input
+                    type="text"
+                    value={cloneUrl}
+                    onChange={e => setCloneUrl(e.target.value)}
+                    placeholder={t('projectModal.repoUrlPlaceholder')}
+                    className="w-full px-3 py-2 bg-background border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                    autoFocus
+                  />
+                </div>
+                <div className="mb-3">
+                  <label className="block text-sm font-medium mb-1">
+                    {t('projectModal.projectNameOptional')}
+                  </label>
+                  <input
+                    type="text"
+                    value={cloneProjectName}
+                    onChange={e => setCloneProjectName(e.target.value)}
+                    placeholder={t('projectModal.projectNameOptionalPlaceholder')}
+                    className="w-full px-3 py-2 bg-background border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">{t('projectModal.nameHint')}</p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleCloneProject}
+                    disabled={!cloneUrl.trim() || loading}
+                    className="px-3 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    {t('projectModal.clone')}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsCloning(false);
+                      setCloneUrl('');
+                      setCloneProjectName('');
+                    }}
+                    className="px-3 py-2 bg-secondary text-secondary-foreground rounded hover:bg-secondary/90"
+                  >
+                    {t('projectModal.cancel')}
                   </button>
                 </div>
               </div>
@@ -207,10 +341,12 @@ export default function ProjectModal({
           {loading ? (
             <div className="text-center py-8 text-muted-foreground">
               <div className="loader" />
-              読み込み中...
+              {t('projectModal.loading')}
             </div>
           ) : projects.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">プロジェクトがありません</div>
+            <div className="text-center py-8 text-muted-foreground">
+              {t('projectModal.noProjects')}
+            </div>
           ) : (
             <div className="space-y-2">
               {projects.map(project => (
@@ -234,8 +370,12 @@ export default function ProjectModal({
                           </p>
                         )}
                         <div className="flex items-center gap-4 text-xs text-muted-foreground mt-2">
-                          <span>作成: {formatDate(project.createdAt)}</span>
-                          <span>更新: {formatDate(project.updatedAt)}</span>
+                          <span>
+                            {t('projectModal.created')}: {formatDate(project.createdAt)}
+                          </span>
+                          <span>
+                            {t('projectModal.updated')}: {formatDate(project.updatedAt)}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -243,14 +383,14 @@ export default function ProjectModal({
                       <button
                         onClick={() => setEditingProject(project)}
                         className="p-1 hover:bg-accent rounded"
-                        title="プロジェクトを編集"
+                        title={t('projectModal.editProject')}
                       >
                         <Edit size={16} />
                       </button>
                       <button
                         onClick={e => handleDeleteProject(project.id, e)}
                         className="p-1 hover:bg-destructive hover:text-destructive-foreground rounded"
-                        title="プロジェクトを削除"
+                        title={t('projectModal.deleteProject')}
                       >
                         <Trash2 size={16} />
                       </button>
@@ -261,7 +401,7 @@ export default function ProjectModal({
                         }}
                         className="px-2 py-1 bg-primary text-primary-foreground rounded hover:bg-primary/90"
                       >
-                        開く
+                        {t('projectModal.open')}
                       </button>
                     </div>
                   </div>
@@ -274,9 +414,11 @@ export default function ProjectModal({
         {editingProject && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-card border border-border rounded-lg shadow-lg w-full max-w-md mx-4 p-4">
-              <h3 className="text-lg font-semibold mb-4">プロジェクトを編集</h3>
+              <h3 className="text-lg font-semibold mb-4">{t('projectModal.editProject')}</h3>
               <div className="mb-3">
-                <label className="block text-sm font-medium mb-1">説明</label>
+                <label className="block text-sm font-medium mb-1">
+                  {t('projectModal.description')}
+                </label>
                 <textarea
                   value={editingProject.description || ''}
                   onChange={e =>
@@ -291,13 +433,13 @@ export default function ProjectModal({
                   onClick={handleEditProject}
                   className="px-3 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
                 >
-                  保存
+                  {t('projectModal.save')}
                 </button>
                 <button
                   onClick={() => setEditingProject(null)}
                   className="px-3 py-2 bg-secondary text-secondary-foreground rounded hover:bg-secondary/90"
                 >
-                  キャンセル
+                  {t('projectModal.cancel')}
                 </button>
               </div>
             </div>

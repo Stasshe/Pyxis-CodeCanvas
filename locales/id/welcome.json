@@ -1,0 +1,30 @@
+{
+  "welcome": {
+    "clientSideNote": "Aplikasi ini berjalan sepenuhnya di sisi klien dan tidak mengirimkan data ke server manapun.",
+    "features": {
+      "clientIDE": "IDE sepenuhnya di sisi klien (tidak perlu server, bisa di-hosting statis)",
+      "gitHistory": "Riwayat Git, manajemen branch, dan grafik commit",
+      "languages": "Highlight multi-bahasa: Cpp, HTML, CSS, JavaScript, Python, dll.",
+      "mermaid": "Rendering real-time flowchart dan sequence diagram dengan Mermaid",
+      "monaco": "Pengalaman pengeditan menyerupai VS Code dengan Monaco Editor",
+      "nodeRuntime": "Runtime Node.js, npm, perintah Unix, dan Git tersedia di browser",
+      "responsive": "UI responsif yang dioptimalkan untuk iPad",
+      "title": "Fitur utama Pyxis"
+    },
+    "hmrHint": "Coba HMR dan WebPreview dengan menahan folder homepage yang dihasilkan.",
+    "indexeddbInfo": "File proyek ini disimpan di IndexedDB.",
+    "mainFeatures": {
+      "download": "Unduh Git / file proyek",
+      "importExport": "Impor, unduh file dan ekspor zip",
+      "latex": "Rendering matematika LaTeX dan dukungan Mermaid/HTML",
+      "theme": "Beralih warna tema dan dukungan multi-monitor",
+      "title": "Fitur utama"
+    },
+    "specialThanks": {
+      "contributors": "isomorphic-git, Monaco Editor, xterm.js, Mermaid, KaTeX, Pyodide, dan semua kontributor OSS.",
+      "thanksVisit": "Terima kasih telah berkunjung!",
+      "title": "Ucapan Terima Kasih"
+    },
+    "title": "Selamat datang!"
+  }
+}

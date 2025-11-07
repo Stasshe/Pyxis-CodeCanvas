@@ -1,0 +1,352 @@
+{
+  "action": {
+    "authenticating": "Autenticando...",
+    "cancel": "Cancelar",
+    "refresh": "Atualizar",
+    "retry": "Tentar novamente"
+  },
+  "ai": {
+    "changedFilesList": {
+      "noChangedFiles": "Nenhum arquivo modificado"
+    },
+    "chatContainer": {
+      "generating": "A IA está gerando uma resposta...",
+      "suggest": "Faça perguntas ou pedidos de código."
+    },
+    "chatMessage": {
+      "copyCode": "Copiar código",
+      "reference": "Referência:"
+    },
+    "context": {
+      "select": "Selecionar arquivos"
+    },
+    "fileChangeItem": {
+      "apply": "Aplicar",
+      "confirm": "Confirmar",
+      "discard": "Descartar"
+    },
+    "fileContextBar": {
+      "addFile": "+ Adicionar arquivo",
+      "context": "Contexto:",
+      "noFileSelected": "Nenhum arquivo selecionado"
+    },
+    "hints": {
+      "enterSend": "Enter: nova linha / Ctrl+Enter: enviar",
+      "history": "Alt+↑↓: histórico"
+    },
+    "input": {
+      "ask": "Pergunte à IA ou consulte sobre código...",
+      "edit": "Digite instruções para editar o código..."
+    },
+    "selectedLabel": "Selecionado:",
+    "sendTitle": "Enviar (Ctrl+Enter)"
+  },
+  "aiReviewTab": {
+    "applyAll": "Aplicar tudo",
+    "autoSaveAndApply": "As alterações são salvas automaticamente e refletidas no arquivo com 'Aplicar tudo'.",
+    "discard": "Descartar",
+    "discardAllAndRevert": "Descartar tudo e reverter",
+    "editRightDirectly": "Você pode editar diretamente no editor à direita",
+    "notFound": "Dados de revisão da IA não encontrados",
+    "revert": "Reverter",
+    "revertSelectionHint": "Também é possível reverter parcialmente clicando com o botão direito e selecionando 'Reverter seleção'."
+  },
+  "auth": {
+    "authFailed": "Autenticação do GitHub falhou",
+    "authSuccess": "Autenticação do GitHub bem-sucedida!",
+    "clickToOpenMenu": "Clique para abrir o menu",
+    "patDescription": "<0>Clique aqui</0> para criar um PAT (escopo repo requerido)",
+    "patPlaceholder": "ghp_xxxxxxxxxxxx",
+    "patPrompt": "Token de Acesso Pessoal do GitHub",
+    "signIn": "Entrar",
+    "signOut": "Sair",
+    "signOutConfirm": "Tem certeza de que deseja sair do GitHub?"
+  },
+  "binaryTab": {
+    "unsupportedFormat": "Este formato de arquivo não pode ser exibido"
+  },
+  "bottom": {
+    "debugConsole": "Console de Depuração",
+    "output": "Saída",
+    "outputPanel": {
+      "all": "Tudo",
+      "clear": "Limpar",
+      "clearTooltip": "Limpar a saída atualmente exibida",
+      "contextLabel": "Contexto",
+      "empty": "Sem saída",
+      "typeLabel": "Tipo"
+    },
+    "terminal": "Terminal",
+    "terminalInitializing": "Inicializando terminal..."
+  },
+  "changedFilesList": {
+    "apply": "Aplicar",
+    "applyAll": "Aplicar tudo",
+    "changedFiles": "Arquivos modificados",
+    "discard": "Descartar",
+    "discardAll": "Descartar tudo",
+    "others": "outros",
+    "preview": "Pré-visualizar",
+    "reason": "Motivo",
+    "review": "Revisar"
+  },
+  "charCountDisplay": {
+    "clickForDetails": "Clique para detalhes",
+    "close": "Fechar",
+    "selectedAndTotal": "Selecionado: {selectionCount} caract. (sem espaços) / Total: {charCount} caract. (sem espaços)",
+    "total": "Total: {charCount} caract. (sem espaços)"
+  },
+  "chatSpaceList": {
+    "confirmDelete": "Tem certeza de que deseja excluir este espaço?",
+    "create": "Criar novo espaço",
+    "delete": "Excluir",
+    "empty": "Ainda sem espaços",
+    "rename": "Renomear"
+  },
+  "confirmation": {
+    "title": "Confirmação"
+  },
+  "diff": {
+    "diff": "Diferença",
+    "lines": "linhas",
+    "original": "Original",
+    "suggested": "Sugerido"
+  },
+  "diffTab": {
+    "fileList": "Lista de arquivos",
+    "noDiffFiles": "Nenhum arquivo de diff"
+  },
+  "editorPlaceholder": {
+    "loadingEditor": "Carregando editor...",
+    "loadingFile": "Restaurando conteúdo do arquivo...",
+    "selectFile": "Por favor selecione um arquivo"
+  },
+  "fileTree": {
+    "alert": {
+      "renameFailed": "Falha ao renomear: {error}"
+    },
+    "menu": {
+      "createFile": "Criar arquivo",
+      "createFolder": "Criar pasta",
+      "delete": "Excluir",
+      "download": "Baixar",
+      "import": "Importar",
+      "open": "Abrir",
+      "openCodeMirror": "Abrir no CodeMirror",
+      "openPreview": "Abrir visualização",
+      "rename": "Renomear",
+      "webPreview": "Visualização web"
+    },
+    "prompt": {
+      "newFileName": "Digite o novo nome do arquivo:",
+      "newFolderName": "Digite o novo nome da pasta:",
+      "rename": "Digite o novo nome:"
+    }
+  },
+  "git": {
+    "apiKeyPlaceholder": "Insira a chave da API do Gemini",
+    "changes": "Alterações",
+    "commit": "Commit",
+    "commitMessagePlaceholder": "Digite a mensagem do commit...",
+    "committing": "Realizando commit...",
+    "deleted": "Excluído",
+    "deleteUntracked": "Excluir arquivo",
+    "discard": "Descartar",
+    "errorOccurred": "Ocorreu um erro",
+    "generateCommitMessage": "Gerar com IA",
+    "generating": "Gerando...",
+    "history": "Histórico",
+    "infoNotAvailable": "Não foi possível obter informações do git",
+    "loadingStatus": "Carregando status do git...",
+    "noChanges": "Sem alterações",
+    "noHistory": "Sem histórico de commits",
+    "operationError": "Ocorreu um erro ao acessar o git",
+    "projectSelect": "Por favor selecione um projeto",
+    "restore": "Restaurar arquivo",
+    "stage": "Preparar",
+    "stageAll": "Preparar tudo",
+    "staged": "Preparado",
+    "stageDelete": "Preparar exclusão",
+    "unstage": "Remover preparação",
+    "unstageAll": "Remover preparação de tudo",
+    "unstaged": "Não preparado",
+    "untracked": "Não rastreado",
+    "viewDiffEditable": "Ver diff (editável)",
+    "viewDiffReadonly": "Ver diff (somente leitura)"
+  },
+  "gitHistory": {
+    "allFilesScrollable": "Todos {count} arquivos (rolável)",
+    "changedFiles": "Arquivos modificados:",
+    "daysAgo": "{days} dias atrás",
+    "duplicateGroupsHidden": "({count} grupos duplicados ocultos)",
+    "hideDuplicates": "Ocultar commits duplicados",
+    "hoursAgo": "{hours} horas atrás",
+    "justNow": "agora mesmo",
+    "loadingChanges": "Carregando informações de alteração...",
+    "minutesAgo": "{minutes} minutos atrás",
+    "noChangedFiles": "Nenhum arquivo modificado encontrado",
+    "showAllFilesDiff": "Mostrar diffs de todos os arquivos deste commit",
+    "showDuplicates": "Mostrar commits duplicados",
+    "showFileDiff": "Mostrar diff deste arquivo"
+  },
+  "highlightedCode": {
+    "copyCode": "Copiar código"
+  },
+  "leftSidebar": {
+    "createFile": "Criar novo arquivo",
+    "createFolder": "Criar nova pasta"
+  },
+  "markdownPreview": {
+    "downloadSvg": "Baixar SVG",
+    "exportPdf": "Exportar PDF",
+    "generatingMermaid": "Gerando diagrama Mermaid...",
+    "imageNotFound": "Imagem não encontrada: {src}",
+    "loadingImage": "Carregando imagem...",
+    "preview": "Pré-visualizar",
+    "reset": "Redefinir",
+    "zoomIn": "Aproximar",
+    "zoomOut": "Afastar"
+  },
+  "menu": {
+    "files": "Arquivos",
+    "git": "Git",
+    "project": "Gerenciamento de projeto",
+    "run": "Executar",
+    "search": "Pesquisar",
+    "settings": "Configurações"
+  },
+  "operationWindow": {
+    "closeByEsc": "Fechar com ESC",
+    "footerHelp": "Use ↑↓ para selecionar, Enter para abrir",
+    "mdPreviewDialogHelp": "Tab/←→ para alternar, Enter para confirmar, ESC para fechar",
+    "mdPreviewPrompt": "Abrir na pré-visualização Markdown?",
+    "noFilesFound": "Nenhum arquivo encontrado",
+    "openInEditor": "Abrir no Editor",
+    "openInPreview": "Abrir na Pré-visualização",
+    "searchPlaceholder": "Pesquisar por nome de arquivo/pasta ou caminho..."
+  },
+  "projectModal": {
+    "cancel": "Cancelar",
+    "clone": "Clonar do GitHub",
+    "cloneFromGitHub": "Clonar do GitHub",
+    "cloneSuccess": "Clone bem-sucedido",
+    "create": "Criar",
+    "created": "Criado",
+    "deleteConfirm": "Tem certeza de que deseja excluir este projeto?",
+    "deleteProject": "Excluir Projeto",
+    "description": "Descrição",
+    "descriptionOptional": "Descrição (opcional)",
+    "descriptionPlaceholder": "Insira a descrição do projeto...",
+    "editProject": "Editar Projeto",
+    "inputRepoUrl": "URL do repositório",
+    "loading": "Carregando...",
+    "nameHint": "Use caracteres alfanuméricos e hífens",
+    "nameValidation": "O nome do projeto só pode conter caracteres alfanuméricos e hífens. Sem japonês. Espaços serão substituídos por hífens.",
+    "newProject": "Novo Projeto",
+    "noProjects": "Nenhum projeto encontrado",
+    "open": "Abrir",
+    "projectName": "Nome do projeto",
+    "projectNameOptional": "Nome do projeto (opcional)",
+    "projectNameOptionalPlaceholder": "Nome do projeto opcional...",
+    "projectNamePlaceholder": "Digite o nome do projeto...",
+    "repoUrl": "URL do repositório",
+    "repoUrlPlaceholder": "https://github.com/owner/repo",
+    "save": "Salvar",
+    "title": "Gerenciamento de projeto",
+    "updated": "Atualizado"
+  },
+  "run": {
+    "clearOutput": "Limpar saída",
+    "execute": "Executar",
+    "executeHint": "Pressione Ctrl+Enter (Cmd+Enter) para executar",
+    "executionStopped": "Execução interrompida",
+    "fileContentError": "Não foi possível obter o conteúdo do arquivo",
+    "inputPlaceholder": "Digite código Node.js...",
+    "languageNode": "Node.js",
+    "languagePython": "Python",
+    "noOutput": "Sem saída",
+    "noProject": "Abra um projeto para executar código Node.js",
+    "outputHint": "Ao executar JavaScript/Node.js/Python, os resultados serão exibidos aqui. Node.js e js podem ser executados no mesmo arquivo.",
+    "runtimeNotReady": "O runtime Python não está inicializado",
+    "searchFile": "Procure um arquivo para executar...",
+    "stop": "Parar",
+    "title": "Ambiente de Execução"
+  },
+  "searchPanel": {
+    "caseSensitive": "Diferenciar maiúsculas/minúsculas",
+    "noResults": "Nenhum resultado encontrado",
+    "resultCount": "{count} resultados",
+    "searchInFiles": "Pesquisar em arquivos...",
+    "searching": "Pesquisando...",
+    "useRegex": "Usar regex",
+    "wholeWord": "Palavra inteira"
+  },
+  "settingsPanel": {
+    "api": {
+      "apiKeyPlaceholder": "Insira a chave da API",
+      "geminiApiKey": "Chave da API Gemini",
+      "savedToLocalStorage": "Salvo no LocalStorage",
+      "title": "API"
+    },
+    "editor": {
+      "defaultEditor": "Editor padrão",
+      "fontSize": "Tamanho da fonte",
+      "savedToLocalStorage": "Salvo no LocalStorage",
+      "tabSize": "Tamanho da tab",
+      "title": "Editor",
+      "wordWrap": "Ativar quebra de linha"
+    },
+    "export": {
+      "exporting": "Exportando...",
+      "includeGit": "Incluir diretório .git",
+      "title": "Exportar workspace",
+      "zipDownload": "Baixar ZIP"
+    },
+    "files": {
+      "excludeHint": "Arquivos/pastas ocultos no explorador",
+      "excludePattern": "Padrão de exclusão",
+      "title": "Arquivos"
+    },
+    "loading": "Carregando configurações...",
+    "search": {
+      "excludePattern": "Padrão de exclusão",
+      "globPatternHint": "Escreva um padrão glob por linha",
+      "title": "Pesquisar",
+      "useIgnoreFiles": "Usar arquivos de ignore como .gitignore"
+    },
+    "theme": {
+      "colorCustomize": "Personalizar cores",
+      "colorTheme": "Tema de cores",
+      "highlightTheme": "Destaque de código",
+      "title": "Tema"
+    }
+  },
+  "tabBar": {
+    "closeTab": "Fechar aba",
+    "moveToPane": "Mover para painel",
+    "openPreview": "Open Preview",
+    "paneMenu": "Menu de painel",
+    "removeAllTabs": "Remover todas as abas",
+    "removePane": "Remover painel",
+    "saveRestart": "Salvar e reiniciar",
+    "splitHorizontal": "Dividir horizontalmente",
+    "splitVertical": "Dividir verticalmente"
+  },
+  "tabCloseConfirmation": {
+    "cancel": "Cancelar",
+    "discardAndClose": "Descartar e fechar",
+    "discardChangesMessage": "Existem alterações não salvas nesta aba. Tem certeza de que deseja fechá-la?",
+    "discardChangesTitle": "Descartar alterações?"
+  },
+  "topBar": {
+    "searchLabel": "Pesquisar arquivos",
+    "searchTitle": "Pesquisar arquivos (Ctrl+P)",
+    "toggleRightPanel": "Alternar painel direito",
+    "toggleTerminal": "Alternar terminal"
+  },
+  "webPreviewTab": {
+    "emptyDirectory": "Diretório vazio",
+    "inlineHtmlFailed": "Falha ao inserir ativos HTML",
+    "notFound": "Arquivo ou pasta não encontrado"
+  }
+}

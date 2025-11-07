@@ -1,1 +1,2 @@
-npm run format
+pnpm run format
+git add .

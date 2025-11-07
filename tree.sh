@@ -1,4 +1,15 @@
-tree -I 'node_modules|.next|out|vscode-icons' > tree.txt
+echo "Root" > tree.txt
+tree -I 'node_modules|.next|out|vscode-icons|locales|extensions' >> tree.txt
+echo "" >> tree.txt
+echo "=================================" >> tree.txt
+echo "" >> tree.txt
+echo "extensions/ 以下のディレクトリ構造:" >> tree.txt
+cd extensions
+tree >> ../tree.txt
+cd ..
+echo "" >> tree.txt
+echo "=================================" >> tree.txt
+echo "" >> tree.txt
 
 echo "" >> tree.txt
 echo "src/*.ts, *.tsx の統計:" >> tree.txt
@@ -22,4 +33,4 @@ echo "合計行数: $total_lines" >> tree.txt
 echo "合計文字数: $total_chars" >> tree.txt
 echo "合計ファイルサイズ(bytes): $total_bytes" >> tree.txt
 echo "" >> tree.txt
-echo "リポジトリ全体のサイズ(bytes): $(du -sh)" >> tree.txt
+echo "開発時のdev container全体のサイズ(bytes): $(du -sh)" >> tree.txt

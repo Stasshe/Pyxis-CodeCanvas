@@ -1,0 +1,31 @@
+{
+  "welcome": {
+    "clientSideNote": "यह ऐप पूरी तरह क्लाइंट-साइड चलता है और कोई डेटा सर्वर पर नहीं भेजता।",
+    "features": {
+      "clientIDE": "पूर्ण क्लाइंट-साइड IDE (कोई सर्वर आवश्यक नहीं, स्टैटिक होस्टिंग)",
+      "gitHistory": "Git इतिहास, ब्रांच प्रबंधन और कमिट ग्राफ",
+      "languages": "बहु-भाषा हाइलाइटिंग: Cpp, HTML, CSS, JavaScript, Python, आदि",
+      "mermaid": "Mermaid के साथ फ्लोचार्ट और सीक्वेंस डायग्राम का रीयल-टाइम रेंडरिंग",
+      "monaco": "Monaco Editor के साथ VS Code जैसा संपादन अनुभव",
+      "nodeRuntime": "Node.js रनटाइम, npm, Unix कमांड और Git ब्राउज़र में उपलब्ध",
+      "responsive": "iPad के लिए अनुकूलित उत्तरदायी UI",
+      "title": "Pyxis की प्रमुख विशेषताएं"
+    },
+    "hmrHint": "जनरेटेड होमपेज फ़ोल्डर को लांग-प्रेस करके HMR और WebPreview आज़माएँ।",
+    "indexeddbInfo": "इस प्रोजेक्ट की फाइलें IndexedDB में संग्रहीत हैं।",
+    "githubNote": "हमारी जानकारी के अनुसार GitHub इंटीग्रेशन में ज्ञात बग नहीं हैं, पर बहुत बड़े रिपोज़िटरी या बीच में ब्राउज़र बंद करने जैसे चरम प्रयोगों से बचें।",
+    "mainFeatures": {
+      "download": "Git / प्रोजेक्ट फाइलें डाउनलोड करें",
+      "importExport": "इम्पोर्ट, फाइलें डाउनलोड और ZIP एक्सपोर्ट",
+      "latex": "LaTeX गणित रेंडरिंग और Mermaid/HTML समर्थन",
+      "theme": "थीम रंग बदलना और मल्टी-मॉनिटर समर्थन",
+      "title": "मुख्य विशेषताएँ"
+    },
+    "specialThanks": {
+      "contributors": "isomorphic-git, Monaco Editor, xterm.js, Mermaid, KaTeX, Pyodide और सभी OSS योगदानकर्ताओं के लिए धन्यवाद।",
+      "thanksVisit": "आने के लिए धन्यवाद!",
+      "title": "विशेष धन्यवाद"
+    },
+    "title": "स्वागत है!"
+  }
+}

@@ -1,17 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Search, X, FileText, Folder } from 'lucide-react';
+import { Search, X, FileText, ChevronDown, ChevronRight } from 'lucide-react';
 import { FileItem } from '@/types';
 import { useTheme } from '@/context/ThemeContext';
+import { useTranslation } from '@/context/I18nContext';
+import { useSettings } from '@/hooks/useSettings';
+import { useTabStore } from '@/stores/tabStore';
 
 interface SearchPanelProps {
   files: FileItem[];
-  /**
-   * ファイルを開く。行・カラム指定でジャンプする場合はline/columnを指定。
-   * @param file ファイル情報
-   * @param line 行番号（1始まり、省略可）
-   * @param column カラム番号（1始まり、省略可）
-   */
-  onFileOpen: (file: FileItem, line?: number, column?: number) => void;
+  projectId: string; // 設定読み込み用
 }
 
 interface SearchResult {
@@ -23,29 +20,32 @@ interface SearchResult {
   matchEnd: number;
 }
 
-export default function SearchPanel({ files, onFileOpen }: SearchPanelProps) {
+export default function SearchPanel({ files, projectId }: SearchPanelProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
+  const { openTab } = useTabStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [caseSensitive, setCaseSensitive] = useState(false);
   const [wholeWord, setWholeWord] = useState(false);
   const [useRegex, setUseRegex] = useState(false);
+  const { isExcluded } = useSettings(projectId);
 
-  // 全ファイルを再帰的に取得
+  // 全ファイルを再帰的に取得（isExcludedを適用）
   const getAllFiles = (items: FileItem[]): FileItem[] => {
     const result: FileItem[] = [];
-
     const traverse = (items: FileItem[]) => {
       for (const item of items) {
         if (item.type === 'file') {
-          result.push(item);
+          if (!isExcluded || !isExcluded(item.path)) {
+            result.push(item);
+          }
         } else if (item.children) {
           traverse(item.children);
         }
       }
     };
-
     traverse(items);
     return result;
   };
@@ -125,13 +125,17 @@ export default function SearchPanel({ files, onFileOpen }: SearchPanelProps) {
     }
     const fileWithJump = {
       ...result.file,
-      jumpToLine: result.line,
-      jumpToColumn: result.column,
       isCodeMirror,
       isBufferArray: result.file.isBufferArray,
       bufferContent: result.file.bufferContent,
     };
-    onFileOpen(fileWithJump, result.line, result.column);
+    // バイナリファイルの場合は binary タブで開く
+    const kind = result.file.isBufferArray ? 'binary' : 'editor';
+    openTab(fileWithJump, {
+      kind,
+      jumpToLine: result.line,
+      jumpToColumn: result.column,
+    });
   };
 
   const highlightMatch = (content: string, matchStart: number, matchEnd: number) => {
@@ -161,11 +165,18 @@ export default function SearchPanel({ files, onFileOpen }: SearchPanelProps) {
     setSearchResults([]);
   };
 
+  // per-file collapsed state
+  const [collapsedFiles, setCollapsedFiles] = useState<Record<string, boolean>>({});
+
+  const toggleFileCollapse = (key: string) => {
+    setCollapsedFiles(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', fontSize: '0.68rem' }}>
       {/* 検索入力エリア */}
-      <div style={{ padding: '0.75rem', borderBottom: `1px solid ${colors.border}` }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+      <div style={{ padding: '0.3rem', borderBottom: `1px solid ${colors.border}` }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.12rem' }}>
           {/* 検索ボックス */}
           <div style={{ position: 'relative' }}>
             <Search
@@ -182,19 +193,20 @@ export default function SearchPanel({ files, onFileOpen }: SearchPanelProps) {
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder="ファイル内を検索..."
+              placeholder={t('searchPanel.searchInFiles')}
               style={{
                 width: '100%',
-                paddingLeft: '2rem',
-                paddingRight: '2rem',
-                paddingTop: '0.375rem',
-                paddingBottom: '0.375rem',
+                paddingLeft: '1.4rem',
+                paddingRight: '1.2rem',
+                paddingTop: '0.14rem',
+                paddingBottom: '0.14rem',
                 background: colors.mutedBg,
                 border: `1px solid ${colors.border}`,
                 borderRadius: '0.375rem',
-                fontSize: '0.75rem',
+                fontSize: '0.64rem',
                 outline: 'none',
                 color: colors.foreground,
+                lineHeight: '1rem',
               }}
               autoFocus
             />
@@ -217,49 +229,49 @@ export default function SearchPanel({ files, onFileOpen }: SearchPanelProps) {
           </div>
 
           {/* 検索オプション - コンパクトなボタン形式 */}
-          <div style={{ display: 'flex', gap: '0.25rem' }}>
+          <div style={{ display: 'flex', gap: '0.12rem' }}>
             <button
               onClick={() => setCaseSensitive(!caseSensitive)}
               style={{
-                padding: '0.375rem 0.5rem',
-                fontSize: '0.75rem',
-                borderRadius: '0.375rem',
+                padding: '0.14rem 0.28rem',
+                fontSize: '0.6rem',
+                borderRadius: '0.28rem',
                 border: `1px solid ${caseSensitive ? colors.accentBg : colors.border}`,
                 background: caseSensitive ? colors.accentBg : colors.mutedBg,
                 color: caseSensitive ? colors.accentFg : colors.mutedFg,
                 cursor: 'pointer',
               }}
-              title="大文字小文字を区別"
+              title={t('searchPanel.caseSensitive')}
             >
               Aa
             </button>
             <button
               onClick={() => setWholeWord(!wholeWord)}
               style={{
-                padding: '0.375rem 0.5rem',
-                fontSize: '0.75rem',
-                borderRadius: '0.375rem',
+                padding: '0.25rem 0.4rem',
+                fontSize: '0.65rem',
+                borderRadius: '0.3125rem',
                 border: `1px solid ${wholeWord ? colors.accentBg : colors.border}`,
                 background: wholeWord ? colors.accentBg : colors.mutedBg,
                 color: wholeWord ? colors.accentFg : colors.mutedFg,
                 cursor: 'pointer',
               }}
-              title="単語単位で検索"
+              title={t('searchPanel.wholeWord')}
             >
               Ab
             </button>
             <button
               onClick={() => setUseRegex(!useRegex)}
               style={{
-                padding: '0.375rem 0.5rem',
-                fontSize: '0.75rem',
-                borderRadius: '0.375rem',
+                padding: '0.25rem 0.4rem',
+                fontSize: '0.65rem',
+                borderRadius: '0.3125rem',
                 border: `1px solid ${useRegex ? colors.accentBg : colors.border}`,
                 background: useRegex ? colors.accentBg : colors.mutedBg,
                 color: useRegex ? colors.accentFg : colors.mutedFg,
                 cursor: 'pointer',
               }}
-              title="正規表現を使用"
+              title={t('searchPanel.useRegex')}
             >
               .*
             </button>
@@ -267,8 +279,10 @@ export default function SearchPanel({ files, onFileOpen }: SearchPanelProps) {
 
           {/* 検索結果サマリー */}
           {searchQuery && (
-            <div style={{ fontSize: '0.75rem', color: colors.mutedFg }}>
-              {isSearching ? '検索中...' : `${searchResults.length} 件の結果`}
+            <div style={{ fontSize: '0.62rem', color: colors.mutedFg }}>
+              {isSearching
+                ? t('searchPanel.searching')
+                : t('searchPanel.resultCount', { params: { count: searchResults.length } })}
             </div>
           )}
         </div>
@@ -277,7 +291,7 @@ export default function SearchPanel({ files, onFileOpen }: SearchPanelProps) {
       {/* 検索結果 */}
       <div style={{ flex: 1, overflow: 'auto' }}>
         {searchQuery && !isSearching && searchResults.length === 0 && (
-          <div style={{ padding: '0.75rem', textAlign: 'center', color: colors.mutedFg }}>
+          <div style={{ padding: '0.5rem', textAlign: 'center', color: colors.mutedFg }}>
             <Search
               size={24}
               style={{
@@ -287,101 +301,150 @@ export default function SearchPanel({ files, onFileOpen }: SearchPanelProps) {
                 color: colors.mutedFg,
               }}
             />
-            <p style={{ fontSize: '0.75rem' }}>結果が見つかりませんでした</p>
+            <p style={{ fontSize: '0.75rem' }}>{t('searchPanel.noResults')}</p>
           </div>
         )}
 
         {searchResults.length > 0 && (
-          <div style={{ padding: '0.25rem' }}>
-            {searchResults.map((result, index) => (
-              <div
-                key={`${result.file.id}-${result.line}-${index}`}
-                onClick={() => handleResultClick(result)}
-                style={{
-                  padding: '0.5rem',
-                  background: 'transparent',
-                  borderRadius: '0.375rem',
-                  fontSize: '0.75rem',
-                  borderBottom: `1px solid ${colors.border}`,
-                  cursor: 'pointer',
-                  marginBottom: '0.125rem',
-                }}
-                onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
-                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-              >
+          <div style={{ padding: '0.14rem' }}>
+            {/* Group results by file */}
+            {Object.values(
+              searchResults.reduce((acc: Record<string, SearchResult[]>, r) => {
+                const key = r.file.id || r.file.path;
+                if (!acc[key]) acc[key] = [];
+                acc[key].push(r);
+                return acc;
+              }, {})
+            ).map((group: SearchResult[], gIdx) => {
+              const first = group[0];
+              const key = first.file.id || first.file.path;
+              const isCollapsed = !!collapsedFiles[key];
+              return (
                 <div
+                  key={`${key}-${gIdx}`}
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.25rem',
-                    marginBottom: '0.25rem',
+                    padding: '0.18rem 0.28rem',
+                    borderRadius: '0.28rem',
+                    borderBottom: `1px solid ${colors.border}`,
+                    marginBottom: '0.125rem',
                   }}
                 >
-                  <FileText
-                    size={12}
-                    color={colors.primary}
-                    style={{ flexShrink: 0 }}
-                  />
-                  <span
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => toggleFileCollapse(key)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        toggleFileCollapse(key);
+                      }
+                    }}
                     style={{
-                      fontWeight: 500,
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      fontSize: '0.75rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.22rem',
+                      marginBottom: '0.1rem',
+                      cursor: 'pointer',
+                      userSelect: 'none',
                     }}
                   >
-                    {result.file.name}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: '0.75rem',
-                      color: colors.mutedFg,
-                      flexShrink: 0,
-                      marginLeft: 'auto',
-                    }}
-                  >
-                    {result.line}:{result.column}
-                  </span>
-                </div>
-                <div style={{ marginLeft: '0.75rem', marginBottom: '0.25rem' }}>
-                  <code
-                    style={{
-                      background: colors.mutedBg,
-                      padding: '0.25rem 0.5rem',
-                      borderRadius: '0.25rem',
-                      fontSize: '0.75rem',
-                      display: 'block',
-                      color: colors.foreground,
-                    }}
-                  >
-                    {/* 横スクロールを防ぐためoverflow-x: hiddenを追加 */}
+                    {isCollapsed ? (
+                      <ChevronRight
+                        size={14}
+                        color={colors.mutedFg}
+                      />
+                    ) : (
+                      <ChevronDown
+                        size={14}
+                        color={colors.mutedFg}
+                      />
+                    )}
+                    <FileText
+                      size={12}
+                      color={colors.primary}
+                      style={{ flexShrink: 0 }}
+                    />
                     <span
                       style={{
-                        display: 'block',
-                        overflowX: 'hidden',
+                        fontWeight: 600,
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
                         textOverflow: 'ellipsis',
-                        whiteSpace: 'pre-wrap',
+                        maxWidth: '40%',
                       }}
                     >
-                      {highlightMatch(result.content, result.matchStart, result.matchEnd)}
+                      {first.file.name}
                     </span>
-                  </code>
+                    <span
+                      style={{ color: colors.mutedFg, marginLeft: '0.3rem', fontSize: '0.6rem' }}
+                    >
+                      {group.length} hits
+                    </span>
+                    <span
+                      style={{
+                        marginLeft: 'auto',
+                        color: colors.mutedFg,
+                        fontSize: '0.62rem',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        maxWidth: '45%',
+                      }}
+                    >
+                      {first.file.path}
+                    </span>
+                  </div>
+
+                  {!isCollapsed && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.12rem' }}>
+                      {group.map((result, idx) => (
+                        <div
+                          key={`${result.file.id}-${result.line}-${idx}`}
+                          onClick={() => handleResultClick(result)}
+                          style={{
+                            padding: '0.12rem',
+                            borderRadius: '0.2rem',
+                            cursor: 'pointer',
+                            background: 'transparent',
+                          }}
+                          onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                        >
+                          <div style={{ display: 'flex', gap: '0.32rem', alignItems: 'center' }}>
+                            <span
+                              style={{
+                                color: colors.mutedFg,
+                                width: '2.6rem',
+                                flexShrink: 0,
+                                fontSize: '0.62rem',
+                              }}
+                            >
+                              {result.line}:{result.column}
+                            </span>
+                            <code
+                              style={{
+                                background: colors.mutedBg,
+                                padding: '0.08rem 0.26rem',
+                                borderRadius: '0.2rem',
+                                color: colors.foreground,
+                                display: 'block',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                maxWidth: 'calc(100% - 3.2rem)',
+                              }}
+                              title={result.content}
+                            >
+                              {highlightMatch(result.content, result.matchStart, result.matchEnd)}
+                            </code>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <div
-                  style={{
-                    marginLeft: '0.75rem',
-                    fontSize: '0.75rem',
-                    color: colors.mutedFg,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  {result.file.path}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

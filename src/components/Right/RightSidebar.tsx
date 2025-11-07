@@ -1,7 +1,8 @@
 import React from 'react';
 import { useTheme } from '@/context/ThemeContext';
-import AIAgent from '@/components/AI/AIAgent';
-import type { FileItem, Project, Tab } from '@/types';
+import { useTranslation } from '@/context/I18nContext';
+import AIPanel from '@/components/AI/AIPanel';
+import type { FileItem, Project } from '@/types';
 
 interface RightSidebarProps {
   rightSidebarWidth: number;
@@ -11,11 +12,6 @@ interface RightSidebarProps {
   projectFiles?: FileItem[];
   currentProject?: Project | null;
   currentProjectId?: string;
-  tabs?: Tab[];
-  setTabs?: (update: any) => void;
-  setActiveTabId?: (id: string) => void;
-  saveFile?: (filePath: string, content: string) => Promise<void>;
-  clearAIReview?: (filePath: string) => Promise<void>;
 }
 
 const RightSidebar: React.FC<RightSidebarProps> = ({
@@ -25,20 +21,9 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
   projectFiles = [],
   currentProject = null,
   currentProjectId = '',
-  tabs = [],
-  setTabs,
-  setActiveTabId,
-  saveFile,
-  clearAIReview,
 }) => {
   const { colors } = useTheme();
-
-  // AIレビューをクリアする関数
-  const handleClearAIReview = async (filePath: string): Promise<void> => {
-    if (clearAIReview) {
-      await clearAIReview(filePath);
-    }
-  };
+  const { t } = useTranslation();
 
   return (
     <>
@@ -56,24 +41,14 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
         }}
       >
         <div style={{ flex: 1, overflow: 'auto' }}>
-          {children ||
-            // デフォルトでAI Agentを表示
-            (setTabs && setActiveTabId && saveFile ? (
-              <AIAgent
-                projectFiles={projectFiles}
-                currentProject={currentProject}
-                currentProjectId={currentProjectId}
-                tabs={tabs}
-                setTabs={setTabs}
-                setActiveTabId={setActiveTabId}
-                saveFile={saveFile}
-                clearAIReview={handleClearAIReview}
-              />
-            ) : (
-              <div style={{ padding: 16, color: colors.mutedFg, textAlign: 'center' }}>
-                AI Agent機能が利用できません
-              </div>
-            ))}
+          {children || (
+            // [NEW ARCHITECTURE] デフォルトでAI Panelを表示
+            <AIPanel
+              projectFiles={projectFiles}
+              currentProject={currentProject}
+              currentProjectId={currentProjectId}
+            />
+          )}
         </div>
       </aside>
     </>

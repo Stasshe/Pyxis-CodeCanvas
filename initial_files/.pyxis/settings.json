@@ -1,0 +1,40 @@
+{
+  "editor": {
+    "fontSize": 14,
+    "tabSize": 2,
+    "insertSpaces": true,
+    "wordWrap": false
+  },
+  "theme": {
+    "colorTheme": "dark",
+    "highlightTheme": "github-dark"
+  },
+  "search": {
+    "exclude": [
+      "**/node_modules",
+      "**/bower_components",
+      "**/*.code-search",
+      "**/dist",
+      "**/build",
+      "**/.git",
+      "**/.pyxis",
+      "**/coverage",
+      "**/.next",
+      "**/.nuxt",
+      "**/cache"
+    ],
+    "useIgnoreFiles": true
+  },
+  "markdown": {
+    "singleLineBreaks": "breaks",
+    "math": {
+      "delimiter": "both"
+    }
+  },
+  "files": {
+    "exclude": [
+      "**/.git",
+      "**/cache"
+    ]
+  }
+}

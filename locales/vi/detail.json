@@ -1,0 +1,17 @@
+{
+  "charCountDetails": {
+    "lines": "Dòng",
+    "words": "Từ",
+    "chars": "Ký tự",
+    "charsNoSpaces": "Ký tự (không khoảng trắng)",
+    "zenkaku": "Ký tự toàn chiều rộng",
+    "hankaku": "Ký tự nửa chiều rộng",
+    "digits": "Chữ số",
+    "alpha": "Chữ cái",
+    "symbols": "Ký hiệu",
+    "spaces": "Khoảng trắng",
+    "newlines": "Dòng mới",
+    "maxLineLen": "Độ dài dòng lớn nhất",
+    "avgLineLen": "Độ dài trung bình"
+  }
+}

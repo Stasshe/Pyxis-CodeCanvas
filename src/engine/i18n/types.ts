@@ -1,0 +1,117 @@
+/**
+ * i18n Type Definitions
+ * 型安全なi18n実装のための型定義
+ */
+
+import type enCommon from '../../../locales/en/common.json';
+
+/**
+ * サポートする言語コード
+ */
+/**
+ * Supported locales (single source of truth).
+ * Use the readonly tuple below as the runtime list, and derive
+ * the `Locale` type from it so we don't duplicate the allowed values.
+ */
+export const SUPPORTED_LOCALES = [
+  'en',
+  'ja',
+  'es',
+  'fr',
+  'de',
+  'zh',
+  'zh-TW',
+  'ko',
+  'it',
+  'pt',
+  'ru',
+  'nl',
+  'tr',
+  'ar',
+  'hi',
+  'th',
+  'vi',
+  'id',
+  'sv',
+  'pl',
+] as const;
+
+export type Locale = (typeof SUPPORTED_LOCALES)[number];
+
+/*
+トルコ語	tr	トルコ・中央アジア
+ヒンディー語	hi	インド
+ポーランド語	pl	東欧
+*/
+
+/**
+ * 翻訳リソースの型
+ * enのcommonをベースに型推論
+ */
+export type TranslationResources = {
+  common: typeof enCommon;
+};
+
+/**
+ * Runtime type guard to check whether a string is a supported Locale.
+ */
+export function isSupportedLocale(x: unknown): x is Locale {
+  return typeof x === 'string' && (SUPPORTED_LOCALES as readonly string[]).includes(x);
+}
+
+/**
+ * ネストされたオブジェクトからキーパスを生成する型ユーティリティ
+ * 例: { a: { b: "text" } } => "a.b"
+ */
+type PathImpl<T, Key extends keyof T> = Key extends string
+  ? T[Key] extends Record<string, unknown>
+    ?
+        | `${Key}.${PathImpl<T[Key], Exclude<keyof T[Key], keyof Array<unknown>>> & string}`
+        | `${Key}.${Exclude<keyof T[Key], keyof Array<unknown>> & string}`
+    : never
+  : never;
+
+type Path<T> = PathImpl<T, keyof T> | (keyof T & string);
+
+/**
+ * 翻訳キーの型
+ * TranslationResourcesから全てのキーパスを抽出
+ */
+export type TranslationKey = Path<TranslationResources['common']>;
+
+/**
+ * 翻訳関数のオプション
+ */
+export interface TranslateOptions {
+  /** 変数の埋め込み用オブジェクト */
+  params?: Record<string, string | number>;
+  /** フォールバックテキスト（翻訳が見つからない場合） */
+  fallback?: string;
+  /** デフォルト値（翻訳が見つからない場合はキーを返す） */
+  defaultValue?: string;
+}
+
+/**
+ * i18nコンテキストの値の型
+ */
+export interface I18nContextValue {
+  /** 現在の言語 */
+  locale: Locale;
+  /** 言語を変更する関数 */
+  setLocale: (locale: Locale) => Promise<void>;
+  /** 翻訳関数 */
+  // key を string に拡張して、実装側で安全にキャストできるようにする
+  t: (key: string | TranslationKey, options?: TranslateOptions) => string;
+  /** ローディング状態 */
+  isLoading: boolean;
+}
+
+/**
+ * 翻訳データのキャッシュエントリ
+ */
+export interface TranslationCacheEntry {
+  locale: Locale;
+  namespace: string;
+  data: Record<string, unknown>;
+  timestamp: number;
+}

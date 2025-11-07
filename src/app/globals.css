@@ -1,3 +1,4 @@
+/* stylelint-disable at-rule-no-unknown */
 /* xterm.js styles */
 @import '@xterm/xterm/css/xterm.css';
 @import './markdown.css';
@@ -7,6 +8,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Force-disable vertical scrolling across the app root to ensure no page-level scrollbars */
+html,
+body,
+#__next {
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+}
 
 :root {
   --background: 220 20% 14%;
@@ -50,6 +60,46 @@ body {
   flex-direction: column;
 }
 
+/*
+  Globally hide scrollbars while preserving scroll functionality.
+  - WebKit (Chrome, Safari): use ::-webkit-scrollbar and set width/height to 0
+  - Firefox: use scrollbar-width: none
+  - IE/Edge (legacy): use -ms-overflow-style: none
+  Apply to all elements and common root containers to ensure no visible scrollbars.
+*/
+/* Hide scrollbars for all elements */
+* {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+/* WebKit browsers */
+*::-webkit-scrollbar {
+  width: 0px !important;
+  height: 0px !important;
+}
+
+/* Ensure root containers hide visual scrollbars but keep scrolling enabled where needed */
+html,
+body,
+#__next,
+.cm-editor,
+.terminal-container,
+.bottom-panel-container {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+#__next::-webkit-scrollbar,
+.cm-editor::-webkit-scrollbar,
+.terminal-container::-webkit-scrollbar,
+.bottom-panel-container::-webkit-scrollbar {
+  width: 0px !important;
+  height: 0px !important;
+}
+
 /* Next.js root container fix */
 #__next {
   height: 100%;
@@ -84,7 +134,7 @@ body {
   position: relative;
   user-select: none;
   transition: background-color 0.2s ease;
-   /* 一時的に無効化 */
+  /* 一時的に無効化 */
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
@@ -92,11 +142,11 @@ body {
   z-index: 10;
 }
 
-
 .resizer:hover {
   background: hsl(var(--primary) / 0.7);
 }
-.resizer:active, .resizer.resizing {
+.resizer:active,
+.resizer.resizing {
   background: hsl(var(--primary) / 0.95) !important;
   transition: background-color 0.1s;
 }
@@ -144,25 +194,25 @@ body {
     width: 12px;
     min-width: 12px;
   }
-  
+
   .resizer-horizontal {
     height: 12px;
     min-height: 12px;
   }
-  
+
   .resizer {
     background: hsl(var(--primary) / 0.4);
   }
-  
+
   .resizer:active {
     background: hsl(var(--primary) / 0.8);
   }
-  
+
   .resizer-vertical::before {
     left: -6px;
     right: -6px;
   }
-  
+
   .resizer-horizontal::before {
     top: -6px;
     bottom: -6px;
@@ -243,11 +293,13 @@ body {
   * {
     border-color: hsl(var(--border));
   }
-  
+
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-feature-settings:
+      'rlig' 1,
+      'calt' 1;
   }
 }
 

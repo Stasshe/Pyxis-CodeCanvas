@@ -1,0 +1,8 @@
+packages:
+  - 'src/**'
+  - 'extensions/**'
+ignoredBuiltDependencies:
+  - core-js
+  - esbuild
+  - sharp
+  - unrs-resolver

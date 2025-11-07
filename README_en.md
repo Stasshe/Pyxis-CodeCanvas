@@ -1,71 +1,166 @@
 <div align="center">
-  <img src="readme-assets/IMG_1473.png" alt="Pyxis Cover" width="100%" />
+  <img src="readme-assets/IMG_0033.png" alt="Pyxis Cover" width="100%" />
   
   # 🌟 Pyxis - Your Code Universe in a Browser
   
   ### *Zero Setup. Quick Start, Easy Coding*
 
-  [![Version](https://img.shields.io/badge/version-0.5.2-blue.svg)](https://github.com/your-username/pyxis)
+  [![Version](https://img.shields.io/badge/version-0.14.1-blue.svg)](https://github.com/your-username/pyxis)
   [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
   [![Platform](https://img.shields.io/badge/platform-Web%20%7C%20iPad%20%7C%20Mobile-orange.svg)](README.md)
+  [![Languages](https://img.shields.io/badge/languages-18-blue.svg)](#)
   [![Tauri](https://img.shields.io/badge/Tauri-Desktop-blueviolet?logo=tauri)](https://tauri.app/)
-  [![Next.js](https://img.shields.io/badge/Next.js-15-blue?logo=next.js)](https://nextjs.org/)
+  [![Next.js](https://img.shields.io/badge/Next.js-16-blue?logo=next.js)](https://nextjs.org/)
   [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4.1-38bdf8?logo=tailwindcss)](https://tailwindcss.com/)
   [![TypeScript](https://img.shields.io/badge/TypeScript-v5-3178c6?logo=typescript)](https://www.typescriptlang.org/)
   [![React](https://img.shields.io/badge/React-19-61dafb?logo=react)](https://react.dev/)
   [![Last Commit](https://img.shields.io/github/last-commit/Stasshe/Pyxis-Client-Side-Code-Editor?logo=github)](https://github.com/Stasshe/Pyxis-Client-Side-Code-Editor/commits/main)
   [![Bundle Size](https://img.shields.io/badge/bundle--size-1.04MB-purple?logo=next.js)](#)
   
-  **[🚀 Try Pyxis Now](https://pyxis-code.onrender.com)** | **[📖 日本語版](README.md)**
+  **[🚀 Try Pyxis Now](https://Stasshe.github.io/Pyxis-CodeCanvas)** | **[📖 日本語版](README.md)**
 </div>
 
 ---
 
 ## ✨ What is Pyxis?
 
-Imagine having a **complete development environment** that loads instantly in your browser - no downloads, no installations, no server connections. That's Pyxis! It's like having **VS Code + Node.js + Git** all bundled into a lightning-fast web app that works anywhere, even on your iPad.
+- **Pyxis is a high-mobility browser IDE designed for iPad that launches in just 1 second.**
+- **Since Pyxis is a static site, there is no need to start a server, and as a result, no charges are incurred.**
 
-> 💡 **Perfect for students, professionals, and anyone who wants to code without the hassle!**
-> 🖥️ **Now supports Tauri Desktop!** Use Pyxis as a native app on Windows, Mac, and Linux.
+### 🌍 **18 Languages Worldwide - Global Coding Experience**
 
+**Pyxis speaks your language.**
 
----
+> 日本語 • English • 中文 • 繁體中文 • 한국어 • Español • Français • Deutsch • Italiano • Português • Русский • Nederlands • Türkçe • العربية • हिन्दी • ไทย • Tiếng Việt • Bahasa Indonesia • Svenska • Polski
 
-## 🚀 Revolutionary Features That Will Blow Your Mind
+Break language barriers with a truly global IDE. Developers worldwide can use Pyxis comfortably in their native language.
 
-### **Hot Module Replacement (HMR) - Live Edit!**
+### 🎯 Built For
+
 <div align="center">
-  <img src="readme-assets/IMG_1465.png" alt="HMR in Action" width="80%" />
+
+| 📱 **iPad Users** | 💻 **PC Owners** |
+|:---:|:---:|
+| Serious coding on iPad | Not serious enough for VS Code |
+| Stackblitz is too heavy | Quick code edits |
+| Touch-optimized IDE | Extended note-taking |
+| Lightweight performance | Casual, instant access |
+
 </div>
 
-Build websites and see changes **instantly**! No refreshing, no waiting - just pure development bliss. Your code updates in real-time as you type, making web development feel like magic.
+### 🚀 Why Not Stackblitz?
+
+Stackblitz is a sophisticated IDE, but has these challenges:
+- **Heavy on iPad** - High memory consumption
+- **Web-focused** - Limited for other use cases
+- **Small screen issues** - Not mobile-optimized
+- **Touch UI problems** - Not optimized for iPad gestures
+
+**Pyxis solves these problems:**
+- ⚡ **1-second startup** - Serverless static hosting for instant launch
+- � **iPad-optimized** - Touch gestures and dual editor support
+- 🎨 **Versatile** - Not just web dev, but docs and notes too
+- 🪶 **Lightweight** - Smooth even on iPad
+
+> 💡 **Desktop-like experience with iPad mobility!**
+> 🖥️ **Tauri Desktop supported!** Use Pyxis as a native app on Windows, Mac, and Linux.
 
 ---
 
-### **Markdown, Mermaid & LaTeX - Documentation Heaven**
+## 🚀 Revolutionary Features of Pyxis
+
+### 📝 **Markdown, Mermaid & LaTeX - Premium Documentation**
 <div align="center">
   <img src="readme-assets/IMG_1470.png" alt="Rich Content Editing" width="80%" />
 </div>
 
-Create **beautiful documentation** with live previews! Write flowcharts with Mermaid, mathematical formulas with LaTeX, and rich markdown - all updating in real-time as you type.
+**Pyxis focuses heavily on the Markdown viewer.**
+- 📄 **Technical docs** - Beautiful specifications and documentation
+- ✍️ **Blog writing** - Efficient writing with real-time preview
+- 📊 **Mermaid support** - Easy flowcharts and diagrams
+- 🔢 **LaTeX math** - Perfect rendering of mathematical expressions
+
+Instant preview as you type! Perfect for long-form writing.
 
 ---
 
-### 🔄 **Visual Git - Version Control Made Simple**
+### 🔥 **Live Reload (Instant Update) - Quick Site Building**
 <div align="center">
-  <img src="readme-assets/IMG_1466.png" alt="Git Diff Visualization" width="80%" />
+  <img src="readme-assets/IMG_0034.png" alt="Live Reload in Action" width="80%" />
 </div>
 
-See your code changes with **beautiful visual diffs**! Full Git support with branches, merging, and history - perfect for learning Git safely without breaking anything.
+**HTML/CSS/JS only** - Perfect for quick browser testing without tedious setup.
+- Instant updates on file save (Live Reload)
+- Ideal for simple web development
+- No setup required, just start coding
+
+ > **Note**: Currently supports HTML/CSS/JS only. No WebContainer needed—Pyxis implements its own fast instant reload system.
 
 ---
 
-### ⚡ **Node.js Runtime - Backend Power**
+### 🔄 **Local Git - Version Control in Browser**
+
+**Local Git is nearly complete!** Branch, merge, commit, reset - all major Git features in your browser.
+- 🎨 **Visual diffs** - Beautiful code change visualization
+- 🌿 **Branch operations** - Experiment safely, revert anytime
+- 💾 **Export with .git** - Download entire repository including .git folder
+- 🛡️ **Safe learning** - Break anything without consequences! Perfect for Git beginners
+
+> **GitHub Integration**: Remote repository connection is on hold pending GitHub application approval. Local Git is fully functional.
+
+---
+
+### 🧠 **AI Assistant Diff Adoption UI**
+<div align="center">
+  <img src="readme-assets/IMG_0035.png" alt="AI Assistant git diff adoption UI" width="80%" />
+</div>
+Pyxis features an AI assistant that helps you review and adopt code diffs. This provides a more intuitive Git operation and review experience.
+
+---
+
+### ⚡ **Node.js & TypeScript Runtime - Lightning Fast Execution**
 <div align="center">
   <img src="readme-assets/IMG_1469.png" alt="Node.js Execution" width="80%" />
 </div>
 
-Run **Node.js code** in your browser! File operations, readline, and many npm modules work perfectly. It's like having a mini server right in your browser.
+**Custom implementation without WASM**—incredibly fast, and supports not only Node.js but also TypeScript execution (via Babel Standalone and advanced normalization). The runtime allows you to use `fs`, `readline`, and even `userinterface` (for interactive console apps), just like in a real Node.js environment.
+- ⚡ **Instant execution** - No compilation, zero wait time
+- 📁 **File operations** - Full support for `fs`, `path`, `readline`, and `userinterface` modules
+- 🌀 **TypeScript/Babel support** - TypeScript runs instantly via Babel Standalone and normalization system
+- 🎯 **Casual coding** - Perfect for algorithm testing, learning, and interactive console apps
+
+Emulates file operations and interactive user input/output that are impossible in plain JavaScript, providing a genuine Node.js/TypeScript learning environment.
+
+
+> **Limitations**: No WASM means some features like native modules and child_process are unsupported. Sufficient for basic Node.js/TypeScript learning and simple scripts.
+
+---
+
+### 🧩 Pyxis Extension System
+
+<div align="center">
+  <img src="readme-assets/IMG_0113.png" alt="Pyxis Extension System UI" width="80%" />
+</div>
+
+<div align="center">
+  <img src="readme-assets/IMG_0117.png" alt="Template CLI Screenshot" width="80%" />
+</div>
+
+One of Pyxis's biggest features is its "Extension System." You can add VSCode-like UI extensions, use any npm library, create custom terminal commands, language packs, transpilers, and service extensions—all in TypeScript/TSX.
+
+#### Highlights
+- **CLI Template Generation**: Instantly scaffold new extensions with `pnpm run create-extension`. Even beginners can start developing extensions right away.
+- **Full npm Library Support**: Use any external library you want.
+- **Terminal Command Extensions**: Add custom commands via API and run them from Pyxis's terminal UI.
+- **VSCode-like UI Extensions**: Add custom tabs and sidebar panels via API. Build intuitive UIs with React/TSX.
+- **Language Packs & Service Extensions**: Add language packs or custom services as extensions.
+- **Safe Sandbox Architecture**: Each extension runs independently and safely. IndexedDB is used for persistence and caching.
+
+Pyxis extensions offer flexibility and power unmatched by any other browser IDE: VSCode-level UI extensions on Web/iPad, extensible terminal commands, and instant development with official templates.
+
+See `/extensions/README.md` and `/Development/EXTENSION-TAB-SIDEBAR-API.md` for details.
+
+---
 
 ---
 
@@ -74,7 +169,11 @@ Run **Node.js code** in your browser! File operations, readline, and many npm mo
   <img src="readme-assets/IMG_1467.png" alt="File Operations" width="80%" />
 </div>
 
-Navigate your projects with **VS Code-like efficiency**! Quick file search, intelligent autocomplete, and powerful commands make coding a breeze.
+<div align="center">
+  <img src="readme-assets/IMG_0048.png" alt="Search" width="80%" />
+</div>
+
+Navigate your projects with **VS Code-like efficiency**! Fast file search, an operation window for quick actions, intelligent autocomplete, and a smooth, stress-free UX make navigating projects effortless.
 
 ---
 
@@ -95,50 +194,37 @@ Navigate your projects with **VS Code-like efficiency**! Quick file search, inte
 - **Touch-optimized interface** with dual editor support
 - **True iPad development** - finally, a real IDE for your tablet
 
-### 🤖 **AI-Powered - Your Coding Assistant**
-- **Built-in AI Agent** for instant help and code editing
-- **Ask & Edit features** - no more copy-pasting to ChatGPT
-- **Seamless integration** right in your coding environment
+### 🤖 **AI Support - Seamless Development Assistance**
+- **Ask & Edit features** - Eliminates repetitive copy-paste in regular browsers
+- **Context retention** - Ask AI and request edits while keeping files open
+- **Integrated experience** - Not quite VS Code level, but perfect when you need AI power
 
 ### 🌐 **Universal Compatibility**
 - **Works everywhere** - Web, iPad, mobile, any modern browser
 - **Multi-pane support** for complex projects
 - **Buffer content support** - unzip files, view PDFs, images, videos
+- **🌍 18 Languages Support** - Available in Japanese, English, Chinese, Traditional Chinese, Korean, Spanish, French, German, Italian, Portuguese, Russian, Dutch, Turkish, Arabic, Hindi, Thai, Vietnamese, Indonesian, Swedish, and Polish
+- **Extension System** - Dynamically add language packs, transpilers, and custom features
 
 ### 🖥️ **Tauri Desktop Support**
 - **Windows/Mac/Linux** native app experience
 - **Same features as Web version** on desktop
 - **Works offline**
 
----
-
-## 🌟 **Possibly a World First** - No Other Browser Editor Has All These Features Integrated
-
-- **Blazing fast startup** thanks to static site hosting—no server connections, zero stress.
-- **Full Git support** (branches, merges, resets, local git). Want to use it as a real repository? Download your project with `.git` included from the settings.
-- **Node.js support** without WASM, enabling ultra-fast execution. Emulates file operations not possible in plain JavaScript, so you can code freely and easily.
-- **Lightweight, real-time editing** for Markdown, Mermaid, and LaTeX.
-- **Built-in AI Agent**—not quite a full VS Code, but with Ask and Edit features, Pyxis eliminates the copy-paste hassle of typical browser workflows.
-- **HMR (Hot Module Replacement)** lets you build simple sites instantly. Perfect for quick browser-only testing without tedious setup.
-- **iPad compatibility**—developed on iPad, so iPad is a top priority. Includes dual code editors for the best mobile experience.
-- **Safe in the browser**—no risk of breaking your system. On a PC, deleting the wrong thing can be a disaster; with Pyxis, you’re always safe. Ideal for beginners learning Git.
-- **Buffer content support**—view and unzip files, PDFs, images, and videos right in the app.
-- **Efficient editing**—handle large text files quickly with powerful keyboard shortcuts.
-- **Multi-pane support**—work in multiple windows at once for maximum productivity.
-
 --- 
 
 ---
 
-## 🎪 Perfect For Everyone
+## 🎪 Use Cases
 
 <div align="center">
 
-| 👨‍🎓 **Students** | 👩‍💻 **Professionals** | 🧪 **Experimenters** |
+| � **iPad Users** |  **PC Owners** | 👨‍🎓 **Learners** |
 |:---:|:---:|:---:|
-| Learn coding without setup hassles | Code on iPad during commutes | Test ideas instantly |
-| Practice Git safely | Client demos without deployment | Prototype rapidly |
-| Access from school computers | Remote work ready | Algorithm testing |
+| Serious coding on the go | When VS Code is overkill | Practice Git operations safely |
+| Write blog posts anywhere | Quick code edits | Learn Node.js basics |
+| Document creation & preview | Extended notes & tech docs | Algorithm testing |
+| Smooth operation, comfort | 1-second start, instant work | Break anything, stay safe |
 
 </div>
 
@@ -215,15 +301,15 @@ git merge main
 ## 🚀 Quick Start Guide
 
 ### **1. Just Click and Code!**
-1. 🌐 **[Open Pyxis](https://pyxis-code.onrender.com)** in any browser
+1. 🌐 **[Open Pyxis](https://Stasshe.github.io/Pyxis-CodeCanvas)** in any browser
 2. 📝 **Start typing** - no sign up, no downloads needed
 3. 🎯 **Try the examples**
 
 ### **How to use Tauri Desktop version**
 1. Clone the repository and switch to the `tauri` branch
 2. Install Rust and Node.js
-3. Run `npm install` to install dependencies
-4. Run `npx tauri dev` to launch the desktop app
+3. Run `pnpm install` to install dependencies
+4. Run `pnpm exec tauri dev` to launch the desktop app
 5. Enjoy the same Pyxis experience on desktop!
 
 ### **2. Your First Pyxis Project**
@@ -276,14 +362,28 @@ $$E = mc^2$$
 
 ---
 
-## インストール方法
+## Installation
+
+### Recommended: pnpm (Fast & Efficient)
+```bash
+# Install pnpm (if not installed)
+npm install -g pnpm
+
+# Install dependencies
+pnpm install
+
+# Development server
+pnpm run dev
+
+# Production build
+pnpm run build
+pnpm run preview
 ```
-npm i
 
-#development server
+### npm also works
+```bash
+npm install
 npm run dev
-
-#production mode
 npm run build
 npm run preview
 ```
@@ -329,7 +429,7 @@ MIT License - Use it, modify it, love it! See [LICENSE](LICENSE) for details.
 
 ## 🚀 Ready to Code Without Limits?
 
-**[✨ Launch Pyxis Now](https://pyxis-code.onrender.com)**
+**[✨ Launch Pyxis Now](https://Stasshe.github.io/Pyxis-CodeCanvas)**
 
 *No downloads. No setup. Just pure coding.* ✨
 

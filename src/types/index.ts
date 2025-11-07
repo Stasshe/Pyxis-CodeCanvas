@@ -10,6 +10,24 @@ export interface FileItem {
   bufferContent?: ArrayBuffer; // バイナリデータ本体
 }
 
+// Re-export new tab system types
+export type {
+  Tab,
+  EditorTab,
+  PreviewTab,
+  WebPreviewTab,
+  AIReviewTab,
+  DiffTab,
+  SettingsTab,
+  TabKind,
+  OpenTabOptions,
+  TabComponentProps,
+  TabTypeDefinition,
+  PaneLayoutType,
+  EditorPane,
+} from '@/engine/tabs/types';
+
+// Legacy: SingleFileDiff (still used in some places)
 export interface SingleFileDiff {
   formerFullPath: string;
   formerCommitId: string;
@@ -19,45 +37,8 @@ export interface SingleFileDiff {
   latterContent: string;
 }
 
-export interface Tab {
-  id: string;
-  name: string;
-  content: string;
-  isDirty: boolean;
-  path: string;
-  fullPath: string;
-  preview?: boolean;
-  isCodeMirror?: boolean;
-  isBufferArray?: boolean; // バイナリファイルの場合true
-  bufferContent?: ArrayBuffer; // バイナリデータ本体
-  needsContentRestore?: boolean; // localStorage復元時のコンテンツ再取得が必要かどうか
-  // Diffタブ用のprops（通常タブではundefined）
-  diffProps?: {
-    diffs: SingleFileDiff[];
-  };
-  // AIレビュータブ用のprops
-  aiReviewProps?: {
-    originalContent: string;
-    suggestedContent: string;
-    filePath: string;
-  };
-  webPreview?: boolean; // Added for WebPreviewTab
-  jumpToLine?: number; // 開いたときにジャンプする行番号（1始まり）
-  jumpToColumn?: number; // 開いたときにジャンプする列番号（1始まり）
-}
-
-// VSCode風ウィンドウ分割用エディタペイン型
+// Legacy: EditorLayoutType alias
 export type EditorLayoutType = 'vertical' | 'horizontal';
-
-export interface EditorPane {
-  id: string;
-  tabs: Tab[];
-  activeTabId: string;
-  layout?: EditorLayoutType; // 個別ペインの分割方式
-  size?: number; // ペインのサイズ（%）
-  children?: EditorPane[]; // 子ペイン（ネストした分割）
-  parentId?: string; // 親ペインのID
-}
 
 export interface Project {
   id: string;
@@ -83,7 +64,7 @@ export interface ProjectFile {
   aiAgentCode?: string; // AIが提案するコード
 }
 
-export type MenuTab = 'files' | 'search' | 'git' | 'settings' | 'run';
+export type MenuTab = 'files' | 'search' | 'git' | 'run' | 'extensions' | 'settings';
 
 // AI Agent関連の型定義
 export interface AIMessage {

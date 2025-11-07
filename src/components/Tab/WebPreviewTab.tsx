@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from '@/context/I18nContext';
 
 // Lightning-FSの仮想ファイルシステム取得関数
-import { getFileSystem } from '@/engine/core/filesystem';
 import { inlineHtmlAssets } from '@/engine/export/inlineHtmlAssets';
+import { fileRepository } from '@/engine/core/fileRepository';
 import { FolderWatcher, type FileChangeEvent } from '@/engine/fileWatcher';
 
 interface WebPreviewTabProps {
@@ -15,6 +16,7 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({ filePath, currentProjectN
   const [fileContent, setFileContent] = useState('');
   const folderWatcherRef = useRef<FolderWatcher | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const { t } = useTranslation();
 
   console.log('[web previewtab]', filePath);
 
@@ -27,40 +29,75 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({ filePath, currentProjectN
   // ファイルシステムから直接ファイル内容を取得
   const fetchFileContent = async () => {
     try {
-      const fs = getFileSystem();
-      if (!fs) {
-        console.error('[DEBUG] ファイルシステムが初期化されていません');
+      // Use fileRepository (IndexedDB) as the source of truth (new architecture)
+      await fileRepository.init();
+      const projects = await fileRepository.getProjects();
+      const project = projects.find(p => p.name === currentProjectName);
+      if (!project) {
+        console.error('[DEBUG] プロジェクトが見つかりません:', currentProjectName);
+        setFileContent(`<h1>${t('webPreviewTab.notFound')}</h1>`);
         return;
       }
 
-      const resolvedPath = resolveFilePath(filePath); // パスを解決
-      const stats = await fs.promises.stat(resolvedPath);
+      // Use prefix search and single-file lookup rather than loading whole project
+      const resolvedPath = resolveFilePath(filePath); // e.g. /projects/<project>/path
+      const targetRel = resolvedPath.replace(`/projects/${currentProjectName}`, '') || '/';
 
-      if (stats.isDirectory()) {
-        const files = await fs.promises.readdir(resolvedPath);
+      // get immediate children by prefix, then filter by parentPath
+      const prefix = targetRel === '/' ? '/' : `${targetRel}/`;
+      const childrenUnderPrefix = await fileRepository.getFilesByPrefix(project.id, prefix);
+      const immediateChildren = childrenUnderPrefix.filter(f => f.parentPath === targetRel);
 
+      const hasChildren = immediateChildren.length > 0;
+      const isFolderEntry = await fileRepository
+        .getFileByPath(project.id, targetRel)
+        .catch(() => null);
+
+      if (hasChildren || (isFolderEntry && (isFolderEntry as any).type === 'folder')) {
+        const files = immediateChildren.map(f => f.name);
         if (files.length === 0) {
           console.warn('[DEBUG] ディレクトリが空です:', resolvedPath);
-          setFileContent('<h1>ディレクトリが空です</h1>');
+          setFileContent(`<h1>${t('webPreviewTab.emptyDirectory')}</h1>`);
           return;
         }
 
         try {
-          const inlinedContent = await inlineHtmlAssets(files, resolvedPath, fs);
+          const read = async (fullPath: string) => {
+            const rel = fullPath.replace(`/projects/${currentProjectName}`, '') || '/';
+            const f = await fileRepository.getFileByPath(project.id, rel);
+            if (!f) throw new Error(`ファイルが見つかりません: ${rel}`);
+            if ((f as any).isBufferArray && (f as any).bufferContent) {
+              const decoder = new TextDecoder('utf-8');
+              return decoder.decode((f as any).bufferContent as ArrayBuffer);
+            }
+            return (f as any).content || '';
+          };
+
+          const inlinedContent = await inlineHtmlAssets(files, resolvedPath, read);
           console.log('[DEBUG] inlineHtmlAssetsの結果:', inlinedContent);
           setFileContent(inlinedContent);
         } catch (err) {
           console.error('[DEBUG] HTMLアセットのインライン化に失敗しました:', err);
-          setFileContent('<h1>HTMLアセットのインライン化に失敗しました</h1>');
+          setFileContent(`<h1>${t('webPreviewTab.inlineHtmlFailed')}</h1>`);
         }
       } else {
-        const content = await fs.promises.readFile(resolvedPath, { encoding: 'utf8' });
-        console.log('[DEBUG] ファイル内容を取得しました:', content);
-        setFileContent(content);
+        try {
+          const f = await fileRepository.getFileByPath(project.id, targetRel);
+          if (!f) throw new Error(`ファイルが見つかりません: ${targetRel}`);
+          const content =
+            (f as any).isBufferArray && (f as any).bufferContent
+              ? new TextDecoder('utf-8').decode((f as any).bufferContent as ArrayBuffer)
+              : (f as any).content || '';
+          console.log('[DEBUG] ファイル内容を取得しました:', content);
+          setFileContent(content);
+        } catch (e) {
+          console.error('[DEBUG] ファイルまたはフォルダの取得中にエラーが発生しました:', e);
+          setFileContent(`<h1>${t('webPreviewTab.notFound')}</h1>`);
+        }
       }
     } catch (e) {
       console.error('[DEBUG] ファイルまたはフォルダの取得中にエラーが発生しました:', e);
-      setFileContent('<h1>ファイルまたはフォルダが見つかりません</h1>');
+      setFileContent(`<h1>${t('webPreviewTab.notFound')}</h1>`);
     }
   };
 

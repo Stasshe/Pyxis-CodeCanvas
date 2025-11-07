@@ -4,7 +4,9 @@ import Terminal from './Terminal';
 import OutputPanel, { OutputMessage } from './OutputPanel';
 import { FileItem } from '@/types';
 import { useTheme } from '@/context/ThemeContext';
+import { OUTPUT_CONFIG } from '@/context/config';
 import { useState, useRef } from 'react';
+import { useTranslation } from '@/context/I18nContext';
 
 interface BottomPanelProps {
   height: number;
@@ -12,14 +14,7 @@ interface BottomPanelProps {
   currentProjectId?: string;
   projectFiles?: FileItem[];
   onResize: (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => void;
-  onTerminalFileOperation?: (
-    path: string,
-    type: 'file' | 'folder' | 'delete',
-    content?: string,
-    isNodeRuntime?: boolean,
-    isBufferArray?: boolean,
-    bufferContent?: ArrayBuffer
-  ) => Promise<void>;
+  // [NEW ARCHITECTURE] onTerminalFileOperation removed - Terminal uses fileRepository directly
 }
 
 const outputMessagesRef: {
@@ -42,12 +37,28 @@ export function pushMsgOutPanel(
           const newPrev = [...prev];
           // @ts-ignore
           newPrev[newPrev.length - 1] = { ...last, count: (last.count ?? 1) + 1 };
+          // Trim if over limit
+          const max = OUTPUT_CONFIG.OUTPUT_MAX_MESSAGES ?? 30;
+          if (newPrev.length > max) {
+            const start = newPrev.length - max;
+            const trimmed = newPrev.slice(start);
+            outputMessagesRef.current = trimmed;
+            return trimmed;
+          }
           outputMessagesRef.current = newPrev;
           return newPrev;
         }
       }
       // 新規メッセージ
       const next = [...prev, { message: msg, type, context }];
+      // Trim to keep only the most recent OUTPUT_MAX_MESSAGES
+      const max = OUTPUT_CONFIG.OUTPUT_MAX_MESSAGES ?? 30;
+      if (next.length > max) {
+        const start = next.length - max;
+        const trimmed = next.slice(start);
+        outputMessagesRef.current = trimmed;
+        return trimmed;
+      }
       outputMessagesRef.current = next;
       return next;
     });
@@ -62,10 +73,12 @@ export default function BottomPanel({
   currentProjectId,
   projectFiles,
   onResize,
-  onTerminalFileOperation,
 }: BottomPanelProps) {
   const { colors } = useTheme();
-  const [activeTab, setActiveTab] = useState<'output' | 'terminal' | 'debug'>('terminal');
+  const { t } = useTranslation();
+  const [activeTab, setActiveTab] = useState<'output' | 'terminal' | 'debug' | 'problems'>(
+    'terminal'
+  );
   const [outputMessages, setOutputMessages] = useState<OutputMessage[]>([]);
   outputMessagesRef.current = outputMessages;
   outputMessagesRef.set = setOutputMessages;
@@ -126,7 +139,7 @@ export default function BottomPanel({
                 activeTab === 'output' ? colors.primary : colors.mutedFg)
             }
           >
-            出力
+            {t('bottom.output')}
           </button>
           <button
             className="tab-btn"
@@ -154,7 +167,7 @@ export default function BottomPanel({
                 activeTab === 'debug' ? colors.primary : colors.mutedFg)
             }
           >
-            デバッグコンソール
+            {t('bottom.debugConsole')}
           </button>
           <button
             className="tab-btn"
@@ -182,7 +195,7 @@ export default function BottomPanel({
                 activeTab === 'terminal' ? colors.primary : colors.mutedFg)
             }
           >
-            ターミナル
+            {t('bottom.terminal')}
           </button>
           {currentProject && (
             <span
@@ -206,7 +219,13 @@ export default function BottomPanel({
               left: 0,
             }}
           >
-            <OutputPanel messages={outputMessages} />
+            <OutputPanel
+              messages={outputMessages}
+              onClearDisplayed={toClear => {
+                // Remove the currently displayed (filtered) messages from the full messages list
+                setOutputMessages(prev => prev.filter(m => !toClear.includes(m)));
+              }}
+            />
           </div>
           <div
             style={{
@@ -223,8 +242,6 @@ export default function BottomPanel({
               height={height}
               currentProject={currentProject}
               currentProjectId={currentProjectId}
-              projectFiles={projectFiles}
-              onFileOperation={onTerminalFileOperation}
               isActive={activeTab === 'terminal'}
             />
           </div>

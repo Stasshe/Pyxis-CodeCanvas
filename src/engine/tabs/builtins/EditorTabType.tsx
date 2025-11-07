@@ -1,0 +1,86 @@
+// src/engine/tabs/builtins/EditorTabType.tsx
+import React from 'react';
+import { TabTypeDefinition, EditorTab, TabComponentProps } from '../types';
+import CodeEditor from '@/components/Tab/CodeEditor';
+import { useTabStore } from '@/stores/tabStore';
+import { useProject } from '@/engine/core/project';
+import { useSettings } from '@/hooks/useSettings';
+import { useGitContext } from '@/components/PaneContainer';
+
+/**
+ * エディタタブのコンポーネント
+ */
+const EditorTabComponent: React.FC<TabComponentProps> = ({ tab, isActive }) => {
+  const editorTab = tab as EditorTab;
+  const { saveFile, currentProject } = useProject();
+  const { settings } = useSettings(currentProject?.id);
+  const updateTab = useTabStore(state => state.updateTab);
+  const { setGitRefreshTrigger } = useGitContext();
+
+  const wordWrapConfig = settings?.editor?.wordWrap ? 'on' : 'off';
+
+  const handleContentChange = async (tabId: string, content: string) => {
+    // タブのコンテンツを更新（isDirtyをtrue）
+    updateTab(editorTab.paneId, tabId, { content, isDirty: true } as Partial<EditorTab>);
+
+    // ファイルを保存
+    if (saveFile && editorTab.path) {
+      await saveFile(editorTab.path, content);
+      updateTab(editorTab.paneId, tabId, { isDirty: false } as Partial<EditorTab>);
+      // Git状態を更新
+      setGitRefreshTrigger(prev => prev + 1);
+    }
+  };
+
+  const handleImmediateContentChange = (tabId: string, content: string) => {
+    // 即座にタブのコンテンツを更新（isDirtyをtrue）
+    updateTab(editorTab.paneId, tabId, { content, isDirty: true } as Partial<EditorTab>);
+  };
+
+  return (
+    <CodeEditor
+      activeTab={editorTab}
+      currentProject={currentProject || undefined}
+      isCodeMirror={editorTab.isCodeMirror || false}
+      bottomPanelHeight={200}
+      isBottomPanelVisible={false}
+      wordWrapConfig={wordWrapConfig}
+      onContentChange={handleContentChange}
+      onImmediateContentChange={handleImmediateContentChange}
+    />
+  );
+};
+
+/**
+ * エディタタブタイプの定義
+ */
+export const EditorTabType: TabTypeDefinition = {
+  kind: 'editor',
+  displayName: 'Editor',
+  icon: 'FileText',
+  canEdit: true,
+  canPreview: false,
+  component: EditorTabComponent,
+
+  createTab: (file, options): EditorTab => {
+    const tabId = file.path || file.name || `editor-${Date.now()}`;
+    return {
+      id: tabId,
+      name: file.name,
+      kind: 'editor',
+      path: file.path || '',
+      paneId: options?.paneId || '',
+      content: file.content || '',
+      isDirty: false,
+      isCodeMirror: file.isCodeMirror || false,
+      isBufferArray: file.isBufferArray || false,
+      bufferContent: file.bufferContent,
+      jumpToLine: options?.jumpToLine,
+      jumpToColumn: options?.jumpToColumn,
+    };
+  },
+
+  shouldReuseTab: (existingTab, newFile, options) => {
+    return existingTab.path === newFile.path && existingTab.kind === 'editor';
+  },
+};

@@ -7,7 +7,7 @@ import unusedImports from 'eslint-plugin-unused-imports';
 export default [
   eslint.configs.recommended,
   {
-    files: ['src/**/*.ts'],
+    files: ['src/**/*.ts', 'extensions/**/*.ts', 'extensions/**/*.tsx'],
     languageOptions: {
       parser: tsparser,
       parserOptions: {
@@ -43,6 +43,25 @@ export default [
           alphabetize: { order: 'asc', caseInsensitive: true },
         },
       ],
+      'indent': [
+        'error',
+        2,
+        {
+          SwitchCase: 1,
+          VariableDeclarator: 1,
+          outerIIFEBody: 1,
+          MemberExpression: 1,
+          FunctionDeclaration: { parameters: 1, body: 1 },
+          FunctionExpression: { parameters: 1, body: 1 },
+          CallExpression: { arguments: 1 },
+          ArrayExpression: 1,
+          ObjectExpression: 1,
+          ImportDeclaration: 1,
+          flatTernaryExpressions: false,
+          ignoredNodes: [],
+          ignoreComments: false,
+        }
+      ],
       '@typescript-eslint/no-unused-vars': 'off', // Completely disabled
       '@typescript-eslint/explicit-function-return-type': 'warn',
       '@typescript-eslint/no-explicit-any': 'warn',
@@ -66,6 +85,6 @@ export default [
     },
   },
   {
-    ignores: ['out', 'node_modules', '*.js', '.next', 'dist', 'build', 'public', 'coverage', '**/*.d.ts'],
+    ignores: ['out', 'node_modules', '*.js', '.next', 'dist', 'build', 'public', 'coverage', '**/*.d.ts', 'scripts/extensions/samples'],
   },
 ];

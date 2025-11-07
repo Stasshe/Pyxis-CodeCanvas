@@ -1,0 +1,9 @@
+{
+  "id": "pyxis.test-multi-file",
+  "name": "Multi-File Test Extension",
+  "version": "1.0.0",
+  "type": "ui",
+  "description": "複数ファイルに渡る拡張機能のテスト - サイドバーにテストパネルを表示",
+  "author": "Pyxis Team",
+  "entry": "index.js"
+}

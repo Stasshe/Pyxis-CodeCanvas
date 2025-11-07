@@ -1,0 +1,352 @@
+{
+  "action": {
+    "authenticating": "正在验证...",
+    "cancel": "取消",
+    "refresh": "刷新",
+    "retry": "重试"
+  },
+  "ai": {
+    "changedFilesList": {
+      "noChangedFiles": "无更改的文件"
+    },
+    "chatContainer": {
+      "generating": "AI 正在生成回复...",
+      "suggest": "请提问或提出代码请求。"
+    },
+    "chatMessage": {
+      "copyCode": "复制代码",
+      "reference": "参考："
+    },
+    "context": {
+      "select": "选择文件"
+    },
+    "fileChangeItem": {
+      "apply": "应用",
+      "confirm": "确认",
+      "discard": "放弃"
+    },
+    "fileContextBar": {
+      "addFile": "+ 添加文件",
+      "context": "上下文：",
+      "noFileSelected": "未选择文件"
+    },
+    "hints": {
+      "enterSend": "Enter：换行 / Ctrl+Enter：发送",
+      "history": "Alt+↑↓：历史"
+    },
+    "input": {
+      "ask": "向 AI 提问或咨询代码...",
+      "edit": "输入指示以编辑代码..."
+    },
+    "selectedLabel": "已选择：",
+    "sendTitle": "发送 (Ctrl+Enter)"
+  },
+  "aiReviewTab": {
+    "applyAll": "全部应用",
+    "autoSaveAndApply": "更改会自动保存，并可通过“全部应用”反映到文件中。",
+    "discard": "放弃",
+    "discardAllAndRevert": "放弃所有并还原",
+    "editRightDirectly": "你可以直接在右侧编辑器中编辑",
+    "notFound": "未找到 AI 审查数据",
+    "revert": "还原",
+    "revertSelectionHint": "你也可以右键选择并选择“还原所选项”。"
+  },
+  "auth": {
+    "authFailed": "GitHub 验证失败",
+    "authSuccess": "GitHub 验证成功！",
+    "clickToOpenMenu": "点击打开菜单",
+    "patDescription": "<0>点击这里</0> 创建一个 PAT（需要 repo 权限）",
+    "patPlaceholder": "ghp_xxxxxxxxxxxx",
+    "patPrompt": "GitHub 个人访问令牌",
+    "signIn": "登录",
+    "signOut": "登出",
+    "signOutConfirm": "确定要从 GitHub 登出吗？"
+  },
+  "binaryTab": {
+    "unsupportedFormat": "无法显示此文件格式"
+  },
+  "bottom": {
+    "debugConsole": "调试控制台",
+    "output": "输出",
+    "outputPanel": {
+      "all": "全部",
+      "clear": "清除",
+      "clearTooltip": "清除当前显示的输出",
+      "contextLabel": "上下文",
+      "empty": "无输出",
+      "typeLabel": "类型"
+    },
+    "terminal": "终端",
+    "terminalInitializing": "终端初始化中..."
+  },
+  "changedFilesList": {
+    "apply": "应用",
+    "applyAll": "全部应用",
+    "changedFiles": "更改的文件",
+    "discard": "放弃",
+    "discardAll": "全部放弃",
+    "others": "其他",
+    "preview": "预览",
+    "reason": "原因",
+    "review": "审查"
+  },
+  "charCountDisplay": {
+    "clickForDetails": "点击查看详情",
+    "close": "关闭",
+    "selectedAndTotal": "已选择：{selectionCount} 字（不含空格） / 总计：{charCount} 字（不含空格）",
+    "total": "总计：{charCount} 字（不含空格）"
+  },
+  "chatSpaceList": {
+    "confirmDelete": "确定要删除此空间吗？",
+    "create": "创建新空间",
+    "delete": "删除",
+    "empty": "尚无空间",
+    "rename": "重命名"
+  },
+  "confirmation": {
+    "title": "确认"
+  },
+  "diff": {
+    "diff": "差异",
+    "lines": "行",
+    "original": "原始",
+    "suggested": "建议"
+  },
+  "diffTab": {
+    "fileList": "文件列表",
+    "noDiffFiles": "无差异文件"
+  },
+  "editorPlaceholder": {
+    "loadingEditor": "正在加载编辑器...",
+    "loadingFile": "正在还原文件内容...",
+    "selectFile": "请选择文件"
+  },
+  "fileTree": {
+    "alert": {
+      "renameFailed": "重命名失败：{error}"
+    },
+    "menu": {
+      "createFile": "创建文件",
+      "createFolder": "创建文件夹",
+      "delete": "删除",
+      "download": "下载",
+      "import": "导入",
+      "open": "打开",
+      "openCodeMirror": "在 CodeMirror 中打开",
+      "openPreview": "打开预览",
+      "rename": "重命名",
+      "webPreview": "网页预览"
+    },
+    "prompt": {
+      "newFileName": "输入新文件名：",
+      "newFolderName": "输入新文件夹名：",
+      "rename": "输入新名称："
+    }
+  },
+  "git": {
+    "apiKeyPlaceholder": "输入 Gemini API 密钥",
+    "changes": "更改",
+    "commit": "提交",
+    "commitMessagePlaceholder": "输入提交信息...",
+    "committing": "提交中...",
+    "deleted": "已删除",
+    "deleteUntracked": "删除文件",
+    "discard": "放弃",
+    "errorOccurred": "发生错误",
+    "generateCommitMessage": "用 AI 生成提交信息",
+    "generating": "生成中...",
+    "history": "历史",
+    "infoNotAvailable": "无法获取 git 信息",
+    "loadingStatus": "加载 git 状态...",
+    "noChanges": "无更改",
+    "noHistory": "无提交历史",
+    "operationError": "访问 git 时发生错误",
+    "projectSelect": "请选择项目",
+    "restore": "恢复文件",
+    "stage": "暂存",
+    "stageAll": "全部暂存",
+    "staged": "已暂存",
+    "stageDelete": "暂存删除",
+    "unstage": "取消暂存",
+    "unstageAll": "全部取消暂存",
+    "unstaged": "未暂存",
+    "untracked": "未跟踪",
+    "viewDiffEditable": "查看差异（可编辑）",
+    "viewDiffReadonly": "查看差异（只读）"
+  },
+  "gitHistory": {
+    "allFilesScrollable": "全部 {count} 个文件（可滚动）",
+    "changedFiles": "更改的文件：",
+    "daysAgo": "{days} 天前",
+    "duplicateGroupsHidden": "（隐藏 {count} 个重复分组）",
+    "hideDuplicates": "隐藏重复提交",
+    "hoursAgo": "{hours} 小时前",
+    "justNow": "刚刚",
+    "loadingChanges": "加载更改信息...",
+    "minutesAgo": "{minutes} 分钟前",
+    "noChangedFiles": "未找到更改文件",
+    "showAllFilesDiff": "显示此提交的所有文件差异",
+    "showDuplicates": "显示重复提交",
+    "showFileDiff": "显示此文件的差异"
+  },
+  "highlightedCode": {
+    "copyCode": "复制代码"
+  },
+  "leftSidebar": {
+    "createFile": "创建新文件",
+    "createFolder": "创建新文件夹"
+  },
+  "markdownPreview": {
+    "downloadSvg": "下载 SVG",
+    "exportPdf": "导出 PDF",
+    "generatingMermaid": "正在生成 Mermaid 图表...",
+    "imageNotFound": "未找到图片：{src}",
+    "loadingImage": "正在加载图片...",
+    "preview": "预览",
+    "reset": "重置",
+    "zoomIn": "放大",
+    "zoomOut": "缩小"
+  },
+  "menu": {
+    "files": "文件",
+    "git": "Git",
+    "project": "项目管理",
+    "run": "运行",
+    "search": "搜索",
+    "settings": "设置"
+  },
+  "operationWindow": {
+    "closeByEsc": "按 ESC 关闭",
+    "footerHelp": "使用 ↑↓ 选择，Enter 打开",
+    "mdPreviewDialogHelp": "Tab/←→ 切换，Enter 确定，ESC 关闭",
+    "mdPreviewPrompt": "在 Markdown 预览中打开？",
+    "noFilesFound": "未找到文件",
+    "openInEditor": "在编辑器中打开",
+    "openInPreview": "在预览中打开",
+    "searchPlaceholder": "按文件/文件夹名或路径搜索..."
+  },
+  "projectModal": {
+    "cancel": "取消",
+    "clone": "从 GitHub 克隆",
+    "cloneFromGitHub": "从 GitHub 克隆",
+    "cloneSuccess": "克隆成功",
+    "create": "创建",
+    "created": "已创建",
+    "deleteConfirm": "确定要删除此项目吗？",
+    "deleteProject": "删除项目",
+    "description": "描述",
+    "descriptionOptional": "描述（可选）",
+    "descriptionPlaceholder": "输入项目描述...",
+    "editProject": "编辑项目",
+    "inputRepoUrl": "仓库 URL",
+    "loading": "加载中...",
+    "nameHint": "使用字母数字和连字符",
+    "nameValidation": "项目名只能包含字母数字和连字符。不能使用日文。空格将被替换为连字符。",
+    "newProject": "新项目",
+    "noProjects": "未找到项目",
+    "open": "打开",
+    "projectName": "项目名称",
+    "projectNameOptional": "项目名称（可选）",
+    "projectNameOptionalPlaceholder": "可选的项目名称...",
+    "projectNamePlaceholder": "输入项目名称...",
+    "repoUrl": "仓库 URL",
+    "repoUrlPlaceholder": "https://github.com/owner/repo",
+    "save": "保存",
+    "title": "项目管理",
+    "updated": "已更新"
+  },
+  "run": {
+    "clearOutput": "清除输出",
+    "execute": "执行",
+    "executeHint": "按 Ctrl+Enter（Cmd+Enter）执行",
+    "executionStopped": "执行已停止",
+    "fileContentError": "无法获取文件内容",
+    "inputPlaceholder": "输入 Node.js 代码...",
+    "languageNode": "Node.js",
+    "languagePython": "Python",
+    "noOutput": "无输出",
+    "noProject": "打开项目以执行 Node.js 代码",
+    "outputHint": "当你执行 JavaScript/Node.js/Python 代码时，结果会显示在此处。Node.js 和 js 可以在同一个文件中执行。",
+    "runtimeNotReady": "Python 运行时未初始化",
+    "searchFile": "搜索要执行的文件...",
+    "stop": "停止",
+    "title": "执行环境"
+  },
+  "searchPanel": {
+    "caseSensitive": "区分大小写",
+    "noResults": "未找到结果",
+    "resultCount": "{count} 个结果",
+    "searchInFiles": "在文件中搜索...",
+    "searching": "搜索中...",
+    "useRegex": "使用正则",
+    "wholeWord": "全字匹配"
+  },
+  "settingsPanel": {
+    "api": {
+      "apiKeyPlaceholder": "输入 API 密钥",
+      "geminiApiKey": "Gemini API 密钥",
+      "savedToLocalStorage": "已保存到 LocalStorage",
+      "title": "API"
+    },
+    "editor": {
+      "defaultEditor": "默认编辑器",
+      "fontSize": "字体大小",
+      "savedToLocalStorage": "已保存到 LocalStorage",
+      "tabSize": "制表符宽度",
+      "title": "编辑器",
+      "wordWrap": "启用自动换行"
+    },
+    "export": {
+      "exporting": "导出中...",
+      "includeGit": "包含 .git 目录",
+      "title": "工作区导出",
+      "zipDownload": "下载 ZIP"
+    },
+    "files": {
+      "excludeHint": "在资源管理器中隐藏的文件/文件夹",
+      "excludePattern": "排除模式",
+      "title": "文件"
+    },
+    "loading": "正在加载设置...",
+    "search": {
+      "excludePattern": "排除模式",
+      "globPatternHint": "每行写一个 glob 模式",
+      "title": "搜索",
+      "useIgnoreFiles": "使用 .gitignore 等忽略文件"
+    },
+    "theme": {
+      "colorCustomize": "颜色自定义",
+      "colorTheme": "配色主题",
+      "highlightTheme": "代码高亮主题",
+      "title": "主题"
+    }
+  },
+  "tabBar": {
+    "closeTab": "关闭标签",
+    "moveToPane": "移动到面板",
+    "openPreview": "Open Preview",
+    "paneMenu": "面板菜单",
+    "removeAllTabs": "关闭所有标签",
+    "removePane": "移除面板",
+    "saveRestart": "保存并重启",
+    "splitHorizontal": "水平拆分",
+    "splitVertical": "垂直拆分"
+  },
+  "tabCloseConfirmation": {
+    "cancel": "取消",
+    "discardAndClose": "放弃并关闭",
+    "discardChangesMessage": "此选项卡中有未保存的更改。确定要关闭吗？",
+    "discardChangesTitle": "放弃更改？"
+  },
+  "topBar": {
+    "searchLabel": "文件搜索",
+    "searchTitle": "文件搜索 (Ctrl+P)",
+    "toggleRightPanel": "切换右侧面板",
+    "toggleTerminal": "切换终端"
+  },
+  "webPreviewTab": {
+    "emptyDirectory": "目录为空",
+    "inlineHtmlFailed": "内联 HTML 资源失败",
+    "notFound": "未找到文件或文件夹"
+  }
+}

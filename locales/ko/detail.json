@@ -1,0 +1,17 @@
+{
+  "charCountDetails": {
+    "lines": "줄 수",
+    "words": "단어 수",
+    "chars": "문자 수",
+    "charsNoSpaces": "공백 제외 문자 수",
+    "zenkaku": "전각 문자 수",
+    "hankaku": "반각 문자 수",
+    "digits": "숫자",
+    "alpha": "영문자",
+    "symbols": "기호",
+    "spaces": "공백",
+    "newlines": "줄 바꿈",
+    "maxLineLen": "최대 줄 길이",
+    "avgLineLen": "평균 줄 길이"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "charCountDetails": {
+    "lines": "Lignes",
+    "words": "Mots",
+    "chars": "Caractères",
+    "charsNoSpaces": "Caractères (sans espaces)",
+    "zenkaku": "Caractères pleine largeur",
+    "hankaku": "Caractères demi-largeur",
+    "digits": "Chiffres",
+    "alpha": "Lettres",
+    "symbols": "Symboles",
+    "spaces": "Espaces",
+    "newlines": "Sauts de ligne",
+    "maxLineLen": "Longueur maximale de ligne",
+    "avgLineLen": "Longueur moyenne de ligne"
+  }
+}

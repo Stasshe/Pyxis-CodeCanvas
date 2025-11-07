@@ -1,0 +1,17 @@
+{
+  "charCountDetails": {
+    "lines": "Satırlar",
+    "words": "Kelimeler",
+    "chars": "Karakterler",
+    "charsNoSpaces": "Karakterler (boşluksuz)",
+    "zenkaku": "Tam genişlik karakterleri",
+    "hankaku": "Yarı genişlik karakterleri",
+    "digits": "Rakamlar",
+    "alpha": "Alfabe",
+    "symbols": "Semboller",
+    "spaces": "Boşluklar",
+    "newlines": "Yeni satırlar",
+    "maxLineLen": "Maks satır uzunluğu",
+    "avgLineLen": "Ortalama satır uzunluğu"
+  }
+}

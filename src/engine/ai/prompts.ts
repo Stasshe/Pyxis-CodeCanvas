@@ -41,12 +41,12 @@ export const ASK_PROMPT_TEMPLATE = (
   const history =
     previousMessages && previousMessages.length > 0
       ? previousMessages
-          .slice(-5)
-          .map(
-            msg =>
-              `### ${msg.type === 'user' ? 'ユーザー' : 'アシスタント'}: ${msg.mode === 'edit' ? '編集' : '会話'}\n${msg.content}`
-          )
-          .join('\n\n')
+        .slice(-5)
+        .map(
+          msg =>
+            `### ${msg.type === 'user' ? 'ユーザー' : 'アシスタント'}: ${msg.mode === 'edit' ? '編集' : '会話'}\n${msg.content}`
+        )
+        .join('\n\n')
       : '';
 
   const fileContexts = files
@@ -70,7 +70,7 @@ ${fileContexts ? `## 提供されたファイル\n${fileContexts}\n` : ''}
 ${question}
 
 ---
-回答は必ず日本語で、分かりやすく簡潔にお願いします。コード例が必要な場合は適切なコードブロックを使ってください。`;
+回答は分かりやすく簡潔にお願いします。コード例が必要な場合は適切なコードブロックを使ってください。`;
 };
 
 export const EDIT_PROMPT_TEMPLATE = (
@@ -82,12 +82,12 @@ export const EDIT_PROMPT_TEMPLATE = (
   const history =
     previousMessages && previousMessages.length > 0
       ? previousMessages
-          .slice(-5)
-          .map(
-            msg =>
-              `### ${msg.type === 'user' ? 'ユーザー' : 'アシスタント'}: ${msg.mode === 'edit' ? '編集' : '会話'}\n${msg.content}`
-          )
-          .join('\n\n')
+        .slice(-5)
+        .map(
+          msg =>
+            `### ${msg.type === 'user' ? 'ユーザー' : 'アシスタント'}: ${msg.mode === 'edit' ? '編集' : '会話'}\n${msg.content}`
+        )
+        .join('\n\n')
       : '';
 
   const fileContexts = files

@@ -1,757 +1,609 @@
-import vm from 'vm-browserify';
+/**
+ * [NEW ARCHITECTURE] Node.js Runtime Emulator
+ *
+ * ## 設計原則
+ * 1. IndexedDB (fileRepository) を唯一の真実の源として使用
+ * 2. ModuleLoaderによる高度なモジュール解決
+ * 3. npm installされたパッケージはIndexedDBから読み取り
+ * 4. ES Modulesとcommonjsの両方をサポート
+ * 5. トランスパイルキャッシュによる高速化
+ * 6. require()は非同期化（await __require__()に変換）
+ */
 
-import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
-import { DebugConsoleAPI } from '@/components/Bottom/DebugConsoleAPI';
-import { UnixCommands } from '@/engine/cmd/unix';
-import { getFileSystem, getProjectDir } from '@/engine/core/filesystem';
-import {
-  createFSModule,
-  createPathModule,
-  createOSModule,
-  createUtilModule,
-  createReadlineModule,
-  createHTTPModule,
-  createHTTPSModule,
-} from '@/engine/node/builtInModule';
-import {
-  transformESModules,
-  wrapCodeForExecution,
-  wrapModuleCode,
-} from '@/engine/node/esModuleTransformer';
+import { ModuleLoader } from './moduleLoader';
+import { runtimeInfo, runtimeWarn, runtimeError } from './runtimeLogger';
 
-// Node.js風のランタイム環境
-export class NodeJSRuntime {
-  private fs: any;
+import { fileRepository } from '@/engine/core/fileRepository';
+import { createBuiltInModules, type BuiltInModules } from '@/engine/node/builtInModule';
+
+/**
+ * 実行オプション
+ */
+export interface ExecutionOptions {
+  projectId: string;
+  projectName: string;
+  filePath: string;
+  debugConsole?: {
+    log: (...args: unknown[]) => void;
+    error: (...args: unknown[]) => void;
+    warn: (...args: unknown[]) => void;
+    clear: () => void;
+  };
+  onInput?: (prompt: string, callback: (input: string) => void) => void;
+}
+
+/**
+ * Node.js Runtime Emulator
+ */
+export class NodeRuntime {
+  private projectId: string;
+  private projectName: string;
+  private debugConsole: ExecutionOptions['debugConsole'];
+  private onInput?: ExecutionOptions['onInput'];
+  private builtInModules: BuiltInModules;
+  private moduleLoader: ModuleLoader;
   private projectDir: string;
-  private unixCommands: UnixCommands;
-  private console: any;
-  private onOutput?: (output: string, type: 'log' | 'error') => void;
-  private onFileOperation?: (
-    path: string,
-    type: 'file' | 'folder' | 'delete',
-    content?: string,
-    isNodeRuntime?: boolean
-  ) => Promise<void>;
-  private moduleCache: Map<string, any> = new Map(); // モジュールキャッシュ
-  private currentWorkingDirectory: string = '/'; // 現在の作業ディレクトリ
 
-  constructor(
-    projectName: string,
-    onOutput?: (output: string, type: 'log' | 'error') => void,
-    onFileOperation?: (
-      path: string,
-      type: 'file' | 'folder' | 'delete',
-      content?: string,
-      isNodeRuntime?: boolean
-    ) => Promise<void>
-  ) {
-    this.fs = getFileSystem();
-    this.projectDir = getProjectDir(projectName);
-    this.unixCommands = new UnixCommands(projectName, onFileOperation);
-    this.onOutput = onOutput;
-    this.onFileOperation = onFileOperation;
+  constructor(options: ExecutionOptions) {
+    this.projectId = options.projectId;
+    this.projectName = options.projectName;
+    this.debugConsole = options.debugConsole;
+    this.onInput = options.onInput;
+    this.projectDir = `/projects/${this.projectName}`;
 
-    // console.logをオーバーライド
-    this.console = {
-      log: (...args: any[]) => {
-        const output = args
-          .map(arg => (typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)))
-          .join(' ');
-        // 既存のonOutput（出力パネル）への出力は維持
-        this.onOutput?.(output, 'log');
-        // DebugConsoleAPIにも出力
-        DebugConsoleAPI.log(`\x1b[32m[LOG]\x1b[0m ${output}`);
-      },
-      error: (...args: any[]) => {
-        const output = args
-          .map(arg => (typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)))
-          .join(' ');
-        this.onOutput?.(output, 'error');
-        // DebugConsoleAPIにも出力（赤色）
-        DebugConsoleAPI.log(`\x1b[31m[ERROR]\x1b[0m ${output}`);
-      },
-      warn: (...args: any[]) => {
-        const output = args
-          .map(arg => (typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)))
-          .join(' ');
-        this.onOutput?.(`⚠️ ${output}`, 'log');
-        // DebugConsoleAPIにも出力（黄色）
-        DebugConsoleAPI.log(`\x1b[33m[WARN]\x1b[0m ${output}`);
-      },
-      info: (...args: any[]) => {
-        const output = args
-          .map(arg => (typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)))
-          .join(' ');
-        this.onOutput?.(`ℹ️ ${output}`, 'log');
-        // DebugConsoleAPIにも出力（青色）
-        DebugConsoleAPI.log(`\x1b[34m[INFO]\x1b[0m ${output}`);
-      },
-    };
+    // ビルトインモジュールの初期化（onInputを渡す）
+    this.builtInModules = createBuiltInModules({
+      projectDir: this.projectDir,
+      projectId: this.projectId,
+      projectName: this.projectName,
+      onInput: this.onInput,
+    });
+
+    // ModuleLoaderの初期化
+    this.moduleLoader = new ModuleLoader({
+      projectId: this.projectId,
+      projectName: this.projectName,
+      debugConsole: this.debugConsole,
+    });
+
+    runtimeInfo('🚀 NodeRuntime initialized', {
+      projectId: this.projectId,
+      projectName: this.projectName,
+      projectDir: this.projectDir,
+    });
   }
 
-  // Node.js風のコードを実行
-  async executeNodeJS(
-    code: string
-  ): Promise<{ success: boolean; output?: string; error?: string }> {
+  /**
+   * ファイルを実行
+   */
+  async execute(filePath: string): Promise<void> {
     try {
-      // まず必要なモジュールを事前ロード（現在の作業ディレクトリから開始）
-      await this.preloadModules(code, this.currentWorkingDirectory);
+      runtimeInfo('▶️ Executing file:', filePath);
 
-      // Node.js風のグローバル環境を構築
-      const nodeGlobals = this.createNodeGlobals();
+      // ModuleLoaderを初期化
+      await this.moduleLoader.init();
 
-      // コードを実行可能な形に変換
-      const wrappedCode = wrapCodeForExecution(code, nodeGlobals);
+      // ファイルを読み込み
+      const fileContent = await this.readFile(filePath);
+      if (fileContent === null) {
+        throw new Error(`File not found: ${filePath}`);
+      }
 
-      // 実行
-      const result = await this.executeInSandbox(wrappedCode, nodeGlobals);
+      runtimeInfo('📄 File loaded:', {
+        filePath,
+        size: fileContent.length,
+      });
 
-      return { success: true, output: result };
+      // トランスパイル（require → await __require__ に変換）
+      // Use ModuleLoader.getTranspiledCode so the entry file benefits from
+      // the same transpile cache and disk-backed cache as other modules.
+      // Don't fallback to simple transpile; always use ModuleLoader.
+      // Don't fallback to original code.
+      const code = await this.moduleLoader.getTranspiledCode(filePath, fileContent);
+
+      // サンドボックス環境を構築
+      const sandbox = await this.createSandbox(filePath);
+
+      // コードを実行（async関数としてラップ）
+      const wrappedCode = this.wrapCode(code, filePath);
+      const executeFunc = new Function(...Object.keys(sandbox), wrappedCode);
+
+      runtimeInfo('✅ Code compiled successfully');
+      await executeFunc(...Object.values(sandbox));
+      runtimeInfo('✅ Execution completed');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      this.onOutput?.(errorMessage, 'error');
-      // DebugConsoleAPIにもエラー出力
-      DebugConsoleAPI.log(`\x1b[31m[RUNTIME ERROR]\x1b[0m ${errorMessage}`);
-      return { success: false, error: errorMessage };
+      const errorStack = error instanceof Error ? error.stack : '';
+      runtimeError('❌ Execution failed:', errorMessage);
+      if (errorStack) {
+        runtimeError('Stack trace:', errorStack);
+      }
+      throw error;
     }
   }
 
-  // コード内のrequire/importを解析して事前ロード（再帰的に依存関係を解決）
-  private async preloadModules(code: string, currentDir: string = '/'): Promise<void> {
-    const moduleNames = new Set<string>();
-
-    pushMsgOutPanel(
-      `[preloadModules] Analyzing code for modules:'${code.substring(0, 100) + '...'}`,
-      'info',
-      'npm'
-    );
-
-    // require()文の検出
-    const requireMatches = code.match(/require\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/g);
-    if (requireMatches) {
-      requireMatches.forEach(match => {
-        const moduleName = match.match(/require\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/)?.[1];
-        if (moduleName && !this.isBuiltinModule(moduleName)) {
-          console.log(`[preloadModules] Adding module to preload: ${moduleName}`);
-          moduleNames.add(moduleName);
-        }
-      });
+  /**
+   * トランスパイルが必要か判定
+   */
+  private needsTranspile(filePath: string, content: string): boolean {
+    if (/\.(ts|tsx|mts|cts)$/.test(filePath)) {
+      return true;
     }
 
-    // import文の検出
-    const importMatches = code.match(/from\s+['"`]([^'"`]+)['"`]/g);
-    if (importMatches) {
-      importMatches.forEach(match => {
-        const moduleName = match.match(/from\s+['"`]([^'"`]+)['"`]/)?.[1];
-        if (moduleName && !this.isBuiltinModule(moduleName)) {
-          console.log(`[preloadModules] Adding module to preload: ${moduleName}`);
-          moduleNames.add(moduleName);
-        }
-      });
+    if (/\.(jsx|tsx)$/.test(filePath)) {
+      return true;
     }
 
-    console.log(`[preloadModules] Total modules to preload: ${Array.from(moduleNames)}`);
-
-    // 検出されたモジュールを事前ロード（再帰的に依存関係もロード）
-    for (const moduleName of moduleNames) {
-      try {
-        await this.preloadModuleRecursively(moduleName, currentDir);
-        pushMsgOutPanel(`[preloadModules] Successfully preloaded: ${moduleName}`, 'info', 'npm');
-      } catch (error) {
-        pushMsgOutPanel(
-          `[preloadModules] Failed to preload ${moduleName}: ${(error as Error).message}`,
-          'error',
-          'npm'
-        );
-        // 事前ロードに失敗してもエラーにはしない
-      }
+    if (this.isESModule(content)) {
+      return true;
     }
 
-    pushMsgOutPanel(
-      `[preloadModules] Preloading complete. Cache contents: ${Array.from(this.moduleCache.keys())}`,
-      'info',
-      'npm'
-    );
+    // require()を含む場合も変換が必要（await __require__に変換）
+    if (/require\s*\(/.test(content)) {
+      return true;
+    }
+
+    return false;
   }
 
-  // モジュールとその依存関係を再帰的に事前ロード
-  private async preloadModuleRecursively(
-    moduleName: string,
-    contextDir: string = '/'
-  ): Promise<void> {
-    // モジュールの解決キーを生成（コンテキストディレクトリを考慮）
-    let resolvedModuleName = moduleName;
-    let moduleKey = this.getModuleKey(moduleName, contextDir);
+  /**
+   * ES Moduleかどうかを判定
+   */
+  private isESModule(content: string): boolean {
+    const cleaned = content
+      .replace(/\/\/.*$/gm, '')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/(['"`])(?:(?=(\\?))\2.)*?\1/g, '');
 
-    // '#'で始まる場合はpackage.jsonのimportsフィールドを参照
-    if (moduleName.startsWith('#')) {
-      // contextDirから親ディレクトリを辿ってpackage.jsonを探す
-      let searchDir = contextDir;
-      let found = false;
-      let pkgJsonPath = '';
-      let pkgJsonFullPath = '';
-      while (searchDir !== '' && searchDir !== '/' && !found) {
-        pkgJsonPath = searchDir + '/package.json';
-        if (!pkgJsonPath.startsWith('/')) pkgJsonPath = '/' + pkgJsonPath;
-        pkgJsonFullPath = this.projectDir + pkgJsonPath;
-        try {
-          const stat = await this.fs.promises.stat(pkgJsonFullPath);
-          if (stat) {
-            found = true;
-            break;
-          }
-        } catch (e) {
-          // 見つからなければ親ディレクトリへ
-          searchDir = searchDir.substring(0, searchDir.lastIndexOf('/'));
-          if (searchDir === '') searchDir = '/';
-        }
-      }
-      if (found) {
-        try {
-          const pkgContent = await this.fs.promises.readFile(pkgJsonFullPath, { encoding: 'utf8' });
-          const pkgData = JSON.parse(pkgContent);
-          if (pkgData.imports && pkgData.imports[moduleName]) {
-            const importPath = pkgData.imports[moduleName];
-            // importPathが"./"で始まる場合はpackage.jsonのディレクトリからの相対パス
-            const pkgDir = pkgJsonPath.replace(/\/package\.json$/, '');
-            if (importPath.startsWith('./')) {
-              resolvedModuleName = pkgDir + '/' + importPath.substring(2);
-            } else {
-              resolvedModuleName = importPath;
-            }
-            moduleKey = this.getModuleKey(resolvedModuleName, contextDir);
-            console.log(
-              `[preloadModuleRecursively] '#'-import resolved: ${moduleName} -> ${resolvedModuleName}`
-            );
-          }
-        } catch (e) {
-          // JSON parse error等は無視
-        }
-      }
-    }
-
-    // すでにキャッシュにある場合はスキップ
-    if (this.moduleCache.has(moduleKey)) {
-      console.log(`[preloadModuleRecursively] Already cached: ${moduleKey}`);
-      return;
-    }
-
-    console.log(
-      `[preloadModuleRecursively] Loading module: ${resolvedModuleName} from context: ${contextDir}`
-    );
-
-    // 現在の作業ディレクトリを一時的に設定
-    const oldCwd = this.currentWorkingDirectory;
-    this.currentWorkingDirectory = contextDir;
-
-    try {
-      // 組み込みモジュールの場合
-      if (this.isBuiltinModule(resolvedModuleName)) {
-        const module = this.createBuiltinModule(resolvedModuleName);
-        this.moduleCache.set(moduleKey, module);
-        return;
-      }
-
-      // ファイルモジュールをロード
-      const moduleObj = await this.loadFileModuleForPreload(resolvedModuleName);
-      this.moduleCache.set(moduleKey, moduleObj);
-
-      console.log(`[preloadModuleRecursively] Successfully loaded: ${moduleKey}`);
-    } finally {
-      // 作業ディレクトリを復元
-      this.currentWorkingDirectory = oldCwd;
-    }
+    return /^\s*(import|export)\s+/m.test(cleaned);
   }
 
-  // モジュールキーを生成（コンテキスト付き）
-  private getModuleKey(moduleName: string, contextDir: string): string {
-    // 絶対パスや相対パスの場合は、コンテキストディレクトリと結合
-    if (moduleName.startsWith('./') || moduleName.startsWith('../') || moduleName.startsWith('/')) {
-      let resolvedPath: string;
-      if (moduleName.startsWith('/')) {
-        resolvedPath = moduleName;
-      } else {
-        resolvedPath = this.resolvePath(contextDir, moduleName);
-      }
-      return resolvedPath;
-    }
-    // npm パッケージの場合はモジュール名をそのまま使用
-    return moduleName;
+  /**
+   * コードをラップ（async関数として実行）
+   */
+  private wrapCode(code: string, filePath: string): string {
+    return `
+      return (async () => {
+        'use strict';
+        const module = { exports: {} };
+        const exports = module.exports;
+        const __filename = ${JSON.stringify(filePath)};
+        const __dirname = ${JSON.stringify(this.dirname(filePath))};
+        
+        ${code}
+        
+        return module.exports;
+      })();
+    `;
   }
 
-  // パスを解決するヘルパー
-  private resolvePath(basePath: string, relativePath: string): string {
-    // 相対パスを絶対パスに解決
-    const parts = basePath.split('/').filter(p => p.length > 0);
-    const relativeParts = relativePath.split('/');
-
-    for (const part of relativeParts) {
-      if (part === '.') {
-        continue;
-      } else if (part === '..') {
-        parts.pop();
-      } else {
-        parts.push(part);
-      }
-    }
-
-    return '/' + parts.join('/');
-  }
-
-  // Node.js風のグローバル環境を作成
-  private createNodeGlobals(): any {
+  /**
+   * サンドボックス環境を構築
+   */
+  private async createSandbox(currentFilePath: string): Promise<Record<string, unknown>> {
     const self = this;
 
-    return {
-      console: this.console,
-      process: {
-        cwd: () => this.unixCommands.getRelativePath(),
-        env: { NODE_ENV: 'development' },
-        version: 'v18.0.0',
-        platform: 'browser',
-        argv: ['node', 'script.js'],
-      },
-      require: (moduleName: string) => {
-        const moduleKey = this.getModuleKey(moduleName, this.currentWorkingDirectory);
-        if (this.moduleCache.has(moduleKey)) {
-          console.log(`[require] Loading from cache: ${moduleKey}`);
-          return this.moduleCache.get(moduleKey);
-        }
-        if (this.isBuiltinModule(moduleName)) {
-          const module = this.createBuiltinModule(moduleName);
-          this.moduleCache.set(moduleKey, module);
-          return module;
-        }
-        console.error(
-          `[require] Module '${moduleName}' (key: ${moduleKey}) not found in cache. Available modules:`,
-          Array.from(this.moduleCache.keys())
-        );
-        throw new Error(
-          `Module '${moduleName}' not found in cache. Make sure all dependencies are preloaded. Context: ${this.currentWorkingDirectory}`
-        );
-      },
-      exports: new Proxy(
-        {},
-        {
-          get: (target, prop) => {
-            const moduleKey = this.getModuleKey(String(prop), this.currentWorkingDirectory);
-            if (this.moduleCache.has(moduleKey)) {
-              console.log(`[exports] Loading from cache: ${moduleKey}`);
-              return this.moduleCache.get(moduleKey);
-            }
-            console.error(
-              `[exports] Module '${String(prop)}' (key: ${moduleKey}) not found in cache. Available modules:`,
-              Array.from(this.moduleCache.keys())
-            );
-            throw new Error(
-              `Module '${String(prop)}' not found in cache. Make sure all dependencies are preloaded. Context: ${this.currentWorkingDirectory}`
-            );
-          },
-        }
-      ),
-      __filename: this.projectDir + '/script.js',
-      __dirname: this.projectDir,
-      module: {
-        get exports() {
-          return this._exports;
-        },
-        set exports(value) {
-          this._exports = value;
-          this.exports = value; // 修正: module 内で exports を同期
-        },
-        _exports: {},
-      },
-      Buffer: globalThis.Buffer || {
-        from: (data: any) =>
-          new Uint8Array(typeof data === 'string' ? new TextEncoder().encode(data) : data),
-        isBuffer: (obj: any) => obj instanceof Uint8Array,
-      },
-      setTimeout: globalThis.setTimeout,
-      setInterval: globalThis.setInterval,
-      clearTimeout: globalThis.clearTimeout,
-      clearInterval: globalThis.clearInterval,
-      fetch: globalThis.fetch.bind(globalThis),
-      crypto: globalThis.crypto,
-    };
-  }
+    // __require__ 関数（thenable Proxy を返すことで `await __require__('fs').promises` のような
+    // パターンでも正しく動作するようにする）
+    // NOTE: async function は常に Promise を返すためプロパティアクセスの優先度による問題が
+    // 発生していた。ここでは Promise をラップする thenable Proxy を返す。
+    const __require__ = (moduleName: string) => {
+      runtimeInfo('📦 __require__:', moduleName);
 
-  // サンドボックス内でコードを実行
-  private async executeInSandbox(wrappedCode: string, globals: any): Promise<string> {
-    try {
-      console.log(
-        '[NodeJS Runtime] Executing code (vm-browserify):',
-        wrappedCode.substring(0, 200) + '...'
-      );
-      // DebugConsoleAPIにも実行情報を出力
-      //DebugConsoleAPI.log(`\x1b[35m[SANDBOX]\x1b[0m Executing code in sandbox...`);
+      // 実際のロード処理を行う Promise。
+      // built-in モジュールは同期的に解決できるため、その場合は
+      // loadPromise.__syncValue に実体を格納しておき、Proxy が同期的に
+      // 値/関数を返せるようにする。非同期モジュールは通常どおり load する。
+      let resolveFn: (v: any) => void;
+      let rejectFn: (e: any) => void;
+      const loadPromise: any = new Promise<any>((res, rej) => {
+        resolveFn = res;
+        rejectFn = rej;
+      });
 
-      // vm-browserifyのrunInNewContextでサンドボックス実行
-      // wrappedCodeは関数定義 (async function(globals) {...}) なので、まず関数を生成
-      const asyncFunction = vm.runInNewContext(wrappedCode, globals);
-      if (typeof asyncFunction !== 'function') {
-        throw new Error('Generated function is not executable');
-      }
-      // グローバル変数を渡して実行
-      const result = await asyncFunction(globals);
-
-      // 実行完了をDebugConsoleAPIに出力
-      //DebugConsoleAPI.log(`\x1b[35m[SANDBOX]\x1b[0m Execution completed successfully`);
-      return result !== undefined ? String(result) : '';
-    } catch (error) {
-      console.error('[NodeJS Runtime] Execution error (vm-browserify):', error);
-      // DebugConsoleAPIにもエラー出力
-      DebugConsoleAPI.log(`\x1b[31m[SANDBOX ERROR]\x1b[0m ${(error as Error).message}`);
-      throw new Error(`Execution error: ${(error as Error).message}`);
-    }
-  }
-
-  // ファイルを実行
-  async executeFile(
-    filePath: string
-  ): Promise<{ success: boolean; output?: string; error?: string }> {
-    try {
-      // ファイルパスの正規化（プロジェクトルート相対）
-      let fullPath;
-      let relativePath;
-      if (filePath.startsWith('/')) {
-        // 絶対パスの場合、プロジェクトディレクトリを基準とする
-        fullPath = `${this.projectDir}${filePath}`;
-        relativePath = filePath;
+      // まずビルトインモジュールを同期チェック
+      const builtInModule = this.resolveBuiltInModule(moduleName);
+      if (builtInModule !== null) {
+        runtimeInfo('✅ Built-in module resolved:', moduleName);
+        // 同期値マーカーを付与してすぐに解決
+        (loadPromise as any).__syncValue = builtInModule;
+        resolveFn!(builtInModule);
       } else {
-        // 相対パスの場合
-        fullPath = `${this.projectDir}/${filePath}`;
-        relativePath = `/${filePath}`;
-      }
-
-      // 実行時の作業ディレクトリを設定（ファイルがあるディレクトリ）
-      const fileDir = relativePath.substring(0, relativePath.lastIndexOf('/')) || '/';
-      const oldCwd = this.currentWorkingDirectory;
-      this.currentWorkingDirectory = fileDir;
-
-      console.log(`[executeFile] Reading file: ${filePath} -> ${fullPath}`);
-      console.log(`[executeFile] Setting working directory to: ${fileDir}`);
-
-      try {
-        const code = await this.fs.promises.readFile(fullPath, { encoding: 'utf8' });
-
-        this.onOutput?.(`Executing: ${filePath}`, 'log');
-        // DebugConsoleAPIにも実行開始を出力
-        //DebugConsoleAPI.log(`\x1b[36m[EXECUTE]\x1b[0m Starting execution: ${filePath}`);
-        const result = await this.executeNodeJS(code as string);
-
-        return result;
-      } finally {
-        // 作業ディレクトリを元に戻す
-        this.currentWorkingDirectory = oldCwd;
-      }
-    } catch (error) {
-      const errorMessage = `Failed to execute file '${filePath}': ${(error as Error).message}`;
-      console.error('[executeFile] Error:', error);
-      this.onOutput?.(errorMessage, 'error');
-      // DebugConsoleAPIにもエラー出力
-      DebugConsoleAPI.log(`\x1b[31m[EXECUTE ERROR]\x1b[0m ${errorMessage}`);
-      return { success: false, error: errorMessage };
-    }
-  }
-
-  // 組み込みモジュールかチェック
-  private isBuiltinModule(moduleName: string): boolean {
-    const builtinModules = [
-      'fs',
-      'path',
-      'os',
-      'util',
-      'http',
-      'https',
-      'url',
-      'querystring',
-      'readline',
-    ];
-    return builtinModules.includes(moduleName);
-  }
-
-  // 組み込みモジュールを作成
-  private createBuiltinModule(moduleName: string): any {
-    switch (moduleName) {
-      case 'fs':
-        return createFSModule(this.projectDir, this.onFileOperation, this.unixCommands);
-      case 'path':
-        return createPathModule(this.projectDir);
-      case 'os':
-        return createOSModule();
-      case 'util':
-        return createUtilModule();
-      case 'readline':
-        return createReadlineModule();
-      case 'http':
-        return createHTTPModule();
-      case 'https':
-        return createHTTPSModule();
-      default:
-        throw new Error(`Built-in module '${moduleName}' not implemented`);
-    }
-  }
-
-  // 事前ロード用のファイルモジュールローダー（依存関係も再帰的にロード）
-  private async loadFileModuleForPreload(moduleName: string): Promise<any> {
-    const possiblePaths = this.resolveModulePath(moduleName);
-
-    for (const filePath of possiblePaths) {
-      try {
-        console.log(`[loadFileModuleForPreload] Trying to load: ${filePath}`);
-
-        let fullPath;
-        if (filePath.startsWith('/')) {
-          fullPath = `${this.projectDir}${filePath}`;
-        } else {
-          fullPath = `${this.projectDir}/${filePath}`;
-        }
-
-        console.log(`[loadFileModuleForPreload] Full path: ${fullPath}`);
-
-        // ファイルの存在確認
-        await this.fs.promises.stat(fullPath);
-        console.log(`[loadFileModuleForPreload] File exists: ${fullPath}`);
-
-        // ファイル内容を読み取り
-        const content = await this.fs.promises.readFile(fullPath, { encoding: 'utf8' });
-        console.log(
-          `[loadFileModuleForPreload] File content read successfully, length: ${(content as string).length}`
-        );
-
-        // package.jsonの場合はmain/exportsを解釈して本体jsファイルをrequire
-        if (filePath.endsWith('package.json')) {
+        // 非ビルトイン: 非同期ロードを開始
+        (async () => {
           try {
-            const packageData = JSON.parse(content as string);
-            console.log(`[loadFileModuleForPreload] Loaded package.json: ${moduleName}`);
-            // main/exportsフィールドを参照
-            let entryFile = '';
-            if (packageData.exports && typeof packageData.exports === 'object') {
-              // exportsフィールドがオブジェクトの場合
-              if (packageData.exports['.'] && packageData.exports['.'].import) {
-                entryFile = packageData.exports['.'].import;
-              } else if (packageData.exports['.'] && typeof packageData.exports['.'] === 'string') {
-                entryFile = packageData.exports['.'];
-              } else if (typeof packageData.exports === 'string') {
-                entryFile = packageData.exports;
+            // Support package.json "imports" specifiers like `#ansi-styles`.
+            // If the specifier starts with `#`, try to resolve it via the project's package.json
+            // and use the resolved path/target when loading.
+            let toLoad = moduleName;
+            try {
+              if (typeof moduleName === 'string' && moduleName.startsWith('#')) {
+                const resolved = await self.resolveImportSpecifier(moduleName, currentFilePath);
+                if (resolved) {
+                  runtimeInfo('🔗 Resolved import specifier', moduleName, '->', resolved);
+                  toLoad = resolved;
+                }
+              }
+            } catch (e) {
+              // resolution failure should not crash the loader; fall back to original name
+              runtimeWarn('⚠️ Failed to resolve import specifier:', moduleName, e);
+            }
+
+            const moduleExports = await self.moduleLoader.load(toLoad, currentFilePath);
+
+            // ビルトインモジュールマーカーを処理
+            if (typeof moduleExports === 'object' && moduleExports !== null) {
+              const obj = moduleExports as any;
+              if (obj.__isBuiltIn) {
+                const resolved = this.resolveBuiltInModule(obj.moduleName);
+                (loadPromise as any).__syncValue = resolved;
+                resolveFn!(resolved);
+                return;
               }
             }
-            if (!entryFile && packageData.main) {
-              entryFile = packageData.main;
-            }
-            if (!entryFile) {
-              entryFile = 'index.js';
-            }
-            // パスの正規化
-            if (!entryFile.startsWith('.')) {
-              entryFile = './' + entryFile;
-            }
-            // chalkなどはsource/index.jsのようなパス
-            const packageDir = filePath.replace(/\/package\.json$/, '');
-            const entryPath = packageDir + '/' + entryFile.replace(/^\.\//, '');
-            console.log(`[loadFileModuleForPreload] Resolving entry file: ${entryPath}`);
-            // entryPathをrequire
-            try {
-              return await this.loadFileModuleForPreload(entryPath);
-            } catch (error) {
-              throw new Error(
-                `Failed to load entry file '${entryPath}': ${(error as Error).message}`
-              );
-            }
+
+            resolveFn!(moduleExports);
           } catch (error) {
-            throw new Error(`Invalid JSON in package.json: ${(error as Error).message}`);
+            runtimeError('❌ Failed to load module:', moduleName, error);
+            rejectFn!(new Error(`Cannot find module '${moduleName}'`));
           }
-        }
+        })();
+      }
 
-        // .jsonファイルの場合もJSONとして解析
-        if (filePath.endsWith('.json')) {
-          try {
-            const jsonData = JSON.parse(content as string);
-            //console.log(`[loadFileModuleForPreload] Loaded JSON file: ${moduleName}`);
-            return jsonData;
-          } catch (error) {
-            throw new Error(`Invalid JSON in ${filePath}: ${(error as Error).message}`);
+      // thenable Proxy を返す。これによりプロパティアクセス（例: .promises）は
+      // 同期的に thenable のプロパティ（Promise）として取得でき、`await __require__('fs').promises` が
+      // 正しく動作する。
+      const wrapper = new Proxy(loadPromise as any, {
+        get(target, prop: PropertyKey) {
+          // Promise の then/catch/finally はそのままバインドして返す（await 対応）
+          if (prop === 'then' || prop === 'catch' || prop === 'finally') {
+            return (target as any)[prop].bind(target);
           }
-        }
 
-        // モジュール内の依存関係も事前に再帰的にロード
-        const moduleDir = filePath.substring(0, filePath.lastIndexOf('/')) || '/';
-        console.log(
-          `[loadFileModuleForPreload] Analyzing dependencies in module: ${filePath}, moduleDir: ${moduleDir}`
-        );
-        await this.preloadModules(content as string, moduleDir);
+          // Symbol のような特殊プロパティはそのまま返す
+          if (typeof prop === 'symbol') {
+            return (target as any)[prop];
+          }
 
-        // モジュールを実行して exports を取得
-        const moduleExports = await this.executeModuleCode(content as string, filePath);
+          // まず同期解決済みの値があれば同期的に返す（built-in モジュール向け）
+          const syncVal = (target as any).__syncValue;
+          if (syncVal !== undefined) {
+            const v = (syncVal as any)[prop];
+            if (typeof v === 'function') {
+              // 元のオブジェクトにバインドした関数をそのまま返す（同期的）
+              return (v as Function).bind(syncVal);
+            }
+            return v;
+          }
 
-        console.log(
-          `[loadFileModuleForPreload] Successfully loaded module: ${moduleName} from ${filePath}`
-        );
-        return moduleExports;
-      } catch (error) {
-        console.log(
-          `[loadFileModuleForPreload] Failed to load ${filePath}: ${(error as Error).message}`
-        );
-        continue;
-      }
-    }
+          // 非同期モジュール: Promise 解決後のプロパティを返す。関数なら thenable なラッパーを返す。
+          return (target as Promise<any>).then(mod => {
+            if (mod == null) return undefined;
 
-    // すべての候補パスを試行しても見つからない場合
-    throw new Error(
-      `Module file not found for '${moduleName}'. Tried paths: ${possiblePaths.join(', ')}`
-    );
-  }
+            const value = (mod as any)[prop];
 
-  // モジュールパスを解決
-  private resolveModulePath(moduleName: string): string[] {
-    const paths: string[] = [];
+            if (typeof value === 'function') {
+              const fnWrapper = (...args: unknown[]) => {
+                return (target as Promise<any>).then(actualMod => {
+                  const actualValue = actualMod == null ? undefined : (actualMod as any)[prop];
+                  if (typeof actualValue !== 'function') {
+                    throw new Error(
+                      `Property '${String(prop)}' is not a function on module '${moduleName}'`
+                    );
+                  }
+                  return actualValue.apply(actualMod, args);
+                });
+              };
+              (fnWrapper as any).then = (onFulfilled: any, onRejected: any) => {
+                return (target as Promise<any>).then(mod => {
+                  const actualValue = mod == null ? undefined : (mod as any)[prop];
+                  return Promise.resolve(actualValue).then(onFulfilled, onRejected);
+                }, onRejected);
+              };
+              return fnWrapper;
+            }
 
-    console.log(`[resolveModulePath] Resolving module: ${moduleName}`);
-    console.log(`[resolveModulePath] Current working directory: ${this.currentWorkingDirectory}`);
+            return value;
+          });
+        },
 
-    // 相対パス / 絶対パスの場合
-    if (moduleName.startsWith('./') || moduleName.startsWith('../') || moduleName.startsWith('/')) {
-      let basePath: string;
+        // モジュール自体が関数として扱われた場合: __require__('x')(...)
+        apply(target, thisArg, argsList) {
+          const syncVal = (target as any).__syncValue;
+          if (syncVal !== undefined) {
+            if (typeof syncVal !== 'function') {
+              throw new Error(`Module '${moduleName}' is not callable`);
+            }
+            return (syncVal as any).apply(thisArg, argsList as any);
+          }
+          return (target as Promise<any>).then(mod => {
+            if (typeof mod !== 'function') {
+              throw new Error(`Module '${moduleName}' is not callable`);
+            }
+            return (mod as any).apply(thisArg, argsList as any);
+          });
+        },
+      });
 
-      if (moduleName.startsWith('/')) {
-        basePath = moduleName;
-      } else {
-        // 相対パスの解決
-        if (this.currentWorkingDirectory === '/') {
-          basePath = moduleName.substring(2); // './file' → 'file'
-        } else {
-          basePath = this.currentWorkingDirectory + '/' + moduleName.substring(2);
-        }
-      }
-
-      console.log(`[resolveModulePath] Resolved base path: ${basePath}`);
-
-      // パスの正規化
-      basePath = basePath.replace(/\/+/g, '/').replace(/\/$/, '');
-
-      // 拡張子の候補
-      paths.push(basePath);
-      if (!basePath.includes('.') || basePath.endsWith('.js') === false) {
-        if (!basePath.endsWith('.js')) {
-          paths.push(basePath + '.js');
-        }
-        if (!basePath.endsWith('.json')) {
-          paths.push(basePath + '.json');
-        }
-        // ディレクトリの場合のindex.js
-        paths.push(basePath + '/index.js');
-        paths.push(basePath + '/package.json');
-      }
-    } else {
-      // node_modules風の解決（npm packages）
-      paths.push(`/node_modules/${moduleName}`);
-      paths.push(`/node_modules/${moduleName}.js`);
-      paths.push(`/node_modules/${moduleName}/index.js`);
-      paths.push(`/node_modules/${moduleName}/package.json`);
-
-      // scoped packages対応 (@org/package)
-      if (moduleName.includes('/')) {
-        const parts = moduleName.split('/');
-        if (parts.length === 2 && parts[0].startsWith('@')) {
-          paths.push(`/node_modules/${moduleName}/index.js`);
-          paths.push(`/node_modules/${moduleName}/package.json`);
-        }
-      }
-
-      // プロジェクト内のファイルとしても検索
-      paths.push(`/${moduleName}`);
-      paths.push(`/${moduleName}.js`);
-      paths.push(`/${moduleName}.json`);
-    }
-
-    console.log(`[resolveModulePath] Candidate paths:`, paths);
-    return paths;
-  }
-
-  // モジュールコードを実行してexportsを取得
-  private async executeModuleCode(code: string, filePath: string): Promise<any> {
-    const moduleExports = {};
-    const moduleObject = { exports: moduleExports };
-
-    // モジュールのディレクトリコンテキストを設定
-    const moduleDir = filePath.substring(0, filePath.lastIndexOf('/')) || '/';
-
-    // モジュール用のグローバル環境を作成
-    const moduleGlobals = {
-      ...this.createNodeGlobals(),
-      module: moduleObject,
-      exports: moduleExports,
-      __filename: filePath,
-      __dirname: moduleDir,
-      require: (reqModule: string) => {
-        // モジュールのディレクトリコンテキストでモジュールキーを生成
-        const moduleKey = this.getModuleKey(reqModule, moduleDir);
-
-        console.log(
-          `[executeModuleCode:require] Requiring: ${reqModule} from ${moduleDir}, key: ${moduleKey}`
-        );
-
-        // キャッシュから取得（事前ロード済み）
-        if (this.moduleCache.has(moduleKey)) {
-          console.log(`[executeModuleCode:require] Found in cache: ${moduleKey}`);
-          return this.moduleCache.get(moduleKey);
-        }
-
-        // 組み込みモジュールの場合
-        if (this.isBuiltinModule(reqModule)) {
-          const module = this.createBuiltinModule(reqModule);
-          this.moduleCache.set(moduleKey, module);
-          return module;
-        }
-
-        // キャッシュにない場合はエラー
-        console.error(
-          `[executeModuleCode:require] Module '${reqModule}' (key: ${moduleKey}) not found in cache. Available modules:`,
-          Array.from(this.moduleCache.keys())
-        );
-        throw new Error(
-          `Module '${reqModule}' not found in cache. Context: ${moduleDir}. Make sure all dependencies are preloaded.`
-        );
-      },
+      return wrapper;
     };
 
+    return {
+      // グローバルオブジェクト
+      // sandbox console: prefer debugConsole (output from executed file). If absent, fall back to runtime logger.
+      console: {
+        log: (...args: unknown[]) => {
+          if (this.debugConsole && this.debugConsole.log) {
+            this.debugConsole.log(...args);
+          } else {
+            runtimeInfo(...args);
+          }
+        },
+        error: (...args: unknown[]) => {
+          if (this.debugConsole && this.debugConsole.error) {
+            this.debugConsole.error(...args);
+          } else {
+            runtimeError(...args);
+          }
+        },
+        warn: (...args: unknown[]) => {
+          if (this.debugConsole && this.debugConsole.warn) {
+            this.debugConsole.warn(...args);
+          } else {
+            runtimeWarn(...args);
+          }
+        },
+        clear: () => this.debugConsole?.clear(),
+      },
+      setTimeout,
+      setInterval,
+      clearTimeout,
+      clearInterval,
+      Promise,
+      Array,
+      Object,
+      String,
+      Number,
+      Boolean,
+      Date,
+      Math,
+      JSON,
+      Error,
+      RegExp,
+      Map,
+      Set,
+      WeakMap,
+      WeakSet,
+
+      // Node.js グローバル
+      global: globalThis,
+      process: {
+        env: {},
+        argv: ['node', currentFilePath],
+        cwd: () => this.projectDir,
+        platform: 'browser',
+        version: 'v18.0.0',
+        versions: {
+          node: '18.0.0',
+          v8: '10.0.0',
+        },
+        stdin: {
+          on: () => {},
+          once: () => {},
+          removeListener: () => {},
+          setRawMode: () => {},
+          pause: () => {},
+          resume: () => {},
+          isTTY: true,
+        },
+        stdout: {
+          write: (data: string) => {
+            if (this.debugConsole && this.debugConsole.log) {
+              this.debugConsole.log(data);
+            } else {
+              runtimeInfo(data);
+            }
+            return true;
+          },
+          isTTY: true,
+        },
+        stderr: {
+          write: (data: string) => {
+            if (this.debugConsole && this.debugConsole.error) {
+              this.debugConsole.error(data);
+            } else {
+              runtimeError(data);
+            }
+            return true;
+          },
+          isTTY: true,
+        },
+      },
+      Buffer: this.builtInModules.Buffer,
+
+      // __require__ 関数（非同期）
+      __require__,
+    };
+  }
+
+  /**
+   * ビルトインモジュールを解決
+   */
+  private resolveBuiltInModule(moduleName: string): unknown | null {
+    const builtIns: Record<string, unknown> = {
+      'fs': this.builtInModules.fs,
+      'fs/promises': this.builtInModules.fs,
+      'path': this.builtInModules.path,
+      'os': this.builtInModules.os,
+      'util': this.builtInModules.util,
+      'http': this.builtInModules.http,
+      'https': this.builtInModules.https,
+      'buffer': { Buffer: this.builtInModules.Buffer },
+      'readline': this.builtInModules.readline,
+    };
+
+    return builtIns[moduleName] || null;
+  }
+
+  /**
+   * package.json の "imports" を解決する (specifier が # で始まる場合)
+   * - project の package.json を探し、imports マッピングを参照する
+   * - 条件付きマッピングがある場合は 'node' を優先し、なければ 'default' を使う
+   * - './' で始まるローカルパスは projectDir を基準に展開して返す
+   */
+  private async resolveImportSpecifier(
+    specifier: string,
+    _currentFilePath: string
+  ): Promise<string | null> {
     try {
-      // ES6 import/export を CommonJS require/module.exports に変換
-      const transformedCode = transformESModules(code);
-      // code.replace(
-      //   /export\s+default\s+(.+);?$/gm,
-      //   'module.exports = $1;'
-      // );
+      await fileRepository.init();
+      // package.json はプロジェクトルートにあるはずなので normalizePath === '/package.json' で探す
+      const pkgFile = await fileRepository.getFileByPath(this.projectId, '/package.json');
+      if (!pkgFile || !pkgFile.content) return null;
 
-      // モジュールコードをラップして実行
-      const wrappedCode = wrapModuleCode(transformedCode, moduleGlobals);
+      let pkgJson: any;
+      try {
+        pkgJson = JSON.parse(pkgFile.content);
+      } catch (e) {
+        runtimeWarn('⚠️ Failed to parse package.json for imports resolution:', e);
+        return null;
+      }
 
-      console.log(`[executeModuleCode] Executing module code for: ${filePath}`);
-      console.log(
-        `[executeModuleCode] Transformed code:`,
-        transformedCode.substring(0, 200) + '...'
-      );
-      // DebugConsoleAPIにもモジュール実行開始を出力
-      DebugConsoleAPI.log(`\x1b[33m[MODULE]\x1b[0m Executing module: ${filePath}`);
+      const imports = pkgJson.imports;
+      if (!imports) return null;
 
-      await this.executeInSandbox(wrappedCode, moduleGlobals);
+      const mapping = imports[specifier];
+      if (mapping === undefined) return null;
 
-      console.log(`[executeModuleCode] Module execution completed.`);
-      console.log(`[executeModuleCode] Module exports keys:`, Object.keys(moduleObject.exports));
-      // DebugConsoleAPIにもモジュール実行完了を出力
-      DebugConsoleAPI.log(
-        `\x1b[33m[MODULE]\x1b[0m Module '${filePath}' loaded successfully with exports: ${Object.keys(moduleObject.exports).join(', ')}`
-      );
+      let target: string | null = null;
+      if (typeof mapping === 'string') {
+        target = mapping;
+      } else if (typeof mapping === 'object' && mapping !== null) {
+        // prefer 'node', then 'default'
+        if (typeof mapping.node === 'string') target = mapping.node;
+        else if (typeof mapping.default === 'string') target = mapping.default;
+        else {
+          // fallback: first string property
+          for (const k of Object.keys(mapping)) {
+            if (typeof mapping[k] === 'string') {
+              target = mapping[k];
+              break;
+            }
+          }
+        }
+      }
 
-      // module.exportsを返す（CommonJSの標準的な動作）
-      return moduleObject.exports;
+      if (!target) return null;
+
+      // ローカル相対パスなら projectDir を基準に絶対パス化
+      if (target.startsWith('./')) {
+        const rel = target.slice(2).replace(/^\/+|^\/+/g, '');
+        const resolved = this.projectDir.replace(/\/$/, '') + '/' + rel.replace(/^\/+/, '');
+        return resolved;
+      }
+
+      // 先頭スラッシュは projectDir をプレフィックスして扱う
+      if (target.startsWith('/')) {
+        return this.projectDir.replace(/\/$/, '') + target;
+      }
+
+      // それ以外はパッケージ名などの可能性があるのでそのまま返す
+      return target;
     } catch (error) {
-      console.error(`[executeModuleCode] Error executing module ${filePath}:`, error);
-      // DebugConsoleAPIにもモジュールエラーを出力
-      DebugConsoleAPI.log(
-        `\x1b[31m[MODULE ERROR]\x1b[0m Failed to execute module '${filePath}': ${(error as Error).message}`
-      );
-      throw new Error(`Failed to execute module '${filePath}': ${(error as Error).message}`);
+      runtimeWarn('⚠️ Error while resolving import specifier:', specifier, error);
+      return null;
     }
   }
+
+  /**
+   * ファイルを読み込み（非同期）
+   */
+  private async readFile(filePath: string): Promise<string | null> {
+    try {
+      await fileRepository.init();
+      const normalizedPath = this.normalizePath(filePath);
+
+      const file = await fileRepository.getFileByPath(this.projectId, normalizedPath);
+      if (!file) {
+        this.log('⚠️ File not found in IndexedDB:', normalizedPath);
+        return null;
+      }
+
+      if (file.isBufferArray && file.bufferContent) {
+        this.warn('⚠️ Cannot execute binary file:', normalizedPath);
+        return null;
+      }
+
+      return file.content;
+    } catch (error) {
+      this.error('❌ Failed to read file:', filePath, error);
+      return null;
+    }
+  }
+
+  /**
+   * パスを正規化
+   */
+  private normalizePath(filePath: string): string {
+    let normalized = filePath;
+
+    if (normalized.startsWith(this.projectDir)) {
+      normalized = normalized.slice(this.projectDir.length);
+    }
+
+    if (!normalized.startsWith('/')) {
+      normalized = '/' + normalized;
+    }
+
+    if (normalized.endsWith('/') && normalized !== '/') {
+      normalized = normalized.slice(0, -1);
+    }
+
+    return normalized;
+  }
+
+  /**
+   * ディレクトリパスを取得
+   */
+  private dirname(filePath: string): string {
+    const parts = filePath.split('/');
+    parts.pop();
+    return parts.join('/') || '/';
+  }
+
+  /**
+   * ログ出力
+   */
+  private log(...args: unknown[]): void {
+    this.debugConsole?.log(...args);
+  }
+
+  /**
+   * エラー出力
+   */
+  private error(...args: unknown[]): void {
+    this.debugConsole?.error(...args);
+  }
+
+  /**
+   * 警告出力
+   */
+  private warn(...args: unknown[]): void {
+    this.debugConsole?.warn(...args);
+  }
+
+  /**
+   * キャッシュをクリア
+   */
+  clearCache(): void {
+    this.moduleLoader.clearCache();
+  }
+}
+
+/**
+ * Node.jsファイルを実行
+ */
+export async function executeNodeFile(options: ExecutionOptions): Promise<void> {
+  const runtime = new NodeRuntime(options);
+  await runtime.execute(options.filePath);
 }

@@ -1,0 +1,346 @@
+{
+  "action": {
+    "authenticating": "Đang xác thực...",
+    "cancel": "Hủy",
+    "refresh": "Làm mới",
+    "retry": "Thử lại"
+  },
+  "ai": {
+    "changedFilesList": {
+      "noChangedFiles": "Không có tệp nào thay đổi"
+    },
+    "chatContainer": {
+      "generating": "AI đang tạo phản hồi...",
+      "suggest": "Vui lòng đặt câu hỏi hoặc yêu cầu mã."
+    },
+    "chatMessage": {
+      "copyCode": "Sao chép mã",
+      "reference": "Tham khảo:"
+    },
+    "context": {
+      "select": "Chọn tệp"
+    },
+    "fileChangeItem": {
+      "apply": "Áp dụng",
+      "confirm": "Xác nhận",
+      "discard": "Bỏ"
+    },
+    "fileContextBar": {
+      "addFile": "+ Thêm tệp",
+      "context": "Ngữ cảnh:",
+      "noFileSelected": "Chưa chọn tệp nào"
+    },
+    "hints": {
+      "enterSend": "Enter: xuống dòng / Ctrl+Enter: gửi",
+      "history": "Alt+↑↓: lịch sử"
+    },
+    "input": {
+      "ask": "Hỏi AI các câu hỏi hoặc tư vấn về mã...",
+      "edit": "Nhập hướng dẫn để chỉnh sửa mã..."
+    },
+    "selectedLabel": "Đã chọn:",
+    "sendTitle": "Gửi (Ctrl+Enter)"
+  },
+  "aiReviewTab": {
+    "applyAll": "Áp dụng tất cả",
+    "autoSaveAndApply": "Các thay đổi được tự động lưu và phản ánh vào tệp với 'Áp dụng tất cả'.",
+    "discard": "Bỏ",
+    "discardAllAndRevert": "Bỏ tất cả và hoàn tác",
+    "editRightDirectly": "Bạn có thể chỉnh sửa trực tiếp ở trình soạn thảo bên phải",
+    "notFound": "Dữ liệu xem xét AI không tìm thấy",
+    "revert": "Hoàn tác",
+    "revertSelectionHint": "Bạn cũng có thể hoàn tác một phần bằng cách nhấp phải và chọn 'Hoàn tác lựa chọn'."
+  },
+  "auth": {
+    "authFailed": "Xác thực GitHub thất bại",
+    "authSuccess": "Xác thực GitHub thành công!",
+    "clickToOpenMenu": "Nhấp để mở menu",
+    "patDescription": "<0>Nhấp vào đây</0> để tạo PAT (cần scope repo)",
+    "patPlaceholder": "ghp_xxxxxxxxxxxx",
+    "patPrompt": "GitHub Personal Access Token",
+    "signIn": "Đăng nhập",
+    "signOut": "Đăng xuất",
+    "signOutConfirm": "Bạn có chắc muốn đăng xuất khỏi GitHub không?"
+  },
+  "binaryTab": {
+    "unsupportedFormat": "Định dạng tệp này không thể hiển thị"
+  },
+  "bottom": {
+    "debugConsole": "Bảng điều khiển gỡ lỗi",
+    "output": "Kết quả",
+    "outputPanel": {
+      "all": "Tất cả",
+      "clear": "Xóa",
+      "clearTooltip": "Xóa kết quả đang hiển thị",
+      "contextLabel": "Ngữ cảnh",
+      "empty": "Không có kết quả",
+      "typeLabel": "Loại"
+    },
+    "terminal": "Terminal",
+    "terminalInitializing": "Đang khởi tạo terminal..."
+  },
+  "changedFilesList": {
+    "apply": "Áp dụng",
+    "applyAll": "Áp dụng tất cả",
+    "changedFiles": "Tệp đã thay đổi",
+    "discard": "Bỏ",
+    "discardAll": "Bỏ tất cả",
+    "others": "khác",
+    "preview": "Xem trước",
+    "reason": "Lý do",
+    "review": "Xem lại"
+  },
+  "charCountDisplay": {
+    "clickForDetails": "Nhấp để xem chi tiết",
+    "close": "Đóng",
+    "selectedAndTotal": "Đã chọn: {selectionCount} ký tự (không khoảng) / Tổng: {charCount} ký tự (không khoảng)",
+    "total": "Tổng: {charCount} ký tự (không khoảng)"
+  },
+  "chatSpaceList": {
+    "confirmDelete": "Bạn có chắc muốn xóa không gian này?",
+    "create": "Tạo không gian mới",
+    "delete": "Xóa",
+    "empty": "Chưa có không gian nào",
+    "rename": "Đổi tên"
+  },
+  "confirmation": {
+    "title": "Xác nhận"
+  },
+  "diff": {
+    "diff": "Diff",
+    "lines": "dòng",
+    "original": "Nguyên bản",
+    "suggested": "Gợi ý"
+  },
+  "diffTab": {
+    "fileList": "Danh sách tệp",
+    "noDiffFiles": "Không có tệp diff"
+  },
+  "editorPlaceholder": {
+    "loadingEditor": "Đang tải trình soạn thảo...",
+    "loadingFile": "Đang khôi phục nội dung tệp...",
+    "selectFile": "Vui lòng chọn một tệp"
+  },
+  "fileTree": {
+    "alert": {
+      "renameFailed": "Đổi tên thất bại: {error}"
+    },
+    "menu": {
+      "createFile": "Tạo tệp",
+      "createFolder": "Tạo thư mục",
+      "delete": "Xóa",
+      "download": "Tải xuống",
+      "import": "Nhập",
+      "open": "Mở",
+      "openCodeMirror": "Mở trong CodeMirror",
+      "openPreview": "Mở xem trước",
+      "rename": "Đổi tên",
+      "webPreview": "WebPreview"
+    },
+    "prompt": {
+      "newFileName": "Nhập tên tệp mới:",
+      "newFolderName": "Nhập tên thư mục mới:",
+      "rename": "Nhập tên mới:"
+    }
+  },
+  "git": {
+    "apiKeyPlaceholder": "Nhập Gemini API key",
+    "changes": "Thay đổi",
+    "commit": "Commit",
+    "commitMessagePlaceholder": "Nhập thông điệp commit...",
+    "committing": "Đang commit...",
+    "deleted": "Đã xóa",
+    "deleteUntracked": "Xóa tệp",
+    "discard": "Bỏ",
+    "errorOccurred": "Đã xảy ra lỗi",
+    "generateCommitMessage": "Tạo message bằng AI",
+    "generating": "Đang tạo...",
+    "history": "Lịch sử",
+    "infoNotAvailable": "Không thể lấy thông tin git",
+    "loadingStatus": "Đang tải trạng thái git...",
+    "noChanges": "Không có thay đổi",
+    "noHistory": "Không có lịch sử commit",
+    "operationError": "Lỗi khi truy cập git",
+    "projectSelect": "Vui lòng chọn một dự án",
+    "restore": "Khôi phục tệp",
+    "stage": "Stage",
+    "stageAll": "Stage tất cả",
+    "staged": "Đã stage",
+    "stageDelete": "Stage xóa",
+    "unstage": "Unstage",
+    "unstageAll": "Unstage tất cả",
+    "unstaged": "Chưa stage",
+    "untracked": "Không theo dõi",
+    "viewDiffEditable": "Xem diff (có thể chỉnh sửa)",
+    "viewDiffReadonly": "Xem diff (chỉ đọc)"
+  },
+  "gitHistory": {
+    "allFilesScrollable": "Tất cả {count} tệp (có thể cuộn)",
+    "changedFiles": "Tệp đã thay đổi:",
+    "daysAgo": "{days} ngày trước",
+    "duplicateGroupsHidden": "({count} nhóm trùng lặp ẩn)",
+    "hideDuplicates": "Ẩn commit trùng lặp",
+    "hoursAgo": "{hours} giờ trước",
+    "justNow": "vừa xong",
+    "loadingChanges": "Đang tải thông tin thay đổi...",
+    "minutesAgo": "{minutes} phút trước",
+    "noChangedFiles": "Không tìm thấy tệp đã thay đổi",
+    "showAllFilesDiff": "Hiện diff tất cả tệp cho commit này",
+    "showDuplicates": "Hiện commit trùng lặp",
+    "showFileDiff": "Hiện diff cho tệp này"
+  },
+  "highlightedCode": {
+    "copyCode": "Sao chép mã"
+  },
+  "leftSidebar": {
+    "createFile": "Tạo tệp mới",
+    "createFolder": "Tạo thư mục mới"
+  },
+  "markdownPreview": {
+    "downloadSvg": "Tải SVG",
+    "exportPdf": "Xuất PDF",
+    "generatingMermaid": "Đang tạo biểu đồ Mermaid...",
+    "imageNotFound": "Không tìm thấy hình: {src}",
+    "loadingImage": "Đang tải hình...",
+    "preview": "Xem trước",
+    "reset": "Đặt lại",
+    "zoomIn": "Phóng to",
+    "zoomOut": "Thu nhỏ"
+  },
+  "menu": {
+    "files": "Tệp",
+    "git": "Git",
+    "project": "Quản lý dự án",
+    "run": "Chạy",
+    "search": "Tìm kiếm",
+    "settings": "Cài đặt"
+  },
+  "operationWindow": {
+    "closeByEsc": "Đóng bằng ESC",
+    "footerHelp": "Dùng ↑↓ để chọn, Enter để mở",
+    "mdPreviewDialogHelp": "Tab/←→ để chuyển, Enter để xác nhận, ESC để đóng",
+    "mdPreviewPrompt": "Mở trong Markdown preview?",
+    "noFilesFound": "Không tìm thấy tệp",
+    "openInEditor": "Mở trong Editor",
+    "openInPreview": "Mở trong Preview",
+    "searchPlaceholder": "Tìm theo tên tệp/thư mục hoặc đường dẫn..."
+  },
+  "projectModal": {
+    "cancel": "Hủy",
+    "clone": "Clone từ GitHub",
+    "cloneFromGitHub": "Clone từ GitHub",
+    "cloneSuccess": "Clone thành công",
+    "create": "Tạo",
+    "created": "Đã tạo",
+    "deleteConfirm": "Bạn có chắc muốn xóa dự án này không?",
+    "deleteProject": "Xóa dự án",
+    "description": "Mô tả",
+    "descriptionOptional": "Mô tả (tùy chọn)",
+    "descriptionPlaceholder": "Nhập mô tả dự án...",
+    "editProject": "Chỉnh sửa dự án",
+    "inputRepoUrl": "URL repository",
+    "loading": "Đang tải...",
+    "nameHint": "Dùng chữ số, chữ cái và dấu gạch ngang",
+    "nameValidation": "Tên dự án chỉ chứa chữ số, chữ cái và dấu gạch ngang. Không dùng tiếng Nhật. Khoảng trắng sẽ bị thay bằng dấu gạch ngang.",
+    "newProject": "Dự án mới",
+    "noProjects": "Không tìm thấy dự án",
+    "open": "Mở",
+    "projectName": "Tên dự án",
+    "projectNameOptional": "Tên dự án (tùy chọn)",
+    "projectNameOptionalPlaceholder": "Tên dự án (tùy chọn)...",
+    "projectNamePlaceholder": "Nhập tên dự án...",
+    "save": "Lưu",
+    "title": "Quản lý dự án",
+    "updated": "Đã cập nhật"
+  },
+  "run": {
+    "clearOutput": "Xóa kết quả",
+    "execute": "Thực thi",
+    "executeHint": "Nhấn Ctrl+Enter (Cmd+Enter) để thực thi",
+    "executionStopped": "Thực thi đã dừng",
+    "fileContentError": "Không thể lấy nội dung tệp",
+    "inputPlaceholder": "Nhập mã Node.js...",
+    "languageNode": "Node.js",
+    "languagePython": "Python",
+    "noOutput": "Không có kết quả",
+    "noProject": "Mở một dự án để thực thi mã Node.js",
+    "outputHint": "Khi bạn thực thi JavaScript/Node.js/Python, kết quả sẽ hiển thị ở đây. Node.js và js có thể chạy trong cùng tệp.",
+    "runtimeNotReady": "Runtime Python chưa khởi tạo"
+  },
+  "searchPanel": {
+    "caseSensitive": "Phân biệt hoa thường",
+    "noResults": "Không tìm thấy kết quả",
+    "resultCount": "{count} kết quả",
+    "searchInFiles": "Tìm trong tệp...",
+    "searching": "Đang tìm...",
+    "useRegex": "Dùng regex",
+    "wholeWord": "Toàn từ"
+  },
+  "settingsPanel": {
+    "api": {
+      "apiKeyPlaceholder": "Nhập API key",
+      "geminiApiKey": "Gemini API Key",
+      "savedToLocalStorage": "Đã lưu vào LocalStorage",
+      "title": "API"
+    },
+    "editor": {
+      "defaultEditor": "Trình soạn thảo mặc định",
+      "fontSize": "Kích thước font",
+      "savedToLocalStorage": "Đã lưu vào LocalStorage",
+      "tabSize": "Kích thước tab",
+      "title": "Editor",
+      "wordWrap": "Bật xuống dòng tự động"
+    },
+    "export": {
+      "exporting": "Đang xuất...",
+      "includeGit": "Bao gồm thư mục .git",
+      "title": "Xuất Workspace",
+      "zipDownload": "Tải ZIP"
+    },
+    "files": {
+      "excludeHint": "Các tệp/thư mục ẩn trong explorer",
+      "excludePattern": "Mẫu loại trừ",
+      "title": "Tệp"
+    },
+    "loading": "Đang tải cài đặt...",
+    "search": {
+      "excludePattern": "Mẫu loại trừ",
+      "globPatternHint": "Viết một mẫu glob mỗi dòng",
+      "title": "Tìm kiếm",
+      "useIgnoreFiles": "Dùng các ignore file như .gitignore"
+    },
+    "theme": {
+      "colorCustomize": "Tùy chỉnh màu",
+      "colorTheme": "Giao diện màu",
+      "highlightTheme": "Giao diện tô sáng",
+      "title": "Giao diện"
+    }
+  },
+  "tabBar": {
+    "closeTab": "Đóng tab",
+    "moveToPane": "Di chuyển sang pane",
+    "paneMenu": "Menu pane",
+    "removeAllTabs": "Đóng tất cả tab",
+    "removePane": "Xóa pane",
+    "saveRestart": "Lưu và khởi động lại",
+    "splitHorizontal": "Chia ngang",
+    "splitVertical": "Chia dọc"
+  },
+  "tabCloseConfirmation": {
+    "cancel": "Hủy",
+    "discardAndClose": "Bỏ và đóng",
+    "discardChangesMessage": "Có thay đổi chưa lưu trong tab này. Bạn có chắc muốn đóng không?",
+    "discardChangesTitle": "Bỏ thay đổi?"
+  },
+  "topBar": {
+    "searchLabel": "Tìm tệp",
+    "searchTitle": "Tìm tệp (Ctrl+P)",
+    "toggleRightPanel": "Bật/tắt panel bên phải",
+    "toggleTerminal": "Bật/tắt terminal"
+  },
+  "webPreviewTab": {
+    "emptyDirectory": "Thư mục rỗng",
+    "inlineHtmlFailed": "Không thể nhúng tài sản HTML",
+    "notFound": "Không tìm thấy tệp hoặc thư mục"
+  }
+}

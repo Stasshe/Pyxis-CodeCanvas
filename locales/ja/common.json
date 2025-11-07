@@ -1,0 +1,352 @@
+{
+  "action": {
+    "authenticating": "認証中...",
+    "cancel": "キャンセル",
+    "refresh": "更新",
+    "retry": "再試行"
+  },
+  "ai": {
+    "changedFilesList": {
+      "noChangedFiles": "変更されたファイルはありません"
+    },
+    "chatContainer": {
+      "generating": "AIが応答を生成中...",
+      "suggest": "質問やコードの相談、編集指示をしてください"
+    },
+    "chatMessage": {
+      "copyCode": "コードをコピー",
+      "reference": "参照:"
+    },
+    "context": {
+      "select": "ファイルを選択"
+    },
+    "fileChangeItem": {
+      "apply": "適用",
+      "confirm": "確認",
+      "discard": "破棄"
+    },
+    "fileContextBar": {
+      "addFile": "+ ファイルを追加",
+      "context": "コンテキスト:",
+      "noFileSelected": "ファイルが選択されていません"
+    },
+    "hints": {
+      "enterSend": "Enter: 改行 / Ctrl+Enter: 送信",
+      "history": "Alt+↑↓: 履歴"
+    },
+    "input": {
+      "ask": "AIに質問やコード相談をしてください...",
+      "edit": "コードの編集指示を入力してください..."
+    },
+    "selectedLabel": "選択中:",
+    "sendTitle": "送信 (Ctrl+Enter)"
+  },
+  "aiReviewTab": {
+    "applyAll": "全て適用",
+    "autoSaveAndApply": "。変更は自動保存され、「全て適用」でファイルに反映されます。",
+    "discard": "破棄",
+    "discardAllAndRevert": "全ての変更を破棄して元に戻す",
+    "editRightDirectly": "右側のエディタで直接編集できます",
+    "notFound": "AIレビューデータが見つかりません",
+    "revert": "元に戻す",
+    "revertSelectionHint": "右クリックメニューから「選択範囲を元に戻す」で部分的に元に戻すこともできます。"
+  },
+  "auth": {
+    "authFailed": "GitHub認証に失敗しました",
+    "authSuccess": "GitHub認証に成功しました！",
+    "clickToOpenMenu": "クリックしてメニューを開く",
+    "patDescription": "<0>ここをクリック</0>してPATを作成（repo スコープが必要）",
+    "patPlaceholder": "ghp_xxxxxxxxxxxx",
+    "patPrompt": "GitHub Personal Access Token",
+    "signIn": "サインイン",
+    "signOut": "サインアウト",
+    "signOutConfirm": "GitHubからサインアウトしますか？"
+  },
+  "binaryTab": {
+    "unsupportedFormat": "このファイル形式は表示できません"
+  },
+  "bottom": {
+    "debugConsole": "デバッグコンソール",
+    "output": "出力",
+    "outputPanel": {
+      "all": "全て",
+      "clear": "クリア",
+      "clearTooltip": "現在表示されている出力をクリア",
+      "contextLabel": "処理名",
+      "empty": "出力はありません",
+      "typeLabel": "タイプ"
+    },
+    "terminal": "ターミナル",
+    "terminalInitializing": "ターミナルを初期化中..."
+  },
+  "changedFilesList": {
+    "apply": "適用",
+    "applyAll": "全て適用",
+    "changedFiles": "変更されたファイル",
+    "discard": "破棄",
+    "discardAll": "全て破棄",
+    "others": "他",
+    "preview": "変更プレビュー",
+    "reason": "変更理由",
+    "review": "レビュー"
+  },
+  "charCountDisplay": {
+    "clickForDetails": "クリックで詳細表示",
+    "close": "閉じる",
+    "selectedAndTotal": "選択範囲: {selectionCount}文字（スペース除外）/ 全体: {charCount}文字（スペース除外）",
+    "total": "全体: {charCount}文字（スペース除外）"
+  },
+  "chatSpaceList": {
+    "confirmDelete": "このスペースを削除しますか？",
+    "create": "新しいスペースを作成",
+    "delete": "削除",
+    "empty": "まだスペースがありません",
+    "rename": "名前を変更"
+  },
+  "confirmation": {
+    "title": "確認"
+  },
+  "diff": {
+    "diff": "差分",
+    "lines": "行",
+    "original": "元",
+    "suggested": "提案"
+  },
+  "diffTab": {
+    "fileList": "ファイル一覧",
+    "noDiffFiles": "差分ファイルがありません"
+  },
+  "editorPlaceholder": {
+    "loadingEditor": "エディターを読み込み中...",
+    "loadingFile": "ファイル内容を復元中...",
+    "selectFile": "ファイルを選択してください"
+  },
+  "fileTree": {
+    "alert": {
+      "renameFailed": "名前変更に失敗しました: {error}"
+    },
+    "menu": {
+      "createFile": "ファイル作成",
+      "createFolder": "フォルダ作成",
+      "delete": "削除",
+      "download": "ダウンロード",
+      "import": "インポート",
+      "open": "開く",
+      "openCodeMirror": "CodeMirrorで開く",
+      "openPreview": "プレビューを開く",
+      "rename": "名前変更",
+      "webPreview": "WebPreview"
+    },
+    "prompt": {
+      "newFileName": "新しいファイル名を入力してください:",
+      "newFolderName": "新しいフォルダ名を入力してください:",
+      "rename": "新しい名前を入力してください:"
+    }
+  },
+  "git": {
+    "apiKeyPlaceholder": "Gemini APIキーを入力",
+    "changes": "変更",
+    "commit": "コミット",
+    "commitMessagePlaceholder": "コミットメッセージを入力...",
+    "committing": "コミット中...",
+    "deleted": "削除済み",
+    "deleteUntracked": "ファイルを削除",
+    "discard": "破棄",
+    "errorOccurred": "エラーが発生しました",
+    "generateCommitMessage": "AIで生成",
+    "generating": "生成中...",
+    "history": "履歴",
+    "infoNotAvailable": "Git情報を取得できませんでした",
+    "loadingStatus": "Git状態を読み込み中...",
+    "noChanges": "変更はありません",
+    "noHistory": "コミット履歴がありません",
+    "operationError": "Git操作でエラーが発生しました",
+    "projectSelect": "プロジェクトを選択してください",
+    "restore": "ファイルを復元",
+    "stage": "ステージング",
+    "stageAll": "全てステージング",
+    "staged": "ステージング済み",
+    "stageDelete": "削除をステージング",
+    "unstage": "ステージング解除",
+    "unstageAll": "全てアンステージング",
+    "unstaged": "未ステージング",
+    "untracked": "未追跡",
+    "viewDiffEditable": "差分を表示（編集可能）",
+    "viewDiffReadonly": "差分を表示（編集不可）"
+  },
+  "gitHistory": {
+    "allFilesScrollable": "全{count}ファイル (スクロール可能)",
+    "changedFiles": "変更されたファイル:",
+    "daysAgo": "{days}日前",
+    "duplicateGroupsHidden": "（{count}件の重複グループを非表示中）",
+    "hideDuplicates": "重複コミットを非表示",
+    "hoursAgo": "{hours}時間前",
+    "justNow": "たった今",
+    "loadingChanges": "変更情報を読み込み中...",
+    "minutesAgo": "{minutes}分前",
+    "noChangedFiles": "変更ファイルが見つかりません",
+    "showAllFilesDiff": "このコミットの全ファイルdiffを表示",
+    "showDuplicates": "重複コミットも表示",
+    "showFileDiff": "このファイルの差分を表示"
+  },
+  "highlightedCode": {
+    "copyCode": "コードをコピー"
+  },
+  "leftSidebar": {
+    "createFile": "新規ファイル作成",
+    "createFolder": "新規フォルダ作成"
+  },
+  "markdownPreview": {
+    "downloadSvg": "SVGダウンロード",
+    "exportPdf": "PDFエクスポート",
+    "generatingMermaid": "Mermaid図表を生成中...",
+    "imageNotFound": "画像が見つかりません: {src}",
+    "loadingImage": "画像を読み込み中...",
+    "preview": "プレビュー",
+    "reset": "リセット",
+    "zoomIn": "ズームイン",
+    "zoomOut": "ズームアウト"
+  },
+  "menu": {
+    "files": "ファイル",
+    "git": "Git",
+    "project": "プロジェクト管理",
+    "run": "実行",
+    "search": "検索",
+    "settings": "設定"
+  },
+  "operationWindow": {
+    "closeByEsc": "ESC で閉じる",
+    "footerHelp": "↑↓ で選択, Enter で開く",
+    "mdPreviewDialogHelp": "Tab/←→ で切替, Enterで決定, ESCで閉じる",
+    "mdPreviewPrompt": "Markdownプレビューで開きますか？",
+    "noFilesFound": "ファイルが見つかりません",
+    "openInEditor": "通常エディタで開く",
+    "openInPreview": "プレビューで開く",
+    "searchPlaceholder": "ファイル名・フォルダ名・パス いずれかで検索..."
+  },
+  "projectModal": {
+    "cancel": "キャンセル",
+    "clone": "GitHubからクローン",
+    "cloneFromGitHub": "GitHubからクローン",
+    "cloneSuccess": "クローンに成功しました",
+    "create": "作成",
+    "created": "作成済み",
+    "deleteConfirm": "本当にこのプロジェクトを削除しますか？",
+    "deleteProject": "プロジェクト削除",
+    "description": "説明",
+    "descriptionOptional": "説明（任意）",
+    "descriptionPlaceholder": "プロジェクトの説明を入力してください...",
+    "editProject": "プロジェクト編集",
+    "inputRepoUrl": "リポジトリURLを入力",
+    "loading": "読み込み中...",
+    "nameHint": "英数字とハイフンのみ使用できます",
+    "nameValidation": "プロジェクト名は英数字・ハイフンのみ使用できます。日本語不可・空白は-に変換されます。",
+    "newProject": "新しいプロジェクト",
+    "noProjects": "プロジェクトがありません",
+    "open": "開く",
+    "projectName": "プロジェクト名",
+    "projectNameOptional": "プロジェクト名（任意）",
+    "projectNameOptionalPlaceholder": "任意のプロジェクト名...",
+    "projectNamePlaceholder": "プロジェクト名を入力してください...",
+    "repoUrl": "リポジトリURL",
+    "repoUrlPlaceholder": "https://github.com/owner/repo",
+    "save": "保存",
+    "title": "プロジェクト管理",
+    "updated": "更新されました"
+  },
+  "run": {
+    "clearOutput": "出力をクリア",
+    "execute": "実行",
+    "executeHint": "Ctrl+Enter (Cmd+Enter) で実行",
+    "executionStopped": "Execution stopped",
+    "fileContentError": "ファイル内容が取得できません",
+    "inputPlaceholder": "Node.jsコードを入力してください...",
+    "languageNode": "Node.js",
+    "languagePython": "Python",
+    "noOutput": "No output",
+    "noProject": "プロジェクトを開いてNode.jsコードを実行してください",
+    "outputHint": "Javascript/Node.js/Pythonコードを実行すると、ここに結果が表示されます。Node.jsと、jsは、同じファイルで実行できます。",
+    "runtimeNotReady": "Pythonランタイムが初期化されていません",
+    "searchFile": "実行するファイル名を検索...",
+    "stop": "停止",
+    "title": "実行環境"
+  },
+  "searchPanel": {
+    "caseSensitive": "大文字小文字を区別",
+    "noResults": "結果が見つかりませんでした",
+    "resultCount": "{count} 件の結果",
+    "searchInFiles": "ファイル内を検索...",
+    "searching": "検索中...",
+    "useRegex": "正規表現を使用",
+    "wholeWord": "単語単位で検索"
+  },
+  "settingsPanel": {
+    "api": {
+      "apiKeyPlaceholder": "APIキーを入力",
+      "geminiApiKey": "Gemini APIキー",
+      "savedToLocalStorage": "LocalStorageに保存されます",
+      "title": "API"
+    },
+    "editor": {
+      "defaultEditor": "デフォルトエディター",
+      "fontSize": "フォントサイズ",
+      "savedToLocalStorage": "LocalStorageに保存されます",
+      "tabSize": "タブサイズ",
+      "title": "エディター",
+      "wordWrap": "折り返しを有効化"
+    },
+    "export": {
+      "exporting": "エクスポート中...",
+      "includeGit": ".git ディレクトリも含める",
+      "title": "ワークスペースエクスポート",
+      "zipDownload": "ZIPダウンロード"
+    },
+    "files": {
+      "excludeHint": "エクスプローラーで非表示にするファイル/フォルダ",
+      "excludePattern": "除外パターン",
+      "title": "ファイル"
+    },
+    "loading": "設定を読み込み中...",
+    "search": {
+      "excludePattern": "除外パターン",
+      "globPatternHint": "glob パターンを1行ごとに記述",
+      "title": "検索",
+      "useIgnoreFiles": ".gitignoreなどの無視ファイルを使用"
+    },
+    "theme": {
+      "colorCustomize": "カラーカスタマイズ",
+      "colorTheme": "カラーテーマ",
+      "highlightTheme": "コードハイライト",
+      "title": "テーマ"
+    }
+  },
+  "tabBar": {
+    "closeTab": "タブを閉じる",
+    "moveToPane": "ペインに移動",
+    "openPreview": "プレビューを開く",
+    "paneMenu": "ペインメニュー",
+    "removeAllTabs": "全て閉じる",
+    "removePane": "ペインを削除",
+    "saveRestart": "保存して再起動",
+    "splitHorizontal": "横に分割",
+    "splitVertical": "縦に分割"
+  },
+  "tabCloseConfirmation": {
+    "cancel": "キャンセル",
+    "discardAndClose": "破棄して閉じる",
+    "discardChangesMessage": "このタブには保存されていない変更があります。本当に閉じますか？",
+    "discardChangesTitle": "変更を破棄しますか？"
+  },
+  "topBar": {
+    "searchLabel": "ファイル検索",
+    "searchTitle": "ファイル検索 (Ctrl+P)",
+    "toggleRightPanel": "右パネル表示/非表示",
+    "toggleTerminal": "ターミナル表示/非表示"
+  },
+  "webPreviewTab": {
+    "emptyDirectory": "ディレクトリが空です",
+    "inlineHtmlFailed": "HTMLアセットのインライン化に失敗しました",
+    "notFound": "ファイルまたはフォルダが見つかりません"
+  }
+}

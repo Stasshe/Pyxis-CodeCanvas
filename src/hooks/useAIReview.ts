@@ -2,21 +2,15 @@
 
 import { useCallback } from 'react';
 
-import { openOrActivateTab } from '@/engine/openTab';
-import type { Tab, FileItem } from '@/types';
+import { useTabStore } from '@/stores/tabStore';
+import type { FileItem } from '@/types';
 
 export function useAIReview() {
-  // AIレビュータブを開く
+  const { openTab, closeTab } = useTabStore();
+
+  // [NEW ARCHITECTURE] AIレビュータブを開く
   const openAIReviewTab = useCallback(
-    (
-      filePath: string,
-      originalContent: string,
-      suggestedContent: string,
-      setTabs: (update: any) => void,
-      setActiveTabId: (id: string) => void,
-      tabs: Tab[]
-    ) => {
-      // openOrActivateTabで一元化
+    (filePath: string, originalContent: string, suggestedContent: string) => {
       const fileName = filePath.split('/').pop() || 'unknown';
       const fileItem: FileItem = {
         name: `AI Review: ${fileName}`,
@@ -25,7 +19,9 @@ export function useAIReview() {
         id: `ai-review-${filePath}`,
         type: 'file',
       };
-      openOrActivateTab(fileItem, tabs, setTabs, setActiveTabId, {
+
+      openTab(fileItem, {
+        kind: 'ai',
         aiReviewProps: {
           originalContent,
           suggestedContent,
@@ -33,7 +29,7 @@ export function useAIReview() {
         },
       });
     },
-    []
+    [openTab]
   );
 
   // 変更を適用する
@@ -80,13 +76,21 @@ export function useAIReview() {
     []
   );
 
-  // レビュータブを閉じる
+  // [NEW ARCHITECTURE] レビュータブを閉じる
   const closeAIReviewTab = useCallback(
-    (filePath: string, setTabs: (update: any) => void, tabs: Tab[]) => {
-      const updatedTabs = tabs.filter(tab => !(tab.aiReviewProps?.filePath === filePath));
-      setTabs(updatedTabs);
+    (filePath: string) => {
+      const { panes } = useTabStore.getState();
+
+      // すべてのペインからAIレビュータブを検索して閉じる
+      panes.forEach(pane => {
+        const aiReviewTab = pane.tabs.find(tab => tab.kind === 'ai' && tab.id.includes(filePath));
+
+        if (aiReviewTab) {
+          closeTab(pane.id, aiReviewTab.id);
+        }
+      });
     },
-    []
+    [closeTab]
   );
 
   // 部分的な変更を適用（行単位での適用/破棄）

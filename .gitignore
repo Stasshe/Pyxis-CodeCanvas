@@ -1,7 +1,7 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-/node_modules
+**/node_modules/
 /.pnp
 .pnp.*
 .yarn/*
@@ -43,8 +43,26 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+tsconfig.extensions.json
+tsconfig.extensions.tsbuildinfo
 
 memo.txt
 memo.md
 
 src/engine/initialFileContents.ts
+public/extensions/
+public/locales/
+
+tests/__artifacts__/*
+
+scripts/i18n/*results.txt
+
+.eslintcache
+
+
+extensions/registry.json
+extensions/**/PNPM-GUIDE.md
+
+
+# npm lock file (use pnpm instead)
+package-lock.json

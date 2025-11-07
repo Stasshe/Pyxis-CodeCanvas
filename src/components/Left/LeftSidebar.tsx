@@ -1,5 +1,6 @@
 import { FolderOpen, FilePlus, FolderPlus } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
+import { useTranslation } from '@/context/I18nContext';
 import { MenuTab, FileItem } from '@/types';
 import type { Project } from '@/types';
 import FileTree from './FileTree';
@@ -7,29 +8,21 @@ import SearchPanel from './SearchPanel';
 import GitPanel from './GitPanel';
 import RunPanel from './RunPanel';
 import SettingsPanel from './SettingsPanel';
+import ExtensionsPanel from './ExtensionsPanel';
+import ExtensionPanelRenderer from './ExtensionPanelRenderer';
+import { fileRepository } from '@/engine/core/fileRepository';
+import { useExtensionPanels } from '@/hooks/useExtensionPanels';
 
 interface LeftSidebarProps {
   activeMenuTab: MenuTab;
   leftSidebarWidth: number;
   files: FileItem[];
   currentProject: Project;
-  onFileOpen: (file: FileItem) => void;
-  onFilePreview?: (file: FileItem) => void;
-  onWebPreview?: (file: FileItem) => void;
   onResize: (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => void;
   onGitRefresh?: () => void;
   gitRefreshTrigger?: number;
-  onFileOperation?: (
-    path: string,
-    type: 'file' | 'folder' | 'delete',
-    content?: string,
-    isNodeRuntime?: boolean,
-    isBufferArray?: boolean,
-    bufferContent?: ArrayBuffer
-  ) => Promise<void>;
-  onGitStatusChange?: (changesCount: number) => void; // Git変更状態のコールバック
-  onDiffFileClick?: (params: { commitId: string; filePath: string }) => void;
-  onDiffAllFilesClick?: (params: { commitId: string; parentCommitId: string }) => void;
+  onRefresh?: () => void; // [NEW ARCHITECTURE] ファイルツリー再読み込み用
+  onGitStatusChange?: (changesCount: number) => void;
 }
 
 export default function LeftSidebar({
@@ -37,18 +30,21 @@ export default function LeftSidebar({
   leftSidebarWidth,
   files,
   currentProject,
-  onFileOpen,
-  onFilePreview,
-  onWebPreview,
   onResize,
   onGitRefresh,
   gitRefreshTrigger,
-  onFileOperation,
+  onRefresh,
   onGitStatusChange,
-  onDiffFileClick,
-  onDiffAllFilesClick,
 }: LeftSidebarProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
+  const extensionPanels = useExtensionPanels();
+
+  // 拡張パネルがアクティブかチェック
+  const activeExtensionPanel = extensionPanels.find(
+    panel => `extension:${panel.extensionId}.${panel.panelId}` === activeMenuTab
+  );
+
   return (
     <>
       <div
@@ -70,11 +66,13 @@ export default function LeftSidebar({
             className="text-xs font-medium uppercase tracking-wide select-none"
             style={{ color: colors.sidebarTitleFg }}
           >
-            {activeMenuTab === 'files' && 'エクスプローラー'}
-            {activeMenuTab === 'search' && '検索'}
-            {activeMenuTab === 'git' && 'ソース管理'}
-            {activeMenuTab === 'run' && '実行'}
-            {activeMenuTab === 'settings' && '設定'}
+            {activeMenuTab === 'files' && 'Explorer'}
+            {activeMenuTab === 'search' && 'Search'}
+            {activeMenuTab === 'git' && 'Git'}
+            {activeMenuTab === 'run' && 'Run'}
+            {activeMenuTab === 'extensions' && 'Extensions'}
+            {activeMenuTab === 'settings' && 'Settings'}
+            {activeExtensionPanel && activeExtensionPanel.title}
           </span>
         </div>
         <div className="flex-1 overflow-auto">
@@ -91,9 +89,9 @@ export default function LeftSidebar({
                 >
                   ./
                 </span>
-                {/* 新規ファイル作成アイコン */}
+                {/* [NEW ARCHITECTURE] 新規ファイル作成 - fileRepository直接呼び出し */}
                 <button
-                  title="新規ファイル作成"
+                  title={t('leftSidebar.createFile')}
                   style={{
                     background: 'none',
                     border: 'none',
@@ -103,12 +101,11 @@ export default function LeftSidebar({
                     alignItems: 'center',
                   }}
                   onClick={async () => {
-                    if (typeof onFileOperation === 'function') {
-                      const fileName = prompt('新しいファイル名を入力してください:');
-                      if (fileName) {
-                        const newFilePath = fileName.startsWith('/') ? fileName : '/' + fileName;
-                        await onFileOperation(newFilePath, 'file', '');
-                      }
+                    const fileName = prompt('新しいファイル名を入力してください:');
+                    if (fileName && currentProject?.id) {
+                      const newFilePath = fileName.startsWith('/') ? fileName : '/' + fileName;
+                      await fileRepository.createFile(currentProject.id, newFilePath, '', 'file');
+                      if (onRefresh) setTimeout(onRefresh, 100);
                     }
                   }}
                 >
@@ -117,9 +114,9 @@ export default function LeftSidebar({
                     color={colors.sidebarIconFg}
                   />
                 </button>
-                {/* 新規フォルダ作成アイコン */}
+                {/* [NEW ARCHITECTURE] 新規フォルダ作成 - fileRepository直接呼び出し */}
                 <button
-                  title="新規フォルダ作成"
+                  title={t('leftSidebar.createFolder')}
                   style={{
                     background: 'none',
                     border: 'none',
@@ -129,14 +126,18 @@ export default function LeftSidebar({
                     alignItems: 'center',
                   }}
                   onClick={async () => {
-                    if (typeof onFileOperation === 'function') {
-                      const folderName = prompt('新しいフォルダ名を入力してください:');
-                      if (folderName) {
-                        const newFolderPath = folderName.startsWith('/')
-                          ? folderName
-                          : '/' + folderName;
-                        await onFileOperation(newFolderPath, 'folder', '');
-                      }
+                    const folderName = prompt('新しいフォルダ名を入力してください:');
+                    if (folderName && currentProject?.id) {
+                      const newFolderPath = folderName.startsWith('/')
+                        ? folderName
+                        : '/' + folderName;
+                      await fileRepository.createFile(
+                        currentProject.id,
+                        newFolderPath,
+                        '',
+                        'folder'
+                      );
+                      if (onRefresh) setTimeout(onRefresh, 100);
                     }
                   }}
                 >
@@ -148,12 +149,9 @@ export default function LeftSidebar({
               </div>
               <FileTree
                 items={files}
-                onFileOpen={onFileOpen}
-                onFilePreview={onFilePreview}
-                onWebPreview={onWebPreview}
                 currentProjectName={currentProject?.name ?? ''}
                 currentProjectId={currentProject?.id ?? ''}
-                onFileOperation={onFileOperation}
+                onRefresh={onRefresh}
               />
             </div>
           )}
@@ -161,7 +159,7 @@ export default function LeftSidebar({
             <div className="h-full">
               <SearchPanel
                 files={files}
-                onFileOpen={onFileOpen}
+                projectId={currentProject.id}
               />
             </div>
           )}
@@ -169,25 +167,42 @@ export default function LeftSidebar({
             <div className="h-full">
               <GitPanel
                 currentProject={currentProject.name}
+                currentProjectId={currentProject.id}
                 onRefresh={onGitRefresh}
                 gitRefreshTrigger={gitRefreshTrigger}
-                onFileOperation={onFileOperation}
                 onGitStatusChange={onGitStatusChange}
-                onDiffFileClick={onDiffFileClick}
-                onDiffAllFilesClick={onDiffAllFilesClick}
               />
             </div>
           )}
           {activeMenuTab === 'run' && (
             <div className="h-full">
               <RunPanel
-                currentProject={currentProject.name}
+                currentProject={currentProject}
                 files={files}
-                onFileOperation={onFileOperation}
               />
             </div>
           )}
+          {activeMenuTab === 'extensions' && (
+            <div className="h-full">
+              <ExtensionsPanel />
+            </div>
+          )}
           {activeMenuTab === 'settings' && <SettingsPanel currentProject={currentProject} />}
+          {/* 拡張パネルを全て表示（アクティブなものだけを表示） */}
+          {extensionPanels.map(panel => {
+            const panelMenuTab = `extension:${panel.extensionId}.${panel.panelId}`;
+            if (activeMenuTab === panelMenuTab) {
+              return (
+                <ExtensionPanelRenderer
+                  key={panelMenuTab}
+                  extensionId={panel.extensionId}
+                  panelId={panel.panelId}
+                  isActive={true}
+                />
+              );
+            }
+            return null;
+          })}
         </div>
       </div>
       {/* Resizer */}

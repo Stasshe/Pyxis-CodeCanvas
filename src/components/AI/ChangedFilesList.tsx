@@ -3,6 +3,7 @@
 'use client';
 
 import React from 'react';
+import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { AIEditResponse } from '@/types';
 
@@ -22,6 +23,7 @@ export default function ChangedFilesList({
   compact = false,
 }: ChangedFilesListProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
 
   if (changedFiles.length === 0) {
     return (
@@ -29,7 +31,7 @@ export default function ChangedFilesList({
         className={`text-center ${compact ? 'text-xs' : 'text-sm'} py-8`}
         style={{ color: colors.mutedFg }}
       >
-        変更されたファイルはありません
+        {t('ai.changedFilesList.noChangedFiles')}
       </div>
     );
   }
@@ -54,7 +56,7 @@ export default function ChangedFilesList({
               d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
             />
           </svg>
-          変更されたファイル ({changedFiles.length})
+          {t('changedFilesList.changedFiles')} ({changedFiles.length})
         </div>
 
         {changedFiles.map((file, index) => (
@@ -91,9 +93,9 @@ export default function ChangedFilesList({
                   onClick={() =>
                     onOpenReview(file.path, file.originalContent, file.suggestedContent)
                   }
-                  title="レビュー"
+                  title={t('changedFilesList.review')}
                 >
-                  👁️
+                  {t('changedFilesList.review')}
                 </button>
                 <button
                   className="text-xs px-1 py-0.5 rounded border hover:opacity-90 transition"
@@ -105,17 +107,17 @@ export default function ChangedFilesList({
                     boxShadow: '0 1px 4px 0 #0002',
                   }}
                   onClick={() => onApplyChanges(file.path, file.suggestedContent)}
-                  title="適用"
+                  title={t('changedFilesList.apply')}
                 >
-                  ✅
+                  {t('changedFilesList.apply')}
                 </button>
                 <button
                   className="text-xs px-1 py-0.5 rounded hover:opacity-80 transition"
                   style={{ background: colors.red, color: colors.background }}
                   onClick={() => onDiscardChanges(file.path)}
-                  title="破棄"
+                  title={t('changedFilesList.discard')}
                 >
-                  ❌
+                  {t('changedFilesList.discard')}
                 </button>
               </div>
             </div>
@@ -136,7 +138,10 @@ export default function ChangedFilesList({
               className="flex gap-2 text-xs items-center"
               style={{ color: colors.mutedFg }}
             >
-              <span>{file.originalContent.split('\n').length}行</span>
+              <span>
+                {file.originalContent.split('\n').length}
+                {t('diff.lines')}
+              </span>
               <svg
                 className="w-2 h-2"
                 fill="none"
@@ -150,7 +155,10 @@ export default function ChangedFilesList({
                   d="M9 5l7 7-7 7"
                 />
               </svg>
-              <span>{file.suggestedContent.split('\n').length}行</span>
+              <span>
+                {file.suggestedContent.split('\n').length}
+                {t('diff.lines')}
+              </span>
               <span>
                 (
                 {file.suggestedContent.split('\n').length -
@@ -173,7 +181,7 @@ export default function ChangedFilesList({
               </div>
               {file.suggestedContent.split('\n').length > 1 && (
                 <div style={{ color: colors.mutedFg }}>
-                  ... +{file.suggestedContent.split('\n').length - 1} 行
+                  ... +{file.suggestedContent.split('\n').length - 1} {t('diff.lines')}
                 </div>
               )}
             </div>
@@ -189,7 +197,7 @@ export default function ChangedFilesList({
         className="text-sm font-medium"
         style={{ color: colors.foreground }}
       >
-        変更されたファイル ({changedFiles.length})
+        {t('changedFilesList.changedFiles')} ({changedFiles.length})
       </div>
 
       {changedFiles.map((file, index) => (
@@ -213,7 +221,7 @@ export default function ChangedFilesList({
                 style={{ background: colors.accent, color: colors.accentFg }}
                 onClick={() => onOpenReview(file.path, file.originalContent, file.suggestedContent)}
               >
-                レビュー
+                {t('changedFilesList.review')}
               </button>
               <button
                 className="text-xs px-2 py-1 rounded border hover:opacity-90"
@@ -226,14 +234,14 @@ export default function ChangedFilesList({
                 }}
                 onClick={() => onApplyChanges(file.path, file.suggestedContent)}
               >
-                適用
+                {t('changedFilesList.apply')}
               </button>
               <button
                 className="text-xs px-2 py-1 rounded hover:opacity-80"
                 style={{ background: colors.red, color: colors.accentFg }}
                 onClick={() => onDiscardChanges(file.path)}
               >
-                破棄
+                {t('changedFilesList.discard')}
               </button>
             </div>
           </div>
@@ -244,7 +252,7 @@ export default function ChangedFilesList({
               className="text-xs mb-2 p-2 rounded"
               style={{ background: colors.cardBg, color: colors.mutedFg }}
             >
-              <strong>変更理由:</strong> {file.explanation}
+              <strong>{t('changedFilesList.reason')}:</strong> {file.explanation}
             </div>
           )}
 
@@ -254,7 +262,7 @@ export default function ChangedFilesList({
               className="text-xs font-medium"
               style={{ color: colors.mutedFg }}
             >
-              変更プレビュー:
+              {t('changedFilesList.preview')}:
             </div>
             <div
               className="text-xs p-2 rounded font-mono overflow-hidden"
@@ -276,7 +284,8 @@ export default function ChangedFilesList({
                   className="mt-1"
                   style={{ color: colors.mutedFg }}
                 >
-                  ... 他 {file.suggestedContent.split('\n').length - 3} 行
+                  ... {t('changedFilesList.others')} {file.suggestedContent.split('\n').length - 3}{' '}
+                  {t('diff.lines')}
                 </div>
               )}
             </div>
@@ -287,15 +296,22 @@ export default function ChangedFilesList({
             className="flex gap-4 text-xs mt-2"
             style={{ color: colors.mutedFg }}
           >
-            <span>元: {file.originalContent.split('\n').length}行</span>
-            <span>新: {file.suggestedContent.split('\n').length}行</span>
             <span>
-              差分:{' '}
+              {t('diff.original')}: {file.originalContent.split('\n').length}
+              {t('diff.lines')}
+            </span>
+            <span>
+              {t('diff.suggested')}: {file.suggestedContent.split('\n').length}
+              {t('diff.lines')}
+            </span>
+            <span>
+              {t('diff.diff')}:{' '}
               {file.suggestedContent.split('\n').length - file.originalContent.split('\n').length >
               0
                 ? '+'
                 : ''}
-              {file.suggestedContent.split('\n').length - file.originalContent.split('\n').length}行
+              {file.suggestedContent.split('\n').length - file.originalContent.split('\n').length}
+              {t('diff.lines')}
             </span>
           </div>
         </div>
@@ -322,7 +338,7 @@ export default function ChangedFilesList({
               changedFiles.forEach(file => onApplyChanges(file.path, file.suggestedContent));
             }}
           >
-            全て適用
+            {t('changedFilesList.applyAll')}
           </button>
           <button
             className="flex-1 text-xs py-2 rounded hover:opacity-80"
@@ -331,7 +347,7 @@ export default function ChangedFilesList({
               changedFiles.forEach(file => onDiscardChanges(file.path));
             }}
           >
-            全て破棄
+            {t('changedFilesList.discardAll')}
           </button>
         </div>
       )}

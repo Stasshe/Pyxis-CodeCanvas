@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useTheme } from '@/context/ThemeContext';
+import { useTranslation } from '@/context/I18nContext';
 
 type OutputType = 'info' | 'error' | 'warn' | 'check';
 
@@ -12,6 +13,7 @@ export interface OutputMessage {
 
 interface OutputPanelProps {
   messages: OutputMessage[];
+  onClearDisplayed?: (toClear: OutputMessage[]) => void;
 }
 
 // Themeの色を使う
@@ -22,8 +24,9 @@ const getTypeColor = (colors: any): Record<OutputType, string> => ({
   check: colors.green,
 });
 
-export default function OutputPanel({ messages }: OutputPanelProps) {
+export default function OutputPanel({ messages, onClearDisplayed }: OutputPanelProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const [contextFilter, setContextFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState<OutputType | 'all'>('all');
 
@@ -61,10 +64,24 @@ export default function OutputPanel({ messages }: OutputPanelProps) {
         maxHeight: '100%',
       }}
     >
-      {/* フィルターUI */}
-      <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '6px' }}>
+      {/* フィルターUI (sticky header so type and context are always visible) */}
+      <div
+        style={{
+          display: 'flex',
+          gap: '12px',
+          alignItems: 'center',
+          marginBottom: '6px',
+          position: 'sticky',
+          top: 0,
+          zIndex: 3,
+          paddingTop: '6px',
+          paddingBottom: '6px',
+          background: colors.cardBg,
+          borderBottom: `1px solid ${colors.border}`,
+        }}
+      >
         <label style={{ fontSize: '10px', color: colors.mutedFg }}>
-          処理名:
+          {t('bottom.outputPanel.contextLabel')}:
           <select
             style={{
               marginLeft: 4,
@@ -78,7 +95,7 @@ export default function OutputPanel({ messages }: OutputPanelProps) {
             value={contextFilter}
             onChange={e => setContextFilter(e.target.value)}
           >
-            <option value="">全て</option>
+            <option value="">{t('bottom.outputPanel.all')}</option>
             {contextList.map(ctx => (
               <option
                 key={ctx}
@@ -90,7 +107,7 @@ export default function OutputPanel({ messages }: OutputPanelProps) {
           </select>
         </label>
         <label style={{ fontSize: '10px', color: colors.mutedFg }}>
-          タイプ:
+          {t('bottom.outputPanel.typeLabel')}:
           <select
             style={{
               marginLeft: 4,
@@ -109,15 +126,34 @@ export default function OutputPanel({ messages }: OutputPanelProps) {
                 key={type}
                 value={type}
               >
-                {type === 'all' ? '全て' : type}
+                {type === 'all' ? t('bottom.outputPanel.all') : type}
               </option>
             ))}
           </select>
         </label>
+        {/* クリアボタン: 現在フィルターで表示されているメッセージを親に渡す */}
+        <button
+          onClick={() => {
+            if (onClearDisplayed) onClearDisplayed(filtered);
+          }}
+          style={{
+            marginLeft: 6,
+            padding: '4px 8px',
+            fontSize: '10px',
+            borderRadius: 3,
+            border: `1px solid ${colors.border}`,
+            background: colors.mutedBg,
+            color: colors.editorFg,
+            cursor: 'pointer',
+          }}
+          title={t('bottom.outputPanel.clearTooltip')}
+        >
+          {t('bottom.outputPanel.clear')}
+        </button>
       </div>
       {filtered.length === 0 ? (
         <div style={{ color: colors.mutedFg, fontSize: '10px', padding: '4px 0' }}>
-          出力はありません
+          {t('bottom.outputPanel.empty')}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>

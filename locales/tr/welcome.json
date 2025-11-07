@@ -1,0 +1,31 @@
+{
+  "welcome": {
+    "clientSideNote": "Bu uygulama tamamen istemci tarafında çalışır ve hiçbir veriyi sunuculara göndermez.",
+    "features": {
+      "clientIDE": "Tamamen istemci tarafı IDE (sunucu gerektirmez, statik barındırma ile çalışır)",
+      "gitHistory": "Git geçmişi, dal yönetimi ve commit grafiği",
+      "languages": "Çoklu dil sözdizimi vurgulama: Cpp, HTML, CSS, JavaScript, Python vb.",
+      "mermaid": "Mermaid ile akış ve sıra diyagramlarının gerçek zamanlı render'ı",
+      "monaco": "Monaco Editor ile VS Code benzeri düzenleme deneyimi",
+      "nodeRuntime": "Node.js runtime, npm, Unix komutları ve Git tarayıcı içinde kullanılabilir",
+      "responsive": "iPad için optimize edilmiş duyarlı UI",
+      "title": "Pyxis'in temel özellikleri"
+    },
+    "hmrHint": "HMR ve WebPreview'i oluşturulan ana sayfa klasörüne uzun basarak deneyin.",
+    "indexeddbInfo": "Bu projenin dosyaları IndexedDB'de saklanır.",
+    "githubNote": "GitHub entegrasyonunda bilinen bir hata yoktur; fakat çok büyük repolarda veya işlem sırasında tarayıcıyı kapatma gibi sınır durumlardan kaçının.",
+    "mainFeatures": {
+      "download": "Git / proje dosyalarını indir",
+      "importExport": "Dosya içe/dışa aktarımı ve zip dışa aktarım",
+      "latex": "LaTeX matematik render'ı ve Mermaid/HTML desteği",
+      "theme": "Tema renk değişimi ve çoklu monitör desteği",
+      "title": "Ana özellikler"
+    },
+    "specialThanks": {
+      "contributors": "isomorphic-git, Monaco Editor, xterm.js, Mermaid, KaTeX, Pyodide ve tüm OSS katkıcılarına teşekkürler.",
+      "thanksVisit": "Ziyaret ettiğiniz için teşekkürler!",
+      "title": "Teşekkürler"
+    },
+    "title": "Hoşgeldiniz!"
+  }
+}

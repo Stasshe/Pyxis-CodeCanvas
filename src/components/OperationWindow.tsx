@@ -1,10 +1,15 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { FileItem, EditorPane } from '@/types';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useTranslation } from '@/context/I18nContext';
+import { FileItem } from '@/types';
 import { useTheme } from '@/context/ThemeContext';
-import { handleFileSelect } from '@/hooks/fileSelectHandlers';
-import { flattenPanes } from '@/hooks/pane';
+import { useTabStore } from '@/stores/tabStore';
+import { useSettings } from '@/hooks/useSettings';
+import { useProject } from '@/engine/core/project';
+import { parseGitignore, isPathIgnored } from '@/engine/core/gitignore';
+import { getIconForFile } from 'vscode-icons-js';
+import { formatKeyComboForDisplay } from '@/hooks/useKeyBindings';
 
 // FileItem[]を平坦化する関数（tab.tsと同じ実装）
 function flattenFileItems(items: FileItem[]): FileItem[] {
@@ -23,16 +28,62 @@ function flattenFileItems(items: FileItem[]): FileItem[] {
   return result;
 }
 
+// --- VSCode-style matching helpers ---
+// CamelCase/snake_case boundaries を考慮したスコアリング
+function scoreMatch(text: string, query: string): number {
+  if (!query) return 100;
+  const t = text.toLowerCase();
+  const q = query.toLowerCase();
+
+  // 完全一致
+  if (t === q) return 100;
+
+  // 前方一致（高スコア）
+  if (t.startsWith(q)) return 90;
+
+  // 部分文字列一致
+  const idx = t.indexOf(q);
+  if (idx !== -1) {
+    // 単語の境界で始まる場合はスコアを上げる
+    const isBoundary =
+      idx === 0 || text[idx - 1] === '/' || text[idx - 1] === '_' || text[idx - 1] === '-';
+    return isBoundary ? 85 : 70;
+  }
+
+  // CamelCase マッチング (e.g., "ow" matches "OperationWindow")
+  const camelIndices: number[] = [];
+  let queryIdx = 0;
+  for (let i = 0; i < text.length && queryIdx < query.length; i++) {
+    if (text[i].toLowerCase() === query[queryIdx].toLowerCase()) {
+      const isUpperCase = text[i] === text[i].toUpperCase() && text[i] !== text[i].toLowerCase();
+      const isBoundary =
+        i === 0 || text[i - 1] === '/' || text[i - 1] === '_' || text[i - 1] === '-';
+      if (isUpperCase || isBoundary || queryIdx > 0) {
+        camelIndices.push(i);
+        queryIdx++;
+      }
+    }
+  }
+  if (queryIdx === query.length) return 60;
+
+  return 0; // マッチしない
+}
+
+function getIconSrcForFile(name: string) {
+  const iconPath = getIconForFile(name) || getIconForFile('');
+  if (iconPath && iconPath.endsWith('.svg')) {
+    return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath.split('/').pop()}`;
+  }
+  return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/file.svg`;
+}
+
 interface OperationWindowProps {
   isVisible: boolean;
   onClose: () => void;
   projectFiles: FileItem[];
-  onFileSelect?: (file: FileItem) => void;
-  editors: EditorPane[];
-  setEditors: React.Dispatch<React.SetStateAction<EditorPane[]>>;
-  setFileSelectState: (state: { open: boolean; paneIdx: number | null }) => void;
-  currentPaneIndex?: number | null; // 現在のペインインデックス
+  onFileSelect?: (file: FileItem) => void; // AI用モード用
   aiMode?: boolean; // AI用モード（ファイルをタブで開かない）
+  targetPaneId?: string | null; // ファイルを開くペインのID
 }
 
 export default function OperationWindow({
@@ -40,22 +91,31 @@ export default function OperationWindow({
   onClose,
   projectFiles,
   onFileSelect,
-  editors,
-  setEditors,
-  setFileSelectState,
-  currentPaneIndex,
   aiMode = false,
+  targetPaneId,
 }: OperationWindowProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
+  const { openTab } = useTabStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [mdPreviewPrompt, setMdPreviewPrompt] = useState<null | { file: FileItem }>(null);
   const [mdDialogSelected, setMdDialogSelected] = useState<0 | 1>(0); // 0: プレビュー, 1: 通常エディタ
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const { currentProject } = useProject();
+  const { isExcluded } = useSettings();
+  // 固定アイテム高さを定義（スクロール計算と見た目の基準にする）
+  const ITEM_HEIGHT = 22; // VSCodeに合わせてよりコンパクトに
 
   // ファイル選択ハンドラ
   const handleFileSelectInOperation = (file: FileItem) => {
+    // AIモードの場合は.mdの確認ダイアログは不要なので直接処理する
+    if (aiMode) {
+      actuallyOpenFile(file, false);
+      return;
+    }
+
     if (file.name.toLowerCase().endsWith('.md')) {
       setMdPreviewPrompt({ file });
       return;
@@ -72,56 +132,98 @@ export default function OperationWindow({
       onClose();
       return;
     }
-    const flatPanes = flattenPanes(editors);
-    if (flatPanes.length === 0) return;
-    const paneIdx = currentPaneIndex ?? 0;
-    if (preview) {
-      // mdプレビューで開く
-      import('@/hooks/fileSelectHandlers').then(mod => {
-        mod.handleFilePreview({
-          file,
-          fileSelectState: { open: true, paneIdx },
-          currentProject: null,
-          projectFiles,
-          editors,
-          setEditors,
-        });
-      });
-    } else {
-      handleFileSelect({
-        file,
-        fileSelectState: { open: true, paneIdx },
-        currentProject: null,
-        projectFiles,
-        editors,
-        setEditors,
-      });
-    }
+
+    const defaultEditor =
+      typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
+    const fileWithEditor = { ...file, isCodeMirror: defaultEditor === 'codemirror' };
+
+    // targetPaneIdが指定されている場合はそのペインで開く
+    const options = targetPaneId
+      ? { paneId: targetPaneId, kind: preview ? 'preview' : 'editor' }
+      : { kind: preview ? 'preview' : 'editor' };
+
+    openTab(fileWithEditor, options as any);
     onClose();
   };
 
+  // 設定から除外パターンを取得
+  // 除外判定はuseSettingsから取得
   // 検索ロジック（ファイル名・フォルダ名・パスのいずれかに一致）
-  const allFiles = flattenFileItems(projectFiles).filter(
-    file => file.type === 'file' && !file.path.includes('node_modules/')
-  );
-  const filteredFiles: FileItem[] = searchQuery
-    ? allFiles.filter(file => {
-        const q = searchQuery.toLowerCase();
-        const folders = file.path.split('/').slice(0, -1);
-        return (
-          file.name.toLowerCase().includes(q) ||
-          folders.some(folder => folder.toLowerCase().includes(q)) ||
-          file.path.toLowerCase().includes(q)
-        );
-      })
-    : allFiles;
+  // Parse .gitignore from project files (if present) and build rules
+  const gitignoreRules = useMemo(() => {
+    try {
+      const flat = flattenFileItems(projectFiles);
+      const git = flat.find(f => f.name === '.gitignore' || f.path === '.gitignore');
+      if (!git || !git.content) return [] as any[];
+      return parseGitignore(git.content);
+    } catch (err) {
+      // If parsing fails for any reason, don't block file listing
+      return [] as any[];
+    }
+  }, [projectFiles]);
+
+  const allFiles = flattenFileItems(projectFiles).filter(file => {
+    if (file.type !== 'file') return false;
+    if (typeof isExcluded === 'function' && isExcluded(file.path)) return false;
+    // If .gitignore rules exist, hide matching paths
+    if (gitignoreRules && gitignoreRules.length > 0) {
+      try {
+        if (isPathIgnored(gitignoreRules, file.path, false)) return false;
+      } catch (e) {
+        // ignore errors and fall back to showing the file
+      }
+    }
+    return true;
+  });
+
+  // Enhanced VSCode-style filtering + scoring
+  const filteredFiles: FileItem[] = (() => {
+    if (!searchQuery) return allFiles;
+    const q = searchQuery.trim();
+    const scored: Array<{ file: FileItem; score: number; matchedPart: string }> = [];
+
+    for (const file of allFiles) {
+      const fileName = file.name;
+      const fileNameNoExt = fileName.substring(0, fileName.lastIndexOf('.')) || fileName;
+      const pathParts = file.path.split('/');
+
+      // ファイル名のスコア（最優先）
+      const nameScore = scoreMatch(fileName, q);
+      // 拡張子なしファイル名のスコア
+      const nameNoExtScore = scoreMatch(fileNameNoExt, q);
+      // パス全体のスコア
+      const pathScore = scoreMatch(file.path, q);
+      // 各パス要素のスコア
+      const partScores = pathParts.map(part => scoreMatch(part, q));
+      const bestPartScore = Math.max(...partScores, 0);
+
+      const best = Math.max(nameScore, nameNoExtScore, pathScore, bestPartScore);
+
+      // スコアが0より大きい（何らかのマッチがある）場合のみ含める
+      if (best > 0) {
+        scored.push({
+          file,
+          score: best,
+          matchedPart: nameScore >= bestPartScore ? 'name' : 'path',
+        });
+      }
+    }
+
+    // スコア降順、同スコアなら名前の辞書順
+    scored.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.file.name.localeCompare(b.file.name);
+    });
+
+    return scored.map(s => s.file);
+  })();
 
   // 選択されたアイテムにスクロールする関数
   const scrollToSelectedItem = (index: number) => {
     if (!listRef.current) return;
 
     const listElement = listRef.current;
-    const itemHeight = 38;
+    const itemHeight = ITEM_HEIGHT;
     const containerHeight = listElement.clientHeight;
     const scrollTop = listElement.scrollTop;
 
@@ -207,9 +309,6 @@ export default function OperationWindow({
     filteredFiles,
     selectedIndex,
     onClose,
-    editors,
-    setEditors,
-    setFileSelectState,
     handleFileSelectInOperation,
     mdPreviewPrompt,
     mdDialogSelected,
@@ -225,7 +324,7 @@ export default function OperationWindow({
 
   return (
     <>
-      {/* mdプレビュー選択ダイアログ */}
+      {/* mdプレビュー選択ダイアログを最前面に移動 */}
       {mdPreviewPrompt && (
         <div
           style={{
@@ -235,7 +334,7 @@ export default function OperationWindow({
             right: 0,
             bottom: 0,
             background: 'rgba(0,0,0,0.4)',
-            zIndex: 2000,
+            zIndex: 3000, // より高いz-index
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -265,7 +364,7 @@ export default function OperationWindow({
                 color: colors.foreground,
               }}
             >
-              Markdownプレビューで開きますか？
+              {t('operationWindow.mdPreviewPrompt')}
             </div>
             <div style={{ color: colors.mutedFg, fontSize: '13px', marginBottom: '12px' }}>
               {mdPreviewPrompt.file.name}
@@ -292,7 +391,7 @@ export default function OperationWindow({
                   setMdPreviewPrompt(null);
                 }}
               >
-                プレビューで開く
+                {t('operationWindow.openInPreview')}
               </button>
               <button
                 style={{
@@ -315,11 +414,11 @@ export default function OperationWindow({
                   setMdPreviewPrompt(null);
                 }}
               >
-                通常エディタで開く
+                {t('operationWindow.openInEditor')}
               </button>
             </div>
             <div style={{ fontSize: '12px', color: colors.mutedFg, marginTop: '8px' }}>
-              Tab/←→ で切替, Enterで決定, ESCで閉じる
+              {t('operationWindow.mdPreviewDialogHelp')}
             </div>
           </div>
         </div>
@@ -336,7 +435,7 @@ export default function OperationWindow({
           alignItems: 'flex-start',
           justifyContent: 'center',
           paddingTop: '100px',
-          zIndex: 1000,
+          zIndex: 2000,
         }}
         onClick={onClose}
       >
@@ -355,10 +454,15 @@ export default function OperationWindow({
         >
           {/* 検索入力欄のみ */}
           <div style={{ padding: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+              <span style={{ fontSize: '12px', color: colors.mutedFg }}>
+                Quick Open - {formatKeyComboForDisplay('Ctrl+P')}
+              </span>
+            </div>
             <input
               ref={inputRef}
               type="text"
-              placeholder="ファイル名・フォルダ名・パス いずれかで検索..."
+              placeholder={t('operationWindow.searchPlaceholder')}
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               style={{
@@ -392,25 +496,30 @@ export default function OperationWindow({
                   color: colors.mutedFg,
                 }}
               >
-                ファイルが見つかりません
+                {t('operationWindow.noFilesFound')}
               </div>
             ) : (
               filteredFiles.map((file, index) => {
-                // highlight helper
-                function highlight(text: string, query: string, isSelected: boolean) {
-                  if (!query) return text;
-                  const idx = text.toLowerCase().indexOf(query.toLowerCase());
-                  if (idx === -1) return text;
+                // VSCode風のハイライト関数（一致部分を正確に検出）
+                function highlightMatch(text: string, query: string, isSelected: boolean) {
+                  if (!query) return <>{text}</>;
+
+                  const lowerText = text.toLowerCase();
+                  const lowerQuery = query.toLowerCase();
+                  const idx = lowerText.indexOf(lowerQuery);
+
+                  if (idx === -1) return <>{text}</>;
+
                   return (
                     <>
                       {text.slice(0, idx)}
                       <span
                         style={{
-                          background: isSelected ? colors.primary : colors.accentBg,
+                          background: isSelected ? 'rgba(255,255,255,0.3)' : colors.accentBg,
                           color: isSelected ? colors.cardBg : colors.primary,
-                          fontWeight: isSelected ? 'bold' : 'normal',
+                          fontWeight: 'bold',
                           borderRadius: '2px',
-                          padding: '0 2px',
+                          padding: '0 1px',
                         }}
                       >
                         {text.slice(idx, idx + query.length)}
@@ -419,88 +528,77 @@ export default function OperationWindow({
                     </>
                   );
                 }
-                // highlight logic: ファイル名・フォルダ名・パスのいずれかに一致した部分をハイライト
-                let pathElem: React.ReactNode = file.path;
-                let nameElem: React.ReactNode = file.name;
-                const q = searchQuery.toLowerCase();
-                // highlight file name
-                if (file.name.toLowerCase().includes(q)) {
-                  nameElem = highlight(file.name, searchQuery, index === selectedIndex);
-                }
-                // highlight folder part in path
-                const folders = file.path.split('/').slice(0, -1);
-                if (folders.some(folder => folder.toLowerCase().includes(q))) {
-                  const folderElems = folders.map((folder, i) =>
-                    folder.toLowerCase().includes(q) ? (
-                      <span
-                        key={i}
-                        style={{
-                          background: index === selectedIndex ? colors.primary : colors.accentBg,
-                          color: index === selectedIndex ? colors.cardBg : colors.primary,
-                          fontWeight: index === selectedIndex ? 'bold' : 'normal',
-                          borderRadius: '2px',
-                          padding: '0 2px',
-                        }}
-                      >
-                        {folder}
-                      </span>
-                    ) : (
-                      folder
-                    )
-                  );
-                  const joinedFolders = folderElems
-                    .slice(1)
-                    .reduce<
-                      React.ReactNode[]
-                    >((prev, curr, i) => [...prev, <span key={i + 'sep'}>/</span>, curr], [folderElems[0]]);
-                  pathElem = (
-                    <>
-                      {joinedFolders}
-                      {'/'}
-                      {file.name}
-                    </>
-                  );
-                } else if (file.path.toLowerCase().includes(q)) {
-                  pathElem = highlight(file.path, searchQuery, index === selectedIndex);
-                }
+
+                const isSelected = index === selectedIndex;
+                const pathParts = file.path.split('/');
+                const dirPath = pathParts.slice(0, -1).join('/');
+
                 return (
                   <div
                     key={file.id}
                     style={{
-                      padding: '8px 12px',
-                      background: index === selectedIndex ? colors.primary : 'transparent',
-                      color: index === selectedIndex ? colors.cardBg : colors.foreground,
+                      height: ITEM_HEIGHT,
+                      boxSizing: 'border-box',
+                      padding: '2px 12px',
+                      background: isSelected ? colors.primary : 'transparent',
+                      color: isSelected ? colors.cardBg : colors.foreground,
                       cursor: 'pointer',
-                      borderBottom: `1px solid ${colors.border}`,
                       display: 'flex',
                       alignItems: 'center',
                       gap: '8px',
-                      border: index === selectedIndex ? `2px solid ${colors.accentBg}` : undefined,
-                      fontWeight: index === selectedIndex ? 'bold' : 'normal',
-                      borderRadius: index === selectedIndex ? '6px' : undefined,
-                      boxShadow: index === selectedIndex ? '0 0 0 2px rgba(0,0,0,0.08)' : undefined,
+                      borderLeft: isSelected
+                        ? `3px solid ${colors.accentBg}`
+                        : '3px solid transparent',
+                      transition: 'background 0.1s ease',
                     }}
                     onClick={() => {
                       handleFileSelectInOperation(file);
                     }}
                     onMouseEnter={() => setSelectedIndex(index)}
                   >
+                    {/* ファイルアイコン */}
+                    <img
+                      src={getIconSrcForFile(file.name)}
+                      alt="icon"
+                      style={{
+                        width: 16,
+                        height: 16,
+                        flex: '0 0 16px',
+                      }}
+                    />
+
+                    {/* ファイル名（左寄せ） */}
                     <span
                       style={{
-                        fontSize: '10px',
-                        fontFamily: 'monospace',
+                        fontSize: '13px',
+                        fontWeight: isSelected ? '600' : '400',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        minWidth: '120px',
+                        maxWidth: '200px',
                       }}
                     >
-                      {pathElem}
+                      {highlightMatch(file.name, searchQuery, isSelected)}
                     </span>
-                    <span
-                      style={{
-                        fontSize: '14px',
-                        fontWeight: '500',
-                      }}
-                    >
-                      {nameElem}
-                    </span>
+
+                    {/* パス（右側に配置、右寄せ） */}
+                    {dirPath && (
+                      <span
+                        style={{
+                          fontSize: '11px',
+                          color: isSelected ? 'rgba(255,255,255,0.8)' : colors.mutedFg,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          marginLeft: 'auto',
+                          fontFamily: 'monospace',
+                          textAlign: 'right',
+                        }}
+                      >
+                        {highlightMatch(dirPath, searchQuery, isSelected)}
+                      </span>
+                    )}
                   </div>
                 );
               })
@@ -519,7 +617,7 @@ export default function OperationWindow({
               justifyContent: 'space-between',
             }}
           >
-            <span>↑↓ で選択, Enter で開く</span>
+            <span>{t('operationWindow.footerHelp')}</span>
             <span
               style={{
                 cursor: 'pointer',
@@ -528,14 +626,14 @@ export default function OperationWindow({
               onClick={onClose}
               tabIndex={0}
               role="button"
-              aria-label="ESC で閉じる"
+              aria-label={t('operationWindow.closeByEsc')}
               onKeyDown={e => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   onClose();
                 }
               }}
             >
-              ESC で閉じる
+              {t('operationWindow.closeByEsc')}
             </span>
           </div>
         </div>

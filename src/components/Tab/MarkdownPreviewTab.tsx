@@ -1,22 +1,28 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { ZoomIn, ZoomOut, RefreshCw, Download } from 'lucide-react';
 import { exportPdfFromHtml } from '@/engine/export/exportPdf';
 import { useTheme, ThemeContext } from '@/context/ThemeContext';
+import { useTranslation } from '@/context/I18nContext';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useSettings } from '@/hooks/useSettings';
 import mermaid from 'mermaid';
 import { HighlightedCode } from './HighlightedCode';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
 import 'katex/dist/katex.min.css';
-import { FileItem } from '@/types';
+// Note: bracket-style math (\(...\), \[...\]) can be lost by the markdown parser
+// because backslashes are processed as escapes. To reliably support bracket
+// delimiters we preprocess the raw markdown string before parsing. This
+// preserves code fences and inline code by skipping conversion inside them.
+import { FileItem, Project } from '@/types';
+import type { PreviewTab } from '@/engine/tabs/types';
 import { loadImageAsDataURL, parseMermaidContent } from './markdownUtils';
 
 interface MarkdownPreviewTabProps {
-  content: string;
-  fileName: string;
-  currentProjectName?: string;
-  projectFiles?: FileItem[];
+  activeTab: PreviewTab;
+  currentProject?: Project;
 }
 
 // ユニークID生成用
@@ -32,6 +38,8 @@ let mermaidIdCounter = 0;
 
 // メモ化されたMermaidコンポーネント
 const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) => {
+  // i18n
+  const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
   // chart内容ごとにIDを固定
   const idRef = useMemo(
@@ -52,6 +60,10 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
   const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
+    let lastTouchDist = 0;
+    let isPinching = false;
+    let pinchStartScale = 1;
+    let pinchStart = { x: 0, y: 0 };
     const renderMermaid = async () => {
       if (!ref.current) return;
       setIsLoading(true);
@@ -66,7 +78,7 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
               <animateTransform attributeName="transform" type="rotate" from="0 20 20" to="360 20 20" dur="1s" repeatCount="indefinite"/>
             </circle>
           </svg>
-          <span style="margin-left:10px;color:#4ade80;font-size:14px;">Mermaid図表を生成中...</span>
+          <span style=\"margin-left:10px;color:#4ade80;font-size:14px;\">${t ? t('markdownPreview.generatingMermaid') : 'Mermaid図表を生成中...'}</span>
         </div>
       `;
       try {
@@ -150,10 +162,10 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
             const s = scaleRef.current;
             const { x, y } = translateRef.current;
             svgElem.style.transform = `translate(${x}px, ${y}px) scale(${s})`;
-            // useStateで保存
             setZoomState({ scale: s, translate: { x, y } });
           };
 
+          // Wheel zoom (desktop)
           const onWheel = (e: WheelEvent) => {
             e.preventDefault();
             const rect = container.getBoundingClientRect();
@@ -170,6 +182,56 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
             applyTransform();
           };
 
+          // Touch events for iPad pinch zoom
+          const getTouchDist = (touches: TouchList) => {
+            if (touches.length < 2) return 0;
+            const dx = touches[0].clientX - touches[1].clientX;
+            const dy = touches[0].clientY - touches[1].clientY;
+            return Math.sqrt(dx * dx + dy * dy);
+          };
+
+          const onTouchStart = (e: TouchEvent) => {
+            if (e.touches.length === 2) {
+              isPinching = true;
+              lastTouchDist = getTouchDist(e.touches);
+              pinchStartScale = scaleRef.current;
+              // ピンチ中心座標
+              const rect = container.getBoundingClientRect();
+              pinchStart = {
+                x: (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left,
+                y: (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top,
+              };
+            }
+          };
+
+          const onTouchMove = (e: TouchEvent) => {
+            if (isPinching && e.touches.length === 2) {
+              e.preventDefault();
+              const newDist = getTouchDist(e.touches);
+              if (lastTouchDist > 0) {
+                let scaleDelta = newDist / lastTouchDist;
+                let newScale = Math.max(0.2, Math.min(8, pinchStartScale * scaleDelta));
+                // ピンチ中心を基準にズーム
+                const tx = translateRef.current.x;
+                const ty = translateRef.current.y;
+                translateRef.current.x =
+                  pinchStart.x - (pinchStart.x - tx) * (newScale / scaleRef.current);
+                translateRef.current.y =
+                  pinchStart.y - (pinchStart.y - ty) * (newScale / scaleRef.current);
+                scaleRef.current = newScale;
+                applyTransform();
+              }
+            }
+          };
+
+          const onTouchEnd = (e: TouchEvent) => {
+            if (e.touches.length < 2) {
+              isPinching = false;
+              lastTouchDist = 0;
+            }
+          };
+
+          // Pointer events for pan
           const onPointerDown = (e: PointerEvent) => {
             (e.target as Element).setPointerCapture?.(e.pointerId);
             isPanningRef.current = true;
@@ -210,6 +272,10 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
           window.addEventListener('pointermove', onPointerMove as any);
           window.addEventListener('pointerup', onPointerUp as any);
           container.addEventListener('dblclick', onDblClick as any);
+          // iPadピンチズーム
+          container.addEventListener('touchstart', onTouchStart, { passive: false });
+          container.addEventListener('touchmove', onTouchMove, { passive: false });
+          container.addEventListener('touchend', onTouchEnd, { passive: false });
 
           const cleanup = () => {
             try {
@@ -218,6 +284,9 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
               window.removeEventListener('pointermove', onPointerMove as any);
               window.removeEventListener('pointerup', onPointerUp as any);
               container.removeEventListener('dblclick', onDblClick as any);
+              container.removeEventListener('touchstart', onTouchStart as any);
+              container.removeEventListener('touchmove', onTouchMove as any);
+              container.removeEventListener('touchend', onTouchEnd as any);
             } catch (err) {
               // ignore
             }
@@ -335,69 +404,91 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
           >
             <button
               type="button"
+              aria-label={t ? t('markdownPreview.zoomIn') : 'ズームイン'}
               onClick={handleZoomIn}
               style={{
+                margin: '0 4px',
                 padding: '4px 8px',
-                background: '#60a5fa',
-                color: '#fff',
-                borderRadius: '4px',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '12px',
+                borderRadius: 4,
+                border: '1px solid #ccc',
+                background: colors.background,
+                color: colors.foreground,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
               }}
-              title="ズームイン"
             >
-              ＋
+              <ZoomIn
+                size={18}
+                style={{ verticalAlign: 'middle' }}
+              />
+              {t ? t('markdownPreview.zoomIn') : 'ズームイン'}
             </button>
             <button
               type="button"
+              aria-label={t ? t('markdownPreview.zoomOut') : 'ズームアウト'}
               onClick={handleZoomOut}
               style={{
+                margin: '0 4px',
                 padding: '4px 8px',
-                background: '#60a5fa',
-                color: '#fff',
-                borderRadius: '4px',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '12px',
+                borderRadius: 4,
+                border: '1px solid #ccc',
+                background: colors.background,
+                color: colors.foreground,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
               }}
-              title="ズームアウト"
             >
-              －
+              <ZoomOut
+                size={18}
+                style={{ verticalAlign: 'middle' }}
+              />
+              {t ? t('markdownPreview.zoomOut') : 'ズームアウト'}
             </button>
             <button
               type="button"
+              aria-label={t ? t('markdownPreview.reset') : 'リセット'}
               onClick={handleResetView}
               style={{
+                margin: '0 4px',
                 padding: '4px 8px',
-                background: '#94a3b8',
-                color: '#fff',
-                borderRadius: '4px',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '12px',
+                borderRadius: 4,
+                border: '1px solid #ccc',
+                background: colors.background,
+                color: colors.foreground,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
               }}
-              title="リセット"
             >
-              リセット
+              <RefreshCw
+                size={18}
+                style={{ verticalAlign: 'middle' }}
+              />
+              {t ? t('markdownPreview.reset') : 'リセット'}
             </button>
             <button
               type="button"
+              aria-label={t ? t('markdownPreview.downloadSvg') : 'SVGダウンロード'}
               onClick={handleDownloadSvg}
               style={{
+                margin: '0 4px',
                 padding: '4px 8px',
-                background: '#38bdf8',
-                color: '#fff',
-                borderRadius: '4px',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '12px',
-                marginLeft: '4px',
-                boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+                borderRadius: 4,
+                border: '1px solid #ccc',
+                background: colors.background,
+                color: colors.foreground,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
               }}
-              title="SVGダウンロード"
             >
-              SVG
+              <Download
+                size={18}
+                style={{ verticalAlign: 'middle' }}
+              />
+              {t ? t('markdownPreview.downloadSvg') : 'SVGダウンロード'}
             </button>
           </div>
         </div>
@@ -428,14 +519,17 @@ Mermaid.displayName = 'Mermaid';
 // メモ化されたローカル画像コンポーネント
 const LocalImage = React.memo<{
   src: string;
-  alt?: string;
-  projectName?: string;
-  projectFiles?: FileItem[];
+  alt: string;
+  activeTab: PreviewTab;
+  projectName?: string | undefined;
+  projectId?: string | undefined;
   [key: string]: any;
-}>(({ src, alt, projectName, projectFiles, ...props }) => {
+}>(({ src, alt, activeTab, projectName, projectId, ...props }) => {
   const [dataUrl, setDataUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  // i18n
+  const { t } = useTranslation();
 
   useEffect(() => {
     const loadImage = async () => {
@@ -454,7 +548,13 @@ const LocalImage = React.memo<{
 
       // ローカル画像の場合はプロジェクトファイルまたはファイルシステムから読み込み
       try {
-        const loadedDataUrl = await loadImageAsDataURL(src, projectName, projectFiles);
+        const loadedDataUrl = await loadImageAsDataURL(
+          src,
+          projectName,
+          projectId,
+          // pass the path of the markdown file so relative paths can be resolved
+          activeTab.path
+        );
         if (loadedDataUrl) {
           setDataUrl(loadedDataUrl);
           console.log('Loaded local image:', src);
@@ -471,11 +571,13 @@ const LocalImage = React.memo<{
     };
 
     loadImage();
-  }, [src, projectName, projectFiles]);
+  }, [src, projectName, activeTab.path]);
 
   if (loading) {
     return (
-      <div
+      <span
+        role="img"
+        aria-label="loading-image"
         style={{
           display: 'inline-block',
           padding: '8px 12px',
@@ -485,14 +587,16 @@ const LocalImage = React.memo<{
           color: '#666',
         }}
       >
-        画像を読み込み中...
-      </div>
+        {t ? t('markdownPreview.loadingImage') : '画像を読み込み中...'}
+      </span>
     );
   }
 
   if (error || !dataUrl) {
     return (
-      <div
+      <span
+        role="img"
+        aria-label="missing-image"
         style={{
           display: 'inline-block',
           padding: '8px 12px',
@@ -502,8 +606,10 @@ const LocalImage = React.memo<{
           color: '#cc0000',
         }}
       >
-        画像が見つかりません: {src}
-      </div>
+        {t
+          ? t('markdownPreview.imageNotFound', { params: { src } })
+          : `画像が見つかりません: ${src}`}
+      </span>
     );
   }
 
@@ -523,7 +629,7 @@ const MemoizedCodeComponent = React.memo<{
   className?: string;
   children: React.ReactNode;
   colors: any;
-  currentProjectName?: string;
+  currentProjectName?: string | undefined;
   projectFiles?: FileItem[];
 }>(({ className, children, colors, currentProjectName, projectFiles, ...props }) => {
   const match = /language-(\w+)/.exec(className || '');
@@ -553,13 +659,49 @@ const MemoizedCodeComponent = React.memo<{
 
 MemoizedCodeComponent.displayName = 'MemoizedCodeComponent';
 
-const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({
-  content,
-  fileName,
-  currentProjectName,
-  projectFiles,
-}) => {
+const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ activeTab, currentProject }) => {
   const { colors } = useTheme();
+  const { settings } = useSettings(currentProject?.id);
+  const { t } = useTranslation();
+  // ref to markdown container for scrolling
+  const markdownContainerRef = useRef<HTMLDivElement | null>(null);
+  // keep previous content to detect append-only updates
+  const prevContentRef = useRef<string | null>(null);
+
+  // determine markdown plugins based on settings
+  const [extraRemarkPlugins, setExtraRemarkPlugins] = useState<any[]>([
+    /* maybe remark-breaks */
+  ]);
+
+  useEffect(() => {
+    let mounted = true;
+    const setup = async () => {
+      const plugins: any[] = [];
+      try {
+        const mode = settings?.markdown?.singleLineBreaks || 'default';
+        if (mode === 'breaks') {
+          // dynamic import to avoid hard dependency at compile time
+          try {
+            const mod = await import('remark-breaks');
+            if (mounted) plugins.push(mod.default || mod);
+          } catch (e) {
+            console.warn(
+              '[MarkdownPreviewTab] remark-breaks not available, falling back to default linebreak behavior.'
+            );
+          }
+        }
+        // No AST-level conversion here. Bracket-style math is handled by
+        // preprocessing the raw markdown string (see `processedContent` below)
+      } catch (e) {
+        console.warn('[MarkdownPreviewTab] failed to configure markdown plugins', e);
+      }
+      if (mounted) setExtraRemarkPlugins(plugins);
+    };
+    setup();
+    return () => {
+      mounted = false;
+    };
+  }, [settings?.markdown?.singleLineBreaks, settings?.markdown?.math?.delimiter]);
 
   // ReactMarkdownのコンポーネントをメモ化
   // 通常表示用
@@ -569,8 +711,7 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({
         <MemoizedCodeComponent
           className={className}
           colors={colors}
-          currentProjectName={currentProjectName}
-          projectFiles={projectFiles}
+          currentProjectName={currentProject?.name}
           {...props}
         >
           {children}
@@ -582,14 +723,15 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({
           <LocalImage
             src={srcString}
             alt={alt || ''}
-            projectName={currentProjectName}
-            projectFiles={projectFiles}
+            projectName={currentProject?.name}
+            projectId={currentProject?.id}
+            activeTab={activeTab}
             {...props}
           />
         );
       },
     }),
-    [colors, currentProjectName, projectFiles]
+    [colors, currentProject?.name]
   );
 
   // PDFエクスポート用: plain=trueを渡す
@@ -621,28 +763,67 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({
           <LocalImage
             src={srcString}
             alt={alt || ''}
-            projectName={currentProjectName}
-            projectFiles={projectFiles}
+            projectName={currentProject?.name}
+            projectId={currentProject?.id}
+            activeTab={activeTab}
+            // Pass base path for resolution inside markdown files
+            baseFilePath={activeTab.path}
             {...props}
           />
         );
       },
     }),
-    [colors, currentProjectName, projectFiles]
+    [colors, currentProject?.name]
   );
 
   // メイン部分もメモ化
+  // Preprocess the raw markdown to convert bracket-style math delimiters
+  // into dollar-style, while skipping code fences and inline code.
+  const processedContent = useMemo(() => {
+    const src = activeTab.content || '';
+    const delimiter = settings?.markdown?.math?.delimiter || 'dollar';
+    if (delimiter === 'dollar') return src;
+
+    const convertInNonCode = (text: string) => {
+      // Split by code fences (```...```) and keep them intact
+      return text
+        .split(/(```[\s\S]*?```)/g)
+        .map(part => {
+          if (/^```/.test(part)) return part; // code fence, leave
+          // Within non-fence parts, also preserve inline code `...`
+          return part
+            .split(/(`[^`]*`)/g)
+            .map(seg => {
+              if (/^`/.test(seg)) return seg; // inline code
+              // replace \(...\) -> $...$ and \[...\] -> $$...$$
+              return seg
+                .replace(/\\\(([\s\S]+?)\\\)/g, (_m, g) => `$${g}$`)
+                .replace(/\\\[([\s\S]+?)\\\]/g, (_m, g) => `$$${g}$$`);
+            })
+            .join('');
+        })
+        .join('');
+    };
+
+    if (delimiter === 'bracket' || delimiter === 'both') {
+      return convertInNonCode(src);
+    }
+
+    return src;
+  }, [activeTab.content, settings?.markdown?.math?.delimiter]);
+
   const markdownContent = useMemo(
     () => (
       <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkMath]}
+        // include remark-gfm, optional conversion plugins, then remark-math
+        remarkPlugins={[remarkGfm, ...extraRemarkPlugins, remarkMath]}
         rehypePlugins={[rehypeKatex, rehypeRaw]}
         components={markdownComponents}
       >
-        {content}
+        {processedContent}
       </ReactMarkdown>
     ),
-    [content, markdownComponents]
+    [processedContent, markdownComponents, extraRemarkPlugins]
   );
 
   // PDF用
@@ -653,10 +834,10 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({
         rehypePlugins={[rehypeKatex, rehypeRaw]}
         components={markdownComponentsPlain}
       >
-        {content}
+        {processedContent}
       </ReactMarkdown>
     ),
-    [content, markdownComponentsPlain]
+    [activeTab.content, markdownComponentsPlain]
   );
 
   // PDFエクスポート処理
@@ -699,7 +880,10 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({
         </style>
         ${container.innerHTML}
       `;
-        exportPdfFromHtml(container.innerHTML, fileName.replace(/\.[^/.]+$/, '') + '.pdf');
+        exportPdfFromHtml(
+          container.innerHTML,
+          (activeTab.name || 'document').replace(/\.[^/.]+$/, '') + '.pdf'
+        );
         try {
           root.unmount();
         } catch (e) {
@@ -711,20 +895,95 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({
       console.error('PDFエクスポート中にエラーが発生しました', err);
       if (document.body.contains(container)) document.body.removeChild(container);
     }
-  }, [markdownContentPlain, fileName, colors]);
+  }, [markdownContentPlain, activeTab.name, colors]);
+
+  // 自動スクロール: 新しいコンテンツが「末尾に追記」された場合のみスクロールする
+  useEffect(() => {
+    if (typeof window === 'undefined') return; // SSR対策
+    const prev = prevContentRef.current;
+    const current = activeTab.content || '';
+
+    const collapseNewlines = (s: string) => s.replace(/\n{3,}/g, '\n\n');
+    const trimTrailingWhitespace = (s: string) => s.replace(/[\s\u00A0]+$/g, '');
+
+    // Strictly determine if newStr is the result of appending content to oldStr.
+    // Rules:
+    // - oldStr must be non-empty and strictly shorter than newStr
+    // - after trimming trailing whitespace/newlines from oldStr, it must match a prefix
+    //   of newStr (also allowing newStr to contain extra leading newlines between old and new)
+    // - edits in the middle (changes not at the end) should NOT pass
+    // - limit the comparison window to the last N characters of oldStr for performance on huge docs
+    const isAppend = (oldStr: string | null, newStr: string) => {
+      if (!oldStr) return false;
+      if (newStr.length <= oldStr.length) return false;
+
+      const MAX_WINDOW = 2000; // compare up to last 2KB of the old content
+
+      // Normalize collapsing excessive blank lines only for comparison (not for display)
+      const oldTrimmed = trimTrailingWhitespace(oldStr);
+      const newTrimmed = newStr; // keep newStr intact for prefix checks
+
+      // Fast path: exact prefix match (most common case)
+      if (newTrimmed.startsWith(oldTrimmed)) return true;
+
+      // If old is very large, compare using a window at the end of oldTrimmed
+      const start = Math.max(0, oldTrimmed.length - MAX_WINDOW);
+      const oldWindow = oldTrimmed.slice(start);
+
+      // If the new string contains oldWindow at its start and the remainder is appended,
+      // ensure that the portion of old before the window hasn't been modified by checking
+      // that the prefix of newStr (up to start) equals the corresponding prefix of oldTrimmed.
+      if (newTrimmed.startsWith(oldWindow)) {
+        // Verify the untouched prefix (if any)
+        if (start === 0) return true; // whole oldTrimmed was within window and matched
+        const oldPrefix = oldTrimmed.slice(0, start);
+        const newPrefix = newTrimmed.slice(0, start);
+        if (oldPrefix === newPrefix) return true;
+      }
+
+      // Allow a relaxed match where multiple blank lines/newline-only differences exist
+      // between end of old and start of appended content: normalize sequences of 2+ newlines
+      const normalizeNewlines = (s: string) => s.replace(/\n{2,}/g, '\n\n');
+      const oldNormalized = normalizeNewlines(oldTrimmed);
+      const newNormalized = normalizeNewlines(newTrimmed);
+      if (newNormalized.startsWith(oldNormalized)) return true;
+
+      return false;
+    };
+
+    try {
+      if (isAppend(prev, current)) {
+        const el = markdownContainerRef.current;
+        if (el) {
+          el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+        }
+      }
+    } catch (err) {
+      const el = markdownContainerRef.current;
+      if (el) el.scrollTop = el.scrollHeight;
+    }
+
+    // 常に最新を保存
+    prevContentRef.current = current;
+  }, [activeTab.content]);
 
   return (
-    <div className="p-4 overflow-auto h-full w-full">
+    <div
+      className="p-4 overflow-auto h-full w-full"
+      ref={markdownContainerRef}
+    >
       <div className="flex items-center mb-2">
-        <div className="font-bold text-lg mr-2">{fileName} プレビュー</div>
+        <div className="font-bold text-lg mr-2">
+          {activeTab.name} {t('markdownPreview.preview')}
+        </div>
         <button
           type="button"
           className="px-2 py-1 rounded bg-green-500 text-white text-xs hover:bg-green-600 transition"
           style={{ marginLeft: 4 }}
           onClick={handleExportPdf}
-          title="PDFエクスポート"
+          title={t('markdownPreview.exportPdf')}
         >
-          PDFエクスポート
+          {t('markdownPreview.exportPdf')}
         </button>
       </div>
       <div

@@ -1,0 +1,351 @@
+{
+  "action": {
+    "authenticating": "Authentifizierung...",
+    "cancel": "Abbrechen",
+    "refresh": "Aktualisieren",
+    "retry": "Erneut versuchen"
+  },
+  "ai": {
+    "changedFilesList": {
+      "noChangedFiles": "Keine geänderten Dateien"
+    },
+    "chatContainer": {
+      "generating": "Die KI erstellt eine Antwort...",
+      "suggest": "Bitte stellen Sie Fragen oder Code-Anfragen."
+    },
+    "chatMessage": {
+      "copyCode": "Code kopieren",
+      "reference": "Referenz:"
+    },
+    "context": {
+      "select": "Dateien auswählen"
+    },
+    "fileChangeItem": {
+      "apply": "Anwenden",
+      "confirm": "Bestätigen",
+      "discard": "Verwerfen"
+    },
+    "fileContextBar": {
+      "addFile": "+ Datei hinzufügen",
+      "context": "Kontext:",
+      "noFileSelected": "Keine Datei ausgewählt"
+    },
+    "hints": {
+      "enterSend": "Enter: neue Zeile / Ctrl+Enter: senden",
+      "history": "Alt+↑↓: Verlauf"
+    },
+    "input": {
+      "ask": "Stellen Sie der KI Fragen oder konsultieren Sie Code...",
+      "edit": "Geben Sie Anweisungen zum Bearbeiten des Codes ein..."
+    },
+    "selectedLabel": "Ausgewählt:",
+    "sendTitle": "Senden (Ctrl+Enter)"
+  },
+  "aiReviewTab": {
+    "applyAll": "Alle anwenden",
+    "autoSaveAndApply": "Änderungen werden automatisch gespeichert und mit 'Alle anwenden' im Dateisystem übernommen.",
+    "discard": "Verwerfen",
+    "discardAllAndRevert": "Alle verwerfen und zurücksetzen",
+    "editRightDirectly": "Sie können direkt im rechten Editor bearbeiten",
+    "notFound": "AI-Review-Daten nicht gefunden",
+    "revert": "Zurücksetzen",
+    "revertSelectionHint": "Sie können auch teilweise zurücksetzen, indem Sie mit der rechten Maustaste klicken und 'Auswahl zurücksetzen' wählen."
+  },
+  "auth": {
+    "authFailed": "GitHub-Authentifizierung fehlgeschlagen",
+    "authSuccess": "GitHub-Authentifizierung erfolgreich!",
+    "clickToOpenMenu": "Klicken, um das Menü zu öffnen",
+    "patDescription": "<0>Klicken Sie hier</0>, um einen PAT zu erstellen (Repository-Berechtigung erforderlich)",
+    "patPlaceholder": "ghp_xxxxxxxxxxxx",
+    "patPrompt": "GitHub Personal Access Token",
+    "signIn": "Anmelden",
+    "signOut": "Abmelden",
+    "signOutConfirm": "Möchten Sie sich wirklich von GitHub abmelden?"
+  },
+  "binaryTab": {
+    "unsupportedFormat": "Dieses Dateiformat kann nicht angezeigt werden"
+  },
+  "bottom": {
+    "debugConsole": "Debug-Konsole",
+    "output": "Ausgabe",
+    "outputPanel": {
+      "all": "Alle",
+      "clear": "Löschen",
+      "clearTooltip": "Aktuell angezeigte Ausgabe löschen",
+      "contextLabel": "Kontext",
+      "empty": "Keine Ausgabe",
+      "typeLabel": "Typ"
+    },
+    "terminal": "Terminal",
+    "terminalInitializing": "Terminal wird initialisiert..."
+  },
+  "changedFilesList": {
+    "apply": "Anwenden",
+    "applyAll": "Alle anwenden",
+    "changedFiles": "Geänderte Dateien",
+    "discard": "Verwerfen",
+    "discardAll": "Alle verwerfen",
+    "others": "andere",
+    "preview": "Vorschau",
+    "reason": "Grund",
+    "review": "Überprüfen"
+  },
+  "charCountDisplay": {
+    "clickForDetails": "Für Details klicken",
+    "close": "Schließen",
+    "selectedAndTotal": "Ausgewählt: {selectionCount} Zeichen (ohne Leerzeichen) / Gesamt: {charCount} Zeichen (ohne Leerzeichen)",
+    "total": "Gesamt: {charCount} Zeichen (ohne Leerzeichen)"
+  },
+  "chatSpaceList": {
+    "confirmDelete": "Möchten Sie diesen Bereich wirklich löschen?",
+    "create": "Neuen Bereich erstellen",
+    "delete": "Löschen",
+    "empty": "Noch keine Bereiche",
+    "rename": "Umbenennen"
+  },
+  "confirmation": {
+    "title": "Bestätigung"
+  },
+  "diff": {
+    "diff": "Diff",
+    "lines": "Zeilen",
+    "original": "Original",
+    "suggested": "Vorgeschlagen"
+  },
+  "diffTab": {
+    "fileList": "Dateiliste",
+    "noDiffFiles": "Keine Diff-Dateien"
+  },
+  "editorPlaceholder": {
+    "loadingEditor": "Editor wird geladen...",
+    "loadingFile": "Dateiinhalt wird wiederhergestellt...",
+    "selectFile": "Bitte wählen Sie eine Datei"
+  },
+  "fileTree": {
+    "alert": {
+      "renameFailed": "Umbenennen fehlgeschlagen: {error}"
+    },
+    "menu": {
+      "createFile": "Datei erstellen",
+      "createFolder": "Ordner erstellen",
+      "delete": "Löschen",
+      "download": "Herunterladen",
+      "import": "Importieren",
+      "open": "Öffnen",
+      "openCodeMirror": "In CodeMirror öffnen",
+      "openPreview": "Vorschau öffnen",
+      "rename": "Umbenennen",
+      "webPreview": "WebVorschau"
+    },
+    "prompt": {
+      "newFileName": "Neuen Dateinamen eingeben:",
+      "newFolderName": "Neuen Ordnernamen eingeben:",
+      "rename": "Neuen Namen eingeben:"
+    }
+  },
+  "git": {
+    "apiKeyPlaceholder": "Geben Sie den Gemini API-Schlüssel ein",
+    "changes": "Änderungen",
+    "commit": "Commit",
+    "commitMessagePlaceholder": "Commit-Nachricht eingeben...",
+    "committing": "Wird committet...",
+    "deleted": "Gelöscht",
+    "deleteUntracked": "Datei löschen",
+    "discard": "Verwerfen",
+    "errorOccurred": "Ein Fehler ist aufgetreten",
+    "generateCommitMessage": "Mit KI erzeugen",
+    "generating": "Wird generiert...",
+    "history": "Verlauf",
+    "infoNotAvailable": "Git-Informationen konnten nicht abgerufen werden",
+    "loadingStatus": "Git-Status wird geladen...",
+    "noChanges": "Keine Änderungen",
+    "noHistory": "Kein Commit-Verlauf",
+    "operationError": "Fehler beim Zugriff auf Git",
+    "projectSelect": "Bitte wählen Sie ein Projekt",
+    "restore": "Datei wiederherstellen",
+    "stage": "Stagen",
+    "stageAll": "Alle stagen",
+    "staged": "Gestaged",
+    "stageDelete": "Löschung stagen",
+    "unstage": "Unstage",
+    "unstageAll": "Alle unstage",
+    "unstaged": "Nicht gestaged",
+    "untracked": "Untracked",
+    "viewDiffEditable": "Diff anzeigen (bearbeitbar)",
+    "viewDiffReadonly": "Diff anzeigen (schreibgeschützt)"
+  },
+  "gitHistory": {
+    "allFilesScrollable": "Alle {count} Dateien (scrollbar)",
+    "changedFiles": "Geänderte Dateien:",
+    "daysAgo": "vor {days} Tagen",
+    "duplicateGroupsHidden": "({count} doppelte Gruppen ausgeblendet)",
+    "hideDuplicates": "Duplikate verbergen",
+    "hoursAgo": "vor {hours} Stunden",
+    "justNow": "gerade eben",
+    "loadingChanges": "Änderungsinformationen werden geladen...",
+    "minutesAgo": "vor {minutes} Minuten",
+    "noChangedFiles": "Keine geänderten Dateien gefunden",
+    "showAllFilesDiff": "Alle Dateidiffs für diesen Commit anzeigen",
+    "showDuplicates": "Duplikate anzeigen",
+    "showFileDiff": "Diff für diese Datei anzeigen"
+  },
+  "highlightedCode": {
+    "copyCode": "Code kopieren"
+  },
+  "leftSidebar": {
+    "createFile": "Neue Datei erstellen",
+    "createFolder": "Neuen Ordner erstellen"
+  },
+  "markdownPreview": {
+    "downloadSvg": "SVG herunterladen",
+    "exportPdf": "Als PDF exportieren",
+    "generatingMermaid": "Mermaid-Diagramm wird generiert...",
+    "imageNotFound": "Bild nicht gefunden: {src}",
+    "loadingImage": "Bild wird geladen...",
+    "preview": "Vorschau",
+    "reset": "Zurücksetzen",
+    "zoomIn": "Vergrößern",
+    "zoomOut": "Verkleinern"
+  },
+  "menu": {
+    "files": "Dateien",
+    "git": "Git",
+    "project": "Projektverwaltung",
+    "run": "Ausführen",
+    "search": "Suchen",
+    "settings": "Einstellungen"
+  },
+  "operationWindow": {
+    "closeByEsc": "Mit ESC schließen",
+    "footerHelp": "Verwenden Sie ↑↓ zum Auswählen, Enter zum Öffnen",
+    "mdPreviewDialogHelp": "Tab/←→ zum Wechseln, Enter zum Bestätigen, ESC zum Schließen",
+    "mdPreviewPrompt": "In Markdown-Vorschau öffnen?",
+    "noFilesFound": "Keine Dateien gefunden",
+    "openInEditor": "Im Editor öffnen",
+    "openInPreview": "In Vorschau öffnen",
+    "searchPlaceholder": "Nach Datei/Ordnername oder Pfad suchen..."
+  },
+  "projectModal": {
+    "cancel": "Abbrechen",
+    "clone": "Von GitHub klonen",
+    "cloneFromGitHub": "Von GitHub klonen",
+    "cloneSuccess": "Klonen erfolgreich",
+    "create": "Erstellen",
+    "created": "Erstellt",
+    "deleteConfirm": "Möchten Sie dieses Projekt wirklich löschen?",
+    "deleteProject": "Projekt löschen",
+    "description": "Beschreibung",
+    "descriptionOptional": "Beschreibung (optional)",
+    "descriptionPlaceholder": "Projektbeschreibung eingeben...",
+    "editProject": "Projekt bearbeiten",
+    "inputRepoUrl": "Repository-URL",
+    "loading": "Lädt...",
+    "nameHint": "Verwenden Sie alphanumerische Zeichen und Bindestriche",
+    "nameValidation": "Projektname darf nur alphanumerische Zeichen und Bindestriche enthalten. Keine japanischen Zeichen. Leerzeichen werden durch Bindestriche ersetzt.",
+    "newProject": "Neues Projekt",
+    "noProjects": "Keine Projekte gefunden",
+    "open": "Öffnen",
+    "projectName": "Projektname",
+    "projectNameOptional": "Projektname (optional)",
+    "projectNameOptionalPlaceholder": "Optionaler Projektname...",
+    "projectNamePlaceholder": "Projektname eingeben...",
+    "repoUrl": "Repository-URL",
+    "save": "Speichern",
+    "title": "Projektverwaltung",
+    "updated": "Aktualisiert"
+  },
+  "run": {
+    "clearOutput": "Ausgabe löschen",
+    "execute": "Ausführen",
+    "executeHint": "Drücken Sie Ctrl+Enter (Cmd+Enter), um auszuführen",
+    "executionStopped": "Ausführung gestoppt",
+    "fileContentError": "Dateiinhalt konnte nicht abgerufen werden",
+    "inputPlaceholder": "Node.js-Code eingeben...",
+    "languageNode": "Node.js",
+    "languagePython": "Python",
+    "noOutput": "Keine Ausgabe",
+    "noProject": "Öffnen Sie ein Projekt, um Node.js-Code auszuführen",
+    "outputHint": "Wenn Sie JavaScript/Node.js/Python-Code ausführen, werden die Ergebnisse hier angezeigt. Node.js und js können in derselben Datei ausgeführt werden.",
+    "runtimeNotReady": "Python-Laufzeit ist nicht initialisiert",
+    "searchFile": "Suchen Sie eine Datei zum Ausführen...",
+    "stop": "Stoppen",
+    "title": "Ausführungsumgebung"
+  },
+  "searchPanel": {
+    "caseSensitive": "Groß-/Kleinschreibung beachten",
+    "noResults": "Keine Ergebnisse gefunden",
+    "resultCount": "{count} Ergebnisse",
+    "searchInFiles": "In Dateien suchen...",
+    "searching": "Suche...",
+    "useRegex": "Regex verwenden",
+    "wholeWord": "Ganzes Wort"
+  },
+  "settingsPanel": {
+    "api": {
+      "apiKeyPlaceholder": "API-Schlüssel eingeben",
+      "geminiApiKey": "Gemini API-Schlüssel",
+      "savedToLocalStorage": "In LocalStorage gespeichert",
+      "title": "API"
+    },
+    "editor": {
+      "defaultEditor": "Standard-Editor",
+      "fontSize": "Schriftgröße",
+      "savedToLocalStorage": "In LocalStorage gespeichert",
+      "tabSize": "Tab-Größe",
+      "title": "Editor",
+      "wordWrap": "Zeilenumbruch aktivieren"
+    },
+    "export": {
+      "exporting": "Exportiere...",
+      "includeGit": ".git-Verzeichnis einbeziehen",
+      "title": "Workspace Export",
+      "zipDownload": "ZIP herunterladen"
+    },
+    "files": {
+      "excludeHint": "Dateien/Ordner, die im Explorer ausgeblendet sind",
+      "excludePattern": "Ausschlussmuster",
+      "title": "Dateien"
+    },
+    "loading": "Einstellungen werden geladen...",
+    "search": {
+      "excludePattern": "Ausschlussmuster",
+      "globPatternHint": "Schreiben Sie ein Glob-Muster pro Zeile",
+      "title": "Suche",
+      "useIgnoreFiles": "Ignore-Dateien wie .gitignore verwenden"
+    },
+    "theme": {
+      "colorCustomize": "Farbanpassung",
+      "colorTheme": "Farbschema",
+      "highlightTheme": "Code-Highlight",
+      "title": "Theme"
+    }
+  },
+  "tabBar": {
+    "closeTab": "Tab schließen",
+    "moveToPane": "In Bereich verschieben",
+    "openPreview": "Open Preview",
+    "paneMenu": "Bereichsmenü",
+    "removeAllTabs": "Alle Tabs entfernen",
+    "removePane": "Bereich entfernen",
+    "saveRestart": "Speichern und neu starten",
+    "splitHorizontal": "Horizontal teilen",
+    "splitVertical": "Vertikal teilen"
+  },
+  "tabCloseConfirmation": {
+    "cancel": "Abbrechen",
+    "discardAndClose": "Verwerfen und schließen",
+    "discardChangesMessage": "In diesem Tab gibt es ungespeicherte Änderungen. Möchten Sie ihn wirklich schließen?",
+    "discardChangesTitle": "Änderungen verwerfen?"
+  },
+  "topBar": {
+    "searchLabel": "Dateisuche",
+    "searchTitle": "Dateisuche (Ctrl+P)",
+    "toggleRightPanel": "Rechte Leiste umschalten",
+    "toggleTerminal": "Terminal umschalten"
+  },
+  "webPreviewTab": {
+    "emptyDirectory": "Verzeichnis ist leer",
+    "inlineHtmlFailed": "Einbetten von HTML-Assets fehlgeschlagen",
+    "notFound": "Datei oder Ordner nicht gefunden"
+  }
+}

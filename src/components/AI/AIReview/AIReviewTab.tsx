@@ -1,13 +1,18 @@
 // AIレビュータブコンポーネント
+// Monaco Editorの差分表示を使用して、AI提案の変更を確認・編集できる
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { DiffEditor } from '@monaco-editor/react';
+import type { Monaco } from '@monaco-editor/react';
+import type * as monacoEditor from 'monaco-editor';
 import { useTheme } from '@/context/ThemeContext';
-import DiffViewer from './DiffViewer';
-// 差分表示モード
-type DiffViewMode = 'block' | 'inline';
+import { useTranslation } from '@/context/I18nContext';
+import { Check, X } from 'lucide-react';
+import { calculateDiff } from '@/engine/ai/diffProcessor';
 import type { Tab } from '@/types';
+import { getLanguage } from '@/components/Tab/text-editor/editors/editor-utils';
 
 interface AIReviewTabProps {
   tab: Tab;
@@ -25,71 +30,175 @@ export default function AIReviewTab({
   onCloseTab,
 }: AIReviewTabProps) {
   const { colors } = useTheme();
-  const [currentSuggestedContent, setCurrentSuggestedContent] = useState(
-    tab.aiReviewProps?.suggestedContent || ''
-  );
-  // 差分表示モード: block=ブロックごと, inline=全体＋各ブロックにボタン
-  const [diffViewMode, setDiffViewMode] = useState<DiffViewMode>('block');
-  // 差分表示モード切り替え
-  const handleToggleDiffViewMode = () => {
-    setDiffViewMode(prev => (prev === 'block' ? 'inline' : 'block'));
-  };
+  const { t } = useTranslation();
 
-  if (!tab.aiReviewProps) {
+  console.log('[AIReviewTab] Rendering with tab:', tab);
+
+  // AIReviewTab型にキャスト
+  const aiTab = tab as any;
+  const originalContent = aiTab.originalContent || '';
+  const suggestedContent = aiTab.suggestedContent || '';
+  const filePath = aiTab.filePath || aiTab.path || '';
+
+  console.log('[AIReviewTab] Data:', {
+    originalContent: originalContent.length,
+    suggestedContent: suggestedContent.length,
+    filePath,
+  });
+
+  // 現在編集中のsuggestedContentを管理（本体には影響しない）
+  const [currentSuggestedContent, setCurrentSuggestedContent] = useState(suggestedContent);
+
+  // DiffEditorとモデルの参照
+  const diffEditorRef = useRef<monacoEditor.editor.IStandaloneDiffEditor | null>(null);
+  const modelsRef = useRef<{
+    original: monacoEditor.editor.ITextModel | null;
+    modified: monacoEditor.editor.ITextModel | null;
+  }>({ original: null, modified: null });
+
+  // デバウンス保存用のタイマー
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  if (!originalContent && !suggestedContent) {
     return (
       <div
         className="flex items-center justify-center h-full"
         style={{ color: colors.mutedFg }}
       >
-        AIレビューデータが見つかりません
+        {t('aiReviewTab.notFound')}
       </div>
     );
   }
 
-  const { originalContent, filePath } = tab.aiReviewProps;
+  // クリーンアップ
+  useEffect(() => {
+    return () => {
+      // デバウンスタイマーをクリア
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
 
-  // 部分適用ハンドラー
-  const handleApplyBlock = (startLine: number, endLine: number, content: string) => {
-    // 簡単な実装：ブロック単位で適用
-    const originalLines = originalContent.split('\n');
-    const suggestedLines = currentSuggestedContent.split('\n');
+      // エディタをリセットしてからモデルを破棄
+      if (diffEditorRef.current) {
+        try {
+          diffEditorRef.current.setModel(null);
+        } catch (e) {
+          console.warn('[AIReviewTab] Failed to reset editor:', e);
+        }
+        try {
+          diffEditorRef.current.dispose();
+        } catch (e) {
+          console.warn('[AIReviewTab] Failed to dispose editor:', e);
+        }
+      }
 
-    // 指定範囲の行を置換
-    const newLines = [...originalLines];
-    const blockLines = content.split('\n');
+      // モデルを破棄
+      try {
+        if (modelsRef.current.original && !modelsRef.current.original.isDisposed()) {
+          modelsRef.current.original.dispose();
+        }
+        if (modelsRef.current.modified && !modelsRef.current.modified.isDisposed()) {
+          modelsRef.current.modified.dispose();
+        }
+      } catch (e) {
+        console.warn('[AIReviewTab] Failed to dispose models:', e);
+      }
+    };
+  }, []);
 
-    // 範囲を置換
-    newLines.splice(startLine - 1, endLine - startLine + 1, ...blockLines);
-
-    const newContent = newLines.join('\n');
-    setCurrentSuggestedContent(newContent);
-
-    if (onUpdateSuggestedContent) {
-      onUpdateSuggestedContent(tab.id, newContent);
+  // デバウンス付き保存関数
+  const debouncedSave = (content: string) => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
     }
+
+    saveTimeoutRef.current = setTimeout(() => {
+      console.log('[AIReviewTab] Debounced save triggered');
+      if (onUpdateSuggestedContent) {
+        onUpdateSuggestedContent(tab.id, content);
+      }
+    }, 2000); // 2秒のデバウンス
   };
 
-  // 部分破棄ハンドラー
-  const handleDiscardBlock = (startLine: number, endLine: number) => {
-    // 元の内容に戻す
-    const originalLines = originalContent.split('\n');
-    const currentLines = currentSuggestedContent.split('\n');
+  // DiffEditorマウント時のハンドラ
+  const handleDiffEditorMount = (
+    editor: monacoEditor.editor.IStandaloneDiffEditor,
+    monaco: Monaco
+  ) => {
+    diffEditorRef.current = editor;
 
-    // 指定範囲を元の内容で置換
-    const newLines = [...currentLines];
-    const originalBlockLines = originalLines.slice(startLine - 1, endLine);
+    // モデルを取得して保存
+    const diffModel = editor.getModel();
+    if (diffModel) {
+      modelsRef.current = {
+        original: diffModel.original,
+        modified: diffModel.modified,
+      };
 
-    newLines.splice(startLine - 1, endLine - startLine + 1, ...originalBlockLines);
+      // modifiedモデルの変更を監視
+      if (diffModel.modified) {
+        diffModel.modified.onDidChangeContent(() => {
+          const newContent = diffModel.modified.getValue();
+          console.log('[AIReviewTab] Content changed in DiffEditor');
 
-    const newContent = newLines.join('\n');
-    setCurrentSuggestedContent(newContent);
+          // 即座にステートを更新
+          setCurrentSuggestedContent(newContent);
 
-    if (onUpdateSuggestedContent) {
-      onUpdateSuggestedContent(tab.id, newContent);
+          // デバウンス保存をトリガー
+          debouncedSave(newContent);
+        });
+      }
     }
+
+    // Monaco Editorのアクションを追加
+    const modifiedEditor = editor.getModifiedEditor();
+
+    // 選択範囲を元に戻すアクション
+    modifiedEditor.addAction({
+      id: 'revert-selection',
+      label: '選択範囲を元に戻す',
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyZ],
+      contextMenuGroupId: 'modification',
+      contextMenuOrder: 1,
+      run: ed => {
+        const selection = ed.getSelection();
+        if (!selection || !diffModel?.original || !diffModel?.modified) return;
+
+        const startLine = selection.startLineNumber;
+        const endLine = selection.endLineNumber;
+
+        // 元のコンテンツから該当範囲を取得
+        const originalLines = diffModel.original.getLinesContent();
+        const revertLines = originalLines.slice(startLine - 1, endLine);
+
+        // 現在の内容を取得
+        const currentLines = diffModel.modified.getLinesContent();
+        const newLines = [
+          ...currentLines.slice(0, startLine - 1),
+          ...revertLines,
+          ...currentLines.slice(endLine),
+        ];
+
+        // 新しい内容をセット
+        const newContent = newLines.join('\n');
+        diffModel.modified.setValue(newContent);
+      },
+    });
+
+    // 差分を受け入れるアクション（Acceptボタンと同等）
+    modifiedEditor.addAction({
+      id: 'accept-change',
+      label: '変更を受け入れる',
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter],
+      contextMenuGroupId: 'modification',
+      contextMenuOrder: 2,
+      run: () => {
+        handleApplyAll();
+      },
+    });
   };
 
-  // 全体適用
+  // 全体適用（suggestedContent -> 本体のcontentへコピー）
   const handleApplyAll = () => {
     onApplyChanges(filePath, currentSuggestedContent);
     // レビュータブを閉じる
@@ -98,7 +207,7 @@ export default function AIReviewTab({
     }
   };
 
-  // 全体破棄
+  // 全体破棄（元の内容に戻す）
   const handleDiscardAll = () => {
     onDiscardChanges(filePath);
     // レビュータブを閉じる
@@ -106,6 +215,23 @@ export default function AIReviewTab({
       onCloseTab(filePath);
     }
   };
+
+  // 元に戻す（suggestedContentをoriginalContentに戻す）
+  const handleRevertToOriginal = () => {
+    setCurrentSuggestedContent(originalContent);
+    if (diffEditorRef.current) {
+      const diffModel = diffEditorRef.current.getModel();
+      if (diffModel?.modified) {
+        diffModel.modified.setValue(originalContent);
+      }
+    }
+    if (onUpdateSuggestedContent) {
+      onUpdateSuggestedContent(tab.id, originalContent);
+    }
+  };
+
+  // use shared utility to detect language from filename
+  const language = getLanguage(filePath);
 
   return (
     <div className="flex flex-col h-full">
@@ -129,36 +255,39 @@ export default function AIReviewTab({
           </p>
         </div>
         <div className="flex gap-2 items-center">
-          {/* 差分表示モード切り替え */}
           <button
-            className="px-2 py-1 text-xs rounded border hover:opacity-80"
-            style={{ background: 'transparent', color: colors.mutedFg, borderColor: colors.border }}
-            onClick={handleToggleDiffViewMode}
-            title="表示モード切替"
+            className="px-3 py-1.5 text-xs rounded border hover:opacity-80 transition-opacity"
+            style={{
+              background: colors.mutedBg,
+              color: colors.foreground,
+              borderColor: colors.border,
+            }}
+            onClick={handleRevertToOriginal}
+            title={t('aiReviewTab.discardAllAndRevert')}
           >
-            {diffViewMode === 'block' ? '全体表示' : 'ブロック表示'}
+            {t('aiReviewTab.revert')}
           </button>
           <button
-            className="px-3 py-1 text-sm rounded border hover:opacity-90"
+            className="px-3 py-1.5 text-sm rounded border hover:opacity-90 transition-all inline-flex items-center gap-1.5"
             style={{
               background: colors.green,
-              color: colors.background,
+              color: '#ffffff',
               borderColor: colors.green,
-              fontWeight: 700,
-              boxShadow: '0 2px 8px 0 #0003',
-              letterSpacing: '0.05em',
-              textShadow: '0 1px 2px #0002',
+              fontWeight: 600,
+              boxShadow: '0 2px 8px 0 rgba(0,0,0,0.2)',
             }}
             onClick={handleApplyAll}
           >
-            全て適用
+            <Check size={16} />
+            {t('aiReviewTab.applyAll')}
           </button>
           <button
-            className="px-3 py-1 text-sm rounded hover:opacity-80"
-            style={{ background: colors.red, color: colors.accentFg }}
+            className="px-3 py-1.5 text-sm rounded hover:opacity-80 transition-opacity inline-flex items-center gap-1.5"
+            style={{ background: colors.red, color: '#ffffff' }}
             onClick={handleDiscardAll}
           >
-            全て破棄
+            <X size={16} />
+            {t('aiReviewTab.discard')}
           </button>
         </div>
       </div>
@@ -172,27 +301,100 @@ export default function AIReviewTab({
           color: colors.mutedFg,
         }}
       >
-        <div className="flex gap-4">
-          <span>元: {originalContent.split('\n').length}行</span>
-          <span>新: {currentSuggestedContent.split('\n').length}行</span>
-          <span>
-            差分:{' '}
-            {currentSuggestedContent.split('\n').length - originalContent.split('\n').length > 0
-              ? '+'
-              : ''}
-            {currentSuggestedContent.split('\n').length - originalContent.split('\n').length}行
-          </span>
-        </div>
+        {(() => {
+          try {
+            const diffLines = calculateDiff(originalContent, currentSuggestedContent);
+            const added = diffLines.filter(l => l.type === 'added').length;
+            const removed = diffLines.filter(l => l.type === 'removed').length;
+            const unchanged = diffLines.filter(l => l.type === 'unchanged').length;
+            const originalCount = unchanged + removed;
+            const suggestedCount = unchanged + added;
+
+            return (
+              <div className="flex gap-4">
+                <span>
+                  {t('diff.original')}: {originalCount}
+                  {t('diff.lines')}
+                </span>
+                <span>
+                  {t('diff.suggested')}: {suggestedCount}
+                  {t('diff.lines')}
+                </span>
+                <span>
+                  {t('diff.diff')}: {suggestedCount - originalCount > 0 ? '+' : ''}
+                  {suggestedCount - originalCount}
+                  {t('diff.lines')}
+                </span>
+                <span
+                  className="ml-2"
+                  style={{
+                    color: added > 0 ? 'var(--tw-color-green-500, #16a34a)' : colors.mutedFg,
+                  }}
+                >
+                  +{added}
+                </span>
+                <span
+                  style={{
+                    color: removed > 0 ? 'var(--tw-color-red-500, #dc2626)' : colors.mutedFg,
+                  }}
+                >
+                  -{removed}
+                </span>
+              </div>
+            );
+          } catch (e) {
+            const orig = originalContent.split('\n').length;
+            const sug = currentSuggestedContent.split('\n').length;
+            return (
+              <div className="flex gap-4">
+                <span>
+                  {t('diff.original')}: {orig}
+                  {t('diff.lines')}
+                </span>
+                <span>
+                  {t('diff.suggested')}: {sug}
+                  {t('diff.lines')}
+                </span>
+                <span>
+                  {t('diff.diff')}: {sug - orig}
+                  {t('diff.lines')}
+                </span>
+              </div>
+            );
+          }
+        })()}
       </div>
 
-      {/* 差分表示 */}
-      <div className="flex-1 overflow-auto">
-        <DiffViewer
-          oldValue={originalContent}
-          newValue={currentSuggestedContent}
-          onApplyBlock={handleApplyBlock}
-          onDiscardBlock={handleDiscardBlock}
-          viewMode={diffViewMode}
+      {/* Monaco DiffEditor */}
+      <div className="flex-1 min-h-0">
+        <DiffEditor
+          width="100%"
+          height="100%"
+          language={language}
+          original={originalContent}
+          modified={currentSuggestedContent}
+          theme="pyxis-custom"
+          onMount={handleDiffEditorMount}
+          options={{
+            renderSideBySide: true,
+            readOnly: false, // 編集可能
+            minimap: { enabled: true },
+            scrollBeyondLastLine: false,
+            fontSize: 13,
+            wordWrap: 'on',
+            lineNumbers: 'on',
+            automaticLayout: true,
+            scrollbar: {
+              vertical: 'auto',
+              horizontal: 'auto',
+            },
+            renderOverviewRuler: true,
+            diffWordWrap: 'on',
+            enableSplitViewResizing: true,
+            renderIndicators: true,
+            originalEditable: false, // 左側（元）は編集不可
+            ignoreTrimWhitespace: false,
+          }}
         />
       </div>
 
@@ -205,12 +407,16 @@ export default function AIReviewTab({
           color: colors.mutedFg,
         }}
       >
-        💡 表示モード: <b>{diffViewMode === 'block' ? 'ブロックごと' : '全体＋各ブロックボタン'}</b>
-        。
+        <span
+          role="img"
+          aria-label="hint"
+        >
+          💡
+        </span>{' '}
+        <b>{t('aiReviewTab.editRightDirectly')}</b>
+        {t('aiReviewTab.autoSaveAndApply')}
         <br />
-        {diffViewMode === 'block'
-          ? '各変更ブロックの「適用」「破棄」ボタンで部分的に変更を適用できます。最終的に「全て適用」を押すとファイルに反映されます。'
-          : '全体表示の中で各ブロックに「適用」「破棄」ボタンが表示されます。最終的に「全て適用」を押すとファイルに反映されます。'}
+        {t('aiReviewTab.revertSelectionHint')}
       </div>
     </div>
   );

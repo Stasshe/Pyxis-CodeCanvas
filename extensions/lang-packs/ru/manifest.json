@@ -1,0 +1,24 @@
+{
+  "id": "pyxis.lang.ru",
+  "name": "Русский Language Pack",
+  "version": "1.0.0",
+  "type": "service",
+  "description": "Russian language pack",
+  "author": "Pyxis Team",
+  "dependencies": [],
+  "entry": "index.js",
+  "onlyOne": "lang-pack",
+  "metadata": {
+    "publishedAt": "2025-11-02T00:00:00Z",
+    "updatedAt": "2025-11-02T00:00:00Z",
+    "tags": [
+      "language",
+      "i18n"
+    ]
+  },
+  "packGroup": {
+    "id": "language-packs",
+    "name": "Language Packs"
+  },
+  "defaultEnabled": false
+}

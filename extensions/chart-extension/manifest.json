@@ -1,0 +1,14 @@
+{
+  "id": "pyxis.chart-extension",
+  "name": "Chart Visualization",
+  "version": "1.0.0",
+  "type": "ui",
+  "description": "Chart visualization using Chart.js",
+  "author": "Pyxis Team",
+  "defaultEnabled": false,
+  "entry": "index.js",
+  "metadata": {
+    "publishedAt": "2025-01-04T00:00:00Z",
+    "tags": ["ui", "visualization", "chart"]
+  }
+}

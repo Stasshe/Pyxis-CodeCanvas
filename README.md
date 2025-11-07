@@ -1,81 +1,180 @@
 <div align="center">
-  <img src="readme-assets/IMG_1473.png" alt="Pyxis カバー画像" width="100%" />
+  <img src="readme-assets/IMG_0033.png" alt="Pyxis Cover" width="100%" />
   
   # 🌟 Pyxis - Client Side Code Editor
 
   ## [📖 English Version README](README_en.md)
   
-  ### *セットアップゼロ。素早く起動、気軽にコーディング*
-  
-  [![Version](https://img.shields.io/badge/version-0.5.2-blue.svg)](https://github.com/your-username/pyxis)
+  ### *Zero Setup. Quick Start, Easy Coding*
+
+  [![Version](https://img.shields.io/badge/version-0.14.1-blue.svg)](https://github.com/your-username/pyxis)
   [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
   [![Platform](https://img.shields.io/badge/platform-Web%20%7C%20iPad%20%7C%20Mobile-orange.svg)](README.md)
+  [![Languages](https://img.shields.io/badge/languages-18-blue.svg)](#)
   [![Tauri](https://img.shields.io/badge/Tauri-Desktop-blueviolet?logo=tauri)](https://tauri.app/)
-  [![Next.js](https://img.shields.io/badge/Next.js-15-blue?logo=next.js)](https://nextjs.org/)
+  [![Next.js](https://img.shields.io/badge/Next.js-16-blue?logo=next.js)](https://nextjs.org/)
   [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4.1-38bdf8?logo=tailwindcss)](https://tailwindcss.com/)
   [![TypeScript](https://img.shields.io/badge/TypeScript-v5-3178c6?logo=typescript)](https://www.typescriptlang.org/)
   [![React](https://img.shields.io/badge/React-19-61dafb?logo=react)](https://react.dev/)
   [![Last Commit](https://img.shields.io/github/last-commit/Stasshe/Pyxis-Client-Side-Code-Editor?logo=github)](https://github.com/Stasshe/Pyxis-Client-Side-Code-Editor/commits/main)
   [![Bundle Size](https://img.shields.io/badge/bundle--size-1.04MB-purple?logo=next.js)](#)
   
-  **[🚀 Pyxis を今すぐ試す](https://pyxis-code.onrender.com)**
+  **[🚀 Pyxis を今すぐ試す](https://Stasshe.github.io/Pyxis-CodeCanvas)**
 </div>
 
 ---
 
 ## ✨ Pyxis って何？
 
-**完全な開発環境**がブラウザで瞬時に起動する、そんな世界を想像してみてください。ダウンロード不要、インストール不要、サーバー接続不要。それがPyxisです！**VS Code + Node.js + Git**が全て一つの超高速ウェブアプリに詰まっていて、iPadでも、どこでも動きます。
+- **Pyxisは、iPad向けに設計された1秒で起動する高機動なブラウザIDEです。**
+- **静的サイトなので、サーバー起動が必要なく、また課金も一切発生しません。**
 
-> 💡 **学生、プロ、コードを気軽に書きたい全ての人にピッタリ！**
+### 🌍 **世界18ヶ国語対応 - グローバルなコーディング体験**
+
+**Pyxisはあなたの言語で動作します。** 
+
+> 日本語 • English • 中文 • 繁體中文 • 한국어 • Español • Français • Deutsch • Italiano • Português • Русский • Nederlands • Türkçe • العربية • हिन्दी • ไทย • Tiếng Việt • Bahasa Indonesia • Svenska • Polski
+
+世界中の開発者が母国語でPyxisを快適に利用できます。
+
+### 🎯 こんな人のために作りました
+
+<div align="center">
+
+| 📱 **iPadユーザー** | 💻 **PC所有者** |
+|:---:|:---:|
+| iPadで本格的にコーディング | VSCodeを開くほどではない |
+| Stackblitzは重すぎる | ちょっとしたコード編集 |
+| タッチ操作に最適化されたIDE | 長めのメモを取りたい |
+| 軽快な動作が欲しい | 気軽にサッと使いたい |
+
+</div>
+
+
+### 🚀 StackblitzやWebContainerとの違い・Pyxisの設計思想
+
+StackblitzやWebContainerはWeb開発に特化した高度なIDEですが、Pyxisは**「VSCodeのようなエディタ・便利なファイルシステム・実行環境をWeb/iPadで実現する」**ことを目的としています。
+
+- **Stackblitzとの違い**: PyxisはWeb開発専用ではなく、ドキュメント作成やメモ、アルゴリズム学習など幅広い用途を想定。目的自体が異なります。
+- **WebContainerとの違い**: PyxisはWeb Workerの並列多用を避け、IndexedDBへの積極的なキャッシュでメモリ消費を大幅に抑制。WebContainerのような仮想化ではなく、軽量・高速な独自ランタイムを採用しています。
+- **エディタ体験重視**: VSCodeのような操作性・ファイルシステム・実行体験を重視し、iPadやモバイルでも快適に動作。
+
+> 💡 **パソコンのような操作性とiPadの機動性を両立！**
 > 🖥️ **Tauriデスクトップ版もサポート！** Windows/Mac/LinuxでネイティブアプリとしてPyxisを利用できます。
 
 ---
 
-## 🚀 あなたの心を揺さぶる革新的機能
+## 🚀 Pyxisの革新的機能
 
-### 🔥 **ホットモジュールリプレースメント（HMR）- リアルタイム編集！**
-<div align="center">
-  <img src="readme-assets/IMG_1465.png" alt="HMR の動作画面" width="80%" />
-</div>
-
-簡易サイトを素早く構築できる。ブラウザでしかテストできないが、環境整備は面倒。そんな時に、とても便利。
-
----
-
-### **Markdown・Mermaid・LaTeX - ドキュメント**
+### � **Markdown・Mermaid・LaTeX - 高品質ドキュメント作成**
 <div align="center">
   <img src="readme-assets/IMG_1470.png" alt="リッチコンテンツ編集" width="80%" />
 </div>
 
-美しいドキュメントをライブプレビューで作成！Mermaidでフローチャート、LaTeXで数式、リッチなマークダウン - 全てタイプするだけでリアルタイム更新。
+**Pyxisはマークダウンビューワーに特にこだわっています。**
+- 📄 **ドキュメント作成** - 技術文書、仕様書を美しく
+- ✍️ **ブログ記事執筆** - リアルタイムプレビューで効率的に
+- 📊 **Mermaid対応** - フローチャート、図表を簡単作成
+- 🔢 **LaTeX数式** - 数学的な表現も完璧にレンダリング
+
+タイプするだけで即座にプレビュー更新！長文の執筆にも最適です。
 
 ---
 
-### 🔄 **ビジュアル Git - バージョン管理がこんなに簡単**
+
+### 🔥 **ライブリロード（即時反映） - 簡易サイト構築**
 <div align="center">
-  <img src="readme-assets/IMG_1466.png" alt="Git 差分の可視化" width="80%" />
+  <img src="readme-assets/IMG_0034.png" alt="Liveリロードの動作画面" width="80%" />
 </div>
 
-コードの変更を**gitビジュアル差分**で確認！完全なGitサポートでブランチ、マージ、履歴管理 - 何を壊しても大丈夫な安全なGit学習環境。
+**HTML/CSS/JSのみ対応** - ブラウザでしかテストできないが、環境整備は面倒。そんな時に、とても便利。
+- ファイル保存時に即座にブラウザへ反映（Liveリロード）
+- 簡易的なWeb開発に最適
+- セットアップ不要でサッと使える
+
+ > **注意**: 現在はHTML/CSS/JSのみ対応。WebContainer等は不要で、自前実装による高速な即時リロードを実現しています。
 
 ---
 
-### ⚡ **Node.js ランタイム - バックエンドパワー**
+
+### 🔄 **Gitバージョン管理・GitHub連携**
+
+**主要なGit機能をブラウザ上で実現。** ブランチ、マージ、コミット、リセット、.git込みエクスポートなどに加え、**GitHubへのpush（PAT認証）にも対応**しています。
+- 🎨 **ビジュアル差分** - コード変更を美しく可視化
+- 🌿 **ブランチ操作** - 安全に実験、いつでも戻せる
+- 💾 **.git込みでダウンロード** - 設定から.gitを含めて丸ごとエクスポート可能
+- ☁️ **GitHubリモート連携** - PAT認証によるpush/pullが可能
+- 🛡️ **安全な学習環境** - 何を壊しても大丈夫！初心者のGit練習にも最適
+
+> **注意**: GitHub連携はPersonal Access Token（PAT）認証で実現しています。リモートリポジトリへのpush/pullが可能です。
+
+---
+
+### 🧠 **AIアシスタント - 流行りのAI IDE**
+<div align="center">
+  <img src="readme-assets/IMG_0035.png" alt="AIアシスタントによるgit diff採用画面" width="80%" />
+</div>
+PyxisではAIアシスタントがコード差分の提案・採用をサポート。より直感的なDiff操作・レビュー体験が可能です。
+
+---
+
+
+### ⚡ **Node.js & TypeScript ランタイム - 超高速実行環境**
 <div align="center">
   <img src="readme-assets/IMG_1469.png" alt="Node.js 実行画面" width="80%" />
 </div>
 
-ブラウザで**本物のNode.jsコード**が動く！ファイル操作、readline、多くのnpmモジュールが動作。(WASMを使っていないので、完璧な動作は厳しいです。ただ、動作は早いです。)
+**WASMを使わない独自実装**で、Node.jsだけでなく**TypeScriptの実行にも対応**。TypeScriptはBabel Standaloneと独自の正規化システムで高速に変換・実行されます。
+- ⚡ **瞬時に実行** - コンパイル不要、待ち時間ゼロ
+- 📁 **ファイル操作** - `fs`, `readline`, `userinterface` など主要モジュールがそのまま使える
+- 🌀 **TypeScript/Babel対応** - Babel Standaloneと複雑な正規化システムでTypeScriptも即時実行
+- 🎯 **気軽にコード実行** - アルゴリズムテスト、学習、インタラクティブなコンソールアプリもOK
+
+JavaScriptでは不可能なファイルオペレーションやインタラクティブな入出力（readline, userinterface）もエミュレートし、本格的なNode.js/TypeScript学習環境を提供。
+
+
+> **制限事項**: WASMを使用していないため、ネイティブモジュールやchild_processなど一部機能は未対応です。基本的なNode.js/TypeScript学習や簡易スクリプト実行には十分です。
 
 ---
 
-### **スマートファイル操作 - 何でも瞬時に発見**
+### 🧩 Pyxis拡張機能システム
+
 <div align="center">
-  <img src="readme-assets/IMG_1467.png" alt="ファイル操作" width="80%" />
+  <img src="readme-assets/IMG_0113.png" alt="Pyxis Extension System UI" width="80%" />
 </div>
 
-**VS Code並みの効率性**でプロジェクトをナビゲート！高速ファイル検索、インテリジェントなオートコンプリート、強力なコマンドでコーディングが楽しくなります。
+<div align="center">
+  <img src="readme-assets/IMG_0117.png" alt="Template CLI Screenshot" width="80%" />
+</div>
+
+Pyxis最大の特徴のひとつが「拡張機能システム」です。VSCodeライクなUI拡張・npmライブラリ完全対応・Terminalコマンド拡張・多言語パック・トランスパイラ・サービス拡張など、あらゆる機能をTypeScript/TSXで自由に追加できます。
+
+#### 主なポイント
+- **CLIテンプレート生成**：`pnpm run create-extension`で対話式テンプレート自動生成。初心者でも即拡張開発可能。
+- **npmライブラリ完全対応**：外部ライブラリを自由に利用。
+- **Terminalコマンド拡張**：独自コマンドをAPIで追加し、PyxisターミナルUIから実行可能。
+- **VSCodeライクなUI拡張**：カスタムタブ・サイドバーパネルをAPIで追加。React/TSXで直感的にUI構築。
+- **多言語パック・サービス拡張**：言語パックや独自サービスも拡張機能として追加。
+- **安全なサンドボックス設計**：各拡張は独立・安全に動作。IndexedDBで永続化・キャッシュ。
+
+「VSCode級のUI拡張がWeb/iPadで動く」「Terminalコマンドも拡張可能」「公式テンプレートで即開発」など、他にない柔軟性と拡張性を持っています。
+
+詳細は [Extension Readme](/extensions/README.md) や、より詳細な[EXTENSION-SYSTEM](/docs/EXTENSION-SYSTEM.md)を参照。
+
+---
+
+---
+
+### **スムーズなファイル・IDE操作**
+<div align="center">
+  <img src="readme-assets/IMG_1467.png" alt="ファイル　Operation Window" width="80%" />
+</div>
+<div align="center">
+  <img src="readme-assets/IMG_0048.png" alt="検索" width="80%" />
+</div>
+
+
+**VS Codeのような効率性**でプロジェクトをナビゲート！高速ファイル検索オペレーションウィンドウなど、高速化つスムーズな、ストレスフリーなUXを提供します。
 
 ---
 
@@ -101,42 +200,54 @@
 - Webと同じ体験をデスクトップで
 - オフラインでも動作
 
-### 🤖 **AI搭載 - あなたのコーディングアシスタント**
-- **Ask & Edit機能** - 何度もファイルからChatGPTにコピペする必要なし
-- **シームレス統合** でコーディング環境に直接組み込み
+### 🤖 **AIサポート - シームレスな開発支援**
+- **Ask & Edit機能** - 通常のブラウザでは何度もコピペが必要な作業を解決
+- **コンテキスト保持** - ファイルを開いたまま、AIに質問・編集依頼
+- **統合された体験** - VSCodeを開くほどではないが、AIの力は欲しい時に最適
 
 ### 🌐 **ユニバーサル互換性**
 - **どこでも動く** - Web、iPad、モバイル、全てのモダンブラウザ
 - **マルチペーン対応** で複雑なプロジェクトも楽々
 - **バッファコンテンツ対応** - zip解凍、PDF、画像、動画表示
+- **🌍 18ヶ国語対応** - 日本語、英語、中国語、韓国語、スペイン語、フランス語、ドイツ語、イタリア語、ポルトガル語、ロシア語、オランダ語、トルコ語、アラビア語、ヒンディー語、タイ語、ベトナム語、インドネシア語、スウェーデン語、ポーランド語に対応
+- **拡張機能システム** - 言語パック、トランスパイラ、カスタム機能を動的に追加
 
 --- 
 
-## 🌟 **おそらく世界初** - こんな機能が全て統合されたブラウザエディタはありませんでした
+## 🌟 Pyxisの独自性 - 他にはない組み合わせ
 
-- **サーバーに一切接続しない**ため（static site hosting）起動が驚くほどはやい。ノンストレス
-- **完全なGit**が使える（ブランチや、マージ、リセットなど、ローカルのgitに対応。）もしリポジトリとしてちゃんと使いたかったら、設定から。.gitを含めてダウンロードできる。
-- **NodeJS**が使える。WASMを使わないので、実行までの時間が非常に短い。また、javascriptでできない、ファイルオペレーション機能をエミュレートし、気楽にコードが気軽にかける
-- マークダウン、マーメイド、Latexなどを非常に軽量にリアルタイム編集できる。
-- **AIAgent**搭載　vscodeを開くまでではないが、AskやEdit機能によって、通常のブラウザでは、何度も貼り付けたりする作業がいるところを、Pyxisは解決。
-- **HMR** 簡易サイトを素早く構築できる。ブラウザでしかテストできないが、環境整備は面倒。そんな時に、とても便利。
-- **iPad互換**　私がiPadで開発したため、もちろんiPad最優先。そのためにコードエディタも2つ搭載
-- ブラウザ上だから、**何をしても壊れない。**パソコンだと何かを消すと大惨事。Pyxisだと、何をしても大丈夫。初心者がgitを学ぶのにも最適。
-- buffercontentも対応し、unzipやpdf,image,videoなどのビューワーも搭載。
-- **大量のテキスト**も、素早く、キーボードショートカットを使いこなして編集できる。
-- **マルチペーン**　複数ウィンドウで同時に作業
+### **設計思想**
+- ⚡ **1秒起動** - サーバーレス静的ホスティングによる驚異的な速度
+- 📱 **iPad最優先** - 実際にiPadで開発、デュアルエディター搭載
+- 🎯 **気軽さ重視** - VSCodeほど本格的ではないが、メモ帳をはるかに超える機能
+- 🔄 **Gitバージョン管理・GitHub連携** - ブランチ、マージ、リセット、.git込みダウンロード、PAT認証push/pull
+- ⚡ **高速Node.js** - 瞬時実行、ファイル操作エミュレート
+- 📝 **こだわりのMD** - Markdown/Mermaid/LaTeX、ドキュメント・ブログ執筆に最適
+- 🤖 **AIサポート** - Ask/Edit機能で効率化
+- 🔥 **ライブリロード対応** - HTML/CSS/JS簡易サイト開発
+- 📦 **バッファ対応** - ZIP解凍、PDF/画像/動画ビューワー
+- ⌨️ **効率的編集** - キーボードショートカットで大量テキストも快適
+- 🖼️ **マルチペーン** - 複数ウィンドウで同時作業
+- 🧩 **拡張機能アーキテクチャ** - 動的ロード、依存関係管理、永続化でモジュラーな設計
+
+### **安全性**
+ブラウザ上だから**何をしても壊れない**。PC環境で何かを削除すると取り返しがつかないが、Pyxisなら安心。初心者のGit学習にも最適。
+
+### **将来の展望**
+- 🧮 **CAS導入** - Latexiumライブラリ開発中（symbolic computation対応予定）
 
 ---
 
-## 🎪 みんなにピッタリ
+## 🎪 こんな使い方ができます
 
 <div align="center">
 
-| 👨‍🎓 **学生** | 👩‍💻 **プロフェッショナル** | 🧪 **実験好き** |
+| � **iPadユーザー** |  **PC所有者** | 👨‍🎓 **学習者** |
 |:---:|:---:|:---:|
-| セットアップの面倒なしに学習 | 通勤中にiPadでコーディング | アイデアを瞬時にテスト |
-| 安全にGitの練習 | デプロイなしでクライアントデモ | 高速プロトタイピング |
-| 学校のPCからもアクセス | 高性能メモ帳用に | アルゴリズムテスト |
+| 外出先で本格コーディング | VSCode起動は面倒な時に | Git操作を安全に練習 |
+| ブログ記事をその場で執筆 | ちょっとしたコード編集 | Node.js基礎を学習 |
+| ドキュメント作成・プレビュー | 長めのメモ・技術文書作成 | アルゴリズムテスト |
+| 軽快な操作性で快適作業 | 1秒起動で即作業開始 | 何を壊しても安心な環境 |
 
 </div>
 
@@ -168,8 +279,7 @@
 ### **Pyxisのデータベース・ファイルシステム設計に興味がある方へ**
 - Pyxisの内部アーキテクチャやデータベース設計、ファイルシステムの詳細な仕様\n
 - **非常に高度な内容**をまとめた[Development/DATABASE.md](Development/DATABASE.md)をご覧ください。
-\n\n> 
-データフローやIndexedDBの構造、仮想ファイルシステムの仕組みなど、\n> 開発者・研究者向けの深い技術情報を掲載しています。
+データフローやIndexedDBの構造、仮想ファイルシステムの仕組みなど、開発者・研究者向けの深い技術情報を掲載しています。
 
 ### 🎨 **作れるもの**
 
@@ -198,15 +308,15 @@ rl.question('お名前は？ ', (name) => {
 ## 🚀 クイックスタートガイド
 
 ### **1. クリックしてコーディング開始！**
-1. 🌐 **[Pyxis を開く](https://pyxis-code.onrender.com)** - どのブラウザでも
+1. 🌐 **[Pyxis を開く](https://Stasshe.github.io/Pyxis-CodeCanvas)** - どのブラウザでも
 2. 📝 **タイプ開始** - サインアップ不要、ダウンロード不要
 3. 🎯 **下の例を試す** - 即座に体験
 
 ### Tauriデスクトップ版の使い方
 1. リポジトリをクローンし、tauriブランチに切り替え
 2. RustとNode.jsをインストール
-3. npm install で依存を導入
-4. npx tauri dev でデスクトップアプリを起動
+3. pnpm install で依存を導入
+4. pnpm exec tauri dev でデスクトップアプリを起動
 5. Web版と同じPyxis体験をデスクトップで！
 * [Tauri Setup Guide](./Development/Tauri-Setup.md)
 
@@ -272,13 +382,27 @@ $$E = mc^2$$
 ---
 
 ## インストール方法
+
+### 推奨: pnpm (高速・効率的)
+```bash
+# pnpmをインストール (未インストールの場合)
+npm install -g pnpm
+
+# 依存関係をインストール
+pnpm install
+
+# 開発サーバー起動
+pnpm run dev
+
+# 本番ビルド
+pnpm run build
+pnpm run preview
 ```
-npm i
 
-#development server
+### npm でも可能
+```bash
+npm install
 npm run dev
-
-#production mode
 npm run build
 npm run preview
 ```
@@ -325,9 +449,11 @@ MIT License - 使って、改造して。詳細は[LICENSE](LICENSE)をご覧く
 
 ## 🚀 制限なしのコーディングの準備はできましたか？
 
-**[✨ Pyxis を今すぐ起動](https://pyxis-code.onrender.com)**
+**[✨ Pyxis を今すぐ起動](https://Stasshe.github.io/Pyxis-CodeCanvas)**
 
 *ダウンロード不要。セットアップ不要。純粋なコーディング。* ✨
+
+**Dev Server: [pyxis-code.onrender.com](https://pyxis-code.onrender.com)**
 
 ---
 

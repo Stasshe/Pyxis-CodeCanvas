@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '@/context/ThemeContext';
+import { useTranslation } from '@/context/I18nContext';
 import { generateCommitMessage } from '@/engine/commitMsgAI';
 import {
   GitBranch,
@@ -15,36 +16,31 @@ import {
   User,
   Minus,
   RotateCcw,
+  Upload,
 } from 'lucide-react';
 import { GitRepository, GitCommit as GitCommitType, GitStatus } from '@/types/git';
-import { GitCommands } from '@/engine/cmd/git';
+import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import GitHistory from './GitHistory';
 import { LOCALSTORAGE_KEY } from '@/context/config';
+import { useDiffTabHandlers } from '@/hooks/useDiffTabHandlers';
 
 interface GitPanelProps {
   currentProject?: string;
+  currentProjectId?: string;
   onRefresh?: () => void;
   gitRefreshTrigger?: number;
-  onFileOperation?: (
-    path: string,
-    type: 'file' | 'folder' | 'delete',
-    content?: string
-  ) => Promise<void>;
   onGitStatusChange?: (changesCount: number) => void; // Git変更状態のコールバック
-  onDiffFileClick?: (params: { commitId: string; filePath: string }) => void;
-  onDiffAllFilesClick?: (params: { commitId: string; parentCommitId: string }) => void;
 }
 
 export default function GitPanel({
   currentProject,
+  currentProjectId,
   onRefresh,
   gitRefreshTrigger,
-  onFileOperation,
   onGitStatusChange,
-  onDiffFileClick,
-  onDiffAllFilesClick,
 }: GitPanelProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const [gitRepo, setGitRepo] = useState<GitRepository | null>(null);
   const [commitMessage, setCommitMessage] = useState('');
   const [isCommitting, setIsCommitting] = useState(false);
@@ -53,8 +49,17 @@ export default function GitPanel({
   const [apiKey, setApiKey] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // Git操作用のコマンドインスタンス
-  const gitCommands = currentProject ? new GitCommands(currentProject, onFileOperation) : null;
+  // [NEW ARCHITECTURE] Diff タブハンドラー
+  const { handleDiffFileClick, handleDiffAllFilesClick } = useDiffTabHandlers({
+    name: currentProject,
+    id: currentProjectId,
+  });
+
+  // Git操作用のコマンドインスタンス（新アーキテクチャ）
+  const gitCommands =
+    currentProject && currentProjectId
+      ? terminalCommandRegistry.getGitCommands(currentProject, currentProjectId)
+      : null;
 
   // Git状態を取得
   const fetchGitStatus = async () => {
@@ -66,19 +71,20 @@ export default function GitPanel({
 
       console.log('[GitPanel] Fetching git status...');
 
+      // [重要] git.tsの内部で完全同期が実行されるため、ここでの同期処理は簡素化
       // ファイルシステムの同期を確実にする
       const fs = (gitCommands as any).fs;
       if (fs && (fs as any).sync) {
         try {
-          await (fs as any).sync();
+          await fs.sync();
           console.log('[GitPanel] FileSystem synced before status check');
         } catch (syncError) {
           console.warn('[GitPanel] FileSystem sync failed:', syncError);
         }
       }
 
-      // ファイルシステムの変更が確実に反映されるまで待機
-      await new Promise(resolve => setTimeout(resolve, 200));
+      // ファイルシステムの変更が確実に反映されるまで待機（短縮）
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       // Git状態を並行して取得
       const [statusResult, logResult, branchResult] = await Promise.all([
@@ -117,13 +123,16 @@ export default function GitPanel({
       // 変更ファイル数を計算してコールバックで通知
       if (onGitStatusChange) {
         const changesCount =
-          status.staged.length + status.unstaged.length + status.untracked.length;
+          status.staged.length +
+          status.unstaged.length +
+          status.untracked.length +
+          status.deleted.length;
         console.log('[GitPanel] Notifying changes count:', changesCount);
         onGitStatusChange(changesCount);
       }
     } catch (error) {
       console.error('Failed to fetch git status:', error);
-      setError(error instanceof Error ? error.message : 'Git操作でエラーが発生しました');
+      setError(error instanceof Error ? error.message : t('git.operationError'));
       setGitRepo(null);
       // エラー時は変更ファイル数を0にリセット
       if (onGitStatusChange) {
@@ -147,17 +156,18 @@ export default function GitPanel({
       const line = lines[i];
       const parts = line.split('|');
 
-      // 6つのパーツがあることを確認（ブランチ情報を含む）
-      if (parts.length === 6) {
+      // 7つのパーツがあることを確認（refs + tree情報を含む）
+      if (parts.length === 7) {
         const hash = parts[0]?.trim();
         const message = parts[1]?.trim();
         const author = parts[2]?.trim();
         const date = parts[3]?.trim();
         const parentHashesStr = parts[4]?.trim();
-        const branch = parts[5]?.trim();
+        const refsStr = parts[5]?.trim();
+        const treeSha = parts[6]?.trim();
 
         // 全てのフィールドが有効であることを確認
-        if (hash && hash.length >= 7 && message && author && date && branch) {
+        if (hash && hash.length >= 7 && message && author && date) {
           try {
             const timestamp = new Date(date).getTime();
             if (!isNaN(timestamp)) {
@@ -167,6 +177,10 @@ export default function GitPanel({
                   ? parentHashesStr.split(',').filter(h => h.trim() !== '')
                   : [];
 
+              // refsをカンマ区切りからstring配列に変換
+              const refs =
+                refsStr && refsStr !== '' ? refsStr.split(',').filter(r => r.trim() !== '') : [];
+
               commits.push({
                 hash,
                 shortHash: hash.substring(0, 7),
@@ -174,9 +188,48 @@ export default function GitPanel({
                 author: author.replace(/｜/g, '|'),
                 date,
                 timestamp,
-                branch: branch, // 実際のブランチ情報を使用
-                isMerge: message.toLowerCase().includes('merge'),
+                isMerge: parentHashes.length > 1, // 親が2つ以上ならマージコミット
                 parentHashes,
+                refs, // このコミットを指すブランチ名配列
+                tree: treeSha || undefined, // ツリーSHA
+              });
+            }
+          } catch (dateError) {
+            // Date parsing error, skip this commit
+          }
+        }
+      } else if (parts.length === 6) {
+        // 旧フォーマット（tree情報なし）との互換性
+        const hash = parts[0]?.trim();
+        const message = parts[1]?.trim();
+        const author = parts[2]?.trim();
+        const date = parts[3]?.trim();
+        const parentHashesStr = parts[4]?.trim();
+        const refsStr = parts[5]?.trim();
+
+        if (hash && hash.length >= 7 && message && author && date) {
+          try {
+            const timestamp = new Date(date).getTime();
+            if (!isNaN(timestamp)) {
+              const parentHashes =
+                parentHashesStr && parentHashesStr !== ''
+                  ? parentHashesStr.split(',').filter(h => h.trim() !== '')
+                  : [];
+
+              const refs =
+                refsStr && refsStr !== '' ? refsStr.split(',').filter(r => r.trim() !== '') : [];
+
+              commits.push({
+                hash,
+                shortHash: hash.substring(0, 7),
+                message: message.replace(/｜/g, '|'),
+                author: author.replace(/｜/g, '|'),
+                date,
+                timestamp,
+                isMerge: parentHashes.length > 1,
+                parentHashes,
+                refs,
+                tree: undefined,
               });
             }
           } catch (dateError) {
@@ -184,7 +237,7 @@ export default function GitPanel({
           }
         }
       } else if (parts.length === 5) {
-        // 古いフォーマット（ブランチ情報なし）との互換性
+        // 古いフォーマット（refs情報なし）との互換性
         const hash = parts[0]?.trim();
         const message = parts[1]?.trim();
         const author = parts[2]?.trim();
@@ -207,9 +260,9 @@ export default function GitPanel({
                 author: author.replace(/｜/g, '|'),
                 date,
                 timestamp,
-                branch: 'main', // デフォルトはmain
-                isMerge: message.toLowerCase().includes('merge'),
+                isMerge: parentHashes.length > 1,
                 parentHashes,
+                refs: [], // refsなし
               });
             }
           } catch (dateError) {
@@ -243,6 +296,7 @@ export default function GitPanel({
       staged: [],
       unstaged: [],
       untracked: [],
+      deleted: [], // 削除されたファイル（未ステージ）
       branch: 'main',
       ahead: 0,
       behind: 0,
@@ -284,8 +338,13 @@ export default function GitPanel({
             status.staged.push(fileName);
             console.log('[GitPanel] Found staged file:', fileName);
           } else if (inChangesNotStaged) {
-            status.unstaged.push(fileName);
-            console.log('[GitPanel] Found unstaged file:', fileName);
+            if (trimmed.startsWith('deleted:')) {
+              status.deleted.push(fileName);
+              console.log('[GitPanel] Found deleted file:', fileName);
+            } else {
+              status.unstaged.push(fileName);
+              console.log('[GitPanel] Found unstaged file:', fileName);
+            }
           }
         }
       } else if (
@@ -308,7 +367,12 @@ export default function GitPanel({
       staged: status.staged,
       unstaged: status.unstaged,
       untracked: status.untracked,
-      total: status.staged.length + status.unstaged.length + status.untracked.length,
+      deleted: status.deleted,
+      total:
+        status.staged.length +
+        status.unstaged.length +
+        status.untracked.length +
+        status.deleted.length,
     });
 
     return status;
@@ -322,11 +386,11 @@ export default function GitPanel({
       console.log('[GitPanel] Staging file:', file);
       await gitCommands.add(file);
 
-      // ステージング後十分な時間待ってから状態を更新
+      // ステージング後の状態更新（git.tsで既に同期処理があるため、短い遅延で十分）
       setTimeout(() => {
         console.log('[GitPanel] Refreshing status after staging');
         fetchGitStatus();
-      }, 200);
+      }, 100);
     } catch (error) {
       console.error('Failed to stage file:', error);
     }
@@ -352,11 +416,11 @@ export default function GitPanel({
       console.log('[GitPanel] Staging all files');
       await gitCommands.add('.');
 
-      // ステージング後十分な時間待ってから状態を更新
+      // ステージング後の状態更新（git.tsで既に同期処理があるため、短い遅延で十分）
       setTimeout(() => {
         console.log('[GitPanel] Refreshing status after staging all');
         fetchGitStatus();
-      }, 300);
+      }, 150);
     } catch (error) {
       console.error('Failed to stage all files:', error);
     }
@@ -402,13 +466,31 @@ export default function GitPanel({
   // コミット実行
   const handleCommit = async () => {
     if (!gitCommands || !commitMessage.trim()) return;
+
     try {
       setIsCommitting(true);
-      await gitCommands.commit(commitMessage.trim());
+      setError(null);
+      console.log('[GitPanel] Starting commit process...');
+
+      // タイムアウト付きでコミット実行
+      const commitPromise = gitCommands.commit(commitMessage.trim());
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Commit timeout after 30 seconds')), 30000)
+      );
+
+      await Promise.race([commitPromise, timeoutPromise]);
+
+      console.log('[GitPanel] Commit completed successfully');
       setCommitMessage('');
-      //この後の更新処理は、他で自動でやるのでしない。書くと表示バグる
+
+      // コミット成功後、少し待ってからステータスを更新
+      setTimeout(() => {
+        console.log('[GitPanel] Refreshing status after commit...');
+        fetchGitStatus();
+      }, 500);
     } catch (error) {
       console.error('Failed to commit:', error);
+      setError(error instanceof Error ? error.message : 'コミットに失敗しました');
     } finally {
       setIsCommitting(false);
     }
@@ -478,7 +560,7 @@ export default function GitPanel({
             color: colors.mutedFg,
           }}
         />
-        <p style={{ fontSize: '0.875rem' }}>プロジェクトを選択してください</p>
+        <p style={{ fontSize: '0.875rem' }}>{t('git.projectSelect')}</p>
       </div>
     );
   }
@@ -496,7 +578,7 @@ export default function GitPanel({
             color: colors.mutedFg,
           }}
         />
-        <p style={{ fontSize: '0.875rem' }}>Git状態を読み込み中...</p>
+        <p style={{ fontSize: '0.875rem' }}>{t('git.loadingStatus')}</p>
       </div>
     );
   }
@@ -513,7 +595,7 @@ export default function GitPanel({
             color: colors.red,
           }}
         />
-        <p style={{ fontSize: '0.875rem', marginBottom: '0.5rem' }}>エラーが発生しました</p>
+        <p style={{ fontSize: '0.875rem', marginBottom: '0.5rem' }}>{t('git.errorOccurred')}</p>
         <p style={{ fontSize: '0.75rem', color: colors.mutedFg }}>{error}</p>
         <button
           onClick={fetchGitStatus}
@@ -528,7 +610,7 @@ export default function GitPanel({
             cursor: 'pointer',
           }}
         >
-          再試行
+          {t('action.retry')}
         </button>
       </div>
     );
@@ -547,7 +629,7 @@ export default function GitPanel({
             color: colors.mutedFg,
           }}
         />
-        <p style={{ fontSize: '0.875rem' }}>Git情報を取得できませんでした</p>
+        <p style={{ fontSize: '0.875rem' }}>{t('git.infoNotAvailable')}</p>
       </div>
     );
   }
@@ -555,7 +637,8 @@ export default function GitPanel({
   const hasChanges =
     gitRepo.status.staged.length > 0 ||
     gitRepo.status.unstaged.length > 0 ||
-    gitRepo.status.untracked.length > 0;
+    gitRepo.status.untracked.length > 0 ||
+    gitRepo.status.deleted.length > 0;
 
   return (
     <div
@@ -591,7 +674,9 @@ export default function GitPanel({
             <div style={{ fontSize: '0.75rem', color: colors.mutedFg }}>
               <span style={{ fontWeight: 500 }}>{gitRepo.currentBranch}</span>
               {gitRepo.commits.length > 0 && (
-                <span style={{ marginLeft: '0.5rem' }}>• {gitRepo.commits.length} コミット</span>
+                <span style={{ marginLeft: '0.5rem' }}>
+                  • {gitRepo.commits.length} {t('git.commit')}
+                </span>
               )}
             </div>
           </h3>
@@ -605,7 +690,7 @@ export default function GitPanel({
               cursor: 'pointer',
             }}
             className="select-none"
-            title="更新"
+            title={t('action.refresh')}
             onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
           >
@@ -619,14 +704,13 @@ export default function GitPanel({
       {/* コミット */}
       {gitRepo.status.staged.length > 0 && (
         <div style={{ padding: '0.3rem', borderBottom: `1px solid ${colors.border}` }}>
-          {/* <h4 style={{ fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: colors.foreground }}>コミット</h4> */}
           {/* APIキー入力欄（未保存時のみ表示） */}
           {!hasApiKey && (
             <input
               type="text"
               value={apiKey}
               onChange={handleApiKeyChange}
-              placeholder="Gemini APIキーを入力"
+              placeholder={t('git.apiKeyPlaceholder')}
               style={{
                 width: '100%',
                 marginBottom: '0.5rem',
@@ -642,7 +726,7 @@ export default function GitPanel({
           <textarea
             value={commitMessage}
             onChange={e => setCommitMessage(e.target.value)}
-            placeholder="コミットメッセージを入力..."
+            placeholder={t('git.commitMessagePlaceholder')}
             style={{
               width: '100%',
               height: '4rem',
@@ -693,7 +777,7 @@ export default function GitPanel({
                   className="select-none"
                 />
               )}
-              {isGenerating ? '生成中...' : '自動生成'}
+              {isGenerating ? t('git.generating') : t('git.generateCommitMessage')}
             </button>
             <button
               onClick={handleCommit}
@@ -731,7 +815,7 @@ export default function GitPanel({
                   className="select-none"
                 />
               )}
-              {isCommitting ? 'コミット中...' : 'コミット'}
+              {isCommitting ? t('git.committing') : t('git.commit')}
             </button>
           </div>
         </div>
@@ -757,7 +841,7 @@ export default function GitPanel({
             }}
           >
             <h4 style={{ fontSize: '0.875rem', fontWeight: 500, color: colors.foreground }}>
-              変更
+              {t('git.changes')}
             </h4>
             {hasChanges && (
               <div style={{ display: 'flex', gap: '0.25rem' }}>
@@ -771,7 +855,7 @@ export default function GitPanel({
                     fontSize: '0.75rem',
                     cursor: 'pointer',
                   }}
-                  title="全てステージング"
+                  title={t('git.stageAll')}
                   className="select-none"
                   onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
@@ -791,7 +875,7 @@ export default function GitPanel({
                     fontSize: '0.75rem',
                     cursor: 'pointer',
                   }}
-                  title="全てアンステージング"
+                  title={t('git.unstageAll')}
                   className="select-none"
                   onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
@@ -806,14 +890,14 @@ export default function GitPanel({
           </div>
 
           {!hasChanges ? (
-            <p style={{ fontSize: '0.75rem', color: colors.mutedFg }}>変更はありません</p>
+            <p style={{ fontSize: '0.75rem', color: colors.mutedFg }}>{t('git.noChanges')}</p>
           ) : (
             <div>
               {/* ステージされたファイル */}
               {gitRepo.status.staged.length > 0 && (
                 <div>
                   <p style={{ fontSize: '0.75rem', color: '#22c55e', marginBottom: '0.25rem' }}>
-                    ステージ済み ({gitRepo.status.staged.length})
+                    {t('git.staged')} ({gitRepo.status.staged.length})
                   </p>
                   {gitRepo.status.staged.map(file => (
                     <div
@@ -833,8 +917,23 @@ export default function GitPanel({
                           whiteSpace: 'nowrap',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
+                          cursor: 'pointer',
+                          textDecoration: 'underline',
                         }}
                         className="select-text"
+                        title={t('git.viewDiffReadonly')}
+                        onClick={async () => {
+                          if (handleDiffFileClick && gitRepo.commits.length > 0) {
+                            // 最新コミットのhashを取得
+                            const latestCommit = gitRepo.commits[0];
+                            // ステージング済みファイルは編集不可でdiffを表示
+                            await handleDiffFileClick({
+                              commitId: latestCommit.hash,
+                              filePath: file,
+                              editable: false,
+                            });
+                          }
+                        }}
                       >
                         {file}
                       </span>
@@ -848,7 +947,7 @@ export default function GitPanel({
                           border: 'none',
                           cursor: 'pointer',
                         }}
-                        title="アンステージング"
+                        title={t('git.unstage')}
                         className="select-none"
                         onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
@@ -867,7 +966,7 @@ export default function GitPanel({
               {gitRepo.status.unstaged.length > 0 && (
                 <div>
                   <p style={{ fontSize: '0.75rem', color: '#f59e42', marginBottom: '0.25rem' }}>
-                    変更済み ({gitRepo.status.unstaged.length})
+                    {t('git.unstaged')} ({gitRepo.status.unstaged.length})
                   </p>
                   {gitRepo.status.unstaged.map(file => (
                     <div
@@ -891,13 +990,17 @@ export default function GitPanel({
                           textDecoration: 'underline',
                         }}
                         className="select-text"
-                        title="diffを表示"
+                        title={t('git.viewDiffEditable')}
                         onClick={async () => {
-                          if (onDiffFileClick && gitRepo.commits.length > 0) {
+                          if (handleDiffFileClick && gitRepo.commits.length > 0) {
                             // 最新コミットのhashを取得
                             const latestCommit = gitRepo.commits[0];
-                            // working directoryと最新コミットのdiff
-                            onDiffFileClick({ commitId: latestCommit.hash, filePath: file });
+                            // 未ステージファイルは編集可能でdiffを表示
+                            await handleDiffFileClick({
+                              commitId: latestCommit.hash,
+                              filePath: file,
+                              editable: true,
+                            });
                           }
                         }}
                       >
@@ -913,7 +1016,7 @@ export default function GitPanel({
                             border: 'none',
                             cursor: 'pointer',
                           }}
-                          title="ステージング"
+                          title={t('git.stage')}
                           className="select-none"
                           onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
                           onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
@@ -933,7 +1036,97 @@ export default function GitPanel({
                             cursor: 'pointer',
                             color: colors.red,
                           }}
-                          title="変更を破棄"
+                          title={t('git.discard')}
+                          className="select-none"
+                          onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                        >
+                          <RotateCcw
+                            style={{ width: '0.75rem', height: '0.75rem', color: colors.red }}
+                            className="select-none"
+                          />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* 削除されたファイル */}
+              {gitRepo.status.deleted.length > 0 && (
+                <div>
+                  <p style={{ fontSize: '0.75rem', color: colors.red, marginBottom: '0.25rem' }}>
+                    {t('git.deleted')} ({gitRepo.status.deleted.length})
+                  </p>
+                  {gitRepo.status.deleted.map(file => (
+                    <div
+                      key={`deleted-${file}`}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        fontSize: '0.75rem',
+                        padding: '0.25rem 0',
+                      }}
+                    >
+                      <span
+                        style={{
+                          color: colors.red,
+                          flex: 1,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          cursor: 'pointer',
+                          textDecoration: 'underline',
+                        }}
+                        className="select-text"
+                        title={t('git.viewDiffEditable')}
+                        onClick={async () => {
+                          if (handleDiffFileClick && gitRepo.commits.length > 0) {
+                            // 最新コミットのhashを取得
+                            const latestCommit = gitRepo.commits[0];
+                            // 削除されたファイルは編集可能でdiffを表示
+                            await handleDiffFileClick({
+                              commitId: latestCommit.hash,
+                              filePath: file,
+                              editable: true,
+                            });
+                          }
+                        }}
+                      >
+                        {file}
+                      </span>
+                      <div style={{ display: 'flex', gap: '0.25rem' }}>
+                        <button
+                          onClick={() => handleStageFile(file)}
+                          style={{
+                            padding: '0.25rem',
+                            background: 'transparent',
+                            borderRadius: '0.375rem',
+                            border: 'none',
+                            cursor: 'pointer',
+                          }}
+                          title={t('git.stageDelete')}
+                          className="select-none"
+                          onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                        >
+                          <Plus
+                            style={{ width: '0.75rem', height: '0.75rem', color: colors.primary }}
+                            className="select-none"
+                          />
+                        </button>
+                        <button
+                          onClick={() => handleDiscardChanges(file)}
+                          style={{
+                            padding: '0.25rem',
+                            background: 'transparent',
+                            borderRadius: '0.375rem',
+                            border: 'none',
+                            cursor: 'pointer',
+                            color: colors.red,
+                          }}
+                          title={t('git.restore')}
                           className="select-none"
                           onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
                           onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
@@ -955,7 +1148,7 @@ export default function GitPanel({
                   <p
                     style={{ fontSize: '0.75rem', color: colors.primary, marginBottom: '0.25rem' }}
                   >
-                    未追跡 ({gitRepo.status.untracked.length})
+                    {t('git.untracked')} ({gitRepo.status.untracked.length})
                   </p>
                   {gitRepo.status.untracked.map(file => (
                     <div
@@ -990,7 +1183,7 @@ export default function GitPanel({
                             border: 'none',
                             cursor: 'pointer',
                           }}
-                          title="ステージング"
+                          title={t('git.stage')}
                           className="select-none"
                           onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
                           onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
@@ -1010,7 +1203,7 @@ export default function GitPanel({
                             cursor: 'pointer',
                             color: colors.red,
                           }}
-                          title="ファイルを削除"
+                          title={t('git.deleteUntracked')}
                           className="select-none"
                           onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
                           onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
@@ -1042,22 +1235,20 @@ export default function GitPanel({
             }}
           >
             <Clock style={{ width: '1rem', height: '1rem', color: colors.mutedFg }} />
-            履歴 ({gitRepo.commits.length})
+            {t('git.history')} ({gitRepo.commits.length})
           </h4>
         </div>
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
           {gitRepo.commits.length === 0 ? (
             <div style={{ padding: '0.75rem' }}>
-              <p style={{ fontSize: '0.75rem', color: colors.mutedFg }}>コミット履歴がありません</p>
+              <p style={{ fontSize: '0.75rem', color: colors.mutedFg }}>{t('git.noHistory')}</p>
             </div>
           ) : (
             <GitHistory
               commits={gitRepo.commits}
               currentProject={currentProject}
+              currentProjectId={currentProjectId}
               currentBranch={gitRepo.currentBranch}
-              onFileOperation={onFileOperation}
-              onDiffFileClick={onDiffFileClick}
-              onDiffAllFilesClick={onDiffAllFilesClick}
             />
           )}
         </div>

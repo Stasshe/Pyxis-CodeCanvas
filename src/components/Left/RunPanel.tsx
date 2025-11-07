@@ -1,20 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
 import { Play, Square, FileText, Code, Settings, Trash2 } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
+import { useTranslation } from '@/context/I18nContext';
 import clsx from 'clsx';
-import { NodeJSRuntime } from '@/engine/runtime/nodeRuntime';
-import { PyodideRuntime } from '@/engine/runtime/pyodideRuntime';
-import { useBreakpointContext } from '@/context/BreakpointContext';
+import { executeNodeFile } from '@/engine/runtime/nodeRuntime';
+import { initPyodide, runPythonWithSync, setCurrentProject } from '@/engine/runtime/pyodideRuntime';
+import { LOCALSTORAGE_KEY } from '@/context/config';
 
 interface RunPanelProps {
-  currentProject: string | null;
+  currentProject: { id: string; name: string } | null;
   files: any[];
-  onFileOperation?: (
-    path: string,
-    type: 'file' | 'folder' | 'delete',
-    content?: string,
-    isNodeRuntime?: boolean
-  ) => Promise<void>;
 }
 
 interface OutputEntry {
@@ -24,35 +19,24 @@ interface OutputEntry {
   timestamp: Date;
 }
 
-export default function RunPanel({ currentProject, files, onFileOperation }: RunPanelProps) {
-  const { breakpointsMap } = useBreakpointContext();
+export default function RunPanel({ currentProject, files }: RunPanelProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const [isRunning, setIsRunning] = useState(false);
   const [output, setOutput] = useState<OutputEntry[]>([]);
   const [inputCode, setInputCode] = useState('');
   const [selectedFile, setSelectedFile] = useState<string>('');
-  const [runtime, setRuntime] = useState<NodeJSRuntime | null>(null);
-  const [pythonRuntime, setPythonRuntime] = useState<PyodideRuntime | null>(null);
-  // activeTabは廃止
+  const [isPyodideReady, setIsPyodideReady] = useState(false);
   const outputRef = useRef<HTMLDivElement>(null);
 
-  // ランタイムの初期化
+  // Pyodideプロジェクト設定
   useEffect(() => {
     if (currentProject) {
-      const newRuntime = new NodeJSRuntime(
-        currentProject,
-        (output, type) => {
-          addOutput(output, type);
-        },
-        onFileOperation
-      );
-      setRuntime(newRuntime);
-      const newPyRuntime = new PyodideRuntime((output, type) => {
-        addOutput(output, type);
+      setCurrentProject(currentProject.id, currentProject.name).then(() => {
+        setIsPyodideReady(true);
       });
-      setPythonRuntime(newPyRuntime);
     }
-  }, [currentProject, onFileOperation]);
+  }, [currentProject]);
 
   // 出力エリアの自動スクロール
   useEffect(() => {
@@ -99,12 +83,9 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
     ? executableFiles.filter(f => f.path.toLowerCase().includes(fileSearch.toLowerCase()))
     : executableFiles;
 
-  // localStorageキー
-  const LS_KEY = 'pyxis_last_executed_file';
-
   // 初期化時にlocalStorageから復元
   useEffect(() => {
-    const last = localStorage.getItem(LS_KEY);
+    const last = localStorage.getItem(LOCALSTORAGE_KEY.LAST_EXECUTE_FILE);
     if (last && executableFiles.some(f => f.path === last)) {
       setSelectedFile(last);
       setFileSearch(last);
@@ -124,30 +105,84 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
     ]);
   };
 
+  // デバッグコンソールを作成
+  const createDebugConsole = () => ({
+    log: (...args: unknown[]) => {
+      const content = args
+        .map(arg => (typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)))
+        .join(' ');
+      addOutput(content, 'log');
+    },
+    error: (...args: unknown[]) => {
+      const content = args
+        .map(arg => (typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)))
+        .join(' ');
+      addOutput(content, 'error');
+    },
+    warn: (...args: unknown[]) => {
+      const content = args
+        .map(arg => (typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)))
+        .join(' ');
+      addOutput(content, 'log');
+    },
+    clear: () => {
+      setOutput([]);
+    },
+  });
+
+  // 入力コールバックを作成（readline用 - DebugConsoleAPI使用）
+  const createOnInput = () => {
+    return (prompt: string, callback: (input: string) => void) => {
+      // DebugConsoleAPIを使って入力を受け取る
+      const { DebugConsoleAPI } = require('@/components/Bottom/DebugConsoleAPI');
+
+      // プロンプトを表示
+      addOutput(prompt, 'log');
+      DebugConsoleAPI.write(prompt);
+
+      // DebugConsoleからの入力を待つ
+      const unsubscribe = DebugConsoleAPI.onInput((input: string) => {
+        unsubscribe();
+        addOutput(input, 'input');
+        callback(input);
+      });
+    };
+  };
+
   // コードを実行（自動判別: .pyならPython, それ以外はNode.js）
   const executeCode = async () => {
-    if (!inputCode.trim()) return;
+    if (!inputCode.trim() || !currentProject) return;
     setIsRunning(true);
     addOutput(`> ${inputCode}`, 'input');
     try {
-      let result;
       // 入力欄の先頭行に#!pythonがあればPython、それ以外はNode.js
       const isPython =
         inputCode.trimStart().startsWith('#!python') ||
         inputCode.trimStart().startsWith('import ') ||
         inputCode.trimStart().startsWith('print(');
+
       if (isPython) {
-        if (!pythonRuntime) return;
-        await pythonRuntime.load();
-        result = await pythonRuntime.executePython(inputCode.replace(/^#!python\s*/, ''));
+        if (!isPyodideReady) {
+          addOutput(t('run.runtimeNotReady'), 'error');
+          return;
+        }
+        const pyodide = await initPyodide();
+        const cleanCode = inputCode.replace(/^#!python\s*/, '');
+        const pythonResult = await pyodide.runPythonAsync(cleanCode);
+        addOutput(String(pythonResult), 'log');
       } else {
-        if (!runtime) return;
-        result = await runtime.executeNodeJS(inputCode);
-      }
-      if (result.success && result.output) {
-        addOutput(result.output, 'log');
-      } else if ('error' in result && result.error) {
-        addOutput(result.error, 'error');
+        // Node.js実行 - 一時ファイルとして実行
+        // 一時ファイルをIndexedDBに作成
+        const { fileRepository } = await import('@/engine/core/fileRepository');
+        await fileRepository.createFile(currentProject.id, '/temp-code.js', inputCode, 'file');
+
+        await executeNodeFile({
+          projectId: currentProject.id,
+          projectName: currentProject.name,
+          filePath: '/temp-code.js',
+          debugConsole: createDebugConsole(),
+          onInput: createOnInput(),
+        });
       }
     } catch (error) {
       addOutput(`Error: ${(error as Error).message}`, 'error');
@@ -159,33 +194,43 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
 
   // ファイルを実行（拡張子で自動判別）
   const executeFile = async () => {
-    if (!selectedFile) return;
+    if (!selectedFile || !currentProject) return;
     setIsRunning(true);
     const fileObj = executableFiles.find(f => f.path === selectedFile);
     const lang = fileObj?.lang || (selectedFile.endsWith('.py') ? 'python' : 'node');
     addOutput(lang === 'python' ? `> python ${selectedFile}` : `> node ${selectedFile}`, 'input');
-    localStorage.setItem(LS_KEY, selectedFile);
+    localStorage.setItem(LOCALSTORAGE_KEY.LAST_EXECUTE_FILE, selectedFile);
     try {
-      let result;
       if (lang === 'node') {
-        if (!runtime) return;
-        result = await runtime.executeFile(selectedFile);
+        // Node.js実行
+        await executeNodeFile({
+          projectId: currentProject.id,
+          projectName: currentProject.name,
+          filePath: `/${selectedFile}`,
+          debugConsole: createDebugConsole(),
+          onInput: createOnInput(),
+        });
       } else {
-        if (!pythonRuntime) return;
-        await pythonRuntime.load();
-        // ファイル内容取得（onFileOperation経由 or files配列から）
-        let code = '';
-        if (fileObj && fileObj.content) {
-          code = fileObj.content;
-        } else if (onFileOperation) {
-          // ファイル内容取得APIがあればここで取得
+        // Python実行
+        if (!isPyodideReady) {
+          addOutput(t('run.runtimeNotReady'), 'error');
+          return;
         }
-        result = await pythonRuntime.executePython(code || '# ファイル内容取得未実装');
-      }
-      if (result.success && result.output) {
-        addOutput(result.output, 'log');
-      } else if ('error' in result && result.error) {
-        addOutput(result.error, 'error');
+        if (!fileObj || !fileObj.content) {
+          addOutput(t('run.fileContentError'), 'error');
+          return;
+        }
+        // runPythonWithSyncで自動同期
+        const pythonResult = await runPythonWithSync(fileObj.content, currentProject.id);
+        if (pythonResult.stderr) {
+          addOutput(pythonResult.stderr, 'error');
+        } else if (pythonResult.stdout) {
+          addOutput(pythonResult.stdout, 'log');
+        } else if (pythonResult.result) {
+          addOutput(String(pythonResult.result), 'log');
+        } else {
+          addOutput(t('run.noOutput'), 'log');
+        }
       }
     } catch (error) {
       addOutput(`Error: ${(error as Error).message}`, 'error');
@@ -197,7 +242,7 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
   // 実行を停止
   const stopExecution = () => {
     setIsRunning(false);
-    addOutput('Execution stopped', 'log');
+    addOutput(t('run.executionStopped'), 'log');
   };
 
   // 出力をクリア
@@ -216,7 +261,7 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
             size={48}
             style={{ margin: '0 auto 1rem', color: colors.mutedFg }}
           />
-          <p>プロジェクトを開いてNode.jsコードを実行してください</p>
+          <p>{t('run.noProject')}</p>
         </div>
       </div>
     );
@@ -242,7 +287,7 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
               className="font-semibold"
               style={{ color: colors.foreground }}
             >
-              実行環境
+              {t('run.title')}
             </span>
           </div>
           <div className="flex gap-2">
@@ -250,7 +295,7 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
               onClick={clearOutput}
               className="p-1.5 hover:bg-accent rounded"
               style={{ color: colors.mutedFg }}
-              title="出力をクリア"
+              title={t('run.clearOutput')}
             >
               <Trash2 size={14} />
             </button>
@@ -270,7 +315,7 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
                 }}
                 onFocus={() => setFileSuggestOpen(true)}
                 onBlur={() => setTimeout(() => setFileSuggestOpen(false), 150)}
-                placeholder={'実行するファイル名を検索...'}
+                placeholder={t('run.searchFile')}
                 className="w-full px-2 py-1 border rounded text-sm"
                 style={{
                   background: colors.background,
@@ -306,7 +351,7 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
                         className="ml-2 text-xs"
                         style={{ color: colors.mutedFg }}
                       >
-                        ({file.lang === 'python' ? 'Python' : 'Node.js'})
+                        ({file.lang === 'python' ? t('run.languagePython') : t('run.languageNode')})
                       </span>
                     </li>
                   ))}
@@ -324,12 +369,10 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
               }}
             >
               <Play size={12} />
-              実行
+              {t('run.execute')}
             </button>
           </div>
         )}
-
-        {/* サンプルコードセクション削除済み */}
       </div>
 
       {/* 出力エリア */}
@@ -340,9 +383,7 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
           style={{ background: colors.background, color: colors.foreground }}
         >
           {output.length === 0 ? (
-            <div style={{ color: colors.mutedFg }}>
-              Javascript/Node.js/Pythonコードを実行すると、ここに結果が表示されます。Node.jsと、jsは、同じファイルで実行できます。
-            </div>
+            <div style={{ color: colors.mutedFg }}>{t('run.outputHint')}</div>
           ) : (
             output.map(entry => (
               <div
@@ -375,7 +416,7 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
             <textarea
               value={inputCode}
               onChange={e => setInputCode(e.target.value)}
-              placeholder="Node.jsコードを入力してください..."
+              placeholder={t('run.inputPlaceholder')}
               className="flex-1 px-3 py-2 border rounded font-mono text-sm resize-none"
               style={{
                 background: colors.background,
@@ -402,7 +443,7 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
                 }}
               >
                 <Play size={14} />
-                実行
+                {t('run.execute')}
               </button>
               {isRunning && (
                 <button
@@ -411,7 +452,7 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
                   style={{ background: colors.red, color: 'white' }}
                 >
                   <Square size={14} />
-                  停止
+                  {t('run.stop')}
                 </button>
               )}
             </div>
@@ -420,7 +461,7 @@ export default function RunPanel({ currentProject, files, onFileOperation }: Run
             className="text-xs mt-2"
             style={{ color: colors.mutedFg }}
           >
-            Ctrl+Enter (Cmd+Enter) で実行
+            {t('run.executeHint')}
           </div>
         </div>
       </div>

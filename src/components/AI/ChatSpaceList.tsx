@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useTheme } from '@/context/ThemeContext';
+import { useTranslation } from '@/context/I18nContext';
 import type { ChatSpace } from '@/types';
 
 interface ChatSpaceListProps {
@@ -22,6 +23,7 @@ export default function ChatSpaceList({
   onUpdateSpaceName,
 }: ChatSpaceListProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
 
@@ -62,7 +64,20 @@ export default function ChatSpaceList({
   };
 
   return (
-    <div className="space-y-2">
+    <div
+      className="space-y-2"
+      style={{
+        background: colors.cardBg || colors.background || '#fff',
+        color: colors.foreground || '#111827',
+        borderRadius: 8,
+        padding: 6,
+        border: `1px solid ${colors.border || '#e5e7eb'}`,
+        boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+        boxSizing: 'border-box',
+        width: 320,
+        maxWidth: 'calc(100vw - 24px)',
+      }}
+    >
       {/* 新規作成ボタン */}
       <button
         className="w-full flex items-center gap-2 text-xs px-2 py-1.5 rounded border hover:opacity-90 transition"
@@ -86,17 +101,20 @@ export default function ChatSpaceList({
             d="M12 6v6m0 0v6m0-6h6m-6 0H6"
           />
         </svg>
-        新しいスペースを作成
+        {t('chatSpaceList.create')}
       </button>
 
       {/* スペースリスト */}
-      <div className="space-y-1 max-h-48 overflow-y-auto">
+      <div
+        className="space-y-1 max-h-64 overflow-y-auto"
+        style={{ scrollbarWidth: 'thin' }}
+      >
         {chatSpaces.length === 0 ? (
           <div
             className="text-xs py-2 text-center opacity-60"
             style={{ color: colors.mutedFg }}
           >
-            まだスペースがありません
+            {t('chatSpaceList.empty')}
           </div>
         ) : (
           chatSpaces.map(space => (
@@ -231,7 +249,7 @@ export default function ChatSpaceList({
                         e.stopPropagation();
                         handleEditStart(space);
                       }}
-                      title="名前を変更"
+                      title={t('chatSpaceList.rename')}
                     >
                       <svg
                         className="w-3 h-3"
@@ -252,11 +270,11 @@ export default function ChatSpaceList({
                       style={{ color: colors.destructive }}
                       onClick={e => {
                         e.stopPropagation();
-                        if (confirm('このスペースを削除しますか？')) {
+                        if (confirm(t('chatSpaceList.confirmDelete'))) {
                           onDeleteSpace(space.id);
                         }
                       }}
-                      title="削除"
+                      title={t('chatSpaceList.delete')}
                     >
                       <svg
                         className="w-3 h-3"

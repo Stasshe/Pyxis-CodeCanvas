@@ -1,0 +1,31 @@
+{
+  "welcome": {
+    "clientSideNote": "このアプリは完全にクライアントサイドで動作し、サーバーには一切データを送信しません。",
+    "features": {
+      "clientIDE": "完全クライアントサイドIDE（サーバー不要・静的ホスティング）",
+      "gitHistory": "Git履歴・ブランチ管理・コミットグラフ表示",
+      "languages": "Cpp, HTML, CSS, JavaScript, Pythonなど多言語Highlight対応",
+      "mermaid": "Mermaid記法でフローチャートやシーケンス図をリアルタイム描画",
+      "monaco": "VS Codeライクな編集体験・Monaco Editor搭載",
+      "nodeRuntime": "Node.jsランタイム・npm・Unixコマンド・Gitをブラウザで利用可能",
+      "responsive": "iPadにも最適化されたレスポンシブUI",
+      "title": "Pyxisの主な特徴"
+    },
+    "hmrHint": "HMR、WebPreviewは、デフォルトで生成される homepage フォルダを長押しして試してください。",
+    "indexeddbInfo": "このプロジェクトのファイルはIndexedDBに保存されています。",
+  "githubNote": "GitHubとの連携は、現状で既知のバグは確認されていませんが、中規模以上のリポジトリや、途中でブラウザを閉じる等の無茶な操作は避けてください。",
+    "mainFeatures": {
+      "download": "Git/プロジェクトファイルのダウンロード",
+      "importExport": "ファイルのインポート・ダウンロード・zipエクスポート",
+      "latex": "LaTeX数式レンダリング・MermaidHTML記法対応",
+      "theme": "テーマカラー変更・複数モニター対応",
+      "title": "主要機能"
+    },
+    "specialThanks": {
+      "contributors": "isomorphic-git, Monaco Editor, xterm.js, Mermaid, KaTeX, Pyodide and all OSS contributors.",
+      "thanksVisit": "ご来訪ありがとうございます！",
+      "title": "Special Thanks"
+    },
+    "title": "ようこそ！"
+  }
+}

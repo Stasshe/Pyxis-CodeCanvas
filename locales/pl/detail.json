@@ -1,0 +1,17 @@
+{
+  "charCountDetails": {
+    "lines": "Wiersze",
+    "words": "Słowa",
+    "chars": "Znaki",
+    "charsNoSpaces": "Znaki (bez spacji)",
+    "zenkaku": "Znaki o pełnej szerokości",
+    "hankaku": "Znaki o półszerokości",
+    "digits": "Cyfry",
+    "alpha": "Litery",
+    "symbols": "Symbole",
+    "spaces": "Spacje",
+    "newlines": "Nowe linie",
+    "maxLineLen": "Maksymalna długość linii",
+    "avgLineLen": "Średnia długość linii"
+  }
+}

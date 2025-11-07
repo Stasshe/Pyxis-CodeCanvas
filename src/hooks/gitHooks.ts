@@ -2,7 +2,7 @@
 // page.tsx から Git 関連のロジックを分離
 import type { Dispatch, SetStateAction } from 'react';
 
-import { GitCommands } from '@/engine/cmd/git';
+import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import type { Tab, FileItem, Project } from '@/types';
 
 export function useGitMonitor({
@@ -33,13 +33,9 @@ export function useGitMonitor({
         return;
       }
       try {
-        const gitCommands = new GitCommands(
+        const gitCommands = terminalCommandRegistry.getGitCommands(
           currentProject.name,
-          async (path: string, type: 'file' | 'folder' | 'delete', content?: string) => {
-            setTimeout(() => {
-              setGitRefreshTrigger((prev: number) => prev + 1);
-            }, 200);
-          }
+          currentProject.id
         );
         const statusResult = await gitCommands.status();
         const changesCount = parseGitStatus(statusResult);

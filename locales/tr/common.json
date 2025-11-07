@@ -1,0 +1,351 @@
+{
+  "action": {
+    "authenticating": "Kimlik doğrulanıyor...",
+    "cancel": "İptal",
+    "refresh": "Yenile",
+    "retry": "Tekrar dene"
+  },
+  "ai": {
+    "changedFilesList": {
+      "noChangedFiles": "Değişen dosya yok"
+    },
+    "chatContainer": {
+      "generating": "Yapay zeka cevap üretiyor...",
+      "suggest": "Lütfen soru veya kod isteği yazın."
+    },
+    "chatMessage": {
+      "copyCode": "Kodu kopyala",
+      "reference": "Referans:"
+    },
+    "context": {
+      "select": "Dosyaları seç"
+    },
+    "fileChangeItem": {
+      "apply": "Uygula",
+      "confirm": "Onayla",
+      "discard": "İptal et"
+    },
+    "fileContextBar": {
+      "addFile": "+ Dosya ekle",
+      "context": "Bağlam:",
+      "noFileSelected": "Hiçbir dosya seçili değil"
+    },
+    "hints": {
+      "enterSend": "Enter: yeni satır / Ctrl+Enter: gönder",
+      "history": "Alt+↑↓: geçmiş"
+    },
+    "input": {
+      "ask": "Yapay zekaya soru sorun veya kod hakkında danışın...",
+      "edit": "Kod düzenleme talimatlarını girin..."
+    },
+    "selectedLabel": "Seçili:",
+    "sendTitle": "Gönder (Ctrl+Enter)"
+  },
+  "aiReviewTab": {
+    "applyAll": "Tümünü uygula",
+    "autoSaveAndApply": "Değişiklikler otomatik kaydedilir; 'Tümünü uygula' ile dosyaya yansır.",
+    "discard": "İptal et",
+    "discardAllAndRevert": "Tümünü iptal et ve geri al",
+    "editRightDirectly": "Sağ editörde doğrudan düzenleyebilirsiniz",
+    "notFound": "AI inceleme verisi bulunamadı",
+    "revert": "Geri al",
+    "revertSelectionHint": "Ayrıca sağ tıklayıp 'Seçimi geri al' ile kısmi geri alabilirsiniz."
+  },
+  "auth": {
+    "authFailed": "GitHub kimlik doğrulaması başarısız",
+    "authSuccess": "GitHub kimlik doğrulaması başarılı!",
+    "clickToOpenMenu": "Menüyü açmak için tıklayın",
+    "patDescription": "<0>Buraya tıklayın</0> PAT oluşturmak için (repo yetkisi gerekir)",
+    "patPlaceholder": "ghp_xxxxxxxxxxxx",
+    "patPrompt": "GitHub Kişisel Erişim Token'ı",
+    "signIn": "Giriş Yap",
+    "signOut": "Çıkış Yap",
+    "signOutConfirm": "GitHub'dan çıkış yapmak istediğinizden emin misiniz?"
+  },
+  "binaryTab": {
+    "unsupportedFormat": "Bu dosya formatı görüntülenemiyor"
+  },
+  "bottom": {
+    "debugConsole": "Hata Ayıklama Konsolu",
+    "output": "Çıktı",
+    "outputPanel": {
+      "all": "Tümü",
+      "clear": "Temizle",
+      "clearTooltip": "Şu an gösterilen çıktıyı temizle",
+      "contextLabel": "Bağlam",
+      "empty": "Çıktı yok",
+      "typeLabel": "Tür"
+    },
+    "terminal": "Terminal",
+    "terminalInitializing": "Terminal başlatılıyor..."
+  },
+  "changedFilesList": {
+    "apply": "Uygula",
+    "applyAll": "Tümünü uygula",
+    "changedFiles": "Değişen dosyalar",
+    "discard": "İptal et",
+    "discardAll": "Tümünü iptal et",
+    "others": "diğerler",
+    "preview": "Önizleme",
+    "reason": "Sebep",
+    "review": "İncele"
+  },
+  "charCountDisplay": {
+    "clickForDetails": "Detaylar için tıklayın",
+    "close": "Kapat",
+    "selectedAndTotal": "Seçili: {selectionCount} karakter (boşluksuz) / Toplam: {charCount} karakter (boşluksuz)",
+    "total": "Toplam: {charCount} karakter (boşluksuz)"
+  },
+  "chatSpaceList": {
+    "confirmDelete": "Bu alanı silmek istediğinizden emin misiniz?",
+    "create": "Yeni alan oluştur",
+    "delete": "Sil",
+    "empty": "Henüz alan yok",
+    "rename": "Yeniden adlandır"
+  },
+  "confirmation": {
+    "title": "Onay"
+  },
+  "diff": {
+    "diff": "Fark",
+    "lines": "satır",
+    "original": "Orijinal",
+    "suggested": "Önerilen"
+  },
+  "diffTab": {
+    "fileList": "Dosya Listesi",
+    "noDiffFiles": "Farklı dosya yok"
+  },
+  "editorPlaceholder": {
+    "loadingEditor": "Editör yükleniyor...",
+    "loadingFile": "Dosya içeriği geri yükleniyor...",
+    "selectFile": "Lütfen bir dosya seçin"
+  },
+  "fileTree": {
+    "alert": {
+      "renameFailed": "Yeniden adlandırma başarısız: {error}"
+    },
+    "menu": {
+      "createFile": "Dosya oluştur",
+      "createFolder": "Klasör oluştur",
+      "delete": "Sil",
+      "download": "İndir",
+      "import": "İçe aktar",
+      "open": "Aç",
+      "openCodeMirror": "CodeMirror'da aç",
+      "openPreview": "Önizlemeyi aç",
+      "rename": "Yeniden adlandır",
+      "webPreview": "Web Önizleme"
+    },
+    "prompt": {
+      "newFileName": "Yeni dosya adını girin:",
+      "newFolderName": "Yeni klasör adını girin:",
+      "rename": "Yeni adı girin:"
+    }
+  },
+  "git": {
+    "apiKeyPlaceholder": "Gemini API anahtarını girin",
+    "changes": "Değişiklikler",
+    "commit": "Commit",
+    "commitMessagePlaceholder": "Commit mesajını girin...",
+    "committing": "Commit ediliyor...",
+    "deleted": "Silindi",
+    "deleteUntracked": "Dosyayı sil",
+    "discard": "İptal et",
+    "errorOccurred": "Bir hata oluştu",
+    "generateCommitMessage": "AI ile mesaj oluştur",
+    "generating": "Oluşturuluyor...",
+    "history": "Geçmiş",
+    "infoNotAvailable": "Git bilgisi alınamadı",
+    "loadingStatus": "Git durumu yükleniyor...",
+    "noChanges": "Değişiklik yok",
+    "noHistory": "Commit geçmişi yok",
+    "operationError": "Git erişimi sırasında hata oluştu",
+    "projectSelect": "Lütfen bir proje seçin",
+    "restore": "Dosyayı geri yükle",
+    "stage": "Stage",
+    "stageAll": "Tümünü stage'e al",
+    "staged": "Stage'e alındı",
+    "stageDelete": "Silme işlemini stagele",
+    "unstage": "Stage'den çıkar",
+    "unstageAll": "Tümünü stage'den çıkar",
+    "unstaged": "Stage'de değil",
+    "untracked": "Takip dışı",
+    "viewDiffEditable": "Farkı görüntüle (düzenlenebilir)",
+    "viewDiffReadonly": "Farkı görüntüle (salt okunur)"
+  },
+  "gitHistory": {
+    "allFilesScrollable": "Tüm {count} dosya (kaydırılabilir)",
+    "changedFiles": "Değişen dosyalar:",
+    "daysAgo": "{days} gün önce",
+    "duplicateGroupsHidden": "({count} tekrar eden grup gizlendi)",
+    "hideDuplicates": "Tekrar edenleri gizle",
+    "hoursAgo": "{hours} saat önce",
+    "justNow": "az önce",
+    "loadingChanges": "Değişiklik bilgileri yükleniyor...",
+    "minutesAgo": "{minutes} dakika önce",
+    "noChangedFiles": "Hiç değişen dosya bulunamadı",
+    "showAllFilesDiff": "Bu commit için tüm dosya farklarını göster",
+    "showDuplicates": "Tekrar edenleri göster",
+    "showFileDiff": "Bu dosya için farkı göster"
+  },
+  "highlightedCode": {
+    "copyCode": "Kodu kopyala"
+  },
+  "leftSidebar": {
+    "createFile": "Yeni dosya oluştur",
+    "createFolder": "Yeni klasör oluştur"
+  },
+  "markdownPreview": {
+    "downloadSvg": "SVG indir",
+    "exportPdf": "PDF dışa aktar",
+    "generatingMermaid": "Mermaid diyagramı oluşturuluyor...",
+    "imageNotFound": "Resim bulunamadı: {src}",
+    "loadingImage": "Resim yükleniyor...",
+    "preview": "Önizleme",
+    "reset": "Sıfırla",
+    "zoomIn": "Yakınlaştır",
+    "zoomOut": "Uzaklaştır"
+  },
+  "menu": {
+    "files": "Dosyalar",
+    "git": "Git",
+    "project": "Proje Yönetimi",
+    "run": "Çalıştır",
+    "search": "Ara",
+    "settings": "Ayarlar"
+  },
+  "operationWindow": {
+    "closeByEsc": "ESC ile kapat",
+    "footerHelp": "Seçmek için ↑↓, açmak için Enter kullanın",
+    "mdPreviewDialogHelp": "Geçiş için Tab/←→, onay için Enter, kapatmak için ESC",
+    "mdPreviewPrompt": "Markdown önizlemede açılsın mı?",
+    "noFilesFound": "Dosya bulunamadı",
+    "openInEditor": "Editörde aç",
+    "openInPreview": "Önizlemede aç",
+    "searchPlaceholder": "Dosya/klasör adı veya yolu ile ara..."
+  },
+  "projectModal": {
+    "cancel": "İptal",
+    "clone": "GitHub'dan klonla",
+    "cloneFromGitHub": "GitHub'dan klonla",
+    "cloneSuccess": "Klonlama başarılı",
+    "create": "Oluştur",
+    "created": "Oluşturuldu",
+    "deleteConfirm": "Bu projeyi silmek istediğinizden emin misiniz?",
+    "deleteProject": "Projeyi Sil",
+    "description": "Açıklama",
+    "descriptionOptional": "Açıklama (opsiyonel)",
+    "descriptionPlaceholder": "Proje açıklaması girin...",
+    "editProject": "Projeyi düzenle",
+    "inputRepoUrl": "Repository URL'si",
+    "loading": "Yükleniyor...",
+    "nameHint": "Alfanümerik karakterler ve tire kullanın",
+    "nameValidation": "Proje adı yalnızca alfanümerik karakterler ve tire içerebilir. Boşluklar tire ile değiştirilecektir.",
+    "newProject": "Yeni Proje",
+    "noProjects": "Proje bulunamadı",
+    "open": "Aç",
+    "projectName": "Proje adı",
+    "projectNameOptional": "Proje adı (opsiyonel)",
+    "projectNameOptionalPlaceholder": "Opsiyonel proje adı...",
+    "projectNamePlaceholder": "Proje adını girin...",
+    "repoUrl": "Repo URL'si",
+    "repoUrlPlaceholder": "https://github.com/owner/repo",
+    "save": "Kaydet",
+    "title": "Proje Yönetimi",
+    "updated": "Güncellendi"
+  },
+  "run": {
+    "clearOutput": "Çıktıyı temizle",
+    "execute": "Çalıştır",
+    "executeHint": "Çalıştırmak için Ctrl+Enter (Cmd+Enter) basın",
+    "executionStopped": "Çalıştırma durduruldu",
+    "fileContentError": "Dosya içeriği alınamıyor",
+    "inputPlaceholder": "Node.js kodu girin...",
+    "languageNode": "Node.js",
+    "languagePython": "Python",
+    "noOutput": "Çıktı yok",
+    "noProject": "Node.js kodu çalıştırmak için bir proje açın",
+    "outputHint": "JavaScript/Node.js/Python kodu çalıştırdığınızda sonuçlar burada gösterilecektir. Node.js ve js aynı dosyada çalıştırılabilir.",
+    "runtimeNotReady": "Python runtime başlatılmadı",
+    "searchFile": "Çalıştırmak için bir dosya ara...",
+    "stop": "Durdur",
+    "title": "Çalıştırma Ortamı"
+  },
+  "searchPanel": {
+    "caseSensitive": "Büyük/küçük harf duyarlı",
+    "noResults": "Sonuç bulunamadı",
+    "resultCount": "{count} sonuç",
+    "searchInFiles": "Dosyalarda ara...",
+    "searching": "Aranıyor...",
+    "useRegex": "Regex kullan",
+    "wholeWord": "Tam kelime"
+  },
+  "settingsPanel": {
+    "api": {
+      "apiKeyPlaceholder": "API anahtarını girin",
+      "geminiApiKey": "Gemini API Anahtarı",
+      "savedToLocalStorage": "LocalStorage'a kaydedildi",
+      "title": "API"
+    },
+    "editor": {
+      "defaultEditor": "Varsayılan Editör",
+      "fontSize": "Yazı Boyutu",
+      "savedToLocalStorage": "LocalStorage'a kaydedildi",
+      "tabSize": "Tab Boyutu",
+      "title": "Editör",
+      "wordWrap": "Satır kaydırmayı etkinleştir"
+    },
+    "export": {
+      "exporting": "Dışa aktarılıyor...",
+      "includeGit": ".git dizinini dahil et",
+      "title": "Çalışma Alanı Dışa Aktarma",
+      "zipDownload": "ZIP indir"
+    },
+    "files": {
+      "excludeHint": "Gezginde gizlenen dosya/klasörler",
+      "excludePattern": "Hariç Tutma Deseni",
+      "title": "Dosyalar"
+    },
+    "loading": "Ayarlar yükleniyor...",
+    "search": {
+      "excludePattern": "Hariç Tutma Deseni",
+      "globPatternHint": "Her satıra bir glob deseni yazın",
+      "title": "Arama",
+      "useIgnoreFiles": ".gitignore gibi ignore dosyalarını kullan"
+    },
+    "theme": {
+      "colorCustomize": "Renk Özelleştirme",
+      "colorTheme": "Renk Teması",
+      "highlightTheme": "Kod Vurgulama",
+      "title": "Tema"
+    }
+  },
+  "tabBar": {
+    "closeTab": "Sekmeyi kapat",
+    "moveToPane": "Panel'e taşı",
+    "paneMenu": "Panel menüsü",
+    "removeAllTabs": "Tüm sekmeleri kaldır",
+    "removePane": "Paneli kaldır",
+    "saveRestart": "Kaydet ve yeniden başlat",
+    "splitHorizontal": "Yatay böl",
+    "splitVertical": "Dikey böl"
+  },
+  "tabCloseConfirmation": {
+    "cancel": "İptal",
+    "discardAndClose": "İptal et ve kapat",
+    "discardChangesMessage": "Bu sekmede kaydedilmemiş değişiklikler var. Kapatmak istediğinizden emin misiniz?",
+    "discardChangesTitle": "Değişiklikleri iptal et?"
+  },
+  "topBar": {
+    "searchLabel": "Dosya ara",
+    "searchTitle": "Dosya arama (Ctrl+P)",
+    "toggleRightPanel": "Sağ paneli aç/kapat",
+    "toggleTerminal": "Terminali aç/kapat"
+  },
+  "webPreviewTab": {
+    "emptyDirectory": "Dizin boş",
+    "inlineHtmlFailed": "HTML varlıkları inline yapma başarısız",
+    "notFound": "Dosya veya klasör bulunamadı"
+  }
+}

@@ -1,0 +1,351 @@
+{
+  "action": {
+    "authenticating": "驗證中...",
+    "cancel": "取消",
+    "refresh": "重新整理",
+    "retry": "重試"
+  },
+  "ai": {
+    "changedFilesList": {
+      "noChangedFiles": "沒有變更的檔案"
+    },
+    "chatContainer": {
+      "generating": "AI 正在產生回應...",
+      "suggest": "請提出問題或程式碼請求。"
+    },
+    "chatMessage": {
+      "copyCode": "複製程式碼",
+      "reference": "參考："
+    },
+    "context": {
+      "select": "選擇檔案"
+    },
+    "fileChangeItem": {
+      "apply": "套用",
+      "confirm": "確認",
+      "discard": "捨棄"
+    },
+    "fileContextBar": {
+      "addFile": "+ 新增檔案",
+      "context": "上下文：",
+      "noFileSelected": "未選擇檔案"
+    },
+    "hints": {
+      "enterSend": "Enter: 換行 / Ctrl+Enter: 傳送",
+      "history": "Alt+↑↓: 歷史紀錄"
+    },
+    "input": {
+      "ask": "向 AI 詢問問題或諮詢程式碼...",
+      "edit": "輸入編輯程式碼的指示..."
+    },
+    "selectedLabel": "已選：",
+    "sendTitle": "傳送 (Ctrl+Enter)"
+  },
+  "aiReviewTab": {
+    "applyAll": "全部套用",
+    "autoSaveAndApply": "變更會自動儲存並透過「全部套用」反映到檔案中。",
+    "discard": "捨棄",
+    "discardAllAndRevert": "捨棄全部並還原",
+    "editRightDirectly": "你可以直接在右側編輯器編輯",
+    "notFound": "找不到 AI 審查資料",
+    "revert": "還原",
+    "revertSelectionHint": "你也可以右鍵點擊選取項目並選擇「還原選取」。"
+  },
+  "auth": {
+    "authFailed": "GitHub 驗證失敗",
+    "authSuccess": "GitHub 驗證成功！",
+    "clickToOpenMenu": "點擊開啟選單",
+    "patDescription": "<0>點此</0> 建立 PAT（需 repo 權限）",
+    "patPlaceholder": "ghp_xxxxxxxxxxxx",
+    "patPrompt": "GitHub 個人存取權杖",
+    "signIn": "登入",
+    "signOut": "登出",
+    "signOutConfirm": "確定要從 GitHub 登出嗎？"
+  },
+  "binaryTab": {
+    "unsupportedFormat": "此檔案格式無法顯示"
+  },
+  "bottom": {
+    "debugConsole": "偵錯主控台",
+    "output": "輸出",
+    "outputPanel": {
+      "all": "全部",
+      "clear": "清除",
+      "clearTooltip": "清除目前顯示的輸出",
+      "contextLabel": "上下文",
+      "empty": "沒有輸出",
+      "typeLabel": "類型"
+    },
+    "terminal": "終端機",
+    "terminalInitializing": "終端機初始化中..."
+  },
+  "changedFilesList": {
+    "apply": "套用",
+    "applyAll": "全部套用",
+    "changedFiles": "變更的檔案",
+    "discard": "捨棄",
+    "discardAll": "全部捨棄",
+    "others": "其他",
+    "preview": "預覽",
+    "reason": "原因",
+    "review": "審查"
+  },
+  "charCountDisplay": {
+    "clickForDetails": "點擊查看詳細",
+    "close": "關閉",
+    "selectedAndTotal": "已選：{selectionCount} 字（不含空白） / 總計：{charCount} 字（不含空白）",
+    "total": "總計：{charCount} 字（不含空白）"
+  },
+  "chatSpaceList": {
+    "confirmDelete": "確定要刪除此空間嗎？",
+    "create": "建立新空間",
+    "delete": "刪除",
+    "empty": "尚無空間",
+    "rename": "重新命名"
+  },
+  "confirmation": {
+    "title": "確認"
+  },
+  "diff": {
+    "diff": "差異",
+    "lines": "行",
+    "original": "原始",
+    "suggested": "建議"
+  },
+  "diffTab": {
+    "fileList": "檔案清單",
+    "noDiffFiles": "沒有差異檔案"
+  },
+  "editorPlaceholder": {
+    "loadingEditor": "載入編輯器...",
+    "loadingFile": "還原檔案內容...",
+    "selectFile": "請選擇檔案"
+  },
+  "fileTree": {
+    "alert": {
+      "renameFailed": "重新命名失敗：{error}"
+    },
+    "menu": {
+      "createFile": "建立檔案",
+      "createFolder": "建立資料夾",
+      "delete": "刪除",
+      "download": "下載",
+      "import": "匯入",
+      "open": "開啟",
+      "openCodeMirror": "在 CodeMirror 開啟",
+      "openPreview": "開啟預覽",
+      "rename": "重新命名",
+      "webPreview": "網頁預覽"
+    },
+    "prompt": {
+      "newFileName": "輸入新檔名：",
+      "newFolderName": "輸入新資料夾名稱：",
+      "rename": "輸入新名稱："
+    }
+  },
+  "git": {
+    "apiKeyPlaceholder": "輸入 Gemini API 金鑰",
+    "changes": "變更",
+    "commit": "提交",
+    "commitMessagePlaceholder": "輸入提交訊息...",
+    "committing": "提交中...",
+    "deleted": "已刪除",
+    "deleteUntracked": "刪除檔案",
+    "discard": "捨棄",
+    "errorOccurred": "發生錯誤",
+    "generateCommitMessage": "用 AI 產生",
+    "generating": "產生中...",
+    "history": "歷史",
+    "infoNotAvailable": "無法取得 git 資訊",
+    "loadingStatus": "載入 git 狀態...",
+    "noChanges": "沒有變更",
+    "noHistory": "沒有提交歷史",
+    "operationError": "存取 git 時發生錯誤",
+    "projectSelect": "請選擇專案",
+    "restore": "還原檔案",
+    "stage": "暫存",
+    "stageAll": "全部暫存",
+    "staged": "已暫存",
+    "stageDelete": "暫存刪除",
+    "unstage": "取消暫存",
+    "unstageAll": "全部取消暫存",
+    "unstaged": "未暫存",
+    "untracked": "未追蹤",
+    "viewDiffEditable": "查看差異（可編輯）",
+    "viewDiffReadonly": "查看差異（唯讀）"
+  },
+  "gitHistory": {
+    "allFilesScrollable": "全部 {count} 檔案（可捲動）",
+    "changedFiles": "已變更的檔案：",
+    "daysAgo": "{days} 天前",
+    "duplicateGroupsHidden": "（隱藏 {count} 個重複群組）",
+    "hideDuplicates": "隱藏重複提交",
+    "hoursAgo": "{hours} 小時前",
+    "justNow": "剛剛",
+    "loadingChanges": "載入變更資訊...",
+    "minutesAgo": "{minutes} 分鐘前",
+    "noChangedFiles": "找不到已變更的檔案",
+    "showAllFilesDiff": "顯示此提交的所有檔案差異",
+    "showDuplicates": "顯示重複提交",
+    "showFileDiff": "顯示此檔案的差異"
+  },
+  "highlightedCode": {
+    "copyCode": "複製程式碼"
+  },
+  "leftSidebar": {
+    "createFile": "建立新檔案",
+    "createFolder": "建立新資料夾"
+  },
+  "markdownPreview": {
+    "downloadSvg": "下載 SVG",
+    "exportPdf": "匯出 PDF",
+    "generatingMermaid": "生成 Mermaid 圖表中...",
+    "imageNotFound": "找不到影像：{src}",
+    "loadingImage": "載入影像中...",
+    "preview": "預覽",
+    "reset": "重設",
+    "zoomIn": "放大",
+    "zoomOut": "縮小"
+  },
+  "menu": {
+    "files": "檔案",
+    "git": "Git",
+    "project": "專案管理",
+    "run": "執行",
+    "search": "搜尋",
+    "settings": "設定"
+  },
+  "operationWindow": {
+    "closeByEsc": "按 ESC 關閉",
+    "footerHelp": "使用 ↑↓ 選擇，Enter 開啟",
+    "mdPreviewDialogHelp": "Tab/←→ 切換，Enter 確認，ESC 關閉",
+    "mdPreviewPrompt": "要在 Markdown 預覽中開啟嗎？",
+    "noFilesFound": "找不到檔案",
+    "openInEditor": "在編輯器開啟",
+    "openInPreview": "在預覽中開啟",
+    "searchPlaceholder": "依檔案/資料夾名稱或路徑搜尋..."
+  },
+  "projectModal": {
+    "cancel": "取消",
+    "clone": "從 GitHub 克隆",
+    "cloneFromGitHub": "從 GitHub 克隆",
+    "cloneSuccess": "克隆成功",
+    "create": "建立",
+    "created": "已建立",
+    "deleteConfirm": "確定要刪除此專案嗎？",
+    "deleteProject": "刪除專案",
+    "description": "描述",
+    "descriptionOptional": "描述（可選）",
+    "descriptionPlaceholder": "輸入專案描述...",
+    "editProject": "編輯專案",
+    "inputRepoUrl": "版本庫 URL",
+    "loading": "載入中...",
+    "nameHint": "使用英數字與連字號",
+    "nameValidation": "專案名稱只能包含英數字與連字號。不可使用日文。空白會被替換為連字號。",
+    "newProject": "新專案",
+    "noProjects": "找不到專案",
+    "open": "開啟",
+    "projectName": "專案名稱",
+    "projectNameOptional": "專案名稱（可選）",
+    "projectNameOptionalPlaceholder": "選填專案名稱...",
+    "projectNamePlaceholder": "輸入專案名稱...",
+    "repoUrl": "版本庫 URL",
+    "repoUrlPlaceholder": "https://github.com/owner/repo",
+    "save": "儲存",
+    "title": "專案管理",
+    "updated": "已更新"
+  },
+  "run": {
+    "clearOutput": "清除輸出",
+    "execute": "執行",
+    "executeHint": "按 Ctrl+Enter（Cmd+Enter）執行",
+    "executionStopped": "執行已停止",
+    "fileContentError": "無法取得檔案內容",
+    "inputPlaceholder": "輸入 Node.js 程式碼...",
+    "languageNode": "Node.js",
+    "languagePython": "Python",
+    "noOutput": "無輸出",
+    "noProject": "請開啟專案以執行 Node.js 程式碼",
+    "outputHint": "當你執行 JavaScript/Node.js/Python 程式碼時，結果會顯示在此處。Node.js 與 js 可以在同一檔案執行。",
+    "runtimeNotReady": "Python 執行環境尚未初始化",
+    "searchFile": "搜尋要執行的檔案...",
+    "stop": "停止",
+    "title": "執行環境"
+  },
+  "searchPanel": {
+    "caseSensitive": "區分大小寫",
+    "noResults": "找不到結果",
+    "resultCount": "{count} 個結果",
+    "searchInFiles": "在檔案中搜尋...",
+    "searching": "搜尋中...",
+    "useRegex": "使用正規表達式",
+    "wholeWord": "全字匹配"
+  },
+  "settingsPanel": {
+    "api": {
+      "apiKeyPlaceholder": "輸入 API 金鑰",
+      "geminiApiKey": "Gemini API 金鑰",
+      "savedToLocalStorage": "已儲存到 LocalStorage",
+      "title": "API"
+    },
+    "editor": {
+      "defaultEditor": "預設編輯器",
+      "fontSize": "字型大小",
+      "savedToLocalStorage": "已儲存到 LocalStorage",
+      "tabSize": "Tab 寬度",
+      "title": "編輯器",
+      "wordWrap": "啟用自動換行"
+    },
+    "export": {
+      "exporting": "匯出中...",
+      "includeGit": "包含 .git 目錄",
+      "title": "工作區匯出",
+      "zipDownload": "下載 ZIP"
+    },
+    "files": {
+      "excludeHint": "在檔案總管中隱藏的檔案/資料夾",
+      "excludePattern": "排除模式",
+      "title": "檔案"
+    },
+    "loading": "載入設定中...",
+    "search": {
+      "excludePattern": "排除模式",
+      "globPatternHint": "每行寫一個 glob 模式",
+      "title": "搜尋",
+      "useIgnoreFiles": "使用如 .gitignore 的忽略檔案"
+    },
+    "theme": {
+      "colorCustomize": "自訂色彩",
+      "colorTheme": "配色主題",
+      "highlightTheme": "語法主題",
+      "title": "主題"
+    }
+  },
+  "tabBar": {
+    "closeTab": "關閉分頁",
+    "moveToPane": "移到面板",
+    "paneMenu": "面板選單",
+    "removeAllTabs": "移除所有分頁",
+    "removePane": "移除面板",
+    "saveRestart": "儲存並重新啟動",
+    "splitHorizontal": "水平分割",
+    "splitVertical": "垂直分割"
+  },
+  "tabCloseConfirmation": {
+    "cancel": "取消",
+    "discardAndClose": "捨棄並關閉",
+    "discardChangesMessage": "此分頁有未儲存的變更。確定要關閉嗎？",
+    "discardChangesTitle": "捨棄變更？"
+  },
+  "topBar": {
+    "searchLabel": "檔案搜尋",
+    "searchTitle": "檔案搜尋（Ctrl+P）",
+    "toggleRightPanel": "切換右側面板",
+    "toggleTerminal": "切換終端機"
+  },
+  "webPreviewTab": {
+    "emptyDirectory": "目錄為空",
+    "inlineHtmlFailed": "內嵌 HTML 資產失敗",
+    "notFound": "找不到檔案或資料夾"
+  }
+}

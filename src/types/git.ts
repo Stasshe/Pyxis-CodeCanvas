@@ -5,14 +5,19 @@ export interface GitCommit {
   author: string;
   date: string;
   timestamp: number;
-  branch: string;
   isMerge: boolean;
   parentHashes: string[];
   /**
-   * UI表示専用: このコミットが属するブランチ名（複数可）
-   * UIでの色分け・ラベル表示用。ロジック処理には使わないこと。
+   * このコミットを指しているブランチ・タグのref名（複数可）
+   * 例: ['main', 'origin/main', 'v1.0.0']
+   * HEADコミットのみに設定される
    */
-  uiBranches?: string[];
+  refs?: string[];
+  /**
+   * ツリーSHA（コミットの内容を識別するために使用）
+   * 重複コミット検出に使用される
+   */
+  tree?: string;
 }
 
 export interface GitBranch {
@@ -26,6 +31,7 @@ export interface GitStatus {
   staged: string[];
   unstaged: string[];
   untracked: string[];
+  deleted: string[]; // 削除されたファイル（未ステージ）
   branch: string;
   ahead: number;
   behind: number;

@@ -2,58 +2,23 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useTheme } from '@/context/ThemeContext';
-import {
-  UnixCommands,
-  GitCommands,
-  NpmCommands,
-  initializeFileSystem,
-  syncProjectFiles,
-} from '@/engine/core/filesystem';
-import { FileItem } from '@/types';
+import { useTranslation } from '@/context/I18nContext';
+import type { UnixCommands } from '@/engine/cmd/global/unix';
+import type { GitCommands } from '@/engine/cmd/global/git';
+import type { NpmCommands } from '@/engine/cmd/global/npm';
+import { gitFileSystem } from '@/engine/core/gitFileSystem';
+import { fileRepository } from '@/engine/core/fileRepository';
 import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
-import { handleGitCommand } from './TerminalGitCommands';
-import { handleUnixCommand } from './TerminalUnixCommands';
-import { handleNPMCommand } from './TerminalNPMCommands';
-import { projectDB } from '@/engine/core/database';
-import { exportPage } from '@/engine/export/exportPage';
-
-// FileItemの階層構造をフラットな配列に変換
-const flattenFileItems = (
-  items: FileItem[],
-  basePath = ''
-): Array<{ path: string; content?: string; type: 'file' | 'folder' }> => {
-  const result: Array<{ path: string; content?: string; type: 'file' | 'folder' }> = [];
-
-  for (const item of items) {
-    const fullPath = basePath === '' ? `/${item.name}` : `${basePath}/${item.name}`;
-
-    result.push({
-      path: fullPath,
-      content: item.content,
-      type: item.type,
-    });
-
-    if (item.children && item.children.length > 0) {
-      result.push(...flattenFileItems(item.children, fullPath));
-    }
-  }
-
-  return result;
-};
+import { handleGitCommand } from '@/engine/cmd/handlers/gitHandler';
+import { handleNPMCommand } from '@/engine/cmd/handlers/npmHandler';
+import { handlePyxisCommand } from '@/engine/cmd/handlers/pyxisHandler';
+import { handleVimCommand } from '@/engine/cmd/vim';
+import { LOCALSTORAGE_KEY } from '@/context/config';
 
 interface TerminalProps {
   height: number;
   currentProject?: string;
   currentProjectId?: string;
-  projectFiles?: FileItem[];
-  onFileOperation?: (
-    path: string,
-    type: 'file' | 'folder' | 'delete',
-    content?: string,
-    isNodeRuntime?: boolean,
-    isBufferArray?: boolean,
-    bufferContent?: ArrayBuffer
-  ) => Promise<void>;
   isActive?: boolean;
 }
 
@@ -62,8 +27,6 @@ function ClientTerminal({
   height,
   currentProject = 'default',
   currentProjectId = '',
-  projectFiles = [],
-  onFileOperation,
   isActive,
 }: TerminalProps) {
   const { colors } = useTheme();
@@ -73,41 +36,92 @@ function ClientTerminal({
   const unixCommandsRef = useRef<UnixCommands | null>(null);
   const gitCommandsRef = useRef<GitCommands | null>(null);
   const npmCommandsRef = useRef<NpmCommands | null>(null);
+  const shellRef = useRef<any>(null);
 
   // xterm/fitAddonをrefで保持
   useEffect(() => {
     if (!terminalRef.current) return;
-    if (!currentProject) return;
-    pushMsgOutPanel('Terminal initialing', 'info', 'Terminal');
+    if (!currentProject || !currentProjectId) return;
+    pushMsgOutPanel('Terminal initializing', 'info', 'Terminal');
 
-    // ファイルシステムの初期化
-    initializeFileSystem();
-    unixCommandsRef.current = new UnixCommands(currentProject, onFileOperation, currentProjectId);
-    gitCommandsRef.current = new GitCommands(
-      currentProject,
-      onFileOperation
-        ? (path, type, content, isNodeRuntime, bufferContent) =>
-            // onFileOperation expects isBufferArray, so pass undefined for it
-            onFileOperation(path, type, content, isNodeRuntime, undefined, bufferContent)
-        : undefined
-    );
-    npmCommandsRef.current = new NpmCommands(
-      currentProject,
-      '/projects/' + currentProject,
-      onFileOperation
-    );
+    // ファイルシステムとFileRepositoryの初期化
+    const initializeTerminal = async () => {
+      try {
+        // FileRepositoryを初期化
+        await fileRepository.init();
 
-    // プロジェクトファイルをターミナルファイルシステムに同期
-    const syncFiles = async () => {
-      if (projectFiles.length > 0) {
-        console.log('[Terminal]Syncing project files:', projectFiles);
-        const flatFiles = flattenFileItems(projectFiles);
-        console.log('Flattened files:', flatFiles);
-        await syncProjectFiles(currentProject, flatFiles);
-        console.log('Files synced to terminal filesystem');
+        // GitFileSystemを初期化
+        gitFileSystem.init();
+
+        // [NEW ARCHITECTURE] fileRepositoryが自動的にlightning-fsに同期するため、
+        // ここでの明示的な同期は不要（むしろ有害：ディレクトリクリアで新規ファイルが消える）
+        // 初期化時の同期は、プロジェクト作成時のみsyncManager.initializeProjectで実行される
+      } catch (error) {
+        console.error('[Terminal] Initialization error:', error);
       }
     };
-    syncFiles();
+
+    initializeTerminal();
+
+    // Use shared registry to ensure singleton instances per project.
+    // Use a named async function + mounted flag for readability and to avoid updating refs after unmount.
+    let mounted = true;
+    const loadRegistry = async () => {
+      try {
+        const { terminalCommandRegistry } = await import('@/engine/cmd/terminalRegistry');
+        if (!mounted) return;
+        unixCommandsRef.current = terminalCommandRegistry.getUnixCommands(
+          currentProject,
+          currentProjectId
+        );
+        gitCommandsRef.current = terminalCommandRegistry.getGitCommands(
+          currentProject,
+          currentProjectId
+        );
+        npmCommandsRef.current = terminalCommandRegistry.getNpmCommands(
+          currentProject,
+          currentProjectId,
+          '/projects/' + currentProject
+        );
+        // create or obtain a StreamShell instance from the shared registry so it's a per-project singleton
+        try {
+          let extRegistry: any = null;
+          try {
+            const mod = await import('@/engine/extensions/commandRegistry');
+            extRegistry = mod.commandRegistry;
+          } catch {}
+          const shellInst = await terminalCommandRegistry.getShell(
+            currentProject,
+            currentProjectId,
+            {
+              unix: unixCommandsRef.current,
+              commandRegistry: extRegistry,
+              fileRepository,
+            }
+          );
+          if (shellInst) shellRef.current = shellInst;
+        } catch (e) {
+          // non-fatal — Terminal will fallback to existing handlers
+          console.error('[Terminal] failed to initialize StreamShell via registry', e);
+        }
+      } catch (e) {
+        // Do NOT fallback to direct construction here — enforce single responsibility:
+        // Terminal must rely on the terminalCommandRegistry to provide instances.
+        if (!mounted) return;
+        console.error(
+          '[Terminal] terminal registry load failed — builtin commands not initialized',
+          e
+        );
+        pushMsgOutPanel(
+          'Terminal: failed to load terminalCommandRegistry — builtin commands unavailable',
+          'error',
+          'Terminal'
+        );
+        // Leave refs null so callers can handle the absence explicitly.
+      }
+    };
+
+    loadRegistry();
 
     // xterm関連のモジュールをrequire（クライアントサイドでのみ実行）
     const { Terminal: XTerm } = require('@xterm/xterm');
@@ -140,7 +154,7 @@ function ClientTerminal({
       fontSize: 13,
       fontFamily: 'Menlo, Monaco, "Courier New", monospace',
       cursorBlink: true,
-      scrollback: 5000, // スクロールバッファを大幅に増加
+      scrollback: 5000,
       allowTransparency: false,
       bellStyle: 'none',
     });
@@ -170,14 +184,13 @@ function ClientTerminal({
         const deltaY = startY - currentY;
 
         if (Math.abs(deltaY) > 10) {
-          // 最小スクロール距離
           scrolling = true;
-          const scrollAmount = Math.round(deltaY / 20); // スクロール量を調整
+          const scrollAmount = Math.round(deltaY / 20);
 
           if (scrollAmount > 0) {
-            term.scrollLines(scrollAmount); // 上にスクロール
+            term.scrollLines(scrollAmount);
           } else {
-            term.scrollLines(scrollAmount); // 下にスクロール
+            term.scrollLines(scrollAmount);
           }
 
           startY = currentY;
@@ -192,7 +205,7 @@ function ClientTerminal({
     // ホイールスクロール機能
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
-      const scrollAmount = Math.round(e.deltaY / 100); // スクロール量を調整
+      const scrollAmount = Math.round(e.deltaY / 100);
       term.scrollLines(scrollAmount);
     };
 
@@ -204,15 +217,11 @@ function ClientTerminal({
       terminalRef.current.addEventListener('wheel', handleWheel, { passive: false });
     }
 
-    // サイズを調整（複数段階で確実に）
+    // サイズを調整
     setTimeout(() => {
       fitAddon.fit();
-
-      // 初期フィット後にスクロール位置を確認
       setTimeout(() => {
         term.scrollToBottom();
-
-        // さらに確実にするため追加のフィットとスクロール
         setTimeout(() => {
           fitAddon.fit();
           term.scrollToBottom();
@@ -221,45 +230,30 @@ function ClientTerminal({
     }, 100);
 
     // 初期メッセージ
-    const pyxisVersion = process.env.PYXIS_VERSION || '(dev)';
-    term.writeln(`Pyxis Terminal v${pyxisVersion}`);
+    const pyxisVersion = process.env.NEXT_PUBLIC_PYXIS_VERSION || '(dev)';
+    term.writeln(`Pyxis Terminal v${pyxisVersion} [NEW ARCHITECTURE]`);
     term.writeln('Type "help" for available commands.');
 
     // 確実な自動スクロール関数
-    const scrollToBottom = (force = false) => {
+    const scrollToBottom = () => {
       try {
-        // まず標準的な方法でスクロール
         term.scrollToBottom();
-
-        // 確実に最下段に行くため、少し余分にスクロール
         setTimeout(() => {
           try {
             const buffer = term.buffer.active;
             const viewportHeight = term.rows;
             const baseY = buffer.baseY;
             const cursorY = buffer.cursorY;
-
-            // 実際のカーソル位置
             const absoluteCursorLine = baseY + cursorY;
-
-            // 現在のスクロール位置
             const currentScrollTop = buffer.viewportY;
-
-            // 確実に最下段に表示されるスクロール位置
             const targetScrollTop = Math.max(0, absoluteCursorLine - viewportHeight + 1);
-
-            // 必要なスクロール量
             const scrollDelta = targetScrollTop - currentScrollTop;
 
             if (scrollDelta > 0) {
-              // 余分にスクロールして確実に最下段へ
               term.scrollLines(scrollDelta);
             }
-
-            // 最終確認として標準メソッドも実行
             term.scrollToBottom();
           } catch (error) {
-            // エラー時は標準メソッドにフォールバック
             term.scrollToBottom();
           }
         }, 50);
@@ -275,9 +269,7 @@ function ClientTerminal({
         const branch = await gitCommandsRef.current.getCurrentBranch();
         let branchDisplay = '';
         if (branch !== '(no git)') {
-          // ブランチ名の色をThemeContextから取得
           const branchColors = colors.gitBranchColors || [];
-          // ブランチ名ごとに色を決定（例: ハッシュで色選択）
           const colorHex =
             branchColors.length > 0
               ? branchColors[
@@ -286,7 +278,6 @@ function ClientTerminal({
                   ) % branchColors.length
                 ]
               : colors.primary;
-          // HEXをRGBに変換
           const rgb = colorHex
             .replace('#', '')
             .match(/.{2}/g)
@@ -297,7 +288,6 @@ function ClientTerminal({
       } else {
         term.write('\r$ ');
       }
-      // プロンプト表示後、1回だけスクロール
       scrollToBottom();
     };
 
@@ -307,7 +297,7 @@ function ClientTerminal({
     let cmdOutputs = '';
 
     // コマンド履歴のlocalStorageキー
-    const HISTORY_KEY = `pyxis_terminal_history_${currentProject}`;
+    const HISTORY_KEY = `${LOCALSTORAGE_KEY.TERMINAL_HISTORY}${currentProject}`;
 
     // 履歴の初期化・復元
     let commandHistory: string[] = [];
@@ -328,7 +318,7 @@ function ClientTerminal({
       } catch {}
     };
 
-    // 長い出力を段階的に処理する関数（シンプルで確実な処理）
+    // 長い出力を段階的に処理する関数
     const writeOutput = async (output: string) => {
       const lines = output.split('\n');
       const batchSize = 20;
@@ -351,7 +341,6 @@ function ClientTerminal({
       let fileName = null;
       let append = false;
       let baseCommand = command;
-      // 末尾の >> file.txt または > file.txt を検出し、コマンド本体とファイル名に分離
       const redirectMatch = command.match(/(.+?)\s*(>>|>)\s*([^>\s]+)\s*$/);
       if (redirectMatch) {
         baseCommand = redirectMatch[1].trim();
@@ -362,615 +351,288 @@ function ClientTerminal({
       const parts = baseCommand.trim().split(/\s+/);
       const cmd = parts[0].toLowerCase();
       const args = parts.slice(1);
-      const output = '';
+
+      // リダイレクト時にコマンド出力をキャプチャ
+      let capturedOutput = '';
+      const captureWriteOutput = async (output: string) => {
+        capturedOutput += output + '\n';
+        if (!redirect) {
+          await writeOutput(output);
+        }
+      };
+
       try {
         switch (cmd) {
           case 'node':
             if (args.length === 0) {
-              await writeOutput('Usage: node <file.js>');
+              await captureWriteOutput('Usage: node <file.js>');
               break;
             }
             try {
-              const { NodeJSRuntime } = await import('@/engine/runtime/nodeRuntime');
-              const runtime = new NodeJSRuntime(
-                currentProject,
-                (out, type) => {
-                  if (type === 'error') {
-                    writeOutput(`\x1b[31m${out}\x1b[0m`);
-                  } else {
-                    writeOutput(out);
-                  }
+              const { NodeRuntime } = await import('@/engine/runtime/nodeRuntime');
+
+              // デバッグコンソールを設定
+              const debugConsole = {
+                log: (...args: unknown[]) => {
+                  const output = args
+                    .map(arg =>
+                      typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+                    )
+                    .join(' ');
+                  captureWriteOutput(output);
                 },
-                onFileOperation
-              );
-              const result = await runtime.executeFile(args[0]);
-              if (result.success && result.output) {
-                await writeOutput(result.output);
-              } else if (!result.success && result.error) {
-                await writeOutput(`\x1b[31m${result.error}\x1b[0m`);
-              }
-            } catch (e) {
-              await writeOutput(`node: エラー: ${(e as Error).message}`);
-            }
-            break;
-          case 'debug-db':
-            // IndexedDB と Lightning-FS の全データを出力
-            try {
-              await writeOutput('=== IndexedDB & Lightning-FS Debug Information ===\n');
+                error: (...args: unknown[]) => {
+                  const output = args
+                    .map(arg =>
+                      typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+                    )
+                    .join(' ');
+                  captureWriteOutput(`\x1b[31m${output}\x1b[0m`);
+                },
+                warn: (...args: unknown[]) => {
+                  const output = args
+                    .map(arg =>
+                      typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+                    )
+                    .join(' ');
+                  captureWriteOutput(`\x1b[33m${output}\x1b[0m`);
+                },
+                clear: () => {
+                  // Terminal clear is handled separately
+                },
+              };
 
-              // IndexedDB databases の取得
-              const dbs = await (window.indexedDB.databases ? window.indexedDB.databases() : []);
+              // Terminalの入力インターフェースを設定
+              const onInput = (promptText: string, callback: (input: string) => void) => {
+                // プロンプトを表示
+                term.write(promptText);
 
-              for (const dbInfo of dbs) {
-                const dbName = dbInfo.name;
-                if (!dbName) continue;
+                // 一時的な入力バッファ
+                let inputBuffer = '';
 
-                await writeOutput(`\n--- Database: ${dbName} (v${dbInfo.version}) ---`);
+                // readline入力モードを有効化
+                isReadlineMode = true;
 
-                try {
-                  const req = window.indexedDB.open(dbName);
-                  const db = await new Promise<IDBDatabase>((resolve, reject) => {
-                    req.onsuccess = () => resolve(req.result);
-                    req.onerror = () => reject(req.error);
-                  });
-
-                  const objectStoreNames = Array.from(db.objectStoreNames);
-                  await writeOutput(`Object Stores: ${objectStoreNames.join(', ')}`);
-
-                  for (const storeName of objectStoreNames) {
-                    try {
-                      const tx = db.transaction(storeName, 'readonly');
-                      const store = tx.objectStore(storeName);
-                      const getAllReq = store.getAll();
-                      const items = await new Promise<any[]>((resolve, reject) => {
-                        getAllReq.onsuccess = () => resolve(getAllReq.result);
-                        getAllReq.onerror = () => reject(getAllReq.error);
-                      });
-
-                      await writeOutput(`\n  Store: ${storeName} (${items.length} items)`);
-
-                      if (items.length === 0) {
-                        await writeOutput('    (empty)');
-                      } else {
-                        for (let i = 0; i < Math.min(items.length, 10); i++) {
-                          const item = items[i];
-                          let summary = '';
-
-                          if (typeof item === 'object' && item !== null) {
-                            const keys = Object.keys(item);
-                            if (keys.includes('id')) summary += `id: ${item.id}, `;
-                            if (keys.includes('name')) summary += `name: ${item.name}, `;
-                            if (keys.includes('path')) summary += `path: ${item.path}, `;
-                            if (keys.includes('type')) summary += `type: ${item.type}, `;
-                            if (keys.includes('projectId')) summary += `repo: ${item.projectId}, `;
-                            if (keys.includes('content')) {
-                              const contentSize =
-                                typeof item.content === 'string'
-                                  ? item.content.length
-                                  : JSON.stringify(item.content).length;
-                              summary += `content: ${contentSize} chars, `;
-                            }
-                            summary = summary.replace(/, $/, '');
-
-                            if (summary === '') {
-                              summary = `{${keys.slice(0, 3).join(', ')}${keys.length > 3 ? '...' : ''}}`;
-                            }
-                          } else {
-                            summary = String(item).slice(0, 100);
-                          }
-
-                          await writeOutput(`    [${i}] ${summary}`);
-                        }
-
-                        if (items.length > 50) {
-                          await writeOutput(`    ... and ${items.length - 50} more items`);
-                        }
-                      }
-                    } catch (storeError) {
-                      await writeOutput(`    Error accessing store ${storeName}: ${storeError}`);
+                // 入力ハンドラ
+                readlineHandler = (data: string) => {
+                  if (data === '\r') {
+                    // Enter押下
+                    term.write('\r\n');
+                    const result = inputBuffer;
+                    inputBuffer = '';
+                    // readline入力モードを解除
+                    isReadlineMode = false;
+                    readlineHandler = null;
+                    callback(result);
+                  } else if (data === '\u007F') {
+                    // Backspace
+                    if (inputBuffer.length > 0) {
+                      inputBuffer = inputBuffer.slice(0, -1);
+                      term.write('\b \b');
                     }
+                  } else if (data === '\u0003') {
+                    // Ctrl+C
+                    term.write('^C\r\n');
+                    inputBuffer = '';
+                    // readline入力モードを解除
+                    isReadlineMode = false;
+                    readlineHandler = null;
+                    callback('');
+                  } else if (data >= ' ' || data === '\t') {
+                    inputBuffer += data;
+                    term.write(data);
                   }
+                };
+              };
 
-                  db.close();
-                } catch (dbError) {
-                  await writeOutput(`  Error opening database ${dbName}: ${dbError}`);
-                }
-              }
-
-              // LocalStorage の Lightning-FS/pyxis-fs関連データを出力
-              await writeOutput('\n--- LocalStorage (Lightning-FS/pyxis-fs related) ---');
-              const pyxisFSKeys = [];
-              const otherLightningFSKeys = [];
-              for (let i = 0; i < window.localStorage.length; i++) {
-                const key = window.localStorage.key(i);
-                if (!key) continue;
-                if (key.startsWith('pyxis-fs')) {
-                  pyxisFSKeys.push(key);
-                } else if (key.startsWith('fs/') || key.includes('lightning')) {
-                  otherLightningFSKeys.push(key);
-                }
-              }
-
-              // 他のLightning-FS関連はすべて詳細表示
-              if (otherLightningFSKeys.length === 0) {
-                await writeOutput('No other Lightning-FS related localStorage entries found.');
-              } else {
-                await writeOutput(
-                  `Other Lightning-FS related entries (${otherLightningFSKeys.length}):`
-                );
-                for (const key of otherLightningFSKeys) {
-                  const value = window.localStorage.getItem(key);
-                  const size = value ? value.length : 0;
-                  await writeOutput(`  ${key}: ${size} chars`);
-                  await writeOutput(
-                    `    value: ${value ? value.slice(0, 1000) : ''}${value && value.length > 1000 ? ' ...(truncated)' : ''}`
-                  );
-                }
-              }
-
-              // ファイルシステム統計
-              await writeOutput('\n--- File System Statistics ---');
+              // Resolve file path relative to current working directory when a relative
+              // path is provided so that `node ./src/index.js` behaves like a real shell.
+              let entryPath = args[0];
               try {
-                const { getFileSystem } = await import('@/engine/core/filesystem');
-                const fs = getFileSystem();
-                if (fs) {
-                  try {
-                    const projectsExists = await fs.promises.stat('/projects').catch(() => null);
-                    if (projectsExists) {
-                      const projectDirs = await fs.promises.readdir('/projects');
-                      await writeOutput(`Projects in filesystem: ${projectDirs.length}`);
-
-                      for (const dir of projectDirs.slice(0, 10)) {
-                        if (dir === '.' || dir === '..') continue;
-                        try {
-                          const projectPath = `/projects/${dir}`;
-                          const files = await fs.promises.readdir(projectPath);
-                          await writeOutput(`  ${dir}: ${files.length} files/dirs`);
-                        } catch {
-                          await writeOutput(`  ${dir}: (inaccessible)`);
-                        }
-                      }
-
-                      if (projectDirs.length > 10) {
-                        await writeOutput(`  ... and ${projectDirs.length - 10} more projects`);
-                      }
-                    } else {
-                      await writeOutput('No /projects directory found in filesystem');
-                    }
-                  } catch (fsError) {
-                    await writeOutput(`Error reading filesystem: ${fsError}`);
-                  }
-                } else {
-                  await writeOutput('Filesystem not initialized');
-                }
-              } catch (importError) {
-                await writeOutput(`Error importing filesystem: ${importError}`);
-              }
-
-              await writeOutput('\n=== Debug Information Complete ===');
-            } catch (e) {
-              await writeOutput(`debug-db: エラー: ${(e as Error).message}`);
-            }
-            break;
-
-          case 'memory-clean':
-            // 全プロジェクトをスキャンして、DBに存在しないファイル・フォルダ（特に.git）を削除
-            try {
-              const { getFileSystem, initializeFileSystem } = await import(
-                '@/engine/core/filesystem'
-              );
-              const { projectDB } = await import('@/engine/core/database');
-
-              let fs = getFileSystem();
-              if (!fs) fs = initializeFileSystem();
-              if (!fs) {
-                await writeOutput('memory-clean: ファイルシステムが初期化できませんでした');
-                break;
-              }
-
-              await projectDB.init();
-
-              // 全プロジェクトのファイル一覧を取得
-              const allProjects = await projectDB.getProjects();
-              const allDbPaths = new Map<string, Set<string>>(); // projectName -> Set of paths
-
-              for (const project of allProjects) {
-                const projectFiles = await projectDB.getProjectFiles(project.id);
-                allDbPaths.set(project.name, new Set(projectFiles.map(f => f.path)));
-              }
-
-              // 再帰削除関数
-              async function removeFileOrDirectory(fs: any, path: string): Promise<void> {
-                try {
-                  const stat = await fs.promises.stat(path);
-                  if (stat.isDirectory()) {
-                    const files = await fs.promises.readdir(path);
-                    for (const file of files) {
-                      await removeFileOrDirectory(fs, `${path}/${file}`);
-                    }
-                    await fs.promises.rmdir(path);
-                    // 削除成功ログ
-                    console.log(`[memory-clean] Removed directory: ${path}`);
+                if (unixCommandsRef.current) {
+                  // If path is not absolute, join with cwd and normalize
+                  if (!entryPath.startsWith('/')) {
+                    const cwd = await unixCommandsRef.current.pwd();
+                    const combined = cwd.replace(/\/$/, '') + '/' + entryPath;
+                    entryPath = unixCommandsRef.current.normalizePath(combined);
                   } else {
-                    await fs.promises.unlink(path);
-                    // 削除成功ログ
-                    console.log(`[memory-clean] Removed file: ${path}`);
-                  }
-                  // 削除後にLightning-FSキャッシュフラッシュ
-                  if (fs && typeof (fs as any).sync === 'function') {
-                    await (fs as any).sync();
-                    console.log('[memory-clean] Lightning-FS cache flushed');
-                  }
-                } catch (err) {
-                  // 削除失敗時は警告ログ
-                  console.warn(`[memory-clean] Failed to remove: ${path}`, err);
-                  throw err; // 失敗時は例外を投げる
-                }
-              }
-
-              // プロジェクトディレクトリを再帰的に探索して、DBに存在しないファイルを削除
-              async function cleanProjectDirectory(
-                fs: any,
-                projectName: string,
-                dirPath: string,
-                cleaned: string[]
-              ): Promise<void> {
-                const dbPaths = allDbPaths.get(projectName);
-                if (!dbPaths) {
-                  // プロジェクトがDBに存在しない場合は全て削除（.gitも含む）
-                  try {
-                    await removeFileOrDirectory(fs, dirPath);
-                    cleaned.push(`${projectName}/ (project not in DB)`);
-                  } catch {}
-                  return;
-                }
-
-                try {
-                  const files = await fs.promises.readdir(dirPath);
-                  for (const file of files) {
-                    const fullPath = `${dirPath}/${file}`;
-                    const relativePath = fullPath.replace(`/projects/${projectName}`, '') || '/';
-
-                    // .gitディレクトリの処理：DBに存在するプロジェクトの場合は削除しない
-                    if (file === '.git') {
-                      // DBに存在するプロジェクトの.gitは保持
-                      continue;
-                    }
-
-                    // DBに存在しないファイル・フォルダを削除
-                    if (!dbPaths.has(relativePath)) {
-                      await removeFileOrDirectory(fs, fullPath);
-                      cleaned.push(`${projectName}${relativePath}`);
-                    } else {
-                      // ディレクトリの場合は再帰的にチェック
-                      try {
-                        const stat = await fs.promises.stat(fullPath);
-                        if (stat.isDirectory()) {
-                          await cleanProjectDirectory(fs, projectName, fullPath, cleaned);
-                        }
-                      } catch {
-                        // アクセスできない場合は無視
-                      }
-                    }
-                  }
-                } catch {
-                  // ディレクトリが存在しない場合は無視
-                }
-              }
-
-              const cleaned: string[] = [];
-
-              try {
-                // /projectsディレクトリが存在するかチェック
-                await fs.promises.stat('/projects');
-
-                // /projects配下の全ディレクトリをスキャン
-                const projectDirs = await fs.promises.readdir('/projects');
-
-                for (const dir of projectDirs) {
-                  if (dir === '.' || dir === '..') continue;
-
-                  const projectPath = `/projects/${dir}`;
-                  try {
-                    const stat = await fs.promises.stat(projectPath);
-                    if (stat.isDirectory()) {
-                      await cleanProjectDirectory(fs, dir, projectPath, cleaned);
-                    }
-                  } catch {
-                    // アクセスできないディレクトリは無視
+                    // absolute path — normalize to collapse ./ ../ if any
+                    entryPath = unixCommandsRef.current.normalizePath(entryPath);
                   }
                 }
               } catch (e) {
-                // /projectsディレクトリが存在しない場合もOK
+                // Fallback to original arg if any error occurs during resolution
+                entryPath = args[0];
               }
 
-              // IndexedDB とLightningFSの直接クリーンアップも試行
-              try {
-                // LightningFSのデータをクリア
-                if (typeof window !== 'undefined' && window.localStorage) {
-                  const lightningFSKeys = [];
-                  for (let i = 0; i < window.localStorage.length; i++) {
-                    const key = window.localStorage.key(i);
-                    if (key && (key.startsWith('fs/') || key.includes('lightning'))) {
-                      lightningFSKeys.push(key);
-                    }
-                  }
-                  for (const key of lightningFSKeys) {
-                    window.localStorage.removeItem(key);
-                    cleaned.push(`LocalStorage: ${key}`);
-                  }
-                }
+              const runtime = new NodeRuntime({
+                projectId: currentProjectId,
+                projectName: currentProject,
+                filePath: entryPath,
+                debugConsole,
+                onInput,
+              });
 
-                // IndexedDBのオーファンエントリのクリーンアップ
-                if (typeof window !== 'undefined' && window.indexedDB) {
-                  const dbNames = ['PyxisProjectDB', 'LightningFS'];
-                  for (const dbName of dbNames) {
-                    try {
-                      const req = window.indexedDB.open(dbName);
-                      req.onsuccess = () => {
-                        const db = req.result;
-                        // データベースバージョンを確認してクリーンアップが必要かチェック
-                        db.close();
-                      };
-                    } catch {}
-                  }
-                }
-              } catch (e) {
-                // IndexedDB/LightningFSのクリーンアップエラーは無視
-              }
-
-              if (cleaned.length > 0) {
-                await writeOutput(
-                  `memory-clean: 以下のファイル・ディレクトリを削除しました:\n${cleaned.join('\n')}`
-                );
-              } else {
-                await writeOutput('memory-clean: 削除対象のファイルは見つかりませんでした');
-              }
+              await runtime.execute(entryPath);
             } catch (e) {
-              await writeOutput(`memory-clean: エラー: ${(e as Error).message}`);
+              await captureWriteOutput(`\x1b[31mnode: エラー: ${(e as Error).message}\x1b[0m`);
             }
             break;
-          case 'fs-clean':
-            // Lightning-FSの全データを完全削除
-            try {
-              const { getFileSystem, initializeFileSystem } = await import(
-                '@/engine/core/filesystem'
+
+          // New namespaced form: pyxis <category> <action> [...]
+          case 'pyxis': {
+            if (args.length === 0) {
+              await captureWriteOutput(
+                'pyxis: missing subcommand. Usage: pyxis <category> <action> [args]'
               );
-              let fs = getFileSystem();
-              if (!fs) fs = initializeFileSystem();
-              if (!fs) {
-                await writeOutput('fs-clean: ファイルシステムが初期化できませんでした');
-                break;
-              }
-              // /projects配下を再帰削除
-              async function removeAll(fs: any, dirPath: string): Promise<void> {
-                try {
-                  const stat = await fs.promises.stat(dirPath);
-                  if (stat.isDirectory()) {
-                    const files = await fs.promises.readdir(dirPath);
-                    for (const file of files) {
-                      await removeAll(fs, `${dirPath}/${file}`);
-                    }
-                    await fs.promises.rmdir(dirPath);
-                    console.log(`[fs-clean] Removed directory: ${dirPath}`);
-                  } else {
-                    await fs.promises.unlink(dirPath);
-                    console.log(`[fs-clean] Removed file: ${dirPath}`);
-                  }
-                  if (fs && typeof (fs as any).sync === 'function') {
-                    await (fs as any).sync();
-                    console.log('[fs-clean] Lightning-FS cache flushed');
-                  }
-                } catch (err) {
-                  console.warn(`[fs-clean] Failed to remove: ${dirPath}`, err);
-                }
-              }
-              try {
-                await removeAll(fs, '/projects');
-                await writeOutput('fs-clean: /projects配下を全て削除しました');
-              } catch (e) {
-                await writeOutput(`fs-clean: /projects削除エラー: ${(e as Error).message}`);
-              }
-              // LocalStorageのLightning-FS関連キーも削除
-              if (typeof window !== 'undefined' && window.localStorage) {
-                const lightningFSKeys = [];
-                for (let i = 0; i < window.localStorage.length; i++) {
-                  const key = window.localStorage.key(i);
-                  if (key && (key.startsWith('fs/') || key.includes('lightning'))) {
-                    lightningFSKeys.push(key);
-                  }
-                }
-                for (const key of lightningFSKeys) {
-                  window.localStorage.removeItem(key);
-                  console.log(`[fs-clean] Removed localStorage key: ${key}`);
-                }
-                await writeOutput(
-                  `fs-clean: LocalStorageのLightning-FS関連キーも削除しました (${lightningFSKeys.length}件)`
-                );
-              }
-              await writeOutput('fs-clean: 完了');
-            } catch (e) {
-              await writeOutput(`fs-clean: エラー: ${(e as Error).message}`);
+              break;
             }
-            break;
-          case 'export':
-            if (args[0]?.toLowerCase() === '--page' && args[1]) {
-              const targetPath = args[1].startsWith('/')
-                ? args[1]
-                : `${unixCommandsRef.current?.pwd()}/${args[1]}`;
-              const normalizedPath = unixCommandsRef.current?.normalizePath(targetPath);
-              if (normalizedPath) {
-                await exportPage(normalizedPath, writeOutput, unixCommandsRef);
-              } else {
-                await writeOutput('無効なパスが指定されました。');
-              }
-            } else if (args[0]?.toLowerCase() === '--indexeddb') {
-              const win = window.open('about:blank', '_blank');
-              if (!win) {
-                await writeOutput('about:blankの新規タブを開けませんでした。');
-                break;
-              }
-              const mod = await import('@/engine/export/exportIndexeddb');
-              mod.exportIndexeddbHtmlWithWindow(writeOutput, win);
+            const category = args[0];
+            const action = args[1];
+
+            // If there is no action token, the category itself is required to have an action
+            if (!action) {
+              await captureWriteOutput(
+                'pyxis: missing action. Usage: pyxis <category> <action> [args]'
+              );
+              break;
+            }
+
+            // If the action token looks like a flag (starts with '-'), do NOT merge it into the command name.
+            // Treat it as an argument for the category command: `pyxis export --indexeddb` -> cmd: 'export', args: ['--indexeddb']
+            let cmdToCall: string;
+            let subArgs: string[];
+            if (action.startsWith('-')) {
+              cmdToCall = category;
+              subArgs = args.slice(1); // include the flag and following args
             } else {
-              await writeOutput(
-                'export: サポートされているのは "export --page <path>" または "export --indexeddb" のみです'
-              );
+              cmdToCall = `${category}-${action}`;
+              subArgs = args.slice(2);
             }
+
+            await handlePyxisCommand(
+              cmdToCall,
+              subArgs,
+              currentProject,
+              currentProjectId,
+              captureWriteOutput
+            );
             break;
+          }
+
           case 'clear':
             term.clear();
             break;
 
-          case 'date':
-            await writeOutput(new Date().toLocaleString('ja-JP'));
-            break;
-
-          case 'whoami':
-            await writeOutput('user');
-            break;
-
-          // Git commands
           case 'git':
-            // 分割したGitコマンド処理に委譲
-            await handleGitCommand(args, gitCommandsRef, writeOutput);
+            await handleGitCommand(args, currentProject, currentProjectId, captureWriteOutput);
             break;
 
           case 'npm':
-            await handleNPMCommand(args, npmCommandsRef, writeOutput);
+            await handleNPMCommand(args, currentProject, currentProjectId, captureWriteOutput);
             break;
 
-          case 'npm-size':
-            if (args.length === 0) {
-              await writeOutput('Usage: npm-size <package-name>');
-            } else {
-              const packageName = args[0];
+          case 'vim':
+            await handleVimCommand(
+              args,
+              unixCommandsRef,
+              captureWriteOutput,
+              currentProject,
+              currentProjectId
+            );
+            break;
+
+          default: {
+            // カスタムコマンドをチェック
+            const { commandRegistry } = await import('@/engine/extensions/commandRegistry');
+            if (commandRegistry.hasCommand(cmd)) {
               try {
-                const { calculateDependencySize } = await import(
-                  '@/engine/cmd/npmOperations/npmDependencySize'
-                );
-                const size = await calculateDependencySize(packageName);
-                await writeOutput(
-                  `Total size of ${packageName} and its dependencies: ${size.toFixed(2)} kB`
-                );
+                const currentDir = unixCommandsRef.current
+                  ? await unixCommandsRef.current.pwd()
+                  : `/projects/${currentProject}`;
+
+                // コマンド実行に必要な最小限の情報を渡す
+                // ExtensionManagerのラッパーでExtensionContextがマージされる
+                const result = await commandRegistry.executeCommand(cmd, args, {
+                  projectName: currentProject,
+                  projectId: currentProjectId,
+                  currentDirectory: currentDir,
+                } as any);
+
+                await captureWriteOutput(result);
               } catch (error) {
-                await writeOutput(`Error calculating size: ${(error as Error).message}`);
+                await captureWriteOutput(`Error: ${(error as Error).message}`);
               }
-            }
-            break;
-
-          // Unix commands
-          case 'unzip':
-            if (args.length === 0) {
-              await writeOutput('Usage: unzip <zipfile> [destdir]');
-            } else if (!unixCommandsRef.current) {
-              await writeOutput('unzip: internal error (filesystem not initialized)');
             } else {
-              // 修正: パスを正規化して検索
-              const normalizedPath = unixCommandsRef.current?.normalizePath(args[0]);
-              console.log('[unzip] Normalized path:', normalizedPath);
-              let fileToUnzip = projectFiles.find(file => file.path === normalizedPath);
-              console.log('[unzip] fileToUnzip from projectFiles:', fileToUnzip);
-
-              // projectFilesで見つからない場合は、DBから直接取得
-              if (!fileToUnzip && currentProject) {
-                console.log('[unzip] File not found in projectFiles, checking DB...');
-                try {
-                  const projects = await projectDB.getProjects();
-                  const project = projects.find(p => p.name === currentProject);
-                  if (project) {
-                    const dbFiles = await projectDB.getProjectFiles(project.id);
-                    const dbFile = dbFiles.find(f => f.path === normalizedPath);
-                    if (dbFile && dbFile.isBufferArray && dbFile.bufferContent) {
-                      fileToUnzip = {
-                        id: dbFile.id,
-                        name: dbFile.name,
-                        type: dbFile.type,
-                        path: dbFile.path,
-                        content: dbFile.content,
-                        isBufferArray: dbFile.isBufferArray,
-                        bufferContent: dbFile.bufferContent,
-                      } as FileItem;
-                      console.log('[unzip] Found file in DB:', fileToUnzip);
-                    }
-                  }
-                } catch (dbError) {
-                  console.error('[unzip] DB lookup error:', dbError);
-                }
-              }
-
-              if (!fileToUnzip)
-                return await writeOutput(`unzip: ファイルが見つかりません: ${args[0]}`);
-              const bufferContent = fileToUnzip.bufferContent;
-              if (!bufferContent)
-                return await writeOutput(`unzip: バッファコンテンツが見つかりません: ${args[0]}`);
-              try {
-                const result = await unixCommandsRef.current.unzip(
-                  normalizedPath,
-                  args[1],
-                  bufferContent
-                );
-                await writeOutput(result);
-              } catch (e) {
-                await writeOutput((e as Error).message);
+              // 通常のUnixコマンドとして処理
+              if (shellRef.current) {
+                // delegate entire baseCommand to StreamShell which handles pipes/redirection/subst
+                const res = await shellRef.current.run(baseCommand);
+                if (res.stdout) await captureWriteOutput(String(res.stdout));
+                if (res.stderr) await captureWriteOutput(String(res.stderr));
               }
             }
             break;
-          default:
-            await handleUnixCommand(cmd, args, unixCommandsRef, currentProject, writeOutput);
-            break;
-        }
-        if (
-          redirect &&
-          fileName &&
-          unixCommandsRef.current &&
-          cmdOutputs !== undefined &&
-          cmdOutputs !== null
-        ) {
-          const targetPath = fileName.startsWith('/')
-            ? fileName
-            : `${unixCommandsRef.current.pwd()}/${fileName}`;
-          const normalizedPath = unixCommandsRef.current.normalizePath(targetPath);
-          let content = String(cmdOutputs);
-          if (append) {
-            try {
-              const prev = await unixCommandsRef.current.fs.promises.readFile(normalizedPath, {
-                encoding: 'utf8',
-              });
-              content = (typeof prev === 'string' ? prev : String(prev)) + String(cmdOutputs);
-            } catch {
-              content = String(cmdOutputs);
-            }
           }
-          // ファイル書き込みは try-catch でエラーを握りつぶさず通知
+        }
+
+        // リダイレクト処理
+        if (redirect && fileName && unixCommandsRef.current) {
+          // コマンド出力がない場合は空文字列として扱う
+          const outputContent = capturedOutput || '';
+
+          // ファイルパスを解決
+          const fullPath = fileName.startsWith('/')
+            ? fileName
+            : `${await unixCommandsRef.current.pwd()}/${fileName}`;
+          const normalizedPath = unixCommandsRef.current.normalizePath(fullPath);
+          const relativePath = unixCommandsRef.current.getRelativePathFromProject(normalizedPath);
+
           try {
-            await unixCommandsRef.current.fs.promises.writeFile(normalizedPath, content);
-            if (onFileOperation) {
-              const relativePath =
-                unixCommandsRef.current.getRelativePathFromProject(normalizedPath);
-              await onFileOperation(relativePath, 'file', content);
+            let content = outputContent;
+
+            // 追記モードの場合、既存のコンテンツを先頭に追加
+            if (append) {
+              // Use indexed single-file lookup for append
+              try {
+                const existingFile = await fileRepository.getFileByPath(
+                  currentProjectId,
+                  relativePath
+                );
+                if (existingFile && existingFile.content) {
+                  content = existingFile.content + content;
+                }
+              } catch (e) {
+                // ignore and proceed with content as-is
+              }
             }
-            cmdOutputs = ''; // 書き込み後は出力をリセット
+
+            // ファイルを保存または更新
+            const existingFile = await fileRepository.getFileByPath(currentProjectId, relativePath);
+
+            if (existingFile) {
+              await fileRepository.saveFile({
+                ...existingFile,
+                content,
+                updatedAt: new Date(),
+              });
+            } else {
+              await fileRepository.createFile(currentProjectId, relativePath, content, 'file');
+            }
           } catch (e) {
             await writeOutput(`ファイル書き込みエラー: ${(e as Error).message}`);
           }
-          // ファイル出力時は画面出力しない
           return;
         }
-        if (output !== undefined && output !== null) {
-          await writeOutput(output);
-        }
       } catch (error) {
-        cmdOutputs = (error as Error).message;
+        if (!redirect) {
+          await writeOutput(`エラー: ${(error as Error).message}`);
+        }
       }
-      // コマンド実行後に確実な自動スクロール
+
       scrollToBottom();
-      setTimeout(() => {
-        scrollToBottom();
-      }, 50);
-      setTimeout(() => {
-        scrollToBottom();
-      }, 150);
+      setTimeout(() => scrollToBottom(), 50);
+      setTimeout(() => scrollToBottom(), 150);
     };
 
     // 選択範囲管理
@@ -987,28 +649,23 @@ function ClientTerminal({
       isComposing = false;
     });
 
-    // ペースト対応（Ctrl+V/iPad）
-    // ペーストイベントはe.preventDefault()のみ実行し、currentLineへの追加は行わない
+    // ペースト対応
     term.textarea?.addEventListener('paste', (e: ClipboardEvent) => {
       e.preventDefault();
     });
 
-    // iPadタッチペースト対応（insertFromPasteは何もしない）
     term.textarea?.addEventListener('beforeinput', (e: InputEvent) => {
       if (e.inputType === 'insertFromPaste') {
-        // 何もしない（pasteイベントのみで処理）
-        // e.preventDefault(); を削除
+        // pasteイベントのみで処理
       }
     });
 
-    // xterm.jsのonKeyでCtrl/Shift判定
+    // キーボードショートカット
     term.onKey(({ key, domEvent }: { key: string; domEvent: KeyboardEvent }) => {
-      if (isComposing) return; // IME中は無視
-      // Ctrl+←/→ 単語単位移動
+      if (isComposing) return;
+
       if (domEvent.ctrlKey && !domEvent.shiftKey && !domEvent.altKey) {
         if (key === '\u001b[D') {
-          // Ctrl+←
-          // 左の単語先頭へ
           if (cursorPos > 0) {
             let pos = cursorPos - 1;
             while (pos > 0 && currentLine[pos - 1] !== ' ') pos--;
@@ -1017,8 +674,6 @@ function ClientTerminal({
           }
           domEvent.preventDefault();
         } else if (key === '\u001b[C') {
-          // Ctrl+→
-          // 右の単語末尾へ
           let pos = cursorPos;
           while (pos < currentLine.length && currentLine[pos] !== ' ') pos++;
           while (pos < currentLine.length && currentLine[pos] === ' ') pos++;
@@ -1027,10 +682,9 @@ function ClientTerminal({
           domEvent.preventDefault();
         }
       }
-      // Shift+←/→ 選択範囲
+
       if (domEvent.shiftKey && !domEvent.ctrlKey && !domEvent.altKey) {
         if (key === '\u001b[D') {
-          // Shift+←
           if (!isSelecting) {
             selectionStart = cursorPos;
             isSelecting = true;
@@ -1042,7 +696,6 @@ function ClientTerminal({
           }
           domEvent.preventDefault();
         } else if (key === '\u001b[C') {
-          // Shift+→
           if (!isSelecting) {
             selectionStart = cursorPos;
             isSelecting = true;
@@ -1055,7 +708,7 @@ function ClientTerminal({
           domEvent.preventDefault();
         }
       }
-      // Ctrl+Cで選択範囲コピー
+
       if (
         domEvent.ctrlKey &&
         key === '\u0003' &&
@@ -1074,11 +727,21 @@ function ClientTerminal({
       }
     });
 
-    // 通常のキー入力（既存処理）
+    // readline入力モードフラグ
+    let isReadlineMode = false;
+    let readlineHandler: ((data: string) => void) | null = null;
+
+    // 通常のキー入力
     term.onData((data: string) => {
-      if (isComposing) return; // IME中は無視
+      if (isComposing) return;
+
+      // readline入力モード中は専用ハンドラに委譲
+      if (isReadlineMode && readlineHandler) {
+        readlineHandler(data);
+        return;
+      }
       switch (data) {
-        case '\r': // Enter
+        case '\r':
           term.writeln('');
           scrollToBottom();
           if (currentLine.trim()) {
@@ -1105,7 +768,7 @@ function ClientTerminal({
           selectionStart = null;
           selectionEnd = null;
           break;
-        case '\u007F': // Backspace
+        case '\u007F':
           if (cursorPos > 0) {
             currentLine = currentLine.slice(0, cursorPos - 1) + currentLine.slice(cursorPos);
             cursorPos--;
@@ -1114,8 +777,14 @@ function ClientTerminal({
             for (let i = 0; i < currentLine.length - cursorPos + 1; i++) term.write('\b');
           }
           break;
-        case '\u0003': // Ctrl+C
+        case '\u0003':
           term.writeln('^C');
+          // send SIGINT to foreground process if available
+          try {
+            if (shellRef.current && typeof shellRef.current.killForeground === 'function') {
+              shellRef.current.killForeground();
+            }
+          } catch (e) {}
           currentLine = '';
           cursorPos = 0;
           historyIndex = -1;
@@ -1124,7 +793,7 @@ function ClientTerminal({
           selectionEnd = null;
           showPrompt();
           break;
-        case '\u001b[A': // 上矢印キー
+        case '\u001b[A':
           if (commandHistory.length > 0) {
             if (historyIndex === -1) {
               historyIndex = commandHistory.length - 1;
@@ -1142,7 +811,7 @@ function ClientTerminal({
             selectionEnd = null;
           }
           break;
-        case '\u001b[B': // 下矢印キー
+        case '\u001b[B':
           if (commandHistory.length > 0 && historyIndex !== -1) {
             if (historyIndex < commandHistory.length - 1) {
               historyIndex++;
@@ -1168,14 +837,14 @@ function ClientTerminal({
             }
           }
           break;
-        case '\u001b[D': // ← 左
+        case '\u001b[D':
           if (cursorPos > 0) {
             term.write('\b');
             cursorPos--;
             if (isSelecting) selectionEnd = cursorPos;
           }
           break;
-        case '\u001b[C': // → 右
+        case '\u001b[C':
           if (cursorPos < currentLine.length) {
             term.write(currentLine[cursorPos]);
             cursorPos++;
@@ -1201,7 +870,8 @@ function ClientTerminal({
 
     // クリーンアップ
     return () => {
-      // イベントリスナーを削除
+      // prevent updates from async tasks after unmount
+      mounted = false;
       if (terminalRef.current) {
         terminalRef.current.removeEventListener('touchstart', handleTouchStart);
         terminalRef.current.removeEventListener('touchmove', handleTouchMove);
@@ -1210,34 +880,19 @@ function ClientTerminal({
       }
       term.dispose();
     };
-  }, [currentProject]);
+  }, [currentProject, currentProjectId, colors]);
 
   // 高さが変更された時にサイズを再調整
   useEffect(() => {
     if (fitAddonRef.current && xtermRef.current) {
-      // まずサイズを調整
       setTimeout(() => {
         fitAddonRef.current?.fit();
-
-        // リサイズ後の正確なスクロール（1回のみ）
         setTimeout(() => {
           xtermRef.current?.scrollToBottom();
         }, 100);
       }, 100);
     }
-  }, [height, currentProject, projectFiles]);
-
-  // プロジェクトファイルが変更されたときの同期
-  useEffect(() => {
-    const syncFiles = async () => {
-      if (projectFiles.length > 0) {
-        //console.log('Project files changed, syncing:', projectFiles);
-        const flatFiles = flattenFileItems(projectFiles);
-        await syncProjectFiles(currentProject, flatFiles);
-      }
-    };
-    syncFiles();
-  }, [projectFiles, currentProject]);
+  }, [height]);
 
   return (
     <div
@@ -1260,8 +915,6 @@ export default function Terminal({
   height,
   currentProject,
   currentProjectId,
-  projectFiles,
-  onFileOperation,
   isActive,
 }: TerminalProps) {
   const [isMounted, setIsMounted] = useState(false);
@@ -1270,8 +923,8 @@ export default function Terminal({
     setIsMounted(true);
   }, []);
 
-  // サーバーサイドまたはマウント前はローディング表示
   const { colors } = useTheme();
+  const { t } = useTranslation();
   if (!isMounted) {
     return (
       <div
@@ -1282,20 +935,17 @@ export default function Terminal({
           className="text-sm"
           style={{ color: colors.mutedFg }}
         >
-          ターミナルを初期化中...
+          {t('bottom.terminalInitializing')}
         </div>
       </div>
     );
   }
 
-  // クライアントサイドでマウント後のみ実際のターミナルを表示
   return (
     <ClientTerminal
       height={height}
       currentProject={currentProject}
       currentProjectId={currentProjectId}
-      projectFiles={projectFiles}
-      onFileOperation={onFileOperation}
       isActive={isActive}
     />
   );

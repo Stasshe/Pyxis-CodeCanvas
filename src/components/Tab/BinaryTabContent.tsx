@@ -1,10 +1,10 @@
 import React from 'react';
 import { FileText } from 'lucide-react';
-import MarkdownPreviewTab from './MarkdownPreviewTab';
-import WelcomeTab from './WelcomeTab';
+import { useTranslation } from '@/context/I18nContext';
+import { BinaryTab, EditorTab } from '@/engine/tabs/types';
 
 interface BinaryTabContentProps {
-  activeTab: any;
+  activeTab: BinaryTab | EditorTab;
   editorHeight: string;
   guessMimeType: (fileName: string, buffer?: ArrayBuffer) => string;
   isBufferArray: (arg: any) => boolean;
@@ -19,8 +19,9 @@ const BinaryTabContent: React.FC<BinaryTabContentProps> = ({
   guessMimeType,
   isBufferArray,
 }) => {
-  if (!isBufferArray((activeTab as any).bufferContent)) return null;
-  const buffer = (activeTab as any).bufferContent as ArrayBuffer | undefined;
+  const { t } = useTranslation();
+  if (!('bufferContent' in activeTab) || !isBufferArray(activeTab.bufferContent)) return null;
+  const buffer = activeTab.bufferContent as ArrayBuffer | undefined;
   const mime = guessMimeType(activeTab.name, buffer);
   // 画像ならimg表示
   if (mime.startsWith('image/') && buffer) {
@@ -117,7 +118,7 @@ const BinaryTabContent: React.FC<BinaryTabContentProps> = ({
         className="mx-auto mb-4 opacity-50"
       />
       <div style={{ color: '#aaa', fontSize: 15, marginBottom: 8 }}>{activeTab.name}</div>
-      <div style={{ color: '#d44', fontSize: 16 }}>このファイル形式は表示できません</div>
+      <div style={{ color: '#d44', fontSize: 16 }}>{t('binaryTab.unsupportedFormat')}</div>
     </div>
   );
 };

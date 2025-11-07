@@ -3,7 +3,12 @@
 // path: ディレクトリパス
 // fs: ファイルシステム
 // 戻り値: インライン化済みhtmlContent
-export const inlineHtmlAssets = async (files: string[], path: string, fs: any): Promise<string> => {
+// fileReader: optional async function(fullPath: string) => string
+export const inlineHtmlAssets = async (
+  files: string[],
+  path: string,
+  fileReader: (fullPath: string) => Promise<string>
+): Promise<string> => {
   // index.htmlまたは最初のhtmlファイルを探す
   let htmlFile = files.find(f => f.toLowerCase() === 'index.html');
   if (!htmlFile) {
@@ -13,7 +18,9 @@ export const inlineHtmlAssets = async (files: string[], path: string, fs: any): 
     throw new Error('フォルダ内にHTMLファイルがありません。');
   }
   const htmlPath = path + '/' + htmlFile;
-  let htmlContent = await fs.promises.readFile(htmlPath, { encoding: 'utf8' });
+  const read = fileReader;
+
+  let htmlContent = await read(htmlPath);
 
   // ローカル判定関数
   const isLocal = (src: string) => {
@@ -26,7 +33,7 @@ export const inlineHtmlAssets = async (files: string[], path: string, fs: any): 
   for (const css of cssFiles) {
     try {
       const cssPath = path + '/' + css;
-      cssContent += (await fs.promises.readFile(cssPath, { encoding: 'utf8' })) + '\n';
+      cssContent += (await read(cssPath)) + '\n';
     } catch (err) {
       console.error(`CSSファイルの読み込みに失敗しました: ${css}`, err);
     }
@@ -51,7 +58,7 @@ export const inlineHtmlAssets = async (files: string[], path: string, fs: any): 
   for (const js of jsFiles) {
     try {
       const jsPath = path + '/' + js;
-      jsContent += (await fs.promises.readFile(jsPath, { encoding: 'utf8' })) + '\n';
+      jsContent += (await read(jsPath)) + '\n';
     } catch (err) {
       console.error(`JSファイルの読み込みに失敗しました: ${js}`, err);
     }
