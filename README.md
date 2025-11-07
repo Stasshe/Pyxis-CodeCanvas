@@ -137,8 +137,65 @@ JavaScriptでは不可能なファイルオペレーションやインタラク�
 
 ---
 
-### 🧩 Pyxis拡張機能システム
+### 🐚 **Advanced Shell System - Full POSIX Shell Support**
+<div align="center">
+  <img src="readme-assets/IMG_0126.png" alt="Advanced Shell System" width="80%" />
+</div>
 
+**ブラウザ上で本格的なPOSIX準拠シェルスクリプト実行環境を実現！** Pyxis独自のStreamShellアーキテクチャにより、パイプライン、リダイレクション、制御構文、変数展開など、実Unixシェルのほとんどの機能をサポートします。
+
+#### 🚀 主な機能
+- **パイプライン処理** - `cmd1 | cmd2 | cmd3` によるストリーム接続
+- **リダイレクション** - `cmd > file`、`cmd >> file`、`cmd < file`、`cmd 2>&1` など完全対応
+- **制御構文** - `if/then/else`、`for/while` ループ、`break/continue`
+- **変数展開** - `$VAR`、`$(command)` コマンド置換、`((算術))` 算術展開
+- **論理演算子** - `&&`、`||` による条件実行
+- **バックグラウンド実行** - `cmd &` 非同期処理
+- **ファイル操作** - `ls`、`cat`、`grep`、`head`、`tail` などUnixコマンド
+- **スクリプト実行** - `.sh` ファイルの直接実行
+
+#### ⚡ 技術的特徴
+- **ストリーミングアーキテクチャ** - Node.js Stream APIによる真のストリーミング処理
+- **バックプレッシャー対応** - メモリ効率の高いデータフロー制御
+- **プロセス抽象化** - ブラウザ環境での仮想プロセス管理
+- **fd管理** - ファイルディスクリプタの完全エミュレーション
+- **タイムアウト保護** - 無限ループ防止のための自動タイムアウト
+
+**シェルスクリプトの例：**
+```bash
+# パイプライン処理
+cat large-file.txt | grep "error" | head -10
+
+# リダイレクション
+ls -la > directory-listing.txt 2>&1
+
+# 制御構文
+if [ -f "config.txt" ]; then
+    echo "Config file exists"
+    cat config.txt
+else
+    echo "Creating default config"
+    echo "default=true" > config.txt
+fi
+
+# 算術展開
+COUNT=$((COUNT + 1))
+echo "Current count: $COUNT"
+```
+
+**ブラウザで本物のシェル体験！** 複雑なスクリプトも、データ処理も、すべてPyxisのターミナルで実行可能です。
+
+> **StreamShellアーキテクチャにより、メモリ効率が高く、大規模データ処理も快適に動作します。**
+
+
+> Note: 一部のシステムコマンドやバグ、機能はまだ完全には対応していません。今後のアップデートでさらに強化予定です。
+issueで要望をお寄せください。
+
+詳細は [Shell System Documentation](/docs/SHELL-SYSTEM.md) を参照。
+
+---
+
+### Pyxis拡張機能システム
 <div align="center">
   <img src="readme-assets/IMG_0113.png" alt="Pyxis Extension System UI" width="80%" />
 </div>

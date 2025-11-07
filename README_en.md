@@ -136,7 +136,61 @@ Emulates file operations and interactive user input/output that are impossible i
 
 ---
 
-### 🧩 Pyxis Extension System
+### 🐚 **Advanced Shell System - Full POSIX Shell Support**
+<div align="center">
+  <img src="readme-assets/IMG_0126.png" alt="Advanced Shell System" width="80%" />
+</div>
+
+**Achieve a full POSIX-compliant shell script execution environment in the browser!** Pyxis's unique StreamShell architecture supports most features of real Unix shells, including pipelines, redirections, control structures, variable expansion, and command substitution.
+
+#### 🚀 Key Features
+- **Pipeline Processing** - `cmd1 | cmd2 | cmd3` for stream connections
+- **Redirections** - `cmd > file`, `cmd >> file`, `cmd < file`, `cmd 2>&1`, etc. fully supported
+- **Control Structures** - `if/then/else`, `for/while` loops, `break/continue`
+- **Variable Expansion** - `$VAR`, `$(command)` command substitution, `((arithmetic))` arithmetic expansion
+- **Logical Operators** - `&&`, `||` for conditional execution
+- **Background Execution** - `cmd &` for asynchronous processing
+- **File Operations** - `ls`, `cat`, `grep`, `head`, `tail`, and other Unix commands
+- **Script Execution** - Direct execution of `.sh` files
+
+#### ⚡ Technical Features
+- **Streaming Architecture** - True streaming processing using Node.js Stream API
+- **Backpressure Support** - Memory-efficient data flow control
+- **Process Abstraction** - Virtual process management in browser environment
+- **fd Management** - Complete file descriptor emulation
+- **Timeout Protection** - Automatic timeout to prevent infinite loops
+
+**Shell Script Examples:**
+```bash
+# Pipeline processing
+cat large-file.txt | grep "error" | head -10
+
+# Redirections
+ls -la > directory-listing.txt 2>&1
+
+# Control structures
+if [ -f "config.txt" ]; then
+    echo "Config file exists"
+    cat config.txt
+else
+    echo "Creating default config"
+    echo "default=true" > config.txt
+fi
+
+# Arithmetic expansion
+COUNT=$((COUNT + 1))
+echo "Current count: $COUNT"
+```
+
+**Real shell experience in the browser!** Complex scripts and data processing all run smoothly in Pyxis's terminal.
+
+> **StreamShell architecture ensures high memory efficiency for comfortable large data processing.**
+
+> Note: Some system commands, bugs, and features are not yet fully supported. Further enhancements are planned for future updates. Please submit requests via issues.
+
+[See Shell System Documentation](/docs/SHELL-SYSTEM.md) for details.
+
+---
 
 <div align="center">
   <img src="readme-assets/IMG_0113.png" alt="Pyxis Extension System UI" width="80%" />
