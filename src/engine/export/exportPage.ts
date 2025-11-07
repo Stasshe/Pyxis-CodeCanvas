@@ -27,20 +27,20 @@ export const exportPage = async (
     }
     const projectId = project.id;
 
-    // Load all project files once
-    const projectFiles = await fileRepository.getProjectFiles(projectId);
+    // Load all project files once via prefix search (efficient)
+    const projectFiles = await fileRepository.getFilesByPrefix(projectId, '/');
 
     // Helper to read a fullPath (/projects/<projectName>/...)
     const repoRead = async (fullPath: string) => {
       const rel = fullPath.replace(`/projects/${projectName}`, '') || '/';
-      const f = projectFiles.find(x => x.path === rel);
+      // Prefer indexed single-file lookup for each read
+      const f = await fileRepository.getFileByPath(projectId, rel);
       if (!f) throw new Error(`ファイルが見つかりません: ${rel}`);
-      if (f.isBufferArray && f.bufferContent) {
-        // try to decode as utf8
+      if ((f as any).isBufferArray && (f as any).bufferContent) {
         const decoder = new TextDecoder('utf-8');
-        return decoder.decode(f.bufferContent as ArrayBuffer);
+        return decoder.decode((f as any).bufferContent as ArrayBuffer);
       }
-      return f.content || '';
+      return (f as any).content || '';
     };
     const newWindow = window.open('about:blank', '_blank');
     if (!newWindow) {

@@ -84,8 +84,8 @@ export async function syncPyodideFromIndexedDB(projectId: string): Promise<void>
   const pyodide = await initPyodide();
 
   try {
-    // IndexedDBから全ファイルを取得
-    const files = await fileRepository.getProjectFiles(projectId);
+  // IndexedDBから全ファイルを効率的に取得（prefix '/' でプロジェクト全体）
+  const files = await fileRepository.getFilesByPrefix(projectId, '/');
 
     // Pyodideのファイルシステムをクリア（/homeディレクトリを再作成）
     try {
@@ -151,9 +151,9 @@ export async function syncPyodideToIndexedDB(projectId: string): Promise<void> {
   }
 
   try {
-    // 現在のIndexedDBファイル一覧を取得
-    const existingFiles = await fileRepository.getProjectFiles(projectId);
-    const existingPaths = new Set(existingFiles.map(f => f.path));
+  // 現在のIndexedDBファイル一覧を取得（prefix '/' でプロジェクト全体）
+  const existingFiles = await fileRepository.getFilesByPrefix(projectId, '/');
+  const existingPaths = new Set(existingFiles.map(f => f.path));
 
     // Pyodideの/homeディレクトリを再帰的にスキャン
     const pyodideFiles = scanPyodideDirectory(pyodideInstance, '/home', '');

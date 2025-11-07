@@ -58,7 +58,7 @@ export class SyncManager {
     // notify listeners that a sync is starting
     this.emit('sync:start', { projectId, projectName, direction: 'db->fs' });
     try {
-      const dbFiles = await fileRepository.getProjectFiles(projectId);
+      const dbFiles = await fileRepository.getFilesByPrefix(projectId, '/');
       const projectDir = gitFileSystem.getProjectDir(projectName);
       await gitFileSystem.ensureDirectory(projectDir);
 
@@ -173,7 +173,7 @@ export class SyncManager {
       const fsFiles = await gitFileSystem.getAllFiles(projectName);
 
       // IndexedDBから現在のファイル一覧を取得
-      const dbFiles = await fileRepository.getProjectFiles(projectId);
+  const dbFiles = await fileRepository.getFilesByPrefix(projectId, '/');
 
       // 差分を計算
       const fsFilePaths = new Set(fsFiles.map(f => f.path));
