@@ -33,13 +33,6 @@ export class GrepCommand extends UnixCommandBase {
   const pattern = positional[0];
   let files = positional.slice(1);
 
-    // ファイル指定が無い場合は、カレントディレクトリ配下を再帰検索する挙動にする
-    // 端末でのパイプ入力を期待するユースケース（stdin）には既存の unixHandler が対応するため
-    // ここではユーザが単に `grep pattern` としたときの利便性を高める
-    if (files.length === 0) {
-      files = [this.currentDir];
-    }
-
   const ignoreCase = options.has('-i') || options.has('--ignore-case');
     const invertMatch = options.has('-v') || options.has('--invert-match');
     const showLineNumber = options.has('-n') || options.has('--line-number');
@@ -62,6 +55,11 @@ export class GrepCommand extends UnixCommandBase {
       }
     } catch (e) {
       throw new Error(`grep: invalid regular expression: ${(e as Error).message}`);
+    }
+
+    // If -r specified and no files provided, default to currentDir (like GNU grep -r)
+    if (files.length === 0 && recursive) {
+      files = [this.currentDir];
     }
 
     // If no files provided and stdinContent exists, search stdin (linux grep behavior)
