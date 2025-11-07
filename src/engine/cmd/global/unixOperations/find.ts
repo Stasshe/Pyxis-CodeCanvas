@@ -234,13 +234,14 @@ export class FindCommand extends UnixCommandBase {
     const results: string[] = [];
     const normalizedStart = startPath.endsWith('/') ? startPath.slice(0, -1) : startPath;
 
-  // ...existing code...
-
     // 開始パス自体をチェック（depth 0）
     const startFile = await this.cachedGetFile(relativePath);
     if (startFile) {
-      if (this.matchesCriteria(startFile, normalizedStart, 0, criteria)) {
-        results.push(normalizedStart);
+      // 深度チェック
+      if (0 >= criteria.minDepth && 0 <= criteria.maxDepth) {
+        if (this.matchesCriteria(startFile, normalizedStart, 0, criteria)) {
+          results.push(normalizedStart);
+        }
       }
     }
 
@@ -270,14 +271,12 @@ export class FindCommand extends UnixCommandBase {
         ? normalizedStart
         : `${normalizedStart}/${relativeToStart}`;
 
-      // POSIX: -type指定時はそのtypeのみ、-name/-iname指定時はfileのみ
-      if (criteria.typeFilter) {
-        if (file.type !== criteria.typeFilter) continue;
-      } else if (criteria.namePattern) {
-        if (file.type !== 'file') continue;
+      // POSIX: type指定がなければ全type対象、name指定もfile/folder両方
+      if (criteria.typeFilter && file.type !== criteria.typeFilter) {
+        continue;
       }
 
-      // 条件に一致するかチェック
+      // 条件に一致するかチェック（AND結合）
       if (this.matchesCriteria(file, fullPath, depth, criteria)) {
         results.push(fullPath);
       }
@@ -297,29 +296,25 @@ export class FindCommand extends UnixCommandBase {
   ): boolean {
     // basename は ProjectFile の name プロパティを使う
     const baseName = file.name || '';
-
-    // -name / -iname チェック（POSIX: ファイルのみ判定）
-    if (criteria.namePattern && file.type === 'file') {
+    // AND条件で全てのcriteriaを判定
+    // -name/-iname: type指定なしならfile/folder両方
+    if (criteria.namePattern) {
       if (!criteria.namePattern.test(baseName)) {
         return false;
       }
     }
-
-    // -path / -ipath チェック
+    // -path/-ipath
     if (criteria.pathPattern) {
-      // pathPatternはfullPath（絶対パス）に対して適用
       if (!criteria.pathPattern.test(fullPath)) {
         return false;
       }
     }
-
-    // -type チェック
+    // -type
     if (criteria.typeFilter) {
       if (file.type !== criteria.typeFilter) {
         return false;
       }
     }
-
     return true;
   }
 }
