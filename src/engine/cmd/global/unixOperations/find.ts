@@ -2,42 +2,24 @@ import { UnixCommandBase } from './base';
 
 import type { ProjectFile } from '@/types';
 
-/**
- * find - ファイルを検索
- *
- * 使用法:
- *   find [path...] [expression]
- *
- * サポートする式:
- *   -name pattern   : basename に対する glob
- *   -iname pattern  : 大文字小文字を無視した basename glob
- *   -path pattern   : パス全体に対する glob
- *   -ipath pattern  : 大文字小文字を無視したパス glob
- *   -type f|d       : ファイル/ディレクトリ
- *   -maxdepth N
- *   -mindepth N
- */
+// Single, clean implementation of FindCommand
 export class FindCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
     const { positional } = this.parseOptions(args);
 
-    // パスと式を分離
     const paths: string[] = [];
-    let expressionStart = 0;
-
+    let exprStart = positional.length;
     for (let i = 0; i < positional.length; i++) {
       if (positional[i].startsWith('-')) {
-        expressionStart = i;
+        exprStart = i;
         break;
       }
       paths.push(positional[i]);
     }
-
     if (paths.length === 0) paths.push(this.currentDir);
 
-    const expressions = positional.slice(expressionStart);
+    const expressions = positional.slice(exprStart);
 
-    // 式を解析
     let namePattern: RegExp | null = null;
     let pathPattern: RegExp | null = null;
     let typeFilter: 'file' | 'folder' | null = null;
@@ -45,75 +27,55 @@ export class FindCommand extends UnixCommandBase {
     let minDepth = 0;
 
     for (let i = 0; i < expressions.length; i++) {
-      const expr = expressions[i];
-      if (expr === '-name' && i + 1 < expressions.length) {
-        namePattern = this.globToRegExp(expressions[i + 1], false);
+      const e = expressions[i];
+      if ((e === '-name' || e === '-iname') && i + 1 < expressions.length) {
+        namePattern = this.globToRegExp(expressions[i + 1], e === '-iname');
         i++;
-      } else if (expr === '-iname' && i + 1 < expressions.length) {
-        namePattern = this.globToRegExp(expressions[i + 1], true);
+      } else if ((e === '-path' || e === '-ipath') && i + 1 < expressions.length) {
+        pathPattern = this.globToRegExp(expressions[i + 1], e === '-ipath');
         i++;
-      } else if (expr === '-path' && i + 1 < expressions.length) {
-        pathPattern = this.globToRegExp(expressions[i + 1], false);
-        i++;
-      } else if (expr === '-ipath' && i + 1 < expressions.length) {
-        pathPattern = this.globToRegExp(expressions[i + 1], true);
-        i++;
-      } else if (expr === '-type' && i + 1 < expressions.length) {
+      } else if (e === '-type' && i + 1 < expressions.length) {
         const t = expressions[i + 1];
         if (t === 'f') typeFilter = 'file';
         else if (t === 'd') typeFilter = 'folder';
         i++;
-      } else if (expr === '-maxdepth' && i + 1 < expressions.length) {
+      } else if (e === '-maxdepth' && i + 1 < expressions.length) {
         maxDepth = parseInt(expressions[i + 1], 10) || Number.MAX_SAFE_INTEGER;
         i++;
-      } else if (expr === '-mindepth' && i + 1 < expressions.length) {
+      } else if (e === '-mindepth' && i + 1 < expressions.length) {
         minDepth = parseInt(expressions[i + 1], 10) || 0;
         i++;
       }
     }
 
-    const results: string[] = [];
-
+    const allResults: string[] = [];
     for (const p of paths) {
-      const normalizedPath = this.normalizePath(this.resolvePath(p));
-      const found = await this.findFiles(
-        normalizedPath,
-        namePattern,
-        pathPattern,
-        typeFilter,
-        maxDepth,
-        minDepth
-      );
-      results.push(...found);
+      const abs = this.normalizePath(this.resolvePath(p));
+      const found = await this.findFiles(abs, namePattern, pathPattern, typeFilter, maxDepth, minDepth);
+      allResults.push(...found);
     }
 
-    // 重複除去しつつ順序を保持
+    // remove duplicates while preserving order
     const seen = new Set<string>();
-    const unique: string[] = [];
-    for (const r of results) {
+    const out: string[] = [];
+    for (const r of allResults) {
       if (!seen.has(r)) {
         seen.add(r);
-        unique.push(r);
+        out.push(r);
       }
     }
 
-    return unique.join('\n');
+    return out.join('\n');
   }
 
-  /**
-   * glob を RegExp に変換（basename か path のどちらでも利用可）
-   */
   private globToRegExp(pattern: string, ignoreCase = false): RegExp {
+    let out = '^';
     let i = 0;
-    let res = '^';
     while (i < pattern.length) {
       const ch = pattern[i];
-      if (ch === '*') {
-        res += '.*';
-      } else if (ch === '?') {
-        res += '.';
-      } else if (ch === '[') {
-        // character class
+      if (ch === '*') out += '.*';
+      else if (ch === '?') out += '.';
+      else if (ch === '[') {
         let j = i + 1;
         let cls = '';
         if (j < pattern.length && (pattern[j] === '!' || pattern[j] === '^')) {
@@ -123,67 +85,75 @@ export class FindCommand extends UnixCommandBase {
         while (j < pattern.length && pattern[j] !== ']') {
           const c = pattern[j++];
           if (c === '\\') cls += '\\\\';
-          else cls += c.replace(/([\\\]])/, '\\$1');
+          else cls += c.replace(/([\\\]])/g, '\\$1');
         }
-        res += '[' + cls + ']';
+        out += '[' + cls + ']';
         while (i < pattern.length && pattern[i] !== ']') i++;
       } else {
-        res += ch.replace(/[.*+?^${}()|[\\]\\]/g, m => '\\' + m);
+        out += ch.replace(/[.*+?^${}()|[\\]\\]/g, m => '\\' + m);
       }
       i++;
     }
-    res += '$';
-    return new RegExp(res, ignoreCase ? 'i' : '');
+    out += '$';
+    return new RegExp(out, ignoreCase ? 'i' : '');
+  }
+
+  private joinNoDoubleSlash(a: string, b: string): string {
+    if (!b) return a.replace(/\/+$|$/, '');
+    return (a.replace(/\/+$/g, '') + '/' + b.replace(/^\/+/, '')).replace(/\/+/, '/').replace(/\/+/g, '/');
   }
 
   private async findFiles(
-    startPath: string,
+    startAbsPath: string,
     namePattern: RegExp | null,
     pathPattern: RegExp | null,
     typeFilter: 'file' | 'folder' | null,
     maxDepth: number,
     minDepth: number
   ): Promise<string[]> {
-    const relativePath = this.getRelativePathFromProject(startPath);
     const results: string[] = [];
 
-    const normalizedStart = startPath.endsWith('/') ? startPath.slice(0, -1) : startPath;
+    const relativeStart = this.getRelativePathFromProject(startAbsPath);
+    const normalizedStart = startAbsPath.replace(/\/+$/g, '');
 
-    // startPath 自身をチェック
-    const startFile = await this.cachedGetFile(relativePath);
+    // check start itself
+    const startFile = await this.cachedGetFile(relativeStart);
     if (startFile) {
-      const depth = 0;
-      if (depth >= minDepth && depth <= maxDepth) {
-        const baseName = startFile.path.split('/').pop() || '';
-        const nameOk = namePattern ? namePattern.test(baseName) : true;
+      const d0 = 0;
+      if (d0 >= minDepth && d0 <= maxDepth) {
+        const base = startFile.path.split('/').pop() || '';
+        const nameOk = namePattern ? namePattern.test(base) : true;
         const pathOk = pathPattern ? pathPattern.test(normalizedStart) : true;
-        if (nameOk && pathOk && (!typeFilter || startFile.type === typeFilter)) {
-          results.push(normalizedStart);
-        }
+        const typeOk = typeFilter ? startFile.type === typeFilter : true;
+        if (nameOk && pathOk && typeOk) results.push(normalizedStart);
       }
     }
 
-    // prefix で子を取得
-    const prefix = relativePath === '/' ? '' : `${relativePath}/`;
+    const prefix = relativeStart === '/' ? '' : `${relativeStart}/`;
     const files: ProjectFile[] = await this.cachedGetFilesByPrefix(prefix);
 
     for (const file of files) {
-      // relativeToStart を正規化（先頭スラッシュ除去）
-      let relativeToStart = file.path.startsWith(prefix) ? file.path.substring(prefix.length) : file.path;
-      relativeToStart = relativeToStart.replace(/^\/+/, '');
+      let relativeToStart: string;
+      if (prefix === '') relativeToStart = file.path.replace(/^\/+/, '');
+      else if (file.path.startsWith(prefix)) relativeToStart = file.path.substring(prefix.length);
+      else continue;
 
-      const depth = relativeToStart === '' ? 0 : relativeToStart.split('/').filter(p => p).length;
+      const depth = relativeToStart === '' ? 0 : relativeToStart.split('/').filter(Boolean).length;
       if (depth < minDepth || depth > maxDepth) continue;
 
-      const fullPath = relativeToStart === '' ? normalizedStart : `${normalizedStart}/${relativeToStart}`;
-      const baseName = file.path.split('/').pop() || '';
-      const nameOk = namePattern ? namePattern.test(baseName) : true;
+      const fullPath = relativeToStart === '' ? normalizedStart : this.joinNoDoubleSlash(normalizedStart, relativeToStart);
+      const base = file.path.split('/').pop() || '';
+      const nameOk = namePattern ? namePattern.test(base) : true;
       const pathOk = pathPattern ? pathPattern.test(fullPath) : true;
-      if (nameOk && pathOk && (!typeFilter || file.type === typeFilter)) {
-        results.push(fullPath);
-      }
+      const typeOk = typeFilter ? file.type === typeFilter : true;
+      if (nameOk && pathOk && typeOk) results.push(fullPath);
     }
 
     return results;
   }
 }
+
+
+
+
+
