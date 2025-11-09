@@ -134,22 +134,11 @@ const DiffTab: React.FC<DiffTabProps> = ({
       // ignore
     }
 
-    // 文字列としてのチェック
+    // 文字列は常にテキストとして扱う（日本語や他言語が含まれていてもバイナリ誤判定しない）
+    // バッファやArrayBuffer等のバイナリ型は上で isBufferArray により判定されるため、
+    // ここでは string 型は例外なくテキスト扱いとする。
     if (typeof content === 'string') {
-      // NUL が含まれていれば明らかにバイナリ
-      if (content.indexOf('\0') !== -1) return true;
-      // サンプルを切り出して非表示可能な制御文字の割合を計測
-      const sample = content.slice(0, 1024);
-      if (sample.length === 0) return false;
-      let nonPrintable = 0;
-      for (let i = 0; i < sample.length; i++) {
-        const code = sample.charCodeAt(i);
-        // タブ(9)、LF(10)、CR(13) はテキストとして許容
-        if (code === 9 || code === 10 || code === 13) continue;
-        if (code < 32 || code > 126) nonPrintable++;
-      }
-      // 非表示可能文字がサンプルの30%以上ならバイナリと推定
-      return nonPrintable / sample.length > 0.3;
+      return false;
     }
 
     // その他の型（オブジェクトなど）はバイナリ扱いしない
