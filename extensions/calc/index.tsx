@@ -11,6 +11,53 @@ import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 
+// Helper: format nested steps (array / string) into readable Markdown
+function formatStepsToMarkdown(steps: any): string {
+  const lines: string[] = [];
+
+  function walk(node: any, depth: number) {
+    const indent = '  '.repeat(Math.max(0, depth));
+
+    if (node == null) return;
+
+    if (Array.isArray(node)) {
+      // For arrays, walk each element. If element is array or string, render as list
+      for (const child of node) {
+        if (Array.isArray(child)) {
+          // nested group -> recurse but keep as sublist
+          walk(child, depth + 1);
+        } else if (typeof child === 'string') {
+          // render string as list item
+          // If string already contains multiple lines, preserve them
+          const trimmed = child.trim();
+          if (trimmed === '') continue;
+          const asLines = trimmed.split('\n');
+          // Use '-' for top-level items, nested items become indented lists
+          lines.push(`${indent}- ${asLines[0]}`);
+          for (let i = 1; i < asLines.length; i++) {
+            lines.push(`${indent}  ${asLines[i]}`);
+          }
+        } else {
+          // other primitive -> toString
+          lines.push(`${indent}- ${String(child)}`);
+        }
+      }
+    } else if (typeof node === 'string') {
+      const trimmed = node.trim();
+      if (trimmed) lines.push(`${indent}- ${trimmed}`);
+    } else {
+      // object or primitive
+      lines.push(`${indent}- ${JSON.stringify(node)}`);
+    }
+  }
+
+  // If root is a plain string, return it as-is (allow markdown/math)
+  if (typeof steps === 'string') return steps;
+
+  walk(steps, 0);
+  return lines.join('\n');
+}
+
 // 計算履歴の型
 interface CalculationHistory {
   id: string;
@@ -456,13 +503,28 @@ function createCalcPanel(context: ExtensionContext) {
                       overflow: 'auto',
                     }}
                   >
-                    <ReactMarkdown
-                      key={String(stepsMarkdown?.length ?? 0) + (showMdDebug ? '-dbg' : '')}
-                      remarkPlugins={[remarkGfm, remarkMath]}
-                      rehypePlugins={[rehypeKatex]}
-                    >
-                      {stepsMarkdown}
-                    </ReactMarkdown>
+                    {(() => {
+                      // If stepsMarkdown contains serialized JSON (array/object), parse
+                      // and convert to a readable markdown list while preserving LaTeX
+                      let mdToRender = stepsMarkdown || '';
+                      try {
+                        const parsed = JSON.parse(stepsMarkdown as string);
+                        // convert nested arrays/objects into markdown lists
+                        mdToRender = formatStepsToMarkdown(parsed);
+                      } catch (e) {
+                        // not JSON -> render raw
+                      }
+
+                      return (
+                        <ReactMarkdown
+                          key={String(mdToRender.length) + (showMdDebug ? '-dbg' : '')}
+                          remarkPlugins={[remarkGfm, remarkMath]}
+                          rehypePlugins={[rehypeKatex]}
+                        >
+                          {mdToRender}
+                        </ReactMarkdown>
+                      );
+                    })()}
 
                     {showMdDebug && (
                       <div style={{ marginTop: '12px', padding: '8px', background: '#1f1f1f', borderRadius: '6px', border: '1px dashed #333' }}>
