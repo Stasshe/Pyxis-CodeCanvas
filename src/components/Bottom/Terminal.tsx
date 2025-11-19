@@ -326,11 +326,8 @@ function ClientTerminal({
         const batch = lines.slice(i, i + batchSize);
         cmdOutputs += batch.join('\n');
         for (const line of batch) {
-          if (line === '' && i === 0) {
-            term.writeln('\r');
-          } else if (line !== '' || i > 0) {
-            term.writeln(`\r${line}`);
-          }
+          // \rプレフィックスを削除
+          term.writeln(line)
         }
       }
     };
