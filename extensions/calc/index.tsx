@@ -91,7 +91,8 @@ function createCalcPanel(context: ExtensionContext) {
 
         // 結果はLatex文字列のまま
         setResult(value);
-
+        setStepsMarkdown(JSON.stringify(analyzeResult.steps));
+        
         // 履歴に保存
         saveHistory({
           id: Date.now().toString(),
