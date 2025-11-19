@@ -244,7 +244,52 @@ export async function loadExtensionModule(
       } catch (err) {
         console.error('[ExtensionLoader] Failed to import entryUrl', entryUrl, err);
         // 変換後コードの先頭1000文字も出力
-        console.error('[ExtensionLoader] Transformed entryCode (first 1000 chars):', transformedEntryCode.slice(0, 1000));
+        console.error('[ExtensionLoader] Transformed entryCode (first 10000 chars):', transformedEntryCode.slice(0, 10000));
+        console.error('[ExtensionLoader] Raw entryCode (first 10000 chars):', entryCode.slice(0, 10000));
+
+        // フォールバック診断: <script type="module"> を挿入して window.onerror で詳細を取得する
+        try {
+          if (typeof document !== 'undefined' && typeof window !== 'undefined') {
+            console.info('[ExtensionLoader] Attempting fallback diagnostics by injecting module script');
+
+            const script = document.createElement('script');
+            script.type = 'module';
+            // Append sourceURL to help devtools map errors to blob URL
+            const codeWithSource = `${transformedEntryCode}\n//# sourceURL=${entryUrl}`;
+            script.textContent = codeWithSource;
+
+            const errorInfo: any = { caught: false };
+
+            const onError = (event: ErrorEvent) => {
+              try {
+                errorInfo.caught = true;
+                errorInfo.message = event.message;
+                errorInfo.filename = event.filename;
+                errorInfo.lineno = event.lineno;
+                errorInfo.colno = event.colno;
+                errorInfo.error = event.error ? { message: event.error.message, stack: event.error.stack } : undefined;
+                console.error('[ExtensionLoader][Fallback] module execution error event:', errorInfo);
+              } finally {
+                window.removeEventListener('error', onError as any);
+                // remove script after error captured
+                try { script.remove(); } catch (e) {}
+              }
+            };
+
+            window.addEventListener('error', onError as any);
+            // Append to DOM to execute
+            document.head.appendChild(script);
+
+            // Wait briefly to allow synchronous errors to fire (module top-level errors are usually sync)
+            await new Promise(res => setTimeout(res, 200));
+
+            if (!errorInfo.caught) {
+              console.warn('[ExtensionLoader][Fallback] No window.error captured by fallback (error may be async or swallowed).');
+            }
+          }
+        } catch (diagErr) {
+          console.error('[ExtensionLoader] Fallback diagnostics failed:', diagErr);
+        }
         throw err;
       }
 
