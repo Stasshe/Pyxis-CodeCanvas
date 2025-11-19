@@ -17,7 +17,7 @@ interface CalculationHistory {
   input: string;
   task: 'evaluate' | 'distribute' | 'factor';
   result: string;
-  steps: string[];
+  steps: string;
   timestamp: number;
 }
 
@@ -91,21 +91,13 @@ function createCalcPanel(context: ExtensionContext) {
         // 結果はLatex文字列のまま
         setResult(value);
 
-        // StepsをMarkdown形式に変換（MarkdownPreviewTabと同じ方式でレンダリング可能なMarkdown）
-        if (Array.isArray(analyzeResult.steps) && analyzeResult.steps.length > 0) {
-          const stepsText = analyzeResult.steps
-            .map((step, i) => `${i + 1}. ${String(step)}`)
-            .join('\n\n');
-          setStepsMarkdown(stepsText);
-        }
-
         // 履歴に保存
         saveHistory({
           id: Date.now().toString(),
           input,
           task,
           result: value,
-          steps: analyzeResult.steps as string[],
+          steps: JSON.stringify(analyzeResult.steps),
           timestamp: Date.now(),
         });
       } catch (err: any) {
@@ -142,7 +134,7 @@ function createCalcPanel(context: ExtensionContext) {
       setInput(item.input);
       setTask(item.task);
       setResult(item.result);
-      setStepsMarkdown(item.steps.map((s, i) => `${i + 1}. ${s}`).join('\n\n'));
+      setStepsMarkdown(item.steps);
       setShowHistory(false);
     };
 
