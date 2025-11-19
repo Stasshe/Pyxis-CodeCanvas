@@ -185,10 +185,7 @@ async function bundleWithEsbuild(entryPoint, outfile, extDir) {
       },
       minify: false, // デバッグしやすいように圧縮しない
       sourcemap: false,
-      logLevel: 'warning',
-      banner: {
-        js: 'export { activate }'
-      },
+      logLevel: 'warning'
     });
     
     console.log(`✅ Bundled to ${path.relative(__dirname, outfile)}\n`);
