@@ -155,6 +155,8 @@ async function bundleWithEsbuild(entryPoint, outfile, extDir) {
       platform: 'browser',
       format: 'esm',
       target: 'es2020',
+      mainFields: ['module', 'main'],
+      keepNames: true,
       // TypeScriptのコンパイラオプションを明示的に上書き
       tsconfigRaw: {
         compilerOptions: {
@@ -184,6 +186,9 @@ async function bundleWithEsbuild(entryPoint, outfile, extDir) {
       minify: false, // デバッグしやすいように圧縮しない
       sourcemap: false,
       logLevel: 'warning',
+      banner: {
+        js: 'export { activate }'
+      },
     });
     
     console.log(`✅ Bundled to ${path.relative(__dirname, outfile)}\n`);
