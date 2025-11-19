@@ -6,6 +6,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
 import { parseLatex, analyze } from 'latexium';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
 
 // 計算履歴の型
 interface CalculationHistory {
@@ -87,7 +91,7 @@ function createCalcPanel(context: ExtensionContext) {
         // 結果はLatex文字列のまま
         setResult(value);
 
-        // StepsをMarkdown形式に変換
+        // StepsをMarkdown形式に変換（MarkdownPreviewTabと同じ方式でレンダリング可能なMarkdown）
         if (Array.isArray(analyzeResult.steps) && analyzeResult.steps.length > 0) {
           const stepsText = analyzeResult.steps
             .map((step, i) => `${i + 1}. $$${String(step)}$$`)
@@ -439,7 +443,12 @@ function createCalcPanel(context: ExtensionContext) {
                     overflow: 'auto',
                   }}
                 >
-                  {stepsMarkdown}
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm, remarkMath]}
+                    rehypePlugins={[rehypeKatex]}
+                  >
+                    {stepsMarkdown}
+                  </ReactMarkdown>
                 </div>
               </div>
             )}
@@ -496,14 +505,10 @@ Options:
       const analyzeResult = analyze(parseResult.ast, { task });
       const value = String(analyzeResult.value || '');
 
-      let output = `Task: ${task}\nInput: ${expression}\n\nResult:\n$$${value}$$\n`;
-
-      if (Array.isArray(analyzeResult.steps) && analyzeResult.steps.length > 0) {
-        output += '\nSteps:\n';
-        analyzeResult.steps.forEach((step, i) => {
-          output += `${i + 1}. $$${String(step)}$$\n`;
-        });
-      }
+      // CLI出力はユーザー指定のフォーマット
+      const resultLabel = task === 'factor' ? 'Factor Result' : 'Result';
+      const stepsJson = JSON.stringify(analyzeResult.steps || [], null, 2);
+      const output = `${resultLabel}: ${value}\n\nSteps (JSON):\n${stepsJson}`;
 
       return output;
     } catch (err: any) {
