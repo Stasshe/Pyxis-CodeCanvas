@@ -1,0 +1,10 @@
+{
+  "name": "calc",
+  "version": "1.0.0",
+  "private": true,
+  "description": "",
+  "dependencies": {
+    "katex": "^0.16.25",
+    "latexium": "^0.1.1"
+  }
+}
