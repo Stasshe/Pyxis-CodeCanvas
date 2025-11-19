@@ -14,45 +14,20 @@
  * 既に変換されたコードに対する誤った再変換を防止する。
  */
 export function transformImports(code: string): string {
-  // Replace only the first React import occurrence to avoid mangling
-  // large bundled code where naive regex may accidentally match unintended parts.
-  let replaced = false;
+  // すべてのReact importパターンを単一の正規表現で処理
+  // 改行を含むimportにも対応するため[\s\S]を使用
   return code.replace(
     /import\s+React\s*,\s*\{([^}]+)\}\s+from\s+['"]react['"];?|import\s+React\s+from\s+['"]react['"];?|import\s+\{([^}]+)\}\s+from\s+['"]react['"];?/g,
     (match, namedImportsWithDefault, namedImportsOnly) => {
-      if (replaced) return match; // leave subsequent imports untouched
-      replaced = true;
-
+      // import React, { ... } from 'react'
       if (namedImportsWithDefault) {
-        // namedImportsWithDefault contains the named part inside `{ ... }` when default is present
-        const named = namedImportsWithDefault.trim();
-        const mapped = named
-          .split(',')
-          .map((s: string) => s.trim())
-          .filter(Boolean)
-          .map((token: string) => {
-            // handle `a as b` -> `a: b`
-            const m = token.match(/^(.+?)\s+as\s+(.+)$/);
-            if (m) return `${m[1].trim()}: ${m[2].trim()}`;
-            return token;
-          })
-          .join(', ');
-        return `const React = window.__PYXIS_REACT__; const { ${mapped} } = React;`;
+        return `const React = window.__PYXIS_REACT__; const {${namedImportsWithDefault}} = React;`;
       }
+      // import { ... } from 'react' (Reactのdefaultなし)
       if (namedImportsOnly) {
-        const named = namedImportsOnly.trim();
-        const mapped = named
-          .split(',')
-          .map((s: string) => s.trim())
-          .filter(Boolean)
-          .map((token: string) => {
-            const m = token.match(/^(.+?)\s+as\s+(.+)$/);
-            if (m) return `${m[1].trim()}: ${m[2].trim()}`;
-            return token;
-          })
-          .join(', ');
-        return `const { ${mapped} } = window.__PYXIS_REACT__;`;
+        return `const {${namedImportsOnly}} = window.__PYXIS_REACT__;`;
       }
+      // import React from 'react'
       return 'const React = window.__PYXIS_REACT__;';
     }
   );
