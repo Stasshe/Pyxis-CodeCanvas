@@ -16,16 +16,23 @@
 export function transformImports(code: string): string {
   // すべてのReact importパターンを単一の正規表現で処理
   // 改行を含むimportにも対応するため[\s\S]を使用
+  // named imports内の`as`をオブジェクト分割代入の形式(:)に変換して対応する
+  function convertNamedImportsForDestructure(named: string): string {
+    return named.replace(/([A-Za-z0-9_$]+)\s+as\s+([A-Za-z0-9_$]+)/g, (_m, orig, alias) => `${orig}: ${alias}`);
+  }
+
   return code.replace(
     /import\s+React\s*,\s*\{([^}]+)\}\s+from\s+['"]react['"];?|import\s+React\s+from\s+['"]react['"];?|import\s+\{([^}]+)\}\s+from\s+['"]react['"];?/g,
     (match, namedImportsWithDefault, namedImportsOnly) => {
       // import React, { ... } from 'react'
       if (namedImportsWithDefault) {
-        return `const React = window.__PYXIS_REACT__; const {${namedImportsWithDefault}} = React;`;
+        const processed = convertNamedImportsForDestructure(namedImportsWithDefault);
+        return `const React = window.__PYXIS_REACT__; const {${processed}} = React;`;
       }
       // import { ... } from 'react' (Reactのdefaultなし)
       if (namedImportsOnly) {
-        return `const {${namedImportsOnly}} = window.__PYXIS_REACT__;`;
+        const processed = convertNamedImportsForDestructure(namedImportsOnly);
+        return `const {${processed}} = window.__PYXIS_REACT__;`;
       }
       // import React from 'react'
       return 'const React = window.__PYXIS_REACT__;';

@@ -190,7 +190,7 @@ async function bundleWithEsbuild(entryPoint, outfile, extDir) {
         'react',
         'react-dom',
         'react-dom/client',
-        'react/jsx-runtime',
+        // 'react/jsx-runtime' is handled by the jsxRuntimeShimPlugin (inlined).
         // // Avoid bundling heavy math rendering libs into extensions; prefer host-provided
         // // or dynamic loading at runtime to prevent module-eval crashes.
         // 'katex',

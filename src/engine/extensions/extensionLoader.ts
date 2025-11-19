@@ -195,6 +195,20 @@ export async function loadExtensionModule(
         extensionInfo(`Mapped module: ${normalizedPath} -> ${url.slice(0, 50)}...`);
       }
 
+      // ランタイム保険: `react/jsx-runtime` と `react/jsx-dev-runtime` の shim を作成して
+      // import map に登録しておく。ビルド時に漏れていた場合でもここで解決できる。
+      try {
+        const jsxShimCode = `export const jsx = (...args) => window.__PYXIS_REACT__.createElement(...args);\nexport const jsxs = (...args) => window.__PYXIS_REACT__.createElement(...args);\nexport const Fragment = window.__PYXIS_REACT__.Fragment;\n`;
+        const jsxBlob = new Blob([jsxShimCode], { type: 'application/javascript' });
+        const jsxUrl = URL.createObjectURL(jsxBlob);
+        blobUrls.push(jsxUrl);
+        importMap['react/jsx-runtime'] = jsxUrl;
+        importMap['react/jsx-dev-runtime'] = jsxUrl;
+        extensionInfo(`Runtime shim registered: react/jsx-runtime -> ${jsxUrl.slice(0, 50)}...`);
+      } catch (e) {
+        console.error('[ExtensionLoader] Failed to create runtime jsx shim', e);
+      }
+
       // エントリーコードを変換し、相対importをBlobURLに書き換え
       let transformedEntryCode = transformImports(entryCode);
 
