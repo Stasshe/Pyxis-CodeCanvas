@@ -24,10 +24,34 @@ export function transformImports(code: string): string {
       replaced = true;
 
       if (namedImportsWithDefault) {
-        return `const React = window.__PYXIS_REACT__; const {${namedImportsWithDefault}} = React;`;
+        // namedImportsWithDefault contains the named part inside `{ ... }` when default is present
+        const named = namedImportsWithDefault.trim();
+        const mapped = named
+          .split(',')
+          .map((s: string) => s.trim())
+          .filter(Boolean)
+          .map((token: string) => {
+            // handle `a as b` -> `a: b`
+            const m = token.match(/^(.+?)\s+as\s+(.+)$/);
+            if (m) return `${m[1].trim()}: ${m[2].trim()}`;
+            return token;
+          })
+          .join(', ');
+        return `const React = window.__PYXIS_REACT__; const { ${mapped} } = React;`;
       }
       if (namedImportsOnly) {
-        return `const {${namedImportsOnly}} = window.__PYXIS_REACT__;`;
+        const named = namedImportsOnly.trim();
+        const mapped = named
+          .split(',')
+          .map((s: string) => s.trim())
+          .filter(Boolean)
+          .map((token: string) => {
+            const m = token.match(/^(.+?)\s+as\s+(.+)$/);
+            if (m) return `${m[1].trim()}: ${m[2].trim()}`;
+            return token;
+          })
+          .join(', ');
+        return `const { ${mapped} } = window.__PYXIS_REACT__;`;
       }
       return 'const React = window.__PYXIS_REACT__;';
     }

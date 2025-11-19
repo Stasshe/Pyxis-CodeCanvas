@@ -148,7 +148,7 @@ async function bundleWithEsbuild(entryPoint, outfile, extDir) {
   try {
     console.log(`📦 Bundling ${path.basename(entryPoint)} with esbuild...`);
     
-    await esbuild.build({
+    const result = await esbuild.build({
       entryPoints: [entryPoint],
       bundle: true,
       outfile: outfile,
@@ -193,7 +193,18 @@ async function bundleWithEsbuild(entryPoint, outfile, extDir) {
       // Emit metafile to help analyze what was bundled (useful for diagnosing Node-only deps)
       metafile: true,
     });
-    
+
+    // Write metafile next to outfile for debugging
+    try {
+      if (result && result.metafile) {
+        const metaPath = outfile + '.meta.json';
+        fs.writeFileSync(metaPath, JSON.stringify(result.metafile, null, 2));
+        console.log(`📝 Wrote metafile: ${path.relative(__dirname, metaPath)}`);
+      }
+    } catch (e) {
+      console.error('❌ Failed to write metafile:', e && e.message ? e.message : e);
+    }
+
     console.log(`✅ Bundled to ${path.relative(__dirname, outfile)}\n`);
     return true;
   } catch (error) {
