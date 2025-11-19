@@ -155,7 +155,10 @@ async function bundleWithEsbuild(entryPoint, outfile, extDir) {
       platform: 'browser',
       format: 'esm',
       target: 'es2020',
-      mainFields: ['module', 'main'],
+      // Prefer browser field when resolving packages to avoid Node-specific entrypoints
+      mainFields: ['browser', 'module', 'main'],
+      // Prefer browser conditional exports when available
+      conditions: ['browser'],
       keepNames: true,
       // TypeScriptのコンパイラオプションを明示的に上書き
       tsconfigRaw: {
@@ -177,7 +180,8 @@ async function bundleWithEsbuild(entryPoint, outfile, extDir) {
       loader: {
         '.ts': 'ts',
         '.tsx': 'tsx',
-        '.js': 'jsx',
+        // Treat .js as plain JS (not necessarily JSX) to avoid unexpected transforms
+        '.js': 'js',
         '.jsx': 'jsx',
       },
       define: {
@@ -185,7 +189,9 @@ async function bundleWithEsbuild(entryPoint, outfile, extDir) {
       },
       minify: false, // デバッグしやすいように圧縮しない
       sourcemap: false,
-      logLevel: 'warning'
+      logLevel: 'warning',
+      // Emit metafile to help analyze what was bundled (useful for diagnosing Node-only deps)
+      metafile: true,
     });
     
     console.log(`✅ Bundled to ${path.relative(__dirname, outfile)}\n`);
