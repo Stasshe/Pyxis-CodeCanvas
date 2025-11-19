@@ -147,7 +147,25 @@ function installDependencies(dir) {
 async function bundleWithEsbuild(entryPoint, outfile, extDir) {
   try {
     console.log(`📦 Bundling ${path.basename(entryPoint)} with esbuild...`);
-    
+    // Provide a small esbuild plugin that injects a shim for react/jsx-runtime
+    // and react/jsx-dev-runtime so bundles that use automatic JSX runtime
+    // do not emit bare imports that fail in blob/dynamic-import environments.
+    const jsxRuntimeShimPlugin = {
+      name: 'jsx-runtime-shim',
+      setup(build) {
+        // Resolve the exact specifiers to our virtual namespace
+        build.onResolve({ filter: /^react\/jsx-runtime$|^react\/jsx-dev-runtime$/ }, args => {
+          return { path: args.path, namespace: 'jsx-runtime-shim' };
+        });
+
+        // Provide the module contents when loaded
+        build.onLoad({ filter: /.*/, namespace: 'jsx-runtime-shim' }, async () => {
+          const contents = `export const jsx = (...args) => window.__PYXIS_REACT__.createElement(...args);\nexport const jsxs = (...args) => window.__PYXIS_REACT__.createElement(...args);\nexport const Fragment = window.__PYXIS_REACT__.Fragment;\n`;
+          return { contents, loader: 'js' };
+        });
+      }
+    };
+
     const result = await esbuild.build({
       entryPoints: [entryPoint],
       bundle: true,
@@ -172,6 +190,7 @@ async function bundleWithEsbuild(entryPoint, outfile, extDir) {
         'react',
         'react-dom',
         'react-dom/client',
+        'react/jsx-runtime',
         // // Avoid bundling heavy math rendering libs into extensions; prefer host-provided
         // // or dynamic loading at runtime to prevent module-eval crashes.
         // 'katex',
@@ -192,6 +211,8 @@ async function bundleWithEsbuild(entryPoint, outfile, extDir) {
       logLevel: 'warning',
       // Emit metafile to help analyze what was bundled (useful for diagnosing Node-only deps)
       metafile: true,
+      // Include our shim plugin so jsx runtime imports are inlined into the bundle
+      plugins: [jsxRuntimeShimPlugin],
     });
 
     // Write metafile next to outfile for debugging
