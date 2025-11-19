@@ -78,21 +78,21 @@ function createCalcPanel(context: ExtensionContext) {
       localStorage.setItem('latexium-history', JSON.stringify(newHistory));
     };
 
-    // 計算実行
-    const evaluateInput = () => {
+    // 計算実行（非同期化して parseLatex/analyze を await）
+    const evaluateInput = async () => {
       setError(null);
       setResult('');
       setStepsMarkdown('');
 
       try {
-        const parseResult = parseLatex(input);
-        const analyzeResult = analyze(parseResult.ast, { task });
+        const parseResult = await parseLatex(input);
+        const analyzeResult = await analyze(parseResult.ast, { task });
         const value = String(analyzeResult.value || '');
 
         // 結果はLatex文字列のまま
         setResult(value);
         setStepsMarkdown(JSON.stringify(analyzeResult.steps));
-        
+
         // 履歴に保存
         saveHistory({
           id: Date.now().toString(),
