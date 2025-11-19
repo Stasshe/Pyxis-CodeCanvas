@@ -94,7 +94,7 @@ function createCalcPanel(context: ExtensionContext) {
         // StepsをMarkdown形式に変換（MarkdownPreviewTabと同じ方式でレンダリング可能なMarkdown）
         if (Array.isArray(analyzeResult.steps) && analyzeResult.steps.length > 0) {
           const stepsText = analyzeResult.steps
-            .map((step, i) => `${i + 1}. $$${String(step)}$$`)
+            .map((step, i) => `${i + 1}. ${String(step)}`)
             .join('\n\n');
           setStepsMarkdown(stepsText);
         }
@@ -142,7 +142,7 @@ function createCalcPanel(context: ExtensionContext) {
       setInput(item.input);
       setTask(item.task);
       setResult(item.result);
-      setStepsMarkdown(item.steps.map((s, i) => `${i + 1}. $$${s}$$`).join('\n\n'));
+      setStepsMarkdown(item.steps.map((s, i) => `${i + 1}. ${s}`).join('\n\n'));
       setShowHistory(false);
     };
 
