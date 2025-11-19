@@ -14,20 +14,21 @@
  * 既に変換されたコードに対する誤った再変換を防止する。
  */
 export function transformImports(code: string): string {
-  // すべてのReact importパターンを単一の正規表現で処理
-  // 改行を含むimportにも対応するため[\s\S]を使用
+  // Replace only the first React import occurrence to avoid mangling
+  // large bundled code where naive regex may accidentally match unintended parts.
+  let replaced = false;
   return code.replace(
     /import\s+React\s*,\s*\{([^}]+)\}\s+from\s+['"]react['"];?|import\s+React\s+from\s+['"]react['"];?|import\s+\{([^}]+)\}\s+from\s+['"]react['"];?/g,
     (match, namedImportsWithDefault, namedImportsOnly) => {
-      // import React, { ... } from 'react'
+      if (replaced) return match; // leave subsequent imports untouched
+      replaced = true;
+
       if (namedImportsWithDefault) {
         return `const React = window.__PYXIS_REACT__; const {${namedImportsWithDefault}} = React;`;
       }
-      // import { ... } from 'react' (Reactのdefaultなし)
       if (namedImportsOnly) {
         return `const {${namedImportsOnly}} = window.__PYXIS_REACT__;`;
       }
-      // import React from 'react'
       return 'const React = window.__PYXIS_REACT__;';
     }
   );
