@@ -45,6 +45,7 @@ export function transformImports(code: string): string {
       'remark-gfm': 'remarkGfm',
       'remark-math': 'remarkMath',
       'rehype-katex': 'rehypeKatex',
+      'rehype-raw': 'rehypeRaw',
       'katex': 'katex',
     };
     return { global: 'window.__PYXIS_MARKDOWN__', prop: map[moduleName] || null };

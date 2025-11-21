@@ -103,6 +103,7 @@ class ExtensionManager {
         const remarkGfmModule = await import('remark-gfm');
         const remarkMathModule = await import('remark-math');
         const rehypeKatexModule = await import('rehype-katex');
+        const rehypeRawModule = await import('rehype-raw');
         // katex may be needed directly by some extensions
         let katexModule: any = null;
         try {
@@ -119,6 +120,8 @@ class ExtensionManager {
           remarkMath: (remarkMathModule && (remarkMathModule as any).default) || remarkMathModule,
           rehypeKatex:
             (rehypeKatexModule && (rehypeKatexModule as any).default) || rehypeKatexModule,
+          rehypeRaw:
+            (rehypeRawModule && (rehypeRawModule as any).default) || rehypeRawModule,
           katex: katexModule && ((katexModule as any).default || katexModule),
         };
         console.log('[ExtensionManager] Markdown/math libraries provided globally for extensions');

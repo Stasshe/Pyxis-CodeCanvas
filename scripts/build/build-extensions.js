@@ -197,6 +197,7 @@ async function bundleWithEsbuild(entryPoint, outfile, extDir) {
         'remark-gfm',
         'remark-math',
         'rehype-katex',
+        'rehype-raw',
         'katex',
       ],
       loader: {

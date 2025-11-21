@@ -9,6 +9,7 @@ import ReactMarkdown from 'react-markdown';
 import rehypeKatex from 'rehype-katex';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
+import rehypeRaw from 'rehype-raw';
 
 import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
 
@@ -453,7 +454,7 @@ function createCalcPanel(context: ExtensionContext) {
                     <ReactMarkdown
                       key={String(stepsMarkdown?.length ?? 0)}
                       remarkPlugins={[remarkGfm, remarkMath]}
-                      rehypePlugins={[rehypeKatex]}
+                      rehypePlugins={[rehypeKatex, rehypeRaw]}
                     >
                       {stepsMarkdown}
                     </ReactMarkdown>
