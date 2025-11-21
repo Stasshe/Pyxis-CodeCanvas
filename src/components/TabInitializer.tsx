@@ -1,6 +1,7 @@
 // src/components/TabInitializer.tsx
 'use client';
 import { useEffect } from 'react';
+
 import { registerBuiltinTabs } from '@/engine/tabs/registerBuiltinTabs';
 
 /**

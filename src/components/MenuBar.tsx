@@ -1,23 +1,15 @@
-import {
-  FileText,
-  Search,
-  GitBranch,
-  Settings,
-  FolderOpen,
-  Play,
-  LogIn,
-  LogOut,
-  Package,
-} from 'lucide-react';
+import { FolderOpen, LogIn, LogOut, Package } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
-import { useTheme } from '../context/ThemeContext';
 import { useState } from 'react';
-import { authRepository } from '@/engine/user/authRepository';
+
+import { useTheme } from '../context/ThemeContext';
+import { MenuTab } from '../types';
+
 import { useGitHubUser } from '@/context/GitHubUserContext';
 import { useTranslation } from '@/context/I18nContext';
-import { useKeyBinding } from '@/hooks/useKeyBindings';
-import { MenuTab } from '../types';
+import { authRepository } from '@/engine/user/authRepository';
 import { useExtensionPanels } from '@/hooks/useExtensionPanels';
+import { useKeyBinding } from '@/hooks/useKeyBindings';
 
 interface MenuBarProps {
   activeMenuTab: MenuTab;

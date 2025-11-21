@@ -1,11 +1,13 @@
 // src/engine/tabs/builtins/EditorTabType.tsx
 import React from 'react';
+
 import { TabTypeDefinition, EditorTab, TabComponentProps } from '../types';
+
+import { useGitContext } from '@/components/PaneContainer';
 import CodeEditor from '@/components/Tab/CodeEditor';
-import { useTabStore } from '@/stores/tabStore';
 import { useProject } from '@/engine/core/project';
 import { useSettings } from '@/hooks/useSettings';
-import { useGitContext } from '@/components/PaneContainer';
+import { useTabStore } from '@/stores/tabStore';
 
 /**
  * エディタタブのコンポーネント

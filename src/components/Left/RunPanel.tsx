@@ -1,11 +1,12 @@
-import { useState, useRef, useEffect } from 'react';
-import { Play, Square, FileText, Code, Settings, Trash2 } from 'lucide-react';
-import { useTheme } from '@/context/ThemeContext';
-import { useTranslation } from '@/context/I18nContext';
 import clsx from 'clsx';
+import { Play, Square, Code, Trash2 } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+
+import { LOCALSTORAGE_KEY } from '@/context/config';
+import { useTranslation } from '@/context/I18nContext';
+import { useTheme } from '@/context/ThemeContext';
 import { executeNodeFile } from '@/engine/runtime/nodeRuntime';
 import { initPyodide, runPythonWithSync, setCurrentProject } from '@/engine/runtime/pyodideRuntime';
-import { LOCALSTORAGE_KEY } from '@/context/config';
 
 interface RunPanelProps {
   currentProject: { id: string; name: string } | null;

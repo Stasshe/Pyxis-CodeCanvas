@@ -2,12 +2,13 @@
 
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import { FileCode, Clock, Copy, Check } from 'lucide-react';
+import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { useTheme } from '@/context/ThemeContext';
+
 import { useTranslation } from '@/context/I18nContext';
-import { FileCode, Clock, Copy, Check } from 'lucide-react';
+import { useTheme } from '@/context/ThemeContext';
 import type { ChatSpaceMessage } from '@/types';
 
 interface ChatMessageProps {

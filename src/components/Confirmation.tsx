@@ -1,7 +1,8 @@
-import React from 'react';
 import { Check, X } from 'lucide-react';
-import { useTheme } from '../context/ThemeContext';
+import React from 'react';
+
 import { useTranslation } from '../context/I18nContext';
+import { useTheme } from '../context/ThemeContext';
 
 export type ConfirmationProps = {
   open: boolean;

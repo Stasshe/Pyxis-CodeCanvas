@@ -6,6 +6,7 @@
  */
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+
 import { githubUserManager, GitHubUser, GitCommitAuthor } from '@/engine/user/githubUserManager';
 
 export type { GitHubUser, GitCommitAuthor };

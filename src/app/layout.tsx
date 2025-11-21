@@ -1,15 +1,15 @@
 import type { Metadata } from 'next';
-
 import { Geist, Geist_Mono } from 'next/font/google';
+
 import './globals.css';
-import { ThemeProvider } from '@/context/ThemeContext';
+import ExtensionInitializer from '@/components/ExtensionInitializer';
+import TabInitializer from '@/components/TabInitializer';
+import { ToastContainer } from '@/components/Toast';
+import { FileSelectorProvider } from '@/context/FileSelectorContext';
 import { GitHubUserProvider } from '@/context/GitHubUserContext';
 import { I18nProvider } from '@/context/I18nContext';
 import { TabProvider } from '@/context/TabContext';
-import { FileSelectorProvider } from '@/context/FileSelectorContext';
-import { ToastContainer } from '@/components/Toast';
-import ExtensionInitializer from '@/components/ExtensionInitializer';
-import TabInitializer from '@/components/TabInitializer';
+import { ThemeProvider } from '@/context/ThemeContext';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',

@@ -1,4 +1,5 @@
 import { FileText } from 'lucide-react';
+
 import { useTranslation } from '@/context/I18nContext';
 
 interface EditorPlaceholderProps {

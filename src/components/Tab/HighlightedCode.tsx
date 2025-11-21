@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { useTheme } from '@/context/ThemeContext';
-import { useTranslation } from '@/context/I18nContext';
-import * as shiki from 'shiki';
 import { Copy, Check } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import * as shiki from 'shiki';
+
+import { useTranslation } from '@/context/I18nContext';
+import { useTheme } from '@/context/ThemeContext';
 
 export function HighlightedCode({
   language,

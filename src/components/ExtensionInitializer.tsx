@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+
 import { initializeExtensions } from '@/engine/extensions/autoInstaller';
 
 export default function ExtensionInitializer() {

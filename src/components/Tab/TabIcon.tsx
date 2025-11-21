@@ -1,7 +1,7 @@
 'use client';
+import { FileText, Eye, Globe, Zap, GitBranch, Settings } from 'lucide-react';
 import React from 'react';
 import { getIconForFile } from 'vscode-icons-js';
-import { FileText, Eye, Globe, Zap, GitBranch, Settings } from 'lucide-react';
 
 interface TabIconProps {
   kind: string;

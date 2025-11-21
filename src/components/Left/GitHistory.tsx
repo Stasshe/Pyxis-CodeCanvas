@@ -1,6 +1,5 @@
 'use client';
 
-import React, { useState, useRef, useContext, useEffect } from 'react';
 import {
   GitCommit,
   GitBranch,
@@ -9,16 +8,17 @@ import {
   FileText,
   FilePlus,
   FileMinus,
-  User,
   Calendar,
   Hash,
   FileDiff,
 } from 'lucide-react';
-import { GitCommit as GitCommitType } from '@/types/git';
-import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
-import { useTheme } from '@/context/ThemeContext';
+import React, { useState, useRef, useEffect } from 'react';
+
 import { useTranslation } from '@/context/I18nContext';
+import { useTheme } from '@/context/ThemeContext';
+import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import { useDiffTabHandlers } from '@/hooks/useDiffTabHandlers';
+import { GitCommit as GitCommitType } from '@/types/git';
 
 interface GitHistoryProps {
   commits: GitCommitType[];

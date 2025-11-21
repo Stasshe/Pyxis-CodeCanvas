@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState, useRef } from 'react';
-import { syncManager } from '@/engine/core/syncManager';
 import { Loader2Icon, CheckCircle2 } from 'lucide-react';
+import React, { useEffect, useState, useRef } from 'react';
+
+import { syncManager } from '@/engine/core/syncManager';
 
 type Props = {
   height?: number;

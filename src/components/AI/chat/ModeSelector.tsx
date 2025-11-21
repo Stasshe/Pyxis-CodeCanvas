@@ -2,9 +2,10 @@
 
 'use client';
 
-import React from 'react';
-import { useTheme } from '@/context/ThemeContext';
 import { MessageCircle, FileEdit } from 'lucide-react';
+import React from 'react';
+
+import { useTheme } from '@/context/ThemeContext';
 
 interface ModeSelectorProps {
   mode: 'ask' | 'edit';

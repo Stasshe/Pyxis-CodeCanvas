@@ -3,7 +3,6 @@
  * 拡張機能の管理UI
  */
 
-import { useState, useEffect, useRef } from 'react';
 import {
   Download,
   Trash2,
@@ -18,6 +17,8 @@ import {
   ChevronRight,
   Upload,
 } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+
 import { useTheme } from '@/context/ThemeContext';
 import { extensionManager } from '@/engine/extensions/extensionManager';
 import { fetchAllManifests } from '@/engine/extensions/extensionRegistry';

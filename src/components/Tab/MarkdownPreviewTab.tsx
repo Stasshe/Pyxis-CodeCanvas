@@ -1,24 +1,29 @@
-import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { ZoomIn, ZoomOut, RefreshCw, Download } from 'lucide-react';
+
 import { exportPdfFromHtml } from '@/engine/export/exportPdf';
-import { useTheme, ThemeContext } from '@/context/ThemeContext';
-import { useTranslation } from '@/context/I18nContext';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import { useSettings } from '@/hooks/useSettings';
+
 import mermaid from 'mermaid';
-import { HighlightedCode } from './HighlightedCode';
-import remarkMath from 'remark-math';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import ReactMarkdown from 'react-markdown';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
+import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+
+import { HighlightedCode } from './HighlightedCode';
+
 import 'katex/dist/katex.min.css';
 // Note: bracket-style math (\(...\), \[...\]) can be lost by the markdown parser
 // because backslashes are processed as escapes. To reliably support bracket
 // delimiters we preprocess the raw markdown string before parsing. This
 // preserves code fences and inline code by skipping conversion inside them.
-import { FileItem, Project } from '@/types';
-import type { PreviewTab } from '@/engine/tabs/types';
 import { loadImageAsDataURL, parseMermaidContent } from './markdownUtils';
+
+import { useTranslation } from '@/context/I18nContext';
+import { useTheme, ThemeContext } from '@/context/ThemeContext';
+import type { PreviewTab } from '@/engine/tabs/types';
+import { useSettings } from '@/hooks/useSettings';
+import { FileItem, Project } from '@/types';
 
 interface MarkdownPreviewTabProps {
   activeTab: PreviewTab;
@@ -26,7 +31,7 @@ interface MarkdownPreviewTabProps {
 }
 
 // ユニークID生成用
-let mermaidIdCounter = 0;
+const mermaidIdCounter = 0;
 
 // ローカル画像をDataURLに変換する関数（プロジェクトファイルのbufferContentから読み込み）
 // loadImageAsDataURL moved to markdownUtils
@@ -209,8 +214,8 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
               e.preventDefault();
               const newDist = getTouchDist(e.touches);
               if (lastTouchDist > 0) {
-                let scaleDelta = newDist / lastTouchDist;
-                let newScale = Math.max(0.2, Math.min(8, pinchStartScale * scaleDelta));
+                const scaleDelta = newDist / lastTouchDist;
+                const newScale = Math.max(0.2, Math.min(8, pinchStartScale * scaleDelta));
                 // ピンチ中心を基準にズーム
                 const tx = translateRef.current.x;
                 const ty = translateRef.current.y;

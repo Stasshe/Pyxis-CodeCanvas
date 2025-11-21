@@ -1,10 +1,12 @@
 // src/engine/tabs/builtins/AIReviewTabType.tsx
 import React from 'react';
+
 import { TabTypeDefinition, AIReviewTab, TabComponentProps } from '../types';
+
 import AIReviewTabComponent from '@/components/AI/AIReview/AIReviewTab';
-import { useTabStore } from '@/stores/tabStore';
-import { useProject } from '@/engine/core/project';
 import { useGitContext } from '@/components/PaneContainer';
+import { useProject } from '@/engine/core/project';
+import { useTabStore } from '@/stores/tabStore';
 
 /**
  * AIレビュータブのコンポーネント

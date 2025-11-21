@@ -2,10 +2,11 @@
 
 'use client';
 
-import React from 'react';
-import { useTheme } from '@/context/ThemeContext';
-import { useTranslation } from '@/context/I18nContext';
 import { FileCode, Eye, Check, X } from 'lucide-react';
+import React from 'react';
+
+import { useTranslation } from '@/context/I18nContext';
+import { useTheme } from '@/context/ThemeContext';
 import { calculateDiff } from '@/engine/ai/diffProcessor';
 import type { AIEditResponse } from '@/types';
 

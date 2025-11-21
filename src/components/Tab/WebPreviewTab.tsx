@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
+
 import { useTranslation } from '@/context/I18nContext';
 
 // Lightning-FSの仮想ファイルシステム取得関数
-import { inlineHtmlAssets } from '@/engine/export/inlineHtmlAssets';
 import { fileRepository } from '@/engine/core/fileRepository';
+import { inlineHtmlAssets } from '@/engine/export/inlineHtmlAssets';
 import { FolderWatcher, type FileChangeEvent } from '@/engine/fileWatcher';
 
 interface WebPreviewTabProps {

@@ -1,11 +1,5 @@
 // src/components/Tab/TabBar.tsx
 'use client';
-import React, { useState, useRef, useEffect } from 'react';
-import { useTheme } from '@/context/ThemeContext';
-import { useTabStore } from '@/stores/tabStore';
-import { useFileSelector } from '@/context/FileSelectorContext';
-import { useTranslation } from '@/context/I18nContext';
-import { useKeyBinding } from '@/hooks/useKeyBindings';
 import {
   Menu,
   Plus,
@@ -16,8 +10,16 @@ import {
   Save,
   Minus,
 } from 'lucide-react';
-import { useTabCloseConfirmation } from './useTabCloseConfirmation';
+import React, { useState, useRef, useEffect } from 'react';
+
 import { TabIcon } from './TabIcon';
+import { useTabCloseConfirmation } from './useTabCloseConfirmation';
+
+import { useFileSelector } from '@/context/FileSelectorContext';
+import { useTranslation } from '@/context/I18nContext';
+import { useTheme } from '@/context/ThemeContext';
+import { useKeyBinding } from '@/hooks/useKeyBindings';
+import { useTabStore } from '@/stores/tabStore';
 
 interface TabBarProps {
   paneId: string;

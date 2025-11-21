@@ -1,8 +1,9 @@
-import React from 'react';
-import { useTranslation } from '@/context/I18nContext';
 import { Search, Terminal } from 'lucide-react';
-import PanelRightIcon from '@/components/Right/PanelRightIcon';
+import React from 'react';
+
 import KeyComboClient from '@/components/KeyComboClient';
+import PanelRightIcon from '@/components/Right/PanelRightIcon';
+import { useTranslation } from '@/context/I18nContext';
 
 type Props = {
   isOperationWindowVisible: boolean;

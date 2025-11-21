@@ -1,13 +1,14 @@
-import React, { useState, useEffect } from 'react';
 import { ChevronDown, ChevronRight, Keyboard } from 'lucide-react';
-import { useTheme } from '@/context/ThemeContext';
-import { useTabStore } from '@/stores/tabStore';
-import { downloadWorkspaceZip } from '@/engine/export/exportRepo';
-import type { Project } from '@/types';
-import { settingsManager } from '@/engine/helper/settingsManager';
-import type { PyxisSettings } from '@/types/settings';
+import React, { useState, useEffect } from 'react';
+
 import { LOCALSTORAGE_KEY } from '@/context/config';
 import { useTranslation } from '@/context/I18nContext';
+import { useTheme } from '@/context/ThemeContext';
+import { downloadWorkspaceZip } from '@/engine/export/exportRepo';
+import { settingsManager } from '@/engine/helper/settingsManager';
+import { useTabStore } from '@/stores/tabStore';
+import type { Project } from '@/types';
+import type { PyxisSettings } from '@/types/settings';
 
 interface SettingsPanelProps {
   currentProject: Project; // 現在のプロジェクト

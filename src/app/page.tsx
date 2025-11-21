@@ -1,16 +1,21 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+
 import { useTheme } from '../context/ThemeContext';
-import { useTabStore } from '@/stores/tabStore';
+
+import BottomPanel from '@/components/Bottom/BottomPanel';
+import BottomStatusBar from '@/components/BottomStatusBar';
+import LeftSidebar from '@/components/Left/LeftSidebar';
+import MenuBar from '@/components/MenuBar';
+import OperationWindow from '@/components/OperationWindow';
+import PaneContainer from '@/components/PaneContainer';
+import ProjectModal from '@/components/ProjectModal';
+import RightSidebar from '@/components/Right/RightSidebar';
+import TopBar from '@/components/TopBar';
 import { useFileSelector } from '@/context/FileSelectorContext';
 import useGlobalScrollLock from '@/hooks/useGlobalScrollLock';
 import { useKeyBinding } from '@/hooks/useKeyBindings';
-import MenuBar from '@/components/MenuBar';
-import LeftSidebar from '@/components/Left/LeftSidebar';
-import PaneContainer from '@/components/PaneContainer';
-import BottomPanel from '@/components/Bottom/BottomPanel';
-import ProjectModal from '@/components/ProjectModal';
 import {
   useLeftSidebarResize,
   useBottomPanelResize,
@@ -18,16 +23,12 @@ import {
 } from '@/engine/helper/resize';
 import { useProject } from '@/engine/core/project';
 import initFileWatcherBridge from '@/engine/fileWatcherBridge';
-import { useTabContentRestore } from '@/hooks/useTabContentRestore';
 import { useProjectWelcome } from '@/hooks/useProjectWelcome';
+import { useTabContentRestore } from '@/hooks/useTabContentRestore';
 import { sessionStorage } from '@/stores/sessionStorage';
+import { useTabStore } from '@/stores/tabStore';
 import { Project } from '@/types';
-import type { FileItem, MenuTab } from '@/types';
-import RightSidebar from '@/components/Right/RightSidebar';
-import TopBar from '@/components/TopBar';
-import BottomStatusBar from '@/components/BottomStatusBar';
-import OperationWindow from '@/components/OperationWindow';
-import { LOCALSTORAGE_KEY } from '@/context/config';
+import type { MenuTab } from '@/types';
 
 /**
  * Home: 新アーキテクチャのメインページ

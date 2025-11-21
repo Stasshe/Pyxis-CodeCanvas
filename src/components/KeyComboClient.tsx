@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+
 import { formatKeyComboForDisplay } from '@/hooks/useKeyBindings';
 
 type Props = {

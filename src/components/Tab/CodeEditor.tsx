@@ -19,16 +19,18 @@
  */
 
 import { useRef, useEffect, useCallback, useState } from 'react';
-import { useSettings } from '@/hooks/useSettings';
-import { useTabStore } from '@/stores/tabStore';
-import { useKeyBinding } from '@/hooks/useKeyBindings';
-import type { Project } from '@/types';
-import type { EditorTab } from '@/engine/tabs/types';
-import { useCharCount } from './text-editor/hooks/useCharCount';
-import MonacoEditor from './text-editor/editors/MonacoEditor';
+
 import CodeMirrorEditor from './text-editor/editors/CodeMirrorEditor';
+import MonacoEditor from './text-editor/editors/MonacoEditor';
+import { useCharCount } from './text-editor/hooks/useCharCount';
 import CharCountDisplay from './text-editor/ui/CharCountDisplay';
 import EditorPlaceholder from './text-editor/ui/EditorPlaceholder';
+
+import type { EditorTab } from '@/engine/tabs/types';
+import { useKeyBinding } from '@/hooks/useKeyBindings';
+import { useSettings } from '@/hooks/useSettings';
+import { useTabStore } from '@/stores/tabStore';
+import type { Project } from '@/types';
 
 interface CodeEditorProps {
   activeTab: EditorTab | undefined;

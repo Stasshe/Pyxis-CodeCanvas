@@ -3,8 +3,9 @@
 'use client';
 
 import React from 'react';
-import type { FileItem } from '@/types';
+
 import OperationWindow from '@/components/OperationWindow';
+import type { FileItem } from '@/types';
 
 interface FileSelectorProps {
   isOpen: boolean;

@@ -4,8 +4,9 @@
  */
 
 import React from 'react';
-import { sidebarRegistry } from '@/engine/extensions/system-api/SidebarAPI';
+
 import { useTheme } from '@/context/ThemeContext';
+import { sidebarRegistry } from '@/engine/extensions/system-api/SidebarAPI';
 
 interface ExtensionPanelRendererProps {
   extensionId: string;

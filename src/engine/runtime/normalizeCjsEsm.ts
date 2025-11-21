@@ -276,7 +276,7 @@ export function normalizeCjsEsm(code: string): string {
       while ((m = restRe.exec(lhs)) !== null) ids.add(m[1]);
       // shorthand inside braces/arrays: take content between braces/brackets and
       // grab identifiers not followed by ':' (which would be property keys)
-      const braceRe = /[\{\[]([\s\S]*?)[\}\]]/g;
+      const braceRe = /[{\[]([\s\S]*?)[}\]]/g;
       while ((m = braceRe.exec(lhs)) !== null) {
         const inner = m[1];
         const identRe = /\b([A-Za-z_$][\w$]*)\b(?!\s*:)/g;
@@ -330,7 +330,7 @@ export function normalizeCjsEsm(code: string): string {
     // decls: "foo = 1, bar = 2"
     // If decls is a destructuring pattern (starts with { or [), do not try to export
     const trimmed = String(decls).trim();
-    if (/^[\{\[]/.test(trimmed)) {
+    if (/^[{\[]/.test(trimmed)) {
       // try to extract identifiers from nested destructuring and export them
       const ids = extractIdentifiersFromPattern(trimmed);
       const head = `${kind} ${decls};`;

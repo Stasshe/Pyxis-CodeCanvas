@@ -2,24 +2,25 @@
 
 'use client';
 
+import { Bot, ChevronDown } from 'lucide-react';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useTheme } from '@/context/ThemeContext';
-import { useTranslation } from '@/context/I18nContext';
-import { useChatSpace } from '@/hooks/ai/useChatSpace';
-import { useAI } from '@/hooks/ai/useAI';
-import { useAIReview } from '@/hooks/useAIReview';
-import { useProject } from '@/engine/core/project';
-import { buildAIFileContextList } from '@/engine/ai/contextBuilder';
-import { LOCALSTORAGE_KEY } from '@/context/config';
+
 import ChatContainer from './chat/ChatContainer';
 import ChatInput from './chat/ChatInput';
 import ModeSelector from './chat/ModeSelector';
+import ChatSpaceList from './ChatSpaceList';
 import FileContextBar from './context/FileContextBar';
 import ChangedFilesPanel from './review/ChangedFilesPanel';
 import FileSelector from './FileSelector';
-import ChatSpaceList from './ChatSpaceList';
-import { Bot, ChevronDown } from 'lucide-react';
-import type { FileItem, Project, Tab } from '@/types';
+import { LOCALSTORAGE_KEY } from '@/context/config';
+import { useTranslation } from '@/context/I18nContext';
+import { useTheme } from '@/context/ThemeContext';
+import { buildAIFileContextList } from '@/engine/ai/contextBuilder';
+import { useProject } from '@/engine/core/project';
+import { useAI } from '@/hooks/ai/useAI';
+import { useChatSpace } from '@/hooks/ai/useChatSpace';
+import { useAIReview } from '@/hooks/useAIReview';
+import type { FileItem, Project } from '@/types';
 
 interface AIPanelProps {
   projectFiles: FileItem[];

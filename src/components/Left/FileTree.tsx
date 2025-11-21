@@ -1,17 +1,17 @@
-import { useTheme } from '@/context/ThemeContext';
-import { useState, useEffect, useRef } from 'react';
-import { useTranslation } from '@/context/I18nContext';
-import { useTabStore } from '@/stores/tabStore';
-import { exportSingleFile } from '@/engine/export/exportSingleFile';
-import { exportFolderZip } from '@/engine/export/exportFolderZip';
 import { ChevronDown, ChevronRight } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
 import { getIconForFile, getIconForFolder, getIconForOpenFolder } from 'vscode-icons-js';
-import { FileItem } from '@/types';
+
+import { useTranslation } from '@/context/I18nContext';
+import { useTheme } from '@/context/ThemeContext';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
-import { isBufferArray } from '@/engine/helper/isBufferArray';
-import { importSingleFile } from '@/engine/import/importSingleFile';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { parseGitignore, isPathIgnored, GitIgnoreRule } from '@/engine/core/gitignore';
+import { exportFolderZip } from '@/engine/export/exportFolderZip';
+import { exportSingleFile } from '@/engine/export/exportSingleFile';
+import { importSingleFile } from '@/engine/import/importSingleFile';
+import { useTabStore } from '@/stores/tabStore';
+import { FileItem } from '@/types';
 
 interface FileTreeProps {
   items: FileItem[];

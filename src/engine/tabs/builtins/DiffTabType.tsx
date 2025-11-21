@@ -1,10 +1,12 @@
 // src/engine/tabs/builtins/DiffTabType.tsx
 import React from 'react';
+
 import { TabTypeDefinition, DiffTab, TabComponentProps } from '../types';
-import DiffTabComponent from '@/components/Tab/DiffTab';
-import { useTabStore } from '@/stores/tabStore';
-import { useProject } from '@/engine/core/project';
+
 import { useGitContext } from '@/components/PaneContainer';
+import DiffTabComponent from '@/components/Tab/DiffTab';
+import { useProject } from '@/engine/core/project';
+import { useTabStore } from '@/stores/tabStore';
 
 /**
  * Diffタブのコンポーネント

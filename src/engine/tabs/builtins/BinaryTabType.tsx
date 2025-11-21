@@ -1,6 +1,8 @@
 // src/engine/tabs/builtins/BinaryTabType.tsx
 import React from 'react';
+
 import { TabTypeDefinition, TabComponentProps, OpenTabOptions, BinaryTab } from '../types';
+
 import BinaryTabContent from '@/components/Tab/BinaryTabContent';
 import { guessMimeType } from '@/components/Tab/text-editor/editors/editor-utils';
 import { isBufferArray } from '@/engine/helper/isBufferArray';

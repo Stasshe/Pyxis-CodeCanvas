@@ -1,10 +1,12 @@
-import { useRef, useEffect, useCallback, useState } from 'react';
 import Editor, { Monaco, OnMount } from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
-import { useTheme } from '@/context/ThemeContext';
-import { getLanguage, countCharsNoSpaces } from './editor-utils';
+import { useRef, useEffect, useCallback, useState } from 'react';
+
+import { countCharsNoSpaces } from './editor-utils';
 import { useMonacoModels } from '../hooks/useMonacoModels';
 import EditorPlaceholder from '../ui/EditorPlaceholder';
+
+import { useTheme } from '@/context/ThemeContext';
 
 // グローバルフラグ: テーマ定義を一度だけ実行
 let isThemeDefined = false;

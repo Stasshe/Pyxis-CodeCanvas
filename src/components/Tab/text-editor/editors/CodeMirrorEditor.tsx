@@ -1,8 +1,9 @@
-import CodeMirror from '@uiw/react-codemirror';
-import { getCMExtensions } from './codemirror-utils';
 import { oneDark } from '@codemirror/theme-one-dark';
-import { countCharsNoSpaces } from './editor-utils';
+import CodeMirror from '@uiw/react-codemirror';
 import { useRef, useEffect } from 'react';
+
+import { getCMExtensions } from './codemirror-utils';
+import { countCharsNoSpaces } from './editor-utils';
 
 interface CodeMirrorEditorProps {
   tabId: string;

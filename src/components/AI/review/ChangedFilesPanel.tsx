@@ -2,10 +2,12 @@
 
 'use client';
 
-import React from 'react';
-import { useTheme } from '@/context/ThemeContext';
-import FileChangeItem from './FileChangeItem';
 import { FileCode } from 'lucide-react';
+import React from 'react';
+
+import FileChangeItem from './FileChangeItem';
+
+import { useTheme } from '@/context/ThemeContext';
 import type { AIEditResponse } from '@/types';
 
 interface ChangedFilesPanelProps {

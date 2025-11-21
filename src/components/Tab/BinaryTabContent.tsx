@@ -1,5 +1,6 @@
-import React from 'react';
 import { FileText } from 'lucide-react';
+import React from 'react';
+
 import { useTranslation } from '@/context/I18nContext';
 import { BinaryTab, EditorTab } from '@/engine/tabs/types';
 

@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
 import { Search, X, FileText, ChevronDown, ChevronRight } from 'lucide-react';
-import { FileItem } from '@/types';
-import { useTheme } from '@/context/ThemeContext';
+import { useState, useEffect } from 'react';
+
 import { useTranslation } from '@/context/I18nContext';
+import { useTheme } from '@/context/ThemeContext';
 import { useSettings } from '@/hooks/useSettings';
 import { useTabStore } from '@/stores/tabStore';
+import { FileItem } from '@/types';
 
 interface SearchPanelProps {
   files: FileItem[];

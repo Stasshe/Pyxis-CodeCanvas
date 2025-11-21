@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+
 import { useTranslation } from '@/context/I18nContext';
 
 interface CharCountDetailsProps {

@@ -7,25 +7,52 @@ import unusedImports from 'eslint-plugin-unused-imports';
 export default [
   eslint.configs.recommended,
   {
-    files: ['src/**/*.ts', 'extensions/**/*.ts', 'extensions/**/*.tsx'],
+    files: ['src/**/*.ts', 'src/**/*.tsx', 'extensions/**/*.ts', 'extensions/**/*.tsx'],
     languageOptions: {
       parser: tsparser,
       parserOptions: {
         ecmaVersion: 2020,
         sourceType: 'module',
-      },
-    },
-    languageOptions: {
-      parser: tsparser,
-      parserOptions: {
-        ecmaVersion: 2020,
-        sourceType: 'module',
+        ecmaFeatures: { jsx: true },
       },
       globals: {
+        // Common browser globals
         window: 'readonly',
         document: 'readonly',
         navigator: 'readonly',
-        // Add more browser globals as needed
+        console: 'readonly',
+        setTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearTimeout: 'readonly',
+        clearInterval: 'readonly',
+        requestAnimationFrame: 'readonly',
+        cancelAnimationFrame: 'readonly',
+        URL: 'readonly',
+        Worker: 'readonly',
+        self: 'readonly',
+        fetch: 'readonly',
+        // IndexedDB / Web APIs
+        indexedDB: 'readonly',
+        IDBDatabase: 'readonly',
+        IDBOpenDBRequest: 'readonly',
+        IDBRequest: 'readonly',
+        IDBCursorWithValue: 'readonly',
+        Blob: 'readonly',
+        // Text encoders/decoders and base64
+        TextEncoder: 'readonly',
+        TextDecoder: 'readonly',
+        btoa: 'readonly',
+        atob: 'readonly',
+        crypto: 'readonly',
+        localStorage: 'readonly',
+        CustomEvent: 'readonly',
+        KeyboardEvent: 'readonly',
+        HTMLElement: 'readonly',
+        Element: 'readonly',
+        WheelEvent: 'readonly',
+        TouchEvent: 'readonly',
+        // React (in case some modules reference it explicitly)
+        React: 'readonly',
       },
     },
     plugins: {
@@ -81,6 +108,15 @@ export default [
       globals: {
         console: 'readonly',
         JSON: 'readonly',
+        // Jest globals used in test files
+        describe: 'readonly',
+        it: 'readonly',
+        test: 'readonly',
+        expect: 'readonly',
+        beforeEach: 'readonly',
+        afterEach: 'readonly',
+        beforeAll: 'readonly',
+        afterAll: 'readonly',
       },
     },
   },

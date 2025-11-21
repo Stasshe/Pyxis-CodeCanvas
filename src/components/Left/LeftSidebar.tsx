@@ -1,17 +1,19 @@
 import { FolderOpen, FilePlus, FolderPlus } from 'lucide-react';
-import { useTheme } from '@/context/ThemeContext';
-import { useTranslation } from '@/context/I18nContext';
-import { MenuTab, FileItem } from '@/types';
-import type { Project } from '@/types';
+
+import ExtensionPanelRenderer from './ExtensionPanelRenderer';
+import ExtensionsPanel from './ExtensionsPanel';
 import FileTree from './FileTree';
-import SearchPanel from './SearchPanel';
 import GitPanel from './GitPanel';
 import RunPanel from './RunPanel';
+import SearchPanel from './SearchPanel';
 import SettingsPanel from './SettingsPanel';
-import ExtensionsPanel from './ExtensionsPanel';
-import ExtensionPanelRenderer from './ExtensionPanelRenderer';
+
+import { useTranslation } from '@/context/I18nContext';
+import { useTheme } from '@/context/ThemeContext';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { useExtensionPanels } from '@/hooks/useExtensionPanels';
+import type { Project } from '@/types';
+import { MenuTab, FileItem } from '@/types';
 
 interface LeftSidebarProps {
   activeMenuTab: MenuTab;

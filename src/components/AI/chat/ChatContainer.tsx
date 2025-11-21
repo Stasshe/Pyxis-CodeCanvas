@@ -2,11 +2,13 @@
 
 'use client';
 
-import React, { useEffect, useRef } from 'react';
-import { useTheme } from '@/context/ThemeContext';
-import { useTranslation } from '@/context/I18nContext';
-import ChatMessage from './ChatMessage';
 import { Loader2, MessageSquare } from 'lucide-react';
+import React, { useEffect, useRef } from 'react';
+
+import ChatMessage from './ChatMessage';
+
+import { useTranslation } from '@/context/I18nContext';
+import { useTheme } from '@/context/ThemeContext';
 import type { ChatSpaceMessage } from '@/types';
 
 interface ChatContainerProps {

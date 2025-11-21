@@ -2,11 +2,12 @@
 
 'use client';
 
+import { Send, Loader2, FileCode } from 'lucide-react';
 import React, { useState, KeyboardEvent, useRef, useEffect } from 'react';
+
+import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useInputHistory } from '@/hooks/ai/useInputHistory';
-import { Send, Loader2, FileCode } from 'lucide-react';
-import { useTranslation } from '@/context/I18nContext';
 
 interface ChatInputProps {
   mode: 'ask' | 'edit';

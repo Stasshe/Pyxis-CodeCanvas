@@ -2,10 +2,11 @@
 
 'use client';
 
-import React from 'react';
-import { useTheme } from '@/context/ThemeContext';
-import { useTranslation } from '@/context/I18nContext';
 import { FileCode, X } from 'lucide-react';
+import React from 'react';
+
+import { useTranslation } from '@/context/I18nContext';
+import { useTheme } from '@/context/ThemeContext';
 import type { AIFileContext } from '@/types';
 
 interface FileContextBarProps {

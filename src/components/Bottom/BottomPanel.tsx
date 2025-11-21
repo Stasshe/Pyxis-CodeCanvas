@@ -1,12 +1,15 @@
 'use client';
 
-import Terminal from './Terminal';
+import { useState } from 'react';
+
+import DebugConsole from './DebugConsole';
 import OutputPanel, { OutputMessage } from './OutputPanel';
-import { FileItem } from '@/types';
-import { useTheme } from '@/context/ThemeContext';
+import Terminal from './Terminal';
+
 import { OUTPUT_CONFIG } from '@/context/config';
-import { useState, useRef } from 'react';
 import { useTranslation } from '@/context/I18nContext';
+import { useTheme } from '@/context/ThemeContext';
+import { FileItem } from '@/types';
 
 interface BottomPanelProps {
   height: number;
@@ -64,8 +67,6 @@ export function pushMsgOutPanel(
     });
   }
 }
-
-import DebugConsole from './DebugConsole';
 
 export default function BottomPanel({
   height,

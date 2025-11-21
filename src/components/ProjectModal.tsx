@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
-import { useTranslation } from '@/context/I18nContext';
 import { X, Plus, Folder, Trash2, Edit, GitBranch } from 'lucide-react';
+import { useState, useEffect } from 'react';
+
+import { useTranslation } from '@/context/I18nContext';
 import { projectDB } from '@/engine/core/database';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { authRepository } from '@/engine/user/authRepository';

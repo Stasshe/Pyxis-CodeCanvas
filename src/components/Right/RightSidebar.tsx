@@ -1,7 +1,8 @@
 import React from 'react';
-import { useTheme } from '@/context/ThemeContext';
-import { useTranslation } from '@/context/I18nContext';
+
 import AIPanel from '@/components/AI/AIPanel';
+import { useTranslation } from '@/context/I18nContext';
+import { useTheme } from '@/context/ThemeContext';
 import type { FileItem, Project } from '@/types';
 
 interface RightSidebarProps {

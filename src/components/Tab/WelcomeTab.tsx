@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
+
 import { useTranslation } from '@/context/I18nContext';
 
 export default function WelcomeTab() {

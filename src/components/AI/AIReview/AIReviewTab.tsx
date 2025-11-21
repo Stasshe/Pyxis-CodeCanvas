@@ -3,16 +3,17 @@
 
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
 import { DiffEditor } from '@monaco-editor/react';
 import type { Monaco } from '@monaco-editor/react';
-import type * as monacoEditor from 'monaco-editor';
-import { useTheme } from '@/context/ThemeContext';
-import { useTranslation } from '@/context/I18nContext';
 import { Check, X } from 'lucide-react';
+import type * as monacoEditor from 'monaco-editor';
+import React, { useState, useRef, useEffect } from 'react';
+
+import { getLanguage } from '@/components/Tab/text-editor/editors/editor-utils';
+import { useTranslation } from '@/context/I18nContext';
+import { useTheme } from '@/context/ThemeContext';
 import { calculateDiff } from '@/engine/ai/diffProcessor';
 import type { Tab } from '@/types';
-import { getLanguage } from '@/components/Tab/text-editor/editors/editor-utils';
 
 interface AIReviewTabProps {
   tab: Tab;

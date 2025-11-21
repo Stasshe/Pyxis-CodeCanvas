@@ -2,11 +2,12 @@
 'use client';
 
 import React, { createContext, useContext } from 'react';
-import { useTheme } from '@/context/ThemeContext';
-import { useTabStore } from '@/stores/tabStore';
-import TabBar from '@/components/Tab/TabBar';
+
 import PaneResizer from '@/components/PaneResizer';
+import TabBar from '@/components/Tab/TabBar';
+import { useTheme } from '@/context/ThemeContext';
 import { tabRegistry } from '@/engine/tabs/TabRegistry';
+import { useTabStore } from '@/stores/tabStore';
 import type { EditorPane } from '@/types';
 
 interface PaneContainerProps {

@@ -1,19 +1,20 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useTheme } from '@/context/ThemeContext';
+
+import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
+import { LOCALSTORAGE_KEY } from '@/context/config';
 import { useTranslation } from '@/context/I18nContext';
-import type { UnixCommands } from '@/engine/cmd/global/unix';
+import { useTheme } from '@/context/ThemeContext';
 import type { GitCommands } from '@/engine/cmd/global/git';
 import type { NpmCommands } from '@/engine/cmd/global/npm';
-import { gitFileSystem } from '@/engine/core/gitFileSystem';
-import { fileRepository } from '@/engine/core/fileRepository';
-import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
+import type { UnixCommands } from '@/engine/cmd/global/unix';
 import { handleGitCommand } from '@/engine/cmd/handlers/gitHandler';
 import { handleNPMCommand } from '@/engine/cmd/handlers/npmHandler';
 import { handlePyxisCommand } from '@/engine/cmd/handlers/pyxisHandler';
 import { handleVimCommand } from '@/engine/cmd/vim';
-import { LOCALSTORAGE_KEY } from '@/context/config';
+import { fileRepository } from '@/engine/core/fileRepository';
+import { gitFileSystem } from '@/engine/core/gitFileSystem';
 
 interface TerminalProps {
   height: number;

@@ -1,11 +1,12 @@
 // src/components/Tab/ShortcutKeysTab.tsx
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
 import { Edit2, RefreshCw, X } from 'lucide-react';
-import { useKeyBindings, formatKeyComboForDisplay } from '@/hooks/useKeyBindings';
+import React, { useEffect, useMemo, useState } from 'react';
+
 import { DEFAULT_BINDINGS } from '@/hooks/defaultKeybindings';
 import { Binding } from '@/hooks/keybindingUtils';
+import { useKeyBindings, formatKeyComboForDisplay } from '@/hooks/useKeyBindings';
 
 export default function ShortcutKeysTab() {
   const { bindings, updateBindings } = useKeyBindings();
