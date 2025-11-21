@@ -56,7 +56,7 @@ function createCalcPanel(context: ExtensionContext) {
     const [history, setHistory] = useState<CalculationHistory[]>([]);
     const [showHistory, setShowHistory] = useState(false);
     const [showSymbols, setShowSymbols] = useState(false);
-    const [showMdDebug, setShowMdDebug] = useState(false);
+    
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     // 履歴を読み込み
@@ -433,47 +433,30 @@ function createCalcPanel(context: ExtensionContext) {
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                     <div style={{ fontSize: '12px', color: '#9cdcfe' }}>計算ステップ（Markdown）</div>
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      <button
-                        onClick={() => setShowMdDebug((s) => !s)}
-                        style={{ padding: '6px 10px', borderRadius: '4px', background: '#252526', color: '#d4d4d4', border: '1px solid #333', fontSize: '12px', cursor: 'pointer' }}
-                      >
-                        {showMdDebug ? 'Hide MD Debug' : 'Show MD Debug'}
-                      </button>
-                    </div>
+                      <div style={{ display: 'flex', gap: '6px' }} />
                   </div>
 
-                  <div
-                    style={{
-                      padding: '12px',
-                      background: '#252526',
-                      border: '1px solid #333',
-                      borderRadius: '6px',
-                      fontSize: '14px',
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-word',
-                      maxHeight: '300px',
-                      overflow: 'auto',
-                    }}
-                  >
-                    <ReactMarkdown
-                      key={String(stepsMarkdown?.length ?? 0) + (showMdDebug ? '-dbg' : '')}
-                      remarkPlugins={[remarkGfm, remarkMath]}
-                      rehypePlugins={[rehypeKatex]}
+                    <div
+                      style={{
+                        padding: '12px',
+                        background: '#252526',
+                        border: '1px solid #333',
+                        borderRadius: '6px',
+                        fontSize: '14px',
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                        maxHeight: '300px',
+                        overflow: 'auto',
+                      }}
                     >
-                      {stepsMarkdown}
-                    </ReactMarkdown>
-
-                    {showMdDebug && (
-                      <div style={{ marginTop: '12px', padding: '8px', background: '#1f1f1f', borderRadius: '6px', border: '1px dashed #333' }}>
-                        <div style={{ fontSize: '12px', color: '#9cdcfe', marginBottom: '6px' }}>Raw Markdown</div>
-                        <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: '12px' }}>{stepsMarkdown}</pre>
-
-                        <div style={{ fontSize: '12px', color: '#9cdcfe', marginTop: '8px' }}>Plugins</div>
-                        <pre style={{ margin: 0, fontSize: '12px' }}>{JSON.stringify({ remarkPlugins: ['gfm', 'math'], rehypePlugins: ['katex'] }, null, 2)}</pre>
-                      </div>
-                    )}
-                  </div>
+                      <ReactMarkdown
+                        key={String(stepsMarkdown?.length ?? 0)}
+                        remarkPlugins={[remarkGfm, remarkMath]}
+                        rehypePlugins={[rehypeKatex]}
+                      >
+                        {stepsMarkdown}
+                      </ReactMarkdown>
+                    </div>
                 </div>
               </div>
             )}
