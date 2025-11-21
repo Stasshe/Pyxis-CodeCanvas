@@ -94,7 +94,6 @@
     "eslint-config-next": "15.3.4",
     "eslint-plugin-unused-imports": "^4.3.0",
     "figures": "^3.2.0",
-    "husky": "^9.1.7",
     "jest": "29.6.4",
     "jest-environment-jsdom": "29.6.4",
     "ora": "^5.4.1",
