@@ -113,10 +113,12 @@ class ExtensionManager {
         }
 
         (window as any).__PYXIS_MARKDOWN__ = {
-          ReactMarkdown: (ReactMarkdownModule && (ReactMarkdownModule as any).default) || ReactMarkdownModule,
+          ReactMarkdown:
+            (ReactMarkdownModule && (ReactMarkdownModule as any).default) || ReactMarkdownModule,
           remarkGfm: (remarkGfmModule && (remarkGfmModule as any).default) || remarkGfmModule,
           remarkMath: (remarkMathModule && (remarkMathModule as any).default) || remarkMathModule,
-          rehypeKatex: (rehypeKatexModule && (rehypeKatexModule as any).default) || rehypeKatexModule,
+          rehypeKatex:
+            (rehypeKatexModule && (rehypeKatexModule as any).default) || rehypeKatexModule,
           katex: katexModule && ((katexModule as any).default || katexModule),
         };
         console.log('[ExtensionManager] Markdown/math libraries provided globally for extensions');
@@ -593,11 +595,11 @@ class ExtensionManager {
     // implementations below.
     const notInitialized =
       (fnName: string) =>
-        (..._args: any[]) => {
-          throw new Error(
-            `[Extension:${extensionId}] ${fnName} called before extension context was fully initialized`
-          );
-        };
+      (..._args: any[]) => {
+        throw new Error(
+          `[Extension:${extensionId}] ${fnName} called before extension context was fully initialized`
+        );
+      };
 
     // Create a fully-populated ExtensionContext literal so TypeScript verifies
     // all required properties at compile time. Use strict stubs for tabs and

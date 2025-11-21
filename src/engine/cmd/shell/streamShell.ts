@@ -986,7 +986,6 @@ export class StreamShell {
         // allow only digits, spaces and arithmetic operators
         if (!/^[0-9+\-*/()%\s]+$/.test(safe)) return '0';
         try {
-           
           const val = Function(`return (${safe})`)();
           return String(Number(val));
         } catch (e) {
@@ -1539,27 +1538,27 @@ export class StreamShell {
     const writeQueues: Record<string, Promise<void>> = {};
     const pathState: Record<string, { created: boolean }> = {};
 
-      const enqueueWrite = (path: string, append: boolean, chunk: string) => {
+    const enqueueWrite = (path: string, append: boolean, chunk: string) => {
       const key = path.startsWith('/') ? path : `/${path}`;
       const job = async () => {
         try {
-            // Fetch the single file by path to avoid full project scan
-            const existing =
-              typeof this.fileRepository.getFileByPath === 'function'
-                ? await this.fileRepository.getFileByPath(this.projectId, key)
-                : null;
-            if (!existing) {
-              await this.fileRepository.createFile(this.projectId, key, chunk, 'file');
-              pathState[key] = { created: true };
-            } else {
-              const newContent = (existing.content || '') + chunk;
-              await this.fileRepository.saveFile({
-                ...existing,
-                content: newContent,
-                updatedAt: new Date(),
-              });
-              pathState[key] = { created: true };
-            }
+          // Fetch the single file by path to avoid full project scan
+          const existing =
+            typeof this.fileRepository.getFileByPath === 'function'
+              ? await this.fileRepository.getFileByPath(this.projectId, key)
+              : null;
+          if (!existing) {
+            await this.fileRepository.createFile(this.projectId, key, chunk, 'file');
+            pathState[key] = { created: true };
+          } else {
+            const newContent = (existing.content || '') + chunk;
+            await this.fileRepository.saveFile({
+              ...existing,
+              content: newContent,
+              updatedAt: new Date(),
+            });
+            pathState[key] = { created: true };
+          }
         } catch (e) {
           // swallow write errors to avoid crashing the shell
         }
@@ -1680,9 +1679,9 @@ export class StreamShell {
       try {
         // Use console.error so it's visible in test output even when stdout is captured
         // stringify to avoid binary chunks causing display issues
-         
+
         console.error('StreamShell: finalOut:', JSON.stringify(String(finalOut)));
-         
+
         console.error('StreamShell: finalErr:', JSON.stringify(String(finalErr)));
       } catch (e) {}
     }

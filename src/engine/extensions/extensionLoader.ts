@@ -236,7 +236,10 @@ export async function loadExtensionModule(
       );
 
       // デバッグ: 変換後のコードの最初の部分をログ出力
-      console.log('[ExtensionLoader] Transformed code preview:', transformedEntryCode.slice(0, 500));
+      console.log(
+        '[ExtensionLoader] Transformed code preview:',
+        transformedEntryCode.slice(0, 500)
+      );
       // 変換前のentryCodeも出力
       console.log('[ExtensionLoader] Raw entryCode preview:', entryCode.slice(0, 500));
 
@@ -258,13 +261,21 @@ export async function loadExtensionModule(
       } catch (err) {
         console.error('[ExtensionLoader] Failed to import entryUrl', entryUrl, err);
         // 変換後コードの先頭1000文字も出力
-        console.error('[ExtensionLoader] Transformed entryCode (first 10000 chars):', transformedEntryCode.slice(0, 10000));
-        console.error('[ExtensionLoader] Raw entryCode (first 10000 chars):', entryCode.slice(0, 10000));
+        console.error(
+          '[ExtensionLoader] Transformed entryCode (first 10000 chars):',
+          transformedEntryCode.slice(0, 10000)
+        );
+        console.error(
+          '[ExtensionLoader] Raw entryCode (first 10000 chars):',
+          entryCode.slice(0, 10000)
+        );
 
         // フォールバック診断: <script type="module"> を挿入して window.onerror で詳細を取得する
         try {
           if (typeof document !== 'undefined' && typeof window !== 'undefined') {
-            console.info('[ExtensionLoader] Attempting fallback diagnostics by injecting module script');
+            console.info(
+              '[ExtensionLoader] Attempting fallback diagnostics by injecting module script'
+            );
 
             const script = document.createElement('script');
             script.type = 'module';
@@ -281,12 +292,19 @@ export async function loadExtensionModule(
                 errorInfo.filename = event.filename;
                 errorInfo.lineno = event.lineno;
                 errorInfo.colno = event.colno;
-                errorInfo.error = event.error ? { message: event.error.message, stack: event.error.stack } : undefined;
-                console.error('[ExtensionLoader][Fallback] module execution error event:', errorInfo);
+                errorInfo.error = event.error
+                  ? { message: event.error.message, stack: event.error.stack }
+                  : undefined;
+                console.error(
+                  '[ExtensionLoader][Fallback] module execution error event:',
+                  errorInfo
+                );
               } finally {
                 window.removeEventListener('error', onError as any);
                 // remove script after error captured
-                try { script.remove(); } catch (e) {}
+                try {
+                  script.remove();
+                } catch (e) {}
               }
             };
 
@@ -298,7 +316,9 @@ export async function loadExtensionModule(
             await new Promise(res => setTimeout(res, 200));
 
             if (!errorInfo.caught) {
-              console.warn('[ExtensionLoader][Fallback] No window.error captured by fallback (error may be async or swallowed).');
+              console.warn(
+                '[ExtensionLoader][Fallback] No window.error captured by fallback (error may be async or swallowed).'
+              );
             }
           }
         } catch (diagErr) {

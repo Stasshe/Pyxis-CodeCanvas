@@ -18,17 +18,13 @@ export function transformImports(code: string): string {
   // 改行を含むimportにも対応するため[\s\S]を使用
   // named imports内の`as`をオブジェクト分割代入の形式(:)に変換して対応する
   function convertNamedImportsForDestructure(named: string): string {
-    return named.replace(/([A-Za-z0-9_$]+)\s+as\s+([A-Za-z0-9_$]+)/g, (_m, orig, alias) => `${orig}: ${alias}`);
+    return named.replace(
+      /([A-Za-z0-9_$]+)\s+as\s+([A-Za-z0-9_$]+)/g,
+      (_m, orig, alias) => `${orig}: ${alias}`
+    );
   }
   // Support resolving several host-provided modules (react + markdown/math libs)
-  const modules = [
-    'react',
-    'react-markdown',
-    'remark-gfm',
-    'remark-math',
-    'rehype-katex',
-    'katex',
-  ];
+  const modules = ['react', 'react-markdown', 'remark-gfm', 'remark-math', 'rehype-katex', 'katex'];
 
   const modPattern = modules.map(m => m.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')).join('|');
 
@@ -68,70 +64,71 @@ export function transformImports(code: string): string {
       defOnly,
       mod4
     ) => {
-    // Cases:
-    // 1) defWithName, namedWithDef, mod1  => import defWithName, { namedWithDef } from 'mod1'
-    // 2) namedOnly, mod2                  => import { namedOnly } from 'mod2'
-    // 3) defOnly, mod3                    => import defOnly from 'mod3'
+      // Cases:
+      // 1) defWithName, namedWithDef, mod1  => import defWithName, { namedWithDef } from 'mod1'
+      // 2) namedOnly, mod2                  => import { namedOnly } from 'mod2'
+      // 3) defOnly, mod3                    => import defOnly from 'mod3'
 
-    let moduleName: string | null = null;
-    if (mod1) moduleName = mod1;
-    else if (mod2) moduleName = mod2;
-    else if (mod3) moduleName = mod3;
-    else if (mod4) moduleName = mod4;
-    if (!moduleName) return match;
+      let moduleName: string | null = null;
+      if (mod1) moduleName = mod1;
+      else if (mod2) moduleName = mod2;
+      else if (mod3) moduleName = mod3;
+      else if (mod4) moduleName = mod4;
+      if (!moduleName) return match;
 
-    const host = moduleToHost(moduleName);
+      const host = moduleToHost(moduleName);
 
-    // helper to process named imports
-    const processNamed = (s: string) => {
-      const trimmed = s.trim();
-      const processed = convertNamedImportsForDestructure(trimmed);
-      return processed;
-    };
+      // helper to process named imports
+      const processNamed = (s: string) => {
+        const trimmed = s.trim();
+        const processed = convertNamedImportsForDestructure(trimmed);
+        return processed;
+      };
 
-    // import default, { named } from 'module'
-    if (defWithName && namedWithDef && moduleName) {
-      const defName = defWithName;
-      const namedProcessed = processNamed(namedWithDef);
+      // import default, { named } from 'module'
+      if (defWithName && namedWithDef && moduleName) {
+        const defName = defWithName;
+        const namedProcessed = processNamed(namedWithDef);
 
-      if (moduleName === 'react') {
-        return `const ${defName} = ${host.global}; const {${namedProcessed}} = ${defName};`;
+        if (moduleName === 'react') {
+          return `const ${defName} = ${host.global}; const {${namedProcessed}} = ${defName};`;
+        }
+
+        // host-provided markdown/math
+        const prop = host.prop ? `.${host.prop}` : '';
+        return `const ${defName} = ${host.global}${prop} || ${host.global}; const {${namedProcessed}} = ${host.global};`;
       }
 
-      // host-provided markdown/math
-      const prop = host.prop ? `.${host.prop}` : '';
-      return `const ${defName} = ${host.global}${prop} || ${host.global}; const {${namedProcessed}} = ${host.global};`;
-    }
-
-    // import { named } from 'module'
-    if (namedOnly && moduleName) {
-      const namedProcessed = processNamed(namedOnly);
-      if (moduleName === 'react') {
-        return `const {${namedProcessed}} = ${host.global};`;
+      // import { named } from 'module'
+      if (namedOnly && moduleName) {
+        const namedProcessed = processNamed(namedOnly);
+        if (moduleName === 'react') {
+          return `const {${namedProcessed}} = ${host.global};`;
+        }
+        return `const {${namedProcessed}} = ${host.global} || {};`;
       }
-      return `const {${namedProcessed}} = ${host.global} || {};`;
-    }
 
-    // import default from 'module'
-    if (defOnly && moduleName) {
-      const defName = defOnly;
-      if (moduleName === 'react') {
-        return `const ${defName} = ${host.global};`;
+      // import default from 'module'
+      if (defOnly && moduleName) {
+        const defName = defOnly;
+        if (moduleName === 'react') {
+          return `const ${defName} = ${host.global};`;
+        }
+        const prop = host.prop ? `.${host.prop}` : '';
+        return `const ${defName} = ${host.global}${prop} || ${host.global};`;
       }
-      const prop = host.prop ? `.${host.prop}` : '';
-      return `const ${defName} = ${host.global}${prop} || ${host.global};`;
-    }
 
-    // import * as ns from 'module'
-    if (namespaceName && moduleName) {
-      const ns = namespaceName;
-      if (moduleName === 'react') {
-        return `const ${ns} = ${host.global};`;
+      // import * as ns from 'module'
+      if (namespaceName && moduleName) {
+        const ns = namespaceName;
+        if (moduleName === 'react') {
+          return `const ${ns} = ${host.global};`;
+        }
+        // For markdown/math, expose the host markdown namespace or an empty object
+        return `const ${ns} = ${host.global} || {};`;
       }
-      // For markdown/math, expose the host markdown namespace or an empty object
-      return `const ${ns} = ${host.global} || {};`;
-    }
 
-    return match;
-  });
+      return match;
+    }
+  );
 }

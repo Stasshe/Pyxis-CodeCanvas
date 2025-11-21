@@ -111,283 +111,290 @@ export class GitCommands {
 
   // src/engine/cmd/global/git.ts の clone メソッドを高速化
 
-async clone(
-  url: string,
-  targetDir?: string,
-  options: { skipDotGit?: boolean; maxGitObjects?: number } = {}
-): Promise<string> {
-  return this.executeGitOperation(async () => {
-    // URLの妥当性を簡易チェック
-    if (!url || typeof url !== 'string' || !url.trim()) {
-      throw new Error('Invalid repository URL');
-    }
-
-    const repoName = url.split('/').pop()?.replace('.git', '') || 'repository';
-    let cloneDir: string;
-    const baseDir = this.dir.endsWith('/') ? this.dir.slice(0, -1) : this.dir;
-
-    if (targetDir) {
-      if (targetDir === '.' || targetDir === './') {
-        cloneDir = baseDir;
-      } else if (targetDir.startsWith('/')) {
-        cloneDir = targetDir;
-      } else {
-        cloneDir = `${baseDir}/${targetDir}`;
+  async clone(
+    url: string,
+    targetDir?: string,
+    options: { skipDotGit?: boolean; maxGitObjects?: number } = {}
+  ): Promise<string> {
+    return this.executeGitOperation(async () => {
+      // URLの妥当性を簡易チェック
+      if (!url || typeof url !== 'string' || !url.trim()) {
+        throw new Error('Invalid repository URL');
       }
-    } else {
-      cloneDir = `${baseDir}/${repoName}`;
-    }
 
-    console.log(`[git clone] Clone directory: ${cloneDir}`);
+      const repoName = url.split('/').pop()?.replace('.git', '') || 'repository';
+      let cloneDir: string;
+      const baseDir = this.dir.endsWith('/') ? this.dir.slice(0, -1) : this.dir;
 
-    // クローン先ディレクトリが存在しないことを確認
-    try {
-      await this.fs.promises.stat(cloneDir);
-      throw new Error(
-        `fatal: destination path '${targetDir || repoName}' already exists and is not an empty directory.`
-      );
-    } catch (error) {
-      if ((error as Error).message.includes('already exists')) {
-        throw error;
-      }
-    }
-
-    // リポジトリをクローン
-    try {
-      const depth = options.maxGitObjects ?? 10;
-      await git.clone({
-        fs: this.fs,
-        http,
-        dir: cloneDir,
-        url,
-        corsProxy: 'https://cors.isomorphic-git.org',
-        singleBranch: true,
-        depth,
-        onAuth: url => {
-          if (authRepository && typeof authRepository.getAccessToken === 'function') {
-            return authRepository.getAccessToken().then(token => {
-              if (token) {
-                return { username: 'x-access-token', password: token };
-              }
-              return {};
-            });
-          }
-          return {};
-        },
-      });
-    } catch (cloneError) {
-      console.error('[git clone] Clone failed:', cloneError);
-      try {
-        await this.fs.promises.rmdir(cloneDir);
-      } catch {}
-      throw new Error(
-        `Failed to clone repository: ${(cloneError as Error).message}. Please check the URL and try again.`
-      );
-    }
-
-    console.log('[git clone] Starting optimized IndexedDB sync...');
-
-    // .gitディレクトリを削除（オプション）
-    if (options.skipDotGit) {
-      try {
-        const gitPath = cloneDir.endsWith('/') ? `${cloneDir}.git` : `${cloneDir}/.git`;
-        await this.removeRecursive(gitPath);
-        console.log('[git clone] .git directory removed');
-      } catch (removeError) {
-        console.warn('[git clone] Failed to remove .git directory:', removeError);
-      }
-    }
-
-    const baseRelativePath =
-      cloneDir === baseDir
-        ? ''
-        : (targetDir && targetDir !== '.' ? targetDir : repoName).replace(/^\//, '');
-
-    // ⭐ 高速化された同期処理
-    await this.syncClonedFilesToIndexedDBOptimized(cloneDir, baseRelativePath);
-
-    return `Cloning into '${targetDir || repoName}'...\nClone completed successfully.`;
-  }, 'git clone failed');
-}
-
-/**
- * 再帰削除ヘルパー
- */
-private async removeRecursive(path: string): Promise<void> {
-  try {
-    const entries = await this.fs.promises.readdir(path);
-    for (const entry of entries) {
-      const full = `${path}/${entry}`;
-      try {
-        const st = await this.fs.promises.stat(full);
-        if (st.isDirectory()) {
-          await this.removeRecursive(full);
+      if (targetDir) {
+        if (targetDir === '.' || targetDir === './') {
+          cloneDir = baseDir;
+        } else if (targetDir.startsWith('/')) {
+          cloneDir = targetDir;
         } else {
-          await this.fs.promises.unlink(full);
+          cloneDir = `${baseDir}/${targetDir}`;
         }
-      } catch (e) {
-        // ignore
+      } else {
+        cloneDir = `${baseDir}/${repoName}`;
       }
-    }
-    await this.fs.promises.rmdir(path);
-  } catch (e) {
-    // ignore
-  }
-}
 
-/**
- * 🚀 最適化されたIndexedDB同期処理
- * - 全ファイルを一度に収集してからバルク作成
- * - 並列処理を最小限に抑えてトランザクション効率を最大化
- */
-private async syncClonedFilesToIndexedDBOptimized(
-  clonePath: string,
-  baseRelativePath: string
-): Promise<void> {
-  console.log('[git clone] Starting optimized sync...');
-  const startTime = performance.now();
+      console.log(`[git clone] Clone directory: ${cloneDir}`);
 
-  try {
-    // パス正規化関数
-    const normalizePath = (base: string, entry?: string) => {
-      let path = base ? base.replace(/^\/+|\/+$/g, '') : '';
-      if (entry) path = path ? `${path}/${entry}` : entry;
-      path = '/' + path;
-      path = path.replace(/\/+/g, '/');
-      if (path === '/') return path;
-      return path.replace(/\/+$/, '');
-    };
-
-    // 全ファイル/フォルダを一度に収集
-    const allDirectories: Array<{ path: string; depth: number }> = [];
-    const allFiles: Array<{
-      path: string;
-      content: string | Uint8Array;
-      isBinary: boolean;
-    }> = [];
-
-    // ルートフォルダを追加
-    if (baseRelativePath) {
-      allDirectories.push({
-        path: normalizePath(baseRelativePath),
-        depth: baseRelativePath.split('/').length
-      });
-    }
-
-    // 再帰的にファイルシステムを走査
-    const traverse = async (currentPath: string, relativeBase: string, depth: number) => {
+      // クローン先ディレクトリが存在しないことを確認
       try {
-        const entries = await this.fs.promises.readdir(currentPath);
-        
-        for (const entry of entries) {
-          if (entry === '.' || entry === '..' || entry === '.git') continue;
+        await this.fs.promises.stat(cloneDir);
+        throw new Error(
+          `fatal: destination path '${targetDir || repoName}' already exists and is not an empty directory.`
+        );
+      } catch (error) {
+        if ((error as Error).message.includes('already exists')) {
+          throw error;
+        }
+      }
 
-          const fullPath = `${currentPath}${currentPath.endsWith('/') ? '' : '/'}${entry}`;
-          const relativePath = normalizePath(relativeBase, entry);
-
-          try {
-            const stat = await this.fs.promises.stat(fullPath);
-            
-            if (stat.isDirectory()) {
-              allDirectories.push({ path: relativePath, depth });
-              await traverse(fullPath, relativePath.replace(/^\//, ''), depth + 1);
-            } else {
-              const contentBuffer = await this.fs.promises.readFile(fullPath);
-              const isBinary = this.isBinaryFile(contentBuffer as Uint8Array);
-              
-              allFiles.push({
-                path: relativePath,
-                content: contentBuffer,
-                isBinary
+      // リポジトリをクローン
+      try {
+        const depth = options.maxGitObjects ?? 10;
+        await git.clone({
+          fs: this.fs,
+          http,
+          dir: cloneDir,
+          url,
+          corsProxy: 'https://cors.isomorphic-git.org',
+          singleBranch: true,
+          depth,
+          onAuth: url => {
+            if (authRepository && typeof authRepository.getAccessToken === 'function') {
+              return authRepository.getAccessToken().then(token => {
+                if (token) {
+                  return { username: 'x-access-token', password: token };
+                }
+                return {};
               });
             }
-          } catch (statError) {
-            console.warn(`[git clone] Failed to stat ${fullPath}:`, statError);
-          }
+            return {};
+          },
+        });
+      } catch (cloneError) {
+        console.error('[git clone] Clone failed:', cloneError);
+        try {
+          await this.fs.promises.rmdir(cloneDir);
+        } catch {}
+        throw new Error(
+          `Failed to clone repository: ${(cloneError as Error).message}. Please check the URL and try again.`
+        );
+      }
+
+      console.log('[git clone] Starting optimized IndexedDB sync...');
+
+      // .gitディレクトリを削除（オプション）
+      if (options.skipDotGit) {
+        try {
+          const gitPath = cloneDir.endsWith('/') ? `${cloneDir}.git` : `${cloneDir}/.git`;
+          await this.removeRecursive(gitPath);
+          console.log('[git clone] .git directory removed');
+        } catch (removeError) {
+          console.warn('[git clone] Failed to remove .git directory:', removeError);
         }
-      } catch (readdirError) {
-        console.warn(`[git clone] Failed to read directory ${currentPath}:`, readdirError);
       }
-    };
 
-    // 全体を走査
-    await traverse(clonePath, baseRelativePath, 1);
+      const baseRelativePath =
+        cloneDir === baseDir
+          ? ''
+          : (targetDir && targetDir !== '.' ? targetDir : repoName).replace(/^\//, '');
 
-    console.log(`[git clone] Collected ${allDirectories.length} directories and ${allFiles.length} files`);
+      // ⭐ 高速化された同期処理
+      await this.syncClonedFilesToIndexedDBOptimized(cloneDir, baseRelativePath);
 
-    // ディレクトリを深さ順にソート（浅い順）
-    allDirectories.sort((a, b) => a.depth - b.depth);
-
-    // バルク作成用のエントリを準備
-    const directoryEntries = allDirectories.map(dir => ({
-      path: dir.path,
-      content: '',
-      type: 'folder' as const
-    }));
-
-    const fileEntries = allFiles.map(file => {
-      if (file.isBinary) {
-        // file.content may be Uint8Array, ArrayBuffer, or (rarely) a string.
-        // Handle each case explicitly to satisfy TypeScript and avoid unsafe casts.
-        let uint8Array: Uint8Array;
-        if (file.content instanceof Uint8Array) {
-          uint8Array = file.content;
-        } else if (file.content && typeof (file.content as unknown as ArrayBuffer).byteLength === 'number') {
-          uint8Array = new Uint8Array(file.content as unknown as ArrayBuffer);
-        } else if (typeof file.content === 'string') {
-          // Fallback: encode string to bytes (shouldn't usually happen for binary files,
-          // but keep as a safe fallback).
-          uint8Array = new TextEncoder().encode(file.content);
-        } else {
-          // As a last resort, cast through unknown for ArrayBufferLike-compatible objects.
-          uint8Array = new Uint8Array(file.content as unknown as ArrayBufferLike);
-        }
-
-        return {
-          path: file.path,
-          content: '',
-          type: 'file' as const,
-          isBufferArray: true,
-          bufferContent: uint8Array.buffer as ArrayBuffer,
-        };
-      } else {
-        const content = typeof file.content === 'string'
-          ? file.content
-          : new TextDecoder().decode(file.content as Uint8Array);
-        return {
-          path: file.path,
-          content,
-          type: 'file' as const,
-          isBufferArray: false,
-        };
-      }
-    });
-
-    // 🚀 バルク作成で一度に全て作成
-    console.log('[git clone] Creating directories in bulk...');
-    if (directoryEntries.length > 0) {
-      await fileRepository.createFilesBulk(this.projectId, directoryEntries, true);
-    }
-
-    console.log('[git clone] Creating files in bulk...');
-    if (fileEntries.length > 0) {
-      // 大量のファイルがある場合はバッチ処理
-      const BATCH_SIZE = 100;
-      for (let i = 0; i < fileEntries.length; i += BATCH_SIZE) {
-        const batch = fileEntries.slice(i, i + BATCH_SIZE);
-        await fileRepository.createFilesBulk(this.projectId, batch);
-        console.log(`[git clone] Created batch ${i / BATCH_SIZE + 1}/${Math.ceil(fileEntries.length / BATCH_SIZE)}`);
-      }
-    }
-
-    const endTime = performance.now();
-    console.log(`[git clone] Optimized sync completed in ${(endTime - startTime).toFixed(2)}ms`);
-
-  } catch (error) {
-    console.error('[git clone] Optimized sync failed:', error);
-    throw error;
+      return `Cloning into '${targetDir || repoName}'...\nClone completed successfully.`;
+    }, 'git clone failed');
   }
-}
+
+  /**
+   * 再帰削除ヘルパー
+   */
+  private async removeRecursive(path: string): Promise<void> {
+    try {
+      const entries = await this.fs.promises.readdir(path);
+      for (const entry of entries) {
+        const full = `${path}/${entry}`;
+        try {
+          const st = await this.fs.promises.stat(full);
+          if (st.isDirectory()) {
+            await this.removeRecursive(full);
+          } else {
+            await this.fs.promises.unlink(full);
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+      await this.fs.promises.rmdir(path);
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  /**
+   * 🚀 最適化されたIndexedDB同期処理
+   * - 全ファイルを一度に収集してからバルク作成
+   * - 並列処理を最小限に抑えてトランザクション効率を最大化
+   */
+  private async syncClonedFilesToIndexedDBOptimized(
+    clonePath: string,
+    baseRelativePath: string
+  ): Promise<void> {
+    console.log('[git clone] Starting optimized sync...');
+    const startTime = performance.now();
+
+    try {
+      // パス正規化関数
+      const normalizePath = (base: string, entry?: string) => {
+        let path = base ? base.replace(/^\/+|\/+$/g, '') : '';
+        if (entry) path = path ? `${path}/${entry}` : entry;
+        path = '/' + path;
+        path = path.replace(/\/+/g, '/');
+        if (path === '/') return path;
+        return path.replace(/\/+$/, '');
+      };
+
+      // 全ファイル/フォルダを一度に収集
+      const allDirectories: Array<{ path: string; depth: number }> = [];
+      const allFiles: Array<{
+        path: string;
+        content: string | Uint8Array;
+        isBinary: boolean;
+      }> = [];
+
+      // ルートフォルダを追加
+      if (baseRelativePath) {
+        allDirectories.push({
+          path: normalizePath(baseRelativePath),
+          depth: baseRelativePath.split('/').length,
+        });
+      }
+
+      // 再帰的にファイルシステムを走査
+      const traverse = async (currentPath: string, relativeBase: string, depth: number) => {
+        try {
+          const entries = await this.fs.promises.readdir(currentPath);
+
+          for (const entry of entries) {
+            if (entry === '.' || entry === '..' || entry === '.git') continue;
+
+            const fullPath = `${currentPath}${currentPath.endsWith('/') ? '' : '/'}${entry}`;
+            const relativePath = normalizePath(relativeBase, entry);
+
+            try {
+              const stat = await this.fs.promises.stat(fullPath);
+
+              if (stat.isDirectory()) {
+                allDirectories.push({ path: relativePath, depth });
+                await traverse(fullPath, relativePath.replace(/^\//, ''), depth + 1);
+              } else {
+                const contentBuffer = await this.fs.promises.readFile(fullPath);
+                const isBinary = this.isBinaryFile(contentBuffer as Uint8Array);
+
+                allFiles.push({
+                  path: relativePath,
+                  content: contentBuffer,
+                  isBinary,
+                });
+              }
+            } catch (statError) {
+              console.warn(`[git clone] Failed to stat ${fullPath}:`, statError);
+            }
+          }
+        } catch (readdirError) {
+          console.warn(`[git clone] Failed to read directory ${currentPath}:`, readdirError);
+        }
+      };
+
+      // 全体を走査
+      await traverse(clonePath, baseRelativePath, 1);
+
+      console.log(
+        `[git clone] Collected ${allDirectories.length} directories and ${allFiles.length} files`
+      );
+
+      // ディレクトリを深さ順にソート（浅い順）
+      allDirectories.sort((a, b) => a.depth - b.depth);
+
+      // バルク作成用のエントリを準備
+      const directoryEntries = allDirectories.map(dir => ({
+        path: dir.path,
+        content: '',
+        type: 'folder' as const,
+      }));
+
+      const fileEntries = allFiles.map(file => {
+        if (file.isBinary) {
+          // file.content may be Uint8Array, ArrayBuffer, or (rarely) a string.
+          // Handle each case explicitly to satisfy TypeScript and avoid unsafe casts.
+          let uint8Array: Uint8Array;
+          if (file.content instanceof Uint8Array) {
+            uint8Array = file.content;
+          } else if (
+            file.content &&
+            typeof (file.content as unknown as ArrayBuffer).byteLength === 'number'
+          ) {
+            uint8Array = new Uint8Array(file.content as unknown as ArrayBuffer);
+          } else if (typeof file.content === 'string') {
+            // Fallback: encode string to bytes (shouldn't usually happen for binary files,
+            // but keep as a safe fallback).
+            uint8Array = new TextEncoder().encode(file.content);
+          } else {
+            // As a last resort, cast through unknown for ArrayBufferLike-compatible objects.
+            uint8Array = new Uint8Array(file.content as unknown as ArrayBufferLike);
+          }
+
+          return {
+            path: file.path,
+            content: '',
+            type: 'file' as const,
+            isBufferArray: true,
+            bufferContent: uint8Array.buffer as ArrayBuffer,
+          };
+        } else {
+          const content =
+            typeof file.content === 'string'
+              ? file.content
+              : new TextDecoder().decode(file.content as Uint8Array);
+          return {
+            path: file.path,
+            content,
+            type: 'file' as const,
+            isBufferArray: false,
+          };
+        }
+      });
+
+      // 🚀 バルク作成で一度に全て作成
+      console.log('[git clone] Creating directories in bulk...');
+      if (directoryEntries.length > 0) {
+        await fileRepository.createFilesBulk(this.projectId, directoryEntries, true);
+      }
+
+      console.log('[git clone] Creating files in bulk...');
+      if (fileEntries.length > 0) {
+        // 大量のファイルがある場合はバッチ処理
+        const BATCH_SIZE = 100;
+        for (let i = 0; i < fileEntries.length; i += BATCH_SIZE) {
+          const batch = fileEntries.slice(i, i + BATCH_SIZE);
+          await fileRepository.createFilesBulk(this.projectId, batch);
+          console.log(
+            `[git clone] Created batch ${i / BATCH_SIZE + 1}/${Math.ceil(fileEntries.length / BATCH_SIZE)}`
+          );
+        }
+      }
+
+      const endTime = performance.now();
+      console.log(`[git clone] Optimized sync completed in ${(endTime - startTime).toFixed(2)}ms`);
+    } catch (error) {
+      console.error('[git clone] Optimized sync failed:', error);
+      throw error;
+    }
+  }
 
   /**
    * バイナリファイル判定（既存のまま）

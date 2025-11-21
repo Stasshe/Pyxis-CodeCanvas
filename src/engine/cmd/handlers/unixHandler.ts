@@ -204,7 +204,7 @@ export async function handleUnixCommand(
         // Pass the original args through so option parameters (like -iname <pattern>)
         // are not misclassified as paths by earlier naive splitting.
         // unix.find will parse the args array itself.
-        const findResult = await unix.find( args);
+        const findResult = await unix.find(args);
         await append(findResult);
         break;
       }
@@ -221,7 +221,9 @@ export async function handleUnixCommand(
           try {
             const result = await unix.grep(pattern, files, grepOptions, stdin);
             // Separate error lines (those starting with 'grep: ') from normal matches
-            const lines = String(result || '').split(/\r?\n/).filter(l => l !== '');
+            const lines = String(result || '')
+              .split(/\r?\n/)
+              .filter(l => l !== '');
             const errorLines = lines.filter(l => l.startsWith('grep: '));
             const matchLines = lines.filter(l => !l.startsWith('grep: '));
 

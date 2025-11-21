@@ -45,9 +45,10 @@ const makeUnixBridge = (name: string) => {
       const projectId = ctx.projectId || '';
 
       // stdin内容を事前に読み取り（grep等で必要）
-        // Pass the stdin stream directly to the handler so commands like grep
-        // can read from stdin interactively (block until data) if needed.
-        const stdinStream = ctx.stdin && typeof (ctx.stdin as any).on === 'function' ? ctx.stdin : null;
+      // Pass the stdin stream directly to the handler so commands like grep
+      // can read from stdin interactively (block until data) if needed.
+      const stdinStream =
+        ctx.stdin && typeof (ctx.stdin as any).on === 'function' ? ctx.stdin : null;
 
       const writeError = async (s: string) => {
         try {
@@ -56,15 +57,15 @@ const makeUnixBridge = (name: string) => {
         } catch (e) {}
       };
 
-        const result = await handleUnixCommand(
-          name,
-          nArgs,
-          projectName,
-          projectId,
-          writeOutput,
-          writeError,
-          stdinStream
-        );
+      const result = await handleUnixCommand(
+        name,
+        nArgs,
+        projectName,
+        projectId,
+        writeOutput,
+        writeError,
+        stdinStream
+      );
 
       exitCode = result.code ?? 0;
 

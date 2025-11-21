@@ -327,7 +327,7 @@ function ClientTerminal({
         cmdOutputs += batch.join('\n');
         for (const line of batch) {
           // \rプレフィックスを削除
-          term.writeln(line)
+          term.writeln(line);
         }
       }
     };

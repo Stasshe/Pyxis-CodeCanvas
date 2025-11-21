@@ -3,13 +3,14 @@
  * iPad対応、Markdown出力、履歴管理、コマンド対応
  */
 
-import React, { useState, useEffect, useRef } from 'react';
-import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
 import { parseLatex, analyze } from 'latexium';
+import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
+import rehypeKatex from 'rehype-katex';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
-import rehypeKatex from 'rehype-katex';
+
+import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
 
 // 計算履歴の型
 interface CalculationHistory {
@@ -433,30 +434,30 @@ function createCalcPanel(context: ExtensionContext) {
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                     <div style={{ fontSize: '12px', color: '#9cdcfe' }}>計算ステップ（Markdown）</div>
-                      <div style={{ display: 'flex', gap: '6px' }} />
+                    <div style={{ display: 'flex', gap: '6px' }} />
                   </div>
 
-                    <div
-                      style={{
-                        padding: '12px',
-                        background: '#252526',
-                        border: '1px solid #333',
-                        borderRadius: '6px',
-                        fontSize: '14px',
-                        whiteSpace: 'pre-wrap',
-                        wordBreak: 'break-word',
-                        maxHeight: '300px',
-                        overflow: 'auto',
-                      }}
+                  <div
+                    style={{
+                      padding: '12px',
+                      background: '#252526',
+                      border: '1px solid #333',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                      maxHeight: '300px',
+                      overflow: 'auto',
+                    }}
+                  >
+                    <ReactMarkdown
+                      key={String(stepsMarkdown?.length ?? 0)}
+                      remarkPlugins={[remarkGfm, remarkMath]}
+                      rehypePlugins={[rehypeKatex]}
                     >
-                      <ReactMarkdown
-                        key={String(stepsMarkdown?.length ?? 0)}
-                        remarkPlugins={[remarkGfm, remarkMath]}
-                        rehypePlugins={[rehypeKatex]}
-                      >
-                        {stepsMarkdown}
-                      </ReactMarkdown>
-                    </div>
+                      {stepsMarkdown}
+                    </ReactMarkdown>
+                  </div>
                 </div>
               </div>
             )}
