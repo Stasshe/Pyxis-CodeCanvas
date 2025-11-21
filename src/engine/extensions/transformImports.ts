@@ -32,9 +32,10 @@ export function transformImports(code: string): string {
 
   const modPattern = modules.map(m => m.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')).join('|');
 
-  // single-pass regex handling default+named, named-only, default-only imports
+  // single-pass regex handling default+named, namespace (import * as), named-only, default-only imports
   const regex = new RegExp(
     `import\\s+([A-Za-z0-9_$]+)\\s*,\\s*\\{([^}]+)\\}\\s+from\\s+['"](${modPattern})['"];?|` +
+      `import\\s*\\*\\s+as\\s+([A-Za-z0-9_$]+)\\s+from\\s+['"](${modPattern})['"];?|` +
       `import\\s+\\{([^}]+)\\}\\s+from\\s+['"](${modPattern})['"];?|` +
       `import\\s+([A-Za-z0-9_$]+)\\s+from\\s+['"](${modPattern})['"];?`,
     'g'
@@ -53,7 +54,20 @@ export function transformImports(code: string): string {
     return { global: 'window.__PYXIS_MARKDOWN__', prop: map[moduleName] || null };
   }
 
-  return code.replace(regex, (match, defWithName, namedWithDef, mod1, namedOnly, mod2, defOnly, mod3) => {
+  return code.replace(
+    regex,
+    (
+      match,
+      defWithName,
+      namedWithDef,
+      mod1,
+      namespaceName,
+      mod2,
+      namedOnly,
+      mod3,
+      defOnly,
+      mod4
+    ) => {
     // Cases:
     // 1) defWithName, namedWithDef, mod1  => import defWithName, { namedWithDef } from 'mod1'
     // 2) namedOnly, mod2                  => import { namedOnly } from 'mod2'
@@ -63,6 +77,7 @@ export function transformImports(code: string): string {
     if (mod1) moduleName = mod1;
     else if (mod2) moduleName = mod2;
     else if (mod3) moduleName = mod3;
+    else if (mod4) moduleName = mod4;
     if (!moduleName) return match;
 
     const host = moduleToHost(moduleName);
@@ -105,6 +120,16 @@ export function transformImports(code: string): string {
       }
       const prop = host.prop ? `.${host.prop}` : '';
       return `const ${defName} = ${host.global}${prop} || ${host.global};`;
+    }
+
+    // import * as ns from 'module'
+    if (namespaceName && moduleName) {
+      const ns = namespaceName;
+      if (moduleName === 'react') {
+        return `const ${ns} = ${host.global};`;
+      }
+      // For markdown/math, expose the host markdown namespace or an empty object
+      return `const ${ns} = ${host.global} || {};`;
     }
 
     return match;
