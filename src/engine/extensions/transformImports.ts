@@ -24,7 +24,15 @@ export function transformImports(code: string): string {
     );
   }
   // Support resolving several host-provided modules (react + markdown/math libs)
-  const modules = ['react', 'react-markdown', 'remark-gfm', 'remark-math', 'rehype-katex', 'katex'];
+  const modules = [
+    'react',
+    'react-markdown',
+    'remark-gfm',
+    'remark-math',
+    'rehype-katex',
+    'rehype-raw',
+    'katex',
+  ];
 
   const modPattern = modules.map(m => m.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')).join('|');
 
