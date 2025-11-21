@@ -147,14 +147,37 @@ function installDependencies(dir) {
 async function bundleWithEsbuild(entryPoint, outfile, extDir) {
   try {
     console.log(`📦 Bundling ${path.basename(entryPoint)} with esbuild...`);
-    
-    await esbuild.build({
+    // Provide a small esbuild plugin that injects a shim for react/jsx-runtime
+    // and react/jsx-dev-runtime so bundles that use automatic JSX runtime
+    // do not emit bare imports that fail in blob/dynamic-import environments.
+    const jsxRuntimeShimPlugin = {
+      name: 'jsx-runtime-shim',
+      setup(build) {
+        // Resolve the exact specifiers to our virtual namespace
+        build.onResolve({ filter: /^react\/jsx-runtime$|^react\/jsx-dev-runtime$/ }, args => {
+          return { path: args.path, namespace: 'jsx-runtime-shim' };
+        });
+
+        // Provide the module contents when loaded
+        build.onLoad({ filter: /.*/, namespace: 'jsx-runtime-shim' }, async () => {
+          const contents = `export const jsx = (...args) => window.__PYXIS_REACT__.createElement(...args);\nexport const jsxs = (...args) => window.__PYXIS_REACT__.createElement(...args);\nexport const Fragment = window.__PYXIS_REACT__.Fragment;\n`;
+          return { contents, loader: 'js' };
+        });
+      }
+    };
+
+    const result = await esbuild.build({
       entryPoints: [entryPoint],
       bundle: true,
       outfile: outfile,
       platform: 'browser',
       format: 'esm',
       target: 'es2020',
+      // Prefer browser field when resolving packages to avoid Node-specific entrypoints
+      mainFields: ['browser', 'module', 'main'],
+      // Prefer browser conditional exports when available
+      conditions: ['browser'],
+      keepNames: true,
       // TypeScriptのコンパイラオプションを明示的に上書き
       tsconfigRaw: {
         compilerOptions: {
@@ -167,11 +190,20 @@ async function bundleWithEsbuild(entryPoint, outfile, extDir) {
         'react',
         'react-dom',
         'react-dom/client',
+        // 'react/jsx-runtime' is handled by the jsxRuntimeShimPlugin (inlined).
+        // Avoid bundling heavy markdown/math libs into extensions; prefer host-provided
+        // implementations injected at runtime (window.__PYXIS_MARKDOWN__).
+        'react-markdown',
+        'remark-gfm',
+        'remark-math',
+        'rehype-katex',
+        'katex',
       ],
       loader: {
         '.ts': 'ts',
         '.tsx': 'tsx',
-        '.js': 'jsx',
+        // Treat .js as plain JS (not necessarily JSX) to avoid unexpected transforms
+        '.js': 'js',
         '.jsx': 'jsx',
       },
       define: {
@@ -180,8 +212,23 @@ async function bundleWithEsbuild(entryPoint, outfile, extDir) {
       minify: false, // デバッグしやすいように圧縮しない
       sourcemap: false,
       logLevel: 'warning',
+      // Emit metafile to help analyze what was bundled (useful for diagnosing Node-only deps)
+      metafile: true,
+      // Include our shim plugin so jsx runtime imports are inlined into the bundle
+      plugins: [jsxRuntimeShimPlugin],
     });
-    
+
+    // Write metafile next to outfile for debugging
+    try {
+      if (result && result.metafile) {
+        const metaPath = outfile + '.meta.json';
+        fs.writeFileSync(metaPath, JSON.stringify(result.metafile, null, 2));
+        console.log(`📝 Wrote metafile: ${path.relative(__dirname, metaPath)}`);
+      }
+    } catch (e) {
+      console.error('❌ Failed to write metafile:', e && e.message ? e.message : e);
+    }
+
     console.log(`✅ Bundled to ${path.relative(__dirname, outfile)}\n`);
     return true;
   } catch (error) {

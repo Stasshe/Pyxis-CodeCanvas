@@ -24,9 +24,9 @@ export class RmCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
     const { options, positional } = this.parseOptions(args);
 
-  console.log('[rm] args:', args);
-  console.log('[rm] positional:', positional);
-  console.log('[rm] positional.length:', positional.length, positional);
+    console.log('[rm] args:', args);
+    console.log('[rm] positional:', positional);
+    console.log('[rm] positional.length:', positional.length, positional);
 
     if (positional.length === 0) {
       throw new Error('rm: missing operand\nUsage: rm [OPTION]... FILE...');
@@ -48,7 +48,7 @@ export class RmCommand extends UnixCommandBase {
       try {
         const expanded = await this.expandPathPattern(arg);
         console.log('[rm] expanded to:', expanded);
-        
+
         if (expanded.length === 0) {
           if (!force) {
             errors.push(`rm: cannot remove '${arg}': No such file or directory`);
@@ -60,10 +60,10 @@ export class RmCommand extends UnixCommandBase {
         for (const expandedPath of expanded) {
           const normalizedPath = this.normalizePath(expandedPath);
           const relativePath = this.getRelativePathFromProject(normalizedPath);
-          
+
           try {
             const file = await this.cachedGetFile(relativePath);
-            
+
             if (!file) {
               // ファイルが見つからない場合
               if (!force) {
@@ -83,9 +83,8 @@ export class RmCommand extends UnixCommandBase {
             // 削除対象としてリストに追加
             targetsToDelete.push({
               path: normalizedPath,
-              file: file
+              file: file,
             });
-
           } catch (error) {
             if (!force) {
               errors.push(`rm: cannot remove '${expandedPath}': ${(error as Error).message}`);
@@ -122,16 +121,14 @@ export class RmCommand extends UnixCommandBase {
     for (const target of targetsToDelete) {
       try {
         const isDir = target.file.type === 'folder';
-        
+
         // 削除実行（fileRepository.deleteFile は自動的に子ファイルも削除）
         await fileRepository.deleteFile(target.file.id);
-        
+
         // 削除成功を記録
         if (verbose) {
           deletedPaths.push(
-            isDir 
-              ? `removed directory '${target.path}'`
-              : `removed '${target.path}'`
+            isDir ? `removed directory '${target.path}'` : `removed '${target.path}'`
           );
         } else {
           // -v なしでも削除したパスを記録（簡潔に）

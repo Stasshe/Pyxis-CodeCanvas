@@ -159,70 +159,79 @@ export async function loadExtensionModule(
       // 追加ファイルをBlobURLとして登録
       for (const [filePath, code] of Object.entries(additionalFiles)) {
         let url: string;
-
-        // If the file is a data URL (binary stored as data:<mime>;base64,...) create a blob from it
-        const isBlobLike =
-          code && typeof code === 'object' && 'size' in (code as any) && 'type' in (code as any);
-        if (isBlobLike) {
-          url = URL.createObjectURL(code as Blob);
-        } else if (typeof code === 'string' && code.startsWith('data:')) {
-          try {
-            const blob = dataUrlToBlob(code);
-            url = URL.createObjectURL(blob);
-          } catch (e) {
-            // fallback to treating as text module
+        try {
+          // If the file is a data URL (binary stored as data:<mime>;base64,...) create a blob from it
+          const isBlobLike =
+            code && typeof code === 'object' && 'size' in (code as any) && 'type' in (code as any);
+          if (isBlobLike) {
+            url = URL.createObjectURL(code as Blob);
+          } else if (typeof code === 'string' && code.startsWith('data:')) {
+            try {
+              const blob = dataUrlToBlob(code);
+              url = URL.createObjectURL(blob);
+            } catch (e) {
+              // fallback to treating as text module
+              const transformedCode = transformImports(code as string);
+              const blob = new Blob([transformedCode], { type: 'application/javascript' });
+              url = URL.createObjectURL(blob);
+              console.error('[ExtensionLoader] Failed to convert dataUrl to Blob for', filePath, e);
+            }
+          } else {
             const transformedCode = transformImports(code as string);
             const blob = new Blob([transformedCode], { type: 'application/javascript' });
             url = URL.createObjectURL(blob);
           }
-        } else {
-          const transformedCode = transformImports(code as string);
-          const blob = new Blob([transformedCode], { type: 'application/javascript' });
-          url = URL.createObjectURL(blob);
+        } catch (err) {
+          console.error('[ExtensionLoader] Error creating Blob for', filePath, err);
+          throw err;
         }
         blobUrls.push(url);
 
         // 相対パスをimport mapに登録
-        // 例: "helper.js" -> "./" + "helper.js" = "./helper.js"
-        //     "utils/math.js" -> "./" + "utils/math.js" = "./utils/math.js"
         const normalizedPath = filePath.startsWith('./') ? filePath : `./${filePath}`;
-
-        // 拡張子なしのパスもマッピング（TypeScriptの import './helper' に対応）
         const pathWithoutExt = normalizedPath.replace(/\.(js|ts|tsx)$/, '');
-
         importMap[normalizedPath] = url;
         importMap[pathWithoutExt] = url;
-
         extensionInfo(`Mapped module: ${normalizedPath} -> ${url.slice(0, 50)}...`);
+      }
+
+      // ランタイム保険: `react/jsx-runtime` と `react/jsx-dev-runtime` の shim を作成して
+      // import map に登録しておく。ビルド時に漏れていた場合でもここで解決できる。
+      try {
+        const jsxShimCode = `export const jsx = (...args) => window.__PYXIS_REACT__.createElement(...args);\nexport const jsxs = (...args) => window.__PYXIS_REACT__.createElement(...args);\nexport const Fragment = window.__PYXIS_REACT__.Fragment;\n`;
+        const jsxBlob = new Blob([jsxShimCode], { type: 'application/javascript' });
+        const jsxUrl = URL.createObjectURL(jsxBlob);
+        blobUrls.push(jsxUrl);
+        importMap['react/jsx-runtime'] = jsxUrl;
+        importMap['react/jsx-dev-runtime'] = jsxUrl;
+        extensionInfo(`Runtime shim registered: react/jsx-runtime -> ${jsxUrl.slice(0, 50)}...`);
+      } catch (e) {
+        console.error('[ExtensionLoader] Failed to create runtime jsx shim', e);
       }
 
       // エントリーコードを変換し、相対importをBlobURLに書き換え
       let transformedEntryCode = transformImports(entryCode);
 
       // 相対importをBlobURLに書き換え
-      // import { ... } from './module' 形式
       transformedEntryCode = transformedEntryCode.replace(
         /from\s+['"](\.[^'"]+)['"]/g,
         (match, importPath) => {
-          // 拡張子を正規化
           let normalizedImportPath = importPath;
-
-          // 拡張子がない場合は .js を試す
           if (!importPath.match(/\.(js|ts|tsx)$/)) {
             const withJs = `${importPath}.js`;
             if (importMap[withJs]) {
               normalizedImportPath = withJs;
             }
           }
-
           const resolvedUrl = importMap[normalizedImportPath];
           if (resolvedUrl) {
             extensionInfo(`Resolved import: ${importPath} -> ${resolvedUrl.slice(0, 50)}...`);
             return `from '${resolvedUrl}'`;
           }
-
           extensionError(`Failed to resolve import: ${importPath}`);
-          return match; // 解決できない場合は元のまま
+          // 詳細なimportMapの内容を出力
+          console.error('[ExtensionLoader] importMap:', importMap);
+          return match;
         }
       );
 
@@ -231,18 +240,97 @@ export async function loadExtensionModule(
         '[ExtensionLoader] Transformed code preview:',
         transformedEntryCode.slice(0, 500)
       );
+      // 変換前のentryCodeも出力
+      console.log('[ExtensionLoader] Raw entryCode preview:', entryCode.slice(0, 500));
 
       // エントリーポイントをBlobURLとして作成
-      const entryBlob = new Blob([transformedEntryCode], { type: 'application/javascript' });
-      const entryUrl = URL.createObjectURL(entryBlob);
-      blobUrls.push(entryUrl);
+      let entryBlob, entryUrl;
+      try {
+        entryBlob = new Blob([transformedEntryCode], { type: 'application/javascript' });
+        entryUrl = URL.createObjectURL(entryBlob);
+        blobUrls.push(entryUrl);
+      } catch (err) {
+        console.error('[ExtensionLoader] Failed to create Blob for entry code', err);
+        throw err;
+      }
 
       // Dynamic importでモジュールをロード
-      const module = await import(/* webpackIgnore: true */ entryUrl);
+      let module;
+      try {
+        module = await import(/* webpackIgnore: true */ entryUrl);
+      } catch (err) {
+        console.error('[ExtensionLoader] Failed to import entryUrl', entryUrl, err);
+        // 変換後コードの先頭1000文字も出力
+        console.error(
+          '[ExtensionLoader] Transformed entryCode (first 10000 chars):',
+          transformedEntryCode.slice(0, 10000)
+        );
+        console.error(
+          '[ExtensionLoader] Raw entryCode (first 10000 chars):',
+          entryCode.slice(0, 10000)
+        );
+
+        // フォールバック診断: <script type="module"> を挿入して window.onerror で詳細を取得する
+        try {
+          if (typeof document !== 'undefined' && typeof window !== 'undefined') {
+            console.info(
+              '[ExtensionLoader] Attempting fallback diagnostics by injecting module script'
+            );
+
+            const script = document.createElement('script');
+            script.type = 'module';
+            // Append sourceURL to help devtools map errors to blob URL
+            const codeWithSource = `${transformedEntryCode}\n//# sourceURL=${entryUrl}`;
+            script.textContent = codeWithSource;
+
+            const errorInfo: any = { caught: false };
+
+            const onError = (event: ErrorEvent) => {
+              try {
+                errorInfo.caught = true;
+                errorInfo.message = event.message;
+                errorInfo.filename = event.filename;
+                errorInfo.lineno = event.lineno;
+                errorInfo.colno = event.colno;
+                errorInfo.error = event.error
+                  ? { message: event.error.message, stack: event.error.stack }
+                  : undefined;
+                console.error(
+                  '[ExtensionLoader][Fallback] module execution error event:',
+                  errorInfo
+                );
+              } finally {
+                window.removeEventListener('error', onError as any);
+                // remove script after error captured
+                try {
+                  script.remove();
+                } catch (e) {}
+              }
+            };
+
+            window.addEventListener('error', onError as any);
+            // Append to DOM to execute
+            document.head.appendChild(script);
+
+            // Wait briefly to allow synchronous errors to fire (module top-level errors are usually sync)
+            await new Promise(res => setTimeout(res, 200));
+
+            if (!errorInfo.caught) {
+              console.warn(
+                '[ExtensionLoader][Fallback] No window.error captured by fallback (error may be async or swallowed).'
+              );
+            }
+          }
+        } catch (diagErr) {
+          console.error('[ExtensionLoader] Fallback diagnostics failed:', diagErr);
+        }
+        throw err;
+      }
 
       // activate関数の存在を確認
       if (typeof module.activate !== 'function') {
         extensionError('Extension must export an activate function');
+        console.error('[ExtensionLoader] Module keys:', Object.keys(module));
         return null;
       }
 
@@ -254,6 +342,11 @@ export async function loadExtensionModule(
     }
   } catch (error) {
     extensionError('Error loading extension module:', error);
+    // 追加: entryCodeやadditionalFilesの情報も出力
+    try {
+      console.error('[ExtensionLoader] entryCode (first 1000 chars):', entryCode.slice(0, 1000));
+      console.error('[ExtensionLoader] additionalFiles keys:', Object.keys(additionalFiles));
+    } catch (e) {}
     return null;
   }
 }
@@ -279,7 +372,14 @@ export async function activateExtension(
         stack: error.stack,
         name: error.name,
       });
+    } else {
+      console.error('[ExtensionLoader] Activation error (non-Error object):', error);
     }
+    // contextやexportsの情報も出力
+    try {
+      console.error('[ExtensionLoader] context:', context);
+      console.error('[ExtensionLoader] exports keys:', Object.keys(exports));
+    } catch (e) {}
     return null;
   }
 }

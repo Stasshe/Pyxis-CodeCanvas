@@ -127,14 +127,14 @@ export class TreeBuilder {
           treePromises.push(
             (remoteSubtreeSha
               ? this.buildTreeDifferential(
-                localEntry.oid,
-                remoteSubtreeSha,
-                path ? `${path}/${localEntry.path}` : localEntry.path
-              )
+                  localEntry.oid,
+                  remoteSubtreeSha,
+                  path ? `${path}/${localEntry.path}` : localEntry.path
+                )
               : this.buildTreeRecursive(
-                localEntry.oid,
-                path ? `${path}/${localEntry.path}` : localEntry.path
-              )
+                  localEntry.oid,
+                  path ? `${path}/${localEntry.path}` : localEntry.path
+                )
             )
               .then(sha => ({
                 path: localEntry.path,

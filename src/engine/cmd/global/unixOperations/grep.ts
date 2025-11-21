@@ -32,17 +32,17 @@ export class GrepCommand extends UnixCommandBase {
       throw new Error('grep: no pattern specified\nUsage: grep [OPTION]... PATTERN [FILE]...');
     }
 
-  const pattern = positional[0];
-  let files = positional.slice(1);
+    const pattern = positional[0];
+    let files = positional.slice(1);
 
-  const ignoreCase = options.has('-i') || options.has('--ignore-case');
+    const ignoreCase = options.has('-i') || options.has('--ignore-case');
     const invertMatch = options.has('-v') || options.has('--invert-match');
     const showLineNumber = options.has('-n') || options.has('--line-number');
     const recursive = options.has('-r') || options.has('-R') || options.has('--recursive');
     const filesWithMatches = options.has('-l') || options.has('--files-with-matches');
     const countOnly = options.has('-c') || options.has('--count');
-  const fixedStrings = options.has('-F') || options.has('--fixed-strings');
-  const extendedRegexp = options.has('-E') || options.has('--extended-regexp');
+    const fixedStrings = options.has('-F') || options.has('--fixed-strings');
+    const extendedRegexp = options.has('-E') || options.has('--extended-regexp');
 
     // Build regex according to options (-F: fixed strings, -E: extended regexp)
     let regex: RegExp;
@@ -104,12 +104,12 @@ export class GrepCommand extends UnixCommandBase {
     for (const fileArg of files) {
       const expanded = await this.expandPathPattern(fileArg);
 
-  for (const path of expanded) {
+      for (const path of expanded) {
         try {
           const normalizedPath = this.normalizePath(path);
           const isDir = await this.isDirectory(normalizedPath);
 
-            if (isDir) {
+          if (isDir) {
             if (recursive) {
               const dirResults = await this.grepDirectory(
                 normalizedPath,

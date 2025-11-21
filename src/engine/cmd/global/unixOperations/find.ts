@@ -30,18 +30,18 @@ export class FindCommand extends UnixCommandBase {
     const paths: string[] = [];
     let expressionStart = 0;
 
-      for (let i = 0; i < args.length; i++) {
-        if (args[i].startsWith('-')) {
-          expressionStart = i;
-          break;
-        }
-        paths.push(args[i]);
+    for (let i = 0; i < args.length; i++) {
+      if (args[i].startsWith('-')) {
+        expressionStart = i;
+        break;
+      }
+      paths.push(args[i]);
     }
 
     // デフォルトはカレントディレクトリ
     if (paths.length === 0) paths.push(this.currentDir);
 
-  const expressions = args.slice(expressionStart);
+    const expressions = args.slice(expressionStart);
 
     // 式を解析
     const criteria = this.parseExpressions(expressions);
@@ -148,13 +148,13 @@ export class FindCommand extends UnixCommandBase {
 
   /**
    * glob パターンを正規表現に変換
-   * 
+   *
    * サポートするパターン:
    *   * : 任意の文字列（0文字以上）
    *   ? : 任意の1文字
    *   [abc] : a, b, c のいずれか
    *   [!abc] または [^abc] : a, b, c 以外
-   *   
+   *
    * @param pattern - globパターン
    * @param ignoreCase - 大文字小文字を区別しない場合true
    */
@@ -162,7 +162,10 @@ export class FindCommand extends UnixCommandBase {
     // POSIX: ワイルドカードなしは完全一致（basenameのみ）
     if (!pattern.includes('*') && !pattern.includes('?') && !pattern.includes('[')) {
       // 例: find . -iname readme → basenameが"readme"のみ一致
-      return new RegExp('^' + pattern.replace(/[.+^${}()|\[\]]/g, '\\$&') + '$', ignoreCase ? 'i' : '');
+      return new RegExp(
+        '^' + pattern.replace(/[.+^${}()|\[\]]/g, '\\$&') + '$',
+        ignoreCase ? 'i' : ''
+      );
     }
     // ワイルドカードありはglob展開
     let res = '';
@@ -226,10 +229,7 @@ export class FindCommand extends UnixCommandBase {
   /**
    * 指定されたパスからファイルを検索
    */
-  protected async findFiles(
-    startPath: string,
-    criteria: SearchCriteria
-  ): Promise<string[]> {
+  protected async findFiles(startPath: string, criteria: SearchCriteria): Promise<string[]> {
     const relativePath = this.getRelativePathFromProject(startPath);
     const results: string[] = [];
     const normalizedStart = startPath.endsWith('/') ? startPath.slice(0, -1) : startPath;
@@ -257,9 +257,7 @@ export class FindCommand extends UnixCommandBase {
       relativeToStart = relativeToStart.replace(/^\/+/, '');
 
       // 深度を計算
-      const depth = relativeToStart === ''
-        ? 0
-        : relativeToStart.split('/').filter(p => p).length;
+      const depth = relativeToStart === '' ? 0 : relativeToStart.split('/').filter(p => p).length;
 
       // 深度チェック
       if (depth < criteria.minDepth || depth > criteria.maxDepth) {
@@ -267,9 +265,8 @@ export class FindCommand extends UnixCommandBase {
       }
 
       // フルパスを構築
-      const fullPath = relativeToStart === ''
-        ? normalizedStart
-        : `${normalizedStart}/${relativeToStart}`;
+      const fullPath =
+        relativeToStart === '' ? normalizedStart : `${normalizedStart}/${relativeToStart}`;
 
       // POSIX: type指定がなければ全type対象、name指定もfile/folder両方
       if (criteria.typeFilter && file.type !== criteria.typeFilter) {
