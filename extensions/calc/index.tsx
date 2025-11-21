@@ -404,11 +404,16 @@ function createCalcPanel(context: ExtensionContext) {
                     userSelect: 'all',
                   }}
                 >
-                  $${result}$$
+                  <ReactMarkdown
+                    remarkPlugins={[remarkMath]}
+                    rehypePlugins={[rehypeKatex]}
+                  >
+                    {`$$${result}$$`}
+                  </ReactMarkdown>
                 </div>
                 <button
                   onClick={() => {
-                    navigator.clipboard.writeText(`$$${result}$$`);
+                    navigator.clipboard.writeText(result);
                   }}
                   style={{
                     marginTop: '6px',
