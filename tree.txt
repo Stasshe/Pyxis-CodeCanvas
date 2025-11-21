@@ -114,20 +114,22 @@ Root
 │   │   └── initial_files_to_ts.js
 │   ├── chore
 │   │   └── update-readmes-version.js
-│   └── i18n
-│       ├── README.md
-│       ├── apply_missing_keys.js
-│       ├── compare_locale_keys.sh
-│       ├── flatten_json_keys.pl
-│       ├── format_json.js
-│       ├── format_locales.sh
-│       ├── i18n-auto-add-missing.js
-│       ├── i18n-detect.sh
-│       ├── i18n-exclude.txt
-│       ├── i18n-missing-keys.sh
-│       ├── one_file_i18n_extract.pl
-│       ├── one_file_t_extract.pl
-│       └── remove_unused_i18n_keys.js
+│   ├── i18n
+│   │   ├── README.md
+│   │   ├── apply_missing_keys.js
+│   │   ├── compare_locale_keys.sh
+│   │   ├── flatten_json_keys.pl
+│   │   ├── format_json.js
+│   │   ├── format_locales.sh
+│   │   ├── i18n-auto-add-missing.js
+│   │   ├── i18n-detect.sh
+│   │   ├── i18n-exclude.txt
+│   │   ├── i18n-missing-keys.sh
+│   │   ├── one_file_i18n_extract.pl
+│   │   ├── one_file_t_extract.pl
+│   │   └── remove_unused_i18n_keys.js
+│   └── tools
+│       └── analyze-metafiles.js
 ├── src
 │   ├── app
 │   │   ├── Toast.css
@@ -353,11 +355,10 @@ Root
 │   │   │   │   └── index.ts
 │   │   │   ├── registerBuiltinTabs.ts
 │   │   │   └── types.ts
-│   │   ├── user
-│   │   │   ├── authRepository.ts
-│   │   │   ├── crypto.ts
-│   │   │   └── githubUserManager.ts
-│   │   └── webcontainer
+│   │   └── user
+│   │       ├── authRepository.ts
+│   │       ├── crypto.ts
+│   │       └── githubUserManager.ts
 │   ├── hooks
 │   │   ├── ai
 │   │   │   ├── useAI.ts
@@ -389,9 +390,6 @@ Root
 │       └── vm-browserify.d.ts
 ├── tailwind.config.ts
 ├── tests
-│   ├── __artifacts__
-│   │   ├── math.transformed.ts
-│   │   └── use-math.transformed.ts
 │   ├── aiResponseParser.test.ts
 │   ├── all-sh.test.ts
 │   ├── extensionLoader.multifile.test.ts
@@ -417,10 +415,9 @@ Root
 ├── tree-built-out.sh
 ├── tree.sh
 ├── tree.txt
-├── tsconfig.json
-└── tsconfig.tsbuildinfo
+└── tsconfig.json
 
-65 directories, 355 files
+64 directories, 353 files
 
 =================================
 
@@ -431,6 +428,14 @@ extensions/ 以下のディレクトリ構造:
 │   ├── README.md
 │   ├── systemModuleTypes.ts
 │   └── types.ts
+├── calc
+│   ├── PNPM-GUIDE.md
+│   ├── README.md
+│   ├── index.tsx
+│   ├── manifest.json
+│   ├── node_modules
+│   │   └── latexium -> ../../../node_modules/.pnpm/latexium@0.1.1/node_modules/latexium
+│   └── package.json
 ├── chart-extension
 │   ├── README.md
 │   ├── index.tsx
@@ -448,7 +453,6 @@ extensions/ 以下のディレクトリ構造:
 │   │   │       │   └── color.min.js.map
 │   │   │       └── package.json
 │   │   └── chart.js -> ../../../node_modules/.pnpm/chart.js@4.5.1/node_modules/chart.js
-│   ├── package-lock.json
 │   └── package.json
 ├── lang-packs
 │   ├── ar
@@ -532,18 +536,18 @@ extensions/ 以下のディレクトリ構造:
     ├── manifest.json
     └── transpile.worker.ts
 
-34 directories, 72 files
+37 directories, 76 files
 
 =================================
 
 
 src/*.ts, *.tsx の統計:
-合計行数: 50482
-合計文字数: 1630014
-合計ファイルサイズ(bytes): 1738768
+合計行数: 50783
+合計文字数: 1639868
+合計ファイルサイズ(bytes): 1748796
 
-開発時のdev container全体のサイズ(bytes): 2.6G	.
+開発時のdev container全体のサイズ(bytes): 2.5G	.
 ==========
-ビルト済みファイルの行数: 41239
-合計文字数: 26427220
-合計ファイルサイズ(bytes): 27411219
+ビルト済みファイルの行数: 41240
+合計文字数: 26134956
+合計ファイルサイズ(bytes): 27118853
