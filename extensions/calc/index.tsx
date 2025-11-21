@@ -6,10 +6,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
 import { parseLatex, analyze } from 'latexium';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import remarkMath from 'remark-math';
-import rehypeKatex from 'rehype-katex';
 
 // 計算履歴の型
 interface CalculationHistory {
@@ -456,13 +452,33 @@ function createCalcPanel(context: ExtensionContext) {
                       overflow: 'auto',
                     }}
                   >
-                    <ReactMarkdown
-                      key={String(stepsMarkdown?.length ?? 0) + (showMdDebug ? '-dbg' : '')}
-                      remarkPlugins={[remarkGfm, remarkMath]}
-                      rehypePlugins={[rehypeKatex]}
-                    >
-                      {stepsMarkdown}
-                    </ReactMarkdown>
+                    {(() => {
+                      // Prefer host-provided markdown/math libs (injected by ExtensionManager)
+                      const hostMd =
+                        typeof window !== 'undefined' && (window as any).__PYXIS_MARKDOWN__
+                          ? (window as any).__PYXIS_MARKDOWN__
+                          : null;
+
+                      const ReactMarkdownComp = hostMd?.ReactMarkdown;
+                      const remarkPlugins = [hostMd?.remarkGfm, hostMd?.remarkMath].filter(Boolean);
+                      const rehypePlugins = [hostMd?.rehypeKatex].filter(Boolean);
+
+                      if (ReactMarkdownComp) {
+                        const Comp = ReactMarkdownComp;
+                        return (
+                          <Comp
+                            key={String(stepsMarkdown?.length ?? 0) + (showMdDebug ? '-dbg' : '')}
+                            remarkPlugins={remarkPlugins}
+                            rehypePlugins={rehypePlugins}
+                          >
+                            {stepsMarkdown}
+                          </Comp>
+                        );
+                      }
+
+                      // Fallback: plain preformatted text when host libs are not available
+                      return <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{stepsMarkdown}</pre>;
+                    })()}
 
                     {showMdDebug && (
                       <div style={{ marginTop: '12px', padding: '8px', background: '#1f1f1f', borderRadius: '6px', border: '1px dashed #333' }}>

@@ -96,6 +96,33 @@ class ExtensionManager {
       (window as any).__PYXIS_REACT__ = React;
       (window as any).__PYXIS_REACT_DOM__ = ReactDOM;
       console.log('[ExtensionManager] React and ReactDOM provided globally for extensions');
+      // Provide Markdown/math rendering libraries on the host so extensions
+      // don't need to bundle heavy unified/rehype ecosystems into blob modules.
+      try {
+        const ReactMarkdownModule = await import('react-markdown');
+        const remarkGfmModule = await import('remark-gfm');
+        const remarkMathModule = await import('remark-math');
+        const rehypeKatexModule = await import('rehype-katex');
+        // katex may be needed directly by some extensions
+        let katexModule: any = null;
+        try {
+          katexModule = await import('katex');
+        } catch (e) {
+          // katex is optional; warn but continue
+          console.warn('[ExtensionManager] katex not available as host-provided module');
+        }
+
+        (window as any).__PYXIS_MARKDOWN__ = {
+          ReactMarkdown: (ReactMarkdownModule && (ReactMarkdownModule as any).default) || ReactMarkdownModule,
+          remarkGfm: (remarkGfmModule && (remarkGfmModule as any).default) || remarkGfmModule,
+          remarkMath: (remarkMathModule && (remarkMathModule as any).default) || remarkMathModule,
+          rehypeKatex: (rehypeKatexModule && (rehypeKatexModule as any).default) || rehypeKatexModule,
+          katex: katexModule && ((katexModule as any).default || katexModule),
+        };
+        console.log('[ExtensionManager] Markdown/math libraries provided globally for extensions');
+      } catch (err) {
+        console.warn('[ExtensionManager] Failed to provide markdown/math libraries globally:', err);
+      }
     }
 
     // インストール済み & 有効化済みの拡張機能を読み込み

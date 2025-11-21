@@ -191,10 +191,13 @@ async function bundleWithEsbuild(entryPoint, outfile, extDir) {
         'react-dom',
         'react-dom/client',
         // 'react/jsx-runtime' is handled by the jsxRuntimeShimPlugin (inlined).
-        // // Avoid bundling heavy math rendering libs into extensions; prefer host-provided
-        // // or dynamic loading at runtime to prevent module-eval crashes.
-        // 'katex',
-        // 'rehype-katex',
+        // Avoid bundling heavy markdown/math libs into extensions; prefer host-provided
+        // implementations injected at runtime (window.__PYXIS_MARKDOWN__).
+        'react-markdown',
+        'remark-gfm',
+        'remark-math',
+        'rehype-katex',
+        'katex',
       ],
       loader: {
         '.ts': 'ts',

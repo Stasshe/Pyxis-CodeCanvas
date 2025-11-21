@@ -20,22 +20,93 @@ export function transformImports(code: string): string {
   function convertNamedImportsForDestructure(named: string): string {
     return named.replace(/([A-Za-z0-9_$]+)\s+as\s+([A-Za-z0-9_$]+)/g, (_m, orig, alias) => `${orig}: ${alias}`);
   }
+  // Support resolving several host-provided modules (react + markdown/math libs)
+  const modules = [
+    'react',
+    'react-markdown',
+    'remark-gfm',
+    'remark-math',
+    'rehype-katex',
+    'katex',
+  ];
 
-  return code.replace(
-    /import\s+React\s*,\s*\{([^}]+)\}\s+from\s+['"]react['"];?|import\s+React\s+from\s+['"]react['"];?|import\s+\{([^}]+)\}\s+from\s+['"]react['"];?/g,
-    (match, namedImportsWithDefault, namedImportsOnly) => {
-      // import React, { ... } from 'react'
-      if (namedImportsWithDefault) {
-        const processed = convertNamedImportsForDestructure(namedImportsWithDefault);
-        return `const React = window.__PYXIS_REACT__; const {${processed}} = React;`;
-      }
-      // import { ... } from 'react' (Reactのdefaultなし)
-      if (namedImportsOnly) {
-        const processed = convertNamedImportsForDestructure(namedImportsOnly);
-        return `const {${processed}} = window.__PYXIS_REACT__;`;
-      }
-      // import React from 'react'
-      return 'const React = window.__PYXIS_REACT__;';
-    }
+  const modPattern = modules.map(m => m.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')).join('|');
+
+  // single-pass regex handling default+named, named-only, default-only imports
+  const regex = new RegExp(
+    `import\\s+([A-Za-z0-9_$]+)\\s*,\\s*\\{([^}]+)\\}\\s+from\\s+['"](${modPattern})['"];?|` +
+      `import\\s+\\{([^}]+)\\}\\s+from\\s+['"](${modPattern})['"];?|` +
+      `import\\s+([A-Za-z0-9_$]+)\\s+from\\s+['"](${modPattern})['"];?`,
+    'g'
   );
+
+  function moduleToHost(moduleName: string) {
+    if (moduleName === 'react') return { global: 'window.__PYXIS_REACT__', prop: null };
+    // map hyphenated module names to expected properties on window.__PYXIS_MARKDOWN__
+    const map: Record<string, string> = {
+      'react-markdown': 'ReactMarkdown',
+      'remark-gfm': 'remarkGfm',
+      'remark-math': 'remarkMath',
+      'rehype-katex': 'rehypeKatex',
+      'katex': 'katex',
+    };
+    return { global: 'window.__PYXIS_MARKDOWN__', prop: map[moduleName] || null };
+  }
+
+  return code.replace(regex, (match, defWithName, namedWithDef, mod1, namedOnly, mod2, defOnly, mod3) => {
+    // Cases:
+    // 1) defWithName, namedWithDef, mod1  => import defWithName, { namedWithDef } from 'mod1'
+    // 2) namedOnly, mod2                  => import { namedOnly } from 'mod2'
+    // 3) defOnly, mod3                    => import defOnly from 'mod3'
+
+    let moduleName: string | null = null;
+    if (mod1) moduleName = mod1;
+    else if (mod2) moduleName = mod2;
+    else if (mod3) moduleName = mod3;
+    if (!moduleName) return match;
+
+    const host = moduleToHost(moduleName);
+
+    // helper to process named imports
+    const processNamed = (s: string) => {
+      const trimmed = s.trim();
+      const processed = convertNamedImportsForDestructure(trimmed);
+      return processed;
+    };
+
+    // import default, { named } from 'module'
+    if (defWithName && namedWithDef && moduleName) {
+      const defName = defWithName;
+      const namedProcessed = processNamed(namedWithDef);
+
+      if (moduleName === 'react') {
+        return `const ${defName} = ${host.global}; const {${namedProcessed}} = ${defName};`;
+      }
+
+      // host-provided markdown/math
+      const prop = host.prop ? `.${host.prop}` : '';
+      return `const ${defName} = ${host.global}${prop} || ${host.global}; const {${namedProcessed}} = ${host.global};`;
+    }
+
+    // import { named } from 'module'
+    if (namedOnly && moduleName) {
+      const namedProcessed = processNamed(namedOnly);
+      if (moduleName === 'react') {
+        return `const {${namedProcessed}} = ${host.global};`;
+      }
+      return `const {${namedProcessed}} = ${host.global} || {};`;
+    }
+
+    // import default from 'module'
+    if (defOnly && moduleName) {
+      const defName = defOnly;
+      if (moduleName === 'react') {
+        return `const ${defName} = ${host.global};`;
+      }
+      const prop = host.prop ? `.${host.prop}` : '';
+      return `const ${defName} = ${host.global}${prop} || ${host.global};`;
+    }
+
+    return match;
+  });
 }
