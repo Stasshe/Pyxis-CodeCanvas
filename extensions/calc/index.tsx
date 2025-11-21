@@ -433,11 +433,6 @@ function createCalcPanel(context: ExtensionContext) {
                   計算ステップ（Markdown）
                 </div>
                 <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                    <div style={{ fontSize: '12px', color: '#9cdcfe' }}>計算ステップ（Markdown）</div>
-                    <div style={{ display: 'flex', gap: '6px' }} />
-                  </div>
-
                   <div
                     style={{
                       padding: '12px',
@@ -498,16 +493,24 @@ Options:
   --task=<task>  Task to perform (default: evaluate)`;
     }
 
-    const expression = args[0];
+    // Follow `sample-command` style: join args into one expression string,
+    // but remove any `--task=` option before joining so it's not treated as part of the expression.
     let task: 'evaluate' | 'distribute' | 'factor' = 'evaluate';
+    const taskArg = args.find((a) => a.startsWith('--task='));
+    const argsForExpr = args.filter((a) => !a.startsWith('--task='));
+    let expression = argsForExpr.join(' ').trim();
 
-    // --task=xxx オプションを解析
-    const taskArg = args.find((arg) => arg.startsWith('--task='));
+    // strip surrounding quotes if present (e.g., "x^{2} + 5x + 6")
+    if (
+      (expression.startsWith('"') && expression.endsWith('"')) ||
+      (expression.startsWith("'") && expression.endsWith("'"))
+    ) {
+      expression = expression.slice(1, -1).trim();
+    }
+
     if (taskArg) {
       const t = taskArg.split('=')[1] as 'evaluate' | 'distribute' | 'factor';
-      if (['evaluate', 'distribute', 'factor'].includes(t)) {
-        task = t;
-      }
+      if (['evaluate', 'distribute', 'factor'].includes(t)) task = t;
     }
 
     try {

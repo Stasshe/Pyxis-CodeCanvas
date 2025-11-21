@@ -353,6 +353,11 @@ function ClientTerminal({
       // リダイレクト時にコマンド出力をキャプチャ
       let capturedOutput = '';
       const captureWriteOutput = async (output: string) => {
+        // Debug: log raw output received from command (helps detect unexpected encoding)
+        try {
+          // keep this lightweight and safe
+          console.debug('[Terminal] captureWriteOutput received:', JSON.stringify(output));
+        } catch (e) {}
         capturedOutput += output + '\n';
         if (!redirect) {
           await writeOutput(output);
