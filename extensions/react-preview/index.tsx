@@ -35,38 +35,18 @@ async function loadESBuild(): Promise<ESBuild> {
 
   esbuildInitPromise = (async () => {
     try {
-      // ブラウザで動的にスクリプトタグを追加して esbuild をロードする
-      const ESBUILD_CDN = 'https://unpkg.com/esbuild-wasm@0.19.8/lib/browser.min.js';
-      const ESBUILD_WASM = 'https://unpkg.com/esbuild-wasm@0.19.8/esbuild.wasm';
-
-      const loadScript = (url: string) => {
-        return new Promise<void>((resolve, reject) => {
-          // 既にグローバルに存在すれば解決
-          if ((window as any).esbuild) return resolve();
-
-          const script = document.createElement('script');
-          script.src = url;
-          script.async = true;
-          script.onload = () => resolve();
-          script.onerror = () => reject(new Error(`Failed to load script: ${url}`));
-          document.head.appendChild(script);
-        });
-      };
-
-      await loadScript(ESBUILD_CDN);
-
-      const esbuildGlobal = (window as any).esbuild || (window as any).esbuildWasm;
-      if (!esbuildGlobal) {
-        throw new Error('esbuild not available on window after loading script');
-      }
+      // CDN経由でesbuild-wasmをロード
+      const esbuildModule = await import('https://unpkg.com/esbuild-wasm@0.19.8/lib/browser.min.js');
+      const esbuild = esbuildModule.default || esbuildModule;
 
       // WASM初期化
-      await esbuildGlobal.initialize({ wasmURL: ESBUILD_WASM });
+      await esbuild.initialize({
+        wasmURL: 'https://unpkg.com/esbuild-wasm@0.19.8/esbuild.wasm',
+      });
 
-      // 型を合わせる
-      esbuildInstance = esbuildGlobal as ESBuild;
-      console.log('[react-preview] esbuild-wasm loaded successfully (via script tag)');
-      return esbuildInstance;
+      esbuildInstance = esbuild;
+      console.log('[react-preview] esbuild-wasm loaded successfully');
+      return esbuild;
     } catch (error) {
       console.error('[react-preview] Failed to load esbuild-wasm:', error);
       throw new Error('esbuild-wasm loading failed. Check your internet connection.');
