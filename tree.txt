@@ -55,6 +55,9 @@ Root
 │   │   ├── index.html
 │   │   ├── main.js
 │   │   └── style.css
+│   ├── react
+│   │   ├── App.css
+│   │   └── App.jsx
 │   ├── run-test.sh
 │   ├── src
 │   │   ├── debugConsoleDemo.js
@@ -415,9 +418,11 @@ Root
 ├── tree-built-out.sh
 ├── tree.sh
 ├── tree.txt
-└── tsconfig.json
+├── tsconfig.json
+└── types
+    └── esbuild-cdn.d.ts
 
-64 directories, 353 files
+66 directories, 356 files
 
 =================================
 
@@ -441,17 +446,6 @@ extensions/ 以下のディレクトリ構造:
 │   ├── index.tsx
 │   ├── manifest.json
 │   ├── node_modules
-│   │   ├── @kurkle
-│   │   │   └── color
-│   │   │       ├── LICENSE.md
-│   │   │       ├── README.md
-│   │   │       ├── dist
-│   │   │       │   ├── color.cjs
-│   │   │       │   ├── color.d.ts
-│   │   │       │   ├── color.esm.js
-│   │   │       │   ├── color.min.js
-│   │   │       │   └── color.min.js.map
-│   │   │       └── package.json
 │   │   └── chart.js -> ../../../node_modules/.pnpm/chart.js@4.5.1/node_modules/chart.js
 │   └── package.json
 ├── lang-packs
@@ -518,6 +512,14 @@ extensions/ 以下のディレクトリ構造:
 ├── note-tab
 │   ├── index.tsx
 │   └── manifest.json
+├── react-preview
+│   ├── README.md
+│   ├── _build.js
+│   ├── index.tsx
+│   ├── manifest.json
+│   ├── node_modules
+│   │   └── esbuild-wasm -> ../../../node_modules/.pnpm/esbuild-wasm@0.27.0/node_modules/esbuild-wasm
+│   └── package.json
 ├── registry.json
 ├── sample-command
 │   ├── README.md
@@ -536,18 +538,18 @@ extensions/ 以下のディレクトリ構造:
     ├── manifest.json
     └── transpile.worker.ts
 
-37 directories, 76 files
+37 directories, 73 files
 
 =================================
 
 
 src/*.ts, *.tsx の統計:
-合計行数: 50783
-合計文字数: 1639868
-合計ファイルサイズ(bytes): 1748796
+合計行数: 50872
+合計文字数: 1644846
+合計ファイルサイズ(bytes): 1753886
 
-開発時のdev container全体のサイズ(bytes): 2.5G	.
+開発時のdev container全体のサイズ(bytes): 1.7G	.
 ==========
-ビルト済みファイルの行数: 41240
-合計文字数: 26134956
-合計ファイルサイズ(bytes): 27118853
+ビルト済みファイルの行数: 125961
+合計文字数: 38508184
+合計ファイルサイズ(bytes): 41556719
