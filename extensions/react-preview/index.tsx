@@ -69,9 +69,14 @@ function extractImports(code: string): string[] {
     const importPath = match[1];
     
     // 相対パスのみ処理（./または../で始まる）
-    if (importPath.startsWith('./') || importPath.startsWith('../')) {
-      imports.push(importPath);
-    }
+      if (importPath.startsWith('./') || importPath.startsWith('../')) {
+        // スタイルや画像などの非-JSアセットはビルド対象外とする
+        if (importPath.match(/\.(css|less|scss|sass|png|jpe?g|svg|wasm|json)$/i)) {
+          continue;
+        }
+
+        imports.push(importPath);
+      }
   }
   
   return imports;
@@ -95,8 +100,9 @@ function resolveImportPath(fromPath: string, importPath: string): string {
   
   let result = resolved.join('/');
   
-  // 拡張子がなければ .jsx を追加
-  if (!result.match(/\.(jsx?|tsx?)$/)) {
+  // 拡張子がなければ .jsx を追加（既に .css などの拡張子がある場合は変更しない）
+  // 末尾に拡張子があるかは「/.+\.[ext]$」で判定する
+  if (!result.match(/\.[^/]+$/)) {
     result += '.jsx';
   }
   
