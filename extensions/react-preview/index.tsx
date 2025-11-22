@@ -34,23 +34,22 @@ async function loadESBuild(): Promise<ESBuild> {
   if (esbuildInitPromise) return esbuildInitPromise;
 
   esbuildInitPromise = (async () => {
-    try {
-      // CDN経由でesbuild-wasmをロード
-      const esbuildModule = await import('https://unpkg.com/esbuild-wasm@0.19.8/lib/browser.min.js');
-      const esbuild = esbuildModule.default || esbuildModule;
+    // npmでインストールされた `esbuild-wasm` を直接インポートして初期化する
+    // フォールバック（CDN等）は不要という要件のため、失敗した場合は例外を投げる
+    const esbuildModule = await import('esbuild-wasm');
+    const esbuild = (esbuildModule as any).default || esbuildModule;
 
-      // WASM初期化
-      await esbuild.initialize({
-        wasmURL: 'https://unpkg.com/esbuild-wasm@0.19.8/esbuild.wasm',
-      });
+    // runtime の base path を考慮して wasm の URL を組み立てる
+    // `src/app/layout.tsx` で `window.__NEXT_PUBLIC_BASE_PATH__` が設定されている想定
+    const runtimeBase = (typeof window !== 'undefined' && (window as any).__NEXT_PUBLIC_BASE_PATH__) || '';
+    const normalizedBase = runtimeBase.endsWith('/') ? runtimeBase.slice(0, -1) : runtimeBase;
+    const wasmURL = `${normalizedBase}/extensions/react-preview/esbuild.wasm`;
 
-      esbuildInstance = esbuild;
-      console.log('[react-preview] esbuild-wasm loaded successfully');
-      return esbuild;
-    } catch (error) {
-      console.error('[react-preview] Failed to load esbuild-wasm:', error);
-      throw new Error('esbuild-wasm loading failed. Check your internet connection.');
-    }
+    await esbuild.initialize({ wasmURL });
+
+    esbuildInstance = esbuild;
+    console.log('[react-preview] esbuild-wasm loaded from npm successfully');
+    return esbuild;
   })();
 
   return esbuildInitPromise;

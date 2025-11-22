@@ -355,8 +355,8 @@ async function transpileAllWithTsc() {
           return;
         }
         
-        // manifest.json, 画像, Markdown, CSSファイルのみコピー
-        if (basename === 'manifest.json' || ['.svg', '.png', '.jpg', '.md', '.css'].includes(ext)) {
+        // manifest.json, 画像, Markdown, CSS, WASMファイルのみコピー
+        if (basename === 'manifest.json' || ['.svg', '.png', '.jpg', '.md', '.css', '.wasm'].includes(ext)) {
           const distPath = path.join(distDir, relativePath);
           fs.mkdirSync(path.dirname(distPath), { recursive: true });
           fs.copyFileSync(srcPath, distPath);
@@ -541,6 +541,41 @@ async function buildSingleExtension(srcDir, distDir, displayName) {
     
     // 出力ディレクトリを作成
     fs.mkdirSync(distDir, { recursive: true });
+
+    // react-preview の場合、プロジェクトに esbuild-wasm がインストールされていれば
+    // node_modules から esbuild.wasm を自動でコピーしておく（ソースに .wasm がない場合）
+    try {
+      const extName = path.basename(srcDir);
+      if (extName === 'react-preview') {
+        const destWasm = path.join(distDir, 'esbuild.wasm');
+        if (!fs.existsSync(destWasm)) {
+          let resolvedWasm = null;
+          try {
+            // try to resolve the package's wasm file directly
+            resolvedWasm = require.resolve('esbuild-wasm/esbuild.wasm');
+          } catch (e) {
+            try {
+              // fallback: resolve package entry and look for sibling esbuild.wasm
+              const pkgEntry = require.resolve('esbuild-wasm');
+              const pkgDir = path.dirname(pkgEntry);
+              const candidate = path.join(pkgDir, '..', 'esbuild.wasm');
+              if (fs.existsSync(candidate)) resolvedWasm = candidate;
+            } catch (e2) {
+              // ignore
+            }
+          }
+
+          if (resolvedWasm && fs.existsSync(resolvedWasm)) {
+            fs.copyFileSync(resolvedWasm, destWasm);
+            console.log(`📦 Copied esbuild.wasm to ${path.relative(ROOT_DIR, destWasm)}`);
+          } else {
+            console.log('⚠️  esbuild.wasm not found in node_modules; place esbuild.wasm into the extension source if you want to ship it with the extension.');
+          }
+        }
+      }
+    } catch (e) {
+      // Non-fatal; continue building other assets
+    }
     
     // package.json がある場合
     if (hasPackageJson(srcDir)) {
@@ -580,8 +615,8 @@ async function buildSingleExtension(srcDir, distDir, displayName) {
         return;
       }
       
-      // manifest.json, 画像, Markdown, CSSファイルのみコピー
-      if (basename === 'manifest.json' || ['.svg', '.png', '.jpg', '.md', '.css'].includes(ext)) {
+      // manifest.json, 画像, Markdown, CSS, WASMファイルのみコピー
+      if (basename === 'manifest.json' || ['.svg', '.png', '.jpg', '.md', '.css', '.wasm'].includes(ext)) {
         const distPath = path.join(distDir, relativePath);
         fs.mkdirSync(path.dirname(distPath), { recursive: true });
         fs.copyFileSync(srcPath, distPath);
