@@ -152,16 +152,23 @@ const file = await fileRepository.getFileByPath(projectId, filePath);
 ### サンプルコード
 
 ```jsx
-import React from 'react';
-
+import React, { useState } from 'react';
 export default function App() {
+  const [count, setCount] = useState(0);
+  const increment = () => {
+    setCount(count + 1);
+  };
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
       <div className="bg-white rounded-lg shadow-xl p-8 max-w-md">
         <h1 className="text-3xl font-bold text-gray-800 mb-4">
           Tailwind CSS Ready!
         </h1>
-        <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition">
+        <p className="text-gray-700 mb-4">Count: {count}</p>
+        <button
+          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition"
+          onClick={increment}
+        >
           Click me
         </button>
       </div>
@@ -177,6 +184,6 @@ react-build App.jsx --tailwind
 
 ### 制約
 
-- **CDN版のため**: カスタムTailwind設定（`tailwind.config.js`）は未対応
+- **CDN版のため**: カスタムTailwind設定（`tailwind.config.js`）は非対応
 - **初回読み込み**: CDNからの取得に若干時間がかかる場合あり
 - **オフライン**: インターネット接続が必要
