@@ -86,32 +86,40 @@ function extractImports(code: string): string[] {
  * 相対パスを絶対パスに解決
  */
 function resolveImportPath(fromPath: string, importPath: string): string {
-  const fromDir = fromPath.split('/').slice(0, -1).join('/');
-  const parts = (fromDir + '/' + importPath).split('/');
+  // If the importPath is already absolute, normalize it directly.
+  const raw = importPath.startsWith('/') ? importPath : (fromPath.split('/').slice(0, -1).join('/') + '/' + importPath);
+
+  const parts = raw.split('/');
   const resolved: string[] = [];
-  
+
   for (const part of parts) {
-    if (part === '..') {
-      resolved.pop();
-    } else if (part !== '.' && part !== '') {
-      resolved.push(part);
+    if (part === '' || part === '.') {
+      // skip empty segments and current dir markers
+      continue;
     }
+
+    if (part === '..') {
+      // pop only if there's something to pop
+      if (resolved.length > 0) resolved.pop();
+      continue;
+    }
+
+    resolved.push(part);
   }
-  
+
   let result = resolved.join('/');
-  
-  // 拡張子がなければ .jsx を追加（既に .css などの拡張子がある場合は変更しない）
-  // 末尾に拡張子があるかは「/.+\.[ext]$」で判定する
-  if (!result.match(/\.[^/]+$/)) {
-    result += '.jsx';
-  }
-  
-  // 先頭の / を確保
+
+  // Ensure we have a leading slash
   if (!result.startsWith('/')) {
     result = '/' + result;
   }
-  
-  return result;
+
+  // If there's no extension, assume .jsx for source modules
+  if (!result.match(/\.[^/]+$/)) {
+    result += '.jsx';
+  }
+
+  return result.replace(/\/+/g, '/');
 }
 
 /**
