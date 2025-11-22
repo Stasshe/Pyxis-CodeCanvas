@@ -124,7 +124,7 @@ async function buildJSX(
         loader: filePath.endsWith('.tsx') ? 'tsx' : 'jsx',
       },
       bundle: true,
-      format: 'esm',
+      format: 'cjs',
       write: false,
       plugins: [createVirtualFSPlugin(projectId, fileRepository)],
       target: 'es2020',
@@ -211,10 +211,18 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
       }
 
       // コードを実行してコンポーネントを取得
-      const module = { exports: {} };
-      const moduleFunc = new Function('module', 'exports', data.code);
-      moduleFunc(module, module.exports);
+      // requireシム
+const shimRequire = (name: string) => {
+  if (name === 'react') return React;
+  if (name === 'react-dom') return ReactDOM;
+  if (name === 'react-dom/client') return ReactDOM;
+  throw new Error(`Module not found: ${name}`);
+};
 
+const module = { exports: {} };
+const moduleFunc = new Function('module', 'exports', 'require', data.code);
+moduleFunc(module, module.exports, shimRequire);
+      
       const Component = (module.exports as any).default || (module.exports as any);
 
       if (!Component) {
