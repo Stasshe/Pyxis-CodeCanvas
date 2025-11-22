@@ -52,35 +52,64 @@ export default function FileTree({
     const items = e.dataTransfer.items;
 
     if (items && items.length > 0 && typeof items[0].webkitGetAsEntry === 'function') {
-      // フォルダD&D対応
-      const traverseFileTree = async (item: any, path: string) => {
-        return new Promise<void>(resolve => {
-          if (item.isFile) {
-            item.file(async (file: File) => {
-              const importPath = `${path}${file.name}`;
-              const absolutePath = `/projects/${currentProjectName}${importPath}`;
-              await importSingleFile(file, absolutePath, currentProjectName, currentProjectId);
-              resolve();
-            });
-          } else if (item.isDirectory) {
-            const dirReader = item.createReader();
-            dirReader.readEntries(async (entries: any[]) => {
-              for (const entry of entries) {
-                await traverseFileTree(entry, `${path}${item.name}/`);
-              }
-              resolve();
-            });
-          } else {
-            resolve();
+      // フォルダD&D対応: FileSystem API を使って再帰的に処理
+      const ensureFoldersExist = async (projectId: string | undefined, folderPath: string) => {
+        if (!projectId) return;
+        const parts = folderPath.split('/').filter(Boolean);
+        let acc = '';
+        for (const part of parts) {
+          acc += '/' + part;
+          try {
+            // ignore errors (already existsなど)
+            // createFile は folder を作るために利用
+            await fileRepository.createFile(projectId, acc, '', 'folder');
+          } catch (err) {
+            // noop
           }
-        });
+        }
+      };
+
+      const traverseFileTree = async (entry: any, basePath: string) => {
+        if (entry.isFile) {
+          await new Promise<void>((res, rej) => {
+            entry.file(async (file: File) => {
+              try {
+                const importPath = `${basePath}${file.name}`.replace(/\\/g, '/');
+                const absolutePath = `/projects/${currentProjectName}${importPath}`;
+                const lastSlash = importPath.lastIndexOf('/');
+                if (lastSlash > 0) {
+                  const folderPath = importPath.substring(0, lastSlash);
+                  await ensureFoldersExist(currentProjectId, folderPath);
+                }
+                await importSingleFile(file, absolutePath, currentProjectName, currentProjectId);
+                res();
+              } catch (err) {
+                rej(err);
+              }
+            });
+          });
+        } else if (entry.isDirectory) {
+          const dirPath = `${basePath}${entry.name}/`;
+          await ensureFoldersExist(currentProjectId, dirPath);
+          const dirReader = entry.createReader();
+
+          // readEntries は配列を返すが、ブラウザによっては複数回呼ぶ必要があるためループで取得
+          let entries: any[] = await new Promise<any[]>(res => dirReader.readEntries(res));
+          while (entries && entries.length > 0) {
+            for (const e of entries) {
+              await traverseFileTree(e, dirPath);
+            }
+            entries = await new Promise<any[]>(res => dirReader.readEntries(res));
+          }
+        }
       };
 
       const traverseAll = async () => {
         for (let i = 0; i < items.length; i++) {
           const entry = items[i].webkitGetAsEntry();
           if (entry) {
-            await traverseFileTree(entry, targetPath ? `${targetPath}/` : '/');
+            const startPath = targetPath ? `${targetPath}/` : '/';
+            await traverseFileTree(entry, startPath);
           }
         }
       };
@@ -550,21 +579,39 @@ export default function FileTree({
                   // (previously webkitdirectory was set which prevented selecting single files on some browsers)
                   input.multiple = true;
                   // enable selecting a folder (and its recursive files) when supported
-                  // this sets webkitdirectory/directory so the file input can return files with
-                  // `webkitRelativePath`, preserving folder structure on import.
-                  // Keep `multiple` so single-file selection still works on browsers that ignore webkitdirectory.
-                  // Use setAttribute to avoid TypeScript DOM typings complaining about non-standard props.
-                  input.webkitdirectory = true;
+                  // use setAttribute to request directory selection; preserve webkitRelativePath on files
+                  input.setAttribute('webkitdirectory', '');
                   input.setAttribute('directory', '');
                   input.onchange = async (e: any) => {
                     const files: FileList = e.target.files;
                     if (!files || files.length === 0) return;
+
+                    const ensureFoldersExistLocal = async (projectId: string | undefined, folderPath: string) => {
+                      if (!projectId) return;
+                      const parts = folderPath.split('/').filter(Boolean);
+                      let acc = '';
+                      for (const part of parts) {
+                        acc += '/' + part;
+                        try {
+                          await fileRepository.createFile(projectId, acc, '', 'folder');
+                        } catch (err) {
+                          // ignore
+                        }
+                      }
+                    };
+
                     for (let i = 0; i < files.length; i++) {
                       const file = files[i];
                       const relative = (file as any).webkitRelativePath || file.name;
                       const relPathParts = relative.split('/').filter(Boolean);
                       const targetPath = '/' + relPathParts.join('/');
                       const targetAbsolutePath = `/projects/${currentProjectName}${targetPath}`;
+                      // ensure parent folders exist
+                      const lastSlash = targetPath.lastIndexOf('/');
+                      if (lastSlash > 0) {
+                        const folderPath = targetPath.substring(0, lastSlash);
+                        await ensureFoldersExistLocal(currentProjectId, folderPath);
+                      }
                       await importSingleFile(
                         file,
                         targetAbsolutePath,
@@ -630,6 +677,19 @@ export default function FileTree({
                           menuItem.path.substring(0, menuItem.path.lastIndexOf('/')) || '/';
                       else if (menuItem.type === 'folder') baseTargetDir = menuItem.path || '/';
                     }
+                    const ensureFoldersExistLocal = async (projectId: string | undefined, folderPath: string) => {
+                      if (!projectId) return;
+                      const parts = folderPath.split('/').filter(Boolean);
+                      let acc = '';
+                      for (const part of parts) {
+                        acc += '/' + part;
+                        try {
+                          await fileRepository.createFile(projectId, acc, '', 'folder');
+                        } catch (err) {
+                          // ignore
+                        }
+                      }
+                    };
                     for (let i = 0; i < files.length; i++) {
                       const file = files[i];
                       const relative = (file as any).webkitRelativePath || file.name;
@@ -643,6 +703,13 @@ export default function FileTree({
                           '//',
                           '/'
                         );
+                      // ensure parent folders exist
+                      const fullRelPath = `${normalizedBase}/${relPath}`.replace('//', '/');
+                      const lastSlash = fullRelPath.lastIndexOf('/');
+                      if (lastSlash > 0) {
+                        const folderPath = fullRelPath.substring(0, lastSlash);
+                        await ensureFoldersExistLocal(currentProjectId, folderPath);
+                      }
                       await importSingleFile(
                         file,
                         targetAbsolutePath,
