@@ -1,4 +1,3 @@
-// 単一ファイルのエクスポート（ダウンロード）ユーティリティ
 export function exportSingleFile(file: {
   name: string;
   content: string;
@@ -7,11 +6,11 @@ export function exportSingleFile(file: {
 }) {
   let blob: Blob;
 
-  // バイナリファイル（bufferContent）がある場合
   if (file.isBufferArray && file.bufferContent) {
     blob = new Blob([file.bufferContent], { type: 'application/octet-stream' });
   } else {
-    blob = new Blob([file.content], { type: 'text/plain' });
+    // text/plainじゃなくapplication/octet-streamにする
+    blob = new Blob([file.content], { type: 'application/octet-stream' });
   }
 
   const url = URL.createObjectURL(blob);
