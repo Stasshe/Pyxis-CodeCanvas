@@ -45,14 +45,19 @@ function createVirtualFSPlugin(projectId: string, fileRepository: any) {
   return {
     name: 'virtual-fs',
     setup(build: any) {
+      // 外部依存（react等）を無視
+      build.onResolve({ filter: /^[^./]/ }, (args: any) => {
+        return { path: args.path, external: true };
+      });
       // 相対パスの解決
-      build.onResolve({ filter: /^\.\.?[\/\\]/ }, async (args: any) => {
-        const fromDir = args.importer === '<stdin>' 
-          ? args.resolveDir 
-          : args.importer.split('/').slice(0, -1).join('/');
-        
-        const parts = (fromDir + '/' + args.path).split('/');
-        const resolved: string[] = [];
+      build.onResolve({ filter: /^\./ }, async (args: any) => {
+      // 相対パスの解決
+      const fromDir = args.importer === '<stdin>' 
+        ? args.resolveDir 
+        : args.importer.split('/').slice(0, -1).join('/');
+      
+      const parts = (fromDir + '/' + args.path).split('/');
+      const resolved: string[] = [];
         
         for (const part of parts) {
           if (part === '' || part === '.') continue;
