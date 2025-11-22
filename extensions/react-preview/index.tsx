@@ -204,9 +204,18 @@ async function reactBuildCommand(args: string[], context: any): Promise<string> 
   let output = `[react-preview] Building: ${filePath}\n`;
 
   try {
+    // file path 正規化（sample-command と同様のルール）
+    let normalizedPath = filePath;
+    if (!filePath.startsWith('/')) {
+      const relativeCurrent = (context.currentDirectory || '').replace(`/projects/${context.projectName}`, '');
+      normalizedPath = relativeCurrent === '' ? `/${filePath}` : `${relativeCurrent}/${filePath}`;
+    } else {
+      normalizedPath = filePath.replace(`/projects/${context.projectName}`, '');
+    }
+
     // ビルド実行
     const { code, modules, error } = await buildJSXFile(
-      filePath,
+      normalizedPath,
       context.projectId,
       context.getSystemModule
     );
