@@ -22,21 +22,40 @@ interface ESBuild {
 }
 
 let esbuildInstance: ESBuild | null = null;
+let isInitializing = false;
 
 async function loadESBuild(): Promise<ESBuild> {
   if (esbuildInstance) return esbuildInstance;
 
-  const esbuildModule = await import('esbuild-wasm');
-  const esbuild = (esbuildModule as any).default || esbuildModule;
+  // 既に初期化中なら待機
+  if (isInitializing) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    return loadESBuild();
+  }
 
-  const runtimeBase = (typeof window !== 'undefined' && (window as any).__NEXT_PUBLIC_BASE_PATH__) || '';
-  const normalizedBase = runtimeBase.endsWith('/') ? runtimeBase.slice(0, -1) : runtimeBase;
-  const wasmURL = `${normalizedBase}/extensions/react-preview/esbuild.wasm`;
+  isInitializing = true;
 
-  await esbuild.initialize({ wasmURL });
-  esbuildInstance = esbuild;
-  
-  return esbuild;
+  try {
+    const esbuildModule = await import('esbuild-wasm');
+    const esbuild = (esbuildModule as any).default || esbuildModule;
+
+    // 既に初期化済みかチェック
+    if (esbuildInstance) {
+      isInitializing = false;
+      return esbuildInstance;
+    }
+
+    const runtimeBase = (typeof window !== 'undefined' && (window as any).__NEXT_PUBLIC_BASE_PATH__) || '';
+    const normalizedBase = runtimeBase.endsWith('/') ? runtimeBase.slice(0, -1) : runtimeBase;
+    const wasmURL = `${normalizedBase}/extensions/react-preview/esbuild.wasm`;
+
+    await esbuild.initialize({ wasmURL });
+    esbuildInstance = esbuild;
+    
+    return esbuild;
+  } finally {
+    isInitializing = false;
+  }
 }
 
 /**
