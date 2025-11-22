@@ -549,6 +549,13 @@ export default function FileTree({
                   // allow selecting multiple files (including images). Do not force directory picker
                   // (previously webkitdirectory was set which prevented selecting single files on some browsers)
                   input.multiple = true;
+                  // enable selecting a folder (and its recursive files) when supported
+                  // this sets webkitdirectory/directory so the file input can return files with
+                  // `webkitRelativePath`, preserving folder structure on import.
+                  // Keep `multiple` so single-file selection still works on browsers that ignore webkitdirectory.
+                  // Use setAttribute to avoid TypeScript DOM typings complaining about non-standard props.
+                  input.webkitdirectory = true;
+                  input.setAttribute('directory', '');
                   input.onchange = async (e: any) => {
                     const files: FileList = e.target.files;
                     if (!files || files.length === 0) return;
@@ -609,6 +616,10 @@ export default function FileTree({
                   input.type = 'file';
                   // allow selecting multiple files for import into the selected folder/file target
                   input.multiple = true;
+                  // allow selecting a folder for import (preserve nested paths via webkitRelativePath)
+                  // Use setAttribute to avoid TypeScript DOM typings complaining about non-standard props.
+                  input.setAttribute('webkitdirectory', '');
+                  input.setAttribute('directory', '');
                   input.onchange = async (e: any) => {
                     const files: FileList = e.target.files;
                     if (!files || files.length === 0) return;
