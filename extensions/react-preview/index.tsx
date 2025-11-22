@@ -231,19 +231,22 @@ async function reactBuildCommand(args: string[], context: any): Promise<string> 
 
     // カスタムタブを開く
     try {
+      // Use the normalized path for tab id/data so runtime module keys match
+      const tabPath = normalizedPath;
       const tabId = context.tabs.createTab({
-        id: `preview-${filePath}`,
-        title: `Preview: ${filePath}`,
-        icon: 'Eye',
-        closable: true,
-        activateAfterCreate: true,
-        data: {
-          filePath,
-          code,
-          modules,
-          builtAt: Date.now(),
-        },
-      });
+          id: `preview-${tabPath}`,
+          title: `Preview: ${tabPath}`,
+          icon: 'Eye',
+          closable: true,
+          activateAfterCreate: true,
+          data: {
+            // ensure the preview receives the same absolute path used during build
+            filePath: tabPath,
+            code,
+            modules,
+            builtAt: Date.now(),
+          },
+        });
       output += `\n📺 Preview opened in tab: ${tabId}\n`;
     } catch (tabError: any) {
       output += `\n⚠️  Preview tab could not be opened: ${tabError?.message || 'Unknown error'}\n`;
