@@ -1,270 +1,183 @@
 /**
  * react-preview Extension
- * クライアントサイドでReact JSXをリアルタイムビルド&プレビュー
- * 
- * 機能:
- * - `react-build <entry.jsx>` コマンドでJSXをビルド
- * - esbuild-wasm (CDN経由) でJSX → React.createElement変換
- * - ビルド成功後、カスタムタブで自動プレビュー
+ * React JSXをブラウザでビルド&プレビュー
  */
 
 import React, { useState, useEffect, useRef } from 'react';
 import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
 
-// esbuild-wasm の型定義（最小限）
 interface ESBuild {
   initialize(options: { wasmURL: string }): Promise<void>;
-  transform(code: string, options: {
-    loader: string;
+  build(options: {
+    stdin?: { contents: string; resolveDir?: string; sourcefile?: string; loader?: string };
+    bundle: boolean;
+    format: string;
+    write: boolean;
+    plugins?: any[];
+    target?: string;
     jsxFactory?: string;
     jsxFragment?: string;
-    target?: string;
-  }): Promise<{ code: string }>;
+  }): Promise<{ outputFiles: Array<{ text: string }> }>;
 }
 
-// グローバルにロードされたesbuildインスタンス
 let esbuildInstance: ESBuild | null = null;
-let esbuildInitPromise: Promise<ESBuild> | null = null;
 
-/**
- * esbuild-wasmをCDN経由でロード
- */
 async function loadESBuild(): Promise<ESBuild> {
   if (esbuildInstance) return esbuildInstance;
-  if (esbuildInitPromise) return esbuildInitPromise;
 
-  esbuildInitPromise = (async () => {
-    // npmでインストールされた `esbuild-wasm` を直接インポートして初期化する
-    // フォールバック（CDN等）は不要という要件のため、失敗した場合は例外を投げる
-    const esbuildModule = await import('esbuild-wasm');
-    const esbuild = (esbuildModule as any).default || esbuildModule;
+  const esbuildModule = await import('esbuild-wasm');
+  const esbuild = (esbuildModule as any).default || esbuildModule;
 
-    // runtime の base path を考慮して wasm の URL を組み立てる
-    // `src/app/layout.tsx` で `window.__NEXT_PUBLIC_BASE_PATH__` が設定されている想定
-    const runtimeBase = (typeof window !== 'undefined' && (window as any).__NEXT_PUBLIC_BASE_PATH__) || '';
-    const normalizedBase = runtimeBase.endsWith('/') ? runtimeBase.slice(0, -1) : runtimeBase;
-    const wasmURL = `${normalizedBase}/extensions/react-preview/esbuild.wasm`;
+  const runtimeBase = (typeof window !== 'undefined' && (window as any).__NEXT_PUBLIC_BASE_PATH__) || '';
+  const normalizedBase = runtimeBase.endsWith('/') ? runtimeBase.slice(0, -1) : runtimeBase;
+  const wasmURL = `${normalizedBase}/extensions/react-preview/esbuild.wasm`;
 
-    await esbuild.initialize({ wasmURL });
-
-    esbuildInstance = esbuild;
-    console.log('[react-preview] esbuild-wasm loaded from npm successfully');
-    return esbuild;
-  })();
-
-  return esbuildInitPromise;
+  await esbuild.initialize({ wasmURL });
+  esbuildInstance = esbuild;
+  
+  return esbuild;
 }
 
 /**
- * import文を解析してファイルパスのリストを取得
+ * 仮想ファイルシステムプラグイン
  */
-function extractImports(code: string): string[] {
-  const imports: string[] = [];
-  
-  // import from 'path' または import from "path" のパターン
-  const importRegex = /import\s+(?:[\w\s{},*]+\s+from\s+)?['"]([^'"]+)['"]/g;
-  let match;
-  
-  while ((match = importRegex.exec(code)) !== null) {
-    const importPath = match[1];
-    
-    // 相対パスのみ処理（./または../で始まる）
-      if (importPath.startsWith('./') || importPath.startsWith('../')) {
-        // スタイルや画像などの非-JSアセットはビルド対象外とする
-        if (importPath.match(/\.(css|less|scss|sass|png|jpe?g|svg|wasm|json)$/i)) {
-          continue;
+function createVirtualFSPlugin(projectId: string, fileRepository: any) {
+  return {
+    name: 'virtual-fs',
+    setup(build: any) {
+      // 相対パスの解決
+      build.onResolve({ filter: /^\.\.?[\/\\]/ }, async (args: any) => {
+        const fromDir = args.importer === '<stdin>' 
+          ? args.resolveDir 
+          : args.importer.split('/').slice(0, -1).join('/');
+        
+        const parts = (fromDir + '/' + args.path).split('/');
+        const resolved: string[] = [];
+        
+        for (const part of parts) {
+          if (part === '' || part === '.') continue;
+          if (part === '..') {
+            if (resolved.length > 0) resolved.pop();
+            continue;
+          }
+          resolved.push(part);
         }
-
-        imports.push(importPath);
-      }
-  }
-  
-  return imports;
-}
-
-/**
- * 相対パスを絶対パスに解決
- */
-function resolveImportPath(fromPath: string, importPath: string): string {
-  // If the importPath is already absolute, normalize it directly.
-  const raw = importPath.startsWith('/') ? importPath : (fromPath.split('/').slice(0, -1).join('/') + '/' + importPath);
-
-  const parts = raw.split('/');
-  const resolved: string[] = [];
-
-  for (const part of parts) {
-    if (part === '' || part === '.') {
-      // skip empty segments and current dir markers
-      continue;
-    }
-
-    if (part === '..') {
-      // pop only if there's something to pop
-      if (resolved.length > 0) resolved.pop();
-      continue;
-    }
-
-    resolved.push(part);
-  }
-
-  let result = resolved.join('/');
-
-  // Ensure we have a leading slash
-  if (!result.startsWith('/')) {
-    result = '/' + result;
-  }
-
-  // If there's no extension, assume .jsx for source modules
-  if (!result.match(/\.[^/]+$/)) {
-    result += '.jsx';
-  }
-
-  return result.replace(/\/+/g, '/');
-}
-
-/**
- * JSXファイルとその依存関係を再帰的にビルド
- */
-async function buildJSXFile(
-  filePath: string,
-  projectId: string,
-  getSystemModule: any
-): Promise<{ code: string; modules: Record<string, string>; error?: string }> {
-  try {
-    const esbuild = await loadESBuild();
-    const fileRepository = await getSystemModule('fileRepository');
-    
-    const modules: Record<string, string> = {};
-    const buildQueue: string[] = [filePath];
-    const processed = new Set<string>();
-
-    while (buildQueue.length > 0) {
-      const currentPath = buildQueue.shift()!;
-      
-      // 既に処理済みならスキップ
-      if (processed.has(currentPath)) continue;
-      processed.add(currentPath);
-
-      // ファイルを取得
-      const file = await fileRepository.getFileByPath(projectId, currentPath);
-      if (!file) {
-        return { code: '', modules: {}, error: `File not found: ${currentPath}` };
-      }
-
-      // import文を抽出
-      const imports = extractImports(file.content);
-      
-      // 依存ファイルをキューに追加
-      for (const imp of imports) {
-        const resolvedPath = resolveImportPath(currentPath, imp);
-        if (!processed.has(resolvedPath)) {
-          buildQueue.push(resolvedPath);
+        
+        let path = '/' + resolved.join('/');
+        
+        // 拡張子補完
+        if (!path.match(/\.[^/]+$/)) {
+          path += '.jsx';
         }
-      }
-
-      // JSX → React.createElement に変換
-      const result = await esbuild.transform(file.content, {
-        loader: currentPath.endsWith('.tsx') ? 'tsx' : 'jsx',
-        jsxFactory: 'React.createElement',
-        jsxFragment: 'React.Fragment',
-        target: 'es2020',
+        
+        return { path, namespace: 'virtual' };
       });
 
-      modules[currentPath] = result.code;
-    }
+      // ファイルの読み込み
+      build.onLoad({ filter: /.*/, namespace: 'virtual' }, async (args: any) => {
+        const file = await fileRepository.getFileByPath(projectId, args.path);
+        
+        if (!file) {
+          return { errors: [{ text: `File not found: ${args.path}` }] };
+        }
 
-    // エントリーポイントのコードを返す
-    const entryCode = modules[filePath] || '';
-    return { code: entryCode, modules };
+        // CSSなどはスキップ
+        if (args.path.match(/\.(css|png|jpe?g|svg)$/i)) {
+          return { contents: '', loader: 'text' };
+        }
+
+        return {
+          contents: file.content,
+          loader: args.path.endsWith('.tsx') ? 'tsx' : 'jsx',
+        };
+      });
+    },
+  };
+}
+
+/**
+ * JSXファイルをビルド
+ */
+async function buildJSX(
+  filePath: string,
+  projectId: string,
+  context: any
+): Promise<{ code: string; error?: string }> {
+  try {
+    const esbuild = await loadESBuild();
+    
+    const file = await fileRepository.getFileByPath(projectId, filePath);
+    if (!file) {
+      return { code: '', error: `File not found: ${filePath}` };
+    }
+    const fileRepository = await context.getSystemModule('fileRepository');
+
+    const result = await esbuild.build({
+      stdin: {
+        contents: file.content,
+        resolveDir: filePath.split('/').slice(0, -1).join('/') || '/',
+        sourcefile: filePath,
+        loader: filePath.endsWith('.tsx') ? 'tsx' : 'jsx',
+      },
+      bundle: true,
+      format: 'cjs',
+      write: false,
+      plugins: [createVirtualFSPlugin(projectId, fileRepository)],
+      target: 'es2020',
+      jsxFactory: 'React.createElement',
+      jsxFragment: 'React.Fragment',
+    });
+
+    const bundled = result.outputFiles[0].text;
+    const transformImportsModule = await context.getSystemModule('transformImports');
+    const transformed = transformImportsModule(bundled);
+
+    return { code: transformed };
   } catch (error: any) {
-    return { 
-      code: '', 
-      modules: {},
-      error: error?.message || 'Build failed'
-    };
+    return { code: '', error: error?.message || 'Build failed' };
   }
 }
 
 /**
- * react-buildコマンドの実装
+ * react-buildコマンド
  */
 async function reactBuildCommand(args: string[], context: any): Promise<string> {
   if (args.length === 0) {
-    return 'Usage: react-build <entry.jsx>\n\nExample:\n  react-build App.jsx\n  react-build src/components/MyComponent.jsx';
+    return 'Usage: react-build <entry.jsx>\n\nExample:\n  react-build App.jsx\n  react-build src/App.jsx';
   }
 
   const filePath = args[0];
-  let output = `[react-preview] Building: ${filePath}\n`;
-
-  try {
-    // file path 正規化（sample-command と同様のルール）
-    let normalizedPath = filePath;
-    if (!filePath.startsWith('/')) {
-      const relativeCurrent = (context.currentDirectory || '').replace(`/projects/${context.projectName}`, '');
-      normalizedPath = relativeCurrent === '' ? `/${filePath}` : `${relativeCurrent}/${filePath}`;
-    } else {
-      normalizedPath = filePath.replace(`/projects/${context.projectName}`, '');
-    }
-
-    // ビルド実行
-    const { code, modules, error } = await buildJSXFile(
-      normalizedPath,
-      context.projectId,
-      context.getSystemModule
-    );
-
-    if (error) {
-      output += `\n❌ Build failed:\n${error}\n`;
-      return output;
-    }
-
-    // ビルド成功
-    const moduleCount = Object.keys(modules).length;
-    output += `✅ Build successful! (${moduleCount} module${moduleCount > 1 ? 's' : ''})\n`;
-    
-    if (moduleCount > 1) {
-      output += `\nBuilt modules:\n`;
-      Object.keys(modules).forEach(path => {
-        output += `  - ${path}\n`;
-      });
-    }
-    
-    output += `\nEntry point code (first 500 chars):\n`;
-    output += `${'='.repeat(60)}\n`;
-    output += code.slice(0, 500);
-    if (code.length > 500) {
-      output += '\n... (truncated)';
-    }
-    output += `\n${'='.repeat(60)}\n`;
-
-    // カスタムタブを開く
-    try {
-      // Use the normalized path for tab id/data so runtime module keys match
-      const tabPath = normalizedPath;
-      const tabId = context.tabs.createTab({
-          id: `preview-${tabPath}`,
-          title: `Preview: ${tabPath}`,
-          icon: 'Eye',
-          closable: true,
-          activateAfterCreate: true,
-          data: {
-            // ensure the preview receives the same absolute path used during build
-            filePath: tabPath,
-            code,
-            modules,
-            builtAt: Date.now(),
-          },
-        });
-      output += `\n📺 Preview opened in tab: ${tabId}\n`;
-    } catch (tabError: any) {
-      output += `\n⚠️  Preview tab could not be opened: ${tabError?.message || 'Unknown error'}\n`;
-    }
-
-    return output;
-  } catch (error: any) {
-    output += `\n❌ Unexpected error:\n${error?.message || error}\n`;
-    return output;
+  
+  // パス正規化
+  let normalizedPath = filePath;
+  if (!filePath.startsWith('/')) {
+    const relativeCurrent = (context.currentDirectory || '').replace(`/projects/${context.projectName}`, '');
+    normalizedPath = relativeCurrent === '' ? `/${filePath}` : `${relativeCurrent}/${filePath}`;
+  } else {
+    normalizedPath = filePath.replace(`/projects/${context.projectName}`, '');
   }
+
+  const { code, error } = await buildJSX(
+    normalizedPath,
+    context.projectId,
+    context,
+  );
+
+  if (error) {
+    return `[react-preview] Building: ${filePath}\n❌ Build failed:\n${error}\n`;
+  }
+
+  // プレビュータブを開く
+  context.tabs.createTab({
+    id: `preview-${normalizedPath}`,
+    title: `Preview: ${normalizedPath}`,
+    icon: 'Eye',
+    closable: true,
+    activateAfterCreate: true,
+    data: { filePath: normalizedPath, code, builtAt: Date.now() },
+  });
+
+  return `[react-preview] Building: ${filePath}\n✅ Build successful!\n\n📺 Preview opened in tab\n`;
 }
 
 /**
@@ -274,52 +187,8 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
   const [error, setError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<any>(null);
-  const data = (tab as any).data || {};
+  const data = tab.data || {};
 
-  // エラーバウンダリ用のコンポーネント
-  const ErrorBoundary = React.useMemo(() => {
-    return class ErrorBoundaryClass extends React.Component<
-      { children: React.ReactNode },
-      { hasError: boolean; error: Error | null }
-    > {
-      constructor(props: any) {
-        super(props);
-        this.state = { hasError: false, error: null };
-      }
-
-      static getDerivedStateFromError(error: Error) {
-        return { hasError: true, error };
-      }
-
-      componentDidCatch(error: Error, errorInfo: any) {
-        console.error('[ReactPreview] Component error:', error, errorInfo);
-      }
-
-      render() {
-        if (this.state.hasError) {
-          return React.createElement('div', {
-            style: {
-              padding: '16px',
-              background: '#3e1e1e',
-              color: '#f88',
-              fontFamily: 'monospace',
-              fontSize: '12px',
-              whiteSpace: 'pre-wrap',
-            }
-          }, [
-            '❌ Component Error:\n',
-            this.state.error?.message || 'Unknown error',
-            '\n\nStack:\n',
-            this.state.error?.stack || 'No stack trace'
-          ].join(''));
-        }
-
-        return this.props.children;
-      }
-    };
-  }, []);
-
-  // コンポーネントをレンダリング
   useEffect(() => {
     if (!isActive || !data.code) return;
 
@@ -329,7 +198,6 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
     try {
       setError(null);
       
-      // React/ReactDOMをグローバルから取得
       const React = (window as any).__PYXIS_REACT__;
       const ReactDOM = (window as any).__PYXIS_REACT_DOM__;
 
@@ -338,194 +206,77 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
         return;
       }
 
-      // モジュールシステムを構築
-      const moduleCache: Record<string, any> = {};
-      const modules = data.modules || { [data.filePath]: data.code };
+      // コードを実行してコンポーネントを取得
+      const module = { exports: {} };
+      const moduleFunc = new Function('module', 'exports', data.code);
+      moduleFunc(module, module.exports);
 
-      // モジュール解決関数
-      const requireModule = (modulePath: string, fromPath: string): any => {
-        // 外部ライブラリ（react, react-dom等）はグローバルから返す
-        if (modulePath === 'react') {
-          return React;
-        }
-        if (modulePath === 'react-dom') {
-          return ReactDOM;
-        }
-        
-        // 相対パスのみ内部モジュールとして解決
-        if (!modulePath.startsWith('./') && !modulePath.startsWith('../')) {
-          throw new Error(`External module "${modulePath}" is not available. Only 'react' and 'react-dom' are supported.`);
-        }
-        
-        const resolvedPath = resolveImportPath(fromPath, modulePath);
-        
-        if (moduleCache[resolvedPath]) {
-          return moduleCache[resolvedPath];
-        }
-
-        const moduleCode = modules[resolvedPath];
-        if (!moduleCode) {
-          throw new Error(`Module not found: ${resolvedPath}`);
-        }
-
-        const exports: any = {};
-        const module = { exports };
-
-        // モジュールコードを実行（require関数を注入）
-        const moduleFactory = new Function(
-          'exports',
-          'module',
-          'require',
-          'React',
-          moduleCode + '\nreturn module.exports;'
-        );
-
-        const result = moduleFactory(
-          exports,
-          module,
-          (path: string) => requireModule(path, resolvedPath),
-          React
-        );
-
-        moduleCache[resolvedPath] = result;
-        return result;
-      };
-
-      // エントリーポイントを実行
-      const entryExports = requireModule(data.filePath, data.filePath);
-
-      // default exportまたは最初のexportを使用
-      const Component = entryExports.default || entryExports[Object.keys(entryExports)[0]];
+      const Component = (module.exports as any).default || (module.exports as any);
 
       if (!Component) {
-        setError('No component exported from entry point');
+        setError('No component exported');
         return;
       }
 
-      // コンポーネントをレンダリング（ErrorBoundaryでラップ）
+      // レンダリング
       if (!rootRef.current) {
         rootRef.current = ReactDOM.createRoot(container);
       }
 
-      rootRef.current.render(
-        React.createElement(ErrorBoundary, null,
-          React.createElement(Component)
-        )
-      );
+      rootRef.current.render(React.createElement(Component));
 
       return () => {
-        try {
-          if (rootRef.current) {
-            rootRef.current.unmount();
-            rootRef.current = null;
-          }
-        } catch (e) {
-          // ignore
+        if (rootRef.current) {
+          rootRef.current.unmount();
+          rootRef.current = null;
         }
       };
     } catch (err: any) {
       setError(err?.message || 'Render failed');
-      console.error('[ReactPreview] Render error:', err);
+      console.error('[ReactPreview] Error:', err);
     }
-  }, [isActive, data.code, data.modules, ErrorBoundary]);
-
-  // Rebuild functionality removed: preview opens after initial build only.
-
-  const moduleCount = data.modules ? Object.keys(data.modules).length : 1;
+  }, [isActive, data.code]);
 
   return (
-    <div
-      style={{
-        width: '100%',
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        background: '#1e1e1e',
-        color: '#d4d4d4',
-      }}
-    >
-      {/* ヘッダー */}
-      <div
-        style={{
-          padding: '12px 16px',
-          borderBottom: '1px solid #333',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <div>
-          <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 600 }}>
-            React Preview: {data.filePath || 'Unknown'}
-          </h3>
-          <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#888' }}>
-            Built at: {data.builtAt ? new Date(data.builtAt).toLocaleString() : 'N/A'}
-            {moduleCount > 1 && ` • ${moduleCount} modules`}
-          </p>
-        </div>
-        {/* Rebuild button intentionally removed */}
+    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: '#1e1e1e', color: '#d4d4d4' }}>
+      <div style={{ padding: '12px 16px', borderBottom: '1px solid #333' }}>
+        <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 600 }}>
+          React Preview: {data.filePath || 'Unknown'}
+        </h3>
+        <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#888' }}>
+          Built at: {data.builtAt ? new Date(data.builtAt).toLocaleString() : 'N/A'}
+        </p>
       </div>
 
-      {/* エラー表示 */}
       {error && (
-        <div
-          style={{
-            padding: '16px',
-            background: '#3e1e1e',
-            color: '#f88',
-            fontFamily: 'monospace',
-            fontSize: '12px',
-            whiteSpace: 'pre-wrap',
-          }}
-        >
+        <div style={{ padding: '16px', background: '#3e1e1e', color: '#f88', fontFamily: 'monospace', fontSize: '12px', whiteSpace: 'pre-wrap' }}>
           ❌ Error: {error}
         </div>
       )}
 
-      {/* プレビューコンテナ */}
-      <div
-        ref={containerRef}
-        style={{
-          flex: 1,
-          overflow: 'auto',
-          padding: '16px',
-          background: '#fff',
-          color: '#000',
-        }}
-      />
+      <div ref={containerRef} style={{ flex: 1, overflow: 'auto', padding: '16px', background: '#fff', color: '#000' }} />
     </div>
   );
 }
 
 /**
- * 拡張機能のactivate関数
+ * 拡張機能のactivate
  */
 export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
   context.logger.info('react-preview activating...');
 
-  // タブタイプを登録
   context.tabs.registerTabType(ReactPreviewTabComponent);
-  context.logger.info('Tab type "react-preview" registered');
-
-  // react-buildコマンドを登録
   context.commands.registerCommand('react-build', reactBuildCommand);
-  context.logger.info('Command "react-build" registered');
 
-  // esbuild-wasmを事前ロード（オプション）
   loadESBuild().catch(err => {
-    context.logger.error('Failed to preload esbuild-wasm:', err);
+    context.logger.error('Failed to preload esbuild:', err);
   });
 
-  context.logger.info('react-preview activated successfully');
+  context.logger.info('react-preview activated');
 
   return {};
 }
 
-/**
- * 拡張機能のdeactivate関数
- */
 export async function deactivate(): Promise<void> {
-  console.log('react-preview deactivated');
   esbuildInstance = null;
-  esbuildInitPromise = null;
 }

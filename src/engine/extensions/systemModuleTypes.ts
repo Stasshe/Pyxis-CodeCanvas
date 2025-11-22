@@ -15,6 +15,7 @@ import type { NpmCommands } from '@/engine/cmd/global/npm';
 import type { UnixCommands } from '@/engine/cmd/global/unix';
 import type { StreamShell } from '@/engine/cmd/shell/streamShell';
 import type { FileRepository } from '@/engine/core/fileRepository';
+import type { transformImports } from './transformImports';
 
 /**
  * normalizeCjsEsmモジュールの型定義
@@ -46,6 +47,7 @@ export interface SystemModuleMap {
   fileRepository: FileRepository;
   normalizeCjsEsm: NormalizeCjsEsmModule;
   commandRegistry: CommandRegistry;
+  transformImports: transformImports;
   /** Terminal/CLI command singletons provider */
   systemBuiltinCommands: {
     getUnixCommands: (projectName: string, projectId?: string) => UnixCommands;

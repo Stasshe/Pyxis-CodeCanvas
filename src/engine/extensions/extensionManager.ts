@@ -638,6 +638,10 @@ class ExtensionManager {
             const { terminalCommandRegistry } = await import('@/engine/cmd/terminalRegistry');
             return terminalCommandRegistry as unknown as SystemModuleMap[T];
           }
+          case 'transformImports': {
+            const { transformImports } = await import('./transformImports');
+            return transformImports as SystemModuleMap[T];
+          }
           default: {
             // TypeScriptの網羅性チェック用の変数
             // 実行時には到達しないが、型エラーメッセージを改善するために使用
