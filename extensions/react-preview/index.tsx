@@ -124,7 +124,7 @@ async function buildJSX(
         loader: filePath.endsWith('.tsx') ? 'tsx' : 'jsx',
       },
       bundle: true,
-      format: 'cjs',
+      format: 'esm',
       write: false,
       plugins: [createVirtualFSPlugin(projectId, fileRepository)],
       target: 'es2020',
