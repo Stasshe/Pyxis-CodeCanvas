@@ -93,8 +93,9 @@ class ExtensionManager {
     if (typeof window !== 'undefined') {
       const React = await import('react');
       const ReactDOM = await import('react-dom');
+      const ReactDomClient = await import('react-dom/client');
       (window as any).__PYXIS_REACT__ = React;
-      (window as any).__PYXIS_REACT_DOM__ = ReactDOM;
+      (window as any).__PYXIS_REACT_DOM__ = { ...ReactDOM, ...ReactDomClient };
       console.log('[ExtensionManager] React and ReactDOM provided globally for extensions');
       // Provide Markdown/math rendering libraries on the host so extensions
       // don't need to bundle heavy unified/rehype ecosystems into blob modules.
