@@ -1,6 +1,6 @@
 /**
  * react-preview Extension
- * React JSXをブラウザでビルド&プレビュー
+ * React JSXをブラウザでビルド&プレビュー（Tailwind CSS対応）
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -163,10 +163,11 @@ async function buildJSX(
  */
 async function reactBuildCommand(args: string[], context: any): Promise<string> {
   if (args.length === 0) {
-    return 'Usage: react-build <entry.jsx>\n\nExample:\n  react-build App.jsx\n  react-build src/App.jsx';
+    return 'Usage: react-build <entry.jsx> [--tailwind]\n\nExample:\n  react-build App.jsx\n  react-build App.jsx --tailwind\n  react-build src/App.jsx --tailwind';
   }
 
   const filePath = args[0];
+  const useTailwind = args.includes('--tailwind');
   
   // パス正規化
   let normalizedPath = filePath;
@@ -194,10 +195,11 @@ async function reactBuildCommand(args: string[], context: any): Promise<string> 
     icon: 'Eye',
     closable: true,
     activateAfterCreate: true,
-    data: { filePath: normalizedPath, code, builtAt: Date.now() },
+    data: { filePath: normalizedPath, code, builtAt: Date.now(), useTailwind },
   });
 
-  return `[react-preview] Building: ${filePath}\n✅ Build successful!\n\n📺 Preview opened in tab\n`;
+  const tailwindMsg = useTailwind ? '\n🎨 Tailwind CSS enabled' : '';
+  return `[react-preview] Building: ${filePath}\n✅ Build successful!${tailwindMsg}\n\n📺 Preview opened in tab\n`;
 }
 
 /**
@@ -205,12 +207,34 @@ async function reactBuildCommand(args: string[], context: any): Promise<string> 
  */
 function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
   const [error, setError] = useState<string | null>(null);
+  const [tailwindLoaded, setTailwindLoaded] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<any>(null);
   const data = tab.data || {};
+  const useTailwind = data.useTailwind || false;
+
+  // Tailwind CSS CDNを読み込む（useTailwindがtrueの場合のみ）
+  useEffect(() => {
+    if (!useTailwind) {
+      setTailwindLoaded(true);
+      return;
+    }
+
+    const existingLink = document.getElementById('tailwind-cdn');
+    if (!existingLink) {
+      const link = document.createElement('link');
+      link.id = 'tailwind-cdn';
+      link.rel = 'stylesheet';
+      link.href = 'https://cdn.tailwindcss.com';
+      link.onload = () => setTailwindLoaded(true);
+      document.head.appendChild(link);
+    } else {
+      setTailwindLoaded(true);
+    }
+  }, [useTailwind]);
 
   useEffect(() => {
-    if (!isActive || !data.code) return;
+    if (!isActive || !data.code || !tailwindLoaded) return;
 
     const container = containerRef.current;
     if (!container) return;
@@ -269,7 +293,7 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
       setError(err?.message || 'Render failed');
       console.error('[ReactPreview] Error:', err);
     }
-  }, [isActive, data.code]);
+  }, [isActive, data.code, tailwindLoaded]);
 
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: '#1e1e1e', color: '#d4d4d4' }}>
@@ -279,6 +303,8 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
         </h3>
         <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#888' }}>
           Built at: {data.builtAt ? new Date(data.builtAt).toLocaleString() : 'N/A'}
+          {useTailwind && !tailwindLoaded && ' | Loading Tailwind CSS...'}
+          {useTailwind && tailwindLoaded && ' | Tailwind CSS loaded'}
         </p>
       </div>
 
@@ -313,4 +339,10 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
 
 export async function deactivate(): Promise<void> {
   esbuildInstance = null;
+  
+  // Tailwind CSSのクリーンアップ
+  const tailwindLink = document.getElementById('tailwind-cdn');
+  if (tailwindLink) {
+    tailwindLink.remove();
+  }
 }
