@@ -343,7 +343,20 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
       const modules = data.modules || { [data.filePath]: data.code };
 
       // モジュール解決関数
-      const requireModule = (modulePath: string, fromPath: string) => {
+      const requireModule = (modulePath: string, fromPath: string): any => {
+        // 外部ライブラリ（react, react-dom等）はグローバルから返す
+        if (modulePath === 'react') {
+          return React;
+        }
+        if (modulePath === 'react-dom') {
+          return ReactDOM;
+        }
+        
+        // 相対パスのみ内部モジュールとして解決
+        if (!modulePath.startsWith('./') && !modulePath.startsWith('../')) {
+          throw new Error(`External module "${modulePath}" is not available. Only 'react' and 'react-dom' are supported.`);
+        }
+        
         const resolvedPath = resolveImportPath(fromPath, modulePath);
         
         if (moduleCache[resolvedPath]) {
