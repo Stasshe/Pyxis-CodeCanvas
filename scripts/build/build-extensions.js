@@ -546,35 +546,24 @@ async function buildSingleExtension(srcDir, distDir, displayName) {
     // node_modules から esbuild.wasm を自動でコピーしておく（ソースに .wasm がない場合）
     try {
       const extName = path.basename(srcDir);
-      if (extName === 'react-preview') {
-        const destWasm = path.join(distDir, 'esbuild.wasm');
-        if (!fs.existsSync(destWasm)) {
-          let resolvedWasm = null;
-          try {
-            // try to resolve the package's wasm file directly
-            resolvedWasm = require.resolve('esbuild-wasm/esbuild.wasm');
-          } catch (e) {
-            try {
-              // fallback: resolve package entry and look for sibling esbuild.wasm
-              const pkgEntry = require.resolve('esbuild-wasm');
-              const pkgDir = path.dirname(pkgEntry);
-              const candidate = path.join(pkgDir, '..', 'esbuild.wasm');
-              if (fs.existsSync(candidate)) resolvedWasm = candidate;
-            } catch (e2) {
-              // ignore
-            }
-          }
+      const buildScript = path.join(srcDir, '_build.js');
 
-          if (resolvedWasm && fs.existsSync(resolvedWasm)) {
-            fs.copyFileSync(resolvedWasm, destWasm);
-            console.log(`📦 Copied esbuild.wasm to ${path.relative(ROOT_DIR, destWasm)}`);
-          } else {
-            console.log('⚠️  esbuild.wasm not found in node_modules; place esbuild.wasm into the extension source if you want to ship it with the extension.');
-          }
+      // If the extension provides an _build.js, run it (it may handle copying extra files).
+      if (fs.existsSync(buildScript)) {
+        try {
+          console.log(`🔧 Running custom build script for ${extName}: _build.js`);
+          execSync(`node _build.js "${distDir}"`, {
+            cwd: srcDir,
+            stdio: 'inherit',
+          });
+        } catch (e) {
+          console.error(`❌ Custom build script failed for ${extName}:`, e && e.message ? e.message : e);
+          // Don't fail the whole build for a custom script error; continue with other steps.
         }
       }
     } catch (e) {
       // Non-fatal; continue building other assets
+      console.error(`❌ Error in extension pre-build hook for ${path.basename(srcDir)}:`, e && e.message ? e.message : e);
     }
     
     // package.json がある場合
