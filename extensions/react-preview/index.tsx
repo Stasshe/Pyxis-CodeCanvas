@@ -21,39 +21,28 @@ interface ESBuild {
   }): Promise<{ outputFiles: Array<{ text: string }> }>;
 }
 
-let esbuildModule: any = null;
-let esbuildInitPromise: Promise<any> | null = null;
+let esbuildInstance: ESBuild | null = null;
 
 async function loadESBuild(): Promise<ESBuild> {
-  // モジュール自体は1回だけロード
-  if (!esbuildModule) {
-    if (!esbuildInitPromise) {
-      esbuildInitPromise = import('esbuild-wasm').then(m => {
-        esbuildModule = (m as any).default || m;
-        return esbuildModule;
-      });
-    }
-    await esbuildInitPromise;
-  }
+  if (esbuildInstance) return esbuildInstance;
 
-  // 毎回新しいインスタンスを作成
+  const esbuildModule = await import('esbuild-wasm');
+  const esbuild = (esbuildModule as any).default || esbuildModule;
+
   const runtimeBase = (typeof window !== 'undefined' && (window as any).__NEXT_PUBLIC_BASE_PATH__) || '';
   const normalizedBase = runtimeBase.endsWith('/') ? runtimeBase.slice(0, -1) : runtimeBase;
   const wasmURL = `${normalizedBase}/extensions/react-preview/esbuild.wasm`;
 
-  // タイムスタンプでキャッシュを無効化
-  const cacheBuster = Date.now();
-  await esbuildModule.initialize({ 
-    wasmURL: `${wasmURL}?t=${cacheBuster}` 
-  });
+  await esbuild.initialize({ wasmURL });
+  esbuildInstance = esbuild;
   
-  return esbuildModule;
+  return esbuild;
 }
 
 /**
  * 仮想ファイルシステムプラグイン
  */
-function createVirtualFSPlugin(projectId: string, fileRepository: any, previewId: string) {
+function createVirtualFSPlugin(projectId: string, fileRepository: any) {
   return {
     name: 'virtual-fs',
     setup(build: any) {
@@ -98,15 +87,14 @@ function createVirtualFSPlugin(projectId: string, fileRepository: any, previewId
           return { errors: [{ text: `File not found: ${args.path}` }] };
         }
 
-        // CSSはスタイル注入コードに変換（プレビュー固有のIDを付与）
+        // CSSはスタイル注入コードに変換
         if (args.path.match(/\.css$/i)) {
           const cssContent = JSON.stringify(file.content);
           const code = `
             (function() {
               var style = document.createElement('style');
               style.textContent = ${cssContent};
-              style.setAttribute('data-react-preview-id', '${previewId}');
-              style.setAttribute('data-react-preview-path', '${args.path}');
+              style.setAttribute('data-react-preview', '${args.path}');
               document.head.appendChild(style);
             })();
           `;
@@ -128,16 +116,14 @@ function createVirtualFSPlugin(projectId: string, fileRepository: any, previewId
 }
 
 /**
- * JSXファイルをビルド（HMR対応版）
+ * JSXファイルをビルド
  */
 async function buildJSX(
   filePath: string,
   projectId: string,
-  context: ExtensionContext,
-  previewId: string
+  context: ExtensionContext
 ): Promise<{ code: string; error?: string }> {
   try {
-    // 毎回新しいesbuildインスタンスを作成
     const esbuild = await loadESBuild();
     const fileRepository = await context.getSystemModule('fileRepository');
     const file = await fileRepository.getFileByPath(projectId, filePath);
@@ -145,13 +131,9 @@ async function buildJSX(
       return { code: '', error: `File not found: ${filePath}` };
     }
     
-    // タイムスタンプをビルドに埋め込んでキャッシュ無効化
-    const buildTimestamp = Date.now();
-    const timestampComment = `/* Build: ${buildTimestamp} */\n`;
-    
     const result = await esbuild.build({
       stdin: {
-        contents: timestampComment + file.content,
+        contents: file.content,
         resolveDir: filePath.split('/').slice(0, -1).join('/') || '/',
         sourcefile: filePath,
         loader: filePath.endsWith('.tsx') ? 'tsx' : 'jsx',
@@ -159,7 +141,7 @@ async function buildJSX(
       bundle: true,
       format: 'cjs',
       write: false,
-      plugins: [createVirtualFSPlugin(projectId, fileRepository, previewId)],
+      plugins: [createVirtualFSPlugin(projectId, fileRepository)],
       target: 'es2020',
       jsxFactory: 'React.createElement',
       jsxFragment: 'React.Fragment',
@@ -195,14 +177,10 @@ async function reactBuildCommand(args: string[], context: any): Promise<string> 
     normalizedPath = filePath.replace(`/projects/${context.projectName}`, '');
   }
 
-  // プレビュー固有のIDを生成
-  const previewId = `preview-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
   const { code, error } = await buildJSX(
     normalizedPath,
     context.projectId,
     context,
-    previewId
   );
 
   if (error) {
@@ -216,53 +194,26 @@ async function reactBuildCommand(args: string[], context: any): Promise<string> 
     icon: 'Eye',
     closable: true,
     activateAfterCreate: true,
-    data: { filePath: normalizedPath, code, builtAt: Date.now(), previewId },
+    data: { filePath: normalizedPath, code, builtAt: Date.now() },
   });
 
   return `[react-preview] Building: ${filePath}\n✅ Build successful!\n\n📺 Preview opened in tab\n`;
 }
 
 /**
- * プレビュータブコンポーネント（完全修正版）
+ * プレビュータブコンポーネント
  */
 function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
   const [error, setError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<any>(null);
-  const mountedRef = useRef<boolean>(false);
   const data = tab.data || {};
 
-  // このプレビュー専用のスタイルのみを削除
-  const cleanup = () => {
-    if (data.previewId) {
-      document.querySelectorAll(`style[data-react-preview-id="${data.previewId}"]`).forEach(el => el.remove());
-    }
-    
-    if (rootRef.current) {
-      try {
-        rootRef.current.unmount();
-      } catch (e) {
-        console.warn('[ReactPreview] Unmount error:', e);
-      }
-      rootRef.current = null;
-    }
-    
-    mountedRef.current = false;
-  };
-
   useEffect(() => {
-    if (!isActive || !data.code) {
-      cleanup();
-      return;
-    }
+    if (!isActive || !data.code) return;
 
     const container = containerRef.current;
     if (!container) return;
-
-    // 既存のコンテンツを完全クリア
-    if (mountedRef.current) {
-      cleanup();
-    }
 
     try {
       setError(null);
@@ -283,8 +234,8 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
         throw new Error(`Module not found: ${name}`);
       };
 
-      // このプレビュー専用のスタイルのみ削除
-      cleanup();
+      // 古いスタイルを削除
+      document.querySelectorAll('style[data-react-preview]').forEach(el => el.remove());
 
       // コードを実行してコンポーネントを取得
       const module = { exports: {} };
@@ -298,21 +249,27 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
         return;
       }
 
-      // 新しいルートを作成して強制的にリマウント
-      rootRef.current = ReactDOM.createRoot(container);
+      // レンダリング
+      if (!rootRef.current) {
+        rootRef.current = ReactDOM.createRoot(container);
+      }
+
       rootRef.current.render(React.createElement(Component));
-      mountedRef.current = true;
 
-      console.log('[ReactPreview] Rendered at:', data.builtAt, 'ID:', data.previewId);
-
+      return () => {
+        // クリーンアップ：スタイルを削除
+        document.querySelectorAll('style[data-react-preview]').forEach(el => el.remove());
+        
+        if (rootRef.current) {
+          rootRef.current.unmount();
+          rootRef.current = null;
+        }
+      };
     } catch (err: any) {
       setError(err?.message || 'Render failed');
       console.error('[ReactPreview] Error:', err);
     }
-
-    // クリーンアップ
-    return cleanup;
-  }, [isActive, data.code, data.builtAt, data.previewId]);
+  }, [isActive, data.code]);
 
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: '#1e1e1e', color: '#d4d4d4' }}>
@@ -345,12 +302,15 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
   context.tabs.registerTabType(ReactPreviewTabComponent);
   context.commands.registerCommand('react-build', reactBuildCommand);
 
+  loadESBuild().catch(err => {
+    context.logger.error('Failed to preload esbuild:', err);
+  });
+
   context.logger.info('react-preview activated');
 
   return {};
 }
 
 export async function deactivate(): Promise<void> {
-  esbuildModule = null;
-  esbuildInitPromise = null;
+  esbuildInstance = null;
 }
