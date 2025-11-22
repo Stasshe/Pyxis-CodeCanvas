@@ -45,8 +45,13 @@ function createVirtualFSPlugin(projectId: string, fileRepository: any) {
   return {
     name: 'virtual-fs',
     setup(build: any) {
+      // 外部依存（react等）を無視
+      build.onResolve({ filter: /^[^./]/ }, (args: any) => {
+        return { path: args.path, external: true };
+      });
+
       // 相対パスの解決
-      build.onResolve({ filter: /^\.\.?[\/\\]/ }, async (args: any) => {
+      build.onResolve({ filter: /^\./ }, async (args: any) => {
         const fromDir = args.importer === '<stdin>' 
           ? args.resolveDir 
           : args.importer.split('/').slice(0, -1).join('/');
@@ -101,16 +106,17 @@ function createVirtualFSPlugin(projectId: string, fileRepository: any) {
 async function buildJSX(
   filePath: string,
   projectId: string,
-  context: ExtensionContext
+  fileRepository: any,
+  transformImports: (code: string) => string
 ): Promise<{ code: string; error?: string }> {
   try {
     const esbuild = await loadESBuild();
-    const fileRepository = await context.getSystemModule('fileRepository');
+    
     const file = await fileRepository.getFileByPath(projectId, filePath);
     if (!file) {
       return { code: '', error: `File not found: ${filePath}` };
     }
-    
+
     const result = await esbuild.build({
       stdin: {
         contents: file.content,
@@ -128,8 +134,7 @@ async function buildJSX(
     });
 
     const bundled = result.outputFiles[0].text;
-    const transformImportsModule = await context.getSystemModule('transformImports');
-    const transformed = transformImportsModule(bundled);
+    const transformed = transformImports(bundled);
 
     return { code: transformed };
   } catch (error: any) {
@@ -159,7 +164,8 @@ async function reactBuildCommand(args: string[], context: any): Promise<string> 
   const { code, error } = await buildJSX(
     normalizedPath,
     context.projectId,
-    context,
+    await context.getSystemModule('fileRepository'),
+    (await context.getSystemModule('transformImports')).transformImports
   );
 
   if (error) {
