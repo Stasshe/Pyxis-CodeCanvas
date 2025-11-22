@@ -355,8 +355,8 @@ async function transpileAllWithTsc() {
           return;
         }
         
-        // manifest.json, 画像, Markdown, CSSファイルのみコピー
-        if (basename === 'manifest.json' || ['.svg', '.png', '.jpg', '.md', '.css'].includes(ext)) {
+        // manifest.json, 画像, Markdown, CSS, WASMファイルのみコピー
+        if (basename === 'manifest.json' || ['.svg', '.png', '.jpg', '.md', '.css', '.wasm'].includes(ext)) {
           const distPath = path.join(distDir, relativePath);
           fs.mkdirSync(path.dirname(distPath), { recursive: true });
           fs.copyFileSync(srcPath, distPath);
@@ -541,6 +541,30 @@ async function buildSingleExtension(srcDir, distDir, displayName) {
     
     // 出力ディレクトリを作成
     fs.mkdirSync(distDir, { recursive: true });
+
+    // react-preview の場合、プロジェクトに esbuild-wasm がインストールされていれば
+    // node_modules から esbuild.wasm を自動でコピーしておく（ソースに .wasm がない場合）
+    try {
+      const extName = path.basename(srcDir);
+      const buildScript = path.join(srcDir, '_build.js');
+
+      // If the extension provides an _build.js, run it (it may handle copying extra files).
+      if (fs.existsSync(buildScript)) {
+        try {
+          console.log(`🔧 Running custom build script for ${extName}: _build.js`);
+          execSync(`node _build.js "${distDir}"`, {
+            cwd: srcDir,
+            stdio: 'inherit',
+          });
+        } catch (e) {
+          console.error(`❌ Custom build script failed for ${extName}:`, e && e.message ? e.message : e);
+          // Don't fail the whole build for a custom script error; continue with other steps.
+        }
+      }
+    } catch (e) {
+      // Non-fatal; continue building other assets
+      console.error(`❌ Error in extension pre-build hook for ${path.basename(srcDir)}:`, e && e.message ? e.message : e);
+    }
     
     // package.json がある場合
     if (hasPackageJson(srcDir)) {
@@ -580,8 +604,8 @@ async function buildSingleExtension(srcDir, distDir, displayName) {
         return;
       }
       
-      // manifest.json, 画像, Markdown, CSSファイルのみコピー
-      if (basename === 'manifest.json' || ['.svg', '.png', '.jpg', '.md', '.css'].includes(ext)) {
+      // manifest.json, 画像, Markdown, CSS, WASMファイルのみコピー
+      if (basename === 'manifest.json' || ['.svg', '.png', '.jpg', '.md', '.css', '.wasm'].includes(ext)) {
         const distPath = path.join(distDir, relativePath);
         fs.mkdirSync(path.dirname(distPath), { recursive: true });
         fs.copyFileSync(srcPath, distPath);

@@ -1,0 +1,10 @@
+{
+  "id": "pyxis.react-preview",
+  "name": "react-preview",
+  "version": "1.0.0",
+  "type": "ui",
+  "description": "",
+  "author": "Pyxis Team",
+  "defaultEnabled": false,
+  "entry": "index.js"
+}

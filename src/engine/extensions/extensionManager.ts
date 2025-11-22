@@ -93,8 +93,9 @@ class ExtensionManager {
     if (typeof window !== 'undefined') {
       const React = await import('react');
       const ReactDOM = await import('react-dom');
+      const ReactDomClient = await import('react-dom/client');
       (window as any).__PYXIS_REACT__ = React;
-      (window as any).__PYXIS_REACT_DOM__ = ReactDOM;
+      (window as any).__PYXIS_REACT_DOM__ = { ...ReactDOM, ...ReactDomClient };
       console.log('[ExtensionManager] React and ReactDOM provided globally for extensions');
       // Provide Markdown/math rendering libraries on the host so extensions
       // don't need to bundle heavy unified/rehype ecosystems into blob modules.
@@ -637,6 +638,10 @@ class ExtensionManager {
             // Provide registry that returns singleton command instances per project
             const { terminalCommandRegistry } = await import('@/engine/cmd/terminalRegistry');
             return terminalCommandRegistry as unknown as SystemModuleMap[T];
+          }
+          case 'transformImports': {
+            const { transformImports } = await import('./transformImports');
+            return transformImports as SystemModuleMap[T];
           }
           default: {
             // TypeScriptの網羅性チェック用の変数

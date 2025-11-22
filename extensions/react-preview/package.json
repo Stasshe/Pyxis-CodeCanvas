@@ -1,0 +1,9 @@
+{
+  "name": "react-preview",
+  "version": "1.0.0",
+  "private": true,
+  "description": "",
+  "dependencies": {
+    "esbuild-wasm": "^0.27.0"
+  }
+}
