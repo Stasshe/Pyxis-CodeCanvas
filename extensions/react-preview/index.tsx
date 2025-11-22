@@ -261,7 +261,6 @@ async function reactBuildCommand(args: string[], context: any): Promise<string> 
  */
 function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
   const [error, setError] = useState<string | null>(null);
-  const [isRebuilding, setIsRebuilding] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<any>(null);
   const data = (tab as any).data || {};
@@ -406,25 +405,7 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
     }
   }, [isActive, data.code, data.modules, ErrorBoundary]);
 
-  const handleRebuild = async () => {
-    setIsRebuilding(true);
-    setError(null);
-
-    try {
-      // コマンドレジストリ経由で再ビルド
-      const commandRegistry = await (window as any).__getSystemModule('commandRegistry');
-      await commandRegistry.executeCommand('react-build', [data.filePath], {
-        projectName: 'default',
-        projectId: '',
-        currentDirectory: '/',
-        getSystemModule: (window as any).__getSystemModule,
-      });
-    } catch (err: any) {
-      setError(err?.message || 'Rebuild failed');
-    } finally {
-      setIsRebuilding(false);
-    }
-  };
+  // Rebuild functionality removed: preview opens after initial build only.
 
   const moduleCount = data.modules ? Object.keys(data.modules).length : 1;
 
@@ -458,22 +439,7 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
             {moduleCount > 1 && ` • ${moduleCount} modules`}
           </p>
         </div>
-        <button
-          onClick={handleRebuild}
-          disabled={isRebuilding}
-          style={{
-            padding: '6px 12px',
-            background: '#007acc',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: isRebuilding ? 'not-allowed' : 'pointer',
-            fontSize: '12px',
-            opacity: isRebuilding ? 0.6 : 1,
-          }}
-        >
-          {isRebuilding ? 'Rebuilding...' : 'Rebuild'}
-        </button>
+        {/* Rebuild button intentionally removed */}
       </div>
 
       {/* エラー表示 */}
