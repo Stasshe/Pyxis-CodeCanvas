@@ -222,12 +222,18 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
 
     const existingLink = document.getElementById('tailwind-cdn');
     if (!existingLink) {
-      const link = document.createElement('link');
-      link.id = 'tailwind-cdn';
-      link.rel = 'stylesheet';
-      link.href = 'https://cdn.tailwindcss.com';
-      link.onload = () => setTailwindLoaded(true);
-      document.head.appendChild(link);
+      const script = document.createElement('script');
+      script.id = 'tailwind-cdn';
+      script.src = 'https://cdn.tailwindcss.com';
+      script.onload = () => {
+        console.log('[ReactPreview] Tailwind CSS loaded');
+        setTailwindLoaded(true);
+      };
+      script.onerror = () => {
+        console.error('[ReactPreview] Failed to load Tailwind CSS');
+        setTailwindLoaded(true);
+      };
+      document.head.appendChild(script);
     } else {
       setTailwindLoaded(true);
     }
