@@ -130,6 +130,11 @@ async function buildJSX(
       target: 'es2020',
       jsxFactory: 'React.createElement',
       jsxFragment: 'React.Fragment',
+      external: [
+        'react',
+        'react-dom',
+        'react-dom/client'
+      ],
     });
 
     const bundled = result.outputFiles[0].text;
