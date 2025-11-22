@@ -165,6 +165,7 @@ export default function RootLayout({
           name="msapplication-TileColor"
           content="#18181b"
         />
+        <meta name="viewport" content="width=device-width, initial-scale=0.7, minimum-scale=0.5, maximum-scale=3.0, user-scalable=yes">
         <meta
           name="msapplication-tap-highlight"
           content="no"
