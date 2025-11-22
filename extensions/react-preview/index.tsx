@@ -101,17 +101,16 @@ function createVirtualFSPlugin(projectId: string, fileRepository: any) {
 async function buildJSX(
   filePath: string,
   projectId: string,
-  context: any
+  context: ExtensionContext
 ): Promise<{ code: string; error?: string }> {
   try {
     const esbuild = await loadESBuild();
-    
+    const fileRepository = await context.getSystemModule('fileRepository');
     const file = await fileRepository.getFileByPath(projectId, filePath);
     if (!file) {
       return { code: '', error: `File not found: ${filePath}` };
     }
-    const fileRepository = await context.getSystemModule('fileRepository');
-
+    
     const result = await esbuild.build({
       stdin: {
         contents: file.content,
