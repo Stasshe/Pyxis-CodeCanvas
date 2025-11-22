@@ -17,6 +17,7 @@ interface ESBuild {
     target?: string;
     jsxFactory?: string;
     jsxFragment?: string;
+    external?: string[];
   }): Promise<{ outputFiles: Array<{ text: string }> }>;
 }
 
@@ -49,15 +50,15 @@ function createVirtualFSPlugin(projectId: string, fileRepository: any) {
       build.onResolve({ filter: /^[^./]/ }, (args: any) => {
         return { path: args.path, external: true };
       });
+
       // 相対パスの解決
       build.onResolve({ filter: /^\./ }, async (args: any) => {
-      // 相対パスの解決
-      const fromDir = args.importer === '<stdin>' 
-        ? args.resolveDir 
-        : args.importer.split('/').slice(0, -1).join('/');
-      
-      const parts = (fromDir + '/' + args.path).split('/');
-      const resolved: string[] = [];
+        const fromDir = args.importer === '<stdin>' 
+          ? args.resolveDir 
+          : args.importer.split('/').slice(0, -1).join('/');
+        
+        const parts = (fromDir + '/' + args.path).split('/');
+        const resolved: string[] = [];
         
         for (const part of parts) {
           if (part === '' || part === '.') continue;
@@ -70,7 +71,7 @@ function createVirtualFSPlugin(projectId: string, fileRepository: any) {
         
         let path = '/' + resolved.join('/');
         
-        // 拡張子補完
+        // 拡張子補完（CSSは除く）
         if (!path.match(/\.[^/]+$/)) {
           path += '.jsx';
         }
@@ -86,8 +87,22 @@ function createVirtualFSPlugin(projectId: string, fileRepository: any) {
           return { errors: [{ text: `File not found: ${args.path}` }] };
         }
 
-        // CSSなどはスキップ
-        if (args.path.match(/\.(css|png|jpe?g|svg)$/i)) {
+        // CSSはスタイル注入コードに変換
+        if (args.path.match(/\.css$/i)) {
+          const cssContent = JSON.stringify(file.content);
+          const code = `
+            (function() {
+              var style = document.createElement('style');
+              style.textContent = ${cssContent};
+              style.setAttribute('data-react-preview', '${args.path}');
+              document.head.appendChild(style);
+            })();
+          `;
+          return { contents: code, loader: 'js' };
+        }
+
+        // 画像などはスキップ
+        if (args.path.match(/\.(png|jpe?g|svg|gif|webp)$/i)) {
           return { contents: '', loader: 'text' };
         }
 
@@ -130,11 +145,7 @@ async function buildJSX(
       target: 'es2020',
       jsxFactory: 'React.createElement',
       jsxFragment: 'React.Fragment',
-      external: [
-        'react',
-        'react-dom',
-        'react-dom/client'
-      ],
+      external: ['react', 'react-dom', 'react-dom/client'],
     });
 
     const bundled = result.outputFiles[0].text;
@@ -215,18 +226,21 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
         return;
       }
 
-      // コードを実行してコンポーネントを取得
       // requireシム
-const shimRequire = (name: string) => {
-  if (name === 'react') return React;
-  if (name === 'react-dom') return ReactDOM;
-  if (name === 'react-dom/client') return ReactDOM;
-  throw new Error(`Module not found: ${name}`);
-};
+      const shimRequire = (name: string) => {
+        if (name === 'react') return React;
+        if (name === 'react-dom') return ReactDOM;
+        if (name === 'react-dom/client') return ReactDOM;
+        throw new Error(`Module not found: ${name}`);
+      };
 
-const module = { exports: {} };
-const moduleFunc = new Function('module', 'exports', 'require', data.code);
-moduleFunc(module, module.exports, shimRequire);
+      // 古いスタイルを削除
+      document.querySelectorAll('style[data-react-preview]').forEach(el => el.remove());
+
+      // コードを実行してコンポーネントを取得
+      const module = { exports: {} };
+      const moduleFunc = new Function('module', 'exports', 'require', data.code);
+      moduleFunc(module, module.exports, shimRequire);
       
       const Component = (module.exports as any).default || (module.exports as any);
 
@@ -243,6 +257,9 @@ moduleFunc(module, module.exports, shimRequire);
       rootRef.current.render(React.createElement(Component));
 
       return () => {
+        // クリーンアップ：スタイルを削除
+        document.querySelectorAll('style[data-react-preview]').forEach(el => el.remove());
+        
         if (rootRef.current) {
           rootRef.current.unmount();
           rootRef.current = null;
