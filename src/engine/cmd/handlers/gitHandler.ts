@@ -306,6 +306,21 @@ export async function handleGitCommand(
       break;
     }
 
+    case 'show': {
+      const showArgs = args.slice(1);
+      if (showArgs.length === 0) {
+        await writeOutput('git show: missing commit or file');
+      } else {
+        try {
+          const showResult = await git.show(showArgs);
+          await writeOutput(showResult);
+        } catch (error) {
+          await writeOutput(`git show: ${(error as Error).message}`);
+        }
+      }
+      break;
+    }
+
     default:
       await writeOutput(`git: '${gitCmd}' is not a git command`);
       break;

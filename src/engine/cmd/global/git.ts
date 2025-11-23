@@ -1484,4 +1484,14 @@ export class GitCommands {
       throw new Error(`git pull failed: ${(error as Error).message}`);
     }
   }
+
+  /**
+   * git show - コミット情報またはコミット時点のファイル内容を表示
+   */
+  async show(args: string[]): Promise<string> {
+    await this.ensureGitRepository();
+
+    const { show } = await import('./gitOperations/show');
+    return show(this.fs, this.dir, args);
+  }
 }
