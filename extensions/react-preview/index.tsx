@@ -66,8 +66,20 @@ function createVirtualFSPlugin(projectId: string, fileRepository: any) {
   return {
     name: 'virtual-fs',
     setup(build: any) {
-      // 外部依存（react等）を無視
-      build.onResolve({ filter: /^[^./]/ }, (args: any) => {
+      // npm ライブラリの解決（./や../から始まらないもの）
+      build.onResolve({ filter: /^[^./]/ }, async (args: any) => {
+        if (args.path.startsWith('react') || args.path.startsWith('react-dom')) {
+          return { path: args.path, external: true };
+        }
+        try {
+          // プロジェクトルートの node_modules から読み込みを試みる
+          const file = await fileRepository.getFileByPath(projectId, `/node_modules/${args.path}`);
+          if (file) {
+            return { path: `/node_modules/${args.path}`, namespace: 'virtual' };
+          }
+        } catch (e) {
+          // ファイルが見つからない場合は external として扱う
+        }
         return { path: args.path, external: true };
       });
 
@@ -339,6 +351,7 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
           background: '#fff',
         }}
         title="React Preview"
+        sandbox="allow-scripts"
       />
     </div>
   );
