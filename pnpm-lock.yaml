@@ -165,9 +165,6 @@ importers:
       '@babel/helper-plugin-utils':
         specifier: ^7.27.1
         version: 7.27.1
-      '@eslint/eslintrc':
-        specifier: ^3.3.1
-        version: 3.3.1
       '@tailwindcss/postcss':
         specifier: ^4.1.16
         version: 4.1.16
@@ -210,6 +207,9 @@ importers:
       enquirer:
         specifier: ^2.4.1
         version: 2.4.1
+      es-abstract:
+        specifier: ^1.24.0
+        version: 1.24.0
       esbuild:
         specifier: ^0.25.12
         version: 0.25.12

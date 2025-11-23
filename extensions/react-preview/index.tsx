@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+
 import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
 
 interface ESBuild {

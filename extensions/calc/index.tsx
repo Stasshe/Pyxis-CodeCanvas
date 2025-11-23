@@ -7,9 +7,9 @@ import { parseLatex, analyze } from 'latexium';
 import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeKatex from 'rehype-katex';
+import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
-import rehypeRaw from 'rehype-raw';
 
 import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
 

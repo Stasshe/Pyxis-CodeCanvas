@@ -99,28 +99,6 @@ export default [
     },
   },
   {
-    files: ['**/*.test.ts', '**/*.spec.ts', '**/*.test.js', '**/*.test.mjs', 'tests/**/*.mjs'],
-    rules: {
-      '@typescript-eslint/explicit-function-return-type': 'off',
-      'no-console': 'off',
-    },
-    languageOptions: {
-      globals: {
-        console: 'readonly',
-        JSON: 'readonly',
-        // Jest globals used in test files
-        describe: 'readonly',
-        it: 'readonly',
-        test: 'readonly',
-        expect: 'readonly',
-        beforeEach: 'readonly',
-        afterEach: 'readonly',
-        beforeAll: 'readonly',
-        afterAll: 'readonly',
-      },
-    },
-  },
-  {
-    ignores: ['out', 'node_modules', '*.js', '.next', 'dist', 'build', 'public', 'coverage', '**/*.d.ts', 'scripts/extensions/samples'],
+    ignores: ['out', 'node_modules', '*.js', '.next', 'dist', 'build', 'public', 'tests', 'coverage', '**/*.d.ts', 'scripts/extensions/samples'],
   },
 ];

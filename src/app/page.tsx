@@ -14,15 +14,15 @@ import ProjectModal from '@/components/ProjectModal';
 import RightSidebar from '@/components/Right/RightSidebar';
 import TopBar from '@/components/TopBar';
 import { useFileSelector } from '@/context/FileSelectorContext';
-import useGlobalScrollLock from '@/hooks/useGlobalScrollLock';
-import { useKeyBinding } from '@/hooks/useKeyBindings';
+import { useProject } from '@/engine/core/project';
+import initFileWatcherBridge from '@/engine/fileWatcherBridge';
 import {
   useLeftSidebarResize,
   useBottomPanelResize,
   useRightSidebarResize,
 } from '@/engine/helper/resize';
-import { useProject } from '@/engine/core/project';
-import initFileWatcherBridge from '@/engine/fileWatcherBridge';
+import useGlobalScrollLock from '@/hooks/useGlobalScrollLock';
+import { useKeyBinding } from '@/hooks/useKeyBindings';
 import { useProjectWelcome } from '@/hooks/useProjectWelcome';
 import { useTabContentRestore } from '@/hooks/useTabContentRestore';
 import { sessionStorage } from '@/stores/sessionStorage';

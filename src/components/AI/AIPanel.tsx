@@ -10,8 +10,9 @@ import ChatInput from './chat/ChatInput';
 import ModeSelector from './chat/ModeSelector';
 import ChatSpaceList from './ChatSpaceList';
 import FileContextBar from './context/FileContextBar';
-import ChangedFilesPanel from './review/ChangedFilesPanel';
 import FileSelector from './FileSelector';
+import ChangedFilesPanel from './review/ChangedFilesPanel';
+
 import { LOCALSTORAGE_KEY } from '@/context/config';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';

@@ -9,13 +9,13 @@
  */
 
 import type { CommandRegistry } from './commandRegistry';
+import type { transformImports } from './transformImports';
 
 import type { GitCommands } from '@/engine/cmd/global/git';
 import type { NpmCommands } from '@/engine/cmd/global/npm';
 import type { UnixCommands } from '@/engine/cmd/global/unix';
 import type { StreamShell } from '@/engine/cmd/shell/streamShell';
 import type { FileRepository } from '@/engine/core/fileRepository';
-import type { transformImports } from './transformImports';
 
 /**
  * normalizeCjsEsmモジュールの型定義

@@ -1,9 +1,10 @@
 import EventEmitter from 'events';
 import { PassThrough, Readable, Writable } from 'stream';
-import type { UnixCommands } from '../global/unix';
-import type { fileRepository } from '@/engine/core/fileRepository';
 
 import expandBraces from './braceExpand';
+import type { UnixCommands } from '../global/unix';
+
+import type { fileRepository } from '@/engine/core/fileRepository';
 
 /**
  * Stream-based Shell
@@ -1550,7 +1551,7 @@ export class StreamShell {
     // per-path serialization promises to avoid concurrent read/save races
     const writeQueues: Record<string, Promise<void>> = {};
     const pathState: Record<string, { created: boolean }> = {};
-    
+
     const enqueueWrite = (path: string, append: boolean, chunk: string) => {
       const key = path.startsWith('/') ? path : `/${path}`;
       const job = async () => {
