@@ -220,6 +220,8 @@ async function reactBuildCommand(args: string[], context: any): Promise<string> 
     return `[react-preview] Building: ${filePath}\n❌ Build failed:\n${error}\n`;
   }
 
+  console.log(code);
+
   // プレビュータブを開く
   context.tabs.createTab({
     id: `preview-${normalizedPath}`,
@@ -236,33 +238,24 @@ async function reactBuildCommand(args: string[], context: any): Promise<string> 
 
 function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
   const [error, setError] = useState<string | null>(null);
-  const [loadingState, setLoadingState] = useState<'loading' | 'ready' | 'error'>('loading');
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const data = tab.data || {};
   const useTailwind = data.useTailwind || false;
-  const mountedRef = useRef(true);
+  const initializedRef = useRef(false);
 
   useEffect(() => {
-    return () => { mountedRef.current = false; };
-  }, []);
-
-  useEffect(() => {
-    if (!isActive) return;
+    if (!isActive) {
+      initializedRef.current = false;
+      return;
+    }
 
     const iframe = iframeRef.current;
-    if (!iframe) return;
-
-    // 前回の状態をクリア
-    setLoadingState('loading');
-    setError(null);
-
-    let timeoutId: number;
+    if (!iframe || initializedRef.current) return;
 
     const initIframe = () => {
       const doc = iframe.contentDocument;
       if (!doc) {
         setError('Cannot access iframe document');
-        setLoadingState('error');
         return;
       }
 
@@ -272,6 +265,9 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src *; script-src * 'unsafe-inline' 'unsafe-eval'; style-src * 'unsafe-inline'; img-src * data: blob:; font-src * data:; connect-src *; frame-src *;">
+  <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+  <script>eruda.init();</script>
   <style>
     body { margin: 0; padding: 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
     #root { width: 100%; min-height: 100vh; }
@@ -288,12 +284,6 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"><\/script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom-client.production.min.js"><\/script>
   <script>
-    // 親にステータスを通知
-    window.onerror = function(msg, url, line, col, error) {
-      window.parent.postMessage({ type: 'preview-error', error: String(msg) }, '*');
-      return false;
-    };
-
     window.React = React;
     window.ReactDOM = ReactDOM;
 
@@ -304,8 +294,7 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
       throw new Error('Module not found: ' + name);
     }
 
-    // すべてのリソースがロードされるまで待つ
-    window.addEventListener('load', function() {
+    (function() {
       try {
         const code = ${JSON.stringify(data.code)};
         const module = { exports: {} };
@@ -320,15 +309,12 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(React.createElement(Component));
-        
-        // 成功を親に通知
-        window.parent.postMessage({ type: 'preview-ready' }, '*');
       } catch (err) {
         const root = document.getElementById('root');
         root.innerHTML = '<div style="color: #f88; padding: 16px; font-family: monospace; font-size: 12px; white-space: pre-wrap;">Error: ' + (err?.message || 'Unknown error') + '</div>';
-        window.parent.postMessage({ type: 'preview-error', error: err?.message || 'Unknown error' }, '*');
+        console.error('[ReactPreview]', err);
       }
-    });
+    })();
   <\/script>
 </body>
 </html>`;
@@ -336,54 +322,19 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
         doc.open();
         doc.write(html);
         doc.close();
-
-        // タイムアウト設定（10秒以内にreadyが来なければエラー）
-        timeoutId = window.setTimeout(() => {
-          if (mountedRef.current && loadingState === 'loading') {
-            setError('Preview timeout: React failed to load or render');
-            setLoadingState('error');
-          }
-        }, 10000);
-
+        initializedRef.current = true;
+        setError(null);
       } catch (err: any) {
         setError(err?.message || 'Failed to initialize iframe');
-        setLoadingState('error');
       }
     };
 
-    // postMessageリスナー
-    const handleMessage = (event: MessageEvent) => {
-      if (event.source !== iframe.contentWindow) return;
-      
-      if (event.data.type === 'preview-ready') {
-        if (mountedRef.current) {
-          setLoadingState('ready');
-          setError(null);
-          clearTimeout(timeoutId);
-        }
-      } else if (event.data.type === 'preview-error') {
-        if (mountedRef.current) {
-          setError(event.data.error);
-          setLoadingState('error');
-          clearTimeout(timeoutId);
-        }
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-
-    // iframe loadイベントを待ってから初期化
     if (iframe.contentDocument?.readyState === 'complete') {
       initIframe();
     } else {
       iframe.onload = initIframe;
     }
-
-    return () => {
-      window.removeEventListener('message', handleMessage);
-      clearTimeout(timeoutId);
-    };
-  }, [isActive, data.code, data.builtAt, useTailwind, loadingState]);
+  }, [isActive]);
 
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: '#1e1e1e', color: '#d4d4d4' }}>
@@ -391,7 +342,6 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
         <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#888' }}>
           Built at: {data.builtAt ? new Date(data.builtAt).toLocaleString() : 'N/A'}
           {useTailwind && ' | Tailwind CSS enabled'}
-          {loadingState === 'loading' && ' | Loading...'}
         </p>
       </div>
 
@@ -407,9 +357,10 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
           flex: 1,
           border: 'none',
           background: '#fff',
-          opacity: loadingState === 'ready' ? 1 : 0.5,
         }}
         title="React Preview"
+        sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals allow-presentation allow-pointer-lock allow-top-navigation"
+        allow="*"
       />
     </div>
   );
