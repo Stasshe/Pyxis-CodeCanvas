@@ -415,31 +415,72 @@ export class StreamShell {
         const filePart = lastSlash >= 0 ? pattern.slice(lastSlash + 1) : pattern;
         
         // ★★★ ディレクトリ部分を絶対パスに解決 ★★★
+        const projectBase = `/projects/${this.projectName}`;
         let targetDir: string;
         if (dirPart.startsWith('/')) {
-          // 絶対パス
-          targetDir = dirPart;
+          // 絶対パス → プロジェクト内の絶対パスに変換
+          targetDir = projectBase + dirPart;
         } else if (dirPart === '') {
           // ディレクトリ指定なし → カレント
-          targetDir = cwdRelative === '/' ? '/' : cwdRelative + '/';
+          const cwd = await unix.pwd().catch(() => projectBase);
+          targetDir = cwd;
         } else {
           // 相対パス → カレント + dirPart
-          const combined = cwdRelative === '/' ? dirPart : cwdRelative + '/' + dirPart;
-          targetDir = combined.replace(/\/+/g, '/'); // normalize slashes
+          const cwd = await unix.pwd().catch(() => projectBase);
+          let combined = cwd === '/' ? '/' + dirPart : cwd + '/' + dirPart;
+          combined = combined.replace(/\/+/g, '/'); // normalize slashes
+          // パスを正規化（../や./ を解決）
+          const parts = combined.split('/').filter(p => p !== '' && p !== '.');
+          const stack: string[] = [];
+          for (const part of parts) {
+            if (part === '..') {
+              if (stack.length > 0) stack.pop();
+            } else {
+              stack.push(part);
+            }
+          }
+          targetDir = '/' + stack.join('/');
         }
         
-        // ★★★ targetDir配下のファイルを検索 ★★★
-        const prefix = targetDir === '/' ? '' : targetDir.replace(/\/$/, '') + '/';
+        // ★★★ targetDir配下のファイルを検索（プロジェクト相対パスのプレフィックス） ★★★
+        // base.ts の cachedGetFilesByPrefix は prefix 例: '/src/' （先頭スラッシュを含む）形式を期待
+        let searchPrefix: string;
+        
+        // targetDir は絶対パス形式（/projects/Welcome-Project/typescript など）
+        let relativeDir: string;
+        if (targetDir === projectBase || targetDir === projectBase + '/') {
+          relativeDir = '';
+        } else if (targetDir.startsWith(projectBase)) {
+          relativeDir = targetDir.substring(projectBase.length); // '/typescript' など
+        } else {
+          relativeDir = targetDir;
+        }
+        
+        // searchPrefix は先頭スラッシュを含む形式に正規化
+        if (relativeDir === '' || relativeDir === '/') {
+          searchPrefix = '';
+        } else {
+          searchPrefix = relativeDir.endsWith('/') ? relativeDir : relativeDir + '/';
+        }
+        
         let files: any[] = [];
         if (this.fileRepository.getFilesByPrefix) {
-          files = await this.fileRepository.getFilesByPrefix(this.projectId, prefix);
+          files = await this.fileRepository.getFilesByPrefix(this.projectId, searchPrefix);
         }
         
-        // ★★★ targetDirの直下のみにフィルタ ★★★
+        // ★★★ searchPrefixで取得したファイルをフィルタ（直下のみ） ★★★
         const directChildren = files.filter((f: any) => {
-          if (!f.path.startsWith(prefix)) return false;
-          const remainder = f.path.substring(prefix.length);
-          return !remainder.includes('/');
+          if (searchPrefix === '') {
+            // ルート直下のみ（1階層）
+            const parts = f.path.split('/').filter((p: string) => p);
+            return parts.length === 1;
+          } else {
+            // searchPrefix直下のみ
+            const prefix = searchPrefix + (searchPrefix.endsWith('/') ? '' : '/');
+            if (!f.path.startsWith(prefix)) return false;
+            const remainder = f.path.substring(prefix.length);
+            return !remainder.includes('/');
+          }
         });
         
         const names = directChildren
@@ -474,7 +515,13 @@ export class StreamShell {
         const reStr = '^' + regexParts.join('') + '$';
         const re = new RegExp(reStr);
         const matched = names.filter((n: string) => re.test(n)).sort();
-        
+        console.log('[globExpand] input:', pattern);
+        console.log('[globExpand] cwd:', cwd, 'cwdRelative:', cwdRelative);
+        console.log('[globExpand] dirPart:', dirPart, 'filePart:', filePart);
+        console.log('[globExpand] targetDir:', targetDir, 'searchPrefix:', searchPrefix);
+        console.log('[globExpand] files found:', files.length);
+        console.log('[globExpand] directChildren:', directChildren.length);
+        console.log('[globExpand] matched:', matched);
         // ★★★ フルパスを返す（dirPart + マッチしたファイル名） ★★★
         if (matched.length > 0) {
           return matched.map(name => dirPart + name);
