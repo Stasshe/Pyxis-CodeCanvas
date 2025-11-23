@@ -227,110 +227,101 @@ async function reactBuildCommand(args: string[], context: any): Promise<string> 
  */
 function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
   const [error, setError] = useState<string | null>(null);
-  const [tailwindLoaded, setTailwindLoaded] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const rootRef = useRef<any>(null);
+  const [iframeReady, setIframeReady] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const data = tab.data || {};
   const useTailwind = data.useTailwind || false;
 
-  // Tailwind CSS CDNを読み込む（useTailwindがtrueの場合のみ）
+  // Iframeを初期化して必要なスクリプト・スタイルを注入
   useEffect(() => {
-    if (!useTailwind) {
-      setTailwindLoaded(true);
-      return;
-    }
+    if (!isActive) return;
 
-    const existingLink = document.getElementById('tailwind-cdn');
-    if (!existingLink) {
-      const script = document.createElement('script');
-      script.id = 'tailwind-cdn';
-      script.src = 'https://cdn.tailwindcss.com';
-      script.onload = () => {
-        console.log('[ReactPreview] Tailwind CSS loaded');
-        setTailwindLoaded(true);
-      };
-      script.onerror = () => {
-        console.error('[ReactPreview] Failed to load Tailwind CSS');
-        setTailwindLoaded(true);
-      };
-      document.head.appendChild(script);
-    } else {
-      setTailwindLoaded(true);
-    }
-  }, [useTailwind]);
-
-  useEffect(() => {
-    if (!isActive || !data.code || !tailwindLoaded) return;
-
-    const container = containerRef.current;
-    if (!container) return;
+    const iframe = iframeRef.current;
+    if (!iframe || !iframe.contentDocument) return;
 
     try {
       setError(null);
-      
-      const React = (window as any).__PYXIS_REACT__;
-      const ReactDOM = (window as any).__PYXIS_REACT_DOM__;
+      const doc = iframe.contentDocument;
 
-      if (!React || !ReactDOM) {
-        setError('React/ReactDOM not available');
-        return;
+      // HTMLを構築
+      let html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { margin: 0; padding: 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    #root { width: 100%; min-height: 100vh; }
+  </style>`;
+
+      // Tailwind CDNを追加（useTailwindがtrueの場合）
+      if (useTailwind) {
+        html += '\n  <script src="https://cdn.tailwindcss.com"><\/script>';
       }
 
-      // requireシム
-      const shimRequire = (name: string) => {
-        if (name === 'react') return React;
-        if (name === 'react-dom') return ReactDOM;
-        if (name === 'react-dom/client') return ReactDOM;
-        throw new Error(`Module not found: ${name}`);
-      };
+      html += `\n</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"><\/script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"><\/script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom-client.production.min.js"><\/script>
+  <script>
+    // グローバルにReactを提供
+    window.React = React;
+    window.ReactDOM = ReactDOM;
 
-      // 古いスタイルを削除
-      document.querySelectorAll('style[data-react-preview]').forEach(el => el.remove());
+    // requireシム
+    function shimRequire(name) {
+      if (name === 'react') return React;
+      if (name === 'react-dom') return ReactDOM;
+      if (name === 'react-dom/client') return ReactDOM;
+      throw new Error('Module not found: ' + name);
+    }
 
-      // コードを実行してコンポーネントを取得
-      const module = { exports: {} };
-      const moduleFunc = new Function('module', 'exports', 'require', data.code);
-      moduleFunc(module, module.exports, shimRequire);
-      
-      const Component = (module.exports as any).default || (module.exports as any);
-
-      if (!Component) {
-        setError('No component exported');
-        return;
-      }
-
-      // レンダリング
-      if (!rootRef.current) {
-        rootRef.current = ReactDOM.createRoot(container);
-      }
-
-      rootRef.current.render(React.createElement(Component));
-
-      return () => {
-        // クリーンアップ：スタイルを削除
-        document.querySelectorAll('style[data-react-preview]').forEach(el => el.remove());
+    // ビルドされたコードを実行
+    (function() {
+      try {
+        const code = ${JSON.stringify(data.code)};
+        const module = { exports: {} };
+        const moduleFunc = new Function('module', 'exports', 'require', code);
+        moduleFunc(module, module.exports, shimRequire);
         
-        if (rootRef.current) {
-          rootRef.current.unmount();
-          rootRef.current = null;
+        const Component = module.exports.default || module.exports;
+        
+        if (!Component) {
+          throw new Error('No component exported');
         }
-      };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(React.createElement(Component));
+      } catch (err) {
+        const root = document.getElementById('root');
+        root.innerHTML = '<div style="color: #f88; padding: 16px; font-family: monospace; font-size: 12px; white-space: pre-wrap;">Error: ' + (err?.message || 'Unknown error') + '</div>';
+        console.error('[ReactPreview] Error:', err);
+      }
+    })();
+  <\/script>
+</body>
+</html>`;
+
+      // iframeにHTMLを書き込み
+      doc.open();
+      doc.write(html);
+      doc.close();
+
+      setIframeReady(true);
     } catch (err: any) {
-      setError(err?.message || 'Render failed');
+      setError(err?.message || 'Failed to initialize iframe');
       console.error('[ReactPreview] Error:', err);
     }
-  }, [isActive, data.code, tailwindLoaded]);
+  }, [isActive, data.code, useTailwind]);
 
   return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: '#1e1e1e', color: '#d4d4d4', position: 'relative' }}>
+    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: '#1e1e1e', color: '#d4d4d4' }}>
       <div style={{ padding: '12px 16px', borderBottom: '1px solid #333' }}>
-        <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 600 }}>
-          React Preview: {data.filePath || 'Unknown'}
-        </h3>
         <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#888' }}>
           Built at: {data.builtAt ? new Date(data.builtAt).toLocaleString() : 'N/A'}
-          {useTailwind && !tailwindLoaded && ' | Loading Tailwind CSS...'}
-          {useTailwind && tailwindLoaded && ' | Tailwind CSS loaded'}
+          {useTailwind && ' | Tailwind CSS enabled'}
         </p>
       </div>
 
@@ -340,7 +331,16 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
         </div>
       )}
 
-      <div ref={containerRef} style={{ flex: 1, overflow: 'auto', padding: '16px', background: '#fff', color: '#000' }} />
+      <iframe
+        ref={iframeRef}
+        style={{
+          flex: 1,
+          border: 'none',
+          background: '#fff',
+        }}
+        title="React Preview"
+        sandbox="allow-scripts"
+      />
     </div>
   );
 }
@@ -365,10 +365,4 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
 
 export async function deactivate(): Promise<void> {
   esbuildInstance = null;
-  
-  // Tailwind CSSのクリーンアップ
-  const tailwindLink = document.getElementById('tailwind-cdn');
-  if (tailwindLink) {
-    tailwindLink.remove();
-  }
 }
