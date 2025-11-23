@@ -175,25 +175,31 @@ export abstract class UnixCommandBase {
    * @returns マッチした全パスのリスト
    */
   protected async expandPathPattern(pathPattern: string): Promise<string[]> {
+    // Step 1: カレントディレクトリ基準で解決
     const resolvedPath = this.resolvePath(pathPattern);
-
+  
     // ワイルドカードが含まれていない場合はそのまま返す
     if (!resolvedPath.includes('*') && !resolvedPath.includes('?')) {
       return [resolvedPath];
     }
-
+  
+    // Step 2: 正規化して絶対パスを得る
     const normalizedPath = this.normalizePath(resolvedPath);
-
-    // プロジェクトルートからの相対パスに変換してから展開
+  
+    // Step 3: プロジェクト相対パスに変換
     const relativePath = this.getRelativePathFromProject(normalizedPath);
+    
+    // Step 4: パスを分割（先頭の/は除外済み）
     const parts = relativePath.split('/').filter(p => p);
+    
     const relativeResults: string[] = [];
-
+  
+    // **修正点: parts が既に正しいパスを含んでいるので、空文字列から開始**
     await this.expandPathRecursive(parts, 0, '', relativeResults);
-
+  
     // 重複を除去
     const uniqueResults = Array.from(new Set(relativeResults));
-
+  
     // 相対パスを絶対パスに戻す
     const projectRoot = this.getProjectRoot();
     return uniqueResults.map(rel => {
