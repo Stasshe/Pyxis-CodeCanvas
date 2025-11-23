@@ -322,7 +322,7 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
   }, [isActive, data.code, tailwindLoaded]);
 
   return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: '#1e1e1e', color: '#d4d4d4' }}>
+    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: '#1e1e1e', color: '#d4d4d4', position: 'relative' }}>
       <div style={{ padding: '12px 16px', borderBottom: '1px solid #333' }}>
         <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 600 }}>
           React Preview: {data.filePath || 'Unknown'}
