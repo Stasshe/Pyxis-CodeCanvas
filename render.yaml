@@ -5,7 +5,7 @@ services:
     repo: https://github.com/Stasshe/Pyxis-CodeCanvas/
     branch: main
     buildCommand: pnpm run build
-    publishPath: out
+    staticPublishPath: out
     envVars:
       - key: NEXT_PUBLIC_IS_DEV_SERVER
         value: "true"
