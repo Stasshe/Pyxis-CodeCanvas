@@ -130,54 +130,24 @@ async function showCommit(fs: FS, dir: string, commitRef: string): Promise<strin
  * リファレンス（ブランチ、タグ、リモートブランチなど）を解決して、コミットOIDを取得
  * - origin/main, upstream/develop などのリモートブランチに対応
  * - HEAD~1, HEAD~2 などの相対参照に対応
- * - 短縮系コミットハッシュ（4文字以上）に対応
+ * - 短縮系コミットハッシュ（7文字以上）に対応
  */
 async function resolveRef(fs: FS, dir: string, ref: string): Promise<string | null> {
   try {
-    // コミットハッシュかどうかを判定（7文字以上の16進数、短縮系に対応）
-    const isCommitHash = /^[a-f0-9]{7,}$/i.test(ref);
-    
+    // コミットハッシュかどうかを判定（4文字以上の16進数）
+    const isCommitHash = /^[a-f0-9]{4,}$/i.test(ref);
+
     if (isCommitHash) {
-      // コミットハッシュの場合は、まずそのまま試す（短縮系ハッシュの場合isomorphic-gitが自動的に解決）
+      // コミットハッシュの場合は expandOid を使用（短縮形ハッシュに対応）
       try {
-        const oid = await git.resolveRef({
+        const oid = await git.expandOid({
           fs,
           dir,
-          ref,
+          oid: ref,
         });
         return oid;
       } catch {
         // 短縮系ハッシュが見つからない場合
-        return null;
-      }
-    }
-
-    // 直接解決を試みる（ブランチ、タグなど）
-    try {
-      const oid = await git.resolveRef({
-        fs,
-        dir,
-        ref,
-      });
-      return oid;
-    } catch {
-      // 失敗した場合は詳細な解決を試みる
-    }
-
-    // リモートブランチの場合（origin/main など）
-    if (ref.includes('/')) {
-      const [remote, branchName] = ref.split('/', 2);
-
-      // refs/remotes/origin/main 形式で試す
-      try {
-        const oid = await git.resolveRef({
-          fs,
-          dir,
-          ref: `refs/remotes/${remote}/${branchName}`,
-        });
-        return oid;
-      } catch {
-        // リモートが存在しない
         return null;
       }
     }
@@ -196,7 +166,33 @@ async function resolveRef(fs: FS, dir: string, ref: string): Promise<string | nu
       }
     }
 
-    return null;
+    // リモートブランチの場合（origin/main など）
+    if (ref.includes('/')) {
+      // refs/remotes/origin/main 形式で試す
+      try {
+        const oid = await git.resolveRef({
+          fs,
+          dir,
+          ref: `refs/remotes/${ref}`,
+        });
+        return oid;
+      } catch {
+        // リモートが存在しない場合、通常のref解決を試す
+      }
+    }
+
+    // 直接解決を試みる（ブランチ、タグなど）
+    try {
+      const oid = await git.resolveRef({
+        fs,
+        dir,
+        ref,
+      });
+      return oid;
+    } catch {
+      // 失敗した場合はnull
+      return null;
+    }
   } catch {
     return null;
   }
