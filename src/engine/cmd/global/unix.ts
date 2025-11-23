@@ -212,12 +212,29 @@ export class UnixCommands {
   }
 
   /**
-   * ファイル/ディレクトリを移動またはリネーム
+   * ファイル/ディレクトリを移動またはリネーム（複数ソース対応）
    */
-  async mv(source: string, destination: string): Promise<string> {
-    return await this.mvCmd.execute([source, destination]);
+  async mv(source: string | string[], destination: string): Promise<string> {
+    // 単一ソースの場合は従来通り
+    if (typeof source === 'string') {
+      return await this.mvCmd.execute([source, destination]);
+    }
+    
+    // 複数ソースの場合は配列として渡す
+    return await this.mvCmd.execute([...source, destination]);
   }
 
+  /**
+   * ファイル/ディレクトリをコピー（複数ソース対応）
+   */
+  async cp(source: string | string[], destination: string, options: string[] = []): Promise<string> {
+    if (typeof source === 'string') {
+      return await this.cpCmd.execute([...options, source, destination]);
+    }
+    
+    return await this.cpCmd.execute([...options, ...source, destination]);
+  }
+  
   /**
    * ファイル/ディレクトリをリネーム（mvのエイリアス）
    */
@@ -225,12 +242,6 @@ export class UnixCommands {
     return await this.mvCmd.execute([oldPath, newPath]);
   }
 
-  /**
-   * ファイル/ディレクトリをコピー
-   */
-  async cp(source: string, destination: string, options: string[] = []): Promise<string> {
-    return await this.cpCmd.execute([...options, source, destination]);
-  }
 
   /**
    * ディレクトリ構造をツリー表示
