@@ -186,16 +186,37 @@ export abstract class UnixCommandBase {
     // Step 2: 正規化して絶対パスを得る
     const normalizedPath = this.normalizePath(resolvedPath);
 
-    // Step 3: プロジェクト相対パスに変換
-    const relativePath = this.getRelativePathFromProject(normalizedPath);
+    // Step 3: currentDirからの相対パスを計算
+    // currentDirは絶対パス（例：/projects/projectName/src）
+    // normalizedPathは絶対パス（例：/projects/projectName/src/*）
+    let relativePattern = '';
+    if (normalizedPath.startsWith(this.currentDir)) {
+      // カレントディレクトリからの相対パス
+      relativePattern = normalizedPath.substring(this.currentDir.length);
+      if (relativePattern.startsWith('/')) {
+        relativePattern = relativePattern.substring(1);
+      }
+    } else {
+      // カレントディレクトリ外の絶対パス指定
+      relativePattern = this.getRelativePathFromProject(normalizedPath);
+      if (relativePattern.startsWith('/')) {
+        relativePattern = relativePattern.substring(1);
+      }
+    }
 
-    // Step 4: パスを分割（先頭の/は除外済み）
-    const parts = relativePath.split('/').filter(p => p);
+    // Step 4: パスを分割
+    const parts = relativePattern.split('/').filter(p => p);
+
+    if (parts.length === 0) {
+      return [normalizedPath];
+    }
 
     const relativeResults: string[] = [];
 
-    // **修正点: parts が既に正しいパスを含んでいるので、空文字列から開始**
-    await this.expandPathRecursive(parts, 0, '', relativeResults);
+    // expandPathRecursiveで処理
+    // currentPathにはカレントディレクトリを渡す（プロジェクト相対パス）
+    const currentDirRelative = this.getRelativePathFromProject(this.currentDir);
+    await this.expandPathRecursive(parts, 0, currentDirRelative, relativeResults);
 
     // 重複を除去
     const uniqueResults = Array.from(new Set(relativeResults));
