@@ -88,10 +88,16 @@ export abstract class UnixCommandBase {
   }
 
   /**
-   * パスを正規化（..や.を解決）
+   * パスを正規化（..や.を解決、末尾スラッシュを除去）
    */
   protected normalizePath(path: string): string {
-    const parts = path.split('/').filter(part => part !== '' && part !== '.');
+    // 末尾スラッシュを除去（ルートの場合は除外）
+    let cleanPath = path;
+    if (cleanPath !== '/' && cleanPath.endsWith('/')) {
+      cleanPath = cleanPath.slice(0, -1);
+    }
+
+    const parts = cleanPath.split('/').filter(part => part !== '' && part !== '.');
     const normalized: string[] = [];
 
     for (const part of parts) {
@@ -175,18 +181,24 @@ export abstract class UnixCommandBase {
    * @returns マッチした全パスのリスト
    */
   protected async expandPathPattern(pathPattern: string): Promise<string[]> {
-    // Step 1: カレントディレクトリ基準で解決
-    const resolvedPath = this.resolvePath(pathPattern);
+    // Step 1: 末尾スラッシュを削除（正規化前）
+    let cleanPattern = pathPattern;
+    if (cleanPattern.endsWith('/') && cleanPattern !== '/') {
+      cleanPattern = cleanPattern.slice(0, -1);
+    }
+
+    // Step 2: カレントディレクトリ基準で解決
+    const resolvedPath = this.resolvePath(cleanPattern);
 
     // ワイルドカードが含まれていない場合はそのまま返す
     if (!resolvedPath.includes('*') && !resolvedPath.includes('?')) {
       return [resolvedPath];
     }
 
-    // Step 2: 正規化して絶対パスを得る
+    // Step 3: 正規化して絶対パスを得る
     const normalizedPath = this.normalizePath(resolvedPath);
 
-    // Step 3: currentDirからの相対パスを計算
+    // Step 4: currentDirからの相対パスを計算
     // currentDirは絶対パス（例：/projects/projectName/src）
     // normalizedPathは絶対パス（例：/projects/projectName/src/*）
     let relativePattern = '';
@@ -204,7 +216,7 @@ export abstract class UnixCommandBase {
       }
     }
 
-    // Step 4: パスを分割
+    // Step 5: パスを分割
     const parts = relativePattern.split('/').filter(p => p);
 
     if (parts.length === 0) {
