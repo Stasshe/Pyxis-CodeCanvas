@@ -121,8 +121,7 @@ class ExtensionManager {
           remarkMath: (remarkMathModule && (remarkMathModule as any).default) || remarkMathModule,
           rehypeKatex:
             (rehypeKatexModule && (rehypeKatexModule as any).default) || rehypeKatexModule,
-          rehypeRaw:
-            (rehypeRawModule && (rehypeRawModule as any).default) || rehypeRawModule,
+          rehypeRaw: (rehypeRawModule && (rehypeRawModule as any).default) || rehypeRawModule,
           katex: katexModule && ((katexModule as any).default || katexModule),
         };
         console.log('[ExtensionManager] Markdown/math libraries provided globally for extensions');

@@ -39,6 +39,8 @@ export class MvCommand extends UnixCommandBase {
     const sourceArgs = positional.slice(0, -1);
 
     // ワイルドカード展開
+    // シェル経由なら既に展開済み（ワイルドカードがないので即座にリターン）
+    // 直接API呼び出しなら内部で展開
     const sources: string[] = [];
     for (const sourceArg of sourceArgs) {
       const expanded = await this.expandPathPattern(sourceArg);
@@ -62,11 +64,6 @@ export class MvCommand extends UnixCommandBase {
     for (const source of sources) {
       const normalizedSource = this.normalizePath(source);
 
-      // 自分自身への移動はスキップ
-      if (normalizedSource === dest) {
-        continue;
-      }
-
       const sourceExists = await this.exists(normalizedSource);
       if (!sourceExists) {
         throw new Error(`mv: cannot stat '${source}': No such file or directory`);
@@ -78,10 +75,12 @@ export class MvCommand extends UnixCommandBase {
       // 最終的な移動先パス
       let finalDest = dest;
       if (destIsDir) {
-        finalDest = `${dest}/${sourceName}`;
+        finalDest = `${dest.replace(/\/$/, '')}/${sourceName}`;
+        finalDest = this.normalizePath(finalDest);
       }
-      
-      if (normalizedSource === this.normalizePath(finalDest)) {
+
+      // 自分自身への移動をチェック
+      if (normalizedSource === finalDest) {
         if (verbose) {
           results.push(`'${normalizedSource}' and '${finalDest}' are the same file`);
         }

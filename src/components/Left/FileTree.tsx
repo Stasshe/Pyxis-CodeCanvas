@@ -586,7 +586,10 @@ export default function FileTree({
                     const files: FileList = e.target.files;
                     if (!files || files.length === 0) return;
 
-                    const ensureFoldersExistLocal = async (projectId: string | undefined, folderPath: string) => {
+                    const ensureFoldersExistLocal = async (
+                      projectId: string | undefined,
+                      folderPath: string
+                    ) => {
                       if (!projectId) return;
                       const parts = folderPath.split('/').filter(Boolean);
                       let acc = '';
@@ -677,7 +680,10 @@ export default function FileTree({
                           menuItem.path.substring(0, menuItem.path.lastIndexOf('/')) || '/';
                       else if (menuItem.type === 'folder') baseTargetDir = menuItem.path || '/';
                     }
-                    const ensureFoldersExistLocal = async (projectId: string | undefined, folderPath: string) => {
+                    const ensureFoldersExistLocal = async (
+                      projectId: string | undefined,
+                      folderPath: string
+                    ) => {
                       if (!projectId) return;
                       const parts = folderPath.split('/').filter(Boolean);
                       let acc = '';
