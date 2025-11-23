@@ -1,0 +1,12 @@
+services:
+  - type: static
+    name: pyxis-code
+    repo: https://github.com/Stasshe/Pyxis-CodeCanvas/
+    branch: main
+    buildCommand: pnpm run build
+    staticPublishPath: out
+    env:
+      - key: NEXT_PUBLIC_IS_DEV_SERVER
+        value: true
+    previews:
+      generation: automatic
