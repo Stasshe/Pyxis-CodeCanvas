@@ -39,18 +39,25 @@ export class CpCommand extends UnixCommandBase {
     const destArg = positional[positional.length - 1];
     const sourceArgs = positional.slice(0, -1);
 
-    // ワイルドカード展開
-    // シェル経由なら既に展開済み（ワイルドカードがないので即座にリターン）
-    // 直接API呼び出しなら内部で展開
+    // ワイルドカード展開（ソースのみ）
+    // destは常にパス解決のみ（グロブ展開しない）
     const sources: string[] = [];
     for (const sourceArg of sourceArgs) {
-      const expanded = await this.expandPathPattern(sourceArg);
-      if (expanded.length === 0) {
-        throw new Error(`cp: cannot stat '${sourceArg}': No such file or directory`);
+      // ソースにワイルドカードがある場合のみ展開
+      if (sourceArg.includes('*') || sourceArg.includes('?') || sourceArg.includes('[')) {
+        const expanded = await this.expandPathPattern(sourceArg);
+        if (expanded.length === 0) {
+          throw new Error(`cp: cannot stat '${sourceArg}': No such file or directory`);
+        }
+        sources.push(...expanded);
+      } else {
+        // ワイルドカードなし→パス解決のみ
+        const resolved = this.normalizePath(this.resolvePath(sourceArg));
+        sources.push(resolved);
       }
-      sources.push(...expanded);
     }
 
+    // destは**絶対にグロブ展開しない**（..や.を含むパスを正しく解決）
     const dest = this.normalizePath(this.resolvePath(destArg));
     const destExists = await this.exists(dest);
     const destIsDir = destExists && (await this.isDirectory(dest));
