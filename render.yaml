@@ -1,5 +1,6 @@
 services:
-  - type: static
+  - type: web
+    runtime: static
     name: pyxis-code
     repo: https://github.com/Stasshe/Pyxis-CodeCanvas/
     branch: main
