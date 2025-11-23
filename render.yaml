@@ -2,8 +2,7 @@ services:
   - type: web
     runtime: static
     name: pyxis-code
-    repo: https://github.com/Stasshe/Pyxis-CodeCanvas/
-    branch: main
+    repo: https://github.com/Stasshe/Pyxis-CodeCanvas
     buildCommand: pnpm run build
     staticPublishPath: out
     envVars:
