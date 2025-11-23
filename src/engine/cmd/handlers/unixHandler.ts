@@ -138,6 +138,26 @@ export async function handleUnixCommand(
         break;
       }
 
+      case 'mv': {
+        if (args.length < 2) {
+          await append('mv: missing file operand\nUsage: mv [OPTION]... SOURCE DEST');
+        } else {
+          const options = args.filter(arg => arg.startsWith('-'));
+          const paths = args.filter(arg => !arg.startsWith('-'));
+          if (paths.length < 2) {
+            await append('mv: missing destination file operand after source');
+          } else {
+            // 複数ソースの場合は配列として渡す
+            const dest = paths[paths.length - 1];
+            const sources = paths.slice(0, -1);
+            
+            const result = await unix.mv(sources.length === 1 ? sources[0] : sources, dest);
+            await append(result || 'File(s) moved successfully');
+          }
+        }
+        break;
+      }
+
       case 'cp': {
         if (args.length < 2) {
           await append('cp: missing file operand\nUsage: cp [OPTION]... SOURCE DEST');
@@ -147,32 +167,15 @@ export async function handleUnixCommand(
           if (paths.length < 2) {
             await append('cp: missing destination file operand after source');
           } else {
-            const source = paths[0];
-            const dest = paths[1];
-            const result = await unix.cp(source, dest, options);
+            const dest = paths[paths.length - 1];
+            const sources = paths.slice(0, -1);
+            
+            const result = await unix.cp(sources.length === 1 ? sources[0] : sources, dest, options);
             await append(result || 'File(s) copied successfully');
           }
         }
         break;
       }
-
-      case 'mv': {
-        if (args.length < 2) {
-          await append('mv: missing file operand\nUsage: mv [OPTION]... SOURCE DEST');
-        } else {
-          const paths = args.filter(arg => !arg.startsWith('-'));
-          if (paths.length < 2) {
-            await append('mv: missing destination file operand after source');
-          } else {
-            const source = paths[0];
-            const dest = paths[1];
-            const result = await unix.mv(source, dest);
-            await append(result || 'File(s) moved successfully');
-          }
-        }
-        break;
-      }
-
       case 'rename': {
         if (args.length < 2) {
           await append('rename: missing file operand\nUsage: rename OLD NEW');
