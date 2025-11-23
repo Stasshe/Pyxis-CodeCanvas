@@ -52,7 +52,7 @@ async function loadESBuild(): Promise<ESBuild> {
 
     await esbuild.initialize({ wasmURL });
     esbuildInstance = esbuild;
-
+    
     return esbuild;
   } finally {
     isInitializing = false;
@@ -85,13 +85,13 @@ function createVirtualFSPlugin(projectId: string, fileRepository: any) {
 
       // 相対パスの解決
       build.onResolve({ filter: /^\./ }, async (args: any) => {
-        const fromDir = args.importer === '<stdin>'
-          ? args.resolveDir
+        const fromDir = args.importer === '<stdin>' 
+          ? args.resolveDir 
           : args.importer.split('/').slice(0, -1).join('/');
-
+        
         const parts = (fromDir + '/' + args.path).split('/');
         const resolved: string[] = [];
-
+        
         for (const part of parts) {
           if (part === '' || part === '.') continue;
           if (part === '..') {
@@ -100,21 +100,21 @@ function createVirtualFSPlugin(projectId: string, fileRepository: any) {
           }
           resolved.push(part);
         }
-
+        
         let path = '/' + resolved.join('/');
-
+        
         // 拡張子補完（CSSは除く）
         if (!path.match(/\.[^/]+$/)) {
           path += '.jsx';
         }
-
+        
         return { path, namespace: 'virtual' };
       });
 
       // ファイルの読み込み
       build.onLoad({ filter: /.*/, namespace: 'virtual' }, async (args: any) => {
         const file = await fileRepository.getFileByPath(projectId, args.path);
-
+        
         if (!file) {
           return { errors: [{ text: `File not found: ${args.path}` }] };
         }
@@ -162,7 +162,7 @@ async function buildJSX(
     if (!file) {
       return { code: '', error: `File not found: ${filePath}` };
     }
-
+    
     const result = await esbuild.build({
       stdin: {
         contents: file.content,
@@ -200,7 +200,7 @@ async function reactBuildCommand(args: string[], context: any): Promise<string> 
 
   const filePath = args[0];
   const useTailwind = args.includes('--tailwind');
-
+  
   // パス正規化
   let normalizedPath = filePath;
   if (!filePath.startsWith('/')) {
@@ -354,7 +354,7 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
     // postMessageリスナー
     const handleMessage = (event: MessageEvent) => {
       if (event.source !== iframe.contentWindow) return;
-
+      
       if (event.data.type === 'preview-ready') {
         if (mountedRef.current) {
           setLoadingState('ready');
@@ -413,4 +413,25 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
       />
     </div>
   );
+}
+/**
+ * 拡張機能のactivate
+ */
+export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
+  context.logger.info('react-preview activating...');
+
+  context.tabs.registerTabType(ReactPreviewTabComponent);
+  context.commands.registerCommand('react-build', reactBuildCommand);
+
+  loadESBuild().catch(err => {
+    context.logger.error('Failed to preload esbuild:', err);
+  });
+
+  context.logger.info('react-preview activated');
+
+  return {};
+}
+
+export async function deactivate(): Promise<void> {
+  esbuildInstance = null;
 }
