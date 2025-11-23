@@ -351,7 +351,6 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
           background: '#fff',
         }}
         title="React Preview"
-        sandbox="allow-scripts"
       />
     </div>
   );
