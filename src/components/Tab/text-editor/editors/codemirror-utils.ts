@@ -10,7 +10,6 @@ import { python } from '@codemirror/lang-python';
 import { xml } from '@codemirror/lang-xml';
 import { yaml } from '@codemirror/lang-yaml';
 import { indentUnit } from '@codemirror/language';
-import { searchKeymap } from '@codemirror/search';
 import { highlightSelectionMatches } from '@codemirror/search';
 import {
   highlightActiveLine,
@@ -54,7 +53,8 @@ export const getCMExtensions = (filename: string, tabSize = 2, insertSpaces = tr
   const indentStr = insertSpaces ? ' '.repeat(tabSize) : '\t';
 
   return [
-    keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
+    keymap.of(defaultKeymap),
+    keymap.of(historyKeymap),
     history(),
     autocompletion(),
     lineNumbers(),

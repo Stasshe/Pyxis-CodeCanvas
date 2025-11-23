@@ -47,7 +47,7 @@ export interface SystemModuleMap {
   fileRepository: FileRepository;
   normalizeCjsEsm: NormalizeCjsEsmModule;
   commandRegistry: CommandRegistry;
-  transformImports: transformImports;
+  transformImports: typeof transformImports;
   /** Terminal/CLI command singletons provider */
   systemBuiltinCommands: {
     getUnixCommands: (projectName: string, projectId?: string) => UnixCommands;
