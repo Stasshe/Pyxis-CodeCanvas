@@ -63,7 +63,8 @@ export class MvCommand extends UnixCommandBase {
     // destは**絶対にグロブ展開しない**（..や.を含むパスを正しく解決）
     // 末尾スラッシュを削除
     let cleanDestArg = destArg;
-    if (cleanDestArg.endsWith('/') && cleanDestArg !== '/') {
+    const destArgHasTrailingSlash = destArg.endsWith('/') && destArg !== '/';
+    if (destArgHasTrailingSlash) {
       cleanDestArg = cleanDestArg.slice(0, -1);
     }
     const dest = this.normalizePath(this.resolvePath(cleanDestArg));
@@ -72,8 +73,9 @@ export class MvCommand extends UnixCommandBase {
 
     const results: string[] = [];
 
-    // 複数ソースの場合、destはディレクトリでなければならない
-    if (sources.length > 1 && !destIsDir) {
+    // 複数ソースの場合、またはdestArgに末尾スラッシュがある場合（ディレクトリ指定）、
+    // destはディレクトリでなければならない
+    if ((sources.length > 1 || destArgHasTrailingSlash) && !destIsDir) {
       throw new Error(`mv: target '${destArg}' is not a directory`);
     }
 
