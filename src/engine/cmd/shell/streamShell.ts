@@ -403,71 +403,86 @@ export class StreamShell {
     // brace expansion handled by separate utility `expandBraces` imported above
 
     const globExpand = async (pattern: string): Promise<string[]> => {
-      // ワイルドカード展開: カレントディレクトリ配下のみを検索
-      if (this.fileRepository && unix) {
-        try {
-          const cwd = await unix.pwd().catch(() => `/projects/${this.projectName}`);
-          const cwdRelative = cwd.replace(`/projects/${this.projectName}`, '') || '/';
-
-          // カレントディレクトリのプレフィックスを作成
-          const prefix = cwdRelative === '/' ? '' : cwdRelative + '/';
-
-          let files: any[] = [];
-          if (this.fileRepository.getFilesByPrefix) {
-            files = await this.fileRepository.getFilesByPrefix(this.projectId, prefix);
-          }
-
-          // カレントディレクトリの直下のみにフィルタ
-          const directChildren = files.filter((f: any) => {
-            if (!f.path.startsWith(prefix)) return false;
-            const remainder = f.path.substring(prefix.length);
-            // 直下 = スラッシュを含まない
-            return !remainder.includes('/');
-          });
-
-          // ファイル名のみを抽出
-          const names = directChildren
-            .map((f: any) => {
-              return f.path.split('/').pop() || '';
-            })
-            .filter((n: string) => n !== '');
-
-          // パターンを正規表現に変換
-          const regexParts: string[] = [];
-          for (let i = 0; i < pattern.length; i++) {
-            const ch = pattern[i];
-            if (ch === '*') {
-              regexParts.push('[^/]*');
-            } else if (ch === '?') {
-              regexParts.push('[^/]');
-            } else if (ch === '[') {
-              let j = i + 1;
-              let cls = '';
-              while (j < pattern.length && pattern[j] !== ']') {
-                const c = pattern[j++];
-                if (c === '\\' || c === ']' || c === '-') cls += '\\' + c;
-                else cls += c;
-              }
-              i = Math.min(j, pattern.length - 1);
-              regexParts.push('[' + cls + ']');
-            } else if (/[\\.\+\^\$\{\}\(\)\|]/.test(ch)) {
-              regexParts.push('\\' + ch);
-            } else {
-              regexParts.push(ch);
-            }
-          }
-
-          const reStr = '^' + regexParts.join('') + '$';
-          const re = new RegExp(reStr);
-          const matched = names.filter((n: string) => re.test(n)).sort();
-
-          if (matched.length > 0) return matched;
-        } catch (e) {
-          console.warn('[globExpand] failed:', e);
+      if (!this.fileRepository || !unix) return [pattern];
+      
+      try {
+        const cwd = await unix.pwd().catch(() => `/projects/${this.projectName}`);
+        const cwdRelative = cwd.replace(`/projects/${this.projectName}`, '') || '/';
+        
+        // ★★★ パターンをディレクトリ部分とファイル名部分に分解 ★★★
+        const lastSlash = pattern.lastIndexOf('/');
+        const dirPart = lastSlash >= 0 ? pattern.slice(0, lastSlash + 1) : '';
+        const filePart = lastSlash >= 0 ? pattern.slice(lastSlash + 1) : pattern;
+        
+        // ★★★ ディレクトリ部分を絶対パスに解決 ★★★
+        let targetDir: string;
+        if (dirPart.startsWith('/')) {
+          // 絶対パス
+          targetDir = dirPart;
+        } else if (dirPart === '') {
+          // ディレクトリ指定なし → カレント
+          targetDir = cwdRelative === '/' ? '/' : cwdRelative + '/';
+        } else {
+          // 相対パス → カレント + dirPart
+          const combined = cwdRelative === '/' ? dirPart : cwdRelative + '/' + dirPart;
+          targetDir = combined.replace(/\/+/g, '/'); // normalize slashes
         }
+        
+        // ★★★ targetDir配下のファイルを検索 ★★★
+        const prefix = targetDir === '/' ? '' : targetDir.replace(/\/$/, '') + '/';
+        let files: any[] = [];
+        if (this.fileRepository.getFilesByPrefix) {
+          files = await this.fileRepository.getFilesByPrefix(this.projectId, prefix);
+        }
+        
+        // ★★★ targetDirの直下のみにフィルタ ★★★
+        const directChildren = files.filter((f: any) => {
+          if (!f.path.startsWith(prefix)) return false;
+          const remainder = f.path.substring(prefix.length);
+          return !remainder.includes('/');
+        });
+        
+        const names = directChildren
+          .map((f: any) => f.path.split('/').pop() || '')
+          .filter((n: string) => n !== '');
+        
+        // ★★★ filePartをパターンマッチング ★★★
+        const regexParts: string[] = [];
+        for (let i = 0; i < filePart.length; i++) {
+          const ch = filePart[i];
+          if (ch === '*') {
+            regexParts.push('[^/]*');
+          } else if (ch === '?') {
+            regexParts.push('[^/]');
+          } else if (ch === '[') {
+            let j = i + 1;
+            let cls = '';
+            while (j < filePart.length && filePart[j] !== ']') {
+              const c = filePart[j++];
+              if (c === '\\' || c === ']' || c === '-') cls += '\\' + c;
+              else cls += c;
+            }
+            i = Math.min(j, filePart.length - 1);
+            regexParts.push('[' + cls + ']');
+          } else if (/[\\.\+\^\$\{\}\(\)\|]/.test(ch)) {
+            regexParts.push('\\' + ch);
+          } else {
+            regexParts.push(ch);
+          }
+        }
+        
+        const reStr = '^' + regexParts.join('') + '$';
+        const re = new RegExp(reStr);
+        const matched = names.filter((n: string) => re.test(n)).sort();
+        
+        // ★★★ フルパスを返す（dirPart + マッチしたファイル名） ★★★
+        if (matched.length > 0) {
+          return matched.map(name => dirPart + name);
+        }
+      } catch (e) {
+        console.warn('[globExpand] failed:', e);
       }
-
-      // 展開できない場合はパターンをそのまま返す
+      
       return [pattern];
     };
 
