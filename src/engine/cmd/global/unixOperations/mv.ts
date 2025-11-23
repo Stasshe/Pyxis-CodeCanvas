@@ -80,6 +80,13 @@ export class MvCommand extends UnixCommandBase {
       if (destIsDir) {
         finalDest = `${dest}/${sourceName}`;
       }
+      
+      if (normalizedSource === this.normalizePath(finalDest)) {
+        if (verbose) {
+          results.push(`'${normalizedSource}' and '${finalDest}' are the same file`);
+        }
+        continue;
+      }
 
       // 上書きチェック
       const finalDestExists = await this.exists(finalDest);
