@@ -24,10 +24,6 @@ export class RmCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
     const { options, positional } = this.parseOptions(args);
 
-    console.log('[rm] args:', args);
-    console.log('[rm] positional:', positional);
-    console.log('[rm] positional.length:', positional.length, positional);
-
     if (positional.length === 0) {
       throw new Error('rm: missing operand\nUsage: rm [OPTION]... FILE...');
     }
@@ -40,14 +36,14 @@ export class RmCommand extends UnixCommandBase {
     const deletedPaths: string[] = [];
     const errors: string[] = [];
 
-    // 全てのパターンを展開して、削除対象のパスリストを作成
+    // ワイルドカード展開
+    // シェル経由なら既に展開済み（ワイルドカードがないので即座にリターン）
+    // 直接API呼び出しなら内部で展開
     const targetsToDelete: Array<{ path: string; file: any }> = [];
 
     for (const arg of positional) {
-      console.log('[rm] processing arg:', arg);
       try {
         const expanded = await this.expandPathPattern(arg);
-        console.log('[rm] expanded to:', expanded);
 
         if (expanded.length === 0) {
           if (!force) {

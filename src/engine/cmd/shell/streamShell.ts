@@ -1,5 +1,7 @@
 import EventEmitter from 'events';
 import { PassThrough, Readable, Writable } from 'stream';
+import type { UnixCommands } from '../global/unix';
+import type { fileRepository } from '@/engine/core/fileRepository';
 
 import expandBraces from './braceExpand';
 
@@ -170,8 +172,8 @@ export class Process extends EventEmitter {
 type ShellOptions = {
   projectName: string;
   projectId: string;
-  unix?: any; // injection for tests
-  fileRepository?: any; // injection for tests
+  unix: UnixCommands; // injection for tests
+  fileRepository?: typeof fileRepository; // injection for tests
   commandRegistry?: any;
 };
 
@@ -190,7 +192,7 @@ type Segment = {
 };
 
 export class StreamShell {
-  private unix: any;
+  private unix: UnixCommands;
   private fileRepository: any;
   private projectName: string;
   private projectId: string;
@@ -400,60 +402,71 @@ export class StreamShell {
     // brace expansion handled by separate utility `expandBraces` imported above
 
     const globExpand = async (pattern: string): Promise<string[]> => {
-      // Prefer unix.glob if available
-      if (unix && typeof unix.glob === 'function') {
+      // ワイルドカード展開: カレントディレクトリ配下のみを検索
+      if (this.fileRepository && unix) {
         try {
-          const res = await unix.glob(pattern).catch(() => null);
-          if (Array.isArray(res) && res.length > 0) return res;
-        } catch (e) {}
-      }
-      // Fallback to fileRepository listing
-      if (this.fileRepository) {
-        try {
-          // Prefer prefix-based listing when available to avoid loading all project files
+          const cwd = await unix.pwd().catch(() => `/projects/${this.projectName}`);
+          const cwdRelative = cwd.replace(`/projects/${this.projectName}`, '') || '/';
+
+          // カレントディレクトリのプレフィックスを作成
+          const prefix = cwdRelative === '/' ? '' : cwdRelative + '/';
+
           let files: any[] = [];
           if (this.fileRepository.getFilesByPrefix) {
-            files = await this.fileRepository.getFilesByPrefix(this.projectId, '/');
+            files = await this.fileRepository.getFilesByPrefix(this.projectId, prefix);
           }
-          const names = files.map((f: any) => (f.path || '').replace(/^\//, ''));
-          // convert simple glob pattern to regex (supports *, ?, [..])
-          // convert simple glob pattern to regex (supports *, ?, [..]) safely
-          const parts: string[] = [];
+
+          // カレントディレクトリの直下のみにフィルタ
+          const directChildren = files.filter((f: any) => {
+            if (!f.path.startsWith(prefix)) return false;
+            const remainder = f.path.substring(prefix.length);
+            // 直下 = スラッシュを含まない
+            return !remainder.includes('/');
+          });
+
+          // ファイル名のみを抽出
+          const names = directChildren
+            .map((f: any) => {
+              return f.path.split('/').pop() || '';
+            })
+            .filter((n: string) => n !== '');
+
+          // パターンを正規表現に変換
+          const regexParts: string[] = [];
           for (let i = 0; i < pattern.length; i++) {
             const ch = pattern[i];
             if (ch === '*') {
-              parts.push('[^/]*');
-              continue;
-            }
-            if (ch === '?') {
-              parts.push('[^/]');
-              continue;
-            }
-            if (ch === '[') {
-              // consume until matching ]
+              regexParts.push('[^/]*');
+            } else if (ch === '?') {
+              regexParts.push('[^/]');
+            } else if (ch === '[') {
               let j = i + 1;
               let cls = '';
               while (j < pattern.length && pattern[j] !== ']') {
                 const c = pattern[j++];
-                // escape special inside class
                 if (c === '\\' || c === ']' || c === '-') cls += '\\' + c;
                 else cls += c;
               }
-              // move i to closing bracket or end
               i = Math.min(j, pattern.length - 1);
-              parts.push('[' + cls + ']');
-              continue;
+              regexParts.push('[' + cls + ']');
+            } else if (/[\\.\+\^\$\{\}\(\)\|]/.test(ch)) {
+              regexParts.push('\\' + ch);
+            } else {
+              regexParts.push(ch);
             }
-            // escape regexp meta
-            parts.push(ch.replace(/[\\.\+\^\$\{\}\(\)\|]/g, m => '\\' + m));
           }
-          const reStr = '^' + parts.join('') + '$';
+
+          const reStr = '^' + regexParts.join('') + '$';
           const re = new RegExp(reStr);
           const matched = names.filter((n: string) => re.test(n)).sort();
+
           if (matched.length > 0) return matched;
-        } catch (e) {}
+        } catch (e) {
+          console.warn('[globExpand] failed:', e);
+        }
       }
-      // no expansion
+
+      // 展開できない場合はパターンをそのまま返す
       return [pattern];
     };
 
@@ -511,7 +524,7 @@ export class StreamShell {
     if (seg.stdinFile && unix) {
       (async () => {
         try {
-          const content = await unix.cat(seg.stdinFile).catch(() => '');
+          const content = await unix.cat(seg.stdinFile!).catch(() => '');
           if (content !== undefined && content !== null) {
             proc.stdin.write(String(content));
           }

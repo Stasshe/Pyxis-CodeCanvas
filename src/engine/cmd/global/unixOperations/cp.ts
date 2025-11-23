@@ -40,6 +40,8 @@ export class CpCommand extends UnixCommandBase {
     const sourceArgs = positional.slice(0, -1);
 
     // ワイルドカード展開
+    // シェル経由なら既に展開済み（ワイルドカードがないので即座にリターン）
+    // 直接API呼び出しなら内部で展開
     const sources: string[] = [];
     for (const sourceArg of sourceArgs) {
       const expanded = await this.expandPathPattern(sourceArg);
@@ -80,7 +82,8 @@ export class CpCommand extends UnixCommandBase {
       // 最終的なコピー先パス
       let finalDest = dest;
       if (destIsDir) {
-        finalDest = `${dest}/${sourceName}`;
+        finalDest = `${dest.replace(/\/$/, '')}/${sourceName}`;
+        finalDest = this.normalizePath(finalDest);
       }
 
       // 上書きチェック
