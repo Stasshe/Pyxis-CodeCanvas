@@ -404,85 +404,124 @@ export class StreamShell {
 
     const globExpand = async (pattern: string): Promise<string[]> => {
       if (!this.fileRepository || !unix) return [pattern];
-      
+
       try {
-        const cwd = await unix.pwd().catch(() => `/projects/${this.projectName}`);
-        const cwdRelative = cwd.replace(`/projects/${this.projectName}`, '') || '/';
-        
-        // ★★★ パターンをディレクトリ部分とファイル名部分に分解 ★★★
-        const lastSlash = pattern.lastIndexOf('/');
-        const dirPart = lastSlash >= 0 ? pattern.slice(0, lastSlash + 1) : '';
-        const filePart = lastSlash >= 0 ? pattern.slice(lastSlash + 1) : pattern;
-        
-        // ★★★ ディレクトリ部分を絶対パスに解決 ★★★
-        let targetDir: string;
-        if (dirPart.startsWith('/')) {
-          // 絶対パス
-          targetDir = dirPart;
-        } else if (dirPart === '') {
-          // ディレクトリ指定なし → カレント
-          targetDir = cwdRelative === '/' ? '/' : cwdRelative + '/';
+        // The current working dir on the unix side - used to resolve relative
+        // patterns inside the project workspace.
+        const currentWorkingDir = await unix.pwd().catch(() => `/projects/${this.projectName}`);
+        const projectRelativeCwd = currentWorkingDir.replace(`/projects/${this.projectName}`, '') || '/';
+
+        // ★★★ Split pattern into directory prefix and filename glob ★★★
+        const lastSlashIndex = pattern.lastIndexOf('/');
+        const dirPrefix = lastSlashIndex >= 0 ? pattern.slice(0, lastSlashIndex + 1) : '';
+        const fileGlob = lastSlashIndex >= 0 ? pattern.slice(lastSlashIndex + 1) : pattern;
+
+        // ★★★ Resolve dirPrefix into a normalized absolute project path ★★★
+        const projectBase = `/projects/${this.projectName}`;
+        let resolvedTargetDir: string;
+        if (dirPrefix.startsWith('/')) {
+          // absolute inside project
+          resolvedTargetDir = projectBase + dirPrefix;
+        } else if (dirPrefix === '') {
+          // unspecified dir -> use cwd
+          const resolvedCwd = await unix.pwd().catch(() => projectBase);
+          resolvedTargetDir = resolvedCwd;
         } else {
-          // 相対パス → カレント + dirPart
-          const combined = cwdRelative === '/' ? dirPart : cwdRelative + '/' + dirPart;
-          targetDir = combined.replace(/\/+/g, '/'); // normalize slashes
+          // relative dir -> combine with cwd
+          const resolvedCwd = await unix.pwd().catch(() => projectBase);
+          let combined = resolvedCwd === '/' ? '/' + dirPrefix : resolvedCwd + '/' + dirPrefix;
+          combined = combined.replace(/\/+/g, '/'); // normalize slashes
+          // Normalize path (resolve ../ and ./)
+          const parts = combined.split('/').filter(p => p !== '' && p !== '.');
+          const stack: string[] = [];
+          for (const part of parts) {
+            if (part === '..') {
+              if (stack.length > 0) stack.pop();
+            } else {
+              stack.push(part);
+            }
+          }
+          resolvedTargetDir = '/' + stack.join('/');
         }
-        
-        // ★★★ targetDir配下のファイルを検索 ★★★
-        const prefix = targetDir === '/' ? '' : targetDir.replace(/\/$/, '') + '/';
-        let files: any[] = [];
+
+        // ★★★ Convert resolvedTargetDir into a project-relative prefix used by the repo API ★★★
+        let projectRelativeDir: string;
+        if (resolvedTargetDir === projectBase || resolvedTargetDir === projectBase + '/') {
+          projectRelativeDir = '';
+        } else if (resolvedTargetDir.startsWith(projectBase)) {
+          projectRelativeDir = resolvedTargetDir.substring(projectBase.length); // '/typescript' etc
+        } else {
+          projectRelativeDir = resolvedTargetDir;
+        }
+
+        // searchPrefix must include leading slash for the fileRepository API
+        const searchPrefix = projectRelativeDir === '' || projectRelativeDir === '/'
+          ? ''
+          : projectRelativeDir.endsWith('/')
+          ? projectRelativeDir
+          : projectRelativeDir + '/';
+
+        let projectFiles: any[] = [];
         if (this.fileRepository.getFilesByPrefix) {
-          files = await this.fileRepository.getFilesByPrefix(this.projectId, prefix);
+          projectFiles = await this.fileRepository.getFilesByPrefix(this.projectId, searchPrefix);
         }
-        
-        // ★★★ targetDirの直下のみにフィルタ ★★★
-        const directChildren = files.filter((f: any) => {
-          if (!f.path.startsWith(prefix)) return false;
-          const remainder = f.path.substring(prefix.length);
+
+        // ★★★ Filter files to direct children under the target directory only ★★★
+        const directChildren = projectFiles.filter((file: any) => {
+          if (searchPrefix === '') {
+            // root direct children only (one level)
+            const parts = file.path.split('/').filter((p: string) => p);
+            return parts.length === 1;
+          }
+          const prefix = searchPrefix + (searchPrefix.endsWith('/') ? '' : '/');
+          if (!file.path.startsWith(prefix)) return false;
+          const remainder = file.path.substring(prefix.length);
           return !remainder.includes('/');
         });
-        
-        const names = directChildren
-          .map((f: any) => f.path.split('/').pop() || '')
+
+        const fileNames = directChildren
+          .map((file: any) => file.path.split('/').pop() || '')
           .filter((n: string) => n !== '');
-        
-        // ★★★ filePartをパターンマッチング ★★★
+
+        // ★★★ Match the filename glob against the retrieved children ★★★
         const regexParts: string[] = [];
-        for (let i = 0; i < filePart.length; i++) {
-          const ch = filePart[i];
-          if (ch === '*') {
-            regexParts.push('[^/]*');
-          } else if (ch === '?') {
-            regexParts.push('[^/]');
-          } else if (ch === '[') {
+        for (let i = 0; i < fileGlob.length; i++) {
+          const ch = fileGlob[i];
+          if (ch === '*') regexParts.push('[^/]*');
+          else if (ch === '?') regexParts.push('[^/]');
+          else if (ch === '[') {
             let j = i + 1;
             let cls = '';
-            while (j < filePart.length && filePart[j] !== ']') {
-              const c = filePart[j++];
+            while (j < fileGlob.length && fileGlob[j] !== ']') {
+              const c = fileGlob[j++];
               if (c === '\\' || c === ']' || c === '-') cls += '\\' + c;
               else cls += c;
             }
-            i = Math.min(j, filePart.length - 1);
+            i = Math.min(j, fileGlob.length - 1);
             regexParts.push('[' + cls + ']');
-          } else if (/[\\.\+\^\$\{\}\(\)\|]/.test(ch)) {
-            regexParts.push('\\' + ch);
-          } else {
-            regexParts.push(ch);
-          }
+          } else if (/[\\.\+\^\$\{\}\(\)\|]/.test(ch)) regexParts.push('\\' + ch);
+          else regexParts.push(ch);
         }
-        
-        const reStr = '^' + regexParts.join('') + '$';
-        const re = new RegExp(reStr);
-        const matched = names.filter((n: string) => re.test(n)).sort();
-        
-        // ★★★ フルパスを返す（dirPart + マッチしたファイル名） ★★★
-        if (matched.length > 0) {
-          return matched.map(name => dirPart + name);
+
+        const regexStr = '^' + regexParts.join('') + '$';
+        const regex = new RegExp(regexStr);
+        const matchedNames = fileNames.filter((n: string) => regex.test(n)).sort();
+        console.log('[globExpand] input:', pattern);
+        console.log('[globExpand] cwd:', currentWorkingDir, 'projectRelativeCwd:', projectRelativeCwd);
+        console.log('[globExpand] dirPrefix:', dirPrefix, 'fileGlob:', fileGlob);
+        console.log('[globExpand] resolvedTargetDir:', resolvedTargetDir, 'searchPrefix:', searchPrefix);
+        console.log('[globExpand] files found:', projectFiles.length);
+        console.log('[globExpand] directChildren:', directChildren.length);
+        console.log('[globExpand] matched:', matchedNames);
+
+        // ★★★ Return full path(s) as dirPrefix + matched filename(s) ★★★
+        if (matchedNames.length > 0) {
+          return matchedNames.map(name => dirPrefix + name);
         }
       } catch (e) {
         console.warn('[globExpand] failed:', e);
       }
-      
+
       return [pattern];
     };
 
