@@ -50,13 +50,23 @@ export class MvCommand extends UnixCommandBase {
         sources.push(...expanded);
       } else {
         // ワイルドカードなし→パス解決のみ
-        const resolved = this.normalizePath(this.resolvePath(sourceArg));
+        // 末尾スラッシュを削除
+        let cleanArg = sourceArg;
+        if (cleanArg.endsWith('/') && cleanArg !== '/') {
+          cleanArg = cleanArg.slice(0, -1);
+        }
+        const resolved = this.normalizePath(this.resolvePath(cleanArg));
         sources.push(resolved);
       }
     }
 
     // destは**絶対にグロブ展開しない**（..や.を含むパスを正しく解決）
-    const dest = this.normalizePath(this.resolvePath(destArg));
+    // 末尾スラッシュを削除
+    let cleanDestArg = destArg;
+    if (cleanDestArg.endsWith('/') && cleanDestArg !== '/') {
+      cleanDestArg = cleanDestArg.slice(0, -1);
+    }
+    const dest = this.normalizePath(this.resolvePath(cleanDestArg));
     const destExists = await this.exists(dest);
     const destIsDir = destExists && (await this.isDirectory(dest));
 
@@ -81,7 +91,7 @@ export class MvCommand extends UnixCommandBase {
       // 最終的な移動先パス
       let finalDest = dest;
       if (destIsDir) {
-        finalDest = `${dest.replace(/\/$/, '')}/${sourceName}`;
+        finalDest = `${dest}/${sourceName}`;
         finalDest = this.normalizePath(finalDest);
       }
 
