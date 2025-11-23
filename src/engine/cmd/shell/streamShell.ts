@@ -193,7 +193,7 @@ type Segment = {
 
 export class StreamShell {
   private unix: UnixCommands;
-  private fileRepository: any;
+  private fileRepository: typeof fileRepository | undefined;
   private projectName: string;
   private projectId: string;
   private commandRegistry: any;
@@ -1550,10 +1550,11 @@ export class StreamShell {
     // per-path serialization promises to avoid concurrent read/save races
     const writeQueues: Record<string, Promise<void>> = {};
     const pathState: Record<string, { created: boolean }> = {};
-
+    
     const enqueueWrite = (path: string, append: boolean, chunk: string) => {
       const key = path.startsWith('/') ? path : `/${path}`;
       const job = async () => {
+        if (!this.fileRepository) return;
         try {
           // Fetch the single file by path to avoid full project scan
           const existing =
