@@ -1008,6 +1008,28 @@ export class GitCommands {
     return await revertOperations.revert(commitHash);
   }
 
+  /**
+   * git switch - ブランチまたはコミットに切り替え
+   * origin/main, upstream/develop などのリモートブランチや
+   * コミットハッシュにも対応
+   */
+  async switch(
+    targetRef: string,
+    options: {
+      createNew?: boolean;
+      detach?: boolean;
+    } = {}
+  ): Promise<string> {
+    const { GitSwitchOperations } = await import('./gitOperations/switch');
+    const switchOps = new GitSwitchOperations(
+      this.fs,
+      this.dir,
+      this.projectId,
+      this.projectName
+    );
+    return await switchOps.switch(targetRef, options);
+  }
+
   // git branch - ブランチ一覧/作成
   async branch(
     branchName?: string,
@@ -1483,5 +1505,15 @@ export class GitCommands {
     } catch (error) {
       throw new Error(`git pull failed: ${(error as Error).message}`);
     }
+  }
+
+  /**
+   * git show - コミット情報またはコミット時点のファイル内容を表示
+   */
+  async show(args: string[]): Promise<string> {
+    await this.ensureGitRepository();
+
+    const { show } = await import('./gitOperations/show');
+    return show(this.fs, this.dir, args);
   }
 }
