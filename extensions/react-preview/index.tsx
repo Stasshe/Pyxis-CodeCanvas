@@ -1,3 +1,239 @@
+/**
+ * react-preview Extension
+ * React JSXをブラウザでビルド&プレビュー（Tailwind CSS対応）
+ */
+
+import React, { useState, useEffect, useRef } from 'react';
+
+import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
+
+interface ESBuild {
+  initialize(options: { wasmURL: string }): Promise<void>;
+  build(options: {
+    stdin?: { contents: string; resolveDir?: string; sourcefile?: string; loader?: string };
+    bundle: boolean;
+    format: string;
+    write: boolean;
+    plugins?: any[];
+    target?: string;
+    jsxFactory?: string;
+    jsxFragment?: string;
+    external?: string[];
+  }): Promise<{ outputFiles: Array<{ text: string }> }>;
+}
+
+let esbuildInstance: ESBuild | null = null;
+let isInitializing = false;
+
+async function loadESBuild(): Promise<ESBuild> {
+  if (esbuildInstance) return esbuildInstance;
+
+  // 既に初期化中なら待機
+  if (isInitializing) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    return loadESBuild();
+  }
+
+  isInitializing = true;
+
+  try {
+    const esbuildModule = await import('esbuild-wasm');
+    const esbuild = (esbuildModule as any).default || esbuildModule;
+
+    // 既に初期化済みかチェック
+    if (esbuildInstance) {
+      isInitializing = false;
+      return esbuildInstance;
+    }
+
+    const runtimeBase = (typeof window !== 'undefined' && (window as any).__NEXT_PUBLIC_BASE_PATH__) || '';
+    const normalizedBase = runtimeBase.endsWith('/') ? runtimeBase.slice(0, -1) : runtimeBase;
+    const wasmURL = `${normalizedBase}/extensions/react-preview/esbuild.wasm`;
+
+    await esbuild.initialize({ wasmURL });
+    esbuildInstance = esbuild;
+
+    return esbuild;
+  } finally {
+    isInitializing = false;
+  }
+}
+
+/**
+ * 仮想ファイルシステムプラグイン
+ */
+function createVirtualFSPlugin(projectId: string, fileRepository: any) {
+  return {
+    name: 'virtual-fs',
+    setup(build: any) {
+      // npm ライブラリの解決（./や../から始まらないもの）
+      build.onResolve({ filter: /^[^./]/ }, async (args: any) => {
+        if (args.path.startsWith('react') || args.path.startsWith('react-dom')) {
+          return { path: args.path, external: true };
+        }
+        try {
+          // プロジェクトルートの node_modules から読み込みを試みる
+          const file = await fileRepository.getFileByPath(projectId, `/node_modules/${args.path}`);
+          if (file) {
+            return { path: `/node_modules/${args.path}`, namespace: 'virtual' };
+          }
+        } catch (e) {
+          // ファイルが見つからない場合は external として扱う
+        }
+        return { path: args.path, external: true };
+      });
+
+      // 相対パスの解決
+      build.onResolve({ filter: /^\./ }, async (args: any) => {
+        const fromDir = args.importer === '<stdin>'
+          ? args.resolveDir
+          : args.importer.split('/').slice(0, -1).join('/');
+
+        const parts = (fromDir + '/' + args.path).split('/');
+        const resolved: string[] = [];
+
+        for (const part of parts) {
+          if (part === '' || part === '.') continue;
+          if (part === '..') {
+            if (resolved.length > 0) resolved.pop();
+            continue;
+          }
+          resolved.push(part);
+        }
+
+        let path = '/' + resolved.join('/');
+
+        // 拡張子補完（CSSは除く）
+        if (!path.match(/\.[^/]+$/)) {
+          path += '.jsx';
+        }
+
+        return { path, namespace: 'virtual' };
+      });
+
+      // ファイルの読み込み
+      build.onLoad({ filter: /.*/, namespace: 'virtual' }, async (args: any) => {
+        const file = await fileRepository.getFileByPath(projectId, args.path);
+
+        if (!file) {
+          return { errors: [{ text: `File not found: ${args.path}` }] };
+        }
+
+        // CSSはスタイル注入コードに変換
+        if (args.path.match(/\.css$/i)) {
+          const cssContent = JSON.stringify(file.content);
+          const code = `
+            (function() {
+              var style = document.createElement('style');
+              style.textContent = ${cssContent};
+              style.setAttribute('data-react-preview', '${args.path}');
+              document.head.appendChild(style);
+            })();
+          `;
+          return { contents: code, loader: 'js' };
+        }
+
+        // 画像などはスキップ
+        if (args.path.match(/\.(png|jpe?g|svg|gif|webp)$/i)) {
+          return { contents: '', loader: 'text' };
+        }
+
+        return {
+          contents: file.content,
+          loader: args.path.endsWith('.tsx') ? 'tsx' : 'jsx',
+        };
+      });
+    },
+  };
+}
+
+/**
+ * JSXファイルをビルド
+ */
+async function buildJSX(
+  filePath: string,
+  projectId: string,
+  context: ExtensionContext
+): Promise<{ code: string; error?: string }> {
+  try {
+    const esbuild = await loadESBuild();
+    const fileRepository = await context.getSystemModule('fileRepository');
+    const file = await fileRepository.getFileByPath(projectId, filePath);
+    if (!file) {
+      return { code: '', error: `File not found: ${filePath}` };
+    }
+
+    const result = await esbuild.build({
+      stdin: {
+        contents: file.content,
+        resolveDir: filePath.split('/').slice(0, -1).join('/') || '/',
+        sourcefile: filePath,
+        loader: filePath.endsWith('.tsx') ? 'tsx' : 'jsx',
+      },
+      bundle: true,
+      format: 'cjs',
+      write: false,
+      plugins: [createVirtualFSPlugin(projectId, fileRepository)],
+      target: 'es2020',
+      jsxFactory: 'React.createElement',
+      jsxFragment: 'React.Fragment',
+      external: ['react', 'react-dom', 'react-dom/client'],
+    });
+
+    const bundled = result.outputFiles[0].text;
+    const transformImportsModule = await context.getSystemModule('transformImports');
+    const transformed = transformImportsModule(bundled);
+
+    return { code: transformed };
+  } catch (error: any) {
+    return { code: '', error: error?.message || 'Build failed' };
+  }
+}
+
+/**
+ * react-buildコマンド
+ */
+async function reactBuildCommand(args: string[], context: any): Promise<string> {
+  if (args.length === 0) {
+    return 'Usage: react-build <entry.jsx> [--tailwind]\n\nExample:\n  react-build App.jsx\n  react-build App.jsx --tailwind\n  react-build src/App.jsx --tailwind';
+  }
+
+  const filePath = args[0];
+  const useTailwind = args.includes('--tailwind');
+
+  // パス正規化
+  let normalizedPath = filePath;
+  if (!filePath.startsWith('/')) {
+    const relativeCurrent = (context.currentDirectory || '').replace(`/projects/${context.projectName}`, '');
+    normalizedPath = relativeCurrent === '' ? `/${filePath}` : `${relativeCurrent}/${filePath}`;
+  } else {
+    normalizedPath = filePath.replace(`/projects/${context.projectName}`, '');
+  }
+
+  const { code, error } = await buildJSX(
+    normalizedPath,
+    context.projectId,
+    context,
+  );
+
+  if (error) {
+    return `[react-preview] Building: ${filePath}\n❌ Build failed:\n${error}\n`;
+  }
+
+  // プレビュータブを開く
+  context.tabs.createTab({
+    id: `preview-${normalizedPath}`,
+    title: `Preview: ${normalizedPath}`,
+    icon: 'Eye',
+    closable: true,
+    activateAfterCreate: true,
+    data: { filePath: normalizedPath, code, builtAt: Date.now(), useTailwind },
+  });
+
+  const tailwindMsg = useTailwind ? '\n🎨 Tailwind CSS enabled' : '';
+  return `[react-preview] Building: ${filePath}\n✅ Build successful!${tailwindMsg}\n\n📺 Preview opened in tab\n`;
+}
+
 function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
   const [error, setError] = useState<string | null>(null);
   const [loadingState, setLoadingState] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -118,7 +354,7 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
     // postMessageリスナー
     const handleMessage = (event: MessageEvent) => {
       if (event.source !== iframe.contentWindow) return;
-      
+
       if (event.data.type === 'preview-ready') {
         if (mountedRef.current) {
           setLoadingState('ready');
