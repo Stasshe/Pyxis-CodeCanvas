@@ -157,6 +157,38 @@ export async function handleGitCommand(
       break;
     }
 
+    case 'switch': {
+      if (args[1]) {
+        const createNew = args.includes('-c') || args.includes('--create');
+        const detach = args.includes('--detach');
+        let targetRef: string;
+
+        if (createNew) {
+          const cIndex = args.indexOf('-c') !== -1 ? args.indexOf('-c') : args.indexOf('--create');
+          targetRef = args[cIndex + 1];
+          if (!targetRef) {
+            await writeOutput('git switch: missing branch name after -c/--create');
+            break;
+          }
+        } else {
+          targetRef = args[1];
+        }
+
+        try {
+          const switchResult = await git.switch(targetRef, {
+            createNew,
+            detach,
+          });
+          await writeOutput(switchResult);
+        } catch (error) {
+          await writeOutput(`git switch: ${(error as Error).message}`);
+        }
+      } else {
+        await writeOutput('git switch: missing branch name or commit hash');
+      }
+      break;
+    }
+
     case 'branch': {
       const deleteFlag = args.includes('-d') || args.includes('-D');
       const remoteFlag = args.includes('-r');

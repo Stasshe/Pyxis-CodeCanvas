@@ -130,10 +130,29 @@ async function showCommit(fs: FS, dir: string, commitRef: string): Promise<strin
  * リファレンス（ブランチ、タグ、リモートブランチなど）を解決して、コミットOIDを取得
  * - origin/main, upstream/develop などのリモートブランチに対応
  * - HEAD~1, HEAD~2 などの相対参照に対応
+ * - 短縮系コミットハッシュ（4文字以上）に対応
  */
 async function resolveRef(fs: FS, dir: string, ref: string): Promise<string | null> {
   try {
-    // 直接解決を試みる（ブランチ、タグ、コミットハッシュ）
+    // コミットハッシュかどうかを判定（7文字以上の16進数、短縮系に対応）
+    const isCommitHash = /^[a-f0-9]{7,}$/i.test(ref);
+    
+    if (isCommitHash) {
+      // コミットハッシュの場合は、まずそのまま試す（短縮系ハッシュの場合isomorphic-gitが自動的に解決）
+      try {
+        const oid = await git.resolveRef({
+          fs,
+          dir,
+          ref,
+        });
+        return oid;
+      } catch {
+        // 短縮系ハッシュが見つからない場合
+        return null;
+      }
+    }
+
+    // 直接解決を試みる（ブランチ、タグなど）
     try {
       const oid = await git.resolveRef({
         fs,
