@@ -36,35 +36,50 @@ function CodeBlock({
 
     // 色の定義
     const colors = {
-      keyword: isDark ? '#9cdcfe' : '#0000ff',
+      keyword: isDark ? '#569cd6' : '#0000ff',
+      function: isDark ? '#dcdcaa' : '#795e26',
       string: isDark ? '#ce9178' : '#a31515',
       comment: isDark ? '#6a9955' : '#008000',
       number: isDark ? '#b5cea8' : '#098658',
       operator: isDark ? '#d4d4d4' : '#333',
+      property: isDark ? '#9cdcfe' : '#001080',
+      punctuation: isDark ? '#d4d4d4' : '#000000',
     };
 
     // パターンの優先順位順に処理
     const patterns = [
       // コメント (複数行)
       { type: 'comment', regex: /^\/\*[\s\S]*?\*\// },
-      // コメント (単一行)
-      { type: 'comment', regex: /^\/\/.*?$/m },
-      // 文字列 (ダブルクォート、シングルクォート、バッククォート)
-      { type: 'string', regex: /^"(?:[^"\\]|\\.)*"/ },
-      { type: 'string', regex: /^'(?:[^'\\]|\\.)*'/ },
-      { type: 'string', regex: /^`(?:[^`\\]|\\.)* `/ },
+      // コメント (単一行) - 行末まで
+      { type: 'comment', regex: /^\/\/[^\n]*/ },
+      // 文字列 (ダブルクォート)
+      { type: 'string', regex: /^"(?:[^"\\]|\\[\s\S])*?"/ },
+      // 文字列 (シングルクォート)
+      { type: 'string', regex: /^'(?:[^'\\]|\\[\s\S])*?'/ },
+      // テンプレートリテラル
+      { type: 'string', regex: /^`(?:[^`\\]|\\[\s\S])*?`/ },
+      // 関数呼び出し (識別子の後に括弧)
+      { type: 'function', regex: /^[a-zA-Z_$][a-zA-Z0-9_$]*(?=\s*\()/ },
       // キーワード
       {
         type: 'keyword',
         regex:
-          /^(?:const|let|var|function|return|if|else|for|while|switch|case|break|import|from|export|class|extends|new|try|catch|finally|await|async|interface|type|implements|private|protected|public|throw|yield)\b/,
+          /^(?:abstract|arguments|await|boolean|break|byte|case|catch|char|class|const|continue|debugger|default|delete|do|double|else|enum|eval|export|extends|false|final|finally|float|for|function|goto|if|implements|import|in|instanceof|int|interface|let|long|native|new|null|package|private|protected|public|return|short|static|super|switch|synchronized|this|throw|throws|transient|true|try|typeof|var|void|volatile|while|with|yield|async|of|as|from|get|set)\b/,
       },
-      // 数値
-      { type: 'number', regex: /^(?:0x[0-9a-fA-F]+|\d+(?:\.\d+)?)\b/ },
+      // プロパティアクセス (.property)
+      { type: 'property', regex: /^\.([a-zA-Z_$][a-zA-Z0-9_$]*)/ },
+      // 数値 (16進数、浮動小数点、整数)
+      { type: 'number', regex: /^(?:0x[0-9a-fA-F]+|0b[01]+|0o[0-7]+|\d+\.?\d*(?:[eE][+-]?\d+)?)\b/ },
       // 演算子
-      { type: 'operator', regex: /^[=+\-*/%<>!|&^~?:]+/ },
+      { type: 'operator', regex: /^(?:===|!==|==|!=|<=|>=|<<|>>|>>>|&&|\|\||[+\-*/%<>!|&^~?:])/ },
+      // 括弧や区切り文字
+      { type: 'punctuation', regex: /^[(){}\[\];,.]/ },
+      // 空白
+      { type: 'whitespace', regex: /^[\s]+/ },
+      // 識別子
+      { type: 'identifier', regex: /^[a-zA-Z_$][a-zA-Z0-9_$]*/ },
       // その他の文字
-      { type: 'text', regex: /^[\s\S]/ },
+      { type: 'text', regex: /^./ },
     ];
 
     // トークン化
@@ -100,14 +115,24 @@ function CodeBlock({
       switch (token.type) {
         case 'keyword':
           return `<span style="color:${colors.keyword}; font-weight:600">${escaped}</span>`;
+        case 'function':
+          return `<span style="color:${colors.function}; font-weight:500">${escaped}</span>`;
         case 'string':
           return `<span style="color:${colors.string}">${escaped}</span>`;
         case 'comment':
-          return `<span style="color:${colors.comment}">${escaped}</span>`;
+          return `<span style="color:${colors.comment}; font-style:italic">${escaped}</span>`;
         case 'number':
           return `<span style="color:${colors.number}">${escaped}</span>`;
         case 'operator':
           return `<span style="color:${colors.operator}">${escaped}</span>`;
+        case 'property':
+          return `<span style="color:${colors.property}">${escaped}</span>`;
+        case 'punctuation':
+          return `<span style="color:${colors.punctuation}">${escaped}</span>`;
+        case 'whitespace':
+          return escaped;
+        case 'identifier':
+          return `<span style="color:${colors.property}">${escaped}</span>`;
         default:
           return escaped;
       }
