@@ -89,18 +89,18 @@ export default function Home() {
     }
   }, []);
 
-  // UI状態の復元と保存（sessionStorage統合）
+  // UI状態の復元（sessionStorage統合）
   useEffect(() => {
     const restoreUIState = async () => {
       try {
-        const session = await sessionStorage.load();
-        setLeftSidebarWidth(session.ui.leftSidebarWidth);
-        setRightSidebarWidth(session.ui.rightSidebarWidth);
-        setBottomPanelHeight(session.ui.bottomPanelHeight);
-        setIsLeftSidebarVisible(session.ui.isLeftSidebarVisible);
-        setIsRightSidebarVisible(session.ui.isRightSidebarVisible);
-        setIsBottomPanelVisible(session.ui.isBottomPanelVisible);
-        console.log('[page.tsx] UI state restored from session');
+        const uiState = await sessionStorage.loadUIState();
+        setLeftSidebarWidth(uiState.leftSidebarWidth);
+        setRightSidebarWidth(uiState.rightSidebarWidth);
+        setBottomPanelHeight(uiState.bottomPanelHeight);
+        setIsLeftSidebarVisible(uiState.isLeftSidebarVisible);
+        setIsRightSidebarVisible(uiState.isRightSidebarVisible);
+        setIsBottomPanelVisible(uiState.isBottomPanelVisible);
+        console.log('[page.tsx] UI state restored from storage');
       } catch (error) {
         console.error('[page.tsx] Failed to restore UI state:', error);
       }
@@ -115,20 +115,16 @@ export default function Home() {
 
     const timer = setTimeout(async () => {
       try {
-        const session = await sessionStorage.load();
-        const updatedSession = {
-          ...session,
-          ui: {
-            leftSidebarWidth,
-            rightSidebarWidth,
-            bottomPanelHeight,
-            isLeftSidebarVisible,
-            isRightSidebarVisible,
-            isBottomPanelVisible,
-          },
+        const uiState = {
+          leftSidebarWidth,
+          rightSidebarWidth,
+          bottomPanelHeight,
+          isLeftSidebarVisible,
+          isRightSidebarVisible,
+          isBottomPanelVisible,
         };
-        await sessionStorage.save(updatedSession);
-        console.log('[page.tsx] UI state saved to session');
+        await sessionStorage.saveUIState(uiState);
+        console.log('[page.tsx] UI state saved to storage');
       } catch (error) {
         console.error('[page.tsx] Failed to save UI state:', error);
       }

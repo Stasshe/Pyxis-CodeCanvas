@@ -514,7 +514,9 @@ export const useTabStore = create<TabStore>((set, get) => ({
 
   saveSession: async () => {
     const state = get();
-    const { sessionStorage } = await import('@/stores/sessionStorage');
+    const { sessionStorage, DEFAULT_SESSION } = await import('@/stores/sessionStorage');
+    
+    // UI状態は含めない（page.tsxが管理）
     const session = {
       version: 1,
       lastSaved: Date.now(),
@@ -523,15 +525,9 @@ export const useTabStore = create<TabStore>((set, get) => ({
         activePane: state.activePane,
         globalActiveTab: state.globalActiveTab,
       },
-      ui: {
-        leftSidebarWidth: 240,
-        rightSidebarWidth: 240,
-        bottomPanelHeight: 200,
-        isLeftSidebarVisible: true,
-        isRightSidebarVisible: true,
-        isBottomPanelVisible: true,
-      },
+      ui: DEFAULT_SESSION.ui, // デフォルト値を使用
     };
+    
     await sessionStorage.save(session);
   },
 
