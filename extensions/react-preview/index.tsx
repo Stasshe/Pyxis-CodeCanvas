@@ -226,7 +226,7 @@ async function detectPages(
   context: ExtensionContext
 ): Promise<PageInfo[]> {
   const fileRepository = await context.getSystemModule('fileRepository');
-  const allFiles = await fileRepository.listFiles(projectId);
+  const allFiles = await fileRepository.getProjectFiles(projectId);
   
   const pageFiles = allFiles.filter((f: any) => {
     const path = f.path || '';
