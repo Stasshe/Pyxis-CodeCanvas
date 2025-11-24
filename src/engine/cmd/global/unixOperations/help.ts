@@ -130,7 +130,6 @@ Shell Features (StreamShell):
   変数:
     VAR=value   - 変数に値を代入
     $VAR        - 変数の値を参照
-    ${VAR}      - 変数の値を参照（明示的）
     例: NAME="John"; echo "Hello, $NAME"
   
   位置パラメータ（スクリプト内）:
@@ -138,7 +137,7 @@ Shell Features (StreamShell):
     $1, $2, ... - 引数1、引数2、...
     $@          - 全ての引数
   
-  算術展開:
+  算術展開: （対応中）
     $((expr))   - 算術式を評価
     例: echo $((5 + 3)) → 8
         COUNT=$((COUNT + 1))
