@@ -60,6 +60,7 @@ export const DEFAULT_SESSION: PyxisSession = {
 };
 
 const SESSION_KEY = 'current-session';
+const UI_STATE_KEY = 'ui-state'; // UI状態専用キー
 
 /**
  * セッションストレージ管理クラス
@@ -106,6 +107,40 @@ class SessionStorageManager {
     } catch (error) {
       console.error('[SessionStorage] Failed to load session:', error);
       return DEFAULT_SESSION;
+    }
+  }
+
+  /**
+   * UI状態を保存（UI状態専用）
+   */
+  async saveUIState(uiState: PyxisSession['ui']): Promise<void> {
+    try {
+      await storageService.set(STORES.USER_PREFERENCES, UI_STATE_KEY, {
+        ...uiState,
+        lastSaved: Date.now(),
+      });
+      console.log('[SessionStorage] UI state saved successfully');
+    } catch (error) {
+      console.error('[SessionStorage] Failed to save UI state:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * UI状態を読み込み（UI状態専用）
+   */
+  async loadUIState(): Promise<PyxisSession['ui']> {
+    try {
+      const saved = await storageService.get<PyxisSession['ui']>(STORES.USER_PREFERENCES, UI_STATE_KEY);
+      if (saved) {
+        console.log('[SessionStorage] UI state loaded successfully');
+        return saved;
+      }
+      console.log('[SessionStorage] No saved UI state found, using default');
+      return DEFAULT_SESSION.ui;
+    } catch (error) {
+      console.error('[SessionStorage] Failed to load UI state:', error);
+      return DEFAULT_SESSION.ui;
     }
   }
 
