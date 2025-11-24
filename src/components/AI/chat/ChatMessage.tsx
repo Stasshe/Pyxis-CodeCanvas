@@ -29,51 +29,91 @@ function CodeBlock({
   const [copied, setCopied] = useState(false);
   const { t } = useTranslation();
 
-  // Very small, synchronous highlighter: keywords, strings, comments
+  // 修正版: トークン単位で処理してHTMLタグの二重エスケープを防ぐ
   const highlight = (code: string, lang: string) => {
-    // Basic escapes
-    const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const tokens: Array<{ type: string; value: string }> = [];
+    let remaining = code;
 
-    let out = esc(code);
+    // 色の定義
+    const colors = {
+      keyword: isDark ? '#9cdcfe' : '#0000ff',
+      string: isDark ? '#ce9178' : '#a31515',
+      comment: isDark ? '#6a9955' : '#008000',
+      number: isDark ? '#b5cea8' : '#098658',
+      operator: isDark ? '#d4d4d4' : '#333',
+    };
 
-    // Simple language-aware rules (JS/TS/TSX/JSON/py/sh etc.)
-    // Keywords
-    const keywords =
-      '\\b(?:const|let|var|function|return|if|else|for|while|switch|case|break|import|from|export|class|extends|new|try|catch|finally|await|async|interface|type|implements|private|protected|public|throw|yield)\\b';
-    out = out.replace(
-      new RegExp(keywords, 'g'),
-      m => `<span style="color:${isDark ? '#9cdcfe' : '#0000ff'}; font-weight:600">${m}</span>`
-    );
+    // パターンの優先順位順に処理
+    const patterns = [
+      // コメント (複数行)
+      { type: 'comment', regex: /^\/\*[\s\S]*?\*\// },
+      // コメント (単一行)
+      { type: 'comment', regex: /^\/\/.*?$/m },
+      // 文字列 (ダブルクォート、シングルクォート、バッククォート)
+      { type: 'string', regex: /^"(?:[^"\\]|\\.)*"/ },
+      { type: 'string', regex: /^'(?:[^'\\]|\\.)*'/ },
+      { type: 'string', regex: /^`(?:[^`\\]|\\.)* `/ },
+      // キーワード
+      {
+        type: 'keyword',
+        regex:
+          /^(?:const|let|var|function|return|if|else|for|while|switch|case|break|import|from|export|class|extends|new|try|catch|finally|await|async|interface|type|implements|private|protected|public|throw|yield)\b/,
+      },
+      // 数値
+      { type: 'number', regex: /^(?:0x[0-9a-fA-F]+|\d+(?:\.\d+)?)\b/ },
+      // 演算子
+      { type: 'operator', regex: /^[=+\-*/%<>!|&^~?:]+/ },
+      // その他の文字
+      { type: 'text', regex: /^[\s\S]/ },
+    ];
 
-    // Strings (support multiline without using 's' flag)
-    out = out.replace(
-      /("[\s\S]*?"|'.*?'|`[\s\S]*?`)/g,
-      m => `<span style="color:${isDark ? '#ce9178' : '#a31515'}">${m}</span>`
-    );
+    // トークン化
+    while (remaining.length > 0) {
+      let matched = false;
 
-    // Comments
-    out = out.replace(
-      /(\/\/.*?$)/gm,
-      m => `<span style="color:${isDark ? '#6a9955' : '#008000'}">${m}</span>`
-    );
-    out = out.replace(
-      /(\/\*[\s\S]*?\*\/)/g,
-      m => `<span style="color:${isDark ? '#6a9955' : '#008000'}">${m}</span>`
-    );
+      for (const pattern of patterns) {
+        const match = remaining.match(pattern.regex);
+        if (match) {
+          tokens.push({ type: pattern.type, value: match[0] });
+          remaining = remaining.slice(match[0].length);
+          matched = true;
+          break;
+        }
+      }
 
-    // Numbers
-    out = out.replace(
-      /\b(0x[0-9a-fA-F]+|\d+(?:\.\d+)?)\b/g,
-      m => `<span style="color:${isDark ? '#b5cea8' : '#098658'}">${m}</span>`
-    );
+      // どのパターンにもマッチしない場合（念のため）
+      if (!matched) {
+        tokens.push({ type: 'text', value: remaining[0] });
+        remaining = remaining.slice(1);
+      }
+    }
 
-    // Punctuation / operators
-    out = out.replace(
-      /([=+\-*/%<>!|&^~?:]+)/g,
-      m => `<span style="color:${isDark ? '#d4d4d4' : '#333'}">${m}</span>`
-    );
+    // トークンをHTMLに変換
+    const htmlParts = tokens.map(token => {
+      // HTMLエスケープ
+      const escaped = token.value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
 
-    return `<pre class="overflow-x-auto text-xs p-3 min-h-[48px] font-mono" style="font-size:13px;margin:0;">${out}</pre>`;
+      // スタイル適用
+      switch (token.type) {
+        case 'keyword':
+          return `<span style="color:${colors.keyword}; font-weight:600">${escaped}</span>`;
+        case 'string':
+          return `<span style="color:${colors.string}">${escaped}</span>`;
+        case 'comment':
+          return `<span style="color:${colors.comment}">${escaped}</span>`;
+        case 'number':
+          return `<span style="color:${colors.number}">${escaped}</span>`;
+        case 'operator':
+          return `<span style="color:${colors.operator}">${escaped}</span>`;
+        default:
+          return escaped;
+      }
+    });
+
+    return `<pre class="overflow-x-auto text-xs p-3 min-h-[48px] font-mono" style="font-size:13px;margin:0;">${htmlParts.join('')}</pre>`;
   };
 
   const handleCopy = async () => {
@@ -130,7 +170,7 @@ export default function ChatMessage({ message, compact = false }: ChatMessagePro
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             components={{
-              // コードブロック（shikiシンタックスハイライト付き）
+              // コードブロック（シンタックスハイライト付き）
               code({ className, children, ...props }: any) {
                 const match = /language-(\w+)/.exec(className || '');
                 const language = match ? match[1] : '';
