@@ -18,7 +18,8 @@ interface ESBuild {
     target?: string;
     jsxFactory?: string;
     jsxFragment?: string;
-    external?: string[];
+    define?: { [key: string]: string };
+    globalName?: string;
   }): Promise<{ outputFiles: Array<{ text: string }> }>;
 }
 
@@ -28,7 +29,6 @@ let isInitializing = false;
 async function loadESBuild(): Promise<ESBuild> {
   if (esbuildInstance) return esbuildInstance;
 
-  // 既に初期化中なら待機
   if (isInitializing) {
     await new Promise(resolve => setTimeout(resolve, 100));
     return loadESBuild();
@@ -40,7 +40,6 @@ async function loadESBuild(): Promise<ESBuild> {
     const esbuildModule = await import('esbuild-wasm');
     const esbuild = (esbuildModule as any).default || esbuildModule;
 
-    // 既に初期化済みかチェック
     if (esbuildInstance) {
       isInitializing = false;
       return esbuildInstance;
@@ -60,26 +59,77 @@ async function loadESBuild(): Promise<ESBuild> {
 }
 
 /**
- * 仮想ファイルシステムプラグイン
+ * externalモジュールをグローバル変数に書き換えるプラグイン
  */
+function createGlobalExternalsPlugin() {
+  return {
+    name: 'global-externals',
+    setup(build: any) {
+      const globalMap: Record<string, string> = {
+        'react': 'React',
+        'react-dom': 'ReactDOM',
+        'react-dom/client': 'ReactDOM',
+      };
+
+      build.onResolve({ filter: /^react(-dom)?(\/client)?$/ }, (args: any) => {
+        return {
+          path: args.path,
+          namespace: 'global-external',
+        };
+      });
+
+      build.onLoad({ filter: /.*/, namespace: 'global-external' }, (args: any) => {
+        const globalName = globalMap[args.path];
+        if (!globalName) {
+          return { errors: [{ text: `No global mapping for ${args.path}` }] };
+        }
+
+        const code = `module.exports = window.${globalName};`;
+        return { contents: code, loader: 'js' };
+      });
+    },
+  };
+}
+
 function createVirtualFSPlugin(projectId: string, fileRepository: any) {
   return {
     name: 'virtual-fs',
     setup(build: any) {
       // npm ライブラリの解決（./や../から始まらないもの）
       build.onResolve({ filter: /^[^./]/ }, async (args: any) => {
-        if (args.path.startsWith('react') || args.path.startsWith('react-dom')) {
-          return { path: args.path, external: true };
+        // react系はglobal-externalsプラグインで処理
+        if (args.path === 'react' || args.path === 'react-dom' || args.path === 'react-dom/client') {
+          return undefined;
         }
+        
         try {
-          // プロジェクトルートの node_modules から読み込みを試みる
-          const file = await fileRepository.getFileByPath(projectId, `/node_modules/${args.path}`);
-          if (file) {
-            return { path: `/node_modules/${args.path}`, namespace: 'virtual' };
+          // package.jsonを読んでエントリポイントを取得
+          const pkgJsonPath = `/node_modules/${args.path}/package.json`;
+          const pkgJsonFile = await fileRepository.getFileByPath(projectId, pkgJsonPath);
+          
+          if (pkgJsonFile) {
+            const pkgJson = JSON.parse(pkgJsonFile.content);
+            // module > main の優先順位で取得（ESM優先）
+            const entryPoint = pkgJson.module || pkgJson.main || 'index.js';
+            const resolvedPath = `/node_modules/${args.path}/${entryPoint}`;
+            
+            return { path: resolvedPath, namespace: 'virtual' };
           }
         } catch (e) {
-          // ファイルが見つからない場合は external として扱う
+          console.error(`Failed to resolve package.json for ${args.path}:`, e);
         }
+        
+        // dist/index.js も試す（よくあるパターン）
+        try {
+          const distIndexPath = `/node_modules/${args.path}/dist/index.js`;
+          const file = await fileRepository.getFileByPath(projectId, distIndexPath);
+          if (file) {
+            return { path: distIndexPath, namespace: 'virtual' };
+          }
+        } catch (e) {
+          // dist/index.jsもない
+        }
+        
         return { path: args.path, external: true };
       });
 
@@ -103,9 +153,31 @@ function createVirtualFSPlugin(projectId: string, fileRepository: any) {
         
         let path = '/' + resolved.join('/');
         
-        // 拡張子補完（CSSは除く）
+        // 拡張子補完
         if (!path.match(/\.[^/]+$/)) {
-          path += '.jsx';
+          // .js, .ts, .jsx, .tsx の順に試す
+          for (const ext of ['.js', '.ts', '.jsx', '.tsx']) {
+            try {
+              const testPath = path + ext;
+              const file = await fileRepository.getFileByPath(projectId, testPath);
+              if (file) {
+                return { path: testPath, namespace: 'virtual' };
+              }
+            } catch (e) {
+              // 次の拡張子を試す
+            }
+          }
+          
+          // 拡張子なしでも試す（index.jsの可能性）
+          try {
+            const indexPath = path + '/index.js';
+            const file = await fileRepository.getFileByPath(projectId, indexPath);
+            if (file) {
+              return { path: indexPath, namespace: 'virtual' };
+            }
+          } catch (e) {
+            // index.jsもない
+          }
         }
         
         return { path, namespace: 'virtual' };
@@ -138,9 +210,15 @@ function createVirtualFSPlugin(projectId: string, fileRepository: any) {
           return { contents: '', loader: 'text' };
         }
 
+        // TypeScript/JavaScript の判定
+        let loader: 'js' | 'ts' | 'jsx' | 'tsx' = 'js';
+        if (args.path.endsWith('.tsx')) loader = 'tsx';
+        else if (args.path.endsWith('.ts')) loader = 'ts';
+        else if (args.path.endsWith('.jsx')) loader = 'jsx';
+
         return {
           contents: file.content,
-          loader: args.path.endsWith('.tsx') ? 'tsx' : 'jsx',
+          loader,
         };
       });
     },
@@ -171,20 +249,20 @@ async function buildJSX(
         loader: filePath.endsWith('.tsx') ? 'tsx' : 'jsx',
       },
       bundle: true,
-      format: 'cjs',
+      format: 'iife',
+      globalName: '__ReactApp__',
       write: false,
-      plugins: [createVirtualFSPlugin(projectId, fileRepository)],
+      plugins: [createGlobalExternalsPlugin(), createVirtualFSPlugin(projectId, fileRepository)],
       target: 'es2020',
       jsxFactory: 'React.createElement',
       jsxFragment: 'React.Fragment',
-      external: ['react', 'react-dom', 'react-dom/client'],
+      define: {
+        'process.env.NODE_ENV': '"production"'
+      },
     });
 
     const bundled = result.outputFiles[0].text;
-    const transformImportsModule = await context.getSystemModule('transformImports');
-    const transformed = transformImportsModule(bundled);
-
-    return { code: transformed };
+    return { code: bundled };
   } catch (error: any) {
     return { code: '', error: error?.message || 'Build failed' };
   }
@@ -280,41 +358,29 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
         html += `\n</head>
 <body>
   <div id="root"></div>
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js"><\/script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"><\/script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom-client.production.min.js"><\/script>
+  
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"><\/script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"><\/script>
+  
   <script>
-    window.React = React;
-    window.ReactDOM = ReactDOM;
-
-    function shimRequire(name) {
-      if (name === 'react') return React;
-      if (name === 'react-dom') return ReactDOM;
-      if (name === 'react-dom/client') return ReactDOM;
-      throw new Error('Module not found: ' + name);
-    }
-
-    (function() {
-      try {
-        const code = ${JSON.stringify(data.code)};
-        const module = { exports: {} };
-        const moduleFunc = new Function('module', 'exports', 'require', code);
-        moduleFunc(module, module.exports, shimRequire);
-        
-        const Component = module.exports.default || module.exports;
-        
-        if (!Component) {
-          throw new Error('No component exported');
-        }
-
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(React.createElement(Component));
-      } catch (err) {
-        const root = document.getElementById('root');
-        root.innerHTML = '<div style="color: #f88; padding: 16px; font-family: monospace; font-size: 12px; white-space: pre-wrap;">Error: ' + (err?.message || 'Unknown error') + '</div>';
-        console.error('[ReactPreview]', err);
+    ${data.code}
+  <\/script>
+  
+  <script>
+    try {
+      const Component = window.__ReactApp__.default || window.__ReactApp__;
+      
+      if (!Component) {
+        throw new Error('No component exported from ${data.filePath}');
       }
-    })();
+
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(React.createElement(Component));
+      
+    } catch (err) {
+      document.getElementById('root').innerHTML = '<div style="color: #f88; padding: 16px; font-family: monospace; font-size: 12px; white-space: pre-wrap;">Error: ' + (err?.stack || err?.message || String(err)) + '</div>';
+      console.error('[ReactPreview]', err);
+    }
   <\/script>
 </body>
 </html>`;
@@ -334,7 +400,7 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
     } else {
       iframe.onload = initIframe;
     }
-  }, [isActive]);
+  }, [isActive, data.code, data.filePath, useTailwind]);
 
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: '#1e1e1e', color: '#d4d4d4' }}>
@@ -365,6 +431,7 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
     </div>
   );
 }
+
 /**
  * 拡張機能のactivate
  */
