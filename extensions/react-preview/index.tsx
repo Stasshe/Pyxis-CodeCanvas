@@ -91,9 +91,6 @@ function createGlobalExternalsPlugin() {
   };
 }
 
-/**
- * 仮想ファイルシステムプラグイン
- */
 function createVirtualFSPlugin(projectId: string, fileRepository: any) {
   return {
     name: 'virtual-fs',
@@ -102,17 +99,37 @@ function createVirtualFSPlugin(projectId: string, fileRepository: any) {
       build.onResolve({ filter: /^[^./]/ }, async (args: any) => {
         // react系はglobal-externalsプラグインで処理
         if (args.path === 'react' || args.path === 'react-dom' || args.path === 'react-dom/client') {
-          return undefined; // 他のプラグインに処理を委譲
+          return undefined;
         }
         
         try {
-          const file = await fileRepository.getFileByPath(projectId, `/node_modules/${args.path}`);
-          if (file) {
-            return { path: `/node_modules/${args.path}`, namespace: 'virtual' };
+          // package.jsonを読んでエントリポイントを取得
+          const pkgJsonPath = `/node_modules/${args.path}/package.json`;
+          const pkgJsonFile = await fileRepository.getFileByPath(projectId, pkgJsonPath);
+          
+          if (pkgJsonFile) {
+            const pkgJson = JSON.parse(pkgJsonFile.content);
+            // module > main の優先順位で取得（ESM優先）
+            const entryPoint = pkgJson.module || pkgJson.main || 'index.js';
+            const resolvedPath = `/node_modules/${args.path}/${entryPoint}`;
+            
+            return { path: resolvedPath, namespace: 'virtual' };
           }
         } catch (e) {
-          // ファイルが見つからない場合は external として扱う
+          console.error(`Failed to resolve package.json for ${args.path}:`, e);
         }
+        
+        // dist/index.js も試す（よくあるパターン）
+        try {
+          const distIndexPath = `/node_modules/${args.path}/dist/index.js`;
+          const file = await fileRepository.getFileByPath(projectId, distIndexPath);
+          if (file) {
+            return { path: distIndexPath, namespace: 'virtual' };
+          }
+        } catch (e) {
+          // dist/index.jsもない
+        }
+        
         return { path: args.path, external: true };
       });
 
@@ -136,9 +153,31 @@ function createVirtualFSPlugin(projectId: string, fileRepository: any) {
         
         let path = '/' + resolved.join('/');
         
-        // 拡張子補完（CSSは除く）
+        // 拡張子補完
         if (!path.match(/\.[^/]+$/)) {
-          path += '.jsx';
+          // .js, .ts, .jsx, .tsx の順に試す
+          for (const ext of ['.js', '.ts', '.jsx', '.tsx']) {
+            try {
+              const testPath = path + ext;
+              const file = await fileRepository.getFileByPath(projectId, testPath);
+              if (file) {
+                return { path: testPath, namespace: 'virtual' };
+              }
+            } catch (e) {
+              // 次の拡張子を試す
+            }
+          }
+          
+          // 拡張子なしでも試す（index.jsの可能性）
+          try {
+            const indexPath = path + '/index.js';
+            const file = await fileRepository.getFileByPath(projectId, indexPath);
+            if (file) {
+              return { path: indexPath, namespace: 'virtual' };
+            }
+          } catch (e) {
+            // index.jsもない
+          }
         }
         
         return { path, namespace: 'virtual' };
@@ -171,9 +210,15 @@ function createVirtualFSPlugin(projectId: string, fileRepository: any) {
           return { contents: '', loader: 'text' };
         }
 
+        // TypeScript/JavaScript の判定
+        let loader: 'js' | 'ts' | 'jsx' | 'tsx' = 'js';
+        if (args.path.endsWith('.tsx')) loader = 'tsx';
+        else if (args.path.endsWith('.ts')) loader = 'ts';
+        else if (args.path.endsWith('.jsx')) loader = 'jsx';
+
         return {
           contents: file.content,
-          loader: args.path.endsWith('.tsx') ? 'tsx' : 'jsx',
+          loader,
         };
       });
     },
