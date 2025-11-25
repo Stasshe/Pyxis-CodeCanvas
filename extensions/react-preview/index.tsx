@@ -1,5 +1,6 @@
 /**
- * react-preview Extension (CDN-optimized - FIXED)
+ * react-preview Extension (CDN-optimized)
+ * 主要なnpmパッケージをCDN経由で読み込み、バンドルサイズを削減
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -18,7 +19,6 @@ interface ESBuild {
     jsxFragment?: string;
     define?: { [key: string]: string };
     globalName?: string;
-    external?: string[];
   }): Promise<{ outputFiles: Array<{ text: string }> }>;
 }
 
@@ -92,33 +92,33 @@ async function loadESBuild(): Promise<ESBuild> {
 }
 
 /**
- * CDNライブラリを window.XXX にマップする inject plugin
+ * CDNライブラリをグローバル変数にマップするプラグイン
  */
-function createCDNInjectPlugin() {
+function createGlobalExternalsPlugin() {
   return {
-    name: 'cdn-inject',
+    name: 'global-externals',
     setup(build: any) {
-      const cdnModules = Object.keys(CDN_LIBRARIES);
-      
-      // すべてのCDNモジュールをインターセプト
-      for (const moduleName of cdnModules) {
-        build.onResolve({ filter: new RegExp(`^${moduleName.replace(/[\/\-]/g, '\\$&')}$`) }, (args: any) => {
-          return {
-            path: moduleName,
-            namespace: 'cdn-shim',
-          };
-        });
-      }
+      // すべてのCDNライブラリをexternalizeする
+      const patterns = Object.keys(CDN_LIBRARIES).map(lib => 
+        lib.includes('/') ? lib.replace('/', '\\/') : lib
+      );
+      const filterRegex = new RegExp(`^(${patterns.join('|')})$`);
 
-      build.onLoad({ filter: /.*/, namespace: 'cdn-shim' }, (args: any) => {
+      build.onResolve({ filter: filterRegex }, (args: any) => {
+        return {
+          path: args.path,
+          namespace: 'global-external',
+        };
+      });
+
+      build.onLoad({ filter: /.*/, namespace: 'global-external' }, (args: any) => {
         const libConfig = CDN_LIBRARIES[args.path as keyof typeof CDN_LIBRARIES];
         if (!libConfig) {
-          return { errors: [{ text: `No CDN config for ${args.path}` }] };
+          return { errors: [{ text: `No CDN mapping for ${args.path}` }] };
         }
 
-        // グローバル変数から読み込むshimコードを生成
-        const shimCode = `export default window.${libConfig.global};\nexport * from 'data:text/javascript,export default window.${libConfig.global}'`;
-        return { contents: shimCode, loader: 'js' };
+        const code = `module.exports = window.${libConfig.global};`;
+        return { contents: code, loader: 'js' };
       });
     },
   };
@@ -128,12 +128,9 @@ function createVirtualFSPlugin(projectId: string, fileRepository: any) {
   return {
     name: 'virtual-fs',
     setup(build: any) {
-      // CDNライブラリは既にcdn-shimで処理されているのでスキップ
-      const cdnModules = Object.keys(CDN_LIBRARIES);
-      
       build.onResolve({ filter: /^[^./]/ }, async (args: any) => {
-        // CDNライブラリはスキップ（cdn-inject pluginが処理する）
-        if (cdnModules.includes(args.path)) {
+        // CDNライブラリはスキップ
+        if (args.path in CDN_LIBRARIES) {
           return undefined;
         }
         
@@ -147,7 +144,9 @@ function createVirtualFSPlugin(projectId: string, fileRepository: any) {
             const resolvedPath = `/node_modules/${args.path}/${entryPoint}`;
             return { path: resolvedPath, namespace: 'virtual' };
           }
-        } catch (e) {}
+        } catch (e) {
+          console.error(`Failed to resolve package.json for ${args.path}:`, e);
+        }
         
         try {
           const distIndexPath = `/node_modules/${args.path}/dist/index.js`;
@@ -157,7 +156,6 @@ function createVirtualFSPlugin(projectId: string, fileRepository: any) {
           }
         } catch (e) {}
         
-        // 見つからなければexternal扱い
         return { path: args.path, external: true };
       });
 
@@ -301,10 +299,7 @@ async function buildJSX(
       format: 'iife',
       globalName,
       write: false,
-      plugins: [
-        createCDNInjectPlugin(),  // CDN inject pluginを先に実行
-        createVirtualFSPlugin(projectId, fileRepository)
-      ],
+      plugins: [createGlobalExternalsPlugin(), createVirtualFSPlugin(projectId, fileRepository)],
       target: 'es2020',
       jsxFactory: 'React.createElement',
       jsxFragment: 'React.Fragment',
@@ -316,7 +311,6 @@ async function buildJSX(
     const bundled = result.outputFiles[0].text;
     return { code: bundled };
   } catch (error: any) {
-    console.error('Build error:', error);
     return { code: '', error: error?.message || 'Build failed' };
   }
 }
@@ -384,7 +378,7 @@ async function reactBuildCommand(args: string[], context: any): Promise<string> 
     });
 
     const pageList = pages.map(p => `  ${p.route} → ${p.filePath}`).join('\n');
-    return `✅ Built ${pages.length} pages${useTailwind ? ' (Tailwind)' : ''}\n\n${pageList}\n\n📺 Preview opened`;
+    return `✅ Built ${pages.length} pages${useTailwind ? ' (Tailwind enabled)' : ''}\n\n${pageList}\n\n📺 Preview opened`;
   }
 
   const filePath = target;
@@ -417,7 +411,7 @@ async function reactBuildCommand(args: string[], context: any): Promise<string> 
     },
   });
 
-  return `✅ Built: ${filePath}${useTailwind ? ' (Tailwind)' : ''}\n\n📺 Preview opened`;
+  return `✅ Built: ${filePath}${useTailwind ? ' (Tailwind enabled)' : ''}\n\n📺 Preview opened`;
 }
 
 function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
@@ -440,12 +434,12 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
     const initIframe = () => {
       const doc = iframe.contentDocument;
       if (!doc) {
-        setError('Cannot access iframe');
+        setError('Cannot access iframe document');
         return;
       }
 
       try {
-        // CDNスクリプトを順番に生成（依存関係を考慮）
+        // CDNスクリプトを生成
         const cdnScripts = Object.entries(CDN_LIBRARIES)
           .filter(([_, config]) => config.url !== null)
           .map(([_, config]) => `  <script crossorigin src="${config.url}"></script>`)
@@ -456,6 +450,9 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src *; script-src * 'unsafe-inline' 'unsafe-eval'; style-src * 'unsafe-inline'; img-src * data: blob:; font-src * data:; connect-src *; frame-src *;">
+  <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+  <script>eruda.init();</script>
   <style>
     body { margin: 0; padding: 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
     #root { width: 100%; min-height: 100vh; }
@@ -469,108 +466,79 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
 <body>
   <div id="root"></div>
   
-  <!-- CDN Dependencies -->
 ${cdnScripts}
-  
-  <!-- Wait for all CDN scripts to load -->
-  <script>
-    window.__CDN_READY__ = new Promise((resolve) => {
-      let checkCount = 0;
-      const checkInterval = setInterval(() => {
-        checkCount++;
-        const allLoaded = window.React && window.ReactDOM;
-        
-        if (allLoaded) {
-          clearInterval(checkInterval);
-          resolve();
-        } else if (checkCount > 50) {
-          clearInterval(checkInterval);
-          document.getElementById('root').innerHTML = '<div style="color: red; padding: 16px;">Failed to load CDN dependencies</div>';
-        }
-      }, 100);
-    });
-  </script>
 `;
 
         if (mode === 'single') {
           html += `  
-  <!-- Bundled App Code -->
   <script>
-${data.code}
+    ${data.code}
   </script>
   
-  <!-- Initialize App -->
   <script>
-    window.__CDN_READY__.then(() => {
-      try {
-        const Component = window.__ReactApp__;
-        
-        if (!Component) {
-          throw new Error('No component found in __ReactApp__');
-        }
-        
-        const ActualComponent = Component.default || Component;
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(React.createElement(ActualComponent));
-        
-      } catch (err) {
-        document.getElementById('root').innerHTML = '<div style="color: #f88; padding: 16px; font-family: monospace; font-size: 11px; white-space: pre-wrap;">Error:\\n' + (err?.stack || err?.message || String(err)) + '</div>';
-        console.error('[Preview Error]', err);
+    try {
+      const Component = window.__ReactApp__.default || window.__ReactApp__;
+      
+      if (!Component) {
+        throw new Error('No component exported');
       }
-    });
+
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(React.createElement(Component));
+      
+    } catch (err) {
+      document.getElementById('root').innerHTML = '<div style="color: #f88; padding: 16px; font-family: monospace; font-size: 12px; white-space: pre-wrap;">Error: ' + (err?.stack || err?.message || String(err)) + '</div>';
+      console.error('[ReactPreview]', err);
+    }
   </script>`;
         } else {
           const pages = data.pages || [];
           const bundledPages = data.bundledPages || {};
           
-          // すべてのページコードを埋め込み
           for (const [route, code] of Object.entries(bundledPages)) {
-            html += `  <script>\n${code}\n  </script>\n`;
+            html += `  <script>${code}</script>\n`;
           }
 
           const routeMap = pages.map((p: PageInfo) => {
             const globalName = `__Page_${p.route.replace(/\//g, '_').replace(/^_$/, 'root')}__`;
-            return `      '${p.route}': window.${globalName}`;
+            return `    '${p.route}': window.${globalName}.default || window.${globalName}`;
           }).join(',\n');
 
           html += `
   <script>
-    window.__CDN_READY__.then(() => {
-      const routes = {
+    const routes = {
 ${routeMap}
-      };
+    };
 
-      let currentRoot = null;
+    let currentRoot = null;
 
-      function navigate(path) {
-        const PageModule = routes[path];
-        
-        if (!PageModule) {
-          document.getElementById('root').innerHTML = '<div style="padding: 16px;"><h1>404</h1><p>Available:</p><ul>' + 
-            Object.keys(routes).map(r => '<li><a href="#' + r + '">' + r + '</a></li>').join('') + 
-            '</ul></div>';
-          return;
-        }
-
-        if (!currentRoot) {
-          currentRoot = ReactDOM.createRoot(document.getElementById('root'));
-        }
-        
-        try {
-          const Component = PageModule.default || PageModule;
-          currentRoot.render(React.createElement(Component));
-        } catch (err) {
-          document.getElementById('root').innerHTML = '<div style="color: #f88; padding: 16px; font-family: monospace; white-space: pre-wrap;">Error:\\n' + (err?.stack || String(err)) + '</div>';
-          console.error(err);
-        }
+    function navigate(path) {
+      const Component = routes[path];
+      
+      if (!Component) {
+        document.getElementById('root').innerHTML = '<div style="padding: 16px;"><h1>404</h1><p>Available routes:</p><ul>' + 
+          Object.keys(routes).map(r => '<li><a href="#' + r + '">' + r + '</a></li>').join('') + 
+          '</ul></div>';
+        return;
       }
 
-      window.addEventListener('hashchange', () => {
-        navigate(window.location.hash.slice(1) || '/');
-      });
+      if (!currentRoot) {
+        currentRoot = ReactDOM.createRoot(document.getElementById('root'));
+      }
       
+      try {
+        currentRoot.render(React.createElement(Component));
+      } catch (err) {
+        document.getElementById('root').innerHTML = '<div style="color: #f88; padding: 16px; font-family: monospace; white-space: pre-wrap;">Error: ' + (err?.stack || String(err)) + '</div>';
+        console.error(err);
+      }
+    }
+
+    window.addEventListener('hashchange', () => {
       navigate(window.location.hash.slice(1) || '/');
     });
+    
+    navigate(window.location.hash.slice(1) || '/');
   </script>`;
         }
 
@@ -597,14 +565,16 @@ ${routeMap}
 
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: '#1e1e1e', color: '#d4d4d4' }}>
-      <div style={{ padding: '12px 16px', borderBottom: '1px solid #333', fontSize: '12px' }}>
-        {mode === 'multipage' && `${data.pages?.length || 0} pages | `}
-        Built: {data.builtAt ? new Date(data.builtAt).toLocaleTimeString() : 'N/A'}
-        {useTailwind && ' | Tailwind'}
+      <div style={{ padding: '12px 16px', borderBottom: '1px solid #333' }}>
+        <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#888' }}>
+          {mode === 'multipage' && `${data.pages?.length || 0} pages | `}
+          Built: {data.builtAt ? new Date(data.builtAt).toLocaleString() : 'N/A'}
+          {useTailwind && ' | Tailwind'}
+        </p>
       </div>
 
       {error && (
-        <div style={{ padding: '16px', background: '#3e1e1e', color: '#f88', fontFamily: 'monospace', fontSize: '11px' }}>
+        <div style={{ padding: '16px', background: '#3e1e1e', color: '#f88', fontFamily: 'monospace', fontSize: '12px' }}>
           ❌ {error}
         </div>
       )}
@@ -620,13 +590,13 @@ ${routeMap}
 }
 
 export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
-  context.logger.info('react-preview activating...');
+  context.logger.info('react-preview (CDN-optimized) activating...');
 
   context.tabs.registerTabType(ReactPreviewTabComponent);
   context.commands.registerCommand('react-build', reactBuildCommand);
 
   loadESBuild().catch(err => {
-    context.logger.error('esbuild load failed:', err);
+    context.logger.error('esbuild preload failed:', err);
   });
 
   context.logger.info('react-preview activated');
