@@ -126,7 +126,7 @@ export default function MonacoEditor({
             { token: 'attribute.name', foreground: '9CDCFE', fontStyle: 'italic' },
             { token: 'attribute.name.jsx', foreground: '9CDCFE', fontStyle: 'italic' },
             { token: 'attribute.value', foreground: 'CE9178' },
-            { token: 'string.jsx', foreground: 'D4D4D4' }, // JSXタグ内のテキスト
+            { token: 'jsx.text', foreground: 'D4D4D4' }, // JSX本文テキストは白色
           ],
           colors: {
             'editor.background': colors.editorBg || '#1e1e1e',

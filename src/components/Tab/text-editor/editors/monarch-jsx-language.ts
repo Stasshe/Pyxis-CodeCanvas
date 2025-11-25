@@ -128,7 +128,7 @@ export function registerEnhancedJSXLanguage(monaco: Monaco) {
         [/{/, { token: 'delimiter.bracket', next: '@jsExpressionBrace' }],
 
         // 単なるテキスト (重要: '<' や '{' 以外の文字を本文テキストとして扱う)
-        [/[^<{]+/, 'string.jsx'] 
+        [/[^<{]+/, 'jsx.text'] 
       ],
 
       // --------------------------
