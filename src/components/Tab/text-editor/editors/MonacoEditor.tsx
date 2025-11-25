@@ -5,11 +5,13 @@ import { useRef, useEffect, useCallback, useState } from 'react';
 import { countCharsNoSpaces } from './editor-utils';
 import { useMonacoModels } from '../hooks/useMonacoModels';
 import EditorPlaceholder from '../ui/EditorPlaceholder';
+import { registerEnhancedJSXLanguage, getEnhancedLanguage } from './monarch-jsx-language';
 
 import { useTheme } from '@/context/ThemeContext';
 
-// グローバルフラグ: テーマ定義を一度だけ実行
+// グローバルフラグ
 let isThemeDefined = false;
+let isLanguageRegistered = false;
 
 interface MonacoEditorProps {
   tabId: string;
@@ -51,10 +53,8 @@ export default function MonacoEditor({
     };
   }, []);
 
-  const { monacoModelMapRef, currentModelIdRef, isModelSafe, getOrCreateModel, disposeAllModels } =
+  const { monacoModelMapRef, currentModelIdRef, isModelSafe, getOrCreateModel } =
     useMonacoModels();
-
-  // No breakpoint/gutter handling
 
   const isEditorSafe = useCallback(() => {
     return editorRef.current && !(editorRef.current as any)._isDisposed && isMountedRef.current;
@@ -66,7 +66,16 @@ export default function MonacoEditor({
     monacoRef.current = mon;
     setIsEditorReady(true);
 
-    // Gutter and breakpoint click handling removed.
+    // 強化言語の登録（初回のみ）
+    if (!isLanguageRegistered) {
+      try {
+        registerEnhancedJSXLanguage(mon);
+        isLanguageRegistered = true;
+        console.log('[MonacoEditor] Enhanced JSX/TSX language registered');
+      } catch (e) {
+        console.warn('[MonacoEditor] Failed to register enhanced language:', e);
+      }
+    }
 
     // テーマ定義（初回のみ）
     if (!isThemeDefined) {
@@ -75,22 +84,47 @@ export default function MonacoEditor({
           base: 'vs-dark',
           inherit: true,
           rules: [
+            // 基本トークン
             { token: 'comment', foreground: '6A9955', fontStyle: 'italic' },
+            { token: 'comment.doc', foreground: '6A9955', fontStyle: 'italic' },
             { token: 'keyword', foreground: '569CD6', fontStyle: 'bold' },
             { token: 'string', foreground: 'CE9178' },
+            { token: 'string.escape', foreground: 'D7BA7D' },
             { token: 'number', foreground: 'B5CEA8' },
+            { token: 'number.hex', foreground: 'B5CEA8' },
+            { token: 'number.octal', foreground: 'B5CEA8' },
+            { token: 'number.binary', foreground: 'B5CEA8' },
+            { token: 'number.float', foreground: 'B5CEA8' },
             { token: 'regexp', foreground: 'D16969' },
+            { token: 'regexp.escape', foreground: 'D7BA7D' },
             { token: 'operator', foreground: 'D4D4D4' },
-            { token: 'namespace', foreground: '4EC9B0' },
+            { token: 'delimiter', foreground: 'D4D4D4' },
+            { token: 'delimiter.bracket', foreground: 'FFD700' },
+            
+            // 型・クラス系
             { token: 'type', foreground: '4EC9B0' },
+            { token: 'type.identifier', foreground: '4EC9B0' },
+            { token: 'namespace', foreground: '4EC9B0' },
             { token: 'struct', foreground: '4EC9B0' },
             { token: 'class', foreground: '4EC9B0' },
             { token: 'interface', foreground: '4EC9B0' },
+            
+            // 変数・パラメータ系
             { token: 'parameter', foreground: '9CDCFE' },
             { token: 'variable', foreground: '9CDCFE' },
             { token: 'property', foreground: '9CDCFE' },
+            { token: 'identifier', foreground: '9CDCFE' },
+            
+            // 関数系
             { token: 'function', foreground: 'DCDCAA' },
             { token: 'method', foreground: 'DCDCAA' },
+            
+            // JSX専用トークン（強調表示）
+            { token: 'tag', foreground: '4EC9B0', fontStyle: 'bold' },
+            { token: 'tag.jsx', foreground: '4EC9B0', fontStyle: 'bold' },
+            { token: 'attribute.name', foreground: '9CDCFE', fontStyle: 'italic' },
+            { token: 'attribute.name.jsx', foreground: '9CDCFE', fontStyle: 'italic' },
+            { token: 'attribute.value', foreground: 'CE9178' },
           ],
           colors: {
             'editor.background': colors.editorBg || '#1e1e1e',
@@ -138,7 +172,7 @@ export default function MonacoEditor({
       esModuleInterop: true,
       jsx: mon.languages.typescript.JsxEmit.React,
       reactNamespace: 'React',
-      allowJs: false,
+      allowJs: true,
       typeRoots: ['node_modules/@types'],
     });
 
@@ -164,8 +198,6 @@ export default function MonacoEditor({
           editor.setModel(model);
           currentModelIdRef.current = tabId;
           onCharCountChange(countCharsNoSpaces(content));
-
-          // No breakpoint decorations to apply
         } catch (e: any) {
           console.warn('[MonacoEditor] Initial setModel failed:', e?.message);
         }
@@ -184,8 +216,6 @@ export default function MonacoEditor({
         editorRef.current!.setModel(model);
         currentModelIdRef.current = tabId;
         onCharCountChange(countCharsNoSpaces(model.getValue()));
-
-        // No breakpoint decorations to apply
       } catch (e: any) {
         console.warn('[MonacoEditor] setModel failed:', e?.message);
       }
@@ -195,7 +225,6 @@ export default function MonacoEditor({
     if (isModelSafe(model) && model!.getValue() !== content) {
       try {
         model!.setValue(content);
-        // 強制的にエディタを再レイアウト（表示更新を確実にする）
         if (isEditorSafe()) {
           editorRef.current!.layout();
         }
@@ -209,7 +238,7 @@ export default function MonacoEditor({
     }
   }, [tabId, content, isEditorSafe, getOrCreateModel, isModelSafe, fileName]);
 
-  // 強制再描画イベントのリスナー（復元後のUI同期用）
+  // 強制再描画イベントのリスナー
   useEffect(() => {
     const handleForceRefresh = () => {
       if (!isEditorSafe() || !monacoRef.current) return;
@@ -219,16 +248,12 @@ export default function MonacoEditor({
         const model = editorRef.current!.getModel();
 
         if (isModelSafe(model)) {
-          // モデルの値を再適用してUI同期
           const currentValue = model!.getValue();
           if (currentValue !== content) {
             model!.setValue(content);
           }
 
-          // レイアウトを強制更新
           editorRef.current!.layout();
-
-          // 文字数も再計算
           onCharCountChange(countCharsNoSpaces(content));
 
           console.log('[MonacoEditor] ✓ Force refresh completed');
@@ -270,21 +295,13 @@ export default function MonacoEditor({
     return () => clearTimeout(timeoutId);
   }, [jumpToLine, jumpToColumn, isEditorReady]);
 
-  // ブレークポイントの変更を監視して装飾を更新
-  // No breakpoint-decoration watcher necessary
-
   // クリーンアップ
   useEffect(() => {
     return () => {
       if (editorRef.current) {
-        // Remove and dispose editor
         editorRef.current.dispose();
         editorRef.current = null;
       }
-      // NOTE: Do NOT call `disposeAllModels()` here. Disposing all models when a single
-      // MonacoEditor instance unmounts causes all open editors' models to be cleared,
-      // which resets content when switching to non-editor tabs (preview/welcome/binary).
-      // Keep models alive across unmounts so editors can restore state when remounted.
       if (monacoRef.current) {
         monacoRef.current = null;
       }
