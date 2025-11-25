@@ -1,6 +1,6 @@
 /**
  * react-preview Extension (CDN-optimized) - Fixed Version
- * CDN読み込み順序とタイミングを修正
+ * UMD依存関係を修正
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -28,42 +28,49 @@ interface PageInfo {
   filePath: string;
 }
 
-// CDN経由で読み込むライブラリの設定（依存関係順に並べる）
+// CDN経由で読み込むライブラリの設定
 const CDN_LIBRARIES = {
   'react': {
     global: 'React',
     url: 'https://unpkg.com/react@18/umd/react.production.min.js',
-    order: 1
+    order: 1,
+    integrity: null
   },
   'react-dom': {
     global: 'ReactDOM',
     url: 'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js',
-    order: 2
+    order: 2,
+    integrity: null
   },
   'react-dom/client': {
     global: 'ReactDOM',
     url: null,
-    order: 3
+    order: 3,
+    integrity: null
   },
   'lodash': {
     global: '_',
     url: 'https://unpkg.com/lodash@4.17.21/lodash.min.js',
-    order: 4
+    order: 4,
+    integrity: null
   },
   'd3': {
     global: 'd3',
     url: 'https://unpkg.com/d3@7.8.5/dist/d3.min.js',
-    order: 5
+    order: 5,
+    integrity: null
   },
   'recharts': {
     global: 'Recharts',
     url: 'https://unpkg.com/recharts@2.5.0/dist/Recharts.js',
-    order: 6
+    order: 6,
+    integrity: null
   },
   'lucide-react': {
     global: 'LucideReact',
     url: 'https://unpkg.com/lucide-react@0.263.1/dist/umd/lucide-react.js',
-    order: 7
+    order: 7,
+    integrity: null
   }
 } as const;
 
@@ -448,10 +455,6 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
           .filter(([_, config]) => config.url !== null)
           .sort((a, b) => a[1].order - b[1].order);
 
-        const cdnScripts = sortedLibraries
-          .map(([_, config]) => `  <script crossorigin src="${config.url}"></script>`)
-          .join('\n');
-
         let html = `<!DOCTYPE html>
 <html>
 <head>
@@ -473,49 +476,72 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
   <div id="loading">Loading libraries...</div>
   <div id="root" style="display: none;"></div>
   
-${cdnScripts}
-  
+  <!-- Load libraries synchronously -->
+`;
+
+        // スクリプトタグを同期的に追加（onloadを使って順番を保証）
+        for (let i = 0; i < sortedLibraries.length; i++) {
+          const [_, config] = sortedLibraries[i];
+          html += `  <script src="${config.url}" crossorigin></script>\n`;
+        }
+
+        html += `  
   <script>
-    // すべてのライブラリが読み込まれるまで待機
-    function waitForLibraries() {
-      const requiredLibs = ${JSON.stringify(sortedLibraries.map(([_, config]) => config.global))};
-      const checkInterval = setInterval(() => {
-        const allLoaded = requiredLibs.every(lib => window[lib]);
-        
-        if (allLoaded) {
-          clearInterval(checkInterval);
-          document.getElementById('loading').style.display = 'none';
-          document.getElementById('root').style.display = 'block';
-          initApp();
-        }
-      }, 50);
+    // すべてのライブラリが読み込まれたことを確認してから初期化
+    (function() {
+      let checkCount = 0;
+      const maxChecks = 100; // 10秒 (100 * 100ms)
       
-      // タイムアウト（10秒）
-      setTimeout(() => {
-        clearInterval(checkInterval);
-        const missing = requiredLibs.filter(lib => !window[lib]);
-        if (missing.length > 0) {
-          document.getElementById('loading').innerHTML = 
-            '<div style="color: #f88;">Failed to load: ' + missing.join(', ') + '</div>';
+      function checkLibraries() {
+        checkCount++;
+        
+        // 必須ライブラリの確認
+        if (!window.React || !window.ReactDOM) {
+          if (checkCount < maxChecks) {
+            setTimeout(checkLibraries, 100);
+            return;
+          } else {
+            document.getElementById('loading').innerHTML = 
+              '<div style="color: #f88;">Failed to load React libraries</div>';
+            console.error('React or ReactDOM not loaded');
+            return;
+          }
         }
-      }, 10000);
-    }
+        
+        // React と ReactDOM が読み込まれたことを確認
+        console.log('React loaded:', !!window.React);
+        console.log('ReactDOM loaded:', !!window.ReactDOM);
+        console.log('React.createElement:', typeof window.React?.createElement);
+        console.log('React.forwardRef:', typeof window.React?.forwardRef);
+        
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('root').style.display = 'block';
+        
+        initApp();
+      }
+      
+      // 短い遅延の後にチェック開始（スクリプトの実行を確実にする）
+      setTimeout(checkLibraries, 100);
+    })();
     
     function initApp() {
       try {
 `;
 
         if (mode === 'single') {
-          html += `        ${data.code}
+          html += `        // アプリケーションコードを実行
+        ${data.code}
         
-        const Component = window.__ReactApp__.default || window.__ReactApp__;
+        const Component = window.__ReactApp__?.default || window.__ReactApp__;
         
         if (!Component) {
-          throw new Error('No component exported');
+          throw new Error('No component exported from __ReactApp__');
         }
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(React.createElement(Component));
+        
+        console.log('App rendered successfully');
 `;
         } else {
           const pages = data.pages || [];
@@ -527,7 +553,7 @@ ${cdnScripts}
 
           const routeMap = pages.map((p: PageInfo) => {
             const globalName = `__Page_${p.route.replace(/\//g, '_').replace(/^_$/, 'root')}__`;
-            return `          '${p.route}': window.${globalName}.default || window.${globalName}`;
+            return `          '${p.route}': window.${globalName}?.default || window.${globalName}`;
           }).join(',\n');
 
           html += `
@@ -569,12 +595,13 @@ ${routeMap}
 
         html += `        
       } catch (err) {
-        document.getElementById('root').innerHTML = '<div style="color: #f88; padding: 16px; font-family: monospace; font-size: 12px; white-space: pre-wrap;">Error: ' + (err?.stack || err?.message || String(err)) + '</div>';
-        console.error('[ReactPreview]', err);
+        const errorMsg = err?.stack || err?.message || String(err);
+        document.getElementById('root').innerHTML = 
+          '<div style="color: #f88; padding: 16px; font-family: monospace; font-size: 12px; white-space: pre-wrap;">Error: ' + 
+          errorMsg + '</div>';
+        console.error('[ReactPreview Error]', err);
       }
     }
-    
-    waitForLibraries();
   </script>
 </body>
 </html>`;
