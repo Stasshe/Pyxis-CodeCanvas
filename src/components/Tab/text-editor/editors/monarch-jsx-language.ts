@@ -93,10 +93,11 @@ export function registerEnhancedJSXLanguage(monaco: Monaco) {
 
         // 属性値: "=" の後の文字列
         [/=/, 'delimiter'],
-        [/"([^"]*)"/, 'attribute.value'],
-        [/'([^']*)'/, 'attribute.value'],
+        // 入れ子やエスケープに対応するため、通常のstring状態へ遷移して扱う
+        [/"/, 'string', '@string_double'],
+        [/'/, 'string', '@string_single'],
         // バッククォートで囲まれたテンプレートリテラル (例: className={`foo ${bar}`})
-        [/`/, 'attribute.value', '@string_backtick'],
+        [/`/, 'string', '@string_backtick'],
         
         // 属性値がJS式の場合: className={...}
         [/{/, { token: 'delimiter.bracket', next: '@jsExpressionBrace' }],
@@ -126,9 +127,8 @@ export function registerEnhancedJSXLanguage(monaco: Monaco) {
         // 本文内のJS式 { expression }
         [/{/, { token: 'delimiter.bracket', next: '@jsExpressionBrace' }],
 
-        // 単なるテキスト (重要: < や { 以外の文字。コメント文字も避ける)
-        // ここを修正: / / や * / がstringにマッチしないようにする
-        [/[^<{/]+/, 'string'] 
+        // 単なるテキスト (重要: '<' や '{' 以外の文字を本文テキストとして扱う)
+        [/[^<{]+/, 'string'] 
       ],
 
       // --------------------------
