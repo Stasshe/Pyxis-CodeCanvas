@@ -151,6 +151,84 @@ function expandVariables(input: string, env: Record<string, string>): string {
   return out;
 }
 
+// Expand arithmetic expressions of the form $(( ... )) outside single quotes.
+// Only allow digits, whitespace and the operators + - * / % and parentheses for safety.
+function expandArithmetic(input: string): string {
+  let out = '';
+  let i = 0;
+  let inSingle = false;
+  let inDouble = false;
+  while (i < input.length) {
+    const ch = input[i];
+    if (ch === "'" && !inDouble) {
+      inSingle = !inSingle;
+      out += ch;
+      i++;
+      continue;
+    }
+    if (ch === '"' && !inSingle) {
+      inDouble = !inDouble;
+      out += ch;
+      i++;
+      continue;
+    }
+
+    // detect $(( ... )) when not in single quotes
+    if (!inSingle && ch === '$' && input[i + 1] === '(' && input[i + 2] === '(') {
+      let j = i + 3;
+      let depth = 1;
+      let buf = '';
+      while (j < input.length && depth > 0) {
+        if (input[j] === '(') {
+          depth++;
+          buf += input[j++];
+          continue;
+        }
+        if (input[j] === ')') {
+          depth--;
+          if (depth === 0) {
+            j++; // consume the final ')'
+            break;
+          }
+          buf += ')';
+          j++;
+          continue;
+        }
+        buf += input[j++];
+      }
+      if (depth > 0) {
+        // unterminated arithmetic; treat literally
+        out += '$((' + buf;
+        i = j;
+        continue;
+      }
+
+      const expr = buf.trim();
+      // allow only safe characters
+      if (!/^[0-9+\-*/%()\s]+$/.test(expr)) {
+        // contains disallowed chars — do not evaluate, leave empty
+        out += '';
+      } else {
+        try {
+          // evaluate in a very small sandbox by constructing a function
+          // expression is validated above so this is reasonably safe
+          // eslint-disable-next-line no-new-func
+          const val = Function('return (' + expr + ')')();
+          out += String(val === undefined || val === null ? '' : val);
+        } catch (e) {
+          out += '';
+        }
+      }
+      i = j;
+      continue;
+    }
+
+    out += ch;
+    i++;
+  }
+  return out;
+}
+
 // Simple tokenizer that returns an array of tokens where operators are objects {op: '|'|'>'|...}
 function tokenizeLine(line: string): Array<string | { op: string }> {
   const tokens: Array<string | { op: string }> = [];
@@ -244,7 +322,9 @@ export function parseCommandLine(
 ): Segment[] {
   const extracted = extractCommandSubstitutions(line);
   const expanded = expandVariables(extracted.line, env);
-  const toks = tokenizeLine(expanded);
+  // expand arithmetic $(( ... )) before tokenizing (but respect single quotes)
+  const arithmeticExpanded = expandArithmetic(expanded);
+  const toks = tokenizeLine(arithmeticExpanded);
 
   const segs: Segment[] = [];
   let cur: Segment = {
