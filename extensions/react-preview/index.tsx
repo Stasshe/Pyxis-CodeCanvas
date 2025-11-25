@@ -283,12 +283,85 @@ async function detectPages(
   return pages;
 }
 
+async function detectUsedLibraries(
+  filePath: string,
+  projectId: string,
+  fileRepository: any
+): Promise<Set<string>> {
+  const usedLibs = new Set<string>(['react', 'react-dom']); // 常に必要
+  const visited = new Set<string>();
+  
+  async function scanFile(path: string) {
+    if (visited.has(path)) return;
+    visited.add(path);
+    
+    try {
+      const file = await fileRepository.getFileByPath(projectId, path);
+      if (!file) return;
+      
+      const content = file.content;
+      
+      // import文を検出
+      const importRegex = /import\s+(?:{[^}]*}|\*\s+as\s+\w+|\w+)\s+from\s+['"]([^'"]+)['"]/g;
+      let match;
+      
+      while ((match = importRegex.exec(content)) !== null) {
+        const importPath = match[1];
+        
+        // CDNライブラリかチェック
+        if (importPath in CDN_LIBRARIES) {
+          usedLibs.add(importPath);
+        }
+        
+        // 相対パスなら再帰的にスキャン
+        if (importPath.startsWith('.')) {
+          const fromDir = path.split('/').slice(0, -1).join('/');
+          const parts = (fromDir + '/' + importPath).split('/');
+          const resolved: string[] = [];
+          
+          for (const part of parts) {
+            if (part === '' || part === '.') continue;
+            if (part === '..') {
+              if (resolved.length > 0) resolved.pop();
+              continue;
+            }
+            resolved.push(part);
+          }
+          
+          let resolvedPath = '/' + resolved.join('/');
+          
+          // 拡張子がない場合は探す
+          if (!resolvedPath.match(/\.[^/]+$/)) {
+            for (const ext of ['.js', '.ts', '.jsx', '.tsx']) {
+              const testPath = resolvedPath + ext;
+              try {
+                const testFile = await fileRepository.getFileByPath(projectId, testPath);
+                if (testFile) {
+                  await scanFile(testPath);
+                  break;
+                }
+              } catch (e) {}
+            }
+          } else {
+            await scanFile(resolvedPath);
+          }
+        }
+      }
+    } catch (e) {
+      // ファイルが見つからない場合は無視
+    }
+  }
+  
+  await scanFile(filePath);
+  return usedLibs;
+}
+
 async function buildJSX(
   filePath: string,
   projectId: string,
   context: ExtensionContext,
   globalName: string = '__ReactApp__'
-): Promise<{ code: string; error?: string }> {
+): Promise<{ code: string; error?: string; usedLibs?: Set<string> }> {
   try {
     const esbuild = await loadESBuild();
     const fileRepository = await context.getSystemModule('fileRepository');
@@ -296,6 +369,9 @@ async function buildJSX(
     if (!file) {
       return { code: '', error: `File not found: ${filePath}` };
     }
+    
+    // 使用しているライブラリを検出
+    const usedLibs = await detectUsedLibraries(filePath, projectId, fileRepository);
     
     const result = await esbuild.build({
       stdin: {
@@ -318,7 +394,7 @@ async function buildJSX(
     });
 
     const bundled = result.outputFiles[0].text;
-    return { code: bundled };
+    return { code: bundled, usedLibs };
   } catch (error: any) {
     return { code: '', error: error?.message || 'Build failed' };
   }
@@ -328,22 +404,26 @@ async function buildMultiPage(
   pages: PageInfo[],
   projectId: string,
   context: ExtensionContext
-): Promise<{ bundledPages: Record<string, string>; errors: Record<string, string> }> {
+): Promise<{ bundledPages: Record<string, string>; errors: Record<string, string>; usedLibs: Set<string> }> {
   const bundledPages: Record<string, string> = {};
   const errors: Record<string, string> = {};
+  const allUsedLibs = new Set<string>(['react', 'react-dom']);
 
   for (const page of pages) {
     const globalName = `__Page_${page.route.replace(/\//g, '_').replace(/^_$/, 'root')}__`;
-    const { code, error } = await buildJSX(page.filePath, projectId, context, globalName);
+    const { code, error, usedLibs } = await buildJSX(page.filePath, projectId, context, globalName);
     
     if (error) {
       errors[page.route] = error;
     } else {
       bundledPages[page.route] = code;
+      if (usedLibs) {
+        usedLibs.forEach(lib => allUsedLibs.add(lib));
+      }
     }
   }
 
-  return { bundledPages, errors };
+  return { bundledPages, errors, usedLibs: allUsedLibs };
 }
 
 async function reactBuildCommand(args: string[], context: any): Promise<string> {
@@ -361,7 +441,7 @@ async function reactBuildCommand(args: string[], context: any): Promise<string> 
       return '❌ No pages found in /pages/\n\nCreate pages like:\n  /pages/index.tsx\n  /pages/about.tsx';
     }
 
-    const { bundledPages, errors } = await buildMultiPage(pages, context.projectId, context);
+    const { bundledPages, errors, usedLibs } = await buildMultiPage(pages, context.projectId, context);
 
     if (Object.keys(errors).length > 0) {
       let errorMsg = '❌ Build errors:\n';
@@ -382,7 +462,8 @@ async function reactBuildCommand(args: string[], context: any): Promise<string> 
         pages,
         bundledPages,
         builtAt: Date.now(),
-        useTailwind 
+        useTailwind,
+        usedLibs: Array.from(usedLibs)
       },
     });
 
@@ -399,7 +480,7 @@ async function reactBuildCommand(args: string[], context: any): Promise<string> 
     normalizedPath = filePath.replace(`/projects/${context.projectName}`, '');
   }
 
-  const { code, error } = await buildJSX(normalizedPath, context.projectId, context);
+  const { code, error, usedLibs } = await buildJSX(normalizedPath, context.projectId, context);
 
   if (error) {
     return `❌ Build failed:\n${error}`;
@@ -416,7 +497,8 @@ async function reactBuildCommand(args: string[], context: any): Promise<string> 
       filePath: normalizedPath,
       code,
       builtAt: Date.now(),
-      useTailwind 
+      useTailwind,
+      usedLibs: Array.from(usedLibs || ['react', 'react-dom'])
     },
   });
 
@@ -430,6 +512,7 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
   const data = tab.data || {};
   const mode = data.mode || 'single';
   const useTailwind = data.useTailwind || false;
+  const usedLibs = data.usedLibs || ['react', 'react-dom'];
   const initializedRef = useRef(false);
 
   useEffect(() => {
@@ -450,9 +533,14 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
       }
 
       try {
-        // CDNスクリプトを依存関係順に並べる
+        // 使用しているCDNライブラリのみをフィルタリング
         const sortedLibraries = Object.entries(CDN_LIBRARIES)
-          .filter(([_, config]) => config.url !== null)
+          .filter(([libName, config]) => {
+            // react-dom/clientはreact-domに含まれるのでスキップ
+            if (libName === 'react-dom/client') return false;
+            // 使用しているライブラリのみ読み込む
+            return config.url !== null && usedLibs.includes(libName);
+          })
           .sort((a, b) => a[1].order - b[1].order);
 
         let html = `<!DOCTYPE html>
@@ -460,8 +548,6 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-  <script>eruda.init();</script>
   <meta http-equiv="Content-Security-Policy" content="default-src *; script-src * 'unsafe-inline' 'unsafe-eval'; style-src * 'unsafe-inline'; img-src * data: blob:; font-src * data:; connect-src *; frame-src *;">
   <style>
     body { margin: 0; padding: 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
@@ -620,12 +706,12 @@ ${routeMap}
       }
     };
 
-    if (iframe.contentDocument?.readyState === 'complete') {
+          if (iframe.contentDocument?.readyState === 'complete') {
       initIframe();
     } else {
       iframe.onload = initIframe;
     }
-  }, [isActive, data, mode, useTailwind]);
+  }, [isActive, data, mode, useTailwind, usedLibs]);
 
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: '#1e1e1e', color: '#d4d4d4' }}>
