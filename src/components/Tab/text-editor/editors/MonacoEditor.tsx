@@ -5,7 +5,7 @@ import { useRef, useEffect, useCallback, useState } from 'react';
 import { countCharsNoSpaces } from './editor-utils';
 import { useMonacoModels } from '../hooks/useMonacoModels';
 import EditorPlaceholder from '../ui/EditorPlaceholder';
-import { registerEnhancedJSXLanguage, getEnhancedLanguage } from './monarch-jsx-language';
+import { registerEnhancedJSXLanguage, getEnhancedLanguage, getModelLanguage } from './monarch-jsx-language';
 
 import { useTheme } from '@/context/ThemeContext';
 
@@ -45,6 +45,7 @@ export default function MonacoEditor({
   const monacoRef = useRef<Monaco | null>(null);
   const [isEditorReady, setIsEditorReady] = useState(false);
   const isMountedRef = useRef(true);
+  const markerListenerRef = useRef<monaco.IDisposable | null>(null);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -65,6 +66,8 @@ export default function MonacoEditor({
     editorRef.current = editor;
     monacoRef.current = mon;
     setIsEditorReady(true);
+
+    console.log('[MonacoEditor] Language set to:', getEnhancedLanguage(fileName), 'modelLanguage:', getModelLanguage(fileName));
 
     // 強化言語の登録（初回のみ）
     if (!isLanguageRegistered) {
@@ -200,6 +203,24 @@ export default function MonacoEditor({
           editor.setModel(model);
           currentModelIdRef.current = tabId;
           onCharCountChange(countCharsNoSpaces(content));
+
+          // マーカー（診断）リスナー: モデルのマーカーが更新されたらログ出力
+          try {
+            if (markerListenerRef.current) {
+              markerListenerRef.current.dispose();
+              markerListenerRef.current = null;
+            }
+            markerListenerRef.current = mon.editor.onDidChangeMarkers(uris => {
+              uris.forEach(uri => {
+                if (model && uri.toString() === model.uri.toString()) {
+                  const markers = mon.editor.getModelMarkers({ resource: uri });
+                  console.debug('[MonacoEditor] Markers for', uri.toString(), markers);
+                }
+              });
+            });
+          } catch (e) {
+            console.warn('[MonacoEditor] Failed to attach markers listener:', e);
+          }
         } catch (e: any) {
           console.warn('[MonacoEditor] Initial setModel failed:', e?.message);
         }
@@ -307,12 +328,19 @@ export default function MonacoEditor({
       if (monacoRef.current) {
         monacoRef.current = null;
       }
+      if (markerListenerRef.current) {
+        try {
+          markerListenerRef.current.dispose();
+        } catch (e) {}
+        markerListenerRef.current = null;
+      }
     };
   }, []);
 
   return (
     <Editor
       height="100%"
+    language={getModelLanguage(fileName)}
       onMount={handleEditorDidMount}
       onChange={value => {
         if (value !== undefined) {

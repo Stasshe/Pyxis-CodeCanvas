@@ -3,16 +3,19 @@ import * as monaco from 'monaco-editor';
 import { useCallback } from 'react';
 
 import { getLanguage } from '../editors/editor-utils';
+import { getModelLanguage } from '../editors/monarch-jsx-language';
 
 // Monarch言語用のヘルパー
 function getMonarchLanguage(fileName: string): string {
+  // Use the model language for TSX/JSX so the TypeScript diagnostics run.
+  // For other files, fall back to the default language detection.
   const ext = fileName.toLowerCase();
-  if (ext.endsWith('.tsx')) return 'enhanced-tsx';
-  if (ext.endsWith('.jsx')) return 'enhanced-jsx';
+  if (ext.endsWith('.tsx')) return getModelLanguage(fileName); // 'typescript'
+  if (ext.endsWith('.jsx')) return getModelLanguage(fileName); // 'javascript'
   if (ext.endsWith('.ts')) return 'typescript';
   if (ext.endsWith('.js')) return 'javascript';
   
-  // その他はデフォルトのgetLanguageを使用
+  // Fallback to existing helper
   return getLanguage(fileName);
 }
 

@@ -128,7 +128,9 @@ export function registerEnhancedJSXLanguage(monaco: Monaco) {
         [/{/, { token: 'delimiter.bracket', next: '@jsExpressionBrace' }],
 
         // 単なるテキスト (重要: '<' や '{' 以外の文字を本文テキストとして扱う)
-        [/[^<{]+/, 'jsx.text'] 
+        [/[^<{]+/, 'jsx.text'],
+        // 予備（トークンが細切れに分かれたとき用）: 少しでも残っていれば本文として扱う
+        [/./, 'jsx.text']
       ],
 
       // --------------------------
@@ -202,10 +204,25 @@ export function registerEnhancedJSXLanguage(monaco: Monaco) {
     },
   };
 
+  // Register the tokens provider for our enhanced languages
   monaco.languages.setMonarchTokensProvider('enhanced-jsx', jsxMonarchLanguage);
-
-  // TSX用の言語設定（同じMonarch定義を使用）
   monaco.languages.setMonarchTokensProvider('enhanced-tsx', jsxMonarchLanguage);
+
+  // Also register the enhanced tokens provider for built-in typescript/javascript
+  // so that diagnostics from the TypeScript worker continue to work while
+  // keeping our JSX/TSX highlighting rules.
+  try {
+    monaco.languages.setMonarchTokensProvider('typescript', jsxMonarchLanguage);
+    monaco.languages.setMonarchTokensProvider('javascript', jsxMonarchLanguage);
+    // Helpful debug when investigating unexpected highlights
+    // (OK to remove later, user said log is fine)
+    // eslint-disable-next-line no-console
+    console.log('[monarch-jsx-language] Attached enhanced JSX tokens to typescript/javascript');
+  } catch (e) {
+    // Not fatal; just warn if it fails
+    // eslint-disable-next-line no-console
+    console.warn('[monarch-jsx-language] Failed to attach enhanced tokens to ts/js:', e);
+  }
 
   const languageConfiguration: monaco.languages.LanguageConfiguration = {
     wordPattern: /(-?\d*\.\d\w*)|([^\`\~\!\@\#\%\^\&\*\(\)\-\=\+\[\{\]\}\\\|\;\:\'\"\,\.\<\>\/\?\s]+)/g,
@@ -236,5 +253,18 @@ export function getEnhancedLanguage(filename: string): string {
   if (ext.endsWith('.js')) return 'javascript';
   
   // その他のファイル形式は既存のgetLanguageを使用
+  return 'plaintext';
+}
+
+/**
+ * ファイル名からモデル用の言語IDを取得します。
+ * - JSX/TSXはタイプチェック/診断のために 'javascript'/'typescript' を返す
+ */
+export function getModelLanguage(filename: string): string {
+  const ext = filename.toLowerCase();
+  if (ext.endsWith('.tsx')) return 'typescript';
+  if (ext.endsWith('.jsx')) return 'javascript';
+  if (ext.endsWith('.ts')) return 'typescript';
+  if (ext.endsWith('.js')) return 'javascript';
   return 'plaintext';
 }
