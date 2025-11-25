@@ -2,34 +2,24 @@ import { Monaco } from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
 
 /**
- * MonarchベースのJSX/TSX強化言語定義 (最終調整版)
- * - `const Hero` が白色になる問題を修正
-
+ * MonarchベースのJSX/TSX強化言語定義 (修正版)
+ * - テンプレートリテラル内の ${...} 後の文字列が正しく認識されるよう修正
+ * - next vs @push の使い分けを明確化
  */
 export function registerEnhancedJSXLanguage(monaco: Monaco) {
-  // Debug: log that language registration begins
-  // eslint-disable-next-line no-console
   console.log('[monarch-jsx-language] registerEnhancedJSXLanguage() called');
   monaco.languages.register({ id: 'enhanced-jsx' });
   monaco.languages.register({ id: 'enhanced-tsx' });
 
+  // commonRules: 括弧ルールは各ステートで明示的に処理するため除外
   const commonRules: any[] = [
-    // コメントは各ステートの最優先で処理するため、ここからは削除し、各ステートの先頭に配置する。
-    // { include: '@whitespace' }, 
-    
-    // JSの括弧 (新しいステートへ)
-    [/{/, { token: 'delimiter.bracket', next: '@jsExpressionBrace' }],
-    [/\[/, { token: 'delimiter.bracket', next: '@jsExpressionBracket' }],
-    [/\(/, { token: 'delimiter.bracket', next: '@jsExpressionParen' }],
-
     // 関数呼び出し
     [/[a-zA-Z_$][\w$]*(?=\s*\()/, 'function.call'],
 
     // キーワードと識別子
-    // `const Hero` の Hero を `variable` として認識させる
     [/(const|let|var)(\s+)([a-zA-Z_$][\w$]*)/, ['keyword', 'whitespace', 'variable']],
     [/[a-z_$][\w$]*/, { cases: { '@typeKeywords': 'type.identifier', '@keywords': 'keyword', '@default': 'identifier' } }],
-    [/[A-Z][\w\$]*/, 'type.identifier'], // PascalCaseは型/クラス扱い
+    [/[A-Z][\w\$]*/, 'type.identifier'],
 
     // 文字列
     [/"([^"\\]|\\.)*$/, 'string.invalid'],
@@ -72,13 +62,15 @@ export function registerEnhancedJSXLanguage(monaco: Monaco) {
 
     tokenizer: {
       root: [
-        { include: '@whitespace' }, // コメントを最優先で処理
-        // ルートレベルでの閉じ括弧は、単なるデリミタとして処理（ポップしない）
+        { include: '@whitespace' },
         [/[}\)\]]/, 'delimiter.bracket'],
-        // JSXタグ開始はルートでのみ有効にする（JS式内部での誤遷移を防ぐ）
-        // Use a negative lookbehind to avoid matching TypeScript generics like `Foo<T>`
+        
+        // root から開き括弧: next を使ってステート遷移（スタックをクリア）
+        [/{/, { token: 'delimiter.bracket', next: '@jsExpressionBrace' }],
+        [/\[/, { token: 'delimiter.bracket', next: '@jsExpressionBracket' }],
+        [/\(/, { token: 'delimiter.bracket', next: '@jsExpressionParen' }],
+        
         [/(?<![\w$])(<)([\w\.\-_]+)/, ['delimiter.bracket', { token: 'tag', next: '@jsxTag' }]],
-        // フラグメント <> の開始もルートで処理
         [/(?<![\w$])(<)(>)/, ['delimiter.bracket', { token: 'delimiter.bracket', next: '@jsxContent' }]],
         ...commonRules
       ],
@@ -87,81 +79,89 @@ export function registerEnhancedJSXLanguage(monaco: Monaco) {
       // JSX関連ステート
       // --------------------------
 
-      // JSXタグ定義内: <div className="foo">
       jsxTag: [
-        { include: '@whitespace' }, // コメントを最優先で処理
+        { include: '@whitespace' },
         
-        // 属性名
-        [/([\w\-]+)(?=\s*=)/, 'attribute.name'], // = が続く場合
-        [/([\w\-]+)/, 'attribute.name'],          // Boolean属性
+        [/([\w\-]+)(?=\s*=)/, 'attribute.name'],
+        [/([\w\-]+)/, 'attribute.name'],
 
-        // 属性値: "=" の後の文字列
         [/=/, 'delimiter'],
-        // 入れ子やエスケープに対応するため、通常のstring状態へ遷移して扱う
         [/"/, 'string', '@string_double'],
         [/'/, 'string', '@string_single'],
-        // バッククォートで囲まれたテンプレートリテラル (例: className={`foo ${bar}`})
         [/`/, 'string', '@string_backtick'],
         
-        // 属性値がJS式の場合: className={...}
-        [/{/, { token: 'delimiter.bracket', next: '@jsExpressionBrace' }],
+        // 属性値内の JS 式: push でネスト
+        [/{/, 'delimiter.bracket', '@push'],
 
-        // タグの終了
-        [/>/, { token: 'delimiter.bracket', next: '@jsxContent' }], // > 本文へ
-        [/\/>/, { token: 'delimiter.bracket', next: '@pop' }],      // /> 即終了
+        [/>/, { token: 'delimiter.bracket', next: '@jsxContent' }],
+        [/\/>/, { token: 'delimiter.bracket', next: '@pop' }],
       ],
 
-      // JSX本文: <div>Text</div>
       jsxContent: [
-        { include: '@whitespace' }, // コメントを最優先で処理
-        // 子要素の開始
+        { include: '@whitespace' },
         [/(?<![\w$])(<)([\w\.\-_]+)/, ['delimiter.bracket', { token: 'tag', next: '@jsxTag' }]],
         [/(?<![\w$])(<)(>)/, ['delimiter.bracket', { token: 'delimiter.bracket', next: '@jsxContent' }]],
         
-        // 終了タグ </Component>
         [/(<\/)([\w\.\-_]+)(>)/, [
           'delimiter.bracket', 
           'tag', 
           { token: 'delimiter.bracket', next: '@pop' }
         ]],
         
-        // フラグメント終了 </>
         [/(<\/>)/, [{ token: 'delimiter.bracket', next: '@pop' }]],
 
-        // 本文内のJS式 { expression }
-        [/{/, { token: 'delimiter.bracket', next: '@jsExpressionBrace' }],
+        // 本文内の JS 式: push でネスト
+        [/{/, 'delimiter.bracket', '@push'],
 
-        // 単なるテキスト (重要: '<' や '{' 以外の文字を本文テキストとして扱う)
         [/[^<{]+/, 'jsx.text'],
-        // 予備（トークンが細切れに分かれたとき用）: 少しでも残っていれば本文として扱う
         [/./, 'jsx.text']
       ],
 
       // --------------------------
-      // JS式ステート (再帰処理用)
+      // JS式ステート
       // --------------------------
 
-      // { ... }
       jsExpressionBrace: [
-        { include: '@whitespace' }, // コメントを最優先で処理
-        [/\}/, { token: 'delimiter.bracket', next: '@pop' }], // 脱出最優先
-        [/[\[\{\(]/, 'delimiter.bracket', '@push'], // 開き括弧はスタックにプッシュ
+        { include: '@whitespace' },
+        [/\}/, { token: 'delimiter.bracket', next: '@pop' }],
+        
+        // ネストした括弧は push でスタックに積む
+        [/{/, 'delimiter.bracket', '@push'],
+        [/\[/, 'delimiter.bracket', '@push'],
+        [/\(/, 'delimiter.bracket', '@push'],
+        
+        // JS 式内でも JSX は有効
+        [/(?<![\w$])(<)([\w\.\-_]+)/, ['delimiter.bracket', { token: 'tag', next: '@jsxTag' }]],
+        [/(?<![\w$])(<)(>)/, ['delimiter.bracket', { token: 'delimiter.bracket', next: '@jsxContent' }]],
+        
         ...commonRules
       ],
 
-      // [ ... ]
       jsExpressionBracket: [
-        { include: '@whitespace' }, // コメントを最優先で処理
-        [/\]/, { token: 'delimiter.bracket', next: '@pop' }], // 脱出最優先
-        [/[\[\{\(]/, 'delimiter.bracket', '@push'], // 開き括弧はスタックにプッシュ
+        { include: '@whitespace' },
+        [/\]/, { token: 'delimiter.bracket', next: '@pop' }],
+        
+        [/{/, 'delimiter.bracket', '@push'],
+        [/\[/, 'delimiter.bracket', '@push'],
+        [/\(/, 'delimiter.bracket', '@push'],
+        
+        [/(?<![\w$])(<)([\w\.\-_]+)/, ['delimiter.bracket', { token: 'tag', next: '@jsxTag' }]],
+        [/(?<![\w$])(<)(>)/, ['delimiter.bracket', { token: 'delimiter.bracket', next: '@jsxContent' }]],
+        
         ...commonRules
       ],
 
-      // ( ... ) -> return ( ... ) はここを通る
       jsExpressionParen: [
-        { include: '@whitespace' }, // コメントを最優先で処理
-        [/\)/, { token: 'delimiter.bracket', next: '@pop' }], // 脱出最優先
-        [/[\[\{\(]/, 'delimiter.bracket', '@push'], // 開き括弧はスタックにプッシュ
+        { include: '@whitespace' },
+        [/\)/, { token: 'delimiter.bracket', next: '@pop' }],
+        
+        [/{/, 'delimiter.bracket', '@push'],
+        [/\[/, 'delimiter.bracket', '@push'],
+        [/\(/, 'delimiter.bracket', '@push'],
+        
+        [/(?<![\w$])(<)([\w\.\-_]+)/, ['delimiter.bracket', { token: 'tag', next: '@jsxTag' }]],
+        [/(?<![\w$])(<)(>)/, ['delimiter.bracket', { token: 'delimiter.bracket', next: '@jsxContent' }]],
+        
         ...commonRules
       ],
 
@@ -200,36 +200,23 @@ export function registerEnhancedJSXLanguage(monaco: Monaco) {
       ],
 
       string_backtick: [
-        [/\$\{/, { token: 'delimiter.bracket', next: '@jsExpressionBrace' }],
+        // ${...} 式の開始: push でネスト（重要！）
+        [/\$\{/, { token: 'delimiter.bracket', next: '@jsExpressionBrace', nextEmbedded: '@push' }],
         [/[^\\`$]+/, 'string'],
+        [/\$/, 'string'], // 単独の $ は文字列として扱う
         [/\\./, 'string.escape'],
         [/`/, 'string', '@pop']
       ],
     },
   };
 
-  // Register the tokens provider for our enhanced languages
   monaco.languages.setMonarchTokensProvider('enhanced-jsx', jsxMonarchLanguage);
   monaco.languages.setMonarchTokensProvider('enhanced-tsx', jsxMonarchLanguage);
 
-  // NOTE: we intentionally DO NOT attach enhanced tokens provider to the
-  // built-in 'typescript' / 'javascript' language IDs. Doing so would apply
-  // JSX-specific tokenization (e.g. `<tag>`) to all TS/JS files and cause
-  // incorrect highlights for constructs like generics (e.g. `Foo<T>`).
-  //
-  // Consumers should opt into the enhanced languages by creating models with
-  // `enhanced-jsx` / `enhanced-tsx` (see `getEnhancedLanguage()`).
-  //
-  // eslint-disable-next-line no-console
   console.log('[monarch-jsx-language] Skipping global TS/JS token override; use enhanced-jsx/tsx for tokenization');
   try {
-    // Helpful debug when investigating unexpected highlights
-    // (OK to remove later, user said log is fine)
-    // eslint-disable-next-line no-console
     console.log('[monarch-jsx-language] Tag detection uses negative lookbehind to avoid naive generic matches: `(?<![\\w$])(<)`');
   } catch (e) {
-    // Not fatal; just warn if it fails
-    // eslint-disable-next-line no-console
     console.warn('[monarch-jsx-language] Failed to attach enhanced tokens to ts/js:', e);
   }
 
@@ -250,20 +237,15 @@ export function registerEnhancedJSXLanguage(monaco: Monaco) {
 
   monaco.languages.setLanguageConfiguration('enhanced-jsx', languageConfiguration);
   monaco.languages.setLanguageConfiguration('enhanced-tsx', languageConfiguration);
-  // Also apply our language configuration to the built-in JS/TS languages so the
-  // same auto-closing/pairs/etc work for models created as 'javascript'/'typescript'.
+  
   try {
     monaco.languages.setLanguageConfiguration('javascript', languageConfiguration);
     monaco.languages.setLanguageConfiguration('typescript', languageConfiguration);
   } catch (e) {
-    // Not fatal; but log for debugging
-    // eslint-disable-next-line no-console
     console.warn('[monarch-jsx-language] Failed to set language configuration for js/ts:', e);
   }
 }
-/**
- * ファイル名から強化言語を取得
- */
+
 export function getEnhancedLanguage(filename: string): string {
   const ext = filename.toLowerCase();
   if (ext.endsWith('.tsx')) return 'enhanced-tsx';
@@ -271,14 +253,9 @@ export function getEnhancedLanguage(filename: string): string {
   if (ext.endsWith('.ts')) return 'typescript';
   if (ext.endsWith('.js')) return 'javascript';
   
-  // その他のファイル形式は既存のgetLanguageを使用
   return 'plaintext';
 }
 
-/**
- * ファイル名からモデル用の言語IDを取得します。
- * - JSX/TSXはタイプチェック/診断のために 'javascript'/'typescript' を返す
- */
 export function getModelLanguage(filename: string): string {
   const ext = filename.toLowerCase();
   if (ext.endsWith('.tsx')) return 'typescript';
