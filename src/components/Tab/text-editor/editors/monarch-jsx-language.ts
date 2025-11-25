@@ -13,11 +13,6 @@ export function registerEnhancedJSXLanguage(monaco: Monaco) {
   const commonRules: any[] = [
     // コメントは各ステートの最優先で処理するため、ここからは削除し、各ステートの先頭に配置する。
     // { include: '@whitespace' }, 
-
-    // JSXタグ開始 <Component
-    [/(<)([\w\.\-_]+)/, ['delimiter.bracket', { token: 'tag', next: '@jsxTag' }]],
-    // フラグメント <>
-    [/(<)(>)/, ['delimiter.bracket', { token: 'delimiter.bracket', next: '@jsxContent' }]],
     
     // JSの括弧 (新しいステートへ)
     [/{/, { token: 'delimiter.bracket', next: '@jsExpressionBrace' }],
@@ -77,6 +72,10 @@ export function registerEnhancedJSXLanguage(monaco: Monaco) {
         { include: '@whitespace' }, // コメントを最優先で処理
         // ルートレベルでの閉じ括弧は、単なるデリミタとして処理（ポップしない）
         [/[}\)\]]/, 'delimiter.bracket'],
+        // JSXタグ開始はルートでのみ有効にする（JS式内部での誤遷移を防ぐ）
+        [/(<)([\w\.\-_]+)/, ['delimiter.bracket', { token: 'tag', next: '@jsxTag' }]],
+        // フラグメント <> の開始もルートで処理
+        [/(<)(>)/, ['delimiter.bracket', { token: 'delimiter.bracket', next: '@jsxContent' }]],
         ...commonRules
       ],
 
@@ -96,6 +95,8 @@ export function registerEnhancedJSXLanguage(monaco: Monaco) {
         [/=/, 'delimiter'],
         [/"([^"]*)"/, 'attribute.value'],
         [/'([^']*)'/, 'attribute.value'],
+        // バッククォートで囲まれたテンプレートリテラル (例: className={`foo ${bar}`})
+        [/`/, 'attribute.value', '@string_backtick'],
         
         // 属性値がJS式の場合: className={...}
         [/{/, { token: 'delimiter.bracket', next: '@jsExpressionBrace' }],
