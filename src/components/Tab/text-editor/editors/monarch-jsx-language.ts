@@ -7,6 +7,9 @@ import * as monaco from 'monaco-editor';
 
  */
 export function registerEnhancedJSXLanguage(monaco: Monaco) {
+  // Debug: log that language registration begins
+  // eslint-disable-next-line no-console
+  console.log('[monarch-jsx-language] registerEnhancedJSXLanguage() called');
   monaco.languages.register({ id: 'enhanced-jsx' });
   monaco.languages.register({ id: 'enhanced-tsx' });
 
@@ -73,9 +76,10 @@ export function registerEnhancedJSXLanguage(monaco: Monaco) {
         // ルートレベルでの閉じ括弧は、単なるデリミタとして処理（ポップしない）
         [/[}\)\]]/, 'delimiter.bracket'],
         // JSXタグ開始はルートでのみ有効にする（JS式内部での誤遷移を防ぐ）
-        [/(<)([\w\.\-_]+)/, ['delimiter.bracket', { token: 'tag', next: '@jsxTag' }]],
+        // Use a negative lookbehind to avoid matching TypeScript generics like `Foo<T>`
+        [/(?<![\w$])(<)([\w\.\-_]+)/, ['delimiter.bracket', { token: 'tag', next: '@jsxTag' }]],
         // フラグメント <> の開始もルートで処理
-        [/(<)(>)/, ['delimiter.bracket', { token: 'delimiter.bracket', next: '@jsxContent' }]],
+        [/(?<![\w$])(<)(>)/, ['delimiter.bracket', { token: 'delimiter.bracket', next: '@jsxContent' }]],
         ...commonRules
       ],
 
@@ -111,8 +115,8 @@ export function registerEnhancedJSXLanguage(monaco: Monaco) {
       jsxContent: [
         { include: '@whitespace' }, // コメントを最優先で処理
         // 子要素の開始
-        [/(<)([\w\.\-_]+)/, ['delimiter.bracket', { token: 'tag', next: '@jsxTag' }]],
-        [/(<)(>)/, ['delimiter.bracket', { token: 'delimiter.bracket', next: '@jsxContent' }]],
+        [/(?<![\w$])(<)([\w\.\-_]+)/, ['delimiter.bracket', { token: 'tag', next: '@jsxTag' }]],
+        [/(?<![\w$])(<)(>)/, ['delimiter.bracket', { token: 'delimiter.bracket', next: '@jsxContent' }]],
         
         // 終了タグ </Component>
         [/(<\/)([\w\.\-_]+)(>)/, [
@@ -208,16 +212,21 @@ export function registerEnhancedJSXLanguage(monaco: Monaco) {
   monaco.languages.setMonarchTokensProvider('enhanced-jsx', jsxMonarchLanguage);
   monaco.languages.setMonarchTokensProvider('enhanced-tsx', jsxMonarchLanguage);
 
-  // Also register the enhanced tokens provider for built-in typescript/javascript
-  // so that diagnostics from the TypeScript worker continue to work while
-  // keeping our JSX/TSX highlighting rules.
+  // NOTE: we intentionally DO NOT attach enhanced tokens provider to the
+  // built-in 'typescript' / 'javascript' language IDs. Doing so would apply
+  // JSX-specific tokenization (e.g. `<tag>`) to all TS/JS files and cause
+  // incorrect highlights for constructs like generics (e.g. `Foo<T>`).
+  //
+  // Consumers should opt into the enhanced languages by creating models with
+  // `enhanced-jsx` / `enhanced-tsx` (see `getEnhancedLanguage()`).
+  //
+  // eslint-disable-next-line no-console
+  console.log('[monarch-jsx-language] Skipping global TS/JS token override; use enhanced-jsx/tsx for tokenization');
   try {
-    monaco.languages.setMonarchTokensProvider('typescript', jsxMonarchLanguage);
-    monaco.languages.setMonarchTokensProvider('javascript', jsxMonarchLanguage);
     // Helpful debug when investigating unexpected highlights
     // (OK to remove later, user said log is fine)
     // eslint-disable-next-line no-console
-    console.log('[monarch-jsx-language] Attached enhanced JSX tokens to typescript/javascript');
+    console.log('[monarch-jsx-language] Tag detection uses negative lookbehind to avoid naive generic matches: `(?<![\\w$])(<)`');
   } catch (e) {
     // Not fatal; just warn if it fails
     // eslint-disable-next-line no-console

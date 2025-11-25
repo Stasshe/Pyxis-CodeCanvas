@@ -3,15 +3,21 @@ import * as monaco from 'monaco-editor';
 import { useCallback } from 'react';
 
 import { getLanguage } from '../editors/editor-utils';
-import { getModelLanguage } from '../editors/monarch-jsx-language';
+import { getModelLanguage, getEnhancedLanguage } from '../editors/monarch-jsx-language';
 
 // Monarch言語用のヘルパー
 function getMonarchLanguage(fileName: string): string {
   // Use the model language for TSX/JSX so the TypeScript diagnostics run.
   // For other files, fall back to the default language detection.
   const ext = fileName.toLowerCase();
-  if (ext.endsWith('.tsx')) return getModelLanguage(fileName); // 'typescript'
-  if (ext.endsWith('.jsx')) return getModelLanguage(fileName); // 'javascript'
+  // For TSX/JSX, return the enhanced monarch language ID. This makes the
+  // model use `enhanced-tsx`/`enhanced-jsx` tokens but the TypeScript
+  // diagnostics will not run for these models (tradeoff). To keep
+  // diagnostics active you'd need a different approach (e.g. worker
+  // mapping) but that introduces mis-highlighting when attaching tokens to
+  // the built-in 'typescript' language globally.
+  if (ext.endsWith('.tsx')) return getEnhancedLanguage(fileName); // 'enhanced-tsx'
+  if (ext.endsWith('.jsx')) return getEnhancedLanguage(fileName); // 'enhanced-jsx'
   if (ext.endsWith('.ts')) return 'typescript';
   if (ext.endsWith('.js')) return 'javascript';
   
