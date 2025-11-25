@@ -1,9 +1,10 @@
 /**
- * react-preview Extension (CDN-optimized) - Fixed with Metafile
- * 依存関係の検出を正規表現からesbuildのmetafileに変更し、誤検知を防止
+ * react-preview Extension
+ * React JSXをブラウザでビルド&プレビュー（Tailwind CSS + Multi-page対応）
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+
 import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
 
 interface ESBuild {
@@ -19,11 +20,7 @@ interface ESBuild {
     jsxFragment?: string;
     define?: { [key: string]: string };
     globalName?: string;
-    metafile?: boolean; // 追加: 依存関係解析用
-  }): Promise<{ 
-    outputFiles: Array<{ text: string }>;
-    metafile?: { inputs: Record<string, { imports: Array<{ path: string }> }> }; // 追加
-  }>;
+  }): Promise<{ outputFiles: Array<{ text: string }> }>;
 }
 
 interface PageInfo {
@@ -32,66 +29,23 @@ interface PageInfo {
   filePath: string;
 }
 
-// CDN経由で読み込むライブラリの設定
-const CDN_LIBRARIES = {
-  'react': {
-    global: 'React',
-    url: 'https://unpkg.com/react@18/umd/react.production.min.js',
-    order: 1,
-    integrity: null
-  },
-  'react-dom': {
-    global: 'ReactDOM',
-    url: 'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js',
-    order: 2,
-    integrity: null
-  },
-  'react-dom/client': {
-    global: 'ReactDOM',
-    url: null,
-    order: 3,
-    integrity: null
-  },
-  'lodash': {
-    global: '_',
-    url: 'https://unpkg.com/lodash@4.17.21/lodash.min.js',
-    order: 4,
-    integrity: null
-  },
-  'd3': {
-    global: 'd3',
-    url: 'https://unpkg.com/d3@7.8.5/dist/d3.min.js',
-    order: 5,
-    integrity: null
-  },
-  'recharts': {
-    global: 'Recharts',
-    url: 'https://unpkg.com/recharts@2.5.0/dist/Recharts.js',
-    order: 6,
-    integrity: null
-  },
-  'lucide-react': {
-    global: 'LucideReact',
-    url: 'https://unpkg.com/lucide-react@0.263.1/dist/umd/lucide-react.js',
-    order: 7,
-    integrity: null
-  }
-} as const;
-
 let esbuildInstance: ESBuild | null = null;
 let isInitializing = false;
 
 async function loadESBuild(): Promise<ESBuild> {
   if (esbuildInstance) return esbuildInstance;
+
   if (isInitializing) {
     await new Promise(resolve => setTimeout(resolve, 100));
     return loadESBuild();
   }
 
   isInitializing = true;
+
   try {
     const esbuildModule = await import('esbuild-wasm');
     const esbuild = (esbuildModule as any).default || esbuildModule;
+
     if (esbuildInstance) {
       isInitializing = false;
       return esbuildInstance;
@@ -103,22 +57,27 @@ async function loadESBuild(): Promise<ESBuild> {
 
     await esbuild.initialize({ wasmURL });
     esbuildInstance = esbuild;
+    
     return esbuild;
   } finally {
     isInitializing = false;
   }
 }
 
+/**
+ * externalモジュールをグローバル変数に書き換えるプラグイン
+ */
 function createGlobalExternalsPlugin() {
   return {
     name: 'global-externals',
     setup(build: any) {
-      const patterns = Object.keys(CDN_LIBRARIES).map(lib => 
-        lib.includes('/') ? lib.replace('/', '\\/') : lib
-      );
-      const filterRegex = new RegExp(`^(${patterns.join('|')})$`);
+      const globalMap: Record<string, string> = {
+        'react': 'React',
+        'react-dom': 'ReactDOM',
+        'react-dom/client': 'ReactDOM',
+      };
 
-      build.onResolve({ filter: filterRegex }, (args: any) => {
+      build.onResolve({ filter: /^react(-dom)?(\/client)?$/ }, (args: any) => {
         return {
           path: args.path,
           namespace: 'global-external',
@@ -126,12 +85,12 @@ function createGlobalExternalsPlugin() {
       });
 
       build.onLoad({ filter: /.*/, namespace: 'global-external' }, (args: any) => {
-        const libConfig = CDN_LIBRARIES[args.path as keyof typeof CDN_LIBRARIES];
-        if (!libConfig) {
-          return { errors: [{ text: `No CDN mapping for ${args.path}` }] };
+        const globalName = globalMap[args.path];
+        if (!globalName) {
+          return { errors: [{ text: `No global mapping for ${args.path}` }] };
         }
 
-        const code = `module.exports = window.${libConfig.global};`;
+        const code = `module.exports = window.${globalName};`;
         return { contents: code, loader: 'js' };
       });
     },
@@ -143,7 +102,7 @@ function createVirtualFSPlugin(projectId: string, fileRepository: any) {
     name: 'virtual-fs',
     setup(build: any) {
       build.onResolve({ filter: /^[^./]/ }, async (args: any) => {
-        if (args.path in CDN_LIBRARIES) {
+        if (args.path === 'react' || args.path === 'react-dom' || args.path === 'react-dom/client') {
           return undefined;
         }
         
@@ -155,6 +114,7 @@ function createVirtualFSPlugin(projectId: string, fileRepository: any) {
             const pkgJson = JSON.parse(pkgJsonFile.content);
             const entryPoint = pkgJson.module || pkgJson.main || 'index.js';
             const resolvedPath = `/node_modules/${args.path}/${entryPoint}`;
+            
             return { path: resolvedPath, namespace: 'virtual' };
           }
         } catch (e) {
@@ -167,7 +127,9 @@ function createVirtualFSPlugin(projectId: string, fileRepository: any) {
           if (file) {
             return { path: distIndexPath, namespace: 'virtual' };
           }
-        } catch (e) {}
+        } catch (e) {
+          // dist/index.jsもない
+        }
         
         return { path: args.path, external: true };
       });
@@ -199,7 +161,9 @@ function createVirtualFSPlugin(projectId: string, fileRepository: any) {
               if (file) {
                 return { path: testPath, namespace: 'virtual' };
               }
-            } catch (e) {}
+            } catch (e) {
+              // 次の拡張子を試す
+            }
           }
           
           try {
@@ -208,7 +172,9 @@ function createVirtualFSPlugin(projectId: string, fileRepository: any) {
             if (file) {
               return { path: indexPath, namespace: 'virtual' };
             }
-          } catch (e) {}
+          } catch (e) {
+            // index.jsもない
+          }
         }
         
         return { path, namespace: 'virtual' };
@@ -252,6 +218,9 @@ function createVirtualFSPlugin(projectId: string, fileRepository: any) {
   };
 }
 
+/**
+ * /pages/ 配下のページファイルを検出
+ */
 async function detectPages(
   projectId: string,
   context: ExtensionContext
@@ -268,6 +237,10 @@ async function detectPages(
 
   for (const file of pageFiles) {
     const filePath = file.path;
+    // /pages/index.tsx → /
+    // /pages/about.tsx → /about
+    // /pages/blog/index.tsx → /blog
+    // /pages/blog/post.tsx → /blog/post
     let route = filePath
       .replace(/^\/pages/, '')
       .replace(/\.(jsx|tsx)$/, '')
@@ -284,18 +257,19 @@ async function detectPages(
   }
 
   pages.sort((a, b) => a.route.localeCompare(b.route));
+
   return pages;
 }
 
-// 修正ポイント: 正規表現によるdetectUsedLibrariesを削除
-// esbuildのmetafileを使って正確に検出するため不要になりました。
-
+/**
+ * JSXファイルをビルド（単体またはページ）
+ */
 async function buildJSX(
   filePath: string,
   projectId: string,
   context: ExtensionContext,
   globalName: string = '__ReactApp__'
-): Promise<{ code: string; error?: string; usedLibs?: Set<string> }> {
+): Promise<{ code: string; error?: string }> {
   try {
     const esbuild = await loadESBuild();
     const fileRepository = await context.getSystemModule('fileRepository');
@@ -304,7 +278,6 @@ async function buildJSX(
       return { code: '', error: `File not found: ${filePath}` };
     }
     
-    // 修正ポイント: metafile: true を追加し、結果からライブラリを抽出
     const result = await esbuild.build({
       stdin: {
         contents: file.content,
@@ -316,7 +289,6 @@ async function buildJSX(
       format: 'iife',
       globalName,
       write: false,
-      metafile: true, // 重要: これにより正確な依存関係を取得可能
       plugins: [createGlobalExternalsPlugin(), createVirtualFSPlugin(projectId, fileRepository)],
       target: 'es2020',
       jsxFactory: 'React.createElement',
@@ -327,87 +299,70 @@ async function buildJSX(
     });
 
     const bundled = result.outputFiles[0].text;
-
-    // 修正ポイント: esbuildのmetafileから実際にバンドルされたimportのみを抽出
-    const usedLibs = new Set<string>(['react', 'react-dom']);
-    
-    if (result.metafile) {
-      // inputsにはバンドルに含まれた全てのファイルと、そのimportが含まれる
-      Object.values(result.metafile.inputs).forEach(input => {
-        input.imports.forEach(imp => {
-          // CDN_LIBRARIESにあるものだけを抽出
-          if (imp.path in CDN_LIBRARIES) {
-            usedLibs.add(imp.path);
-          }
-        });
-      });
-    }
-
-    return { code: bundled, usedLibs };
+    return { code: bundled };
   } catch (error: any) {
     return { code: '', error: error?.message || 'Build failed' };
   }
 }
 
+/**
+ * 複数ページをビルド
+ */
 async function buildMultiPage(
   pages: PageInfo[],
   projectId: string,
   context: ExtensionContext
-): Promise<{ bundledPages: Record<string, string>; errors: Record<string, string>; usedLibs: Set<string> }> {
+): Promise<{ bundledPages: Record<string, string>; errors: Record<string, string> }> {
   const bundledPages: Record<string, string> = {};
   const errors: Record<string, string> = {};
-  const allUsedLibs = new Set<string>(['react', 'react-dom']);
 
   for (const page of pages) {
     const globalName = `__Page_${page.route.replace(/\//g, '_').replace(/^_$/, 'root')}__`;
-    const { code, error, usedLibs } = await buildJSX(page.filePath, projectId, context, globalName);
+    const { code, error } = await buildJSX(page.filePath, projectId, context, globalName);
     
     if (error) {
       errors[page.route] = error;
     } else {
       bundledPages[page.route] = code;
-      if (usedLibs) {
-        usedLibs.forEach(lib => allUsedLibs.add(lib));
-      }
     }
   }
 
-  return { bundledPages, errors, usedLibs: allUsedLibs };
+  return { bundledPages, errors };
 }
 
-// ... 以降のコード（reactBuildCommand, ReactPreviewTabComponentなど）は変更なしでOK ...
-// ただし、コード全文が必要であれば提示します。
-// 基本的に buildJSX の変更だけで問題は解決します。
-
+/**
+ * react-buildコマンド
+ */
 async function reactBuildCommand(args: string[], context: any): Promise<string> {
-  // ... (元のコードと同じ)
   if (args.length === 0) {
-    return 'Usage: react-build <entry.jsx|pages> [--tailwind]\n\nExamples:\n  react-build App.jsx\n  react-build App.jsx --tailwind\n  react-build pages\n  react-build pages --tailwind';
+    return 'Usage: react-build <entry.jsx|pages> [--tailwind]\n\nExamples:\n  react-build App.jsx              # Single component\n  react-build App.jsx --tailwind   # With Tailwind CSS\n  react-build pages                # Multi-page app (auto-detect /pages/)\n  react-build pages --tailwind     # Multi-page with Tailwind';
   }
 
   const target = args[0];
   const useTailwind = args.includes('--tailwind');
 
+  // Multi-page mode
   if (target === 'pages') {
     const pages = await detectPages(context.projectId, context);
     
     if (pages.length === 0) {
-      return '❌ No pages found in /pages/\n\nCreate pages like:\n  /pages/index.tsx\n  /pages/about.tsx';
+      return '❌ No pages found in /pages/ directory.\n\nCreate pages like:\n  /pages/index.tsx\n  /pages/about.tsx\n  /pages/blog/index.tsx';
     }
 
-    const { bundledPages, errors, usedLibs } = await buildMultiPage(pages, context.projectId, context);
+    const { bundledPages, errors } = await buildMultiPage(pages, context.projectId, context);
 
     if (Object.keys(errors).length > 0) {
-      let errorMsg = '❌ Build errors:\n';
+      let errorMsg = '❌ Some pages failed to build:\n';
       for (const [route, error] of Object.entries(errors)) {
         errorMsg += `\n  ${route}: ${error}`;
       }
       return errorMsg;
     }
 
+    // プレビュータブを開く
     context.tabs.createTab({
       id: `preview-multipage-${Date.now()}`,
-      title: 'Preview: Multi-page',
+      title: 'Preview: Multi-page App',
       icon: 'Eye',
       closable: true,
       activateAfterCreate: true,
@@ -416,16 +371,18 @@ async function reactBuildCommand(args: string[], context: any): Promise<string> 
         pages,
         bundledPages,
         builtAt: Date.now(),
-        useTailwind,
-        usedLibs: Array.from(usedLibs)
+        useTailwind 
       },
     });
 
     const pageList = pages.map(p => `  ${p.route} → ${p.filePath}`).join('\n');
-    return `✅ Built ${pages.length} pages${useTailwind ? ' (Tailwind enabled)' : ''}\n\n${pageList}\n\n📺 Preview opened`;
+    const tailwindMsg = useTailwind ? '\n🎨 Tailwind CSS enabled' : '';
+    return `[react-preview] Building multi-page app...\n✅ Built ${pages.length} pages:${tailwindMsg}\n\n${pageList}\n\n📺 Preview opened in tab`;
   }
 
+  // Single component mode
   const filePath = target;
+  
   let normalizedPath = filePath;
   if (!filePath.startsWith('/')) {
     const relativeCurrent = (context.currentDirectory || '').replace(`/projects/${context.projectName}`, '');
@@ -434,15 +391,19 @@ async function reactBuildCommand(args: string[], context: any): Promise<string> 
     normalizedPath = filePath.replace(`/projects/${context.projectName}`, '');
   }
 
-  const { code, error, usedLibs } = await buildJSX(normalizedPath, context.projectId, context);
+  const { code, error } = await buildJSX(
+    normalizedPath,
+    context.projectId,
+    context,
+  );
 
   if (error) {
-    return `❌ Build failed:\n${error}`;
+    return `[react-preview] Building: ${filePath}\n❌ Build failed:\n${error}\n`;
   }
 
   context.tabs.createTab({
     id: `preview-${normalizedPath}`,
-    title: `Preview: ${normalizedPath.split('/').pop()}`,
+    title: `Preview: ${normalizedPath}`,
     icon: 'Eye',
     closable: true,
     activateAfterCreate: true,
@@ -451,23 +412,20 @@ async function reactBuildCommand(args: string[], context: any): Promise<string> 
       filePath: normalizedPath,
       code,
       builtAt: Date.now(),
-      useTailwind,
-      usedLibs: Array.from(usedLibs || ['react', 'react-dom'])
+      useTailwind 
     },
   });
 
-  return `✅ Built: ${filePath}${useTailwind ? ' (Tailwind enabled)' : ''}\n\n📺 Preview opened`;
+  const tailwindMsg = useTailwind ? '\n🎨 Tailwind CSS enabled' : '';
+  return `[react-preview] Building: ${filePath}\n✅ Build successful!${tailwindMsg}\n\n📺 Preview opened in tab\n`;
 }
 
 function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
-  // ... (元のコードと同じ)
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const data = tab.data || {};
   const mode = data.mode || 'single';
   const useTailwind = data.useTailwind || false;
-  const usedLibs = data.usedLibs || ['react', 'react-dom'];
   const initializedRef = useRef(false);
 
   useEffect(() => {
@@ -483,153 +441,115 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
       const doc = iframe.contentDocument;
       if (!doc) {
         setError('Cannot access iframe document');
-        setLoading(false);
         return;
       }
 
       try {
-        const sortedLibraries = Object.entries(CDN_LIBRARIES)
-          .filter(([libName, config]) => {
-            if (libName === 'react-dom/client') return false;
-            return config.url !== null && usedLibs.includes(libName);
-          })
-          .sort((a, b) => a[1].order - b[1].order);
-
         let html = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src *; script-src * 'unsafe-inline' 'unsafe-eval'; style-src * 'unsafe-inline'; img-src * data: blob:; font-src * data:; connect-src *; frame-src *;">
+  <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+  <script>eruda.init();</script>
   <style>
     body { margin: 0; padding: 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
     #root { width: 100%; min-height: 100vh; }
-    #loading { padding: 16px; color: #666; }
   </style>`;
 
         if (useTailwind) {
-          html += '\n  <script src="https://cdn.tailwindcss.com"></script>';
+          html += '\n  <script src="https://cdn.tailwindcss.com"><\/script>';
         }
 
         html += `\n</head>
 <body>
-  <div id="loading">Loading libraries...</div>
-  <div id="root" style="display: none;"></div>
+  <div id="root"></div>
   
-  `;
-
-        for (let i = 0; i < sortedLibraries.length; i++) {
-          const [_, config] = sortedLibraries[i];
-          html += `  <script src="${config.url}" crossorigin></script>\n`;
-        }
-
-        html += `  
-  <script>
-    (function() {
-      let checkCount = 0;
-      const maxChecks = 100;
-      
-      function checkLibraries() {
-        checkCount++;
-        
-        if (!window.React || !window.ReactDOM) {
-          if (checkCount < maxChecks) {
-            setTimeout(checkLibraries, 100);
-            return;
-          } else {
-            document.getElementById('loading').innerHTML = 
-              '<div style="color: #f88;">Failed to load React libraries</div>';
-            console.error('React or ReactDOM not loaded');
-            return;
-          }
-        }
-        
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('root').style.display = 'block';
-        
-        initApp();
-      }
-      
-      setTimeout(checkLibraries, 100);
-    })();
-    
-    function initApp() {
-      try {
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"><\/script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"><\/script>
 `;
 
         if (mode === 'single') {
-          html += `        
-        ${data.code}
-        
-        const Component = window.__ReactApp__?.default || window.__ReactApp__;
-        
-        if (!Component) {
-          throw new Error('No component exported from __ReactApp__');
-        }
+          // Single component mode
+          html += `  
+  <script>
+    ${data.code}
+  <\/script>
+  
+  <script>
+    try {
+      const Component = window.__ReactApp__.default || window.__ReactApp__;
+      
+      if (!Component) {
+        throw new Error('No component exported from ${data.filePath}');
+      }
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(React.createElement(Component));
-`;
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(React.createElement(Component));
+      
+    } catch (err) {
+      document.getElementById('root').innerHTML = '<div style="color: #f88; padding: 16px; font-family: monospace; font-size: 12px; white-space: pre-wrap;">Error: ' + (err?.stack || err?.message || String(err)) + '</div>';
+      console.error('[ReactPreview]', err);
+    }
+  <\/script>`;
         } else {
+          // Multi-page mode
           const pages = data.pages || [];
           const bundledPages = data.bundledPages || {};
           
+          // すべてのページのコードを埋め込み
           for (const [route, code] of Object.entries(bundledPages)) {
-            html += `        ${code}\n`;
+            html += `  <script>${code}<\/script>\n`;
           }
 
+          // ルーティングロジック
           const routeMap = pages.map((p: PageInfo) => {
             const globalName = `__Page_${p.route.replace(/\//g, '_').replace(/^_$/, 'root')}__`;
-            return `          '${p.route}': window.${globalName}?.default || window.${globalName}`;
+            return `    '${p.route}': window.${globalName}.default || window.${globalName}`;
           }).join(',\n');
 
           html += `
-        const routes = {
+  <script>
+    const routes = {
 ${routeMap}
-        };
+    };
 
-        let currentRoot = null;
+    let currentRoot = null;
 
-        function navigate(path) {
-          const Component = routes[path];
-          
-          if (!Component) {
-            document.getElementById('root').innerHTML = '<div style="padding: 16px;"><h1>404</h1><p>Available routes:</p><ul>' + 
-              Object.keys(routes).map(r => '<li><a href="#' + r + '">' + r + '</a></li>').join('') + 
-              '</ul></div>';
-            return;
-          }
+    function navigate(path) {
+      const Component = routes[path];
+      
+      if (!Component) {
+        document.getElementById('root').innerHTML = '<div style="padding: 16px;"><h1>404 Not Found</h1><p>Page "' + path + '" does not exist.</p><p>Available routes:</p><ul>' + 
+          Object.keys(routes).map(r => '<li><a href="#' + r + '">' + r + '</a></li>').join('') + 
+          '</ul></div>';
+        return;
+      }
 
-          if (!currentRoot) {
-            currentRoot = ReactDOM.createRoot(document.getElementById('root'));
-          }
-          
-          try {
-            currentRoot.render(React.createElement(Component));
-          } catch (err) {
-            document.getElementById('root').innerHTML = '<div style="color: #f88; padding: 16px; font-family: monospace; white-space: pre-wrap;">Error: ' + (err?.stack || String(err)) + '</div>';
-            console.error(err);
-          }
-        }
-
-        window.addEventListener('hashchange', () => {
-          navigate(window.location.hash.slice(1) || '/');
-        });
-        
-        navigate(window.location.hash.slice(1) || '/');
-`;
-        }
-
-        html += `        
+      if (!currentRoot) {
+        currentRoot = ReactDOM.createRoot(document.getElementById('root'));
+      }
+      
+      try {
+        currentRoot.render(React.createElement(Component));
       } catch (err) {
-        const errorMsg = err?.stack || err?.message || String(err);
-        document.getElementById('root').innerHTML = 
-          '<div style="color: #f88; padding: 16px; font-family: monospace; font-size: 12px; white-space: pre-wrap;">Error: ' + 
-          errorMsg + '</div>';
-        console.error('[ReactPreview Error]', err);
+        document.getElementById('root').innerHTML = '<div style="color: #f88; padding: 16px; font-family: monospace; font-size: 12px; white-space: pre-wrap;">Error rendering ' + path + ':\\n' + (err?.stack || err?.message || String(err)) + '</div>';
+        console.error('[ReactPreview]', err);
       }
     }
-  </script>
+
+    function handleRouteChange() {
+      const hash = window.location.hash.slice(1) || '/';
+      navigate(hash);
+    }
+
+    window.addEventListener('hashchange', handleRouteChange);
+    handleRouteChange();
+  <\/script>`;
+        }
+
+        html += `
 </body>
 </html>`;
 
@@ -638,10 +558,8 @@ ${routeMap}
         doc.close();
         initializedRef.current = true;
         setError(null);
-        setLoading(false);
       } catch (err: any) {
-        setError(err?.message || 'Init failed');
-        setLoading(false);
+        setError(err?.message || 'Failed to initialize iframe');
       }
     };
 
@@ -650,46 +568,54 @@ ${routeMap}
     } else {
       iframe.onload = initIframe;
     }
-  }, [isActive, data, mode, useTailwind, usedLibs]);
+  }, [isActive, data, mode, useTailwind]);
 
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: '#1e1e1e', color: '#d4d4d4' }}>
       <div style={{ padding: '12px 16px', borderBottom: '1px solid #333' }}>
         <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#888' }}>
-          {mode === 'multipage' && `${data.pages?.length || 0} pages | `}
-          Built: {data.builtAt ? new Date(data.builtAt).toLocaleString() : 'N/A'}
-          {useTailwind && ' | Tailwind'}
-          {loading && ' | Loading...'}
+          {mode === 'multipage' && `Multi-page app (${data.pages?.length || 0} pages) | `}
+          Built at: {data.builtAt ? new Date(data.builtAt).toLocaleString() : 'N/A'}
+          {useTailwind && ' | Tailwind CSS enabled'}
         </p>
       </div>
 
       {error && (
-        <div style={{ padding: '16px', background: '#3e1e1e', color: '#f88', fontFamily: 'monospace', fontSize: '12px' }}>
-          ❌ {error}
+        <div style={{ padding: '16px', background: '#3e1e1e', color: '#f88', fontFamily: 'monospace', fontSize: '12px', whiteSpace: 'pre-wrap' }}>
+          ❌ Error: {error}
         </div>
       )}
 
       <iframe
         ref={iframeRef}
-        style={{ flex: 1, border: 'none', background: '#fff' }}
+        style={{
+          flex: 1,
+          border: 'none',
+          background: '#fff',
+        }}
         title="React Preview"
-        sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals"
+        sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals allow-presentation allow-pointer-lock allow-top-navigation"
+        allow="*"
       />
     </div>
   );
 }
 
+/**
+ * 拡張機能のactivate
+ */
 export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
-  context.logger.info('react-preview (CDN-optimized) activating...');
+  context.logger.info('react-preview activating...');
 
   context.tabs.registerTabType(ReactPreviewTabComponent);
   context.commands.registerCommand('react-build', reactBuildCommand);
 
   loadESBuild().catch(err => {
-    context.logger.error('esbuild preload failed:', err);
+    context.logger.error('Failed to preload esbuild:', err);
   });
 
   context.logger.info('react-preview activated');
+
   return {};
 }
 
