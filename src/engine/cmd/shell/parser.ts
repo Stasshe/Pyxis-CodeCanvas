@@ -68,6 +68,51 @@ function extractCommandSubstitutions(line: string): {
       i = j + 1;
       continue;
     }
+    // handle arithmetic expansion $((...)) (evaluate immediately, outside single quotes)
+    if (ch === '$' && line[i + 1] === '(' && line[i + 2] === '(' && !inSingle) {
+      let j = i + 3;
+      let depth = 0;
+      let buf = '';
+      while (j < line.length) {
+        if (line[j] === '(') {
+          depth++;
+          buf += line[j++];
+          continue;
+        }
+        if (line[j] === ')') {
+          if (depth === 0) {
+            // expect a second ')' to close the arithmetic
+            if (line[j + 1] === ')') {
+              j += 2;
+              break;
+            }
+            // single ')' when depth==0: include and continue
+            buf += line[j++];
+            continue;
+          }
+          depth--;
+          buf += line[j++];
+          continue;
+        }
+        buf += line[j++];
+      }
+      // evaluate buf safely: allow only digits, whitespace, + - * / % and parentheses
+      const expr = buf.trim();
+      if (/^[0-9+\-*/%()\s]+$/.test(expr)) {
+        try {
+          // eslint-disable-next-line no-new-func
+          const val = Function('return (' + expr + ')')();
+          out += String(val === undefined || val === null ? '' : val);
+        } catch (e) {
+          out += '';
+        }
+      } else {
+        // invalid chars: replace with empty
+        out += '';
+      }
+      i = j;
+      continue;
+    }
     if (ch === '$' && line[i + 1] === '(' && !inSingle) {
       let j = i + 2;
       let depth = 1;
