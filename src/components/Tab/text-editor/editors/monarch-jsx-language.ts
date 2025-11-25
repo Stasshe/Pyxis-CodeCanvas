@@ -62,6 +62,17 @@ export function registerEnhancedJSXLanguage(monaco: Monaco) {
         // JSX属性
         [/\s+([a-zA-Z][\w-]*)(?=\s*=)/, 'attribute.name'],
         
+        // メソッド呼び出し object.method()
+        [/([a-zA-Z_$][\w$]*)(\s*)(\.)(\s*)([a-z_$][\w$]*)(?=\s*\()/, 
+          ['identifier', '', 'delimiter', '', 'method']],
+        
+        // プロパティアクセス object.property
+        [/([a-zA-Z_$][\w$]*)(\s*)(\.)(\s*)([a-z_$][\w$]*)/, 
+          ['identifier', '', 'delimiter', '', 'property']],
+        
+        // 関数呼び出し functionName()
+        [/[a-z_$][\w$]*(?=\s*\()/, 'function.call'],
+        
         // 識別子とキーワード
         [/[a-z_$][\w$]*/, {
           cases: {
