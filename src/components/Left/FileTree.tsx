@@ -513,10 +513,11 @@ export default function FileTree({
               const menuItems: Array<{ key: string; label: string }> =
                 contextMenu && contextMenu.item == null
                   ? [
-                      { key: 'createFile', label: t('fileTree.menu.createFile') },
-                      { key: 'createFolder', label: t('fileTree.menu.createFolder') },
-                      { key: 'import', label: t('fileTree.menu.import') },
-                    ]
+                        { key: 'createFile', label: t('fileTree.menu.createFile') },
+                        { key: 'createFolder', label: t('fileTree.menu.createFolder') },
+                        { key: 'importFiles', label: t('fileTree.menu.importFiles') },
+                        { key: 'importFolder', label: t('fileTree.menu.importFolder') },
+                      ]
                   : ([
                       contextMenu && contextMenu.item && contextMenu.item.type === 'file'
                         ? { key: 'open', label: t('fileTree.menu.open') }
@@ -531,7 +532,8 @@ export default function FileTree({
                         ? { key: 'openCodeMirror', label: t('fileTree.menu.openCodeMirror') }
                         : null,
                       { key: 'download', label: t('fileTree.menu.download') },
-                      { key: 'import', label: t('fileTree.menu.import') },
+                      { key: 'importFiles', label: t('fileTree.menu.importFiles') },
+                      { key: 'importFolder', label: t('fileTree.menu.importFolder') },
                       { key: 'rename', label: t('fileTree.menu.rename') },
                       { key: 'delete', label: t('fileTree.menu.delete') },
                       contextMenu && contextMenu.item && contextMenu.item.type === 'folder'
@@ -572,14 +574,55 @@ export default function FileTree({
                   return;
                 }
 
-                if (key === 'import' && !menuItem) {
+                if (key === 'importFiles' && !menuItem) {
                   const input = document.createElement('input');
                   input.type = 'file';
-                  // allow selecting multiple files (including images). Do not force directory picker
-                  // (previously webkitdirectory was set which prevented selecting single files on some browsers)
+                  // select multiple files only (no directory picker)
                   input.multiple = true;
-                  // enable selecting a folder (and its recursive files) when supported
-                  // use setAttribute to request directory selection; preserve webkitRelativePath on files
+                  input.onchange = async (e: any) => {
+                    const files: FileList = e.target.files;
+                    if (!files || files.length === 0) return;
+
+                    const ensureFoldersExistLocal = async (
+                      projectId: string | undefined,
+                      folderPath: string
+                    ) => {
+                      if (!projectId) return;
+                      const parts = folderPath.split('/').filter(Boolean);
+                      let acc = '';
+                      for (const part of parts) {
+                        acc += '/' + part;
+                        try {
+                          await fileRepository.createFile(projectId, acc, '', 'folder');
+                        } catch (err) {
+                          // ignore
+                        }
+                      }
+                    };
+
+                    for (let i = 0; i < files.length; i++) {
+                      const file = files[i];
+                      const targetPath = '/' + file.name;
+                      const targetAbsolutePath = `/projects/${currentProjectName}${targetPath}`;
+                      // ensure parent folders exist (root-level so usually none)
+                      const lastSlash = targetPath.lastIndexOf('/');
+                      if (lastSlash > 0) {
+                        const folderPath = targetPath.substring(0, lastSlash);
+                        await ensureFoldersExistLocal(currentProjectId, folderPath);
+                      }
+                      await importSingleFile(file, targetAbsolutePath, currentProjectName, currentProjectId);
+                    }
+                    if (onRefresh) setTimeout(onRefresh, 100);
+                  };
+                  input.click();
+                  return;
+                }
+
+                if (key === 'importFolder' && !menuItem) {
+                  const input = document.createElement('input');
+                  input.type = 'file';
+                  // allow selecting a folder (and its files)
+                  input.multiple = true;
                   input.setAttribute('webkitdirectory', '');
                   input.setAttribute('directory', '');
                   input.onchange = async (e: any) => {
@@ -661,13 +704,70 @@ export default function FileTree({
                   } else if (item.type === 'folder') {
                     await exportFolderZip(item);
                   }
-                } else if (key === 'import') {
+                } else if (key === 'importFiles') {
+                  // import files into a target (menuItem must exist)
                   const input = document.createElement('input');
                   input.type = 'file';
-                  // allow selecting multiple files for import into the selected folder/file target
                   input.multiple = true;
-                  // allow selecting a folder for import (preserve nested paths via webkitRelativePath)
-                  // Use setAttribute to avoid TypeScript DOM typings complaining about non-standard props.
+                  input.onchange = async (e: any) => {
+                    const files: FileList = e.target.files;
+                    if (!files || files.length === 0) return;
+                    let baseTargetDir = '';
+                    if (menuItem) {
+                      if (menuItem.type === 'file')
+                        baseTargetDir =
+                          menuItem.path.substring(0, menuItem.path.lastIndexOf('/')) || '/';
+                      else if (menuItem.type === 'folder') baseTargetDir = menuItem.path || '/';
+                    }
+                    const ensureFoldersExistLocal = async (
+                      projectId: string | undefined,
+                      folderPath: string
+                    ) => {
+                      if (!projectId) return;
+                      const parts = folderPath.split('/').filter(Boolean);
+                      let acc = '';
+                      for (const part of parts) {
+                        acc += '/' + part;
+                        try {
+                          await fileRepository.createFile(projectId, acc, '', 'folder');
+                        } catch (err) {
+                          // ignore
+                        }
+                      }
+                    };
+                    for (let i = 0; i < files.length; i++) {
+                      const file = files[i];
+                      const relPath = file.name;
+                      const normalizedBase = baseTargetDir.endsWith('/')
+                        ? baseTargetDir.slice(0, -1)
+                        : baseTargetDir;
+                      const targetAbsolutePath =
+                        `/projects/${currentProjectName}${normalizedBase}/${relPath}`.replace(
+                          '//',
+                          '/'
+                        );
+                      // ensure parent folders exist
+                      const fullRelPath = `${normalizedBase}/${relPath}`.replace('//', '/');
+                      const lastSlash = fullRelPath.lastIndexOf('/');
+                      if (lastSlash > 0) {
+                        const folderPath = fullRelPath.substring(0, lastSlash);
+                        await ensureFoldersExistLocal(currentProjectId, folderPath);
+                      }
+                      await importSingleFile(
+                        file,
+                        targetAbsolutePath,
+                        currentProjectName,
+                        currentProjectId
+                      );
+                    }
+                    if (onRefresh) setTimeout(onRefresh, 100);
+                  };
+                  input.click();
+                } else if (key === 'importFolder') {
+                  // import a folder (preserve nested structure) into the target
+                  const input = document.createElement('input');
+                  input.type = 'file';
+                  input.multiple = true;
                   input.setAttribute('webkitdirectory', '');
                   input.setAttribute('directory', '');
                   input.onchange = async (e: any) => {
