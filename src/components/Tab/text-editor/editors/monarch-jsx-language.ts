@@ -1,18 +1,59 @@
 import { Monaco } from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
+
 /**
- * MonarchベースのJSX/TSX強化言語定義
- * npm installなしでトークンハイライトを改善
+ * MonarchベースのJSX/TSX強化言語定義 (最終調整版)
+ * - `const Hero` が白色になる問題を修正
+
  */
 export function registerEnhancedJSXLanguage(monaco: Monaco) {
-  // JSX/TSX用の強化言語を登録
   monaco.languages.register({ id: 'enhanced-jsx' });
   monaco.languages.register({ id: 'enhanced-tsx' });
 
-  // 共通のMonarch定義
+  const commonRules: any[] = [
+    // コメントは各ステートの最優先で処理するため、ここからは削除し、各ステートの先頭に配置する。
+    // { include: '@whitespace' }, 
+
+    // JSXタグ開始 <Component
+    [/(<)([\w\.\-_]+)/, ['delimiter.bracket', { token: 'tag', next: '@jsxTag' }]],
+    // フラグメント <>
+    [/(<)(>)/, ['delimiter.bracket', { token: 'delimiter.bracket', next: '@jsxContent' }]],
+    
+    // JSの括弧 (新しいステートへ)
+    [/{/, { token: 'delimiter.bracket', next: '@jsExpressionBrace' }],
+    [/\[/, { token: 'delimiter.bracket', next: '@jsExpressionBracket' }],
+    [/\(/, { token: 'delimiter.bracket', next: '@jsExpressionParen' }],
+
+    // 関数呼び出し
+    [/[a-zA-Z_$][\w$]*(?=\s*\()/, 'function.call'],
+
+    // キーワードと識別子
+    // `const Hero` の Hero を `variable` として認識させる
+    [/(const|let|var)(\s+)([a-zA-Z_$][\w$]*)/, ['keyword', 'whitespace', 'variable']],
+    [/[a-z_$][\w$]*/, { cases: { '@typeKeywords': 'type.identifier', '@keywords': 'keyword', '@default': 'identifier' } }],
+    [/[A-Z][\w\$]*/, 'type.identifier'], // PascalCaseは型/クラス扱い
+
+    // 文字列
+    [/"([^"\\]|\\.)*$/, 'string.invalid'],
+    [/'([^'\\]|\\.)*$/, 'string.invalid'],
+    [/"/, 'string', '@string_double'],
+    [/'/, 'string', '@string_single'],
+    [/`/, 'string', '@string_backtick'],
+
+    // 数値
+    [/\d*\.\d+([eE][\-+]?\d+)?/, 'number.float'],
+    [/0[xX][0-9a-fA-F]+/, 'number.hex'],
+    [/\d+/, 'number'],
+
+    // その他デリミタ
+    [/[;,.]/, 'delimiter'],
+    [/[=><!~?:&|+\-*\/\^%]+/, 'operator'],
+  ];
+
   const jsxMonarchLanguage: monaco.languages.IMonarchLanguage = {
     defaultToken: '',
     tokenPostfix: '.jsx',
+    ignoreCase: false,
 
     keywords: [
       'abstract', 'any', 'as', 'async', 'await', 'boolean', 'break', 'case', 'catch',
@@ -31,94 +72,95 @@ export function registerEnhancedJSXLanguage(monaco: Monaco) {
       'never', 'void', 'unknown', 'bigint',
     ],
 
-    operators: [
-      '<=', '>=', '==', '!=', '===', '!==', '=>', '+', '-', '**', '*', '/', '%',
-      '++', '--', '<<', '</', '>>', '>>>', '&', '|', '^', '!', '~', '&&', '||',
-      '??', '?', ':', '=', '+=', '-=', '*=', '**=', '/=', '%=', '<<=', '>>=',
-      '>>>=', '&=', '|=', '^=', '@',
-    ],
-
-    // 正規表現とJSXタグの区別に使う
-    symbols: /[=><!~?:&|+\-*\/\^%]+/,
-    escapes: /\\(?:[abfnrtv\\"']|x[0-9A-Fa-f]{1,4}|u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8})/,
-    digits: /\d+(_+\d+)*/,
-    octaldigits: /[0-7]+(_+[0-7]+)*/,
-    binarydigits: /[0-1]+(_+[0-1]+)*/,
-    hexdigits: /[[0-9a-fA-F]+(_+[0-9a-fA-F]+)*/,
-
-    regexpctl: /[(){}\[\]\$\^|\-*+?\.]/,
-    regexpesc: /\\(?:[bBdDfnrstvwWn0\\\/]|@regexpctl|c[A-Z]|x[0-9a-fA-F]{2}|u[0-9a-fA-F]{4})/,
-
     tokenizer: {
       root: [
-        // JSXタグの開始 <Component
-        [/(<)([A-Z][\w]*)(>|\/?>|\s)/, ['delimiter.bracket', 'tag', 'delimiter.bracket']],
-        [/(<)([a-z][\w-]*)(>|\/?>|\s)/, ['delimiter.bracket', 'tag', 'delimiter.bracket']],
-        
-        // JSXクロージングタグ </Component>
-        [/(<\/)([A-Z][\w]*)(>)/, ['delimiter.bracket', 'tag', 'delimiter.bracket']],
-        [/(<\/)([a-z][\w-]*)(>)/, ['delimiter.bracket', 'tag', 'delimiter.bracket']],
-
-        // JSX属性
-        [/\s+([a-zA-Z][\w-]*)(?=\s*=)/, 'attribute.name'],
-        
-        // メソッド呼び出し object.method()
-        [/([a-zA-Z_$][\w$]*)(\s*)(\.)(\s*)([a-z_$][\w$]*)(?=\s*\()/, 
-          ['identifier', '', 'delimiter', '', 'method']],
-        
-        // プロパティアクセス object.property
-        [/([a-zA-Z_$][\w$]*)(\s*)(\.)(\s*)([a-z_$][\w$]*)/, 
-          ['identifier', '', 'delimiter', '', 'property']],
-        
-        // 関数呼び出し functionName()
-        [/[a-z_$][\w$]*(?=\s*\()/, 'function.call'],
-        
-        // 識別子とキーワード
-        [/[a-z_$][\w$]*/, {
-          cases: {
-            '@typeKeywords': 'type.identifier',
-            '@keywords': 'keyword',
-            '@default': 'identifier'
-          }
-        }],
-        [/[A-Z][\w\$]*/, 'type.identifier'],
-
-        // 空白
-        { include: '@whitespace' },
-
-        // 正規表現
-        [/\/(?=([^\\\/]|\\.)+\/([gimsuy]*)(\s*)(\.|;|,|\)|\]|\}|$))/, { token: 'regexp', bracket: '@open', next: '@regexp' }],
-
-        // デリミタとオペレータ
-        [/[()\[\]]/, '@brackets'],
-        [/[<>](?!@symbols)/, '@brackets'],
-        [/!(?=([^=]|$))/, 'delimiter'],
-        [/@symbols/, {
-          cases: {
-            '@operators': 'delimiter',
-            '@default': ''
-          }
-        }],
-
-        // 数値
-        [/(@digits)[eE]([\-+]?(@digits))?/, 'number.float'],
-        [/(@digits)\.(@digits)([eE][\-+]?(@digits))?/, 'number.float'],
-        [/0[xX](@hexdigits)n?/, 'number.hex'],
-        [/0[oO]?(@octaldigits)n?/, 'number.octal'],
-        [/0[bB](@binarydigits)n?/, 'number.binary'],
-        [/(@digits)n?/, 'number'],
-
-        // デリミタ: コンテキスト後
-        [/[;,.]/, 'delimiter'],
-
-        // 文字列
-        [/"([^"\\]|\\.)*$/, 'string.invalid'],
-        [/'([^'\\]|\\.)*$/, 'string.invalid'],
-        [/"/, 'string', '@string_double'],
-        [/'/, 'string', '@string_single'],
-        [/`/, 'string', '@string_backtick'],
+        { include: '@whitespace' }, // コメントを最優先で処理
+        // ルートレベルでの閉じ括弧は、単なるデリミタとして処理（ポップしない）
+        [/[}\)\]]/, 'delimiter.bracket'],
+        ...commonRules
       ],
 
+      // --------------------------
+      // JSX関連ステート
+      // --------------------------
+
+      // JSXタグ定義内: <div className="foo">
+      jsxTag: [
+        { include: '@whitespace' }, // コメントを最優先で処理
+        
+        // 属性名
+        [/([\w\-]+)(?=\s*=)/, 'attribute.name'], // = が続く場合
+        [/([\w\-]+)/, 'attribute.name'],          // Boolean属性
+
+        // 属性値: "=" の後の文字列
+        [/=/, 'delimiter'],
+        [/"([^"]*)"/, 'attribute.value'],
+        [/'([^']*)'/, 'attribute.value'],
+        
+        // 属性値がJS式の場合: className={...}
+        [/{/, { token: 'delimiter.bracket', next: '@jsExpressionBrace' }],
+
+        // タグの終了
+        [/>/, { token: 'delimiter.bracket', next: '@jsxContent' }], // > 本文へ
+        [/\/>/, { token: 'delimiter.bracket', next: '@pop' }],      // /> 即終了
+      ],
+
+      // JSX本文: <div>Text</div>
+      jsxContent: [
+        { include: '@whitespace' }, // コメントを最優先で処理
+        // 子要素の開始
+        [/(<)([\w\.\-_]+)/, ['delimiter.bracket', { token: 'tag', next: '@jsxTag' }]],
+        [/(<)(>)/, ['delimiter.bracket', { token: 'delimiter.bracket', next: '@jsxContent' }]],
+        
+        // 終了タグ </Component>
+        [/(<\/)([\w\.\-_]+)(>)/, [
+          'delimiter.bracket', 
+          'tag', 
+          { token: 'delimiter.bracket', next: '@pop' }
+        ]],
+        
+        // フラグメント終了 </>
+        [/(<\/>)/, [{ token: 'delimiter.bracket', next: '@pop' }]],
+
+        // 本文内のJS式 { expression }
+        [/{/, { token: 'delimiter.bracket', next: '@jsExpressionBrace' }],
+
+        // 単なるテキスト (重要: < や { 以外の文字。コメント文字も避ける)
+        // ここを修正: / / や * / がstringにマッチしないようにする
+        [/[^<{/]+/, 'string'] 
+      ],
+
+      // --------------------------
+      // JS式ステート (再帰処理用)
+      // --------------------------
+
+      // { ... }
+      jsExpressionBrace: [
+        { include: '@whitespace' }, // コメントを最優先で処理
+        [/\}/, { token: 'delimiter.bracket', next: '@pop' }], // 脱出最優先
+        [/[\[\{\(]/, 'delimiter.bracket', '@push'], // 開き括弧はスタックにプッシュ
+        ...commonRules
+      ],
+
+      // [ ... ]
+      jsExpressionBracket: [
+        { include: '@whitespace' }, // コメントを最優先で処理
+        [/\]/, { token: 'delimiter.bracket', next: '@pop' }], // 脱出最優先
+        [/[\[\{\(]/, 'delimiter.bracket', '@push'], // 開き括弧はスタックにプッシュ
+        ...commonRules
+      ],
+
+      // ( ... ) -> return ( ... ) はここを通る
+      jsExpressionParen: [
+        { include: '@whitespace' }, // コメントを最優先で処理
+        [/\)/, { token: 'delimiter.bracket', next: '@pop' }], // 脱出最優先
+        [/[\[\{\(]/, 'delimiter.bracket', '@push'], // 開き括弧はスタックにプッシュ
+        ...commonRules
+      ],
+
+      // --------------------------
+      // ヘルパー
+      // --------------------------
       whitespace: [
         [/[ \t\r\n]+/, ''],
         [/\/\*\*(?!\/)/, 'comment.doc', '@jsdoc'],
@@ -138,109 +180,36 @@ export function registerEnhancedJSXLanguage(monaco: Monaco) {
         [/[\/*]/, 'comment.doc']
       ],
 
-      regexp: [
-        [/(\{)(\d+(?:,\d*)?)(\})/, ['regexp.escape.control', 'regexp.escape.control', 'regexp.escape.control']],
-        [/(\[)(\^?)(?=(?:[^\]\\\/]|\\.)+)/, ['regexp.escape.control', { token: 'regexp.escape.control', next: '@regexrange' }]],
-        [/(\()(\?:|\?=|\?!)/, ['regexp.escape.control', 'regexp.escape.control']],
-        [/[()]/, 'regexp.escape.control'],
-        [/@regexpctl/, 'regexp.escape.control'],
-        [/[^\\\/]/, 'regexp'],
-        [/@regexpesc/, 'regexp.escape'],
-        [/\\\./, 'regexp.invalid'],
-        [/(\/)([gimsuy]*)/, [{ token: 'regexp', bracket: '@close', next: '@pop' }, 'keyword.other']],
-      ],
-
-      regexrange: [
-        [/-/, 'regexp.escape.control'],
-        [/\^/, 'regexp.invalid'],
-        [/@regexpesc/, 'regexp.escape'],
-        [/[^\]]/, 'regexp'],
-        [/\]/, { token: 'regexp.escape.control', next: '@pop', bracket: '@close' }],
-      ],
-
       string_double: [
         [/[^\\"]+/, 'string'],
-        [/@escapes/, 'string.escape'],
-        [/\\./, 'string.escape.invalid'],
+        [/\\./, 'string.escape'],
         [/"/, 'string', '@pop']
       ],
 
       string_single: [
         [/[^\\']+/, 'string'],
-        [/@escapes/, 'string.escape'],
-        [/\\./, 'string.escape.invalid'],
+        [/\\./, 'string.escape'],
         [/'/, 'string', '@pop']
       ],
 
       string_backtick: [
-        [/\$\{/, { token: 'delimiter.bracket', next: '@bracketCounting' }],
+        [/\$\{/, { token: 'delimiter.bracket', next: '@jsExpressionBrace' }],
         [/[^\\`$]+/, 'string'],
-        [/@escapes/, 'string.escape'],
-        [/\\./, 'string.escape.invalid'],
+        [/\\./, 'string.escape'],
         [/`/, 'string', '@pop']
-      ],
-
-      bracketCounting: [
-        [/\{/, 'delimiter.bracket', '@bracketCounting'],
-        [/\}/, 'delimiter.bracket', '@pop'],
-        { include: 'root' }
       ],
     },
   };
 
-  // JSX用の言語設定
   monaco.languages.setMonarchTokensProvider('enhanced-jsx', jsxMonarchLanguage);
-  
+
   // TSX用の言語設定（同じMonarch定義を使用）
   monaco.languages.setMonarchTokensProvider('enhanced-tsx', jsxMonarchLanguage);
 
-  // 言語設定（括弧、コメント、オートクロージング等）
   const languageConfiguration: monaco.languages.LanguageConfiguration = {
     wordPattern: /(-?\d*\.\d\w*)|([^\`\~\!\@\#\%\^\&\*\(\)\-\=\+\[\{\]\}\\\|\;\:\'\"\,\.\<\>\/\?\s]+)/g,
-    
-    comments: {
-      lineComment: '//',
-      blockComment: ['/*', '*/']
-    },
-
-    brackets: [
-      ['{', '}'],
-      ['[', ']'],
-      ['(', ')']
-    ],
-
-    onEnterRules: [
-      {
-        beforeText: /^\s*\/\*\*(?!\/)([^\*]|\*(?!\/))*$/,
-        afterText: /^\s*\*\/$/,
-        action: {
-          indentAction: monaco.languages.IndentAction.IndentOutdent,
-          appendText: ' * '
-        }
-      },
-      {
-        beforeText: /^\s*\/\*\*(?!\/)([^\*]|\*(?!\/))*$/,
-        action: {
-          indentAction: monaco.languages.IndentAction.None,
-          appendText: ' * '
-        }
-      },
-      {
-        beforeText: /^(\t|(\ \ ))*\ \*(\ ([^\*]|\*(?!\/))*)?$/,
-        action: {
-          indentAction: monaco.languages.IndentAction.None,
-          appendText: '* '
-        }
-      },
-      {
-        beforeText: /^(\t|(\ \ ))*\ \*\/\s*$/,
-        action: {
-          indentAction: monaco.languages.IndentAction.None,
-          removeText: 1
-        }
-      }
-    ],
-
+    comments: { lineComment: '//', blockComment: ['/*', '*/'] },
+    brackets: [['{', '}'], ['[', ']'], ['(', ')']],
     autoClosingPairs: [
       { open: '{', close: '}' },
       { open: '[', close: ']' },
@@ -248,32 +217,13 @@ export function registerEnhancedJSXLanguage(monaco: Monaco) {
       { open: '"', close: '"', notIn: ['string'] },
       { open: "'", close: "'", notIn: ['string', 'comment'] },
       { open: '`', close: '`', notIn: ['string', 'comment'] },
-      { open: "/**", close: " */", notIn: ['string'] },
       { open: '<', close: '>', notIn: ['string'] }
     ],
-
-    surroundingPairs: [
-      { open: '{', close: '}' },
-      { open: '[', close: ']' },
-      { open: '(', close: ')' },
-      { open: '"', close: '"' },
-      { open: "'", close: "'" },
-      { open: '`', close: '`' },
-      { open: '<', close: '>' }
-    ],
-
-    folding: {
-      markers: {
-        start: new RegExp('^\\s*//\\s*#?region\\b'),
-        end: new RegExp('^\\s*//\\s*#?endregion\\b')
-      }
-    }
   };
 
   monaco.languages.setLanguageConfiguration('enhanced-jsx', languageConfiguration);
   monaco.languages.setLanguageConfiguration('enhanced-tsx', languageConfiguration);
 }
-
 /**
  * ファイル名から強化言語を取得
  */
