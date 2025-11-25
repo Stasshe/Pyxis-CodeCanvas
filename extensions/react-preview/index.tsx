@@ -1,6 +1,6 @@
 /**
- * react-preview Extension (CDN-optimized)
- * 主要なnpmパッケージをCDN経由で読み込み、バンドルサイズを削減
+ * react-preview Extension (CDN-optimized) - Fixed Version
+ * CDN読み込み順序とタイミングを修正
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -28,35 +28,42 @@ interface PageInfo {
   filePath: string;
 }
 
-// CDN経由で読み込むライブラリの設定
+// CDN経由で読み込むライブラリの設定（依存関係順に並べる）
 const CDN_LIBRARIES = {
   'react': {
     global: 'React',
-    url: 'https://unpkg.com/react@18/umd/react.production.min.js'
+    url: 'https://unpkg.com/react@18/umd/react.production.min.js',
+    order: 1
   },
   'react-dom': {
     global: 'ReactDOM',
-    url: 'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js'
+    url: 'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js',
+    order: 2
   },
   'react-dom/client': {
     global: 'ReactDOM',
-    url: null // react-domに含まれる
-  },
-  'lucide-react': {
-    global: 'LucideReact',
-    url: 'https://unpkg.com/lucide-react@0.263.1/dist/umd/lucide-react.js'
-  },
-  'recharts': {
-    global: 'Recharts',
-    url: 'https://unpkg.com/recharts@2.5.0/dist/Recharts.js'
+    url: null,
+    order: 3
   },
   'lodash': {
     global: '_',
-    url: 'https://unpkg.com/lodash@4.17.21/lodash.min.js'
+    url: 'https://unpkg.com/lodash@4.17.21/lodash.min.js',
+    order: 4
   },
   'd3': {
     global: 'd3',
-    url: 'https://unpkg.com/d3@7.8.5/dist/d3.min.js'
+    url: 'https://unpkg.com/d3@7.8.5/dist/d3.min.js',
+    order: 5
+  },
+  'recharts': {
+    global: 'Recharts',
+    url: 'https://unpkg.com/recharts@2.5.0/dist/Recharts.js',
+    order: 6
+  },
+  'lucide-react': {
+    global: 'LucideReact',
+    url: 'https://unpkg.com/lucide-react@0.263.1/dist/umd/lucide-react.js',
+    order: 7
   }
 } as const;
 
@@ -91,14 +98,10 @@ async function loadESBuild(): Promise<ESBuild> {
   }
 }
 
-/**
- * CDNライブラリをグローバル変数にマップするプラグイン
- */
 function createGlobalExternalsPlugin() {
   return {
     name: 'global-externals',
     setup(build: any) {
-      // すべてのCDNライブラリをexternalizeする
       const patterns = Object.keys(CDN_LIBRARIES).map(lib => 
         lib.includes('/') ? lib.replace('/', '\\/') : lib
       );
@@ -129,7 +132,6 @@ function createVirtualFSPlugin(projectId: string, fileRepository: any) {
     name: 'virtual-fs',
     setup(build: any) {
       build.onResolve({ filter: /^[^./]/ }, async (args: any) => {
-        // CDNライブラリはスキップ
         if (args.path in CDN_LIBRARIES) {
           return undefined;
         }
@@ -416,6 +418,7 @@ async function reactBuildCommand(args: string[], context: any): Promise<string> 
 
 function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const data = tab.data || {};
   const mode = data.mode || 'single';
@@ -435,13 +438,17 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
       const doc = iframe.contentDocument;
       if (!doc) {
         setError('Cannot access iframe document');
+        setLoading(false);
         return;
       }
 
       try {
-        // CDNスクリプトを生成
-        const cdnScripts = Object.entries(CDN_LIBRARIES)
+        // CDNスクリプトを依存関係順に並べる
+        const sortedLibraries = Object.entries(CDN_LIBRARIES)
           .filter(([_, config]) => config.url !== null)
+          .sort((a, b) => a[1].order - b[1].order);
+
+        const cdnScripts = sortedLibraries
           .map(([_, config]) => `  <script crossorigin src="${config.url}"></script>`)
           .join('\n');
 
@@ -451,11 +458,10 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src *; script-src * 'unsafe-inline' 'unsafe-eval'; style-src * 'unsafe-inline'; img-src * data: blob:; font-src * data:; connect-src *; frame-src *;">
-  <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-  <script>eruda.init();</script>
   <style>
     body { margin: 0; padding: 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
     #root { width: 100%; min-height: 100vh; }
+    #loading { padding: 16px; color: #666; }
   </style>`;
 
         if (useTailwind) {
@@ -464,85 +470,112 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
 
         html += `\n</head>
 <body>
-  <div id="root"></div>
+  <div id="loading">Loading libraries...</div>
+  <div id="root" style="display: none;"></div>
   
 ${cdnScripts}
+  
+  <script>
+    // すべてのライブラリが読み込まれるまで待機
+    function waitForLibraries() {
+      const requiredLibs = ${JSON.stringify(sortedLibraries.map(([_, config]) => config.global))};
+      const checkInterval = setInterval(() => {
+        const allLoaded = requiredLibs.every(lib => window[lib]);
+        
+        if (allLoaded) {
+          clearInterval(checkInterval);
+          document.getElementById('loading').style.display = 'none';
+          document.getElementById('root').style.display = 'block';
+          initApp();
+        }
+      }, 50);
+      
+      // タイムアウト（10秒）
+      setTimeout(() => {
+        clearInterval(checkInterval);
+        const missing = requiredLibs.filter(lib => !window[lib]);
+        if (missing.length > 0) {
+          document.getElementById('loading').innerHTML = 
+            '<div style="color: #f88;">Failed to load: ' + missing.join(', ') + '</div>';
+        }
+      }, 10000);
+    }
+    
+    function initApp() {
+      try {
 `;
 
         if (mode === 'single') {
-          html += `  
-  <script>
-    ${data.code}
-  </script>
-  
-  <script>
-    try {
-      const Component = window.__ReactApp__.default || window.__ReactApp__;
-      
-      if (!Component) {
-        throw new Error('No component exported');
-      }
+          html += `        ${data.code}
+        
+        const Component = window.__ReactApp__.default || window.__ReactApp__;
+        
+        if (!Component) {
+          throw new Error('No component exported');
+        }
 
-      const root = ReactDOM.createRoot(document.getElementById('root'));
-      root.render(React.createElement(Component));
-      
-    } catch (err) {
-      document.getElementById('root').innerHTML = '<div style="color: #f88; padding: 16px; font-family: monospace; font-size: 12px; white-space: pre-wrap;">Error: ' + (err?.stack || err?.message || String(err)) + '</div>';
-      console.error('[ReactPreview]', err);
-    }
-  </script>`;
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(React.createElement(Component));
+`;
         } else {
           const pages = data.pages || [];
           const bundledPages = data.bundledPages || {};
           
           for (const [route, code] of Object.entries(bundledPages)) {
-            html += `  <script>${code}</script>\n`;
+            html += `        ${code}\n`;
           }
 
           const routeMap = pages.map((p: PageInfo) => {
             const globalName = `__Page_${p.route.replace(/\//g, '_').replace(/^_$/, 'root')}__`;
-            return `    '${p.route}': window.${globalName}.default || window.${globalName}`;
+            return `          '${p.route}': window.${globalName}.default || window.${globalName}`;
           }).join(',\n');
 
           html += `
-  <script>
-    const routes = {
+        const routes = {
 ${routeMap}
-    };
+        };
 
-    let currentRoot = null;
+        let currentRoot = null;
 
-    function navigate(path) {
-      const Component = routes[path];
-      
-      if (!Component) {
-        document.getElementById('root').innerHTML = '<div style="padding: 16px;"><h1>404</h1><p>Available routes:</p><ul>' + 
-          Object.keys(routes).map(r => '<li><a href="#' + r + '">' + r + '</a></li>').join('') + 
-          '</ul></div>';
-        return;
-      }
+        function navigate(path) {
+          const Component = routes[path];
+          
+          if (!Component) {
+            document.getElementById('root').innerHTML = '<div style="padding: 16px;"><h1>404</h1><p>Available routes:</p><ul>' + 
+              Object.keys(routes).map(r => '<li><a href="#' + r + '">' + r + '</a></li>').join('') + 
+              '</ul></div>';
+            return;
+          }
 
-      if (!currentRoot) {
-        currentRoot = ReactDOM.createRoot(document.getElementById('root'));
-      }
-      
-      try {
-        currentRoot.render(React.createElement(Component));
-      } catch (err) {
-        document.getElementById('root').innerHTML = '<div style="color: #f88; padding: 16px; font-family: monospace; white-space: pre-wrap;">Error: ' + (err?.stack || String(err)) + '</div>';
-        console.error(err);
-      }
-    }
-
-    window.addEventListener('hashchange', () => {
-      navigate(window.location.hash.slice(1) || '/');
-    });
-    
-    navigate(window.location.hash.slice(1) || '/');
-  </script>`;
+          if (!currentRoot) {
+            currentRoot = ReactDOM.createRoot(document.getElementById('root'));
+          }
+          
+          try {
+            currentRoot.render(React.createElement(Component));
+          } catch (err) {
+            document.getElementById('root').innerHTML = '<div style="color: #f88; padding: 16px; font-family: monospace; white-space: pre-wrap;">Error: ' + (err?.stack || String(err)) + '</div>';
+            console.error(err);
+          }
         }
 
-        html += `
+        window.addEventListener('hashchange', () => {
+          navigate(window.location.hash.slice(1) || '/');
+        });
+        
+        navigate(window.location.hash.slice(1) || '/');
+`;
+        }
+
+        html += `        
+      } catch (err) {
+        document.getElementById('root').innerHTML = '<div style="color: #f88; padding: 16px; font-family: monospace; font-size: 12px; white-space: pre-wrap;">Error: ' + (err?.stack || err?.message || String(err)) + '</div>';
+        console.error('[ReactPreview]', err);
+      }
+    }
+    
+    waitForLibraries();
+  </script>
 </body>
 </html>`;
 
@@ -551,8 +584,10 @@ ${routeMap}
         doc.close();
         initializedRef.current = true;
         setError(null);
+        setLoading(false);
       } catch (err: any) {
         setError(err?.message || 'Init failed');
+        setLoading(false);
       }
     };
 
@@ -570,6 +605,7 @@ ${routeMap}
           {mode === 'multipage' && `${data.pages?.length || 0} pages | `}
           Built: {data.builtAt ? new Date(data.builtAt).toLocaleString() : 'N/A'}
           {useTailwind && ' | Tailwind'}
+          {loading && ' | Loading...'}
         </p>
       </div>
 
