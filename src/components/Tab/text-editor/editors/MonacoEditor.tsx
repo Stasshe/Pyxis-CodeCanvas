@@ -134,6 +134,7 @@ export default function MonacoEditor({
             { token: 'attribute.name.html', foreground: '9CDCFE' },
             { token: 'tag.tsx', foreground: '4EC9B0', fontStyle: 'bold' },
             { token: 'tag.jsx', foreground: '4EC9B0', fontStyle: 'bold' },
+            { token: 'text', foreground: 'D4D4D4' },
 
             
           ],
