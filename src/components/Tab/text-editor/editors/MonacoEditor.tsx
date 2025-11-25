@@ -203,24 +203,6 @@ export default function MonacoEditor({
           editor.setModel(model);
           currentModelIdRef.current = tabId;
           onCharCountChange(countCharsNoSpaces(content));
-
-          // マーカー（診断）リスナー: モデルのマーカーが更新されたらログ出力
-          try {
-            if (markerListenerRef.current) {
-              markerListenerRef.current.dispose();
-              markerListenerRef.current = null;
-            }
-            markerListenerRef.current = mon.editor.onDidChangeMarkers(uris => {
-              uris.forEach(uri => {
-                if (model && uri.toString() === model.uri.toString()) {
-                  const markers = mon.editor.getModelMarkers({ resource: uri });
-                  console.debug('[MonacoEditor] Markers for', uri.toString(), markers);
-                }
-              });
-            });
-          } catch (e) {
-            console.warn('[MonacoEditor] Failed to attach markers listener:', e);
-          }
         } catch (e: any) {
           console.warn('[MonacoEditor] Initial setModel failed:', e?.message);
         }

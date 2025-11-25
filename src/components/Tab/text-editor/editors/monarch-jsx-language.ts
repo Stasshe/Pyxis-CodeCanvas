@@ -241,6 +241,16 @@ export function registerEnhancedJSXLanguage(monaco: Monaco) {
 
   monaco.languages.setLanguageConfiguration('enhanced-jsx', languageConfiguration);
   monaco.languages.setLanguageConfiguration('enhanced-tsx', languageConfiguration);
+  // Also apply our language configuration to the built-in JS/TS languages so the
+  // same auto-closing/pairs/etc work for models created as 'javascript'/'typescript'.
+  try {
+    monaco.languages.setLanguageConfiguration('javascript', languageConfiguration);
+    monaco.languages.setLanguageConfiguration('typescript', languageConfiguration);
+  } catch (e) {
+    // Not fatal; but log for debugging
+    // eslint-disable-next-line no-console
+    console.warn('[monarch-jsx-language] Failed to set language configuration for js/ts:', e);
+  }
 }
 /**
  * ファイル名から強化言語を取得
