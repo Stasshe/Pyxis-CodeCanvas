@@ -130,6 +130,13 @@ export default function MonacoEditor({
             { token: 'attribute.name.jsx', foreground: '9CDCFE', fontStyle: 'italic' },
             { token: 'attribute.value', foreground: 'CE9178' },
             { token: 'jsx.text', foreground: 'D4D4D4' }, // JSX本文テキストは白色
+            { token: 'delimiter.html', foreground: 'FFD700' },
+            { token: 'attribute.name.html', foreground: '9CDCFE' },
+            { token: 'tag.tsx', foreground: '4EC9B0', fontStyle: 'bold' },
+            { token: 'tag.jsx', foreground: '4EC9B0', fontStyle: 'bold' },
+            { token: 'text', foreground: 'D4D4D4' },
+
+            
           ],
           colors: {
             'editor.background': colors.editorBg || '#1e1e1e',
