@@ -71,9 +71,9 @@ export class NpmInstall {
       `[npmInstall] Finishing batch processing, ${this.fileOperationQueue.length} operations queued`
     );
 
-    // キューに溜まった操作を並列実行（適度な並列度で）
+    // 🚀 最適化: バッチサイズを大幅に増加（fileRepositoryの並列処理を活用）
     // 注: フォルダ操作は executeFileOperation で既に即座に実行されているためスキップ
-    const BATCH_SIZE = 5;
+    const BATCH_SIZE = 500;
     for (let i = 0; i < this.fileOperationQueue.length; i += BATCH_SIZE) {
       const batch = this.fileOperationQueue.slice(i, i + BATCH_SIZE);
       // グループ化して bulk 操作に変換
