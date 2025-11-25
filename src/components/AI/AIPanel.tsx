@@ -9,6 +9,7 @@ import ChatContainer from './chat/ChatContainer';
 import ChatInput from './chat/ChatInput';
 import ModeSelector from './chat/ModeSelector';
 import ChatSpaceList from './ChatSpaceList';
+import OperationWindow from '@/components/OperationWindow';
 import FileContextBar from './context/FileContextBar';
 import FileSelector from './FileSelector';
 import ChangedFilesPanel from './review/ChangedFilesPanel';
@@ -290,33 +291,29 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
         </div>
       </div>
 
-      {/* Absolute-positioned dropdown for space list so it doesn't affect layout */}
-      {showSpaceList && dropdownPosition && (
-        <div
-          className="z-50 select-none"
-          style={{
-            position: 'fixed',
-            left: dropdownPosition.left,
-            top: dropdownPosition.top,
-            width: dropdownPosition.width,
-            boxSizing: 'border-box',
-          }}
-          onMouseLeave={() => setShowSpaceList(false)}
-        >
-          <ChatSpaceList
-            chatSpaces={chatSpaces}
-            currentSpace={currentSpace}
-            onSelectSpace={space => {
-              selectSpace(space);
-              setShowSpaceList(false);
-            }}
-            onCreateSpace={async name => {
-              await createNewSpace(name);
-            }}
-            onDeleteSpace={deleteSpace}
-            onUpdateSpaceName={updateSpaceName}
-          />
-        </div>
+      {/* OperationWindow-driven spaces list (opened when showSpaceList) */}
+      {showSpaceList && (
+        <OperationWindow
+          isVisible={showSpaceList}
+          onClose={() => setShowSpaceList(false)}
+          projectFiles={projectFiles}
+          listContent={
+            <ChatSpaceList
+              chatSpaces={chatSpaces}
+              currentSpace={currentSpace}
+              onSelectSpace={space => {
+                selectSpace(space);
+                setShowSpaceList(false);
+              }}
+              onCreateSpace={async name => {
+                await createNewSpace(name);
+              }}
+              onDeleteSpace={deleteSpace}
+              onUpdateSpaceName={updateSpaceName}
+            />
+          }
+          initialView="spaces"
+        />
       )}
 
       {/* ファイルコンテキストバー */}

@@ -85,6 +85,9 @@ interface OperationWindowProps {
   onFileSelect?: (file: FileItem) => void; // AI用モード用
   aiMode?: boolean; // AI用モード（ファイルをタブで開かない）
   targetPaneId?: string | null; // ファイルを開くペインのID
+  // Optional generic list/content to display when toggled to 'spaces'
+  listContent?: React.ReactNode;
+  initialView?: 'files' | 'spaces';
 }
 
 export default function OperationWindow({
@@ -94,6 +97,8 @@ export default function OperationWindow({
   onFileSelect,
   aiMode = false,
   targetPaneId,
+  listContent,
+  initialView,
 }: OperationWindowProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
@@ -102,6 +107,7 @@ export default function OperationWindow({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [mdPreviewPrompt, setMdPreviewPrompt] = useState<null | { file: FileItem }>(null);
   const [mdDialogSelected, setMdDialogSelected] = useState<0 | 1>(0); // 0: プレビュー, 1: 通常エディタ
+  const [viewMode, setViewMode] = useState<'files' | 'spaces'>(() => initialView || 'files');
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const { currentProject } = useProject();
@@ -453,33 +459,71 @@ export default function OperationWindow({
           }}
           onClick={e => e.stopPropagation()}
         >
-          {/* 検索入力欄のみ */}
+          {/* Header: view toggle + search (files) */}
           <div style={{ padding: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-              <span style={{ fontSize: '12px', color: colors.mutedFg }}>
-                Quick Open - {formatKeyComboForDisplay('Ctrl+P')}
-              </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <button
+                  onClick={() => setViewMode('files')}
+                  style={{
+                    padding: '6px 10px',
+                    borderRadius: '6px',
+                    border: `1px solid ${viewMode === 'files' ? colors.accent : colors.border}`,
+                    background: viewMode === 'files' ? colors.accentBg : colors.background,
+                    color: viewMode === 'files' ? colors.cardBg : colors.foreground,
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                  }}
+                >
+                  {t('operationWindow.files') || 'Files'}
+                </button>
+                {listContent && (
+                  <button
+                    onClick={() => setViewMode('spaces')}
+                    style={{
+                      padding: '6px 10px',
+                      borderRadius: '6px',
+                      border: `1px solid ${viewMode === 'spaces' ? colors.accent : colors.border}`,
+                      background: viewMode === 'spaces' ? colors.accentBg : colors.background,
+                      color: viewMode === 'spaces' ? colors.cardBg : colors.foreground,
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                    }}
+                  >
+                    {t('operationWindow.spaces') || 'Spaces'}
+                  </button>
+                )}
+              </div>
+
+              <div style={{ marginLeft: 'auto', fontSize: '12px', color: colors.mutedFg }}>
+                {viewMode === 'files'
+                  ? `${t('operationWindow.quickOpen') || 'Quick Open'} - ${formatKeyComboForDisplay('Ctrl+P')}`
+                  : t('operationWindow.spacesHeader') || 'Chat Spaces'}
+              </div>
             </div>
-            <input
-              ref={inputRef}
-              type="text"
-              placeholder={t('operationWindow.searchPlaceholder')}
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                background: colors.background,
-                border: `1px solid ${colors.border}`,
-                borderRadius: '4px',
-                color: colors.foreground,
-                fontSize: '14px',
-                outline: 'none',
-              }}
-            />
+
+            {viewMode === 'files' && (
+              <input
+                ref={inputRef}
+                type="text"
+                placeholder={t('operationWindow.searchPlaceholder')}
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  background: colors.background,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: '4px',
+                  color: colors.foreground,
+                  fontSize: '14px',
+                  outline: 'none',
+                }}
+              />
+            )}
           </div>
 
-          {/* ファイル一覧 */}
+          {/* メインコンテンツ：ファイル一覧 または スペース一覧 */}
           <div
             ref={listRef}
             style={{
@@ -487,9 +531,13 @@ export default function OperationWindow({
               overflowY: 'auto',
               minHeight: '200px',
               maxHeight: 'calc(40vh - 80px)',
+              padding: viewMode === 'spaces' ? '12px' : undefined,
             }}
           >
-            {filteredFiles.length === 0 ? (
+            {viewMode === 'spaces' ? (
+              // Render the provided list content (caller supplies component)
+              <div style={{ display: 'flex', justifyContent: 'center' }}>{listContent || null}</div>
+            ) : filteredFiles.length === 0 ? (
               <div
                 style={{
                   padding: '20px',
