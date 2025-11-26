@@ -247,7 +247,7 @@ export default function TabBar({ paneId }: TabBarProps) {
           dragRef(node as any);
           tabDrop(node as any);
         }}
-        className="h-full px-3 flex items-center gap-2 cursor-pointer flex-shrink-0 border-r"
+        className={`h-full px-3 flex items-center gap-2 flex-shrink-0 border-r ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
         style={{
           background: isActive ? colors.background : colors.mutedBg,
           borderColor: colors.border,

@@ -238,9 +238,16 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
                 style={{
                     position: 'absolute',
                     zIndex: 50,
-                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
                     pointerEvents: 'none', // ドロップイベントを妨害しないように
-                    ...(dropZone === 'center' ? { inset: 0 } : {}),
+                    // Center (Move): Blue highlight with border
+                    ...(dropZone === 'center' ? { 
+                        inset: 0,
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)', // Blue tint
+                        border: '2px solid #3b82f6', // Blue border
+                    } : {
+                        // Split: White/Gray overlay for new pane area
+                        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                    }),
                     ...(dropZone === 'top' ? { top: 0, left: 0, right: 0, height: '50%' } : {}),
                     ...(dropZone === 'bottom' ? { bottom: 0, left: 0, right: 0, height: '50%' } : {}),
                     ...(dropZone === 'left' ? { top: 0, left: 0, bottom: 0, width: '50%' } : {}),

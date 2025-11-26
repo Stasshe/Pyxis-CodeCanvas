@@ -20,6 +20,7 @@ export const DEFAULT_BINDINGS: Binding[] = [
   { id: 'toggleBottomPanel', name: 'Toggle Bottom Panel', combo: 'Ctrl+J', category: 'view' },
   { id: 'openSettings', name: 'Open Settings', combo: 'Ctrl+,', category: 'view' },
   { id: 'openShortcutKeys', name: 'Open Shortcut Keys', combo: 'Ctrl+Shift+J', category: 'view' },
+  { id: 'toggleWordWrap', name: 'Toggle Word Wrap', combo: 'Alt+Z', category: 'view' },
   // Tab management
   { id: 'closeTab', name: 'Close Tab', combo: 'Ctrl+Shift+Q', category: 'tab' },
   { id: 'nextTab', name: 'Next Tab', combo: 'Ctrl+E', category: 'tab' },

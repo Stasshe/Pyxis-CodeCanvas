@@ -58,7 +58,7 @@ export default function CodeEditor({
   const projectId =
     currentProject?.id ||
     (activeTab && 'projectId' in activeTab ? (activeTab as any).projectId : undefined);
-  const { settings } = useSettings(projectId);
+  const { settings, updateSettings } = useSettings(projectId);
   const { isContentRestored } = useTabStore();
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -217,6 +217,21 @@ export default function CodeEditor({
       onContentChange,
     ]
   );
+
+    // 折り返しのトグルショートカット登録 (Alt+Z)
+    useKeyBinding(
+      'toggleWordWrap',
+      async () => {
+        if (!projectId || !updateSettings) return;
+        const current = settings?.editor?.wordWrap ?? false;
+        try {
+          await updateSettings({ editor: { wordWrap: !current } });
+        } catch (e) {
+          console.error('[CodeEditor] toggleWordWrap failed:', e);
+        }
+      },
+      [projectId, settings?.editor?.wordWrap, updateSettings]
+    );
 
   // === タブなし ===
   if (!activeTab) {

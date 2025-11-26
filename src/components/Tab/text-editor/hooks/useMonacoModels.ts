@@ -65,16 +65,26 @@ export function useMonacoModels() {
           const path = safeFileName.startsWith('/') ? safeFileName : `/${safeFileName}`;
           const uri = mon.Uri.parse(`inmemory://model${path}`);
 
-          // 既存のモデルを再利用
+          // 既存のモデルを再利用（ただし言語IDは強制的に合わせる）
           try {
             const existingModel = mon.editor.getModel(uri);
             if (isModelSafe(existingModel)) {
+              // Ensure the model has the correct language (prevents language carry-over)
+              try {
+                const desiredLang = getModelLanguage(fileName);
+                // mon.editor.setModelLanguage is the recommended API to change a model's language
+                (mon.editor as any).setModelLanguage(existingModel, desiredLang);
+              } catch (e) {
+                console.debug('[useMonacoModels] setModelLanguage failed or unavailable:', e);
+              }
+
               monacoModelMap.set(tabId, existingModel as monaco.editor.ITextModel);
               console.debug(
                 '[useMonacoModels] Reusing existing model for:',
                 tabId,
                 'uri:',
-                uri.toString()
+                uri.toString(),
+                'language:', existingModel.getLanguageId()
               );
               return existingModel as monaco.editor.ITextModel;
             }
@@ -85,6 +95,13 @@ export function useMonacoModels() {
           // 強化されたJSX/TSX言語を使用
           const language = getMonarchLanguage(fileName);
           const newModel = mon.editor.createModel(content, language, uri);
+          // Ensure model language aligns with model-level language mapping (safety)
+          try {
+            const modelLang = getModelLanguage(fileName);
+            (mon.editor as any).setModelLanguage(newModel, modelLang);
+          } catch (e) {
+            // not critical
+          }
           monacoModelMap.set(tabId, newModel);
           console.debug(
             '[useMonacoModels] Created new model for:',
