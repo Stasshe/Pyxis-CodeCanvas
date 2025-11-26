@@ -409,6 +409,34 @@ function ClientTerminal({
             term.clear();
             break;
 
+          // 履歴表示・削除コマンド
+          case 'history': {
+            // args: ['clear'] -> clear history
+            const sub = args[0];
+            if (sub === 'clear' || sub === 'reset' || sub === '--clear') {
+              try {
+                commandHistory = [];
+                saveHistory();
+                // Remove from localStorage explicitly as well
+                try {
+                  localStorage.removeItem(HISTORY_KEY);
+                } catch (e) {}
+                await captureWriteOutput('ターミナル履歴を削除しました');
+              } catch (e) {
+                await captureWriteOutput(`履歴削除エラー: ${(e as Error).message}`);
+              }
+            } else {
+              if (commandHistory.length === 0) {
+                await captureWriteOutput('履歴はありません');
+              } else {
+                for (let i = 0; i < commandHistory.length; i++) {
+                  await captureWriteOutput(`${i + 1}: ${commandHistory[i]}`);
+                }
+              }
+            }
+            break;
+          }
+          
           case 'git':
             await handleGitCommand(args, currentProject, currentProjectId, captureWriteOutput);
             break;
