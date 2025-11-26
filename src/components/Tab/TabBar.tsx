@@ -11,6 +11,7 @@ import {
   Minus,
 } from 'lucide-react';
 import React, { useState, useRef, useEffect } from 'react';
+import { useDrag, useDrop } from 'react-dnd';
 
 import { TabIcon } from './TabIcon';
 import { useTabCloseConfirmation } from './useTabCloseConfirmation';
@@ -36,7 +37,7 @@ export default function TabBar({ paneId }: TabBarProps) {
   const { requestClose, ConfirmationDialog } = useTabCloseConfirmation();
   const { openFileSelector } = useFileSelector();
 
-  const { getPane, activateTab, closeTab, openTab, removePane, moveTab, splitPane, panes } =
+  const { getPane, activateTab, closeTab, openTab, removePane, moveTab, moveTabToIndex, splitPane, panes } =
     useTabStore();
 
   const pane = getPane(paneId);
@@ -189,6 +190,107 @@ export default function TabBar({ paneId }: TabBarProps) {
     [paneId]
   );
 
+  // 個々のタブを分離したコンポーネントにして、そこにhooksを置く
+  function DraggableTab({
+    tab,
+    tabIndex,
+  }: {
+    tab: any;
+    tabIndex: number;
+  }) {
+    const isActive = tab.id === activeTabId;
+    const isDuplicate = nameCount[tab.name] > 1;
+    const displayName = isDuplicate ? `${tab.name} (${tab.path})` : tab.name;
+
+    // Drag source
+    const [{ isDragging }, dragRef] = useDrag(
+      () => ({
+        type: 'TAB',
+        item: { tabId: tab.id, fromPaneId: paneId, index: tabIndex },
+        collect: (monitor: any) => ({
+          isDragging: monitor.isDragging(),
+        }),
+      }),
+      [tab.id, paneId, tabIndex]
+    );
+
+    // Drop target on each tab - perform move only on drop to avoid repeated moves during hover
+    const [, tabDrop] = useDrop(
+      () => ({
+        accept: 'TAB',
+        drop: (item: any, monitor: any) => {
+          if (!item || !item.tabId) return;
+          // ensure this is the shallowest target (avoid nested drops)
+          if (monitor && typeof monitor.isOver === 'function' && !monitor.isOver({ shallow: true })) return;
+          const fromPane = item.fromPaneId;
+          const draggedId = item.tabId;
+          if (draggedId === tab.id) return;
+          try {
+            // @ts-ignore
+            moveTabToIndex(fromPane, paneId, draggedId, tabIndex);
+            item.fromPaneId = paneId;
+            item.index = tabIndex;
+          } catch (err) {
+            // ignore
+          }
+        },
+      }),
+      [paneId, tabIndex]
+    );
+
+    const opacity = isDragging ? 0.4 : 1;
+
+    return (
+      <div
+        key={tab.id}
+        ref={node => {
+          dragRef(node as any);
+          tabDrop(node as any);
+        }}
+        className="h-full px-3 flex items-center gap-2 cursor-pointer flex-shrink-0 border-r"
+        style={{
+          background: isActive ? colors.background : colors.mutedBg,
+          borderColor: colors.border,
+          minWidth: '120px',
+          maxWidth: '200px',
+          opacity,
+        }}
+        onClick={() => handleTabClick(tab.id)}
+        onContextMenu={e => handleTabRightClick(e, tab.id)}
+        onTouchStart={e => handleTouchStart(e, tab.id)}
+        onTouchEnd={handleTouchEnd}
+        onTouchMove={handleTouchMove}
+      >
+        <TabIcon kind={tab.kind} filename={tab.name} size={14} color={colors.fg} />
+        <span className="text-sm truncate flex-1" style={{ color: colors.fg }} title={displayName}>
+          {displayName}
+        </span>
+        {(tab as any).isDirty ? (
+          <button
+            className="hover:bg-accent rounded p-0.5 flex items-center justify-center"
+            onClick={e => {
+              e.stopPropagation();
+              handleTabClose(tab.id);
+            }}
+            title={t('tabBar.unsavedChanges')}
+          >
+            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: colors.foreground }} />
+          </button>
+        ) : (
+          <button
+            className="hover:bg-accent rounded p-0.5"
+            onClick={e => {
+              e.stopPropagation();
+              handleTabClose(tab.id);
+            }}
+          >
+            <X size={14} color={colors.fg} />
+          </button>
+        )}
+      </div>
+    );
+  }
+
   useKeyBinding(
     'closeTab',
     () => {
@@ -246,6 +348,20 @@ export default function TabBar({ paneId }: TabBarProps) {
       e.preventDefault();
     }
   };
+
+  // コンテナ自体もドロップ可能（末尾に追加）
+  const [, containerDrop] = useDrop(
+    () => ({
+      accept: 'TAB',
+      drop: (item: any, monitor: any) => {
+        if (!item || !item.tabId) return;
+        // ドロップ先はこのペインの末尾
+        if (item.fromPaneId === paneId) return; // 同じペインであれば無視（個別タブ上で処理）
+        moveTab(item.fromPaneId, paneId, item.tabId);
+      },
+    }),
+    [paneId]
+  );
 
   return (
     <div
@@ -382,74 +498,16 @@ export default function TabBar({ paneId }: TabBarProps) {
       {/* タブリスト */}
       <div
         className="flex items-center overflow-x-auto flex-1 select-none"
-        ref={tabsContainerRef}
+        ref={node => {
+          tabsContainerRef.current = node;
+          // container にドロップリファレンスを繋ぐ
+          if (node) containerDrop(node as any);
+        }}
         onWheel={handleWheel}
       >
-        {tabs.map(tab => {
-          const isActive = tab.id === activeTabId;
-          const isDuplicate = nameCount[tab.name] > 1;
-          const displayName = isDuplicate ? `${tab.name} (${tab.path})` : tab.name;
-
-          return (
-            <div
-              key={tab.id}
-              className="h-full px-3 flex items-center gap-2 cursor-pointer flex-shrink-0 border-r"
-              style={{
-                background: isActive ? colors.background : colors.mutedBg,
-                borderColor: colors.border,
-                minWidth: '120px',
-                maxWidth: '200px',
-              }}
-              onClick={() => handleTabClick(tab.id)}
-              onContextMenu={e => handleTabRightClick(e, tab.id)}
-              onTouchStart={e => handleTouchStart(e, tab.id)}
-              onTouchEnd={handleTouchEnd}
-              onTouchMove={handleTouchMove}
-            >
-              <TabIcon
-                kind={tab.kind}
-                filename={tab.name}
-                size={14}
-                color={colors.fg}
-              />
-              <span
-                className="text-sm truncate flex-1"
-                style={{ color: colors.fg }}
-                title={displayName}
-              >
-                {displayName}
-              </span>
-              {(tab as any).isDirty ? (
-                <button
-                  className="hover:bg-accent rounded p-0.5 flex items-center justify-center"
-                  onClick={e => {
-                    e.stopPropagation();
-                    handleTabClose(tab.id);
-                  }}
-                  title={t('tabBar.unsavedChanges')}
-                >
-                  <div
-                    className="w-2.5 h-2.5 rounded-full"
-                    style={{ backgroundColor: colors.foreground }}
-                  />
-                </button>
-              ) : (
-                <button
-                  className="hover:bg-accent rounded p-0.5"
-                  onClick={e => {
-                    e.stopPropagation();
-                    handleTabClose(tab.id);
-                  }}
-                >
-                  <X
-                    size={14}
-                    color={colors.fg}
-                  />
-                </button>
-              )}
-            </div>
-          );
-        })}
+        {tabs.map((tab, tabIndex) => (
+          <DraggableTab key={`${paneId}-${tabIndex}-${tab.id}`} tab={tab} tabIndex={tabIndex} />
+        ))}
 
         {/* 新しいタブを追加ボタン */}
         <button

@@ -2,6 +2,7 @@
 'use client';
 
 import React, { createContext, useContext } from 'react';
+import { useDrop } from 'react-dnd';
 
 import PaneResizer from '@/components/PaneResizer';
 import TabBar from '@/components/Tab/TabBar';
@@ -38,7 +39,20 @@ export const useGitContext = () => {
  */
 export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContainerProps) {
   const { colors } = useTheme();
-  const { globalActiveTab, setPanes, panes: allPanes } = useTabStore();
+  const { globalActiveTab, setPanes, panes: allPanes, moveTab } = useTabStore();
+
+  // このペイン自体をドロップターゲットとして扱う（末尾に挿入）
+  const [, drop] = useDrop(
+    () => ({
+      accept: 'TAB',
+      drop: (item: any) => {
+        if (!item || !item.tabId) return;
+        if (item.fromPaneId === pane.id) return; // 同じペインなら無視
+        moveTab(item.fromPaneId, pane.id, item.tabId);
+      },
+    }),
+    [pane.id]
+  );
 
   // 子ペインがある場合は分割レイアウトをレンダリング
   if (pane.children && pane.children.length > 0) {
@@ -125,9 +139,23 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
   // TabRegistryからコンポーネントを取得
   const TabComponent = activeTab ? tabRegistry.get(activeTab.kind)?.component : null;
 
+
+  // React の `ref` に渡すときの型不整合を避けるため、コールバック ref を用いる
+  const dropRef = (node: HTMLDivElement | null) => {
+    try {
+      if (typeof drop === 'function') {
+        // react-dnd の drop へ渡す際に any を許容
+        (drop as any)(node);
+      }
+    } catch (err) {
+      // 安全のためエラーは無視
+    }
+  };
+
   return (
     <GitContext.Provider value={{ setGitRefreshTrigger }}>
       <div
+        ref={dropRef}
         className="flex flex-col overflow-hidden"
         style={{
           width: '100%',

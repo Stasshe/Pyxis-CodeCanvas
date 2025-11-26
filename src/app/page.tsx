@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { DndProvider } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
 
 import { useTheme } from '../context/ThemeContext';
 
@@ -237,7 +239,8 @@ export default function Home() {
   );
 
   return (
-    <div
+    <DndProvider backend={HTML5Backend}>
+      <div
       style={{
         position: 'fixed',
         inset: 0,
@@ -449,6 +452,7 @@ export default function Home() {
         nodeRuntimeBusy={nodeRuntimeOperationInProgress}
         colors={colors}
       />
-    </div>
+      </div>
+    </DndProvider>
   );
 }

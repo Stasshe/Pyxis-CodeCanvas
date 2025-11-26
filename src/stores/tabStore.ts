@@ -33,6 +33,7 @@ interface TabStore {
   updateTab: (paneId: string, tabId: string, updates: Partial<Tab>) => void;
   updateTabContent: (tabId: string, content: string, immediate?: boolean) => void;
   moveTab: (fromPaneId: string, toPaneId: string, tabId: string) => void;
+  moveTabToIndex: (fromPaneId: string, toPaneId: string, tabId: string, index: number) => void;
 
   // ユーティリティ
   getPane: (paneId: string) => EditorPane | null;
@@ -383,6 +384,58 @@ export const useTabStore = create<TabStore>((set, get) => ({
     // グローバルアクティブタブを更新
     set({
       globalActiveTab: updatedTab.id,
+      activePane: toPaneId,
+    });
+  },
+
+  // タブを特定のインデックスに移動（同一ペイン内の並び替えまたは他ペインへ挿入）
+  moveTabToIndex: (fromPaneId: string, toPaneId: string, tabId: string, index: number) => {
+    const state = get();
+    const fromPane = state.getPane(fromPaneId);
+    const toPane = state.getPane(toPaneId);
+    if (!fromPane || !toPane) return;
+
+    const tab = fromPane.tabs.find(t => t.id === tabId);
+    if (!tab) return;
+
+    // 同一ペイン内の並べ替えの場合は単純に配列を並べ替えて終了
+    if (fromPaneId === toPaneId) {
+      const currentIndex = fromPane.tabs.findIndex(t => t.id === tabId);
+      const targetIndex = Math.max(0, Math.min(index, fromPane.tabs.length - 1));
+      if (currentIndex === -1 || currentIndex === targetIndex) return;
+
+      const reordered = [...fromPane.tabs];
+      const [removed] = reordered.splice(currentIndex, 1);
+      reordered.splice(targetIndex, 0, removed);
+
+      get().updatePane(fromPaneId, {
+        tabs: reordered,
+        activeTabId: removed.id,
+      });
+
+      set({ globalActiveTab: removed.id, activePane: fromPaneId });
+      return;
+    }
+
+    // 別ペインへ移動する場合
+    // まず移動元から削除
+    const newFromTabs = fromPane.tabs.filter(t => t.id !== tabId);
+    get().updatePane(fromPaneId, {
+      tabs: newFromTabs,
+      activeTabId: fromPane.activeTabId === tabId ? (newFromTabs[0]?.id || '') : fromPane.activeTabId,
+    });
+
+    // 移動先に挿入
+    const adjustedIndex = Math.max(0, Math.min(index, toPane.tabs.length));
+    const newToTabs = [...toPane.tabs.slice(0, adjustedIndex), { ...tab, paneId: toPaneId }, ...toPane.tabs.slice(adjustedIndex)];
+
+    get().updatePane(toPaneId, {
+      tabs: newToTabs,
+      activeTabId: tab.id,
+    });
+
+    set({
+      globalActiveTab: tab.id,
       activePane: toPaneId,
     });
   },
