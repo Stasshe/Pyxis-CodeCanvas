@@ -228,6 +228,25 @@ export default function TabBar({ paneId }: TabBarProps) {
     name: `Pane ${idx + 1}`,
   }));
 
+  // タブリストのコンテナ参照とホイールハンドラ（縦スクロールを横スクロールに変換）
+  const tabsContainerRef = useRef<HTMLDivElement | null>(null);
+
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    // 主に縦スクロールを横スクロールに変換する
+    // （タッチパッドやマウスホイールで縦方向の入力が来たときに横にスクロールする）
+    try {
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        // deltaY を横方向に適用
+        (e.currentTarget as HTMLDivElement).scrollBy({ left: e.deltaY, behavior: 'auto' });
+        e.preventDefault();
+      }
+    } catch (err) {
+      // 万が一のためフォールバックとして直接調整
+      (e.currentTarget as HTMLDivElement).scrollLeft += e.deltaY;
+      e.preventDefault();
+    }
+  };
+
   return (
     <div
       className="h-10 border-b flex items-center relative bg-muted border-border"
@@ -361,7 +380,11 @@ export default function TabBar({ paneId }: TabBarProps) {
       </div>
 
       {/* タブリスト */}
-      <div className="flex items-center overflow-x-auto flex-1 select-none">
+      <div
+        className="flex items-center overflow-x-auto flex-1 select-none"
+        ref={tabsContainerRef}
+        onWheel={handleWheel}
+      >
         {tabs.map(tab => {
           const isActive = tab.id === activeTabId;
           const isDuplicate = nameCount[tab.name] > 1;
