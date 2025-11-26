@@ -362,6 +362,7 @@ function ClientTerminal({
         }
       };
 
+      let skipTerminalRedirect = false;
       try {
          switch (cmd) {
           // New namespaced form: pyxis <category> <action> [...]
@@ -482,7 +483,7 @@ function ClientTerminal({
               if (shellRef.current) {
                 // delegate entire baseCommand to StreamShell which handles pipes/redirection/subst
                 // リアルタイム出力コールバックを渡す
-                const res = await shellRef.current.run(baseCommand, {
+                const res = await shellRef.current.run(command, {
                   stdout: (data: string) => {
                     // 即座にTerminalに表示（リアルタイム出力）
                     if (!redirect) {
@@ -496,45 +497,12 @@ function ClientTerminal({
                     }
                   },
                 });
-                // 完了後は何もしない（既にコールバックで出力済み）
-                // リダイレクト時のみ、最終結果を処理
-                if (redirect && fileName && unixCommandsRef.current) {
-                  const outputContent = (res.stdout || '') + (res.stderr || '');
-                  if (outputContent) {
-                    const fullPath = fileName.startsWith('/')
-                      ? fileName
-                      : `${await unixCommandsRef.current.pwd()}/${fileName}`;
-                    const normalizedPath = unixCommandsRef.current.normalizePath(fullPath);
-                    const relativePath = unixCommandsRef.current.getRelativePathFromProject(normalizedPath);
-
-                    try {
-                      let content = outputContent;
-                      if (append) {
-                        try {
-                          const existingFile = await fileRepository.getFileByPath(
-                            currentProjectId,
-                            relativePath
-                          );
-                          if (existingFile && existingFile.content) {
-                            content = existingFile.content + content;
-                          }
-                        } catch (e) {}
-                      }
-                      const existingFile = await fileRepository.getFileByPath(currentProjectId, relativePath);
-                      if (existingFile) {
-                        await fileRepository.saveFile({
-                          ...existingFile,
-                          content,
-                          updatedAt: new Date(),
-                        });
-                      } else {
-                        await fileRepository.createFile(currentProjectId, relativePath, content, 'file');
-                      }
-                    } catch (e) {
-                      await writeOutput(`ファイル書き込みエラー: ${(e as Error).message}`);
-                    }
+                  // 完了後は何もしない（既にコールバックで出力済み）
+                  // StreamShell (shellRef) はリダイレクトを内部で処理しているため
+                  // Terminal側でのファイル書き込みは行わないようにする。
+                  if (redirect && fileName && unixCommandsRef.current) {
+                    skipTerminalRedirect = true;
                   }
-                }
               }
             }
             break;
@@ -542,7 +510,7 @@ function ClientTerminal({
         }
 
         // リダイレクト処理
-        if (redirect && fileName && unixCommandsRef.current) {
+        if (!skipTerminalRedirect && redirect && fileName && unixCommandsRef.current) {
           // コマンド出力がない場合は空文字列として扱う
           const outputContent = capturedOutput || '';
 

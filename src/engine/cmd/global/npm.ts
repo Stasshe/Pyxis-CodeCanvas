@@ -11,6 +11,7 @@
 import { NpmInstall } from './npmOperations/npmInstall';
 
 import { fileRepository } from '@/engine/core/fileRepository';
+import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 
 export class NpmCommands {
   private currentDir: string;
@@ -90,7 +91,7 @@ export class NpmCommands {
         try {
           for (const pkg of packageNames) {
             const versionSpec = allDependencies[pkg];
-            const version = versionSpec.replace(/[\^~]/, '');
+            const version = versionSpec.replace(/^[\^~]/, '');
             try {
               await npmInstall.installWithDependencies(pkg, version);
               installedCount++;
@@ -101,6 +102,12 @@ export class NpmCommands {
           }
         } finally {
           await npmInstall.finishBatchProcessing();
+          // ensure .bin entries for all installed packages
+          for (const pkg of packageNames) {
+            try {
+              await npmInstall.ensureBinsForPackage(pkg).catch(() => {});
+            } catch {}
+          }
         }
 
         if (installedCount === 0) {
@@ -150,6 +157,11 @@ export class NpmCommands {
           const isActuallyInstalled = nodeFiles.length > 0;
 
           if (isInPackageJson && isActuallyInstalled) {
+            try {
+              const npmInstall = new NpmInstall(this.projectName, this.projectId);
+              // ensure .bin entries exist for already-installed package
+              // await npmInstall.ensureBinsForPackage(packageName).catch(() => {});
+            } catch {}
             return `updated 1 package in ${Math.random() * 2 + 1}s\n\n~ ${packageName}@${version}\nupdated 1 package and audited 1 package in ${Math.random() * 0.5 + 0.5}s\n\nfound 0 vulnerabilities`;
           } else {
             const npmInstall = new NpmInstall(this.projectName, this.projectId);
@@ -158,6 +170,9 @@ export class NpmCommands {
               await npmInstall.installWithDependencies(packageName, version);
             } finally {
               await npmInstall.finishBatchProcessing();
+                try {
+                  await npmInstall.ensureBinsForPackage(packageName).catch(() => {});
+                } catch {}
             }
             return `added packages with dependencies in ${Math.random() * 2 + 1}s\n\n+ ${packageName}@${version}\nadded packages and audited packages in ${Math.random() * 0.5 + 0.5}s\n\nfound 0 vulnerabilities`;
           }
@@ -323,7 +338,35 @@ export class NpmCommands {
         return output;
       }
       const command = scripts[scriptName];
-      return `> ${this.projectName}@${packageJson.version} ${scriptName}\n> ${command}\n\n[Script execution simulated] ${command}\n\nScript '${scriptName}' completed successfully.`;
+
+      // Obtain a StreamShell instance from the terminal registry so the
+      // script runs with the project's UnixCommands and fileRepository
+      const shell = await terminalCommandRegistry.getShell(this.projectName, this.projectId, {
+        fileRepository,
+      });
+
+      if (!shell) {
+        // Fallback to simulated output if shell could not be constructed
+        return `> ${this.projectName}@${packageJson.version} ${scriptName}\n> ${command}\n\n[Script execution simulated] ${command}\n\nScript '${scriptName}' completed (shell unavailable).`;
+      }
+
+      const header = `> ${this.projectName}@${packageJson.version} ${scriptName}\n> ${command}\n`;
+
+      // Run the script through the StreamShell. This allows resolution of
+      // commands provided by installed packages (node_modules/.bin) when
+      // UnixCommands implementation supports project-local resolution.
+      const res = await shell.run(command);
+
+      const outParts: string[] = [header];
+      if (res.stdout && res.stdout.length) outParts.push(res.stdout);
+      if (res.stderr && res.stderr.length) outParts.push(res.stderr);
+      if (res.code === 0 || res.code === null) {
+        outParts.push(`\nScript '${scriptName}' completed successfully.`);
+      } else {
+        outParts.push(`\nScript '${scriptName}' exited with code ${res.code}.`);
+      }
+
+      return outParts.join('\n');
     } catch (error) {
       throw new Error(`npm run failed: ${(error as Error).message}`);
     }

@@ -80,7 +80,7 @@ export class NodeRuntime {
   /**
    * ファイルを実行
    */
-  async execute(filePath: string): Promise<void> {
+  async execute(filePath: string, argv: string[] = []): Promise<void> {
     try {
       runtimeInfo('▶️ Executing file:', filePath);
 
@@ -106,7 +106,7 @@ export class NodeRuntime {
       const code = await this.moduleLoader.getTranspiledCode(filePath, fileContent);
 
       // サンドボックス環境を構築
-      const sandbox = await this.createSandbox(filePath);
+      const sandbox = await this.createSandbox(filePath, argv);
 
       // コードを実行（async関数としてラップ）
       const wrappedCode = this.wrapCode(code, filePath);
@@ -220,7 +220,7 @@ export class NodeRuntime {
   /**
    * サンドボックス環境を構築
    */
-  private async createSandbox(currentFilePath: string): Promise<Record<string, unknown>> {
+  private async createSandbox(currentFilePath: string, argv: string[] = []): Promise<Record<string, unknown>> {
     const self = this;
 
     // __require__ 関数（thenable Proxy を返すことで `await __require__('fs').promises` のような
@@ -450,7 +450,7 @@ export class NodeRuntime {
       global: globalThis,
       process: {
         env: {},
-        argv: ['node', currentFilePath],
+        argv: ['node', currentFilePath].concat(argv || []),
         cwd: () => this.projectDir,
         platform: 'browser',
         version: 'v18.0.0',

@@ -405,12 +405,12 @@ export const useProject = () => {
   useEffect(() => {
     if (!currentProject) return;
 
-    console.log('[Project] Subscribing to file changes for:', currentProject.id);
+    // console.log('[Project] Subscribing to file changes for:', currentProject.id);
 
     const unsubscribe = fileRepository.addChangeListener(event => {
       if (event.projectId !== currentProject.id) return;
 
-      console.log('[Project] File change event:', event.type, event.file);
+      // console.log('[Project] File change event:', event.type, event.file);
 
       switch (event.type) {
         case 'create':

@@ -604,8 +604,22 @@ export class StreamShell {
 
       // seg.tokens may be string[] or TokenObj[]; coerce to strings for execution
       const rawTokens = seg.tokens as any[];
-      const cmd = String(rawTokens[0] ?? '');
-      const args = rawTokens.slice(1).map((t: any) => String(t));
+      let cmd = String(rawTokens[0] ?? '');
+      let args = rawTokens.slice(1).map((t: any) => String(t));
+
+      // Basic npx support: `npx <cmd> [args...]` -> treat as running local/bin <cmd>
+      if (cmd === 'npx') {
+        if (!args || args.length === 0) {
+          proc.writeStderr('npx: missing command\n');
+          proc.endStdout();
+          proc.endStderr();
+          proc.exit(2);
+          return;
+        }
+        // consume first arg as the command to run
+        cmd = String(args[0]);
+        args = args.slice(1);
+      }
 
       // Provide a small context for handlers
       // Note: use the readable side of stdin (stdinStream) so builtins can
@@ -767,6 +781,8 @@ export class StreamShell {
           }
         }
 
+        
+
         // Fallback to unix handler (returns structured {code, output})
         try {
           const { handleUnixCommand } = await import('../handlers/unixHandler');
@@ -847,6 +863,7 @@ export class StreamShell {
           proc.exit(127);
           return;
         }
+
       } catch (e: any) {
         // Support silent failure marker objects thrown by builtins (e.g. { __silent: true, code: 1 })
         // If present, do not print the object to stderr — just exit with provided code.
@@ -1653,9 +1670,12 @@ export class StreamShell {
             const fdFiles = (seg as any)?.fdFiles || {};
             const fileInfo = fdFiles[fd];
             if (fileInfo && this.fileRepository) {
+              // Collect data into buffers and notify real-time callbacks,
+              // but defer actual repository writes until the end of the pipeline.
+              // Performing repository writes here caused races where a later
+              // final write would overwrite earlier streamed writes.
               stream.on('data', (chunk: Buffer | string) => {
                 const s = String(chunk);
-                enqueueWrite(fileInfo.path, !!fileInfo.append, s);
                 fdBuffers[fd].push(s);
                 // リアルタイムコールバック通知
                 if (fd === 1 && onData?.stdout) {
@@ -1758,6 +1778,61 @@ export class StreamShell {
       overallLastProcs = procs;
       overallLastSeg = lastSegOfGroup;
     }
+
+    // Ensure any pending stdout/stderr 'data' events have been processed
+    // before we snapshot fdBuffers. Some handlers may emit data very
+    // close to the proc.exit() call; wait for the readable streams to
+    // emit 'end' (or timeout) to avoid races that cause partial writes.
+    const waitForProcStreams = (p: Process, ms = 2000) => {
+      return new Promise<void>(resolve => {
+        let done = false;
+        const tryResolve = () => {
+          if (done) return;
+          done = true;
+          resolve();
+        };
+
+        try {
+          const streams: Array<any> = [];
+          try {
+            streams.push(p.stdoutStream);
+          } catch {}
+          try {
+            streams.push(p.stderrStream);
+          } catch {}
+
+          if (streams.length === 0) return tryResolve();
+
+          let remaining = streams.length;
+          const onEnd = () => {
+            remaining--;
+            if (remaining <= 0) tryResolve();
+          };
+          for (const s of streams) {
+            if (!s || typeof s.on !== 'function') {
+              onEnd();
+              continue;
+            }
+            // If stream already ended, count it done
+            if ((s as any).readableEnded || (s as any)._readableState?.ended) {
+              onEnd();
+              continue;
+            }
+            s.once('end', onEnd);
+            s.once('close', onEnd);
+            // safety: also resolve after ms
+            setTimeout(onEnd, ms);
+          }
+        } catch (e) {
+          tryResolve();
+        }
+      });
+    };
+
+    // Wait for all processes' streams to finish (bounded timeout)
+    try {
+      await Promise.all(overallLastProcs.map(p => waitForProcStreams(p)));
+    } catch (e) {}
 
     const finalOut = (fdBuffers[1] || []).join('');
     const finalErr = (fdBuffers[2] || []).join('');

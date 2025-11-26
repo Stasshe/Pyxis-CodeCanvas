@@ -28,6 +28,51 @@ export class NpmInstall {
   // 再利用可能な TextDecoder をクラスで保持して、頻繁なインスタンス生成を避ける
   private textDecoder = new TextDecoder('utf-8', { fatal: false });
 
+  // バイナリ判定と base64 変換ユーティリティ
+  private isBinaryBuffer(buf: Uint8Array): boolean {
+    // Null バイトが含まれる場合は確実にバイナリ
+    for (let i = 0; i < buf.length; i++) {
+      if (buf[i] === 0) return true;
+    }
+
+    // 非表示文字の割合を計測（簡易判定）
+    const len = Math.min(buf.length, 512);
+    let nonPrintable = 0;
+    for (let i = 0; i < len; i++) {
+      const c = buf[i];
+      // 9(\t),10(\n),13(\r) はテキストとみなす
+      if (c === 9 || c === 10 || c === 13) continue;
+      if (c < 32 || c > 126) nonPrintable++;
+    }
+    return nonPrintable / Math.max(1, len) > 0.3;
+  }
+
+  private uint8ArrayToBase64(buf: Uint8Array): string {
+    // ブラウザ環境で btoa が使える場合はそれを使う
+    if (typeof btoa !== 'undefined') {
+      let binary = '';
+      const chunkSize = 0x8000;
+      for (let i = 0; i < buf.length; i += chunkSize) {
+        const slice = buf.subarray(i, i + chunkSize);
+        binary += String.fromCharCode.apply(null, Array.from(slice));
+      }
+      return btoa(binary);
+    }
+
+    // Node.js 環境のフォールバック
+    if (typeof Buffer !== 'undefined') {
+      return Buffer.from(buf).toString('base64');
+    }
+
+    // 最悪のケース: 手作業でエンコード（遅いが汎用）
+    let result = '';
+    for (let i = 0; i < buf.length; i++) {
+      result += String.fromCharCode(buf[i]);
+    }
+    if (typeof btoa !== 'undefined') return btoa(result);
+    return result;
+  }
+
   // バッチ処理用のキュー
   private fileOperationQueue: Array<{
     path: string;
@@ -182,6 +227,57 @@ export class NpmInstall {
     if (exact) targets.unshift(exact);
     for (const file of targets) {
       await fileRepository.deleteFile(file.id);
+    }
+  }
+
+  // 既に node_modules/<package> が存在するが .bin が無い場合、package.json の bin を基に .bin を作成する
+  async ensureBinsForPackage(packageName: string): Promise<void> {
+    try {
+      const pkgPath = `/node_modules/${packageName}/package.json`;
+      const pkgFile = await fileRepository.getFileByPath(this.projectId, pkgPath);
+      if (!pkgFile || !pkgFile.content) return;
+      let pj: any;
+      try {
+        pj = JSON.parse(pkgFile.content);
+      } catch {
+        return;
+      }
+      const binField = pj.bin;
+      let bins: Record<string, string> = {};
+      if (typeof binField === 'string' && pj.name) {
+        bins[pj.name] = binField;
+      } else if (typeof binField === 'object' && binField !== null) {
+        bins = binField as Record<string, string>;
+      }
+
+      if (Object.keys(bins).length === 0) return;
+
+      // ensure .bin folder exists
+      await this.executeFileOperation('/node_modules/.bin', 'folder');
+
+      for (const [name, relPath] of Object.entries(bins)) {
+        try {
+          const rel = String(relPath).replace(/^\.\//, '').replace(/^\/+/, '');
+          const sourcePath = `/node_modules/${packageName}/${rel}`;
+          const srcFile = await fileRepository.getFileByPath(this.projectId, sourcePath);
+          if (srcFile && srcFile.content) {
+            let content = String(srcFile.content);
+            const firstLine = (content.split('\n', 1)[0] || '').trim();
+            if (!firstLine.startsWith('#!') && rel.endsWith('.js')) {
+              content = '#!/usr/bin/env node\n' + content;
+            }
+            await this.executeFileOperation(`/node_modules/.bin/${name}`, 'file', content);
+          } else {
+            // fallback: create shim requiring the original path
+            const shim = `#!/usr/bin/env node\nrequire('../${packageName}/${rel}');`;
+            await this.executeFileOperation(`/node_modules/.bin/${name}`, 'file', shim);
+          }
+        } catch (e) {
+          // ignore per-bin errors
+        }
+      }
+    } catch (e) {
+      // ignore overall errors
     }
   }
 
@@ -718,7 +814,7 @@ export class NpmInstall {
           }
         }
 
-        if (this.batchProcessing) {
+          if (this.batchProcessing) {
           // バッチモード時はフォルダは即時作成、ファイルはキューに追加
           await Promise.all(foldersToCreate.map(p => this.executeFileOperation(p, 'folder')));
           for (const f of filesToCreate) {
@@ -756,6 +852,9 @@ export class NpmInstall {
               );
             }
           }
+
+          // .bin 作成責務は一箇所に集約するため、このバッチ経路での直接作成は行わない。
+          // ensureBinsForPackage を呼び出すことで .bin を補完します。
         }
       } catch (error) {
         console.warn(`Failed to sync to IndexedDB: ${(error as Error).message}`);
@@ -826,7 +925,11 @@ export class NpmInstall {
               offset += c.length;
             }
 
-            const content = this.textDecoder.decode(combined);
+            // テキスト/バイナリを判定して保存形式を切り替える
+            const isBinary = this.isBinaryBuffer(combined);
+            const content = isBinary
+              ? `base64:${this.uint8ArrayToBase64(combined)}`
+              : this.textDecoder.decode(combined);
 
             fileEntries.set(relativePath, {
               type: header.type,
@@ -1033,8 +1136,11 @@ export class NpmInstall {
               offset += chunk.length;
             }
 
-            // ファイルの内容をデコード（事前に準備）
-            const content = this.textDecoder.decode(combined);
+            // テキスト/バイナリを判定して保存形式を切り替える
+            const isBinary = this.isBinaryBuffer(combined);
+            const content = isBinary
+              ? `base64:${this.uint8ArrayToBase64(combined)}`
+              : this.textDecoder.decode(combined);
 
             fileEntries.set(relativePath, {
               type: header.type,

@@ -182,7 +182,7 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
     }
 
     const unsubscribe = fileRepository.addChangeListener(event => {
-      console.log('[useTabContentRestore] File change event:', event);
+      // console.log('[useTabContentRestore] File change event:', event);
 
       // 削除イベントはスキップ（TabBarで処理）
       if (event.type === 'delete') {
