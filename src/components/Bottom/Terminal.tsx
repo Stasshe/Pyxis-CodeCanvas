@@ -407,6 +407,7 @@ function ClientTerminal({
 
           case 'clear':
             term.clear();
+            term.write('\x1b[H\x1b[2J\x1b[3J');
             break;
 
           // 履歴表示・削除コマンド

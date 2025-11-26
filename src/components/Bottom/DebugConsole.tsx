@@ -110,6 +110,7 @@ export default function DebugConsole({ height, isActive }: DebugConsoleProps) {
 
           case 'clear':
             termRef.current.clear();
+            termRef.current.write('\x1b[H\x1b[2J\x1b[3J');
             break;
 
           case 'clearLine':
