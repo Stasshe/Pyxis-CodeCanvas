@@ -864,7 +864,7 @@ export class FileRepository {
     }
 
     // 🚀 最適化3: バッチ処理（大量ファイル時にチャンク単位で処理）
-    const BATCH_SIZE = 50;
+    const BATCH_SIZE = 200;
     const batches: Array<typeof entries> = [];
     for (let i = 0; i < entries.length; i += BATCH_SIZE) {
       batches.push(entries.slice(i, i + BATCH_SIZE));
