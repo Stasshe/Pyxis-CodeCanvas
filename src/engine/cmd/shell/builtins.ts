@@ -292,6 +292,17 @@ export default function adaptUnixToStream(unix: any) {
 
   // node コマンド（NodeRuntime実行）
   obj.node = async (ctx: StreamCtx, args: string[] = []) => {
+    // Support version flags: `node -v` or `node --version`
+    if (args.length >= 1 && (args[0] === '-v' || args[0] === '--version')) {
+      try {
+        const ver = 'v18.0.0 (custom build)'; // バージョン番号を適宜設定
+        ctx.stdout.write(String(ver) + '\n');
+      } catch (e) {}
+      ctx.stdout.end();
+      ctx.stderr.end();
+      return;
+    }
+
     if (args.length === 0) {
       ctx.stderr.write('Usage: node <file.js>\n');
       ctx.stdout.end();
