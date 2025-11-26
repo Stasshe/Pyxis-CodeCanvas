@@ -352,9 +352,13 @@ function ClientTerminal({
           // keep this lightweight and safe
           console.debug('[Terminal] captureWriteOutput received:', JSON.stringify(output));
         } catch (e) {}
-        capturedOutput += output + '\n';
+        
+        // 末尾に改行がない場合は追加（すべてのコマンド出力を統一的に処理）
+        const normalizedOutput = output.endsWith('\n') ? output : output + '\n';
+        capturedOutput += normalizedOutput;
+        
         if (!redirect) {
-          await writeOutput(output);
+          await writeOutput(normalizedOutput);
         }
       };
 
