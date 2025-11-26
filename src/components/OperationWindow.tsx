@@ -105,7 +105,7 @@ interface OperationWindowProps {
   isVisible: boolean;
   onClose: () => void;
   projectFiles: FileItem[];
-  onFileSelect?: (file: FileItem) => void; // AI用モード用
+  onFileSelect?: (file: FileItem, preview?: boolean) => void; // AI用モード用
   aiMode?: boolean; // AI用モード（ファイルをタブで開かない）
   targetPaneId?: string | null; // ファイルを開くペインのID
   
@@ -137,12 +137,12 @@ export default function OperationWindow({
 }: OperationWindowProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
-  const { openTab } = useTabStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [mdPreviewPrompt, setMdPreviewPrompt] = useState<null | { file: FileItem }>(null);
   const [mdDialogSelected, setMdDialogSelected] = useState<0 | 1>(0); // 0: プレビュー, 1: 通常エディタ
   const [viewMode, setViewMode] = useState<'files' | 'list'>(() => initialView || 'files');
+  const hideModeTabs = Boolean(items && initialView === 'list');
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const { currentProject } = useProject();
@@ -178,25 +178,39 @@ export default function OperationWindow({
   };
 
   // 実際にファイルを開く処理（mdプレビューかどうかを指定）
+  // NOTE: Tab system removed — delegate to `onFileSelect(file, preview)` if available.
   const actuallyOpenFile = (file: FileItem, preview: boolean) => {
-    if (aiMode) {
-      if (onFileSelect) {
-        onFileSelect(file);
+    if (onFileSelect) {
+      try {
+        onFileSelect(file, preview);
+      } catch (e) {
+        console.warn('[OperationWindow] onFileSelect threw:', e);
       }
       onClose();
       return;
     }
 
-    const defaultEditor =
-      typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
-    const fileWithEditor = { ...file, isCodeMirror: defaultEditor === 'codemirror' };
+    // Fallback: try to open via tab store if available (back-compat)
+    try {
+      const defaultEditor =
+        typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
+      const fileWithEditor = { ...file, isCodeMirror: defaultEditor === 'codemirror' };
+      const options = targetPaneId
+        ? { paneId: targetPaneId, kind: preview ? 'preview' : 'editor' }
+        : { kind: preview ? 'preview' : 'editor' };
 
-    // targetPaneIdが指定されている場合はそのペインで開く
-    const options = targetPaneId
-      ? { paneId: targetPaneId, kind: preview ? 'preview' : 'editor' }
-      : { kind: preview ? 'preview' : 'editor' };
+      const store = useTabStore.getState ? useTabStore.getState() : null;
+      if (store && typeof store.openTab === 'function') {
+        store.openTab(fileWithEditor, options as any);
+        onClose();
+        return;
+      }
+    } catch (e) {
+      console.warn('[OperationWindow] tab fallback failed:', e);
+    }
 
-    openTab(fileWithEditor, options as any);
+    // No handler available — simply close and warn.
+    console.warn('[OperationWindow] No file open handler available (tabs removed).');
     onClose();
   };
 
@@ -550,39 +564,7 @@ export default function OperationWindow({
         >
           {/* Header */}
           <div style={{ padding: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <div style={{ display: 'flex', gap: '6px' }}>
-                <button
-                  onClick={() => setViewMode('files')}
-                  style={{
-                    padding: '6px 10px',
-                    borderRadius: '6px',
-                    border: `1px solid ${viewMode === 'files' ? colors.accent : colors.border}`,
-                    background: viewMode === 'files' ? colors.accentBg : colors.background,
-                    color: viewMode === 'files' ? colors.cardBg : colors.foreground,
-                    cursor: 'pointer',
-                    fontSize: '12px',
-                  }}
-                >
-                  {t('operationWindow.files') || 'Files'}
-                </button>
-                {items && (
-                  <button
-                    onClick={() => setViewMode('list')}
-                    style={{
-                      padding: '6px 10px',
-                      borderRadius: '6px',
-                      border: `1px solid ${viewMode === 'list' ? colors.accent : colors.border}`,
-                      background: viewMode === 'list' ? colors.accentBg : colors.background,
-                      color: viewMode === 'list' ? colors.cardBg : colors.foreground,
-                      cursor: 'pointer',
-                      fontSize: '12px',
-                    }}
-                  >
-                    {listTitle || t('operationWindow.spaces') || 'Spaces'}
-                  </button>
-                )}
-              </div>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '12px' }}>
 
               <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 {viewMode === 'list' && headerActions && (

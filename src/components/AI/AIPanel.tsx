@@ -352,7 +352,7 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
           onClose={() => setShowSpaceList(false)}
           projectFiles={projectFiles}
           items={spaceItems}
-          listTitle={t('operationWindow.spaces') || 'Chat Spaces'}
+          listTitle={t('chatSpaceList.title') || 'Chat Spaces'}
           initialView="list"
           headerActions={[
             {
