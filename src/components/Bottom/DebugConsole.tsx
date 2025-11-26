@@ -169,14 +169,7 @@ export default function DebugConsole({ height, isActive }: DebugConsoleProps) {
         }
       });
 
-      // $プロンプト表示関数
-      const showPrompt = () => {
-        term.write('\x1b[1;32m$\x1b[0m ');
-      };
-
       let currentLine = '';
-      // 初回プロンプト
-      showPrompt();
 
       term.onData((data: string) => {
         switch (data) {
@@ -186,14 +179,12 @@ export default function DebugConsole({ height, isActive }: DebugConsoleProps) {
               // clearコマンド対応
               if (currentLine.trim() === 'clear') {
                 term.clear();
-                showPrompt();
                 currentLine = '';
                 return;
               }
               DebugConsoleAPI._emitInput(currentLine.trim());
             }
             currentLine = '';
-            showPrompt();
             break;
           case '\u007F': // Backspace
             if (currentLine.length > 0) {
@@ -204,7 +195,6 @@ export default function DebugConsole({ height, isActive }: DebugConsoleProps) {
           case '\u0003': // Ctrl+C
             term.writeln('^C');
             currentLine = '';
-            showPrompt();
             break;
           default:
             if (data >= ' ' || data === '\t') {
