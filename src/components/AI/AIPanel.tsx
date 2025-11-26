@@ -2,14 +2,13 @@
 
 'use client';
 
-import { Bot, ChevronDown } from 'lucide-react';
+import { Bot, ChevronDown, Plus, Edit2, Trash2, MessageSquare } from 'lucide-react';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 
 import ChatContainer from './chat/ChatContainer';
 import ChatInput from './chat/ChatInput';
 import ModeSelector from './chat/ModeSelector';
-import ChatSpaceList from './ChatSpaceList';
-import OperationWindow from '@/components/OperationWindow';
+import OperationWindow, { OperationListItem } from '@/components/OperationWindow';
 import FileContextBar from './context/FileContextBar';
 import FileSelector from './FileSelector';
 import ChangedFilesPanel from './review/ChangedFilesPanel';
@@ -39,6 +38,10 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
   const [isChangedFilesMinimized, setIsChangedFilesMinimized] = useState(false);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
   const spaceButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  // Editing state for spaces
+  const [editingSpaceId, setEditingSpaceId] = useState<string | null>(null);
+  const [editingSpaceName, setEditingSpaceName] = useState('');
 
   // Compute dropdown position relative to viewport (fixed) so it appears under the button
   const dropdownPosition = useMemo(() => {
@@ -214,6 +217,59 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
     .reverse()
     .find(msg => msg.mode === 'edit' && msg.type === 'assistant' && msg.editResponse)?.editResponse;
 
+  // Convert chatSpaces to OperationListItem[]
+  const spaceItems: OperationListItem[] = useMemo(() => {
+    return chatSpaces.map(space => {
+      const isEditing = editingSpaceId === space.id;
+      
+      return {
+        id: space.id,
+        label: space.name,
+        description: new Date(space.updatedAt).toLocaleDateString(),
+        icon: <MessageSquare size={14} />,
+        isActive: currentSpace?.id === space.id,
+        isEditing,
+        editValue: isEditing ? editingSpaceName : undefined,
+        onClick: () => {
+          selectSpace(space);
+          setShowSpaceList(false);
+        },
+        onEditChange: (val) => setEditingSpaceName(val),
+        onEditConfirm: () => {
+          if (editingSpaceName.trim()) {
+            updateSpaceName(space.id, editingSpaceName.trim());
+          }
+          setEditingSpaceId(null);
+        },
+        onEditCancel: () => {
+          setEditingSpaceId(null);
+        },
+        actions: [
+          {
+            id: 'rename',
+            icon: <Edit2 size={12} />,
+            label: t('chatSpaceList.rename') || 'Rename',
+            onClick: () => {
+              setEditingSpaceId(space.id);
+              setEditingSpaceName(space.name);
+            },
+          },
+          {
+            id: 'delete',
+            icon: <Trash2 size={12} />,
+            label: t('chatSpaceList.delete') || 'Delete',
+            danger: true,
+            onClick: () => {
+              if (confirm(t('chatSpaceList.confirmDelete') || 'Delete this space?')) {
+                deleteSpace(space.id);
+              }
+            },
+          },
+        ],
+      };
+    });
+  }, [chatSpaces, currentSpace, editingSpaceId, editingSpaceName, t, selectSpace, updateSpaceName, deleteSpace]);
+
   return (
     <div
       className="flex flex-col h-full w-full"
@@ -285,8 +341,6 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
               </span>
               <ChevronDown size={14} />
             </button>
-
-            {/* showSpaceList is rendered inline below the header to avoid being clipped/hidden */}
           </div>
         </div>
       </div>
@@ -297,22 +351,18 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
           isVisible={showSpaceList}
           onClose={() => setShowSpaceList(false)}
           projectFiles={projectFiles}
-          listContent={
-            <ChatSpaceList
-              chatSpaces={chatSpaces}
-              currentSpace={currentSpace}
-              onSelectSpace={space => {
-                selectSpace(space);
-                setShowSpaceList(false);
-              }}
-              onCreateSpace={async name => {
-                await createNewSpace(name);
-              }}
-              onDeleteSpace={deleteSpace}
-              onUpdateSpaceName={updateSpaceName}
-            />
-          }
-          initialView="spaces"
+          items={spaceItems}
+          listTitle={t('operationWindow.spaces') || 'Chat Spaces'}
+          initialView="list"
+          headerActions={[
+            {
+              icon: <Plus size={14} />,
+              label: t('chatSpaceList.create') || 'New Space',
+              onClick: async () => {
+                await createNewSpace();
+              },
+            },
+          ]}
         />
       )}
 
@@ -344,7 +394,7 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
               background: colors.mutedBg,
               border: `1px solid ${colors.border}`,
               color: colors.foreground,
-            }}
+              }}
           >
             <div className="text-sm font-medium">変更ファイル</div>
             <div className="flex items-center gap-2">

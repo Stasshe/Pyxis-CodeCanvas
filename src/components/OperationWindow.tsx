@@ -78,6 +78,29 @@ function getIconSrcForFile(name: string) {
   return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/file.svg`;
 }
 
+export interface OperationListItem {
+  id: string;
+  label: string;
+  description?: string;
+  icon?: React.ReactNode | string; // URL string or Component
+  onClick?: () => void;
+  isActive?: boolean;
+  // Editing state
+  isEditing?: boolean;
+  editValue?: string;
+  onEditChange?: (value: string) => void;
+  onEditConfirm?: () => void;
+  onEditCancel?: () => void;
+  // Actions
+  actions?: {
+    id: string;
+    icon: React.ReactNode;
+    label: string;
+    onClick: (e: React.MouseEvent) => void;
+    danger?: boolean;
+  }[];
+}
+
 interface OperationWindowProps {
   isVisible: boolean;
   onClose: () => void;
@@ -85,9 +108,18 @@ interface OperationWindowProps {
   onFileSelect?: (file: FileItem) => void; // AI用モード用
   aiMode?: boolean; // AI用モード（ファイルをタブで開かない）
   targetPaneId?: string | null; // ファイルを開くペインのID
-  // Optional generic list/content to display when toggled to 'spaces'
-  listContent?: React.ReactNode;
-  initialView?: 'files' | 'spaces';
+  
+  // Generic List Props
+  items?: OperationListItem[];
+  listTitle?: string; // Title for the list view (e.g. "Chat Spaces")
+  onSearchList?: (query: string) => void; // Optional: handle search externally or let component filter by label
+  headerActions?: {
+    icon: React.ReactNode;
+    label: string;
+    onClick: () => void;
+  }[];
+  
+  initialView?: 'files' | 'list';
 }
 
 export default function OperationWindow({
@@ -97,7 +129,10 @@ export default function OperationWindow({
   onFileSelect,
   aiMode = false,
   targetPaneId,
-  listContent,
+  items,
+  listTitle,
+  onSearchList,
+  headerActions,
   initialView,
 }: OperationWindowProps) {
   const { colors } = useTheme();
@@ -107,13 +142,25 @@ export default function OperationWindow({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [mdPreviewPrompt, setMdPreviewPrompt] = useState<null | { file: FileItem }>(null);
   const [mdDialogSelected, setMdDialogSelected] = useState<0 | 1>(0); // 0: プレビュー, 1: 通常エディタ
-  const [viewMode, setViewMode] = useState<'files' | 'spaces'>(() => initialView || 'files');
+  const [viewMode, setViewMode] = useState<'files' | 'list'>(() => initialView || 'files');
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const { currentProject } = useProject();
   const { isExcluded } = useSettings();
   // 固定アイテム高さを定義（スクロール計算と見た目の基準にする）
   const ITEM_HEIGHT = 22; // VSCodeに合わせてよりコンパクトに
+
+  // Reset state when visibility changes
+  useEffect(() => {
+    if (isVisible) {
+      setSearchQuery('');
+      setSelectedIndex(0);
+      // Focus input
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+    }
+  }, [isVisible]);
 
   // ファイル選択ハンドラ
   const handleFileSelectInOperation = (file: FileItem) => {
@@ -154,9 +201,6 @@ export default function OperationWindow({
   };
 
   // 設定から除外パターンを取得
-  // 除外判定はuseSettingsから取得
-  // 検索ロジック（ファイル名・フォルダ名・パスのいずれかに一致）
-  // Parse .gitignore from project files (if present) and build rules
   const gitignoreRules = useMemo(() => {
     try {
       const flat = flattenFileItems(projectFiles);
@@ -164,7 +208,6 @@ export default function OperationWindow({
       if (!git || !git.content) return [] as any[];
       return parseGitignore(git.content);
     } catch (err) {
-      // If parsing fails for any reason, don't block file listing
       return [] as any[];
     }
   }, [projectFiles]);
@@ -172,58 +215,63 @@ export default function OperationWindow({
   const allFiles = flattenFileItems(projectFiles).filter(file => {
     if (file.type !== 'file') return false;
     if (typeof isExcluded === 'function' && isExcluded(file.path)) return false;
-    // If .gitignore rules exist, hide matching paths
     if (gitignoreRules && gitignoreRules.length > 0) {
       try {
         if (isPathIgnored(gitignoreRules, file.path, false)) return false;
       } catch (e) {
-        // ignore errors and fall back to showing the file
+        // ignore errors
       }
     }
     return true;
   });
 
-  // Enhanced VSCode-style filtering + scoring
-  const filteredFiles: FileItem[] = (() => {
+  // Enhanced VSCode-style filtering + scoring for FILES
+  const filteredFiles: FileItem[] = useMemo(() => {
+    if (viewMode !== 'files') return [];
     if (!searchQuery) return allFiles;
     const q = searchQuery.trim();
-    const scored: Array<{ file: FileItem; score: number; matchedPart: string }> = [];
+    const scored: Array<{ file: FileItem; score: number }> = [];
 
     for (const file of allFiles) {
       const fileName = file.name;
       const fileNameNoExt = fileName.substring(0, fileName.lastIndexOf('.')) || fileName;
       const pathParts = file.path.split('/');
 
-      // ファイル名のスコア（最優先）
       const nameScore = scoreMatch(fileName, q);
-      // 拡張子なしファイル名のスコア
       const nameNoExtScore = scoreMatch(fileNameNoExt, q);
-      // パス全体のスコア
       const pathScore = scoreMatch(file.path, q);
-      // 各パス要素のスコア
       const partScores = pathParts.map(part => scoreMatch(part, q));
       const bestPartScore = Math.max(...partScores, 0);
 
       const best = Math.max(nameScore, nameNoExtScore, pathScore, bestPartScore);
 
-      // スコアが0より大きい（何らかのマッチがある）場合のみ含める
       if (best > 0) {
-        scored.push({
-          file,
-          score: best,
-          matchedPart: nameScore >= bestPartScore ? 'name' : 'path',
-        });
+        scored.push({ file, score: best });
       }
     }
 
-    // スコア降順、同スコアなら名前の辞書順
     scored.sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
       return a.file.name.localeCompare(b.file.name);
     });
 
     return scored.map(s => s.file);
-  })();
+  }, [allFiles, searchQuery, viewMode]);
+
+  // Filtering for GENERIC ITEMS
+  const filteredItems: OperationListItem[] = useMemo(() => {
+    if (viewMode !== 'list' || !items) return [];
+    if (!searchQuery) return items;
+    const q = searchQuery.toLowerCase();
+    
+    // Simple filtering for items
+    return items.filter(item => 
+      item.label.toLowerCase().includes(q) || 
+      (item.description && item.description.toLowerCase().includes(q))
+    );
+  }, [items, searchQuery, viewMode]);
+
+  const currentListLength = viewMode === 'files' ? filteredFiles.length : filteredItems.length;
 
   // 選択されたアイテムにスクロールする関数
   const scrollToSelectedItem = (index: number) => {
@@ -238,15 +286,13 @@ export default function OperationWindow({
     const itemBottom = itemTop + itemHeight;
 
     if (itemTop < scrollTop) {
-      // アイテムが上に隠れている場合
       listElement.scrollTop = itemTop;
     } else if (itemBottom > scrollTop + containerHeight) {
-      // アイテムが下に隠れている場合
       listElement.scrollTop = itemBottom - containerHeight;
     }
   };
 
-  // ESCキーで閉じる、上下キーで選択、Enterで開く、Tabでmdプレビューダイアログのボタン切り替え
+  // ESCキーで閉じる、上下キーで選択、Enterで開く
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isVisible) return;
@@ -270,6 +316,11 @@ export default function OperationWindow({
         }
         return;
       }
+      
+      // Editing mode in list item?
+      // If an item is being edited, we might want to let the input handle keys.
+      // But here we are handling global navigation. 
+      // Ideally, the input in the list item should stop propagation of keys it handles.
 
       switch (e.key) {
         case 'Escape':
@@ -279,7 +330,7 @@ export default function OperationWindow({
         case 'ArrowUp':
           e.preventDefault();
           setSelectedIndex(prev => {
-            const newIndex = prev > 0 ? prev - 1 : filteredFiles.length - 1;
+            const newIndex = prev > 0 ? prev - 1 : currentListLength - 1;
             setTimeout(() => scrollToSelectedItem(newIndex), 0);
             return newIndex;
           });
@@ -287,15 +338,20 @@ export default function OperationWindow({
         case 'ArrowDown':
           e.preventDefault();
           setSelectedIndex(prev => {
-            const newIndex = prev < filteredFiles.length - 1 ? prev + 1 : 0;
+            const newIndex = prev < currentListLength - 1 ? prev + 1 : 0;
             setTimeout(() => scrollToSelectedItem(newIndex), 0);
             return newIndex;
           });
           break;
         case 'Enter':
-          e.preventDefault();
-          if (filteredFiles[selectedIndex]) {
-            handleFileSelectInOperation(filteredFiles[selectedIndex]);
+          // If we are in the search input, or just navigating
+          // We need to trigger the action of the selected item
+          if (viewMode === 'files' && filteredFiles[selectedIndex]) {
+             e.preventDefault();
+             handleFileSelectInOperation(filteredFiles[selectedIndex]);
+          } else if (viewMode === 'list' && filteredItems[selectedIndex]) {
+             e.preventDefault();
+             filteredItems[selectedIndex].onClick?.();
           }
           break;
       }
@@ -303,9 +359,6 @@ export default function OperationWindow({
 
     if (isVisible) {
       document.addEventListener('keydown', handleKeyDown);
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 100);
     }
 
     return () => {
@@ -314,24 +367,58 @@ export default function OperationWindow({
   }, [
     isVisible,
     filteredFiles,
+    filteredItems,
     selectedIndex,
     onClose,
     handleFileSelectInOperation,
     mdPreviewPrompt,
     mdDialogSelected,
+    viewMode,
+    currentListLength
   ]);
 
   // 検索クエリが変更されたときに選択インデックスをリセット
   useEffect(() => {
     setSelectedIndex(0);
-  }, [searchQuery]);
+    if (onSearchList && viewMode === 'list') {
+      onSearchList(searchQuery);
+    }
+  }, [searchQuery, viewMode]);
 
-  // 表示されていない場合は何も表示しない
+  // VSCode風のハイライト関数
+  function highlightMatch(text: string, query: string, isSelected: boolean) {
+    if (!query) return <>{text}</>;
+
+    const lowerText = text.toLowerCase();
+    const lowerQuery = query.toLowerCase();
+    const idx = lowerText.indexOf(lowerQuery);
+
+    if (idx === -1) return <>{text}</>;
+
+    return (
+      <>
+        {text.slice(0, idx)}
+        <span
+          style={{
+            background: isSelected ? 'rgba(255,255,255,0.3)' : colors.accentBg,
+            color: isSelected ? colors.cardBg : colors.primary,
+            fontWeight: 'bold',
+            borderRadius: '2px',
+            padding: '0 1px',
+          }}
+        >
+          {text.slice(idx, idx + query.length)}
+        </span>
+        {text.slice(idx + query.length)}
+      </>
+    );
+  }
+
   if (!isVisible) return null;
 
   return (
     <>
-      {/* mdプレビュー選択ダイアログを最前面に移動 */}
+      {/* mdプレビュー選択ダイアログ */}
       {mdPreviewPrompt && (
         <div
           style={{
@@ -341,7 +428,7 @@ export default function OperationWindow({
             right: 0,
             bottom: 0,
             background: 'rgba(0,0,0,0.4)',
-            zIndex: 3000, // より高いz-index
+            zIndex: 3000,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -430,6 +517,8 @@ export default function OperationWindow({
           </div>
         </div>
       )}
+
+      {/* Main Window Overlay */}
       <div
         style={{
           position: 'fixed',
@@ -459,7 +548,7 @@ export default function OperationWindow({
           }}
           onClick={e => e.stopPropagation()}
         >
-          {/* Header: view toggle + search (files) */}
+          {/* Header */}
           <div style={{ padding: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
               <div style={{ display: 'flex', gap: '6px' }}>
@@ -477,53 +566,83 @@ export default function OperationWindow({
                 >
                   {t('operationWindow.files') || 'Files'}
                 </button>
-                {listContent && (
+                {items && (
                   <button
-                    onClick={() => setViewMode('spaces')}
+                    onClick={() => setViewMode('list')}
                     style={{
                       padding: '6px 10px',
                       borderRadius: '6px',
-                      border: `1px solid ${viewMode === 'spaces' ? colors.accent : colors.border}`,
-                      background: viewMode === 'spaces' ? colors.accentBg : colors.background,
-                      color: viewMode === 'spaces' ? colors.cardBg : colors.foreground,
+                      border: `1px solid ${viewMode === 'list' ? colors.accent : colors.border}`,
+                      background: viewMode === 'list' ? colors.accentBg : colors.background,
+                      color: viewMode === 'list' ? colors.cardBg : colors.foreground,
                       cursor: 'pointer',
                       fontSize: '12px',
                     }}
                   >
-                    {t('operationWindow.spaces') || 'Spaces'}
+                    {listTitle || t('operationWindow.spaces') || 'Spaces'}
                   </button>
                 )}
               </div>
 
-              <div style={{ marginLeft: 'auto', fontSize: '12px', color: colors.mutedFg }}>
-                {viewMode === 'files'
-                  ? `${t('operationWindow.quickOpen') || 'Quick Open'} - ${formatKeyComboForDisplay('Ctrl+P')}`
-                  : t('operationWindow.spacesHeader') || 'Chat Spaces'}
+              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {viewMode === 'list' && headerActions && (
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    {headerActions.map((action, i) => (
+                      <button
+                        key={i}
+                        onClick={action.onClick}
+                        title={action.label}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: colors.foreground,
+                          cursor: 'pointer',
+                          padding: '4px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          borderRadius: '4px',
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = colors.mutedBg}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                      >
+                        {action.icon}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div style={{ fontSize: '12px', color: colors.mutedFg }}>
+                  {viewMode === 'files'
+                    ? `${t('operationWindow.quickOpen') || 'Quick Open'} - ${formatKeyComboForDisplay('Ctrl+P')}`
+                    : listTitle || 'List'}
+                </div>
               </div>
             </div>
 
-            {viewMode === 'files' && (
-              <input
-                ref={inputRef}
-                type="text"
-                placeholder={t('operationWindow.searchPlaceholder')}
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  background: colors.background,
-                  border: `1px solid ${colors.border}`,
-                  borderRadius: '4px',
-                  color: colors.foreground,
-                  fontSize: '14px',
-                  outline: 'none',
-                }}
-              />
-            )}
+            <input
+              ref={inputRef}
+              type="text"
+              placeholder={t('operationWindow.searchPlaceholder')}
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                background: colors.background,
+                border: `1px solid ${colors.border}`,
+                borderRadius: '4px',
+                color: colors.foreground,
+                fontSize: '14px',
+                outline: 'none',
+              }}
+              onKeyDown={e => {
+                if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                  e.preventDefault(); // Prevent cursor moving in input
+                }
+              }}
+            />
           </div>
 
-          {/* メインコンテンツ：ファイル一覧 または スペース一覧 */}
+          {/* List Content */}
           <div
             ref={listRef}
             style={{
@@ -531,130 +650,219 @@ export default function OperationWindow({
               overflowY: 'auto',
               minHeight: '200px',
               maxHeight: 'calc(40vh - 80px)',
-              padding: viewMode === 'spaces' ? '12px' : undefined,
             }}
           >
-            {viewMode === 'spaces' ? (
-              // Render the provided list content (caller supplies component)
-              <div style={{ display: 'flex', justifyContent: 'center' }}>{listContent || null}</div>
-            ) : filteredFiles.length === 0 ? (
-              <div
-                style={{
-                  padding: '20px',
-                  textAlign: 'center',
-                  color: colors.mutedFg,
-                }}
-              >
-                {t('operationWindow.noFilesFound')}
-              </div>
-            ) : (
-              filteredFiles.map((file, index) => {
-                // VSCode風のハイライト関数（一致部分を正確に検出）
-                function highlightMatch(text: string, query: string, isSelected: boolean) {
-                  if (!query) return <>{text}</>;
-
-                  const lowerText = text.toLowerCase();
-                  const lowerQuery = query.toLowerCase();
-                  const idx = lowerText.indexOf(lowerQuery);
-
-                  if (idx === -1) return <>{text}</>;
+            {viewMode === 'files' ? (
+              // FILES VIEW
+              filteredFiles.length === 0 ? (
+                <div style={{ padding: '20px', textAlign: 'center', color: colors.mutedFg }}>
+                  {t('operationWindow.noFilesFound')}
+                </div>
+              ) : (
+                filteredFiles.map((file, index) => {
+                  const isSelected = index === selectedIndex;
+                  const pathParts = file.path.split('/');
+                  const dirPath = pathParts.slice(0, -1).join('/');
 
                   return (
-                    <>
-                      {text.slice(0, idx)}
-                      <span
-                        style={{
-                          background: isSelected ? 'rgba(255,255,255,0.3)' : colors.accentBg,
-                          color: isSelected ? colors.cardBg : colors.primary,
-                          fontWeight: 'bold',
-                          borderRadius: '2px',
-                          padding: '0 1px',
-                        }}
-                      >
-                        {text.slice(idx, idx + query.length)}
-                      </span>
-                      {text.slice(idx + query.length)}
-                    </>
-                  );
-                }
-
-                const isSelected = index === selectedIndex;
-                const pathParts = file.path.split('/');
-                const dirPath = pathParts.slice(0, -1).join('/');
-
-                return (
-                  <div
-                    key={file.id}
-                    style={{
-                      height: ITEM_HEIGHT,
-                      boxSizing: 'border-box',
-                      padding: '2px 12px',
-                      background: isSelected ? colors.primary : 'transparent',
-                      color: isSelected ? colors.cardBg : colors.foreground,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      borderLeft: isSelected
-                        ? `3px solid ${colors.accentBg}`
-                        : '3px solid transparent',
-                      transition: 'background 0.1s ease',
-                    }}
-                    onClick={() => {
-                      handleFileSelectInOperation(file);
-                    }}
-                    onMouseEnter={() => setSelectedIndex(index)}
-                  >
-                    {/* ファイルアイコン */}
-                    <img
-                      src={getIconSrcForFile(file.name)}
-                      alt="icon"
+                    <div
+                      key={file.id}
                       style={{
-                        width: 16,
-                        height: 16,
-                        flex: '0 0 16px',
+                        height: ITEM_HEIGHT,
+                        boxSizing: 'border-box',
+                        padding: '2px 12px',
+                        background: isSelected ? colors.primary : 'transparent',
+                        color: isSelected ? colors.cardBg : colors.foreground,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        borderLeft: isSelected ? `3px solid ${colors.accentBg}` : '3px solid transparent',
                       }}
-                    />
-
-                    {/* ファイル名（左寄せ） */}
-                    <span
-                      style={{
-                        fontSize: '13px',
-                        fontWeight: isSelected ? '600' : '400',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        minWidth: '120px',
-                        maxWidth: '200px',
-                      }}
+                      onClick={() => handleFileSelectInOperation(file)}
+                      onMouseEnter={() => setSelectedIndex(index)}
                     >
-                      {highlightMatch(file.name, searchQuery, isSelected)}
-                    </span>
-
-                    {/* パス（右側に配置、右寄せ） */}
-                    {dirPath && (
+                      <img
+                        src={getIconSrcForFile(file.name)}
+                        alt="icon"
+                        style={{ width: 16, height: 16, flex: '0 0 16px' }}
+                      />
                       <span
                         style={{
-                          fontSize: '11px',
-                          color: isSelected ? 'rgba(255,255,255,0.8)' : colors.mutedFg,
+                          fontSize: '13px',
+                          fontWeight: isSelected ? '600' : '400',
                           whiteSpace: 'nowrap',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
-                          marginLeft: 'auto',
-                          fontFamily: 'monospace',
-                          textAlign: 'right',
+                          minWidth: '120px',
+                          maxWidth: '200px',
                         }}
                       >
-                        {highlightMatch(dirPath, searchQuery, isSelected)}
+                        {highlightMatch(file.name, searchQuery, isSelected)}
                       </span>
-                    )}
-                  </div>
-                );
-              })
+                      {dirPath && (
+                        <span
+                          style={{
+                            fontSize: '11px',
+                            color: isSelected ? 'rgba(255,255,255,0.8)' : colors.mutedFg,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            marginLeft: 'auto',
+                            fontFamily: 'monospace',
+                            textAlign: 'right',
+                          }}
+                        >
+                          {highlightMatch(dirPath, searchQuery, isSelected)}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })
+              )
+            ) : (
+              // GENERIC LIST VIEW
+              filteredItems.length === 0 ? (
+                <div style={{ padding: '20px', textAlign: 'center', color: colors.mutedFg }}>
+                  {t('operationWindow.noItemsFound') || 'No items found'}
+                </div>
+              ) : (
+                filteredItems.map((item, index) => {
+                  const isSelected = index === selectedIndex;
+                  
+                  return (
+                    <div
+                      key={item.id}
+                      className="group"
+                      style={{
+                        height: ITEM_HEIGHT,
+                        boxSizing: 'border-box',
+                        padding: '2px 12px',
+                        background: isSelected ? colors.primary : 'transparent',
+                        color: isSelected ? colors.cardBg : colors.foreground,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        borderLeft: isSelected ? `3px solid ${colors.accentBg}` : '3px solid transparent',
+                        position: 'relative',
+                      }}
+                      onClick={() => !item.isEditing && item.onClick?.()}
+                      onMouseEnter={() => setSelectedIndex(index)}
+                    >
+                      {/* Icon */}
+                      {item.icon && (
+                        <div style={{ width: 16, height: 16, flex: '0 0 16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {typeof item.icon === 'string' ? (
+                            <img src={item.icon} alt="" style={{ width: '100%', height: '100%' }} />
+                          ) : (
+                            item.icon
+                          )}
+                        </div>
+                      )}
+
+                      {/* Content */}
+                      {item.isEditing ? (
+                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <input
+                            type="text"
+                            value={item.editValue ?? item.label}
+                            onChange={e => item.onEditChange?.(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') {
+                                e.stopPropagation();
+                                item.onEditConfirm?.();
+                              } else if (e.key === 'Escape') {
+                                e.stopPropagation();
+                                item.onEditCancel?.();
+                              }
+                            }}
+                            onClick={e => e.stopPropagation()}
+                            autoFocus
+                            style={{
+                              flex: 1,
+                              height: '18px',
+                              fontSize: '13px',
+                              padding: '0 4px',
+                              border: `1px solid ${colors.accent}`,
+                              background: colors.background,
+                              color: colors.foreground,
+                              borderRadius: '2px',
+                              outline: 'none',
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <>
+                          <span
+                            style={{
+                              fontSize: '13px',
+                              fontWeight: isSelected || item.isActive ? '600' : '400',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              flex: 1,
+                            }}
+                          >
+                            {highlightMatch(item.label, searchQuery, isSelected)}
+                          </span>
+                          {item.description && (
+                            <span
+                              style={{
+                                fontSize: '11px',
+                                color: isSelected ? 'rgba(255,255,255,0.8)' : colors.mutedFg,
+                                marginLeft: '8px',
+                              }}
+                            >
+                              {highlightMatch(item.description, searchQuery, isSelected)}
+                            </span>
+                          )}
+                        </>
+                      )}
+
+                      {/* Actions (hover or selected) */}
+                      {!item.isEditing && item.actions && item.actions.length > 0 && (
+                        <div
+                          style={{
+                            display: isSelected ? 'flex' : 'none',
+                            gap: '4px',
+                            marginLeft: 'auto',
+                          }}
+                        >
+                          {item.actions.map(action => (
+                            <button
+                              key={action.id}
+                              onClick={e => {
+                                e.stopPropagation();
+                                action.onClick(e);
+                              }}
+                              title={action.label}
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: action.danger ? (isSelected ? '#ffcccc' : colors.destructive) : (isSelected ? 'white' : colors.foreground),
+                                cursor: 'pointer',
+                                padding: '2px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                borderRadius: '3px',
+                              }}
+                              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
+                              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                            >
+                              {action.icon}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )
             )}
           </div>
 
-          {/* フッター（ヘルプテキスト） */}
+          {/* Footer */}
           <div
             style={{
               padding: '8px 12px',
@@ -675,12 +883,6 @@ export default function OperationWindow({
               onClick={onClose}
               tabIndex={0}
               role="button"
-              aria-label={t('operationWindow.closeByEsc')}
-              onKeyDown={e => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  onClose();
-                }
-              }}
             >
               {t('operationWindow.closeByEsc')}
             </span>
