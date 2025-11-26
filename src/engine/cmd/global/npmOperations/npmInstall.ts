@@ -25,6 +25,9 @@ export class NpmInstall {
   private projectName: string;
   private projectId: string;
 
+  // 再利用可能な TextDecoder をクラスで保持して、頻繁なインスタンス生成を避ける
+  private textDecoder = new TextDecoder('utf-8', { fatal: false });
+
   // バッチ処理用のキュー
   private fileOperationQueue: Array<{
     path: string;
@@ -699,20 +702,59 @@ export class NpmInstall {
 
       // IndexedDBに同期（展開されたファイルのみを使用）
       try {
-        const relativePath = `/node_modules/${packageName}`;
-        await this.executeFileOperation(relativePath, 'folder');
+        const basePath = `/node_modules/${packageName}`;
+        await this.executeFileOperation(basePath, 'folder');
 
-        // 展開されたファイルを順次同期
-        for (const [relativePath, fileInfo] of extractedFiles) {
-          const fullPath = `/node_modules/${packageName}/${relativePath}`;
+        // 展開されたファイルをバッチ/並列で同期
+        const foldersToCreate: string[] = [];
+        const filesToCreate: Array<{ projectId: string; path: string; content: string; type: string }> = [];
 
+        for (const [relPath, fileInfo] of extractedFiles) {
+          const fullPath = `${basePath}/${relPath}`;
           if (fileInfo.isDirectory) {
-            // ディレクトリを作成
-            await this.executeFileOperation(fullPath, 'folder');
+            foldersToCreate.push(fullPath);
           } else {
-            // ファイルを作成
-            const fileContent = fileInfo.content || '';
-            await this.executeFileOperation(fullPath, 'file', fileContent);
+            filesToCreate.push({ projectId: this.projectId, path: fullPath, content: fileInfo.content || '', type: 'file' });
+          }
+        }
+
+        if (this.batchProcessing) {
+          // バッチモード時はフォルダは即時作成、ファイルはキューに追加
+          await Promise.all(foldersToCreate.map(p => this.executeFileOperation(p, 'folder')));
+          for (const f of filesToCreate) {
+            this.fileOperationQueue.push({ path: f.path, type: 'file', content: f.content });
+          }
+        } else {
+          // フォルダを並列作成（存在チェックは fileRepository 内で行われる想定）
+          await Promise.all(
+            foldersToCreate.map(p =>
+              fileRepository.createFile(this.projectId, p, '', 'folder').catch(err => {
+                console.warn(`[npm.downloadAndInstallPackage] Failed to create folder ${p}:`, err);
+              })
+            )
+          );
+
+          // ファイルをバッチで送る（createFilesBulk を利用）
+          const BATCH_SIZE = 500;
+          for (let i = 0; i < filesToCreate.length; i += BATCH_SIZE) {
+            const batch = filesToCreate.slice(i, i + BATCH_SIZE);
+            try {
+              await fileRepository.createFilesBulk(
+                this.projectId,
+                batch as any,
+                true
+              );
+            } catch (err) {
+              console.warn(`[npm.downloadAndInstallPackage] createFilesBulk failed:`, err);
+              // フォールバックで個別作成（並列）
+              await Promise.all(
+                batch.map(b =>
+                  fileRepository.createFile(this.projectId, b.path, b.content || '', 'file').catch(e => {
+                    console.warn(`[npm.downloadAndInstallPackage] Failed to create file ${b.path}:`, e);
+                  })
+                )
+              );
+            }
           }
         }
       } catch (error) {
@@ -784,7 +826,7 @@ export class NpmInstall {
               offset += c.length;
             }
 
-            const content = new TextDecoder('utf-8', { fatal: false }).decode(combined);
+            const content = this.textDecoder.decode(combined);
 
             fileEntries.set(relativePath, {
               type: header.type,
@@ -992,7 +1034,7 @@ export class NpmInstall {
             }
 
             // ファイルの内容をデコード（事前に準備）
-            const content = new TextDecoder('utf-8', { fatal: false }).decode(combined);
+            const content = this.textDecoder.decode(combined);
 
             fileEntries.set(relativePath, {
               type: header.type,
