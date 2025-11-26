@@ -24,6 +24,12 @@ interface TabStore {
   updatePane: (paneId: string, updates: Partial<EditorPane>) => void;
   setActivePane: (paneId: string | null) => void;
   splitPane: (paneId: string, direction: 'horizontal' | 'vertical') => void;
+  splitPaneAndMoveTab: (
+    paneId: string,
+    direction: 'horizontal' | 'vertical',
+    tabId: string,
+    side: 'before' | 'after'
+  ) => void;
   resizePane: (paneId: string, newSize: number) => void;
 
   // タブ操作
@@ -516,7 +522,13 @@ export const useTabStore = create<TabStore>((set, get) => ({
       nextNum++;
     }
     const newPaneId = `pane-${nextNum}`;
-    const existingPaneId = `pane-${nextNum + 1}`;
+    
+    // existingPaneId も重複しないように生成
+    let nextNum2 = nextNum + 1;
+    while (existingIds.includes(`pane-${nextNum2}`) || `pane-${nextNum2}` === newPaneId) {
+      nextNum2++;
+    }
+    const existingPaneId = `pane-${nextNum2}`;
 
     // 再帰的にペインを更新
     const updatePaneRecursive = (panes: EditorPane[]): EditorPane[] => {
@@ -559,6 +571,124 @@ export const useTabStore = create<TabStore>((set, get) => ({
     };
 
     set({ panes: updatePaneRecursive(state.panes) });
+  },
+
+  splitPaneAndMoveTab: (paneId, direction, tabId, side) => {
+    const state = get();
+    const targetPane = state.getPane(paneId);
+    if (!targetPane) return;
+
+    // 移動するタブを特定（どのペインにあるか探す）
+    let sourcePaneId = '';
+    let tabToMove: Tab | null = null;
+    
+    // 全ペインから探す
+    const findTab = (panes: EditorPane[]) => {
+      for (const p of panes) {
+        const t = p.tabs.find(tab => tab.id === tabId);
+        if (t) {
+          sourcePaneId = p.id;
+          tabToMove = t;
+          return;
+        }
+        if (p.children) findTab(p.children);
+      }
+    };
+    findTab(state.panes);
+
+    if (!tabToMove || !sourcePaneId) return;
+
+    // 既存のペインIDを収集
+    const getAllPaneIds = (panes: EditorPane[]): string[] => {
+      const ids: string[] = [];
+      const traverse = (panes: EditorPane[]) => {
+        panes.forEach(pane => {
+          ids.push(pane.id);
+          if (pane.children) traverse(pane.children);
+        });
+      };
+      traverse(panes);
+      return ids;
+    };
+
+    const existingIds = getAllPaneIds(state.panes);
+    let nextNum = 1;
+    while (existingIds.includes(`pane-${nextNum}`)) {
+      nextNum++;
+    }
+    const newPaneId = `pane-${nextNum}`;
+    const existingPaneId = `pane-${nextNum + 1}`;
+
+    // 再帰的にペインを更新
+    const updatePaneRecursive = (panes: EditorPane[]): EditorPane[] => {
+      return panes.map(pane => {
+        // ソースペインからタブを削除（ターゲットと同じペインの場合は後で処理されるのでここでは削除しない）
+        if (pane.id === sourcePaneId && sourcePaneId !== paneId) {
+           const newTabs = pane.tabs.filter(t => t.id !== tabId);
+           return {
+             ...pane,
+             tabs: newTabs,
+             activeTabId: pane.activeTabId === tabId ? (newTabs[0]?.id || '') : pane.activeTabId
+           };
+        }
+
+        if (pane.id === paneId) {
+          // ターゲットペインを分割
+          // 既存のタブ（移動するタブがここにある場合は除外）
+          const existingTabs = pane.tabs.filter(t => t.id !== tabId).map(tab => ({
+             ...tab,
+             // IDは変更しない（移動ではないため）
+             // ただし、新しいペインIDに属することになるため、内部的な整合性は必要だが
+             // ここでは既存のタブをそのまま `existingPaneId` のペインに移す
+             // タブIDにペインIDが含まれている場合などは置換が必要かもしれないが、
+             // 現在の実装では tab.id は path ベースのようなのでそのままで良い場合が多い
+             // しかし splitPane では replace している...
+             // 安全のため splitPane と同様に replace するか、あるいは paneId プロパティだけ更新するか
+             // tabStore の moveTab では paneId プロパティを更新している
+             paneId: existingPaneId
+          }));
+          
+          // 移動するタブ
+          const movedTab = { ...tabToMove!, paneId: newPaneId };
+
+          const pane1 = {
+            id: existingPaneId,
+            tabs: existingTabs,
+            activeTabId: pane.activeTabId === tabId ? (existingTabs[0]?.id || '') : pane.activeTabId, // 移動するタブがアクティブだった場合は別のアクティブへ
+            parentId: paneId,
+            size: 50,
+          };
+
+          const pane2 = {
+            id: newPaneId,
+            tabs: [movedTab],
+            activeTabId: movedTab.id,
+            parentId: paneId,
+            size: 50,
+          };
+
+          return {
+            ...pane,
+            layout: direction,
+            children: side === 'before' ? [pane2, pane1] : [pane1, pane2],
+            tabs: [], // 親ペインはタブを持たない
+            activeTabId: '',
+          };
+        }
+        
+        if (pane.children) {
+          return { ...pane, children: updatePaneRecursive(pane.children) };
+        }
+        return pane;
+      });
+    };
+
+    const newPanes = updatePaneRecursive(state.panes);
+    set({ 
+      panes: newPanes,
+      activePane: newPaneId,
+      globalActiveTab: tabId
+    });
   },
 
   resizePane: (paneId, newSize) => {

@@ -39,20 +39,87 @@ export const useGitContext = () => {
  */
 export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContainerProps) {
   const { colors } = useTheme();
-  const { globalActiveTab, setPanes, panes: allPanes, moveTab } = useTabStore();
+  const { globalActiveTab, setPanes, panes: allPanes, moveTab, splitPaneAndMoveTab } = useTabStore();
+  const [dropZone, setDropZone] = React.useState<'top' | 'bottom' | 'left' | 'right' | 'center' | null>(null);
 
-  // このペイン自体をドロップターゲットとして扱う（末尾に挿入）
-  const [, drop] = useDrop(
+  // このペイン自体をドロップターゲットとして扱う
+  const [{ isOver }, drop] = useDrop(
     () => ({
       accept: 'TAB',
-      drop: (item: any) => {
+      drop: (item: any, monitor) => {
         if (!item || !item.tabId) return;
-        if (item.fromPaneId === pane.id) return; // 同じペインなら無視
-        moveTab(item.fromPaneId, pane.id, item.tabId);
+        
+        // ドロップ時のゾーンに基づいて処理
+        // monitor.getClientOffset() はドロップ時の座標
+        // しかし、dropZone state は hover で更新されているはずなのでそれを使うのが簡単だが、
+        // drop イベントの瞬間に state が最新かどうかの懸念があるため、再計算が安全。
+        // ここでは dropZone state を信頼する（hover で更新されている前提）
+        
+        // ただし、React DnD の drop は非同期ではないので、ref の current 値などを使うのがベストだが、
+        // state でも通常は問題ない。
+        // 安全のため、ここで再計算を行う。
+        
+        // Note: monitor.getClientOffset() returns { x, y } relative to viewport
+        // We need bounding rect of the element.
+        // Since we don't have easy access to the element rect inside drop() without a ref,
+        // we will rely on the `hover` method to have set the state, OR we can use the state if we trust it.
+        // Let's try to use the state first. If it's null, we default to moveTab (center).
+        
+        if (!dropZone || dropZone === 'center') {
+            if (item.fromPaneId === pane.id) return; // 同じペインなら無視
+            moveTab(item.fromPaneId, pane.id, item.tabId);
+        } else {
+            // Split logic
+            // Top/Bottom -> Stacked -> horizontal layout
+            // Left/Right -> Side-by-side -> vertical layout
+            const direction = (dropZone === 'top' || dropZone === 'bottom') ? 'horizontal' : 'vertical';
+            const side = (dropZone === 'top' || dropZone === 'left') ? 'before' : 'after';
+            splitPaneAndMoveTab(pane.id, direction, item.tabId, side);
+        }
+        
+        setDropZone(null);
       },
+      hover: (item, monitor) => {
+        if (!monitor.isOver({ shallow: true })) {
+            setDropZone(null);
+            return;
+        }
+
+        const clientOffset = monitor.getClientOffset();
+        if (!clientOffset) return;
+
+        // 要素の矩形を取得する必要がある
+        // dropRef で取得した node を使う
+        // しかし dropRef は関数なので、useRef で node を保持する必要がある
+        if (elementRef.current) {
+            const rect = elementRef.current.getBoundingClientRect();
+            const x = clientOffset.x - rect.left;
+            const y = clientOffset.y - rect.top;
+            const w = rect.width;
+            const h = rect.height;
+
+            // ゾーン判定 (20% threshold for edges)
+            const thresholdX = w * 0.25;
+            const thresholdY = h * 0.25;
+
+            let zone: 'top' | 'bottom' | 'left' | 'right' | 'center' = 'center';
+
+            if (y < thresholdY) zone = 'top';
+            else if (y > h - thresholdY) zone = 'bottom';
+            else if (x < thresholdX) zone = 'left';
+            else if (x > w - thresholdX) zone = 'right';
+
+            setDropZone(zone);
+        }
+      },
+      collect: (monitor) => ({
+        isOver: monitor.isOver({ shallow: true }),
+      }),
     }),
-    [pane.id]
+    [pane.id, dropZone] // dropZone を依存配列に入れることで drop 内で最新の state を参照できる可能性が高まる
   );
+
+  const elementRef = React.useRef<HTMLDivElement | null>(null);
 
   // 子ペインがある場合は分割レイアウトをレンダリング
   if (pane.children && pane.children.length > 0) {
@@ -142,6 +209,7 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
 
   // React の `ref` に渡すときの型不整合を避けるため、コールバック ref を用いる
   const dropRef = (node: HTMLDivElement | null) => {
+    elementRef.current = node;
     try {
       if (typeof drop === 'function') {
         // react-dnd の drop へ渡す際に any を許容
@@ -156,7 +224,7 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
     <GitContext.Provider value={{ setGitRefreshTrigger }}>
       <div
         ref={dropRef}
-        className="flex flex-col overflow-hidden"
+        className="flex flex-col overflow-hidden relative"
         style={{
           width: '100%',
           height: '100%',
@@ -164,6 +232,23 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
           border: `1px solid ${isGloballyActive ? colors.accentBg : colors.border}`,
         }}
       >
+        {/* ドロップゾーンのオーバーレイ */}
+        {isOver && dropZone && (
+            <div
+                style={{
+                    position: 'absolute',
+                    zIndex: 50,
+                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                    pointerEvents: 'none', // ドロップイベントを妨害しないように
+                    ...(dropZone === 'center' ? { inset: 0 } : {}),
+                    ...(dropZone === 'top' ? { top: 0, left: 0, right: 0, height: '50%' } : {}),
+                    ...(dropZone === 'bottom' ? { bottom: 0, left: 0, right: 0, height: '50%' } : {}),
+                    ...(dropZone === 'left' ? { top: 0, left: 0, bottom: 0, width: '50%' } : {}),
+                    ...(dropZone === 'right' ? { top: 0, right: 0, bottom: 0, width: '50%' } : {}),
+                }}
+            />
+        )}
+
         {/* タブバー */}
         <TabBar paneId={pane.id} />
 

@@ -1,5 +1,6 @@
 import { Monaco } from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
+import { getLanguage } from './editor-utils';
 
 let isRegistered = false;
 
@@ -114,7 +115,9 @@ export function getEnhancedLanguage(filename: string): string {
   if (ext.endsWith('.jsx')) return 'javascript';
   if (ext.endsWith('.ts')) return 'typescript';
   if (ext.endsWith('.js')) return 'javascript';
-  return 'plaintext';
+  // For other extensions, fall back to the generic language detector
+  // so `.html` becomes `html`, `.css` becomes `css`, etc.
+  return getLanguage(filename);
 }
 
 export function getModelLanguage(filename: string): string {
