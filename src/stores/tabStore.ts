@@ -230,6 +230,25 @@ export const useTabStore = create<TabStore>((set, get) => ({
       return;
     }
 
+    // もし targetPaneId が親ペイン（children を持つ）を指している場合、実際のタブ追加は葉ペインに行う。
+    // これは「グローバルアクティブが空の親ペイン」になっている状況への対処。
+    const normalizeToLeafPane = (paneId: string): string => {
+      const startPane = get().getPane(paneId);
+      if (!startPane) return paneId;
+
+      const findLeaf = (p: EditorPane): EditorPane => {
+        if (!p.children || p.children.length === 0) return p;
+        // 優先的に最初の子を辿る（UI上のフォーカスを自然に保つため）
+        return findLeaf(p.children[0]);
+      };
+
+      const leaf = findLeaf(startPane);
+      return leaf.id || paneId;
+    };
+
+    // 正規化して葉ペインIDを使う
+    targetPaneId = normalizeToLeafPane(targetPaneId);
+
     const tabDef = tabRegistry.get(kind);
     if (!tabDef) {
       console.error(`[TabStore] No tab type registered for kind: ${kind}`);
