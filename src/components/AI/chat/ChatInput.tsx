@@ -3,6 +3,7 @@
 'use client';
 
 import { Send, Loader2, FileCode } from 'lucide-react';
+import { getIconForFile } from 'vscode-icons-js';
 import React, { useState, KeyboardEvent, useRef, useEffect } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
@@ -16,6 +17,7 @@ interface ChatInputProps {
   selectedFiles?: string[];
   onOpenFileSelector?: () => void;
   disabled?: boolean;
+  onRemoveSelectedFile?: (path: string) => void;
 }
 
 export default function ChatInput({
@@ -25,6 +27,7 @@ export default function ChatInput({
   selectedFiles = [],
   onOpenFileSelector,
   disabled = false,
+  onRemoveSelectedFile,
 }: ChatInputProps) {
   const { colors } = useTheme();
   const [input, setInput] = useState('');
@@ -81,6 +84,18 @@ export default function ChatInput({
 
   const { t } = useTranslation();
 
+  function getIconSrcForFile(name: string) {
+    try {
+      const iconPath = getIconForFile(name) || getIconForFile('');
+      if (iconPath && iconPath.endsWith('.svg')) {
+        return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath.split('/').pop()}`;
+      }
+    } catch (e) {
+      // ignore and fallback
+    }
+    return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/file.svg`;
+  }
+
   const placeholder = mode === 'ask' ? t('ai.input.ask') : t('ai.input.edit');
 
   return (
@@ -102,19 +117,52 @@ export default function ChatInput({
               <FileCode size={14} />
               <span>{t('ai.selectedLabel')}</span>
             </div>
-            {selectedFiles.map((file, index) => (
-              <span
-                key={index}
-                className="px-2 py-1 rounded text-xs font-mono"
-                style={{
-                  background: colors.mutedBg,
-                  border: `1px solid ${colors.border}`,
-                  color: colors.foreground,
-                }}
-              >
-                {file.split('/').pop()}
-              </span>
-            ))}
+            {selectedFiles.map((file, index) => {
+              const fileName = (file.split('/').pop() as string) || file;
+              const iconSrc = getIconSrcForFile(fileName);
+              return (
+                <div
+                  key={index}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '2px 6px',
+                    borderRadius: 6,
+                    fontSize: 12,
+                    fontFamily: 'monospace',
+                    background: colors.mutedBg,
+                    border: `1px solid ${colors.border}`,
+                    color: colors.foreground,
+                    maxWidth: '100%',
+                    lineHeight: 1,
+                  }}
+                >
+                  <img src={iconSrc} alt="icon" style={{ width: 12, height: 12, flex: '0 0 12px' }} />
+                  <span className="truncate" style={{ maxWidth: 96, display: 'inline-block' }}>
+                    {fileName}
+                  </span>
+                  <button
+                    onClick={() => onRemoveSelectedFile?.(file)}
+                    title={t('ai.fileContextBar.remove') || 'Remove'}
+                    style={{
+                      background: 'transparent',
+                      color: colors.mutedFg,
+                      border: 'none',
+                      padding: 2,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 18,
+                      height: 18,
+                      marginLeft: 2,
+                    }}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                  </button>
+                </div>
+              );
+            })}
           </div>
         )}
 

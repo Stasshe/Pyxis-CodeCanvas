@@ -6,6 +6,7 @@ import { useDrop } from 'react-dnd';
 
 import PaneResizer from '@/components/PaneResizer';
 import TabBar from '@/components/Tab/TabBar';
+import { Breadcrumb } from '@/components/Tab/Breadcrumb';
 import { useTheme } from '@/context/ThemeContext';
 import { tabRegistry } from '@/engine/tabs/TabRegistry';
 import { useTabStore } from '@/stores/tabStore';
@@ -258,6 +259,9 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
 
         {/* タブバー */}
         <TabBar paneId={pane.id} />
+        
+        {/* ブレッドクラム */}
+        <Breadcrumb paneId={pane.id} />
 
         {/* エディタコンテンツ - TabRegistryで動的レンダリング */}
         <div className="flex-1 overflow-hidden">

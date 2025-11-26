@@ -9,7 +9,6 @@ import ChatContainer from './chat/ChatContainer';
 import ChatInput from './chat/ChatInput';
 import ModeSelector from './chat/ModeSelector';
 import OperationWindow, { OperationListItem } from '@/components/OperationWindow';
-import FileContextBar from './context/FileContextBar';
 import FileSelector from './FileSelector';
 import ChangedFilesPanel from './review/ChangedFilesPanel';
 
@@ -366,14 +365,7 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
         />
       )}
 
-      {/* ファイルコンテキストバー */}
-      {fileContexts.filter(ctx => ctx.selected).length > 0 && (
-        <FileContextBar
-          contexts={fileContexts}
-          onToggleSelection={toggleFileSelection}
-          onOpenSelector={() => setIsFileSelectorOpen(true)}
-        />
-      )}
+      {/* 上部の FileContextBar を廃止し、代わりに入力部のタグに削除ボタンを表示します */}
 
       {/* メッセージコンテナ */}
       <ChatContainer
@@ -447,6 +439,7 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
         isProcessing={isProcessing}
         selectedFiles={fileContexts.filter(ctx => ctx.selected).map(ctx => ctx.path)}
         onOpenFileSelector={() => setIsFileSelectorOpen(true)}
+        onRemoveSelectedFile={toggleFileSelection}
         disabled={!currentProject && mode === 'edit'}
       />
 
