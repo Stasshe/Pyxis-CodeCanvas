@@ -225,7 +225,12 @@ export default function CodeEditor({
         if (!projectId || !updateSettings) return;
         const current = settings?.editor?.wordWrap ?? false;
         try {
-          await updateSettings({ editor: { wordWrap: !current } });
+          await updateSettings(prev => ({
+            editor: {
+              ...(prev?.editor || {}),
+              wordWrap: !current,
+            },
+          }));
         } catch (e) {
           console.error('[CodeEditor] toggleWordWrap failed:', e);
         }

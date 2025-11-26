@@ -86,10 +86,14 @@ export function useSettings(projectId?: string) {
     return excludeRegexps.some(re => re.test(path));
   };
 
-  const updateSettings = async (updates: Partial<PyxisSettings>) => {
+  type UpdatesArg =
+    | Partial<PyxisSettings>
+    | ((current: PyxisSettings) => Partial<PyxisSettings>);
+
+  const updateSettings = async (updates: UpdatesArg) => {
     if (!projectId || !settings) return;
     try {
-      await settingsManager.updateSettings(projectId, updates);
+      await settingsManager.updateSettings(projectId, updates as any);
     } catch (error) {
       console.error('[useSettings] Failed to update settings:', error);
       throw error;

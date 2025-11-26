@@ -48,11 +48,29 @@ export function useMonacoModels() {
       content: string,
       fileName: string
     ): monaco.editor.ITextModel | null => {
+        // entry log removed in cleanup
       const monacoModelMap = monacoModelMapRef.current;
       let model = monacoModelMap.get(tabId);
 
-      // dispose済みモデルはMapから削除
-      if (!isModelSafe(model)) {
+      // If a model exists in our map, ensure it's safe and has the correct language.
+      if (isModelSafe(model)) {
+        try {
+          const desiredLang = getModelLanguage(fileName);
+          const currentLang = model!.getLanguageId();
+          if (currentLang !== desiredLang) {
+            try {
+              model!.dispose();
+            } catch (e) {
+              console.warn('[useMonacoModels] Failed to dispose cached model:', e);
+            }
+            monacoModelMap.delete(tabId);
+            model = undefined;
+          }
+        } catch (e) {
+          console.warn('[useMonacoModels] Error while checking cached model language:', e);
+        }
+      } else {
+        // dispose済みモデルはMapから削除
         if (model) {
           monacoModelMap.delete(tabId);
         }
@@ -61,32 +79,43 @@ export function useMonacoModels() {
 
       if (!model) {
         try {
+          // Use the tabId to construct a unique in-memory URI so different
+          // tabs/files with the same base filename don't collide.
           const safeFileName = fileName && fileName.length > 0 ? fileName : `untitled-${tabId}`;
-          const path = safeFileName.startsWith('/') ? safeFileName : `/${safeFileName}`;
-          const uri = mon.Uri.parse(`inmemory://model${path}`);
+          const normalizedTabPath = tabId && tabId.length > 0 ? (tabId.startsWith('/') ? tabId : `/${tabId}`) : `/${safeFileName}`;
+          const uri = mon.Uri.parse(`inmemory://model${normalizedTabPath}`);
+          // computed URI log removed in cleanup
 
           // 既存のモデルを再利用（ただし言語IDは強制的に合わせる）
           try {
             const existingModel = mon.editor.getModel(uri);
-            if (isModelSafe(existingModel)) {
-              // Ensure the model has the correct language (prevents language carry-over)
+            if (existingModel && isModelSafe(existingModel)) {
+              // If existing model has a different language than desired, create a
+              // fresh model instead of mutating language in-place. Mutating can
+              // cause diagnostics / language-service mixups across models.
               try {
                 const desiredLang = getModelLanguage(fileName);
-                // mon.editor.setModelLanguage is the recommended API to change a model's language
-                (mon.editor as any).setModelLanguage(existingModel, desiredLang);
+                const beforeLang = existingModel.getLanguageId();
+                if (beforeLang !== desiredLang) {
+                  // detailed replace log removed in cleanup
+                  // Dispose the old model if possible and safe.
+                  try {
+                    existingModel.dispose();
+                  } catch (e) {
+                    console.warn('[useMonacoModels] Failed to dispose old model:', e);
+                  }
+                  const newModel = mon.editor.createModel(content, desiredLang, uri);
+                  monacoModelMap.set(tabId, newModel);
+                  // replaced-model log removed in cleanup
+                  return newModel;
+                }
+                // Languages already match — reuse safely.
+                // reuse log removed in cleanup
+                monacoModelMap.set(tabId, existingModel);
+                return existingModel;
               } catch (e) {
-                console.debug('[useMonacoModels] setModelLanguage failed or unavailable:', e);
+                console.warn('[useMonacoModels] Reuse/create logic failed:', e);
               }
-
-              monacoModelMap.set(tabId, existingModel as monaco.editor.ITextModel);
-              console.debug(
-                '[useMonacoModels] Reusing existing model for:',
-                tabId,
-                'uri:',
-                uri.toString(),
-                'language:', existingModel.getLanguageId()
-              );
-              return existingModel as monaco.editor.ITextModel;
             }
           } catch (e) {
             console.warn('[useMonacoModels] mon.editor.getModel failed:', e);
@@ -103,7 +132,7 @@ export function useMonacoModels() {
             // not critical
           }
           monacoModelMap.set(tabId, newModel);
-          console.debug(
+          console.log(
             '[useMonacoModels] Created new model for:',
             tabId,
             'language:',

@@ -66,15 +66,14 @@ export default function MonacoEditor({
     editorRef.current = editor;
     monacoRef.current = mon;
     setIsEditorReady(true);
-
-    console.log('[MonacoEditor] Language set to:', getEnhancedLanguage(fileName), 'modelLanguage:', getModelLanguage(fileName));
+    // language set log removed in cleanup
 
     // 強化言語の登録（初回のみ）
     if (!isLanguageRegistered) {
       try {
         registerEnhancedJSXLanguage(mon);
         isLanguageRegistered = true;
-        console.log('[MonacoEditor] Enhanced JSX/TSX language registered');
+        // registration log removed in cleanup
       } catch (e) {
         console.warn('[MonacoEditor] Failed to register enhanced language:', e);
       }
@@ -207,7 +206,8 @@ export default function MonacoEditor({
       const model = getOrCreateModel(monacoRef.current, tabId, content, fileName);
       if (model && isEditorSafe()) {
         try {
-          editor.setModel(model);
+            editor.setModel(model);
+            // initial model debug logs removed in cleanup
           currentModelIdRef.current = tabId;
           onCharCountChange(countCharsNoSpaces(content));
         } catch (e: any) {
@@ -226,6 +226,7 @@ export default function MonacoEditor({
     if (model && currentModelIdRef.current !== tabId) {
       try {
         editorRef.current!.setModel(model);
+        // marker dump removed in cleanup
         currentModelIdRef.current = tabId;
         onCharCountChange(countCharsNoSpaces(model.getValue()));
       } catch (e: any) {

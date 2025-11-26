@@ -202,6 +202,9 @@ export default function TabBar({ paneId }: TabBarProps) {
     const isDuplicate = nameCount[tab.name] > 1;
     const displayName = isDuplicate ? `${tab.name} (${tab.path})` : tab.name;
 
+    const [dragOverSide, setDragOverSide] = useState<'left' | 'right' | null>(null);
+    const ref = useRef<HTMLDivElement>(null);
+
     // Drag source
     const [{ isDragging }, dragRef] = useDrag(
       () => ({
@@ -214,40 +217,76 @@ export default function TabBar({ paneId }: TabBarProps) {
       [tab.id, paneId, tabIndex]
     );
 
-    // Drop target on each tab - perform move only on drop to avoid repeated moves during hover
-    const [, tabDrop] = useDrop(
+    // Drop target on each tab
+    const [{ isOver }, tabDrop] = useDrop(
       () => ({
         accept: 'TAB',
         drop: (item: any, monitor: any) => {
           if (!item || !item.tabId) return;
-          // ensure this is the shallowest target (avoid nested drops)
           if (monitor && typeof monitor.isOver === 'function' && !monitor.isOver({ shallow: true })) return;
+          
           const fromPane = item.fromPaneId;
           const draggedId = item.tabId;
+          
+          // Calculate target index based on side
+          let targetIndex = tabIndex;
+          if (dragOverSide === 'right') {
+            targetIndex = tabIndex + 1;
+          }
+          
+          // Adjust index if moving within same pane and target is after source
+          // (This logic is usually handled by the store or array splice logic, but let's be safe)
+          // Actually, moveTabToIndex usually handles "insert at index".
+          
           if (draggedId === tab.id) return;
+
           try {
             // @ts-ignore
-            moveTabToIndex(fromPane, paneId, draggedId, tabIndex);
+            moveTabToIndex(fromPane, paneId, draggedId, targetIndex);
             item.fromPaneId = paneId;
-            item.index = tabIndex;
+            item.index = targetIndex;
           } catch (err) {
             // ignore
           }
+          setDragOverSide(null);
         },
+        hover: (item, monitor) => {
+            if (!ref.current) return;
+            if (!monitor.isOver({ shallow: true })) {
+                setDragOverSide(null);
+                return;
+            }
+            
+            const hoverBoundingRect = ref.current.getBoundingClientRect();
+            const hoverClientX = (monitor.getClientOffset() as any).x;
+            const hoverClientY = (monitor.getClientOffset() as any).y;
+            
+            const hoverMiddleX = (hoverBoundingRect.right - hoverBoundingRect.left) / 2;
+            const hoverClientXRelative = hoverClientX - hoverBoundingRect.left;
+            
+            if (hoverClientXRelative < hoverMiddleX) {
+                setDragOverSide('left');
+            } else {
+                setDragOverSide('right');
+            }
+        },
+        collect: (monitor) => ({
+            isOver: monitor.isOver({ shallow: true }),
+        }),
       }),
-      [paneId, tabIndex]
+      [paneId, tabIndex, dragOverSide]
     );
 
     const opacity = isDragging ? 0.4 : 1;
 
+    // Connect refs
+    dragRef(tabDrop(ref));
+
     return (
       <div
         key={tab.id}
-        ref={node => {
-          dragRef(node as any);
-          tabDrop(node as any);
-        }}
-        className={`h-full px-3 flex items-center gap-2 flex-shrink-0 border-r ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+        ref={ref}
+        className={`h-full px-3 flex items-center gap-2 flex-shrink-0 border-r relative ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
         style={{
           background: isActive ? colors.background : colors.mutedBg,
           borderColor: colors.border,
@@ -261,6 +300,30 @@ export default function TabBar({ paneId }: TabBarProps) {
         onTouchEnd={handleTouchEnd}
         onTouchMove={handleTouchMove}
       >
+        {/* Insertion Indicator */}
+        {isOver && dragOverSide === 'left' && (
+            <div style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: '2px',
+                backgroundColor: colors.accentFg || '#007acc',
+                zIndex: 10
+            }} />
+        )}
+        {isOver && dragOverSide === 'right' && (
+            <div style={{
+                position: 'absolute',
+                right: 0,
+                top: 0,
+                bottom: 0,
+                width: '2px',
+                backgroundColor: colors.accentFg || '#007acc',
+                zIndex: 10
+            }} />
+        )}
+
         <TabIcon kind={tab.kind} filename={tab.name} size={14} color={colors.fg} />
         <span className="text-sm truncate flex-1" style={{ color: colors.fg }} title={displayName}>
           {displayName}
