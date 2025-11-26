@@ -5,7 +5,7 @@
   "type": "transpiler",
   "description": "TypeScript/JSX/TSXファイルのトランスパイルをサポート。Babel standaloneを使用した高速なコンパイル。",
   "author": "Pyxis Team",
-  "defaultEnabled": true,
+  "defaultEnabled": false,
   "icon": "/extensions/pyxis/typescript-runtime/icon.svg",
   "homepage": "https://github.com/Stasshe/Pyxis-CodeCanvas",
   "dependencies": [],
