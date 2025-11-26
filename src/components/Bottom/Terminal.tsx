@@ -321,16 +321,10 @@ function ClientTerminal({
 
     // 長い出力を段階的に処理する関数
     const writeOutput = async (output: string) => {
-      const lines = output.split('\n');
-      const batchSize = 20;
-      for (let i = 0; i < lines.length; i += batchSize) {
-        const batch = lines.slice(i, i + batchSize);
-        cmdOutputs += batch.join('\n');
-        for (const line of batch) {
-          // \rプレフィックスを削除
-          term.writeln(line);
-        }
-      }
+      // \nを\r\nに変換（xtermは\r\nが必要）
+      const normalized = output.replace(/\r?\n/g, '\r\n');
+      cmdOutputs += output;
+      term.write(normalized);
     };
 
     const processCommand = async (command: string) => {
