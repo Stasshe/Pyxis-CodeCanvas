@@ -621,6 +621,24 @@ export class StreamShell {
         args = args.slice(1);
       }
 
+      // Try to resolve local package bin (node_modules/.bin/<cmd>) when available.
+      // This helps `npx cowsay` and similar invocations work by running the
+      // installed script via the node runtime in-project.
+      if (this.fileRepository) {
+        try {
+          const binPath = `/node_modules/.bin/${cmd}`;
+          const bf = await this.fileRepository.getFileByPath(this.projectId, binPath).catch(() => null);
+          if (bf && bf.content) {
+            // If we found a local bin, run it with node: replace cmd/args to invoke node
+            // Example: `npx cowsay hi` -> becomes `node /node_modules/.bin/cowsay hi`
+            args = [binPath, ...args];
+            cmd = 'node';
+          }
+        } catch (e) {
+          // ignore resolution errors and continue fallback behavior
+        }
+      }
+
       // Provide a small context for handlers
       // Note: use the readable side of stdin (stdinStream) so builtins can
       // read from it when connected via pipe. stdout/stderr use the writable
