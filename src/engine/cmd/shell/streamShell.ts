@@ -907,7 +907,7 @@ export class StreamShell {
     // Defensive watchdog: if a handler never calls proc.exit(), avoid hanging forever.
     // Timeout can be configured via process.env.SHELL_PROCESS_TIMEOUT_MS (milliseconds).
     // Use a shorter default to fail fast and avoid large log bursts in constrained environments.
-    const defaultTimeout = 5000; // 5s
+    const defaultTimeout = 15000; // 15s
     const toMs = Number(process.env.SHELL_PROCESS_TIMEOUT_MS || defaultTimeout) || defaultTimeout;
     let finished = false;
     proc.on('exit', () => {
