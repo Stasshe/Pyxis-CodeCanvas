@@ -43,6 +43,10 @@ export class NodeRuntime {
   private builtInModules: BuiltInModules;
   private moduleLoader: ModuleLoader;
   private projectDir: string;
+  
+  // イベントループ追跡
+  private activeTimers: Set<any> = new Set();
+  private eventLoopResolve: (() => void) | null = null;
 
   constructor(options: ExecutionOptions) {
     this.projectId = options.projectId;
@@ -119,6 +123,42 @@ export class NodeRuntime {
         runtimeError('Stack trace:', errorStack);
       }
       throw error;
+    }
+  }
+
+  /**
+   * イベントループが空になるまで待つ（本物のNode.jsと同じ挙動）
+   */
+  async waitForEventLoop(): Promise<void> {
+    // アクティブなタイマーがなければすぐに完了
+    if (this.activeTimers.size === 0) {
+      runtimeInfo('✅ Event loop is already empty');
+      return;
+    }
+
+    runtimeInfo('⏳ Waiting for event loop to complete...', {
+      activeTimers: this.activeTimers.size,
+    });
+
+    // イベントループが空になるまで待機
+    return new Promise<void>((resolve) => {
+      this.eventLoopResolve = resolve;
+      // タイムアウト: 最大30秒待つ（無限ループ防止）
+      setTimeout(() => {
+        if (this.eventLoopResolve) {
+          runtimeInfo('⚠️ Event loop timeout after 30s');
+          this.eventLoopResolve();
+          this.eventLoopResolve = null;
+        }
+      }, 30000);
+    });
+  }
+
+  private checkEventLoop() {
+    if (this.activeTimers.size === 0 && this.eventLoopResolve) {
+      runtimeInfo('✅ Event loop is now empty');
+      this.eventLoopResolve();
+      this.eventLoopResolve = null;
     }
   }
 
@@ -355,10 +395,41 @@ export class NodeRuntime {
         },
         clear: () => this.debugConsole?.clear(),
       },
-      setTimeout,
-      setInterval,
-      clearTimeout,
-      clearInterval,
+      // ラップされたsetTimeout/setInterval（イベントループ追跡用）
+      setTimeout: (handler: TimerHandler, timeout?: number, ...args: any[]): number => {
+        const timerId = setTimeout(() => {
+          this.activeTimers.delete(timerId);
+          if (typeof handler === 'function') {
+            handler(...args);
+          }
+          this.checkEventLoop();
+        }, timeout) as any;
+        this.activeTimers.add(timerId);
+        return timerId as number;
+      },
+      setInterval: (handler: TimerHandler, timeout?: number, ...args: any[]): number => {
+        const intervalId = setInterval(() => {
+          if (typeof handler === 'function') {
+            handler(...args);
+          }
+        }, timeout) as any;
+        this.activeTimers.add(intervalId);
+        return intervalId as number;
+      },
+      clearTimeout: (id?: number) => {
+        if (id !== undefined) {
+          clearTimeout(id);
+          this.activeTimers.delete(id);
+          this.checkEventLoop();
+        }
+      },
+      clearInterval: (id?: number) => {
+        if (id !== undefined) {
+          clearInterval(id);
+          this.activeTimers.delete(id);
+          this.checkEventLoop();
+        }
+      },
       Promise,
       Array,
       Object,

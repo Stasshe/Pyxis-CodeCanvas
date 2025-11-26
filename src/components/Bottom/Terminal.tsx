@@ -365,123 +365,7 @@ function ClientTerminal({
       };
 
       try {
-        switch (cmd) {
-          case 'node':
-            if (args.length === 0) {
-              await captureWriteOutput('Usage: node <file.js>');
-              break;
-            }
-            try {
-              const { NodeRuntime } = await import('@/engine/runtime/nodeRuntime');
-
-              // デバッグコンソールを設定
-              const debugConsole = {
-                log: (...args: unknown[]) => {
-                  const output = args
-                    .map(arg =>
-                      typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-                    )
-                    .join(' ');
-                  captureWriteOutput(output);
-                },
-                error: (...args: unknown[]) => {
-                  const output = args
-                    .map(arg =>
-                      typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-                    )
-                    .join(' ');
-                  captureWriteOutput(`\x1b[31m${output}\x1b[0m`);
-                },
-                warn: (...args: unknown[]) => {
-                  const output = args
-                    .map(arg =>
-                      typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-                    )
-                    .join(' ');
-                  captureWriteOutput(`\x1b[33m${output}\x1b[0m`);
-                },
-                clear: () => {
-                  // Terminal clear is handled separately
-                },
-              };
-
-              // Terminalの入力インターフェースを設定
-              const onInput = (promptText: string, callback: (input: string) => void) => {
-                // プロンプトを表示
-                term.write(promptText);
-
-                // 一時的な入力バッファ
-                let inputBuffer = '';
-
-                // readline入力モードを有効化
-                isReadlineMode = true;
-
-                // 入力ハンドラ
-                readlineHandler = (data: string) => {
-                  if (data === '\r') {
-                    // Enter押下
-                    term.write('\r\n');
-                    const result = inputBuffer;
-                    inputBuffer = '';
-                    // readline入力モードを解除
-                    isReadlineMode = false;
-                    readlineHandler = null;
-                    callback(result);
-                  } else if (data === '\u007F') {
-                    // Backspace
-                    if (inputBuffer.length > 0) {
-                      inputBuffer = inputBuffer.slice(0, -1);
-                      term.write('\b \b');
-                    }
-                  } else if (data === '\u0003') {
-                    // Ctrl+C
-                    term.write('^C\r\n');
-                    inputBuffer = '';
-                    // readline入力モードを解除
-                    isReadlineMode = false;
-                    readlineHandler = null;
-                    callback('');
-                  } else if (data >= ' ' || data === '\t') {
-                    inputBuffer += data;
-                    term.write(data);
-                  }
-                };
-              };
-
-              // Resolve file path relative to current working directory when a relative
-              // path is provided so that `node ./src/index.js` behaves like a real shell.
-              let entryPath = args[0];
-              try {
-                if (unixCommandsRef.current) {
-                  // If path is not absolute, join with cwd and normalize
-                  if (!entryPath.startsWith('/')) {
-                    const cwd = await unixCommandsRef.current.pwd();
-                    const combined = cwd.replace(/\/$/, '') + '/' + entryPath;
-                    entryPath = unixCommandsRef.current.normalizePath(combined);
-                  } else {
-                    // absolute path — normalize to collapse ./ ../ if any
-                    entryPath = unixCommandsRef.current.normalizePath(entryPath);
-                  }
-                }
-              } catch (e) {
-                // Fallback to original arg if any error occurs during resolution
-                entryPath = args[0];
-              }
-
-              const runtime = new NodeRuntime({
-                projectId: currentProjectId,
-                projectName: currentProject,
-                filePath: entryPath,
-                debugConsole,
-                onInput,
-              });
-
-              await runtime.execute(entryPath);
-            } catch (e) {
-              await captureWriteOutput(`\x1b[31mnode: エラー: ${(e as Error).message}\x1b[0m`);
-            }
-            break;
-
+         switch (cmd) {
           // New namespaced form: pyxis <category> <action> [...]
           case 'pyxis': {
             if (args.length === 0) {
@@ -570,9 +454,60 @@ function ClientTerminal({
               // 通常のUnixコマンドとして処理
               if (shellRef.current) {
                 // delegate entire baseCommand to StreamShell which handles pipes/redirection/subst
-                const res = await shellRef.current.run(baseCommand);
-                if (res.stdout) await captureWriteOutput(String(res.stdout));
-                if (res.stderr) await captureWriteOutput(String(res.stderr));
+                // リアルタイム出力コールバックを渡す
+                const res = await shellRef.current.run(baseCommand, {
+                  stdout: (data: string) => {
+                    // 即座にTerminalに表示（リアルタイム出力）
+                    if (!redirect) {
+                      writeOutput(data).catch(() => {});
+                    }
+                  },
+                  stderr: (data: string) => {
+                    // stderrも即座に表示
+                    if (!redirect) {
+                      writeOutput(data).catch(() => {});
+                    }
+                  },
+                });
+                // 完了後は何もしない（既にコールバックで出力済み）
+                // リダイレクト時のみ、最終結果を処理
+                if (redirect && fileName && unixCommandsRef.current) {
+                  const outputContent = (res.stdout || '') + (res.stderr || '');
+                  if (outputContent) {
+                    const fullPath = fileName.startsWith('/')
+                      ? fileName
+                      : `${await unixCommandsRef.current.pwd()}/${fileName}`;
+                    const normalizedPath = unixCommandsRef.current.normalizePath(fullPath);
+                    const relativePath = unixCommandsRef.current.getRelativePathFromProject(normalizedPath);
+
+                    try {
+                      let content = outputContent;
+                      if (append) {
+                        try {
+                          const existingFile = await fileRepository.getFileByPath(
+                            currentProjectId,
+                            relativePath
+                          );
+                          if (existingFile && existingFile.content) {
+                            content = existingFile.content + content;
+                          }
+                        } catch (e) {}
+                      }
+                      const existingFile = await fileRepository.getFileByPath(currentProjectId, relativePath);
+                      if (existingFile) {
+                        await fileRepository.saveFile({
+                          ...existingFile,
+                          content,
+                          updatedAt: new Date(),
+                        });
+                      } else {
+                        await fileRepository.createFile(currentProjectId, relativePath, content, 'file');
+                      }
+                    } catch (e) {
+                      await writeOutput(`ファイル書き込みエラー: ${(e as Error).message}`);
+                    }
+                  }
+                }
               }
             }
             break;
@@ -730,19 +665,10 @@ function ClientTerminal({
       }
     });
 
-    // readline入力モードフラグ
-    let isReadlineMode = false;
-    let readlineHandler: ((data: string) => void) | null = null;
-
     // 通常のキー入力
     term.onData((data: string) => {
       if (isComposing) return;
 
-      // readline入力モード中は専用ハンドラに委譲
-      if (isReadlineMode && readlineHandler) {
-        readlineHandler(data);
-        return;
-      }
       switch (data) {
         case '\r':
           term.writeln('');

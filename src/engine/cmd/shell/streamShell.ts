@@ -1555,7 +1555,13 @@ export class StreamShell {
   }
 
   // Run full pipeline line and resolve final stdout/stderr and code
-  async run(line: string): Promise<{ stdout: string; stderr: string; code: number | null }> {
+  async run(
+    line: string,
+    onData?: {
+      stdout?: (data: string) => void;
+      stderr?: (data: string) => void;
+    }
+  ): Promise<{ stdout: string; stderr: string; code: number | null }> {
     let segs: any[] = [];
     // Prefer the dedicated parser. If the parser module cannot be imported
     // (e.g. not present in some environments), fall back to the simple
@@ -1651,10 +1657,23 @@ export class StreamShell {
                 const s = String(chunk);
                 enqueueWrite(fileInfo.path, !!fileInfo.append, s);
                 fdBuffers[fd].push(s);
+                // リアルタイムコールバック通知
+                if (fd === 1 && onData?.stdout) {
+                  onData.stdout(s);
+                } else if (fd === 2 && onData?.stderr) {
+                  onData.stderr(s);
+                }
               });
             } else {
               stream.on('data', (chunk: Buffer | string) => {
-                fdBuffers[fd].push(String(chunk));
+                const s = String(chunk);
+                fdBuffers[fd].push(s);
+                // リアルタイムコールバック通知
+                if (fd === 1 && onData?.stdout) {
+                  onData.stdout(s);
+                } else if (fd === 2 && onData?.stderr) {
+                  onData.stderr(s);
+                }
               });
             }
           } catch (e) {

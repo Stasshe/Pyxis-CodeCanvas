@@ -290,5 +290,114 @@ export default function adaptUnixToStream(unix: any) {
     ctx.stdout.end();
   };
 
+  // node コマンド（NodeRuntime実行）
+  obj.node = async (ctx: StreamCtx, args: string[] = []) => {
+    if (args.length === 0) {
+      ctx.stderr.write('Usage: node <file.js>\n');
+      ctx.stdout.end();
+      ctx.stderr.end();
+      throw { __silent: true, code: 2 };
+    }
+
+    try {
+      // NodeRuntimeをdynamic importで読み込み
+      const { NodeRuntime } = await import('../../runtime/nodeRuntime');
+
+      // デバッグコンソールを設定（即座に出力、バッファリングなし）
+      const debugConsole = {
+        log: (...args: unknown[]) => {
+          const output = args
+            .map(arg =>
+              typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+            )
+            .join(' ') + '\n';
+          // 即座にストリームに書き込む（バッファリングなし）
+          try {
+            ctx.stdout.write(output);
+          } catch (e) {
+            // ストリームが閉じていても無視（イベントループ完了後の出力）
+          }
+        },
+        error: (...args: unknown[]) => {
+          const output = args
+            .map(arg =>
+              typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+            )
+            .join(' ');
+          try {
+            ctx.stderr.write(`\x1b[31m${output}\x1b[0m\n`);
+          } catch (e) {}
+        },
+        warn: (...args: unknown[]) => {
+          const output = args
+            .map(arg =>
+              typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+            )
+            .join(' ');
+          try {
+            ctx.stdout.write(`\x1b[33m${output}\x1b[0m\n`);
+          } catch (e) {}
+        },
+        clear: () => {
+          // Terminal clearは別途処理
+        },
+      };
+
+      // 入力インターフェース（シンプルなダミー実装、将来的にstdin統合可能）
+      const onInput = (promptText: string, callback: (input: string) => void) => {
+        // streamShellではインタラクティブ入力は未対応
+        // エラーを返すか、空文字列でcallback
+        ctx.stderr.write(`node: interactive input not supported in streamShell\n`);
+        callback('');
+      };
+
+      // パスを解決（相対パス対応）
+      let entryPath = args[0];
+      try {
+        if (unix && typeof unix.pwd === 'function') {
+          if (!entryPath.startsWith('/')) {
+            const cwd = await unix.pwd();
+            const combined = cwd.replace(/\/$/, '') + '/' + entryPath;
+            entryPath = typeof unix.normalizePath === 'function' 
+              ? unix.normalizePath(combined) 
+              : combined;
+          } else {
+            entryPath = typeof unix.normalizePath === 'function'
+              ? unix.normalizePath(entryPath)
+              : entryPath;
+          }
+        }
+      } catch (e) {
+        // Fallback to original arg
+        entryPath = args[0];
+      }
+
+      const runtime = new NodeRuntime({
+        projectId: ctx.projectId || '',
+        projectName: ctx.projectName || '',
+        filePath: entryPath,
+        debugConsole,
+        onInput,
+      });
+
+      // NodeRuntimeを実行
+      await runtime.execute(entryPath);
+
+      // ★ イベントループが空になるまで待つ（本物のNode.jsと同じ挙動）
+      // setTimeout, Promise.thenなど、すべての非同期タスクが完了するまで自動的に待機
+      await runtime.waitForEventLoop();
+
+      // ストリームを閉じる
+      ctx.stdout.end();
+      ctx.stderr.end();
+    } catch (e: any) {
+      const msg = e && e.message ? String(e.message) : String(e);
+      ctx.stderr.write(`node: error: ${msg}\n`);
+      ctx.stdout.end();
+      ctx.stderr.end();
+      throw { __silent: true, code: 1 };
+    }
+  };
+
   return obj;
 }
