@@ -626,12 +626,50 @@ export class StreamShell {
       // installed script via the node runtime in-project.
       if (this.fileRepository) {
         try {
-          const binPath = `/node_modules/.bin/${cmd}`;
-          const bf = await this.fileRepository.getFileByPath(this.projectId, binPath).catch(() => null);
-          if (bf && bf.content) {
+          // Strategy 1: Try to find the package directly and read its bin configuration
+          // This is better than .bin because .bin files might be copies, breaking relative requires.
+          const packageJsonPath = `/node_modules/${cmd}/package.json`;
+          const pkgFile = await this.fileRepository.getFileByPath(this.projectId, packageJsonPath).catch(() => null);
+          
+          let resolvedBin: string | null = null;
+
+          if (pkgFile && pkgFile.content) {
+            try {
+              const pkg = JSON.parse(pkgFile.content);
+              if (pkg.bin) {
+                if (typeof pkg.bin === 'string') {
+                  resolvedBin = `/node_modules/${cmd}/${pkg.bin}`;
+                } else if (typeof pkg.bin === 'object') {
+                  // If bin is an object, look for the command name, or default to the package name
+                  if (pkg.bin[cmd]) {
+                    resolvedBin = `/node_modules/${cmd}/${pkg.bin[cmd]}`;
+                  } else {
+                    // Fallback: take the first bin entry
+                    const first = Object.values(pkg.bin)[0];
+                    if (typeof first === 'string') {
+                      resolvedBin = `/node_modules/${cmd}/${first}`;
+                    }
+                  }
+                }
+              }
+            } catch (e) {
+              // ignore parse error
+            }
+          }
+
+          // Strategy 2: Fallback to .bin if package lookup failed (e.g. command name != package name)
+          if (!resolvedBin) {
+            const binPath = `/node_modules/.bin/${cmd}`;
+            const bf = await this.fileRepository.getFileByPath(this.projectId, binPath).catch(() => null);
+            if (bf && bf.content) {
+              resolvedBin = binPath;
+            }
+          }
+
+          if (resolvedBin) {
             // If we found a local bin, run it with node: replace cmd/args to invoke node
-            // Example: `npx cowsay hi` -> becomes `node /node_modules/.bin/cowsay hi`
-            args = [binPath, ...args];
+            // Example: `npx cowsay hi` -> becomes `node /node_modules/cowsay/index.js hi`
+            args = [resolvedBin, ...args];
             cmd = 'node';
           }
         } catch (e) {

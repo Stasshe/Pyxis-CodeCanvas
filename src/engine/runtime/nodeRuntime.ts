@@ -87,8 +87,19 @@ export class NodeRuntime {
     try {
       runtimeInfo('▶️ Executing file:', filePath);
 
+      // [NEW] Preload files for synchronous fs access (e.g. for yargs)
+      // This is required because fs.readFileSync must be synchronous, but IndexedDB is async.
+      if (this.builtInModules.fs.preloadFiles) {
+        runtimeInfo('📂 Pre-loading files into memory cache...');
+        // Preload ALL files to support fs.readFileSync for any file type (e.g. .cow, .yml, .js)
+        // Since we can't do synchronous IO against IndexedDB on demand, we must cache everything.
+        await this.builtInModules.fs.preloadFiles([]); 
+        runtimeInfo('✅ Files pre-loaded');
+      }
+
       // ModuleLoaderを初期化
       await this.moduleLoader.init();
+
 
       // グローバルオブジェクトを準備（process, Buffer, timersなど）
       // これらをModuleLoaderに注入して、依存関係の実行時にも使えるようにする
@@ -324,7 +335,9 @@ export class NodeRuntime {
       // Node.js グローバル
       global: globalThis,
       process: {
-        env: {},
+        env: {
+          LANG: 'en',
+        },
         argv: ['node', currentFilePath].concat(argv || []),
         cwd: () => this.projectDir,
         platform: 'browser',

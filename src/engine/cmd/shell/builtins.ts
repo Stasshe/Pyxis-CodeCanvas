@@ -392,7 +392,8 @@ export default function adaptUnixToStream(unix: any) {
       });
 
       // NodeRuntimeを実行
-      await runtime.execute(entryPath);
+      await runtime.execute(entryPath, args.slice(1));
+
 
       // ★ イベントループが空になるまで待つ（本物のNode.jsと同じ挙動）
       // setTimeout, Promise.thenなど、すべての非同期タスクが完了するまで自動的に待機

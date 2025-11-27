@@ -21,6 +21,17 @@ export function createFSModule(options: FSModuleOptions) {
    * パスを正規化してフルパスと相対パスを取得
    */
   function normalizePath(path: string): { fullPath: string; relativePath: string } {
+    // すでにprojectDirで始まる場合は、それを削除してrelativePathを作成
+    if (path.startsWith(projectDir)) {
+      let relativePath = path.slice(projectDir.length);
+      if (relativePath === '') relativePath = '/';
+      if (!relativePath.startsWith('/')) relativePath = '/' + relativePath;
+      return {
+        fullPath: path,
+        relativePath: relativePath,
+      };
+    }
+
     if (path.startsWith('/')) {
       return {
         fullPath: `${projectDir}${path}`,
@@ -33,6 +44,7 @@ export function createFSModule(options: FSModuleOptions) {
       };
     }
   }
+
 
   /**
    * ファイルを書き込む（IndexedDBに保存し、自動的にGitFileSystemに同期）
@@ -108,6 +120,9 @@ export function createFSModule(options: FSModuleOptions) {
     }
   }
 
+  // メモリキャッシュ（同期読み込み用）
+  const memoryCache = new Map<string, string | Uint8Array>();
+
   const fsModule = {
     /**
      * ファイルを読み取る
@@ -115,9 +130,24 @@ export function createFSModule(options: FSModuleOptions) {
     readFile: async (path: string, options?: any): Promise<string | Uint8Array> => {
       try {
         const { relativePath } = normalizePath(path);
+        
+        // キャッシュにあればそれを返す
+        if (memoryCache.has(relativePath)) {
+          const content = memoryCache.get(relativePath)!;
+          if (options && options.encoding === null) {
+            const encoder = new TextEncoder();
+            return typeof content === 'string' ? encoder.encode(content) : content;
+          }
+          return content;
+        }
+
         const file = await fileRepository.getFileByPath(projectId, relativePath);
         if (!file) throw new Error(`File not found: ${path}`);
         const content = file.content ?? '';
+        
+        // キャッシュ更新
+        memoryCache.set(relativePath, content);
+
         if (options && options.encoding === null) {
           const encoder = new TextEncoder();
           return encoder.encode(content);
@@ -133,6 +163,12 @@ export function createFSModule(options: FSModuleOptions) {
      */
     writeFile: async (path: string, data: string | Uint8Array, options?: any): Promise<void> => {
       try {
+        const { relativePath } = normalizePath(path);
+        
+        // キャッシュ更新
+        const content = typeof data === 'string' ? data : new TextDecoder().decode(data);
+        memoryCache.set(relativePath, content); // Note: storing string in cache for simplicity if possible, or raw data
+
         await handleWriteFile(path, data, true);
       } catch (error) {
         throw new Error(`ファイルの書き込みに失敗しました: ${path}`);
@@ -140,35 +176,75 @@ export function createFSModule(options: FSModuleOptions) {
     },
 
     /**
-     * ファイルを同期的に読み取る（非同期に変換）
+     * ファイルを同期的に読み取る
+     * 事前にpreloadFiles()でキャッシュにロードしておく必要がある
      */
-    readFileSync: (path: string, options?: any): Promise<string | Uint8Array> => {
+    readFileSync: (path: string, options?: any): string | Uint8Array => {
+      const { relativePath } = normalizePath(path);
+      
+      if (memoryCache.has(relativePath)) {
+        const content = memoryCache.get(relativePath)!;
+        if (options && options.encoding === null) {
+          const encoder = new TextEncoder();
+          return typeof content === 'string' ? encoder.encode(content) : content;
+        }
+        return content;
+      }
+
       console.warn(
-        '⚠️  fs.readFileSync detected: Converting to async operation. Please await the result or use .then()'
+        `⚠️  fs.readFileSync: File not in cache: ${path} (normalized: ${relativePath}). Returning Promise (will likely fail for sync callers). Call preloadFiles() first.`
       );
-      return fsModule.readFile(path, options);
+      // Fallback to async (will break strict sync callers like yargs/JSON.parse)
+      return fsModule.readFile(path, options) as any;
     },
 
     /**
      * ファイルに同期的に書き込む（非同期に変換）
      */
-    writeFileSync: (path: string, data: string | Uint8Array, options?: any): Promise<void> => {
+    writeFileSync: (path: string, data: string | Uint8Array, options?: any): void => {
       console.warn(
-        '⚠️  fs.writeFileSync detected: Converting to async operation. Please await the result or use .then()'
+        '⚠️  fs.writeFileSync detected: Converting to async operation (fire and forget).'
       );
-      return fsModule.writeFile(path, data, options);
+      fsModule.writeFile(path, data, options).catch(err => console.error(err));
     },
 
     /**
      * ファイル/ディレクトリの存在を確認
      */
-    existsSync: async (path: string): Promise<boolean> => {
+    existsSync: (path: string): boolean => {
+      const { relativePath } = normalizePath(path);
+      // Check cache first
+      if (memoryCache.has(relativePath)) return true;
+      
+      // Hack: we can't check IndexedDB synchronously if not in cache.
+      // We assume if it's not in cache (and we preloaded), it might not exist or we don't know.
+      // But for yargs, it checks existence.
+      // If we preloaded everything, cache miss = not found.
+      return false; 
+    },
+
+    /**
+     * ファイルをプリロード（メモリキャッシュにロード）
+     */
+    preloadFiles: async (extensions: string[] = ['.json', '.txt', '.md']): Promise<void> => {
       try {
-        const { relativePath } = normalizePath(path);
+        // 全ファイルをロード（フィルタリング付き）
+        // getProjectFilesは再帰的に全ファイルを取得すると仮定
+        // TODO: 全ファイルは非効率。ライブでやる感じに変える。とりあえず今は動いてる。
         const files = await fileRepository.getProjectFiles(projectId);
-        return files.some(f => f.path === relativePath);
-      } catch {
-        return false;
+        let count = 0;
+        for (const file of files) {
+           // 拡張子フィルタ（空の場合は全ファイル）
+           if (extensions.length === 0 || extensions.some(ext => file.path.endsWith(ext))) {
+             if (file.content !== undefined) {
+               memoryCache.set(file.path, file.content);
+               count++;
+             }
+           }
+        }
+        console.log(`[fsModule] Preloaded ${count} files into memory cache.`);
+      } catch (error) {
+        console.error('[fsModule] Failed to preload files:', error);
       }
     },
 
@@ -264,6 +340,11 @@ export function createFSModule(options: FSModuleOptions) {
      */
     unlink: async (path: string): Promise<void> => {
       const { relativePath } = normalizePath(path);
+      
+      // キャッシュから削除
+      if (memoryCache.has(relativePath)) {
+        memoryCache.delete(relativePath);
+      }
 
       try {
         const file = await fileRepository.getFileByPath(projectId, relativePath);
@@ -285,13 +366,21 @@ export function createFSModule(options: FSModuleOptions) {
       try {
         const { relativePath } = normalizePath(path);
         let existingContent = '';
-        try {
-          const file = await fileRepository.getFileByPath(projectId, relativePath);
-          if (file) existingContent = file.content ?? '';
-        } catch {
-          // ファイルが存在しない場合は新規作成
+        
+        // キャッシュまたはDBから取得
+        if (memoryCache.has(relativePath)) {
+           const cacheContent = memoryCache.get(relativePath)!;
+           existingContent = typeof cacheContent === 'string' ? cacheContent : new TextDecoder().decode(cacheContent);
+        } else {
+          try {
+            const file = await fileRepository.getFileByPath(projectId, relativePath);
+            if (file) existingContent = file.content ?? '';
+          } catch {
+            // ファイルが存在しない場合は新規作成
+          }
         }
-        await handleWriteFile(path, existingContent + data, true);
+        
+        await fsModule.writeFile(path, existingContent + data, options);
       } catch (error) {
         throw new Error(`ファイルへの追記に失敗しました: ${path}`);
       }
@@ -303,6 +392,19 @@ export function createFSModule(options: FSModuleOptions) {
     stat: async (path: string): Promise<any> => {
       try {
         const { relativePath } = normalizePath(path);
+        
+        // キャッシュにあればファイルとして返す
+        if (memoryCache.has(relativePath)) {
+           const content = memoryCache.get(relativePath)!;
+           return {
+            isFile: () => true,
+            isDirectory: () => false,
+            size: content.length,
+            mtime: new Date(),
+            ctime: new Date(),
+          };
+        }
+
         const file = await fileRepository.getFileByPath(projectId, relativePath);
         if (!file) throw new Error(`File not found: ${path}`);
         // 疑似的なstat情報を返す
