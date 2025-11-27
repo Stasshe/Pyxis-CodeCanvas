@@ -1,6 +1,8 @@
 import clsx from 'clsx';
 import { Play, Square, Code, Trash2 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
+import { parseGitignore, isPathIgnored } from '@/engine/core/gitignore';
+import OperationWindow from '@/components/OperationWindow';
 
 import { LOCALSTORAGE_KEY } from '@/context/config';
 import { useTranslation } from '@/context/I18nContext';
@@ -48,12 +50,12 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
 
   // 拡張子で自動判別: Node.js/Python両方の実行可能ファイルを取得
   const getExecutableFiles = () => {
-    const nodeExts = ['.js', '.ts', '.mjs', '.cjs'];
+    // 表示を限定: .js, .ts, .py のみ
+    const nodeExts = ['.js', '.ts'];
     const pyExts = ['.py'];
     const flattenFiles = (items: any[], parentPath = ''): any[] => {
       return items.reduce((acc, item) => {
         const fullPath = parentPath ? `${parentPath}/${item.name}` : item.name;
-        if (fullPath.startsWith('node_modules/')) return acc;
         if (item.type === 'file') {
           let lang: 'node' | 'python' | null = null;
           if (nodeExts.some(ext => item.name.endsWith(ext))) lang = 'node';
@@ -73,23 +75,56 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
         return acc;
       }, []);
     };
-    return flattenFiles(files);
+
+    // .gitignore をプロジェクトツリーから探してパースする
+    const findGitignoreContent = (items: any[], parentPath = ''): string | null => {
+      for (const item of items) {
+        const fullPath = parentPath ? `${parentPath}/${item.name}` : item.name;
+        if (item.type === 'file' && item.name === '.gitignore') {
+          return item.content ?? null;
+        }
+        if (item.children) {
+          const found = findGitignoreContent(item.children, fullPath);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+
+    const gitignoreContent = findGitignoreContent(files);
+    const gitignoreRules = gitignoreContent ? parseGitignore(gitignoreContent) : null;
+
+    const all = flattenFiles(files);
+    if (!gitignoreRules) return all;
+
+    // ルールに従って除外
+    return all.filter(f => {
+      try {
+        return !isPathIgnored(gitignoreRules, f.path, false);
+      } catch (e) {
+        return true;
+      }
+    });
   };
 
-  // ファイル名サーチ用
-  const [fileSearch, setFileSearch] = useState('');
-  const [fileSuggestOpen, setFileSuggestOpen] = useState(false);
+  // OperationWindowによるファイル選択モーダル
+  const [isOperationOpen, setIsOperationOpen] = useState(false);
   const executableFiles = getExecutableFiles();
-  const filteredFiles = fileSearch
-    ? executableFiles.filter(f => f.path.toLowerCase().includes(fileSearch.toLowerCase()))
-    : executableFiles;
+
+  // OperationWindow に渡すための木構造ではないフラットなfile items
+  const projectFilesForOperation = executableFiles.map(f => ({
+    id: f.id || f.uniqueKey || f.path,
+    name: f.name,
+    path: f.path,
+    content: f.content,
+    type: 'file',
+  }));
 
   // 初期化時にlocalStorageから復元
   useEffect(() => {
     const last = localStorage.getItem(LOCALSTORAGE_KEY.LAST_EXECUTE_FILE);
     if (last && executableFiles.some(f => f.path === last)) {
       setSelectedFile(last);
-      setFileSearch(last);
     }
   }, [currentProject, files.length]);
 
@@ -303,61 +338,21 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
           </div>
         </div>
 
-        {/* ファイル実行セクション */}
+        {/* ファイル実行セクション（OperationWindowを使う） */}
         {executableFiles.length > 0 && (
-          <div className="flex gap-2 mb-3 relative">
-            <div className="flex-1 relative">
-              <input
-                type="text"
-                value={fileSearch}
-                onChange={e => {
-                  setFileSearch(e.target.value);
-                  setFileSuggestOpen(true);
-                }}
-                onFocus={() => setFileSuggestOpen(true)}
-                onBlur={() => setTimeout(() => setFileSuggestOpen(false), 150)}
-                placeholder={t('run.searchFile')}
-                className="w-full px-2 py-1 border rounded text-sm"
+          <div className="flex gap-2 mb-3 items-center">
+            <div className="flex-1">
+              <button
+                onClick={() => setIsOperationOpen(true)}
+                className="w-full text-left px-3 py-1 border rounded text-sm"
                 style={{
                   background: colors.background,
                   color: colors.foreground,
                   border: `1px solid ${colors.border}`,
                 }}
-                autoComplete="off"
-              />
-              {fileSuggestOpen && filteredFiles.length > 0 && (
-                <ul
-                  className="absolute z-10 left-0 right-0 border rounded shadow max-h-48 overflow-y-auto mt-1"
-                  style={{ background: colors.cardBg, border: `1px solid ${colors.border}` }}
-                >
-                  {filteredFiles.slice(0, 20).map(file => (
-                    <li
-                      key={file.uniqueKey || file.path}
-                      className={clsx(
-                        'px-2 py-1 cursor-pointer text-sm',
-                        selectedFile === file.path && 'font-bold'
-                      )}
-                      style={{
-                        background: selectedFile === file.path ? colors.primary : 'transparent',
-                        color: selectedFile === file.path ? colors.background : colors.foreground,
-                      }}
-                      onMouseDown={() => {
-                        setSelectedFile(file.path);
-                        setFileSearch(file.path);
-                        setFileSuggestOpen(false);
-                      }}
-                    >
-                      {file.path}{' '}
-                      <span
-                        className="ml-2 text-xs"
-                        style={{ color: colors.mutedFg }}
-                      >
-                        ({file.lang === 'python' ? t('run.languagePython') : t('run.languageNode')})
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              >
+                {selectedFile ? selectedFile : t('run.selectFile')}
+              </button>
             </div>
             <button
               onClick={executeFile}
@@ -466,6 +461,22 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
           </div>
         </div>
       </div>
+      {isOperationOpen && (
+        <OperationWindow
+          isVisible={isOperationOpen}
+          onClose={() => setIsOperationOpen(false)}
+          projectFiles={projectFilesForOperation}
+          onFileSelect={(file: any, preview?: boolean) => {
+            const path = file?.path ?? file?.name;
+            if (path) {
+              setSelectedFile(path);
+              localStorage.setItem(LOCALSTORAGE_KEY.LAST_EXECUTE_FILE, path);
+            }
+            setIsOperationOpen(false);
+          }}
+          initialView="files"
+        />
+      )}
     </div>
   );
 }
