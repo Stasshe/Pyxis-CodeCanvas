@@ -29,7 +29,7 @@ export const Breadcrumb: React.FC<BreadcrumbProps> = ({ paneId }) => {
         backgroundColor: colors.background, // エディタ背景と同じか、少し変えるか
         color: colors.mutedFg,
         borderColor: colors.border,
-        height: '12px', // VS Codeのように少し小さめに
+        height: '14px', // VS Codeのように少し小さめに
       }}
     >
       <span className="truncate">{displayPath}</span>
