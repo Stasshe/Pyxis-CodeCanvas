@@ -51,6 +51,7 @@ export class ModuleLoader {
   private cache: ModuleCache;
   private resolver: ModuleResolver;
   private executionCache: ModuleExecutionCache = {};
+  private moduleNameMap: Record<string, string> = {}; // モジュール名→解決済みパスのマッピング
 
   constructor(options: ModuleLoaderOptions) {
     this.projectId = options.projectId;
@@ -74,6 +75,9 @@ export class ModuleLoader {
     runtimeInfo('✅ ModuleLoader initialized');
   }
 
+  /**
+   * モジュールを読み込み（非同期）
+   */
   /**
    * モジュールを読み込み（非同期）
    */
@@ -121,16 +125,53 @@ export class ModuleLoader {
         throw new Error(`File not found: ${resolvedPath}`);
       }
 
-      // トランスパイル済みコードを取得（キャッシュ優先）
-      const code = await this.getTranspiledCode(resolvedPath, fileContent);
+      // トランスパイル済みコードと依存関係を取得（キャッシュ優先）
+      const transpileResult = await this.getTranspiledCodeWithDeps(resolvedPath, fileContent);
+      
+      // デバッグ: transpileResultの内容を確認
+      runtimeInfo('📝 Transpile result type:', typeof transpileResult);
+      runtimeInfo('📝 Transpile result:', transpileResult);
+      
+      const { code, dependencies } = transpileResult;
+      
+      // デバッグ: codeとdependenciesの型を確認
+      runtimeInfo('📝 Code type:', typeof code, 'Dependencies type:', typeof dependencies);
 
-      // モジュールを実行
-      const moduleExports = await this.executeModule(code, resolvedPath);
+      // 依存関係を再帰的にロード（ビルトインモジュールは除く）
+      if (dependencies && dependencies.length > 0) {
+        runtimeInfo('📦 Pre-loading dependencies for', resolvedPath, ':', dependencies);
+        for (const dep of dependencies) {
+          try {
+            // ビルトインモジュールはスキップ
+            const builtIns = ['fs', 'fs/promises', 'path', 'os', 'util', 'http', 'https', 'buffer', 'readline'];
+            if (builtIns.includes(dep)) {
+              continue; // ビルトインはスキップ
+            }
+            
+            // 再帰的にロード
+            await this.load(dep, resolvedPath);
+          } catch (error) {
+            // 依存関係のロードに失敗してもエラーにしない（動的requireの可能性）
+            runtimeWarn('⚠️ Failed to pre-load dependency:', dep, 'from', resolvedPath);
+          }
+        }
+      }
+
+      // すべての依存関係がロードされた後、モジュールを実行（同期実行）
+      runtimeInfo('📝 About to execute module with code type:', typeof code);
+      const moduleExports = this.executeModule(code, resolvedPath);
 
       // 実行キャッシュを更新
       this.executionCache[resolvedPath].exports = moduleExports;
       this.executionCache[resolvedPath].loaded = true;
       this.executionCache[resolvedPath].loading = false;
+      
+      // モジュール名→パスのマッピングを保存（require時の解決用）
+      // パッケージ名（node_modulesから）の場合のみマッピングを保存
+      if (!resolved.isBuiltIn && moduleName && !moduleName.startsWith('.') && !moduleName.startsWith('/')) {
+        this.moduleNameMap[moduleName] = resolvedPath;
+        runtimeInfo('📝 Stored module name mapping:', moduleName, '→', resolvedPath);
+      }
 
       runtimeInfo('✅ Module loaded:', resolvedPath);
       return moduleExports;
@@ -143,105 +184,93 @@ export class ModuleLoader {
   }
 
   /**
-   * トランスパイル済みコードを取得
-   *
-   * Public so callers (like NodeRuntime) can reuse the same transpile + cache
-   * logic for entry/root files.
+   * トランスパイル済みコードと依存関係を取得
+   * 
+   * 依存関係の事前ロードに使用する
    */
-  async getTranspiledCode(filePath: string, content: string): Promise<string> {
+  async getTranspiledCodeWithDeps(filePath: string, content: string): Promise<{ code: string; dependencies: string[] }> {
     // キャッシュをチェック
-    // Use content-based versioning so cache invalidates when file content changes
     const version = this.computeContentVersion(content);
     const cached = await this.cache.get(filePath, version);
     if (cached) {
-      runtimeInfo('📦 Using transpile cache:', filePath);
-      return cached.code;
+      runtimeInfo('📦 Using transpile cache (with dependencies):', filePath);
+      // デバッグ: キャッシュの内容を確認
+      runtimeInfo('📝 Cache structure:', typeof cached, 'code type:', typeof cached.code, 'deps:', cached.deps);
+      return { code: cached.code, dependencies: cached.deps || [] };
     }
 
     // トランスパイルが必要か判定
     const needsTranspile = this.needsTranspile(filePath, content);
-    let code = content;
-
-    if (needsTranspile) {
-      runtimeInfo('🔄 Transpiling module:', filePath);
-      const isTypeScript = /\.(ts|tsx|mts|cts)$/.test(filePath);
-      const isJSX = /\.(jsx|tsx)$/.test(filePath);
-
-      // TypeScript/JSXの場合は拡張機能のトランスパイラを使用
-      if (isTypeScript || isJSX) {
-        const activeExtensions = extensionManager.getActiveExtensions();
-        let transpiled = false;
-
-        // transpiler機能を持つ拡張機能を探す
-        for (const ext of activeExtensions) {
-          if (ext.activation.runtimeFeatures?.transpiler) {
-            try {
-              runtimeInfo(`🔌 Using extension transpiler: ${ext.manifest.id}`);
-
-              const result = (await ext.activation.runtimeFeatures.transpiler(content, {
-                filePath,
-                isTypeScript,
-                isJSX,
-              })) as { code: string; map?: string; dependencies?: string[] };
-
-              code = result.code;
-              const deps = result.dependencies || [];
-
-              // キャッシュに保存
-              await this.cache.set(filePath, {
-                originalPath: filePath,
-                contentHash: version,
-                code: result.code,
-                sourceMap: result.map,
-                deps,
-                mtime: Date.now(),
-                size: result.code.length,
-              });
-
-              transpiled = true;
-              runtimeInfo('✅ Transpile completed (extension) and cached');
-              break;
-            } catch (error) {
-              runtimeError(`❌ Extension transpiler failed: ${ext.manifest.id}`, error);
-              throw error;
-            }
-          }
-        }
-
-        if (!transpiled) {
-          throw new Error(
-            `No transpiler extension found for ${filePath}. Please install TypeScript runtime extension.`
-          );
-        }
-      }
-      // 普通のJSの場合はnormalizeCjsEsmのみ
-      else {
-        const result = await transpileManager.transpile({
-          code: content,
-          filePath,
-          isTypeScript: false,
-          isESModule: this.isESModule(content),
-          isJSX: false,
-        });
-
-        code = result.code;
-
-        // キャッシュに保存
-        await this.cache.set(filePath, {
-          originalPath: filePath,
-          contentHash: version,
-          code: result.code,
-          sourceMap: result.sourceMap,
-          deps: result.dependencies,
-          mtime: Date.now(),
-          size: result.code.length,
-        });
-
-        runtimeInfo('✅ Transpile completed (normalizeCjsEsm) and cached');
-      }
+    if (!needsTranspile) {
+      return { code: content, dependencies: [] };
     }
 
-    return code;
+    runtimeInfo('🔄 Transpiling module (extracting dependencies):', filePath);
+    const isTypeScript = /\.(ts|tsx|mts|cts)$/.test(filePath);
+    const isJSX = /\.(jsx|tsx)$/.test(filePath);
+
+    // TypeScript/JSXの場合は拡張機能のトランスパイラを使用
+    if (isTypeScript || isJSX) {
+      const activeExtensions = extensionManager.getActiveExtensions();
+      for (const ext of activeExtensions) {
+        if (ext.activation.runtimeFeatures?.transpiler) {
+          try {
+            runtimeInfo(`🔌 Using extension transpiler: ${ext.manifest.id}`);
+
+            const result = (await ext.activation.runtimeFeatures.transpiler(content, {
+              filePath,
+              isTypeScript,
+              isJSX,
+            })) as { code: string; map?: string; dependencies?: string[] };
+
+            const deps = result.dependencies || [];
+            await this.cache.set(filePath, {
+              originalPath: filePath,
+              contentHash: version,
+              code: result.code,
+              sourceMap: result.map,
+              deps,
+              mtime: Date.now(),
+              size: result.code.length,
+            });
+
+            return { code: result.code, dependencies: deps };
+          } catch (error) {
+            runtimeError(`❌ Extension transpiler failed: ${ext.manifest.id}`, error);
+            throw error;
+          }
+        }
+      }
+      throw new Error(`No transpiler extension found for ${filePath}`);
+    }
+
+    // 普通のJSの場合はnormalizeCjsEsmのみ
+    const result = await transpileManager.transpile({
+      code: content,
+      filePath,
+      isTypeScript: false,
+      isESModule: this.isESModule(content),
+      isJSX: false,
+    });
+
+    // デバッグ: transpileManagerの結果を確認
+    runtimeInfo('📝 TranspileManager result:', typeof result, result);
+    runtimeInfo('📝 Result.code type:', typeof result.code);
+    runtimeInfo('📝 Result.dependencies:', result.dependencies);
+
+    // キャッシュに保存
+    await this.cache.set(filePath, {
+      originalPath: filePath,
+      contentHash: version,
+      code: result.code,
+      sourceMap: result.sourceMap,
+      deps: result.dependencies,
+      mtime: Date.now(),
+      size: result.code.length,
+    });
+
+    // transpileManager.transpile は既に { code: string, dependencies: string[] } を返すので、そのまま返す
+    return result;
   }
 
   /**
@@ -261,15 +290,104 @@ export class ModuleLoader {
   /**
    * モジュールを実行
    */
-  private async executeModule(code: string, filePath: string): Promise<unknown> {
+  /**
+   * モジュールを実行
+   */
+  private executeModule(code: string, filePath: string): unknown {
     const module = { exports: {} };
     const exports = module.exports;
     const __filename = filePath;
     const __dirname = this.dirname(filePath);
 
-    // __require__ 関数を定義（非同期）
-    const __require__ = async (moduleName: string) => {
-      return await this.load(moduleName, filePath);
+    // require 関数を定義（同期）
+    // Modules must be pre-loaded into execution cache before they can be required
+    const require = (moduleName: string): any => {
+      runtimeInfo('📦 require (in module):', moduleName, 'from', filePath);
+      
+      // Simple synchronous resolution for pre-loaded modules
+      let resolvedPath: string | null = null;
+      
+      // Try built-in modules first (they would be handled by runtime, but check here too)
+      const builtIns = ['fs', 'fs/promises', 'path', 'os', 'util', 'http', 'https', 'buffer', 'readline'];
+      if (builtIns.includes(moduleName)) {
+        // Built-in modules are handled by the runtime's require function
+        // This shouldn't be reached if runtime's require is set up correctly
+        throw new Error(`Built-in module '${moduleName}' should be handled by runtime require, not module require`);
+      }
+      
+      // Check if module name is in the moduleNameMap (for npm packages)
+      if (this.moduleNameMap[moduleName]) {
+        resolvedPath = this.moduleNameMap[moduleName];
+        runtimeInfo('📝 Found in moduleNameMap:', moduleName, '→', resolvedPath);
+      }
+      // Resolve path based on module name
+      else if (moduleName.startsWith('./') || moduleName.startsWith('../')) {
+        // Relative path
+        const currentDir = this.dirname(filePath);
+        const parts = currentDir.split('/').filter(Boolean);
+        const relParts = moduleName.split('/').filter(Boolean);
+        
+        for (const part of relParts) {
+          if (part === '..') parts.pop();
+          else if (part !== '.') parts.push(part);
+        }
+        
+        resolvedPath = '/' + parts.join('/');
+      } else if (moduleName.startsWith('@/')) {
+        // Alias
+        resolvedPath = moduleName.replace('@/', `/projects/${this.projectName}/src/`);
+      } else if (moduleName.startsWith('/')) {
+        // Absolute path
+        resolvedPath = moduleName;
+      } else {
+        // node_modules package - try to find in moduleNameMap first
+        // If not in map, construct the path manually
+        const isScoped = moduleName.startsWith('@');
+        const packageName = isScoped 
+          ? moduleName.split('/').slice(0, 2).join('/')
+          : moduleName.split('/')[0];
+        const subPath = isScoped
+          ? moduleName.split('/').slice(2).join('/')
+          : moduleName.split('/').slice(1).join('/');
+        
+        resolvedPath = `/projects/${this.projectName}/node_modules/${packageName}`;
+        if (subPath) {
+          resolvedPath += '/' + subPath;
+        }
+      }
+      
+      // Try to find in execution cache (may need extension)
+      if (resolvedPath) {
+        // Try exact path first
+        if (this.executionCache[resolvedPath]) {
+          const cached = this.executionCache[resolvedPath];
+          if (cached.loaded) return cached.exports;
+          if (cached.loading) {
+            runtimeWarn('⚠️ Circular dependency detected:', resolvedPath);
+            return cached.exports;
+          }
+        }
+        
+        // Try with common extensions
+        const extensions = ['', '.js', '.mjs', '.ts', '.mts', '.tsx', '.jsx', '/index.js', '/index.ts'];
+        for (const ext of extensions) {
+          const pathWithExt = resolvedPath + ext;
+          if (this.executionCache[pathWithExt]) {
+            const cached = this.executionCache[pathWithExt];
+            if (cached.loaded) return cached.exports;
+            if (cached.loading) {
+              runtimeWarn('⚠️ Circular dependency detected:', pathWithExt);
+              return cached.exports;
+            }
+          }
+        }
+      }
+
+      // Module not found in cache
+      runtimeError('❌ Module not pre-loaded:', moduleName, 'resolved:', resolvedPath);
+      runtimeError('Available modules in cache:', Object.keys(this.executionCache));
+      runtimeError('ModuleNameMap:', this.moduleNameMap);
+      throw new Error(`Module '${moduleName}' not pre-loaded. Available modules: ${Object.keys(this.executionCache).join(', ')}`);
     };
 
     // Prepare a sandboxed console that forwards to the ModuleLoader's debugConsole
@@ -303,8 +421,9 @@ export class ModuleLoader {
 
     // コードをラップして実行。console を受け取るようにして、モジュール内の
     // console.log 呼び出しがここで用意した sandboxConsole を使うようにする。
+    // 同期実行のため async は削除
     const wrappedCode = `
-      (async function(module, exports, __require__, __filename, __dirname, console) {
+      (function(module, exports, require, __filename, __dirname, console) {
         ${code}
         return module.exports;
       })
@@ -312,10 +431,11 @@ export class ModuleLoader {
 
     try {
       const executeFunc = eval(wrappedCode);
-      const result = await executeFunc(
+      // 同期実行
+      const result = executeFunc(
         module,
         exports,
-        __require__,
+        require,
         __filename,
         __dirname,
         sandboxConsole as any
@@ -412,6 +532,26 @@ export class ModuleLoader {
   clearCache(): void {
     this.cache.clear();
     this.executionCache = {};
+    this.moduleNameMap = {};
+  }
+
+  /**
+   * モジュール名を解決（同期 require 用）
+   * NodeRuntime からも使用される
+   */
+  resolveModuleName(moduleName: string): string | null {
+    return this.moduleNameMap[moduleName] || null;
+  }
+
+  /**
+   * キャッシュされたモジュールのexportsを取得
+   * NodeRuntime からも使用される
+   */
+  getExports(resolvedPath: string): any {
+    if (this.executionCache[resolvedPath] && this.executionCache[resolvedPath].loaded) {
+      return this.executionCache[resolvedPath].exports;
+    }
+    return null;
   }
 
   /**

@@ -107,5 +107,18 @@ export function guessMimeType(fileName: string, buffer?: ArrayBuffer): string {
 
 /**
  * 文字数カウント（スペース除外）
+ * 安全化: runtime で string 以外が渡されることがあるため、まず文字列に変換する。
  */
-export const countCharsNoSpaces = (text: string) => text.replace(/\s/g, '').length;
+export const countCharsNoSpaces = (text?: unknown) => {
+  if (text == null) return 0;
+  if (typeof text !== 'string') {
+    try {
+      // objects/arrays/buffers を渡された場合にもある程度扱えるように文字列化
+      text = String(text);
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  return (text as string).replace(/\s/g, '').length;
+};

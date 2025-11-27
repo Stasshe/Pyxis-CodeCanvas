@@ -51,7 +51,7 @@ export class NodeRuntime {
   constructor(options: ExecutionOptions) {
     this.projectId = options.projectId;
     this.projectName = options.projectName;
-    this.logConsole = options.logConsole;
+    this.debugConsole = options.debugConsole;
     this.onInput = options.onInput;
     this.projectDir = `/projects/${this.projectName}`;
 
@@ -67,7 +67,7 @@ export class NodeRuntime {
     this.moduleLoader = new ModuleLoader({
       projectId: this.projectId,
       projectName: this.projectName,
-      debugConsole: this.logConsole,
+      debugConsole: this.debugConsole,
     });
 
     runtimeInfo('🚀 NodeRuntime initialized', {
@@ -87,33 +87,29 @@ export class NodeRuntime {
       // ModuleLoaderを初期化
       await this.moduleLoader.init();
 
+      // Pre-load the entry file (this will recursively load all dependencies)
+      runtimeInfo('📦 Pre-loading dependencies...');
+      await this.moduleLoader.load(filePath, filePath);
+      runtimeInfo('✅ All dependencies pre-loaded');
+
+      // サンドボックス環境を構築（require関数を含む）
+      const sandbox = await this.createSandbox(filePath, argv);
+
       // ファイルを読み込み
       const fileContent = await this.readFile(filePath);
       if (fileContent === null) {
         throw new Error(`File not found: ${filePath}`);
       }
 
-      runtimeInfo('📄 File loaded:', {
-        filePath,
-        size: fileContent.length,
-      });
+      // トランスパイル済みコードを取得（依存関係は既にロード済みなので、コードのみ必要）
+      const { code } = await this.moduleLoader.getTranspiledCodeWithDeps(filePath, fileContent);
 
-      // トランスパイル（require → await __require__ に変換）
-      // Use ModuleLoader.getTranspiledCode so the entry file benefits from
-      // the same transpile cache and disk-backed cache as other modules.
-      // Don't fallback to simple transpile; always use ModuleLoader.
-      // Don't fallback to original code.
-      const code = await this.moduleLoader.getTranspiledCode(filePath, fileContent);
-
-      // サンドボックス環境を構築
-      const sandbox = await this.createSandbox(filePath, argv);
-
-      // コードを実行（async関数としてラップ）
+      // コードをラップして同期実行
       const wrappedCode = this.wrapCode(code, filePath);
       const executeFunc = new Function(...Object.keys(sandbox), wrappedCode);
 
       runtimeInfo('✅ Code compiled successfully');
-      await executeFunc(...Object.values(sandbox));
+      executeFunc(...Object.values(sandbox)); // No await - synchronous execution
       runtimeInfo('✅ Execution completed');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -199,11 +195,11 @@ export class NodeRuntime {
   }
 
   /**
-   * コードをラップ（async関数として実行）
+   * コードをラップ（同期実行）
    */
   private wrapCode(code: string, filePath: string): string {
     return `
-      return (async () => {
+      return (() => {
         'use strict';
         const module = { exports: {} };
         const exports = module.exports;
@@ -223,149 +219,86 @@ export class NodeRuntime {
   private async createSandbox(currentFilePath: string, argv: string[] = []): Promise<Record<string, unknown>> {
     const self = this;
 
-    // __require__ 関数（thenable Proxy を返すことで `await __require__('fs').promises` のような
-    // パターンでも正しく動作するようにする）
-    // NOTE: async function は常に Promise を返すためプロパティアクセスの優先度による問題が
-    // 発生していた。ここでは Promise をラップする thenable Proxy を返す。
-    const __require__ = (moduleName: string) => {
-      runtimeInfo('📦 __require__:', moduleName);
+    // require 関数 (synchronous, like real Node.js)
+    // Built-in modules are resolved immediately.
+    // User modules must be pre-loaded into the execution cache.
+    const require = (moduleName: string) => {
+      runtimeInfo('📦 require:', moduleName);
 
-      // 実際のロード処理を行う Promise。
-      // built-in モジュールは同期的に解決できるため、その場合は
-      // loadPromise.__syncValue に実体を格納しておき、Proxy が同期的に
-      // 値/関数を返せるようにする。非同期モジュールは通常どおり load する。
-      let resolveFn: (v: any) => void;
-      let rejectFn: (e: any) => void;
-      const loadPromise: any = new Promise<any>((res, rej) => {
-        resolveFn = res;
-        rejectFn = rej;
-      });
-
-      // まずビルトインモジュールを同期チェック
+      // First check built-in modules (always synchronous)
       const builtInModule = this.resolveBuiltInModule(moduleName);
       if (builtInModule !== null) {
         runtimeInfo('✅ Built-in module resolved:', moduleName);
-        // 同期値マーカーを付与してすぐに解決
-        (loadPromise as any).__syncValue = builtInModule;
-        resolveFn!(builtInModule);
-      } else {
-        // 非ビルトイン: 非同期ロードを開始
-        (async () => {
-          try {
-            // Support package.json "imports" specifiers like `#ansi-styles`.
-            // If the specifier starts with `#`, try to resolve it via the project's package.json
-            // and use the resolved path/target when loading.
-            let toLoad = moduleName;
-            try {
-              if (typeof moduleName === 'string' && moduleName.startsWith('#')) {
-                const resolved = await self.resolveImportSpecifier(moduleName, currentFilePath);
-                if (resolved) {
-                  runtimeInfo('🔗 Resolved import specifier', moduleName, '->', resolved);
-                  toLoad = resolved;
-                }
-              }
-            } catch (e) {
-              // resolution failure should not crash the loader; fall back to original name
-              runtimeWarn('⚠️ Failed to resolve import specifier:', moduleName, e);
-            }
-
-            const moduleExports = await self.moduleLoader.load(toLoad, currentFilePath);
-
-            // ビルトインモジュールマーカーを処理
-            if (typeof moduleExports === 'object' && moduleExports !== null) {
-              const obj = moduleExports as any;
-              if (obj.__isBuiltIn) {
-                const resolved = this.resolveBuiltInModule(obj.moduleName);
-                (loadPromise as any).__syncValue = resolved;
-                resolveFn!(resolved);
-                return;
-              }
-            }
-
-            resolveFn!(moduleExports);
-          } catch (error) {
-            runtimeError('❌ Failed to load module:', moduleName, error);
-            rejectFn!(new Error(`Cannot find module '${moduleName}'`));
-          }
-        })();
+        return builtInModule;
       }
 
-      // thenable Proxy を返す。これによりプロパティアクセス（例: .promises）は
-      // 同期的に thenable のプロパティ（Promise）として取得でき、`await __require__('fs').promises` が
-      // 正しく動作する。
-      const wrapper = new Proxy(loadPromise as any, {
-        get(target, prop: PropertyKey) {
-          // Promise の then/catch/finally はそのままバインドして返す（await 対応）
-          if (prop === 'then' || prop === 'catch' || prop === 'finally') {
-            return (target as any)[prop].bind(target);
+      // For user modules, check the execution cache (must be pre-loaded)
+      // We need to resolve the module path synchronously
+      try {
+        // Simple resolution for relative/absolute paths
+        let resolvedPath: string | null = null;
+        
+        // Check moduleNameMap first (for npm packages)
+        const mappedPath = this.moduleLoader.resolveModuleName(moduleName);
+        if (mappedPath) {
+          resolvedPath = mappedPath;
+          runtimeInfo('📝 Resolved via moduleNameMap:', moduleName, '→', resolvedPath);
+        }
+        // Relative paths
+        else if (moduleName.startsWith('./') || moduleName.startsWith('../')) {
+          const currentDir = this.dirname(currentFilePath);
+          resolvedPath = this.resolvePath(currentDir, moduleName);
+        }
+        // Alias (@/)
+        else if (moduleName.startsWith('@/')) {
+          resolvedPath = moduleName.replace('@/', `${this.projectDir}/src/`);
+        }
+        // Absolute path
+        else if (moduleName.startsWith('/')) {
+          resolvedPath = moduleName;
+        }
+        // node_modules (fallback if not in map)
+        else {
+          // Try to find in node_modules (simplified - assumes main entry)
+          let packageName = moduleName;
+          if (moduleName.startsWith('@')) {
+            const parts = moduleName.split('/');
+            packageName = `${parts[0]}/${parts[1]}`;
+          } else {
+            packageName = moduleName.split('/')[0];
           }
+          resolvedPath = `${this.projectDir}/node_modules/${packageName}`;
+        }
 
-          // Symbol のような特殊プロパティはそのまま返す
-          if (typeof prop === 'symbol') {
-            return (target as any)[prop];
+        // Check execution cache using getExports
+        if (resolvedPath) {
+          const exports = this.moduleLoader.getExports(resolvedPath);
+          if (exports) {
+            runtimeInfo('✅ Module loaded from cache:', resolvedPath);
+            return exports;
           }
-
-          // まず同期解決済みの値があれば同期的に返す（built-in モジュール向け）
-          const syncVal = (target as any).__syncValue;
-          if (syncVal !== undefined) {
-            const v = (syncVal as any)[prop];
-            if (typeof v === 'function') {
-              // 元のオブジェクトにバインドした関数をそのまま返す（同期的）
-              return (v as Function).bind(syncVal);
+          
+          // Try with extensions if exact path failed
+          const extensions = ['', '.js', '.mjs', '.ts', '.mts', '.tsx', '.jsx', '/index.js', '/index.ts'];
+          for (const ext of extensions) {
+            const pathWithExt = resolvedPath + ext;
+            const exportsExt = this.moduleLoader.getExports(pathWithExt);
+            if (exportsExt) {
+              runtimeInfo('✅ Module loaded from cache (with ext):', pathWithExt);
+              return exportsExt;
             }
-            return v;
           }
+        }
 
-          // 非同期モジュール: Promise 解決後のプロパティを返す。関数なら thenable なラッパーを返す。
-          return (target as Promise<any>).then(mod => {
-            if (mod == null) return undefined;
-
-            const value = (mod as any)[prop];
-
-            if (typeof value === 'function') {
-              const fnWrapper = (...args: unknown[]) => {
-                return (target as Promise<any>).then(actualMod => {
-                  const actualValue = actualMod == null ? undefined : (actualMod as any)[prop];
-                  if (typeof actualValue !== 'function') {
-                    throw new Error(
-                      `Property '${String(prop)}' is not a function on module '${moduleName}'`
-                    );
-                  }
-                  return actualValue.apply(actualMod, args);
-                });
-              };
-              (fnWrapper as any).then = (onFulfilled: any, onRejected: any) => {
-                return (target as Promise<any>).then(mod => {
-                  const actualValue = mod == null ? undefined : (mod as any)[prop];
-                  return Promise.resolve(actualValue).then(onFulfilled, onRejected);
-                }, onRejected);
-              };
-              return fnWrapper;
-            }
-
-            return value;
-          });
-        },
-
-        // モジュール自体が関数として扱われた場合: __require__('x')(...)
-        apply(target, thisArg, argsList) {
-          const syncVal = (target as any).__syncValue;
-          if (syncVal !== undefined) {
-            if (typeof syncVal !== 'function') {
-              throw new Error(`Module '${moduleName}' is not callable`);
-            }
-            return (syncVal as any).apply(thisArg, argsList as any);
-          }
-          return (target as Promise<any>).then(mod => {
-            if (typeof mod !== 'function') {
-              throw new Error(`Module '${moduleName}' is not callable`);
-            }
-            return (mod as any).apply(thisArg, argsList as any);
-          });
-        },
-      });
-
-      return wrapper;
+        // If not in cache, try to load synchronously (this will work for built-ins)
+        runtimeError('❌ Module not pre-loaded:', moduleName, '(resolved:', resolvedPath + ')');
+        throw new Error(
+          `Module '${moduleName}' not found. Modules must be pre-loaded or be built-in modules.`
+        );
+      } catch (error) {
+        runtimeError('❌ Failed to require module:', moduleName, error);
+        throw error;
+      }
     };
 
     return {
@@ -373,27 +306,27 @@ export class NodeRuntime {
       // sandbox console: prefer debugConsole (output from executed file). If absent, fall back to runtime logger.
       console: {
         log: (...args: unknown[]) => {
-          if (this.logConsole && this.logConsole.log) {
-            this.logConsole.log(...args);
+          if (this.debugConsole && this.debugConsole.log) {
+            this.debugConsole.log(...args);
           } else {
             runtimeInfo(...args);
           }
         },
         error: (...args: unknown[]) => {
-          if (this.logConsole && this.logConsole.error) {
-            this.logConsole.error(...args);
+          if (this.debugConsole && this.debugConsole.error) {
+            this.debugConsole.error(...args);
           } else {
             runtimeError(...args);
           }
         },
         warn: (...args: unknown[]) => {
-          if (this.logConsole && this.logConsole.warn) {
-            this.logConsole.warn(...args);
+          if (this.debugConsole && this.debugConsole.warn) {
+            this.debugConsole.warn(...args);
           } else {
             runtimeWarn(...args);
           }
         },
-        clear: () => this.logConsole?.clear(),
+        clear: () => this.debugConsole?.clear(),
       },
       // ラップされたsetTimeout/setInterval（イベントループ追跡用）
       setTimeout: (handler: TimerHandler, timeout?: number, ...args: any[]): number => {
@@ -469,8 +402,8 @@ export class NodeRuntime {
         },
         stdout: {
           write: (data: string) => {
-            if (this.logConsole && this.logConsole.log) {
-              this.logConsole.log(data);
+            if (this.debugConsole && this.debugConsole.log) {
+              this.debugConsole.log(data);
             } else {
               runtimeInfo(data);
             }
@@ -480,8 +413,8 @@ export class NodeRuntime {
         },
         stderr: {
           write: (data: string) => {
-            if (this.logConsole && this.logConsole.error) {
-              this.logConsole.error(data);
+            if (this.debugConsole && this.debugConsole.error) {
+              this.debugConsole.error(data);
             } else {
               runtimeError(data);
             }
@@ -492,8 +425,8 @@ export class NodeRuntime {
       },
       Buffer: this.builtInModules.Buffer,
 
-      // __require__ 関数（非同期）
-      __require__,
+      // require 関数（同期）
+      require,
     };
   }
 
@@ -634,6 +567,24 @@ export class NodeRuntime {
   }
 
   /**
+   * パスを解決（相対パスを絶対パスに変換）
+   */
+  private resolvePath(basePath: string, relativePath: string): string {
+    const parts = basePath.split('/').filter(Boolean);
+    const relParts = relativePath.split('/').filter(Boolean);
+
+    for (const part of relParts) {
+      if (part === '..') {
+        parts.pop();
+      } else if (part !== '.') {
+        parts.push(part);
+      }
+    }
+
+    return '/' + parts.join('/');
+  }
+
+  /**
    * ディレクトリパスを取得
    */
   private dirname(filePath: string): string {
@@ -646,21 +597,21 @@ export class NodeRuntime {
    * ログ出力
    */
   private log(...args: unknown[]): void {
-    this.logConsole?.log(...args);
+    this.debugConsole?.log(...args);
   }
 
   /**
    * エラー出力
    */
   private error(...args: unknown[]): void {
-    this.logConsole?.error(...args);
+    this.debugConsole?.error(...args);
   }
 
   /**
    * 警告出力
    */
   private warn(...args: unknown[]): void {
-    this.logConsole?.warn(...args);
+    this.debugConsole?.warn(...args);
   }
 
   /**

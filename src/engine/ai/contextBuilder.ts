@@ -11,16 +11,53 @@ function isBinaryFile(file: FileItem | ProjectFile): boolean {
 }
 
 // ファイル内容の行数をチェック
-function isFileTooLarge(content: string): boolean {
-  const lines = content.split('\n');
+function normalizeContent(content: unknown): string {
+  if (content == null) return '';
+  if (typeof content === 'string') return content;
+  if (typeof content === 'number' || typeof content === 'boolean') return String(content);
+
+  // ArrayBuffer / TypedArray -> try to decode as utf-8
+  try {
+    if (typeof TextDecoder !== 'undefined') {
+      if (content instanceof ArrayBuffer) {
+        return new TextDecoder('utf-8').decode(content);
+      }
+      // typed arrays (Uint8Array, etc.)
+      // @ts-ignore
+      if (ArrayBuffer.isView(content)) {
+        // @ts-ignore
+        return new TextDecoder('utf-8').decode(content);
+      }
+    }
+  } catch (e) {
+    // fallthrough to other strategies
+  }
+
+  try {
+    return JSON.stringify(content);
+  } catch (e) {
+    try {
+      return String(content);
+    } catch (e2) {
+      return '';
+    }
+  }
+}
+
+// ファイル内容の行数をチェック
+function isFileTooLarge(content: unknown): boolean {
+  const normalized = normalizeContent(content);
+  const lines = normalized.split('\n');
   return lines.length > MAX_LINES_PER_FILE;
 }
 
 // ファイル内容を切り詰める
-function truncateFileContent(content: string): string {
-  const lines = content.split('\n');
+// ファイル内容を切り詰める
+function truncateFileContent(content: unknown): string {
+  const normalized = normalizeContent(content);
+  const lines = normalized.split('\n');
   if (lines.length <= MAX_LINES_PER_FILE) {
-    return content;
+    return normalized;
   }
 
   const truncatedLines = lines.slice(0, MAX_LINES_PER_FILE);

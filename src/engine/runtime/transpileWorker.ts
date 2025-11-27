@@ -54,16 +54,18 @@ function transpile(request: TranspileRequest): TranspileResult {
   try {
     const { code } = request;
 
-    // CJS/ESM正規化のみ実行
-    const normalizedCode = normalizeCjsEsm(code);
-
-    // 依存関係を抽出
-    const dependencies = extractDependencies(normalizedCode);
+    // CJS/ESM正規化を実行（依存関係も同時に抽出される）
+    const normalized = normalizeCjsEsm(code);
+    
+    // デバッグ: normalizeCjsEsmの戻り値を確認
+    console.log('🔍 normalizeCjsEsm result:', typeof normalized, normalized);
+    console.log('🔍 normalized.code type:', typeof normalized.code);
+    console.log('🔍 normalized.dependencies:', normalized.dependencies);
 
     return {
       id: request.id,
-      code: normalizedCode,
-      dependencies,
+      code: normalized.code,
+      dependencies: normalized.dependencies,
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -84,28 +86,6 @@ function transpile(request: TranspileRequest): TranspileResult {
       error: errorMessage,
     };
   }
-}
-
-/**
- * 依存関係を抽出
- */
-function extractDependencies(code: string): string[] {
-  const dependencies = new Set<string>();
-
-  // require('module') パターン
-  const requireRegex = /require\s*\(\s*['"]([^'\"]+)['"]\s*\)/g;
-  let match;
-  while ((match = requireRegex.exec(code)) !== null) {
-    dependencies.add(match[1]);
-  }
-
-  // import 文（トランスパイル後にrequireに変換されているはず）
-  const importRegex = /import\s+(?:[\w*{}\s,]+\s+from\s+)?['"]([^'\"]+)['"]/g;
-  while ((match = importRegex.exec(code)) !== null) {
-    dependencies.add(match[1]);
-  }
-
-  return Array.from(dependencies);
 }
 
 /**

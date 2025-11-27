@@ -81,7 +81,19 @@ export class ModuleResolver {
       }
     }
 
-    // 3. 相対パス (./, ../)
+    // 3. 絶対パス (/ で始まる)
+    if (moduleName.startsWith('/')) {
+      const finalPath = await this.addExtensionIfNeeded(moduleName);
+      if (finalPath) {
+        return {
+          path: finalPath,
+          isBuiltIn: false,
+          isNodeModule: false,
+        };
+      }
+    }
+
+    // 4. 相対パス (./, ../)
     if (moduleName.startsWith('./') || moduleName.startsWith('../')) {
       const currentDir = this.dirname(currentFilePath);
       const resolved = this.resolvePath(currentDir, moduleName);
@@ -96,7 +108,7 @@ export class ModuleResolver {
       }
     }
 
-    // 4. エイリアス (@/)
+    // 5. エイリアス (@/)
     if (moduleName.startsWith('@/')) {
       const resolved = moduleName.replace('@/', `${this.projectDir}/src/`);
       const finalPath = await this.addExtensionIfNeeded(resolved);
@@ -110,7 +122,7 @@ export class ModuleResolver {
       }
     }
 
-    // 4. node_modules
+    // 6. node_modules
     const nodeModulePath = await this.resolveNodeModules(moduleName);
     if (nodeModulePath) {
       return {
@@ -165,6 +177,12 @@ export class ModuleResolver {
   private async resolveNodeModules(
     moduleName: string
   ): Promise<{ path: string; packageJson?: PackageJson } | null> {
+    // Validate module name is not empty
+    if (!moduleName || moduleName.trim() === '') {
+      runtimeWarn('⚠️ Empty module name provided');
+      return null;
+    }
+
     // パッケージ名とサブパスを分離
     let packageName: string;
     let subPath = '';
@@ -172,12 +190,20 @@ export class ModuleResolver {
     if (moduleName.startsWith('@')) {
       // スコープ付きパッケージ (@vue/runtime-core)
       const parts = moduleName.split('/');
+      if (parts.length < 2) {
+        runtimeWarn('⚠️ Invalid scoped package name:', moduleName);
+        return null;
+      }
       packageName = `${parts[0]}/${parts[1]}`;
       subPath = parts.slice(2).join('/');
     } else {
       // 通常のパッケージ (lodash/merge)
       const parts = moduleName.split('/');
       packageName = parts[0];
+      if (!packageName) {
+        runtimeWarn('⚠️ Invalid package name:', moduleName);
+        return null;
+      }
       subPath = parts.slice(1).join('/');
     }
 

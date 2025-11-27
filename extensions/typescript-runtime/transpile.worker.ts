@@ -33,7 +33,7 @@ interface TranspileResponse {
 }
 
 // メインスレッドから渡された関数を保持
-let normalizeCjsEsm: ((code: string) => string) | null = null;
+let normalizeCjsEsm: ((code: string) => {code: string; dependencies: string[]}) | null = null;
 let extractDependencies: ((code: string) => string[]) | null = null;
 
 // 関数を動的に初期化
@@ -41,7 +41,7 @@ function initializeFunctions(normalizeCjsEsmCode?: string, extractDependenciesCo
   if (normalizeCjsEsmCode && !normalizeCjsEsm) {
     // 関数全体の文字列を評価して関数として取得
      
-    normalizeCjsEsm = eval(`(${normalizeCjsEsmCode})`) as (code: string) => string;
+    normalizeCjsEsm = eval(`(${normalizeCjsEsmCode})`) as (code: string) => {code: string; dependencies: string[]};
   }
   if (extractDependenciesCode && !extractDependencies) {
      
@@ -138,22 +138,30 @@ self.addEventListener('message', (event: MessageEvent<TranspileRequest>) => {
       }
     }
 
-    // CJS/ESM正規化
+    // CJS/ESM正規化（新しい戻り値: {code, dependencies}）
     let normalizedCode: string;
+    let deps: string[] = [];
     try {
-      normalizedCode = normalizeCjsEsm 
-        ? normalizeCjsEsm(transpiledCode)
-        : transpiledCode;
+      if (normalizeCjsEsm) {
+        const result = normalizeCjsEsm(transpiledCode);
+        normalizedCode = result.code;
+        deps = result.dependencies;
+      } else {
+        normalizedCode = transpiledCode;
+      }
     } catch (normError) {
       throw new Error(`normalizeCjsEsm failed: ${normError instanceof Error ? normError.message : String(normError)}`);
     }
 
-    // 依存関係抽出
+    // 依存関係抽出（extractDependenciesは不要になったが、フォールバック用に残す）
     let dependencies: string[];
     try {
-      dependencies = extractDependencies
-        ? extractDependencies(normalizedCode)
-        : fallbackExtractDependencies(normalizedCode);
+      // normalizeCjsEsmが既に依存関係を抽出しているので、それを使う
+      dependencies = deps.length > 0 ? deps : (
+        extractDependencies
+          ? extractDependencies(normalizedCode)
+          : fallbackExtractDependencies(normalizedCode)
+      );
     } catch (depError) {
       throw new Error(`extractDependencies failed: ${depError instanceof Error ? depError.message : String(depError)}`);
     }

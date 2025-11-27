@@ -1,7 +1,9 @@
 /**
  * import/export/requireの超速CJS/ESM変換
+ * @returns {{ code: string; dependencies: string[] }} 変換後のコードと依存モジュールのリスト
  */
-export function normalizeCjsEsm(code: string): string {
+export function normalizeCjsEsm(code: string): { code: string; dependencies: string[] } {
+  const dependencies: string[] = []; // 検出された依存関係のリスト
   // Protect `import.meta` and dynamic `import(...)` from accidental transforms by
   // masking them before we run a series of regex-based replacements, then
   // restoring them at the end. This avoids cases where patterns like
@@ -298,31 +300,38 @@ export function normalizeCjsEsm(code: string): string {
 
     return Array.from(ids);
   }
-  // import * as ns from 'mod' → const ns = await __require__('mod')
+  // import * as ns from 'mod' → const ns = require('mod')
   code = code.replace(/import\s+\*\s+as\s+(\w+)\s+from\s+['"]([^'"]+)['"]/g, (m, ns, mod) => {
-    return `const ${ns} = await __require__('${mod}')`;
+    dependencies.push(mod); // 依存関係を記録
+    return `const ${ns} = require('${mod}')`;
   });
-  // import ... from 'mod' → const ... = await __require__('mod')
+  // import ... from 'mod' → const ... = require('mod')
   // handle default-only: import foo from 'mod'
   code = code.replace(/import\s+([A-Za-z_$][\w$]*)\s+from\s+['"]([^'"]+)['"]/g, (m, def, mod) => {
+    dependencies.push(mod); // 依存関係を記録
     // prefer module.default when present: wrap require result
-    return `const ${def} = (tmp => tmp && tmp.default !== undefined ? tmp.default : tmp)(await __require__('${mod}'))`;
+    return `const ${def} = (tmp => tmp && tmp.default !== undefined ? tmp.default : tmp)(require('${mod}'))`;
   });
   // handle default + named: import foo, {a,b} from 'mod'
   code = code.replace(
     /import\s+([A-Za-z_$][\w$]*)\s*,\s*\{([^}]+)\}\s+from\s+['"]([^'"]+)['"]/g,
     (m, def, names, mod) => {
+      dependencies.push(mod); // 依存関係を記録
       // assign temp module then default and named
       const nm = names.trim();
-      return `const __mod_tmp = await __require__('${mod}'); const ${def} = (__mod_tmp && __mod_tmp.default !== undefined) ? __mod_tmp.default : __mod_tmp; const {${nm}} = __mod_tmp`;
+      return `const __mod_tmp = require('${mod}'); const ${def} = (__mod_tmp && __mod_tmp.default !== undefined) ? __mod_tmp.default : __mod_tmp; const {${nm}} = __mod_tmp`;
     }
   );
   // fallback: named-only imports
   code = code.replace(/import\s*\{([^}]+)\}\s*from\s*['"]([^'"]+)['"]/g, (m, names, mod) => {
-    return `const {${names.trim()}} = await __require__('${mod}')`;
+    dependencies.push(mod); // 依存関係を記録
+    return `const {${names.trim()}} = require('${mod}')`;
   });
-  // import 'mod' → await __require__('mod')
-  code = code.replace(/import\s+['"]([^'"]+)['"]/g, (m, mod) => `await __require__('${mod}')`);
+  // import 'mod' → require('mod')
+  code = code.replace(/import\s+['"]([^'"]+)['"]/g, (m, mod) => {
+    dependencies.push(mod); // 依存関係を記録
+    return `require('${mod}')`;
+  });
   // export default ... → module.exports.default = ...
   code = code.replace(/export\s+default\s+/g, 'module.exports.default = ');
   // export const/let/var foo = 1, bar = 2; -> const/let/var foo = 1, bar = 2; module.exports.foo = foo; module.exports.bar = bar;
@@ -359,8 +368,12 @@ export function normalizeCjsEsm(code: string): string {
     for (const n of names) exportedMap.set(n, n);
     return head;
   });
-  // require('mod') → await __require__('mod')（module.exports付与より前に変換）
-  code = code.replace(/require\((['"][^'"\)]+['"])\)/g, 'await __require__($1)');
+  // Keep require() synchronous - do NOT transform to await __require__()
+  // But extract dependencies for pre-loading
+  code = code.replace(/\brequire\s*\(\s*(['"])([^'"]+)\1\s*\)/g, (m, quote, mod) => {
+    dependencies.push(mod); // 依存関係を記録
+    return m; // require()はそのまま
+  });
   // code = code.replace(/(^|\n)\s*(const|let|var)\s+(\w+)\s*=\s*([^;\n]+)((?:\n\s*\.[^;\n]*)*)(;|\n|$)/g, (m, pre, kind, name, val, chain, end) => {
   //   // don't auto-export if the declaration already contains module.exports
   //   if (m.includes('module.exports')) return m;
@@ -384,6 +397,7 @@ export function normalizeCjsEsm(code: string): string {
   // export { a, b as c } -> module.exports.a = a; module.exports.c = b;
   // Handle `export { ... } from 'mod'` first to avoid leaving a trailing `from 'mod'`
   code = code.replace(/export\s*\{([^}]+)\}\s*from\s*['"]([^'"]+)['"]\s*;?/g, (m, list, mod) => {
+    dependencies.push(mod); // 依存関係を記録
     // import the module first, then re-export named bindings from it
     const parts = String(list)
       .split(',')
@@ -391,7 +405,7 @@ export function normalizeCjsEsm(code: string): string {
       .filter(Boolean);
     const assigns: string[] = [];
     const tmp = `__rexp_${Math.random().toString(36).slice(2, 8)}`;
-    assigns.push(`const ${tmp} = await __require__('${mod}');`);
+    assigns.push(`const ${tmp} = require('${mod}');`);
     for (const p of parts) {
       const cleaned = p
         .replace(/\/\*[^*]*\*+(?:[^/*][^*]*\*+)*\//g, '')
@@ -413,8 +427,9 @@ export function normalizeCjsEsm(code: string): string {
 
   // export * from 'mod' -> copy all exports except default
   code = code.replace(/export\s+\*\s+from\s+['"]([^'"]+)['"]\s*;?/g, (m, mod) => {
+    dependencies.push(mod); // 依存関係を記録
     const tmp = `__rexp_${Math.random().toString(36).slice(2, 8)}`;
-    return `const ${tmp} = await __require__('${mod}'); for (const k in ${tmp}) { if (k !== 'default') module.exports[k] = ${tmp}[k]; }`;
+    return `const ${tmp} = require('${mod}'); for (const k in ${tmp}) { if (k !== 'default') module.exports[k] = ${tmp}[k]; }`;
   });
 
   // export { a, b as c } -> module.exports.a = a; module.exports.c = b;
@@ -487,5 +502,8 @@ export function normalizeCjsEsm(code: string): string {
     }
   }
 
-  return code;
+  // 重複を除去してユニークな依存関係リストを返す
+  const uniqueDependencies = Array.from(new Set(dependencies));
+
+  return { code, dependencies: uniqueDependencies };
 }
