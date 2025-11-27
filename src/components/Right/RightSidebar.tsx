@@ -56,4 +56,5 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
   );
 };
 
-export default RightSidebar;
+// Memoize to avoid unnecessary re-renders when parent updates unrelated state
+export default React.memo(RightSidebar);
