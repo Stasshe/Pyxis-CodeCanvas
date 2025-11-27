@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 
 import { projectDB } from '@/engine/core/database';
 import type { ChatSpace, ChatSpaceMessage, AIEditResponse } from '@/types';
+import * as chatStore from '@/engine/storage/chatStorageAdapter';
 
 export const useChatSpace = (projectId: string | null) => {
   const [chatSpaces, setChatSpaces] = useState<ChatSpace[]>([]);
@@ -21,8 +22,7 @@ export const useChatSpace = (projectId: string | null) => {
 
       setLoading(true);
       try {
-        await projectDB.init();
-        const spaces = await projectDB.getChatSpaces(projectId);
+        const spaces = await chatStore.getChatSpaces(projectId);
         setChatSpaces(spaces);
 
         // 最新のスペースを自動選択（存在する場合）
@@ -45,8 +45,7 @@ export const useChatSpace = (projectId: string | null) => {
   const createNewSpace = async (name?: string): Promise<ChatSpace | null> => {
     if (!projectId) return null;
     try {
-      await projectDB.init();
-      const spaces = await projectDB.getChatSpaces(projectId);
+      const spaces = await chatStore.getChatSpaces(projectId);
       const spaceName = name || `新規チャット`;
       const existingNewChat = spaces.find(s => s.name === spaceName);
       if (existingNewChat) {
@@ -63,13 +62,13 @@ export const useChatSpace = (projectId: string | null) => {
         toDelete = sorted.slice(0, spaces.length - 9);
         for (const space of toDelete) {
           try {
-            await projectDB.deleteChatSpace(space.id);
+            await chatStore.deleteChatSpace(space.id);
           } catch (error) {
             console.error('Failed to delete old chat space:', error);
           }
         }
       }
-      const newSpace = await projectDB.createChatSpace(projectId, spaceName);
+      const newSpace = await chatStore.createChatSpace(projectId, spaceName);
       const updatedSpaces = [
         newSpace,
         ...spaces.filter(s => !toDelete.some((d: ChatSpace) => d.id === s.id)),
@@ -96,7 +95,7 @@ export const useChatSpace = (projectId: string | null) => {
     }
 
     try {
-      await projectDB.deleteChatSpace(spaceId);
+      await chatStore.deleteChatSpace(spaceId);
 
       setChatSpaces(prev => {
         const filtered = prev.filter(s => s.id !== spaceId);
@@ -122,7 +121,8 @@ export const useChatSpace = (projectId: string | null) => {
     type: 'user' | 'assistant',
     mode: 'ask' | 'edit',
     fileContext?: string[],
-    editResponse?: AIEditResponse
+    editResponse?: AIEditResponse,
+    options?: { parentMessageId?: string; action?: 'apply' | 'revert' | 'note' }
   ): Promise<ChatSpaceMessage | null> => {
     if (!currentSpace) {
       console.error('[useChatSpace] No current space available for adding message');
@@ -137,7 +137,7 @@ export const useChatSpace = (projectId: string | null) => {
         content.trim().length > 0
       ) {
         const newName = content.length > 30 ? content.slice(0, 30) + '…' : content;
-        await projectDB.renameChatSpace(currentSpace.id, newName);
+        await chatStore.renameChatSpace(currentSpace.id, newName);
         setCurrentSpace(prev => (prev ? { ...prev, name: newName } : prev));
         setChatSpaces(prev =>
           prev.map(space => (space.id === currentSpace.id ? { ...space, name: newName } : space))
@@ -160,7 +160,7 @@ export const useChatSpace = (projectId: string | null) => {
 
         if (existing) {
           // merge content and editResponse into existing message
-          const updated = await projectDB.updateChatSpaceMessage(currentSpace.id, existing.id, {
+          const updated = await chatStore.updateChatSpaceMessage(currentSpace.id, existing.id, {
             content,
             editResponse,
             timestamp: new Date(),
@@ -196,14 +196,16 @@ export const useChatSpace = (projectId: string | null) => {
       }
 
       // default: append a new message
-      const newMessage = await projectDB.addMessageToChatSpace(currentSpace.id, {
+      const newMessage = await chatStore.addMessageToChatSpace(currentSpace.id, {
         type,
         content,
         timestamp: new Date(),
         mode,
         fileContext,
         editResponse,
-      });
+        parentMessageId: options?.parentMessageId,
+        action: options?.action,
+      } as any);
 
       setCurrentSpace(prev => {
         if (!prev) return null;
@@ -229,12 +231,43 @@ export const useChatSpace = (projectId: string | null) => {
     }
   };
 
+  // メッセージを更新（外部から編集された editResponse 等を保存して state を更新）
+  const updateChatMessage = async (spaceId: string, messageId: string, patch: Partial<ChatSpaceMessage>) => {
+    try {
+      const updated = await chatStore.updateChatSpaceMessage(spaceId, messageId, patch);
+      if (!updated) return null;
+
+      setCurrentSpace(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          messages: prev.messages.map(m => (m.id === updated.id ? updated : m)),
+        };
+      });
+
+      setChatSpaces(prev =>
+        prev
+          .map(space =>
+            space.id === spaceId
+              ? { ...space, messages: space.messages.map(m => (m.id === updated.id ? updated : m)), updatedAt: new Date() }
+              : space
+          )
+          .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+      );
+
+      return updated;
+    } catch (error) {
+      console.error('[useChatSpace] Failed to update message:', error);
+      return null;
+    }
+  };
+
   // 選択ファイルを更新
   const updateSelectedFiles = async (selectedFiles: string[]) => {
     if (!currentSpace) return;
 
     try {
-      await projectDB.updateChatSpaceSelectedFiles(currentSpace.id, selectedFiles);
+      await chatStore.updateChatSpaceSelectedFiles(currentSpace.id, selectedFiles);
 
       setCurrentSpace(prev => {
         if (!prev) return null;
@@ -256,7 +289,7 @@ export const useChatSpace = (projectId: string | null) => {
       if (!space) return;
 
       const updatedSpace = { ...space, name: newName };
-      await projectDB.saveChatSpace(updatedSpace);
+      await chatStore.saveChatSpace(updatedSpace);
 
       setChatSpaces(prev => prev.map(s => (s.id === spaceId ? updatedSpace : s)));
 
@@ -278,5 +311,6 @@ export const useChatSpace = (projectId: string | null) => {
     addMessage,
     updateSelectedFiles,
     updateSpaceName,
+    updateChatMessage,
   };
 };

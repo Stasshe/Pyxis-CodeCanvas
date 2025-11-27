@@ -62,6 +62,17 @@ export interface ProjectFile {
   bufferContent?: ArrayBuffer; // バイナリデータ本体
   isAiAgentReview?: boolean; // AIエージェントによるレビュー中フラグ
   aiAgentCode?: string; // AIが提案するコード
+  // AIレビュー用メタデータ
+  aiReviewStatus?: string; // eg. 'pending' | 'applied' | 'discarded'
+  aiReviewComments?: string; // 簡易コメント/説明
+  aiAgentSuggestedContent?: string; // AIが提案した内容（最新）
+  aiAgentOriginalSnapshot?: string; // AI提案時のオリジナルスナップショット
+  aiReviewHistory?: Array<{
+    id: string;
+    timestamp: Date;
+    content: string; // 保存されたスナップショット
+    note?: string;
+  }>;
 }
 
 export type MenuTab = 'files' | 'search' | 'git' | 'run' | 'extensions' | 'settings';
@@ -106,6 +117,8 @@ export interface ChatSpaceMessage {
   type: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  parentMessageId?: string; // チャット上のブランチ元メッセージID
+  action?: 'apply' | 'revert' | 'note'; // UI用アクションラベル
   mode: 'ask' | 'edit'; // メッセージが送信された時のモード
   fileContext?: string[]; // 参照されたファイルパス
   editResponse?: AIEditResponse; // 編集モードの場合のレスポンス

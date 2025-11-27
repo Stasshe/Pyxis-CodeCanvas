@@ -74,6 +74,7 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
     addMessage: addSpaceMessage,
     updateSelectedFiles: updateSpaceSelectedFiles,
     updateSpaceName,
+    updateChatMessage,
   } = useChatSpace(currentProject?.id || null);
 
   // AI機能
@@ -86,18 +87,21 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
     toggleFileSelection,
   } = useAI({
     onAddMessage: async (content, type, mode, fileContext, editResponse) => {
-      await addSpaceMessage(content, type, mode, fileContext, editResponse);
+      return await addSpaceMessage(content, type, mode, fileContext, editResponse);
     },
     selectedFiles: currentSpace?.selectedFiles,
     onUpdateSelectedFiles: updateSpaceSelectedFiles,
     messages: currentSpace?.messages,
+    projectId: currentProject?.id,
   });
+
 
   // レビュー機能
   const { openAIReviewTab, closeAIReviewTab } = useAIReview();
 
   // プロジェクト操作
   const { saveFile, clearAIReview } = useProject();
+  
 
   // プロジェクトファイルが変更されたときにコンテキストを更新
   useEffect(() => {
@@ -188,12 +192,23 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
     handleFileSelect(newFile);
   };
 
-  // レビューを開く
-  const handleOpenReview = (
+  // レビューを開く（ストレージから履歴を取得してタブに渡す）
+  const handleOpenReview = async (
     filePath: string,
     originalContent: string,
     suggestedContent: string
   ) => {
+    try {
+      if (currentProject?.id) {
+        const { getAIReviewEntry } = await import('@/engine/storage/aiStorageAdapter');
+        const entry = await getAIReviewEntry(currentProject.id, filePath);
+        openAIReviewTab(filePath, originalContent, suggestedContent, entry || undefined);
+        return;
+      }
+    } catch (e) {
+      console.warn('[AIPanel] Failed to load AI review entry:', e);
+    }
+
     openAIReviewTab(filePath, originalContent, suggestedContent);
   };
 
@@ -215,6 +230,28 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
         clearAIReview(filePath).catch((e: Error) => {
           console.warn('[AIPanel] clearAIReview failed (non-critical):', e);
         });
+      }
+
+      // Remove this file from the assistant editResponse in the current chat space
+      try {
+        if (currentSpace && updateChatMessage) {
+          const editMsg = currentSpace.messages
+            .slice()
+            .reverse()
+            .find(m => m.type === 'assistant' && m.mode === 'edit' && m.editResponse);
+
+          if (editMsg && editMsg.editResponse) {
+            const newChangedFiles = editMsg.editResponse.changedFiles.filter(f => f.path !== filePath);
+            const newEditResponse = { ...editMsg.editResponse, changedFiles: newChangedFiles };
+
+            await updateChatMessage(currentSpace.id, editMsg.id, {
+              editResponse: newEditResponse,
+              content: editMsg.content,
+            });
+          }
+        }
+      } catch (e) {
+        console.warn('[AIPanel] Failed to update chat message after apply:', e);
       }
 
       // NOTE: Do NOT manually close the review tab here. The caller (AIReviewTab)

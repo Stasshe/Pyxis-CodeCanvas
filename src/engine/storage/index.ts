@@ -18,7 +18,7 @@
  */
 
 const DB_NAME = 'pyxis-global';
-const DB_VERSION = 3; // extensionsストア追加のためバージョンアップ
+const DB_VERSION = 4; // add CHAT_SPACES and AI_REVIEWS stores
 
 /**
  * ストアの定義
@@ -30,6 +30,8 @@ export const STORES = {
   USER_PREFERENCES: 'user_preferences', // ユーザー設定
   EXTENSIONS: 'extensions', // 拡張機能データ
   TAB_STATE: 'tab_state', // タブ・ペイン状態
+  CHAT_SPACES: 'chat_spaces', // チャットスペース（AIチャット）
+  AI_REVIEWS: 'ai_reviews', // AIレビュー用スナップショット／メタデータ
 } as const;
 
 export type StoreName = (typeof STORES)[keyof typeof STORES];

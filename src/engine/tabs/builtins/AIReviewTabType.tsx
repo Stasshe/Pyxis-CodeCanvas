@@ -6,6 +6,7 @@ import { TabTypeDefinition, AIReviewTab, TabComponentProps } from '../types';
 import AIReviewTabComponent from '@/components/AI/AIReview/AIReviewTab';
 import { useGitContext } from '@/components/PaneContainer';
 import { useProject } from '@/engine/core/project';
+import { useChatSpace } from '@/hooks/ai/useChatSpace';
 import { useTabStore } from '@/stores/tabStore';
 
 /**
@@ -17,6 +18,7 @@ const AIReviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   const updateTab = useTabStore(state => state.updateTab);
   const { saveFile, clearAIReview, refreshProjectFiles } = useProject();
   const { setGitRefreshTrigger } = useGitContext();
+  const { addMessage } = useChatSpace(aiTab.aiEntry?.projectId || null);
 
   const handleApplyChanges = async (filePath: string, content: string) => {
     if (saveFile) {
@@ -30,6 +32,18 @@ const AIReviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
     if (refreshProjectFiles) {
       await refreshProjectFiles();
     }
+    // Add a chat message indicating the apply action, branching from parent if available
+    if (addMessage) {
+      try {
+        await addMessage(`Applied changes to ${filePath}`, 'assistant', 'edit', [filePath], undefined, {
+          parentMessageId: aiTab.aiEntry?.parentMessageId,
+          action: 'apply',
+        });
+      } catch (e) {
+        console.warn('[AIReviewTabRenderer] Failed to append apply message to chat:', e);
+      }
+    }
+
     closeTab(aiTab.paneId, aiTab.id);
   };
 
@@ -40,6 +54,18 @@ const AIReviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
     if (refreshProjectFiles) {
       await refreshProjectFiles();
     }
+    // record revert/discard in chat
+    if (addMessage) {
+      try {
+        await addMessage(`Discarded AI suggested changes for ${filePath}`, 'assistant', 'edit', [filePath], undefined, {
+          parentMessageId: aiTab.aiEntry?.parentMessageId,
+          action: 'revert',
+        });
+      } catch (e) {
+        console.warn('[AIReviewTabRenderer] Failed to append discard message to chat:', e);
+      }
+    }
+
     closeTab(aiTab.paneId, aiTab.id);
   };
 
@@ -102,6 +128,10 @@ export const AIReviewTabType: TabTypeDefinition = {
       originalContent: aiReviewProps?.originalContent || '',
       suggestedContent: aiReviewProps?.suggestedContent || '',
       filePath: aiReviewProps?.filePath || file.path || '',
+      // optional history passed by caller
+      history: aiReviewProps?.history,
+      // raw aiEntry (contains projectId, originalSnapshot, etc.) if provided
+      aiEntry: aiReviewProps?.aiEntry,
     };
 
     console.log('[AIReviewTabType] Created tab:', {

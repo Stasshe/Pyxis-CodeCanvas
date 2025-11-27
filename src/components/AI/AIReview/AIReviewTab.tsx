@@ -40,6 +40,8 @@ export default function AIReviewTab({
   const originalContent = aiTab.originalContent || '';
   const suggestedContent = aiTab.suggestedContent || '';
   const filePath = aiTab.filePath || aiTab.path || '';
+  const history: Array<any> = aiTab.history || [];
+  const aiEntry = aiTab.aiEntry || null;
 
   console.log('[AIReviewTab] Data:', {
     originalContent: originalContent.length,
@@ -208,6 +210,55 @@ export default function AIReviewTab({
     }
   };
 
+  // 適用済みを元に戻す（ストレージの originalSnapshot を使って上書き）
+  const handleRevertApplied = async () => {
+    try {
+      if (!aiEntry || !aiEntry.originalSnapshot) return;
+      // Apply original snapshot
+      await onApplyChanges(filePath, aiEntry.originalSnapshot);
+
+      // mark entry as reverted and push history
+      try {
+        const { updateAIReviewEntry } = await import('@/engine/storage/aiStorageAdapter');
+        const hist = aiEntry.history || [];
+        const historyEntry = { id: `revert-${Date.now()}`, timestamp: new Date(), content: aiEntry.originalSnapshot, note: 'reverted' };
+        await updateAIReviewEntry(aiEntry.projectId, filePath, {
+          status: 'reverted',
+          history: [historyEntry, ...hist],
+        });
+      } catch (e) {
+        console.warn('[AIReviewTab] Failed to mark AI review entry as reverted', e);
+      }
+
+      if (onCloseTab) onCloseTab(filePath);
+    } catch (e) {
+      console.error('[AIReviewTab] revert applied failed', e);
+    }
+  };
+
+  // 履歴スナップショットを適用（即時保存）
+  const handleApplyHistory = (entry: any) => {
+    if (!entry || !entry.content) return;
+    // Apply the snapshot content directly
+    onApplyChanges(filePath, entry.content);
+    if (onCloseTab) onCloseTab(filePath);
+  };
+
+  // 履歴スナップショットをプレビュー（suggested に読み込む）
+  const handleLoadHistoryToEditor = (entry: any) => {
+    if (!entry || !entry.content) return;
+    setCurrentSuggestedContent(entry.content);
+    if (diffEditorRef.current) {
+      const diffModel = diffEditorRef.current.getModel();
+      if (diffModel?.modified) {
+        diffModel.modified.setValue(entry.content);
+      }
+    }
+    if (onUpdateSuggestedContent) {
+      onUpdateSuggestedContent(tab.id, entry.content);
+    }
+  };
+
   // 全体破棄（元の内容に戻す）
   const handleDiscardAll = () => {
     onDiscardChanges(filePath);
@@ -282,6 +333,20 @@ export default function AIReviewTab({
             <Check size={16} />
             {t('aiReviewTab.applyAll')}
           </button>
+          {aiEntry && aiEntry.originalSnapshot && (
+            <button
+              className="px-3 py-1.5 text-sm rounded border hover:opacity-90 transition-all inline-flex items-center gap-1.5"
+              style={{
+                background: 'transparent',
+                color: colors.foreground,
+                borderColor: colors.border,
+              }}
+              onClick={handleRevertApplied}
+              title="適用済みを元に戻す"
+            >
+              元に戻す
+            </button>
+          )}
           <button
             className="px-3 py-1.5 text-sm rounded hover:opacity-80 transition-opacity inline-flex items-center gap-1.5"
             style={{ background: colors.red, color: '#ffffff' }}
@@ -398,6 +463,49 @@ export default function AIReviewTab({
           }}
         />
       </div>
+
+      {/* 履歴サイドパネル */}
+      {history && history.length > 0 && (
+        <div
+          className="border-l w-64 p-2 overflow-auto"
+          style={{ borderColor: colors.border, background: colors.cardBg }}
+        >
+          <div className="text-sm font-medium mb-2" style={{ color: colors.foreground }}>
+            履歴 ({history.length})
+          </div>
+          <div className="space-y-2">
+            {history.map((h: any) => (
+              <div key={h.id} className="p-2 rounded border" style={{ borderColor: colors.border }}>
+                <div className="flex items-center justify-between mb-1">
+                  <div className="text-xs font-mono" style={{ color: colors.foreground }}>
+                    {new Date(h.timestamp).toLocaleString()}
+                  </div>
+                </div>
+                {h.note && (
+                  <div className="text-xs mb-2" style={{ color: colors.mutedFg }}>
+                    {h.note}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    className="px-2 py-1 text-xs rounded border"
+                    style={{ borderColor: colors.border, color: colors.foreground, background: colors.mutedBg }}
+                    onClick={() => handleLoadHistoryToEditor(h)}
+                  >
+                    プレビュー
+                  </button>
+                  <button
+                    className="px-2 py-1 text-xs rounded bg-green-600 text-white"
+                    onClick={() => handleApplyHistory(h)}
+                  >
+                    適用
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* フッター */}
       <div

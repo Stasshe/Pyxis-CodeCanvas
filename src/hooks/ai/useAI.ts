@@ -23,15 +23,26 @@ interface UseAIProps {
     mode: 'ask' | 'edit',
     fileContext?: string[],
     editResponse?: AIEditResponse
-  ) => Promise<void>;
+  ) => Promise<ChatSpaceMessage | null>;
   selectedFiles?: string[];
   onUpdateSelectedFiles?: (files: string[]) => void;
   messages?: ChatSpaceMessage[];
+  projectId?: string;
 }
 
 export function useAI(props?: UseAIProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [fileContexts, setFileContexts] = useState<AIFileContext[]>([]);
+
+  // storage adapter for AI review metadata
+  // import dynamically to avoid circular deps in some build setups
+  let aiStorage: typeof import('@/engine/storage/aiStorageAdapter') | null = null;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
+    aiStorage = require('@/engine/storage/aiStorageAdapter');
+  } catch (e) {
+    aiStorage = null;
+  }
 
   // チャットスペースから選択ファイルが変更された時にファイルコンテキストに反映
   useEffect(() => {
@@ -53,24 +64,27 @@ export function useAI(props?: UseAIProps) {
       mode: 'ask' | 'edit' = 'ask',
       fileContext?: string[],
       editResponse?: AIEditResponse
-    ) => {
+    ): Promise<ChatSpaceMessage | null> => {
       if (props?.onAddMessage) {
-        await props.onAddMessage(content, type, mode, fileContext, editResponse);
+        try {
+          const result = await props.onAddMessage(content, type, mode, fileContext, editResponse);
+          // allow parent to return the created/updated message
+          if (result && typeof result === 'object') return result as ChatSpaceMessage;
+        } catch (e) {
+          console.warn('[useAI] onAddMessage threw', e);
+        }
       }
       // Always push assistant responses to the BottomPanel so user sees AI replies
       try {
         if (type === 'assistant') {
-          // map mode to a small context label
           const ctx = mode === 'edit' ? 'AI (edit)' : 'AI';
-          // Ensure content is a string
           const msg = typeof content === 'string' ? content : JSON.stringify(content);
           pushMsgOutPanel(msg, 'info', ctx);
         }
       } catch (e) {
-        // non-fatal: ensure UI doesn't break if push fails
-
         console.warn('[useAI] pushMsgOutPanel failed', e);
       }
+      return null;
     },
     [props?.onAddMessage]
   );
@@ -183,7 +197,25 @@ export function useAI(props?: UseAIProps) {
             detailedMessage += editResponse.message;
           }
 
-          await addMessage(detailedMessage, 'assistant', 'edit', [], editResponse);
+          // Append assistant edit message and capture returned message (so we know its id)
+          const assistantMsg = await addMessage(detailedMessage, 'assistant', 'edit', [], editResponse);
+
+          // Persist AI review metadata / snapshots using storage adapter when projectId provided
+          try {
+            if (props?.projectId && aiStorage && typeof aiStorage.saveAIReviewEntry === 'function') {
+              for (const f of editResponse.changedFiles) {
+                aiStorage
+                  .saveAIReviewEntry(props.projectId, f.path, f.originalContent, f.suggestedContent, {
+                    message: parseResult.message,
+                    parentMessageId: assistantMsg?.id,
+                  })
+                  .catch(err => console.warn('[useAI] saveAIReviewEntry failed', err));
+              }
+            }
+          } catch (e) {
+            console.warn('[useAI] AI review storage skipped:', e);
+          }
+
           return editResponse;
         }
       } catch (error) {
