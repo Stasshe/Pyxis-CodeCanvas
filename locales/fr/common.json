@@ -23,12 +23,11 @@
     "fileChangeItem": {
       "apply": "Appliquer",
       "confirm": "Confirmer",
-      "discard": "Abandonner"
+      "discard": "Abandonner",
+      "noHandler": "Aucun gestionnaire disponible"
     },
     "fileContextBar": {
-      "addFile": "+ Ajouter un fichier",
-      "context": "Contexte :",
-      "noFileSelected": "Aucun fichier sélectionné"
+      "remove": "Supprimer"
     },
     "hints": {
       "enterSend": "Entrée : nouvelle ligne / Ctrl+Entrée : envoyer",
@@ -40,6 +39,10 @@
     },
     "selectedLabel": "Sélectionné :",
     "sendTitle": "Envoyer (Ctrl+Entrée)"
+  },
+  "AI": {
+    "ask": "Posez des questions à l'IA ou demandez des conseils sur le code...",
+    "edit": "Saisissez les instructions pour modifier le code..."
   },
   "aiReviewTab": {
     "applyAll": "Tout appliquer",
@@ -76,6 +79,7 @@
       "empty": "Aucune sortie",
       "typeLabel": "Type"
     },
+    "problems": "Problems",
     "terminal": "Terminal",
     "terminalInitializing": "Initialisation du terminal..."
   },
@@ -100,8 +104,8 @@
     "confirmDelete": "Êtes-vous sûr de vouloir supprimer cet espace ?",
     "create": "Créer un nouvel espace",
     "delete": "Supprimer",
-    "empty": "Aucun espace pour le moment",
-    "rename": "Renommer"
+    "rename": "Renommer",
+    "title": "Espaces de chat"
   },
   "confirmation": {
     "title": "Confirmation"
@@ -113,6 +117,7 @@
     "suggested": "Suggéré"
   },
   "diffTab": {
+    "binaryFile": "Fichier binaire : impossible d'afficher le diff",
     "fileList": "Liste de fichiers",
     "noDiffFiles": "Aucun fichier de diff"
   },
@@ -130,7 +135,8 @@
       "createFolder": "Créer un dossier",
       "delete": "Supprimer",
       "download": "Télécharger",
-      "import": "Importer",
+      "importFiles": "Importer des fichiers",
+      "importFolder": "Importer un dossier",
       "open": "Ouvrir",
       "openCodeMirror": "Ouvrir dans CodeMirror",
       "openPreview": "Ouvrir l'aperçu",
@@ -208,6 +214,7 @@
     "zoomOut": "Rétrécir"
   },
   "menu": {
+    "extensions": "Extensions",
     "files": "Fichiers",
     "git": "Git",
     "project": "Gestion du projet",
@@ -221,8 +228,10 @@
     "mdPreviewDialogHelp": "Tab/←→ pour changer, Entrée pour confirmer, ESC pour fermer",
     "mdPreviewPrompt": "Ouvrir dans l'aperçu Markdown ?",
     "noFilesFound": "Aucun fichier trouvé",
+    "noItemsFound": "Aucun élément trouvé",
     "openInEditor": "Ouvrir dans l'éditeur",
     "openInPreview": "Ouvrir dans l'aperçu",
+    "quickOpen": "Ouverture rapide",
     "searchPlaceholder": "Rechercher par nom ou chemin de fichier/dossier..."
   },
   "projectModal": {
@@ -291,6 +300,8 @@
     "editor": {
       "defaultEditor": "Éditeur par défaut",
       "fontSize": "Taille de la police",
+      "preloadModelCount": "Nombre de modèles à précharger",
+      "preloadModelCountHint": "Nombre de modèles à garder préchargés pour un démarrage plus rapide",
       "savedToLocalStorage": "Enregistré dans LocalStorage",
       "tabSize": "Taille de tabulation",
       "title": "Éditeur",
@@ -308,6 +319,10 @@
       "title": "Fichiers"
     },
     "loading": "Chargement des paramètres...",
+    "markdown": {
+      "mathDelimiter": "Délimiteur mathématique",
+      "mathDelimiterHint": "Délimiteur utilisé pour les mathématiques en ligne et en bloc (ex : $ $ ou $$ $$)"
+    },
     "search": {
       "excludePattern": "Motif d'exclusion",
       "globPatternHint": "Écrivez un motif glob par ligne",
@@ -324,13 +339,14 @@
   "tabBar": {
     "closeTab": "Fermer l'onglet",
     "moveToPane": "Déplacer vers le volet",
-    "openPreview": "Open Preview",
+    "openPreview": "Ouvrir l'aperçu",
     "paneMenu": "Menu du volet",
     "removeAllTabs": "Fermer tous les onglets",
     "removePane": "Supprimer le volet",
     "saveRestart": "Enregistrer et redémarrer",
     "splitHorizontal": "Diviser horizontalement",
-    "splitVertical": "Diviser verticalement"
+    "splitVertical": "Diviser verticalement",
+    "unsavedChanges": "Modifications non enregistrées"
   },
   "tabCloseConfirmation": {
     "cancel": "Annuler",

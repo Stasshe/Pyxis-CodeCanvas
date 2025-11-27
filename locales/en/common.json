@@ -23,12 +23,11 @@
     "fileChangeItem": {
       "apply": "Apply",
       "confirm": "Confirm",
-      "discard": "Discard"
+      "discard": "Discard",
+      "noHandler": "No handler available"
     },
     "fileContextBar": {
-      "addFile": "+ Add file",
-      "context": "Context:",
-      "noFileSelected": "No file selected"
+      "remove": "Remove"
     },
     "hints": {
       "enterSend": "Enter: newline / Ctrl+Enter: send",
@@ -40,6 +39,10 @@
     },
     "selectedLabel": "Selected:",
     "sendTitle": "Send (Ctrl+Enter)"
+  },
+  "AI": {
+    "ask": "Ask the AI questions or consult about code...",
+    "edit": "Enter instructions to edit code..."
   },
   "aiReviewTab": {
     "applyAll": "Apply all",
@@ -76,6 +79,7 @@
       "empty": "No output",
       "typeLabel": "Type"
     },
+    "problems": "Problems",
     "terminal": "Terminal",
     "terminalInitializing": "Initializing terminal..."
   },
@@ -100,8 +104,8 @@
     "confirmDelete": "Are you sure you want to delete this space?",
     "create": "Create new space",
     "delete": "Delete",
-    "empty": "No spaces yet",
-    "rename": "Rename"
+    "rename": "Rename",
+    "title": "Chat spaces"
   },
   "confirmation": {
     "title": "Confirmation"
@@ -113,6 +117,7 @@
     "suggested": "Suggested"
   },
   "diffTab": {
+    "binaryFile": "Binary file: cannot display diff",
     "fileList": "File List",
     "noDiffFiles": "No diff files"
   },
@@ -130,7 +135,8 @@
       "createFolder": "Create folder",
       "delete": "Delete",
       "download": "Download",
-      "import": "Import",
+      "importFiles": "Import files",
+      "importFolder": "Import folder",
       "open": "Open",
       "openCodeMirror": "Open in CodeMirror",
       "openPreview": "Open preview",
@@ -208,6 +214,7 @@
     "zoomOut": "Zoom out"
   },
   "menu": {
+    "extensions": "Extensions",
     "files": "Files",
     "git": "Git",
     "project": "Project Management",
@@ -221,8 +228,10 @@
     "mdPreviewDialogHelp": "Tab/←→ to switch, Enter to confirm, ESC to close",
     "mdPreviewPrompt": "Open in Markdown preview?",
     "noFilesFound": "No files found",
+    "noItemsFound": "No items found",
     "openInEditor": "Open in Editor",
     "openInPreview": "Open in Preview",
+    "quickOpen": "Quick open",
     "searchPlaceholder": "Search by file/folder name or path..."
   },
   "projectModal": {
@@ -291,6 +300,8 @@
     "editor": {
       "defaultEditor": "Default Editor",
       "fontSize": "Font Size",
+      "preloadModelCount": "Number of models to preload",
+      "preloadModelCountHint": "How many models to keep preloaded for faster startup",
       "savedToLocalStorage": "Saved to LocalStorage",
       "tabSize": "Tab Size",
       "title": "Editor",
@@ -308,6 +319,10 @@
       "title": "Files"
     },
     "loading": "Loading settings...",
+    "markdown": {
+      "mathDelimiter": "Math delimiter",
+      "mathDelimiterHint": "Delimiter used for inline and block math (e.g. $ $ or $$ $$)"
+    },
     "search": {
       "excludePattern": "Exclude Pattern",
       "globPatternHint": "Write one glob pattern per line",
@@ -330,7 +345,8 @@
     "removePane": "Remove pane",
     "saveRestart": "Save and restart",
     "splitHorizontal": "Split horizontally",
-    "splitVertical": "Split vertically"
+    "splitVertical": "Split vertically",
+    "unsavedChanges": "Unsaved changes"
   },
   "tabCloseConfirmation": {
     "cancel": "Cancel",

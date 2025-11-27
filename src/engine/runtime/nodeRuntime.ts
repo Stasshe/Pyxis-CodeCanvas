@@ -51,7 +51,7 @@ export class NodeRuntime {
   constructor(options: ExecutionOptions) {
     this.projectId = options.projectId;
     this.projectName = options.projectName;
-    this.debugConsole = options.debugConsole;
+    this.logConsole = options.logConsole;
     this.onInput = options.onInput;
     this.projectDir = `/projects/${this.projectName}`;
 
@@ -67,7 +67,7 @@ export class NodeRuntime {
     this.moduleLoader = new ModuleLoader({
       projectId: this.projectId,
       projectName: this.projectName,
-      debugConsole: this.debugConsole,
+      debugConsole: this.logConsole,
     });
 
     runtimeInfo('🚀 NodeRuntime initialized', {
@@ -373,27 +373,27 @@ export class NodeRuntime {
       // sandbox console: prefer debugConsole (output from executed file). If absent, fall back to runtime logger.
       console: {
         log: (...args: unknown[]) => {
-          if (this.debugConsole && this.debugConsole.log) {
-            this.debugConsole.log(...args);
+          if (this.logConsole && this.logConsole.log) {
+            this.logConsole.log(...args);
           } else {
             runtimeInfo(...args);
           }
         },
         error: (...args: unknown[]) => {
-          if (this.debugConsole && this.debugConsole.error) {
-            this.debugConsole.error(...args);
+          if (this.logConsole && this.logConsole.error) {
+            this.logConsole.error(...args);
           } else {
             runtimeError(...args);
           }
         },
         warn: (...args: unknown[]) => {
-          if (this.debugConsole && this.debugConsole.warn) {
-            this.debugConsole.warn(...args);
+          if (this.logConsole && this.logConsole.warn) {
+            this.logConsole.warn(...args);
           } else {
             runtimeWarn(...args);
           }
         },
-        clear: () => this.debugConsole?.clear(),
+        clear: () => this.logConsole?.clear(),
       },
       // ラップされたsetTimeout/setInterval（イベントループ追跡用）
       setTimeout: (handler: TimerHandler, timeout?: number, ...args: any[]): number => {
@@ -469,8 +469,8 @@ export class NodeRuntime {
         },
         stdout: {
           write: (data: string) => {
-            if (this.debugConsole && this.debugConsole.log) {
-              this.debugConsole.log(data);
+            if (this.logConsole && this.logConsole.log) {
+              this.logConsole.log(data);
             } else {
               runtimeInfo(data);
             }
@@ -480,8 +480,8 @@ export class NodeRuntime {
         },
         stderr: {
           write: (data: string) => {
-            if (this.debugConsole && this.debugConsole.error) {
-              this.debugConsole.error(data);
+            if (this.logConsole && this.logConsole.error) {
+              this.logConsole.error(data);
             } else {
               runtimeError(data);
             }
@@ -646,21 +646,21 @@ export class NodeRuntime {
    * ログ出力
    */
   private log(...args: unknown[]): void {
-    this.debugConsole?.log(...args);
+    this.logConsole?.log(...args);
   }
 
   /**
    * エラー出力
    */
   private error(...args: unknown[]): void {
-    this.debugConsole?.error(...args);
+    this.logConsole?.error(...args);
   }
 
   /**
    * 警告出力
    */
   private warn(...args: unknown[]): void {
-    this.debugConsole?.warn(...args);
+    this.logConsole?.warn(...args);
   }
 
   /**

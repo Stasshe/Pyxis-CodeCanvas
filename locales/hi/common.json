@@ -23,12 +23,11 @@
     "fileChangeItem": {
       "apply": "लागू करें",
       "confirm": "पुष्टि करें",
-      "discard": "खारिज करें"
+      "discard": "खारिज करें",
+      "noHandler": "No handler available"
     },
     "fileContextBar": {
-      "addFile": "+ फाइल जोड़ें",
-      "context": "संदर्भ:",
-      "noFileSelected": "कोई फाइल चयनित नहीं"
+      "remove": "Remove"
     },
     "hints": {
       "enterSend": "Enter: नई पंक्ति / Ctrl+Enter: भेजें",
@@ -40,6 +39,10 @@
     },
     "selectedLabel": "चयनित:",
     "sendTitle": "भेजें (Ctrl+Enter)"
+  },
+  "AI": {
+    "ask": "Ask the AI questions or consult about code...",
+    "edit": "Enter instructions to edit code..."
   },
   "aiReviewTab": {
     "applyAll": "सभी लागू करें",
@@ -76,6 +79,7 @@
       "empty": "कोई आउटपुट नहीं",
       "typeLabel": "प्रकार"
     },
+    "problems": "Problems",
     "terminal": "टर्मिनल",
     "terminalInitializing": "टर्मिनल आरंभ हो रहा है..."
   },
@@ -100,8 +104,8 @@
     "confirmDelete": "क्या आप निश्चित रूप से इस स्पेस को हटाना चाहते हैं?",
     "create": "नया स्पेस बनाएं",
     "delete": "हटाएं",
-    "empty": "अभी तक कोई स्पेस नहीं",
-    "rename": "नाम बदलें"
+    "rename": "नाम बदलें",
+    "title": "Chat spaces"
   },
   "confirmation": {
     "title": "पुष्टि"
@@ -113,6 +117,7 @@
     "suggested": "प्रस्तावित"
   },
   "diffTab": {
+    "binaryFile": "Binary file: cannot display diff",
     "fileList": "फाइल सूची",
     "noDiffFiles": "कोई diff फाइल नहीं"
   },
@@ -130,7 +135,8 @@
       "createFolder": "फ़ोल्डर बनाएं",
       "delete": "हटाएं",
       "download": "डाउनलोड",
-      "import": "आयात",
+      "importFiles": "Import files",
+      "importFolder": "Import folder",
       "open": "खोलें",
       "openCodeMirror": "CodeMirror में खोलें",
       "openPreview": "पूर्वावलोकन खोलें",
@@ -208,6 +214,7 @@
     "zoomOut": "ज़ूम आउट"
   },
   "menu": {
+    "extensions": "Extensions",
     "files": "फाइलें",
     "git": "Git",
     "project": "प्रोजेक्ट प्रबंधन",
@@ -221,8 +228,10 @@
     "mdPreviewDialogHelp": "स्विच के लिए Tab/←→, पुष्टि के लिए Enter, बंद करने के लिए ESC",
     "mdPreviewPrompt": "Markdown पूर्वावलोकन में खोलें?",
     "noFilesFound": "कोई फाइल नहीं मिली",
+    "noItemsFound": "No items found",
     "openInEditor": "संपादक में खोलें",
     "openInPreview": "पूर्वावलोकन में खोलें",
+    "quickOpen": "Quick open",
     "searchPlaceholder": "फाइल/फ़ोल्डर नाम या पथ से खोजें..."
   },
   "projectModal": {
@@ -250,6 +259,7 @@
     "projectNameOptionalPlaceholder": "वैकल्पिक प्रोजेक्ट नाम...",
     "projectNamePlaceholder": "प्रोजेक्ट का नाम दर्ज करें...",
     "repoUrl": "रिपोजिटरी URL",
+    "repoUrlPlaceholder": "https://github.com/owner/repo",
     "save": "सहेजें",
     "title": "प्रोजेक्ट प्रबंधन",
     "updated": "अपडेट किया गया"
@@ -290,6 +300,8 @@
     "editor": {
       "defaultEditor": "डिफ़ॉल्ट संपादक",
       "fontSize": "फ़ॉन्ट साइज",
+      "preloadModelCount": "Number of models to preload",
+      "preloadModelCountHint": "How many models to keep preloaded for faster startup",
       "savedToLocalStorage": "LocalStorage में सहेजा गया",
       "tabSize": "Tab साइज",
       "title": "संपादक",
@@ -307,6 +319,10 @@
       "title": "फाइलें"
     },
     "loading": "लोड हो रहा है...",
+    "markdown": {
+      "mathDelimiter": "Math delimiter",
+      "mathDelimiterHint": "Delimiter used for inline and block math (e.g. $ $ or $$ $$)"
+    },
     "search": {
       "excludePattern": "Exclude Pattern",
       "globPatternHint": "प्रति लाइन एक glob pattern लिखें",
@@ -323,12 +339,14 @@
   "tabBar": {
     "closeTab": "टैब बंद करें",
     "moveToPane": "पेन में स्थानांतरित करें",
+    "openPreview": "Open Preview",
     "paneMenu": "पेन मेनू",
     "removeAllTabs": "सभी टैब हटाएँ",
     "removePane": "पेन हटाएँ",
     "saveRestart": "सहेजें और पुनरारंभ करें",
     "splitHorizontal": "क्षैतिज विभाजन",
-    "splitVertical": "ऊर्ध्वाधर विभाजन"
+    "splitVertical": "ऊर्ध्वाधर विभाजन",
+    "unsavedChanges": "Unsaved changes"
   },
   "tabCloseConfirmation": {
     "cancel": "रद्द करें",

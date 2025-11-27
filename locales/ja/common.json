@@ -23,12 +23,11 @@
     "fileChangeItem": {
       "apply": "適用",
       "confirm": "確認",
-      "discard": "破棄"
+      "discard": "破棄",
+      "noHandler": "ハンドラが見つかりません"
     },
     "fileContextBar": {
-      "addFile": "+ ファイルを追加",
-      "context": "コンテキスト:",
-      "noFileSelected": "ファイルが選択されていません"
+      "remove": "削除"
     },
     "hints": {
       "enterSend": "Enter: 改行 / Ctrl+Enter: 送信",
@@ -40,6 +39,10 @@
     },
     "selectedLabel": "選択中:",
     "sendTitle": "送信 (Ctrl+Enter)"
+  },
+  "AI": {
+    "ask": "AIに質問やコード相談をしてください...",
+    "edit": "コードの編集指示を入力してください..."
   },
   "aiReviewTab": {
     "applyAll": "全て適用",
@@ -76,6 +79,7 @@
       "empty": "出力はありません",
       "typeLabel": "タイプ"
     },
+    "problems": "Problems",
     "terminal": "ターミナル",
     "terminalInitializing": "ターミナルを初期化中..."
   },
@@ -100,8 +104,8 @@
     "confirmDelete": "このスペースを削除しますか？",
     "create": "新しいスペースを作成",
     "delete": "削除",
-    "empty": "まだスペースがありません",
-    "rename": "名前を変更"
+    "rename": "名前を変更",
+    "title": "チャットスペース"
   },
   "confirmation": {
     "title": "確認"
@@ -113,6 +117,7 @@
     "suggested": "提案"
   },
   "diffTab": {
+    "binaryFile": "バイナリファイル：差分を表示できません",
     "fileList": "ファイル一覧",
     "noDiffFiles": "差分ファイルがありません"
   },
@@ -130,7 +135,8 @@
       "createFolder": "フォルダ作成",
       "delete": "削除",
       "download": "ダウンロード",
-      "import": "インポート",
+      "importFiles": "ファイルをインポート",
+      "importFolder": "フォルダをインポート",
       "open": "開く",
       "openCodeMirror": "CodeMirrorで開く",
       "openPreview": "プレビューを開く",
@@ -208,6 +214,7 @@
     "zoomOut": "ズームアウト"
   },
   "menu": {
+    "extensions": "拡張機能",
     "files": "ファイル",
     "git": "Git",
     "project": "プロジェクト管理",
@@ -221,8 +228,10 @@
     "mdPreviewDialogHelp": "Tab/←→ で切替, Enterで決定, ESCで閉じる",
     "mdPreviewPrompt": "Markdownプレビューで開きますか？",
     "noFilesFound": "ファイルが見つかりません",
+    "noItemsFound": "項目が見つかりません",
     "openInEditor": "通常エディタで開く",
     "openInPreview": "プレビューで開く",
+    "quickOpen": "クイックオープン",
     "searchPlaceholder": "ファイル名・フォルダ名・パス いずれかで検索..."
   },
   "projectModal": {
@@ -259,12 +268,12 @@
     "clearOutput": "出力をクリア",
     "execute": "実行",
     "executeHint": "Ctrl+Enter (Cmd+Enter) で実行",
-    "executionStopped": "Execution stopped",
+    "executionStopped": "実行が停止しました",
     "fileContentError": "ファイル内容が取得できません",
     "inputPlaceholder": "Node.jsコードを入力してください...",
     "languageNode": "Node.js",
     "languagePython": "Python",
-    "noOutput": "No output",
+    "noOutput": "出力はありません",
     "noProject": "プロジェクトを開いてNode.jsコードを実行してください",
     "outputHint": "Javascript/Node.js/Pythonコードを実行すると、ここに結果が表示されます。Node.jsと、jsは、同じファイルで実行できます。",
     "runtimeNotReady": "Pythonランタイムが初期化されていません",
@@ -291,6 +300,8 @@
     "editor": {
       "defaultEditor": "デフォルトエディター",
       "fontSize": "フォントサイズ",
+      "preloadModelCount": "事前読み込みするモデル数",
+      "preloadModelCountHint": "起動を高速化するために事前に読み込んでおくモデルの数",
       "savedToLocalStorage": "LocalStorageに保存されます",
       "tabSize": "タブサイズ",
       "title": "エディター",
@@ -308,6 +319,10 @@
       "title": "ファイル"
     },
     "loading": "設定を読み込み中...",
+    "markdown": {
+      "mathDelimiter": "数式区切り記号",
+      "mathDelimiterHint": "インライン/ブロック数式に使う区切り記号（例: $ $ や $$ $$）"
+    },
     "search": {
       "excludePattern": "除外パターン",
       "globPatternHint": "glob パターンを1行ごとに記述",
@@ -330,7 +345,8 @@
     "removePane": "ペインを削除",
     "saveRestart": "保存して再起動",
     "splitHorizontal": "横に分割",
-    "splitVertical": "縦に分割"
+    "splitVertical": "縦に分割",
+    "unsavedChanges": "未保存の変更"
   },
   "tabCloseConfirmation": {
     "cancel": "キャンセル",

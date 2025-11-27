@@ -25,6 +25,7 @@
       "thanksVisit": "ขอบคุณที่มาเยี่ยมชม!",
       "title": "ขอขอบคุณเป็นพิเศษ"
     },
-    "title": "ยินดีต้อนรับ!"
+    "title": "ยินดีต้อนรับ!",
+    "githubNote": "GitHub integration has no known bugs to our knowledge, but avoid extreme actions such as using it on very large repositories or closing the browser mid-operation."
   }
 }

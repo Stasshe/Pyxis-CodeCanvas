@@ -6,7 +6,18 @@
  * ファイル名から言語を推定
  */
 export const getLanguage = (filename: string): string => {
-  const ext = filename.toLowerCase();
+  // handle dotfiles and special filenames first
+  const name = filename.toLowerCase();
+  if (name === '.gitignore') return 'gitignore';
+  if (name === '.gitattributes') return 'git';
+  if (name === 'dockerfile') return 'dockerfile';
+  if (name === 'makefile') return 'makefile';
+  if (name === '.editorconfig') return 'ini';
+  if (name === '.env' || name.startsWith('.env.')) return 'dotenv';
+  if (name === 'readme' || name.startsWith('readme.')) return 'markdown';
+  if (name === 'license' || name === 'licence') return 'plaintext';
+
+  const ext = name;
   if (ext.endsWith('.tsx')) return 'typescript';
   if (ext.endsWith('.ts')) return 'typescript';
   if (ext.endsWith('.jsx')) return 'javascript';

@@ -350,7 +350,7 @@ function ClientTerminal({
         // Debug: log raw output received from command (helps detect unexpected encoding)
         try {
           // keep this lightweight and safe
-          console.debug('[Terminal] captureWriteOutput received:', JSON.stringify(output));
+          console.log('[Terminal] captureWriteOutput received:', JSON.stringify(output));
         } catch (e) {}
         
         // 末尾に改行がない場合は追加（すべてのコマンド出力を統一的に処理）

@@ -32,7 +32,7 @@ export const getAllFilesAndDirs = async (
 };
 
 export const debugFileSystem = async (): Promise<void> => {
-  return gitFileSystem.debugFileSystem();
+  return gitFileSystem.logFileSystem();
 };
 
 export const ensureDirectoryExists = async (fs: FS, dirPath: string): Promise<void> => {

@@ -23,12 +23,11 @@
     "fileChangeItem": {
       "apply": "Áp dụng",
       "confirm": "Xác nhận",
-      "discard": "Bỏ"
+      "discard": "Bỏ",
+      "noHandler": "No handler available"
     },
     "fileContextBar": {
-      "addFile": "+ Thêm tệp",
-      "context": "Ngữ cảnh:",
-      "noFileSelected": "Chưa chọn tệp nào"
+      "remove": "Remove"
     },
     "hints": {
       "enterSend": "Enter: xuống dòng / Ctrl+Enter: gửi",
@@ -40,6 +39,10 @@
     },
     "selectedLabel": "Đã chọn:",
     "sendTitle": "Gửi (Ctrl+Enter)"
+  },
+  "AI": {
+    "ask": "Ask the AI questions or consult about code...",
+    "edit": "Enter instructions to edit code..."
   },
   "aiReviewTab": {
     "applyAll": "Áp dụng tất cả",
@@ -76,6 +79,7 @@
       "empty": "Không có kết quả",
       "typeLabel": "Loại"
     },
+    "problems": "Problems",
     "terminal": "Terminal",
     "terminalInitializing": "Đang khởi tạo terminal..."
   },
@@ -100,8 +104,8 @@
     "confirmDelete": "Bạn có chắc muốn xóa không gian này?",
     "create": "Tạo không gian mới",
     "delete": "Xóa",
-    "empty": "Chưa có không gian nào",
-    "rename": "Đổi tên"
+    "rename": "Đổi tên",
+    "title": "Chat spaces"
   },
   "confirmation": {
     "title": "Xác nhận"
@@ -113,6 +117,7 @@
     "suggested": "Gợi ý"
   },
   "diffTab": {
+    "binaryFile": "Binary file: cannot display diff",
     "fileList": "Danh sách tệp",
     "noDiffFiles": "Không có tệp diff"
   },
@@ -130,7 +135,8 @@
       "createFolder": "Tạo thư mục",
       "delete": "Xóa",
       "download": "Tải xuống",
-      "import": "Nhập",
+      "importFiles": "Import files",
+      "importFolder": "Import folder",
       "open": "Mở",
       "openCodeMirror": "Mở trong CodeMirror",
       "openPreview": "Mở xem trước",
@@ -208,6 +214,7 @@
     "zoomOut": "Thu nhỏ"
   },
   "menu": {
+    "extensions": "Extensions",
     "files": "Tệp",
     "git": "Git",
     "project": "Quản lý dự án",
@@ -221,8 +228,10 @@
     "mdPreviewDialogHelp": "Tab/←→ để chuyển, Enter để xác nhận, ESC để đóng",
     "mdPreviewPrompt": "Mở trong Markdown preview?",
     "noFilesFound": "Không tìm thấy tệp",
+    "noItemsFound": "No items found",
     "openInEditor": "Mở trong Editor",
     "openInPreview": "Mở trong Preview",
+    "quickOpen": "Quick open",
     "searchPlaceholder": "Tìm theo tên tệp/thư mục hoặc đường dẫn..."
   },
   "projectModal": {
@@ -249,6 +258,8 @@
     "projectNameOptional": "Tên dự án (tùy chọn)",
     "projectNameOptionalPlaceholder": "Tên dự án (tùy chọn)...",
     "projectNamePlaceholder": "Nhập tên dự án...",
+    "repoUrl": "Repository URL",
+    "repoUrlPlaceholder": "https://github.com/owner/repo",
     "save": "Lưu",
     "title": "Quản lý dự án",
     "updated": "Đã cập nhật"
@@ -265,7 +276,10 @@
     "noOutput": "Không có kết quả",
     "noProject": "Mở một dự án để thực thi mã Node.js",
     "outputHint": "Khi bạn thực thi JavaScript/Node.js/Python, kết quả sẽ hiển thị ở đây. Node.js và js có thể chạy trong cùng tệp.",
-    "runtimeNotReady": "Runtime Python chưa khởi tạo"
+    "runtimeNotReady": "Runtime Python chưa khởi tạo",
+    "searchFile": "Search for a file to execute...",
+    "stop": "Stop",
+    "title": "Execution Environment"
   },
   "searchPanel": {
     "caseSensitive": "Phân biệt hoa thường",
@@ -286,6 +300,8 @@
     "editor": {
       "defaultEditor": "Trình soạn thảo mặc định",
       "fontSize": "Kích thước font",
+      "preloadModelCount": "Number of models to preload",
+      "preloadModelCountHint": "How many models to keep preloaded for faster startup",
       "savedToLocalStorage": "Đã lưu vào LocalStorage",
       "tabSize": "Kích thước tab",
       "title": "Editor",
@@ -303,6 +319,10 @@
       "title": "Tệp"
     },
     "loading": "Đang tải cài đặt...",
+    "markdown": {
+      "mathDelimiter": "Math delimiter",
+      "mathDelimiterHint": "Delimiter used for inline and block math (e.g. $ $ or $$ $$)"
+    },
     "search": {
       "excludePattern": "Mẫu loại trừ",
       "globPatternHint": "Viết một mẫu glob mỗi dòng",
@@ -319,12 +339,14 @@
   "tabBar": {
     "closeTab": "Đóng tab",
     "moveToPane": "Di chuyển sang pane",
+    "openPreview": "Open Preview",
     "paneMenu": "Menu pane",
     "removeAllTabs": "Đóng tất cả tab",
     "removePane": "Xóa pane",
     "saveRestart": "Lưu và khởi động lại",
     "splitHorizontal": "Chia ngang",
-    "splitVertical": "Chia dọc"
+    "splitVertical": "Chia dọc",
+    "unsavedChanges": "Unsaved changes"
   },
   "tabCloseConfirmation": {
     "cancel": "Hủy",

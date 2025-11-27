@@ -23,12 +23,11 @@
     "fileChangeItem": {
       "apply": "ใช้",
       "confirm": "ยืนยัน",
-      "discard": "ยกเลิก"
+      "discard": "ยกเลิก",
+      "noHandler": "No handler available"
     },
     "fileContextBar": {
-      "addFile": "+ เพิ่มไฟล์",
-      "context": "บริบท:",
-      "noFileSelected": "ยังไม่ได้เลือกไฟล์"
+      "remove": "Remove"
     },
     "hints": {
       "enterSend": "Enter: ขึ้นบรรทัดใหม่ / Ctrl+Enter: ส่ง",
@@ -40,6 +39,10 @@
     },
     "selectedLabel": "ที่เลือก:",
     "sendTitle": "ส่ง (Ctrl+Enter)"
+  },
+  "AI": {
+    "ask": "Ask the AI questions or consult about code...",
+    "edit": "Enter instructions to edit code..."
   },
   "aiReviewTab": {
     "applyAll": "ใช้ทั้งหมด",
@@ -76,6 +79,7 @@
       "empty": "ไม่มีผลลัพธ์",
       "typeLabel": "ประเภท"
     },
+    "problems": "Problems",
     "terminal": "เทอร์มินัล",
     "terminalInitializing": "กำลังเริ่มต้นเทอร์มินัล..."
   },
@@ -100,8 +104,8 @@
     "confirmDelete": "แน่ใจหรือว่าต้องการลบพื้นที่นี้?",
     "create": "สร้างพื้นที่ใหม่",
     "delete": "ลบ",
-    "empty": "ยังไม่มีพื้นที่",
-    "rename": "เปลี่ยนชื่อ"
+    "rename": "เปลี่ยนชื่อ",
+    "title": "Chat spaces"
   },
   "confirmation": {
     "title": "ยืนยัน"
@@ -113,6 +117,7 @@
     "suggested": "ข้อเสนอ"
   },
   "diffTab": {
+    "binaryFile": "Binary file: cannot display diff",
     "fileList": "รายการไฟล์",
     "noDiffFiles": "ไม่มีไฟล์ที่ต่างกัน"
   },
@@ -130,7 +135,8 @@
       "createFolder": "สร้างโฟลเดอร์",
       "delete": "ลบ",
       "download": "ดาวน์โหลด",
-      "import": "นำเข้า",
+      "importFiles": "Import files",
+      "importFolder": "Import folder",
       "open": "เปิด",
       "openCodeMirror": "เปิดใน CodeMirror",
       "openPreview": "เปิดตัวอย่าง",
@@ -208,6 +214,7 @@
     "zoomOut": "ซูมออก"
   },
   "menu": {
+    "extensions": "Extensions",
     "files": "ไฟล์",
     "git": "Git",
     "project": "การจัดการโปรเจกต์",
@@ -221,8 +228,10 @@
     "mdPreviewDialogHelp": "Tab/←→ เพื่อสลับ, Enter เพื่อยืนยัน, ESC เพื่อปิด",
     "mdPreviewPrompt": "เปิดในตัวดู Markdown?",
     "noFilesFound": "ไม่พบไฟล์",
+    "noItemsFound": "No items found",
     "openInEditor": "เปิดในตัวแก้ไข",
     "openInPreview": "เปิดตัวอย่าง",
+    "quickOpen": "Quick open",
     "searchPlaceholder": "ค้นหาชื่อไฟล์/โฟลเดอร์หรือเส้นทาง..."
   },
   "projectModal": {
@@ -291,6 +300,8 @@
     "editor": {
       "defaultEditor": "ตัวแก้ไขเริ่มต้น",
       "fontSize": "ขนาดฟอนต์",
+      "preloadModelCount": "Number of models to preload",
+      "preloadModelCountHint": "How many models to keep preloaded for faster startup",
       "savedToLocalStorage": "บันทึกใน LocalStorage",
       "tabSize": "ขนาด Tab",
       "title": "ตัวแก้ไข",
@@ -308,6 +319,10 @@
       "title": "ไฟล์"
     },
     "loading": "กำลังโหลดการตั้งค่า...",
+    "markdown": {
+      "mathDelimiter": "Math delimiter",
+      "mathDelimiterHint": "Delimiter used for inline and block math (e.g. $ $ or $$ $$)"
+    },
     "search": {
       "excludePattern": "แพตเทิร์นที่ยกเว้น",
       "globPatternHint": "เขียนแพตเทิร์น glob หนึ่งบรรทัดต่อหนึ่ง",
@@ -324,12 +339,14 @@
   "tabBar": {
     "closeTab": "ปิดแท็บ",
     "moveToPane": "ย้ายไปยัง pane",
+    "openPreview": "Open Preview",
     "paneMenu": "เมนู pane",
     "removeAllTabs": "ปิดแท็บทั้งหมด",
     "removePane": "ลบ pane",
     "saveRestart": "บันทึกและรีสตาร์ท",
     "splitHorizontal": "แยกแนวนอน",
-    "splitVertical": "แยกแนวตั้ง"
+    "splitVertical": "แยกแนวตั้ง",
+    "unsavedChanges": "Unsaved changes"
   },
   "tabCloseConfirmation": {
     "cancel": "ยกเลิก",

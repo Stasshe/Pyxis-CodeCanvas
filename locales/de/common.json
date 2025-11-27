@@ -23,12 +23,11 @@
     "fileChangeItem": {
       "apply": "Anwenden",
       "confirm": "Bestätigen",
-      "discard": "Verwerfen"
+      "discard": "Verwerfen",
+      "noHandler": "Kein Handler verfügbar"
     },
     "fileContextBar": {
-      "addFile": "+ Datei hinzufügen",
-      "context": "Kontext:",
-      "noFileSelected": "Keine Datei ausgewählt"
+      "remove": "Entfernen"
     },
     "hints": {
       "enterSend": "Enter: neue Zeile / Ctrl+Enter: senden",
@@ -40,6 +39,10 @@
     },
     "selectedLabel": "Ausgewählt:",
     "sendTitle": "Senden (Ctrl+Enter)"
+  },
+  "AI": {
+    "ask": "Stellen Sie der KI Fragen oder konsultieren Sie Code...",
+    "edit": "Geben Sie Anweisungen zum Bearbeiten des Codes ein..."
   },
   "aiReviewTab": {
     "applyAll": "Alle anwenden",
@@ -76,6 +79,7 @@
       "empty": "Keine Ausgabe",
       "typeLabel": "Typ"
     },
+    "problems": "Problems",
     "terminal": "Terminal",
     "terminalInitializing": "Terminal wird initialisiert..."
   },
@@ -100,8 +104,8 @@
     "confirmDelete": "Möchten Sie diesen Bereich wirklich löschen?",
     "create": "Neuen Bereich erstellen",
     "delete": "Löschen",
-    "empty": "Noch keine Bereiche",
-    "rename": "Umbenennen"
+    "rename": "Umbenennen",
+    "title": "Chat-Bereiche"
   },
   "confirmation": {
     "title": "Bestätigung"
@@ -113,6 +117,7 @@
     "suggested": "Vorgeschlagen"
   },
   "diffTab": {
+    "binaryFile": "Binärdatei: Diff kann nicht angezeigt werden",
     "fileList": "Dateiliste",
     "noDiffFiles": "Keine Diff-Dateien"
   },
@@ -130,7 +135,8 @@
       "createFolder": "Ordner erstellen",
       "delete": "Löschen",
       "download": "Herunterladen",
-      "import": "Importieren",
+      "importFiles": "Dateien importieren",
+      "importFolder": "Ordner importieren",
       "open": "Öffnen",
       "openCodeMirror": "In CodeMirror öffnen",
       "openPreview": "Vorschau öffnen",
@@ -208,6 +214,7 @@
     "zoomOut": "Verkleinern"
   },
   "menu": {
+    "extensions": "Erweiterungen",
     "files": "Dateien",
     "git": "Git",
     "project": "Projektverwaltung",
@@ -221,8 +228,10 @@
     "mdPreviewDialogHelp": "Tab/←→ zum Wechseln, Enter zum Bestätigen, ESC zum Schließen",
     "mdPreviewPrompt": "In Markdown-Vorschau öffnen?",
     "noFilesFound": "Keine Dateien gefunden",
+    "noItemsFound": "Keine Einträge gefunden",
     "openInEditor": "Im Editor öffnen",
     "openInPreview": "In Vorschau öffnen",
+    "quickOpen": "Schnell öffnen",
     "searchPlaceholder": "Nach Datei/Ordnername oder Pfad suchen..."
   },
   "projectModal": {
@@ -250,6 +259,7 @@
     "projectNameOptionalPlaceholder": "Optionaler Projektname...",
     "projectNamePlaceholder": "Projektname eingeben...",
     "repoUrl": "Repository-URL",
+    "repoUrlPlaceholder": "https://github.com/owner/repo",
     "save": "Speichern",
     "title": "Projektverwaltung",
     "updated": "Aktualisiert"
@@ -290,6 +300,8 @@
     "editor": {
       "defaultEditor": "Standard-Editor",
       "fontSize": "Schriftgröße",
+      "preloadModelCount": "Anzahl der vorzuladenden Modelle",
+      "preloadModelCountHint": "Wie viele Modelle vorab geladen werden sollen, um den Start zu beschleunigen",
       "savedToLocalStorage": "In LocalStorage gespeichert",
       "tabSize": "Tab-Größe",
       "title": "Editor",
@@ -307,6 +319,10 @@
       "title": "Dateien"
     },
     "loading": "Einstellungen werden geladen...",
+    "markdown": {
+      "mathDelimiter": "Mathe-Trennzeichen",
+      "mathDelimiterHint": "Trennzeichen für Inline- und Block-Mathematik (z. B. $ $ oder $$ $$)"
+    },
     "search": {
       "excludePattern": "Ausschlussmuster",
       "globPatternHint": "Schreiben Sie ein Glob-Muster pro Zeile",
@@ -323,13 +339,14 @@
   "tabBar": {
     "closeTab": "Tab schließen",
     "moveToPane": "In Bereich verschieben",
-    "openPreview": "Open Preview",
+    "openPreview": "Vorschau öffnen",
     "paneMenu": "Bereichsmenü",
     "removeAllTabs": "Alle Tabs entfernen",
     "removePane": "Bereich entfernen",
     "saveRestart": "Speichern und neu starten",
     "splitHorizontal": "Horizontal teilen",
-    "splitVertical": "Vertikal teilen"
+    "splitVertical": "Vertikal teilen",
+    "unsavedChanges": "Ungespeicherte Änderungen"
   },
   "tabCloseConfirmation": {
     "cancel": "Abbrechen",

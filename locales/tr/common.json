@@ -23,12 +23,11 @@
     "fileChangeItem": {
       "apply": "Uygula",
       "confirm": "Onayla",
-      "discard": "İptal et"
+      "discard": "İptal et",
+      "noHandler": "No handler available"
     },
     "fileContextBar": {
-      "addFile": "+ Dosya ekle",
-      "context": "Bağlam:",
-      "noFileSelected": "Hiçbir dosya seçili değil"
+      "remove": "Remove"
     },
     "hints": {
       "enterSend": "Enter: yeni satır / Ctrl+Enter: gönder",
@@ -40,6 +39,10 @@
     },
     "selectedLabel": "Seçili:",
     "sendTitle": "Gönder (Ctrl+Enter)"
+  },
+  "AI": {
+    "ask": "Ask the AI questions or consult about code...",
+    "edit": "Enter instructions to edit code..."
   },
   "aiReviewTab": {
     "applyAll": "Tümünü uygula",
@@ -76,6 +79,7 @@
       "empty": "Çıktı yok",
       "typeLabel": "Tür"
     },
+    "problems": "Problems",
     "terminal": "Terminal",
     "terminalInitializing": "Terminal başlatılıyor..."
   },
@@ -100,8 +104,8 @@
     "confirmDelete": "Bu alanı silmek istediğinizden emin misiniz?",
     "create": "Yeni alan oluştur",
     "delete": "Sil",
-    "empty": "Henüz alan yok",
-    "rename": "Yeniden adlandır"
+    "rename": "Yeniden adlandır",
+    "title": "Chat spaces"
   },
   "confirmation": {
     "title": "Onay"
@@ -113,6 +117,7 @@
     "suggested": "Önerilen"
   },
   "diffTab": {
+    "binaryFile": "Binary file: cannot display diff",
     "fileList": "Dosya Listesi",
     "noDiffFiles": "Farklı dosya yok"
   },
@@ -130,7 +135,8 @@
       "createFolder": "Klasör oluştur",
       "delete": "Sil",
       "download": "İndir",
-      "import": "İçe aktar",
+      "importFiles": "Import files",
+      "importFolder": "Import folder",
       "open": "Aç",
       "openCodeMirror": "CodeMirror'da aç",
       "openPreview": "Önizlemeyi aç",
@@ -208,6 +214,7 @@
     "zoomOut": "Uzaklaştır"
   },
   "menu": {
+    "extensions": "Extensions",
     "files": "Dosyalar",
     "git": "Git",
     "project": "Proje Yönetimi",
@@ -221,8 +228,10 @@
     "mdPreviewDialogHelp": "Geçiş için Tab/←→, onay için Enter, kapatmak için ESC",
     "mdPreviewPrompt": "Markdown önizlemede açılsın mı?",
     "noFilesFound": "Dosya bulunamadı",
+    "noItemsFound": "No items found",
     "openInEditor": "Editörde aç",
     "openInPreview": "Önizlemede aç",
+    "quickOpen": "Quick open",
     "searchPlaceholder": "Dosya/klasör adı veya yolu ile ara..."
   },
   "projectModal": {
@@ -291,6 +300,8 @@
     "editor": {
       "defaultEditor": "Varsayılan Editör",
       "fontSize": "Yazı Boyutu",
+      "preloadModelCount": "Number of models to preload",
+      "preloadModelCountHint": "How many models to keep preloaded for faster startup",
       "savedToLocalStorage": "LocalStorage'a kaydedildi",
       "tabSize": "Tab Boyutu",
       "title": "Editör",
@@ -308,6 +319,10 @@
       "title": "Dosyalar"
     },
     "loading": "Ayarlar yükleniyor...",
+    "markdown": {
+      "mathDelimiter": "Math delimiter",
+      "mathDelimiterHint": "Delimiter used for inline and block math (e.g. $ $ or $$ $$)"
+    },
     "search": {
       "excludePattern": "Hariç Tutma Deseni",
       "globPatternHint": "Her satıra bir glob deseni yazın",
@@ -324,12 +339,14 @@
   "tabBar": {
     "closeTab": "Sekmeyi kapat",
     "moveToPane": "Panel'e taşı",
+    "openPreview": "Open Preview",
     "paneMenu": "Panel menüsü",
     "removeAllTabs": "Tüm sekmeleri kaldır",
     "removePane": "Paneli kaldır",
     "saveRestart": "Kaydet ve yeniden başlat",
     "splitHorizontal": "Yatay böl",
-    "splitVertical": "Dikey böl"
+    "splitVertical": "Dikey böl",
+    "unsavedChanges": "Unsaved changes"
   },
   "tabCloseConfirmation": {
     "cancel": "İptal",

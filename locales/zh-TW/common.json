@@ -23,12 +23,11 @@
     "fileChangeItem": {
       "apply": "套用",
       "confirm": "確認",
-      "discard": "捨棄"
+      "discard": "捨棄",
+      "noHandler": "No handler available"
     },
     "fileContextBar": {
-      "addFile": "+ 新增檔案",
-      "context": "上下文：",
-      "noFileSelected": "未選擇檔案"
+      "remove": "Remove"
     },
     "hints": {
       "enterSend": "Enter: 換行 / Ctrl+Enter: 傳送",
@@ -40,6 +39,10 @@
     },
     "selectedLabel": "已選：",
     "sendTitle": "傳送 (Ctrl+Enter)"
+  },
+  "AI": {
+    "ask": "Ask the AI questions or consult about code...",
+    "edit": "Enter instructions to edit code..."
   },
   "aiReviewTab": {
     "applyAll": "全部套用",
@@ -76,6 +79,7 @@
       "empty": "沒有輸出",
       "typeLabel": "類型"
     },
+    "problems": "Problems",
     "terminal": "終端機",
     "terminalInitializing": "終端機初始化中..."
   },
@@ -100,8 +104,8 @@
     "confirmDelete": "確定要刪除此空間嗎？",
     "create": "建立新空間",
     "delete": "刪除",
-    "empty": "尚無空間",
-    "rename": "重新命名"
+    "rename": "重新命名",
+    "title": "Chat spaces"
   },
   "confirmation": {
     "title": "確認"
@@ -113,6 +117,7 @@
     "suggested": "建議"
   },
   "diffTab": {
+    "binaryFile": "Binary file: cannot display diff",
     "fileList": "檔案清單",
     "noDiffFiles": "沒有差異檔案"
   },
@@ -130,7 +135,8 @@
       "createFolder": "建立資料夾",
       "delete": "刪除",
       "download": "下載",
-      "import": "匯入",
+      "importFiles": "Import files",
+      "importFolder": "Import folder",
       "open": "開啟",
       "openCodeMirror": "在 CodeMirror 開啟",
       "openPreview": "開啟預覽",
@@ -208,6 +214,7 @@
     "zoomOut": "縮小"
   },
   "menu": {
+    "extensions": "Extensions",
     "files": "檔案",
     "git": "Git",
     "project": "專案管理",
@@ -221,8 +228,10 @@
     "mdPreviewDialogHelp": "Tab/←→ 切換，Enter 確認，ESC 關閉",
     "mdPreviewPrompt": "要在 Markdown 預覽中開啟嗎？",
     "noFilesFound": "找不到檔案",
+    "noItemsFound": "No items found",
     "openInEditor": "在編輯器開啟",
     "openInPreview": "在預覽中開啟",
+    "quickOpen": "Quick open",
     "searchPlaceholder": "依檔案/資料夾名稱或路徑搜尋..."
   },
   "projectModal": {
@@ -291,6 +300,8 @@
     "editor": {
       "defaultEditor": "預設編輯器",
       "fontSize": "字型大小",
+      "preloadModelCount": "Number of models to preload",
+      "preloadModelCountHint": "How many models to keep preloaded for faster startup",
       "savedToLocalStorage": "已儲存到 LocalStorage",
       "tabSize": "Tab 寬度",
       "title": "編輯器",
@@ -308,6 +319,10 @@
       "title": "檔案"
     },
     "loading": "載入設定中...",
+    "markdown": {
+      "mathDelimiter": "Math delimiter",
+      "mathDelimiterHint": "Delimiter used for inline and block math (e.g. $ $ or $$ $$)"
+    },
     "search": {
       "excludePattern": "排除模式",
       "globPatternHint": "每行寫一個 glob 模式",
@@ -324,12 +339,14 @@
   "tabBar": {
     "closeTab": "關閉分頁",
     "moveToPane": "移到面板",
+    "openPreview": "Open Preview",
     "paneMenu": "面板選單",
     "removeAllTabs": "移除所有分頁",
     "removePane": "移除面板",
     "saveRestart": "儲存並重新啟動",
     "splitHorizontal": "水平分割",
-    "splitVertical": "垂直分割"
+    "splitVertical": "垂直分割",
+    "unsavedChanges": "Unsaved changes"
   },
   "tabCloseConfirmation": {
     "cancel": "取消",

@@ -22,9 +22,9 @@
       "title": "主要機能"
     },
     "specialThanks": {
-      "contributors": "isomorphic-git, Monaco Editor, xterm.js, Mermaid, KaTeX, Pyodide and all OSS contributors.",
+      "contributors": "isomorphic-git、Monaco Editor、xterm.js、Mermaid、KaTeX、Pyodide、その他多くのOSSプロジェクトと貢献者の皆様",
       "thanksVisit": "ご来訪ありがとうございます！",
-      "title": "Special Thanks"
+      "title": "謝辞"
     },
     "title": "ようこそ！"
   }

@@ -23,12 +23,11 @@
     "fileChangeItem": {
       "apply": "Применить",
       "confirm": "Подтвердить",
-      "discard": "Отменить"
+      "discard": "Отменить",
+      "noHandler": "No handler available"
     },
     "fileContextBar": {
-      "addFile": "+ Добавить файл",
-      "context": "Контекст:",
-      "noFileSelected": "Файл не выбран"
+      "remove": "Remove"
     },
     "hints": {
       "enterSend": "Enter: новая строка / Ctrl+Enter: отправить",
@@ -40,6 +39,10 @@
     },
     "selectedLabel": "Выбрано:",
     "sendTitle": "Отправить (Ctrl+Enter)"
+  },
+  "AI": {
+    "ask": "Ask the AI questions or consult about code...",
+    "edit": "Enter instructions to edit code..."
   },
   "aiReviewTab": {
     "applyAll": "Применить все",
@@ -76,6 +79,7 @@
       "empty": "Нет вывода",
       "typeLabel": "Тип"
     },
+    "problems": "Problems",
     "terminal": "Терминал",
     "terminalInitializing": "Инициализация терминала..."
   },
@@ -100,8 +104,8 @@
     "confirmDelete": "Вы уверены, что хотите удалить это пространство?",
     "create": "Создать новое пространство",
     "delete": "Удалить",
-    "empty": "Пока нет пространств",
-    "rename": "Переименовать"
+    "rename": "Переименовать",
+    "title": "Chat spaces"
   },
   "confirmation": {
     "title": "Подтверждение"
@@ -113,6 +117,7 @@
     "suggested": "Предложенный"
   },
   "diffTab": {
+    "binaryFile": "Binary file: cannot display diff",
     "fileList": "Список файлов",
     "noDiffFiles": "Нет файлов с различиями"
   },
@@ -130,7 +135,8 @@
       "createFolder": "Создать папку",
       "delete": "Удалить",
       "download": "Скачать",
-      "import": "Импортировать",
+      "importFiles": "Import files",
+      "importFolder": "Import folder",
       "open": "Открыть",
       "openCodeMirror": "Открыть в CodeMirror",
       "openPreview": "Открыть предпросмотр",
@@ -208,6 +214,7 @@
     "zoomOut": "Уменьшить"
   },
   "menu": {
+    "extensions": "Extensions",
     "files": "Файлы",
     "git": "Git",
     "project": "Управление проектом",
@@ -221,8 +228,10 @@
     "mdPreviewDialogHelp": "Tab/←→ для переключения, Enter для подтверждения, ESC для закрытия",
     "mdPreviewPrompt": "Открыть в Markdown предпросмотре?",
     "noFilesFound": "Файлы не найдены",
+    "noItemsFound": "No items found",
     "openInEditor": "Открыть в редакторе",
     "openInPreview": "Открыть в предпросмотре",
+    "quickOpen": "Quick open",
     "searchPlaceholder": "Поиск по имени файла/папки или пути..."
   },
   "projectModal": {
@@ -291,6 +300,8 @@
     "editor": {
       "defaultEditor": "Редактор по умолчанию",
       "fontSize": "Размер шрифта",
+      "preloadModelCount": "Number of models to preload",
+      "preloadModelCountHint": "How many models to keep preloaded for faster startup",
       "savedToLocalStorage": "Сохранено в LocalStorage",
       "tabSize": "Размер таба",
       "title": "Редактор",
@@ -308,6 +319,10 @@
       "title": "Файлы"
     },
     "loading": "Загрузка настроек...",
+    "markdown": {
+      "mathDelimiter": "Math delimiter",
+      "mathDelimiterHint": "Delimiter used for inline and block math (e.g. $ $ or $$ $$)"
+    },
     "search": {
       "excludePattern": "Шаблон исключения",
       "globPatternHint": "Напишите один glob-шаблон на строку",
@@ -330,7 +345,8 @@
     "removePane": "Удалить панель",
     "saveRestart": "Сохранить и перезапустить",
     "splitHorizontal": "Разделить горизонтально",
-    "splitVertical": "Разделить вертикально"
+    "splitVertical": "Разделить вертикально",
+    "unsavedChanges": "Unsaved changes"
   },
   "tabCloseConfirmation": {
     "cancel": "Отмена",

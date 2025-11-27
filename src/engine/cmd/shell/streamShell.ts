@@ -1856,7 +1856,7 @@ export class StreamShell {
     const finalErr = (fdBuffers[2] || []).join('');
 
     // Debug: optionally print final outputs when debugging is enabled
-    if (process.env.DEBUG_STREAMSHELL) {
+    if (process.env.log_STREAMSHELL) {
       try {
         // Use console.error so it's visible in test output even when stdout is captured
         // stringify to avoid binary chunks causing display issues

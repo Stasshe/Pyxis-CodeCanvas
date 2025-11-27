@@ -25,6 +25,7 @@
       "thanksVisit": "Cảm ơn bạn đã ghé thăm!",
       "title": "Lời cảm ơn đặc biệt"
     },
-    "title": "Chào mừng!"
+    "title": "Chào mừng!",
+    "githubNote": "GitHub integration has no known bugs to our knowledge, but avoid extreme actions such as using it on very large repositories or closing the browser mid-operation."
   }
 }

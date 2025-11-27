@@ -25,6 +25,7 @@
       "thanksVisit": "방문해 주셔서 감사합니다!",
       "title": "특별 감사"
     },
-    "title": "환영합니다!"
+    "title": "환영합니다!",
+    "githubNote": "GitHub integration has no known bugs to our knowledge, but avoid extreme actions such as using it on very large repositories or closing the browser mid-operation."
   }
 }

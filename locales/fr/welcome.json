@@ -25,6 +25,7 @@
       "thanksVisit": "Merci de votre visite !",
       "title": "Remerciements"
     },
-    "title": "Bienvenue !"
+    "title": "Bienvenue !",
+    "githubNote": "À notre connaissance, l'intégration GitHub ne présente pas de bogues connus. Évitez toutefois les actions extrêmes, comme l'utilisation sur des dépôts très volumineux ou la fermeture du navigateur en cours d'opération."
   }
 }

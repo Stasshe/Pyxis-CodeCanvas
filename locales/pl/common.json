@@ -23,12 +23,11 @@
     "fileChangeItem": {
       "apply": "Zastosuj",
       "confirm": "Potwierdź",
-      "discard": "Odrzuć"
+      "discard": "Odrzuć",
+      "noHandler": "No handler available"
     },
     "fileContextBar": {
-      "addFile": "+ Dodaj plik",
-      "context": "Kontekst:",
-      "noFileSelected": "Nie wybrano pliku"
+      "remove": "Remove"
     },
     "hints": {
       "enterSend": "Enter: nowa linia / Ctrl+Enter: wyślij",
@@ -40,6 +39,10 @@
     },
     "selectedLabel": "Wybrane:",
     "sendTitle": "Wyślij (Ctrl+Enter)"
+  },
+  "AI": {
+    "ask": "Ask the AI questions or consult about code...",
+    "edit": "Enter instructions to edit code..."
   },
   "aiReviewTab": {
     "applyAll": "Zastosuj wszystko",
@@ -76,6 +79,7 @@
       "empty": "Brak wyjścia",
       "typeLabel": "Typ"
     },
+    "problems": "Problems",
     "terminal": "Terminal",
     "terminalInitializing": "Inicjalizowanie terminala..."
   },
@@ -100,8 +104,8 @@
     "confirmDelete": "Czy na pewno chcesz usunąć tę przestrzeń?",
     "create": "Utwórz nową przestrzeń",
     "delete": "Usuń",
-    "empty": "Brak przestrzeni",
-    "rename": "Zmień nazwę"
+    "rename": "Zmień nazwę",
+    "title": "Chat spaces"
   },
   "confirmation": {
     "title": "Potwierdzenie"
@@ -113,6 +117,7 @@
     "suggested": "Sugerowane"
   },
   "diffTab": {
+    "binaryFile": "Binary file: cannot display diff",
     "fileList": "Lista plików",
     "noDiffFiles": "Brak plików z różnicami"
   },
@@ -130,7 +135,8 @@
       "createFolder": "Utwórz folder",
       "delete": "Usuń",
       "download": "Pobierz",
-      "import": "Importuj",
+      "importFiles": "Import files",
+      "importFolder": "Import folder",
       "open": "Otwórz",
       "openCodeMirror": "Otwórz w CodeMirror",
       "openPreview": "Otwórz podgląd",
@@ -208,6 +214,7 @@
     "zoomOut": "Pomniejsz"
   },
   "menu": {
+    "extensions": "Extensions",
     "files": "Pliki",
     "git": "Git",
     "project": "Zarządzanie projektem",
@@ -221,8 +228,10 @@
     "mdPreviewDialogHelp": "Tab/←→ aby przełączać, Enter aby potwierdzić, ESC aby zamknąć",
     "mdPreviewPrompt": "Otworzyć w podglądzie Markdown?",
     "noFilesFound": "Nie znaleziono plików",
+    "noItemsFound": "No items found",
     "openInEditor": "Otwórz w edytorze",
     "openInPreview": "Otwórz w podglądzie",
+    "quickOpen": "Quick open",
     "searchPlaceholder": "Szukaj po nazwie pliku/folderu lub ścieżce..."
   },
   "projectModal": {
@@ -291,6 +300,8 @@
     "editor": {
       "defaultEditor": "Domyślny edytor",
       "fontSize": "Rozmiar czcionki",
+      "preloadModelCount": "Number of models to preload",
+      "preloadModelCountHint": "How many models to keep preloaded for faster startup",
       "savedToLocalStorage": "Zapisano do LocalStorage",
       "tabSize": "Wielkość tabulacji",
       "title": "Edytor",
@@ -308,6 +319,10 @@
       "title": "Pliki"
     },
     "loading": "Ładowanie ustawień...",
+    "markdown": {
+      "mathDelimiter": "Math delimiter",
+      "mathDelimiterHint": "Delimiter used for inline and block math (e.g. $ $ or $$ $$)"
+    },
     "search": {
       "excludePattern": "Wzorzec wykluczeń",
       "globPatternHint": "Wpisz jeden wzorzec glob na linię",
@@ -324,12 +339,14 @@
   "tabBar": {
     "closeTab": "Zamknij kartę",
     "moveToPane": "Przenieś do panelu",
+    "openPreview": "Open Preview",
     "paneMenu": "Menu panelu",
     "removeAllTabs": "Usuń wszystkie karty",
     "removePane": "Usuń panel",
     "saveRestart": "Zapisz i uruchom ponownie",
     "splitHorizontal": "Podział poziomy",
-    "splitVertical": "Podział pionowy"
+    "splitVertical": "Podział pionowy",
+    "unsavedChanges": "Unsaved changes"
   },
   "tabCloseConfirmation": {
     "cancel": "Anuluj",

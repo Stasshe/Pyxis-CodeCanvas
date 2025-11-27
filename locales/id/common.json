@@ -23,12 +23,11 @@
     "fileChangeItem": {
       "apply": "Terapkan",
       "confirm": "Konfirmasi",
-      "discard": "Buang"
+      "discard": "Buang",
+      "noHandler": "No handler available"
     },
     "fileContextBar": {
-      "addFile": "+ Tambah file",
-      "context": "Konteks:",
-      "noFileSelected": "Tidak ada file yang dipilih"
+      "remove": "Remove"
     },
     "hints": {
       "enterSend": "Enter: baris baru / Ctrl+Enter: kirim",
@@ -40,6 +39,10 @@
     },
     "selectedLabel": "Terpilih:",
     "sendTitle": "Kirim (Ctrl+Enter)"
+  },
+  "AI": {
+    "ask": "Ask the AI questions or consult about code...",
+    "edit": "Enter instructions to edit code..."
   },
   "aiReviewTab": {
     "applyAll": "Terapkan semua",
@@ -76,6 +79,7 @@
       "empty": "Tidak ada output",
       "typeLabel": "Tipe"
     },
+    "problems": "Problems",
     "terminal": "Terminal",
     "terminalInitializing": "Menginisialisasi terminal..."
   },
@@ -100,8 +104,8 @@
     "confirmDelete": "Yakin ingin menghapus space ini?",
     "create": "Buat space baru",
     "delete": "Hapus",
-    "empty": "Belum ada space",
-    "rename": "Ubah nama"
+    "rename": "Ubah nama",
+    "title": "Chat spaces"
   },
   "confirmation": {
     "title": "Konfirmasi"
@@ -113,6 +117,7 @@
     "suggested": "Disarankan"
   },
   "diffTab": {
+    "binaryFile": "Binary file: cannot display diff",
     "fileList": "Daftar File",
     "noDiffFiles": "Tidak ada file diff"
   },
@@ -130,7 +135,8 @@
       "createFolder": "Buat folder",
       "delete": "Hapus",
       "download": "Unduh",
-      "import": "Impor",
+      "importFiles": "Import files",
+      "importFolder": "Import folder",
       "open": "Buka",
       "openCodeMirror": "Buka di CodeMirror",
       "openPreview": "Buka pratinjau",
@@ -208,6 +214,7 @@
     "zoomOut": "Perkecil"
   },
   "menu": {
+    "extensions": "Extensions",
     "files": "File",
     "git": "Git",
     "project": "Manajemen Proyek",
@@ -221,8 +228,10 @@
     "mdPreviewDialogHelp": "Tab/←→ untuk berganti, Enter untuk konfirmasi, ESC untuk tutup",
     "mdPreviewPrompt": "Buka di pratinjau Markdown?",
     "noFilesFound": "Tidak ada file ditemukan",
+    "noItemsFound": "No items found",
     "openInEditor": "Buka di Editor",
     "openInPreview": "Buka di Pratinjau",
+    "quickOpen": "Quick open",
     "searchPlaceholder": "Cari nama file/folder atau path..."
   },
   "projectModal": {
@@ -250,6 +259,7 @@
     "projectNameOptionalPlaceholder": "Nama proyek (opsional)...",
     "projectNamePlaceholder": "Masukkan nama proyek...",
     "repoUrl": "URL Repository",
+    "repoUrlPlaceholder": "https://github.com/owner/repo",
     "save": "Simpan",
     "title": "Manajemen Proyek",
     "updated": "Diperbarui"
@@ -290,6 +300,8 @@
     "editor": {
       "defaultEditor": "Editor Default",
       "fontSize": "Ukuran Font",
+      "preloadModelCount": "Number of models to preload",
+      "preloadModelCountHint": "How many models to keep preloaded for faster startup",
       "savedToLocalStorage": "Tersimpan di LocalStorage",
       "tabSize": "Ukuran Tab",
       "title": "Editor",
@@ -307,6 +319,10 @@
       "title": "File"
     },
     "loading": "Memuat pengaturan...",
+    "markdown": {
+      "mathDelimiter": "Math delimiter",
+      "mathDelimiterHint": "Delimiter used for inline and block math (e.g. $ $ or $$ $$)"
+    },
     "search": {
       "excludePattern": "Pola Exclude",
       "globPatternHint": "Tulis satu pola glob per baris",
@@ -323,12 +339,14 @@
   "tabBar": {
     "closeTab": "Tutup tab",
     "moveToPane": "Pindah ke pane",
+    "openPreview": "Open Preview",
     "paneMenu": "Menu pane",
     "removeAllTabs": "Hapus semua tab",
     "removePane": "Hapus pane",
     "saveRestart": "Simpan dan restart",
     "splitHorizontal": "Bagi horizontal",
-    "splitVertical": "Bagi vertikal"
+    "splitVertical": "Bagi vertikal",
+    "unsavedChanges": "Unsaved changes"
   },
   "tabCloseConfirmation": {
     "cancel": "Batal",

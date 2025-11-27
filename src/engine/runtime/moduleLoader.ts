@@ -56,7 +56,7 @@ export class ModuleLoader {
     this.projectId = options.projectId;
     this.projectName = options.projectName;
     this.projectDir = `/projects/${this.projectName}`;
-    this.debugConsole = options.debugConsole;
+    this.logConsole = options.logConsole;
 
     this.cache = new ModuleCache(this.projectId, this.projectName);
     this.resolver = new ModuleResolver(this.projectId, this.projectName);
@@ -278,22 +278,22 @@ export class ModuleLoader {
     // by the runtime/debug UI.
     const sandboxConsole = {
       log: (...args: unknown[]) => {
-        if (this.debugConsole && this.debugConsole.log) {
-          this.debugConsole.log(...args);
+        if (this.logConsole && this.logConsole.log) {
+          this.logConsole.log(...args);
         } else {
           runtimeInfo(...args);
         }
       },
       error: (...args: unknown[]) => {
-        if (this.debugConsole && this.debugConsole.error) {
-          this.debugConsole.error(...args);
+        if (this.logConsole && this.logConsole.error) {
+          this.logConsole.error(...args);
         } else {
           runtimeError(...args);
         }
       },
       warn: (...args: unknown[]) => {
-        if (this.debugConsole && this.debugConsole.warn) {
-          this.debugConsole.warn(...args);
+        if (this.logConsole && this.logConsole.warn) {
+          this.logConsole.warn(...args);
         } else {
           runtimeWarn(...args);
         }
@@ -418,20 +418,20 @@ export class ModuleLoader {
    * ログ出力
    */
   private log(...args: unknown[]): void {
-    this.debugConsole?.log(...args);
+    this.logConsole?.log(...args);
   }
 
   /**
    * エラー出力
    */
   private error(...args: unknown[]): void {
-    this.debugConsole?.error(...args);
+    this.logConsole?.error(...args);
   }
 
   /**
    * 警告出力
    */
   private warn(...args: unknown[]): void {
-    this.debugConsole?.warn(...args);
+    this.logConsole?.warn(...args);
   }
 }

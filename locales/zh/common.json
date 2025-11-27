@@ -23,12 +23,11 @@
     "fileChangeItem": {
       "apply": "应用",
       "confirm": "确认",
-      "discard": "放弃"
+      "discard": "放弃",
+      "noHandler": "No handler available"
     },
     "fileContextBar": {
-      "addFile": "+ 添加文件",
-      "context": "上下文：",
-      "noFileSelected": "未选择文件"
+      "remove": "Remove"
     },
     "hints": {
       "enterSend": "Enter：换行 / Ctrl+Enter：发送",
@@ -40,6 +39,10 @@
     },
     "selectedLabel": "已选择：",
     "sendTitle": "发送 (Ctrl+Enter)"
+  },
+  "AI": {
+    "ask": "Ask the AI questions or consult about code...",
+    "edit": "Enter instructions to edit code..."
   },
   "aiReviewTab": {
     "applyAll": "全部应用",
@@ -76,6 +79,7 @@
       "empty": "无输出",
       "typeLabel": "类型"
     },
+    "problems": "Problems",
     "terminal": "终端",
     "terminalInitializing": "终端初始化中..."
   },
@@ -100,8 +104,8 @@
     "confirmDelete": "确定要删除此空间吗？",
     "create": "创建新空间",
     "delete": "删除",
-    "empty": "尚无空间",
-    "rename": "重命名"
+    "rename": "重命名",
+    "title": "Chat spaces"
   },
   "confirmation": {
     "title": "确认"
@@ -113,6 +117,7 @@
     "suggested": "建议"
   },
   "diffTab": {
+    "binaryFile": "Binary file: cannot display diff",
     "fileList": "文件列表",
     "noDiffFiles": "无差异文件"
   },
@@ -130,7 +135,8 @@
       "createFolder": "创建文件夹",
       "delete": "删除",
       "download": "下载",
-      "import": "导入",
+      "importFiles": "Import files",
+      "importFolder": "Import folder",
       "open": "打开",
       "openCodeMirror": "在 CodeMirror 中打开",
       "openPreview": "打开预览",
@@ -208,6 +214,7 @@
     "zoomOut": "缩小"
   },
   "menu": {
+    "extensions": "Extensions",
     "files": "文件",
     "git": "Git",
     "project": "项目管理",
@@ -221,8 +228,10 @@
     "mdPreviewDialogHelp": "Tab/←→ 切换，Enter 确定，ESC 关闭",
     "mdPreviewPrompt": "在 Markdown 预览中打开？",
     "noFilesFound": "未找到文件",
+    "noItemsFound": "No items found",
     "openInEditor": "在编辑器中打开",
     "openInPreview": "在预览中打开",
+    "quickOpen": "Quick open",
     "searchPlaceholder": "按文件/文件夹名或路径搜索..."
   },
   "projectModal": {
@@ -291,6 +300,8 @@
     "editor": {
       "defaultEditor": "默认编辑器",
       "fontSize": "字体大小",
+      "preloadModelCount": "Number of models to preload",
+      "preloadModelCountHint": "How many models to keep preloaded for faster startup",
       "savedToLocalStorage": "已保存到 LocalStorage",
       "tabSize": "制表符宽度",
       "title": "编辑器",
@@ -308,6 +319,10 @@
       "title": "文件"
     },
     "loading": "正在加载设置...",
+    "markdown": {
+      "mathDelimiter": "Math delimiter",
+      "mathDelimiterHint": "Delimiter used for inline and block math (e.g. $ $ or $$ $$)"
+    },
     "search": {
       "excludePattern": "排除模式",
       "globPatternHint": "每行写一个 glob 模式",
@@ -330,7 +345,8 @@
     "removePane": "移除面板",
     "saveRestart": "保存并重启",
     "splitHorizontal": "水平拆分",
-    "splitVertical": "垂直拆分"
+    "splitVertical": "垂直拆分",
+    "unsavedChanges": "Unsaved changes"
   },
   "tabCloseConfirmation": {
     "cancel": "取消",

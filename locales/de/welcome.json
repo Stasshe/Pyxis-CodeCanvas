@@ -25,6 +25,7 @@
       "thanksVisit": "Danke für Ihren Besuch!",
       "title": "Besonderer Dank"
     },
-    "title": "Willkommen!"
+    "title": "Willkommen!",
+    "githubNote": "Nach unserem Kenntnisstand sind für die GitHub-Integration keine bekannten Fehler vorhanden. Vermeiden Sie jedoch extreme Aktionen, z. B. die Nutzung in sehr großen Repositories oder das Schließen des Browsers während eines laufenden Vorgangs."
   }
 }

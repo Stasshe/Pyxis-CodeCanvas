@@ -157,7 +157,7 @@ export function useMonacoModels() {
     if (model) {
       try {
         model.dispose();
-        console.debug('[useMonacoModels] Disposed model for:', tabId);
+        console.log('[useMonacoModels] Disposed model for:', tabId);
       } catch (e) {
         console.warn('[useMonacoModels] Failed to dispose model:', e);
       }
@@ -170,7 +170,7 @@ export function useMonacoModels() {
     monacoModelMap.forEach((model, tabId) => {
       try {
         model.dispose();
-        console.debug('[useMonacoModels] Disposed model for:', tabId);
+        console.log('[useMonacoModels] Disposed model for:', tabId);
       } catch (e) {
         console.warn('[useMonacoModels] Failed to dispose model:', e);
       }

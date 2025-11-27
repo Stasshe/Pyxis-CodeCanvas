@@ -23,12 +23,11 @@
     "fileChangeItem": {
       "apply": "Tillämpa",
       "confirm": "Bekräfta",
-      "discard": "Förkasta"
+      "discard": "Förkasta",
+      "noHandler": "No handler available"
     },
     "fileContextBar": {
-      "addFile": "+ Lägg till fil",
-      "context": "Kontext:",
-      "noFileSelected": "Ingen fil vald"
+      "remove": "Remove"
     },
     "hints": {
       "enterSend": "Enter: ny rad / Ctrl+Enter: skicka",
@@ -40,6 +39,10 @@
     },
     "selectedLabel": "Vald:",
     "sendTitle": "Skicka (Ctrl+Enter)"
+  },
+  "AI": {
+    "ask": "Ask the AI questions or consult about code...",
+    "edit": "Enter instructions to edit code..."
   },
   "aiReviewTab": {
     "applyAll": "Tillämpa alla",
@@ -76,6 +79,7 @@
       "empty": "Inga utdata",
       "typeLabel": "Typ"
     },
+    "problems": "Problems",
     "terminal": "Terminal",
     "terminalInitializing": "Initierar terminal..."
   },
@@ -100,8 +104,8 @@
     "confirmDelete": "Är du säker på att du vill ta bort detta utrymme?",
     "create": "Skapa nytt utrymme",
     "delete": "Ta bort",
-    "empty": "Inga utrymmen ännu",
-    "rename": "Byt namn"
+    "rename": "Byt namn",
+    "title": "Chat spaces"
   },
   "confirmation": {
     "title": "Bekräftelse"
@@ -113,6 +117,7 @@
     "suggested": "Föreslagen"
   },
   "diffTab": {
+    "binaryFile": "Binary file: cannot display diff",
     "fileList": "Fillista",
     "noDiffFiles": "Inga diff-filer"
   },
@@ -130,7 +135,8 @@
       "createFolder": "Skapa mapp",
       "delete": "Ta bort",
       "download": "Ladda ner",
-      "import": "Importera",
+      "importFiles": "Import files",
+      "importFolder": "Import folder",
       "open": "Öppna",
       "openCodeMirror": "Öppna i CodeMirror",
       "openPreview": "Öppna förhandsvisning",
@@ -208,6 +214,7 @@
     "zoomOut": "Zooma ut"
   },
   "menu": {
+    "extensions": "Extensions",
     "files": "Filer",
     "git": "Git",
     "project": "Projekt",
@@ -221,8 +228,10 @@
     "mdPreviewDialogHelp": "Tab/←→ för att växla, Enter för att bekräfta, ESC för att stänga",
     "mdPreviewPrompt": "Öppna i Markdown-förhandsvisning?",
     "noFilesFound": "Inga filer hittades",
+    "noItemsFound": "No items found",
     "openInEditor": "Öppna i editor",
     "openInPreview": "Öppna i förhandsvisning",
+    "quickOpen": "Quick open",
     "searchPlaceholder": "Sök efter fil-/mappnamn eller sökväg..."
   },
   "projectModal": {
@@ -250,6 +259,7 @@
     "projectNameOptionalPlaceholder": "Valfritt projektnamn...",
     "projectNamePlaceholder": "Ange projektnamn...",
     "repoUrl": "Repository URL",
+    "repoUrlPlaceholder": "https://github.com/owner/repo",
     "save": "Spara",
     "title": "Projekt",
     "updated": "Uppdaterad"
@@ -290,6 +300,8 @@
     "editor": {
       "defaultEditor": "Standardeditor",
       "fontSize": "Teckenstorlek",
+      "preloadModelCount": "Number of models to preload",
+      "preloadModelCountHint": "How many models to keep preloaded for faster startup",
       "savedToLocalStorage": "Sparat i LocalStorage",
       "tabSize": "Tabbstorlek",
       "title": "Editor",
@@ -307,6 +319,10 @@
       "title": "Filer"
     },
     "loading": "Laddar inställningar...",
+    "markdown": {
+      "mathDelimiter": "Math delimiter",
+      "mathDelimiterHint": "Delimiter used for inline and block math (e.g. $ $ or $$ $$)"
+    },
     "search": {
       "excludePattern": "Exkludera-mönster",
       "globPatternHint": "Skriv ett glob-mönster per rad",
@@ -323,12 +339,14 @@
   "tabBar": {
     "closeTab": "Stäng flik",
     "moveToPane": "Flytta till panel",
+    "openPreview": "Open Preview",
     "paneMenu": "Panelmeny",
     "removeAllTabs": "Ta bort alla flikar",
     "removePane": "Ta bort panel",
     "saveRestart": "Spara och starta om",
     "splitHorizontal": "Dela horisontellt",
-    "splitVertical": "Dela vertikalt"
+    "splitVertical": "Dela vertikalt",
+    "unsavedChanges": "Unsaved changes"
   },
   "tabCloseConfirmation": {
     "cancel": "Avbryt",

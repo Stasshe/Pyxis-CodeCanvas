@@ -23,12 +23,11 @@
     "fileChangeItem": {
       "apply": "تطبيق",
       "confirm": "تأكيد",
-      "discard": "تجاهل"
+      "discard": "تجاهل",
+      "noHandler": "No handler available"
     },
     "fileContextBar": {
-      "addFile": "+ إضافة ملف",
-      "context": "السياق:",
-      "noFileSelected": "لم يتم اختيار ملف"
+      "remove": "Remove"
     },
     "hints": {
       "enterSend": "Enter: سطر جديد / Ctrl+Enter: إرسال",
@@ -40,6 +39,10 @@
     },
     "selectedLabel": "المحدد:",
     "sendTitle": "إرسال (Ctrl+Enter)"
+  },
+  "AI": {
+    "ask": "Ask the AI questions or consult about code...",
+    "edit": "Enter instructions to edit code..."
   },
   "aiReviewTab": {
     "applyAll": "تطبيق الكل",
@@ -76,6 +79,7 @@
       "empty": "لا توجد مخرجات",
       "typeLabel": "النوع"
     },
+    "problems": "Problems",
     "terminal": "الطرفية",
     "terminalInitializing": "جاري تهيئة الطرفية..."
   },
@@ -100,8 +104,8 @@
     "confirmDelete": "هل أنت متأكد أنك تريد حذف هذه المساحة؟",
     "create": "إنشاء مساحة جديدة",
     "delete": "حذف",
-    "empty": "لا توجد مساحات بعد",
-    "rename": "إعادة التسمية"
+    "rename": "إعادة التسمية",
+    "title": "Chat spaces"
   },
   "confirmation": {
     "title": "تأكيد"
@@ -113,6 +117,7 @@
     "suggested": "المقترح"
   },
   "diffTab": {
+    "binaryFile": "Binary file: cannot display diff",
     "fileList": "قائمة الملفات",
     "noDiffFiles": "لا توجد ملفات فرق"
   },
@@ -130,7 +135,8 @@
       "createFolder": "إنشاء مجلد",
       "delete": "حذف",
       "download": "تنزيل",
-      "import": "استيراد",
+      "importFiles": "Import files",
+      "importFolder": "Import folder",
       "open": "فتح",
       "openCodeMirror": "فتح في CodeMirror",
       "openPreview": "فتح المعاينة",
@@ -208,6 +214,7 @@
     "zoomOut": "تصغير"
   },
   "menu": {
+    "extensions": "Extensions",
     "files": "الملفات",
     "git": "Git",
     "project": "إدارة المشروع",
@@ -221,8 +228,10 @@
     "mdPreviewDialogHelp": "Tab/←→ للتبديل، Enter للتأكيد، ESC للإغلاق",
     "mdPreviewPrompt": "فتح في معاينة Markdown؟",
     "noFilesFound": "لم يتم العثور على ملفات",
+    "noItemsFound": "No items found",
     "openInEditor": "فتح في المحرر",
     "openInPreview": "فتح في المعاينة",
+    "quickOpen": "Quick open",
     "searchPlaceholder": "ابحث باسم الملف/المجلد أو المسار..."
   },
   "projectModal": {
@@ -291,6 +300,8 @@
     "editor": {
       "defaultEditor": "المحرر الافتراضي",
       "fontSize": "حجم الخط",
+      "preloadModelCount": "Number of models to preload",
+      "preloadModelCountHint": "How many models to keep preloaded for faster startup",
       "savedToLocalStorage": "تم الحفظ في LocalStorage",
       "tabSize": "حجم التبويب",
       "title": "المحرر",
@@ -308,6 +319,10 @@
       "title": "الملفات"
     },
     "loading": "جارٍ تحميل الإعدادات...",
+    "markdown": {
+      "mathDelimiter": "Math delimiter",
+      "mathDelimiterHint": "Delimiter used for inline and block math (e.g. $ $ or $$ $$)"
+    },
     "search": {
       "excludePattern": "نمط الاستبعاد",
       "globPatternHint": "اكتب نمط glob واحدًا في كل سطر",
@@ -324,12 +339,14 @@
   "tabBar": {
     "closeTab": "إغلاق التبويب",
     "moveToPane": "نقل إلى اللوحة",
+    "openPreview": "Open Preview",
     "paneMenu": "قائمة اللوحة",
     "removeAllTabs": "إزالة كل التبويبات",
     "removePane": "إزالة اللوحة",
     "saveRestart": "حفظ وإعادة تشغيل",
     "splitHorizontal": "تقسيم أفقي",
-    "splitVertical": "تقسيم عمودي"
+    "splitVertical": "تقسيم عمودي",
+    "unsavedChanges": "Unsaved changes"
   },
   "tabCloseConfirmation": {
     "cancel": "إلغاء",

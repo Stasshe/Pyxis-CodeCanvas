@@ -23,12 +23,11 @@
     "fileChangeItem": {
       "apply": "적용",
       "confirm": "확인",
-      "discard": "버리기"
+      "discard": "버리기",
+      "noHandler": "No handler available"
     },
     "fileContextBar": {
-      "addFile": "+ 파일 추가",
-      "context": "컨텍스트:",
-      "noFileSelected": "선택된 파일이 없습니다"
+      "remove": "Remove"
     },
     "hints": {
       "enterSend": "Enter: 줄바꿈 / Ctrl+Enter: 전송",
@@ -40,6 +39,10 @@
     },
     "selectedLabel": "선택됨:",
     "sendTitle": "전송 (Ctrl+Enter)"
+  },
+  "AI": {
+    "ask": "Ask the AI questions or consult about code...",
+    "edit": "Enter instructions to edit code..."
   },
   "aiReviewTab": {
     "applyAll": "모두 적용",
@@ -76,6 +79,7 @@
       "empty": "출력이 없습니다",
       "typeLabel": "타입"
     },
+    "problems": "Problems",
     "terminal": "터미널",
     "terminalInitializing": "터미널 초기화 중..."
   },
@@ -100,8 +104,8 @@
     "confirmDelete": "이 스페이스를 삭제하시겠습니까?",
     "create": "새 스페이스 생성",
     "delete": "삭제",
-    "empty": "아직 스페이스가 없습니다",
-    "rename": "이름 변경"
+    "rename": "이름 변경",
+    "title": "Chat spaces"
   },
   "confirmation": {
     "title": "확인"
@@ -113,6 +117,7 @@
     "suggested": "제안됨"
   },
   "diffTab": {
+    "binaryFile": "Binary file: cannot display diff",
     "fileList": "파일 목록",
     "noDiffFiles": "차이 파일이 없습니다"
   },
@@ -130,7 +135,8 @@
       "createFolder": "폴더 생성",
       "delete": "삭제",
       "download": "다운로드",
-      "import": "가져오기",
+      "importFiles": "Import files",
+      "importFolder": "Import folder",
       "open": "열기",
       "openCodeMirror": "CodeMirror로 열기",
       "openPreview": "미리보기 열기",
@@ -208,6 +214,7 @@
     "zoomOut": "축소"
   },
   "menu": {
+    "extensions": "Extensions",
     "files": "파일",
     "git": "Git",
     "project": "프로젝트 관리",
@@ -221,8 +228,10 @@
     "mdPreviewDialogHelp": "Tab/←→로 전환, Enter로 확인, ESC로 닫기",
     "mdPreviewPrompt": "Markdown 미리보기로 열겠습니까?",
     "noFilesFound": "파일을 찾을 수 없습니다",
+    "noItemsFound": "No items found",
     "openInEditor": "에디터에서 열기",
     "openInPreview": "미리보기에서 열기",
+    "quickOpen": "Quick open",
     "searchPlaceholder": "파일/폴더 이름 또는 경로로 검색..."
   },
   "projectModal": {
@@ -291,6 +300,8 @@
     "editor": {
       "defaultEditor": "기본 에디터",
       "fontSize": "글꼴 크기",
+      "preloadModelCount": "Number of models to preload",
+      "preloadModelCountHint": "How many models to keep preloaded for faster startup",
       "savedToLocalStorage": "LocalStorage에 저장됨",
       "tabSize": "탭 크기",
       "title": "에디터",
@@ -308,6 +319,10 @@
       "title": "파일"
     },
     "loading": "설정 로딩 중...",
+    "markdown": {
+      "mathDelimiter": "Math delimiter",
+      "mathDelimiterHint": "Delimiter used for inline and block math (e.g. $ $ or $$ $$)"
+    },
     "search": {
       "excludePattern": "제외 패턴",
       "globPatternHint": "한 줄에 하나의 glob 패턴을 작성하세요",
@@ -330,7 +345,8 @@
     "removePane": "팬 제거",
     "saveRestart": "저장 및 재시작",
     "splitHorizontal": "가로 분할",
-    "splitVertical": "세로 분할"
+    "splitVertical": "세로 분할",
+    "unsavedChanges": "Unsaved changes"
   },
   "tabCloseConfirmation": {
     "cancel": "취소",

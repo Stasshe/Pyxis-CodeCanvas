@@ -144,7 +144,7 @@ function createCalcPanel(context: ExtensionContext) {
 
     useEffect(() => {
       if (stepsMarkdown) {
-        console.debug('CalcPanel stepsMarkdown changed:', stepsMarkdown);
+        console.log('CalcPanel stepsMarkdown changed:', stepsMarkdown);
       }
     }, [stepsMarkdown]);
 
