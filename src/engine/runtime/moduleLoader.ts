@@ -38,6 +38,7 @@ export interface ModuleLoaderOptions {
     error: (...args: unknown[]) => void;
     warn: (...args: unknown[]) => void;
   };
+  builtinResolver?: (moduleName: string) => any;
 }
 
 /**
@@ -48,6 +49,7 @@ export class ModuleLoader {
   private projectName: string;
   private projectDir: string;
   private debugConsole?: ModuleLoaderOptions['debugConsole'];
+  private builtinResolver?: (moduleName: string) => any;
   private cache: ModuleCache;
   private resolver: ModuleResolver;
   private executionCache: ModuleExecutionCache = {};
@@ -58,10 +60,13 @@ export class ModuleLoader {
     this.projectName = options.projectName;
     this.projectDir = `/projects/${this.projectName}`;
     this.debugConsole = options.debugConsole;
+    this.builtinResolver = options.builtinResolver;
 
     this.cache = new ModuleCache(this.projectId, this.projectName);
     this.resolver = new ModuleResolver(this.projectId, this.projectName);
   }
+
+
 
   /**
    * 初期化
@@ -141,19 +146,6 @@ export class ModuleLoader {
       if (dependencies && dependencies.length > 0) {
         runtimeInfo('📦 Pre-loading dependencies for', resolvedPath, ':', dependencies);
         for (const dep of dependencies) {
-          try {
-            // ビルトインモジュールはスキップ
-            const builtIns = ['fs', 'fs/promises', 'path', 'os', 'util', 'http', 'https', 'buffer', 'readline'];
-            if (builtIns.includes(dep)) {
-              continue; // ビルトインはスキップ
-            }
-            
-            // 再帰的にロード
-            await this.load(dep, resolvedPath);
-          } catch (error) {
-            // 依存関係のロードに失敗してもエラーにしない（動的requireの可能性）
-            runtimeWarn('⚠️ Failed to pre-load dependency:', dep, 'from', resolvedPath);
-          }
         }
       }
 
@@ -293,11 +285,78 @@ export class ModuleLoader {
   /**
    * モジュールを実行
    */
+  private globals: Record<string, any> = {};
+
+  /**
+   * グローバルオブジェクトを設定
+   * NodeRuntimeからprocessなどを注入するために使用
+   */
+  setGlobals(globals: Record<string, any>): void {
+    this.globals = globals;
+  }
+
+  /**
+   * 依存関係のみを事前ロード（メインモジュールは実行しない）
+   */
+  async preloadDependencies(moduleName: string, currentFilePath: string): Promise<void> {
+    runtimeInfo('📦 Pre-loading dependencies for entry:', moduleName);
+
+    // モジュールパスを解決
+    const resolved = await this.resolver.resolve(moduleName, currentFilePath);
+    if (!resolved) {
+      throw new Error(`Cannot find module '${moduleName}'`);
+    }
+
+    if (resolved.isBuiltIn) {
+      return;
+    }
+
+    const resolvedPath = resolved.path;
+
+    // ファイルを読み込み
+    const fileContent = await this.readFile(resolvedPath);
+    if (fileContent === null) {
+      throw new Error(`File not found: ${resolvedPath}`);
+    }
+
+    // トランスパイル済みコードと依存関係を取得
+    const transpileResult = await this.getTranspiledCodeWithDeps(resolvedPath, fileContent);
+    const { dependencies } = transpileResult;
+
+    // 依存関係を再帰的にロード（これらは実行される）
+    if (dependencies && dependencies.length > 0) {
+      runtimeInfo('📦 Pre-loading dependencies for', resolvedPath, ':', dependencies);
+      for (const dep of dependencies) {
+        try {
+          const builtIns = ['fs', 'fs/promises', 'path', 'os', 'util', 'http', 'https', 'buffer', 'readline', 'events', 'child_process', 'assert', 'crypto', 'stream', 'url', 'zlib'];
+          if (builtIns.includes(dep)) {
+            continue;
+          }
+          
+          await this.load(dep, resolvedPath);
+        } catch (error) {
+          runtimeWarn('⚠️ Failed to pre-load dependency:', dep, 'from', resolvedPath);
+        }
+      }
+    }
+    
+    runtimeInfo('✅ Dependencies pre-loaded for:', resolvedPath);
+  }
+
+  /**
+   * モジュールを実行
+   */
   private executeModule(code: string, filePath: string): unknown {
     const module = { exports: {} };
     const exports = module.exports;
     const __filename = filePath;
     const __dirname = this.dirname(filePath);
+
+    // Shebangを削除 (#!/usr/bin/env node など)
+    // eval/new Function は Shebang をサポートしていないため
+    if (code.startsWith('#!')) {
+      code = '//' + code; // コメントアウトして行数を維持
+    }
 
     // require 関数を定義（同期）
     // Modules must be pre-loaded into execution cache before they can be required
@@ -307,12 +366,26 @@ export class ModuleLoader {
       // Simple synchronous resolution for pre-loaded modules
       let resolvedPath: string | null = null;
       
-      // Try built-in modules first (they would be handled by runtime, but check here too)
-      const builtIns = ['fs', 'fs/promises', 'path', 'os', 'util', 'http', 'https', 'buffer', 'readline'];
+      // Try built-in modules first
+      // Expanded list of built-ins
+      const builtIns = [
+        'assert', 'buffer', 'child_process', 'cluster', 'console', 'constants', 'crypto', 'dgram', 'dns', 
+        'domain', 'events', 'fs', 'fs/promises', 'http', 'https', 'module', 'net', 'os', 'path', 'process', 
+        'punycode', 'querystring', 'readline', 'repl', 'stream', 'string_decoder', 'sys', 'timers', 'tls', 
+        'tty', 'url', 'util', 'v8', 'vm', 'zlib'
+      ];
+      
       if (builtIns.includes(moduleName)) {
-        // Built-in modules are handled by the runtime's require function
-        // This shouldn't be reached if runtime's require is set up correctly
-        throw new Error(`Built-in module '${moduleName}' should be handled by runtime require, not module require`);
+        if (this.builtinResolver) {
+          const builtIn = this.builtinResolver(moduleName);
+          if (builtIn) {
+            runtimeInfo('✅ Built-in module resolved (via resolver):', moduleName);
+            return builtIn;
+          }
+        }
+        // If no resolver or resolver returned null, try to continue (might be polyfilled?)
+        // But usually this means we can't handle it.
+        runtimeWarn('⚠️ Built-in module requested but not resolved:', moduleName);
       }
       
       // Check if module name is in the moduleNameMap (for npm packages)
@@ -419,11 +492,20 @@ export class ModuleLoader {
       clear: () => {},
     };
 
+    // グローバルオブジェクトの準備
+    const process = this.globals.process || { env: {}, argv: [], cwd: () => '/' };
+    const Buffer = this.globals.Buffer || { from: () => {}, alloc: () => {} };
+    const setTimeout = this.globals.setTimeout || globalThis.setTimeout;
+    const setInterval = this.globals.setInterval || globalThis.setInterval;
+    const clearTimeout = this.globals.clearTimeout || globalThis.clearTimeout;
+    const clearInterval = this.globals.clearInterval || globalThis.clearInterval;
+    const global = this.globals.global || globalThis;
+
     // コードをラップして実行。console を受け取るようにして、モジュール内の
     // console.log 呼び出しがここで用意した sandboxConsole を使うようにする。
     // 同期実行のため async は削除
     const wrappedCode = `
-      (function(module, exports, require, __filename, __dirname, console) {
+      (function(module, exports, require, __filename, __dirname, console, process, Buffer, setTimeout, setInterval, clearTimeout, clearInterval, global) {
         ${code}
         return module.exports;
       })
@@ -438,7 +520,14 @@ export class ModuleLoader {
         require,
         __filename,
         __dirname,
-        sandboxConsole as any
+        sandboxConsole as any,
+        process,
+        Buffer,
+        setTimeout,
+        setInterval,
+        clearTimeout,
+        clearInterval,
+        global
       );
       return result;
     } catch (error) {

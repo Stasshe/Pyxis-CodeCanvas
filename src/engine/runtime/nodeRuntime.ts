@@ -68,6 +68,7 @@ export class NodeRuntime {
       projectId: this.projectId,
       projectName: this.projectName,
       debugConsole: this.debugConsole,
+      builtinResolver: this.resolveBuiltInModule.bind(this),
     });
 
     runtimeInfo('🚀 NodeRuntime initialized', {
@@ -76,7 +77,9 @@ export class NodeRuntime {
       projectDir: this.projectDir,
     });
   }
-
+  /**
+   * ファイルを実行
+   */
   /**
    * ファイルを実行
    */
@@ -87,13 +90,29 @@ export class NodeRuntime {
       // ModuleLoaderを初期化
       await this.moduleLoader.init();
 
-      // Pre-load the entry file (this will recursively load all dependencies)
+      // グローバルオブジェクトを準備（process, Buffer, timersなど）
+      // これらをModuleLoaderに注入して、依存関係の実行時にも使えるようにする
+      const globals = this.createGlobals(filePath, argv);
+      this.moduleLoader.setGlobals(globals);
+
+      // Pre-load dependencies ONLY (do not execute the entry file yet)
       runtimeInfo('📦 Pre-loading dependencies...');
-      await this.moduleLoader.load(filePath, filePath);
+      await this.moduleLoader.preloadDependencies(filePath, filePath);
       runtimeInfo('✅ All dependencies pre-loaded');
 
       // サンドボックス環境を構築（require関数を含む）
-      const sandbox = await this.createSandbox(filePath, argv);
+      // globalsを再利用する
+      const sandbox = {
+        ...globals,
+        require: this.createRequire(filePath),
+        module: { exports: {} },
+        exports: {},
+        __filename: filePath,
+        __dirname: this.dirname(filePath),
+      };
+      
+      // module.exportsへの参照を維持
+      (sandbox as any).exports = (sandbox as any).module.exports;
 
       // ファイルを読み込み
       const fileContent = await this.readFile(filePath);
@@ -119,7 +138,8 @@ export class NodeRuntime {
         runtimeError('Stack trace:', errorStack);
       }
       throw error;
-    }
+  }
+
   }
 
   /**
@@ -214,96 +234,11 @@ export class NodeRuntime {
   }
 
   /**
-   * サンドボックス環境を構築
+   * グローバルオブジェクトを作成
    */
-  private async createSandbox(currentFilePath: string, argv: string[] = []): Promise<Record<string, unknown>> {
-    const self = this;
-
-    // require 関数 (synchronous, like real Node.js)
-    // Built-in modules are resolved immediately.
-    // User modules must be pre-loaded into the execution cache.
-    const require = (moduleName: string) => {
-      runtimeInfo('📦 require:', moduleName);
-
-      // First check built-in modules (always synchronous)
-      const builtInModule = this.resolveBuiltInModule(moduleName);
-      if (builtInModule !== null) {
-        runtimeInfo('✅ Built-in module resolved:', moduleName);
-        return builtInModule;
-      }
-
-      // For user modules, check the execution cache (must be pre-loaded)
-      // We need to resolve the module path synchronously
-      try {
-        // Simple resolution for relative/absolute paths
-        let resolvedPath: string | null = null;
-        
-        // Check moduleNameMap first (for npm packages)
-        const mappedPath = this.moduleLoader.resolveModuleName(moduleName);
-        if (mappedPath) {
-          resolvedPath = mappedPath;
-          runtimeInfo('📝 Resolved via moduleNameMap:', moduleName, '→', resolvedPath);
-        }
-        // Relative paths
-        else if (moduleName.startsWith('./') || moduleName.startsWith('../')) {
-          const currentDir = this.dirname(currentFilePath);
-          resolvedPath = this.resolvePath(currentDir, moduleName);
-        }
-        // Alias (@/)
-        else if (moduleName.startsWith('@/')) {
-          resolvedPath = moduleName.replace('@/', `${this.projectDir}/src/`);
-        }
-        // Absolute path
-        else if (moduleName.startsWith('/')) {
-          resolvedPath = moduleName;
-        }
-        // node_modules (fallback if not in map)
-        else {
-          // Try to find in node_modules (simplified - assumes main entry)
-          let packageName = moduleName;
-          if (moduleName.startsWith('@')) {
-            const parts = moduleName.split('/');
-            packageName = `${parts[0]}/${parts[1]}`;
-          } else {
-            packageName = moduleName.split('/')[0];
-          }
-          resolvedPath = `${this.projectDir}/node_modules/${packageName}`;
-        }
-
-        // Check execution cache using getExports
-        if (resolvedPath) {
-          const exports = this.moduleLoader.getExports(resolvedPath);
-          if (exports) {
-            runtimeInfo('✅ Module loaded from cache:', resolvedPath);
-            return exports;
-          }
-          
-          // Try with extensions if exact path failed
-          const extensions = ['', '.js', '.mjs', '.ts', '.mts', '.tsx', '.jsx', '/index.js', '/index.ts'];
-          for (const ext of extensions) {
-            const pathWithExt = resolvedPath + ext;
-            const exportsExt = this.moduleLoader.getExports(pathWithExt);
-            if (exportsExt) {
-              runtimeInfo('✅ Module loaded from cache (with ext):', pathWithExt);
-              return exportsExt;
-            }
-          }
-        }
-
-        // If not in cache, try to load synchronously (this will work for built-ins)
-        runtimeError('❌ Module not pre-loaded:', moduleName, '(resolved:', resolvedPath + ')');
-        throw new Error(
-          `Module '${moduleName}' not found. Modules must be pre-loaded or be built-in modules.`
-        );
-      } catch (error) {
-        runtimeError('❌ Failed to require module:', moduleName, error);
-        throw error;
-      }
-    };
-
+  private createGlobals(currentFilePath: string, argv: string[] = []): Record<string, any> {
     return {
       // グローバルオブジェクト
-      // sandbox console: prefer debugConsole (output from executed file). If absent, fall back to runtime logger.
       console: {
         log: (...args: unknown[]) => {
           if (this.debugConsole && this.debugConsole.log) {
@@ -424,9 +359,90 @@ export class NodeRuntime {
         },
       },
       Buffer: this.builtInModules.Buffer,
+    };
+  }
 
-      // require 関数（同期）
-      require,
+  /**
+   * require関数を作成
+   */
+  private createRequire(currentFilePath: string) {
+    return (moduleName: string) => {
+      runtimeInfo('📦 require:', moduleName);
+
+      // First check built-in modules (always synchronous)
+      const builtInModule = this.resolveBuiltInModule(moduleName);
+      if (builtInModule !== null) {
+        runtimeInfo('✅ Built-in module resolved:', moduleName);
+        return builtInModule;
+      }
+
+      // For user modules, check the execution cache (must be pre-loaded)
+      // We need to resolve the module path synchronously
+      try {
+        // Simple resolution for relative/absolute paths
+        let resolvedPath: string | null = null;
+        
+        // Check moduleNameMap first (for npm packages)
+        const mappedPath = this.moduleLoader.resolveModuleName(moduleName);
+        if (mappedPath) {
+          resolvedPath = mappedPath;
+          runtimeInfo('📝 Resolved via moduleNameMap:', moduleName, '→', resolvedPath);
+        }
+        // Relative paths
+        else if (moduleName.startsWith('./') || moduleName.startsWith('../')) {
+          const currentDir = this.dirname(currentFilePath);
+          resolvedPath = this.resolvePath(currentDir, moduleName);
+        }
+        // Alias (@/)
+        else if (moduleName.startsWith('@/')) {
+          resolvedPath = moduleName.replace('@/', `${this.projectDir}/src/`);
+        }
+        // Absolute path
+        else if (moduleName.startsWith('/')) {
+          resolvedPath = moduleName;
+        }
+        // node_modules (fallback if not in map)
+        else {
+          // Try to find in node_modules (simplified - assumes main entry)
+          let packageName = moduleName;
+          if (moduleName.startsWith('@')) {
+            const parts = moduleName.split('/');
+            packageName = `${parts[0]}/${parts[1]}`;
+          } else {
+            packageName = moduleName.split('/')[0];
+          }
+          resolvedPath = `${this.projectDir}/node_modules/${packageName}`;
+        }
+
+        // Check execution cache using getExports
+        if (resolvedPath) {
+          const exports = this.moduleLoader.getExports(resolvedPath);
+          if (exports) {
+            runtimeInfo('✅ Module loaded from cache:', resolvedPath);
+            return exports;
+          }
+          
+          // Try with extensions if exact path failed
+          const extensions = ['', '.js', '.mjs', '.ts', '.mts', '.tsx', '.jsx', '/index.js', '/index.ts'];
+          for (const ext of extensions) {
+            const pathWithExt = resolvedPath + ext;
+            const exportsExt = this.moduleLoader.getExports(pathWithExt);
+            if (exportsExt) {
+              runtimeInfo('✅ Module loaded from cache (with ext):', pathWithExt);
+              return exportsExt;
+            }
+          }
+        }
+
+        // If not in cache, try to load synchronously (this will work for built-ins)
+        runtimeError('❌ Module not pre-loaded:', moduleName, '(resolved:', resolvedPath + ')');
+        throw new Error(
+          `Module '${moduleName}' not found. Modules must be pre-loaded or be built-in modules.`
+        );
+      } catch (error) {
+        runtimeError('❌ Failed to require module:', moduleName, error);
+        throw error;
+      }
     };
   }
 
