@@ -2,8 +2,9 @@
 
 'use client';
 
-import { Bot, ChevronDown, Plus, Edit2, Trash2, MessageSquare } from 'lucide-react';
+import { Bot, ChevronDown, Plus, Edit2, Trash2, MessageSquare, FileCode } from 'lucide-react';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useTabStore } from '@/stores/tabStore';
 
 import ChatContainer from './chat/ChatContainer';
 import ChatInput from './chat/ChatInput';
@@ -150,6 +151,41 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
     } else if (existingContext) {
       toggleFileSelection(file.path);
     }
+  };
+
+  // 現在アクティブなタブのファイルを取得
+  const globalActiveTabId = useTabStore(state => state.globalActiveTab);
+  const activeTab = useMemo(() => {
+    if (!globalActiveTabId) return null;
+    const allTabs = useTabStore.getState().getAllTabs();
+    return allTabs.find(t => t.id === globalActiveTabId) || null;
+  }, [globalActiveTabId]);
+
+  // アクティブタブをコンテキストに追加/削除するユーティリティ
+  const handleToggleActiveTabContext = () => {
+    if (!activeTab || !activeTab.path) return;
+
+    const already = fileContexts.find(ctx => ctx.path === activeTab.path);
+    if (already) {
+      // 既に存在するなら選択解除
+      toggleFileSelection(activeTab.path);
+      return;
+    }
+
+    // content は Tab のユニオン型によって存在しない場合があるため型ガード
+    const isContentTab = activeTab.kind === 'editor' || activeTab.kind === 'preview';
+    const content = isContentTab ? (activeTab as any).content || '' : '';
+
+    // FileItem は必須で `id` を持つため、path を id として使う
+    const newFile: FileItem = {
+      id: activeTab.path,
+      path: activeTab.path,
+      name: activeTab.path.split('/').pop() || activeTab.path,
+      type: 'file',
+      content,
+    };
+
+    handleFileSelect(newFile);
   };
 
   // レビューを開く
@@ -423,6 +459,8 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
       )}
 
       {/* モードセレクター（下部に移動・小型化） */}
+      {/* アクティブタブピルは ChatInput の選択ファイル列へ渡す（ここでは表示を行わない） */}
+
       <div className="px-2 pb-2 flex justify-end">
         <ModeSelector
           mode={mode}
@@ -440,7 +478,13 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
         selectedFiles={fileContexts.filter(ctx => ctx.selected).map(ctx => ctx.path)}
         onOpenFileSelector={() => setIsFileSelectorOpen(true)}
         onRemoveSelectedFile={toggleFileSelection}
-        disabled={!currentProject && mode === 'edit'}
+          disabled={!currentProject && mode === 'edit'}
+          // pass active tab info so ChatInput can render it inline with selected files
+          activeTabPath={activeTab?.path}
+          onToggleActiveTabContext={handleToggleActiveTabContext}
+          isActiveTabSelected={
+            !!activeTab && !!fileContexts.find(ctx => ctx.path === activeTab.path && ctx.selected)
+          }
       />
 
       {/* ファイルセレクター */}

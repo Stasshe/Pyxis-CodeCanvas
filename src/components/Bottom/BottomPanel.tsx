@@ -5,6 +5,7 @@ import { useState } from 'react';
 import DebugConsole from './DebugConsole';
 import OutputPanel, { OutputMessage } from './OutputPanel';
 import Terminal from './Terminal';
+import ProblemsPanel from './ProblemsPanel';
 
 import { OUTPUT_CONFIG } from '@/context/config';
 import { useTranslation } from '@/context/I18nContext';
@@ -127,6 +128,34 @@ export default function BottomPanel({
               background: 'none',
               border: 'none',
               outline: 'none',
+              color: activeTab === 'problems' ? colors.primary : colors.mutedFg,
+              cursor: 'pointer',
+              borderBottom:
+                activeTab === 'problems' ? `2px solid ${colors.primary}` : `2px solid transparent`,
+              transition: 'color 0.2s, border-bottom 0.2s',
+            }}
+            onClick={() => setActiveTab('problems')}
+            onMouseOver={e => (e.currentTarget.style.color = colors.primary)}
+            onMouseOut={e =>
+              (e.currentTarget.style.color =
+                activeTab === 'problems' ? colors.primary : colors.mutedFg)
+            }
+          >
+            {t('bottom.problems')}
+          </button>
+
+          <button
+            className="tab-btn"
+            style={{
+              position: 'relative',
+              fontSize: '11px',
+              fontWeight: 500,
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em',
+              padding: '2px 12px 0 12px',
+              background: 'none',
+              border: 'none',
+              outline: 'none',
               color: activeTab === 'output' ? colors.primary : colors.mutedFg,
               cursor: 'pointer',
               borderBottom:
@@ -198,7 +227,7 @@ export default function BottomPanel({
           >
             {t('bottom.terminal')}
           </button>
-          {currentProject && (
+                    {currentProject && (
             <span
               className="ml-2 text-xs"
               style={{ color: colors.mutedFg, fontSize: '10px', marginLeft: '8px' }}
@@ -209,6 +238,20 @@ export default function BottomPanel({
         </div>
         <div className="flex-1 overflow-hidden relative">
           {/* 3つのパネルを同時にマウントし、visibility/positionで切り替え（xterm.jsの幅崩れ対策） */}
+          <div
+            style={{
+              height: '100%',
+              width: '100%',
+              position: activeTab === 'problems' ? 'static' : 'absolute',
+              visibility: activeTab === 'problems' ? 'visible' : 'hidden',
+              pointerEvents: activeTab === 'problems' ? 'auto' : 'none',
+              top: 0,
+              left: 0,
+            }}
+          >
+            <ProblemsPanel height={height} isActive={activeTab === 'problems'} />
+          </div>
+
           <div
             style={{
               height: '100%',

@@ -2,7 +2,7 @@
 
 'use client';
 
-import { Send, Loader2, FileCode } from 'lucide-react';
+import { Send, Loader2, FileCode, Plus } from 'lucide-react';
 import { getIconForFile } from 'vscode-icons-js';
 import React, { useState, KeyboardEvent, useRef, useEffect } from 'react';
 
@@ -18,6 +18,12 @@ interface ChatInputProps {
   onOpenFileSelector?: () => void;
   disabled?: boolean;
   onRemoveSelectedFile?: (path: string) => void;
+  // Active editor/tab file path provided by parent (optional)
+  activeTabPath?: string | null;
+  // Handler to toggle the active tab as selected file context
+  onToggleActiveTabContext?: () => void;
+  // Whether the active tab is currently selected/included
+  isActiveTabSelected?: boolean;
 }
 
 export default function ChatInput({
@@ -28,6 +34,9 @@ export default function ChatInput({
   onOpenFileSelector,
   disabled = false,
   onRemoveSelectedFile,
+  activeTabPath = null,
+  onToggleActiveTabContext,
+  isActiveTabSelected = false,
 }: ChatInputProps) {
   const { colors } = useTheme();
   const [input, setInput] = useState('');
@@ -108,7 +117,7 @@ export default function ChatInput({
     >
       <div className="p-3 space-y-2">
         {/* 選択ファイル表示 */}
-        {selectedFiles.length > 0 && (
+        {(selectedFiles.length > 0 || activeTabPath) && (
           <div className="flex items-center gap-2 flex-wrap">
             <div
               className="flex items-center gap-1 text-xs"
@@ -117,6 +126,53 @@ export default function ChatInput({
               <FileCode size={14} />
               <span>{t('ai.selectedLabel')}</span>
             </div>
+
+            {/* アクティブタブをインラインで表示（選択ファイルの先頭）
+                ただし既に選択済みなら候補表示は不要なので非表示にする */}
+            {!isActiveTabSelected && activeTabPath && (
+              <div
+                key="_active_tab"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '2px 6px',
+                  borderRadius: 6,
+                  fontSize: 12,
+                  fontFamily: 'monospace',
+                  background: colors.mutedBg,
+                  border: `1px solid ${colors.border}`,
+                  color: colors.foreground,
+                  maxWidth: '100%',
+                  lineHeight: 1,
+                }}
+              >
+                <img src={getIconSrcForFile(activeTabPath.split('/').pop() || activeTabPath)} alt="icon" style={{ width: 12, height: 12, flex: '0 0 12px' }} />
+                <span className="truncate" style={{ maxWidth: 96, display: 'inline-block' }}>
+                  {activeTabPath.split('/').pop()}
+                </span>
+                <button
+                  onClick={() => onToggleActiveTabContext?.()}
+                  title={isActiveTabSelected ? (t('ai.fileContextBar.remove') || 'Remove') : (t('ai.context.select') || 'Add')}
+                  style={{
+                    background: 'transparent',
+                    color: '#ffffff',
+                    border: `1px solid ${colors.border}`,
+                    padding: 2,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 18,
+                    height: 18,
+                    marginLeft: 2,
+                    borderRadius: 4,
+                  }}
+                >
+                  <Plus size={12} color="#ffffff" />
+                </button>
+              </div>
+            )}
+
             {selectedFiles.map((file, index) => {
               const fileName = (file.split('/').pop() as string) || file;
               const iconSrc = getIconSrcForFile(fileName);
