@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { getIconForFile } from 'vscode-icons-js';
 
 import { useTranslation } from '@/context/I18nContext';
@@ -145,6 +146,7 @@ export default function OperationWindow({
   const hideModeTabs = Boolean(items && initialView === 'list');
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const [portalEl] = useState(() => (typeof document !== 'undefined' ? document.createElement('div') : null));
   const { currentProject } = useProject();
   const { isExcluded } = useSettings();
   // 固定アイテム高さを定義（スクロール計算と見た目の基準にする）
@@ -161,6 +163,23 @@ export default function OperationWindow({
       }, 100);
     }
   }, [isVisible]);
+
+  // Attach a top-level portal element to document.body so the overlay isn't clipped
+  useEffect(() => {
+    if (!portalEl) return;
+    portalEl.className = 'pyxis-operation-window-portal';
+    // ensure portal container doesn't interfere with layout
+    portalEl.style.position = 'relative';
+    portalEl.style.zIndex = '99999';
+    document.body.appendChild(portalEl);
+    return () => {
+      try {
+        document.body.removeChild(portalEl);
+      } catch (e) {
+        // ignore
+      }
+    };
+  }, [portalEl]);
 
   // ファイル選択ハンドラ
   const handleFileSelectInOperation = (file: FileItem) => {
@@ -430,7 +449,7 @@ export default function OperationWindow({
 
   if (!isVisible) return null;
 
-  return (
+  const jsx = (
     <>
       {/* mdプレビュー選択ダイアログ */}
       {mdPreviewPrompt && (
@@ -873,4 +892,11 @@ export default function OperationWindow({
       </div>
     </>
   );
+
+  // Render into portal element if available so the overlay will sit above main content
+  if (portalEl) {
+    return createPortal(jsx, portalEl);
+  }
+
+  return jsx;
 }
