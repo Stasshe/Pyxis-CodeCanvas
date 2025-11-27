@@ -50,8 +50,8 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
 
   // 拡張子で自動判別: Node.js/Python両方の実行可能ファイルを取得
   const getExecutableFiles = () => {
-    // 表示を限定: .js, .ts, .py のみ
-    const nodeExts = ['.js', '.ts'];
+    // 表示を限定: .js, .ts, .mjs, .cjs, .py
+    const nodeExts = ['.js', '.ts', '.mjs', '.cjs'];
     const pyExts = ['.py'];
     const flattenFiles = (items: any[], parentPath = ''): any[] => {
       return items.reduce((acc, item) => {
@@ -117,7 +117,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
     name: f.name,
     path: f.path,
     content: f.content,
-    type: 'file',
+    type: 'file' as const,
   }));
 
   // 初期化時にlocalStorageから復元
