@@ -218,6 +218,12 @@ export class NodeRuntime {
    * コードをラップ（同期実行）
    */
   private wrapCode(code: string, filePath: string): string {
+    // Shebangを削除 (#!/usr/bin/env node など)
+    // eval/new Function は Shebang をサポートしていないため
+    if (code.startsWith('#!')) {
+      code = '//' + code; // コメントアウトして行数を維持
+    }
+
     return `
       return (() => {
         'use strict';
@@ -232,6 +238,7 @@ export class NodeRuntime {
       })();
     `;
   }
+
 
   /**
    * グローバルオブジェクトを作成
@@ -460,6 +467,7 @@ export class NodeRuntime {
       'https': this.builtInModules.https,
       'buffer': { Buffer: this.builtInModules.Buffer },
       'readline': this.builtInModules.readline,
+      'assert': this.builtInModules.assert,
     };
 
     return builtIns[moduleName] || null;

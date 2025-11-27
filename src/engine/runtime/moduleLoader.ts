@@ -146,6 +146,18 @@ export class ModuleLoader {
       if (dependencies && dependencies.length > 0) {
         runtimeInfo('📦 Pre-loading dependencies for', resolvedPath, ':', dependencies);
         for (const dep of dependencies) {
+          try {
+            // ビルトインモジュールはスキップ
+            const builtIns = ['fs', 'fs/promises', 'path', 'os', 'util', 'http', 'https', 'buffer', 'readline', 'events', 'child_process', 'assert', 'crypto', 'stream', 'url', 'zlib'];
+            if (builtIns.includes(dep)) {
+              continue;
+            }
+            
+            // 依存関係を再帰的にロード
+            await this.load(dep, resolvedPath);
+          } catch (error) {
+            runtimeWarn('⚠️ Failed to pre-load dependency:', dep, 'from', resolvedPath);
+          }
         }
       }
 

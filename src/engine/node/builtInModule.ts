@@ -34,6 +34,8 @@ import { createOSModule } from './modules/osModule';
 import { createPathModule } from './modules/pathModule';
 import { createReadlineModule } from './modules/readlineModule';
 import { createUtilModule } from './modules/utilModule';
+import { createAssertModule } from './modules/assertModule';
+
 
 export interface BuiltInModulesOptions {
   projectDir: string;
@@ -51,6 +53,7 @@ export interface BuiltInModules {
   https: ReturnType<typeof createHTTPSModule>;
   Buffer: typeof Buffer;
   readline: ReturnType<typeof createReadlineModule>;
+  assert: any;
 }
 
 /**
@@ -71,6 +74,7 @@ export function createBuiltInModules(options: BuiltInModulesOptions): BuiltInMod
     https: createHTTPSModule(),
     Buffer: Buffer,
     readline: createReadlineModule(onInput),
+    assert: createAssertModule(),
   };
 }
 
@@ -86,7 +90,9 @@ export {
   createHTTPSModule,
   Buffer,
   createReadlineModule,
+  createAssertModule,
 };
+
 
 /**
  * 型定義のエクスポート
