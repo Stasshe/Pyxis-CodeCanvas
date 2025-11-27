@@ -21,7 +21,7 @@ import { useProject } from '@/engine/core/project';
 import { useAI } from '@/hooks/ai/useAI';
 import { useChatSpace } from '@/hooks/ai/useChatSpace';
 import { useAIReview } from '@/hooks/useAIReview';
-import type { FileItem, Project } from '@/types';
+import type { FileItem, Project, ChatSpaceMessage } from '@/types';
 
 interface AIPanelProps {
   projectFiles: FileItem[];
@@ -114,6 +114,11 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
       updateFileContexts(contexts);
     }
   }, [projectFiles]);
+
+  // 履歴キャッシュ: filePath -> history entries
+  
+
+  
 
   // API キーのチェック
   const isApiKeySet = () => {
@@ -289,6 +294,8 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
     .reverse()
     .find(msg => msg.mode === 'edit' && msg.type === 'assistant' && msg.editResponse)?.editResponse;
 
+  
+
   // Convert chatSpaces to OperationListItem[]
   const spaceItems: OperationListItem[] = useMemo(() => {
     return chatSpaces.map(space => {
@@ -446,6 +453,74 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
         isProcessing={isProcessing}
         compact={false}
         emptyMessage={mode === 'ask' ? t('AI.ask') : t('AI.edit')}
+        onRevert={async (message: ChatSpaceMessage) => {
+          try {
+            if (!currentProject?.id || !saveFile) return;
+            if (message.type !== 'assistant' || message.mode !== 'edit' || !message.editResponse) return;
+
+            const { getAIReviewEntry, updateAIReviewEntry } = await import('@/engine/storage/aiStorageAdapter');
+
+            const files = message.editResponse.changedFiles || [];
+            for (const f of files) {
+              try {
+                const entry = await getAIReviewEntry(currentProject.id, f.path);
+                if (entry && entry.originalSnapshot) {
+                  await saveFile(f.path, entry.originalSnapshot);
+
+                  // mark entry reverted and add history
+                  const hist = Array.isArray(entry.history) ? entry.history : [];
+                  const historyEntry = { id: `revert-${Date.now()}`, timestamp: new Date(), content: entry.originalSnapshot, note: `reverted via chat ${message.id}` };
+                  try {
+                    await updateAIReviewEntry(currentProject.id, f.path, {
+                      status: 'reverted',
+                      history: [historyEntry, ...hist],
+                    });
+                  } catch (e) {
+                    console.warn('[AIPanel] updateAIReviewEntry failed', e);
+                  }
+                }
+              } catch (e) {
+                console.warn('[AIPanel] revert file failed for', f.path, e);
+              }
+            }
+
+            // Append a chat message recording the revert as a branch from the original message
+            try {
+              // Update the original assistant edit message so the UI no longer
+              // shows the reverted files in its changedFiles list.
+              try {
+                if (currentSpace && updateChatMessage) {
+                  const origEdit = message.editResponse;
+                  const newChangedFiles = (origEdit.changedFiles || []).filter(
+                    (cf: any) => !files.some((f: any) => f.path === cf.path)
+                  );
+
+                  const newEditResponse = { ...origEdit, changedFiles: newChangedFiles };
+
+                  await updateChatMessage(currentSpace.id, message.id, {
+                    editResponse: newEditResponse,
+                    content: message.content,
+                  });
+                }
+              } catch (e) {
+                console.warn('[AIPanel] failed to update original assistant message after revert', e);
+              }
+
+              await addSpaceMessage(
+                `Reverted changes from message ${message.id} for ${files.map((x: any) => x.path).join(', ')}`,
+                'assistant',
+                'edit',
+                [],
+                undefined,
+                { parentMessageId: message.id, action: 'revert' } as any
+              );
+            } catch (e) {
+              console.warn('[AIPanel] failed to append revert message to chat', e);
+            }
+          } catch (e) {
+            console.error('[AIPanel] handleRevertMessage failed', e);
+          }
+        }}
       />
 
       {/* 変更ファイル一覧（Editモードで変更がある場合のみ表示）
@@ -494,6 +569,8 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
           )}
         </div>
       )}
+
+      {/* AI 提案履歴は表示しない（ユーザー要望により削除） */}
 
       {/* モードセレクター（下部に移動・小型化） */}
       {/* アクティブタブピルは ChatInput の選択ファイル列へ渡す（ここでは表示を行わない） */}

@@ -12,8 +12,9 @@ export async function saveAIReviewEntry(
   meta?: { message?: string; parentMessageId?: string }
 ) {
   if (!projectId) return;
-
-  const key = `aiReview:${projectId}:${filePath}`;
+  // Normalize filePath to avoid mismatches (leading slash, case differences)
+  const normalizedPath = String(filePath || '').replace(/^\/+/, '');
+  const key = `aiReview:${projectId}:${normalizedPath}`;
 
   const existing = (await storageService.get(STORES.AI_REVIEWS, key)) as any | null;
 
@@ -26,7 +27,7 @@ export async function saveAIReviewEntry(
 
   const payload = {
     projectId,
-    filePath,
+    filePath: normalizedPath,
     suggestedContent,
     originalSnapshot: originalContent,
     status: 'pending',
@@ -37,23 +38,27 @@ export async function saveAIReviewEntry(
   };
 
   await storageService.set(STORES.AI_REVIEWS, key, payload, { cache: false });
+  console.log('[aiStorageAdapter] Saved AI review entry:', key);
 }
 
 export async function clearAIReviewEntry(projectId: string, filePath: string) {
   if (!projectId) return;
-  const key = `aiReview:${projectId}:${filePath}`;
+  const normalizedPath = String(filePath || '').replace(/^\/+/, '');
+  const key = `aiReview:${projectId}:${normalizedPath}`;
   await storageService.delete(STORES.AI_REVIEWS, key);
 }
 
 export async function getAIReviewEntry(projectId: string, filePath: string) {
   if (!projectId) return null;
-  const key = `aiReview:${projectId}:${filePath}`;
+  const normalizedPath = String(filePath || '').replace(/^\/+/, '');
+  const key = `aiReview:${projectId}:${normalizedPath}`;
   return (await storageService.get(STORES.AI_REVIEWS, key)) as any | null;
 }
 
 export async function updateAIReviewEntry(projectId: string, filePath: string, patch: Partial<any>) {
   if (!projectId) return null;
-  const key = `aiReview:${projectId}:${filePath}`;
+  const normalizedPath = String(filePath || '').replace(/^\/+/, '');
+  const key = `aiReview:${projectId}:${normalizedPath}`;
   const existing = (await storageService.get(STORES.AI_REVIEWS, key)) as any | null;
   if (!existing) return null;
   const updated = { ...existing, ...patch, updatedAt: Date.now() };

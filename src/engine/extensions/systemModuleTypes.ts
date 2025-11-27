@@ -16,28 +16,13 @@ import type { NpmCommands } from '@/engine/cmd/global/npm';
 import type { UnixCommands } from '@/engine/cmd/global/unix';
 import type { StreamShell } from '@/engine/cmd/shell/streamShell';
 import type { FileRepository } from '@/engine/core/fileRepository';
+import type { normalizeCjsEsm } from '@/engine/runtime/normalizeCjsEsm';
 
 /**
  * normalizeCjsEsmモジュールの型定義
  * 実際の実装から型を抽出
  */
-export interface NormalizeCjsEsmModule {
-  normalizeCjsEsm: (code: string) => string;
-  extractImports: (code: string) => Array<{
-    source: string;
-    specifiers: Array<{
-      type: 'default' | 'named' | 'namespace';
-      imported?: string;
-      local: string;
-    }>;
-  }>;
-  extractExports: (code: string) => Array<{
-    type: 'named' | 'default' | 'all';
-    exported?: string;
-    local?: string;
-    source?: string;
-  }>;
-}
+export type NormalizeCjsEsmModule = typeof normalizeCjsEsm;
 
 /**
  * システムモジュールの型マップ

@@ -66,6 +66,10 @@ export interface AIReviewTab extends BaseTab {
   originalContent: string;
   suggestedContent: string;
   filePath: string;
+  // Optional AI review metadata (stored in aiStorageAdapter). Included so
+  // that tabs can receive aiEntry/history from callers like AIPanel.
+  aiEntry?: any;
+  history?: any[];
 }
 
 /**
@@ -146,6 +150,9 @@ export interface OpenTabOptions {
     originalContent: string;
     suggestedContent: string;
     filePath: string;
+    // optional history and aiEntry payload passed when opening an AI review tab
+    history?: any[];
+    aiEntry?: any;
   };
   diffProps?: {
     diffs: DiffTab['diffs'];

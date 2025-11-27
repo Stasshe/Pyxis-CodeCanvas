@@ -144,58 +144,24 @@ export const useChatSpace = (projectId: string | null) => {
         );
       }
 
-      // If this is an assistant edit response and an existing assistant edit
-      // message is present, update that message instead of appending a new one.
-      if (
-        type === 'assistant' &&
-        mode === 'edit' &&
-        editResponse &&
-        currentSpace.messages &&
-        currentSpace.messages.length > 0
-      ) {
-        const existing = currentSpace.messages
-          .slice()
-          .reverse()
-          .find(m => m.type === 'assistant' && m.mode === 'edit' && m.editResponse);
-
-        if (existing) {
-          // merge content and editResponse into existing message
-          const updated = await chatStore.updateChatSpaceMessage(currentSpace.id, existing.id, {
-            content,
-            editResponse,
-            timestamp: new Date(),
-          });
-
-          if (updated) {
-            setCurrentSpace(prev => {
-              if (!prev) return null;
-              return {
-                ...prev,
-                messages: prev.messages.map(m => (m.id === updated.id ? updated : m)),
-              };
-            });
-
-            setChatSpaces(prev =>
-              prev
-                .map(space =>
-                  space.id === currentSpace.id
-                    ? {
-                        ...space,
-                        messages: space.messages.map(m => (m.id === updated.id ? updated : m)),
-                        updatedAt: new Date(),
-                      }
-                    : space
-                )
-                .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
-            );
-
-            return updated;
-          }
-          // fallback to append if update failed
-        }
-      }
+      // NOTE: Previously we attempted to merge assistant edit responses into an
+      // existing assistant edit message. That caused multiple edits to overwrite
+      // a single message and made only one message have an editResponse (thus
+      // only that message showed a Revert button). To ensure each AI edit is
+      // independently revertable, always append a new message here.
 
       // default: append a new message
+      // Deduplicate branch messages: if a message with same parentMessageId
+      // and action already exists in the current space, return it instead
+      // of appending a duplicate. This prevents duplicate 'Applied'/'Reverted'
+      // notifications when multiple UI flows record the same event.
+      if (options?.parentMessageId && options?.action) {
+        const dup = currentSpace.messages.find(
+          m => m.parentMessageId === options.parentMessageId && m.action === options.action && m.type === type && m.mode === mode
+        );
+        if (dup) return dup;
+      }
+
       const newMessage = await chatStore.addMessageToChatSpace(currentSpace.id, {
         type,
         content,
@@ -214,6 +180,15 @@ export const useChatSpace = (projectId: string | null) => {
           messages: [...prev.messages, newMessage],
         };
       });
+
+      // Debug: log the newly appended message and current message counts
+      try {
+        console.log('[useChatSpace] Appended message:', { spaceId: currentSpace.id, messageId: newMessage.id, hasEditResponse: !!newMessage.editResponse });
+        const after = (currentSpace.messages || []).length + 1;
+        console.log('[useChatSpace] messages count after append approx:', after);
+      } catch (e) {
+        console.warn('[useChatSpace] debug log failed', e);
+      }
 
       setChatSpaces(prev => {
         const updated = prev.map(space =>

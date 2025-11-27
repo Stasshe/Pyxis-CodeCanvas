@@ -40,7 +40,7 @@ export default function AIReviewTab({
   const originalContent = aiTab.originalContent || '';
   const suggestedContent = aiTab.suggestedContent || '';
   const filePath = aiTab.filePath || aiTab.path || '';
-  const history: Array<any> = aiTab.history || [];
+  // history is shown in AIPanel instead; not used here
   const aiEntry = aiTab.aiEntry || null;
 
   console.log('[AIReviewTab] Data:', {
@@ -236,28 +236,6 @@ export default function AIReviewTab({
     }
   };
 
-  // 履歴スナップショットを適用（即時保存）
-  const handleApplyHistory = (entry: any) => {
-    if (!entry || !entry.content) return;
-    // Apply the snapshot content directly
-    onApplyChanges(filePath, entry.content);
-    if (onCloseTab) onCloseTab(filePath);
-  };
-
-  // 履歴スナップショットをプレビュー（suggested に読み込む）
-  const handleLoadHistoryToEditor = (entry: any) => {
-    if (!entry || !entry.content) return;
-    setCurrentSuggestedContent(entry.content);
-    if (diffEditorRef.current) {
-      const diffModel = diffEditorRef.current.getModel();
-      if (diffModel?.modified) {
-        diffModel.modified.setValue(entry.content);
-      }
-    }
-    if (onUpdateSuggestedContent) {
-      onUpdateSuggestedContent(tab.id, entry.content);
-    }
-  };
 
   // 全体破棄（元の内容に戻す）
   const handleDiscardAll = () => {
@@ -464,48 +442,7 @@ export default function AIReviewTab({
         />
       </div>
 
-      {/* 履歴サイドパネル */}
-      {history && history.length > 0 && (
-        <div
-          className="border-l w-64 p-2 overflow-auto"
-          style={{ borderColor: colors.border, background: colors.cardBg }}
-        >
-          <div className="text-sm font-medium mb-2" style={{ color: colors.foreground }}>
-            履歴 ({history.length})
-          </div>
-          <div className="space-y-2">
-            {history.map((h: any) => (
-              <div key={h.id} className="p-2 rounded border" style={{ borderColor: colors.border }}>
-                <div className="flex items-center justify-between mb-1">
-                  <div className="text-xs font-mono" style={{ color: colors.foreground }}>
-                    {new Date(h.timestamp).toLocaleString()}
-                  </div>
-                </div>
-                {h.note && (
-                  <div className="text-xs mb-2" style={{ color: colors.mutedFg }}>
-                    {h.note}
-                  </div>
-                )}
-                <div className="flex gap-2">
-                  <button
-                    className="px-2 py-1 text-xs rounded border"
-                    style={{ borderColor: colors.border, color: colors.foreground, background: colors.mutedBg }}
-                    onClick={() => handleLoadHistoryToEditor(h)}
-                  >
-                    プレビュー
-                  </button>
-                  <button
-                    className="px-2 py-1 text-xs rounded bg-green-600 text-white"
-                    onClick={() => handleApplyHistory(h)}
-                  >
-                    適用
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* history moved to AIPanel - not rendered here */}
 
       {/* フッター */}
       <div

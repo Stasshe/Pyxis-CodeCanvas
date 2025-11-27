@@ -16,6 +16,10 @@ interface ChatContainerProps {
   isProcessing: boolean;
   compact?: boolean;
   emptyMessage?: string;
+  onRevert?: (message: ChatSpaceMessage) => Promise<void>;
+  onOpenReview?: (filePath: string, originalContent: string, suggestedContent: string) => Promise<void>;
+  onApplyChanges?: (filePath: string, newContent: string) => Promise<void>;
+  onDiscardChanges?: (filePath: string) => Promise<void>;
 }
 
 export default function ChatContainer({
@@ -23,6 +27,10 @@ export default function ChatContainer({
   isProcessing,
   compact = false,
   emptyMessage = 'AIとチャットを開始してください',
+  onRevert,
+  onOpenReview,
+  onApplyChanges,
+  onDiscardChanges,
 }: ChatContainerProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
@@ -34,6 +42,18 @@ export default function ChatContainer({
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages.length, isProcessing]);
+
+  // Debug: log messages on each render to inspect which messages contain editResponse
+  useEffect(() => {
+    try {
+      console.log('[ChatContainer] messages render, count:', messages.length);
+      messages.forEach(m => {
+        console.log('[ChatContainer] msg:', { id: m.id, type: m.type, mode: m.mode, hasEditResponse: !!m.editResponse });
+      });
+    } catch (e) {
+      console.warn('[ChatContainer] debug log failed', e);
+    }
+  }, [messages]);
 
   return (
     <div
@@ -60,6 +80,9 @@ export default function ChatContainer({
               key={message.id}
               message={message}
               compact={compact}
+              onRevert={async (m: ChatSpaceMessage) => {
+                if (typeof onRevert === 'function') await onRevert(m);
+              }}
             />
           ))}
 

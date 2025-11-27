@@ -14,6 +14,7 @@ import type { ChatSpaceMessage } from '@/types';
 interface ChatMessageProps {
   message: ChatSpaceMessage;
   compact?: boolean;
+  onRevert?: (message: ChatSpaceMessage) => Promise<void>;
 }
 
 // コードブロック用コンポーネント
@@ -172,7 +173,7 @@ function CodeBlock({
   );
 }
 
-export default function ChatMessage({ message, compact = false }: ChatMessageProps) {
+export default function ChatMessage({ message, compact = false, onRevert }: ChatMessageProps) {
   const { colors, highlightTheme } = useTheme();
   const { t } = useTranslation();
   const isUser = message.type === 'user';
@@ -181,7 +182,7 @@ export default function ChatMessage({ message, compact = false }: ChatMessagePro
   return (
     <div className="w-full group">
       <div
-        className={`w-full rounded-lg px-4 py-3 transition-all ${
+        className={`w-full relative rounded-lg px-4 py-3 transition-all ${
           compact ? 'text-sm' : 'text-base'
         }`}
         style={{
@@ -304,6 +305,27 @@ export default function ChatMessage({ message, compact = false }: ChatMessagePro
             {message.content}
           </ReactMarkdown>
         </div>
+
+        {/* ヘッダツール: コピーなどと並べる形で Revert ボタンを追加 */}
+        {message.type === 'assistant' && message.mode === 'edit' && message.editResponse && (
+          <div className="absolute top-2 right-2 flex gap-2">
+            <button
+              className="px-2 py-0.5 text-xs rounded bg-red-600 text-white"
+              onClick={async () => {
+                try {
+                  if (typeof onRevert === 'function') {
+                    await onRevert(message);
+                  }
+                } catch (e) {
+                  console.warn('Revert click handler error', e);
+                }
+              }}
+              title="リバート: このメッセージで提案された変更を元に戻す"
+            >
+              リバート
+            </button>
+          </div>
+        )}
 
         {/* ファイルコンテキスト表示 */}
         {message.fileContext && message.fileContext.length > 0 && (

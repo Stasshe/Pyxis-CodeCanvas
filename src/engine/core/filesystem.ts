@@ -31,10 +31,6 @@ export const getAllFilesAndDirs = async (
   return gitFileSystem.getAllFiles(projectName);
 };
 
-export const debugFileSystem = async (): Promise<void> => {
-  return gitFileSystem.logFileSystem();
-};
-
 export const ensureDirectoryExists = async (fs: FS, dirPath: string): Promise<void> => {
   return gitFileSystem.ensureDirectory(dirPath);
 };

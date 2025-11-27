@@ -627,7 +627,10 @@ class ExtensionManager {
           }
           case 'normalizeCjsEsm': {
             const module = await import('@/engine/runtime/normalizeCjsEsm');
-            return module as SystemModuleMap[T];
+            // import() returns a module namespace object which may not structurally
+            // match the expected SystemModuleMap[T] type. Cast via unknown first
+            // to satisfy TypeScript and avoid unsafe direct casting warnings.
+            return module as unknown as SystemModuleMap[T];
           }
           case 'commandRegistry': {
             const { commandRegistry } = await import('./commandRegistry');
