@@ -17,6 +17,7 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
   const updateTab = useTabStore(state => state.updateTab);
 
   const [markers, setMarkers] = useState<any[]>([]);
+  const [showImportErrors, setShowImportErrors] = useState<boolean>(false);
 
   // find paneId for current globalActiveTab
   const paneIdForActiveTab = useMemo(() => {
@@ -131,6 +132,15 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
     } as any);
   };
 
+  const displayedMarkers = markers.filter(m => {
+    if (showImportErrors) return true;
+    // Hide multi-file import resolution errors like: "Cannot find module './math' or its corresponding type declarations."
+    const msg = (m.message || '').toString();
+    if (/Cannot find module\b/i.test(msg)) return false;
+    if (/corresponding type declarations/i.test(msg)) return false;
+    return true;
+  });
+
   return (
     <div
       style={{
@@ -141,11 +151,35 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
         color: colors.editorFg,
       }}
     >
-      <div style={{ fontSize: 12, marginBottom: 8, color: colors.mutedFg }}>Problems</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+        <div>
+          <div style={{ fontSize: 12, marginBottom: 6, color: colors.mutedFg }}>Problems</div>
+          <div style={{ fontSize: 11, color: colors.mutedFg }}>
+            注意: この機能はベータ版です。検出されたエラーは誤検出の可能性があります。
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button
+            onClick={() => setShowImportErrors(prev => !prev)}
+            style={{
+              fontSize: 12,
+              padding: '4px 8px',
+              background: showImportErrors ? colors.primary : 'transparent',
+              color: showImportErrors ? '#fff' : colors.mutedFg,
+              border: `1px solid ${colors.border}`,
+              borderRadius: 4,
+              cursor: 'pointer',
+            }}
+          >
+            {showImportErrors ? 'インポートエラーを表示' : 'インポートエラーを非表示'}
+          </button>
+        </div>
+      </div>
+
       {globalActiveTab ? (
-        markers.length > 0 ? (
+        displayedMarkers.length > 0 ? (
           <div>
-            {markers.map((m, idx) => (
+            {displayedMarkers.map((m, idx) => (
               <div
                 key={idx}
                 onClick={() => handleGoto(m)}
@@ -165,6 +199,11 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
                 </div>
               </div>
             ))}
+            {displayedMarkers.length !== markers.length && (
+              <div style={{ fontSize: 11, color: colors.mutedFg, marginTop: 6 }}>
+                一部のエラーを非表示にしています。表示するには上のボタンを切り替えてください。
+              </div>
+            )}
           </div>
         ) : (
           <div style={{ color: colors.mutedFg, fontSize: 12 }}>No problems found in current file.</div>
