@@ -502,6 +502,13 @@ export class ModuleResolver {
       return null;
     }
 
+    // 拡張子がないパスだが、そのまま実ファイルとして存在する可能性がある。
+    // 例: `node_modules/.bin/cowsay` のようなシム（shebang付きスクリプト）は
+    // 拡張子無しでも実行可能なので、まずそのままのパスを確認する。
+    if (await this.fileExists(filePath)) {
+      return filePath;
+    }
+
     // 拡張子を試す順序
     const extensions = ['.js', '.mjs', '.ts', '.mts', '.tsx', '.jsx', '.json'];
     for (const ext of extensions) {
