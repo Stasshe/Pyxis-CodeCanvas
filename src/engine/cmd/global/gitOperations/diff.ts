@@ -88,8 +88,12 @@ export class GitDiffOperations {
         headCommitHash = null;
       }
 
+      // If there is no HEAD (no commits yet), continue and attempt to
+      // generate diffs from working directory. For new repositories we
+      // still want to include new file contents in the diff for commit
+      // message generation.
       if (!headCommitHash) {
-        return 'No commits yet - cannot show diff';
+        console.log('[GitDiffOperations] No HEAD commit found; showing working directory changes (treating missing HEAD as empty)');
       }
 
       const status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
@@ -108,13 +112,17 @@ export class GitDiffOperations {
 
             // HEADからの内容
             try {
-              const { blob } = await git.readBlob({
-                fs: this.fs,
-                dir: this.dir,
-                oid: headCommitHash,
-                filepath: file,
-              });
-              headContent = new TextDecoder().decode(blob);
+              if (headCommitHash) {
+                const { blob } = await git.readBlob({
+                  fs: this.fs,
+                  dir: this.dir,
+                  oid: headCommitHash,
+                  filepath: file,
+                });
+                headContent = new TextDecoder().decode(blob);
+              } else {
+                headContent = '';
+              }
             } catch {
               headContent = '';
             }
@@ -151,13 +159,17 @@ export class GitDiffOperations {
           try {
             let headContent = '';
             try {
-              const { blob } = await git.readBlob({
-                fs: this.fs,
-                dir: this.dir,
-                oid: headCommitHash,
-                filepath: file,
-              });
-              headContent = new TextDecoder().decode(blob);
+              if (headCommitHash) {
+                const { blob } = await git.readBlob({
+                  fs: this.fs,
+                  dir: this.dir,
+                  oid: headCommitHash,
+                  filepath: file,
+                });
+                headContent = new TextDecoder().decode(blob);
+              } else {
+                headContent = '';
+              }
             } catch {
               headContent = '';
             }
