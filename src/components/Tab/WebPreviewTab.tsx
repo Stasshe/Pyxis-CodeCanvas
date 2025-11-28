@@ -5,7 +5,6 @@ import { useTranslation } from '@/context/I18nContext';
 // Lightning-FSの仮想ファイルシステム取得関数
 import { fileRepository } from '@/engine/core/fileRepository';
 import { inlineHtmlAssets } from '@/engine/export/inlineHtmlAssets';
-import { FolderWatcher, type FileChangeEvent } from '@/engine/fileWatcher';
 
 interface WebPreviewTabProps {
   filePath: string;
@@ -15,7 +14,6 @@ interface WebPreviewTabProps {
 const WebPreviewTab: React.FC<WebPreviewTabProps> = ({ filePath, currentProjectName }) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [fileContent, setFileContent] = useState('');
-  const folderWatcherRef = useRef<FolderWatcher | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const { t } = useTranslation();
 
@@ -107,7 +105,7 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({ filePath, currentProjectN
     console.log('file changed');
   }, [filePath, refreshTrigger]); // fileContentの依存関係を削除してrefreshTriggerを追加
 
-  // ファイル変更監視の設定
+  // ファイル変更監視の設定（fileRepository のリスナーを使う）
   useEffect(() => {
     if (!currentProjectName) return;
 
@@ -116,35 +114,59 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({ filePath, currentProjectN
       ? filePath
       : filePath.substring(0, filePath.lastIndexOf('/')) || '/';
 
+    const normalize = (p: string) => (p && p.startsWith('/') ? p : '/' + (p || ''));
+
     console.log(
-      '[WebPreviewTab] Setting up file watcher for path:',
+      '[WebPreviewTab] Setting up repository watcher for path:',
       watchPath,
       'in project:',
       currentProjectName
     );
 
-    // FolderWatcherを作成
-    const watcher = new FolderWatcher(watchPath, currentProjectName);
-    folderWatcherRef.current = watcher;
+    let unsubscribe: (() => void) | null = null;
 
-    // ファイル変更リスナーを追加
-    const handleFileChange = (event: FileChangeEvent) => {
-      console.log('[WebPreviewTab] File change detected:', event.path, event.type);
+    (async () => {
+      try {
+        await fileRepository.init();
+        const projects = await fileRepository.getProjects();
+        const project = projects.find(p => p.name === currentProjectName);
+        if (!project) {
+          console.warn('[WebPreviewTab] Project not found for watcher:', currentProjectName);
+          return;
+        }
 
-      // 少し遅延してから更新（ファイル操作が完了するのを待つ）
-      setTimeout(() => {
-        setRefreshTrigger(prev => prev + 1);
-      }, 100);
-    };
+        const projectId = project.id;
+        const normalizedWatch = normalize(watchPath);
 
-    watcher.addListener(handleFileChange);
+        const listener = (evt: any) => {
+          try {
+            if (!evt || evt.projectId !== projectId) return;
+            const rawPath = evt.file && (evt.file as any).path ? (evt.file as any).path : '';
+            const path = normalize(rawPath);
+            if (!path.startsWith(normalizedWatch)) return;
+            console.log('[WebPreviewTab] File change detected (repo):', path, evt.type);
+            // 少し遅延してから更新（ファイル操作が完了するのを待つ）
+            setTimeout(() => {
+              setRefreshTrigger(prev => prev + 1);
+            }, 100);
+          } catch (e) {
+            console.warn('[WebPreviewTab] watcher listener error:', e);
+          }
+        };
 
-    // クリーンアップ
+        unsubscribe = fileRepository.addChangeListener(listener as any);
+      } catch (e) {
+        console.warn('[WebPreviewTab] failed to setup repository watcher:', e);
+      }
+    })();
+
     return () => {
-      if (folderWatcherRef.current) {
-        folderWatcherRef.current.removeListener(handleFileChange);
-        folderWatcherRef.current.destroy();
-        folderWatcherRef.current = null;
+      if (unsubscribe) {
+        try {
+          unsubscribe();
+        } catch (e) {
+          /* ignore */
+        }
       }
     };
   }, [filePath, currentProjectName]);
