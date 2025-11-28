@@ -18,6 +18,14 @@ body,
   overscroll-behavior: none !important;
 }
 
+/* Global iOS text-size adjustment suppression to reduce Safari auto-scaling */
+html,
+body,
+#__next {
+  -webkit-text-size-adjust: none !important;
+  text-size-adjust: none !important;
+}
+
 :root {
   --background: 220 20% 14%;
   --foreground: 220 10% 90%;
@@ -232,11 +240,6 @@ body {
   text-size-adjust: none !important;
 }
 
-/* If the composition UI still scales, enforce base font-size for monaco input layers */
-.monaco-editor .inputarea,
-.monaco-editor .view-lines {
-  font-size: 14px !important;
-}
 
 .tab-active {
   background: hsl(var(--background));
