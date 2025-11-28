@@ -7,14 +7,16 @@ export default function InlineHighlightedCode({
   language,
   value,
   plain,
+  inline,
 }: {
   language: string;
   value: string;
   plain?: boolean;
+  inline?: boolean;
 }) {
   const { t } = useTranslation();
-  const { highlightTheme } = useTheme();
-  const isDark = (highlightTheme || '').includes('dark');
+  const { themeName, colors } = useTheme();
+  const isDark = !(themeName || '').includes('light');
   const [copied, setCopied] = useState(false);
 
   if (plain) {
@@ -26,8 +28,8 @@ export default function InlineHighlightedCode({
           margin: 0,
           overflowX: 'auto',
           minHeight: '100px',
-          background: '#f5f5f5',
-          color: '#222',
+          background: colors?.cardBg || '#f5f5f5',
+          color: colors?.foreground || (isDark ? '#fff' : '#000'),
           padding: '12px',
         }}
       >
@@ -37,11 +39,13 @@ export default function InlineHighlightedCode({
   }
 
   // Code highlight logic copied/adapted from ChatMessage CodeBlock
+  // Returns inner HTML (without surrounding <pre>) so callers can choose
+  // how to render (inline or block).
   const highlight = (code: string, lang: string) => {
     const tokens: Array<{ type: string; value: string }> = [];
     let remaining = code;
 
-    const colors = {
+    const tokenColors = {
       keyword: isDark ? '#569cd6' : '#0000ff',
       function: isDark ? '#dcdcaa' : '#795e26',
       string: isDark ? '#ce9178' : '#a31515',
@@ -94,21 +98,21 @@ export default function InlineHighlightedCode({
       const escaped = token.value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
       switch (token.type) {
         case 'keyword':
-          return `<span style="color:${colors.keyword}; font-weight:600">${escaped}</span>`;
+          return `<span style="color:${tokenColors.keyword}; font-weight:600">${escaped}</span>`;
         case 'function':
-          return `<span style="color:${colors.function}; font-weight:500">${escaped}</span>`;
+          return `<span style="color:${tokenColors.function}; font-weight:500">${escaped}</span>`;
         case 'string':
-          return `<span style="color:${colors.string}">${escaped}</span>`;
+          return `<span style="color:${tokenColors.string}">${escaped}</span>`;
         case 'comment':
-          return `<span style="color:${colors.comment}; font-style:italic">${escaped}</span>`;
+          return `<span style="color:${tokenColors.comment}; font-style:italic">${escaped}</span>`;
         case 'number':
-          return `<span style="color:${colors.number}">${escaped}</span>`;
+          return `<span style="color:${tokenColors.number}">${escaped}</span>`;
         case 'operator':
-          return `<span style="color:${colors.operator}">${escaped}</span>`;
+          return `<span style="color:${tokenColors.operator}">${escaped}</span>`;
         case 'property':
-          return `<span style="color:${colors.property}">${escaped}</span>`;
+          return `<span style="color:${tokenColors.property}">${escaped}</span>`;
         case 'punctuation':
-          return `<span style="color:${colors.punctuation}">${escaped}</span>`;
+          return `<span style="color:${tokenColors.punctuation}">${escaped}</span>`;
         case 'whitespace':
           return escaped;
         case 'identifier':
@@ -118,7 +122,8 @@ export default function InlineHighlightedCode({
       }
     });
 
-    return `<pre class="overflow-x-auto text-xs p-3 min-h-[48px] font-mono" style="font-size:13px;margin:0;">${htmlParts.join('')}</pre>`;
+    const inner = htmlParts.join('');
+    return inner;
   };
 
   const handleCopy = async () => {
@@ -130,6 +135,25 @@ export default function InlineHighlightedCode({
       // ignore
     }
   };
+
+  // Inline rendering: render a compact <code> with highlighted inner HTML.
+  if (inline) {
+    const inner = highlight(String(value), language);
+    return (
+      <code
+        className="inline-code"
+        style={{
+          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Segoe UI Mono", monospace',
+          fontSize: '0.9em',
+          padding: '0.2em 0.35em',
+          borderRadius: 4,
+          background: colors?.cardBg || (isDark ? '#23232a' : '#f5f5f5'),
+          color: colors?.foreground || (isDark ? '#fff' : '#000'),
+        }}
+        dangerouslySetInnerHTML={{ __html: inner }}
+      />
+    );
+  }
 
   return (
     <div className="relative group/code my-2 rounded-lg overflow-hidden">
@@ -156,7 +180,14 @@ export default function InlineHighlightedCode({
 
       <div
         className="overflow-x-auto"
-        dangerouslySetInnerHTML={{ __html: highlight(String(value), language) }}
+        dangerouslySetInnerHTML={{
+          __html: (() => {
+            const inner = highlight(String(value), language);
+            const preBg = colors?.cardBg || (isDark ? '#23232a' : '#f5f5f5');
+            const preColor = colors?.foreground || (isDark ? '#fff' : '#000');
+            return `<pre class="overflow-x-auto text-xs p-3 min-h-[48px] font-mono" style="font-size:13px;margin:0;background:${preBg};color:${preColor};padding:12px;border-radius:8px">${inner}</pre>`;
+          })(),
+        }}
       />
     </div>
   );

@@ -486,9 +486,6 @@ interface ThemeContextProps {
   themeName: string;
   setTheme: (name: string) => void;
   themeList: string[];
-  highlightTheme: string;
-  setHighlightTheme: (name: string) => void;
-  highlightThemeList: string[];
 }
 
 export const ThemeContext = createContext<ThemeContextProps | undefined>(undefined);
@@ -497,24 +494,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   // SSR/クライアントで初期値を必ず一致させる
   const [themeName, setThemeName] = useState<string>('dark');
   const [colors, setColorsState] = useState<ThemeColors>(themes['dark']);
-  // shiki用ハイライトテーマ
-  const highlightThemeList = [
-    'github-dark',
-    'github-light',
-    'nord',
-    'dracula',
-    'monokai',
-    'min-dark',
-    'min-light',
-    'solarized-dark',
-    'solarized-light',
-    'material-theme-darker',
-    'material-theme-lighter',
-    'material-theme-palenight',
-    'material-theme-ocean',
-    'one-light',
-  ];
-  const [highlightTheme, setHighlightTheme] = useState<string>('github-dark');
+  // highlightTheme (shiki) removed
 
   // クライアントマウント後にlocalStorageのテーマを反映
   useEffect(() => {
@@ -524,10 +504,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
         setThemeName(saved);
         setColorsState(themes[saved]);
       }
-      const savedHighlight = localStorage.getItem('highlightTheme');
-      if (savedHighlight && highlightThemeList.includes(savedHighlight)) {
-        setHighlightTheme(savedHighlight);
-      }
+      // highlightTheme removed
     }
   }, []);
 
@@ -549,14 +526,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const setHighlightThemePersist = (name: string) => {
-    if (highlightThemeList.includes(name)) {
-      setHighlightTheme(name);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('highlightTheme', name);
-      }
-    }
-  };
+  // highlightTheme removed
 
   return (
     <ThemeContext.Provider
@@ -567,9 +537,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
         themeName,
         setTheme,
         themeList: Object.keys(themes),
-        highlightTheme,
-        setHighlightTheme: setHighlightThemePersist,
-        highlightThemeList,
+        // highlightTheme removed
       }}
     >
       {children}

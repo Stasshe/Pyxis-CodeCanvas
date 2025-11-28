@@ -22,10 +22,9 @@ interface ChatMessageProps {
 // InlineHighlightedCode is used for syntax highlighting
 
 export default function ChatMessage({ message, compact = false, onRevert }: ChatMessageProps) {
-  const { colors, highlightTheme } = useTheme();
+  const { colors } = useTheme();
   const { t } = useTranslation();
   const isUser = message.type === 'user';
-  const isDark = highlightTheme.includes('dark');
 
   return (
     <div className="w-full group">

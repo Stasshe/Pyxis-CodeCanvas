@@ -45,6 +45,8 @@ const mermaidIdCounter = 0;
 const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) => {
   // i18n
   const { t } = useTranslation();
+  // Theme name used to compute light/dark behavior for mermaid
+  const { themeName } = useTheme();
   const ref = useRef<HTMLDivElement>(null);
   // chart内容ごとにIDを固定
   const idRef = useMemo(
@@ -88,8 +90,10 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
       `;
       try {
         const { config, diagram } = parseMermaidContent(chart);
-        const isDark =
-          window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        // Use themeName from ThemeContext to determine light/dark mode instead of
+        // relying on the user's OS-level preference (window.matchMedia).
+        // If the theme name contains 'light' we treat it as light; otherwise dark.
+        const isDark = !(themeName && themeName.includes('light'));
         const mermaidConfig: any = {
           startOnLoad: false,
           theme: isDark ? 'dark' : 'default',
@@ -318,7 +322,7 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
         /* ignore */
       }
     };
-  }, [chart, colors.mermaidBg]);
+  }, [chart, colors.mermaidBg, themeName]);
 
   // SVGダウンロード処理
   const handleDownloadSvg = useCallback(() => {
@@ -658,14 +662,21 @@ const MemoizedCodeComponent = React.memo<{
     );
   }
 
-  // インラインコード
-  return <code {...props}>{children}</code>;
+  // インラインコード: InlineHighlightedCode を使う
+  const inlineCode = codeString;
+  return (
+    <InlineHighlightedCode
+      language={'plainText'}
+      value={inlineCode}
+      inline
+    />
+  );
 });
 
 MemoizedCodeComponent.displayName = 'MemoizedCodeComponent';
 
 const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ activeTab, currentProject }) => {
-  const { colors } = useTheme();
+  const { colors, themeName } = useTheme();
   const { settings } = useSettings(currentProject?.id);
   const { t } = useTranslation();
   // ref to markdown container for scrolling
@@ -867,9 +878,6 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ activeTab, curr
             themeName: 'pdf',
             setTheme: () => {},
             themeList: [],
-            highlightTheme: '',
-            setHighlightTheme: () => {},
-            highlightThemeList: [],
           }}
         >
           {markdownContentPlain}
@@ -978,7 +986,7 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ activeTab, curr
       ref={markdownContainerRef}
     >
       <div className="flex items-center mb-2">
-        <div className="font-bold text-lg mr-2">
+        <div className="font-bold text-lg mr-2" style={{ color: colors.foreground }}>
           {activeTab.name} {t('markdownPreview.preview')}
         </div>
         <button
@@ -995,7 +1003,7 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ activeTab, curr
         className="markdown-body prose prose-github max-w-none"
         style={{
           background: colors.background,
-          color: colors.foreground,
+          color: colors.foreground
         }}
       >
         {markdownContent}

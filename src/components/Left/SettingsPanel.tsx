@@ -18,16 +18,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
   const [isExporting, setIsExporting] = useState(false);
   const { t } = useTranslation();
   const { openTab } = useTabStore();
-  const {
-    colors,
-    setColor,
-    themeName,
-    setTheme,
-    themeList,
-    highlightTheme,
-    setHighlightTheme,
-    highlightThemeList,
-  } = useTheme();
+  const { colors, setColor, themeName, setTheme, themeList } = useTheme();
 
   // 設定状態
   const [settings, setSettings] = useState<PyxisSettings | null>(null);
@@ -86,7 +77,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
 
       // テーマをまず更新（基礎テーマに戻す）
       setTheme(newSettings.theme.colorTheme);
-      setHighlightTheme(newSettings.theme.highlightTheme);
+      // highlightTheme removed: no-op
 
       // settings に保存された customColors があれば、基礎テーマ適用後に上書きして再適用する
       // これにより、保存→通知で基礎テーマに戻される際のフリッカーを防ぐ
@@ -238,33 +229,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
             </select>
           </div>
 
-          <div>
-            <label
-              className="block text-xs mb-1.5"
-              style={{ color: colors.foreground }}
-            >
-              {t('settingsPanel.theme.highlightTheme')}
-            </label>
-            <select
-              value={highlightTheme}
-              onChange={e => setHighlightTheme(e.target.value)}
-              className="w-full rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1"
-              style={{
-                background: colors.cardBg,
-                color: colors.foreground,
-                border: `1px solid ${colors.border}`,
-              }}
-            >
-              {highlightThemeList.map(name => (
-                <option
-                  key={name}
-                  value={name}
-                >
-                  {name}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* highlight theme selection removed (shiki-based) */}
 
           <div>
             <button
