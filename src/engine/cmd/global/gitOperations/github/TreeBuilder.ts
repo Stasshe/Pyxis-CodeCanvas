@@ -28,8 +28,26 @@ export class TreeBuilder {
     const commit = await git.readCommit({ fs: this.fs, dir: this.dir, oid: commitOid });
     const treeOid = commit.commit.tree;
 
+    // Check if this exact tree already exists remotely
+    const localTreeInfo = await git.readTree({ fs: this.fs, dir: this.dir, oid: treeOid });
+    
+    // If we have a remote tree SHA to compare against
     if (remoteTreeSha) {
       try {
+        // If the tree SHAs are identical, no need to rebuild
+        if (treeOid === remoteTreeSha) {
+          console.log('[TreeBuilder] Tree already exists remotely:', treeOid.slice(0, 7));
+          return remoteTreeSha;
+        }
+
+        // Check if our local tree exists remotely (can happen with rebases/cherry-picks)
+        const exists = await this.githubAPI.treeExists(treeOid);
+        if (exists) {
+          console.log('[TreeBuilder] Local tree found remotely:', treeOid.slice(0, 7));
+          return treeOid;
+        }
+
+        // Perform differential upload
         await this.cacheRemoteBlobs(remoteTreeSha);
         const treeSha = await this.buildTreeDifferential(treeOid, remoteTreeSha, '');
         return treeSha;
@@ -65,6 +83,12 @@ export class TreeBuilder {
     remoteTreeSha: string,
     path: string
   ): Promise<string> {
+    // If tree SHAs are identical, reuse remote tree
+    if (localTreeOid === remoteTreeSha) {
+      console.log(`[TreeBuilder] Tree unchanged at ${path || 'root'}:`, remoteTreeSha.slice(0, 7));
+      return remoteTreeSha;
+    }
+
     const localTree = await git.readTree({ fs: this.fs, dir: this.dir, oid: localTreeOid });
 
     let remoteTree;

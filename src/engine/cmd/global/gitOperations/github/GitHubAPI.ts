@@ -190,4 +190,42 @@ export class GitHubAPI {
   async getCommit(sha: string): Promise<GitCommit> {
     return this.request<GitCommit>(`/git/commits/${sha}`);
   }
+
+  /**
+   * ツリーが存在するかチェック（軽量）
+   */
+  async treeExists(sha: string): Promise<boolean> {
+    try {
+      // HEADリクエストで軽量チェック（ただしGitHub APIはHEADをサポートしていないのでGETを使用）
+      const url = `${this.baseUrl}/git/trees/${sha}`;
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.token}`,
+          'Accept': 'application/vnd.github.v3+json',
+        },
+      });
+      
+      return response.ok;
+    } catch (error) {
+      // ネットワークエラーなど、本当のエラーのみログ出力
+      console.warn('[GitHubAPI] treeExists network error:', error);
+      return false;
+    }
+  }
+
+  /**
+   * コミットのツリーSHAを効率的に取得
+   */
+  async getCommitTree(commitSha: string): Promise<string> {
+    const commit = await this.getCommit(commitSha);
+    return commit.tree.sha;
+  }
+
+  /**
+   * 2つのツリーが同一かチェック
+   */
+  async treesAreEqual(treeSha1: string, treeSha2: string): Promise<boolean> {
+    return treeSha1 === treeSha2;
+  }
 }
