@@ -78,6 +78,7 @@ export default function BottomPanel({
 }: BottomPanelProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
+  const [vimEditor, setVimEditor] = useState<any | null>(null);
   const [activeTab, setActiveTab] = useState<'output' | 'terminal' | 'debug' | 'problems'>(
     'terminal'
   );
@@ -105,6 +106,7 @@ export default function BottomPanel({
           height,
           background: colors.cardBg,
           borderTop: `1px solid ${colors.border}`,
+          position: 'relative',
         }}
       >
         {/* タブバー */}
@@ -235,6 +237,32 @@ export default function BottomPanel({
               - {currentProject}
             </span>
           )}
+                    {/* Place ESC button at the far right of the tab bar when vim is active */}
+                    {vimEditor && (
+                      <button
+                        onClick={() => {
+                          try {
+                            if (typeof vimEditor.pressEsc === 'function') {
+                              vimEditor.pressEsc();
+                            }
+                          } catch (e) {}
+                        }}
+                        title={t('bottom.escButton') ?? 'Esc'}
+                        className="pyxis-esc-btn"
+                        style={{
+                          marginLeft: 'auto',
+                          background: colors.cardBg,
+                          color: colors.mutedFg,
+                          border: `1px solid ${colors.border}`,
+                          padding: '4px 8px',
+                          borderRadius: 4,
+                          fontSize: 12,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Esc
+                      </button>
+                    )}
         </div>
         <div className="flex-1 overflow-hidden relative">
           {/* 3つのパネルを同時にマウントし、visibility/positionで切り替え（xterm.jsの幅崩れ対策） */}
@@ -287,6 +315,7 @@ export default function BottomPanel({
               currentProject={currentProject}
               currentProjectId={currentProjectId}
               isActive={activeTab === 'terminal'}
+              onVimModeChange={editor => setVimEditor(editor)}
             />
           </div>
           <div
@@ -307,6 +336,8 @@ export default function BottomPanel({
           </div>
         </div>
       </div>
+      {/* Vim ESC button: shown when a VimEditor instance is active */}
+      
     </>
   );
 }

@@ -906,6 +906,7 @@ export default function Terminal({
   currentProject,
   currentProjectId,
   isActive,
+  onVimModeChange,
 }: TerminalProps) {
   const [isMounted, setIsMounted] = useState(false);
 
@@ -937,6 +938,7 @@ export default function Terminal({
       currentProject={currentProject}
       currentProjectId={currentProjectId}
       isActive={isActive}
+      onVimModeChange={onVimModeChange}
     />
   );
 }

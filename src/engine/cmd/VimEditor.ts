@@ -796,4 +796,13 @@ export class VimEditor {
   public dispose() {
     this.disposed = true;
   }
+
+  // Public helper to simulate pressing ESC from external UI (e.g. ESC button)
+  public pressEsc() {
+    if (this.disposed) return;
+    this.state.mode = 'NORMAL';
+    this.state.commandLine = '';
+    this.state.visualStart = null;
+    this.render();
+  }
 }
