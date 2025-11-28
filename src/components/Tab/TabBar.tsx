@@ -365,6 +365,14 @@ export default function TabBar({ paneId }: TabBarProps) {
   );
 
   useKeyBinding(
+    'removeAllTabs',
+    () => {
+      handleRemoveAllTabs();
+    },
+    [tabs, paneId]
+  );
+
+  useKeyBinding(
     'nextTab',
     () => {
       if (tabs.length === 0) return;

@@ -38,6 +38,9 @@ export const DEFAULT_BINDINGS: Binding[] = [
   // Open markdown preview in another pane (split or random other pane)
   { id: 'openMdPreview', name: 'Open Markdown Preview in Other Pane', combo: 'Ctrl+K P', category: 'view' },
 
+  // Tabs
+  { id: 'removeAllTabs', name: 'Close All Tabs', combo: 'Ctrl+K A', category: 'tab' },
+
   // Project
   { id: 'openProject', name: 'Open Project', combo: 'Ctrl+Shift+O', category: 'project' },
 ];

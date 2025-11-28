@@ -5,7 +5,7 @@ import { Edit2, RefreshCw, X } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 
 import { DEFAULT_BINDINGS } from '@/hooks/defaultKeybindings';
-import { Binding } from '@/hooks/keybindingUtils';
+import { Binding, formatKeyEvent, normalizeKeyCombo } from '@/hooks/keybindingUtils';
 import { useKeyBindings, formatKeyComboForDisplay } from '@/hooks/useKeyBindings';
 
 export default function ShortcutKeysTab() {
@@ -33,26 +33,16 @@ export default function ShortcutKeysTab() {
     const isModifierKey = (key: string) =>
       key === 'Control' || key === 'Meta' || key === 'Alt' || key === 'Shift';
 
-    const computeCombo = (e: KeyboardEvent) => {
-      const parts: string[] = [];
-      const isMac =
-        typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
-      if (isMac) {
-        if (e.metaKey) parts.push('Cmd');
-        if (e.ctrlKey) parts.push('Ctrl');
-      } else {
-        if (e.ctrlKey) parts.push('Ctrl');
-        if (e.metaKey) parts.push('Meta');
+    // For chorded combos we accept two parts separated by space, e.g. 'Ctrl+K A'
+    let pendingFirstPart: string | null = null;
+    const pendingTimer = { id: null as number | null };
+
+    const clearPending = () => {
+      pendingFirstPart = null;
+      if (pendingTimer.id) {
+        clearTimeout(pendingTimer.id);
+        pendingTimer.id = null;
       }
-      if (e.altKey) parts.push('Alt');
-      if (e.shiftKey) parts.push('Shift');
-
-      const key = e.key;
-      if (isModifierKey(key)) return parts.join('+');
-
-      const normalized = key.length === 1 ? key.toUpperCase() : key;
-      parts.push(normalized);
-      return parts.join('+');
     };
 
     const handler = (e: KeyboardEvent) => {
@@ -62,33 +52,89 @@ export default function ShortcutKeysTab() {
 
       // Cancel on Escape
       if (e.key === 'Escape') {
+        clearPending();
         stopCapture();
         return;
       }
 
-      const combo = computeCombo(e);
-      // If user is only pressing modifiers, update preview and wait
+      // If user is only pressing modifiers, show them and wait
       if (isModifierKey(e.key)) {
-        setPreviewCombo(combo);
+        // Show simple modifier preview (e.g. "Ctrl")
+        const parts: string[] = [];
+        const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
+        if (isMac) {
+          if (e.metaKey) parts.push('Cmd');
+          if (e.ctrlKey) parts.push('Ctrl');
+        } else {
+          if (e.ctrlKey) parts.push('Ctrl');
+          if (e.metaKey) parts.push('Meta');
+        }
+        if (e.altKey) parts.push('Alt');
+        if (e.shiftKey) parts.push('Shift');
+        setPreviewCombo(parts.join('+'));
         return;
       }
 
-      // Final key (non-modifier) pressed: validate and save
-      if (!combo) return;
+      // Non-modifier key pressed: compute normalized single-part combo
+      const single = formatKeyEvent(e);
+      if (!single) return;
 
-      const duplicate = bindings.find(b => b.combo === combo && b.id !== editingId);
+      // If we already have a pending first part (user pressed first chord part), complete the chord
+      if (pendingFirstPart) {
+        const full = `${pendingFirstPart} ${single}`;
+        const duplicate = bindings.find(b => normalizeKeyCombo(b.combo) === normalizeKeyCombo(full) && b.id !== editingId);
+        if (duplicate) {
+          setError(`Already assigned to: ${duplicate.name}`);
+          clearPending();
+          return;
+        }
+        const newBindings = bindings.map(b => (b.id === editingId ? { ...b, combo: full } : b));
+        updateBindings(newBindings);
+        clearPending();
+        stopCapture();
+        return;
+      }
+
+      // No pending first part: check if this single combo is the prefix of any chorded binding.
+      const normalizedSingle = normalizeKeyCombo(single);
+      const isPrefix = bindings.some(b => {
+        const parts = normalizeKeyCombo(b.combo).split(/\s+/);
+        return parts.length === 2 && parts[0] === normalizedSingle;
+      });
+
+      if (isPrefix) {
+        // Enter pending chord state: wait for second key
+        pendingFirstPart = normalizedSingle;
+        setPreviewCombo(pendingFirstPart + ' ...');
+        // Wait up to 3500ms for the second chord key (match KeyBindingsManager.CHORD_TIMEOUT_MS)
+        pendingTimer.id = window.setTimeout(() => {
+          // Timeout: save single-binding if it exists (fallback), else clear
+          const singleBinding = bindings.find(b => normalizeKeyCombo(b.combo) === pendingFirstPart && !b.combo.includes(' '));
+          if (singleBinding) {
+            const newBindings = bindings.map(b => (b.id === editingId ? { ...b, combo: pendingFirstPart! } : b));
+            updateBindings(newBindings);
+          }
+          clearPending();
+          stopCapture();
+        }, 3500) as unknown as number;
+        return;
+      }
+
+      // Otherwise treat as single-part final key and save
+      const duplicate = bindings.find(b => b.combo === single && b.id !== editingId);
       if (duplicate) {
         setError(`Already assigned to: ${duplicate.name}`);
         return;
       }
-
-      const newBindings = bindings.map(b => (b.id === editingId ? { ...b, combo } : b));
+      const newBindings = bindings.map(b => (b.id === editingId ? { ...b, combo: single } : b));
       updateBindings(newBindings);
       stopCapture();
     };
 
     window.addEventListener('keydown', handler, { capture: true });
-    return () => window.removeEventListener('keydown', handler, { capture: true });
+    return () => {
+      window.removeEventListener('keydown', handler, { capture: true });
+    };
   }, [editingId, bindings, updateBindings]);
 
   const resetDefaults = async () => {
