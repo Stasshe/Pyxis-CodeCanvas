@@ -278,7 +278,7 @@ Node Runtime:
   - コマンド置換（$(cmd), \`cmd\`）でコマンド出力を埋め込み
   - シェルスクリプト（.sh）で複雑な処理を自動化
   - Tab キーでファイル名補完（実装予定）
-`.trim();
+`;
   }
 
   private getCommandHelp(command: string): string {
@@ -393,6 +393,20 @@ Node Runtime:
   tree src/                    src/ディレクトリをツリー表示
   tree -L 2                    深度2までのツリーを表示
   tree -a                      隠しファイルも含めて表示`,
+
+      unzip: `unzip - ZIPアーカイブを展開する
+
+使用法:
+  unzip [OPTION]... ARCHIVE [DEST]
+
+オプション:
+  -d <dir>           展開先ディレクトリを指定
+  -l                 アーカイブ内容の一覧を表示
+
+例:
+  unzip archive.zip           カレントディレクトリに展開
+  unzip -d out archive.zip    outディレクトリに展開
+  unzip -l archive.zip        アーカイブ内容を表示`,
 
       find: `find - ファイルを検索
 

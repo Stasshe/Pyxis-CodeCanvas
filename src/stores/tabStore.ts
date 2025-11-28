@@ -699,19 +699,33 @@ export const useTabStore = create<TabStore>((set, get) => ({
     const allTabs = get().getAllTabs();
     const tabInfo = allTabs.find(t => t.id === tabId);
 
-    if (tabInfo) {
-      const result = get().findTabByPath(tabInfo.path || '', tabInfo.kind);
-      if (result) {
-        // contentとisDirtyを持つタブ（EditorTab, PreviewTab）のみ更新
-        if (tabInfo.kind === 'editor' || tabInfo.kind === 'preview') {
-          const updates: Partial<Tab> = {
-            content,
-            isDirty: immediate ? true : false,
-          };
-          get().updateTab(result.paneId, tabId, updates);
+    if (!tabInfo) return;
+
+    // editor/preview 系のみ操作対象
+    if (!(tabInfo.kind === 'editor' || tabInfo.kind === 'preview')) return;
+
+    const targetPath = tabInfo.path || '';
+    const targetKind = tabInfo.kind;
+
+    // 全てのペインを巡回して、path と kind が一致するタブを更新
+    const updatePanesRecursive = (panes: any[]): any[] => {
+      return panes.map((pane: any) => {
+        const newTabs = pane.tabs.map((t: any) => {
+          if (t.path === targetPath && t.kind === targetKind) {
+            return { ...t, content, isDirty: immediate ? true : false };
+          }
+          return t;
+        });
+
+        if (pane.children) {
+          return { ...pane, tabs: newTabs, children: updatePanesRecursive(pane.children) };
         }
-      }
-    }
+
+        return { ...pane, tabs: newTabs };
+      });
+    };
+
+    set(state => ({ panes: updatePanesRecursive(state.panes) }));
   },
 
   saveSession: async () => {

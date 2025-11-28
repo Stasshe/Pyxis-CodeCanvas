@@ -16,27 +16,28 @@ const EditorTabComponent: React.FC<TabComponentProps> = ({ tab, isActive }) => {
   const editorTab = tab as EditorTab;
   const { saveFile, currentProject } = useProject();
   const { settings } = useSettings(currentProject?.id);
-  const updateTab = useTabStore(state => state.updateTab);
+  const updateTabContent = useTabStore(state => state.updateTabContent);
   const { setGitRefreshTrigger } = useGitContext();
 
   const wordWrapConfig = settings?.editor?.wordWrap ? 'on' : 'off';
 
   const handleContentChange = async (tabId: string, content: string) => {
-    // タブのコンテンツを更新（isDirtyをtrue）
-    updateTab(editorTab.paneId, tabId, { content, isDirty: true } as Partial<EditorTab>);
+    // 同一パスの全タブに対して即時フラグ（isDirty=true）を立てる
+    updateTabContent(tabId, content, true);
 
     // ファイルを保存
     if (saveFile && editorTab.path) {
       await saveFile(editorTab.path, content);
-      updateTab(editorTab.paneId, tabId, { isDirty: false } as Partial<EditorTab>);
+      // 保存後は全タブの isDirty をクリア
+      updateTabContent(tabId, content, false);
       // Git状態を更新
       setGitRefreshTrigger(prev => prev + 1);
     }
   };
 
   const handleImmediateContentChange = (tabId: string, content: string) => {
-    // 即座にタブのコンテンツを更新（isDirtyをtrue）
-    updateTab(editorTab.paneId, tabId, { content, isDirty: true } as Partial<EditorTab>);
+    // 即座に同一ファイルを開いている全タブの内容を更新し、isDirty を立てる
+    updateTabContent(tabId, content, true);
   };
 
   return (
