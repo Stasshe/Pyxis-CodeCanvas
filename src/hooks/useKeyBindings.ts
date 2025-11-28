@@ -103,14 +103,16 @@ class KeyBindingsManager {
       }
     };
   }
-
+  
   /**
-   * キーイベントハンドラ
+   * handleKeyDown の修正版
+   * pendingChord中は全てのキー入力をpreventする
    */
+  
   handleKeyDown(e: KeyboardEvent): boolean {
     const keyCombo = formatKeyEvent(e);
     if (!keyCombo) return false;
-
+  
     // Helper: check full match for a binding (including chords)
     const matchBindingForCombo = (firstPart: string | null, secondPart: string | null): Binding | null => {
       for (const b of this.bindings) {
@@ -121,34 +123,64 @@ class KeyBindingsManager {
         }
         if (parts.length === 2 && firstPart && secondPart) {
           if (parts[0] === firstPart && parts[1] === secondPart) return b;
-          // support for second part being specified without modifiers (e.g. 'V') while event includes modifiers (e.g. 'Ctrl+V')
-          if (parts[0] === firstPart) {
-            const secondPartMain = secondPart.split('+').pop() || secondPart;
-            if (parts[1] === secondPartMain) return b;
-          }
+          const secondPartMain = secondPart.split('+').pop() || secondPart;
+          if (parts[0] === firstPart && parts[1] === secondPartMain) return b;
         }
       }
       return null;
     };
-
-    // If we already have a pending chord (first part pressed previously), try to complete it
+  
+    // CRITICAL FIX: pendingChord存在時は必ずpreventDefault
     if (this.pendingChord) {
-      // The stored pending is normalized already.
       const first = this.pendingChord;
       const second = keyCombo;
       const binding = matchBindingForCombo(first, second);
+      
+      // pendingChord状態では、マッチするかどうかに関わらず入力をブロック
+      e.preventDefault();
+      e.stopPropagation();
+      
       this.clearPendingChord();
+      
       if (binding) {
         const callbacks = this.actions.get(binding.id);
         if (callbacks && callbacks.size > 0) {
-          e.preventDefault();
-          e.stopPropagation();
           callbacks.forEach(cb => cb());
           return true;
         }
       }
-      return false;
+      // bindingが無くてもtrueを返す（入力をブロックした事実を返す）
+      return true;
     }
+  
+    // chord prefix detection
+    const possibleChord = this.bindings.find(
+      b => normalizeKeyCombo(b.combo).split(/\s+/)[0] === keyCombo && 
+           normalizeKeyCombo(b.combo).split(/\s+/).length === 2
+    );
+    if (possibleChord) {
+      this.setPendingChord(keyCombo);
+      e.preventDefault();
+      e.stopPropagation();
+      return true;
+    }
+  
+    // single-key binding
+    const singleBinding = this.bindings.find(
+      b => normalizeKeyCombo(b.combo) === keyCombo && !b.combo.includes(' ')
+    );
+    if (singleBinding) {
+      const callbacks = this.actions.get(singleBinding.id);
+      if (callbacks && callbacks.size > 0) {
+        e.preventDefault();
+        e.stopPropagation();
+        callbacks.forEach(cb => cb());
+        return true;
+      }
+    }
+  
+    return false;
+  }
 
     // Not a completion: check for single-key binding or start of a chord
     // First, check exact single-key binding
