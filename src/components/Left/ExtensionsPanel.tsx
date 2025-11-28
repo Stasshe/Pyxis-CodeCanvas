@@ -415,7 +415,7 @@ export default function ExtensionsPanel() {
     return (
       <div
         key={ext.manifest.id}
-        className="p-3 rounded-lg border transition-all hover:shadow-sm"
+        className="p-3 rounded-lg border transition-all hover:shadow-sm select-none"
         style={{
           background: colors.background,
           borderColor: ext.enabled ? colors.primary + '40' : colors.border,
@@ -482,9 +482,9 @@ export default function ExtensionsPanel() {
           <button
             className="min-w-[90px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs rounded transition-all hover:opacity-80"
             style={{
-              background: ext.enabled ? colors.orange + '15' : colors.primary + '15',
-              color: ext.enabled ? colors.orange : colors.primary,
-              border: `1px solid ${ext.enabled ? colors.orange + '30' : colors.primary + '30'}`,
+              background: ext.enabled ? colors.accent + '15' : colors.primary + '15',
+              color: ext.enabled ? colors.foreground : colors.primary,
+              border: `1px solid ${ext.enabled ? colors.accent + '30' : colors.primary + '30'}`,
             }}
             onClick={() => handleToggle(ext.manifest!.id, ext.enabled)}
           >
@@ -515,9 +515,9 @@ export default function ExtensionsPanel() {
           <button
             className="min-w-[90px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs rounded transition-all hover:opacity-80"
             style={{
-              background: colors.blue + '15',
-              color: colors.blue,
-              border: `1px solid ${colors.blue}30`,
+              background: colors.primary + '15',
+              color: colors.foreground,
+              border: `1px solid ${colors.primary}30`,
             }}
             onClick={() => handleUpdate(ext.manifest.id, manifestUrl || '', ext.manifest.name)}
             disabled={!manifestUrl}

@@ -316,7 +316,7 @@ export default function MenuBar({
                       style={{
                         fontSize: '0.875rem',
                         fontWeight: 'bold',
-                        color: colors.fg,
+                        color: colors.foreground,
                         marginBottom: '0.25rem',
                       }}
                     >

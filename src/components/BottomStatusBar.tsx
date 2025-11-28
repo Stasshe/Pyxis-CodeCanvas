@@ -118,7 +118,7 @@ export default function BottomStatusBar({
             borderRadius: 6,
             background: colors.cardBg,
             border: `1px solid ${colors.border}`,
-            color: colors.fg,
+            color: colors.foreground,
             display: 'inline-flex',
             alignItems: 'center',
             gap: 6,

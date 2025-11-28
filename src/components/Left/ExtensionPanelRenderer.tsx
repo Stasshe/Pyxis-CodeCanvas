@@ -28,7 +28,7 @@ export default function ExtensionPanelRenderer({
     return (
       <div
         className="flex items-center justify-center h-full p-4"
-        style={{ background: colors.cardBg, color: colors.fg }}
+        style={{ background: colors.cardBg, color: colors.foreground }}
       >
         <div className="text-center">
           <p className="text-sm opacity-70">Panel not found</p>
@@ -47,7 +47,7 @@ export default function ExtensionPanelRenderer({
       fallback={
         <div
           className="flex items-center justify-center h-full"
-          style={{ background: colors.cardBg, color: colors.fg }}
+          style={{ background: colors.cardBg, color: colors.foreground }}
         >
           <p className="text-sm">Loading panel...</p>
         </div>

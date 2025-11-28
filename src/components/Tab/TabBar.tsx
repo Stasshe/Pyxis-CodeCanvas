@@ -324,8 +324,8 @@ export default function TabBar({ paneId }: TabBarProps) {
             }} />
         )}
 
-        <TabIcon kind={tab.kind} filename={tab.name} size={14} color={colors.fg} />
-        <span className="text-sm truncate flex-1" style={{ color: colors.fg }} title={displayName}>
+        <TabIcon kind={tab.kind} filename={tab.name} size={14} color={colors.foreground} />
+        <span className="text-sm truncate flex-1" style={{ color: colors.foreground }} title={displayName}>
           {displayName}
         </span>
         {(tab as any).isDirty ? (
@@ -347,7 +347,7 @@ export default function TabBar({ paneId }: TabBarProps) {
               handleTabClose(tab.id);
             }}
           >
-            <X size={14} color={colors.fg} />
+            <X size={14} color={colors.foreground} />
           </button>
         )}
       </div>
