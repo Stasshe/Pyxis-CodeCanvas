@@ -52,17 +52,19 @@ function ClientTerminal({
       const term = xtermRef.current;
       if (!term) return;
 
-      const frames = ['|', '/', '-', '\\'];
+      // npm-like braille spinner (matches modern npm CLI appearance)
+      const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
       let i = 0;
-      
+
       // Hide cursor
       term.write('\x1b[?25l');
-      
-      // Write initial frame
-      term.write(frames[0]);
+
+      // Write initial frame in cyan, then reset color
+      term.write('\x1b[36m' + frames[0] + '\x1b[0m');
 
       spinnerInterval.current = setInterval(() => {
-        term.write('\b' + frames[++i % frames.length]);
+        const next = frames[++i % frames.length];
+        term.write('\b' + '\x1b[36m' + next + '\x1b[0m');
       }, 80);
     };
 
@@ -70,11 +72,11 @@ function ClientTerminal({
       if (spinnerInterval.current) {
         clearInterval(spinnerInterval.current);
         spinnerInterval.current = null;
-        
         const term = xtermRef.current;
         if (term) {
-          // Clear spinner char and show cursor
+          // Clear spinner char, reset color and show cursor
           term.write('\b \b');
+          term.write('\x1b[0m');
           term.write('\x1b[?25h');
         }
       }
