@@ -115,7 +115,7 @@ export default function ChatInput({
         background: colors.cardBg,
       }}
     >
-      <div className="p-3 space-y-2">
+      <div className="p-2 space-y-1">
         {/* 選択ファイル表示 */}
         {(selectedFiles.length > 0 || activeTabPath) && (
           <div className="flex items-center gap-2 flex-wrap">
@@ -123,8 +123,8 @@ export default function ChatInput({
               className="flex items-center gap-1 text-xs"
               style={{ color: colors.mutedFg }}
             >
-              <FileCode size={14} />
-              <span>{t('ai.selectedLabel')}</span>
+              <FileCode size={12} />
+              <span className="text-xs">{t('ai.selectedLabel')}</span>
             </div>
 
             {/* アクティブタブをインラインで表示（選択ファイルの先頭）
@@ -138,7 +138,7 @@ export default function ChatInput({
                   gap: 6,
                   padding: '2px 6px',
                   borderRadius: 6,
-                  fontSize: 12,
+                  fontSize: 11,
                   fontFamily: 'monospace',
                   background: colors.mutedBg,
                   border: `1px solid ${colors.border}`,
@@ -147,14 +147,14 @@ export default function ChatInput({
                   lineHeight: 1,
                 }}
               >
-                <img src={getIconSrcForFile(activeTabPath.split('/').pop() || activeTabPath)} alt="icon" style={{ width: 12, height: 12, flex: '0 0 12px' }} />
+                <img src={getIconSrcForFile(activeTabPath.split('/').pop() || activeTabPath)} alt="icon" style={{ width: 10, height: 10, flex: '0 0 10px' }} />
                 <span className="truncate" style={{ maxWidth: 96, display: 'inline-block' }}>
                   {activeTabPath.split('/').pop()}
                 </span>
                 <button
                   onClick={() => onToggleActiveTabContext?.()}
                   title={isActiveTabSelected ? (t('ai.fileContextBar.remove') || 'Remove') : (t('ai.context.select') || 'Add')}
-                  style={{
+                    style={{
                     background: 'transparent',
                     color: '#ffffff',
                     border: `1px solid ${colors.border}`,
@@ -162,13 +162,13 @@ export default function ChatInput({
                     display: 'inline-flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    width: 18,
-                    height: 18,
+                    width: 16,
+                    height: 16,
                     marginLeft: 2,
                     borderRadius: 4,
                   }}
                 >
-                  <Plus size={12} color="#ffffff" />
+                  <Plus size={11} color="#ffffff" />
                 </button>
               </div>
             )}
@@ -185,7 +185,7 @@ export default function ChatInput({
                     gap: 6,
                     padding: '2px 6px',
                     borderRadius: 6,
-                    fontSize: 12,
+                    fontSize: 11,
                     fontFamily: 'monospace',
                     background: colors.mutedBg,
                     border: `1px solid ${colors.border}`,
@@ -194,7 +194,7 @@ export default function ChatInput({
                     lineHeight: 1,
                   }}
                 >
-                  <img src={iconSrc} alt="icon" style={{ width: 12, height: 12, flex: '0 0 12px' }} />
+                  <img src={iconSrc} alt="icon" style={{ width: 10, height: 10, flex: '0 0 10px' }} />
                   <span className="truncate" style={{ maxWidth: 96, display: 'inline-block' }}>
                     {fileName}
                   </span>
@@ -209,8 +209,8 @@ export default function ChatInput({
                       display: 'inline-flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      width: 18,
-                      height: 18,
+                      width: 16,
+                      height: 16,
                       marginLeft: 2,
                     }}
                   >
@@ -231,7 +231,7 @@ export default function ChatInput({
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
             disabled={isProcessing || disabled}
-            className="w-full px-4 py-3 pr-24 rounded-lg border resize-none focus:outline-none focus:ring-2 transition-all"
+            className="w-full px-3 py-2 pr-20 rounded-lg border resize-none focus:outline-none focus:ring-2 transition-all"
             style={{
               background: colors.editorBg,
               color: colors.editorFg,
@@ -248,21 +248,21 @@ export default function ChatInput({
               <button
                 onClick={onOpenFileSelector}
                 disabled={isProcessing || disabled}
-                className="p-2 rounded-md hover:bg-opacity-80 transition-all"
+                className="p-1.5 rounded-md hover:bg-opacity-80 transition-all"
                 style={{
                   background: colors.mutedBg,
                   color: colors.mutedFg,
                 }}
                 title={t('ai.context.select')}
               >
-                <FileCode size={18} />
+                <FileCode size={16} />
               </button>
             )}
 
             <button
               onClick={handleSubmit}
               disabled={!input.trim() || isProcessing || disabled}
-              className={`p-2 rounded-md transition-all ${
+              className={`p-1.5 rounded-md transition-all ${
                 !input.trim() || isProcessing || disabled
                   ? 'opacity-50 cursor-not-allowed'
                   : 'hover:opacity-90 shadow-sm'
@@ -275,11 +275,11 @@ export default function ChatInput({
             >
               {isProcessing ? (
                 <Loader2
-                  size={18}
+                  size={16}
                   className="animate-spin"
                 />
               ) : (
-                <Send size={18} />
+                <Send size={16} />
               )}
             </button>
           </div>

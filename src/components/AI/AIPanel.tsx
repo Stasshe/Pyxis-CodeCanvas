@@ -358,11 +358,13 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
         overflowX: 'hidden', // prevent any horizontal scrolling caused by long content
         boxSizing: 'border-box',
         minWidth: 0,
+        fontSize: '12px',
+        lineHeight: 1.25,
       }}
     >
       {/* ヘッダー */}
       <div
-        className="flex items-center justify-between px-4 py-3 border-b select-none"
+        className="flex items-center justify-between px-3 py-2 border-b select-none"
         style={{
           borderColor: colors.border,
           background: colors.cardBg,
@@ -374,12 +376,9 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
           className="flex items-center gap-3"
           style={{ minWidth: 0 }}
         >
-          <Bot
-            size={20}
-            style={{ color: colors.accent }}
-          />
+          <Bot size={16} style={{ color: colors.accent }} />
           <span
-            className="text-base font-semibold select-none overflow-hidden text-ellipsis whitespace-nowrap"
+            className="text-sm font-semibold select-none overflow-hidden text-ellipsis whitespace-nowrap"
             style={{ color: colors.foreground }}
           >
             AI Assistant
@@ -391,7 +390,7 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
             style={{ minWidth: 0 }}
           >
             <button
-              className="flex items-center gap-2 px-3 py-1.5 rounded-md hover:opacity-80 transition-all text-sm"
+              className="flex items-center gap-2 px-2 py-1 rounded-md hover:opacity-80 transition-all text-xs"
               style={{
                 background: colors.mutedBg,
                 color: colors.foreground,
@@ -418,7 +417,7 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
               >
                 {currentSpace?.name || 'スペース'}
               </span>
-              <ChevronDown size={14} />
+              <ChevronDown size={12} />
             </button>
           </div>
         </div>
@@ -435,7 +434,7 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
           initialView="list"
           headerActions={[
             {
-              icon: <Plus size={14} />,
+              icon: <Plus size={12} />,
               label: t('chatSpaceList.create') || 'New Space',
               onClick: async () => {
                 await createNewSpace();
@@ -451,7 +450,6 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
       <ChatContainer
         messages={messages}
         isProcessing={isProcessing}
-        compact={false}
         emptyMessage={mode === 'ask' ? t('AI.ask') : t('AI.edit')}
         onRevert={async (message: ChatSpaceMessage) => {
           try {
@@ -527,16 +525,16 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
           ここではパネルを最小化できるようにし、最小化中は ChangedFilesPanel 本体を描画しないことで
           「採用」などのアクションボタン類を表示しないようにする */}
       {mode === 'edit' && latestEditResponse && latestEditResponse.changedFiles.length > 0 && (
-        <div className="px-3 pt-2">
+        <div className="px-2 pt-2">
           <div
-            className="flex items-center justify-between px-3 py-1 rounded-md"
+            className="flex items-center justify-between px-2 py-1 rounded-md"
             style={{
               background: colors.mutedBg,
               border: `1px solid ${colors.border}`,
               color: colors.foreground,
               }}
           >
-            <div className="text-sm font-medium">変更ファイル</div>
+            <div className="text-xs font-medium">変更ファイル</div>
             <div className="flex items-center gap-2">
               <div className="text-xs opacity-80">{latestEditResponse.changedFiles.length} 個</div>
               <button
@@ -548,7 +546,7 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
                 style={{ color: colors.foreground }}
               >
                 <ChevronDown
-                  size={14}
+                  size={12}
                   style={{ transform: isChangedFilesMinimized ? 'rotate(-180deg)' : 'none' }}
                 />
               </button>
@@ -563,7 +561,6 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
                 onOpenReview={handleOpenReview}
                 onApplyChanges={handleApplyChanges}
                 onDiscardChanges={handleDiscardChanges}
-                compact={false}
               />
             </div>
           )}
@@ -580,7 +577,6 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
           mode={mode}
           onChange={setMode}
           disabled={isProcessing}
-          small
         />
       </div>
 
@@ -592,13 +588,13 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
         selectedFiles={fileContexts.filter(ctx => ctx.selected).map(ctx => ctx.path)}
         onOpenFileSelector={() => setIsFileSelectorOpen(true)}
         onRemoveSelectedFile={toggleFileSelection}
-          disabled={!currentProject && mode === 'edit'}
-          // pass active tab info so ChatInput can render it inline with selected files
-          activeTabPath={activeTab?.path}
-          onToggleActiveTabContext={handleToggleActiveTabContext}
-          isActiveTabSelected={
-            !!activeTab && !!fileContexts.find(ctx => ctx.path === activeTab.path && ctx.selected)
-          }
+        disabled={!currentProject && mode === 'edit'}
+        // pass active tab info so ChatInput can render it inline with selected files
+        activeTabPath={activeTab?.path}
+        onToggleActiveTabContext={handleToggleActiveTabContext}
+        isActiveTabSelected={
+          !!activeTab && !!fileContexts.find(ctx => ctx.path === activeTab.path && ctx.selected)
+        }
       />
 
       {/* ファイルセレクター */}

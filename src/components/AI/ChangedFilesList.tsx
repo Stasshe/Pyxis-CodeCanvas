@@ -13,7 +13,6 @@ interface ChangedFilesListProps {
   onOpenReview: (filePath: string, originalContent: string, suggestedContent: string) => void;
   onApplyChanges: (filePath: string, content: string) => void;
   onDiscardChanges: (filePath: string) => void;
-  compact?: boolean;
 }
 
 export default function ChangedFilesList({
@@ -21,17 +20,14 @@ export default function ChangedFilesList({
   onOpenReview,
   onApplyChanges,
   onDiscardChanges,
-  compact = false,
 }: ChangedFilesListProps) {
+  const compact = true;
   const { colors } = useTheme();
   const { t } = useTranslation();
 
   if (changedFiles.length === 0) {
     return (
-      <div
-        className={`text-center ${compact ? 'text-xs' : 'text-sm'} py-8`}
-        style={{ color: colors.mutedFg }}
-      >
+      <div className={`text-center text-xs py-8`} style={{ color: colors.mutedFg }}>
         {t('ai.changedFilesList.noChangedFiles')}
       </div>
     );

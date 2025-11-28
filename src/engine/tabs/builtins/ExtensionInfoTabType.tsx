@@ -68,15 +68,15 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
 
   return (
     <div
-      className="h-full overflow-auto"
+      className="h-full overflow-hidden flex flex-col"
       style={{
         background: colors.background,
         color: colors.foreground,
       }}
     >
-      <div className="max-w-6xl mx-auto p-6">
+      <div className="max-w-6xl mx-auto p-6 w-full h-full flex flex-col">
         {/* ヘッダー */}
-        <div className="mb-6">
+        <div className="mb-6 flex-shrink-0">
           <div className="flex items-start gap-4 mb-2">
             <div
               className="p-3 rounded-lg"
@@ -125,11 +125,11 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
         </div>
 
         {/* コンテンツ: 左に README (大きめ)、右に manifest 情報 */}
-        <div className={`flex ${isWide ? 'flex-row' : 'flex-col'} gap-6`}>
+        <div className={`flex ${isWide ? 'flex-row' : 'flex-col'} gap-6 flex-1 min-h-0`}>
           {/* README */}
-          <div style={isWide ? { width: '66.666%' } : { width: '100%' }}>
+          <div style={isWide ? { width: '66.666%' } : { width: '100%' }} className="h-full flex flex-col min-h-0">
             <div
-              className="p-4 rounded-lg border h-full flex flex-col"
+              className="p-4 rounded-lg border h-full flex flex-col min-h-0"
               style={{
                 background: colors.sidebarBg,
                 borderColor: colors.border,
@@ -146,12 +146,12 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
               </div>
 
               <div
-                className="prose max-w-none flex-1"
+                className="prose max-w-none flex-1 min-h-0 flex flex-col"
                 style={{ color: colors.foreground }}
               >
                 {manifest.readme ? (
                   <div
-                    style={{ maxHeight: 'calc(100vh - 260px)', overflowY: 'auto', paddingRight: 8 }}
+                    className="flex-1 overflow-y-auto pr-2"
                   >
                     <ReactMarkdown
                       remarkPlugins={[remarkGfm]}
@@ -218,7 +218,7 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
           </div>
 
           {/* manifest の詳細 (右カラム) */}
-          <div className="md:w-1/3">
+          <div className="md:w-1/3 h-full overflow-y-auto">
             <div
               className="p-4 rounded-lg border mb-4"
               style={{

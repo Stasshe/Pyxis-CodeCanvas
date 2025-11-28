@@ -14,7 +14,6 @@ import type { ChatSpaceMessage } from '@/types';
 interface ChatContainerProps {
   messages: ChatSpaceMessage[];
   isProcessing: boolean;
-  compact?: boolean;
   emptyMessage?: string;
   onRevert?: (message: ChatSpaceMessage) => Promise<void>;
   onOpenReview?: (filePath: string, originalContent: string, suggestedContent: string) => Promise<void>;
@@ -25,10 +24,11 @@ interface ChatContainerProps {
 export default function ChatContainer({
   messages,
   isProcessing,
-  compact = false,
   emptyMessage = 'AIとチャットを開始してください',
   onRevert,
 }: ChatContainerProps) {
+  // Always compact by design
+  const compact = true;
   const { colors } = useTheme();
   const { t } = useTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -53,7 +53,7 @@ export default function ChatContainer({
   return (
     <div
       ref={scrollRef}
-      className="flex-1 overflow-y-auto px-4 py-4 space-y-3"
+      className="flex-1 overflow-y-auto px-3 py-3 space-y-2"
       style={{ background: colors.background }}
     >
       {messages.length === 0 ? (
@@ -62,11 +62,11 @@ export default function ChatContainer({
           style={{ color: colors.mutedFg }}
         >
           <MessageSquare
-            size={48}
-            className="mb-4 opacity-30"
+            size={36}
+            className="mb-3 opacity-30"
           />
-          <div className="text-base font-medium mb-2">{emptyMessage}</div>
-          <div className="text-sm opacity-70">{t('ai.chatContainer.suggest')}</div>
+          <div className="text-sm font-medium mb-1">{emptyMessage}</div>
+          <div className="text-xs opacity-70">{t('ai.chatContainer.suggest')}</div>
         </div>
       ) : (
         <>
@@ -74,7 +74,6 @@ export default function ChatContainer({
             <ChatMessage
               key={message.id}
               message={message}
-              compact={compact}
               onRevert={async (m: ChatSpaceMessage) => {
                 if (typeof onRevert === 'function') await onRevert(m);
               }}
@@ -84,7 +83,7 @@ export default function ChatContainer({
           {/* 処理中インジケータ */}
           {isProcessing && (
             <div
-              className="flex items-center gap-2 px-4 py-3 rounded-lg"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg"
               style={{
                 background: colors.mutedBg,
                 color: colors.mutedFg,
@@ -92,10 +91,10 @@ export default function ChatContainer({
               }}
             >
               <Loader2
-                size={16}
+                size={14}
                 className="animate-spin"
               />
-              <span className="text-sm">{t('ai.chatContainer.generating')}</span>
+              <span className="text-xs">{t('ai.chatContainer.generating')}</span>
             </div>
           )}
         </>

@@ -15,13 +15,12 @@ import type { ChatSpaceMessage } from '@/types';
 
 interface ChatMessageProps {
   message: ChatSpaceMessage;
-  compact?: boolean;
   onRevert?: (message: ChatSpaceMessage) => Promise<void>;
 }
 
 // InlineHighlightedCode is used for syntax highlighting
 
-export default function ChatMessage({ message, compact = false, onRevert }: ChatMessageProps) {
+export default function ChatMessage({ message, onRevert }: ChatMessageProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
   const isUser = message.type === 'user';
@@ -29,9 +28,7 @@ export default function ChatMessage({ message, compact = false, onRevert }: Chat
   return (
     <div className="w-full group">
       <div
-        className={`w-full relative rounded-lg px-4 py-3 transition-all ${
-          compact ? 'text-sm' : 'text-base'
-        }`}
+        className={`w-full relative rounded-lg px-3 py-2 transition-all text-sm`}
         style={{
           background: isUser ? colors.accent : colors.mutedBg,
           color: isUser ? colors.accentFg : colors.foreground,
@@ -61,7 +58,7 @@ export default function ChatMessage({ message, compact = false, onRevert }: Chat
                 // インラインコード
                 return (
                   <code
-                    className="px-1.5 py-0.5 rounded text-xs font-mono"
+                      className="px-1.5 py-0.5 rounded text-xs font-mono"
                     style={{
                       background: isUser ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)',
                       color: isUser ? colors.accentFg : colors.foreground,
@@ -74,32 +71,32 @@ export default function ChatMessage({ message, compact = false, onRevert }: Chat
               },
 
               // 段落
-              p: ({ children }) => <p className="mb-3 last:mb-0 leading-relaxed">{children}</p>,
+              p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed text-sm">{children}</p>,
 
               // 見出し
               h1: ({ children }) => (
-                <h1 className="text-xl font-bold mb-3 mt-4 first:mt-0">{children}</h1>
+                <h1 className="text-lg font-bold mb-2 mt-3 first:mt-0">{children}</h1>
               ),
               h2: ({ children }) => (
-                <h2 className="text-lg font-bold mb-2 mt-3 first:mt-0">{children}</h2>
+                <h2 className="text-base font-bold mb-1 mt-2 first:mt-0">{children}</h2>
               ),
               h3: ({ children }) => (
-                <h3 className="text-base font-semibold mb-2 mt-2 first:mt-0">{children}</h3>
+                <h3 className="text-sm font-semibold mb-1 mt-1 first:mt-0">{children}</h3>
               ),
 
               // リスト
               ul: ({ children }) => (
-                <ul className="list-disc list-inside mb-3 space-y-1">{children}</ul>
+                <ul className="list-disc list-inside mb-2 space-y-0.5">{children}</ul>
               ),
               ol: ({ children }) => (
-                <ol className="list-decimal list-inside mb-3 space-y-1">{children}</ol>
+                <ol className="list-decimal list-inside mb-2 space-y-0.5">{children}</ol>
               ),
-              li: ({ children }) => <li className="ml-2">{children}</li>,
+              li: ({ children }) => <li className="ml-2 text-sm">{children}</li>,
 
               // 引用
               blockquote: ({ children }) => (
                 <blockquote
-                  className="border-l-4 pl-4 py-2 my-3 italic"
+                  className="border-l-4 pl-3 py-1 my-2 italic text-sm"
                   style={{ borderColor: colors.accent }}
                 >
                   {children}
@@ -119,7 +116,7 @@ export default function ChatMessage({ message, compact = false, onRevert }: Chat
               ),
               th: ({ children }) => (
                 <th
-                  className="px-3 py-2 text-left text-xs font-semibold"
+                  className="px-2 py-1 text-left text-xs font-semibold"
                   style={{ background: colors.mutedBg }}
                 >
                   {children}
@@ -127,7 +124,7 @@ export default function ChatMessage({ message, compact = false, onRevert }: Chat
               ),
               td: ({ children }) => (
                 <td
-                  className="px-3 py-2 text-sm"
+                  className="px-2 py-1 text-sm"
                   style={{ borderColor: colors.border }}
                 >
                   {children}
@@ -161,7 +158,7 @@ export default function ChatMessage({ message, compact = false, onRevert }: Chat
         </div>
 
         {/* ヘッダツール: コピーなどと並べる形で Revert ボタンを追加 */}
-        {message.type === 'assistant' && message.mode === 'edit' && message.editResponse && (
+            {message.type === 'assistant' && message.mode === 'edit' && message.editResponse && (
           <div className="absolute top-2 right-2 flex gap-2">
             <button
               className="px-2 py-0.5 text-xs rounded bg-red-600 text-white"

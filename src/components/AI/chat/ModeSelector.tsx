@@ -11,14 +11,12 @@ interface ModeSelectorProps {
   mode: 'ask' | 'edit';
   onChange: (mode: 'ask' | 'edit') => void;
   disabled?: boolean;
-  small?: boolean;
 }
 
 export default function ModeSelector({
   mode,
   onChange,
   disabled = false,
-  small = false,
 }: ModeSelectorProps) {
   const { colors } = useTheme();
 
@@ -27,11 +25,11 @@ export default function ModeSelector({
     { value: 'edit' as const, label: 'Edit', icon: FileEdit, description: 'コード編集' },
   ];
 
-  // サイズ調整
-  const sizeClass = small ? 'gap-0.5 p-0.5 rounded-md' : 'gap-1 p-1 rounded-lg';
-  const btnPad = small ? 'px-2 py-1' : 'px-4 py-2';
-  const iconSize = small ? 13 : 16;
-  const fontSize = small ? 'text-xs' : 'text-sm';
+  // 固定で small 振る舞いにする
+  const sizeClass = 'gap-0.5 p-0.5 rounded-md';
+  const btnPad = 'px-2 py-1';
+  const iconSize = 13;
+  const fontSize = 'text-xs';
 
   return (
     <div
@@ -46,11 +44,11 @@ export default function ModeSelector({
           className={`flex-1 flex items-center justify-center gap-1 ${btnPad} rounded ${
             mode === value ? 'shadow-sm' : 'hover:bg-opacity-50'
           } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-          style={{
+            style={{
             background: mode === value ? colors.accent : 'transparent',
             color: mode === value ? colors.accentFg : colors.mutedFg,
-            minWidth: small ? 60 : 90,
-            minHeight: small ? 28 : 36,
+            minWidth: 56,
+            minHeight: 26,
           }}
           title={description}
         >

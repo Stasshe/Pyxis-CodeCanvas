@@ -15,7 +15,6 @@ interface FileChangeItemProps {
   onOpenReview?: (filePath: string, originalContent: string, suggestedContent: string) => void;
   onApply?: (filePath: string, content: string) => void;
   onDiscard?: (filePath: string) => void;
-  compact?: boolean;
 }
 
 export default function FileChangeItem({
@@ -23,8 +22,9 @@ export default function FileChangeItem({
   onOpenReview,
   onApply,
   onDiscard,
-  compact = false,
 }: FileChangeItemProps) {
+  // always compact
+  const compact = true;
   const { colors } = useTheme();
   const { t } = useTranslation();
 
@@ -39,7 +39,7 @@ export default function FileChangeItem({
 
   return (
     <div
-      className={`rounded border ${compact ? 'p-2' : 'p-3'}`}
+      className={`rounded border p-2`}
       style={{
         borderColor: colors.border,
         background: colors.cardBg,
@@ -48,32 +48,19 @@ export default function FileChangeItem({
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <FileCode
-              size={14}
-              style={{ color: colors.accent }}
-            />
-            <span
-              className={`font-mono font-medium ${compact ? 'text-xs' : 'text-sm'} truncate`}
-              style={{ color: colors.foreground }}
-              title={file.path}
-            >
+            <FileCode size={14} style={{ color: colors.accent }} />
+            <span className={`font-mono font-medium text-xs truncate`} style={{ color: colors.foreground }} title={file.path}>
               {fileName}
             </span>
           </div>
 
           {file.explanation && (
-            <p
-              className={`${compact ? 'text-xs' : 'text-sm'} mb-2`}
-              style={{ color: colors.mutedFg }}
-            >
+            <p className={`text-xs mb-1`} style={{ color: colors.mutedFg }}>
               {file.explanation}
             </p>
           )}
 
-          <div
-            className="flex items-center gap-3 text-xs"
-            style={{ color: colors.mutedFg }}
-          >
+          <div className="flex items-center gap-2 text-xs" style={{ color: colors.mutedFg }}>
             <div className="flex items-center gap-1">
               <span>{originalLines}行</span>
               <span className="mx-1">→</span>

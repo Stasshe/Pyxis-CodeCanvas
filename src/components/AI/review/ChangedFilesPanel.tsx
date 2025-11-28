@@ -15,7 +15,6 @@ interface ChangedFilesPanelProps {
   onOpenReview: (filePath: string, originalContent: string, suggestedContent: string) => void;
   onApplyChanges: (filePath: string, content: string) => void;
   onDiscardChanges: (filePath: string) => void;
-  compact?: boolean;
 }
 
 export default function ChangedFilesPanel({
@@ -23,8 +22,9 @@ export default function ChangedFilesPanel({
   onOpenReview,
   onApplyChanges,
   onDiscardChanges,
-  compact = false,
 }: ChangedFilesPanelProps) {
+  // Always compact
+  const compact = true;
   const { colors } = useTheme();
 
   if (changedFiles.length === 0) {
@@ -33,21 +33,15 @@ export default function ChangedFilesPanel({
 
   return (
     <div
-      className={`${compact ? 'p-2' : 'p-3'} border-t`}
+      className={`p-2 border-t`}
       style={{
         borderColor: colors.border,
         background: colors.cardBg,
       }}
     >
-      <div className="flex items-center gap-2 mb-2">
-        <FileCode
-          size={16}
-          style={{ color: colors.accent }}
-        />
-        <span
-          className="text-sm font-medium"
-          style={{ color: colors.foreground }}
-        >
+      <div className="flex items-center gap-2 mb-1">
+        <FileCode size={14} style={{ color: colors.accent }} />
+        <span className="text-xs font-medium" style={{ color: colors.foreground }}>
           変更提案 ({changedFiles.length})
         </span>
       </div>
@@ -60,7 +54,6 @@ export default function ChangedFilesPanel({
             onOpenReview={onOpenReview}
             onApply={onApplyChanges}
             onDiscard={onDiscardChanges}
-            compact={compact}
           />
         ))}
       </div>

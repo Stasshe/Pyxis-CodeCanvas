@@ -6,11 +6,11 @@ import { countCharsNoSpaces } from './editor-utils';
 import { useMonacoModels } from '../hooks/useMonacoModels';
 import EditorPlaceholder from '../ui/EditorPlaceholder';
 import { registerEnhancedJSXLanguage, getEnhancedLanguage, getModelLanguage } from './monarch-jsx-language';
+import { defineAndSetMonacoThemes } from './monaco-themes';
 
 import { useTheme } from '@/context/ThemeContext';
 
 // グローバルフラグ
-let isThemeDefined = false;
 let isLanguageRegistered = false;
 
 interface MonacoEditorProps {
@@ -81,88 +81,11 @@ export default function MonacoEditor({
       }
     }
 
-    // テーマ定義（初回のみ）
-    if (!isThemeDefined) {
-      try {
-        mon.editor.defineTheme('pyxis-custom', {
-          base: 'vs-dark',
-          inherit: true,
-          rules: [
-            // 基本トークン
-            { token: 'comment', foreground: '6A9955', fontStyle: 'italic' },
-            { token: 'comment.doc', foreground: '6A9955', fontStyle: 'italic' },
-            { token: 'keyword', foreground: '569CD6', fontStyle: 'bold' },
-            { token: 'string', foreground: 'CE9178' },
-            { token: 'string.escape', foreground: 'D7BA7D' },
-            { token: 'number', foreground: 'B5CEA8' },
-            { token: 'number.hex', foreground: 'B5CEA8' },
-            { token: 'number.octal', foreground: 'B5CEA8' },
-            { token: 'number.binary', foreground: 'B5CEA8' },
-            { token: 'number.float', foreground: 'B5CEA8' },
-            { token: 'regexp', foreground: 'D16969' },
-            { token: 'regexp.escape', foreground: 'D7BA7D' },
-            { token: 'operator', foreground: 'D4D4D4' },
-            { token: 'delimiter', foreground: 'D4D4D4' },
-            { token: 'delimiter.bracket', foreground: 'FFD700' },
-            
-            // 型・クラス系
-            { token: 'type', foreground: '4EC9B0' },
-            { token: 'type.identifier', foreground: '4EC9B0' },
-            { token: 'namespace', foreground: '4EC9B0' },
-            { token: 'struct', foreground: '4EC9B0' },
-            { token: 'class', foreground: '4EC9B0' },
-            { token: 'interface', foreground: '4EC9B0' },
-            
-            // 変数・パラメータ系
-            { token: 'parameter', foreground: '9CDCFE' },
-            { token: 'variable', foreground: '9CDCFE' },
-            { token: 'property', foreground: 'D4D4D4' }, // プロパティは白系に
-            { token: 'identifier', foreground: '9CDCFE' },
-            
-            // 関数・メソッド系
-            { token: 'function', foreground: 'DCDCAA' },
-            { token: 'function.call', foreground: 'DCDCAA' },
-            { token: 'method', foreground: 'DCDCAA' },
-            
-            // JSX専用トークン（強調表示）
-            { token: 'tag', foreground: '4EC9B0', fontStyle: 'bold' },
-            { token: 'tag.jsx', foreground: '4EC9B0', fontStyle: 'bold' },
-            { token: 'attribute.name', foreground: '9CDCFE', fontStyle: 'italic' },
-            { token: 'attribute.name.jsx', foreground: '9CDCFE', fontStyle: 'italic' },
-            { token: 'attribute.value', foreground: 'CE9178' },
-            { token: 'jsx.text', foreground: 'D4D4D4' }, // JSX本文テキストは白色
-            { token: 'delimiter.html', foreground: 'FFD700' },
-            { token: 'attribute.name.html', foreground: '9CDCFE' },
-            { token: 'tag.tsx', foreground: '4EC9B0', fontStyle: 'bold' },
-            { token: 'tag.jsx', foreground: '4EC9B0', fontStyle: 'bold' },
-            { token: 'text', foreground: 'D4D4D4' },
-
-            
-          ],
-          colors: {
-            'editor.background': colors.editorBg || '#1e1e1e',
-            'editor.foreground': colors.editorFg || '#d4d4d4',
-            'editor.lineHighlightBackground': colors.editorLineHighlight || '#2d2d30',
-            'editor.selectionBackground': colors.editorSelection || '#264f78',
-            'editor.inactiveSelectionBackground': '#3a3d41',
-            'editorCursor.foreground': colors.editorCursor || '#aeafad',
-            'editorWhitespace.foreground': '#404040',
-            'editorIndentGuide.background': '#404040',
-            'editorIndentGuide.activeBackground': '#707070',
-            'editorBracketMatch.background': '#0064001a',
-            'editorBracketMatch.border': '#888888',
-          },
-        });
-        isThemeDefined = true;
-      } catch (e) {
-        console.warn('[MonacoEditor] Failed to define theme:', e);
-      }
-    }
-
+    // テーマ定義は外部モジュールに移譲
     try {
-      mon.editor.setTheme('pyxis-custom');
+      defineAndSetMonacoThemes(mon, colors as any);
     } catch (e) {
-      console.warn('[MonacoEditor] Failed to set theme:', e);
+      console.warn('[MonacoEditor] Failed to define/set themes via monaco-themes:', e);
     }
 
     // TypeScript/JavaScript設定

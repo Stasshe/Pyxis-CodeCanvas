@@ -150,7 +150,7 @@ export default function OperationWindow({
   const { currentProject } = useProject();
   const { isExcluded } = useSettings();
   // 固定アイテム高さを定義（スクロール計算と見た目の基準にする）
-  const ITEM_HEIGHT = 22; // VSCodeに合わせてよりコンパクトに
+  const ITEM_HEIGHT = 20; // slightly more compact
 
   // Reset state when visibility changes
   useEffect(() => {
