@@ -728,14 +728,18 @@ export class VimEditor {
     return this.state.lines[this.state.cursorRow] || '';
   }
 
+  // src/engine/cmd/VimEditor.ts の render() メソッド
   private render() {
     if (this.disposed) return;
-
-    // Clear screen
-    this.term.write('\x1b[2J\x1b[H');
-
+  
+    // Clear screen and move to home - より確実なクリア
+    this.term.write('\x1b[2J\x1b[3J\x1b[H'); // 3J を追加してスクロールバッファもクリア
+  
     const viewportHeight = this.term.rows - 2;
     const viewportWidth = this.term.cols;
+  
+    // 最初の行から確実に描画を開始
+    this.term.write('\x1b[1;1H'); // 明示的に1行1列に移動
 
     // Render visible lines
     for (let i = 0; i < viewportHeight; i++) {
