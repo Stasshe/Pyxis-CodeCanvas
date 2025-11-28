@@ -219,6 +219,13 @@ body {
   }
 }
 
+/* iOS Safari / iPad fix: prevent auto text-size adjustment inside Monaco Editor
+   This avoids characters shrinking during Japanese IME composition. */
+.monaco-editor,
+.monaco-editor * {
+  -webkit-text-size-adjust: 100% !important;
+}
+
 .tab-active {
   background: hsl(var(--background));
   border-bottom: 2px solid hsl(var(--primary));
