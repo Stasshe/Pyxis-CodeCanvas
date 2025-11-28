@@ -386,6 +386,61 @@ export default function TabBar({ paneId }: TabBarProps) {
     [tabs, activeTabId, paneId]
   );
 
+  // Markdown を現在開いているタブのプレビューを別のペインで開く
+  useKeyBinding(
+    'openMdPreview',
+    () => {
+      // アクティブなペインのみ処理する
+      if (useTabStore.getState().activePane !== paneId) return;
+
+      const activeTab = tabs.find(t => t.id === activeTabId);
+      if (!activeTab) return;
+
+      const name = activeTab.name || '';
+      const ext = name.split('.').pop()?.toLowerCase() || '';
+      if (!(ext === 'md' || ext === 'mdx')) return;
+
+      const leafPanes = flattenPanes(panes);
+
+      // 1つだけのペインなら、横に分割してプレビューを開く
+      if (leafPanes.length === 1) {
+        // ここでは横幅（side-by-side）に追加するために 'vertical' を指定
+        splitPane(paneId, 'vertical');
+
+        // splitPaneは同期的にストアを更新するため、直後に取得して子ペインを探索する
+        const parent = getPane(paneId);
+        if (!parent || !parent.children || parent.children.length === 0) return;
+
+        // 空のタブリストを持つ子ペインを新規作成ペインとして想定
+        let newPane = parent.children.find(c => !c.tabs || c.tabs.length === 0);
+        if (!newPane) {
+          // フォールバックとして二番目の子を採用
+          newPane = parent.children[1] || parent.children[0];
+        }
+
+        if (newPane) {
+          openTab(
+            { name: activeTab.name, path: activeTab.path, content: (activeTab as any).content },
+            { kind: 'preview', paneId: newPane.id, targetPaneId: newPane.id }
+          );
+        }
+        return;
+      }
+
+      // 複数ペインの場合は、自分以外のペインのうちランダムなペインで開く
+      const other = leafPanes.filter(p => p.id !== paneId);
+      if (other.length === 0) return;
+      // Prefer an empty pane if available for preview; else random
+      const emptyOther = other.find(p => !p.tabs || p.tabs.length === 0);
+      const randomPane = emptyOther || other[Math.floor(Math.random() * other.length)];
+      openTab(
+        { name: activeTab.name, path: activeTab.path, content: (activeTab as any).content },
+        { kind: 'preview', paneId: randomPane.id, targetPaneId: randomPane.id }
+      );
+    },
+    [paneId, activeTabId, tabs, panes]
+  );
+
   // ペインのリストを取得（タブ移動用）
   const flatPanes = flattenPanes(panes);
   const availablePanes = flatPanes.map((p, idx) => ({
@@ -609,7 +664,7 @@ export default function TabBar({ paneId }: TabBarProps) {
                     if (tab) {
                       openTab(
                         { name: tab.name, path: tab.path, content: (tab as any).content },
-                        { kind: 'preview', paneId }
+                        { kind: 'preview', paneId, targetPaneId: paneId }
                       );
                     }
                     setTabContextMenu({ isOpen: false, tabId: '', x: 0, y: 0 });

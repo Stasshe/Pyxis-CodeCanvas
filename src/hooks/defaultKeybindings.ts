@@ -35,6 +35,8 @@ export const DEFAULT_BINDINGS: Binding[] = [
   // Additional Pyxis-specific / useful editor shortcuts
   { id: 'saveAll', name: 'Save All', combo: 'Ctrl+K', category: 'file' },
   { id: 'togglePreview', name: 'Toggle Preview', combo: 'Ctrl+K V', category: 'view' },
+  // Open markdown preview in another pane (split or random other pane)
+  { id: 'openMdPreview', name: 'Open Markdown Preview in Other Pane', combo: 'Ctrl+K P', category: 'view' },
 
   // Project
   { id: 'openProject', name: 'Open Project', combo: 'Ctrl+Shift+O', category: 'project' },

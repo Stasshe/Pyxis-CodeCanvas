@@ -157,7 +157,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
 
   return (
     <div
-      className="h-full overflow-y-auto"
+      className="h-full overflow-y-auto select-none"
       style={{ background: colors.background, color: colors.foreground }}
     >
       {/* ワークスペースエクスポート */}

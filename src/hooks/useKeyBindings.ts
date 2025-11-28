@@ -38,10 +38,14 @@ const KEYBINDINGS_STORAGE_ID = 'user-keybindings';
  */
 class KeyBindingsManager {
   private bindings: Binding[] = DEFAULT_BINDINGS;
-  private actions = new Map<string, () => void>();
+  private actions = new Map<string, Set<() => void>>();
   private listeners = new Set<() => void>();
   private isInitialized = false;
   private initPromise: Promise<void> | null = null;
+  // chord support
+  private pendingChord: string | null = null; // e.g., 'Ctrl+K'
+  private pendingTimeout: number | null = null;
+  private readonly CHORD_TIMEOUT_MS = 3500;
 
   async init(): Promise<void> {
     if (this.isInitialized) return;
@@ -84,9 +88,19 @@ class KeyBindingsManager {
    * アクションを登録
    */
   registerAction(actionId: string, callback: () => void): () => void {
-    this.actions.set(actionId, callback);
+    if (!this.actions.has(actionId)) {
+      this.actions.set(actionId, new Set());
+    }
+    this.actions.get(actionId)!.add(callback);
+    
     return () => {
-      this.actions.delete(actionId);
+      const callbacks = this.actions.get(actionId);
+      if (callbacks) {
+        callbacks.delete(callback);
+        if (callbacks.size === 0) {
+          this.actions.delete(actionId);
+        }
+      }
     };
   }
 
@@ -97,20 +111,113 @@ class KeyBindingsManager {
     const keyCombo = formatKeyEvent(e);
     if (!keyCombo) return false;
 
-    // マッチするバインディングを探す
-    const binding = this.bindings.find(b => normalizeKeyCombo(b.combo) === keyCombo);
-    if (!binding) return false;
+    // Helper: check full match for a binding (including chords)
+    const matchBindingForCombo = (firstPart: string | null, secondPart: string | null): Binding | null => {
+      for (const b of this.bindings) {
+        const normalized = normalizeKeyCombo(b.combo);
+        const parts = normalized.split(/\s+/);
+        if (parts.length === 1 && !firstPart && parts[0] === keyCombo) {
+          return b;
+        }
+        if (parts.length === 2 && firstPart && secondPart) {
+          if (parts[0] === firstPart && parts[1] === secondPart) return b;
+          // support for second part being specified without modifiers (e.g. 'V') while event includes modifiers (e.g. 'Ctrl+V')
+          if (parts[0] === firstPart) {
+            const secondPartMain = secondPart.split('+').pop() || secondPart;
+            if (parts[1] === secondPartMain) return b;
+          }
+        }
+      }
+      return null;
+    };
 
-    // 対応するアクションを実行
-    const action = this.actions.get(binding.id);
-    if (action) {
-      e.preventDefault();
-      e.stopPropagation();
-      action();
-      return true;
+    // If we already have a pending chord (first part pressed previously), try to complete it
+    if (this.pendingChord) {
+      // The stored pending is normalized already.
+      const first = this.pendingChord;
+      const second = keyCombo;
+      const binding = matchBindingForCombo(first, second);
+      this.clearPendingChord();
+      if (binding) {
+        const callbacks = this.actions.get(binding.id);
+        if (callbacks && callbacks.size > 0) {
+          e.preventDefault();
+          e.stopPropagation();
+          callbacks.forEach(cb => cb());
+          return true;
+        }
+      }
+      return false;
     }
 
+    // Not a completion: check for single-key binding or start of a chord
+    // First, check exact single-key binding
+      // Not a completion: check if this key is the first part of any chorded binding.
+      // We prioritize chord prefix detection over executing a single binding action.
+      const possibleChord = this.bindings.find(b => normalizeKeyCombo(b.combo).split(/\s+/)[0] === keyCombo && normalizeKeyCombo(b.combo).split(/\s+/).length === 2);
+      if (possibleChord) {
+        // Enter pending chord state
+        this.setPendingChord(keyCombo);
+        // Do not execute any single action for now; wait for the next key
+        e.preventDefault();
+        e.stopPropagation();
+        return true;
+      }
+
+      // If no chord prefix, check exact single-key binding
+      const singleBinding = this.bindings.find(b => normalizeKeyCombo(b.combo) === keyCombo && !b.combo.includes(' '));
+      if (singleBinding) {
+        const callbacks = this.actions.get(singleBinding.id);
+        if (callbacks && callbacks.size > 0) {
+          e.preventDefault();
+          e.stopPropagation();
+          callbacks.forEach(cb => cb());
+          return true;
+        }
+      }
+
+    // No more cases; return false
+
     return false;
+  }
+
+  private setPendingChord(chord: string) {
+    this.clearPendingChord();
+    this.pendingChord = chord;
+    this.notifyListeners();
+    this.pendingTimeout = window.setTimeout(() => {
+      // Timeout reached: if there is a single-binding for this chord, execute it
+      const singleBinding = this.bindings.find(b => normalizeKeyCombo(b.combo) === chord && !b.combo.includes(' '));
+      if (singleBinding) {
+        const callbacks = this.actions.get(singleBinding.id);
+        try {
+          if (callbacks) {
+            callbacks.forEach(cb => cb());
+          }
+        } catch (err) {
+          console.error('[KeyBindings] Error executing single binding after chord timeout', err);
+        }
+      }
+      this.clearPendingChord();
+    }, this.CHORD_TIMEOUT_MS) as unknown as number;
+  }
+
+  private clearPendingChord() {
+    this.pendingChord = null;
+    if (this.pendingTimeout) {
+      clearTimeout(this.pendingTimeout);
+      this.pendingTimeout = null;
+    }
+    this.notifyListeners();
+  }
+
+  getActiveChord(): string | null {
+    return this.pendingChord;
+  }
+
+  // Public API to clear the active chord (used by UI components)
+  clearActiveChord(): void {
+    this.clearPendingChord();
   }
 
   /**
@@ -172,6 +279,7 @@ if (typeof window !== 'undefined') {
  */
 export function useKeyBindings() {
   const [bindings, setBindings] = useState<Binding[]>(keyBindingsManager.getBindings());
+  const [activeChord, setActiveChord] = useState<string | null>(keyBindingsManager.getActiveChord?.() || null);
   const actionsRef = useRef<Map<string, () => void>>(new Map());
 
   // 初期化とリスナー登録
@@ -182,6 +290,7 @@ export function useKeyBindings() {
 
     const unsubscribe = keyBindingsManager.addListener(() => {
       setBindings(keyBindingsManager.getBindings());
+      setActiveChord(keyBindingsManager.getActiveChord());
     });
 
     return unsubscribe;
@@ -213,6 +322,8 @@ export function useKeyBindings() {
     registerAction,
     getKeyCombo,
     updateBindings,
+    activeChord,
+    clearActiveChord: () => { keyBindingsManager.clearActiveChord(); },
   };
 }
 

@@ -1,5 +1,7 @@
+ 'use client';
 import { Loader2Icon, CheckCircle2 } from 'lucide-react';
 import React, { useEffect, useState, useRef } from 'react';
+import { useKeyBindings, formatKeyComboForDisplay } from '@/hooks/useKeyBindings';
 
 import { syncManager } from '@/engine/core/syncManager';
 
@@ -82,6 +84,9 @@ export default function BottomStatusBar({
     };
   }, [isSyncing]);
 
+  // Show active chord if any
+  const { activeChord, clearActiveChord } = useKeyBindings();
+
   return (
     <div
       className="select-none"
@@ -105,6 +110,27 @@ export default function BottomStatusBar({
       </div>
       <div style={{ color: colors.mutedFg }}>|</div>
       <div style={{ color: colors.mutedFg }}>{gitChangesCount} changes</div>
+      {activeChord && (
+        <div
+          style={{
+            marginLeft: 8,
+            padding: '4px 8px',
+            borderRadius: 6,
+            background: colors.cardBg,
+            border: `1px solid ${colors.border}`,
+            color: colors.fg,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            cursor: 'pointer',
+          }}
+          title="Press next key for chord or click to cancel"
+          onClick={() => clearActiveChord()}
+        >
+          <span style={{ opacity: 0.7, fontSize: 12 }}>Chord:</span>
+          <strong style={{ fontSize: 12 }}>{formatKeyComboForDisplay(activeChord)}</strong>
+        </div>
+      )}
       <div style={{ marginLeft: 'auto', color: colors.mutedFg }}>
         {/* sync status + node runtime status */}
         <span style={{ marginRight: 12, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
@@ -128,6 +154,7 @@ export default function BottomStatusBar({
           )}
         </span>
         <span>{nodeRuntimeBusy ? 'Node runtime: busy' : 'Ready'}</span>
+        {/* chord badge moved to left side after gitChangesCount */}
       </div>
     </div>
   );
