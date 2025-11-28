@@ -10,7 +10,7 @@ import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 
-import { HighlightedCode } from './HighlightedCode';
+import InlineHighlightedCode from './InlineHighlightedCode';
 
 import 'katex/dist/katex.min.css';
 // Note: bracket-style math (\(...\), \[...\]) can be lost by the markdown parser
@@ -651,7 +651,7 @@ const MemoizedCodeComponent = React.memo<{
 
   if (className && match) {
     return (
-      <HighlightedCode
+      <InlineHighlightedCode
         language={match[1] || ''}
         value={codeString}
       />
@@ -754,7 +754,7 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ activeTab, curr
           );
         }
         return (
-          <HighlightedCode
+          <InlineHighlightedCode
             language={match ? match[1] : ''}
             value={codeString}
             plain={true}

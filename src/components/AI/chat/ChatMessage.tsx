@@ -6,6 +6,8 @@ import { FileCode, Clock, Copy, Check } from 'lucide-react';
 import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import InlineHighlightedCode from '@/components/Tab/InlineHighlightedCode';
+import LocalImage from '@/components/Tab/LocalImage';
 
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -17,161 +19,7 @@ interface ChatMessageProps {
   onRevert?: (message: ChatSpaceMessage) => Promise<void>;
 }
 
-// コードブロック用コンポーネント
-function CodeBlock({
-  language,
-  value,
-  isDark,
-}: {
-  language: string;
-  value: string;
-  isDark: boolean;
-}) {
-  const [copied, setCopied] = useState(false);
-  const { t } = useTranslation();
-
-  // 修正版: トークン単位で処理してHTMLタグの二重エスケープを防ぐ
-  const highlight = (code: string, lang: string) => {
-    const tokens: Array<{ type: string; value: string }> = [];
-    let remaining = code;
-
-    // 色の定義
-    const colors = {
-      keyword: isDark ? '#569cd6' : '#0000ff',
-      function: isDark ? '#dcdcaa' : '#795e26',
-      string: isDark ? '#ce9178' : '#a31515',
-      comment: isDark ? '#6a9955' : '#008000',
-      number: isDark ? '#b5cea8' : '#098658',
-      operator: isDark ? '#d4d4d4' : '#333',
-      property: isDark ? '#9cdcfe' : '#001080',
-      punctuation: isDark ? '#d4d4d4' : '#000000',
-    };
-
-    // パターンの優先順位順に処理
-    const patterns = [
-      // コメント (複数行)
-      { type: 'comment', regex: /^\/\*[\s\S]*?\*\// },
-      // コメント (単一行) - 行末まで
-      { type: 'comment', regex: /^\/\/[^\n]*/ },
-      // 文字列 (ダブルクォート)
-      { type: 'string', regex: /^"(?:[^"\\]|\\[\s\S])*?"/ },
-      // 文字列 (シングルクォート)
-      { type: 'string', regex: /^'(?:[^'\\]|\\[\s\S])*?'/ },
-      // テンプレートリテラル
-      { type: 'string', regex: /^`(?:[^`\\]|\\[\s\S])*?`/ },
-      // 関数呼び出し (識別子の後に括弧)
-      { type: 'function', regex: /^[a-zA-Z_$][a-zA-Z0-9_$]*(?=\s*\()/ },
-      // キーワード
-      {
-        type: 'keyword',
-        regex:
-          /^(?:abstract|arguments|await|boolean|break|byte|case|catch|char|class|const|continue|debugger|default|delete|do|double|else|enum|eval|export|extends|false|final|finally|float|for|function|goto|if|implements|import|in|instanceof|int|interface|let|long|native|new|null|package|private|protected|public|return|short|static|super|switch|synchronized|this|throw|throws|transient|true|try|typeof|var|void|volatile|while|with|yield|async|of|as|from|get|set)\b/,
-      },
-      // プロパティアクセス (.property)
-      { type: 'property', regex: /^\.([a-zA-Z_$][a-zA-Z0-9_$]*)/ },
-      // 数値 (16進数、浮動小数点、整数)
-      { type: 'number', regex: /^(?:0x[0-9a-fA-F]+|0b[01]+|0o[0-7]+|\d+\.?\d*(?:[eE][+-]?\d+)?)\b/ },
-      // 演算子
-      { type: 'operator', regex: /^(?:===|!==|==|!=|<=|>=|<<|>>|>>>|&&|\|\||[+\-*/%<>!|&^~?:])/ },
-      // 括弧や区切り文字
-      { type: 'punctuation', regex: /^[(){}\[\];,.]/ },
-      // 空白
-      { type: 'whitespace', regex: /^[\s]+/ },
-      // 識別子
-      { type: 'identifier', regex: /^[a-zA-Z_$][a-zA-Z0-9_$]*/ },
-      // その他の文字
-      { type: 'text', regex: /^./ },
-    ];
-
-    // トークン化
-    while (remaining.length > 0) {
-      let matched = false;
-
-      for (const pattern of patterns) {
-        const match = remaining.match(pattern.regex);
-        if (match) {
-          tokens.push({ type: pattern.type, value: match[0] });
-          remaining = remaining.slice(match[0].length);
-          matched = true;
-          break;
-        }
-      }
-
-      // どのパターンにもマッチしない場合（念のため）
-      if (!matched) {
-        tokens.push({ type: 'text', value: remaining[0] });
-        remaining = remaining.slice(1);
-      }
-    }
-
-    // トークンをHTMLに変換
-    const htmlParts = tokens.map(token => {
-      // HTMLエスケープ
-      const escaped = token.value
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
-
-      // スタイル適用
-      switch (token.type) {
-        case 'keyword':
-          return `<span style="color:${colors.keyword}; font-weight:600">${escaped}</span>`;
-        case 'function':
-          return `<span style="color:${colors.function}; font-weight:500">${escaped}</span>`;
-        case 'string':
-          return `<span style="color:${colors.string}">${escaped}</span>`;
-        case 'comment':
-          return `<span style="color:${colors.comment}; font-style:italic">${escaped}</span>`;
-        case 'number':
-          return `<span style="color:${colors.number}">${escaped}</span>`;
-        case 'operator':
-          return `<span style="color:${colors.operator}">${escaped}</span>`;
-        case 'property':
-          return `<span style="color:${colors.property}">${escaped}</span>`;
-        case 'punctuation':
-          return `<span style="color:${colors.punctuation}">${escaped}</span>`;
-        case 'whitespace':
-          return escaped;
-        case 'identifier':
-          return `<span style="color:${colors.property}">${escaped}</span>`;
-        default:
-          return escaped;
-      }
-    });
-
-    return `<pre class="overflow-x-auto text-xs p-3 min-h-[48px] font-mono" style="font-size:13px;margin:0;">${htmlParts.join('')}</pre>`;
-  };
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1200);
-    } catch (e) {
-      console.error('Copy failed:', e);
-    }
-  };
-
-  return (
-    <div className="relative group/code my-2 rounded-lg overflow-hidden">
-      <button
-        onClick={handleCopy}
-        className="absolute top-2 right-2 p-1.5 rounded opacity-0 group-hover/code:opacity-100 transition-opacity z-10"
-        style={{
-          background: 'rgba(0, 0, 0, 0.7)',
-          color: '#fff',
-        }}
-        title={t('ai.chatMessage.copyCode')}
-      >
-        {copied ? <Check size={16} /> : <Copy size={16} />}
-      </button>
-      <div
-        className="overflow-x-auto"
-        dangerouslySetInnerHTML={{ __html: highlight(String(value), language) }}
-      />
-    </div>
-  );
-}
+// InlineHighlightedCode is used for syntax highlighting
 
 export default function ChatMessage({ message, compact = false, onRevert }: ChatMessageProps) {
   const { colors, highlightTheme } = useTheme();
@@ -204,10 +52,9 @@ export default function ChatMessage({ message, compact = false, onRevert }: Chat
 
                 if (!inline && language) {
                   return (
-                    <CodeBlock
+                    <InlineHighlightedCode
                       language={language}
                       value={String(children).replace(/\n$/, '')}
-                      isDark={isDark}
                     />
                   );
                 }
@@ -299,6 +146,14 @@ export default function ChatMessage({ message, compact = false, onRevert }: Chat
                 >
                   {children}
                 </a>
+              ),
+              // 画像: LocalImage を使ってローカルパスを解決
+              img: ({ node, src, alt, ...props }: any) => (
+                <LocalImage
+                  src={typeof src === 'string' ? src : ''}
+                  alt={alt || ''}
+                  {...props}
+                />
               ),
             }}
           >

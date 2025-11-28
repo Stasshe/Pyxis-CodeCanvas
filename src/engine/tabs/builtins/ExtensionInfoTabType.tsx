@@ -6,6 +6,8 @@ import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import rehypeSanitize from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
+import InlineHighlightedCode from '@/components/Tab/InlineHighlightedCode';
+import LocalImage from '@/components/Tab/LocalImage';
 
 import { TabTypeDefinition, TabComponentProps, ExtensionInfoTab } from '../types';
 
@@ -155,12 +157,12 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
                       remarkPlugins={[remarkGfm]}
                       rehypePlugins={[rehypeRaw, rehypeSanitize]}
                       components={{
-                        img: (props: any) => (
-                          // ensure images do not overflow
-                          // eslint-disable-next-line jsx-a11y/alt-text
-                          <img
+                        img: ({ node, src, alt, ...props }: any) => (
+                          <LocalImage
+                            src={typeof src === 'string' ? src : ''}
+                            alt={alt || ''}
+                            // manifest readmes are not project-scoped, so do not pass projectName/projectId
                             {...props}
-                            style={{ maxWidth: '100%', height: 'auto' }}
                           />
                         ),
                         pre: (props: any) => (
@@ -173,18 +175,28 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
                             }}
                           />
                         ),
-                        code: (props: any) => {
-                          const { inline, className, children, ...rest } = props;
+                        code: ({ node, inline, className, children, ...props }: any) => {
+                          const match = /language-(\w+)/.exec(className || '');
+                          const lang = match ? match[1] : '';
+                          const codeString = String(children).replace(/\n$/, '');
+                          if (!inline && lang) {
+                            return (
+                              <InlineHighlightedCode
+                                language={lang}
+                                value={codeString}
+                              />
+                            );
+                          }
                           return (
                             <code
-                              {...rest}
+                              {...props}
                               className={className}
                               style={{
                                 whiteSpace: inline ? 'normal' : 'pre',
                                 display: inline ? 'inline' : 'block',
                               }}
                             >
-                              {String(children)}
+                              {codeString}
                             </code>
                           );
                         },
