@@ -30,6 +30,7 @@ export default function OutputPanel({ messages, onClearDisplayed }: OutputPanelP
   const { t } = useTranslation();
   const [contextFilter, setContextFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState<OutputType | 'all'>('all');
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'error'>('idle');
 
   const contextList = useMemo(() => {
     const set = new Set<string>();
@@ -150,6 +151,51 @@ export default function OutputPanel({ messages, onClearDisplayed }: OutputPanelP
           title={t('bottom.outputPanel.clearTooltip')}
         >
           {t('bottom.outputPanel.clear')}
+        </button>
+        {/* コピー（表示中すべて） */}
+        <button
+          onClick={async () => {
+            const lines = filtered.map(msg => {
+              const type = msg.type || 'info';
+              const ctx = msg.context ? `(${msg.context}) ` : '';
+              const count = msg.count && msg.count > 1 ? ` ×${msg.count}` : '';
+              return `[${type}] ${ctx}${msg.message}${count}`;
+            });
+            const text = lines.join('\n');
+            try {
+              if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(text);
+              } else {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.setAttribute('readonly', '');
+                ta.style.position = 'absolute';
+                ta.style.left = '-9999px';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+              }
+              setCopyStatus('copied');
+              setTimeout(() => setCopyStatus('idle'), 1800);
+            } catch (e) {
+              setCopyStatus('error');
+              setTimeout(() => setCopyStatus('idle'), 1800);
+            }
+          }}
+          style={{
+            marginLeft: 6,
+            padding: '4px 8px',
+            fontSize: '10px',
+            borderRadius: 3,
+            border: `1px solid ${colors.border}`,
+            background: colors.mutedBg,
+            color: colors.editorFg,
+            cursor: 'pointer',
+          }}
+          title="Copy Log"
+        >
+          {copyStatus === 'copied' ? 'Copied' : 'Copy'}
         </button>
       </div>
       {filtered.length === 0 ? (
