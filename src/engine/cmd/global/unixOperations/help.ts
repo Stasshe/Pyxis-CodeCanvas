@@ -650,7 +650,148 @@ Node Runtime:
   git push                     - リモートにプッシュ
   git remote -v                - リモート一覧を表示
 
-詳細は 'help git-<command>' で確認してください。`,
+詳細は 'help git <command>' で確認してください。`,
+
+      'git clone': `git clone - リモートリポジトリをクローン
+
+使用法:
+  git clone <repository-url> [directory]
+
+説明:
+  指定したリポジトリをプロジェクト内にクローンします。URLは http(s):// または git:// で始まる必要があります。
+  クローン後、ファイルは IndexedDB に同期されます。`,
+
+      'git status': `git status - 作業ツリーの状態を表示
+
+使用法:
+  git status
+
+説明:
+  変更されたファイルやステージされたファイルの一覧を表示します。`,
+
+      'git add': `git add - ファイルをステージングエリアに追加
+
+使用法:
+  git add <path>
+
+説明:
+  指定ファイルを次回のコミット対象に追加します。ワイルドカード対応。`,
+
+      'git commit': `git commit - コミットを作成
+
+使用法:
+  git commit -m "message"
+
+説明:
+  ステージ済みの変更をコミットします。-m でメッセージを指定してください。`,
+
+      'git log': `git log - コミット履歴を表示
+
+使用法:
+  git log
+
+説明:
+  リポジトリのコミット履歴を表示します。`,
+
+      'git checkout': `git checkout - ブランチまたはコミットに切り替え
+
+使用法:
+  git checkout <branch>
+  git checkout -b <new-branch>
+
+説明:
+  既存ブランチに切り替えるか、-b で新規作成して切り替えます。`,
+
+      'git switch': `git switch - ブランチを切り替える（新オプション）
+
+使用法:
+  git switch <branch>
+  git switch -c <new-branch>
+
+説明:
+  より直感的にブランチを切り替えるためのコマンドです。`,
+
+      'git branch': `git branch - ブランチ一覧/作成/削除
+
+使用法:
+  git branch [-d|-D|-a|-r] [name]
+
+説明:
+  ブランチを一覧表示、作成、または -d/-D で削除します。-a で全て、-r でリモートのみを表示します。`,
+
+      'git revert': `git revert - コミットを取り消す新しいコミットを作成
+
+使用法:
+  git revert <commit>
+
+説明:
+  指定コミットの変更を打ち消す新しいコミットを作成します。`,
+
+      'git reset': `git reset - インデックス/作業ツリーをリセット
+
+使用法:
+  git reset [--hard <commit>] [file]
+
+説明:
+  --hard を指定すると指定コミットまで作業ツリーとインデックスを強制的に戻します。`,
+
+      'git diff': `git diff - 変更差分を表示
+
+使用法:
+  git diff [options] [commit1 commit2] [-- file]
+
+説明:
+  ステージ前の差分やコミット間の差分を表示します。--staged/--cached オプション対応。`,
+
+      'git merge': `git merge - ブランチをマージ
+
+使用法:
+  git merge [--no-ff] [-m "message"] <branch>
+
+説明:
+  指定ブランチを現在のブランチにマージします。--no-ff や -m に対応。`,
+
+      'git push': `git push - リモートにプッシュ
+
+使用法:
+  git push [remote] [branch] [--force]
+
+説明:
+  コミットをリモートに送信します。--force で強制プッシュを行います。`,
+
+      'git remote': `git remote - リモートリポジトリ操作
+
+使用法:
+  git remote -v
+  git remote add <name> <url>
+  git remote remove <name>
+
+説明:
+  リモートの追加/削除/一覧表示を行います。`,
+
+      'git show': `git show - コミットやファイルの詳細表示
+
+使用法:
+  git show <commit|file>
+
+説明:
+  指定コミットやファイルの内容・差分を表示します。`,
+
+      'git fetch': `git fetch - リモートの更新を取得
+
+使用法:
+  git fetch [remote] [branch]
+
+説明:
+  指定リモート/ブランチの更新を取得します。`,
+
+      'git pull': `git pull - リモートから取得してマージ
+
+使用法:
+  git pull [remote] [branch]
+
+説明:
+  fetch と merge を連続で実行します。`,
 
       npm: `NPM - Node.jsパッケージマネージャー
 
@@ -668,6 +809,46 @@ Node Runtime:
   npm install react            - Reactをインストール
   npm install --save-dev jest  - Jestを開発依存関係として追加
   npm run build                - ビルドスクリプトを実行`,
+
+      'npm-install': `npm install - パッケージをインストール
+
+使用法:
+  npm install [package] [--save-dev|-D]
+
+説明:
+  package.json の依存関係を IndexedDB 内に反映し、必要なパッケージをダウンロードして node_modules 配下に配置します（シミュレート/最適化実装）。`,
+
+      'npm-uninstall': `npm uninstall - パッケージをアンインストール
+
+使用法:
+  npm uninstall <package>
+
+説明:
+  package.json と node_modules（IndexedDB）から指定パッケージを削除します。`,
+
+      'npm-list': `npm list - 依存関係一覧を表示
+
+使用法:
+  npm list
+
+説明:
+  package.json に記載された依存関係をツリー形式で表示します（IndexedDB ベース）。`,
+
+      'npm-init': `npm init - package.json を作成
+
+使用法:
+  npm init [--force]
+
+説明:
+  プロジェクトの package.json を作成します。--force で上書きします。`,
+
+      'npm-run': `npm run - package.json のスクリプト実行
+
+使用法:
+  npm run <script>
+
+説明:
+  package.json の scripts に定義されたコマンドを StreamShell 上で実行します。`,
 
       node: `Node.js - JavaScriptランタイム
 
