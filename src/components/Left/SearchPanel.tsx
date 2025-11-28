@@ -367,6 +367,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
                     />
                     <span
                       style={{
+                        color: colors.foreground,
                         fontWeight: 600,
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
