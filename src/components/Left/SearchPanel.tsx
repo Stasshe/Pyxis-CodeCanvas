@@ -1,11 +1,12 @@
-import { Search, X, FileText, ChevronDown, ChevronRight } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { Search, X, FileText, ChevronDown, ChevronRight, File, Edit3, Repeat } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useSettings } from '@/hooks/useSettings';
 import { useTabStore } from '@/stores/tabStore';
 import { FileItem } from '@/types';
+import { fileRepository } from '@/engine/core/fileRepository';
 
 interface SearchPanelProps {
   files: FileItem[];
@@ -31,7 +32,14 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
   const [caseSensitive, setCaseSensitive] = useState(false);
   const [wholeWord, setWholeWord] = useState(false);
   const [useRegex, setUseRegex] = useState(false);
+  const [searchInFilenames, setSearchInFilenames] = useState(false);
+  const [replaceQuery, setReplaceQuery] = useState('');
+  const [selectedIndex, setSelectedIndex] = useState(0);
   const { isExcluded } = useSettings(projectId);
+  const minQueryLength = 2; // 最低何文字で検索を開始するか
+  const debounceDelay = 400; // ms
+  const searchTimer = useRef<number | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   // 全ファイルを再帰的に取得（isExcludedを適用）
   const getAllFiles = (items: FileItem[]): FileItem[] => {
@@ -76,6 +84,24 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
       }
 
       allFiles.forEach(file => {
+        // ファイル名/パスも検索対象にするオプション
+        if (searchInFilenames) {
+          const targetName = `${file.name} ${file.path}`;
+          let m;
+          const localRegex = new RegExp(searchRegex.source, searchRegex.flags);
+          while ((m = localRegex.exec(targetName)) !== null) {
+            results.push({
+              file,
+              line: 0,
+              column: m.index + 1,
+              content: targetName,
+              matchStart: m.index,
+              matchEnd: m.index + m[0].length,
+            });
+            if (!localRegex.global) break;
+          }
+        }
+
         if (!file.content) return;
 
         const lines = file.content.split('\n');
@@ -88,7 +114,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
               file,
               line: lineIndex + 1,
               column: match.index + 1,
-              content: line, // trim()を外す
+              content: line,
               matchStart: match.index,
               matchEnd: match.index + match[0].length,
             });
@@ -108,14 +134,44 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     }
   };
 
-  // 検索クエリが変更された時の処理（デバウンス）
+  // 検索クエリが変更された時の処理（デバウンス + min length）
   useEffect(() => {
-    const timer = setTimeout(() => {
-      performSearch(searchQuery);
-    }, 300);
+    // clear any existing timer
+    if (searchTimer.current) {
+      window.clearTimeout(searchTimer.current);
+      searchTimer.current = null;
+    }
 
-    return () => clearTimeout(timer);
+    if (!searchQuery || searchQuery.length < minQueryLength) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+    // schedule search after debounceDelay
+    searchTimer.current = window.setTimeout(() => {
+      performSearch(searchQuery);
+    }, debounceDelay);
+
+    return () => {
+      if (searchTimer.current) {
+        window.clearTimeout(searchTimer.current);
+        searchTimer.current = null;
+      }
+    };
   }, [searchQuery, caseSensitive, wholeWord, useRegex, files]);
+
+  // flattened results for keyboard navigation
+  const flatResults = searchResults;
+  const currentSelected = flatResults[selectedIndex] || null;
+
+  useEffect(() => {
+    // keep selection within bounds
+    if (selectedIndex >= flatResults.length) {
+      setSelectedIndex(Math.max(0, flatResults.length - 1));
+    }
+  }, [flatResults.length]);
 
   const handleResultClick = (result: SearchResult) => {
     // localStorageのpyxis-defaultEditorを参照しisCodeMirrorを明示的に付与
@@ -137,6 +193,97 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
       jumpToLine: result.line,
       jumpToColumn: result.column,
     });
+  };
+
+  const handleReplaceResult = async (result: SearchResult, replacement: string) => {
+    // allow empty replacement (deletion)
+    try {
+      const projId = projectId;
+      const filePath = result.file.path;
+
+      if (result.line === 0) {
+        // Skip filename/path replacement — renaming is not supported from search panel
+        console.info('Skipping filename replace from SearchPanel');
+        return;
+      } else {
+        const fileEntry = await fileRepository.getFileByPath(projId, filePath);
+        if (!fileEntry || typeof fileEntry.content !== 'string') throw new Error('file not found or not text');
+        const lines = fileEntry.content.split('\n');
+        const lineIdx = result.line - 1;
+        const line = lines[lineIdx] || '';
+        const before = line.substring(0, result.matchStart);
+        const after = line.substring(result.matchEnd);
+        lines[lineIdx] = before + replacement + after;
+        const updatedContent = lines.join('\n');
+        const updated: any = { ...fileEntry, content: updatedContent, updatedAt: new Date() };
+        await fileRepository.saveFile(updated);
+      }
+
+      performSearch(searchQuery);
+    } catch (e) {
+      console.error('Replace error', e);
+    }
+  };
+
+  const handleReplaceAllInFile = async (file: FileItem, replacement: string) => {
+    // allow empty replacement (deletion)
+    try {
+      const projId = projectId;
+      const fileEntry = await fileRepository.getFileByPath(projId, file.path);
+      if (!fileEntry || typeof fileEntry.content !== 'string') return;
+      const flags = caseSensitive ? 'g' : 'gi';
+      const pattern = useRegex ? searchQuery : searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(wholeWord && !useRegex ? `\\b${pattern}\\b` : pattern, flags);
+      const updatedContent = fileEntry.content.replace(regex, replacement);
+      const updated: any = { ...fileEntry, content: updatedContent, updatedAt: new Date() };
+      await fileRepository.saveFile(updated);
+      performSearch(searchQuery);
+    } catch (e) {
+      console.error('Replace all error', e);
+    }
+  };
+
+  const handleReplaceAllResults = async (replacement: string) => {
+    try {
+      const flags = caseSensitive ? 'g' : 'gi';
+      const pattern = useRegex ? searchQuery : searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(wholeWord && !useRegex ? `\\b${pattern}\\b` : pattern, flags);
+
+      const filesUpdated = new Set<string>();
+      for (const r of searchResults) {
+        const filePath = r.file.path;
+        if (filesUpdated.has(filePath)) continue;
+        const fileEntry = await fileRepository.getFileByPath(projectId, filePath);
+        if (!fileEntry || typeof fileEntry.content !== 'string') continue;
+        const updatedContent = fileEntry.content.replace(regex, replacement);
+        const updated: any = { ...fileEntry, content: updatedContent, updatedAt: new Date() };
+        await fileRepository.saveFile(updated);
+        filesUpdated.add(filePath);
+      }
+
+      performSearch(searchQuery);
+    } catch (e) {
+      console.error('Replace all results error', e);
+    }
+  };
+
+  const handleKeyDown = (e: any) => {
+    if (flatResults.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedIndex(i => Math.min(flatResults.length - 1, i + 1));
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedIndex(i => Math.max(0, i - 1));
+      return;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const r = flatResults[selectedIndex];
+      if (r) handleResultClick(r);
+    }
   };
 
   const highlightMatch = (content: string, matchStart: number, matchEnd: number) => {
@@ -174,7 +321,12 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
   };
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', fontSize: '0.68rem' }}>
+    <div
+      ref={containerRef}
+      tabIndex={0}
+      onKeyDown={handleKeyDown}
+      style={{ height: '100%', display: 'flex', flexDirection: 'column', fontSize: '0.68rem' }}
+    >
       {/* 検索入力エリア */}
       <div style={{ padding: '0.3rem', borderBottom: `1px solid ${colors.border}` }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.12rem' }}>
@@ -194,6 +346,19 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  // immediate search on Enter if query long enough
+                  if (searchTimer.current) {
+                    window.clearTimeout(searchTimer.current);
+                    searchTimer.current = null;
+                  }
+                  if (searchQuery && searchQuery.length >= minQueryLength) {
+                    setIsSearching(true);
+                    performSearch(searchQuery);
+                  }
+                }
+              }}
               placeholder={t('searchPanel.searchInFiles')}
               style={{
                 width: '100%',
@@ -276,6 +441,85 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
             >
               .*
             </button>
+            <button
+              onClick={() => setSearchInFilenames(!searchInFilenames)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.28rem',
+                padding: '0.16rem 0.32rem',
+                fontSize: '0.62rem',
+                borderRadius: '0.3125rem',
+                border: `1px solid ${searchInFilenames ? colors.accentBg : colors.border}`,
+                background: searchInFilenames ? colors.accentBg : colors.mutedBg,
+                color: searchInFilenames ? colors.accentFg : colors.mutedFg,
+                cursor: 'pointer',
+              }}
+              title="Search filenames"
+            >
+              <File size={12} color={searchInFilenames ? colors.accentFg : colors.mutedFg} />
+            </button>
+          </div>
+
+          {/* 置換入力（全体） */}
+          <div style={{ display: 'flex', gap: '0.12rem', marginTop: '0.12rem' }}>
+            <input
+              type="text"
+              value={replaceQuery}
+              onChange={e => setReplaceQuery(e.target.value)}
+              placeholder="Replace..."
+              style={{
+                flex: 1,
+                padding: '0.14rem 0.28rem',
+                fontSize: '0.62rem',
+                borderRadius: '0.28rem',
+                border: `1px solid ${colors.border}`,
+                background: colors.mutedBg,
+                color: colors.foreground,
+                outline: 'none',
+              }}
+            />
+            <div style={{ display: 'flex', gap: '0.12rem' }}>
+              <button
+                onClick={() => {
+                  const r = flatResults[selectedIndex];
+                  if (r && r.line !== 0) handleReplaceResult(r, replaceQuery);
+                }}
+                title={currentSelected && currentSelected.line === 0 ? 'Replace not available for filename matches' : 'Replace'}
+                disabled={!!(currentSelected && currentSelected.line === 0)}
+                style={{
+                  padding: '0.12rem',
+                  fontSize: '0.62rem',
+                  borderRadius: '0.28rem',
+                  border: `1px solid ${colors.border}`,
+                  background: colors.mutedBg,
+                  color: colors.foreground,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+              >
+                <Edit3 size={14} />
+              </button>
+
+              <button
+                onClick={() => handleReplaceAllResults(replaceQuery)}
+                title="Replace all in results"
+                style={{
+                  padding: '0.12rem',
+                  fontSize: '0.62rem',
+                  borderRadius: '0.28rem',
+                  border: `1px solid ${colors.border}`,
+                  background: colors.mutedBg,
+                  color: colors.foreground,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+              >
+                <Repeat size={14} />
+              </button>
+            </div>
           </div>
 
           {/* 検索結果サマリー */}
@@ -384,64 +628,122 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
                     </span>
                     <span
                       style={{
-                        marginLeft: 'auto',
+                        marginLeft: '0.5rem',
                         color: colors.mutedFg,
                         fontSize: '0.62rem',
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
-                        maxWidth: '45%',
+                        maxWidth: '35%',
                       }}
                     >
                       {first.file.path}
                     </span>
+
+                    {/* Replace all in file button */}
+                    <button
+                      onClick={e => {
+                        e.stopPropagation();
+                        handleReplaceAllInFile(first.file, replaceQuery);
+                      }}
+                      title="Replace all in file"
+                      style={{
+                        marginLeft: 'auto',
+                        padding: '0.12rem 0.3rem',
+                        borderRadius: '0.28rem',
+                        border: `1px solid ${colors.border}`,
+                        background: colors.mutedBg,
+                        color: colors.mutedFg,
+                        fontSize: '0.6rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.25rem',
+                      }}
+                    >
+                      <Repeat size={12} />
+                      All
+                    </button>
                   </div>
 
                   {!isCollapsed && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.12rem' }}>
-                      {group.map((result, idx) => (
-                        <div
-                          key={`${result.file.id}-${result.line}-${idx}`}
-                          onClick={() => handleResultClick(result)}
-                          style={{
-                            padding: '0.12rem',
-                            borderRadius: '0.2rem',
-                            cursor: 'pointer',
-                            background: 'transparent',
-                          }}
-                          onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
-                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                        >
-                          <div style={{ display: 'flex', gap: '0.32rem', alignItems: 'center' }}>
-                            <span
-                              style={{
-                                color: colors.mutedFg,
-                                width: '2.6rem',
-                                flexShrink: 0,
-                                fontSize: '0.62rem',
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.12rem', paddingLeft: '0.8rem' }}>
+                      {group.map((result, idx) => {
+                        const globalIndex = flatResults.indexOf(result);
+                        const isSelected = globalIndex === selectedIndex;
+                        return (
+                          <div
+                            key={`${result.file.id}-${result.line}-${idx}`}
+                            onClick={() => {
+                              setSelectedIndex(globalIndex);
+                              handleResultClick(result);
+                            }}
+                            style={{
+                              padding: '0.12rem',
+                              borderRadius: '0.2rem',
+                              cursor: 'pointer',
+                              background: isSelected ? colors.accentBg : 'transparent',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.32rem',
+                            }}
+                            onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
+                            onMouseLeave={e => (e.currentTarget.style.background = isSelected ? colors.accentBg : 'transparent')}
+                          >
+                            <div style={{ display: 'flex', gap: '0.32rem', alignItems: 'center', flex: 1 }}>
+                              <span
+                                style={{
+                                  color: colors.mutedFg,
+                                  width: '2.6rem',
+                                  flexShrink: 0,
+                                  fontSize: '0.62rem',
+                                }}
+                              >
+                                {result.line}:{result.column}
+                              </span>
+                              <code
+                                style={{
+                                  background: colors.mutedBg,
+                                  padding: '0.08rem 0.26rem',
+                                  borderRadius: '0.2rem',
+                                  color: colors.foreground,
+                                  display: 'block',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                  maxWidth: 'calc(100% - 6rem)',
+                                }}
+                                title={result.content}
+                              >
+                                {highlightMatch(result.content, result.matchStart, result.matchEnd)}
+                              </code>
+                            </div>
+
+                            {/* per-result replace button (VSCode-like) */}
+                            <button
+                              onClick={e => {
+                                e.stopPropagation();
+                                if (result.line !== 0) handleReplaceResult(result, replaceQuery);
                               }}
-                            >
-                              {result.line}:{result.column}
-                            </span>
-                            <code
+                              title={result.line === 0 ? 'Replace not available for filename matches' : 'Replace'}
+                              disabled={result.line === 0}
                               style={{
+                                padding: '0.08rem',
+                                borderRadius: '0.22rem',
+                                border: `1px solid ${colors.border}`,
                                 background: colors.mutedBg,
-                                padding: '0.08rem 0.26rem',
-                                borderRadius: '0.2rem',
                                 color: colors.foreground,
-                                display: 'block',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                                maxWidth: 'calc(100% - 3.2rem)',
+                                cursor: result.line === 0 ? 'not-allowed' : 'pointer',
+                                fontSize: '0.6rem',
+                                display: 'flex',
+                                alignItems: 'center',
                               }}
-                              title={result.content}
                             >
-                              {highlightMatch(result.content, result.matchStart, result.matchEnd)}
-                            </code>
+                              <Edit3 size={12} />
+                            </button>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>

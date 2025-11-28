@@ -1,12 +1,15 @@
+import { VimEditor } from './VimEditor';
 import { fileRepository } from '@/engine/core/fileRepository';
 
-// ミニマムな vim ハンドラ（現時点ではファイル内容を表示するだけのスタブ）
+// Vim command handler that integrates VimEditor with the terminal
 export async function handleVimCommand(
   args: string[],
   unixCommandsRef: { current: any } | null,
   captureWriteOutput: (output: string) => Promise<void> | void,
   currentProject: string,
-  currentProjectId: string
+  currentProjectId: string,
+  xtermInstance?: any,
+  onVimExit?: () => void
 ) {
   const write = async (s: string) => {
     try {
@@ -18,6 +21,12 @@ export async function handleVimCommand(
 
   if (!args || args.length === 0) {
     await write('Usage: vim <file>\n');
+    return;
+  }
+
+  // Check if xterm instance is available
+  if (!xtermInstance) {
+    await write('vim: Terminal instance not available\n');
     return;
   }
 
@@ -33,7 +42,7 @@ export async function handleVimCommand(
       }
     }
   } catch (e) {
-    // resolve 失敗時は元のパスを使う
+    // resolve failed, use original path
     entryPath = args[0];
   }
 
@@ -42,24 +51,47 @@ export async function handleVimCommand(
       ? unixCommandsRef.current.getRelativePathFromProject(entryPath)
       : entryPath;
 
-    const files = await fileRepository.getProjectFiles(currentProjectId);
-    const file = files.find((f: any) => f.path === relativePath);
+    // Try to load existing file
+    let content = '';
+    let isNewFile = false;
 
-    if (!file) {
-      await write(`vim: ファイルが見つかりません: ${args[0]}\n`);
-      await write('ファイルを作成するには `touch <file>` またはエディタで新規作成してください.\n');
-      return;
+    try {
+      const file = await fileRepository.getFileByPath(currentProjectId, relativePath);
+      if (file) {
+        content = file.content || '';
+      } else {
+        isNewFile = true;
+      }
+    } catch (e) {
+      // File doesn't exist, create new
+      isNewFile = true;
     }
 
-    const content = file.content || '';
-    // 行番号付きで表示
-    const lines = content.split('\n');
-    const numbered = lines.map((l: string, i: number) => `${i + 1}\t${l}`).join('\n');
-    await write(`--- ${relativePath} ---\n`);
-    await write(numbered + '\n');
-    await write('\n-- vim (stub) -- 編集は UI のエディタまたは別実装を使用してください --\n');
+    // Extract filename from path
+    const fileName = relativePath.split('/').pop() || relativePath;
+
+    // Create and start Vim editor
+    const vimEditor = new VimEditor(
+      xtermInstance,
+      fileName,
+      content,
+      currentProjectId,
+      relativePath
+    );
+
+    vimEditor.start(() => {
+      // On exit callback
+      if (onVimExit) {
+        onVimExit();
+      }
+    });
+
+    if (isNewFile) {
+      // Note: The message will be shown in the Vim status line
+      // We don't need to write it here as it would interfere with Vim's display
+    }
   } catch (e) {
-    await write(`vim: エラー: ${(e as Error).message}\n`);
+    await write(`vim: Error: ${(e as Error).message}\n`);
   }
 }
 

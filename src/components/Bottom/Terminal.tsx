@@ -488,15 +488,28 @@ function ClientTerminal({
             await handleNPMCommand(args, currentProject, currentProjectId, captureWriteOutput, setLoading);
             break;
 
-          case 'vim':
+
+          case 'vim': {
+            // Store current state to restore after vim exits
+            let vimActive = true;
+            
             await handleVimCommand(
               args,
               unixCommandsRef,
               captureWriteOutput,
               currentProject,
-              currentProjectId
+              currentProjectId,
+              term, // Pass xterm instance
+              () => {
+                // On vim exit callback
+                vimActive = false;
+                term.clear();
+                showPrompt();
+              }
             );
             break;
+          }
+
 
           default: {
             // カスタムコマンドをチェック
