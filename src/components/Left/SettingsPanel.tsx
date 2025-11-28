@@ -27,6 +27,9 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
   // LocalStorageで管理する設定
   const [apiKey, setApiKey] = useState('');
   const [defaultEditor, setDefaultEditor] = useState<'monaco' | 'codemirror'>('monaco');
+  // テキストエリア用のローカル状態 (改行入力を妨げないため)
+  const [searchExcludeText, setSearchExcludeText] = useState('');
+  const [filesExcludeText, setFilesExcludeText] = useState('');
 
   // テーマカラー個別設定 折りたたみ
   const [showColorSettings, setShowColorSettings] = useState(false);
@@ -39,6 +42,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
       try {
         const loadedSettings = await settingsManager.loadSettings(currentProject.id);
         setSettings(loadedSettings);
+
+        // textarea 用の初期値をセット
+        setSearchExcludeText((loadedSettings.search?.exclude || []).join('\n'));
+        setFilesExcludeText((loadedSettings.files?.exclude || []).join('\n'));
 
         // Apply any saved custom colors into the theme context so UI reflects them
         try {
@@ -92,6 +99,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
       } catch (e) {
         console.warn('[SettingsPanel] Failed to reapply customColors on settings update:', e);
       }
+
+      // textarea 用の値も更新
+      setSearchExcludeText((newSettings.search?.exclude || []).join('\n'));
+      setFilesExcludeText((newSettings.files?.exclude || []).join('\n'));
     });
 
     return () => {
@@ -542,12 +553,13 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               {t('settingsPanel.search.excludePattern')}
             </label>
             <textarea
-              value={settings.search.exclude.join('\n')}
-              onChange={e =>
+              value={searchExcludeText}
+              onChange={e => setSearchExcludeText(e.target.value)}
+              onBlur={() =>
                 updateSettings({
                   search: {
                     ...settings.search,
-                    exclude: e.target.value.split('\n').filter(Boolean),
+                    exclude: searchExcludeText.split('\n').filter(Boolean),
                   },
                 })
               }
@@ -605,10 +617,11 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               {t('settingsPanel.files.excludePattern')}
             </label>
             <textarea
-              value={settings.files.exclude.join('\n')}
-              onChange={e =>
+              value={filesExcludeText}
+              onChange={e => setFilesExcludeText(e.target.value)}
+              onBlur={() =>
                 updateSettings({
-                  files: { ...settings.files, exclude: e.target.value.split('\n').filter(Boolean) },
+                  files: { ...settings.files, exclude: filesExcludeText.split('\n').filter(Boolean) },
                 })
               }
               placeholder="**/.git&#10;**/.DS_Store"
