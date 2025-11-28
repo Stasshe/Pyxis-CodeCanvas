@@ -28,9 +28,6 @@ export default function ChatContainer({
   compact = false,
   emptyMessage = 'AIとチャットを開始してください',
   onRevert,
-  onOpenReview,
-  onApplyChanges,
-  onDiscardChanges,
 }: ChatContainerProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
@@ -44,16 +41,14 @@ export default function ChatContainer({
   }, [messages.length, isProcessing]);
 
   // Debug: log messages on each render to inspect which messages contain editResponse
+  // Debug: log message count only to reduce noise (avoid logging full array each render)
   useEffect(() => {
     try {
       console.log('[ChatContainer] messages render, count:', messages.length);
-      messages.forEach(m => {
-        console.log('[ChatContainer] msg:', { id: m.id, type: m.type, mode: m.mode, hasEditResponse: !!m.editResponse });
-      });
     } catch (e) {
       console.warn('[ChatContainer] debug log failed', e);
     }
-  }, [messages]);
+  }, [messages.length, isProcessing]);
 
   return (
     <div

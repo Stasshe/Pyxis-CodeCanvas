@@ -28,6 +28,7 @@ import { useKeyBinding } from '@/hooks/useKeyBindings';
 import { useProjectWelcome } from '@/hooks/useProjectWelcome';
 import { useTabContentRestore } from '@/hooks/useTabContentRestore';
 import { sessionStorage } from '@/stores/sessionStorage';
+import { useOptimizedUIStateSave } from '@/hooks/useOptimizedUIStateSave';
 import { useTabStore } from '@/stores/tabStore';
 import { Project } from '@/types';
 import type { MenuTab } from '@/types';
@@ -111,28 +112,36 @@ export default function Home() {
     restoreUIState();
   }, []);
 
-  // UI状態の自動保存（sessionStorage統合）
+  // UI状態の自動保存（最適化版）
+  const { saveUIState, timerRef: saveTimerRef } = useOptimizedUIStateSave();
+
   useEffect(() => {
     if (isTabsLoading) return; // タブ読み込み中は保存しない
 
-    const timer = setTimeout(async () => {
-      try {
-        const uiState = {
-          leftSidebarWidth,
-          rightSidebarWidth,
-          bottomPanelHeight,
-          isLeftSidebarVisible,
-          isRightSidebarVisible,
-          isBottomPanelVisible,
-        };
-        await sessionStorage.saveUIState(uiState);
-        console.log('[page.tsx] UI state saved to storage');
-      } catch (error) {
-        console.error('[page.tsx] Failed to save UI state:', error);
-      }
-    }, 1000); // 1秒のデバウンス
+    // 前のタイマーが残っていればクリア
+    if (saveTimerRef.current) {
+      window.clearTimeout(saveTimerRef.current);
+    }
 
-    return () => clearTimeout(timer);
+    const uiState = {
+      leftSidebarWidth,
+      rightSidebarWidth,
+      bottomPanelHeight,
+      isLeftSidebarVisible,
+      isRightSidebarVisible,
+      isBottomPanelVisible,
+    };
+
+    // 3秒後に保存（hooks 側で最小間隔や再スケジュールを管理）
+    saveTimerRef.current = window.setTimeout(() => {
+      saveUIState(uiState);
+    }, 3000);
+
+    return () => {
+      if (saveTimerRef.current) {
+        window.clearTimeout(saveTimerRef.current);
+      }
+    };
   }, [
     isTabsLoading,
     leftSidebarWidth,
@@ -141,6 +150,8 @@ export default function Home() {
     isLeftSidebarVisible,
     isRightSidebarVisible,
     isBottomPanelVisible,
+    saveUIState,
+    saveTimerRef,
   ]);
 
   // メニュータブクリック
@@ -420,7 +431,7 @@ export default function Home() {
               />
               <RightSidebar
                 rightSidebarWidth={rightSidebarWidth}
-                onResize={() => {}}
+                onResize={handleRightResize}
                 projectFiles={projectFiles}
                 currentProject={currentProject}
                 currentProjectId={currentProject?.id || ''}
