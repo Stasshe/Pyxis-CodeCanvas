@@ -124,24 +124,36 @@ export const useChatSpace = (projectId: string | null) => {
     editResponse?: AIEditResponse,
     options?: { parentMessageId?: string; action?: 'apply' | 'revert' | 'note' }
   ): Promise<ChatSpaceMessage | null> => {
-    if (!currentSpace) {
-      console.error('[useChatSpace] No current space available for adding message');
-      return null;
+    // Ensure we have an active space. If none exists, create one automatically.
+    let activeSpace = currentSpace;
+    if (!activeSpace) {
+      console.warn('[useChatSpace] No current space available - creating a new one');
+      try {
+        const created = await createNewSpace();
+        if (!created) {
+          console.error('[useChatSpace] Failed to create chat space for adding message');
+          return null;
+        }
+        activeSpace = created;
+        // ensure state reflects the new space
+        setCurrentSpace(created);
+      } catch (e) {
+        console.error('[useChatSpace] Error creating chat space:', e);
+        return null;
+      }
     }
 
     try {
       if (
-        currentSpace.messages.length === 0 &&
+        (activeSpace.messages || []).length === 0 &&
         type === 'user' &&
         content &&
         content.trim().length > 0
       ) {
         const newName = content.length > 30 ? content.slice(0, 30) + '…' : content;
-        await chatStore.renameChatSpace(currentSpace.id, newName);
+        await chatStore.renameChatSpace(activeSpace.id, newName);
         setCurrentSpace(prev => (prev ? { ...prev, name: newName } : prev));
-        setChatSpaces(prev =>
-          prev.map(space => (space.id === currentSpace.id ? { ...space, name: newName } : space))
-        );
+        setChatSpaces(prev => prev.map(s => (s.id === activeSpace!.id ? { ...s, name: newName } : s)));
       }
 
       // NOTE: Previously we attempted to merge assistant edit responses into an
@@ -156,13 +168,13 @@ export const useChatSpace = (projectId: string | null) => {
       // of appending a duplicate. This prevents duplicate 'Applied'/'Reverted'
       // notifications when multiple UI flows record the same event.
       if (options?.parentMessageId && options?.action) {
-        const dup = currentSpace.messages.find(
+        const dup = (activeSpace.messages || []).find(
           m => m.parentMessageId === options.parentMessageId && m.action === options.action && m.type === type && m.mode === mode
         );
         if (dup) return dup;
       }
 
-      const newMessage = await chatStore.addMessageToChatSpace(currentSpace.id, {
+      const newMessage = await chatStore.addMessageToChatSpace(activeSpace.id, {
         type,
         content,
         timestamp: new Date(),
@@ -171,7 +183,7 @@ export const useChatSpace = (projectId: string | null) => {
         editResponse,
         parentMessageId: options?.parentMessageId,
         action: options?.action,
-      } as any);
+      } as ChatSpaceMessage);
 
       setCurrentSpace(prev => {
         if (!prev) return null;
@@ -183,18 +195,16 @@ export const useChatSpace = (projectId: string | null) => {
 
       // Debug: log the newly appended message and current message counts
       try {
-        console.log('[useChatSpace] Appended message:', { spaceId: currentSpace.id, messageId: newMessage.id, hasEditResponse: !!newMessage.editResponse });
-        const after = (currentSpace.messages || []).length + 1;
+        console.log('[useChatSpace] Appended message:', { spaceId: activeSpace.id, messageId: newMessage.id, hasEditResponse: !!newMessage.editResponse });
+        const after = (activeSpace.messages || []).length + 1;
         console.log('[useChatSpace] messages count after append approx:', after);
       } catch (e) {
         console.warn('[useChatSpace] debug log failed', e);
       }
 
       setChatSpaces(prev => {
-        const updated = prev.map(space =>
-          space.id === currentSpace.id
-            ? { ...space, messages: [...space.messages, newMessage], updatedAt: new Date() }
-            : space
+        const updated = prev.map(s =>
+          s.id === activeSpace!.id ? { ...s, messages: [...s.messages, newMessage], updatedAt: new Date() } : s
         );
         return updated.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
       });

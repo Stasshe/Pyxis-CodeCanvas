@@ -758,9 +758,9 @@ export class VimEditor {
           line = line.slice(0, viewportWidth - 1) + '>';
         }
 
-        this.term.writeln(line);
+        this.term.write(line + '\r\n');
       } else {
-        this.term.writeln('~');
+        this.term.write('~\r\n');
       }
     }
 
@@ -769,7 +769,7 @@ export class VimEditor {
     const modeDisplay = `-- ${this.state.mode} --`;
     const position = `${this.state.cursorRow + 1},${this.state.cursorCol + 1}`;
     const statusLine = `\x1b[7m ${this.state.fileName} ${modifiedFlag}${' '.repeat(Math.max(0, viewportWidth - this.state.fileName.length - modifiedFlag.length - position.length - 2))}${position} \x1b[0m`;
-    this.term.writeln(statusLine);
+    this.term.write(statusLine + '\r\n');
 
     // Render command/message line
     if (this.state.mode === 'COMMAND') {
