@@ -732,15 +732,15 @@ export class VimEditor {
   private render() {
     if (this.disposed) return;
   
-    // Clear screen and move to home - より確実なクリア
-    this.term.write('\x1b[2J\x1b[3J\x1b[H'); // 3J を追加してスクロールバッファもクリア
+    // Clear screen and move to home
+    this.term.write('\x1b[2J\x1b[3J\x1b[H');
   
-    const viewportHeight = this.term.rows - 2;
+    const viewportHeight = this.term.rows - 2; // ステータス行とコマンド行を除く
     const viewportWidth = this.term.cols;
   
     // 最初の行から確実に描画を開始
-    this.term.write('\x1b[1;1H'); // 明示的に1行1列に移動
-
+    this.term.write('\x1b[1;1H');
+  
     // Render visible lines
     for (let i = 0; i < viewportHeight; i++) {
       const lineIdx = this.topLine + i;
@@ -756,25 +756,25 @@ export class VimEditor {
         ) {
           line = `\x1b[7m${line}\x1b[0m`; // Reverse video
         }
-
+  
         // Truncate line if too long
         if (line.length > viewportWidth) {
           line = line.slice(0, viewportWidth - 1) + '>';
         }
-
+  
         this.term.write(line + '\r\n');
       } else {
         this.term.write('~\r\n');
       }
     }
-
+  
     // Render status line
     const modifiedFlag = this.state.modified ? '[+]' : '';
     const modeDisplay = `-- ${this.state.mode} --`;
     const position = `${this.state.cursorRow + 1},${this.state.cursorCol + 1}`;
     const statusLine = `\x1b[7m ${this.state.fileName} ${modifiedFlag}${' '.repeat(Math.max(0, viewportWidth - this.state.fileName.length - modifiedFlag.length - position.length - 2))}${position} \x1b[0m`;
     this.term.write(statusLine + '\r\n');
-
+  
     // Render command/message line
     if (this.state.mode === 'COMMAND') {
       this.term.write(`:${this.state.commandLine}`);
@@ -783,13 +783,12 @@ export class VimEditor {
     } else {
       this.term.write(modeDisplay);
     }
-
-    // Position cursor
-    const screenRow = this.state.cursorRow - this.topLine + 1; // 最初に1-indexedに変換
-    const screenCol = this.state.cursorCol + 1;
+  
+    // Position cursor - +1を削除してみる
+    const screenRow = (this.state.cursorRow - this.topLine);
+    const screenCol = this.state.cursorCol;
     this.term.write(`\x1b[${screenRow};${screenCol}H`);
   }
-
   private exit() {
     this.disposed = true;
     if (this.onExitCallback) {
