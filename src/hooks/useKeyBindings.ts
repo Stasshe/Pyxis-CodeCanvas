@@ -258,8 +258,14 @@ if (typeof window !== 'undefined') {
       const isTextInput =
         target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
 
+      // If we're waiting for chord completion, ALWAYS handle the event
+      // regardless of whether we're in a text input
+      if (keyBindingsManager.getActiveChord()) {
+        keyBindingsManager.handleKeyDown(e);
+        return;
+      }
+
       // Allow shortcuts with modifiers even in text inputs
-      // This prevents Cmd+S from triggering browser "Save Page"
       const hasModifier = e.ctrlKey || e.metaKey || e.altKey;
 
       if (isTextInput && !hasModifier) {
