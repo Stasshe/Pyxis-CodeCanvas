@@ -86,13 +86,13 @@ export async function handleVimCommand(
       }
     });
 
-    if (isNewFile) {
-      // Note: The message will be shown in the Vim status line
-      // We don't need to write it here as it would interfere with Vim's display
-    }
+    // Return VimEditor instance for external control (e.g., ESC button)
+    return vimEditor;
   } catch (e) {
     await write(`vim: Error: ${(e as Error).message}\n`);
   }
+  
+  return null;
 }
 
 export default handleVimCommand;

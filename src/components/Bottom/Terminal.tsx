@@ -21,6 +21,7 @@ interface TerminalProps {
   currentProject?: string;
   currentProjectId?: string;
   isActive?: boolean;
+  onVimModeChange?: (vimEditor: any | null) => void; // Callback for Vim mode changes
 }
 
 // クライアントサイド専用のターミナルコンポーネント
@@ -29,6 +30,7 @@ function ClientTerminal({
   currentProject = 'default',
   currentProjectId = '',
   isActive,
+  onVimModeChange,
 }: TerminalProps) {
   const { colors } = useTheme();
   const terminalRef = useRef<HTMLDivElement>(null);
@@ -39,6 +41,7 @@ function ClientTerminal({
   const npmCommandsRef = useRef<NpmCommands | null>(null);
   const shellRef = useRef<any>(null);
   const spinnerInterval = useRef<NodeJS.Timeout | null>(null);
+  const vimEditorRef = useRef<any>(null); // Track active Vim editor instance
 
   // xterm/fitAddonをrefで保持
   useEffect(() => {
@@ -490,10 +493,10 @@ function ClientTerminal({
 
 
           case 'vim': {
-            // Store current state to restore after vim exits
-            let vimActive = true;
+            // Disable normal terminal input during vim mode
+            vimModeActive = true;
             
-            await handleVimCommand(
+            const vimEditor = await handleVimCommand(
               args,
               unixCommandsRef,
               captureWriteOutput,
@@ -502,11 +505,18 @@ function ClientTerminal({
               term, // Pass xterm instance
               () => {
                 // On vim exit callback
-                vimActive = false;
+                vimModeActive = false; // Re-enable normal terminal input
+                vimEditorRef.current = null;
+                if (onVimModeChange) onVimModeChange(null);
                 term.clear();
                 showPrompt();
               }
             );
+            
+            // Store Vim editor instance for ESC button
+            vimEditorRef.current = vimEditor;
+            if (onVimModeChange) onVimModeChange(vimEditor);
+            
             break;
           }
 
@@ -715,8 +725,10 @@ function ClientTerminal({
     });
 
     // 通常のキー入力
+    let vimModeActive = false; // Flag to disable normal input during vim mode
+    
     term.onData((data: string) => {
-      if (isComposing) return;
+      if (isComposing || vimModeActive) return; // Skip if vim is active
 
       switch (data) {
         case '\r':
