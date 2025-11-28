@@ -335,6 +335,30 @@ export function createFSModule(options: FSModuleOptions) {
     },
 
     /**
+     * 同期的にディレクトリの内容を読み取る
+     * 注意: IndexedDBは同期でアクセスできないため、事前に`preloadFiles()`でキャッシュをロードしておく必要があります。
+     */
+    readdirSync: (path: string, options?: any): string[] => {
+      const { relativePath } = normalizePath(path);
+      const dirPath = relativePath.endsWith('/') ? relativePath : relativePath + '/';
+
+      // メモリキャッシュから直接取得
+      const keys = Array.from(memoryCache.keys());
+      const children = keys
+        .filter(k => k.startsWith(dirPath) && k !== dirPath)
+        .map(k => k.slice(dirPath.length).split('/')[0])
+        .filter((v, i, arr) => v && arr.indexOf(v) === i);
+
+      if (children.length > 0) return children;
+
+      // キャッシュにない場合は同期での取得はできないため警告して空配列を返す
+      console.warn(
+        `⚠️  fs.readdirSync: Directory not preloaded: ${path} (normalized: ${relativePath}). Returning empty array. Call preloadFiles() first.`
+      );
+      return [];
+    },
+
+    /**
      * ファイルを削除
      * [NEW ARCHITECTURE] IndexedDBから削除すれば自動的にGitFileSystemからも削除される
      */

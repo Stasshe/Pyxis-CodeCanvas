@@ -655,6 +655,36 @@ export class StreamShell {
             } catch (e) {
               // ignore parse error
             }
+
+            // If the bin entry omits an extension (e.g. "./index"), try common completions
+            if (resolvedBin) {
+              try {
+                // Normalize any ./ segments (e.g. /node_modules/pkg/./index -> /node_modules/pkg/index)
+                // Also normalize Windows backslashes to forward slashes
+                let cleaned = resolvedBin.replace(/\\/g, '/').replace(/(^|\/)\.\//g, '$1');
+
+                const candidates = [
+                  cleaned,
+                  cleaned + '.js',
+                  cleaned + '.mjs',
+                  cleaned + '.ts',
+                  cleaned + '.tsx',
+                  cleaned + '/index.js',
+                  cleaned + '/index.mjs',
+                  cleaned + '/index.ts'
+                ];
+
+                for (const cand of candidates) {
+                  const f = await this.fileRepository.getFileByPath(this.projectId, cand).catch(() => null);
+                  if (f && f.content) {
+                    resolvedBin = cand;
+                    break;
+                  }
+                }
+              } catch (e) {
+                // ignore lookup errors and keep original resolvedBin
+              }
+            }
           }
 
           // Strategy 2: Fallback to .bin if package lookup failed (e.g. command name != package name)
