@@ -785,9 +785,9 @@ export class VimEditor {
     }
 
     // Position cursor
-    const screenRow = this.state.cursorRow - this.topLine;
-    const screenCol = this.state.cursorCol;
-    this.term.write(`\x1b[${screenRow + 1};${screenCol + 1}H`);
+    const screenRow = this.state.cursorRow - this.topLine + 1; // 最初に1-indexedに変換
+    const screenCol = this.state.cursorCol + 1;
+    this.term.write(`\x1b[${screenRow};${screenCol}H`);
   }
 
   private exit() {
