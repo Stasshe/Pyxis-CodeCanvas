@@ -18,9 +18,50 @@ export function normalizeCjsEsm(code: string): { code: string; dependencies: str
   // Mask import.meta and any chained properties like import.meta.url
   code = code.replace(/import\.meta(?:\.[A-Za-z_$][\w$]*)*/g, m => mask(m));
 
-  // Mask dynamic import(...) tokens so regexes that look for `import ... from` or
-  // other import patterns don't accidentally match the 'import(' sequence.
-  code = code.replace(/\bimport\s*\(/g, m => mask(m));
+  // import(...) -> Promise.resolve(require(...))
+  // Transform dynamic imports to Promise.resolve(require(...)) so they work in the emulated environment.
+  // We handle string literals specifically to ensure quotes are preserved for the dependency extractor.
+  code = code.replace(/\bimport\s*\(\s*(['"])([^'"]+)\1\s*\)/g, 'Promise.resolve(require($1$2$1))');
+
+  // Handle Prettier's specific dynamic import hack: new Function("module", "return import(module)")
+  // This is used to bypass bundlers, but we need to route it to our require system.
+  code = code.replace(
+    /new\s+Function\s*\(\s*(['"])module\1\s*,\s*(['"])return\s+import\(module\)\2\s*\)/g,
+    '((module) => Promise.resolve(require(module)))'
+  );
+
+  // Prettier specific: extract dependencies from dynamicImport("...")
+  // This matches the usage pattern in prettier.cjs to ensure the target module is pre-loaded.
+  code.replace(/\bdynamicImport\s*\(\s*(['"])([^'"]+)\1\s*\)/g, (m, quote, mod) => {
+    // Validate that this looks like a real module path:
+    // - Relative: starts with ./ or ../
+    // - Absolute: starts with /
+    // - Package: starts with letter or @
+    // - Must not contain invalid characters like parentheses, commas, exclamation marks, etc.
+    const isValidPath =
+      /^(\.\/|\.\.\/|\/|@[a-z]|[a-z])/.test(mod) && // ./ ../ / @scope or package name
+      !/[(),!{}\[\]]/.test(mod) && // no invalid chars
+      mod.length > 0; // not empty
+
+    if (isValidPath) {
+      dependencies.push(mod);
+    }
+    return m;
+  });
+
+  // Remove problematic 'const require = ...' redeclarations
+  // Prettier tries to redefine require, but it's already global
+  code = code.replace(/\bconst\s+require\s*=\s*__prettier.*?;/g, '// const require redeclaration removed');
+
+  // Remove problematic '__filename' and '__dirname' redeclarations  
+  code = code.replace(/\bconst\s+__filename\s*=\s*__prettier.*?;/g, '// const __filename redeclaration removed');
+  code = code.replace(/\bconst\s+__dirname\s*=\s*__prettier.*?;/g, '// const __dirname redeclaration removed');
+
+  // Remove problematic 'process' redeclarations
+  code = code.replace(/\bconst\s+process\s*=\s*require\(['"]process['"]\);/g, '// const process redeclaration removed');
+
+  // Mask import.meta.url to avoid errors
+  code = code.replace(/import\.meta\.url/g, '"file:///" + __filename');
 
   // map of exportedName -> localName (handles `export { a as b }` cases)
   const exportedMap = new Map<string, string>();
@@ -84,9 +125,6 @@ export function normalizeCjsEsm(code: string): { code: string; dependencies: str
     }
     function isIdentPart(ch: string) {
       return /[A-Za-z0-9_$]/.test(ch);
-    }
-    function skipWhitespace() {
-      while (i < len && /\s/.test(s[i])) i++;
     }
     function skipComment(): boolean {
       if (s[i] === '/' && s[i + 1] === '*') {
@@ -325,7 +363,9 @@ export function normalizeCjsEsm(code: string): { code: string; dependencies: str
   // fallback: named-only imports
   code = code.replace(/import\s*\{([^}]+)\}\s*from\s*['"]([^'"]+)['"]/g, (m, names, mod) => {
     dependencies.push(mod); // 依存関係を記録
-    return `const {${names.trim()}} = require('${mod}')`;
+    // Convert 'as' to ':' for CommonJS destructuring syntax
+    const convertedNames = names.replace(/\s+as\s+/g, ': ');
+    return `const {${convertedNames.trim()}} = require('${mod}')`;
   });
   // import 'mod' → require('mod')
   code = code.replace(/import\s+['"]([^'"]+)['"]/g, (m, mod) => {

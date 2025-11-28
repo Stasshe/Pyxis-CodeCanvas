@@ -28,6 +28,7 @@
  */
 
 import { Buffer } from './modules/bufferModule';
+import * as stream from 'stream';
 import { createFSModule, type FSModuleOptions } from './modules/fsModule';
 import { createHTTPModule, createHTTPSModule } from './modules/httpModule';
 import { createOSModule } from './modules/osModule';
@@ -36,6 +37,8 @@ import { createReadlineModule } from './modules/readlineModule';
 import { createUtilModule } from './modules/utilModule';
 import { createAssertModule } from './modules/assertModule';
 import { createEventsModule } from './modules/eventsModule';
+import { createModuleModule } from './modules/moduleModule';
+import * as urlModule from './modules/urlModule';
 
 
 export interface BuiltInModulesOptions {
@@ -46,6 +49,8 @@ export interface BuiltInModulesOptions {
 }
 
 export interface BuiltInModules {
+  url: typeof urlModule;
+  stream: typeof stream;
   fs: ReturnType<typeof createFSModule>;
   path: ReturnType<typeof createPathModule>;
   os: ReturnType<typeof createOSModule>;
@@ -56,6 +61,7 @@ export interface BuiltInModules {
   Buffer: typeof Buffer;
   readline: ReturnType<typeof createReadlineModule>;
   assert: any;
+  module: ReturnType<typeof createModuleModule>;
 }
 
 /**
@@ -78,6 +84,9 @@ export function createBuiltInModules(options: BuiltInModulesOptions): BuiltInMod
     Buffer: Buffer,
     readline: createReadlineModule(onInput),
     assert: createAssertModule(),
+    module: createModuleModule(),
+    url: urlModule,
+    stream: stream,
   };
 }
 
@@ -95,6 +104,9 @@ export {
   Buffer,
   createReadlineModule,
   createAssertModule,
+  createModuleModule,
+  urlModule,
+  stream,
 };
 
 

@@ -482,6 +482,9 @@ export class NodeRuntime {
       'readline': this.builtInModules.readline,
       'assert': this.builtInModules.assert,
       'events': this.builtInModules.events,
+      'module': this.builtInModules.module,
+      'url': this.builtInModules.url,
+      'stream': this.builtInModules.stream,
     };
 
     return builtIns[moduleName] || null;
