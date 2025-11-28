@@ -1,7 +1,22 @@
-// src/components/Tab/ShortcutKeysTab.tsx
 'use client';
 
-import { Edit2, RefreshCw, X } from 'lucide-react';
+import {
+  Edit2,
+  RefreshCw,
+  X,
+  Search,
+  Command,
+  Keyboard,
+  File,
+  Eye,
+  Play,
+  GitBranch,
+  Folder,
+  Settings,
+  Grid,
+  List,
+  Terminal,
+} from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 
 import { DEFAULT_BINDINGS } from '@/hooks/defaultKeybindings';
@@ -12,6 +27,8 @@ export default function ShortcutKeysTab() {
   const { bindings, updateBindings } = useKeyBindings();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [previewCombo, setPreviewCombo] = useState<string>('');
 
   const startCapture = (id: string) => {
     setEditingId(id);
@@ -25,15 +42,12 @@ export default function ShortcutKeysTab() {
     setPreviewCombo('');
   };
 
-  const [previewCombo, setPreviewCombo] = useState<string>('');
-
   useEffect(() => {
     if (!editingId) return;
 
     const isModifierKey = (key: string) =>
       key === 'Control' || key === 'Meta' || key === 'Alt' || key === 'Shift';
 
-    // For chorded combos we accept two parts separated by space, e.g. 'Ctrl+K A'
     let pendingFirstPart: string | null = null;
     const pendingTimer = { id: null as number | null };
 
@@ -50,16 +64,13 @@ export default function ShortcutKeysTab() {
         e.preventDefault();
       } catch (err) {}
 
-      // Cancel on Escape
       if (e.key === 'Escape') {
         clearPending();
         stopCapture();
         return;
       }
 
-      // If user is only pressing modifiers, show them and wait
       if (isModifierKey(e.key)) {
-        // Show simple modifier preview (e.g. "Ctrl")
         const parts: string[] = [];
         const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
         if (isMac) {
@@ -75,11 +86,9 @@ export default function ShortcutKeysTab() {
         return;
       }
 
-      // Non-modifier key pressed: compute normalized single-part combo
       const single = formatKeyEvent(e);
       if (!single) return;
 
-      // If we already have a pending first part (user pressed first chord part), complete the chord
       if (pendingFirstPart) {
         const full = `${pendingFirstPart} ${single}`;
         const duplicate = bindings.find(b => normalizeKeyCombo(b.combo) === normalizeKeyCombo(full) && b.id !== editingId);
@@ -95,7 +104,6 @@ export default function ShortcutKeysTab() {
         return;
       }
 
-      // No pending first part: check if this single combo is the prefix of any chorded binding.
       const normalizedSingle = normalizeKeyCombo(single);
       const isPrefix = bindings.some(b => {
         const parts = normalizeKeyCombo(b.combo).split(/\s+/);
@@ -103,12 +111,9 @@ export default function ShortcutKeysTab() {
       });
 
       if (isPrefix) {
-        // Enter pending chord state: wait for second key
         pendingFirstPart = normalizedSingle;
         setPreviewCombo(pendingFirstPart + ' ...');
-        // Wait up to 3500ms for the second chord key (match KeyBindingsManager.CHORD_TIMEOUT_MS)
         pendingTimer.id = window.setTimeout(() => {
-          // Timeout: save single-binding if it exists (fallback), else clear
           const singleBinding = bindings.find(b => normalizeKeyCombo(b.combo) === pendingFirstPart && !b.combo.includes(' '));
           if (singleBinding) {
             const newBindings = bindings.map(b => (b.id === editingId ? { ...b, combo: pendingFirstPart! } : b));
@@ -120,7 +125,6 @@ export default function ShortcutKeysTab() {
         return;
       }
 
-      // Otherwise treat as single-part final key and save
       const duplicate = bindings.find(b => b.combo === single && b.id !== editingId);
       if (duplicate) {
         setError(`Already assigned to: ${duplicate.name}`);
@@ -138,302 +142,209 @@ export default function ShortcutKeysTab() {
   }, [editingId, bindings, updateBindings]);
 
   const resetDefaults = async () => {
-    await updateBindings(DEFAULT_BINDINGS);
-    setError(null);
+    if (confirm('すべてのショートカットキーをデフォルトに戻しますか？')) {
+      await updateBindings(DEFAULT_BINDINGS);
+      setError(null);
+    }
   };
 
-  const duplicates = useMemo(() => {
-    const map = new Map<string, string[]>();
-    for (const b of bindings) {
-      if (!map.has(b.combo)) map.set(b.combo, []);
-      map.get(b.combo)!.push(b.name);
-    }
-    const d: Array<{ combo: string; names: string[] }> = [];
-    for (const [combo, names] of map.entries()) if (names.length > 1) d.push({ combo, names });
-    return d;
-  }, [bindings]);
+  const filteredBindings = useMemo(() => {
+    if (!searchQuery) return bindings;
+    const lowerQuery = searchQuery.toLowerCase();
+    return bindings.filter(
+      b =>
+        b.name.toLowerCase().includes(lowerQuery) ||
+        b.combo.toLowerCase().includes(lowerQuery) ||
+        (b.category || '').toLowerCase().includes(lowerQuery)
+    );
+  }, [bindings, searchQuery]);
 
-  // カテゴリー別にグループ化
   const groupedBindings = useMemo(() => {
     const groups = new Map<string, Binding[]>();
-    for (const binding of bindings) {
+    for (const binding of filteredBindings) {
       const category = binding.category || 'other';
       if (!groups.has(category)) groups.set(category, []);
       groups.get(category)!.push(binding);
     }
-    return Array.from(groups.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-  }, [bindings]);
+    return Array.from(groups.entries()).sort((a, b) => {
+        // Custom sort order if needed, or just alphabetical
+        const order = ['file', 'search', 'view', 'execution', 'tab', 'git', 'project', 'other'];
+        const indexA = order.indexOf(a[0]);
+        const indexB = order.indexOf(b[0]);
+        if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+        if (indexA !== -1) return -1;
+        if (indexB !== -1) return 1;
+        return a[0].localeCompare(b[0]);
+    });
+  }, [filteredBindings]);
 
-  const categoryNames: Record<string, string> = {
-    file: 'ファイル',
-    search: '検索',
-    view: '表示',
-    execution: '実行',
-    tab: 'タブ',
-    git: 'Git',
-    project: 'プロジェクト',
-    other: 'その他',
+  const categoryConfig: Record<string, { label: string; icon: React.ReactNode }> = {
+    file: { label: 'ファイル', icon: <File size={16} /> },
+    search: { label: '検索', icon: <Search size={16} /> },
+    view: { label: '表示', icon: <Eye size={16} /> },
+    execution: { label: '実行', icon: <Play size={16} /> },
+    tab: { label: 'タブ', icon: <Folder size={16} /> }, // Using Folder for tabs as a container metaphor
+    git: { label: 'Git', icon: <GitBranch size={16} /> },
+    project: { label: 'プロジェクト', icon: <Settings size={16} /> },
+    other: { label: 'その他', icon: <Keyboard size={16} /> },
+    terminal: { label: 'ターミナル', icon: <Terminal size={16} /> },
   };
 
   return (
-    <div className="p-4 h-full overflow-auto">
-      <div
-        className="flex items-center justify-between mb-4"
-        style={{
-          background: 'hsl(var(--card))',
-          color: 'hsl(var(--card-foreground))',
-          padding: '0.5rem',
-          borderRadius: '0.375rem',
-          border: '1px solid hsl(var(--border))',
-        }}
-      >
-        <h2
-          className="text-xl font-semibold"
-          style={{ margin: 0 }}
-        >
-          ショートカットキー設定
-        </h2>
-        <div className="flex items-center gap-2">
+    <div className="flex flex-col h-full bg-background text-foreground text-sm leading-tight">
+      {/* Header */}
+      <div className="flex-none p-2 border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
+        <div className="flex items-center justify-between gap-3 max-w-7xl mx-auto">
+          <div className="flex items-center gap-2">
+            <div className="p-1 bg-primary/10 rounded text-primary">
+              <Command size={16} />
+            </div>
+            <h2 className="text-sm font-semibold tracking-tight">ショートカットキー</h2>
+          </div>
+
+          <div className="flex-1 max-w-sm relative">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
+            <input
+              type="text"
+              placeholder="検索 (機能名, キー)..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full pl-8 pr-3 py-1 bg-secondary/50 border border-border rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary/40 transition-all"
+            />
+          </div>
+
           <button
-            className="btn btn-sm flex items-center gap-2"
+            className="flex items-center gap-2 px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary rounded transition-colors"
             onClick={resetDefaults}
             title="Reset to defaults"
           >
-            <RefreshCw size={16} /> デフォルトに戻す
+            <RefreshCw size={12} />
+            初期設定に戻す
           </button>
         </div>
       </div>
 
-      <div className="space-y-6">
-        {groupedBindings.map(([category, categoryBindings]) => (
-          <div key={category}>
-            <div
-              style={{
-                display: 'inline-block',
-                padding: '0.125rem 0.5rem',
-                borderRadius: '0.25rem',
-                background: 'hsl(var(--secondary))',
-                color: 'hsl(var(--secondary-foreground))',
-                fontSize: '0.9rem',
-                fontWeight: 600,
-                marginBottom: '0.5rem',
-              }}
-            >
-              {categoryNames[category] || category}
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto p-2 md:p-3">
+        <div className="max-w-7xl mx-auto space-y-4">
+          {groupedBindings.length === 0 ? (
+            <div className="text-center py-20 text-muted-foreground">
+              <Search size={48} className="mx-auto mb-4 opacity-20" />
+              <p>該当するショートカットが見つかりません</p>
             </div>
-            <div
-              className="rounded border p-2"
-              style={{ borderColor: 'var(--border)' }}
-            >
-              <table
-                className="w-full table-fixed"
-                style={{ borderCollapse: 'separate', borderSpacing: 0 }}
-              >
-                <thead>
-                  <tr
-                    style={{
-                      background: 'hsl(var(--input))',
-                      color: 'hsl(var(--muted-foreground))',
-                    }}
-                  >
-                    <th
-                      className="w-3/5"
-                      style={{ textAlign: 'left', padding: '0.5rem' }}
-                    >
-                      アクション
-                    </th>
-                    <th
-                      className="w-2/5"
-                      style={{ textAlign: 'left', padding: '0.5rem' }}
-                    >
-                      ショートカット
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {categoryBindings.map(b => (
-                    <tr
-                      key={b.id}
-                      className="align-top border-t"
-                      style={{ borderColor: 'var(--border)' }}
-                    >
-                      <td className="py-2">{b.name}</td>
-                      <td className="py-2">
-                        <div className="flex items-center gap-2">
-                          <div
-                            style={{
-                              background: 'hsl(var(--muted))',
-                              color: 'hsl(var(--muted-foreground))',
-                              padding: '0.125rem 0.5rem',
-                              borderRadius: '0.25rem',
-                              fontFamily:
-                                'ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Segoe UI Mono", monospace',
-                              fontSize: '0.875rem',
-                            }}
-                          >
-                            {formatKeyComboForDisplay(b.combo)}
-                          </div>
-                          {editingId === b.id ? (
-                            <div className="flex items-center gap-2">
-                              <div className="text-sm text-muted">
-                                編集中…（ポップアップで入力中）
-                              </div>
-                              <button
-                                className="btn btn-sm"
-                                onClick={stopCapture}
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+              {groupedBindings.map(([category, categoryBindings]) => (
+                <div 
+                  key={category} 
+                  className="bg-card border border-border rounded-lg overflow-hidden shadow-sm flex flex-col h-full"
+                >
+                  <div className="px-3 py-2 bg-muted/30 border-b border-border flex items-center gap-2">
+                    <span className="text-muted-foreground">
+                      {categoryConfig[category]?.icon || <Keyboard size={14} />}
+                    </span>
+                    <h3 className="font-medium text-xscapitalize">
+                      {categoryConfig[category]?.label || category}
+                    </h3>
+                    <span className="ml-auto text-xxs text-muted-foreground bg-background/50 px-2 py-0.5 rounded-full text-xs">
+                      {categoryBindings.length}
+                    </span>
+                  </div>
+                  
+                  <div className="divide-y divide-border/50">
+                    {categoryBindings.map(b => (
+                      <div 
+                        key={b.id} 
+                        className="group flex items-center justify-between p-2 hover:bg-muted/50 transition-colors text-sm"
+                      >
+                        <span className="text-foreground/90 font-medium truncate pr-4" title={b.name}>
+                          {b.name}
+                        </span>
+                        
+                        <button
+                          onClick={() => startCapture(b.id)}
+                          className="flex items-center gap-2 group-hover:bg-background rounded px-1 py-0.5 transition-all border border-transparent group-hover:border-border"
+                          title="クリックして編集"
+                        >
+                          <div className="flex gap-1">
+                            {formatKeyComboForDisplay(b.combo).split(' ').map((part, i) => (
+                              <kbd 
+                                key={i}
+                                className="px-1 py-0.5 bg-muted text-muted-foreground rounded border border-border/50 text-[10px] font-mono shadow-sm min-w-[1.1em] text-center"
                               >
-                                <X size={14} /> キャンセル
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              className="btn btn-sm flex items-center gap-2"
-                              onClick={() => startCapture(b.id)}
-                            >
-                              <Edit2 size={14} /> 編集
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                                {part}
+                              </kbd>
+                            ))}
+                          </div>
+                          <Edit2 size={12} className="opacity-0 group-hover:opacity-100 text-muted-foreground" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
-          </div>
-        ))}
+          )}
+        </div>
       </div>
 
-      {/* Capture modal */}
+      {/* Capture Modal */}
       {editingId && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 60,
-          }}
-        >
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              background: 'rgba(0,0,0,0.45)',
-            }}
-            onClick={stopCapture}
-          />
-
-          <div
-            style={{
-              position: 'relative',
-              background: 'hsl(var(--card))',
-              color: 'hsl(var(--card-foreground))',
-              border: '1px solid hsl(var(--border))',
-              padding: '1rem 1.25rem',
-              borderRadius: '0.5rem',
-              minWidth: 380,
-              maxWidth: '90%',
-              boxShadow: '0 10px 30px rgba(0,0,0,0.35)',
-            }}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-3">
+          <div 
+            className="bg-card text-card-foreground border border-border rounded-lg shadow-2xl w-full max-w-sm overflow-hidden"
             onClick={e => e.stopPropagation()}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ fontWeight: 700 }}>キー割り当てを編集</div>
-              <button
-                className="btn btn-sm"
-                onClick={stopCapture}
-                aria-label="キャンセル"
-              >
-                <X size={14} />
-              </button>
-            </div>
-
-            <div style={{ marginTop: '0.75rem' }}>
-              <div style={{ marginBottom: '0.5rem', color: 'hsl(var(--muted-foreground))' }}>
-                編集対象: {bindings.find(b => b.id === editingId)?.name || ''}
+            <div className="p-4 flex flex-col items-center text-center">
+              <div className="w-10 h-10 bg-primary/10 text-primary rounded-full flex items-center justify-center mb-3">
+                <Keyboard size={20} />
               </div>
 
-              <div
-                style={{
-                  marginTop: '0.5rem',
-                  padding: '0.75rem',
-                  borderRadius: '0.375rem',
-                  background: 'hsl(var(--muted))',
-                  color: 'hsl(var(--muted-foreground))',
-                  fontFamily:
-                    'ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Segoe UI Mono", monospace',
-                  fontSize: '1.05rem',
-                  textAlign: 'center',
-                }}
-              >
-                {previewCombo || 'キーを押してください...'}
+              <h3 className="text-sm font-semibold mb-1">新しいキーを入力</h3>
+              <p className="text-xs text-muted-foreground mb-4">
+                <span className="font-medium text-foreground">{bindings.find(b => b.id === editingId)?.name}</span> のショートカット
+              </p>
+
+              <div className="w-full bg-muted/50 border-2 border-dashed border-border rounded-lg p-4 mb-4 flex items-center justify-center min-h-[72px]">
+                {previewCombo ? (
+                 <div className="flex gap-2 flex-wrap justify-center">
+                   {previewCombo.split(' ').map((part, i) => (
+                     <kbd 
+                       key={i}
+                       className="px-2 py-1 bg-background text-foreground rounded border border-border shadow-sm text-lg font-mono font-semibold"
+                     >
+                       {part}
+                     </kbd>
+                   ))}
+                 </div>
+                ) : (
+                  <span className="text-muted-foreground animate-pulse text-xs">キーを押してください...</span>
+                )}
               </div>
 
-              <div
-                style={{
-                  marginTop: '0.75rem',
-                  display: 'flex',
-                  gap: '0.5rem',
-                  justifyContent: 'flex-end',
-                }}
-              >
+              {error && (
+                <div className="text-destructive text-xs font-medium bg-destructive/10 px-3 py-1.5 rounded-md mb-3">
+                  {error}
+                </div>
+              )}
+
+              <div className="flex w-full gap-2">
                 <button
-                  className="btn"
+                  className="flex-1 px-3 py-1.5 bg-secondary hover:bg-secondary/80 text-secondary-foreground rounded-md text-xs font-medium transition-colors"
                   onClick={stopCapture}
                 >
                   キャンセル
                 </button>
               </div>
             </div>
+            
+            <div className="bg-muted/30 px-4 py-2 text-xs text-muted-foreground border-t border-border flex justify-between">
+              <span>Esc でキャンセル</span>
+              <span>自動保存されます</span>
+            </div>
           </div>
         </div>
       )}
-
-      {error && <div className="mt-3 text-sm text-red-600">{error}</div>}
-
-      {duplicates.length > 0 && (
-        <div className="mt-4 text-sm text-orange-700">
-          <strong>重複:</strong>
-          <ul>
-            {duplicates.map(d => (
-              <li key={d.combo}>
-                {d.combo} → {d.names.join(', ')}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      <div
-        style={{
-          marginTop: '1.5rem',
-          background: 'hsl(var(--popover))',
-          color: 'hsl(var(--popover-foreground))',
-          border: '1px solid hsl(var(--border))',
-          padding: '0.75rem',
-          borderRadius: '0.375rem',
-          fontSize: '0.95rem',
-          lineHeight: 1.4,
-        }}
-      >
-        <div style={{ marginBottom: '0.5rem', fontWeight: 600 }}>編集方法</div>
-        <div>編集ボタンを押したあと、割り当てたいキーを実際に押してください。</div>
-        <div style={{ marginTop: '0.5rem', color: 'hsl(var(--muted-foreground))' }}>
-          💡 Mac: Cmd キー、Windows/Linux: Ctrl キーが自動的に対応されます
-        </div>
-        <div style={{ marginTop: '0.5rem', color: 'hsl(var(--muted-foreground))' }}>
-          注意: ブラウザやOSが予約しているキーはキャプチャできない場合があります。
-        </div>
-        <div
-          style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: 'hsl(var(--muted-foreground))' }}
-        >
-          💾 IndexedDB (pyxis-global) に自動保存されます
-        </div>
-      </div>
     </div>
   );
 }
