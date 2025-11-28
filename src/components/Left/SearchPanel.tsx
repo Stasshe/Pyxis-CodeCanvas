@@ -40,6 +40,8 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
   const debounceDelay = 400; // ms
   const searchTimer = useRef<number | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const workerRef = useRef<Worker | null>(null);
+  const searchIdRef = useRef(0);
 
   // 全ファイルを再帰的に取得（isExcludedを適用）
   const getAllFiles = (items: FileItem[]): FileItem[] => {
@@ -61,75 +63,59 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
 
   // 検索実行
   const performSearch = (query: string) => {
-    if (!query.trim()) {
+    if (!query || !query.trim()) {
       setSearchResults([]);
       return;
     }
 
+    // initialize worker if needed
+    if (!workerRef.current) {
+      try {
+        // path relative to this file: ../../workers/searchWorker.ts
+        // use import.meta.url to create module worker
+        // eslint-disable-next-line no-undef
+        workerRef.current = new Worker(new URL('../../workers/searchWorker.ts', import.meta.url), {
+          type: 'module',
+        });
+
+        workerRef.current.onmessage = e => {
+          const msg = e.data;
+          if (!msg) return;
+          if (msg.type === 'result') {
+            const id = msg.searchId;
+            if (id !== searchIdRef.current) return; // stale
+            setSearchResults(msg.results || []);
+            setIsSearching(false);
+          }
+        };
+      } catch (err) {
+        console.error('Failed to create search worker', err);
+        // fallback to in-thread search (not implemented here)
+      }
+    }
+
     setIsSearching(true);
-    const allFiles = getAllFiles(files);
-    const results: SearchResult[] = [];
+    // bump searchId
+    const sid = (searchIdRef.current = (searchIdRef.current || 0) + 1);
+
+    const allFiles = getAllFiles(files).map(f => ({
+      id: f.id,
+      path: f.path,
+      name: f.name,
+      content: f.content,
+      isBufferArray: f.isBufferArray,
+    }));
 
     try {
-      let searchRegex: RegExp;
-
-      if (useRegex) {
-        const flags = caseSensitive ? 'g' : 'gi';
-        searchRegex = new RegExp(query, flags);
-      } else {
-        const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const pattern = wholeWord ? `\\b${escapedQuery}\\b` : escapedQuery;
-        const flags = caseSensitive ? 'g' : 'gi';
-        searchRegex = new RegExp(pattern, flags);
-      }
-
-      allFiles.forEach(file => {
-        // ファイル名/パスも検索対象にするオプション
-        if (searchInFilenames) {
-          const targetName = `${file.name} ${file.path}`;
-          let m;
-          const localRegex = new RegExp(searchRegex.source, searchRegex.flags);
-          while ((m = localRegex.exec(targetName)) !== null) {
-            results.push({
-              file,
-              line: 0,
-              column: m.index + 1,
-              content: targetName,
-              matchStart: m.index,
-              matchEnd: m.index + m[0].length,
-            });
-            if (!localRegex.global) break;
-          }
-        }
-
-        if (!file.content) return;
-
-        const lines = file.content.split('\n');
-        lines.forEach((line, lineIndex) => {
-          let match;
-          searchRegex.lastIndex = 0; // RegExpをリセット
-
-          while ((match = searchRegex.exec(line)) !== null) {
-            results.push({
-              file,
-              line: lineIndex + 1,
-              column: match.index + 1,
-              content: line,
-              matchStart: match.index,
-              matchEnd: match.index + match[0].length,
-            });
-
-            // 無限ループ防止
-            if (!searchRegex.global) break;
-          }
-        });
+      workerRef.current?.postMessage({
+        type: 'search',
+        searchId: sid,
+        query,
+        options: { caseSensitive, wholeWord, useRegex, searchInFilenames },
+        files: allFiles,
       });
-
-      setSearchResults(results);
-    } catch (error) {
-      console.error('Search error:', error);
-      setSearchResults([]);
-    } finally {
+    } catch (err) {
+      console.error('Worker postMessage failed', err);
       setIsSearching(false);
     }
   };
@@ -159,6 +145,11 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
         window.clearTimeout(searchTimer.current);
         searchTimer.current = null;
       }
+      // cleanup worker
+      if (workerRef.current) {
+        workerRef.current.terminate();
+        workerRef.current = null;
+      }
     };
   }, [searchQuery, caseSensitive, wholeWord, useRegex, files]);
 
@@ -173,26 +164,36 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     }
   }, [flatResults.length]);
 
-  const handleResultClick = (result: SearchResult) => {
-    // localStorageのpyxis-defaultEditorを参照しisCodeMirrorを明示的に付与
-    let isCodeMirror = false;
-    if (typeof window !== 'undefined') {
-      const defaultEditor = localStorage.getItem('pyxis-defaultEditor');
-      isCodeMirror = defaultEditor === 'codemirror';
+  const handleResultClick = async (result: SearchResult) => {
+    try {
+      // fetch full file from repository to ensure content is available
+      const projId = projectId;
+      const fileEntry = await fileRepository.getFileByPath(projId, result.file.path);
+
+      // localStorageのpyxis-defaultEditorを参照しisCodeMirrorを明示的に付与
+      let isCodeMirror = false;
+      if (typeof window !== 'undefined') {
+        const defaultEditor = localStorage.getItem('pyxis-defaultEditor');
+        isCodeMirror = defaultEditor === 'codemirror';
+      }
+
+      const fileWithJump = {
+        ...(fileEntry || result.file),
+        isCodeMirror,
+        isBufferArray: fileEntry ? fileEntry.isBufferArray : result.file.isBufferArray,
+        bufferContent: fileEntry ? (fileEntry as any).bufferContent : (result.file as any).bufferContent,
+      };
+
+      // バイナリファイルの場合は binary タブで開く
+      const kind = fileWithJump.isBufferArray ? 'binary' : 'editor';
+      openTab(fileWithJump, {
+        kind,
+        jumpToLine: result.line,
+        jumpToColumn: result.column,
+      });
+    } catch (err) {
+      console.error('Failed to open file from search result', err);
     }
-    const fileWithJump = {
-      ...result.file,
-      isCodeMirror,
-      isBufferArray: result.file.isBufferArray,
-      bufferContent: result.file.bufferContent,
-    };
-    // バイナリファイルの場合は binary タブで開く
-    const kind = result.file.isBufferArray ? 'binary' : 'editor';
-    openTab(fileWithJump, {
-      kind,
-      jumpToLine: result.line,
-      jumpToColumn: result.column,
-    });
   };
 
   const handleReplaceResult = async (result: SearchResult, replacement: string) => {
