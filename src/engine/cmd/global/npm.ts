@@ -17,11 +17,22 @@ export class NpmCommands {
   private currentDir: string;
   private projectName: string;
   private projectId: string;
+  private setLoading?: (isLoading: boolean) => void;
 
-  constructor(projectName: string, projectId: string, currentDir: string) {
+  constructor(
+    projectName: string,
+    projectId: string,
+    currentDir: string,
+    setLoading?: (isLoading: boolean) => void
+  ) {
     this.projectName = projectName;
     this.projectId = projectId;
     this.currentDir = currentDir;
+    this.setLoading = setLoading;
+  }
+
+  setLoadingHandler(callback: (isLoading: boolean) => void) {
+    this.setLoading = callback;
   }
 
   async downloadAndInstallPackage(packageName: string, version: string = 'latest'): Promise<void> {
@@ -41,6 +52,7 @@ export class NpmCommands {
 
   // npm install コマンドの実装
   async install(packageName?: string, flags: string[] = []): Promise<string> {
+    this.setLoading?.(true);
     try {
       // IndexedDBからpackage.jsonを単一取得（インデックス経由）
       const packageFile = await fileRepository.getFileByPath(this.projectId, '/package.json');
@@ -182,11 +194,14 @@ export class NpmCommands {
       }
     } catch (error) {
       throw new Error(`npm install failed: ${(error as Error).message}`);
+    } finally {
+      this.setLoading?.(false);
     }
   }
 
   // npm uninstall コマンドの実装
   async uninstall(packageName: string): Promise<string> {
+    this.setLoading?.(true);
     try {
       // IndexedDBからpackage.jsonを単一取得（インデックス経由）
       const packageFile = await fileRepository.getFileByPath(this.projectId, '/package.json');
@@ -248,6 +263,8 @@ export class NpmCommands {
       }
     } catch (error) {
       throw new Error(`npm uninstall failed: ${(error as Error).message}`);
+    } finally {
+      this.setLoading?.(false);
     }
   }
 

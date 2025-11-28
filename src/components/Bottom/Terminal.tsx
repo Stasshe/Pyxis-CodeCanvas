@@ -38,6 +38,7 @@ function ClientTerminal({
   const gitCommandsRef = useRef<GitCommands | null>(null);
   const npmCommandsRef = useRef<NpmCommands | null>(null);
   const shellRef = useRef<any>(null);
+  const spinnerInterval = useRef<NodeJS.Timeout | null>(null);
 
   // xterm/fitAddonをrefで保持
   useEffect(() => {
@@ -46,6 +47,44 @@ function ClientTerminal({
     pushMsgOutPanel('Terminal initializing', 'info', 'Terminal');
 
     // ファイルシステムとFileRepositoryの初期化
+    const startSpinner = () => {
+      if (spinnerInterval.current) return;
+      const term = xtermRef.current;
+      if (!term) return;
+
+      const frames = ['|', '/', '-', '\\'];
+      let i = 0;
+      
+      // Hide cursor
+      term.write('\x1b[?25l');
+      
+      // Write initial frame
+      term.write(frames[0]);
+
+      spinnerInterval.current = setInterval(() => {
+        term.write('\b' + frames[++i % frames.length]);
+      }, 80);
+    };
+
+    const stopSpinner = () => {
+      if (spinnerInterval.current) {
+        clearInterval(spinnerInterval.current);
+        spinnerInterval.current = null;
+        
+        const term = xtermRef.current;
+        if (term) {
+          // Clear spinner char and show cursor
+          term.write('\b \b');
+          term.write('\x1b[?25h');
+        }
+      }
+    };
+
+    const setLoading = (isLoading: boolean) => {
+      if (isLoading) startSpinner();
+      else stopSpinner();
+    };
+
     const initializeTerminal = async () => {
       try {
         // FileRepositoryを初期化
@@ -444,7 +483,7 @@ function ClientTerminal({
             break;
 
           case 'npm':
-            await handleNPMCommand(args, currentProject, currentProjectId, captureWriteOutput);
+            await handleNPMCommand(args, currentProject, currentProjectId, captureWriteOutput, setLoading);
             break;
 
           case 'vim':

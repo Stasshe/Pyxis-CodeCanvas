@@ -4,7 +4,8 @@ export async function handleNPMCommand(
   args: string[],
   projectName: string,
   projectId: string,
-  writeOutput: (output: string) => Promise<void>
+  writeOutput: (output: string) => Promise<void>,
+  setLoading?: (isLoading: boolean) => void
 ) {
   if (!args[0]) {
     await writeOutput('npm: missing command');
@@ -16,6 +17,11 @@ export async function handleNPMCommand(
     projectId,
     `/projects/${projectName}`
   );
+  
+  if (setLoading) {
+    npm.setLoadingHandler(setLoading);
+  }
+
   const npmCmd = args[0];
 
   switch (npmCmd) {
