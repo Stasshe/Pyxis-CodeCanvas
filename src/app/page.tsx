@@ -17,7 +17,6 @@ import RightSidebar from '@/components/Right/RightSidebar';
 import TopBar from '@/components/TopBar';
 import { useFileSelector } from '@/context/FileSelectorContext';
 import { useProject } from '@/engine/core/project';
-import initFileWatcherBridge from '@/engine/fileWatcherBridge';
 import {
   useLeftSidebarResize,
   useBottomPanelResize,
@@ -85,12 +84,7 @@ export default function Home() {
   // グローバルスクロールロック
   useGlobalScrollLock();
 
-  // 初期化: FileWatcherブリッジ
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      initFileWatcherBridge();
-    }
-  }, []);
+  // FileWatcher bridge removed: components now subscribe directly to fileRepository
 
   // UI状態の復元（sessionStorage統合）
   useEffect(() => {
