@@ -164,11 +164,19 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
 
   // 現在アクティブなタブのファイルを取得
   const globalActiveTabId = useTabStore(state => state.globalActiveTab);
+  const activePaneId = useTabStore(state => state.activePane);
+
   const activeTab = useMemo(() => {
     if (!globalActiveTabId) return null;
     const allTabs = useTabStore.getState().getAllTabs();
+
+    // 同一ファイルが複数ペインで開かれている場合、現在アクティブなペインに属するタブを優先して返す。
+    const preferred = allTabs.find(t => t.id === globalActiveTabId && t.paneId === activePaneId);
+    if (preferred) return preferred;
+
+    // フォールバック: id のみでマッチする最初のタブを返す
     return allTabs.find(t => t.id === globalActiveTabId) || null;
-  }, [globalActiveTabId]);
+  }, [globalActiveTabId, activePaneId]);
 
   // アクティブタブをコンテキストに追加/削除するユーティリティ
   const handleToggleActiveTabContext = () => {
