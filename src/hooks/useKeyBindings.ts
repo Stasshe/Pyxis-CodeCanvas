@@ -42,8 +42,6 @@ class KeyBindingsManager {
   private initPromise: Promise<void> | null = null;
   // chord support
   private pendingChord: string | null = null;
-  private pendingTimeout: number | null = null;
-  private readonly CHORD_TIMEOUT_MS = 3500;
 
   async init(): Promise<void> {
     if (this.isInitialized) return;
@@ -206,22 +204,13 @@ class KeyBindingsManager {
     this.clearPendingChord();
     this.pendingChord = chord;
     this.notifyListeners();
-    
-    // Timeout: clear pending state if user doesn't complete the chord
-    // Note: We intentionally do NOT execute any action on timeout
-    // If user wanted a single-key action, they should bind it separately
-    this.pendingTimeout = window.setTimeout(() => {
-      this.clearPendingChord();
-    }, this.CHORD_TIMEOUT_MS) as unknown as number;
   }
 
   private clearPendingChord() {
-    this.pendingChord = null;
-    if (this.pendingTimeout) {
-      clearTimeout(this.pendingTimeout);
-      this.pendingTimeout = null;
+    if (this.pendingChord !== null) {
+      this.pendingChord = null;
+      this.notifyListeners();
     }
-    this.notifyListeners();
   }
 
   getActiveChord(): string | null {
