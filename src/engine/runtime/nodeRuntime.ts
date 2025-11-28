@@ -481,6 +481,7 @@ export class NodeRuntime {
       'buffer': { Buffer: this.builtInModules.Buffer },
       'readline': this.builtInModules.readline,
       'assert': this.builtInModules.assert,
+      'events': this.builtInModules.events,
     };
 
     return builtIns[moduleName] || null;

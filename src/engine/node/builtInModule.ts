@@ -35,6 +35,7 @@ import { createPathModule } from './modules/pathModule';
 import { createReadlineModule } from './modules/readlineModule';
 import { createUtilModule } from './modules/utilModule';
 import { createAssertModule } from './modules/assertModule';
+import { createEventsModule } from './modules/eventsModule';
 
 
 export interface BuiltInModulesOptions {
@@ -51,6 +52,7 @@ export interface BuiltInModules {
   util: ReturnType<typeof createUtilModule>;
   http: ReturnType<typeof createHTTPModule>;
   https: ReturnType<typeof createHTTPSModule>;
+  events: ReturnType<typeof createEventsModule>;
   Buffer: typeof Buffer;
   readline: ReturnType<typeof createReadlineModule>;
   assert: any;
@@ -72,6 +74,7 @@ export function createBuiltInModules(options: BuiltInModulesOptions): BuiltInMod
     util: createUtilModule(),
     http: createHTTPModule(),
     https: createHTTPSModule(),
+    events: createEventsModule(),
     Buffer: Buffer,
     readline: createReadlineModule(onInput),
     assert: createAssertModule(),
@@ -88,6 +91,7 @@ export {
   createUtilModule,
   createHTTPModule,
   createHTTPSModule,
+  createEventsModule,
   Buffer,
   createReadlineModule,
   createAssertModule,

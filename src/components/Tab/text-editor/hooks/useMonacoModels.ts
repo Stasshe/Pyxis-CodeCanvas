@@ -53,16 +53,16 @@ export function useMonacoModels() {
       let model = monacoModelMap.get(tabId);
 
       // If a model exists in our map, ensure it's safe and has the correct language.
+      // IMPORTANT: do not dispose a model here synchronously — other editor instances
+      // may be attaching to the same underlying model. Instead we remove it from
+      // our map and create a new model with a unique URI when languages differ.
       if (isModelSafe(model)) {
         try {
           const desiredLang = getModelLanguage(fileName);
           const currentLang = model!.getLanguageId();
           if (currentLang !== desiredLang) {
-            try {
-              model!.dispose();
-            } catch (e) {
-              console.warn('[useMonacoModels] Failed to dispose cached model:', e);
-            }
+            // Remove from our map so caller will create a new model. Do NOT dispose
+            // the existing model here to avoid racing with setModel()/editor lifecycle.
             monacoModelMap.delete(tabId);
             model = undefined;
           }
@@ -97,16 +97,12 @@ export function useMonacoModels() {
                 const desiredLang = getModelLanguage(fileName);
                 const beforeLang = existingModel.getLanguageId();
                 if (beforeLang !== desiredLang) {
-                  // detailed replace log removed in cleanup
-                  // Dispose the old model if possible and safe.
-                  try {
-                    existingModel.dispose();
-                  } catch (e) {
-                    console.warn('[useMonacoModels] Failed to dispose old model:', e);
-                  }
-                  const newModel = mon.editor.createModel(content, desiredLang, uri);
+                  // Create a new unique URI instead of reusing/disposing the current one.
+                  // This avoids racing with other editor instances that may hold the
+                  // previous model reference. Appending a timestamp ensures uniqueness.
+                  const uniqueUri = mon.Uri.parse(`${uri.toString()}__${Date.now()}`);
+                  const newModel = mon.editor.createModel(content, desiredLang, uniqueUri);
                   monacoModelMap.set(tabId, newModel);
-                  // replaced-model log removed in cleanup
                   return newModel;
                 }
                 // Languages already match — reuse safely.
