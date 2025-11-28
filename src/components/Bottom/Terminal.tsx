@@ -637,6 +637,8 @@ function ClientTerminal({
     let selectionEnd: number | null = null;
     let isSelecting = false;
     let isComposing = false;
+    // フラグ: onKey で処理した直後に onData の二重処理を抑止する
+    let ignoreNextOnData = false;
 
     // IME入力対応
     term.textarea?.addEventListener('compositionstart', () => {
@@ -661,21 +663,50 @@ function ClientTerminal({
     term.onKey(({ key, domEvent }: { key: string; domEvent: KeyboardEvent }) => {
       if (isComposing) return;
 
+      // Home / End / Meta(Command) + Arrow のサポート
+      // - Home / Meta+Left: 行頭へ移動
+      // - End  / Meta+Right: 行末へ移動
+      // これらは DOM の key を優先して扱う（Mac の Cmd などを正しく検出するため）
+      if (domEvent.key === 'Home' || (domEvent.metaKey && domEvent.key === 'ArrowLeft')) {
+        if (cursorPos > 0) {
+          for (let i = 0; i < cursorPos; i++) term.write('\b');
+          cursorPos = 0;
+          if (isSelecting) selectionEnd = cursorPos;
+        }
+        ignoreNextOnData = true;
+        domEvent.preventDefault();
+        return;
+      }
+
+      if (domEvent.key === 'End' || (domEvent.metaKey && domEvent.key === 'ArrowRight')) {
+        if (cursorPos < currentLine.length) {
+          term.write(currentLine.slice(cursorPos));
+          cursorPos = currentLine.length;
+          if (isSelecting) selectionEnd = cursorPos;
+        }
+        ignoreNextOnData = true;
+        domEvent.preventDefault();
+        return;
+      }
+
+      // Ctrl + ←/→ : 単語単位移動（既存の実装を DOM の key 名でも扱う）
       if (domEvent.ctrlKey && !domEvent.shiftKey && !domEvent.altKey) {
-        if (key === '\u001b[D') {
+        if (domEvent.key === 'ArrowLeft' || key === '\u001b[D') {
           if (cursorPos > 0) {
             let pos = cursorPos - 1;
             while (pos > 0 && currentLine[pos - 1] !== ' ') pos--;
             for (let i = 0; i < cursorPos - pos; i++) term.write('\b');
             cursorPos = pos;
           }
+          ignoreNextOnData = true;
           domEvent.preventDefault();
-        } else if (key === '\u001b[C') {
+        } else if (domEvent.key === 'ArrowRight' || key === '\u001b[C') {
           let pos = cursorPos;
           while (pos < currentLine.length && currentLine[pos] !== ' ') pos++;
           while (pos < currentLine.length && currentLine[pos] === ' ') pos++;
           term.write(currentLine.slice(cursorPos, pos));
           cursorPos = pos;
+          ignoreNextOnData = true;
           domEvent.preventDefault();
         }
       }
@@ -728,6 +759,11 @@ function ClientTerminal({
     let vimModeActive = false; // Flag to disable normal input during vim mode
     
     term.onData((data: string) => {
+      if (ignoreNextOnData) {
+        // clear and ignore a single following onData payload
+        ignoreNextOnData = false;
+        return;
+      }
       if (isComposing || vimModeActive) return; // Skip if vim is active
 
       switch (data) {
