@@ -25,6 +25,7 @@ interface MonacoEditorProps {
   onSelectionCountChange: (count: number | null) => void;
   tabSize?: number;
   insertSpaces?: boolean;
+  fontSize?: number;
 }
 
 export default function MonacoEditor({
@@ -37,6 +38,7 @@ export default function MonacoEditor({
   onChange,
   onCharCountChange,
   onSelectionCountChange,
+  fontSize = 12,
   tabSize = 2,
   insertSpaces = true,
 }: MonacoEditorProps) {
@@ -341,7 +343,7 @@ export default function MonacoEditor({
       }}
       theme="pyxis-custom"
       options={{
-        fontSize: 12,
+        fontSize,
         lineNumbers: 'on',
         roundedSelection: false,
         scrollBeyondLastLine: false,

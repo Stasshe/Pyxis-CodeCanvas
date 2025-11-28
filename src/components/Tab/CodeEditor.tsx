@@ -270,6 +270,7 @@ export default function CodeEditor({
           onSelectionChange={setSelectionCount}
           tabSize={settings?.editor.tabSize ?? 2}
           insertSpaces={settings?.editor.insertSpaces ?? true}
+          fontSize={settings?.editor.fontSize ?? 14}
         />
         <CharCountDisplay
           charCount={charCount}
@@ -302,6 +303,7 @@ export default function CodeEditor({
         onSelectionCountChange={setSelectionCount}
         tabSize={settings?.editor.tabSize ?? 2}
         insertSpaces={settings?.editor.insertSpaces ?? true}
+        fontSize={settings?.editor.fontSize ?? 14}
       />
       <CharCountDisplay
         charCount={charCount}

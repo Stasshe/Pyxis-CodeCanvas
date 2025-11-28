@@ -13,10 +13,11 @@ interface CodeMirrorEditorProps {
   onSelectionChange: (count: number | null) => void;
   tabSize: number;
   insertSpaces: boolean;
+  fontSize?: number;
 }
 
 export default function CodeMirrorEditor(props: CodeMirrorEditorProps) {
-  const { tabId, fileName, content, onChange, onSelectionChange, tabSize, insertSpaces } = props;
+  const { tabId, fileName, content, onChange, onSelectionChange, tabSize, insertSpaces, fontSize = 14 } = props;
 
   // CodeMirrorインスタンスのref
   const cmRef = useRef<any>(null);
@@ -74,6 +75,7 @@ export default function CodeMirrorEditor(props: CodeMirrorEditorProps) {
           height: '100%',
           minHeight: '100%',
           width: '100%',
+          fontSize: typeof fontSize === 'number' ? `${fontSize}px` : fontSize,
           userSelect: 'text',
           WebkitUserSelect: 'text',
           msUserSelect: 'text',
