@@ -15,10 +15,35 @@ type SearchOptions = {
   wholeWord: boolean;
   useRegex: boolean;
   searchInFilenames: boolean;
+  excludeGlobs?: string[];
 };
 
 function escapeForRegex(s: string) {
   return s.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
+}
+
+function globToRegex(pattern: string, caseSensitive: boolean) {
+  const p = pattern.replace(/\\\\/g, '/');
+  let regexStr = '';
+  for (let i = 0; i < p.length; ) {
+    const c = p[i];
+    if (c === '*') {
+      if (p[i + 1] === '*') {
+        regexStr += '.*';
+        i += 2;
+      } else {
+        regexStr += '[^/]*';
+        i += 1;
+      }
+    } else if (c === '?') {
+      regexStr += '.';
+      i += 1;
+    } else {
+      regexStr += c.replace(/[.+^${}()|[\\]\\]/g, '\\$&');
+      i += 1;
+    }
+  }
+  return new RegExp('^' + regexStr + '$', caseSensitive ? '' : 'i');
 }
 
 self.addEventListener('message', (ev: MessageEvent) => {
@@ -51,7 +76,20 @@ self.addEventListener('message', (ev: MessageEvent) => {
 
     const results: any[] = [];
 
+    // Prepare exclude regexes from provided glob patterns (if any).
+    const excludePatterns: RegExp[] = (options.excludeGlobs || []).map((g) =>
+      globToRegex(g, options.caseSensitive)
+    );
+
     for (const file of files) {
+      const normalizedPath = (file.path || '').replace(/\\\\/g, '/');
+      // If the path or filename matches any exclude pattern, skip this file.
+      if (
+        excludePatterns.length > 0 &&
+        excludePatterns.some((rx) => rx.test(normalizedPath) || (file.name && rx.test(file.name)))
+      ) {
+        continue;
+      }
       if (options.searchInFilenames) {
         const targetName = `${file.name || ''} ${file.path}`;
         const localRegex = new RegExp(searchRegex.source, searchRegex.flags);
