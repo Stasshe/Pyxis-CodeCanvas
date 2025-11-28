@@ -2,6 +2,7 @@ import { VimEditor } from './VimEditor';
 import { fileRepository } from '@/engine/core/fileRepository';
 
 // Vim command handler that integrates VimEditor with the terminal
+// src/engine/cmd/vim.ts
 export async function handleVimCommand(
   args: string[],
   unixCommandsRef: { current: any } | null,
@@ -30,7 +31,11 @@ export async function handleVimCommand(
     return;
   }
 
-  let entryPath = args[0];
+  // **【重要】vim起動前にターミナルを完全にクリア**
+  xtermInstance.clear();
+  xtermInstance.write('\x1b[2J\x1b[3J\x1b[H');
+
+  let entryPath = args[0]
   try {
     if (unixCommandsRef && unixCommandsRef.current) {
       if (!entryPath.startsWith('/')) {
