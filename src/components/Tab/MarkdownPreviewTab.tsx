@@ -340,7 +340,7 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
         }
       } catch (err) {}
     };
-  }, [chart, colors.mermaidBg, themeName, config, diagram, idRef, zoomState.scale, zoomState.translate.x, zoomState.translate.y]);
+  }, [chart, colors.mermaidBg, themeName, config, diagram, idRef]);
 
   const handleDownloadSvg = useCallback(() => {
     if (!svgContent) return;
