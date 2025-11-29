@@ -1,7 +1,5 @@
 import { ZoomIn, ZoomOut, RefreshCw, Download } from 'lucide-react';
-
 import { exportPdfFromHtml } from '@/engine/export/exportPdf';
-
 import mermaid from 'mermaid';
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
@@ -9,16 +7,9 @@ import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
-
 import InlineHighlightedCode from './InlineHighlightedCode';
-
 import 'katex/dist/katex.min.css';
-// Note: bracket-style math (\(...\), \[...\]) can be lost by the markdown parser
-// because backslashes are processed as escapes. To reliably support bracket
-// delimiters we preprocess the raw markdown string before parsing. This
-// preserves code fences and inline code by skipping conversion inside them.
 import { loadImageAsDataURL, parseMermaidContent } from './markdownUtils';
-
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme, ThemeContext } from '@/context/ThemeContext';
 import type { PreviewTab } from '@/engine/tabs/types';
@@ -30,54 +21,60 @@ interface MarkdownPreviewTabProps {
   currentProject?: Project;
 }
 
-// ユニークID生成用
-const mermaidIdCounter = 0;
+// グローバルカウンタ: ID衝突を確実に防ぐ
+let globalMermaidCounter = 0;
 
-// ローカル画像をDataURLに変換する関数（プロジェクトファイルのbufferContentから読み込み）
-// loadImageAsDataURL moved to markdownUtils
+// 安全なID生成（非ASCII文字でのエラー回避）
+const generateSafeId = (chart: string): string => {
+  try {
+    const hash = chart.split('').reduce((acc, char) => {
+      return ((acc << 5) - acc + char.charCodeAt(0)) | 0;
+    }, 0);
+    return `mermaid-${Math.abs(hash)}-${++globalMermaidCounter}`;
+  } catch {
+    return `mermaid-fallback-${++globalMermaidCounter}`;
+  }
+};
 
-// parseYamlConfig moved to markdownUtils
-
-// Mermaidチャートから設定と図表を分離する関数
-// parseMermaidContent moved to markdownUtils
-
-// メモ化されたMermaidコンポーネント
 const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) => {
-  // i18n
   const { t } = useTranslation();
-  // Theme name used to compute light/dark behavior for mermaid
   const { themeName } = useTheme();
   const ref = useRef<HTMLDivElement>(null);
-  // chart内容ごとにIDを固定
-  const idRef = useMemo(
-    () => `mermaid-svg-${btoa(unescape(encodeURIComponent(chart))).slice(0, 12)}`,
-    [chart]
-  );
+  
+  // ID生成をメモ化（chart変更時のみ再生成）
+  const idRef = useMemo(() => generateSafeId(chart), [chart]);
+  
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [svgContent, setSvgContent] = useState<string | null>(null);
-  // Mermaidチャート内容ごとにズーム・パン情報をuseStateで管理
   const [zoomState, setZoomState] = useState<{
     scale: number;
     translate: { x: number; y: number };
   }>({ scale: 1, translate: { x: 0, y: 0 } });
+  
   const scaleRef = useRef<number>(zoomState.scale);
   const translateRef = useRef<{ x: number; y: number }>({ ...zoomState.translate });
   const isPanningRef = useRef<boolean>(false);
   const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
+
+  // 設定パースをメモ化（パフォーマンス改善）
+  const { config, diagram } = useMemo(() => parseMermaidContent(chart), [chart]);
 
   useEffect(() => {
     let lastTouchDist = 0;
     let isPinching = false;
     let pinchStartScale = 1;
     let pinchStart = { x: 0, y: 0 };
+    let isMounted = true;
+
     const renderMermaid = async () => {
-      if (!ref.current) return;
+      if (!ref.current || !isMounted) return;
+      
       setIsLoading(true);
       setError(null);
-      // 初期ズーム・パン情報をzoomStateから復元
       scaleRef.current = zoomState.scale;
       translateRef.current = { ...zoomState.translate };
+      
       ref.current.innerHTML = `
         <div class="mermaid-loading" style="display:flex;align-items:center;justify-content:center;height:120px;">
           <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
@@ -85,14 +82,11 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
               <animateTransform attributeName="transform" type="rotate" from="0 20 20" to="360 20 20" dur="1s" repeatCount="indefinite"/>
             </circle>
           </svg>
-          <span style=\"margin-left:10px;color:#4ade80;font-size:14px;\">${t ? t('markdownPreview.generatingMermaid') : 'Mermaid図表を生成中...'}</span>
+          <span style="margin-left:10px;color:#4ade80;font-size:14px;">${t ? t('markdownPreview.generatingMermaid') : 'Mermaid図表を生成中...'}</span>
         </div>
       `;
+
       try {
-        const { config, diagram } = parseMermaidContent(chart);
-        // Use themeName from ThemeContext to determine light/dark mode instead of
-        // relying on the user's OS-level preference (window.matchMedia).
-        // If the theme name contains 'light' we treat it as light; otherwise dark.
         const isDark = !(themeName && themeName.includes('light'));
         const mermaidConfig: any = {
           startOnLoad: false,
@@ -102,6 +96,8 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
             fontSize: '8px',
           },
           suppressErrorRendering: true,
+          maxTextSize: 100000, // 複雑な図のサイズ制限緩和
+          maxEdges: 2000,
           flowchart: {
             useMaxWidth: false,
             htmlLabels: true,
@@ -111,10 +107,9 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
           },
           layout: 'dagre',
         };
+
         if (config.config) {
-          if (config.config.theme) {
-            mermaidConfig.theme = config.config.theme;
-          }
+          if (config.config.theme) mermaidConfig.theme = config.config.theme;
           if (config.config.themeVariables) {
             mermaidConfig.themeVariables = {
               ...mermaidConfig.themeVariables,
@@ -147,12 +142,26 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
             mermaidConfig.look = config.config.look;
           }
         }
+
         console.log('[Mermaid] Initializing with config:', mermaidConfig);
-        console.log('[Mermaid] Rendering diagram:', diagram);
+        console.log('[Mermaid] Rendering diagram (length:', diagram.length, ')');
+        
         mermaid.initialize(mermaidConfig);
-        const { svg } = await mermaid.render(idRef, diagram);
+
+        // タイムアウト処理追加（10秒）
+        const timeoutMs = 10000;
+        const renderPromise = mermaid.render(idRef, diagram);
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Rendering timeout')), timeoutMs)
+        );
+
+        const { svg } = (await Promise.race([renderPromise, timeoutPromise])) as any;
+
+        if (!isMounted || !ref.current) return;
+
         ref.current.innerHTML = svg;
         setSvgContent(svg);
+
         const svgElem = ref.current.querySelector('svg');
         if (svgElem) {
           svgElem.style.maxWidth = '100%';
@@ -162,11 +171,15 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
           svgElem.style.background = colors.mermaidBg || '#eaffea';
           svgElem.style.touchAction = 'none';
           svgElem.style.transformOrigin = '0 0';
-          // SVG生成後にzoomStateを必ず反映
-          svgElem.style.transform = `translate(${zoomState.translate.x}px, ${zoomState.translate.y}px) scale(${zoomState.scale})`;
-          // attach pan/zoom handlers
-          const container = ref.current as HTMLDivElement;
 
+          // requestAnimationFrameで描画完了を保証
+          requestAnimationFrame(() => {
+            if (svgElem && isMounted) {
+              svgElem.style.transform = `translate(${zoomState.translate.x}px, ${zoomState.translate.y}px) scale(${zoomState.scale})`;
+            }
+          });
+
+          const container = ref.current as HTMLDivElement;
           const applyTransform = () => {
             const s = scaleRef.current;
             const { x, y } = translateRef.current;
@@ -174,7 +187,6 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
             setZoomState({ scale: s, translate: { x, y } });
           };
 
-          // Wheel zoom (desktop)
           const onWheel = (e: WheelEvent) => {
             e.preventDefault();
             const rect = container.getBoundingClientRect();
@@ -191,7 +203,6 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
             applyTransform();
           };
 
-          // Touch events for iPad pinch zoom
           const getTouchDist = (touches: TouchList) => {
             if (touches.length < 2) return 0;
             const dx = touches[0].clientX - touches[1].clientX;
@@ -204,7 +215,6 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
               isPinching = true;
               lastTouchDist = getTouchDist(e.touches);
               pinchStartScale = scaleRef.current;
-              // ピンチ中心座標
               const rect = container.getBoundingClientRect();
               pinchStart = {
                 x: (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left,
@@ -220,7 +230,6 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
               if (lastTouchDist > 0) {
                 const scaleDelta = newDist / lastTouchDist;
                 const newScale = Math.max(0.2, Math.min(8, pinchStartScale * scaleDelta));
-                // ピンチ中心を基準にズーム
                 const tx = translateRef.current.x;
                 const ty = translateRef.current.y;
                 translateRef.current.x =
@@ -240,7 +249,6 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
             }
           };
 
-          // Pointer events for pan
           const onPointerDown = (e: PointerEvent) => {
             (e.target as Element).setPointerCapture?.(e.pointerId);
             isPanningRef.current = true;
@@ -261,16 +269,13 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
           const onPointerUp = (e: PointerEvent) => {
             try {
               (e.target as Element).releasePointerCapture?.(e.pointerId);
-            } catch (e) {
-              /* ignore */
-            }
+            } catch (e) {}
             isPanningRef.current = false;
             lastPointerRef.current = null;
             container.style.cursor = 'default';
           };
 
           const onDblClick = (e: MouseEvent) => {
-            // reset
             scaleRef.current = 1;
             translateRef.current = { x: 0, y: 0 };
             applyTransform();
@@ -281,7 +286,6 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
           window.addEventListener('pointermove', onPointerMove as any);
           window.addEventListener('pointerup', onPointerUp as any);
           container.addEventListener('dblclick', onDblClick as any);
-          // iPadピンチズーム
           container.addEventListener('touchstart', onTouchStart, { passive: false });
           container.addEventListener('touchmove', onTouchMove, { passive: false });
           container.addEventListener('touchend', onTouchEnd, { passive: false });
@@ -296,15 +300,28 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
               container.removeEventListener('touchstart', onTouchStart as any);
               container.removeEventListener('touchmove', onTouchMove as any);
               container.removeEventListener('touchend', onTouchEnd as any);
-            } catch (err) {
-              // ignore
-            }
+            } catch (err) {}
           };
           (container as any).__mermaidCleanup = cleanup;
         }
         setIsLoading(false);
-      } catch (e) {
-        const errorMessage = `Mermaidのレンダリングに失敗しました。コードを確認してください。${e}`;
+      } catch (e: any) {
+        if (!isMounted || !ref.current) return;
+        
+        // 詳細なエラーメッセージ
+        let errorMessage = 'Mermaidのレンダリングに失敗しました。';
+        if (e.message?.includes('timeout') || e.message?.includes('Rendering timeout')) {
+          errorMessage += ' 図が複雑すぎてタイムアウトしました。ノード数を減らすか、シンプルな構造にしてください。';
+        } else if (e.message?.includes('Parse error')) {
+          errorMessage += ` 構文エラー: ${e.message}`;
+        } else if (e.message?.includes('Lexical error')) {
+          errorMessage += ' 不正な文字が含まれています。';
+        } else if (e.str) {
+          errorMessage += ` ${e.str}`;
+        } else {
+          errorMessage += ` ${e.message || e}`;
+        }
+
         ref.current.innerHTML = `<div class="mermaid-error" style="color: #cc0000; padding: 16px; border: 1px solid #ff9999; border-radius: 4px; background: #ffe6e6;">${errorMessage}</div>`;
         setError(errorMessage);
         setIsLoading(false);
@@ -312,22 +329,21 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
         console.error('[Mermaid] Rendering error:', e);
       }
     };
+
     renderMermaid();
+
     return () => {
+      isMounted = false;
       try {
         if (ref.current && (ref.current as any).__mermaidCleanup) {
           (ref.current as any).__mermaidCleanup();
         }
-      } catch (err) {
-        /* ignore */
-      }
+      } catch (err) {}
     };
-  }, [chart, colors.mermaidBg, themeName]);
+  }, [chart, colors.mermaidBg, themeName, config, diagram, idRef, zoomState.scale, zoomState.translate.x, zoomState.translate.y]);
 
-  // SVGダウンロード処理
   const handleDownloadSvg = useCallback(() => {
     if (!svgContent) return;
-    // Blob生成
     const blob = new Blob([svgContent], { type: 'image/svg+xml' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -341,7 +357,6 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
     }, 100);
   }, [svgContent]);
 
-  // Small helpers for UI controls
   const handleZoomIn = useCallback(() => {
     const container = ref.current;
     if (!container) return;
@@ -349,7 +364,6 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
     if (!svgElem) return;
     const prev = scaleRef.current;
     const next = Math.min(8, prev * 1.2);
-    // center zoom on container center
     const rect = container.getBoundingClientRect();
     const cx = rect.width / 2;
     const cy = rect.height / 2;
@@ -390,134 +404,34 @@ const Mermaid = React.memo<{ chart: string; colors: any }>(({ chart, colors }) =
 
   return (
     <div style={{ gap: '8px', minHeight: '120px' }}>
-      {/* Controls: separate container with higher z-index so it won't be overlapped by the SVG */}
       {svgContent && !isLoading && !error && (
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'center',
-            marginBottom: '8px',
-            position: 'relative',
-            zIndex: 20,
-          }}
-        >
-          <div
-            className="select-none"
-            style={{
-              display: 'flex',
-              gap: 6,
-              background: 'rgba(255,255,255,0.85)',
-              padding: '6px',
-              borderRadius: 6,
-            }}
-          >
-            <button
-              type="button"
-              aria-label={t ? t('markdownPreview.zoomIn') : 'ズームイン'}
-              onClick={handleZoomIn}
-              style={{
-                margin: '0 4px',
-                padding: '4px 8px',
-                borderRadius: 4,
-                border: '1px solid #ccc',
-                background: colors.background,
-                color: colors.foreground,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-              }}
-            >
-              <ZoomIn
-                size={18}
-                style={{ verticalAlign: 'middle' }}
-              />
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px', position: 'relative', zIndex: 20 }}>
+          <div className="select-none" style={{ display: 'flex', gap: 6, background: 'rgba(255,255,255,0.85)', padding: '6px', borderRadius: 6 }}>
+            <button type="button" aria-label={t ? t('markdownPreview.zoomIn') : 'ズームイン'} onClick={handleZoomIn}
+              style={{ margin: '0 4px', padding: '4px 8px', borderRadius: 4, border: '1px solid #ccc', background: colors.background, color: colors.foreground, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <ZoomIn size={18} style={{ verticalAlign: 'middle' }} />
               {t ? t('markdownPreview.zoomIn') : 'ズームイン'}
             </button>
-            <button
-              type="button"
-              aria-label={t ? t('markdownPreview.zoomOut') : 'ズームアウト'}
-              onClick={handleZoomOut}
-              style={{
-                margin: '0 4px',
-                padding: '4px 8px',
-                borderRadius: 4,
-                border: '1px solid #ccc',
-                background: colors.background,
-                color: colors.foreground,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-              }}
-            >
-              <ZoomOut
-                size={18}
-                style={{ verticalAlign: 'middle' }}
-              />
+            <button type="button" aria-label={t ? t('markdownPreview.zoomOut') : 'ズームアウト'} onClick={handleZoomOut}
+              style={{ margin: '0 4px', padding: '4px 8px', borderRadius: 4, border: '1px solid #ccc', background: colors.background, color: colors.foreground, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <ZoomOut size={18} style={{ verticalAlign: 'middle' }} />
               {t ? t('markdownPreview.zoomOut') : 'ズームアウト'}
             </button>
-            <button
-              type="button"
-              aria-label={t ? t('markdownPreview.reset') : 'リセット'}
-              onClick={handleResetView}
-              style={{
-                margin: '0 4px',
-                padding: '4px 8px',
-                borderRadius: 4,
-                border: '1px solid #ccc',
-                background: colors.background,
-                color: colors.foreground,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-              }}
-            >
-              <RefreshCw
-                size={18}
-                style={{ verticalAlign: 'middle' }}
-              />
+            <button type="button" aria-label={t ? t('markdownPreview.reset') : 'リセット'} onClick={handleResetView}
+              style={{ margin: '0 4px', padding: '4px 8px', borderRadius: 4, border: '1px solid #ccc', background: colors.background, color: colors.foreground, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <RefreshCw size={18} style={{ verticalAlign: 'middle' }} />
               {t ? t('markdownPreview.reset') : 'リセット'}
             </button>
-            <button
-              type="button"
-              aria-label={t ? t('markdownPreview.downloadSvg') : 'SVGダウンロード'}
-              onClick={handleDownloadSvg}
-              style={{
-                margin: '0 4px',
-                padding: '4px 8px',
-                borderRadius: 4,
-                border: '1px solid #ccc',
-                background: colors.background,
-                color: colors.foreground,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-              }}
-            >
-              <Download
-                size={18}
-                style={{ verticalAlign: 'middle' }}
-              />
+            <button type="button" aria-label={t ? t('markdownPreview.downloadSvg') : 'SVGダウンロード'} onClick={handleDownloadSvg}
+              style={{ margin: '0 4px', padding: '4px 8px', borderRadius: 4, border: '1px solid #ccc', background: colors.background, color: colors.foreground, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Download size={18} style={{ verticalAlign: 'middle' }} />
               {t ? t('markdownPreview.downloadSvg') : 'SVGダウンロード'}
             </button>
           </div>
         </div>
       )}
-
-      {/* Diagram container: scrollable area and separate from controls to avoid overlap when panning/zooming */}
-      <div
-        style={{
-          position: 'relative',
-          zIndex: 10,
-          overflow: 'auto',
-          maxHeight: '60vh',
-          paddingTop: 4,
-        }}
-      >
-        <div
-          ref={ref}
-          className="mermaid"
-          style={{ minHeight: '120px' }}
-        />
+      <div style={{ position: 'relative', zIndex: 10, overflow: 'auto', maxHeight: '60vh', paddingTop: 4 }}>
+        <div ref={ref} className="mermaid" style={{ minHeight: '120px' }} />
       </div>
     </div>
   );
