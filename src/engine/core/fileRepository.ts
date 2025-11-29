@@ -4,6 +4,10 @@
  * 変更は自動的にGitFileSystemに非同期同期される
  */
 
+
+// TODO: 全てのメソッドで、normalziedPathを使うように修正する!
+// 重要！絶対やる！
+
 import { gitFileSystem } from './gitFileSystem';
 import { parseGitignore, isPathIgnored, GitIgnoreRule } from './gitignore';
 
@@ -30,6 +34,42 @@ export type FileChangeEvent = {
 // イベントリスナー型
 type FileChangeListener = (event: FileChangeEvent) => void;
 
+/**
+ * パスを正規化する（先頭スラッシュ付き、末尾スラッシュなし）
+ * - "src/hello.ts" → "/src/hello.ts"
+ * - "/src/hello.ts" → "/src/hello.ts"
+ * - "src/" → "/src"
+ * - "/" → "/"
+ * - "" → "/"
+ */
+function normalizePath(path: string): string {
+  if (!path || path === '') return '/';
+
+  // 先頭にスラッシュを追加
+  let normalized = path.startsWith('/') ? path : '/' + path;
+
+  // 末尾のスラッシュを除去（ルート以外）
+  if (normalized !== '/' && normalized.endsWith('/')) {
+    normalized = normalized.slice(0, -1);
+  }
+
+  return normalized;
+}
+
+/**
+ * 親パスを取得（正規化済み）
+ */
+function getParentPath(path: string): string {
+  const normalized = normalizePath(path);
+
+  if (normalized === '/') return '/';
+
+  const lastSlash = normalized.lastIndexOf('/');
+  if (lastSlash === 0) return '/'; // "/hello.ts" の親は "/"
+
+  return normalized.substring(0, lastSlash);
+}
+
 export class FileRepository {
   private dbName = 'PyxisProjects';
   private version = 4;
@@ -46,7 +86,7 @@ export class FileRepository {
   // イベントリスナー管理
   private listeners: Set<FileChangeListener> = new Set();
 
-  private constructor() {}
+  private constructor() { }
 
   /**
    * シングルトンインスタンス取得
@@ -877,7 +917,7 @@ export class FileRepository {
     // 🚀 最適化5: 各バッチを並列処理（Promise.all）
     await Promise.all(
       batches.map(batch =>
-        new Promise<void>((resolve, reject) => {
+        new Promise < void> ((resolve, reject) => {
           const transaction = this.db!.transaction(['files'], 'readwrite');
           const store = transaction.objectStore('files');
 
@@ -1494,3 +1534,4 @@ export class FileRepository {
 
 // シングルトンインスタンスをエクスポート
 export const fileRepository = FileRepository.getInstance();
+export { normalizePath, getParentPath }; 
