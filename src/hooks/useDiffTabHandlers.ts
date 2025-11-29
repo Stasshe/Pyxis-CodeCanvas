@@ -1,12 +1,13 @@
 import { useCallback } from 'react';
 
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
+import { normalizePath } from '@/engine/core/fileRepository';
 import { useTabStore } from '@/stores/tabStore';
 import type { SingleFileDiff } from '@/types';
 
 /**
  * [NEW ARCHITECTURE] Git Diff タブを開くための Hook
- * TabContext を使用して、Diff タブを開く
+ * パス正規化対応版
  */
 export function useDiffTabHandlers(currentProject: any) {
   const { openTab } = useTabStore();
@@ -23,58 +24,54 @@ export function useDiffTabHandlers(currentProject: any) {
       editable?: boolean;
     }) => {
       if (!currentProject) return;
+
+      const normalizedPath = normalizePath(filePath);
+
+      console.log(`[useDiffTabHandlers] Path normalized: "${filePath}" → "${normalizedPath}"`);
+
       const git = terminalCommandRegistry.getGitCommands(currentProject.name, currentProject.id);
 
-      // working directory vs コミット のdiffの場合（editableがtrueの場合のみ）
-      // GitPanelのunstaged/stagedファイルから開かれた場合
+      // working directory vs コミット のdiff（editableがtrueの場合）
       if (editable === true && commitId && commitId.length >= 6 && commitId !== 'WORKDIR') {
-        // 最新コミットのhashが渡された場合、working directoryと比較
-        // latest commitの内容
         const formerCommitId = commitId;
         const latterCommitId = 'WORKDIR';
-        const formerContent = await git.getFileContentAtCommit(formerCommitId, filePath);
 
-        // working directoryの内容
+        //  Gitには正規化されたパスを渡す
+        const formerContent = await git.getFileContentAtCommit(formerCommitId, normalizedPath);
+
+        // working directoryの内容を取得
         let latterContent = '';
         try {
-          // まずfileRepositoryから最新の内容を取得を試みる
           const { fileRepository } = await import('@/engine/core/fileRepository');
-          try {
-            // Use indexed lookup for a single file (preferred per FILE_REPOSITORY_BEST_PRACTICES)
-            const file = await fileRepository.getFileByPath(currentProject.id, filePath);
-            if (file && file.content) {
-              latterContent = file.content;
-              console.log(
-                '[useDiffTabHandlers] Read latterContent from fileRepository (getFileByPath)'
-              );
-            } else {
-              throw new Error('File not found in repository');
-            }
-          } catch (repoError) {
-            // fileRepositoryから取得できない場合は、gitFileSystemから取得
-            console.log('[useDiffTabHandlers] Falling back to gitFileSystem');
-            const { gitFileSystem } = await import('@/engine/core/gitFileSystem');
 
-            try {
-              // gitFileSystem.readFileを使用（Git用ワークスペースから読み取り）
-              latterContent = await gitFileSystem.readFile(currentProject.name, filePath);
-              console.log('[useDiffTabHandlers] Read latterContent from gitFileSystem');
-            } catch (fsError) {
-              console.error('[useDiffTabHandlers] Failed to read from gitFileSystem:', fsError);
-              latterContent = '';
-            }
+          //  正規化されたパスでファイルを検索
+          const file = await fileRepository.getFileByPath(currentProject.id, normalizedPath);
+
+          if (file && file.content) {
+            latterContent = file.content;
+            console.log('[useDiffTabHandlers] Read latterContent from fileRepository');
+          } else {
+            throw new Error('File not found in repository');
           }
-          console.log('[useDiffTabHandlers] Read latterContent:', latterContent.substring(0, 100));
-        } catch (e) {
-          console.error('[useDiffTabHandlers] Failed to read latterContent:', e);
-          latterContent = '';
+        } catch (repoError) {
+          console.log('[useDiffTabHandlers] Falling back to gitFileSystem');
+          const { gitFileSystem } = await import('@/engine/core/gitFileSystem');
+
+          try {
+            //  gitFileSystemにも正規化されたパスを渡す
+            latterContent = await gitFileSystem.readFile(currentProject.name, normalizedPath);
+            console.log('[useDiffTabHandlers] Read latterContent from gitFileSystem');
+          } catch (fsError) {
+            console.error('[useDiffTabHandlers] Failed to read from gitFileSystem:', fsError);
+            latterContent = '';
+          }
         }
 
-        // [NEW ARCHITECTURE] openTab with kind: 'diff'
+        //  Diffデータも正規化されたパスで作成
         const diffData: SingleFileDiff = {
-          formerFullPath: filePath,
+          formerFullPath: normalizedPath,
           formerCommitId: formerCommitId,
-          latterFullPath: filePath,
+          latterFullPath: normalizedPath,
           latterCommitId: 'WORKDIR',
           formerContent,
           latterContent,
@@ -91,11 +88,11 @@ export function useDiffTabHandlers(currentProject: any) {
       }
 
       // 通常のコミット間diff
-      // 指定コミットの親を取得
       const log = await git.getFormattedLog(20);
       const lines = log.split('\n');
       const idx = lines.findIndex(line => line.startsWith(commitId));
       let parentCommitId = '';
+
       if (idx !== -1) {
         const parts = lines[idx].split('|');
         if (parts.length >= 5) {
@@ -104,18 +101,18 @@ export function useDiffTabHandlers(currentProject: any) {
         }
       }
 
-      console.log('[useDiffTabHandlers] Commit diff:', { commitId, parentCommitId, filePath });
+      console.log('[useDiffTabHandlers] Commit diff:', { commitId, parentCommitId, normalizedPath });
 
       const latterCommitId = commitId;
       const formerCommitId = parentCommitId;
 
-      // コミット間のコンテンツを取得（エラーハンドリング付き）
       let latterContent = '';
       let formerContent = '';
 
       try {
         if (latterCommitId) {
-          latterContent = await git.getFileContentAtCommit(latterCommitId, filePath);
+          //  正規化されたパスでコミットから取得
+          latterContent = await git.getFileContentAtCommit(latterCommitId, normalizedPath);
           console.log('[useDiffTabHandlers] Latter content length:', latterContent.length);
         }
       } catch (error) {
@@ -125,7 +122,8 @@ export function useDiffTabHandlers(currentProject: any) {
 
       try {
         if (formerCommitId) {
-          formerContent = await git.getFileContentAtCommit(formerCommitId, filePath);
+          //  正規化されたパスでコミットから取得
+          formerContent = await git.getFileContentAtCommit(formerCommitId, normalizedPath);
           console.log('[useDiffTabHandlers] Former content length:', formerContent.length);
         }
       } catch (error) {
@@ -133,11 +131,11 @@ export function useDiffTabHandlers(currentProject: any) {
         formerContent = '';
       }
 
-      // [NEW ARCHITECTURE] openTab with kind: 'diff'
+      //  Diffデータも正規化されたパスで作成
       const diffData: SingleFileDiff = {
-        formerFullPath: filePath,
+        formerFullPath: normalizedPath,
         formerCommitId: formerCommitId,
-        latterFullPath: filePath,
+        latterFullPath: normalizedPath,
         latterCommitId: latterCommitId,
         formerContent,
         latterContent,
@@ -154,13 +152,13 @@ export function useDiffTabHandlers(currentProject: any) {
     [currentProject, openTab]
   );
 
-  // コミット全体のdiffタブを開く（全ファイルを1つのタブで縦並び表示）
+  // コミット全体のdiffタブを開く
   const handleDiffAllFilesClick = useCallback(
     async ({ commitId, parentCommitId }: { commitId: string; parentCommitId: string }) => {
       if (!currentProject) return;
       const git = terminalCommandRegistry.getGitCommands(currentProject.name, currentProject.id);
 
-      // defensive: if parentCommitId is not provided, try to resolve it from the commit log
+      // defensive: parentCommitIdが無い場合は解決を試みる
       if (!parentCommitId) {
         try {
           const log = await git.getFormattedLog(20);
@@ -184,23 +182,29 @@ export function useDiffTabHandlers(currentProject: any) {
       // 変更ファイルを抽出
       const files: string[] = [];
       const lines = diffOutput.split('\n');
+
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
         if (line.startsWith('diff --git ')) {
           const match = line.match(/diff --git a\/(.+) b\/(.+)/);
           if (match) {
-            files.push(match[2]);
+            const rawPath = match[2];
+            const normalizedPath = normalizePath(rawPath);
+            files.push(normalizedPath);
+
+            console.log(`[useDiffTabHandlers] File normalized: "${rawPath}" → "${normalizedPath}"`);
           }
         }
       }
 
       // 各ファイルごとにdiff情報を取得
       const diffs: SingleFileDiff[] = [];
+
       for (const filePath of files) {
         let latterContent = '';
         let formerContent = '';
 
-        // Latter content: content at `commitId` (may not exist for deleted files)
+        //  正規化されたパスでコンテンツ取得
         try {
           if (commitId) {
             latterContent = await git.getFileContentAtCommit(commitId, filePath);
@@ -214,7 +218,6 @@ export function useDiffTabHandlers(currentProject: any) {
           latterContent = '';
         }
 
-        // Former content: content at `parentCommitId` (may not exist for newly added files or root commit)
         try {
           if (parentCommitId) {
             formerContent = await git.getFileContentAtCommit(parentCommitId, filePath);
@@ -230,17 +233,17 @@ export function useDiffTabHandlers(currentProject: any) {
           formerContent = '';
         }
 
+        //  正規化されたパスでDiffデータ作成
         diffs.push({
-          formerFullPath: filePath,
+          formerFullPath: filePath, // 既に正規化済み
           formerCommitId: parentCommitId,
-          latterFullPath: filePath,
+          latterFullPath: filePath, // 既に正規化済み
           latterCommitId: commitId,
           formerContent,
           latterContent,
         });
       }
 
-      // [NEW ARCHITECTURE] openTab with kind: 'diff' and multiple files
       openTab(
         {
           files: diffs,
