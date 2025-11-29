@@ -1532,6 +1532,25 @@ export class FileRepository {
   }
 }
 
-// シングルトンインスタンスをエクスポート
+/**
+ * fileRepository用パス → Git API用パスに変換
+ * "/src/hello.ts" → "src/hello.ts"
+ */
+function toGitPath(path: string): string {
+  const normalized = normalizePath(path);
+  if (normalized === '/') return '.';
+  return normalized.substring(1); // 先頭スラッシュを削除
+}
+
+/**
+ * Git API用パス → fileRepository用パスに変換
+ * "src/hello.ts" → "/src/hello.ts"
+ */
+function fromGitPath(path: string): string {
+  if (!path || path === '.' || path === '/') return '/';
+  return normalizePath(path); // normalizePath が先頭スラッシュを追加
+}
+
+// エクスポート
 export const fileRepository = FileRepository.getInstance();
-export { normalizePath, getParentPath }; 
+export { normalizePath, getParentPath, toGitPath, fromGitPath };
