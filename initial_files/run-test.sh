@@ -16,9 +16,9 @@ fi
 
 echo "== run-test.sh: Environment =="
 echo "PWD: $(pwd)"
-node src/index.js
 echo "---"
 for i in {1..5}; do
   echo "カウント: $i"
 done
+node src/index.js
 echo "run-test.sh finished successfully"
