@@ -12,6 +12,7 @@ import { GitRevertOperations } from './gitOperations/revert';
 
 import { fileRepository } from '@/engine/core/fileRepository';
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
+import { toAppPath, joinPath } from '@/engine/core/pathResolver';
 import { syncManager } from '@/engine/core/syncManager';
 import { authRepository } from '@/engine/user/authRepository';
 
@@ -248,14 +249,12 @@ export class GitCommands {
     const startTime = performance.now();
 
     try {
-      // パス正規化関数
-      const normalizePath = (base: string, entry?: string) => {
-        let path = base ? base.replace(/^\/+|\/+$/g, '') : '';
-        if (entry) path = path ? `${path}/${entry}` : entry;
-        path = '/' + path;
-        path = path.replace(/\/+/g, '/');
-        if (path === '/') return path;
-        return path.replace(/\/+$/, '');
+      // パス正規化関数 - pathResolverのtoAppPathとjoinPathを使用
+      const normalizeClonePath = (base: string, entry?: string): string => {
+        if (!entry) {
+          return toAppPath(base);
+        }
+        return joinPath(toAppPath(base), entry);
       };
 
       // 全ファイル/フォルダを一度に収集
@@ -269,7 +268,7 @@ export class GitCommands {
       // ルートフォルダを追加
       if (baseRelativePath) {
         allDirectories.push({
-          path: normalizePath(baseRelativePath),
+          path: normalizeClonePath(baseRelativePath),
           depth: baseRelativePath.split('/').length,
         });
       }
@@ -283,7 +282,7 @@ export class GitCommands {
             if (entry === '.' || entry === '..' || entry === '.git') continue;
 
             const fullPath = `${currentPath}${currentPath.endsWith('/') ? '' : '/'}${entry}`;
-            const relativePath = normalizePath(relativeBase, entry);
+            const relativePath = normalizeClonePath(relativeBase, entry);
 
             try {
               const stat = await this.fs.promises.stat(fullPath);

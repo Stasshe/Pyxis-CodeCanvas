@@ -22,10 +22,19 @@ import {
 } from './unixOperations';
 
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
+import {
+  fsPathToAppPath,
+  normalizeDotSegments,
+  resolvePath as pathResolvePath,
+} from '@/engine/core/pathResolver';
 
 /**
  * Unixコマンドを統合して提供するクラス
  * 各コマンドの実装は unix-commands/ 配下に分割されている
+ *
+ * パス形式:
+ * - currentDir: FSPath形式（/projects/{projectName}/...）
+ * - 外部API: AppPath形式（/src/hello.ts）
  */
 export class UnixCommands {
   private currentDir: string;
@@ -294,32 +303,24 @@ export class UnixCommands {
 
   // ユーティリティメソッド
 
+  /**
+   * FSPath（/projects/...）からAppPath（/src/...）を取得
+   * pathResolverのfsPathToAppPathを使用
+   */
   public getRelativePathFromProject(fullPath: string): string {
-    const projectBase = `/projects/${this.projectName}`;
-    return fullPath.replace(projectBase, '') || '/';
+    return fsPathToAppPath(fullPath, this.projectName);
   }
 
+  /**
+   * パスを正規化（..や.を解決）
+   * pathResolverを使用
+   */
   public normalizePath(path: string): string {
-    // 絶対パスならそのまま
+    // 絶対パスならそのまま正規化
     if (path.startsWith('/')) {
-      path = path;
-    } else {
-      // カレントディレクトリ基準の相対パス
-      path = this.currentDir.replace(/\/$/, '') + '/' + path;
+      return normalizeDotSegments(path);
     }
-    // './'や'../'を正しく解決
-    const segments = path.split('/');
-    const stack: string[] = [];
-    for (const seg of segments) {
-      if (seg === '' || seg === '.') continue;
-      if (seg === '..') {
-        if (stack.length > 0) {
-          stack.pop();
-        }
-      } else {
-        stack.push(seg);
-      }
-    }
-    return '/' + stack.join('/');
+    // カレントディレクトリ基準の相対パスを解決
+    return pathResolvePath(this.currentDir, path);
   }
 }

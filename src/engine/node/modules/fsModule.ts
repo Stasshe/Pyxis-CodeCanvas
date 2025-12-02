@@ -7,6 +7,7 @@
  */
 
 import { fileRepository } from '@/engine/core/fileRepository';
+import { toAppPath, toFSPath, fsPathToAppPath, normalizeDotSegments } from '@/engine/core/pathResolver';
 
 export interface FSModuleOptions {
   projectDir: string;
@@ -18,31 +19,29 @@ export function createFSModule(options: FSModuleOptions) {
   const { projectDir, projectId, projectName } = options;
 
   /**
-   * パスを正規化してフルパスと相対パスを取得
+   * パスを正規化してフルパスと相対パス（AppPath）を取得
+   * pathResolverを使用
+   * POSIX準拠: . と .. を解決
    */
-  function normalizePath(path: string): { fullPath: string; relativePath: string } {
-    // すでにprojectDirで始まる場合は、それを削除してrelativePathを作成
+  function normalizeModulePath(path: string): { fullPath: string; relativePath: string } {
+    // すでにprojectDirで始まる場合（FSPath形式）
     if (path.startsWith(projectDir)) {
-      let relativePath = path.slice(projectDir.length);
-      if (relativePath === '') relativePath = '/';
-      if (!relativePath.startsWith('/')) relativePath = '/' + relativePath;
+      const relativePath = fsPathToAppPath(path, projectName);
+      // . と .. を解決
+      const resolvedPath = normalizeDotSegments(relativePath);
       return {
-        fullPath: path,
-        relativePath: relativePath,
+        fullPath: toFSPath(projectName, resolvedPath),
+        relativePath: resolvedPath,
       };
     }
 
-    if (path.startsWith('/')) {
-      return {
-        fullPath: `${projectDir}${path}`,
-        relativePath: path,
-      };
-    } else {
-      return {
-        fullPath: `${projectDir}/${path}`,
-        relativePath: `/${path}`,
-      };
-    }
+    // AppPath形式またはGitPath形式の場合
+    // まずAppPath形式に変換し、. と .. を解決
+    const appPath = normalizeDotSegments(toAppPath(path));
+    return {
+      fullPath: toFSPath(projectName, appPath),
+      relativePath: appPath,
+    };
   }
 
 
@@ -61,7 +60,7 @@ export function createFSModule(options: FSModuleOptions) {
       throw new Error(`Invalid projectId: ${projectId}`);
     }
 
-    const { relativePath } = normalizePath(path);
+    const { relativePath } = normalizeModulePath(path);
 
     // 親ディレクトリをIndexedDBに作成
     const parentPath = relativePath.substring(0, relativePath.lastIndexOf('/'));
@@ -129,7 +128,7 @@ export function createFSModule(options: FSModuleOptions) {
      */
     readFile: async (path: string, options?: any): Promise<string | Uint8Array> => {
       try {
-        const { relativePath } = normalizePath(path);
+        const { relativePath } = normalizeModulePath(path);
         
         // キャッシュにあればそれを返す
         if (memoryCache.has(relativePath)) {
@@ -163,7 +162,7 @@ export function createFSModule(options: FSModuleOptions) {
      */
     writeFile: async (path: string, data: string | Uint8Array, options?: any): Promise<void> => {
       try {
-        const { relativePath } = normalizePath(path);
+        const { relativePath } = normalizeModulePath(path);
         
         // キャッシュ更新
         const content = typeof data === 'string' ? data : new TextDecoder().decode(data);
@@ -180,7 +179,7 @@ export function createFSModule(options: FSModuleOptions) {
      * 事前にpreloadFiles()でキャッシュにロードしておく必要がある
      */
     readFileSync: (path: string, options?: any): string | Uint8Array => {
-      const { relativePath } = normalizePath(path);
+      const { relativePath } = normalizeModulePath(path);
       
       if (memoryCache.has(relativePath)) {
         const content = memoryCache.get(relativePath)!;
@@ -212,7 +211,7 @@ export function createFSModule(options: FSModuleOptions) {
      * ファイル/ディレクトリの存在を確認
      */
     existsSync: (path: string): boolean => {
-      const { relativePath } = normalizePath(path);
+      const { relativePath } = normalizeModulePath(path);
       // Check cache first
       if (memoryCache.has(relativePath)) return true;
       
@@ -278,7 +277,7 @@ export function createFSModule(options: FSModuleOptions) {
      * [NEW ARCHITECTURE] IndexedDBに保存すれば自動的にGitFileSystemに同期される
      */
     mkdir: async (path: string, options?: any): Promise<void> => {
-      const { relativePath } = normalizePath(path);
+      const { relativePath } = normalizeModulePath(path);
       const recursive = options?.recursive || false;
 
       try {
@@ -316,7 +315,7 @@ export function createFSModule(options: FSModuleOptions) {
      */
     readdir: async (path: string, options?: any): Promise<string[]> => {
       try {
-        const { relativePath } = normalizePath(path);
+        const { relativePath } = normalizeModulePath(path);
         const dirPath = relativePath.endsWith('/') ? relativePath : relativePath + '/';
         // Use prefix-based listing to avoid loading all files
         const files =
@@ -339,7 +338,7 @@ export function createFSModule(options: FSModuleOptions) {
      * 注意: IndexedDBは同期でアクセスできないため、事前に`preloadFiles()`でキャッシュをロードしておく必要があります。
      */
     readdirSync: (path: string, options?: any): string[] => {
-      const { relativePath } = normalizePath(path);
+      const { relativePath } = normalizeModulePath(path);
       const dirPath = relativePath.endsWith('/') ? relativePath : relativePath + '/';
 
       // メモリキャッシュから直接取得
@@ -363,7 +362,7 @@ export function createFSModule(options: FSModuleOptions) {
      * [NEW ARCHITECTURE] IndexedDBから削除すれば自動的にGitFileSystemからも削除される
      */
     unlink: async (path: string): Promise<void> => {
-      const { relativePath } = normalizePath(path);
+      const { relativePath } = normalizeModulePath(path);
       
       // キャッシュから削除
       if (memoryCache.has(relativePath)) {
@@ -388,7 +387,7 @@ export function createFSModule(options: FSModuleOptions) {
      */
     appendFile: async (path: string, data: string, options?: any): Promise<void> => {
       try {
-        const { relativePath } = normalizePath(path);
+        const { relativePath } = normalizeModulePath(path);
         let existingContent = '';
         
         // キャッシュまたはDBから取得
@@ -415,7 +414,7 @@ export function createFSModule(options: FSModuleOptions) {
      */
     stat: async (path: string): Promise<any> => {
       try {
-        const { relativePath } = normalizePath(path);
+        const { relativePath } = normalizeModulePath(path);
         
         // キャッシュにあればファイルとして返す
         if (memoryCache.has(relativePath)) {

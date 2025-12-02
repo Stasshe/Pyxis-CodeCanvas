@@ -2,14 +2,20 @@
  * FileRepository - IndexedDBを管理する統一的なファイル操作API
  * 全てのファイル操作はこのクラスを経由する
  * 変更は自動的にGitFileSystemに非同期同期される
+ *
+ * パス形式: AppPath（先頭スラッシュ付き）
+ * 例: "/src/hello.ts", "/", "/folder"
+ * パス変換は pathResolver モジュールを使用
  */
-
-
-// TODO: 全てのメソッドで、normalziedPathを使うように修正する!
-// 重要！絶対やる！
 
 import { gitFileSystem } from './gitFileSystem';
 import { parseGitignore, isPathIgnored, GitIgnoreRule } from './gitignore';
+import {
+  toAppPath,
+  toGitPath as pathToGitPath,
+  fromGitPath as pathFromGitPath,
+  getParentPath as pathGetParentPath,
+} from './pathResolver';
 
 import { LOCALSTORAGE_KEY } from '@/context/config';
 import { coreInfo, coreWarn, coreError } from '@/engine/core/coreLogger';
@@ -36,39 +42,17 @@ type FileChangeListener = (event: FileChangeEvent) => void;
 
 /**
  * パスを正規化する（先頭スラッシュ付き、末尾スラッシュなし）
- * - "src/hello.ts" → "/src/hello.ts"
- * - "/src/hello.ts" → "/src/hello.ts"
- * - "src/" → "/src"
- * - "/" → "/"
- * - "" → "/"
+ * pathResolver の toAppPath を使用
+ * @deprecated 直接 pathResolver の toAppPath を使用してください
  */
-function normalizePath(path: string): string {
-  if (!path || path === '') return '/';
-
-  // 先頭にスラッシュを追加
-  let normalized = path.startsWith('/') ? path : '/' + path;
-
-  // 末尾のスラッシュを除去（ルート以外）
-  if (normalized !== '/' && normalized.endsWith('/')) {
-    normalized = normalized.slice(0, -1);
-  }
-
-  return normalized;
-}
+const normalizePath = toAppPath;
 
 /**
  * 親パスを取得（正規化済み）
+ * pathResolver の getParentPath を使用
+ * @deprecated 直接 pathResolver の getParentPath を使用してください
  */
-function getParentPath(path: string): string {
-  const normalized = normalizePath(path);
-
-  if (normalized === '/') return '/';
-
-  const lastSlash = normalized.lastIndexOf('/');
-  if (lastSlash === 0) return '/'; // "/hello.ts" の親は "/"
-
-  return normalized.substring(0, lastSlash);
-}
+const getParentPath = pathGetParentPath;
 
 export class FileRepository {
   private dbName = 'PyxisProjects';
@@ -1534,23 +1518,21 @@ export class FileRepository {
 
 /**
  * fileRepository用パス → Git API用パスに変換
- * "/src/hello.ts" → "src/hello.ts"
+ * pathResolver の toGitPath を使用
+ * @deprecated 直接 pathResolver の toGitPath を使用してください
  */
-function toGitPath(path: string): string {
-  const normalized = normalizePath(path);
-  if (normalized === '/') return '.';
-  return normalized.substring(1); // 先頭スラッシュを削除
-}
+const toGitPath = pathToGitPath;
 
 /**
  * Git API用パス → fileRepository用パスに変換
- * "src/hello.ts" → "/src/hello.ts"
+ * pathResolver の fromGitPath を使用
+ * @deprecated 直接 pathResolver の fromGitPath を使用してください
  */
-function fromGitPath(path: string): string {
-  if (!path || path === '.' || path === '/') return '/';
-  return normalizePath(path); // normalizePath が先頭スラッシュを追加
-}
+const fromGitPath = pathFromGitPath;
 
 // エクスポート
 export const fileRepository = FileRepository.getInstance();
 export { normalizePath, getParentPath, toGitPath, fromGitPath };
+
+// 新しいパス解決モジュールを再エクスポート
+export * from './pathResolver';
