@@ -1,9 +1,15 @@
 /**
  * GitFileSystem - lightning-fsを管理し、git操作専用のAPIを提供
  * 全てのgit操作とlightning-fs操作はこのクラスを経由する
+ *
+ * パス形式: FSPath（/projects/{projectName}/... 形式）
+ * lightning-fsは先頭スラッシュなしのパスを受け取るため、
+ * 内部でAppPath（先頭スラッシュ付き）からGitPath（先頭スラッシュなし）への変換を行う
  */
 
 import FS from '@isomorphic-git/lightning-fs';
+
+import { getProjectRoot, toFSPath, toGitPath, toAppPath } from './pathResolver';
 
 import { coreInfo, coreWarn, coreError } from '@/engine/core/coreLogger';
 
@@ -60,19 +66,32 @@ export class GitFileSystem {
 
   /**
    * プロジェクトディレクトリパス取得
+   * pathResolverのgetProjectRootを使用
    */
   getProjectDir(projectName: string): string {
-    return `/projects/${projectName}`;
+    return getProjectRoot(projectName);
+  }
+
+  /**
+   * AppPath（先頭スラッシュ付き）をFSPath（プロジェクトディレクトリ + パス）に変換
+   * pathResolverのtoFSPathを使用
+   */
+  private toFullPath(projectName: string, filePath: string): string {
+    return toFSPath(projectName, filePath);
   }
 
   /**
    * パスを正規化（先頭の/を削除し、プロジェクトディレクトリと正しく連結）
+   * @deprecated toFullPath を使用してください
    */
   private normalizePath(projectDir: string, filePath: string): string {
-    // filePathの先頭の/を削除
-    const cleanPath = filePath.replace(/^\/+/, '');
+    // filePathの先頭の/を削除（GitPath形式に変換）
+    const gitPath = toGitPath(filePath);
     // プロジェクトディレクトリと連結
-    return `${projectDir}/${cleanPath}`;
+    if (gitPath === '.') {
+      return projectDir;
+    }
+    return `${projectDir}/${gitPath}`;
   }
 
   /**

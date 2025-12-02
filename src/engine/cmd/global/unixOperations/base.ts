@@ -1,9 +1,21 @@
 import { fileRepository } from '@/engine/core/fileRepository';
+import {
+  toAppPath,
+  normalizeDotSegments,
+  getProjectRoot as pathGetProjectRoot,
+  fsPathToAppPath,
+  isWithinProject as pathIsWithinProject,
+  resolvePath as pathResolvePath,
+} from '@/engine/core/pathResolver';
 import type { ProjectFile } from '@/types';
 
 /**
  * Unixコマンドのベースクラス
  * 共通のユーティリティメソッドと状態管理を提供
+ *
+ * パス形式:
+ * - currentDir: FSPath形式（/projects/{projectName}/...）
+ * - DB操作: AppPath形式（/src/hello.ts）
  */
 export abstract class UnixCommandBase {
   protected currentDir: string;
@@ -70,7 +82,7 @@ export abstract class UnixCommandBase {
   }
 
   /**
-   * 相対パスを絶対パスに変換
+   * 相対パスを絶対パス（FSPath形式）に変換
    */
   protected resolvePath(path: string): string {
     // 絶対パスの場合はそのまま返す
@@ -89,51 +101,34 @@ export abstract class UnixCommandBase {
 
   /**
    * パスを正規化（..や.を解決、末尾スラッシュを除去）
+   * pathResolverのnormalizeDotSegmentsを使用
    */
   protected normalizePath(path: string): string {
-    // 末尾スラッシュを除去（ルートの場合は除外）
-    let cleanPath = path;
-    if (cleanPath !== '/' && cleanPath.endsWith('/')) {
-      cleanPath = cleanPath.slice(0, -1);
-    }
-
-    const parts = cleanPath.split('/').filter(part => part !== '' && part !== '.');
-    const normalized: string[] = [];
-
-    for (const part of parts) {
-      if (part === '..') {
-        if (normalized.length > 0 && normalized[normalized.length - 1] !== '..') {
-          normalized.pop();
-        }
-      } else {
-        normalized.push(part);
-      }
-    }
-
-    return '/' + normalized.join('/');
+    return normalizeDotSegments(path);
   }
 
   /**
-   * プロジェクトルートからの相対パスを取得
+   * FSPath（/projects/...）からAppPath（/src/...）を取得
+   * pathResolverのfsPathToAppPathを使用
    */
   protected getRelativePathFromProject(fullPath: string): string {
-    const projectBase = `/projects/${this.projectName}`;
-    return fullPath.replace(projectBase, '') || '/';
+    return fsPathToAppPath(fullPath, this.projectName);
   }
 
   /**
-   * プロジェクトルートディレクトリを取得
+   * プロジェクトルートディレクトリを取得（FSPath形式）
+   * pathResolverのgetProjectRootを使用
    */
   protected getProjectRoot(): string {
-    return '/projects/' + this.projectName;
+    return pathGetProjectRoot(this.projectName);
   }
 
   /**
    * パスがプロジェクト内かチェック
+   * pathResolverのisWithinProjectを使用
    */
   protected isWithinProject(path: string): boolean {
-    const projectRoot = this.getProjectRoot();
-    return path.startsWith(projectRoot);
+    return pathIsWithinProject(path, this.projectName);
   }
 
   /**
