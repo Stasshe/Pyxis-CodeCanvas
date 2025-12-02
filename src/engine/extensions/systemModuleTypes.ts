@@ -9,7 +9,6 @@
  */
 
 import type { CommandRegistry } from './commandRegistry';
-import type { transformImports } from './transformImports';
 
 import type { GitCommands } from '@/engine/cmd/global/git';
 import type { NpmCommands } from '@/engine/cmd/global/npm';
@@ -32,7 +31,6 @@ export interface SystemModuleMap {
   fileRepository: FileRepository;
   normalizeCjsEsm: NormalizeCjsEsmModule;
   commandRegistry: CommandRegistry;
-  transformImports: typeof transformImports;
   /** Terminal/CLI command singletons provider */
   systemBuiltinCommands: {
     getUnixCommands: (projectName: string, projectId?: string) => UnixCommands;

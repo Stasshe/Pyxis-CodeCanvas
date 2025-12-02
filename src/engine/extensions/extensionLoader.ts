@@ -5,7 +5,6 @@
 
 import { isBinaryExt, toDataUrlFromUint8, dataUrlToBlob } from './binaryUtils';
 import { extensionInfo, extensionError } from './extensionsLogger';
-import { transformImports } from './transformImports';
 import type {
   ExtensionManifest,
   ExtensionExports,
@@ -157,6 +156,7 @@ export async function loadExtensionModule(
       const importMap: Record<string, string> = {};
 
       // 追加ファイルをBlobURLとして登録
+      // Note: transformImportsはビルド時に適用済みなので、ここでは適用しない
       for (const [filePath, code] of Object.entries(additionalFiles)) {
         let url: string;
         try {
@@ -170,15 +170,14 @@ export async function loadExtensionModule(
               const blob = dataUrlToBlob(code);
               url = URL.createObjectURL(blob);
             } catch (e) {
-              // fallback to treating as text module
-              const transformedCode = transformImports(code as string);
-              const blob = new Blob([transformedCode], { type: 'application/javascript' });
+              // fallback to treating as text module (already transformed at build time)
+              const blob = new Blob([code as string], { type: 'application/javascript' });
               url = URL.createObjectURL(blob);
               console.error('[ExtensionLoader] Failed to convert dataUrl to Blob for', filePath, e);
             }
           } else {
-            const transformedCode = transformImports(code as string);
-            const blob = new Blob([transformedCode], { type: 'application/javascript' });
+            // コードは既にビルド時にtransformImportsが適用済み
+            const blob = new Blob([code as string], { type: 'application/javascript' });
             url = URL.createObjectURL(blob);
           }
         } catch (err) {
@@ -209,11 +208,9 @@ export async function loadExtensionModule(
         console.error('[ExtensionLoader] Failed to create runtime jsx shim', e);
       }
 
-      // エントリーコードを変換し、相対importをBlobURLに書き換え
-      let transformedEntryCode = transformImports(entryCode);
-
+      // エントリーコードは既にビルド時にtransformImportsが適用済み
       // 相対importをBlobURLに書き換え
-      transformedEntryCode = transformedEntryCode.replace(
+      const processedEntryCode = entryCode.replace(
         /from\s+['"](\.[^'"]+)['"]/g,
         (match, importPath) => {
           let normalizedImportPath = importPath;
@@ -237,8 +234,8 @@ export async function loadExtensionModule(
 
       // デバッグ: 変換後のコードの最初の部分をログ出力
       console.log(
-        '[ExtensionLoader] Transformed code preview:',
-        transformedEntryCode.slice(0, 500)
+        '[ExtensionLoader] Processed code preview:',
+        processedEntryCode.slice(0, 500)
       );
       // 変換前のentryCodeも出力
       console.log('[ExtensionLoader] Raw entryCode preview:', entryCode.slice(0, 500));
@@ -246,7 +243,7 @@ export async function loadExtensionModule(
       // エントリーポイントをBlobURLとして作成
       let entryBlob, entryUrl;
       try {
-        entryBlob = new Blob([transformedEntryCode], { type: 'application/javascript' });
+        entryBlob = new Blob([processedEntryCode], { type: 'application/javascript' });
         entryUrl = URL.createObjectURL(entryBlob);
         blobUrls.push(entryUrl);
       } catch (err) {
@@ -262,8 +259,8 @@ export async function loadExtensionModule(
         console.error('[ExtensionLoader] Failed to import entryUrl', entryUrl, err);
         // 変換後コードの先頭1000文字も出力
         console.error(
-          '[ExtensionLoader] Transformed entryCode (first 10000 chars):',
-          transformedEntryCode.slice(0, 10000)
+          '[ExtensionLoader] Processed entryCode (first 10000 chars):',
+          processedEntryCode.slice(0, 10000)
         );
         console.error(
           '[ExtensionLoader] Raw entryCode (first 10000 chars):',
@@ -280,7 +277,7 @@ export async function loadExtensionModule(
             const script = document.createElement('script');
             script.type = 'module';
             // Append sourceURL to help devtools map errors to blob URL
-            const codeWithSource = `${transformedEntryCode}\n//# sourceURL=${entryUrl}`;
+            const codeWithSource = `${processedEntryCode}\n//# sourceURL=${entryUrl}`;
             script.textContent = codeWithSource;
 
             const errorInfo: any = { caught: false };

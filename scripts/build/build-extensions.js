@@ -23,6 +23,134 @@ const EXTENSIONS_SRC = path.join(ROOT_DIR, 'extensions');
 const EXTENSIONS_DIST = path.join(ROOT_DIR, 'public', 'extensions');
 
 /**
+ * import文を書き換えてグローバル変数から取得するように変換
+ * 
+ * @param {string} code - 変換対象のJavaScriptコード
+ * @returns {string} - 変換後のJavaScriptコード
+ * 
+ * Note: これはビルド時に適用され、拡張機能がランタイムで正しく
+ * ReactやMarkdownライブラリにアクセスできるようにする。
+ * 
+ * 対応モジュール:
+ * - react -> window.__PYXIS_REACT__
+ * - react-markdown, remark-gfm, remark-math, rehype-katex, rehype-raw, katex -> window.__PYXIS_MARKDOWN__
+ */
+function transformImports(code) {
+  function convertNamedImportsForDestructure(named) {
+    return named.replace(
+      /([A-Za-z0-9_$]+)\s+as\s+([A-Za-z0-9_$]+)/g,
+      (_m, orig, alias) => `${orig}: ${alias}`
+    );
+  }
+  
+  const modules = [
+    'react',
+    'react-markdown',
+    'remark-gfm',
+    'remark-math',
+    'rehype-katex',
+    'rehype-raw',
+    'katex',
+  ];
+
+  const modPattern = modules.map(m => m.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')).join('|');
+
+  const regex = new RegExp(
+    `import\\s+([A-Za-z0-9_$]+)\\s*,\\s*\\{([^}]+)\\}\\s+from\\s+['"](${modPattern})['"];?|` +
+      `import\\s*\\*\\s+as\\s+([A-Za-z0-9_$]+)\\s+from\\s+['"](${modPattern})['"];?|` +
+      `import\\s+\\{([^}]+)\\}\\s+from\\s+['"](${modPattern})['"];?|` +
+      `import\\s+([A-Za-z0-9_$]+)\\s+from\\s+['"](${modPattern})['"];?`,
+    'g'
+  );
+
+  function moduleToHost(moduleName) {
+    if (moduleName === 'react') return { global: 'window.__PYXIS_REACT__', prop: null };
+    const map = {
+      'react-markdown': 'ReactMarkdown',
+      'remark-gfm': 'remarkGfm',
+      'remark-math': 'remarkMath',
+      'rehype-katex': 'rehypeKatex',
+      'rehype-raw': 'rehypeRaw',
+      'katex': 'katex',
+    };
+    return { global: 'window.__PYXIS_MARKDOWN__', prop: map[moduleName] || null };
+  }
+
+  return code.replace(
+    regex,
+    (
+      match,
+      defWithName,
+      namedWithDef,
+      mod1,
+      namespaceName,
+      mod2,
+      namedOnly,
+      mod3,
+      defOnly,
+      mod4
+    ) => {
+      let moduleName = null;
+      if (mod1) moduleName = mod1;
+      else if (mod2) moduleName = mod2;
+      else if (mod3) moduleName = mod3;
+      else if (mod4) moduleName = mod4;
+      if (!moduleName) return match;
+
+      const host = moduleToHost(moduleName);
+
+      const processNamed = (s) => {
+        const trimmed = s.trim();
+        return convertNamedImportsForDestructure(trimmed);
+      };
+
+      // import default, { named } from 'module'
+      if (defWithName && namedWithDef && moduleName) {
+        const defName = defWithName;
+        const namedProcessed = processNamed(namedWithDef);
+
+        if (moduleName === 'react') {
+          return `const ${defName} = ${host.global}; const {${namedProcessed}} = ${defName};`;
+        }
+
+        const prop = host.prop ? `.${host.prop}` : '';
+        return `const ${defName} = ${host.global}${prop} || ${host.global}; const {${namedProcessed}} = ${host.global};`;
+      }
+
+      // import { named } from 'module'
+      if (namedOnly && moduleName) {
+        const namedProcessed = processNamed(namedOnly);
+        if (moduleName === 'react') {
+          return `const {${namedProcessed}} = ${host.global};`;
+        }
+        return `const {${namedProcessed}} = ${host.global} || {};`;
+      }
+
+      // import default from 'module'
+      if (defOnly && moduleName) {
+        const defName = defOnly;
+        if (moduleName === 'react') {
+          return `const ${defName} = ${host.global};`;
+        }
+        const prop = host.prop ? `.${host.prop}` : '';
+        return `const ${defName} = ${host.global}${prop} || ${host.global};`;
+      }
+
+      // import * as ns from 'module'
+      if (namespaceName && moduleName) {
+        const ns = namespaceName;
+        if (moduleName === 'react') {
+          return `const ${ns} = ${host.global};`;
+        }
+        return `const ${ns} = ${host.global} || {};`;
+      }
+
+      return match;
+    }
+  );
+}
+
+/**
  * .buildignoreファイルを読み込み
  */
 function loadBuildIgnore() {
@@ -388,6 +516,44 @@ async function transpileAllWithTsc() {
 }
 
 /**
+ * ビルド済みのJSファイルすべてにtransformImportsを適用
+ */
+function applyTransformImportsToAllJs() {
+  let transformedCount = 0;
+  
+  function processDir(dir) {
+    if (!fs.existsSync(dir)) return;
+    
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      
+      if (entry.isDirectory()) {
+        processDir(fullPath);
+      } else if (entry.isFile() && entry.name.endsWith('.js') && !entry.name.endsWith('.meta.json')) {
+        try {
+          const content = fs.readFileSync(fullPath, 'utf-8');
+          const transformed = transformImports(content);
+          
+          // 変換があった場合のみ書き込み
+          if (content !== transformed) {
+            fs.writeFileSync(fullPath, transformed, 'utf-8');
+            transformedCount++;
+            console.log(`✅ Transformed: ${path.relative(EXTENSIONS_DIST, fullPath)}`);
+          }
+        } catch (e) {
+          console.error(`❌ Failed to transform ${fullPath}:`, e.message);
+        }
+      }
+    }
+  }
+  
+  processDir(EXTENSIONS_DIST);
+  console.log(`\n📝 Transformed ${transformedCount} JS files\n`);
+}
+
+/**
  * メイン処理
  */
 async function buildExtensions() {
@@ -500,6 +666,10 @@ async function buildExtensions() {
   console.log(`✅ tsc transpiled: ${tscSuccess ? 'Success' : 'Failed'}`);
   console.log(`❌ esbuild failed: ${totalFailed}`);
   console.log(`${'='.repeat(60)}\n`);
+  
+  // ビルド済みのJSファイルにtransformImportsを適用
+  console.log('🔄 Applying transformImports to built JS files...\n');
+  applyTransformImportsToAllJs();
   
   // registry.jsonを自動生成
   console.log('📝 Generating registry.json...\n');
