@@ -25,8 +25,15 @@ const EXTENSIONS_DIST = path.join(ROOT_DIR, 'public', 'extensions');
 /**
  * import文を書き換えてグローバル変数から取得するように変換
  * 
+ * @param {string} code - 変換対象のJavaScriptコード
+ * @returns {string} - 変換後のJavaScriptコード
+ * 
  * Note: これはビルド時に適用され、拡張機能がランタイムで正しく
  * ReactやMarkdownライブラリにアクセスできるようにする。
+ * 
+ * 対応モジュール:
+ * - react -> window.__PYXIS_REACT__
+ * - react-markdown, remark-gfm, remark-math, rehype-katex, rehype-raw, katex -> window.__PYXIS_MARKDOWN__
  */
 function transformImports(code) {
   function convertNamedImportsForDestructure(named) {
@@ -524,10 +531,7 @@ function applyTransformImportsToAllJs() {
       
       if (entry.isDirectory()) {
         processDir(fullPath);
-      } else if (entry.isFile() && entry.name.endsWith('.js')) {
-        // .meta.json は除外
-        if (entry.name.endsWith('.meta.json')) continue;
-        
+      } else if (entry.isFile() && entry.name.endsWith('.js') && !entry.name.endsWith('.meta.json')) {
         try {
           const content = fs.readFileSync(fullPath, 'utf-8');
           const transformed = transformImports(content);
