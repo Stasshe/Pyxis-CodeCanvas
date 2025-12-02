@@ -7,7 +7,7 @@
  */
 
 import { fileRepository } from '@/engine/core/fileRepository';
-import { toAppPath, toFSPath, fsPathToAppPath } from '@/engine/core/pathResolver';
+import { toAppPath, toFSPath, fsPathToAppPath, normalizeDotSegments } from '@/engine/core/pathResolver';
 
 export interface FSModuleOptions {
   projectDir: string;
@@ -21,19 +21,23 @@ export function createFSModule(options: FSModuleOptions) {
   /**
    * パスを正規化してフルパスと相対パス（AppPath）を取得
    * pathResolverを使用
+   * POSIX準拠: . と .. を解決
    */
   function normalizeModulePath(path: string): { fullPath: string; relativePath: string } {
     // すでにprojectDirで始まる場合（FSPath形式）
     if (path.startsWith(projectDir)) {
       const relativePath = fsPathToAppPath(path, projectName);
+      // . と .. を解決
+      const resolvedPath = normalizeDotSegments(relativePath);
       return {
-        fullPath: path,
-        relativePath: relativePath,
+        fullPath: toFSPath(projectName, resolvedPath),
+        relativePath: resolvedPath,
       };
     }
 
     // AppPath形式またはGitPath形式の場合
-    const appPath = toAppPath(path);
+    // まずAppPath形式に変換し、. と .. を解決
+    const appPath = normalizeDotSegments(toAppPath(path));
     return {
       fullPath: toFSPath(projectName, appPath),
       relativePath: appPath,

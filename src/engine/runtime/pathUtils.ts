@@ -5,32 +5,41 @@
  * 基本的なパス正規化は pathResolver を使用
  */
 
-import { toAppPath, fsPathToAppPath, hasPrefix as pathHasPrefix } from '@/engine/core/pathResolver';
+import { toAppPath, fsPathToAppPath, hasPrefix as pathHasPrefix, normalizeDotSegments } from '@/engine/core/pathResolver';
 
 /**
  * パスを正規化
  * - `/projects/{projectName}/` プレフィックスを削除
  * - 連続するスラッシュを1つに
  * - 末尾のスラッシュを削除
+ * - . と .. を解決（POSIX準拠）
  *
- * pathResolverのfsPathToAppPathとtoAppPathを使用
+ * pathResolverのfsPathToAppPath、toAppPath、normalizeDotSegmentsを使用
  *
  * @example
  * normalizePath('/projects/new/src/index.js', 'new') // → '/src/index.js'
  * normalizePath('/projects/new/node_modules/chalk/index.js', 'new') // → '/node_modules/chalk/index.js'
  * normalizePath('//src//index.js', 'new') // → '/src/index.js'
+ * normalizePath('./src/file.js') // → '/src/file.js'
  */
 export function normalizePath(path: string, projectName?: string): string {
+  let result: string;
+  
   if (projectName) {
     // プロジェクトプレフィックスがある場合は fsPathToAppPath を使用
     const prefix = `/projects/${projectName}`;
     if (path.startsWith(prefix)) {
-      return fsPathToAppPath(path, projectName);
+      result = fsPathToAppPath(path, projectName);
+    } else {
+      result = toAppPath(path);
     }
+  } else {
+    // それ以外は toAppPath で正規化
+    result = toAppPath(path);
   }
 
-  // それ以外は toAppPath で正規化
-  return toAppPath(path);
+  // . と .. を解決（POSIX準拠）
+  return normalizeDotSegments(result);
 }
 
 /**
