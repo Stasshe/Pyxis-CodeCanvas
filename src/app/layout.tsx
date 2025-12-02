@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
 
 import './globals.css';
 import ExtensionInitializer from '@/components/ExtensionInitializer';
@@ -10,16 +9,6 @@ import { GitHubUserProvider } from '@/context/GitHubUserContext';
 import { I18nProvider } from '@/context/I18nContext';
 import { TabProvider } from '@/context/TabContext';
 import { ThemeProvider } from '@/context/ThemeContext';
-
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-});
 
 export const metadata: Metadata = {
   title: 'Pyxis - clientIDE Terminal',
@@ -180,7 +169,7 @@ export default function RootLayout({
         {/* Pyodide (Python in browser) */}
         <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased h-full`}>
+      <body className="antialiased h-full font-sans">
         {/* Set base path for runtime access */}
         <script
           dangerouslySetInnerHTML={{
