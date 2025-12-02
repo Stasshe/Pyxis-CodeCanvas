@@ -183,7 +183,7 @@ export function useDiffTabHandlers(currentProject: any) {
       const diffOutput = await git.diffCommits(parentCommitId, commitId);
 
       // 変更ファイルを抽出
-      const files: string[] = [];
+      const files: Array<{ gitPath: string; normalizedPath: string }> = [];
       const lines = diffOutput.split('\n');
       
       for (let i = 0; i < lines.length; i++) {
@@ -194,14 +194,14 @@ export function useDiffTabHandlers(currentProject: any) {
             //  Gitから返されるパス（先頭スラッシュなし）
             const rawGitPath = match[2];
             //  fileRepository用に正規化（先頭スラッシュあり）
-            const normalizedPath = normalizePath(rawGitPath);
+            const normalizedFilePath = normalizePath(rawGitPath);
             
             files.push({
               gitPath: rawGitPath,        // Git API用（スラッシュなし）
-              normalizedPath: normalizedPath  // fileRepository用（スラッシュあり）
+              normalizedPath: normalizedFilePath  // fileRepository用（スラッシュあり）
             });
             
-            console.log(`[useDiffTabHandlers] File: Git="${rawGitPath}" → Repo="${normalizedPath}"`);
+            console.log(`[useDiffTabHandlers] File: Git="${rawGitPath}" → Repo="${normalizedFilePath}"`);
           }
         }
       }

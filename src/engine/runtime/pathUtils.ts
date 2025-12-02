@@ -2,7 +2,10 @@
  * Path Utilities
  *
  * パス操作のユーティリティ関数
+ * 基本的なパス正規化は pathResolver を使用
  */
+
+import { toAppPath, fsPathToAppPath, hasPrefix as pathHasPrefix } from '@/engine/core/pathResolver';
 
 /**
  * パスを正規化
@@ -10,36 +13,24 @@
  * - 連続するスラッシュを1つに
  * - 末尾のスラッシュを削除
  *
+ * pathResolverのfsPathToAppPathとtoAppPathを使用
+ *
  * @example
  * normalizePath('/projects/new/src/index.js', 'new') // → '/src/index.js'
  * normalizePath('/projects/new/node_modules/chalk/index.js', 'new') // → '/node_modules/chalk/index.js'
  * normalizePath('//src//index.js', 'new') // → '/src/index.js'
  */
 export function normalizePath(path: string, projectName?: string): string {
-  let normalized = path;
-
-  // プロジェクトプレフィックスを削除
   if (projectName) {
+    // プロジェクトプレフィックスがある場合は fsPathToAppPath を使用
     const prefix = `/projects/${projectName}`;
-    if (normalized.startsWith(prefix)) {
-      normalized = normalized.slice(prefix.length);
+    if (path.startsWith(prefix)) {
+      return fsPathToAppPath(path, projectName);
     }
   }
 
-  // 連続するスラッシュを1つに
-  normalized = normalized.replace(/\/+/g, '/');
-
-  // 末尾のスラッシュを削除（ルート以外）
-  if (normalized !== '/' && normalized.endsWith('/')) {
-    normalized = normalized.slice(0, -1);
-  }
-
-  // 空の場合はルートに
-  if (normalized === '') {
-    normalized = '/';
-  }
-
-  return normalized;
+  // それ以外は toAppPath で正規化
+  return toAppPath(path);
 }
 
 /**
@@ -134,14 +125,12 @@ export function resolveRelative(basePath: string, relativePath: string): string 
 
 /**
  * パスが特定のディレクトリ配下にあるか判定
+ * pathResolverのhasPrefixを使用
  *
  * @example
  * isUnder('/src/utils/helper.js', '/src') // → true
  * isUnder('/lib/tools.js', '/src') // → false
  */
 export function isUnder(path: string, dir: string): boolean {
-  const normalizedPath = normalizePath(path);
-  const normalizedDir = normalizePath(dir);
-
-  return normalizedPath.startsWith(normalizedDir + '/') || normalizedPath === normalizedDir;
+  return pathHasPrefix(path, dir);
 }

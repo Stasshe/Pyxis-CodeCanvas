@@ -158,10 +158,6 @@ export function fsPathToAppPath(fsPath: string, projectName: string): AppPath {
     return toAppPath(fsPath.substring(projectRoot.length));
   }
 
-  if (fsPath.startsWith(projectRoot)) {
-    return toAppPath(fsPath.substring(projectRoot.length));
-  }
-
   // プロジェクトルートと一致しない場合はそのまま返す（フォールバック）
   return toAppPath(fsPath);
 }

@@ -14,6 +14,7 @@ import { ModuleLoader } from './moduleLoader';
 import { runtimeInfo, runtimeWarn, runtimeError } from './runtimeLogger';
 
 import { fileRepository } from '@/engine/core/fileRepository';
+import { fsPathToAppPath, toAppPath } from '@/engine/core/pathResolver';
 import { createBuiltInModules, type BuiltInModules } from '@/engine/node/builtInModule';
 
 /**
@@ -518,23 +519,15 @@ export class NodeRuntime {
 
   /**
    * パスを正規化
+   * pathResolverを使用
    */
   private normalizePath(filePath: string): string {
-    let normalized = filePath;
-
-    if (normalized.startsWith(this.projectDir)) {
-      normalized = normalized.slice(this.projectDir.length);
+    // プロジェクトディレクトリで始まる場合はFSPath→AppPath変換
+    if (filePath.startsWith(this.projectDir)) {
+      return fsPathToAppPath(filePath, this.projectName);
     }
-
-    if (!normalized.startsWith('/')) {
-      normalized = '/' + normalized;
-    }
-
-    if (normalized.endsWith('/') && normalized !== '/') {
-      normalized = normalized.slice(0, -1);
-    }
-
-    return normalized;
+    // それ以外はAppPath形式に正規化
+    return toAppPath(filePath);
   }
 
   /**
