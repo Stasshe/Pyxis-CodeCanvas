@@ -57,7 +57,8 @@ Root
 │   │   └── style.css
 │   ├── react
 │   │   ├── App.css
-│   │   └── App.jsx
+│   │   ├── App.jsx
+│   │   └── sample.jsx
 │   ├── run-test.sh
 │   ├── src
 │   │   ├── debugConsoleDemo.js
@@ -76,7 +77,6 @@ Root
 │       └── use-math.ts
 ├── jest.config.cjs
 ├── jest.setup.js
-├── next-env.d.ts
 ├── next.config.ts
 ├── package.json
 ├── pnpm-lock.yaml
@@ -111,6 +111,7 @@ Root
 │   ├── IMG_1470.png
 │   ├── IMG_1471.png
 │   └── IMG_1473.png
+├── render.yaml
 ├── scripts
 │   ├── build
 │   │   ├── build-extensions.js
@@ -146,15 +147,12 @@ Root
 │   │   │   ├── AIReview
 │   │   │   │   └── AIReviewTab.tsx
 │   │   │   ├── ChangedFilesList.tsx
-│   │   │   ├── ChatSpaceList.tsx
 │   │   │   ├── FileSelector.tsx
 │   │   │   ├── chat
 │   │   │   │   ├── ChatContainer.tsx
 │   │   │   │   ├── ChatInput.tsx
 │   │   │   │   ├── ChatMessage.tsx
 │   │   │   │   └── ModeSelector.tsx
-│   │   │   ├── context
-│   │   │   │   └── FileContextBar.tsx
 │   │   │   └── review
 │   │   │       ├── ChangedFilesPanel.tsx
 │   │   │       └── FileChangeItem.tsx
@@ -163,6 +161,7 @@ Root
 │   │   │   ├── DebugConsole.tsx
 │   │   │   ├── DebugConsoleAPI.ts
 │   │   │   ├── OutputPanel.tsx
+│   │   │   ├── ProblemsPanel.tsx
 │   │   │   └── Terminal.tsx
 │   │   ├── BottomStatusBar.tsx
 │   │   ├── Confirmation.tsx
@@ -188,9 +187,11 @@ Root
 │   │   │   └── RightSidebar.tsx
 │   │   ├── Tab
 │   │   │   ├── BinaryTabContent.tsx
+│   │   │   ├── Breadcrumb.tsx
 │   │   │   ├── CodeEditor.tsx
 │   │   │   ├── DiffTab.tsx
-│   │   │   ├── HighlightedCode.tsx
+│   │   │   ├── InlineHighlightedCode.tsx
+│   │   │   ├── LocalImage.tsx
 │   │   │   ├── MarkdownPreviewTab.tsx
 │   │   │   ├── ShortcutKeysTab.tsx
 │   │   │   ├── TabBar.tsx
@@ -203,7 +204,9 @@ Root
 │   │   │   │   │   ├── CodeMirrorEditor.tsx
 │   │   │   │   │   ├── MonacoEditor.tsx
 │   │   │   │   │   ├── codemirror-utils.ts
-│   │   │   │   │   └── editor-utils.ts
+│   │   │   │   │   ├── editor-utils.ts
+│   │   │   │   │   ├── monaco-themes.ts
+│   │   │   │   │   └── monarch-jsx-language.ts
 │   │   │   │   ├── hooks
 │   │   │   │   │   ├── useCharCount.ts
 │   │   │   │   │   └── useMonacoModels.ts
@@ -231,6 +234,7 @@ Root
 │   │   │   ├── prompts.ts
 │   │   │   └── responseParser.ts
 │   │   ├── cmd
+│   │   │   ├── VimEditor.ts
 │   │   │   ├── global
 │   │   │   │   ├── git.ts
 │   │   │   │   ├── gitOperations
@@ -247,6 +251,8 @@ Root
 │   │   │   │   │   ├── push.ts
 │   │   │   │   │   ├── reset.ts
 │   │   │   │   │   ├── revert.ts
+│   │   │   │   │   ├── show.ts
+│   │   │   │   │   ├── switch.ts
 │   │   │   │   │   └── tree.ts
 │   │   │   │   ├── npm.ts
 │   │   │   │   ├── npmOperations
@@ -294,6 +300,7 @@ Root
 │   │   │   ├── filesystem.ts
 │   │   │   ├── gitFileSystem.ts
 │   │   │   ├── gitignore.ts
+│   │   │   ├── pathResolver.ts
 │   │   │   ├── project.ts
 │   │   │   └── syncManager.ts
 │   │   ├── export
@@ -304,8 +311,6 @@ Root
 │   │   │   ├── exportRepo.ts
 │   │   │   ├── exportSingleFile.ts
 │   │   │   └── inlineHtmlAssets.ts
-│   │   ├── fileWatcher.ts
-│   │   ├── fileWatcherBridge.ts
 │   │   ├── helper
 │   │   │   ├── isBufferArray.ts
 │   │   │   ├── resize.ts
@@ -318,16 +323,19 @@ Root
 │   │   │   └── types.ts
 │   │   ├── import
 │   │   │   └── importSingleFile.ts
-│   │   ├── initialFileContents.ts
 │   │   ├── node
 │   │   │   ├── builtInModule.ts
 │   │   │   └── modules
+│   │   │       ├── assertModule.ts
 │   │   │       ├── bufferModule.ts
+│   │   │       ├── eventsModule.ts
 │   │   │       ├── fsModule.ts
 │   │   │       ├── httpModule.ts
+│   │   │       ├── moduleModule.ts
 │   │   │       ├── osModule.ts
 │   │   │       ├── pathModule.ts
 │   │   │       ├── readlineModule.ts
+│   │   │       ├── urlModule.ts
 │   │   │       └── utilModule.ts
 │   │   ├── runtime
 │   │   │   ├── extendedBuiltInModules.ts
@@ -342,6 +350,8 @@ Root
 │   │   │   ├── transpileManager.ts
 │   │   │   └── transpileWorker.ts
 │   │   ├── storage
+│   │   │   ├── aiStorageAdapter.ts
+│   │   │   ├── chatStorageAdapter.ts
 │   │   │   └── index.ts
 │   │   ├── tabs
 │   │   │   ├── TabRegistry.ts
@@ -375,6 +385,7 @@ Root
 │   │   ├── useExtensionPanels.ts
 │   │   ├── useGlobalScrollLock.ts
 │   │   ├── useKeyBindings.ts
+│   │   ├── useOptimizedUIStateSave.ts
 │   │   ├── useProjectWelcome.ts
 │   │   ├── useSettings.ts
 │   │   └── useTabContentRestore.ts
@@ -384,13 +395,15 @@ Root
 │   ├── tests
 │   │   ├── parser.unterminated.test.ts
 │   │   └── unixHandler.command-not-found.test.ts
-│   └── types
-│       ├── git.ts
-│       ├── index.ts
-│       ├── path-browserify.d.ts
-│       ├── settings.ts
-│       ├── shell-quote.d.ts
-│       └── vm-browserify.d.ts
+│   ├── types
+│   │   ├── git.ts
+│   │   ├── index.ts
+│   │   ├── path-browserify.d.ts
+│   │   ├── settings.ts
+│   │   ├── shell-quote.d.ts
+│   │   └── vm-browserify.d.ts
+│   └── workers
+│       └── searchWorker.ts
 ├── tailwind.config.ts
 ├── tests
 │   ├── aiResponseParser.test.ts
@@ -405,6 +418,7 @@ Root
 │   ├── parser.commandsub.test.ts
 │   ├── parser.complex.test.ts
 │   ├── parser.unit.test.ts
+│   ├── pathResolver.test.ts
 │   ├── reactImportTransform.test.ts
 │   ├── redirection.test.ts
 │   ├── redirection_extra.test.ts
@@ -422,7 +436,7 @@ Root
 └── types
     └── esbuild-cdn.d.ts
 
-66 directories, 356 files
+66 directories, 370 files
 
 =================================
 
@@ -434,19 +448,14 @@ extensions/ 以下のディレクトリ構造:
 │   ├── systemModuleTypes.ts
 │   └── types.ts
 ├── calc
-│   ├── PNPM-GUIDE.md
 │   ├── README.md
 │   ├── index.tsx
 │   ├── manifest.json
-│   ├── node_modules
-│   │   └── latexium -> ../../../node_modules/.pnpm/latexium@0.1.1/node_modules/latexium
 │   └── package.json
 ├── chart-extension
 │   ├── README.md
 │   ├── index.tsx
 │   ├── manifest.json
-│   ├── node_modules
-│   │   └── chart.js -> ../../../node_modules/.pnpm/chart.js@4.5.1/node_modules/chart.js
 │   └── package.json
 ├── lang-packs
 │   ├── ar
@@ -517,10 +526,7 @@ extensions/ 以下のディレクトリ構造:
 │   ├── _build.js
 │   ├── index.tsx
 │   ├── manifest.json
-│   ├── node_modules
-│   │   └── esbuild-wasm -> ../../../node_modules/.pnpm/esbuild-wasm@0.27.0/node_modules/esbuild-wasm
 │   └── package.json
-├── registry.json
 ├── sample-command
 │   ├── README.md
 │   ├── index.ts
@@ -538,18 +544,14 @@ extensions/ 以下のディレクトリ構造:
     ├── manifest.json
     └── transpile.worker.ts
 
-37 directories, 73 files
+31 directories, 71 files
 
 =================================
 
 
 src/*.ts, *.tsx の統計:
-合計行数: 50872
-合計文字数: 1644846
-合計ファイルサイズ(bytes): 1753886
+合計行数: 57338
+合計文字数: 1811748
+合計ファイルサイズ(bytes): 1934052
 
-開発時のdev container全体のサイズ(bytes): 1.7G	.
-==========
-ビルト済みファイルの行数: 125961
-合計文字数: 38508184
-合計ファイルサイズ(bytes): 41556719
+開発時のdev container全体のサイズ(bytes): 31M	.
