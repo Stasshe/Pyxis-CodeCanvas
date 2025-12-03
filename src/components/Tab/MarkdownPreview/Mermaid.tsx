@@ -14,8 +14,38 @@ interface MermaidProps {
   colors: ThemeColors;
 }
 
+interface ZoomState {
+  scale: number;
+  translate: { x: number; y: number };
+}
+
 // グローバルカウンタ: ID衝突を確実に防ぐ
 let globalMermaidCounter = 0;
+
+// グローバルズーム状態ストア: diagramハッシュをキーにしてズーム状態を保持
+const mermaidZoomStore = new Map<string, ZoomState>();
+
+// diagram内容からハッシュキーを生成（安定したキー）
+const generateDiagramKey = (diagram: string): string => {
+  try {
+    const hash = diagram.split('').reduce((acc, char) => {
+      return ((acc << 5) - acc + char.charCodeAt(0)) | 0;
+    }, 0);
+    return `diagram-${Math.abs(hash)}`;
+  } catch {
+    return `diagram-fallback-${Date.now()}`;
+  }
+};
+
+// ズーム状態を取得
+const getStoredZoomState = (diagramKey: string): ZoomState | undefined => {
+  return mermaidZoomStore.get(diagramKey);
+};
+
+// ズーム状態を保存
+const setStoredZoomState = (diagramKey: string, state: ZoomState): void => {
+  mermaidZoomStore.set(diagramKey, state);
+};
 
 // 安全なID生成（非ASCII文字でのエラー回避）
 const generateSafeId = (chart: string): string => {
@@ -40,24 +70,45 @@ const Mermaid = memo<MermaidProps>(({ chart, colors }) => {
     triggerOnce: true,
   });
 
+  // 設定パースをメモ化（パフォーマンス改善）
+  const { config, diagram } = useMemo(() => parseMermaidContent(chart), [chart]);
+
+  // diagramキーを生成（ズーム状態の保持に使用）
+  const diagramKey = useMemo(() => generateDiagramKey(diagram), [diagram]);
+
   // ID生成をメモ化（chart変更時のみ再生成）
   const idRef = useMemo(() => generateSafeId(chart), [chart]);
+
+  // 保存されたズーム状態を取得、なければデフォルト値
+  const initialZoomState = useMemo((): ZoomState => {
+    const stored = getStoredZoomState(diagramKey);
+    return stored || { scale: 1, translate: { x: 0, y: 0 } };
+  }, [diagramKey]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [svgContent, setSvgContent] = useState<string | null>(null);
-  const [zoomState, setZoomState] = useState<{
-    scale: number;
-    translate: { x: number; y: number };
-  }>({ scale: 1, translate: { x: 0, y: 0 } });
+  const [zoomState, setZoomState] = useState<ZoomState>(initialZoomState);
 
-  const scaleRef = useRef<number>(zoomState.scale);
-  const translateRef = useRef<{ x: number; y: number }>({ ...zoomState.translate });
+  const scaleRef = useRef<number>(initialZoomState.scale);
+  const translateRef = useRef<{ x: number; y: number }>({ ...initialZoomState.translate });
   const isPanningRef = useRef<boolean>(false);
   const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
 
-  // 設定パースをメモ化（パフォーマンス改善）
-  const { config, diagram } = useMemo(() => parseMermaidContent(chart), [chart]);
+  // diagramKeyが変わったときに保存されたズーム状態を復元
+  useEffect(() => {
+    const stored = getStoredZoomState(diagramKey);
+    if (stored) {
+      setZoomState(stored);
+      scaleRef.current = stored.scale;
+      translateRef.current = { ...stored.translate };
+    }
+  }, [diagramKey]);
+
+  // ズーム状態が変わったときに保存
+  useEffect(() => {
+    setStoredZoomState(diagramKey, zoomState);
+  }, [diagramKey, zoomState]);
 
   useEffect(() => {
     // Don't render until element comes into view

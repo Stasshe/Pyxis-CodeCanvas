@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo, memo, type FC } from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
@@ -10,8 +10,9 @@ import 'katex/dist/katex.min.css';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme, ThemeContext } from '@/context/ThemeContext';
 import { exportPdfFromHtml } from '@/engine/export/exportPdf';
-import type { PreviewTab } from '@/engine/tabs/types';
+import type { EditorTab, PreviewTab } from '@/engine/tabs/types';
 import { useSettings } from '@/hooks/useSettings';
+import { useTabStore } from '@/stores/tabStore';
 import { Project } from '@/types';
 
 import InlineHighlightedCode from './InlineHighlightedCode';
@@ -22,7 +23,7 @@ interface MarkdownPreviewTabProps {
   currentProject?: Project;
 }
 
-const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ activeTab, currentProject }) => {
+const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentProject }) => {
   const { colors, themeName } = useTheme();
   const { settings } = useSettings(currentProject?.id);
   const { t } = useTranslation();
@@ -33,6 +34,20 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ activeTab, curr
 
   // determine markdown plugins based on settings
   const [extraRemarkPlugins, setExtraRemarkPlugins] = useState<PluggableList>([]);
+
+  // Subscribe to editor tab content changes for real-time preview
+  // Find the corresponding editor tab and get its content
+  const editorTabContent = useTabStore(state => {
+    // Find editor tab with the same path
+    const result = state.findTabByPath(activeTab.path, 'editor');
+    if (result?.tab && result.tab.kind === 'editor') {
+      return (result.tab as EditorTab).content;
+    }
+    return null;
+  });
+
+  // Use editor tab content if available (for real-time updates), otherwise use preview tab content
+  const contentSource = editorTabContent ?? activeTab.content ?? '';
 
   useEffect(() => {
     let mounted = true;
@@ -121,7 +136,8 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ activeTab, curr
   // Preprocess the raw markdown to convert bracket-style math delimiters
   // into dollar-style, while skipping code fences and inline code.
   const processedContent = useMemo(() => {
-    const src = activeTab.content || '';
+    // Use editor tab content for real-time updates, otherwise fall back to preview tab content
+    const src = contentSource;
     const delimiter = settings?.markdown?.math?.delimiter || 'dollar';
     if (delimiter === 'dollar') return src;
 
@@ -151,7 +167,7 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ activeTab, curr
     }
 
     return src;
-  }, [activeTab.content, settings?.markdown?.math?.delimiter]);
+  }, [contentSource, settings?.markdown?.math?.delimiter]);
 
   const markdownContent = useMemo(
     () => (
@@ -303,4 +319,4 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ activeTab, curr
   );
 };
 
-export default React.memo(MarkdownPreviewTab);
+export default memo(MarkdownPreviewTab);
