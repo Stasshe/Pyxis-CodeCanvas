@@ -10,7 +10,10 @@ import { Breadcrumb } from '@/components/Tab/Breadcrumb';
 import { useTheme } from '@/context/ThemeContext';
 import { tabRegistry } from '@/engine/tabs/TabRegistry';
 import { useTabStore } from '@/stores/tabStore';
-import type { EditorPane } from '@/types';
+import type { EditorPane, FileItem } from '@/types';
+
+// ドラッグタイプ定数
+const FILE_TREE_ITEM = 'FILE_TREE_ITEM';
 
 interface PaneContainerProps {
   pane: EditorPane;
@@ -40,14 +43,31 @@ export const useGitContext = () => {
  */
 export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContainerProps) {
   const { colors } = useTheme();
-  const { globalActiveTab, setPanes, panes: allPanes, moveTab, splitPaneAndMoveTab } = useTabStore();
+  const { globalActiveTab, setPanes, panes: allPanes, moveTab, splitPaneAndMoveTab, openTab } = useTabStore();
   const [dropZone, setDropZone] = React.useState<'top' | 'bottom' | 'left' | 'right' | 'center' | null>(null);
 
-  // このペイン自体をドロップターゲットとして扱う
+  // このペイン自体をドロップターゲットとして扱う（TABとFILE_TREE_ITEM両方受け付け）
   const [{ isOver }, drop] = useDrop(
     () => ({
-      accept: 'TAB',
+      accept: ['TAB', FILE_TREE_ITEM],
       drop: (item: any, monitor) => {
+        // FILE_TREE_ITEMの場合はファイルを開く
+        if (item.type === FILE_TREE_ITEM && item.item) {
+          const fileItem = item.item as FileItem;
+          console.log('[PaneContainer] File dropped from tree:', fileItem);
+          
+          // ファイルのみ開く（フォルダは無視）
+          if (fileItem.type === 'file') {
+            const defaultEditor =
+              typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
+            const kind = fileItem.isBufferArray ? 'binary' : 'editor';
+            openTab({ ...fileItem, isCodeMirror: defaultEditor === 'codemirror' }, { kind, paneId: pane.id });
+          }
+          setDropZone(null);
+          return;
+        }
+        
+        // TABの場合は既存のタブ移動ロジック
         if (!item || !item.tabId) return;
         
         // ドロップ時のゾーンに基づいて処理

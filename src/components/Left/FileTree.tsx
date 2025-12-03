@@ -108,6 +108,7 @@ function FileTreeItem({
         return true;
       },
       drop: (dragItem: DragItem) => {
+        console.log('[FileTreeItem] drop called', { dragItem, targetPath: item.path, itemType: item.type, hasHandler: !!onInternalFileDrop });
         if (onInternalFileDrop && item.type === 'folder') {
           onInternalFileDrop(dragItem.item, item.path);
         }
@@ -547,13 +548,24 @@ export default function FileTree({
   // react-dnd: ファイル/フォルダをドロップターゲットに移動する
   // propsから渡されている場合はそれを使用、そうでなければ自前のハンドラーを使用
   const internalDropHandler = onInternalFileDrop ?? (async (draggedItem: FileItem, targetFolderPath: string) => {
-    if (!currentProjectId) return;
+    console.log('[FileTree] internalDropHandler called', { draggedItem, targetFolderPath, currentProjectId, currentProjectName });
+    
+    if (!currentProjectId) {
+      console.warn('[FileTree] No currentProjectId, cannot move file');
+      return;
+    }
     
     // 自分自身への移動は無視
-    if (draggedItem.path === targetFolderPath) return;
+    if (draggedItem.path === targetFolderPath) {
+      console.log('[FileTree] Same path, ignoring move');
+      return;
+    }
     
     // ドラッグしたアイテムを自分の子フォルダに移動しようとしている場合は無視
-    if (targetFolderPath.startsWith(draggedItem.path + '/')) return;
+    if (targetFolderPath.startsWith(draggedItem.path + '/')) {
+      console.log('[FileTree] Cannot move to child folder');
+      return;
+    }
     
     try {
       const unix = terminalCommandRegistry.getUnixCommands(
@@ -562,10 +574,18 @@ export default function FileTree({
       );
       
       const oldPath = `/projects/${currentProjectName}${draggedItem.path}`;
-      const newPath = `/projects/${currentProjectName}${targetFolderPath}/${draggedItem.name}`;
+      const newPath = `/projects/${currentProjectName}${targetFolderPath}/`;
       
-      await unix.rename(oldPath, newPath);
-      if (onRefresh) setTimeout(onRefresh, 100);
+      console.log('[FileTree] Moving file/folder:', { oldPath, newPath });
+      
+      // mvコマンドを使用（ファイルもフォルダも正しく移動できる）
+      const result = await unix.mv(oldPath, newPath);
+      console.log('[FileTree] Move result:', result);
+      
+      if (onRefresh) {
+        console.log('[FileTree] Refreshing file tree');
+        setTimeout(onRefresh, 100);
+      }
     } catch (error: any) {
       console.error('[FileTree] Failed to move file:', error);
     }
