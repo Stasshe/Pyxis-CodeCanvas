@@ -18,7 +18,7 @@
  */
 
 const DB_NAME = 'pyxis-global';
-const DB_VERSION = 4; // add CHAT_SPACES and AI_REVIEWS stores
+const DB_VERSION = 5; // Breaking change: ChatSpace key format changed to include projectId
 
 /**
  * ストアの定義

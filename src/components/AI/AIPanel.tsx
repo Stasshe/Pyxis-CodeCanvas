@@ -75,6 +75,7 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
     updateSelectedFiles: updateSpaceSelectedFiles,
     updateSpaceName,
     updateChatMessage,
+    revertToMessage,
   } = useChatSpace(currentProject?.id || null);
 
   // AI機能
@@ -477,66 +478,38 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
             if (!projectId) return;
             if (message.type !== 'assistant' || message.mode !== 'edit' || !message.editResponse) return;
 
-            const { getAIReviewEntry, updateAIReviewEntry } = await import('@/engine/storage/aiStorageAdapter');
+            const { getAIReviewEntry, updateAIReviewEntry, clearAIReviewEntry } = await import('@/engine/storage/aiStorageAdapter');
 
-            const files = message.editResponse.changedFiles || [];
-            for (const f of files) {
-              try {
-                const entry = await getAIReviewEntry(projectId, f.path);
-                if (entry && entry.originalSnapshot) {
-                  // fileRepositoryを直接使用してファイルを保存
-                  await fileRepository.saveFileByPath(projectId, f.path, entry.originalSnapshot);
-
-                  // mark entry reverted and add history
-                  const hist = Array.isArray(entry.history) ? entry.history : [];
-                  const historyEntry = { id: `revert-${Date.now()}`, timestamp: new Date(), content: entry.originalSnapshot, note: `reverted via chat ${message.id}` };
+            // 1. このメッセージ以降の全メッセージを削除（このメッセージ含む）
+            const deletedMessages = await revertToMessage(message.id);
+            
+            // 2. 削除されたメッセージの中から、editResponseを持つものを全て処理
+            //    各ファイルを元の状態に戻す
+            for (const deletedMsg of deletedMessages) {
+              if (deletedMsg.type === 'assistant' && deletedMsg.mode === 'edit' && deletedMsg.editResponse) {
+                const files = deletedMsg.editResponse.changedFiles || [];
+                for (const f of files) {
                   try {
-                    await updateAIReviewEntry(projectId, f.path, {
-                      status: 'reverted',
-                      history: [historyEntry, ...hist],
-                    });
+                    const entry = await getAIReviewEntry(projectId, f.path);
+                    if (entry && entry.originalSnapshot) {
+                      // ファイルを元の状態に戻す
+                      await fileRepository.saveFileByPath(projectId, f.path, entry.originalSnapshot);
+                      
+                      // AIレビューエントリをクリア
+                      try {
+                        await clearAIReviewEntry(projectId, f.path);
+                      } catch (e) {
+                        console.warn('[AIPanel] clearAIReviewEntry failed', e);
+                      }
+                    }
                   } catch (e) {
-                    console.warn('[AIPanel] updateAIReviewEntry failed', e);
+                    console.warn('[AIPanel] revert file failed for', f.path, e);
                   }
                 }
-              } catch (e) {
-                console.warn('[AIPanel] revert file failed for', f.path, e);
               }
             }
-
-            // Append a chat message recording the revert as a branch from the original message
-            try {
-              // Update the original assistant edit message so the UI no longer
-              // shows the reverted files in its changedFiles list.
-              try {
-                if (currentSpace && updateChatMessage) {
-                  const origEdit = message.editResponse;
-                  const newChangedFiles = (origEdit.changedFiles || []).filter(
-                    (cf: any) => !files.some((f: any) => f.path === cf.path)
-                  );
-
-                  const newEditResponse = { ...origEdit, changedFiles: newChangedFiles };
-
-                  await updateChatMessage(currentSpace.id, message.id, {
-                    editResponse: newEditResponse,
-                    content: message.content,
-                  });
-                }
-              } catch (e) {
-                console.warn('[AIPanel] failed to update original assistant message after revert', e);
-              }
-
-              await addSpaceMessage(
-                `Reverted changes from message ${message.id} for ${files.map((x: any) => x.path).join(', ')}`,
-                'assistant',
-                'edit',
-                [],
-                undefined,
-                { parentMessageId: message.id, action: 'revert' } as any
-              );
-            } catch (e) {
-              console.warn('[AIPanel] failed to append revert message to chat', e);
-            }
+            
+            console.log('[AIPanel] Reverted to before message:', message.id, 'deleted messages:', deletedMessages.length);
           } catch (e) {
             console.error('[AIPanel] handleRevertMessage failed', e);
           }
