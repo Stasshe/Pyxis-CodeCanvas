@@ -114,6 +114,14 @@ export class NpmCommands {
         let failedPackages: string[] = [];
 
         const npmInstall = new NpmInstall(this.projectName, this.projectId);
+        
+        // Set up progress callback to log all packages (direct + transitive)
+        if (ui) {
+          npmInstall.setInstallProgressCallback(async (pkgName, pkgVersion, _isDirect) => {
+            await ui.spinner.update(`reify:${pkgName}@${pkgVersion}: timing reifyNode:node_modules/${pkgName} (${pkgVersion})`);
+          });
+        }
+        
         npmInstall.startBatchProcessing();
         
         try {
@@ -127,13 +135,8 @@ export class NpmCommands {
             const versionSpec = allDependencies[pkg];
             const version = versionSpec.replace(/^[\^~]/, '');
             
-            // Update spinner with current package
-            if (ui) {
-              await ui.spinner.update(`reify:${pkg}: timing reifyNode:node_modules/${pkg}`);
-            }
-            
             try {
-              await npmInstall.installWithDependencies(pkg, version);
+              await npmInstall.installWithDependencies(pkg, version, { isDirect: true });
               installedCount++;
             } catch (error) {
               failedPackages.push(`${pkg}@${version}: ${(error as Error).message}`);
@@ -229,15 +232,18 @@ export class NpmCommands {
             } catch {}
             return `up to date, audited 1 package in ${elapsed}s\n\nfound 0 vulnerabilities`;
           } else {
-            // Update spinner for installation
+            const npmInstall = new NpmInstall(this.projectName, this.projectId);
+            
+            // Set up progress callback to log all packages (direct + transitive)
             if (ui) {
-              await ui.spinner.update(`reify:${packageName}: timing reifyNode:node_modules/${packageName}`);
+              npmInstall.setInstallProgressCallback(async (pkgName, _pkgVersion, _isDirect) => {
+                await ui.spinner.update(`reify:${pkgName}: timing reifyNode:node_modules/${pkgName}`);
+              });
             }
             
-            const npmInstall = new NpmInstall(this.projectName, this.projectId);
             npmInstall.startBatchProcessing();
             try {
-              await npmInstall.installWithDependencies(packageName, version);
+              await npmInstall.installWithDependencies(packageName, version, { isDirect: true });
             } finally {
               await npmInstall.finishBatchProcessing();
               try {

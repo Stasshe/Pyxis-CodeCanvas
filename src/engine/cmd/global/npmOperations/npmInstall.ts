@@ -21,9 +21,23 @@ interface PackageInfo {
   tarball: string;
 }
 
+/**
+ * Callback type for logging installation progress
+ * packageName: Name of the package being installed
+ * isDirect: true if this is a direct dependency, false if transitive
+ */
+export type InstallProgressCallback = (
+  packageName: string,
+  version: string,
+  isDirect: boolean
+) => Promise<void> | void;
+
 export class NpmInstall {
   private projectName: string;
   private projectId: string;
+
+  // Callback for progress logging
+  private onInstallProgress?: InstallProgressCallback;
 
   // 再利用可能な TextDecoder をクラスで保持して、頻繁なインスタンス生成を避ける
   private textDecoder = new TextDecoder('utf-8', { fatal: false });
@@ -100,6 +114,14 @@ export class NpmInstall {
         console.warn(`[npm.constructor] Failed to load installed packages: ${error.message}`);
       });
     }
+  }
+
+  /**
+   * Set a callback to receive progress updates for each package installation
+   * This is called for both direct and transitive dependencies
+   */
+  setInstallProgressCallback(callback: InstallProgressCallback): void {
+    this.onInstallProgress = callback;
   }
 
   // バッチ処理を開始
@@ -601,10 +623,11 @@ export class NpmInstall {
   async installWithDependencies(
     packageName: string,
     version: string = 'latest',
-    options?: { autoAddGitignore?: boolean; ignoreEntry?: string }
+    options?: { autoAddGitignore?: boolean; ignoreEntry?: string; isDirect?: boolean }
   ): Promise<void> {
     const resolvedVersion = this.resolveVersion(version);
     const packageKey = `${packageName}@${resolvedVersion}`;
+    const isDirect = options?.isDirect ?? true;
 
     // 循環依存の検出
     if (this.installingPackages.has(packageKey)) {
@@ -664,6 +687,11 @@ export class NpmInstall {
       // インストール処理中マークに追加
       this.installingPackages.add(packageKey);
 
+      // Progress callback: notify about this package installation
+      if (this.onInstallProgress) {
+        await this.onInstallProgress(packageName, resolvedVersion, isDirect);
+      }
+
       console.log(`[npm.installWithDependencies] Installing ${packageKey}...`);
 
       // パッケージ情報を取得
@@ -685,7 +713,8 @@ export class NpmInstall {
           await Promise.all(
             batch.map(async ([depName, depVersion]) => {
               try {
-                await this.installWithDependencies(depName, this.resolveVersion(depVersion));
+                // Transitive dependencies are marked as isDirect: false
+                await this.installWithDependencies(depName, this.resolveVersion(depVersion), { isDirect: false });
               } catch (error) {
                 console.warn(
                   `[npm.installWithDependencies] Failed to install dependency ${depName}@${depVersion}: ${(error as Error).message}`

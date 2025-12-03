@@ -363,12 +363,27 @@ function ClientTerminal({
       } catch {}
     };
 
+    // Write lock to prevent concurrent writes causing newlines
+    let isTermWriting = false;
+    const writeQueue: string[] = [];
+    
+    const flushWriteQueue = () => {
+      if (isTermWriting || writeQueue.length === 0) return;
+      isTermWriting = true;
+      const output = writeQueue.shift()!;
+      term.write(output, () => {
+        isTermWriting = false;
+        flushWriteQueue(); // Process next in queue
+      });
+    };
+
     // 長い出力を段階的に処理する関数
     const writeOutput = async (output: string) => {
       // \nを\r\nに変換（xtermは\r\nが必要）
       const normalized = output.replace(/\r?\n/g, '\r\n');
       cmdOutputs += output;
-      term.write(normalized);
+      writeQueue.push(normalized);
+      flushWriteQueue();
     };
 
     const processCommand = async (command: string) => {
