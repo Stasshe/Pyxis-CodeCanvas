@@ -26,6 +26,8 @@ interface DiffTabProps {
   onContentChange?: (content: string) => void; // 編集内容の保存用（デバウンス後）
   // 即時反映用ハンドラ: 編集が発生したら即座に呼ばれる（isDirty フラグ立てに使用）
   onImmediateContentChange?: (content: string) => void;
+  // 折り返し設定（CodeEditorと同じくユーザー設定から取得）
+  wordWrapConfig?: 'on' | 'off';
 }
 
 const DiffTab: React.FC<DiffTabProps> = ({
@@ -33,6 +35,7 @@ const DiffTab: React.FC<DiffTabProps> = ({
   editable = false,
   onContentChange,
   onImmediateContentChange,
+  wordWrapConfig = 'off',
 }) => {
   const { colors, themeName } = useTheme();
   // 各diff領域へのref
@@ -374,7 +377,7 @@ const DiffTab: React.FC<DiffTabProps> = ({
                         minimap: { enabled: false },
                         scrollBeyondLastLine: false,
                         fontSize: 14,
-                        wordWrap: 'on',
+                        wordWrap: wordWrapConfig,
                         lineNumbers: 'on',
                         automaticLayout: true,
                       }}
