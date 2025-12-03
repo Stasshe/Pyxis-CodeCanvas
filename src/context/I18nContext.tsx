@@ -29,6 +29,9 @@ const I18nContext = createContext<I18nContextValue | undefined>(undefined);
 
 const LOCALE_STORAGE_KEY = LOCALSTORAGE_KEY.LOCALE;
 
+// 初期ロケール計算のキャッシュ（一度だけ計算）
+let cachedInitialLocale: Locale | null = null;
+
 /**
  * 有効化された言語パック拡張機能から利用可能な言語を取得
  */
@@ -46,6 +49,11 @@ function detectBrowserLocale(): Locale {
 
   const browserLang = navigator.language.split('-')[0].toLowerCase();
   const enabledLocales = getEnabledLocales();
+
+  // まだ言語パックがロードされていない場合はブラウザ言語をそのまま使用
+  if (enabledLocales.size === 0 && isSupportedLocale(browserLang)) {
+    return browserLang as Locale;
+  }
 
   // 有効化された言語パックの中にブラウザ言語があるかチェック
   if (enabledLocales.has(browserLang) && isSupportedLocale(browserLang)) {
@@ -78,6 +86,10 @@ function getSavedLocale(): Locale | null {
     if (saved && isSupportedLocale(saved)) {
       // 保存された言語が有効化された言語パックの中にあるかチェック
       const enabledLocales = getEnabledLocales();
+      // まだ言語パックがロードされていない場合は保存値をそのまま使用
+      if (enabledLocales.size === 0) {
+        return saved as Locale;
+      }
       if (enabledLocales.has(saved)) {
         return saved as Locale;
       }
@@ -123,9 +135,12 @@ interface I18nProviderProps {
 }
 
 export function I18nProvider({ children, defaultLocale }: I18nProviderProps) {
-  // 初期ロケールの決定: 保存された値 → ブラウザ設定 → プロップス → デフォルト
-  const initialLocale =
-    getSavedLocale() || detectBrowserLocale() || defaultLocale || DEFAULT_LOCALE;
+  // 初期ロケールの決定（キャッシュを使用して一度だけ計算）
+  if (cachedInitialLocale === null) {
+    cachedInitialLocale =
+      getSavedLocale() || detectBrowserLocale() || defaultLocale || DEFAULT_LOCALE;
+  }
+  const initialLocale = cachedInitialLocale;
 
   const [locale, setLocaleState] = useState<Locale>(initialLocale);
   const [translations, setTranslations] = useState<Record<string, unknown>>({});
