@@ -38,7 +38,6 @@ interface TabStore {
   activateTab: (paneId: string, tabId: string) => void;
   updateTab: (paneId: string, tabId: string, updates: Partial<Tab>) => void;
   updateTabContent: (tabId: string, content: string, immediate?: boolean) => void;
-  updateDiffTabContent: (path: string, content: string, immediate?: boolean) => void;
   moveTab: (fromPaneId: string, toPaneId: string, tabId: string) => void;
   moveTabToIndex: (fromPaneId: string, toPaneId: string, tabId: string, index: number) => void;
 
@@ -696,71 +695,41 @@ export const useTabStore = create<TabStore>((set, get) => ({
     get().updatePane(paneId, { size: newSize });
   },
 
+  // タブのコンテンツを同期更新（同じパスを持つ全てのEditorTab + DiffTabを更新）
   updateTabContent: (tabId: string, content: string, immediate = false) => {
     const allTabs = get().getAllTabs();
     const tabInfo = allTabs.find(t => t.id === tabId);
 
     if (!tabInfo) return;
 
-    // editor 系のみ操作対象（previewは自動更新されるので不要）
-    if (tabInfo.kind !== 'editor') return;
+    // editor または diff 系のみ操作対象
+    if (tabInfo.kind !== 'editor' && tabInfo.kind !== 'diff') return;
 
     const targetPath = tabInfo.path || '';
-
-    // 全てのペインを巡回して、path が一致する editor タブを更新
-    // また、同じパスを持つDiffTabも更新
-    const updatePanesRecursive = (panes: any[]): any[] => {
-      return panes.map((pane: any) => {
-        const newTabs = pane.tabs.map((t: any) => {
-          // editor タブの更新
-          if (t.path === targetPath && t.kind === 'editor') {
-            return { ...t, content, isDirty: immediate ? true : false };
-          }
-          // 同じパスを持つDiffTabも更新（リアルタイム同期）
-          if (t.kind === 'diff' && t.path === targetPath && t.diffs && t.diffs.length > 0) {
-            if (t.diffs[0].latterContent === content) {
-              return t; // コンテンツが同じ場合はスキップ
-            }
-            const updatedDiffs = [...t.diffs];
-            updatedDiffs[0] = {
-              ...updatedDiffs[0],
-              latterContent: content,
-            };
-            return { ...t, diffs: updatedDiffs, isDirty: immediate ? true : false };
-          }
-          return t;
-        });
-
-        if (pane.children) {
-          return { ...pane, tabs: newTabs, children: updatePanesRecursive(pane.children) };
-        }
-
-        return { ...pane, tabs: newTabs };
-      });
-    };
-
-    set(state => ({ panes: updatePanesRecursive(state.panes) }));
-  },
-
-  // DiffTabのコンテンツを同期更新（同じパスを持つ全てのDiffTab + EditorTabを更新）
-  updateDiffTabContent: (path: string, content: string, immediate = false) => {
-    if (!path) return;
+    if (!targetPath) return;
 
     // 変更が必要なタブがあるかチェック
     let hasChanges = false;
 
-    // 全てのペインを巡回して、pathが一致するdiffタブとeditorタブを更新
+    // 全てのペインを巡回して、path が一致する editor/diff タブを更新
     const updatePanesRecursive = (panes: any[]): any[] => {
       return panes.map((pane: any) => {
         let paneChanged = false;
         const newTabs = pane.tabs.map((t: any) => {
-          // DiffTabの更新
-          if (t.kind === 'diff' && t.path === path && t.diffs && t.diffs.length > 0) {
-            // コンテンツが同じ場合はスキップ
-            if (t.diffs[0].latterContent === content && t.isDirty === immediate) {
-              return t;
+          // editor タブの更新
+          if (t.kind === 'editor' && t.path === targetPath) {
+            if (t.content === content && t.isDirty === immediate) {
+              return t; // コンテンツが同じ場合はスキップ
             }
-            // diffsの最初の要素のlatterContentを更新
+            paneChanged = true;
+            hasChanges = true;
+            return { ...t, content, isDirty: immediate };
+          }
+          // DiffTabの更新（リアルタイム同期）
+          if (t.kind === 'diff' && t.path === targetPath && t.diffs && t.diffs.length > 0) {
+            if (t.diffs[0].latterContent === content && t.isDirty === immediate) {
+              return t; // コンテンツが同じ場合はスキップ
+            }
             const updatedDiffs = [...t.diffs];
             updatedDiffs[0] = {
               ...updatedDiffs[0],
@@ -769,15 +738,6 @@ export const useTabStore = create<TabStore>((set, get) => ({
             paneChanged = true;
             hasChanges = true;
             return { ...t, diffs: updatedDiffs, isDirty: immediate };
-          }
-          // 同じパスを持つEditorTabも更新（リアルタイム同期）
-          if (t.kind === 'editor' && t.path === path) {
-            if (t.content === content && t.isDirty === immediate) {
-              return t; // コンテンツが同じ場合はスキップ
-            }
-            paneChanged = true;
-            hasChanges = true;
-            return { ...t, content, isDirty: immediate };
           }
           return t;
         });
