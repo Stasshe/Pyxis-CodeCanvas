@@ -1,5 +1,6 @@
-import React from 'react';
+import { memo, type ReactNode } from 'react';
 
+import { type ThemeColors } from '@/context/ThemeContext';
 import { FileItem } from '@/types';
 
 import InlineHighlightedCode from '../InlineHighlightedCode';
@@ -8,18 +9,13 @@ import Mermaid from './Mermaid';
 
 interface MemoizedCodeComponentProps {
   className?: string;
-  children: React.ReactNode;
-  colors: {
-    mermaidBg?: string;
-    background?: string;
-    foreground?: string;
-    [key: string]: string | undefined;
-  };
+  children: ReactNode;
+  colors: ThemeColors;
   currentProjectName?: string;
   projectFiles?: FileItem[];
 }
 
-const MemoizedCodeComponent = React.memo<MemoizedCodeComponentProps>(
+const MemoizedCodeComponent = memo<MemoizedCodeComponentProps>(
   ({ className, children, colors }) => {
     const match = /language-(\w+)/.exec(className || '');
     const codeString = String(children).replace(/\n$/, '').trim();

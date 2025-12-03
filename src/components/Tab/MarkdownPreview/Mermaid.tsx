@@ -1,9 +1,9 @@
 import { ZoomIn, ZoomOut, RefreshCw, Download } from 'lucide-react';
 import mermaid from 'mermaid';
-import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo, memo } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
-import { useTheme } from '@/context/ThemeContext';
+import { useTheme, type ThemeColors } from '@/context/ThemeContext';
 
 import { parseMermaidContent } from '../markdownUtils';
 
@@ -11,12 +11,7 @@ import { useIntersectionObserver } from './useIntersectionObserver';
 
 interface MermaidProps {
   chart: string;
-  colors: {
-    mermaidBg?: string;
-    background?: string;
-    foreground?: string;
-    [key: string]: string | undefined;
-  };
+  colors: ThemeColors;
 }
 
 // グローバルカウンタ: ID衝突を確実に防ぐ
@@ -34,7 +29,7 @@ const generateSafeId = (chart: string): string => {
   }
 };
 
-const Mermaid = React.memo<MermaidProps>(({ chart, colors }) => {
+const Mermaid = memo<MermaidProps>(({ chart, colors }) => {
   const { t } = useTranslation();
   const { themeName } = useTheme();
   const ref = useRef<HTMLDivElement>(null);
@@ -187,11 +182,17 @@ const Mermaid = React.memo<MermaidProps>(({ chart, colors }) => {
           });
 
           const container = ref.current as HTMLDivElement;
-          const applyTransform = (): void => {
+          
+          // Apply transform directly to SVG without triggering React re-render
+          const applyTransformVisual = (): void => {
             const s = scaleRef.current;
             const { x, y } = translateRef.current;
             svgElem.style.transform = `translate(${x}px, ${y}px) scale(${s})`;
-            setZoomState({ scale: s, translate: { x, y } });
+          };
+          
+          // Sync state with refs (called only when interaction ends)
+          const syncStateWithRefs = (): void => {
+            setZoomState({ scale: scaleRef.current, translate: { ...translateRef.current } });
           };
 
           const onWheel = (e: WheelEvent): void => {
@@ -207,7 +208,8 @@ const Mermaid = React.memo<MermaidProps>(({ chart, colors }) => {
             translateRef.current.x = mx - (mx - tx) * (newScale / prevScale);
             translateRef.current.y = my - (my - ty) * (newScale / prevScale);
             scaleRef.current = newScale;
-            applyTransform();
+            applyTransformVisual();
+            syncStateWithRefs();
           };
 
           const getTouchDist = (touches: TouchList): number => {
@@ -242,7 +244,7 @@ const Mermaid = React.memo<MermaidProps>(({ chart, colors }) => {
                 translateRef.current.x = pinchStart.x - (pinchStart.x - tx) * (newScale / scaleRef.current);
                 translateRef.current.y = pinchStart.y - (pinchStart.y - ty) * (newScale / scaleRef.current);
                 scaleRef.current = newScale;
-                applyTransform();
+                applyTransformVisual();
               }
             }
           };
@@ -251,6 +253,7 @@ const Mermaid = React.memo<MermaidProps>(({ chart, colors }) => {
             if (e.touches.length < 2) {
               isPinching = false;
               lastTouchDist = 0;
+              syncStateWithRefs();
             }
           };
 
@@ -268,7 +271,7 @@ const Mermaid = React.memo<MermaidProps>(({ chart, colors }) => {
             lastPointerRef.current = { x: e.clientX, y: e.clientY };
             translateRef.current.x += dx;
             translateRef.current.y += dy;
-            applyTransform();
+            applyTransformVisual();
           };
 
           const onPointerUp = (e: PointerEvent): void => {
@@ -280,12 +283,14 @@ const Mermaid = React.memo<MermaidProps>(({ chart, colors }) => {
             isPanningRef.current = false;
             lastPointerRef.current = null;
             container.style.cursor = 'default';
+            syncStateWithRefs();
           };
 
           const onDblClick = (): void => {
             scaleRef.current = 1;
             translateRef.current = { x: 0, y: 0 };
-            applyTransform();
+            applyTransformVisual();
+            syncStateWithRefs();
           };
 
           container.addEventListener('wheel', onWheel, { passive: false });

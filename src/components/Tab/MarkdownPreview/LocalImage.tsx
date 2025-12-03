@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState, memo } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
 import type { PreviewTab } from '@/engine/tabs/types';
@@ -15,7 +15,7 @@ interface LocalImageProps {
   [key: string]: unknown;
 }
 
-const LocalImage = React.memo<LocalImageProps>(
+const LocalImage = memo<LocalImageProps>(
   ({ src, alt, activeTab, projectName, projectId, ...props }) => {
     const [dataUrl, setDataUrl] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
