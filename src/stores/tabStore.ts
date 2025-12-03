@@ -30,6 +30,12 @@ interface TabStore {
     tabId: string,
     side: 'before' | 'after'
   ) => void;
+  splitPaneAndOpenFile: (
+    paneId: string,
+    direction: 'horizontal' | 'vertical',
+    file: any,
+    side: 'before' | 'after'
+  ) => void;
   resizePane: (paneId: string, newSize: number) => void;
 
   // タブ操作
@@ -688,6 +694,97 @@ export const useTabStore = create<TabStore>((set, get) => ({
       panes: newPanes,
       activePane: newPaneId,
       globalActiveTab: tabId
+    });
+  },
+
+  splitPaneAndOpenFile: (paneId, direction, file, side) => {
+    const state = get();
+    const targetPane = state.getPane(paneId);
+    if (!targetPane) return;
+
+    // 既存のペインIDを収集
+    const getAllPaneIds = (panes: EditorPane[]): string[] => {
+      const ids: string[] = [];
+      const traverse = (panes: EditorPane[]) => {
+        panes.forEach(pane => {
+          ids.push(pane.id);
+          if (pane.children) traverse(pane.children);
+        });
+      };
+      traverse(panes);
+      return ids;
+    };
+
+    const existingIds = getAllPaneIds(state.panes);
+    let nextNum = 1;
+    while (existingIds.includes(`pane-${nextNum}`)) {
+      nextNum++;
+    }
+    const newPaneId = `pane-${nextNum}`;
+    const existingPaneId = `pane-${nextNum + 1}`;
+
+    // ファイル用の新しいタブを作成
+    const defaultEditor = typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
+    const kind = file.isBufferArray ? 'binary' : 'editor';
+    const newTabId = `${file.path || file.name}-${Date.now()}`;
+    const newTab: Tab = {
+      id: newTabId,
+      name: file.name,
+      path: file.path,
+      kind,
+      paneId: newPaneId,
+      content: file.content || '',
+      isDirty: false,
+      isCodeMirror: defaultEditor === 'codemirror',
+    };
+
+    // 再帰的にペインを更新
+    const updatePaneRecursive = (panes: EditorPane[]): EditorPane[] => {
+      return panes.map(pane => {
+        if (pane.id === paneId) {
+          // 既存のタブのpaneIdを更新
+          const existingTabs = pane.tabs.map(tab => ({
+            ...tab,
+            paneId: existingPaneId
+          }));
+
+          const pane1 = {
+            id: existingPaneId,
+            tabs: existingTabs,
+            activeTabId: pane.activeTabId,
+            parentId: paneId,
+            size: 50,
+          };
+
+          const pane2 = {
+            id: newPaneId,
+            tabs: [newTab],
+            activeTabId: newTabId,
+            parentId: paneId,
+            size: 50,
+          };
+
+          return {
+            ...pane,
+            layout: direction,
+            children: side === 'before' ? [pane2, pane1] : [pane1, pane2],
+            tabs: [],
+            activeTabId: '',
+          };
+        }
+        
+        if (pane.children) {
+          return { ...pane, children: updatePaneRecursive(pane.children) };
+        }
+        return pane;
+      });
+    };
+
+    const newPanes = updatePaneRecursive(state.panes);
+    set({ 
+      panes: newPanes,
+      activePane: newPaneId,
+      globalActiveTab: newTabId
     });
   },
 

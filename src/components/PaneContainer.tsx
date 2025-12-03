@@ -7,13 +7,11 @@ import { useDrop } from 'react-dnd';
 import PaneResizer from '@/components/PaneResizer';
 import TabBar from '@/components/Tab/TabBar';
 import { Breadcrumb } from '@/components/Tab/Breadcrumb';
+import { DND_TAB, DND_FILE_TREE_ITEM, isTabDragItem, isFileTreeDragItem } from '@/constants/dndTypes';
 import { useTheme } from '@/context/ThemeContext';
 import { tabRegistry } from '@/engine/tabs/TabRegistry';
 import { useTabStore } from '@/stores/tabStore';
 import type { EditorPane, FileItem } from '@/types';
-
-// ドラッグタイプ定数
-const FILE_TREE_ITEM = 'FILE_TREE_ITEM';
 
 interface PaneContainerProps {
   pane: EditorPane;
@@ -43,104 +41,119 @@ export const useGitContext = () => {
  */
 export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContainerProps) {
   const { colors } = useTheme();
-  const { globalActiveTab, setPanes, panes: allPanes, moveTab, splitPaneAndMoveTab, openTab } = useTabStore();
-  const [dropZone, setDropZone] = React.useState<'top' | 'bottom' | 'left' | 'right' | 'center' | null>(null);
+  const { globalActiveTab, setPanes, panes: allPanes, moveTab, splitPaneAndMoveTab, openTab, splitPaneAndOpenFile } = useTabStore();
+  const [dropZone, setDropZone] = React.useState<'top' | 'bottom' | 'left' | 'right' | 'center' | 'tabbar' | null>(null);
+  const elementRef = React.useRef<HTMLDivElement | null>(null);
+  const dropZoneRef = React.useRef<typeof dropZone>(null);
+  
+  // dropZone stateが変更されたらrefも更新（drop時に最新の値を参照するため）
+  React.useEffect(() => {
+    dropZoneRef.current = dropZone;
+  }, [dropZone]);
+
+  // ファイルを開くヘルパー関数
+  const openFileInPane = React.useCallback((fileItem: FileItem, targetPaneId?: string) => {
+    if (fileItem.type !== 'file') return;
+    const defaultEditor =
+      typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
+    const kind = fileItem.isBufferArray ? 'binary' : 'editor';
+    openTab({ ...fileItem, isCodeMirror: defaultEditor === 'codemirror' }, { kind, paneId: targetPaneId || pane.id });
+  }, [openTab, pane.id]);
 
   // このペイン自体をドロップターゲットとして扱う（TABとFILE_TREE_ITEM両方受け付け）
   const [{ isOver }, drop] = useDrop(
     () => ({
-      accept: ['TAB', FILE_TREE_ITEM],
+      accept: [DND_TAB, DND_FILE_TREE_ITEM],
       drop: (item: any, monitor) => {
-        // FILE_TREE_ITEMの場合はファイルを開く
-        if (item.type === FILE_TREE_ITEM && item.item) {
+        const currentDropZone = dropZoneRef.current;
+        console.log('[PaneContainer] drop called', { item, currentDropZone });
+        
+        // FILE_TREE_ITEMの場合
+        if (isFileTreeDragItem(item)) {
           const fileItem = item.item as FileItem;
-          console.log('[PaneContainer] File dropped from tree:', fileItem);
+          console.log('[PaneContainer] File dropped from tree:', { fileItem, currentDropZone });
           
-          // ファイルのみ開く（フォルダは無視）
+          // ファイルのみ処理（フォルダは無視）
           if (fileItem.type === 'file') {
-            const defaultEditor =
-              typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
-            const kind = fileItem.isBufferArray ? 'binary' : 'editor';
-            openTab({ ...fileItem, isCodeMirror: defaultEditor === 'codemirror' }, { kind, paneId: pane.id });
+            // TabBar上またはcenterの場合は単純にファイルを開く
+            if (!currentDropZone || currentDropZone === 'center' || currentDropZone === 'tabbar') {
+              openFileInPane(fileItem);
+            } else {
+              // 端にドロップした場合はペイン分割して開く
+              const direction = (currentDropZone === 'top' || currentDropZone === 'bottom') ? 'horizontal' : 'vertical';
+              const position = (currentDropZone === 'top' || currentDropZone === 'left') ? 'before' : 'after';
+              
+              // splitPaneAndOpenFileがあればそれを使用、なければ手動で処理
+              if (splitPaneAndOpenFile) {
+                splitPaneAndOpenFile(pane.id, direction, fileItem, position);
+              } else {
+                // フォールバック：単純にファイルを開く
+                openFileInPane(fileItem);
+              }
+            }
           }
           setDropZone(null);
           return;
         }
         
         // TABの場合は既存のタブ移動ロジック
-        if (!item || !item.tabId) return;
-        
-        // ドロップ時のゾーンに基づいて処理
-        // monitor.getClientOffset() はドロップ時の座標
-        // しかし、dropZone state は hover で更新されているはずなのでそれを使うのが簡単だが、
-        // drop イベントの瞬間に state が最新かどうかの懸念があるため、再計算が安全。
-        // ここでは dropZone state を信頼する（hover で更新されている前提）
-        
-        // ただし、React DnD の drop は非同期ではないので、ref の current 値などを使うのがベストだが、
-        // state でも通常は問題ない。
-        // 安全のため、ここで再計算を行う。
-        
-        // Note: monitor.getClientOffset() returns { x, y } relative to viewport
-        // We need bounding rect of the element.
-        // Since we don't have easy access to the element rect inside drop() without a ref,
-        // we will rely on the `hover` method to have set the state, OR we can use the state if we trust it.
-        // Let's try to use the state first. If it's null, we default to moveTab (center).
-        
-        if (!dropZone || dropZone === 'center') {
+        if (isTabDragItem(item)) {
+          if (!currentDropZone || currentDropZone === 'center' || currentDropZone === 'tabbar') {
             if (item.fromPaneId === pane.id) return; // 同じペインなら無視
             moveTab(item.fromPaneId, pane.id, item.tabId);
-        } else {
+          } else {
             // Split logic
-            // Top/Bottom -> Stacked -> horizontal layout
-            // Left/Right -> Side-by-side -> vertical layout
-            const direction = (dropZone === 'top' || dropZone === 'bottom') ? 'horizontal' : 'vertical';
-            const side = (dropZone === 'top' || dropZone === 'left') ? 'before' : 'after';
+            const direction = (currentDropZone === 'top' || currentDropZone === 'bottom') ? 'horizontal' : 'vertical';
+            const side = (currentDropZone === 'top' || currentDropZone === 'left') ? 'before' : 'after';
             splitPaneAndMoveTab(pane.id, direction, item.tabId, side);
+          }
         }
         
         setDropZone(null);
       },
       hover: (item, monitor) => {
         if (!monitor.isOver({ shallow: true })) {
-            setDropZone(null);
-            return;
+          setDropZone(null);
+          return;
         }
 
         const clientOffset = monitor.getClientOffset();
-        if (!clientOffset) return;
+        if (!clientOffset || !elementRef.current) return;
 
-        // 要素の矩形を取得する必要がある
-        // dropRef で取得した node を使う
-        // しかし dropRef は関数なので、useRef で node を保持する必要がある
-        if (elementRef.current) {
-            const rect = elementRef.current.getBoundingClientRect();
-            const x = clientOffset.x - rect.left;
-            const y = clientOffset.y - rect.top;
-            const w = rect.width;
-            const h = rect.height;
+        const rect = elementRef.current.getBoundingClientRect();
+        const x = clientOffset.x - rect.left;
+        const y = clientOffset.y - rect.top;
+        const w = rect.width;
+        const h = rect.height;
 
-            // ゾーン判定 (20% threshold for edges)
-            const thresholdX = w * 0.25;
-            const thresholdY = h * 0.25;
-
-            let zone: 'top' | 'bottom' | 'left' | 'right' | 'center' = 'center';
-
-            if (y < thresholdY) zone = 'top';
-            else if (y > h - thresholdY) zone = 'bottom';
-            else if (x < thresholdX) zone = 'left';
-            else if (x > w - thresholdX) zone = 'right';
-
-            setDropZone(zone);
+        // TabBarの高さ（約40px）
+        const tabBarHeight = 40;
+        
+        // TabBar上にいる場合
+        if (y < tabBarHeight) {
+          setDropZone('tabbar');
+          return;
         }
+
+        // ゾーン判定 (25% threshold for edges)
+        const thresholdX = w * 0.25;
+        const thresholdY = h * 0.25;
+
+        let zone: 'top' | 'bottom' | 'left' | 'right' | 'center' = 'center';
+
+        if (y < thresholdY + tabBarHeight) zone = 'top';
+        else if (y > h - thresholdY) zone = 'bottom';
+        else if (x < thresholdX) zone = 'left';
+        else if (x > w - thresholdX) zone = 'right';
+
+        setDropZone(zone);
       },
       collect: (monitor) => ({
         isOver: monitor.isOver({ shallow: true }),
       }),
     }),
-    [pane.id, dropZone] // dropZone を依存配列に入れることで drop 内で最新の state を参照できる可能性が高まる
+    [pane.id, moveTab, splitPaneAndMoveTab, openFileInPane, splitPaneAndOpenFile]
   );
-
-  const elementRef = React.useRef<HTMLDivElement | null>(null);
 
   // 子ペインがある場合は分割レイアウトをレンダリング
   if (pane.children && pane.children.length > 0) {
@@ -198,11 +211,9 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
                     const updatePaneRecursive = (panes: EditorPane[]): EditorPane[] => {
                       return panes.map(p => {
                         if (p.id === pane.id) {
-                          // 該当するペインの子を更新
                           return { ...p, children: updatedChildren };
                         }
                         if (p.children) {
-                          // 再帰的に探索
                           return { ...p, children: updatePaneRecursive(p.children) };
                         }
                         return p;
@@ -227,19 +238,73 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
   // TabRegistryからコンポーネントを取得
   const TabComponent = activeTab ? tabRegistry.get(activeTab.kind)?.component : null;
 
-
   // React の `ref` に渡すときの型不整合を避けるため、コールバック ref を用いる
   const dropRef = (node: HTMLDivElement | null) => {
     elementRef.current = node;
     try {
       if (typeof drop === 'function') {
-        // react-dnd の drop へ渡す際に any を許容
         (drop as any)(node);
       }
     } catch (err) {
       // 安全のためエラーは無視
     }
   };
+
+  // ドロップゾーンオーバーレイのスタイルを計算
+  const getDropOverlayStyle = (): React.CSSProperties | null => {
+    if (!isOver || !dropZone) return null;
+    
+    const baseStyle: React.CSSProperties = {
+      position: 'absolute',
+      zIndex: 50,
+      pointerEvents: 'none',
+    };
+    
+    // TabBar上の場合：青いハイライト（ペイン分割なし、ファイルを開くだけ）
+    if (dropZone === 'tabbar') {
+      return {
+        ...baseStyle,
+        top: 0,
+        left: 0,
+        right: 0,
+        height: '40px',
+        backgroundColor: 'rgba(59, 130, 246, 0.15)',
+        border: '2px solid #3b82f6',
+      };
+    }
+    
+    // Center：青いハイライト（ペイン移動/ファイルを開く）
+    if (dropZone === 'center') {
+      return {
+        ...baseStyle,
+        inset: 0,
+        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        border: '2px solid #3b82f6',
+      };
+    }
+    
+    // 端にドロップ：白いオーバーレイ（ペイン分割）
+    const splitStyle: React.CSSProperties = {
+      ...baseStyle,
+      backgroundColor: 'rgba(255, 255, 255, 0.25)',
+      border: '2px dashed rgba(59, 130, 246, 0.5)',
+    };
+    
+    switch (dropZone) {
+      case 'top':
+        return { ...splitStyle, top: 0, left: 0, right: 0, height: '50%' };
+      case 'bottom':
+        return { ...splitStyle, bottom: 0, left: 0, right: 0, height: '50%' };
+      case 'left':
+        return { ...splitStyle, top: 0, left: 0, bottom: 0, width: '50%' };
+      case 'right':
+        return { ...splitStyle, top: 0, right: 0, bottom: 0, width: '50%' };
+      default:
+        return null;
+    }
+  };
+
+  const overlayStyle = getDropOverlayStyle();
 
   return (
     <GitContext.Provider value={{ setGitRefreshTrigger }}>
@@ -254,28 +319,7 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
         }}
       >
         {/* ドロップゾーンのオーバーレイ */}
-        {isOver && dropZone && (
-            <div
-                style={{
-                    position: 'absolute',
-                    zIndex: 50,
-                    pointerEvents: 'none', // ドロップイベントを妨害しないように
-                    // Center (Move): Blue highlight with border
-                    ...(dropZone === 'center' ? { 
-                        inset: 0,
-                        backgroundColor: 'rgba(59, 130, 246, 0.1)', // Blue tint
-                        border: '2px solid #3b82f6', // Blue border
-                    } : {
-                        // Split: White/Gray overlay for new pane area
-                        backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                    }),
-                    ...(dropZone === 'top' ? { top: 0, left: 0, right: 0, height: '50%' } : {}),
-                    ...(dropZone === 'bottom' ? { bottom: 0, left: 0, right: 0, height: '50%' } : {}),
-                    ...(dropZone === 'left' ? { top: 0, left: 0, bottom: 0, width: '50%' } : {}),
-                    ...(dropZone === 'right' ? { top: 0, right: 0, bottom: 0, width: '50%' } : {}),
-                }}
-            />
-        )}
+        {overlayStyle && <div style={overlayStyle} />}
 
         {/* タブバー */}
         <TabBar paneId={pane.id} />
