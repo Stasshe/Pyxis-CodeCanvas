@@ -593,7 +593,7 @@ const Mermaid = memo<MermaidProps>(({ chart, colors }) => {
           </div>
         </div>
       )}
-      <div style={{ position: 'relative', zIndex: 10, overflow: 'auto', maxHeight: '60vh', paddingTop: 4 }}>
+      <div style={{ position: 'relative', zIndex: 10, overflow: 'hidden', paddingTop: 4 }}>
         <div ref={ref} className="mermaid" style={{ minHeight: '120px' }} />
       </div>
     </div>
