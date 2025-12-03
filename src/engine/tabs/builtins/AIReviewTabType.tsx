@@ -5,33 +5,68 @@ import { TabTypeDefinition, AIReviewTab, TabComponentProps } from '../types';
 
 import AIReviewTabComponent from '@/components/AI/AIReview/AIReviewTab';
 import { useGitContext } from '@/components/PaneContainer';
-import { useProject } from '@/engine/core/project';
+import { fileRepository } from '@/engine/core/fileRepository';
 import { useChatSpace } from '@/hooks/ai/useChatSpace';
 import { useTabStore } from '@/stores/tabStore';
 
 /**
  * AIレビュータブのコンポーネント
+ * 
+ * NOTE: NEW-ARCHITECTURE.mdに従い、ファイル操作はfileRepositoryを直接使用。
+ * useProjectフックは各コンポーネントで独立した状態を持つため、
+ * currentProjectがnullになりファイルが保存されない問題があった。
  */
 const AIReviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   const aiTab = tab as AIReviewTab;
   const closeTab = useTabStore(state => state.closeTab);
   const updateTab = useTabStore(state => state.updateTab);
-  const { saveFile, clearAIReview, refreshProjectFiles } = useProject();
   const { setGitRefreshTrigger } = useGitContext();
   const { addMessage } = useChatSpace(aiTab.aiEntry?.projectId || null);
 
   const handleApplyChanges = async (filePath: string, content: string) => {
-    if (saveFile) {
-      await saveFile(filePath, content);
+    const projectId = aiTab.aiEntry?.projectId;
+    
+    if (!projectId) {
+      console.error('[AIReviewTabRenderer] No projectId available, cannot save file');
+      return;
+    }
+
+    try {
+      // fileRepositoryを直接使用してファイルを保存（NEW-ARCHITECTURE.mdに従う）
+      await fileRepository.init();
+      const existingFile = await fileRepository.getFileByPath(projectId, filePath);
+      
+      if (existingFile) {
+        // 既存ファイルを更新
+        const updatedFile = {
+          ...existingFile,
+          content,
+          isBufferArray: false,
+          bufferContent: undefined,
+          updatedAt: new Date(),
+        };
+        await fileRepository.saveFile(updatedFile);
+        console.log('[AIReviewTabRenderer] File updated:', filePath);
+      } else {
+        // 新規ファイルを作成
+        await fileRepository.createFile(projectId, filePath, content, 'file');
+        console.log('[AIReviewTabRenderer] File created:', filePath);
+      }
+      
       // Git状態を更新
       setGitRefreshTrigger(prev => prev + 1);
+      
+      // AIレビュー状態をクリア
+      try {
+        await fileRepository.clearAIReview(projectId, filePath);
+      } catch (e) {
+        console.warn('[AIReviewTabRenderer] clearAIReview failed (non-critical):', e);
+      }
+    } catch (error) {
+      console.error('[AIReviewTabRenderer] Failed to save file:', error);
+      return;
     }
-    if (clearAIReview) {
-      await clearAIReview(filePath);
-    }
-    if (refreshProjectFiles) {
-      await refreshProjectFiles();
-    }
+
     // Add a chat message indicating the apply action, branching from parent if available
     if (addMessage) {
       try {
@@ -48,12 +83,18 @@ const AIReviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   };
 
   const handleDiscardChanges = async (filePath: string) => {
-    if (clearAIReview) {
-      await clearAIReview(filePath);
+    const projectId = aiTab.aiEntry?.projectId;
+    
+    // AIレビュー状態をクリア（projectIdがある場合のみ）
+    if (projectId) {
+      try {
+        await fileRepository.init();
+        await fileRepository.clearAIReview(projectId, filePath);
+      } catch (e) {
+        console.warn('[AIReviewTabRenderer] clearAIReview failed (non-critical):', e);
+      }
     }
-    if (refreshProjectFiles) {
-      await refreshProjectFiles();
-    }
+    
     // record revert/discard in chat
     if (addMessage) {
       try {
