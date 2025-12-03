@@ -519,7 +519,21 @@ export class ModuleLoader {
     const setInterval = this.globals.setInterval || globalThis.setInterval;
     const clearTimeout = this.globals.clearTimeout || globalThis.clearTimeout;
     const clearInterval = this.globals.clearInterval || globalThis.clearInterval;
-    const global = this.globals.global || globalThis;
+    
+    // Create a custom global with spoofed navigator for color support detection
+    // supports-color browser.js checks navigator.userAgent for Chromium
+    // Without this, iOS Safari returns 0 (no color) because it doesn't match Chrome/Chromium
+    const customGlobal = {
+      ...globalThis,
+      navigator: {
+        ...(globalThis.navigator || {}),
+        userAgent: 'Mozilla/5.0 Chrome/120.0.0.0',
+        userAgentData: {
+          brands: [{ brand: 'Chromium', version: '120' }],
+        },
+      },
+    };
+    const global = this.globals.global || customGlobal;
 
     // コードをラップして実行。console を受け取るようにして、モジュール内の
     // console.log 呼び出しがここで用意した sandboxConsole を使うようにする。
