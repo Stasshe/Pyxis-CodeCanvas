@@ -144,20 +144,16 @@ export class SpinnerController {
     this.message = message;
     this.frameIndex = 0;
     
-    // Hide cursor for cleaner display
-    await this.write(ANSI.CURSOR_HIDE);
-    
-    // Write initial frame
+    // Hide cursor and write initial frame in single write to avoid newline issues
     const display = this.message ? `${this.getFrame()} ${this.message}` : this.getFrame();
-    await this.write(display);
+    await this.write(ANSI.CURSOR_HIDE + display);
     
     // Start animation
     this.intervalId = setInterval(async () => {
       this.frameIndex++;
-      // Clear line and rewrite
-      await this.write(ANSI.CLEAR_LINE);
+      // Clear line and rewrite in single write to avoid newline issues
       const display = this.message ? `${this.getFrame()} ${this.message}` : this.getFrame();
-      await this.write(display);
+      await this.write(ANSI.CLEAR_LINE + display);
     }, this.interval);
   }
   
@@ -168,10 +164,9 @@ export class SpinnerController {
     this.message = message;
     if (!this.isRunning) return;
     
-    // Immediately update display
-    await this.write(ANSI.CLEAR_LINE);
+    // Immediately update display - combine clear and write to avoid newline issues
     const display = this.message ? `${this.getFrame()} ${this.message}` : this.getFrame();
-    await this.write(display);
+    await this.write(ANSI.CLEAR_LINE + display);
   }
   
   /**
@@ -186,16 +181,13 @@ export class SpinnerController {
       this.intervalId = null;
     }
     
-    // Clear the spinner line
-    await this.write(ANSI.CLEAR_LINE);
-    
-    // Show final message if provided
+    // Clear the spinner line and show cursor - combine into single write
+    // If there's a final message, include it with newline
     if (finalMessage) {
-      await this.write(finalMessage + '\n');
+      await this.write(ANSI.CLEAR_LINE + finalMessage + '\n' + ANSI.CURSOR_SHOW);
+    } else {
+      await this.write(ANSI.CLEAR_LINE + ANSI.CURSOR_SHOW);
     }
-    
-    // Show cursor again
-    await this.write(ANSI.CURSOR_SHOW);
   }
   
   /**
