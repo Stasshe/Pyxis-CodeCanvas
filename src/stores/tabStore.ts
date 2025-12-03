@@ -369,20 +369,35 @@ export const useTabStore = create<TabStore>((set, get) => ({
 
   moveTab: (fromPaneId, toPaneId, tabId) => {
     set(state => {
-      // Find panes from current state
-      const findPane = (panes: EditorPane[], targetId: string): EditorPane | null => {
+      // Helper to find a pane by ID in the pane tree
+      const findPaneInTree = (panes: EditorPane[], targetId: string): EditorPane | null => {
         for (const pane of panes) {
           if (pane.id === targetId) return pane;
           if (pane.children) {
-            const found = findPane(pane.children, targetId);
+            const found = findPaneInTree(pane.children, targetId);
             if (found) return found;
           }
         }
         return null;
       };
 
-      const fromPane = findPane(state.panes, fromPaneId);
-      const toPane = findPane(state.panes, toPaneId);
+      // Helper to recursively update panes with a transform function
+      const updatePanesTree = (
+        panes: EditorPane[],
+        transform: (pane: EditorPane) => EditorPane | null
+      ): EditorPane[] => {
+        return panes.map(pane => {
+          const transformed = transform(pane);
+          if (transformed !== null) return transformed;
+          if (pane.children) {
+            return { ...pane, children: updatePanesTree(pane.children, transform) };
+          }
+          return pane;
+        });
+      };
+
+      const fromPane = findPaneInTree(state.panes, fromPaneId);
+      const toPane = findPaneInTree(state.panes, toPaneId);
 
       if (!fromPane || !toPane) return state;
 
@@ -390,33 +405,28 @@ export const useTabStore = create<TabStore>((set, get) => ({
       if (!tab) return state;
 
       // Build updated panes tree atomically
-      const updatePanesRecursive = (panes: EditorPane[]): EditorPane[] => {
-        return panes.map(pane => {
-          if (pane.id === fromPaneId) {
-            const newTabs = pane.tabs.filter(t => t.id !== tabId);
-            return {
-              ...pane,
-              tabs: newTabs,
-              activeTabId: pane.activeTabId === tabId ? (newTabs[0]?.id || '') : pane.activeTabId,
-            };
-          }
-          if (pane.id === toPaneId) {
-            const updatedTab = { ...tab, paneId: toPaneId };
-            return {
-              ...pane,
-              tabs: [...pane.tabs, updatedTab],
-              activeTabId: updatedTab.id,
-            };
-          }
-          if (pane.children) {
-            return { ...pane, children: updatePanesRecursive(pane.children) };
-          }
-          return pane;
-        });
-      };
+      const newPanes = updatePanesTree(state.panes, pane => {
+        if (pane.id === fromPaneId) {
+          const newTabs = pane.tabs.filter(t => t.id !== tabId);
+          return {
+            ...pane,
+            tabs: newTabs,
+            activeTabId: pane.activeTabId === tabId ? (newTabs[0]?.id || '') : pane.activeTabId,
+          };
+        }
+        if (pane.id === toPaneId) {
+          const updatedTab = { ...tab, paneId: toPaneId };
+          return {
+            ...pane,
+            tabs: [...pane.tabs, updatedTab],
+            activeTabId: updatedTab.id,
+          };
+        }
+        return null; // Continue recursion
+      });
 
       return {
-        panes: updatePanesRecursive(state.panes),
+        panes: newPanes,
         globalActiveTab: tab.id,
         activePane: toPaneId,
       };
@@ -426,20 +436,35 @@ export const useTabStore = create<TabStore>((set, get) => ({
   // タブを特定のインデックスに移動（同一ペイン内の並び替えまたは他ペインへ挿入）
   moveTabToIndex: (fromPaneId: string, toPaneId: string, tabId: string, index: number) => {
     set(state => {
-      // Find panes from current state
-      const findPane = (panes: EditorPane[], targetId: string): EditorPane | null => {
+      // Helper to find a pane by ID in the pane tree
+      const findPaneInTree = (panes: EditorPane[], targetId: string): EditorPane | null => {
         for (const pane of panes) {
           if (pane.id === targetId) return pane;
           if (pane.children) {
-            const found = findPane(pane.children, targetId);
+            const found = findPaneInTree(pane.children, targetId);
             if (found) return found;
           }
         }
         return null;
       };
 
-      const fromPane = findPane(state.panes, fromPaneId);
-      const toPane = findPane(state.panes, toPaneId);
+      // Helper to recursively update panes with a transform function
+      const updatePanesTree = (
+        panes: EditorPane[],
+        transform: (pane: EditorPane) => EditorPane | null
+      ): EditorPane[] => {
+        return panes.map(pane => {
+          const transformed = transform(pane);
+          if (transformed !== null) return transformed;
+          if (pane.children) {
+            return { ...pane, children: updatePanesTree(pane.children, transform) };
+          }
+          return pane;
+        });
+      };
+
+      const fromPane = findPaneInTree(state.panes, fromPaneId);
+      const toPane = findPaneInTree(state.panes, toPaneId);
       if (!fromPane || !toPane) return state;
 
       const tab = fromPane.tabs.find(t => t.id === tabId);
@@ -455,24 +480,19 @@ export const useTabStore = create<TabStore>((set, get) => ({
         const [removed] = reordered.splice(currentIndex, 1);
         reordered.splice(targetIndex, 0, removed);
 
-        const updatePanesRecursive = (panes: EditorPane[]): EditorPane[] => {
-          return panes.map(pane => {
-            if (pane.id === fromPaneId) {
-              return {
-                ...pane,
-                tabs: reordered,
-                activeTabId: removed.id,
-              };
-            }
-            if (pane.children) {
-              return { ...pane, children: updatePanesRecursive(pane.children) };
-            }
-            return pane;
-          });
-        };
+        const newPanes = updatePanesTree(state.panes, pane => {
+          if (pane.id === fromPaneId) {
+            return {
+              ...pane,
+              tabs: reordered,
+              activeTabId: removed.id,
+            };
+          }
+          return null;
+        });
 
         return {
-          panes: updatePanesRecursive(state.panes),
+          panes: newPanes,
           globalActiveTab: removed.id,
           activePane: fromPaneId,
         };
@@ -487,31 +507,26 @@ export const useTabStore = create<TabStore>((set, get) => ({
         ...toPane.tabs.slice(adjustedIndex),
       ];
 
-      const updatePanesRecursive = (panes: EditorPane[]): EditorPane[] => {
-        return panes.map(pane => {
-          if (pane.id === fromPaneId) {
-            return {
-              ...pane,
-              tabs: newFromTabs,
-              activeTabId: fromPane.activeTabId === tabId ? (newFromTabs[0]?.id || '') : fromPane.activeTabId,
-            };
-          }
-          if (pane.id === toPaneId) {
-            return {
-              ...pane,
-              tabs: newToTabs,
-              activeTabId: tab.id,
-            };
-          }
-          if (pane.children) {
-            return { ...pane, children: updatePanesRecursive(pane.children) };
-          }
-          return pane;
-        });
-      };
+      const newPanes = updatePanesTree(state.panes, pane => {
+        if (pane.id === fromPaneId) {
+          return {
+            ...pane,
+            tabs: newFromTabs,
+            activeTabId: fromPane.activeTabId === tabId ? (newFromTabs[0]?.id || '') : fromPane.activeTabId,
+          };
+        }
+        if (pane.id === toPaneId) {
+          return {
+            ...pane,
+            tabs: newToTabs,
+            activeTabId: tab.id,
+          };
+        }
+        return null;
+      });
 
       return {
-        panes: updatePanesRecursive(state.panes),
+        panes: newPanes,
         globalActiveTab: tab.id,
         activePane: toPaneId,
       };

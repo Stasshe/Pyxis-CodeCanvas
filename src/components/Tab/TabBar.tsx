@@ -70,7 +70,7 @@ const DraggableTab = memo(function DraggableTab({
   const [{ isDragging }, dragRef] = useDrag(
     () => ({
       type: 'TAB',
-      item: () => ({ tabId: tab.id, fromPaneId: paneId, index: tabIndex }),
+      item: () => ({ tabId: tab.id, fromPaneId: paneId }),
       collect: monitor => ({
         isDragging: monitor.isDragging(),
       }),
@@ -78,14 +78,14 @@ const DraggableTab = memo(function DraggableTab({
         setDragOverSide(null);
       },
     }),
-    [tab.id, paneId, tabIndex]
+    [tab.id, paneId]
   );
 
   // Drop target on each tab
   const [{ isOver }, tabDrop] = useDrop(
     () => ({
       accept: 'TAB',
-      drop: (item: { tabId: string; fromPaneId: string; index: number }, monitor) => {
+      drop: (item: { tabId: string; fromPaneId: string }, monitor) => {
         if (!item || !item.tabId) return;
         if (!monitor.isOver({ shallow: true })) return;
 
