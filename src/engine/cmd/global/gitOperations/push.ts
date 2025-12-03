@@ -150,10 +150,24 @@ async function findCommonAncestor(
   }
 }
 
-export async function push(fs: FS, dir: string, options: PushOptions = {}): Promise<string> {
+export async function push(
+  fs: FS, 
+  dir: string, 
+  options: PushOptions = {},
+  progressCallback?: (message: string) => Promise<void>
+): Promise<string> {
   const { remote = 'origin', branch, force = false } = options;
+  
+  // Helper to emit progress
+  const emitProgress = async (message: string): Promise<void> => {
+    if (progressCallback) {
+      await progressCallback(message);
+    }
+  };
 
   try {
+    await emitProgress('Enumerating objects...');
+    
     const token = await authRepository.getAccessToken();
     if (!token) {
       throw new Error('GitHub authentication required. Please sign in first.');
@@ -183,6 +197,7 @@ export async function push(fs: FS, dir: string, options: PushOptions = {}): Prom
     const githubAPI = new GitHubAPI(token, repoInfo.owner, repoInfo.repo);
 
     // 1. リモートHEADを取得
+    await emitProgress('Counting objects...');
     const remoteRef = await githubAPI.getRef(targetBranch);
 
     let remoteHeadSha: string | null = null;
@@ -193,6 +208,7 @@ export async function push(fs: FS, dir: string, options: PushOptions = {}): Prom
       console.log(
         `[git push] Remote branch '${targetBranch}' does not exist. Creating new branch...`
       );
+      await emitProgress(`Creating new branch '${targetBranch}'...`);
       isNewBranch = true;
 
       // デフォルトブランチ(main/master)が存在するか確認
@@ -280,6 +296,7 @@ export async function push(fs: FS, dir: string, options: PushOptions = {}): Prom
           console.log(
             `[git push] Force push: rewinding remote from ${remoteHeadSha.slice(0, 7)} to ${localHead.slice(0, 7)}`
           );
+          await emitProgress(`Force pushing: rewinding remote...`);
           
           // リモートrefを更新
           await githubAPI.updateRef(targetBranch, localHead, true);
@@ -305,6 +322,7 @@ export async function push(fs: FS, dir: string, options: PushOptions = {}): Prom
       return 'Everything up-to-date';
     }
 
+    await emitProgress(`Counting objects: ${commitsToPush.length}, done.`);
     console.log(`[git push] Pushing ${commitsToPush.length} commit(s)...`);
 
     // リモートツリーSHAを取得（差分アップロードのため）
@@ -330,8 +348,15 @@ export async function push(fs: FS, dir: string, options: PushOptions = {}): Prom
     let parentSha: string | null = commonAncestorSha || remoteHeadSha;
     let lastCommitSha: string | null = commonAncestorSha || remoteHeadSha;
     const treeBuilder = new TreeBuilder(fs, dir, githubAPI);
+    
+    await emitProgress('Compressing objects...');
 
-    for (const commit of commitsToPush) {
+    for (let i = 0; i < commitsToPush.length; i++) {
+      const commit = commitsToPush[i];
+      const progress = Math.round(((i + 1) / commitsToPush.length) * 100);
+      
+      await emitProgress(`\rWriting objects: ${progress}% (${i + 1}/${commitsToPush.length})`);
+      
       console.log(
         `[git push] Processing commit: ${commit.oid.slice(0, 7)} - ${commit.commit.message.split('\\n')[0]}`
       );
@@ -365,6 +390,8 @@ export async function push(fs: FS, dir: string, options: PushOptions = {}): Prom
       // 次の差分アップロード用にremoteTreeShaを更新
       remoteTreeSha = treeSha;
     }
+    
+    await emitProgress(`\rWriting objects: 100% (${commitsToPush.length}/${commitsToPush.length}), done.`);
 
     if (!lastCommitSha) {
       throw new Error('Failed to create commits');
@@ -372,6 +399,7 @@ export async function push(fs: FS, dir: string, options: PushOptions = {}): Prom
 
     // 4. ブランチrefを最新のコミットに更新
     console.log('[git push] Updating branch reference...');
+    await emitProgress('\nUpdating branch reference...');
 
     if (isNewBranch) {
       // 新しいブランチを作成

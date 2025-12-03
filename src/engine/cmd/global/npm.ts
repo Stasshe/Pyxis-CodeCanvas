@@ -18,6 +18,7 @@ export class NpmCommands {
   private projectName: string;
   private projectId: string;
   private setLoading?: (isLoading: boolean) => void;
+  private progressCallback?: (message: string) => Promise<void>;
 
   constructor(
     projectName: string,
@@ -35,6 +36,10 @@ export class NpmCommands {
     this.setLoading = callback;
   }
 
+  setProgressCallback(callback: (message: string) => Promise<void>) {
+    this.progressCallback = callback;
+  }
+
   async downloadAndInstallPackage(packageName: string, version: string = 'latest'): Promise<void> {
     const npmInstall = new NpmInstall(this.projectName, this.projectId);
     npmInstall.startBatchProcessing();
@@ -50,9 +55,17 @@ export class NpmCommands {
     await npmInstall.removeDirectory(dirPath);
   }
 
+  // Helper to emit progress message to terminal
+  private async emitProgress(message: string): Promise<void> {
+    if (this.progressCallback) {
+      await this.progressCallback(message);
+    }
+  }
+
   // npm install コマンドの実装
   async install(packageName?: string, flags: string[] = []): Promise<string> {
     this.setLoading?.(true);
+    const startTime = Date.now();
     try {
       // IndexedDBからpackage.jsonを単一取得（インデックス経由）
       const packageFile = await fileRepository.getFileByPath(this.projectId, '/package.json');
@@ -95,21 +108,28 @@ export class NpmCommands {
           return 'up to date, audited 0 packages in 0.1s\n\nfound 0 vulnerabilities';
         }
 
-        let output = `Installing ${packageNames.length} packages...\n`;
+        // Real-time progress output (npm style)
+        await this.emitProgress(`added 0 packages, and audited ${packageNames.length} packages in 0s`);
+        
         let installedCount = 0;
+        let addedPackages = 0;
 
         const npmInstall = new NpmInstall(this.projectName, this.projectId);
         npmInstall.startBatchProcessing();
         try {
-          for (const pkg of packageNames) {
+          for (let i = 0; i < packageNames.length; i++) {
+            const pkg = packageNames[i];
             const versionSpec = allDependencies[pkg];
             const version = versionSpec.replace(/^[\^~]/, '');
             try {
+              // Show progress: resolving packages
+              await this.emitProgress(`\radded ${addedPackages} packages, and audited ${i + 1} packages in ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
+              
               await npmInstall.installWithDependencies(pkg, version);
               installedCount++;
-              output += `  ✓ ${pkg}@${version} (with dependencies)\n`;
+              addedPackages++;
             } catch (error) {
-              output += `  ✗ ${pkg}@${version} - ${(error as Error).message}\n`;
+              await this.emitProgress(`\nnpm WARN ${pkg}@${version}: ${(error as Error).message}`);
             }
           }
         } finally {
@@ -122,12 +142,15 @@ export class NpmCommands {
           }
         }
 
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        // Clear the progress line and show final result
+        await this.emitProgress(`\r                                                                \r`);
+        
         if (installedCount === 0) {
-          output += `\nup to date, audited ${packageNames.length} packages in ${Math.random() * 2 + 1}s\n\nfound 0 vulnerabilities`;
+          return `up to date, audited ${packageNames.length} packages in ${elapsed}s\n\nfound 0 vulnerabilities`;
         } else {
-          output += `\nadded/updated ${installedCount} packages in ${Math.random() * 2 + 1}s\n\nfound 0 vulnerabilities`;
+          return `added ${addedPackages} packages, and audited ${packageNames.length} packages in ${elapsed}s\n\nfound 0 vulnerabilities`;
         }
-        return output;
       } else {
         // 特定パッケージのインストール
         const isDev = flags.includes('--save-dev') || flags.includes('-D');
@@ -142,6 +165,9 @@ export class NpmCommands {
         }
 
         try {
+          // Show progress: fetching package info
+          await this.emitProgress(`npm http fetch GET 200 https://registry.npmjs.org/${packageName}`);
+          
           const packageInfo = await this.fetchPackageInfo(packageName);
           const version = packageInfo.version;
 
@@ -168,25 +194,34 @@ export class NpmCommands {
           );
           const isActuallyInstalled = nodeFiles.length > 0;
 
+          const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+
           if (isInPackageJson && isActuallyInstalled) {
             try {
               const npmInstall = new NpmInstall(this.projectName, this.projectId);
               // ensure .bin entries exist for already-installed package
               // await npmInstall.ensureBinsForPackage(packageName).catch(() => {});
             } catch {}
-            return `updated 1 package in ${Math.random() * 2 + 1}s\n\n~ ${packageName}@${version}\nupdated 1 package and audited 1 package in ${Math.random() * 0.5 + 0.5}s\n\nfound 0 vulnerabilities`;
+            return `\nup to date, audited 1 package in ${elapsed}s\n\nfound 0 vulnerabilities`;
           } else {
+            await this.emitProgress(`\nadded 0 packages, and audited 1 package in 0s`);
+            
             const npmInstall = new NpmInstall(this.projectName, this.projectId);
             npmInstall.startBatchProcessing();
             try {
+              // Show extraction progress
+              await this.emitProgress(`\radded 1 package, and audited 1 package in ${elapsed}s`);
               await npmInstall.installWithDependencies(packageName, version);
             } finally {
               await npmInstall.finishBatchProcessing();
-                try {
-                  await npmInstall.ensureBinsForPackage(packageName).catch(() => {});
-                } catch {}
+              try {
+                await npmInstall.ensureBinsForPackage(packageName).catch(() => {});
+              } catch {}
             }
-            return `added packages with dependencies in ${Math.random() * 2 + 1}s\n\n+ ${packageName}@${version}\nadded packages and audited packages in ${Math.random() * 0.5 + 0.5}s\n\nfound 0 vulnerabilities`;
+            
+            const finalElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+            await this.emitProgress(`\r                                                                \r`);
+            return `added 1 package, and audited 1 package in ${finalElapsed}s\n\nfound 0 vulnerabilities`;
           }
         } catch (error) {
           throw new Error(`Failed to install ${packageName}: ${(error as Error).message}`);

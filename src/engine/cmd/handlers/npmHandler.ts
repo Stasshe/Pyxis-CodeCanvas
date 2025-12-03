@@ -21,6 +21,9 @@ export async function handleNPMCommand(
   if (setLoading) {
     npm.setLoadingHandler(setLoading);
   }
+  
+  // Set progress callback for real-time terminal output
+  npm.setProgressCallback(writeOutput);
 
   const npmCmd = args[0];
 

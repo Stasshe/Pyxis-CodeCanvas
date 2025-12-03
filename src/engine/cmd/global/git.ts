@@ -27,12 +27,24 @@ export class GitCommands {
   private dir: string;
   private projectId: string;
   private projectName: string;
+  private progressCallback?: (message: string) => Promise<void>;
 
   constructor(projectName: string, projectId: string) {
     this.fs = gitFileSystem.getFS()!;
     this.dir = gitFileSystem.getProjectDir(projectName);
     this.projectId = projectId;
     this.projectName = projectName;
+  }
+
+  setProgressCallback(callback: (message: string) => Promise<void>) {
+    this.progressCallback = callback;
+  }
+
+  // Helper to emit progress message to terminal
+  private async emitProgress(message: string): Promise<void> {
+    if (this.progressCallback) {
+      await this.progressCallback(message);
+    }
   }
 
   // ========================================
@@ -1297,7 +1309,7 @@ export class GitCommands {
 
     // 動的インポートで循環参照を回避
     const { push } = await import('./gitOperations/push');
-    return push(this.fs, this.dir, options);
+    return push(this.fs, this.dir, options, this.progressCallback);
   }
 
   /**

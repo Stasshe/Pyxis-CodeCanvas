@@ -12,6 +12,10 @@ export async function handleGitCommand(
   }
 
   const git = terminalCommandRegistry.getGitCommands(projectName, projectId);
+  
+  // Set progress callback for real-time terminal output
+  git.setProgressCallback(writeOutput);
+  
   const gitCmd = args[0];
 
   switch (gitCmd) {
