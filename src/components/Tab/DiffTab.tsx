@@ -4,7 +4,9 @@ import type * as monacoEditor from 'monaco-editor';
 import React, { useRef, useEffect } from 'react';
 
 import { getLanguage } from '@/components/Tab/text-editor/editors/editor-utils';
+import { defineAndSetMonacoThemes } from '@/components/Tab/text-editor/editors/monaco-themes';
 import { useTranslation } from '@/context/I18nContext';
+import { useTheme } from '@/context/ThemeContext';
 import { isBufferArray } from '@/engine/helper/isBufferArray';
 
 interface SingleFileDiff {
@@ -32,6 +34,7 @@ const DiffTab: React.FC<DiffTabProps> = ({
   onContentChange,
   onImmediateContentChange,
 }) => {
+  const { colors } = useTheme();
   // 各diff領域へのref
   const diffRefs = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -154,6 +157,13 @@ const DiffTab: React.FC<DiffTabProps> = ({
   ) => {
     editorsRef.current.set(idx, editor);
 
+    // テーマ定義と適用
+    try {
+      defineAndSetMonacoThemes(monaco, colors);
+    } catch (e) {
+      console.warn('[DiffTab] Failed to define/set themes:', e);
+    }
+
     // モデルを取得して保存
     const diffModel = editor.getModel();
     if (diffModel) {
@@ -269,17 +279,30 @@ const DiffTab: React.FC<DiffTabProps> = ({
         </div>
       )}
       <div
-        style={{ flex: 1, height: '100%', overflowY: 'auto', paddingLeft: showFileList ? 0 : 0 }}
+        style={{
+          flex: 1,
+          height: '100%',
+          overflowY: diffs.length > 1 ? 'auto' : 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
       >
         {diffs.map((diff, idx) => {
           const showLatter = diff.latterFullPath !== diff.formerFullPath;
+          // 単一ファイルの場合は全高さを使用、複数ファイルの場合は固定高さ
+          const isSingleFile = diffs.length === 1;
           return (
             <div
               key={idx}
               ref={el => {
                 diffRefs.current[idx] = el ?? null;
               }}
-              style={{ marginBottom: 24, borderBottom: '1px solid #333', scrollMarginTop: 24 }}
+              style={{
+                ...(isSingleFile
+                  ? { flex: 1, minHeight: 0, height: '100%', display: 'flex', flexDirection: 'column' }
+                  : { marginBottom: 24, scrollMarginTop: 24 }),
+                borderBottom: isSingleFile ? 'none' : '1px solid #333',
+              }}
             >
               <div
                 style={{
@@ -289,6 +312,7 @@ const DiffTab: React.FC<DiffTabProps> = ({
                   fontSize: 13,
                   display: 'flex',
                   justifyContent: 'space-between',
+                  flexShrink: 0,
                 }}
               >
                 <div>
@@ -304,7 +328,7 @@ const DiffTab: React.FC<DiffTabProps> = ({
                   </span>
                 </div>
               </div>
-              <div style={{ height: 360, minHeight: 0 }}>
+              <div style={isSingleFile ? { flex: 1, minHeight: 0, height: '100%' } : { height: 500, minHeight: 0 }}>
                 {(() => {
                   const formerBinary = isBinaryContent(diff.formerContent);
                   const latterBinary = isBinaryContent(diff.latterContent);

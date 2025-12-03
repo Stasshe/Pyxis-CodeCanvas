@@ -138,7 +138,10 @@ export function defineAndSetMonacoThemes(mon: Monaco, colors: ThemeColors) {
 
     const bg = colors?.editorBg || (colors as any)?.background || '#1e1e1e';
     const useLight = isHexLight(bg) || (typeof (colors as any).background === 'string' && /white|fff/i.test((colors as any).background));
-    mon.editor.setTheme(useLight ? 'pyxis-light' : 'pyxis-dark');
+    const targetTheme = useLight ? 'pyxis-light' : 'pyxis-dark';
+    
+    // 常にテーマを設定（新しいエディタインスタンスにも適用されるように）
+    mon.editor.setTheme(targetTheme);
   } catch (e) {
     // keep MonacoEditor resilient
     // eslint-disable-next-line no-console

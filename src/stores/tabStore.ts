@@ -695,37 +695,68 @@ export const useTabStore = create<TabStore>((set, get) => ({
     get().updatePane(paneId, { size: newSize });
   },
 
+  // タブのコンテンツを同期更新（同じパスを持つ全てのEditorTab + DiffTabを更新）
   updateTabContent: (tabId: string, content: string, immediate = false) => {
     const allTabs = get().getAllTabs();
     const tabInfo = allTabs.find(t => t.id === tabId);
 
     if (!tabInfo) return;
 
-    // editor/preview 系のみ操作対象
-    if (!(tabInfo.kind === 'editor' || tabInfo.kind === 'preview')) return;
+    // editor または diff 系のみ操作対象
+    if (tabInfo.kind !== 'editor' && tabInfo.kind !== 'diff') return;
 
     const targetPath = tabInfo.path || '';
-    const targetKind = tabInfo.kind;
+    if (!targetPath) return;
 
-    // 全てのペインを巡回して、path と kind が一致するタブを更新
+    // 変更が必要なタブがあるかチェック
+    let hasChanges = false;
+
+    // 全てのペインを巡回して、path が一致する editor/diff タブを更新
     const updatePanesRecursive = (panes: any[]): any[] => {
       return panes.map((pane: any) => {
+        let paneChanged = false;
         const newTabs = pane.tabs.map((t: any) => {
-          if (t.path === targetPath && t.kind === targetKind) {
-            return { ...t, content, isDirty: immediate ? true : false };
+          // editor タブの更新
+          if (t.kind === 'editor' && t.path === targetPath) {
+            if (t.content === content && t.isDirty === immediate) {
+              return t; // コンテンツが同じ場合はスキップ
+            }
+            paneChanged = true;
+            hasChanges = true;
+            return { ...t, content, isDirty: immediate };
+          }
+          // DiffTabの更新（リアルタイム同期）
+          if (t.kind === 'diff' && t.path === targetPath && t.diffs && t.diffs.length > 0) {
+            if (t.diffs[0].latterContent === content && t.isDirty === immediate) {
+              return t; // コンテンツが同じ場合はスキップ
+            }
+            const updatedDiffs = [...t.diffs];
+            updatedDiffs[0] = {
+              ...updatedDiffs[0],
+              latterContent: content,
+            };
+            paneChanged = true;
+            hasChanges = true;
+            return { ...t, diffs: updatedDiffs, isDirty: immediate };
           }
           return t;
         });
 
         if (pane.children) {
-          return { ...pane, tabs: newTabs, children: updatePanesRecursive(pane.children) };
+          const newChildren = updatePanesRecursive(pane.children);
+          if (paneChanged || newChildren !== pane.children) {
+            return { ...pane, tabs: newTabs, children: newChildren };
+          }
         }
 
-        return { ...pane, tabs: newTabs };
+        return paneChanged ? { ...pane, tabs: newTabs } : pane;
       });
     };
 
-    set(state => ({ panes: updatePanesRecursive(state.panes) }));
+    const newPanes = updatePanesRecursive(get().panes);
+    if (hasChanges) {
+      set({ panes: newPanes });
+    }
   },
 
   saveSession: async () => {

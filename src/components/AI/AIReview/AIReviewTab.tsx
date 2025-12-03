@@ -10,6 +10,7 @@ import type * as monacoEditor from 'monaco-editor';
 import React, { useState, useRef, useEffect } from 'react';
 
 import { getLanguage } from '@/components/Tab/text-editor/editors/editor-utils';
+import { defineAndSetMonacoThemes } from '@/components/Tab/text-editor/editors/monaco-themes';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { calculateDiff } from '@/engine/ai/diffProcessor';
@@ -129,6 +130,13 @@ export default function AIReviewTab({
     monaco: Monaco
   ) => {
     diffEditorRef.current = editor;
+
+    // テーマ定義と適用
+    try {
+      defineAndSetMonacoThemes(monaco, colors);
+    } catch (e) {
+      console.warn('[AIReviewTab] Failed to define/set themes:', e);
+    }
 
     // モデルを取得して保存
     const diffModel = editor.getModel();
