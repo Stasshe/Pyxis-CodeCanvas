@@ -2,7 +2,6 @@ import type { Monaco } from '@monaco-editor/react';
 import type { ThemeColors } from '@/context/ThemeContext';
 
 let themesDefined = false;
-let currentThemeName: string | null = null;
 
 const isHexLight = (hex?: string) => {
   if (!hex) return false;
@@ -141,11 +140,8 @@ export function defineAndSetMonacoThemes(mon: Monaco, colors: ThemeColors) {
     const useLight = isHexLight(bg) || (typeof (colors as any).background === 'string' && /white|fff/i.test((colors as any).background));
     const targetTheme = useLight ? 'pyxis-light' : 'pyxis-dark';
     
-    // テーマが既に同じ場合はsetThemeを呼び出さない（パフォーマンス最適化）
-    if (currentThemeName !== targetTheme) {
-      mon.editor.setTheme(targetTheme);
-      currentThemeName = targetTheme;
-    }
+    // 常にテーマを設定（新しいエディタインスタンスにも適用されるように）
+    mon.editor.setTheme(targetTheme);
   } catch (e) {
     // keep MonacoEditor resilient
     // eslint-disable-next-line no-console
