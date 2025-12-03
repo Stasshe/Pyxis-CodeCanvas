@@ -1,6 +1,7 @@
 import EventEmitter from 'events';
 import { PassThrough, Readable, Writable } from 'stream';
 
+import type { StreamCtx } from './builtins';
 import expandBraces from './braceExpand';
 import type { UnixCommands } from '../global/unix';
 
@@ -733,7 +734,7 @@ export class StreamShell {
       // Note: use the readable side of stdin (stdinStream) so builtins can
       // read from it when connected via pipe. stdout/stderr use the writable
       // stream backing so handlers can write into them.
-      const ctx = {
+      const ctx: StreamCtx = {
         stdin: proc.stdinStream,
         stdout: proc.stdoutStream,
         stderr: proc.stderrStream,
@@ -742,7 +743,7 @@ export class StreamShell {
         projectId: this.projectId,
         terminalColumns: this._terminalColumns,
         terminalRows: this._terminalRows,
-      } as any;
+      };
 
       // Normalizer for values written to stdout/stderr to avoid '[object Object]'
       const normalizeForWrite = (v: any) => {
