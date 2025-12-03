@@ -211,7 +211,8 @@
     "preview": "Pré-visualizar",
     "reset": "Redefinir",
     "zoomIn": "Aproximar",
-    "zoomOut": "Afastar"
+    "zoomOut": "Afastar",
+    "mermaidPlaceholder": "Role para ver o diagrama Mermaid"
   },
   "menu": {
     "extensions": "Extensions",

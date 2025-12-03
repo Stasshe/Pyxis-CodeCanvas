@@ -211,7 +211,8 @@
     "preview": "미리보기",
     "reset": "리셋",
     "zoomIn": "확대",
-    "zoomOut": "축소"
+    "zoomOut": "축소",
+    "mermaidPlaceholder": "스크롤하여 Mermaid 다이어그램 보기"
   },
   "menu": {
     "extensions": "Extensions",

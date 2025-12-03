@@ -211,7 +211,8 @@
     "preview": "Предпросмотр",
     "reset": "Сброс",
     "zoomIn": "Увеличить",
-    "zoomOut": "Уменьшить"
+    "zoomOut": "Уменьшить",
+    "mermaidPlaceholder": "Прокрутите, чтобы увидеть диаграмму Mermaid"
   },
   "menu": {
     "extensions": "Extensions",

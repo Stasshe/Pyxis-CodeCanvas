@@ -211,7 +211,8 @@
     "preview": "プレビュー",
     "reset": "リセット",
     "zoomIn": "ズームイン",
-    "zoomOut": "ズームアウト"
+    "zoomOut": "ズームアウト",
+    "mermaidPlaceholder": "スクロールするとMermaid図が表示されます"
   },
   "menu": {
     "extensions": "拡張機能",

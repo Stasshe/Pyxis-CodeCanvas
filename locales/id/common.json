@@ -211,7 +211,8 @@
     "preview": "Pratinjau",
     "reset": "Reset",
     "zoomIn": "Perbesar",
-    "zoomOut": "Perkecil"
+    "zoomOut": "Perkecil",
+    "mermaidPlaceholder": "Gulir untuk melihat diagram Mermaid"
   },
   "menu": {
     "extensions": "Extensions",

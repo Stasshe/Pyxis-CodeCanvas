@@ -211,7 +211,8 @@
     "preview": "Preview",
     "reset": "Reset",
     "zoomIn": "Zoom in",
-    "zoomOut": "Zoom out"
+    "zoomOut": "Zoom out",
+    "mermaidPlaceholder": "Scroll to view Mermaid diagram"
   },
   "menu": {
     "extensions": "Extensions",

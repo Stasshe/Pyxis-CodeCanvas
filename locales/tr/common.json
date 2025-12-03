@@ -211,7 +211,8 @@
     "preview": "Önizleme",
     "reset": "Sıfırla",
     "zoomIn": "Yakınlaştır",
-    "zoomOut": "Uzaklaştır"
+    "zoomOut": "Uzaklaştır",
+    "mermaidPlaceholder": "Mermaid diyagramını görmek için kaydırın"
   },
   "menu": {
     "extensions": "Extensions",
