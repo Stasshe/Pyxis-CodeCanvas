@@ -473,6 +473,7 @@ export class FileRepository {
    * ファイル作成（既存の場合は更新）
    * 自動的にGitFileSystemに非同期同期される
    * 親ディレクトリが存在しない場合は自動的に作成される
+   * NOTE: pathは自動的にAppPath形式（先頭スラッシュ付き）に正規化される
    */
   async createFile(
     projectId: string,
@@ -484,9 +485,12 @@ export class FileRepository {
   ): Promise<ProjectFile> {
     await this.init();
 
+    // パスをAppPath形式に正規化
+    const normalizedPath = toAppPath(path);
+
     // 既存ファイルをチェック
     const existingFiles = await this.getProjectFiles(projectId);
-    const existingFile = existingFiles.find(f => f.path === path);
+    const existingFile = existingFiles.find(f => f.path === normalizedPath);
 
     if (existingFile) {
       // 既存ファイルを更新
@@ -505,17 +509,17 @@ export class FileRepository {
     }
 
     // 親ディレクトリの自動作成（再帰的）
-    await this.ensureParentDirectories(projectId, path, existingFiles);
+    await this.ensureParentDirectories(projectId, normalizedPath, existingFiles);
 
     // 新規ファイル作成
     const file: ProjectFile = {
       id: generateUniqueId('file'),
       projectId,
-      path,
-      name: path.split('/').pop() || '',
+      path: normalizedPath,
+      name: normalizedPath.split('/').pop() || '',
       content: isBufferArray ? '' : content,
       type,
-      parentPath: path.substring(0, path.lastIndexOf('/')) || '/',
+      parentPath: normalizedPath.substring(0, normalizedPath.lastIndexOf('/')) || '/',
       createdAt: new Date(),
       updatedAt: new Date(),
       isBufferArray: !!isBufferArray,
@@ -652,10 +656,17 @@ export class FileRepository {
    * パスベースでファイルを保存または作成する便利メソッド
    * 既存ファイルがあれば更新し、なければ新規作成する
    * AI機能など、ファイルの存在を事前に確認せずに保存したい場合に使用
+   * 
+   * NOTE: パスは自動的にAppPath形式（先頭スラッシュ付き）に正規化される
    */
   async saveFileByPath(projectId: string, path: string, content: string): Promise<void> {
     await this.init();
-    const existingFile = await this.getFileByPath(projectId, path);
+    
+    // パスをAppPath形式に正規化（例: "src/main.rs" -> "/src/main.rs"）
+    const normalizedPath = toAppPath(path);
+    coreInfo(`[FileRepository] saveFileByPath: original="${path}", normalized="${normalizedPath}"`);
+    
+    const existingFile = await this.getFileByPath(projectId, normalizedPath);
     
     if (existingFile) {
       // 既存ファイルを更新
@@ -667,11 +678,11 @@ export class FileRepository {
         updatedAt: new Date(),
       };
       await this.saveFile(updatedFile);
-      coreInfo(`[FileRepository] File updated by path: ${path}`);
+      coreInfo(`[FileRepository] File updated by path: ${normalizedPath}`);
     } else {
       // 新規ファイルを作成
-      await this.createFile(projectId, path, content, 'file');
-      coreInfo(`[FileRepository] File created by path: ${path}`);
+      await this.createFile(projectId, normalizedPath, content, 'file');
+      coreInfo(`[FileRepository] File created by path: ${normalizedPath}`);
     }
   }
 
@@ -1031,11 +1042,14 @@ export class FileRepository {
   /**
    * プロジェクト内のパスでファイルを取得（path はプロジェクトルート相対パス）
    * 可能な限りインデックスを使って効率的に取得する。
+   * NOTE: pathは自動的にAppPath形式に正規化される
    */
   async getFileByPath(projectId: string, path: string): Promise<ProjectFile | null> {
     if (!this.db) throw new Error('Database not initialized');
 
-    // 正規化: leading slash を許容しているのでそのまま使う
+    // パスをAppPath形式に正規化
+    const normalizedPath = toAppPath(path);
+    
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction(['files'], 'readonly');
       const store = transaction.objectStore('files');
@@ -1044,7 +1058,7 @@ export class FileRepository {
       if (store.indexNames.contains('projectId_path')) {
         try {
           const idx = store.index('projectId_path');
-          const req = idx.get([projectId, path]);
+          const req = idx.get([projectId, normalizedPath]);
           req.onerror = () => reject(req.error);
           req.onsuccess = () => resolve(req.result || null);
           return;
@@ -1060,7 +1074,7 @@ export class FileRepository {
         req.onerror = () => reject(req.error);
         req.onsuccess = () => {
           const files = req.result as ProjectFile[];
-          const found = files.find(f => f.path === path) || null;
+          const found = files.find(f => f.path === normalizedPath) || null;
           resolve(found);
         };
         return;
@@ -1071,7 +1085,7 @@ export class FileRepository {
       allReq.onerror = () => reject(allReq.error);
       allReq.onsuccess = () => {
         const files = allReq.result as ProjectFile[];
-        const found = files.find(f => f.projectId === projectId && f.path === path) || null;
+        const found = files.find(f => f.projectId === projectId && f.path === normalizedPath) || null;
         resolve(found);
       };
     });
@@ -1293,9 +1307,13 @@ export class FileRepository {
 
   /**
    * AIレビュー状態をクリア
+   * NOTE: filePathは自動的にAppPath形式に正規化される
    */
   async clearAIReview(projectId: string, filePath: string): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
+    
+    // パスをAppPath形式に正規化
+    const normalizedPath = toAppPath(filePath);
 
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction(['files'], 'readwrite');
@@ -1306,7 +1324,7 @@ export class FileRepository {
       request.onerror = () => reject(request.error);
       request.onsuccess = () => {
         const files = request.result;
-        const file = files.find((f: ProjectFile) => f.path === filePath);
+        const file = files.find((f: ProjectFile) => f.path === normalizedPath);
 
         if (file) {
           file.aiReviewStatus = undefined;
