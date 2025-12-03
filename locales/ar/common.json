@@ -211,7 +211,8 @@
     "preview": "معاينة",
     "reset": "إعادة تعيين",
     "zoomIn": "تكبير",
-    "zoomOut": "تصغير"
+    "zoomOut": "تصغير",
+    "mermaidPlaceholder": "قم بالتمرير لعرض مخطط Mermaid"
   },
   "menu": {
     "extensions": "Extensions",

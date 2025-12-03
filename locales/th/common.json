@@ -211,7 +211,8 @@
     "preview": "ดูตัวอย่าง",
     "reset": "รีเซ็ต",
     "zoomIn": "ซูมเข้า",
-    "zoomOut": "ซูมออก"
+    "zoomOut": "ซูมออก",
+    "mermaidPlaceholder": "เลื่อนเพื่อดูไดอะแกรม Mermaid"
   },
   "menu": {
     "extensions": "Extensions",

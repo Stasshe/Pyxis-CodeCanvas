@@ -211,7 +211,8 @@
     "preview": "Voorbeeld",
     "reset": "Resetten",
     "zoomIn": "Inzoomen",
-    "zoomOut": "Uitzoomen"
+    "zoomOut": "Uitzoomen",
+    "mermaidPlaceholder": "Scroll om het Mermaid-diagram te bekijken"
   },
   "menu": {
     "extensions": "Extensies",

@@ -211,7 +211,8 @@
     "preview": "预览",
     "reset": "重置",
     "zoomIn": "放大",
-    "zoomOut": "缩小"
+    "zoomOut": "缩小",
+    "mermaidPlaceholder": "滚动以查看 Mermaid 图"
   },
   "menu": {
     "extensions": "Extensions",

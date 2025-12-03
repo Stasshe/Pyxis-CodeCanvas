@@ -211,7 +211,8 @@
     "preview": "Xem trước",
     "reset": "Đặt lại",
     "zoomIn": "Phóng to",
-    "zoomOut": "Thu nhỏ"
+    "zoomOut": "Thu nhỏ",
+    "mermaidPlaceholder": "Cuộn để xem sơ đồ Mermaid"
   },
   "menu": {
     "extensions": "Extensions",

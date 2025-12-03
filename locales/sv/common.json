@@ -211,7 +211,8 @@
     "preview": "Förhandsvisning",
     "reset": "Återställ",
     "zoomIn": "Zooma in",
-    "zoomOut": "Zooma ut"
+    "zoomOut": "Zooma ut",
+    "mermaidPlaceholder": "Scrolla för att visa Mermaid-diagrammet"
   },
   "menu": {
     "extensions": "Extensions",

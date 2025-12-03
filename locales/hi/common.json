@@ -211,7 +211,8 @@
     "preview": "पूर्वावलोकन",
     "reset": "रीसेट",
     "zoomIn": "ज़ूम इन",
-    "zoomOut": "ज़ूम आउट"
+    "zoomOut": "ज़ूम आउट",
+    "mermaidPlaceholder": "Mermaid आरेख देखने के लिए स्क्रॉल करें"
   },
   "menu": {
     "extensions": "Extensions",
