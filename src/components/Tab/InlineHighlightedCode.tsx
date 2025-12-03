@@ -303,13 +303,13 @@ const createPatterns = (lang: string): PatternDef[] => {
     { type: 'identifier', regex: /^[a-zA-Z_][a-zA-Z0-9_]*/ },
   ];
 
-  // Shell/Bash patterns
+  // Shell/Bash patterns - note: double-quoted strings are handled specially in tokenizeShell
   const shellPatterns: PatternDef[] = [
     { type: 'comment', regex: /^#[^\n]*/ },
     { type: 'templateString', regex: /^\$"(?:[^"\\]|\\[\s\S])*?"/ },
-    { type: 'string', regex: /^"(?:[^"\\$]|\\[\s\S])*?"/ },
+    // Double-quoted strings handled by tokenizeShell for proper $() and ${} support
     { type: 'string', regex: /^'[^']*'/ },
-    { type: 'method', regex: /^\$\([^)]*\)/ },
+    // $() command substitution handled by tokenizeShell
     { type: 'method', regex: /^`[^`]*`/ },
     { type: 'variable', regex: /^\$\{[^}]*\}/ },
     { type: 'variable', regex: /^\$[a-zA-Z_][a-zA-Z0-9_]*/ },
@@ -546,8 +546,165 @@ const createPatterns = (lang: string): PatternDef[] => {
   return [...langPatterns, ...commonPatterns];
 };
 
+// Helper function to parse a double-quoted string in shell
+// Handles nested $(), ${}, and escaped characters correctly
+const parseShellDoubleQuotedString = (code: string, startIndex: number): string => {
+  let j = startIndex + 1; // skip opening "
+  let result = '"';
+
+  while (j < code.length) {
+    const char = code[j];
+
+    if (char === '"') {
+      return result + '"';
+    }
+
+    if (char === '\\' && j + 1 < code.length) {
+      result += code.slice(j, j + 2);
+      j += 2;
+      continue;
+    }
+
+    if (char === '$' && j + 1 < code.length && code[j + 1] === '(') {
+      const sub = parseShellCommandSubstitution(code, j);
+      result += sub;
+      j += sub.length;
+      continue;
+    }
+
+    if (char === '`') {
+      const end = code.indexOf('`', j + 1);
+      if (end !== -1) {
+        result += code.slice(j, end + 1);
+        j = end + 1;
+        continue;
+      }
+    }
+
+    result += char;
+    j++;
+  }
+
+  return result;
+};
+
+// Helper function to parse command substitution $() in shell
+// Handles nested parentheses and quoted strings correctly
+const parseShellCommandSubstitution = (code: string, startIndex: number): string => {
+  let depth = 0;
+  let j = startIndex;
+
+  while (j < code.length) {
+    const char = code[j];
+
+    if (char === '$' && j + 1 < code.length && code[j + 1] === '(') {
+      depth++;
+      j += 2;
+      continue;
+    }
+
+    if (char === '(') {
+      depth++;
+      j++;
+      continue;
+    }
+
+    if (char === ')') {
+      depth--;
+      if (depth === 0) {
+        return code.slice(startIndex, j + 1);
+      }
+      j++;
+      continue;
+    }
+
+    if (char === '"') {
+      const str = parseShellDoubleQuotedString(code, j);
+      j += str.length;
+      continue;
+    }
+
+    if (char === "'") {
+      const end = code.indexOf("'", j + 1);
+      if (end !== -1) {
+        j = end + 1;
+        continue;
+      }
+    }
+
+    if (char === '\\' && j + 1 < code.length) {
+      j += 2;
+      continue;
+    }
+
+    j++;
+  }
+
+  return code.slice(startIndex, j);
+};
+
+// Specialized tokenizer for shell/bash that handles quotes correctly
+const tokenizeShell = (code: string, patterns: PatternDef[]): Token[] => {
+  const tokens: Token[] = [];
+  let i = 0;
+
+  while (i < code.length) {
+    const char = code[i];
+    const rest = code.slice(i);
+
+    // Double quoted string - use special parser
+    if (char === '"') {
+      const str = parseShellDoubleQuotedString(code, i);
+      tokens.push({ type: 'string', value: str });
+      i += str.length;
+      continue;
+    }
+
+    // $"..." localized string
+    if (rest.startsWith('$"')) {
+      const str = parseShellDoubleQuotedString(code, i + 1);
+      tokens.push({ type: 'templateString', value: '$' + str });
+      i += 1 + str.length;
+      continue;
+    }
+
+    // Command substitution $() - use special parser
+    if (rest.startsWith('$(')) {
+      const sub = parseShellCommandSubstitution(code, i);
+      tokens.push({ type: 'method', value: sub });
+      i += sub.length;
+      continue;
+    }
+
+    // Use pattern-based matching for other tokens
+    let matched = false;
+    for (const pattern of patterns) {
+      const match = rest.match(pattern.regex);
+      if (match) {
+        tokens.push({ type: pattern.type, value: match[0] });
+        i += match[0].length;
+        matched = true;
+        break;
+      }
+    }
+
+    if (!matched) {
+      tokens.push({ type: 'text', value: char });
+      i++;
+    }
+  }
+
+  return tokens;
+};
+
 // Tokenizer function
-const tokenize = (code: string, patterns: PatternDef[]): Token[] => {
+const tokenize = (code: string, patterns: PatternDef[], lang?: string): Token[] => {
+  // Use specialized shell tokenizer for shell/bash languages
+  const normalizedLang = (lang || '').toLowerCase();
+  if (['bash', 'sh', 'shell', 'zsh', 'fish'].includes(normalizedLang)) {
+    return tokenizeShell(code, patterns);
+  }
+
   const tokens: Token[] = [];
   let remaining = code;
 
@@ -674,7 +831,7 @@ export default function InlineHighlightedCode({
 
   // Highlight function using the new tokenizer
   const highlight = (code: string): string => {
-    const tokens = tokenize(code, patterns);
+    const tokens = tokenize(code, patterns, language);
 
     const htmlParts = tokens.map(token => {
       const escaped = token.value
