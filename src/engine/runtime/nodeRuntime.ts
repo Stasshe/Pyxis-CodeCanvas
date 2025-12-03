@@ -342,7 +342,19 @@ export class NodeRuntime {
       WeakSet,
 
       // Node.js グローバル
-      global: globalThis,
+      // Create a custom global with spoofed navigator for color support detection
+      // supports-color browser.js checks navigator.userAgent for Chromium
+      // Without this, iOS Safari returns 0 (no color) because it doesn't match Chrome/Chromium
+      global: {
+        ...globalThis,
+        navigator: {
+          ...(globalThis.navigator || {}),
+          userAgent: 'Mozilla/5.0 Chrome/120.0.0.0',
+          userAgentData: {
+            brands: [{ brand: 'Chromium', version: '120' }],
+          },
+        },
+      },
       process: {
         env: {
           LANG: 'en',
