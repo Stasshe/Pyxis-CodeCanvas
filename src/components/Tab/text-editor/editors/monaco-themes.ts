@@ -2,6 +2,7 @@ import type { Monaco } from '@monaco-editor/react';
 import type { ThemeColors } from '@/context/ThemeContext';
 
 let themesDefined = false;
+let currentThemeName: string | null = null;
 
 const isHexLight = (hex?: string) => {
   if (!hex) return false;
@@ -138,7 +139,13 @@ export function defineAndSetMonacoThemes(mon: Monaco, colors: ThemeColors) {
 
     const bg = colors?.editorBg || (colors as any)?.background || '#1e1e1e';
     const useLight = isHexLight(bg) || (typeof (colors as any).background === 'string' && /white|fff/i.test((colors as any).background));
-    mon.editor.setTheme(useLight ? 'pyxis-light' : 'pyxis-dark');
+    const targetTheme = useLight ? 'pyxis-light' : 'pyxis-dark';
+    
+    // テーマが既に同じ場合はsetThemeを呼び出さない（パフォーマンス最適化）
+    if (currentThemeName !== targetTheme) {
+      mon.editor.setTheme(targetTheme);
+      currentThemeName = targetTheme;
+    }
   } catch (e) {
     // keep MonacoEditor resilient
     // eslint-disable-next-line no-console

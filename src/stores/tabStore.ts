@@ -702,18 +702,31 @@ export const useTabStore = create<TabStore>((set, get) => ({
 
     if (!tabInfo) return;
 
-    // editor/preview 系のみ操作対象
-    if (!(tabInfo.kind === 'editor' || tabInfo.kind === 'preview')) return;
+    // editor 系のみ操作対象（previewは自動更新されるので不要）
+    if (tabInfo.kind !== 'editor') return;
 
     const targetPath = tabInfo.path || '';
-    const targetKind = tabInfo.kind;
 
-    // 全てのペインを巡回して、path と kind が一致するタブを更新
+    // 全てのペインを巡回して、path が一致する editor タブを更新
+    // また、同じパスを持つDiffTabも更新
     const updatePanesRecursive = (panes: any[]): any[] => {
       return panes.map((pane: any) => {
         const newTabs = pane.tabs.map((t: any) => {
-          if (t.path === targetPath && t.kind === targetKind) {
+          // editor タブの更新
+          if (t.path === targetPath && t.kind === 'editor') {
             return { ...t, content, isDirty: immediate ? true : false };
+          }
+          // 同じパスを持つDiffTabも更新（リアルタイム同期）
+          if (t.kind === 'diff' && t.path === targetPath && t.diffs && t.diffs.length > 0) {
+            if (t.diffs[0].latterContent === content) {
+              return t; // コンテンツが同じ場合はスキップ
+            }
+            const updatedDiffs = [...t.diffs];
+            updatedDiffs[0] = {
+              ...updatedDiffs[0],
+              latterContent: content,
+            };
+            return { ...t, diffs: updatedDiffs, isDirty: immediate ? true : false };
           }
           return t;
         });
@@ -729,18 +742,19 @@ export const useTabStore = create<TabStore>((set, get) => ({
     set(state => ({ panes: updatePanesRecursive(state.panes) }));
   },
 
-  // DiffTabのコンテンツを同期更新（同じパスを持つ全てのDiffTabを更新）
+  // DiffTabのコンテンツを同期更新（同じパスを持つ全てのDiffTab + EditorTabを更新）
   updateDiffTabContent: (path: string, content: string, immediate = false) => {
     if (!path) return;
 
     // 変更が必要なタブがあるかチェック
     let hasChanges = false;
 
-    // 全てのペインを巡回して、pathが一致するdiffタブを更新
+    // 全てのペインを巡回して、pathが一致するdiffタブとeditorタブを更新
     const updatePanesRecursive = (panes: any[]): any[] => {
       return panes.map((pane: any) => {
         let paneChanged = false;
         const newTabs = pane.tabs.map((t: any) => {
+          // DiffTabの更新
           if (t.kind === 'diff' && t.path === path && t.diffs && t.diffs.length > 0) {
             // コンテンツが同じ場合はスキップ
             if (t.diffs[0].latterContent === content && t.isDirty === immediate) {
@@ -755,6 +769,15 @@ export const useTabStore = create<TabStore>((set, get) => ({
             paneChanged = true;
             hasChanges = true;
             return { ...t, diffs: updatedDiffs, isDirty: immediate };
+          }
+          // 同じパスを持つEditorTabも更新（リアルタイム同期）
+          if (t.kind === 'editor' && t.path === path) {
+            if (t.content === content && t.isDirty === immediate) {
+              return t; // コンテンツが同じ場合はスキップ
+            }
+            paneChanged = true;
+            hasChanges = true;
+            return { ...t, content, isDirty: immediate };
           }
           return t;
         });
