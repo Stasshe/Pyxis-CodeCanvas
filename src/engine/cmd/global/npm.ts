@@ -117,9 +117,8 @@ export class NpmCommands {
         
         // Set up progress callback to log all packages (direct + transitive)
         if (ui) {
-          npmInstall.setInstallProgressCallback(async (pkgName, pkgVersion, isDirect) => {
-            const prefix = isDirect ? 'reify' : 'reify';
-            await ui.spinner.update(`${prefix}:${pkgName}: timing reifyNode:node_modules/${pkgName}`);
+          npmInstall.setInstallProgressCallback(async (pkgName, _pkgVersion, _isDirect) => {
+            await ui.spinner.update(`reify:${pkgName}: timing reifyNode:node_modules/${pkgName}`);
           });
         }
         
@@ -237,7 +236,7 @@ export class NpmCommands {
             
             // Set up progress callback to log all packages (direct + transitive)
             if (ui) {
-              npmInstall.setInstallProgressCallback(async (pkgName, pkgVersion, isDirect) => {
+              npmInstall.setInstallProgressCallback(async (pkgName, _pkgVersion, _isDirect) => {
                 await ui.spinner.update(`reify:${pkgName}: timing reifyNode:node_modules/${pkgName}`);
               });
             }
