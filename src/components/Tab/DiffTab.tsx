@@ -34,7 +34,7 @@ const DiffTab: React.FC<DiffTabProps> = ({
   onContentChange,
   onImmediateContentChange,
 }) => {
-  const { colors } = useTheme();
+  const { colors, themeName } = useTheme();
   // 各diff領域へのref
   const diffRefs = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -159,7 +159,7 @@ const DiffTab: React.FC<DiffTabProps> = ({
 
     // テーマ定義と適用
     try {
-      defineAndSetMonacoThemes(monaco, colors);
+      defineAndSetMonacoThemes(monaco, colors, themeName);
     } catch (e) {
       console.warn('[DiffTab] Failed to define/set themes:', e);
     }

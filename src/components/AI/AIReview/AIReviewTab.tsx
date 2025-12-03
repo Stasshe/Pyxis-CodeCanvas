@@ -31,7 +31,7 @@ export default function AIReviewTab({
   onUpdateSuggestedContent,
   onCloseTab,
 }: AIReviewTabProps) {
-  const { colors } = useTheme();
+  const { colors, themeName } = useTheme();
   const { t } = useTranslation();
 
   console.log('[AIReviewTab] Rendering with tab:', tab);
@@ -133,7 +133,7 @@ export default function AIReviewTab({
 
     // テーマ定義と適用
     try {
-      defineAndSetMonacoThemes(monaco, colors);
+      defineAndSetMonacoThemes(monaco, colors, themeName);
     } catch (e) {
       console.warn('[AIReviewTab] Failed to define/set themes:', e);
     }

@@ -42,7 +42,7 @@ export default function MonacoEditor({
   tabSize = 2,
   insertSpaces = true,
 }: MonacoEditorProps) {
-  const { colors } = useTheme();
+  const { colors, themeName } = useTheme();
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
   const [isEditorReady, setIsEditorReady] = useState(false);
@@ -83,7 +83,7 @@ export default function MonacoEditor({
 
     // テーマ定義は外部モジュールに移譲
     try {
-      defineAndSetMonacoThemes(mon, colors);
+      defineAndSetMonacoThemes(mon, colors, themeName);
     } catch (e) {
       console.warn('[MonacoEditor] Failed to define/set themes via monaco-themes:', e);
     }
