@@ -4,7 +4,9 @@ import type * as monacoEditor from 'monaco-editor';
 import React, { useRef, useEffect } from 'react';
 
 import { getLanguage } from '@/components/Tab/text-editor/editors/editor-utils';
+import { defineAndSetMonacoThemes } from '@/components/Tab/text-editor/editors/monaco-themes';
 import { useTranslation } from '@/context/I18nContext';
+import { useTheme } from '@/context/ThemeContext';
 import { isBufferArray } from '@/engine/helper/isBufferArray';
 
 interface SingleFileDiff {
@@ -32,6 +34,7 @@ const DiffTab: React.FC<DiffTabProps> = ({
   onContentChange,
   onImmediateContentChange,
 }) => {
+  const { colors } = useTheme();
   // 各diff領域へのref
   const diffRefs = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -153,6 +156,13 @@ const DiffTab: React.FC<DiffTabProps> = ({
     idx: number
   ) => {
     editorsRef.current.set(idx, editor);
+
+    // テーマ定義と適用
+    try {
+      defineAndSetMonacoThemes(monaco, colors as any);
+    } catch (e) {
+      console.warn('[DiffTab] Failed to define/set themes:', e);
+    }
 
     // モデルを取得して保存
     const diffModel = editor.getModel();
