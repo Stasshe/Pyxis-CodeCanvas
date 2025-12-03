@@ -65,12 +65,12 @@ const createPatterns = (lang: string): PatternDef[] => {
     { type: 'text', regex: /^./ },
   ];
 
-  // JavaScript/TypeScript patterns
+  // JavaScript/TypeScript patterns - note: template strings are handled specially in tokenizeJsTs
   const jstsPatterns: PatternDef[] = [
     { type: 'docComment', regex: /^\/\*\*[\s\S]*?\*\// },
     { type: 'comment', regex: /^\/\*[\s\S]*?\*\// },
     { type: 'comment', regex: /^\/\/[^\n]*/ },
-    { type: 'templateString', regex: /^`(?:[^`\\]|\\[\s\S])*`/ },
+    // Template strings handled by tokenizeJsTs for proper ${} support with nested templates
     { type: 'string', regex: /^"(?:[^"\\]|\\[\s\S])*?"/ },
     { type: 'string', regex: /^'(?:[^'\\]|\\[\s\S])*?'/ },
     { type: 'regex', regex: /^\/(?!\/)(?:[^/\\[\n]|\\[\s\S]|\[[^\]\\]*(?:\\[\s\S][^\]\\]*)*\])+\/[gimsy]*/ },
@@ -710,12 +710,172 @@ const tokenizeShell = (code: string, patterns: PatternDef[]): Token[] => {
   return tokens;
 };
 
+// Helper function to parse JS/TS template literal with ${} interpolation
+// Handles nested template literals correctly
+const parseJsTemplateString = (code: string, startIndex: number): string => {
+  let j = startIndex + 1; // skip opening `
+  let result = '`';
+
+  while (j < code.length) {
+    const char = code[j];
+
+    if (char === '`') {
+      return result + '`';
+    }
+
+    if (char === '\\' && j + 1 < code.length) {
+      result += code.slice(j, j + 2);
+      j += 2;
+      continue;
+    }
+
+    // Handle ${...} interpolation with nested braces and template literals
+    if (char === '$' && j + 1 < code.length && code[j + 1] === '{') {
+      const expr = parseJsTemplateExpression(code, j);
+      result += expr;
+      j += expr.length;
+      continue;
+    }
+
+    result += char;
+    j++;
+  }
+
+  return result;
+};
+
+// Helper function to parse ${...} expression in JS template literals
+// Handles nested braces, strings, and template literals correctly
+const parseJsTemplateExpression = (code: string, startIndex: number): string => {
+  let depth = 0;
+  let j = startIndex;
+
+  while (j < code.length) {
+    const char = code[j];
+
+    if (char === '$' && j + 1 < code.length && code[j + 1] === '{') {
+      depth++;
+      j += 2;
+      continue;
+    }
+
+    if (char === '{') {
+      depth++;
+      j++;
+      continue;
+    }
+
+    if (char === '}') {
+      depth--;
+      if (depth === 0) {
+        return code.slice(startIndex, j + 1);
+      }
+      j++;
+      continue;
+    }
+
+    // Handle nested template literals
+    if (char === '`') {
+      const str = parseJsTemplateString(code, j);
+      j += str.length;
+      continue;
+    }
+
+    // Handle strings
+    if (char === '"') {
+      let endIndex = j + 1;
+      while (endIndex < code.length) {
+        if (code[endIndex] === '"') {
+          break;
+        }
+        if (code[endIndex] === '\\' && endIndex + 1 < code.length) {
+          endIndex += 2;
+          continue;
+        }
+        endIndex++;
+      }
+      j = endIndex + 1;
+      continue;
+    }
+
+    if (char === "'") {
+      let endIndex = j + 1;
+      while (endIndex < code.length) {
+        if (code[endIndex] === "'") {
+          break;
+        }
+        if (code[endIndex] === '\\' && endIndex + 1 < code.length) {
+          endIndex += 2;
+          continue;
+        }
+        endIndex++;
+      }
+      j = endIndex + 1;
+      continue;
+    }
+
+    if (char === '\\' && j + 1 < code.length) {
+      j += 2;
+      continue;
+    }
+
+    j++;
+  }
+
+  return code.slice(startIndex, j);
+};
+
+// Specialized tokenizer for JavaScript/TypeScript that handles template literals correctly
+const tokenizeJsTs = (code: string, patterns: PatternDef[]): Token[] => {
+  const tokens: Token[] = [];
+  let i = 0;
+
+  while (i < code.length) {
+    const char = code[i];
+    const rest = code.slice(i);
+
+    // Template literal - use special parser
+    if (char === '`') {
+      const str = parseJsTemplateString(code, i);
+      tokens.push({ type: 'templateString', value: str });
+      i += str.length;
+      continue;
+    }
+
+    // Use pattern-based matching for other tokens
+    let matched = false;
+    for (const pattern of patterns) {
+      const match = rest.match(pattern.regex);
+      if (match) {
+        tokens.push({ type: pattern.type, value: match[0] });
+        i += match[0].length;
+        matched = true;
+        break;
+      }
+    }
+
+    if (!matched) {
+      tokens.push({ type: 'text', value: char });
+      i++;
+    }
+  }
+
+  return tokens;
+};
+
 // Tokenizer function
 const tokenize = (code: string, patterns: PatternDef[], lang?: string): Token[] => {
-  // Use specialized shell tokenizer for shell/bash languages
+  // Use specialized tokenizer based on language
   const normalizedLang = (lang || '').toLowerCase();
+  
+  // Shell/Bash languages
   if (['bash', 'sh', 'shell', 'zsh', 'fish'].includes(normalizedLang)) {
     return tokenizeShell(code, patterns);
+  }
+  
+  // JavaScript/TypeScript languages
+  if (['javascript', 'js', 'typescript', 'ts', 'tsx', 'jsx', 'mjs', 'cjs', 'mts', 'cts'].includes(normalizedLang)) {
+    return tokenizeJsTs(code, patterns);
   }
 
   const tokens: Token[] = [];
