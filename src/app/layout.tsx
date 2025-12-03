@@ -12,7 +12,7 @@ import { ThemeProvider } from '@/context/ThemeContext';
 
 export const viewport: Viewport = {
   width: 'device-width',
-  initialScale: 0.6,
+  initialScale: 0.7,
 };
 
 export const metadata: Metadata = {
