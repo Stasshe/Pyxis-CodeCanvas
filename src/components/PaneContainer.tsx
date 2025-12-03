@@ -41,86 +41,84 @@ export const useGitContext = () => {
 export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContainerProps) {
   const { colors } = useTheme();
   const { globalActiveTab, setPanes, panes: allPanes, moveTab, splitPaneAndMoveTab } = useTabStore();
+  const elementRef = React.useRef<HTMLDivElement | null>(null);
+  const dropZoneRef = React.useRef<'top' | 'bottom' | 'left' | 'right' | 'center' | null>(null);
   const [dropZone, setDropZone] = React.useState<'top' | 'bottom' | 'left' | 'right' | 'center' | null>(null);
 
   // このペイン自体をドロップターゲットとして扱う
   const [{ isOver }, drop] = useDrop(
     () => ({
       accept: 'TAB',
-      drop: (item: any, monitor) => {
+      drop: (item: { tabId: string; fromPaneId: string }, monitor) => {
         if (!item || !item.tabId) return;
-        
-        // ドロップ時のゾーンに基づいて処理
-        // monitor.getClientOffset() はドロップ時の座標
-        // しかし、dropZone state は hover で更新されているはずなのでそれを使うのが簡単だが、
-        // drop イベントの瞬間に state が最新かどうかの懸念があるため、再計算が安全。
-        // ここでは dropZone state を信頼する（hover で更新されている前提）
-        
-        // ただし、React DnD の drop は非同期ではないので、ref の current 値などを使うのがベストだが、
-        // state でも通常は問題ない。
-        // 安全のため、ここで再計算を行う。
-        
-        // Note: monitor.getClientOffset() returns { x, y } relative to viewport
-        // We need bounding rect of the element.
-        // Since we don't have easy access to the element rect inside drop() without a ref,
-        // we will rely on the `hover` method to have set the state, OR we can use the state if we trust it.
-        // Let's try to use the state first. If it's null, we default to moveTab (center).
-        
-        if (!dropZone || dropZone === 'center') {
-            if (item.fromPaneId === pane.id) return; // 同じペインなら無視
-            moveTab(item.fromPaneId, pane.id, item.tabId);
+        // Skip if already handled by a child (e.g., TabBar)
+        if (monitor.didDrop()) return;
+
+        // Use ref value for most accurate drop zone
+        const currentZone = dropZoneRef.current;
+
+        if (!currentZone || currentZone === 'center') {
+          if (item.fromPaneId === pane.id) return;
+          moveTab(item.fromPaneId, pane.id, item.tabId);
         } else {
-            // Split logic
-            // Top/Bottom -> Stacked -> horizontal layout
-            // Left/Right -> Side-by-side -> vertical layout
-            const direction = (dropZone === 'top' || dropZone === 'bottom') ? 'horizontal' : 'vertical';
-            const side = (dropZone === 'top' || dropZone === 'left') ? 'before' : 'after';
-            splitPaneAndMoveTab(pane.id, direction, item.tabId, side);
+          // Split logic
+          const direction = currentZone === 'top' || currentZone === 'bottom' ? 'horizontal' : 'vertical';
+          const side = currentZone === 'top' || currentZone === 'left' ? 'before' : 'after';
+          splitPaneAndMoveTab(pane.id, direction, item.tabId, side);
         }
-        
+
+        dropZoneRef.current = null;
         setDropZone(null);
       },
       hover: (item, monitor) => {
         if (!monitor.isOver({ shallow: true })) {
+          if (dropZoneRef.current !== null) {
+            dropZoneRef.current = null;
             setDropZone(null);
-            return;
+          }
+          return;
         }
 
         const clientOffset = monitor.getClientOffset();
-        if (!clientOffset) return;
+        if (!clientOffset || !elementRef.current) return;
 
-        // 要素の矩形を取得する必要がある
-        // dropRef で取得した node を使う
-        // しかし dropRef は関数なので、useRef で node を保持する必要がある
-        if (elementRef.current) {
-            const rect = elementRef.current.getBoundingClientRect();
-            const x = clientOffset.x - rect.left;
-            const y = clientOffset.y - rect.top;
-            const w = rect.width;
-            const h = rect.height;
+        const rect = elementRef.current.getBoundingClientRect();
+        const x = clientOffset.x - rect.left;
+        const y = clientOffset.y - rect.top;
+        const w = rect.width;
+        const h = rect.height;
 
-            // ゾーン判定 (20% threshold for edges)
-            const thresholdX = w * 0.25;
-            const thresholdY = h * 0.25;
+        // Zone calculation with 25% threshold for edges
+        const thresholdX = w * 0.25;
+        const thresholdY = h * 0.25;
 
-            let zone: 'top' | 'bottom' | 'left' | 'right' | 'center' = 'center';
+        let zone: 'top' | 'bottom' | 'left' | 'right' | 'center' = 'center';
 
-            if (y < thresholdY) zone = 'top';
-            else if (y > h - thresholdY) zone = 'bottom';
-            else if (x < thresholdX) zone = 'left';
-            else if (x > w - thresholdX) zone = 'right';
+        if (y < thresholdY) zone = 'top';
+        else if (y > h - thresholdY) zone = 'bottom';
+        else if (x < thresholdX) zone = 'left';
+        else if (x > w - thresholdX) zone = 'right';
 
-            setDropZone(zone);
+        // Only update if changed to reduce re-renders
+        if (dropZoneRef.current !== zone) {
+          dropZoneRef.current = zone;
+          setDropZone(zone);
         }
       },
-      collect: (monitor) => ({
+      collect: monitor => ({
         isOver: monitor.isOver({ shallow: true }),
       }),
     }),
-    [pane.id, dropZone] // dropZone を依存配列に入れることで drop 内で最新の state を参照できる可能性が高まる
+    [pane.id, moveTab, splitPaneAndMoveTab]
   );
 
-  const elementRef = React.useRef<HTMLDivElement | null>(null);
+  // Reset drop zone when not hovering
+  React.useEffect(() => {
+    if (!isOver && dropZoneRef.current !== null) {
+      dropZoneRef.current = null;
+      setDropZone(null);
+    }
+  }, [isOver]);
 
   // 子ペインがある場合は分割レイアウトをレンダリング
   if (pane.children && pane.children.length > 0) {
@@ -209,17 +207,15 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
 
 
   // React の `ref` に渡すときの型不整合を避けるため、コールバック ref を用いる
-  const dropRef = (node: HTMLDivElement | null) => {
-    elementRef.current = node;
-    try {
-      if (typeof drop === 'function') {
-        // react-dnd の drop へ渡す際に any を許容
-        (drop as any)(node);
+  const dropRef = React.useCallback(
+    (node: HTMLDivElement | null) => {
+      elementRef.current = node;
+      if (node) {
+        drop(node);
       }
-    } catch (err) {
-      // 安全のためエラーは無視
-    }
-  };
+    },
+    [drop]
+  );
 
   return (
     <GitContext.Provider value={{ setGitRefreshTrigger }}>

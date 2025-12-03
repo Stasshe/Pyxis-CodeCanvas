@@ -368,81 +368,153 @@ export const useTabStore = create<TabStore>((set, get) => ({
   },
 
   moveTab: (fromPaneId, toPaneId, tabId) => {
-    const state = get();
-    const fromPane = state.getPane(fromPaneId);
-    const toPane = state.getPane(toPaneId);
+    set(state => {
+      // Find panes from current state
+      const findPane = (panes: EditorPane[], targetId: string): EditorPane | null => {
+        for (const pane of panes) {
+          if (pane.id === targetId) return pane;
+          if (pane.children) {
+            const found = findPane(pane.children, targetId);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
 
-    if (!fromPane || !toPane) return;
+      const fromPane = findPane(state.panes, fromPaneId);
+      const toPane = findPane(state.panes, toPaneId);
 
-    const tab = fromPane.tabs.find(t => t.id === tabId);
-    if (!tab) return;
+      if (!fromPane || !toPane) return state;
 
-    // 移動元から削除
-    get().closeTab(fromPaneId, tabId);
+      const tab = fromPane.tabs.find(t => t.id === tabId);
+      if (!tab) return state;
 
-    // 移動先に追加（paneIdを更新）
-    const updatedTab = { ...tab, paneId: toPaneId };
-    get().updatePane(toPaneId, {
-      tabs: [...toPane.tabs, updatedTab],
-      activeTabId: updatedTab.id,
-    });
+      // Build updated panes tree atomically
+      const updatePanesRecursive = (panes: EditorPane[]): EditorPane[] => {
+        return panes.map(pane => {
+          if (pane.id === fromPaneId) {
+            const newTabs = pane.tabs.filter(t => t.id !== tabId);
+            return {
+              ...pane,
+              tabs: newTabs,
+              activeTabId: pane.activeTabId === tabId ? (newTabs[0]?.id || '') : pane.activeTabId,
+            };
+          }
+          if (pane.id === toPaneId) {
+            const updatedTab = { ...tab, paneId: toPaneId };
+            return {
+              ...pane,
+              tabs: [...pane.tabs, updatedTab],
+              activeTabId: updatedTab.id,
+            };
+          }
+          if (pane.children) {
+            return { ...pane, children: updatePanesRecursive(pane.children) };
+          }
+          return pane;
+        });
+      };
 
-    // グローバルアクティブタブを更新
-    set({
-      globalActiveTab: updatedTab.id,
-      activePane: toPaneId,
+      return {
+        panes: updatePanesRecursive(state.panes),
+        globalActiveTab: tab.id,
+        activePane: toPaneId,
+      };
     });
   },
 
   // タブを特定のインデックスに移動（同一ペイン内の並び替えまたは他ペインへ挿入）
   moveTabToIndex: (fromPaneId: string, toPaneId: string, tabId: string, index: number) => {
-    const state = get();
-    const fromPane = state.getPane(fromPaneId);
-    const toPane = state.getPane(toPaneId);
-    if (!fromPane || !toPane) return;
+    set(state => {
+      // Find panes from current state
+      const findPane = (panes: EditorPane[], targetId: string): EditorPane | null => {
+        for (const pane of panes) {
+          if (pane.id === targetId) return pane;
+          if (pane.children) {
+            const found = findPane(pane.children, targetId);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
 
-    const tab = fromPane.tabs.find(t => t.id === tabId);
-    if (!tab) return;
+      const fromPane = findPane(state.panes, fromPaneId);
+      const toPane = findPane(state.panes, toPaneId);
+      if (!fromPane || !toPane) return state;
 
-    // 同一ペイン内の並べ替えの場合は単純に配列を並べ替えて終了
-    if (fromPaneId === toPaneId) {
-      const currentIndex = fromPane.tabs.findIndex(t => t.id === tabId);
-      const targetIndex = Math.max(0, Math.min(index, fromPane.tabs.length - 1));
-      if (currentIndex === -1 || currentIndex === targetIndex) return;
+      const tab = fromPane.tabs.find(t => t.id === tabId);
+      if (!tab) return state;
 
-      const reordered = [...fromPane.tabs];
-      const [removed] = reordered.splice(currentIndex, 1);
-      reordered.splice(targetIndex, 0, removed);
+      // Same pane reordering
+      if (fromPaneId === toPaneId) {
+        const currentIndex = fromPane.tabs.findIndex(t => t.id === tabId);
+        const targetIndex = Math.max(0, Math.min(index, fromPane.tabs.length - 1));
+        if (currentIndex === -1 || currentIndex === targetIndex) return state;
 
-      get().updatePane(fromPaneId, {
-        tabs: reordered,
-        activeTabId: removed.id,
-      });
+        const reordered = [...fromPane.tabs];
+        const [removed] = reordered.splice(currentIndex, 1);
+        reordered.splice(targetIndex, 0, removed);
 
-      set({ globalActiveTab: removed.id, activePane: fromPaneId });
-      return;
-    }
+        const updatePanesRecursive = (panes: EditorPane[]): EditorPane[] => {
+          return panes.map(pane => {
+            if (pane.id === fromPaneId) {
+              return {
+                ...pane,
+                tabs: reordered,
+                activeTabId: removed.id,
+              };
+            }
+            if (pane.children) {
+              return { ...pane, children: updatePanesRecursive(pane.children) };
+            }
+            return pane;
+          });
+        };
 
-    // 別ペインへ移動する場合
-    // まず移動元から削除
-    const newFromTabs = fromPane.tabs.filter(t => t.id !== tabId);
-    get().updatePane(fromPaneId, {
-      tabs: newFromTabs,
-      activeTabId: fromPane.activeTabId === tabId ? (newFromTabs[0]?.id || '') : fromPane.activeTabId,
-    });
+        return {
+          panes: updatePanesRecursive(state.panes),
+          globalActiveTab: removed.id,
+          activePane: fromPaneId,
+        };
+      }
 
-    // 移動先に挿入
-    const adjustedIndex = Math.max(0, Math.min(index, toPane.tabs.length));
-    const newToTabs = [...toPane.tabs.slice(0, adjustedIndex), { ...tab, paneId: toPaneId }, ...toPane.tabs.slice(adjustedIndex)];
+      // Cross-pane move
+      const newFromTabs = fromPane.tabs.filter(t => t.id !== tabId);
+      const adjustedIndex = Math.max(0, Math.min(index, toPane.tabs.length));
+      const newToTabs = [
+        ...toPane.tabs.slice(0, adjustedIndex),
+        { ...tab, paneId: toPaneId },
+        ...toPane.tabs.slice(adjustedIndex),
+      ];
 
-    get().updatePane(toPaneId, {
-      tabs: newToTabs,
-      activeTabId: tab.id,
-    });
+      const updatePanesRecursive = (panes: EditorPane[]): EditorPane[] => {
+        return panes.map(pane => {
+          if (pane.id === fromPaneId) {
+            return {
+              ...pane,
+              tabs: newFromTabs,
+              activeTabId: fromPane.activeTabId === tabId ? (newFromTabs[0]?.id || '') : fromPane.activeTabId,
+            };
+          }
+          if (pane.id === toPaneId) {
+            return {
+              ...pane,
+              tabs: newToTabs,
+              activeTabId: tab.id,
+            };
+          }
+          if (pane.children) {
+            return { ...pane, children: updatePanesRecursive(pane.children) };
+          }
+          return pane;
+        });
+      };
 
-    set({
-      globalActiveTab: tab.id,
-      activePane: toPaneId,
+      return {
+        panes: updatePanesRecursive(state.panes),
+        globalActiveTab: tab.id,
+        activePane: toPaneId,
+      };
     });
   },
 
