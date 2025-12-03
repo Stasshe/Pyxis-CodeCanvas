@@ -27,6 +27,47 @@ const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const latestContentRef = useRef<string>('');
 
+  // 他のペーンでの変更をリスニング（リアルタイム同期）
+  useEffect(() => {
+    if (!diffTab.editable || !diffTab.path) return;
+
+    const projectId = getCurrentProjectId();
+    if (!projectId) return;
+
+    const unsubscribe = fileRepository.addChangeListener((event) => {
+      // 同じプロジェクト、同じパスのファイルが更新された場合
+      if (
+        event.type === 'update' &&
+        event.projectId === projectId &&
+        'path' in event.file &&
+        event.file.path === diffTab.path
+      ) {
+        // 自分自身の変更は無視（latestContentRefと同じなら自分の変更）
+        const newContent = 'content' in event.file ? event.file.content : null;
+        if (typeof newContent === 'string' && newContent !== latestContentRef.current) {
+          console.log('[DiffTabType] External file change detected, updating content');
+          
+          // 外部変更を反映
+          if (diffTab.diffs.length > 0) {
+            const updatedDiffs = [...diffTab.diffs];
+            updatedDiffs[0] = {
+              ...updatedDiffs[0],
+              latterContent: newContent,
+            };
+            updateTab(diffTab.paneId, diffTab.id, {
+              diffs: updatedDiffs,
+            } as Partial<DiffTab>);
+            latestContentRef.current = newContent;
+          }
+        }
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [diffTab.editable, diffTab.path, diffTab.paneId, diffTab.id, diffTab.diffs, updateTab]);
+
   // クリーンアップ
   useEffect(() => {
     return () => {
@@ -193,6 +234,27 @@ export const DiffTabType: TabTypeDefinition = {
   },
 
   shouldReuseTab: (existingTab, newFile, options) => {
-    return existingTab.path === newFile.path && existingTab.kind === 'diff';
+    const diffTab = existingTab as DiffTab;
+    
+    // 複数ファイルの場合はコミットIDで比較
+    if (newFile.files && Array.isArray(newFile.files) && newFile.files.length > 1) {
+      const firstDiff = newFile.files[0];
+      return (
+        diffTab.kind === 'diff' &&
+        diffTab.diffs.length > 1 &&
+        diffTab.diffs[0]?.formerCommitId === firstDiff.formerCommitId &&
+        diffTab.diffs[0]?.latterCommitId === firstDiff.latterCommitId
+      );
+    }
+    
+    // 単一ファイルの場合はパスとコミットIDで比較
+    const singleFileDiff = newFile.files ? newFile.files[0] : newFile;
+    return (
+      diffTab.kind === 'diff' &&
+      diffTab.diffs.length === 1 &&
+      diffTab.diffs[0]?.formerFullPath === singleFileDiff.formerFullPath &&
+      diffTab.diffs[0]?.formerCommitId === singleFileDiff.formerCommitId &&
+      diffTab.diffs[0]?.latterCommitId === singleFileDiff.latterCommitId
+    );
   },
 };
