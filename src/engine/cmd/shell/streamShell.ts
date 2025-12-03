@@ -741,8 +741,8 @@ export class StreamShell {
         onSignal: (fn: (sig: string) => void) => proc.on('signal', fn),
         projectName: this.projectName,
         projectId: this.projectId,
-        terminalColumns: this._terminalColumns,
-        terminalRows: this._terminalRows,
+        terminalColumns: this.terminalColumns,
+        terminalRows: this.terminalRows,
       };
 
       // Normalizer for values written to stdout/stderr to avoid '[object Object]'

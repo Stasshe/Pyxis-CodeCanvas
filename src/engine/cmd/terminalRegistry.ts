@@ -1,12 +1,15 @@
 import { GitCommands } from './global/git';
 import { NpmCommands } from './global/npm';
 import { UnixCommands } from './global/unix';
+import type StreamShell from './shell/streamShell';
+
+import type { fileRepository } from '@/engine/core/fileRepository';
 
 type ProjectEntry = {
   unix?: UnixCommands;
   git?: GitCommands;
   npm?: NpmCommands;
-  shell?: any;
+  shell?: StreamShell;
   createdAt: number;
 };
 
@@ -58,9 +61,9 @@ class TerminalCommandRegistry {
     projectName: string,
     projectId: string,
     opts?: { 
-      unix?: any; 
-      commandRegistry?: any; 
-      fileRepository?: any;
+      unix?: UnixCommands; 
+      commandRegistry?: unknown; 
+      fileRepository?: typeof fileRepository;
       terminalColumns?: number;
       terminalRows?: number;
     }
