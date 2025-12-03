@@ -19,6 +19,10 @@ export class NpmCommands {
   private projectId: string;
   private setLoading?: (isLoading: boolean) => void;
   private progressCallback?: (message: string) => Promise<void>;
+  
+  // npm-like braille spinner frames
+  private spinnerFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+  private spinnerIndex = 0;
 
   constructor(
     projectName: string,
@@ -38,6 +42,13 @@ export class NpmCommands {
 
   setProgressCallback(callback: (message: string) => Promise<void>) {
     this.progressCallback = callback;
+  }
+  
+  // Get next spinner frame (npm-style cyan spinner)
+  private getSpinnerChar(): string {
+    const frame = this.spinnerFrames[this.spinnerIndex % this.spinnerFrames.length];
+    this.spinnerIndex++;
+    return `\x1b[36m${frame}\x1b[0m`; // cyan color
   }
 
   async downloadAndInstallPackage(packageName: string, version: string = 'latest'): Promise<void> {
@@ -61,10 +72,24 @@ export class NpmCommands {
       await this.progressCallback(message);
     }
   }
+  
+  // Helper to emit progress with spinner (npm-style)
+  private async emitSpinnerProgress(message: string): Promise<void> {
+    if (this.progressCallback) {
+      const spinner = this.getSpinnerChar();
+      await this.progressCallback(`${spinner} ${message}`);
+    }
+  }
 
   // npm install コマンドの実装
   async install(packageName?: string, flags: string[] = []): Promise<string> {
-    this.setLoading?.(true);
+    // Only use global loading spinner if we don't have progress callback
+    // (progress callback provides its own inline spinner)
+    const useGlobalSpinner = !this.progressCallback;
+    if (useGlobalSpinner) {
+      this.setLoading?.(true);
+    }
+    
     const startTime = Date.now();
     try {
       // IndexedDBからpackage.jsonを単一取得（インデックス経由）
@@ -111,8 +136,8 @@ export class NpmCommands {
         // Use ANSI escape code to clear line (more robust than spaces)
         const clearLine = '\r\x1b[K';
         
-        // Real-time progress output (npm style)
-        await this.emitProgress(`Resolving ${packageNames.length} packages...`);
+        // Real-time progress output (npm style with spinner)
+        await this.emitSpinnerProgress(`reify: resolving ${packageNames.length} packages...`);
         
         let installedCount = 0;
         let addedPackages = 0;
@@ -129,8 +154,8 @@ export class NpmCommands {
             const auditedCount = i + 1;
             
             try {
-              // Show progress: currently processing this package
-              await this.emitProgress(`${clearLine}added ${addedPackages} packages, and audited ${auditedCount} packages in ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
+              // Show progress with spinner: currently processing this package (npm style)
+              await this.emitProgress(`${clearLine}${this.getSpinnerChar()} reify:${pkg}: timing reifyNode Completed`);
               
               await npmInstall.installWithDependencies(pkg, version);
               installedCount++;
@@ -176,14 +201,14 @@ export class NpmCommands {
           // Use ANSI escape code to clear line
           const clearLine = '\r\x1b[K';
           
-          // Show progress: fetching package info
-          await this.emitProgress(`Fetching package info for ${packageName}...`);
+          // Show progress with spinner: fetching package info (npm style)
+          await this.emitProgress(`${this.getSpinnerChar()} http fetch GET 200 https://registry.npmjs.org/${packageName}`);
           
           const packageInfo = await this.fetchPackageInfo(packageName);
           const version = packageInfo.version;
           
           // Show success after fetching
-          await this.emitProgress(`${clearLine}Resolved ${packageName}@${version}`);
+          await this.emitProgress(`\n${this.getSpinnerChar()} reify:${packageName}: http fetch GET 200 https://registry.npmjs.org/${packageName}/-/${packageName}-${version}.tgz`);
 
           if (!packageJson.dependencies) packageJson.dependencies = {};
           if (!packageJson.devDependencies) packageJson.devDependencies = {};
@@ -218,14 +243,14 @@ export class NpmCommands {
             } catch {}
             return `\nup to date, audited 1 package in ${elapsed}s\n\nfound 0 vulnerabilities`;
           } else {
-            await this.emitProgress(`\nInstalling ${packageName}...`);
+            await this.emitProgress(`${clearLine}${this.getSpinnerChar()} reify:${packageName}: timing reifyNode Completed`);
             
             const npmInstall = new NpmInstall(this.projectName, this.projectId);
             npmInstall.startBatchProcessing();
             try {
               // Show extraction progress after installation completes
               await npmInstall.installWithDependencies(packageName, version);
-              await this.emitProgress(`${clearLine}added 1 package, and audited 1 package in ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
+              await this.emitProgress(`${clearLine}${this.getSpinnerChar()} reify: timing reify Completed`);
             } finally {
               await npmInstall.finishBatchProcessing();
               await npmInstall.ensureBinsForPackage(packageName).catch(() => {});
@@ -242,13 +267,22 @@ export class NpmCommands {
     } catch (error) {
       throw new Error(`npm install failed: ${(error as Error).message}`);
     } finally {
-      this.setLoading?.(false);
+      // Only turn off global spinner if we were using it
+      if (!this.progressCallback) {
+        this.setLoading?.(false);
+      }
     }
   }
 
   // npm uninstall コマンドの実装
   async uninstall(packageName: string): Promise<string> {
-    this.setLoading?.(true);
+    // Only use global loading spinner if we don't have progress callback
+    const useGlobalSpinner = !this.progressCallback;
+    if (useGlobalSpinner) {
+      this.setLoading?.(true);
+    }
+    
+    const startTime = Date.now();
     try {
       // IndexedDBからpackage.jsonを単一取得（インデックス経由）
       const packageFile = await fileRepository.getFileByPath(this.projectId, '/package.json');
@@ -282,16 +316,23 @@ export class NpmCommands {
         'file'
       );
 
+      // Show progress with spinner
+      await this.emitProgress(`${this.getSpinnerChar()} reify: removing ${packageName}...`);
+
       // 依存関係を含めてパッケージを削除
       const npmInstall = new NpmInstall(this.projectName, this.projectId, true);
       try {
         const removedPackages = await npmInstall.uninstallWithDependencies(packageName);
         const totalRemoved = removedPackages.length;
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        
+        await this.emitProgress(`\r\x1b[K`); // Clear progress line
+        
         if (totalRemoved === 0) {
-          return `removed 1 package in 0.1s\n\n- ${packageName}\nremoved 1 package and audited 0 packages in 0.1s\n\nfound 0 vulnerabilities`;
+          return `removed 1 package in ${elapsed}s\n\n- ${packageName}\nremoved 1 package and audited 0 packages in ${elapsed}s\n\nfound 0 vulnerabilities`;
         } else {
           const removedList = removedPackages.join(', ');
-          return `removed ${totalRemoved + 1} packages in 0.1s\n\n- ${packageName}\n- ${removedList} (orphaned dependencies)\nremoved ${totalRemoved + 1} packages and audited 0 packages in 0.1s\n\nfound 0 vulnerabilities`;
+          return `removed ${totalRemoved + 1} packages in ${elapsed}s\n\n- ${packageName}\n- ${removedList} (orphaned dependencies)\nremoved ${totalRemoved + 1} packages and audited 0 packages in ${elapsed}s\n\nfound 0 vulnerabilities`;
         }
       } catch (error) {
         // 依存関係解決に失敗した場合は、単純にメインパッケージのみ削除
@@ -306,12 +347,17 @@ export class NpmCommands {
         for (const file of packageFiles) {
           await fileRepository.deleteFile(file.id);
         }
-        return `removed 1 package in 0.1s\n\n- ${packageName}\nremoved 1 package and audited 0 packages in 0.1s\n\nfound 0 vulnerabilities`;
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        await this.emitProgress(`\r\x1b[K`); // Clear progress line
+        return `removed 1 package in ${elapsed}s\n\n- ${packageName}\nremoved 1 package and audited 0 packages in ${elapsed}s\n\nfound 0 vulnerabilities`;
       }
     } catch (error) {
       throw new Error(`npm uninstall failed: ${(error as Error).message}`);
     } finally {
-      this.setLoading?.(false);
+      // Only turn off global spinner if we were using it
+      if (!this.progressCallback) {
+        this.setLoading?.(false);
+      }
     }
   }
 
