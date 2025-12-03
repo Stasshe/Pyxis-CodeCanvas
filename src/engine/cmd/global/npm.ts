@@ -74,12 +74,16 @@ export class NpmCommands {
   }
   
   // Helper to emit progress with spinner (npm-style)
-  private async emitSpinnerProgress(message: string): Promise<void> {
+  // prefix can be used for clearLine (\r\x1b[K) or newline (\n)
+  private async emitSpinnerProgress(message: string, prefix = ''): Promise<void> {
     if (this.progressCallback) {
       const spinner = this.getSpinnerChar();
-      await this.progressCallback(`${spinner} ${message}`);
+      await this.progressCallback(`${prefix}${spinner} ${message}`);
     }
   }
+  
+  // ANSI escape code to clear the current line
+  private readonly clearLine = '\r\x1b[K';
 
   // npm install コマンドの実装
   async install(packageName?: string, flags: string[] = []): Promise<string> {
@@ -133,9 +137,6 @@ export class NpmCommands {
           return 'up to date, audited 0 packages in 0.1s\n\nfound 0 vulnerabilities';
         }
 
-        // Use ANSI escape code to clear line (more robust than spaces)
-        const clearLine = '\r\x1b[K';
-        
         // Real-time progress output (npm style with spinner)
         await this.emitSpinnerProgress(`reify: resolving ${packageNames.length} packages...`);
         
@@ -155,7 +156,7 @@ export class NpmCommands {
             
             try {
               // Show progress with spinner: currently processing this package (npm style)
-              await this.emitProgress(`${clearLine}${this.getSpinnerChar()} reify:${pkg}: timing reifyNode Completed`);
+              await this.emitSpinnerProgress(`reify:${pkg}: timing reifyNode Completed`, this.clearLine);
               
               await npmInstall.installWithDependencies(pkg, version);
               installedCount++;
@@ -177,7 +178,7 @@ export class NpmCommands {
 
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
         // Clear the progress line using ANSI escape code
-        await this.emitProgress(`${clearLine}`);
+        await this.emitProgress(this.clearLine);
         
         if (installedCount === 0) {
           return `up to date, audited ${packageNames.length} packages in ${elapsed}s\n\nfound 0 vulnerabilities`;
@@ -198,17 +199,14 @@ export class NpmCommands {
         }
 
         try {
-          // Use ANSI escape code to clear line
-          const clearLine = '\r\x1b[K';
-          
           // Show progress with spinner: fetching package info (npm style)
-          await this.emitProgress(`${this.getSpinnerChar()} http fetch GET 200 https://registry.npmjs.org/${packageName}`);
+          await this.emitSpinnerProgress(`http fetch GET 200 https://registry.npmjs.org/${packageName}`);
           
           const packageInfo = await this.fetchPackageInfo(packageName);
           const version = packageInfo.version;
           
           // Show success after fetching
-          await this.emitProgress(`\n${this.getSpinnerChar()} reify:${packageName}: http fetch GET 200 https://registry.npmjs.org/${packageName}/-/${packageName}-${version}.tgz`);
+          await this.emitSpinnerProgress(`reify:${packageName}: http fetch GET 200 https://registry.npmjs.org/${packageName}/-/${packageName}-${version}.tgz`, '\n');
 
           if (!packageJson.dependencies) packageJson.dependencies = {};
           if (!packageJson.devDependencies) packageJson.devDependencies = {};
@@ -243,21 +241,21 @@ export class NpmCommands {
             } catch {}
             return `\nup to date, audited 1 package in ${elapsed}s\n\nfound 0 vulnerabilities`;
           } else {
-            await this.emitProgress(`${clearLine}${this.getSpinnerChar()} reify:${packageName}: timing reifyNode Completed`);
+            await this.emitSpinnerProgress(`reify:${packageName}: timing reifyNode Completed`, this.clearLine);
             
             const npmInstall = new NpmInstall(this.projectName, this.projectId);
             npmInstall.startBatchProcessing();
             try {
               // Show extraction progress after installation completes
               await npmInstall.installWithDependencies(packageName, version);
-              await this.emitProgress(`${clearLine}${this.getSpinnerChar()} reify: timing reify Completed`);
+              await this.emitSpinnerProgress(`reify: timing reify Completed`, this.clearLine);
             } finally {
               await npmInstall.finishBatchProcessing();
               await npmInstall.ensureBinsForPackage(packageName).catch(() => {});
             }
             
             const finalElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-            await this.emitProgress(`${clearLine}`);
+            await this.emitProgress(this.clearLine);
             return `added 1 package, and audited 1 package in ${finalElapsed}s\n\nfound 0 vulnerabilities`;
           }
         } catch (error) {
@@ -317,7 +315,7 @@ export class NpmCommands {
       );
 
       // Show progress with spinner
-      await this.emitProgress(`${this.getSpinnerChar()} reify: removing ${packageName}...`);
+      await this.emitSpinnerProgress(`reify: removing ${packageName}...`);
 
       // 依存関係を含めてパッケージを削除
       const npmInstall = new NpmInstall(this.projectName, this.projectId, true);
@@ -326,7 +324,7 @@ export class NpmCommands {
         const totalRemoved = removedPackages.length;
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
         
-        await this.emitProgress(`\r\x1b[K`); // Clear progress line
+        await this.emitProgress(this.clearLine); // Clear progress line
         
         if (totalRemoved === 0) {
           return `removed 1 package in ${elapsed}s\n\n- ${packageName}\nremoved 1 package and audited 0 packages in ${elapsed}s\n\nfound 0 vulnerabilities`;
@@ -348,7 +346,7 @@ export class NpmCommands {
           await fileRepository.deleteFile(file.id);
         }
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-        await this.emitProgress(`\r\x1b[K`); // Clear progress line
+        await this.emitProgress(this.clearLine); // Clear progress line
         return `removed 1 package in ${elapsed}s\n\n- ${packageName}\nremoved 1 package and audited 0 packages in ${elapsed}s\n\nfound 0 vulnerabilities`;
       }
     } catch (error) {
