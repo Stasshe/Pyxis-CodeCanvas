@@ -114,7 +114,6 @@ export class SpinnerController {
   private color: string;
   private interval: number;
   private isRunning = false;
-  private isWriting = false; // Lock to prevent concurrent writes
   
   constructor(
     write: WriteCallback,
@@ -137,19 +136,6 @@ export class SpinnerController {
   }
   
   /**
-   * Thread-safe write that prevents concurrent writes from causing newlines
-   */
-  private async safeWrite(text: string): Promise<void> {
-    if (this.isWriting) return; // Skip if already writing
-    this.isWriting = true;
-    try {
-      await this.write(text);
-    } finally {
-      this.isWriting = false;
-    }
-  }
-  
-  /**
    * Start the spinner with an optional message
    */
   async start(message = ''): Promise<void> {
@@ -160,14 +146,14 @@ export class SpinnerController {
     
     // Hide cursor and write initial frame in single write to avoid newline issues
     const display = this.message ? `${this.getFrame()} ${this.message}` : this.getFrame();
-    await this.safeWrite(ANSI.CURSOR_HIDE + display);
+    await this.write(ANSI.CURSOR_HIDE + display);
     
     // Start animation
     this.intervalId = setInterval(async () => {
       this.frameIndex++;
       // Clear line and rewrite in single write to avoid newline issues
       const display = this.message ? `${this.getFrame()} ${this.message}` : this.getFrame();
-      await this.safeWrite(ANSI.CLEAR_LINE + display);
+      await this.write(ANSI.CLEAR_LINE + display);
     }, this.interval);
   }
   
@@ -180,7 +166,7 @@ export class SpinnerController {
     
     // Immediately update display - combine clear and write to avoid newline issues
     const display = this.message ? `${this.getFrame()} ${this.message}` : this.getFrame();
-    await this.safeWrite(ANSI.CLEAR_LINE + display);
+    await this.write(ANSI.CLEAR_LINE + display);
   }
   
   /**
