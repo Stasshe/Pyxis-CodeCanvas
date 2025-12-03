@@ -733,31 +733,47 @@ export const useTabStore = create<TabStore>((set, get) => ({
   updateDiffTabContent: (path: string, content: string, immediate = false) => {
     if (!path) return;
 
+    // 変更が必要なタブがあるかチェック
+    let hasChanges = false;
+
     // 全てのペインを巡回して、pathが一致するdiffタブを更新
     const updatePanesRecursive = (panes: any[]): any[] => {
       return panes.map((pane: any) => {
+        let paneChanged = false;
         const newTabs = pane.tabs.map((t: any) => {
           if (t.kind === 'diff' && t.path === path && t.diffs && t.diffs.length > 0) {
+            // コンテンツが同じ場合はスキップ
+            if (t.diffs[0].latterContent === content && t.isDirty === immediate) {
+              return t;
+            }
             // diffsの最初の要素のlatterContentを更新
             const updatedDiffs = [...t.diffs];
             updatedDiffs[0] = {
               ...updatedDiffs[0],
               latterContent: content,
             };
+            paneChanged = true;
+            hasChanges = true;
             return { ...t, diffs: updatedDiffs, isDirty: immediate };
           }
           return t;
         });
 
         if (pane.children) {
-          return { ...pane, tabs: newTabs, children: updatePanesRecursive(pane.children) };
+          const newChildren = updatePanesRecursive(pane.children);
+          if (paneChanged || newChildren !== pane.children) {
+            return { ...pane, tabs: newTabs, children: newChildren };
+          }
         }
 
-        return { ...pane, tabs: newTabs };
+        return paneChanged ? { ...pane, tabs: newTabs } : pane;
       });
     };
 
-    set(state => ({ panes: updatePanesRecursive(state.panes) }));
+    const newPanes = updatePanesRecursive(get().panes);
+    if (hasChanges) {
+      set({ panes: newPanes });
+    }
   },
 
   saveSession: async () => {
