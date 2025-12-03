@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 
 import './globals.css';
 import ExtensionInitializer from '@/components/ExtensionInitializer';
@@ -9,6 +9,11 @@ import { GitHubUserProvider } from '@/context/GitHubUserContext';
 import { I18nProvider } from '@/context/I18nContext';
 import { TabProvider } from '@/context/TabContext';
 import { ThemeProvider } from '@/context/ThemeContext';
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 0.6,
+};
 
 export const metadata: Metadata = {
   title: 'Pyxis - clientIDE Terminal',
