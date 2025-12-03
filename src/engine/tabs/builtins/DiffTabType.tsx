@@ -6,9 +6,10 @@ import { TabTypeDefinition, DiffTab, TabComponentProps } from '../types';
 import { useGitContext } from '@/components/PaneContainer';
 import DiffTabComponent from '@/components/Tab/DiffTab';
 import { fileRepository } from '@/engine/core/fileRepository';
-import { useTabStore } from '@/stores/tabStore';
 import { useKeyBinding } from '@/hooks/useKeyBindings';
-import { getCurrentProjectId } from '@/stores/projectStore';
+import { useSettings } from '@/hooks/useSettings';
+import { getCurrentProjectId, useProjectStore } from '@/stores/projectStore';
+import { useTabStore } from '@/stores/tabStore';
 
 /**
  * Diffタブのコンポーネント
@@ -22,6 +23,14 @@ const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   const diffTab = tab as DiffTab;
   const updateTabContent = useTabStore(state => state.updateTabContent);
   const { setGitRefreshTrigger } = useGitContext();
+  
+  // グローバルストアからプロジェクト情報を取得
+  const currentProject = useProjectStore(state => state.currentProject);
+  const projectId = currentProject?.id;
+  
+  // ユーザー設定からwordWrap設定を取得
+  const { settings } = useSettings(projectId);
+  const wordWrapConfig = settings?.editor?.wordWrap ? 'on' : 'off';
 
   // 保存タイマーの管理
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -138,6 +147,7 @@ const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
     <DiffTabComponent
       diffs={diffTab.diffs}
       editable={diffTab.editable}
+      wordWrapConfig={wordWrapConfig}
       onImmediateContentChange={handleImmediateContentChange}
       onContentChange={handleContentChange}
     />
