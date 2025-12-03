@@ -590,6 +590,9 @@ const parseShellDoubleQuotedString = (code: string, startIndex: number): string 
         j = endIndex + 1;
         continue;
       }
+      // Unclosed backtick - just include the rest and move to end
+      result += code.slice(j);
+      break;
     }
 
     result += char;
@@ -794,7 +797,8 @@ const parseJsTemplateExpression = (code: string, startIndex: number): string => 
         }
         endIndex++;
       }
-      j = endIndex + 1;
+      // Ensure j doesn't go out of bounds
+      j = Math.min(endIndex + 1, code.length);
       continue;
     }
 
@@ -810,7 +814,8 @@ const parseJsTemplateExpression = (code: string, startIndex: number): string => 
         }
         endIndex++;
       }
-      j = endIndex + 1;
+      // Ensure j doesn't go out of bounds
+      j = Math.min(endIndex + 1, code.length);
       continue;
     }
 
