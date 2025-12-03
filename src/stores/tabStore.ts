@@ -38,6 +38,7 @@ interface TabStore {
   activateTab: (paneId: string, tabId: string) => void;
   updateTab: (paneId: string, tabId: string, updates: Partial<Tab>) => void;
   updateTabContent: (tabId: string, content: string, immediate?: boolean) => void;
+  updateDiffTabContent: (path: string, content: string, immediate?: boolean) => void;
   moveTab: (fromPaneId: string, toPaneId: string, tabId: string) => void;
   moveTabToIndex: (fromPaneId: string, toPaneId: string, tabId: string, index: number) => void;
 
@@ -713,6 +714,37 @@ export const useTabStore = create<TabStore>((set, get) => ({
         const newTabs = pane.tabs.map((t: any) => {
           if (t.path === targetPath && t.kind === targetKind) {
             return { ...t, content, isDirty: immediate ? true : false };
+          }
+          return t;
+        });
+
+        if (pane.children) {
+          return { ...pane, tabs: newTabs, children: updatePanesRecursive(pane.children) };
+        }
+
+        return { ...pane, tabs: newTabs };
+      });
+    };
+
+    set(state => ({ panes: updatePanesRecursive(state.panes) }));
+  },
+
+  // DiffTabのコンテンツを同期更新（同じパスを持つ全てのDiffTabを更新）
+  updateDiffTabContent: (path: string, content: string, immediate = false) => {
+    if (!path) return;
+
+    // 全てのペインを巡回して、pathが一致するdiffタブを更新
+    const updatePanesRecursive = (panes: any[]): any[] => {
+      return panes.map((pane: any) => {
+        const newTabs = pane.tabs.map((t: any) => {
+          if (t.kind === 'diff' && t.path === path && t.diffs && t.diffs.length > 0) {
+            // diffsの最初の要素のlatterContentを更新
+            const updatedDiffs = [...t.diffs];
+            updatedDiffs[0] = {
+              ...updatedDiffs[0],
+              latterContent: content,
+            };
+            return { ...t, diffs: updatedDiffs, isDirty: immediate };
           }
           return t;
         });

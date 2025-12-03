@@ -20,59 +20,12 @@ import { getCurrentProjectId } from '@/stores/projectStore';
  */
 const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   const diffTab = tab as DiffTab;
-  const updateTab = useTabStore(state => state.updateTab);
+  const updateDiffTabContent = useTabStore(state => state.updateDiffTabContent);
   const { setGitRefreshTrigger } = useGitContext();
 
   // 保存タイマーの管理
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const latestContentRef = useRef<string>('');
-  // diffsの最新値を参照するためのref（useEffectの依存配列から除外するため）
-  const diffsRef = useRef(diffTab.diffs);
-  diffsRef.current = diffTab.diffs;
-
-  // 他のペーンでの変更をリスニング（リアルタイム同期）
-  useEffect(() => {
-    if (!diffTab.editable || !diffTab.path) return;
-
-    const projectId = getCurrentProjectId();
-    if (!projectId) return;
-
-    const unsubscribe = fileRepository.addChangeListener((event) => {
-      // update イベントのみ処理、同じプロジェクト・パスのファイル
-      if (
-        event.type === 'update' &&
-        event.projectId === projectId &&
-        (event.file as { path?: string }).path === diffTab.path
-      ) {
-        // update イベントの場合、event.file は ProjectFile 型
-        const projectFile = event.file as { content?: string };
-        const newContent = projectFile.content;
-        
-        // 自分自身の変更は無視（latestContentRefと同じなら自分の変更）
-        if (typeof newContent === 'string' && newContent !== latestContentRef.current) {
-          console.log('[DiffTabType] External file change detected, updating content');
-          
-          // 外部変更を反映（単一ファイルdiffのみが editable なので index 0 で問題ない）
-          const currentDiffs = diffsRef.current;
-          if (currentDiffs.length > 0) {
-            const updatedDiffs = [...currentDiffs];
-            updatedDiffs[0] = {
-              ...updatedDiffs[0],
-              latterContent: newContent,
-            };
-            updateTab(diffTab.paneId, diffTab.id, {
-              diffs: updatedDiffs,
-            } as Partial<DiffTab>);
-            latestContentRef.current = newContent;
-          }
-        }
-      }
-    });
-
-    return () => {
-      unsubscribe();
-    };
-  }, [diffTab.editable, diffTab.path, diffTab.paneId, diffTab.id, updateTab]);
 
   // クリーンアップ
   useEffect(() => {
@@ -117,13 +70,14 @@ const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
     try {
       // fileRepositoryを直接使用してファイルを保存（NEW-ARCHITECTURE.mdに従う）
       await fileRepository.saveFileByPath(projectId, diffTab.path, contentToSave);
-      updateTab(diffTab.paneId, diffTab.id, { isDirty: false } as Partial<DiffTab>);
+      // 保存後は全DiffTabのisDirtyをクリア
+      updateDiffTabContent(diffTab.path, contentToSave, false);
       setGitRefreshTrigger(prev => prev + 1);
       console.log('[DiffTabType] ✓ Immediate save completed');
     } catch (error) {
       console.error('[DiffTabType] Immediate save failed:', error);
     }
-  }, [diffTab, updateTab, setGitRefreshTrigger]);
+  }, [diffTab.editable, diffTab.path, diffTab.diffs, updateDiffTabContent, setGitRefreshTrigger]);
 
   // Ctrl+S バインディング
   useKeyBinding(
@@ -136,19 +90,11 @@ const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
     // 最新のコンテンツを保存
     latestContentRef.current = content;
 
-    // 即座にコンテンツを更新（isDirtyをtrue）
-    if (diffTab.diffs.length > 0) {
-      const updatedDiffs = [...diffTab.diffs];
-      updatedDiffs[0] = {
-        ...updatedDiffs[0],
-        latterContent: content,
-      };
-      updateTab(diffTab.paneId, diffTab.id, {
-        diffs: updatedDiffs,
-        isDirty: true,
-      } as Partial<DiffTab>);
+    // 即座に同じパスを持つ全DiffTabのコンテンツを更新（isDirtyをtrue）
+    if (diffTab.path) {
+      updateDiffTabContent(diffTab.path, content, true);
     }
-  }, [diffTab, updateTab]);
+  }, [diffTab.path, updateDiffTabContent]);
 
   const handleContentChange = useCallback(async (content: string) => {
     // グローバルストアからプロジェクトIDを取得
@@ -180,14 +126,15 @@ const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
       try {
         // fileRepositoryを直接使用してファイルを保存（NEW-ARCHITECTURE.mdに従う）
         await fileRepository.saveFileByPath(currentProjectId, diffTab.path!, content);
-        updateTab(diffTab.paneId, diffTab.id, { isDirty: false } as Partial<DiffTab>);
+        // 保存後は全DiffTabのisDirtyをクリア
+        updateDiffTabContent(diffTab.path!, content, false);
         setGitRefreshTrigger(prev => prev + 1);
         console.log('[DiffTabType] ✓ Debounced save completed');
       } catch (error) {
         console.error('[DiffTabType] Debounced save failed:', error);
       }
     }, 5000);
-  }, [diffTab, updateTab, setGitRefreshTrigger]);
+  }, [diffTab.editable, diffTab.path, updateDiffTabContent, setGitRefreshTrigger]);
 
   return (
     <DiffTabComponent
