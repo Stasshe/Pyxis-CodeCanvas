@@ -83,7 +83,7 @@ export default function MonacoEditor({
 
     // テーマ定義は外部モジュールに移譲
     try {
-      defineAndSetMonacoThemes(mon, colors as any);
+      defineAndSetMonacoThemes(mon, colors);
     } catch (e) {
       console.warn('[MonacoEditor] Failed to define/set themes via monaco-themes:', e);
     }

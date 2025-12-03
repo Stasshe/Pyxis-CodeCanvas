@@ -133,7 +133,7 @@ export default function AIReviewTab({
 
     // テーマ定義と適用
     try {
-      defineAndSetMonacoThemes(monaco, colors as any);
+      defineAndSetMonacoThemes(monaco, colors);
     } catch (e) {
       console.warn('[AIReviewTab] Failed to define/set themes:', e);
     }
