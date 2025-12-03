@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { type Components } from 'react-markdown';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
+import type { PluggableList } from 'unified';
 import 'katex/dist/katex.min.css';
 
 import { useTranslation } from '@/context/I18nContext';
@@ -31,12 +32,12 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ activeTab, curr
   const prevContentRef = useRef<string | null>(null);
 
   // determine markdown plugins based on settings
-  const [extraRemarkPlugins, setExtraRemarkPlugins] = useState<unknown[]>([]);
+  const [extraRemarkPlugins, setExtraRemarkPlugins] = useState<PluggableList>([]);
 
   useEffect(() => {
     let mounted = true;
     const setup = async (): Promise<void> => {
-      const plugins: unknown[] = [];
+      const plugins: PluggableList = [];
       try {
         const mode = settings?.markdown?.singleLineBreaks || 'default';
         if (mode === 'breaks') {
@@ -63,14 +64,14 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ activeTab, curr
 
   // ReactMarkdownのコンポーネントをメモ化
   // 通常表示用
-  const markdownComponents = useMemo(
+  const markdownComponents = useMemo<Partial<Components>>(
     () => ({
-      code: ({ className, children, ...props }: { className?: string; children: React.ReactNode }) => (
+      code: ({ className, children, ...props }) => (
         <CodeBlock className={className} colors={colors} currentProjectName={currentProject?.name} {...props}>
           {children}
         </CodeBlock>
       ),
-      img: ({ src, alt, ...props }: { src?: string; alt?: string }) => {
+      img: ({ src, alt, ...props }) => {
         const srcString = typeof src === 'string' ? src : '';
         return (
           <LocalImage
@@ -88,9 +89,9 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ activeTab, curr
   );
 
   // PDFエクスポート用: plain=trueを渡す
-  const markdownComponentsPlain = useMemo(
+  const markdownComponentsPlain = useMemo<Partial<Components>>(
     () => ({
-      code: ({ className, children, ...props }: { className?: string; children: React.ReactNode }) => {
+      code: ({ className, children, ...props }) => {
         const match = /language-(\w+)/.exec(className || '');
         const codeString = String(children).replace(/\n$/, '').trim();
         if (match && match[1] === 'mermaid') {
@@ -98,7 +99,7 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ activeTab, curr
         }
         return <InlineHighlightedCode language={match ? match[1] : ''} value={codeString} plain={true} {...props} />;
       },
-      img: ({ src, alt, ...props }: { src?: string; alt?: string }) => {
+      img: ({ src, alt, ...props }) => {
         const srcString = typeof src === 'string' ? src : '';
         return (
           <LocalImage
@@ -155,9 +156,9 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ activeTab, curr
   const markdownContent = useMemo(
     () => (
       <ReactMarkdown
-        remarkPlugins={[remarkGfm, ...(extraRemarkPlugins as never[]), remarkMath]}
+        remarkPlugins={[remarkGfm, ...extraRemarkPlugins, remarkMath]}
         rehypePlugins={[rehypeKatex, rehypeRaw]}
-        components={markdownComponents as never}
+        components={markdownComponents}
       >
         {processedContent}
       </ReactMarkdown>
@@ -171,7 +172,7 @@ const MarkdownPreviewTab: React.FC<MarkdownPreviewTabProps> = ({ activeTab, curr
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeKatex, rehypeRaw]}
-        components={markdownComponentsPlain as never}
+        components={markdownComponentsPlain}
       >
         {processedContent}
       </ReactMarkdown>

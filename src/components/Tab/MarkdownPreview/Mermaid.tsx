@@ -355,7 +355,7 @@ const Mermaid = React.memo<MermaidProps>(({ chart, colors }) => {
         // ignore
       }
     };
-  }, [chart, colors.mermaidBg, themeName, config, diagram, idRef, hasIntersected, zoomState.scale, zoomState.translate]);
+  }, [chart, colors.mermaidBg, themeName, config, diagram, idRef, hasIntersected]);
 
   const handleDownloadSvg = useCallback(() => {
     if (!svgContent) return;
