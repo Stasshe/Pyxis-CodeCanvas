@@ -137,7 +137,7 @@ export class NpmCommands {
               addedPackages++;
             } catch (error) {
               // Show warning but don't increment addedPackages for failed installs
-              await this.emitProgress(`\nnpm WARN ${pkg}@${version}: ${(error as Error).message}`);
+              await this.emitProgress(`\nnpm WARN ${pkg}@${version}: ${(error as Error).message}\n`);
             }
           }
         } finally {
