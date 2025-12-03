@@ -6,18 +6,21 @@
  * - package.jsonなどの設定ファイルは IndexedDB に保存
  * - NpmInstallクラスが .gitignore を考慮して IndexedDB を更新
  * - fileRepository.createFile() を使用して自動的に管理
+ * - TerminalUI API provides advanced terminal display features
  */
 
 import { NpmInstall } from './npmOperations/npmInstall';
 
 import { fileRepository } from '@/engine/core/fileRepository';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
+import type { TerminalUI } from '@/engine/cmd/terminalUI';
 
 export class NpmCommands {
   private currentDir: string;
   private projectName: string;
   private projectId: string;
   private setLoading?: (isLoading: boolean) => void;
+  private terminalUI?: TerminalUI;
 
   constructor(
     projectName: string,
@@ -33,6 +36,10 @@ export class NpmCommands {
 
   setLoadingHandler(callback: (isLoading: boolean) => void) {
     this.setLoading = callback;
+  }
+
+  setTerminalUI(ui: TerminalUI) {
+    this.terminalUI = ui;
   }
 
   async downloadAndInstallPackage(packageName: string, version: string = 'latest'): Promise<void> {
@@ -52,7 +59,15 @@ export class NpmCommands {
 
   // npm install コマンドの実装
   async install(packageName?: string, flags: string[] = []): Promise<string> {
-    this.setLoading?.(true);
+    const startTime = Date.now();
+    const ui = this.terminalUI;
+    
+    // Use TerminalUI spinner if available, otherwise fall back to setLoading
+    const useTerminalUI = !!ui;
+    if (!useTerminalUI) {
+      this.setLoading?.(true);
+    }
+    
     try {
       // IndexedDBからpackage.jsonを単一取得（インデックス経由）
       const packageFile = await fileRepository.getFileByPath(this.projectId, '/package.json');
@@ -95,21 +110,33 @@ export class NpmCommands {
           return 'up to date, audited 0 packages in 0.1s\n\nfound 0 vulnerabilities';
         }
 
-        let output = `Installing ${packageNames.length} packages...\n`;
         let installedCount = 0;
+        let failedPackages: string[] = [];
 
         const npmInstall = new NpmInstall(this.projectName, this.projectId);
         npmInstall.startBatchProcessing();
+        
         try {
-          for (const pkg of packageNames) {
+          // Start spinner with initial message
+          if (ui) {
+            await ui.spinner.start(`reify: resolving ${packageNames.length} packages...`);
+          }
+          
+          for (let i = 0; i < packageNames.length; i++) {
+            const pkg = packageNames[i];
             const versionSpec = allDependencies[pkg];
             const version = versionSpec.replace(/^[\^~]/, '');
+            
+            // Update spinner with current package
+            if (ui) {
+              await ui.spinner.update(`reify:${pkg}: timing reifyNode:node_modules/${pkg}`);
+            }
+            
             try {
               await npmInstall.installWithDependencies(pkg, version);
               installedCount++;
-              output += `  ✓ ${pkg}@${version} (with dependencies)\n`;
             } catch (error) {
-              output += `  ✗ ${pkg}@${version} - ${(error as Error).message}\n`;
+              failedPackages.push(`${pkg}@${version}: ${(error as Error).message}`);
             }
           }
         } finally {
@@ -121,11 +148,27 @@ export class NpmCommands {
             } catch {}
           }
         }
+        
+        // Stop spinner
+        if (ui) {
+          await ui.spinner.stop();
+        }
+
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        let output = '';
+        
+        // Output warnings for failed packages
+        if (failedPackages.length > 0) {
+          for (const failed of failedPackages) {
+            output += `npm WARN ${failed}\n`;
+          }
+          output += '\n';
+        }
 
         if (installedCount === 0) {
-          output += `\nup to date, audited ${packageNames.length} packages in ${Math.random() * 2 + 1}s\n\nfound 0 vulnerabilities`;
+          output += `up to date, audited ${packageNames.length} packages in ${elapsed}s\n\nfound 0 vulnerabilities`;
         } else {
-          output += `\nadded/updated ${installedCount} packages in ${Math.random() * 2 + 1}s\n\nfound 0 vulnerabilities`;
+          output += `added ${installedCount} packages, and audited ${packageNames.length} packages in ${elapsed}s\n\nfound 0 vulnerabilities`;
         }
         return output;
       } else {
@@ -142,6 +185,11 @@ export class NpmCommands {
         }
 
         try {
+          // Start spinner
+          if (ui) {
+            await ui.spinner.start(`http fetch GET https://registry.npmjs.org/${packageName}`);
+          }
+          
           const packageInfo = await this.fetchPackageInfo(packageName);
           const version = packageInfo.version;
 
@@ -168,44 +216,79 @@ export class NpmCommands {
           );
           const isActuallyInstalled = nodeFiles.length > 0;
 
+          const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+
           if (isInPackageJson && isActuallyInstalled) {
+            if (ui) {
+              await ui.spinner.stop();
+            }
             try {
               const npmInstall = new NpmInstall(this.projectName, this.projectId);
               // ensure .bin entries exist for already-installed package
               // await npmInstall.ensureBinsForPackage(packageName).catch(() => {});
             } catch {}
-            return `updated 1 package in ${Math.random() * 2 + 1}s\n\n~ ${packageName}@${version}\nupdated 1 package and audited 1 package in ${Math.random() * 0.5 + 0.5}s\n\nfound 0 vulnerabilities`;
+            return `up to date, audited 1 package in ${elapsed}s\n\nfound 0 vulnerabilities`;
           } else {
+            // Update spinner for installation
+            if (ui) {
+              await ui.spinner.update(`reify:${packageName}: timing reifyNode:node_modules/${packageName}`);
+            }
+            
             const npmInstall = new NpmInstall(this.projectName, this.projectId);
             npmInstall.startBatchProcessing();
             try {
               await npmInstall.installWithDependencies(packageName, version);
             } finally {
               await npmInstall.finishBatchProcessing();
-                try {
-                  await npmInstall.ensureBinsForPackage(packageName).catch(() => {});
-                } catch {}
+              try {
+                await npmInstall.ensureBinsForPackage(packageName).catch(() => {});
+              } catch {}
             }
-            return `added packages with dependencies in ${Math.random() * 2 + 1}s\n\n+ ${packageName}@${version}\nadded packages and audited packages in ${Math.random() * 0.5 + 0.5}s\n\nfound 0 vulnerabilities`;
+            
+            // Stop spinner
+            if (ui) {
+              await ui.spinner.stop();
+            }
+            
+            const finalElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+            return `added 1 package, and audited 1 package in ${finalElapsed}s\n\nfound 0 vulnerabilities`;
           }
         } catch (error) {
+          if (ui) {
+            await ui.spinner.stop();
+          }
           throw new Error(`Failed to install ${packageName}: ${(error as Error).message}`);
         }
       }
     } catch (error) {
       throw new Error(`npm install failed: ${(error as Error).message}`);
     } finally {
-      this.setLoading?.(false);
+      if (!useTerminalUI) {
+        this.setLoading?.(false);
+      }
     }
   }
 
   // npm uninstall コマンドの実装
   async uninstall(packageName: string): Promise<string> {
-    this.setLoading?.(true);
+    const startTime = Date.now();
+    const ui = this.terminalUI;
+    const useTerminalUI = !!ui;
+    
+    if (!useTerminalUI) {
+      this.setLoading?.(true);
+    }
+    
     try {
+      // Start spinner
+      if (ui) {
+        await ui.spinner.start(`reify: removing ${packageName}...`);
+      }
+      
       // IndexedDBからpackage.jsonを単一取得（インデックス経由）
       const packageFile = await fileRepository.getFileByPath(this.projectId, '/package.json');
       if (!packageFile) {
+        if (ui) await ui.spinner.stop();
         return `npm ERR! Cannot find package.json`;
       }
       const packageJson = JSON.parse(packageFile.content);
@@ -225,6 +308,7 @@ export class NpmCommands {
       }
 
       if (!wasInDependencies && !wasInDevDependencies) {
+        if (ui) await ui.spinner.stop();
         return `npm WARN ${packageName} is not a dependency of ${this.projectName}`;
       }
 
@@ -240,11 +324,14 @@ export class NpmCommands {
       try {
         const removedPackages = await npmInstall.uninstallWithDependencies(packageName);
         const totalRemoved = removedPackages.length;
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        
+        if (ui) await ui.spinner.stop();
+        
         if (totalRemoved === 0) {
-          return `removed 1 package in 0.1s\n\n- ${packageName}\nremoved 1 package and audited 0 packages in 0.1s\n\nfound 0 vulnerabilities`;
+          return `removed 1 package in ${elapsed}s\n\nfound 0 vulnerabilities`;
         } else {
-          const removedList = removedPackages.join(', ');
-          return `removed ${totalRemoved + 1} packages in 0.1s\n\n- ${packageName}\n- ${removedList} (orphaned dependencies)\nremoved ${totalRemoved + 1} packages and audited 0 packages in 0.1s\n\nfound 0 vulnerabilities`;
+          return `removed ${totalRemoved + 1} packages in ${elapsed}s\n\nfound 0 vulnerabilities`;
         }
       } catch (error) {
         // 依存関係解決に失敗した場合は、単純にメインパッケージのみ削除
@@ -259,12 +346,17 @@ export class NpmCommands {
         for (const file of packageFiles) {
           await fileRepository.deleteFile(file.id);
         }
-        return `removed 1 package in 0.1s\n\n- ${packageName}\nremoved 1 package and audited 0 packages in 0.1s\n\nfound 0 vulnerabilities`;
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        if (ui) await ui.spinner.stop();
+        return `removed 1 package in ${elapsed}s\n\nfound 0 vulnerabilities`;
       }
     } catch (error) {
+      if (ui) await ui.spinner.stop();
       throw new Error(`npm uninstall failed: ${(error as Error).message}`);
     } finally {
-      this.setLoading?.(false);
+      if (!useTerminalUI) {
+        this.setLoading?.(false);
+      }
     }
   }
 

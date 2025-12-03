@@ -397,8 +397,13 @@ function ClientTerminal({
           console.log('[Terminal] captureWriteOutput received:', JSON.stringify(output));
         } catch (e) {}
         
+        // Don't add newlines to in-place updates (starts with \r for carriage return)
+        // or cursor control sequences (starts with \x1b[)
+        const isInPlaceUpdate = output.startsWith('\r') || output.startsWith('\x1b[?');
+        
         // 末尾に改行がない場合は追加（すべてのコマンド出力を統一的に処理）
-        const normalizedOutput = output.endsWith('\n') ? output : output + '\n';
+        // But skip for in-place updates which need to stay on the same line
+        const normalizedOutput = isInPlaceUpdate || output.endsWith('\n') ? output : output + '\n';
         capturedOutput += normalizedOutput;
         
         if (!redirect) {

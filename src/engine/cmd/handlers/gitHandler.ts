@@ -1,4 +1,5 @@
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
+import { createTerminalUI, TerminalUI } from '@/engine/cmd/terminalUI';
 
 export async function handleGitCommand(
   args: string[],
@@ -11,7 +12,14 @@ export async function handleGitCommand(
     return;
   }
 
+  // Create TerminalUI instance for advanced display features
+  const ui = createTerminalUI(writeOutput);
+
   const git = terminalCommandRegistry.getGitCommands(projectName, projectId);
+  
+  // Pass TerminalUI to git commands for advanced output
+  git.setTerminalUI(ui);
+  
   const gitCmd = args[0];
 
   switch (gitCmd) {

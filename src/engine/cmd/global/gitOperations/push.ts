@@ -11,6 +11,7 @@ import { TreeBuilder } from './github/TreeBuilder';
 import { parseGitHubUrl } from './github/utils';
 
 import { authRepository } from '@/engine/user/authRepository';
+import type { TerminalUI } from '@/engine/cmd/terminalUI';
 
 export interface PushOptions {
   remote?: string;
@@ -150,12 +151,23 @@ async function findCommonAncestor(
   }
 }
 
-export async function push(fs: FS, dir: string, options: PushOptions = {}): Promise<string> {
+export async function push(
+  fs: FS, 
+  dir: string, 
+  options: PushOptions = {},
+  ui?: TerminalUI
+): Promise<string> {
   const { remote = 'origin', branch, force = false } = options;
 
   try {
+    // Start spinner if TerminalUI is available
+    if (ui) {
+      await ui.spinner.start('Enumerating objects...');
+    }
+    
     const token = await authRepository.getAccessToken();
     if (!token) {
+      if (ui) await ui.spinner.stop();
       throw new Error('GitHub authentication required. Please sign in first.');
     }
 
