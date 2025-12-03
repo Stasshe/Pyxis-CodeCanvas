@@ -265,11 +265,19 @@ function ClientTerminal({
     // サイズを調整
     setTimeout(() => {
       fitAddon.fit();
+      // Update shell terminal size after fit
+      import('@/engine/cmd/terminalRegistry').then(({ terminalCommandRegistry }) => {
+        terminalCommandRegistry.updateShellSize(currentProjectId, term.cols, term.rows);
+      }).catch(() => {});
       setTimeout(() => {
         term.scrollToBottom();
         setTimeout(() => {
           fitAddon.fit();
           term.scrollToBottom();
+          // Update shell terminal size again after second fit
+          import('@/engine/cmd/terminalRegistry').then(({ terminalCommandRegistry }) => {
+            terminalCommandRegistry.updateShellSize(currentProjectId, term.cols, term.rows);
+          }).catch(() => {});
         }, 100);
       }, 50);
     }, 100);
@@ -933,12 +941,22 @@ function ClientTerminal({
     if (fitAddonRef.current && xtermRef.current) {
       setTimeout(() => {
         fitAddonRef.current?.fit();
+        // Update shell terminal size after resize
+        if (currentProjectId && xtermRef.current) {
+          import('@/engine/cmd/terminalRegistry').then(({ terminalCommandRegistry }) => {
+            terminalCommandRegistry.updateShellSize(
+              currentProjectId, 
+              xtermRef.current?.cols ?? 80, 
+              xtermRef.current?.rows ?? 24
+            );
+          }).catch(() => {});
+        }
         setTimeout(() => {
           xtermRef.current?.scrollToBottom();
         }, 100);
       }, 100);
     }
-  }, [height]);
+  }, [height, currentProjectId]);
 
   return (
     <div

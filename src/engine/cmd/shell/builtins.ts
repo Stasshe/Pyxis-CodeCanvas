@@ -9,6 +9,10 @@ export type StreamCtx = {
   onSignal: (fn: (sig: string) => void) => void;
   projectName?: string;
   projectId?: string;
+  /** Terminal columns (width) */
+  terminalColumns?: number;
+  /** Terminal rows (height) */
+  terminalRows?: number;
 };
 
 // トークンを正規化（オブジェクト→文字列変換のみ、オプション展開は削除）
@@ -389,6 +393,8 @@ export default function adaptUnixToStream(unix: any) {
         filePath: entryPath,
         debugConsole,
         onInput,
+        terminalColumns: ctx.terminalColumns,
+        terminalRows: ctx.terminalRows,
       });
 
       // NodeRuntimeを実行

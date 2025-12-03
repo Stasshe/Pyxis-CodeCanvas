@@ -57,7 +57,13 @@ class TerminalCommandRegistry {
   async getShell(
     projectName: string,
     projectId: string,
-    opts?: { unix?: any; commandRegistry?: any; fileRepository?: any }
+    opts?: { 
+      unix?: any; 
+      commandRegistry?: any; 
+      fileRepository?: any;
+      terminalColumns?: number;
+      terminalRows?: number;
+    }
   ) {
     const entry = this.getOrCreateEntry(projectId);
     if (entry.shell) return entry.shell;
@@ -72,11 +78,23 @@ class TerminalCommandRegistry {
         unix,
         commandRegistry,
         fileRepository: opts && opts.fileRepository,
+        terminalColumns: opts?.terminalColumns,
+        terminalRows: opts?.terminalRows,
       });
       return entry.shell;
     } catch (e) {
       console.error('[terminalRegistry] failed to construct StreamShell', e);
       return null;
+    }
+  }
+
+  /**
+   * Update terminal size for a project's shell
+   */
+  updateShellSize(projectId: string, columns: number, rows: number): void {
+    const entry = this.projects.get(projectId);
+    if (entry?.shell && typeof entry.shell.setTerminalSize === 'function') {
+      entry.shell.setTerminalSize(columns, rows);
     }
   }
 
