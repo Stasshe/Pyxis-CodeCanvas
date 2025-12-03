@@ -20,6 +20,13 @@ interface ResizeState {
   currentSize: number;
 }
 
+/** Calculate default max size based on direction and window dimensions */
+function getDefaultMaxSize(direction: Direction): number {
+  if (typeof window === 'undefined') return 1000;
+  const dimension = direction === 'horizontal' ? window.innerHeight : window.innerWidth;
+  return dimension * 0.7;
+}
+
 /**
  * 汎用リサイズフック - マウスとタッチの両方に対応
  * 
@@ -31,7 +38,7 @@ export function useResize(options: UseResizeOptions) {
     direction,
     initialSize,
     minSize = 100,
-    maxSize = typeof window !== 'undefined' ? (direction === 'horizontal' ? window.innerHeight : window.innerWidth) * 0.7 : 1000,
+    maxSize = getDefaultMaxSize(direction),
     onResize,
     targetSelector,
   } = options;

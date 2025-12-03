@@ -80,12 +80,15 @@ export function usePaneResize(options: UsePaneResizeOptions) {
     e.preventDefault();
     e.stopPropagation();
 
-    // Find parent flex container
+    // Find parent flex container (with max depth limit to prevent infinite loops)
+    const MAX_DEPTH = 20;
     let parentContainer = containerRef.current?.parentElement;
-    while (parentContainer && !parentContainer.classList.contains('flex')) {
+    let depth = 0;
+    while (parentContainer && !parentContainer.classList.contains('flex') && depth < MAX_DEPTH) {
       parentContainer = parentContainer.parentElement;
+      depth++;
     }
-    if (!parentContainer) return;
+    if (!parentContainer || depth >= MAX_DEPTH) return;
 
     const containerRect = parentContainer.getBoundingClientRect();
     const state = stateRef.current;
@@ -99,10 +102,13 @@ export function usePaneResize(options: UsePaneResizeOptions) {
       const currentPos = direction === 'vertical' ? clientX : clientY;
       const relativePos = currentPos - state.containerStart;
 
+      // Calculate min boundary in pixels (extracted for readability)
+      const minBoundaryPx = (minSize * state.containerSize) / 100;
+
       // Calculate new split position
       const newSplitPos = Math.max(
-        (minSize * state.containerSize) / 100,
-        Math.min(relativePos, state.containerSize - (minSize * state.containerSize) / 100)
+        minBoundaryPx,
+        Math.min(relativePos, state.containerSize - minBoundaryPx)
       );
 
       // Convert to percentage
