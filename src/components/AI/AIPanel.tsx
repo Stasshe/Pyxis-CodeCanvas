@@ -17,7 +17,7 @@ import { LOCALSTORAGE_KEY } from '@/context/config';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { buildAIFileContextList } from '@/engine/ai/contextBuilder';
-import { useProject } from '@/engine/core/project';
+import { fileRepository } from '@/engine/core/fileRepository';
 import { useAI } from '@/hooks/ai/useAI';
 import { useChatSpace } from '@/hooks/ai/useChatSpace';
 import { useAIReview } from '@/hooks/useAIReview';
@@ -98,9 +98,6 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
 
   // レビュー機能
   const { openAIReviewTab, closeAIReviewTab } = useAIReview();
-
-  // プロジェクト操作
-  const { saveFile, clearAIReview } = useProject();
   
 
   // プロジェクトファイルが変更されたときにコンテキストを更新
@@ -206,43 +203,55 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
   };
 
   // レビューを開く（ストレージから履歴を取得してタブに渡す）
+  // NOTE: NEW-ARCHITECTURE.mdに従い、aiEntryにはprojectIdを必ず含める
   const handleOpenReview = async (
     filePath: string,
     originalContent: string,
     suggestedContent: string
   ) => {
+    const projectId = currentProject?.id;
+    
     try {
-      if (currentProject?.id) {
+      if (projectId) {
         const { getAIReviewEntry } = await import('@/engine/storage/aiStorageAdapter');
-        const entry = await getAIReviewEntry(currentProject.id, filePath);
-        openAIReviewTab(filePath, originalContent, suggestedContent, entry || undefined);
+        const entry = await getAIReviewEntry(projectId, filePath);
+        
+        // 既存エントリがない場合でも、projectIdを含む最小限のaiEntryを作成
+        const aiEntry = entry || { projectId, filePath };
+        openAIReviewTab(filePath, originalContent, suggestedContent, aiEntry);
         return;
       }
     } catch (e) {
       console.warn('[AIPanel] Failed to load AI review entry:', e);
     }
 
+    // currentProjectがない場合はprojectIdなしで開く（fallback）
     openAIReviewTab(filePath, originalContent, suggestedContent);
   };
 
   // 変更を適用（suggestedContent -> contentへコピー）
-  // Terminalと同じアプローチ：fileRepositoryに保存し、イベントシステムに任せる
+  // NOTE: NEW-ARCHITECTURE.mdに従い、fileRepositoryを直接使用
   const handleApplyChanges = async (filePath: string, newContent: string) => {
-    if (!currentProject || !saveFile) return;
+    const projectId = currentProject?.id;
+    
+    if (!projectId) {
+      console.error('[AIPanel] No projectId available, cannot apply changes');
+      // TODO: alertの代わりにトースト通知を使用する
+      alert('プロジェクトが選択されていません');
+      return;
+    }
 
     try {
       console.log('[AIPanel] Applying changes to:', filePath);
 
-      // Use the saveFile from useProject() (consistent with Terminal/project flow).
-      // This delegates to the project layer which in turn calls fileRepository and
-      // ensures any side-effects (sync, indexing) happen consistently.
-      await saveFile(filePath, newContent);
+      // fileRepositoryを直接使用してファイルを保存（NEW-ARCHITECTURE.mdに従う）
+      await fileRepository.saveFileByPath(projectId, filePath, newContent);
 
       // Clear AI review metadata for this file (non-blocking)
-      if (clearAIReview) {
-        clearAIReview(filePath).catch((e: Error) => {
-          console.warn('[AIPanel] clearAIReview failed (non-critical):', e);
-        });
+      try {
+        await fileRepository.clearAIReview(projectId, filePath);
+      } catch (e) {
+        console.warn('[AIPanel] clearAIReview failed (non-critical):', e);
       }
 
       // Remove this file from the assistant editResponse in the current chat space
@@ -279,13 +288,16 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
 
   // 変更を破棄
   const handleDiscardChanges = async (filePath: string) => {
+    const projectId = currentProject?.id;
+    
     try {
       // Close the review tab immediately so UI updates.
       closeAIReviewTab(filePath);
       // Finally clear ai review metadata for this file
-      if (clearAIReview) {
+      if (projectId) {
         try {
-          await clearAIReview(filePath);
+          await fileRepository.init();
+          await fileRepository.clearAIReview(projectId, filePath);
         } catch (e) {
           console.warn('[AIPanel] clearAIReview failed after discard:', e);
         }
@@ -460,8 +472,9 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
         isProcessing={isProcessing}
         emptyMessage={mode === 'ask' ? t('AI.ask') : t('AI.edit')}
         onRevert={async (message: ChatSpaceMessage) => {
+          const projectId = currentProject?.id;
           try {
-            if (!currentProject?.id || !saveFile) return;
+            if (!projectId) return;
             if (message.type !== 'assistant' || message.mode !== 'edit' || !message.editResponse) return;
 
             const { getAIReviewEntry, updateAIReviewEntry } = await import('@/engine/storage/aiStorageAdapter');
@@ -469,15 +482,16 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
             const files = message.editResponse.changedFiles || [];
             for (const f of files) {
               try {
-                const entry = await getAIReviewEntry(currentProject.id, f.path);
+                const entry = await getAIReviewEntry(projectId, f.path);
                 if (entry && entry.originalSnapshot) {
-                  await saveFile(f.path, entry.originalSnapshot);
+                  // fileRepositoryを直接使用してファイルを保存
+                  await fileRepository.saveFileByPath(projectId, f.path, entry.originalSnapshot);
 
                   // mark entry reverted and add history
                   const hist = Array.isArray(entry.history) ? entry.history : [];
                   const historyEntry = { id: `revert-${Date.now()}`, timestamp: new Date(), content: entry.originalSnapshot, note: `reverted via chat ${message.id}` };
                   try {
-                    await updateAIReviewEntry(currentProject.id, f.path, {
+                    await updateAIReviewEntry(projectId, f.path, {
                       status: 'reverted',
                       history: [historyEntry, ...hist],
                     });
