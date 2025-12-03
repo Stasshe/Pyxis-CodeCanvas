@@ -2,56 +2,20 @@ import type { Monaco } from '@monaco-editor/react';
 
 import type { ThemeColors } from '@/context/ThemeContext';
 
-// キャッシュキー: colorsのエディタ関連プロパティのハッシュ
-let lastColorsCacheKey: string | null = null;
+// ライトテーマのリスト
+const LIGHT_THEMES = ['light', 'solarizedLight', 'pastelSoft'];
 
-const isHexLight = (hex?: string) => {
-  if (!hex) return false;
+// 最後に定義したテーマ名をキャッシュ
+let lastThemeName: string | null = null;
+
+export function defineAndSetMonacoThemes(mon: Monaco, colors: ThemeColors, themeName: string) {
   try {
-    const h = hex.replace('#', '').trim();
-    if (h.length === 3) {
-      const r = parseInt(h[0] + h[0], 16);
-      const g = parseInt(h[1] + h[1], 16);
-      const b = parseInt(h[2] + h[2], 16);
-      const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-      return lum > 0.7;
-    }
-    if (h.length === 6) {
-      const r = parseInt(h.substring(0, 2), 16);
-      const g = parseInt(h.substring(2, 4), 16);
-      const b = parseInt(h.substring(4, 6), 16);
-      const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-      return lum > 0.7;
-    }
-  } catch (e) {
-    // ignore
-  }
-  return false;
-};
-
-// colorsからキャッシュキーを生成（エディタ関連プロパティのみ）
-function getColorsCacheKey(colors: ThemeColors): string {
-  return [
-    colors.editorBg,
-    colors.editorFg,
-    colors.editorLineHighlight,
-    colors.editorSelection,
-    colors.editorCursor,
-    colors.background,
-  ].join('|');
-}
-
-export function defineAndSetMonacoThemes(mon: Monaco, colors: ThemeColors) {
-  try {
-    const currentCacheKey = getColorsCacheKey(colors);
-    const needsRedefine = lastColorsCacheKey !== currentCacheKey;
+    const needsRedefine = lastThemeName !== themeName;
     
     if (needsRedefine) {
-      const bg = colors?.editorBg || (colors as any)?.background || '#1e1e1e';
-      const useLight = isHexLight(bg) || (typeof (colors as any).background === 'string' && /white|fff/i.test((colors as any).background));
+      const useLight = LIGHT_THEMES.includes(themeName);
       
       // pyxis-custom テーマを定義（EditorとDiffEditorの両方で使用）
-      // 現在のcolorsに基づいて適切なbaseを選択し、colorsを反映
       mon.editor.defineTheme('pyxis-custom', {
         base: useLight ? 'vs' : 'vs-dark',
         inherit: true,
@@ -141,14 +105,13 @@ export function defineAndSetMonacoThemes(mon: Monaco, colors: ThemeColors) {
           },
       });
 
-      lastColorsCacheKey = currentCacheKey;
+      lastThemeName = themeName;
     }
     
-    // テーマを適用（pyxis-custom は常に同じ名前なので、定義が更新されれば自動的に反映される）
+    // テーマを適用
     mon.editor.setTheme('pyxis-custom');
   } catch (e) {
     // keep MonacoEditor resilient
-     
     console.warn('[monaco-themes] Failed to define/set themes:', e);
   }
 }
