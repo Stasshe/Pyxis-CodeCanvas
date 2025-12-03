@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 import { projectDB } from '@/engine/core/database';
 import type { ChatSpace, ChatSpaceMessage, AIEditResponse } from '@/types';
@@ -10,6 +10,16 @@ export const useChatSpace = (projectId: string | null) => {
   const [chatSpaces, setChatSpaces] = useState<ChatSpace[]>([]);
   const [currentSpace, setCurrentSpace] = useState<ChatSpace | null>(null);
   const [loading, setLoading] = useState(false);
+  
+  // Ref to track the current space synchronously for addMessage race condition prevention
+  // When a user message creates a space, subsequent assistant messages (within same event loop)
+  // can use this ref instead of the stale useState value
+  const currentSpaceRef = useRef<ChatSpace | null>(null);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    currentSpaceRef.current = currentSpace;
+  }, [currentSpace]);
 
   // プロジェクトが変更されたときにチャットスペースを読み込み
   useEffect(() => {
@@ -17,6 +27,7 @@ export const useChatSpace = (projectId: string | null) => {
       if (!projectId) {
         setChatSpaces([]);
         setCurrentSpace(null);
+        currentSpaceRef.current = null;
         return;
       }
 
@@ -28,8 +39,10 @@ export const useChatSpace = (projectId: string | null) => {
         // 最新のスペースを自動選択（存在する場合）
         if (spaces.length > 0) {
           setCurrentSpace(spaces[0]);
+          currentSpaceRef.current = spaces[0];
         } else {
           setCurrentSpace(null);
+          currentSpaceRef.current = null;
         }
       } catch (error) {
         console.error('Failed to load chat spaces:', error);
@@ -50,6 +63,7 @@ export const useChatSpace = (projectId: string | null) => {
       const existingNewChat = spaces.find(s => s.name === spaceName);
       if (existingNewChat) {
         setCurrentSpace(existingNewChat);
+        currentSpaceRef.current = existingNewChat;
         setChatSpaces([existingNewChat, ...spaces.filter(s => s.id !== existingNewChat.id)]);
         return existingNewChat;
       }
@@ -75,6 +89,7 @@ export const useChatSpace = (projectId: string | null) => {
       ];
       setChatSpaces(updatedSpaces);
       setCurrentSpace(newSpace);
+      currentSpaceRef.current = newSpace;
       return newSpace;
     } catch (error) {
       console.error('Failed to create chat space:', error);
@@ -85,6 +100,7 @@ export const useChatSpace = (projectId: string | null) => {
   // チャットスペースを選択
   const selectSpace = (space: ChatSpace) => {
     setCurrentSpace(space);
+    currentSpaceRef.current = space;
   };
 
   // チャットスペースを削除
@@ -103,8 +119,10 @@ export const useChatSpace = (projectId: string | null) => {
         if (currentSpace?.id === spaceId) {
           if (filtered.length > 0) {
             setCurrentSpace(filtered[0]);
+            currentSpaceRef.current = filtered[0];
           } else {
             setCurrentSpace(null);
+            currentSpaceRef.current = null;
           }
         }
 
@@ -124,8 +142,10 @@ export const useChatSpace = (projectId: string | null) => {
     editResponse?: AIEditResponse,
     options?: { parentMessageId?: string; action?: 'apply' | 'revert' | 'note' }
   ): Promise<ChatSpaceMessage | null> => {
-    // Ensure we have an active space. If none exists, create one automatically.
-    let activeSpace = currentSpace;
+    // Use ref to get the current space synchronously - this prevents race conditions
+    // where user message creates a space but assistant message (called right after)
+    // still sees null due to stale useState closure
+    let activeSpace = currentSpaceRef.current;
     if (!activeSpace) {
       console.warn('[useChatSpace] No current space available - creating a new one');
       try {
@@ -135,8 +155,7 @@ export const useChatSpace = (projectId: string | null) => {
           return null;
         }
         activeSpace = created;
-        // ensure state reflects the new space
-        setCurrentSpace(created);
+        // Note: createNewSpace already updates both state and ref
       } catch (e) {
         console.error('[useChatSpace] Error creating chat space:', e);
         return null;

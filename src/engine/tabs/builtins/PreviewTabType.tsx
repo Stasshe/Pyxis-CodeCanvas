@@ -4,15 +4,18 @@ import React from 'react';
 import { TabTypeDefinition, TabComponentProps, OpenTabOptions, PreviewTab } from '../types';
 
 import MarkdownPreviewTab from '@/components/Tab/MarkdownPreviewTab';
-import { useProject } from '@/engine/core/project';
+import { useProjectStore } from '@/stores/projectStore';
 import type { FileItem } from '@/types';
 
 /**
  * プレビュータブのコンポーネント
+ * 
+ * NOTE: useProject()は各コンポーネントで独立したステートを持つため、
+ * グローバルなprojectStoreからプロジェクト情報を取得する。
  */
 const PreviewTabComponent: React.FC<TabComponentProps> = ({ tab }) => {
   const previewTab = tab as PreviewTab;
-  const { currentProject } = useProject();
+  const currentProject = useProjectStore(state => state.currentProject);
 
   return (
     <MarkdownPreviewTab
