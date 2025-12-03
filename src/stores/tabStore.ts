@@ -368,168 +368,81 @@ export const useTabStore = create<TabStore>((set, get) => ({
   },
 
   moveTab: (fromPaneId, toPaneId, tabId) => {
-    set(state => {
-      // Helper to find a pane by ID in the pane tree
-      const findPaneInTree = (panes: EditorPane[], targetId: string): EditorPane | null => {
-        for (const pane of panes) {
-          if (pane.id === targetId) return pane;
-          if (pane.children) {
-            const found = findPaneInTree(pane.children, targetId);
-            if (found) return found;
-          }
-        }
-        return null;
-      };
+    const state = get();
+    const fromPane = state.getPane(fromPaneId);
+    const toPane = state.getPane(toPaneId);
 
-      // Helper to recursively update panes with a transform function
-      const updatePanesTree = (
-        panes: EditorPane[],
-        transform: (pane: EditorPane) => EditorPane | null
-      ): EditorPane[] => {
-        return panes.map(pane => {
-          const transformed = transform(pane);
-          if (transformed !== null) return transformed;
-          if (pane.children) {
-            return { ...pane, children: updatePanesTree(pane.children, transform) };
-          }
-          return pane;
-        });
-      };
+    if (!fromPane || !toPane) return;
 
-      const fromPane = findPaneInTree(state.panes, fromPaneId);
-      const toPane = findPaneInTree(state.panes, toPaneId);
+    const tab = fromPane.tabs.find(t => t.id === tabId);
+    if (!tab) return;
 
-      if (!fromPane || !toPane) return state;
+    // 移動元から削除
+    get().closeTab(fromPaneId, tabId);
 
-      const tab = fromPane.tabs.find(t => t.id === tabId);
-      if (!tab) return state;
+    // 移動先に追加（paneIdを更新）
+    const updatedTab = { ...tab, paneId: toPaneId };
+    get().updatePane(toPaneId, {
+      tabs: [...toPane.tabs, updatedTab],
+      activeTabId: updatedTab.id,
+    });
 
-      // Build updated panes tree atomically
-      const newPanes = updatePanesTree(state.panes, pane => {
-        if (pane.id === fromPaneId) {
-          const newTabs = pane.tabs.filter(t => t.id !== tabId);
-          return {
-            ...pane,
-            tabs: newTabs,
-            activeTabId: pane.activeTabId === tabId ? (newTabs[0]?.id || '') : pane.activeTabId,
-          };
-        }
-        if (pane.id === toPaneId) {
-          const updatedTab = { ...tab, paneId: toPaneId };
-          return {
-            ...pane,
-            tabs: [...pane.tabs, updatedTab],
-            activeTabId: updatedTab.id,
-          };
-        }
-        return null; // Continue recursion
-      });
-
-      return {
-        panes: newPanes,
-        globalActiveTab: tab.id,
-        activePane: toPaneId,
-      };
+    // グローバルアクティブタブを更新
+    set({
+      globalActiveTab: updatedTab.id,
+      activePane: toPaneId,
     });
   },
 
   // タブを特定のインデックスに移動（同一ペイン内の並び替えまたは他ペインへ挿入）
   moveTabToIndex: (fromPaneId: string, toPaneId: string, tabId: string, index: number) => {
-    set(state => {
-      // Helper to find a pane by ID in the pane tree
-      const findPaneInTree = (panes: EditorPane[], targetId: string): EditorPane | null => {
-        for (const pane of panes) {
-          if (pane.id === targetId) return pane;
-          if (pane.children) {
-            const found = findPaneInTree(pane.children, targetId);
-            if (found) return found;
-          }
-        }
-        return null;
-      };
+    const state = get();
+    const fromPane = state.getPane(fromPaneId);
+    const toPane = state.getPane(toPaneId);
+    if (!fromPane || !toPane) return;
 
-      // Helper to recursively update panes with a transform function
-      const updatePanesTree = (
-        panes: EditorPane[],
-        transform: (pane: EditorPane) => EditorPane | null
-      ): EditorPane[] => {
-        return panes.map(pane => {
-          const transformed = transform(pane);
-          if (transformed !== null) return transformed;
-          if (pane.children) {
-            return { ...pane, children: updatePanesTree(pane.children, transform) };
-          }
-          return pane;
-        });
-      };
+    const tab = fromPane.tabs.find(t => t.id === tabId);
+    if (!tab) return;
 
-      const fromPane = findPaneInTree(state.panes, fromPaneId);
-      const toPane = findPaneInTree(state.panes, toPaneId);
-      if (!fromPane || !toPane) return state;
+    // 同一ペイン内の並べ替えの場合は単純に配列を並べ替えて終了
+    if (fromPaneId === toPaneId) {
+      const currentIndex = fromPane.tabs.findIndex(t => t.id === tabId);
+      const targetIndex = Math.max(0, Math.min(index, fromPane.tabs.length - 1));
+      if (currentIndex === -1 || currentIndex === targetIndex) return;
 
-      const tab = fromPane.tabs.find(t => t.id === tabId);
-      if (!tab) return state;
+      const reordered = [...fromPane.tabs];
+      const [removed] = reordered.splice(currentIndex, 1);
+      reordered.splice(targetIndex, 0, removed);
 
-      // Same pane reordering
-      if (fromPaneId === toPaneId) {
-        const currentIndex = fromPane.tabs.findIndex(t => t.id === tabId);
-        const targetIndex = Math.max(0, Math.min(index, fromPane.tabs.length - 1));
-        if (currentIndex === -1 || currentIndex === targetIndex) return state;
-
-        const reordered = [...fromPane.tabs];
-        const [removed] = reordered.splice(currentIndex, 1);
-        reordered.splice(targetIndex, 0, removed);
-
-        const newPanes = updatePanesTree(state.panes, pane => {
-          if (pane.id === fromPaneId) {
-            return {
-              ...pane,
-              tabs: reordered,
-              activeTabId: removed.id,
-            };
-          }
-          return null;
-        });
-
-        return {
-          panes: newPanes,
-          globalActiveTab: removed.id,
-          activePane: fromPaneId,
-        };
-      }
-
-      // Cross-pane move
-      const newFromTabs = fromPane.tabs.filter(t => t.id !== tabId);
-      const adjustedIndex = Math.max(0, Math.min(index, toPane.tabs.length));
-      const newToTabs = [
-        ...toPane.tabs.slice(0, adjustedIndex),
-        { ...tab, paneId: toPaneId },
-        ...toPane.tabs.slice(adjustedIndex),
-      ];
-
-      const newPanes = updatePanesTree(state.panes, pane => {
-        if (pane.id === fromPaneId) {
-          return {
-            ...pane,
-            tabs: newFromTabs,
-            activeTabId: fromPane.activeTabId === tabId ? (newFromTabs[0]?.id || '') : fromPane.activeTabId,
-          };
-        }
-        if (pane.id === toPaneId) {
-          return {
-            ...pane,
-            tabs: newToTabs,
-            activeTabId: tab.id,
-          };
-        }
-        return null;
+      get().updatePane(fromPaneId, {
+        tabs: reordered,
+        activeTabId: removed.id,
       });
 
-      return {
-        panes: newPanes,
-        globalActiveTab: tab.id,
-        activePane: toPaneId,
-      };
+      set({ globalActiveTab: removed.id, activePane: fromPaneId });
+      return;
+    }
+
+    // 別ペインへ移動する場合
+    // まず移動元から削除
+    const newFromTabs = fromPane.tabs.filter(t => t.id !== tabId);
+    get().updatePane(fromPaneId, {
+      tabs: newFromTabs,
+      activeTabId: fromPane.activeTabId === tabId ? (newFromTabs[0]?.id || '') : fromPane.activeTabId,
+    });
+
+    // 移動先に挿入
+    const adjustedIndex = Math.max(0, Math.min(index, toPane.tabs.length));
+    const newToTabs = [...toPane.tabs.slice(0, adjustedIndex), { ...tab, paneId: toPaneId }, ...toPane.tabs.slice(adjustedIndex)];
+
+    get().updatePane(toPaneId, {
+      tabs: newToTabs,
+      activeTabId: tab.id,
+    });
+
+    set({
+      globalActiveTab: tab.id,
+      activePane: toPaneId,
     });
   },
 
