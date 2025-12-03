@@ -23,12 +23,9 @@ interface ProjectStore {
   
   // アクション
   setCurrentProject: (project: Project | null) => void;
-  
-  // セレクター（便利関数）
-  getProjectId: () => string | null;
 }
 
-export const useProjectStore = create<ProjectStore>((set, get) => ({
+export const useProjectStore = create<ProjectStore>((set) => ({
   currentProject: null,
   currentProjectId: null,
   
@@ -38,13 +35,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       currentProjectId: project?.id || null,
     });
   },
-  
-  getProjectId: () => get().currentProjectId,
 }));
 
 /**
  * コンポーネント外からプロジェクトIDを取得するユーティリティ
- * useProjectStore.getState()を直接使用するよりも読みやすい
+ * コールバック関数内など、フック外でプロジェクトIDが必要な場合に使用
  */
 export const getCurrentProjectId = (): string | null => {
   return useProjectStore.getState().currentProjectId;
@@ -52,6 +47,7 @@ export const getCurrentProjectId = (): string | null => {
 
 /**
  * コンポーネント外から現在のプロジェクトを取得するユーティリティ
+ * コールバック関数内など、フック外でプロジェクト情報が必要な場合に使用
  */
 export const getCurrentProject = (): Project | null => {
   return useProjectStore.getState().currentProject;

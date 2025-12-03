@@ -8,7 +8,7 @@ import DiffTabComponent from '@/components/Tab/DiffTab';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { useTabStore } from '@/stores/tabStore';
 import { useKeyBinding } from '@/hooks/useKeyBindings';
-import { useProjectStore } from '@/stores/projectStore';
+import { getCurrentProjectId } from '@/stores/projectStore';
 
 /**
  * Diffタブのコンポーネント
@@ -47,7 +47,7 @@ const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
     }
 
     // グローバルストアからプロジェクトIDを取得
-    const projectId = useProjectStore.getState().currentProjectId;
+    const projectId = getCurrentProjectId();
     if (!projectId) {
       console.error('[DiffTabType] No project ID available');
       return;
@@ -105,7 +105,7 @@ const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
 
   const handleContentChange = useCallback(async (content: string) => {
     // グローバルストアからプロジェクトIDを取得
-    const projectId = useProjectStore.getState().currentProjectId;
+    const projectId = getCurrentProjectId();
     if (!diffTab.editable || !diffTab.path || !projectId) {
       console.log('[DiffTabType] Debounced save skipped:', {
         editable: diffTab.editable,
@@ -124,7 +124,7 @@ const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
       console.log('[DiffTabType] Executing debounced save');
       
       // 保存時点で再度プロジェクトIDを取得（変更されている可能性があるため）
-      const currentProjectId = useProjectStore.getState().currentProjectId;
+      const currentProjectId = getCurrentProjectId();
       if (!currentProjectId) {
         console.error('[DiffTabType] No project ID at save time');
         return;

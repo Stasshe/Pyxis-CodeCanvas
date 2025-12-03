@@ -7,7 +7,7 @@ import { useGitContext } from '@/components/PaneContainer';
 import CodeEditor from '@/components/Tab/CodeEditor';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { useSettings } from '@/hooks/useSettings';
-import { useProjectStore } from '@/stores/projectStore';
+import { useProjectStore, getCurrentProjectId } from '@/stores/projectStore';
 import { useTabStore } from '@/stores/tabStore';
 
 /**
@@ -36,8 +36,8 @@ const EditorTabComponent: React.FC<TabComponentProps> = ({ tab, isActive }) => {
     updateTabContent(tabId, content, true);
 
     // ファイルを保存
-    // NOTE: useProjectStore.getState()でその時点の最新のprojectIdを取得
-    const currentProjectId = useProjectStore.getState().currentProjectId;
+    // getCurrentProjectId()でその時点の最新のprojectIdを取得
+    const currentProjectId = getCurrentProjectId();
     if (currentProjectId && editorTab.path) {
       try {
         // fileRepositoryを直接使用してファイルを保存（NEW-ARCHITECTURE.mdに従う）
