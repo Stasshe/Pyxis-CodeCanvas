@@ -26,6 +26,9 @@ const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   // 保存タイマーの管理
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const latestContentRef = useRef<string>('');
+  // diffsの最新値を参照するためのref（useEffectの依存配列から除外するため）
+  const diffsRef = useRef(diffTab.diffs);
+  diffsRef.current = diffTab.diffs;
 
   // 他のペーンでの変更をリスニング（リアルタイム同期）
   useEffect(() => {
@@ -35,21 +38,24 @@ const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
     if (!projectId) return;
 
     const unsubscribe = fileRepository.addChangeListener((event) => {
-      // 同じプロジェクト、同じパスのファイルが更新された場合
+      // update イベントのみ処理、同じプロジェクト・パスのファイル
       if (
         event.type === 'update' &&
         event.projectId === projectId &&
-        'path' in event.file &&
-        event.file.path === diffTab.path
+        (event.file as { path?: string }).path === diffTab.path
       ) {
+        // update イベントの場合、event.file は ProjectFile 型
+        const projectFile = event.file as { content?: string };
+        const newContent = projectFile.content;
+        
         // 自分自身の変更は無視（latestContentRefと同じなら自分の変更）
-        const newContent = 'content' in event.file ? event.file.content : null;
         if (typeof newContent === 'string' && newContent !== latestContentRef.current) {
           console.log('[DiffTabType] External file change detected, updating content');
           
-          // 外部変更を反映
-          if (diffTab.diffs.length > 0) {
-            const updatedDiffs = [...diffTab.diffs];
+          // 外部変更を反映（単一ファイルdiffのみが editable なので index 0 で問題ない）
+          const currentDiffs = diffsRef.current;
+          if (currentDiffs.length > 0) {
+            const updatedDiffs = [...currentDiffs];
             updatedDiffs[0] = {
               ...updatedDiffs[0],
               latterContent: newContent,
@@ -66,7 +72,7 @@ const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
     return () => {
       unsubscribe();
     };
-  }, [diffTab.editable, diffTab.path, diffTab.paneId, diffTab.id, diffTab.diffs, updateTab]);
+  }, [diffTab.editable, diffTab.path, diffTab.paneId, diffTab.id, updateTab]);
 
   // クリーンアップ
   useEffect(() => {
