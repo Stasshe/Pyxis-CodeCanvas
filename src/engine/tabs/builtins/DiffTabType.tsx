@@ -5,17 +5,22 @@ import { TabTypeDefinition, DiffTab, TabComponentProps } from '../types';
 
 import { useGitContext } from '@/components/PaneContainer';
 import DiffTabComponent from '@/components/Tab/DiffTab';
-import { useProject } from '@/engine/core/project';
+import { fileRepository } from '@/engine/core/fileRepository';
 import { useTabStore } from '@/stores/tabStore';
 import { useKeyBinding } from '@/hooks/useKeyBindings';
+import { useProjectStore } from '@/stores/projectStore';
 
 /**
  * Diffタブのコンポーネント
+ * 
+ * NOTE: NEW-ARCHITECTURE.mdに従い、ファイル操作はfileRepositoryを直接使用。
+ * useProject()フックは各コンポーネントで独立した状態を持つため、
+ * currentProjectがnullになりファイルが保存されない問題があった。
+ * 代わりにグローバルなprojectStoreからプロジェクトIDを取得する。
  */
 const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   const diffTab = tab as DiffTab;
   const updateTab = useTabStore(state => state.updateTab);
-  const { saveFile, currentProject } = useProject(); // ← currentProject も取得
   const { setGitRefreshTrigger } = useGitContext();
 
   // 保存タイマーの管理
@@ -41,13 +46,10 @@ const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
       return;
     }
 
-    if (!saveFile) {
-      console.error('[DiffTabType] saveFile is undefined');
-      return;
-    }
-
-    if (!currentProject) {
-      console.error('[DiffTabType] No current project');
+    // グローバルストアからプロジェクトIDを取得
+    const projectId = useProjectStore.getState().currentProjectId;
+    if (!projectId) {
+      console.error('[DiffTabType] No project ID available');
       return;
     }
 
@@ -66,14 +68,15 @@ const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
     });
 
     try {
-      await saveFile(diffTab.path, contentToSave);
+      // fileRepositoryを直接使用してファイルを保存（NEW-ARCHITECTURE.mdに従う）
+      await fileRepository.saveFileByPath(projectId, diffTab.path, contentToSave);
       updateTab(diffTab.paneId, diffTab.id, { isDirty: false } as Partial<DiffTab>);
       setGitRefreshTrigger(prev => prev + 1);
       console.log('[DiffTabType] ✓ Immediate save completed');
     } catch (error) {
       console.error('[DiffTabType] Immediate save failed:', error);
     }
-  }, [diffTab, saveFile, currentProject, updateTab, setGitRefreshTrigger]);
+  }, [diffTab, updateTab, setGitRefreshTrigger]);
 
   // Ctrl+S バインディング
   useKeyBinding(
@@ -101,12 +104,13 @@ const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   }, [diffTab, updateTab]);
 
   const handleContentChange = useCallback(async (content: string) => {
-    if (!diffTab.editable || !diffTab.path || !saveFile || !currentProject) {
+    // グローバルストアからプロジェクトIDを取得
+    const projectId = useProjectStore.getState().currentProjectId;
+    if (!diffTab.editable || !diffTab.path || !projectId) {
       console.log('[DiffTabType] Debounced save skipped:', {
         editable: diffTab.editable,
         path: diffTab.path,
-        hasSaveFile: !!saveFile,
-        hasProject: !!currentProject,
+        hasProjectId: !!projectId,
       });
       return;
     }
@@ -119,8 +123,16 @@ const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
     saveTimeoutRef.current = setTimeout(async () => {
       console.log('[DiffTabType] Executing debounced save');
       
+      // 保存時点で再度プロジェクトIDを取得（変更されている可能性があるため）
+      const currentProjectId = useProjectStore.getState().currentProjectId;
+      if (!currentProjectId) {
+        console.error('[DiffTabType] No project ID at save time');
+        return;
+      }
+      
       try {
-        await saveFile(diffTab.path!, content);
+        // fileRepositoryを直接使用してファイルを保存（NEW-ARCHITECTURE.mdに従う）
+        await fileRepository.saveFileByPath(currentProjectId, diffTab.path!, content);
         updateTab(diffTab.paneId, diffTab.id, { isDirty: false } as Partial<DiffTab>);
         setGitRefreshTrigger(prev => prev + 1);
         console.log('[DiffTabType] ✓ Debounced save completed');
@@ -128,7 +140,7 @@ const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
         console.error('[DiffTabType] Debounced save failed:', error);
       }
     }, 5000);
-  }, [diffTab, saveFile, currentProject, updateTab, setGitRefreshTrigger]);
+  }, [diffTab, updateTab, setGitRefreshTrigger]);
 
   return (
     <DiffTabComponent

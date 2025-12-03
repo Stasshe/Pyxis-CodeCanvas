@@ -28,6 +28,7 @@ import { useProjectWelcome } from '@/hooks/useProjectWelcome';
 import { useTabContentRestore } from '@/hooks/useTabContentRestore';
 import { sessionStorage } from '@/stores/sessionStorage';
 import { useOptimizedUIStateSave } from '@/hooks/useOptimizedUIStateSave';
+import { useProjectStore } from '@/stores/projectStore';
 import { useTabStore } from '@/stores/tabStore';
 import { Project } from '@/types';
 import type { MenuTab } from '@/types';
@@ -69,6 +70,14 @@ export default function Home() {
   // プロジェクト管理
   const { currentProject, projectFiles, loadProject, createProject, refreshProjectFiles } =
     useProject();
+  
+  // グローバルプロジェクトストアを同期
+  // NOTE: useProject()は各コンポーネントで独立したステートを持つため、
+  // ここでグローバルストアに同期することで、全コンポーネントが一貫したプロジェクト情報にアクセスできる
+  const setCurrentProjectToStore = useProjectStore(state => state.setCurrentProject);
+  useEffect(() => {
+    setCurrentProjectToStore(currentProject);
+  }, [currentProject, setCurrentProjectToStore]);
 
   // タブコンテンツの復元と自動更新
   useTabContentRestore(projectFiles, isRestored);

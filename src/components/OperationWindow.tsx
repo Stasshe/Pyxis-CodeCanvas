@@ -7,7 +7,6 @@ import { getIconForFile } from 'vscode-icons-js';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { parseGitignore, isPathIgnored } from '@/engine/core/gitignore';
-import { useProject } from '@/engine/core/project';
 import { formatKeyComboForDisplay } from '@/hooks/useKeyBindings';
 import { useSettings } from '@/hooks/useSettings';
 import { useTabStore } from '@/stores/tabStore';
@@ -147,7 +146,6 @@ export default function OperationWindow({
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [portalEl] = useState(() => (typeof document !== 'undefined' ? document.createElement('div') : null));
-  const { currentProject } = useProject();
   const { isExcluded } = useSettings();
   // 固定アイテム高さを定義（スクロール計算と見た目の基準にする）
   const ITEM_HEIGHT = 20; // slightly more compact
