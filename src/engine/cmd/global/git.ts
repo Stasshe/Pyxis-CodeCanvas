@@ -15,19 +15,21 @@ import { gitFileSystem } from '@/engine/core/gitFileSystem';
 import { toAppPath, joinPath } from '@/engine/core/pathResolver';
 import { syncManager } from '@/engine/core/syncManager';
 import { authRepository } from '@/engine/user/authRepository';
+import type { TerminalUI } from '@/engine/cmd/terminalUI';
 
 /**
  * [NEW ARCHITECTURE] Git操作を管理するクラス
  * - IndexedDBへの同期はfileRepositoryが自動的に実行
  * - Git操作後の逆同期はsyncManagerを使用
  * - バッチ処理機能を削除（不要）
+ * - TerminalUI API provides advanced terminal display features
  */
 export class GitCommands {
   private fs: FS;
   private dir: string;
   private projectId: string;
   private projectName: string;
-  private progressCallback?: (message: string) => Promise<void>;
+  private terminalUI?: TerminalUI;
 
   constructor(projectName: string, projectId: string) {
     this.fs = gitFileSystem.getFS()!;
@@ -36,15 +38,8 @@ export class GitCommands {
     this.projectName = projectName;
   }
 
-  setProgressCallback(callback: (message: string) => Promise<void>) {
-    this.progressCallback = callback;
-  }
-
-  // Helper to emit progress message to terminal
-  private async emitProgress(message: string): Promise<void> {
-    if (this.progressCallback) {
-      await this.progressCallback(message);
-    }
+  setTerminalUI(ui: TerminalUI) {
+    this.terminalUI = ui;
   }
 
   // ========================================
@@ -1309,7 +1304,7 @@ export class GitCommands {
 
     // 動的インポートで循環参照を回避
     const { push } = await import('./gitOperations/push');
-    return push(this.fs, this.dir, options, this.progressCallback);
+    return push(this.fs, this.dir, options, this.terminalUI);
   }
 
   /**

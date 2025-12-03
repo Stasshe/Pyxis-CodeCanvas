@@ -6,23 +6,21 @@
  * - package.jsonなどの設定ファイルは IndexedDB に保存
  * - NpmInstallクラスが .gitignore を考慮して IndexedDB を更新
  * - fileRepository.createFile() を使用して自動的に管理
+ * - TerminalUI API provides advanced terminal display features
  */
 
 import { NpmInstall } from './npmOperations/npmInstall';
 
 import { fileRepository } from '@/engine/core/fileRepository';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
+import type { TerminalUI } from '@/engine/cmd/terminalUI';
 
 export class NpmCommands {
   private currentDir: string;
   private projectName: string;
   private projectId: string;
   private setLoading?: (isLoading: boolean) => void;
-  private progressCallback?: (message: string) => Promise<void>;
-  
-  // npm-like braille spinner frames
-  private spinnerFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
-  private spinnerIndex = 0;
+  private terminalUI?: TerminalUI;
 
   constructor(
     projectName: string,
@@ -40,15 +38,8 @@ export class NpmCommands {
     this.setLoading = callback;
   }
 
-  setProgressCallback(callback: (message: string) => Promise<void>) {
-    this.progressCallback = callback;
-  }
-  
-  // Get next spinner frame (npm-style cyan spinner)
-  private getSpinnerChar(): string {
-    const frame = this.spinnerFrames[this.spinnerIndex % this.spinnerFrames.length];
-    this.spinnerIndex++;
-    return `\x1b[36m${frame}\x1b[0m`; // cyan color
+  setTerminalUI(ui: TerminalUI) {
+    this.terminalUI = ui;
   }
 
   async downloadAndInstallPackage(packageName: string, version: string = 'latest'): Promise<void> {
@@ -66,35 +57,17 @@ export class NpmCommands {
     await npmInstall.removeDirectory(dirPath);
   }
 
-  // Helper to emit progress message to terminal
-  private async emitProgress(message: string): Promise<void> {
-    if (this.progressCallback) {
-      await this.progressCallback(message);
-    }
-  }
-  
-  // Helper to emit progress with spinner (npm-style)
-  // prefix can be used for clearLine (\r\x1b[K) or newline (\n)
-  private async emitSpinnerProgress(message: string, prefix = ''): Promise<void> {
-    if (this.progressCallback) {
-      const spinner = this.getSpinnerChar();
-      await this.progressCallback(`${prefix}${spinner} ${message}`);
-    }
-  }
-  
-  // ANSI escape code to clear the current line
-  private readonly clearLine = '\r\x1b[K';
-
   // npm install コマンドの実装
   async install(packageName?: string, flags: string[] = []): Promise<string> {
-    // Only use global loading spinner if we don't have progress callback
-    // (progress callback provides its own inline spinner)
-    const useGlobalSpinner = !this.progressCallback;
-    if (useGlobalSpinner) {
+    const startTime = Date.now();
+    const ui = this.terminalUI;
+    
+    // Use TerminalUI spinner if available, otherwise fall back to setLoading
+    const useTerminalUI = !!ui;
+    if (!useTerminalUI) {
       this.setLoading?.(true);
     }
     
-    const startTime = Date.now();
     try {
       // IndexedDBからpackage.jsonを単一取得（インデックス経由）
       const packageFile = await fileRepository.getFileByPath(this.projectId, '/package.json');
@@ -137,33 +110,33 @@ export class NpmCommands {
           return 'up to date, audited 0 packages in 0.1s\n\nfound 0 vulnerabilities';
         }
 
-        // Real-time progress output (npm style with spinner)
-        await this.emitSpinnerProgress(`reify: resolving ${packageNames.length} packages...`);
-        
         let installedCount = 0;
-        let addedPackages = 0;
+        let failedPackages: string[] = [];
 
         const npmInstall = new NpmInstall(this.projectName, this.projectId);
         npmInstall.startBatchProcessing();
+        
         try {
+          // Start spinner with initial message
+          if (ui) {
+            await ui.spinner.start(`reify: resolving ${packageNames.length} packages...`);
+          }
+          
           for (let i = 0; i < packageNames.length; i++) {
             const pkg = packageNames[i];
             const versionSpec = allDependencies[pkg];
             const version = versionSpec.replace(/^[\^~]/, '');
             
-            // Track number of packages audited (including current one being processed)
-            const auditedCount = i + 1;
+            // Update spinner with current package
+            if (ui) {
+              await ui.spinner.update(`reify:${pkg}: timing reifyNode:node_modules/${pkg}`);
+            }
             
             try {
-              // Show progress with spinner: currently processing this package (npm style)
-              await this.emitSpinnerProgress(`reify:${pkg}: timing reifyNode Completed`, this.clearLine);
-              
               await npmInstall.installWithDependencies(pkg, version);
               installedCount++;
-              addedPackages++;
             } catch (error) {
-              // Show warning but don't increment addedPackages for failed installs
-              await this.emitProgress(`\nnpm WARN ${pkg}@${version}: ${(error as Error).message}\n`);
+              failedPackages.push(`${pkg}@${version}: ${(error as Error).message}`);
             }
           }
         } finally {
@@ -175,16 +148,29 @@ export class NpmCommands {
             } catch {}
           }
         }
+        
+        // Stop spinner
+        if (ui) {
+          await ui.spinner.stop();
+        }
 
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-        // Clear the progress line using ANSI escape code
-        await this.emitProgress(this.clearLine);
+        let output = '';
         
-        if (installedCount === 0) {
-          return `up to date, audited ${packageNames.length} packages in ${elapsed}s\n\nfound 0 vulnerabilities`;
-        } else {
-          return `added ${addedPackages} packages, and audited ${packageNames.length} packages in ${elapsed}s\n\nfound 0 vulnerabilities`;
+        // Output warnings for failed packages
+        if (failedPackages.length > 0) {
+          for (const failed of failedPackages) {
+            output += `npm WARN ${failed}\n`;
+          }
+          output += '\n';
         }
+
+        if (installedCount === 0) {
+          output += `up to date, audited ${packageNames.length} packages in ${elapsed}s\n\nfound 0 vulnerabilities`;
+        } else {
+          output += `added ${installedCount} packages, and audited ${packageNames.length} packages in ${elapsed}s\n\nfound 0 vulnerabilities`;
+        }
+        return output;
       } else {
         // 特定パッケージのインストール
         const isDev = flags.includes('--save-dev') || flags.includes('-D');
@@ -199,14 +185,13 @@ export class NpmCommands {
         }
 
         try {
-          // Show progress with spinner: fetching package info (npm style)
-          await this.emitSpinnerProgress(`http fetch GET 200 https://registry.npmjs.org/${packageName}`);
+          // Start spinner
+          if (ui) {
+            await ui.spinner.start(`http fetch GET https://registry.npmjs.org/${packageName}`);
+          }
           
           const packageInfo = await this.fetchPackageInfo(packageName);
           const version = packageInfo.version;
-          
-          // Show success after fetching
-          await this.emitSpinnerProgress(`reify:${packageName}: http fetch GET 200 https://registry.npmjs.org/${packageName}/-/${packageName}-${version}.tgz`, '\n');
 
           if (!packageJson.dependencies) packageJson.dependencies = {};
           if (!packageJson.devDependencies) packageJson.devDependencies = {};
@@ -234,39 +219,51 @@ export class NpmCommands {
           const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 
           if (isInPackageJson && isActuallyInstalled) {
+            if (ui) {
+              await ui.spinner.stop();
+            }
             try {
               const npmInstall = new NpmInstall(this.projectName, this.projectId);
               // ensure .bin entries exist for already-installed package
               // await npmInstall.ensureBinsForPackage(packageName).catch(() => {});
             } catch {}
-            return `\nup to date, audited 1 package in ${elapsed}s\n\nfound 0 vulnerabilities`;
+            return `up to date, audited 1 package in ${elapsed}s\n\nfound 0 vulnerabilities`;
           } else {
-            await this.emitSpinnerProgress(`reify:${packageName}: timing reifyNode Completed`, this.clearLine);
+            // Update spinner for installation
+            if (ui) {
+              await ui.spinner.update(`reify:${packageName}: timing reifyNode:node_modules/${packageName}`);
+            }
             
             const npmInstall = new NpmInstall(this.projectName, this.projectId);
             npmInstall.startBatchProcessing();
             try {
-              // Show extraction progress after installation completes
               await npmInstall.installWithDependencies(packageName, version);
-              await this.emitSpinnerProgress(`reify: timing reify Completed`, this.clearLine);
             } finally {
               await npmInstall.finishBatchProcessing();
-              await npmInstall.ensureBinsForPackage(packageName).catch(() => {});
+              try {
+                await npmInstall.ensureBinsForPackage(packageName).catch(() => {});
+              } catch {}
+            }
+            
+            // Stop spinner
+            if (ui) {
+              await ui.spinner.stop();
             }
             
             const finalElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-            await this.emitProgress(this.clearLine);
             return `added 1 package, and audited 1 package in ${finalElapsed}s\n\nfound 0 vulnerabilities`;
           }
         } catch (error) {
+          if (ui) {
+            await ui.spinner.stop();
+          }
           throw new Error(`Failed to install ${packageName}: ${(error as Error).message}`);
         }
       }
     } catch (error) {
       throw new Error(`npm install failed: ${(error as Error).message}`);
     } finally {
-      // Only turn off global spinner if we were using it
-      if (!this.progressCallback) {
+      if (!useTerminalUI) {
         this.setLoading?.(false);
       }
     }
@@ -274,17 +271,24 @@ export class NpmCommands {
 
   // npm uninstall コマンドの実装
   async uninstall(packageName: string): Promise<string> {
-    // Only use global loading spinner if we don't have progress callback
-    const useGlobalSpinner = !this.progressCallback;
-    if (useGlobalSpinner) {
+    const startTime = Date.now();
+    const ui = this.terminalUI;
+    const useTerminalUI = !!ui;
+    
+    if (!useTerminalUI) {
       this.setLoading?.(true);
     }
     
-    const startTime = Date.now();
     try {
+      // Start spinner
+      if (ui) {
+        await ui.spinner.start(`reify: removing ${packageName}...`);
+      }
+      
       // IndexedDBからpackage.jsonを単一取得（インデックス経由）
       const packageFile = await fileRepository.getFileByPath(this.projectId, '/package.json');
       if (!packageFile) {
+        if (ui) await ui.spinner.stop();
         return `npm ERR! Cannot find package.json`;
       }
       const packageJson = JSON.parse(packageFile.content);
@@ -304,6 +308,7 @@ export class NpmCommands {
       }
 
       if (!wasInDependencies && !wasInDevDependencies) {
+        if (ui) await ui.spinner.stop();
         return `npm WARN ${packageName} is not a dependency of ${this.projectName}`;
       }
 
@@ -314,9 +319,6 @@ export class NpmCommands {
         'file'
       );
 
-      // Show progress with spinner
-      await this.emitSpinnerProgress(`reify: removing ${packageName}...`);
-
       // 依存関係を含めてパッケージを削除
       const npmInstall = new NpmInstall(this.projectName, this.projectId, true);
       try {
@@ -324,13 +326,12 @@ export class NpmCommands {
         const totalRemoved = removedPackages.length;
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
         
-        await this.emitProgress(this.clearLine); // Clear progress line
+        if (ui) await ui.spinner.stop();
         
         if (totalRemoved === 0) {
-          return `removed 1 package in ${elapsed}s\n\n- ${packageName}\nremoved 1 package and audited 0 packages in ${elapsed}s\n\nfound 0 vulnerabilities`;
+          return `removed 1 package in ${elapsed}s\n\nfound 0 vulnerabilities`;
         } else {
-          const removedList = removedPackages.join(', ');
-          return `removed ${totalRemoved + 1} packages in ${elapsed}s\n\n- ${packageName}\n- ${removedList} (orphaned dependencies)\nremoved ${totalRemoved + 1} packages and audited 0 packages in ${elapsed}s\n\nfound 0 vulnerabilities`;
+          return `removed ${totalRemoved + 1} packages in ${elapsed}s\n\nfound 0 vulnerabilities`;
         }
       } catch (error) {
         // 依存関係解決に失敗した場合は、単純にメインパッケージのみ削除
@@ -346,14 +347,14 @@ export class NpmCommands {
           await fileRepository.deleteFile(file.id);
         }
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-        await this.emitProgress(this.clearLine); // Clear progress line
-        return `removed 1 package in ${elapsed}s\n\n- ${packageName}\nremoved 1 package and audited 0 packages in ${elapsed}s\n\nfound 0 vulnerabilities`;
+        if (ui) await ui.spinner.stop();
+        return `removed 1 package in ${elapsed}s\n\nfound 0 vulnerabilities`;
       }
     } catch (error) {
+      if (ui) await ui.spinner.stop();
       throw new Error(`npm uninstall failed: ${(error as Error).message}`);
     } finally {
-      // Only turn off global spinner if we were using it
-      if (!this.progressCallback) {
+      if (!useTerminalUI) {
         this.setLoading?.(false);
       }
     }
