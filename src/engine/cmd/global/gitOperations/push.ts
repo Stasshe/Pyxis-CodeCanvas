@@ -349,13 +349,19 @@ export async function push(
     let lastCommitSha: string | null = commonAncestorSha || remoteHeadSha;
     const treeBuilder = new TreeBuilder(fs, dir, githubAPI);
     
+    // Use ANSI escape code to clear line
+    const clearLine = '\r\x1b[K';
+    
     await emitProgress('Compressing objects...');
 
     for (let i = 0; i < commitsToPush.length; i++) {
       const commit = commitsToPush[i];
-      const progress = Math.round(((i + 1) / commitsToPush.length) * 100);
       
-      await emitProgress(`\rWriting objects: ${progress}% (${i + 1}/${commitsToPush.length})`);
+      // Show progress indicating we're working on commit i+1 of total
+      const currentCommit = i + 1;
+      const progress = Math.round((currentCommit / commitsToPush.length) * 100);
+      
+      await emitProgress(`${clearLine}Writing objects: ${progress}% (${currentCommit}/${commitsToPush.length})`);
       
       console.log(
         `[git push] Processing commit: ${commit.oid.slice(0, 7)} - ${commit.commit.message.split('\\n')[0]}`
@@ -391,7 +397,7 @@ export async function push(
       remoteTreeSha = treeSha;
     }
     
-    await emitProgress(`\rWriting objects: 100% (${commitsToPush.length}/${commitsToPush.length}), done.`);
+    await emitProgress(`${clearLine}Writing objects: 100% (${commitsToPush.length}/${commitsToPush.length}), done.`);
 
     if (!lastCommitSha) {
       throw new Error('Failed to create commits');

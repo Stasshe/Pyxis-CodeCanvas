@@ -108,8 +108,11 @@ export class NpmCommands {
           return 'up to date, audited 0 packages in 0.1s\n\nfound 0 vulnerabilities';
         }
 
+        // Use ANSI escape code to clear line (more robust than spaces)
+        const clearLine = '\r\x1b[K';
+        
         // Real-time progress output (npm style)
-        await this.emitProgress(`added 0 packages, and audited ${packageNames.length} packages in 0s`);
+        await this.emitProgress(`added 0 packages, and audited 0 packages...`);
         
         let installedCount = 0;
         let addedPackages = 0;
@@ -121,14 +124,19 @@ export class NpmCommands {
             const pkg = packageNames[i];
             const versionSpec = allDependencies[pkg];
             const version = versionSpec.replace(/^[\^~]/, '');
+            
+            // Track number of packages audited (including current one being processed)
+            const auditedCount = i + 1;
+            
             try {
-              // Show progress: resolving packages
-              await this.emitProgress(`\radded ${addedPackages} packages, and audited ${i + 1} packages in ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
+              // Show progress: currently processing this package
+              await this.emitProgress(`${clearLine}added ${addedPackages} packages, and audited ${auditedCount} packages in ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
               
               await npmInstall.installWithDependencies(pkg, version);
               installedCount++;
               addedPackages++;
             } catch (error) {
+              // Show warning but don't increment addedPackages for failed installs
               await this.emitProgress(`\nnpm WARN ${pkg}@${version}: ${(error as Error).message}`);
             }
           }
@@ -143,8 +151,8 @@ export class NpmCommands {
         }
 
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-        // Clear the progress line and show final result
-        await this.emitProgress(`\r                                                                \r`);
+        // Clear the progress line using ANSI escape code
+        await this.emitProgress(`${clearLine}`);
         
         if (installedCount === 0) {
           return `up to date, audited ${packageNames.length} packages in ${elapsed}s\n\nfound 0 vulnerabilities`;
@@ -165,11 +173,17 @@ export class NpmCommands {
         }
 
         try {
+          // Use ANSI escape code to clear line
+          const clearLine = '\r\x1b[K';
+          
           // Show progress: fetching package info
-          await this.emitProgress(`npm http fetch GET 200 https://registry.npmjs.org/${packageName}`);
+          await this.emitProgress(`Fetching package info for ${packageName}...`);
           
           const packageInfo = await this.fetchPackageInfo(packageName);
           const version = packageInfo.version;
+          
+          // Show success after fetching
+          await this.emitProgress(`${clearLine}Resolved ${packageName}@${version}`);
 
           if (!packageJson.dependencies) packageJson.dependencies = {};
           if (!packageJson.devDependencies) packageJson.devDependencies = {};
@@ -204,14 +218,14 @@ export class NpmCommands {
             } catch {}
             return `\nup to date, audited 1 package in ${elapsed}s\n\nfound 0 vulnerabilities`;
           } else {
-            await this.emitProgress(`\nadded 0 packages, and audited 1 package in 0s`);
+            await this.emitProgress(`\nadded 0 packages, and audited 0 packages...`);
             
             const npmInstall = new NpmInstall(this.projectName, this.projectId);
             npmInstall.startBatchProcessing();
             try {
-              // Show extraction progress
-              await this.emitProgress(`\radded 1 package, and audited 1 package in ${elapsed}s`);
+              // Show extraction progress after installation completes
               await npmInstall.installWithDependencies(packageName, version);
+              await this.emitProgress(`${clearLine}added 1 package, and audited 1 package in ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
             } finally {
               await npmInstall.finishBatchProcessing();
               try {
@@ -220,7 +234,7 @@ export class NpmCommands {
             }
             
             const finalElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-            await this.emitProgress(`\r                                                                \r`);
+            await this.emitProgress(`${clearLine}`);
             return `added 1 package, and audited 1 package in ${finalElapsed}s\n\nfound 0 vulnerabilities`;
           }
         } catch (error) {
