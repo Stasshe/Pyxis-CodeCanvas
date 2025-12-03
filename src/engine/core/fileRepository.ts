@@ -649,6 +649,33 @@ export class FileRepository {
   }
 
   /**
+   * パスベースでファイルを保存または作成する便利メソッド
+   * 既存ファイルがあれば更新し、なければ新規作成する
+   * AI機能など、ファイルの存在を事前に確認せずに保存したい場合に使用
+   */
+  async saveFileByPath(projectId: string, path: string, content: string): Promise<void> {
+    await this.init();
+    const existingFile = await this.getFileByPath(projectId, path);
+    
+    if (existingFile) {
+      // 既存ファイルを更新
+      const updatedFile = {
+        ...existingFile,
+        content,
+        isBufferArray: false,
+        bufferContent: undefined,
+        updatedAt: new Date(),
+      };
+      await this.saveFile(updatedFile);
+      coreInfo(`[FileRepository] File updated by path: ${path}`);
+    } else {
+      // 新規ファイルを作成
+      await this.createFile(projectId, path, content, 'file');
+      coreInfo(`[FileRepository] File created by path: ${path}`);
+    }
+  }
+
+  /**
    * .gitignoreルールに基づいてパスを無視すべきかチェック
    */
   private async shouldIgnorePathForGit(projectId: string, path: string): Promise<boolean> {

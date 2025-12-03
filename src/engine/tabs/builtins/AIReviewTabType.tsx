@@ -33,25 +33,7 @@ const AIReviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
 
     try {
       // fileRepositoryを直接使用してファイルを保存（NEW-ARCHITECTURE.mdに従う）
-      await fileRepository.init();
-      const existingFile = await fileRepository.getFileByPath(projectId, filePath);
-      
-      if (existingFile) {
-        // 既存ファイルを更新
-        const updatedFile = {
-          ...existingFile,
-          content,
-          isBufferArray: false,
-          bufferContent: undefined,
-          updatedAt: new Date(),
-        };
-        await fileRepository.saveFile(updatedFile);
-        console.log('[AIReviewTabRenderer] File updated:', filePath);
-      } else {
-        // 新規ファイルを作成
-        await fileRepository.createFile(projectId, filePath, content, 'file');
-        console.log('[AIReviewTabRenderer] File created:', filePath);
-      }
+      await fileRepository.saveFileByPath(projectId, filePath, content);
       
       // Git状態を更新
       setGitRefreshTrigger(prev => prev + 1);

@@ -216,7 +216,7 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
         const { getAIReviewEntry } = await import('@/engine/storage/aiStorageAdapter');
         const entry = await getAIReviewEntry(projectId, filePath);
         
-        // entryがなくてもprojectIdを含むダミーのaiEntryを作成
+        // 既存エントリがない場合でも、projectIdを含む最小限のaiEntryを作成
         const aiEntry = entry || { projectId, filePath };
         openAIReviewTab(filePath, originalContent, suggestedContent, aiEntry);
         return;
@@ -236,6 +236,7 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
     
     if (!projectId) {
       console.error('[AIPanel] No projectId available, cannot apply changes');
+      // TODO: alertの代わりにトースト通知を使用する
       alert('プロジェクトが選択されていません');
       return;
     }
@@ -244,25 +245,7 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
       console.log('[AIPanel] Applying changes to:', filePath);
 
       // fileRepositoryを直接使用してファイルを保存（NEW-ARCHITECTURE.mdに従う）
-      await fileRepository.init();
-      const existingFile = await fileRepository.getFileByPath(projectId, filePath);
-      
-      if (existingFile) {
-        // 既存ファイルを更新
-        const updatedFile = {
-          ...existingFile,
-          content: newContent,
-          isBufferArray: false,
-          bufferContent: undefined,
-          updatedAt: new Date(),
-        };
-        await fileRepository.saveFile(updatedFile);
-        console.log('[AIPanel] File updated:', filePath);
-      } else {
-        // 新規ファイルを作成
-        await fileRepository.createFile(projectId, filePath, newContent, 'file');
-        console.log('[AIPanel] File created:', filePath);
-      }
+      await fileRepository.saveFileByPath(projectId, filePath, newContent);
 
       // Clear AI review metadata for this file (non-blocking)
       try {
@@ -502,21 +485,7 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
                 const entry = await getAIReviewEntry(projectId, f.path);
                 if (entry && entry.originalSnapshot) {
                   // fileRepositoryを直接使用してファイルを保存
-                  await fileRepository.init();
-                  const existingFile = await fileRepository.getFileByPath(projectId, f.path);
-                  
-                  if (existingFile) {
-                    const updatedFile = {
-                      ...existingFile,
-                      content: entry.originalSnapshot,
-                      isBufferArray: false,
-                      bufferContent: undefined,
-                      updatedAt: new Date(),
-                    };
-                    await fileRepository.saveFile(updatedFile);
-                  } else {
-                    await fileRepository.createFile(projectId, f.path, entry.originalSnapshot, 'file');
-                  }
+                  await fileRepository.saveFileByPath(projectId, f.path, entry.originalSnapshot);
 
                   // mark entry reverted and add history
                   const hist = Array.isArray(entry.history) ? entry.history : [];
