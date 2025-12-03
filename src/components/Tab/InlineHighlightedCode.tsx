@@ -573,10 +573,21 @@ const parseShellDoubleQuotedString = (code: string, startIndex: number): string 
     }
 
     if (char === '`') {
-      const end = code.indexOf('`', j + 1);
-      if (end !== -1) {
-        result += code.slice(j, end + 1);
-        j = end + 1;
+      // Find matching backtick, handling escape sequences
+      let endIndex = j + 1;
+      while (endIndex < code.length) {
+        if (code[endIndex] === '`') {
+          break;
+        }
+        if (code[endIndex] === '\\' && endIndex + 1 < code.length) {
+          endIndex += 2;
+          continue;
+        }
+        endIndex++;
+      }
+      if (endIndex < code.length) {
+        result += code.slice(j, endIndex + 1);
+        j = endIndex + 1;
         continue;
       }
     }
@@ -624,6 +635,8 @@ const parseShellCommandSubstitution = (code: string, startIndex: number): string
       continue;
     }
 
+    // In bash, single quotes don't support escape sequences - they are literal
+    // The string ends at the next single quote (no escaping possible)
     if (char === "'") {
       const end = code.indexOf("'", j + 1);
       if (end !== -1) {
