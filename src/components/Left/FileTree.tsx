@@ -15,10 +15,7 @@ import { importSingleFile } from '@/engine/import/importSingleFile';
 import { useTabStore } from '@/stores/tabStore';
 import { FileItem } from '@/types';
 
-// react-dnd用のドラッグタイプ定数
-const FILE_TREE_ITEM = 'FILE_TREE_ITEM';
-
-// ドラッグアイテムの型定義
+// ドラッグアイテムの型定義（FileTreeDragItemと互換性を持たせる）
 interface DragItem {
   type: string;
   item: FileItem;
@@ -83,8 +80,8 @@ function FileTreeItem({
   // ドラッグソース
   const [{ isDragging }, drag] = useDrag(
     () => ({
-      type: FILE_TREE_ITEM,
-      item: { type: FILE_TREE_ITEM, item },
+      type: DND_FILE_TREE_ITEM,
+      item: { type: DND_FILE_TREE_ITEM, item },
       collect: (monitor) => ({
         isDragging: monitor.isDragging(),
       }),
@@ -95,15 +92,16 @@ function FileTreeItem({
   // ドロップターゲット（フォルダのみ）
   const [{ isOver, canDrop }, drop] = useDrop(
     () => ({
-      accept: FILE_TREE_ITEM,
+      accept: DND_FILE_TREE_ITEM,
       canDrop: (dragItem: DragItem) => {
         // フォルダでない場合はドロップ不可
         if (item.type !== 'folder') return false;
         // 自分自身へのドロップは不可
         if (dragItem.item.id === item.id) return false;
-        // 自分の子孫へのドロップは不可
+        // ドラッグアイテム（フォルダ）を自分の子孫にドロップしようとしている場合は不可
+        // 例：/folder1 を /folder1/subfolder にドロップしようとしている場合
         if (item.path.startsWith(dragItem.item.path + '/')) return false;
-        // 自分の親フォルダへのドロップも不可（移動しても意味がない）
+        // ドラッグアイテムの親フォルダにドロップしようとしている場合は不可（移動しても意味がない）
         const draggedParent = dragItem.item.path.substring(0, dragItem.item.path.lastIndexOf('/')) || '/';
         if (draggedParent === item.path) return false;
         return true;
