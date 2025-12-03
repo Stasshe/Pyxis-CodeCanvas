@@ -112,7 +112,7 @@ export class NpmCommands {
         const clearLine = '\r\x1b[K';
         
         // Real-time progress output (npm style)
-        await this.emitProgress(`added 0 packages, and audited 0 packages...`);
+        await this.emitProgress(`Resolving ${packageNames.length} packages...`);
         
         let installedCount = 0;
         let addedPackages = 0;
@@ -218,7 +218,7 @@ export class NpmCommands {
             } catch {}
             return `\nup to date, audited 1 package in ${elapsed}s\n\nfound 0 vulnerabilities`;
           } else {
-            await this.emitProgress(`\nadded 0 packages, and audited 0 packages...`);
+            await this.emitProgress(`\nInstalling ${packageName}...`);
             
             const npmInstall = new NpmInstall(this.projectName, this.projectId);
             npmInstall.startBatchProcessing();
@@ -228,9 +228,7 @@ export class NpmCommands {
               await this.emitProgress(`${clearLine}added 1 package, and audited 1 package in ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
             } finally {
               await npmInstall.finishBatchProcessing();
-              try {
-                await npmInstall.ensureBinsForPackage(packageName).catch(() => {});
-              } catch {}
+              await npmInstall.ensureBinsForPackage(packageName).catch(() => {});
             }
             
             const finalElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
