@@ -268,9 +268,6 @@ export const useTabStore = create<TabStore>((set, get) => ({
       return;
     }
 
-    // タブIDの生成
-    const tabId = kind !== 'editor' ? `${kind}:${file.path || file.name}` : file.path || file.name;
-
     // 既存タブの検索
     const pane = state.getPane(targetPaneId);
     if (!pane) {
@@ -278,26 +275,58 @@ export const useTabStore = create<TabStore>((set, get) => ({
       return;
     }
 
-    const existingTab = pane.tabs.find(t => {
-      // 同じkindとpathのタブを検索
-      return t.kind === kind && (t.path === file.path || t.id === tabId);
-    });
-
-    if (existingTab) {
-      // 既存タブをアクティブ化
-      if (options.makeActive !== false) {
-        get().activateTab(targetPaneId, existingTab.id);
+    // shouldReuseTabがある場合は、全ペインでカスタム検索を行う（タブタイプ固有の再利用判断）
+    if (tabDef.shouldReuseTab) {
+      // 全ペインのタブをペインIDと共に収集
+      const collectTabsWithPane = (panes: EditorPane[]): Array<{ tab: Tab; paneId: string }> => {
+        const result: Array<{ tab: Tab; paneId: string }> = [];
+        for (const p of panes) {
+          for (const tab of p.tabs) {
+            result.push({ tab, paneId: p.id });
+          }
+          if (p.children) {
+            result.push(...collectTabsWithPane(p.children));
+          }
+        }
+        return result;
+      };
+      
+      const allTabsWithPane = collectTabsWithPane(state.panes);
+      for (const { tab, paneId: tabPaneId } of allTabsWithPane) {
+        if (tab.kind === kind && tabDef.shouldReuseTab(tab, file, options)) {
+          // 既存タブをアクティブ化
+          if (options.makeActive !== false) {
+            get().activateTab(tabPaneId, tab.id);
+          }
+          console.log('[TabStore] Reusing existing tab via shouldReuseTab:', tab.id);
+          return;
+        }
       }
+      // shouldReuseTabで見つからなかった場合は新規タブを作成（通常検索はスキップ）
+    } else {
+      // shouldReuseTabがない場合は、通常の検索（パス/IDベース）
+      const tabId = kind !== 'editor' ? `${kind}:${file.path || file.name}` : file.path || file.name;
+      const existingTab = pane.tabs.find(t => {
+        // 同じkindとpathのタブを検索
+        return t.kind === kind && (t.path === file.path || t.id === tabId);
+      });
 
-      // jumpToLine/jumpToColumnがある場合は更新
-      if (options.jumpToLine !== undefined || options.jumpToColumn !== undefined) {
-        get().updateTab(targetPaneId, existingTab.id, {
-          jumpToLine: options.jumpToLine,
-          jumpToColumn: options.jumpToColumn,
-        } as Partial<Tab>);
+      if (existingTab) {
+        // 既存タブをアクティブ化
+        if (options.makeActive !== false) {
+          get().activateTab(targetPaneId, existingTab.id);
+        }
+
+        // jumpToLine/jumpToColumnがある場合は更新
+        if (options.jumpToLine !== undefined || options.jumpToColumn !== undefined) {
+          get().updateTab(targetPaneId, existingTab.id, {
+            jumpToLine: options.jumpToLine,
+            jumpToColumn: options.jumpToColumn,
+          } as Partial<Tab>);
+        }
+
+        return;
       }
-
-      return;
     }
 
     // 新規タブの作成
