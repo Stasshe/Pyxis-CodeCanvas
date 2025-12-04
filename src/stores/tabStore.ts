@@ -415,13 +415,25 @@ export const useTabStore = create<TabStore>((set, get) => ({
     const tab = fromPane.tabs.find(t => t.id === tabId);
     if (!tab) return;
 
-    // 移動元から削除
-    get().closeTab(fromPaneId, tabId);
+    // 移動元から削除（closeTabを使わず直接フィルタリング）
+    const newFromTabs = fromPane.tabs.filter(t => t.id !== tabId);
+    const newFromActiveTabId = fromPane.activeTabId === tabId
+      ? (newFromTabs[0]?.id || '')
+      : fromPane.activeTabId;
+
+    get().updatePane(fromPaneId, {
+      tabs: newFromTabs,
+      activeTabId: newFromActiveTabId,
+    });
 
     // 移動先に追加（paneIdを更新）
     const updatedTab = { ...tab, paneId: toPaneId };
+    // toPane.tabsは古い参照の可能性があるので、最新の状態を取得
+    const latestToPane = get().getPane(toPaneId);
+    if (!latestToPane) return;
+
     get().updatePane(toPaneId, {
-      tabs: [...toPane.tabs, updatedTab],
+      tabs: [...latestToPane.tabs, updatedTab],
       activeTabId: updatedTab.id,
     });
 
