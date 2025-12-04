@@ -86,8 +86,7 @@ function FileTreeItem({
       setIsTouchDevice(
         'ontouchstart' in window ||
         navigator.maxTouchPoints > 0 ||
-        // @ts-ignore
-        navigator.msMaxTouchPoints > 0
+        ('msMaxTouchPoints' in navigator && (navigator as any).msMaxTouchPoints > 0)
       );
     };
     checkTouchDevice();

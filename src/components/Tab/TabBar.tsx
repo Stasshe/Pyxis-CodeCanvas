@@ -61,6 +61,11 @@ export default function TabBar({ paneId }: TabBarProps) {
     y: number;
   }>({ isOpen: false, tabId: '', x: 0, y: 0 });
   const tabContextMenuRef = useRef<HTMLDivElement>(null);
+  
+  // タッチデバイス用のRef（useEffectの前に定義）
+  const touchTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
+  const isDraggingRef = useRef<boolean>(false);
 
   // メニュー外クリック/タッチで閉じる
   useEffect(() => {
@@ -142,11 +147,6 @@ export default function TabBar({ paneId }: TabBarProps) {
       y: e.clientY,
     });
   };
-
-  // タッチデバイス用: 長押しでD&D、クリック/タップでコンテキストメニュー
-  const touchTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
-  const isDraggingRef = useRef<boolean>(false);
 
   // タッチ開始 - 長押し検出のためのタイマー開始
   const handleTouchStart = (e: React.TouchEvent, tabId: string) => {
