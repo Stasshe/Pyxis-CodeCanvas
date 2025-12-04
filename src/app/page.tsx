@@ -1,13 +1,14 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { DndProvider } from 'react-dnd';
-import { HTML5Backend } from 'react-dnd-html5-backend';
+import { TouchBackend } from 'react-dnd-touch-backend';
 
 import { useTheme } from '../context/ThemeContext';
 
 import BottomPanel from '@/components/Bottom/BottomPanel';
 import BottomStatusBar from '@/components/BottomStatusBar';
+import CustomDragLayer from '@/components/DnD/CustomDragLayer';
 import LeftSidebar from '@/components/Left/LeftSidebar';
 import MenuBar from '@/components/MenuBar';
 import OperationWindow from '@/components/OperationWindow';
@@ -252,8 +253,16 @@ export default function Home() {
     []
   );
 
+  // TouchBackendオプション: enableMouseEventsでマウスとタッチ両方をサポート
+  // delayTouchStart: 長押し（200ms）でドラッグ開始
+  const dndOptions = useMemo(() => ({
+    enableMouseEvents: true,
+    delayTouchStart: 200,
+  }), []);
+
   return (
-    <DndProvider backend={HTML5Backend}>
+    <DndProvider backend={TouchBackend} options={dndOptions}>
+      <CustomDragLayer />
       <div
       style={{
         position: 'fixed',

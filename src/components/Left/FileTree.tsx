@@ -807,8 +807,7 @@ export default function FileTree({
       onDrop={level === 0 ? e => handleDrop(e) : undefined}
       onDragOver={level === 0 ? handleDragOver : undefined}
     >
-      {/* カスタムドラッグレイヤー - ルートレベルでのみ表示 */}
-      {level === 0 && <CustomDragLayer />}
+      {/* カスタムドラッグレイヤーはpage.tsxで共通表示 */}
       
       {items.map(item => {
         const isExpanded = expandedFolders.has(item.id);

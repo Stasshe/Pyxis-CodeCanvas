@@ -164,7 +164,8 @@ export default function TabBar({ paneId }: TabBarProps) {
     isLongPressRef.current = false;
   }, []);
 
-  // タッチ終了 = タップでコンテキストメニュー表示
+  // タッチ終了 = モバイルではタブをアクティブにする（コンテキストメニューは表示しない）
+  // 注意: e.preventDefault()を呼ぶとreact-dndのドロップイベントがブロックされるため呼ばない
   const handleTouchEnd = useCallback((e: React.TouchEvent, tabId: string, tabElement: HTMLElement) => {
     const target = e.target as HTMLElement;
     
@@ -174,15 +175,11 @@ export default function TabBar({ paneId }: TabBarProps) {
       return;
     }
 
-    // タップ（短いタッチ）でコンテキストメニューを表示
-    if (touchStartPosRef.current) {
-      e.preventDefault();
-      openTabContextMenu(tabId, tabElement);
-    }
-
+    // タップ（短いタッチ）でタブをアクティブにする（onClickに任せる）
+    // コンテキストメニューは表示しない（PCの右クリックのみ）
     touchStartPosRef.current = null;
     isLongPressRef.current = false;
-  }, [openTabContextMenu]);
+  }, []);
 
   // タッチ移動 = タップキャンセル
   const handleTouchMove = useCallback(() => {
@@ -282,15 +279,21 @@ export default function TabBar({ paneId }: TabBarProps) {
     const displayName = isDuplicate ? `${tab.name} (${tab.path})` : tab.name;
 
     const [dragOverSide, setDragOverSide] = useState<'left' | 'right' | null>(null);
+    const dragOverSideRef = useRef<'left' | 'right' | null>(null);
     const ref = useRef<HTMLDivElement>(null);
+
+    // dragOverSideが変更されたらrefも更新
+    useEffect(() => {
+      dragOverSideRef.current = dragOverSide;
+    }, [dragOverSide]);
 
     const [{ isDragging }, dragRef] = useDrag(
       () => ({
         type: DND_TAB,
-        item: { type: DND_TAB, tabId: tab.id, fromPaneId: paneId, index: tabIndex },
+        item: { type: DND_TAB, tabId: tab.id, fromPaneId: paneId, index: tabIndex, tabName: tab.name },
         collect: (monitor: any) => ({ isDragging: monitor.isDragging() }),
       }),
-      [tab.id, paneId, tabIndex]
+      [tab.id, paneId, tabIndex, tab.name]
     );
 
     const [{ isOver }, tabDrop] = useDrop(
@@ -303,7 +306,8 @@ export default function TabBar({ paneId }: TabBarProps) {
 
           const fromPane = item.fromPaneId;
           let targetIndex = tabIndex;
-          if (dragOverSide === 'right') targetIndex = tabIndex + 1;
+          // refを使用して最新の値を取得
+          if (dragOverSideRef.current === 'right') targetIndex = tabIndex + 1;
 
           try {
             moveTabToIndex(fromPane, paneId, item.tabId, targetIndex);
@@ -330,7 +334,7 @@ export default function TabBar({ paneId }: TabBarProps) {
         },
         collect: (monitor) => ({ isOver: monitor.isOver({ shallow: true }) }),
       }),
-      [paneId, tabIndex, dragOverSide]
+      [paneId, tabIndex, tab.id]
     );
 
     dragRef(tabDrop(ref));
