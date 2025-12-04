@@ -9,7 +9,6 @@ import {
   Trash2,
   Save,
   Minus,
-  MoreVertical,
 } from 'lucide-react';
 import React, { useState, useRef, useEffect } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
@@ -100,11 +99,6 @@ export default function TabBar({ paneId }: TabBarProps) {
     nameCount[tab.name] = (nameCount[tab.name] || 0) + 1;
   });
 
-  // タブクリックハンドラ
-  const handleTabClick = (tabId: string) => {
-    activateTab(paneId, tabId);
-  };
-
   // タブ閉じるハンドラ
   const handleTabClose = (tabId: string) => {
     const tab = tabs.find(t => t.id === tabId);
@@ -149,30 +143,65 @@ export default function TabBar({ paneId }: TabBarProps) {
     });
   };
 
-  // タッチデバイス用: タップで右クリックメニューを表示（長押しではなく）
-  // タブの選択は通常のクリックで行い、タップ後の小さなボタンでコンテキストメニューを開く
+  // タッチデバイス用: 長押しでD&D、クリック/タップでコンテキストメニュー
   const touchTimerRef = useRef<NodeJS.Timeout | null>(null);
   const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
+  const isDraggingRef = useRef<boolean>(false);
 
-  // 長押しはもう使わないが、D&D用に残す
-  const handleTouchStart = (_e: React.TouchEvent, _tabId: string) => {
-    // タップでコンテキストメニューは開かない（右クリック操作と専用ボタンに任せる）
+  // タッチ開始 - 長押し検出のためのタイマー開始
+  const handleTouchStart = (e: React.TouchEvent, tabId: string) => {
+    const touch = e.touches[0];
+    touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
+    isDraggingRef.current = false;
+    
+    // 長押し後にD&Dモードに入る（ここでは視覚的なフィードバックのみ）
+    // 実際のD&Dはreact-dndが処理
+    touchTimerRef.current = setTimeout(() => {
+      isDraggingRef.current = true;
+      // 長押しが完了したら、タブを選択してD&D準備完了
+      activateTab(paneId, tabId);
+    }, 300); // 300ms長押しでD&Dモード
   };
 
-  const handleTouchEnd = () => {
+  const handleTouchEnd = (e: React.TouchEvent, tabId: string) => {
     if (touchTimerRef.current) {
       clearTimeout(touchTimerRef.current);
       touchTimerRef.current = null;
     }
+    
+    // 長押し中でなければ、タップとして扱いコンテキストメニューを表示
+    if (!isDraggingRef.current && touchStartPosRef.current) {
+      e.preventDefault();
+      setTabContextMenu({
+        isOpen: true,
+        tabId,
+        x: touchStartPosRef.current.x,
+        y: touchStartPosRef.current.y,
+      });
+    }
+    
     touchStartPosRef.current = null;
+    isDraggingRef.current = false;
   };
 
   const handleTouchMove = () => {
-    // タッチ移動時はキャンセル
+    // タッチ移動時は長押しタイマーをキャンセル
     if (touchTimerRef.current) {
       clearTimeout(touchTimerRef.current);
       touchTimerRef.current = null;
     }
+  };
+
+  // クリックハンドラ - デスクトップではクリックでコンテキストメニュー表示
+  const handleTabClick = (e: React.MouseEvent, tabId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setTabContextMenu({
+      isOpen: true,
+      tabId,
+      x: e.clientX,
+      y: e.clientY,
+    });
   };
 
   // ショートカットキーの登録
@@ -276,24 +305,11 @@ export default function TabBar({ paneId }: TabBarProps) {
     // Connect refs
     dragRef(tabDrop(ref));
 
-    // コンテキストメニューを開くボタンのクリックハンドラ
-    const handleContextMenuButton = (e: React.MouseEvent | React.TouchEvent) => {
-      e.stopPropagation();
-      e.preventDefault();
-      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-      setTabContextMenu({
-        isOpen: true,
-        tabId: tab.id,
-        x: rect.left,
-        y: rect.bottom + 4,
-      });
-    };
-
     return (
       <div
         key={tab.id}
         ref={ref}
-        className={`h-full px-3 flex items-center gap-2 flex-shrink-0 border-r relative ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+        className={`h-full px-3 flex items-center gap-2 flex-shrink-0 border-r relative ${isDragging ? 'cursor-grabbing' : 'cursor-pointer'}`}
         style={{
           background: isActive ? colors.background : colors.mutedBg,
           borderColor: colors.border,
@@ -301,10 +317,10 @@ export default function TabBar({ paneId }: TabBarProps) {
           maxWidth: '200px',
           opacity,
         }}
-        onClick={() => handleTabClick(tab.id)}
+        onClick={e => handleTabClick(e, tab.id)}
         onContextMenu={e => handleTabRightClick(e, tab.id)}
         onTouchStart={e => handleTouchStart(e, tab.id)}
-        onTouchEnd={handleTouchEnd}
+        onTouchEnd={e => handleTouchEnd(e, tab.id)}
         onTouchMove={handleTouchMove}
       >
         {/* Insertion Indicator */}
@@ -335,16 +351,6 @@ export default function TabBar({ paneId }: TabBarProps) {
         <span className="text-sm truncate flex-1" style={{ color: colors.foreground }} title={displayName}>
           {displayName}
         </span>
-        
-        {/* コンテキストメニューボタン (タッチデバイス/デスクトップ共通) */}
-        <button
-          className="hover:bg-accent rounded p-0.5 flex items-center justify-center"
-          onClick={handleContextMenuButton}
-          onTouchEnd={handleContextMenuButton}
-          title={t('tabBar.moreActions') || 'More actions'}
-        >
-          <MoreVertical size={14} color={colors.foreground} />
-        </button>
         
         {(tab as any).isDirty ? (
           <button
