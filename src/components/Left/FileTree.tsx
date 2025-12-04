@@ -1,6 +1,7 @@
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, GripVertical } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
+import { getEmptyImage } from 'react-dnd-html5-backend';
 import { getIconForFile, getIconForFolder, getIconForOpenFolder } from 'vscode-icons-js';
 
 import { DND_FILE_TREE_ITEM, FileTreeDragItem } from '@/constants/dndTypes';
@@ -75,9 +76,27 @@ function FileTreeItem({
   onInternalFileDrop,
 }: FileTreeItemProps) {
   const [dropIndicator, setDropIndicator] = useState<boolean>(false);
+  const [isTouchDevice, setIsTouchDevice] = useState<boolean>(false);
+  const grabHandleRef = useRef<HTMLDivElement>(null);
+  const rowRef = useRef<HTMLDivElement>(null);
+
+  // Check if it's a touch device
+  useEffect(() => {
+    const checkTouchDevice = () => {
+      setIsTouchDevice(
+        'ontouchstart' in window ||
+        navigator.maxTouchPoints > 0 ||
+        // @ts-ignore
+        navigator.msMaxTouchPoints > 0
+      );
+    };
+    checkTouchDevice();
+    window.addEventListener('resize', checkTouchDevice);
+    return () => window.removeEventListener('resize', checkTouchDevice);
+  }, []);
 
   // ドラッグソース
-  const [{ isDragging }, drag] = useDrag(
+  const [{ isDragging }, drag, preview] = useDrag(
     () => ({
       type: DND_FILE_TREE_ITEM,
       item: { type: DND_FILE_TREE_ITEM, item },
@@ -87,6 +106,13 @@ function FileTreeItem({
     }),
     [item]
   );
+
+  // Hide the default drag preview on touch devices (use custom preview)
+  useEffect(() => {
+    if (isTouchDevice) {
+      preview(getEmptyImage(), { captureDraggingState: true });
+    }
+  }, [preview, isTouchDevice]);
 
   // ドロップターゲット（フォルダのみ）
   const [{ isOver, canDrop }, drop] = useDrop(
@@ -145,12 +171,20 @@ function FileTreeItem({
     [item, onInternalFileDrop]
   );
 
-  // ドラッグとドロップのrefを結合
-  // コールバックrefを使用して両方のコネクタを適用
-  const attachRef = (el: HTMLDivElement | null) => {
-    drag(el);
-    drop(el);
-  };
+  // Attach drop to the row, and drag to either the whole row (desktop) or just the handle (touch)
+  useEffect(() => {
+    if (rowRef.current) {
+      drop(rowRef.current);
+      // On desktop, entire row is draggable
+      if (!isTouchDevice) {
+        drag(rowRef.current);
+      }
+    }
+    // On touch devices, only the grab handle is draggable
+    if (isTouchDevice && grabHandleRef.current) {
+      drag(grabHandleRef.current);
+    }
+  }, [drag, drop, isTouchDevice]);
 
   // ドロップインジケーターの更新
   useEffect(() => {
@@ -160,13 +194,13 @@ function FileTreeItem({
   return (
     <div>
       <div
-        ref={attachRef}
+        ref={rowRef}
         style={{
           display: 'flex',
           alignItems: 'center',
           gap: '0.25rem',
           padding: '0.15rem 0.2rem',
-          cursor: isDragging ? 'grabbing' : 'pointer',
+          cursor: isTouchDevice ? 'pointer' : (isDragging ? 'grabbing' : 'grab'),
           userSelect: 'none',
           WebkitUserSelect: 'none',
           WebkitTouchCallout: 'none',
@@ -179,7 +213,7 @@ function FileTreeItem({
               ? colors.accentBg
               : 'transparent',
           marginLeft: `${level * 12}px`,
-          touchAction: 'manipulation',
+          touchAction: isTouchDevice ? 'auto' : 'manipulation',
           opacity: isDragging ? 0.5 : 1,
           border: dropIndicator ? `1px dashed ${colors.primary || '#007acc'}` : '1px solid transparent',
         }}
@@ -188,7 +222,11 @@ function FileTreeItem({
         onMouseEnter={() => setHoveredItemId(item.id)}
         onMouseLeave={() => setHoveredItemId(null)}
         onTouchStart={e => {
-          onTouchStart(e, item);
+          // On touch devices, only start context menu long press if not on grab handle
+          const target = e.target as HTMLElement;
+          if (!target.closest('[data-grab-handle]')) {
+            onTouchStart(e, item);
+          }
           setHoveredItemId(item.id);
         }}
         onTouchEnd={() => {
@@ -271,10 +309,35 @@ function FileTreeItem({
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             userSelect: 'none',
+            flex: 1,
           }}
         >
           {item.name}
         </span>
+        
+        {/* Grab handle for touch devices - only visible on touch devices */}
+        {isTouchDevice && (
+          <div
+            ref={grabHandleRef}
+            data-grab-handle="true"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '4px',
+              marginLeft: 'auto',
+              cursor: 'grab',
+              touchAction: 'none',
+              opacity: 0.6,
+            }}
+            onTouchStart={e => {
+              // Prevent context menu trigger when starting drag from handle
+              e.stopPropagation();
+            }}
+          >
+            <GripVertical size={14} color={colors.mutedFg} />
+          </div>
+        )}
       </div>
       {item.type === 'folder' && item.children && isExpanded && (
         <FileTree
