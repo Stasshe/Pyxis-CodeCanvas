@@ -1,7 +1,9 @@
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
+import { useDrag, useDrop } from 'react-dnd';
 import { getIconForFile, getIconForFolder, getIconForOpenFolder } from 'vscode-icons-js';
 
+import { DND_FILE_TREE_ITEM, FileTreeDragItem } from '@/constants/dndTypes';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
@@ -13,6 +15,12 @@ import { importSingleFile } from '@/engine/import/importSingleFile';
 import { useTabStore } from '@/stores/tabStore';
 import { FileItem } from '@/types';
 
+// ドラッグアイテムの型定義（FileTreeDragItemと互換性を持たせる）
+interface DragItem {
+  type: string;
+  item: FileItem;
+}
+
 interface FileTreeProps {
   items: FileItem[];
   level?: number;
@@ -20,6 +28,266 @@ interface FileTreeProps {
   currentProjectId?: string;
   onRefresh?: () => void; // [NEW ARCHITECTURE] ファイルツリー再読み込み用
   isFileSelectModal?: boolean;
+  // 内部移動用のコールバック（親から渡される）
+  onInternalFileDrop?: (draggedItem: FileItem, targetFolderPath: string) => void;
+}
+
+// 個別のファイルツリーアイテムコンポーネント（react-dnd対応）
+interface FileTreeItemProps {
+  item: FileItem;
+  level: number;
+  isExpanded: boolean;
+  isIgnored: boolean;
+  hoveredItemId: string | null;
+  colors: any;
+  currentProjectName: string;
+  currentProjectId?: string;
+  onRefresh?: () => void;
+  onItemClick: (item: FileItem) => void;
+  onContextMenu: (e: React.MouseEvent, item: FileItem) => void;
+  onTouchStart: (e: React.TouchEvent, item: FileItem) => void;
+  onTouchEnd: () => void;
+  onTouchMove: () => void;
+  setHoveredItemId: (id: string | null) => void;
+  handleNativeFileDrop: (e: React.DragEvent<HTMLDivElement>, targetPath?: string) => void;
+  handleDragOver: (e: React.DragEvent<HTMLDivElement>) => void;
+  onInternalFileDrop?: (draggedItem: FileItem, targetFolderPath: string) => void;
+}
+
+function FileTreeItem({
+  item,
+  level,
+  isExpanded,
+  isIgnored,
+  hoveredItemId,
+  colors,
+  currentProjectName,
+  currentProjectId,
+  onRefresh,
+  onItemClick,
+  onContextMenu,
+  onTouchStart,
+  onTouchEnd,
+  onTouchMove,
+  setHoveredItemId,
+  handleNativeFileDrop,
+  handleDragOver,
+  onInternalFileDrop,
+}: FileTreeItemProps) {
+  const [dropIndicator, setDropIndicator] = useState<boolean>(false);
+
+  // ドラッグソース
+  const [{ isDragging }, drag] = useDrag(
+    () => ({
+      type: DND_FILE_TREE_ITEM,
+      item: { type: DND_FILE_TREE_ITEM, item },
+      collect: (monitor) => ({
+        isDragging: monitor.isDragging(),
+      }),
+    }),
+    [item]
+  );
+
+  // ドロップターゲット（フォルダのみ）
+  const [{ isOver, canDrop }, drop] = useDrop(
+    () => ({
+      accept: DND_FILE_TREE_ITEM,
+      canDrop: (dragItem: DragItem, monitor) => {
+        // フォルダでない場合はドロップ不可
+        if (item.type !== 'folder') return false;
+        // 自分自身へのドロップは不可
+        if (dragItem.item.id === item.id) return false;
+        // ドラッグアイテム（フォルダ）を自分の子孫にドロップしようとしている場合は不可
+        if (item.path.startsWith(dragItem.item.path + '/')) return false;
+        // ドラッグアイテムの親フォルダにドロップしようとしている場合は不可
+        const draggedParent = dragItem.item.path.substring(0, dragItem.item.path.lastIndexOf('/')) || '/';
+        if (draggedParent === item.path) return false;
+        return true;
+      },
+      hover: (dragItem: DragItem, monitor) => {
+        // ホバー中のログ（デバッグ用、頻繁に呼ばれるので条件付き）
+        if (monitor.isOver({ shallow: true }) && item.type === 'folder') {
+          // 最小限のログのみ
+        }
+      },
+      drop: (dragItem: DragItem, monitor) => {
+        console.log('[FileTreeItem] DROP EVENT FIRED', { 
+          targetPath: item.path,
+          didDrop: monitor.didDrop(),
+          isOver: monitor.isOver({ shallow: true })
+        });
+        
+        // 子要素が既にドロップを処理した場合はスキップ
+        if (monitor.didDrop()) {
+          console.log('[FileTreeItem] drop skipped - already handled by child');
+          return;
+        }
+        
+        console.log('[FileTreeItem] Processing drop', { 
+          draggedItem: dragItem.item, 
+          targetPath: item.path, 
+          targetType: item.type, 
+          hasHandler: !!onInternalFileDrop 
+        });
+        
+        if (onInternalFileDrop && item.type === 'folder') {
+          console.log('[FileTreeItem] Calling onInternalFileDrop');
+          onInternalFileDrop(dragItem.item, item.path);
+          return { handled: true };
+        }
+        return undefined;
+      },
+      collect: (monitor) => ({
+        isOver: monitor.isOver({ shallow: true }),
+        canDrop: monitor.canDrop(),
+      }),
+    }),
+    [item, onInternalFileDrop]
+  );
+
+  // ドラッグとドロップのrefを結合
+  // コールバックrefを使用して両方のコネクタを適用
+  const attachRef = (el: HTMLDivElement | null) => {
+    drag(el);
+    drop(el);
+  };
+
+  // ドロップインジケーターの更新
+  useEffect(() => {
+    setDropIndicator(isOver && canDrop);
+  }, [isOver, canDrop]);
+
+  return (
+    <div>
+      <div
+        ref={attachRef}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.25rem',
+          padding: '0.15rem 0.2rem',
+          cursor: isDragging ? 'grabbing' : 'pointer',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          WebkitTouchCallout: 'none',
+          MozUserSelect: 'none',
+          msUserSelect: 'none',
+          position: 'relative',
+          background: dropIndicator
+            ? colors.accentBg
+            : hoveredItemId === item.id
+              ? colors.accentBg
+              : 'transparent',
+          marginLeft: `${level * 12}px`,
+          touchAction: 'manipulation',
+          opacity: isDragging ? 0.5 : 1,
+          border: dropIndicator ? `1px dashed ${colors.primary || '#007acc'}` : '1px solid transparent',
+        }}
+        onClick={() => onItemClick(item)}
+        onContextMenu={e => onContextMenu(e, item)}
+        onMouseEnter={() => setHoveredItemId(item.id)}
+        onMouseLeave={() => setHoveredItemId(null)}
+        onTouchStart={e => {
+          onTouchStart(e, item);
+          setHoveredItemId(item.id);
+        }}
+        onTouchEnd={() => {
+          onTouchEnd();
+          setHoveredItemId(null);
+        }}
+        onTouchMove={() => {
+          onTouchMove();
+          setHoveredItemId(null);
+        }}
+        onTouchCancel={() => {
+          onTouchEnd();
+          setHoveredItemId(null);
+        }}
+      >
+        {item.type === 'folder' ? (
+          <>
+            {isExpanded ? (
+              <ChevronDown
+                size={14}
+                color={colors.mutedFg}
+              />
+            ) : (
+              <ChevronRight
+                size={14}
+                color={colors.mutedFg}
+              />
+            )}
+            <img
+              src={(() => {
+                const iconPath = isExpanded
+                  ? getIconForOpenFolder(item.name) ||
+                    getIconForFolder(item.name) ||
+                    getIconForFolder('')
+                  : getIconForFolder(item.name) || getIconForFolder('');
+                if (iconPath && iconPath.endsWith('.svg')) {
+                  return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath
+                    .split('/')
+                    .pop()}`;
+                }
+                return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/folder.svg`;
+              })()}
+              alt="folder"
+              style={{
+                width: 16,
+                height: 16,
+                verticalAlign: 'middle',
+                opacity: isIgnored ? 0.55 : 1,
+              }}
+            />
+          </>
+        ) : (
+          <>
+            <div className="w-3.5"></div>
+            <img
+              src={(() => {
+                const iconPath = getIconForFile(item.name) || getIconForFile('');
+                if (iconPath && iconPath.endsWith('.svg')) {
+                  return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath
+                    .split('/')
+                    .pop()}`;
+                }
+                return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/file.svg`;
+              })()}
+              alt="file"
+              style={{
+                width: 16,
+                height: 16,
+                verticalAlign: 'middle',
+                opacity: isIgnored ? 0.55 : 1,
+              }}
+            />
+          </>
+        )}
+        <span
+          style={{
+            fontSize: '0.875rem',
+            color: isIgnored ? colors.mutedFg : colors.foreground,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            userSelect: 'none',
+          }}
+        >
+          {item.name}
+        </span>
+      </div>
+      {item.type === 'folder' && item.children && isExpanded && (
+        <FileTree
+          items={item.children}
+          level={level + 1}
+          currentProjectName={currentProjectName}
+          currentProjectId={currentProjectId}
+          onRefresh={onRefresh}
+          onInternalFileDrop={onInternalFileDrop}
+        />
+      )}
+    </div>
+  );
 }
 
 export default function FileTree({
@@ -29,6 +297,7 @@ export default function FileTree({
   currentProjectId,
   onRefresh,
   isFileSelectModal,
+  onInternalFileDrop,
 }: FileTreeProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
@@ -301,6 +570,67 @@ export default function FileTree({
     }
   };
 
+  // react-dnd: ファイル/フォルダをドロップターゲットに移動する
+  // propsから渡されている場合はそれを使用、そうでなければ自前のハンドラーを使用
+  const internalDropHandler = onInternalFileDrop ?? (async (draggedItem: FileItem, targetFolderPath: string) => {
+    console.log('[FileTree] ============================================');
+    console.log('[FileTree] internalDropHandler called');
+    console.log('[FileTree] draggedItem:', JSON.stringify(draggedItem, null, 2));
+    console.log('[FileTree] targetFolderPath:', targetFolderPath);
+    console.log('[FileTree] currentProjectId:', currentProjectId);
+    console.log('[FileTree] currentProjectName:', currentProjectName);
+    console.log('[FileTree] ============================================');
+    
+    if (!currentProjectId) {
+      console.error('[FileTree] ERROR: No currentProjectId, cannot move file');
+      return;
+    }
+    
+    if (!currentProjectName) {
+      console.error('[FileTree] ERROR: No currentProjectName, cannot move file');
+      return;
+    }
+    
+    // 自分自身への移動は無視
+    if (draggedItem.path === targetFolderPath) {
+      console.log('[FileTree] Same path, ignoring move');
+      return;
+    }
+    
+    // ドラッグしたアイテムを自分の子フォルダに移動しようとしている場合は無視
+    if (targetFolderPath.startsWith(draggedItem.path + '/')) {
+      console.log('[FileTree] Cannot move to child folder');
+      return;
+    }
+    
+    try {
+      console.log('[FileTree] Getting unix commands...');
+      const unix = terminalCommandRegistry.getUnixCommands(
+        currentProjectName,
+        currentProjectId
+      );
+      console.log('[FileTree] Got unix commands:', !!unix);
+      
+      const oldPath = `/projects/${currentProjectName}${draggedItem.path}`;
+      const newPath = `/projects/${currentProjectName}${targetFolderPath}/`;
+      
+      console.log('[FileTree] Moving file/folder:');
+      console.log('[FileTree]   oldPath:', oldPath);
+      console.log('[FileTree]   newPath:', newPath);
+      
+      // mvコマンドを使用（ファイルもフォルダも正しく移動できる）
+      const result = await unix.mv(oldPath, newPath);
+      console.log('[FileTree] Move result:', result);
+      
+      if (onRefresh) {
+        console.log('[FileTree] Refreshing file tree');
+        setTimeout(onRefresh, 100);
+      }
+    } catch (error: any) {
+      console.error('[FileTree] Failed to move file:', error);
+    }
+  });
+
   return (
     <div
       style={
@@ -324,131 +654,27 @@ export default function FileTree({
             ? isPathIgnored(gitignoreRules, item.path.replace(/^\/+/, ''), item.type === 'folder')
             : false;
         return (
-          <div
+          <FileTreeItem
             key={item.id}
-            onDrop={item.type === 'folder' ? e => handleDrop(e, item.path) : undefined}
-            onDragOver={item.type === 'folder' ? handleDragOver : undefined}
-          >
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.25rem',
-                padding: '0.15rem 0.2rem',
-                cursor: 'pointer',
-                userSelect: 'none',
-                WebkitUserSelect: 'none',
-                WebkitTouchCallout: 'none',
-                MozUserSelect: 'none',
-                msUserSelect: 'none',
-                position: 'relative',
-                background: hoveredItemId === item.id ? colors.accentBg : 'transparent',
-                marginLeft: `${level * 12}px`,
-                touchAction: 'manipulation',
-              }}
-              onClick={() => handleItemClick(item)}
-              onContextMenu={e => handleContextMenu(e, item)}
-              onMouseEnter={() => setHoveredItemId(item.id)}
-              onMouseLeave={() => setHoveredItemId(null)}
-              onTouchStart={e => {
-                handleTouchStart(e, item);
-                setHoveredItemId(item.id);
-              }}
-              onTouchEnd={() => {
-                handleTouchEnd();
-                setHoveredItemId(null);
-              }}
-              onTouchMove={() => {
-                handleTouchMove();
-                setHoveredItemId(null);
-              }}
-              onTouchCancel={() => {
-                handleTouchEnd();
-                setHoveredItemId(null);
-              }}
-            >
-              {item.type === 'folder' ? (
-                <>
-                  {isExpanded ? (
-                    <ChevronDown
-                      size={14}
-                      color={colors.mutedFg}
-                    />
-                  ) : (
-                    <ChevronRight
-                      size={14}
-                      color={colors.mutedFg}
-                    />
-                  )}
-                  <img
-                    src={(() => {
-                      const iconPath = isExpanded
-                        ? getIconForOpenFolder(item.name) ||
-                          getIconForFolder(item.name) ||
-                          getIconForFolder('')
-                        : getIconForFolder(item.name) || getIconForFolder('');
-                      if (iconPath && iconPath.endsWith('.svg')) {
-                        return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath
-                          .split('/')
-                          .pop()}`;
-                      }
-                      return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/folder.svg`;
-                    })()}
-                    alt="folder"
-                    style={{
-                      width: 16,
-                      height: 16,
-                      verticalAlign: 'middle',
-                      opacity: isIgnored ? 0.55 : 1,
-                    }}
-                  />
-                </>
-              ) : (
-                <>
-                  <div className="w-3.5"></div>
-                  <img
-                    src={(() => {
-                      const iconPath = getIconForFile(item.name) || getIconForFile('');
-                      if (iconPath && iconPath.endsWith('.svg')) {
-                        return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath
-                          .split('/')
-                          .pop()}`;
-                      }
-                      return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/file.svg`;
-                    })()}
-                    alt="file"
-                    style={{
-                      width: 16,
-                      height: 16,
-                      verticalAlign: 'middle',
-                      opacity: isIgnored ? 0.55 : 1,
-                    }}
-                  />
-                </>
-              )}
-              <span
-                style={{
-                  fontSize: '0.875rem',
-                  color: isIgnored ? colors.mutedFg : colors.foreground,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  userSelect: 'none',
-                }}
-              >
-                {item.name}
-              </span>
-            </div>
-            {item.type === 'folder' && item.children && isExpanded && (
-              <FileTree
-                items={item.children}
-                level={level + 1}
-                currentProjectName={currentProjectName}
-                currentProjectId={currentProjectId}
-                onRefresh={onRefresh}
-              />
-            )}
-          </div>
+            item={item}
+            level={level}
+            isExpanded={isExpanded}
+            isIgnored={isIgnored}
+            hoveredItemId={hoveredItemId}
+            colors={colors}
+            currentProjectName={currentProjectName}
+            currentProjectId={currentProjectId}
+            onRefresh={onRefresh}
+            onItemClick={handleItemClick}
+            onContextMenu={handleContextMenu}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+            onTouchMove={handleTouchMove}
+            setHoveredItemId={setHoveredItemId}
+            handleNativeFileDrop={handleDrop}
+            handleDragOver={handleDragOver}
+            onInternalFileDrop={internalDropHandler}
+          />
         );
       })}
 
