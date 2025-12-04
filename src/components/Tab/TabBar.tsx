@@ -16,12 +16,13 @@ import { useDrag, useDrop } from 'react-dnd';
 import { TabIcon } from './TabIcon';
 import { useTabCloseConfirmation } from './useTabCloseConfirmation';
 
-import { DND_TAB } from '@/constants/dndTypes';
+import { DND_TAB, DND_FILE_TREE_ITEM, isFileTreeDragItem } from '@/constants/dndTypes';
 import { useFileSelector } from '@/context/FileSelectorContext';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useKeyBinding } from '@/hooks/useKeyBindings';
 import { useTabStore } from '@/stores/tabStore';
+import type { FileItem } from '@/types';
 
 interface TabBarProps {
   paneId: string;
@@ -227,17 +228,35 @@ export default function TabBar({ paneId }: TabBarProps) {
     }
   };
 
-  // コンテナへのドロップ
+  // ファイルを開くヘルパー関数
+  const openFileInPane = (fileItem: FileItem) => {
+    if (fileItem.type !== 'file') return;
+    const defaultEditor =
+      typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
+    const kind = fileItem.isBufferArray ? 'binary' : 'editor';
+    openTab({ ...fileItem, isCodeMirror: defaultEditor === 'codemirror' }, { kind, paneId });
+  };
+
+  // コンテナへのドロップ（TABとFILE_TREE_ITEM両方受け付け）
   const [, containerDrop] = useDrop(
     () => ({
-      accept: DND_TAB,
+      accept: [DND_TAB, DND_FILE_TREE_ITEM],
       drop: (item: any) => {
+        // FILE_TREE_ITEMの場合
+        if (isFileTreeDragItem(item)) {
+          const fileItem = item.item as FileItem;
+          if (fileItem.type === 'file') {
+            openFileInPane(fileItem);
+          }
+          return;
+        }
+        // TABの場合
         if (!item?.tabId) return;
         if (item.fromPaneId === paneId) return;
         moveTab(item.fromPaneId, paneId, item.tabId);
       },
     }),
-    [paneId]
+    [paneId, openTab, moveTab]
   );
 
   // ドラッグ可能なタブコンポーネント
@@ -260,10 +279,22 @@ export default function TabBar({ paneId }: TabBarProps) {
 
     const [{ isOver }, tabDrop] = useDrop(
       () => ({
-        accept: DND_TAB,
+        accept: [DND_TAB, DND_FILE_TREE_ITEM],
         drop: (item: any, monitor: any) => {
-          if (!item?.tabId) return;
           if (monitor && !monitor.isOver({ shallow: true })) return;
+          
+          // FILE_TREE_ITEMの場合
+          if (isFileTreeDragItem(item)) {
+            const fileItem = item.item as FileItem;
+            if (fileItem.type === 'file') {
+              openFileInPane(fileItem);
+            }
+            setDragOverSide(null);
+            return;
+          }
+          
+          // TABの場合
+          if (!item?.tabId) return;
           if (item.tabId === tab.id) return;
 
           const fromPane = item.fromPaneId;
@@ -295,7 +326,7 @@ export default function TabBar({ paneId }: TabBarProps) {
         },
         collect: (monitor) => ({ isOver: monitor.isOver({ shallow: true }) }),
       }),
-      [paneId, tabIndex, dragOverSide]
+      [paneId, tabIndex, dragOverSide, openFileInPane]
     );
 
     dragRef(tabDrop(ref));
