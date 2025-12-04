@@ -74,7 +74,6 @@ function FileTreeItem({
   handleDragOver,
   onInternalFileDrop,
 }: FileTreeItemProps) {
-  const ref = useRef<HTMLDivElement>(null);
   const [dropIndicator, setDropIndicator] = useState<boolean>(false);
 
   // ドラッグソース
@@ -143,7 +142,11 @@ function FileTreeItem({
   );
 
   // ドラッグとドロップのrefを結合
-  drag(drop(ref));
+  // react-dndではdragとdropを同じ要素に適用する場合、ref関数を組み合わせる
+  const dragDropRef = useRef<HTMLDivElement>(null);
+  
+  // dragとdropを結合
+  drag(drop(dragDropRef));
 
   // ドロップインジケーターの更新
   useEffect(() => {
@@ -151,12 +154,9 @@ function FileTreeItem({
   }, [isOver, canDrop]);
 
   return (
-    <div
-      onDrop={item.type === 'folder' ? e => handleNativeFileDrop(e, item.path) : undefined}
-      onDragOver={item.type === 'folder' ? handleDragOver : undefined}
-    >
+    <div>
       <div
-        ref={ref}
+        ref={dragDropRef}
         style={{
           display: 'flex',
           alignItems: 'center',
