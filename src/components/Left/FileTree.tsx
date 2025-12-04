@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronRight, GripVertical } from 'lucide-react';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, memo } from 'react';
 import { useDrag, useDrop, useDragLayer } from 'react-dnd';
 import { getEmptyImage } from 'react-dnd-html5-backend';
 import { getIconForFile, getIconForFolder, getIconForOpenFolder } from 'vscode-icons-js';
@@ -34,7 +34,8 @@ interface FileTreeProps {
 }
 
 // カスタムドラッグレイヤー - ドラッグ中にファイル/フォルダ名を表示する長方形
-function CustomDragLayer() {
+// パフォーマンス最適化のためmemoを使用
+const CustomDragLayer = memo(function CustomDragLayer() {
   const { colors } = useTheme();
   const { isDragging, item, currentOffset } = useDragLayer((monitor) => ({
     item: monitor.getItem() as DragItem | null,
@@ -42,18 +43,25 @@ function CustomDragLayer() {
     isDragging: monitor.isDragging(),
   }));
 
+  // アイテム情報をメモ化して再計算を防ぐ
+  const { iconSrc, name, isFolder } = useMemo(() => {
+    if (!item?.item) {
+      return { iconSrc: '', name: '', isFolder: false };
+    }
+    const fileItem = item.item;
+    const isFolder = fileItem.type === 'folder';
+    const iconPath = isFolder
+      ? getIconForFolder(fileItem.name) || getIconForFolder('')
+      : getIconForFile(fileItem.name) || getIconForFile('');
+    const iconSrc = iconPath && iconPath.endsWith('.svg')
+      ? `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath.split('/').pop()}`
+      : `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${isFolder ? 'folder.svg' : 'file.svg'}`;
+    return { iconSrc, name: fileItem.name, isFolder };
+  }, [item?.item?.name, item?.item?.type]);
+
   if (!isDragging || !item || !currentOffset) {
     return null;
   }
-
-  const fileItem = item.item;
-  const isFolder = fileItem.type === 'folder';
-  const iconPath = isFolder
-    ? getIconForFolder(fileItem.name) || getIconForFolder('')
-    : getIconForFile(fileItem.name) || getIconForFile('');
-  const iconSrc = iconPath && iconPath.endsWith('.svg')
-    ? `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath.split('/').pop()}`
-    : `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${isFolder ? 'folder.svg' : 'file.svg'}`;
 
   return (
     <div
@@ -64,6 +72,7 @@ function CustomDragLayer() {
         left: 0,
         top: 0,
         transform: `translate(${currentOffset.x}px, ${currentOffset.y}px)`,
+        willChange: 'transform',
       }}
     >
       <div
@@ -86,11 +95,11 @@ function CustomDragLayer() {
           alt={isFolder ? 'folder' : 'file'}
           style={{ width: 16, height: 16 }}
         />
-        <span>{fileItem.name}</span>
+        <span>{name}</span>
       </div>
     </div>
   );
-}
+});
 
 // 個別のファイルツリーアイテムコンポーネント（react-dnd対応）
 interface FileTreeItemProps {
@@ -446,8 +455,21 @@ export default function FileTree({
   const contextMenuRef = useRef<HTMLDivElement>(null);
   const [gitignoreRules, setGitignoreRules] = useState<GitIgnoreRule[] | null>(null);
 
-  // ドラッグ&ドロップ用(フォルダ対応)
+  // ドラッグ&ドロップ用(フォルダ対応) - ネイティブファイルドロップのみ処理
+  // react-dnd のドロップはこのハンドラでは処理しない
   const handleDrop = async (e: React.DragEvent<HTMLDivElement>, targetPath?: string) => {
+    // Check if this is a react-dnd drop (has no files) - let react-dnd handle it
+    const hasFiles = e.dataTransfer.files && e.dataTransfer.files.length > 0;
+    const hasItems = e.dataTransfer.items && e.dataTransfer.items.length > 0;
+    const hasNativeFiles = hasItems && Array.from(e.dataTransfer.items).some(
+      item => item.kind === 'file'
+    );
+    
+    // If no native files, this is likely a react-dnd internal drop - don't interfere
+    if (!hasFiles && !hasNativeFiles) {
+      return;
+    }
+    
     e.preventDefault();
     e.stopPropagation();
     const items = e.dataTransfer.items;
@@ -539,9 +561,15 @@ export default function FileTree({
     }
   };
 
+  // handleDragOver - ネイティブファイルドロップ用
+  // react-dnd 内部のドラッグには干渉しない
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
+    // Only prevent default for native file drops
+    const hasNativeFiles = e.dataTransfer.types.includes('Files');
+    if (hasNativeFiles) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
   };
 
   // expandedFoldersをlocalStorageに保存(初回復元後のみ)
