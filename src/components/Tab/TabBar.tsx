@@ -93,42 +93,6 @@ export default function TabBar({ paneId }: TabBarProps) {
     };
   }, [paneMenuOpen, tabContextMenu.isOpen]);
 
-  // ファイル削除イベントのリスナー: editor/previewタブを閉じる
-  useEffect(() => {
-    let unsubscribe: (() => void) | null = null;
-    
-    import('@/engine/core/fileRepository').then(({ fileRepository }) => {
-      const normalizePath = (p?: string) => {
-        if (!p) return '';
-        const withoutKindPrefix = p.includes(':') ? p.replace(/^[^:]+:/, '') : p;
-        const cleaned = withoutKindPrefix.replace(/(-preview|-diff|-ai)$/, '');
-        return cleaned.startsWith('/') ? cleaned : `/${cleaned}`;
-      };
-
-      unsubscribe = fileRepository.addChangeListener((event) => {
-        if (event.type !== 'delete') return;
-        
-        const deletedPath = normalizePath(event.file.path);
-        
-        // このペインのタブで削除対象を特定
-        const tabsToClose = tabs.filter(tab => {
-          const tabPath = normalizePath(tab.path);
-          return tabPath === deletedPath && (tab.kind === 'editor' || tab.kind === 'preview');
-        });
-        
-        // タブを閉じる
-        for (const tab of tabsToClose) {
-          console.log('[TabBar] Closing tab due to file deletion:', tab.id);
-          closeTab(paneId, tab.id);
-        }
-      });
-    });
-
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
-  }, [tabs, paneId, closeTab]);
-
   // 同名ファイルの重複チェック
   const nameCount: Record<string, number> = {};
   tabs.forEach(tab => {

@@ -52,6 +52,9 @@ interface TabStore {
   getTab: (paneId: string, tabId: string) => Tab | null;
   getAllTabs: () => Tab[];
   findTabByPath: (path: string, kind?: string) => { paneId: string; tab: Tab } | null;
+  
+  // ファイル削除時のタブ処理
+  handleFileDeleted: (deletedPath: string) => void;
 
   // セッション管理
   saveSession: () => Promise<void>;
@@ -531,6 +534,71 @@ export const useTabStore = create<TabStore>((set, get) => ({
       return null;
     };
     return findInPanes(state.panes);
+  },
+
+  // ファイル削除時のタブ処理: editor/previewを閉じ、diffはコンテンツを空にする
+  handleFileDeleted: (deletedPath: string) => {
+    const state = get();
+    
+    // パスを正規化
+    const normalizePath = (p?: string): string => {
+      if (!p) return '';
+      const withoutKindPrefix = p.includes(':') ? p.replace(/^[^:]+:/, '') : p;
+      const cleaned = withoutKindPrefix.replace(/(-preview|-diff|-ai)$/, '');
+      return cleaned.startsWith('/') ? cleaned : `/${cleaned}`;
+    };
+    
+    const normalizedDeletedPath = normalizePath(deletedPath);
+    console.log('[TabStore] handleFileDeleted:', normalizedDeletedPath);
+    
+    // 閉じるタブを収集
+    const tabsToClose: Array<{ paneId: string; tabId: string }> = [];
+    
+    // ペインを再帰的に更新
+    const updatePaneRecursive = (panes: EditorPane[]): EditorPane[] => {
+      return panes.map(pane => {
+        if (pane.children && pane.children.length > 0) {
+          return { ...pane, children: updatePaneRecursive(pane.children) };
+        }
+        
+        // リーフペイン
+        const newTabs = pane.tabs.map((tab: Tab) => {
+          const tabPath = normalizePath(tab.path);
+          if (tabPath !== normalizedDeletedPath) return tab;
+          
+          // editor/previewは閉じる対象として記録
+          if (tab.kind === 'editor' || tab.kind === 'preview') {
+            tabsToClose.push({ paneId: pane.id, tabId: tab.id });
+            return tab;
+          }
+          
+          // diffタブはコンテンツを空にする
+          if (tab.kind === 'diff' && 'diffs' in tab) {
+            const diffTab = tab as any;
+            return {
+              ...diffTab,
+              diffs: diffTab.diffs.map((diff: any) => ({
+                ...diff,
+                latterContent: '',
+              })),
+            };
+          }
+          
+          return tab;
+        });
+        
+        return { ...pane, tabs: newTabs };
+      });
+    };
+
+    // diffタブのコンテンツを更新
+    set({ panes: updatePaneRecursive(state.panes) });
+    
+    // editor/previewタブを閉じる
+    for (const { paneId, tabId } of tabsToClose) {
+      console.log('[TabStore] Closing tab:', tabId);
+      get().closeTab(paneId, tabId);
+    }
   },
 
   splitPane: (paneId, direction) => {

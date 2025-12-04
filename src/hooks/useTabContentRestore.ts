@@ -175,59 +175,16 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
     performContentRestoration();
   }, [performContentRestoration]);
 
-  // 2. ファイル変更イベントのリスニング（devブランチと同じロジック）
+  // 2. ファイル変更イベントのリスニング
   useEffect(() => {
     if (!isRestored) {
       return;
     }
 
     const unsubscribe = fileRepository.addChangeListener(event => {
-      // console.log('[useTabContentRestore] File change event:', event);
-
-      // 削除イベント: diffタブのコンテンツを空にする（editor/previewはTabBarで閉じる）
+      // 削除イベント: tabStoreに委譲
       if (event.type === 'delete') {
-        const deletedPath = normalizePath(event.file.path);
-        
-        // diffタブがあるかチェック
-        const flatPanes = flattenPanes(store.panes);
-        const hasDiffTab = flatPanes.some(pane =>
-          pane.tabs.some((tab: any) => 
-            tab.kind === 'diff' && normalizePath(tab.path) === deletedPath
-          )
-        );
-        
-        if (!hasDiffTab) return;
-        
-        console.log('[useTabContentRestore] Clearing diff tab content for deleted file:', deletedPath);
-        
-        // diffタブのコンテンツを空にする
-        const updatePaneRecursive = (panes: EditorPane[]): EditorPane[] => {
-          return panes.map(pane => {
-            if (pane.children && pane.children.length > 0) {
-              return {
-                ...pane,
-                children: updatePaneRecursive(pane.children),
-              };
-            }
-            return {
-              ...pane,
-              tabs: pane.tabs.map((tab: any) => {
-                if (tab.kind === 'diff' && normalizePath(tab.path) === deletedPath && tab.diffs) {
-                  return {
-                    ...tab,
-                    diffs: tab.diffs.map((diff: any) => ({
-                      ...diff,
-                      latterContent: '',
-                    })),
-                  };
-                }
-                return tab;
-              }),
-            };
-          });
-        };
-        
-        store.setPanes(updatePaneRecursive(store.panes));
+        store.handleFileDeleted(event.file.path);
         return;
       }
 
