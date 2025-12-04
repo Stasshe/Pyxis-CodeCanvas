@@ -290,10 +290,10 @@ export default function TabBar({ paneId }: TabBarProps) {
     const [{ isDragging }, dragRef] = useDrag(
       () => ({
         type: DND_TAB,
-        item: { type: DND_TAB, tabId: tab.id, fromPaneId: paneId, index: tabIndex },
+        item: { type: DND_TAB, tabId: tab.id, fromPaneId: paneId, index: tabIndex, tabName: tab.name },
         collect: (monitor: any) => ({ isDragging: monitor.isDragging() }),
       }),
-      [tab.id, paneId, tabIndex]
+      [tab.id, paneId, tabIndex, tab.name]
     );
 
     const [{ isOver }, tabDrop] = useDrop(
