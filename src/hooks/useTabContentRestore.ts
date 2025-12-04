@@ -175,17 +175,16 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
     performContentRestoration();
   }, [performContentRestoration]);
 
-  // 2. ファイル変更イベントのリスニング（devブランチと同じロジック）
+  // 2. ファイル変更イベントのリスニング
   useEffect(() => {
     if (!isRestored) {
       return;
     }
 
     const unsubscribe = fileRepository.addChangeListener(event => {
-      // console.log('[useTabContentRestore] File change event:', event);
-
-      // 削除イベントはスキップ（TabBarで処理）
+      // 削除イベント: tabStoreに委譲
       if (event.type === 'delete') {
+        store.handleFileDeleted(event.file.path);
         return;
       }
 
