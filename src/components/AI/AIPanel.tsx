@@ -478,13 +478,13 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
             if (!projectId) return;
             if (message.type !== 'assistant' || message.mode !== 'edit' || !message.editResponse) return;
 
-            const { clearAIReviewEntry } = await import('@/engine/storage/aiStorageAdapter');
+            const { getAIReviewEntry, clearAIReviewEntry } = await import('@/engine/storage/aiStorageAdapter');
 
             // 1. このメッセージ以降の全メッセージを削除（このメッセージ含む）
             const deletedMessages = await revertToMessage(message.id);
             
             // 2. 削除されたメッセージの中から、editResponseを持つものを全て処理
-            //    editResponse.changedFilesに含まれるoriginalContentを使ってファイルを復元
+            //    aiStorageAdapterに保存されたoriginalSnapshotを使ってファイルを復元
             //    逆順で処理することで、最新の変更から順に元に戻す
             const reversedMessages = [...deletedMessages].reverse();
             
@@ -493,10 +493,11 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
                 const files = deletedMsg.editResponse.changedFiles || [];
                 for (const f of files) {
                   try {
-                    // editResponse内のoriginalContentを直接使用してファイルを復元
-                    if (f.originalContent !== undefined) {
-                      await fileRepository.saveFileByPath(projectId, f.path, f.originalContent);
-                      console.log('[AIPanel] Reverted file:', f.path);
+                    // aiStorageAdapterに保存されたoriginalSnapshotを取得して復元
+                    const entry = await getAIReviewEntry(projectId, f.path);
+                    if (entry && entry.originalSnapshot !== undefined) {
+                      await fileRepository.saveFileByPath(projectId, f.path, entry.originalSnapshot);
+                      console.log('[AIPanel] Reverted file from storage:', f.path);
                       
                       // AIレビューエントリをクリア
                       try {
@@ -504,6 +505,8 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
                       } catch (e) {
                         console.warn('[AIPanel] clearAIReviewEntry failed', e);
                       }
+                    } else {
+                      console.warn('[AIPanel] No originalSnapshot found in storage for:', f.path);
                     }
                   } catch (e) {
                     console.warn('[AIPanel] revert file failed for', f.path, e);
