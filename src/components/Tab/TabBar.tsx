@@ -364,8 +364,12 @@ export default function TabBar({ paneId }: TabBarProps) {
           opacity: isDragging ? 0.4 : 1,
         }}
         onClick={e => handleTabClick(e, tab.id)}
-        onContextMenu={e => handleTabRightClick(e, tab.id, ref.current!)}
-        onTouchStart={e => handleTouchStart(e, tab.id, ref.current!)}
+        onContextMenu={e => {
+          if (ref.current) handleTabRightClick(e, tab.id, ref.current);
+        }}
+        onTouchStart={e => {
+          if (ref.current) handleTouchStart(e, tab.id, ref.current);
+        }}
         onTouchEnd={e => handleTouchEnd(e, tab.id)}
         onTouchMove={handleTouchMove}
       >
