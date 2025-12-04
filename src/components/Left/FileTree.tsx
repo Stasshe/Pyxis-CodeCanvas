@@ -1,6 +1,7 @@
 import { ChevronDown, ChevronRight, GripVertical } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
-import { useDrag, useDrop } from 'react-dnd';
+import { useDrag, useDrop, useDragLayer } from 'react-dnd';
+import { getEmptyImage } from 'react-dnd-html5-backend';
 import { getIconForFile, getIconForFolder, getIconForOpenFolder } from 'vscode-icons-js';
 
 import { DND_FILE_TREE_ITEM, FileTreeDragItem } from '@/constants/dndTypes';
@@ -30,6 +31,65 @@ interface FileTreeProps {
   isFileSelectModal?: boolean;
   // 内部移動用のコールバック（親から渡される）
   onInternalFileDrop?: (draggedItem: FileItem, targetFolderPath: string) => void;
+}
+
+// カスタムドラッグレイヤー - ドラッグ中にファイル/フォルダ名を表示する長方形
+function CustomDragLayer() {
+  const { colors } = useTheme();
+  const { isDragging, item, currentOffset } = useDragLayer((monitor) => ({
+    item: monitor.getItem() as DragItem | null,
+    currentOffset: monitor.getSourceClientOffset(),
+    isDragging: monitor.isDragging(),
+  }));
+
+  if (!isDragging || !item || !currentOffset) {
+    return null;
+  }
+
+  const fileItem = item.item;
+  const isFolder = fileItem.type === 'folder';
+  const iconPath = isFolder
+    ? getIconForFolder(fileItem.name) || getIconForFolder('')
+    : getIconForFile(fileItem.name) || getIconForFile('');
+  const iconSrc = iconPath && iconPath.endsWith('.svg')
+    ? `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath.split('/').pop()}`
+    : `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${isFolder ? 'folder.svg' : 'file.svg'}`;
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        pointerEvents: 'none',
+        zIndex: 9999,
+        left: 0,
+        top: 0,
+        transform: `translate(${currentOffset.x}px, ${currentOffset.y}px)`,
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          padding: '4px 10px',
+          background: colors.background,
+          border: `1px solid ${colors.border}`,
+          borderRadius: '4px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+          fontSize: '13px',
+          color: colors.foreground,
+          whiteSpace: 'nowrap',
+        }}
+      >
+        <img
+          src={iconSrc}
+          alt={isFolder ? 'folder' : 'file'}
+          style={{ width: 16, height: 16 }}
+        />
+        <span>{fileItem.name}</span>
+      </div>
+    </div>
+  );
 }
 
 // 個別のファイルツリーアイテムコンポーネント（react-dnd対応）
@@ -91,12 +151,18 @@ function FileTreeItem({
     return () => window.removeEventListener('resize', checkTouchDevice);
   }, []);
 
+  // 開発環境かどうかを判断
+  const isDev = process.env.NEXT_PUBLIC_IS_DEV_SERVER === 'true';
+
+  // カスタムドラッグプレビュー用のref
+  const dragPreviewRef = useRef<HTMLDivElement>(null);
+
   // ドラッグソース - with proper item structure
   const [{ isDragging }, drag, preview] = useDrag(
     () => ({
       type: DND_FILE_TREE_ITEM,
       item: () => {
-        if (process.env.NODE_ENV === 'development') {
+        if (isDev) {
           console.log('[FileTreeItem] DRAG START', { item: item.name, path: item.path });
         }
         return { type: DND_FILE_TREE_ITEM, item };
@@ -105,7 +171,7 @@ function FileTreeItem({
         isDragging: monitor.isDragging(),
       }),
       end: (draggedItem, monitor) => {
-        if (process.env.NODE_ENV === 'development') {
+        if (isDev) {
           console.log('[FileTreeItem] DRAG END', { 
             didDrop: monitor.didDrop(),
             dropResult: monitor.getDropResult()
@@ -113,8 +179,13 @@ function FileTreeItem({
         }
       },
     }),
-    [item]
+    [item, isDev]
   );
+
+  // カスタムドラッグプレビューを設定（デフォルトの空の画像を使用して、カスタムレイヤーで表示）
+  useEffect(() => {
+    preview(getEmptyImage(), { captureDraggingState: true });
+  }, [preview]);
 
   // ドロップターゲット（フォルダのみ）
   const [{ isOver, canDrop }, drop] = useDrop(
@@ -136,7 +207,7 @@ function FileTreeItem({
         // Hover feedback is handled by dropIndicator state
       },
       drop: (dragItem: DragItem, monitor) => {
-        if (process.env.NODE_ENV === 'development') {
+        if (isDev) {
           console.log('[FileTreeItem] DROP EVENT', { 
             target: item.path,
             dragged: dragItem.item.path,
@@ -151,7 +222,7 @@ function FileTreeItem({
         }
         
         if (onInternalFileDrop && item.type === 'folder') {
-          if (process.env.NODE_ENV === 'development') {
+          if (isDev) {
             console.log('[FileTreeItem] Calling onInternalFileDrop');
           }
           onInternalFileDrop(dragItem.item, item.path);
@@ -164,7 +235,7 @@ function FileTreeItem({
         canDrop: monitor.canDrop(),
       }),
     }),
-    [item, onInternalFileDrop]
+    [item, onInternalFileDrop, isDev]
   );
 
   // Combine drag and drop refs using callback ref pattern
@@ -708,6 +779,9 @@ export default function FileTree({
       onDrop={level === 0 ? e => handleDrop(e) : undefined}
       onDragOver={level === 0 ? handleDragOver : undefined}
     >
+      {/* カスタムドラッグレイヤー - ルートレベルでのみ表示 */}
+      {level === 0 && <CustomDragLayer />}
+      
       {items.map(item => {
         const isExpanded = expandedFolders.has(item.id);
         const isIgnored =

@@ -195,10 +195,15 @@ export default function TabBar({ paneId }: TabBarProps) {
   // クリックハンドラ - デスクトップではクリックでコンテキストメニュー表示
   // 閉じるボタンがクリックされた場合はメニューを表示しない
   const handleTabClick = (e: React.MouseEvent, tabId: string) => {
-    // Check if the click was on a button (close button)
+    // Check if the click was on or inside a button (close button)
     const target = e.target as HTMLElement;
-    if (target.closest('button')) {
-      // Don't show context menu when clicking close button
+    // Check for button, or elements inside button (like svg, path, div for dirty indicator)
+    if (target.tagName === 'BUTTON' || 
+        target.closest('button') || 
+        target.tagName === 'svg' || 
+        target.tagName === 'path' ||
+        (target.tagName === 'DIV' && target.classList.contains('rounded-full'))) {
+      // Don't show context menu when clicking close button or its children
       return;
     }
     e.preventDefault();
