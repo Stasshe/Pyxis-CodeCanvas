@@ -91,22 +91,26 @@ function FileTreeItem({
     return () => window.removeEventListener('resize', checkTouchDevice);
   }, []);
 
-  // ドラッグソース - with proper item structure and debugging
+  // ドラッグソース - with proper item structure
   const [{ isDragging }, drag, preview] = useDrag(
     () => ({
       type: DND_FILE_TREE_ITEM,
       item: () => {
-        console.log('[FileTreeItem] DRAG START', { item: item.name, path: item.path });
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[FileTreeItem] DRAG START', { item: item.name, path: item.path });
+        }
         return { type: DND_FILE_TREE_ITEM, item };
       },
       collect: (monitor) => ({
         isDragging: monitor.isDragging(),
       }),
       end: (draggedItem, monitor) => {
-        console.log('[FileTreeItem] DRAG END', { 
-          didDrop: monitor.didDrop(),
-          dropResult: monitor.getDropResult()
-        });
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[FileTreeItem] DRAG END', { 
+            didDrop: monitor.didDrop(),
+            dropResult: monitor.getDropResult()
+          });
+        }
       },
     }),
     [item]
@@ -129,26 +133,27 @@ function FileTreeItem({
         return true;
       },
       hover: (dragItem: DragItem, monitor) => {
-        if (monitor.isOver({ shallow: true }) && item.type === 'folder') {
-          // Hover feedback is handled by dropIndicator state
-        }
+        // Hover feedback is handled by dropIndicator state
       },
       drop: (dragItem: DragItem, monitor) => {
-        console.log('[FileTreeItem] DROP EVENT', { 
-          target: item.path,
-          dragged: dragItem.item.path,
-          didDrop: monitor.didDrop(),
-          isOver: monitor.isOver({ shallow: true })
-        });
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[FileTreeItem] DROP EVENT', { 
+            target: item.path,
+            dragged: dragItem.item.path,
+            didDrop: monitor.didDrop(),
+            isOver: monitor.isOver({ shallow: true })
+          });
+        }
         
         // 子要素が既にドロップを処理した場合はスキップ
         if (monitor.didDrop()) {
-          console.log('[FileTreeItem] Skipped - handled by child');
           return;
         }
         
         if (onInternalFileDrop && item.type === 'folder') {
-          console.log('[FileTreeItem] Calling onInternalFileDrop');
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[FileTreeItem] Calling onInternalFileDrop');
+          }
           onInternalFileDrop(dragItem.item, item.path);
           return { handled: true };
         }
