@@ -9,6 +9,7 @@ import {
   Trash2,
   Save,
   Minus,
+  MoreVertical,
 } from 'lucide-react';
 import React, { useState, useRef, useEffect } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
@@ -16,6 +17,7 @@ import { useDrag, useDrop } from 'react-dnd';
 import { TabIcon } from './TabIcon';
 import { useTabCloseConfirmation } from './useTabCloseConfirmation';
 
+import { DND_TAB } from '@/constants/dndTypes';
 import { useFileSelector } from '@/context/FileSelectorContext';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -61,9 +63,9 @@ export default function TabBar({ paneId }: TabBarProps) {
   }>({ isOpen: false, tabId: '', x: 0, y: 0 });
   const tabContextMenuRef = useRef<HTMLDivElement>(null);
 
-  // メニュー外クリックで閉じる
+  // メニュー外クリック/タッチで閉じる
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
+    function handleClickOutside(event: MouseEvent | TouchEvent) {
       if (menuOpen && menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setMenuOpen(false);
       }
@@ -76,8 +78,10 @@ export default function TabBar({ paneId }: TabBarProps) {
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
     };
   }, [menuOpen, tabContextMenu.isOpen]);
 
@@ -133,7 +137,7 @@ export default function TabBar({ paneId }: TabBarProps) {
     setTabContextMenu({ isOpen: false, tabId: '', x: 0, y: 0 });
   };
 
-  // タブ右クリックハンドラ
+  // タブ右クリックハンドラ（デスクトップ用）
   const handleTabRightClick = (e: React.MouseEvent, tabId: string) => {
     e.preventDefault();
     e.stopPropagation();
@@ -145,24 +149,14 @@ export default function TabBar({ paneId }: TabBarProps) {
     });
   };
 
-  // タッチデバイス用の長押しハンドラ
+  // タッチデバイス用: タップで右クリックメニューを表示（長押しではなく）
+  // タブの選択は通常のクリックで行い、タップ後の小さなボタンでコンテキストメニューを開く
   const touchTimerRef = useRef<NodeJS.Timeout | null>(null);
   const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
 
-  const handleTouchStart = (e: React.TouchEvent, tabId: string) => {
-    const touch = e.touches[0];
-    touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
-
-    touchTimerRef.current = setTimeout(() => {
-      if (touchStartPosRef.current) {
-        setTabContextMenu({
-          isOpen: true,
-          tabId,
-          x: touchStartPosRef.current.x,
-          y: touchStartPosRef.current.y,
-        });
-      }
-    }, 500); // 500ms長押し
+  // 長押しはもう使わないが、D&D用に残す
+  const handleTouchStart = (_e: React.TouchEvent, _tabId: string) => {
+    // タップでコンテキストメニューは開かない（右クリック操作と専用ボタンに任せる）
   };
 
   const handleTouchEnd = () => {
@@ -174,7 +168,7 @@ export default function TabBar({ paneId }: TabBarProps) {
   };
 
   const handleTouchMove = () => {
-    // タッチ移動時は長押しをキャンセル
+    // タッチ移動時はキャンセル
     if (touchTimerRef.current) {
       clearTimeout(touchTimerRef.current);
       touchTimerRef.current = null;
@@ -208,8 +202,8 @@ export default function TabBar({ paneId }: TabBarProps) {
     // Drag source
     const [{ isDragging }, dragRef] = useDrag(
       () => ({
-        type: 'TAB',
-        item: { tabId: tab.id, fromPaneId: paneId, index: tabIndex },
+        type: DND_TAB,
+        item: { type: DND_TAB, tabId: tab.id, fromPaneId: paneId, index: tabIndex },
         collect: (monitor: any) => ({
           isDragging: monitor.isDragging(),
         }),
@@ -220,7 +214,7 @@ export default function TabBar({ paneId }: TabBarProps) {
     // Drop target on each tab
     const [{ isOver }, tabDrop] = useDrop(
       () => ({
-        accept: 'TAB',
+        accept: DND_TAB,
         drop: (item: any, monitor: any) => {
           if (!item || !item.tabId) return;
           if (monitor && typeof monitor.isOver === 'function' && !monitor.isOver({ shallow: true })) return;
@@ -282,6 +276,19 @@ export default function TabBar({ paneId }: TabBarProps) {
     // Connect refs
     dragRef(tabDrop(ref));
 
+    // コンテキストメニューを開くボタンのクリックハンドラ
+    const handleContextMenuButton = (e: React.MouseEvent | React.TouchEvent) => {
+      e.stopPropagation();
+      e.preventDefault();
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      setTabContextMenu({
+        isOpen: true,
+        tabId: tab.id,
+        x: rect.left,
+        y: rect.bottom + 4,
+      });
+    };
+
     return (
       <div
         key={tab.id}
@@ -328,6 +335,17 @@ export default function TabBar({ paneId }: TabBarProps) {
         <span className="text-sm truncate flex-1" style={{ color: colors.foreground }} title={displayName}>
           {displayName}
         </span>
+        
+        {/* コンテキストメニューボタン (タッチデバイス/デスクトップ共通) */}
+        <button
+          className="hover:bg-accent rounded p-0.5 flex items-center justify-center"
+          onClick={handleContextMenuButton}
+          onTouchEnd={handleContextMenuButton}
+          title={t('tabBar.moreActions') || 'More actions'}
+        >
+          <MoreVertical size={14} color={colors.foreground} />
+        </button>
+        
         {(tab as any).isDirty ? (
           <button
             className="hover:bg-accent rounded p-0.5 flex items-center justify-center"
@@ -478,7 +496,7 @@ export default function TabBar({ paneId }: TabBarProps) {
   // コンテナ自体もドロップ可能（末尾に追加）
   const [, containerDrop] = useDrop(
     () => ({
-      accept: 'TAB',
+      accept: DND_TAB,
       drop: (item: any, monitor: any) => {
         if (!item || !item.tabId) return;
         // ドロップ先はこのペインの末尾
