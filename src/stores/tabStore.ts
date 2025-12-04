@@ -571,20 +571,18 @@ export const useTabStore = create<TabStore>((set, get) => ({
             return tab;
           }
           
-          // diffタブは個々のdiffエントリのパスをチェックしてコンテンツを空にする
-          if (tab.kind === 'diff') {
+          // 編集可能なdiffタブ（ワーキングディレクトリとの差分）のみコンテンツを空にする
+          // readonlyのdiffタブ（過去のcommit間の差分）は変更不要
+          if (tab.kind === 'diff' && tabPath === normalizedDeletedPath) {
             const diffTab = tab as DiffTab;
-            const updatedDiffs = diffTab.diffs.map(diff => {
-              const diffPath = normalizePath(diff.latterFullPath);
-              if (diffPath === normalizedDeletedPath) {
-                return { ...diff, latterContent: '' };
-              }
-              return diff;
-            });
-            // 変更があった場合のみ新しいオブジェクトを返す
-            const hasChanges = updatedDiffs.some((d, i) => d !== diffTab.diffs[i]);
-            if (hasChanges) {
-              return { ...diffTab, diffs: updatedDiffs };
+            if (diffTab.editable) {
+              return {
+                ...diffTab,
+                diffs: diffTab.diffs.map(diff => ({
+                  ...diff,
+                  latterContent: '',
+                })),
+              };
             }
           }
           
