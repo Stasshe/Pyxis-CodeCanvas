@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { TouchBackend } from 'react-dnd-touch-backend';
 
 import { useTheme } from '../context/ThemeContext';
 
@@ -93,22 +92,6 @@ export default function Home() {
 
   // グローバルスクロールロック
   useGlobalScrollLock();
-
-  // タッチデバイス検出とDnDバックエンド選択
-  const [isTouchDevice, setIsTouchDevice] = useState(false);
-  useEffect(() => {
-    // タッチデバイスかどうかを検出
-    const checkTouchDevice = () => {
-      const hasTouchPoints = 'maxTouchPoints' in navigator && navigator.maxTouchPoints > 0;
-      const hasCoarsePointer = window.matchMedia?.('(pointer: coarse)')?.matches;
-      return hasTouchPoints || hasCoarsePointer;
-    };
-    setIsTouchDevice(checkTouchDevice());
-  }, []);
-
-  // DnDバックエンドの選択（タッチデバイスならTouchBackend、それ以外はHTML5Backend）
-  const dndBackend = useMemo(() => isTouchDevice ? TouchBackend : HTML5Backend, [isTouchDevice]);
-  const dndOptions = useMemo(() => isTouchDevice ? { enableMouseEvents: true } : undefined, [isTouchDevice]);
 
   // FileWatcher bridge removed: components now subscribe directly to fileRepository
 
@@ -270,7 +253,7 @@ export default function Home() {
   );
 
   return (
-    <DndProvider backend={dndBackend} options={dndOptions}>
+    <DndProvider backend={HTML5Backend}>
       <div
       style={{
         position: 'fixed',

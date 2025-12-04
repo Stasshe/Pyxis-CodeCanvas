@@ -164,7 +164,8 @@ export default function TabBar({ paneId }: TabBarProps) {
     isLongPressRef.current = false;
   }, []);
 
-  // タッチ終了 = タップでコンテキストメニュー表示
+  // タッチ終了 = モバイルではタブをアクティブにする（コンテキストメニューは表示しない）
+  // 注意: e.preventDefault()を呼ぶとreact-dndのドロップイベントがブロックされるため呼ばない
   const handleTouchEnd = useCallback((e: React.TouchEvent, tabId: string, tabElement: HTMLElement) => {
     const target = e.target as HTMLElement;
     
@@ -174,15 +175,11 @@ export default function TabBar({ paneId }: TabBarProps) {
       return;
     }
 
-    // タップ（短いタッチ）でコンテキストメニューを表示
-    if (touchStartPosRef.current) {
-      e.preventDefault();
-      openTabContextMenu(tabId, tabElement);
-    }
-
+    // タップ（短いタッチ）でタブをアクティブにする（onClickに任せる）
+    // コンテキストメニューは表示しない（PCの右クリックのみ）
     touchStartPosRef.current = null;
     isLongPressRef.current = false;
-  }, [openTabContextMenu]);
+  }, []);
 
   // タッチ移動 = タップキャンセル
   const handleTouchMove = useCallback(() => {
