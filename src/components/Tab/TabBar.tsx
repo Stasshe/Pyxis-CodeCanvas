@@ -71,8 +71,7 @@ export default function TabBar({ paneId }: TabBarProps) {
   });
   const tabContextMenuRef = useRef<HTMLDivElement>(null);
 
-  // 長押し検出用
-  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  // タッチ検出用
   const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
   const isLongPressRef = useRef(false);
 
@@ -93,15 +92,6 @@ export default function TabBar({ paneId }: TabBarProps) {
       document.removeEventListener('touchstart', handleClickOutside);
     };
   }, [paneMenuOpen, tabContextMenu.isOpen]);
-
-  // クリーンアップ
-  useEffect(() => {
-    return () => {
-      if (longPressTimerRef.current) {
-        clearTimeout(longPressTimerRef.current);
-      }
-    };
-  }, []);
 
   // 同名ファイルの重複チェック
   const nameCount: Record<string, number> = {};
@@ -167,43 +157,36 @@ export default function TabBar({ paneId }: TabBarProps) {
     openTabContextMenu(tabId, tabElement);
   }, [openTabContextMenu]);
 
-  // タッチ開始 = 長押し検出開始
+  // タッチ開始 = タッチ位置を記録
   const handleTouchStart = useCallback((e: React.TouchEvent, tabId: string, tabElement: HTMLElement) => {
     const touch = e.touches[0];
     touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
     isLongPressRef.current = false;
+  }, []);
 
-    longPressTimerRef.current = setTimeout(() => {
-      isLongPressRef.current = true;
-      openTabContextMenu(tabId, tabElement);
-    }, 500); // 500ms長押しでメニュー表示
-  }, [openTabContextMenu]);
-
-  // タッチ終了
-  const handleTouchEnd = useCallback((e: React.TouchEvent, tabId: string) => {
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
+  // タッチ終了 = タップでコンテキストメニュー表示
+  const handleTouchEnd = useCallback((e: React.TouchEvent, tabId: string, tabElement: HTMLElement) => {
+    const target = e.target as HTMLElement;
+    
+    // 閉じるボタンがタップされた場合は無視
+    if (target.closest('[data-close-button]')) {
+      touchStartPosRef.current = null;
+      return;
     }
 
-    // 長押しでなければタブをアクティブにする
-    if (!isLongPressRef.current) {
-      const target = e.target as HTMLElement;
-      if (!target.closest('[data-close-button]')) {
-        activateTab(paneId, tabId);
-      }
+    // タップ（短いタッチ）でコンテキストメニューを表示
+    if (touchStartPosRef.current) {
+      e.preventDefault();
+      openTabContextMenu(tabId, tabElement);
     }
 
     touchStartPosRef.current = null;
     isLongPressRef.current = false;
-  }, [activateTab, paneId]);
+  }, [openTabContextMenu]);
 
-  // タッチ移動 = 長押しキャンセル
+  // タッチ移動 = タップキャンセル
   const handleTouchMove = useCallback(() => {
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-    }
+    touchStartPosRef.current = null;
   }, []);
 
   // ショートカットキー
@@ -370,7 +353,9 @@ export default function TabBar({ paneId }: TabBarProps) {
         onTouchStart={e => {
           if (ref.current) handleTouchStart(e, tab.id, ref.current);
         }}
-        onTouchEnd={e => handleTouchEnd(e, tab.id)}
+        onTouchEnd={e => {
+          if (ref.current) handleTouchEnd(e, tab.id, ref.current);
+        }}
         onTouchMove={handleTouchMove}
       >
         {/* ドロップインジケーター */}
