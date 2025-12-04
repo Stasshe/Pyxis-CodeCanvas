@@ -1,12 +1,15 @@
 import { GitCommands } from './global/git';
 import { NpmCommands } from './global/npm';
 import { UnixCommands } from './global/unix';
+import type StreamShell from './shell/streamShell';
+
+import type { fileRepository } from '@/engine/core/fileRepository';
 
 type ProjectEntry = {
   unix?: UnixCommands;
   git?: GitCommands;
   npm?: NpmCommands;
-  shell?: any;
+  shell?: StreamShell;
   createdAt: number;
 };
 
@@ -57,7 +60,13 @@ class TerminalCommandRegistry {
   async getShell(
     projectName: string,
     projectId: string,
-    opts?: { unix?: any; commandRegistry?: any; fileRepository?: any }
+    opts?: { 
+      unix?: UnixCommands; 
+      commandRegistry?: unknown; 
+      fileRepository?: typeof fileRepository;
+      terminalColumns?: number;
+      terminalRows?: number;
+    }
   ) {
     const entry = this.getOrCreateEntry(projectId);
     if (entry.shell) return entry.shell;
@@ -72,11 +81,23 @@ class TerminalCommandRegistry {
         unix,
         commandRegistry,
         fileRepository: opts && opts.fileRepository,
+        terminalColumns: opts?.terminalColumns,
+        terminalRows: opts?.terminalRows,
       });
       return entry.shell;
     } catch (e) {
       console.error('[terminalRegistry] failed to construct StreamShell', e);
       return null;
+    }
+  }
+
+  /**
+   * Update terminal size for a project's shell
+   */
+  updateShellSize(projectId: string, columns: number, rows: number): void {
+    const entry = this.projects.get(projectId);
+    if (entry?.shell && typeof entry.shell.setTerminalSize === 'function') {
+      entry.shell.setTerminalSize(columns, rows);
     }
   }
 

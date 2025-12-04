@@ -1,6 +1,7 @@
 import EventEmitter from 'events';
 import { PassThrough, Readable, Writable } from 'stream';
 
+import type { StreamCtx } from './builtins';
 import expandBraces from './braceExpand';
 import type { UnixCommands } from '../global/unix';
 
@@ -176,6 +177,10 @@ type ShellOptions = {
   unix: UnixCommands; // injection for tests
   fileRepository?: typeof fileRepository; // injection for tests
   commandRegistry?: any;
+  /** Terminal columns (width). Updated dynamically on resize. */
+  terminalColumns?: number;
+  /** Terminal rows (height). Updated dynamically on resize. */
+  terminalRows?: number;
 };
 
 type TokenObj = { text: string; quote: 'single' | 'double' | null; cmdSub?: string };
@@ -199,6 +204,8 @@ export class StreamShell {
   private projectId: string;
   private commandRegistry: any;
   private foregroundProc: Process | null = null;
+  private _terminalColumns: number;
+  private _terminalRows: number;
 
   constructor(opts: ShellOptions) {
     this.projectName = opts.projectName;
@@ -206,6 +213,22 @@ export class StreamShell {
     this.unix = opts.unix || null;
     this.fileRepository = opts.fileRepository; // optional
     this.commandRegistry = opts.commandRegistry;
+    this._terminalColumns = opts.terminalColumns ?? 80;
+    this._terminalRows = opts.terminalRows ?? 24;
+  }
+
+  /** Update terminal size (call on resize) */
+  setTerminalSize(columns: number, rows: number) {
+    this._terminalColumns = columns;
+    this._terminalRows = rows;
+  }
+
+  get terminalColumns() {
+    return this._terminalColumns;
+  }
+
+  get terminalRows() {
+    return this._terminalRows;
   }
 
   private async getUnix() {
@@ -711,14 +734,16 @@ export class StreamShell {
       // Note: use the readable side of stdin (stdinStream) so builtins can
       // read from it when connected via pipe. stdout/stderr use the writable
       // stream backing so handlers can write into them.
-      const ctx = {
+      const ctx: StreamCtx = {
         stdin: proc.stdinStream,
         stdout: proc.stdoutStream,
         stderr: proc.stderrStream,
         onSignal: (fn: (sig: string) => void) => proc.on('signal', fn),
         projectName: this.projectName,
         projectId: this.projectId,
-      } as any;
+        terminalColumns: this.terminalColumns,
+        terminalRows: this.terminalRows,
+      };
 
       // Normalizer for values written to stdout/stderr to avoid '[object Object]'
       const normalizeForWrite = (v: any) => {

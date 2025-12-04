@@ -521,6 +521,29 @@ export class ModuleLoader {
     const clearInterval = this.globals.clearInterval || globalThis.clearInterval;
     const global = this.globals.global || globalThis;
 
+    // Temporarily spoof navigator for supports-color browser.js detection
+    // supports-color checks globalThis.navigator.userAgentData and userAgent
+    // Without this, iOS Safari returns 0 (no color) because it doesn't match Chrome/Chromium
+    const originalNavigator = globalThis.navigator;
+    const spoofedNavigator = {
+      ...(originalNavigator || {}),
+      userAgent: 'Mozilla/5.0 Chrome/120.0.0.0',
+      userAgentData: {
+        brands: [{ brand: 'Chromium', version: 120 }], // version as number for > 93 comparison
+      },
+    };
+    
+    // Apply spoofed navigator to globalThis
+    try {
+      Object.defineProperty(globalThis, 'navigator', {
+        value: spoofedNavigator,
+        configurable: true,
+        writable: true,
+      });
+    } catch (e) {
+      // If we can't modify navigator, continue anyway
+    }
+
     // コードをラップして実行。console を受け取るようにして、モジュール内の
     // console.log 呼び出しがここで用意した sandboxConsole を使うようにする。
     // 同期実行のため async は削除
@@ -564,6 +587,17 @@ export class ModuleLoader {
       // This is especially useful for Prettier where some plugins may fail
       // but the core functionality might still work
       return module.exports || {};
+    } finally {
+      // Restore original navigator
+      try {
+        Object.defineProperty(globalThis, 'navigator', {
+          value: originalNavigator,
+          configurable: true,
+          writable: true,
+        });
+      } catch (e) {
+        // Ignore restoration errors
+      }
     }
   }
 

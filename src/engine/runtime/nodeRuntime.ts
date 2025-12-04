@@ -31,6 +31,10 @@ export interface ExecutionOptions {
     clear: () => void;
   };
   onInput?: (prompt: string, callback: (input: string) => void) => void;
+  /** Terminal columns (width). If not provided, defaults to 80. */
+  terminalColumns?: number;
+  /** Terminal rows (height). If not provided, defaults to 24. */
+  terminalRows?: number;
 }
 
 /**
@@ -44,6 +48,8 @@ export class NodeRuntime {
   private builtInModules: BuiltInModules;
   private moduleLoader: ModuleLoader;
   private projectDir: string;
+  private terminalColumns: number;
+  private terminalRows: number;
   
   // イベントループ追跡
   private activeTimers: Set<any> = new Set();
@@ -55,6 +61,8 @@ export class NodeRuntime {
     this.debugConsole = options.debugConsole;
     this.onInput = options.onInput;
     this.projectDir = `/projects/${this.projectName}`;
+    this.terminalColumns = options.terminalColumns ?? 80;
+    this.terminalRows = options.terminalRows ?? 24;
 
     // ビルトインモジュールの初期化（onInputを渡す）
     this.builtInModules = createBuiltInModules({
@@ -334,10 +342,26 @@ export class NodeRuntime {
       WeakSet,
 
       // Node.js グローバル
-      global: globalThis,
+      // Create a custom global with spoofed navigator for color support detection
+      // supports-color browser.js checks navigator.userAgent for Chromium
+      // Without this, iOS Safari returns 0 (no color) because it doesn't match Chrome/Chromium
+      global: {
+        ...globalThis,
+        navigator: {
+          ...(globalThis.navigator || {}),
+          userAgent: 'Mozilla/5.0 Chrome/120.0.0.0',
+          userAgentData: {
+            brands: [{ brand: 'Chromium', version: '120' }],
+          },
+        },
+      },
       process: {
         env: {
           LANG: 'en',
+          // chalk, colors, etc. color libraries check these environment variables
+          TERM: 'xterm-256color',
+          COLORTERM: 'truecolor',
+          FORCE_COLOR: '3', // Force color level 3 (truecolor)
         },
         argv: ['node', currentFilePath].concat(argv || []),
         cwd: () => this.projectDir,
@@ -366,6 +390,10 @@ export class NodeRuntime {
             return true;
           },
           isTTY: true,
+          columns: this.terminalColumns,
+          rows: this.terminalRows,
+          getColorDepth: () => 24, // 24-bit color (truecolor)
+          hasColors: (count?: number) => count === undefined || count <= 16777216,
         },
         stderr: {
           write: (data: string) => {
@@ -377,6 +405,10 @@ export class NodeRuntime {
             return true;
           },
           isTTY: true,
+          columns: this.terminalColumns,
+          rows: this.terminalRows,
+          getColorDepth: () => 24,
+          hasColors: (count?: number) => count === undefined || count <= 16777216,
         },
       },
       Buffer: this.builtInModules.Buffer,

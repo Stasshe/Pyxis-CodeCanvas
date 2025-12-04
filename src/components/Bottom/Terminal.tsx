@@ -12,6 +12,7 @@ import type { UnixCommands } from '@/engine/cmd/global/unix';
 import { handleGitCommand } from '@/engine/cmd/handlers/gitHandler';
 import { handleNPMCommand } from '@/engine/cmd/handlers/npmHandler';
 import { handlePyxisCommand } from '@/engine/cmd/handlers/pyxisHandler';
+import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import { handleVimCommand } from '@/engine/cmd/vim';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
@@ -265,11 +266,15 @@ function ClientTerminal({
     // サイズを調整
     setTimeout(() => {
       fitAddon.fit();
+      // Update shell terminal size after fit
+      terminalCommandRegistry.updateShellSize(currentProjectId, term.cols, term.rows);
       setTimeout(() => {
         term.scrollToBottom();
         setTimeout(() => {
           fitAddon.fit();
           term.scrollToBottom();
+          // Update shell terminal size again after second fit
+          terminalCommandRegistry.updateShellSize(currentProjectId, term.cols, term.rows);
         }, 100);
       }, 50);
     }, 100);
@@ -933,6 +938,14 @@ function ClientTerminal({
     if (fitAddonRef.current && xtermRef.current) {
       setTimeout(() => {
         fitAddonRef.current?.fit();
+        // Update shell terminal size after resize
+        if (currentProjectId && xtermRef.current) {
+          terminalCommandRegistry.updateShellSize(
+            currentProjectId, 
+            xtermRef.current?.cols ?? 80, 
+            xtermRef.current?.rows ?? 24
+          );
+        }
         setTimeout(() => {
           xtermRef.current?.scrollToBottom();
         }, 100);
