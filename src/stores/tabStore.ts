@@ -2,7 +2,7 @@
 import { create } from 'zustand';
 
 import { tabRegistry } from '@/engine/tabs/TabRegistry';
-import { EditorPane, Tab, OpenTabOptions } from '@/engine/tabs/types';
+import { EditorPane, Tab, OpenTabOptions, DiffTab } from '@/engine/tabs/types';
 
 interface TabStore {
   // ペイン管理
@@ -573,11 +573,11 @@ export const useTabStore = create<TabStore>((set, get) => ({
           }
           
           // diffタブはコンテンツを空にする
-          if (tab.kind === 'diff' && 'diffs' in tab) {
-            const diffTab = tab as any;
+          if (tab.kind === 'diff') {
+            const diffTab = tab as DiffTab;
             return {
               ...diffTab,
-              diffs: diffTab.diffs.map((diff: any) => ({
+              diffs: diffTab.diffs.map(diff => ({
                 ...diff,
                 latterContent: '',
               })),
@@ -596,7 +596,6 @@ export const useTabStore = create<TabStore>((set, get) => ({
     
     // editor/previewタブを閉じる
     for (const { paneId, tabId } of tabsToClose) {
-      console.log('[TabStore] Closing tab:', tabId);
       get().closeTab(paneId, tabId);
     }
   },
