@@ -16,6 +16,7 @@ import { useDrag, useDrop } from 'react-dnd';
 import { TabIcon } from './TabIcon';
 import { useTabCloseConfirmation } from './useTabCloseConfirmation';
 
+import { DND_TAB } from '@/constants/dndTypes';
 import { useFileSelector } from '@/context/FileSelectorContext';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -60,10 +61,15 @@ export default function TabBar({ paneId }: TabBarProps) {
     y: number;
   }>({ isOpen: false, tabId: '', x: 0, y: 0 });
   const tabContextMenuRef = useRef<HTMLDivElement>(null);
+  
+  // タッチデバイス用のRef（useEffectの前に定義）
+  const touchTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
+  const isDraggingRef = useRef<boolean>(false);
 
-  // メニュー外クリックで閉じる
+  // メニュー外クリック/タッチで閉じる
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
+    function handleClickOutside(event: MouseEvent | TouchEvent) {
       if (menuOpen && menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setMenuOpen(false);
       }
@@ -76,8 +82,10 @@ export default function TabBar({ paneId }: TabBarProps) {
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
     };
   }, [menuOpen, tabContextMenu.isOpen]);
 
@@ -95,11 +103,6 @@ export default function TabBar({ paneId }: TabBarProps) {
   tabs.forEach(tab => {
     nameCount[tab.name] = (nameCount[tab.name] || 0) + 1;
   });
-
-  // タブクリックハンドラ
-  const handleTabClick = (tabId: string) => {
-    activateTab(paneId, tabId);
-  };
 
   // タブ閉じるハンドラ
   const handleTabClose = (tabId: string) => {
@@ -133,7 +136,7 @@ export default function TabBar({ paneId }: TabBarProps) {
     setTabContextMenu({ isOpen: false, tabId: '', x: 0, y: 0 });
   };
 
-  // タブ右クリックハンドラ
+  // タブ右クリックハンドラ（デスクトップ用）
   const handleTabRightClick = (e: React.MouseEvent, tabId: string) => {
     e.preventDefault();
     e.stopPropagation();
@@ -145,40 +148,67 @@ export default function TabBar({ paneId }: TabBarProps) {
     });
   };
 
-  // タッチデバイス用の長押しハンドラ
-  const touchTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
-
+  // タッチ開始 - 長押し検出のためのタイマー開始
   const handleTouchStart = (e: React.TouchEvent, tabId: string) => {
     const touch = e.touches[0];
     touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
-
+    isDraggingRef.current = false;
+    
+    // 長押し後にD&Dモードに入る（ここでは視覚的なフィードバックのみ）
+    // 実際のD&Dはreact-dndが処理
     touchTimerRef.current = setTimeout(() => {
-      if (touchStartPosRef.current) {
-        setTabContextMenu({
-          isOpen: true,
-          tabId,
-          x: touchStartPosRef.current.x,
-          y: touchStartPosRef.current.y,
-        });
-      }
-    }, 500); // 500ms長押し
+      isDraggingRef.current = true;
+      // 長押しが完了したら、タブを選択してD&D準備完了
+      activateTab(paneId, tabId);
+    }, 300); // 300ms長押しでD&Dモード
   };
 
-  const handleTouchEnd = () => {
+  const handleTouchEnd = (e: React.TouchEvent, tabId: string) => {
     if (touchTimerRef.current) {
       clearTimeout(touchTimerRef.current);
       touchTimerRef.current = null;
     }
+    
+    // 長押し中でなければ、タップとして扱いコンテキストメニューを表示
+    if (!isDraggingRef.current && touchStartPosRef.current) {
+      e.preventDefault();
+      setTabContextMenu({
+        isOpen: true,
+        tabId,
+        x: touchStartPosRef.current.x,
+        y: touchStartPosRef.current.y,
+      });
+    }
+    
     touchStartPosRef.current = null;
+    isDraggingRef.current = false;
   };
 
   const handleTouchMove = () => {
-    // タッチ移動時は長押しをキャンセル
+    // タッチ移動時は長押しタイマーをキャンセル
     if (touchTimerRef.current) {
       clearTimeout(touchTimerRef.current);
       touchTimerRef.current = null;
     }
+  };
+
+  // クリックハンドラ - デスクトップではクリックでコンテキストメニュー表示
+  // 閉じるボタンがクリックされた場合はメニューを表示しない
+  const handleTabClick = (e: React.MouseEvent, tabId: string) => {
+    // Check if the click was on or inside a close button (using data attribute)
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-close-button]')) {
+      // Don't show context menu when clicking close button or its children
+      return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    setTabContextMenu({
+      isOpen: true,
+      tabId,
+      x: e.clientX,
+      y: e.clientY,
+    });
   };
 
   // ショートカットキーの登録
@@ -208,8 +238,8 @@ export default function TabBar({ paneId }: TabBarProps) {
     // Drag source
     const [{ isDragging }, dragRef] = useDrag(
       () => ({
-        type: 'TAB',
-        item: { tabId: tab.id, fromPaneId: paneId, index: tabIndex },
+        type: DND_TAB,
+        item: { type: DND_TAB, tabId: tab.id, fromPaneId: paneId, index: tabIndex },
         collect: (monitor: any) => ({
           isDragging: monitor.isDragging(),
         }),
@@ -220,7 +250,7 @@ export default function TabBar({ paneId }: TabBarProps) {
     // Drop target on each tab
     const [{ isOver }, tabDrop] = useDrop(
       () => ({
-        accept: 'TAB',
+        accept: DND_TAB,
         drop: (item: any, monitor: any) => {
           if (!item || !item.tabId) return;
           if (monitor && typeof monitor.isOver === 'function' && !monitor.isOver({ shallow: true })) return;
@@ -286,7 +316,7 @@ export default function TabBar({ paneId }: TabBarProps) {
       <div
         key={tab.id}
         ref={ref}
-        className={`h-full px-3 flex items-center gap-2 flex-shrink-0 border-r relative ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+        className={`h-full px-3 flex items-center gap-2 flex-shrink-0 border-r relative ${isDragging ? 'cursor-grabbing' : 'cursor-pointer'}`}
         style={{
           background: isActive ? colors.background : colors.mutedBg,
           borderColor: colors.border,
@@ -294,10 +324,10 @@ export default function TabBar({ paneId }: TabBarProps) {
           maxWidth: '200px',
           opacity,
         }}
-        onClick={() => handleTabClick(tab.id)}
+        onClick={e => handleTabClick(e, tab.id)}
         onContextMenu={e => handleTabRightClick(e, tab.id)}
         onTouchStart={e => handleTouchStart(e, tab.id)}
-        onTouchEnd={handleTouchEnd}
+        onTouchEnd={e => handleTouchEnd(e, tab.id)}
         onTouchMove={handleTouchMove}
       >
         {/* Insertion Indicator */}
@@ -328,8 +358,10 @@ export default function TabBar({ paneId }: TabBarProps) {
         <span className="text-sm truncate flex-1" style={{ color: colors.foreground }} title={displayName}>
           {displayName}
         </span>
+        
         {(tab as any).isDirty ? (
           <button
+            data-close-button="true"
             className="hover:bg-accent rounded p-0.5 flex items-center justify-center"
             onClick={e => {
               e.stopPropagation();
@@ -341,6 +373,7 @@ export default function TabBar({ paneId }: TabBarProps) {
           </button>
         ) : (
           <button
+            data-close-button="true"
             className="hover:bg-accent rounded p-0.5"
             onClick={e => {
               e.stopPropagation();
@@ -478,7 +511,7 @@ export default function TabBar({ paneId }: TabBarProps) {
   // コンテナ自体もドロップ可能（末尾に追加）
   const [, containerDrop] = useDrop(
     () => ({
-      accept: 'TAB',
+      accept: DND_TAB,
       drop: (item: any, monitor: any) => {
         if (!item || !item.tabId) return;
         // ドロップ先はこのペインの末尾

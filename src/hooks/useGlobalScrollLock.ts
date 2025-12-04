@@ -41,6 +41,15 @@ export function useGlobalScrollLock() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
+    // Helper to safely get className as string (handles SVG elements where className is SVGAnimatedString)
+    const getClassName = (el: Element): string => {
+      if (typeof el.className === 'string') {
+        return el.className;
+      }
+      // For SVG elements, className is SVGAnimatedString with baseVal property
+      return (el.className as unknown as { baseVal?: string })?.baseVal || '';
+    };
+
     const isScrollable = (el: Element | null) => {
       let elCur: Element | null = el;
       while (elCur && elCur !== document.documentElement) {
@@ -93,7 +102,7 @@ export function useGlobalScrollLock() {
       const isFromEditor = (el: Element | null) => {
         let cur = el;
         while (cur && cur !== document.documentElement) {
-          const cls = (cur.className || '') as string;
+          const cls = getClassName(cur);
           const id = (cur.id || '') as string;
           const role = cur.getAttribute && cur.getAttribute('role');
           if (
@@ -123,7 +132,7 @@ export function useGlobalScrollLock() {
     const isFromEditor = (el: Element | null) => {
       let cur = el;
       while (cur && cur !== document.documentElement) {
-        const cls = (cur.className || '') as string;
+        const cls = getClassName(cur);
         const id = (cur.id || '') as string;
         const role = cur.getAttribute && cur.getAttribute('role');
         if (
@@ -153,7 +162,7 @@ export function useGlobalScrollLock() {
       // allow editors/minimap to handle touch scrolls
       let cur = target;
       while (cur && cur !== document.documentElement) {
-        const cls = (cur.className || '') as string;
+        const cls = getClassName(cur);
         const id = (cur.id || '') as string;
         if (cls.includes('monaco') || cls.includes('minimap') || id.includes('monaco')) {
           return;
