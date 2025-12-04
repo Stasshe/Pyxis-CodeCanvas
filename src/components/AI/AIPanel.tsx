@@ -478,22 +478,25 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
             if (!projectId) return;
             if (message.type !== 'assistant' || message.mode !== 'edit' || !message.editResponse) return;
 
-            const { getAIReviewEntry, updateAIReviewEntry, clearAIReviewEntry } = await import('@/engine/storage/aiStorageAdapter');
+            const { clearAIReviewEntry } = await import('@/engine/storage/aiStorageAdapter');
 
             // 1. このメッセージ以降の全メッセージを削除（このメッセージ含む）
             const deletedMessages = await revertToMessage(message.id);
             
             // 2. 削除されたメッセージの中から、editResponseを持つものを全て処理
-            //    各ファイルを元の状態に戻す
-            for (const deletedMsg of deletedMessages) {
+            //    editResponse.changedFilesに含まれるoriginalContentを使ってファイルを復元
+            //    逆順で処理することで、最新の変更から順に元に戻す
+            const reversedMessages = [...deletedMessages].reverse();
+            
+            for (const deletedMsg of reversedMessages) {
               if (deletedMsg.type === 'assistant' && deletedMsg.mode === 'edit' && deletedMsg.editResponse) {
                 const files = deletedMsg.editResponse.changedFiles || [];
                 for (const f of files) {
                   try {
-                    const entry = await getAIReviewEntry(projectId, f.path);
-                    if (entry && entry.originalSnapshot) {
-                      // ファイルを元の状態に戻す
-                      await fileRepository.saveFileByPath(projectId, f.path, entry.originalSnapshot);
+                    // editResponse内のoriginalContentを直接使用してファイルを復元
+                    if (f.originalContent !== undefined) {
+                      await fileRepository.saveFileByPath(projectId, f.path, f.originalContent);
+                      console.log('[AIPanel] Reverted file:', f.path);
                       
                       // AIレビューエントリをクリア
                       try {
