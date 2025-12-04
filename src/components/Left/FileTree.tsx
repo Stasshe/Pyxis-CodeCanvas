@@ -93,39 +93,43 @@ function FileTreeItem({
     () => ({
       accept: DND_FILE_TREE_ITEM,
       canDrop: (dragItem: DragItem, monitor) => {
-        const canDropResult = (() => {
-          // フォルダでない場合はドロップ不可
-          if (item.type !== 'folder') return false;
-          // 自分自身へのドロップは不可
-          if (dragItem.item.id === item.id) return false;
-          // ドラッグアイテム（フォルダ）を自分の子孫にドロップしようとしている場合は不可
-          // 例：/folder1 を /folder1/subfolder にドロップしようとしている場合
-          if (item.path.startsWith(dragItem.item.path + '/')) return false;
-          // ドラッグアイテムの親フォルダにドロップしようとしている場合は不可（移動しても意味がない）
-          const draggedParent = dragItem.item.path.substring(0, dragItem.item.path.lastIndexOf('/')) || '/';
-          if (draggedParent === item.path) return false;
-          return true;
-        })();
-        console.log('[FileTreeItem] canDrop check', { 
-          targetPath: item.path, 
-          targetType: item.type,
-          draggedPath: dragItem.item.path,
-          canDropResult 
-        });
-        return canDropResult;
+        // フォルダでない場合はドロップ不可
+        if (item.type !== 'folder') return false;
+        // 自分自身へのドロップは不可
+        if (dragItem.item.id === item.id) return false;
+        // ドラッグアイテム（フォルダ）を自分の子孫にドロップしようとしている場合は不可
+        if (item.path.startsWith(dragItem.item.path + '/')) return false;
+        // ドラッグアイテムの親フォルダにドロップしようとしている場合は不可
+        const draggedParent = dragItem.item.path.substring(0, dragItem.item.path.lastIndexOf('/')) || '/';
+        if (draggedParent === item.path) return false;
+        return true;
+      },
+      hover: (dragItem: DragItem, monitor) => {
+        // ホバー中のログ（デバッグ用、頻繁に呼ばれるので条件付き）
+        if (monitor.isOver({ shallow: true }) && item.type === 'folder') {
+          // 最小限のログのみ
+        }
       },
       drop: (dragItem: DragItem, monitor) => {
+        console.log('[FileTreeItem] DROP EVENT FIRED', { 
+          targetPath: item.path,
+          didDrop: monitor.didDrop(),
+          isOver: monitor.isOver({ shallow: true })
+        });
+        
         // 子要素が既にドロップを処理した場合はスキップ
         if (monitor.didDrop()) {
           console.log('[FileTreeItem] drop skipped - already handled by child');
           return;
         }
-        console.log('[FileTreeItem] drop called', { 
+        
+        console.log('[FileTreeItem] Processing drop', { 
           draggedItem: dragItem.item, 
           targetPath: item.path, 
           targetType: item.type, 
           hasHandler: !!onInternalFileDrop 
         });
+        
         if (onInternalFileDrop && item.type === 'folder') {
           console.log('[FileTreeItem] Calling onInternalFileDrop');
           onInternalFileDrop(dragItem.item, item.path);
@@ -142,11 +146,11 @@ function FileTreeItem({
   );
 
   // ドラッグとドロップのrefを結合
-  // react-dndではdragとdropを同じ要素に適用する場合、ref関数を組み合わせる
-  const dragDropRef = useRef<HTMLDivElement>(null);
-  
-  // dragとdropを結合
-  drag(drop(dragDropRef));
+  // コールバックrefを使用して両方のコネクタを適用
+  const attachRef = (el: HTMLDivElement | null) => {
+    drag(el);
+    drop(el);
+  };
 
   // ドロップインジケーターの更新
   useEffect(() => {
@@ -156,7 +160,7 @@ function FileTreeItem({
   return (
     <div>
       <div
-        ref={dragDropRef}
+        ref={attachRef}
         style={{
           display: 'flex',
           alignItems: 'center',
