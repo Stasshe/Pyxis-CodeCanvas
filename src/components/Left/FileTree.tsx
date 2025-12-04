@@ -93,24 +93,46 @@ function FileTreeItem({
   const [{ isOver, canDrop }, drop] = useDrop(
     () => ({
       accept: DND_FILE_TREE_ITEM,
-      canDrop: (dragItem: DragItem) => {
-        // フォルダでない場合はドロップ不可
-        if (item.type !== 'folder') return false;
-        // 自分自身へのドロップは不可
-        if (dragItem.item.id === item.id) return false;
-        // ドラッグアイテム（フォルダ）を自分の子孫にドロップしようとしている場合は不可
-        // 例：/folder1 を /folder1/subfolder にドロップしようとしている場合
-        if (item.path.startsWith(dragItem.item.path + '/')) return false;
-        // ドラッグアイテムの親フォルダにドロップしようとしている場合は不可（移動しても意味がない）
-        const draggedParent = dragItem.item.path.substring(0, dragItem.item.path.lastIndexOf('/')) || '/';
-        if (draggedParent === item.path) return false;
-        return true;
+      canDrop: (dragItem: DragItem, monitor) => {
+        const canDropResult = (() => {
+          // フォルダでない場合はドロップ不可
+          if (item.type !== 'folder') return false;
+          // 自分自身へのドロップは不可
+          if (dragItem.item.id === item.id) return false;
+          // ドラッグアイテム（フォルダ）を自分の子孫にドロップしようとしている場合は不可
+          // 例：/folder1 を /folder1/subfolder にドロップしようとしている場合
+          if (item.path.startsWith(dragItem.item.path + '/')) return false;
+          // ドラッグアイテムの親フォルダにドロップしようとしている場合は不可（移動しても意味がない）
+          const draggedParent = dragItem.item.path.substring(0, dragItem.item.path.lastIndexOf('/')) || '/';
+          if (draggedParent === item.path) return false;
+          return true;
+        })();
+        console.log('[FileTreeItem] canDrop check', { 
+          targetPath: item.path, 
+          targetType: item.type,
+          draggedPath: dragItem.item.path,
+          canDropResult 
+        });
+        return canDropResult;
       },
-      drop: (dragItem: DragItem) => {
-        console.log('[FileTreeItem] drop called', { dragItem, targetPath: item.path, itemType: item.type, hasHandler: !!onInternalFileDrop });
-        if (onInternalFileDrop && item.type === 'folder') {
-          onInternalFileDrop(dragItem.item, item.path);
+      drop: (dragItem: DragItem, monitor) => {
+        // 子要素が既にドロップを処理した場合はスキップ
+        if (monitor.didDrop()) {
+          console.log('[FileTreeItem] drop skipped - already handled by child');
+          return;
         }
+        console.log('[FileTreeItem] drop called', { 
+          draggedItem: dragItem.item, 
+          targetPath: item.path, 
+          targetType: item.type, 
+          hasHandler: !!onInternalFileDrop 
+        });
+        if (onInternalFileDrop && item.type === 'folder') {
+          console.log('[FileTreeItem] Calling onInternalFileDrop');
+          onInternalFileDrop(dragItem.item, item.path);
+          return { handled: true };
+        }
+        return undefined;
       },
       collect: (monitor) => ({
         isOver: monitor.isOver({ shallow: true }),
@@ -547,10 +569,21 @@ export default function FileTree({
   // react-dnd: ファイル/フォルダをドロップターゲットに移動する
   // propsから渡されている場合はそれを使用、そうでなければ自前のハンドラーを使用
   const internalDropHandler = onInternalFileDrop ?? (async (draggedItem: FileItem, targetFolderPath: string) => {
-    console.log('[FileTree] internalDropHandler called', { draggedItem, targetFolderPath, currentProjectId, currentProjectName });
+    console.log('[FileTree] ============================================');
+    console.log('[FileTree] internalDropHandler called');
+    console.log('[FileTree] draggedItem:', JSON.stringify(draggedItem, null, 2));
+    console.log('[FileTree] targetFolderPath:', targetFolderPath);
+    console.log('[FileTree] currentProjectId:', currentProjectId);
+    console.log('[FileTree] currentProjectName:', currentProjectName);
+    console.log('[FileTree] ============================================');
     
     if (!currentProjectId) {
-      console.warn('[FileTree] No currentProjectId, cannot move file');
+      console.error('[FileTree] ERROR: No currentProjectId, cannot move file');
+      return;
+    }
+    
+    if (!currentProjectName) {
+      console.error('[FileTree] ERROR: No currentProjectName, cannot move file');
       return;
     }
     
@@ -567,15 +600,19 @@ export default function FileTree({
     }
     
     try {
+      console.log('[FileTree] Getting unix commands...');
       const unix = terminalCommandRegistry.getUnixCommands(
         currentProjectName,
         currentProjectId
       );
+      console.log('[FileTree] Got unix commands:', !!unix);
       
       const oldPath = `/projects/${currentProjectName}${draggedItem.path}`;
       const newPath = `/projects/${currentProjectName}${targetFolderPath}/`;
       
-      console.log('[FileTree] Moving file/folder:', { oldPath, newPath });
+      console.log('[FileTree] Moving file/folder:');
+      console.log('[FileTree]   oldPath:', oldPath);
+      console.log('[FileTree]   newPath:', newPath);
       
       // mvコマンドを使用（ファイルもフォルダも正しく移動できる）
       const result = await unix.mv(oldPath, newPath);
