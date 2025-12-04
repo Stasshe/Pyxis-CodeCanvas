@@ -40,8 +40,9 @@ interface TabContextMenuState {
 
 /**
  * TabBar: 完全に自律的なタブバーコンポーネント
- * - タブのクリック = タブをアクティブにする
- * - タブの右クリック/長押し = コンテキストメニューを表示
+ * - タブのクリック/タップ = タブをアクティブにする
+ * - タブのドラッグ = DnD（PCとモバイル両対応、react-dndが処理）
+ * - タブの右クリック = コンテキストメニューを表示（PCのみ）
  * - メニューはタブの真下に固定表示
  */
 export default function TabBar({ paneId }: TabBarProps) {
@@ -70,10 +71,6 @@ export default function TabBar({ paneId }: TabBarProps) {
     tabRect: null,
   });
   const tabContextMenuRef = useRef<HTMLDivElement>(null);
-
-  // タッチ検出用
-  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
-  const isLongPressRef = useRef(false);
 
   // メニュー外クリックで閉じる
   useEffect(() => {
@@ -150,44 +147,12 @@ export default function TabBar({ paneId }: TabBarProps) {
     activateTab(paneId, tabId);
   }, [activateTab, paneId]);
 
-  // タブ右クリック = コンテキストメニューを表示
+  // タブ右クリック = コンテキストメニューを表示（PCのみ）
   const handleTabRightClick = useCallback((e: React.MouseEvent, tabId: string, tabElement: HTMLElement) => {
     e.preventDefault();
     e.stopPropagation();
     openTabContextMenu(tabId, tabElement);
   }, [openTabContextMenu]);
-
-  // タッチ開始 = タッチ位置を記録
-  const handleTouchStart = useCallback((e: React.TouchEvent, tabId: string, tabElement: HTMLElement) => {
-    const touch = e.touches[0];
-    touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
-    isLongPressRef.current = false;
-  }, []);
-
-  // タッチ終了 = タップでコンテキストメニュー表示
-  const handleTouchEnd = useCallback((e: React.TouchEvent, tabId: string, tabElement: HTMLElement) => {
-    const target = e.target as HTMLElement;
-    
-    // 閉じるボタンがタップされた場合は無視
-    if (target.closest('[data-close-button]')) {
-      touchStartPosRef.current = null;
-      return;
-    }
-
-    // タップ（短いタッチ）でコンテキストメニューを表示
-    if (touchStartPosRef.current) {
-      e.preventDefault();
-      openTabContextMenu(tabId, tabElement);
-    }
-
-    touchStartPosRef.current = null;
-    isLongPressRef.current = false;
-  }, [openTabContextMenu]);
-
-  // タッチ移動 = タップキャンセル
-  const handleTouchMove = useCallback(() => {
-    touchStartPosRef.current = null;
-  }, []);
 
   // ショートカットキー
   useKeyBinding('newTab', handleAddTab, [paneId]);
@@ -350,13 +315,6 @@ export default function TabBar({ paneId }: TabBarProps) {
         onContextMenu={e => {
           if (ref.current) handleTabRightClick(e, tab.id, ref.current);
         }}
-        onTouchStart={e => {
-          if (ref.current) handleTouchStart(e, tab.id, ref.current);
-        }}
-        onTouchEnd={e => {
-          if (ref.current) handleTouchEnd(e, tab.id, ref.current);
-        }}
-        onTouchMove={handleTouchMove}
       >
         {/* ドロップインジケーター */}
         {isOver && dragOverSide === 'left' && (

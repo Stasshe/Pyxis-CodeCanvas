@@ -135,13 +135,15 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
 
   // Preprocess the raw markdown to convert bracket-style math delimiters
   // into dollar-style, while skipping code fences and inline code.
+  // For 'bracket' mode: escape dollar signs so they don't get processed as math
   const processedContent = useMemo(() => {
     // Use editor tab content for real-time updates, otherwise fall back to preview tab content
     const src = contentSource;
     const delimiter = settings?.markdown?.math?.delimiter || 'dollar';
     if (delimiter === 'dollar') return src;
 
-    const convertInNonCode = (text: string): string => {
+    // Helper: process text while preserving code blocks
+    const processNonCode = (text: string, processFn: (segment: string) => string): string => {
       // Split by code fences and keep them intact
       return text
         .split(/(```[\s\S]*?```)/g)
@@ -152,18 +154,44 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
             .split(/(`[^`]*`)/g)
             .map(seg => {
               if (/^`/.test(seg)) return seg; // inline code
-              // replace bracket delimiters with dollar
-              return seg
-                .replace(/\\\(([\s\S]+?)\\\)/g, (_m, g: string) => '$' + g + '$')
-                .replace(/\\\[([\s\S]+?)\\\]/g, (_m, g: string) => '$$' + g + '$$');
+              return processFn(seg);
             })
             .join('');
         })
         .join('');
     };
 
-    if (delimiter === 'bracket' || delimiter === 'both') {
-      return convertInNonCode(src);
+    if (delimiter === 'bracket') {
+      // 'bracket' mode: 
+      // 1. First, escape existing dollar signs to prevent remark-math from processing them
+      // 2. Then, convert bracket delimiters to dollar style
+      let result = processNonCode(src, (seg) => {
+        // Escape $$ first (display math), then $ (inline math)
+        // Use a placeholder that won't appear in normal text
+        return seg
+          .replace(/\$\$/g, '\u0000DOUBLE_DOLLAR\u0000')
+          .replace(/\$/g, '\u0000SINGLE_DOLLAR\u0000');
+      });
+      // Convert bracket delimiters to dollar style
+      result = processNonCode(result, (seg) => {
+        return seg
+          .replace(/\\\(([\s\S]+?)\\\)/g, (_m, g: string) => '$' + g + '$')
+          .replace(/\\\[([\s\S]+?)\\\]/g, (_m, g: string) => '$$' + g + '$$');
+      });
+      // Restore escaped dollar signs as literal text (not math)
+      result = result
+        .replace(/\u0000DOUBLE_DOLLAR\u0000/g, '\\$\\$')
+        .replace(/\u0000SINGLE_DOLLAR\u0000/g, '\\$');
+      return result;
+    }
+
+    if (delimiter === 'both') {
+      // 'both' mode: convert bracket delimiters to dollar style (dollars also work)
+      return processNonCode(src, (seg) => {
+        return seg
+          .replace(/\\\(([\s\S]+?)\\\)/g, (_m, g: string) => '$' + g + '$')
+          .replace(/\\\[([\s\S]+?)\\\]/g, (_m, g: string) => '$$' + g + '$$');
+      });
     }
 
     return src;
