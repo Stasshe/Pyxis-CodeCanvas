@@ -564,24 +564,28 @@ export const useTabStore = create<TabStore>((set, get) => ({
         // リーフペイン
         const newTabs = pane.tabs.map((tab: Tab) => {
           const tabPath = normalizePath(tab.path);
-          if (tabPath !== normalizedDeletedPath) return tab;
           
           // editor/previewは閉じる対象として記録
-          if (tab.kind === 'editor' || tab.kind === 'preview') {
+          if ((tab.kind === 'editor' || tab.kind === 'preview') && tabPath === normalizedDeletedPath) {
             tabsToClose.push({ paneId: pane.id, tabId: tab.id });
             return tab;
           }
           
-          // diffタブはコンテンツを空にする
+          // diffタブは個々のdiffエントリのパスをチェックしてコンテンツを空にする
           if (tab.kind === 'diff') {
             const diffTab = tab as DiffTab;
-            return {
-              ...diffTab,
-              diffs: diffTab.diffs.map(diff => ({
-                ...diff,
-                latterContent: '',
-              })),
-            };
+            const updatedDiffs = diffTab.diffs.map(diff => {
+              const diffPath = normalizePath(diff.latterFullPath);
+              if (diffPath === normalizedDeletedPath) {
+                return { ...diff, latterContent: '' };
+              }
+              return diff;
+            });
+            // 変更があった場合のみ新しいオブジェクトを返す
+            const hasChanges = updatedDiffs.some((d, i) => d !== diffTab.diffs[i]);
+            if (hasChanges) {
+              return { ...diffTab, diffs: updatedDiffs };
+            }
           }
           
           return tab;
