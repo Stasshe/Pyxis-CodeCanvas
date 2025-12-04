@@ -1,7 +1,6 @@
 import { ChevronDown, ChevronRight, GripVertical } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
-import { getEmptyImage } from 'react-dnd-html5-backend';
 import { getIconForFile, getIconForFolder, getIconForOpenFolder } from 'vscode-icons-js';
 
 import { DND_FILE_TREE_ITEM, FileTreeDragItem } from '@/constants/dndTypes';
@@ -77,8 +76,6 @@ function FileTreeItem({
 }: FileTreeItemProps) {
   const [dropIndicator, setDropIndicator] = useState<boolean>(false);
   const [isTouchDevice, setIsTouchDevice] = useState<boolean>(false);
-  const grabHandleRef = useRef<HTMLDivElement>(null);
-  const rowRef = useRef<HTMLDivElement>(null);
 
   // Check if it's a touch device
   useEffect(() => {
@@ -94,24 +91,26 @@ function FileTreeItem({
     return () => window.removeEventListener('resize', checkTouchDevice);
   }, []);
 
-  // ドラッグソース
+  // ドラッグソース - with proper item structure and debugging
   const [{ isDragging }, drag, preview] = useDrag(
     () => ({
       type: DND_FILE_TREE_ITEM,
-      item: { type: DND_FILE_TREE_ITEM, item },
+      item: () => {
+        console.log('[FileTreeItem] DRAG START', { item: item.name, path: item.path });
+        return { type: DND_FILE_TREE_ITEM, item };
+      },
       collect: (monitor) => ({
         isDragging: monitor.isDragging(),
       }),
+      end: (draggedItem, monitor) => {
+        console.log('[FileTreeItem] DRAG END', { 
+          didDrop: monitor.didDrop(),
+          dropResult: monitor.getDropResult()
+        });
+      },
     }),
     [item]
   );
-
-  // Hide the default drag preview on touch devices (use custom preview)
-  useEffect(() => {
-    if (isTouchDevice) {
-      preview(getEmptyImage(), { captureDraggingState: true });
-    }
-  }, [preview, isTouchDevice]);
 
   // ドロップターゲット（フォルダのみ）
   const [{ isOver, canDrop }, drop] = useDrop(
@@ -130,30 +129,23 @@ function FileTreeItem({
         return true;
       },
       hover: (dragItem: DragItem, monitor) => {
-        // ホバー中のログ（デバッグ用、頻繁に呼ばれるので条件付き）
         if (monitor.isOver({ shallow: true }) && item.type === 'folder') {
-          // 最小限のログのみ
+          // Hover feedback is handled by dropIndicator state
         }
       },
       drop: (dragItem: DragItem, monitor) => {
-        console.log('[FileTreeItem] DROP EVENT FIRED', { 
-          targetPath: item.path,
+        console.log('[FileTreeItem] DROP EVENT', { 
+          target: item.path,
+          dragged: dragItem.item.path,
           didDrop: monitor.didDrop(),
           isOver: monitor.isOver({ shallow: true })
         });
         
         // 子要素が既にドロップを処理した場合はスキップ
         if (monitor.didDrop()) {
-          console.log('[FileTreeItem] drop skipped - already handled by child');
+          console.log('[FileTreeItem] Skipped - handled by child');
           return;
         }
-        
-        console.log('[FileTreeItem] Processing drop', { 
-          draggedItem: dragItem.item, 
-          targetPath: item.path, 
-          targetType: item.type, 
-          hasHandler: !!onInternalFileDrop 
-        });
         
         if (onInternalFileDrop && item.type === 'folder') {
           console.log('[FileTreeItem] Calling onInternalFileDrop');
@@ -170,20 +162,22 @@ function FileTreeItem({
     [item, onInternalFileDrop]
   );
 
-  // Attach drop to the row, and drag to either the whole row (desktop) or just the handle (touch)
-  useEffect(() => {
-    if (rowRef.current) {
-      drop(rowRef.current);
-      // On desktop, entire row is draggable
-      if (!isTouchDevice) {
-        drag(rowRef.current);
-      }
+  // Combine drag and drop refs using callback ref pattern
+  const attachRef = (el: HTMLDivElement | null) => {
+    // Always attach drop to the row
+    drop(el);
+    // On desktop, entire row is draggable
+    if (!isTouchDevice) {
+      drag(el);
     }
-    // On touch devices, only the grab handle is draggable
-    if (isTouchDevice && grabHandleRef.current) {
-      drag(grabHandleRef.current);
+  };
+
+  // Ref for grab handle on touch devices
+  const grabHandleRef = (el: HTMLDivElement | null) => {
+    if (isTouchDevice && el) {
+      drag(el);
     }
-  }, [drag, drop, isTouchDevice]);
+  };
 
   // ドロップインジケーターの更新
   useEffect(() => {
@@ -193,7 +187,7 @@ function FileTreeItem({
   return (
     <div>
       <div
-        ref={rowRef}
+        ref={attachRef}
         style={{
           display: 'flex',
           alignItems: 'center',
