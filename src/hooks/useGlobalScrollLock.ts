@@ -91,28 +91,6 @@ export function useGlobalScrollLock() {
       return false;
     };
 
-    // Check if element or ancestors are involved in drag-and-drop operations
-    const isDndElement = (el: Element | null) => {
-      let cur = el;
-      while (cur && cur !== document.documentElement) {
-        // Check for react-dnd or native draggable elements
-        if (cur.getAttribute && (
-          cur.getAttribute('draggable') === 'true' ||
-          cur.getAttribute('data-dnd') ||
-          cur.getAttribute('data-handler-id') // react-dnd internal attribute
-        )) {
-          return true;
-        }
-        // Check for common DnD-related classnames
-        const cls = getClassName(cur);
-        if (cls.includes('draggable') || cls.includes('dnd') || cls.includes('drag')) {
-          return true;
-        }
-        cur = cur.parentElement;
-      }
-      return false;
-    };
-
     const wheelHandler = (e: WheelEvent) => {
       // If another handler already called preventDefault, don't interfere.
       if (e.defaultPrevented) return;
@@ -144,9 +122,6 @@ export function useGlobalScrollLock() {
       };
 
       if (isFromEditor(target)) return; // allow editor to handle its own scrolls
-
-      // Allow DnD operations
-      if (isDndElement(target)) return;
 
       if (!isScrollable(target) && !isSelectable(target)) {
         e.preventDefault();
@@ -180,7 +155,6 @@ export function useGlobalScrollLock() {
     const touchStart = (e: TouchEvent) => {
       touchStartY = e.touches?.[0]?.clientY || 0;
     };
-
     const touchMove = (e: TouchEvent) => {
       if (e.defaultPrevented) return;
       const target = e.target as Element | null;
@@ -194,11 +168,6 @@ export function useGlobalScrollLock() {
           return;
         }
         cur = cur.parentElement;
-      }
-
-      // Allow DnD operations
-      if (isDndElement(target)) {
-        return;
       }
 
       if (!isScrollable(target) && !isSelectable(target)) {

@@ -16,13 +16,12 @@ import { useDrag, useDrop } from 'react-dnd';
 import { TabIcon } from './TabIcon';
 import { useTabCloseConfirmation } from './useTabCloseConfirmation';
 
-import { DND_TAB, DND_FILE_TREE_ITEM, isFileTreeDragItem } from '@/constants/dndTypes';
+import { DND_TAB } from '@/constants/dndTypes';
 import { useFileSelector } from '@/context/FileSelectorContext';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useKeyBinding } from '@/hooks/useKeyBindings';
 import { useTabStore } from '@/stores/tabStore';
-import type { FileItem } from '@/types';
 
 interface TabBarProps {
   paneId: string;
@@ -41,9 +40,8 @@ interface TabContextMenuState {
 
 /**
  * TabBar: 完全に自律的なタブバーコンポーネント
- * - タブのクリック/タップ = タブをアクティブにする
- * - タブのドラッグ = DnD（PCとモバイル両対応、react-dndが処理）
- * - タブの右クリック = コンテキストメニューを表示（PCのみ）
+ * - タブのクリック = タブをアクティブにする
+ * - タブの右クリック/長押し = コンテキストメニューを表示
  * - メニューはタブの真下に固定表示
  */
 export default function TabBar({ paneId }: TabBarProps) {
@@ -72,6 +70,10 @@ export default function TabBar({ paneId }: TabBarProps) {
     tabRect: null,
   });
   const tabContextMenuRef = useRef<HTMLDivElement>(null);
+
+  // タッチ検出用
+  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
+  const isLongPressRef = useRef(false);
 
   // メニュー外クリックで閉じる
   useEffect(() => {
@@ -148,12 +150,44 @@ export default function TabBar({ paneId }: TabBarProps) {
     activateTab(paneId, tabId);
   }, [activateTab, paneId]);
 
-  // タブ右クリック = コンテキストメニューを表示（PCのみ）
+  // タブ右クリック = コンテキストメニューを表示
   const handleTabRightClick = useCallback((e: React.MouseEvent, tabId: string, tabElement: HTMLElement) => {
     e.preventDefault();
     e.stopPropagation();
     openTabContextMenu(tabId, tabElement);
   }, [openTabContextMenu]);
+
+  // タッチ開始 = タッチ位置を記録
+  const handleTouchStart = useCallback((e: React.TouchEvent, tabId: string, tabElement: HTMLElement) => {
+    const touch = e.touches[0];
+    touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
+    isLongPressRef.current = false;
+  }, []);
+
+  // タッチ終了 = タップでコンテキストメニュー表示
+  const handleTouchEnd = useCallback((e: React.TouchEvent, tabId: string, tabElement: HTMLElement) => {
+    const target = e.target as HTMLElement;
+    
+    // 閉じるボタンがタップされた場合は無視
+    if (target.closest('[data-close-button]')) {
+      touchStartPosRef.current = null;
+      return;
+    }
+
+    // タップ（短いタッチ）でコンテキストメニューを表示
+    if (touchStartPosRef.current) {
+      e.preventDefault();
+      openTabContextMenu(tabId, tabElement);
+    }
+
+    touchStartPosRef.current = null;
+    isLongPressRef.current = false;
+  }, [openTabContextMenu]);
+
+  // タッチ移動 = タップキャンセル
+  const handleTouchMove = useCallback(() => {
+    touchStartPosRef.current = null;
+  }, []);
 
   // ショートカットキー
   useKeyBinding('newTab', handleAddTab, [paneId]);
@@ -228,35 +262,17 @@ export default function TabBar({ paneId }: TabBarProps) {
     }
   };
 
-  // ファイルを開くヘルパー関数
-  const openFileInPane = (fileItem: FileItem) => {
-    if (fileItem.type !== 'file') return;
-    const defaultEditor =
-      typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
-    const kind = fileItem.isBufferArray ? 'binary' : 'editor';
-    openTab({ ...fileItem, isCodeMirror: defaultEditor === 'codemirror' }, { kind, paneId });
-  };
-
-  // コンテナへのドロップ（TABとFILE_TREE_ITEM両方受け付け）
+  // コンテナへのドロップ
   const [, containerDrop] = useDrop(
     () => ({
-      accept: [DND_TAB, DND_FILE_TREE_ITEM],
+      accept: DND_TAB,
       drop: (item: any) => {
-        // FILE_TREE_ITEMの場合
-        if (isFileTreeDragItem(item)) {
-          const fileItem = item.item as FileItem;
-          if (fileItem.type === 'file') {
-            openFileInPane(fileItem);
-          }
-          return;
-        }
-        // TABの場合
         if (!item?.tabId) return;
         if (item.fromPaneId === paneId) return;
         moveTab(item.fromPaneId, paneId, item.tabId);
       },
     }),
-    [paneId, openTab, moveTab]
+    [paneId]
   );
 
   // ドラッグ可能なタブコンポーネント
@@ -279,22 +295,10 @@ export default function TabBar({ paneId }: TabBarProps) {
 
     const [{ isOver }, tabDrop] = useDrop(
       () => ({
-        accept: [DND_TAB, DND_FILE_TREE_ITEM],
+        accept: DND_TAB,
         drop: (item: any, monitor: any) => {
-          if (monitor && !monitor.isOver({ shallow: true })) return;
-          
-          // FILE_TREE_ITEMの場合
-          if (isFileTreeDragItem(item)) {
-            const fileItem = item.item as FileItem;
-            if (fileItem.type === 'file') {
-              openFileInPane(fileItem);
-            }
-            setDragOverSide(null);
-            return;
-          }
-          
-          // TABの場合
           if (!item?.tabId) return;
+          if (monitor && !monitor.isOver({ shallow: true })) return;
           if (item.tabId === tab.id) return;
 
           const fromPane = item.fromPaneId;
@@ -326,7 +330,7 @@ export default function TabBar({ paneId }: TabBarProps) {
         },
         collect: (monitor) => ({ isOver: monitor.isOver({ shallow: true }) }),
       }),
-      [paneId, tabIndex, dragOverSide, openFileInPane]
+      [paneId, tabIndex, dragOverSide]
     );
 
     dragRef(tabDrop(ref));
@@ -346,6 +350,13 @@ export default function TabBar({ paneId }: TabBarProps) {
         onContextMenu={e => {
           if (ref.current) handleTabRightClick(e, tab.id, ref.current);
         }}
+        onTouchStart={e => {
+          if (ref.current) handleTouchStart(e, tab.id, ref.current);
+        }}
+        onTouchEnd={e => {
+          if (ref.current) handleTouchEnd(e, tab.id, ref.current);
+        }}
+        onTouchMove={handleTouchMove}
       >
         {/* ドロップインジケーター */}
         {isOver && dragOverSide === 'left' && (
