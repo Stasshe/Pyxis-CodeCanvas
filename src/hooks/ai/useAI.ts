@@ -107,13 +107,14 @@ export function useAI(props?: UseAIProps) {
         selectedFiles.map(f => f.path)
       );
 
-      // 過去メッセージから type, content, mode のみ抽出
+      // 過去メッセージから必要な情報のみ抽出（editResponseも含めてプロンプト最適化に使用）
       const previousMessages = props?.messages
         ?.filter(msg => typeof msg.content === 'string' && msg.content.trim().length > 0)
         ?.map(msg => ({
           type: msg.type,
           content: msg.content,
           mode: msg.mode,
+          editResponse: msg.editResponse, // プロンプト最適化用
         }));
 
       setIsProcessing(true);

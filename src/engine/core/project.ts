@@ -15,6 +15,7 @@ import { fileRepository } from './fileRepository';
 
 import { LOCALSTORAGE_KEY } from '@/context/config';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
+import { createChatSpace } from '@/engine/storage/chatStorageAdapter';
 import { FileItem } from '@/types';
 import { Project, ProjectFile } from '@/types/';
 
@@ -349,7 +350,7 @@ export const useProject = () => {
       await initializeProjectGit(newProject, files);
 
       try {
-        await fileRepository.createChatSpace(newProject.id, `新規チャット`);
+        await createChatSpace(newProject.id, `新規チャット`);
       } catch (error) {
         console.warn('[Project] Failed to create initial chat space (non-critical):', error);
       }

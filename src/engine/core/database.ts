@@ -2,11 +2,13 @@
  * ProjectDB - Wrapper class for backward compatibility
  * Uses FileRepository internally
  * @deprecated Use fileRepository directly for new code
+ * 
+ * NOTE: ChatSpace operations have been removed. Use chatStorageAdapter directly.
  */
 
 import { fileRepository } from './fileRepository';
 
-import type { Project, ProjectFile, ChatSpace, ChatSpaceMessage } from '@/types';
+import type { Project, ProjectFile } from '@/types';
 
 class ProjectDB {
   async init(): Promise<void> {
@@ -62,45 +64,6 @@ class ProjectDB {
 
   async clearAIReview(projectId: string, filePath: string): Promise<void> {
     return fileRepository.clearAIReview(projectId, filePath);
-  }
-
-  async createChatSpace(projectId: string, name: string): Promise<ChatSpace> {
-    return fileRepository.createChatSpace(projectId, name);
-  }
-
-  async saveChatSpace(chatSpace: ChatSpace): Promise<void> {
-    return fileRepository.saveChatSpace(chatSpace);
-  }
-
-  async getChatSpaces(projectId: string): Promise<ChatSpace[]> {
-    return fileRepository.getChatSpaces(projectId);
-  }
-
-  async deleteChatSpace(chatSpaceId: string): Promise<void> {
-    return fileRepository.deleteChatSpace(chatSpaceId);
-  }
-
-  async addMessageToChatSpace(
-    chatSpaceId: string,
-    message: Omit<ChatSpaceMessage, 'id'>
-  ): Promise<ChatSpaceMessage> {
-    return fileRepository.addMessageToChatSpace(chatSpaceId, message);
-  }
-
-  async updateChatSpaceMessage(
-    chatSpaceId: string,
-    messageId: string,
-    updates: Partial<ChatSpaceMessage>
-  ): Promise<ChatSpaceMessage | null> {
-    return fileRepository.updateChatSpaceMessage(chatSpaceId, messageId, updates);
-  }
-
-  async updateChatSpaceSelectedFiles(chatSpaceId: string, selectedFiles: string[]): Promise<void> {
-    return fileRepository.updateChatSpaceSelectedFiles(chatSpaceId, selectedFiles);
-  }
-
-  async renameChatSpace(chatSpaceId: string, newName: string): Promise<void> {
-    return fileRepository.renameChatSpace(chatSpaceId, newName);
   }
 }
 

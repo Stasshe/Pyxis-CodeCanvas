@@ -2,26 +2,35 @@
 
 import { useState, useEffect, useRef } from 'react';
 
-import { projectDB } from '@/engine/core/database';
 import type { ChatSpace, ChatSpaceMessage, AIEditResponse } from '@/types';
-import * as chatStore from '@/engine/storage/chatStorageAdapter';
+import {
+  getChatSpaces,
+  createChatSpace,
+  deleteChatSpace,
+  renameChatSpace,
+  addMessageToChatSpace,
+  updateChatSpaceMessage,
+  updateChatSpaceSelectedFiles,
+  saveChatSpace,
+  truncateMessagesFromMessage,
+} from '@/engine/storage/chatStorageAdapter';
 
 export const useChatSpace = (projectId: string | null) => {
   const [chatSpaces, setChatSpaces] = useState<ChatSpace[]>([]);
   const [currentSpace, setCurrentSpace] = useState<ChatSpace | null>(null);
   const [loading, setLoading] = useState(false);
   
-  // Ref to track the current space synchronously for addMessage race condition prevention
-  // When a user message creates a space, subsequent assistant messages (within same event loop)
-  // can use this ref instead of the stale useState value
   const currentSpaceRef = useRef<ChatSpace | null>(null);
+  const projectIdRef = useRef<string | null>(projectId);
+  
+  useEffect(() => {
+    projectIdRef.current = projectId;
+  }, [projectId]);
 
-  // Keep ref in sync with state
   useEffect(() => {
     currentSpaceRef.current = currentSpace;
   }, [currentSpace]);
 
-  // プロジェクトが変更されたときにチャットスペースを読み込み
   useEffect(() => {
     const loadChatSpaces = async () => {
       if (!projectId) {
@@ -33,10 +42,9 @@ export const useChatSpace = (projectId: string | null) => {
 
       setLoading(true);
       try {
-        const spaces = await chatStore.getChatSpaces(projectId);
+        const spaces = await getChatSpaces(projectId);
         setChatSpaces(spaces);
 
-        // 最新のスペースを自動選択（存在する場合）
         if (spaces.length > 0) {
           setCurrentSpace(spaces[0]);
           currentSpaceRef.current = spaces[0];
@@ -54,11 +62,11 @@ export const useChatSpace = (projectId: string | null) => {
     loadChatSpaces();
   }, [projectId]);
 
-  // 新規チャットスペースがあればそれを開き、なければ新規作成
   const createNewSpace = async (name?: string): Promise<ChatSpace | null> => {
-    if (!projectId) return null;
+    const pid = projectIdRef.current;
+    if (!pid) return null;
     try {
-      const spaces = await chatStore.getChatSpaces(projectId);
+      const spaces = await getChatSpaces(pid);
       const spaceName = name || `新規チャット`;
       const existingNewChat = spaces.find(s => s.name === spaceName);
       if (existingNewChat) {
@@ -76,13 +84,13 @@ export const useChatSpace = (projectId: string | null) => {
         toDelete = sorted.slice(0, spaces.length - 9);
         for (const space of toDelete) {
           try {
-            await chatStore.deleteChatSpace(space.id);
+            await deleteChatSpace(pid, space.id);
           } catch (error) {
             console.error('Failed to delete old chat space:', error);
           }
         }
       }
-      const newSpace = await chatStore.createChatSpace(projectId, spaceName);
+      const newSpace = await createChatSpace(pid, spaceName);
       const updatedSpaces = [
         newSpace,
         ...spaces.filter(s => !toDelete.some((d: ChatSpace) => d.id === s.id)),
@@ -97,21 +105,22 @@ export const useChatSpace = (projectId: string | null) => {
     }
   };
 
-  // チャットスペースを選択
   const selectSpace = (space: ChatSpace) => {
     setCurrentSpace(space);
     currentSpaceRef.current = space;
   };
 
-  // チャットスペースを削除
   const deleteSpace = async (spaceId: string) => {
+    const pid = projectIdRef.current;
+    if (!pid) return;
+    
     if (chatSpaces.length <= 1) {
       console.log('最後のスペースは削除できません。');
       return;
     }
 
     try {
-      await chatStore.deleteChatSpace(spaceId);
+      await deleteChatSpace(pid, spaceId);
 
       setChatSpaces(prev => {
         const filtered = prev.filter(s => s.id !== spaceId);
@@ -133,7 +142,6 @@ export const useChatSpace = (projectId: string | null) => {
     }
   };
 
-  // メッセージを追加
   const addMessage = async (
     content: string,
     type: 'user' | 'assistant',
@@ -142,9 +150,12 @@ export const useChatSpace = (projectId: string | null) => {
     editResponse?: AIEditResponse,
     options?: { parentMessageId?: string; action?: 'apply' | 'revert' | 'note' }
   ): Promise<ChatSpaceMessage | null> => {
-    // Use ref to get the current space synchronously - this prevents race conditions
-    // where user message creates a space but assistant message (called right after)
-    // still sees null due to stale useState closure
+    const pid = projectIdRef.current;
+    if (!pid) {
+      console.error('[useChatSpace] No projectId available');
+      return null;
+    }
+    
     let activeSpace = currentSpaceRef.current;
     if (!activeSpace) {
       console.warn('[useChatSpace] No current space available - creating a new one');
@@ -155,7 +166,6 @@ export const useChatSpace = (projectId: string | null) => {
           return null;
         }
         activeSpace = created;
-        // Note: createNewSpace already updates both state and ref
       } catch (e) {
         console.error('[useChatSpace] Error creating chat space:', e);
         return null;
@@ -170,22 +180,11 @@ export const useChatSpace = (projectId: string | null) => {
         content.trim().length > 0
       ) {
         const newName = content.length > 30 ? content.slice(0, 30) + '…' : content;
-        await chatStore.renameChatSpace(activeSpace.id, newName);
+        await renameChatSpace(pid, activeSpace.id, newName);
         setCurrentSpace(prev => (prev ? { ...prev, name: newName } : prev));
         setChatSpaces(prev => prev.map(s => (s.id === activeSpace!.id ? { ...s, name: newName } : s)));
       }
 
-      // NOTE: Previously we attempted to merge assistant edit responses into an
-      // existing assistant edit message. That caused multiple edits to overwrite
-      // a single message and made only one message have an editResponse (thus
-      // only that message showed a Revert button). To ensure each AI edit is
-      // independently revertable, always append a new message here.
-
-      // default: append a new message
-      // Deduplicate branch messages: if a message with same parentMessageId
-      // and action already exists in the current space, return it instead
-      // of appending a duplicate. This prevents duplicate 'Applied'/'Reverted'
-      // notifications when multiple UI flows record the same event.
       if (options?.parentMessageId && options?.action) {
         const dup = (activeSpace.messages || []).find(
           m => m.parentMessageId === options.parentMessageId && m.action === options.action && m.type === type && m.mode === mode
@@ -193,7 +192,7 @@ export const useChatSpace = (projectId: string | null) => {
         if (dup) return dup;
       }
 
-      const newMessage = await chatStore.addMessageToChatSpace(activeSpace.id, {
+      const newMessage = await addMessageToChatSpace(pid, activeSpace.id, {
         type,
         content,
         timestamp: new Date(),
@@ -212,15 +211,6 @@ export const useChatSpace = (projectId: string | null) => {
         };
       });
 
-      // Debug: log the newly appended message and current message counts
-      try {
-        console.log('[useChatSpace] Appended message:', { spaceId: activeSpace.id, messageId: newMessage.id, hasEditResponse: !!newMessage.editResponse });
-        const after = (activeSpace.messages || []).length + 1;
-        console.log('[useChatSpace] messages count after append approx:', after);
-      } catch (e) {
-        console.warn('[useChatSpace] debug log failed', e);
-      }
-
       setChatSpaces(prev => {
         const updated = prev.map(s =>
           s.id === activeSpace!.id ? { ...s, messages: [...s.messages, newMessage], updatedAt: new Date() } : s
@@ -235,10 +225,12 @@ export const useChatSpace = (projectId: string | null) => {
     }
   };
 
-  // メッセージを更新（外部から編集された editResponse 等を保存して state を更新）
   const updateChatMessage = async (spaceId: string, messageId: string, patch: Partial<ChatSpaceMessage>) => {
+    const pid = projectIdRef.current;
+    if (!pid) return null;
+    
     try {
-      const updated = await chatStore.updateChatSpaceMessage(spaceId, messageId, patch);
+      const updated = await updateChatSpaceMessage(pid, spaceId, messageId, patch);
       if (!updated) return null;
 
       setCurrentSpace(prev => {
@@ -266,12 +258,12 @@ export const useChatSpace = (projectId: string | null) => {
     }
   };
 
-  // 選択ファイルを更新
   const updateSelectedFiles = async (selectedFiles: string[]) => {
-    if (!currentSpace) return;
+    const pid = projectIdRef.current;
+    if (!pid || !currentSpace) return;
 
     try {
-      await chatStore.updateChatSpaceSelectedFiles(currentSpace.id, selectedFiles);
+      await updateChatSpaceSelectedFiles(pid, currentSpace.id, selectedFiles);
 
       setCurrentSpace(prev => {
         if (!prev) return null;
@@ -286,14 +278,13 @@ export const useChatSpace = (projectId: string | null) => {
     }
   };
 
-  // チャットスペース名を更新
   const updateSpaceName = async (spaceId: string, newName: string) => {
     try {
       const space = chatSpaces.find(s => s.id === spaceId);
       if (!space) return;
 
       const updatedSpace = { ...space, name: newName };
-      await chatStore.saveChatSpace(updatedSpace);
+      await saveChatSpace(updatedSpace);
 
       setChatSpaces(prev => prev.map(s => (s.id === spaceId ? updatedSpace : s)));
 
@@ -302,6 +293,73 @@ export const useChatSpace = (projectId: string | null) => {
       }
     } catch (error) {
       console.error('Failed to update space name:', error);
+    }
+  };
+
+  /**
+   * Revert to a specific message: delete all messages from the specified message onwards
+   * and return the list of deleted messages for potential rollback of AI state changes.
+   */
+  const revertToMessage = async (messageId: string): Promise<ChatSpaceMessage[]> => {
+    const pid = projectIdRef.current;
+    const activeSpace = currentSpaceRef.current;
+    
+    if (!pid || !activeSpace) {
+      console.warn('[useChatSpace] No project or space available for revert');
+      return [];
+    }
+
+    try {
+      const deletedMessages = await truncateMessagesFromMessage(pid, activeSpace.id, messageId);
+      
+      if (deletedMessages.length === 0) {
+        console.warn('[useChatSpace] No messages were deleted during revert');
+        return [];
+      }
+
+      console.log('[useChatSpace] Reverted messages:', deletedMessages.length);
+
+      setCurrentSpace(prev => {
+        if (!prev) return null;
+        const idx = prev.messages.findIndex(m => m.id === messageId);
+        if (idx === -1) return prev;
+        return {
+          ...prev,
+          messages: prev.messages.slice(0, idx),
+          updatedAt: new Date(),
+        };
+      });
+
+      setChatSpaces(prev =>
+        prev
+          .map(space => {
+            if (space.id !== activeSpace.id) return space;
+            const idx = space.messages.findIndex(m => m.id === messageId);
+            if (idx === -1) return space;
+            return {
+              ...space,
+              messages: space.messages.slice(0, idx),
+              updatedAt: new Date(),
+            };
+          })
+          .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+      );
+
+      if (currentSpaceRef.current) {
+        const idx = currentSpaceRef.current.messages.findIndex(m => m.id === messageId);
+        if (idx !== -1) {
+          currentSpaceRef.current = {
+            ...currentSpaceRef.current,
+            messages: currentSpaceRef.current.messages.slice(0, idx),
+            updatedAt: new Date(),
+          };
+        }
+      }
+
+      return deletedMessages;
+    } catch (error) {
+      console.error('[useChatSpace] Failed to revert to message:', error);
+      return [];
     }
   };
 
@@ -316,5 +374,6 @@ export const useChatSpace = (projectId: string | null) => {
     updateSelectedFiles,
     updateSpaceName,
     updateChatMessage,
+    revertToMessage,
   };
 };

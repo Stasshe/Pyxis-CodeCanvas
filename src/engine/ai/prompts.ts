@@ -32,22 +32,48 @@ const SYSTEM_PROMPT = `あなたは優秀なコード編集アシスタントで
 
 必ずマークダウン形式で、上記の構造を守って回答してください。`;
 
+/**
+ * 履歴メッセージをコンパクトな形式に変換
+ * - ユーザーメッセージ: 指示内容のみ
+ * - アシスタントメッセージ（edit）: 変更したファイルパスと説明のみ（コード内容は除外）
+ * - アシスタントメッセージ（ask）: 回答内容
+ */
+function formatHistoryMessages(
+  previousMessages?: Array<{ type: string; content: string; mode?: string; editResponse?: any }>
+): string {
+  if (!previousMessages || previousMessages.length === 0) return '';
+
+  // 直近5件のメッセージをまとめる
+  return previousMessages
+    .slice(-5)
+    .map(msg => {
+      const role = msg.type === 'user' ? 'ユーザー' : 'アシスタント';
+      const modeLabel = msg.mode === 'edit' ? '[編集]' : '[会話]';
+
+      // アシスタントのeditメッセージの場合、editResponseから要約を生成
+      if (msg.type === 'assistant' && msg.mode === 'edit' && msg.editResponse) {
+        const files = msg.editResponse.changedFiles || [];
+        if (files.length > 0) {
+          const summary = files
+            .map((f: any) => `- ${f.path}: ${f.explanation || '変更'}`)
+            .join('\n');
+          return `### ${role} ${modeLabel}\n変更したファイル:\n${summary}`;
+        }
+      }
+
+      // それ以外は内容をそのまま（ただし長すぎる場合は切り詰め）
+      const content = msg.content.length > 500 ? msg.content.slice(0, 500) + '...' : msg.content;
+      return `### ${role} ${modeLabel}\n${content}`;
+    })
+    .join('\n\n');
+}
+
 export const ASK_PROMPT_TEMPLATE = (
   files: Array<{ path: string; content: string }>,
   question: string,
-  previousMessages?: Array<{ type: string; content: string; mode?: string }>
+  previousMessages?: Array<{ type: string; content: string; mode?: string; editResponse?: any }>
 ) => {
-  // 直近5件のメッセージをまとめる
-  const history =
-    previousMessages && previousMessages.length > 0
-      ? previousMessages
-          .slice(-5)
-          .map(
-            msg =>
-              `### ${msg.type === 'user' ? 'ユーザー' : 'アシスタント'}: ${msg.mode === 'edit' ? '編集' : '会話'}\n${msg.content}`
-          )
-          .join('\n\n')
-      : '';
+  const history = formatHistoryMessages(previousMessages);
 
   const fileContexts = files
     .map(
@@ -76,20 +102,11 @@ ${question}
 export const EDIT_PROMPT_TEMPLATE = (
   files: Array<{ path: string; content: string }>,
   instruction: string,
-  previousMessages?: Array<{ type: string; content: string; mode?: string }>
+  previousMessages?: Array<{ type: string; content: string; mode?: string; editResponse?: any }>
 ) => {
-  // 直近5件のメッセージをまとめる
-  const history =
-    previousMessages && previousMessages.length > 0
-      ? previousMessages
-          .slice(-5)
-          .map(
-            msg =>
-              `### ${msg.type === 'user' ? 'ユーザー' : 'アシスタント'}: ${msg.mode === 'edit' ? '編集' : '会話'}\n${msg.content}`
-          )
-          .join('\n\n')
-      : '';
+  const history = formatHistoryMessages(previousMessages);
 
+  // 現在のファイル内容（これが編集対象）
   const fileContexts = files
     .map(
       file => `
@@ -105,7 +122,7 @@ ${file.content}
 
 ${history ? `## これまでの会話履歴\n${history}\n` : ''}
 
-## 提供されたファイル
+## 提供されたファイル（現在の状態）
 ${fileContexts}
 
 ## 編集指示
