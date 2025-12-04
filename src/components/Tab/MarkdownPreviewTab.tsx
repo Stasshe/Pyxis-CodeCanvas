@@ -165,12 +165,15 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
       // 'bracket' mode: 
       // 1. First, escape existing dollar signs to prevent remark-math from processing them
       // 2. Then, convert bracket delimiters to dollar style
+      // Use unique placeholders that won't appear in normal markdown text
+      const DOUBLE_DOLLAR_PLACEHOLDER = '__PYXIS_ESCAPED_DOUBLE_DOLLAR__';
+      const SINGLE_DOLLAR_PLACEHOLDER = '__PYXIS_ESCAPED_SINGLE_DOLLAR__';
+      
       let result = processNonCode(src, (seg) => {
         // Escape $$ first (display math), then $ (inline math)
-        // Use a placeholder that won't appear in normal text
         return seg
-          .replace(/\$\$/g, '\u0000DOUBLE_DOLLAR\u0000')
-          .replace(/\$/g, '\u0000SINGLE_DOLLAR\u0000');
+          .replace(/\$\$/g, DOUBLE_DOLLAR_PLACEHOLDER)
+          .replace(/\$/g, SINGLE_DOLLAR_PLACEHOLDER);
       });
       // Convert bracket delimiters to dollar style
       result = processNonCode(result, (seg) => {
@@ -180,8 +183,8 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
       });
       // Restore escaped dollar signs as literal text (not math)
       result = result
-        .replace(/\u0000DOUBLE_DOLLAR\u0000/g, '\\$\\$')
-        .replace(/\u0000SINGLE_DOLLAR\u0000/g, '\\$');
+        .replace(new RegExp(DOUBLE_DOLLAR_PLACEHOLDER, 'g'), '\\$\\$')
+        .replace(new RegExp(SINGLE_DOLLAR_PLACEHOLDER, 'g'), '\\$');
       return result;
     }
 
