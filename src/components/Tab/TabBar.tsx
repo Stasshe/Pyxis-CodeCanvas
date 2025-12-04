@@ -279,7 +279,13 @@ export default function TabBar({ paneId }: TabBarProps) {
     const displayName = isDuplicate ? `${tab.name} (${tab.path})` : tab.name;
 
     const [dragOverSide, setDragOverSide] = useState<'left' | 'right' | null>(null);
+    const dragOverSideRef = useRef<'left' | 'right' | null>(null);
     const ref = useRef<HTMLDivElement>(null);
+
+    // dragOverSideが変更されたらrefも更新
+    useEffect(() => {
+      dragOverSideRef.current = dragOverSide;
+    }, [dragOverSide]);
 
     const [{ isDragging }, dragRef] = useDrag(
       () => ({
@@ -300,7 +306,8 @@ export default function TabBar({ paneId }: TabBarProps) {
 
           const fromPane = item.fromPaneId;
           let targetIndex = tabIndex;
-          if (dragOverSide === 'right') targetIndex = tabIndex + 1;
+          // refを使用して最新の値を取得
+          if (dragOverSideRef.current === 'right') targetIndex = tabIndex + 1;
 
           try {
             moveTabToIndex(fromPane, paneId, item.tabId, targetIndex);
@@ -327,7 +334,7 @@ export default function TabBar({ paneId }: TabBarProps) {
         },
         collect: (monitor) => ({ isOver: monitor.isOver({ shallow: true }) }),
       }),
-      [paneId, tabIndex, dragOverSide]
+      [paneId, tabIndex, tab.id]
     );
 
     dragRef(tabDrop(ref));

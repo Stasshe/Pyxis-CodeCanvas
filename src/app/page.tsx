@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { DndProvider } from 'react-dnd';
-import { HTML5Backend } from 'react-dnd-html5-backend';
+import { TouchBackend } from 'react-dnd-touch-backend';
 
 import { useTheme } from '../context/ThemeContext';
 
@@ -252,8 +252,11 @@ export default function Home() {
     []
   );
 
+  // TouchBackendオプション: enableMouseEventsでマウスとタッチ両方をサポート
+  const dndOptions = useMemo(() => ({ enableMouseEvents: true }), []);
+
   return (
-    <DndProvider backend={HTML5Backend}>
+    <DndProvider backend={TouchBackend} options={dndOptions}>
       <div
       style={{
         position: 'fixed',
