@@ -78,7 +78,7 @@ const RecursivePaneView = memo(function RecursivePaneView({ pane, selectedPaneId
  */
 export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
   const { colors } = useTheme();
-  const { panes, activePane, splitPane, removePane } = useTabStore();
+  const { panes, activePane, setActivePane, splitPane, removePane } = useTabStore();
   const [selectedPaneId, setSelectedPaneId] = useState<string | null>(null);
 
   // Flatten panes for navigation
@@ -107,17 +107,13 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
   const handleSelect = useCallback((id: string) => setSelectedPaneId(id), []);
 
   const handleActivate = useCallback((id: string) => {
-    // Use getState() to ensure we're using the latest store methods
-    const store = useTabStore.getState();
-    // Always set the active pane first
-    store.setActivePane(id);
-    // Then try to activate the tab if exists
+    setActivePane(id);
     const pane = flattenedPanes.find(p => p.id === id);
     if (pane?.activeTabId) {
-      store.activateTab(id, pane.activeTabId);
+      useTabStore.getState().activateTab(id, pane.activeTabId);
     }
     onClose();
-  }, [flattenedPanes, onClose]);
+  }, [setActivePane, flattenedPanes, onClose]);
 
   const handleSplit = useCallback((dir: 'vertical' | 'horizontal') => {
     if (!selectedPaneId) return;
