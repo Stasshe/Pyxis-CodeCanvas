@@ -5,6 +5,8 @@ import { useCallback } from 'react';
 import { getLanguage } from '../editors/editor-utils';
 import { getModelLanguage, getEnhancedLanguage } from '../editors/monarch-jsx-language';
 
+import { MONACO_CONFIG } from '@/context/config';
+
 // Monarch言語用のヘルパー
 function getMonarchLanguage(fileName: string): string {
   // Use the model language for TSX/JSX so the TypeScript diagnostics run.
@@ -28,8 +30,42 @@ function getMonarchLanguage(fileName: string): string {
 // モジュール共有のモデルMap（シングルトン）
 const sharedModelMap: Map<string, monaco.editor.ITextModel> = new Map();
 
+// LRU順序を追跡するリスト（最近使われたものが後ろ）
+const modelAccessOrder: string[] = [];
+
 // モジュール共有の currentModelIdRef 互換オブジェクト
 const sharedCurrentModelIdRef: { current: string | null } = { current: null };
+
+// LRU順序を更新するヘルパー
+function updateModelAccessOrder(tabId: string): void {
+  const index = modelAccessOrder.indexOf(tabId);
+  if (index > -1) {
+    modelAccessOrder.splice(index, 1);
+  }
+  modelAccessOrder.push(tabId);
+}
+
+// 最も古いモデルを削除してキャパシティを確保
+function enforceModelLimit(
+  monacoModelMap: Map<string, monaco.editor.ITextModel>,
+  maxModels: number
+): void {
+  while (monacoModelMap.size >= maxModels && modelAccessOrder.length > 0) {
+    const oldestTabId = modelAccessOrder.shift();
+    if (oldestTabId) {
+      const oldModel = monacoModelMap.get(oldestTabId);
+      if (oldModel) {
+        try {
+          oldModel.dispose();
+          console.log('[useMonacoModels] Disposed oldest model (LRU):', oldestTabId);
+        } catch (e) {
+          console.warn('[useMonacoModels] Failed to dispose model:', e);
+        }
+        monacoModelMap.delete(oldestTabId);
+      }
+    }
+  }
+}
 
 export function useMonacoModels() {
   const monacoModelMapRef = { current: sharedModelMap } as {
@@ -48,7 +84,7 @@ export function useMonacoModels() {
       content: string,
       fileName: string
     ): monaco.editor.ITextModel | null => {
-        // entry log removed in cleanup
+      // entry log removed in cleanup
       const monacoModelMap = monacoModelMapRef.current;
       let model = monacoModelMap.get(tabId);
 
@@ -57,6 +93,8 @@ export function useMonacoModels() {
       // may be attaching to the same underlying model. Instead we remove it from
       // our map and create a new model with a unique URI when languages differ.
       if (isModelSafe(model)) {
+        // Update LRU access order
+        updateModelAccessOrder(tabId);
         try {
           const desiredLang = getModelLanguage(fileName);
           const currentLang = model!.getLanguageId();
@@ -78,6 +116,9 @@ export function useMonacoModels() {
       }
 
       if (!model) {
+        // Enforce model limit before creating a new model
+        enforceModelLimit(monacoModelMap, MONACO_CONFIG.MAX_MONACO_MODELS);
+        
         try {
           // Use the tabId to construct a unique in-memory URI so different
           // tabs/files with the same base filename don't collide.
@@ -103,11 +144,13 @@ export function useMonacoModels() {
                   const uniqueUri = mon.Uri.parse(`${uri.toString()}__${Date.now()}`);
                   const newModel = mon.editor.createModel(content, desiredLang, uniqueUri);
                   monacoModelMap.set(tabId, newModel);
+                  updateModelAccessOrder(tabId);
                   return newModel;
                 }
                 // Languages already match — reuse safely.
                 // reuse log removed in cleanup
                 monacoModelMap.set(tabId, existingModel);
+                updateModelAccessOrder(tabId);
                 return existingModel;
               } catch (e) {
                 console.warn('[useMonacoModels] Reuse/create logic failed:', e);
@@ -128,13 +171,16 @@ export function useMonacoModels() {
             // not critical
           }
           monacoModelMap.set(tabId, newModel);
+          updateModelAccessOrder(tabId);
           console.log(
             '[useMonacoModels] Created new model for:',
             tabId,
             'language:',
             language,
             'uri:',
-            uri.toString()
+            uri.toString(),
+            'total models:',
+            monacoModelMap.size
           );
           return newModel;
         } catch (createError: any) {
@@ -158,6 +204,11 @@ export function useMonacoModels() {
         console.warn('[useMonacoModels] Failed to dispose model:', e);
       }
       monacoModelMap.delete(tabId);
+      // Remove from LRU access order
+      const index = modelAccessOrder.indexOf(tabId);
+      if (index > -1) {
+        modelAccessOrder.splice(index, 1);
+      }
     }
   }, []);
 
@@ -172,6 +223,8 @@ export function useMonacoModels() {
       }
     });
     monacoModelMap.clear();
+    // Clear LRU access order
+    modelAccessOrder.length = 0;
     currentModelIdRef.current = null;
   }, [currentModelIdRef]);
 

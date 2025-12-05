@@ -145,6 +145,9 @@ export interface OpenTabOptions {
   makeActive?: boolean; // デフォルトtrue
   jumpToLine?: number;
   jumpToColumn?: number;
+  // shouldReuseTabで全てのペインを検索するかどうか
+  // ボトムパネルからの操作時にtrue（paneIndexが小さいペインを優先）
+  searchAllPanesForReuse?: boolean;
   // kind別の追加オプション
   aiReviewProps?: {
     originalContent: string;
