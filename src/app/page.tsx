@@ -203,10 +203,10 @@ export default function Home() {
     if (isOperationWindowVisible) {
       closeFileSelector();
     } else {
-      // QuickOpenの場合はpaneIdなし（アクティブなペインを使用）
-      const activePaneId = panes.find(p => p.activeTabId)?.id || panes[0]?.id;
-      if (activePaneId) {
-        openFileSelector(activePaneId);
+      // アクティブなペインを使用（tabStoreのactivePaneを優先）
+      const targetPaneId = activePane || panes.find(p => p.activeTabId)?.id || panes[0]?.id;
+      if (targetPaneId) {
+        openFileSelector(targetPaneId);
       }
     }
   };
@@ -230,7 +230,7 @@ export default function Home() {
   };
 
   // ショートカットキーの登録
-  useKeyBinding('quickOpen', toggleOperationWindow, [panes]);
+  useKeyBinding('quickOpen', toggleOperationWindow, [panes, activePane]);
   useKeyBinding('toggleLeftSidebar', () => setIsLeftSidebarVisible(prev => !prev), []);
   useKeyBinding('toggleRightSidebar', () => setIsRightSidebarVisible(prev => !prev), []);
   useKeyBinding('toggleBottomPanel', () => setIsBottomPanelVisible(prev => !prev), []);
