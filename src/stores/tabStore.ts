@@ -352,19 +352,32 @@ export const useTabStore = create<TabStore>((set, get) => ({
     // 新規タブの作成
     const newTab = tabDef.createTab(file, { ...options, paneId: targetPaneId });
 
-    // ペインにタブを追加
-    get().updatePane(targetPaneId, {
-      tabs: [...pane.tabs, newTab],
-      activeTabId: options.makeActive !== false ? newTab.id : pane.activeTabId,
-    });
+    // ペインにタブを追加し、グローバルアクティブタブも同時に更新
+    // 別々のset呼び出しではなく、1つの更新で原子的に行うことで
+    // 状態の不整合を防ぐ
+    const updatePaneRecursive = (panes: EditorPane[]): EditorPane[] => {
+      return panes.map(p => {
+        if (p.id === targetPaneId) {
+          return {
+            ...p,
+            tabs: [...p.tabs, newTab],
+            activeTabId: options.makeActive !== false ? newTab.id : p.activeTabId,
+          };
+        }
+        if (p.children) {
+          return { ...p, children: updatePaneRecursive(p.children) };
+        }
+        return p;
+      });
+    };
 
-    // グローバルアクティブタブを更新
-    if (options.makeActive !== false) {
-      set({
+    set(state => ({
+      panes: updatePaneRecursive(state.panes),
+      ...(options.makeActive !== false ? {
         globalActiveTab: newTab.id,
         activePane: targetPaneId,
-      });
-    }
+      } : {}),
+    }));
   },
 
   closeTab: (paneId, tabId) => {
