@@ -262,7 +262,13 @@ export function useAI(props?: UseAIProps) {
     [props?.onUpdateSelectedFiles]
   );
 
-  // Generate prompt text for debugging (without sending)
+  /**
+   * Generate the AI prompt text for debugging purposes without actually sending to the API.
+   * Useful for inspecting what prompt would be sent to the AI model.
+   * @param content - The user's input message
+   * @param mode - The current mode ('ask' for questions, 'edit' for code editing)
+   * @returns The full prompt text that would be sent to the AI
+   */
   const generatePromptText = useCallback(
     (content: string, mode: 'ask' | 'edit'): string => {
       const selectedFiles = getSelectedFileContexts(fileContexts);

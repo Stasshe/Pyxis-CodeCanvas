@@ -25,13 +25,12 @@ export default function ChatMessage({ message, onRevert }: ChatMessageProps) {
   const isEdit = message.mode === 'edit';
   const hasEditResponse = message.type === 'assistant' && isEdit && message.editResponse;
 
-  // Count applied/pending files
-  const appliedCount = hasEditResponse 
-    ? message.editResponse!.changedFiles.filter(f => f.applied).length 
-    : 0;
-  const pendingCount = hasEditResponse 
-    ? message.editResponse!.changedFiles.filter(f => !f.applied).length 
-    : 0;
+  // Count applied/pending files (extract to avoid duplicate filtering)
+  const changedFiles = message.editResponse?.changedFiles ?? [];
+  const appliedFiles = changedFiles.filter(f => f.applied);
+  const pendingFiles = changedFiles.filter(f => !f.applied);
+  const appliedCount = hasEditResponse ? appliedFiles.length : 0;
+  const pendingCount = hasEditResponse ? pendingFiles.length : 0;
 
   return (
     <div className={`w-full flex gap-2 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>

@@ -460,11 +460,11 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
             background: 'transparent',
           }}
           onClick={() => {
-            const promptText = generatePromptText('(サンプル入力)', mode);
+            const promptText = generatePromptText(t('ai.promptDebug.sampleInput') || '(Sample input)', mode);
             setPromptDebugText(promptText);
             setShowPromptDebug(true);
           }}
-          title={t('ai.showPrompt') || '内部プロンプトを表示'}
+          title={t('ai.showPrompt') || 'Show internal prompt'}
         >
           <Terminal size={14} />
         </button>
@@ -697,8 +697,8 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
             for (const deletedMsg of reversedMessages) {
               if (deletedMsg.type === 'assistant' && deletedMsg.mode === 'edit' && deletedMsg.editResponse) {
                 const files = deletedMsg.editResponse.changedFiles || [];
-                // Only revert files that were applied
-                const appliedFiles = files.filter(f => f.applied);
+                // Only revert files that were applied (default to false if undefined)
+                const appliedFiles = files.filter(f => f.applied === true);
                 
                 for (const f of appliedFiles) {
                   try {
