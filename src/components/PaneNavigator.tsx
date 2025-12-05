@@ -28,29 +28,29 @@ const PaneItem = memo(function PaneItem({ pane, isSelected, isActive, onSelect, 
     <div
       className="flex items-center justify-center rounded-md cursor-pointer select-none"
       style={{
-        background: isSelected ? colors.primary : isActive ? colors.primary + '30' : colors.cardBg,
+        background: isSelected ? colors.green : isActive ? colors.green + '25' : colors.cardBg,
         border: isSelected 
-          ? `2px solid ${colors.primary}` 
+          ? `2px solid ${colors.green}` 
           : isActive 
-            ? `2px solid ${colors.primary}` 
+            ? `2px solid ${colors.green}` 
             : `1px solid ${colors.border}`,
         width: '100%',
         height: '100%',
-        minWidth: '48px',
-        minHeight: '44px',
+        minWidth: '52px',
+        minHeight: '48px',
         boxShadow: isSelected 
-          ? `0 0 12px ${colors.primary}60` 
+          ? `0 0 12px ${colors.green}70` 
           : isActive 
-            ? `0 0 8px ${colors.primary}40` 
+            ? `0 0 8px ${colors.green}50` 
             : 'none',
       }}
       onClick={(e) => { e.stopPropagation(); onSelect(pane.id); }}
       onDoubleClick={(e) => { e.stopPropagation(); onActivate(pane.id); }}
     >
       <span style={{ 
-        fontSize: num <= 9 ? '20px' : '14px', 
+        fontSize: num <= 9 ? '22px' : '14px', 
         fontWeight: 700, 
-        color: isSelected ? colors.cardBg : isActive ? colors.primary : colors.foreground 
+        color: isSelected ? colors.background : isActive ? colors.green : colors.foreground 
       }}>
         {num}
       </span>
@@ -88,32 +88,44 @@ const RecursivePaneView = memo(function RecursivePaneView({ pane, selectedPaneId
 
 // Calculate layout dimensions based on pane structure
 function calculateLayoutDimensions(panes: EditorPane[]): { width: number; height: number } {
-  const baseSize = 56; // Base size for each pane item
+  const baseSize = 60; // Base size for each pane item
   const gap = 4;
   
-  function getDepth(pane: EditorPane, direction: 'horizontal' | 'vertical'): number {
-    if (!pane.children || pane.children.length === 0) return 1;
-    const childDepths = pane.children.map(c => getDepth(c, direction));
-    if (pane.layout === direction) {
-      return childDepths.reduce((a, b) => a + b, 0);
+  // Calculate dimensions for a single pane tree
+  function calcSize(pane: EditorPane): { w: number; h: number } {
+    if (!pane.children || pane.children.length === 0) {
+      return { w: baseSize, h: baseSize };
     }
-    return Math.max(...childDepths);
+    
+    const childSizes = pane.children.map(c => calcSize(c));
+    const isVertical = pane.layout === 'vertical';
+    
+    if (isVertical) {
+      // Horizontal arrangement (side by side)
+      const totalW = childSizes.reduce((sum, s) => sum + s.w, 0) + (childSizes.length - 1) * gap;
+      const maxH = Math.max(...childSizes.map(s => s.h));
+      return { w: totalW, h: maxH };
+    } else {
+      // Vertical arrangement (stacked)
+      const maxW = Math.max(...childSizes.map(s => s.w));
+      const totalH = childSizes.reduce((sum, s) => sum + s.h, 0) + (childSizes.length - 1) * gap;
+      return { w: maxW, h: totalH };
+    }
   }
   
-  let maxWidth = 0;
+  // Root level panes are always arranged horizontally
+  let totalWidth = 0;
   let maxHeight = 0;
   
   for (const pane of panes) {
-    const w = getDepth(pane, 'vertical');
-    const h = getDepth(pane, 'horizontal');
-    maxWidth += w;
-    maxHeight = Math.max(maxHeight, h);
+    const size = calcSize(pane);
+    totalWidth += size.w;
+    maxHeight = Math.max(maxHeight, size.h);
   }
   
-  return {
-    width: maxWidth * baseSize + (maxWidth - 1) * gap,
-    height: maxHeight * baseSize + (maxHeight - 1) * gap
-  };
+  totalWidth += (panes.length - 1) * gap;
+  
+  return { width: totalWidth, height: maxHeight };
 }
 
 /**
