@@ -24,19 +24,30 @@ interface PaneItemProps {
 // Compact pane item with big number
 const PaneItem = memo(function PaneItem({ pane, isSelected, isActive, onSelect, onActivate, colors, index }: PaneItemProps) {
   const num = index + 1;
+  // isSelected: 現在キーボードで選択中（ハイライト）
+  // isActive: グローバルアクティブペーン（アクセントカラー枠）
   return (
     <div
       className="flex items-center justify-center rounded cursor-pointer select-none h-full"
       style={{
-        background: isSelected ? colors.accentBg : isActive ? colors.primary + '30' : colors.mutedBg,
-        border: `1px solid ${isSelected ? colors.accentFg : isActive ? colors.primary : colors.border}`,
+        background: isSelected ? colors.primary : isActive ? colors.accentBg + '40' : colors.mutedBg,
+        border: isSelected 
+          ? `2px solid ${colors.primary}` 
+          : isActive 
+            ? `2px solid ${colors.accentFg}` 
+            : `1px solid ${colors.border}`,
         minWidth: '36px',
         minHeight: '32px',
+        boxShadow: isSelected ? `0 0 0 2px ${colors.primary}40` : 'none',
       }}
       onClick={(e) => { e.stopPropagation(); onSelect(pane.id); }}
       onDoubleClick={(e) => { e.stopPropagation(); onActivate(pane.id); }}
     >
-      <span style={{ fontSize: num <= 9 ? '16px' : '11px', fontWeight: 600, color: isSelected ? colors.accentFg : isActive ? colors.primary : colors.foreground }}>
+      <span style={{ 
+        fontSize: num <= 9 ? '16px' : '11px', 
+        fontWeight: 700, 
+        color: isSelected ? colors.cardBg : isActive ? colors.accentFg : colors.foreground 
+      }}>
         {num}
       </span>
     </div>
@@ -210,7 +221,7 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
         </div>
         {/* Hint */}
         <div className="mt-1 text-[8px] text-center" style={{ color: colors.mutedFg }}>
-          1-9 · ←→ · v/s · d
+          1-9 · hjkl/←→ · v/s · d
         </div>
       </div>
     </div>

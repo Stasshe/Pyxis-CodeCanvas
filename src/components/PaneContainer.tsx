@@ -41,7 +41,7 @@ export const useGitContext = () => {
  */
 export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContainerProps) {
   const { colors } = useTheme();
-  const { globalActiveTab, setPanes, panes: allPanes, moveTab, splitPaneAndMoveTab, openTab, splitPaneAndOpenFile } = useTabStore();
+  const { globalActiveTab, activePane, setPanes, panes: allPanes, moveTab, splitPaneAndMoveTab, openTab, splitPaneAndOpenFile } = useTabStore();
   const [dropZone, setDropZone] = React.useState<'top' | 'bottom' | 'left' | 'right' | 'center' | 'tabbar' | null>(null);
   const elementRef = React.useRef<HTMLDivElement | null>(null);
   const dropZoneRef = React.useRef<typeof dropZone>(null);
@@ -234,6 +234,7 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
   // リーフペイン（実際のエディタ）をレンダリング
   const activeTab = pane.tabs.find(tab => tab.id === pane.activeTabId);
   const isGloballyActive = globalActiveTab === pane.activeTabId;
+  const isActivePane = activePane === pane.id;
 
   // TabRegistryからコンポーネントを取得
   const TabComponent = activeTab ? tabRegistry.get(activeTab.kind)?.component : null;
@@ -315,7 +316,8 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
           width: '100%',
           height: '100%',
           background: colors.background,
-          border: `1px solid ${isGloballyActive ? colors.accentBg : colors.border}`,
+          border: isActivePane ? `1px solid ${colors.primary}50` : `1px solid ${colors.border}`,
+          boxShadow: isActivePane ? `inset 0 0 0 1px ${colors.primary}30` : 'none',
         }}
       >
         {/* ドロップゾーンのオーバーレイ */}
