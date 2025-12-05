@@ -27,6 +27,54 @@ function shouldExcludeFile(fileName: string): boolean {
   return EXCLUDED_EXTENSIONS.some(ext => lower.endsWith(ext));
 }
 
+// Check if marker owner matches the file type
+// This filters out TypeScript diagnostics for non-TS/JS files
+function isMarkerOwnerValidForFile(fileName: string, owner: string): boolean {
+  const lower = fileName.toLowerCase();
+  const ownerLower = (owner || '').toLowerCase();
+  
+  // TypeScript/JavaScript markers should only apply to TS/JS/JSX/TSX files
+  if (ownerLower === 'typescript' || ownerLower === 'javascript') {
+    return (
+      lower.endsWith('.ts') ||
+      lower.endsWith('.tsx') ||
+      lower.endsWith('.js') ||
+      lower.endsWith('.jsx') ||
+      lower.endsWith('.mts') ||
+      lower.endsWith('.cts') ||
+      lower.endsWith('.mjs') ||
+      lower.endsWith('.cjs')
+    );
+  }
+  
+  // CSS markers should only apply to CSS/SCSS/LESS files
+  if (ownerLower === 'css' || ownerLower === 'scss' || ownerLower === 'less') {
+    return (
+      lower.endsWith('.css') ||
+      lower.endsWith('.scss') ||
+      lower.endsWith('.less') ||
+      lower.endsWith('.sass')
+    );
+  }
+  
+  // JSON markers should only apply to JSON files
+  if (ownerLower === 'json') {
+    return lower.endsWith('.json') || lower.endsWith('.jsonc');
+  }
+  
+  // HTML markers should only apply to HTML files
+  if (ownerLower === 'html') {
+    return (
+      lower.endsWith('.html') ||
+      lower.endsWith('.htm') ||
+      lower.endsWith('.xhtml')
+    );
+  }
+  
+  // Allow other markers (unknown owners)
+  return true;
+}
+
 export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) {
   const { colors } = useTheme();
   const globalActiveTab = useTabStore(state => state.globalActiveTab);
@@ -91,6 +139,12 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
               
               // Skip excluded file types
               if (shouldExcludeFile(fileName)) {
+                continue;
+              }
+              
+              // Skip markers where the owner doesn't match the file type
+              // (e.g., TypeScript errors for CSS files)
+              if (!isMarkerOwnerValidForFile(fileName, marker.owner)) {
                 continue;
               }
 
