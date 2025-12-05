@@ -249,8 +249,10 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
 
   // リーフペイン（実際のエディタ）をレンダリング
   const activeTab = pane.tabs.find(tab => tab.id === pane.activeTabId);
-  const isGloballyActive = globalActiveTab === pane.activeTabId;
   const isActivePane = activePane === pane.id;
+  // isActive: グローバルアクティブタブが現在表示しているタブと一致する場合
+  // activeTab?.id を使用することで、pane.activeTabId との比較ではなく実際に表示しているタブのIDを使用
+  const isGloballyActive = globalActiveTab === activeTab?.id;
 
   // TabRegistryからコンポーネントを取得
   const TabComponent = activeTab ? tabRegistry.get(activeTab.kind)?.component : null;
@@ -352,6 +354,7 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
         <div className="flex-1 overflow-hidden">
           {activeTab && TabComponent ? (
             <TabComponent
+              key={activeTab.id}
               tab={activeTab}
               isActive={isGloballyActive}
             />
