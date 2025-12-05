@@ -35,7 +35,7 @@ export const DEFAULT_BINDINGS: Binding[] = [
   { id: 'runSelection', name: 'Run Selection', combo: 'Ctrl+Alt+R', category: 'execution' },
 
   // Additional Pyxis-specific / useful editor shortcuts
-  { id: 'togglePreview', name: 'Toggle Preview', combo: 'Ctrl+K V', category: 'view' },
+  // { id: 'togglePreview', name: 'Toggle Preview', combo: 'Ctrl+K O', category: 'view' },
   // Open markdown preview in another pane (split or random other pane)
   { id: 'openMdPreview', name: 'Open Markdown Preview in Other Pane', combo: 'Ctrl+K P', category: 'view' },
 
