@@ -24,6 +24,8 @@ export const DEFAULT_BINDINGS: Binding[] = [
   // Tab management
   { id: 'closeTab', name: 'Close Tab', combo: 'Ctrl+Shift+Q', category: 'tab' },
   { id: 'nextTab', name: 'Next Tab', combo: 'Ctrl+E', category: 'tab' },
+  { id: 'prevTab', name: 'Previous Tab', combo: 'Ctrl+Shift+E', category: 'tab' },
+  { id: 'moveTabToNextPane', name: 'Move Tab to Next Pane', combo: 'Ctrl+K M', category: 'tab' },
 
   // Git
   { id: 'openGit', name: 'Open Git Panel', combo: 'Ctrl+Shift+G', category: 'git' },
@@ -39,6 +41,14 @@ export const DEFAULT_BINDINGS: Binding[] = [
 
   // Tabs
   { id: 'removeAllTabs', name: 'Close All Tabs', combo: 'Ctrl+K A', category: 'tab' },
+
+  // Pane management
+  { id: 'openPaneNavigator', name: 'Open Pane Navigator', combo: 'Ctrl+K N', category: 'pane' },
+  { id: 'splitPaneVertical', name: 'Split Pane Vertical', combo: 'Ctrl+K L', category: 'pane' },
+  { id: 'splitPaneHorizontal', name: 'Split Pane Horizontal', combo: 'Ctrl+K J', category: 'pane' },
+  { id: 'closePane', name: 'Close Current Pane', combo: 'Ctrl+K D', category: 'pane' },
+  { id: 'focusNextPane', name: 'Focus Next Pane', combo: 'Ctrl+K Right', category: 'pane' },
+  { id: 'focusPrevPane', name: 'Focus Previous Pane', combo: 'Ctrl+K Left', category: 'pane' },
 
   // Project
   { id: 'openProject', name: 'Open Project', combo: 'Ctrl+Shift+O', category: 'project' },
