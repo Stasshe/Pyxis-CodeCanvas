@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useState, useMemo, memo } from 'react';
+import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Columns2, Rows2, Trash2, CornerDownLeft } from 'lucide-react';
 
 import { useTheme } from '@/context/ThemeContext';
 import { EditorPane } from '@/engine/tabs/types';
@@ -283,7 +284,37 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
         }}
         onClick={e => e.stopPropagation()}
       >
-        1-9 · hjkl/←→ · v/s · d
+        <div className="flex items-center gap-3">
+          {/* Number keys */}
+          <span className="font-mono">1-9</span>
+          
+          {/* Navigation */}
+          <div className="flex items-center gap-0.5">
+            <ArrowUp size={12} />
+            <ArrowDown size={12} />
+            <ArrowLeft size={12} />
+            <ArrowRight size={12} />
+          </div>
+          
+          {/* Split */}
+          <div className="flex items-center gap-1">
+            <Columns2 size={12} />
+            <span className="text-[10px]">v</span>
+            <Rows2 size={12} />
+            <span className="text-[10px]">s</span>
+          </div>
+          
+          {/* Delete */}
+          <div className="flex items-center gap-0.5">
+            <Trash2 size={12} />
+            <span className="text-[10px]">d</span>
+          </div>
+          
+          {/* Enter */}
+          <div className="flex items-center gap-0.5">
+            <CornerDownLeft size={12} />
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -190,12 +190,17 @@ export default function TabBar({ paneId }: TabBarProps) {
   useKeyBinding('newTab', handleAddTab, [paneId]);
 
   useKeyBinding('closeTab', () => {
+    if (useTabStore.getState().activePane !== paneId) return;
     if (activeTabId) handleTabClose(activeTabId);
   }, [activeTabId, paneId]);
 
-  useKeyBinding('removeAllTabs', handleRemoveAllTabs, [tabs, paneId]);
+  useKeyBinding('removeAllTabs', () => {
+    if (useTabStore.getState().activePane !== paneId) return;
+    handleRemoveAllTabs();
+  }, [tabs, paneId]);
 
   useKeyBinding('nextTab', () => {
+    if (useTabStore.getState().activePane !== paneId) return;
     if (tabs.length === 0) return;
     const currentIndex = tabs.findIndex(t => t.id === activeTabId);
     const nextIndex = (currentIndex + 1) % tabs.length;
@@ -203,6 +208,7 @@ export default function TabBar({ paneId }: TabBarProps) {
   }, [tabs, activeTabId, paneId]);
 
   useKeyBinding('prevTab', () => {
+    if (useTabStore.getState().activePane !== paneId) return;
     if (tabs.length === 0) return;
     const currentIndex = tabs.findIndex(t => t.id === activeTabId);
     const prevIndex = (currentIndex - 1 + tabs.length) % tabs.length;
