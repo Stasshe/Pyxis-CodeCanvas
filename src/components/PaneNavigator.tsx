@@ -195,24 +195,20 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
   if (!isOpen) return null;
 
   const leafIndexRef = { current: 0 };
-  
-  // Calculate dynamic size based on pane count
-  const paneCount = flattenedPanes.length;
-  const baseSize = 44; // base pane item size
-  const gap = 2;
-  // Estimate width based on layout complexity
-  const estimatedWidth = Math.max(100, Math.min(300, paneCount * baseSize + (paneCount - 1) * gap + 16));
-  const estimatedHeight = Math.max(40, Math.min(200, Math.ceil(Math.sqrt(paneCount)) * baseSize + 16));
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={onClose}>
-      <div
-        className="rounded-lg shadow-lg p-2"
-        style={{ background: colors.cardBg, border: `1px solid ${colors.border}`, minWidth: `${estimatedWidth}px` }}
-        onClick={e => e.stopPropagation()}
-      >
+    <div 
+      className="fixed inset-0 z-[100] flex items-center justify-center"
+      style={{ 
+        background: `${colors.foreground}20`,
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
+      }} 
+      onClick={onClose}
+    >
+      <div onClick={e => e.stopPropagation()}>
         {/* Pane Layout */}
-        <div className="flex gap-0.5" style={{ minHeight: `${estimatedHeight}px`, width: '100%' }}>
+        <div className="flex gap-1" style={{ minHeight: '40px' }}>
           {panes.map((pane) => (
             <div key={pane.id} style={{ flex: pane.size ? `0 0 ${pane.size}%` : 1, minWidth: 0 }}>
               <RecursivePaneView
@@ -228,7 +224,7 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
           ))}
         </div>
         {/* Hint */}
-        <div className="mt-1 text-[8px] text-center" style={{ color: colors.mutedFg }}>
+        <div className="mt-2 text-[10px] text-center" style={{ color: colors.foreground, opacity: 0.7 }}>
           1-9 · hjkl/←→ · v/s · d
         </div>
       </div>
