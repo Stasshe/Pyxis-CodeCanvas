@@ -67,6 +67,7 @@ const EditorTabComponent: React.FC<TabComponentProps> = ({ tab, isActive }) => {
       wordWrapConfig={wordWrapConfig}
       onContentChange={handleContentChange}
       onImmediateContentChange={handleImmediateContentChange}
+      isActive={isActive}
     />
   );
 };

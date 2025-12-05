@@ -43,6 +43,8 @@ interface CodeEditorProps {
   isCodeMirror?: boolean;
   // 即時ローカル編集反映ハンドラ: 全ペーンの同ファイルタブに対して isDirty を立てる
   onImmediateContentChange?: (tabId: string, content: string) => void;
+  // タブがアクティブかどうか（フォーカス制御用）
+  isActive?: boolean;
 }
 
 export default function CodeEditor({
@@ -53,6 +55,7 @@ export default function CodeEditor({
   onImmediateContentChange,
   currentProject,
   wordWrapConfig,
+  isActive = false,
 }: CodeEditorProps) {
   // プロジェクトIDは優先的に props の currentProject?.id を使い、なければ activeTab の projectId を参照
   const projectId =
@@ -271,6 +274,7 @@ export default function CodeEditor({
           tabSize={settings?.editor.tabSize ?? 2}
           insertSpaces={settings?.editor.insertSpaces ?? true}
           fontSize={settings?.editor.fontSize ?? 14}
+          isActive={isActive}
         />
         <CharCountDisplay
           charCount={charCount}
@@ -304,6 +308,7 @@ export default function CodeEditor({
         tabSize={settings?.editor.tabSize ?? 2}
         insertSpaces={settings?.editor.insertSpaces ?? true}
         fontSize={settings?.editor.fontSize ?? 14}
+        isActive={isActive}
       />
       <CharCountDisplay
         charCount={charCount}

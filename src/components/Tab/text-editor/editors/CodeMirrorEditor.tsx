@@ -14,10 +14,11 @@ interface CodeMirrorEditorProps {
   tabSize: number;
   insertSpaces: boolean;
   fontSize?: number;
+  isActive?: boolean;
 }
 
 export default function CodeMirrorEditor(props: CodeMirrorEditorProps) {
-  const { tabId, fileName, content, onChange, onSelectionChange, tabSize, insertSpaces, fontSize = 14 } = props;
+  const { tabId, fileName, content, onChange, onSelectionChange, tabSize, insertSpaces, fontSize = 14, isActive = false } = props;
 
   // CodeMirrorインスタンスのref
   const cmRef = useRef<any>(null);
@@ -35,6 +36,19 @@ export default function CodeMirrorEditor(props: CodeMirrorEditorProps) {
       }
     }
   }, [content]);
+
+  // タブがアクティブになった時にエディタにフォーカスを当てる
+  useEffect(() => {
+    if (!isActive || !cmRef.current) return;
+    
+    // 少し遅延を入れてフォーカスを当てる（DOMの更新を待つ）
+    // Note: cmRef.current could become null between check and callback, so keep optional chaining
+    const timeoutId = setTimeout(() => {
+      cmRef.current?.view?.focus();
+    }, 50);
+
+    return () => clearTimeout(timeoutId);
+  }, [isActive]);
 
   return (
     <div

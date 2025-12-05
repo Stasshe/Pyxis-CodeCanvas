@@ -26,6 +26,7 @@ interface MonacoEditorProps {
   tabSize?: number;
   insertSpaces?: boolean;
   fontSize?: number;
+  isActive?: boolean;
 }
 
 export default function MonacoEditor({
@@ -41,6 +42,7 @@ export default function MonacoEditor({
   fontSize = 12,
   tabSize = 2,
   insertSpaces = true,
+  isActive = false,
 }: MonacoEditorProps) {
   const { colors, themeName } = useTheme();
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -232,6 +234,20 @@ export default function MonacoEditor({
 
     return () => clearTimeout(timeoutId);
   }, [jumpToLine, jumpToColumn, isEditorReady]);
+
+  // タブがアクティブになった時にエディタにフォーカスを当てる
+  useEffect(() => {
+    if (!isActive || !isEditorReady || !editorRef.current) return;
+    
+    // 少し遅延を入れてフォーカスを当てる（DOMの更新を待つ）
+    const timeoutId = setTimeout(() => {
+      if (editorRef.current && !(editorRef.current as any)._isDisposed) {
+        editorRef.current.focus();
+      }
+    }, 50);
+
+    return () => clearTimeout(timeoutId);
+  }, [isActive, isEditorReady]);
 
   // クリーンアップ
   useEffect(() => {

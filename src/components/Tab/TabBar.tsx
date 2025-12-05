@@ -278,6 +278,33 @@ export default function TabBar({ paneId }: TabBarProps) {
     [paneId]
   );
 
+  // タブリストコンテナへの参照（自動スクロール用）
+  const tabListContainerRef = useRef<HTMLDivElement>(null);
+
+  // アクティブタブが変更されたときに自動スクロールする
+  useEffect(() => {
+    if (!activeTabId || !tabListContainerRef.current) return;
+    
+    // アクティブタブの要素を探す
+    const container = tabListContainerRef.current;
+    const activeTabElement = container.querySelector(`[data-tab-id="${activeTabId}"]`) as HTMLElement;
+    
+    if (activeTabElement) {
+      // タブが見えているかどうかをチェック
+      const containerRect = container.getBoundingClientRect();
+      const tabRect = activeTabElement.getBoundingClientRect();
+      
+      // タブが左端より左にあるか、右端より右にあるか
+      const isOutOfViewLeft = tabRect.left < containerRect.left;
+      const isOutOfViewRight = tabRect.right > containerRect.right;
+      
+      if (isOutOfViewLeft || isOutOfViewRight) {
+        // スムーズスクロールでタブを表示位置に移動
+        activeTabElement.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }
+    }
+  }, [activeTabId]);
+
   // ドラッグ可能なタブコンポーネント
   function DraggableTab({ tab, tabIndex }: { tab: any; tabIndex: number }) {
     const isActive = tab.id === activeTabId;
@@ -348,10 +375,13 @@ export default function TabBar({ paneId }: TabBarProps) {
     return (
       <div
         ref={ref}
-        className={`h-full px-3 flex items-center gap-2 flex-shrink-0 border-r relative ${isDragging ? 'cursor-grabbing' : 'cursor-pointer'}`}
+        data-tab-id={tab.id}
+        className={`h-full px-3 flex items-center gap-2 flex-shrink-0 relative ${isDragging ? 'cursor-grabbing' : 'cursor-pointer'}`}
         style={{
           background: isActive ? colors.background : colors.mutedBg,
-          borderColor: colors.border,
+          borderColor: isActive ? colors.green : colors.border,
+          borderRight: `1px solid ${colors.border}`,
+          borderBottom: isActive ? `2px solid ${colors.green}` : `2px solid transparent`,
           minWidth: '120px',
           maxWidth: '200px',
           opacity: isDragging ? 0.4 : 1,
@@ -492,7 +522,10 @@ export default function TabBar({ paneId }: TabBarProps) {
       {/* タブリスト */}
       <div
         className="flex items-center overflow-x-auto flex-1 select-none"
-        ref={node => { if (node) containerDrop(node as any); }}
+        ref={node => {
+          tabListContainerRef.current = node;
+          if (node) containerDrop(node as any);
+        }}
         onWheel={handleWheel}
       >
         {tabs.map((tab, tabIndex) => (
