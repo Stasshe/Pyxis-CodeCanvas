@@ -175,17 +175,24 @@ export function useAI(props?: UseAIProps) {
             })
           );
 
-          const allOriginalFiles = [
+          // Define proper type for file objects with isNewFile
+          interface OriginalFileWithMeta {
+            path: string;
+            content: string;
+            isNewFile: boolean;
+          }
+
+          const allOriginalFiles: OriginalFileWithMeta[] = [
             ...selectedFiles.map(f => ({ path: f.path, content: f.content, isNewFile: false })),
             ...newFilesWithContent,
           ];
 
           // Create a map of paths to isNewFile status
-          const newFileMap = new Map(allOriginalFiles.map(f => [f.path, (f as any).isNewFile || false]));
+          const newFileMap = new Map(allOriginalFiles.map(f => [f.path, f.isNewFile]));
 
           console.log(
             '[useAI] All original files for parsing:',
-            allOriginalFiles.map(f => ({ path: f.path, contentLength: f.content.length, isNewFile: (f as any).isNewFile }))
+            allOriginalFiles.map(f => ({ path: f.path, contentLength: f.content.length, isNewFile: f.isNewFile }))
           );
 
           const parseResult = parseEditResponse(response, allOriginalFiles);
