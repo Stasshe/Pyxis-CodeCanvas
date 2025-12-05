@@ -56,7 +56,7 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
 
   useEffect(() => {
     let disposable: { dispose?: () => void } | null = null;
-    let intervalId: NodeJS.Timeout | null = null;
+    let debounceTimeout: NodeJS.Timeout | null = null;
 
     // run in async scope so we can dynamic-import monaco on client only
     (async () => {
@@ -66,12 +66,9 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
         const mon = monModule as typeof import('monaco-editor');
 
         const collectAllMarkers = () => {
-          // Get all models in Monaco
-          const models = mon.editor.getModels();
-          const markersWithFiles: MarkerWithFile[] = [];
-
-          // Also try to get ALL markers without filtering by resource
+          // Get ALL markers from Monaco without filtering by resource
           const allMonacoMarkers = mon.editor.getModelMarkers({});
+          const markersWithFiles: MarkerWithFile[] = [];
           
           for (const marker of allMonacoMarkers) {
             try {
@@ -103,17 +100,21 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
           setAllMarkers(markersWithFiles);
         };
 
+        // Debounced version for marker change events
+        const debouncedCollect = () => {
+          if (debounceTimeout) {
+            clearTimeout(debounceTimeout);
+          }
+          debounceTimeout = setTimeout(collectAllMarkers, 300);
+        };
+
+        // Initial collection
         collectAllMarkers();
 
-        // Listen to marker changes on any model
+        // Listen to marker changes on any model (debounced)
         disposable = mon.editor.onDidChangeMarkers(() => {
-          collectAllMarkers();
+          debouncedCollect();
         });
-
-        // Also poll periodically as a fallback (every 2 seconds when active)
-        if (isActive) {
-          intervalId = setInterval(collectAllMarkers, 2000);
-        }
       } catch (e) {
         console.warn('[ProblemsPanel] failed to read markers', e);
         setAllMarkers([]);
@@ -124,11 +125,11 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
       try {
         disposable && disposable.dispose && disposable.dispose();
       } catch (e) {}
-      if (intervalId) {
-        clearInterval(intervalId);
+      if (debounceTimeout) {
+        clearTimeout(debounceTimeout);
       }
     };
-  }, [isActive]);
+  }, []);
 
   const handleGoto = (markerWithFile: MarkerWithFile) => {
     const { marker, filePath } = markerWithFile;
