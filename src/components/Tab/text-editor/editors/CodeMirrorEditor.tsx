@@ -42,11 +42,9 @@ export default function CodeMirrorEditor(props: CodeMirrorEditorProps) {
     if (!isActive || !cmRef.current) return;
     
     // 少し遅延を入れてフォーカスを当てる（DOMの更新を待つ）
+    // Note: cmRef.current could become null between check and callback, so keep optional chaining
     const timeoutId = setTimeout(() => {
-      const view = cmRef.current?.view;
-      if (view) {
-        view.focus();
-      }
+      cmRef.current?.view?.focus();
     }, 50);
 
     return () => clearTimeout(timeoutId);

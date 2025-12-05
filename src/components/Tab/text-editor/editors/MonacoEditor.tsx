@@ -237,17 +237,17 @@ export default function MonacoEditor({
 
   // タブがアクティブになった時にエディタにフォーカスを当てる
   useEffect(() => {
-    if (!isActive || !isEditorReady || !isEditorSafe()) return;
+    if (!isActive || !isEditorReady || !editorRef.current) return;
     
     // 少し遅延を入れてフォーカスを当てる（DOMの更新を待つ）
     const timeoutId = setTimeout(() => {
-      if (isEditorSafe()) {
-        editorRef.current!.focus();
+      if (editorRef.current && !(editorRef.current as any)._isDisposed) {
+        editorRef.current.focus();
       }
     }, 50);
 
     return () => clearTimeout(timeoutId);
-  }, [isActive, isEditorReady, isEditorSafe]);
+  }, [isActive, isEditorReady]);
 
   // クリーンアップ
   useEffect(() => {
