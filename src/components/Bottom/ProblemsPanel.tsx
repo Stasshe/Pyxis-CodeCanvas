@@ -1,5 +1,6 @@
 "use client";
 
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type * as monaco from 'monaco-editor';
 import { useTheme } from '@/context/ThemeContext';
@@ -17,6 +18,14 @@ interface MarkerWithFile {
   fileName: string;
 }
 
+// File extensions to exclude from problems display
+const EXCLUDED_EXTENSIONS = ['.txt', '.md', '.markdown'];
+
+function shouldExcludeFile(fileName: string): boolean {
+  const lower = fileName.toLowerCase();
+  return EXCLUDED_EXTENSIONS.some(ext => lower.endsWith(ext));
+}
+
 export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) {
   const { colors } = useTheme();
   const globalActiveTab = useTabStore(state => state.globalActiveTab);
@@ -26,6 +35,7 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
 
   const [allMarkers, setAllMarkers] = useState<MarkerWithFile[]>([]);
   const [showImportErrors, setShowImportErrors] = useState<boolean>(false);
+  const [collapsedFiles, setCollapsedFiles] = useState<Set<string>>(new Set());
 
   // Helper to find paneId for a tabId
   const findPaneIdForTab = useMemo(() => {
@@ -61,12 +71,7 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
 
           for (const model of models) {
             try {
-              // Get markers for this model
-              const modelMarkers = mon.editor.getModelMarkers({ resource: model.uri });
-              
               // Extract file path from URI
-              const uriStr = model.uri.toString();
-              // URI format: inmemory://model/path/to/file
               let filePath = model.uri.path || '';
               if (filePath.startsWith('/')) {
                 filePath = filePath.substring(1);
@@ -75,6 +80,14 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
               filePath = filePath.replace(/__\d+$/, '');
               
               const fileName = filePath.split('/').pop() || filePath;
+              
+              // Skip excluded file types
+              if (shouldExcludeFile(fileName)) {
+                continue;
+              }
+
+              // Get markers for this model
+              const modelMarkers = mon.editor.getModelMarkers({ resource: model.uri });
 
               for (const marker of modelMarkers) {
                 markersWithFiles.push({
@@ -129,9 +142,21 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
     }
   };
 
+  const toggleFileCollapse = (filePath: string) => {
+    setCollapsedFiles(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(filePath)) {
+        newSet.delete(filePath);
+      } else {
+        newSet.add(filePath);
+      }
+      return newSet;
+    });
+  };
+
   const displayedMarkers = allMarkers.filter(m => {
     if (showImportErrors) return true;
-    // Hide multi-file import resolution errors like: "Cannot find module './math' or its corresponding type declarations."
+    // Hide multi-file import resolution errors
     const msg = (m.marker.message || '').toString();
     if (/Cannot find module\b/i.test(msg)) return false;
     if (/corresponding type declarations/i.test(msg)) return false;
@@ -160,81 +185,101 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
       style={{
         height,
         overflow: 'auto',
-        padding: '8px',
+        padding: '6px 8px',
         background: colors.cardBg,
         color: colors.editorFg,
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 8 }}>
-        <div>
-          <div style={{ fontSize: 12, marginBottom: 6, color: colors.mutedFg }}>
-            Problems ({totalProblems})
-            {errorCount > 0 && <span style={{ color: '#D16969', marginLeft: 8 }}>Errors: {errorCount}</span>}
-            {warningCount > 0 && <span style={{ color: '#D7BA7D', marginLeft: 8 }}>Warnings: {warningCount}</span>}
-          </div>
-          <div style={{ fontSize: 11, color: colors.mutedFg }}>
-            注意: この機能はベータ版です。検出されたエラーは誤検出の可能性があります。
-          </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+        <div style={{ fontSize: 11, color: colors.mutedFg }}>
+          Problems ({totalProblems})
+          {errorCount > 0 && <span style={{ color: '#D16969', marginLeft: 6 }}>E:{errorCount}</span>}
+          {warningCount > 0 && <span style={{ color: '#D7BA7D', marginLeft: 6 }}>W:{warningCount}</span>}
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <button
-            onClick={() => setShowImportErrors(prev => !prev)}
-            style={{
-              fontSize: 12,
-              padding: '4px 8px',
-              background: showImportErrors ? colors.primary : 'transparent',
-              color: showImportErrors ? '#fff' : colors.mutedFg,
-              border: `1px solid ${colors.border}`,
-              borderRadius: 4,
-              cursor: 'pointer',
-            }}
-          >
-            {showImportErrors ? 'インポートエラーを表示' : 'インポートエラーを非表示'}
-          </button>
-        </div>
+        <button
+          onClick={() => setShowImportErrors(prev => !prev)}
+          style={{
+            fontSize: 10,
+            padding: '2px 6px',
+            background: showImportErrors ? colors.primary : 'transparent',
+            color: showImportErrors ? '#fff' : colors.mutedFg,
+            border: `1px solid ${colors.border}`,
+            borderRadius: 3,
+            cursor: 'pointer',
+          }}
+        >
+          {showImportErrors ? 'Import表示' : 'Import非表示'}
+        </button>
       </div>
 
       {totalProblems > 0 ? (
         <div>
-          {Array.from(markersByFile.entries()).map(([filePath, fileMarkers]) => (
-            <div key={filePath} style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, color: colors.editorFg }}>
-                {fileMarkers[0]?.fileName || filePath}
-                <span style={{ fontWeight: 400, color: colors.mutedFg, marginLeft: 8 }}>
-                  ({fileMarkers.length})
-                </span>
-              </div>
-              {fileMarkers.map((m, idx) => (
+          {Array.from(markersByFile.entries()).map(([filePath, fileMarkers]) => {
+            const isCollapsed = collapsedFiles.has(filePath);
+            const fileErrorCount = fileMarkers.filter(m => m.marker.severity === 8).length;
+            const fileWarnCount = fileMarkers.filter(m => m.marker.severity === 4).length;
+            
+            return (
+              <div key={filePath} style={{ marginBottom: 4 }}>
                 <div
-                  key={idx}
-                  onClick={() => handleGoto(m)}
+                  onClick={() => toggleFileCollapse(filePath)}
                   style={{
-                    borderLeft: `3px solid ${m.marker.severity === 8 ? '#D16969' : '#D7BA7D'}`,
-                    padding: '6px 8px',
-                    marginBottom: 4,
-                    marginLeft: 8,
+                    fontSize: 11,
+                    fontWeight: 500,
+                    padding: '3px 4px',
                     cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
                     background: colors.mutedBg,
+                    borderRadius: 2,
                   }}
                 >
-                  <div style={{ fontSize: 12 }}>
-                    {m.marker.message.split('\n')[0]}
-                  </div>
-                  <div style={{ fontSize: 11, color: colors.mutedFg }}>
-                    Line {m.marker.startLineNumber}, Col {m.marker.startColumn} — {m.marker.source || m.marker.owner || ''}
-                  </div>
+                  {isCollapsed ? (
+                    <ChevronRight style={{ width: 12, height: 12 }} />
+                  ) : (
+                    <ChevronDown style={{ width: 12, height: 12 }} />
+                  )}
+                  <span style={{ flex: 1 }}>{fileMarkers[0]?.fileName || filePath}</span>
+                  <span style={{ fontSize: 10, color: colors.mutedFg }}>
+                    {fileErrorCount > 0 && <span style={{ color: '#D16969', marginRight: 4 }}>{fileErrorCount}</span>}
+                    {fileWarnCount > 0 && <span style={{ color: '#D7BA7D' }}>{fileWarnCount}</span>}
+                  </span>
                 </div>
-              ))}
-            </div>
-          ))}
+                {!isCollapsed && (
+                  <div style={{ marginLeft: 16 }}>
+                    {fileMarkers.map((m, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => handleGoto(m)}
+                        style={{
+                          borderLeft: `2px solid ${m.marker.severity === 8 ? '#D16969' : '#D7BA7D'}`,
+                          padding: '2px 6px',
+                          marginTop: 2,
+                          cursor: 'pointer',
+                          fontSize: 10,
+                          lineHeight: 1.3,
+                        }}
+                      >
+                        <span style={{ color: colors.mutedFg, marginRight: 4 }}>
+                          {m.marker.startLineNumber}:{m.marker.startColumn}
+                        </span>
+                        <span>{m.marker.message.split('\n')[0].substring(0, 80)}{m.marker.message.length > 80 ? '...' : ''}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
           {displayedMarkers.length !== allMarkers.length && (
-            <div style={{ fontSize: 11, color: colors.mutedFg, marginTop: 6 }}>
-              一部のエラーを非表示にしています。表示するには上のボタンを切り替えてください。
+            <div style={{ fontSize: 10, color: colors.mutedFg, marginTop: 4 }}>
+              一部非表示中
             </div>
           )}
         </div>
       ) : (
-        <div style={{ color: colors.mutedFg, fontSize: 12 }}>No problems found in any open models.</div>
+        <div style={{ color: colors.mutedFg, fontSize: 11 }}>No problems</div>
       )}
     </div>
   );
