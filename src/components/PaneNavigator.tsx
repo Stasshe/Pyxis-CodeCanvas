@@ -21,7 +21,7 @@ interface PaneItemProps {
   index: number;
 }
 
-// Ultra compact pane item with big number
+// Compact pane item with big number
 const PaneItem = memo(function PaneItem({ pane, isSelected, isActive, onSelect, onActivate, colors, index }: PaneItemProps) {
   const num = index + 1;
   return (
@@ -30,13 +30,13 @@ const PaneItem = memo(function PaneItem({ pane, isSelected, isActive, onSelect, 
       style={{
         background: isSelected ? colors.accentBg : isActive ? colors.primary + '30' : colors.mutedBg,
         border: `1px solid ${isSelected ? colors.accentFg : isActive ? colors.primary : colors.border}`,
-        minWidth: '28px',
-        minHeight: '24px',
+        minWidth: '36px',
+        minHeight: '32px',
       }}
       onClick={(e) => { e.stopPropagation(); onSelect(pane.id); }}
       onDoubleClick={(e) => { e.stopPropagation(); onActivate(pane.id); }}
     >
-      <span style={{ fontSize: num <= 9 ? '14px' : '10px', fontWeight: 600, color: isSelected ? colors.accentFg : isActive ? colors.primary : colors.foreground }}>
+      <span style={{ fontSize: num <= 9 ? '16px' : '11px', fontWeight: 600, color: isSelected ? colors.accentFg : isActive ? colors.primary : colors.foreground }}>
         {num}
       </span>
     </div>
@@ -58,7 +58,7 @@ const RecursivePaneView = memo(function RecursivePaneView({ pane, selectedPaneId
   if (pane.children && pane.children.length > 0) {
     const isVertical = pane.layout === 'vertical';
     return (
-      <div className="flex gap-px w-full h-full" style={{ flexDirection: isVertical ? 'row' : 'column' }}>
+      <div className="flex gap-0.5 w-full h-full" style={{ flexDirection: isVertical ? 'row' : 'column' }}>
         {pane.children.map((child) => (
           <div key={child.id} style={{ flex: child.size ? `0 0 ${child.size}%` : 1 }}>
             <RecursivePaneView pane={child} selectedPaneId={selectedPaneId} activePane={activePane} onSelect={onSelect} onActivate={onActivate} colors={colors} leafIndexRef={leafIndexRef} />
@@ -78,7 +78,7 @@ const RecursivePaneView = memo(function RecursivePaneView({ pane, selectedPaneId
  */
 export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
   const { colors } = useTheme();
-  const { panes, activePane, setActivePane, splitPane, removePane } = useTabStore();
+  const { panes, activePane, splitPane, removePane } = useTabStore();
   const [selectedPaneId, setSelectedPaneId] = useState<string | null>(null);
 
   // Flatten panes for navigation
@@ -107,11 +107,17 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
   const handleSelect = useCallback((id: string) => setSelectedPaneId(id), []);
 
   const handleActivate = useCallback((id: string) => {
-    setActivePane(id);
+    // Use getState() to ensure we're using the latest store methods
+    const store = useTabStore.getState();
+    // Always set the active pane first
+    store.setActivePane(id);
+    // Then try to activate the tab if exists
     const pane = flattenedPanes.find(p => p.id === id);
-    if (pane?.activeTabId) useTabStore.getState().activateTab(id, pane.activeTabId);
+    if (pane?.activeTabId) {
+      store.activateTab(id, pane.activeTabId);
+    }
     onClose();
-  }, [setActivePane, flattenedPanes, onClose]);
+  }, [flattenedPanes, onClose]);
 
   const handleSplit = useCallback((dir: 'vertical' | 'horizontal') => {
     if (!selectedPaneId) return;
@@ -186,12 +192,12 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={onClose}>
       <div
-        className="rounded-lg shadow-lg p-1.5"
-        style={{ background: colors.cardBg, border: `1px solid ${colors.border}`, minWidth: '80px' }}
+        className="rounded-lg shadow-lg p-2"
+        style={{ background: colors.cardBg, border: `1px solid ${colors.border}`, minWidth: '100px' }}
         onClick={e => e.stopPropagation()}
       >
         {/* Pane Layout */}
-        <div className="flex gap-px" style={{ minHeight: '32px' }}>
+        <div className="flex gap-0.5" style={{ minHeight: '40px' }}>
           {panes.map((pane) => (
             <div key={pane.id} style={{ flex: pane.size ? `0 0 ${pane.size}%` : 1 }}>
               <RecursivePaneView
@@ -207,8 +213,8 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
           ))}
         </div>
         {/* Hint */}
-        <div className="mt-1 text-[7px] text-center" style={{ color: colors.mutedFg }}>
-          1-9 · v/s split · d del
+        <div className="mt-1 text-[8px] text-center" style={{ color: colors.mutedFg }}>
+          1-9 · ←→ · v/s · d
         </div>
       </div>
     </div>
