@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { DndProvider } from 'react-dnd';
 import { TouchBackend } from 'react-dnd-touch-backend';
 
@@ -13,6 +13,7 @@ import LeftSidebar from '@/components/Left/LeftSidebar';
 import MenuBar from '@/components/MenuBar';
 import OperationWindow from '@/components/OperationWindow';
 import PaneContainer from '@/components/PaneContainer';
+import PaneNavigator from '@/components/PaneNavigator';
 import ProjectModal from '@/components/ProjectModal';
 import RightSidebar from '@/components/Right/RightSidebar';
 import TopBar from '@/components/TopBar';
@@ -33,6 +34,7 @@ import { useProjectStore } from '@/stores/projectStore';
 import { useTabStore } from '@/stores/tabStore';
 import { Project } from '@/types';
 import type { MenuTab } from '@/types';
+import type { EditorPane } from '@/engine/tabs/types';
 
 /**
  * Home: 新アーキテクチャのメインページ
@@ -49,6 +51,7 @@ export default function Home() {
   const [isLeftSidebarVisible, setIsLeftSidebarVisible] = useState(true);
   const [isBottomPanelVisible, setIsBottomPanelVisible] = useState(true);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+  const [isPaneNavigatorOpen, setIsPaneNavigatorOpen] = useState(false);
   const [gitRefreshTrigger, setGitRefreshTrigger] = useState(0);
   const [gitChangesCount, setGitChangesCount] = useState(0);
   const [nodeRuntimeOperationInProgress] = useState(false);
@@ -61,12 +64,35 @@ export default function Home() {
     isContentRestored,
     openTab,
     setPanes,
+    activePane,
+    setActivePane,
+    splitPane,
+    removePane,
+    moveTab,
+    activateTab,
   } = useTabStore();
   const {
     isOpen: isOperationWindowVisible,
     targetPaneId: operationWindowTargetPaneId,
     closeFileSelector,
   } = useFileSelector();
+
+  // Helper function to flatten panes
+  const flattenPanes = useCallback((paneList: EditorPane[]): EditorPane[] => {
+    const result: EditorPane[] = [];
+    const traverse = (list: EditorPane[]) => {
+      for (const pane of list) {
+        if (!pane.children || pane.children.length === 0) {
+          result.push(pane);
+        }
+        if (pane.children) {
+          traverse(pane.children);
+        }
+      }
+    };
+    traverse(paneList);
+    return result;
+  }, []);
 
   // プロジェクト管理
   const { currentProject, projectFiles, loadProject, createProject, refreshProjectFiles } =
@@ -177,10 +203,10 @@ export default function Home() {
     if (isOperationWindowVisible) {
       closeFileSelector();
     } else {
-      // QuickOpenの場合はpaneIdなし（アクティブなペインを使用）
-      const activePaneId = panes.find(p => p.activeTabId)?.id || panes[0]?.id;
-      if (activePaneId) {
-        openFileSelector(activePaneId);
+      // アクティブなペインを使用（tabStoreのactivePaneを優先）
+      const targetPaneId = activePane || panes.find(p => p.activeTabId)?.id || panes[0]?.id;
+      if (targetPaneId) {
+        openFileSelector(targetPaneId);
       }
     }
   };
@@ -204,7 +230,7 @@ export default function Home() {
   };
 
   // ショートカットキーの登録
-  useKeyBinding('quickOpen', toggleOperationWindow, [panes]);
+  useKeyBinding('quickOpen', toggleOperationWindow, [panes, activePane]);
   useKeyBinding('toggleLeftSidebar', () => setIsLeftSidebarVisible(prev => !prev), []);
   useKeyBinding('toggleRightSidebar', () => setIsRightSidebarVisible(prev => !prev), []);
   useKeyBinding('toggleBottomPanel', () => setIsBottomPanelVisible(prev => !prev), []);
@@ -252,6 +278,79 @@ export default function Home() {
     },
     []
   );
+
+  // Pane management shortcuts
+  useKeyBinding('openPaneNavigator', () => setIsPaneNavigatorOpen(true), []);
+  
+  useKeyBinding('splitPaneVertical', () => {
+    const flatPanes = flattenPanes(panes);
+    const currentPane = flatPanes.find(p => p.id === activePane) || flatPanes[0];
+    if (currentPane) {
+      splitPane(currentPane.id, 'vertical');
+    }
+  }, [panes, activePane, flattenPanes, splitPane]);
+
+  useKeyBinding('splitPaneHorizontal', () => {
+    const flatPanes = flattenPanes(panes);
+    const currentPane = flatPanes.find(p => p.id === activePane) || flatPanes[0];
+    if (currentPane) {
+      splitPane(currentPane.id, 'horizontal');
+    }
+  }, [panes, activePane, flattenPanes, splitPane]);
+
+  useKeyBinding('closePane', () => {
+    const flatPanes = flattenPanes(panes);
+    if (flatPanes.length <= 1) return; // Don't close the last pane
+    const currentPane = flatPanes.find(p => p.id === activePane) || flatPanes[0];
+    if (currentPane) {
+      removePane(currentPane.id);
+      // Focus the first remaining pane
+      const remaining = flatPanes.filter(p => p.id !== currentPane.id);
+      if (remaining.length > 0) {
+        setActivePane(remaining[0].id);
+        if (remaining[0].activeTabId) {
+          activateTab(remaining[0].id, remaining[0].activeTabId);
+        }
+      }
+    }
+  }, [panes, activePane, flattenPanes, removePane, setActivePane, activateTab]);
+
+  useKeyBinding('focusNextPane', () => {
+    const flatPanes = flattenPanes(panes);
+    if (flatPanes.length <= 1) return;
+    const currentIndex = flatPanes.findIndex(p => p.id === activePane);
+    const nextIndex = (currentIndex + 1) % flatPanes.length;
+    const nextPane = flatPanes[nextIndex];
+    setActivePane(nextPane.id);
+    if (nextPane.activeTabId) {
+      activateTab(nextPane.id, nextPane.activeTabId);
+    }
+  }, [panes, activePane, flattenPanes, setActivePane, activateTab]);
+
+  useKeyBinding('focusPrevPane', () => {
+    const flatPanes = flattenPanes(panes);
+    if (flatPanes.length <= 1) return;
+    const currentIndex = flatPanes.findIndex(p => p.id === activePane);
+    const prevIndex = (currentIndex - 1 + flatPanes.length) % flatPanes.length;
+    const prevPane = flatPanes[prevIndex];
+    setActivePane(prevPane.id);
+    if (prevPane.activeTabId) {
+      activateTab(prevPane.id, prevPane.activeTabId);
+    }
+  }, [panes, activePane, flattenPanes, setActivePane, activateTab]);
+
+  useKeyBinding('moveTabToNextPane', () => {
+    const flatPanes = flattenPanes(panes);
+    if (flatPanes.length <= 1) return;
+    const currentPane = flatPanes.find(p => p.id === activePane);
+    if (!currentPane || !currentPane.activeTabId) return;
+    
+    const currentIndex = flatPanes.findIndex(p => p.id === activePane);
+    const nextIndex = (currentIndex + 1) % flatPanes.length;
+    const nextPane = flatPanes[nextIndex];
+    
+    moveTab(currentPane.id, nextPane.id, currentPane.activeTabId);
+  }, [panes, activePane, flattenPanes, moveTab]);
 
   // TouchBackendオプション: enableMouseEventsでマウスとタッチ両方をサポート
   // delayTouchStart: 長押し（200ms）でドラッグ開始
@@ -465,6 +564,11 @@ export default function Home() {
           onClose={closeFileSelector}
           projectFiles={projectFiles}
           targetPaneId={operationWindowTargetPaneId}
+        />
+
+        <PaneNavigator
+          isOpen={isPaneNavigatorOpen}
+          onClose={() => setIsPaneNavigatorOpen(false)}
         />
       </div>
 

@@ -337,6 +337,18 @@
       "title": "Theme"
     }
   },
+  "paneNavigator": {
+    "title": "Pane Navigator",
+    "emptyPane": "Empty",
+    "splitVertical": "Split Vertical",
+    "splitHorizontal": "Split Horizontal",
+    "deletePane": "Delete Pane",
+    "navigate": "Navigate",
+    "activate": "Activate",
+    "close": "Close",
+    "tab": "tab",
+    "tabs": "tabs"
+  },
   "tabBar": {
     "closeTab": "Close tab",
     "moveToPane": "Move to pane",

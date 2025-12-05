@@ -337,6 +337,18 @@
       "title": "テーマ"
     }
   },
+  "paneNavigator": {
+    "title": "ペインナビゲーター",
+    "emptyPane": "空",
+    "splitVertical": "縦に分割",
+    "splitHorizontal": "横に分割",
+    "deletePane": "ペインを削除",
+    "navigate": "移動",
+    "activate": "選択",
+    "close": "閉じる",
+    "tab": "タブ",
+    "tabs": "タブ"
+  },
   "tabBar": {
     "closeTab": "タブを閉じる",
     "moveToPane": "ペインに移動",

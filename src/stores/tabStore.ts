@@ -278,28 +278,13 @@ export const useTabStore = create<TabStore>((set, get) => ({
       return;
     }
 
-    // shouldReuseTabがある場合は、全ペインでカスタム検索を行う（タブタイプ固有の再利用判断）
+    // shouldReuseTabがある場合は、targetPane内でカスタム検索を行う
     if (tabDef.shouldReuseTab) {
-      // 全ペインのタブをペインIDと共に収集
-      const collectTabsWithPane = (panes: EditorPane[]): Array<{ tab: Tab; paneId: string }> => {
-        const result: Array<{ tab: Tab; paneId: string }> = [];
-        for (const p of panes) {
-          for (const tab of p.tabs) {
-            result.push({ tab, paneId: p.id });
-          }
-          if (p.children) {
-            result.push(...collectTabsWithPane(p.children));
-          }
-        }
-        return result;
-      };
-      
-      const allTabsWithPane = collectTabsWithPane(state.panes);
-      for (const { tab, paneId: tabPaneId } of allTabsWithPane) {
+      for (const tab of pane.tabs) {
         if (tab.kind === kind && tabDef.shouldReuseTab(tab, file, options)) {
           // 既存タブをアクティブ化
           if (options.makeActive !== false) {
-            get().activateTab(tabPaneId, tab.id);
+            get().activateTab(targetPaneId, tab.id);
           }
           console.log('[TabStore] Reusing existing tab via shouldReuseTab:', tab.id);
           return;

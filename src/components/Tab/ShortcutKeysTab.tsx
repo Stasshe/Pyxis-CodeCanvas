@@ -168,7 +168,7 @@ export default function ShortcutKeysTab() {
     }
     return Array.from(groups.entries()).sort((a, b) => {
         // Custom sort order if needed, or just alphabetical
-        const order = ['file', 'search', 'view', 'execution', 'tab', 'git', 'project', 'other'];
+        const order = ['file', 'search', 'view', 'execution', 'tab', 'pane', 'git', 'project', 'other'];
         const indexA = order.indexOf(a[0]);
         const indexB = order.indexOf(b[0]);
         if (indexA !== -1 && indexB !== -1) return indexA - indexB;
@@ -184,6 +184,7 @@ export default function ShortcutKeysTab() {
     view: { label: '表示', icon: <Eye size={16} /> },
     execution: { label: '実行', icon: <Play size={16} /> },
     tab: { label: 'タブ', icon: <Folder size={16} /> }, // Using Folder for tabs as a container metaphor
+    pane: { label: 'ペイン', icon: <Grid size={16} /> },
     git: { label: 'Git', icon: <GitBranch size={16} /> },
     project: { label: 'プロジェクト', icon: <Settings size={16} /> },
     other: { label: 'その他', icon: <Keyboard size={16} /> },
