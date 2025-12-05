@@ -2,7 +2,7 @@
 
 'use client';
 
-import { Loader2, MessageSquare } from 'lucide-react';
+import { Loader2, MessageSquare, Bot } from 'lucide-react';
 import React, { useEffect, useRef } from 'react';
 
 import ChatMessage from './ChatMessage';
@@ -16,9 +16,6 @@ interface ChatContainerProps {
   isProcessing: boolean;
   emptyMessage?: string;
   onRevert?: (message: ChatSpaceMessage) => Promise<void>;
-  onOpenReview?: (filePath: string, originalContent: string, suggestedContent: string) => Promise<void>;
-  onApplyChanges?: (filePath: string, newContent: string) => Promise<void>;
-  onDiscardChanges?: (filePath: string) => Promise<void>;
 }
 
 export default function ChatContainer({
@@ -27,46 +24,36 @@ export default function ChatContainer({
   emptyMessage = 'AIとチャットを開始してください',
   onRevert,
 }: ChatContainerProps) {
-  // Always compact by design
-  const compact = true;
   const { colors } = useTheme();
   const { t } = useTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // 新しいメッセージが追加されたら自動スクロール
+  // Auto scroll to bottom when new messages arrive
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages.length, isProcessing]);
 
-  // Debug: log messages on each render to inspect which messages contain editResponse
-  // Debug: log message count only to reduce noise (avoid logging full array each render)
-  useEffect(() => {
-    try {
-      console.log('[ChatContainer] messages render, count:', messages.length);
-    } catch (e) {
-      console.warn('[ChatContainer] debug log failed', e);
-    }
-  }, [messages.length, isProcessing]);
-
   return (
     <div
       ref={scrollRef}
-      className="flex-1 overflow-y-auto px-3 py-3 space-y-2"
+      className="flex-1 overflow-y-auto px-2 py-2 space-y-3"
       style={{ background: colors.background }}
     >
       {messages.length === 0 ? (
         <div
-          className="flex flex-col items-center justify-center h-full text-center select-none"
+          className="flex flex-col items-center justify-center h-full text-center select-none py-8"
           style={{ color: colors.mutedFg }}
         >
-          <MessageSquare
-            size={36}
-            className="mb-3 opacity-30"
-          />
-          <div className="text-sm font-medium mb-1">{emptyMessage}</div>
-          <div className="text-xs opacity-70">{t('ai.chatContainer.suggest')}</div>
+          <div
+            className="w-12 h-12 rounded-full flex items-center justify-center mb-3"
+            style={{ background: colors.mutedBg, border: `1px solid ${colors.border}` }}
+          >
+            <Bot size={24} className="opacity-50" />
+          </div>
+          <div className="text-xs font-medium mb-1">{emptyMessage}</div>
+          <div className="text-[10px] opacity-60">{t('ai.chatContainer.suggest')}</div>
         </div>
       ) : (
         <>
@@ -74,27 +61,33 @@ export default function ChatContainer({
             <ChatMessage
               key={message.id}
               message={message}
-              onRevert={async (m: ChatSpaceMessage) => {
-                if (typeof onRevert === 'function') await onRevert(m);
-              }}
+              onRevert={onRevert}
             />
           ))}
 
-          {/* 処理中インジケータ */}
+          {/* Processing indicator */}
           {isProcessing && (
-            <div
-              className="flex items-center gap-2 px-3 py-2 rounded-lg"
-              style={{
-                background: colors.mutedBg,
-                color: colors.mutedFg,
-                border: `1px solid ${colors.border}`,
-              }}
-            >
-              <Loader2
-                size={14}
-                className="animate-spin"
-              />
-              <span className="text-xs">{t('ai.chatContainer.generating')}</span>
+            <div className="flex gap-2">
+              <div
+                className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center"
+                style={{
+                  background: colors.mutedBg,
+                  border: `1px solid ${colors.border}`,
+                }}
+              >
+                <Bot size={12} style={{ color: colors.foreground }} />
+              </div>
+              <div
+                className="flex items-center gap-2 px-3 py-2 rounded-lg"
+                style={{
+                  background: colors.mutedBg,
+                  color: colors.mutedFg,
+                  border: `1px solid ${colors.border}`,
+                }}
+              >
+                <Loader2 size={12} className="animate-spin" />
+                <span className="text-xs">{t('ai.chatContainer.generating')}</span>
+              </div>
             </div>
           )}
         </>

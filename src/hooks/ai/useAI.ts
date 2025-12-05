@@ -14,6 +14,7 @@ import {
   extractFilePathsFromResponse,
   validateResponse,
 } from '@/engine/ai/responseParser';
+import { fileRepository } from '@/engine/core/fileRepository';
 import type { AIFileContext, AIEditResponse, ChatSpaceMessage } from '@/types';
 
 interface UseAIProps {
@@ -154,17 +155,44 @@ export function useAI(props?: UseAIProps) {
 
           console.log('[useAI] New paths (not in selected):', newPaths);
 
-          const allOriginalFiles = [
-            ...selectedFiles,
-            ...newPaths.map((path: string) => ({
-              path,
-              content: '', // 新規ファイルまたは未選択ファイルは空
-            })),
+          // Fetch actual content for files not in selectedFiles from the repository
+          const newFilesWithContent = await Promise.all(
+            newPaths.map(async (path: string) => {
+              try {
+                if (props?.projectId) {
+                  await fileRepository.init();
+                  const file = await fileRepository.getFileByPath(props.projectId, path);
+                  if (file && file.content) {
+                    console.log('[useAI] Fetched existing file content for:', path);
+                    return { path, content: file.content, isNewFile: false };
+                  }
+                }
+              } catch (e) {
+                console.warn('[useAI] Could not fetch file content for:', path, e);
+              }
+              // This is a new file that will be created
+              return { path, content: '', isNewFile: true };
+            })
+          );
+
+          // Define proper type for file objects with isNewFile
+          interface OriginalFileWithMeta {
+            path: string;
+            content: string;
+            isNewFile: boolean;
+          }
+
+          const allOriginalFiles: OriginalFileWithMeta[] = [
+            ...selectedFiles.map(f => ({ path: f.path, content: f.content, isNewFile: false })),
+            ...newFilesWithContent,
           ];
+
+          // Create a map of paths to isNewFile status
+          const newFileMap = new Map(allOriginalFiles.map(f => [f.path, f.isNewFile]));
 
           console.log(
             '[useAI] All original files for parsing:',
-            allOriginalFiles.map(f => ({ path: f.path, contentLength: f.content.length }))
+            allOriginalFiles.map(f => ({ path: f.path, contentLength: f.content.length, isNewFile: f.isNewFile }))
           );
 
           const parseResult = parseEditResponse(response, allOriginalFiles);
@@ -178,9 +206,12 @@ export function useAI(props?: UseAIProps) {
             }))
           );
 
-          // AIEditResponse形式に変換
+          // AIEditResponse形式に変換 (add isNewFile flag for each file)
           const editResponse: AIEditResponse = {
-            changedFiles: parseResult.changedFiles,
+            changedFiles: parseResult.changedFiles.map(f => ({
+              ...f,
+              isNewFile: newFileMap.get(f.path) || false,
+            })),
             message: parseResult.message,
           };
 
@@ -189,7 +220,8 @@ export function useAI(props?: UseAIProps) {
           if (editResponse.changedFiles.length > 0) {
             detailedMessage = `編集が完了しました！\n\n**変更されたファイル:** ${editResponse.changedFiles.length}個\n\n`;
             editResponse.changedFiles.forEach((file, index) => {
-              detailedMessage += `${index + 1}. **${file.path}**\n`;
+              const newLabel = file.isNewFile ? ' (新規)' : '';
+              detailedMessage += `${index + 1}. **${file.path}**${newLabel}\n`;
               if (file.explanation) {
                 detailedMessage += `   - ${file.explanation}\n`;
               }
@@ -262,6 +294,35 @@ export function useAI(props?: UseAIProps) {
     [props?.onUpdateSelectedFiles]
   );
 
+  /**
+   * Generate the AI prompt text for debugging purposes without actually sending to the API.
+   * Useful for inspecting what prompt would be sent to the AI model.
+   * @param content - The user's input message
+   * @param mode - The current mode ('ask' for questions, 'edit' for code editing)
+   * @returns The full prompt text that would be sent to the AI
+   */
+  const generatePromptText = useCallback(
+    (content: string, mode: 'ask' | 'edit'): string => {
+      const selectedFiles = getSelectedFileContexts(fileContexts);
+
+      const previousMessages = props?.messages
+        ?.filter(msg => typeof msg.content === 'string' && msg.content.trim().length > 0)
+        ?.map(msg => ({
+          type: msg.type,
+          content: msg.content,
+          mode: msg.mode,
+          editResponse: msg.editResponse,
+        }));
+
+      if (mode === 'ask') {
+        return ASK_PROMPT_TEMPLATE(selectedFiles, content, previousMessages);
+      } else {
+        return EDIT_PROMPT_TEMPLATE(selectedFiles, content, previousMessages);
+      }
+    },
+    [fileContexts, props?.messages]
+  );
+
   return {
     messages: props?.messages || [],
     isProcessing,
@@ -269,5 +330,6 @@ export function useAI(props?: UseAIProps) {
     sendMessage,
     updateFileContexts,
     toggleFileSelection,
+    generatePromptText,
   };
 }
