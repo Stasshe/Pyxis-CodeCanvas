@@ -316,8 +316,8 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
           width: '100%',
           height: '100%',
           background: colors.background,
-          border: isActivePane ? `1px solid ${colors.primary}50` : `1px solid ${colors.border}`,
-          boxShadow: isActivePane ? `inset 0 0 0 1px ${colors.primary}30` : 'none',
+          border: isActivePane ? `1px solid ${colors.foreground}40` : `1px solid ${colors.border}`,
+          boxShadow: isActivePane ? `inset 0 0 0 1px ${colors.foreground}20` : 'none',
         }}
       >
         {/* ドロップゾーンのオーバーレイ */}
