@@ -21,4 +21,10 @@ export const OUTPUT_CONFIG = {
   OUTPUT_MAX_MESSAGES: 30,
 };
 
+// Monaco editor related configuration
+export const MONACO_CONFIG = {
+  // Maximum number of Monaco models to keep in memory
+  MAX_MONACO_MODELS: 5,
+};
+
 export const DEFAULT_LOCALE = 'en';

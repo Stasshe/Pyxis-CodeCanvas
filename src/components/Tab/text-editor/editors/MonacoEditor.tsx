@@ -7,11 +7,13 @@ import { useMonacoModels } from '../hooks/useMonacoModels';
 import EditorPlaceholder from '../ui/EditorPlaceholder';
 import { registerEnhancedJSXLanguage, getEnhancedLanguage, getModelLanguage } from './monarch-jsx-language';
 import { defineAndSetMonacoThemes } from './monaco-themes';
+import { configureMonacoLanguageDefaults } from './monaco-language-defaults';
 
 import { useTheme } from '@/context/ThemeContext';
 
 // グローバルフラグ
 let isLanguageRegistered = false;
+let isLanguageDefaultsConfigured = false;
 
 interface MonacoEditorProps {
   tabId: string;
@@ -90,29 +92,15 @@ export default function MonacoEditor({
       console.warn('[MonacoEditor] Failed to define/set themes via monaco-themes:', e);
     }
 
-    // TypeScript/JavaScript設定
-    mon.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
-      noSemanticValidation: false,
-      noSyntaxValidation: false,
-      noSuggestionDiagnostics: false,
-    });
-    mon.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
-      noSemanticValidation: false,
-      noSyntaxValidation: false,
-      noSuggestionDiagnostics: false,
-    });
-    mon.languages.typescript.typescriptDefaults.setCompilerOptions({
-      target: mon.languages.typescript.ScriptTarget.ES2020,
-      allowNonTsExtensions: true,
-      moduleResolution: mon.languages.typescript.ModuleResolutionKind.NodeJs,
-      module: mon.languages.typescript.ModuleKind.CommonJS,
-      noEmit: true,
-      esModuleInterop: true,
-      jsx: mon.languages.typescript.JsxEmit.React,
-      reactNamespace: 'React',
-      allowJs: true,
-      typeRoots: ['node_modules/@types'],
-    });
+    // 言語診断設定（初回のみ）
+    if (!isLanguageDefaultsConfigured) {
+      try {
+        configureMonacoLanguageDefaults(mon);
+        isLanguageDefaultsConfigured = true;
+      } catch (e) {
+        console.warn('[MonacoEditor] Failed to configure language defaults:', e);
+      }
+    }
 
     // 選択範囲の文字数（スペース除外）を検知
     editor.onDidChangeCursorSelection(e => {
@@ -285,7 +273,7 @@ export default function MonacoEditor({
         fontSize,
         lineNumbers: 'on',
         roundedSelection: false,
-        scrollBeyondLastLine: false,
+        scrollBeyondLastLine: true,
         automaticLayout: true,
         minimap: {
           enabled: true,

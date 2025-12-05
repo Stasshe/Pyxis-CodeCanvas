@@ -4,6 +4,18 @@ import { create } from 'zustand';
 import { tabRegistry } from '@/engine/tabs/TabRegistry';
 import { EditorPane, Tab, OpenTabOptions, DiffTab } from '@/engine/tabs/types';
 
+// Helper function to flatten all leaf panes (preserving order for pane index priority)
+function flattenLeafPanes(panes: EditorPane[], result: EditorPane[] = []): EditorPane[] {
+  for (const p of panes) {
+    if (!p.children || p.children.length === 0) {
+      result.push(p);
+    } else {
+      flattenLeafPanes(p.children, result);
+    }
+  }
+  return result;
+}
+
 interface TabStore {
   // ペイン管理
   panes: EditorPane[];
@@ -278,19 +290,39 @@ export const useTabStore = create<TabStore>((set, get) => ({
       return;
     }
 
-    // shouldReuseTabがある場合は、targetPane内でカスタム検索を行う
+    // shouldReuseTabがある場合の検索
     if (tabDef.shouldReuseTab) {
-      for (const tab of pane.tabs) {
-        if (tab.kind === kind && tabDef.shouldReuseTab(tab, file, options)) {
-          // 既存タブをアクティブ化
-          if (options.makeActive !== false) {
-            get().activateTab(targetPaneId, tab.id);
+      // searchAllPanesForReuseがtrueの場合、全ペインを検索（paneIndexが小さいペインを優先）
+      if (options.searchAllPanesForReuse) {
+        const allLeafPanes = flattenLeafPanes(state.panes);
+        
+        for (const searchPane of allLeafPanes) {
+          for (const tab of searchPane.tabs) {
+            if (tab.kind === kind && tabDef.shouldReuseTab(tab, file, options)) {
+              // 既存タブをアクティブ化
+              if (options.makeActive !== false) {
+                get().activateTab(searchPane.id, tab.id);
+              }
+              console.log('[TabStore] Reusing existing tab via shouldReuseTab (all panes):', tab.id, 'in pane:', searchPane.id);
+              return;
+            }
           }
-          console.log('[TabStore] Reusing existing tab via shouldReuseTab:', tab.id);
-          return;
         }
+        // 全ペインで見つからなかった場合は新規タブを作成
+      } else {
+        // 従来の動作：targetPane内でのみカスタム検索を行う
+        for (const tab of pane.tabs) {
+          if (tab.kind === kind && tabDef.shouldReuseTab(tab, file, options)) {
+            // 既存タブをアクティブ化
+            if (options.makeActive !== false) {
+              get().activateTab(targetPaneId, tab.id);
+            }
+            console.log('[TabStore] Reusing existing tab via shouldReuseTab:', tab.id);
+            return;
+          }
+        }
+        // shouldReuseTabで見つからなかった場合は新規タブを作成（通常検索はスキップ）
       }
-      // shouldReuseTabで見つからなかった場合は新規タブを作成（通常検索はスキップ）
     } else {
       // shouldReuseTabがない場合は、通常の検索（パス/IDベース）
       const tabId = kind !== 'editor' ? `${kind}:${file.path || file.name}` : file.path || file.name;

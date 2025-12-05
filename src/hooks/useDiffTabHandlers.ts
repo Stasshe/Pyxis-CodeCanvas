@@ -85,7 +85,7 @@ export function useDiffTabHandlers(currentProject: any) {
             files: diffData,
             editable: editable ?? true,
           },
-          { kind: 'diff' }
+          { kind: 'diff', searchAllPanesForReuse: true }
         );
         return;
       }
@@ -149,7 +149,7 @@ export function useDiffTabHandlers(currentProject: any) {
           files: diffData,
           editable: editable ?? false,
         },
-        { kind: 'diff' }
+        { kind: 'diff', searchAllPanesForReuse: true }
       );
     },
     [currentProject, openTab]
@@ -259,7 +259,7 @@ export function useDiffTabHandlers(currentProject: any) {
           editable: false,
           isMultiFile: true,
         },
-        { kind: 'diff' }
+        { kind: 'diff', searchAllPanesForReuse: true }
       );
     },
     [currentProject, openTab]
