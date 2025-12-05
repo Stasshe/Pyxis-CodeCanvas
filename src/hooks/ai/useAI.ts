@@ -6,7 +6,7 @@ import { useState, useCallback, useEffect } from 'react';
 
 import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
 import { LOCALSTORAGE_KEY } from '@/context/config';
-import { getSelectedFileContexts } from '@/engine/ai/contextBuilder';
+import { getSelectedFileContexts, getCustomInstructions } from '@/engine/ai/contextBuilder';
 import { generateCodeEdit, generateChatResponse } from '@/engine/ai/fetchAI';
 import { EDIT_PROMPT_TEMPLATE, ASK_PROMPT_TEMPLATE } from '@/engine/ai/prompts';
 import {
@@ -120,16 +120,19 @@ export function useAI(props?: UseAIProps) {
 
       setIsProcessing(true);
       try {
+        // Get custom instructions if available
+        const customInstructions = getCustomInstructions(fileContexts);
+
         if (mode === 'ask') {
           // Ask モード
-          const prompt = ASK_PROMPT_TEMPLATE(selectedFiles, content, previousMessages);
+          const prompt = ASK_PROMPT_TEMPLATE(selectedFiles, content, previousMessages, customInstructions);
           const response = await generateChatResponse(prompt, [], apiKey);
 
           await addMessage(response, 'assistant', 'ask');
           return null;
         } else {
           // Edit モード
-          const prompt = EDIT_PROMPT_TEMPLATE(selectedFiles, content, previousMessages);
+          const prompt = EDIT_PROMPT_TEMPLATE(selectedFiles, content, previousMessages, customInstructions);
           const response = await generateCodeEdit(prompt, apiKey);
 
           // レスポンスのバリデーション
@@ -218,9 +221,11 @@ export function useAI(props?: UseAIProps) {
           // 詳細メッセージを生成
           let detailedMessage = editResponse.message;
           if (editResponse.changedFiles.length > 0) {
-            detailedMessage = `編集が完了しました！\n\n**変更されたファイル:** ${editResponse.changedFiles.length}個\n\n`;
+            const usedPatch = parseResult.usedPatchFormat;
+            const formatNote = usedPatch ? ' (using patch format)' : '';
+            detailedMessage = `Edit complete!${formatNote}\n\n**Changed files:** ${editResponse.changedFiles.length}\n\n`;
             editResponse.changedFiles.forEach((file, index) => {
-              const newLabel = file.isNewFile ? ' (新規)' : '';
+              const newLabel = file.isNewFile ? ' (new)' : '';
               detailedMessage += `${index + 1}. **${file.path}**${newLabel}\n`;
               if (file.explanation) {
                 detailedMessage += `   - ${file.explanation}\n`;
@@ -252,7 +257,7 @@ export function useAI(props?: UseAIProps) {
           return editResponse;
         }
       } catch (error) {
-        const errorMessage = `エラーが発生しました: ${(error as Error).message}`;
+        const errorMessage = `Error: ${(error as Error).message}`;
         await addMessage(errorMessage, 'assistant', mode);
         throw error;
       } finally {
@@ -304,6 +309,7 @@ export function useAI(props?: UseAIProps) {
   const generatePromptText = useCallback(
     (content: string, mode: 'ask' | 'edit'): string => {
       const selectedFiles = getSelectedFileContexts(fileContexts);
+      const customInstructions = getCustomInstructions(fileContexts);
 
       const previousMessages = props?.messages
         ?.filter(msg => typeof msg.content === 'string' && msg.content.trim().length > 0)
@@ -315,9 +321,9 @@ export function useAI(props?: UseAIProps) {
         }));
 
       if (mode === 'ask') {
-        return ASK_PROMPT_TEMPLATE(selectedFiles, content, previousMessages);
+        return ASK_PROMPT_TEMPLATE(selectedFiles, content, previousMessages, customInstructions);
       } else {
-        return EDIT_PROMPT_TEMPLATE(selectedFiles, content, previousMessages);
+        return EDIT_PROMPT_TEMPLATE(selectedFiles, content, previousMessages, customInstructions);
       }
     },
     [fileContexts, props?.messages]
