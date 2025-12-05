@@ -4,6 +4,18 @@ import { create } from 'zustand';
 import { tabRegistry } from '@/engine/tabs/TabRegistry';
 import { EditorPane, Tab, OpenTabOptions, DiffTab } from '@/engine/tabs/types';
 
+// Helper function to flatten all leaf panes (preserving order for pane index priority)
+function flattenLeafPanes(panes: EditorPane[], result: EditorPane[] = []): EditorPane[] {
+  for (const p of panes) {
+    if (!p.children || p.children.length === 0) {
+      result.push(p);
+    } else {
+      flattenLeafPanes(p.children, result);
+    }
+  }
+  return result;
+}
+
 interface TabStore {
   // ペイン管理
   panes: EditorPane[];
@@ -282,19 +294,7 @@ export const useTabStore = create<TabStore>((set, get) => ({
     if (tabDef.shouldReuseTab) {
       // searchAllPanesForReuseがtrueの場合、全ペインを検索（paneIndexが小さいペインを優先）
       if (options.searchAllPanesForReuse) {
-        // 全ペインをフラット化して取得（順序を保持）
-        const flattenPanes = (panes: EditorPane[], result: EditorPane[] = []): EditorPane[] => {
-          for (const p of panes) {
-            if (!p.children || p.children.length === 0) {
-              result.push(p);
-            } else {
-              flattenPanes(p.children, result);
-            }
-          }
-          return result;
-        };
-        
-        const allLeafPanes = flattenPanes(state.panes);
+        const allLeafPanes = flattenLeafPanes(state.panes);
         
         for (const searchPane of allLeafPanes) {
           for (const tab of searchPane.tabs) {
