@@ -445,7 +445,7 @@ export function parseEditResponse(
   const hasValidMessage = message && message.replace(/\s/g, '').length >= 5;
 
   if (changedFiles.length === 0 && !hasValidMessage) {
-    const failureNote = 'Failed to parse response. Please adjust your prompt.';
+    const failureNote = 'Failed to parse response. Ensure you use the correct SEARCH/REPLACE block format (<<<<<<< SEARCH ... >>>>>>> REPLACE) or legacy file tags (<AI_EDIT_CONTENT_START:...>).';
     const safeResponse = response.replace(/```/g, '```\u200B');
     const rawBlock = '\n\n---\n\nRaw response:\n\n```text\n' + safeResponse + '\n```';
     message = failureNote + rawBlock;

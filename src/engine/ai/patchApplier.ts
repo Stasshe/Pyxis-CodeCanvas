@@ -55,10 +55,8 @@ function normalizeLineEndings(text: string): string {
  * Normalize whitespace for comparison (trims trailing whitespace per line)
  */
 function normalizeForComparison(text: string): string {
-  return text
-    .split('\n')
-    .map(line => line.trimEnd())
-    .join('\n');
+  // More efficient regex-based approach for large files
+  return text.replace(/[ \t]+$/gm, '');
 }
 
 /**
@@ -262,7 +260,7 @@ export function applySearchReplaceBlock(
     return {
       success: false,
       content: normalizedContent,
-      error: 'Empty search pattern without line number hint',
+      error: 'Empty search pattern requires a lineNumber hint for insertion. Provide lineNumber in the SearchReplaceBlock.',
     };
   }
 

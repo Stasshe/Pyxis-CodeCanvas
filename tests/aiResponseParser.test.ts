@@ -291,6 +291,7 @@ content
 
     expect(result.changedFiles.length).toBe(0);
     expect(result.message).toContain('Failed to parse response');
+    expect(result.message).toContain('SEARCH/REPLACE');
     expect(result.message).toContain('Raw response:');
   });
 
