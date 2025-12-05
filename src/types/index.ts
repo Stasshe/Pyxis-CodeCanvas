@@ -100,6 +100,7 @@ export interface AIEditResponse {
     originalContent: string;
     suggestedContent: string;
     explanation: string;
+    applied?: boolean; // Track if this change has been applied to file
   }>;
   message: string;
 }

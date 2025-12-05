@@ -262,6 +262,29 @@ export function useAI(props?: UseAIProps) {
     [props?.onUpdateSelectedFiles]
   );
 
+  // Generate prompt text for debugging (without sending)
+  const generatePromptText = useCallback(
+    (content: string, mode: 'ask' | 'edit'): string => {
+      const selectedFiles = getSelectedFileContexts(fileContexts);
+
+      const previousMessages = props?.messages
+        ?.filter(msg => typeof msg.content === 'string' && msg.content.trim().length > 0)
+        ?.map(msg => ({
+          type: msg.type,
+          content: msg.content,
+          mode: msg.mode,
+          editResponse: msg.editResponse,
+        }));
+
+      if (mode === 'ask') {
+        return ASK_PROMPT_TEMPLATE(selectedFiles, content, previousMessages);
+      } else {
+        return EDIT_PROMPT_TEMPLATE(selectedFiles, content, previousMessages);
+      }
+    },
+    [fileContexts, props?.messages]
+  );
+
   return {
     messages: props?.messages || [],
     isProcessing,
@@ -269,5 +292,6 @@ export function useAI(props?: UseAIProps) {
     sendMessage,
     updateFileContexts,
     toggleFileSelection,
+    generatePromptText,
   };
 }
