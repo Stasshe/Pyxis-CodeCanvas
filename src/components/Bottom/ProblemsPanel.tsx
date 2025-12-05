@@ -2,6 +2,7 @@
 
 import { ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
 import { useEffect, useMemo, useState, useCallback } from 'react';
+import { loader } from '@monaco-editor/react';
 import type * as monaco from 'monaco-editor';
 import { useTheme } from '@/context/ThemeContext';
 import { useTabStore } from '@/stores/tabStore';
@@ -64,71 +65,63 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
     let disposable: { dispose?: () => void } | null = null;
     let isCancelled = false;
 
-    // run in async scope so we can dynamic-import monaco on client only
-    (async () => {
-      try {
-        // Get monaco from globalThis (set by @monaco-editor/react)
-        const monAny = (globalThis as any).monaco;
-        if (!monAny) {
-          // Monaco not yet loaded
-          return;
-        }
-        const mon = monAny as typeof import('monaco-editor');
+    // Use @monaco-editor/react's loader to get Monaco instance
+    loader.init().then((mon) => {
+      if (isCancelled) return;
 
-        const collectAllMarkers = () => {
-          if (isCancelled) return;
+      const collectAllMarkers = () => {
+        if (isCancelled) return;
+        
+        try {
+          // Get ALL markers from Monaco
+          const allMonacoMarkers = mon.editor.getModelMarkers({});
+          const markersWithFiles: MarkerWithFile[] = [];
           
-          try {
-            // Get ALL markers from Monaco
-            const allMonacoMarkers = mon.editor.getModelMarkers({});
-            const markersWithFiles: MarkerWithFile[] = [];
-            
-            for (const marker of allMonacoMarkers) {
-              try {
-                // Extract file path from the marker's resource URI
-                let filePath = marker.resource?.path || '';
-                if (filePath.startsWith('/')) {
-                  filePath = filePath.substring(1);
-                }
-                // Remove any timestamp suffixes added for uniqueness
-                filePath = filePath.replace(/__\d+$/, '');
-                
-                const fileName = filePath.split('/').pop() || filePath;
-                
-                // Skip excluded file types
-                if (shouldExcludeFile(fileName)) {
-                  continue;
-                }
-
-                markersWithFiles.push({
-                  marker,
-                  filePath,
-                  fileName,
-                });
-              } catch (e) {
-                // Skip markers that fail
+          for (const marker of allMonacoMarkers) {
+            try {
+              // Extract file path from the marker's resource URI
+              let filePath = marker.resource?.path || '';
+              if (filePath.startsWith('/')) {
+                filePath = filePath.substring(1);
               }
-            }
+              // Remove any timestamp suffixes added for uniqueness
+              filePath = filePath.replace(/__\d+$/, '');
+              
+              const fileName = filePath.split('/').pop() || filePath;
+              
+              // Skip excluded file types
+              if (shouldExcludeFile(fileName)) {
+                continue;
+              }
 
-            if (!isCancelled) {
-              setAllMarkers(markersWithFiles);
+              markersWithFiles.push({
+                marker,
+                filePath,
+                fileName,
+              });
+            } catch (e) {
+              // Skip markers that fail
             }
-          } catch (e) {
-            console.warn('[ProblemsPanel] failed to collect markers', e);
           }
-        };
 
-        // Initial collection
+          if (!isCancelled) {
+            setAllMarkers(markersWithFiles);
+          }
+        } catch (e) {
+          console.warn('[ProblemsPanel] failed to collect markers', e);
+        }
+      };
+
+      // Initial collection
+      collectAllMarkers();
+
+      // Listen to marker changes
+      disposable = mon.editor.onDidChangeMarkers(() => {
         collectAllMarkers();
-
-        // Listen to marker changes
-        disposable = mon.editor.onDidChangeMarkers(() => {
-          collectAllMarkers();
-        });
-      } catch (e) {
-        console.warn('[ProblemsPanel] failed to initialize', e);
-      }
-    })();
+      });
+    }).catch((e) => {
+      console.warn('[ProblemsPanel] failed to initialize Monaco', e);
+    });
 
     return () => {
       isCancelled = true;
