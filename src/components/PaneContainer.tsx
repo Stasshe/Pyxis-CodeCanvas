@@ -1,7 +1,7 @@
 // src/components/PaneContainer.tsx
 'use client';
 
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext, useMemo } from 'react';
 import { useDrop } from 'react-dnd';
 
 import PaneResizer from '@/components/PaneResizer';
@@ -33,6 +33,19 @@ export const useGitContext = () => {
   return context;
 };
 
+// ペインをフラット化してリーフペインの数をカウント
+function flattenPanes(paneList: EditorPane[]): EditorPane[] {
+  const result: EditorPane[] = [];
+  const traverse = (items: EditorPane[]) => {
+    for (const p of items) {
+      if (!p.children || p.children.length === 0) result.push(p);
+      if (p.children) traverse(p.children);
+    }
+  };
+  traverse(paneList);
+  return result;
+}
+
 /**
  * PaneContainer: 自律的かつ機能完全なペインコンポーネント
  * - TabContextを通じた自律的なタブ操作
@@ -42,6 +55,9 @@ export const useGitContext = () => {
 export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContainerProps) {
   const { colors } = useTheme();
   const { globalActiveTab, activePane, setPanes, panes: allPanes, moveTab, splitPaneAndMoveTab, openTab, splitPaneAndOpenFile } = useTabStore();
+  
+  // リーフペインの数を計算（枠線表示の判定に使用）- パフォーマンスのためメモ化
+  const leafPaneCount = useMemo(() => flattenPanes(allPanes).length, [allPanes]);
   const [dropZone, setDropZone] = React.useState<'top' | 'bottom' | 'left' | 'right' | 'center' | 'tabbar' | null>(null);
   const elementRef = React.useRef<HTMLDivElement | null>(null);
   const dropZoneRef = React.useRef<typeof dropZone>(null);
@@ -307,6 +323,9 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
 
   const overlayStyle = getDropOverlayStyle();
 
+  // ペインが1つの場合は枠線を非表示、複数の場合はソフトな緑の強調
+  const showActiveBorder = leafPaneCount > 1 && isActivePane;
+
   return (
     <GitContext.Provider value={{ setGitRefreshTrigger }}>
       <div
@@ -316,8 +335,8 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
           width: '100%',
           height: '100%',
           background: colors.background,
-          border: isActivePane ? `2px solid ${colors.green}` : `1px solid ${colors.border}`,
-          boxShadow: isActivePane ? `0 0 8px ${colors.green}50, inset 0 0 12px ${colors.green}20` : 'none',
+          border: showActiveBorder ? `1px solid ${colors.green}` : `1px solid ${colors.border}`,
+          boxShadow: showActiveBorder ? `0 0 16px ${colors.green}40, 0 0 32px ${colors.green}20` : 'none',
         }}
       >
         {/* ドロップゾーンのオーバーレイ */}

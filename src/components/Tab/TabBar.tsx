@@ -379,9 +379,10 @@ export default function TabBar({ paneId }: TabBarProps) {
         className={`h-full px-3 flex items-center gap-2 flex-shrink-0 relative ${isDragging ? 'cursor-grabbing' : 'cursor-pointer'}`}
         style={{
           background: isActive ? colors.background : colors.mutedBg,
-          borderColor: isActive ? colors.green : colors.border,
+          borderColor: isActive ? `${colors.green}80` : colors.border,
           borderRight: `1px solid ${colors.border}`,
-          borderBottom: isActive ? `2px solid ${colors.green}` : `2px solid transparent`,
+          borderBottom: isActive ? `2px solid ${colors.green}90` : `2px solid transparent`,
+          boxShadow: isActive ? `0 2px 8px ${colors.green}20` : 'none',
           minWidth: '120px',
           maxWidth: '200px',
           opacity: isDragging ? 0.4 : 1,
