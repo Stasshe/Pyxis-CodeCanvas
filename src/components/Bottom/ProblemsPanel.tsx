@@ -1,7 +1,7 @@
 "use client";
 
-import { ChevronDown, ChevronRight } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import type * as monaco from 'monaco-editor';
 import { useTheme } from '@/context/ThemeContext';
 import { useTabStore } from '@/stores/tabStore';
@@ -36,6 +36,7 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
   const [allMarkers, setAllMarkers] = useState<MarkerWithFile[]>([]);
   const [showImportErrors, setShowImportErrors] = useState<boolean>(false);
   const [collapsedFiles, setCollapsedFiles] = useState<Set<string>>(new Set());
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Helper to find paneId for a tabId
   const findPaneIdForTab = useMemo(() => {
@@ -54,10 +55,13 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
     };
   }, [panes]);
 
+  // Manual refresh function
+  const handleRefresh = useCallback(() => {
+    setRefreshKey(prev => prev + 1);
+  }, []);
+
   useEffect(() => {
     let disposable: { dispose?: () => void } | null = null;
-    let debounceTimeout: NodeJS.Timeout | null = null;
-    let initialTimeout: NodeJS.Timeout | null = null;
 
     // run in async scope so we can dynamic-import monaco on client only
     (async () => {
@@ -67,9 +71,12 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
         const mon = monModule as typeof import('monaco-editor');
 
         const collectAllMarkers = () => {
-          // Get ALL markers from Monaco without filtering by resource
-          const allMonacoMarkers = mon.editor.getModelMarkers({});
+          // Get all models in Monaco
+          const models = mon.editor.getModels();
           const markersWithFiles: MarkerWithFile[] = [];
+
+          // Also try to get ALL markers without filtering by resource
+          const allMonacoMarkers = mon.editor.getModelMarkers({});
           
           for (const marker of allMonacoMarkers) {
             try {
@@ -101,21 +108,11 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
           setAllMarkers(markersWithFiles);
         };
 
-        // Debounced version for marker change events
-        const debouncedCollect = () => {
-          if (debounceTimeout) {
-            clearTimeout(debounceTimeout);
-          }
-          debounceTimeout = setTimeout(collectAllMarkers, 300);
-        };
-
-        // Initial collection - immediate + delayed (to catch late-loading markers)
         collectAllMarkers();
-        initialTimeout = setTimeout(collectAllMarkers, 500);
 
-        // Listen to marker changes on any model (debounced)
+        // Listen to marker changes on any model
         disposable = mon.editor.onDidChangeMarkers(() => {
-          debouncedCollect();
+          collectAllMarkers();
         });
       } catch (e) {
         console.warn('[ProblemsPanel] failed to read markers', e);
@@ -127,14 +124,8 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
       try {
         disposable && disposable.dispose && disposable.dispose();
       } catch (e) {}
-      if (debounceTimeout) {
-        clearTimeout(debounceTimeout);
-      }
-      if (initialTimeout) {
-        clearTimeout(initialTimeout);
-      }
     };
-  }, [isActive]);
+  }, [isActive, refreshKey]);
 
   const handleGoto = (markerWithFile: MarkerWithFile) => {
     const { marker, filePath } = markerWithFile;
@@ -209,20 +200,39 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
           {errorCount > 0 && <span style={{ color: '#D16969', marginLeft: 6 }}>E:{errorCount}</span>}
           {warningCount > 0 && <span style={{ color: '#D7BA7D', marginLeft: 6 }}>W:{warningCount}</span>}
         </div>
-        <button
-          onClick={() => setShowImportErrors(prev => !prev)}
-          style={{
-            fontSize: 10,
-            padding: '2px 6px',
-            background: showImportErrors ? colors.primary : 'transparent',
-            color: showImportErrors ? '#fff' : colors.mutedFg,
-            border: `1px solid ${colors.border}`,
-            borderRadius: 3,
-            cursor: 'pointer',
-          }}
-        >
-          {showImportErrors ? 'Import表示' : 'Import非表示'}
-        </button>
+        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+          <button
+            onClick={handleRefresh}
+            style={{
+              fontSize: 10,
+              padding: '2px 4px',
+              background: 'transparent',
+              color: colors.mutedFg,
+              border: `1px solid ${colors.border}`,
+              borderRadius: 3,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+            }}
+            title="Refresh"
+          >
+            <RefreshCw style={{ width: 10, height: 10 }} />
+          </button>
+          <button
+            onClick={() => setShowImportErrors(prev => !prev)}
+            style={{
+              fontSize: 10,
+              padding: '2px 6px',
+              background: showImportErrors ? colors.primary : 'transparent',
+              color: showImportErrors ? '#fff' : colors.mutedFg,
+              border: `1px solid ${colors.border}`,
+              borderRadius: 3,
+              cursor: 'pointer',
+            }}
+          >
+            {showImportErrors ? 'Import表示' : 'Import非表示'}
+          </button>
+        </div>
       </div>
 
       {totalProblems > 0 ? (
