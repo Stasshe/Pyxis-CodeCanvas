@@ -285,7 +285,7 @@ export default function MonacoEditor({
         fontSize,
         lineNumbers: 'on',
         roundedSelection: false,
-        scrollBeyondLastLine: false,
+        scrollBeyondLastLine: true,
         automaticLayout: true,
         minimap: {
           enabled: true,
