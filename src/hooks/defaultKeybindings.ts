@@ -28,7 +28,7 @@ export const DEFAULT_BINDINGS: Binding[] = [
   { id: 'moveTabToNextPane', name: 'Move Tab to Next Pane', combo: 'Ctrl+K M', category: 'tab' },
 
   // Git
-  { id: 'openGit', name: 'Open Git Panel', combo: 'Ctrl+Shift+G', category: 'git' },
+  { id: 'openGit', name: 'Open Git Panel', combo: 'Ctrl+Shift+H', category: 'git' },
   // Execution
   { id: 'runFile', name: 'Open Run Panel', combo: 'Ctrl+Shift+R', category: 'execution' },
   { id: 'openTerminal', name: 'Open Terminal', combo: 'Ctrl+@', category: 'execution' },
@@ -40,15 +40,15 @@ export const DEFAULT_BINDINGS: Binding[] = [
   { id: 'openMdPreview', name: 'Open Markdown Preview in Other Pane', combo: 'Ctrl+K P', category: 'view' },
 
   // Tabs
-  { id: 'removeAllTabs', name: 'Close All Tabs', combo: 'Ctrl+K A', category: 'tab' },
+  { id: 'removeAllTabs', name: 'Close All Tabs', combo: 'Ctrl+K W', category: 'tab' },
 
   // Pane management
-  { id: 'openPaneNavigator', name: 'Open Pane Navigator', combo: 'Ctrl+K N', category: 'pane' },
-  { id: 'splitPaneVertical', name: 'Split Pane Vertical', combo: 'Ctrl+K L', category: 'pane' },
-  { id: 'splitPaneHorizontal', name: 'Split Pane Horizontal', combo: 'Ctrl+K J', category: 'pane' },
+  { id: 'openPaneNavigator', name: 'Open Pane Navigator', combo: 'Ctrl+M', category: 'pane' },
+  { id: 'splitPaneVertical', name: 'Split Pane Vertical', combo: 'Ctrl+K V', category: 'pane' },
+  { id: 'splitPaneHorizontal', name: 'Split Pane Horizontal', combo: 'Ctrl+K S', category: 'pane' },
   { id: 'closePane', name: 'Close Current Pane', combo: 'Ctrl+K D', category: 'pane' },
-  { id: 'focusNextPane', name: 'Focus Next Pane', combo: 'Ctrl+K Right', category: 'pane' },
-  { id: 'focusPrevPane', name: 'Focus Previous Pane', combo: 'Ctrl+K Left', category: 'pane' },
+  { id: 'focusNextPane', name: 'Focus Next Pane', combo: 'Ctrl+K L', category: 'pane' },
+  { id: 'focusPrevPane', name: 'Focus Previous Pane', combo: 'Ctrl+K H', category: 'pane' },
 
   // Project
   { id: 'openProject', name: 'Open Project', combo: 'Ctrl+Shift+O', category: 'project' },
