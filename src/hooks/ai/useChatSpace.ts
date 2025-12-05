@@ -299,6 +299,9 @@ export const useChatSpace = (projectId: string | null) => {
   /**
    * Revert to a specific message: delete all messages from the specified message onwards
    * and return the list of deleted messages for potential rollback of AI state changes.
+   * 
+   * If the target message is an AI assistant response, also delete the corresponding
+   * user message that prompted it (user message and AI response are a pair).
    */
   const revertToMessage = async (messageId: string): Promise<ChatSpaceMessage[]> => {
     const pid = projectIdRef.current;
@@ -310,7 +313,31 @@ export const useChatSpace = (projectId: string | null) => {
     }
 
     try {
-      const deletedMessages = await truncateMessagesFromMessage(pid, activeSpace.id, messageId);
+      // Find the target message index
+      const targetIdx = activeSpace.messages.findIndex(m => m.id === messageId);
+      if (targetIdx === -1) {
+        console.warn('[useChatSpace] Target message not found for revert');
+        return [];
+      }
+
+      const targetMessage = activeSpace.messages[targetIdx];
+      
+      // Determine the actual start index for deletion
+      // If the target is an assistant message, also include the preceding user message
+      let deleteFromIdx = targetIdx;
+      let deleteFromMessageId = messageId;
+      
+      if (targetMessage.type === 'assistant' && targetIdx > 0) {
+        const prevMessage = activeSpace.messages[targetIdx - 1];
+        // Include the user message if it's directly before the assistant message
+        if (prevMessage.type === 'user') {
+          deleteFromIdx = targetIdx - 1;
+          deleteFromMessageId = prevMessage.id;
+          console.log('[useChatSpace] Including user message in revert:', prevMessage.id);
+        }
+      }
+
+      const deletedMessages = await truncateMessagesFromMessage(pid, activeSpace.id, deleteFromMessageId);
       
       if (deletedMessages.length === 0) {
         console.warn('[useChatSpace] No messages were deleted during revert');
@@ -321,11 +348,9 @@ export const useChatSpace = (projectId: string | null) => {
 
       setCurrentSpace(prev => {
         if (!prev) return null;
-        const idx = prev.messages.findIndex(m => m.id === messageId);
-        if (idx === -1) return prev;
         return {
           ...prev,
-          messages: prev.messages.slice(0, idx),
+          messages: prev.messages.slice(0, deleteFromIdx),
           updatedAt: new Date(),
         };
       });
@@ -334,11 +359,9 @@ export const useChatSpace = (projectId: string | null) => {
         prev
           .map(space => {
             if (space.id !== activeSpace.id) return space;
-            const idx = space.messages.findIndex(m => m.id === messageId);
-            if (idx === -1) return space;
             return {
               ...space,
-              messages: space.messages.slice(0, idx),
+              messages: space.messages.slice(0, deleteFromIdx),
               updatedAt: new Date(),
             };
           })
@@ -346,14 +369,11 @@ export const useChatSpace = (projectId: string | null) => {
       );
 
       if (currentSpaceRef.current) {
-        const idx = currentSpaceRef.current.messages.findIndex(m => m.id === messageId);
-        if (idx !== -1) {
-          currentSpaceRef.current = {
-            ...currentSpaceRef.current,
-            messages: currentSpaceRef.current.messages.slice(0, idx),
-            updatedAt: new Date(),
-          };
-        }
+        currentSpaceRef.current = {
+          ...currentSpaceRef.current,
+          messages: currentSpaceRef.current.messages.slice(0, deleteFromIdx),
+          updatedAt: new Date(),
+        };
       }
 
       return deletedMessages;
