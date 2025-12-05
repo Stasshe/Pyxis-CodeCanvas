@@ -101,6 +101,7 @@ export interface AIEditResponse {
     suggestedContent: string;
     explanation: string;
     applied?: boolean; // Track if this change has been applied to file
+    isNewFile?: boolean; // Track if this is a new file created by AI (for revert: delete instead of restore empty)
   }>;
   message: string;
 }

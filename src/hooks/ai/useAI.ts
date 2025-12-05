@@ -14,6 +14,7 @@ import {
   extractFilePathsFromResponse,
   validateResponse,
 } from '@/engine/ai/responseParser';
+import { fileRepository } from '@/engine/core/fileRepository';
 import type { AIFileContext, AIEditResponse, ChatSpaceMessage } from '@/types';
 
 interface UseAIProps {
@@ -154,17 +155,37 @@ export function useAI(props?: UseAIProps) {
 
           console.log('[useAI] New paths (not in selected):', newPaths);
 
+          // Fetch actual content for files not in selectedFiles from the repository
+          const newFilesWithContent = await Promise.all(
+            newPaths.map(async (path: string) => {
+              try {
+                if (props?.projectId) {
+                  await fileRepository.init();
+                  const file = await fileRepository.getFileByPath(props.projectId, path);
+                  if (file && file.content) {
+                    console.log('[useAI] Fetched existing file content for:', path);
+                    return { path, content: file.content, isNewFile: false };
+                  }
+                }
+              } catch (e) {
+                console.warn('[useAI] Could not fetch file content for:', path, e);
+              }
+              // This is a new file that will be created
+              return { path, content: '', isNewFile: true };
+            })
+          );
+
           const allOriginalFiles = [
-            ...selectedFiles,
-            ...newPaths.map((path: string) => ({
-              path,
-              content: '', // 新規ファイルまたは未選択ファイルは空
-            })),
+            ...selectedFiles.map(f => ({ path: f.path, content: f.content, isNewFile: false })),
+            ...newFilesWithContent,
           ];
+
+          // Create a map of paths to isNewFile status
+          const newFileMap = new Map(allOriginalFiles.map(f => [f.path, (f as any).isNewFile || false]));
 
           console.log(
             '[useAI] All original files for parsing:',
-            allOriginalFiles.map(f => ({ path: f.path, contentLength: f.content.length }))
+            allOriginalFiles.map(f => ({ path: f.path, contentLength: f.content.length, isNewFile: (f as any).isNewFile }))
           );
 
           const parseResult = parseEditResponse(response, allOriginalFiles);
@@ -178,9 +199,12 @@ export function useAI(props?: UseAIProps) {
             }))
           );
 
-          // AIEditResponse形式に変換
+          // AIEditResponse形式に変換 (add isNewFile flag for each file)
           const editResponse: AIEditResponse = {
-            changedFiles: parseResult.changedFiles,
+            changedFiles: parseResult.changedFiles.map(f => ({
+              ...f,
+              isNewFile: newFileMap.get(f.path) || false,
+            })),
             message: parseResult.message,
           };
 
@@ -189,7 +213,8 @@ export function useAI(props?: UseAIProps) {
           if (editResponse.changedFiles.length > 0) {
             detailedMessage = `編集が完了しました！\n\n**変更されたファイル:** ${editResponse.changedFiles.length}個\n\n`;
             editResponse.changedFiles.forEach((file, index) => {
-              detailedMessage += `${index + 1}. **${file.path}**\n`;
+              const newLabel = file.isNewFile ? ' (新規)' : '';
+              detailedMessage += `${index + 1}. **${file.path}**${newLabel}\n`;
               if (file.explanation) {
                 detailedMessage += `   - ${file.explanation}\n`;
               }

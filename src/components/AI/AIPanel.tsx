@@ -702,10 +702,18 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
                 
                 for (const f of appliedFiles) {
                   try {
-                    // Use originalContent from the message's editResponse directly
-                    // This is the content before AI made its suggestion
-                    await fileRepository.saveFileByPath(projectId, f.path, f.originalContent);
-                    console.log('[AIPanel] Reverted file:', f.path);
+                    if (f.isNewFile) {
+                      // This was a new file created by AI - delete it on revert
+                      const fileToDelete = await fileRepository.getFileByPath(projectId, f.path);
+                      if (fileToDelete) {
+                        await fileRepository.deleteFile(fileToDelete.id);
+                        console.log('[AIPanel] Deleted new file on revert:', f.path);
+                      }
+                    } else {
+                      // Existing file - restore originalContent
+                      await fileRepository.saveFileByPath(projectId, f.path, f.originalContent);
+                      console.log('[AIPanel] Reverted file:', f.path);
+                    }
                     
                     // Clear AI review entry
                     try {
