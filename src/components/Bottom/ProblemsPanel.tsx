@@ -57,6 +57,7 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
   useEffect(() => {
     let disposable: { dispose?: () => void } | null = null;
     let debounceTimeout: NodeJS.Timeout | null = null;
+    let initialTimeout: NodeJS.Timeout | null = null;
 
     // run in async scope so we can dynamic-import monaco on client only
     (async () => {
@@ -108,8 +109,9 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
           debounceTimeout = setTimeout(collectAllMarkers, 300);
         };
 
-        // Initial collection
+        // Initial collection - immediate + delayed (to catch late-loading markers)
         collectAllMarkers();
+        initialTimeout = setTimeout(collectAllMarkers, 500);
 
         // Listen to marker changes on any model (debounced)
         disposable = mon.editor.onDidChangeMarkers(() => {
@@ -128,8 +130,11 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
       if (debounceTimeout) {
         clearTimeout(debounceTimeout);
       }
+      if (initialTimeout) {
+        clearTimeout(initialTimeout);
+      }
     };
-  }, []);
+  }, [isActive]);
 
   const handleGoto = (markerWithFile: MarkerWithFile) => {
     const { marker, filePath } = markerWithFile;
