@@ -195,18 +195,26 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
   if (!isOpen) return null;
 
   const leafIndexRef = { current: 0 };
+  
+  // Calculate dynamic size based on pane count
+  const paneCount = flattenedPanes.length;
+  const baseSize = 44; // base pane item size
+  const gap = 2;
+  // Estimate width based on layout complexity
+  const estimatedWidth = Math.max(100, Math.min(300, paneCount * baseSize + (paneCount - 1) * gap + 16));
+  const estimatedHeight = Math.max(40, Math.min(200, Math.ceil(Math.sqrt(paneCount)) * baseSize + 16));
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={onClose}>
       <div
         className="rounded-lg shadow-lg p-2"
-        style={{ background: colors.cardBg, border: `1px solid ${colors.border}`, minWidth: '100px' }}
+        style={{ background: colors.cardBg, border: `1px solid ${colors.border}`, minWidth: `${estimatedWidth}px` }}
         onClick={e => e.stopPropagation()}
       >
         {/* Pane Layout */}
-        <div className="flex gap-0.5" style={{ minHeight: '40px' }}>
+        <div className="flex gap-0.5" style={{ minHeight: `${estimatedHeight}px`, width: '100%' }}>
           {panes.map((pane) => (
-            <div key={pane.id} style={{ flex: pane.size ? `0 0 ${pane.size}%` : 1 }}>
+            <div key={pane.id} style={{ flex: pane.size ? `0 0 ${pane.size}%` : 1, minWidth: 0 }}>
               <RecursivePaneView
                 pane={pane}
                 selectedPaneId={selectedPaneId}
