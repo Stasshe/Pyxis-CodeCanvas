@@ -21,32 +21,36 @@ interface PaneItemProps {
   index: number;
 }
 
-// Compact pane item with big number
+// Larger pane item with big number
 const PaneItem = memo(function PaneItem({ pane, isSelected, isActive, onSelect, onActivate, colors, index }: PaneItemProps) {
   const num = index + 1;
-  // isSelected: 現在キーボードで選択中（ハイライト）
-  // isActive: グローバルアクティブペーン（アクセントカラー枠）
   return (
     <div
-      className="flex items-center justify-center rounded cursor-pointer select-none h-full"
+      className="flex items-center justify-center rounded-md cursor-pointer select-none"
       style={{
-        background: isSelected ? colors.primary : isActive ? colors.accentBg + '40' : colors.mutedBg,
+        background: isSelected ? colors.primary : isActive ? colors.primary + '30' : colors.cardBg,
         border: isSelected 
           ? `2px solid ${colors.primary}` 
           : isActive 
-            ? `2px solid ${colors.accentFg}` 
+            ? `2px solid ${colors.primary}` 
             : `1px solid ${colors.border}`,
-        minWidth: '36px',
-        minHeight: '32px',
-        boxShadow: isSelected ? `0 0 0 2px ${colors.primary}40` : 'none',
+        width: '100%',
+        height: '100%',
+        minWidth: '48px',
+        minHeight: '44px',
+        boxShadow: isSelected 
+          ? `0 0 12px ${colors.primary}60` 
+          : isActive 
+            ? `0 0 8px ${colors.primary}40` 
+            : 'none',
       }}
       onClick={(e) => { e.stopPropagation(); onSelect(pane.id); }}
       onDoubleClick={(e) => { e.stopPropagation(); onActivate(pane.id); }}
     >
       <span style={{ 
-        fontSize: num <= 9 ? '16px' : '11px', 
+        fontSize: num <= 9 ? '20px' : '14px', 
         fontWeight: 700, 
-        color: isSelected ? colors.cardBg : isActive ? colors.accentFg : colors.foreground 
+        color: isSelected ? colors.cardBg : isActive ? colors.primary : colors.foreground 
       }}>
         {num}
       </span>
@@ -69,9 +73,9 @@ const RecursivePaneView = memo(function RecursivePaneView({ pane, selectedPaneId
   if (pane.children && pane.children.length > 0) {
     const isVertical = pane.layout === 'vertical';
     return (
-      <div className="flex gap-0.5 w-full h-full" style={{ flexDirection: isVertical ? 'row' : 'column' }}>
+      <div className="flex gap-1 w-full h-full" style={{ flexDirection: isVertical ? 'row' : 'column' }}>
         {pane.children.map((child) => (
-          <div key={child.id} style={{ flex: child.size ? `0 0 ${child.size}%` : 1 }}>
+          <div key={child.id} className="flex-1" style={{ minWidth: 0, minHeight: 0 }}>
             <RecursivePaneView pane={child} selectedPaneId={selectedPaneId} activePane={activePane} onSelect={onSelect} onActivate={onActivate} colors={colors} leafIndexRef={leafIndexRef} />
           </div>
         ))}
@@ -82,8 +86,38 @@ const RecursivePaneView = memo(function RecursivePaneView({ pane, selectedPaneId
   return <PaneItem pane={pane} isSelected={pane.id === selectedPaneId} isActive={pane.id === activePane} onSelect={onSelect} onActivate={onActivate} colors={colors} index={currentIndex} />;
 });
 
+// Calculate layout dimensions based on pane structure
+function calculateLayoutDimensions(panes: EditorPane[]): { width: number; height: number } {
+  const baseSize = 56; // Base size for each pane item
+  const gap = 4;
+  
+  function getDepth(pane: EditorPane, direction: 'horizontal' | 'vertical'): number {
+    if (!pane.children || pane.children.length === 0) return 1;
+    const childDepths = pane.children.map(c => getDepth(c, direction));
+    if (pane.layout === direction) {
+      return childDepths.reduce((a, b) => a + b, 0);
+    }
+    return Math.max(...childDepths);
+  }
+  
+  let maxWidth = 0;
+  let maxHeight = 0;
+  
+  for (const pane of panes) {
+    const w = getDepth(pane, 'vertical');
+    const h = getDepth(pane, 'horizontal');
+    maxWidth += w;
+    maxHeight = Math.max(maxHeight, h);
+  }
+  
+  return {
+    width: maxWidth * baseSize + (maxWidth - 1) * gap,
+    height: maxHeight * baseSize + (maxHeight - 1) * gap
+  };
+}
+
 /**
- * PaneNavigator: 超コンパクトなペイン操作モーダル
+ * PaneNavigator: コンパクトなペイン操作モーダル
  * - 数字キー1-9で直接選択・アクティブ化
  * - 再帰的レイアウト表示
  */
@@ -195,38 +229,49 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
   if (!isOpen) return null;
 
   const leafIndexRef = { current: 0 };
+  const { width, height } = calculateLayoutDimensions(panes);
 
   return (
     <div 
-      className="fixed inset-0 z-[100] flex items-center justify-center"
+      className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-3"
       style={{ 
-        background: `${colors.foreground}20`,
-        backdropFilter: 'blur(8px)',
-        WebkitBackdropFilter: 'blur(8px)',
+        background: `${colors.foreground}15`,
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
       }} 
       onClick={onClose}
     >
-      <div onClick={e => e.stopPropagation()}>
-        {/* Pane Layout */}
-        <div className="flex gap-1" style={{ minHeight: '40px' }}>
-          {panes.map((pane) => (
-            <div key={pane.id} style={{ flex: pane.size ? `0 0 ${pane.size}%` : 1, minWidth: 0 }}>
-              <RecursivePaneView
-                pane={pane}
-                selectedPaneId={selectedPaneId}
-                activePane={activePane}
-                onSelect={handleSelect}
-                onActivate={handleActivate}
-                colors={colors}
-                leafIndexRef={leafIndexRef}
-              />
-            </div>
-          ))}
-        </div>
-        {/* Hint */}
-        <div className="mt-2 text-[10px] text-center" style={{ color: colors.foreground, opacity: 0.7 }}>
-          1-9 · hjkl/←→ · v/s · d
-        </div>
+      {/* Pane Layout */}
+      <div 
+        className="flex gap-1"
+        style={{ width: `${width}px`, height: `${height}px` }}
+        onClick={e => e.stopPropagation()}
+      >
+        {panes.map((pane) => (
+          <div key={pane.id} className="flex-1" style={{ minWidth: 0, minHeight: 0 }}>
+            <RecursivePaneView
+              pane={pane}
+              selectedPaneId={selectedPaneId}
+              activePane={activePane}
+              onSelect={handleSelect}
+              onActivate={handleActivate}
+              colors={colors}
+              leafIndexRef={leafIndexRef}
+            />
+          </div>
+        ))}
+      </div>
+      {/* Hint - positioned below with gap */}
+      <div 
+        className="text-[11px] px-3 py-1 rounded-full"
+        style={{ 
+          color: colors.foreground, 
+          background: `${colors.cardBg}90`,
+          opacity: 0.9
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        1-9 · hjkl/←→ · v/s · d
       </div>
     </div>
   );
