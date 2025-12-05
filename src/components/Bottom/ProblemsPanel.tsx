@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import type * as monaco from 'monaco-editor';
 import { useTheme } from '@/context/ThemeContext';
 import { useTabStore } from '@/stores/tabStore';
@@ -36,7 +36,10 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
   const [allMarkers, setAllMarkers] = useState<MarkerWithFile[]>([]);
   const [showImportErrors, setShowImportErrors] = useState<boolean>(false);
   const [collapsedFiles, setCollapsedFiles] = useState<Set<string>>(new Set());
-  const [refreshKey, setRefreshKey] = useState(0);
+  
+  const isMountedRef = useRef(true);
+  const monacoRef = useRef<typeof monaco | null>(null);
+  const disposableRef = useRef<{ dispose?: () => void } | null>(null);
 
   // Helper to find paneId for a tabId
   const findPaneIdForTab = useMemo(() => {
@@ -55,77 +58,100 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
     };
   }, [panes]);
 
-  // Manual refresh function
-  const handleRefresh = useCallback(() => {
-    setRefreshKey(prev => prev + 1);
+  // Collect all markers from Monaco
+  const collectAllMarkers = useCallback(() => {
+    if (!monacoRef.current || !isMountedRef.current) return;
+    
+    try {
+      const mon = monacoRef.current;
+      const allMonacoMarkers = mon.editor.getModelMarkers({});
+      const markersWithFiles: MarkerWithFile[] = [];
+      
+      for (const marker of allMonacoMarkers) {
+        try {
+          // Extract file path from the marker's resource URI
+          let filePath = marker.resource?.path || '';
+          if (filePath.startsWith('/')) {
+            filePath = filePath.substring(1);
+          }
+          // Remove any timestamp suffixes added for uniqueness
+          filePath = filePath.replace(/__\d+$/, '');
+          
+          const fileName = filePath.split('/').pop() || filePath;
+          
+          // Skip excluded file types
+          if (shouldExcludeFile(fileName)) {
+            continue;
+          }
+
+          markersWithFiles.push({
+            marker,
+            filePath,
+            fileName,
+          });
+        } catch (e) {
+          // Skip markers that fail
+        }
+      }
+
+      if (isMountedRef.current) {
+        setAllMarkers(markersWithFiles);
+      }
+    } catch (e) {
+      console.warn('[ProblemsPanel] failed to read markers', e);
+    }
   }, []);
 
-  useEffect(() => {
-    let disposable: { dispose?: () => void } | null = null;
+  // Manual refresh function
+  const handleRefresh = useCallback(() => {
+    collectAllMarkers();
+  }, [collectAllMarkers]);
 
-    // run in async scope so we can dynamic-import monaco on client only
+  // Initialize Monaco and set up listener (runs once on mount)
+  useEffect(() => {
+    isMountedRef.current = true;
+
     (async () => {
       try {
         const monAny = (globalThis as any).monaco;
         const monModule = monAny || (await import('monaco-editor'));
         const mon = monModule as typeof import('monaco-editor');
+        
+        if (!isMountedRef.current) return;
+        
+        monacoRef.current = mon;
 
-        const collectAllMarkers = () => {
-          // Get all models in Monaco
-          const models = mon.editor.getModels();
-          const markersWithFiles: MarkerWithFile[] = [];
-
-          // Also try to get ALL markers without filtering by resource
-          const allMonacoMarkers = mon.editor.getModelMarkers({});
-          
-          for (const marker of allMonacoMarkers) {
-            try {
-              // Extract file path from the marker's resource URI
-              let filePath = marker.resource?.path || '';
-              if (filePath.startsWith('/')) {
-                filePath = filePath.substring(1);
-              }
-              // Remove any timestamp suffixes added for uniqueness
-              filePath = filePath.replace(/__\d+$/, '');
-              
-              const fileName = filePath.split('/').pop() || filePath;
-              
-              // Skip excluded file types
-              if (shouldExcludeFile(fileName)) {
-                continue;
-              }
-
-              markersWithFiles.push({
-                marker,
-                filePath,
-                fileName,
-              });
-            } catch (e) {
-              // Skip markers that fail
-            }
-          }
-
-          setAllMarkers(markersWithFiles);
-        };
-
+        // Initial collection
         collectAllMarkers();
 
-        // Listen to marker changes on any model
-        disposable = mon.editor.onDidChangeMarkers(() => {
-          collectAllMarkers();
+        // Set up marker change listener
+        disposableRef.current = mon.editor.onDidChangeMarkers(() => {
+          if (isMountedRef.current) {
+            collectAllMarkers();
+          }
         });
       } catch (e) {
-        console.warn('[ProblemsPanel] failed to read markers', e);
-        setAllMarkers([]);
+        console.warn('[ProblemsPanel] failed to initialize monaco', e);
       }
     })();
 
     return () => {
+      isMountedRef.current = false;
       try {
-        disposable && disposable.dispose && disposable.dispose();
+        if (disposableRef.current?.dispose) {
+          disposableRef.current.dispose();
+        }
       } catch (e) {}
+      disposableRef.current = null;
     };
-  }, [isActive, refreshKey]);
+  }, []); // Empty dependency - only run once on mount
+
+  // Re-collect when panel becomes active
+  useEffect(() => {
+    if (isActive && monacoRef.current) {
+      collectAllMarkers();
+    }
+  }, [isActive, collectAllMarkers]);
 
   const handleGoto = (markerWithFile: MarkerWithFile) => {
     const { marker, filePath } = markerWithFile;
