@@ -417,12 +417,25 @@ export const useTabStore = create<TabStore>((set, get) => ({
   },
 
   activateTab: (paneId, tabId) => {
-    const state = get();
-    get().updatePane(paneId, { activeTabId: tabId });
-    set({
+    // ペインのactiveTabIdとグローバル状態を同時に更新
+    // 別々のset呼び出しだと状態の不整合が発生し、フォーカスが正しく当たらない
+    const updatePaneRecursive = (panes: EditorPane[]): EditorPane[] => {
+      return panes.map(p => {
+        if (p.id === paneId) {
+          return { ...p, activeTabId: tabId };
+        }
+        if (p.children) {
+          return { ...p, children: updatePaneRecursive(p.children) };
+        }
+        return p;
+      });
+    };
+
+    set(state => ({
+      panes: updatePaneRecursive(state.panes),
       globalActiveTab: tabId,
       activePane: paneId,
-    });
+    }));
   },
 
   updateTab: (paneId: string, tabId: string, updates: Partial<Tab>) => {

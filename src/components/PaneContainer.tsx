@@ -354,6 +354,7 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
         <div className="flex-1 overflow-hidden">
           {activeTab && TabComponent ? (
             <TabComponent
+              key={activeTab.id}
               tab={activeTab}
               isActive={isGloballyActive}
             />
