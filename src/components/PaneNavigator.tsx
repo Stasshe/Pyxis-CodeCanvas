@@ -113,7 +113,7 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
 
     const handleKeyDown = (e: KeyboardEvent) => {
       // Prevent default for our shortcuts
-      const shouldPrevent = ['Escape', 'Enter', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'h', 'v', 'd', 'm'].includes(e.key);
+      const shouldPrevent = ['Escape', 'Enter', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'h', 'v', 'd', 's'].includes(e.key);
       if (shouldPrevent) {
         e.preventDefault();
         e.stopPropagation();
@@ -272,7 +272,9 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
                   className="text-xs mt-1"
                   style={{ color: colors.mutedFg }}
                 >
-                  {pane.tabs.length} {pane.tabs.length === 1 ? 'tab' : 'tabs'}
+                  {pane.tabs.length} {pane.tabs.length === 1 
+                    ? t('paneNavigator.tab', { defaultValue: 'tab' }) 
+                    : t('paneNavigator.tabs', { defaultValue: 'tabs' })}
                 </span>
               </button>
             );

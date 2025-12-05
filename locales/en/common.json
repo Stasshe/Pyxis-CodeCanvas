@@ -345,7 +345,9 @@
     "deletePane": "Delete Pane",
     "navigate": "Navigate",
     "activate": "Activate",
-    "close": "Close"
+    "close": "Close",
+    "tab": "tab",
+    "tabs": "tabs"
   },
   "tabBar": {
     "closeTab": "Close tab",

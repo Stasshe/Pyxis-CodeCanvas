@@ -345,7 +345,9 @@
     "deletePane": "ペインを削除",
     "navigate": "移動",
     "activate": "選択",
-    "close": "閉じる"
+    "close": "閉じる",
+    "tab": "タブ",
+    "tabs": "タブ"
   },
   "tabBar": {
     "closeTab": "タブを閉じる",
