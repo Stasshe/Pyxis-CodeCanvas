@@ -1,7 +1,7 @@
 // src/components/PaneContainer.tsx
 'use client';
 
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext, useMemo } from 'react';
 import { useDrop } from 'react-dnd';
 
 import PaneResizer from '@/components/PaneResizer';
@@ -56,8 +56,8 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
   const { colors } = useTheme();
   const { globalActiveTab, activePane, setPanes, panes: allPanes, moveTab, splitPaneAndMoveTab, openTab, splitPaneAndOpenFile } = useTabStore();
   
-  // リーフペインの数を計算（枠線表示の判定に使用）
-  const leafPaneCount = flattenPanes(allPanes).length;
+  // リーフペインの数を計算（枠線表示の判定に使用）- パフォーマンスのためメモ化
+  const leafPaneCount = useMemo(() => flattenPanes(allPanes).length, [allPanes]);
   const [dropZone, setDropZone] = React.useState<'top' | 'bottom' | 'left' | 'right' | 'center' | 'tabbar' | null>(null);
   const elementRef = React.useRef<HTMLDivElement | null>(null);
   const dropZoneRef = React.useRef<typeof dropZone>(null);
