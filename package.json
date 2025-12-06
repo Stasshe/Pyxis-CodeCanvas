@@ -1,6 +1,6 @@
 {
   "name": "pyxis",
-  "version": "0.15.4",
+  "version": "0.16.0",
   "private": true,
   "scripts": {
     "dev": "pnpm run setup-build && next dev --turbopack",
