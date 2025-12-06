@@ -246,7 +246,7 @@ content
     expect(result.changedFiles[0].path).toBe('src/test.ts');
   });
 
-  it('should ignore unknown files', () => {
+  it('should treat unknown files as new files', () => {
     const response = `<AI_EDIT_CONTENT_START:src/unknown.ts>
 content
 <AI_EDIT_CONTENT_END:src/unknown.ts>`;
@@ -254,7 +254,10 @@ content
     const originalFiles = [{ path: 'src/test.ts', content: 'old' }];
     const result = parseEditResponse(response, originalFiles);
 
-    expect(result.changedFiles.length).toBe(0);
+    // Unknown files are treated as new files
+    expect(result.changedFiles.length).toBe(1);
+    expect(result.changedFiles[0].path).toBe('src/unknown.ts');
+    expect(result.changedFiles[0].isNewFile).toBe(true);
   });
 
   it('should provide default message when files changed', () => {
@@ -265,7 +268,7 @@ content
     const originalFiles = [{ path: 'src/test.ts', content: 'old' }];
     const result = parseEditResponse(response, originalFiles);
 
-    expect(result.message).toBe('1個のファイルの編集を提案しました。');
+    expect(result.message).toBe('Suggested edits for 1 file(s).');
   });
 
   it('should preserve custom message', () => {
@@ -287,7 +290,8 @@ content
     const result = parseEditResponse(response, originalFiles);
 
     expect(result.changedFiles.length).toBe(0);
-    expect(result.message).toContain('解析に失敗しました');
+    expect(result.message).toContain('Failed to parse response');
+    expect(result.message).toContain('SEARCH/REPLACE');
     expect(result.message).toContain('Raw response:');
   });
 

@@ -1,51 +1,167 @@
-// AI応答パーサー - 強化版
+/**
+ * AI Response Parser - Enhanced with Multi-Patch Support
+ *
+ * Supports two formats:
+ * 1. New SEARCH/REPLACE block format (preferred)
+ * 2. Legacy full-file replacement format (fallback)
+ */
+
+import {
+  type PatchBlock,
+  type SearchReplaceBlock,
+  applyPatchBlock,
+} from './patchApplier';
 
 export interface ParsedFile {
   path: string;
   originalContent: string;
   suggestedContent: string;
   explanation: string;
+  isNewFile?: boolean;
+  patchBlocks?: SearchReplaceBlock[];
 }
 
 export interface ParseResult {
   changedFiles: ParsedFile[];
   message: string;
   raw: string;
+  usedPatchFormat: boolean;
 }
 
 /**
- * パス正規化 - ケースインセンシティブ比較用
+ * Normalize path for case-insensitive comparison
  */
 export function normalizePath(path: string): string {
   return path.replace(/^\/|\/$/g, '').toLowerCase();
 }
 
 /**
- * ファイルパスを抽出（新規ファイル含む）
+ * Extract file paths from response (supports both formats)
  */
 export function extractFilePathsFromResponse(response: string): string[] {
-  const fileBlockPattern = /<AI_EDIT_CONTENT_START:(.+?)>/g;
   const foundPaths: string[] = [];
   const seen = new Set<string>();
 
+  // Pattern 1: ### File: [path]
+  const fileHeaderPattern = /###\s*File:\s*(.+?)(?:\n|$)/g;
   let match;
-  while ((match = fileBlockPattern.exec(response)) !== null) {
+  while ((match = fileHeaderPattern.exec(response)) !== null) {
     const filePath = match[1].trim();
     if (filePath && !seen.has(filePath)) {
       foundPaths.push(filePath);
       seen.add(filePath);
     }
   }
+
+  // Pattern 2: Legacy format <AI_EDIT_CONTENT_START:path>
+  const legacyPattern = /<AI_EDIT_CONTENT_START:(.+?)>/g;
+  while ((match = legacyPattern.exec(response)) !== null) {
+    const filePath = match[1].trim();
+    if (filePath && !seen.has(filePath)) {
+      foundPaths.push(filePath);
+      seen.add(filePath);
+    }
+  }
+
+  // Pattern 3: ## Changed File: [path]
+  const changedFilePattern = /##\s*(?:Changed\s+)?File:\s*(.+?)(?:\n|$)/g;
+  while ((match = changedFilePattern.exec(response)) !== null) {
+    const filePath = match[1].trim();
+    if (filePath && !seen.has(filePath)) {
+      foundPaths.push(filePath);
+      seen.add(filePath);
+    }
+  }
+
   return foundPaths;
 }
 
 /**
- * ファイルブロックを抽出
+ * Parse SEARCH/REPLACE blocks for a specific file section
+ */
+function parseFilePatchSection(
+  section: string
+): { blocks: SearchReplaceBlock[]; isNewFile: boolean; fullContent?: string } {
+  const blocks: SearchReplaceBlock[] = [];
+  let isNewFile = false;
+  let fullContent: string | undefined;
+
+  // Check for NEW_FILE format
+  const newFilePattern = /<<<<<<< NEW_FILE\n([\s\S]*?)\n>>>>>>> NEW_FILE/g;
+  const newFileMatch = newFilePattern.exec(section);
+  if (newFileMatch) {
+    isNewFile = true;
+    fullContent = newFileMatch[1];
+    return { blocks, isNewFile, fullContent };
+  }
+
+  // Parse SEARCH/REPLACE blocks
+  const blockPattern = /<<<<<<< SEARCH\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> REPLACE/g;
+  let match;
+  while ((match = blockPattern.exec(section)) !== null) {
+    blocks.push({
+      search: match[1],
+      replace: match[2],
+    });
+  }
+
+  return { blocks, isNewFile, fullContent };
+}
+
+/**
+ * Extract file sections with their patch blocks
+ */
+function extractFilePatchSections(
+  response: string
+): Map<string, { blocks: SearchReplaceBlock[]; explanation: string; isNewFile: boolean; fullContent?: string }> {
+  const sections = new Map<
+    string,
+    { blocks: SearchReplaceBlock[]; explanation: string; isNewFile: boolean; fullContent?: string }
+  >();
+
+  // Split by file headers
+  const fileHeaderRegex = /###\s*File:\s*(.+?)(?:\n|$)/g;
+  const matches: { path: string; index: number }[] = [];
+
+  let match;
+  while ((match = fileHeaderRegex.exec(response)) !== null) {
+    matches.push({
+      path: match[1].trim(),
+      index: match.index + match[0].length,
+    });
+  }
+
+  // Process each file section
+  for (let i = 0; i < matches.length; i++) {
+    const currentMatch = matches[i];
+    const nextIndex = i + 1 < matches.length ? matches[i + 1].index - matches[i + 1].path.length - 10 : response.length;
+    const section = response.substring(currentMatch.index, nextIndex);
+
+    // Extract explanation
+    const reasonMatch = section.match(/\*\*Reason\*\*:\s*(.+?)(?:\n|$)/);
+    const explanation = reasonMatch ? reasonMatch[1].trim() : '';
+
+    // Parse patch blocks
+    const parsed = parseFilePatchSection(section);
+
+    sections.set(currentMatch.path, {
+      blocks: parsed.blocks,
+      explanation,
+      isNewFile: parsed.isNewFile,
+      fullContent: parsed.fullContent,
+    });
+  }
+
+  return sections;
+}
+
+/**
+ * Extract legacy format file blocks
  */
 export function extractFileBlocks(response: string): Array<{ path: string; content: string }> {
   const blocks: Array<{ path: string; content: string }> = [];
 
-  // 正規パターン: <AI_EDIT_CONTENT_START:path>...<AI_EDIT_CONTENT_END:path>
+  // Standard pattern: <AI_EDIT_CONTENT_START:path>...<AI_EDIT_CONTENT_END:path>
   const fileBlockPattern =
     /<AI_EDIT_CONTENT_START:(.+?)>\s*\n([\s\S]*?)\n\s*<AI_EDIT_CONTENT_END:\1>/g;
 
@@ -57,14 +173,13 @@ export function extractFileBlocks(response: string): Array<{ path: string; conte
     });
   }
 
-  // フォールバック: ENDタグのパスが一致しない場合も拾う
+  // Fallback: END tag path doesn't match
   if (blocks.length === 0) {
     const loosePattern = /<AI_EDIT_CONTENT_START:(.+?)>\s*\n([\s\S]*?)<AI_EDIT_CONTENT_END:(.+?)>/g;
     let looseMatch;
     while ((looseMatch = loosePattern.exec(response)) !== null) {
       const startPath = looseMatch[1].trim();
       const endPath = looseMatch[3].trim();
-      // パスが正規化して一致する場合のみ追加
       if (normalizePath(startPath) === normalizePath(endPath)) {
         blocks.push({
           path: startPath,
@@ -74,7 +189,7 @@ export function extractFileBlocks(response: string): Array<{ path: string; conte
     }
   }
 
-  // さらなるフォールバック: 閉じタグがない場合
+  // Further fallback: missing END tag
   if (blocks.length === 0) {
     const unclosedPattern =
       /<AI_EDIT_CONTENT_START:(.+?)>\s*\n([\s\S]*?)(?=<AI_EDIT_CONTENT_START:|$)/g;
@@ -82,7 +197,6 @@ export function extractFileBlocks(response: string): Array<{ path: string; conte
     while ((unclosedMatch = unclosedPattern.exec(response)) !== null) {
       const path = unclosedMatch[1].trim();
       let content = unclosedMatch[2];
-      // ENDタグがあれば削除
       content = content.replace(/<AI_EDIT_CONTENT_END:.+?>[\s\S]*$/, '');
       if (content.trim()) {
         blocks.push({
@@ -97,26 +211,24 @@ export function extractFileBlocks(response: string): Array<{ path: string; conte
 }
 
 /**
- * 変更理由を抽出
+ * Extract change reasons from response
  */
 export function extractReasons(response: string): Map<string, string> {
   const reasonMap = new Map<string, string>();
 
-  // パターン1: ## 変更ファイル: ... **変更理由**: ... (最優先、改行まで)
-  const reasonPattern1 = /##\s*変更ファイル:\s*(.+?)\s*\n+\*\*変更理由\*\*:\s*(.+?)(?=\n)/gs;
-
+  // Pattern 1: ### File: ... **Reason**: ...
+  const pattern1 = /###\s*File:\s*(.+?)\s*\n+\*\*Reason\*\*:\s*(.+?)(?=\n)/g;
   let match1;
-  while ((match1 = reasonPattern1.exec(response)) !== null) {
+  while ((match1 = pattern1.exec(response)) !== null) {
     const path = match1[1].trim();
     const reason = match1[2].trim();
     reasonMap.set(path, reason);
   }
 
-  // パターン2: **ファイル名**: ... **理由**: ...
-  const reasonPattern2 = /\*\*ファイル名\*\*:\s*(.+?)\s*\n+\*\*理由\*\*:\s*(.+?)(?=\n|$)/gs;
-
+  // Pattern 2: ## Changed File: ... **Reason**: ...
+  const pattern2 = /##\s*(?:Changed\s+)?File:\s*(.+?)\s*\n+\*\*(?:Reason|変更理由)\*\*:\s*(.+?)(?=\n)/g;
   let match2;
-  while ((match2 = reasonPattern2.exec(response)) !== null) {
+  while ((match2 = pattern2.exec(response)) !== null) {
     const path = match2[1].trim();
     const reason = match2[2].trim();
     if (!reasonMap.has(path)) {
@@ -124,11 +236,10 @@ export function extractReasons(response: string): Map<string, string> {
     }
   }
 
-  // パターン3: [ファイルパス] - [理由]
-  const reasonPattern3 = /^-?\s*\[?(.+?\.(?:ts|tsx|js|jsx|json|md|css|html))\]?\s*[-:]\s*(.+)$/gm;
-
+  // Pattern 3: Japanese format
+  const pattern3 = /##\s*変更ファイル:\s*(.+?)\s*\n+\*\*変更理由\*\*:\s*(.+?)(?=\n)/g;
   let match3;
-  while ((match3 = reasonPattern3.exec(response)) !== null) {
+  while ((match3 = pattern3.exec(response)) !== null) {
     const path = match3[1].trim();
     const reason = match3[2].trim();
     if (!reasonMap.has(path)) {
@@ -136,12 +247,10 @@ export function extractReasons(response: string): Map<string, string> {
     }
   }
 
-  // パターン4: ## File: ... Reason: ... (英語版)
-  const reasonPattern4 =
-    /##\s*(?:File|ファイル):\s*(.+?)\s*\n+(?:\*\*)?(?:Reason|理由)(?:\*\*)?:\s*(.+?)(?=\n)/gs;
-
+  // Pattern 4: **ファイル名**: ... **理由**: ...
+  const pattern4 = /\*\*ファイル名\*\*:\s*(.+?)\s*\n+\*\*理由\*\*:\s*(.+?)(?=\n|$)/g;
   let match4;
-  while ((match4 = reasonPattern4.exec(response)) !== null) {
+  while ((match4 = pattern4.exec(response)) !== null) {
     const path = match4[1].trim();
     const reason = match4[2].trim();
     if (!reasonMap.has(path)) {
@@ -149,14 +258,35 @@ export function extractReasons(response: string): Map<string, string> {
     }
   }
 
-  // パターン5: 変更: ファイルパス - 理由
-  const reasonPattern5 =
-    /^(?:変更|Change|Modified):\s*(.+?\.(?:ts|tsx|js|jsx|json|md|css|html|py|java|go|rs))\s*[-:]\s*(.+)$/gm;
-
+  // Pattern 5: [filepath] - [reason]
+  const pattern5 = /^-?\s*\[?(.+?\.(?:ts|tsx|js|jsx|json|md|css|html))\]?\s*[-:]\s*(.+)$/gm;
   let match5;
-  while ((match5 = reasonPattern5.exec(response)) !== null) {
+  while ((match5 = pattern5.exec(response)) !== null) {
     const path = match5[1].trim();
     const reason = match5[2].trim();
+    if (!reasonMap.has(path)) {
+      reasonMap.set(path, reason);
+    }
+  }
+
+  // Pattern 6: Change/Modified: filepath - reason
+  const pattern6 =
+    /^(?:変更|Change|Modified):\s*(.+?\.(?:ts|tsx|js|jsx|json|md|css|html|py|java|go|rs))\s*[-:]\s*(.+)$/gm;
+  let match6;
+  while ((match6 = pattern6.exec(response)) !== null) {
+    const path = match6[1].trim();
+    const reason = match6[2].trim();
+    if (!reasonMap.has(path)) {
+      reasonMap.set(path, reason);
+    }
+  }
+
+  // Pattern 7: ## File: ... Reason: ... (English format without bold)
+  const pattern7 = /##\s*File:\s*(.+?)\s*\n+Reason:\s*(.+?)(?=\n|$)/g;
+  let match7;
+  while ((match7 = pattern7.exec(response)) !== null) {
+    const path = match7[1].trim();
+    const reason = match7[2].trim();
     if (!reasonMap.has(path)) {
       reasonMap.set(path, reason);
     }
@@ -166,113 +296,173 @@ export function extractReasons(response: string): Map<string, string> {
 }
 
 /**
- * メッセージをクリーンアップ
+ * Clean up message by removing code blocks and metadata
  */
 export function cleanupMessage(response: string): string {
   let cleaned = response;
 
-  // ファイルブロックを削除（厳密なマッチング）
+  // Remove SEARCH/REPLACE blocks
+  cleaned = cleaned.replace(/<<<<<<< SEARCH[\s\S]*?>>>>>>> REPLACE/g, '');
+  cleaned = cleaned.replace(/<<<<<<< NEW_FILE[\s\S]*?>>>>>>> NEW_FILE/g, '');
+
+  // Remove legacy file blocks
   cleaned = cleaned.replace(
     /<AI_EDIT_CONTENT_START:[^>]+>[\s\S]*?<AI_EDIT_CONTENT_END:[^>]+>/g,
     ''
   );
-
-  // 閉じタグがないブロックも削除
   cleaned = cleaned.replace(/<AI_EDIT_CONTENT_START:[^>]+>[\s\S]*$/g, '');
 
-  // メタデータを削除（日本語・英語両対応）
-  cleaned = cleaned.replace(/^##\s*(?:変更ファイル|File|Changed File):.*$/gm, '');
-  cleaned = cleaned.replace(/^\*\*(?:変更理由|Reason|Change Reason)\*\*:.+$/gm, '');
+  // Remove metadata lines
+  cleaned = cleaned.replace(/^###\s*File:.*$/gm, '');
+  cleaned = cleaned.replace(/^##\s*(?:Changed\s+)?File:.*$/gm, '');
+  cleaned = cleaned.replace(/^##\s*変更ファイル:.*$/gm, '');
+  cleaned = cleaned.replace(/^\*\*(?:Reason|変更理由)\*\*:.+$/gm, '');
   cleaned = cleaned.replace(/^\*\*(?:ファイル名|File Name|Filename)\*\*:.+$/gm, '');
   cleaned = cleaned.replace(/^\*\*(?:理由|Reason)\*\*:.+$/gm, '');
-  cleaned = cleaned.replace(/^(?:Reason|理由):\s*.+$/gm, ''); // 単体のReason行
+  cleaned = cleaned.replace(/^(?:Reason|理由):\s*.+$/gm, '');
   cleaned = cleaned.replace(
     /^(?:変更|Change|Modified):\s*.+?\.(?:ts|tsx|js|jsx|json|md|css|html|py|java|go|rs)\s*[-:].*$/gm,
     ''
   );
   cleaned = cleaned.replace(/^---+$/gm, '');
 
-  // コードブロックのマーカーを削除（```の中身は保持）
+  // Remove empty code blocks
+  cleaned = cleaned.replace(/^```[a-z]*\s*```$/gm, '');
   cleaned = cleaned.replace(/^```[a-z]*\s*$/gm, '');
+  cleaned = cleaned.replace(/^```\s*$/gm, '');
 
-  // 連続する空行を1つに
+  // Normalize multiple newlines
   cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
 
   return cleaned.trim();
 }
 
 /**
- * AI編集レスポンスをパース（強化版）
+ * Check if response uses patch format (SEARCH/REPLACE blocks)
+ */
+function usesPatchFormat(response: string): boolean {
+  return (
+    response.includes('<<<<<<< SEARCH') ||
+    response.includes('<<<<<<< NEW_FILE')
+  );
+}
+
+/**
+ * Parse AI edit response (supports both patch and legacy formats)
  */
 export function parseEditResponse(
   response: string,
   originalFiles: Array<{ path: string; content: string }>
 ): ParseResult {
   const changedFiles: ParsedFile[] = [];
+  const usedPatchFormat = usesPatchFormat(response);
 
-  // パスの正規化マップを作成
+  // Create normalized path map
   const normalizedOriginalFiles = new Map(originalFiles.map(f => [normalizePath(f.path), f]));
 
-  // ファイルブロックを抽出
-  const fileBlocks = extractFileBlocks(response);
+  if (usedPatchFormat) {
+    // Parse new SEARCH/REPLACE format
+    const fileSections = extractFilePatchSections(response);
 
-  // 変更理由を抽出
-  const reasonMap = extractReasons(response);
+    fileSections.forEach((section, filePath) => {
+      const normalizedPath = normalizePath(filePath);
+      const originalFile = normalizedOriginalFiles.get(normalizedPath);
 
-  // 各ブロックを処理
-  for (const block of fileBlocks) {
-    const normalizedPath = normalizePath(block.path);
-    const originalFile = normalizedOriginalFiles.get(normalizedPath);
+      if (section.isNewFile && section.fullContent !== undefined) {
+        // New file creation
+        changedFiles.push({
+          path: filePath,
+          originalContent: '',
+          suggestedContent: section.fullContent,
+          explanation: section.explanation || 'New file',
+          isNewFile: true,
+          patchBlocks: [],
+        });
+      } else if (originalFile && section.blocks.length > 0) {
+        // Apply patches to existing file
+        const patchBlock: PatchBlock = {
+          filePath: originalFile.path,
+          blocks: section.blocks,
+          explanation: section.explanation,
+        };
 
-    if (originalFile) {
-      // 理由を検索（複数パターン対応）
-      let explanation = reasonMap.get(block.path) || reasonMap.get(originalFile.path);
+        const result = applyPatchBlock(originalFile.content, patchBlock);
 
-      // 理由が見つからない場合、正規化パスで再検索
-      if (!explanation) {
-        for (const [key, value] of reasonMap.entries()) {
-          if (normalizePath(key) === normalizedPath) {
-            explanation = value;
-            break;
-          }
-        }
+        changedFiles.push({
+          path: originalFile.path,
+          originalContent: originalFile.content,
+          suggestedContent: result.patchedContent,
+          explanation: section.explanation || 'Modified',
+          patchBlocks: section.blocks,
+        });
       }
+    });
+  } else {
+    // Fall back to legacy format parsing
+    const fileBlocks = extractFileBlocks(response);
+    const reasonMap = extractReasons(response);
 
-      changedFiles.push({
-        path: originalFile.path,
-        originalContent: originalFile.content,
-        suggestedContent: block.content,
-        explanation: explanation || 'No explanation provided',
-      });
+    for (const block of fileBlocks) {
+      const normalizedPath = normalizePath(block.path);
+      const originalFile = normalizedOriginalFiles.get(normalizedPath);
+
+      if (originalFile) {
+        let explanation = reasonMap.get(block.path) || reasonMap.get(originalFile.path);
+
+        // Search by normalized path if not found
+        if (!explanation) {
+          reasonMap.forEach((value, key) => {
+            if (normalizePath(key) === normalizedPath && !explanation) {
+              explanation = value;
+            }
+          });
+        }
+
+        changedFiles.push({
+          path: originalFile.path,
+          originalContent: originalFile.content,
+          suggestedContent: block.content,
+          explanation: explanation || 'No explanation provided',
+        });
+      } else {
+        // New file in legacy format
+        const explanation = reasonMap.get(block.path) || 'New file';
+        changedFiles.push({
+          path: block.path,
+          originalContent: '',
+          suggestedContent: block.content,
+          explanation,
+          isNewFile: true,
+        });
+      }
     }
   }
 
-  // メッセージをクリーンアップ
+  // Clean up message
   let message = cleanupMessage(response);
 
-  // メッセージが不十分な場合のフォールバック
+  // Fallback message handling
   const hasValidMessage = message && message.replace(/\s/g, '').length >= 5;
 
   if (changedFiles.length === 0 && !hasValidMessage) {
-    // 解析失敗時のデバッグ情報
-    const failureNote = 'レスポンスの解析に失敗しました。プロンプトを調整してください。';
-    const safeResponse = response.replace(/```/g, '```' + '\u200B');
-    const rawBlock = `\n\n---\n\nRaw response:\n\n\`\`\`text\n${safeResponse}\n\`\`\``;
+    const failureNote = 'Failed to parse response. Ensure you use the correct SEARCH/REPLACE block format (<<<<<<< SEARCH ... >>>>>>> REPLACE) or legacy file tags (<AI_EDIT_CONTENT_START:...>).';
+    const safeResponse = response.replace(/```/g, '```\u200B');
+    const rawBlock = '\n\n---\n\nRaw response:\n\n```text\n' + safeResponse + '\n```';
     message = failureNote + rawBlock;
   } else if (changedFiles.length > 0 && !hasValidMessage) {
-    // ファイルが変更されたがメッセージが不十分
-    message = `${changedFiles.length}個のファイルの編集を提案しました。`;
+    message = 'Suggested edits for ' + changedFiles.length + ' file(s).';
   }
 
   return {
     changedFiles,
     message,
     raw: response,
+    usedPatchFormat,
   };
 }
 
 /**
- * レスポンスの品質チェック
+ * Validate response quality
  */
 export function validateResponse(response: string): {
   isValid: boolean;
@@ -287,22 +477,43 @@ export function validateResponse(response: string): {
     return { isValid: false, errors, warnings };
   }
 
-  // ファイルブロックの検証
-  const startTags = response.match(/<AI_EDIT_CONTENT_START:[^>]+>/g) || [];
-  const endTags = response.match(/<AI_EDIT_CONTENT_END:[^>]+>/g) || [];
+  const usesPatch = usesPatchFormat(response);
 
-  if (startTags.length !== endTags.length) {
-    errors.push(`Mismatched tags: ${startTags.length} START vs ${endTags.length} END`);
-  }
+  if (usesPatch) {
+    // Validate SEARCH/REPLACE format
+    const searchCount = (response.match(/<<<<<<< SEARCH/g) || []).length;
+    const replaceCount = (response.match(/>>>>>>> REPLACE/g) || []).length;
+    const newFileStartCount = (response.match(/<<<<<<< NEW_FILE/g) || []).length;
+    const newFileEndCount = (response.match(/>>>>>>> NEW_FILE/g) || []).length;
 
-  if (startTags.length === 0) {
-    warnings.push('No file blocks found');
-  }
+    if (searchCount !== replaceCount) {
+      errors.push('Mismatched SEARCH/REPLACE: ' + searchCount + ' SEARCH vs ' + replaceCount + ' REPLACE');
+    }
 
-  // タグのペアが正しいか検証
-  const blocks = extractFileBlocks(response);
-  if (blocks.length < startTags.length) {
-    warnings.push('Some file blocks may be malformed');
+    if (newFileStartCount !== newFileEndCount) {
+      errors.push('Mismatched NEW_FILE tags: ' + newFileStartCount + ' start vs ' + newFileEndCount + ' end');
+    }
+
+    if (searchCount === 0 && newFileStartCount === 0) {
+      warnings.push('No patch blocks found');
+    }
+  } else {
+    // Validate legacy format
+    const startTags = response.match(/<AI_EDIT_CONTENT_START:[^>]+>/g) || [];
+    const endTags = response.match(/<AI_EDIT_CONTENT_END:[^>]+>/g) || [];
+
+    if (startTags.length !== endTags.length) {
+      errors.push('Mismatched tags: ' + startTags.length + ' START vs ' + endTags.length + ' END');
+    }
+
+    if (startTags.length === 0) {
+      warnings.push('No file blocks found');
+    }
+
+    const blocks = extractFileBlocks(response);
+    if (blocks.length < startTags.length) {
+      warnings.push('Some file blocks may be malformed');
+    }
   }
 
   return {
