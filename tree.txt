@@ -11,6 +11,7 @@ Root
 │   ├── MULTI-FILE-EXTENSION-SUPPORT.md
 │   ├── NEW-ARCHITECTURE.md
 │   ├── NodeJSRuntime-new-arc.md
+│   ├── PROJECT-ID-BEST-PRACTICES.md
 │   ├── SHELL-PARSER-PLAN.md
 │   ├── TAB-MANAGEMENT-ARCHITECTURE.md
 │   ├── TODO.md
@@ -77,6 +78,7 @@ Root
 │       └── use-math.ts
 ├── jest.config.cjs
 ├── jest.setup.js
+├── next-env.d.ts
 ├── next.config.ts
 ├── package.json
 ├── pnpm-lock.yaml
@@ -146,7 +148,6 @@ Root
 │   │   │   ├── AIPanel.tsx
 │   │   │   ├── AIReview
 │   │   │   │   └── AIReviewTab.tsx
-│   │   │   ├── ChangedFilesList.tsx
 │   │   │   ├── FileSelector.tsx
 │   │   │   ├── chat
 │   │   │   │   ├── ChatContainer.tsx
@@ -165,6 +166,8 @@ Root
 │   │   │   └── Terminal.tsx
 │   │   ├── BottomStatusBar.tsx
 │   │   ├── Confirmation.tsx
+│   │   ├── DnD
+│   │   │   └── CustomDragLayer.tsx
 │   │   ├── ExtensionInitializer.tsx
 │   │   ├── KeyComboClient.tsx
 │   │   ├── Left
@@ -180,6 +183,7 @@ Root
 │   │   ├── MenuBar.tsx
 │   │   ├── OperationWindow.tsx
 │   │   ├── PaneContainer.tsx
+│   │   ├── PaneNavigator.tsx
 │   │   ├── PaneResizer.tsx
 │   │   ├── ProjectModal.tsx
 │   │   ├── Right
@@ -192,6 +196,12 @@ Root
 │   │   │   ├── DiffTab.tsx
 │   │   │   ├── InlineHighlightedCode.tsx
 │   │   │   ├── LocalImage.tsx
+│   │   │   ├── MarkdownPreview
+│   │   │   │   ├── CodeBlock.tsx
+│   │   │   │   ├── LocalImage.tsx
+│   │   │   │   ├── Mermaid.tsx
+│   │   │   │   ├── index.ts
+│   │   │   │   └── useIntersectionObserver.ts
 │   │   │   ├── MarkdownPreviewTab.tsx
 │   │   │   ├── ShortcutKeysTab.tsx
 │   │   │   ├── TabBar.tsx
@@ -205,6 +215,7 @@ Root
 │   │   │   │   │   ├── MonacoEditor.tsx
 │   │   │   │   │   ├── codemirror-utils.ts
 │   │   │   │   │   ├── editor-utils.ts
+│   │   │   │   │   ├── monaco-language-defaults.ts
 │   │   │   │   │   ├── monaco-themes.ts
 │   │   │   │   │   └── monarch-jsx-language.ts
 │   │   │   │   ├── hooks
@@ -219,6 +230,8 @@ Root
 │   │   ├── TabInitializer.tsx
 │   │   ├── Toast.tsx
 │   │   └── TopBar.tsx
+│   ├── constants
+│   │   └── dndTypes.ts
 │   ├── context
 │   │   ├── FileSelectorContext.tsx
 │   │   ├── GitHubUserContext.tsx
@@ -231,6 +244,7 @@ Root
 │   │   │   ├── contextBuilder.ts
 │   │   │   ├── diffProcessor.ts
 │   │   │   ├── fetchAI.ts
+│   │   │   ├── patchApplier.ts
 │   │   │   ├── prompts.ts
 │   │   │   └── responseParser.ts
 │   │   ├── cmd
@@ -291,6 +305,7 @@ Root
 │   │   │   │   ├── parser.ts
 │   │   │   │   └── streamShell.ts
 │   │   │   ├── terminalRegistry.ts
+│   │   │   ├── terminalUI.ts
 │   │   │   └── vim.ts
 │   │   ├── commitMsgAI.ts
 │   │   ├── core
@@ -323,6 +338,7 @@ Root
 │   │   │   └── types.ts
 │   │   ├── import
 │   │   │   └── importSingleFile.ts
+│   │   ├── initialFileContents.ts
 │   │   ├── node
 │   │   │   ├── builtInModule.ts
 │   │   │   └── modules
@@ -386,10 +402,13 @@ Root
 │   │   ├── useGlobalScrollLock.ts
 │   │   ├── useKeyBindings.ts
 │   │   ├── useOptimizedUIStateSave.ts
+│   │   ├── usePaneResize.ts
 │   │   ├── useProjectWelcome.ts
+│   │   ├── useResize.ts
 │   │   ├── useSettings.ts
 │   │   └── useTabContentRestore.ts
 │   ├── stores
+│   │   ├── projectStore.ts
 │   │   ├── sessionStorage.ts
 │   │   └── tabStore.ts
 │   ├── tests
@@ -406,6 +425,7 @@ Root
 │       └── searchWorker.ts
 ├── tailwind.config.ts
 ├── tests
+│   ├── aiMultiPatch.test.ts
 │   ├── aiResponseParser.test.ts
 │   ├── all-sh.test.ts
 │   ├── extensionLoader.multifile.test.ts
@@ -418,6 +438,7 @@ Root
 │   ├── parser.commandsub.test.ts
 │   ├── parser.complex.test.ts
 │   ├── parser.unit.test.ts
+│   ├── patchApplier.test.ts
 │   ├── pathResolver.test.ts
 │   ├── reactImportTransform.test.ts
 │   ├── redirection.test.ts
@@ -436,7 +457,7 @@ Root
 └── types
     └── esbuild-cdn.d.ts
 
-66 directories, 370 files
+69 directories, 388 files
 
 =================================
 
@@ -448,14 +469,30 @@ extensions/ 以下のディレクトリ構造:
 │   ├── systemModuleTypes.ts
 │   └── types.ts
 ├── calc
+│   ├── PNPM-GUIDE.md
 │   ├── README.md
 │   ├── index.tsx
 │   ├── manifest.json
+│   ├── node_modules
+│   │   └── latexium -> ../../../node_modules/.pnpm/latexium@0.1.1/node_modules/latexium
 │   └── package.json
 ├── chart-extension
 │   ├── README.md
 │   ├── index.tsx
 │   ├── manifest.json
+│   ├── node_modules
+│   │   ├── @kurkle
+│   │   │   └── color
+│   │   │       ├── LICENSE.md
+│   │   │       ├── README.md
+│   │   │       ├── dist
+│   │   │       │   ├── color.cjs
+│   │   │       │   ├── color.d.ts
+│   │   │       │   ├── color.esm.js
+│   │   │       │   ├── color.min.js
+│   │   │       │   └── color.min.js.map
+│   │   │       └── package.json
+│   │   └── chart.js -> ../../../node_modules/.pnpm/chart.js@4.5.1/node_modules/chart.js
 │   └── package.json
 ├── lang-packs
 │   ├── ar
@@ -522,11 +559,15 @@ extensions/ 以下のディレクトリ構造:
 │   ├── index.tsx
 │   └── manifest.json
 ├── react-preview
+│   ├── PNPM-GUIDE.md
 │   ├── README.md
 │   ├── _build.js
 │   ├── index.tsx
 │   ├── manifest.json
+│   ├── node_modules
+│   │   └── esbuild-wasm -> ../../../node_modules/.pnpm/esbuild-wasm@0.27.0/node_modules/esbuild-wasm
 │   └── package.json
+├── registry.json
 ├── sample-command
 │   ├── README.md
 │   ├── index.ts
@@ -544,14 +585,18 @@ extensions/ 以下のディレクトリ構造:
     ├── manifest.json
     └── transpile.worker.ts
 
-31 directories, 71 files
+40 directories, 82 files
 
 =================================
 
 
 src/*.ts, *.tsx の統計:
-合計行数: 57338
-合計文字数: 1811748
-合計ファイルサイズ(bytes): 1934052
+合計行数: 62017
+合計文字数: 2038902
+合計ファイルサイズ(bytes): 2170439
 
-開発時のdev container全体のサイズ(bytes): 31M	.
+開発時のdev container全体のサイズ(bytes): 2.7G	.
+==========
+ビルト済みファイルの行数: 126818
+合計文字数: 26996325
+合計ファイルサイズ(bytes): 29974034
