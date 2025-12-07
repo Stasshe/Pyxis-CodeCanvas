@@ -16,6 +16,7 @@ import type { UnixCommands } from '@/engine/cmd/global/unix';
 import type { StreamShell } from '@/engine/cmd/shell/streamShell';
 import type { FileRepository } from '@/engine/core/fileRepository';
 import type { normalizeCjsEsm } from '@/engine/runtime/normalizeCjsEsm';
+import type { toAppPath, getParentPath, toGitPath, fromGitPath } from '@/engine/core/pathResolver';
 
 /**
  * normalizeCjsEsmモジュールの型定義
@@ -24,12 +25,24 @@ import type { normalizeCjsEsm } from '@/engine/runtime/normalizeCjsEsm';
 export type NormalizeCjsEsmModule = typeof normalizeCjsEsm;
 
 /**
+ * pathUtilsモジュールの型定義
+ */
+export interface PathUtilsModule {
+  normalizePath: typeof toAppPath;
+  toAppPath: typeof toAppPath;
+  getParentPath: typeof getParentPath;
+  toGitPath: typeof toGitPath;
+  fromGitPath: typeof fromGitPath;
+}
+
+/**
  * システムモジュールの型マップ
  * この型を使用して getSystemModule の戻り値型を推論する
  */
 export interface SystemModuleMap {
   fileRepository: FileRepository;
   normalizeCjsEsm: NormalizeCjsEsmModule;
+  pathUtils: PathUtilsModule;
   commandRegistry: CommandRegistry;
   /** Terminal/CLI command singletons provider */
   systemBuiltinCommands: {

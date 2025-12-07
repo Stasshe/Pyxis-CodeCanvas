@@ -107,9 +107,6 @@ importers:
       path-browserify:
         specifier: ^1.0.1
         version: 1.0.1
-      pyodide:
-        specifier: ^0.29.0
-        version: 0.29.0
       react:
         specifier: ^19.2.1
         version: 19.2.1
@@ -270,6 +267,12 @@ importers:
       chart.js:
         specifier: ^4.4.1
         version: 4.5.1
+
+  extensions/python-runtime:
+    dependencies:
+      pyodide:
+        specifier: ^0.29.0
+        version: 0.29.0
 
   extensions/react-preview:
     dependencies:

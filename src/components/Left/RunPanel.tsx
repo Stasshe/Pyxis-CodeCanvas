@@ -1,14 +1,14 @@
 import clsx from 'clsx';
 import { Play, Square, Code, Trash2 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
-import { parseGitignore, isPathIgnored } from '@/engine/core/gitignore';
-import OperationWindow from '@/components/OperationWindow';
 
+import OperationWindow from '@/components/OperationWindow';
 import { LOCALSTORAGE_KEY } from '@/context/config';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
-import { executeNodeFile } from '@/engine/runtime/nodeRuntime';
+import { parseGitignore, isPathIgnored } from '@/engine/core/gitignore';
 import { initPyodide, runPythonWithSync, setCurrentProject } from '@/engine/runtime/pyodideRuntime';
+import { runtimeRegistry } from '@/engine/runtime/RuntimeRegistry';
 
 interface RunPanelProps {
   currentProject: { id: string; name: string } | null;
@@ -207,18 +207,24 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
         const pythonResult = await pyodide.runPythonAsync(cleanCode);
         addOutput(String(pythonResult), 'log');
       } else {
-        // Node.js実行 - 一時ファイルとして実行
-        // 一時ファイルをIndexedDBに作成
-        const { fileRepository } = await import('@/engine/core/fileRepository');
-        await fileRepository.createFile(currentProject.id, '/temp-code.js', inputCode, 'file');
-
-        await executeNodeFile({
+        // Node.js実行 - RuntimeRegistryを使用
+        const runtime = runtimeRegistry.getRuntime('nodejs');
+        if (!runtime) {
+          addOutput('Node.js runtime not available', 'error');
+          return;
+        }
+        
+        const result = await runtime.executeCode?.(inputCode, {
           projectId: currentProject.id,
           projectName: currentProject.name,
           filePath: '/temp-code.js',
           debugConsole: createDebugConsole(),
           onInput: createOnInput(),
         });
+
+        if (result?.stderr) {
+          addOutput(result.stderr, 'error');
+        }
       }
     } catch (error) {
       addOutput(`Error: ${(error as Error).message}`, 'error');
@@ -232,42 +238,35 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
   const executeFile = async () => {
     if (!selectedFile || !currentProject) return;
     setIsRunning(true);
-    const fileObj = executableFiles.find(f => f.path === selectedFile);
-    const lang = fileObj?.lang || (selectedFile.endsWith('.py') ? 'python' : 'node');
-    addOutput(lang === 'python' ? `> python ${selectedFile}` : `> node ${selectedFile}`, 'input');
+    const filePath = `/${selectedFile}`;
+    
+    // RuntimeRegistryからランタイムを取得
+    const runtime = runtimeRegistry.getRuntimeForFile(filePath);
+    
+    if (!runtime) {
+      addOutput(`No runtime found for ${selectedFile}`, 'error');
+      setIsRunning(false);
+      return;
+    }
+
+    addOutput(`> ${runtime.name} ${selectedFile}`, 'input');
     localStorage.setItem(LOCALSTORAGE_KEY.LAST_EXECUTE_FILE, selectedFile);
+    
     try {
-      if (lang === 'node') {
-        // Node.js実行
-        await executeNodeFile({
-          projectId: currentProject.id,
-          projectName: currentProject.name,
-          filePath: `/${selectedFile}`,
-          debugConsole: createDebugConsole(),
-          onInput: createOnInput(),
-        });
-      } else {
-        // Python実行
-        if (!isPyodideReady) {
-          addOutput(t('run.runtimeNotReady'), 'error');
-          return;
-        }
-        if (!fileObj || !fileObj.content) {
-          addOutput(t('run.fileContentError'), 'error');
-          return;
-        }
-        // runPythonWithSyncで自動同期
-        const pythonResult = await runPythonWithSync(fileObj.content, currentProject.id);
-        if (pythonResult.stderr) {
-          addOutput(pythonResult.stderr, 'error');
-        } else if (pythonResult.stdout) {
-          addOutput(pythonResult.stdout, 'log');
-        } else if (pythonResult.result) {
-          addOutput(String(pythonResult.result), 'log');
-        } else {
-          addOutput(t('run.noOutput'), 'log');
-        }
+      const result = await runtime.execute({
+        projectId: currentProject.id,
+        projectName: currentProject.name,
+        filePath,
+        debugConsole: createDebugConsole(),
+        onInput: createOnInput(),
+      });
+
+      if (result.stderr) {
+        addOutput(result.stderr, 'error');
+      } else if (result.stdout) {
+        addOutput(result.stdout, 'log');
       }
+      // Don't show "no output" message - if there's no output, show nothing
     } catch (error) {
       addOutput(`Error: ${(error as Error).message}`, 'error');
     } finally {

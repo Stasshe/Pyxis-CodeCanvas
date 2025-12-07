@@ -632,6 +632,16 @@ class ExtensionManager {
             // to satisfy TypeScript and avoid unsafe direct casting warnings.
             return module as unknown as SystemModuleMap[T];
           }
+          case 'pathUtils': {
+            const { toAppPath, getParentPath, toGitPath, fromGitPath, normalizePath } = await import('@/engine/core/pathResolver');
+            return {
+              normalizePath,
+              toAppPath,
+              getParentPath,
+              toGitPath,
+              fromGitPath,
+            } as SystemModuleMap[T];
+          }
           case 'commandRegistry': {
             const { commandRegistry } = await import('./commandRegistry');
             return commandRegistry as SystemModuleMap[T];
@@ -648,6 +658,52 @@ class ExtensionManager {
             // 実際のエラーメッセージでは元のmoduleNameを文字列として出力
             throw new Error(`System module not found: ${String(moduleName)}`);
           }
+        }
+      },
+      registerTranspiler: async (transpilerConfig: any) => {
+        // RuntimeRegistryにトランスパイラーを登録
+        try {
+          const { runtimeRegistry } = await import('@/engine/runtime/RuntimeRegistry');
+          const { ExtensionTranspilerProvider } = await import('@/engine/runtime/providers/ExtensionTranspilerProvider');
+          
+          const provider = new ExtensionTranspilerProvider(
+            transpilerConfig.id,
+            transpilerConfig.supportedExtensions || [],
+            transpilerConfig.transpile,
+            transpilerConfig.needsTranspile
+          );
+          
+          runtimeRegistry.registerTranspiler(provider);
+          console.log(`[${extensionId}] Registered transpiler: ${transpilerConfig.id}`);
+        } catch (error) {
+          console.error(`[${extensionId}] Failed to register transpiler:`, error);
+          throw error;
+        }
+      },
+      registerRuntime: async (runtimeConfig: any) => {
+        // RuntimeRegistryにランタイムを登録
+        try {
+          const { runtimeRegistry } = await import('@/engine/runtime/RuntimeRegistry');
+          
+          // Create a runtime provider from the config
+          const provider = {
+            id: runtimeConfig.id,
+            name: runtimeConfig.name,
+            supportedExtensions: runtimeConfig.supportedExtensions || [],
+            canExecute: runtimeConfig.canExecute,
+            initialize: runtimeConfig.initialize,
+            execute: runtimeConfig.execute,
+            executeCode: runtimeConfig.executeCode,
+            clearCache: runtimeConfig.clearCache,
+            dispose: runtimeConfig.dispose,
+            isReady: runtimeConfig.isReady,
+          };
+          
+          runtimeRegistry.registerRuntime(provider);
+          console.log(`[${extensionId}] Registered runtime: ${runtimeConfig.id}`);
+        } catch (error) {
+          console.error(`[${extensionId}] Failed to register runtime:`, error);
+          throw error;
         }
       },
       // strict stubs — will be replaced after real API instances are created

@@ -163,14 +163,14 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
      * TypeScriptトランスパイラ（Web Worker使用）
      */
     transpiler: async (code: string, options: any = {}) => {
-      const { filePath = 'unknown.ts', isTypeScript, isJSX } = options;
+      const { filePath = 'unknown.ts', isTypeScript } = options;
       
       context.logger.info(`🔄 Transpiling: ${filePath}`);
       
       try {
-        // TypeScriptまたはJSXの場合: Web Workerでトランスパイル
-        if (isTypeScript || isJSX) {
-          const result = await transpileWithWorker(code, filePath, isTypeScript || false, isJSX || false);
+        // TypeScriptの場合: Web Workerでトランスパイル
+        if (isTypeScript) {
+          const result = await transpileWithWorker(code, filePath, true, false);
           
           context.logger.info(`✅ Transpiled: ${filePath} (${code.length} -> ${result.code.length} bytes, ${result.dependencies.length} deps)`);
           
@@ -211,15 +211,24 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
     /**
      * ファイル拡張子のサポート情報
      */
-    supportedExtensions: ['.ts', '.tsx', '.mts', '.cts', '.jsx'],
+    supportedExtensions: ['.ts', '.mts', '.cts'],
 
     /**
      * トランスパイルが必要か判定
      */
     needsTranspile: (filePath: string) => {
-      return /\.(ts|tsx|mts|cts|jsx)$/.test(filePath);
+      return /\.(ts|mts|cts)$/.test(filePath);
     },
   };
+
+  // RuntimeRegistryに登録
+  await context.registerTranspiler?.({
+    id: 'typescript',
+    supportedExtensions: runtimeFeatures.supportedExtensions,
+    needsTranspile: runtimeFeatures.needsTranspile,
+    transpile: runtimeFeatures.transpiler,
+  });
+  context.logger.info('✅ TypeScript transpiler registered with RuntimeRegistry');
 
   context.logger.info('✅ TypeScript Runtime Extension activated');
 
