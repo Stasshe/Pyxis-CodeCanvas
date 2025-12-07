@@ -6,12 +6,99 @@
 
 import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
 
+// Pyodide interface types
+interface PyodideInterface {
+  runPythonAsync(code: string): Promise<any>;
+  FS: {
+    readdir(path: string): string[];
+    readFile(path: string, options: { encoding: string }): string;
+    writeFile(path: string, content: string): void;
+    mkdir(path: string): void;
+    rmdir(path: string): void;
+    unlink(path: string): void;
+    isDir(mode: number): boolean;
+    stat(path: string): { mode: number };
+  };
+  loadPackage(packages: string[]): Promise<void>;
+  globals?: any;
+}
+
+// Global Pyodide instance
+let pyodideInstance: PyodideInterface | null = null;
+let currentProjectId: string | null = null;
+
 export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
   context.logger.info('Python Runtime Extension activating...');
 
-  // Import the pyodide runtime functions from core
-  const { initPyodide, setCurrentProject, runPythonWithSync } = 
-    await import('@/engine/runtime/pyodideRuntime');
+  // Initialize Pyodide
+  async function initPyodide(): Promise<PyodideInterface> {
+    if (pyodideInstance) {
+      return pyodideInstance;
+    }
+
+    // @ts-ignore - loadPyodide is loaded from CDN
+    const pyodide = await window.loadPyodide({
+      stdout: (msg: string) => context.logger.info(msg),
+      stderr: (msg: string) => context.logger.error(msg),
+    });
+
+    pyodideInstance = pyodide;
+    return pyodide;
+  }
+
+  // Sync files from IndexedDB to Pyodide
+  async function syncFilesToPyodide(projectId: string): Promise<void> {
+    if (!pyodideInstance) return;
+
+    const fileRepository = await context.getSystemModule('fileRepository');
+    await fileRepository.init();
+    
+    const files = await fileRepository.getProjectFiles(projectId);
+    
+    for (const file of files) {
+      if (file.type === 'file' && file.path && file.content) {
+        try {
+          const pyPath = file.path.startsWith('/') ? file.path : `/${file.path}`;
+          const dirPath = pyPath.substring(0, pyPath.lastIndexOf('/'));
+          
+          if (dirPath && dirPath !== '/') {
+            // Create directory if needed
+            try {
+              pyodideInstance.FS.stat(dirPath);
+            } catch {
+              const parts = dirPath.split('/').filter(p => p);
+              let currentPath = '';
+              for (const part of parts) {
+                currentPath += '/' + part;
+                try {
+                  pyodideInstance.FS.stat(currentPath);
+                } catch {
+                  pyodideInstance.FS.mkdir(currentPath);
+                }
+              }
+            }
+          }
+          
+          pyodideInstance.FS.writeFile(pyPath, file.content);
+        } catch (error) {
+          context.logger.warn(`Failed to sync file ${file.path}:`, error);
+        }
+      }
+    }
+  }
+
+  // Execute Python code and sync back
+  async function runPythonWithSync(code: string, projectId: string): Promise<any> {
+    const pyodide = await initPyodide();
+    await syncFilesToPyodide(projectId);
+    
+    try {
+      const result = await pyodide.runPythonAsync(code);
+      return { result, stdout: '', stderr: '' };
+    } catch (error: any) {
+      return { result: null, stdout: '', stderr: error.message || String(error) };
+    }
+  }
 
   // Register the Python runtime provider
   await context.registerRuntime?.({
@@ -25,8 +112,9 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
     
     async initialize(projectId: string, projectName: string): Promise<void> {
       context.logger.info(`🐍 Initializing Python runtime for project: ${projectName}`);
+      currentProjectId = projectId;
       await initPyodide();
-      await setCurrentProject(projectId, projectName);
+      await syncFilesToPyodide(projectId);
     },
     
     async execute(options: any): Promise<any> {
@@ -87,7 +175,7 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
     },
     
     isReady(): boolean {
-      return true;
+      return pyodideInstance !== null;
     },
   });
 
