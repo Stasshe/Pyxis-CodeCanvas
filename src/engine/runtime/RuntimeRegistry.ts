@@ -7,8 +7,9 @@
  * - ファイル拡張子に基づくランタイムの自動選択
  */
 
+import { runtimeInfo, runtimeWarn } from './runtimeLogger';
+
 import type { RuntimeProvider, TranspilerProvider } from './RuntimeProvider';
-import { runtimeInfo, runtimeWarn, runtimeError } from './runtimeLogger';
 
 /**
  * RuntimeRegistry

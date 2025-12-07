@@ -12,8 +12,8 @@ import { ModuleCache } from './moduleCache';
 import { ModuleResolver } from './moduleResolver';
 import { normalizePath, dirname } from './pathUtils';
 import { runtimeInfo, runtimeWarn, runtimeError } from './runtimeLogger';
-import { transpileManager } from './transpileManager';
 import { runtimeRegistry } from './RuntimeRegistry';
+import { transpileManager } from './transpileManager';
 
 import { fileRepository } from '@/engine/core/fileRepository';
 import { extensionManager } from '@/engine/extensions/extensionManager';

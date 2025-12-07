@@ -4,8 +4,9 @@
  * 拡張機能のトランスパイラーをTranspilerProviderインターフェースでラップ
  */
 
-import type { TranspilerProvider } from '../RuntimeProvider';
 import { runtimeInfo, runtimeError } from '../runtimeLogger';
+
+import type { TranspilerProvider } from '../RuntimeProvider';
 
 /**
  * 拡張機能のトランスパイラーをラップ
