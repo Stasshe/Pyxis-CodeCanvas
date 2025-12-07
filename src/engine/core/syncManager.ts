@@ -6,6 +6,7 @@
 
 import { fileRepository } from './fileRepository';
 import { gitFileSystem } from './gitFileSystem';
+import { parseGitignore, isPathIgnored, GitIgnoreRule } from './gitignore';
 
 import { coreInfo, coreWarn, coreError } from '@/engine/core/coreLogger';
 import { ProjectFile } from '@/types';
@@ -51,8 +52,42 @@ export class SyncManager {
   }
 
   /**
+   * Get and parse .gitignore rules for a project
+   */
+  private async getGitignoreRules(projectId: string): Promise<GitIgnoreRule[]> {
+    try {
+      const gitignoreFile = await fileRepository.getFileByPath(projectId, '/.gitignore');
+      if (!gitignoreFile || !gitignoreFile.content) {
+        return [];
+      }
+      return parseGitignore(gitignoreFile.content);
+    } catch (error) {
+      // No .gitignore file or error reading it
+      return [];
+    }
+  }
+
+  /**
+   * Check if a path should be ignored based on .gitignore rules
+   */
+  private shouldIgnorePath(rules: GitIgnoreRule[], path: string): boolean {
+    if (rules.length === 0) return false;
+    
+    // Normalize path (remove leading slash)
+    const normalizedPath = path.replace(/^\/+/, '');
+    const ignored = isPathIgnored(rules, normalizedPath, false);
+    
+    if (ignored) {
+      coreInfo(`[SyncManager] Path "${path}" is ignored by .gitignore`);
+    }
+    
+    return ignored;
+  }
+
+  /**
    * IndexedDB → lightning-fs への同期
    * 通常のファイル操作後に呼び出される
+   * .gitignore ルールを適用してフィルタリング
    */
   async syncFromIndexedDBToFS(projectId: string, projectName: string): Promise<void> {
     // notify listeners that a sync is starting
@@ -61,6 +96,23 @@ export class SyncManager {
       const dbFiles = await fileRepository.getFilesByPrefix(projectId, '/');
       const projectDir = gitFileSystem.getProjectDir(projectName);
       await gitFileSystem.ensureDirectory(projectDir);
+
+      // Get .gitignore rules
+      const gitignoreRules = await this.getGitignoreRules(projectId);
+      coreInfo(`[SyncManager] Loaded ${gitignoreRules.length} .gitignore rules`);
+
+      // Filter out ignored files
+      const filteredDbFiles = dbFiles.filter(file => {
+        // Always include .gitignore itself
+        if (file.path === '/.gitignore') return true;
+        
+        // Check if file should be ignored
+        return !this.shouldIgnorePath(gitignoreRules, file.path);
+      });
+
+      coreInfo(
+        `[SyncManager] Filtered files: ${dbFiles.length} -> ${filteredDbFiles.length} (${dbFiles.length - filteredDbFiles.length} ignored)`
+      );
 
       // get FS snapshot (ignore errors — treat as empty)
       let existingFsFiles: Array<{ path: string; content: string; type: 'file' | 'folder' }> = [];
@@ -71,10 +123,10 @@ export class SyncManager {
       }
 
       const existingFsMap = new Map(existingFsFiles.map(f => [f.path, f] as const));
-      const dbFilePaths = new Set(dbFiles.map(f => f.path));
+      const dbFilePaths = new Set(filteredDbFiles.map(f => f.path));
 
       // create directories first (shortest path first)
-      const dirs = dbFiles
+      const dirs = filteredDbFiles
         .filter(f => f.type === 'folder')
         .sort((a, b) => a.path.length - b.path.length);
       await Promise.all(
@@ -86,7 +138,7 @@ export class SyncManager {
       );
 
       // write files (batch to avoid too many concurrent ops)
-      const files = dbFiles.filter(f => f.type === 'file');
+      const files = filteredDbFiles.filter(f => f.type === 'file');
       coreInfo(`[SyncManager] Syncing ${files.length} files (diff)`);
       const BATCH = 10;
       for (let i = 0; i < files.length; i += BATCH) {
