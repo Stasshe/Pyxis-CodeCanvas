@@ -204,44 +204,49 @@ del _pyxis_stdout
     try {
       // Get existing files from IndexedDB
       const existingFiles = await fileRepository.getProjectFiles(projectId);
-      const existingPaths = new Set(existingFiles.map(f => f.path));
+      const existingPaths = new Map(existingFiles.map(f => [f.path, f]));
       
       // Scan /home directory for files
       const pyodideFiles = scanPyodideDirectory(pyodideInstance, '/home', '');
+      
+      let syncedCount = 0;
+      let newFilesCount = 0;
+      let updatedFilesCount = 0;
       
       // Sync files from Pyodide to IndexedDB
       for (const file of pyodideFiles) {
         // Normalize the path
         const projectPath = pathUtils.normalizePath(file.path);
         
-        const existingFile = existingFiles.find(f => f.path === projectPath);
+        const existingFile = existingPaths.get(projectPath);
         
         if (existingFile) {
           // Update existing file if content changed
           if (existingFile.content !== file.content) {
-            await fileRepository.saveFile({
-              ...existingFile,
-              content: file.content,
-              updatedAt: new Date(),
-            });
+            await fileRepository.updateFileContent(existingFile.id, file.content);
+            updatedFilesCount++;
+            syncedCount++;
           }
         } else {
-          // Create new file
-          await fileRepository.createFile(projectId, projectPath, file.content, 'file');
+          // Only create new files that were created during Python execution
+          // Skip if the file path looks like a Python script that was already in the project
+          // This prevents creating duplicates of source files
+          const isPythonSource = projectPath.endsWith('.py');
+          const wasInOriginalProject = existingFiles.some(f => f.path === projectPath);
+          
+          if (!isPythonSource || !wasInOriginalProject) {
+            await fileRepository.createFile(projectId, projectPath, file.content, 'file');
+            newFilesCount++;
+            syncedCount++;
+          }
         }
-        
-        existingPaths.delete(projectPath);
       }
       
-      // Delete files that no longer exist in Pyodide
-      for (const path of existingPaths) {
-        const file = existingFiles.find(f => f.path === path);
-        if (file && file.type === 'file') {
-          await fileRepository.deleteFile(file.id);
-        }
+      if (syncedCount > 0) {
+        context.logger.info(
+          `✅ Synced ${syncedCount} files from Pyodide (${newFilesCount} new, ${updatedFilesCount} updated)`
+        );
       }
-      
-      context.logger.info(`✅ Synced ${pyodideFiles.length} files from Pyodide to IndexedDB`);
     } catch (error) {
       context.logger.error('Failed to sync files from Pyodide:', error);
     }

@@ -60,6 +60,22 @@ export interface NormalizeCjsEsmModule {
 }
 
 /**
+ * pathUtils - パス操作ユーティリティ
+ */
+export interface PathUtilsModule {
+  /** パスを正規化（toAppPathのエイリアス） */
+  normalizePath(path: string | null | undefined): string;
+  /** アプリ内部形式のパスに変換 */
+  toAppPath(path: string | null | undefined): string;
+  /** 親ディレクトリのパスを取得 */
+  getParentPath(path: string | null | undefined): string;
+  /** Git形式のパスに変換 */
+  toGitPath(path: string | null | undefined): string;
+  /** Git形式のパスから変換 */
+  fromGitPath(path: string | null | undefined): string;
+}
+
+/**
  * コマンド実行時のコンテキスト
  * (types.tsのCommandContextと重複を避けるため、ここでは最小限の定義)
  */
@@ -248,6 +264,7 @@ export interface StreamShell {
 export interface SystemModuleMap {
   fileRepository: FileRepository;
   normalizeCjsEsm: NormalizeCjsEsmModule;
+  pathUtils: PathUtilsModule;
   commandRegistry: CommandRegistry;
   /** Terminal/CLI commands provider exposed to extensions */
   systemBuiltinCommands: {
