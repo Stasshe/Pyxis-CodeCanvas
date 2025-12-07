@@ -265,10 +265,8 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
         addOutput(result.stderr, 'error');
       } else if (result.stdout) {
         addOutput(result.stdout, 'log');
-      } else if (result.exitCode === 0) {
-        // 成功したが出力がない場合
-        addOutput(t('run.noOutput'), 'log');
       }
+      // Don't show "no output" message - if there's no output, show nothing
     } catch (error) {
       addOutput(`Error: ${(error as Error).message}`, 'error');
     } finally {

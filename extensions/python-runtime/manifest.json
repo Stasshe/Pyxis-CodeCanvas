@@ -1,0 +1,19 @@
+{
+  "id": "pyxis.python-runtime",
+  "name": "Python Runtime",
+  "version": "1.0.0",
+  "type": "language-runtime",
+  "description": "Python runtime using Pyodide. Supports Python code execution in the browser.",
+  "author": "Pyxis Team",
+  "defaultEnabled": true,
+  "icon": "/extensions/pyxis/python-runtime/icon.svg",
+  "homepage": "https://github.com/Stasshe/Pyxis-CodeCanvas",
+  "dependencies": [],
+  "entry": "index.js",
+  "files": [],
+  "metadata": {
+    "publishedAt": "2025-12-07T00:00:00Z",
+    "updatedAt": "2025-12-07T00:00:00Z",
+    "tags": ["python", "runtime", "pyodide", "language"]
+  }
+}

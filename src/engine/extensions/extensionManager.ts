@@ -670,6 +670,32 @@ class ExtensionManager {
           throw error;
         }
       },
+      registerRuntime: async (runtimeConfig: any) => {
+        // RuntimeRegistryにランタイムを登録
+        try {
+          const { runtimeRegistry } = await import('@/engine/runtime/RuntimeRegistry');
+          
+          // Create a runtime provider from the config
+          const provider = {
+            id: runtimeConfig.id,
+            name: runtimeConfig.name,
+            supportedExtensions: runtimeConfig.supportedExtensions || [],
+            canExecute: runtimeConfig.canExecute,
+            initialize: runtimeConfig.initialize,
+            execute: runtimeConfig.execute,
+            executeCode: runtimeConfig.executeCode,
+            clearCache: runtimeConfig.clearCache,
+            dispose: runtimeConfig.dispose,
+            isReady: runtimeConfig.isReady,
+          };
+          
+          runtimeRegistry.registerRuntime(provider);
+          console.log(`[${extensionId}] Registered runtime: ${runtimeConfig.id}`);
+        } catch (error) {
+          console.error(`[${extensionId}] Failed to register runtime:`, error);
+          throw error;
+        }
+      },
       // strict stubs — will be replaced after real API instances are created
       tabs: {
         registerTabType: notInitialized('tabs.registerTabType'),

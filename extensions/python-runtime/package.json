@@ -1,0 +1,9 @@
+{
+  "name": "python-runtime",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Python runtime extension using Pyodide",
+  "dependencies": {
+    "pyodide": "^0.29.0"
+  }
+}

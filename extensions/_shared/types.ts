@@ -201,6 +201,20 @@ export interface ExtensionContext {
     transpile: (code: string, options: any) => Promise<{ code: string; map?: string; dependencies?: string[] }>;
   }) => Promise<void>;
 
+  /** ランタイムを登録（language-runtime拡張機能用） */
+  registerRuntime?: (config: {
+    id: string;
+    name: string;
+    supportedExtensions: string[];
+    canExecute: (filePath: string) => boolean;
+    initialize?: (projectId: string, projectName: string) => Promise<void>;
+    execute: (options: any) => Promise<any>;
+    executeCode?: (code: string, options: any) => Promise<any>;
+    clearCache?: () => void;
+    dispose?: () => Promise<void>;
+    isReady?: () => boolean;
+  }) => Promise<void>;
+
   /** 他の拡張機能との通信 (オプション・未実装) */
   messaging?: {
     send: (targetId: string, message: unknown) => Promise<unknown>;
