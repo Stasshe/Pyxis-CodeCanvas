@@ -4,6 +4,8 @@
 
 **現在のアーキテクチャは正しく、変更の必要はありません。**
 
+**⚠️ 重要な修正**: .gitignore フィルタリングのバグを発見・修正しました（コミット 9ee7e40）
+
 ---
 
 ## 📋 ご質問への回答
@@ -19,19 +21,18 @@
 
 ### 「gitignore考慮出来てたと思ってた。多分してないよね？」
 
-➡️ **.gitignoreは完璧に機能しています**
+➡️ **バグがありました - 修正済み**
 
-実装箇所: `src/engine/core/fileRepository.ts:811-815`
+**発見された問題**:
+- 単一ファイル操作: .gitignore チェック ✅ 正常
+- **バルク同期**: .gitignore チェック ❌ **未実装だった**
 
-```typescript
-const shouldIgnore = await this.shouldIgnorePathForGit(projectId, path);
-if (shouldIgnore) {
-  coreInfo(`[FileRepository] Skipping GitFileSystem sync for ignored path: ${path}`);
-  return; // ← lightning-fsには同期しない
-}
-```
+`pyxis git tree --all` で node_modules が表示されていたのは、bulk sync が .gitignore を無視していたためです。
 
-.gitignoreにマッチするファイルは**lightning-fsに同期されません**。
+**修正内容** (コミット 9ee7e40):
+- `syncManager.ts` に .gitignore フィルタリングを追加
+- bulk sync 時にも .gitignore ルールを適用
+- 無視されるファイルは lightning-fs に同期しない
 
 ### 「二層レイヤーの仕組み全くいらんかった？」
 
@@ -64,7 +65,7 @@ lightning-fs単体だと以下が実現できません：
 
 ---
 
-## 📊 現在の動作（正しい挙動）
+## 📊 現在の動作（修正後の正しい挙動）
 
 ### 例: node_modulesを含むプロジェクト
 
@@ -85,7 +86,7 @@ lightning-fs単体だと以下が実現できません：
 ✅ /node_modules/react/index.js ← 保存される（Node Runtime用）
 ```
 
-**lightning-fsの内容（.gitignore適用後）:**
+**lightning-fsの内容（.gitignore適用後）: ✅ 修正済み**
 ```
 ✅ /.gitignore
 ✅ /package.json
@@ -93,9 +94,15 @@ lightning-fs単体だと以下が実現できません：
 ⛔ /node_modules/ ← 同期されない（Git高速化）
 ```
 
+**確認方法**:
+```bash
+pyxis git tree --all
+```
+上記コマンドで node_modules が表示されなければ、正常に動作しています。
+
 ---
 
-## 🔄 データフロー
+## 🔄 データフロー（修正後）
 
 ```
 ユーザー操作
@@ -104,10 +111,22 @@ fileRepository.createFile()
    ↓
 IndexedDBに保存 ✅（全ファイル）
    ↓
-.gitignoreチェック
+.gitignoreチェック ✅（単一ファイル操作）
    ↓
    ├─ マッチしない → lightning-fsに同期 ✅
    └─ マッチする → 同期しない ⛔
+
+---
+
+プロジェクト読み込み/clone
+   ↓
+syncFromIndexedDBToFS()
+   ↓
+.gitignoreルールを読み込み ✅（修正済み）
+   ↓
+全ファイルをフィルタリング ✅
+   ↓
+無視されないファイルのみ同期 ✅
 ```
 
 ---
@@ -131,9 +150,19 @@ IndexedDBに保存 ✅（全ファイル）
 
 ## ✅ 推奨アクション
 
+### 修正完了
+
+.gitignore フィルタリングのバグを修正しました（コミット 9ee7e40）。
+
+### テスト方法
+
+1. プロジェクトを再読み込み
+2. ターミナルで `pyxis git tree --all` を実行
+3. node_modules が表示されないことを確認
+
 ### 変更不要
 
-現在のアーキテクチャは正しく設計されており、**コード変更は不要**です。
+バグ修正後、現在のアーキテクチャは正しく設計されており、**追加のコード変更は不要**です。
 
 ### ドキュメントで理解を深める
 
@@ -148,10 +177,10 @@ IndexedDBに保存 ✅（全ファイル）
 | 項目 | 状態 | 説明 |
 |-----|------|------|
 | **ファイル重複** | ⭕ 正常 | 意図的な設計 |
-| **.gitignore動作** | ⭕ 正常 | 完璧に機能 |
+| **.gitignore動作** | ✅ 修正済み | バグ修正完了（9ee7e40） |
 | **二層の必要性** | ⭕ 必要 | 両方必須 |
 | **パフォーマンス** | ⭕ 最適 | 非同期同期、キャッシュ |
-| **推奨変更** | ⭕ なし | 現状維持 |
+| **推奨変更** | ⭕ なし | バグ修正済み |
 
 ---
 
@@ -168,5 +197,6 @@ IndexedDBに保存 ✅（全ファイル）
 ---
 
 **作成日**: 2025-01-07  
+**最終更新**: 2025-01-07（バグ修正）  
 **ステータス**: 完了  
-**次のアクション**: なし（現状維持）
+**次のアクション**: プロジェクト再読み込み後、`pyxis git tree --all` で動作確認
