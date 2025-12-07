@@ -67,7 +67,10 @@ export function useAI(props?: UseAIProps) {
         );
       }
     }
-  }, [props?.selectedFiles, fileContexts]);
+    // Note: fileContexts is intentionally NOT in the dependency array to avoid infinite loops
+    // We only want to react to external changes from props.selectedFiles
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props?.selectedFiles]);
 
   // メッセージを追加
   const addMessage = useCallback(
