@@ -53,51 +53,199 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
     const fileRepository = await context.getSystemModule('fileRepository');
     await fileRepository.init();
     
-    const files = await fileRepository.getProjectFiles(projectId);
-    
-    for (const file of files) {
-      if (file.type === 'file' && file.path && file.content) {
-        try {
-          const pyPath = file.path.startsWith('/') ? file.path : `/${file.path}`;
-          const dirPath = pyPath.substring(0, pyPath.lastIndexOf('/'));
-          
-          if (dirPath && dirPath !== '/') {
-            // Create directory if needed
+    try {
+      // Get all files from the project
+      const files = await fileRepository.getProjectFiles(projectId);
+      
+      // Clear /home directory (but keep . and ..)
+      try {
+        const homeContents = pyodideInstance.FS.readdir('/home');
+        for (const item of homeContents) {
+          if (item !== '.' && item !== '..') {
             try {
-              pyodideInstance.FS.stat(dirPath);
+              pyodideInstance.FS.unlink(`/home/${item}`);
             } catch {
-              const parts = dirPath.split('/').filter(p => p);
-              let currentPath = '';
-              for (const part of parts) {
-                currentPath += '/' + part;
-                try {
-                  pyodideInstance.FS.stat(currentPath);
-                } catch {
-                  pyodideInstance.FS.mkdir(currentPath);
-                }
+              try {
+                // Try to remove as directory if unlink fails
+                pyodideInstance.FS.rmdir(`/home/${item}`);
+              } catch {
+                // Ignore errors
               }
             }
           }
-          
-          pyodideInstance.FS.writeFile(pyPath, file.content);
-        } catch (error) {
-          context.logger.warn(`Failed to sync file ${file.path}:`, error);
         }
+      } catch {
+        // If /home doesn't exist, create it
+        try {
+          pyodideInstance.FS.mkdir('/home');
+        } catch {
+          // Already exists, ignore
+        }
+      }
+      
+      // Write each file to Pyodide filesystem under /home
+      for (const file of files) {
+        if (file.type === 'file' && file.path && file.content) {
+          try {
+            // Normalize path: remove leading slash if present, then add /home prefix
+            let normalizedPath = file.path.startsWith('/') ? file.path.substring(1) : file.path;
+            const pyodidePath = `/home/${normalizedPath}`;
+            
+            // Create directory structure
+            const dirPath = pyodidePath.substring(0, pyodidePath.lastIndexOf('/'));
+            if (dirPath && dirPath !== '/home') {
+              createDirectoryRecursive(pyodideInstance, dirPath);
+            }
+            
+            // Write the file
+            pyodideInstance.FS.writeFile(pyodidePath, file.content);
+          } catch (error) {
+            context.logger.warn(`Failed to sync file ${file.path}:`, error);
+          }
+        }
+      }
+      
+      context.logger.info(`✅ Synced ${files.filter(f => f.type === 'file').length} files to Pyodide`);
+    } catch (error) {
+      context.logger.error('Failed to sync files to Pyodide:', error);
+    }
+  }
+  
+  // Helper to create directories recursively
+  function createDirectoryRecursive(pyodide: PyodideInterface, path: string): void {
+    const parts = path.split('/').filter(p => p);
+    let currentPath = '';
+    
+    for (const part of parts) {
+      currentPath += '/' + part;
+      try {
+        pyodide.FS.mkdir(currentPath);
+      } catch {
+        // Directory already exists, ignore
       }
     }
   }
 
-  // Execute Python code and sync back
+  // List of available Pyodide packages
+  const pyodidePackages = [
+    'numpy', 'pandas', 'matplotlib', 'scipy', 'sklearn', 'sympy', 'networkx',
+    'seaborn', 'statsmodels', 'micropip', 'bs4', 'lxml', 'pyyaml', 'requests',
+    'pyodide', 'pyparsing', 'dateutil', 'jedi', 'pytz', 'sqlalchemy', 'pyarrow',
+    'bokeh', 'plotly', 'altair', 'openpyxl', 'xlrd', 'xlsxwriter', 'jsonschema',
+    'pillow', 'pygments', 'pytest', 'tqdm', 'scikit-image', 'scikit-learn',
+    'shapely', 'zipp',
+  ];
+
+  // Execute Python code with auto-loading and sync back
   async function runPythonWithSync(code: string, projectId: string): Promise<any> {
     const pyodide = await initPyodide();
     await syncFilesToPyodide(projectId);
     
-    try {
-      const result = await pyodide.runPythonAsync(code);
-      return { result, stdout: '', stderr: '' };
-    } catch (error: any) {
-      return { result: null, stdout: '', stderr: error.message || String(error) };
+    // Auto-load packages based on import statements
+    const importRegex = /^\s*import\s+([\w_]+)|^\s*from\s+([\w_]+)\s+import/gm;
+    const packages = new Set<string>();
+    let match;
+    while ((match = importRegex.exec(code)) !== null) {
+      if (match[1]) packages.add(match[1]);
+      if (match[2]) packages.add(match[2]);
     }
+    
+    const toLoad = Array.from(packages).filter(pkg => pyodidePackages.includes(pkg));
+    if (toLoad.length > 0) {
+      try {
+        context.logger.info(`📦 Loading Pyodide packages: ${toLoad.join(', ')}`);
+        await pyodide.loadPackage(toLoad);
+      } catch (e) {
+        context.logger.warn(`⚠️ Failed to load some packages: ${toLoad.join(', ')}`, e);
+      }
+    }
+    
+    // Capture stdout using StringIO
+    let stdout = '';
+    let stderr = '';
+    const captureCode = `
+import sys
+import io
+_pyxis_stdout = sys.stdout
+_pyxis_stringio = io.StringIO()
+sys.stdout = _pyxis_stringio
+try:
+  exec("""${code.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n')}""", globals())
+  _pyxis_result = _pyxis_stringio.getvalue()
+finally:
+  sys.stdout = _pyxis_stdout
+del _pyxis_stringio
+del _pyxis_stdout
+`;
+    
+    try {
+      await pyodide.runPythonAsync(captureCode);
+      stdout = (pyodide as any).globals.get('_pyxis_result') || '';
+      (pyodide as any).globals.set('_pyxis_result', undefined);
+    } catch (error: any) {
+      stderr = error.message || String(error);
+    }
+    
+    // Sync files back to IndexedDB after execution
+    await syncFilesFromPyodide(projectId);
+    
+    return { result: stdout.trim(), stdout: stdout.trim(), stderr: stderr.trim() };
+  }
+  
+  // Sync files from Pyodide back to IndexedDB
+  async function syncFilesFromPyodide(projectId: string): Promise<void> {
+    if (!pyodideInstance) return;
+    
+    const fileRepository = await context.getSystemModule('fileRepository');
+    await fileRepository.init();
+    
+    try {
+      // Scan /home directory for files
+      const files = scanPyodideDirectory(pyodideInstance, '/home', '');
+      
+      for (const file of files) {
+        await fileRepository.updateFile(projectId, file.path, file.content);
+      }
+    } catch (error) {
+      context.logger.warn('Failed to sync files from Pyodide:', error);
+    }
+  }
+  
+  // Recursively scan Pyodide directory
+  function scanPyodideDirectory(
+    pyodide: PyodideInterface,
+    pyodidePath: string,
+    relativePath: string
+  ): Array<{ path: string; content: string }> {
+    const results: Array<{ path: string; content: string }> = [];
+    
+    try {
+      const contents = pyodide.FS.readdir(pyodidePath);
+      
+      for (const item of contents) {
+        if (item === '.' || item === '..') continue;
+        
+        const fullPyodidePath = `${pyodidePath}/${item}`;
+        const fullRelativePath = relativePath ? `${relativePath}/${item}` : `/${item}`;
+        
+        try {
+          const stat = pyodide.FS.stat(fullPyodidePath);
+          
+          if (pyodide.FS.isDir(stat.mode)) {
+            results.push(...scanPyodideDirectory(pyodide, fullPyodidePath, fullRelativePath));
+          } else {
+            const content = pyodide.FS.readFile(fullPyodidePath, { encoding: 'utf8' });
+            results.push({ path: fullRelativePath, content });
+          }
+        } catch (error) {
+          context.logger.warn(`Failed to process: ${fullPyodidePath}`, error);
+        }
+      }
+    } catch (error) {
+      context.logger.warn(`Failed to read directory: ${pyodidePath}`, error);
+    }
+    
+    return results;
   }
 
   // Register the Python runtime provider
