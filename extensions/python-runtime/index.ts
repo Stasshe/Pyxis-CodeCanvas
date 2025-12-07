@@ -97,6 +97,26 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
   }
 
   // Sync files from IndexedDB to Pyodide
+  // Convert project path to Pyodide path, stripping /pyodide prefix if present
+  function normalizePathToPyodide(projectPath: string): string {
+    if (!projectPath) return projectPath;
+    // ensure leading slash
+    const p = projectPath.startsWith('/') ? projectPath : `/${projectPath}`;
+    if (p === '/pyodide') return '/';
+    if (p.startsWith('/pyodide/')) return p.replace('/pyodide', '');
+    return p;
+  }
+
+  // Convert Pyodide path back to project path, stripping /pyodide prefix if present
+  function normalizePathFromPyodide(pyodideRelativePath: string): string {
+    if (!pyodideRelativePath) return pyodideRelativePath;
+    // ensure leading slash
+    const p = pyodideRelativePath.startsWith('/') ? pyodideRelativePath : `/${pyodideRelativePath}`;
+    if (p === '/pyodide') return '/';
+    if (p.startsWith('/pyodide/')) return p.replace('/pyodide', '');
+    return p;
+  }
+
   async function syncFilesToPyodide(projectId: string): Promise<void> {
     if (!pyodideInstance) return;
 
@@ -153,9 +173,9 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
           }
           
           try {
-            // Normalize path: remove leading slash if present, then add /home prefix
-            let normalizedPath = file.path.startsWith('/') ? file.path.substring(1) : file.path;
-            const pyodidePath = `/home/${normalizedPath}`;
+            // Normalize path: strip /pyodide prefix if present
+            const normalizedProjectPath = normalizePathToPyodide(file.path);
+            const pyodidePath = `/home${normalizedProjectPath}`;
             
             // Create directory structure
             const dirPath = pyodidePath.substring(0, pyodidePath.lastIndexOf('/'));
@@ -293,8 +313,8 @@ del _pyxis_stdout
       
       // Sync files from Pyodide to IndexedDB
       for (const file of pyodideFiles) {
-        // Normalize the path
-        const projectPath = pathUtils.normalizePath(file.path);
+        // Normalize the path: strip /pyodide prefix if present
+        const projectPath = normalizePathFromPyodide(file.path);
         
         // Skip files matching .gitignore patterns
         if (isIgnored(projectPath, gitignorePatterns)) {
