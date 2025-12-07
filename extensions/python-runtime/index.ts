@@ -199,15 +199,51 @@ del _pyxis_stdout
     const fileRepository = await context.getSystemModule('fileRepository');
     await fileRepository.init();
     
+    const pathUtils = await context.getSystemModule('pathUtils');
+    
     try {
-      // Scan /home directory for files
-      const files = scanPyodideDirectory(pyodideInstance, '/home', '');
+      // Get existing files from IndexedDB
+      const existingFiles = await fileRepository.getProjectFiles(projectId);
+      const existingPaths = new Set(existingFiles.map(f => f.path));
       
-      for (const file of files) {
-        await fileRepository.updateFile(projectId, file.path, file.content);
+      // Scan /home directory for files
+      const pyodideFiles = scanPyodideDirectory(pyodideInstance, '/home', '');
+      
+      // Sync files from Pyodide to IndexedDB
+      for (const file of pyodideFiles) {
+        // Normalize the path
+        const projectPath = pathUtils.normalizePath(file.path);
+        
+        const existingFile = existingFiles.find(f => f.path === projectPath);
+        
+        if (existingFile) {
+          // Update existing file if content changed
+          if (existingFile.content !== file.content) {
+            await fileRepository.saveFile({
+              ...existingFile,
+              content: file.content,
+              updatedAt: new Date(),
+            });
+          }
+        } else {
+          // Create new file
+          await fileRepository.createFile(projectId, projectPath, file.content, 'file');
+        }
+        
+        existingPaths.delete(projectPath);
       }
+      
+      // Delete files that no longer exist in Pyodide
+      for (const path of existingPaths) {
+        const file = existingFiles.find(f => f.path === path);
+        if (file && file.type === 'file') {
+          await fileRepository.deleteFile(file.id);
+        }
+      }
+      
+      context.logger.info(`✅ Synced ${pyodideFiles.length} files from Pyodide to IndexedDB`);
     } catch (error) {
-      context.logger.warn('Failed to sync files from Pyodide:', error);
+      context.logger.error('Failed to sync files from Pyodide:', error);
     }
   }
   

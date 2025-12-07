@@ -632,6 +632,16 @@ class ExtensionManager {
             // to satisfy TypeScript and avoid unsafe direct casting warnings.
             return module as unknown as SystemModuleMap[T];
           }
+          case 'pathUtils': {
+            const { toAppPath, getParentPath, toGitPath, fromGitPath, normalizePath } = await import('@/engine/core/pathResolver');
+            return {
+              normalizePath,
+              toAppPath,
+              getParentPath,
+              toGitPath,
+              fromGitPath,
+            } as SystemModuleMap[T];
+          }
           case 'commandRegistry': {
             const { commandRegistry } = await import('./commandRegistry');
             return commandRegistry as SystemModuleMap[T];
