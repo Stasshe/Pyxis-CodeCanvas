@@ -650,6 +650,26 @@ class ExtensionManager {
           }
         }
       },
+      registerTranspiler: async (transpilerConfig: any) => {
+        // RuntimeRegistryにトランスパイラーを登録
+        try {
+          const { runtimeRegistry } = await import('@/engine/runtime/RuntimeRegistry');
+          const { ExtensionTranspilerProvider } = await import('@/engine/runtime/providers/ExtensionTranspilerProvider');
+          
+          const provider = new ExtensionTranspilerProvider(
+            transpilerConfig.id,
+            transpilerConfig.supportedExtensions || [],
+            transpilerConfig.transpile,
+            transpilerConfig.needsTranspile
+          );
+          
+          runtimeRegistry.registerTranspiler(provider);
+          console.log(`[${extensionId}] Registered transpiler: ${transpilerConfig.id}`);
+        } catch (error) {
+          console.error(`[${extensionId}] Failed to register transpiler:`, error);
+          throw error;
+        }
+      },
       // strict stubs — will be replaced after real API instances are created
       tabs: {
         registerTabType: notInitialized('tabs.registerTabType'),

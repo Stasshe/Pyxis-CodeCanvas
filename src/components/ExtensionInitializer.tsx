@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 
 import { initializeExtensions } from '@/engine/extensions/autoInstaller';
+import { initializeBuiltinRuntimes } from '@/engine/runtime/builtinRuntimes';
 
 export default function ExtensionInitializer() {
   useEffect(() => {
@@ -10,6 +11,10 @@ export default function ExtensionInitializer() {
 
     (async () => {
       try {
+        // ビルトインランタイムを初期化
+        initializeBuiltinRuntimes();
+        
+        // 拡張機能を初期化
         await initializeExtensions();
         if (mounted) {
           // noop: initialization complete

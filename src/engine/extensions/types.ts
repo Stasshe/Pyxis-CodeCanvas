@@ -180,6 +180,14 @@ export interface ExtensionContext {
   /** システムモジュールへのアクセス (型安全) */
   getSystemModule: <T extends keyof SystemModuleMap>(moduleName: T) => Promise<SystemModuleMap[T]>;
 
+  /** トランスパイラーを登録（transpiler拡張機能用） */
+  registerTranspiler?: (config: {
+    id: string;
+    supportedExtensions: string[];
+    needsTranspile?: (filePath: string) => boolean;
+    transpile: (code: string, options: any) => Promise<{ code: string; map?: string; dependencies?: string[] }>;
+  }) => Promise<void>;
+
   /** 他の拡張機能との通信 (オプション・未実装) */
   messaging?: {
     send: (targetId: string, message: unknown) => Promise<unknown>;

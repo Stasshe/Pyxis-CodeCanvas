@@ -221,6 +221,21 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
     },
   };
 
+  // RuntimeRegistryに登録（もし利用可能であれば）
+  try {
+    if (context.registerTranspiler) {
+      context.registerTranspiler({
+        id: 'typescript',
+        supportedExtensions: runtimeFeatures.supportedExtensions,
+        needsTranspile: runtimeFeatures.needsTranspile,
+        transpile: runtimeFeatures.transpiler,
+      });
+      context.logger.info('✅ TypeScript transpiler registered with RuntimeRegistry');
+    }
+  } catch (error) {
+    context.logger.warn('⚠️ Failed to register with RuntimeRegistry (may not be available):', error);
+  }
+
   context.logger.info('✅ TypeScript Runtime Extension activated');
 
   return {
@@ -233,4 +248,14 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
  */
 export async function deactivate(): Promise<void> {
   console.log('[TypeScript Runtime] Deactivating...');
+  
+  // RuntimeRegistryから登録解除
+  try {
+    // Note: deactivate時にcontextは利用できないため、
+    // RuntimeRegistryを直接importして使用する必要がある場合がある
+    // ただし、拡張機能からはエンジンコードをimportすべきでないため、
+    // 登録解除はエンジン側で行う設計とする
+  } catch (error) {
+    console.warn('⚠️ Failed to unregister from RuntimeRegistry:', error);
+  }
 }
