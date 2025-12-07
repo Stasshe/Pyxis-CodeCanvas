@@ -46,6 +46,56 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
     return pyodide;
   }
 
+  // Parse .gitignore patterns
+  function parseGitignore(content: string): string[] {
+    return content
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line && !line.startsWith('#'))
+      .map(pattern => {
+        // Convert .gitignore pattern to simple regex pattern
+        // Remove leading slash
+        if (pattern.startsWith('/')) {
+          pattern = pattern.substring(1);
+        }
+        return pattern;
+      });
+  }
+
+  // Check if a path matches any gitignore pattern
+  function isIgnored(filePath: string, patterns: string[]): boolean {
+    // Remove leading slash for comparison
+    const normalizedPath = filePath.startsWith('/') ? filePath.substring(1) : filePath;
+    
+    for (const pattern of patterns) {
+      // Handle directory patterns (ending with /)
+      if (pattern.endsWith('/')) {
+        const dirPattern = pattern.slice(0, -1);
+        if (normalizedPath.startsWith(dirPattern + '/') || normalizedPath === dirPattern) {
+          return true;
+        }
+      }
+      // Handle wildcard patterns
+      else if (pattern.includes('*')) {
+        const regexPattern = pattern
+          .replace(/\./g, '\\.')
+          .replace(/\*\*/g, '.*')
+          .replace(/\*/g, '[^/]*')
+          .replace(/\?/g, '.');
+        const regex = new RegExp(`^${regexPattern}$`);
+        if (regex.test(normalizedPath)) {
+          return true;
+        }
+      }
+      // Handle exact match
+      else if (normalizedPath === pattern || normalizedPath.startsWith(pattern + '/')) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+
   // Sync files from IndexedDB to Pyodide
   async function syncFilesToPyodide(projectId: string): Promise<void> {
     if (!pyodideInstance) return;
@@ -56,6 +106,13 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
     try {
       // Get all files from the project
       const files = await fileRepository.getProjectFiles(projectId);
+      
+      // Parse .gitignore if it exists
+      let gitignorePatterns: string[] = [];
+      const gitignoreFile = files.find(f => f.path === '/.gitignore' || f.path === '.gitignore');
+      if (gitignoreFile && gitignoreFile.content) {
+        gitignorePatterns = parseGitignore(gitignoreFile.content);
+      }
       
       // Clear /home directory (but keep . and ..)
       try {
@@ -84,8 +141,17 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
       }
       
       // Write each file to Pyodide filesystem under /home
+      let syncedCount = 0;
+      let ignoredCount = 0;
+      
       for (const file of files) {
         if (file.type === 'file' && file.path && file.content) {
+          // Skip files matching .gitignore patterns
+          if (isIgnored(file.path, gitignorePatterns)) {
+            ignoredCount++;
+            continue;
+          }
+          
           try {
             // Normalize path: remove leading slash if present, then add /home prefix
             let normalizedPath = file.path.startsWith('/') ? file.path.substring(1) : file.path;
@@ -99,13 +165,17 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
             
             // Write the file
             pyodideInstance.FS.writeFile(pyodidePath, file.content);
+            syncedCount++;
           } catch (error) {
             context.logger.warn(`Failed to sync file ${file.path}:`, error);
           }
         }
       }
       
-      context.logger.info(`✅ Synced ${files.filter(f => f.type === 'file').length} files to Pyodide`);
+      context.logger.info(
+        `✅ Synced ${syncedCount} files to Pyodide` +
+        (ignoredCount > 0 ? ` (${ignoredCount} ignored by .gitignore)` : '')
+      );
     } catch (error) {
       context.logger.error('Failed to sync files to Pyodide:', error);
     }
@@ -206,17 +276,31 @@ del _pyxis_stdout
       const existingFiles = await fileRepository.getProjectFiles(projectId);
       const existingPaths = new Map(existingFiles.map(f => [f.path, f]));
       
+      // Parse .gitignore if it exists
+      let gitignorePatterns: string[] = [];
+      const gitignoreFile = existingFiles.find(f => f.path === '/.gitignore' || f.path === '.gitignore');
+      if (gitignoreFile && gitignoreFile.content) {
+        gitignorePatterns = parseGitignore(gitignoreFile.content);
+      }
+      
       // Scan /home directory for files
       const pyodideFiles = scanPyodideDirectory(pyodideInstance, '/home', '');
       
       let syncedCount = 0;
       let newFilesCount = 0;
       let updatedFilesCount = 0;
+      let ignoredCount = 0;
       
       // Sync files from Pyodide to IndexedDB
       for (const file of pyodideFiles) {
         // Normalize the path
         const projectPath = pathUtils.normalizePath(file.path);
+        
+        // Skip files matching .gitignore patterns
+        if (isIgnored(projectPath, gitignorePatterns)) {
+          ignoredCount++;
+          continue;
+        }
         
         const existingFile = existingPaths.get(projectPath);
         
@@ -242,9 +326,10 @@ del _pyxis_stdout
         }
       }
       
-      if (syncedCount > 0) {
+      if (syncedCount > 0 || ignoredCount > 0) {
         context.logger.info(
-          `✅ Synced ${syncedCount} files from Pyodide (${newFilesCount} new, ${updatedFilesCount} updated)`
+          `✅ Synced ${syncedCount} files from Pyodide (${newFilesCount} new, ${updatedFilesCount} updated)` +
+          (ignoredCount > 0 ? ` - ${ignoredCount} ignored by .gitignore` : '')
         );
       }
     } catch (error) {
