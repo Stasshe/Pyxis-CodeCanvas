@@ -193,6 +193,14 @@ export interface ExtensionContext {
   // This keeps the extension-facing API concise and aligned with the engine's types.
   getSystemModule: GetSystemModule;
 
+  /** トランスパイラーを登録（transpiler拡張機能用） */
+  registerTranspiler?: (config: {
+    id: string;
+    supportedExtensions: string[];
+    needsTranspile?: (filePath: string) => boolean;
+    transpile: (code: string, options: any) => Promise<{ code: string; map?: string; dependencies?: string[] }>;
+  }) => Promise<void>;
+
   /** 他の拡張機能との通信 (オプション・未実装) */
   messaging?: {
     send: (targetId: string, message: unknown) => Promise<unknown>;

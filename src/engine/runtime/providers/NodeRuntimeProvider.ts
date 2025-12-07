@@ -16,7 +16,7 @@ import type { RuntimeProvider, RuntimeExecutionOptions, RuntimeExecutionResult }
 export class NodeRuntimeProvider implements RuntimeProvider {
   readonly id = 'nodejs';
   readonly name = 'Node.js';
-  readonly supportedExtensions = ['.js', '.mjs', '.cjs', '.ts', '.tsx', '.mts', '.cts', '.jsx'];
+  readonly supportedExtensions = ['.js', '.mjs', '.cjs', '.ts', '.mts', '.cts'];
 
   private runtimeInstances: Map<string, NodeRuntime> = new Map();
 

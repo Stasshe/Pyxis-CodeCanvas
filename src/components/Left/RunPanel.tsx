@@ -238,47 +238,12 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
   const executeFile = async () => {
     if (!selectedFile || !currentProject) return;
     setIsRunning(true);
-    const fileObj = executableFiles.find(f => f.path === selectedFile);
     const filePath = `/${selectedFile}`;
     
     // RuntimeRegistryからランタイムを取得
     const runtime = runtimeRegistry.getRuntimeForFile(filePath);
     
     if (!runtime) {
-      // Fallback: Python判定（後方互換性）
-      const isPython = selectedFile.endsWith('.py');
-      if (isPython) {
-        addOutput(`> python ${selectedFile}`, 'input');
-        localStorage.setItem(LOCALSTORAGE_KEY.LAST_EXECUTE_FILE, selectedFile);
-        
-        try {
-          if (!isPyodideReady) {
-            addOutput(t('run.runtimeNotReady'), 'error');
-            return;
-          }
-          if (!fileObj || !fileObj.content) {
-            addOutput(t('run.fileContentError'), 'error');
-            return;
-          }
-          
-          const pythonResult = await runPythonWithSync(fileObj.content, currentProject.id);
-          if (pythonResult.stderr) {
-            addOutput(pythonResult.stderr, 'error');
-          } else if (pythonResult.stdout) {
-            addOutput(pythonResult.stdout, 'log');
-          } else if (pythonResult.result) {
-            addOutput(String(pythonResult.result), 'log');
-          } else {
-            addOutput(t('run.noOutput'), 'log');
-          }
-        } catch (error) {
-          addOutput(`Error: ${(error as Error).message}`, 'error');
-        } finally {
-          setIsRunning(false);
-        }
-        return;
-      }
-      
       addOutput(`No runtime found for ${selectedFile}`, 'error');
       setIsRunning(false);
       return;

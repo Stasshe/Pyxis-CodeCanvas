@@ -16,7 +16,6 @@ import { runtimeRegistry } from './RuntimeRegistry';
 import { transpileManager } from './transpileManager';
 
 import { fileRepository } from '@/engine/core/fileRepository';
-import { extensionManager } from '@/engine/extensions/extensionManager';
 
 /**
  * モジュール実行キャッシュ（循環参照対策）
@@ -219,72 +218,39 @@ export class ModuleLoader {
     }
 
     runtimeInfo('🔄 Transpiling module (extracting dependencies):', filePath);
-    const isTypeScript = /\.(ts|tsx|mts|cts)$/.test(filePath);
-    const isJSX = /\.(jsx|tsx)$/.test(filePath);
+    const isTypeScript = /\.(ts|mts|cts)$/.test(filePath);
 
-    // TypeScript/JSXの場合はRegistryからトランスパイラを取得
-    if (isTypeScript || isJSX) {
+    // TypeScriptの場合はRegistryからトランスパイラを取得
+    if (isTypeScript) {
       const transpiler = runtimeRegistry.getTranspilerForFile(filePath);
-      if (transpiler) {
-        try {
-          runtimeInfo(`🔌 Using transpiler: ${transpiler.id}`);
-
-          const result = await transpiler.transpile(content, {
-            filePath,
-            isTypeScript,
-            isJSX,
-          });
-
-          const deps = result.dependencies || [];
-          await this.cache.set(filePath, {
-            originalPath: filePath,
-            contentHash: version,
-            code: result.code,
-            sourceMap: result.map,
-            deps,
-            mtime: Date.now(),
-            size: result.code.length,
-          });
-
-          return { code: result.code, dependencies: deps };
-        } catch (error) {
-          runtimeError(`❌ Transpiler failed: ${transpiler.id}`, error);
-          throw error;
-        }
+      if (!transpiler) {
+        throw new Error(`No transpiler found for ${filePath}. Please install the TypeScript runtime extension.`);
       }
 
-      // Fallback: 拡張機能から直接取得（後方互換性）
-      const activeExtensions = extensionManager.getActiveExtensions();
-      for (const ext of activeExtensions) {
-        if (ext.activation.runtimeFeatures?.transpiler) {
-          try {
-            runtimeInfo(`🔌 Using extension transpiler (fallback): ${ext.manifest.id}`);
+      try {
+        runtimeInfo(`🔌 Using transpiler: ${transpiler.id}`);
 
-            const result = (await ext.activation.runtimeFeatures.transpiler(content, {
-              filePath,
-              isTypeScript,
-              isJSX,
-            })) as { code: string; map?: string; dependencies?: string[] };
+        const result = await transpiler.transpile(content, {
+          filePath,
+          isTypeScript,
+        });
 
-            const deps = result.dependencies || [];
-            await this.cache.set(filePath, {
-              originalPath: filePath,
-              contentHash: version,
-              code: result.code,
-              sourceMap: result.map,
-              deps,
-              mtime: Date.now(),
-              size: result.code.length,
-            });
+        const deps = result.dependencies || [];
+        await this.cache.set(filePath, {
+          originalPath: filePath,
+          contentHash: version,
+          code: result.code,
+          sourceMap: result.map,
+          deps,
+          mtime: Date.now(),
+          size: result.code.length,
+        });
 
-            return { code: result.code, dependencies: deps };
-          } catch (error) {
-            runtimeError(`❌ Extension transpiler failed: ${ext.manifest.id}`, error);
-            throw error;
-          }
-        }
+        return { code: result.code, dependencies: deps };
+      } catch (error) {
+        runtimeError(`❌ Transpiler failed: ${transpiler.id}`, error);
+        throw error;
       }
-      throw new Error(`No transpiler found for ${filePath}`);
     }
 
     // 普通のJSの場合はnormalizeCjsEsmのみ
