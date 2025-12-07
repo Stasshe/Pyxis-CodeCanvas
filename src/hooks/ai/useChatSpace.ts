@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 import type { ChatSpace, ChatSpaceMessage, AIEditResponse } from '@/types';
 import {
@@ -22,6 +22,8 @@ export const useChatSpace = (projectId: string | null) => {
   
   const currentSpaceRef = useRef<ChatSpace | null>(null);
   const projectIdRef = useRef<string | null>(projectId);
+  const updateSelectedFilesTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastSavedSelectedFilesRef = useRef<string>('');
   
   useEffect(() => {
     projectIdRef.current = projectId;
@@ -258,25 +260,48 @@ export const useChatSpace = (projectId: string | null) => {
     }
   };
 
-  const updateSelectedFiles = async (selectedFiles: string[]) => {
+  const updateSelectedFiles = useCallback(async (selectedFiles: string[]) => {
     const pid = projectIdRef.current;
-    if (!pid || !currentSpace) return;
+    if (!pid || !currentSpaceRef.current) return;
 
-    try {
-      await updateChatSpaceSelectedFiles(pid, currentSpace.id, selectedFiles);
-
-      setCurrentSpace(prev => {
-        if (!prev) return null;
-        return { ...prev, selectedFiles };
-      });
-
-      setChatSpaces(prev =>
-        prev.map(space => (space.id === currentSpace.id ? { ...space, selectedFiles } : space))
-      );
-    } catch (error) {
-      console.error('Failed to update selected files:', error);
+    // 選択ファイルのリストを文字列化して比較（順序も含めて）
+    const selectedFilesKey = JSON.stringify([...selectedFiles].sort());
+    
+    // 前回保存した値と同じ場合は何もしない（ループを防ぐ）
+    if (selectedFilesKey === lastSavedSelectedFilesRef.current) {
+      return;
     }
-  };
+
+    // UIを即座に更新
+    setCurrentSpace(prev => {
+      if (!prev) return null;
+      return { ...prev, selectedFiles };
+    });
+
+    setChatSpaces(prev =>
+      prev.map(space => (space.id === currentSpaceRef.current!.id ? { ...space, selectedFiles } : space))
+    );
+
+    // 既存のタイマーをクリア
+    if (updateSelectedFilesTimerRef.current) {
+      clearTimeout(updateSelectedFilesTimerRef.current);
+    }
+
+    // デバウンスしてストレージに保存（300ms待機）
+    updateSelectedFilesTimerRef.current = setTimeout(async () => {
+      try {
+        const currentPid = projectIdRef.current;
+        const currentSpaceId = currentSpaceRef.current?.id;
+        
+        if (!currentPid || !currentSpaceId) return;
+        
+        await updateChatSpaceSelectedFiles(currentPid, currentSpaceId, selectedFiles);
+        lastSavedSelectedFilesRef.current = selectedFilesKey;
+      } catch (error) {
+        console.error('Failed to update selected files:', error);
+      }
+    }, 300);
+  }, []);
 
   const updateSpaceName = async (spaceId: string, newName: string) => {
     try {
@@ -382,6 +407,15 @@ export const useChatSpace = (projectId: string | null) => {
       return [];
     }
   };
+
+  // クリーンアップ: コンポーネントアンマウント時にタイマーをクリア
+  useEffect(() => {
+    return () => {
+      if (updateSelectedFilesTimerRef.current) {
+        clearTimeout(updateSelectedFilesTimerRef.current);
+      }
+    };
+  }, []);
 
   return {
     chatSpaces,

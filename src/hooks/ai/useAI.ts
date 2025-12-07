@@ -48,14 +48,26 @@ export function useAI(props?: UseAIProps) {
   // チャットスペースから選択ファイルが変更された時にファイルコンテキストに反映
   useEffect(() => {
     if (props?.selectedFiles && fileContexts.length > 0) {
-      setFileContexts(prev =>
-        prev.map(ctx => ({
-          ...ctx,
-          selected: props.selectedFiles?.includes(ctx.path) || false,
-        }))
-      );
+      // 現在の選択状態と比較して、実際に変更があった場合のみ更新
+      const currentSelectedPaths = new Set(fileContexts.filter(ctx => ctx.selected).map(ctx => ctx.path));
+      const newSelectedPaths = new Set(props.selectedFiles);
+      
+      // セットの内容が同じかチェック
+      const hasChanges = 
+        currentSelectedPaths.size !== newSelectedPaths.size ||
+        [...currentSelectedPaths].some(path => !newSelectedPaths.has(path)) ||
+        [...newSelectedPaths].some(path => !currentSelectedPaths.has(path));
+      
+      if (hasChanges) {
+        setFileContexts(prev =>
+          prev.map(ctx => ({
+            ...ctx,
+            selected: props.selectedFiles?.includes(ctx.path) || false,
+          }))
+        );
+      }
     }
-  }, [props?.selectedFiles]);
+  }, [props?.selectedFiles, fileContexts]);
 
   // メッセージを追加
   const addMessage = useCallback(
