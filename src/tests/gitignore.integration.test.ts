@@ -208,7 +208,12 @@ node_modules/
       // 2. lightning-fs only receives files NOT ignored by .gitignore
       //    - This keeps Git operations fast
       //    - This prevents bloating the Git working directory
+      //
+      // Note: The path normalization (removing leading slashes) matches the behavior
+      // in fileRepository.ts shouldIgnorePathForGit() which uses the same normalization
+      // before calling isPathIgnored()
       const filesInLightningFS = allFilesInIndexedDB.filter(path => {
+        // Same normalization as in fileRepository.ts:721
         const normalizedPath = path.replace(/^\/+/, '');
         return !isPathIgnored(rules, normalizedPath, false);
       });
