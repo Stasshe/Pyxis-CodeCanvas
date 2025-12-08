@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 
 import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
 import { LOCALSTORAGE_KEY } from '@/context/config';
@@ -34,6 +34,7 @@ interface UseAIProps {
 export function useAI(props?: UseAIProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [fileContexts, setFileContexts] = useState<AIFileContext[]>([]);
+  const lastNotifiedSelectedFilesRef = useRef<string>('');
 
   // storage adapter for AI review metadata
   // import dynamically to avoid circular deps in some build setups
@@ -289,7 +290,13 @@ export function useAI(props?: UseAIProps) {
 
       if (props?.onUpdateSelectedFiles) {
         const selectedPaths = contexts.filter(ctx => ctx.selected).map(ctx => ctx.path);
-        props.onUpdateSelectedFiles(selectedPaths);
+        const selectedPathsKey = JSON.stringify([...selectedPaths].sort());
+        
+        // 前回通知した値と同じ場合は呼び出さない（ループを防ぐ）
+        if (selectedPathsKey !== lastNotifiedSelectedFilesRef.current) {
+          lastNotifiedSelectedFilesRef.current = selectedPathsKey;
+          props.onUpdateSelectedFiles(selectedPaths);
+        }
       }
     },
     [props?.onUpdateSelectedFiles]
@@ -305,7 +312,13 @@ export function useAI(props?: UseAIProps) {
 
         if (props?.onUpdateSelectedFiles) {
           const selectedPaths = updated.filter(ctx => ctx.selected).map(ctx => ctx.path);
-          props.onUpdateSelectedFiles(selectedPaths);
+          const selectedPathsKey = JSON.stringify([...selectedPaths].sort());
+          
+          // 前回通知した値と同じ場合は呼び出さない（ループを防ぐ）
+          if (selectedPathsKey !== lastNotifiedSelectedFilesRef.current) {
+            lastNotifiedSelectedFilesRef.current = selectedPathsKey;
+            props.onUpdateSelectedFiles(selectedPaths);
+          }
         }
 
         return updated;

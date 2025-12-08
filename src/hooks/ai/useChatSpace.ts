@@ -175,17 +175,16 @@ export const useChatSpace = (projectId: string | null) => {
     }
 
     try {
-      if (
+      // リネームが必要かチェック
+      const shouldRename =
         (activeSpace.messages || []).length === 0 &&
         type === 'user' &&
         content &&
-        content.trim().length > 0
-      ) {
-        const newName = content.length > 30 ? content.slice(0, 30) + '…' : content;
-        await renameChatSpace(pid, activeSpace.id, newName);
-        setCurrentSpace(prev => (prev ? { ...prev, name: newName } : prev));
-        setChatSpaces(prev => prev.map(s => (s.id === activeSpace!.id ? { ...s, name: newName } : s)));
-      }
+        content.trim().length > 0;
+      
+      const newName = shouldRename
+        ? (content.length > 30 ? content.slice(0, 30) + '…' : content)
+        : activeSpace.name;
 
       if (options?.parentMessageId && options?.action) {
         const dup = (activeSpace.messages || []).find(
@@ -194,6 +193,7 @@ export const useChatSpace = (projectId: string | null) => {
         if (dup) return dup;
       }
 
+      // メッセージ追加 - リネームも同時に行う（1回のストレージ操作）
       const newMessage = await addMessageToChatSpace(pid, activeSpace.id, {
         type,
         content,
@@ -203,19 +203,28 @@ export const useChatSpace = (projectId: string | null) => {
         editResponse,
         parentMessageId: options?.parentMessageId,
         action: options?.action,
-      } as ChatSpaceMessage);
+      } as ChatSpaceMessage, shouldRename ? newName : undefined);
 
+      // ローカル状態を更新
       setCurrentSpace(prev => {
         if (!prev) return null;
         return {
           ...prev,
+          name: shouldRename ? newName : prev.name,
           messages: [...prev.messages, newMessage],
         };
       });
 
       setChatSpaces(prev => {
         const updated = prev.map(s =>
-          s.id === activeSpace!.id ? { ...s, messages: [...s.messages, newMessage], updatedAt: new Date() } : s
+          s.id === activeSpace!.id 
+            ? { 
+                ...s, 
+                name: shouldRename ? newName : s.name,
+                messages: [...s.messages, newMessage], 
+                updatedAt: new Date() 
+              } 
+            : s
         );
         return updated.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
       });

@@ -62,7 +62,12 @@ export async function renameChatSpace(projectId: string, spaceId: string, newNam
   await storageService.set(STORES.CHAT_SPACES, key, updated, { cache: false });
 }
 
-export async function addMessageToChatSpace(projectId: string, spaceId: string, message: ChatSpaceMessage): Promise<ChatSpaceMessage> {
+export async function addMessageToChatSpace(
+  projectId: string, 
+  spaceId: string, 
+  message: ChatSpaceMessage,
+  newName?: string
+): Promise<ChatSpaceMessage> {
   const key = makeKey(projectId, spaceId);
   const sp = await storageService.get(STORES.CHAT_SPACES, key);
   if (!sp) throw new Error('chat space not found');
@@ -70,6 +75,10 @@ export async function addMessageToChatSpace(projectId: string, spaceId: string, 
   const msg = { ...message, id: `msg-${Date.now()}-${Math.floor(Math.random() * 10000)}` } as ChatSpaceMessage;
   space.messages = [...space.messages, msg];
   space.updatedAt = new Date();
+  // リネームも同時に適用（オプショナル）
+  if (newName !== undefined) {
+    space.name = newName;
+  }
   await storageService.set(STORES.CHAT_SPACES, key, space, { cache: false });
   return msg;
 }

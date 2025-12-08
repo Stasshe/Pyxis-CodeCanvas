@@ -2,11 +2,47 @@
 const GEMINI_API_URL =
   'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
+// Retry with exponential backoff for rate limit errors
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  maxRetries = 3
+): Promise<Response> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      
+      // 429 (Rate Limit) の場合はリトライ
+      if (response.status === 429 && attempt < maxRetries) {
+        const waitTime = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
+        console.warn(`[Gemini API] Rate limit hit, retrying in ${waitTime}ms (attempt ${attempt + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        continue;
+      }
+      
+      return response;
+    } catch (error) {
+      lastError = error as Error;
+      if (attempt < maxRetries) {
+        const waitTime = Math.pow(2, attempt) * 1000;
+        console.warn(`[Gemini API] Request failed, retrying in ${waitTime}ms (attempt ${attempt + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      }
+    }
+  }
+  
+  throw lastError || new Error('Max retries exceeded');
+}
+
 export async function generateCodeEdit(prompt: string, apiKey: string): Promise<string> {
   if (!apiKey) throw new Error('Gemini API key is missing');
 
+  console.log('[generateCodeEdit] API call started');
+  
   try {
-    const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
+    const response = await fetchWithRetry(`${GEMINI_API_URL}?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -18,7 +54,12 @@ export async function generateCodeEdit(prompt: string, apiKey: string): Promise<
       }),
     });
 
+    console.log('[generateCodeEdit] API response status:', response.status);
+
     if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error('Rate limit exceeded. Please wait a moment and try again. (Gemini API free tier: 15 requests/minute)');
+      }
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
@@ -33,6 +74,7 @@ export async function generateCodeEdit(prompt: string, apiKey: string): Promise<
 
     return result;
   } catch (error) {
+    console.error('[generateCodeEdit] API error:', error);
     throw new Error('Gemini API error: ' + (error as Error).message);
   }
 }
@@ -48,8 +90,10 @@ export async function generateChatResponse(
 
   const prompt = `${message}${contextText}`;
 
+  console.log('[generateChatResponse] API call started');
+
   try {
-    const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
+    const response = await fetchWithRetry(`${GEMINI_API_URL}?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -61,7 +105,12 @@ export async function generateChatResponse(
       }),
     });
 
+    console.log('[generateChatResponse] API response status:', response.status);
+
     if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error('Rate limit exceeded. Please wait a moment and try again. (Gemini API free tier: 15 requests/minute)');
+      }
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
@@ -75,6 +124,7 @@ export async function generateChatResponse(
 
     return result;
   } catch (error) {
+    console.error('[generateChatResponse] API error:', error);
     throw new Error('Gemini API error: ' + (error as Error).message);
   }
 }
