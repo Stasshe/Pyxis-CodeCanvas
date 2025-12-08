@@ -23,10 +23,9 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
     let stderr = '';
     
     try {
-      // GopherJSはサーバーサイドでのコンパイルが必要なため、
-      // ブラウザ上での動的なGo実行は非常に制限されています
+      // GopherJS requires server-side compilation, making dynamic Go execution in the browser
+      // extremely limited. This implementation uses simple pattern matching for demonstration.
       
-      // 簡単なパターンマッチングで基本的な出力をシミュレート
       const printMatch = code.match(/fmt\.Println\("([^"]+)"\)/);
       const printfMatch = code.match(/fmt\.Printf\("([^"]+)"/);
       
