@@ -5,7 +5,6 @@
   "type": "language-runtime",
   "description": "Ruby runtime using ruby.wasm. Supports Ruby code execution in the browser.",
   "author": "Pyxis Team",
-  "defaultEnabled": true,
   "icon": "/extensions/pyxis/ruby-runtime/icon.svg",
   "homepage": "https://github.com/Stasshe/Pyxis-CodeCanvas",
   "dependencies": [],
