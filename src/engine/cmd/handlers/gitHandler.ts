@@ -298,14 +298,18 @@ export async function handleGitCommand(
         const pushResult = await git.push({ remote, branch, force });
         await writeOutput(pushResult);
 
+        // ⭐ 最適化: push後の自動同期を高速化
+        // fetch + reset --hard の代わりに、push結果から直接同期
         let usedBranch = branch;
         if (!usedBranch && typeof pushResult === 'string') {
           const match = pushResult.match(/\s([\w\-]+) -> [\w\-]+/);
           if (match && match[1]) usedBranch = match[1];
         }
+        
         if (usedBranch) {
-          const fetchResult = await git.fetch({ remote: 'origin', branch: usedBranch });
-          await writeOutput(`(auto) git fetch origin ${usedBranch}\n${fetchResult}`);
+          // Push成功後、リモート追跡ブランチは既に更新されているため
+          // fetchは不要（push.tsで既に更新されている）
+          // resetのみ実行して、IndexedDBへの逆同期を行う
           const resetResult = await git.reset({ hard: true, commit: `origin/${usedBranch}` });
           await writeOutput(`(auto) git reset --hard origin/${usedBranch}\n${resetResult}`);
         }
