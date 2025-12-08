@@ -5,7 +5,6 @@
   "type": "language-runtime",
   "description": "R runtime using webR. Supports R code execution in the browser with statistical computing and graphics capabilities.",
   "author": "Pyxis Team",
-  "defaultEnabled": true,
   "icon": "/extensions/pyxis/r-runtime/icon.svg",
   "homepage": "https://github.com/Stasshe/Pyxis-CodeCanvas",
   "dependencies": [],
