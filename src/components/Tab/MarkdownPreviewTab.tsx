@@ -283,8 +283,9 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
       if (newStr.length <= oldStr.length) return false;
 
       const MAX_WINDOW = 2000;
+      // Trim trailing whitespace from both old and new for consistent comparison
       const oldTrimmed = trimTrailingWhitespace(oldStr);
-      const newTrimmed = newStr;
+      const newTrimmed = trimTrailingWhitespace(newStr);
 
       if (newTrimmed.startsWith(oldTrimmed)) return true;
 
