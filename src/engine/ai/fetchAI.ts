@@ -1,55 +1,27 @@
 // src/utils/ai/geminiClient.ts
-const GEMINI_API_URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+const GEMINI_STREAM_API_URL =
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent';
 
-export async function generateCodeEdit(prompt: string, apiKey: string): Promise<string> {
-  if (!apiKey) throw new Error('Gemini API key is missing');
-
-  try {
-    const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.1, // より確実な回答のため温度を下げる
-          maxOutputTokens: 4096,
-        },
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const result = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    console.log('[original response]', result);
-
-    if (!result) {
-      throw new Error('No response from Gemini API');
-    }
-
-    return result;
-  } catch (error) {
-    throw new Error('Gemini API error: ' + (error as Error).message);
-  }
-}
-
-export async function generateChatResponse(
+/**
+ * Stream chat response from Gemini API
+ * @param message - User message
+ * @param context - Context strings
+ * @param apiKey - Gemini API key
+ * @param onChunk - Callback for each chunk of text
+ */
+export async function streamChatResponse(
   message: string,
   context: string[],
-  apiKey: string
-): Promise<string> {
+  apiKey: string,
+  onChunk: (chunk: string) => void
+): Promise<void> {
   if (!apiKey) throw new Error('Gemini API key is missing');
 
   const contextText = context.length > 0 ? `\n\n参考コンテキスト:\n${context.join('\n---\n')}` : '';
-
   const prompt = `${message}${contextText}`;
 
   try {
-    const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
+    const response = await fetch(`${GEMINI_STREAM_API_URL}?key=${apiKey}&alt=sse`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -65,16 +37,108 @@ export async function generateChatResponse(
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    const data = await response.json();
-    const result = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    if (!result) {
-      throw new Error('No response from Gemini API');
+    if (!response.body) {
+      throw new Error('Response body is null');
     }
-    console.log('[original response]', result);
 
-    return result;
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6);
+          if (data === '[DONE]') continue;
+
+          try {
+            const parsed = JSON.parse(data);
+            const text = parsed?.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (text) {
+              onChunk(text);
+            }
+          } catch (e) {
+            console.warn('[streamChatResponse] Failed to parse chunk:', e);
+          }
+        }
+      }
+    }
   } catch (error) {
-    throw new Error('Gemini API error: ' + (error as Error).message);
+    throw new Error('Gemini API streaming error: ' + (error as Error).message);
+  }
+}
+
+/**
+ * Stream code edit response from Gemini API
+ * @param prompt - Edit prompt
+ * @param apiKey - Gemini API key
+ * @param onChunk - Callback for each chunk of text
+ */
+export async function streamCodeEdit(
+  prompt: string,
+  apiKey: string,
+  onChunk: (chunk: string) => void
+): Promise<void> {
+  if (!apiKey) throw new Error('Gemini API key is missing');
+
+  try {
+    const response = await fetch(`${GEMINI_STREAM_API_URL}?key=${apiKey}&alt=sse`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens: 4096,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    if (!response.body) {
+      throw new Error('Response body is null');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6);
+          if (data === '[DONE]') continue;
+
+          try {
+            const parsed = JSON.parse(data);
+            const text = parsed?.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (text) {
+              onChunk(text);
+            }
+          } catch (e) {
+            console.warn('[streamCodeEdit] Failed to parse chunk:', e);
+          }
+        }
+      }
+    }
+  } catch (error) {
+    throw new Error('Gemini API streaming error: ' + (error as Error).message);
   }
 }

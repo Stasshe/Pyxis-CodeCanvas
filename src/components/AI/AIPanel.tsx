@@ -94,6 +94,7 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
     updateFileContexts,
     toggleFileSelection,
     generatePromptText,
+    streamingContent,
   } = useAI({
     onAddMessage: async (content, type, mode, fileContext, editResponse) => {
       return await addSpaceMessage(content, type, mode, fileContext, editResponse);
@@ -498,6 +499,7 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
         messages={messages}
         isProcessing={isProcessing}
         emptyMessage={mode === 'ask' ? t('AI.ask') : t('AI.edit')}
+        streamingContent={streamingContent}
         onRevert={async (message: ChatSpaceMessage) => {
           // Show confirmation dialog instead of executing immediately
           setRevertConfirmation({ open: true, message });
