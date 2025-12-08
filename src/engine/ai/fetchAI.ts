@@ -21,7 +21,7 @@ export async function streamChatResponse(
   const prompt = `${message}${contextText}`;
 
   try {
-    const response = await fetch(`${GEMINI_STREAM_API_URL}?key=${apiKey}&alt=sse`, {
+    const response = await fetch(`${GEMINI_STREAM_API_URL}?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -50,24 +50,40 @@ export async function streamChatResponse(
       if (done) break;
 
       buffer += decoder.decode(value, { stream: true });
+      
+      // Split by lines and process complete JSON objects
       const lines = buffer.split('\n');
+      
+      // Keep the last incomplete line in the buffer
       buffer = lines.pop() || '';
 
       for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const data = line.slice(6);
-          if (data === '[DONE]') continue;
+        const trimmedLine = line.trim();
+        if (!trimmedLine) continue;
 
-          try {
-            const parsed = JSON.parse(data);
-            const text = parsed?.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (text) {
-              onChunk(text);
-            }
-          } catch (e) {
-            console.warn('[streamChatResponse] Failed to parse chunk:', e);
+        try {
+          const parsed = JSON.parse(trimmedLine);
+          const text = parsed?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (text) {
+            onChunk(text);
           }
+        } catch (e) {
+          // Skip invalid JSON lines
+          console.warn('[streamChatResponse] Failed to parse chunk:', trimmedLine.substring(0, 100));
         }
+      }
+    }
+
+    // Process any remaining buffer
+    if (buffer.trim()) {
+      try {
+        const parsed = JSON.parse(buffer.trim());
+        const text = parsed?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) {
+          onChunk(text);
+        }
+      } catch (e) {
+        console.warn('[streamChatResponse] Failed to parse final chunk');
       }
     }
   } catch (error) {
@@ -89,7 +105,7 @@ export async function streamCodeEdit(
   if (!apiKey) throw new Error('Gemini API key is missing');
 
   try {
-    const response = await fetch(`${GEMINI_STREAM_API_URL}?key=${apiKey}&alt=sse`, {
+    const response = await fetch(`${GEMINI_STREAM_API_URL}?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -118,24 +134,40 @@ export async function streamCodeEdit(
       if (done) break;
 
       buffer += decoder.decode(value, { stream: true });
+      
+      // Split by lines and process complete JSON objects
       const lines = buffer.split('\n');
+      
+      // Keep the last incomplete line in the buffer
       buffer = lines.pop() || '';
 
       for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const data = line.slice(6);
-          if (data === '[DONE]') continue;
+        const trimmedLine = line.trim();
+        if (!trimmedLine) continue;
 
-          try {
-            const parsed = JSON.parse(data);
-            const text = parsed?.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (text) {
-              onChunk(text);
-            }
-          } catch (e) {
-            console.warn('[streamCodeEdit] Failed to parse chunk:', e);
+        try {
+          const parsed = JSON.parse(trimmedLine);
+          const text = parsed?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (text) {
+            onChunk(text);
           }
+        } catch (e) {
+          // Skip invalid JSON lines
+          console.warn('[streamCodeEdit] Failed to parse chunk:', trimmedLine.substring(0, 100));
         }
+      }
+    }
+
+    // Process any remaining buffer
+    if (buffer.trim()) {
+      try {
+        const parsed = JSON.parse(buffer.trim());
+        const text = parsed?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) {
+          onChunk(text);
+        }
+      } catch (e) {
+        console.warn('[streamCodeEdit] Failed to parse final chunk');
       }
     }
   } catch (error) {
