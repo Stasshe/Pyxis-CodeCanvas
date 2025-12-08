@@ -14,6 +14,8 @@ export class TreeBuilder {
   private githubAPI: GitHubAPI;
   private blobCache: Map<string, string> = new Map(); // content -> sha
   private remoteBlobCache: Set<string> = new Set(); // リモートに既に存在するblob sha
+  private treeCache: Map<string, string> = new Map(); // local tree oid -> remote tree sha
+  private blobOidToShaCache: Map<string, string> = new Map(); // local blob oid -> remote blob sha
 
   constructor(fs: FS, dir: string, githubAPI: GitHubAPI) {
     this.fs = fs;
@@ -28,6 +30,13 @@ export class TreeBuilder {
     const commit = await git.readCommit({ fs: this.fs, dir: this.dir, oid: commitOid });
     const treeOid = commit.commit.tree;
 
+    // ⭐ キャッシュチェック - 既に構築済みのツリーは再利用
+    if (this.treeCache.has(treeOid)) {
+      const cachedSha = this.treeCache.get(treeOid)!;
+      console.log('[TreeBuilder] Using cached tree:', treeOid.slice(0, 7), '->', cachedSha.slice(0, 7));
+      return cachedSha;
+    }
+
     // Check if this exact tree already exists remotely
     const localTreeInfo = await git.readTree({ fs: this.fs, dir: this.dir, oid: treeOid });
     
@@ -37,6 +46,7 @@ export class TreeBuilder {
         // If the tree SHAs are identical, no need to rebuild
         if (treeOid === remoteTreeSha) {
           console.log('[TreeBuilder] Tree already exists remotely:', treeOid.slice(0, 7));
+          this.treeCache.set(treeOid, remoteTreeSha);
           return remoteTreeSha;
         }
 
@@ -44,19 +54,23 @@ export class TreeBuilder {
         const exists = await this.githubAPI.treeExists(treeOid);
         if (exists) {
           console.log('[TreeBuilder] Local tree found remotely:', treeOid.slice(0, 7));
+          this.treeCache.set(treeOid, treeOid);
           return treeOid;
         }
 
         // Perform differential upload
         await this.cacheRemoteBlobs(remoteTreeSha);
         const treeSha = await this.buildTreeDifferential(treeOid, remoteTreeSha, '');
+        this.treeCache.set(treeOid, treeSha);
         return treeSha;
       } catch (error) {
         console.warn('[TreeBuilder] Differential upload failed, falling back:', error);
       }
     }
 
-    return await this.buildTreeRecursive(treeOid, '');
+    const treeSha = await this.buildTreeRecursive(treeOid, '');
+    this.treeCache.set(treeOid, treeSha);
+    return treeSha;
   }
 
   /**
@@ -65,6 +79,7 @@ export class TreeBuilder {
   private async cacheRemoteBlobs(treeSha: string): Promise<void> {
     try {
       const tree = await this.githubAPI.getTree(treeSha, true);
+      console.log(`[TreeBuilder] Caching ${tree.tree.length} remote blobs for differential upload`);
       for (const entry of tree.tree) {
         if (entry.type === 'blob' && entry.sha) {
           this.remoteBlobCache.add(entry.sha);
@@ -182,8 +197,8 @@ export class TreeBuilder {
       }
     }
 
-    // 並列処理実行
-    const BATCH_SIZE = 10;
+    // 並列処理実行 - ⭐ バッチサイズを増やして高速化
+    const BATCH_SIZE = 20; // 10 -> 20 に増加（GitHub API Rate Limitを考慮しつつ高速化）
     for (let i = 0; i < blobPromises.length; i += BATCH_SIZE) {
       const batch = blobPromises.slice(i, i + BATCH_SIZE);
       const results = await Promise.all(batch);
@@ -266,8 +281,8 @@ export class TreeBuilder {
       }
     }
 
-    // 全Blobを並列処理（バッチサイズで制限）
-    const BATCH_SIZE = 10; // GitHub API Rate Limitを考慮
+    // 全Blobを並列処理（⭐ バッチサイズを増やして高速化）
+    const BATCH_SIZE = 20; // 10 -> 20 に増加（GitHub API Rate Limitを考慮しつつ高速化）
     const blobResults: { entry: (typeof tree.tree)[0]; sha: string }[] = [];
     for (let i = 0; i < blobPromises.length; i += BATCH_SIZE) {
       const batch = blobPromises.slice(i, i + BATCH_SIZE);
@@ -305,7 +320,13 @@ export class TreeBuilder {
    * Blobをアップロード
    */
   private async uploadBlob(blobOid: string, path: string): Promise<string> {
+    // ⭐ OIDキャッシュをチェック - 同じOIDは一度だけアップロード
+    if (this.blobOidToShaCache.has(blobOid)) {
+      return this.blobOidToShaCache.get(blobOid)!;
+    }
+
     if (this.remoteBlobCache.has(blobOid)) {
+      this.blobOidToShaCache.set(blobOid, blobOid);
       return blobOid;
     }
 
@@ -335,11 +356,14 @@ export class TreeBuilder {
 
     const cacheKey = `${contentStr}:${encoding}`;
     if (this.blobCache.has(cacheKey)) {
-      return this.blobCache.get(cacheKey)!;
+      const cachedSha = this.blobCache.get(cacheKey)!;
+      this.blobOidToShaCache.set(blobOid, cachedSha);
+      return cachedSha;
     }
 
     const blobData2 = await this.githubAPI.createBlob(contentStr, encoding);
     this.blobCache.set(cacheKey, blobData2.sha);
+    this.blobOidToShaCache.set(blobOid, blobData2.sha);
     this.remoteBlobCache.add(blobData2.sha);
 
     return blobData2.sha;

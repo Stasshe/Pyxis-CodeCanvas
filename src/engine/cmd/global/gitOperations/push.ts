@@ -293,6 +293,11 @@ export async function push(
             `[git push] Force push: rewinding remote from ${remoteHeadSha.slice(0, 7)} to ${localHead.slice(0, 7)}`
           );
           
+          // ⭐ UIへの進捗表示
+          if (ui) {
+            await ui.spinner.update('Force pushing (rewinding remote)...');
+          }
+          
           // リモートrefを更新
           await githubAPI.updateRef(targetBranch, localHead, true);
           
@@ -309,15 +314,30 @@ export async function push(
             console.warn('[git push] Failed to update remote tracking branch:', error);
           }
           
+          // ⭐ UIスピナーを停止
+          if (ui) {
+            await ui.spinner.stop();
+          }
+          
           const remoteUrl = remoteInfo.url;
           return `To ${remoteUrl}\\n + ${remoteHeadSha.slice(0, 7)}...${localHead.slice(0, 7)} ${targetBranch} -> ${targetBranch} (forced update)\\n`;
         }
+      }
+      
+      // ⭐ UIスピナーを停止
+      if (ui) {
+        await ui.spinner.stop();
       }
       
       return 'Everything up-to-date';
     }
 
     console.log(`[git push] Pushing ${commitsToPush.length} commit(s)...`);
+    
+    // ⭐ UIへの進捗表示
+    if (ui) {
+      await ui.spinner.update(`Counting objects: ${commitsToPush.length} commit(s)...`);
+    }
 
     // リモートツリーSHAを取得（差分アップロードのため）
     let remoteTreeSha: string | undefined;
@@ -343,10 +363,17 @@ export async function push(
     let lastCommitSha: string | null = commonAncestorSha || remoteHeadSha;
     const treeBuilder = new TreeBuilder(fs, dir, githubAPI);
 
+    // ⭐ 進捗報告の改善
+    let processedCount = 0;
     for (const commit of commitsToPush) {
-      console.log(
-        `[git push] Processing commit: ${commit.oid.slice(0, 7)} - ${commit.commit.message.split('\\n')[0]}`
-      );
+      processedCount++;
+      const progressMsg = `Processing commit ${processedCount}/${commitsToPush.length}: ${commit.oid.slice(0, 7)}`;
+      console.log(`[git push] ${progressMsg}`);
+      
+      // ⭐ UIへの進捗表示
+      if (ui) {
+        await ui.spinner.update(`${progressMsg} - ${commit.commit.message.split('\\n')[0].slice(0, 50)}...`);
+      }
 
       // ツリーを構築（差分アップロード）
       const treeSha = await treeBuilder.buildTree(commit.oid, remoteTreeSha);
@@ -384,6 +411,11 @@ export async function push(
 
     // 4. ブランチrefを最新のコミットに更新
     console.log('[git push] Updating branch reference...');
+    
+    // ⭐ UIへの進捗表示
+    if (ui) {
+      await ui.spinner.update('Updating branch reference...');
+    }
 
     if (isNewBranch) {
       // 新しいブランチを作成
@@ -410,6 +442,11 @@ export async function push(
     } catch (error) {
       console.warn('[git push] Failed to update remote tracking branch:', error);
     }
+    
+    // ⭐ UIスピナーを停止
+    if (ui) {
+      await ui.spinner.stop();
+    }
 
     const remoteUrl = remoteInfo.url;
     let result = `To ${remoteUrl}\\n`;
@@ -422,6 +459,10 @@ export async function push(
 
     return result;
   } catch (error: any) {
+    // ⭐ エラー時にスピナーを確実に停止
+    if (ui) {
+      await ui.spinner.stop();
+    }
     console.error('[git push] Error:', error);
     throw new Error(`Push failed: ${error.message}`);
   }
