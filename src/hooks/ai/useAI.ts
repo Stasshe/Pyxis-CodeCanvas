@@ -34,7 +34,6 @@ interface UseAIProps {
 export function useAI(props?: UseAIProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [fileContexts, setFileContexts] = useState<AIFileContext[]>([]);
-  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
   const [streamingContent, setStreamingContent] = useState<string>('');
 
   // storage adapter for AI review metadata
