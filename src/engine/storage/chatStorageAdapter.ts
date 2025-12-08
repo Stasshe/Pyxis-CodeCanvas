@@ -34,6 +34,22 @@ export async function getChatSpaces(projectId: string): Promise<ChatSpace[]> {
   return spaces;
 }
 
+/**
+ * プロジェクトに属する全てのチャットスペースを削除
+ */
+export async function deleteChatSpacesForProject(projectId: string): Promise<void> {
+  if (!projectId) return;
+  
+  const spaces = await getChatSpaces(projectId);
+  
+  // 全てのスペースを削除
+  await Promise.all(
+    spaces.map(space => deleteChatSpace(projectId, space.id))
+  );
+  
+  console.log(`[chatStorageAdapter] Deleted ${spaces.length} chat space(s) for project: ${projectId}`);
+}
+
 export async function createChatSpace(projectId: string, name: string): Promise<ChatSpace> {
   const id = `chatspace-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
   const now = new Date();

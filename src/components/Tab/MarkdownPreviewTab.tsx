@@ -274,7 +274,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const prev = prevContentRef.current;
-    const current = activeTab.content || '';
+    const current = contentSource;
 
     const trimTrailingWhitespace = (s: string): string => s.replace(/[\s\u00A0]+$/g, '');
 
@@ -319,7 +319,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
     }
 
     prevContentRef.current = current;
-  }, [activeTab.content]);
+  }, [contentSource]);
 
   return (
     <div className="p-4 overflow-auto h-full w-full" ref={markdownContainerRef}>

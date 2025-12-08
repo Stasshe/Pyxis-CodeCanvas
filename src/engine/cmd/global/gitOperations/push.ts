@@ -309,9 +309,19 @@ export async function push(
             console.warn('[git push] Failed to update remote tracking branch:', error);
           }
           
+          // Stop spinner before returning
+          if (ui) {
+            await ui.spinner.stop();
+          }
+          
           const remoteUrl = remoteInfo.url;
           return `To ${remoteUrl}\\n + ${remoteHeadSha.slice(0, 7)}...${localHead.slice(0, 7)} ${targetBranch} -> ${targetBranch} (forced update)\\n`;
         }
+      }
+      
+      // Stop spinner before returning
+      if (ui) {
+        await ui.spinner.stop();
       }
       
       return 'Everything up-to-date';
@@ -420,9 +430,18 @@ export async function push(
       result += `   ${remoteHeadSha?.slice(0, 7) || '0000000'}..${lastCommitSha.slice(0, 7)}  ${targetBranch} -> ${targetBranch}\\n`;
     }
 
+    // Stop spinner on success
+    if (ui) {
+      await ui.spinner.stop();
+    }
+
     return result;
   } catch (error: any) {
     console.error('[git push] Error:', error);
+    // Stop spinner on error
+    if (ui) {
+      await ui.spinner.stop();
+    }
     throw new Error(`Push failed: ${error.message}`);
   }
 }

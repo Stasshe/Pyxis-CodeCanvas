@@ -593,7 +593,7 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
       {/* プロンプトデバッグモーダル */}
       {showPromptDebug && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center"
+          className="fixed inset-0 z-[9999] flex items-center justify-center"
           style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}
           onClick={() => setShowPromptDebug(false)}
         >

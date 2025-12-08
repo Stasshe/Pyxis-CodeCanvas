@@ -202,12 +202,14 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
   useEffect(() => {
     if (!isOpen) return;
     const handler = (e: KeyboardEvent) => {
+      // Prevent default for ALL keys when pane navigator is open
+      e.preventDefault();
+      e.stopPropagation();
+      
       const key = e.key;
       
       // Number keys 1-9 for direct selection
       if (key >= '1' && key <= '9') {
-        e.preventDefault();
-        e.stopPropagation();
         const idx = parseInt(key) - 1;
         if (idx < flattenedPanes.length) {
           handleActivate(flattenedPanes[idx].id);
@@ -215,10 +217,6 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
         return;
       }
       
-      if (['Escape', 'Enter', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'h', 'j', 'k', 'l', 'v', 's', 'd'].includes(key)) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
       const len = flattenedPanes.length;
       const idx = flattenedPanes.findIndex(p => p.id === selectedPaneId);
       switch (key) {

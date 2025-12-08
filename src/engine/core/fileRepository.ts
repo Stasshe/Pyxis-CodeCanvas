@@ -25,6 +25,7 @@ import {
   saveChatSpace as chatSaveChatSpace,
   getChatSpaces as chatGetChatSpaces,
   deleteChatSpace as chatDeleteChatSpace,
+  deleteChatSpacesForProject as chatDeleteChatSpacesForProject,
   addMessageToChatSpace as chatAddMessageToChatSpace,
   updateChatSpaceMessage as chatUpdateChatSpaceMessage,
   updateChatSpaceSelectedFiles as chatUpdateChatSpaceSelectedFiles,
@@ -405,7 +406,7 @@ export class FileRepository {
         }
       };
 
-      // 関連チャットスペースを削除
+      // 関連チャットスペースを削除（IndexedDB内の古いデータ）
       const chatStore = transaction.objectStore('chatSpaces');
       const chatIndex = chatStore.index('projectId');
       const chatRequest = chatIndex.openCursor(IDBKeyRange.only(projectId));
@@ -421,6 +422,13 @@ export class FileRepository {
       transaction.onerror = () => reject(transaction.error);
       transaction.oncomplete = async () => {
         coreInfo(`[FileRepository] Project deleted from IndexedDB: ${projectName}`);
+
+        // チャットスペースを新しいストレージアダプターから削除
+        try {
+          await chatDeleteChatSpacesForProject(projectId);
+        } catch (err) {
+          coreWarn('[FileRepository] Failed to delete chat spaces via adapter:', err);
+        }
 
         // LocalStorageから最近使用したプロジェクトを削除（バックグラウンド）
         this.cleanupLocalStorage(projectId).catch(err => {
