@@ -268,6 +268,8 @@ importers:
         specifier: ^4.4.1
         version: 4.5.1
 
+  extensions/go-runtime: {}
+
   extensions/python-runtime:
     dependencies:
       pyodide:
@@ -279,6 +281,12 @@ importers:
       esbuild-wasm:
         specifier: ^0.27.0
         version: 0.27.0
+
+  extensions/ruby-runtime:
+    dependencies:
+      '@ruby/wasm-wasi':
+        specifier: ^2.5.0
+        version: 2.7.2
 
 packages:
 
@@ -457,6 +465,9 @@ packages:
 
   '@bcoe/v8-coverage@0.2.3':
     resolution: {integrity: sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==}
+
+  '@bjorn3/browser_wasi_shim@0.3.0':
+    resolution: {integrity: sha512-FlRBYttPRLcWORzBe6g8nmYTafBkOEFeOqMYM4tAHJzFsQy4+xJA94z85a9BCs8S+Uzfh9LrkpII7DXr2iUVFg==}
 
   '@braintree/sanitize-url@7.1.1':
     resolution: {integrity: sha512-i1L7noDNxtFyL5DmZafWy1wRVhGehQmzZaz1HiN5e7iylJMSZR7ekOV7NsIqa5qBldlLrsKv4HbgFUVlQrz8Mw==}
@@ -1129,6 +1140,9 @@ packages:
 
   '@rtsao/scc@1.1.0':
     resolution: {integrity: sha512-zt6OdqaDoOnJ1ZYsCYGt9YmWzDXl4vQdKTyJev62gFhRGKdx7mcT54V9KIjg+d2wi9EXsPvAPKe7i7WjfVWB8g==}
+
+  '@ruby/wasm-wasi@2.7.2':
+    resolution: {integrity: sha512-KiVtLRFUC4V9hiiNV+ABzZL8tYQ0/nhBEQw9Lu+wj4zxCOw43RYcu+Yru7hwlb8ADppGRKYSv0CeDQqZ8OSqKw==}
 
   '@rushstack/eslint-patch@1.15.0':
     resolution: {integrity: sha512-ojSshQPKwVvSMR8yT2L/QtUkV5SXi/IfDiJ4/8d6UbTPjiHVmxZzUAzGD8Tzks1b9+qQkZa0isUOvYObedITaw==}
@@ -5476,6 +5490,8 @@ snapshots:
 
   '@bcoe/v8-coverage@0.2.3': {}
 
+  '@bjorn3/browser_wasi_shim@0.3.0': {}
+
   '@braintree/sanitize-url@7.1.1': {}
 
   '@chevrotain/cst-dts-gen@11.0.3':
@@ -6221,6 +6237,11 @@ snapshots:
   '@react-dnd/shallowequal@4.0.2': {}
 
   '@rtsao/scc@1.1.0': {}
+
+  '@ruby/wasm-wasi@2.7.2':
+    dependencies:
+      '@bjorn3/browser_wasi_shim': 0.3.0
+      tslib: 2.8.1
 
   '@rushstack/eslint-patch@1.15.0': {}
 
