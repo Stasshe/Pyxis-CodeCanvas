@@ -422,7 +422,9 @@ const createPatterns = (lang: string): PatternDef[] => {
   const rubyPatterns: PatternDef[] = [
     { type: 'comment', regex: /^=begin[\s\S]*?=end/ },
     { type: 'comment', regex: /^#[^\n]*/ },
-    { type: 'string', regex: /^%[qQwWiIxsr]?(?:\{[^}]*\}|\([^)]*\)|\[[^\]]*\]|<[^>]*>|([^a-zA-Z0-9\s])[^\1]*?\1)/ },
+    // Simplified percent-string pattern: avoid backreference inside char class which
+    // caused invalid escape sequences in some JS engines / TypeScript checks.
+    { type: 'string', regex: /^%[qQwWiIxsr]?[^\n\r\s]+/ },
     { type: 'templateString', regex: /^"(?:[^"\\#]|\\[\s\S]|#\{[^}]*\})*?"/ },
     { type: 'string', regex: /^'(?:[^'\\]|\\[\s\S])*?'/ },
     { type: 'regex', regex: /^\/(?:[^/\\]|\\[\s\S])+\/[imxo]*/ },

@@ -14,6 +14,7 @@
  */
 export interface FileRepository {
   // プロジェクト操作
+  init(): Promise<void>;
   createProject(name: string, description?: string): Promise<any>;
   getProject(projectId: string): Promise<any | null>;
   getProjects(): Promise<any[]>;

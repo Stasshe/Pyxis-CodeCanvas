@@ -73,8 +73,6 @@ function configureCSSDefaults(mon: Monaco): void {
   };
 
   mon.languages.css.cssDefaults.setOptions(cssOptions);
-  mon.languages.scss.scssDefaults.setOptions(cssOptions);
-  mon.languages.less.lessDefaults.setOptions(cssOptions);
 }
 
 function configureJSONDefaults(mon: Monaco): void {
@@ -123,33 +121,33 @@ function configureHTMLDefaults(mon: Monaco): void {
     },
   });
 
-  // Also configure handlebars if available
-  try {
-    mon.languages.html.handlebarDefaults?.setOptions({
-      format: {
-        tabSize: 2,
-        insertSpaces: true,
-      },
-      suggest: {
-        html5: true,
-      },
-    });
-  } catch (e) {
-    // handlebars might not be available
-  }
+  // // Also configure handlebars if available
+  // try {
+  //   mon.languages.html.handlebarDefaults?.setOptions({
+  //     format: {
+  //       tabSize: 2,
+  //       insertSpaces: true,
+  //     },
+  //     suggest: {
+  //       html5: true,
+  //     },
+  //   });
+  // } catch (e) {
+  //   // handlebars might not be available
+  // }
 
   // Also configure razor if available
-  try {
-    mon.languages.html.razorDefaults?.setOptions({
-      format: {
-        tabSize: 2,
-        insertSpaces: true,
-      },
-      suggest: {
-        html5: true,
-      },
-    });
-  } catch (e) {
-    // razor might not be available
-  }
+  // try {
+  //   mon.languages.html.razorDefaults?.setOptions({
+  //     format: {
+  //       tabSize: 2,
+  //       insertSpaces: true,
+  //     },
+  //     suggest: {
+  //       html5: true,
+  //     },
+  //   });
+  // } catch (e) {
+  //   // razor might not be available
+  // }
 }
