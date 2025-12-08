@@ -1,6 +1,6 @@
 // src/utils/ai/geminiClient.ts
 const GEMINI_STREAM_API_URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent';
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-live-001:streamGenerateContent';
 
 /**
  * Stream chat response from Gemini API
