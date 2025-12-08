@@ -173,6 +173,54 @@ tryCatch({
     },
   });
 
+  // Register 'r' and 'Rscript' terminal commands
+  if (context.commands) {
+    const rCommand = async (args: string[], cmdContext: any) => {
+      try {
+        if (args.length === 0) {
+          return 'Usage: r <file.r> or r -e "<code>"';
+        }
+
+        // Handle -e flag for inline code execution
+        if (args[0] === '-e') {
+          const code = args.slice(1).join(' ');
+          const result = await executeRCode(code);
+          return result.stdout || result.stderr || '';
+        }
+
+        // Execute R file
+        const filePath = args[0];
+        const fileRepository = await context.getSystemModule('fileRepository');
+        await fileRepository.init();
+        
+        // Normalize path
+        let normalizedPath = filePath;
+        if (!filePath.startsWith('/')) {
+          const relativeCurrent = cmdContext.currentDirectory.replace(`/projects/${cmdContext.projectName}`, '');
+          normalizedPath = relativeCurrent === '' 
+            ? `/${filePath}` 
+            : `${relativeCurrent}/${filePath}`;
+        } else {
+          normalizedPath = filePath.replace(`/projects/${cmdContext.projectName}`, '');
+        }
+
+        const file = await fileRepository.getFileByPath(cmdContext.projectId, normalizedPath);
+        if (!file || !file.content) {
+          return `Error: File not found: ${normalizedPath}`;
+        }
+
+        const result = await executeRCode(file.content);
+        return result.stdout || result.stderr || '';
+      } catch (error) {
+        return `Error: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    };
+
+    context.commands.registerCommand('r', rCommand);
+    context.commands.registerCommand('Rscript', rCommand);
+    context.logger.info('✅ Registered terminal commands: r, Rscript');
+  }
+
   context.logger.info('✅ R Runtime Extension activated');
 
   return {};

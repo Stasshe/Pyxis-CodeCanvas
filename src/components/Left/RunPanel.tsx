@@ -48,19 +48,38 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
     }
   }, [output]);
 
-  // 拡張子で自動判別: Node.js/Python両方の実行可能ファイルを取得
+  // 拡張子で自動判別: 登録されているすべてのランタイムの実行可能ファイルを取得
   const getExecutableFiles = () => {
-    // 表示を限定: .js, .ts, .mjs, .cjs, .py
+    // RuntimeRegistryから動的に対応拡張子を取得
+    const allRuntimes = runtimeRegistry.getAllRuntimes();
+    const supportedExtensions: string[] = [];
+    const extensionToLang: Map<string, string> = new Map();
+    
+    // Node.jsは特別扱い（ビルトイン）
     const nodeExts = ['.js', '.ts', '.mjs', '.cjs'];
-    const pyExts = ['.py'];
+    nodeExts.forEach(ext => {
+      supportedExtensions.push(ext);
+      extensionToLang.set(ext, 'node');
+    });
+    
+    // 登録済みランタイムの拡張子を追加
+    allRuntimes.forEach(runtime => {
+      runtime.supportedExtensions.forEach(ext => {
+        if (!supportedExtensions.includes(ext)) {
+          supportedExtensions.push(ext);
+          extensionToLang.set(ext, runtime.id);
+        }
+      });
+    });
+
     const flattenFiles = (items: any[], parentPath = ''): any[] => {
       return items.reduce((acc, item) => {
         const fullPath = parentPath ? `${parentPath}/${item.name}` : item.name;
         if (item.type === 'file') {
-          let lang: 'node' | 'python' | null = null;
-          if (nodeExts.some(ext => item.name.endsWith(ext))) lang = 'node';
-          if (pyExts.some(ext => item.name.endsWith(ext))) lang = 'python';
-          if (lang) {
+          // Check if file has supported extension
+          const matchedExt = supportedExtensions.find(ext => item.name.endsWith(ext));
+          if (matchedExt) {
+            const lang = extensionToLang.get(matchedExt) || 'unknown';
             acc.push({
               ...item,
               path: fullPath,

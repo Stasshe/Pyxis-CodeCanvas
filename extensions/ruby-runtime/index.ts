@@ -175,6 +175,51 @@ end
     },
   });
 
+  // Register 'ruby' terminal command
+  if (context.commands) {
+    context.commands.registerCommand('ruby', async (args: string[], cmdContext: any) => {
+      try {
+        if (args.length === 0) {
+          return 'Usage: ruby <file.rb> or ruby -e "<code>"';
+        }
+
+        // Handle -e flag for inline code execution
+        if (args[0] === '-e') {
+          const code = args.slice(1).join(' ');
+          const result = await executeRubyCode(code);
+          return result.stdout || result.stderr || '';
+        }
+
+        // Execute Ruby file
+        const filePath = args[0];
+        const fileRepository = await context.getSystemModule('fileRepository');
+        await fileRepository.init();
+        
+        // Normalize path
+        let normalizedPath = filePath;
+        if (!filePath.startsWith('/')) {
+          const relativeCurrent = cmdContext.currentDirectory.replace(`/projects/${cmdContext.projectName}`, '');
+          normalizedPath = relativeCurrent === '' 
+            ? `/${filePath}` 
+            : `${relativeCurrent}/${filePath}`;
+        } else {
+          normalizedPath = filePath.replace(`/projects/${cmdContext.projectName}`, '');
+        }
+
+        const file = await fileRepository.getFileByPath(cmdContext.projectId, normalizedPath);
+        if (!file || !file.content) {
+          return `Error: File not found: ${normalizedPath}`;
+        }
+
+        const result = await executeRubyCode(file.content);
+        return result.stdout || result.stderr || '';
+      } catch (error) {
+        return `Error: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    });
+    context.logger.info('✅ Registered terminal command: ruby');
+  }
+
   context.logger.info('✅ Ruby Runtime Extension activated');
 
   return {};
