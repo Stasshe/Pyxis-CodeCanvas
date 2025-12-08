@@ -274,7 +274,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const prev = prevContentRef.current;
-    const current = activeTab.content || '';
+    const current = contentSource;
 
     const trimTrailingWhitespace = (s: string): string => s.replace(/[\s\u00A0]+$/g, '');
 
@@ -283,8 +283,9 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
       if (newStr.length <= oldStr.length) return false;
 
       const MAX_WINDOW = 2000;
+      // Trim trailing whitespace from both old and new for consistent comparison
       const oldTrimmed = trimTrailingWhitespace(oldStr);
-      const newTrimmed = newStr;
+      const newTrimmed = trimTrailingWhitespace(newStr);
 
       if (newTrimmed.startsWith(oldTrimmed)) return true;
 
@@ -319,7 +320,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
     }
 
     prevContentRef.current = current;
-  }, [activeTab.content]);
+  }, [contentSource]);
 
   return (
     <div className="p-4 overflow-auto h-full w-full" ref={markdownContainerRef}>

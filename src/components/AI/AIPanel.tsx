@@ -4,6 +4,7 @@
 
 import { Bot, ChevronDown, Plus, Edit2, Trash2, MessageSquare, Terminal, X } from 'lucide-react';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 import ChatContainer from './chat/ChatContainer';
 import ChatInput from './chat/ChatInput';
@@ -39,6 +40,9 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
   const [isChangedFilesMinimized, setIsChangedFilesMinimized] = useState(false);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
   const spaceButtonRef = useRef<HTMLButtonElement | null>(null);
+  
+  // Track if we're on the client for portal rendering
+  const [isClient, setIsClient] = useState(false);
 
   // Revert confirmation state
   const [revertConfirmation, setRevertConfirmation] = useState<{
@@ -49,6 +53,10 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
   // Editing state for spaces
   const [editingSpaceId, setEditingSpaceId] = useState<string | null>(null);
   const [editingSpaceName, setEditingSpaceName] = useState('');
+  
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // Compute dropdown position relative to viewport (fixed) so it appears under the button
   const dropdownPosition = useMemo(() => {
@@ -590,10 +598,10 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
         />
       )}
 
-      {/* プロンプトデバッグモーダル */}
-      {showPromptDebug && (
+      {/* プロンプトデバッグモーダル - Portal rendering to avoid z-index issues */}
+      {showPromptDebug && isClient && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center"
+          className="fixed inset-0 flex items-center justify-center"
           style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}
           onClick={() => setShowPromptDebug(false)}
         >
@@ -662,7 +670,8 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* リバート確認ダイアログ */}
