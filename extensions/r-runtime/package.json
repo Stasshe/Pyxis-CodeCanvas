@@ -1,0 +1,9 @@
+{
+  "name": "r-runtime",
+  "version": "1.0.0",
+  "private": true,
+  "description": "R runtime extension using webR",
+  "dependencies": {
+    "webr": "^0.4.2"
+  }
+}

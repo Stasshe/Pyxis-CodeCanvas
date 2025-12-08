@@ -1,7 +1,0 @@
-{
-  "name": "go-runtime",
-  "version": "1.0.0",
-  "private": true,
-  "description": "Go runtime extension using GopherJS (experimental)",
-  "dependencies": {}
-}
