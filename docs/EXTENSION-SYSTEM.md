@@ -843,6 +843,9 @@ public/extensions/
 ### Registry JSON
 
 `registry.json`は利用可能な拡張機能の一覧を定義します。
+このファイルは**ビルド時に自動生成**されます (`pnpm run setup-build`)。
+
+自動生成されたregistry.jsonの例:
 
 ```json
 {
@@ -913,7 +916,7 @@ graph TB
 | npm/pnpmライブラリのバンドル | `package.json`がある場合、依存関係を含めてバンドル |
 | React外部化 | `react`と`react-dom`は外部化（Pyxis本体を使用） |
 | manifest.jsonのコピー | そのまま出力ディレクトリにコピー |
-| registry.jsonの生成 | 全拡張機能の一覧を生成 |
+| registry.jsonの自動生成 | 全拡張機能のmanifest.jsonをスキャンして一覧を自動生成 |
 
 **esbuild設定**
 

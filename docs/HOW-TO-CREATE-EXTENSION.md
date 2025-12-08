@@ -951,17 +951,19 @@ export async function deactivate(): Promise<void> {
 }
 ```
 
-### 3. レジストリに登録 (`extensions/registry.json`)
+### 3. ビルド
 
-```json
-{
-  "id": "my-extension",
-  "type": "ui",
-  "manifestUrl": "/extensions/my-extension/manifest.json",
-  "defaultEnabled": false,
-  "recommended": true
-}
+ビルド時にregistry.jsonが自動生成されます:
+
+```bash
+# プロジェクトルートで実行
+pnpm run setup-build
 ```
+
+これにより:
+- TypeScript/TSXがバンドル済みJSに変換
+- `public/extensions/` にビルド済みファイルが配置
+- `public/extensions/registry.json` が自動生成・更新
 
 ## ベストプラクティス
 
@@ -1244,20 +1246,10 @@ function MyTabComponent({ tab, isActive }: any) {
 
 1. **ビルドしていない**
    ```bash
-   node build-extensions.js
+   pnpm run setup-build
    ```
 
-2. **registry.jsonに登録していない**
-   ```json
-   // extensions/registry.json に追加
-   {
-     "id": "pyxis.my-extension",
-     "type": "ui",
-     "manifestUrl": "/extensions/my-extension/manifest.json"
-   }
-   ```
-
-3. **manifest.jsonのentryが間違っている**
+   ビルド時に自動的にregistry.jsonも生成されます。
    ```json
    {
      "entry": "index.js"  // ✅ 正しい（.tsではなく.js）
@@ -1309,7 +1301,6 @@ export async function activate(context: ExtensionContext) {
 1. **準備**
   - `extensions/my-extension/` ディレクトリを作成
   - `manifest.json` と `index.tsx` を作成（TSX推奨）
-  - `extensions/registry.json` に登録
 
 2. **実装**
   - タブコンポーネント作成（TSX構文推奨）
