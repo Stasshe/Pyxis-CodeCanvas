@@ -57,36 +57,21 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
     let result = null;
 
     try {
-      // Capture output using R's capture.output
-      const wrappedCode = `
-tryCatch({
-  output <- capture.output({
-    result <- {
-      ${code}
-    }
+      // Execute code and capture output
+      const captureResult = await webR.evalR(`
+capture.output({
+  tryCatch({
+    ${code}
+  }, error = function(e) {
+    cat("Error:", conditionMessage(e), "\\n")
   })
-  list(
-    stdout = paste(output, collapse = "\\n"),
-    stderr = "",
-    result = if (exists("result")) as.character(result) else ""
-  )
-}, error = function(e) {
-  list(
-    stdout = "",
-    stderr = as.character(e),
-    result = NULL
-  )
 })
-`;
-
-      const output = await webR.evalR(wrappedCode);
-      const resultObj = await output.toJs();
+`);
       
-      if (resultObj) {
-        stdout = resultObj.stdout || '';
-        stderr = resultObj.stderr || '';
-        result = resultObj.result;
-      }
+      // Convert result to JS
+      const output = await captureResult.toArray();
+      stdout = output.map((line: any) => String(line)).join('\n');
+      
     } catch (error) {
       stderr = error instanceof Error ? error.message : String(error);
     }
