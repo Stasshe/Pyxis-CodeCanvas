@@ -31,15 +31,12 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
       const webRModule = await import('webr') as any;
       const { WebR } = webRModule;
       
-      // Use local WASM files from public directory
-      const basePath = (window as any).__NEXT_PUBLIC_BASE_PATH__ || '';
-      const baseUrl = `${window.location.origin}${basePath}/extensions/r-runtime/`;
+      // Use CDN for webR files (no need to copy to public)
+      context.logger.info('📦 Initializing webR from CDN');
       
-      context.logger.info(`📦 Loading webR from: ${baseUrl}`);
-      
-      // Initialize webR with configuration pointing to local files
+      // Initialize webR with default CDN configuration
       const webR = new WebR({
-        baseUrl: baseUrl,
+        baseUrl: 'https://webr.r-wasm.org/latest/',
         interactive: false,
       });
       

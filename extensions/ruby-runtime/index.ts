@@ -26,19 +26,17 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
     }
 
     try {
-      // Import ruby.wasm module - use default export
-      const rubyWasmModule = await import('@ruby/wasm-wasi');
-      const { DefaultRubyVM } = rubyWasmModule.default || rubyWasmModule;
+      // Use the browser build of ruby.wasm from CDN
+      const { DefaultRubyVM } = await import('https://cdn.jsdelivr.net/npm/@ruby/wasm-wasi@2.7.2/dist/browser.esm.js');
       
       if (!DefaultRubyVM) {
-        throw new Error('DefaultRubyVM not found in @ruby/wasm-wasi package');
+        throw new Error('DefaultRubyVM not found');
       }
       
-      // Fetch the WebAssembly module from CDN (Ruby WASM is not bundled in npm package)
-      // Using version 2.7.2 to match package.json dependency
-      const wasmUrl = 'https://cdn.jsdelivr.net/npm/@ruby/3.2-wasm-wasi@2.7.2/dist/ruby+stdlib.wasm';
+      context.logger.info('📦 Initializing Ruby from CDN');
       
-      context.logger.info(`📦 Loading Ruby WASM from: ${wasmUrl}`);
+      // Fetch the WebAssembly module from CDN
+      const wasmUrl = 'https://cdn.jsdelivr.net/npm/@ruby/3.2-wasm-wasi@2.7.2/dist/ruby+stdlib.wasm';
       
       const response = await fetch(wasmUrl);
       
