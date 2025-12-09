@@ -26,8 +26,8 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
     }
 
     try {
-      // Import ruby.wasm from CDN using dynamic import with full URL
-      const rubyWasmModule = await import('https://cdn.jsdelivr.net/npm/@ruby/wasm-wasi@2.7.2/dist/browser.esm.js');
+      // Import ruby.wasm from unpkg CDN
+      const rubyWasmModule = await import('https://unpkg.com/@ruby/wasm-wasi@2.7.2/dist/browser.esm.js');
       const { DefaultRubyVM } = rubyWasmModule;
       
       if (!DefaultRubyVM) {
