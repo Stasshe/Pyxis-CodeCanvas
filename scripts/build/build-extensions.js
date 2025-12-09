@@ -327,10 +327,6 @@ async function bundleWithEsbuild(entryPoint, outfile, extDir) {
         'rehype-katex',
         'rehype-raw',
         'katex',
-        // Keep runtime packages external - they will be loaded dynamically
-        'webr',
-        '@ruby/wasm-wasi',
-        'pyodide',
       ],
       loader: {
         '.ts': 'ts',

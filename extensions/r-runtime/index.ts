@@ -27,8 +27,9 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
     }
 
     try {
-      // Import webR module (bundled as external)
-      const { WebR } = await import('webr');
+      // Import webR from CDN using dynamic import with full URL
+      const webRModule = await import('https://cdn.jsdelivr.net/npm/webr@0.4.2/dist/webr.mjs');
+      const { WebR } = webRModule;
       
       context.logger.info('📦 Initializing webR');
       

@@ -2,8 +2,5 @@
   "name": "ruby-runtime",
   "version": "1.0.0",
   "private": true,
-  "description": "Ruby runtime extension using ruby.wasm",
-  "dependencies": {
-    "@ruby/wasm-wasi": "^2.5.0"
-  }
+  "description": "Ruby runtime extension using ruby.wasm from CDN"
 }
