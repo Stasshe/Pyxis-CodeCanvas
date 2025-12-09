@@ -1,0 +1,62 @@
+/**
+ * Custom build script for ruby-runtime extension
+ * Copies necessary WASM files from node_modules to public directory
+ */
+
+const fs = require('fs');
+const path = require('path');
+
+function copyWasmFiles(distDir) {
+  console.log('📦 Copying Ruby WASM files from node_modules...');
+  
+  try {
+    // Find the @ruby/wasm-wasi package in node_modules
+    const rootDir = path.resolve(__dirname, '..', '..');
+    const rubyWasmSrc = path.join(rootDir, 'node_modules', '@ruby', 'wasm-wasi', 'dist', 'esm');
+    
+    if (!fs.existsSync(rubyWasmSrc)) {
+      console.warn('⚠️  Ruby WASM package not found in node_modules');
+      return;
+    }
+    
+    // Create dist directory if it doesn't exist
+    fs.mkdirSync(distDir, { recursive: true });
+    
+    // Only copy .wasm files
+    const copyWasmFilesRecursive = (src, dest) => {
+      if (!fs.existsSync(src)) return;
+      
+      const entries = fs.readdirSync(src, { withFileTypes: true });
+      
+      for (const entry of entries) {
+        const srcPath = path.join(src, entry.name);
+        const destPath = path.join(dest, entry.name);
+        
+        if (entry.isDirectory()) {
+          copyWasmFilesRecursive(srcPath, destPath);
+        } else if (entry.name.endsWith('.wasm')) {
+          fs.mkdirSync(dest, { recursive: true });
+          fs.copyFileSync(srcPath, destPath);
+          console.log(`  ✅ Copied: ${path.relative(rootDir, destPath)}`);
+        }
+      }
+    };
+    
+    // Copy only .wasm files to the dist directory
+    copyWasmFilesRecursive(rubyWasmSrc, distDir);
+    
+    console.log('✅ Ruby WASM files copied successfully');
+  } catch (error) {
+    console.error('❌ Failed to copy Ruby WASM files:', error.message);
+    // Don't fail the build, just warn
+  }
+}
+
+// Main execution
+const distDir = process.argv[2];
+if (!distDir) {
+  console.error('❌ No dist directory provided');
+  process.exit(1);
+}
+
+copyWasmFiles(distDir);
