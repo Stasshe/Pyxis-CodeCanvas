@@ -27,14 +27,12 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
     }
 
     try {
-      // Import webR module
-      const webRModule = await import('webr') as any;
-      const { WebR } = webRModule;
+      // Import webR module (bundled as external)
+      const { WebR } = await import('webr');
       
-      // Use CDN for webR files (no need to copy to public)
-      context.logger.info('📦 Initializing webR from CDN');
+      context.logger.info('📦 Initializing webR');
       
-      // Initialize webR with default CDN configuration
+      // Use default CDN configuration
       const webR = new WebR({
         baseUrl: 'https://webr.r-wasm.org/latest/',
         interactive: false,
