@@ -131,20 +131,6 @@ function MyChartTab() {
 
 ---
 
-## registry.json 例
-
-```json
-{
-  "id": "pyxis.chart-extension",
-  "type": "ui",
-  "manifestUrl": "/extensions/chart-extension/manifest.json",
-  "defaultEnabled": false,
-  "recommended": false
-}
-```
-
----
-
 ## 型定義・API
 
 - `ExtensionContext`に`terminal`プロパティ追加
@@ -242,22 +228,8 @@ React.createElement('div', null, 'Hello')
 ## レジストリ
 
 `public/extensions/registry.json` には利用可能な拡張機能の一覧が含まれています。
-新しい拡張機能を追加したら、このファイルも更新してください。
-
-```json
-{
-  "version": "1.0.0",
-  "extensions": [
-    {
-      "id": "pyxis.my-extension",
-      "type": "service",
-      "manifestUrl": "/extensions/my-extension/manifest.json",
-      "defaultEnabled": false,
-      "recommended": false
-    }
-  ]
-}
-```
+このファイルは**ビルド時に自動生成**されるため、手動での編集は不要です。
+`pnpm run setup-build` を実行すると、`extensions/` ディレクトリ内の全拡張機能が自動的にスキャンされ、registry.jsonが生成されます。
 
 ## 技術スタック
 

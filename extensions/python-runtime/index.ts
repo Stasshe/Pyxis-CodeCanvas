@@ -473,6 +473,51 @@ del _pyxis_stdout
     },
   });
 
+  // Register 'python' terminal command
+  if (context.commands) {
+    context.commands.registerCommand('python', async (args: string[], cmdContext: any) => {
+      try {
+        if (args.length === 0) {
+          return 'Usage: python <file.py> or python -c "<code>"';
+        }
+
+        // Handle -c flag for inline code execution
+        if (args[0] === '-c') {
+          const code = args.slice(1).join(' ');
+          const result = await runPythonWithSync(code, cmdContext.projectId);
+          return result.stdout || result.stderr || '';
+        }
+
+        // Execute Python file
+        const filePath = args[0];
+        const fileRepository = await context.getSystemModule('fileRepository');
+        await fileRepository.init();
+        
+        // Normalize path
+        let normalizedPath = filePath;
+        if (!filePath.startsWith('/')) {
+          const relativeCurrent = cmdContext.currentDirectory.replace(`/projects/${cmdContext.projectName}`, '');
+          normalizedPath = relativeCurrent === '' 
+            ? `/${filePath}` 
+            : `${relativeCurrent}/${filePath}`;
+        } else {
+          normalizedPath = filePath.replace(`/projects/${cmdContext.projectName}`, '');
+        }
+
+        const file = await fileRepository.getFileByPath(cmdContext.projectId, normalizedPath);
+        if (!file || !file.content) {
+          return `Error: File not found: ${normalizedPath}`;
+        }
+
+        const result = await runPythonWithSync(file.content, cmdContext.projectId);
+        return result.stdout || result.stderr || '';
+      } catch (error) {
+        return `Error: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    });
+    context.logger.info('✅ Registered terminal command: python');
+  }
+
   context.logger.info('✅ Python Runtime Extension activated');
 
   return {};

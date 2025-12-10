@@ -192,7 +192,7 @@ pnpm run setup-build
 これにより:
 - TypeScript/TSXがバンドル済みJSに変換
 - `public/extensions/` にビルド済みファイルが配置
-- `registry.json` が自動更新
+- `public/extensions/registry.json` が自動生成・更新
 
 
 ### テスト
