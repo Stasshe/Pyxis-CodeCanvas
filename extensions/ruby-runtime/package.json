@@ -1,6 +1,0 @@
-{
-  "name": "ruby-runtime",
-  "version": "1.0.0",
-  "private": true,
-  "description": "Ruby runtime extension using ruby.wasm from CDN"
-}
