@@ -264,20 +264,10 @@ export async function handleGitCommand(
         const diffResult = await git.diff({ staged: true, filepath });
         await writeOutput(diffResult);
       } else if (diffArgs.length === 1 && !diffArgs[0].startsWith('-')) {
-        // Distinguish between branch name and file path
-        // File paths typically contain extensions or path separators
-        const arg = diffArgs[0];
-        const isFilePath = arg.includes('/') || arg.includes('.');
-        
-        if (isFilePath) {
-          // Treat as filepath
-          const diffResult = await git.diff({ filepath: arg });
-          await writeOutput(diffResult);
-        } else {
-          // Treat as branch name
-          const diffResult = await git.diff({ branchName: arg });
-          await writeOutput(diffResult);
-        }
+        // Treat single argument as branch name (e.g., git diff main)
+        const branchName = diffArgs[0];
+        const diffResult = await git.diff({ branchName });
+        await writeOutput(diffResult);
       } else if (
         diffArgs.length >= 2 &&
         !diffArgs[0].startsWith('-') &&
