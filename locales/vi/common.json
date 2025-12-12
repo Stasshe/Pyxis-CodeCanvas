@@ -205,6 +205,7 @@
   "markdownPreview": {
     "downloadSvg": "Tải SVG",
     "exportPdf": "Xuất PDF",
+    "exportPng": "Xuất PNG",
     "generatingMermaid": "Đang tạo biểu đồ Mermaid...",
     "imageNotFound": "Không tìm thấy hình: {src}",
     "loadingImage": "Đang tải hình...",

@@ -205,6 +205,7 @@
   "markdownPreview": {
     "downloadSvg": "SVG indir",
     "exportPdf": "PDF dışa aktar",
+    "exportPng": "PNG Dışa Aktar",
     "generatingMermaid": "Mermaid diyagramı oluşturuluyor...",
     "imageNotFound": "Resim bulunamadı: {src}",
     "loadingImage": "Resim yükleniyor...",

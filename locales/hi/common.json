@@ -205,6 +205,7 @@
   "markdownPreview": {
     "downloadSvg": "SVG डाउनलोड करें",
     "exportPdf": "PDF एक्सपोर्ट करें",
+    "exportPng": "PNG निर्यात करें",
     "generatingMermaid": "Mermaid आरेख बन रहा है...",
     "imageNotFound": "छवि नहीं मिली: {src}",
     "loadingImage": "छवि लोड हो रही है...",
