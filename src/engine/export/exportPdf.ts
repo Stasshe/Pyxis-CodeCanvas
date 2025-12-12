@@ -1,6 +1,9 @@
 import { jsPDF } from 'jspdf';
 import { toPng } from 'html-to-image';
 
+// High quality export setting for retina displays
+const HIGH_QUALITY_PIXEL_RATIO = 2;
+
 /**
  * Export HTML content as PDF using browser's print dialog
  * This method preserves text as actual text (searchable and selectable)
@@ -138,7 +141,7 @@ export async function exportPdfFromHtml(html: string, fileName: string = 'export
           }
         </style>
         <!-- Include KaTeX CSS if math formulas are present -->
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.25/dist/katex.min.css" integrity="sha384-Qj8TQXX0+PNDmKlqzYQXLlMH6Q3qAh9pAC3f+gGiVxBKxqKlqzYQXLlMH6Q3qAh9" crossorigin="anonymous">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.25/dist/katex.min.css" crossorigin="anonymous">
       </head>
       <body>
         <div class="print-button-container no-print">
@@ -175,7 +178,7 @@ export async function exportPngFromElement(element: HTMLElement, fileName: strin
     // Generate PNG from the element
     const dataUrl = await toPng(element, {
       quality: 1.0,
-      pixelRatio: 2, // Higher quality (retina display)
+      pixelRatio: HIGH_QUALITY_PIXEL_RATIO,
       backgroundColor: '#ffffff',
       cacheBust: true,
     });
@@ -241,7 +244,7 @@ export async function exportPdfFromHtmlCanvas(html: string, fileName: string = '
     // Convert to PNG first
     const dataUrl = await toPng(element, {
       quality: 1.0,
-      pixelRatio: 2,
+      pixelRatio: HIGH_QUALITY_PIXEL_RATIO,
       backgroundColor: '#ffffff',
       cacheBust: true,
     });

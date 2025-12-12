@@ -227,7 +227,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
     [processedContent, markdownComponentsPlain]
   );
 
-  // PDFエクスポート処理
+  // PDF export processing
   const handleExportPdf = useCallback(async () => {
     if (typeof window === 'undefined') return;
     const container = document.createElement('div');
@@ -263,12 +263,12 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
         document.body.removeChild(container);
       }, 300);
     } catch (err) {
-      console.error('PDFエクスポート中にエラーが発生しました', err);
+      console.error('Error occurred during PDF export', err);
       if (document.body.contains(container)) document.body.removeChild(container);
     }
   }, [markdownContentPlain, activeTab.name, colors]);
 
-  // PNGエクスポート処理
+  // PNG export processing
   const handleExportPng = useCallback(async () => {
     if (typeof window === 'undefined') return;
     const container = markdownContainerRef.current?.querySelector('.markdown-body');
@@ -280,7 +280,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
     try {
       await exportPngFromElement(container, (activeTab.name || 'document').replace(/\.[^/.]+$/, '') + '.png');
     } catch (err) {
-      console.error('PNGエクスポート中にエラーが発生しました', err);
+      console.error('Error occurred during PNG export', err);
     }
   }, [activeTab.name]);
 
