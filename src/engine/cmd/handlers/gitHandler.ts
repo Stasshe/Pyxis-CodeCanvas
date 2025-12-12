@@ -233,21 +233,26 @@ export async function handleGitCommand(
         }
       } else if (args[1]) {
         // Check if args[1] looks like a file path or a commit reference
-        // File paths typically contain extensions or path separators
-        const isFilePath = args[1].includes('/') || args[1].includes('.') || args[1].startsWith('--');
+        // Try to parse as commit first, fall back to filepath if it fails
+        const arg = args[1];
         
-        if (isFilePath || args[1].startsWith('--')) {
-          // Treat as filepath for unstaging
-          const filepath = args[1].startsWith('--') ? undefined : args[1];
-          const resetResult = await git.reset({ filepath });
+        // Skip if it's a flag
+        if (arg.startsWith('--')) {
+          const resetResult = await git.reset();
           await writeOutput(resetResult);
         } else {
-          // Treat as commit hash for soft reset
+          // Try as commit reference first
           try {
-            const resetResult = await git.reset({ commit: args[1] });
+            const resetResult = await git.reset({ commit: arg });
             await writeOutput(resetResult);
-          } catch (error) {
-            await writeOutput(`git reset: ${(error as Error).message}`);
+          } catch (commitError) {
+            // If commit fails, try as filepath
+            try {
+              const resetResult = await git.reset({ filepath: arg });
+              await writeOutput(resetResult);
+            } catch (fileError) {
+              await writeOutput(`git reset: ${(commitError as Error).message}`);
+            }
           }
         }
       } else {
