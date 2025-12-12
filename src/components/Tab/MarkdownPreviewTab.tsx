@@ -103,36 +103,6 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
     [colors, currentProject?.name, currentProject?.id, activeTab]
   );
 
-  // PDFエクスポート用: plain=trueを渡す
-  const markdownComponentsPlain = useMemo<Partial<Components>>(
-    () => ({
-      code: ({ className, children, ...props }) => {
-        const match = /language-(\w+)/.exec(className || '');
-        const codeString = String(children).replace(/\n$/, '').trim();
-        if (match && match[1] === 'mermaid') {
-          return <Mermaid chart={codeString} colors={colors} />;
-        }
-        return <InlineHighlightedCode language={match ? match[1] : ''} value={codeString} plain={true} {...props} />;
-      },
-      img: ({ src, alt, ...props }) => {
-        const srcString = typeof src === 'string' ? src : '';
-        return (
-          <LocalImage
-            src={srcString}
-            alt={alt || ''}
-            projectName={currentProject?.name}
-            projectId={currentProject?.id}
-            activeTab={activeTab}
-            // Pass base path for resolution inside markdown files
-            baseFilePath={activeTab.path}
-            {...props}
-          />
-        );
-      },
-    }),
-    [colors, currentProject?.name, currentProject?.id, activeTab]
-  );
-
   // Preprocess the raw markdown to convert bracket-style math delimiters
   // into dollar-style, while skipping code fences and inline code.
   // For 'bracket' mode: escape dollar signs so they don't get processed as math
@@ -213,19 +183,22 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
     [processedContent, markdownComponents, extraRemarkPlugins]
   );
 
-  // PDF用
-  const markdownContentPlain = useMemo(
-    () => (
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeKatex, rehypeRaw]}
-        components={markdownComponentsPlain}
-      >
-        {processedContent}
-      </ReactMarkdown>
-    ),
-    [processedContent, markdownComponentsPlain]
-  );
+  /**
+   * Apply export-friendly styles to an element
+   * Forces white background and black text for all elements
+   */
+  const applyExportStyles = useCallback((element: HTMLElement) => {
+    element.style.backgroundColor = '#ffffff';
+    element.style.color = '#000000';
+    
+    // Override all text colors to black for better readability
+    const allElements = Array.from(element.getElementsByTagName('*'));
+    for (const el of allElements) {
+      if (el instanceof HTMLElement) {
+        el.style.color = '#000000';
+      }
+    }
+  }, []);
 
   // PDF export processing
   const handleExportPdf = useCallback(async () => {
@@ -241,23 +214,15 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
     // Clone the element to avoid modifying the original
     const clone = markdownElement.cloneNode(true) as HTMLElement;
     
-    // Override colors for PDF export
-    clone.style.backgroundColor = '#ffffff';
-    clone.style.color = '#000000';
-    
-    // Override all text colors to black for better PDF readability
-    const allElements = clone.getElementsByTagName('*');
-    for (let i = 0; i < allElements.length; i++) {
-      const el = allElements[i] as HTMLElement;
-      el.style.color = '#000000';
-    }
+    // Apply export styles
+    applyExportStyles(clone);
     
     // Get the HTML content
     const htmlContent = clone.outerHTML;
     
     // Export to PDF
     await exportPdfFromHtml(htmlContent, (activeTab.name || 'document').replace(/\.[^/.]+$/, '') + '.pdf');
-  }, [activeTab.name]);
+  }, [activeTab.name, applyExportStyles]);
 
   // PNG export processing
   const handleExportPng = useCallback(async () => {
@@ -271,15 +236,9 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
     try {
       // Clone the element and override styles for export
       const clone = container.cloneNode(true) as HTMLElement;
-      clone.style.backgroundColor = '#ffffff';
-      clone.style.color = '#000000';
       
-      // Override all text colors to black
-      const allElements = clone.getElementsByTagName('*');
-      for (let i = 0; i < allElements.length; i++) {
-        const el = allElements[i] as HTMLElement;
-        el.style.color = '#000000';
-      }
+      // Apply export styles
+      applyExportStyles(clone);
       
       // Temporarily add to document for rendering
       clone.style.position = 'absolute';
@@ -295,7 +254,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
     } catch (err) {
       console.error('Error occurred during PNG export', err);
     }
-  }, [activeTab.name]);
+  }, [activeTab.name, applyExportStyles]);
 
   // 自動スクロール: 新しいコンテンツが「末尾に追記」された場合のみスクロールする
   useEffect(() => {
