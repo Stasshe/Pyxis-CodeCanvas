@@ -9,7 +9,7 @@ import 'katex/dist/katex.min.css';
 
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme, ThemeContext } from '@/context/ThemeContext';
-import { exportPdfFromHtml } from '@/engine/export/exportPdf';
+import { exportPdfFromHtml, exportPngFromElement } from '@/engine/export/exportPdf';
 import type { EditorTab, PreviewTab } from '@/engine/tabs/types';
 import { useSettings } from '@/hooks/useSettings';
 import { useTabStore } from '@/stores/tabStore';
@@ -231,7 +231,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
   const handleExportPdf = useCallback(async () => {
     if (typeof window === 'undefined') return;
     const container = document.createElement('div');
-    container.style.background = colors.background;
+    container.style.background = '#ffffff';
     container.style.color = '#000';
     container.className = 'markdown-body prose prose-github max-w-none';
     document.body.appendChild(container);
@@ -241,7 +241,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
       root.render(
         <ThemeContext.Provider
           value={{
-            colors,
+            colors: { ...colors, background: '#ffffff', foreground: '#000000' },
             setColor: () => {},
             setColors: () => {},
             themeName: 'pdf',
@@ -252,11 +252,9 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
           {markdownContentPlain}
         </ThemeContext.Provider>
       );
-      setTimeout(() => {
-        container.innerHTML =
-          '<style>body, .markdown-body, .prose, .prose-github, .markdown-body * { color: #000 !important; }</style>' +
-          container.innerHTML;
-        exportPdfFromHtml(container.innerHTML, (activeTab.name || 'document').replace(/\.[^/.]+$/, '') + '.pdf');
+      setTimeout(async () => {
+        // Use the new print-based PDF export for better text preservation
+        await exportPdfFromHtml(container.innerHTML, (activeTab.name || 'document').replace(/\.[^/.]+$/, '') + '.pdf');
         try {
           root.unmount();
         } catch {
@@ -269,6 +267,22 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
       if (document.body.contains(container)) document.body.removeChild(container);
     }
   }, [markdownContentPlain, activeTab.name, colors]);
+
+  // PNGエクスポート処理
+  const handleExportPng = useCallback(async () => {
+    if (typeof window === 'undefined') return;
+    const container = markdownContainerRef.current?.querySelector('.markdown-body');
+    if (!container || !(container instanceof HTMLElement)) {
+      console.error('Markdown container not found');
+      return;
+    }
+    
+    try {
+      await exportPngFromElement(container, (activeTab.name || 'document').replace(/\.[^/.]+$/, '') + '.png');
+    } catch (err) {
+      console.error('PNGエクスポート中にエラーが発生しました', err);
+    }
+  }, [activeTab.name]);
 
   // 自動スクロール: 新しいコンテンツが「末尾に追記」された場合のみスクロールする
   useEffect(() => {
@@ -336,6 +350,14 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
           title={t('markdownPreview.exportPdf')}
         >
           {t('markdownPreview.exportPdf')}
+        </button>
+        <button
+          type="button"
+          className="px-2 py-1 rounded bg-blue-500 text-white text-xs hover:bg-blue-600 transition ml-2"
+          onClick={handleExportPng}
+          title={t('markdownPreview.exportPng')}
+        >
+          {t('markdownPreview.exportPng')}
         </button>
       </div>
       <div

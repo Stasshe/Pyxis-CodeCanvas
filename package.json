@@ -42,8 +42,9 @@
     "crypto-browserify": "^3.12.1",
     "diff": "^8.0.2",
     "error-stack-parser": "^2.1.4",
-    "html2pdf.js": "^0.12.1",
+    "html-to-image": "^1.11.13",
     "isomorphic-git": "^1.35.1",
+    "jspdf": "^3.0.4",
     "jszip": "^3.10.1",
     "katex": "^0.16.25",
     "lucide-react": "^0.546.0",
@@ -76,7 +77,6 @@
   "devDependencies": {
     "@babel/helper-plugin-utils": "^7.27.1",
     "@tailwindcss/postcss": "^4.1.17",
-    "@types/html2pdf.js": "^0.10.0",
     "@types/jest": "29.5.3",
     "@types/node": "^20.19.25",
     "@types/pako": "^2.0.4",
