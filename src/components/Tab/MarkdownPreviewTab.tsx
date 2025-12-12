@@ -244,9 +244,16 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
     try {
       // Clone the element and override styles for export
       const clone = container.cloneNode(true) as HTMLElement;
+      clone.style.backgroundColor = '#ffffff';
+      clone.style.color = '#000000';
       
-      // Apply export styles
-      applyExportStyles(clone);
+      // Override all text colors to black
+      const allElements = Array.from(clone.getElementsByTagName('*'));
+      for (const el of allElements) {
+        if (el instanceof HTMLElement) {
+          el.style.color = '#000000';
+        }
+      }
       
       // Temporarily add to document for rendering
       clone.style.position = 'absolute';
@@ -262,7 +269,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
     } catch (err) {
       console.error('Error occurred during PNG export', err);
     }
-  }, [activeTab.name, applyExportStyles]);
+  }, [activeTab.name]);
 
   // 自動スクロール: 新しいコンテンツが「末尾に追記」された場合のみスクロールする
   useEffect(() => {
