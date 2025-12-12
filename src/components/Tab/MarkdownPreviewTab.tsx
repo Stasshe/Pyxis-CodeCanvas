@@ -230,43 +230,34 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
   // PDF export processing
   const handleExportPdf = useCallback(async () => {
     if (typeof window === 'undefined') return;
-    const container = document.createElement('div');
-    container.style.background = '#ffffff';
-    container.style.color = '#000';
-    container.className = 'markdown-body prose prose-github max-w-none';
-    document.body.appendChild(container);
-    try {
-      const ReactDOMClient = await import('react-dom/client');
-      const root = ReactDOMClient.createRoot(container);
-      root.render(
-        <ThemeContext.Provider
-          value={{
-            colors: { ...colors, background: '#ffffff', foreground: '#000000' },
-            setColor: () => {},
-            setColors: () => {},
-            themeName: 'pdf',
-            setTheme: () => {},
-            themeList: [],
-          }}
-        >
-          {markdownContentPlain}
-        </ThemeContext.Provider>
-      );
-      setTimeout(async () => {
-        // Use the new print-based PDF export for better text preservation
-        await exportPdfFromHtml(container.innerHTML, (activeTab.name || 'document').replace(/\.[^/.]+$/, '') + '.pdf');
-        try {
-          root.unmount();
-        } catch {
-          /* ignore */
-        }
-        document.body.removeChild(container);
-      }, 300);
-    } catch (err) {
-      console.error('Error occurred during PDF export', err);
-      if (document.body.contains(container)) document.body.removeChild(container);
+    
+    // Get the rendered markdown content directly from the DOM
+    const markdownElement = markdownContainerRef.current?.querySelector('.markdown-body');
+    if (!markdownElement) {
+      console.error('Markdown content not found');
+      return;
     }
-  }, [markdownContentPlain, activeTab.name, colors]);
+    
+    // Clone the element to avoid modifying the original
+    const clone = markdownElement.cloneNode(true) as HTMLElement;
+    
+    // Override colors for PDF export
+    clone.style.backgroundColor = '#ffffff';
+    clone.style.color = '#000000';
+    
+    // Override all text colors to black for better PDF readability
+    const allElements = clone.getElementsByTagName('*');
+    for (let i = 0; i < allElements.length; i++) {
+      const el = allElements[i] as HTMLElement;
+      el.style.color = '#000000';
+    }
+    
+    // Get the HTML content
+    const htmlContent = clone.outerHTML;
+    
+    // Export to PDF
+    await exportPdfFromHtml(htmlContent, (activeTab.name || 'document').replace(/\.[^/.]+$/, '') + '.pdf');
+  }, [activeTab.name]);
 
   // PNG export processing
   const handleExportPng = useCallback(async () => {
@@ -278,7 +269,29 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
     }
     
     try {
-      await exportPngFromElement(container, (activeTab.name || 'document').replace(/\.[^/.]+$/, '') + '.png');
+      // Clone the element and override styles for export
+      const clone = container.cloneNode(true) as HTMLElement;
+      clone.style.backgroundColor = '#ffffff';
+      clone.style.color = '#000000';
+      
+      // Override all text colors to black
+      const allElements = clone.getElementsByTagName('*');
+      for (let i = 0; i < allElements.length; i++) {
+        const el = allElements[i] as HTMLElement;
+        el.style.color = '#000000';
+      }
+      
+      // Temporarily add to document for rendering
+      clone.style.position = 'absolute';
+      clone.style.left = '-9999px';
+      clone.style.top = '0';
+      document.body.appendChild(clone);
+      
+      try {
+        await exportPngFromElement(clone, (activeTab.name || 'document').replace(/\.[^/.]+$/, '') + '.png');
+      } finally {
+        document.body.removeChild(clone);
+      }
     } catch (err) {
       console.error('Error occurred during PNG export', err);
     }
