@@ -139,8 +139,8 @@ export class GitDiffOperations {
           } catch (error) {
             console.warn(`Failed to generate diff for ${file}:`, error);
           }
-        } else if (HEAD === 0 && workdir === 1) {
-          // 新規ファイル
+        } else if (HEAD === 0 && (workdir === 1 || workdir === 2)) {
+          // 新規ファイル - workdir が 1 または 2 の場合
           try {
             let workContent = '';
             try {
