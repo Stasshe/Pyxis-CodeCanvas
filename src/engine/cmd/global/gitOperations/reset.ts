@@ -199,15 +199,38 @@ export class GitResetOperations {
         );
       }
 
-      // ソフトリセットはステージングエリアをクリア
-      // isomorphic-gitではgit.checkoutを使用してインデックスを更新
+      // 現在のブランチを取得
+      let currentBranch: string;
       try {
-        await git.checkout({ fs: this.fs, dir: this.dir, ref: targetOid });
+        currentBranch =
+          (await git.currentBranch({
+            fs: this.fs,
+            dir: this.dir,
+            fullname: true,
+          })) || 'HEAD';
       } catch {
-        console.error('Failed to perform soft reset checkout');
+        currentBranch = 'HEAD';
       }
 
-      return 'Unstaged changes after reset';
+      // ソフトリセット: HEADを指定したコミットに移動
+      await git.writeRef({
+        fs: this.fs,
+        dir: this.dir,
+        ref: currentBranch,
+        value: targetOid,
+        force: true,
+      });
+
+      // コミット情報を取得して表示
+      const targetCommit = await git.readCommit({
+        fs: this.fs,
+        dir: this.dir,
+        oid: targetOid,
+      });
+
+      const shortHash = targetOid.slice(0, 7);
+      const commitMessage = targetCommit.commit.message.split('\n')[0];
+      return `HEAD is now at ${shortHash} ${commitMessage}`;
     } catch (error) {
       const errorMessage = (error as Error).message;
 

@@ -232,8 +232,30 @@ export async function handleGitCommand(
           await writeOutput(`git reset: ${(error as Error).message}`);
         }
       } else if (args[1]) {
-        const resetResult = await git.reset({ filepath: args[1] });
-        await writeOutput(resetResult);
+        // Check if args[1] looks like a file path or a commit reference
+        // Try to parse as commit first, fall back to filepath if it fails
+        const arg = args[1];
+        
+        // Skip if it's a flag
+        if (arg.startsWith('--')) {
+          const resetResult = await git.reset();
+          await writeOutput(resetResult);
+        } else {
+          // Try as commit reference first
+          try {
+            const resetResult = await git.reset({ commit: arg });
+            await writeOutput(resetResult);
+          } catch (commitError) {
+            // If commit fails, try as filepath
+            try {
+              const resetResult = await git.reset({ filepath: arg });
+              await writeOutput(resetResult);
+            } catch (fileError) {
+              // Both attempts failed, report a helpful error message
+              await writeOutput(`git reset: unable to resolve '${arg}' as either a commit reference or filepath\nCommit error: ${(commitError as Error).message}\nFile error: ${(fileError as Error).message}`);
+            }
+          }
+        }
       } else {
         const resetResult = await git.reset();
         await writeOutput(resetResult);
@@ -248,6 +270,7 @@ export async function handleGitCommand(
         const diffResult = await git.diff({ staged: true, filepath });
         await writeOutput(diffResult);
       } else if (diffArgs.length === 1 && !diffArgs[0].startsWith('-')) {
+        // Treat single argument as branch name (e.g., git diff main)
         const branchName = diffArgs[0];
         const diffResult = await git.diff({ branchName });
         await writeOutput(diffResult);
