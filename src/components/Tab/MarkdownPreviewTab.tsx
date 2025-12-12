@@ -242,32 +242,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
     }
     
     try {
-      // Clone the element and override styles for export
-      const clone = container.cloneNode(true) as HTMLElement;
-      clone.style.backgroundColor = '#ffffff';
-      clone.style.color = '#000000';
-      
-      // Override all text colors to black
-      const allElements = Array.from(clone.getElementsByTagName('*'));
-      for (const el of allElements) {
-        if (el instanceof HTMLElement) {
-          el.style.color = '#000000';
-        }
-      }
-      
-      // Temporarily add to document for rendering
-      clone.style.position = 'absolute';
-      clone.style.left = '-9999px';
-      clone.style.top = '0';
-      document.body.appendChild(clone);
-      
-      try {
-        // Wait for the browser to render the element before capturing
-        await new Promise(resolve => setTimeout(resolve, 100));
-        await exportPngFromElement(clone, (activeTab.name || 'document').replace(/\.[^/.]+$/, '') + '.png');
-      } finally {
-        document.body.removeChild(clone);
-      }
+      await exportPngFromElement(container, (activeTab.name || 'document').replace(/\.[^/.]+$/, '') + '.png');
     } catch (err) {
       console.error('Error occurred during PNG export', err);
     }
