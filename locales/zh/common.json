@@ -205,6 +205,7 @@
   "markdownPreview": {
     "downloadSvg": "下载 SVG",
     "exportPdf": "导出 PDF",
+    "exportPng": "导出PNG",
     "generatingMermaid": "正在生成 Mermaid 图表...",
     "imageNotFound": "未找到图片：{src}",
     "loadingImage": "正在加载图片...",

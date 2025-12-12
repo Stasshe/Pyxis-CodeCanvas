@@ -205,6 +205,7 @@
   "markdownPreview": {
     "downloadSvg": "Descargar SVG",
     "exportPdf": "Exportar PDF",
+    "exportPng": "Exportar PNG",
     "generatingMermaid": "Generando diagrama Mermaid...",
     "imageNotFound": "Imagen no encontrada: {src}",
     "loadingImage": "Cargando imagen...",

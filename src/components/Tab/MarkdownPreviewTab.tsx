@@ -9,7 +9,7 @@ import 'katex/dist/katex.min.css';
 
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme, ThemeContext } from '@/context/ThemeContext';
-import { exportPdfFromHtml } from '@/engine/export/exportPdf';
+import { exportPdfFromHtml, exportPngFromElement } from '@/engine/export/exportPdf';
 import type { EditorTab, PreviewTab } from '@/engine/tabs/types';
 import { useSettings } from '@/hooks/useSettings';
 import { useTabStore } from '@/stores/tabStore';
@@ -103,36 +103,6 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
     [colors, currentProject?.name, currentProject?.id, activeTab]
   );
 
-  // PDFエクスポート用: plain=trueを渡す
-  const markdownComponentsPlain = useMemo<Partial<Components>>(
-    () => ({
-      code: ({ className, children, ...props }) => {
-        const match = /language-(\w+)/.exec(className || '');
-        const codeString = String(children).replace(/\n$/, '').trim();
-        if (match && match[1] === 'mermaid') {
-          return <Mermaid chart={codeString} colors={colors} />;
-        }
-        return <InlineHighlightedCode language={match ? match[1] : ''} value={codeString} plain={true} {...props} />;
-      },
-      img: ({ src, alt, ...props }) => {
-        const srcString = typeof src === 'string' ? src : '';
-        return (
-          <LocalImage
-            src={srcString}
-            alt={alt || ''}
-            projectName={currentProject?.name}
-            projectId={currentProject?.id}
-            activeTab={activeTab}
-            // Pass base path for resolution inside markdown files
-            baseFilePath={activeTab.path}
-            {...props}
-          />
-        );
-      },
-    }),
-    [colors, currentProject?.name, currentProject?.id, activeTab]
-  );
-
   // Preprocess the raw markdown to convert bracket-style math delimiters
   // into dollar-style, while skipping code fences and inline code.
   // For 'bracket' mode: escape dollar signs so they don't get processed as math
@@ -213,62 +183,70 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
     [processedContent, markdownComponents, extraRemarkPlugins]
   );
 
-  // PDF用
-  const markdownContentPlain = useMemo(
-    () => (
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeKatex, rehypeRaw]}
-        components={markdownComponentsPlain}
-      >
-        {processedContent}
-      </ReactMarkdown>
-    ),
-    [processedContent, markdownComponentsPlain]
-  );
+  /**
+   * Apply export-friendly styles to an element
+   * Forces white background and black text for all elements
+   * Special handling for code blocks to ensure visibility
+   */
+  const applyExportStyles = useCallback((element: HTMLElement) => {
+    element.style.backgroundColor = '#ffffff';
+    element.style.color = '#000000';
+    
+    // Override all element colors for better readability
+    const allElements = Array.from(element.getElementsByTagName('*'));
+    for (const el of allElements) {
+      if (el instanceof HTMLElement) {
+        // Set text color to black
+        el.style.color = '#000000';
+        
+        // For code blocks and pre elements, ensure light background
+        if (el.tagName === 'PRE' || el.tagName === 'CODE') {
+          el.style.backgroundColor = '#f6f8fa';
+          el.style.color = '#24292f';
+        }
+      }
+    }
+  }, []);
 
-  // PDFエクスポート処理
+  // PDF export processing
   const handleExportPdf = useCallback(async () => {
     if (typeof window === 'undefined') return;
-    const container = document.createElement('div');
-    container.style.background = colors.background;
-    container.style.color = '#000';
-    container.className = 'markdown-body prose prose-github max-w-none';
-    document.body.appendChild(container);
-    try {
-      const ReactDOMClient = await import('react-dom/client');
-      const root = ReactDOMClient.createRoot(container);
-      root.render(
-        <ThemeContext.Provider
-          value={{
-            colors,
-            setColor: () => {},
-            setColors: () => {},
-            themeName: 'pdf',
-            setTheme: () => {},
-            themeList: [],
-          }}
-        >
-          {markdownContentPlain}
-        </ThemeContext.Provider>
-      );
-      setTimeout(() => {
-        container.innerHTML =
-          '<style>body, .markdown-body, .prose, .prose-github, .markdown-body * { color: #000 !important; }</style>' +
-          container.innerHTML;
-        exportPdfFromHtml(container.innerHTML, (activeTab.name || 'document').replace(/\.[^/.]+$/, '') + '.pdf');
-        try {
-          root.unmount();
-        } catch {
-          /* ignore */
-        }
-        document.body.removeChild(container);
-      }, 300);
-    } catch (err) {
-      console.error('PDFエクスポート中にエラーが発生しました', err);
-      if (document.body.contains(container)) document.body.removeChild(container);
+    
+    // Get the rendered markdown content directly from the DOM
+    const markdownElement = markdownContainerRef.current?.querySelector('.markdown-body');
+    if (!markdownElement) {
+      console.error('Markdown content not found');
+      return;
     }
-  }, [markdownContentPlain, activeTab.name, colors]);
+    
+    // Clone the element to avoid modifying the original
+    const clone = markdownElement.cloneNode(true) as HTMLElement;
+    
+    // Apply export styles
+    applyExportStyles(clone);
+    
+    // Get the HTML content
+    const htmlContent = clone.outerHTML;
+    
+    // Export to PDF
+    await exportPdfFromHtml(htmlContent, (activeTab.name || 'document').replace(/\.[^/.]+$/, '') + '.pdf');
+  }, [activeTab.name, applyExportStyles]);
+
+  // PNG export processing
+  const handleExportPng = useCallback(async () => {
+    if (typeof window === 'undefined') return;
+    const container = markdownContainerRef.current?.querySelector('.markdown-body');
+    if (!container || !(container instanceof HTMLElement)) {
+      console.error('Markdown container not found');
+      return;
+    }
+    
+    try {
+      await exportPngFromElement(container, (activeTab.name || 'document').replace(/\.[^/.]+$/, '') + '.png');
+    } catch (err) {
+      console.error('Error occurred during PNG export', err);
+    }
+  }, [activeTab.name]);
 
   // 自動スクロール: 新しいコンテンツが「末尾に追記」された場合のみスクロールする
   useEffect(() => {
@@ -336,6 +314,14 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
           title={t('markdownPreview.exportPdf')}
         >
           {t('markdownPreview.exportPdf')}
+        </button>
+        <button
+          type="button"
+          className="px-2 py-1 rounded bg-blue-500 text-white text-xs hover:bg-blue-600 transition ml-2"
+          onClick={handleExportPng}
+          title={t('markdownPreview.exportPng')}
+        >
+          {t('markdownPreview.exportPng')}
         </button>
       </div>
       <div
