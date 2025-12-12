@@ -262,6 +262,8 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
       document.body.appendChild(clone);
       
       try {
+        // Wait for the browser to render the element before capturing
+        await new Promise(resolve => setTimeout(resolve, 100));
         await exportPngFromElement(clone, (activeTab.name || 'document').replace(/\.[^/.]+$/, '') + '.png');
       } finally {
         document.body.removeChild(clone);
