@@ -251,7 +251,8 @@ export async function handleGitCommand(
               const resetResult = await git.reset({ filepath: arg });
               await writeOutput(resetResult);
             } catch (fileError) {
-              await writeOutput(`git reset: ${(commitError as Error).message}`);
+              // Both attempts failed, report a helpful error message
+              await writeOutput(`git reset: unable to resolve '${arg}' as either a commit reference or filepath\nCommit error: ${(commitError as Error).message}\nFile error: ${(fileError as Error).message}`);
             }
           }
         }
