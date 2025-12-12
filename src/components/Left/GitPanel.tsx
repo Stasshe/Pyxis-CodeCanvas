@@ -37,6 +37,7 @@ export default function GitPanel({
   const [error, setError] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
 
   // [NEW ARCHITECTURE] Diff タブハンドラー
   const { handleDiffFileClick, handleDiffAllFilesClick } = useDiffTabHandlers({
@@ -489,13 +490,20 @@ export default function GitPanel({
   const handleGenerateCommitMessage = async () => {
     if (!gitCommands || !apiKey) return;
     setIsGenerating(true);
+    setGenerateError(null);
     try {
       // 実際のdiff内容を取得
       const diffText = await gitCommands.diff({ staged: false });
+
+      if (!diffText || diffText.trim() === '') {
+        throw new Error('変更内容がありません。ファイルを変更してからお試しください。');
+      }
+
       const message = await generateCommitMessage(diffText, apiKey);
       setCommitMessage(message);
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Gemini APIエラー');
+      console.error('Failed to generate commit message:', error);
+      setGenerateError(error instanceof Error ? error.message : 'Gemini APIエラー');
     } finally {
       setIsGenerating(false);
     }
@@ -807,6 +815,22 @@ export default function GitPanel({
               {isCommitting ? t('git.committing') : t('git.commit')}
             </button>
           </div>
+          {/* エラー表示（インライン） */}
+          {generateError && (
+            <div
+              style={{
+                marginTop: '0.5rem',
+                padding: '0.5rem',
+                background: `${colors.red}20`,
+                border: `1px solid ${colors.red}`,
+                borderRadius: '0.375rem',
+                fontSize: '0.75rem',
+                color: colors.red,
+              }}
+            >
+              {generateError}
+            </div>
+          )}
         </div>
       )}
 

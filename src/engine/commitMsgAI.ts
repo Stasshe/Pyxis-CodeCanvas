@@ -1,5 +1,5 @@
 const GEMINI_API_URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
 export async function generateCommitMessage(diff: string, apiKey: string): Promise<string> {
   if (!apiKey) throw new Error('Gemini API key is missing');
@@ -10,11 +10,30 @@ export async function generateCommitMessage(diff: string, apiKey: string): Promi
     const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 2048,
+        },
+      }),
     });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        `HTTP error! status: ${response.status}${errorData.error?.message ? ` - ${errorData.error.message}` : ''}`
+      );
+    }
+
     const data = await response.json();
     const result = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    return result || '';
+
+    if (!result) {
+      throw new Error('No response from Gemini API');
+    }
+
+    return result;
   } catch (error) {
     throw new Error('Gemini API error: ' + (error as Error).message);
   }
