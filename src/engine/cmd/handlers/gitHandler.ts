@@ -232,8 +232,24 @@ export async function handleGitCommand(
           await writeOutput(`git reset: ${(error as Error).message}`);
         }
       } else if (args[1]) {
-        const resetResult = await git.reset({ filepath: args[1] });
-        await writeOutput(resetResult);
+        // Check if args[1] looks like a file path or a commit reference
+        // File paths typically contain extensions or path separators
+        const isFilePath = args[1].includes('/') || args[1].includes('.') || args[1].startsWith('--');
+        
+        if (isFilePath || args[1].startsWith('--')) {
+          // Treat as filepath for unstaging
+          const filepath = args[1].startsWith('--') ? undefined : args[1];
+          const resetResult = await git.reset({ filepath });
+          await writeOutput(resetResult);
+        } else {
+          // Treat as commit hash for soft reset
+          try {
+            const resetResult = await git.reset({ commit: args[1] });
+            await writeOutput(resetResult);
+          } catch (error) {
+            await writeOutput(`git reset: ${(error as Error).message}`);
+          }
+        }
       } else {
         const resetResult = await git.reset();
         await writeOutput(resetResult);
@@ -248,9 +264,20 @@ export async function handleGitCommand(
         const diffResult = await git.diff({ staged: true, filepath });
         await writeOutput(diffResult);
       } else if (diffArgs.length === 1 && !diffArgs[0].startsWith('-')) {
-        const branchName = diffArgs[0];
-        const diffResult = await git.diff({ branchName });
-        await writeOutput(diffResult);
+        // Distinguish between branch name and file path
+        // File paths typically contain extensions or path separators
+        const arg = diffArgs[0];
+        const isFilePath = arg.includes('/') || arg.includes('.');
+        
+        if (isFilePath) {
+          // Treat as filepath
+          const diffResult = await git.diff({ filepath: arg });
+          await writeOutput(diffResult);
+        } else {
+          // Treat as branch name
+          const diffResult = await git.diff({ branchName: arg });
+          await writeOutput(diffResult);
+        }
       } else if (
         diffArgs.length >= 2 &&
         !diffArgs[0].startsWith('-') &&
