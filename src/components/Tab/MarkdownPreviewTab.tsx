@@ -186,16 +186,24 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
   /**
    * Apply export-friendly styles to an element
    * Forces white background and black text for all elements
+   * Special handling for code blocks to ensure visibility
    */
   const applyExportStyles = useCallback((element: HTMLElement) => {
     element.style.backgroundColor = '#ffffff';
     element.style.color = '#000000';
     
-    // Override all text colors to black for better readability
+    // Override all element colors for better readability
     const allElements = Array.from(element.getElementsByTagName('*'));
     for (const el of allElements) {
       if (el instanceof HTMLElement) {
+        // Set text color to black
         el.style.color = '#000000';
+        
+        // For code blocks and pre elements, ensure light background
+        if (el.tagName === 'PRE' || el.tagName === 'CODE') {
+          el.style.backgroundColor = '#f6f8fa';
+          el.style.color = '#24292f';
+        }
       }
     }
   }, []);
