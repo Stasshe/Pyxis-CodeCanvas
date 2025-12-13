@@ -120,6 +120,26 @@ export class GitCommands {
     return this.executeGitOperation(async () => {
       await this.ensureProjectDirectory();
       await git.init({ fs: this.fs, dir: this.dir, defaultBranch: 'main' });
+      
+      // ファイルシステムの同期を確実にする（.gitフォルダの永続化）
+      if ((this.fs as any).sync) {
+        try {
+          await (this.fs as any).sync();
+          console.log('[git.init] FileSystem synced after git init');
+        } catch (syncError) {
+          console.warn('[git.init] FileSystem sync failed:', syncError);
+        }
+      }
+      
+      // .gitフォルダが実際に作成されたか確認
+      await new Promise(resolve => setTimeout(resolve, 100));
+      try {
+        await this.fs.promises.stat(`${this.dir}/.git`);
+        console.log('[git.init] Verified .git folder exists');
+      } catch (statError) {
+        throw new Error('.git folder was not created properly');
+      }
+      
       return `Initialized empty Git repository in ${this.dir}`;
     }, 'git init failed');
   }
