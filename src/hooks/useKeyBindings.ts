@@ -264,9 +264,25 @@ const keyBindingsManager = new KeyBindingsManager();
 if (typeof window !== 'undefined') {
   keyBindingsManager.init().catch(console.error);
 
+  // Track IME composition state
+  let isComposing = false;
+  
+  window.addEventListener('compositionstart', () => {
+    isComposing = true;
+  }, { capture: true });
+  
+  window.addEventListener('compositionend', () => {
+    isComposing = false;
+  }, { capture: true });
+
   window.addEventListener(
     'keydown',
     (e: KeyboardEvent) => {
+      // Skip keyboard shortcuts during IME composition
+      if (isComposing) {
+        return;
+      }
+
       const target = e.target as HTMLElement;
       const isTextInput =
         target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
