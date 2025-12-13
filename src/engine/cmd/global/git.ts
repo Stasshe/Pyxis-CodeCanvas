@@ -64,34 +64,13 @@ export class GitCommands {
       }
     }
     
-    // Retry logic with exponential backoff for .git folder check
-    // This fixes intermittent "not a git repository" errors on different platforms (github.io vs Render)
-    const maxRetries = 5;
-    const baseDelay = 100; // Increased from 50ms to 100ms
+    // 同期完了を待つための短い遅延
+    await new Promise(resolve => setTimeout(resolve, 50));
     
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-      try {
-        // Wait with exponential backoff: 100ms, 150ms, 200ms, 250ms, 300ms
-        const delay = baseDelay + (attempt * 50);
-        await new Promise(resolve => setTimeout(resolve, delay));
-        
-        // Check if .git folder exists
-        await this.fs.promises.stat(`${this.dir}/.git`);
-        
-        // Success - .git folder found
-        if (attempt > 0) {
-          console.log(`[git.ensureGitRepository] .git folder found after ${attempt + 1} attempts`);
-        }
-        return;
-      } catch (statError) {
-        // If this is the last attempt, throw the error
-        if (attempt === maxRetries - 1) {
-          console.error('[git.ensureGitRepository] .git folder not found after all retries');
-          throw new Error('not a git repository (or any of the parent directories): .git');
-        }
-        // Otherwise, log and retry
-        console.warn(`[git.ensureGitRepository] .git check attempt ${attempt + 1} failed, retrying...`);
-      }
+    try {
+      await this.fs.promises.stat(`${this.dir}/.git`);
+    } catch {
+      throw new Error('not a git repository (or any of the parent directories): .git');
     }
   }
 
