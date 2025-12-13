@@ -181,6 +181,7 @@
     "viewDiffReadonly": "Diff देखें (सिर्फ़ पढ़ें)"
   },
   "gitHistory": {
+        "allFilesFiles": "सभी {count} फाइलें",
     "allFilesScrollable": "सभी {count} फाइलें (स्क्रोल करने योग्य)",
     "changedFiles": "बदली हुई फाइलें:",
     "daysAgo": "{days} दिन पहले",

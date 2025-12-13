@@ -181,6 +181,7 @@
     "viewDiffReadonly": "查看差異（唯讀）"
   },
   "gitHistory": {
+        "allFilesFiles": "全部 {count} 檔案（可捲動）",
     "allFilesScrollable": "全部 {count} 檔案（可捲動）",
     "changedFiles": "已變更的檔案：",
     "daysAgo": "{days} 天前",

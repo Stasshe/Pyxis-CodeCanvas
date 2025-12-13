@@ -181,6 +181,7 @@
     "viewDiffReadonly": "Bekijk diff (alleen-lezen)"
   },
   "gitHistory": {
+        "allFilesFiles": "Alle {count} bestanden",
     "allFilesScrollable": "Alle {count} bestanden (scrollbaar)",
     "changedFiles": "Gewijzigde bestanden:",
     "daysAgo": "{days} dagen geleden",

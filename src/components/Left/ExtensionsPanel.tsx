@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 
+import { Confirmation } from '@/components/Confirmation';
 import { useTheme } from '@/context/ThemeContext';
 import { extensionManager } from '@/engine/extensions/extensionManager';
 import { fetchAllManifests } from '@/engine/extensions/extensionRegistry';
@@ -53,6 +54,10 @@ export default function ExtensionsPanel() {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedPacks, setExpandedPacks] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [uninstallConfirmation, setUninstallConfirmation] = useState<{
+    extensionId: string;
+    extensionName: string;
+  } | null>(null);
 
   useEffect(() => {
     loadExtensions();
@@ -149,14 +154,20 @@ export default function ExtensionsPanel() {
   };
 
   const handleUninstall = async (extensionId: string, extensionName: string) => {
-    if (confirm(`Uninstall "${extensionName}"?`)) {
-      try {
-        await extensionManager.uninstallExtension(extensionId);
-        await loadExtensions();
-      } catch (error) {
-        console.error('[ExtensionsPanel] Failed to uninstall extension:', error);
-        alert(`Failed to uninstall: ${(error as Error).message}`);
-      }
+    setUninstallConfirmation({ extensionId, extensionName });
+  };
+
+  const confirmUninstall = async () => {
+    if (!uninstallConfirmation) return;
+    
+    try {
+      await extensionManager.uninstallExtension(uninstallConfirmation.extensionId);
+      await loadExtensions();
+    } catch (error) {
+      console.error('[ExtensionsPanel] Failed to uninstall extension:', error);
+      alert(`Failed to uninstall: ${(error as Error).message}`);
+    } finally {
+      setUninstallConfirmation(null);
     }
   };
 
@@ -943,6 +954,17 @@ export default function ExtensionsPanel() {
           </div>
         )}
       </div>
+
+      {/* Uninstall Confirmation Dialog */}
+      <Confirmation
+        open={uninstallConfirmation !== null}
+        title="Uninstall Extension"
+        message={`Are you sure you want to uninstall "${uninstallConfirmation?.extensionName}"?`}
+        confirmText="Uninstall"
+        cancelText="Cancel"
+        onConfirm={confirmUninstall}
+        onCancel={() => setUninstallConfirmation(null)}
+      />
     </div>
   );
 }

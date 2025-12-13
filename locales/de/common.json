@@ -181,6 +181,7 @@
     "viewDiffReadonly": "Diff anzeigen (schreibgeschützt)"
   },
   "gitHistory": {
+        "allFilesFiles": "Alle {count} Dateien",
     "allFilesScrollable": "Alle {count} Dateien (scrollbar)",
     "changedFiles": "Geänderte Dateien:",
     "daysAgo": "vor {days} Tagen",

@@ -243,6 +243,22 @@ export default function Home() {
     []
   );
   useKeyBinding(
+    'openExplorer',
+    () => {
+      setActiveMenuTab('files');
+      setIsLeftSidebarVisible(true);
+    },
+    []
+  );
+  useKeyBinding(
+    'openExtensions',
+    () => {
+      setActiveMenuTab('extensions');
+      setIsLeftSidebarVisible(true);
+    },
+    []
+  );
+  useKeyBinding(
     'openShortcutKeys',
     () => {
       openTab(

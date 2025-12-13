@@ -181,6 +181,7 @@
     "viewDiffReadonly": "Farkı görüntüle (salt okunur)"
   },
   "gitHistory": {
+        "allFilesFiles": "Tüm {count} dosya",
     "allFilesScrollable": "Tüm {count} dosya (kaydırılabilir)",
     "changedFiles": "Değişen dosyalar:",
     "daysAgo": "{days} gün önce",

@@ -181,6 +181,7 @@
     "viewDiffReadonly": "ดู diff (อ่านอย่างเดียว)"
   },
   "gitHistory": {
+        "allFilesFiles": "ทั้งหมด {count} ไฟล์",
     "allFilesScrollable": "ทั้งหมด {count} ไฟล์ (เลื่อนดูได้)",
     "changedFiles": "ไฟล์ที่เปลี่ยนแปลง:",
     "daysAgo": "{days} วันที่ผ่านมา",

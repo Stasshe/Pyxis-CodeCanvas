@@ -726,10 +726,7 @@ export default function GitHistory({
                         {t('gitHistory.changedFiles')}
                       </div>
                       {commitChanges.has(commit.hash) ? (
-                        <div
-                          className="space-y-0.5 overflow-y-auto"
-                          style={{ maxHeight: '240px' }}
-                        >
+                        <>
                           {(() => {
                             const changes = commitChanges.get(commit.hash)!;
                             const allFiles = [
@@ -740,59 +737,84 @@ export default function GitHistory({
                               })),
                               ...changes.deleted.map(f => ({ file: f, type: 'deleted' as const })),
                             ];
-                            if (allFiles.length === 0) {
-                              return (
-                                <div
-                                  className="text-[11px] italic py-0.5"
-                                  style={{
-                                    color: colors.gitCommitMeta || 'var(--muted-foreground)',
-                                  }}
-                                >
-                                  {t('gitHistory.noChangedFiles')}
-                                </div>
-                              );
-                            }
-                            return (
-                              <>
-                                {allFiles.map(({ file, type }, index) => (
+                            return allFiles.length;
+                          })() > 10 && (
+                            <div
+                              className="text-[10px] italic py-0.5 mb-1"
+                              style={{
+                                color: colors.gitCommitMeta || 'var(--muted-foreground)',
+                              }}
+                            >
+                              {t('gitHistory.allFiles', {
+                                params: {
+                                  count: (() => {
+                                    const changes = commitChanges.get(commit.hash)!;
+                                    return (
+                                      changes.added.length +
+                                      changes.modified.length +
+                                      changes.deleted.length
+                                    );
+                                  })(),
+                                },
+                              })}
+                            </div>
+                          )}
+                          <div
+                            className="space-y-0.5 overflow-y-auto"
+                            style={{ maxHeight: '240px' }}
+                          >
+                            {(() => {
+                              const changes = commitChanges.get(commit.hash)!;
+                              const allFiles = [
+                                ...changes.added.map(f => ({ file: f, type: 'added' as const })),
+                                ...changes.modified.map(f => ({
+                                  file: f,
+                                  type: 'modified' as const,
+                                })),
+                                ...changes.deleted.map(f => ({ file: f, type: 'deleted' as const })),
+                              ];
+                              if (allFiles.length === 0) {
+                                return (
                                   <div
-                                    key={index}
-                                    className="flex items-center gap-1 text-[11px] py-0.5 cursor-pointer hover:underline"
-                                    onClick={async () => {
-                                      if (handleDiffFileClick) {
-                                        await handleDiffFileClick({
-                                          commitId: commit.hash,
-                                          filePath: file,
-                                        });
-                                      }
-                                    }}
-                                    title={t('gitHistory.showFileDiff')}
-                                  >
-                                    {getFileIcon(type)}
-                                    <span
-                                      className="font-mono truncate flex-1"
-                                      style={{ color: colors.gitCommitFile || colors.sidebarFg }}
-                                    >
-                                      {file}
-                                    </span>
-                                  </div>
-                                ))}
-                                {allFiles.length > 10 && (
-                                  <div
-                                    className="text-[10px] italic py-0.5 text-center"
+                                    className="text-[11px] italic py-0.5"
                                     style={{
                                       color: colors.gitCommitMeta || 'var(--muted-foreground)',
                                     }}
                                   >
-                                    {t('gitHistory.allFilesScrollable', {
-                                      params: { count: allFiles.length },
-                                    })}
+                                    {t('gitHistory.noChangedFiles')}
                                   </div>
-                                )}
-                              </>
-                            );
-                          })()}
-                        </div>
+                                );
+                              }
+                              return (
+                                <>
+                                  {allFiles.map(({ file, type }, index) => (
+                                    <div
+                                      key={index}
+                                      className="flex items-center gap-1 text-[11px] py-0.5 cursor-pointer hover:underline"
+                                      onClick={async () => {
+                                        if (handleDiffFileClick) {
+                                          await handleDiffFileClick({
+                                            commitId: commit.hash,
+                                            filePath: file,
+                                          });
+                                        }
+                                      }}
+                                      title={t('gitHistory.showFileDiff')}
+                                    >
+                                      {getFileIcon(type)}
+                                      <span
+                                        className="font-mono truncate flex-1"
+                                        style={{ color: colors.gitCommitFile || colors.sidebarFg }}
+                                      >
+                                        {file}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </>
+                              );
+                            })()}
+                          </div>
+                        </>
                       ) : (
                         <div
                           className="text-[11px] py-0.5"

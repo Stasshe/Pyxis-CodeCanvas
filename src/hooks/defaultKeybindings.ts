@@ -21,10 +21,12 @@ export const DEFAULT_BINDINGS: Binding[] = [
   { id: 'openSettings', name: 'Open Settings', combo: 'Ctrl+,', category: 'view' },
   { id: 'openShortcutKeys', name: 'Open Shortcut Keys', combo: 'Ctrl+Shift+J', category: 'view' },
   { id: 'toggleWordWrap', name: 'Toggle Word Wrap', combo: 'Alt+Z', category: 'view' },
+  { id: 'openExplorer', name: 'Open Explorer', combo: 'Ctrl+Shift+E', category: 'view' },
+  { id: 'openExtensions', name: 'Open Extensions', combo: 'Ctrl+Shift+X', category: 'view' },
   // Tab management
   { id: 'closeTab', name: 'Close Tab', combo: 'Ctrl+Shift+Q', category: 'tab' },
-  { id: 'nextTab', name: 'Next Tab', combo: 'Ctrl+E', category: 'tab' },
-  { id: 'prevTab', name: 'Previous Tab', combo: 'Ctrl+Shift+E', category: 'tab' },
+  { id: 'nextTab', name: 'Next Tab', combo: 'Ctrl+Tab', category: 'tab' },
+  { id: 'prevTab', name: 'Previous Tab', combo: 'Ctrl+Shift+Tab', category: 'tab' },
   { id: 'moveTabToNextPane', name: 'Move Tab to Next Pane', combo: 'Ctrl+K M', category: 'tab' },
 
   // Git
