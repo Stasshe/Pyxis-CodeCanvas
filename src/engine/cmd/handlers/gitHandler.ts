@@ -49,9 +49,12 @@ export async function handleGitCommand(
     }
 
     case 'init':
-      await writeOutput(
-        `git init: Command not available from terminal\nプロジェクトの初期化は左下の「プロジェクト管理」ボタンから\n新規プロジェクトを作成してください。\n新規プロジェクトには自動でGitリポジトリが設定されます。`
-      );
+      try {
+        const initResult = await git.init();
+        await writeOutput(initResult);
+      } catch (error) {
+        await writeOutput(`git init: ${(error as Error).message}`);
+      }
       break;
 
     case 'clone':
