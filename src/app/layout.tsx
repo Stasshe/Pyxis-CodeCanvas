@@ -93,11 +93,13 @@ export default function RootLayout({
           content="notranslate"
         />
         {/* Fix dynamic import paths when using basePath (github.io) */}
+        {/* basePath is a build-time environment variable, safe to interpolate */}
         {basePath && (
           <script
             dangerouslySetInnerHTML={{
               __html: `
                 // Set webpack public path for dynamic imports
+                // _next/ is Next.js standard build output directory
                 __webpack_public_path__ = '${basePath}/_next/';
               `,
             }}
