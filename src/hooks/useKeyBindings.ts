@@ -276,32 +276,66 @@ const keyBindingsManager = new KeyBindingsManager();
 if (typeof window !== 'undefined') {
   keyBindingsManager.init().catch(console.error);
 
-  window.addEventListener(
-    'keydown',
-    (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement;
-      const isTextInput =
-        target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+  // Track whether any modifier keys are currently active.
+  // This helps us block `beforeinput` events that would otherwise insert
+  // characters into text inputs when modifiers (Cmd/Ctrl/Alt) are held.
+  let modifierActive = false;
 
-      // If we're waiting for chord completion, ALWAYS handle the event
-      // regardless of whether we're in a text input or IME state
-      if (keyBindingsManager.getActiveChord()) {
-        keyBindingsManager.handleKeyDown(e);
-        return;
-      }
+  const onKeyDown = (e: KeyboardEvent) => {
+    modifierActive = e.ctrlKey || e.metaKey || e.altKey;
 
-      // Allow shortcuts with modifiers even in text inputs
-      // This includes cmd/ctrl key shortcuts even when Japanese IME is active
-      const hasModifier = e.ctrlKey || e.metaKey || e.altKey;
+    const target = e.target as HTMLElement;
+    const isTextInput =
+      target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
 
-      if (isTextInput && !hasModifier) {
-        return;
-      }
-
+    // If we're waiting for chord completion, ALWAYS handle the event
+    // regardless of whether we're in a text input or IME state
+    if (keyBindingsManager.getActiveChord()) {
       keyBindingsManager.handleKeyDown(e);
-    },
-    { capture: true }
-  );
+      return;
+    }
+
+    // Allow shortcuts with modifiers even in text inputs
+    // This includes cmd/ctrl key shortcuts even when Japanese IME is active
+    const hasModifier = modifierActive;
+
+    if (isTextInput && !hasModifier) {
+      return;
+    }
+
+    keyBindingsManager.handleKeyDown(e);
+  };
+
+  const onKeyUp = (e: KeyboardEvent) => {
+    // Update modifierActive on keyup as well (e.g., user released modifier)
+    modifierActive = e.ctrlKey || e.metaKey || e.altKey;
+  };
+
+  const onBeforeInput = (ev: InputEvent) => {
+    // Prevent text insertion when a modifier key is active or a chord is pending.
+    const target = ev.target as HTMLElement | null;
+    if (!target) return;
+    const isTextInput =
+      target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+
+    if (!isTextInput) return;
+
+    if (modifierActive || keyBindingsManager.getActiveChord()) {
+      try {
+        ev.preventDefault();
+        // stopPropagation may be needed depending on environment
+        ev.stopPropagation();
+      } catch (err) {
+        // ignore
+      }
+    }
+  };
+
+  window.addEventListener('keydown', onKeyDown, { capture: true });
+  window.addEventListener('keyup', onKeyUp, { capture: true });
+  // `beforeinput` fires just before DOM insertion; blocking it prevents characters
+  // from being inserted even if key events failed to prevent them (common with IME).
+  window.addEventListener('beforeinput', onBeforeInput, { capture: true });
 }
 
 /**

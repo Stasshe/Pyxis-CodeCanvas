@@ -25,6 +25,12 @@ export function formatKeyEvent(e: KeyboardEvent): string {
   if (e.shiftKey) parts.push('Shift');
 
   const key = e.key;
+
+  // If IME is composing or the key is an ambiguous/processing value,
+  // treat it as no-recognized-key so callers can handle IME safely.
+  // `isComposing` is true when IME composition is active (Japanese input, etc.).
+  if ((e as any).isComposing || key === 'Process' || key === 'Unidentified') return '';
+
   if (key === 'Control' || key === 'Meta' || key === 'Alt' || key === 'Shift') return '';
 
   const normalized = key.length === 1 ? key.toUpperCase() : key;
