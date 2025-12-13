@@ -61,6 +61,30 @@ const commonConfig = {
         }),
       ];
       config.output.globalObject = 'globalThis';
+      
+      // Prevent aggressive minification that breaks isomorphic-git/lightning-fs
+      if (config.optimization && config.optimization.minimizer) {
+        config.optimization.minimizer.forEach((minimizer: any) => {
+          if (minimizer.constructor.name === 'TerserPlugin') {
+            minimizer.options = {
+              ...minimizer.options,
+              terserOptions: {
+                ...minimizer.options.terserOptions,
+                mangle: {
+                  ...minimizer.options.terserOptions?.mangle,
+                  // Preserve function names for better compatibility
+                  keep_fnames: /^(FS|Git|.*FileSystem.*)$/,
+                },
+                compress: {
+                  ...minimizer.options.terserOptions?.compress,
+                  // Disable some aggressive optimizations
+                  reduce_funcs: false,
+                },
+              },
+            };
+          }
+        });
+      }
     }
 
     // WASMサポートを追加
@@ -96,7 +120,23 @@ const productionConfig = isProductionBuild
 const nextConfig = {
   ...commonConfig,
   ...productionConfig,
-  turbopack: {}, // Next.js 16 以降のTurbopack対応
+  // Ensure isomorphic-git and lightning-fs are properly transpiled
+  transpilePackages: ['isomorphic-git', '@isomorphic-git/lightning-fs'],
+  // Turbopack resolveAlias for polyfills (Next.js 16+)
+  experimental: {
+    turbo: {
+      resolveAlias: {
+        buffer: 'buffer',
+        process: 'process/browser',
+        path: 'path-browserify',
+        vm: 'vm-browserify',
+        util: 'util',
+        stream: 'readable-stream',
+        crypto: 'crypto-browserify',
+        os: 'os-browserify',
+      },
+    },
+  },
   // NEXT_PUBLIC_BASE_PATH に基づき Next の basePath / assetPrefix を設定
   // 空文字の場合は undefined にすることで Next のデフォルト挙動に委ねる
   basePath: configuredBasePath,
