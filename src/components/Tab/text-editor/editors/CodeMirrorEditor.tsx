@@ -40,7 +40,7 @@ export default function CodeMirrorEditor(props: CodeMirrorEditorProps) {
   // タブがアクティブになった時にエディタにフォーカスを当てる
   // タブが非アクティブになった時にフォーカスを外す
   useEffect(() => {
-    if (!cmRef.current) return;
+    if (!cmRef.current?.view) return;
     
     if (isActive) {
       // アクティブになったらフォーカスを当てる
@@ -50,10 +50,8 @@ export default function CodeMirrorEditor(props: CodeMirrorEditorProps) {
       return () => clearTimeout(timeoutId);
     } else {
       // 非アクティブになったらフォーカスを外す
-      if (cmRef.current.view?.hasFocus?.()) {
-        // CodeMirrorにはblurメソッドがないため、DOM要素からフォーカスを外す
-        cmRef.current.view.contentDOM?.blur();
-      }
+      // CodeMirrorにはblurメソッドがないため、DOM要素からフォーカスを外す
+      cmRef.current.view.contentDOM?.blur();
     }
   }, [isActive]);
 
