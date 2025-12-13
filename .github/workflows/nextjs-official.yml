@@ -68,7 +68,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json', '**/yarn.lock') }}-
       - name: Install dependencies
-        run: pnpm ci
+        run: pnpm install --frozen-lockfile
       - name: Build with Next.js
         env:
           BUILD_MODE: production
