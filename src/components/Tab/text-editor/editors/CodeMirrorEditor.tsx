@@ -50,7 +50,7 @@ export default function CodeMirrorEditor(props: CodeMirrorEditorProps) {
       return () => clearTimeout(timeoutId);
     } else {
       // 非アクティブになったらフォーカスを外す
-      if (cmRef.current.view && cmRef.current.view.hasFocus) {
+      if (cmRef.current.view?.hasFocus?.()) {
         // CodeMirrorにはblurメソッドがないため、DOM要素からフォーカスを外す
         cmRef.current.view.contentDOM?.blur();
       }
