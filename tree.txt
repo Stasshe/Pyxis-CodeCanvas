@@ -37,8 +37,10 @@ Root
 │   ├── I18N-SYSTEM.md
 │   ├── NODE-RUNTIME.md
 │   ├── README.md
+│   ├── RUNTIME-PROVIDER.md
 │   ├── SHELL-SYSTEM.md
 │   ├── SYSTEM-OVERVIEW.md
+│   ├── TWO-LAYER-ARCHITECTURE.md
 │   ├── UI-COMPONENTS.md
 │   ├── en
 │   │   └── NODE-RUNTIME.md
@@ -62,16 +64,11 @@ Root
 │   │   └── sample.jsx
 │   ├── run-test.sh
 │   ├── src
-│   │   ├── debugConsoleDemo.js
 │   │   ├── fibonacci.py
 │   │   ├── fileOperationg.js
 │   │   ├── index.js
 │   │   ├── math.js
 │   │   └── readline_test.js
-│   ├── text-editor
-│   │   ├── index.html
-│   │   ├── main.js
-│   │   └── style.css
 │   └── typescript
 │       ├── hello.ts
 │       ├── math.ts
@@ -310,9 +307,7 @@ Root
 │   │   ├── commitMsgAI.ts
 │   │   ├── core
 │   │   │   ├── coreLogger.ts
-│   │   │   ├── database.ts
 │   │   │   ├── fileRepository.ts
-│   │   │   ├── filesystem.ts
 │   │   │   ├── gitFileSystem.ts
 │   │   │   ├── gitignore.ts
 │   │   │   ├── pathResolver.ts
@@ -354,6 +349,9 @@ Root
 │   │   │       ├── urlModule.ts
 │   │   │       └── utilModule.ts
 │   │   ├── runtime
+│   │   │   ├── RuntimeProvider.ts
+│   │   │   ├── RuntimeRegistry.ts
+│   │   │   ├── builtinRuntimes.ts
 │   │   │   ├── extendedBuiltInModules.ts
 │   │   │   ├── moduleCache.ts
 │   │   │   ├── moduleLoader.ts
@@ -361,6 +359,9 @@ Root
 │   │   │   ├── nodeRuntime.ts
 │   │   │   ├── normalizeCjsEsm.ts
 │   │   │   ├── pathUtils.ts
+│   │   │   ├── providers
+│   │   │   │   ├── ExtensionTranspilerProvider.ts
+│   │   │   │   └── NodeRuntimeProvider.ts
 │   │   │   ├── pyodideRuntime.ts
 │   │   │   ├── runtimeLogger.ts
 │   │   │   ├── transpileManager.ts
@@ -411,9 +412,6 @@ Root
 │   │   ├── projectStore.ts
 │   │   ├── sessionStorage.ts
 │   │   └── tabStore.ts
-│   ├── tests
-│   │   ├── parser.unterminated.test.ts
-│   │   └── unixHandler.command-not-found.test.ts
 │   ├── types
 │   │   ├── git.ts
 │   │   ├── index.ts
@@ -445,6 +443,7 @@ Root
 │   ├── redirection_extra.test.ts
 │   ├── run-test-script.test.ts
 │   ├── run_test_script.test.ts
+│   ├── runtimeRegistry.test.ts
 │   ├── script.args.test.ts
 │   ├── script.control.inline.test.ts
 │   ├── script.control.test.ts
@@ -454,10 +453,11 @@ Root
 ├── tree.sh
 ├── tree.txt
 ├── tsconfig.json
+├── tsconfig.tsbuildinfo
 └── types
     └── esbuild-cdn.d.ts
 
-69 directories, 388 files
+68 directories, 389 files
 
 =================================
 
@@ -558,6 +558,12 @@ extensions/ 以下のディレクトリ構造:
 ├── note-tab
 │   ├── index.tsx
 │   └── manifest.json
+├── python-runtime
+│   ├── index.ts
+│   ├── manifest.json
+│   ├── node_modules
+│   │   └── pyodide -> ../../../node_modules/.pnpm/pyodide@0.29.0/node_modules/pyodide
+│   └── package.json
 ├── react-preview
 │   ├── PNPM-GUIDE.md
 │   ├── README.md
@@ -585,17 +591,17 @@ extensions/ 以下のディレクトリ構造:
     ├── manifest.json
     └── transpile.worker.ts
 
-40 directories, 82 files
+43 directories, 85 files
 
 =================================
 
 
 src/*.ts, *.tsx の統計:
-合計行数: 62017
-合計文字数: 2038902
-合計ファイルサイズ(bytes): 2170439
+合計行数: 63019
+合計文字数: 2059470
+合計ファイルサイズ(bytes): 2193750
 
-開発時のdev container全体のサイズ(bytes): 2.7G	.
+開発時のdev container全体のサイズ(bytes): 3.4G	.
 ==========
 ビルト済みファイルの行数: 126818
 合計文字数: 26996325
