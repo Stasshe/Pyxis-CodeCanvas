@@ -28,23 +28,44 @@ const initializeProjectGit = async (project: Project, files: ProjectFile[]) => {
     // GitFileSystemやsyncManagerへの直接同期はfileRepository側に委譲
     // ここではGitリポジトリの初期化と初回コミットのみ行う
     const git = terminalCommandRegistry.getGitCommands(project.name, project.id);
+    
+    // Git初期化
     try {
-      await git.init();
-      console.log('[Git] Repository initialized');
-      await new Promise(resolve => setTimeout(resolve, 200));
+      const initResult = await git.init();
+      console.log('[Git] Repository initialized:', initResult);
+    } catch (gitError) {
+      console.error('[Git] Initialization failed:', gitError);
+      throw new Error(`Git initialization failed: ${(gitError as Error).message}`);
+    }
+    
+    // 初期化完了後の待機時間を確保
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    // ファイルのステージング
+    try {
       await git.add('.');
       console.log('[Git] Files staged');
-      await new Promise(resolve => setTimeout(resolve, 200));
+    } catch (addError) {
+      console.error('[Git] Failed to stage files:', addError);
+      throw new Error(`Git add failed: ${(addError as Error).message}`);
+    }
+    
+    await new Promise(resolve => setTimeout(resolve, 200));
+    
+    // 初回コミット
+    try {
       await git.commit('Initial commit', {
         name: 'Pyxis User',
         email: 'user@pyxis.dev',
       });
       console.log('[Git] Initial commit completed');
-    } catch (gitError) {
-      console.warn('[Git] Initialization failed (non-critical):', gitError);
+    } catch (commitError) {
+      console.error('[Git] Failed to commit:', commitError);
+      throw new Error(`Git commit failed: ${(commitError as Error).message}`);
     }
   } catch (error) {
     console.error('[Git] Failed to initialize:', error);
+    throw error; // Re-throw to let caller know git initialization failed
   }
 };
 
@@ -158,14 +179,22 @@ export const useProject = () => {
         const currentBranch = await git.getCurrentBranch();
         if (currentBranch === '(no git)') {
           console.log('[Project] Git not initialized, initializing...');
-          await initializeProjectGit(project, files);
+          try {
+            await initializeProjectGit(project, files);
+          } catch (initError) {
+            console.error('[Project] Git initialization failed:', initError);
+            // Git初期化に失敗した場合でもプロジェクトは読み込む
+            // ユーザーは後でターミナルからgit initを実行できる
+          }
         }
       } catch (gitError) {
         console.warn('[Project] Git check failed:', gitError);
+        // Git確認に失敗した場合は初期化を試みる
         try {
           await initializeProjectGit(project, files);
         } catch (initError) {
-          console.warn('[Project] Git initialization failed (non-critical):', initError);
+          console.error('[Project] Git initialization failed:', initError);
+          // Git初期化に失敗した場合でもプロジェクトは読み込む
         }
       }
     } catch (error) {
@@ -347,7 +376,14 @@ export const useProject = () => {
       setCurrentProject(newProject);
       setProjectFiles(files);
 
-      await initializeProjectGit(newProject, files);
+      // Git初期化を試みる
+      try {
+        await initializeProjectGit(newProject, files);
+      } catch (gitError) {
+        console.error('[Project] Git initialization failed during project creation:', gitError);
+        // Git初期化に失敗してもプロジェクト作成は成功とする
+        // ユーザーは後でターミナルからgit initを実行できる
+      }
 
       try {
         await createChatSpace(newProject.id, `新規チャット`);

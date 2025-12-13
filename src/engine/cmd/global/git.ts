@@ -54,6 +54,19 @@ export class GitCommands {
   // Gitリポジトリが初期化されているかチェック
   private async ensureGitRepository(): Promise<void> {
     await this.ensureProjectDirectory();
+    
+    // ファイルシステムの同期処理を追加（タイミング問題を回避）
+    if ((this.fs as any).sync) {
+      try {
+        await (this.fs as any).sync();
+      } catch (syncError) {
+        console.warn('[git.ensureGitRepository] FileSystem sync failed:', syncError);
+      }
+    }
+    
+    // 同期完了を待つための短い遅延
+    await new Promise(resolve => setTimeout(resolve, 50));
+    
     try {
       await this.fs.promises.stat(`${this.dir}/.git`);
     } catch {
@@ -107,6 +120,26 @@ export class GitCommands {
     return this.executeGitOperation(async () => {
       await this.ensureProjectDirectory();
       await git.init({ fs: this.fs, dir: this.dir, defaultBranch: 'main' });
+      
+      // ファイルシステムの同期を確実にする（.gitフォルダの永続化）
+      if ((this.fs as any).sync) {
+        try {
+          await (this.fs as any).sync();
+          console.log('[git.init] FileSystem synced after git init');
+        } catch (syncError) {
+          console.warn('[git.init] FileSystem sync failed:', syncError);
+        }
+      }
+      
+      // .gitフォルダが実際に作成されたか確認
+      await new Promise(resolve => setTimeout(resolve, 100));
+      try {
+        await this.fs.promises.stat(`${this.dir}/.git`);
+        console.log('[git.init] Verified .git folder exists');
+      } catch (statError) {
+        throw new Error('.git folder was not created properly');
+      }
+      
       return `Initialized empty Git repository in ${this.dir}`;
     }, 'git init failed');
   }
@@ -1042,13 +1075,7 @@ export class GitCommands {
     options: { delete?: boolean; remote?: boolean; all?: boolean } = {}
   ): Promise<string> {
     try {
-      await this.ensureProjectDirectory();
-      // Gitリポジトリが初期化されているかチェック
-      try {
-        await this.fs.promises.stat(`${this.dir}/.git`);
-      } catch {
-        throw new Error('not a git repository (or any of the parent directories): .git');
-      }
+      await this.ensureGitRepository();
 
       const { delete: deleteFlag = false, remote = false, all = false } = options;
 
