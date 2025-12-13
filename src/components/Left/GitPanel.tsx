@@ -609,6 +609,17 @@ export default function GitPanel({
         >
           {t('action.retry')}
         </button>
+        <p style={{ fontSize: '0.75rem', marginTop: '0.75rem', color: colors.mutedFg }}>
+          This error is might be due to the Github pages error, so use following page instead of here. {' '}
+          <a
+            href="https://pyxis-codecanvas.onrender.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: colors.primary, textDecoration: 'underline' }}
+          >
+            Pyxis CodeCanvas (render ver)
+          </a>
+        </p>
       </div>
     );
   }
