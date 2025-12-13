@@ -24,6 +24,11 @@ const commonConfig = {
   images: {
     unoptimized: true, // 静的エクスポートでは必須
   },
+  // Disable SWC minification optimizations that break isomorphic-git
+  swcMinify: true,
+  compiler: {
+    removeConsole: false,
+  },
   // Expose build-time values to client code and Turbopack via NEXT_PUBLIC_*
   env: {
     NEXT_PUBLIC_PYXIS_VERSION: pkg.version,
@@ -62,29 +67,12 @@ const commonConfig = {
       ];
       config.output.globalObject = 'globalThis';
       
-      // Prevent aggressive minification that breaks isomorphic-git/lightning-fs
-      if (config.optimization && config.optimization.minimizer) {
-        config.optimization.minimizer.forEach((minimizer: any) => {
-          if (minimizer.constructor.name === 'TerserPlugin') {
-            minimizer.options = {
-              ...minimizer.options,
-              terserOptions: {
-                ...minimizer.options.terserOptions,
-                mangle: {
-                  ...minimizer.options.terserOptions?.mangle,
-                  // Preserve function names for better compatibility
-                  keep_fnames: /^(FS|Git|.*FileSystem.*)$/,
-                },
-                compress: {
-                  ...minimizer.options.terserOptions?.compress,
-                  // Disable some aggressive optimizations
-                  reduce_funcs: false,
-                },
-              },
-            };
-          }
-        });
-      }
+      // Mark isomorphic-git and lightning-fs as having side effects
+      // to prevent tree-shaking from removing necessary code
+      config.module.rules.push({
+        test: /node_modules[\\/](@isomorphic-git[\\/]lightning-fs|isomorphic-git)/,
+        sideEffects: true,
+      });
     }
 
     // WASMサポートを追加
@@ -122,7 +110,7 @@ const nextConfig = {
   ...productionConfig,
   // Ensure isomorphic-git and lightning-fs are properly transpiled
   transpilePackages: ['isomorphic-git', '@isomorphic-git/lightning-fs'],
-  // Turbopack resolveAlias for polyfills (Next.js 16+)
+  // Turbopack configuration for polyfills
   experimental: {
     turbo: {
       resolveAlias: {
