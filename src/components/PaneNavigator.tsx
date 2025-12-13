@@ -165,10 +165,15 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
   const handleSelect = useCallback((id: string) => setSelectedPaneId(id), []);
 
   const handleActivate = useCallback((id: string) => {
-    setActivePane(id);
     const pane = flattenedPanes.find(p => p.id === id);
     if (pane?.activeTabId) {
+      // ペインにアクティブなタブがある場合は、そのタブをアクティブ化
       useTabStore.getState().activateTab(id, pane.activeTabId);
+    } else {
+      // ペインにタブがない場合でも、移動元のペインからフォーカスを外すために
+      // アクティブペインを更新し、グローバルアクティブタブをクリア
+      setActivePane(id);
+      useTabStore.setState({ globalActiveTab: null });
     }
     onClose();
   }, [setActivePane, flattenedPanes, onClose]);
