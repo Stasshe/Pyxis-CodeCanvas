@@ -26,8 +26,8 @@ const manifest = {
   theme_color: '#ffffff',
   background_color: '#ffffff',
   display: 'standalone',
-  start_url: basePath || '/',
-  scope: basePath || '/',
+  start_url: (basePath || '') + '/',
+  scope: (basePath || '') + '/',
 };
 
 const publicDir = path.join(__dirname, '../../public');
