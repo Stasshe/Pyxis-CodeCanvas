@@ -73,8 +73,9 @@ export default function GitPanel({
         }
       }
 
-      // ファイルシステムの変更が確実に反映されるまで待機（短縮）
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // ファイルシステムの変更が確実に反映されるまで待機（増加: 100ms -> 150ms）
+      // This helps prevent race conditions on different deployment platforms
+      await new Promise(resolve => setTimeout(resolve, 150));
 
       // Git状態を並行して取得
       const [statusResult, logResult, branchResult] = await Promise.all([
