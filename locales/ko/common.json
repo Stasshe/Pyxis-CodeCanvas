@@ -181,6 +181,7 @@
     "viewDiffReadonly": "차이 보기(읽기 전용)"
   },
   "gitHistory": {
+        "allFilesFiles": "전체 {count} 파일(스크롤 가능)",
     "allFilesScrollable": "전체 {count} 파일(스크롤 가능)",
     "changedFiles": "변경된 파일:",
     "daysAgo": "{days}일 전",

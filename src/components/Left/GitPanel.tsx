@@ -421,7 +421,11 @@ export default function GitPanel({
     if (!gitCommands) return;
 
     try {
-      await gitCommands.reset();
+      console.log('[GitPanel] Unstaging all files');
+      // ステージングされているファイルをすべてアンステージ
+      for (const file of stagedFiles) {
+        await gitCommands.reset({ filepath: file });
+      }
       fetchGitStatus();
     } catch (error) {
       console.error('Failed to unstage all files:', error);

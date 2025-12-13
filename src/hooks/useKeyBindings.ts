@@ -54,7 +54,20 @@ class KeyBindingsManager {
           KEYBINDINGS_STORAGE_ID
         );
         if (saved && Array.isArray(saved)) {
-          this.bindings = saved;
+          // Merge saved bindings with DEFAULT_BINDINGS
+          // Preserve user customizations for existing bindings
+          // Add new default bindings that don't exist in saved
+          const savedIds = new Set(saved.map(b => b.id));
+          const newBindings = DEFAULT_BINDINGS.filter(b => !savedIds.has(b.id));
+          
+          if (newBindings.length > 0) {
+            console.log('[KeyBindings] Found', newBindings.length, 'new default bindings, merging...');
+            this.bindings = [...saved, ...newBindings];
+            // Save merged bindings
+            await storageService.set(STORES.KEYBINDINGS, KEYBINDINGS_STORAGE_ID, this.bindings);
+          } else {
+            this.bindings = saved;
+          }
         }
       } catch (error) {
         console.error('[KeyBindings] Failed to load keybindings:', error);

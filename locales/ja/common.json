@@ -181,6 +181,7 @@
     "viewDiffReadonly": "差分を表示（編集不可）"
   },
   "gitHistory": {
+    "allFiles": "全{count}ファイル",
     "allFilesScrollable": "全{count}ファイル (スクロール可能)",
     "changedFiles": "変更されたファイル:",
     "daysAgo": "{days}日前",

@@ -181,6 +181,7 @@
     "viewDiffReadonly": "Xem diff (chỉ đọc)"
   },
   "gitHistory": {
+        "allFilesFiles": "Tất cả {count} tệp",
     "allFilesScrollable": "Tất cả {count} tệp (có thể cuộn)",
     "changedFiles": "Tệp đã thay đổi:",
     "daysAgo": "{days} ngày trước",

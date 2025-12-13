@@ -181,6 +181,7 @@
     "viewDiffReadonly": "Visa diff (skrivskyddad)"
   },
   "gitHistory": {
+        "allFilesFiles": "Alla {count} filer",
     "allFilesScrollable": "Alla {count} filer (rullningsbar)",
     "changedFiles": "Ändrade filer:",
     "daysAgo": "{days} dagar sedan",

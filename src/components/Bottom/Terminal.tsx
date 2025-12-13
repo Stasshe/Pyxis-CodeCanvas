@@ -953,6 +953,24 @@ function ClientTerminal({
     }
   }, [height]);
 
+  // ターミナルがアクティブになった時にフォーカスを当てる
+  useEffect(() => {
+    if (isActive && xtermRef.current) {
+      // 少し遅延を入れてフォーカスを当てる（DOMの更新を待つ）
+      const timeoutId = setTimeout(() => {
+        if (xtermRef.current) {
+          try {
+            xtermRef.current.focus();
+          } catch (e) {
+            console.warn('[Terminal] Failed to focus:', e);
+          }
+        }
+      }, 50);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [isActive]);
+
   return (
     <div
       ref={terminalRef}
