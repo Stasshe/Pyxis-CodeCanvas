@@ -54,6 +54,19 @@ export class GitCommands {
   // Gitリポジトリが初期化されているかチェック
   private async ensureGitRepository(): Promise<void> {
     await this.ensureProjectDirectory();
+    
+    // ファイルシステムの同期処理を追加（タイミング問題を回避）
+    if ((this.fs as any).sync) {
+      try {
+        await (this.fs as any).sync();
+      } catch (syncError) {
+        console.warn('[git.ensureGitRepository] FileSystem sync failed:', syncError);
+      }
+    }
+    
+    // 同期完了を待つための短い遅延
+    await new Promise(resolve => setTimeout(resolve, 50));
+    
     try {
       await this.fs.promises.stat(`${this.dir}/.git`);
     } catch {
@@ -1042,13 +1055,7 @@ export class GitCommands {
     options: { delete?: boolean; remote?: boolean; all?: boolean } = {}
   ): Promise<string> {
     try {
-      await this.ensureProjectDirectory();
-      // Gitリポジトリが初期化されているかチェック
-      try {
-        await this.fs.promises.stat(`${this.dir}/.git`);
-      } catch {
-        throw new Error('not a git repository (or any of the parent directories): .git');
-      }
+      await this.ensureGitRepository();
 
       const { delete: deleteFlag = false, remote = false, all = false } = options;
 
