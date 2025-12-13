@@ -92,6 +92,17 @@ export default function RootLayout({
           name="google"
           content="notranslate"
         />
+        {/* Fix dynamic import paths when using basePath (github.io) */}
+        {basePath && (
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
+                // Set webpack public path for dynamic imports
+                __webpack_public_path__ = '${basePath}/_next/';
+              `,
+            }}
+          />
+        )}
         <link
           rel="icon"
           href={`${basePath}/favicon.ico`}
