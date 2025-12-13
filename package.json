@@ -6,7 +6,7 @@
     "dev": "pnpm run setup-build && next dev --turbopack",
     "build": "pnpm run setup-build && next build",
     "start": "pnpm run setup-build && next start",
-    "setup-build": "rm -rf public/locales && cp -r locales public/locales && node scripts/build/initial_files_to_ts.js && node scripts/build/build-extensions.js && cp extensions/registry.json public/extensions/registry.json && node scripts/build/generate-manifest.js",
+    "setup-build": "rm -rf public/locales && cp -r locales public/locales && node scripts/build/initial_files_to_ts.js && node scripts/build/build-extensions.js && cp extensions/registry.json public/extensions/registry.json",
     "format": "bash scripts/i18n/format_locales.sh && pnpm exec prettier --write src/",
     "lint": "eslint --cache . --max-warnings=0",
     "lint:fix": "eslint --cache . --fix",
