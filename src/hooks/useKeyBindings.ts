@@ -17,7 +17,7 @@
 
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 
 import { DEFAULT_BINDINGS } from './defaultKeybindings';
 import {
@@ -117,50 +117,45 @@ class KeyBindingsManager {
    * キーイベントハンドラ
    */
   handleKeyDown(e: KeyboardEvent): boolean {
-    const keyCombo = formatKeyEvent(e);
-    if (!keyCombo) return false;
-
-    // Helper: check full match for a binding (including chords)
-    const matchBindingForCombo = (firstPart: string | null, secondPart: string | null): Binding | null => {
-      for (const b of this.bindings) {
-        const normalized = normalizeKeyCombo(b.combo);
-        const parts = normalized.split(/\s+/);
-        
-        // Single-key binding
-        if (parts.length === 1 && !firstPart && parts[0] === keyCombo) {
-          return b;
-        }
-        
-        // Chord binding
-        if (parts.length === 2 && firstPart && secondPart) {
-          // Exact match
-          if (parts[0] === firstPart && parts[1] === secondPart) {
-            return b;
-          }
+    // CRITICAL: If we're waiting for chord completion, block ALL input IMMEDIATELY
+    // This must happen before formatKeyEvent to prevent keys from leaking into the editor
+    // when Japanese IME is active (e.key might be "Process" or "Unidentified")
+    if (this.pendingChord) {
+      // Always prevent default when in pending chord state
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const keyCombo = formatKeyEvent(e);
+      
+      // Helper: check full match for a binding (including chords)
+      const matchBindingForCombo = (firstPart: string | null, secondPart: string | null): Binding | null => {
+        for (const b of this.bindings) {
+          const normalized = normalizeKeyCombo(b.combo);
+          const parts = normalized.split(/\s+/);
           
-          // Allow second part without modifiers (e.g., 'V' matches 'Shift+V')
-          // This is intentional to support flexible chord completion
-          if (parts[0] === firstPart) {
-            const secondPartMain = secondPart.split('+').pop() || secondPart;
-            if (parts[1] === secondPartMain) {
+          // Chord binding
+          if (parts.length === 2 && firstPart && secondPart) {
+            // Exact match
+            if (parts[0] === firstPart && parts[1] === secondPart) {
               return b;
+            }
+            
+            // Allow second part without modifiers (e.g., 'V' matches 'Shift+V')
+            // This is intentional to support flexible chord completion
+            if (parts[0] === firstPart) {
+              const secondPartMain = secondPart.split('+').pop() || secondPart;
+              if (parts[1] === secondPartMain) {
+                return b;
+              }
             }
           }
         }
-      }
-      return null;
-    };
-
-    // CRITICAL: If we're waiting for chord completion, block ALL input
-    if (this.pendingChord) {
+        return null;
+      };
+      
       const first = this.pendingChord;
       const second = keyCombo;
-      const binding = matchBindingForCombo(first, second);
-      
-      // Always prevent default when in pending chord state
-      // This prevents keys from leaking into the editor
-      e.preventDefault();
-      e.stopPropagation();
+      const binding = keyCombo ? matchBindingForCombo(first, second) : null;
       
       this.clearPendingChord();
       
@@ -174,6 +169,23 @@ class KeyBindingsManager {
       
       // Even if no binding matched, we still blocked the input
       return true;
+    }
+
+    const keyCombo = formatKeyEvent(e);
+    
+    // CRITICAL: When Japanese IME is active, e.key might be "Process" and formatKeyEvent returns empty
+    // BUT if modifier keys are pressed (cmd/ctrl/alt), we must still preventDefault
+    // to prevent the key from being typed into the editor
+    if (!keyCombo) {
+      const hasModifier = e.ctrlKey || e.metaKey || e.altKey;
+      if (hasModifier) {
+        // Prevent default for any key with modifiers, even if we can't identify the key
+        // This prevents Japanese IME keys from leaking into the editor when shortcuts are pressed
+        e.preventDefault();
+        e.stopPropagation();
+        return true;
+      }
+      return false;
     }
 
     // Check if this key starts a chord sequence
@@ -264,37 +276,22 @@ const keyBindingsManager = new KeyBindingsManager();
 if (typeof window !== 'undefined') {
   keyBindingsManager.init().catch(console.error);
 
-  // Track IME composition state
-  let isComposing = false;
-  
-  window.addEventListener('compositionstart', () => {
-    isComposing = true;
-  }, { capture: true });
-  
-  window.addEventListener('compositionend', () => {
-    isComposing = false;
-  }, { capture: true });
-
   window.addEventListener(
     'keydown',
     (e: KeyboardEvent) => {
-      // Skip keyboard shortcuts during IME composition
-      if (isComposing) {
-        return;
-      }
-
       const target = e.target as HTMLElement;
       const isTextInput =
         target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
 
       // If we're waiting for chord completion, ALWAYS handle the event
-      // regardless of whether we're in a text input
+      // regardless of whether we're in a text input or IME state
       if (keyBindingsManager.getActiveChord()) {
         keyBindingsManager.handleKeyDown(e);
         return;
       }
 
       // Allow shortcuts with modifiers even in text inputs
+      // This includes cmd/ctrl key shortcuts even when Japanese IME is active
       const hasModifier = e.ctrlKey || e.metaKey || e.altKey;
 
       if (isTextInput && !hasModifier) {
