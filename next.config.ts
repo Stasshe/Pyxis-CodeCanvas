@@ -24,11 +24,6 @@ const commonConfig = {
   images: {
     unoptimized: true, // 静的エクスポートでは必須
   },
-  // Disable SWC minification optimizations that break isomorphic-git
-  swcMinify: true,
-  compiler: {
-    removeConsole: false,
-  },
   // Expose build-time values to client code and Turbopack via NEXT_PUBLIC_*
   env: {
     NEXT_PUBLIC_PYXIS_VERSION: pkg.version,
@@ -66,13 +61,6 @@ const commonConfig = {
         }),
       ];
       config.output.globalObject = 'globalThis';
-      
-      // Mark isomorphic-git and lightning-fs as having side effects
-      // to prevent tree-shaking from removing necessary code
-      config.module.rules.push({
-        test: /node_modules[\\/](@isomorphic-git[\\/]lightning-fs|isomorphic-git)/,
-        sideEffects: true,
-      });
     }
 
     // WASMサポートを追加
@@ -108,23 +96,7 @@ const productionConfig = isProductionBuild
 const nextConfig = {
   ...commonConfig,
   ...productionConfig,
-  // Ensure isomorphic-git and lightning-fs are properly transpiled
-  transpilePackages: ['isomorphic-git', '@isomorphic-git/lightning-fs'],
-  // Turbopack configuration for polyfills
-  experimental: {
-    turbo: {
-      resolveAlias: {
-        buffer: 'buffer',
-        process: 'process/browser',
-        path: 'path-browserify',
-        vm: 'vm-browserify',
-        util: 'util',
-        stream: 'readable-stream',
-        crypto: 'crypto-browserify',
-        os: 'os-browserify',
-      },
-    },
-  },
+  turbopack: {}, // Next.js 16 以降のTurbopack対応
   // NEXT_PUBLIC_BASE_PATH に基づき Next の basePath / assetPrefix を設定
   // 空文字の場合は undefined にすることで Next のデフォルト挙動に委ねる
   basePath: configuredBasePath,
