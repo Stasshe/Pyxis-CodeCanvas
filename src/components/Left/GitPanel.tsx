@@ -76,22 +76,11 @@ export default function GitPanel({
       // ファイルシステムの変更が確実に反映されるまで待機（短縮）
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // まずGitが初期化されているか確認（getCurrentBranchはエラーをキャッチして"(no git)"を返す）
-      const currentBranch = await gitCommands.getCurrentBranch();
-      if (currentBranch === '(no git)') {
-        console.log('[GitPanel] Git not initialized');
-        setError(t('git.notInitialized'));
-        setGitRepo(null);
-        if (onGitStatusChange) {
-          onGitStatusChange(0);
-        }
-        return;
-      }
-
-      // Git状態を並行して取得（branchは getCurrentBranch で既に取得済みなので削除）
-      const [statusResult, logResult] = await Promise.all([
+      // Git状態を並行して取得
+      const [statusResult, logResult, branchResult] = await Promise.all([
         gitCommands.status(),
         gitCommands.getFormattedLog(20),
+        gitCommands.branch(),
       ]);
 
       console.log('[GitPanel] Git status result:', statusResult);
@@ -99,15 +88,8 @@ export default function GitPanel({
       // コミット履歴をパース
       const commits = parseGitLog(logResult);
 
-      // ブランチ情報は git.branch() の代わりに isomorphic-git の listBranches を直接使用
-      let branches: string[] = [];
-      try {
-        branches = await gitCommands.branch().then(result => parseGitBranches(result));
-      } catch (branchError) {
-        console.warn('[GitPanel] Failed to get branches:', branchError);
-        // ブランチ取得失敗は致命的ではないので続行
-        branches = [currentBranch];
-      }
+      // ブランチ情報をパース
+      const branches = parseGitBranches(branchResult);
 
       // ステータス情報をパース
       const status = parseGitStatus(statusResult);
