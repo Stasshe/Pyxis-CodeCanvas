@@ -168,6 +168,7 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
     const pane = flattenedPanes.find(p => p.id === id);
     if (pane?.activeTabId) {
       // ペインにアクティブなタブがある場合は、そのタブをアクティブ化
+      // activateTab内部でsetActivePaneも実行されるが、明示的に呼ぶ
       useTabStore.getState().activateTab(id, pane.activeTabId);
     } else {
       // ペインにタブがない場合でも、移動元のペインからフォーカスを外すために
