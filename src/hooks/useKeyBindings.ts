@@ -17,7 +17,7 @@
 
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 
 import { DEFAULT_BINDINGS } from './defaultKeybindings';
 import {
@@ -264,37 +264,22 @@ const keyBindingsManager = new KeyBindingsManager();
 if (typeof window !== 'undefined') {
   keyBindingsManager.init().catch(console.error);
 
-  // Track IME composition state
-  let isComposing = false;
-  
-  window.addEventListener('compositionstart', () => {
-    isComposing = true;
-  }, { capture: true });
-  
-  window.addEventListener('compositionend', () => {
-    isComposing = false;
-  }, { capture: true });
-
   window.addEventListener(
     'keydown',
     (e: KeyboardEvent) => {
-      // Skip keyboard shortcuts during IME composition
-      if (isComposing) {
-        return;
-      }
-
       const target = e.target as HTMLElement;
       const isTextInput =
         target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
 
       // If we're waiting for chord completion, ALWAYS handle the event
-      // regardless of whether we're in a text input
+      // regardless of whether we're in a text input or IME state
       if (keyBindingsManager.getActiveChord()) {
         keyBindingsManager.handleKeyDown(e);
         return;
       }
 
       // Allow shortcuts with modifiers even in text inputs
+      // This includes cmd/ctrl key shortcuts even when Japanese IME is active
       const hasModifier = e.ctrlKey || e.metaKey || e.altKey;
 
       if (isTextInput && !hasModifier) {

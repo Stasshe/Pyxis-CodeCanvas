@@ -8,12 +8,34 @@ export type Binding = {
   category?: string;
 };
 
+function isMacOrIOS(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  
+  // Check for Mac via platform (legacy)
+  const platform = navigator.platform?.toUpperCase() || '';
+  if (platform.includes('MAC') || platform.includes('IPHONE') || platform.includes('IPAD')) {
+    return true;
+  }
+  
+  // Check for iOS/iPadOS via userAgent (modern)
+  const userAgent = navigator.userAgent || '';
+  if (/iPad|iPhone|iPod/.test(userAgent)) {
+    return true;
+  }
+  
+  // Check for iPadOS (which reports as Mac in newer versions)
+  if (platform.includes('MAC') && navigator.maxTouchPoints && navigator.maxTouchPoints > 1) {
+    return true;
+  }
+  
+  return false;
+}
+
 export function formatKeyEvent(e: KeyboardEvent): string {
   const parts: string[] = [];
 
-  const isMac =
-    typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
-  if (isMac) {
+  const isMacPlatform = isMacOrIOS();
+  if (isMacPlatform) {
     if (e.metaKey) parts.push('Cmd');
     if (e.ctrlKey) parts.push('Ctrl');
   } else {
@@ -34,9 +56,8 @@ export function formatKeyEvent(e: KeyboardEvent): string {
 }
 
 export function normalizeKeyCombo(combo: string): string {
-  const isMac =
-    typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
-  if (isMac) {
+  const isMacPlatform = isMacOrIOS();
+  if (isMacPlatform) {
     return combo.replace(/^Ctrl\+/, 'Cmd+').replace(/\+Ctrl\+/, '+Cmd+');
   }
   return combo;
