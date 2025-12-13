@@ -2,7 +2,6 @@ import { X, Plus, Folder, Trash2, Edit, GitBranch } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
-import { projectDB } from '@/engine/core/database';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { authRepository } from '@/engine/user/authRepository';
 import { Project } from '@/types';
@@ -54,8 +53,8 @@ export default function ProjectModal({
   const loadProjects = async () => {
     setLoading(true);
     try {
-      await projectDB.init();
-      const projectList = await projectDB.getProjects();
+      await fileRepository.init();
+      const projectList = await fileRepository.getProjects();
       setProjects(projectList);
     } catch (error) {
       console.error('Failed to load projects:', error);
@@ -80,7 +79,7 @@ export default function ProjectModal({
       if (onProjectCreate) {
         await onProjectCreate(name, newProjectDescription.trim() || undefined);
       } else {
-        const project = await projectDB.createProject(
+        const project = await fileRepository.createProject(
           name,
           newProjectDescription.trim() || undefined
         );
@@ -158,7 +157,7 @@ export default function ProjectModal({
 
     setLoading(true);
     try {
-      await projectDB.updateProject(editingProject.id, {
+      await fileRepository.updateProject(editingProject.id, {
         description: editingProject.description,
       });
       setEditingProject(null);
@@ -179,7 +178,7 @@ export default function ProjectModal({
 
     setLoading(true);
     try {
-      await projectDB.deleteProject(projectId);
+      await fileRepository.deleteProject(projectId);
       setProjects(prev => prev.filter(p => p.id !== projectId));
 
       if (currentProject?.id === projectId) {

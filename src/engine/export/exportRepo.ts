@@ -1,7 +1,7 @@
 // ZIPエクスポート・ダウンロード機能
 import JSZip from 'jszip';
 
-import { getFileSystem, getProjectDir } from '@/engine/core/filesystem';
+import { gitFileSystem } from '@/engine/core/gitFileSystem';
 import type { Project } from '@/types';
 
 // 現在のプロジェクトのみZIPエクスポート
@@ -59,9 +59,9 @@ export async function downloadWorkspaceZip({
   // .gitを含める場合（仮想ファイルシステムから.git配下のファイルを再帰的に取得して追加）
   if (includeGit) {
     try {
-      const fs = getFileSystem();
+      const fs = gitFileSystem.getFS();
       if (!fs) return;
-      const gitDir = `${getProjectDir(project.name || project.id)}/.git`;
+      const gitDir = `${gitFileSystem.getProjectDir(project.name || project.id)}/.git`;
 
       // .gitディレクトリが存在するか確認
       let stat;
@@ -105,7 +105,10 @@ export async function downloadWorkspaceZip({
                 content = new Uint8Array();
               }
               // ZIP内のパスはプロジェクトディレクトリからの相対パス
-              const relativePath = filePath.replace(getProjectDir(project.name || project.id), '');
+              const relativePath = filePath.replace(
+                gitFileSystem.getProjectDir(project.name || project.id),
+                ''
+              );
               result.push({ path: `${projectDir}${relativePath}`, content });
             }
           }

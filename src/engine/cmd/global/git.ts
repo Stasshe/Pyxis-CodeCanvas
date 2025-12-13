@@ -48,7 +48,7 @@ export class GitCommands {
 
   // プロジェクトディレクトリの存在を確認し、なければ作成
   private async ensureProjectDirectory(): Promise<void> {
-    await GitFileSystemHelper.ensureDirectory(this.fs, this.dir);
+    await GitFileSystemHelper.ensureDirectory( this.dir);
   }
 
   // Gitリポジトリが初期化されているかチェック
@@ -1207,7 +1207,7 @@ export class GitCommands {
         const parentDir = normalizedPath.substring(0, normalizedPath.lastIndexOf('/'));
         if (parentDir) {
           const fullParentPath = `${this.dir}/${parentDir}`;
-          await GitFileSystemHelper.ensureDirectory(this.fs, fullParentPath);
+          await GitFileSystemHelper.ensureDirectory(fullParentPath);
         }
 
         // ファイルをワーキングディレクトリに書き戻す

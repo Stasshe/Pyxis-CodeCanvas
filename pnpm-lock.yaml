@@ -38,6 +38,9 @@ importers:
       '@codemirror/theme-one-dark':
         specifier: ^6.1.3
         version: 6.1.3
+      '@codemirror/view':
+        specifier: ^6.39.4
+        version: 6.39.4
       '@isomorphic-git/lightning-fs':
         specifier: ^4.6.2
         version: 4.6.2

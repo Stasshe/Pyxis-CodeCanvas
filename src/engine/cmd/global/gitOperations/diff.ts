@@ -17,7 +17,7 @@ export class GitDiffOperations {
 
   // プロジェクトディレクトリの存在を確認し、なければ作成
   private async ensureProjectDirectory(): Promise<void> {
-    await GitFileSystemHelper.ensureDirectory(this.fs, this.dir);
+    await GitFileSystemHelper.ensureDirectory(this.dir);
   }
 
   // git diff - 変更差分を表示

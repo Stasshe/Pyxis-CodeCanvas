@@ -24,7 +24,7 @@ export class GitMergeOperations {
 
   // プロジェクトディレクトリの存在を確認し、なければ作成
   private async ensureProjectDirectory(): Promise<void> {
-    await GitFileSystemHelper.ensureDirectory(this.fs, this.dir);
+    await GitFileSystemHelper.ensureDirectory(this.dir);
   }
 
   // Gitリポジトリが初期化されているかチェック

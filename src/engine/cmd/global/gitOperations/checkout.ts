@@ -23,7 +23,7 @@ export class GitCheckoutOperations {
   }
 
   private async ensureProjectDirectory(): Promise<void> {
-    await GitFileSystemHelper.ensureDirectory(this.fs, this.dir);
+    await GitFileSystemHelper.ensureDirectory(this.dir);
   }
 
   private async getCurrentBranch(): Promise<string> {
