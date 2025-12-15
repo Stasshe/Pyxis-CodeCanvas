@@ -182,8 +182,13 @@ export async function importAllData(zipFile: File): Promise<void> {
     // Wait for all deletions to complete
     await Promise.all(deletionPromises);
     console.log('[importAllData] All databases deleted');
+    
+    // Wait a bit for IndexedDB to fully process deletions
+    console.log('[importAllData] Waiting for IndexedDB to stabilize...');
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
     // 3. Restore IndexedDB databases from ZIP
+    console.log('[importAllData] Starting database restore...');
     const indexedDBFolder = zip.folder('indexeddb');
     if (indexedDBFolder) {
       const dbFiles: Array<{ name: string; file: JSZip.JSZipObject }> = [];
@@ -194,17 +199,23 @@ export async function importAllData(zipFile: File): Promise<void> {
         }
       });
 
+      console.log(`[importAllData] Found ${dbFiles.length} databases to restore`);
+
       for (const { name, file } of dbFiles) {
         try {
+          console.log(`[importAllData] Reading ${name}...`);
           const dbDataStr = await file.async('string');
           const dbData = JSON.parse(dbDataStr);
           
+          console.log(`[importAllData] Restoring database: ${dbData.name}...`);
           await restoreDatabase(dbData);
-          console.log(`[importAllData] Restored database: ${dbData.name}`);
+          console.log(`[importAllData] ✓ Restored database: ${dbData.name}`);
         } catch (error) {
           console.error(`[importAllData] Failed to restore database from ${name}:`, error);
         }
       }
+    } else {
+      console.warn('[importAllData] No indexeddb folder found in ZIP');
     }
 
     // 4. Restore localStorage
@@ -237,12 +248,23 @@ export async function importAllData(zipFile: File): Promise<void> {
 async function restoreDatabase(dbData: any): Promise<void> {
   const { name, version, stores } = dbData;
   
+  console.log(`[restoreDatabase] Opening ${name} v${version}...`);
+  
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(name, version);
     
-    request.onerror = () => reject(request.error);
+    let timeoutId: NodeJS.Timeout | null = setTimeout(() => {
+      reject(new Error(`Database ${name} open timeout after 30 seconds`));
+    }, 30000);
+    
+    request.onerror = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      console.error(`[restoreDatabase] Error opening ${name}:`, request.error);
+      reject(request.error);
+    };
     
     request.onupgradeneeded = (event) => {
+      console.log(`[restoreDatabase] Upgrading ${name}...`);
       const db = (event.target as IDBOpenDBRequest).result;
       
       // Create object stores
@@ -271,21 +293,26 @@ async function restoreDatabase(dbData: any): Promise<void> {
                 objectStore.createIndex('expiresAt', 'expiresAt', { unique: false });
               }
             }
+            console.log(`[restoreDatabase] Created object store: ${storeName}`);
           } catch (error) {
-            console.warn(`Failed to create object store ${storeName}:`, error);
+            console.warn(`[restoreDatabase] Failed to create object store ${storeName}:`, error);
           }
         }
       });
     };
     
     request.onsuccess = async () => {
+      if (timeoutId) clearTimeout(timeoutId);
       const db = request.result;
+      
+      console.log(`[restoreDatabase] ${name} opened, populating data...`);
       
       try {
         // Populate stores with data
         for (const [storeName, items] of Object.entries(stores)) {
           if (!Array.isArray(items)) continue;
           
+          console.log(`[restoreDatabase] Populating ${storeName} with ${items.length} items...`);
           const tx = db.transaction(storeName, 'readwrite');
           const store = tx.objectStore(storeName);
           
@@ -297,14 +324,17 @@ async function restoreDatabase(dbData: any): Promise<void> {
                 addReq.onerror = () => rejectItem(addReq.error);
               });
             } catch (error) {
-              console.warn(`Failed to add item to ${storeName}:`, error);
+              console.warn(`[restoreDatabase] Failed to add item to ${storeName}:`, error);
             }
           }
+          console.log(`[restoreDatabase] ✓ Populated ${storeName}`);
         }
         
         db.close();
+        console.log(`[restoreDatabase] ✓ ${name} restore complete`);
         resolve();
       } catch (error) {
+        console.error(`[restoreDatabase] Error populating ${name}:`, error);
         db.close();
         reject(error);
       }
