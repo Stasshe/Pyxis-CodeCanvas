@@ -7,7 +7,7 @@ import { useGitContext } from '@/components/PaneContainer';
 import CodeEditor from '@/components/Tab/CodeEditor';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { useSettings } from '@/hooks/useSettings';
-import { useProjectStore, getCurrentProjectId } from '@/stores/projectStore';
+import { useProjectStore } from '@/stores/projectStore';
 import { useTabStore } from '@/stores/tabStore';
 
 /**
@@ -36,8 +36,7 @@ const EditorTabComponent: React.FC<TabComponentProps> = ({ tab, isActive }) => {
     updateTabContent(tabId, content, true);
 
     // ファイルを保存
-    // getCurrentProjectId()でその時点の最新のprojectIdを取得
-    const currentProjectId = getCurrentProjectId();
+    const currentProjectId = projectId;
     if (currentProjectId && editorTab.path) {
       try {
         // fileRepositoryを直接使用してファイルを保存（NEW-ARCHITECTURE.mdに従う）
@@ -50,7 +49,7 @@ const EditorTabComponent: React.FC<TabComponentProps> = ({ tab, isActive }) => {
         console.error('[EditorTabType] Failed to save file:', error);
       }
     }
-  }, [editorTab.path, updateTabContent, setGitRefreshTrigger]);
+  }, [editorTab.path, updateTabContent, setGitRefreshTrigger, projectId]);
 
   const handleImmediateContentChange = useCallback((tabId: string, content: string) => {
     // 即座に同一ファイルを開いている全タブの内容を更新し、isDirty を立てる

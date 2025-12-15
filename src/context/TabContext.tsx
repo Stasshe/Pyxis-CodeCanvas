@@ -28,7 +28,7 @@ export const TabProvider: React.FC<TabProviderProps> = ({ children }) => {
   // プロジェクト変更時にセッションを復元
   useEffect(() => {
     if (!currentProject) return;
-    loadSession();
+    loadSession(currentProject.id);
   }, [currentProject, loadSession]);
 
   // コンテンツ復元完了イベントのリスナー
@@ -76,7 +76,7 @@ export const TabProvider: React.FC<TabProviderProps> = ({ children }) => {
     if (isLoading) return; // 初期ロード中は保存しない
 
     const timer = setTimeout(() => {
-      saveSession().catch(console.error);
+      saveSession(currentProject?.id).catch(console.error);
     }, 1000);
 
     return () => clearTimeout(timer);

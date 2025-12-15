@@ -21,15 +21,15 @@ import { LOCALSTORAGE_KEY } from '@/context/config';
 import { coreInfo, coreWarn, coreError } from '@/engine/core/coreLogger';
 import { initialFileContents } from '@/engine/initialFileContents';
 import {
-  createChatSpace as chatCreateChatSpace,
-  saveChatSpace as chatSaveChatSpace,
-  getChatSpaces as chatGetChatSpaces,
-  deleteChatSpace as chatDeleteChatSpace,
-  deleteChatSpacesForProject as chatDeleteChatSpacesForProject,
-  addMessageToChatSpace as chatAddMessageToChatSpace,
-  updateChatSpaceMessage as chatUpdateChatSpaceMessage,
-  updateChatSpaceSelectedFiles as chatUpdateChatSpaceSelectedFiles,
-  renameChatSpace as chatRenameChatSpace,
+  createChatSpace,
+  saveChatSpace,
+  getChatSpaces,
+  deleteChatSpace,
+  deleteChatSpacesForProject,
+  addMessageToChatSpace,
+  updateChatSpaceMessage,
+  updateChatSpaceSelectedFiles,
+  renameChatSpace,
 } from '@/engine/storage/chatStorageAdapter';
 import { Project, ProjectFile, ChatSpace, ChatSpaceMessage } from '@/types';
 
@@ -245,7 +245,7 @@ export class FileRepository {
 
     // 初期チャットスペースを作成
     try {
-      await this.createChatSpace(project.id, `${project.name} - 初期チャット`);
+      await createChatSpace(project.id, `${project.name} - 初期チャット`);
     } catch (error) {
       console.warn('[FileRepository] Failed to create initial chat space:', error);
     }
@@ -278,7 +278,7 @@ export class FileRepository {
 
     // 初期チャットスペースのみ作成（ファイルは作成しない）
     try {
-      await this.createChatSpace(project.id, `${project.name} - 初期チャット`);
+      await createChatSpace(project.id, `${project.name} - 初期チャット`);
     } catch (error) {
       console.warn('[FileRepository] Failed to create initial chat space:', error);
     }
@@ -425,7 +425,7 @@ export class FileRepository {
 
         // チャットスペースを新しいストレージアダプターから削除
         try {
-          await chatDeleteChatSpacesForProject(projectId);
+          await deleteChatSpacesForProject(projectId);
         } catch (err) {
           coreWarn('[FileRepository] Failed to delete chat spaces via adapter:', err);
         }
@@ -462,7 +462,6 @@ export class FileRepository {
       }
       // エディターレイアウトやターミナル履歴など、プロジェクト固有のlocalStorageキーを削除
       const keysToRemove = [
-        `${LOCALSTORAGE_KEY.TERMINAL_HISTORY}${projectId}`,
         `${LOCALSTORAGE_KEY.EDITOR_LAYOUT}${projectId}`,
         LOCALSTORAGE_KEY.LAST_EXECUTE_FILE,
       ];
@@ -1355,83 +1354,6 @@ export class FileRepository {
     });
   }
 
-  // ==================== チャットスペース操作 ====================
-  // NOTE: ChatSpace操作はchatStorageAdapterに委譲
-  // これらのメソッドは後方互換性のために残しているが、新規コードではchatStorageAdapterを直接使用すること
-
-  /**
-   * チャットスペース作成
-   * @deprecated chatStorageAdapter.createChatSpace を直接使用してください
-   */
-  async createChatSpace(projectId: string, name: string): Promise<ChatSpace> {
-    return chatCreateChatSpace(projectId, name);
-  }
-
-  /**
-   * チャットスペース保存
-   * @deprecated chatStorageAdapter.saveChatSpace を直接使用してください
-   */
-  async saveChatSpace(chatSpace: ChatSpace): Promise<void> {
-    return chatSaveChatSpace(chatSpace);
-  }
-
-  /**
-   * プロジェクトの全チャットスペース取得
-   * @deprecated chatStorageAdapter.getChatSpaces を直接使用してください
-   */
-  async getChatSpaces(projectId: string): Promise<ChatSpace[]> {
-    return chatGetChatSpaces(projectId);
-  }
-
-  /**
-   * チャットスペース削除
-   * @deprecated chatStorageAdapter.deleteChatSpace を直接使用してください
-   */
-  async deleteChatSpace(projectId: string, chatSpaceId: string): Promise<void> {
-    return chatDeleteChatSpace(projectId, chatSpaceId);
-  }
-
-  /**
-   * チャットスペースにメッセージ追加
-   * @deprecated chatStorageAdapter.addMessageToChatSpace を直接使用してください
-   */
-  async addMessageToChatSpace(
-    projectId: string,
-    chatSpaceId: string,
-    message: Omit<ChatSpaceMessage, 'id'>
-  ): Promise<ChatSpaceMessage> {
-    return chatAddMessageToChatSpace(projectId, chatSpaceId, message as ChatSpaceMessage);
-  }
-
-  /**
-   * チャットスペース内の既存メッセージを更新する
-   * @deprecated chatStorageAdapter.updateChatSpaceMessage を直接使用してください
-   */
-  async updateChatSpaceMessage(
-    projectId: string,
-    chatSpaceId: string,
-    messageId: string,
-    updates: Partial<ChatSpaceMessage>
-  ): Promise<ChatSpaceMessage | null> {
-    return chatUpdateChatSpaceMessage(projectId, chatSpaceId, messageId, updates);
-  }
-
-  /**
-   * チャットスペースの選択ファイル更新
-   * @deprecated chatStorageAdapter.updateChatSpaceSelectedFiles を直接使用してください
-   */
-  async updateChatSpaceSelectedFiles(projectId: string, chatSpaceId: string, selectedFiles: string[]): Promise<void> {
-    return chatUpdateChatSpaceSelectedFiles(projectId, chatSpaceId, selectedFiles);
-  }
-
-  /**
-   * チャットスペース名変更
-   * @deprecated chatStorageAdapter.renameChatSpace を直接使用してください
-   */
-  async renameChatSpace(projectId: string, chatSpaceId: string, newName: string): Promise<void> {
-    return chatRenameChatSpace(projectId, chatSpaceId, newName);
-  }
-
   /**
    * データベース接続を閉じる
    * データベースを削除する前に呼び出す必要がある
@@ -1439,9 +1361,8 @@ export class FileRepository {
   async close(): Promise<void> {
     if (this.db) {
       this.db.close();
-      this.db = null;
-      this.initPromise = null;
-      coreInfo('[FileRepository] Database connection closed');
+      this.db = null;      
+      console.log('[FileRepository] Database connection closed');
     }
   }
 }

@@ -69,8 +69,8 @@ interface TabStore {
   handleFileDeleted: (deletedPath: string) => void;
 
   // セッション管理
-  saveSession: () => Promise<void>;
-  loadSession: () => Promise<void>;
+  saveSession: (projectId?: string) => Promise<void>;
+  loadSession: (projectId?: string) => Promise<void>;
 }
 
 export const useTabStore = create<TabStore>((set, get) => ({
@@ -997,12 +997,14 @@ export const useTabStore = create<TabStore>((set, get) => ({
     }
   },
 
-  saveSession: async () => {
+  saveSession: async (projectId?: string) => {
     const state = get();
     const { sessionStorage, DEFAULT_SESSION } = await import('@/stores/sessionStorage');
-    const { getCurrentProjectId } = await import('@/stores/projectStore');
     
-    const projectId = getCurrentProjectId();
+    if (!projectId) {
+      const { getCurrentProjectId } = await import('@/stores/projectStore');
+      projectId = getCurrentProjectId() || undefined;
+    }
     if (!projectId) return;
     
     const session = {
@@ -1019,16 +1021,18 @@ export const useTabStore = create<TabStore>((set, get) => ({
     await sessionStorage.save(session, projectId);
   },
 
-  loadSession: async () => {
+  loadSession: async (projectId?: string) => {
     const { sessionStorage } = await import('@/stores/sessionStorage');
-    const { getCurrentProjectId } = await import('@/stores/projectStore');
-    
-    const projectId = getCurrentProjectId();
+    if (!projectId) {
+      const { getCurrentProjectId } = await import('@/stores/projectStore');
+      projectId = getCurrentProjectId() || undefined;
+    }
+
     if (!projectId) {
       set({ isLoading: false, isRestored: true, isContentRestored: true });
       return;
     }
-    
+
     const session = await sessionStorage.load(projectId);
 
     set({

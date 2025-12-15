@@ -405,9 +405,11 @@ export default function GitPanel({
     try {
       console.log('[GitPanel] Staging all files');
       await gitCommands.add('.');
-
-      // ステージング後の状態更新（git.tsで既に同期処理があるため、短い遅延で十分）
-      setTimeout(() => {
+      setTimeout(async () => {
+        const staged = gitRepo?.status?.staged || [];
+        for (const file of staged) {
+          await gitCommands.reset({ filepath: file });
+        }
         console.log('[GitPanel] Refreshing status after staging all');
         fetchGitStatus();
       }, 150);
@@ -419,6 +421,7 @@ export default function GitPanel({
   // 全ファイルをアンステージング
   const handleUnstageAll = async () => {
     if (!gitCommands) return;
+    const stagedFiles = gitRepo?.status.staged || [];
 
     try {
       console.log('[GitPanel] Unstaging all files');

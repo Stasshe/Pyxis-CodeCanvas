@@ -8,7 +8,7 @@ import DiffTabComponent from '@/components/Tab/DiffTab';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { useKeyBinding } from '@/hooks/useKeyBindings';
 import { useSettings } from '@/hooks/useSettings';
-import { getCurrentProjectId, useProjectStore } from '@/stores/projectStore';
+import { useProjectStore } from '@/stores/projectStore';
 import { useTabStore } from '@/stores/tabStore';
 
 /**
@@ -36,14 +36,14 @@ const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const latestContentRef = useRef<string>('');
 
-  // クリーンアップ
+  // クリーンアップおよびプロジェクト切替時にタイマーをクリア
   useEffect(() => {
     return () => {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, []);
+  }, [projectId]);
 
   // 即時保存ハンドラー（Ctrl+S用）
   const handleImmediateSave = useCallback(async () => {
@@ -55,8 +55,6 @@ const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
       return;
     }
 
-    // グローバルストアからプロジェクトIDを取得
-    const projectId = getCurrentProjectId();
     if (!projectId) {
       console.error('[DiffTabType] No project ID available');
       return;
@@ -86,7 +84,7 @@ const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
     } catch (error) {
       console.error('[DiffTabType] Immediate save failed:', error);
     }
-  }, [diffTab.editable, diffTab.path, diffTab.diffs, diffTab.id, updateTabContent, setGitRefreshTrigger]);
+  }, [diffTab.editable, diffTab.path, diffTab.diffs, diffTab.id, updateTabContent, setGitRefreshTrigger, projectId]);
 
   // Ctrl+S バインディング
   useKeyBinding(
@@ -104,8 +102,6 @@ const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   }, [diffTab.id, updateTabContent]);
 
   const handleContentChange = useCallback(async (content: string) => {
-    // グローバルストアからプロジェクトIDを取得
-    const projectId = getCurrentProjectId();
     if (!diffTab.editable || !diffTab.path || !projectId) {
       console.log('[DiffTabType] Debounced save skipped:', {
         editable: diffTab.editable,
@@ -123,16 +119,9 @@ const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
     saveTimeoutRef.current = setTimeout(async () => {
       console.log('[DiffTabType] Executing debounced save');
       
-      // 保存時点で再度プロジェクトIDを取得（変更されている可能性があるため）
-      const currentProjectId = getCurrentProjectId();
-      if (!currentProjectId) {
-        console.error('[DiffTabType] No project ID at save time');
-        return;
-      }
-      
       try {
         // fileRepositoryを直接使用してファイルを保存（NEW-ARCHITECTURE.mdに従う）
-        await fileRepository.saveFileByPath(currentProjectId, diffTab.path!, content);
+        await fileRepository.saveFileByPath(projectId!, diffTab.path!, content);
         // 保存後は全タブのisDirtyをクリア
         updateTabContent(diffTab.id, content, false);
         setGitRefreshTrigger(prev => prev + 1);
@@ -141,7 +130,7 @@ const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
         console.error('[DiffTabType] Debounced save failed:', error);
       }
     }, 5000);
-  }, [diffTab.editable, diffTab.path, diffTab.id, updateTabContent, setGitRefreshTrigger]);
+  }, [diffTab.editable, diffTab.path, diffTab.id, updateTabContent, setGitRefreshTrigger, projectId]);
 
   return (
     <DiffTabComponent

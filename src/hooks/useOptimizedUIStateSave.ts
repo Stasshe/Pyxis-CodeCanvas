@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-import { getCurrentProjectId } from '@/stores/projectStore';
+import { useProjectStore } from '@/stores/projectStore';
 import { sessionStorage, PyxisSession } from '@/stores/sessionStorage';
 
 const MIN_SAVE_INTERVAL = 3000;
@@ -22,7 +22,7 @@ export function useOptimizedUIStateSave() {
       return;
     }
 
-    const projectId = getCurrentProjectId();
+    const projectId = useProjectStore.getState().currentProjectId || null;
     if (!projectId) return;
 
     await sessionStorage.saveUIState(uiState, projectId);
