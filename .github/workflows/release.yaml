@@ -53,7 +53,6 @@ jobs:
       - name: Bump version
         id: bump_version
         run: |
-          # 現在のバージョンをsemverでインクリメント
           CURRENT_VERSION="${{ steps.current_version.outputs.version }}"
           BUMP_TYPE="${{ github.event.inputs.version_bump }}"
           
@@ -80,8 +79,29 @@ jobs:
 
       - name: Update package.json
         run: |
-          # package.jsonのバージョンを更新
           npm version ${{ steps.bump_version.outputs.new_version }} --no-git-tag-version --allow-same-version
+
+      - name: Build project
+        run: pnpm run build
+
+      - name: Run update scripts
+        run: |
+          echo "Running version update scripts..."
+          node scripts/chore/update-readmes-version.js
+          
+          if [ -f "./tree.sh" ]; then
+            chmod +x ./tree.sh
+            ./tree.sh
+          else
+            echo "Warning: tree.sh not found, skipping"
+          fi
+          
+          if [ -f "./tree-built-out.sh" ]; then
+            chmod +x ./tree-built-out.sh
+            ./tree-built-out.sh
+          else
+            echo "Warning: tree-built-out.sh not found, skipping"
+          fi
 
       - name: Get previous tag
         id: prev_tag
@@ -100,14 +120,12 @@ jobs:
         run: |
           PREV_TAG="${{ steps.prev_tag.outputs.prev_tag }}"
           
-          # Conventional Commits形式で分類
           if [[ "$PREV_TAG" == *"v"* ]]; then
             RANGE="$PREV_TAG..HEAD"
           else
             RANGE="HEAD"
           fi
           
-          # 各カテゴリのコミットを取得
           FEATURES=$(git log $RANGE --pretty=format:"%s (%h)" --no-merges | grep -E "^feat(\(.+\))?:" | sed 's/^feat[^:]*: //' || true)
           FIXES=$(git log $RANGE --pretty=format:"%s (%h)" --no-merges | grep -E "^fix(\(.+\))?:" | sed 's/^fix[^:]*: //' || true)
           BREAKING=$(git log $RANGE --pretty=format:"%s (%h)" --no-merges | grep -E "^.+!:" || true)
@@ -115,11 +133,10 @@ jobs:
           DOCS=$(git log $RANGE --pretty=format:"%s (%h)" --no-merges | grep -E "^docs(\(.+\))?:" | sed 's/^docs[^:]*: //' || true)
           CHORE=$(git log $RANGE --pretty=format:"%s (%h)" --no-merges | grep -E "^chore(\(.+\))?:" | sed 's/^chore[^:]*: //' || true)
           
-          # Changelogを構築
           CHANGELOG=""
           
           if [ -n "$BREAKING" ]; then
-            CHANGELOG="${CHANGELOG}### ⚠️ Breaking Changes\n\n"
+            CHANGELOG="${CHANGELOG}### Breaking Changes\n\n"
             while IFS= read -r line; do
               CHANGELOG="${CHANGELOG}- $line\n"
             done <<< "$BREAKING"
@@ -127,7 +144,7 @@ jobs:
           fi
           
           if [ -n "$FEATURES" ]; then
-            CHANGELOG="${CHANGELOG}### ✨ Features\n\n"
+            CHANGELOG="${CHANGELOG}### Features\n\n"
             while IFS= read -r line; do
               CHANGELOG="${CHANGELOG}- $line\n"
             done <<< "$FEATURES"
@@ -135,7 +152,7 @@ jobs:
           fi
           
           if [ -n "$FIXES" ]; then
-            CHANGELOG="${CHANGELOG}### 🐛 Bug Fixes\n\n"
+            CHANGELOG="${CHANGELOG}### Bug Fixes\n\n"
             while IFS= read -r line; do
               CHANGELOG="${CHANGELOG}- $line\n"
             done <<< "$FIXES"
@@ -143,7 +160,7 @@ jobs:
           fi
           
           if [ -n "$PERF" ]; then
-            CHANGELOG="${CHANGELOG}### ⚡ Performance\n\n"
+            CHANGELOG="${CHANGELOG}### Performance\n\n"
             while IFS= read -r line; do
               CHANGELOG="${CHANGELOG}- $line\n"
             done <<< "$PERF"
@@ -151,7 +168,7 @@ jobs:
           fi
           
           if [ -n "$DOCS" ]; then
-            CHANGELOG="${CHANGELOG}### 📝 Documentation\n\n"
+            CHANGELOG="${CHANGELOG}### Documentation\n\n"
             while IFS= read -r line; do
               CHANGELOG="${CHANGELOG}- $line\n"
             done <<< "$DOCS"
@@ -159,7 +176,7 @@ jobs:
           fi
           
           if [ -n "$CHORE" ]; then
-            CHANGELOG="${CHANGELOG}### 🔧 Chores\n\n"
+            CHANGELOG="${CHANGELOG}### Chores\n\n"
             while IFS= read -r line; do
               CHANGELOG="${CHANGELOG}- $line\n"
             done <<< "$CHORE"
@@ -167,20 +184,19 @@ jobs:
           fi
           
           if [ -z "$CHANGELOG" ]; then
-            CHANGELOG="変更内容が検出されませんでした。\n"
+            CHANGELOG="No changes found since the last release.\n"
           fi
           
-          # マルチライン出力
           echo "changelog<<EOF" >> $GITHUB_OUTPUT
           echo -e "$CHANGELOG" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: Commit version bump
+      - name: Commit version bump and updated files
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add package.json
-          git commit -m "chore(release): bump version to v${{ steps.bump_version.outputs.new_version }}"
+          git add .
+          git commit -m "chore(release): bump version to v${{ steps.bump_version.outputs.new_version }}" || echo "No changes to commit"
           git push
 
       - name: Create and push tag
@@ -201,7 +217,7 @@ jobs:
           tag_name: ${{ steps.create_tag.outputs.tag_name }}
           name: ${{ steps.create_tag.outputs.tag_name }}
           body: |
-            ## 🚀 Release ${{ steps.create_tag.outputs.tag_name }}
+            ## Release ${{ steps.create_tag.outputs.tag_name }}
             
             **Released:** ${{ steps.current_date.outputs.date }}
             **Bump Type:** ${{ github.event.inputs.version_bump }}
@@ -210,14 +226,14 @@ jobs:
             
             ---
             
-            ### 📦 Installation
+            ### Installation
             
             ```bash
             pnpm install --frozen-lockfile
             pnpm run dev
             ```
             
-            ### 🔗 Links
+            ### Links
             
             - [Full Changelog](${{ github.server_url }}/${{ github.repository }}/compare/${{ steps.prev_tag.outputs.prev_tag }}...${{ steps.create_tag.outputs.tag_name }})
             - [Repository](${{ github.server_url }}/${{ github.repository }})
@@ -229,7 +245,7 @@ jobs:
 
       - name: Release summary
         run: |
-          echo "### ✅ Release Created Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "### Release Created Successfully" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Version:** ${{ steps.create_tag.outputs.tag_name }}" >> $GITHUB_STEP_SUMMARY
           echo "**Type:** ${{ github.event.inputs.version_bump }}" >> $GITHUB_STEP_SUMMARY

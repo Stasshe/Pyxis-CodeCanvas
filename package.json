@@ -12,8 +12,6 @@
     "lint:fix": "npx biome check --write src/",
     "test": "jest",
     "tree": "pnpm run build && ./tree.sh && ./tree-built-out.sh",
-    "release-update": "pnpm install && pnpm run build && pnpm run update2",
-    "update2": "node scripts/chore/update-readmes-version.js && ./tree.sh && ./tree-built-out.sh",
     "preview": "pnpm exec serve out",
     "create-extension": "node scripts/extensions/create-extension.js",
     "clean": "rm -rf node_modules package-lock.json",
